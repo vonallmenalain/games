@@ -2992,3 +2992,213 @@ h2 {
   line-height: 1.5;
 }
 .mini-install-aktionen { display: flex; gap: 8px; flex: 0 0 auto; }
+
+/* ===========================================================================
+   Der Adminbereich
+   ---------------------------------------------------------------------------
+   Eine Seite für einen Menschen. Keine Kinderschrift, keine Landschaft, keine
+   Animationen – hier wird gelesen und aufgeräumt. Dieselben Farben wie
+   nebenan, damit es dieselbe Site bleibt, sonst nüchtern: Tabellen, Zahlen
+   rechtsbündig, der gefährliche Knopf rot.
+   =========================================================================== */
+
+.adm-seite {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 40px) clamp(14px, 4vw, 28px) 64px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 3vw, 28px);
+}
+
+.adm-titel {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 900;
+  color: #243047;
+  letter-spacing: -0.01em;
+}
+
+.adm-lead { margin: 6px 0 0; color: #667085; }
+.adm-klein { margin: 4px 0 0; font-size: 0.85rem; color: #667085; }
+.adm-klein-link { font-size: 0.85rem; color: #667085; }
+
+.adm-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #e8e6f2;
+}
+.adm-kopf-aktionen { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* --- Knöpfe ---------------------------------------------------------------- */
+.adm-knopf {
+  appearance: none;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  color: #fff;
+  background: var(--mini-ton, #F5A623);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+.adm-knopf:active { transform: scale(0.97); }
+.adm-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.adm-knopf-voll { background: var(--mini-ton, #F5A623); }
+.adm-knopf-hell { background: #fff; color: #243047; border-color: rgba(36, 48, 71, 0.14); }
+.adm-knopf-still { background: #f2f3f7; color: #47506a; }
+.adm-knopf-klein { padding: 5px 12px; font-size: 0.8rem; background: #f2f3f7; color: #47506a; }
+/* Der eine Knopf, der etwas wegnimmt. Rot, und er fragt vorher. */
+.adm-knopf-weg { padding: 5px 12px; font-size: 0.8rem; background: #fdeaea; color: #a32020; border-color: rgba(163, 32, 32, 0.18); }
+.adm-knopf-weg:hover { background: #f9d6d6; }
+.adm-knopf-text {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--mini-ton-dunkel, #b9741a);
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+/* --- Die Anmeldung --------------------------------------------------------- */
+.adm-karte {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(50, 44, 109, 0.12);
+  padding: clamp(20px, 5vw, 36px);
+}
+.adm-anmeldung {
+  max-width: 460px;
+  margin: clamp(20px, 8vh, 80px) auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+.adm-anmeldung .adm-titel { text-align: center; }
+
+.adm-trenner {
+  margin: 2px 0;
+  font-size: 0.8rem;
+  color: #98a0b4;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.adm-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-form-pw { flex-direction: column; }
+.adm-feld {
+  flex: 1 1 200px;
+  min-width: 0;
+  font: inherit;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 2px solid #dcd9ea;
+  background: #fbfaff;
+  color: #243047;
+}
+.adm-feld:focus-visible { outline: none; border-color: var(--mini-ton, #F5A623); }
+.adm-form .adm-knopf { flex: 0 0 auto; }
+.adm-form-pw .adm-knopf { width: 100%; }
+
+.adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: #667085; }
+.adm-meldung.ist-fehler { color: #a32020; font-weight: 700; }
+.adm-meldung.ist-gut { color: #2c7337; font-weight: 700; }
+
+/* --- Zahlen und Blöcke ----------------------------------------------------- */
+.adm-streifen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.adm-streifen > div {
+  background: #fff;
+  border-radius: 14px;
+  border: 2px solid #ece9f6;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.adm-streifen strong {
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  font-weight: 900;
+  color: var(--mini-ton-dunkel, #b9741a);
+  font-variant-numeric: tabular-nums;
+}
+.adm-streifen span { font-size: 0.82rem; color: #667085; font-weight: 700; }
+
+.adm-block {
+  background: #fff;
+  border-radius: 18px;
+  border: 2px solid #ece9f6;
+  border-top: 5px solid var(--adm-farbe, var(--mini-ton, #F5A623));
+  padding: clamp(14px, 3vw, 22px);
+  overflow-x: auto;
+}
+.adm-block h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--adm-farbe-dunkel, #243047);
+}
+.adm-block-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.adm-block-zahl { font-size: 0.85rem; color: #667085; font-weight: 700; }
+
+/* --- Tabellen -------------------------------------------------------------- */
+.adm-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.adm-tabelle th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #98a0b4;
+  border-bottom: 2px solid #ece9f6;
+  white-space: nowrap;
+}
+.adm-tabelle th.zahl, .adm-tabelle td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.adm-tabelle td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f2f0f9;
+  color: #243047;
+  vertical-align: middle;
+}
+.adm-tabelle tbody tr:last-child td { border-bottom: none; }
+.adm-name { font-weight: 800; }
+/* Die Kennung des Geräts klein darunter: Zwei Zeilen mit demselben Namen sind
+   zwei Geräte, und das sieht man nur hier. */
+.adm-kennung { display: block; font-weight: 400; font-size: 0.72rem; color: #98a0b4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.adm-aktionen { text-align: right; white-space: nowrap; }
+.adm-aktionen .adm-knopf + .adm-knopf { margin-left: 6px; }
+
+.adm-hinweis { margin: 0; color: #667085; }
+.adm-hinweis.ist-fehler { color: #a32020; font-weight: 700; }
+
+@media (max-width: 620px) {
+  .adm-kennung { display: none; }
+  .adm-aktionen { white-space: normal; }
+  .adm-aktionen .adm-knopf + .adm-knopf { margin: 4px 0 0 0; }
+}

@@ -405,6 +405,59 @@ try {
     await kontext.close();
   }
 
+  // --- 4b. Der Adminbereich ----------------------------------------------------
+  // Er ist der einzige Ort mit Anmeldung, und er ist der einzige, der etwas
+  // löschen kann. Geprüft wird hier nur, was ohne Konto zu sehen ist: dass die
+  // Anmeldung dasteht, alle drei Wege hinein angeboten werden, und dass der
+  // Bereich selbst ohne Anmeldung nirgends aufblitzt.
+  {
+    const kontext = await browser.newContext({ viewport: { width: 900, height: 900 }, serviceWorkers: "block" });
+    const seite = await kontext.newPage();
+    const fehlerHier = [];
+    seite.on("pageerror", (fehler) => fehlerHier.push(String(fehler.message || fehler)));
+    seite.on("console", (n) => { if (n.type() === "error") fehlerHier.push(n.text()); });
+    // Das SDK wird nachgebaut: Ein echtes Firebase liefe beim Prüfen gegen das
+    // Netz und meldete jeden Aussetzer als Befund.
+    await seite.route("https://www.gstatic.com/firebasejs/**", (route) => {
+      const url = route.request().url();
+      if (url.includes("auth-compat")) {
+        return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `
+          window.firebase = window.firebase || {};
+          window.firebase.auth = function () {
+            return {
+              getRedirectResult: async () => null,
+              isSignInWithEmailLink: () => false,
+              onAuthStateChanged: (fn) => { window.__adminZustand = fn; fn(null); },
+              signOut: async () => {},
+            };
+          };
+          window.firebase.auth.GoogleAuthProvider = function () {};
+        ` });
+      }
+      return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `
+        window.firebase = window.firebase || {};
+        window.firebase.initializeApp = () => ({});
+        window.firebase.apps = [];
+        window.firebase.firestore = () => ({ collection: () => ({ limit: () => ({ get: async () => ({ forEach: () => {} }) }) }) });
+      ` });
+    });
+    await seite.route("**/cloud.js*", (route) => route.continue());
+    await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
+    await seite.waitForSelector(".adm-anmeldung", { timeout: 8000 });
+
+    const text = await seite.locator(".adm-anmeldung").innerText();
+    for (const weg of ["Google", "Link per E-Mail", "Anmelden"]) {
+      pruefe(text.includes(weg), `Im Adminbereich fehlt der Weg "${weg}" (steht: ${text.replace(/\n/g, " | ")}).`);
+    }
+    pruefe(await seite.locator(".adm-anmeldung input[type=\"password\"]").count() === 1, "Im Adminbereich fehlt das Passwortfeld.");
+    pruefe(await seite.locator(".adm-tabelle").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Daten.");
+    pruefe(await seite.locator(".adm-streifen").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Zahlen.");
+    const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    pruefe(ueberstand <= 1, `Der Adminbereich steht ${ueberstand} px über den rechten Rand.`);
+    pruefe(fehlerHier.length === 0, `Der Adminbereich hat sich beschwert – ${fehlerHier.join(" / ")}`);
+    await kontext.close();
+  }
+
   // --- 5. Die eigene App -------------------------------------------------------
   // Installierbar ist das nur, wenn drei Dinge zusammenkommen: ein Manifest
   // mit Namen und Bereich, ein Service Worker, der diesen Bereich bedient, und

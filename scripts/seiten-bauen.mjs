@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-09-20-01";
+export const FASSUNG = "2026-09-20-02";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -127,11 +127,14 @@ export const SPIELE = [
   },
 ];
 
-// Das Firebase-SDK. Kein firebase-auth: Hier meldet sich niemand an.
+// Das Firebase-SDK. Kein firebase-auth auf den Spielseiten: Dort meldet sich
+// niemand an, und ein SDK, das niemand braucht, lädt trotzdem jeder.
 const SDK = [
   "https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js",
   "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js",
 ];
+// Nur der Adminbereich meldet jemanden an.
+const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js";
 
 // Was jede Seite lädt, in dieser Reihenfolge. train-art und strand-art holen
 // sich ihre Werkzeuge beim Laden, nicht beim Aufruf – sie müssen vor dem
@@ -154,8 +157,12 @@ export function seitenSkripte(spiel) {
 }
 
 export const hubSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
+// Der Adminbereich: dasselbe Fundament, dazu die Anmeldung. Kein pwa.js – er
+// gehört nicht in die installierte App, und ein Service Worker, der ihn
+// zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
+export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 
-const kopf = ({ titel, text, viewport }) => `    <meta charset="UTF-8" />
+const kopf = ({ titel, text, viewport, manifest = true }) => `    <meta charset="UTF-8" />
     <meta name="viewport" content="${viewport}" />
     <meta name="application-name" content="Mini-Games" />
     <meta name="description" content="${text}" />
@@ -166,8 +173,7 @@ const kopf = ({ titel, text, viewport }) => `    <meta charset="UTF-8" />
     <meta name="theme-color" content="${HIMMEL}" />
     <title>${titel}</title>
     <link rel="stylesheet" href="${v("styles.css")}" />
-    <link rel="manifest" href="${v("app.webmanifest")}" />
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+${manifest ? `    <link rel="manifest" href="${v("app.webmanifest")}" />\n` : ""}    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />`;
 
 const SPIELVIEWPORT = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover";
@@ -218,6 +224,36 @@ ${kopf({
     </main>
 
 ${skripte(hubSkripte())}
+  </body>
+</html>
+`;
+}
+
+export function adminSeite() {
+  return `<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Der Adminbereich. Er steht bewusst neben der App und nicht in ihr: kein
+  pwa.js, nicht im Zwischenspeicher des Service Workers, nicht im Manifest.
+  Wer hierherkommt, will die aktuellen Zahlen sehen, nicht die von gestern.
+-->
+<html lang="de">
+  <head>
+${kopf({
+    titel: "Adminbereich · Mini-Games",
+    text: "Die Bestenliste der Mini-Games ansehen und aufräumen.",
+    viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    manifest: false,
+  })}
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body data-page="admin">
+    <main class="adm-seite" data-admin>
+      <p class="adm-hinweis">Wird geladen...</p>
+    </main>
+
+${skripte(adminSkripte())}
   </body>
 </html>
 `;
@@ -280,6 +316,7 @@ export function alleDateien() {
   const raus = new Map();
   raus.set("index.html", hubSeite());
   for (const spiel of SPIELE) raus.set(`${spiel.seite}.html`, spielSeite(spiel));
+  raus.set("admin.html", adminSeite());
   raus.set("app.webmanifest", manifest());
   raus.set("service-worker.js", serviceWorker());
   return raus;

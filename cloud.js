@@ -1,22 +1,21 @@
 /*
  * cloud.js – Die Bestenliste, und sonst nichts.
  * ---------------------------------------------------------------------------
- * Die Mini-Games haben keine Konten. Wer hier spielt, hat einen Link
- * angeklickt, tippt einen Namen ein und steht in der Liste – mehr passiert
- * nicht, und mehr kann diese Datei auch nicht.
+ * Wer hier spielt, hat einen Link angeklickt, tippt einen Namen ein und steht
+ * in der Liste – mehr passiert nicht, und mehr kann diese Datei auch nicht.
  *
- * Das ist der Unterschied zur App: Dort führt firebase.js Konten, Kinder,
- * Gruppen, Käufe, Fortschritt und den Adminbereich – zweihundert Kilobyte,
- * von denen hier kein Byte gebraucht wird. Übrig bleibt eine Sammlung,
- * miniScores, und drei Handgriffe darauf.
+ * Eigenes Firebase-Projekt (games-a0cd4), eigene Datenbank, eigene
+ * Anmeldung. Mit der Kids-App hat das nichts mehr zu tun: kein gemeinsames
+ * Projekt, keine gemeinsamen Konten, keine gemeinsamen Zahlen.
  *
- * Ohne Anmeldung heisst wörtlich ohne: Kein firebase-auth, kein anonymes
- * Konto, kein request.auth. Die Regeln (firestore.rules im App-Repository,
- * Abschnitt "Die Bestenliste der Mini-Games") prüfen deshalb nicht, WER
- * schreibt, sondern WAS geschrieben wird – ein Dokument je Spiel und Spieler,
- * Punkte fallen nie, Versuche zählen nur hoch. Beide Adressen schreiben in
- * dieselbe Sammlung desselben Firebase-Projekts: Wer in der App ein
- * Mini-Game gespielt hat, steht hier in derselben Liste.
+ * Ohne Anmeldung heisst für die Spiele wörtlich ohne: Die Spielseiten laden
+ * firebase-auth gar nicht erst, und request.auth ist beim Schreiben leer. Die
+ * Regeln (firestore.rules) prüfen deshalb nicht, WER schreibt, sondern WAS
+ * geschrieben wird – ein Dokument je Spiel und Spieler, Punkte fallen nie,
+ * Versuche zählen nur hoch.
+ *
+ * Angemeldet wird nur im Adminbereich (admin.js). Er lädt firebase-auth
+ * zusätzlich und benutzt von hier aus nur app() und db().
  *
  * Ein Dokument sieht so aus:
  *
@@ -32,17 +31,16 @@
 (() => {
   "use strict";
 
-  // Derselbe Schlüssel wie in der App – es ist dasselbe Firebase-Projekt und
-  // dieselbe Sammlung. Ein Web-API-Schlüssel ist kein Geheimnis: Er steht in
+  // Das eigene Projekt. Ein Web-API-Schlüssel ist kein Geheimnis: Er steht in
   // jeder Seite, die Firebase im Browser nutzt, und geschützt wird durch die
   // Regeln, nicht durch ihn.
   const firebaseConfig = {
-    apiKey: "AIzaSyDJKaBS1W-EU6d8N3pL2R4amSl8R0vD-Uc",
-    authDomain: "lernapp-8d944.firebaseapp.com",
-    projectId: "lernapp-8d944",
-    storageBucket: "lernapp-8d944.firebasestorage.app",
-    messagingSenderId: "123146993935",
-    appId: "1:123146993935:web:8843f8c35e9a2a4b4e3e7a",
+    apiKey: "AIzaSyDtuKd2P0JL_We6JBmj25vHN1hEHR-Xx84",
+    authDomain: "games-a0cd4.firebaseapp.com",
+    projectId: "games-a0cd4",
+    storageBucket: "games-a0cd4.firebasestorage.app",
+    messagingSenderId: "462520409587",
+    appId: "1:462520409587:web:21877e455bb1140a19c686",
   };
 
   const NAME_MAX = 24;
@@ -56,18 +54,34 @@
   // steht nur da, damit eine kaputte Kennung nicht die halbe Sammlung liest.
   const MAX_JE_SPIELER = 50;
 
-  const zustand = { db: null, fehler: "" };
+  const zustand = { app: null, db: null, fehler: "" };
 
-  function starte() {
-    if (zustand.db || zustand.fehler) return zustand.db;
+  // Die eine Anwendung, die alle benutzen – die Spielseiten für die
+  // Bestenliste, der Adminbereich zusätzlich für die Anmeldung. Ein zweites
+  // initializeApp mit demselben Namen wirft.
+  function app() {
+    if (zustand.app || zustand.fehler) return zustand.app;
     const firebase = window.firebase;
     if (!firebase?.initializeApp) {
       zustand.fehler = "Firebase ist nicht geladen.";
       return null;
     }
     try {
-      const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-      zustand.db = firebase.firestore(app);
+      zustand.app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+    } catch (fehler) {
+      zustand.fehler = String(fehler?.message || fehler);
+      console.warn("Firebase liess sich nicht starten", fehler);
+      return null;
+    }
+    return zustand.app;
+  }
+
+  function starte() {
+    if (zustand.db) return zustand.db;
+    const angemeldet = app();
+    if (!angemeldet) return null;
+    try {
+      zustand.db = window.firebase.firestore(angemeldet);
     } catch (fehler) {
       zustand.fehler = String(fehler?.message || fehler);
       console.warn("Firestore liess sich nicht starten", fehler);
@@ -239,5 +253,13 @@
     return { spiele: meine.size, geaendert };
   }
 
-  window.MiniCloud = { ergebnisse, speichere, benenneUm, MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX };
+  // app und db für den Adminbereich: Er meldet jemanden an und liest und
+  // löscht dieselben Einträge, braucht dafür aber keinen zweiten Client.
+  window.MiniCloud = {
+    app,
+    db: starte,
+    projektId: firebaseConfig.projectId,
+    ergebnisse, speichere, benenneUm, lies,
+    MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX,
+  };
 })();

@@ -15,7 +15,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte } from "./seiten-bauen.mjs";
+import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, adminSkripte } from "./seiten-bauen.mjs";
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lies = (p) => readFileSync(path.join(WURZEL, p), "utf8");
@@ -58,7 +58,7 @@ for (const s of SPIELE) {
 }
 
 // --- 4. Was eine Seite lädt, liegt auch da ----------------------------------
-const alleSkripte = new Set(hubSkripte());
+const alleSkripte = new Set([...hubSkripte(), ...adminSkripte()]);
 for (const s of SPIELE) for (const d of seitenSkripte(s)) alleSkripte.add(d);
 for (const datei of alleSkripte) {
   if (datei.startsWith("http")) continue;
@@ -68,10 +68,18 @@ for (const datei of alleSkripte) {
 // --- 5. Der Service Worker kennt jede Datei ---------------------------------
 const sw = lies("service-worker.js");
 pruefe(`service-worker.js trägt die Fassung ${FASSUNG}`, sw.includes(`const APP_VERSION = "${FASSUNG}"`));
+// Der Adminbereich gehört NICHT in den Zwischenspeicher: Er zeigt Zahlen, die
+// stimmen sollen, und er gehört nicht in die installierte App.
+const NUR_ADMIN = new Set(["admin.js", "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"]);
 for (const datei of alleSkripte) {
+  if (NUR_ADMIN.has(datei)) continue;
   if (datei.startsWith("http")) { pruefe(`SW kennt ${datei}`, sw.includes(datei)); continue; }
   pruefe(`SW kennt ${datei}`, sw.includes(`"./${datei}?v=${FASSUNG}"`));
 }
+for (const datei of NUR_ADMIN) {
+  pruefe(`SW lässt ${datei} aussen vor`, !sw.includes(datei));
+}
+pruefe("SW lässt admin.html aussen vor", !sw.includes("admin.html"));
 for (const s of SPIELE) pruefe(`SW kennt ${s.seite}.html`, sw.includes(`"./${s.seite}.html"`));
 pruefe("SW kennt die Startseite", sw.includes('"./"') && sw.includes('"./index.html"'));
 pruefe("SW kennt styles.css", sw.includes(`"./styles.css?v=${FASSUNG}"`));
@@ -129,14 +137,74 @@ for (const name of gebraucht) {
   pruefe(`window.${name} wird in diesem Repository gesetzt`, gesetzt.has(name));
 }
 
-// --- 10. Offline: die Adresse, die man weitergibt ---------------------------
+// --- 10. Der Adminbereich ---------------------------------------------------
+// Er ist der einzige Ort mit Anmeldung. Die Spielseiten dürfen firebase-auth
+// nicht laden – ein SDK, das niemand braucht, lädt sonst jeder Besucher mit.
+const adminSeite = lies("admin.html");
+pruefe("admin.html lädt firebase-auth", adminSeite.includes("firebase-auth-compat.js"));
+pruefe("admin.html lädt admin.js", adminSeite.includes("admin.js?v="));
+pruefe("admin.html lädt kein pwa.js", !/<script[^>]+pwa\.js/.test(adminSeite));
+pruefe("admin.html hängt nicht am Manifest", !adminSeite.includes('rel="manifest"'));
+pruefe("admin.html bittet um kein Google-Ergebnis", adminSeite.includes('name="robots"'));
+pruefe("admin.html trägt data-page=\"admin\"", adminSeite.includes('data-page="admin"'));
+const adminJs = lies("admin.js");
+pruefe("admin.js baut nur auf der Adminseite", adminJs.includes('dataset?.page !== "admin"'));
+pruefe("admin.js legt keinen zweiten Firebase-Client an", !adminJs.includes("initializeApp"));
+pruefe("styles.css kennt den Adminbereich", /\.adm-seite(?![\w-])/.test(css));
+
+// --- 11. Die Regeln und das Projekt -----------------------------------------
+// Vier Stellen nennen dasselbe Firebase-Projekt. Laufen sie auseinander,
+// schreibt der Browser in die eine Datenbank und der Workflow die Regeln in
+// die andere – und niemand merkt es, bis ein Schreibvorgang abgewiesen wird.
+const PROJEKT = "games-a0cd4";
+pruefe(`cloud.js zeigt auf ${PROJEKT}`, lies("cloud.js").includes(`projectId: "${PROJEKT}"`));
+pruefe(`.firebaserc zeigt auf ${PROJEKT}`, JSON.parse(lies(".firebaserc")).projects.default === PROJEKT);
+const workflow = lies(".github/workflows/firestore-rules.yml");
+pruefe(`Der Workflow zeigt auf ${PROJEKT}`, workflow.includes(`FIREBASE_PROJEKT: ${PROJEKT}`));
+pruefe("Der Workflow veröffentlicht nur aus der Umgebung produktion",
+  /veroeffentlichen:[\s\S]*environment: produktion/.test(workflow));
+pruefe("Der Workflow veröffentlicht nur von main",
+  /veroeffentlichen:[\s\S]*if: github\.ref == 'refs\/heads\/main'/.test(workflow));
+pruefe("Der Prüf-Job sieht den Deploy-Schlüssel nicht",
+  !/pruefen:[\s\S]*?secrets\.FIREBASE_SERVICE_ACCOUNT\b(?![_A-Z])[\s\S]*?veroeffentlichen:/.test(workflow));
+pruefe("firebase.json zeigt auf firestore.rules", JSON.parse(lies("firebase.json")).firestore.rules === "firestore.rules");
+
+// Netlify bricht den Deploy ab, wenn es im Ergebnis etwas findet, das nach
+// einem Geheimnis aussieht – der Web-API-Schlüssel tut das. Freigegeben wird
+// er in netlify.toml, und zwar genau der, der auch in cloud.js steht. Nach
+// einem Projektwechsel ist das die Stelle, die man vergisst.
+const schluessel = lies("cloud.js").match(/apiKey: "([^"]+)"/)?.[1] || "";
+const netlify = lies("netlify.toml");
+pruefe("cloud.js hat einen Web-API-Schlüssel", schluessel.length > 20);
+pruefe("netlify.toml gibt genau diesen Schlüssel für den Scanner frei",
+  netlify.includes(`SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "${schluessel}"`));
+
+const regeln = lies("firestore.rules");
+pruefe("Die Regeln verlangen eine bestätigte Adresse", regeln.includes("email_verified == true"));
+pruefe("Löschen darf nur der Admin", /allow delete: if istAdmin\(\)/.test(regeln));
+pruefe("Lesen darf jeder", /allow read: if true/.test(regeln));
+pruefe("Alles andere ist zu", /match \/\{document=\*\*\}[\s\S]*allow read, write: if false/.test(regeln));
+// Die Liste der Spiele steht in den Regeln ein zweites Mal – sonst stünde in
+// game, was der Schreiber hineinschreibt. Hier laufen die beiden nicht
+// auseinander.
+const inRegeln = [...(regeln.match(/function miniSpiele\(\) \{\s*return \[([\s\S]*?)\];/)?.[1] || "")
+  .matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+pruefe(`firestore.rules kennt ${SPIELE.length} Spiele (gefunden: ${inRegeln.length})`, inRegeln.length === SPIELE.length);
+for (const spiel of SPIELE) {
+  pruefe(`firestore.rules lässt ${spiel.spiel} zu`, inRegeln.includes(spiel.spiel));
+}
+for (const id of inRegeln) {
+  pruefe(`firestore.rules kennt kein erfundenes Spiel (${id})`, SPIELE.some((s) => s.spiel === id));
+}
+
+// --- 13. Offline: die Adresse, die man weitergibt ---------------------------
 // /turmbau ist die Adresse; im Zwischenspeicher liegt turmbau.html. Ohne die
 // Umrechnung im Service Worker endet offline jeder Weg in ein Spiel auf der
 // Startseite. scripts/check-spiele.mjs fährt das im Browser wirklich ab.
 pruefe("Der Service Worker rechnet /turmbau auf turmbau.html um",
   /function mitEndung/.test(sw) && /ausDemSpeicher\(cache, event\.request\)/.test(sw));
 
-// --- 11. Die Bestenliste ----------------------------------------------------
+// --- 12. Die Bestenliste ----------------------------------------------------
 // Geschrieben wird nach miniScores im Firebase-Projekt der App. Welche Spiele
 // dort erlaubt sind, steht in firestore.rules – im Repository der App. Ein
 // neues Spiel hier braucht dort eine Zeile, sonst weist die Datenbank jeden
@@ -163,7 +231,7 @@ for (const s of SPIELE) {
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);
   for (const f of fehler) console.error(`   · ${f}`);
-  console.error("\nErinnerung: Ein neues Spiel braucht auch eine Zeile in firestore.rules (miniSpiele) im Repository der App.");
+  console.error("\nErinnerung: Ein neues Spiel braucht auch eine Zeile in firestore.rules (miniSpiele).");
   process.exit(1);
 }
 console.log(`✓ ${geprueft} Prüfungen – ${SPIELE.length} Spiele, Fassung ${FASSUNG}.`);

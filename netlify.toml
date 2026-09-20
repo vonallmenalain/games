@@ -20,4 +20,9 @@
   # cloud.js sieht für den Scanner so aus – er ist aber kein Geheimnis: Er
   # steht in jeder Seite, die Firebase im Browser nutzt, und die
   # Firestore-Regeln schützen die Daten, nicht dieser Schlüssel.
-  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDJKaBS1W-EU6d8N3pL2R4amSl8R0vD-Uc"
+  #
+  # Das ist der Schlüssel aus cloud.js, und er muss derselbe sein:
+  # scripts/pruefen.mjs hält die beiden zusammen. Hier stand eine Weile der
+  # des alten Projekts – ein Wert, den es in diesen Dateien gar nicht mehr
+  # gab, während der, der drinsteht, nicht freigegeben war.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDtuKd2P0JL_We6JBmj25vHN1hEHR-Xx84"

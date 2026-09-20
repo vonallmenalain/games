@@ -32,7 +32,14 @@ for (const [name, inhalt] of alleDateien()) {
 
 const ENDUNGEN = new Set([".html", ".js", ".css", ".webmanifest"]);
 const ORDNER = ["icons"];
-const NIE = new Set(["netlify.toml", "package.json", "package-lock.json", "README.md"]);
+// Was nie mit soll, auch wenn es die Endung hätte. firestore.rules und die
+// Firebase-Konfiguration gehören ins Repository und nach Firebase – nicht auf
+// die Site, wo sie jeder herunterladen könnte.
+const NIE = new Set([
+  "netlify.toml", "package.json", "package-lock.json",
+  "README.md", "FIREBASE.md",
+  "firestore.rules", "firebase.json", ".firebaserc",
+]);
 
 rmSync(ZIEL, { recursive: true, force: true });
 mkdirSync(ZIEL, { recursive: true });
@@ -54,11 +61,11 @@ for (const ordner of ORDNER) {
 }
 
 // Ohne diese ist es keine App.
-for (const pflicht of ["index.html", "service-worker.js", "app.webmanifest", "styles.css", "mini-games.js", "cloud.js", "turmbau.html"]) {
+for (const pflicht of ["index.html", "service-worker.js", "app.webmanifest", "styles.css", "mini-games.js", "cloud.js", "admin.html", "admin.js", "turmbau.html"]) {
   if (!existsSync(path.join(ZIEL, pflicht))) throw new Error(`${pflicht} fehlt in dist/ – die Site wäre kaputt.`);
 }
 // Und nichts, was nicht hingehört.
-for (const verboten of ["node_modules", "scripts", "netlify", "package.json", "README.md"]) {
+for (const verboten of ["node_modules", "scripts", "netlify", "package.json", "README.md", "firestore.rules", "firebase.json", ".firebaserc"]) {
   if (existsSync(path.join(ZIEL, verboten))) throw new Error(`${verboten} ist in dist/ gelandet – das gehört nicht auf die Site.`);
 }
 

@@ -1,0 +1,126 @@
+rules_version = '2';
+
+/*
+ * Die Regeln der Mini-Games (Firebase-Projekt games-a0cd4).
+ * ---------------------------------------------------------------------------
+ * Diese Datei ist die Wahrheit: Was hier durchgeht, geht in der Datenbank
+ * durch. Veröffentlicht wird sie von .github/workflows/firestore-rules.yml,
+ * sobald sie auf main steht – nicht von Hand in der Console. Zwei Fassungen,
+ * eine im Repository und eine in Firebase, laufen sonst auseinander, und
+ * welche gilt, sieht man erst, wenn etwas nicht mehr geht.
+ *
+ * In dieser Datenbank steht genau eine Sache: die Bestenliste. Keine Konten,
+ * keine Kinder, kein Fortschritt – wer hier spielt, hat einen Link
+ * angeklickt.
+ *
+ * Angemeldet ist deshalb nur einer: der Admin. Er braucht die Anmeldung für
+ * genau eine Sache, die kein Gast dürfen darf – aufräumen.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Wer ist der Admin? ---------------------------------------------------
+    // Die Adresse, und sie muss bestätigt sein. Ohne email_verified genügte
+    // es, ein Konto mit dieser Adresse anzulegen: Firebase lässt das zu und
+    // prüft die Adresse erst, wenn jemand den Link anklickt. Bei Google und
+    // beim E-Mail-Link ist sie von sich aus bestätigt, bei Passwort erst nach
+    // dem Bestätigungslink.
+    //
+    // Mehrere Schreibweisen, weil Firebase die Adresse so speichert, wie sie
+    // eingetippt wurde.
+    function istAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ["alain.sc2@gmail.com", "Alain.sc2@gmail.com"];
+    }
+
+    // --- Die Bestenliste ------------------------------------------------------
+    // Ohne Konto heisst ohne request.auth. Wer hier schreibt, sagt nur, wer er
+    // zu sein behauptet – eine Kennung, die sein Gerät sich selbst gegeben hat
+    // (mini_…), und ein Name, den er selbst eingetippt hat. Das ist dasselbe
+    // Versprechen wie überall hier: eine Bestenliste unter Freunden, keine
+    // Urkunde. Deshalb prüfen diese Regeln nicht, WER schreibt, sondern WAS:
+    //
+    //   ein Dokument je Spiel und Spieler   der Name des Dokuments ist
+    //                                       game + "_" + spieler, also kann
+    //                                       niemand zwei Einträge in derselben
+    //                                       Liste haben
+    //   nur diese Felder, in diesen Grenzen ein Name von höchstens 24 Zeichen,
+    //                                       eine Punktzahl, ein Zähler
+    //   Punkte fallen nie                   ein Eintrag lässt sich nicht
+    //                                       kleinrechnen, auch nicht von einem
+    //                                       Fremden
+    //   Versuche zählen nur hoch            eine Runde, die gespielt wurde,
+    //                                       verschwindet nicht wieder
+    //
+    // Was bleibt, ist, dass jemand einen fremden Eintrag HOCHsetzen könnte.
+    // Dagegen hilft nur ein Konto, und ein Konto ist genau das, was dieser
+    // Bereich nicht haben soll. Der Admin räumt auf, wenn es je nötig wird –
+    // deshalb darf er als Einziger löschen.
+    function istMiniSpieler(id) {
+      return id is string && id.matches('mini_[A-Za-z0-9_-]{8,48}');
+    }
+
+    // Die Spiele, die es gibt. Dieselbe Liste steht in mini-games.js (SPIELE)
+    // und in scripts/seiten-bauen.mjs; scripts/pruefen.mjs hält die drei
+    // zusammen. Ohne sie stünde in game, was der Schreiber hineinschreibt –
+    // und die Sammlung füllte sich mit Spielen, die es nicht gibt.
+    function miniSpiele() {
+      return [
+        "backpack", "beachTreasure", "tileMemory", "missingItem",
+        "flanker", "fishPond", "goSignal",
+        "cardMatch", "leafFlow", "towerStack", "twinSpot",
+        "numberLine",
+      ];
+    }
+
+    function istMiniEintrag(eintragId) {
+      let d = request.resource.data;
+      return eintragId == d.game + "_" + d.spieler
+        && d.keys().hasAll(["game", "spieler", "name", "punkte", "versuche", "updatedAtMs"])
+        && d.keys().hasOnly(["game", "spieler", "name", "punkte", "versuche", "erstesMs", "updatedAtMs", "updatedAt"])
+        && d.game is string && d.game in miniSpiele()
+        && istMiniSpieler(d.spieler)
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 24
+        && d.punkte is int && d.punkte >= 0 && d.punkte <= 1000000
+        && d.versuche is int && d.versuche >= 1 && d.versuche <= 100000
+        && d.updatedAtMs is int;
+    }
+
+    // Ein Eintrag bleibt, wem er gehört, und bleibt in seinem Spiel.
+    function istDerselbeEintrag() {
+      return request.resource.data.game == resource.data.game
+        && request.resource.data.spieler == resource.data.spieler;
+    }
+
+    match /miniScores/{eintragId} {
+      // Lesen darf jeder, auch ohne Konto: Die Liste ist der Sinn der Sache.
+      allow read: if true;
+      allow create: if istMiniEintrag(eintragId) && request.resource.data.versuche == 1;
+      // Eine Runde: die Punktzahl steigt oder bleibt, der Zähler steigt.
+      allow update: if istMiniEintrag(eintragId)
+        && istDerselbeEintrag()
+        && request.resource.data.punkte >= resource.data.punkte
+        && request.resource.data.versuche > resource.data.versuche;
+      // Und ein neuer Name, ohne dass eine Runde daraus wird. Wer sich
+      // umbenennt, hat nicht gespielt – ein Zähler, der dabei stiege, machte
+      // aus jeder Umbenennung einen Versuch, den es nie gab. Erlaubt ist
+      // deshalb genau eines: der Name (und die Uhr daneben), sonst nichts.
+      allow update: if istMiniEintrag(eintragId)
+        && istDerselbeEintrag()
+        && request.resource.data.punkte == resource.data.punkte
+        && request.resource.data.versuche == resource.data.versuche
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["name", "updatedAtMs", "updatedAt"]);
+      allow delete: if istAdmin();
+    }
+
+    // --- Alles andere ---------------------------------------------------------
+    // Es gibt nichts anderes. Diese Zeile steht trotzdem hier, damit eine
+    // Sammlung, die jemand morgen anlegt, nicht offen dasteht, weil niemand an
+    // eine Regel dafür gedacht hat.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
