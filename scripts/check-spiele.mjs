@@ -1,7 +1,7 @@
 /*
  * Die Mini-Games im Browser: läuft, was hier herausgeschnitten wurde?
  * ---------------------------------------------------------------------------
- * pruefen.mjs liest Dateien. Das hier spielt: Es öffnet jedes der zwölf
+ * pruefen.mjs liest Dateien. Das hier spielt: Es öffnet jedes der sieben
  * Spiele so, wie jemand es öffnet, dem der Link geschickt wurde, und schaut
  * nach, ob eine Bühne dasteht, die Landschaft dahinter, die Knöpfe oben links
  * – und ob der Browser dabei schweigt.
@@ -52,7 +52,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|rs|st|kk|wf|sf|ft|sg|bs|tb|dg|zg|scene|help-voice|sound|rotate-hint|confetti)(-|$)/;
+const UNSER = /^(cm|mini|kk|wf|ft|sg|bs|tb|zg|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -165,9 +165,15 @@ async function neueSeite(viewport = { width: 420, height: 820 }) {
 // Turmbau zu Ende spielen: tippen, bis die Tafel steht. Irgendwann trifft ein
 // Block daneben – das ist das Ende der Runde.
 async function spieleTurmbauZuEnde(seite) {
+  // Getippt wird in die Mitte der Bühne, nicht auf einen festen Punkt: Auf
+  // einem flachen Fenster läge der ausserhalb, und die Runde käme nie zu
+  // einem Ende.
+  const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
+  const x = Math.round(breit / 2);
+  const y = Math.round(hoch * 0.75);
   for (let tipp = 0; tipp < 120; tipp += 1) {
     if (await seite.locator(".cm-panel").count()) return true;
-    await seite.mouse.click(210, 500);
+    await seite.mouse.click(x, y);
     await seite.waitForTimeout(120);
   }
   return Boolean(await seite.locator(".cm-panel").count());
@@ -425,7 +431,7 @@ try {
   // --- 3d. Ohne Netz gilt die Wahl von gestern ---------------------------------
   // Die installierte App startet auch ohne Netz, und Firestore hält hier
   // nichts vor. Würde ein Lesefehler wie "nichts eingetragen" behandelt,
-  // stünden beim ersten Start ohne Netz wieder alle zwölf Spiele da – auch
+  // stünden beim ersten Start ohne Netz wieder alle Spiele da – auch
   // die abgewählten. Geprüft wird deshalb in EINEM Fenster: erst einmal mit
   // Netz laden, dann das Netz wegnehmen und neu laden.
   {
@@ -463,11 +469,225 @@ try {
     await kontext.close();
   }
 
-  // --- 4. Die Leiste quer: nichts liegt übereinander ---------------------------
+  // --- 3f. Jedes Spiel steht auch hochkant ------------------------------------
+  // Querformat ist keine Pflicht mehr: Es gibt keinen Dreh-Hinweis, der ein
+  // hochkant gehaltenes Handy zudeckt, also muss jedes Spiel dort wirklich
+  // dastehen. Geprüft wird, was man einer Seite nicht ansieht: dass nichts
+  // scrollt, dass die Bühne das Bild füllt, und dass der Browser schweigt.
+  for (const spiel of SPIELE) {
+    const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/${spiel.seite}`, { waitUntil: "load" });
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    await seite.waitForTimeout(400);
+    const stand = await seite.evaluate((id) => {
+      const kasten = (e) => (e ? e.getBoundingClientRect() : null);
+      const buehne = kasten(document.getElementById(id));
+      const play = kasten(document.querySelector(".cm-play"));
+      return {
+        hoch: window.innerHeight,
+        breit: window.innerWidth,
+        blattHoch: document.documentElement.scrollHeight,
+        blattBreit: document.documentElement.scrollWidth,
+        buehne: buehne && { b: Math.round(buehne.width), h: Math.round(buehne.height) },
+        play: play && { b: Math.round(play.width), h: Math.round(play.height) },
+        inhalt: document.querySelector(".cm-play")?.querySelectorAll("*").length ?? 0,
+      };
+    }, spiel.buehne.id);
+    pruefe(stand.blattBreit <= stand.breit + 1, `${spiel.titel} hochkant: die Seite ist ${stand.blattBreit - stand.breit} px zu breit.`);
+    pruefe(stand.blattHoch <= stand.hoch + 1, `${spiel.titel} hochkant: die Seite ist ${stand.blattHoch - stand.hoch} px zu hoch.`);
+    pruefe(stand.buehne && stand.buehne.h >= stand.hoch - 2, `${spiel.titel} hochkant: die Bühne ist ${stand.buehne?.h} statt ${stand.hoch} px hoch.`);
+    // Die Spielfläche muss den Platz auch bekommen, den es gibt: Bliebe sie
+    // so flach wie im Querformat, stünde das Spiel oben in einem Streifen.
+    pruefe(stand.play && stand.play.h > stand.hoch * 0.8, `${spiel.titel} hochkant: die Spielfläche ist nur ${stand.play?.h} von ${stand.hoch} px hoch.`);
+    pruefe(stand.inhalt > 0, `${spiel.titel} hochkant: auf der Spielfläche steht nichts.`);
+    pruefe(fehlerAufSeite.length === vorher, `${spiel.titel} hochkant hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+
+  // --- 3g. Turmbau ist in jeder Lage gleich schwer ----------------------------
+  // Der Block ist immer gleich breit – nicht in Pixeln, sondern im Verhältnis
+  // zur Spielfläche. Genau daran hängt die Schwierigkeit: Ein Block, der
+  // hochkant die halbe Breite füllt und quer ein Drittel, wäre zwei Spiele.
+  // turmbau.js rechnet das über welt.mass und view.s so, dass sich beide
+  // wegkürzen; dass sie das wirklich tun, sieht man nur hier.
+  {
+    const lagen = [
+      ["quer", { width: 844, height: 390 }],
+      ["hoch", { width: 390, height: 844 }],
+      ["quer schmal", { width: 568, height: 320 }],
+      ["breit", { width: 1280, height: 800 }],
+    ];
+    const gemessen = [];
+    for (const [name, viewport] of lagen) {
+      const { kontext, seite } = await neueSeite(viewport);
+      await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
+      await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+      await seite.waitForTimeout(500);
+      const anteile = await seite.evaluate(() => {
+        const a = window.LernappTurmbau;
+        if (!a) return null;
+        const { welt, view, state } = a;
+        return {
+          block: (welt.startW * view.s) / view.cssW,
+          sockel: (welt.sockelW * view.s) / view.cssW,
+          schwung: state.schweber ? (state.schweber.weite * view.s) / view.cssW : null,
+        };
+      });
+      pruefe(anteile !== null, `Turmbau ${name}: keine Messwerte – window.LernappTurmbau fehlt.`);
+      if (anteile) gemessen.push([name, anteile]);
+      await kontext.close();
+    }
+    if (gemessen.length === lagen.length) {
+      const [, erste] = gemessen[0];
+      for (const schluessel of ["block", "sockel", "schwung"]) {
+        if (erste[schluessel] === null) continue;
+        for (const [name, anteile] of gemessen.slice(1)) {
+          const ab = Math.abs(anteile[schluessel] - erste[schluessel]);
+          pruefe(ab < 0.005,
+            `Turmbau ${name}: ${schluessel} füllt ${(anteile[schluessel] * 100).toFixed(1)} % der Breite statt ${(erste[schluessel] * 100).toFixed(1)} % wie quer.`);
+        }
+      }
+    }
+  }
+
+  // --- 3h. Die Punkte von "Wo hält der Zug?" ----------------------------------
+  // Die Bänder wachsen um je eins: 10 für den Treffer, 9 für eins und zwei
+  // daneben, 8 für drei bis fünf, 7 für sechs bis neun. Das ist die Regel des
+  // Spiels und keine Rundungssache – hier steht sie als Tabelle, damit eine
+  // Änderung an der Formel auffällt.
+  {
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.goto(`${BASIS}/zahlengleis`, { waitUntil: "load" });
+    await seite.waitForSelector(".zg-gleis", { timeout: 8000 });
+    const api = await seite.evaluate(() => {
+      const a = window.LernappZahlengleis;
+      if (!a) return null;
+      // Auf dem Gleis bis 100 ist der Weg daneben die Zahl selbst.
+      const bei100 = {};
+      for (const d of [0, 0.4, 0.6, 1, 2, 3, 5, 6, 9, 10, 14, 20, 27, 35, 44, 54, 55, 99]) {
+        bei100[d] = a.punkteFuer(d, 100);
+      }
+      // Dieselben Anteile auf dem langen Gleis: 10 von 1000 ist derselbe Weg
+      // wie 1 von 100 – ein Finger ist überall gleich breit.
+      const gleich = [10, 100, 500, 1000].map((bis) => a.punkteFuer(bis * 0.02, bis));
+      const alle = new Set();
+      for (let i = 0; i <= 1000; i += 1) alle.add(a.punkteFuer(i / 10, 100));
+      return { bei100, gleich, alle: [...alle].sort((x, y) => x - y), max: a.PUNKTE_JE_ZAHL };
+    });
+    pruefe(api !== null, "Wo hält der Zug? gibt keine Messwerte her – window.LernappZahlengleis fehlt.");
+    if (api) {
+      const soll = { 0: 10, 0.4: 10, 0.6: 9, 1: 9, 2: 9, 3: 8, 5: 8, 6: 7, 9: 7, 10: 6, 14: 6, 20: 5, 27: 4, 35: 3, 44: 2, 54: 1, 55: 0, 99: 0 };
+      for (const [weg, punkte] of Object.entries(soll)) {
+        pruefe(api.bei100[weg] === punkte, `Wo hält der Zug?: ${weg} daneben gibt ${api.bei100[weg]} statt ${punkte} Punkte.`);
+      }
+      pruefe(api.max === 10, `Wo hält der Zug? gibt höchstens ${api.max} Punkte statt 10.`);
+      // Alle elf Zahlen müssen vorkommen: Ein Band, das nie getroffen wird,
+      // ist eine Stufe, die es nicht gibt.
+      pruefe(api.alle.length === 11 && api.alle[0] === 0 && api.alle[10] === 10,
+        `Wo hält der Zug?: erreichbar sind ${api.alle.join(", ")} – erwartet 0 bis 10.`);
+      pruefe(new Set(api.gleich).size === 1,
+        `Wo hält der Zug?: zwei Prozent daneben geben je nach Gleis ${api.gleich.join(", ")} Punkte – es muss überall dieselbe Zahl sein.`);
+    }
+    await kontext.close();
+  }
+
+  // --- 3i. "Was fehlt?" auf dem schwersten Wagen ------------------------------
+  // Zehn Stücke Fracht und vier Knöpfe: der Fall, den die Anfangsseite nicht
+  // zeigt. Beide Grössen hingen einmal nur an der Höhe – hochkant wurden die
+  // Stücke vom Flexkasten zu Streifen gequetscht und die äusseren Knöpfe lagen
+  // ausserhalb des Bildes. Gemessen wird deshalb der schwerste Wagen, nicht
+  // der erste.
+  for (const [name, viewport] of [
+    ["hochkant", { width: 390, height: 844 }],
+    ["hochkant schmal", { width: 360, height: 640 }],
+    ["quer", { width: 844, height: 390 }],
+    ["quer schmal", { width: 568, height: 320 }],
+  ]) {
+    const { kontext, seite } = await neueSeite(viewport);
+    await seite.goto(`${BASIS}/wasfehlt`, { waitUntil: "load" });
+    await seite.waitForSelector(".wf-ladung", { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      // Den schwersten Wagen herstellen, statt ihn zu erspielen: Gemessen wird
+      // das Stylesheet, nicht der Ablauf.
+      const ladung = document.querySelector(".wf-ladung");
+      ladung.style.setProperty("--wf-stuecke", "10");
+      while (ladung.children.length < 10) ladung.append(ladung.firstElementChild.cloneNode(true));
+      let wahl = document.querySelector(".wf-wahl");
+      if (!wahl) {
+        wahl = document.createElement("div");
+        wahl.className = "wf-wahl";
+        document.querySelector(".cm-play").append(wahl);
+      }
+      while (wahl.children.length < 4) {
+        const knopf = document.createElement("button");
+        knopf.className = "wf-knopf";
+        wahl.append(knopf);
+      }
+      const kasten = (e) => e.getBoundingClientRect();
+      const stuecke = [...document.querySelectorAll(".wf-stueck")].map(kasten);
+      const knoepfe = [...document.querySelectorAll(".wf-knopf")].map(kasten);
+      const wagen = kasten(document.querySelector(".wf-wagen"));
+      const drin = (r) => r.left >= -1 && r.right <= window.innerWidth + 1;
+      return {
+        form: stuecke.length ? stuecke[0].width / Math.max(1, stuecke[0].height) : 0,
+        kleinstes: Math.round(Math.min(...stuecke.map((r) => r.width))),
+        wagenDrin: drin(wagen),
+        knoepfeDrin: knoepfe.every(drin),
+        knopfBreit: knoepfe.length ? Math.round(knoepfe[0].width) : 0,
+        ueberstand: document.documentElement.scrollWidth - window.innerWidth,
+      };
+    });
+    pruefe(Math.abs(befund.form - 1) < 0.06, `Was fehlt? ${name}: die Fracht ist ${befund.form.toFixed(2)} mal so breit wie hoch – Streifen statt Kistchen.`);
+    pruefe(befund.kleinstes >= 24, `Was fehlt? ${name}: ein Stück Fracht ist nur ${befund.kleinstes} px breit.`);
+    pruefe(befund.wagenDrin, `Was fehlt? ${name}: der Wagen steht über den Rand.`);
+    pruefe(befund.knoepfeDrin, `Was fehlt? ${name}: nicht alle vier Knöpfe stehen im Bild (je ${befund.knopfBreit} px).`);
+    pruefe(befund.ueberstand <= 1, `Was fehlt? ${name}: die Seite ist ${befund.ueberstand} px zu breit.`);
+    await kontext.close();
+  }
+
+  // --- 3j. Die Ergebnistafel auf einem flachen Bildschirm ---------------------
+  // Dort liegt sie quer: links Punkte und Knöpfe, rechts die Bestenliste.
+  // Untereinander bräuchte sie mehr Höhe, als da ist. Die Regeln dafür standen
+  // einmal hinter einem Spiel, das ausgezogen ist – und wären dabei um ein
+  // Haar mitgegangen.
+  {
+    const { kontext, seite } = await neueSeite({ width: 568, height: 320 });
+    await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    pruefe(await spieleTurmbauZuEnde(seite), "Die Runde für die Ergebnistafel kam zu keinem Ergebnis.");
+    await seite.waitForTimeout(500);
+    const tafel = await seite.evaluate(() => {
+      const panel = document.querySelector(".cm-panel");
+      if (!panel) return null;
+      const aktionen = document.querySelector(".cm-actions");
+      const r = aktionen ? aktionen.getBoundingClientRect() : null;
+      return {
+        anzeige: getComputedStyle(panel).display,
+        knoepfeDrin: r ? r.bottom <= window.innerHeight + 1 && r.top >= 0 : false,
+      };
+    });
+    pruefe(tafel !== null, "Auf dem flachen Bildschirm steht keine Ergebnistafel.");
+    if (tafel) {
+      pruefe(tafel.anzeige === "grid", `Die Ergebnistafel liegt flach nicht quer, sondern als ${tafel.anzeige}.`);
+      pruefe(tafel.knoepfeDrin, "Auf der flachen Ergebnistafel stehen die Knöpfe ausserhalb des Bildes.");
+    }
+    await kontext.close();
+  }
+
+  // --- 4. Die Leiste: nichts liegt übereinander, in keiner Lage ----------------
   // Was sich hier überdeckt, ist nicht unschön, sondern unerreichbar: ein
   // Knopf unter einem anderen lässt sich nicht drücken. Gemessen wird deshalb,
   // nicht angesehen.
-  for (const [name, viewport] of [["Handy quer", { width: 568, height: 320 }], ["Tablet quer", { width: 844, height: 390 }]]) {
+  for (const [name, viewport] of [
+    ["Handy quer", { width: 568, height: 320 }],
+    ["Tablet quer", { width: 844, height: 390 }],
+    // Hochkant ist seit dem Wegfall des Dreh-Hinweises eine Lage wie jede
+    // andere. Zwischen dem Lautsprecher links und dem Ton-Schalter rechts
+    // bleiben dort gut 200 Pixel – der engste Fall, den es gibt.
+    ["Handy hoch", { width: 390, height: 844 }],
+    ["Handy hoch schmal", { width: 320, height: 568 }],
+  ]) {
     const { kontext, seite } = await neueSeite(viewport);
     await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
     await seite.waitForSelector(".cm-bar-left .mini-knopf", { timeout: 8000 });
@@ -490,10 +710,23 @@ try {
         }
       }
       const letzte = stuecke.reduce((max, s) => Math.max(max, s.r.right), 0);
-      return { stoesse, ueberRand: Math.round(letzte - window.innerWidth) };
+      // Eine Zeile oder zwei? Bricht die Leiste um, liegt nichts übereinander
+      // – die zweite Zeile legt sich aber über die Spielfläche und über den
+      // Satz, der dort steht. Gemessen wird deshalb die Leiste selbst gegen
+      // ihr höchstes Stück: Sind beide gleich hoch, steht alles nebeneinander.
+      const leiste = document.querySelector(".cm-bar").getBoundingClientRect();
+      const hoechstes = stuecke.reduce((max, s) => Math.max(max, s.r.height), 0);
+      return {
+        stoesse,
+        ueberRand: Math.round(letzte - window.innerWidth),
+        leisteHoch: Math.round(leiste.height),
+        hoechstes: Math.round(hoechstes),
+      };
     });
     pruefe(befund.stoesse.length === 0, `${name}: In der Leiste liegt etwas übereinander – ${befund.stoesse.join(", ")}`);
     pruefe(befund.ueberRand <= 0, `${name}: Die Leiste steht ${befund.ueberRand} px über den rechten Rand.`);
+    pruefe(befund.leisteHoch <= befund.hoechstes + 4,
+      `${name}: Die Leiste bricht um – ${befund.leisteHoch} px hoch bei einem höchsten Stück von ${befund.hoechstes} px.`);
     await kontext.close();
   }
 

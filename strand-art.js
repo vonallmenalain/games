@@ -403,5 +403,5 @@
     ]);
   }
 
-  window.LernappStrandArt = { TREASURES, BY_ID, treasureSvg, INK };
+  window.LernappStrandArt = { TREASURES, BY_ID, treasureSvg };
 })();
