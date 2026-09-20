@@ -328,12 +328,15 @@
   // sie besser ist als die bisherige, und ein Versuch mehr. Ohne Namen wird
   // noch nichts geschrieben – dann steht erst das Feld da, und der Eintrag
   // entsteht, wenn jemand ihn haben will.
-  // Nur den Namen ändern, ohne dass eine Runde daraus wird. Gibt es noch
-  // keinen Eintrag, gilt der neue Name ab der nächsten Runde von selbst.
-  async function benenneUm(spiel) {
+  // Nur den Namen ändern, ohne dass eine Runde daraus wird – und zwar in
+  // allen Spielen, in denen dieses Gerät schon steht. Der Name gehört dem
+  // Gerät, und die Liste fasst nach Namen zusammen (verdichte): Bliebe in
+  // einem Spiel der alte stehen, stünde derselbe Mensch zweimal da. Gibt es
+  // noch keinen Eintrag, gilt der neue Name ab der nächsten Runde von selbst.
+  async function benenneUm() {
     const wie = name();
-    if (!wie || !spiel) return null;
-    const ergebnis = await cloud()?.benenneUm?.({ game: spiel, spieler: kennung(), name: wie });
+    if (!wie) return null;
+    const ergebnis = await cloud()?.benenneUm?.({ spieler: kennung(), name: wie });
     zwischenspeicher = null;
     return ergebnis || null;
   }
@@ -584,7 +587,7 @@
 
     function benennen() {
       meldung.textContent = "Wird geändert...";
-      benenneUm(spiel)
+      benenneUm()
         .then((stand) => {
           // Ohne Eintrag gibt es nichts umzubenennen – der Name gilt dann ab
           // der nächsten Runde, und das steht auch so da.

@@ -76,9 +76,32 @@ async function staleWhileRevalidate(event) {
   return cached;
 }
 
+// Die Adresse, die man weitergibt, ist /turmbau – im Zwischenspeicher liegt
+// die Datei aber unter ihrem eigenen Namen, turmbau.html. Netlify löst das
+// beim Ausliefern auf; der Zwischenspeicher vergleicht stur Adressen und
+// findet nichts.
+//
+// Ohne diese Umrechnung liefe offline jeder Weg in ein Spiel auf die
+// Startseite zurück – gerade dann, wenn die installierte App am nötigsten
+// ist: im Zug, im Flugzeug, im Keller.
+function mitEndung(adresse) {
+  const wo = new URL(adresse);
+  if (wo.pathname.endsWith("/")) return null;
+  if (/\.[A-Za-z0-9]+$/.test(wo.pathname)) return null;
+  wo.pathname += ".html";
+  return wo.href;
+}
+
+async function ausDemSpeicher(cache, request) {
+  const direkt = await cache.match(request, { ignoreSearch: true });
+  if (direkt) return direkt;
+  const andersHerum = mitEndung(request.url);
+  return andersHerum ? cache.match(andersHerum, { ignoreSearch: true }) : undefined;
+}
+
 async function documentFirstFromCache(event) {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(event.request, { ignoreSearch: true });
+  const cached = await ausDemSpeicher(cache, event.request);
   if (cached) {
     event.waitUntil(fetchAndStore(cache, event.request).catch(() => {}));
     return cached;

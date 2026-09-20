@@ -129,13 +129,31 @@ for (const name of gebraucht) {
   pruefe(`window.${name} wird in diesem Repository gesetzt`, gesetzt.has(name));
 }
 
-// --- 10. Die Bestenliste ----------------------------------------------------
+// --- 10. Offline: die Adresse, die man weitergibt ---------------------------
+// /turmbau ist die Adresse; im Zwischenspeicher liegt turmbau.html. Ohne die
+// Umrechnung im Service Worker endet offline jeder Weg in ein Spiel auf der
+// Startseite. scripts/check-spiele.mjs fährt das im Browser wirklich ab.
+pruefe("Der Service Worker rechnet /turmbau auf turmbau.html um",
+  /function mitEndung/.test(sw) && /ausDemSpeicher\(cache, event\.request\)/.test(sw));
+
+// --- 11. Die Bestenliste ----------------------------------------------------
 // Geschrieben wird nach miniScores im Firebase-Projekt der App. Welche Spiele
 // dort erlaubt sind, steht in firestore.rules – im Repository der App. Ein
 // neues Spiel hier braucht dort eine Zeile, sonst weist die Datenbank jeden
 // Eintrag ab. Hier lässt sich das nicht prüfen; erinnert sei trotzdem daran.
 pruefe("cloud.js schreibt nach miniScores", lies("cloud.js").includes('collection("miniScores")'));
 pruefe("cloud.js meldet niemanden an", !/firebase\.auth\s*\(/.test(lies("cloud.js")));
+// Eine Runde wird gelesen und geschrieben – das muss in einem Zug gehen.
+// Sonst hielte sich, wenn zwei Tabs kurz nacheinander enden, die schlechtere
+// Runde für einen Rekord, und die Regeln wiesen sie ab.
+pruefe("cloud.js trägt eine Runde in einer Transaktion ein",
+  /runTransaction/.test(lies("cloud.js")));
+// Und der Name gehört dem Gerät, nicht einem Spiel: Bliebe er in einem Spiel
+// alt, stünde derselbe Mensch zweimal in der Hall of Fame.
+pruefe("cloud.js benennt alle Spiele dieses Geräts um",
+  /where\("spieler", "==", spielerId\)/.test(lies("cloud.js")));
+pruefe("mini-games.js benennt nicht für ein einzelnes Spiel um",
+  /benenneUm\?\.\(\{ spieler: kennung\(\), name: wie \}\)/.test(miniJs));
 for (const s of SPIELE) {
   const seite = lies(`${s.seite}.html`);
   pruefe(`${s.seite}.html lädt kein firebase-auth`, !seite.includes("firebase-auth"));

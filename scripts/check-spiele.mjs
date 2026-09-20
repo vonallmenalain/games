@@ -101,13 +101,23 @@ const ATTRAPPE = `
       window.__miniGefragt = gefragt;
       return [...eintraege.values()].filter((e) => gefragt.includes(e.game)).map((e) => ({ ...e }));
     },
-    benenneUm: async ({ game, spieler, name }) => {
-      const id = game + "_" + spieler;
-      const alt = eintraege.get(id);
-      if (!alt) return null;
-      eintraege.set(id, { ...alt, name, updatedAtMs: Date.now() });
+    // Wie cloud.js: umbenannt wird in ALLEN Spielen dieses Geraets, und ein
+    // Spiel wird dabei nicht genannt. Womit die Attrappe aufgerufen wurde,
+    // bleibt stehen - so laesst sich pruefen, dass niemand mehr ein einzelnes
+    // Spiel umbenennt.
+    benenneUm: async (was) => {
+      window.__miniUmbenannt = was;
+      const { spieler, name } = was;
+      const meine = [...eintraege.values()].filter((e) => e.spieler === spieler);
+      if (!meine.length) return null;
+      let geaendert = 0;
+      for (const alt of meine) {
+        if (alt.name === name) continue;
+        eintraege.set(alt.id, { ...alt, name, updatedAtMs: Date.now() });
+        geaendert += 1;
+      }
       sichern();
-      return { rekord: false, punkte: alt.punkte, versuche: alt.versuche };
+      return { spiele: meine.length, geaendert };
     },
     speichere: async ({ game, spieler, name, punkte }) => {
       const id = game + "_" + spieler;
@@ -303,15 +313,37 @@ try {
     const versuche = await seite.evaluate(() => [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack" && e.name === "Testkind")[0]?.versuche);
     pruefe(versuche === 2, `Nach zwei Runden stehen ${versuche} Versuche in der Liste.`);
 
-    // Umbenennen ist keine Runde.
+    // Dieses Gerät steht auch in einem zweiten Spiel – so wie jeder, der mehr
+    // als eines gespielt hat.
+    await seite.evaluate(() => {
+      const ich = localStorage.getItem("mini.id");
+      const id = `fishPond_${ich}`;
+      window.__miniEintraege.set(id, { id, game: "fishPond", spieler: ich, name: "Testkind", punkte: 7, versuche: 1, updatedAtMs: Date.now() });
+    });
+
+    // Umbenennen ist keine Runde – und es gilt in allen Spielen. Bliebe in
+    // einem der alte Name stehen, stünde derselbe Mensch zweimal in der Hall
+    // of Fame: Die Liste fasst nach Namen zusammen.
     await seite.click(".mini-name-steht button");
     await seite.waitForSelector(".mini-namensfeld input", { timeout: 4000 });
     await seite.fill(".mini-namensfeld input", "Testkind Zwei");
     await seite.click(".mini-namensfeld button");
     await seite.waitForFunction(() => [...window.__miniEintraege.values()]
       .some((e) => e.game === "towerStack" && e.name === "Testkind Zwei"), null, { timeout: 6000 });
-    const nachher = await seite.evaluate(() => [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack" && e.spieler === localStorage.getItem("mini.id"))[0]);
-    pruefe(nachher?.versuche === 2, `Das Umbenennen hat eine Runde erfunden: ${nachher?.versuche} statt 2.`);
+    const nach = await seite.evaluate(() => {
+      const ich = localStorage.getItem("mini.id");
+      const meine = [...window.__miniEintraege.values()].filter((e) => e.spieler === ich);
+      return { meine, womit: window.__miniUmbenannt };
+    });
+    const turm = nach.meine.find((e) => e.game === "towerStack");
+    const teich = nach.meine.find((e) => e.game === "fishPond");
+    pruefe(turm?.versuche === 2, `Das Umbenennen hat eine Runde erfunden: ${turm?.versuche} statt 2.`);
+    pruefe(turm?.name === "Testkind Zwei", `Der neue Name kam nicht an: ${turm?.name}`);
+    pruefe(teich?.name === "Testkind Zwei",
+      `Im zweiten Spiel steht noch der alte Name (${teich?.name}) – in der Hall of Fame wäre das ein zweiter Spieler.`);
+    pruefe(teich?.versuche === 1, `Das Umbenennen hat im zweiten Spiel eine Runde erfunden: ${teich?.versuche} statt 1.`);
+    pruefe(nach.womit && !("game" in nach.womit),
+      `Umbenannt wurde für ein einzelnes Spiel (${JSON.stringify(nach.womit)}) statt für das ganze Gerät.`);
     await kontext.close();
   }
 
@@ -416,6 +448,22 @@ try {
     });
     pruefe(typeof bereich === "string" && /:\d+\/$/.test(bereich),
       `Der Service Worker bedient ${bereich} statt der ganzen Site.`);
+
+    // --- 6. Offline in ein Spiel ---------------------------------------------
+    // Die Adresse, die man weitergibt, ist /turmbau; im Zwischenspeicher liegt
+    // turmbau.html. Der Zwischenspeicher vergleicht stur Adressen – ohne die
+    // Umrechnung im Service Worker fände er nichts, und jeder Weg in ein Spiel
+    // endete offline auf der Startseite. Gerade dann ist die installierte App
+    // am nötigsten: im Zug, im Flugzeug, im Keller.
+    await kontext.setOffline(true);
+    await seite.goto(`${BASIS}/turmbau`, { waitUntil: "domcontentloaded" }).catch(() => {});
+    const offline = await seite.evaluate(() => ({
+      spiel: document.body?.dataset?.spiel || "",
+      seite: document.body?.dataset?.page || "",
+    })).catch(() => ({ spiel: "", seite: "nichts" }));
+    pruefe(offline.spiel === "towerStack",
+      `Offline führt /turmbau auf "${offline.seite || "nichts"}" statt ins Spiel – der Service Worker findet die Datei nicht.`);
+    await kontext.setOffline(false);
     await kontext.close();
   }
 } finally {

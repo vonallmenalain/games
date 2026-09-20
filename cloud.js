@@ -52,6 +52,9 @@
   // ein einziges Feld und braucht deshalb keinen zusammengesetzten Index, also
   // keine Datei, die jemand von Hand nach Firebase bringen muss.
   const MAX_JE_SPIEL = 300;
+  // Und je Gerät: ein Dokument je Spiel, mehr kann es nicht geben. Die Grenze
+  // steht nur da, damit eine kaputte Kennung nicht die halbe Sammlung liest.
+  const MAX_JE_SPIELER = 50;
 
   const zustand = { db: null, fehler: "" };
 
@@ -75,7 +78,6 @@
 
   const sammlung = () => starte()?.collection("miniScores") || null;
   const jetztAufDemServer = () => window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
-  const eineRundeMehr = () => window.firebase?.firestore?.FieldValue?.increment?.(1) || null;
 
   function lies(doc) {
     const daten = typeof doc?.data === "function" ? doc.data() : null;
@@ -137,9 +139,19 @@
    *
    * Zwei Dinge stehen im selben Dokument und folgen verschiedenen Regeln: Die
    * Punktzahl ist ein Bestwert – sie steigt oder bleibt –, die Versuche sind
-   * ein Zähler und steigen immer. Deshalb wird erst gelesen und dann
-   * geschrieben: Ohne das überschriebe eine schlechtere Runde die Bestzahl,
-   * und die Liste wäre keine Bestenliste mehr.
+   * ein Zähler und steigen immer. Beides hängt davon ab, was schon dasteht,
+   * also muss erst gelesen und dann geschrieben werden.
+   *
+   * Und zwar in einer Transaktion. Zwei Tabs desselben Spiels, zwei Runden,
+   * die kurz nacheinander enden: Ohne Transaktion lesen beide denselben alten
+   * Stand. Die schlechtere Runde hielte sich dann für einen Rekord und wollte
+   * die eben eingetragene Bestzahl überschreiben – die Regeln weisen das ab
+   * (Punkte fallen nie), der Spieler sähe "hat nicht geklappt", und seine
+   * Runde wäre nicht gezählt. Beim allerersten Eintrag dasselbe in Grün:
+   * Zwei Anlagen mit versuche = 1, eine davon abgewiesen.
+   *
+   * In der Transaktion liest Firestore noch einmal, wenn dazwischen jemand
+   * geschrieben hat, und rechnet gegen den frischen Stand.
    */
   async function speichere({ game, spieler, name, punkte }) {
     const spielId = String(game || "").trim();
@@ -147,37 +159,40 @@
     const wie = sauber(name);
     const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
     if (!spielId || !spielerId || !wie) throw new Error("Für einen Eintrag fehlt etwas.");
+    const db = starte();
     const ref = sammlung();
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
 
     const doc = ref.doc(`${spielId}_${spielerId}`);
-    const vorher = await doc.get();
-    const alt = vorher.exists ? lies(vorher) : null;
-    const jetzt = Date.now();
+    return db.runTransaction(async (lauf) => {
+      const vorher = await lauf.get(doc);
+      const alt = vorher.exists ? lies(vorher) : null;
+      const jetzt = Date.now();
 
-    if (!alt) {
-      await doc.set({
-        game: spielId,
-        spieler: spielerId,
+      if (!alt) {
+        lauf.set(doc, {
+          game: spielId,
+          spieler: spielerId,
+          name: wie,
+          punkte: zahl,
+          versuche: 1,
+          erstesMs: jetzt,
+          updatedAtMs: jetzt,
+          updatedAt: jetztAufDemServer(),
+        });
+        return { rekord: true, punkte: zahl, versuche: 1 };
+      }
+
+      const rekord = zahl > alt.punkte;
+      lauf.set(doc, {
         name: wie,
-        punkte: zahl,
-        versuche: 1,
-        erstesMs: jetzt,
+        punkte: rekord ? zahl : alt.punkte,
+        versuche: alt.versuche + 1,
         updatedAtMs: jetzt,
         updatedAt: jetztAufDemServer(),
-      });
-      return { rekord: true, punkte: zahl, versuche: 1 };
-    }
-
-    const rekord = zahl > alt.punkte;
-    await doc.set({
-      name: wie,
-      punkte: rekord ? zahl : alt.punkte,
-      versuche: eineRundeMehr(),
-      updatedAtMs: jetzt,
-      updatedAt: jetztAufDemServer(),
-    }, { merge: true });
-    return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1 };
+      }, { merge: true });
+      return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1 };
+    });
   }
 
   /*
@@ -187,24 +202,42 @@
    * nach einer Runde auf "Name ändern" tippt, hätte danach zwei Versuche für
    * ein Spiel. Die Regeln lassen deshalb eine Änderung zu, die nur den Namen
    * anfasst.
+   *
+   * Umbenannt wird in ALLEN Spielen, nicht nur in dem, das gerade offen ist.
+   * Der Name gehört dem Gerät, und die Hall of Fame fasst nach Namen zusammen
+   * (mini-games.js, verdichte): Bliebe in Turmbau "Jonas" stehen, während im
+   * Fischteich schon "Jonas K." steht, stünde derselbe Mensch zweimal in der
+   * Tabelle – bis er jedes alte Spiel noch einmal spielt.
+   *
+   * Ein Gerät hat höchstens ein Dokument je Spiel, also eine Handvoll. Sie
+   * gehen in einem Zug hinaus: entweder alle oder keines.
    */
-  async function benenneUm({ game, spieler, name }) {
-    const spielId = String(game || "").trim();
+  async function benenneUm({ spieler, name }) {
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
-    if (!spielId || !spielerId || !wie) throw new Error("Für einen neuen Namen fehlt etwas.");
+    if (!spielerId || !wie) throw new Error("Für einen neuen Namen fehlt etwas.");
+    const db = starte();
     const ref = sammlung();
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
 
-    const doc = ref.doc(`${spielId}_${spielerId}`);
-    const vorher = await doc.get();
+    // Eine Abfrage über ein einziges Feld – kein zusammengesetzter Index.
+    const meine = await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get();
     // Noch kein Eintrag: Dann gibt es auch nichts umzubenennen – der Name gilt
     // ab der nächsten Runde.
-    if (!vorher.exists) return null;
-    await doc.set({ name: wie, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() }, { merge: true });
-    const alt = lies(vorher);
-    return { rekord: false, punkte: alt?.punkte ?? 0, versuche: alt?.versuche ?? 1 };
+    if (meine.empty) return null;
+
+    const jetzt = Date.now();
+    const stapel = db.batch();
+    let geaendert = 0;
+    meine.forEach((doc) => {
+      const alt = lies(doc);
+      if (!alt || alt.name === wie) return;
+      stapel.set(doc.ref, { name: wie, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
+      geaendert += 1;
+    });
+    if (geaendert) await stapel.commit();
+    return { spiele: meine.size, geaendert };
   }
 
-  window.MiniCloud = { ergebnisse, speichere, benenneUm, MAX_JE_SPIEL, NAME_MAX };
+  window.MiniCloud = { ergebnisse, speichere, benenneUm, MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX };
 })();
