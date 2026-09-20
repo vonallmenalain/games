@@ -60,25 +60,27 @@
 
   // Wie nah ist nah genug? Gemessen wird nicht in Zahlen, sondern im Anteil
   // der Strecke: Ein Finger ist auf jedem Gleis gleich breit, und 5 von 100
-  // ist derselbe Weg wie 50 von 1000. Deshalb steht hier eine Tabelle von
-  // Anteilen, keine von Zahlen.
+  // ist derselbe Weg wie 50 von 1000. Gerechnet wird darum in Prozent der
+  // Strecke – dieselbe Zahl, die auf dem Gleis bis 100 die Zahl selbst ist.
   //
-  // Die Kurve fällt steil, und oben ist sie eng: Die zehn gilt für ein halbes
-  // Prozent der Strecke – auf einem Handy quer sind das gut zwei Bildpunkte.
-  // Sie ist zu treffen, aber nur mit Bedacht, und nie aus Versehen. Fünf
-  // Prozent daneben sind noch fünf Punkte, zwanzig noch einer, darüber keiner.
-  const STAFFEL = [
-    [0.005, 10],
-    [0.01, 9],
-    [0.02, 8],
-    [0.03, 7],
-    [0.04, 6],
-    [0.07, 5],
-    [0.10, 4],
-    [0.14, 3],
-    [0.19, 2],
-    [0.25, 1],
-  ];
+  // Jedes Band ist um eins breiter als das davor: 10 gilt für den Treffer,
+  // 9 für eins und zwei daneben, 8 für drei bis fünf, 7 für sechs bis neun,
+  // und so weiter. Oben ist es also eng und unten weit – wer grob danebenzielt,
+  // verliert für jeden weiteren Schritt weniger, wer fast trifft, für jeden
+  // Schritt mehr. Genau da soll es wehtun.
+  //
+  //   Punkte 10-k  bis  k·(k+3)/2  daneben
+  //        9         2
+  //        8         5
+  //        7         9
+  //        6        14      … und so fort bis 0.
+  //
+  // Die zehn braucht einen halben Prozentpunkt: Auf einem Bildschirm ist die
+  // Lok nie EXAKT auf der Zahl, und "genau getroffen" heisst deshalb "näher
+  // dran als eine halbe Zahl" – auf dem Gleis bis 100 also 42,5 bis 43,5 für
+  // die 43. In Bildpunkten sind das quer gut zwei.
+  const GENAU = 0.5;
+  const bandGrenze = (k) => (k * (k + 3)) / 2;
 
   const ZAHLEN_JE_RUNDE = PLAN.length;
   const PUNKTE_JE_ZAHL = 10;
@@ -142,10 +144,19 @@
   }
 
   // abweichung in Zahlen, bis = das Ende des Gleises. Beides zusammen ergibt
-  // den Anteil der Strecke, um den danebengezielt wurde – und nur der zählt.
+  // den Weg daneben in Prozent der Strecke – und nur der zählt.
+  // Das Härchen am Vergleich ist kein Schnörkel: 14/100 × 100 ist in
+  // Fliesskomma 14.000000000000002, und genau 14 daneben fiele sonst ins
+  // nächste Band – die Grenze läge einen Rechenfehler neben der Zahl, die im
+  // Kommentar steht.
+  const HAERCHEN = 1e-9;
+
   function punkteFuer(abweichung, bis) {
-    const anteil = Math.abs(abweichung) / bis;
-    for (const [grenze, punkte] of STAFFEL) if (anteil <= grenze) return punkte;
+    const weg = (Math.abs(abweichung) / bis) * 100;
+    if (weg < GENAU) return PUNKTE_JE_ZAHL;
+    for (let k = 1; k < PUNKTE_JE_ZAHL; k += 1) {
+      if (weg <= bandGrenze(k) + HAERCHEN) return PUNKTE_JE_ZAHL - k;
+    }
     return 0;
   }
 
@@ -482,7 +493,7 @@
   window.addEventListener("pagehide", clearStep);
 
   window.LernappZahlengleis = {
-    GLEISE, PLAN, STAFFEL, WIE, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
+    GLEISE, PLAN, GENAU, bandGrenze, WIE, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
     gleisFuer, zahlFuer, punkteFuer, state,
   };
 })();
