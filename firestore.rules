@@ -71,6 +71,7 @@ service cloud.firestore {
         "fishPond", "goSignal",
         "leafFlow", "towerStack",
         "numberLine",
+        "boilerRoom", "shuntYard", "brakePoint",
       ];
     }
 

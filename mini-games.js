@@ -67,6 +67,9 @@
     { id: "leafFlow", seite: "blaetter", page: "leaves" },
     { id: "towerStack", seite: "turmbau", page: "tower" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
+    { id: "boilerRoom", seite: "heizer", page: "boiler" },
+    { id: "shuntYard", seite: "weichen", page: "yard" },
+    { id: "brakePoint", seite: "bremsweg", page: "brake" },
   ];
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
