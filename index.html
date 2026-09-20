@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Die Startseite und zugleich der Startpunkt der installierten App: Wer die
+  Mini-Games auf den Startbildschirm legt, landet hier. Was darauf steht, baut
+  mini-games.js – die Spiele als Karten, die Bestenlisten und die Tabelle
+  aller Namen.
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Mini-Games" />
+    <meta name="description" content="Mini-Games: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mini-Games" />
+    <meta name="theme-color" content="#a8ddf0" />
+    <title>Mini-Games</title>
+    <link rel="stylesheet" href="styles.css?v=2026-09-20-01" />
+    <link rel="manifest" href="app.webmanifest?v=2026-09-20-01" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+  </head>
+  <body data-page="hub">
+    <main class="mini-seite" data-uebersicht>
+      <p class="mini-hinweis">Die Mini-Games werden geladen...</p>
+    </main>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="highscore.js?v=2026-09-20-01"></script>
+    <script defer src="cloud.js?v=2026-09-20-01"></script>
+    <script defer src="mini-games.js?v=2026-09-20-01"></script>
+    <script defer src="pwa.js?v=2026-09-20-01"></script>
+  </body>
+</html>

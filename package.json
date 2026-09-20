@@ -1,0 +1,14 @@
+{
+  "name": "mini-games",
+  "private": true,
+  "description": "Mini-Games – die Spiele aus Gripszug einzeln, mit einer Bestenliste für alle. Kein Build: die Site sind die Dateien im Wurzelverzeichnis.",
+  "type": "module",
+  "scripts": {
+    "bauen": "node scripts/seiten-bauen.mjs",
+    "pruefen": "node scripts/pruefen.mjs",
+    "pruefen:browser": "node scripts/check-spiele.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

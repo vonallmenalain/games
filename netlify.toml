@@ -1,0 +1,23 @@
+# Die Site sind die Dateien im Wurzelverzeichnis; gebaut wird nichts.
+# Veröffentlicht wird trotzdem dist/: netlify/build.mjs kopiert dorthin, was
+# der Browser braucht, und lässt die Werkzeuge und die Doku weg.
+#
+# Keine Funktionen, keine Umgebungsvariablen, keine Geheimnisse. Die
+# Bestenliste läuft direkt aus dem Browser nach Firestore; geschützt wird sie
+# von den Regeln des Firebase-Projekts, nicht von einem Server hier.
+#
+# Auch keine Weiterleitungen: /turmbau findet Netlify von selbst zu
+# turmbau.html, / zu index.html.
+
+[build]
+  publish = "dist"
+  command = "node netlify/build.mjs"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Netlify sucht nach dem Bauen in allen Dateien nach Geheimnissen und bricht
+  # ab, wenn es eines zu finden glaubt. Der Web-API-Schlüssel von Firebase in
+  # cloud.js sieht für den Scanner so aus – er ist aber kein Geheimnis: Er
+  # steht in jeder Seite, die Firebase im Browser nutzt, und die
+  # Firestore-Regeln schützen die Daten, nicht dieser Schlüssel.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDJKaBS1W-EU6d8N3pL2R4amSl8R0vD-Uc"

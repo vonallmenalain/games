@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+  Geändert wird die Tabelle dort, dann "npm run bauen".
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="application-name" content="Mini-Games" />
+    <meta name="description" content="Kacheln-Knobeln: Merk dir, welche Kacheln geleuchtet haben, und tippe sie nach." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mini-Games" />
+    <meta name="theme-color" content="#a8ddf0" />
+    <title>Kacheln-Knobeln · Mini-Games</title>
+    <link rel="stylesheet" href="styles.css?v=2026-09-20-01" />
+    <link rel="manifest" href="app.webmanifest?v=2026-09-20-01" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+  </head>
+  <body data-page="tiles" data-spiel="tileMemory">
+    <!-- Die Bühne baut kacheln.js: die Landschaft, darauf das Raster.
+         Bewusst leer im HTML – hier steht kein Wort ausser dem Namen des
+         Spiels, und den setzt die Bühne. -->
+    <div id="kk-stage" class="cm-stage kk-stage" aria-label="Kacheln-Knobeln"></div>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="highscore.js?v=2026-09-20-01"></script>
+    <script defer src="cloud.js?v=2026-09-20-01"></script>
+    <script defer src="mini-games.js?v=2026-09-20-01"></script>
+    <script defer src="kids.js?v=2026-09-20-01"></script>
+    <script defer src="train-art.js?v=2026-09-20-01"></script>
+    <script defer src="train-scenes.js?v=2026-09-20-01"></script>
+    <script defer src="game-cloud.js?v=2026-09-20-01"></script>
+    <script defer src="game-shell.js?v=2026-09-20-01"></script>
+    <script defer src="kacheln.js?v=2026-09-20-01"></script>
+    <script defer src="pwa.js?v=2026-09-20-01"></script>
+  </body>
+</html>
