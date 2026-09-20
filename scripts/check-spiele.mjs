@@ -96,7 +96,12 @@ const ATTRAPPE = `
   const sichern = () => { try { localStorage.setItem(LAGER, JSON.stringify([...eintraege])); } catch {} };
   window.__miniEintraege = eintraege;
   window.MiniCloud = {
-    offeneSpiele: async () => window.__miniOffen ?? null,
+    offeneSpiele: async () => {
+      // Wie cloud.js: Nicht lesen koennen wirft, "nichts eingetragen" gibt
+      // null zurueck. Nur so laesst sich beides auseinanderhalten.
+      if (window.__miniOhneNetz) throw new Error("kein Netz");
+      return window.__miniOffen ?? null;
+    },
     setzeOffeneSpiele: async (liste) => { window.__miniOffen = liste; return liste; },
     ergebnisse: async (spiele) => {
       const gefragt = Array.isArray(spiele) ? spiele : [];
@@ -414,6 +419,47 @@ try {
       "Es ist kein Spiel freigegeben, trotzdem steht eine Karte da.");
     pruefe(/kein Spiel freigegeben/i.test(text),
       `Ohne freigegebenes Spiel steht kein Hinweis da, sondern: ${text.replace(/\n/g, " | ")}`);
+    await kontext.close();
+  }
+
+  // --- 3d. Ohne Netz gilt die Wahl von gestern ---------------------------------
+  // Die installierte App startet auch ohne Netz, und Firestore hält hier
+  // nichts vor. Würde ein Lesefehler wie "nichts eingetragen" behandelt,
+  // stünden beim ersten Start ohne Netz wieder alle zwölf Spiele da – auch
+  // die abgewählten. Geprüft wird deshalb in EINEM Fenster: erst einmal mit
+  // Netz laden, dann das Netz wegnehmen und neu laden.
+  {
+    const offen = ["towerStack", "fishPond"];
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript((liste) => { window.__miniOffen = liste; }, offen);
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    pruefe(await seite.locator(".mini-karte").count() === offen.length,
+      "Schon mit Netz stimmt die Zahl der Karten nicht – der Rest der Prüfung sagt dann nichts.");
+
+    // Kein Netz mehr, und auch die Antwort von vorhin ist weg: Was die Seite
+    // jetzt zeigt, kann nur aus dem Gerät kommen.
+    await seite.addInitScript(() => { window.__miniOhneNetz = true; delete window.__miniOffen; });
+    await seite.reload({ waitUntil: "load" });
+    await seite.waitForSelector(".mini-seite", { timeout: 8000 });
+    await seite.waitForTimeout(500);
+    const karten = await seite.locator(".mini-karte h3").allInnerTexts();
+    pruefe(karten.length === offen.length,
+      `Ohne Netz stehen ${karten.length} Spiele da statt der ${offen.length} freigegebenen: ${karten.join(", ")}`);
+    await kontext.close();
+  }
+
+  // --- 3e. Wer noch nie gelesen hat, sieht alle --------------------------------
+  // Die andere Seite davon: Ein Gerät ohne Gedächtnis darf nicht auf einer
+  // leeren Seite landen. Ohne gemerkte Wahl gelten alle – wie bei einer
+  // frischen Datenbank.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript(() => { window.__miniOhneNetz = true; });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    pruefe(await seite.locator(".mini-karte").count() === SPIELE.length,
+      `Ohne Netz und ohne gemerkte Wahl stehen ${await seite.locator(".mini-karte").count()} Spiele da statt ${SPIELE.length}.`);
     await kontext.close();
   }
 

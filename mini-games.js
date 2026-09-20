@@ -99,6 +99,8 @@
   const BEST_KEY = "mini.best";
   // Welche Landschaft zuletzt dran war. Siehe naechsteSzene().
   const SZENE_KEY = "mini.szene";
+  // Die zuletzt gelesene Auswahl. Siehe offeneSpiele().
+  const OFFEN_KEY = "mini.offen";
   const NAME_MAX = 24;
 
   const cloud = () => window.MiniCloud || null;
@@ -252,14 +254,48 @@
   // ein Name, zu dem es keine Seite (mehr) gibt, keine Karte bekommt.
   let offenGemerkt = null;
 
+  // Was zuletzt wirklich dastand, bleibt auf dem Gerät. Denn "nicht gelesen"
+  // ist nicht dasselbe wie "nichts eingetragen": Die installierte App startet
+  // auch ohne Netz, und Firestore hält hier nichts vor – nur die Dateien
+  // liegen im Speicher des Service Workers. Ohne dieses Gedächtnis stünden
+  // beim ersten Start ohne Netz wieder alle zwölf Spiele da, auch die
+  // abgewählten. Im Zweifel gilt lieber die Wahl von gestern als gar keine.
+  function gemerkteAuswahl() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(OFFEN_KEY) || "null");
+      return Array.isArray(roh) ? roh : null;
+    } catch { return null; }
+  }
+
+  function merkeAuswahl(liste) {
+    try { localStorage.setItem(OFFEN_KEY, JSON.stringify(liste)); } catch { /* privater Modus */ }
+  }
+
+  // Erst beim zweiten Mal richtig: Wer noch nie online war, hat nichts
+  // gemerkt – dann gelten alle, wie bei einer frischen Datenbank.
+  function ausGemerktem() {
+    const gemerkt = gemerkteAuswahl();
+    return gemerkt ? alleSpiele().filter((id) => gemerkt.includes(id)) : alleSpiele();
+  }
+
   async function offeneSpiele() {
     if (offenGemerkt) return offenGemerkt;
-    let gewaehlt = null;
-    try { gewaehlt = await cloud()?.offeneSpiele?.(); }
-    catch (fehler) { console.warn("Die Liste der Spiele war nicht zu lesen", fehler); }
-    offenGemerkt = gewaehlt === null || gewaehlt === undefined
-      ? alleSpiele()
-      : alleSpiele().filter((id) => gewaehlt.includes(id));
+    const wolke = cloud();
+    // Kein Firestore auf der Seite: nichts merken, sonst überschriebe ein
+    // Ladefehler die richtige Liste mit "alle".
+    if (!wolke?.offeneSpiele) { offenGemerkt = ausGemerktem(); return offenGemerkt; }
+    try {
+      const gewaehlt = await wolke.offeneSpiele();
+      // null heisst hier: gelesen, aber nichts eingetragen. Das ist eine
+      // Antwort, kein Fehler – cloud.js wirft, wenn es nicht lesen konnte.
+      offenGemerkt = gewaehlt === null || gewaehlt === undefined
+        ? alleSpiele()
+        : alleSpiele().filter((id) => gewaehlt.includes(id));
+      merkeAuswahl(offenGemerkt);
+    } catch (fehler) {
+      console.warn("Die Liste der Spiele war nicht zu lesen", fehler);
+      offenGemerkt = ausGemerktem();
+    }
     return offenGemerkt;
   }
 
