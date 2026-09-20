@@ -38,13 +38,18 @@ bei Netlify gibt es hier kein gesperrtes Publishing dazwischen.
 
 ### Einzurichten (einmal)
 
-1. **Dienstkonto anlegen.** Google Cloud Console → *IAM & Verwaltung* →
-   *Dienstkonten* → *Dienstkonto erstellen*, Projekt `games-a0cd4`.
-   Name z. B. `github-regeln`.
-2. **Zwei Rollen geben** – beide werden gebraucht:
-   - `Firebase Rules Admin` (`roles/firebaserules.admin`) – die Regeln
-     veröffentlichen.
-   - `Service Usage Consumer` (`roles/serviceusage.serviceUsageConsumer`) –
+So ist es hier wirklich eingerichtet – der Schlüssel stammt aus der
+Firebase-Console, nicht aus einem selbst angelegten Dienstkonto:
+
+1. **Schlüssel holen.** Firebase-Console → *Projekteinstellungen* →
+   *Dienstkonten* → *Neuen privaten Schlüssel generieren*. Heraus kommt eine
+   JSON-Datei für das Konto, das Firebase jedem Projekt mitgibt:
+   `firebase-adminsdk-…@games-a0cd4.iam.gserviceaccount.com`.
+2. **Diesem Konto zwei Rollen geben** – Google Cloud Console → *IAM und
+   Verwaltung* → *IAM*, den Eintrag `firebase-adminsdk-…` bearbeiten:
+   - `Administrator von Firebase-Regeln` (`roles/firebaserules.admin`) – die
+     Regeln veröffentlichen.
+   - `Service Usage-Nutzer` (`roles/serviceusage.serviceUsageConsumer`) –
      nachsehen dürfen, ob die Firestore-API eingeschaltet ist. Die Firebase
      CLI tut das vor jedem Deploy, und ohne dieses Recht bricht sie ab,
      bevor sie überhaupt an die Regeln kommt:
@@ -55,14 +60,23 @@ bei Netlify gibt es hier kein gesperrtes Publishing dazwischen.
      Permission denied to get service [firestore.googleapis.com]
      ```
 
-   Mehr nicht. Dieses Konto soll Regeln veröffentlichen und sonst gar nichts;
-   die zweite Rolle darf Dienste benutzen, aber keine ein- oder ausschalten.
-3. **Schlüssel herunterladen:** Reiter *Schlüssel* → *Schlüssel hinzufügen* →
-   *JSON*.
-4. **GitHub-Umgebung anlegen:** Repository → *Settings* → *Environments* →
+   **Auf die Projekt-ID schauen, nicht auf den Namen.** Genau daran ist es
+   hier einmal gescheitert: Es gab zwei Google-Cloud-Projekte, beide hiessen
+   in der Console „Games", und die Rollen landeten in `games-4ec1a` statt in
+   `games-a0cd4`. Die ID steht klein unter dem Namen – und im
+   Workflow-Protokoll steht, welches Konto wirklich benutzt wird:
+
+   ```
+   Dienstkonto:          firebase-adminsdk-fbsvc@games-a0cd4.iam.gserviceaccount.com
+   Projekt im Schlüssel: games-a0cd4
+   ```
+
+   Nach dem Speichern dauert es ein paar Minuten, bis die Rollen wirken. Die
+   Console sagt das auch.
+3. **GitHub-Umgebung anlegen:** Repository → *Settings* → *Environments* →
    *New environment*, Name **`produktion`**. Unter *Deployment branches* nur
    `main` zulassen.
-5. **Secret hinterlegen:** in dieser Umgebung (nicht im Repository!) das Secret
+4. **Secret hinterlegen:** in dieser Umgebung (nicht im Repository!) das Secret
    **`FIREBASE_SERVICE_ACCOUNT`** anlegen, Inhalt = die JSON-Datei **im
    Klartext**, so wie Google sie herunterlädt. Nicht base64-kodiert –
    `scripts/pruefe-dienstkonto.mjs` sagt es sonst im Workflow.
@@ -73,6 +87,15 @@ gewöhnliches Repository-Secret bereit, könnte jeder, der einen Branch pushen
 darf, diesen Workflow umschreiben und damit veröffentlichen, ohne je nach
 `main` mergen zu dürfen. Eine Umgebung gibt ihre Secrets nur an einen Job, der
 sie anfordert – und nur von den Branches, die in ihrer Regel stehen.
+
+### Weniger Rechte, wenn es sein soll
+
+Das Admin-SDK-Konto darf von Haus aus mehr, als für Regeln nötig wäre (unter
+anderem voller Lese- und Schreibzugriff auf Firestore). Wer das enger haben
+will, legt in der Cloud Console ein eigenes Dienstkonto an, gibt ihm nur die
+zwei Rollen von oben und legt dessen Schlüssel ins Secret. Der Workflow merkt
+davon nichts – er benutzt, was im Secret steht, und schreibt dessen Adresse
+ins Protokoll.
 
 ### Freiwillig
 
@@ -86,8 +109,12 @@ Fehlt es, wird der Schritt übersprungen statt zu scheitern.
 Der Job bricht laut ab und veröffentlicht nichts – die Datenbank behält die
 Regeln, die sie hatte. Zwei Fälle kommen vor:
 
-- **403 auf `serviceusage`** – die zweite Rolle oben fehlt. Nachtragen, dann
-  den Job in GitHub → Actions neu starten („Re-run failed jobs").
+- **403 auf `serviceusage`** – die zweite Rolle oben fehlt, oder sie sitzt am
+  falschen Konto oder am falschen Projekt. Das Protokoll sagt beides: Der
+  Schritt „Schlüssel prüfen" druckt die Adresse des Dienstkontos und die
+  Projekt-ID aus dem Schlüssel. Genau dort nachtragen, ein paar Minuten
+  warten, dann den Job in GitHub → Actions neu starten („Re-run failed
+  jobs") oder den Workflow von Hand starten („Run workflow" auf `main`).
 - **Der Schlüssel ist kein JSON** – `scripts/pruefe-dienstkonto.mjs` sagt es
   im Protokoll. Meist wurde die Datei base64-kodiert ins Secret gelegt;
   gebraucht wird der Klartext.
