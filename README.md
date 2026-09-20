@@ -20,6 +20,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
     turmbau.html …        zwölf Spielseiten, erzeugt
+    admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
 
@@ -27,6 +28,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           die Auswertung der Startseite
     cloud.js              Firestore, aber nur miniScores – lesen, schreiben,
                           umbenennen. Sonst nichts.
+    admin.js              anmelden und aufräumen. Der einzige Ort mit
+                          Anmeldung; die Spielseiten laden firebase-auth
+                          gar nicht erst.
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
                           Spielfläche, Ergebnis
     game-cloud.js         der Spielstand während einer Runde. Er überlebt die
@@ -40,9 +44,13 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     styles.css            das Aussehen
     pwa.js                Service Worker anmelden, Installation anbieten
 
+    firestore.rules       die Regeln der Datenbank. Sie fahren von selbst
+                          nach Firebase, sobald sie auf main stehen.
+
     scripts/seiten-bauen.mjs   baut die erzeugten Dateien aus einer Tabelle
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
+    scripts/test-rules.mjs     spielt die Regeln im Emulator durch
 
 ## Ein Spiel dazunehmen
 
@@ -54,15 +62,39 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
    `mini-games.js`.
 3. `npm run bauen && npm run pruefen`
 
-**Wichtig:** Die Bestenliste liegt im Firebase-Projekt der App, in der
-Sammlung `miniScores`. Welche Spiele dort schreiben dürfen, steht in
-`firestore.rules` **im Repository der App** (Funktion `miniSpiele`). Ein
-neues Spiel braucht dort eine Zeile, sonst weist die Datenbank jeden Eintrag
-ab. Von hier aus lässt sich das nicht prüfen.
+**Wichtig:** Welche Spiele in die Bestenliste schreiben dürfen, steht auch in
+`firestore.rules` (Funktion `miniSpiele`) – ein neues Spiel braucht dort eine
+Zeile, sonst weist die Datenbank jeden Eintrag ab. `npm run pruefen` hält die
+beiden Listen zusammen, und der Merge nach `main` bringt die Regeln nach
+Firebase.
 
 Geeignet ist ein Spiel, das genau eine Zahl liefert, bei der grösser besser
 ist. Spiele mit Sternen je Level taugen nicht: Am Ende hätten alle drei, und
 die Liste sagte nichts mehr.
+
+## Firebase
+
+Eigenes Projekt (`games-a0cd4`), eigene Datenbank, eigene Anmeldung – mit der
+Kids-App teilt das hier nichts mehr. Wie das eingerichtet ist und was einmalig
+von Hand gemacht werden muss (Dienstkonto, GitHub-Umgebung, Authorized
+Domains), steht in [FIREBASE.md](FIREBASE.md).
+
+`firestore.rules` im Repository ist die Wahrheit: Ein Merge nach `main`
+veröffentlicht die Regeln. In der Console wird nichts von Hand geändert.
+
+## Der Adminbereich
+
+`/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort. Dahinter steht,
+was in der Bestenliste steht: Zahlen, alle Spieler, jedes Spiel mit seinen
+Einträgen. Und das Einzige, was kein Gast darf: löschen.
+
+Dafür gibt es die Anmeldung überhaupt. Eine Liste, in die jeder ohne Konto
+schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
+nicht haben will.
+
+Er gehört bewusst nicht zur installierten App: kein Manifest, kein Service
+Worker, nicht im Zwischenspeicher. Wer hierherkommt, will die aktuellen Zahlen
+sehen, nicht die von gestern.
 
 ## Ohne Konto
 
@@ -80,10 +112,13 @@ trotzdem einmal, gezählt wird der Name.
 ## Prüfen
 
     npm run pruefen           die Dateien: Tabelle, Seiten, Service Worker,
-                              Manifest, Zeichen, keine Reste der App
+                              Manifest, Zeichen, Regeln, Adminbereich,
+                              keine Reste der App
     npm run pruefen:browser   jedes Spiel einmal öffnen und eine Runde
                               anspielen. Braucht Playwright:
                               npm i && npx playwright install chromium
+    npm run test:rules        die Firestore-Regeln im Emulator durchspielen.
+                              Braucht Java, kein Netz, keine Zugangsdaten.
 
 `pruefen:browser` ist das, was zählt: `styles.css` und `train-art.js` sind aus
 der App herausgeschnitten worden, und was dabei zu viel wegfiel, sieht man
@@ -91,9 +126,9 @@ keiner Datei an – nur einer Seite, die weiss bleibt.
 
 ## Was hier bewusst fehlt
 
-Konten, Kinder, Gruppen, Käufe, Fortschritt, der Zug, die Reise, der
-Adminbereich, die Schranke vor der zweiten Runde – das alles ist Gripszug und
-bleibt dort. Aus der App kommt nur, was ein Spiel zum Laufen braucht.
+Konten für Spieler, Kinder, Gruppen, Käufe, Fortschritt, der Zug, die Reise,
+die Schranke vor der zweiten Runde – das alles ist Gripszug und bleibt dort.
+Aus der App kommt nur, was ein Spiel zum Laufen braucht.
 
-Besuche zählt hier niemand: Wer über einen Mini-Link hereinkommt, hat die App
-nicht geöffnet, und so soll es in deren Zahlen auch aussehen.
+Besuche zählt hier niemand. Wer spielt, hinterlässt eine Zeile in
+`miniScores`, sobald er seinen Namen einträgt – und sonst nichts.

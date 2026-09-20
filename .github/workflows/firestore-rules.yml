@@ -1,0 +1,209 @@
+# Die Firestore-Regeln fahren automatisch nach Firebase.
+#
+# firestore.rules im Repository ist die Wahrheit; von Hand wird in der
+# Firebase-Console nichts mehr angefasst. Sonst laufen zwei Fassungen
+# auseinander, und welche gilt, sieht man erst, wenn etwas nicht mehr geht.
+#
+# Zwei Jobs, und dass es zwei sind, ist der Kern der Sache:
+#
+#   pruefen          laeuft auf Pull Requests. Spielt die Regeln im Emulator
+#                    durch und laesst sie, wenn ein Pruefschluessel hinterlegt
+#                    ist, zusaetzlich von Firebase gegenlesen (--dry-run).
+#
+#   veroeffentlichen laeuft nur auf main. Ab hier gelten die Regeln.
+#
+# Warum das getrennt sein MUSS und nicht zwei Schritte in einem Job sein darf:
+# Bei einem Pull Request aus demselben Repository stellt GitHub die Secrets des
+# Repositorys bereit, und ausgefuehrt wird der Workflow in der Fassung, die im
+# Pull Request steht - also samt Aenderungen an dieser Datei. Laege der
+# Deploy-Schluessel als gewoehnliches Repository-Secret bereit, koennte jeder,
+# der einen Branch pushen darf, diesen Workflow im Pull Request umschreiben und
+# damit veroeffentlichen, ohne je nach main mergen zu duerfen.
+#
+# Deshalb liegt der Deploy-Schluessel NICHT im Repository, sondern in der
+# GitHub-Umgebung "produktion", die nur von main aus erreichbar ist. Eine
+# Umgebung gibt ihre Secrets ausschliesslich an einen Job, der sie mit
+# "environment:" anfordert - und laesst das nur von den Branches zu, die in
+# ihrer Regel stehen.
+#
+# Anders als ein Netlify-Deploy ist das hier NICHT durch ein gesperrtes
+# Publishing abgefedert. Ein Merge nach main wirkt sofort auf die Datenbank.
+#
+# Eingerichtet wird das einmalig - siehe FIREBASE.md.
+
+name: Firestore-Regeln
+
+on:
+  # &pfade / *pfade ist ein YAML-Anker: Die Liste steht einmal da und wird
+  # unten noch einmal eingesetzt. Zweimal getippt liefe sie irgendwann
+  # auseinander - ein Pfad hier ergaenzt, dort vergessen, und der Pull Request
+  # prueft nicht mehr, was der Merge veroeffentlicht.
+  push:
+    branches: [main]
+    paths: &pfade
+      - "firestore.rules"
+      - "firebase.json"
+      - ".firebaserc"
+      - "scripts/test-rules.mjs"
+      - "scripts/pruefe-dienstkonto.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/firestore-rules.yml"
+  pull_request:
+    paths: *pfade
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-rules-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FIREBASE_PROJEKT: games-a0cd4
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Prüfen - auf allem, was nicht das veröffentlichte main ist
+  # ---------------------------------------------------------------------------
+  # Dieser Job sieht nie den Deploy-Schlüssel. Zwei Prüfungen, die eine ohne
+  # jedes Geheimnis, die andere nur, wenn eines da ist:
+  #
+  #   1. scripts/test-rules.mjs lädt die Regeln in den Firestore-Emulator und
+  #      probiert für jede Rolle, was sie darf und was nicht. Das läuft auf
+  #      jedem Pull Request, braucht kein Konto, und fängt auch Regeln mit
+  #      Syntaxfehlern: Der Emulator nimmt die stumm an und verweigert dann
+  #      alles - und die "darf"-Fälle schlagen fehl.
+  #   2. Wenn das Secret FIREBASE_SERVICE_ACCOUNT_PRUEFUNG hinterlegt ist,
+  #      liest Firebase die Regeln zusätzlich selbst gegen (--dry-run). Fehlt
+  #      es, wird das übersprungen statt zu scheitern: der Deploy auf main
+  #      prüft ohnehin ein zweites Mal.
+  pruefen:
+    name: Regeln prüfen
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository holen
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Der Firestore-Emulator ist ein Java-Programm.
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Werkzeuge installieren
+        run: npm ci --no-audit --no-fund
+
+      - name: Regeln im Emulator durchspielen
+        run: npm run test:rules
+
+      - name: Schlüssel prüfen
+        id: schluessel
+        env:
+          DIENSTKONTO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRUEFUNG }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIENSTKONTO:-}" ]; then
+            echo "vorhanden=nein" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Regeln nicht vorab geprüft"
+              echo
+              echo "Das Secret \`FIREBASE_SERVICE_ACCOUNT_PRUEFUNG\` ist nicht hinterlegt."
+              echo "Die Regeln werden deshalb erst beim Merge nach \`main\` von Firebase gegengelesen."
+              echo
+              echo "Das ist ein gültiger Zustand - die Vorabprüfung ist freiwillig."
+              echo "Wie sie sich nachrüsten lässt, steht in \`FIREBASE.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          umask 077
+          printf '%s' "${DIENSTKONTO}" | node scripts/pruefe-dienstkonto.mjs
+          printf '%s' "${DIENSTKONTO}" > "${RUNNER_TEMP}/dienstkonto.json"
+          echo "vorhanden=ja" >> "$GITHUB_OUTPUT"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/dienstkonto.json" >> "$GITHUB_ENV"
+
+      - name: Firebase CLI installieren
+        if: steps.schluessel.outputs.vorhanden == 'ja'
+        run: npm install --global --no-audit --no-fund firebase-tools@15
+
+      - name: Regeln gegenlesen lassen
+        if: steps.schluessel.outputs.vorhanden == 'ja'
+        run: |
+          set -euo pipefail
+          firebase deploy --only firestore:rules \
+            --project "${FIREBASE_PROJEKT}" \
+            --dry-run \
+            --non-interactive
+          {
+            echo "### Regeln geprüft"
+            echo
+            echo "\`firestore.rules\` ist für \`${FIREBASE_PROJEKT}\` gültig."
+            echo "Veröffentlicht wurde nichts - das passiert erst beim Merge nach \`main\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Veröffentlichen - nur von main
+  # ---------------------------------------------------------------------------
+  # Die Bedingung hier und die Branch-Regel der Umgebung sagen dasselbe, und das
+  # ist Absicht: Die Bedingung sorgt dafür, dass der Job anderswo gar nicht erst
+  # anläuft (sonst bliebe bei jedem Pull Request ein blockierter Job stehen), die
+  # Umgebung dafür, dass er den Schlüssel auch dann nicht bekäme, wenn jemand die
+  # Bedingung entfernt. Das eine ist die Bequemlichkeit, das andere der Schutz.
+  veroeffentlichen:
+    name: Regeln veröffentlichen
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: produktion
+    steps:
+      - name: Repository holen
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Hier ist ein fehlender Schlüssel ein Fehler, kein Hinweis: Ein grüner
+      # Lauf ohne Deploy sähe aus wie ein erfolgreicher, und niemand würde
+      # nachsehen, ob die Regeln wirklich draussen sind.
+      - name: Schlüssel prüfen
+        env:
+          DIENSTKONTO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIENSTKONTO:-}" ]; then
+            echo "::error::In der Umgebung 'produktion' fehlt das Secret FIREBASE_SERVICE_ACCOUNT. Die Regeln wurden NICHT veröffentlicht."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "${DIENSTKONTO}" | node scripts/pruefe-dienstkonto.mjs
+          printf '%s' "${DIENSTKONTO}" > "${RUNNER_TEMP}/dienstkonto.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/dienstkonto.json" >> "$GITHUB_ENV"
+
+      - name: Firebase CLI installieren
+        run: npm install --global --no-audit --no-fund firebase-tools@15
+
+      - name: Regeln veröffentlichen
+        run: |
+          set -euo pipefail
+          firebase deploy --only firestore:rules \
+            --project "${FIREBASE_PROJEKT}" \
+            --non-interactive \
+            --message "${GITHUB_SHA::7} aus ${GITHUB_REF_NAME}"
+          {
+            echo "### Regeln veröffentlicht"
+            echo
+            echo "\`firestore.rules\` gilt ab jetzt in \`${FIREBASE_PROJEKT}\`."
+            echo
+            echo "Stand: \`${GITHUB_SHA::7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
