@@ -869,7 +869,10 @@
     // Überschrift der Seite.
     const kopf = el("header", "mini-kopf");
     const text = el("div");
-    text.append(el("h1", "mini-marke", "Gripszug · Mini-Games"));
+    // Nur "Mini-Games": Die Spiele stammen aus Gripszug, gehören aber nicht
+    // mehr dorthin – eigene Adresse, eigene Datenbank, eigener Adminbereich.
+    // Ein fremder Name im Titel versprach eine App, die es hier nicht gibt.
+    text.append(el("h1", "mini-marke", "Mini-Games"));
     kopf.append(text);
     wirt.append(kopf);
 
