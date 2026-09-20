@@ -1,0 +1,32 @@
+# Prüft bei jedem Pull Request, ob die Dateien zusammenpassen.
+#
+# Ohne Geheimnisse, ohne Browser, ohne Netz: scripts/pruefen.mjs liest nur
+# Dateien. Die Prüfung im Browser (scripts/check-spiele.mjs) braucht
+# Playwright und läuft von Hand – sie dauert länger, als ein Pull Request
+# warten soll.
+
+name: Prüfen
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Die Dateien prüfen
+        run: node scripts/pruefen.mjs
+      - name: Sind die erzeugten Dateien aktuell?
+        run: node scripts/seiten-bauen.mjs --pruefen
+      - name: Lässt sich die Site packen?
+        run: node netlify/build.mjs
