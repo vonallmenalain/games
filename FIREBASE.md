@@ -41,8 +41,22 @@ bei Netlify gibt es hier kein gesperrtes Publishing dazwischen.
 1. **Dienstkonto anlegen.** Google Cloud Console → *IAM & Verwaltung* →
    *Dienstkonten* → *Dienstkonto erstellen*, Projekt `games-a0cd4`.
    Name z. B. `github-regeln`.
-2. **Rolle geben:** `Firebase Rules Admin` (`roles/firebaserules.admin`). Mehr
-   nicht – dieses Konto soll Regeln veröffentlichen und sonst gar nichts.
+2. **Zwei Rollen geben** – beide werden gebraucht:
+   - `Firebase Rules Admin` (`roles/firebaserules.admin`) – die Regeln
+     veröffentlichen.
+   - `Service Usage Consumer` (`roles/serviceusage.serviceUsageConsumer`) –
+     nachsehen dürfen, ob die Firestore-API eingeschaltet ist. Die Firebase
+     CLI tut das vor jedem Deploy, und ohne dieses Recht bricht sie ab,
+     bevor sie überhaupt an die Regeln kommt:
+
+     ```
+     Error: … serviceusage.googleapis.com/v1/projects/games-a0cd4/services/
+     firestore.googleapis.com had HTTP Error: 403,
+     Permission denied to get service [firestore.googleapis.com]
+     ```
+
+   Mehr nicht. Dieses Konto soll Regeln veröffentlichen und sonst gar nichts;
+   die zweite Rolle darf Dienste benutzen, aber keine ein- oder ausschalten.
 3. **Schlüssel herunterladen:** Reiter *Schlüssel* → *Schlüssel hinzufügen* →
    *JSON*.
 4. **GitHub-Umgebung anlegen:** Repository → *Settings* → *Environments* →
@@ -62,10 +76,28 @@ sie anfordert – und nur von den Branches, die in ihrer Regel stehen.
 
 ### Freiwillig
 
-Ein zweites Dienstkonto mit derselben Rolle, hinterlegt als
+Ein zweites Dienstkonto mit denselben beiden Rollen, hinterlegt als
 **Repository**-Secret `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG`, lässt Firebase die
 Regeln schon im Pull Request gegenlesen (`--dry-run`, veröffentlicht nichts).
 Fehlt es, wird der Schritt übersprungen statt zu scheitern.
+
+### Wenn der Deploy scheitert
+
+Der Job bricht laut ab und veröffentlicht nichts – die Datenbank behält die
+Regeln, die sie hatte. Zwei Fälle kommen vor:
+
+- **403 auf `serviceusage`** – die zweite Rolle oben fehlt. Nachtragen, dann
+  den Job in GitHub → Actions neu starten („Re-run failed jobs").
+- **Der Schlüssel ist kein JSON** – `scripts/pruefe-dienstkonto.mjs` sagt es
+  im Protokoll. Meist wurde die Datei base64-kodiert ins Secret gelegt;
+  gebraucht wird der Klartext.
+
+Solange die Regeln nicht draussen sind, gilt, was in Firebase steht. Bei
+einer frisch im Produktionsmodus angelegten Datenbank ist das „alles zu": Die
+Spiele laden, aber jede Bestenliste bleibt leer, und kein Eintrag lässt sich
+schreiben. Wer nicht auf den Workflow warten will, kopiert `firestore.rules`
+einmal von Hand in die Console – der nächste Merge schreibt ohnehin dieselbe
+Fassung.
 
 ## 2. Anmeldung – nur für den Adminbereich
 
