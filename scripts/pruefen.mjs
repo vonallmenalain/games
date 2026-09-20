@@ -169,6 +169,16 @@ pruefe("Der Prüf-Job sieht den Deploy-Schlüssel nicht",
   !/pruefen:[\s\S]*?secrets\.FIREBASE_SERVICE_ACCOUNT\b(?![_A-Z])[\s\S]*?veroeffentlichen:/.test(workflow));
 pruefe("firebase.json zeigt auf firestore.rules", JSON.parse(lies("firebase.json")).firestore.rules === "firestore.rules");
 
+// Netlify bricht den Deploy ab, wenn es im Ergebnis etwas findet, das nach
+// einem Geheimnis aussieht – der Web-API-Schlüssel tut das. Freigegeben wird
+// er in netlify.toml, und zwar genau der, der auch in cloud.js steht. Nach
+// einem Projektwechsel ist das die Stelle, die man vergisst.
+const schluessel = lies("cloud.js").match(/apiKey: "([^"]+)"/)?.[1] || "";
+const netlify = lies("netlify.toml");
+pruefe("cloud.js hat einen Web-API-Schlüssel", schluessel.length > 20);
+pruefe("netlify.toml gibt genau diesen Schlüssel für den Scanner frei",
+  netlify.includes(`SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "${schluessel}"`));
+
 const regeln = lies("firestore.rules");
 pruefe("Die Regeln verlangen eine bestätigte Adresse", regeln.includes("email_verified == true"));
 pruefe("Löschen darf nur der Admin", /allow delete: if istAdmin\(\)/.test(regeln));
