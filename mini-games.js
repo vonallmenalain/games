@@ -60,17 +60,12 @@
   // scripts/seiten-bauen.mjs baut aus dieser Tabelle die Seiten, das Manifest
   // und den Service Worker; scripts/pruefen.mjs hält beides zusammen.
   const SPIELE = [
-    { id: "backpack", seite: "backpack", page: "backpack" },
-    { id: "beachTreasure", seite: "strandschatz", page: "beach" },
     { id: "tileMemory", seite: "kacheln", page: "tiles" },
     { id: "missingItem", seite: "wasfehlt", page: "missing" },
-    { id: "flanker", seite: "schwarmfokus", page: "flanker" },
     { id: "fishPond", seite: "fischteich", page: "pond" },
     { id: "goSignal", seite: "signal", page: "signal" },
-    { id: "cardMatch", seite: "kartenmerker", page: "cardmatch" },
     { id: "leafFlow", seite: "blaetter", page: "leaves" },
     { id: "towerStack", seite: "turmbau", page: "tower" },
-    { id: "twinSpot", seite: "doppelt", page: "twins" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
   ];
 
@@ -258,7 +253,7 @@
   // ist nicht dasselbe wie "nichts eingetragen": Die installierte App startet
   // auch ohne Netz, und Firestore hält hier nichts vor – nur die Dateien
   // liegen im Speicher des Service Workers. Ohne dieses Gedächtnis stünden
-  // beim ersten Start ohne Netz wieder alle zwölf Spiele da, auch die
+  // beim ersten Start ohne Netz wieder alle Spiele da, auch die
   // abgewählten. Im Zweifel gilt lieber die Wahl von gestern als gar keine.
   function gemerkteAuswahl() {
     try {
@@ -506,10 +501,19 @@
   // verweist nicht mehr auf die Kids-App) und ein Fenster, in dem man ein
   // anderes Spiel wählen konnte (zwei Wege zur selben Liste sind einer zu
   // viel – die Karten auf der Startseite können dasselbe).
+  // Der Pfeil sagt, dass es hier hinausgeht, das Wort sagt wohin. Auf einem
+  // Handy hochkant bleibt für das Wort kein Platz: Links steht der
+  // Lautsprecher, rechts der Ton-Schalter, und dazwischen müssen noch der
+  // Neustart und der Zähler stehen. Dort steht deshalb nur der Pfeil – das
+  // Wort liegt in einem eigenen span, damit das Stylesheet es ausblenden
+  // kann (.mini-knopf-wort). Der Knopf behält seinen Namen für alle, die ihn
+  // nicht sehen: title und aria-label bleiben.
   function leiste() {
-    const halle = verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still mini-knopf-zurueck");
+    const halle = el("a", "mini-knopf mini-knopf-still mini-knopf-zurueck");
+    halle.href = uebersichtLink();
     halle.title = "Zurück zur Hall of Fame";
-    halle.prepend(pfeil());
+    halle.setAttribute("aria-label", "Zurück zur Hall of Fame");
+    halle.append(pfeil(), el("span", "mini-knopf-wort", "Hall of Fame"));
     return [halle];
   }
 

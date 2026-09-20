@@ -52,14 +52,11 @@
   // zusammen.
   const SPIELE = [
     // Gedächtnis
-    { id: "backpack", titel: "Rucksack packen", bereich: "gedaechtnis", art: "punkte", key: "lernapp.backpack", einheit: "Punkte" },
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
-    { id: "beachTreasure", titel: "Strand-Schätze", bereich: "gedaechtnis", art: "punkte", key: "lernapp.beachtreasure", einheit: "Schätze" },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
     { id: "missingItem", titel: "Was fehlt?", bereich: "gedaechtnis", art: "punkte", key: "lernapp.wasfehlt", einheit: "Wagen" },
 
     // Konzentration
-    { id: "flanker", titel: "Schwarm-Fokus", bereich: "konzentration", art: "punkte", key: "lernapp.flanker", einheit: "Punkte" },
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
     { id: "fishPond", titel: "Fischteich", bereich: "konzentration", art: "punkte", key: "lernapp.fischteich", einheit: "Fische" },
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
@@ -67,10 +64,8 @@
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
-    { id: "cardMatch", titel: "Karten-Merker", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.cardmatch", einheit: "Punkte" },
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
-    { id: "twinSpot", titel: "Doppelt gleich", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.doppelt", einheit: "Paare" },
 
     // Problemlösen
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die

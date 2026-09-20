@@ -118,16 +118,32 @@
   // ---------------------------------------------------------------------------
   // Das Raster
   // ---------------------------------------------------------------------------
+  // Hochkant wird das Raster gekippt: aus 5 mal 4 werden 4 mal 5. Es sind
+  // dieselben Kacheln in derselben Zahl, nur anders gelegt – und auf einem
+  // hohen Bildschirm passen sie so doppelt so gross hinein. Das Muster ist
+  // eine Auswahl von Feldern, keine Form; es bleibt, was es war.
+  //
+  // Entschieden wird das beim Bauen, nicht bei jeder Drehung: Ein Raster, das
+  // sich mitten in der Runde umlegt, nähme dem Kind das, worauf es sich eben
+  // etwas gemerkt hat.
+  function gelegt(stufe) {
+    const hoch = window.innerHeight > window.innerWidth;
+    return hoch
+      ? { spalten: Math.min(stufe.spalten, stufe.reihen), reihen: Math.max(stufe.spalten, stufe.reihen) }
+      : { spalten: Math.max(stufe.spalten, stufe.reihen), reihen: Math.min(stufe.spalten, stufe.reihen) };
+  }
+
   function buildRaster(stufe) {
     raster.innerHTML = "";
-    raster.style.setProperty("--kk-spalten", stufe.spalten);
-    raster.style.setProperty("--kk-reihen", stufe.reihen);
-    raster.setAttribute("aria-label", `Raster mit ${stufe.spalten} mal ${stufe.reihen} Kacheln`);
-    felder = [...Array(stufe.spalten * stufe.reihen).keys()].map((index) => {
+    const { spalten, reihen } = gelegt(stufe);
+    raster.style.setProperty("--kk-spalten", spalten);
+    raster.style.setProperty("--kk-reihen", reihen);
+    raster.setAttribute("aria-label", `Raster mit ${spalten} mal ${reihen} Kacheln`);
+    felder = [...Array(spalten * reihen).keys()].map((index) => {
       const kachel = shell.el("button", "kk-kachel");
       kachel.type = "button";
-      const spalte = (index % stufe.spalten) + 1;
-      const reihe = Math.floor(index / stufe.spalten) + 1;
+      const spalte = (index % spalten) + 1;
+      const reihe = Math.floor(index / spalten) + 1;
       kachel.setAttribute("aria-label", `Reihe ${reihe}, Spalte ${spalte}`);
       kachel.addEventListener("click", () => tap(index, kachel));
       raster.append(kachel);

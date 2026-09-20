@@ -67,9 +67,9 @@ service cloud.firestore {
     // und die Sammlung füllte sich mit Spielen, die es nicht gibt.
     function miniSpiele() {
       return [
-        "backpack", "beachTreasure", "tileMemory", "missingItem",
-        "flanker", "fishPond", "goSignal",
-        "cardMatch", "leafFlow", "towerStack", "twinSpot",
+        "tileMemory", "missingItem",
+        "fishPond", "goSignal",
+        "leafFlow", "towerStack",
         "numberLine",
       ];
     }

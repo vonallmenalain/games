@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-09-20-03";
+export const FASSUNG = "2026-09-20-04";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -51,19 +51,6 @@ const SAND = "#fdf3e3";
  */
 export const SPIELE = [
   {
-    seite: "backpack", spiel: "backpack", page: "backpack", js: "rucksack.js",
-    titel: "Rucksack packen", buehne: { id: "rs-stage", klasse: "cm-stage rs-stage" },
-    text: "Rucksack packen: merk dir die Reihenfolge und pack sie noch einmal.",
-    baut: "die Gegenstände",
-  },
-  {
-    seite: "strandschatz", spiel: "beachTreasure", page: "beach", js: "strandschatz.js",
-    kunst: ["strand-art.js"],
-    titel: "Strand-Schätze", buehne: { id: "st-stage", klasse: "cm-stage st-stage" },
-    text: "Strand-Schätze: Sammle Schatz um Schatz und merk dir, welche du schon hast.",
-    baut: "der Strand mit den Schätzen",
-  },
-  {
     seite: "kacheln", spiel: "tileMemory", page: "tiles", js: "kacheln.js",
     titel: "Kacheln-Knobeln", buehne: { id: "kk-stage", klasse: "cm-stage kk-stage" },
     text: "Kacheln-Knobeln: Merk dir, welche Kacheln geleuchtet haben, und tippe sie nach.",
@@ -75,12 +62,6 @@ export const SPIELE = [
     titel: "Was fehlt?", buehne: { id: "wf-stage", klasse: "cm-stage wf-stage" },
     text: "Was fehlt? Merk dir die Fracht auf dem Wagen, und sag, welches Stück nach der Plane fehlt.",
     baut: "der Wagen mit der Fracht",
-  },
-  {
-    seite: "schwarmfokus", spiel: "flanker", page: "flanker", js: "schwarmfokus.js",
-    titel: "Schwarm-Fokus", buehne: { id: "sf-stage", klasse: "cm-stage sf-stage" },
-    text: "Schwarm-Fokus: 45 Sekunden lang nur auf den Fisch in der Mitte schauen.",
-    baut: "der Schwarm",
   },
   {
     seite: "fischteich", spiel: "fishPond", page: "pond", js: "fischteich.js",
@@ -95,12 +76,6 @@ export const SPIELE = [
     baut: "das Gleis mit dem Signal",
   },
   {
-    seite: "kartenmerker", spiel: "cardMatch", page: "cardmatch", js: "kartenmerker.js",
-    titel: "Karten-Merker", buehne: { id: "cm-stage", klasse: "cm-stage" },
-    text: "Karten-Merker: 45 Sekunden lang merken und vergleichen – ist die Karte gleich wie die davor?",
-    baut: "die Karte",
-  },
-  {
     seite: "blaetter", spiel: "leafFlow", page: "leaves", js: "blaetter.js",
     titel: "Blätter im Strom", buehne: { id: "bs-stage", klasse: "cm-stage bs-stage" },
     text: "Blätter im Strom: 45 Sekunden lang wischen – orange Blätter wohin sie schwimmen, grüne wohin sie zeigen.",
@@ -111,13 +86,6 @@ export const SPIELE = [
     titel: "Turmbau", buehne: { id: "tb-stage", klasse: "cm-stage tb-stage" },
     text: "Turmbau: ein Block schwingt über dem Turm – tippe im richtigen Moment und stapel so hoch wie du kannst.",
     baut: "die Baustelle",
-  },
-  {
-    seite: "doppelt", spiel: "twinSpot", page: "twins", js: "doppelt.js",
-    kunst: ["strand-art.js"],
-    titel: "Doppelt gleich", buehne: { id: "dg-stage", klasse: "cm-stage dg-stage" },
-    text: "Doppelt gleich: Zwei Karten, ein gemeinsames Bild – finde es so schnell du kannst.",
-    baut: "die beiden Karten",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

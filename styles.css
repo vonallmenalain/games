@@ -447,67 +447,23 @@ h2 {
   to { transform: translate3d(-15vw, 0, 0); }
 }
 
-.rotate-hint { display: none; }
-
-@media (orientation: portrait) and (pointer: coarse) {
-  .rotate-hint {
-    position: fixed;
-    inset: 0;
-    z-index: 300;
-    display: grid;
-    place-items: center;
-    background: #243047;
-    padding: 10vw;
-  }
-
-  .rotate-hint svg {
-    width: min(58vw, 320px);
-    height: auto;
-    overflow: visible;
-  }
-
-  .rotate-hint-device {
-    fill: none;
-    stroke: #ffffff;
-    stroke-width: 5;
-    transform-origin: 60px 39px;
-    animation: rotate-hint-turn 3s ease-in-out infinite;
-  }
-  .rotate-hint-dot {
-    fill: #ffffff;
-    transform-origin: 60px 39px;
-    animation: rotate-hint-turn 3s ease-in-out infinite;
-  }
-  .rotate-hint-arrow { fill: none; stroke: #6c5ce7; stroke-width: 6; stroke-linecap: round; }
-  .rotate-hint-tip { fill: #6c5ce7; }
-
-  /* Hinter dem Hinweis muss nichts laufen: die Bühne pausiert, damit das
-     Gerät nicht sinnlos animiert, was niemand sieht. Die Selektoren sind so
-     genau wie die weiter oben, die Landschaft und Räder in Gang setzen –
-     sonst gewönnen jene und es liefe weiter. */
-  .scene-bird { animation-play-state: paused; }
-}
-
-@keyframes rotate-hint-turn {
-  0%, 20% { transform: rotate(0deg); }
-  55%, 80% { transform: rotate(-90deg); }
-  100% { transform: rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
 .scene-strip,
 .scene-bird { animation: none; }
-  .rotate-hint-device, .rotate-hint-dot { animation: none; transform: rotate(-90deg); }
 }
 
 /* ===========================================================================
-   Karten-Merker
+   Die Bühne
    ---------------------------------------------------------------------------
-   Ein Spiel auf Zeit, auf derselben Landschaft wie das Startbild. Deshalb hat
-   es keine Kachelhülle: kein Kasten, kein Kartenrahmen, nichts, was zwischen
-   dem Kind und dem einen Bild in der Mitte steht.
+   Was jedes Spiel hat: die Fläche selbst, die Leiste oben, der Zähler, die
+   Uhr, das Startbild und die Ergebnistafel. Keine Kachelhülle – kein Kasten,
+   kein Rahmen, nichts, was zwischen dem Kind und dem Spiel steht.
 
-   Die Farbe ist die des Bereichs Geschwindigkeit, dem das Spiel gehört.
+   Die Klassen heissen cm-, weil hier einmal Karten-Merker stand; das Spiel
+   ist ausgezogen, die Bühne geblieben. Die Farbe setzt jedes Spiel selbst
+   über --cm-accent.
    =========================================================================== */
 
 .cm-stage {
@@ -650,74 +606,6 @@ h2 {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
-.cm-card-host { display: grid; place-items: center; }
-
-/* Ohne Rahmen und ohne Kasten: nur das Bild. Ein Rand wäre eine zweite Form
-   neben der, auf die es ankommt. */
-.cm-card {
-  --card-color: #8338ec;
-  display: grid;
-  place-items: center;
-  width: clamp(130px, 28vh, 230px);
-  aspect-ratio: 1;
-  border-radius: 28px;
-  background: none;
-  animation: cm-card-in 0.18s ease both;
-}
-.cm-card-symbol {
-  font-size: clamp(4.5rem, 24vh, 10rem);
-  line-height: 1;
-  filter: drop-shadow(0 6px 14px rgba(36, 48, 71, 0.22));
-}
-.cm-card.mini { width: clamp(44px, 7vh, 64px); border-radius: 14px; animation: none; }
-.cm-card.mini .cm-card-symbol { font-size: clamp(1.6rem, 4.4vh, 2.6rem); }
-.cm-card.is-empty .cm-card-symbol { opacity: 0.4; }
-
-@keyframes cm-card-in {
-  from { transform: scale(0.82); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* Rückmeldung: ein grüner Ring für richtig, ein rotes Zittern für falsch.
-   Beides kurz – die Uhr läuft weiter. */
-.cm-card.is-right { animation: cm-right 0.26s ease both; }
-.cm-card.is-wrong { animation: cm-wrong 0.4s ease both; }
-
-@keyframes cm-right {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
-@keyframes cm-wrong {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-10px) rotate(-3deg); }
-  50% { transform: translateX(10px) rotate(3deg); }
-  80% { transform: translateX(-5px); }
-}
-
-.cm-choices {
-  display: flex;
-  gap: clamp(12px, 3vw, 28px);
-}
-
-.cm-choice {
-  min-width: clamp(120px, 24vw, 190px);
-  min-height: clamp(58px, 11vh, 84px);
-  padding: 0 18px;
-  border-radius: 22px;
-  border: 4px solid #fff;
-  font-size: clamp(1.05rem, 2.6vw, 1.5rem);
-  font-weight: 900;
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(36, 48, 71, 0.24);
-  transition: transform 0.12s ease;
-}
-.cm-choice.is-same { background: #3fbf74; }
-.cm-choice.is-other { background: #e2694f; }
-.cm-choice:active { transform: scale(0.95); }
-.cm-choice:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-
 /* --- Start und Ergebnis --- */
 
 .cm-overlay {
@@ -802,470 +690,6 @@ h2 {
 .cm-icon.big svg { width: 32px; height: 32px; }
 
 /* ===========================================================================
-   Rucksack packen
-   ---------------------------------------------------------------------------
-   Zwei Schritte, die verschieden aussehen: beim Aussuchen stehen die
-   Gegenstände auf goldenen Ringen, mit einem "Neu"-Schild über ihnen; beim
-   Packen auf lila Ringen, mit einer Reihe nummerierter Plätze darüber. Der
-   Ring gehört zum Schritt, nicht zur Sache – alle Gegenstände eines Schritts
-   tragen denselben, und so wird er nicht mitgemerkt.
-
-   Unten rechts steht der Rucksack; jeder Gegenstand fliegt sichtbar hinein.
-   Die Farbe ist die des Bereichs Gedächtnis, der Rucksack selbst ist orange
-   wie sein Haus auf dem Startbild.
-   =========================================================================== */
-
-.rs-stage {
-  --cm-accent: #7C5CE6;
-  --cm-accent-dark: #5a41b8;
-  --rs-gold: #f2b134;
-  --rs-gold-dark: #b97a12;
-  --rs-rucksack: clamp(76px, 15vh, 118px);
-}
-
-/* --- Die Zeile über den Gegenständen --- */
-
-/* Ein Schild vor dem Satz: gold mit "Neu" beim Aussuchen, lila mit der Nummer
-   beim Packen. Wer nicht liest, sieht an der Farbe, welcher Schritt läuft. */
-.rs-prompt {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  flex: 0 0 auto;
-}
-
-.rs-chip {
-  display: inline-grid;
-  place-items: center;
-  min-width: 40px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 3px solid #fff;
-  font-size: 1.05rem;
-  font-weight: 950;
-  line-height: 1;
-  color: #fff;
-  text-shadow: none;
-  box-shadow: 0 4px 12px rgba(31, 42, 51, 0.2);
-  white-space: nowrap;
-}
-
-.rs-chip.is-neu { background: var(--rs-gold); color: #4a2f00; }
-.rs-chip.is-packen { background: var(--cm-accent); }
-
-/* --- Die Plätze beim Packen --- */
-
-/* Eine Reihe Kreise mit Nummern: die gepackten grün mit Haken, der Platz, der
-   dran ist, lila und pulsend, der Rest blass. Bilder stehen keine darin –
-   die sind ja gerade das, was zu merken ist. */
-.rs-plaetze {
-  display: flex;
-  gap: clamp(6px, 1.2vw, 10px);
-  flex: 0 0 auto;
-}
-
-.rs-platz {
-  width: clamp(30px, 5.2vh, 42px);
-  height: clamp(30px, 5.2vh, 42px);
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  background: rgba(255, 255, 255, 0.86);
-  color: #7b8190;
-  font-size: clamp(0.85rem, 2.4vh, 1.1rem);
-  font-weight: 950;
-  line-height: 1;
-  box-shadow: 0 3px 10px rgba(31, 42, 51, 0.16);
-}
-
-.rs-platz.is-drin { background: #3fbf74; color: #fff; }
-.rs-platz.is-dran { background: var(--cm-accent); color: #fff; animation: rs-dran 1s ease-in-out infinite; }
-
-@keyframes rs-dran {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.16); }
-}
-
-/* --- Die Gegenstände --- */
-
-/* Links und rechts bleibt Platz für den Rucksack: die Reihe darf nicht unter
-   ihm liegen.
-
-   Und sie soll eine Reihe bleiben. Wie gross ein Gegenstand sein darf, hängt
-   deshalb nicht an der Fensterbreite allein, sondern daran, was ihm zusteht:
-   die Breite des Felds, geteilt durch die Zahl der Sachen, die nebeneinander
-   stehen (--rs-platz). Vorher wuchs das Bild mit 11vw – auf einem flachen
-   Handy-Bild (700 × 320) waren vier Sachen dann zusammen zwei Pixel breiter
-   als das Feld, die vierte rutschte in eine zweite Reihe, und die stand unter
-   dem unteren Rand: ein Gegenstand, den kein Kind sehen oder antippen kann.
-   Auf "schwer" mit sechs Sachen wäre es noch enger geworden. */
-.rs-feld {
-  --rs-abstand: clamp(10px, 2.6vw, 30px);
-  --rs-breite: min(100vw - 2 * (var(--rs-rucksack) + 36px), 860px);
-  /* Wie viele nebeneinander stehen. rucksack.js schreibt die Zahl als
-     data-anzahl an das Feld; sie ist 1 (ein Gegenstand allein zum Merken), 3,
-     4 oder 6 (die Stufen leicht, mittel, schwer). */
-  --rs-n: 4;
-  --rs-platz: calc((var(--rs-breite) - (var(--rs-n) - 1) * var(--rs-abstand)) / var(--rs-n));
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--rs-abstand);
-  width: var(--rs-breite);
-}
-
-.rs-feld[data-anzahl="1"] { --rs-n: 1; }
-.rs-feld[data-anzahl="2"] { --rs-n: 2; }
-.rs-feld[data-anzahl="3"] { --rs-n: 3; }
-.rs-feld[data-anzahl="5"] { --rs-n: 5; }
-.rs-feld[data-anzahl="6"] { --rs-n: 6; }
-
-.rs-item {
-  --rs-polster: clamp(6px, 1.4vh, 12px);
-  display: grid;
-  place-items: center;
-  /* Mehr als seinen Platz nimmt keiner ein – auch dann nicht, wenn ein
-     Zeichen einmal breiter aufträgt als gerechnet. Dann ragt das Bild über
-     seinen Ring hinaus; die Reihe bricht trotzdem nicht um. */
-  max-width: var(--rs-platz);
-  padding: var(--rs-polster);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: transform 0.12s ease;
-  animation: rs-in 0.18s ease both;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.rs-item-bild {
-  /* 1,3 ist etwas mehr, als ein Emoji in dieser Schrift breit aufträgt
-     (gemessen: 1,25 mal die Schriftgrösse). Der Rest ist Luft. Nach oben
-     begrenzen die Fensterhöhe und 5,4rem – so bleibt auf dem Tablet alles so
-     gross wie bisher.
-
-     Die 2rem nach unten sind für den Notfall: ein Fenster, das so schmal ist,
-     dass rechnerisch nichts mehr übrig bleibt (ein hohes, schmales Fenster am
-     Rechner etwa). Dann bricht die Reihe um wie früher, statt auf null zu
-     schrumpfen. Auf keinem Handy und keinem Tablet greift diese Grenze. */
-  font-size: min(max(calc((var(--rs-platz) - 2 * var(--rs-polster)) / 1.3), 2rem), 30vh, 5.4rem);
-  line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(31, 42, 51, 0.24));
-}
-
-/* Hochkant liegt der Platz unten, nicht an der Seite: Der Rucksack steht in
-   der unteren Ecke, die Reihe schwebt weit darüber – sie muss ihm also nicht
-   ausweichen. Ohne diese Ausnahme blieben auf einem 390 px breiten Handy
-   82 px für das ganze Feld. Und statt sechs winziger Sachen nebeneinander
-   stehen auf einem schmalen Bild zwei Reihen zu dritt: nach unten ist Luft. */
-@media (orientation: portrait) {
-  .rs-feld { --rs-breite: min(100vw - 24px, 860px); }
-  /* Dafür steht der Rucksack hochkant unter der Reihe statt neben ihr: Unten
-     bleibt sein Platz frei, alles darüber rückt nach. Sonst stiege die letzte
-     Reihe ihm auf einem kurzen Hochkant-Bild (360 × 640) auf den Kopf. */
-  .rs-stage .cm-play { padding-bottom: calc(var(--rs-rucksack) + 16px); }
-}
-
-@media (orientation: portrait) and (max-width: 520px) {
-  .rs-feld[data-anzahl="4"] { --rs-n: 2; }
-  .rs-feld[data-anzahl="5"] { --rs-n: 3; }
-  .rs-feld[data-anzahl="6"] { --rs-n: 3; }
-}
-
-/* Der eine Gegenstand, den es sich zu merken gilt, steht gross und allein da.
-   Auch er darf nicht unter den Rand geraten: auf einem flachen Bild
-   entscheidet die Höhe, nicht die Breite. */
-.rs-feld[data-anzahl="1"] .rs-item-bild { font-size: clamp(3rem, min(18vw, 34vh), 8rem); }
-.rs-item:active { transform: scale(0.9); }
-.rs-item:focus-visible { outline: 3px solid #243047; outline-offset: 6px; }
-
-/* Der Ring hinter dem Bild: gold beim Aussuchen, lila beim Packen. */
-.rs-stage[data-rs-phase="waehlen"] .rs-item,
-.rs-stage[data-rs-phase="merken"] .rs-item {
-  background: rgba(255, 244, 214, 0.92);
-  box-shadow: 0 0 0 4px var(--rs-gold), 0 8px 18px rgba(31, 42, 51, 0.18);
-}
-
-.rs-stage[data-rs-phase="packen"] .rs-item {
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 0 4px var(--cm-accent), 0 8px 18px rgba(31, 42, 51, 0.18);
-}
-
-@keyframes rs-in {
-  from { opacity: 0; transform: scale(0.7); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Richtig: der Gegenstand hüpft und ist weg – sein Bild fliegt derweil in den
-   Rucksack. Falsch: ein kurzes Kopfschütteln, dann ist die Runde vorbei.
-   Ausgesucht: dasselbe Hüpfen, das Bild kommt gleich allein gross wieder. */
-.rs-item.is-right,
-.rs-item.is-gewaehlt { animation: rs-pack 0.32s ease both; }
-@keyframes rs-pack {
-  0% { transform: scale(1); opacity: 1; }
-  40% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.6); opacity: 0; }
-}
-
-.rs-item.is-weg { visibility: hidden; }
-
-.rs-item.is-wrong { animation: rs-nope 0.4s ease both; }
-@keyframes rs-nope {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-10px) rotate(-7deg); }
-  60% { transform: translateX(10px) rotate(7deg); }
-}
-
-/* --- Der Flug in den Rucksack --- */
-
-/* Eine Kopie des Bildes, die von ihrem Platz aus in einem Bogen zum Rucksack
-   fliegt und dort kleiner wird. --dx und --dy setzt rucksack.js aus den
-   gemessenen Stellen. */
-.rs-flug {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 9;
-  line-height: 1;
-  pointer-events: none;
-  filter: drop-shadow(0 4px 8px rgba(31, 42, 51, 0.24));
-  animation: rs-flug var(--flug, 520ms) cubic-bezier(0.35, 0, 0.25, 1) both;
-}
-
-@keyframes rs-flug {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  30% { transform: translate(calc(-50% + var(--dx) * 0.25), calc(-50% + var(--dy) * 0.15 - 40px)) scale(1.08); opacity: 1; }
-  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.22); opacity: 0.1; }
-}
-
-/* --- Der Rucksack --- */
-
-.rs-rucksack {
-  position: absolute;
-  right: calc(var(--safe-right) + 18px);
-  bottom: 6px;
-  z-index: 4;
-  width: var(--rs-rucksack);
-  filter: drop-shadow(0 8px 14px rgba(31, 42, 51, 0.3));
-  transform-origin: 50% 90%;
-}
-
-.rs-rucksack-art { display: block; width: 100%; height: auto; }
-.rs-rucksack-bild { display: block; font-size: clamp(3rem, 12vh, 5rem); line-height: 1; text-align: center; }
-
-/* Die Zahl auf dem Rucksack: wie viele Sachen gerade drin sind. */
-.rs-rucksack-zahl {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  min-width: 36px;
-  height: 36px;
-  padding: 0 8px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 3px solid var(--cm-accent);
-  background: #fff;
-  color: var(--cm-accent-dark);
-  font-size: 1.1rem;
-  font-weight: 950;
-  line-height: 1;
-  box-shadow: 0 4px 10px rgba(31, 42, 51, 0.2);
-}
-
-/* Etwas fällt hinein: der Rucksack hüpft. Ausgeleert: er kippt einmal. */
-.rs-rucksack.is-bump { animation: rs-bump 0.42s ease both; }
-@keyframes rs-bump {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.14) translateY(-8px); }
-  70% { transform: scale(0.96); }
-  100% { transform: scale(1); }
-}
-
-.rs-rucksack.is-leer { animation: rs-leer 0.55s ease both; }
-@keyframes rs-leer {
-  0% { transform: rotate(0); }
-  30% { transform: rotate(-16deg) translateY(-8px); }
-  60% { transform: rotate(10deg); }
-  100% { transform: rotate(0); }
-}
-
-@media (max-height: 540px) {
-  .rs-stage { --rs-rucksack: 72px; }
-  .rs-chip { min-width: 34px; height: 34px; font-size: 0.95rem; }
-  .rs-rucksack-zahl { min-width: 30px; height: 30px; font-size: 0.95rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rs-item { transition: none; }
-  .rs-item, .rs-item.is-right, .rs-item.is-gewaehlt, .rs-item.is-wrong, .rs-flug,
-  .rs-rucksack.is-bump, .rs-rucksack.is-leer, .rs-platz.is-dran { animation: none; }
-}
-
-/* ===========================================================================
-   Schwarm-Fokus
-   ---------------------------------------------------------------------------
-   Dieselbe Bühne wie der Karten-Merker: die Landschaft der Startseite, oben
-   die Leiste, unten die beiden Knöpfe. Die Farbe ist die des Bereichs
-   Konzentration.
-
-   Der Schwarm steht frei auf der Landschaft, ohne Kasten darum. Ein Rahmen
-   wäre eine zweite Form neben den fünf Fischen, auf die es ankommt.
-   =========================================================================== */
-
-.sf-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
-
-.sf-swarm {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(4px, 1.4vw, 14px);
-  width: min(94vw, 900px);
-}
-
-.sf-slot { flex: 1 1 0; max-width: 150px; }
-
-/* Der mittlere Fisch ist grösser: nur dann trägt die Aufgabe: "schau in die
-   Mitte" auch für ein Kind, das die Reihe nur überfliegt. */
-.sf-slot.is-target { transform: scale(1.28); z-index: 1; }
-
-.sf-fish { width: 100%; height: auto; display: block; }
-.sf-fish.is-target { filter: drop-shadow(0 4px 10px rgba(120, 70, 0, 0.3)); }
-
-/* Kurze Rückmeldung am ganzen Schwarm statt an einem Knopf: der Blick liegt
-   auf den Fischen, dort muss die Antwort ankommen. */
-.sf-swarm.is-right { animation: sf-yes 0.3s ease both; }
-.sf-swarm.is-wrong { animation: sf-no 0.4s ease both; }
-@keyframes sf-yes {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.06); }
-  100% { transform: scale(1); }
-}
-@keyframes sf-no {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-12px); }
-  60% { transform: translateX(12px); }
-}
-
-.sf-keys {
-  display: flex;
-  gap: clamp(12px, 3vw, 26px);
-  width: min(420px, 90vw);
-}
-
-.sf-key {
-  flex: 1 1 0;
-  height: clamp(64px, 12vh, 92px);
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 24px;
-  background: var(--cm-accent);
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.24);
-  transition: transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sf-key svg { width: 40%; max-width: 44px; height: auto; }
-.sf-key:active { transform: scale(0.95); }
-.sf-key:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .sf-swarm.is-right, .sf-swarm.is-wrong { animation: none; }
-  .sf-key { transition: none; }
-}
-
-/* ===========================================================================
-   Strand-Schätze
-   ---------------------------------------------------------------------------
-   Dieselbe Bühne wie der Karten-Merker, nur ohne Uhr: hier zählt nicht die
-   Zeit, sondern wie viele Schätze man auseinanderhalten kann. Die Farbe ist
-   die des Bereichs Gedächtnis.
-
-   Der Strand nimmt allen Platz, den die Fläche hergibt – bei zwanzig Schätzen
-   zählt jeder Pixel. Die Plätze rechnet strandschatz.js aus, hier steht nur,
-   wie ein Schatz aussieht und was beim Antippen passiert.
-   =========================================================================== */
-
-.st-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
-
-.st-prompt { flex: 0 0 auto; }
-
-.st-beach {
-  position: relative;
-  flex: 1 1 auto;
-  width: min(96vw, 1100px);
-  min-height: 0;
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
-}
-
-.st-beach-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* Ein Schatz liegt im Sand: kein Kasten, kein Rand, nur die Figur. Die Grösse
-   und der Platz kommen aus dem Stil-Attribut, das strandschatz.js setzt. */
-.st-item {
-  position: absolute;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: transform 0.12s ease;
-  animation: st-drop 0.22s ease both;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.st-item svg { width: 100%; height: 100%; display: block; }
-.st-item:active { transform: scale(0.92); }
-.st-item:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-.st-item:disabled { cursor: default; }
-
-@keyframes st-drop {
-  from { opacity: 0; transform: scale(0.6); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Richtig: der Schatz hüpft einmal und wandert in die Kiste. */
-.st-item.is-right { animation: st-take 0.44s ease both; }
-@keyframes st-take {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.25); }
-  100% { transform: scale(0.2); opacity: 0; }
-}
-
-/* Schon gehabt: ein kurzes Kopfschütteln, dazu ein roter Ring – so ist zu
-   sehen, welcher Schatz die Runde beendet hat. */
-.st-item.is-wrong {
-  animation: st-shake 0.42s ease both;
-  box-shadow: 0 0 0 4px #e2694f, 0 0 0 9px rgba(226, 105, 79, 0.3);
-}
-@keyframes st-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-7px) rotate(-6deg); }
-  50% { transform: translateX(7px) rotate(6deg); }
-  80% { transform: translateX(-4px) rotate(-3deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .st-item, .st-item.is-right, .st-item.is-wrong { animation: none; }
-  .st-item.is-right { opacity: 0; }
-  .st-item { transition: none; }
-}
-
-/* ===========================================================================
    Kacheln-Knobeln
    ---------------------------------------------------------------------------
    Dieselbe Bühne wie die Strand-Schätze, nur mit einem Raster darauf. Das
@@ -1283,9 +707,15 @@ h2 {
   grid-template-columns: repeat(var(--kk-spalten, 4), 1fr);
   grid-template-rows: repeat(var(--kk-reihen, 3), 1fr);
   gap: clamp(5px, 1.1vh, 12px);
-  /* Erst die Höhe füllen, dann die Breite darauf abstimmen: sonst rutscht das
-     Raster auf einem flachen Bildschirm unten heraus. */
-  height: min(100%, 74vh);
+  /* Das Raster behält sein Seitenverhältnis – sonst sind die Kacheln keine
+     Kacheln mehr, sondern Streifen.
+     Drei Grenzen für die Höhe, und die kleinste gilt: der Platz in der
+     Spielfläche (100 %, den der Flexkasten nach dem Satz darüber noch übrig
+     lässt), ein Anteil des Bildschirms – und, das ist die neue, die Höhe, die
+     zur breitest möglichen Breite gehört. Ohne die dritte zog auf einem Handy
+     hochkant die Breite die Grenze, die Höhe blieb stehen, und aus 4 zu 3
+     wurde 4 zu 7: vier schmale Streifen statt vier Kacheln. */
+  height: min(100%, 74vh, min(94vw, 900px) * var(--kk-reihen, 3) / var(--kk-spalten, 4));
   aspect-ratio: var(--kk-spalten, 4) / var(--kk-reihen, 3);
   max-width: min(94vw, 900px);
   padding: clamp(8px, 1.6vh, 16px);
@@ -1854,7 +1284,7 @@ h2 {
      verdeckte die Lok sie genau dann, wenn es darauf ankam: beim Zielen. Unten
      bleiben sie frei, und der Strich der Lok reicht bis zu ihnen hinunter, so
      dass beides nebeneinander zu sehen ist. */
-  --zg-band: clamp(26px, 5.5vh, 38px);
+  --zg-band: clamp(54px, 10vh, 78px);
   --zg-strich: clamp(10px, 2.2vh, 16px);
   position: relative;
   flex: 0 0 auto;
@@ -1866,7 +1296,11 @@ h2 {
 }
 .zg-gleis:focus-visible .zg-schiene { box-shadow: 0 0 0 3px #243047; }
 
-/* Zwei Schienen auf Schwellen, über dem Messband. */
+/* Zwei Schienen über dem Messband – und keine Schwellen.
+   Schwellen lagen in gleichem Abstand über die ganze Strecke, und was in
+   gleichem Abstand liegt, lässt sich abzählen: ein Lineal, das niemand
+   bestellt hat. Auf einem Gleis, auf dem die Mitte geschätzt werden soll,
+   ist das die halbe Antwort. Geblieben ist der Schotter als Fläche. */
 .zg-schiene {
   position: absolute;
   left: 0;
@@ -1877,14 +1311,14 @@ h2 {
   background:
     linear-gradient(#8a5f1c, #8a5f1c) 0 2px / 100% 3px no-repeat,
     linear-gradient(#8a5f1c, #8a5f1c) 0 11px / 100% 3px no-repeat,
-    repeating-linear-gradient(90deg, transparent 0 14px, #c98a3f 14px 22px);
+    linear-gradient(#c98a3f, #c98a3f);
 }
 
 /* Eine Marke ist nur eine Stelle auf dem Gleis: der Strich hängt unter der
    Schiene, seine Zahl darunter, und an den Enden steht der Bahnhof oben auf
    der Schiene. Die Marke selbst ist ohne Breite – ihre linke Kante ist die
    Stelle, und genau daran misst zahlengleis.js die Strecke nach. */
-.zg-marken { position: absolute; inset: 0; pointer-events: none; }
+.zg-marken { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .zg-marke {
   position: absolute;
   top: 0;
@@ -1893,10 +1327,9 @@ h2 {
   width: 0;
 }
 
-/* Der Strich: hängt an der Unterkante der Schiene und zeigt nach unten. Er ist
-   breiter als der Strich der Lok, damit er auch dann links und rechts
-   hervorschaut, wenn dieser genau darauf liegt – daran sieht ein Kind, dass es
-   wirklich mittig steht und nicht bloss irgendwo darüber. */
+/* Der Strich unter dem Bahnhof: hängt an der Unterkante der Schiene und zeigt
+   nach unten. Er steht nur an den beiden Enden – dazwischen ist die Schiene
+   leer. */
 .zg-marke-strich {
   position: absolute;
   left: 50%;
@@ -1909,30 +1342,19 @@ h2 {
 }
 .zg-marke.is-bahnhof .zg-marke-strich { background: #8a3a2c; }
 
-/* Die Zahl steht unter ihrem Strich, im Gras – nur auf dem ersten Gleis, wo
-   gezählt statt geschätzt wird. */
-.zg-marke-zahl {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  color: #243047;
-  font-weight: 900;
-  font-size: clamp(0.8rem, 2.6vh, 1.15rem);
-  line-height: 1;
-  white-space: nowrap;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 0 4px rgba(255, 255, 255, 0.9);
-}
-
 /* Der Bahnhof steht oben auf der Schiene, mit seiner Zahl im Giebel. */
+/* Die beiden Bahnhöfe stehen UNTER der Schiene, neben ihrem Strich – nicht
+   darüber. Oben stand der bei 0 unter der Lok, die dort jedes Mal parkt: Das
+   Haus war entweder verdeckt oder schwebte über dem Zug. Unten ist das
+   Messband, dort steht sonst nichts, und beide Zahlen sind immer zu lesen. */
 .zg-bahnhof {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--zg-band) + 12px);
+  bottom: 1px;
   transform: translateX(-50%);
   display: grid;
   place-items: center;
-  width: clamp(38px, 8vh, 54px);
+  width: clamp(46px, 9vh, 62px);
   color: #243047;
   font-weight: 900;
   font-size: clamp(0.9rem, 3vh, 1.25rem);
@@ -1940,9 +1362,11 @@ h2 {
   white-space: nowrap;
 }
 .zg-bahnhof svg { width: 100%; height: auto; display: block; }
+/* Die Zahl steht mitten im Haus, nicht im Giebel: Oben läuft das Dach
+   zusammen, und eine dreistellige Zahl stiess dort an die Schräge. */
 .zg-bahnhof-zahl {
   position: absolute;
-  top: 38%;
+  top: 62%;
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: clamp(0.85rem, 2.8vh, 1.15rem);
@@ -2060,37 +1484,8 @@ h2 {
   100% { transform: translate(-50%, 0); opacity: 1; }
 }
 
-/* Die Stufenwahl: vier Knöpfe mit der grössten Zahl der Stufe und einem
-   kleinen Gleis darunter, das nach rechts immer weniger Striche trägt. */
-.zg-stufen { display: flex; gap: clamp(10px, 2.4vw, 22px); flex: 0 0 auto; }
-.zg-stufe {
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  min-width: clamp(64px, 14vw, 110px);
-  padding: clamp(10px, 2.2vh, 18px) clamp(8px, 1.6vw, 16px);
-  border: 3px solid #fff;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
-  transition: transform 0.12s ease, background 0.16s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.zg-stufe:hover { background: #fff; }
-.zg-stufe:active { transform: scale(0.95); }
-.zg-stufe:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-.zg-stufe-zahl {
-  font-size: clamp(1.6rem, 6.5vh, 2.6rem);
-  font-weight: 900;
-  line-height: 1.1;
-  color: #243047;
-  font-variant-numeric: tabular-nums;
-}
-.zg-stufe-gleis { display: block; width: clamp(56px, 11vw, 84px); height: auto; }
-
 /* Dreistellige Bahnhofszahlen brauchen eine kleinere Schrift. */
-.zg-bahnhof-zahl.is-lang { font-size: clamp(0.7rem, 2.3vh, 0.95rem); }
+.zg-bahnhof-zahl.is-lang { font-size: clamp(0.68rem, 2.2vh, 0.92rem); }
 
 @media (prefers-reduced-motion: reduce) {
   .zg-lok { transition: none; }
@@ -2370,147 +1765,6 @@ h2 {
 }
 
 /* ===========================================================================
-   Doppelt gleich
-   ---------------------------------------------------------------------------
-   Dieselbe Bühne wie Schwarm-Fokus, in der Farbe des Bereichs
-   Geschwindigkeit. Zwei runde Karten nebeneinander, so gross, wie die Höhe
-   hergibt; jedes Bild sitzt an einem Anteil --dg-x/--dg-y der Karte, gedreht
-   um --dg-drehung und --dg-groesse Kartenbreiten gross – doppelt.js würfelt
-   die Werte, hier steht nur, wie sie wirken.
-   =========================================================================== */
-
-.dg-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
-
-.dg-karten {
-  display: flex;
-  gap: clamp(14px, 4vw, 48px);
-  flex: 0 0 auto;
-  justify-content: center;
-}
-
-.dg-karte {
-  --dg-karte: clamp(150px, 56vh, 320px);
-  position: relative;
-  width: var(--dg-karte);
-  height: var(--dg-karte);
-  border-radius: 50%;
-  background: #fff8ea;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 5px var(--cm-accent);
-  animation: dg-karte 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) both;
-}
-.dg-karte.is-b { animation-delay: 0.05s; }
-/* Vor dem Start liegt unter den Karten noch der Startknopf: dann sind sie
-   kleiner, sonst rutscht er auf dem Handy unter den Rand. */
-.dg-stage[data-phase="intro"] .dg-karte { --dg-karte: clamp(110px, 38vh, 240px); }
-@keyframes dg-karte {
-  0% { transform: scale(0.7); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Ein Bild: Mitte an --dg-x/--dg-y, in eigener Grösse. Gedreht wird das Bild
-   im Knopf, nicht der Knopf: so bleibt die Tippfläche ein gerades Quadrat, und
-   die Prüfung auf dem Handy kann nachmessen, dass sich keine zwei berühren. */
-.dg-bild {
-  position: absolute;
-  left: calc(var(--dg-x, 0.5) * 100%);
-  top: calc(var(--dg-y, 0.5) * 100%);
-  width: calc(var(--dg-groesse, 0.3) * var(--dg-karte));
-  height: calc(var(--dg-groesse, 0.3) * var(--dg-karte));
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.dg-bild .st-art { display: block; width: 100%; height: 100%; transform: rotate(var(--dg-drehung, 0deg)); }
-.dg-bild:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
-.dg-bild:active { transform: translate(-50%, -50%) scale(0.92); }
-
-/* Gefunden: beide Zwillinge bekommen einen grünen Ring und hüpfen. */
-.dg-bild.is-richtig {
-  background: rgba(47, 158, 68, 0.18);
-  box-shadow: 0 0 0 4px #2f9e44;
-  animation: dg-richtig 0.3s ease both;
-}
-@keyframes dg-richtig {
-  0% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.22); }
-  100% { transform: translate(-50%, -50%) scale(1); }
-}
-
-/* Daneben: ein roter Ring, und das Bild wackelt einmal. */
-.dg-bild.is-daneben {
-  box-shadow: 0 0 0 4px #e2694f;
-  animation: dg-daneben 0.4s ease both;
-}
-@keyframes dg-daneben {
-  0%, 100% { transform: translate(-50%, -50%); }
-  25% { transform: translate(calc(-50% - 6px), -50%); }
-  75% { transform: translate(calc(-50% + 6px), -50%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dg-karte, .dg-bild.is-richtig, .dg-bild.is-daneben { animation: none; }
-}
-
-/* --- Die Bühne der Spiele: Titel, Ergebnis, Tier-Sprung-Karte --- */
-
-/* Der Titel steht in der Leiste zwischen den Knöpfen und dem Zähler, nicht
-   mehr frei über der Bildmitte: dort lief er auf dem Handy über den dritten
-   Knopf. Wird es eng, wird er abgeschnitten – lieber drei Punkte als ein
-   Knopf, der nicht mehr zu treffen ist. */
-@media (max-width: 1100px) {
-  .cm-title {
-    position: static;
-    transform: none;
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: center;
-    font-size: clamp(0.95rem, 2.2vw, 1.4rem);
-  }
-}
-
-/* Auf einem flachen Bildschirm liegt die Ergebnistafel quer: links Punkte,
-   Satz und Knöpfe, rechts die Bestenliste. Untereinander brauchte sie mehr
-   Höhe, als da ist, und bekam einen Rollbalken – die Knöpfe lagen dann unten
-   ausserhalb, und ein Kind musste erst wischen, um weiterzukommen. */
-@media (max-height: 600px) {
-  .cm-overlay {
-    padding: calc(var(--safe-top) + 72px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 12px);
-  }
-
-  .cm-panel {
-    width: min(660px, 100%);
-    padding: 10px 18px 12px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "label liste"
-      "wert liste"
-      "detail liste"
-      "note liste"
-      "knoepfe liste";
-    column-gap: 20px;
-    row-gap: clamp(2px, 1.2vh, 6px);
-    align-items: center;
-    align-content: center;
-    justify-items: center;
-    overflow: hidden;
-  }
-
-  .cm-result-label { grid-area: label; font-size: 0.85rem; }
-  .cm-result-score { grid-area: wert; font-size: clamp(2.2rem, 13vh, 3.6rem); }
-  .cm-result-detail { grid-area: detail; font-size: 0.95rem; }
-  .cm-actions { grid-area: knoepfe; margin-top: 2px; }
-  .cm-icon.big { width: 56px; height: 56px; }
-  .cm-icon.big svg { width: 28px; height: 28px; }
-}
-
-/* ===========================================================================
    Mini-Games
    ---------------------------------------------------------------------------
    Alles, was es in der App nicht gibt: die Knöpfe oben links, das Fenster mit
@@ -2535,29 +1789,54 @@ h2 {
 /* Die Leiste endet vor dem Ton-Schalter. */
 .cm-bar { right: calc(var(--safe-right) + 76px); }
 
-/* Drei Wortknöpfe nebeneinander brauchen Platz, den ein hochkant gehaltenes
-   Handy nicht hat. Statt umzubrechen – eine zweite Zeile läge über der
-   Spielfläche – werden sie mit dem Bild kleiner: erst die Innenabstände, dann
-   die Schrift. Ab 560 px stehen sie wieder in voller Grösse da. */
-/* Passt es trotzdem nicht – ein schmales Fenster am Rechner, wo kein
-   Dreh-Hinweis kommt –, rutschen die Knöpfe in eine zweite Zeile, statt
-   einander und den Zähler zu überdecken. Auf dem Handy quer, wie diese Spiele
-   gespielt werden, passiert das nie. */
-.cm-bar { flex-wrap: wrap; row-gap: 6px; }
-.cm-bar-left { gap: clamp(4px, 1vw, 10px); min-width: 0; }
+/* Die Leiste bleibt auf einer Zeile – immer.
+   Zwischen dem Lautsprecher links und dem Ton-Schalter rechts bleiben auf
+   einem Handy hochkant gut 200 Pixel, und darin müssen der Weg zurück, der
+   Neustart und der Zähler stehen. Eine zweite Zeile wäre die bequeme
+   Antwort, aber sie legte sich über die Spielfläche und über den Satz, der
+   dort steht – genau dort, wo das Spiel anfängt.
+
+   Also weicht das Wort und nicht die Zeile: Der Pfeil bleibt, "Hall of Fame"
+   geht, und der Knopf behält seinen Namen für den Lautsprecher und die
+   Sprachausgabe (title, aria-label in mini-games.js, leiste()). Ab 560 px
+   steht das Wort wieder da. */
+.cm-bar { flex-wrap: nowrap; }
+.cm-bar-left { gap: clamp(4px, 1vw, 10px); min-width: 0; align-items: center; }
 .cm-bar-left .mini-knopf {
-  min-height: clamp(34px, 8vw, 44px);
+  min-height: clamp(40px, 8vw, 44px);
   padding: 0 clamp(7px, 1.7vw, 18px);
   font-size: clamp(0.62rem, 1.75vw, 0.95rem);
   border-width: clamp(2px, 0.6vw, 3px);
 }
-.cm-bar-left .cm-icon {
-  width: clamp(32px, 7.5vw, 48px);
-  height: clamp(32px, 7.5vw, 48px);
+/* Schmal: nur der Pfeil. Der Knopf wird rund wie die anderen, damit er nicht
+   als angeschnittenes Wort dasteht. */
+.mini-knopf-wort { display: none; }
+.cm-bar-left .mini-knopf-zurueck { gap: 0; padding: 0; width: clamp(40px, 8vw, 44px); justify-content: center; }
+.mini-knopf-zurueck .mini-pfeil { width: clamp(18px, 4.6vw, 24px); height: auto; }
+@media (min-width: 560px) {
+  .mini-knopf-wort { display: inline; }
+  .cm-bar-left .mini-knopf-zurueck {
+    gap: 6px;
+    width: auto;
+    padding: 0 clamp(7px, 1.7vw, 18px);
+    padding-left: clamp(8px, 2vw, 14px);
+  }
 }
-.cm-bar-left .cm-icon svg { width: clamp(16px, 4vw, 24px); height: auto; }
+/* Die Knöpfe bleiben rund: Ohne das zöge die Zeilenhöhe der Leiste sie in die
+   Länge, und aus dem Kreis würde ein Ei. */
+.cm-bar-left .cm-icon {
+  flex: 0 0 auto;
+  width: clamp(40px, 7.5vw, 48px);
+  height: clamp(40px, 7.5vw, 48px);
+  /* Jeder Knopf hat 44 Pixel als Mindesthöhe – ein Finger braucht sie. Hier
+     nicht: Der Kreis ist so breit wie hoch, und 44 hoch bei 32 breit wäre
+     kein Kreis mehr, sondern ein Ei. Die Fläche bleibt gross genug, weil
+     daneben nichts steht, was man versehentlich träfe. */
+  min-height: 0;
+}
+.cm-bar-left .cm-icon svg { width: clamp(20px, 4vw, 24px); height: auto; }
 /* Der Zähler behält seinen Platz: Er ist die Zahl, um die es im Spiel geht. */
-.cm-count { flex: 0 0 auto; }
+.cm-count { flex: 0 0 auto; min-width: 0; }
 /* Links bleibt der Platz für den Lautsprecher aus kids.js frei – er steht dort
    fest, und Knöpfe darunter wären unerreichbar. Weichen darf dafür der
    Spieltitel: Die Knöpfe sind das, was man braucht, der Name des Spiels steht

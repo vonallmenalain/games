@@ -69,10 +69,11 @@
   const RICHTUNG = Object.fromEntries(RICHTUNGEN.map((r) => [r.id, r]));
 
   // Wie schnell ein Blatt treibt, in Pixeln je Sekunde. In Pixeln und nicht in
-  // Anteilen des Wassers: die App steht im Querformat, das Wasser ist darum
-  // breit und flach, und ein Anteil seiner Höhe wäre eine ganz andere Strecke
-  // als derselbe Anteil seiner Breite. Eine Welle nach unten sähe gegenüber
-  // einer nach rechts aus wie stehengeblieben.
+  // Anteilen des Wassers: Das Wasser ist nie quadratisch – quer breit und
+  // flach, hochkant schmal und hoch –, und ein Anteil seiner Höhe wäre eine
+  // ganz andere Strecke als derselbe Anteil seiner Breite. Eine Welle nach
+  // unten sähe gegenüber einer nach rechts aus wie stehengeblieben. So treibt
+  // jedes Blatt gleich schnell, egal wohin und egal, wie das Gerät liegt.
   const TEMPO = 185;
   // Wo die drei Blätter quer zur Fahrt liegen, in Anteilen der Breite quer zur
   // Fahrt. Nicht am Rand: dort schnitte das Wasser sie an.
