@@ -12,21 +12,20 @@
  *
  * Die Spiele stammen aus Gripszug (kids.alae.app) – dort sind sie ein Teil
  * von etwas Grösserem: Ein Kind spielt, sein Wagen wächst, die Reise geht
- * weiter. Hier ist das Gegenteil davon. Welche Spiele es gibt, sagt die
- * Tabelle SPIELE weiter unten; sie ist die Liste, und ein neues Spiel
- * kommt hinein, indem jemand eine Zeile schreibt und
- * scripts/seiten-bauen.mjs laufen lässt.
+ * weiter. Hier ist das Gegenteil davon. Welche Spiele es überhaupt
+ * gibt, sagt die Tabelle SPIELE weiter unten. Und welche davon offen sind,
+ * sagt der Adminbereich: Er schreibt die Liste nach config/miniGames, und die
+ * Startseite zeigt genau die. Steht dort nichts, gelten alle.
  *
  * Drei Dinge macht diese Datei:
  *
- *   1. Auf einer Spielseite baut sie die Knöpfe oben links – "Zur App",
- *      "Mini Games", "Hall of Fame" – und den Block unter dem Ergebnis:
- *      Namensfeld, eigener Platz, Bestenliste.
- *   2. Das Fenster "Mini Games": alle Spiele, ihre Ranglisten, und der Weg in
- *      jedes davon.
- *   3. Die Übersicht auf der Startseite: dieselben Spiele als Karten, dazu
- *      die Auswertung über alle Namen – wer den besten Durchschnittsrang hat,
- *      wer wie oft gespielt hat, wer wie viele Spiele oben steht.
+ *   1. Auf einer Spielseite baut sie den Weg zurück oben links und den Block
+ *      unter dem Ergebnis: Namensfeld, eigener Platz, Bestenliste.
+ *   2. Die Hall of Fame auf der Startseite: die Spiele als Karten, dazu die
+ *      Auswertung über alle Namen – wer den besten Durchschnittsrang hat, wer
+ *      wie oft gespielt hat, wer wie viele Spiele oben steht.
+ *   3. Den Hintergrund: Jede Spielseite bekommt eine andere Landschaft, der
+ *      Reihe nach.
  *
  * Der Name gehört dem Gerät, nicht einem Konto: Er steht im localStorage und
  * wird beim nächsten Spiel wieder vorgeschlagen. Dazu eine Kennung (mini_…),
@@ -98,6 +97,8 @@
   // wäre also jede erste Runde ein Rekord, und ein Rekord, den es umsonst
   // gibt, ist keiner.
   const BEST_KEY = "mini.best";
+  // Welche Landschaft zuletzt dran war. Siehe naechsteSzene().
+  const SZENE_KEY = "mini.szene";
   const NAME_MAX = 24;
 
   const cloud = () => window.MiniCloud || null;
@@ -122,12 +123,6 @@
   // über einem Spiel liegt.
   const spielLink = (id) => `/${NACH_ID.get(id)?.seite || ""}`;
   const uebersichtLink = () => "/";
-
-  // Der Weg zur App. Sie liegt woanders – eigene Adresse, eigenes
-  // Repository, eigene Datenbank für alles ausser dieser einen Bestenliste –,
-  // deshalb steht sie hier vollständig da. Für den, der nach einer Runde
-  // mehr will: dort warten alle Spiele, ein Zug, der wächst, und eine Reise.
-  const APP = "https://kids.alae.app/";
 
   // ---------------------------------------------------------------------------
   // Name und Kennung – beides auf dem Gerät
@@ -218,13 +213,55 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Hintergrund
+  // ---------------------------------------------------------------------------
+  // In der App gehört die Landschaft dem Kind: Es spielt sie frei und wählt
+  // sie aus, und dann steht sie hinter jedem Spiel. Hier wählt niemand etwas
+  // aus – also drehen sie sich. Jede Spielseite, die geöffnet wird, nimmt die
+  // nächste: Turmbau vor der Wiese, danach das Signal am Meer, danach der
+  // Fischteich in den Bergen.
+  //
+  // Gezählt wird auf dem Gerät, nicht gewürfelt: Zufall wiederholt sich, und
+  // zweimal dieselbe Landschaft hintereinander sähe aus, als drehe sich nichts.
+  // Ohne localStorage (privates Fenster) bleibt der Zufall als Rückfall – er
+  // ist besser als immer dieselbe.
+  function naechsteSzene() {
+    const szenen = window.LernappScenes?.SCENES;
+    if (!Array.isArray(szenen) || !szenen.length) return null;
+    let naechste = -1;
+    try {
+      const zuletzt = Number(localStorage.getItem(SZENE_KEY));
+      naechste = (Number.isFinite(zuletzt) && zuletzt >= 0 ? zuletzt + 1 : 0) % szenen.length;
+      localStorage.setItem(SZENE_KEY, String(naechste));
+    } catch {
+      naechste = Math.floor(Math.random() * szenen.length);
+    }
+    return szenen[naechste] || szenen[0];
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Spiele, die gerade offen sind
   // ---------------------------------------------------------------------------
-  // Alle, die es gibt. In der App entschied ein Haken im Adminbereich, welche
-  // Spiele als Mini-Game offen sind – hier ist das Repository die Antwort:
-  // Was eine Seite hat, ist dabei. Die Reihenfolge ist die von SPIELE, damit
-  // die Liste überall gleich aussieht.
+  // Alle, die es gibt – die Reihenfolge ist die von SPIELE, damit die Liste
+  // überall gleich aussieht.
   const alleSpiele = () => SPIELE.map((spiel) => spiel.id);
+
+  // Und die, die offen sind: was der Adminbereich angehakt hat
+  // (config/miniGames). Steht dort nichts, gelten alle – eine frische
+  // Datenbank zeigt alles, statt nichts. Gefiltert wird gegen SPIELE, damit
+  // ein Name, zu dem es keine Seite (mehr) gibt, keine Karte bekommt.
+  let offenGemerkt = null;
+
+  async function offeneSpiele() {
+    if (offenGemerkt) return offenGemerkt;
+    let gewaehlt = null;
+    try { gewaehlt = await cloud()?.offeneSpiele?.(); }
+    catch (fehler) { console.warn("Die Liste der Spiele war nicht zu lesen", fehler); }
+    offenGemerkt = gewaehlt === null || gewaehlt === undefined
+      ? alleSpiele()
+      : alleSpiele().filter((id) => gewaehlt.includes(id));
+    return offenGemerkt;
+  }
 
   function titel(id) {
     return hs()?.titel?.(id) || id;
@@ -250,8 +287,7 @@
   let zwischenspeicherFuer = "";
   const FRISCH_MS = 20000;
 
-  async function alleErgebnisse({ neu = false } = {}) {
-    const spiele = alleSpiele();
+  async function alleErgebnisse(spiele, { neu = false } = {}) {
     const schluessel = spiele.join(",");
     // Der Zwischenspeicher gilt nur für dieselbe Frage: Kommt ein Spiel dazu,
     // wäre eine Antwort von vorhin eine falsche.
@@ -266,8 +302,7 @@
 
   // Ein Ergebnis je Person und Spiel – genauso, wie die Bestenliste der Gruppe
   // in der App eine Zeile je Kind zeigt. Wer denselben Namen auf zwei Geräten
-  // einträgt, steht trotzdem einmal da: Es zählt sein bestes Ergebnis, und
-  // seine Versuche werden zusammengezählt.
+  // einträgt, steht trotzdem einmal da: Es zählt sein bestes Ergebnis.
   function verdichte(eintraege) {
     const nachName = new Map();
     // Wer bin ich in dieser Liste? Die Kennung dieses Geräts, und sonst der
@@ -287,7 +322,6 @@
         nachName.set(schluessel, { ...eintrag, name: sauberName(eintrag.name) });
         return;
       }
-      bisher.versuche += Math.max(0, Number(eintrag.versuche) || 0);
       if ((Number(eintrag.punkte) || 0) > (Number(bisher.punkte) || 0)) {
         bisher.punkte = Number(eintrag.punkte) || 0;
         bisher.updatedAtMs = Number(eintrag.updatedAtMs) || 0;
@@ -319,9 +353,12 @@
     return liste;
   }
 
+  // Für ein einzelnes Spiel wird auch nur nach diesem gefragt. Auf einer
+  // Spielseite interessiert keine andere Liste – und die Seite muss nicht
+  // erst wissen, welche Spiele offen sind, um ihre eigene zu zeigen.
   async function listeFuer(spiel, optionen = {}) {
-    const alle = await alleErgebnisse(optionen);
-    return rangliste(alle.filter((eintrag) => eintrag.game === spiel));
+    const alle = await alleErgebnisse([spiel], optionen);
+    return rangliste(alle);
   }
 
   // Eine Runde ist zu Ende. Geschrieben wird immer beides: die Punktzahl, wenn
@@ -415,110 +452,48 @@
       const wert = el("span", "mini-wert", String(eintrag.punkte));
       wert.append(el("small", "mini-einheit", ` ${einheit(spiel)}`));
       zeile.append(wert);
-      zeile.append(el("span", "mini-versuche", zahlWort(Math.max(1, Number(eintrag.versuche) || 1), "Runde", "Runden")));
       wrap.append(zeile);
     });
     return wrap;
   }
 
   // ---------------------------------------------------------------------------
-  // Das Fenster "Mini Games"
+  // Oben links
   // ---------------------------------------------------------------------------
-  // Links die Spiele, rechts die Rangliste des gewählten. Von hier führt ein
-  // Knopf in jedes Spiel und einer auf die Übersicht.
-  let fenster = null;
-
-  function schliesseFenster() {
-    fenster?.remove();
-    fenster = null;
-    document.removeEventListener("keydown", aufEscape);
-  }
-
-  function aufEscape(ereignis) {
-    if (ereignis.key === "Escape") schliesseFenster();
-  }
-
-  function oeffneFenster(vorauswahl) {
-    schliesseFenster();
-    const offen = alleSpiele();
-    const gewaehlt = offen.includes(vorauswahl) ? vorauswahl : (offen.includes(spielId()) ? spielId() : offen[0] || "");
-
-    fenster = el("div", "mini-fenster");
-    fenster.setAttribute("role", "dialog");
-    fenster.setAttribute("aria-modal", "true");
-    fenster.setAttribute("aria-label", "Mini-Games");
-    fenster.addEventListener("click", (ereignis) => { if (ereignis.target === fenster) schliesseFenster(); });
-
-    const tafel = el("div", "mini-tafel");
-    const kopf = el("header", "mini-tafel-kopf");
-    const titelBlock = el("div");
-    titelBlock.append(el("p", "mini-marke", "Gripszug"), el("h2", "", "Mini-Games"));
-    kopf.append(titelBlock);
-    const zu = knopf("Schliessen", "mini-knopf-still", schliesseFenster);
-    zu.setAttribute("aria-label", "Fenster schliessen");
-    kopf.append(zu);
-    tafel.append(kopf);
-
-    const wahl = el("div", "mini-wahl");
-    const inhalt = el("div", "mini-inhalt");
-    tafel.append(wahl, inhalt);
-
-    function zeige(spiel) {
-      wahl.querySelectorAll("button").forEach((b) => b.classList.toggle("ist-an", b.dataset.spiel === spiel));
-      inhalt.innerHTML = "";
-      const f = farbe(spiel);
-      inhalt.style.setProperty("--mini-farbe", f.hell);
-      inhalt.style.setProperty("--mini-farbe-dunkel", f.dunkel);
-      inhalt.append(el("h3", "mini-spieltitel", titel(spiel)));
-      const laedt = el("p", "mini-hinweis", "Die Rangliste wird geladen...");
-      inhalt.append(laedt);
-      const knoepfe = el("div", "mini-tafel-aktionen");
-      knoepfe.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
-      knoepfe.append(verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still"));
-      inhalt.append(knoepfe);
-
-      listeFuer(spiel).then((liste) => {
-        if (!fenster) return;
-        laedt.replaceWith(listeBauen(liste, spiel, { max: 10 }));
-      }).catch(() => {
-        if (fenster) laedt.textContent = "Die Rangliste ist gerade nicht zu haben.";
-      });
-    }
-
-    offen.forEach((spiel) => {
-      const b = knopf(titel(spiel), "mini-knopf-still", () => zeige(spiel));
-      b.dataset.spiel = spiel;
-      const f = farbe(spiel);
-      b.style.setProperty("--mini-farbe", f.hell);
-      wahl.append(b);
-    });
-
-    fenster.append(tafel);
-    document.body.append(fenster);
-    document.addEventListener("keydown", aufEscape);
-    if (gewaehlt) zeige(gewaehlt);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Die Knöpfe oben links
-  // ---------------------------------------------------------------------------
-  // In der App stehen dort das Haus und der Weg zurück in die Spielauswahl.
-  // Hier gibt es beides nicht: kein Zug, keine Bereiche. Stattdessen drei
-  // Wege, und jeder führt woandershin:
+  // In der App stehen dort vier Knöpfe: Haus, Zurück, Neustart, Lautsprecher.
+  // Hier ist einer genug. Wer über einen Link hereinkommt, will spielen – und
+  // wenn er genug hat, wissen, wer sonst noch gespielt hat. Das ist die Hall
+  // of Fame, und dorthin führt derselbe Weg, der auch zurückführt: Der Pfeil
+  // sagt, dass es hier hinausgeht, der Name sagt, wohin.
   //
-  //   Zur App        für den, der nach einer Runde mehr will
-  //   Mini Games     das Fenster: ein anderes Spiel wählen, ohne die Seite zu
-  //                  verlassen
-  //   Hall of Fame   die Übersicht mit allen Ranglisten und allen Namen
-  //
+  // Was hier einmal stand und wieder weg ist: ein Knopf "Zur App" (diese Site
+  // verweist nicht mehr auf die Kids-App) und ein Fenster, in dem man ein
+  // anderes Spiel wählen konnte (zwei Wege zur selben Liste sind einer zu
+  // viel – die Karten auf der Startseite können dasselbe).
   function leiste() {
-    const zurApp = verweis("Zur App", APP, "mini-knopf-hell");
-    zurApp.title = "Zur App: kids.alae.app";
-    const liste = knopf("Mini Games", "mini-knopf-voll", () => oeffneFenster(spielId()));
-    liste.title = "Ein anderes Mini-Game wählen";
-    const halle = verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still");
-    halle.title = "Alle Ranglisten und alle Namen";
-    return [zurApp, liste, halle];
+    const halle = verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still mini-knopf-zurueck");
+    halle.title = "Zurück zur Hall of Fame";
+    halle.prepend(pfeil());
+    return [halle];
+  }
+
+  // Der Pfeil im Knopf. Als SVG und nicht als Zeichen: Ein "←" sitzt je nach
+  // Schrift anders auf der Zeile.
+  function pfeil() {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("class", "mini-pfeil");
+    const weg = document.createElementNS(NS, "path");
+    weg.setAttribute("d", "M15 5 8 12l7 7");
+    weg.setAttribute("fill", "none");
+    weg.setAttribute("stroke", "currentColor");
+    weg.setAttribute("stroke-width", "2.8");
+    weg.setAttribute("stroke-linecap", "round");
+    weg.setAttribute("stroke-linejoin", "round");
+    svg.append(weg);
+    return svg;
   }
 
   // ---------------------------------------------------------------------------
@@ -683,10 +658,15 @@
 
     const karte = el("section", "mini-install");
     const text = el("div", "mini-install-text");
-    text.append(el("strong", "", "Die Mini-Games als eigene App"));
-    text.append(el("p", "", art === "prompt"
-      ? "Ein Tipp, und sie liegen auf dem Startbildschirm – mit eigenem Zeichen."
-      : "Leg sie auf den Startbildschirm, dann brauchst du diese Adresse nie wieder zu tippen."));
+    text.append(el("strong", "", "Als App installieren"));
+    // Wo der Browser den Knopf selbst anbietet, steht kein Satz dazu: Der
+    // Knopf daneben sagt schon alles. Erklärt wird nur, wo es NICHT mit einem
+    // Tipp geht – auf dem iPhone.
+    const sage = (satz) => {
+      let zeile = text.querySelector("p");
+      if (!zeile) { zeile = el("p"); text.append(zeile); }
+      zeile.textContent = satz;
+    };
     karte.append(text);
 
     const aktionen = el("div", "mini-install-aktionen");
@@ -694,18 +674,19 @@
       const los = knopf("Installieren", "mini-knopf-voll", () => {
         hilfe.prompt?.().then((ausgang) => {
           if (ausgang === "angenommen") { merkeInstall("installiert"); karte.remove(); }
-          else if (ausgang === "unmoeglich") text.querySelector("p").textContent = "Das hat der Browser nicht zugelassen. Im Browsermenü steht der Punkt «App installieren».";
+          else if (ausgang === "unmoeglich") sage("Das hat der Browser nicht zugelassen. Im Browsermenü steht der Punkt «App installieren».");
         });
       });
       aktionen.append(los);
     } else if (art === "ios-safari") {
+      sage("Auf dem iPhone in drei Schritten:");
       const schritte = el("ol", "mini-install-schritte");
       IOS_SCHRITTE.forEach((zeile) => schritte.append(el("li", "", zeile)));
       karte.append(schritte);
     } else if (art === "ios-anderer-browser") {
-      text.querySelector("p").textContent = "Auf dem iPhone geht das nur in Safari. Öffne diese Seite dort, dann steht der Weg hier.";
+      sage("Auf dem iPhone geht das nur in Safari. Öffne diese Seite dort, dann steht der Weg hier.");
     } else if (art === "ios-inapp") {
-      text.querySelector("p").textContent = "Du bist im eingebauten Browser einer anderen App. Öffne diese Seite in Safari, dann geht es.";
+      sage("Du bist im eingebauten Browser einer anderen App. Öffne diese Seite in Safari, dann geht es.");
     }
 
     const weg = knopf("Nicht jetzt", "mini-knopf-still", () => { merkeInstall("weggetippt"); karte.remove(); });
@@ -746,10 +727,9 @@
       const liste = rangliste(alle.filter((eintrag) => eintrag.game === spiel));
       liste.forEach((eintrag) => {
         const schluessel = eintrag.name.toLocaleLowerCase("de");
-        if (!spieler.has(schluessel)) spieler.set(schluessel, { name: eintrag.name, spiele: 0, versuche: 0, plaetze: [], siege: 0, bester: null });
+        if (!spieler.has(schluessel)) spieler.set(schluessel, { name: eintrag.name, spiele: 0, plaetze: [], siege: 0, bester: null });
         const person = spieler.get(schluessel);
         person.spiele += 1;
-        person.versuche += Math.max(1, Number(eintrag.versuche) || 1);
         person.plaetze.push(eintrag.platz);
         if (eintrag.platz === 1) person.siege += 1;
         if (person.bester === null || eintrag.platz < person.bester) person.bester = eintrag.platz;
@@ -776,11 +756,30 @@
       : "noch frei"));
     karte.append(kopf);
 
-    karte.append(listeBauen(liste, spiel, { max: 3 }));
+    // Drei Zeilen, und auf Wunsch alle. Das stand einmal in einem Fenster,
+    // das sich über die Seite legte – aber die Karte ist schon der Ort, an dem
+    // die Liste steht, und eine Liste, die aufgeht, wo sie ohnehin ist, kostet
+    // keinen zweiten Weg.
+    const wirt = el("div", "mini-listen-wirt");
+    let ganz = false;
+    const zeichne = () => {
+      wirt.innerHTML = "";
+      wirt.append(listeBauen(liste, spiel, ganz ? {} : { max: 3 }));
+    };
+    zeichne();
+    karte.append(wirt);
 
     const aktionen = el("div", "mini-karte-aktionen");
     aktionen.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
-    aktionen.append(knopf("Ganze Liste", "mini-knopf-still", () => oeffneFenster(spiel)));
+    // Erst ab der vierten Zeile gibt es etwas aufzuklappen.
+    if (liste.length > 3) {
+      const mehr = knopf("Ganze Liste", "mini-knopf-still", () => {
+        ganz = !ganz;
+        zeichne();
+        mehr.textContent = ganz ? "Nur die ersten drei" : "Ganze Liste";
+      });
+      aktionen.append(mehr);
+    }
     karte.append(aktionen);
     return karte;
   }
@@ -790,7 +789,7 @@
     const tabelle = el("table", "mini-tabelle");
     const kopf = el("thead");
     const kopfZeile = el("tr");
-    [["Spieler", ""], ["Spiele", "zahl"], ["Ø Rang", "zahl"], ["Bester", "zahl"], ["Siege", "zahl"], ["Runden", "zahl"]]
+    [["Spieler", ""], ["Spiele", "zahl"], ["Ø Rang", "zahl"], ["Bester", "zahl"], ["Siege", "zahl"]]
       .forEach(([text, klasse]) => kopfZeile.append(el("th", klasse, text)));
     kopf.append(kopfZeile);
     tabelle.append(kopf);
@@ -805,7 +804,6 @@
       zeile.append(el("td", "zahl", person.schnitt.toFixed(1).replace(".", ",")));
       zeile.append(el("td", "zahl", String(person.bester ?? "–")));
       zeile.append(el("td", "zahl", String(person.siege)));
-      zeile.append(el("td", "zahl", String(person.versuche)));
       koerperTeil.append(zeile);
     });
     tabelle.append(koerperTeil);
@@ -833,22 +831,27 @@
     const text = el("div");
     text.append(el("h1", "mini-marke", "Gripszug · Mini-Games"));
     kopf.append(text);
-    kopf.append(verweis("Zur App", APP, "mini-knopf-hell"));
     wirt.append(kopf);
 
     const laedt = el("p", "mini-hinweis", "Die Ergebnisse werden geladen...");
     wirt.append(laedt);
 
+    const offen = await offeneSpiele();
     let alle = [];
-    try { alle = await alleErgebnisse({ neu: true }); }
+    try { alle = await alleErgebnisse(offen, { neu: true }); }
     catch { laedt.textContent = "Die Ergebnisse sind gerade nicht zu haben. Probier es später noch einmal."; return; }
 
-    const offen = alleSpiele();
     laedt.remove();
 
-    // alle enthält nur die Spiele, die es hier gibt (alleErgebnisse fragt gar
-    // nicht nach anderen) – die Zahl oben zählt also dasselbe, was darunter
-    // als Karte und als Spieler dasteht.
+    if (!offen.length) {
+      wirt.append(el("p", "mini-hinweis", "Gerade ist kein Spiel freigegeben. Schau später wieder vorbei."));
+      zeigeInstall(wirt);
+      return;
+    }
+
+    // alle enthält nur die offenen Spiele (alleErgebnisse fragt gar nicht nach
+    // anderen) – die Zahl oben zählt also dasselbe, was darunter als Karte und
+    // als Spieler dasteht.
     const runden = alle.reduce((summe, eintrag) => summe + Math.max(1, Number(eintrag.versuche) || 1), 0);
     const personen = auswertung(alle, offen);
     wirt.append(streifen([
@@ -892,11 +895,12 @@
   window.LernappMini = {
     SPIELE,
     FARBEN,
-    APP,
     spielId,
     spielLink,
     uebersichtLink,
     alleSpiele,
+    offeneSpiele,
+    naechsteSzene,
     name,
     setzeName,
     kennung,
@@ -907,7 +911,6 @@
     leiste,
     ergebnis,
     ergebnisSprache,
-    oeffneFenster,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

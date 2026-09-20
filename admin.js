@@ -1,9 +1,8 @@
 /*
  * admin.js – Der Adminbereich: anmelden und aufräumen.
  * ---------------------------------------------------------------------------
- * In dieser Datenbank steht genau eine Sache: die Bestenliste. Entsprechend
- * klein ist der Adminbereich – er zeigt, was drinsteht, und er kann das
- * Einzige, was kein Gast darf: löschen.
+ * Zwei Dinge kann er, und beide darf sonst niemand: die Spiele auswählen, die
+ * auf der Startseite stehen, und Einträge aus der Bestenliste löschen.
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -291,6 +290,80 @@
     }, { merge: true });
   }
 
+  // ---------------------------------------------------------------------------
+  // Welche Spiele gespielt werden können
+  // ---------------------------------------------------------------------------
+  // Ein Haken je Spiel. Was angehakt ist, steht auf der Startseite und in der
+  // Hall of Fame; was nicht, verschwindet dort. Gespeichert wird als eine
+  // Liste in config/miniGames – und zwar sofort beim Klick, nicht erst auf
+  // einen "Speichern"-Knopf: Ein Haken, der nichts tut, bis man ihn bestätigt,
+  // ist ein Haken, den man vergisst.
+  //
+  // Wer den Link zu einem abgewählten Spiel hat, kann es weiter öffnen und
+  // spielen – die Adresse bleibt, die Seite bleibt. Nur aufgeführt wird es
+  // nicht mehr. Das ist Absicht: Ein Link, den jemand verschickt hat, soll
+  // nicht ins Leere laufen.
+  function baueAuswahl(offen, neuLaden) {
+    const block = el("section", "adm-block");
+    const kopf = el("header", "adm-block-kopf");
+    kopf.append(el("h2", "", "Welche Spiele gespielt werden"));
+    const zahl = el("span", "adm-block-zahl", `${offen.length} von ${(mini()?.SPIELE || []).length} angehakt`);
+    kopf.append(zahl);
+    block.append(kopf);
+    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen."));
+
+    const meldung = el("p", "adm-meldung");
+    block.append(meldung);
+
+    const gitter = el("div", "adm-auswahl");
+    const gewaehlt = new Set(offen);
+
+    async function sichern() {
+      meldung.textContent = "Wird gespeichert...";
+      meldung.className = "adm-meldung";
+      try {
+        await cloud().setzeOffeneSpiele([...gewaehlt]);
+        meldung.textContent = "Gespeichert.";
+        meldung.className = "adm-meldung ist-gut";
+        zahl.textContent = `${gewaehlt.size} von ${(mini()?.SPIELE || []).length} angehakt`;
+      } catch (fehler) {
+        meldung.textContent = fehlerText(fehler);
+        meldung.className = "adm-meldung ist-fehler";
+        neuLaden();
+      }
+    }
+
+    (mini()?.SPIELE || []).forEach((spiel) => {
+      const f = farbe(spiel.id);
+      const zeile = el("label", "adm-wahl");
+      zeile.style.setProperty("--adm-farbe", f.hell);
+      const haken = el("input");
+      haken.type = "checkbox";
+      haken.checked = gewaehlt.has(spiel.id);
+      haken.addEventListener("change", () => {
+        if (haken.checked) gewaehlt.add(spiel.id);
+        else gewaehlt.delete(spiel.id);
+        zeile.classList.toggle("ist-an", haken.checked);
+        sichern();
+      });
+      zeile.classList.toggle("ist-an", haken.checked);
+      zeile.append(haken, el("span", "adm-wahl-name", titel(spiel.id)));
+      gitter.append(zeile);
+    });
+    block.append(gitter);
+
+    const alleAn = knopf("Alle anhaken", "adm-knopf-klein", () => {
+      gitter.querySelectorAll("input").forEach((h) => { if (!h.checked) h.click(); });
+    });
+    const alleAus = knopf("Alle abwählen", "adm-knopf-klein", () => {
+      gitter.querySelectorAll("input").forEach((h) => { if (h.checked) h.click(); });
+    });
+    const zeile = el("div", "adm-kopf-aktionen");
+    zeile.append(alleAn, alleAus);
+    block.append(zeile);
+    return block;
+  }
+
   function streifen(zahlen) {
     const wrap = el("div", "adm-streifen");
     zahlen.forEach(([wert, wort]) => {
@@ -432,8 +505,22 @@
     const laedt = el("p", "adm-hinweis", "Die Einträge werden geladen...");
     wirt.append(laedt);
 
+    const bekannte = (mini()?.SPIELE || []).map((s) => s.id);
+
     let alle = [];
-    try { alle = await alleEintraege(); }
+    let offen = [];
+    try {
+      let gewaehlt;
+      [alle, gewaehlt] = await Promise.all([alleEintraege(), cloud().offeneSpiele()]);
+      // null heisst "es wurde nie etwas ausgewählt" – dann gelten alle, und
+      // genau so steht es dann auch angehakt da.
+      // Sonst wird gefiltert wie in der Übersicht (mini-games.js, offeneSpiele):
+      // Stünde in der Liste ein Spiel, das es nicht mehr gibt, zählte die Zahl
+      // hier eine Karte mit, die drüben keine ist.
+      offen = gewaehlt === null || gewaehlt === undefined
+        ? bekannte
+        : bekannte.filter((id) => gewaehlt.includes(id));
+    }
     catch (fehler) {
       laedt.textContent = `Die Einträge sind nicht zu haben: ${fehlerText(fehler)}`;
       laedt.className = "adm-hinweis ist-fehler";
@@ -441,7 +528,6 @@
     }
     laedt.remove();
 
-    const bekannte = (mini()?.SPIELE || []).map((s) => s.id);
     const namen = new Set(alle.map((e) => e.name.toLocaleLowerCase("de")));
     const runden = alle.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
     const mitEintraegen = new Set(alle.map((e) => e.game));
@@ -449,15 +535,17 @@
       [alle.length, alle.length === 1 ? "Eintrag" : "Einträge"],
       [namen.size, namen.size === 1 ? "Spieler" : "Spieler"],
       [runden, runden === 1 ? "Runde" : "Runden"],
-      [mitEintraegen.size, `von ${bekannte.length} Spielen gespielt`],
+      [offen.length, `von ${bekannte.length} Spielen offen`],
     ]));
+
+    const neuLaden = () => zeigeAdmin(nutzer);
+    wirt.append(baueAuswahl(offen, neuLaden));
 
     if (!alle.length) {
       wirt.append(el("p", "adm-hinweis", "Die Bestenliste ist leer. Sobald jemand spielt und seinen Namen einträgt, steht er hier."));
       return;
     }
 
-    const neuLaden = () => zeigeAdmin(nutzer);
     wirt.append(baueSpieler(alle, neuLaden));
 
     // Erst die Spiele, die es gibt, in der Reihenfolge der Liste – dann, was

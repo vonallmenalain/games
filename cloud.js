@@ -91,6 +91,7 @@
   }
 
   const sammlung = () => starte()?.collection("miniScores") || null;
+  const listenDoc = () => starte()?.doc("config/miniGames") || null;
   const jetztAufDemServer = () => window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
 
   function lies(doc) {
@@ -145,6 +146,39 @@
         if (eintrag) liste.push(eintrag);
       });
     });
+    return liste;
+  }
+
+  /*
+   * Welche Spiele offen sind.
+   *
+   * Eine Liste, ein Dokument. Gesetzt wird sie im Adminbereich, gelesen von
+   * der Startseite. Gibt es das Dokument nicht, kommt null zurück – und das
+   * heisst nicht "keine", sondern "es wurde nie etwas ausgewählt". Was dann
+   * gilt, entscheidet mini-games.js: alle.
+   */
+  async function offeneSpiele() {
+    const doc = listenDoc();
+    if (!doc) return null;
+    const stand = await doc.get();
+    if (!stand.exists) return null;
+    const liste = stand.data()?.spiele;
+    if (!Array.isArray(liste)) return null;
+    return liste.map((id) => String(id || "").trim()).filter(Boolean);
+  }
+
+  /*
+   * Und sie setzen. Nur der Adminbereich ruft das auf, und nur er darf es –
+   * die Regeln prüfen die Anmeldung und dass jeder Name zu einem Spiel
+   * gehört, das es gibt.
+   */
+  async function setzeOffeneSpiele(spiele) {
+    const doc = listenDoc();
+    if (!doc) throw new Error("Firestore ist nicht bereit.");
+    const liste = [...new Set((Array.isArray(spiele) ? spiele : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean))];
+    await doc.set({ spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() });
     return liste;
   }
 
@@ -260,6 +294,7 @@
     db: starte,
     projektId: firebaseConfig.projectId,
     ergebnisse, speichere, benenneUm, lies,
+    offeneSpiele, setzeOffeneSpiele,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX,
   };
 })();

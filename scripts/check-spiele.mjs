@@ -96,6 +96,8 @@ const ATTRAPPE = `
   const sichern = () => { try { localStorage.setItem(LAGER, JSON.stringify([...eintraege])); } catch {} };
   window.__miniEintraege = eintraege;
   window.MiniCloud = {
+    offeneSpiele: async () => window.__miniOffen ?? null,
+    setzeOffeneSpiele: async (liste) => { window.__miniOffen = liste; return liste; },
     ergebnisse: async (spiele) => {
       const gefragt = Array.isArray(spiele) ? spiele : [];
       window.__miniGefragt = gefragt;
@@ -202,6 +204,8 @@ try {
         sprecher: sprecher ? Math.round(sprecher.width) : 0,
         titel: document.querySelector(".cm-title")?.textContent || "",
         knoepfe: [...document.querySelectorAll(".cm-bar-left > *")].map((e) => (e.textContent || "").trim() || e.className),
+        pfeil: Boolean(document.querySelector(".cm-bar-left .mini-pfeil")),
+        kidsLink: Boolean(document.querySelector('a[href*="kids.alae.app"]')),
       };
     }, spiel.buehne.id);
 
@@ -219,10 +223,16 @@ try {
       `${spiel.seite}: Die Landschaft ist ${stand.scene?.h} px hoch, die Bühne ${stand.buehne?.h}.`);
     pruefe(stand.sprecher > 20 && stand.sprecher < 120, `${spiel.seite}: Der Hilfe-Lautsprecher ist ${stand.sprecher} px breit.`);
     pruefe(stand.titel.trim() === spiel.titel, `${spiel.seite}: Oben steht "${stand.titel}" statt "${spiel.titel}".`);
-    pruefe(stand.knoepfe.length === 4, `${spiel.seite}: Oben links stehen ${stand.knoepfe.length} Knöpfe statt vier (${stand.knoepfe.join(", ")}).`);
-    for (const wort of ["Zur App", "Mini Games", "Hall of Fame"]) {
-      pruefe(stand.knoepfe.some((k) => k.includes(wort)), `${spiel.seite}: Oben links fehlt "${wort}".`);
+    // Oben links steht nur noch, was gebraucht wird: der Weg zurück und der
+    // Neustart. Kein "Zur App" (diese Site verweist nicht auf die Kids-App)
+    // und kein Fenster zum Spielewechseln.
+    pruefe(stand.knoepfe.length === 2, `${spiel.seite}: Oben links stehen ${stand.knoepfe.length} Knöpfe statt zwei (${stand.knoepfe.join(", ")}).`);
+    pruefe(stand.knoepfe.some((k) => k.includes("Hall of Fame")), `${spiel.seite}: Oben links fehlt der Weg zur Hall of Fame.`);
+    for (const weg of ["Zur App", "Mini Games"]) {
+      pruefe(!stand.knoepfe.some((k) => k.includes(weg)), `${spiel.seite}: Oben links steht noch "${weg}".`);
     }
+    pruefe(stand.pfeil, `${spiel.seite}: Im Knopf zur Hall of Fame fehlt der Pfeil, der das Zurückgehen anzeigt.`);
+    pruefe(!stand.kidsLink, `${spiel.seite}: Auf der Seite steht ein Link auf kids.alae.app.`);
     pruefe(fehlerAufSeite.length === vorher, `${spiel.seite}: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
 
     // Jede Klasse, die auf dieser Seite wirklich steht, braucht eine Regel.
@@ -251,28 +261,12 @@ try {
     await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
     await seite.waitForSelector(".cm-bar", { timeout: 8000 });
 
-    const zurApp = await seite.getAttribute('.cm-bar-left a:has-text("Zur App")', "href");
-    pruefe(zurApp === "https://kids.alae.app/", `"Zur App" zeigt auf ${zurApp} statt auf die volle Adresse der App.`);
     const halle = await seite.getAttribute('.cm-bar-left a:has-text("Hall of Fame")', "href");
     pruefe(halle === "/", `"Hall of Fame" zeigt auf ${halle} statt auf die Startseite.`);
     pruefe(await seite.locator(".cm-icon-home").count() === 0, "Ein Haus führte auf ein Startbild, das es hier nicht gibt.");
     pruefe(await seite.locator(".cm-icon-again").count() === 1, "Der Knopf zum Neustarten fehlt.");
     pruefe(await seite.getAttribute("body", "data-spiel") === "towerStack", "Am body fehlt data-spiel.");
-
-    // Das Fenster mit allen Mini-Games.
-    await seite.click('.cm-bar-left button:has-text("Mini Games")');
-    await seite.waitForSelector(".mini-fenster", { timeout: 4000 });
-    const fenster = await seite.locator(".mini-tafel").innerText();
-    for (const spiel of SPIELE) {
-      pruefe(fenster.includes(spiel.titel), `Im Fenster fehlt ${spiel.titel}.`);
-    }
-    await seite.waitForSelector(".mini-fenster .mini-zeile", { timeout: 4000 });
-    pruefe((await seite.locator(".mini-fenster .mini-zeile").first().innerText()).includes("Grosi"),
-      "Im Fenster steht die bestehende Bestenliste nicht.");
-    const spielen = await seite.getAttribute(".mini-tafel-aktionen a", "href");
-    pruefe(spielen === "/turmbau", `"Spielen" zeigt auf ${spielen} statt auf /turmbau.`);
-    await seite.keyboard.press("Escape");
-    pruefe(await seite.locator(".mini-fenster").count() === 0, "Escape schliesst das Fenster nicht.");
+    pruefe(await seite.locator(".mini-fenster").count() === 0, "Das Fenster «Mini Games» ist noch da.");
 
     // Eine Runde, und danach der Name.
     pruefe(await spieleTurmbauZuEnde(seite), "Die Runde kam nicht zu einem Ergebnis.");
@@ -280,7 +274,9 @@ try {
     pruefe(await seite.locator(".cm-scores").count() === 0, "Unter dem Ergebnis steht eine eigene Fünferliste – gemeint ist die Liste aller.");
     pruefe(await seite.locator(".cm-runs").count() === 0, "Unter dem Ergebnis steht der Satz über den Wagen – hier gibt es keinen Wagen.");
     pruefe(await seite.locator(".mini-namensfeld input").count() === 1, "Ohne Namen fehlt das Namensfeld.");
-    pruefe(await seite.locator(".cm-icon-cup").count() === 1, "Unter dem Ergebnis fehlt der Weg zu den anderen Mini-Games.");
+    pruefe(await seite.locator(".cm-icon-cup").count() === 1, "Unter dem Ergebnis fehlt der Weg zur Hall of Fame.");
+    pruefe(await seite.getAttribute(".cm-icon-cup", "href") === "/",
+      `Unter dem Ergebnis führt der Pokal auf ${await seite.getAttribute(".cm-icon-cup", "href")} statt in die Hall of Fame.`);
 
     await seite.fill(".mini-namensfeld input", "Testkind");
     await seite.click(".mini-namensfeld button");
@@ -360,14 +356,64 @@ try {
     pruefe(await seite.locator(".mini-tabelle tbody tr").count() >= 1, "Die Auswertung der Spieler fehlt.");
     const kopfzeilen = await seite.locator(".mini-tabelle th").allInnerTexts();
     pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Auswertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
+    // Wie oft jemand gespielt hat, geht niemanden etwas an: Es steht weder in
+    // der Auswertung noch in einer Ranglistenzeile. Die Zahl oben zählt alle
+    // Runden zusammen – die verrät nicht, wer.
+    pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
+    const zeilen = await seite.locator(".mini-karte .mini-zeile").allInnerTexts();
+    const mitRunden = zeilen.filter((z) => /runde/i.test(z));
+    pruefe(mitRunden.length === 0, `In der Rangliste eines Spiels stehen die Runden: ${mitRunden.join(" | ")}`);
     const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
     pruefe(gefragt.length === SPIELE.length, `Die Startseite fragt nach ${gefragt.length} Spielen statt nach ${SPIELE.length}.`);
-    const zurApp = await seite.getAttribute(".mini-kopf a", "href");
-    pruefe(zurApp === "https://kids.alae.app/", `"Zur App" zeigt auf ${zurApp}.`);
+    pruefe(await seite.locator('a[href*="kids.alae.app"]').count() === 0, "Auf der Startseite steht ein Link auf kids.alae.app.");
     const spielen = await seite.getAttribute(".mini-karte-aktionen a", "href");
     pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `Ein Spiel-Link zeigt auf ${spielen}.`);
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ueberstand <= 1, `Die Startseite steht ${ueberstand} px über den rechten Rand.`);
+    await kontext.close();
+  }
+
+  // --- 3b. Abgewählte Spiele stehen nicht da -----------------------------------
+  // Der Adminbereich schreibt eine Liste, die Startseite liest sie. Dass die
+  // Liste ankommt, sieht man nur hier: Eine Karte zu viel wäre ein Spiel, das
+  // abgewählt wurde und trotzdem gespielt wird.
+  {
+    const offen = ["towerStack", "fishPond"];
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript((liste) => { window.__miniOffen = liste; }, offen);
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    const karten = await seite.locator(".mini-karte h3").allInnerTexts();
+    pruefe(karten.length === offen.length,
+      `Freigegeben sind ${offen.length} Spiele, auf der Startseite stehen ${karten.length}.`);
+    for (const id of offen) {
+      const titel = SPIELE.find((s) => s.spiel === id)?.titel;
+      pruefe(karten.includes(titel), `Das freigegebene Spiel "${titel}" fehlt auf der Startseite.`);
+    }
+    // Und es wird auch nicht nach den anderen gefragt: Wer abgewählt ist, ist
+    // nicht bloss unsichtbar, er kostet auch keine Abfrage.
+    const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
+    pruefe(gefragt.length === offen.length && offen.every((id) => gefragt.includes(id)),
+      `Gefragt wurde nach ${gefragt.join(", ") || "nichts"} statt nach ${offen.join(", ")}.`);
+    const zahl = (await seite.locator(".mini-streifen").innerText()).replace(/\n/g, " ");
+    pruefe(/\b2\b\s*Spiele/.test(zahl), `Oben steht nicht "2 Spiele", sondern: ${zahl}`);
+    await kontext.close();
+  }
+
+  // --- 3c. Ist keines freigegeben, steht das da --------------------------------
+  // Eine leere Startseite sähe nach einem Fehler aus. Sie ist aber ein
+  // Zustand, den der Adminbereich herstellen kann – also muss sie etwas sagen.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript(() => { window.__miniOffen = []; });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-seite", { timeout: 8000 });
+    await seite.waitForTimeout(400);
+    const text = await seite.locator(".mini-seite").innerText();
+    pruefe(await seite.locator(".mini-karte").count() === 0,
+      "Es ist kein Spiel freigegeben, trotzdem steht eine Karte da.");
+    pruefe(/kein Spiel freigegeben/i.test(text),
+      `Ohne freigegebenes Spiel steht kein Hinweis da, sondern: ${text.replace(/\n/g, " | ")}`);
     await kontext.close();
   }
 
