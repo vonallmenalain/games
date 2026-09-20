@@ -145,6 +145,24 @@ await darfNicht("Der Admin mit unbestätigter Adresse löscht einen Eintrag", ()
 await darf("Admin liest die Bestenliste", () => admin().collection("miniScores").get());
 await darf("Admin löscht einen Eintrag", () => admin().doc(EINTRAG).delete());
 
+// --- Welche Spiele offen sind ------------------------------------------------
+// Die Liste lesen darf jeder: Ohne sie wüsste die Startseite nicht, was sie
+// zeigen soll. Setzen darf sie nur der Admin, und nur mit Spielen, die es gibt.
+const LISTE = "config/miniGames";
+const spieleListe = (aenderung = {}) => ({ spiele: ["towerStack", "fishPond"], updatedAtMs: 1, ...aenderung });
+
+await darf("Gast liest die Liste der offenen Spiele", () => gast().doc(LISTE).get());
+await darfNicht("Gast setzt die Liste", () => gast().doc(LISTE).set(spieleListe()));
+await darfNicht("Ein angemeldeter Fremder setzt die Liste", () => fremder().doc(LISTE).set(spieleListe()));
+await darfNicht("Der Admin mit unbestätigter Adresse setzt die Liste", () => adminOhneVerifikation().doc(LISTE).set(spieleListe()));
+await darfNicht("Admin setzt ein erfundenes Spiel auf die Liste", () => admin().doc(LISTE).set(spieleListe({ spiele: ["schachweltmeister"] })));
+await darfNicht("Admin schmuggelt ein Feld in die Liste", () => admin().doc(LISTE).set(spieleListe({ heimlich: true })));
+await darfNicht("Admin setzt etwas, das keine Liste ist", () => admin().doc(LISTE).set(spieleListe({ spiele: "alle" })));
+await darf("Admin setzt die Liste", () => admin().doc(LISTE).set(spieleListe()));
+await darf("Admin macht die Liste leer", () => admin().doc(LISTE).set(spieleListe({ spiele: [] })));
+await darfNicht("Gast legt eine zweite Konfiguration an", () => gast().doc("config/irgendwas").set({ a: 1 }));
+await darfNicht("Admin legt eine zweite Konfiguration an", () => admin().doc("config/irgendwas").set({ a: 1 }));
+
 // --- Sonst gibt es nichts ----------------------------------------------------
 // Eine Sammlung, die jemand morgen anlegt, steht nicht offen da, weil niemand
 // an eine Regel dafür gedacht hat.

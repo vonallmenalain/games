@@ -58,7 +58,7 @@
       d: "M5 13l4.5 4.5L19 7", fill: "none", stroke: "currentColor",
       "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round",
     })],
-    // Der Pokal: der Weg zu den anderen Mini-Games.
+    // Der Pokal: der Weg in die Hall of Fame.
     cup: () => [
       art().el("path", { d: "M7 4h10v4a5 5 0 0 1-10 0z", fill: "currentColor" }),
       art().el("path", { d: "M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
@@ -74,6 +74,17 @@
     button.append(svg(paths));
     button.addEventListener("click", onClick);
     return button;
+  }
+
+  // Dasselbe als Weg statt als Knopf: Ein Ziel, das eine Adresse hat, gehört
+  // an einen Link – dann kann man ihn auch in einem neuen Tab öffnen.
+  function iconLink(name, label, paths, ziel, extraClass = "") {
+    const link = el("a", `cm-icon cm-icon-${name} ${extraClass}`.trim());
+    link.href = ziel;
+    link.setAttribute("aria-label", label);
+    link.title = label;
+    link.append(svg(paths));
+    return link;
   }
 
   /*
@@ -99,7 +110,10 @@
     window.LernappBusy = () => host.dataset.phase === "play";
 
     // --- Hintergrund: die Landschaft ----------------------------------------
-    if (scenes()) host.append(scenes().buildScene(scenes().savedScene()));
+    // Jede Seite eine andere, der Reihe nach (mini-games.js, naechsteSzene).
+    // In der App wählt das Kind sie aus; hier wählt niemand, also drehen sie
+    // sich.
+    if (scenes()) host.append(scenes().buildScene(mini()?.naechsteSzene?.() || scenes().savedScene()));
 
     // --- Der Lautsprecher oben links ----------------------------------------
     // Derselbe wie in der App: er kennt schon den Ton-Schalter, das Vorlesen
@@ -236,9 +250,9 @@
 
       const actions = el("div", "cm-actions");
       actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); onRestart(); }, "big"));
-      // Kein Weg "zurück": Wer über einen Link hereinkam, hat keine Auswahl
-      // hinter sich. Der Pokal führt zu den anderen Mini-Games.
-      actions.append(iconButton("cup", "Mini Games", ICONS.cup(), () => mini()?.oeffneFenster?.(mini()?.spielId?.()), "big"));
+      // Rechts der Pokal: ein Weg, kein Knopf – er führt direkt in die Hall of
+      // Fame, dieselbe Adresse wie oben in der Leiste.
+      actions.append(iconLink("cup", "Hall of Fame", ICONS.cup(), mini()?.uebersichtLink?.() || "/", "big"));
       parts.push(actions);
       panel(parts);
     }
