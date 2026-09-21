@@ -20,9 +20,27 @@
  * das ist Absicht: Ein Lauf, der sich festfahren kann, ist neben einem Geist
  * kein Rennen mehr.
  *
- * Schneller wird man von selbst, solange nichts schiefgeht (TEMPO_ZUWACHS).
- * Damit kostet ein Fehler zweimal: die Zeit des Stolperns und den Schwung, der
- * wieder aufgebaut werden muss.
+ * Tempo ist ein Vorrat, kein Geschenk. Die erste Fassung liess es von selbst
+ * steigen und deckelte es – damit war ein fehlerfreier Lauf für jeden dieselbe
+ * Zahl, und wer fünfmal nicht gepatzt hatte, konnte sich nie mehr verbessern.
+ * Jetzt füllt man Schwung durch Genauigkeit auf, und er verweht umso
+ * schneller, je schneller man ist. Es gibt deshalb keine Höchstgeschwindigkeit
+ * mehr, sondern ein Gleichgewicht: Du läufst genau so schnell, wie dein
+ * Nachschub den Abfluss deckt. Wer genauer springt, steht höher – stufenlos.
+ *
+ * Nachschub gibt es für zwei Dinge, und beide muss man wollen:
+ *
+ *   Kante        Absprung im letzten Meter vor einer Lücke. Wer früh und
+ *                sicher springt, bekommt nichts.
+ *   Enge Landung Aufkommen dicht hinter der Kante. Bei Tempo trägt ein voller
+ *                Sprung dreizehn Meter weit – über eine Lücke von sechs muss
+ *                man den Sprung also abschneiden, um eng zu landen. Zu kurz
+ *                abgeschnitten heisst: in die Lücke.
+ *
+ * Dazu der Luftsprung: ein zweiter Sprung mitten im Flug, der jede Lücke
+ * rettet – und die Hälfte des Schwungs kostet. Für den, der anfängt, ist er
+ * ein Rettungsanker; für den, der es kann, ein Fehler mit Preis. Dieselbe
+ * Taste, derselbe Finger.
  *
  * Die Punkte sind Zeitguthaben: Wer im Ziel ankommt, bekommt, was von
  * ZEITLIMIT übrig ist, dazu die Kohle, die er eingesammelt hat. Wer nicht
@@ -62,7 +80,10 @@
   //
   // Wer die Strecke ändert, zählt hier hoch. Die alten Geister verschwinden
   // damit aus dem Bild – das ist der Preis, und er ist der richtige.
-  const LEVEL = "v1";
+  //
+  // v2: Schwung wird verdient statt geschenkt, dazu Luftsprung, Startsignal,
+  //     schwebende Platten und Kohle, die nur mit dem Luftsprung zu holen ist.
+  const LEVEL = "v2";
 
   // ---------------------------------------------------------------------------
   // Masse und Regeln
@@ -77,10 +98,44 @@
   const LAEUFER_X = 0.3;           // wo der Läufer im Bild steht, als Anteil
   const ZEITLIMIT_MS = 100000;
 
-  const TEMPO_START = 11;          // Meter je Sekunde
-  const TEMPO_MAX = 16.5;
-  const TEMPO_ZUWACHS = 0.28;      // je Sekunde ohne Fehler
+  // ---------------------------------------------------------------------------
+  // Schwung
+  // ---------------------------------------------------------------------------
+  // Das Tempo ist TEMPO_BASIS plus Schwung mal TEMPO_SPANNE. Schwung hat keine
+  // Obergrenze in der Formel – er hat eine im Spiel: Was abfliesst, wächst mit
+  // ihm (ZERFALL_TEMPO), also steht er dort still, wo der Nachschub den Abfluss
+  // deckt. Wer mehr Kanten trifft, steht höher. Eine Zahl, die man erreicht und
+  // dann nicht mehr verbessern kann, gibt es nicht mehr.
+  const TEMPO_BASIS = 10.5;        // Meter je Sekunde, ganz ohne Schwung
+  const TEMPO_SPANNE = 10;         // so viel kommt bei Schwung 1,0 dazu
   const TEMPO_STOLPER = 5.5;       // so langsam läuft man nach einem Stolpern
+
+  const ZERFALL_RUHE = 0.012;      // was auch im Stand verweht, je Sekunde
+  const ZERFALL_TEMPO = 0.13;      // und was das Tempo selbst kostet, je Sekunde
+
+  // Was Genauigkeit einbringt.
+  const KANTE_M = 1.8;             // so kurz vor der Lücke gilt ein Absprung als Kante
+  const KANTE_SCHWUNG = 0.14;
+  // So dicht hinter der Kante gilt eine Landung als eng. Drei Meter klingen
+  // grosszügig und sind es nicht: Bei siebzehn Metern je Sekunde trägt ein
+  // voller Sprung dreizehn Meter, ein gar nicht gehaltener fünfeinhalb – das
+  // Fenster zwischen "in der Lücke" und "zu weit" ist damit rund hundert
+  // Millisekunden Haltezeit breit. Enger wäre es nicht mehr Können, sondern
+  // Glück.
+  const LANDUNG_M = 3.0;
+  const LANDUNG_SCHWUNG = 0.16;
+  const KOHLE_SCHWUNG = 0.05;
+
+  // Der Luftsprung nimmt einen Anteil, keinen Betrag. Unten tut das wenig weh
+  // – oben sehr. Genau richtig herum: Wer gerade anfängt, soll ihn benutzen.
+  const LUFT_ANTEIL = 0.5;
+  const LUFT_V = 12.2;             // etwas schwächer als der Absprung vom Boden
+
+  // Das Startsignal: Wer auf null tippt, startet mit Schwung im Rücken.
+  const START_ZAEHLUNG = 3;        // Sekunden Zählung
+  const START_FENSTER_MS = 420;    // ab hier gibt es nichts mehr
+  const START_SCHWUNG = 0.45;      // der volle Boost bei einem genauen Tipp
+  const FEHLSTART_MS = 700;        // wer zu früh tippt, wartet so lange nach
 
   // Der Sprung. Aus SPRUNG_V und SCHWERE folgt alles andere: 2,5 Meter hoch,
   // 0,78 Sekunden lang, und damit gut acht Meter weit bei Anfangstempo und
@@ -129,7 +184,16 @@
   //   luecke    b Meter ohne Boden
   //   kiste     ein Podest, 1,2 auf 1,4 Meter
   //   hoch      dasselbe, 2,0 Meter hoch – darüber muss man richtig springen
-  //   kohle     ein Punkt zum Einsammeln, in der Höhe y
+  //   platte    eine schwebende Platte über einer Lücke. Einweg: Von oben
+  //             landet man darauf, von der Seite und von unten läuft man
+  //             hindurch. Sie ist nie der einzige Weg, immer der gierige –
+  //             wer sie trifft, holt zwei enge Landungen statt einer und die
+  //             Kohle darüber; wer sie verfehlt, liegt in der Lücke.
+  //   kohle     ein Punkt zum Einsammeln, in der Höhe y. Alles über 2,7 Meter
+  //             ist nur mit dem Luftsprung zu holen – und der kostet die
+  //             Hälfte des Schwungs. Zwölf Punkte gegen Tempo: Das ist die
+  //             Rechnung, die dieses Spiel stellt, und sie fällt früh auf der
+  //             Strecke anders aus als kurz vor dem Ziel.
   const STRECKE = [
     ["schwelle", 0],
     ["kohle", 20, 0.7], ["kohle", 25, 0.7],
@@ -151,6 +215,8 @@
     ["kiste", 206],
     ["kohle", 216, 2.2],
     ["luecke", 228, 5],
+    ["platte", 231, 2.2],
+    ["kohle", 231.6, 2.9],
     ["kiste", 242],
     ["kohle", 252, 0.7],
     ["hoch", 262],
@@ -158,7 +224,7 @@
     ["schwelle", 270],
     ["luecke", 282, 5.5],
     ["luecke", 298, 5.5],
-    ["kohle", 312, 2.2],
+    ["kohle", 312, 3.8],
     ["kiste", 322],
     ["kiste", 332],
     ["luecke", 346, 6],
@@ -166,59 +232,67 @@
     ["schwelle", 360],
     ["kohle", 372, 2.2], ["kohle", 377, 2.2],
     ["hoch", 388],
-    ["luecke", 402, 6.5],
+    ["luecke", 402, 7],
+    ["platte", 405.4, 2.2],
     ["kiste", 416],
     ["kohle", 426, 0.7],
-    ["luecke", 438, 6],
+    ["luecke", 438, 6.5],
 
     ["schwelle", 450],
     ["kiste", 460],
-    ["luecke", 472, 6],
+    ["luecke", 472, 6.5],
     ["kiste", 486],
     ["hoch", 498],
-    ["luecke", 512, 6.5],
-    ["kohle", 526, 2.2],
+    ["luecke", 512, 7],
+    ["kohle", 526, 3.8],
     ["kiste", 536],
 
     ["schwelle", 545],
-    ["luecke", 556, 6.5],
+    ["luecke", 556, 7],
     ["kiste", 570],
-    ["luecke", 582, 7],
+    ["luecke", 582, 7.5],
+    ["platte", 585.4, 2.2],
+    ["kohle", 586, 2.9],
     ["kohle", 596, 2.2],
     ["kiste", 606],
-    ["luecke", 618, 6],
+    ["luecke", 618, 6.5],
     ["kohle", 632, 0.7],
   ];
 
   const KISTE_B = 1.2;
   const KISTE_H = 1.4;
   const HOCH_H = 2.0;
+  const PLATTE_B = 2.4;
 
   // Aus der Tabelle werden drei Listen, jede nach x sortiert: Danach fragt das
   // Spiel bei jedem Bild, und eine Liste, die man durchsuchen muss, ist bei
   // sechzig Bildern in der Sekunde zu langsam gedacht.
   const luecken = [];
   const kisten = [];
+  const platten = [];
   const kohlen = [];
   const schwellen = [];
   STRECKE.forEach(([art_, x, wert]) => {
     if (art_ === "luecke") luecken.push({ von: x, bis: x + wert });
     else if (art_ === "kiste") kisten.push({ x, b: KISTE_B, h: KISTE_H });
     else if (art_ === "hoch") kisten.push({ x, b: KISTE_B, h: HOCH_H });
+    else if (art_ === "platte") platten.push({ x, b: PLATTE_B, h: wert });
     else if (art_ === "kohle") kohlen.push({ x, y: wert });
     else if (art_ === "schwelle") schwellen.push(x);
   });
-  [luecken, kisten, kohlen].forEach((liste) => liste.sort((a, b) => (a.von ?? a.x) - (b.von ?? b.x)));
+  [luecken, kisten, platten, kohlen].forEach((liste) => liste.sort((a, b) => (a.von ?? a.x) - (b.von ?? b.x)));
   schwellen.sort((a, b) => a - b);
   const KOHLE_GESAMT = kohlen.length;
 
   const HELP = [
-    "Streckenlauf. Du läufst von selbst los, immer geradeaus.",
-    "Tippe aufs Bild, dann springst du. Hältst du den Finger länger, springst du höher.",
-    "Über die Lücken musst du springen. Auf die Kisten kannst du auch draufspringen.",
-    "Läufst du seitlich in eine Kiste, stolperst du und verlierst Tempo.",
-    "Sammle unterwegs die Kohle ein.",
-    "Neben dir laufen die drei Besten, so wie sie damals gelaufen sind. Versuch, vor ihnen zu bleiben.",
+    "Streckenlauf. Zuerst zählt es von drei herunter – tippe genau auf null, dann startest du mit Schwung.",
+    "Dann läufst du von selbst, immer geradeaus. Tippe aufs Bild, dann springst du.",
+    "Hältst du den Finger länger, springst du höher und weiter.",
+    "Tippst du in der Luft noch einmal, springst du ein zweites Mal – das rettet dich, kostet aber die Hälfte deines Schwungs.",
+    "Schwung ist dein Tempo. Du bekommst ihn, wenn du erst kurz vor einer Lücke abspringst und dicht dahinter wieder aufkommst.",
+    "Stolpern und Abstürzen nehmen dir allen Schwung.",
+    "Sammle unterwegs die Kohle ein. Die hohen Stücke bekommst du nur mit dem zweiten Sprung.",
+    "Neben dir laufen die drei Besten, so wie sie damals gelaufen sind.",
     "Je schneller du im Ziel bist, desto mehr Punkte gibt es.",
   ].join(" ");
 
@@ -317,13 +391,23 @@
   // Lücke gibt es nichts – dafür steht hier eine Zahl, die tief genug liegt,
   // dass niemand sie je erreicht, bevor der Sturz zählt.
   function bodenBei(x) {
-    if (inLuecke(x)) return -99;
-    let hoch = 0;
+    let hoch = -99;
     for (const kiste of kisten) {
       if (kiste.umgefallen) continue;
       if (x >= kiste.x && x <= kiste.x + kiste.b) hoch = Math.max(hoch, kiste.h);
     }
-    return hoch;
+    if (hoch > -99) return hoch;
+    return inLuecke(x) ? -99 : 0;
+  }
+
+  // Die Platten sind hier nicht dabei: Sie tragen nur von oben, und ob man von
+  // oben kommt, weiss erst der Schritt, der die Höhe des Bildes davor kennt.
+  function platteUnter(x, yVorher, yJetzt) {
+    for (const platte of platten) {
+      if (x + LAEUFER_B / 2 < platte.x || x - LAEUFER_B / 2 > platte.x + platte.b) continue;
+      if (yVorher >= platte.h - 0.03 && yJetzt <= platte.h) return platte.h;
+    }
+    return null;
   }
 
   const letzteSchwelle = (x) => {
@@ -337,9 +421,21 @@
   // ---------------------------------------------------------------------------
   const state = {
     phase: "intro",
-    x: 0, y: 0, vy: 0, tempo: TEMPO_START,
+    x: 0, y: 0, vy: 0, tempo: TEMPO_BASIS,
+    schwung: 0,              // der Vorrat, aus dem das Tempo kommt
     amBoden: true,
     bodenSeit: 0,            // wann zuletzt Boden unter den Füssen war
+    luftFrei: false,         // ist der Luftsprung noch zu haben?
+    zielLuecke: null,        // welche Lücke der laufende Sprung überspannt
+    hinweis: null,           // ein Wort, das kurz aufblitzt
+    kanten: 0,               // wie oft eine Kante gelang
+    engeLandungen: 0,        // und wie oft eine enge Landung
+    luftspruenge: 0,
+    losZeit: 0,              // wann die Zählung auf null steht
+    startTipp: null,         // wie genau getippt wurde, in Millisekunden
+    startSchwung: 0,         // was der Tipp einbringt
+    startVerbucht: false,    // schon gutgeschrieben?
+    fehlstart: false,
     kohle: 0,
     stolpertBis: 0,
     sturzBis: 0,
@@ -367,15 +463,60 @@
   // ---------------------------------------------------------------------------
   // Springen
   // ---------------------------------------------------------------------------
+  // Ein Wort, das kurz über dem Läufer aufblitzt. Eine Regel, die man nicht
+  // sieht, kann man nicht lernen – und Kante und enge Landung sind genau die
+  // Art Regel, die man sonst für Zufall hält.
+  function zeigeHinweis(text, art) {
+    state.hinweis = { text, art, bis: performance.now() + 750 };
+  }
+
+  function schwungDazu(menge, text) {
+    state.schwung += menge;
+    if (text) zeigeHinweis(text, "gut");
+  }
+
+  // Die Lücke, auf die man gerade zuläuft – falls eine nah genug ist.
+  function lueckeVoraus() {
+    for (const luecke of luecken) {
+      if (luecke.von >= state.x - 0.05) return luecke;
+    }
+    return null;
+  }
+
   function springe() {
     if (state.phase !== "play") return;
-    if (performance.now() < state.sturzBis) return;
-    const frisch = state.amBoden || (performance.now() - state.bodenSeit) < NACHSICHT_MS;
-    if (!frisch) return;
-    state.vy = SPRUNG_V;
-    state.amBoden = false;
-    state.bodenSeit = -99999;
-    kids()?.vibrate?.(8);
+    const jetzt = performance.now();
+    if (jetzt < state.sturzBis) return;
+
+    const amBoden = state.amBoden || (jetzt - state.bodenSeit) < NACHSICHT_MS;
+    if (amBoden) {
+      state.vy = SPRUNG_V;
+      state.amBoden = false;
+      state.bodenSeit = -99999;
+      state.luftFrei = true;
+
+      // Kante: Wer im letzten Meter vor der Lücke abspringt, bekommt Schwung.
+      // Wer früh und sicher springt, kommt auch hinüber – aber eben umsonst.
+      const luecke = lueckeVoraus();
+      state.zielLuecke = luecke && luecke.von - state.x <= KANTE_M + 2 ? luecke : null;
+      if (luecke && luecke.von - state.x <= KANTE_M) {
+        state.kanten += 1;
+        schwungDazu(KANTE_SCHWUNG, "Kante!");
+      }
+      kids()?.vibrate?.(8);
+      return;
+    }
+
+    // Der Luftsprung. Er rettet, und er kostet die Hälfte – ein Anteil, kein
+    // Betrag: Wer wenig Schwung hat, verliert wenig, wer viel hat, viel.
+    if (state.luftFrei) {
+      state.luftFrei = false;
+      state.luftspruenge += 1;
+      state.vy = LUFT_V;
+      state.schwung *= LUFT_ANTEIL;
+      zeigeHinweis("Luftsprung", "teuer");
+      kids()?.vibrate?.(14);
+    }
   }
 
   function loslassen() {
@@ -385,11 +526,105 @@
     if (state.vy > 0) state.vy *= SPRUNG_KURZ;
   }
 
+  /*
+   * Aufgekommen.
+   *
+   * Eng gelandet heisst: dicht hinter der Kante, die man übersprungen hat.
+   * Das ist nicht dasselbe wie "hinübergekommen": Bei Tempo trägt ein voller
+   * Sprung dreizehn Meter, eine Lücke ist sechs breit – wer nur abspringt und
+   * hält, landet weit dahinter und bekommt nichts. Eng wird es erst, wenn man
+   * den Sprung im richtigen Moment abschneidet (Finger heben), und zu kurz
+   * abgeschnitten heisst: in der Lücke.
+   *
+   * Eine Platte zählt wie eine enge Landung. Sie zu treffen ist genauso
+   * schwer, und sie mitten in einer Lücke zu verfehlen ist teurer.
+   */
+  function landung(aufPlatte) {
+    if (aufPlatte) {
+      state.engeLandungen += 1;
+      schwungDazu(LANDUNG_SCHWUNG, "Platte!");
+      state.zielLuecke = null;
+      return;
+    }
+    const luecke = state.zielLuecke;
+    state.zielLuecke = null;
+    if (!luecke) return;
+    const hinter = state.x - luecke.bis;
+    if (hinter >= 0 && hinter <= LANDUNG_M) {
+      state.engeLandungen += 1;
+      schwungDazu(LANDUNG_SCHWUNG, "Eng!");
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Ein Bild
   // ---------------------------------------------------------------------------
+  /*
+   * Das Startsignal.
+   *
+   * Drei Sekunden Zählung, und wer auf null tippt, startet mit Schwung im
+   * Rücken. Je genauer, desto mehr – stufenlos, nicht in drei Stufen: Eine
+   * Zahl, die sich um Hundertstel verbessern lässt, ist der Anfang eines
+   * Laufs, den man wiederholen will.
+   *
+   * Zu früh ist ein Fehlstart. Er nimmt nicht den Lauf, sondern den Anlauf:
+   * Die ersten Meter läuft man, als wäre man gestolpert.
+   */
+  function verbucheStart() {
+    if (state.startVerbucht) return;
+    state.startVerbucht = true;
+    state.schwung += state.startSchwung;
+  }
+
+  function startTipp() {
+    if (state.startTipp !== null) return;
+    const abw = Date.now() - state.losZeit;
+    state.startTipp = abw;
+
+    if (abw < -START_FENSTER_MS) {
+      state.fehlstart = true;
+      state.startSchwung = 0;
+      zeigeHinweis("Fehlstart", "teuer");
+      kids()?.playJingle?.("retry");
+      return;
+    }
+    const guete = Math.max(0, 1 - Math.abs(abw) / START_FENSTER_MS);
+    state.startSchwung = START_SCHWUNG * guete;
+    zeigeHinweis(guete > 0.85 ? "Blitzstart!" : guete > 0.45 ? "Guter Start" : "Start", guete > 0.45 ? "gut" : null);
+    kids()?.playJingle?.(guete > 0.45 ? "correct" : "retry");
+    if (state.phase === "play") verbucheStart();
+  }
+
+  // Ein Tipp, egal woher. Was er bedeutet, hängt davon ab, wo die Runde steht.
+  function tipp() {
+    if (state.phase === "zaehlung") { startTipp(); return; }
+    if (state.phase !== "play") return;
+    // Kurz nach der Null zählt der erste Tipp noch als Start – sonst wäre ein
+    // bisschen zu spät nicht messbar, und zu springen gibt es hier ohnehin
+    // noch nichts.
+    if (state.startTipp === null && Date.now() - state.losZeit <= START_FENSTER_MS) {
+      startTipp();
+      return;
+    }
+    springe();
+  }
+
+  function losGehts(now) {
+    state.phase = "play";
+    state.start = state.losZeit;
+    state.zeit = 0;
+    letzteZeit = now;
+    verbucheStart();
+    if (state.fehlstart) state.stolpertBis = now + FEHLSTART_MS;
+    shell.startClock(ZEITLIMIT_MS, () => fertig());
+  }
+
   function schritt(now) {
     frame = window.requestAnimationFrame(schritt);
+    if (state.phase === "zaehlung") {
+      if (Date.now() >= state.losZeit) losGehts(now);
+      else { zeichne(now); return; }
+    }
     if (state.phase !== "play") return;
     const dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
     letzteZeit = now;
@@ -399,22 +634,36 @@
     const stolpert = now < state.stolpertBis;
 
     if (!stuerzt) {
-      // --- Tempo ---------------------------------------------------------------
-      if (stolpert) state.tempo = TEMPO_STOLPER;
-      else state.tempo = Math.min(TEMPO_MAX, Math.max(TEMPO_START, state.tempo + TEMPO_ZUWACHS * dt));
+      // --- Schwung und Tempo ---------------------------------------------------
+      // Was abfliesst, wächst mit dem Schwung selbst. Deshalb gibt es keine
+      // Höchstgeschwindigkeit, sondern eine Höhe, auf der sich Nachschub und
+      // Abfluss die Waage halten – und die verschiebt sich mit jeder Kante,
+      // die man trifft.
+      state.schwung = Math.max(0, state.schwung
+        - (ZERFALL_RUHE + ZERFALL_TEMPO * state.schwung) * dt);
+      state.tempo = stolpert ? TEMPO_STOLPER : TEMPO_BASIS + state.schwung * TEMPO_SPANNE;
 
       const vorher = state.x;
+      const yVorher = state.y;
       state.x += state.tempo * dt;
 
       // --- Fallen und Landen ---------------------------------------------------
       state.vy -= SCHWERE * dt;
       state.y += state.vy * dt;
-      const boden = bodenBei(state.x);
+      let boden = bodenBei(state.x);
+      let aufPlatte = false;
+      if (state.vy <= 0) {
+        const platte = platteUnter(state.x, yVorher, state.y);
+        if (platte !== null && platte > boden) { boden = platte; aufPlatte = true; }
+      }
       if (state.vy <= 0 && state.y <= boden) {
+        const kam = !state.amBoden;
         state.y = boden;
         state.vy = 0;
         state.amBoden = true;
         state.bodenSeit = now;
+        state.luftFrei = false;
+        if (kam) landung(aufPlatte);
       } else if (state.y > boden) {
         if (state.amBoden) state.bodenSeit = now;
         state.amBoden = false;
@@ -430,6 +679,9 @@
         kiste.umgefallen = true;
         state.stolpertBis = now + STOLPER_MS;
         state.tempo = TEMPO_STOLPER;
+        state.schwung = 0;
+        state.zielLuecke = null;
+        zeigeHinweis("Gestolpert", "teuer");
         kids()?.playJingle?.("retry");
         kids()?.vibrate?.([16, 40, 16]);
         break;
@@ -442,6 +694,7 @@
         if (Math.abs(stueck.y - state.y) > 1.1) continue;
         stueck.weg = true;
         state.kohle += 1;
+        state.schwung += KOHLE_SCHWUNG;
         shell.setCount(state.kohle);
         kids()?.playJingle?.("correct");
       }
@@ -453,7 +706,10 @@
         state.y = 0;
         state.vy = 0;
         state.amBoden = true;
-        state.tempo = TEMPO_START;
+        state.tempo = TEMPO_BASIS;
+        state.schwung = 0;
+        state.zielLuecke = null;
+        state.luftFrei = false;
         state.sturzBis = now + STURZ_MS;
         // Nicht über den Rücksprung hinweg mitteln – sonst stünde in der
         // Aufzeichnung eine Stellung mitten in der Lücke, die es nie gab.
@@ -746,6 +1002,24 @@
       ctx.restore();
     }
 
+    // --- Schwebende Platten ---------------------------------------------------
+    // Flacher als eine Kiste und mit einem Schatten darunter: Man soll auf
+    // einen Blick sehen, dass sie trägt und dass darunter nichts ist.
+    for (const platte of platten) {
+      const px = bildX(platte.x);
+      if (px < -80 || px > breit + 80) continue;
+      const b = platte.b * proM;
+      const py = bodenY - platte.h * proM;
+      ctx.fillStyle = "#6f6558";
+      ctx.fillRect(px, py, b, Math.max(4, 0.16 * proM));
+      ctx.fillStyle = "#9a8f7c";
+      ctx.fillRect(px, py, b, Math.max(2, 0.06 * proM));
+      ctx.fillStyle = "rgba(36, 48, 71, 0.18)";
+      for (let i = 0; i < 3; i += 1) {
+        ctx.fillRect(px + b * (0.2 + i * 0.3), py + Math.max(4, 0.16 * proM), 2, 6);
+      }
+    }
+
     // --- Kohle ----------------------------------------------------------------
     for (const stueck of kohlen) {
       if (stueck.weg) continue;
@@ -817,6 +1091,72 @@
       marke(geistBei(geist.bahn, state.zeit).x / ZIEL_M, GEIST_FARBEN[i] || "#9aa7b4", false);
     });
     marke(state.x / ZIEL_M, "#243047", true);
+
+    // --- Der Schwungbalken ----------------------------------------------------
+    // Er hat absichtlich kein Ende: Der Balken füllt sich bis zum Rand und
+    // färbt sich dann um, statt anzuschlagen. Ein Balken, der voll ist, sagt
+    // "mehr geht nicht" – und genau das stimmt hier nicht.
+    const balkenY = leisteY + 16;
+    const balkenB = Math.max(70, breit * 0.26);
+    const anteil = Math.min(1, state.schwung);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.fillRect(leisteL, balkenY, balkenB, 9);
+    ctx.fillStyle = state.schwung > 1 ? "#d0392b" : state.schwung > 0.6 ? "#e2694f" : "#e8b64c";
+    ctx.fillRect(leisteL, balkenY, balkenB * anteil, 9);
+    ctx.strokeStyle = "rgba(36, 48, 71, 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(leisteL, balkenY, balkenB, 9);
+    ctx.fillStyle = "#243047";
+    ctx.font = `700 ${Math.max(11, Math.min(15, breit * 0.017))}px system-ui, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${state.tempo.toFixed(1).replace(".", ",")} m/s`, leisteL + balkenB + 8, balkenY + 5);
+
+    // --- Das Wort, das aufblitzt ----------------------------------------------
+    if (state.hinweis && now < state.hinweis.bis) {
+      const rest = (state.hinweis.bis - now) / 750;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, rest * 1.6);
+      ctx.fillStyle = state.hinweis.art === "gut" ? "#2c7337"
+        : state.hinweis.art === "teuer" ? "#a8321f" : "#3b4657";
+      ctx.font = `800 ${Math.max(15, Math.min(26, breit * 0.028))}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(state.hinweis.text, bildX(state.x), bodenY - state.y * proM - 62 - (1 - rest) * 22);
+      ctx.restore();
+    } else if (state.hinweis) {
+      state.hinweis = null;
+    }
+
+    // --- Die Zählung ----------------------------------------------------------
+    // Der Ring schrumpft auf null, und zwar genau dann, wenn es losgeht. Eine
+    // Zahl allein liesse sich nur raten; an einem Ring, der zugeht, kann man
+    // zielen.
+    if (state.phase === "zaehlung") {
+      const rest = Math.max(0, state.losZeit - Date.now());
+      const mitteX = breit / 2;
+      const mitteY = bodenY * 0.52;
+      const gross = Math.min(breit, bodenY) * 0.17;
+      ctx.save();
+      ctx.strokeStyle = "rgba(36, 48, 71, 0.45)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(mitteX, mitteY, gross, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(245, 166, 35, 0.85)";
+      ctx.beginPath();
+      ctx.arc(mitteX, mitteY, gross * (rest / (START_ZAEHLUNG * 1000)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#243047";
+      ctx.font = `900 ${gross * 1.1}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.ceil(rest / 1000) || ""), mitteX, mitteY);
+      ctx.font = `800 ${Math.max(13, gross * 0.36)}px system-ui, sans-serif`;
+      ctx.fillText(state.startTipp === null ? "Tippe genau auf null" : "", mitteX, mitteY + gross * 1.5);
+      ctx.restore();
+    }
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
   }
 
   // ---------------------------------------------------------------------------
@@ -884,11 +1224,11 @@
   function beginRound() {
     clearStep();
     stopLoop();
-    state.phase = "play";
+    state.phase = "zaehlung";
     state.x = 0;
     state.y = 0;
     state.vy = 0;
-    state.tempo = TEMPO_START;
+    state.tempo = TEMPO_BASIS;
     state.amBoden = true;
     state.bodenSeit = performance.now();
     state.kohle = 0;
@@ -902,6 +1242,17 @@
     state.vorigeY = 0;
     state.schritt = 0;
     state.zeit = 0;
+    state.schwung = 0;
+    state.luftFrei = false;
+    state.zielLuecke = null;
+    state.hinweis = null;
+    state.startTipp = null;
+    state.startSchwung = 0;
+    state.startVerbucht = false;
+    state.fehlstart = false;
+    state.kanten = 0;
+    state.engeLandungen = 0;
+    state.luftspruenge = 0;
     kisten.forEach((k) => { k.umgefallen = false; });
     kohlen.forEach((k) => { k.weg = false; });
 
@@ -918,10 +1269,13 @@
     // beim ersten Mal allein – und beim zweiten sind sie da.
     ladeGeister().then((liste) => { state.geister = liste.slice(0, GEISTER_ZAHL); });
 
-    state.start = Date.now();
+    // Erst die Zählung, dann der Lauf. Die Uhr läuft ab der Null, nicht ab dem
+    // Knopf – sonst kostete das Zählen Punkte.
+    state.phase = "zaehlung";
+    state.losZeit = Date.now() + START_ZAEHLUNG * 1000;
+    state.start = state.losZeit;
     letzteZeit = performance.now();
     frame = window.requestAnimationFrame(schritt);
-    shell.startClock(ZEITLIMIT_MS, () => fertig());
   }
 
   function punkteFuer() {
@@ -991,7 +1345,7 @@
   // --- Der eine Finger -------------------------------------------------------
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button")) return;
-    springe();
+    tipp();
   });
   host.addEventListener("pointerup", loslassen);
   host.addEventListener("pointercancel", loslassen);
@@ -1002,7 +1356,7 @@
     if (document.activeElement?.tagName === "BUTTON") return;
     event.preventDefault();
     if (state.phase === "intro") { beginRound(); return; }
-    if (state.phase === "play" && !event.repeat) springe();
+    if (!event.repeat) tipp();
   });
   document.addEventListener("keyup", (event) => {
     if (event.key === " " || event.key === "ArrowUp" || event.key === "Enter") loslassen();
@@ -1013,7 +1367,11 @@
   // Zeit abläuft. Das kostet zwar nur Punkte – aber es sähe beim Zurückkommen
   // aus wie ein Fehler des Spiels, und die Geister liefen derweil weiter.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden && state.phase === "play") fertig();
+    if (!document.hidden) return;
+    // Während der Zählung hat noch nichts angefangen – dann zurück an den
+    // Anfang, statt einen Lauf zu werten, den niemand gelaufen ist.
+    if (state.phase === "zaehlung") { showIntro(); return; }
+    if (state.phase === "play") fertig();
   });
 
   window.addEventListener("resize", passeAn);
@@ -1031,15 +1389,23 @@
   // Geschrieben wird hier nichts: Es ist eine Abschrift, kein Griff.
   window.LernappStrecke = {
     LEVEL, ZIEL_M, SICHT_M, SCHRITT_MS, STRECKE, KOHLE_GESAMT,
-    SPRUNG_V, SCHWERE, TEMPO_START, TEMPO_MAX, LAEUFER_B,
+    SPRUNG_V, SCHWERE, TEMPO_BASIS, TEMPO_SPANNE, LAEUFER_B,
+    KANTE_M, LANDUNG_M, START_FENSTER_MS, START_ZAEHLUNG,
     bahnKodieren, bahnLesen,
     stand: () => ({
       phase: state.phase,
       x: state.x, y: state.y, tempo: state.tempo,
+      schwung: state.schwung, luftFrei: state.luftFrei,
+      kanten: state.kanten, engeLandungen: state.engeLandungen,
+      luftspruenge: state.luftspruenge,
       amBoden: state.amBoden, kohle: state.kohle,
       zeit: state.zeit, imZiel: state.imZiel,
+      losIn: state.phase === "zaehlung" ? state.losZeit - Date.now() : 0,
+      startTipp: state.startTipp,
       geister: state.geister.length,
       stellungen: state.lauf.length,
     }),
+    // Die Zählung von aussen bedienen, damit sich der Start prüfen lässt.
+    tipp: () => tipp(),
   };
 })();

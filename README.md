@@ -95,10 +95,27 @@ lüde sonst bei jedem Besuch ein paar Kilobyte je Spieler mit, die dort niemand
 ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der Punktzahl und
 nur bei einem Rekord – denselben Weg durch `mini-games.js`, keinen zweiten.
 
-Jede Aufzeichnung trägt die Fassung ihres Levels (`level: "v1"`). Ändert sich
-die Strecke, zählt `LEVEL` in `strecke.js` hoch, und die alten Geister
-verschwinden aus dem Bild. Das ist der Preis dafür, dass nie einer läuft, der
-nicht mehr passt.
+Jede Aufzeichnung trägt die Fassung ihres Levels (`level`, zur Zeit `"v2"`).
+Ändert sich die Strecke, zählt `LEVEL` in `strecke.js` hoch, und die alten
+Geister verschwinden aus dem Bild. Das ist der Preis dafür, dass nie einer
+läuft, der nicht mehr passt.
+
+### Warum das Tempo nicht steigt, sondern verdient wird
+
+Die erste Fassung des Streckenlaufs liess das Tempo von selbst wachsen und
+deckelte es. Damit war ein fehlerfreier Lauf für jeden dieselbe Zahl – 959,
+und wer fünfmal nicht gepatzt hatte, konnte sich nie mehr verbessern. Eine
+Bestenliste, in der oben alle gleich stehen, ist keine.
+
+Seit v2 ist Tempo ein Vorrat: Schwung. Man füllt ihn durch Genauigkeit auf –
+Absprung im letzten Meter vor einer Lücke (*Kante*), Aufkommen dicht dahinter
+(*enge Landung*) –, und er verweht umso schneller, je mehr davon da ist. Es
+gibt deshalb keine Höchstgeschwindigkeit, sondern eine Höhe, auf der sich
+Nachschub und Abfluss die Waage halten. Wer genauer springt, steht höher.
+
+Das Fenster für eine enge Landung schrumpft dabei mit dem Tempo: bei 10,5
+Metern je Sekunde sind es 250 Millisekunden Haltezeit, bei 19 noch 30 bis 100.
+Das Spiel bremst sich selbst, ohne eine Grenze zu ziehen.
 
 Geeignet ist ein Spiel, das genau eine Zahl liefert, bei der grösser besser
 ist. Spiele mit Sternen je Level taugen nicht: Am Ende hätten alle drei, und
