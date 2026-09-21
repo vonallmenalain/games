@@ -1856,7 +1856,12 @@ h2 {
 
 .hz-tafel { flex: 0 0 auto; }
 
+/* Eine Breite für alle in der Reihe: Kessel und Umriss teilen sie sich, und
+   der Umriss wächst beim Ankündigen von null darauf zu. Stünde die Zahl an
+   zwei Stellen, spränge die Reihe in dem Bild, in dem der eine den anderen
+   ablöst. */
 .hz-reihe {
+  --hz-breite: min(190px, 30vh);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1866,22 +1871,42 @@ h2 {
   min-height: 0;
 }
 
+/* Ein Kessel ist zwei Dinge in einem Knopf: oben die Uhr, unten die Klappe.
+   Die Klappe ist die Hälfte, auf die ein Daumen darf – wer auf die Uhr tippt,
+   verdeckt mit der Hand genau das, worauf es ankommt. */
 .hz-kessel {
   position: relative;
   flex: 1 1 0;
   min-width: 0;
-  max-width: min(190px, 30vh);
+  max-width: var(--hz-breite);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: 0;
   border: none;
   background: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform 0.08s ease;
+  transition: transform 0.08s ease, filter 0.22s ease;
 }
 .hz-kessel:active { transform: scale(0.95); }
-.hz-kessel:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 50%; }
-.hz-kessel[disabled] { cursor: default; }
+.hz-kessel:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 16px; }
+/* Im Startbild stehen zwei Kessel, die nur zum Ansehen da sind. Ohne diese
+   Zeile blasst sie die allgemeine Regel für abgeschaltete Knöpfe auf die
+   Hälfte aus – und ausgerechnet die Farbe ist hier das, was sie erklären. */
+.hz-kessel[disabled] { cursor: default; opacity: 1; }
+
+/* Das Feld um die Uhr trägt alles, was rund ist: Warnring, Funke, Glühen. Am
+   Knopf selbst hinge das an einem Kasten, der seit der Klappe höher als breit
+   ist – aus jedem Kreis würde ein Ei. z-index, damit der Hals der Klappe
+   hinter dem Zifferblatt verschwindet. */
+.hz-uhr-feld {
+  position: relative;
+  display: block;
+  width: 100%;
+  z-index: 1;
+}
 
 .hz-uhr {
   width: 100%;
@@ -1890,23 +1915,22 @@ h2 {
   filter: drop-shadow(0 6px 14px rgba(31, 42, 51, 0.28));
 }
 
-/* Die Nummer ist für die Tastatur da: Am Schreibtisch tippt niemand mit zwei
-   Daumen auf fünf Ziele. */
-.hz-nummer {
+/* Das Glühen nach aussen. Wie stark, sagt --hz-not (heizer.js): 0 ist ein
+   voller Kessel, 1 einer, der gleich ausgeht. Nur die Deckkraft ändert sich –
+   das kostet kein Neuzeichnen, und sechzigmal in der Sekunde zählt das. */
+.hz-halo {
   position: absolute;
-  left: 50%;
-  bottom: 2%;
-  transform: translateX(-50%);
-  font-size: clamp(0.7rem, 1.6vw, 0.95rem);
-  font-weight: 900;
-  color: #6b7280;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 60, 40, 0) 45%, rgba(226, 60, 40, 0.55) 58%, rgba(226, 60, 40, 0) 74%);
+  opacity: var(--hz-not, 0);
   pointer-events: none;
 }
 
 /* Zwei Zustände, die aus dem Augenwinkel erkennbar sein müssen: "gleich aus"
    pocht, "Finger weg" steht still und ist rot umrandet. Bewegung für das
    Dringende, Farbe für das Verbotene – wer beides bewegt, sieht keines. */
-.hz-kessel::after {
+.hz-uhr-feld::after {
   content: "";
   position: absolute;
   inset: 4%;
@@ -1915,8 +1939,8 @@ h2 {
   pointer-events: none;
   transition: border-color 0.12s ease;
 }
-.hz-kessel.is-knapp::after { border-color: #e2694f; animation: hz-pochen 0.6s ease-in-out infinite; }
-.hz-kessel.is-gefahr::after { border-color: #d0392b; }
+.hz-kessel.is-knapp .hz-uhr-feld::after { border-color: #ffd166; animation: hz-pochen 0.6s ease-in-out infinite; }
+.hz-kessel.is-gefahr .hz-uhr-feld::after { border-color: #d0392b; }
 .hz-kessel.is-gefahr { filter: saturate(1.15); }
 
 @keyframes hz-pochen {
@@ -1940,6 +1964,114 @@ h2 {
   to { opacity: 0; transform: scale(1.1); }
 }
 
+/* --- Die Klappe: der Teil des Knopfs, der nicht im Weg liegt --- */
+/* Ihre Höhe hat unten eine Grenze in Pixeln. Auf einem schmalen Telefon sind
+   fünf Kessel schmal, und eine Klappe, die mitschrumpfte, wäre kein Ziel mehr
+   – genau der Fall, für den es sie gibt. */
+.hz-griff {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84%;
+  margin: -1% auto 0;
+  min-height: clamp(46px, 8.5vh, 74px);
+  padding: 6px;
+  border-radius: 9px 9px 16px 16px;
+  background: linear-gradient(180deg, #64717f, #46525f 58%, #37414d);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 5px 10px rgba(31, 42, 51, 0.3);
+}
+/* Der Hals: Die Klappe hängt am Kessel, sie liegt nicht nur darunter. */
+.hz-griff::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 30%;
+  height: 12px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, #7a6a55, #a08d72 40%, #7a6a55);
+}
+
+/* Der glühende Schlitz: das Ziel für den Daumen und die Stelle, an der die
+   Kohle hineingeht. Beim Nachlegen flammt er auf – dieselbe Antwort wie der
+   Funke oben, nur dort, wo gerade der Finger liegt. */
+.hz-schlitz {
+  display: grid;
+  place-items: center;
+  width: 74%;
+  height: clamp(15px, 2.4vh, 24px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f2a842, #c2600f 55%, #8d3f08);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 10px rgba(240, 140, 40, 0.45);
+}
+.hz-kessel.ist-kohle .hz-schlitz { animation: hz-schlitz 0.34s ease-out both; }
+@keyframes hz-schlitz {
+  from { filter: brightness(1.9) saturate(1.15); }
+  to { filter: brightness(1); }
+}
+
+/* Die Nummer ist für die Tastatur da: Am Schreibtisch tippt niemand mit zwei
+   Daumen auf fünf Ziele. Sie steht im Schlitz wie eingestanzt – auf dem
+   Zifferblatt wäre sie eine Angabe, die keine ist. */
+.hz-nummer {
+  font-size: clamp(0.65rem, 1.7vw, 0.95rem);
+  font-weight: 900;
+  line-height: 1;
+  color: #46240a;
+  pointer-events: none;
+}
+
+/* --- Der Umriss: hier steht gleich einer --- */
+/* Er wächst von null auf die volle Breite. Die Reihe rückt damit zusammen,
+   während man zusieht, statt in dem einen Bild, in dem der Kessel da ist. */
+.hz-platz {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: var(--hz-breite);
+  pointer-events: none;
+  animation: hz-platz-auf 0.5s ease both;
+}
+@keyframes hz-platz-auf {
+  from { max-width: 0; opacity: 0; }
+  to { max-width: var(--hz-breite); opacity: 1; }
+}
+.hz-platz-uhr { filter: none; }
+.hz-platz-bogen { stroke: var(--cm-accent-dark, #00707c); }
+.hz-platz-wort {
+  font-size: 16px;
+  font-weight: 900;
+  fill: var(--cm-accent-dark, #00707c);
+}
+/* Auch der Umriss hat eine Klappe – als Schatten. Sie steht nicht zum Tippen
+   da, sondern damit er genau so hoch ist wie ein Kessel. */
+.hz-platz .hz-griff {
+  background: rgba(70, 82, 95, 0.2);
+  box-shadow: none;
+}
+.hz-platz .hz-griff::before { background: rgba(122, 106, 85, 0.3); }
+.hz-platz .hz-schlitz {
+  background: rgba(194, 96, 15, 0.25);
+  box-shadow: none;
+}
+.hz-platz.ist-nah .hz-platz-uhr { animation: hz-platz-pochen 0.5s ease-in-out infinite; }
+@keyframes hz-platz-pochen {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* --- Der Atemzug, wenn einer dazukommt --- */
+/* Eine halbe Sekunde stehen alle still (heizer.js). Die schon da sind, treten
+   dabei einen Schritt zurück, damit der neue der einzige ist, den man ansieht. */
+.hz-reihe.ist-halt .hz-kessel:not(.ist-neu) { filter: saturate(0.6) brightness(0.93); }
+
+.hz-kessel.ist-neu { animation: hz-ankunft 0.6s cubic-bezier(0.22, 1.15, 0.36, 1) both; }
+@keyframes hz-ankunft {
+  0% { opacity: 0; transform: scale(0.3) translateY(16%); }
+  55% { opacity: 1; transform: scale(1.09) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .hz-kessel.ist-geplatzt { animation: hz-platzt 0.42s ease-out both; }
 @keyframes hz-platzt {
   0% { transform: scale(1); }
@@ -1961,7 +2093,9 @@ h2 {
   gap: 6px;
   width: clamp(88px, 22vw, 132px);
 }
-.hz-demo-kessel .hz-kessel { max-width: none; width: 100%; }
+/* Im Startbild steht der Kessel in einer Spalte, nicht in der Reihe: Dort ist
+   die Hauptachse senkrecht, und flex-basis 0 machte ihn null hoch. */
+.hz-demo-kessel .hz-kessel { flex: 0 0 auto; max-width: none; width: 100%; }
 .hz-demo-wort {
   font-size: clamp(0.8rem, 2vw, 1rem);
   font-weight: 800;
@@ -2248,15 +2382,19 @@ h2 {
    keine flackernden Funken. Die Zeiger fallen trotzdem, die Wagen rollen
    trotzdem – das ist das Spiel, nicht die Zierde. */
 @media (prefers-reduced-motion: reduce) {
-  .hz-kessel.is-knapp::after,
+  .hz-kessel.is-knapp .hz-uhr-feld::after,
   .hz-kessel.ist-kohle .hz-funke,
+  .hz-kessel.ist-kohle .hz-schlitz,
   .hz-kessel.ist-geplatzt,
+  .hz-kessel.ist-neu,
+  .hz-platz,
+  .hz-platz.ist-nah .hz-platz-uhr,
   .ww-rampe.ist-unterwegs,
   .ww-rampe.ist-angekommen,
   .ww-wagen.ist-entgleist,
   .bw-stage.ist-bremse .bw-funken,
   .bw-marke.ist-da { animation: none; }
-  .hz-kessel.is-knapp::after { border-color: #e2694f; }
+  .hz-kessel.is-knapp .hz-uhr-feld::after { border-color: #ffd166; }
   .ww-rampe.ist-unterwegs { border-color: var(--ww-farbe, #243047); }
   .bw-stage.ist-bremse .bw-funken { opacity: 1; }
 }

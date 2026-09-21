@@ -15,6 +15,27 @@
  * nächster dran, und wer sieht nur so aus. Alle neun Sekunden kommt ein Kessel
  * dazu, bis fünf nebeneinander stehen, und der Verbrauch steigt langsam mit.
  *
+ * Zwei Dinge soll man kommen sehen, bevor sie da sind. Das eine ist der
+ * nächste Kessel. Er kündigt sich VORSCHAU_MS vorher als Umriss genau an der
+ * Stelle an, an der er gleich stehen wird, und ein Ring darin füllt sich, bis
+ * es so weit ist. Dann hält die Reihe HALT_MS lang die Luft an: Kein Zeiger
+ * fällt, während der neue aufgeht. Diese halbe Sekunde zählt nicht mit – die
+ * Punkte sind gespielte Zeit, nicht Zeit auf der Wanduhr. Sonst wäre jeder
+ * Kessel, der dazukommt, ein kleines Geschenk, und drei Geschenke stünden in
+ * der Rangliste vor einem guten Lauf ohne sie.
+ *
+ * Das andere ist ein Kessel, der gleich ausgeht. Der rote Bogen unten am Rand
+ * sagt das zwar, aber er sagt es spät und immer gleich laut. Deshalb färbt
+ * sich ab TOENUNG_AB das Zifferblatt selbst: Je tiefer der Zeiger steht, desto
+ * röter wird das Weiss, bis die ganze Uhr glüht. Das ist dieselbe Zahl ein
+ * zweites Mal, aber als Fläche – und eine Fläche sieht man aus dem
+ * Augenwinkel, eine Nadel nicht.
+ *
+ * Getippt wird nicht nur auf das Zifferblatt, sondern auch auf die Klappe
+ * darunter. Ein Daumen ist breiter, als er aussieht: Wer auf die Uhr tippt,
+ * verdeckt genau das, worauf es ankommt. Die Klappe ist derselbe Knopf, nur
+ * ein Stück tiefer – die Hand liegt unter der Anzeige statt darauf.
+ *
  * Die Form ist die von Blätter im Strom: eine Runde, eine Uhr, eine Zahl.
  * Anders als dort endet sie nicht nur an der Uhr, sondern meistens vorher – an
  * einem Kessel, den man übersehen hat.
@@ -84,6 +105,26 @@
   // Feierabend.
   const SCHICHT_MS = 120000;
 
+  // So lange vorher steht der Umriss des nächsten Kessels schon da. Lang genug,
+  // um den Blick einmal über die Reihe wandern zu lassen, kurz genug, dass er
+  // nicht zum Möbelstück wird.
+  const VORSCHAU_MS = 2600;
+  // Und so lange steht die Reihe still, wenn er da ist. Eine halbe Sekunde ist
+  // ein Atemzug: genug, um zu sehen, wo er steht, zu wenig, um zu planen.
+  const HALT_MS = 500;
+
+  // Ab hier läuft das Zifferblatt von Weiss nach Rot. Der Wert ist bewusst
+  // höher als MAHNUNG: Die Tönung ist die Vorwarnung, der pochende Ring darunter
+  // der Ruf. Bei Grundtempo sind das rund zweieinhalb Sekunden Vorlauf.
+  const TOENUNG_AB = 40;
+  const BLATT_HELL = [255, 253, 247];
+  const BLATT_ROT = [206, 43, 28];
+  const RAND_HELL = [247, 241, 228];
+  const RAND_ROT = [143, 32, 21];
+
+  // Zwei Farben mischen: t = 0 ist die erste, t = 1 die zweite.
+  const mische = (a, b, t) => `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+
   // Jeder Kessel schwankt ein wenig um sein Tempo – dieselbe Schicht fühlt
   // sich sonst beim zweiten Mal an wie auswendig gelernt. Im Turnier ist das
   // Schwanken für alle dasselbe (zufall.js).
@@ -92,9 +133,12 @@
   const HELP = [
     "Der Heizer. Auf jedem Kessel steht ein Manometer, und jeder Zeiger fällt.",
     "Tippe auf einen Kessel, dann legst du Kohle nach und sein Zeiger steigt.",
+    "Tippen kannst du auf die Uhr oder auf die glühende Klappe darunter – dort liegt dein Finger nicht im Weg.",
+    "Je tiefer ein Zeiger steht, desto röter wird seine Uhr. Wird eine ganz rot, ist sie als nächste dran.",
     "Fällt ein Zeiger auf null, geht das Feuer aus und die Schicht ist vorbei.",
     "Aber Achtung: Im roten Feld oben darfst du nicht nachlegen, sonst platzt das Ventil.",
     "Alle neun Sekunden kommt ein Kessel dazu, bis fünf nebeneinander stehen.",
+    "Er meldet sich vorher: Sein Umriss stellt sich daneben, und ein Ring darin füllt sich, bis er da ist.",
     "Bleib dabei: Wer die Seite verlässt, lässt den Kessel allein, und die Schicht ist zu Ende.",
     "Halte durch, so lange du kannst.",
   ].join(" ");
@@ -151,14 +195,38 @@
   // "der ist als nächster dran", und das soll man aus dem Augenwinkel sehen.
   const MAHNUNG = 22;
 
+  // Die Klappe unter der Uhr. Sie ist kein zweiter Knopf, sondern derselbe –
+  // nur der Teil davon, auf dem ein Daumen liegen darf, ohne die Anzeige zu
+  // verdecken. Deshalb ist sie auch nicht klein: Ihre Höhe hat unten eine
+  // Grenze in Pixeln, damit sie auf einem schmalen Telefon nicht mit den
+  // Kesseln mitschrumpft (styles.css, .hz-griff).
+  //
+  // Die Nummer steht im glühenden Schlitz. Sie ist für die Tastatur da – am
+  // Schreibtisch tippt niemand mit zwei Daumen auf fünf Ziele –, und auf der
+  // Klappe steht sie wie eingestanzt, statt der Uhr im Weg zu sein.
+  function baueGriff(nummer) {
+    const griff = shell.el("span", "hz-griff");
+    griff.setAttribute("aria-hidden", "true");
+    const schlitz = shell.el("span", "hz-schlitz");
+    if (nummer) schlitz.append(shell.el("span", "hz-nummer", String(nummer)));
+    griff.append(schlitz);
+    return griff;
+  }
+
   function baueKessel(kessel) {
     const knopf = shell.el("button", "hz-kessel");
     knopf.type = "button";
-    knopf.setAttribute("aria-label", `Kessel ${kessel.nummer}: Kohle nachlegen`);
+    if (kessel.nummer) knopf.setAttribute("aria-label", `Kessel ${kessel.nummer}: Kohle nachlegen`);
+    else knopf.setAttribute("aria-hidden", "true");
+
+    // Rand und Zifferblatt bleiben greifbar: Ihre Füllung ist keine feste
+    // Farbe mehr, sondern die Anzeige selbst (zeichne).
+    const rand = art.el("circle", { cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 9, fill: mische(RAND_HELL, RAND_ROT, 0), stroke: "#8c7a62", "stroke-width": 3 });
+    const blatt = art.el("circle", { cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 3, fill: mische(BLATT_HELL, BLATT_ROT, 0), stroke: "#d9cbb3", "stroke-width": 1.5 });
 
     const svg = art.el("svg", { viewBox: "0 0 100 100", class: "hz-uhr", "aria-hidden": "true" }, [
-      art.el("circle", { cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 9, fill: "#f7f1e4", stroke: "#8c7a62", "stroke-width": 3 }),
-      art.el("circle", { cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 3, fill: "#fffdf7", stroke: "#d9cbb3", "stroke-width": 1.5 }),
+      rand,
+      blatt,
       // Die drei Felder: unten rot (fast aus), in der Mitte grün, oben rot
       // (hier nicht nachlegen).
       art.el("path", { d: bogen(0, MAHNUNG, RADIUS), fill: "none", stroke: "#e2694f", "stroke-width": 7, "stroke-linecap": "butt" }),
@@ -176,16 +244,23 @@
       art.el("circle", { cx: MITTE_X, cy: MITTE_Y, r: 5.5, fill: "#243047" }),
     ]);
     svg.append(zeiger);
-    knopf.append(svg);
 
-    const nummer = shell.el("span", "hz-nummer", String(kessel.nummer));
-    knopf.append(nummer);
-
+    // Das Feld um die Uhr trägt alles, was rund sein muss: den Warnring, den
+    // Funken, das Glühen. Am Knopf selbst hinge beides an einem Kasten, der
+    // seit der Klappe höher als breit ist – aus einem Kreis würde ein Ei.
+    const feld = shell.el("span", "hz-uhr-feld");
+    feld.append(svg);
+    // Das Glühen nach aussen: dieselbe Zahl wie die Tönung, aber neben dem
+    // Kessel statt darin. Aus dem Augenwinkel sieht man das zuerst.
+    const halo = shell.el("span", "hz-halo");
+    halo.setAttribute("aria-hidden", "true");
+    feld.append(halo);
     // Der Funke beim Nachlegen: ein kurzes Aufleuchten, kein Ton. Bei vier
     // Tipps in der Sekunde wäre jeder Ton ein Geräusch.
     const funke = shell.el("span", "hz-funke");
     funke.setAttribute("aria-hidden", "true");
-    knopf.append(funke);
+    feld.append(funke);
+    knopf.append(feld, baueGriff(kessel.nummer));
 
     knopf.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -194,21 +269,104 @@
 
     kessel.node = knopf;
     kessel.zeiger = zeiger;
+    kessel.blatt = blatt;
+    kessel.rand = rand;
     return knopf;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Umriss: hier steht gleich einer
+  // ---------------------------------------------------------------------------
+  // Bisher stand der neue Kessel plötzlich da, und die Reihe rückte im selben
+  // Bild zusammen. Jetzt stellt sich VORSCHAU_MS vorher sein Umriss an genau
+  // die Stelle, an der er stehen wird, und schiebt den Platz langsam auf. Der
+  // Ring darin füllt sich, bis es so weit ist – die Frage "wann" ist damit
+  // beantwortet, ohne dass irgendwo eine Zahl herunterzählt.
+  const UMFANG = 2 * Math.PI * (RADIUS + 9);
+
+  function bauePlatz() {
+    const node = shell.el("div", "hz-platz");
+    node.setAttribute("aria-hidden", "true");
+
+    platzBogen = art.el("circle", {
+      class: "hz-platz-bogen", cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 9, fill: "none",
+      "stroke-width": 5, "stroke-linecap": "round",
+      "stroke-dasharray": UMFANG.toFixed(1),
+      "stroke-dashoffset": UMFANG.toFixed(1),
+      // Der Ring füllt sich von oben im Uhrzeigersinn – wie jede Uhr.
+      transform: `rotate(-90 ${MITTE_X} ${MITTE_Y})`,
+    });
+
+    const wort = art.el("text", { class: "hz-platz-wort", x: MITTE_X, y: MITTE_Y + 6, "text-anchor": "middle" });
+    wort.textContent = "gleich";
+
+    const feld = shell.el("span", "hz-uhr-feld");
+    feld.append(art.el("svg", { viewBox: "0 0 100 100", class: "hz-uhr hz-platz-uhr" }, [
+      art.el("circle", {
+        cx: MITTE_X, cy: MITTE_Y, r: RADIUS + 9, fill: "rgba(255, 253, 247, 0.62)",
+        stroke: "#9b8a72", "stroke-width": 2.5, "stroke-dasharray": "6 8", "stroke-linecap": "round",
+      }),
+      platzBogen,
+      wort,
+    ]));
+
+    // Auch der Umriss bekommt eine Klappe. Nicht zum Tippen – sondern damit er
+    // genau so hoch ist wie ein Kessel und die Reihe nicht springt, wenn der
+    // eine den anderen ablöst.
+    node.append(feld, baueGriff(null));
+    return node;
+  }
+
+  function zeigePlatz(anteil) {
+    if (!platz) {
+      platz = bauePlatz();
+      reihe?.append(platz);
+    }
+    const voll = Math.max(0, Math.min(1, anteil));
+    platzBogen?.setAttribute("stroke-dashoffset", (UMFANG * (1 - voll)).toFixed(1));
+    platz.classList.toggle("ist-nah", voll > 0.7);
+  }
+
+  function raeumePlatz() {
+    platz?.remove();
+    platz = null;
+    platzBogen = null;
   }
 
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  const state = { phase: "intro", kessel: [], start: 0, gelaufen: 0, kohle: 0, ende: null };
+  // halt ist, was vom Atemzug noch übrig ist; pause, was bisher stillstand.
+  // faellig sagt, bei welcher gespielten Zeit der nächste Kessel dran ist –
+  // eine Marke, die mitwandert, statt einer Rechnung aus der Wanduhr: Sonst
+  // müssten die Pausen zweimal abgezogen werden.
+  const state = {
+    phase: "intro", kessel: [], start: 0, gelaufen: 0, kohle: 0, ende: null,
+    halt: 0, pause: 0, faellig: 0,
+  };
   let shell = null;
   let reihe = null;
+  let platz = null;
+  let platzBogen = null;
   let frame = null;
   let letzteZeit = 0;
   let stepTimer = null;
 
+  // Die gespielte Zeit: die Wanduhr ohne die Atempausen. Sie ist die Punktzahl,
+  // und sie ist der Takt, nach dem der Verbrauch steigt und der nächste Kessel
+  // kommt – alle drei müssen dieselbe Zeit meinen.
+  const spielzeit = () => Date.now() - state.start - state.pause;
+
   const clearStep = () => { if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; } };
   const stopLoop = () => { if (frame) { window.cancelAnimationFrame(frame); frame = null; } };
+
+  // Was von einem angekündigten Kessel übrig ist, wenn die Schicht endet: der
+  // Umriss und der angehaltene Atem. Beides gehört nicht auf ein Standbild.
+  function stillstand() {
+    state.halt = 0;
+    reihe?.classList.remove("ist-halt");
+    raeumePlatz();
+  }
 
   function neuerKessel() {
     const nummer = state.kessel.length + 1;
@@ -219,7 +377,10 @@
       tempo: TEMPO[nummer - 1] * zufall.von(1 - STREUUNG, 1 + STREUUNG),
       node: null,
       zeiger: null,
+      blatt: null,
+      rand: null,
       gefahr: false,
+      not: null,
     };
     state.kessel.push(kessel);
     reihe?.append(baueKessel(kessel));
@@ -229,6 +390,27 @@
 
   function zeichne(kessel) {
     kessel.zeiger?.setAttribute("transform", `rotate(${winkel(kessel.wert).toFixed(2)} ${MITTE_X} ${MITTE_Y})`);
+
+    // Wie tief die Anzeige steht, sagt ab TOENUNG_AB nicht mehr nur der Zeiger,
+    // sondern das Zifferblatt: Das Weiss läuft stetig nach Rot, der Rand
+    // dunkler mit. Stetig ist der Punkt – ein Schwellwert sagt "jetzt", eine
+    // Tönung sagt "und wie dringend".
+    //
+    // Das Hoch macht den Anfang zurückhaltend und das Ende deutlich: Bei halbem
+    // Weg ist die Farbe erst zu vier Zehnteln da. Sonst sähe die halbe Reihe
+    // dauernd rosa aus, und Rot hiesse nichts mehr.
+    const not = Math.min(1, Math.max(0, (TOENUNG_AB - kessel.wert) / TOENUNG_AB)) ** 1.3;
+    // In zwanzig Stufen statt Bild für Bild: Ein Attribut, das sich sechzigmal
+    // in der Sekunde um ein Tausendstel ändert, kostet Arbeit und sieht gleich
+    // aus.
+    const stufe = Math.round(not * 20) / 20;
+    if (stufe !== kessel.not) {
+      kessel.not = stufe;
+      kessel.blatt?.setAttribute("fill", mische(BLATT_HELL, BLATT_ROT, stufe));
+      kessel.rand?.setAttribute("fill", mische(RAND_HELL, RAND_ROT, stufe));
+      kessel.node?.style.setProperty("--hz-not", String(stufe));
+    }
+
     // Zwei Zustände, die man aus dem Augenwinkel erkennen muss: "gleich aus"
     // und "Finger weg". Beides steht am Knopf, nicht nur am Zeiger – ein
     // Rahmen ist grösser als eine Nadel.
@@ -263,6 +445,23 @@
   // ---------------------------------------------------------------------------
   // Die Schicht
   // ---------------------------------------------------------------------------
+  // Der neue Kessel ist da: erst den Umriss weg, dann ihn hin – in dieser
+  // Reihenfolge, sonst stünde er hinter seinem eigenen Umriss. Und die Reihe
+  // hält die Luft an, damit man ihn ansehen kann, ohne dass es woanders brennt.
+  function kesselKommt() {
+    raeumePlatz();
+    const kessel = neuerKessel();
+    state.faellig += KESSEL_DAZU_MS;
+    state.halt = HALT_MS;
+    reihe?.classList.add("ist-halt");
+    // ist-kohle dazu: Der neue Kessel wird angefeuert, und das sieht aus wie
+    // Anfeuern. Wer weniger Bewegung eingestellt hat, sieht beides nicht –
+    // gehalten wird trotzdem, denn der Atemzug ist Spiel, nicht Zierde.
+    kessel.node?.classList.add("ist-neu", "ist-kohle");
+    kids()?.playJingle?.("star");
+    kids()?.vibrate?.(14);
+  }
+
   function step(now) {
     frame = window.requestAnimationFrame(step);
     if (state.phase !== "play") return;
@@ -271,22 +470,41 @@
     // Rechenpause, ein ruckelndes Gerät –, fielen die Zeiger sonst auf einen
     // Schlag. Für den längeren Fall, den Tab im Hintergrund, reicht der Deckel
     // nicht; darum steht weiter unten, dass Weggehen die Schicht beendet.
-    const dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
+    let dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
     letzteZeit = now;
 
-    const gelaufen = (Date.now() - state.start) / 1000;
-    const faktor = 1 + ZUNAHME * gelaufen;
-
-    for (const kessel of state.kessel) {
-      kessel.wert -= kessel.tempo * faktor * dt;
-      if (kessel.wert <= 0) { kessel.wert = 0; zeichne(kessel); ende("aus", kessel); return; }
-      zeichne(kessel);
+    // Der Atemzug nach einem neuen Kessel. Was von diesem Bild noch übrig ist,
+    // läuft danach ganz normal weiter – so ist der Halt auf die Millisekunde
+    // so lang, wie er sein soll, und kein Bruchteil geht verloren.
+    if (state.halt > 0) {
+      const still = Math.min(state.halt, dt * 1000);
+      state.halt -= still;
+      state.pause += still;
+      dt -= still / 1000;
+      if (state.halt <= 0) {
+        state.halt = 0;
+        reihe?.classList.remove("ist-halt");
+      }
     }
 
-    const soll = Math.min(KESSEL_MAX, KESSEL_START + Math.floor((Date.now() - state.start) / KESSEL_DAZU_MS));
-    while (state.kessel.length < soll) neuerKessel();
+    const gelaufen = spielzeit();
+    const faktor = 1 + ZUNAHME * (gelaufen / 1000);
 
-    shell.setCount(Math.floor(gelaufen));
+    if (dt > 0) {
+      for (const kessel of state.kessel) {
+        kessel.wert -= kessel.tempo * faktor * dt;
+        if (kessel.wert <= 0) { kessel.wert = 0; zeichne(kessel); ende("aus", kessel); return; }
+        zeichne(kessel);
+      }
+    }
+
+    if (state.kessel.length < KESSEL_MAX) {
+      const bis = state.faellig - gelaufen;
+      if (bis <= 0) kesselKommt();
+      else if (bis <= VORSCHAU_MS) zeigePlatz(1 - bis / VORSCHAU_MS);
+    }
+
+    shell.setCount(Math.floor(gelaufen / 1000));
   }
 
   function ende(grund, kessel) {
@@ -295,7 +513,8 @@
     state.ende = grund;
     // Jetzt stehenbleiben, nicht erst auf der Ergebnistafel: Der Nachlauf, in
     // dem der erloschene Kessel noch zu sehen ist, gehört nicht zur Schicht.
-    state.gelaufen = Date.now() - state.start;
+    state.gelaufen = spielzeit();
+    stillstand();
     stopLoop();
     shell.stopClock();
     if (kessel?.node) kessel.node.classList.add(grund === "platzt" ? "ist-geplatzt" : "ist-aus");
@@ -309,7 +528,11 @@
     if (state.phase !== "play") return;
     state.phase = "over";
     state.ende = "schicht";
+    // Wer die ganze Schicht steht, bekommt die ganze Schicht: Die Uhr der Bühne
+    // läuft nach der Wanduhr, die Punkte nach der gespielten Zeit, und um die
+    // Atemzüge dazwischen wird hier nicht gefeilscht.
     state.gelaufen = SCHICHT_MS;
+    stillstand();
     stopLoop();
     kids()?.playJingle?.("win");
     if (!ruhig()) kids()?.burstConfetti?.();
@@ -357,7 +580,10 @@
     state.kessel = [];
     state.kohle = 0;
     state.ende = null;
+    state.halt = 0;
+    state.pause = 0;
     shell.setCount(0);
+    raeumePlatz();
     reihe = null;
 
     shell.clear();
@@ -369,15 +595,18 @@
     // einem Satz.
     const demo = shell.el("div", "hz-demo");
     [
-      { wert: 12, klasse: "is-knapp", text: "nachlegen" },
-      { wert: 88, klasse: "is-gefahr", text: "Finger weg" },
+      { wert: 10, text: "nachlegen" },
+      { wert: 88, text: "Finger weg" },
     ].forEach((beispiel) => {
-      const kachel = shell.el("div", `hz-demo-kessel ${beispiel.klasse}`);
-      const platte = { nummer: 1, wert: beispiel.wert };
+      const kachel = shell.el("div", "hz-demo-kessel");
+      // Ohne Nummer: Auf der Tastatur führt hier keine Taste hin.
+      const platte = { nummer: null, wert: beispiel.wert };
       const knopf = baueKessel(platte);
       knopf.disabled = true;
-      knopf.querySelector(".hz-nummer")?.remove();
-      platte.zeiger.setAttribute("transform", `rotate(${winkel(beispiel.wert).toFixed(2)} ${MITTE_X} ${MITTE_Y})`);
+      // Dieselbe Hand wie im Spiel: zeichne setzt Zeiger, Tönung und Ring. Wer
+      // die glühend rote Uhr einmal im Startbild gesehen hat, erkennt sie
+      // später, ohne hinzusehen.
+      zeichne(platte);
       kachel.append(knopf, shell.el("span", "hz-demo-wort", beispiel.text));
       demo.append(kachel);
     });
@@ -399,6 +628,9 @@
     state.kohle = 0;
     state.ende = null;
     state.gelaufen = 0;
+    state.halt = 0;
+    state.pause = 0;
+    state.faellig = KESSEL_DAZU_MS;
     state.start = Date.now();
     letzteZeit = performance.now();
     shell.setPhase("play");
@@ -406,6 +638,7 @@
 
     shell.clear();
     shell.play.append(shell.el("p", "cm-prompt hz-tafel", "Nie auf null. Nie ins Rote tippen."));
+    raeumePlatz();
     reihe = shell.el("div", "hz-reihe");
     shell.play.append(reihe);
 
