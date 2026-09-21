@@ -431,6 +431,14 @@
     if (event.key === " " || event.key === "Enter") bremseAus();
   });
 
+  // Weggehen gilt als Anhalten. Im Hintergrund stehen die Bilder still: Die Lok
+  // bliebe stehen, man könnte in Ruhe nachmessen, und beim Zurückkommen führe
+  // sie genau dort weiter. Geschätzt würde dann nichts mehr. Also hält sie da,
+  // wo sie ist, und der Anlauf wird gezählt wie jeder andere.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && state.phase === "play" && state.rollt) halt();
+  });
+
   window.addEventListener("resize", stelle);
   window.addEventListener("orientationchange", stelle);
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });

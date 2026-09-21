@@ -95,6 +95,7 @@
     "Fällt ein Zeiger auf null, geht das Feuer aus und die Schicht ist vorbei.",
     "Aber Achtung: Im roten Feld oben darfst du nicht nachlegen, sonst platzt das Ventil.",
     "Alle neun Sekunden kommt ein Kessel dazu, bis fünf nebeneinander stehen.",
+    "Bleib dabei: Wer die Seite verlässt, lässt den Kessel allein, und die Schicht ist zu Ende.",
     "Halte durch, so lange du kannst.",
   ].join(" ");
 
@@ -266,10 +267,10 @@
     frame = window.requestAnimationFrame(step);
     if (state.phase !== "play") return;
 
-    // Der Schritt wird gedeckelt. Ein Tab im Hintergrund bekommt keine Bilder
-    // mehr; ohne Deckel käme der Spieler zurück und fände alle Kessel auf
-    // einen Schlag erloschen. Die Uhr der Bühne läuft derweil weiter – wer
-    // wegschaut, verliert Zeit, nicht die Schicht.
+    // Der Schritt wird gedeckelt: Bleibt ein Bild einmal aus – eine lange
+    // Rechenpause, ein ruckelndes Gerät –, fielen die Zeiger sonst auf einen
+    // Schlag. Für den längeren Fall, den Tab im Hintergrund, reicht der Deckel
+    // nicht; darum steht weiter unten, dass Weggehen die Schicht beendet.
     const dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
     letzteZeit = now;
 
@@ -320,6 +321,7 @@
   function grundText() {
     if (state.ende === "platzt") return "Das Ventil ist geplatzt.";
     if (state.ende === "aus") return "Ein Feuer ist ausgegangen.";
+    if (state.ende === "weg") return "Du hast den Kessel allein gelassen.";
     return "Die Schicht ist zu Ende – durchgehalten bis zum Schluss.";
   }
 
@@ -446,6 +448,21 @@
       event.preventDefault();
       if (state.phase === "intro") beginRound();
     }
+  });
+
+  // --- Weggehen beendet die Schicht ------------------------------------------
+  // Ein Tab im Hintergrund bekommt keine Bilder mehr: Die Zeiger fielen nicht,
+  // die Uhr der Bühne liefe nach der Wanduhr weiter, und nach zwei Minuten
+  // stünde die volle Punktzahl da für eine Schicht, in der niemand Kohle
+  // nachgelegt hat. Auf einer Bestenliste, in die jeder ohne Konto schreiben
+  // darf, ist das kein Schönheitsfehler, sondern der kürzeste Weg nach oben.
+  //
+  // Die Runde deswegen anzuhalten und beim Zurückkommen weiterlaufen zu lassen
+  // wäre die freundlichere Lösung – aber dann wäre jeder Wechsel eine Pause
+  // zum Nachdenken, und Nachdenken ist hier genau das, wofür die Zeit nicht
+  // reicht. Also endet die Schicht, und was bis dahin geschafft ist, zählt.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && state.phase === "play") ende("weg");
   });
 
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
