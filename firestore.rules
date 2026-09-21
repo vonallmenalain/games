@@ -72,6 +72,7 @@ service cloud.firestore {
         "leafFlow", "towerStack",
         "numberLine",
         "boilerRoom", "shuntYard", "brakePoint",
+        "trackRun",
       ];
     }
 
@@ -139,6 +140,55 @@ service cloud.firestore {
         && request.resource.data.versuche == resource.data.versuche
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(["name", "updatedAtMs", "updatedAt"]);
+      allow delete: if istAdmin();
+    }
+
+    // --- Die Geister ----------------------------------------------------------
+    // Ein Lauf durch ein festes Level lässt sich aufzeichnen und neben dem
+    // nächsten noch einmal abspielen. Wer den Streckenlauf öffnet, läuft
+    // deshalb nicht allein: Neben ihm laufen die drei Besten, so wie sie
+    // damals gelaufen sind.
+    //
+    // Warum das eine eigene Sammlung ist und nicht ein Feld in miniScores:
+    // Die Startseite liest JEDES Punkte-Dokument, um die Hall of Fame zu
+    // bauen. Läge die Aufzeichnung dort, lüde jeder Besuch der Startseite ein
+    // paar Kilobyte je Spieler mit, die dort niemand ansieht. Hier wird nur
+    // gelesen, was die Spielseite wirklich braucht: drei Dokumente.
+    //
+    // Geprüft wird wie nebenan das WAS, nicht das WER:
+    //
+    //   ein Dokument je Spiel und Spieler   derselbe Dokumentname wie in
+    //                                       miniScores
+    //   bahn ist Text und hat eine Grenze   eine Aufzeichnung ist gross; ohne
+    //                                       Grenze wäre sie beliebig gross
+    //   level sagt, wozu sie gehört         ein Geist aus v1 ist auf v2
+    //                                       sinnlos, und das Spiel zeigt nur
+    //                                       die, die passen
+    //   Punkte fallen nie                   sonst überschriebe ein schwacher
+    //                                       Lauf den guten, den er ersetzt
+    function istGeist(eintragId) {
+      let d = request.resource.data;
+      return eintragId == d.game + "_" + d.spieler
+        && d.keys().hasAll(["game", "spieler", "name", "punkte", "level", "bahn", "updatedAtMs"])
+        && d.keys().hasOnly(["game", "spieler", "name", "punkte", "level", "bahn", "updatedAtMs", "updatedAt"])
+        && d.game is string && d.game in miniSpiele()
+        && istMiniSpieler(d.spieler)
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 24
+        && d.punkte is int && d.punkte >= 0 && d.punkte <= 1000000
+        && d.level is string && d.level.size() > 0 && d.level.size() <= 16
+        && d.bahn is string && d.bahn.size() > 0 && d.bahn.size() <= 12000
+        && d.updatedAtMs is int;
+    }
+
+    match /miniGeister/{eintragId} {
+      allow read: if true;
+      allow create: if istGeist(eintragId);
+      // Ein besserer Lauf ersetzt den alten. Ein schlechterer nicht – sonst
+      // liefe neben dem Spieler irgendwann ein Geist, der langsamer war als
+      // die Zahl, die in der Bestenliste daneben steht.
+      allow update: if istGeist(eintragId)
+        && istDerselbeEintrag()
+        && request.resource.data.punkte >= resource.data.punkte;
       allow delete: if istAdmin();
     }
 

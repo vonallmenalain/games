@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-09-20-05";
+export const FASSUNG = "2026-09-21-01";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -110,6 +110,12 @@ export const SPIELE = [
     titel: "Bremsweg", buehne: { id: "bw-stage", klasse: "cm-stage bw-stage" },
     text: "Bremsweg: Halte die Lok in acht Anläufen so genau wie möglich an der Haltetafel an.",
     baut: "die Strecke mit der Haltetafel",
+  },
+  {
+    seite: "strecke", spiel: "trackRun", page: "track", js: "strecke.js",
+    titel: "Streckenlauf", buehne: { id: "sl-stage", klasse: "cm-stage sl-stage" },
+    text: "Streckenlauf: Spring über die Lücken durch ein festes Level – neben dir laufen die drei Besten.",
+    baut: "die Strecke mit den Läufern",
   },
 ];
 

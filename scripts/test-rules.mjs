@@ -163,6 +163,40 @@ await darf("Admin macht die Liste leer", () => admin().doc(LISTE).set(spieleList
 await darfNicht("Gast legt eine zweite Konfiguration an", () => gast().doc("config/irgendwas").set({ a: 1 }));
 await darfNicht("Admin legt eine zweite Konfiguration an", () => admin().doc("config/irgendwas").set({ a: 1 }));
 
+// --- Die Geister -------------------------------------------------------------
+// Eine Aufzeichnung eines Laufs, die neben dem nächsten noch einmal abgespielt
+// wird. Dieselben Fragen wie bei der Bestenliste, dazu zwei eigene: Die
+// Aufzeichnung darf nicht beliebig gross werden, und ein schwacher Lauf darf
+// den guten nicht ersetzen.
+const GEIST = "miniGeister/trackRun_mini_abcdefghijkl";
+const geist = (aenderung = {}) => ({
+  game: "trackRun",
+  spieler: "mini_abcdefghijkl",
+  name: "Alain",
+  punkte: 500,
+  level: "v1",
+  bahn: "AAECAwQFBgc=",
+  updatedAtMs: 1,
+  ...aenderung,
+});
+
+await darf("Gast liest die Geister", () => gast().collection("miniGeister").get());
+await darfNicht("Gast legt einen Geist unter fremdem Dokumentnamen an", () => gast().doc("miniGeister/trackRun_mini_xxxxxxxxxxxx").set(geist()));
+await darfNicht("Gast legt einen Geist für ein erfundenes Spiel an", () => gast().doc("miniGeister/schachweltmeister_mini_abcdefghijkl").set(geist({ game: "schachweltmeister" })));
+await darfNicht("Gast legt einen Geist mit erfundener Kennung an", () => gast().doc("miniGeister/trackRun_wer-auch-immer").set(geist({ spieler: "wer-auch-immer" })));
+await darfNicht("Gast legt einen Geist ohne Aufzeichnung an", () => gast().doc(GEIST).set(geist({ bahn: "" })));
+await darfNicht("Gast legt einen Geist mit endloser Aufzeichnung an", () => gast().doc(GEIST).set(geist({ bahn: "A".repeat(12001) })));
+await darfNicht("Gast legt einen Geist ohne Level an", () => gast().doc(GEIST).set(geist({ level: "" })));
+await darfNicht("Gast schmuggelt ein eigenes Feld in den Geist", () => gast().doc(GEIST).set(geist({ heimlich: true })));
+await darfNicht("Gast legt einen Geist ohne Punkte an", () => { const g = geist(); delete g.punkte; return gast().doc(GEIST).set(g); });
+await darf("Gast legt seinen Geist an", () => gast().doc(GEIST).set(geist()));
+await darf("Gast ersetzt seinen Geist durch einen besseren Lauf", () => gast().doc(GEIST).set(geist({ punkte: 640, bahn: "CQoLDA0ODxA=", updatedAtMs: 2 })));
+await darfNicht("Gast ersetzt seinen Geist durch einen schwächeren Lauf", () => gast().doc(GEIST).set(geist({ punkte: 100, updatedAtMs: 3 })));
+await darfNicht("Gast schiebt seinen Geist in ein anderes Spiel", () => gast().doc(GEIST).set(geist({ game: "towerStack", punkte: 999, updatedAtMs: 4 })));
+await darfNicht("Gast löscht einen Geist", () => gast().doc(GEIST).delete());
+await darfNicht("Ein angemeldeter Fremder löscht einen Geist", () => fremder().doc(GEIST).delete());
+await darf("Admin löscht einen Geist", () => admin().doc(GEIST).delete());
+
 // --- Sonst gibt es nichts ----------------------------------------------------
 // Eine Sammlung, die jemand morgen anlegt, steht nicht offen da, weil niemand
 // an eine Regel dafür gedacht hat.
