@@ -27,6 +27,19 @@
  *     versuche   7                wie oft gespielt wurde
  *     erstesMs / updatedAtMs      Uhrzeiten, für die Reihenfolge bei
  *                                 Gleichstand
+ *
+ * Und, für Spiele mit festem Level, die Aufzeichnung eines Laufs:
+ *
+ *   miniGeister/trackRun_mini_a7f3…
+ *     game / spieler / name       dieselben wie nebenan
+ *     punkte     742              die Runde, aus der die Aufzeichnung stammt
+ *     level      "v1"             wozu sie gehört; ein Geist aus v1 ist auf
+ *                                 v2 sinnlos
+ *     bahn       "AAEC…"          wo der Läufer wann war, als Text
+ *
+ * Eine eigene Sammlung, weil die Startseite JEDES Punkte-Dokument liest, um
+ * die Hall of Fame zu bauen. Lägen die Aufzeichnungen dort, lüde jeder Besuch
+ * der Startseite ein paar Kilobyte je Spieler mit, die dort niemand ansieht.
  */
 (() => {
   "use strict";
@@ -91,6 +104,11 @@
   }
 
   const sammlung = () => starte()?.collection("miniScores") || null;
+  const geisterSammlung = () => starte()?.collection("miniGeister") || null;
+  // Dieselbe Grenze wie in firestore.rules. Sie steht hier ein zweites Mal,
+  // damit eine zu lange Aufzeichnung gar nicht erst hinausgeht – abgewiesen
+  // würde sie ohnehin, aber erst nach der Reise.
+  const BAHN_MAX = 12000;
   const listenDoc = () => starte()?.doc("config/miniGames") || null;
   const jetztAufDemServer = () => window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
 
@@ -287,6 +305,86 @@
     return { spiele: meine.size, geaendert };
   }
 
+  /*
+   * Die Aufzeichnung eines Laufs.
+   *
+   * Ein Dokument je Spiel und Spieler, überschrieben, sobald jemand besser
+   * war als er selbst. Keine Transaktion wie bei der Bestenliste: Hier hängt
+   * nichts vom alten Stand ab – geschrieben wird der ganze Lauf oder keiner,
+   * und die Regeln lassen nur den besseren durch. Zwei Tabs nacheinander
+   * bedeuten hier schlimmstenfalls, dass der schwächere abgewiesen wird, und
+   * das ist genau richtig.
+   */
+  async function speichereGeist({ game, spieler, name, punkte, level, bahn }) {
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const wie = sauber(name);
+    const fassung = String(level || "").trim().slice(0, 16);
+    const strecke = String(bahn || "");
+    const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
+    if (!spielId || !spielerId || !wie || !fassung || !strecke) return null;
+    if (strecke.length > BAHN_MAX) {
+      console.warn(`Die Aufzeichnung ist ${strecke.length} Zeichen lang, erlaubt sind ${BAHN_MAX}.`);
+      return null;
+    }
+    const ref = geisterSammlung();
+    if (!ref) return null;
+    const jetzt = Date.now();
+    await ref.doc(`${spielId}_${spielerId}`).set({
+      game: spielId,
+      spieler: spielerId,
+      name: wie,
+      punkte: zahl,
+      level: fassung,
+      bahn: strecke,
+      updatedAtMs: jetzt,
+      updatedAt: jetztAufDemServer(),
+    });
+    return { punkte: zahl };
+  }
+
+  /*
+   * Die Aufzeichnungen der genannten Spieler.
+   *
+   * Gefragt wird nach Dokumentnamen, einer je Spieler – das ist keine Abfrage
+   * und braucht deshalb keinen Index. Wer nichts hinterlassen hat, fehlt
+   * einfach; ein Spiel ohne Geister ist ein Spiel, und keine leere Seite.
+   */
+  async function geister(game, spieler = [], level = "") {
+    const spielId = String(game || "").trim();
+    const fassung = String(level || "").trim();
+    const ids = [...new Set((Array.isArray(spieler) ? spieler : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean))].slice(0, 10);
+    const ref = geisterSammlung();
+    if (!ref || !spielId || !ids.length) return [];
+
+    const stände = await Promise.all(ids.map((id) => ref.doc(`${spielId}_${id}`).get()
+      .catch((fehler) => {
+        console.warn(`Der Geist von ${id} konnte nicht gelesen werden`, fehler);
+        return null;
+      })));
+
+    const liste = [];
+    stände.forEach((doc) => {
+      if (!doc?.exists) return;
+      const daten = doc.data() || {};
+      const bahn = String(daten.bahn || "");
+      const gehoert = String(daten.level || "");
+      if (!bahn) return;
+      // Ein Geist aus einer anderen Fassung des Levels liefe durch Wände.
+      if (fassung && gehoert !== fassung) return;
+      liste.push({
+        spieler: String(daten.spieler || ""),
+        name: String(daten.name || "").trim().slice(0, NAME_MAX),
+        punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
+        level: gehoert,
+        bahn,
+      });
+    });
+    return liste;
+  }
+
   // app und db für den Adminbereich: Er meldet jemanden an und liest und
   // löscht dieselben Einträge, braucht dafür aber keinen zweiten Client.
   window.MiniCloud = {
@@ -294,7 +392,8 @@
     db: starte,
     projektId: firebaseConfig.projectId,
     ergebnisse, speichere, benenneUm, lies,
+    speichereGeist, geister,
     offeneSpiele, setzeOffeneSpiele,
-    MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX,
+    MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
   };
 })();

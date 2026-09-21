@@ -69,6 +69,7 @@
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
     { id: "shuntYard", titel: "Weichenwärter", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.weichen", einheit: "Wagen" },
     { id: "brakePoint", titel: "Bremsweg", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.bremsweg", einheit: "Punkte" },
+    { id: "trackRun", titel: "Streckenlauf", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.strecke", einheit: "Punkte" },
 
     // Problemlösen
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die

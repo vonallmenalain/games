@@ -70,6 +70,7 @@
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
     { id: "shuntYard", seite: "weichen", page: "yard" },
     { id: "brakePoint", seite: "bremsweg", page: "brake" },
+    { id: "trackRun", seite: "strecke", page: "track" },
   ];
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
@@ -412,7 +413,7 @@
     return ergebnis || null;
   }
 
-  async function melde(spiel, punkte) {
+  async function melde(spiel, punkte, geist = null) {
     const wie = name();
     if (!wie) return null;
     const ergebnis = await cloud()?.speichere?.({
@@ -425,7 +426,55 @@
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
     // Runde: Er weiss, was vorher schon dastand.
     if (ergebnis) merkeBestwert(spiel, ergebnis.punkte);
+
+    // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
+    // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
+    // anderen neben sich laufen sehen. Und nur nach der Punktzahl: Ein Geist
+    // ohne Zeile in der Bestenliste gehörte zu niemandem.
+    //
+    // Er darf scheitern, ohne die Runde mitzunehmen. Die Zahl ist das
+    // Versprechen, die Aufzeichnung die Zugabe.
+    if (ergebnis?.rekord && geist?.bahn) {
+      try {
+        await cloud()?.speichereGeist?.({
+          game: spiel,
+          spieler: kennung(),
+          name: wie,
+          punkte: Math.max(0, Math.round(Number(punkte) || 0)),
+          level: geist.level,
+          bahn: geist.bahn,
+        });
+      } catch (fehler) {
+        console.warn("Die Aufzeichnung ist nicht angekommen", fehler);
+      }
+    }
     return ergebnis || null;
+  }
+
+  /*
+   * Die Geister der Besten eines Spiels.
+   *
+   * Gefragt wird nach ein paar mehr, als gebraucht werden: Wer ganz oben
+   * steht, hat vielleicht noch keine Aufzeichnung – aus einer Runde von
+   * früher, oder weil er von einem Gerät kam, das unter demselben Namen ein
+   * zweites ist (verdichte fasst nach Namen zusammen, die Aufzeichnung hängt
+   * am Gerät). Dann rückt der nächste nach, statt dass ein Platz leer bleibt.
+   */
+  async function geister(spiel, { anzahl = 3, level = "" } = {}) {
+    if (!spiel || !cloud()?.geister) return [];
+    const liste = await listeFuer(spiel).catch(() => []);
+    const oben = liste.slice(0, anzahl + 3).filter((eintrag) => eintrag.spieler);
+    if (!oben.length) return [];
+    const gefunden = await cloud().geister(spiel, oben.map((e) => e.spieler), level);
+    const nachSpieler = new Map(gefunden.map((g) => [g.spieler, g]));
+    const raus = [];
+    for (const eintrag of oben) {
+      const geist = nachSpieler.get(eintrag.spieler);
+      if (!geist) continue;
+      raus.push({ ...geist, platz: eintrag.platz, eigen: Boolean(eintrag.eigen) });
+      if (raus.length >= anzahl) break;
+    }
+    return raus;
   }
 
   // ---------------------------------------------------------------------------
@@ -550,7 +599,7 @@
   //                    Platz da und darunter die Liste.
   //   Rekord           dasselbe, nur mit einem Wort dazu: Das ist der Moment,
   //                    für den der Link verschickt wurde.
-  function ergebnis({ punkte }) {
+  function ergebnis({ punkte, geist = null }) {
     const spiel = spielId();
     const block = el("div", "mini-ergebnis");
     // Ohne Spiel und ohne Zahl gibt es nichts einzutragen. Beides kann nur
@@ -587,7 +636,7 @@
       if (schonGemeldet) { benennen(); return; }
       schonGemeldet = true;
       meldung.textContent = "Wird eingetragen...";
-      melde(spiel, punkte)
+      melde(spiel, punkte, geist)
         .then((stand) => {
           if (stand?.rekord) meldung.textContent = "Neue Bestzahl – eingetragen!";
           else meldung.textContent = "Eingetragen.";
@@ -951,6 +1000,7 @@
     setzeName,
     kennung,
     listeFuer,
+    geister,
     rangliste,
     startStand,
     auswertung,

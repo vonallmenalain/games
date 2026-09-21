@@ -19,15 +19,15 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        zehn Spielseiten, erzeugt
+    turmbau.html …        elf Spielseiten, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
 
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
                           die Auswertung der Startseite
-    cloud.js              Firestore, aber nur miniScores – lesen, schreiben,
-                          umbenennen. Sonst nichts.
+    cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
+                          und miniGeister, die Aufzeichnungen der Läufe.
     admin.js              anmelden und aufräumen. Der einzige Ort mit
                           Anmeldung; die Spielseiten laden firebase-auth
                           gar nicht erst.
@@ -74,6 +74,31 @@ denselben Lauf, und der zweite Versuch ist derselbe wie der erste.
 Zeile, sonst weist die Datenbank jeden Eintrag ab. `npm run pruefen` hält die
 beiden Listen zusammen, und der Merge nach `main` bringt die Regeln nach
 Firebase.
+
+### Geister
+
+Der Streckenlauf hat ein festes Level – dieselben Lücken, dieselben Kisten,
+Meter für Meter. Genau das macht etwas möglich, was sonst keines der Spiele
+kann: Ein Lauf lässt sich aufheben und neben dem nächsten noch einmal
+abspielen. Wer `/strecke` öffnet, läuft deshalb neben den drei Besten, so wie
+sie damals gelaufen sind.
+
+Aufgezeichnet werden Stellungen, keine Tastendrücke: alle 50 Millisekunden x
+und y, drei Bytes je Stellung, als Text. Eingaben wären kleiner, verlangten
+aber eine Physik, die sich nie mehr ändern darf – eine einzige Nachbesserung
+an der Sprunghöhe, und jeder alte Geist liefe durch Wände. Stellungen sind
+stumpf und halten das aus.
+
+Sie stehen in einer eigenen Sammlung (`miniGeister`), nicht in `miniScores`:
+Die Startseite liest jedes Punkte-Dokument, um die Hall of Fame zu bauen, und
+lüde sonst bei jedem Besuch ein paar Kilobyte je Spieler mit, die dort niemand
+ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der Punktzahl und
+nur bei einem Rekord – denselben Weg durch `mini-games.js`, keinen zweiten.
+
+Jede Aufzeichnung trägt die Fassung ihres Levels (`level: "v1"`). Ändert sich
+die Strecke, zählt `LEVEL` in `strecke.js` hoch, und die alten Geister
+verschwinden aus dem Bild. Das ist der Preis dafür, dass nie einer läuft, der
+nicht mehr passt.
 
 Geeignet ist ein Spiel, das genau eine Zahl liefert, bei der grösser besser
 ist. Spiele mit Sternen je Level taugen nicht: Am Ende hätten alle drei, und

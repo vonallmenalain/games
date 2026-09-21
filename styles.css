@@ -2262,6 +2262,61 @@ h2 {
 }
 
 /* ===========================================================================
+   Streckenlauf
+   ---------------------------------------------------------------------------
+   Fast nichts: eine Leinwand, die die Fläche füllt. Landschaft, Schienen,
+   Hindernisse, vier Läufer und die Positionsleiste zeichnet strecke.js selbst
+   – als Elemente wären das zu viele Kästen, die sechzigmal in der Sekunde
+   verschoben werden müssten.
+
+   Die Leinwand liegt über der Landschaft der Bühne. Das ist Absicht: Sie hat
+   ihren eigenen Himmel, der mit dem Läufer wandert, und zwei übereinander
+   wären einer zu viel.
+   =========================================================================== */
+
+.sl-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+/* Während des Laufs darf ein Wisch nicht als Rollen gedeutet werden – sonst
+   bricht der Browser die Berührung ab, und der Sprung bleibt auf halber Höhe
+   stehen. */
+.sl-stage[data-phase="play"],
+.sl-stage[data-phase="play"] .cm-play,
+.sl-stage[data-phase="play"] .sl-canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Ein Band, keine Fläche. Hochkant wäre die volle Höhe zu drei Vierteln
+   leerer Himmel – die Strecke liegt unten, und der Sprung braucht keine
+   zwanzig Meter Luft. Passt das Band nicht in die Höhe, wird es flacher;
+   strecke.js rechnet mit dem, was wirklich dasteht. */
+.sl-canvas {
+  flex: 0 1 auto;
+  width: min(96vw, 1100px);
+  aspect-ratio: 2.1;
+  max-height: 100%;
+  min-height: 0;
+  border-radius: 26px;
+  display: block;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.24), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* Wer neben einem läuft, steht vor dem Start da. Die Zeile bleibt auch leer
+   stehen, damit der Startknopf nicht springt, sobald die Namen eintreffen. */
+.sl-geister {
+  margin: 0;
+  min-height: 2.6em;
+  max-width: 34ch;
+  padding: 6px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  font-weight: 700;
+  color: #3b4657;
+}
+
+/* ===========================================================================
    Mini-Games
    ---------------------------------------------------------------------------
    Alles, was es in der App nicht gibt: die Knöpfe oben links, das Fenster mit

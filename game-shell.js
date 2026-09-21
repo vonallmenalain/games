@@ -9,7 +9,9 @@
  * Das Spiel bekommt eine Fläche in der Mitte und ein paar Handgriffe:
  *   setCount(n)      Zähler oben rechts
  *   startClock(ms)   Uhr starten; sie meldet sich, wenn die Zeit um ist
- *   showResult(...)  Ergebnis mit "noch einmal" und dem Weg zu den anderen
+ *   showResult(...)  Ergebnis mit "noch einmal" und dem Weg zu den anderen.
+ *                    Wer ein festes Level hat, gibt seinen Lauf als geist
+ *                    mit; er wird zusammen mit der Punktzahl eingetragen.
  *
  * In der App steht dieselbe Bühne in einem Zug: Dort führt oben links ein
  * Haus auf das Startbild, ein Pfeil zurück in die Spielauswahl, am Schluss
@@ -232,7 +234,7 @@
      * die Liste, auf der die anderen stehen; zwei Bestenlisten übereinander
      * wären eine zu viel, und einen Wagen gibt es nicht.
      */
-    function showResult({ points, detail, speech, label = "Deine Punkte" }) {
+    function showResult({ points, detail, speech, label = "Deine Punkte", geist = null }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
 
@@ -244,8 +246,10 @@
       const parts = [el("p", "cm-result-label", label)];
       parts.push(el("p", "cm-result-score", String(points)));
       if (detail) parts.push(el("p", "cm-result-detail", detail));
-      // Namensfeld, eigener Platz, die Liste aller.
-      const block = mini()?.ergebnis?.({ punkte: points });
+      // Namensfeld, eigener Platz, die Liste aller. Bringt das Spiel eine
+      // Aufzeichnung seines Laufs mit (Spiele mit festem Level tun das), geht
+      // sie denselben Weg wie die Punktzahl – ein Trichter, nicht zwei.
+      const block = mini()?.ergebnis?.({ punkte: points, geist });
       if (block) parts.push(block);
 
       const actions = el("div", "cm-actions");
