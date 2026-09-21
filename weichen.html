@@ -8,23 +8,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="application-name" content="Mini-Games" />
-    <meta name="description" content="Kacheln-Knobeln: Merk dir, welche Kacheln geleuchtet haben, und tippe sie nach." />
+    <meta name="description" content="Weichenwärter: Schick jeden Wagen auf die Rampe, zu der seine Fracht gehört." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Mini-Games" />
     <meta name="theme-color" content="#a8ddf0" />
-    <title>Kacheln-Knobeln · Mini-Games</title>
+    <title>Weichenwärter · Mini-Games</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-20-05" />
     <link rel="manifest" href="app.webmanifest?v=2026-09-20-05" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
   </head>
-  <body data-page="tiles" data-spiel="tileMemory">
-    <!-- Die Bühne baut kacheln.js: die Landschaft, darauf das Raster.
+  <body data-page="yard" data-spiel="shuntYard">
+    <!-- Die Bühne baut weichen.js: die Landschaft, darauf die Anlage mit den Rampen.
          Bewusst leer im HTML – hier steht kein Wort ausser dem Namen des
          Spiels, und den setzt die Bühne. -->
-    <div id="kk-stage" class="cm-stage kk-stage" aria-label="Kacheln-Knobeln"></div>
+    <div id="ww-stage" class="cm-stage ww-stage" aria-label="Weichenwärter"></div>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -37,7 +37,7 @@
     <script defer src="train-scenes.js?v=2026-09-20-05"></script>
     <script defer src="game-cloud.js?v=2026-09-20-05"></script>
     <script defer src="game-shell.js?v=2026-09-20-05"></script>
-    <script defer src="kacheln.js?v=2026-09-20-05"></script>
+    <script defer src="weichen.js?v=2026-09-20-05"></script>
     <script defer src="pwa.js?v=2026-09-20-05"></script>
   </body>
 </html>

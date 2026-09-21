@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-09-20-04";
+export const FASSUNG = "2026-09-20-05";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -93,6 +93,24 @@ export const SPIELE = [
     text: "Wo hält der Zug? Schieb den Zug auf dem Gleis dorthin, wo die Zahl liegt.",
     baut: "das Gleis mit dem Zug",
   },
+  {
+    seite: "heizer", spiel: "boilerRoom", page: "boiler", js: "heizer.js",
+    titel: "Der Heizer", buehne: { id: "hz-stage", klasse: "cm-stage hz-stage" },
+    text: "Der Heizer: Jeder Kessel fällt – leg Kohle nach, aber nie im roten Feld.",
+    baut: "die Reihe der Kessel",
+  },
+  {
+    seite: "weichen", spiel: "shuntYard", page: "yard", js: "weichen.js",
+    titel: "Weichenwärter", buehne: { id: "ww-stage", klasse: "cm-stage ww-stage" },
+    text: "Weichenwärter: Schick jeden Wagen auf die Rampe, zu der seine Fracht gehört.",
+    baut: "die Anlage mit den Rampen",
+  },
+  {
+    seite: "bremsweg", spiel: "brakePoint", page: "brake", js: "bremsweg.js",
+    titel: "Bremsweg", buehne: { id: "bw-stage", klasse: "cm-stage bw-stage" },
+    text: "Bremsweg: Halte die Lok in acht Anläufen so genau wie möglich an der Haltetafel an.",
+    baut: "die Strecke mit der Haltetafel",
+  },
 ];
 
 // Das Firebase-SDK. Kein firebase-auth auf den Spielseiten: Dort meldet sich
@@ -108,7 +126,7 @@ const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat
 // sich ihre Werkzeuge beim Laden, nicht beim Aufruf – sie müssen vor dem
 // stehen, was sie benutzt.
 const GEMEINSAM = ["highscore.js", "cloud.js", "mini-games.js"];
-const SPIELSEITE = ["kids.js", "train-art.js", "train-scenes.js"];
+const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 const NACH_DER_KUNST = ["game-cloud.js", "game-shell.js"];
 
 const v = (datei) => `${datei}?v=${FASSUNG}`;

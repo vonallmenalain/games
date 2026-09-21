@@ -1,8 +1,7 @@
 /*
  * Die Mini-Games im Browser: läuft, was hier herausgeschnitten wurde?
  * ---------------------------------------------------------------------------
- * pruefen.mjs liest Dateien. Das hier spielt: Es öffnet jedes der sieben
- * Spiele so, wie jemand es öffnet, dem der Link geschickt wurde, und schaut
+ * pruefen.mjs liest Dateien. Das hier spielt: Es öffnet jedes Spiel so, wie jemand es öffnet, dem der Link geschickt wurde, und schaut
  * nach, ob eine Bühne dasteht, die Landschaft dahinter, die Knöpfe oben links
  * – und ob der Browser dabei schweigt.
  *
@@ -52,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|kk|wf|ft|sg|bs|tb|zg|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|kk|wf|ft|sg|bs|tb|zg|hz|ww|bw|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -62,7 +61,10 @@ const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]
 //                    Elternteil erben.
 //   sg-licht         das Licht des Signals; gefärbt wird es über
 //                    .sg-licht-gruen bzw. .sg-licht-rot.
-const OHNE_REGEL = new Set(["sound-core", "sound-wave-wide", "rs-prompt-text", "rs-klappe", "sg-licht"]);
+//   hz-zeiger        der Zeiger des Manometers; wo er steht, schreibt
+//                    heizer.js als transform-Attribut ins SVG. Eine Regel
+//                    dazu gäbe es nur, damit hier eine steht.
+const OHNE_REGEL = new Set(["sound-core", "sound-wave-wide", "rs-prompt-text", "rs-klappe", "sg-licht", "hz-zeiger"]);
 const brauchtRegel = (k) => UNSER.test(k) && !OHNE_REGEL.has(k) && !k.startsWith("cm-icon-");
 
 const server = spawn(process.execPath, [path.join(HIER, "local-pwa-server.cjs"), String(PORT)], { cwd: WURZEL, stdio: "ignore" });

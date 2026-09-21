@@ -1840,6 +1840,428 @@ h2 {
 }
 
 /* ===========================================================================
+   Der Heizer
+   ---------------------------------------------------------------------------
+   Eine Reihe Manometer, mehr nicht. Sie teilen sich die Breite: Kommt ein
+   Kessel dazu, werden alle etwas schmaler, statt dass die Reihe umbricht. Ein
+   Umbruch mitten in der Schicht wäre schlimmer als ein kleineres Zifferblatt –
+   der Blick sucht dann von vorne.
+
+   Wo der Zeiger steht, schreibt heizer.js als transform-Attribut ins SVG.
+   Deshalb steht hier kein Übergang darauf: Er würde der Bewegung nachlaufen
+   und das Zifferblatt lügen lassen.
+   =========================================================================== */
+
+.hz-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+.hz-tafel { flex: 0 0 auto; }
+
+.hz-reihe {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(6px, 1.6vw, 18px);
+  width: min(96vw, 1100px);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.hz-kessel {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: min(190px, 30vh);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.08s ease;
+}
+.hz-kessel:active { transform: scale(0.95); }
+.hz-kessel:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 50%; }
+.hz-kessel[disabled] { cursor: default; }
+
+.hz-uhr {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 6px 14px rgba(31, 42, 51, 0.28));
+}
+
+/* Die Nummer ist für die Tastatur da: Am Schreibtisch tippt niemand mit zwei
+   Daumen auf fünf Ziele. */
+.hz-nummer {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  transform: translateX(-50%);
+  font-size: clamp(0.7rem, 1.6vw, 0.95rem);
+  font-weight: 900;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+/* Zwei Zustände, die aus dem Augenwinkel erkennbar sein müssen: "gleich aus"
+   pocht, "Finger weg" steht still und ist rot umrandet. Bewegung für das
+   Dringende, Farbe für das Verbotene – wer beides bewegt, sieht keines. */
+.hz-kessel::after {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  pointer-events: none;
+  transition: border-color 0.12s ease;
+}
+.hz-kessel.is-knapp::after { border-color: #e2694f; animation: hz-pochen 0.6s ease-in-out infinite; }
+.hz-kessel.is-gefahr::after { border-color: #d0392b; }
+.hz-kessel.is-gefahr { filter: saturate(1.15); }
+
+@keyframes hz-pochen {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.06); opacity: 0.4; }
+}
+
+/* Der Funke beim Nachlegen: ein kurzes Aufglühen im Zifferblatt. Kein Ton –
+   bei vier Tipps in der Sekunde wäre jeder Ton ein Geräusch. */
+.hz-funke {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 166, 35, 0.75), rgba(245, 166, 35, 0));
+  opacity: 0;
+  pointer-events: none;
+}
+.hz-kessel.ist-kohle .hz-funke { animation: hz-funke 0.3s ease-out both; }
+@keyframes hz-funke {
+  from { opacity: 0.9; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.1); }
+}
+
+.hz-kessel.ist-geplatzt { animation: hz-platzt 0.42s ease-out both; }
+@keyframes hz-platzt {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.14); filter: brightness(1.6); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.hz-kessel.ist-aus { filter: grayscale(0.8) brightness(0.8); }
+
+/* --- Das Startbild --- */
+.hz-demo {
+  display: flex;
+  gap: clamp(12px, 4vw, 28px);
+  align-items: flex-start;
+}
+.hz-demo-kessel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: clamp(88px, 22vw, 132px);
+}
+.hz-demo-kessel .hz-kessel { max-width: none; width: 100%; }
+.hz-demo-wort {
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  font-weight: 800;
+  color: #243047;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+/* ===========================================================================
+   Weichenwärter
+   ---------------------------------------------------------------------------
+   Die Anlage ist ein Kasten, in dem alles absolut liegt: das Gleisbild als
+   gedehntes SVG dahinter, die Wagen darüber, die Rampen ganz vorne. Ein Wagen
+   fährt am Schluss hinter seine Rampe – deshalb liegen die Rampen oben auf
+   und sind nicht durchsichtig.
+
+   Wo ein Wagen ist, rechnet weichen.js Bild für Bild aus. Deshalb auch hier
+   kein Übergang auf transform.
+   =========================================================================== */
+
+.ww-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+.ww-anlage {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  background: linear-gradient(#cfe8b4, #b3d494 62%, #9ec47f);
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+.ww-anlage.ist-blockiert { box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 4px #d0392b; }
+
+.ww-gleisbild { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.ww-bahn { position: absolute; inset: 0; z-index: 2; }
+
+.ww-wagen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+.ww-wagen-art { width: 100%; height: 100%; display: block; }
+.ww-fracht { width: 100%; height: 100%; display: block; }
+.ww-wagen.ist-drin { opacity: 0.55; transition: opacity 0.2s ease; }
+.ww-wagen.ist-entgleist { animation: ww-entgleist 0.4s ease-out both; }
+@keyframes ww-entgleist {
+  0% { filter: none; }
+  100% { filter: drop-shadow(0 0 10px rgba(208, 57, 43, 0.9)) saturate(1.4); }
+}
+
+/* --- Die Rampen --- */
+.ww-rampen {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+}
+.ww-rampe {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: clamp(54px, 15vh, 84px);
+  padding: 4px 2px;
+  border: 3px solid rgba(255, 255, 255, 0.6);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: border-color 0.1s ease, background 0.1s ease, transform 0.08s ease;
+}
+.ww-rampe:active { transform: scale(0.97); }
+.ww-rampe:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+/* Wohin die Weiche zeigt, steht am Rand der Rampe – und zwar in ihrer Farbe.
+   Beim Umlegen blinkt sie: Die Weiche ist unterwegs, noch gilt die alte. */
+.ww-rampe.ist-gestellt {
+  border-color: var(--ww-farbe, #243047);
+  background: #fff;
+  box-shadow: 0 -6px 0 var(--ww-farbe, #243047) inset;
+}
+.ww-rampe.ist-unterwegs { animation: ww-wirft 0.15s linear infinite alternate; }
+@keyframes ww-wirft {
+  from { border-color: rgba(255, 255, 255, 0.6); }
+  to { border-color: var(--ww-farbe, #243047); }
+}
+.ww-rampe.ist-angekommen { animation: ww-ankunft 0.3s ease-out both; }
+@keyframes ww-ankunft {
+  0% { background: var(--ww-farbe, #fff); }
+  100% { background: rgba(255, 255, 255, 0.82); }
+}
+.ww-rampe-art { width: clamp(34px, 8vw, 54px); height: auto; display: block; }
+.ww-rampe-wort {
+  font-size: clamp(0.65rem, 1.8vw, 0.9rem);
+  font-weight: 800;
+  color: #3b4657;
+  white-space: nowrap;
+}
+
+/* Ein Wort über der Anlage, wenn die dritte Rampe dazukommt. Es hält nichts
+   auf und verschwindet von selbst. */
+.ww-melder {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  margin: 0;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.86);
+  color: #fff;
+  font-size: clamp(0.75rem, 1.8vw, 0.95rem);
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+}
+.ww-melder.ist-da { animation: ww-melder 2.2s ease both; }
+@keyframes ww-melder {
+  0% { opacity: 0; transform: translate(-50%, -8px); }
+  12%, 72% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+
+/* --- Das Startbild --- */
+.ww-demo { display: flex; gap: clamp(10px, 3vw, 22px); }
+.ww-demo-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 3px solid var(--ww-farbe, #243047);
+}
+.ww-demo-art { width: clamp(40px, 10vw, 62px); height: auto; display: block; }
+.ww-demo-wort { font-size: clamp(0.75rem, 2vw, 0.95rem); font-weight: 800; color: #243047; }
+
+/* ===========================================================================
+   Bremsweg
+   ---------------------------------------------------------------------------
+   Eine Strecke, eine Lok, eine Tafel. Alles liegt auf derselben Grundlinie:
+   die Schiene, die Räder der Lok, der Fuss der Tafel und die Marke, die zeigt,
+   wo sie stehengeblieben ist. Läge eines davon einen Pixel daneben, sähe man
+   es sofort – und das Messen wäre nicht mehr zu glauben.
+   =========================================================================== */
+
+.bw-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+.bw-anlauf { flex: 0 0 auto; }
+.bw-regel {
+  margin: 0;
+  max-width: 34ch;
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  font-weight: 700;
+  color: #3b4657;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.bw-strecke {
+  position: relative;
+  width: min(96vw, 1100px);
+  flex: 0 0 auto;
+  height: clamp(140px, 32vh, 250px);
+  border-radius: 26px;
+  overflow: hidden;
+  overflow: clip;
+  background: linear-gradient(#dff0f8 58%, #e9dcc3 58%, #d9c9aa);
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.2), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* Die Schiene. --bw-schiene ist die Höhe, auf der alles steht: Lok, Tafel,
+   Marke und Skala rechnen damit. */
+.bw-strecke { --bw-schiene: 26px; }
+.bw-gleis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--bw-schiene);
+  height: 7px;
+  background: linear-gradient(#a2988a, #7d7466);
+}
+
+.bw-skala { position: absolute; inset: 0; }
+.bw-strich {
+  position: absolute;
+  bottom: calc(var(--bw-schiene) - 12px);
+  width: 2px;
+  height: 12px;
+  background: rgba(59, 70, 87, 0.5);
+}
+.bw-strich-wort {
+  position: absolute;
+  left: 50%;
+  bottom: -16px;
+  transform: translateX(-50%);
+  font-size: clamp(0.6rem, 1.4vw, 0.75rem);
+  font-weight: 800;
+  color: #6b7280;
+}
+
+.bw-tafel {
+  position: absolute;
+  bottom: var(--bw-schiene);
+  transform: translateX(-50%);
+  width: clamp(16px, 2.6vw, 24px);
+  left: 0;
+}
+.bw-tafel-art { width: 100%; height: auto; display: block; }
+
+/* Wo die Lok stehengeblieben ist: ein Strich, kein Text. Der Text steht
+   darunter, wo er nicht im Bild herumsteht. */
+.bw-marke {
+  position: absolute;
+  bottom: var(--bw-schiene);
+  width: 3px;
+  height: 46%;
+  background: #d0392b;
+  opacity: 0;
+  transform: translateX(-50%);
+  left: 0;
+}
+.bw-marke.ist-da { opacity: 0.85; animation: bw-marke 0.24s ease-out both; }
+@keyframes bw-marke {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 0.85; transform: translate(-50%, 0); }
+}
+
+.bw-lok {
+  position: absolute;
+  bottom: var(--bw-schiene);
+  left: 0;
+  will-change: transform;
+  transition: opacity 0.26s ease;
+}
+.bw-lok.ist-weg { opacity: 0; }
+.bw-lok-art { width: 100%; height: auto; display: block; }
+
+/* Die Bremsfunken: nur da, solange wirklich gebremst wird. */
+.bw-funken {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -3px;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245, 166, 35, 0), #f5a623, rgba(245, 166, 35, 0));
+  opacity: 0;
+}
+.bw-stage.ist-bremse .bw-funken { opacity: 1; animation: bw-funken 0.14s linear infinite alternate; }
+@keyframes bw-funken {
+  from { transform: scaleX(0.82); opacity: 0.6; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+/* Das Ergebnis eines Anlaufs. Die Zeile steht immer da, auch leer – sonst
+   sprängen Strecke und Knöpfe bei jedem Halt um eine Zeilenhöhe. */
+.bw-lage {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 1.6em;
+  padding: 3px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: clamp(0.95rem, 2.4vw, 1.25rem);
+  font-weight: 800;
+  color: #3b4657;
+}
+.bw-lage.ist-gut { color: #2c7337; }
+.bw-lage.ist-so-lala { color: #b9741a; }
+.bw-lage.ist-daneben { color: #a8321f; }
+
+/* Wer weniger Bewegung eingestellt hat, bekommt keine pochenden Ringe und
+   keine flackernden Funken. Die Zeiger fallen trotzdem, die Wagen rollen
+   trotzdem – das ist das Spiel, nicht die Zierde. */
+@media (prefers-reduced-motion: reduce) {
+  .hz-kessel.is-knapp::after,
+  .hz-kessel.ist-kohle .hz-funke,
+  .hz-kessel.ist-geplatzt,
+  .ww-rampe.ist-unterwegs,
+  .ww-rampe.ist-angekommen,
+  .ww-wagen.ist-entgleist,
+  .bw-stage.ist-bremse .bw-funken,
+  .bw-marke.ist-da { animation: none; }
+  .hz-kessel.is-knapp::after { border-color: #e2694f; }
+  .ww-rampe.ist-unterwegs { border-color: var(--ww-farbe, #243047); }
+  .bw-stage.ist-bremse .bw-funken { opacity: 1; }
+}
+
+/* ===========================================================================
    Mini-Games
    ---------------------------------------------------------------------------
    Alles, was es in der App nicht gibt: die Knöpfe oben links, das Fenster mit

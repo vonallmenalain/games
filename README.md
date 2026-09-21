@@ -19,7 +19,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        sieben Spielseiten, erzeugt
+    turmbau.html …        zehn Spielseiten, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -35,6 +35,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Spielfläche, Ergebnis
     game-cloud.js         der Spielstand während einer Runde. Er überlebt die
                           Seite nicht, und das ist Absicht.
+    zufall.js             der Zufall. Ohne Turnier in der Adresse ist er
+                          Math.random; mit einem bekommt jeder denselben Lauf.
     kids.js               Lautsprecher, Ton, Vorlesen, Konfetti
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier
                           jede Zeichnung entsteht (el, shade)
@@ -54,13 +56,18 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
 ## Ein Spiel dazunehmen
 
-1. `<spiel>.js` aus dem Repository der App herüberkopieren – dazu seinen
-   Abschnitt aus deren `styles.css`. Die Spiele hängen nur an
-   `LernappGameShell`, `LernappGameCloud`, `LernappKids`, `LernappTrainArt`
-   und `LernappHighscore`; alles davon gibt es hier.
-2. Eine Zeile in `SPIELE` in `scripts/seiten-bauen.mjs` und eine in
-   `mini-games.js`.
+1. `<spiel>.js` schreiben – oder aus dem Repository der App herüberkopieren,
+   dazu seinen Abschnitt aus deren `styles.css`. Die Spiele hängen nur an
+   `LernappGameShell`, `LernappGameCloud`, `LernappKids`, `LernappTrainArt`,
+   `LernappZufall` und `LernappHighscore`; alles davon gibt es hier.
+2. Eine Zeile in `SPIELE` in `scripts/seiten-bauen.mjs`, eine in
+   `mini-games.js` und eine in `highscore.js` (Titel, Bereich, Einheit).
 3. `npm run bauen && npm run pruefen`
+
+Ein Spiel, das würfelt, nimmt seine Zahlen aus `LernappZufall.fuer(<spiel>)`
+statt aus `Math.random` – und ruft `neu()` zu Beginn jeder Runde. Ohne Turnier
+in der Adresse ist beides dasselbe wie vorher; mit Turnier spielen alle
+denselben Lauf, und der zweite Versuch ist derselbe wie der erste.
 
 **Wichtig:** Welche Spiele in die Bestenliste schreiben dürfen, steht auch in
 `firestore.rules` (Funktion `miniSpiele`) – ein neues Spiel braucht dort eine
@@ -71,6 +78,11 @@ Firebase.
 Geeignet ist ein Spiel, das genau eine Zahl liefert, bei der grösser besser
 ist. Spiele mit Sternen je Level taugen nicht: Am Ende hätten alle drei, und
 die Liste sagte nichts mehr.
+
+Und es soll von selbst zu einem Ende kommen: eine feste Uhr wie bei Blätter im
+Strom, eine feste Zahl Anläufe wie beim Bremsweg oder wenigstens ein Deckel wie
+beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist keine Runde
+mehr, die man jemandem schickt.
 
 ## Firebase
 
