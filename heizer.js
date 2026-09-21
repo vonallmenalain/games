@@ -18,11 +18,13 @@
  * Zwei Dinge soll man kommen sehen, bevor sie da sind. Das eine ist der
  * nächste Kessel. Er kündigt sich VORSCHAU_MS vorher als Umriss genau an der
  * Stelle an, an der er gleich stehen wird, und ein Ring darin füllt sich, bis
- * es so weit ist. Dann hält die Reihe HALT_MS lang die Luft an: Kein Zeiger
- * fällt, während der neue aufgeht. Diese halbe Sekunde zählt nicht mit – die
- * Punkte sind gespielte Zeit, nicht Zeit auf der Wanduhr. Sonst wäre jeder
- * Kessel, der dazukommt, ein kleines Geschenk, und drei Geschenke stünden in
- * der Rangliste vor einem guten Lauf ohne sie.
+ * es so weit ist. Dann geht er auf, und die Reihe läuft dabei weiter.
+ *
+ * Hier stand eine Weile eine halbe Sekunde Stillstand, damit man ihn ansehen
+ * kann. Sie ist wieder heraus: Wer ihn kommen sieht, muss nicht noch
+ * angehalten werden, und der Bruch im Takt war teurer als das, was er
+ * einbrachte. Damit sind die Punkte auch wieder das, was sie immer waren –
+ * Zeit auf der Wanduhr, ohne Abzüge, die man nachrechnen müsste.
  *
  * Das andere ist ein Kessel, der gleich ausgeht. Der rote Bogen unten am Rand
  * sagt das zwar, aber er sagt es spät und immer gleich laut. Deshalb färbt
@@ -109,9 +111,6 @@
   // um den Blick einmal über die Reihe wandern zu lassen, kurz genug, dass er
   // nicht zum Möbelstück wird.
   const VORSCHAU_MS = 2600;
-  // Und so lange steht die Reihe still, wenn er da ist. Eine halbe Sekunde ist
-  // ein Atemzug: genug, um zu sehen, wo er steht, zu wenig, um zu planen.
-  const HALT_MS = 500;
 
   // Ab hier läuft das Zifferblatt von Weiss nach Rot. Der Wert ist bewusst
   // höher als MAHNUNG: Die Tönung ist die Vorwarnung, der pochende Ring darunter
@@ -336,13 +335,12 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  // halt ist, was vom Atemzug noch übrig ist; pause, was bisher stillstand.
-  // faellig sagt, bei welcher gespielten Zeit der nächste Kessel dran ist –
-  // eine Marke, die mitwandert, statt einer Rechnung aus der Wanduhr: Sonst
-  // müssten die Pausen zweimal abgezogen werden.
+  // faellig sagt, wann der nächste Kessel dran ist – eine Marke, die nach
+  // jeder Ankunft um KESSEL_DAZU_MS weiterrückt. Aus ihr kommt auch der
+  // Umriss: Was fehlt bis faellig, ist genau das, was der Ring anzeigt.
   const state = {
     phase: "intro", kessel: [], start: 0, gelaufen: 0, kohle: 0, ende: null,
-    halt: 0, pause: 0, faellig: 0,
+    faellig: 0,
   };
   let shell = null;
   let reihe = null;
@@ -352,21 +350,13 @@
   let letzteZeit = 0;
   let stepTimer = null;
 
-  // Die gespielte Zeit: die Wanduhr ohne die Atempausen. Sie ist die Punktzahl,
-  // und sie ist der Takt, nach dem der Verbrauch steigt und der nächste Kessel
-  // kommt – alle drei müssen dieselbe Zeit meinen.
-  const spielzeit = () => Date.now() - state.start - state.pause;
+  // Wie lange die Schicht läuft. Sie ist die Punktzahl, und sie ist der Takt,
+  // nach dem der Verbrauch steigt und der nächste Kessel kommt – alle drei
+  // müssen dieselbe Zeit meinen.
+  const spielzeit = () => Date.now() - state.start;
 
   const clearStep = () => { if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; } };
   const stopLoop = () => { if (frame) { window.cancelAnimationFrame(frame); frame = null; } };
-
-  // Was von einem angekündigten Kessel übrig ist, wenn die Schicht endet: der
-  // Umriss und der angehaltene Atem. Beides gehört nicht auf ein Standbild.
-  function stillstand() {
-    state.halt = 0;
-    reihe?.classList.remove("ist-halt");
-    raeumePlatz();
-  }
 
   function neuerKessel() {
     const nummer = state.kessel.length + 1;
@@ -446,17 +436,14 @@
   // Die Schicht
   // ---------------------------------------------------------------------------
   // Der neue Kessel ist da: erst den Umriss weg, dann ihn hin – in dieser
-  // Reihenfolge, sonst stünde er hinter seinem eigenen Umriss. Und die Reihe
-  // hält die Luft an, damit man ihn ansehen kann, ohne dass es woanders brennt.
+  // Reihenfolge, sonst stünde er hinter seinem eigenen Umriss. Alles andere
+  // läuft dabei weiter; die Ankunft ist eine Bewegung, keine Unterbrechung.
   function kesselKommt() {
     raeumePlatz();
     const kessel = neuerKessel();
     state.faellig += KESSEL_DAZU_MS;
-    state.halt = HALT_MS;
-    reihe?.classList.add("ist-halt");
     // ist-kohle dazu: Der neue Kessel wird angefeuert, und das sieht aus wie
-    // Anfeuern. Wer weniger Bewegung eingestellt hat, sieht beides nicht –
-    // gehalten wird trotzdem, denn der Atemzug ist Spiel, nicht Zierde.
+    // Anfeuern.
     kessel.node?.classList.add("ist-neu", "ist-kohle");
     kids()?.playJingle?.("star");
     kids()?.vibrate?.(14);
@@ -470,32 +457,16 @@
     // Rechenpause, ein ruckelndes Gerät –, fielen die Zeiger sonst auf einen
     // Schlag. Für den längeren Fall, den Tab im Hintergrund, reicht der Deckel
     // nicht; darum steht weiter unten, dass Weggehen die Schicht beendet.
-    let dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
+    const dt = Math.min(0.05, Math.max(0, (now - letzteZeit) / 1000));
     letzteZeit = now;
-
-    // Der Atemzug nach einem neuen Kessel. Was von diesem Bild noch übrig ist,
-    // läuft danach ganz normal weiter – so ist der Halt auf die Millisekunde
-    // so lang, wie er sein soll, und kein Bruchteil geht verloren.
-    if (state.halt > 0) {
-      const still = Math.min(state.halt, dt * 1000);
-      state.halt -= still;
-      state.pause += still;
-      dt -= still / 1000;
-      if (state.halt <= 0) {
-        state.halt = 0;
-        reihe?.classList.remove("ist-halt");
-      }
-    }
 
     const gelaufen = spielzeit();
     const faktor = 1 + ZUNAHME * (gelaufen / 1000);
 
-    if (dt > 0) {
-      for (const kessel of state.kessel) {
-        kessel.wert -= kessel.tempo * faktor * dt;
-        if (kessel.wert <= 0) { kessel.wert = 0; zeichne(kessel); ende("aus", kessel); return; }
-        zeichne(kessel);
-      }
+    for (const kessel of state.kessel) {
+      kessel.wert -= kessel.tempo * faktor * dt;
+      if (kessel.wert <= 0) { kessel.wert = 0; zeichne(kessel); ende("aus", kessel); return; }
+      zeichne(kessel);
     }
 
     if (state.kessel.length < KESSEL_MAX) {
@@ -514,7 +485,7 @@
     // Jetzt stehenbleiben, nicht erst auf der Ergebnistafel: Der Nachlauf, in
     // dem der erloschene Kessel noch zu sehen ist, gehört nicht zur Schicht.
     state.gelaufen = spielzeit();
-    stillstand();
+    raeumePlatz();
     stopLoop();
     shell.stopClock();
     if (kessel?.node) kessel.node.classList.add(grund === "platzt" ? "ist-geplatzt" : "ist-aus");
@@ -528,11 +499,8 @@
     if (state.phase !== "play") return;
     state.phase = "over";
     state.ende = "schicht";
-    // Wer die ganze Schicht steht, bekommt die ganze Schicht: Die Uhr der Bühne
-    // läuft nach der Wanduhr, die Punkte nach der gespielten Zeit, und um die
-    // Atemzüge dazwischen wird hier nicht gefeilscht.
     state.gelaufen = SCHICHT_MS;
-    stillstand();
+    raeumePlatz();
     stopLoop();
     kids()?.playJingle?.("win");
     if (!ruhig()) kids()?.burstConfetti?.();
@@ -580,8 +548,6 @@
     state.kessel = [];
     state.kohle = 0;
     state.ende = null;
-    state.halt = 0;
-    state.pause = 0;
     shell.setCount(0);
     raeumePlatz();
     reihe = null;
@@ -628,8 +594,6 @@
     state.kohle = 0;
     state.ende = null;
     state.gelaufen = 0;
-    state.halt = 0;
-    state.pause = 0;
     state.faellig = KESSEL_DAZU_MS;
     state.start = Date.now();
     letzteZeit = performance.now();
