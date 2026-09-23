@@ -115,7 +115,14 @@
     // Jede Seite eine andere, der Reihe nach (mini-games.js, naechsteSzene).
     // In der App wählt das Kind sie aus; hier wählt niemand, also drehen sie
     // sich.
-    if (scenes()) host.append(scenes().buildScene(mini()?.naechsteSzene?.() || scenes().savedScene()));
+    //
+    // Zwei davon sind dunkel: die Nacht und der Weltraum. Dort verschwand die
+    // dunkle Schrift, die auf jedem Taghimmel gut steht, im Hintergrund. Die
+    // Bühne sagt deshalb, was für ein Himmel hinter ihr liegt, und styles.css
+    // schreibt auf einem dunklen hell.
+    const szene = scenes() ? mini()?.naechsteSzene?.() || scenes().savedScene() : null;
+    if (szene) host.append(scenes().buildScene(szene));
+    host.dataset.himmel = szene?.dunkel ? "dunkel" : "hell";
 
     // --- Der Lautsprecher oben links ----------------------------------------
     // Derselbe wie in der App: er kennt schon den Ton-Schalter, das Vorlesen
