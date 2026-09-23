@@ -469,6 +469,11 @@ h2 {
 .cm-stage {
   --cm-accent: #F5A623;
   --cm-accent-dark: #b9741a;
+  /* Die Schrift, die ohne Kasten auf der Landschaft steht: Titel, Auftrag,
+     Beschriftungen. Dunkel, mit einer hellen Kante darunter – so hebt sie sich
+     von jedem Taghimmel ab. */
+  --cm-schrift: #243047;
+  --cm-schrift-hof: 0 1px 0 rgba(255, 255, 255, 0.75);
   position: fixed;
   inset: 0;
   /* clip statt hidden: die Landschaft ist breiter als der Bildschirm, und ein
@@ -478,6 +483,18 @@ h2 {
   overflow: hidden;
   overflow: clip;
   touch-action: manipulation;
+}
+
+/* Auf einem dunklen Himmel – Nacht, Weltraum – dreht sich das um: helle
+   Schrift mit einem dunklen Hof. Dunkel auf Dunkel war dort kaum zu lesen, und
+   die helle Kante darunter liess die Buchstaben nur verschwimmen. Eine Kante
+   allein reicht auch für die helle Schrift nicht: Sie steht nicht nur vor dem
+   Himmel, sondern auch vor dem Mond, der Erde und den grauen Kraterhügeln.
+   Der weiche Hof trägt sie über alles davon. Welcher Himmel hinter der Bühne
+   liegt, setzt game-shell.js. */
+.cm-stage[data-himmel="dunkel"] {
+  --cm-schrift: #f5f7fc;
+  --cm-schrift-hof: 0 1px 2px rgba(10, 16, 38, 0.85), 0 0 10px rgba(10, 16, 38, 0.6);
 }
 
 /* Die Landschaft steht still: es fährt kein Zug, und ein wandernder
@@ -517,8 +534,8 @@ h2 {
   white-space: nowrap;
   font-size: clamp(1.1rem, 2.6vw, 1.6rem);
   font-weight: 900;
-  color: #243047;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: var(--cm-schrift);
+  text-shadow: var(--cm-schrift-hof);
 }
 
 .cm-icon {
@@ -551,8 +568,10 @@ h2 {
   font-size: clamp(1.2rem, 3vw, 1.7rem);
   font-weight: 900;
   color: #2f6f4f;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  text-shadow: var(--cm-schrift-hof);
 }
+/* Dasselbe Grün, nur hell: Das dunkle ginge im Nachthimmel unter. */
+.cm-stage[data-himmel="dunkel"] .cm-count { color: #a8e8c0; }
 .cm-count-tick { width: 22px; height: 22px; color: #3fbf74; }
 .cm-count-value { font-variant-numeric: tabular-nums; }
 
@@ -602,8 +621,8 @@ h2 {
   margin: 0;
   font-size: clamp(1rem, 2.4vw, 1.4rem);
   font-weight: 800;
-  color: #243047;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+  color: var(--cm-schrift);
+  text-shadow: var(--cm-schrift-hof);
 }
 
 /* --- Start und Ergebnis --- */
@@ -984,6 +1003,9 @@ h2 {
 .bs-frage { flex: 0 0 auto; min-height: 1.4em; transition: color 0.15s ease; }
 .bs-frage.is-treibt { color: #b9741a; }
 .bs-frage.is-zeigt { color: #2f7a43; }
+/* Auf dunklem Himmel dieselben zwei Farben, aufgehellt. */
+.bs-stage[data-himmel="dunkel"] .bs-frage.is-treibt { color: #ffbf5e; }
+.bs-stage[data-himmel="dunkel"] .bs-frage.is-zeigt { color: #8fe3a5; }
 
 .bs-wasser {
   position: relative;
@@ -2111,8 +2133,8 @@ h2 {
 .hz-demo-wort {
   font-size: clamp(0.8rem, 2vw, 1rem);
   font-weight: 800;
-  color: #243047;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+  color: var(--cm-schrift);
+  text-shadow: var(--cm-schrift-hof);
 }
 
 /* ===========================================================================
@@ -2274,8 +2296,10 @@ h2 {
   font-size: clamp(0.85rem, 2vw, 1.05rem);
   font-weight: 700;
   color: #3b4657;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+  text-shadow: var(--cm-schrift-hof);
 }
+/* Eine Stufe leiser als der Auftrag darüber – auch auf dunklem Himmel. */
+.bw-stage[data-himmel="dunkel"] .bw-regel { color: #d3dbe8; }
 
 .bw-strecke {
   position: relative;

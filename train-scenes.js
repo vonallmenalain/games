@@ -411,6 +411,9 @@
       ],
       label: "Nacht und Sterne",
       sky: ["#1b2a52", "#3c4f80"],
+      // Ein dunkler Himmel: Hier steht die Schrift der Bühne hell statt dunkel
+      // (game-shell.js, data-himmel).
+      dunkel: true,
       ground: "#2c3f5c",
       groundDark: "#1d2c44",
       light: { color: "#f4f0d8", glow: 0.4 },
@@ -525,6 +528,7 @@
       ],
       label: "Weltraum",
       sky: ["#0b1030", "#1c2752"],
+      dunkel: true,
       ground: "#9aa2b4",
       groundDark: "#7d8598",
       light: { color: "#fff3b0", glow: 0.25 },
