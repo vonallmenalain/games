@@ -587,7 +587,8 @@
   function beginRound() {
     clearStep();
     stopLoop();
-    // Im Turnier ist der zweite Versuch dieselbe Schicht wie der erste.
+    // Im Turnier ist jeder Versuch für alle dieselbe Schicht: der erste wie
+    // der erste aller anderen, der zweite wie deren zweiter.
     zufall.neu();
     state.phase = "play";
     state.kessel = [];

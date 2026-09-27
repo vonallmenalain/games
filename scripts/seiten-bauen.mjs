@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-09-23-01";
+export const FASSUNG = "2026-09-27-01";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -131,7 +131,13 @@ const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat
 // Was jede Seite lädt, in dieser Reihenfolge. train-art und strand-art holen
 // sich ihre Werkzeuge beim Laden, nicht beim Aufruf – sie müssen vor dem
 // stehen, was sie benutzt.
-const GEMEINSAM = ["highscore.js", "cloud.js", "mini-games.js"];
+//
+// turnier.js steht bei allen: Die Startseite zeigt laufende Turniere, eine
+// Spielseite kann in einem gespielt werden, die Turnierseite ist eines, und
+// der Adminbereich rechnet mit denselben Wertungen. Es steht vor der Bühne
+// (game-shell.js) und vor dem Spiel, denn beide fragen schon beim Aufbauen
+// danach.
+const GEMEINSAM = ["highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 const NACH_DER_KUNST = ["game-cloud.js", "game-shell.js"];
 
@@ -149,6 +155,9 @@ export function seitenSkripte(spiel) {
 }
 
 export const hubSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
+// Die Turnierseite: dasselbe wie die Startseite. Was sie zeigt, baut
+// turnier.js aus der Adresse (?t=).
+export const turnierSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
 // Der Adminbereich: dasselbe Fundament, dazu die Anmeldung. Kein pwa.js – er
 // gehört nicht in die installierte App, und ein Service Worker, der ihn
 // zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
@@ -221,6 +230,40 @@ ${skripte(hubSkripte())}
 `;
 }
 
+export function turnierSeite() {
+  return `<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
+  Adresse; was darauf steht, baut turnier.js – wie lange es noch läuft, die
+  Spiele mit ihrer Rangliste, die Gesamtwertung, die Regeln und der Link zum
+  Weitergeben. Sie gehört zur installierten App: Wer im Turnier spielt, kommt
+  von jedem Spiel hierher zurück, auch ohne Netz.
+
+  Nicht für Suchmaschinen: Ein Turnier "nur mit Link" soll auch dort nicht
+  auftauchen.
+-->
+<html lang="de">
+  <head>
+${kopf({
+    titel: "Turnier · Mini-Games",
+    text: "Ein Turnier der Mini-Games: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung.",
+    viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+  })}
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body data-page="turnier">
+    <main class="mini-seite" data-turnier>
+      <p class="mini-hinweis">Das Turnier wird geladen...</p>
+    </main>
+
+${skripte(turnierSkripte())}
+  </body>
+</html>
+`;
+}
+
 export function adminSeite() {
   return `<!doctype html>
 <!--
@@ -279,8 +322,8 @@ export function manifest() {
 // Alles, was eine Seite lädt – jede Datei einmal, in der Reihenfolge, in der
 // sie zum ersten Mal vorkommt.
 export function dateien() {
-  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`)];
-  const skripteAlle = [...hubSkripte()];
+  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html"];
+  const skripteAlle = [...hubSkripte(), ...turnierSkripte()];
   for (const s of SPIELE) for (const datei of seitenSkripte(s)) skripteAlle.push(datei);
   for (const datei of skripteAlle) {
     if (datei.startsWith("http")) continue;
@@ -308,6 +351,7 @@ export function alleDateien() {
   const raus = new Map();
   raus.set("index.html", hubSeite());
   for (const spiel of SPIELE) raus.set(`${spiel.seite}.html`, spielSeite(spiel));
+  raus.set("turnier.html", turnierSeite());
   raus.set("admin.html", adminSeite());
   raus.set("app.webmanifest", manifest());
   raus.set("service-worker.js", serviceWorker());

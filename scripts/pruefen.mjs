@@ -227,6 +227,66 @@ for (const s of SPIELE) {
   pruefe(`${s.seite}.html lädt kein firebase-auth`, !seite.includes("firebase-auth"));
 }
 
+// --- 14. Der Turniermodus ---------------------------------------------------
+// Eine eigene Seite, eine eigene Datei, die auf allen Seiten steht – und zwar
+// vor der Bühne und vor dem Spiel, denn beide fragen schon beim Aufbauen
+// danach, ob gerade ein Turnier gespielt wird.
+const turnierHtml = lies("turnier.html");
+pruefe("turnier.html trägt data-page=\"turnier\"", turnierHtml.includes('data-page="turnier"'));
+pruefe("turnier.html hat den Platz für die Seite ([data-turnier])", turnierHtml.includes("data-turnier"));
+pruefe("turnier.html lädt turnier.js", turnierHtml.includes(`turnier.js?v=${FASSUNG}`));
+pruefe("turnier.html lädt kein firebase-auth", !turnierHtml.includes("firebase-auth"));
+pruefe("turnier.html bittet um kein Google-Ergebnis – ein Turnier nur mit Link soll dort nicht stehen", turnierHtml.includes('name="robots"'));
+pruefe("SW kennt turnier.html", sw.includes('"./turnier.html"'));
+for (const s of SPIELE) {
+  const liste = seitenSkripte(s);
+  const wo = liste.indexOf("turnier.js");
+  pruefe(`${s.seite}.html lädt turnier.js vor game-shell.js und ${s.js}`,
+    wo >= 0 && wo < liste.indexOf("game-shell.js") && wo < liste.indexOf(s.js));
+}
+
+// Wer würfelt, würfelt im Turnier mit dem Turnier: Sonst bekäme jeder eine
+// andere Aufgabe, und es gewänne der mit dem freundlicheren Würfel. Der
+// Streckenlauf würfelt gar nicht – sein Level steht fest.
+const OHNE_ZUFALL = new Set(["strecke.js"]);
+for (const s of SPIELE) {
+  if (OHNE_ZUFALL.has(s.js)) continue;
+  const quelle = lies(s.js);
+  pruefe(`${s.js} nimmt seinen Zufall aus LernappZufall.fuer("${s.spiel}")`, quelle.includes(`LernappZufall?.fuer?.("${s.spiel}")`));
+  pruefe(`${s.js} stellt den Zufall zu Beginn jeder Runde zurück (zufall.neu())`, /zufall\.neu\(\)/.test(quelle));
+}
+pruefe("strecke.js würfelt nicht – sonst gehörte es in die Liste darüber", !/Math\.random/.test(lies("strecke.js")));
+
+// Die Regeln der Turniere: anlegen nur der Admin, auflisten nur öffentliche,
+// ein Versuch zählt ab seinem Beginn.
+pruefe("Turniere legt nur der Admin an",
+  /match \/miniTurniere\/\{turnierId\}[\s\S]*?allow create, update: if istAdmin\(\) && istTurnier\(turnierId\)/.test(regeln));
+pruefe("Auflisten lassen sich nur die öffentlichen Turniere",
+  /allow list: if istAdmin\(\) \|\| resource\.data\.sichtbar == "alle"/.test(regeln));
+pruefe("Ein Turnier nimmt nur Spiele auf, die es gibt", /function istTurnier[\s\S]*?d\.spiele\.hasOnly\(miniSpiele\(\)\)/.test(regeln));
+pruefe("Ein Versuch im Turnier zählt ab seinem Beginn, sein Ergebnis kommt einmal",
+  regeln.includes("request.resource.data.versuche == resource.data.versuche + 1")
+  && regeln.includes("resource.data.offen == true")
+  && regeln.includes("request.resource.data.offen == false"));
+pruefe("cloud.js meldet einen Versuch in einer Transaktion an",
+  /async function turnierVersuch[\s\S]*?runTransaction/.test(lies("cloud.js")));
+pruefe("cloud.js fragt nur nach öffentlichen Turnieren",
+  /where\("sichtbar", "==", "alle"\)/.test(lies("cloud.js")));
+
+// --- 15. Der Weg in den Adminbereich -----------------------------------------
+// Kein Anmeldeknopf in der App; nur wer im Adminbereich angemeldet ist, sieht
+// auf der Startseite einen Weg zurück. Beide Dateien müssen vom selben
+// Merkzeichen sprechen – sonst setzt die eine, was die andere nie liest.
+const merkzeichen = /const ADMIN_KEY = "([^"]+)"/;
+pruefe("admin.js und mini-games.js sprechen vom selben Merkzeichen",
+  Boolean(adminJs.match(merkzeichen)) && adminJs.match(merkzeichen)?.[1] === miniJs.match(merkzeichen)?.[1]);
+pruefe("admin.js setzt das Merkzeichen beim Anmelden und nimmt es beim Abmelden weg",
+  /localStorage\.setItem\(ADMIN_KEY/.test(adminJs) && /localStorage\.removeItem\(ADMIN_KEY/.test(adminJs));
+pruefe("Die Startseite zeigt den Admin-Knopf nur mit Merkzeichen",
+  /function adminKnopf\(\) \{\s*if \(!adminAngemeldet\(\)\) return null;/.test(miniJs));
+pruefe("Die Spielseiten bleiben ohne Anmeldung (kein firebase-auth auf der Startseite)",
+  !lies("index.html").includes("firebase-auth"));
+
 // ---------------------------------------------------------------------------
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);

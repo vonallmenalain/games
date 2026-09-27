@@ -27,6 +27,17 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier setzt jeder Teich für alle dieselben Fische an dieselben Plätze
+  // (zufall.js). Wie ein Fisch danach schlingert, würfelt weiter Math.random:
+  // Das geschieht Bild für Bild, und ein schnelleres Gerät zöge dabei mehr
+  // Zahlen – ab dem ersten Teich liefe der Lauf dann anders als bei allen
+  // anderen.
+  const zufall = window.LernappZufall?.fuer?.("fishPond") || {
+    fest: false, neu() {}, zahl: Math.random,
+    ganz: (n) => Math.floor(Math.random() * n),
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -149,15 +160,15 @@
     const reihen = Math.ceil(anzahl / spalten);
     const platz = 1 - 2 * RAND;
     return shuffle([...Array(spalten * reihen).keys()]).slice(0, anzahl).map((zelle) => ({
-      x: RAND + platz * (((zelle % spalten) + 0.5) / spalten + (Math.random() - 0.5) * 0.6 / spalten),
-      y: RAND + platz * ((Math.floor(zelle / spalten) + 0.5) / reihen + (Math.random() - 0.5) * 0.6 / reihen),
+      x: RAND + platz * (((zelle % spalten) + 0.5) / spalten + (zufall.zahl() - 0.5) * 0.6 / spalten),
+      y: RAND + platz * ((Math.floor(zelle / spalten) + 0.5) / reihen + (zufall.zahl() - 0.5) * 0.6 / reihen),
     }));
   }
 
   function shuffle(list) {
     const copy = [...list];
     for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = zufall.ganz(i + 1);
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
@@ -237,6 +248,7 @@
     clearStep();
     stopLoop();
     shell.closeOverlay();
+    zufall.neu();
     shell.setPhase("play");
     state.phase = "play";
     state.teich = 0;
@@ -291,7 +303,7 @@
         gefangen: false,
         x: plaetze[index].x,
         y: plaetze[index].y,
-        winkel: Math.random() * Math.PI * 2,
+        winkel: zufall.zahl() * Math.PI * 2,
         tempo: teich.tempo,
       };
       node.addEventListener("click", () => tap(eintrag));

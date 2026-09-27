@@ -45,6 +45,13 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier suchen alle dieselben zehn Zahlen (zufall.js).
+  const zufall = window.LernappZufall?.fuer?.("numberLine") || {
+    fest: false, neu() {}, zahl: Math.random,
+    ganz: (n) => Math.floor(Math.random() * n),
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -140,7 +147,7 @@
   function zahlFuer(gleis, vorher = null) {
     const moeglich = [];
     for (let n = 1; n < gleis.bis; n += 1) if (n !== vorher) moeglich.push(n);
-    return moeglich[Math.floor(Math.random() * moeglich.length)];
+    return moeglich[zufall.ganz(moeglich.length)];
   }
 
   // abweichung in Zahlen, bis = das Ende des Gleises. Beides zusammen ergibt
@@ -282,6 +289,7 @@
     releaseHelp?.();
     releaseHelp = null;
     shell.closeOverlay();
+    zufall.neu();
     shell.setPhase("play");
     Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false });
     shell.setCount(0);

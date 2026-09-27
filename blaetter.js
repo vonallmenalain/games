@@ -37,6 +37,13 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier treiben allen dieselben Wellen entgegen (zufall.js). Wer schneller
+  // wischt, sieht mehr davon – aber Welle für Welle dieselben.
+  const zufall = window.LernappZufall?.fuer?.("leafFlow") || {
+    fest: false, neu() {}, zahl: Math.random,
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -146,7 +153,7 @@
   let frame = null;
   let stepTimer = null;
 
-  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const pick = (list) => list[Math.floor(zufall.zahl() * list.length)];
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -198,7 +205,7 @@
     let spitze;
     let antwort;
     do {
-      sorte = Math.random() < 0.5 ? "treibt" : "zeigt";
+      sorte = zufall.zahl() < 0.5 ? "treibt" : "zeigt";
       fahrt = pick(RICHTUNGEN);
       // Die Spitze zeigt woandershin, als die Blätter treiben – bei beiden
       // Farben; das ist die Falle. Orange fragt nach der Fahrt, Grün nach
@@ -386,6 +393,7 @@
   function beginRound() {
     clearStep();
     stopLoop();
+    zufall.neu();
     state.phase = "play";
     state.letzte = null;
     shell.setPhase("play");

@@ -9,9 +9,9 @@ rules_version = '2';
  * eine im Repository und eine in Firebase, laufen sonst auseinander, und
  * welche gilt, sieht man erst, wenn etwas nicht mehr geht.
  *
- * In dieser Datenbank steht genau eine Sache: die Bestenliste. Keine Konten,
- * keine Kinder, kein Fortschritt – wer hier spielt, hat einen Link
- * angeklickt.
+ * In dieser Datenbank steht genau eine Sache: die Bestenliste – die ewige und
+ * die der Turniere. Keine Konten, keine Kinder, kein Fortschritt – wer hier
+ * spielt, hat einen Link angeklickt.
  *
  * Angemeldet ist deshalb nur einer: der Admin. Er braucht die Anmeldung für
  * genau eine Sache, die kein Gast dürfen darf – aufräumen.
@@ -190,6 +190,151 @@ service cloud.firestore {
         && istDerselbeEintrag()
         && request.resource.data.punkte >= resource.data.punkte;
       allow delete: if istAdmin();
+    }
+
+    // --- Turniere ------------------------------------------------------------
+    // Ein Turnier ist eine eigene, kleine Bestenliste mit Regeln: wann es
+    // läuft, welche Spiele dazugehören, wie viele Versuche jeder hat. Anlegen,
+    // ändern, anhalten und löschen darf nur der Admin.
+    //
+    // Gelesen wird es auf zwei Wegen, und die sind mit Absicht verschieden:
+    //
+    //   get    ein einzelnes Turnier, über seinen Namen. Das darf jeder – wer
+    //          den Link hat, soll mitspielen können, ohne Konto.
+    //   list   mehrere auf einmal. Das darf nur, wer ausschliesslich nach
+    //          öffentlichen fragt (sichtbar == "alle"). Ein Turnier "nur mit
+    //          Link" steht so in keiner Liste; seinen Namen kennt nur, wem der
+    //          Link geschickt wurde. Der Name ist deshalb lang und zufällig
+    //          (admin.js), nicht "herbst24".
+    //
+    // Firestore prüft bei einer Abfrage nicht Dokument für Dokument, sondern
+    // die Abfrage selbst: Ohne where("sichtbar", "==", "alle") wird sie als
+    // Ganzes abgewiesen, auch wenn zufällig nur öffentliche Turniere darin
+    // stünden. Genau so ist es gemeint.
+    function istTurnier(turnierId) {
+      let d = request.resource.data;
+      return turnierId.matches('[a-z0-9-]{6,48}')
+        && d.keys().hasAll(["name", "spiele", "startMs", "endeMs", "versuche", "zaehlt", "wertung",
+                            "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
+        && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
+                             "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs",
+                             "updatedAtMs", "updatedAt"])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
+        && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
+        && d.spiele.hasOnly(miniSpiele())
+        && d.startMs is int && d.endeMs is int && d.endeMs > d.startMs
+        && d.versuche is int && d.versuche >= 0 && d.versuche <= 100
+        && d.zaehlt in ["bester", "summe"]
+        // Alle Versuche zusammenzählen geht nur, wenn es eine Zahl davon gibt –
+        // sonst gewänne, wer am längsten spielt.
+        && !(d.zaehlt == "summe" && d.versuche == 0)
+        && d.wertung in ["platz", "prozent"]
+        && d.aufgaben in ["gleich", "zufall"]
+        && d.sichtbar in ["alle", "link"]
+        && d.verdeckt is bool
+        && d.aktiv is bool
+        && d.erstelltMs is int
+        && d.updatedAtMs is int;
+    }
+
+    // Ein Eintrag in der Liste eines Turniers: ein Dokument je Spiel und
+    // Spieler, wie in miniScores – mit einem Unterschied, und um den geht es
+    // hier. Ein Versuch zählt, sobald er BEGINNT, nicht erst, wenn er endet.
+    // Sonst hätte ein Turnier mit drei Versuchen beliebig viele: Wer eine
+    // schlechte Runde kommen sieht, lädt neu, und die Runde hat es nie gegeben.
+    //
+    // Deshalb zwei Schritte je Versuch:
+    //
+    //   Beginn   versuche + 1, offen = true, die Punkte bleiben stehen
+    //   Ende     offen: true → false, die Punkte steigen oder bleiben
+    //
+    // Und nur ein Ende je Beginn: Ohne "offen" liesse ein Versuch beliebig
+    // viele Ergebnisse nachreichen, und "bester Versuch" hiesse "bester von
+    // allen, die man je eingetippt hat".
+    //
+    // Wie in miniScores wird nicht geprüft, WER schreibt – ohne Konto geht das
+    // nicht –, sondern WAS, und hier auch WANN: Das Turnier selbst wird dafür
+    // nachgelesen (get). Läuft es? Ist es angehalten? Gehört das Spiel dazu?
+    // Ist noch ein Versuch übrig?
+    function istTurnierEintrag(eintragId) {
+      let d = request.resource.data;
+      return eintragId == d.game + "_" + d.spieler
+        && d.keys().hasAll(["game", "spieler", "name", "punkte", "versuche", "offen", "updatedAtMs"])
+        && d.keys().hasOnly(["game", "spieler", "name", "punkte", "versuche", "offen", "erstesMs",
+                             "updatedAtMs", "updatedAt"])
+        && d.game is string && d.game in miniSpiele()
+        && istMiniSpieler(d.spieler)
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 24
+        && d.punkte is int && d.punkte >= 0 && d.punkte <= 10000000
+        && d.versuche is int && d.versuche >= 1 && d.versuche <= 100000
+        && d.offen is bool
+        && d.updatedAtMs is int;
+    }
+
+    function turnierDaten(turnierId) {
+      return get(/databases/$(database)/documents/miniTurniere/$(turnierId)).data;
+    }
+
+    // Läuft das Turnier, und gehört das Spiel dazu? "nachspiel" ist die Zeit,
+    // die ein Ergebnis nach dem Ende noch eingetragen werden darf: Wer eine
+    // Minute vor Schluss beginnt, soll seine Runde zu Ende spielen dürfen.
+    // Beginnen darf nach dem Ende niemand mehr (nachspiel 0).
+    function turnierLaeuft(turnierId, nachspiel) {
+      let t = turnierDaten(turnierId);
+      let jetzt = request.time.toMillis();
+      return t.aktiv == true
+        && request.resource.data.game in t.spiele
+        && jetzt >= t.startMs
+        && jetzt <= t.endeMs + nachspiel;
+    }
+
+    function versuchUebrig(turnierId) {
+      let t = turnierDaten(turnierId);
+      return t.versuche == 0 || request.resource.data.versuche <= t.versuche;
+    }
+
+    match /miniTurniere/{turnierId} {
+      allow get: if true;
+      allow list: if istAdmin() || resource.data.sichtbar == "alle";
+      allow create, update: if istAdmin() && istTurnier(turnierId);
+      allow delete: if istAdmin();
+
+      match /eintraege/{eintragId} {
+        // Wer das Turnier kennt, sieht seine Liste – wie bei der ewigen.
+        allow read: if true;
+        // Der erste Versuch beginnt.
+        allow create: if istTurnierEintrag(eintragId)
+          && turnierLaeuft(turnierId, 0)
+          && versuchUebrig(turnierId)
+          && request.resource.data.versuche == 1
+          && request.resource.data.offen == true
+          && request.resource.data.punkte == 0;
+        // Ein weiterer Versuch beginnt. War der vorige noch offen, bleibt sein
+        // Ergebnis eben aus – er zählt trotzdem.
+        allow update: if istTurnierEintrag(eintragId)
+          && istDerselbeEintrag()
+          && turnierLaeuft(turnierId, 0)
+          && versuchUebrig(turnierId)
+          && request.resource.data.versuche == resource.data.versuche + 1
+          && request.resource.data.offen == true
+          && request.resource.data.punkte == resource.data.punkte;
+        // Der Versuch ist zu Ende: sein Ergebnis, genau einmal. Zehn Minuten
+        // Nachspiel – keine Runde hier dauert länger.
+        allow update: if istTurnierEintrag(eintragId)
+          && istDerselbeEintrag()
+          && turnierLaeuft(turnierId, 600000)
+          && resource.data.offen == true
+          && request.resource.data.offen == false
+          && request.resource.data.versuche == resource.data.versuche
+          && request.resource.data.punkte >= resource.data.punkte;
+        // Ein neuer Name, sonst nichts – auch nach dem Ende.
+        allow update: if istTurnierEintrag(eintragId)
+          && istDerselbeEintrag()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(["name", "updatedAtMs", "updatedAt"]);
+        allow delete: if istAdmin();
+      }
     }
 
     // --- Alles andere ---------------------------------------------------------

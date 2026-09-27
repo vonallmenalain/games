@@ -43,6 +43,16 @@
   // trotzdem hoch – das ist das Spiel, nicht die Zierde.
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier zittert die Schwingung bei allen gleich (zufall.js). Funken und
+  // abbrechende Stücke würfeln weiter Math.random: Sie entstehen nur, wenn
+  // jemand trifft oder danebenliegt – der bessere Spieler zöge sonst mehr
+  // Zahlen, und ab dem ersten Funken schwänge sein Turm anders als der aller
+  // anderen.
+  const zufall = window.LernappZufall?.fuer?.("towerStack") || {
+    fest: false, neu() {}, zahl: Math.random,
+  };
+
   // ---------------------------------------------------------------------------
   // Die Welt
   // ---------------------------------------------------------------------------
@@ -728,7 +738,7 @@
   // der Zeit: wer lange überlegt, soll dadurch nichts schwerer bekommen.
   function schwungFuer(n) {
     let periode = clamp(PERIODE_START * Math.pow(PERIODE_RAMPE, n), PERIODE_MIN, PERIODE_START);
-    if (n >= ZITTER_AB) periode *= 1 + (Math.random() - 0.5) * ZITTER;
+    if (n >= ZITTER_AB) periode *= 1 + (zufall.zahl() - 0.5) * ZITTER;
     return periode;
   }
 
@@ -1011,6 +1021,7 @@
     clearStep();
     stopLoop();
     shell.closeOverlay();
+    zufall.neu();
     shell.setPhase("intro");
     state.phase = "bereit";
     state.punkte = 0;

@@ -43,6 +43,13 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier zeigt das Signal allen dieselbe Folge von Grün und Rot
+  // (zufall.js).
+  const zufall = window.LernappZufall?.fuer?.("goSignal") || {
+    fest: false, neu() {}, zahl: Math.random,
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -209,7 +216,7 @@
     // Die Farbe wird jetzt gewürfelt und gilt ab jetzt; der Mast bleibt noch
     // einen Wimpernschlag dunkel, damit auf die Farbe reagiert wird und nicht
     // auf das Erscheinen des Zugs.
-    state.farbe = Math.random() < GRUEN_ANTEIL ? "gruen" : "rot";
+    state.farbe = zufall.zahl() < GRUEN_ANTEIL ? "gruen" : "rot";
     state.gezeigt = false;
     malSignal(null);
     // Neu in den Tunnel, ohne Fahrt, dann losrollen.
@@ -318,6 +325,7 @@
 
   function beginRound() {
     clearStep();
+    zufall.neu();
     state.phase = "play";
     shell.setPhase("play");
     shell.setCount(0);

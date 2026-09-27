@@ -1,8 +1,9 @@
 /*
- * admin.js – Der Adminbereich: anmelden und aufräumen.
+ * admin.js – Der Adminbereich: anmelden, aufräumen, Turniere ausrichten.
  * ---------------------------------------------------------------------------
- * Zwei Dinge kann er, und beide darf sonst niemand: die Spiele auswählen, die
- * auf der Startseite stehen, und Einträge aus der Bestenliste löschen.
+ * Drei Dinge kann er, und alle darf sonst niemand: die Spiele auswählen, die
+ * auf der Startseite stehen, Einträge aus der Bestenliste löschen – und
+ * Turniere anlegen, anhalten, beenden und wieder wegräumen.
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -28,11 +29,16 @@
 
   const ADMINS = ["alain.sc2@gmail.com"];
   const MAIL_KEY = "mini.admin.mail";
+  // Dass hier ein Admin angemeldet ist – für den Knopf auf der Startseite
+  // (mini-games.js, adminKnopf). Die Spielseiten können die Anmeldung nicht
+  // selbst lesen: Sie laden firebase-auth gar nicht erst.
+  const ADMIN_KEY = "mini.admin";
   const MAX_EINTRAEGE = 2000;
 
   const cloud = () => window.MiniCloud || null;
   const hs = () => window.LernappHighscore || null;
   const mini = () => window.LernappMini || null;
+  const tn = () => window.LernappTurnier || null;
 
   const wirt = document.querySelector("[data-admin]");
   if (!wirt) return;
@@ -100,6 +106,15 @@
 
   function merkeMail(adresse) {
     try { localStorage.setItem(MAIL_KEY, adresse); } catch { /* privater Modus */ }
+  }
+
+  // Gesetzt, solange Firebase einen Admin meldet; weg, sobald nicht mehr –
+  // beim Abmelden, bei einem fremden Konto, bei einer abgelaufenen Anmeldung.
+  function merkeAdmin(angemeldet) {
+    try {
+      if (angemeldet) localStorage.setItem(ADMIN_KEY, "ja");
+      else localStorage.removeItem(ADMIN_KEY);
+    } catch { /* privater Modus – dann eben ohne Knopf */ }
   }
   function gemerkteMail() {
     try { return localStorage.getItem(MAIL_KEY) || ""; } catch { return ""; }
@@ -364,6 +379,523 @@
     return block;
   }
 
+  // ---------------------------------------------------------------------------
+  // Turniere
+  // ---------------------------------------------------------------------------
+  // Ein Turnier ist eine eigene Bestenliste mit Anfang und Ende. Hier wird es
+  // eingestellt, gespielt wird es auf der Turnierseite (turnier.js). Die
+  // Regeln der Datenbank prüfen jedes Feld noch einmal; was hier geprüft
+  // wird, ist nur dafür da, dass eine verständliche Meldung kommt statt
+  // "permission-denied".
+  const MINUTE = 60 * 1000;
+  const STUNDE = 60 * MINUTE;
+  const TAG = 24 * STUNDE;
+  const DAUERN = [
+    ["30 Minuten", 30 * MINUTE],
+    ["1 Stunde", STUNDE],
+    ["2 Stunden", 2 * STUNDE],
+    ["3 Stunden", 3 * STUNDE],
+    ["1 Tag", TAG],
+    ["2 Tage", 2 * TAG],
+    ["3 Tage", 3 * TAG],
+    ["1 Woche", 7 * TAG],
+    ["2 Wochen", 14 * TAG],
+    ["1 Monat", 30 * TAG],
+  ];
+  const VERSUCHE = [[1, "1"], [2, "2"], [3, "3"], [5, "5"], [10, "10"], [0, "unbegrenzt"]];
+
+  const zwei = (n) => String(n).padStart(2, "0");
+  // Für <input type="datetime-local">: Ortszeit, ohne Sekunden.
+  function fuerFeld(ms) {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}T${zwei(d.getHours())}:${zwei(d.getMinutes())}`;
+  }
+  function ausFeld(wert) {
+    const ms = new Date(String(wert || "")).getTime();
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  // Der Name eines Turniers ist zugleich sein Link. Vorne ein Stück vom
+  // Namen, damit man ihn wiedererkennt; hinten acht Zeichen Zufall – bei
+  // einem Turnier "nur mit Link" ist genau dieser Teil der Schlüssel. Ohne l,
+  // o, 0 und 1: Wer einen Link abtippt, verwechselt sie.
+  function neueTurnierId(name) {
+    const stamm = String(name || "").toLocaleLowerCase("de")
+      .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+/, "")
+      .slice(0, 24)
+      .replace(/-+$/, "");
+    const zeichen = "abcdefghijkmnpqrstuvwxyz23456789";
+    const zufall = new Uint8Array(8);
+    window.crypto.getRandomValues(zufall);
+    const schwanz = [...zufall].map((n) => zeichen[n % zeichen.length]).join("");
+    return `${stamm || "turnier"}-${schwanz}`;
+  }
+
+  async function kopiere(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch { window.prompt("Der Link zum Kopieren:", text); return false; }
+  }
+
+  let formularNummer = 0;
+
+  /*
+   * Das Formular für ein Turnier – neu oder zum Ändern.
+   *
+   * Die Dauer ist eine Auswahl und kein zweites Datumsfeld: "ein Tag", "eine
+   * Woche" ist das, was man sagen will. Wer ein krummes Ende braucht, wählt
+   * "eigenes Ende" und bekommt das Feld dazu.
+   */
+  function turnierFormular(vorlage, { offen, sichern, abbrechen }) {
+    const nr = (formularNummer += 1);
+    const jetzt = Date.now();
+    // Auf die nächsten fünf Minuten gerundet: 14:35 statt 14:32:17.
+    const start = Math.ceil(jetzt / (5 * MINUTE)) * 5 * MINUTE;
+    const t = vorlage || {
+      name: "",
+      beschreibung: "",
+      spiele: offen,
+      startMs: start,
+      endeMs: start + TAG,
+      versuche: 3,
+      zaehlt: "bester",
+      wertung: "platz",
+      aufgaben: "gleich",
+      sichtbar: "alle",
+      verdeckt: false,
+      aktiv: true,
+    };
+
+    const form = el("form", "adm-turnier-form");
+    form.append(el("h3", "", vorlage ? `«${vorlage.name}» ändern` : "Neues Turnier"));
+
+    // --- Name und Beschreibung ------------------------------------------------
+    const nameFeld = feld("text", "Name, z. B. Herbstcup");
+    nameFeld.maxLength = cloud()?.TURNIER_NAME_MAX || 60;
+    nameFeld.value = t.name;
+    nameFeld.required = true;
+    const nameZeile = el("label", "adm-zeile");
+    nameZeile.append(el("span", "adm-zeile-wort", "Name"), nameFeld);
+    form.append(nameZeile);
+
+    const beschreibung = el("textarea", "adm-feld adm-textfeld");
+    beschreibung.rows = 3;
+    beschreibung.maxLength = cloud()?.BESCHREIBUNG_MAX || 600;
+    beschreibung.placeholder = "Freiwillig: was es zu gewinnen gibt, eigene Regeln, wer eingeladen ist …";
+    beschreibung.value = t.beschreibung || "";
+    const beschreibungZeile = el("label", "adm-zeile");
+    beschreibungZeile.append(el("span", "adm-zeile-wort", "Beschreibung"), beschreibung);
+    form.append(beschreibungZeile);
+
+    // --- Spiele ----------------------------------------------------------------
+    const spieleGruppe = el("fieldset", "adm-gruppe");
+    const spieleTitel = el("legend", "");
+    spieleGruppe.append(spieleTitel);
+    const gitter = el("div", "adm-auswahl");
+    const gewaehlt = new Set(t.spiele);
+    const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt`; };
+    const haken = [];
+    (mini()?.SPIELE || []).forEach((spiel) => {
+      const zeile = el("label", "adm-wahl");
+      zeile.style.setProperty("--adm-farbe", farbe(spiel.id).hell);
+      const box = el("input");
+      box.type = "checkbox";
+      box.value = spiel.id;
+      box.checked = gewaehlt.has(spiel.id);
+      box.addEventListener("change", () => {
+        if (box.checked) gewaehlt.add(spiel.id);
+        else gewaehlt.delete(spiel.id);
+        zeile.classList.toggle("ist-an", box.checked);
+        zaehle();
+      });
+      zeile.classList.toggle("ist-an", box.checked);
+      zeile.append(box, el("span", "adm-wahl-name", titel(spiel.id)));
+      gitter.append(zeile);
+      haken.push(box);
+    });
+    zaehle();
+    spieleGruppe.append(gitter);
+    const setze = (ids) => haken.forEach((box) => {
+      const soll = ids.includes(box.value);
+      if (box.checked !== soll) box.click();
+    });
+    const auswahlKnoepfe = el("div", "adm-kopf-aktionen");
+    auswahlKnoepfe.append(
+      knopf("Alle", "adm-knopf-klein", () => setze(haken.map((b) => b.value))),
+      knopf("Keine", "adm-knopf-klein", () => setze([])),
+      knopf("Nur die offenen", "adm-knopf-klein", () => setze(offen)),
+      // Ein Überraschungsturnier: drei Spiele, die niemand vorher kennt.
+      knopf("3 zufällige", "adm-knopf-klein", () => {
+        const topf = offen.length >= 3 ? [...offen] : haken.map((b) => b.value);
+        for (let i = topf.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [topf[i], topf[j]] = [topf[j], topf[i]];
+        }
+        setze(topf.slice(0, 3));
+      }),
+    );
+    spieleGruppe.append(auswahlKnoepfe);
+    form.append(spieleGruppe);
+
+    // --- Wann ------------------------------------------------------------------
+    const wann = el("fieldset", "adm-gruppe");
+    wann.append(el("legend", "", "Wann"));
+    const beginn = feld("datetime-local", "");
+    beginn.value = fuerFeld(t.startMs);
+    const dauer = el("select", "adm-feld");
+    DAUERN.forEach(([wort, ms]) => {
+      const option = el("option", "", wort);
+      option.value = String(ms);
+      dauer.append(option);
+    });
+    const eigen = el("option", "", "eigenes Ende …");
+    eigen.value = "eigen";
+    dauer.append(eigen);
+    const passend = DAUERN.find(([, ms]) => ms === t.endeMs - t.startMs);
+    dauer.value = passend ? String(passend[1]) : "eigen";
+    const ende = feld("datetime-local", "");
+    ende.value = fuerFeld(t.endeMs);
+    const endeZeile = el("label", "adm-zeile");
+    endeZeile.append(el("span", "adm-zeile-wort", "Ende"), ende);
+    const endeText = el("p", "adm-klein");
+
+    const beginnZeile = el("label", "adm-zeile");
+    beginnZeile.append(el("span", "adm-zeile-wort", "Beginn"), beginn);
+    const jetztKnopf = knopf("jetzt", "adm-knopf-klein", () => { beginn.value = fuerFeld(Date.now()); nachziehen(); });
+    beginnZeile.append(jetztKnopf);
+    const dauerZeile = el("label", "adm-zeile");
+    dauerZeile.append(el("span", "adm-zeile-wort", "Dauer"), dauer);
+
+    function endeMs() {
+      if (dauer.value === "eigen") return ausFeld(ende.value);
+      return ausFeld(beginn.value) + Number(dauer.value);
+    }
+    function nachziehen() {
+      const eigenesEnde = dauer.value === "eigen";
+      endeZeile.hidden = !eigenesEnde;
+      const bis = endeMs();
+      endeText.textContent = !eigenesEnde && Number.isFinite(bis) ? `Endet ${tn()?.datum?.(bis) || new Date(bis).toLocaleString("de-CH")}.` : "";
+    }
+    beginn.addEventListener("input", nachziehen);
+    dauer.addEventListener("change", () => {
+      if (dauer.value === "eigen" && !Number.isFinite(ausFeld(ende.value))) ende.value = fuerFeld(ausFeld(beginn.value) + TAG);
+      nachziehen();
+    });
+    ende.addEventListener("input", nachziehen);
+    nachziehen();
+    wann.append(beginnZeile, dauerZeile, endeZeile, endeText);
+    form.append(wann);
+
+    // --- Regeln ----------------------------------------------------------------
+    function wahl(titelText, name, optionen, wert) {
+      const gruppe = el("fieldset", "adm-gruppe");
+      gruppe.append(el("legend", "", titelText));
+      optionen.forEach(([w, wort, erklaerung]) => {
+        const zeile = el("label", "adm-option");
+        const radio = el("input");
+        radio.type = "radio";
+        radio.name = `${name}-${nr}`;
+        radio.value = w;
+        radio.checked = w === wert;
+        const texte = el("span", "adm-option-text");
+        texte.append(el("strong", "", wort));
+        if (erklaerung) texte.append(el("small", "", erklaerung));
+        zeile.append(radio, texte);
+        gruppe.append(zeile);
+      });
+      return gruppe;
+    }
+    const gewaehlterWert = (name) => form.querySelector(`input[name="${name}-${nr}"]:checked`)?.value || "";
+
+    const versuche = el("select", "adm-feld adm-feld-schmal");
+    VERSUCHE.forEach(([zahl, wort]) => {
+      const option = el("option", "", wort);
+      option.value = String(zahl);
+      versuche.append(option);
+    });
+    versuche.value = String(VERSUCHE.some(([zahl]) => zahl === t.versuche) ? t.versuche : 3);
+    const versucheZeile = el("label", "adm-zeile");
+    versucheZeile.append(el("span", "adm-zeile-wort", "Versuche je Spiel"), versuche);
+    const versucheHinweis = el("p", "adm-klein", "Ein Versuch zählt, sobald er beginnt – wer mittendrin neu lädt, hat ihn trotzdem gebraucht.");
+    const regeln = el("fieldset", "adm-gruppe");
+    regeln.append(el("legend", "", "Versuche"), versucheZeile, versucheHinweis);
+    form.append(regeln);
+
+    const zaehlt = wahl("Was in einem Spiel zählt", "zaehlt", [
+      ["bester", "Der beste Versuch", "Wer es dreimal probiert, dem zählt die beste Runde."],
+      ["summe", "Alle Versuche zusammen", "Jede Runde zählt dazu – geht nur mit einer festen Zahl von Versuchen."],
+    ], t.zaehlt);
+    form.append(zaehlt);
+    // Zusammenzählen ohne Grenze hiesse: Es gewinnt, wer am längsten spielt.
+    const summeRadio = zaehlt.querySelector('input[value="summe"]');
+    const besterRadio = zaehlt.querySelector('input[value="bester"]');
+    const pruefeSumme = () => {
+      const unbegrenzt = versuche.value === "0";
+      summeRadio.disabled = unbegrenzt;
+      if (unbegrenzt && summeRadio.checked) besterRadio.checked = true;
+    };
+    versuche.addEventListener("change", pruefeSumme);
+    pruefeSumme();
+
+    form.append(wahl("Gesamtwertung über alle Spiele", "wertung", [
+      ["platz", "Platzziffer", "Die Plätze aus allen Spielen zusammengezählt – die kleinste Summe gewinnt. Wer ein Spiel auslässt, bekommt dort den Platz hinter dem Letzten."],
+      ["prozent", "Prozent vom Besten", "Der Beste eines Spiels bekommt 100, alle anderen ihren Anteil an seiner Zahl – die höchste Summe gewinnt. Hier zählt, wie knapp jemand dran war."],
+    ], t.wertung));
+
+    form.append(wahl("Aufgaben", "aufgaben", [
+      ["gleich", "Für alle gleich", "Der erste Versuch ist für alle derselbe Lauf, der zweite auch – aber ein anderer als der erste. Kein Glück mit dem Würfel."],
+      ["zufall", "Jedes Mal neu gewürfelt", "Wie ausserhalb des Turniers."],
+    ], t.aufgaben));
+
+    form.append(wahl("Wer es sieht", "sichtbar", [
+      ["alle", "Für alle in der App", "Steht auf der Startseite, solange es läuft, und noch drei Tage danach."],
+      ["link", "Nur mit Link", "Steht nirgends. Mitspielen kann, wem du den Link schickst."],
+    ], t.sichtbar));
+
+    const schalter = el("fieldset", "adm-gruppe");
+    schalter.append(el("legend", "", "Und"));
+    const verdeckt = el("input");
+    verdeckt.type = "checkbox";
+    verdeckt.checked = t.verdeckt;
+    const verdecktZeile = el("label", "adm-option");
+    const verdecktText = el("span", "adm-option-text");
+    verdecktText.append(el("strong", "", "Rangliste bis zum Schluss verdecken"), el("small", "", "Für die Spannung, nicht zur Geheimhaltung: Wer will, liest die Zahlen trotzdem aus der Datenbank."));
+    verdecktZeile.append(verdeckt, verdecktText);
+    const aktiv = el("input");
+    aktiv.type = "checkbox";
+    aktiv.checked = t.aktiv;
+    const aktivZeile = el("label", "adm-option");
+    const aktivText = el("span", "adm-option-text");
+    aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
+    aktivZeile.append(aktiv, aktivText);
+    schalter.append(verdecktZeile, aktivZeile);
+    form.append(schalter);
+
+    // --- Speichern ---------------------------------------------------------------
+    const meldung = el("p", "adm-meldung");
+    const knoepfe = el("div", "adm-kopf-aktionen");
+    const speichern = el("button", "adm-knopf adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
+    speichern.type = "submit";
+    knoepfe.append(speichern, knopf("Abbrechen", "adm-knopf-hell", abbrechen));
+    form.append(meldung, knoepfe);
+
+    const sage = (text, art = "") => {
+      meldung.textContent = text;
+      meldung.className = `adm-meldung ${art}`.trim();
+    };
+
+    form.addEventListener("submit", async (ereignis) => {
+      ereignis.preventDefault();
+      const daten = {
+        name: nameFeld.value.replace(/\s+/g, " ").trim(),
+        beschreibung: beschreibung.value.trim(),
+        spiele: haken.filter((b) => b.checked).map((b) => b.value),
+        startMs: ausFeld(beginn.value),
+        endeMs: endeMs(),
+        versuche: Number(versuche.value) || 0,
+        zaehlt: gewaehlterWert("zaehlt") || "bester",
+        wertung: gewaehlterWert("wertung") || "platz",
+        aufgaben: gewaehlterWert("aufgaben") || "gleich",
+        sichtbar: gewaehlterWert("sichtbar") || "alle",
+        verdeckt: verdeckt.checked,
+        aktiv: aktiv.checked,
+        erstelltMs: vorlage?.erstelltMs || Date.now(),
+      };
+      if (!daten.name) { sage("Ohne Namen gibt es kein Turnier.", "ist-fehler"); nameFeld.focus(); return; }
+      if (!daten.spiele.length) { sage("Mindestens ein Spiel muss dabei sein.", "ist-fehler"); return; }
+      if (!Number.isFinite(daten.startMs) || !Number.isFinite(daten.endeMs)) { sage("Beginn und Ende brauchen ein Datum und eine Uhrzeit.", "ist-fehler"); return; }
+      if (daten.endeMs <= daten.startMs) { sage("Das Ende muss nach dem Beginn liegen.", "ist-fehler"); return; }
+      if (!vorlage && daten.endeMs <= Date.now()) { sage("Dieses Turnier wäre schon vorbei, bevor es jemand sieht.", "ist-fehler"); return; }
+      if (daten.zaehlt === "summe" && !daten.versuche) { sage("Alle Versuche zusammenzählen geht nur mit einer festen Zahl von Versuchen.", "ist-fehler"); return; }
+      speichern.disabled = true;
+      sage("Wird gespeichert...");
+      try {
+        await sichern(daten);
+      } catch (fehler) {
+        sage(fehlerText(fehler), "ist-fehler");
+        speichern.disabled = false;
+      }
+    });
+
+    window.setTimeout(() => nameFeld.focus(), 0);
+    return form;
+  }
+
+  // Wie ein Turnier gerade steht, in einem Wort und einer Farbe.
+  const LAGE_WORT = { laeuft: "läuft", geplant: "geplant", angehalten: "angehalten", beendet: "beendet" };
+
+  function turnierZeile(t, eintraege, { bearbeiten, speichere, loesche }) {
+    const lage = tn()?.lage?.(t) || "laeuft";
+    const karte = el("article", `adm-turnier ist-${lage}`);
+
+    const kopf = el("header", "adm-turnier-kopf");
+    kopf.append(el("h3", "", t.name));
+    kopf.append(el("span", `adm-marke ist-${lage}`, tn()?.statusText?.(t) || LAGE_WORT[lage]));
+    kopf.append(el("span", "adm-marke", t.sichtbar === "alle" ? "öffentlich" : "nur mit Link"));
+    if (t.verdeckt) kopf.append(el("span", "adm-marke", "verdeckt"));
+    karte.append(kopf);
+
+    const eckdaten = [
+      tn()?.zeitraum?.(t) || "",
+      t.spiele.map(titel).join(", "),
+      t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
+      t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
+      t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
+      t.aufgaben === "gleich" ? "gleiche Aufgaben" : "gewürfelt",
+    ].filter(Boolean);
+    karte.append(el("p", "adm-klein", eckdaten.join(" · ")));
+
+    // Wer vorne liegt – auch bei einem verdeckten Turnier: Der Admin muss die
+    // Siegerehrung vorbereiten können.
+    let stand = "Der Stand ist gerade nicht zu haben.";
+    if (Array.isArray(eintraege)) {
+      const wertung = tn()?.gesamtwertung?.(t, eintraege);
+      const personen = wertung?.personen || [];
+      stand = personen.length
+        ? `${zahlWort(personen.length, "Spieler", "Spieler")} · vorne: ${personen.slice(0, 3).map((p) => `${p.platz}. ${p.name}`).join(", ")}`
+        : "Noch hat niemand gespielt.";
+    }
+    karte.append(el("p", "adm-klein adm-turnier-stand", stand));
+
+    const adresse = tn()?.volleAdresse?.(t.id) || `${window.location.origin}/turnier?t=${t.id}`;
+    const aktionen = el("div", "adm-kopf-aktionen");
+    const oeffnen = el("a", "adm-knopf adm-knopf-klein", "Öffnen");
+    oeffnen.href = tn()?.seitenLink?.(t.id) || `/turnier?t=${t.id}`;
+    aktionen.append(oeffnen);
+    const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
+      if (await kopiere(adresse)) {
+        kopieren.textContent = "Kopiert";
+        window.setTimeout(() => { kopieren.textContent = "Link kopieren"; }, 2000);
+      }
+    });
+    aktionen.append(kopieren);
+    aktionen.append(knopf("Ändern", "adm-knopf-klein", () => bearbeiten(t)));
+
+    // Bei Bedarf aktivieren: Ein vorbereitetes Turnier startet mit einem Klick,
+    // ein laufendes lässt sich anhalten, ein angehaltenes fortsetzen.
+    if (lage === "geplant") {
+      aktionen.append(knopf("Jetzt starten", "adm-knopf-klein", () => speichere({ ...t, startMs: Date.now() })));
+    }
+    if (lage === "laeuft" || lage === "geplant") {
+      aktionen.append(knopf("Anhalten", "adm-knopf-klein", () => speichere({ ...t, aktiv: false })));
+    }
+    if (lage === "angehalten") {
+      aktionen.append(knopf("Fortsetzen", "adm-knopf-klein", () => speichere({ ...t, aktiv: true })));
+    }
+    if (lage === "laeuft" || (lage === "angehalten" && Date.now() > t.startMs)) {
+      aktionen.append(knopf("Jetzt beenden", "adm-knopf-klein", () => {
+        if (!window.confirm(`«${t.name}» jetzt beenden? Danach zählt keine Runde mehr.`)) return;
+        speichere({ ...t, endeMs: Date.now() });
+      }));
+    }
+    aktionen.append(knopf("Löschen", "adm-knopf-weg", () => {
+      if (!window.confirm(`«${t.name}» löschen – mitsamt ${Array.isArray(eintraege) ? zahlWort(eintraege.length, "Eintrag", "Einträgen") : "allen Einträgen"}? Das lässt sich nicht rückgängig machen.`)) return;
+      loesche(t);
+    }));
+    karte.append(aktionen);
+    return karte;
+  }
+
+  function baueTurniere(offen) {
+    const block = el("section", "adm-block adm-turniere");
+    const kopf = el("header", "adm-block-kopf");
+    kopf.append(el("h2", "", "Turniere"));
+    const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
+    kopf.append(neuKnopf);
+    block.append(kopf);
+    block.append(el("p", "adm-hinweis", "Ein Turnier ist eine eigene Bestenliste mit Anfang und Ende: welche Spiele, wie lange, wie viele Versuche, wie gewertet wird. Öffentlich steht es auf der Startseite; nur mit Link findet es nur, wem du den Link schickst."));
+
+    const formWirt = el("div", "adm-turnier-formwirt");
+    const meldung = el("p", "adm-meldung");
+    const liste = el("div", "adm-turnier-liste");
+    block.append(formWirt, meldung, liste);
+
+    const sage = (text, art = "") => {
+      meldung.textContent = text;
+      meldung.className = `adm-meldung ${art}`.trim();
+    };
+
+    function schliesse() {
+      formWirt.innerHTML = "";
+      neuKnopf.hidden = false;
+    }
+
+    function oeffne(vorlage) {
+      formWirt.innerHTML = "";
+      neuKnopf.hidden = true;
+      sage("");
+      formWirt.append(turnierFormular(vorlage, {
+        offen,
+        abbrechen: schliesse,
+        sichern: async (daten) => {
+          const id = vorlage?.id || neueTurnierId(daten.name);
+          await cloud().setzeTurnier(id, daten);
+          schliesse();
+          const adresse = tn()?.volleAdresse?.(id) || `${window.location.origin}/turnier?t=${id}`;
+          sage(vorlage ? `«${daten.name}» ist gespeichert.` : `«${daten.name}» ist angelegt. Der Link: ${adresse}`, "ist-gut");
+          await laden();
+        },
+      }));
+      formWirt.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    }
+
+    async function speichere(t) {
+      sage("Wird gespeichert...");
+      try {
+        await cloud().setzeTurnier(t.id, t);
+        sage(`«${t.name}» ist gespeichert.`, "ist-gut");
+      } catch (fehler) {
+        sage(fehlerText(fehler), "ist-fehler");
+      }
+      await laden();
+    }
+
+    async function loesche(t) {
+      sage("Wird gelöscht...");
+      try {
+        await cloud().loescheTurnier(t.id);
+        sage(`«${t.name}» ist gelöscht.`, "ist-gut");
+      } catch (fehler) {
+        sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
+      }
+      await laden();
+    }
+
+    // Laufende zuerst, dann geplante, angehaltene und zuletzt die vorbei sind –
+    // die neuesten davon oben.
+    const REIHE = { laeuft: 0, geplant: 1, angehalten: 2, beendet: 3 };
+    async function laden() {
+      liste.innerHTML = "";
+      liste.append(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
+      let turniere = [];
+      try {
+        turniere = await cloud().alleTurniere();
+      } catch (fehler) {
+        liste.innerHTML = "";
+        liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
+        return;
+      }
+      const jetzt = Date.now();
+      const lage = (t) => tn()?.lage?.(t, jetzt) || "laeuft";
+      turniere.sort((a, b) => REIHE[lage(a)] - REIHE[lage(b)]
+        || (lage(a) === "beendet" ? b.endeMs - a.endeMs : a.startMs - b.startMs));
+      // Die Einträge je Turnier: für die Zahl der Spieler und wer vorne liegt.
+      const mitStand = await Promise.all(turniere.map((t) => cloud().turnierErgebnisse(t.id)
+        .then((eintraege) => ({ t, eintraege }), () => ({ t, eintraege: null }))));
+      liste.innerHTML = "";
+      if (!mitStand.length) {
+        liste.append(el("p", "adm-hinweis", "Noch kein Turnier. «Neues Turnier» legt eines an."));
+        return;
+      }
+      mitStand.forEach(({ t, eintraege }) => liste.append(turnierZeile(t, eintraege, { bearbeiten: oeffne, speichere, loesche })));
+    }
+
+    laden();
+    return block;
+  }
+
   function streifen(zahlen) {
     const wrap = el("div", "adm-streifen");
     zahlen.forEach(([wert, wort]) => {
@@ -539,6 +1071,7 @@
     ]));
 
     const neuLaden = () => zeigeAdmin(nutzer);
+    wirt.append(baueTurniere(offen));
     wirt.append(baueAuswahl(offen, neuLaden));
 
     if (!alle.length) {
@@ -595,6 +1128,7 @@
     }
 
     a.onAuthStateChanged((nutzer) => {
+      merkeAdmin(Boolean(nutzer) && istAdmin(nutzer));
       if (!nutzer) { zeigeAnmeldung(hinweis); hinweis = ""; return; }
       if (!istAdmin(nutzer)) { zeigeKeinAdmin(nutzer); return; }
       zeigeAdmin(nutzer);
