@@ -40,6 +40,31 @@
  * Eine eigene Sammlung, weil die Startseite JEDES Punkte-Dokument liest, um
  * die Hall of Fame zu bauen. Lägen die Aufzeichnungen dort, lüde jeder Besuch
  * der Startseite ein paar Kilobyte je Spieler mit, die dort niemand ansieht.
+ *
+ * Und die Turniere, jedes mit seiner eigenen kleinen Bestenliste:
+ *
+ *   miniTurniere/herbstcup-k3m9x2p7
+ *     name, beschreibung          was auf der Turnierseite steht
+ *     spiele     ["towerStack"]   was dazugehört
+ *     startMs / endeMs            wann es läuft
+ *     versuche   3                je Spiel; 0 heisst unbegrenzt
+ *     zaehlt     "bester"         oder "summe": alle Versuche zusammen
+ *     wertung    "platz"          oder "prozent" – siehe turnier.js
+ *     aufgaben   "gleich"         oder "zufall" – siehe zufall.js
+ *     sichtbar   "alle"           oder "link": nur, wer den Link hat
+ *     verdeckt   false            Rangliste erst am Schluss zeigen
+ *     aktiv      true             angehalten, wenn false
+ *
+ *   miniTurniere/<id>/eintraege/towerStack_mini_a7f3…
+ *     game / spieler / name       wie in miniScores
+ *     punkte     42               der beste Versuch oder die Summe
+ *     versuche   2                wie viele begonnen wurden
+ *     offen      false            ob gerade einer läuft, dessen Ergebnis
+ *                                 noch aussteht
+ *
+ * Ein Turnier-Eintrag ist nicht miniScores mit anderem Namen: Ein Versuch
+ * zählt dort, sobald er beginnt (turnierVersuch), und sein Ergebnis kommt
+ * danach genau einmal (turnierErgebnis). firestore.rules erzählt, warum.
  */
 (() => {
   "use strict";
@@ -385,6 +410,306 @@
     return liste;
   }
 
+  // ---------------------------------------------------------------------------
+  // Turniere
+  // ---------------------------------------------------------------------------
+  const TURNIER_NAME_MAX = 60;
+  const BESCHREIBUNG_MAX = 600;
+  // Höher als in miniScores: Mit "alle Versuche zusammen" wächst die Zahl mit
+  // jedem Versuch.
+  const TURNIER_PUNKTE_MAX = 10000000;
+  const MAX_TURNIERE = 100;
+  // So viele Einträge eines Turniers auf einmal. Gelesen wird Seite für Seite
+  // bis zum Ende und nicht bis zu einer Grenze: Bei einem grossen Turnier
+  // fehlten sonst die hinteren Einträge still – und wer in der
+  // Gesamtwertung fehlt, bekommt dort für jedes Spiel den Platz hinter dem
+  // Letzten.
+  const TURNIER_SEITE = 500;
+
+  const turnierSammlung = () => starte()?.collection("miniTurniere") || null;
+  function turnierEintraege(id) {
+    const ref = turnierSammlung();
+    const kennung = String(id || "").trim();
+    return ref && kennung ? ref.doc(kennung).collection("eintraege") : null;
+  }
+
+  // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
+  // zum freundlichen Wert – bis auf das, ohne das es kein Turnier ist: Name,
+  // Spiele, Ende.
+  function liesTurnier(doc) {
+    const d = typeof doc?.data === "function" ? doc.data() : null;
+    if (!d) return null;
+    const name = String(d.name || "").trim().slice(0, TURNIER_NAME_MAX);
+    const spiele = [...new Set((Array.isArray(d.spiele) ? d.spiele : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean))];
+    const endeMs = Math.round(Number(d.endeMs) || 0);
+    if (!name || !spiele.length || !endeMs) return null;
+    return {
+      id: doc.id,
+      name,
+      beschreibung: String(d.beschreibung || "").trim().slice(0, BESCHREIBUNG_MAX),
+      spiele,
+      startMs: Math.round(Number(d.startMs) || 0),
+      endeMs,
+      versuche: Math.max(0, Math.round(Number(d.versuche) || 0)),
+      zaehlt: d.zaehlt === "summe" ? "summe" : "bester",
+      wertung: d.wertung === "prozent" ? "prozent" : "platz",
+      aufgaben: d.aufgaben === "zufall" ? "zufall" : "gleich",
+      sichtbar: d.sichtbar === "alle" ? "alle" : "link",
+      verdeckt: d.verdeckt === true,
+      aktiv: d.aktiv !== false,
+      erstelltMs: Math.round(Number(d.erstelltMs) || 0),
+      updatedAtMs: Math.round(Number(d.updatedAtMs) || 0),
+    };
+  }
+
+  function liesTurnierEintrag(doc) {
+    const eintrag = lies(doc);
+    if (!eintrag) return null;
+    return { ...eintrag, offen: doc.data()?.offen === true };
+  }
+
+  // Ein Turnier, über seinen Namen. Das darf jeder, der ihn kennt – auch bei
+  // einem, das nur über den Link zu finden ist.
+  //
+  // null heisst "gibt es nicht". Ist Firestore gar nicht da, ist das keine
+  // Antwort, sondern ein Fehler – sonst sähe ein Gerät ohne Netz ein
+  // gelöschtes Turnier, wo nur die Verbindung fehlt.
+  async function turnier(id) {
+    const ref = turnierSammlung();
+    const kennung = String(id || "").trim();
+    if (!kennung) return null;
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const stand = await ref.doc(kennung).get();
+    return stand.exists ? liesTurnier(stand) : null;
+  }
+
+  function sammle(schnappschuss, lesen) {
+    const liste = [];
+    schnappschuss.forEach((doc) => {
+      const ding = lesen(doc);
+      if (ding) liste.push(ding);
+    });
+    return liste;
+  }
+
+  /*
+   * Die Turniere für die Startseite.
+   *
+   * Gefragt wird ausdrücklich nur nach den öffentlichen – die Regeln lassen
+   * eine Abfrage ohne diese Bedingung gar nicht zu, auch wenn zufällig nur
+   * öffentliche darin stünden. Was davon gerade läuft, sortiert turnier.js:
+   * Eine zweite Bedingung (endeMs > jetzt) bräuchte einen zusammengesetzten
+   * Index, und öffentliche Turniere gibt es ohnehin nur eine Handvoll.
+   */
+  async function oeffentlicheTurniere() {
+    const ref = turnierSammlung();
+    if (!ref) return [];
+    return sammle(await ref.where("sichtbar", "==", "alle").limit(MAX_TURNIERE).get(), liesTurnier);
+  }
+
+  // Alle, auch die nur mit Link. Das darf nur der Admin.
+  async function alleTurniere() {
+    const ref = turnierSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    return sammle(await ref.limit(MAX_TURNIERE).get(), liesTurnier);
+  }
+
+  // Anlegen und ändern ist dasselbe: das ganze Dokument, nicht ein Stück
+  // davon. Die Regeln prüfen jedes Feld; ein halbes Turnier gibt es nicht.
+  async function setzeTurnier(id, daten) {
+    const ref = turnierSammlung();
+    const kennung = String(id || "").trim();
+    if (!ref || !kennung) throw new Error("Firestore ist nicht bereit.");
+    const doc = {
+      name: String(daten.name || "").trim().slice(0, TURNIER_NAME_MAX),
+      spiele: [...new Set((daten.spiele || []).map((s) => String(s || "").trim()).filter(Boolean))],
+      startMs: Math.round(Number(daten.startMs) || 0),
+      endeMs: Math.round(Number(daten.endeMs) || 0),
+      versuche: Math.max(0, Math.min(100, Math.round(Number(daten.versuche) || 0))),
+      zaehlt: daten.zaehlt === "summe" ? "summe" : "bester",
+      wertung: daten.wertung === "prozent" ? "prozent" : "platz",
+      aufgaben: daten.aufgaben === "zufall" ? "zufall" : "gleich",
+      sichtbar: daten.sichtbar === "alle" ? "alle" : "link",
+      verdeckt: daten.verdeckt === true,
+      aktiv: daten.aktiv !== false,
+      erstelltMs: Math.round(Number(daten.erstelltMs) || Date.now()),
+      updatedAtMs: Date.now(),
+      updatedAt: jetztAufDemServer(),
+    };
+    const beschreibung = String(daten.beschreibung || "").trim().slice(0, BESCHREIBUNG_MAX);
+    if (beschreibung) doc.beschreibung = beschreibung;
+    await ref.doc(kennung).set(doc);
+    return liesTurnier({ id: kennung, data: () => doc });
+  }
+
+  /*
+   * Ein Turnier weg, samt seiner Einträge.
+   *
+   * Erst die Einträge, dann das Turnier. Firestore räumt eine Untersammlung
+   * nicht von selbst mit weg – andersherum blieben Einträge liegen, zu denen
+   * es kein Turnier mehr gibt und die deshalb niemand mehr sieht. Und
+   * aufräumen kann man nur, was man sieht.
+   */
+  async function loescheTurnier(id) {
+    const db = starte();
+    const ref = turnierSammlung();
+    const eintraege = turnierEintraege(id);
+    if (!db || !ref || !eintraege) throw new Error("Firestore ist nicht bereit.");
+    for (let runde = 0; runde < 50; runde += 1) {
+      const stapel = await eintraege.limit(400).get();
+      if (stapel.empty) break;
+      const weg = db.batch();
+      stapel.forEach((doc) => weg.delete(doc.ref));
+      await weg.commit();
+    }
+    await ref.doc(String(id)).delete();
+  }
+
+  // Die Liste eines Turniers, auf Wunsch nur die eines Spiels – eine Abfrage
+  // über ein einziges Feld, ohne zusammengesetzten Index. Weiterblättern
+  // (startAfter) geht nach dem Dokumentnamen, nach dem Firestore ohnehin
+  // sortiert; auch dafür braucht es keinen eigenen Index.
+  async function turnierErgebnisse(id, { game = "" } = {}) {
+    const ref = turnierEintraege(id);
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const spielId = String(game || "").trim();
+    let frage = (spielId ? ref.where("game", "==", spielId) : ref).limit(TURNIER_SEITE);
+    const liste = [];
+    for (;;) {
+      const seite = await frage.get();
+      liste.push(...sammle(seite, liesTurnierEintrag));
+      if (seite.size < TURNIER_SEITE) return liste;
+      frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+    }
+  }
+
+  // Der eigene Stand in einem Spiel: wie viele Versuche schon weg sind.
+  async function meinTurnierEintrag(id, { game, spieler }) {
+    const ref = turnierEintraege(id);
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    if (!ref || !spielId || !spielerId) return null;
+    const stand = await ref.doc(`${spielId}_${spielerId}`).get();
+    return stand.exists ? liesTurnierEintrag(stand) : null;
+  }
+
+  function turnierFehler(text, code) {
+    const fehler = new Error(text);
+    fehler.code = code;
+    return fehler;
+  }
+
+  /*
+   * Ein Versuch beginnt.
+   *
+   * Gezählt wird jetzt und nicht erst am Ende der Runde: Wer eine schlechte
+   * Runde kommen sieht und neu lädt, hat den Versuch trotzdem gebraucht. Die
+   * Punkte bleiben dabei stehen, wie sie sind – das Ergebnis kommt mit
+   * turnierErgebnis.
+   *
+   * In einer Transaktion, aus demselben Grund wie speichere(): Zwei Tabs, die
+   * gleichzeitig beginnen, zählten sonst beide von derselben Zahl aus hoch,
+   * und einer der beiden Versuche ginge verloren.
+   */
+  async function turnierVersuch(id, { game, spieler, name, grenze = 0 }) {
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const wie = sauber(name);
+    if (!spielId || !spielerId || !wie) throw new Error("Für einen Versuch fehlt etwas.");
+    const db = starte();
+    const ref = turnierEintraege(id);
+    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
+
+    const doc = ref.doc(`${spielId}_${spielerId}`);
+    return db.runTransaction(async (lauf) => {
+      const vorher = await lauf.get(doc);
+      const alt = vorher.exists ? liesTurnierEintrag(vorher) : null;
+      const versuche = (alt?.versuche || 0) + 1;
+      if (grenze > 0 && versuche > grenze) throw turnierFehler("Alle Versuche sind gespielt.", "turnier/keine-versuche");
+      const jetzt = Date.now();
+      if (!alt) {
+        lauf.set(doc, {
+          game: spielId,
+          spieler: spielerId,
+          name: wie,
+          punkte: 0,
+          versuche: 1,
+          offen: true,
+          erstesMs: jetzt,
+          updatedAtMs: jetzt,
+          updatedAt: jetztAufDemServer(),
+        });
+      } else {
+        lauf.set(doc, { name: wie, versuche, offen: true, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
+      }
+      return { versuche, punkte: alt?.punkte || 0 };
+    });
+  }
+
+  /*
+   * Der Versuch ist zu Ende: sein Ergebnis, genau einmal.
+   *
+   *   bester   es bleibt die grösste Zahl
+   *   summe    die Zahl kommt dazu
+   *
+   * Ohne offenen Versuch gibt es nichts einzutragen – dann wurde er nie
+   * angemeldet, oder sein Ergebnis steht schon da.
+   */
+  async function turnierErgebnis(id, { game, spieler, name, punkte, zaehlt = "bester" }) {
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const wie = sauber(name);
+    const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
+    if (!spielId || !spielerId || !wie) throw new Error("Für ein Ergebnis fehlt etwas.");
+    const db = starte();
+    const ref = turnierEintraege(id);
+    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
+
+    const doc = ref.doc(`${spielId}_${spielerId}`);
+    return db.runTransaction(async (lauf) => {
+      const vorher = await lauf.get(doc);
+      const alt = vorher.exists ? liesTurnierEintrag(vorher) : null;
+      if (!alt?.offen) throw turnierFehler("Zu dieser Runde gibt es keinen angemeldeten Versuch.", "turnier/kein-versuch");
+      const summe = zaehlt === "summe";
+      const neu = summe ? Math.min(TURNIER_PUNKTE_MAX, alt.punkte + zahl) : Math.max(alt.punkte, zahl);
+      lauf.set(doc, { name: wie, punkte: neu, offen: false, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() }, { merge: true });
+      return {
+        punkte: neu,
+        runde: zahl,
+        versuche: alt.versuche,
+        // Ein Rekord ist nur, was einen früheren Versuch schlägt – beim
+        // ersten gibt es keinen, und bei der Summe wächst die Zahl ohnehin.
+        rekord: !summe && alt.versuche > 1 && zahl > alt.punkte,
+      };
+    });
+  }
+
+  // Ein neuer Name, in allen Spielen dieses Turniers – aus demselben Grund
+  // wie benenneUm(): Die Rangliste fasst nach Namen zusammen, und ein alter
+  // Name in einem Spiel wäre ein zweiter Spieler.
+  async function turnierUmbenennen(id, { spieler, name }) {
+    const spielerId = String(spieler || "").trim();
+    const wie = sauber(name);
+    const db = starte();
+    const ref = turnierEintraege(id);
+    if (!spielerId || !wie || !db || !ref) return null;
+    const meine = await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get();
+    if (meine.empty) return null;
+    const jetzt = Date.now();
+    const stapel = db.batch();
+    let geaendert = 0;
+    meine.forEach((doc) => {
+      const alt = lies(doc);
+      if (!alt || alt.name === wie) return;
+      stapel.set(doc.ref, { name: wie, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
+      geaendert += 1;
+    });
+    if (geaendert) await stapel.commit();
+    return { spiele: meine.size, geaendert };
+  }
+
   // app und db für den Adminbereich: Er meldet jemanden an und liest und
   // löscht dieselben Einträge, braucht dafür aber keinen zweiten Client.
   window.MiniCloud = {
@@ -394,6 +719,9 @@
     ergebnisse, speichere, benenneUm, lies,
     speichereGeist, geister,
     offeneSpiele, setzeOffeneSpiele,
+    turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier,
+    turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
+    TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };
 })();

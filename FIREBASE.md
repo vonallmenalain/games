@@ -4,7 +4,7 @@ Die Mini-Games haben ein eigenes Firebase-Projekt: **`games-a0cd4`**. Mit der
 Kids-App teilen sie nichts mehr – nicht das Projekt, nicht die Datenbank, nicht
 die Konten, nicht die Zahlen.
 
-In der Datenbank steht genau eine Sammlung:
+In der Datenbank steht die Bestenliste:
 
 ```
 miniScores/<spiel>_<spieler>
@@ -19,6 +19,33 @@ miniScores/<spiel>_<spieler>
 Lesen darf jeder, auch ohne Konto – die Liste ist der Sinn der Sache.
 Schreiben auch, aber nur in dieser Form (`firestore.rules`). Löschen darf nur
 der Admin.
+
+Daneben `miniGeister` (die Aufzeichnungen des Streckenlaufs), `config/miniGames`
+(welche Spiele offen sind) und die Turniere:
+
+```
+miniTurniere/<id>                    anlegen, ändern, löschen: nur der Admin
+    name, beschreibung, spiele, startMs, endeMs, versuche,
+    zaehlt, wertung, aufgaben, sichtbar, verdeckt, aktiv
+
+miniTurniere/<id>/eintraege/<spiel>_<spieler>
+    game, spieler, name          wie in miniScores
+    punkte                       bester Versuch oder die Summe
+    versuche                     wie viele begonnen wurden
+    offen                        ob einer läuft, dessen Ergebnis noch aussteht
+```
+
+Ein einzelnes Turnier lesen darf jeder, der seinen Namen kennt; auflisten
+lassen sich nur die öffentlichen (`sichtbar == "alle"`). Ein Versuch darf nur
+beginnen, solange das Turnier läuft und nicht angehalten ist, nur in seinen
+Spielen und nur bis zur Zahl der Versuche – die Regeln lesen das Turnier
+dafür nach. Ein Versuch zählt ab seinem Beginn, sein Ergebnis kommt danach
+genau einmal, bis zehn Minuten nach dem Ende – auch wenn das Turnier
+inzwischen angehalten wurde: Anhalten hält neue Versuche auf, es nimmt
+keinem die Runde weg, die er gerade spielt.
+
+Keine der Abfragen braucht einen zusammengesetzten Index: gefragt wird immer
+nur nach einem Feld. Es gibt also nichts, was von Hand nach Firebase müsste.
 
 ## 1. Die Regeln fahren von selbst nach Firebase
 
@@ -156,7 +183,8 @@ Ohne das schlägt Google-Anmeldung und E-Mail-Link mit
 
 Keine Konten von Spielern, kein Fortschritt, keine Käufe, keine Besuchszahlen.
 Wer über einen Mini-Link hereinkommt, hinterlässt eine Zeile in `miniScores`,
-sobald er seinen Namen einträgt – und sonst nichts.
+sobald er seinen Namen einträgt, und in einem Turnier eine in dessen Liste –
+und sonst nichts.
 
 ## 4. Die alten Ergebnisse
 

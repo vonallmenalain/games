@@ -26,6 +26,13 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier leuchten für alle dieselben Kacheln (zufall.js).
+  const zufall = window.LernappZufall?.fuer?.("tileMemory") || {
+    fest: false, neu() {}, zahl: Math.random,
+    ganz: (n) => Math.floor(Math.random() * n),
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -95,7 +102,7 @@
   function musterFuer(stufe) {
     const felder = [...Array(stufe.spalten * stufe.reihen).keys()];
     for (let i = felder.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = zufall.ganz(i + 1);
       [felder[i], felder[j]] = [felder[j], felder[i]];
     }
     return new Set(felder.slice(0, stufe.kacheln));
@@ -157,6 +164,7 @@
   function startRun() {
     clearStep();
     shell.closeOverlay();
+    zufall.neu();
     shell.setPhase("play");
     state.runde = 0;
     state.punkte = 0;

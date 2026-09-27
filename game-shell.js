@@ -36,6 +36,9 @@
   const scenes = () => window.LernappScenes || null;
   const kids = () => window.LernappKids || null;
   const mini = () => window.LernappMini || null;
+  // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird
+  // (?turnier= in der Adresse). Sonst ist hier alles wie immer.
+  const turnier = () => (window.LernappTurnier?.aufSpielseite?.() ? window.LernappTurnier : null);
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -130,13 +133,25 @@
     kids()?.mountHelpButton?.();
     if (help) kids()?.setHelp?.(help);
 
+    // --- Neu anfangen ---------------------------------------------------------
+    // Über den Knopf oben (mitten in der Runde) oder nach dem Ergebnis. Im
+    // Turnier fragt erst turnier.js: Eine angefangene Runde ist dort ein
+    // gebrauchter Versuch, und wer keinen mehr hat, bekommt die Tafel statt
+    // einer neuen Runde.
+    function neuStart(mitten = false) {
+      const los = () => { stopClock(); closeOverlay(); onRestart(); };
+      const t = turnier();
+      if (t) t.neuStart({ mitten, los });
+      else los();
+    }
+
     // --- Leiste oben ---------------------------------------------------------
     const bar = el("div", "cm-bar");
     const left = el("div", "cm-bar-left");
-    // Drei Wege hinaus und einer zurück an den Anfang: "Zur App", "Mini
-    // Games", "Hall of Fame" (mini-games.js) und der Neu-Knopf.
+    // Ein Weg hinaus – in die Hall of Fame oder, im Turnier, zurück zum
+    // Turnier (mini-games.js) – und der Neu-Knopf.
     mini()?.leiste?.().forEach((knopf) => left.append(knopf));
-    left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); onRestart(); }));
+    left.append(iconButton("again", "Neu starten", ICONS.again(), () => neuStart(host.dataset.phase === "play")));
     bar.append(left, el("h1", "cm-title", title));
 
     // Dezent oben rechts: wie viel bisher geschafft ist. Beim Karten-Merker ist
@@ -225,6 +240,13 @@
     function panel(children) {
       dropOverlay();
       overlay = el("div", "cm-overlay");
+      // Wer in ein Feld auf der Tafel tippt, tippt dort und nicht im Spiel.
+      // Die Spiele hören auf der ganzen Seite auf Leertaste und Enter und
+      // halten sie an (preventDefault) – im Namensfeld kam deshalb kein
+      // Leerzeichen an, und Enter trug nichts ein.
+      ["keydown", "keyup"].forEach((typ) => overlay.addEventListener(typ, (ereignis) => {
+        if (ereignis.target.closest?.("input, textarea")) ereignis.stopPropagation();
+      }));
       const box = el("div", "cm-panel");
       children.forEach((child) => box.append(child));
       overlay.append(box);
@@ -260,13 +282,21 @@
       if (block) parts.push(block);
 
       const actions = el("div", "cm-actions");
-      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); onRestart(); }, "big"));
+      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => neuStart(), "big"));
       // Rechts der Pokal: ein Weg, kein Knopf – er führt direkt in die Hall of
-      // Fame, dieselbe Adresse wie oben in der Leiste.
-      actions.append(iconLink("cup", "Hall of Fame", ICONS.cup(), mini()?.uebersichtLink?.() || "/", "big"));
+      // Fame, dieselbe Adresse wie oben in der Leiste. Im Turnier führen beide
+      // zurück zum Turnier.
+      const wohin = mini()?.ziel?.() || { link: "/", wort: "Hall of Fame" };
+      actions.append(iconLink("cup", wohin.wort, ICONS.cup(), wohin.link, "big"));
       parts.push(actions);
       panel(parts);
     }
+
+    // Die Tafel des Turniers, falls diese Seite in einem gespielt wird. Sie
+    // bringt ihren eigenen Überzug mit; "los" ist derselbe Neustart wie der
+    // Knopf oben – nur ohne Nachfrage, denn vor der Tafel lief noch nichts,
+    // was zählte.
+    turnier()?.anBuehne?.({ host, los: () => { stopClock(); closeOverlay(); onRestart(); } });
 
     return {
       play,
@@ -275,7 +305,12 @@
       // dann direkt im verlangten Level. Hier gibt es keine Reise – die Zeile
       // bleibt, damit ein Spiel, das danach fragt, unverändert läuft.
       journey: null,
-      setPhase(phase) { host.dataset.phase = phase; },
+      // "play" heisst: Jetzt beginnt eine Runde. Im Turnier ist das der
+      // Moment, in dem der Versuch zählt (turnier.js, rundeBeginnt).
+      setPhase(phase) {
+        if (phase === "play") turnier()?.rundeBeginnt?.();
+        host.dataset.phase = phase;
+      },
       setCount(value) { countValue.textContent = String(value); },
       startClock,
       stopClock,

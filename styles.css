@@ -3208,3 +3208,300 @@ h2 {
   cursor: pointer;
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===========================================================================
+   Der Weg in den Adminbereich
+   ---------------------------------------------------------------------------
+   Rechts im orangen Balken der Startseite, und nur für den, der im
+   Adminbereich angemeldet ist (mini-games.js, adminKnopf). Hell auf Orange,
+   klein und ohne Schatten: Er ist ein Weg für einen, nicht ein Angebot an
+   alle.
+   =========================================================================== */
+.mini-kopf .mini-knopf-admin {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  border-width: 2px;
+  box-shadow: none;
+}
+
+/* ===========================================================================
+   Der Turniermodus
+   ---------------------------------------------------------------------------
+   Dieselbe Site, dieselben Karten – das Turnier hat nur eine eigene Farbe
+   dazu: Gold, der Pokal. Auf der Startseite steht es als Streifen über den
+   Spielen, auf der Turnierseite im Kopf, im Spiel als Tafel vor der ersten
+   Runde. Die Tafel liegt über dem Überzug der Bühne (z-index 6) und unter
+   der Leiste (8): Oben links bleibt der Weg hinaus erreichbar.
+   =========================================================================== */
+:root {
+  --tn-gold: #e0a100;
+  --tn-gold-hell: #fff4d1;
+  --tn-gold-dunkel: #8a6200;
+}
+
+.tn-pokal { width: 30px; height: 30px; flex: 0 0 auto; color: var(--tn-gold); }
+
+/* --- Auf der Startseite ---------------------------------------------------- */
+.tn-hinweise { display: flex; flex-direction: column; gap: 10px; }
+/* Ohne Turnier kein Platz: Ein leerer Kasten nähme sonst im Abstand der
+   Seite eine Lücke ein. */
+.tn-hinweise:empty { display: none; }
+.tn-hinweis {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--tn-gold-hell);
+  border: 2px solid rgba(224, 161, 0, 0.45);
+  color: #243047;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(138, 98, 0, 0.12);
+}
+.tn-hinweis:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.tn-hinweis.ist-beendet { background: #fff; border-style: dashed; box-shadow: none; }
+.tn-hinweis-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tn-hinweis-text strong { font-size: 1.05rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; }
+.tn-hinweis-text span { font-size: 0.85rem; font-weight: 700; color: #6b5a2c; }
+.tn-hinweis .tn-hinweis-los { flex: 0 0 auto; background: var(--tn-gold); pointer-events: none; }
+/* Schmal: Pokal und Text bleiben nebeneinander, der Knopf geht darunter
+   über die ganze Breite. Mit flex-wrap allein rutschte bei einem längeren
+   Satz der Pokal in eine eigene Zeile. */
+@media (max-width: 480px) {
+  .tn-hinweis { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .tn-hinweis .tn-hinweis-los { grid-column: 1 / -1; width: 100%; }
+}
+
+/* --- Die Turnierseite ------------------------------------------------------ */
+.tn-kopf {
+  background:
+    radial-gradient(circle at 88% -10%, rgba(255, 255, 255, 0.4), transparent 55%),
+    linear-gradient(135deg, var(--tn-gold), var(--mini-ton-dunkel));
+}
+.tn-kopf h1 { overflow-wrap: anywhere; }
+.tn-status { margin: 0; font-size: 0.95rem; font-weight: 800; color: rgba(255, 255, 255, 0.92); }
+.tn-inhalt { display: flex; flex-direction: column; gap: clamp(20px, 4vw, 34px); }
+.tn-beschreibung {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--tn-gold-hell);
+  border-left: 6px solid var(--tn-gold);
+  color: #3f3413;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+/* Eine Karte im Turnier trägt eine Zeile mehr als auf der Startseite – den
+   eigenen Stand. Etwas enger, damit sie nicht höher wird als nötig. */
+.tn-karte { gap: 10px; }
+.tn-mein { margin: 0; font-size: 0.85rem; font-weight: 800; color: var(--mini-farbe-dunkel, #47506a); }
+.tn-verdeckt { margin: 0; color: #667085; font-weight: 700; }
+p.tn-verdeckt:not(.mini-hinweis) {
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px dashed #d7dbe6;
+  text-align: center;
+  font-size: 0.9rem;
+}
+.tn-fertig {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #f1f3f8;
+  color: #667085;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-align: center;
+}
+.tn-tabelle tbody tr.ist-ich { box-shadow: inset 4px 0 0 var(--mini-ton); }
+.tn-tabelle tbody tr.ist-ich .tn-wer > span { color: var(--mini-ton-dunkel); }
+.tn-wer { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tn-teile { font-size: 0.72rem; font-weight: 700; color: #8a93a6; line-height: 1.35; }
+.tn-wert { font-weight: 900; font-size: 1.05rem; color: #243047; }
+.tn-regel-liste {
+  margin: 0;
+  padding: 16px 18px 16px 34px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid rgba(36, 48, 71, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #3a4657;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.tn-klein { margin: 0; font-size: 0.9rem; font-weight: 600; color: #667085; }
+.tn-regeln .tn-klein { padding: 0 6px; }
+.tn-link { display: flex; flex-wrap: wrap; gap: 8px; }
+.tn-link-feld {
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid #d7dbe6;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #243047;
+  background: #fff;
+}
+.tn-link-feld:focus-visible { outline: 3px solid var(--tn-gold); outline-offset: 2px; }
+.tn-teilen .mini-knopf-voll { background: var(--tn-gold); }
+.tn-fuss { margin: 0; text-align: center; font-weight: 700; }
+.tn-fuss a { color: var(--mini-ton-dunkel); }
+
+/* --- Die Tafel vor dem Spiel ----------------------------------------------- */
+.cm-overlay.tn-tor { z-index: 7; }
+.tn-tafel { gap: clamp(6px, 1.4vh, 12px); }
+.tn-tafel-pokal { width: 44px; height: 44px; color: var(--tn-gold); }
+.tn-marke {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tn-gold-dunkel);
+}
+.tn-tafel-titel {
+  margin: 0;
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
+  font-weight: 900;
+  color: #243047;
+  overflow-wrap: anywhere;
+}
+.tn-tafel-text { margin: 0; font-weight: 700; color: #4b5563; line-height: 1.45; }
+.tn-tafel-spiel {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--tn-gold-hell);
+  color: var(--tn-gold-dunkel);
+  font-weight: 900;
+}
+.tn-tafel-stand { margin: 0; font-weight: 900; color: #243047; }
+.tn-tafel-form { width: min(360px, 100%); display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.tn-tafel-name {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #5c6a67;
+}
+.tn-tafel-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.tn-tafel .tn-los { background: var(--tn-gold); }
+/* Auf einem flachen Bildschirm legt die Bühne ihre Tafel als Raster quer
+   (Punkte links, Liste rechts). Diese hier hat keine Liste – sie bleibt eine
+   Spalte und rollt, wenn es eng wird. */
+@media (max-height: 600px) {
+  .cm-panel.tn-tafel {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 6px;
+  }
+  .tn-tafel-pokal { width: 30px; height: 30px; }
+}
+
+/* --- Unter dem Ergebnis ---------------------------------------------------- */
+.tn-ergebnis .tn-marke { text-align: center; }
+.tn-platz { margin: 0; text-align: center; font-weight: 900; color: #243047; }
+.tn-platz:empty { display: none; }
+.tn-rest { margin: 0; text-align: center; font-size: 0.85rem; font-weight: 800; color: #667085; }
+.tn-rest:empty { display: none; }
+.tn-nochmal { align-self: center; }
+
+/* --- Im Adminbereich ------------------------------------------------------- */
+.adm-turniere { border-top-color: var(--tn-gold); }
+.adm-turnier-liste { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.adm-turnier {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid #ece9f6;
+  background: #fbfaff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adm-turnier.ist-laeuft { border-color: rgba(224, 161, 0, 0.55); background: #fffaf0; }
+.adm-turnier.ist-beendet { opacity: 0.85; }
+.adm-turnier-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.adm-turnier-kopf h3 { margin: 0; font-size: 1.05rem; font-weight: 900; color: #243047; }
+.adm-marke {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef0f6;
+  color: #47506a;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.adm-marke.ist-laeuft { background: var(--tn-gold); color: #fff; }
+.adm-marke.ist-geplant { background: #e3f1fb; color: #1d5f86; }
+.adm-marke.ist-angehalten { background: #fdeaea; color: #a32020; }
+.adm-marke.ist-beendet { background: #eef0f6; color: #667085; }
+.adm-turnier-stand { font-weight: 700; color: #47506a; }
+.adm-turnier .adm-kopf-aktionen { margin-top: 4px; }
+
+/* Das Formular wird beim Öffnen ins Bild gerollt – mit etwas Luft darüber,
+   sonst klebt es am oberen Rand. */
+.adm-turnier-formwirt { scroll-margin-top: 16px; }
+.adm-turnier-form {
+  margin: 12px 0;
+  padding: clamp(12px, 3vw, 18px);
+  border-radius: 16px;
+  border: 2px solid rgba(224, 161, 0, 0.45);
+  background: #fffdf7;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.adm-turnier-form h3 { margin: 0; font-size: 1.1rem; font-weight: 900; color: #243047; }
+.adm-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.adm-zeile-wort { flex: 0 0 9.5rem; font-weight: 800; color: #47506a; font-size: 0.9rem; }
+.adm-zeile .adm-feld { flex: 1 1 14rem; }
+.adm-zeile .adm-feld-schmal { flex: 0 0 auto; width: auto; min-width: 8rem; }
+.adm-textfeld { resize: vertical; min-height: 4.5rem; font: inherit; }
+.adm-gruppe {
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 2px solid #ece9f6;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-gruppe legend { padding: 0 6px; font-weight: 900; color: #243047; font-size: 0.92rem; }
+.adm-gruppe .adm-auswahl { margin: 0; }
+.adm-option { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.adm-option input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--tn-gold);
+  cursor: pointer;
+}
+.adm-option input:disabled + .adm-option-text { opacity: 0.45; }
+.adm-option-text { display: flex; flex-direction: column; gap: 2px; }
+.adm-option-text strong { font-weight: 800; color: #243047; font-size: 0.92rem; }
+.adm-option-text small { color: #667085; font-size: 0.8rem; line-height: 1.4; }
+@media (max-width: 560px) {
+  .adm-zeile-wort { flex-basis: 100%; }
+}
+/* Was das Formular mit hidden wegnimmt (das eigene Ende, der Knopf "Neues
+   Turnier", solange das Formular offen ist), bleibt weg – auch dort, wo eine
+   Regel oben display setzt. */
+.adm-seite [hidden] { display: none !important; }

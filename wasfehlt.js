@@ -35,6 +35,14 @@
 
   const kids = () => window.LernappKids || null;
 
+  // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
+  // Turnier fahren für alle dieselben Wagen vor, und es fehlt dasselbe Stück
+  // (zufall.js).
+  const zufall = window.LernappZufall?.fuer?.("missingItem") || {
+    fest: false, neu() {}, zahl: Math.random,
+    ganz: (n) => Math.floor(Math.random() * n),
+  };
+
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
@@ -106,7 +114,7 @@
   function mischen(liste) {
     const kopie = [...liste];
     for (let i = kopie.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = zufall.ganz(i + 1);
       [kopie[i], kopie[j]] = [kopie[j], kopie[i]];
     }
     return kopie;
@@ -198,6 +206,9 @@
   function startRun() {
     clearStep();
     shell.closeOverlay();
+    // Der Beispielwagen im Intro hat schon gewürfelt; der Lauf beginnt wieder
+    // am Anfang.
+    zufall.neu();
     shell.setPhase("play");
     state.wagen = 0;
     state.punkte = 0;
@@ -214,7 +225,7 @@
     const stufe = stufeFuer(state.wagen);
     state.phase = "merken";
     state.ladung = ladungFuer(stufe);
-    state.fehlt = state.ladung[Math.floor(Math.random() * state.ladung.length)];
+    state.fehlt = state.ladung[zufall.ganz(state.ladung.length)];
     state.auswahl = auswahlFuer(state.ladung, state.fehlt, stufe.auswahl);
 
     prompt.textContent = "Merk dir die Fracht.";

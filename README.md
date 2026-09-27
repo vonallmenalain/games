@@ -12,6 +12,11 @@ schafft. Unter `/` stehen alle Spiele nebeneinander, dazu die Hall of Fame –
 wer den besten Durchschnittsrang hat, wer wie oft gespielt hat, wer wie viele
 Spiele anführt.
 
+Und ab und zu ein Turnier: eine eigene Rangliste mit Anfang und Ende, für
+alle auf der Startseite oder nur für die, denen man den Link schickt.
+
+    https://games.alae.app/turnier?t=herbstcup-k3m9x2p7
+
 ## Wie das hier gebaut ist
 
 Kein Build-Werkzeug, kein Framework, keine Abhängigkeiten im Browser ausser
@@ -20,6 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
     turmbau.html …        elf Spielseiten, erzeugt
+    turnier.html          die Turnierseite, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -27,16 +33,21 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
                           die Auswertung der Startseite
     cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
-                          und miniGeister, die Aufzeichnungen der Läufe.
-    admin.js              anmelden und aufräumen. Der einzige Ort mit
-                          Anmeldung; die Spielseiten laden firebase-auth
-                          gar nicht erst.
+                          miniGeister, die Aufzeichnungen der Läufe, und
+                          miniTurniere mit ihren Einträgen.
+    turnier.js            der Turniermodus: die Turnierseite, der Hinweis auf
+                          der Startseite, die Tafel vor dem Spiel, der Versuch,
+                          das Ergebnis, die Gesamtwertung
+    admin.js              anmelden, aufräumen, Turniere ausrichten. Der
+                          einzige Ort mit Anmeldung; die Spielseiten laden
+                          firebase-auth gar nicht erst.
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
                           Spielfläche, Ergebnis
     game-cloud.js         der Spielstand während einer Runde. Er überlebt die
                           Seite nicht, und das ist Absicht.
     zufall.js             der Zufall. Ohne Turnier in der Adresse ist er
-                          Math.random; mit einem bekommt jeder denselben Lauf.
+                          Math.random; mit einem bekommt jeder im selben
+                          Versuch denselben Lauf.
     kids.js               Lautsprecher, Ton, Vorlesen, Konfetti
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier
                           jede Zeichnung entsteht (el, shade)
@@ -67,7 +78,14 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 Ein Spiel, das würfelt, nimmt seine Zahlen aus `LernappZufall.fuer(<spiel>)`
 statt aus `Math.random` – und ruft `neu()` zu Beginn jeder Runde. Ohne Turnier
 in der Adresse ist beides dasselbe wie vorher; mit Turnier spielen alle
-denselben Lauf, und der zweite Versuch ist derselbe wie der erste.
+denselben Lauf: den ersten Versuch alle gleich, den zweiten auch – aber einen
+anderen als den ersten. `npm run pruefen` besteht darauf.
+
+Nur was die Aufgabe entscheidet, kommt aus dem Turnier-Zufall. Was davon
+abhängt, wie jemand spielt – Funken beim perfekten Treffer, das Schlingern
+eines Fisches Bild für Bild –, bleibt bei `Math.random`. Sonst zöge der
+bessere Spieler mehr Zahlen, und ab seinem ersten Funken liefe sein Lauf
+anders als der aller anderen.
 
 **Wichtig:** Welche Spiele in die Bestenliste schreiben dürfen, steht auch in
 `firestore.rules` (Funktion `miniSpiele`) – ein neues Spiel braucht dort eine
@@ -126,6 +144,47 @@ Strom, eine feste Zahl Anläufe wie beim Bremsweg oder wenigstens ein Deckel wie
 beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist keine Runde
 mehr, die man jemandem schickt.
 
+## Turniere
+
+Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
+was es ausmacht:
+
+    Spiele            welche dazugehören, eines bis alle elf
+    Wann              Beginn und Dauer (30 Minuten bis ein Monat) oder ein
+                      eigenes Ende
+    Versuche          je Spiel 1, 2, 3, 5, 10 oder unbegrenzt
+    Was zählt         der beste Versuch oder alle zusammen
+    Gesamtwertung     Platzziffer (die Plätze zusammengezählt, die kleinste
+                      Summe gewinnt) oder Prozent vom Besten (der Beste
+                      eines Spiels bekommt 100, die anderen ihren Anteil)
+    Aufgaben          für alle gleich oder jedes Mal neu gewürfelt
+    Wer es sieht      alle in der App (auf der Startseite) oder nur, wer den
+                      Link hat
+    Verdeckt          die Rangliste erst am Schluss zeigen
+    Aktiv             angehalten, bis es gebraucht wird – "Jetzt starten",
+                      "Anhalten", "Jetzt beenden" gehen mit einem Klick
+
+Gespielt wird es auf der Turnierseite (`/turnier?t=<id>`): Von dort führt
+jedes Spiel mit `?turnier=<id>` in der Adresse ins Spiel, und dort steht vor
+der ersten Runde eine Tafel – welcher Versuch, wie lange noch, was zählt,
+unter welchem Namen. Danach läuft das Spiel wie immer, nur dass sein Ergebnis
+ins Turnier geht (und in die ewige Liste, eine Runde ist eine Runde).
+
+**Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
+Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
+und die Runde hat es nie gegeben. Die Regeln der Datenbank setzen das durch
+(`offen` in `firestore.rules`): erst der Beginn, dann genau ein Ergebnis.
+
+**Nur mit Link heisst: nirgends aufgeführt.** Die Startseite fragt nur nach
+öffentlichen Turnieren, und die Regeln lassen keine andere Frage zu. Der Name
+eines Turniers ist deshalb lang und zufällig (`herbstcup-k3m9x2p7`), nicht
+`herbst24`. Geheim ist es damit nicht – wer den Link weitergibt, gibt das
+Turnier weiter.
+
+**Verdeckt heisst: die Seite zeigt es nicht.** Wer will, liest die Zahlen
+trotzdem aus der Datenbank; die Einträge sind lesbar wie die ewige Liste.
+Das ist für die Spannung, nicht zur Geheimhaltung.
+
 ## Firebase
 
 Eigenes Projekt (`games-a0cd4`), eigene Datenbank, eigene Anmeldung – mit der
@@ -140,7 +199,17 @@ veröffentlicht die Regeln. In der Console wird nichts von Hand geändert.
 
 `/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort. Dahinter steht,
 was in der Bestenliste steht: Zahlen, alle Spieler, jedes Spiel mit seinen
-Einträgen. Und das Einzige, was kein Gast darf: löschen.
+Einträgen, die Turniere. Und was kein Gast darf: löschen und Turniere
+ausrichten.
+
+In der App gibt es keinen Anmeldeknopf. Wer aber im Adminbereich angemeldet
+ist und von dort zu den Spielen geht, findet rechts im Balken der Startseite
+(und der Turnierseite) einen Knopf zurück. Die Spielseiten können die
+Anmeldung nicht selbst lesen – sie laden firebase-auth gar nicht erst –,
+deshalb merkt sich `admin.js` im localStorage (`mini.admin`), dass hier ein
+Admin angemeldet ist, und nimmt es beim Abmelden wieder weg. Ein Schutz ist
+das nicht und muss keiner sein: Wer das Merkzeichen von Hand setzt, bekommt
+einen Knopf, der zur Anmeldung führt.
 
 Dafür gibt es die Anmeldung überhaupt. Eine Liste, in die jeder ohne Konto
 schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
@@ -171,8 +240,10 @@ trotzdem einmal, gezählt wird der Name.
     npm run pruefen:browser   jedes Spiel einmal öffnen und eine Runde
                               anspielen. Braucht Playwright:
                               npm i && npx playwright install chromium
-    npm run test:rules        die Firestore-Regeln im Emulator durchspielen.
-                              Braucht Java, kein Netz, keine Zugangsdaten.
+    npm run test:rules        die Firestore-Regeln im Emulator durchspielen –
+                              und cloud.js dagegen laufen lassen, so wie es
+                              im Browser läuft. Braucht Java, kein Netz,
+                              keine Zugangsdaten.
 
 `pruefen:browser` ist das, was zählt: `styles.css` und `train-art.js` sind aus
 der App herausgeschnitten worden, und was dabei zu viel wegfiel, sieht man
@@ -185,4 +256,5 @@ die Schranke vor der zweiten Runde – das alles ist Gripszug und bleibt dort.
 Aus der App kommt nur, was ein Spiel zum Laufen braucht.
 
 Besuche zählt hier niemand. Wer spielt, hinterlässt eine Zeile in
-`miniScores`, sobald er seinen Namen einträgt – und sonst nichts.
+`miniScores`, sobald er seinen Namen einträgt, und wer in einem Turnier
+spielt, eine in dessen Liste – und sonst nichts.

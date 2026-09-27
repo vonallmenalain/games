@@ -100,6 +100,8 @@
   const SZENE_KEY = "mini.szene";
   // Die zuletzt gelesene Auswahl. Siehe offeneSpiele().
   const OFFEN_KEY = "mini.offen";
+  // Ob auf diesem Gerät der Admin angemeldet ist. Siehe adminKnopf().
+  const ADMIN_KEY = "mini.admin";
   const NAME_MAX = 24;
 
   const cloud = () => window.MiniCloud || null;
@@ -541,6 +543,33 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Weg in den Adminbereich
+  // ---------------------------------------------------------------------------
+  // Einen Anmeldeknopf gibt es hier nicht: Wer spielt, soll nicht über eine
+  // Tür stolpern, die nicht für ihn ist. Wer aber im Adminbereich angemeldet
+  // ist und von dort zu den Spielen kommt, soll wieder zurückfinden, ohne
+  // /admin von Hand zu tippen.
+  //
+  // Woher die Seite das weiss: admin.js merkt es sich im localStorage, sobald
+  // Firebase einen Admin meldet, und nimmt es beim Abmelden wieder weg. Die
+  // Anmeldung selbst lesen können die Spielseiten nicht – sie laden
+  // firebase-auth gar nicht erst, und dabei bleibt es.
+  //
+  // Ein Schutz ist das nicht, und es muss keiner sein: Wer den Eintrag von
+  // Hand setzt, bekommt einen Knopf, der zur Anmeldung führt. Was dahinter
+  // liegt, schützen die Regeln der Datenbank.
+  function adminAngemeldet() {
+    try { return localStorage.getItem(ADMIN_KEY) === "ja"; } catch { return false; }
+  }
+
+  function adminKnopf() {
+    if (!adminAngemeldet()) return null;
+    const weg = verweis("Adminbereich", "/admin", "mini-knopf-hell mini-knopf-admin");
+    weg.title = "Zum Adminbereich – du bist dort angemeldet";
+    return weg;
+  }
+
+  // ---------------------------------------------------------------------------
   // Oben links
   // ---------------------------------------------------------------------------
   // In der App stehen dort vier Knöpfe: Haus, Zurück, Neustart, Lautsprecher.
@@ -560,12 +589,22 @@
   // Wort liegt in einem eigenen span, damit das Stylesheet es ausblenden
   // kann (.mini-knopf-wort). Der Knopf behält seinen Namen für alle, die ihn
   // nicht sehen: title und aria-label bleiben.
+  //
+  // Wohin er führt, sagt ziel(): meist in die Hall of Fame, in einem Turnier
+  // zurück zum Turnier (turnier.js). Wer über die Turnierseite gekommen ist,
+  // will dorthin zurück und nicht in die ewige Liste.
+  function ziel() {
+    return window.LernappTurnier?.ziel?.()
+      || { link: uebersichtLink(), wort: "Hall of Fame", titel: "Zurück zur Hall of Fame" };
+  }
+
   function leiste() {
+    const wohin = ziel();
     const halle = el("a", "mini-knopf mini-knopf-still mini-knopf-zurueck");
-    halle.href = uebersichtLink();
-    halle.title = "Zurück zur Hall of Fame";
-    halle.setAttribute("aria-label", "Zurück zur Hall of Fame");
-    halle.append(pfeil(), el("span", "mini-knopf-wort", "Hall of Fame"));
+    halle.href = wohin.link;
+    halle.title = wohin.titel;
+    halle.setAttribute("aria-label", wohin.titel);
+    halle.append(pfeil(), el("span", "mini-knopf-wort", wohin.wort));
     return [halle];
   }
 
@@ -600,6 +639,12 @@
   //   Rekord           dasselbe, nur mit einem Wort dazu: Das ist der Moment,
   //                    für den der Link verschickt wurde.
   function ergebnis({ punkte, geist = null }) {
+    // Im Turnier gilt dessen Block: was eingetragen wurde, die Liste des
+    // Turniers, die übrigen Versuche. In die ewige Liste geht die Runde von
+    // dort aus trotzdem (turnier.js, ergebnis).
+    const turnier = window.LernappTurnier;
+    if (turnier?.aufSpielseite?.()) return turnier.ergebnis({ punkte, geist });
+
     const spiel = spielId();
     const block = el("div", "mini-ergebnis");
     // Ohne Spiel und ohne Zahl gibt es nichts einzutragen. Beides kann nur
@@ -711,6 +756,8 @@
   // Was der Lautsprecher nach der Runde sagt. In der App steht dort, wie weit
   // es noch bis zum fertigen Wagen ist – hier gibt es keinen Wagen.
   function ergebnisSprache({ punkte, label }) {
+    const turnier = window.LernappTurnier;
+    if (turnier?.aufSpielseite?.()) return turnier.sprache({ punkte, label });
     const wort = String(label || "Punkte").replace(/^Deine?\s+/i, "");
     return `${punkte} ${wort}. Trag deinen Namen ein, dann stehst du in der Bestenliste.`;
   }
@@ -926,7 +973,19 @@
     // Ein fremder Name im Titel versprach eine App, die es hier nicht gibt.
     text.append(el("h1", "mini-marke", "Mini-Games"));
     kopf.append(text);
+    // Rechts im Balken, und nur, wer im Adminbereich angemeldet ist, sieht
+    // ihn (adminKnopf).
+    const zumAdmin = adminKnopf();
+    if (zumAdmin) kopf.append(zumAdmin);
     wirt.append(kopf);
+
+    // Gleich unter dem Balken: laufende Turniere, sofern es öffentliche gibt.
+    // Den Platz füllt turnier.js – wer von beiden zuerst geladen ist, ist
+    // gleich (siehe dort, hinweis).
+    const turniere = el("div", "tn-hinweise");
+    turniere.dataset.turnierHinweis = "";
+    wirt.append(turniere);
+    window.LernappTurnier?.hinweis?.(turniere);
 
     const laedt = el("p", "mini-hinweis", "Die Ergebnisse werden geladen...");
     wirt.append(laedt);
@@ -990,20 +1049,30 @@
   window.LernappMini = {
     SPIELE,
     FARBEN,
+    NAME_MAX,
     spielId,
     spielLink,
     uebersichtLink,
+    ziel,
     alleSpiele,
     offeneSpiele,
     naechsteSzene,
     name,
     setzeName,
     kennung,
+    kennungFallsDa,
+    titel,
+    einheit,
+    farbe,
     listeFuer,
+    listeBauen,
     geister,
     rangliste,
+    melde,
+    benenneUm,
     startStand,
     auswertung,
+    adminKnopf,
     leiste,
     ergebnis,
     ergebnisSprache,

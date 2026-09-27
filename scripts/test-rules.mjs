@@ -10,8 +10,10 @@
  * die Regeln, und für jede Rolle wird versucht, was sie darf und was nicht:
  *
  *   Gast    lesen, sich eintragen, weitere Runden zählen, sich umbenennen –
- *           aber nichts kleinrechnen, nichts erfinden, nichts löschen
- *   Admin   dasselbe, und als Einziger löschen
+ *           aber nichts kleinrechnen, nichts erfinden, nichts löschen. Im
+ *           Turnier: einen Versuch beginnen, sein Ergebnis einmal eintragen,
+ *           solange das Turnier läuft und Versuche übrig sind
+ *   Admin   dasselbe, und als Einziger löschen und Turniere anlegen
  *
  * Der Emulator nimmt übrigens auch Regeln mit Syntaxfehlern an, ohne zu
  * klagen – er verweigert dann einfach alles. Das fängt dieser Test mit: Die
@@ -196,6 +198,277 @@ await darfNicht("Gast schiebt seinen Geist in ein anderes Spiel", () => gast().d
 await darfNicht("Gast löscht einen Geist", () => gast().doc(GEIST).delete());
 await darfNicht("Ein angemeldeter Fremder löscht einen Geist", () => fremder().doc(GEIST).delete());
 await darf("Admin löscht einen Geist", () => admin().doc(GEIST).delete());
+
+// --- Turniere ----------------------------------------------------------------
+// Anlegen darf nur der Admin, und nur ein vollständiges Turnier. Lesen darf
+// jeder, der den Namen kennt; auflisten nur die öffentlichen – ein Turnier
+// "nur mit Link" darf in keiner Liste auftauchen.
+const JETZT = Date.now();
+const STUNDE = 60 * 60 * 1000;
+const turnierDaten = (aenderung = {}) => ({
+  name: "Herbstcup",
+  beschreibung: "Wer gewinnt, wählt das Znacht.",
+  spiele: ["towerStack", "fishPond"],
+  startMs: JETZT - STUNDE,
+  endeMs: JETZT + STUNDE,
+  versuche: 2,
+  zaehlt: "bester",
+  wertung: "platz",
+  aufgaben: "gleich",
+  sichtbar: "alle",
+  verdeckt: false,
+  aktiv: true,
+  erstelltMs: 1,
+  updatedAtMs: 1,
+  ...aenderung,
+});
+const OEFFENTLICH = "miniTurniere/herbstcup-k3m9x2p7";
+const GEHEIM = "miniTurniere/geheim-q8w2e4r6";
+
+await darfNicht("Gast legt ein Turnier an", () => gast().doc(OEFFENTLICH).set(turnierDaten()));
+await darfNicht("Ein angemeldeter Fremder legt ein Turnier an", () => fremder().doc(OEFFENTLICH).set(turnierDaten()));
+await darfNicht("Der Admin mit unbestätigter Adresse legt ein Turnier an", () => adminOhneVerifikation().doc(OEFFENTLICH).set(turnierDaten()));
+await darfNicht("Admin legt ein Turnier mit erfundenem Spiel an", () => admin().doc(OEFFENTLICH).set(turnierDaten({ spiele: ["schachweltmeister"] })));
+await darfNicht("Admin legt ein Turnier ohne Spiele an", () => admin().doc(OEFFENTLICH).set(turnierDaten({ spiele: [] })));
+await darfNicht("Admin legt ein Turnier an, das endet, bevor es beginnt", () => admin().doc(OEFFENTLICH).set(turnierDaten({ endeMs: JETZT - 2 * STUNDE })));
+await darfNicht("Admin legt ein Turnier ohne Namen an", () => admin().doc(OEFFENTLICH).set(turnierDaten({ name: "" })));
+await darfNicht("Admin legt ein Turnier mit 101 Versuchen an", () => admin().doc(OEFFENTLICH).set(turnierDaten({ versuche: 101 })));
+await darfNicht("Admin zählt unbegrenzt viele Versuche zusammen", () => admin().doc(OEFFENTLICH).set(turnierDaten({ zaehlt: "summe", versuche: 0 })));
+await darfNicht("Admin erfindet eine Sichtbarkeit", () => admin().doc(OEFFENTLICH).set(turnierDaten({ sichtbar: "geheim" })));
+await darfNicht("Admin erfindet eine Wertung", () => admin().doc(OEFFENTLICH).set(turnierDaten({ wertung: "gefuehl" })));
+await darfNicht("Admin schmuggelt ein Feld ins Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ preis: 100 })));
+await darfNicht("Admin gibt dem Turnier einen Namen mit Leerzeichen", () => admin().doc("miniTurniere/Herbst Cup").set(turnierDaten()));
+await darfNicht("Admin gibt dem Turnier einen zu kurzen Namen", () => admin().doc("miniTurniere/abc").set(turnierDaten()));
+await darf("Admin legt ein öffentliches Turnier an", () => admin().doc(OEFFENTLICH).set(turnierDaten()));
+await darf("Admin legt ein Turnier nur mit Link an, ohne Beschreibung", () => {
+  const ohne = turnierDaten({ name: "Familienabend", sichtbar: "link" });
+  delete ohne.beschreibung;
+  return admin().doc(GEHEIM).set(ohne);
+});
+await darf("Admin ändert ein Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ endeMs: JETZT + 2 * STUNDE, updatedAtMs: 2 })));
+await darf("Admin legt ein Turnier mit unbegrenzten Versuchen an", () => admin().doc("miniTurniere/offen-z7x5c3v1").set(turnierDaten({ versuche: 0, verdeckt: true })));
+await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
+
+await darf("Gast öffnet ein öffentliches Turnier", () => gast().doc(OEFFENTLICH).get());
+await darf("Gast öffnet ein Turnier über den Link", () => gast().doc(GEHEIM).get());
+await darf("Gast listet die öffentlichen Turniere", () => gast().collection("miniTurniere").where("sichtbar", "==", "alle").get());
+await darfNicht("Gast listet alle Turniere", () => gast().collection("miniTurniere").get());
+await darfNicht("Gast listet die Turniere nur mit Link", () => gast().collection("miniTurniere").where("sichtbar", "==", "link").get());
+await darf("Admin listet alle Turniere", () => admin().collection("miniTurniere").get());
+
+// --- Versuche im Turnier ------------------------------------------------------
+// Ein Versuch zählt ab seinem Beginn, und sein Ergebnis kommt genau einmal.
+// Dazu, was die Uhr des Turniers sagt: vor dem Beginn nichts, nach dem Ende
+// nur noch das Ergebnis eines Versuchs, der vorher begonnen hat.
+await env.withSecurityRulesDisabled(async (kontext) => {
+  const db = kontext.firestore();
+  await db.doc("miniTurniere/bald-a1b2c3d4").set(turnierDaten({ startMs: JETZT + STUNDE, endeMs: JETZT + 2 * STUNDE }));
+  await db.doc("miniTurniere/vorbei-a1b2c3d4").set(turnierDaten({ startMs: JETZT - 3 * STUNDE, endeMs: JETZT - 2 * STUNDE }));
+  await db.doc("miniTurniere/pause-a1b2c3d4").set(turnierDaten({ aktiv: false }));
+  // Eben zu Ende gegangen, und einer spielt noch: sein Versuch begann vor
+  // dem Schluss.
+  await db.doc("miniTurniere/eben-a1b2c3d4").set(turnierDaten({ startMs: JETZT - STUNDE, endeMs: JETZT - 60 * 1000 }));
+  await db.doc("miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
+    game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
+  });
+  // Angehalten, während einer spielt: sein Versuch begann vorher.
+  await db.doc("miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_pausenspieler").set({
+    game: "towerStack", spieler: "mini_pausenspieler", name: "Mia", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
+  });
+});
+
+const VERSUCH = `${OEFFENTLICH}/eintraege/towerStack_mini_abcdefghijkl`;
+const versuch = (aenderung = {}) => ({
+  game: "towerStack",
+  spieler: "mini_abcdefghijkl",
+  name: "Alain",
+  punkte: 0,
+  versuche: 1,
+  offen: true,
+  erstesMs: 1,
+  updatedAtMs: 1,
+  ...aenderung,
+});
+
+await darf("Gast liest die Liste eines Turniers", () => gast().collection(`${OEFFENTLICH}/eintraege`).get());
+await darfNicht("Gast beginnt mit Punkten, die er noch nicht gespielt hat", () => gast().doc(VERSUCH).set(versuch({ punkte: 42 })));
+await darfNicht("Gast beginnt gleich mit dem zweiten Versuch", () => gast().doc(VERSUCH).set(versuch({ versuche: 2 })));
+await darfNicht("Gast beginnt einen Versuch, der schon zu ist", () => gast().doc(VERSUCH).set(versuch({ offen: false })));
+await darfNicht("Gast beginnt unter fremdem Dokumentnamen", () => gast().doc(`${OEFFENTLICH}/eintraege/towerStack_mini_xxxxxxxxxxxx`).set(versuch()));
+await darfNicht("Gast spielt ein Spiel, das nicht zum Turnier gehört", () => gast().doc(`${OEFFENTLICH}/eintraege/goSignal_mini_abcdefghijkl`).set(versuch({ game: "goSignal" })));
+await darfNicht("Gast beginnt vor dem Start des Turniers", () => gast().doc("miniTurniere/bald-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
+await darfNicht("Gast beginnt nach dem Ende des Turniers", () => gast().doc("miniTurniere/vorbei-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
+await darfNicht("Gast beginnt in einem angehaltenen Turnier", () => gast().doc("miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
+await darfNicht("Gast spielt in einem Turnier, das es nicht gibt", () => gast().doc("miniTurniere/gibtsnicht-123456/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
+await darfNicht("Gast schmuggelt ein Feld in den Versuch", () => gast().doc(VERSUCH).set(versuch({ admin: true })));
+await darf("Gast beginnt seinen ersten Versuch", () => gast().doc(VERSUCH).set(versuch()));
+
+await darf("Gast trägt das Ergebnis seines Versuchs ein", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 42, offen: false, updatedAtMs: 2 }, { merge: true }));
+await darfNicht("Gast reicht ein zweites Ergebnis für denselben Versuch nach", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 50, offen: false, updatedAtMs: 3 }, { merge: true }));
+await darfNicht("Gast beginnt einen Versuch und schreibt gleich Punkte dazu", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 60, versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+await darfNicht("Gast überspringt einen Versuch", () => gast().doc(VERSUCH).set({ name: "Alain", versuche: 3, offen: true, updatedAtMs: 3 }, { merge: true }));
+await darf("Gast beginnt seinen zweiten Versuch", () => gast().doc(VERSUCH).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+await darfNicht("Gast rechnet sein Turnierergebnis klein", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 10, offen: false, updatedAtMs: 4 }, { merge: true }));
+await darfNicht("Gast lässt einen Versuch verschwinden", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 42, versuche: 1, offen: false, updatedAtMs: 4 }, { merge: true }));
+await darf("Gast beendet einen schwächeren Versuch – die Bestzahl bleibt", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 42, offen: false, updatedAtMs: 4 }, { merge: true }));
+await darfNicht("Gast beginnt einen dritten von zwei Versuchen", () => gast().doc(VERSUCH).set({ name: "Alain", versuche: 3, offen: true, updatedAtMs: 5 }, { merge: true }));
+await darf("Gast ändert im Turnier nur seinen Namen", () => gast().doc(VERSUCH).set({ name: "Alain V.", updatedAtMs: 6 }, { merge: true }));
+await darfNicht("Gast schmuggelt Punkte in eine Umbenennung", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 99, updatedAtMs: 7 }, { merge: true }));
+await darfNicht("Gast schiebt seinen Turniereintrag in ein anderes Spiel", () => gast().doc(VERSUCH).set({ game: "fishPond", name: "Alain", versuche: 3, offen: true, updatedAtMs: 7 }, { merge: true }));
+
+const OHNE_GRENZE = "miniTurniere/offen-z7x5c3v1/eintraege/fishPond_mini_abcdefghijkl";
+await darf("Gast beginnt ohne Grenze einen ersten Versuch", () => gast().doc(OHNE_GRENZE).set(versuch({ game: "fishPond" })));
+await darf("Gast beginnt ohne Grenze einen zweiten, ohne dass der erste ein Ergebnis hat", () => gast().doc(OHNE_GRENZE).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 2 }, { merge: true }));
+await darf("Gast beginnt ohne Grenze einen dritten Versuch", () => gast().doc(OHNE_GRENZE).set({ name: "Alain", versuche: 3, offen: true, updatedAtMs: 3 }, { merge: true }));
+
+const ANGEHALTEN = "miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_pausenspieler";
+await darf("Gast beendet im angehaltenen Turnier den Versuch, der vorher begonnen hat", () => gast().doc(ANGEHALTEN).set({ name: "Mia", punkte: 12, offen: false, updatedAtMs: 2 }, { merge: true }));
+await darfNicht("Gast beginnt im angehaltenen Turnier einen weiteren Versuch", () => gast().doc(ANGEHALTEN).set({ name: "Mia", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+
+const EBEN = "miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl";
+await darf("Gast trägt nach dem Schluss das Ergebnis eines vorher begonnenen Versuchs ein", () => gast().doc(EBEN).set({ name: "Alain", punkte: 30, offen: false, updatedAtMs: 2 }, { merge: true }));
+await darfNicht("Gast beginnt nach dem Schluss noch einen Versuch", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+
+await darfNicht("Gast löscht einen Turniereintrag", () => gast().doc(VERSUCH).delete());
+await darfNicht("Ein angemeldeter Fremder löscht einen Turniereintrag", () => fremder().doc(VERSUCH).delete());
+await darf("Admin löscht einen Turniereintrag", () => admin().doc(VERSUCH).delete());
+await darfNicht("Gast löscht ein Turnier", () => gast().doc(GEHEIM).delete());
+await darf("Admin löscht ein Turnier", () => admin().doc(GEHEIM).delete());
+
+// --- cloud.js gegen die Regeln ------------------------------------------------
+// Die Prüfung im Browser ersetzt cloud.js durch eine Attrappe – sie sieht also
+// nie, ob das, was cloud.js wirklich schreibt, an diesen Regeln vorbeikommt.
+// Das wird hier nachgeholt: cloud.js läuft so, wie es im Browser läuft, nur
+// dass sein Firestore der des Emulators ist – einmal als Gast, einmal als
+// Admin. Ein Feld, das cloud.js mitschickt und die Regeln nicht kennen, fiele
+// hier auf und nicht erst beim ersten Turnier.
+//
+// Ausgeführt wird im selben Realm (new Function, kein vm): Firestore nimmt
+// nur schlichte Objekte an, und ein Objekt aus einem fremden Realm ist für
+// Firestore keines.
+function cloudAls(firestore) {
+  const fenster = {
+    firebase: { apps: [{}], app: () => ({}), initializeApp: () => ({}), firestore: () => firestore },
+  };
+  new Function("window", readFileSync(path.join(WURZEL, "cloud.js"), "utf8"))(fenster);
+  return fenster.MiniCloud;
+}
+
+async function wirft(was, code, tun) {
+  geprueft += 1;
+  try { await tun(); befunde.push(`Kein Fehler, sollte aber: ${was}`); }
+  catch (fehler) {
+    if (fehler?.code !== code) befunde.push(`Falscher Fehler: ${was}\n      ${fehler?.code || ""} ${kurz(fehler)}`);
+  }
+}
+
+function erwarte(bedingung, text) {
+  if (!bedingung) throw new Error(text);
+}
+
+const gastCloud = cloudAls(gast());
+const adminCloud = cloudAls(admin());
+const CT = "cloudjs-a1b2c3d4";
+const ICH = { game: "towerStack", spieler: "mini_cloudjsspieler", name: "Cloud" };
+
+await darf("cloud.js: Admin legt ein Turnier nur mit Link an", () => adminCloud.setzeTurnier(CT, {
+  name: "Über cloud.js", beschreibung: "", spiele: ["towerStack", "towerStack", "fishPond"],
+  startMs: JETZT - STUNDE, endeMs: JETZT + STUNDE, versuche: 2, zaehlt: "summe", wertung: "prozent",
+  aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true,
+}));
+await darf("cloud.js: Gast öffnet es über den Link", async () => {
+  const t = await gastCloud.turnier(CT);
+  erwarte(t?.name === "Über cloud.js" && t.zaehlt === "summe" && t.spiele.length === 2, JSON.stringify(t));
+});
+await darf("cloud.js: In der Liste der öffentlichen steht es nicht", async () => {
+  const liste = await gastCloud.oeffentlicheTurniere();
+  erwarte(liste.some((t) => t.name === "Herbstcup"), "das öffentliche Turnier fehlt");
+  erwarte(!liste.some((t) => t.id === CT), "das Turnier nur mit Link steht in der Liste");
+});
+await darf("cloud.js: Gast beginnt einen Versuch", async () => {
+  const stand = await gastCloud.turnierVersuch(CT, { ...ICH, grenze: 2 });
+  erwarte(stand.versuche === 1, JSON.stringify(stand));
+});
+await darf("cloud.js: Gast trägt sein Ergebnis ein", async () => {
+  const stand = await gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 12, zaehlt: "summe" });
+  erwarte(stand.punkte === 12 && stand.versuche === 1, JSON.stringify(stand));
+});
+await wirft("cloud.js: Ein zweites Ergebnis ohne neuen Versuch", "turnier/kein-versuch",
+  () => gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 99, zaehlt: "summe" }));
+await darf("cloud.js: Gast beginnt den zweiten Versuch", async () => {
+  const stand = await gastCloud.turnierVersuch(CT, { ...ICH, grenze: 2 });
+  erwarte(stand.versuche === 2 && stand.punkte === 12, JSON.stringify(stand));
+});
+await darf("cloud.js: Beide Versuche werden zusammengezählt", async () => {
+  const stand = await gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 30, zaehlt: "summe" });
+  erwarte(stand.punkte === 42, JSON.stringify(stand));
+});
+await wirft("cloud.js: Ein dritter von zwei Versuchen", "turnier/keine-versuche",
+  () => gastCloud.turnierVersuch(CT, { ...ICH, grenze: 2 }));
+await darf("cloud.js: Gast benennt sich im Turnier um", async () => {
+  const stand = await gastCloud.turnierUmbenennen(CT, { spieler: ICH.spieler, name: "Cloud Zwei" });
+  erwarte(stand?.geaendert === 1, JSON.stringify(stand));
+});
+await darf("cloud.js: Die Liste des Turniers stimmt", async () => {
+  const liste = await gastCloud.turnierErgebnisse(CT);
+  const e = liste[0];
+  erwarte(liste.length === 1 && e.punkte === 42 && e.versuche === 2 && e.offen === false && e.name === "Cloud Zwei", JSON.stringify(liste));
+  const mein = await gastCloud.meinTurnierEintrag(CT, ICH);
+  erwarte(mein?.versuche === 2, JSON.stringify(mein));
+});
+await darf("cloud.js: Gast trägt sich in die ewige Liste ein", async () => {
+  const stand = await gastCloud.speichere({ ...ICH, punkte: 5 });
+  erwarte(stand.rekord === true, JSON.stringify(stand));
+});
+await darf("cloud.js: Admin sieht alle Turniere", async () => {
+  const liste = await adminCloud.alleTurniere();
+  erwarte(liste.some((t) => t.id === CT), "das Turnier nur mit Link fehlt beim Admin");
+});
+await darf("cloud.js: Admin löscht das Turnier samt Einträgen", async () => {
+  await adminCloud.loescheTurnier(CT);
+  erwarte(await gastCloud.turnier(CT) === null, "das Turnier ist noch da");
+  erwarte((await gastCloud.turnierErgebnisse(CT)).length === 0, "Einträge sind liegen geblieben");
+});
+
+// Ein grosses Turnier: mehr Einträge, als auf eine Seite gehen – und mehr als
+// die 3000, bei denen die Liste einmal stillschweigend aufhörte. Fehlte dort
+// jemand, bekäme er in der Gesamtwertung für jedes Spiel den Platz hinter dem
+// Letzten.
+const GROSS = "gross-a1b2c3d4";
+await env.withSecurityRulesDisabled(async (kontext) => {
+  const db = kontext.firestore();
+  await db.doc(`miniTurniere/${GROSS}`).set(turnierDaten({ name: "Grossturnier", sichtbar: "link" }));
+  for (let stapel = 0; stapel < 7; stapel += 1) {
+    const schreiben = db.batch();
+    for (let i = 0; i < 450; i += 1) {
+      const n = stapel * 450 + i;
+      const spieler = `mini_gross${String(n).padStart(6, "0")}`;
+      const game = n % 10 === 0 ? "fishPond" : "towerStack";
+      schreiben.set(db.doc(`miniTurniere/${GROSS}/eintraege/${game}_${spieler}`), {
+        game, spieler, name: `S${n}`, punkte: n, versuche: 1, offen: false, updatedAtMs: 1,
+      });
+    }
+    await schreiben.commit();
+  }
+});
+await darf("cloud.js: Ein grosses Turnier kommt vollständig, Seite für Seite", async () => {
+  const alle = await gastCloud.turnierErgebnisse(GROSS);
+  erwarte(alle.length === 3150, `${alle.length} statt 3150 Einträge`);
+  erwarte(new Set(alle.map((e) => e.id)).size === alle.length, "Einträge kamen doppelt");
+  const teich = await gastCloud.turnierErgebnisse(GROSS, { game: "fishPond" });
+  erwarte(teich.length === 315 && teich.every((e) => e.game === "fishPond"), `${teich.length} statt 315 Einträge im Fischteich`);
+});
+await darf("cloud.js: Admin löscht auch ein grosses Turnier ganz", async () => {
+  await adminCloud.loescheTurnier(GROSS);
+  // Nachgesehen wird mit einem frischen Client – wie bei einem neuen Besuch
+  // der Turnierseite. Der Gast von eben hält die 3150 Einträge noch in seiner
+  // Abfrage; ihn dieselbe Frage noch einmal stellen zu lassen, prüfte den
+  // Abgleich im Firestore-SDK (der gegen den Emulator nach so vielen
+  // Löschungen minutenlang rechnet), nicht, was in der Datenbank steht.
+  const frisch = cloudAls(gast());
+  erwarte((await frisch.turnierErgebnisse(GROSS)).length === 0, "Einträge sind liegen geblieben");
+  erwarte(await frisch.turnier(GROSS) === null, "das Turnier ist noch da");
+});
 
 // --- Sonst gibt es nichts ----------------------------------------------------
 // Eine Sammlung, die jemand morgen anlegt, steht nicht offen da, weil niemand

@@ -7,9 +7,7 @@
  *
  * In einem Turnier ist es falsch. Wenn vier Leute denselben Link öffnen und um
  * dieselbe Bestenliste spielen, dann muss jeder dieselbe Aufgabe bekommen,
- * sonst gewinnt der mit dem freundlicheren Würfel. Und die drei Versuche
- * derselben Person müssen dieselbe Aufgabe sein, sonst ist der dritte Versuch
- * nur ein neuer Wurf.
+ * sonst gewinnt der mit dem freundlicheren Würfel.
  *
  * Deshalb dieses Modul. Es hat zwei Betriebsarten, und welche gilt, steht in
  * der Adresse:
@@ -18,10 +16,17 @@
  *   /turmbau?turnier=herbst24    Turnier – jeder bekommt denselben Lauf
  *
  * Ohne den Parameter ist hier nichts anders als vorher: zahl() IST
- * Math.random, ohne Umweg und ohne Zustand. Das ist Absicht. Der Turniermodus
- * ist noch nicht gebaut; was hier liegt, ist nur die Fassung, in die er später
- * seinen Seed legt, damit die Spiele dafür nicht noch einmal angefasst werden
- * müssen.
+ * Math.random, ohne Umweg und ohne Zustand. Das ist Absicht.
+ *
+ * Im Turnier stellt turnier.js zwei Dinge nach, sobald es das Turnier gelesen
+ * hat (stelle):
+ *
+ *   runde   der wievielte Versuch das ist. Der erste Versuch ist für alle
+ *           derselbe Lauf, der zweite auch – aber ein anderer als der erste.
+ *           So vergleicht das Turnier Gleiches mit Gleichem, und trotzdem
+ *           lernt niemand seinen Lauf auswendig, indem er ihn dreimal spielt.
+ *   frei    das Turnier will gar keinen festen Lauf ("jedes Mal neu
+ *           gewürfelt"). Dann ist es wieder Math.random.
  *
  * Ein Spiel benutzt es so:
  *
@@ -29,16 +34,23 @@
  *   zufall.neu();                                      // zu Beginn jeder Runde
  *   const x = zufall.zahl();                           // statt Math.random()
  *
- * Das neu() zu Beginn der Runde ist der Teil, den man vergisst: ohne ihn wäre
- * der zweite Versuch im Turnier ein anderer Lauf als der erste.
+ * Das neu() zu Beginn der Runde ist der Teil, den man vergisst: Erst dort
+ * greift, was turnier.js zuletzt gestellt hat. Ohne neu() liefe der zweite
+ * Versuch mit dem Rest der Zahlen des ersten weiter.
+ *
+ * Und nur, was die Aufgabe entscheidet, kommt von hier: welche Kacheln
+ * leuchten, welche Zahl gesucht wird. Was davon abhängt, wie jemand spielt –
+ * Funken beim perfekten Treffer, das Schlingern eines Fisches Bild für Bild –,
+ * bleibt bei Math.random. Sonst verbrauchte der bessere Spieler mehr Zahlen,
+ * und ab seinem ersten Funken liefe sein Lauf anders als der aller anderen.
  */
 (() => {
   "use strict";
 
-  // Die Kennung des Turniers steht in der Adresse. "runde" ist Platz für
-  // später: ein Turnier mit mehreren Durchgängen dreht daran, und jeder
-  // Durchgang ist ein anderer Lauf – derselbe aber für alle.
-  function turnier() {
+  // Die Kennung des Turniers steht in der Adresse. "runde" in der Adresse ist
+  // der Anfangswert; turnier.js stellt sie nach, sobald es weiss, der
+  // wievielte Versuch gleich beginnt.
+  function ausDerAdresse() {
     let params;
     try { params = new URLSearchParams(window.location.search); } catch { return null; }
     const id = (params.get("turnier") || "").trim().slice(0, 64);
@@ -47,7 +59,25 @@
     return { id, runde };
   }
 
+  const adresse = ausDerAdresse();
+  const lage = { id: adresse?.id || "", runde: adresse?.runde || "", frei: false };
+
+  function turnier() {
+    return lage.id ? { id: lage.id, runde: lage.runde } : null;
+  }
+
   const istTurnier = () => turnier() !== null;
+  // Ob die Runden gerade für alle dieselben sind.
+  const istFest = () => Boolean(lage.id) && !lage.frei;
+
+  /*
+   * Was das Turnier aus dem Zufall macht. Gilt ab dem nächsten neu() – eine
+   * Runde, die schon läuft, würfelt mit dem weiter, was sie hatte.
+   */
+  function stelle({ runde, frei } = {}) {
+    if (runde !== undefined && runde !== null) lage.runde = String(runde).trim().slice(0, 16);
+    if (frei !== undefined) lage.frei = Boolean(frei);
+  }
 
   // ---------------------------------------------------------------------------
   // Aus einem Text eine Zahl
@@ -81,25 +111,25 @@
   /*
    * Die Zufallsquelle eines Spiels.
    *
-   * Ohne Turnier ist zahl() Math.random und neu() tut nichts – der normale
-   * Modus bleibt Bit für Bit der von vorher.
+   * Ohne Turnier ist zahl() Math.random und neu() ändert daran nichts – der
+   * normale Modus bleibt Bit für Bit der von vorher.
    *
-   * Mit Turnier hängt die Saat am Turnier UND am Spiel: sonst begänne jedes
-   * Spiel desselben Turniers mit derselben Zahlenfolge, und wer bei einem
-   * Spiel merkt, was kommt, wüsste es beim nächsten wieder.
+   * Mit Turnier hängt die Saat am Turnier, an der Runde UND am Spiel: sonst
+   * begänne jedes Spiel desselben Turniers mit derselben Zahlenfolge, und wer
+   * bei einem Spiel merkt, was kommt, wüsste es beim nächsten wieder.
    */
   function fuer(spiel) {
-    const t = turnier();
-    const saat = t ? streuwert(`${t.id}|${t.runde}|${spiel}`) : 0;
-    let wuerfel = t ? mulberry32(saat) : Math.random;
+    const saat = () => streuwert(`${lage.id}|${lage.runde}|${spiel}`);
+    const wuerfel = () => (istFest() ? mulberry32(saat()) : Math.random);
+    let aktuell = wuerfel();
 
-    const zahl = () => wuerfel();
+    const zahl = () => aktuell();
     return {
       // Wahr, wenn dieser Lauf für alle derselbe ist.
-      fest: Boolean(t),
-      // Zurück an den Anfang. Im Turnier ist der zweite Versuch damit
-      // derselbe Lauf wie der erste; ohne Turnier ist es ein leerer Handgriff.
-      neu() { if (t) wuerfel = mulberry32(saat); },
+      get fest() { return istFest(); },
+      // Zurück an den Anfang – und zwar an den Anfang der Runde, die jetzt
+      // gilt. Ohne Turnier ist es ein leerer Handgriff.
+      neu() { aktuell = wuerfel(); },
       zahl,
       ganz: (n) => Math.floor(zahl() * n),
       von: (min, max) => min + zahl() * (max - min),
@@ -116,5 +146,5 @@
     };
   }
 
-  window.LernappZufall = { turnier, istTurnier, fuer };
+  window.LernappZufall = { turnier, istTurnier, istFest, fuer, stelle };
 })();
