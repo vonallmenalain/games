@@ -271,6 +271,10 @@ await env.withSecurityRulesDisabled(async (kontext) => {
   await db.doc("miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
     game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
   });
+  // Angehalten, während einer spielt: sein Versuch begann vorher.
+  await db.doc("miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_pausenspieler").set({
+    game: "towerStack", spieler: "mini_pausenspieler", name: "Mia", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
+  });
 });
 
 const VERSUCH = `${OEFFENTLICH}/eintraege/towerStack_mini_abcdefghijkl`;
@@ -316,6 +320,10 @@ const OHNE_GRENZE = "miniTurniere/offen-z7x5c3v1/eintraege/fishPond_mini_abcdefg
 await darf("Gast beginnt ohne Grenze einen ersten Versuch", () => gast().doc(OHNE_GRENZE).set(versuch({ game: "fishPond" })));
 await darf("Gast beginnt ohne Grenze einen zweiten, ohne dass der erste ein Ergebnis hat", () => gast().doc(OHNE_GRENZE).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 2 }, { merge: true }));
 await darf("Gast beginnt ohne Grenze einen dritten Versuch", () => gast().doc(OHNE_GRENZE).set({ name: "Alain", versuche: 3, offen: true, updatedAtMs: 3 }, { merge: true }));
+
+const ANGEHALTEN = "miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_pausenspieler";
+await darf("Gast beendet im angehaltenen Turnier den Versuch, der vorher begonnen hat", () => gast().doc(ANGEHALTEN).set({ name: "Mia", punkte: 12, offen: false, updatedAtMs: 2 }, { merge: true }));
+await darfNicht("Gast beginnt im angehaltenen Turnier einen weiteren Versuch", () => gast().doc(ANGEHALTEN).set({ name: "Mia", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
 
 const EBEN = "miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl";
 await darf("Gast trägt nach dem Schluss das Ergebnis eines vorher begonnenen Versuchs ein", () => gast().doc(EBEN).set({ name: "Alain", punkte: 30, offen: false, updatedAtMs: 2 }, { merge: true }));
@@ -420,6 +428,46 @@ await darf("cloud.js: Admin löscht das Turnier samt Einträgen", async () => {
   await adminCloud.loescheTurnier(CT);
   erwarte(await gastCloud.turnier(CT) === null, "das Turnier ist noch da");
   erwarte((await gastCloud.turnierErgebnisse(CT)).length === 0, "Einträge sind liegen geblieben");
+});
+
+// Ein grosses Turnier: mehr Einträge, als auf eine Seite gehen – und mehr als
+// die 3000, bei denen die Liste einmal stillschweigend aufhörte. Fehlte dort
+// jemand, bekäme er in der Gesamtwertung für jedes Spiel den Platz hinter dem
+// Letzten.
+const GROSS = "gross-a1b2c3d4";
+await env.withSecurityRulesDisabled(async (kontext) => {
+  const db = kontext.firestore();
+  await db.doc(`miniTurniere/${GROSS}`).set(turnierDaten({ name: "Grossturnier", sichtbar: "link" }));
+  for (let stapel = 0; stapel < 7; stapel += 1) {
+    const schreiben = db.batch();
+    for (let i = 0; i < 450; i += 1) {
+      const n = stapel * 450 + i;
+      const spieler = `mini_gross${String(n).padStart(6, "0")}`;
+      const game = n % 10 === 0 ? "fishPond" : "towerStack";
+      schreiben.set(db.doc(`miniTurniere/${GROSS}/eintraege/${game}_${spieler}`), {
+        game, spieler, name: `S${n}`, punkte: n, versuche: 1, offen: false, updatedAtMs: 1,
+      });
+    }
+    await schreiben.commit();
+  }
+});
+await darf("cloud.js: Ein grosses Turnier kommt vollständig, Seite für Seite", async () => {
+  const alle = await gastCloud.turnierErgebnisse(GROSS);
+  erwarte(alle.length === 3150, `${alle.length} statt 3150 Einträge`);
+  erwarte(new Set(alle.map((e) => e.id)).size === alle.length, "Einträge kamen doppelt");
+  const teich = await gastCloud.turnierErgebnisse(GROSS, { game: "fishPond" });
+  erwarte(teich.length === 315 && teich.every((e) => e.game === "fishPond"), `${teich.length} statt 315 Einträge im Fischteich`);
+});
+await darf("cloud.js: Admin löscht auch ein grosses Turnier ganz", async () => {
+  await adminCloud.loescheTurnier(GROSS);
+  // Nachgesehen wird mit einem frischen Client – wie bei einem neuen Besuch
+  // der Turnierseite. Der Gast von eben hält die 3150 Einträge noch in seiner
+  // Abfrage; ihn dieselbe Frage noch einmal stellen zu lassen, prüfte den
+  // Abgleich im Firestore-SDK (der gegen den Emulator nach so vielen
+  // Löschungen minutenlang rechnet), nicht, was in der Datenbank steht.
+  const frisch = cloudAls(gast());
+  erwarte((await frisch.turnierErgebnisse(GROSS)).length === 0, "Einträge sind liegen geblieben");
+  erwarte(await frisch.turnier(GROSS) === null, "das Turnier ist noch da");
 });
 
 // --- Sonst gibt es nichts ----------------------------------------------------

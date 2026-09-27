@@ -612,9 +612,28 @@
     freigegeben: false,   // die Tafel wurde mit "Los geht's" verlassen
     laeuft: false,        // eine angemeldete Runde läuft gerade
     anmeldung: null,      // die Anmeldung dieser Runde (ein Promise)
+    kette: Promise.resolve(), // was diese Seite ins Turnier schreibt, der Reihe nach
     buehne: null,         // { host, los } von game-shell.js
     tor: null,            // die Tafel vor dem Spiel
   };
+
+  /*
+   * Was diese Seite ins Turnier schreibt, geht in der Reihenfolge hinaus, in
+   * der es geschah: Anmeldung, Ergebnis, nächste Anmeldung. Sonst überholt
+   * bei langsamer Verbindung die Anmeldung des nächsten Versuchs das Ergebnis
+   * des letzten – wer gleich nach der Runde "Noch einmal" drückt, meldet den
+   * neuen Versuch an, bevor das alte Ergebnis draussen ist. Das alte Ergebnis
+   * schlösse dann den neuen Versuch (offen → false), und dessen eigenes käme
+   * nie mehr an.
+   *
+   * Die Runde wartet darauf nicht; nur die Schreibvorgänge warten
+   * aufeinander. Ein Fehlschlag hält die Reihe nicht auf.
+   */
+  function nacheinander(schritt) {
+    const lauf = hier.kette.then(schritt);
+    hier.kette = lauf.catch(() => {});
+    return lauf;
+  }
 
   function ladeSpielseite() {
     hier.id = ausDerAdresse("turnier");
@@ -809,7 +828,8 @@
     // Gesamtwertung zweimal: mit dem alten Namen im einen, mit dem neuen im
     // anderen Spiel.
     if (wie !== vorher) mini()?.benenneUm?.()?.catch?.(() => {});
-    cloud()?.turnierUmbenennen?.(hier.id, { spieler: mini()?.kennung?.(), name: wie })?.catch?.(() => {});
+    const spieler = mini()?.kennung?.();
+    nacheinander(() => cloud()?.turnierUmbenennen?.(hier.id, { spieler, name: wie })).catch(() => {});
 
     hier.freigegeben = true;
     hier.laeuft = false;
@@ -838,12 +858,8 @@
     const t = hier.t;
     hier.laeuft = true;
     hier.gespielt += 1;
-    hier.anmeldung = cloud().turnierVersuch(hier.id, {
-      game: spielHier(),
-      spieler: mini().kennung(),
-      name: mini().name(),
-      grenze: t.versuche,
-    }).then((stand) => {
+    const wer = { game: spielHier(), spieler: mini().kennung(), name: mini().name(), grenze: t.versuche };
+    hier.anmeldung = nacheinander(() => cloud().turnierVersuch(hier.id, wer)).then((stand) => {
       hier.gespielt = Math.max(hier.gespielt, stand.versuche);
       return stand;
     }, (fehler) => {
@@ -956,37 +972,47 @@
     hier.laeuft = false;
     const anmeldung = hier.anmeldung;
     hier.anmeldung = null;
-    meldung.textContent = "Wird ins Turnier eingetragen...";
+    const eintrag = { game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, zaehlt: t.zaehlt };
+    const eintragen = () => cloud().turnierErgebnis(hier.id, eintrag);
 
-    function eintragen() {
+    function zeige(weg) {
       meldung.textContent = "Wird ins Turnier eingetragen...";
       block.querySelector(".tn-nochmal")?.remove();
-      cloud().turnierErgebnis(hier.id, {
-        game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, zaehlt: t.zaehlt,
-      }).then((stand) => {
+      weg.then((stand) => {
         hier.punkte = stand.punkte;
         meldung.textContent = ergebnisSatz(t, stand, spiel);
         restZeile();
         zeigeListe();
+        // Das Turnier noch einmal lesen, für den nächsten Neustart: Wurde es
+        // inzwischen angehalten oder beendet, soll die Tafel das sagen, statt
+        // eine Runde anzubieten, die nicht mehr zählt.
+        cloud().turnier(hier.id).then((frisch) => { if (frisch) hier.t = frisch; }, () => {});
       }, (fehler) => {
         restZeile();
-        if (fehler?.code === "turnier/kein-versuch") {
+        if (fehler?.code === "turnier/nicht-angemeldet") {
+          meldung.textContent = fehlerBeimAnmelden(fehler.ursache);
+        } else if (fehler?.code === "turnier/kein-versuch") {
           meldung.textContent = "Zu dieser Runde gibt es keinen angemeldeten Versuch – sie zählt nicht.";
         } else if (fehler?.code === "permission-denied") {
           meldung.textContent = "Zu spät: Das Turnier nimmt keine Ergebnisse mehr an.";
         } else {
           // Angemeldet war der Versuch – sein Ergebnis darf also noch kommen.
           meldung.textContent = "Das Eintragen hat nicht geklappt.";
-          const nochmal = knopf("Noch einmal eintragen", "mini-knopf-klein tn-nochmal", eintragen);
+          const nochmal = knopf("Noch einmal eintragen", "mini-knopf-klein tn-nochmal", () => zeige(nacheinander(eintragen)));
           meldung.after(nochmal);
         }
       });
     }
 
-    anmeldung.then(eintragen, (fehler) => {
-      meldung.textContent = fehlerBeimAnmelden(fehler);
-      restZeile();
-    });
+    // Gleich jetzt in die Reihe, nicht erst, wenn die Anmeldung zurück ist:
+    // Drückt jemand sofort "Noch einmal", geht die Anmeldung des nächsten
+    // Versuchs so erst nach diesem Ergebnis hinaus (nacheinander).
+    zeige(nacheinander(() => anmeldung.then(eintragen, (fehler) => {
+      const nicht = new Error("Der Versuch wurde nicht angemeldet.");
+      nicht.code = "turnier/nicht-angemeldet";
+      nicht.ursache = fehler;
+      throw nicht;
+    })));
     return block;
   }
 

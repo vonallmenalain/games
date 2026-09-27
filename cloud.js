@@ -419,7 +419,12 @@
   // jedem Versuch.
   const TURNIER_PUNKTE_MAX = 10000000;
   const MAX_TURNIERE = 100;
-  const MAX_JE_TURNIER = 3000;
+  // So viele Einträge eines Turniers auf einmal. Gelesen wird Seite für Seite
+  // bis zum Ende und nicht bis zu einer Grenze: Bei einem grossen Turnier
+  // fehlten sonst die hinteren Einträge still – und wer in der
+  // Gesamtwertung fehlt, bekommt dort für jedes Spiel den Platz hinter dem
+  // Letzten.
+  const TURNIER_SEITE = 500;
 
   const turnierSammlung = () => starte()?.collection("miniTurniere") || null;
   function turnierEintraege(id) {
@@ -563,13 +568,21 @@
   }
 
   // Die Liste eines Turniers, auf Wunsch nur die eines Spiels – eine Abfrage
-  // über ein einziges Feld, ohne zusammengesetzten Index.
+  // über ein einziges Feld, ohne zusammengesetzten Index. Weiterblättern
+  // (startAfter) geht nach dem Dokumentnamen, nach dem Firestore ohnehin
+  // sortiert; auch dafür braucht es keinen eigenen Index.
   async function turnierErgebnisse(id, { game = "" } = {}) {
     const ref = turnierEintraege(id);
     if (!ref) throw new Error("Firestore ist nicht bereit.");
     const spielId = String(game || "").trim();
-    const frage = spielId ? ref.where("game", "==", spielId) : ref;
-    return sammle(await frage.limit(MAX_JE_TURNIER).get(), liesTurnierEintrag);
+    let frage = (spielId ? ref.where("game", "==", spielId) : ref).limit(TURNIER_SEITE);
+    const liste = [];
+    for (;;) {
+      const seite = await frage.get();
+      liste.push(...sammle(seite, liesTurnierEintrag));
+      if (seite.size < TURNIER_SEITE) return liste;
+      frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+    }
   }
 
   // Der eigene Stand in einem Spiel: wie viele Versuche schon weg sind.

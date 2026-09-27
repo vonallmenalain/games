@@ -36,11 +36,13 @@ miniTurniere/<id>/eintraege/<spiel>_<spieler>
 ```
 
 Ein einzelnes Turnier lesen darf jeder, der seinen Namen kennt; auflisten
-lassen sich nur die öffentlichen (`sichtbar == "alle"`). Ein Eintrag darf nur
-geschrieben werden, solange das Turnier läuft und nicht angehalten ist, nur
-für seine Spiele und nur bis zur Zahl der Versuche – die Regeln lesen das
-Turnier dafür nach. Ein Versuch zählt ab seinem Beginn, sein Ergebnis kommt
-danach genau einmal, bis zehn Minuten nach dem Ende.
+lassen sich nur die öffentlichen (`sichtbar == "alle"`). Ein Versuch darf nur
+beginnen, solange das Turnier läuft und nicht angehalten ist, nur in seinen
+Spielen und nur bis zur Zahl der Versuche – die Regeln lesen das Turnier
+dafür nach. Ein Versuch zählt ab seinem Beginn, sein Ergebnis kommt danach
+genau einmal, bis zehn Minuten nach dem Ende – auch wenn das Turnier
+inzwischen angehalten wurde: Anhalten hält neue Versuche auf, es nimmt
+keinem die Runde weg, die er gerade spielt.
 
 Keine der Abfragen braucht einen zusammengesetzten Index: gefragt wird immer
 nur nach einem Feld. Es gibt also nichts, was von Hand nach Firebase müsste.

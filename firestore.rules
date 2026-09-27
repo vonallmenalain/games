@@ -276,17 +276,25 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/miniTurniere/$(turnierId)).data;
     }
 
-    // Läuft das Turnier, und gehört das Spiel dazu? "nachspiel" ist die Zeit,
-    // die ein Ergebnis nach dem Ende noch eingetragen werden darf: Wer eine
-    // Minute vor Schluss beginnt, soll seine Runde zu Ende spielen dürfen.
-    // Beginnen darf nach dem Ende niemand mehr (nachspiel 0).
-    function turnierLaeuft(turnierId, nachspiel) {
+    // Gehört das Spiel dazu, und liegt jetzt in der Zeit des Turniers?
+    // "nachspiel" ist die Zeit, die ein Ergebnis nach dem Ende noch
+    // eingetragen werden darf: Wer eine Minute vor Schluss beginnt, soll seine
+    // Runde zu Ende spielen dürfen.
+    function imZeitraum(turnierId, nachspiel) {
       let t = turnierDaten(turnierId);
       let jetzt = request.time.toMillis();
-      return t.aktiv == true
-        && request.resource.data.game in t.spiele
+      return request.resource.data.game in t.spiele
         && jetzt >= t.startMs
         && jetzt <= t.endeMs + nachspiel;
+    }
+
+    // Beginnen darf ein Versuch nur, solange das Turnier läuft – nicht vor dem
+    // Start, nicht nach dem Ende, nicht, solange es angehalten ist. Zu Ende
+    // gehen darf einer, der vorher begonnen hat, auch danach: Das Anhalten
+    // hält neue Versuche auf, es nimmt keinem die Runde weg, die er gerade
+    // spielt.
+    function darfBeginnen(turnierId) {
+      return turnierDaten(turnierId).aktiv == true && imZeitraum(turnierId, 0);
     }
 
     function versuchUebrig(turnierId) {
@@ -305,7 +313,7 @@ service cloud.firestore {
         allow read: if true;
         // Der erste Versuch beginnt.
         allow create: if istTurnierEintrag(eintragId)
-          && turnierLaeuft(turnierId, 0)
+          && darfBeginnen(turnierId)
           && versuchUebrig(turnierId)
           && request.resource.data.versuche == 1
           && request.resource.data.offen == true
@@ -314,16 +322,17 @@ service cloud.firestore {
         // Ergebnis eben aus – er zählt trotzdem.
         allow update: if istTurnierEintrag(eintragId)
           && istDerselbeEintrag()
-          && turnierLaeuft(turnierId, 0)
+          && darfBeginnen(turnierId)
           && versuchUebrig(turnierId)
           && request.resource.data.versuche == resource.data.versuche + 1
           && request.resource.data.offen == true
           && request.resource.data.punkte == resource.data.punkte;
-        // Der Versuch ist zu Ende: sein Ergebnis, genau einmal. Zehn Minuten
-        // Nachspiel – keine Runde hier dauert länger.
+        // Der Versuch ist zu Ende: sein Ergebnis, genau einmal – auch wenn das
+        // Turnier inzwischen angehalten wurde. Zehn Minuten Nachspiel nach dem
+        // Schluss; keine Runde hier dauert länger.
         allow update: if istTurnierEintrag(eintragId)
           && istDerselbeEintrag()
-          && turnierLaeuft(turnierId, 600000)
+          && imZeitraum(turnierId, 600000)
           && resource.data.offen == true
           && request.resource.data.offen == false
           && request.resource.data.versuche == resource.data.versuche

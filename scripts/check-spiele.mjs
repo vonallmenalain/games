@@ -210,6 +210,7 @@ const ATTRAPPE = `
       return e ? { ...e } : null;
     },
     turnierVersuch: async (id, { game, spieler, name, grenze = 0 }) => {
+      await langsam();
       const t = turniere.get(id);
       const k = id + "/" + game + "_" + spieler;
       const alt = tEintraege.get(k);
@@ -221,6 +222,7 @@ const ATTRAPPE = `
       return { versuche, punkte: (alt && alt.punkte) || 0 };
     },
     turnierErgebnis: async (id, { game, spieler, name, punkte, zaehlt = "bester" }) => {
+      await langsam();
       const t = turniere.get(id);
       const k = id + "/" + game + "_" + spieler;
       const alt = tEintraege.get(k);
@@ -247,6 +249,10 @@ const ATTRAPPE = `
   // Die Turniere kommen aus der Pruefung (window.__miniTurniereAnfang) und
   // bleiben, wie die Eintraege, ueber ein Neuladen hinweg im Speicher.
   function fehler(text, code) { const f = new Error(text); f.code = code; return f; }
+  // Eine langsame Verbindung, wenn die Pruefung sie will: Gelesen und
+  // geschrieben wird erst nach der Wartezeit, dann in einem Zug – so wie eine
+  // Transaktion in Firestore auch erst am Ende gilt.
+  function langsam() { return new Promise((weiter) => setTimeout(weiter, window.__miniLangsam || 0)); }
   function laeuft(t, game, nachspiel) {
     const jetzt = Date.now();
     return Boolean(t) && t.aktiv && t.spiele.includes(game) && jetzt >= t.startMs && jetzt <= t.endeMs + nachspiel;
@@ -1208,6 +1214,30 @@ try {
     pruefe(/zählt/.test(gefragt), `Vor dem Neustart mitten im Versuch kam keine Frage (${gefragt || "nichts"}).`);
     pruefe(stand.eintrag?.versuche === 2, `Der abgebrochene Versuch zählt nicht: ${JSON.stringify(stand.eintrag)}`);
     pruefe(!stand.tor, "Nach dem Neustart mit einem übrigen Versuch steht die Tafel da.");
+    await kontext.close();
+  }
+
+  // --- 4f2. Gleich noch einmal, bei langsamer Verbindung ---------------------------
+  // Das Ergebnis eines Versuchs muss draussen sein, bevor der nächste
+  // angemeldet wird. Sonst überholt die neue Anmeldung das alte Ergebnis, das
+  // schliesst dann den neuen Versuch, und dessen Ergebnis käme nie an.
+  {
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`, { vorher: () => { window.__miniLangsam = 400; } });
+    await turnierLos(seite, "Eilig");
+    const befund = await seite.evaluate(async (id) => {
+      const turnier = window.LernappTurnier;
+      turnier.rundeBeginnt();
+      turnier.ergebnis({ punkte: 5 });
+      turnier.neuStart({ los: () => {} });
+      turnier.rundeBeginnt();
+      const zweiter = turnier.ergebnis({ punkte: 7 });
+      await new Promise((weiter) => setTimeout(weiter, 3000));
+      const ich = localStorage.getItem("mini.id");
+      return { eintrag: window.__miniTurnierEintraege.get(`${id}/towerStack_${ich}`) || null, text: zweiter.textContent };
+    }, HERBST);
+    pruefe(befund.eintrag?.versuche === 2 && befund.eintrag?.offen === false && befund.eintrag?.punkte === 7,
+      `Zwei Versuche kurz nacheinander kamen durcheinander an: ${JSON.stringify(befund.eintrag)}`);
+    pruefe(/bester Versuch bisher/.test(befund.text), `Der zweite von zwei schnellen Versuchen meldet: ${befund.text}`);
     await kontext.close();
   }
 
