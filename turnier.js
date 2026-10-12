@@ -188,6 +188,7 @@
         : "Gesamtwertung: Die Plätze aus allen Spielen werden zusammengezählt, die kleinste Summe gewinnt. Wer ein Spiel auslässt, bekommt dort den Platz hinter dem Letzten.");
     }
     if (t.verdeckt) saetze.push("Die Rangliste bleibt bis zum Schluss verdeckt – wer vorne liegt, zeigt sich erst am Ende.");
+    if (t.ohneGeist) saetze.push("Beim Spielen läuft kein Gegner mit – weder Platz 1 noch deine Bestmarke.");
     return saetze;
   }
 
@@ -1041,6 +1042,17 @@
 
     mini()?.melde?.(spiel, punkte, geist)?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
 
+    // Und der Lauf selbst, für die, die im Turnier gegen ihn spielen
+    // (geist.js): als bester einzelner Lauf dieses Spielers. Erst nach dem
+    // Ergebnis – ein Lauf ohne Zeile im Turnier gehörte zu niemandem. Er darf
+    // scheitern, ohne die Runde mitzunehmen.
+    const laufHinterlegen = () => {
+      if (!geist?.bahn || !t || t.ohneGeist) return;
+      cloud()?.speichereTurnierGeist?.(hier.id, {
+        game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, level: geist.level, bahn: geist.bahn,
+      })?.catch?.((fehler) => console.warn("Der Lauf kam nicht ins Turnier", fehler));
+    };
+
     function restZeile() {
       if (!t) return;
       const l = lage(t);
@@ -1102,6 +1114,7 @@
       const fertig = weg.then((stand) => {
         hier.punkte = stand.punkte;
         meldung.textContent = ergebnisSatz(t, stand, spiel);
+        laufHinterlegen();
         const geladen = t.spitzeWartet || !verdeckt() ? ladeListe() : null;
         zeigeListe(geladen);
         if (t.spitzeWartet) geladen.then(restZeile, restZeile);
@@ -1152,6 +1165,12 @@
     return `${punkte} ${wort}. Die Runde zählt fürs Turnier.`;
   }
 
+  // Für geist.js: ob das Turnier gelesen ist, und welches. Erst dann steht
+  // fest, ob es Gegner zeigen will (ohneGeist) und ob seine Liste verdeckt ist.
+  function geistLage() {
+    return { geladen: Boolean(hier.geladen && !hier.fehler), id: hier.id, t: hier.t ? { ...hier.t } : null };
+  }
+
   // Wohin der Weg oben links und der Pokal unter dem Ergebnis führen: im
   // Turnier zurück zum Turnier, nicht in die Hall of Fame.
   function ziel() {
@@ -1166,7 +1185,7 @@
     lage, dauer, datum, zeitraum, statusText, regeln, gesamtwertung, alleinVorne,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel, geistLage,
     hinweis,
     // Nur für die Prüfung im Browser: wie der Stand auf dieser Seite ist.
     stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor) }),

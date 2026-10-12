@@ -580,6 +580,7 @@
       aufgaben: "gleich",
       sichtbar: "alle",
       verdeckt: false,
+      ohneGeist: false,
       aktiv: true,
       spitzeWartet: false,
     };
@@ -811,6 +812,16 @@
     const verdecktText = el("span", "adm-option-text");
     verdecktText.append(el("strong", "", "Rangliste bis zum Schluss verdecken"), el("small", "", "Für die Spannung, nicht zur Geheimhaltung: Wer will, liest die Zahlen trotzdem aus der Datenbank."));
     verdecktZeile.append(verdeckt, verdecktText);
+    // Die Gegner beim Spielen (geist.js): Platz 1 und die eigene Bestmarke,
+    // die als Zahl, Linie oder Geist mitlaufen. Angehakt heisst: Sie sind
+    // da, und jeder kann sie vor dem Spiel für sich ausblenden.
+    const gegner = el("input");
+    gegner.type = "checkbox";
+    gegner.checked = !t.ohneGeist;
+    const gegnerZeile = el("label", "adm-option");
+    const gegnerText = el("span", "adm-option-text");
+    gegnerText.append(el("strong", "", "Gegner beim Spielen zeigen"), el("small", "", "Platz 1 und die eigene Bestmarke laufen mit – als Zahl, als Linie oder als Geist im Bild. Jeder kann sie vor dem Spiel für sich ausblenden. Bei einer verdeckten Rangliste bleibt Platz 1 verborgen."));
+    gegnerZeile.append(gegner, gegnerText);
     const aktiv = el("input");
     aktiv.type = "checkbox";
     aktiv.checked = t.aktiv;
@@ -818,7 +829,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -848,6 +859,7 @@
         aufgaben: gewaehlterWert("aufgaben") || "gleich",
         sichtbar: gewaehlterWert("sichtbar") || "alle",
         verdeckt: verdeckt.checked,
+        ohneGeist: !gegner.checked,
         aktiv: aktiv.checked,
         spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
         erstelltMs: vorlage?.erstelltMs || Date.now(),
@@ -928,6 +940,7 @@
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       t.aufgaben === "gleich" ? "gleiche Aufgaben" : "gewürfelt",
+      t.ohneGeist ? "ohne Gegner" : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
 

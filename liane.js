@@ -20,6 +20,10 @@
  * vierzehnten sind manche morsch und brechen, wenn der Affe zu lange daran
  * hängt.
  *
+ * Wer mag, schwingt nicht allein: Platz 1 und die eigene Bestmarke fliegen
+ * als Geister mit (geist.js) – an Lianen, die nur sie sehen, aber genau so
+ * weit, wie sie zu dieser Sekunde gekommen waren.
+ *
  * Gezeichnet wird wie beim Brückenbauer auf eine Leinwand, gerechnet in
  * Welteinheiten – zehn sind ein Meter. Fest steht die Höhe: SICHT_H Einheiten
  * im Querformat. Im Hochformat bleibt die Welt WELT_W breit, und darüber
@@ -171,6 +175,8 @@
   let last = 0;
   let stepTimer = null;
   let gedrueckt = false;
+  // Die Gegner (geist.js): wer mitfliegt, und wo er gerade ist.
+  let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -880,14 +886,118 @@
     });
     zeichneFruechte();
     zeichneZiel();
+    const geister = geisterOrte();
+    geister.forEach(zeichneGeist);
     zeichneSeil();
     zeichneAffe();
     zeichneTeile();
     zeichneWasser();
     zeichnePfosten();
     zeichneDach();
+    zeichneGeistNamen(geister);
     zeichneAnzeige();
     zeichneSchriften();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Geister
+  // ---------------------------------------------------------------------------
+  // Aufgezeichnet ist, wo der Affe des Gegners war: wie weit vom Startbaum
+  // (a) und wie hoch (b). Seine Äste waren andere, also hängt er hier an
+  // keinem – aber wie weit er zu dieser Sekunde war, stimmt.
+  function geisterOrte() {
+    if (!gegner || state.phase === "bereit") return [];
+    const ms = gegner.zeit();
+    return gegner.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
+      const ort = geg.lauf.ort(ms);
+      const bald = geg.lauf.ort(ms + 120);
+      const vx = (bald.a - ort.a) / 0.12;
+      const fertig = geg.lauf.fertig(ms);
+      return {
+        ...geg,
+        x: START.x + ort.a,
+        y: ort.b,
+        dreh: -clamp(vx / 900, -0.45, 0.45),
+        blass: fertig ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1,
+        meter: Math.round((ort.a - (state.p.x - START.x)) / METER),
+      };
+    });
+  }
+
+  // Ein Affe aus Licht: dieselbe Gestalt, in der Farbe des Gegners.
+  function zeichneGeist(geist) {
+    if (geist.blass <= 0) return;
+    g.save();
+    g.globalAlpha = 0.45 * geist.blass;
+    g.translate(geist.x, geist.y);
+    g.rotate(geist.dreh);
+    g.scale(AFFE_GROSS, AFFE_GROSS);
+    g.lineCap = "round";
+    g.strokeStyle = geist.farbe;
+    g.fillStyle = geist.farbe;
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.moveTo(-3, -6);
+    g.bezierCurveTo(-12, -9, -15, 1, -9, 3);
+    g.stroke();
+    g.lineWidth = 3.2;
+    g.beginPath();
+    g.moveTo(-2.5, -5);
+    g.lineTo(-5, -12);
+    g.moveTo(2.5, -5);
+    g.lineTo(5, -12);
+    g.stroke();
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(-3.6, 3.5);
+    g.lineTo(-1.5, HAND - 0.5);
+    g.moveTo(3.6, 3.5);
+    g.lineTo(1.5, HAND - 0.5);
+    g.stroke();
+    oval(0, -0.5, 6.4, 7.8);
+    kreis(-6, 10.2, 2.4);
+    kreis(6, 10.2, 2.4);
+    kreis(0, 9.6, 6.1);
+    g.restore();
+  }
+
+  // Der Name über dem Geist – oder, wenn er ausserhalb des Bildes fliegt,
+  // ein Schild am Rand: wie viele Meter er voraus ist oder zurückliegt.
+  function zeichneGeistNamen(geister) {
+    if (!geister.length) return;
+    bildTransform();
+    g.textBaseline = "middle";
+    const gross = Math.round(clamp(10 * view.s, 11, 16));
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    geister.forEach((geist, i) => {
+      if (geist.blass <= 0) return;
+      g.globalAlpha = 0.9 * geist.blass;
+      const sx = bildX(geist.x);
+      if (sx > -10 && sx < view.cssW + 10) {
+        g.textAlign = "center";
+        const sy = bildY(geist.y + 26 * AFFE_GROSS) - i * (gross + 3);
+        g.lineWidth = 3;
+        g.strokeStyle = "rgba(10, 40, 30, 0.6)";
+        g.strokeText(geist.name, sx, sy);
+        g.fillStyle = geist.farbe;
+        g.fillText(geist.name, sx, sy);
+        return;
+      }
+      const rechts = sx >= view.cssW;
+      const text = rechts ? `${geist.name} +${Math.max(1, geist.meter)} m ▸` : `◂ ${geist.name} ${Math.min(-1, geist.meter)} m`;
+      const w = g.measureText(text).width + gross;
+      const y = view.cssH * 0.3 + i * (gross + 10);
+      const x = rechts ? view.cssW - w - 8 : 8;
+      g.fillStyle = "rgba(6, 34, 24, 0.6)";
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y - gross * 0.75, w, gross * 1.5, gross * 0.75);
+      else g.rect(x, y - gross * 0.75, w, gross * 1.5);
+      g.fill();
+      g.textAlign = "left";
+      g.fillStyle = geist.farbe;
+      g.fillText(text, x + gross / 2, y);
+    });
+    g.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -900,6 +1010,7 @@
       state.schritt = "schwingen";
       shell.setPhase("play");
       shell.startClock(RUNDE_MS, zeitUm);
+      gegner?.los();
       kids()?.vibrate?.(8);
       return;
     }
@@ -1215,6 +1326,8 @@
       state.camY += (camYZiel() - state.camY) * (1 - Math.exp(-4 * dt));
     }
     aesteBis(state.camX + view.w + REICH + 80);
+
+    if (state.phase === "spiel") gegner?.takt(state.punkte, { a: p.x - START.x, b: p.y });
   }
 
   function loop(now) {
@@ -1259,6 +1372,7 @@
     state.zeit = 0;
     gedrueckt = false;
     shell.setCount(0);
+    gegner?.runde();
 
     shell.clear();
     const prompt = shell.el("p", "cm-prompt li-prompt", "Halten – schwingen. Loslassen – fliegen.");
@@ -1312,6 +1426,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -1326,6 +1441,7 @@
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${strecke}${vorher ? ` · Bestwert ${vorher}` : ""}`,
       speech: `${punkte} Punkte: ${state.meter} Meter und ${bananen}.${rekord ? " Das ist dein neuer Rekord!" : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("li-rekord");
     zaehleHoch(punkte);
@@ -1344,6 +1460,7 @@
     clock: true,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo" }) || null;
 
   startRun();
 

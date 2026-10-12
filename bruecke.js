@@ -17,6 +17,10 @@
  * zehnten Brücke steht der Pfeiler drüben nicht mehr still – er pendelt, und
  * wer loslässt, muss mitrechnen, wo er ist, wenn der Balken aufschlägt.
  *
+ * Wer mag, spielt nicht allein: Platz 1 und die eigene Bestmarke laufen als
+ * Geister mit (geist.js) – auf den eigenen Pfeilern, so weit, wie sie zu
+ * dieser Sekunde gekommen waren.
+ *
  * Gezeichnet wird wie beim Turmbau auf eine Leinwand, gerechnet in
  * Welteinheiten. Fest steht die Höhe: SICHT_H Einheiten im Querformat. Wie
  * breit die Welt ist, sagt die Form der Fläche – im Hochformat bleibt sie
@@ -132,6 +136,7 @@
     alte: [],             // liegende Balken früherer Brücken
     arbeiter: { x: 0, y: OBEN, vy: 0, dreh: 0, schritt: 0 },
     ziel: 0,
+    gehVon: 0,
     treffer: false,
     genau: false,
     kippZeit: 0,
@@ -153,6 +158,8 @@
   let last = 0;
   let stepTimer = null;
   let gedrueckt = false;
+  // Die Gegner (geist.js): wer mitläuft, und wo er gerade ist.
+  let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -513,10 +520,113 @@
     });
     state.alte.forEach(zeichneBalken);
     zeichneBalken(state.balken);
+    const geister = geisterOrte();
+    geister.forEach(zeichneGeist);
     zeichneArbeiter();
     zeichneFunken();
     zeichneNebel();
+    zeichneGeistNamen(geister);
     zeichneSchriften();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Geister
+  // ---------------------------------------------------------------------------
+  // Wie weit jemand ist, sagt eine Zahl: die Brücken, die er hinter sich hat,
+  // und wie weit er über die nächste gegangen ist (2,5 = mitten auf der
+  // dritten). Aufgezeichnet wird sie mal hundert. Gezeigt wird der Geist auf
+  // den eigenen Pfeilern – seine waren andere, aber gezählt wird hier wie
+  // dort in Brücken.
+  function fortschritt() {
+    const a = state.arbeiter;
+    if (state.schritt !== "gehen" || !state.treffer) return state.bruecken;
+    const weg = state.ziel - state.gehVon;
+    return state.bruecken + (weg > 0 ? clamp((a.x - state.gehVon) / weg, 0, 0.99) : 0);
+  }
+
+  // Wo die Geister jetzt stehen. Vor der Runde stehen sie nicht da: Sie
+  // stünden alle genau auf dem Arbeiter.
+  function geisterOrte() {
+    if (!gegner || state.phase === "bereit") return [];
+    const ms = gegner.zeit();
+    return gegner.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
+      const f = Math.max(0, geg.lauf.ort(ms).a / 100);
+      const n = Math.floor(f + 0.001);
+      const anteil = clamp(f - n, 0, 1);
+      const von = state.pfeiler[n];
+      const nach = state.pfeiler[n + 1];
+      let x = null;
+      if (von) x = kante(von) - 9 + (nach && anteil > 0 ? (kante(nach) - kante(von)) * anteil : 0);
+      const fertig = geg.lauf.fertig(ms);
+      const blass = fertig ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1;
+      return { ...geg, x, n, anteil, ms, blass, vorsprung: n - state.bruecken };
+    });
+  }
+
+  function zeichneGeist(geist) {
+    if (geist.x === null || geist.blass <= 0) return;
+    const gehen = geist.anteil > 0;
+    const pendel = gehen ? Math.sin(geist.ms / 1000 * 14) : 0;
+    g.save();
+    g.globalAlpha = 0.5 * geist.blass;
+    g.translate(geist.x, OBEN);
+    g.scale(ARBEITER_GROSS, ARBEITER_GROSS);
+    g.lineCap = "round";
+    g.strokeStyle = geist.farbe;
+    g.fillStyle = geist.farbe;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(-1.6, 9);
+    g.lineTo(-1.6 + pendel * 3, 0.6);
+    g.moveTo(1.6, 9);
+    g.lineTo(1.6 - pendel * 3, 0.6);
+    g.stroke();
+    rundRect(-5.2, 8, 10.4, 11, 3.5);
+    g.fill();
+    g.beginPath();
+    g.arc(0.6, 23, 4.4, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(0.4, 24.6, 5, 0, Math.PI);
+    g.fill();
+    g.restore();
+  }
+
+  // Der Name über dem Geist – oder, wenn er ausserhalb des Bildes ist, ein
+  // Schild am Rand: wie viele Brücken er voraus ist oder zurückliegt.
+  function zeichneGeistNamen(geister) {
+    if (!geister.length) return;
+    bildTransform();
+    g.textBaseline = "middle";
+    const gross = Math.round(clamp(10 * view.s, 11, 16));
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    geister.forEach((geist, i) => {
+      if (geist.blass <= 0) return;
+      g.globalAlpha = 0.9 * geist.blass;
+      const sx = geist.x === null ? Infinity : bildX(geist.x);
+      if (sx > -10 && sx < view.cssW + 10) {
+        g.textAlign = "center";
+        const sy = bildY(OBEN + 27 * ARBEITER_GROSS + 8) - i * (gross + 3);
+        g.lineWidth = 3;
+        g.strokeStyle = "rgba(40, 30, 60, 0.55)";
+        g.strokeText(geist.name, sx, sy);
+        g.fillStyle = geist.farbe;
+        g.fillText(geist.name, sx, sy);
+        return;
+      }
+      const rechts = sx >= view.cssW;
+      const text = rechts ? `${geist.name} +${Math.max(1, geist.vorsprung)} ▸` : `◂ ${geist.name} ${Math.min(-1, geist.vorsprung)}`;
+      const w = g.measureText(text).width + gross;
+      const y = view.cssH * 0.18 + i * (gross + 10);
+      const x = rechts ? view.cssW - w - 8 : 8;
+      g.fillStyle = "rgba(30, 30, 50, 0.55)";
+      rundRect(x, y - gross * 0.75, w, gross * 1.5, gross * 0.75);
+      g.fill();
+      g.textAlign = "left";
+      g.fillStyle = geist.farbe;
+      g.fillText(text, x + gross / 2, y);
+    });
+    g.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -528,6 +638,7 @@
       state.phase = "spiel";
       shell.setPhase("play");
       shell.startClock(RUNDE_MS, zeitUm);
+      gegner?.los();
     }
     if (state.phase !== "spiel" || state.schritt !== "warten") return;
     const p = state.pfeiler[state.hier];
@@ -563,6 +674,7 @@
     b.faellt = !state.treffer && spitze < p.x - p.w / 2;
     state.genau = state.treffer && Math.abs(spitze - p.x) <= MITTE_W / 2;
     state.ziel = state.treffer ? kante(p) - 9 : spitze;
+    state.gehVon = state.arbeiter.x;
     state.schritt = "gehen";
     state.stoss = state.treffer ? 0.5 : 0.2;
     staub(spitze, OBEN, 7);
@@ -724,6 +836,8 @@
 
     const zielY = camYZiel();
     state.camY += (zielY - state.camY) * (1 - Math.exp(-10 * dt));
+
+    if (state.phase === "spiel") gegner?.takt(state.punkte, { a: Math.round(fortschritt() * 100), b: 0 });
   }
 
   function loop(now) {
@@ -759,6 +873,7 @@
     state.zeit = 0;
     gedrueckt = false;
     shell.setCount(0);
+    gegner?.runde();
 
     shell.clear();
     const prompt = shell.el("p", "cm-prompt br-prompt", "Halten – der Balken wächst. Loslassen – er kippt.");
@@ -813,6 +928,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -826,6 +942,7 @@
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${bruecken}${vorher ? ` · Bestwert ${vorher}` : ""}`,
       speech: `${punkte} Punkte, ${bruecken}.${rekord ? " Das ist dein neuer Rekord!" : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("br-rekord");
     zaehleHoch(punkte);
@@ -844,6 +961,7 @@
     clock: true,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "tempo" }) || null;
 
   startRun();
 
@@ -874,6 +992,6 @@
 
   // Für die Prüfskripte.
   window.LernappBruecke = {
-    OBEN, MITTE_W, RUNDE_MS, state, view, neuerPfeiler, wachsTempo,
+    OBEN, MITTE_W, RUNDE_MS, state, view, neuerPfeiler, wachsTempo, fortschritt,
   };
 })();

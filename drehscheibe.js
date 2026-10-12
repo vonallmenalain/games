@@ -192,6 +192,8 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
+  // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
+  let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -574,6 +576,7 @@
     if (state.phase === "bereit") {
       state.phase = "spiel";
       shell.setPhase("play");
+      gegner?.los();
     }
     if (state.phase !== "spiel" || state.schritt !== "zielen" || state.auf < 0.85) return;
     if (state.flug || state.uebrig <= 0 || state.nachladen > NACHLADE_MS * 0.4) return;
@@ -639,6 +642,7 @@
       kids()?.playJingle?.("star");
     }
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
 
     if (state.uebrig <= 0) zerspringen();
   }
@@ -665,6 +669,7 @@
     const bonus = sch.n + 1;
     state.punkte += bonus;
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
     state.schritt = "platzen";
     state.platzenZeit = 0;
     state.stoss = 0.7;
@@ -808,6 +813,7 @@
     state.ruck = 0;
     state.zeit = 0;
     shell.setCount(0);
+    gegner?.runde();
 
     shell.clear();
     const prompt = shell.el("p", "cm-prompt dr-prompt", "Tippe – der Pfeil fliegt. Triff keinen anderen.");
@@ -845,6 +851,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
+    gegner?.ende(punkte);
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -877,6 +884,7 @@
     clock: false,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "dartWheel", host, art: "ziel" }) || null;
 
   startRun();
 

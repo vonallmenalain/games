@@ -216,6 +216,12 @@
     try { localStorage.setItem(BEST_KEY, JSON.stringify(alle)); } catch { /* privater Modus */ }
   }
 
+  // Der eigene Bestwert in einem Spiel, so wie dieses Gerät ihn kennt –
+  // geist.js stellt ihn als Bestmarke neben die Runde.
+  function bestwert(spiel) {
+    return Math.max(0, Math.round(Number(bestwerte()[spiel]) || 0));
+  }
+
   // Der Startstand für game-cloud.js: Was das Spiel für seinen eigenen
   // Vergleich braucht, und nichts weiter. Kein Spiel ohne Punktzahl und kein
   // Spiel, das hier gar nicht läuft, bekommt etwas.
@@ -1107,6 +1113,7 @@
     melde,
     benenneUm,
     startStand,
+    bestwert,
     auswertung,
     adminKnopf,
     leiste,

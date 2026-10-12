@@ -184,6 +184,8 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
+  // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
+  let gegner = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -255,6 +257,9 @@
     state.punkte = 0;
     state.sperreBis = 0;
     shell.setCount(0);
+    // Hier gibt es kein Vorher: Die Runde beginnt, sobald die Fische da sind.
+    gegner?.runde();
+    gegner?.los();
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt ft-prompt", "Tippe jeden Fisch einmal an.");
@@ -397,6 +402,7 @@
     fisch.gefangen = true;
     state.punkte += 1;
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
     kids()?.playJingle?.("star");
     kids()?.vibrate?.(16);
     state.sperreBis = performance.now() + SPERRE_MS;
@@ -443,6 +449,7 @@
     stopLoop();
     state.phase = "over";
     const punkte = state.punkte;
+    gegner?.ende(punkte);
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -471,6 +478,7 @@
     clock: false,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "fishPond", host, art: "ziel" }) || null;
 
   startRun();
 

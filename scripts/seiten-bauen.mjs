@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-05";
+export const FASSUNG = "2026-10-12-06";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -126,7 +126,9 @@ const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat
 // danach.
 const GEMEINSAM = ["highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
-const NACH_DER_KUNST = ["game-cloud.js", "game-shell.js"];
+// geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
+// in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.
+const NACH_DER_KUNST = ["game-cloud.js", "game-shell.js", "geist.js"];
 
 const v = (datei) => `${datei}?v=${FASSUNG}`;
 

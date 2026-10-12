@@ -259,6 +259,10 @@ await darf("Admin schaltet das Warten an der Spitze ausdrücklich aus", () => ad
 await darfNicht("Admin lässt die Spitze warten und gibt trotzdem eine feste Zahl von Versuchen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 3, spitzeWartet: true })));
 await darfNicht("Admin schreibt das Warten an der Spitze als Text", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: "ja" })));
 await darfNicht("Admin lässt die Spitze warten und zählt alle Versuche zusammen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: true, zaehlt: "summe" })));
+// Ohne Gegner beim Spielen (geist.js): ein Ja oder Nein, sonst nichts.
+await darf("Admin legt ein Turnier ohne Gegner beim Spielen an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: true })));
+await darf("Admin schaltet die Gegner ausdrücklich ein", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: false })));
+await darfNicht("Admin schreibt «ohne Gegner» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: "ja" })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
 
 await darf("Gast öffnet ein öffentliches Turnier", () => gast().doc(OEFFENTLICH).get());
@@ -282,6 +286,10 @@ await env.withSecurityRulesDisabled(async (kontext) => {
   await db.doc("miniTurniere/eben-a1b2c3d4").set(turnierDaten({ startMs: JETZT - STUNDE, endeMs: JETZT - 60 * 1000 }));
   await db.doc("miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
     game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
+  });
+  // Längst vorbei, und einer hat damals gespielt: Sein Lauf kommt zu spät.
+  await db.doc("miniTurniere/vorbei-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
+    game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 12, versuche: 1, offen: false, erstesMs: 1, updatedAtMs: 1,
   });
   // Angehalten, während einer spielt: sein Versuch begann vorher.
   await db.doc("miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_pausenspieler").set({
@@ -340,6 +348,30 @@ await darfNicht("Gast beginnt im angehaltenen Turnier einen weiteren Versuch", (
 const EBEN = "miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl";
 await darf("Gast trägt nach dem Schluss das Ergebnis eines vorher begonnenen Versuchs ein", () => gast().doc(EBEN).set({ name: "Alain", punkte: 30, offen: false, updatedAtMs: 2 }, { merge: true }));
 await darfNicht("Gast beginnt nach dem Schluss noch einen Versuch", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+
+// --- Läufe im Turnier (geist.js) ----------------------------------------------
+// Der beste Lauf eines Spielers, für die, die im Turnier gegen ihn spielen.
+// Wie miniGeister, dazu die Uhr des Turniers – und nur, wer dort wirklich
+// einen Versuch begonnen hat.
+const TGEIST = `${OEFFENTLICH}/geister/towerStack_mini_abcdefghijkl`;
+await darf("Gast liest die Läufe eines Turniers", () => gast().collection(`${OEFFENTLICH}/geister`).get());
+await darfNicht("Gast hinterlegt einen Lauf, ohne im Turnier gespielt zu haben",
+  () => gast().doc(`${OEFFENTLICH}/geister/towerStack_mini_niegespielt1`).set(geist({ spieler: "mini_niegespielt1" })));
+await darfNicht("Gast hinterlegt einen Lauf für ein Spiel, das nicht zum Turnier gehört",
+  () => gast().doc(`${OEFFENTLICH}/geister/leafFlow_mini_abcdefghijkl`).set(geist({ game: "leafFlow" })));
+await darfNicht("Gast hinterlegt einen Lauf in einem Turnier, das längst vorbei ist",
+  () => gast().doc("miniTurniere/vorbei-a1b2c3d4/geister/towerStack_mini_abcdefghijkl").set(geist()));
+await darfNicht("Gast schmuggelt ein Feld in seinen Lauf", () => gast().doc(TGEIST).set(geist({ heimlich: true })));
+await darfNicht("Gast hinterlegt einen Lauf mit endloser Aufzeichnung", () => gast().doc(TGEIST).set(geist({ bahn: "A".repeat(12001) })));
+await darf("Gast hinterlegt seinen Lauf im Turnier", () => gast().doc(TGEIST).set(geist()));
+await darf("Gast ersetzt ihn durch einen besseren", () => gast().doc(TGEIST).set(geist({ punkte: 640, updatedAtMs: 2 })));
+await darfNicht("Gast ersetzt ihn durch einen schwächeren", () => gast().doc(TGEIST).set(geist({ punkte: 100, updatedAtMs: 3 })));
+await darfNicht("Gast schiebt seinen Lauf in ein anderes Spiel", () => gast().doc(TGEIST).set(geist({ game: "fishPond", punkte: 999, updatedAtMs: 4 })));
+await darf("Gast hinterlegt kurz nach dem Schluss noch den Lauf seines letzten Versuchs",
+  () => gast().doc("miniTurniere/eben-a1b2c3d4/geister/towerStack_mini_abcdefghijkl").set(geist()));
+await darfNicht("Gast löscht einen Lauf im Turnier", () => gast().doc(TGEIST).delete());
+await darfNicht("Ein angemeldeter Fremder löscht einen Lauf im Turnier", () => fremder().doc(TGEIST).delete());
+await darf("Admin löscht einen Lauf im Turnier", () => admin().doc(TGEIST).delete());
 
 await darfNicht("Gast löscht einen Turniereintrag", () => gast().doc(VERSUCH).delete());
 await darfNicht("Ein angemeldeter Fremder löscht einen Turniereintrag", () => fremder().doc(VERSUCH).delete());
@@ -459,6 +491,19 @@ await darf("cloud.js: Ein Turnier von vorher kennt das Warten an der Spitze nich
   const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
   erwarte(t?.spitzeWartet === false, JSON.stringify(t));
 });
+// Ohne Gegner beim Spielen: cloud.js schreibt das Feld nur, wenn es gilt.
+await darf("cloud.js: Admin schaltet in einem Turnier die Gegner ab", async () => {
+  await adminCloud.setzeTurnier(SPITZE, {
+    name: "Königscup", spiele: ["towerStack"], startMs: JETZT - STUNDE, endeMs: JETZT + STUNDE,
+    versuche: 3, zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true, ohneGeist: true,
+  });
+  const t = await gastCloud.turnier(SPITZE);
+  erwarte(t?.ohneGeist === true, JSON.stringify(t));
+});
+await darf("cloud.js: Ein Turnier von vorher zeigt die Gegner", async () => {
+  const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
+  erwarte(t?.ohneGeist === false, JSON.stringify(t));
+});
 // Ohne Zeitlimite: ein Ende, das nie kommt (turnier.js, OHNE_ENDE). Die Regeln
 // rechnen damit wie mit jedem anderen Ende – wenn es als ganze Zahl ankommt.
 const DAUER = "dauer-cloudjs23456";
@@ -476,6 +521,14 @@ await darf("cloud.js: Gast spielt im Turnier ohne Zeitlimite", async () => {
   const stand = await gastCloud.turnierErgebnis(DAUER, { ...ICH, punkte: 7 });
   erwarte(stand.punkte === 7, JSON.stringify(stand));
 });
+await darf("cloud.js: Gast hinterlegt seinen Lauf, ein schwächerer ersetzt ihn nicht", async () => {
+  const erster = await gastCloud.speichereTurnierGeist(DAUER, { ...ICH, punkte: 7, level: "t1", bahn: '{"v":1,"dt":250,"p":[0,7]}' });
+  erwarte(erster?.punkte === 7, JSON.stringify(erster));
+  const schwaecher = await gastCloud.speichereTurnierGeist(DAUER, { ...ICH, punkte: 3, level: "t1", bahn: '{"v":1,"dt":250,"p":[0,3]}' });
+  erwarte(schwaecher === null, JSON.stringify(schwaecher));
+  const gelesen = await gastCloud.turnierGeist(DAUER, ICH.game, ICH.spieler);
+  erwarte(gelesen?.punkte === 7 && gelesen.level === "t1" && gelesen.name === ICH.name, JSON.stringify(gelesen));
+});
 // Einen Namen aus einem Turnier nehmen, ohne das Turnier zu löschen.
 await darfNicht("cloud.js: Gast entfernt einen Eintrag aus einem Turnier",
   () => gastCloud.loescheTurnierEintraege(DAUER, [`towerStack_${ICH.spieler}`]));
@@ -484,12 +537,16 @@ await darf("cloud.js: Admin entfernt einen Spieler aus dem Turnier", async () =>
   erwarte(vorher.length === 1, JSON.stringify(vorher));
   await adminCloud.loescheTurnierEintraege(DAUER, vorher.map((e) => e.id));
   erwarte((await gastCloud.turnierErgebnisse(DAUER)).length === 0, "der Eintrag ist noch da");
+  erwarte(await gastCloud.turnierGeist(DAUER, ICH.game, ICH.spieler) === null, "sein Lauf ist noch da");
   erwarte((await gastCloud.turnier(DAUER))?.name === "Endloscup", "das Turnier ist mit verschwunden");
 });
-await darf("cloud.js: Admin löscht das Turnier samt Einträgen", async () => {
+await darf("cloud.js: Admin löscht das Turnier samt Einträgen und Läufen", async () => {
+  await gastCloud.speichereTurnierGeist(CT, { ...ICH, name: "Cloud Zwei", punkte: 30, level: "t1", bahn: '{"v":1,"dt":250,"p":[0,30]}' });
+  erwarte((await gast().collection(`miniTurniere/${CT}/geister`).get()).size === 1, "der Lauf kam gar nicht erst an");
   await adminCloud.loescheTurnier(CT);
   erwarte(await gastCloud.turnier(CT) === null, "das Turnier ist noch da");
   erwarte((await gastCloud.turnierErgebnisse(CT)).length === 0, "Einträge sind liegen geblieben");
+  erwarte((await gast().collection(`miniTurniere/${CT}/geister`).get()).size === 0, "Läufe sind liegen geblieben");
 });
 
 // Ein grosses Turnier: mehr Einträge, als auf eine Seite gehen – und mehr als

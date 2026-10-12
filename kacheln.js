@@ -117,6 +117,8 @@
   let raster = null;
   let felder = [];
   let stepTimer = null;
+  // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
+  let gegner = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -169,6 +171,9 @@
     state.runde = 0;
     state.punkte = 0;
     shell.setCount(0);
+    // Hier gibt es kein Vorher: Die Runde beginnt mit dem ersten Muster.
+    gegner?.runde();
+    gegner?.los();
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt kk-prompt", "Merk dir die Kacheln.");
@@ -220,6 +225,7 @@
     state.offen.delete(index);
     state.punkte += 1;
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
     kachel.disabled = true;
     kachel.classList.add("is-treffer");
     kids()?.playJingle?.("correct");
@@ -256,6 +262,7 @@
     clearStep();
     state.phase = "over";
     const punkte = state.punkte;
+    gegner?.ende(punkte);
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -284,6 +291,7 @@
     clock: false,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "tileMemory", host, art: "ziel" }) || null;
 
   startRun();
 
