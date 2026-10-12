@@ -43,6 +43,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           firebase-auth gar nicht erst.
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
                           Spielfläche, Ergebnis
+    geist.js              die Gegner: Platz 1 und die eigene Bestmarke als
+                          Schalter über der Spielfläche, mitlaufend oder als
+                          Zielmarke, dazu die Aufzeichnung der eigenen Runde
     game-cloud.js         der Spielstand während einer Runde. Er überlebt die
                           Seite nicht, und das ist Absicht.
     zufall.js             der Zufall. Ohne Turnier in der Adresse ist er
@@ -101,13 +104,26 @@ Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
 
-### Geister
+### Gegner und Geister
 
-Ein Spiel mit festem Level – dieselben Hindernisse an derselben Stelle, Lauf
-für Lauf – kann seinen Lauf aufheben und neben dem nächsten noch einmal
-abspielen: Wer spielt, läuft dann neben den drei Besten, so wie sie damals
-gelaufen sind. Gebaut wurde das für den Streckenlauf; seit der entfernt ist,
-nutzt es kein Spiel. Die Technik bleibt für das nächste, das sie braucht.
+Wer spielt, spielt nicht allein: Über der Spielfläche stehen zwei Schalter,
+«Platz 1» und «Bestmarke» (`geist.js`). Sie sagen vor der Runde, gegen wen es
+geht, lassen sich an- und abschalten (die Wahl gilt auf dem Gerät für alle
+Spiele) und zeigen während der Runde, wo man gegen den Gegner steht – grün,
+solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl schlägt.
+
+    mitlaufend   Blätter im Strom, Brückenbauer, Lianenschwung: Spiele mit
+                 fester Zeit. Der Gegner läuft mit seinem Stand von damals
+                 mit, Viertelsekunde für Viertelsekunde. Im Brückenbauer und
+                 im Lianenschwung zusätzlich als Geist im Bild – auf den
+                 eigenen Pfeilern, an Lianen, die nur er sieht.
+    Zielmarke    Turmbau, Drehscheibe, Fischteich, Kacheln-Knobeln: Spiele
+                 ohne Uhr. Der Gegner ist eine Zahl; im Turmbau eine Linie
+                 in der Höhe seines besten Turms.
+
+Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
+bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
+Gegner ganz abschalten. Die Bestmarke ist der eigene Bestwert auf dem Gerät.
 
 Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
 eine Nachbesserung an der Physik, Eingaben nicht. Sie stehen in einer eigenen
@@ -115,8 +131,11 @@ Sammlung (`miniGeister`), nicht in `miniScores`: Die Startseite liest jedes
 Punkte-Dokument und lüde sonst bei jedem Besuch Kilobytes mit, die dort
 niemand ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der
 Punktzahl und nur bei einem Rekord (`mini-games.js`, `melde`), und jede trägt
-die Fassung ihres Levels (`level`): Ändert sich das Level, zählt das Spiel
-die Fassung hoch, und die alten Geister verschwinden aus dem Bild.
+ihre Fassung (`level`): Ändert sich, was darin steht, zählt sie hoch, und die
+alten Geister verschwinden aus dem Bild. Im Turnier liegt der beste Lauf
+jedes Spielers unter `miniTurniere/<id>/geister`; den eigenen besten Lauf
+hält das Gerät selbst, auch ohne Namen und ohne Netz. Fehlt zu einem Gegner
+die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 
 ## Turniere
 
@@ -136,6 +155,8 @@ was es ausmacht:
     Wer es sieht      alle in der App (auf der Startseite) oder nur, wer den
                       Link hat
     Verdeckt          die Rangliste erst am Schluss zeigen
+    Gegner            Platz 1 und die eigene Bestmarke beim Spielen zeigen
+                      (Vorgabe) oder nicht
     Aktiv             angehalten, bis es gebraucht wird – "Jetzt starten",
                       "Anhalten", "Jetzt beenden" gehen mit einem Klick
 

@@ -143,11 +143,11 @@ service cloud.firestore {
     }
 
     // --- Die Geister ----------------------------------------------------------
-    // Ein Lauf durch ein festes Level lässt sich aufzeichnen und neben dem
-    // nächsten noch einmal abspielen: Wer spielt, läuft dann nicht allein,
-    // neben ihm laufen die drei Besten, so wie sie damals gelaufen sind.
-    // Gebaut für den Streckenlauf; seit der entfernt ist, nutzt es kein
-    // Spiel – die Regeln bleiben für das nächste, das es braucht.
+    // Ein Lauf lässt sich aufzeichnen und neben dem nächsten noch einmal
+    // abspielen: Wer spielt, spielt dann nicht allein – neben ihm läuft
+    // Platz 1 mit, so wie er damals gespielt hat (geist.js). In Blätter im
+    // Strom, im Brückenbauer und im Lianenschwung ist das sein Punktestand
+    // Viertelsekunde für Viertelsekunde, in den beiden letzten dazu sein Weg.
     //
     // Warum das eine eigene Sammlung ist und nicht ein Feld in miniScores:
     // Die Startseite liest JEDES Punkte-Dokument, um die Hall of Fame zu
@@ -218,7 +218,7 @@ service cloud.firestore {
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
                              "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
-                             "erstelltMs", "updatedAtMs", "updatedAt"])
+                             "ohneGeist", "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
         && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
@@ -246,6 +246,9 @@ service cloud.firestore {
         && d.aufgaben in ["gleich", "zufall"]
         && d.sichtbar in ["alle", "link"]
         && d.verdeckt is bool
+        // Ohne Gegner beim Spielen (geist.js): weder Platz 1 noch die eigene
+        // Bestmarke laufen mit. Fehlt das Feld, werden sie gezeigt.
+        && d.get("ohneGeist", false) is bool
         && d.aktiv is bool
         && d.erstelltMs is int
         && d.updatedAtMs is int;
@@ -355,6 +358,24 @@ service cloud.firestore {
           && istDerselbeEintrag()
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(["name", "updatedAtMs", "updatedAt"]);
+        allow delete: if istAdmin();
+      }
+
+      // Der beste Lauf eines Spielers in diesem Turnier – für den, der gegen
+      // ihn spielt (geist.js). Dieselben Felder wie miniGeister, und
+      // dieselbe Regel: Ein schwächerer Lauf ersetzt keinen besseren. Dazu
+      // die des Turniers: Das Spiel gehört dazu, das Turnier läuft (oder ist
+      // eben erst vorbei, wie bei einem Ergebnis), und wer einen Lauf
+      // hinterlegt, hat hier wirklich einen Versuch begonnen.
+      match /geister/{eintragId} {
+        allow read: if true;
+        allow create: if istGeist(eintragId)
+          && imZeitraum(turnierId, 600000)
+          && exists(/databases/$(database)/documents/miniTurniere/$(turnierId)/eintraege/$(eintragId));
+        allow update: if istGeist(eintragId)
+          && istDerselbeEintrag()
+          && imZeitraum(turnierId, 600000)
+          && request.resource.data.punkte >= resource.data.punkte;
         allow delete: if istAdmin();
       }
     }

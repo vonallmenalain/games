@@ -307,6 +307,9 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
+  // Die Gegner (geist.js). Im Turmbau laufen sie nicht mit – ein Turm hat
+  // keinen Takt –, sie stehen als Linie in der Höhe ihres besten Turms.
+  let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, h: 400 };
 
@@ -712,6 +715,7 @@
     });
 
     state.teile.forEach(zeichneTeil);
+    zeichneZiele();
 
     const s = state.schweber;
     if (s) {
@@ -729,6 +733,50 @@
       g.fill();
     });
     g.globalAlpha = 1;
+  }
+
+  // Die Zielmarken: eine gestrichelte Linie über die ganze Breite, genau auf
+  // der Höhe, die der beste Turm des Gegners hatte, und daneben sein Name.
+  // Wer darüber baut, hat ihn geschlagen – dann wird die Linie blass.
+  function zeichneZiele() {
+    const ziele = gegner?.gegner?.() || [];
+    if (!ziele.length) return;
+    const unten = state.camY - 10;
+    const oben = state.camY + view.h + 10;
+    const sichtbar = ziele.map((ziel) => ({ ...ziel, y: SOCKEL_H + ziel.punkte * BLOCK_H }))
+      .filter((ziel) => ziel.y > unten && ziel.y < oben);
+    if (!sichtbar.length) return;
+    const halb = view.cssW / view.s / 2 + 10;
+    g.save();
+    g.lineWidth = 2.2 / view.s;
+    g.setLineDash([9 / view.s, 6 / view.s]);
+    sichtbar.forEach((ziel) => {
+      g.globalAlpha = state.punkte > ziel.punkte ? 0.35 : 0.9;
+      g.strokeStyle = ziel.farbe;
+      g.beginPath();
+      g.moveTo(state.camX - halb, ziel.y);
+      g.lineTo(state.camX + halb, ziel.y);
+      g.stroke();
+    });
+    g.restore();
+
+    bildTransform();
+    const gross = Math.round(clamp(view.cssW * 0.03, 11, 15));
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    g.textAlign = "right";
+    g.textBaseline = "bottom";
+    sichtbar.forEach((ziel, i) => {
+      const sy = view.cssH - view.s * (ziel.y - state.camY) - 3 - (sichtbar[i - 1] && Math.abs(sichtbar[i - 1].y - ziel.y) < 4 ? gross + 2 : 0);
+      const text = ziel.art === "eigen" ? `Bestmarke ${ziel.punkte}` : `${ziel.name} ${ziel.punkte}`;
+      g.globalAlpha = state.punkte > ziel.punkte ? 0.45 : 1;
+      g.lineWidth = 3;
+      g.strokeStyle = "rgba(36, 48, 71, 0.6)";
+      g.strokeText(text, view.cssW - 8, sy);
+      g.fillStyle = ziel.farbe;
+      g.fillText(text, view.cssW - 8, sy);
+    });
+    g.globalAlpha = 1;
+    weltTransform();
   }
 
   // ---------------------------------------------------------------------------
@@ -783,6 +831,7 @@
     if (state.phase === "bereit") {
       state.phase = "spiel";
       shell.setPhase("play");
+      gegner?.los();
     }
     if (state.phase !== "spiel") return;
     const s = state.schweber;
@@ -853,6 +902,7 @@
 
     state.punkte += 1;
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
 
     if (genau) {
       state.combo += 1;
@@ -1037,6 +1087,7 @@
     state.stoss = 0;
     state.zeit = 0;
     shell.setCount(0);
+    gegner?.runde();
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt tb-prompt", "Tippe – dann fällt der Block.");
@@ -1105,6 +1156,7 @@
     stopLoop();
     state.phase = "ende";
     const punkte = state.punkte;
+    gegner?.ende(punkte);
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     const next = recordRun(punkte);
@@ -1139,6 +1191,7 @@
     clock: false,
     onRestart: startRun,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "towerStack", host, art: "ziel" }) || null;
 
   startRun();
 

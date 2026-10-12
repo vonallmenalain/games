@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|zg|hz|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -108,6 +108,17 @@ const ATTRAPPE = `
   };
   window.__miniTurniere = turniere;
   window.__miniTurnierEintraege = tEintraege;
+
+  // Die Geister: die ewigen unter "<spiel>_<spieler>", die der Turniere unter
+  // "<turnier>/<spiel>_<spieler>". Wie in den Regeln ersetzt ein schwächerer
+  // Lauf keinen besseren, und im Turnier hinterlegt nur, wer dort spielt.
+  const GLAGER = "__mini_geister_attrappe";
+  let gGemerkt = null;
+  try { gGemerkt = JSON.parse(localStorage.getItem(GLAGER) || "null"); } catch { gGemerkt = null; }
+  const geisterLager = new Map(Array.isArray(gGemerkt) ? gGemerkt : (window.__miniGeisterAnfang || []));
+  const gSichern = () => { try { localStorage.setItem(GLAGER, JSON.stringify([...geisterLager])); } catch {} };
+  window.__miniGeister = geisterLager;
+
   window.MiniCloud = {
     offeneSpiele: async () => {
       // Wie cloud.js: Nicht lesen koennen wirft, "nichts eingetragen" gibt
@@ -151,6 +162,32 @@ const ATTRAPPE = `
       eintraege.set(id, { ...alt, name, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1, updatedAtMs: Date.now() });
       sichern();
       return { rekord, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1 };
+    },
+
+    speichereGeist: async ({ game, spieler, name, punkte, level, bahn }) => {
+      const id = game + "_" + spieler;
+      const alt = geisterLager.get(id);
+      if (alt && alt.punkte > punkte) throw fehler("abgewiesen", "permission-denied");
+      geisterLager.set(id, { game, spieler, name, punkte, level, bahn });
+      gSichern();
+      return { punkte };
+    },
+    geister: async (game, spieler = [], level = "") => (Array.isArray(spieler) ? spieler : [])
+      .map((wer) => geisterLager.get(game + "_" + wer))
+      .filter((g) => g && (!level || g.level === level))
+      .map((g) => ({ ...g })),
+    turnierGeist: async (id, game, spieler) => {
+      const g = geisterLager.get(id + "/" + game + "_" + spieler);
+      return g ? { ...g } : null;
+    },
+    speichereTurnierGeist: async (id, { game, spieler, name, punkte, level, bahn }) => {
+      const k = id + "/" + game + "_" + spieler;
+      const alt = geisterLager.get(k);
+      if (alt && alt.level === level && alt.punkte >= punkte) return null;
+      if (!tEintraege.get(k)) throw fehler("ohne Versuch", "permission-denied");
+      geisterLager.set(k, { game, spieler, name, punkte, level, bahn });
+      gSichern();
+      return { punkte };
     },
 
     // Fuer den Adminbereich: dieselbe Anwendung, dieselbe Datenbank.
@@ -314,6 +351,7 @@ const HERBST = "herbstcup-test2345";
 const KOENIG = "koenigscup-test234";
 const DAUER = "dauercup-test23456";
 const GESCHICK = "geschickcup-test23";
+const OHNE_GEGNER = "ohnegegner-test234";
 const OHNE_ENDE = Date.UTC(9999, 11, 31);
 const TURNIERE = {
   turniere: [
@@ -332,6 +370,8 @@ const TURNIERE = {
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
     turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing"], versuche: 0 }),
+    // Ohne Gegner beim Spielen (geist.js).
+    turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
   // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
@@ -1519,6 +1559,9 @@ try {
     await form.locator('input[type="radio"][value="prozent"]').check();
     await form.locator('input[type="radio"][value="link"]').check();
     await form.locator(".adm-option", { hasText: "verdecken" }).locator("input").check();
+    const gegnerHaken = form.locator(".adm-option", { hasText: "Gegner beim Spielen" }).locator("input");
+    pruefe(await gegnerHaken.isChecked(), "Ein neues Turnier zeigt die Gegner beim Spielen nicht von selbst.");
+    await gegnerHaken.uncheck();
     await form.locator('button[type="submit"]').click();
     await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Test-Cup Ä"), null, { timeout: 4000 })
       .catch(() => {});
@@ -1528,7 +1571,7 @@ try {
       pruefe(/^test-cup-ae-[a-km-np-z2-9]{8}$/.test(neu.id), `Der Name des neuen Turniers taugt nicht als Link: ${neu.id}`);
       pruefe(JSON.stringify(neu.spiele) === JSON.stringify(["fishPond", "towerStack"]), `Im neuen Turnier stehen die Spiele ${neu.spiele.join(", ")}.`);
       pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "gleich"
-        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true,
+        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
       const meldung = await seite.locator(".adm-turniere > .adm-meldung").innerText();
@@ -1786,6 +1829,113 @@ try {
     await seite.waitForSelector(".tn-tor .tn-los", { timeout: 8000 });
     const tafel = (await seite.locator(".tn-tor").innerText()).replace(/\n/g, " ");
     pruefe(/läuft ohne Zeitlimite/.test(tafel) && !/9999|Tage/.test(tafel), `Die Tafel im Turnier ohne Zeitlimite sagt: ${tafel}`);
+    await kontext.close();
+  }
+
+  // --- 4k. Gegner beim Spielen (geist.js) -----------------------------------------
+  // Platz 1 und die eigene Bestmarke: zwei Schalter über der Spielfläche, die
+  // sagen, gegen wen es geht, und sich abschalten lassen. Mit Aufzeichnung
+  // läuft der Gegner mit; die eigene Runde wird zur nächsten Bestmarke.
+  const gegnerSchalter = (seite) => seite.evaluate(() => [...document.querySelectorAll(".gs-chip")].map((c) => ({
+    text: c.textContent.replace(/\s+/g, " ").trim(),
+    an: c.classList.contains("is-an"),
+    leer: c.classList.contains("ist-leer"),
+    sichtbar: !c.closest(".gs-leiste").hidden,
+  })));
+  {
+    const MIA = JSON.stringify({ v: 1, dt: 250, p: Array.from({ length: 121 }, (_, i) => Math.floor(i / 4)),
+      a: Array.from({ length: 121 }, (_, i) => i * 10), b: Array.from({ length: 121 }, () => 200) });
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.addInitScript((bahn) => {
+      if (sessionStorage.getItem("__gegner")) return;
+      sessionStorage.setItem("__gegner", "1");
+      localStorage.setItem("__mini_attrappe", JSON.stringify([["vineSwing_mini_miamiamiamia", {
+        id: "vineSwing_mini_miamiamiamia", game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, versuche: 2, updatedAtMs: 1000,
+      }]]));
+      localStorage.setItem("__mini_geister_attrappe", JSON.stringify([["vineSwing_mini_miamiamiamia", {
+        game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, level: "t1", bahn,
+      }]]));
+    }, MIA);
+    await seite.goto(`${BASIS}/liane`, { waitUntil: "load" });
+    await seite.waitForSelector(".gs-chip", { timeout: 8000 });
+    await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand, null, { timeout: 4000 }).catch(() => {});
+    let schalter = await gegnerSchalter(seite);
+    pruefe(schalter.length === 2 && schalter.every((c) => c.sichtbar), `Im Lianenschwung stehen keine zwei Gegner-Schalter: ${JSON.stringify(schalter)}`);
+    pruefe(/Platz 1/.test(schalter[0]?.text) && /Mia/.test(schalter[0]?.text) && /30/.test(schalter[0]?.text) && schalter[0]?.an,
+      `Platz 1 steht nicht als Gegner da: ${schalter[0]?.text}`);
+    pruefe(schalter[1]?.leer && /noch keine/.test(schalter[1]?.text), `Ohne eigene Runde steht trotzdem eine Bestmarke da: ${schalter[1]?.text}`);
+    const stand = await seite.evaluate(() => window.LernappGeist.stand()[0].stand);
+    pruefe(stand?.erster?.lauf === true, `Der Lauf von Platz 1 läuft nicht mit: ${JSON.stringify(stand)}`);
+
+    // Abschalten bleibt abgeschaltet, auch nach dem Neuladen – und startet
+    // keine Runde.
+    await seite.click(".gs-erster");
+    pruefe(await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.gegner") || "{}").erster) === false, "Platz 1 lässt sich nicht abschalten.");
+    pruefe(await seite.evaluate(() => window.LernappLiane.state.phase) === "bereit", "Ein Tipp auf einen Gegner-Schalter hat die Runde gestartet.");
+    await seite.reload({ waitUntil: "load" });
+    await seite.waitForSelector(".gs-chip", { timeout: 8000 });
+    await seite.waitForTimeout(400);
+    schalter = await gegnerSchalter(seite);
+    pruefe(schalter[0] && !schalter[0].an, "Nach dem Neuladen ist Platz 1 wieder angeschaltet.");
+    await seite.click(".gs-erster");
+
+    // Eine kurze Runde: Sie wird aufgezeichnet und ist beim nächsten Mal die
+    // Bestmarke, die mitläuft.
+    await seite.evaluate(() => new Promise((fertig) => {
+      const L = window.LernappLiane;
+      const st = L.state;
+      let n = 0;
+      const lauf = () => {
+        n += 1;
+        if (st.phase === "ende" || st.schritt === "platsch") { fertig(); return; }
+        if (st.phase === "bereit") L.druecken();
+        else if (st.schritt === "schwingen" && n > 50) L.loslassen();
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 });
+    const runde = await seite.evaluate(() => ({
+      punkte: window.LernappLiane.state.punkte,
+      lauf: window.LernappGeist.eigenerLauf("vineSwing"),
+    }));
+    const gelesen = runde.lauf ? await seite.evaluate((bahn) => window.LernappGeist.entpacke(bahn), runde.lauf.bahn) : null;
+    pruefe(runde.punkte > 0 && runde.lauf?.punkte === runde.punkte && gelesen?.p?.length > 2 && Array.isArray(gelesen?.a),
+      `Die Runde wurde nicht als eigener Lauf aufgezeichnet: ${JSON.stringify({ punkte: runde.punkte, lauf: runde.lauf?.punkte, proben: gelesen?.p?.length })}`);
+    await seite.click(".cm-actions .cm-icon-again");
+    await seite.waitForFunction(() => window.LernappGeist.stand()[0]?.stand?.eigen, null, { timeout: 4000 }).catch(() => {});
+    const danach = await seite.evaluate(() => window.LernappGeist.stand()[0].stand);
+    pruefe(danach?.eigen?.punkte === runde.punkte && danach.eigen.lauf === true,
+      `Die eigene Runde steht danach nicht als Bestmarke da: ${JSON.stringify(danach)}`);
+    await kontext.close();
+  }
+  {
+    // Im Turnier ist Platz 1, wer im Turnier vorne liegt – nicht der aus der
+    // Hall of Fame (dort hat Grosi 99).
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`);
+    await turnierLos(seite, "Gegnertest");
+    await seite.waitForTimeout(600);
+    const schalter = await gegnerSchalter(seite);
+    pruefe(/Grosi/.test(schalter[0]?.text) && /30/.test(schalter[0]?.text) && !/99/.test(schalter[0]?.text),
+      `Im Turnier steht nicht dessen Platz 1 als Gegner: ${schalter[0]?.text}`);
+    await kontext.close();
+  }
+  {
+    const { kontext, seite } = await mitTurnieren("/turmbau?turnier=verdeckt-test23456");
+    await turnierLos(seite, "Gegnertest");
+    await seite.waitForTimeout(600);
+    const schalter = await gegnerSchalter(seite);
+    pruefe(/verdeckt/.test(schalter[0]?.text) && !/Leo/.test(schalter[0]?.text),
+      `Bei verdeckter Rangliste verrät der Gegner-Schalter Platz 1: ${schalter[0]?.text}`);
+    await kontext.close();
+  }
+  {
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${OHNE_GEGNER}`);
+    await turnierLos(seite, "Gegnertest");
+    await seite.waitForTimeout(600);
+    const schalter = await gegnerSchalter(seite);
+    pruefe(schalter.length && schalter.every((c) => !c.sichtbar), `Im Turnier ohne Gegner stehen trotzdem Gegner-Schalter: ${JSON.stringify(schalter)}`);
+    pruefe(await seite.evaluate(() => !document.querySelector("#tb-stage").dataset.gegner), "Im Turnier ohne Gegner rückt die Spielfläche trotzdem nach unten.");
     await kontext.close();
   }
 

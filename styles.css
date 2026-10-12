@@ -604,6 +604,113 @@ h2 {
   transform: scaleX(1);
 }
 
+/* --- Die Gegner (geist.js) --- */
+
+/* Zwei Schalter unter dem Zeitbalken: Platz 1 und die eigene Bestmarke.
+   Vor der Runde sagen sie, gegen wen es geht, und lassen sich an- und
+   abschalten; während der Runde zeigen sie, was der Gegner zu dieser Zeit
+   hatte – grün, solange man vor ihm liegt. Stehen sie da, rückt die
+   Spielfläche um ihre Höhe nach unten, statt dass sie darüber lägen. */
+.gs-leiste {
+  position: absolute;
+  top: calc(var(--safe-top) + 87px);
+  left: calc(var(--safe-left) + 12px);
+  right: calc(var(--safe-right) + 12px);
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.gs-leiste[hidden] { display: none; }
+.cm-stage[data-gegner="an"] .cm-play { top: calc(var(--safe-top) + 128px); }
+
+.gs-chip {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 48%;
+  /* Kleiner als die Knöpfe sonst (44 px): Sie sind Schalter am Rand, nicht
+     das Spiel. */
+  min-height: 0;
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #243047;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
+}
+.gs-chip:active { transform: scale(0.96); }
+.gs-chip:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.gs-chip:disabled { cursor: default; opacity: 1; }
+
+/* Das Kästchen vorne: angehakt heisst, der Gegner läuft mit. */
+.gs-haken {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #9aa7b4;
+  background: #fff;
+}
+.gs-haken-zeichen { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.gs-chip.is-an .gs-haken { border-color: var(--cm-accent-dark); background: var(--cm-accent-dark); }
+.gs-chip.is-an .gs-haken-zeichen { opacity: 1; }
+
+.gs-zeichen { flex: 0 0 auto; width: 16px; height: 16px; }
+.gs-erster .gs-zeichen { fill: #e0a800; }
+.gs-eigen .gs-zeichen { fill: #3a8fd6; }
+
+.gs-titel { color: #5b6678; }
+.gs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
+.gs-name:empty { display: none; }
+.gs-wert { font-variant-numeric: tabular-nums; }
+
+/* Abgeschaltet oder (noch) niemand da: blass, aber lesbar. */
+.gs-chip:not(.is-an) { background: rgba(255, 255, 255, 0.66); }
+.gs-chip:not(.is-an) .gs-zeichen,
+.gs-chip:not(.is-an) .gs-name,
+.gs-chip:not(.is-an) .gs-wert { opacity: 0.5; }
+.gs-chip.ist-leer .gs-haken { visibility: hidden; }
+.gs-chip.ist-leer .gs-wert { font-weight: 700; color: #5b6678; opacity: 1; }
+
+/* Während der Runde: ohne das Wort davor, nur Zeichen, Name und Zahl. */
+.cm-stage[data-phase="play"] .gs-titel { display: none; }
+
+.gs-chip.is-an.ist-vorne { border-color: #3fbf74; background: #eafbf0; }
+.gs-chip.is-an.ist-geschlagen { border-color: #2f9e5e; background: #3fbf74; color: #fff; }
+.gs-chip.is-an.ist-geschlagen .gs-titel { color: rgba(255, 255, 255, 0.85); }
+.gs-chip.is-an.ist-geschlagen .gs-haken { border-color: #fff; background: #fff; }
+.gs-chip.is-an.ist-geschlagen .gs-haken-zeichen { stroke: #2f9e5e; }
+.gs-chip.is-pop { animation: gs-pop 0.32s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+
+@keyframes gs-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 420px) {
+  .gs-chip { font-size: 0.78rem; padding-right: 10px; }
+  .gs-name { max-width: 6em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-chip.is-pop { animation: none; }
+}
+
 /* --- Das Spiel --- */
 
 .cm-play {

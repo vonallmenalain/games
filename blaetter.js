@@ -152,6 +152,9 @@
   let wasser = null;
   let frame = null;
   let stepTimer = null;
+  // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke wischen mit –
+  // als Zahl, die Sekunde für Sekunde zeigt, wie weit sie damals waren.
+  let gegner = null;
 
   const pick = (list) => list[Math.floor(zufall.zahl() * list.length)];
 
@@ -330,6 +333,7 @@
       kids()?.playJingle?.("retry");
     }
     shell.setCount(state.richtig);
+    gegner?.takt(state.richtig);
     flash(richtig);
     // Sofort weiter: die nächste Welle ist da, bevor der Finger wieder oben
     // ist. Wer schnell ist, soll nicht auf das Spiel warten müssen.
@@ -362,6 +366,7 @@
     state.richtig = 0;
     state.falsch = 0;
     shell.setCount(0);
+    gegner?.runde();
 
     shell.clear();
     shell.play.append(shell.el("p", "cm-prompt", "Wisch dorthin, wo die Blätter hinwollen."));
@@ -407,6 +412,7 @@
     nextWelle();
     frame = window.requestAnimationFrame(step);
     shell.startClock(ROUND_MS, finish);
+    gegner?.los();
   }
 
   function runsText(runs) {
@@ -430,6 +436,7 @@
     stopLoop();
     state.phase = "over";
     const points = state.richtig;
+    const geist = gegner?.ende(points) || null;
     const next = recordRun(points);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -440,6 +447,7 @@
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
       speech: resultSpeech(points, next.runs),
+      geist,
     });
   }
 
@@ -455,6 +463,7 @@
     help: HELP,
     onRestart: showIntro,
   });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "leafFlow", host, art: "tempo" }) || null;
 
   showIntro();
 

@@ -28,13 +28,14 @@
  *     erstesMs / updatedAtMs      Uhrzeiten, für die Reihenfolge bei
  *                                 Gleichstand
  *
- * Und, für Spiele mit festem Level, die Aufzeichnung eines Laufs:
+ * Und die Aufzeichnung des besten Laufs, für die, die gegen ihn spielen
+ * (geist.js):
  *
- *   miniGeister/<spiel>_mini_a7f3…   (zur Zeit nutzt das kein Spiel)
+ *   miniGeister/<spiel>_mini_a7f3…
  *     game / spieler / name       dieselben wie nebenan
  *     punkte     742              die Runde, aus der die Aufzeichnung stammt
- *     level      "v1"             wozu sie gehört; ein Geist aus v1 ist auf
- *                                 v2 sinnlos
+ *     level      "t1"             welche Fassung; ein Geist aus einer
+ *                                 anderen ist hier sinnlos
  *     bahn       "AAEC…"          wo der Läufer wann war, als Text
  *
  * Eine eigene Sammlung, weil die Startseite JEDES Punkte-Dokument liest, um
@@ -56,6 +57,8 @@
  *     aufgaben   "gleich"         oder "zufall" – siehe zufall.js
  *     sichtbar   "alle"           oder "link": nur, wer den Link hat
  *     verdeckt   false            Rangliste erst am Schluss zeigen
+ *     ohneGeist  true             keine Gegner beim Spielen (geist.js).
+ *                                 Fehlt, wo sie gezeigt werden.
  *     aktiv      true             angehalten, wenn false
  *
  *   miniTurniere/<id>/eintraege/towerStack_mini_a7f3…
@@ -64,6 +67,10 @@
  *     versuche   2                wie viele begonnen wurden
  *     offen      false            ob gerade einer läuft, dessen Ergebnis
  *                                 noch aussteht
+ *
+ *   miniTurniere/<id>/geister/towerStack_mini_a7f3…
+ *     wie miniGeister: der beste einzelne Lauf eines Spielers in diesem
+ *     Turnier, für den, der gegen ihn spielt
  *
  * Ein Turnier-Eintrag ist nicht miniScores mit anderem Namen: Ein Versuch
  * zählt dort, sobald er beginnt (turnierVersuch), und sein Ergebnis kommt
@@ -435,6 +442,11 @@
     const kennung = String(id || "").trim();
     return ref && kennung ? ref.doc(kennung).collection("eintraege") : null;
   }
+  function turnierGeisterRef(id) {
+    const ref = turnierSammlung();
+    const kennung = String(id || "").trim();
+    return ref && kennung ? ref.doc(kennung).collection("geister") : null;
+  }
 
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
   // zum freundlichen Wert – bis auf das, ohne das es kein Turnier ist: Name,
@@ -467,6 +479,7 @@
       aufgaben: d.aufgaben === "zufall" ? "zufall" : "gleich",
       sichtbar: d.sichtbar === "alle" ? "alle" : "link",
       verdeckt: d.verdeckt === true,
+      ohneGeist: d.ohneGeist === true,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
@@ -553,6 +566,9 @@
     // Nur, wo es gilt: Ein Turnier mit fester Zahl von Versuchen kennt das
     // Warten an der Spitze nicht, und die Regeln wiesen es dort ab.
     if (daten.spitzeWartet === true && doc.versuche === 0) doc.spitzeWartet = true;
+    // Ebenso: Nur wer die Gegner abschaltet, schreibt das Feld. Ein Turnier
+    // ohne das Feld zeigt sie, wie jedes Turnier von vorher.
+    if (daten.ohneGeist === true) doc.ohneGeist = true;
     await ref.doc(kennung).set(doc);
     return liesTurnier({ id: kennung, data: () => doc });
   }
@@ -560,40 +576,100 @@
   /*
    * Ein Turnier weg, samt seiner Einträge.
    *
-   * Erst die Einträge, dann das Turnier. Firestore räumt eine Untersammlung
-   * nicht von selbst mit weg – andersherum blieben Einträge liegen, zu denen
-   * es kein Turnier mehr gibt und die deshalb niemand mehr sieht. Und
-   * aufräumen kann man nur, was man sieht.
+   * Erst die Einträge und die Geister, dann das Turnier. Firestore räumt
+   * eine Untersammlung nicht von selbst mit weg – andersherum blieben
+   * Einträge liegen, zu denen es kein Turnier mehr gibt und die deshalb
+   * niemand mehr sieht. Und aufräumen kann man nur, was man sieht.
    */
   async function loescheTurnier(id) {
     const db = starte();
     const ref = turnierSammlung();
     const eintraege = turnierEintraege(id);
-    if (!db || !ref || !eintraege) throw new Error("Firestore ist nicht bereit.");
-    for (let runde = 0; runde < 50; runde += 1) {
-      const stapel = await eintraege.limit(400).get();
-      if (stapel.empty) break;
-      const weg = db.batch();
-      stapel.forEach((doc) => weg.delete(doc.ref));
-      await weg.commit();
+    const geister = turnierGeisterRef(id);
+    if (!db || !ref || !eintraege || !geister) throw new Error("Firestore ist nicht bereit.");
+    for (const unter of [eintraege, geister]) {
+      for (let runde = 0; runde < 50; runde += 1) {
+        const stapel = await unter.limit(400).get();
+        if (stapel.empty) break;
+        const weg = db.batch();
+        stapel.forEach((doc) => weg.delete(doc.ref));
+        await weg.commit();
+      }
     }
     await ref.doc(String(id)).delete();
   }
 
   // Einzelne Einträge eines Turniers weg – für den Namen, den man dort nicht
-  // haben will. Das Turnier selbst und alle anderen bleiben. Nur der Admin
-  // darf das (firestore.rules, eintraege: delete).
+  // haben will, und mit ihnen seine Läufe: Sie tragen denselben Namen. Das
+  // Turnier selbst und alle anderen bleiben. Nur der Admin darf das
+  // (firestore.rules, eintraege und geister: delete).
   async function loescheTurnierEintraege(id, eintragIds) {
     const db = starte();
     const ref = turnierEintraege(id);
-    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
+    const geister = turnierGeisterRef(id);
+    if (!db || !ref || !geister) throw new Error("Firestore ist nicht bereit.");
     const ids = [...new Set((eintragIds || []).map((e) => String(e || "").trim()).filter(Boolean))];
-    for (let i = 0; i < ids.length; i += 400) {
+    for (let i = 0; i < ids.length; i += 200) {
       const weg = db.batch();
-      ids.slice(i, i + 400).forEach((e) => weg.delete(ref.doc(e)));
+      ids.slice(i, i + 200).forEach((e) => { weg.delete(ref.doc(e)); weg.delete(geister.doc(e)); });
       await weg.commit();
     }
     return ids.length;
+  }
+
+  /*
+   * Der beste Lauf eines Spielers in einem Turnier – gelesen von dem, der
+   * gegen ihn spielt (geist.js), geschrieben nach jedem Versuch, der besser
+   * war als sein bester bisher (turnier.js). Gelesen wird vorher: Die Regeln
+   * wiesen einen schwächeren Lauf ohnehin ab, aber erst nach der Reise, und
+   * als Fehler in der Konsole.
+   */
+  function liesGeist(doc) {
+    if (!doc?.exists) return null;
+    const daten = doc.data() || {};
+    const bahn = String(daten.bahn || "");
+    if (!bahn) return null;
+    return {
+      spieler: String(daten.spieler || ""),
+      name: String(daten.name || "").trim().slice(0, NAME_MAX),
+      punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
+      level: String(daten.level || ""),
+      bahn,
+    };
+  }
+
+  async function turnierGeist(id, game, spieler) {
+    const ref = turnierGeisterRef(id);
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    if (!ref || !spielId || !spielerId) return null;
+    return liesGeist(await ref.doc(`${spielId}_${spielerId}`).get());
+  }
+
+  async function speichereTurnierGeist(id, { game, spieler, name, punkte, level, bahn }) {
+    const ref = turnierGeisterRef(id);
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const wie = sauber(name);
+    const fassung = String(level || "").trim().slice(0, 16);
+    const strecke = String(bahn || "");
+    const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
+    if (!ref || !spielId || !spielerId || !wie || !fassung || !strecke || strecke.length > BAHN_MAX) return null;
+    const doc = ref.doc(`${spielId}_${spielerId}`);
+    const alt = liesGeist(await doc.get());
+    if (alt && alt.level === fassung && alt.punkte >= zahl) return null;
+    const jetzt = Date.now();
+    await doc.set({
+      game: spielId,
+      spieler: spielerId,
+      name: wie,
+      punkte: zahl,
+      level: fassung,
+      bahn: strecke,
+      updatedAtMs: jetzt,
+      updatedAt: jetztAufDemServer(),
+    });
+    return { punkte: zahl };
   }
 
   // Die Liste eines Turniers, auf Wunsch nur die eines Spiels – eine Abfrage
@@ -750,6 +826,7 @@
     offeneSpiele, setzeOffeneSpiele,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
+    turnierGeist, speichereTurnierGeist,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };
