@@ -194,6 +194,144 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Namen ändern
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein neuer Name gilt nur für die Runden, die noch kommen. Was schon in
+   * einer Liste steht, bleibt unter dem bisherigen Namen stehen – in der
+   * Hall of Fame wie in jedem Turnier.
+   *
+   * Darum spielt das Gerät mit einem neuen Namen als neuer Mitspieler: mit
+   * einer eigenen Kennung, ohne Bestwerte und ohne eigenen Lauf. Denn in den
+   * Listen gibt es je Spiel und Kennung ein Dokument; mit der alten Kennung
+   * schriebe die nächste Runde den neuen Namen auch über die alten Punkte.
+   *
+   * Wer zu einem Namen zurückwechselt, den das Gerät schon kennt, ist wieder
+   * dieser Mitspieler – mit seiner Kennung, seinen Bestwerten, seinem Lauf.
+   * So teilen sich Geschwister ein Handy, ohne einander in die Quere zu
+   * kommen. Gross- und Kleinschreibung zählt dabei nicht.
+   */
+  const WER_KEY = "mini.wer";
+  const LAUF_KEY = "mini.lauf";        // der eigene beste Lauf je Spiel (geist.js)
+  const WER_MAX = 12;
+  const nameSchluessel = (wert) => sauberName(wert).toLocaleLowerCase("de");
+
+  function liesJson(schluessel, ersatz) {
+    try {
+      const roh = JSON.parse(localStorage.getItem(schluessel) || "null");
+      return roh && typeof roh === "object" ? roh : ersatz;
+    } catch { return ersatz; }
+  }
+
+  function schreibe(schluessel, wert) {
+    try {
+      if (wert === null) localStorage.removeItem(schluessel);
+      else localStorage.setItem(schluessel, typeof wert === "string" ? wert : JSON.stringify(wert));
+    } catch { /* privater Modus */ }
+  }
+
+  function bekannteNamen() {
+    const liste = liesJson(WER_KEY, []);
+    return Array.isArray(liste) ? liste.filter((e) => e && sauberName(e.name) && gueltigeKennung(e.id)) : [];
+  }
+
+  // Gibt den Namen zurück, unter dem ab jetzt gespielt wird, und wie es dazu
+  // kam: "gleich" (derselbe Mitspieler, nur anders geschrieben), "erster"
+  // (bisher ohne Namen), "zurueck" (ein Name, den das Gerät schon kennt) oder
+  // "neu".
+  function namenWechseln(wert) {
+    const neu = sauberName(wert);
+    if (!neu) return { name: name(), wie: "leer" };
+    const alt = name();
+    const altId = kennungFallsDa();
+    if (!alt) {
+      setzeName(neu);
+      return { name: neu, wie: "erster" };
+    }
+    if (nameSchluessel(alt) === nameSchluessel(neu)) {
+      setzeName(neu);
+      return { name: neu, wie: "gleich" };
+    }
+    // Den bisherigen Mitspieler merken, mit allem, was ihm gehört.
+    let liste = bekannteNamen().filter((e) => e.id !== altId && nameSchluessel(e.name) !== nameSchluessel(alt));
+    if (gueltigeKennung(altId)) {
+      liste.unshift({ name: alt, id: altId, best: bestwerte(), lauf: liesJson(LAUF_KEY, {}) });
+    }
+    const da = liste.find((e) => nameSchluessel(e.name) === nameSchluessel(neu));
+    liste = liste.filter((e) => e !== da).slice(0, WER_MAX);
+    schreibe(WER_KEY, liste);
+    if (da) {
+      schreibe(ID_KEY, da.id);
+      schreibe(BEST_KEY, da.best || {});
+      schreibe(LAUF_KEY, da.lauf || {});
+    } else {
+      schreibe(ID_KEY, neueKennung());
+      schreibe(BEST_KEY, {});
+      schreibe(LAUF_KEY, null);
+    }
+    kennungMerker = "";
+    setzeName(neu);
+    zwischenspeicher = null;
+    return { name: neu, wie: da ? "zurueck" : "neu" };
+  }
+
+  /*
+   * Die Zeile "Du spielst als …" mit dem Knopf "Namen ändern". Ein Tipp
+   * darauf macht aus ihr ein Feld; der neue Name gilt ab der nächsten Runde.
+   * beiWechsel bekommt, was namenWechseln zurückgibt – die Turnierseite
+   * zeichnet sich damit neu, denn wer vorne liegt, hängt an der Kennung.
+   */
+  function namensZeile({ beiWechsel = null, klasse = "" } = {}) {
+    const wirt = el("div", `mini-wer ${klasse}`.trim());
+
+    function zeige(meldung = "") {
+      wirt.innerHTML = "";
+      const zeile = el("p", "mini-name-steht");
+      const wer = name();
+      if (wer) {
+        zeile.append(document.createTextNode("Du spielst als "), el("strong", "", wer));
+      } else {
+        zeile.append(document.createTextNode("Du spielst noch ohne Namen"));
+      }
+      zeile.append(knopf(wer ? "Namen ändern" : "Namen festlegen", "mini-knopf-klein", frage));
+      wirt.append(zeile);
+      if (meldung) wirt.append(el("p", "mini-wer-hinweis", meldung));
+    }
+
+    function frage() {
+      wirt.innerHTML = "";
+      const form = el("form", "mini-namensfeld");
+      const feld = el("input");
+      feld.type = "text";
+      feld.maxLength = NAME_MAX;
+      feld.placeholder = name() ? "Neuer Name" : "Dein Name";
+      feld.autocomplete = "nickname";
+      feld.setAttribute("aria-label", "Neuer Name");
+      const ok = el("button", "mini-knopf mini-knopf-voll", "Übernehmen");
+      ok.type = "submit";
+      form.append(feld, ok);
+      form.addEventListener("submit", (ereignis) => {
+        ereignis.preventDefault();
+        const wechsel = namenWechseln(feld.value);
+        if (wechsel.wie === "leer") { feld.focus(); return; }
+        const satz = wechsel.wie === "zurueck"
+          ? `Willkommen zurück, ${wechsel.name}!`
+          : `Ab der nächsten Runde spielst du als ${wechsel.name}.`;
+        zeige(satz);
+        beiWechsel?.(wechsel);
+      });
+      const zurueck = knopf("Abbrechen", "mini-knopf-klein mini-knopf-still", () => zeige());
+      wirt.append(form, el("p", "mini-wer-hinweis", name()
+        ? "Gilt nur für die nächsten Runden – was du schon gespielt hast, bleibt unter deinem bisherigen Namen stehen."
+        : "Unter diesem Namen stehst du in den Listen."), zurueck);
+      feld.focus();
+    }
+
+    zeige();
+    return wirt;
+  }
+
   function bestwerte() {
     try {
       const roh = JSON.parse(localStorage.getItem(BEST_KEY) || "{}");
@@ -386,19 +524,6 @@
   // sie besser ist als die bisherige, und ein Versuch mehr. Ohne Namen wird
   // noch nichts geschrieben – dann steht erst das Feld da, und der Eintrag
   // entsteht, wenn jemand ihn haben will.
-  // Nur den Namen ändern, ohne dass eine Runde daraus wird – und zwar in
-  // allen Spielen, in denen dieses Gerät schon steht. Der Name gehört dem
-  // Gerät, und die Liste fasst nach Namen zusammen (verdichte): Bliebe in
-  // einem Spiel der alte stehen, stünde derselbe Mensch zweimal da. Gibt es
-  // noch keinen Eintrag, gilt der neue Name ab der nächsten Runde von selbst.
-  async function benenneUm() {
-    const wie = name();
-    if (!wie) return null;
-    const ergebnis = await cloud()?.benenneUm?.({ spieler: kennung(), name: wie });
-    zwischenspeicher = null;
-    return ergebnis || null;
-  }
-
   async function melde(spiel, punkte, geist = null) {
     const wie = name();
     if (!wie) return null;
@@ -670,15 +795,9 @@
       });
     }
 
-    // Diese Runde wird genau einmal gemeldet. Danach ändert "Name ändern" nur
-    // noch den Namen: Wer sich umbenennt, hat nicht noch einmal gespielt – und
-    // ein zweiter Aufruf von melde() zählte ihm einen Versuch an, den es nie
-    // gab.
-    let schonGemeldet = false;
-
+    // Diese Runde wird genau einmal gemeldet – unter dem Namen, der jetzt
+    // gilt. Wer danach den Namen ändert, ändert ihn für die nächste Runde.
     function melden() {
-      if (schonGemeldet) { benennen(); return; }
-      schonGemeldet = true;
       meldung.textContent = "Wird eingetragen...";
       melde(spiel, punkte, geist)
         .then((stand) => {
@@ -687,26 +806,7 @@
           zeigeListe(true);
         })
         .catch(() => {
-          // Angekommen ist nichts – dann ist die Runde auch nicht gemeldet,
-          // und der nächste Anlauf darf es wieder versuchen, statt nur noch
-          // umbenennen zu wollen.
-          schonGemeldet = false;
           meldung.textContent = "Das Eintragen hat nicht geklappt. Die Runde zählt trotzdem.";
-          zeigeListe(false);
-        });
-    }
-
-    function benennen() {
-      meldung.textContent = "Wird geändert...";
-      benenneUm()
-        .then((stand) => {
-          // Ohne Eintrag gibt es nichts umzubenennen – der Name gilt dann ab
-          // der nächsten Runde, und das steht auch so da.
-          meldung.textContent = stand ? "Geändert." : "Der Name gilt ab der nächsten Runde.";
-          zeigeListe(Boolean(stand));
-        })
-        .catch(() => {
-          meldung.textContent = "Der neue Name konnte nicht gespeichert werden.";
           zeigeListe(false);
         });
     }
@@ -717,7 +817,6 @@
       feld.type = "text";
       feld.maxLength = NAME_MAX;
       feld.placeholder = "Dein Name";
-      feld.value = name();
       feld.setAttribute("aria-label", "Dein Name für die Bestenliste");
       feld.autocomplete = "nickname";
       const ab = el("button", "mini-knopf mini-knopf-voll", "Eintragen");
@@ -727,7 +826,7 @@
         ereignis.preventDefault();
         const gewaehlt = setzeName(feld.value);
         if (!gewaehlt) { feld.focus(); return; }
-        form.replaceWith(el("p", "mini-name-steht", `Du spielst als ${gewaehlt}.`));
+        form.replaceWith(namensZeile());
         melden();
       });
       meldung.textContent = text;
@@ -736,14 +835,7 @@
     }
 
     if (name()) {
-      const zeile = el("p", "mini-name-steht");
-      zeile.append(document.createTextNode(`Du spielst als ${name()}. `));
-      const aendern = knopf("Name ändern", "mini-knopf-klein", () => {
-        zeile.remove();
-        frageNamen("Wie sollen die anderen dich nennen?");
-      });
-      zeile.append(aendern);
-      block.insertBefore(zeile, listenWirt);
+      block.insertBefore(namensZeile(), listenWirt);
       melden();
     } else {
       frageNamen("Trag deinen Namen ein, dann stehst du in der Liste.");
@@ -978,6 +1070,9 @@
     if (zumAdmin) kopf.append(zumAdmin);
     wirt.append(kopf);
 
+    // Unter wessen Namen hier gespielt wird – und der Weg, ihn zu ändern.
+    wirt.append(namensZeile({ klasse: "mini-wer-oben" }));
+
     // Gleich unter dem Balken: laufende Turniere, sofern es öffentliche gibt.
     // Den Platz füllt turnier.js – wer von beiden zuerst geladen ist, ist
     // gleich (siehe dort, hinweis).
@@ -1068,7 +1163,8 @@
     geister,
     rangliste,
     melde,
-    benenneUm,
+    namenWechseln,
+    namensZeile,
     startStand,
     bestwert,
     auswertung,

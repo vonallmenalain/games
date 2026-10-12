@@ -220,8 +220,12 @@ pruefe("cloud.js trägt eine Runde in einer Transaktion ein",
 // alt, stünde derselbe Mensch zweimal in der Hall of Fame.
 pruefe("cloud.js benennt alle Spiele dieses Geräts um",
   /where\("spieler", "==", spielerId\)/.test(lies("cloud.js")));
-pruefe("mini-games.js benennt nicht für ein einzelnes Spiel um",
-  /benenneUm\?\.\(\{ spieler: kennung\(\), name: wie \}\)/.test(miniJs));
+// Ein neuer Name gilt nur für die Runden, die kommen: Die Seiten benennen
+// nichts um, was schon in einer Liste steht (umbenennen darf nur der Admin).
+pruefe("Ein neuer Name benennt keine alten Einträge um",
+  !/benenneUm|turnierUmbenennen/.test(miniJs + lies("turnier.js")));
+pruefe("Ein neuer Name ist ein neuer Mitspieler (eigene Kennung)",
+  /function namenWechseln[\s\S]*?schreibe\(ID_KEY, neueKennung\(\)\)/.test(miniJs));
 for (const s of SPIELE) {
   const seite = lies(`${s.seite}.html`);
   pruefe(`${s.seite}.html lädt kein firebase-auth`, !seite.includes("firebase-auth"));

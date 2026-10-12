@@ -632,29 +632,59 @@ try {
       window.__miniEintraege.set(id, { id, game: "fishPond", spieler: ich, name: "Testkind", punkte: 7, versuche: 1, updatedAtMs: Date.now() });
     });
 
-    // Umbenennen ist keine Runde – und es gilt in allen Spielen. Bliebe in
-    // einem der alte Name stehen, stünde derselbe Mensch zweimal in der Hall
-    // of Fame: Die Liste fasst nach Namen zusammen.
+    // Namen ändern gilt nur für die Runden, die kommen: Was in der Liste
+    // steht, bleibt beim alten Namen, und es wird keine Runde daraus. Das
+    // Gerät spielt danach als neuer Mitspieler – mit eigener Kennung und
+    // ohne die alten Bestwerte.
+    const vorher = await seite.evaluate(() => ({ id: localStorage.getItem("mini.id"), best: localStorage.getItem("mini.best") }));
     await seite.click(".mini-name-steht button");
-    await seite.waitForSelector(".mini-namensfeld input", { timeout: 4000 });
-    await seite.fill(".mini-namensfeld input", "Testkind Zwei");
-    await seite.click(".mini-namensfeld button");
-    await seite.waitForFunction(() => [...window.__miniEintraege.values()]
-      .some((e) => e.game === "towerStack" && e.name === "Testkind Zwei"), null, { timeout: 6000 });
-    const nach = await seite.evaluate(() => {
-      const ich = localStorage.getItem("mini.id");
-      const meine = [...window.__miniEintraege.values()].filter((e) => e.spieler === ich);
-      return { meine, womit: window.__miniUmbenannt };
-    });
+    await seite.waitForSelector(".mini-wer .mini-namensfeld input", { timeout: 4000 });
+    await seite.fill(".mini-wer .mini-namensfeld input", "Testkind Zwei");
+    await seite.click(".mini-wer .mini-namensfeld button[type=submit]");
+    await seite.waitForSelector(".mini-wer-hinweis", { timeout: 4000 });
+    const nach = await seite.evaluate((alt) => {
+      const meine = [...window.__miniEintraege.values()].filter((e) => e.spieler === alt);
+      return {
+        meine,
+        hinweis: document.querySelector(".mini-wer-hinweis")?.textContent || "",
+        id: localStorage.getItem("mini.id"),
+        name: localStorage.getItem("mini.name"),
+        best: localStorage.getItem("mini.best"),
+        umbenannt: window.__miniUmbenannt || null,
+      };
+    }, vorher.id);
     const turm = nach.meine.find((e) => e.game === "towerStack");
     const teich = nach.meine.find((e) => e.game === "fishPond");
-    pruefe(turm?.versuche === 2, `Das Umbenennen hat eine Runde erfunden: ${turm?.versuche} statt 2.`);
-    pruefe(turm?.name === "Testkind Zwei", `Der neue Name kam nicht an: ${turm?.name}`);
-    pruefe(teich?.name === "Testkind Zwei",
-      `Im zweiten Spiel steht noch der alte Name (${teich?.name}) – in der Hall of Fame wäre das ein zweiter Spieler.`);
-    pruefe(teich?.versuche === 1, `Das Umbenennen hat im zweiten Spiel eine Runde erfunden: ${teich?.versuche} statt 1.`);
-    pruefe(nach.womit && !("game" in nach.womit),
-      `Umbenannt wurde für ein einzelnes Spiel (${JSON.stringify(nach.womit)}) statt für das ganze Gerät.`);
+    pruefe(turm?.name === "Testkind" && teich?.name === "Testkind",
+      `Namen ändern hat alte Einträge umbenannt: ${turm?.name} / ${teich?.name}`);
+    pruefe(turm?.versuche === 2 && teich?.versuche === 1, `Namen ändern hat eine Runde erfunden: ${turm?.versuche} / ${teich?.versuche}`);
+    pruefe(!nach.umbenannt, `Namen ändern hat trotzdem umbenannt: ${JSON.stringify(nach.umbenannt)}`);
+    pruefe(nach.name === "Testkind Zwei" && /nächsten Runde/.test(nach.hinweis), `Nach dem Ändern steht: ${nach.name} · ${nach.hinweis}`);
+    pruefe(/^mini_[A-Za-z0-9_-]{8,48}$/.test(nach.id || "") && nach.id !== vorher.id, "Mit dem neuen Namen spielt das Gerät nicht als neuer Mitspieler.");
+    pruefe(nach.best === "{}", `Der neue Mitspieler hat die Bestwerte des alten: ${nach.best}`);
+
+    // Die nächste Runde steht unter dem neuen Namen, der alte Eintrag bleibt.
+    await seite.reload({ waitUntil: "load" });
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    pruefe(await spieleTurmbauZuEnde(seite), "Die Runde mit dem neuen Namen kam zu keinem Ergebnis.");
+    await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 });
+    const zwei = await seite.evaluate(() => [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack").map((e) => e.name));
+    pruefe(zwei.includes("Testkind") && zwei.includes("Testkind Zwei"), `Nach der Runde mit neuem Namen stehen im Turmbau: ${zwei.join(", ")}`);
+
+    // Zurück zum alten Namen – anders geschrieben – ist wieder der alte
+    // Mitspieler, mit seiner Kennung und seinen Bestwerten.
+    await seite.click(".mini-name-steht button");
+    await seite.waitForSelector(".mini-wer .mini-namensfeld input", { timeout: 4000 });
+    await seite.fill(".mini-wer .mini-namensfeld input", "testkind");
+    await seite.click(".mini-wer .mini-namensfeld button[type=submit]");
+    await seite.waitForSelector(".mini-wer-hinweis", { timeout: 4000 });
+    const zurueck = await seite.evaluate(() => ({
+      id: localStorage.getItem("mini.id"),
+      best: localStorage.getItem("mini.best"),
+      hinweis: document.querySelector(".mini-wer-hinweis")?.textContent || "",
+    }));
+    pruefe(zurueck.id === vorher.id && zurueck.best === vorher.best, `Zurück beim alten Namen ist das Gerät nicht wieder der alte Mitspieler: ${JSON.stringify(zurueck)}`);
+    pruefe(/Willkommen zurück/.test(zurueck.hinweis), `Zurück beim alten Namen steht: ${zurueck.hinweis}`);
     await kontext.close();
   }
 
@@ -668,6 +698,7 @@ try {
     pruefe(await seite.locator(".mini-karte").count() === SPIELE.length,
       `Auf der Startseite stehen ${await seite.locator(".mini-karte").count()} Spiele statt ${SPIELE.length}.`);
     pruefe(text.includes("Grosi"), "Auf der Startseite fehlen die Spieler.");
+    pruefe(await seite.locator(".mini-wer-oben .mini-name-steht button").count() === 1, "Auf der Startseite fehlt «Namen ändern».");
     pruefe(await seite.locator(".mini-tabelle tbody tr").count() >= 1, "Die Auswertung der Spieler fehlt.");
     const kopfzeilen = await seite.locator(".mini-tabelle th").allInnerTexts();
     pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Auswertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
@@ -1957,6 +1988,23 @@ try {
     pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Königscup – Klassen ohne Regel: ${ohne.join(", ")}`);
+
+    // Namen ändern auf der Turnierseite: Wer einen neuen Namen nimmt, ist im
+    // Turnier ein neuer Mitspieler. Königs Einträge bleiben, wo sie sind –
+    // und der Neue darf spielen.
+    pruefe(await seite.locator(".tn-wer .mini-name-steht", { hasText: "König" }).count() === 1, "Auf der Turnierseite steht nicht, unter welchem Namen man spielt.");
+    await seite.click(".tn-wer .mini-name-steht button");
+    await seite.fill(".tn-wer .mini-namensfeld input", "Prinz");
+    await seite.click(".tn-wer .mini-namensfeld button[type=submit]");
+    await seite.waitForFunction(() => document.querySelectorAll(".tn-karte a").length === 2, null, { timeout: 4000 }).catch(() => {});
+    const neu = await seite.evaluate((id) => ({
+      spielen: [...document.querySelectorAll(".tn-karte a")].filter((a) => /Spielen/.test(a.textContent)).length,
+      koenig: [...window.__miniTurnierEintraege.values()].filter((e) => e.spieler === "mini_koenigkoenig").map((e) => e.name),
+      id: localStorage.getItem("mini.id"),
+    }), KOENIG);
+    pruefe(neu.spielen === 2, `Nach dem neuen Namen kann im Königscup ${neu.spielen} statt beide Spiele gespielt werden.`);
+    pruefe(neu.koenig.length === 2 && neu.koenig.every((n) => n === "König"), `Der neue Name hat Königs Einträge geändert: ${neu.koenig.join(", ")}`);
+    pruefe(neu.id !== "mini_koenigkoenig", "Mit dem neuen Namen spielt das Gerät im Turnier noch als König.");
     await kontext.close();
   }
   {

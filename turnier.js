@@ -380,6 +380,13 @@
     if (zumAdmin) kopf.append(zumAdmin);
     wirt.append(kopf);
 
+    // Unter wessen Namen hier gespielt wird. Ein neuer Name ist im Turnier
+    // ein neuer Mitspieler: Was schon gespielt ist, bleibt beim alten Namen,
+    // und wer vorne liegt, hängt an der Kennung – darum zeichnet die Seite
+    // sich danach neu.
+    const wer = mini()?.namensZeile?.({ klasse: "tn-wer", beiWechsel: () => { if (stand.t) zeichne(); } });
+    if (wer) wirt.append(wer);
+
     const inhalt = el("div", "tn-inhalt");
     wirt.append(inhalt);
 
@@ -862,7 +869,6 @@
   }
 
   function losGehts(feld) {
-    const vorher = mini()?.name?.() || "";
     if (feld) {
       // Erst prüfen, dann merken: Ein leeres Feld soll den Namen, der schon
       // dasteht, nicht wegwischen.
@@ -871,13 +877,8 @@
     }
     const wie = mini()?.name?.() || "";
     if (!wie || !spielbar()) { zeigeTor(); return; }
-    // Ein neuer Name gilt überall, wo dieses Gerät steht – in der ewigen
-    // Liste wie in diesem Turnier. Sonst stünde derselbe Mensch in der
-    // Gesamtwertung zweimal: mit dem alten Namen im einen, mit dem neuen im
-    // anderen Spiel.
-    if (wie !== vorher) mini()?.benenneUm?.()?.catch?.(() => {});
-    const spieler = mini()?.kennung?.();
-    nacheinander(() => cloud()?.turnierUmbenennen?.(hier.id, { spieler, name: wie })).catch(() => {});
+    // Umbenannt wird hier nichts: Ein Name gilt für die Runden, die kommen
+    // (mini-games.js, namenWechseln). Was schon in der Liste steht, bleibt.
 
     hier.freigegeben = true;
     hier.laeuft = false;
