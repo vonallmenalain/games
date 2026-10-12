@@ -152,7 +152,8 @@ was es ausmacht:
     Spiele            welche dazugehören, eines bis alle elf
     Wann              Beginn und Dauer (30 Minuten bis ein Monat) oder ein
                       eigenes Ende
-    Versuche          je Spiel 1, 2, 3, 5, 10 oder unbegrenzt
+    Versuche          je Spiel unbegrenzt oder eine feste Zahl, getippt
+                      (1 bis 100)
     Was zählt         der beste Versuch oder alle zusammen
     Gesamtwertung     Platzziffer (die Plätze zusammengezählt, die kleinste
                       Summe gewinnt) oder Prozent vom Besten (der Beste
@@ -214,6 +215,18 @@ einen Knopf, der zur Anmeldung führt.
 Dafür gibt es die Anmeldung überhaupt. Eine Liste, in die jeder ohne Konto
 schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
 nicht haben will.
+
+Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
+Turniers – steht ein kleines ▶. Es öffnet das Spiel zur Probe in einem
+Fenster über dem Adminbereich, mit `?probe=1` in der Adresse: Die Runde läuft
+wie jede andere, wird aber nirgends eingetragen, weder in die ewige Liste noch
+in ein Turnier noch als Bestwert auf dem Gerät. So lässt sich ein Spiel
+ausprobieren, bevor es auf die Startseite oder in ein Turnier kommt, ohne dass
+danach der Admin selbst zuoberst in dessen Liste steht.
+
+Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
+Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,
+«Abbrechen» oder der Zurück-Knopf des Browsers führen wieder zur ganzen Seite.
 
 Er gehört bewusst nicht zur installierten App: kein Manifest, kein Service
 Worker, nicht im Zwischenspeicher. Wer hierherkommt, will die aktuellen Zahlen

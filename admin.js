@@ -68,6 +68,22 @@
     return node;
   }
 
+  // Das offene Turnierformular, falls eines offen ist – für den Zurück-Knopf
+  // des Browsers (baueTurniere, schliesse). Wohin danach gerollt wird,
+  // entscheidet schliesse selbst; der Browser soll dabei nicht dazwischen
+  // rollen.
+  let formularZu = null;
+  window.addEventListener("popstate", () => formularZu?.());
+  try { history.scrollRestoration = "manual"; } catch { /* dann eben nicht */ }
+
+  // Alles weg, was gerade dasteht – auch ein offenes Turnierformular samt
+  // seiner Ansicht für sich allein.
+  function leere() {
+    wirt.innerHTML = "";
+    wirt.classList.remove("ist-formular");
+    formularZu = null;
+  }
+
   const titel = (id) => hs()?.titel?.(id) || id;
   const zahlWort = (anzahl, eins, viele) => `${anzahl} ${anzahl === 1 ? eins : viele}`;
   const einheit = (id) => hs()?.spiel?.(id)?.einheit || "Punkte";
@@ -139,7 +155,7 @@
   }
 
   function zeigeAnmeldung(hinweis) {
-    wirt.innerHTML = "";
+    leere();
     const karte = el("section", "adm-karte adm-anmeldung");
     karte.append(el("h1", "adm-titel", "Adminbereich"));
     karte.append(el("p", "adm-lead", "Die Bestenliste der Mini-Games – ansehen und aufräumen."));
@@ -251,7 +267,7 @@
   }
 
   function zeigeKeinAdmin(nutzer) {
-    wirt.innerHTML = "";
+    leere();
     const karte = el("section", "adm-karte adm-anmeldung");
     karte.append(el("h1", "adm-titel", "Adminbereich"));
     karte.append(el("p", "adm-meldung ist-fehler", nutzer.emailVerified
@@ -306,6 +322,109 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Ein Spiel zum Ausprobieren
+  // ---------------------------------------------------------------------------
+  // Bevor ein Spiel auf die Startseite kommt oder in ein Turnier, will man es
+  // gespielt haben. Der kleine Knopf neben jedem Haken öffnet es in einem
+  // Fenster über dem Adminbereich – ein halb ausgefülltes Turnier darunter
+  // bleibt, wie es war.
+  //
+  // Mit ?probe=1 in der Adresse geht die Runde nirgends hin: nicht in die
+  // ewige Liste, in kein Turnier (mini-games.js, probelauf). Sonst stünde
+  // nach jedem Test der Admin selbst in der Bestenliste.
+  const probeAdresse = (spiel) => `${mini()?.spielLink?.(spiel) || "/"}?probe=1`;
+  let probeZu = null;
+
+  // Der Weg zurück im Spiel (oben links, der Pokal unter dem Ergebnis) führt
+  // im Probelauf hierher. Im Fenster meldet das Spiel das, statt den
+  // Adminbereich ein zweites Mal ins Fenster zu laden.
+  window.addEventListener("message", (ereignis) => {
+    if (ereignis.origin === window.location.origin && ereignis.data?.miniProbe === "zu") probeZu?.();
+  });
+
+  function zeigeProbe(spiel) {
+    probeZu?.();
+    const adresse = probeAdresse(spiel);
+    const huelle = el("div", "adm-probe");
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-modal", "true");
+    huelle.setAttribute("aria-label", `${titel(spiel)} ausprobieren`);
+    const rahmen = el("div", "adm-probe-rahmen");
+
+    const kopf = el("header", "adm-probe-kopf");
+    const text = el("div", "adm-probe-text");
+    text.append(el("strong", "", titel(spiel)), el("span", "", "Probelauf – nichts wird eingetragen."));
+    const neuerTab = el("a", "adm-knopf adm-knopf-klein", "Neuer Tab");
+    neuerTab.href = adresse;
+    neuerTab.target = "_blank";
+    neuerTab.rel = "noopener";
+    const zu = knopf("Schliessen", "adm-knopf-hell", () => schliessen());
+    kopf.append(text, neuerTab, zu);
+
+    const fenster = el("iframe", "adm-probe-spiel");
+    fenster.src = adresse;
+    fenster.title = `${titel(spiel)} zum Ausprobieren`;
+    fenster.allow = "autoplay; fullscreen";
+    // Die Spiele hören auf Tasten. Ohne Fokus im Fenster gingen die an den
+    // Adminbereich, und beim Signal liesse sich keine Runde starten.
+    fenster.addEventListener("load", () => { try { fenster.contentWindow?.focus(); } catch { /* egal */ } });
+    rahmen.append(kopf, fenster);
+    huelle.append(rahmen);
+
+    const vorher = document.activeElement;
+    const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
+    function schliessen() {
+      document.removeEventListener("keydown", taste);
+      huelle.remove();
+      document.body.classList.remove("adm-probe-offen");
+      if (probeZu === schliessen) probeZu = null;
+      vorher?.focus?.({ preventScroll: true });
+    }
+    document.addEventListener("keydown", taste);
+    document.body.classList.add("adm-probe-offen");
+    document.body.append(huelle);
+    probeZu = schliessen;
+  }
+
+  function probeKnopf(spiel) {
+    const node = knopf("", "adm-probe-knopf", () => zeigeProbe(spiel));
+    node.title = `${titel(spiel)} ausprobieren`;
+    node.setAttribute("aria-label", `${titel(spiel)} ausprobieren`);
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const dreieck = document.createElementNS(NS, "path");
+    dreieck.setAttribute("d", "M8 5.5v13l10.5-6.5z");
+    dreieck.setAttribute("fill", "currentColor");
+    svg.append(dreieck);
+    node.append(svg);
+    return node;
+  }
+
+  // Ein Spiel zum Anhaken, mit dem Knopf zum Ausprobieren daneben. Der Knopf
+  // liegt neben dem Haken und nicht in seinem label: Ein Tipp auf "spielen"
+  // soll nie zugleich den Haken umlegen – auf der Startseite wäre das sofort
+  // gespeichert.
+  function wahlZeile(spiel, an, beiAenderung) {
+    const zeile = el("div", "adm-wahl");
+    zeile.style.setProperty("--adm-farbe", farbe(spiel).hell);
+    const haken = el("label", "adm-wahl-haken");
+    const box = el("input");
+    box.type = "checkbox";
+    box.value = spiel;
+    box.checked = an;
+    zeile.classList.toggle("ist-an", an);
+    box.addEventListener("change", () => {
+      zeile.classList.toggle("ist-an", box.checked);
+      beiAenderung(box.checked);
+    });
+    haken.append(box, el("span", "adm-wahl-name", titel(spiel)));
+    zeile.append(haken, probeKnopf(spiel));
+    return { zeile, box };
+  }
+
+  // ---------------------------------------------------------------------------
   // Welche Spiele gespielt werden können
   // ---------------------------------------------------------------------------
   // Ein Haken je Spiel. Was angehakt ist, steht auf der Startseite und in der
@@ -325,7 +444,7 @@
     const zahl = el("span", "adm-block-zahl", `${offen.length} von ${(mini()?.SPIELE || []).length} angehakt`);
     kopf.append(zahl);
     block.append(kopf);
-    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen."));
+    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit ▶ spielst du ein Spiel zur Probe, ohne dass etwas eingetragen wird."));
 
     const meldung = el("p", "adm-meldung");
     block.append(meldung);
@@ -349,29 +468,20 @@
     }
 
     (mini()?.SPIELE || []).forEach((spiel) => {
-      const f = farbe(spiel.id);
-      const zeile = el("label", "adm-wahl");
-      zeile.style.setProperty("--adm-farbe", f.hell);
-      const haken = el("input");
-      haken.type = "checkbox";
-      haken.checked = gewaehlt.has(spiel.id);
-      haken.addEventListener("change", () => {
-        if (haken.checked) gewaehlt.add(spiel.id);
+      const { zeile } = wahlZeile(spiel.id, gewaehlt.has(spiel.id), (an) => {
+        if (an) gewaehlt.add(spiel.id);
         else gewaehlt.delete(spiel.id);
-        zeile.classList.toggle("ist-an", haken.checked);
         sichern();
       });
-      zeile.classList.toggle("ist-an", haken.checked);
-      zeile.append(haken, el("span", "adm-wahl-name", titel(spiel.id)));
       gitter.append(zeile);
     });
     block.append(gitter);
 
     const alleAn = knopf("Alle anhaken", "adm-knopf-klein", () => {
-      gitter.querySelectorAll("input").forEach((h) => { if (!h.checked) h.click(); });
+      gitter.querySelectorAll("input[type=checkbox]").forEach((h) => { if (!h.checked) h.click(); });
     });
     const alleAus = knopf("Alle abwählen", "adm-knopf-klein", () => {
-      gitter.querySelectorAll("input").forEach((h) => { if (h.checked) h.click(); });
+      gitter.querySelectorAll("input[type=checkbox]").forEach((h) => { if (h.checked) h.click(); });
     });
     const zeile = el("div", "adm-kopf-aktionen");
     zeile.append(alleAn, alleAus);
@@ -402,7 +512,9 @@
     ["2 Wochen", 14 * TAG],
     ["1 Monat", 30 * TAG],
   ];
-  const VERSUCHE = [[1, "1"], [2, "2"], [3, "3"], [5, "5"], [10, "10"], [0, "unbegrenzt"]];
+  // So viele Versuche je Spiel lassen die Regeln zu (firestore.rules,
+  // istTurnier).
+  const VERSUCHE_MAX = 100;
 
   const zwei = (n) => String(n).padStart(2, "0");
   // Für <input type="datetime-local">: Ortszeit, ohne Sekunden.
@@ -469,7 +581,17 @@
     };
 
     const form = el("form", "adm-turnier-form");
-    form.append(el("h3", "", vorlage ? `«${vorlage.name}» ändern` : "Neues Turnier"));
+    // Geprüft wird beim Speichern hier unten, mit einem Satz, der sagt, was
+    // fehlt – nicht vom Browser. Der hielte sonst auch eine Zahl im Feld der
+    // Versuche für falsch, wenn gar nicht die Zahl, sondern "unbegrenzt"
+    // gewählt ist.
+    form.noValidate = true;
+    // Das Formular steht allein da und ist lang: Der Weg zurück steht deshalb
+    // auch oben, nicht nur unter dem letzten Feld.
+    const formKopf = el("header", "adm-turnier-form-kopf");
+    formKopf.append(el("h3", "", vorlage ? `«${vorlage.name}» ändern` : "Neues Turnier"));
+    formKopf.append(knopf("Zurück zur Übersicht", "adm-knopf-klein", abbrechen));
+    form.append(formKopf);
 
     // --- Name und Beschreibung ------------------------------------------------
     const nameFeld = feld("text", "Name, z. B. Herbstcup");
@@ -498,20 +620,11 @@
     const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt`; };
     const haken = [];
     (mini()?.SPIELE || []).forEach((spiel) => {
-      const zeile = el("label", "adm-wahl");
-      zeile.style.setProperty("--adm-farbe", farbe(spiel.id).hell);
-      const box = el("input");
-      box.type = "checkbox";
-      box.value = spiel.id;
-      box.checked = gewaehlt.has(spiel.id);
-      box.addEventListener("change", () => {
-        if (box.checked) gewaehlt.add(spiel.id);
+      const { zeile, box } = wahlZeile(spiel.id, gewaehlt.has(spiel.id), (an) => {
+        if (an) gewaehlt.add(spiel.id);
         else gewaehlt.delete(spiel.id);
-        zeile.classList.toggle("ist-an", box.checked);
         zaehle();
       });
-      zeile.classList.toggle("ist-an", box.checked);
-      zeile.append(box, el("span", "adm-wahl-name", titel(spiel.id)));
       gitter.append(zeile);
       haken.push(box);
     });
@@ -609,19 +722,39 @@
     }
     const gewaehlterWert = (name) => form.querySelector(`input[name="${name}-${nr}"]:checked`)?.value || "";
 
-    const versuche = el("select", "adm-feld adm-feld-schmal");
-    VERSUCHE.forEach(([zahl, wort]) => {
-      const option = el("option", "", wort);
-      option.value = String(zahl);
-      versuche.append(option);
-    });
-    versuche.value = String(VERSUCHE.some(([zahl]) => zahl === t.versuche) ? t.versuche : 3);
-    const versucheZeile = el("label", "adm-zeile");
-    versucheZeile.append(el("span", "adm-zeile-wort", "Versuche je Spiel"), versuche);
-    const versucheHinweis = el("p", "adm-klein", "Ein Versuch zählt, sobald er beginnt – wer mittendrin neu lädt, hat ihn trotzdem gebraucht.");
-    const regeln = el("fieldset", "adm-gruppe");
-    regeln.append(el("legend", "", "Versuche"), versucheZeile, versucheHinweis);
-    form.append(regeln);
+    // Die Versuche: unbegrenzt oder eine feste Zahl, und die Zahl wird
+    // getippt, nicht aus einer Liste gewählt – vier Versuche sind so gut wie
+    // drei oder fünf. Wer in das Zahlfeld tippt, meint die feste Zahl; der
+    // Punkt davor springt von selbst mit.
+    const versuche = wahl("Versuche je Spiel", "versuchsart", [
+      ["frei", "Unbegrenzt", "So oft, wie jemand will, solange das Turnier läuft."],
+      ["zahl", "Eine feste Zahl", "Ein Versuch zählt, sobald er beginnt – wer mittendrin neu lädt, hat ihn trotzdem gebraucht."],
+    ], t.versuche ? "zahl" : "frei");
+    const anzahl = feld("number", "3");
+    anzahl.className = "adm-feld adm-feld-zahl";
+    anzahl.min = "1";
+    anzahl.max = String(VERSUCHE_MAX);
+    anzahl.step = "1";
+    anzahl.inputMode = "numeric";
+    anzahl.value = String(t.versuche || 3);
+    anzahl.setAttribute("aria-label", "Anzahl Versuche je Spiel");
+    // Das Feld steht in der Zeile seiner Wahl, gleich hinter dem Wort.
+    const zahlTitel = versuche.querySelector('input[value="zahl"]').closest(".adm-option").querySelector("strong");
+    const reihe = el("span", "adm-option-reihe");
+    zahlTitel.replaceWith(reihe);
+    reihe.append(zahlTitel, anzahl);
+    const waehleZahl = () => {
+      const radio = versuche.querySelector('input[value="zahl"]');
+      if (radio.checked) return;
+      radio.checked = true;
+      pruefeSumme();
+    };
+    anzahl.addEventListener("focus", waehleZahl);
+    anzahl.addEventListener("input", waehleZahl);
+    form.append(versuche);
+    const unbegrenzt = () => gewaehlterWert("versuchsart") !== "zahl";
+    // Die Zahl, wie sie im Feld steht – NaN, wenn dort keine ganze steht.
+    const getippt = () => (/^\s*\d+\s*$/.test(anzahl.value) ? Number(anzahl.value) : NaN);
 
     const zaehlt = wahl("Was in einem Spiel zählt", "zaehlt", [
       ["bester", "Der beste Versuch", "Wer es dreimal probiert, dem zählt die beste Runde."],
@@ -631,11 +764,11 @@
     // Zusammenzählen ohne Grenze hiesse: Es gewinnt, wer am längsten spielt.
     const summeRadio = zaehlt.querySelector('input[value="summe"]');
     const besterRadio = zaehlt.querySelector('input[value="bester"]');
-    const pruefeSumme = () => {
-      const unbegrenzt = versuche.value === "0";
-      summeRadio.disabled = unbegrenzt;
-      if (unbegrenzt && summeRadio.checked) besterRadio.checked = true;
-    };
+    function pruefeSumme() {
+      const ohneGrenze = unbegrenzt();
+      summeRadio.disabled = ohneGrenze;
+      if (ohneGrenze && summeRadio.checked) besterRadio.checked = true;
+    }
     versuche.addEventListener("change", pruefeSumme);
     pruefeSumme();
 
@@ -694,7 +827,7 @@
         spiele: haken.filter((b) => b.checked).map((b) => b.value),
         startMs: ausFeld(beginn.value),
         endeMs: endeMs(),
-        versuche: Number(versuche.value) || 0,
+        versuche: unbegrenzt() ? 0 : getippt(),
         zaehlt: gewaehlterWert("zaehlt") || "bester",
         wertung: gewaehlterWert("wertung") || "platz",
         aufgaben: gewaehlterWert("aufgaben") || "gleich",
@@ -708,6 +841,11 @@
       if (!Number.isFinite(daten.startMs) || !Number.isFinite(daten.endeMs)) { sage("Beginn und Ende brauchen ein Datum und eine Uhrzeit.", "ist-fehler"); return; }
       if (daten.endeMs <= daten.startMs) { sage("Das Ende muss nach dem Beginn liegen.", "ist-fehler"); return; }
       if (!vorlage && daten.endeMs <= Date.now()) { sage("Dieses Turnier wäre schon vorbei, bevor es jemand sieht.", "ist-fehler"); return; }
+      if (!unbegrenzt() && !(daten.versuche >= 1 && daten.versuche <= VERSUCHE_MAX)) {
+        sage(`Die Zahl der Versuche ist eine ganze Zahl von 1 bis ${VERSUCHE_MAX}.`, "ist-fehler");
+        anzahl.focus();
+        return;
+      }
       if (daten.zaehlt === "summe" && !daten.versuche) { sage("Alle Versuche zusammenzählen geht nur mit einer festen Zahl von Versuchen.", "ist-fehler"); return; }
       speichern.disabled = true;
       sage("Wird gespeichert...");
@@ -817,9 +955,25 @@
       meldung.className = `adm-meldung ${art}`.trim();
     };
 
-    function schliesse() {
+    /*
+     * Ein offenes Formular steht allein da (.ist-formular): kein Streifen,
+     * keine Liste der Turniere, keine Spieler darunter – nur das Turnier, das
+     * gerade entsteht. Wer abbricht, steht wieder dort, wo er war; wer
+     * speichert, bei der Liste mit der Meldung und dem Link.
+     *
+     * Und weil es aussieht wie eine eigene Seite, schliesst es auch der
+     * Zurück-Knopf des Browsers (oder die Wischgeste am Handy), statt den
+     * Adminbereich ganz zu verlassen.
+     */
+    let vorherY = 0;
+    function schliesse({ gespeichert = false } = {}) {
+      if (formularZu === schliesse) formularZu = null;
       formWirt.innerHTML = "";
       neuKnopf.hidden = false;
+      wirt.classList.remove("ist-formular");
+      if (history.state?.admFormular) history.back();
+      if (gespeichert) block.scrollIntoView?.({ block: "start" });
+      else window.scrollTo(0, vorherY);
     }
 
     function oeffne(vorlage) {
@@ -828,17 +982,21 @@
       sage("");
       formWirt.append(turnierFormular(vorlage, {
         offen,
-        abbrechen: schliesse,
+        abbrechen: () => schliesse(),
         sichern: async (daten) => {
           const id = vorlage?.id || neueTurnierId(daten.name);
           await cloud().setzeTurnier(id, daten);
-          schliesse();
+          schliesse({ gespeichert: true });
           const adresse = tn()?.volleAdresse?.(id) || `${window.location.origin}/turnier?t=${id}`;
           sage(vorlage ? `«${daten.name}» ist gespeichert.` : `«${daten.name}» ist angelegt. Der Link: ${adresse}`, "ist-gut");
           await laden();
         },
       }));
-      formWirt.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      if (!wirt.classList.contains("ist-formular")) vorherY = window.scrollY;
+      wirt.classList.add("ist-formular");
+      if (!history.state?.admFormular) history.pushState({ admFormular: true }, "");
+      formularZu = schliesse;
+      window.scrollTo(0, 0);
     }
 
     async function speichere(t) {
@@ -1020,7 +1178,7 @@
   }
 
   async function zeigeAdmin(nutzer) {
-    wirt.innerHTML = "";
+    leere();
 
     const kopf = el("header", "adm-kopf");
     const links = el("div");
@@ -1099,7 +1257,7 @@
   async function los() {
     const a = auth();
     if (!a) {
-      wirt.innerHTML = "";
+      leere();
       wirt.append(el("p", "adm-hinweis ist-fehler", "Firebase liess sich nicht laden. Ohne Netz geht der Adminbereich nicht."));
       return;
     }
