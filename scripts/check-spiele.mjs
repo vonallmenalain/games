@@ -1307,7 +1307,7 @@ try {
     }],
     ["/liane", "Lianenschwung", () => {
       const l = window.LernappLiane;
-      const aeste = l.state.anker.slice(0, 4).map((a) => `${a.basis.toFixed(3)}/${a.hoehe.toFixed(3)}`);
+      const aeste = l.state.anker.slice(0, 4).map((a) => `${a.x.toFixed(3)}/${a.y.toFixed(3)}`);
       const fruechte = l.state.fruechte.slice(0, 2).map((f) => `${f.x.toFixed(3)}/${f.y.toFixed(3)}`);
       return `${aeste.join(" ")} | ${fruechte.join(" ")}`;
     }],
@@ -1853,7 +1853,7 @@ try {
         id: "vineSwing_mini_miamiamiamia", game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, versuche: 2, updatedAtMs: 1000,
       }]]));
       localStorage.setItem("__mini_geister_attrappe", JSON.stringify([["vineSwing_mini_miamiamiamia", {
-        game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, level: "t1", bahn,
+        game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, level: "s1", bahn,
       }]]));
     }, MIA);
     await seite.goto(`${BASIS}/liane`, { waitUntil: "load" });
@@ -1897,7 +1897,7 @@ try {
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 });
     const runde = await seite.evaluate(() => ({
       punkte: window.LernappLiane.state.punkte,
-      lauf: window.LernappGeist.eigenerLauf("vineSwing"),
+      lauf: window.LernappGeist.eigenerLauf("vineSwing", "s1"),
     }));
     const gelesen = runde.lauf ? await seite.evaluate((bahn) => window.LernappGeist.entpacke(bahn), runde.lauf.bahn) : null;
     pruefe(runde.punkte > 0 && runde.lauf?.punkte === runde.punkte && gelesen?.p?.length > 2 && Array.isArray(gelesen?.a),

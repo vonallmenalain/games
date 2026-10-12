@@ -8,16 +8,17 @@
  *
  * Zwei Arten, je nach Spiel:
  *
- *   tempo   Spiele mit fester Zeit (Blätter im Strom, Brückenbauer,
- *           Lianenschwung). Aufgezeichnet wird, wann jemand wie viele Punkte
- *           hatte; beim nächsten Mal läuft dieser Stand Viertelsekunde für
- *           Viertelsekunde mit. Wer vorne liegt, sieht es sofort, und wer
- *           überholt wird, auch. Brückenbauer und Lianenschwung zeichnen dazu
- *           den Weg auf (ort) und zeigen den Gegner als Geist im Bild.
+ *   tempo   Spiele mit fester Zeit (Blätter im Strom, Lianenschwung).
+ *           Aufgezeichnet wird, wann jemand wie viele Punkte hatte; beim
+ *           nächsten Mal läuft dieser Stand Viertelsekunde für Viertelsekunde
+ *           mit. Wer vorne liegt, sieht es sofort, und wer überholt wird, auch.
+ *           Der Lianenschwung zeichnet dazu den Weg auf (ort) und zeigt den
+ *           Gegner als Geist im Bild – auf seiner festen Strecke an denselben
+ *           Lianen.
  *   ziel    Spiele ohne Uhr, die beim ersten Fehler enden (Turmbau,
- *           Drehscheibe, Fischteich, Kacheln). Dort gibt es keinen Takt, nur
- *           eine Zahl: die Zielmarke. Der Turmbau zieht sie als Linie über den
- *           Turm.
+ *           Brückenbauer, Drehscheibe, Fischteich, Kacheln). Dort gibt es
+ *           keinen Takt, nur eine Zahl: die Zielmarke. Der Turmbau zieht sie
+ *           als Linie über den Turm.
  *
  * Wer auf Platz 1 steht, sagt die Hall of Fame – im Turnier dessen eigene
  * Liste. Die eigene Bestmarke kennt das Gerät: mini-games.js merkt sich den
@@ -121,16 +122,19 @@
 
   // Der eigene beste Lauf: die Zahl, und in Spielen mit Uhr die Aufzeichnung
   // dazu (sonst leer). Er steht auf dem Gerät, auch wenn nie ein Name
-  // eingetragen wurde – dann kennt ihn mini-games.js nicht.
-  function eigenerLauf(spiel) {
+  // eingetragen wurde – dann kennt ihn mini-games.js nicht. Ein Lauf aus
+  // einer anderen Fassung des Spiels zählt nicht: Seine Zahl hiess damals
+  // etwas anderes.
+  function eigenerLauf(spiel, fassung = LEVEL) {
     const lauf = liesJson(LAUF_KEY)[spiel];
     const punkte = Math.round(Number(lauf?.punkte) || 0);
-    return punkte > 0 ? { punkte, bahn: typeof lauf.bahn === "string" ? lauf.bahn : "" } : null;
+    if (!(punkte > 0) || (lauf.level || LEVEL) !== fassung) return null;
+    return { punkte, bahn: typeof lauf.bahn === "string" ? lauf.bahn : "" };
   }
 
-  function merkeLauf(spiel, punkte, bahn) {
+  function merkeLauf(spiel, punkte, bahn, fassung = LEVEL) {
     const alle = liesJson(LAUF_KEY);
-    alle[spiel] = { punkte, bahn };
+    alle[spiel] = { punkte, bahn, level: fassung };
     schreibeJson(LAUF_KEY, alle);
   }
 
@@ -138,12 +142,13 @@
   // Die Aufzeichnung
   // ---------------------------------------------------------------------------
   // Alle TAKT_MS eine Probe: die Punkte und, wo das Spiel einen Geist zeigt,
-  // wo er war (a, b – was das heisst, weiss das Spiel). Geschrieben wird sie
-  // als JSON, ganze Zahlen, eine Probe je Stelle:
+  // wo er war (a, b, c – was das heisst, weiss das Spiel; c ist eine ganze
+  // Zahl, die nicht gemittelt wird). Geschrieben wird sie als JSON, ganze
+  // Zahlen, eine Probe je Stelle:
   //
-  //   {"v":1,"dt":250,"p":[0,0,1,…],"a":[…],"b":[…]}
+  //   {"v":1,"dt":250,"p":[0,0,1,…],"a":[…],"b":[…],"c":[…]}
   function neueAufzeichnung() {
-    return { p: [], a: [], b: [], ort: false };
+    return { p: [], a: [], b: [], c: [], ort: false, mitC: false };
   }
 
   // Bis zur Zeit ms auffüllen. Kam ein Bild zu spät, steht der jetzige Stand
@@ -151,12 +156,13 @@
   function probe(auf, ms, punkte, ort) {
     const soll = Math.min(PROBEN_MAX, Math.floor(Math.max(0, ms) / TAKT_MS) + 1);
     if (ort) auf.ort = true;
+    if (ort && ort.c !== undefined) auf.mitC = true;
+    const letzte = (liste) => (liste.length ? liste[liste.length - 1] : 0);
     while (auf.p.length < soll) {
       auf.p.push(Math.max(0, Math.round(punkte)));
-      const letzteA = auf.a.length ? auf.a[auf.a.length - 1] : 0;
-      const letzteB = auf.b.length ? auf.b[auf.b.length - 1] : 0;
-      auf.a.push(ort ? Math.round(ort.a) : letzteA);
-      auf.b.push(ort ? Math.round(ort.b || 0) : letzteB);
+      auf.a.push(ort ? Math.round(ort.a) : letzte(auf.a));
+      auf.b.push(ort ? Math.round(ort.b || 0) : letzte(auf.b));
+      auf.c.push(ort ? Math.round(ort.c || 0) : letzte(auf.c));
     }
   }
 
@@ -168,14 +174,19 @@
     let p = auf.p;
     let a = auf.ort ? auf.a : null;
     let b = auf.ort ? auf.b : null;
+    let c = auf.ort && auf.mitC ? auf.c : null;
     for (let versuch = 0; versuch < 6 && p.length; versuch += 1) {
-      const text = JSON.stringify(a ? { v: 1, dt, p, a, b } : { v: 1, dt, p });
+      const daten = { v: 1, dt, p };
+      if (a) Object.assign(daten, { a, b });
+      if (c) daten.c = c;
+      const text = JSON.stringify(daten);
       if (text.length <= BAHN_MAX) return text;
       const halb = (liste) => liste.filter((_, i) => i % 2 === 0);
       dt *= 2;
       p = halb(p);
       p[p.length - 1] = ende;
       if (a) { a = halb(a); b = halb(b); }
+      if (c) c = halb(c);
     }
     return "";
   }
@@ -187,11 +198,13 @@
     const zahl = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
     const p = d.p.map(zahl);
     const mitOrt = Array.isArray(d.a) && Array.isArray(d.b) && d.a.length === p.length && d.b.length === p.length;
+    const mitC = mitOrt && Array.isArray(d.c) && d.c.length === p.length;
     return {
       dt: Number(d.dt) > 0 ? Number(d.dt) : TAKT_MS,
       p,
       a: mitOrt ? d.a.map(zahl) : null,
       b: mitOrt ? d.b.map(zahl) : null,
+      c: mitC ? d.c.map(zahl) : null,
     };
   }
 
@@ -214,7 +227,7 @@
       ort(ms) {
         if (!d.a) return null;
         const { i, j, k } = stelle(ms);
-        return { a: d.a[i] + (d.a[j] - d.a[i]) * k, b: d.b[i] + (d.b[j] - d.b[i]) * k };
+        return { a: d.a[i] + (d.a[j] - d.a[i]) * k, b: d.b[i] + (d.b[j] - d.b[i]) * k, c: d.c ? d.c[i] : 0 };
       },
       fertig: (ms) => ms > dauer,
     };
@@ -228,12 +241,12 @@
   //   erster  { name, punkte, lauf, ich } oder null
   //   eigen   { punkte, lauf } oder null
   //   grund   warum es keinen ersten gibt: "verdeckt", "frei"
-  async function ladeStand(spiel, art, lage) {
+  async function ladeStand(spiel, art, lage, fassung) {
     const stand = { aus: false, erster: null, eigen: null, grund: "frei" };
     const t = lage?.t || null;
     if (t?.ohneGeist) { stand.aus = true; return stand; }
 
-    const lokal = eigenerLauf(spiel);
+    const lokal = eigenerLauf(spiel, fassung);
     const best = Math.max(Math.round(Number(mini()?.bestwert?.(spiel)) || 0), lokal?.punkte || 0);
     if (best > 0) {
       stand.eigen = {
@@ -252,7 +265,7 @@
       const geist = art === "tempo" && vorne.spieler
         ? await vielleicht(() => cloud()?.turnierGeist?.(lage.id, spiel, vorne.spieler))
         : null;
-      const passt = geist?.bahn && geist.level === LEVEL;
+      const passt = geist?.bahn && geist.level === fassung;
       // Zählen alle Versuche zusammen, ist die Zahl in der Liste eine Summe –
       // gegen die lässt sich keine einzelne Runde spielen. Dann gilt sein
       // bester einzelner Lauf, und ohne Aufzeichnung gibt es keinen.
@@ -274,7 +287,7 @@
     if (!vorne || !(vorne.punkte > 0)) return stand;
     let lauf = null;
     if (art === "tempo" && vorne.spieler) {
-      const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [vorne.spieler], LEVEL));
+      const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [vorne.spieler], fassung));
       const geist = (gefunden || [])[0];
       // Nur der Lauf, der zu dieser Zahl gehört. Trägt jemand denselben Namen
       // auf zwei Geräten, kann die Aufzeichnung vom anderen stammen.
@@ -292,6 +305,10 @@
    *
    *   const gegner = LernappGeist?.fuer({ spiel: "vineSwing", host, art: "tempo" });
    *
+   * fassung gibt die Fassung der Aufzeichnung an (Vorgabe LEVEL). Ändert ein
+   * Spiel, was seine Zahl bedeutet oder was es aufzeichnet, bekommt es eine
+   * neue – dann laufen alte Läufe nicht mehr gegen neue.
+   *
    * und ruft dann:
    *
    *   gegner.runde()        bei jedem Neustart, noch vor dem ersten Zug
@@ -303,7 +320,7 @@
    *   gegner.gegner()       wer gerade angezeigt wird, für das Bild
    *   gegner.zeit()         wie lange die Runde schon läuft, in ms
    */
-  function fuer({ spiel, host, art = "ziel" }) {
+  function fuer({ spiel, host, art = "ziel", fassung = LEVEL }) {
     if (!spiel || !host) return null;
 
     const z = {
@@ -468,7 +485,7 @@
         if (versuch < 60) window.setTimeout(() => { if (nr === z.ladung) lade(nr, versuch + 1); }, 250);
         return;
       }
-      ladeStand(spiel, art, lage?.t ? lage : null).then((stand) => {
+      ladeStand(spiel, art, lage?.t ? lage : null, fassung).then((stand) => {
         if (nr !== z.ladung) return;
         z.stand = stand;
         zeichne();
@@ -528,10 +545,10 @@
       const bahn = art === "tempo" && z.auf.p.length ? packe(z.auf) : "";
       // Der eigene beste Lauf bleibt auf dem Gerät – auch ohne Namen, auch
       // ohne Netz. Ein Probelauf aus dem Adminbereich zählt nirgends.
-      if (!mini()?.probelauf?.() && z.punkte > 0 && z.punkte > (eigenerLauf(spiel)?.punkte || 0)) {
-        merkeLauf(spiel, z.punkte, bahn);
+      if (!mini()?.probelauf?.() && z.punkte > 0 && z.punkte > (eigenerLauf(spiel, fassung)?.punkte || 0)) {
+        merkeLauf(spiel, z.punkte, bahn, fassung);
       }
-      return bahn ? { level: LEVEL, bahn } : null;
+      return bahn ? { level: fassung, bahn } : null;
     }
 
     // Wer gerade angezeigt wird – für das Bild des Spiels. Liegt man selbst

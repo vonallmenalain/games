@@ -7,19 +7,20 @@
  * kippen. Reicht er genau auf den Pfeiler drüben, geht der Arbeiter hinüber,
  * und der nächste kommt. Ist er zu kurz oder zu lang, fällt er.
  *
- * Eine Runde dauert vierzig Sekunden, oder bis jemand fällt. Gezählt werden
- * die Brücken – und jede, deren Balken genau auf der roten Mitte des Pfeilers
+ * Keine Uhr: Eine Runde dauert, bis der Arbeiter fällt. Gezählt werden die
+ * Brücken – und jede, deren Balken genau auf der roten Mitte des Pfeilers
  * liegt, zählt doppelt. Mehrere genaue hintereinander zählen noch mehr: Das
  * ist der Grund, die nächste Runde besser machen zu wollen.
  *
- * Schwerer wird es mit jeder Brücke, nicht mit der Zeit: Die Pfeiler werden
- * schmaler, die Schluchten streuen weiter, der Balken wächst schneller. Ab der
- * zehnten Brücke steht der Pfeiler drüben nicht mehr still – er pendelt, und
- * wer loslässt, muss mitrechnen, wo er ist, wenn der Balken aufschlägt.
+ * Schwerer wird es mit jeder Brücke: Die Pfeiler werden schmaler, die
+ * Schluchten weiter, der Balken wächst schneller. Am Ende stehen nur noch
+ * Stäbe in der Schlucht, weit auseinander.
  *
- * Wer mag, spielt nicht allein: Platz 1 und die eigene Bestmarke laufen als
- * Geister mit (geist.js) – auf den eigenen Pfeilern, so weit, wie sie zu
- * dieser Sekunde gekommen waren.
+ * Der Arbeiter steht ein Stück hinter der Kante – auf dem Fels oder auf
+ * seiner letzten Brücke –, damit der Balken vom ersten Stück an zu sehen ist.
+ *
+ * Wer mag, spielt nicht allein: Platz 1 und die eigene Bestmarke stehen als
+ * Zielmarke über dem Bild (geist.js).
  *
  * Gezeichnet wird wie beim Turmbau auf eine Leinwand, gerechnet in
  * Welteinheiten. Fest steht die Höhe: SICHT_H Einheiten im Querformat. Wie
@@ -60,7 +61,10 @@
   // So weit steht die Kante des eigenen Pfeilers vom linken Bildrand. Die
   // weiteste Schlucht samt Pfeiler passt danach noch in WELT_W.
   const VOR_KANTE = 62;
-  const RUNDE_MS = 40000;
+  // So weit hinter der Kante steht der Arbeiter. Davor stünde er dem
+  // wachsenden Balken im Bild. Ist der Pfeiler schmaler, steht er auf seiner
+  // letzten Brücke – die reicht immer bis auf den Pfeiler.
+  const STAND = 24;
 
   // Der Balken.
   const BALKEN_D = 5.6;            // Dicke
@@ -80,18 +84,17 @@
   // Wie schwer die nächste Schlucht ist
   // ---------------------------------------------------------------------------
   // Die Zahlen sind ausgespielt, nicht ausgerechnet. Die ersten fünf Brücken
-  // schafft fast jeder; ab zehn wird es eng; ab fünfzehn trifft nur noch, wer
-  // den Balken wirklich im Gefühl hat.
-  const SCHWER_BIS = 16;           // nach so vielen Brücken ist das Härteste erreicht
-  const BEWEGT_AB = 10;            // ab dieser Brücke pendelt der Pfeiler drüben
-  const PENDEL_MAX = 26;           // so weit pendelt er höchstens (halbe Weite)
+  // schafft fast jeder; ab zehn wird es eng; danach trifft nur noch, wer den
+  // Balken wirklich im Gefühl hat. Ohne Uhr darf es dafür ruhig länger
+  // schwerer werden.
+  const SCHWER_BIS = 22;           // nach so vielen Brücken ist das Härteste erreicht
 
   const HELP = [
     "Brückenbauer. Halte den Finger auf dem Bild, dann wächst an der Kante ein Balken in die Höhe.",
     "Lass los, dann kippt er nach vorn über die Schlucht.",
     "Reicht er genau auf den nächsten Pfeiler, geht der Arbeiter hinüber. Ist er zu kurz oder zu lang, fällt er.",
     "Triffst du die rote Mitte des Pfeilers, zählt die Brücke doppelt – und mehrere genaue hintereinander zählen noch mehr.",
-    "Du hast vierzig Sekunden. Später werden die Pfeiler schmaler, und manche bewegen sich.",
+    "Es gibt keine Uhr: Die Runde dauert, bis der Arbeiter fällt. Mit jeder Brücke werden die Pfeiler schmaler und die Schluchten weiter.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -130,13 +133,12 @@
     punkte: 0,
     bruecken: 0,
     kette: 0,             // genaue Treffer hintereinander
-    pfeiler: [],          // { x, w, mitte, basis, weite, periode, ph, fest }
+    pfeiler: [],          // { x, w, gras }
     hier: 0,              // Index des Pfeilers, auf dem der Arbeiter steht
     balken: null,         // { x, len, winkel }
     alte: [],             // liegende Balken früherer Brücken
     arbeiter: { x: 0, y: OBEN, vy: 0, dreh: 0, schritt: 0 },
     ziel: 0,
-    gehVon: 0,
     treffer: false,
     genau: false,
     kippZeit: 0,
@@ -158,7 +160,7 @@
   let last = 0;
   let stepTimer = null;
   let gedrueckt = false;
-  // Die Gegner (geist.js): wer mitläuft, und wo er gerade ist.
+  // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
@@ -176,25 +178,19 @@
   // ---------------------------------------------------------------------------
   // Der Pfeiler n ist der, den die n-te Brücke erreichen muss. Seine Lage
   // hängt allein an n und am Zufall – nie daran, wie lange jemand überlegt.
+  // Am Ende sind die Pfeiler kaum breiter als der Balken dick ist, und die
+  // Schluchten so weit, dass der Balken fast bis an den oberen Bildrand
+  // wächst.
   function neuerPfeiler(n, vorher) {
     const k = clamp(n / SCHWER_BIS, 0, 1);
-    const w = von(lerp(42, 13, k), lerp(64, 30, k));
-    const bewegt = n >= BEWEGT_AB;
-    const weite = bewegt ? lerp(10, PENDEL_MAX, clamp((n - BEWEGT_AB) / 8, 0, 1)) : 0;
-    // Nicht näher als 26 Einheiten an der Kante – auch nicht, wenn der
-    // Pfeiler herüberpendelt – und nie so weit, dass er aus dem Bild ragte.
-    const minLuecke = 26 + weite;
-    const maxLuecke = Math.max(minLuecke + 10, WELT_W - VOR_KANTE - w - weite - 8);
-    const luecke = clamp(von(lerp(44, 34, k), lerp(104, 172, k)), minLuecke, maxLuecke);
-    const x = vorher.x + vorher.w / 2 + luecke + w / 2;
+    const w = von(lerp(34, 10, k), lerp(54, 22, k));
+    // Nie so nah, dass der Arbeiter auf seinem Pfeiler mit dem Balken
+    // zusammenstiesse, und nie so weit, dass der Pfeiler aus dem Bild ragte.
+    const maxLuecke = WELT_W - VOR_KANTE - w - 8;
+    const luecke = clamp(von(lerp(50, 72, k), lerp(110, 185, k)), STAND + 8, maxLuecke);
     return {
-      x,
-      basis: x,
+      x: vorher.x + vorher.w / 2 + luecke + w / 2,
       w,
-      weite,
-      periode: bewegt ? von(lerp(2.6, 1.5, k), lerp(3.2, 2.1, k)) : 0,
-      ph: zufall.zahl() * Math.PI * 2,
-      fest: !bewegt,
       gras: hash01(n * 3.1),
     };
   }
@@ -249,10 +245,10 @@
     if (canvas.height !== ph) canvas.height = ph;
   }
 
-  // Die Oberkante der Pfeiler steht auf einem Viertel der Bildhöhe: darüber
-  // ist Platz für den Balken, auch für den längsten (172 Einheiten Schlucht
-  // und ein halber Pfeiler – drei Viertel von SICHT_H sind 195).
-  const camYZiel = () => OBEN - view.h * 0.25;
+  // Die Oberkante der Pfeiler steht tief im Bild: darüber ist Platz für den
+  // Balken, auch für den längsten (185 Einheiten Schlucht und ein ganzer
+  // Pfeiler – 84 Prozent von SICHT_H sind 218).
+  const camYZiel = () => OBEN - view.h * 0.16;
 
   const wackel = () => (ruhig() ? 0 : Math.sin(state.zeit * 70) * 2.2 * state.stoss);
 
@@ -520,113 +516,10 @@
     });
     state.alte.forEach(zeichneBalken);
     zeichneBalken(state.balken);
-    const geister = geisterOrte();
-    geister.forEach(zeichneGeist);
     zeichneArbeiter();
     zeichneFunken();
     zeichneNebel();
-    zeichneGeistNamen(geister);
     zeichneSchriften();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Die Geister
-  // ---------------------------------------------------------------------------
-  // Wie weit jemand ist, sagt eine Zahl: die Brücken, die er hinter sich hat,
-  // und wie weit er über die nächste gegangen ist (2,5 = mitten auf der
-  // dritten). Aufgezeichnet wird sie mal hundert. Gezeigt wird der Geist auf
-  // den eigenen Pfeilern – seine waren andere, aber gezählt wird hier wie
-  // dort in Brücken.
-  function fortschritt() {
-    const a = state.arbeiter;
-    if (state.schritt !== "gehen" || !state.treffer) return state.bruecken;
-    const weg = state.ziel - state.gehVon;
-    return state.bruecken + (weg > 0 ? clamp((a.x - state.gehVon) / weg, 0, 0.99) : 0);
-  }
-
-  // Wo die Geister jetzt stehen. Vor der Runde stehen sie nicht da: Sie
-  // stünden alle genau auf dem Arbeiter.
-  function geisterOrte() {
-    if (!gegner || state.phase === "bereit") return [];
-    const ms = gegner.zeit();
-    return gegner.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
-      const f = Math.max(0, geg.lauf.ort(ms).a / 100);
-      const n = Math.floor(f + 0.001);
-      const anteil = clamp(f - n, 0, 1);
-      const von = state.pfeiler[n];
-      const nach = state.pfeiler[n + 1];
-      let x = null;
-      if (von) x = kante(von) - 9 + (nach && anteil > 0 ? (kante(nach) - kante(von)) * anteil : 0);
-      const fertig = geg.lauf.fertig(ms);
-      const blass = fertig ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1;
-      return { ...geg, x, n, anteil, ms, blass, vorsprung: n - state.bruecken };
-    });
-  }
-
-  function zeichneGeist(geist) {
-    if (geist.x === null || geist.blass <= 0) return;
-    const gehen = geist.anteil > 0;
-    const pendel = gehen ? Math.sin(geist.ms / 1000 * 14) : 0;
-    g.save();
-    g.globalAlpha = 0.5 * geist.blass;
-    g.translate(geist.x, OBEN);
-    g.scale(ARBEITER_GROSS, ARBEITER_GROSS);
-    g.lineCap = "round";
-    g.strokeStyle = geist.farbe;
-    g.fillStyle = geist.farbe;
-    g.lineWidth = 3;
-    g.beginPath();
-    g.moveTo(-1.6, 9);
-    g.lineTo(-1.6 + pendel * 3, 0.6);
-    g.moveTo(1.6, 9);
-    g.lineTo(1.6 - pendel * 3, 0.6);
-    g.stroke();
-    rundRect(-5.2, 8, 10.4, 11, 3.5);
-    g.fill();
-    g.beginPath();
-    g.arc(0.6, 23, 4.4, 0, Math.PI * 2);
-    g.fill();
-    g.beginPath();
-    g.arc(0.4, 24.6, 5, 0, Math.PI);
-    g.fill();
-    g.restore();
-  }
-
-  // Der Name über dem Geist – oder, wenn er ausserhalb des Bildes ist, ein
-  // Schild am Rand: wie viele Brücken er voraus ist oder zurückliegt.
-  function zeichneGeistNamen(geister) {
-    if (!geister.length) return;
-    bildTransform();
-    g.textBaseline = "middle";
-    const gross = Math.round(clamp(10 * view.s, 11, 16));
-    g.font = `800 ${gross}px system-ui, sans-serif`;
-    geister.forEach((geist, i) => {
-      if (geist.blass <= 0) return;
-      g.globalAlpha = 0.9 * geist.blass;
-      const sx = geist.x === null ? Infinity : bildX(geist.x);
-      if (sx > -10 && sx < view.cssW + 10) {
-        g.textAlign = "center";
-        const sy = bildY(OBEN + 27 * ARBEITER_GROSS + 8) - i * (gross + 3);
-        g.lineWidth = 3;
-        g.strokeStyle = "rgba(40, 30, 60, 0.55)";
-        g.strokeText(geist.name, sx, sy);
-        g.fillStyle = geist.farbe;
-        g.fillText(geist.name, sx, sy);
-        return;
-      }
-      const rechts = sx >= view.cssW;
-      const text = rechts ? `${geist.name} +${Math.max(1, geist.vorsprung)} ▸` : `◂ ${geist.name} ${Math.min(-1, geist.vorsprung)}`;
-      const w = g.measureText(text).width + gross;
-      const y = view.cssH * 0.18 + i * (gross + 10);
-      const x = rechts ? view.cssW - w - 8 : 8;
-      g.fillStyle = "rgba(30, 30, 50, 0.55)";
-      rundRect(x, y - gross * 0.75, w, gross * 1.5, gross * 0.75);
-      g.fill();
-      g.textAlign = "left";
-      g.fillStyle = geist.farbe;
-      g.fillText(text, x + gross / 2, y);
-    });
-    g.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -637,7 +530,6 @@
     if (state.phase === "bereit") {
       state.phase = "spiel";
       shell.setPhase("play");
-      shell.startClock(RUNDE_MS, zeitUm);
       gegner?.los();
     }
     if (state.phase !== "spiel" || state.schritt !== "warten") return;
@@ -666,15 +558,13 @@
   function aufgeschlagen() {
     const b = state.balken;
     const p = state.pfeiler[state.hier + 1];
-    p.fest = true;  // was trägt, pendelt nicht mehr
     const spitze = b.x + b.len;
     state.treffer = b.len > 0 && spitze >= p.x - p.w / 2 && spitze <= p.x + p.w / 2;
     // Zu kurz fällt der Balken mit in die Schlucht; zu lang bleibt er liegen,
     // und nur der Arbeiter tritt ins Leere.
     b.faellt = !state.treffer && spitze < p.x - p.w / 2;
     state.genau = state.treffer && Math.abs(spitze - p.x) <= MITTE_W / 2;
-    state.ziel = state.treffer ? kante(p) - 9 : spitze;
-    state.gehVon = state.arbeiter.x;
+    state.ziel = state.treffer ? kante(p) - STAND : spitze;
     state.schritt = "gehen";
     state.stoss = state.treffer ? 0.5 : 0.2;
     staub(spitze, OBEN, 7);
@@ -685,7 +575,6 @@
     if (!state.treffer) {
       state.schritt = "fallen";
       state.arbeiter.vy = 40;
-      shell.stopClock();
       state.kette = 0;
       zeigeCombo();
       kids()?.playJingle?.("retry");
@@ -713,6 +602,7 @@
     state.punkte += plus;
     state.bruecken += 1;
     shell.setCount(state.punkte);
+    gegner?.takt(state.punkte);
     state.alte.push(state.balken);
     state.balken = null;
     state.hier += 1;
@@ -772,12 +662,6 @@
     state.zeit += dt;
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 6);
 
-    // Pendelnde Pfeiler – nur der, der als nächster erreicht werden will.
-    state.pfeiler.forEach((p) => {
-      if (p.fest || !p.periode) return;
-      p.x = p.basis + Math.sin(state.zeit * (Math.PI * 2 / p.periode) + p.ph) * p.weite;
-    });
-
     const a = state.arbeiter;
     const b = state.balken;
     switch (state.schritt) {
@@ -836,8 +720,6 @@
 
     const zielY = camYZiel();
     state.camY += (zielY - state.camY) * (1 - Math.exp(-10 * dt));
-
-    if (state.phase === "spiel") gegner?.takt(state.punkte, { a: Math.round(fortschritt() * 100), b: 0 });
   }
 
   function loop(now) {
@@ -883,26 +765,16 @@
     messen();
 
     // Der erste Pfeiler ist breit und steht fest: Dort beginnt jeder gleich.
-    const erster = { x: 0, basis: 0, w: 70, weite: 0, periode: 0, ph: 0, fest: true, gras: 0 };
+    const erster = { x: 0, w: 70, gras: 0 };
     state.pfeiler = [erster];
     state.pfeiler.push(neuerPfeiler(0, erster));
-    state.arbeiter = { x: kante(erster) - 9, y: OBEN, vy: 0, dreh: 0, schritt: 0 };
+    state.arbeiter = { x: kante(erster) - STAND, y: OBEN, vy: 0, dreh: 0, schritt: 0 };
     state.camX = kante(erster) - VOR_KANTE;
     state.camY = camYZiel();
     zeigeCombo();
 
     last = performance.now();
     frame = window.requestAnimationFrame(loop);
-  }
-
-  function zeitUm() {
-    // Wer schon fällt, fällt zu Ende – die Tafel kommt dann ohnehin.
-    if (state.phase !== "spiel" || state.schritt === "fallen" || state.schritt === "ende") return;
-    // Eine Brücke, die gerade begangen wird, zählt nicht mehr – die Zeit ist
-    // um, wenn sie um ist.
-    state.schritt = "ende";
-    kids()?.playJingle?.("star");
-    stepTimer = window.setTimeout(finish, 350);
   }
 
   function zaehleHoch(ziel) {
@@ -958,10 +830,10 @@
     accent: "#3FA34D",
     accentDark: "#2c7337",
     help: HELP,
-    clock: true,
+    clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "tempo" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "ziel" }) || null;
 
   startRun();
 
@@ -992,6 +864,6 @@
 
   // Für die Prüfskripte.
   window.LernappBruecke = {
-    OBEN, MITTE_W, RUNDE_MS, state, view, neuerPfeiler, wachsTempo, fortschritt,
+    OBEN, MITTE_W, STAND, state, view, neuerPfeiler, wachsTempo,
   };
 })();

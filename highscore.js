@@ -66,7 +66,7 @@
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
-    { id: "vineSwing", titel: "Lianenschwung", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.liane", einheit: "Punkte" },
+    { id: "vineSwing", titel: "Lianenschwung", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.liane", einheit: "Meter" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },

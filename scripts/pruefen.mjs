@@ -247,9 +247,16 @@ for (const s of SPIELE) {
 
 // Wer würfelt, würfelt im Turnier mit dem Turnier: Sonst bekäme jeder eine
 // andere Aufgabe, und es gewänne der mit dem freundlicheren Würfel. Ein Spiel
-// mit festem Level, das gar nicht würfelt, käme hier in eine eigene Liste.
+// mit festem Level würfelt gar nicht – es hat für alle und immer dieselbe
+// Strecke, aus einer festen Saat.
+const FESTES_LEVEL = new Set(["vineSwing"]);
 for (const s of SPIELE) {
   const quelle = lies(s.js);
+  if (FESTES_LEVEL.has(s.spiel)) {
+    pruefe(`${s.js} hat ein festes Level: eine feste Saat, kein Zufall des Turniers`,
+      /const SAAT = \d+;/.test(quelle) && !quelle.includes("LernappZufall"));
+    continue;
+  }
   pruefe(`${s.js} nimmt seinen Zufall aus LernappZufall.fuer("${s.spiel}")`, quelle.includes(`LernappZufall?.fuer?.("${s.spiel}")`));
   pruefe(`${s.js} stellt den Zufall zu Beginn jeder Runde zurück (zufall.neu())`, /zufall\.neu\(\)/.test(quelle));
 }

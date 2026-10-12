@@ -12,17 +12,19 @@
  * rot heisst, sie ist noch zu lang.
  *
  * Eine Runde dauert vierzig Sekunden, oder bis der Affe ins Wasser fällt.
- * Jeder Meter zählt einen Punkt, jede Banane zehn, und wer einen Ast
- * überspringt, bekommt fünf dazu.
+ * Gezählt wird nur eines: wie weit er gekommen ist, in Metern. Bananen und
+ * weite Sprünge geben keine Punkte, sondern Schwung – eine Banane einen
+ * kräftigen Stoss nach vorn, ein übersprungener Ast mehr Tempo am nächsten.
+ * Und Tempo ist Strecke.
  *
- * Schwerer wird es mit jedem Ast, nicht mit der Zeit: Die Äste hängen weiter
- * auseinander und tiefer. Ab dem achten schwanken manche im Wind, ab dem
- * vierzehnten sind manche morsch und brechen, wenn der Affe zu lange daran
- * hängt.
+ * Die Strecke ist immer dieselbe: dieselben Äste an denselben Stellen, für
+ * jeden und bei jedem Mal. So lässt sie sich lernen, und der Vergleich ist
+ * ehrlich. Schwerer wird sie nach hinten: Die Äste hängen weiter auseinander
+ * und tiefer.
  *
  * Wer mag, schwingt nicht allein: Platz 1 und die eigene Bestmarke fliegen
- * als Geister mit (geist.js) – an Lianen, die nur sie sehen, aber genau so
- * weit, wie sie zu dieser Sekunde gekommen waren.
+ * als Geister mit (geist.js) – auf derselben Strecke, an denselben Lianen,
+ * genau so, wie sie damals geflogen sind.
  *
  * Gezeichnet wird wie beim Brückenbauer auf eine Leinwand, gerechnet in
  * Welteinheiten – zehn sind ein Meter. Fest steht die Höhe: SICHT_H Einheiten
@@ -43,12 +45,22 @@
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
-  // Der Zufall. Ohne Turnier Math.random; im Turnier hängen für alle dieselben
-  // Äste an denselben Stellen (zufall.js). Blätter und Spritzer würfeln weiter
-  // Math.random – sie hängen daran, wie jemand spielt.
-  const zufall = window.LernappZufall?.fuer?.("vineSwing") || {
-    fest: false, neu() {}, zahl: Math.random,
-  };
+  // Die Strecke. Gewürfelt wird sie einmal, mit fester Saat – und dann ist
+  // sie für alle und immer dieselbe, im Turnier wie ohne. Darum fragt dieses
+  // Spiel auch nicht nach dem Zufall des Turniers (zufall.js). Blätter und
+  // Spritzer würfeln weiter Math.random – sie hängen daran, wie jemand spielt.
+  const SAAT = 20261012;
+  function mulberry32(saat) {
+    let a = saat >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  let strecke = mulberry32(SAAT);
 
   // ---------------------------------------------------------------------------
   // Die Welt
@@ -68,7 +80,7 @@
   const G = 720;                   // Fallbeschleunigung
   const LUFT = 0.04;               // so viel Tempo frisst die Luft je Sekunde
   const PUMP = 80;                 // wer vorwärts schwingt, legt sich hinein
-  const V_MAX = 700;
+  const V_MAX = 720;
   const UMLENK = 0.55;             // so viel vom Schwung zur Liane hin bleibt beim Greifen
   const TAKT = 1 / 240;            // gerechnet wird in festen kleinen Schritten
 
@@ -80,15 +92,17 @@
   // Tiefer darf eine Liane nicht schwingen: sonst taucht der Affe ein.
   const SICHER = WASSER + KOERPER + 3;
 
-  const BANANE = 10;               // Punkte für eine Banane
-  const WEIT = 5;                  // Punkte für jeden übersprungenen Ast
-
-  const BRUCH_MS = 1150;           // so lange trägt ein morscher Ast
+  // Schwung statt Punkte. Eine Banane stösst den Affen kräftig nach vorn und
+  // ein wenig hinauf; ein übersprungener Ast gibt am nächsten mehr Tempo
+  // nach vorn. Beides vor allem nach vorn: Nach oben hiesse über das
+  // Blätterdach hinaus, und dort hängt keine Liane mehr.
+  const BANANE_VX = 230;
+  const BANANE_VY = 60;
+  const WEIT_V = 85;               // je übersprungenem Ast, höchstens zwei
+  const BANANE_ANTEIL = 0.3;       // vor so vielen Ästen hängt eine
 
   // Wie schwer der nächste Ast ist – nach Nummer, nicht nach Zeit.
   const SCHWER_BIS = 24;
-  const BEWEGT_AB = 8;
-  const MORSCH_AB = 14;
 
   // Hier beginnt jeder: auf dem Ast eines Baums, die erste Liane in der Hand.
   const START = { x: -88, y: 171 };
@@ -98,8 +112,8 @@
     "Lianenschwung. Halte den Finger auf dem Bild, dann springt der Affe ab und schwingt an der Liane.",
     "Lass los, dann fliegt er. Drück wieder, dann greift er die nächste Liane – die am Ast mit dem Ring.",
     "Ist der Ring rot, ist die Liane noch zu lang: Der Affe würde ins Wasser schwingen. Warte, bis er gelb ist.",
-    "Jeder Meter zählt einen Punkt, jede Banane zehn. Wer einen Ast überspringt, bekommt fünf dazu.",
-    "Du hast vierzig Sekunden. Später hängen die Äste weiter auseinander, manche schwanken, und morsche brechen, wenn du zu lange daran hängst.",
+    "Es zählt nur, wie weit du kommst, in Metern. Eine Banane gibt dir einen kräftigen Schwung nach vorn, und wer einen Ast überspringt, wird schneller.",
+    "Du hast vierzig Sekunden. Die Strecke ist immer dieselbe – nach hinten hängen die Äste weiter auseinander.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -117,7 +131,7 @@
   // ---------------------------------------------------------------------------
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const lerp = (a, b, k) => a + (b - a) * k;
-  const von = (a, b) => a + zufall.zahl() * (b - a);
+  const von = (a, b) => a + strecke() * (b - a);
 
   // Immer dieselbe Zahl zu derselben Eingabe: Bäume, Seerosen und Blätter
   // stehen bei jedem Neustart am selben Platz.
@@ -143,11 +157,11 @@
   const state = {
     phase: "bereit",
     schritt: "start",
-    punkte: 0,
+    punkte: 0,            // dasselbe wie meter – die Strecke ist die Punktzahl
     meter: 0,
-    bonus: 0,
     bananen: 0,
-    anker: [],            // { x, y, basis, hoehe, weite, periode, ph, t, morsch, halt, weg, saat }
+    schwung: 0,           // leuchtet nach einer Banane oder einem weiten Sprung
+    anker: [],            // { x, y, saat }
     fruechte: [],         // { x, y, weg, saat }
     haken: -1,            // an welchem Ast der Affe hängt
     seil: 0,              // wie lang die Liane ist, an der er hängt
@@ -191,49 +205,30 @@
   // ---------------------------------------------------------------------------
   // Äste und Bananen
   // ---------------------------------------------------------------------------
-  // Der Ast i hängt dort, wo ihn der i-te Schwung erreichen soll. Seine Lage
-  // hängt allein an i und am Zufall – nie daran, wie jemand spielt. Mit ihm
-  // entsteht die Banane, die davor in der Luft hängt (oder keine).
+  // Der Ast i hängt dort, wo ihn der i-te Schwung erreichen soll – auf der
+  // festen Strecke an derselben Stelle wie bei jedem anderen Mal. Alle Äste
+  // sind gleich; verschieden ist nur, wie weit auseinander und wie hoch sie
+  // hängen. Mit ihm entsteht die Banane, die davor in der Luft hängt (oder
+  // keine – meistens keine).
   function neuerAnker(i, vorher) {
     const k = clamp(i / SCHWER_BIS, 0, 1);
     const dx = von(lerp(98, 128, k), lerp(138, 192, k));
     const hoehe = von(lerp(214, 184, k), lerp(256, 262, k));
-    const wurf = zufall.zahl();
-    const bewegt = i >= BEWEGT_AB && wurf < lerp(0.3, 0.55, clamp((i - BEWEGT_AB) / 12, 0, 1));
-    const morsch = !bewegt && i >= MORSCH_AB && wurf > 1 - lerp(0.3, 0.5, clamp((i - MORSCH_AB) / 10, 0, 1));
-    const weite = bewegt ? von(12, lerp(20, 30, k)) : 0;
-    const periode = bewegt ? von(1.7, 2.8) : 0;
-    const ph = zufall.zahl() * Math.PI * 2;
-    const basis = vorher.basis + dx;
-    const a = {
-      x: basis, y: hoehe, basis, hoehe, weite, periode, ph,
-      t: 0, morsch, halt: 0, weg: false, saat: hash01(i * 3.7 + 0.4),
-    };
-    bewegeAnker(a);
+    const a = { x: vorher.x + dx, y: hoehe, saat: hash01(i * 3.7 + 0.4) };
 
     // Die Banane: meist auf halbem Weg, mal tief, mal so hoch, dass nur ein
     // steiler Flug sie holt.
-    const frucht = zufall.zahl();
-    const fx = vorher.basis + dx * von(0.35, 0.7);
-    const fy = Math.min(vorher.hoehe, hoehe) - von(28, 96);
-    if (frucht < 0.62 && i > 0) {
+    const frucht = strecke();
+    const fx = vorher.x + dx * von(0.35, 0.7);
+    const fy = Math.min(vorher.y, hoehe) - von(28, 90);
+    if (frucht < BANANE_ANTEIL && i > 1) {
       state.fruechte.push({ x: fx, y: Math.max(SICHER + 42, fy), weg: false, saat: hash01(i * 1.9) });
     }
     return a;
   }
 
-  // Ein schwankender Ast pendelt wie ein Zweig im Wind – an den Enden etwas
-  // höher. Er hat seine eigene Uhr: Solange der Affe daran hängt, steht sie
-  // still, und danach schwankt er dort weiter, wo er war.
-  function bewegeAnker(a) {
-    if (!a.weite) return;
-    const s = Math.sin(a.t * (Math.PI * 2 / a.periode) + a.ph);
-    a.x = a.basis + s * a.weite;
-    a.y = a.hoehe + s * s * a.weite * 0.2;
-  }
-
   function aesteBis(x) {
-    while (state.anker[state.anker.length - 1].basis < x) {
+    while (state.anker[state.anker.length - 1].x < x) {
       const i = state.anker.length;
       state.anker.push(neuerAnker(i, state.anker[i - 1]));
     }
@@ -544,52 +539,39 @@
 
   // Ein Ast hängt aus dem Blätterdach herab; an seiner Spitze der Knoten, an
   // dem die Liane hängt.
-  function zeichneAst(a, i) {
-    let ax = a.x;
-    if (a.morsch && i === state.haken && !ruhig()) {
-      ax += Math.sin(state.zeit * 55) * 1.6 * (a.halt / BRUCH_MS);
-    }
+  function zeichneAst(a) {
+    const ax = a.x;
     const top = oben() + 14;
-    const wurzel = a.basis + (a.saat - 0.5) * 60;
+    const wurzel = a.x + (a.saat - 0.5) * 60;
     const knick = (wurzel + ax) / 2 + (hash01(a.saat * 13) - 0.5) * 36;
     const mitteY = (top + a.y) / 2 + 22;
     g.lineCap = "round";
-    g.strokeStyle = a.morsch ? "#7a6b5a" : "#4a2f17";
+    g.strokeStyle = "#4a2f17";
     g.lineWidth = 6.5;
     g.beginPath();
     g.moveTo(wurzel, top);
     g.quadraticCurveTo(knick, mitteY, ax, a.y);
     g.stroke();
-    g.strokeStyle = a.morsch ? "#a39582" : "#6e4826";
+    g.strokeStyle = "#6e4826";
     g.lineWidth = 2.4;
     g.beginPath();
     g.moveTo(wurzel + 1.5, top);
     g.quadraticCurveTo(knick + 1.5, mitteY, ax + 1, a.y + 1);
     g.stroke();
 
-    // Blätter am Ast – morsche haben braune.
+    // Blätter am Ast.
     for (let j = 0; j < 3; j += 1) {
       const t = 0.45 + j * 0.18;
       const bx = (1 - t) * (1 - t) * wurzel + 2 * (1 - t) * t * knick + t * t * ax;
       const by = (1 - t) * (1 - t) * top + 2 * (1 - t) * t * mitteY + t * t * a.y;
       const seite = j % 2 ? 1 : -1;
-      g.fillStyle = a.morsch ? "#a8823f" : (j === 1 ? "#3f8f3a" : "#58ad46");
+      g.fillStyle = j === 1 ? "#3f8f3a" : "#58ad46";
       oval(bx + seite * 5, by - 1, 5.5, 2.6, seite * 0.6);
     }
 
-    if (a.morsch) {
-      // Risse nahe der Spitze.
-      g.strokeStyle = "#3a2c1e";
-      g.lineWidth = 1;
-      g.beginPath();
-      g.moveTo(ax - 2, a.y + 12);
-      g.lineTo(ax + 1.5, a.y + 9);
-      g.lineTo(ax - 1, a.y + 6);
-      g.stroke();
-    }
-    g.fillStyle = a.morsch ? "#5c4a38" : "#2f1d0d";
+    g.fillStyle = "#2f1d0d";
     kreis(ax, a.y, 3.6);
-    g.fillStyle = a.morsch ? "#8d7a64" : "#7a5230";
+    g.fillStyle = "#7a5230";
     kreis(ax - 0.8, a.y + 0.8, 1.5);
   }
 
@@ -725,11 +707,20 @@
     const haengt = state.haken >= 0;
     const fliegt = state.schritt === "fliegen";
     const zeit = ruhig() ? 0 : state.zeit;
-    // Spur im Flug.
+    // Spur im Flug – nach einer Banane oder einem weiten Sprung golden.
+    const glut = state.schwung;
     state.spur.forEach((s, i) => {
-      g.fillStyle = `rgba(255, 255, 255, ${(i / state.spur.length) * 0.35})`;
-      kreis(s.x, s.y, 1.6);
+      const k = i / state.spur.length;
+      g.fillStyle = glut > 0 ? `rgba(255, 214, 80, ${k * (0.35 + 0.5 * glut)})` : `rgba(255, 255, 255, ${k * 0.35})`;
+      kreis(s.x, s.y, 1.6 + glut * 2.2 * k);
     });
+    if (glut > 0) {
+      const schein = g.createRadialGradient(p.x, p.y, 4, p.x, p.y, 30);
+      schein.addColorStop(0, `rgba(255, 224, 102, ${0.45 * glut})`);
+      schein.addColorStop(1, "rgba(255, 224, 102, 0)");
+      g.fillStyle = schein;
+      kreis(p.x, p.y, 30);
+    }
 
     g.save();
     g.translate(p.x, p.y);
@@ -880,8 +871,8 @@
     const links = state.camX - 80;
     const rechts = state.camX + view.w + 80;
     state.anker.forEach((a, i) => {
-      if (a.weg || a.x < links || a.x > rechts) return;
-      zeichneAst(a, i);
+      if (a.x < links || a.x > rechts) return;
+      zeichneAst(a);
       if (i !== state.haken) zeichneStummel(a, i);
     });
     zeichneFruechte();
@@ -903,8 +894,8 @@
   // Die Geister
   // ---------------------------------------------------------------------------
   // Aufgezeichnet ist, wo der Affe des Gegners war: wie weit vom Startbaum
-  // (a) und wie hoch (b). Seine Äste waren andere, also hängt er hier an
-  // keinem – aber wie weit er zu dieser Sekunde war, stimmt.
+  // (a), wie hoch (b) und an welchem Ast er hing (c, 0 heisst: im Flug). Die
+  // Strecke ist dieselbe, also hängt er an denselben Lianen.
   function geisterOrte() {
     if (!gegner || state.phase === "bereit") return [];
     const ms = gegner.zeit();
@@ -913,20 +904,37 @@
       const bald = geg.lauf.ort(ms + 120);
       const vx = (bald.a - ort.a) / 0.12;
       const fertig = geg.lauf.fertig(ms);
+      const x = START.x + ort.a;
+      const ast = ort.c > 0 ? state.anker[ort.c - 1] || null : null;
       return {
         ...geg,
-        x: START.x + ort.a,
+        x,
         y: ort.b,
-        dreh: -clamp(vx / 900, -0.45, 0.45),
+        ast,
+        dreh: ast ? Math.atan2(-(ast.x - x), ast.y - ort.b) : -clamp(vx / 900, -0.45, 0.45),
         blass: fertig ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1,
         meter: Math.round((ort.a - (state.p.x - START.x)) / METER),
       };
     });
   }
 
-  // Ein Affe aus Licht: dieselbe Gestalt, in der Farbe des Gegners.
+  // Ein Affe aus Licht: dieselbe Gestalt, in der Farbe des Gegners – und,
+  // wenn er gerade hängt, seine Liane, ebenso blass.
   function zeichneGeist(geist) {
     if (geist.blass <= 0) return;
+    if (geist.ast) {
+      const s = HAND * AFFE_GROSS;
+      g.save();
+      g.globalAlpha = 0.35 * geist.blass;
+      g.strokeStyle = geist.farbe;
+      g.lineWidth = 2;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(geist.ast.x, geist.ast.y);
+      g.lineTo(geist.x - Math.sin(geist.dreh) * s, geist.y + Math.cos(geist.dreh) * s);
+      g.stroke();
+      g.restore();
+    }
     g.save();
     g.globalAlpha = 0.45 * geist.blass;
     g.translate(geist.x, geist.y);
@@ -1030,7 +1038,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Greifen, Loslassen, Brechen
+  // Greifen, Loslassen, Schwung
   // ---------------------------------------------------------------------------
   function abspringen() {
     state.haken = -1;
@@ -1047,7 +1055,7 @@
     for (let i = Math.max(0, state.letzter - 1); i < state.anker.length; i += 1) {
       const a = state.anker[i];
       if (a.x > p.x + REICH) break;
-      if (a.weg || a.x < p.x - 12 || a.y < p.y + 6) continue;
+      if (a.x < p.x - 12 || a.y < p.y + 6) continue;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       if (d <= bestD) { best = i; bestD = d; }
     }
@@ -1078,29 +1086,32 @@
     state.schritt = "schwingen";
     state.greift = false;
     state.spur = [];
-    a.halt = 0;
     blaetter(a.x, a.y, 3);
     kids()?.vibrate?.(10);
     if (i > state.letzter) {
+      // Ein Ast übersprungen: mehr Tempo nach vorn. Was davon entlang des
+      // Bogens liegt, nimmt die Liane mit.
       const uebersprungen = i - state.letzter - 1;
       if (uebersprungen > 0) {
-        const plus = uebersprungen * WEIT;
-        state.bonus += plus;
-        schrift(`Weit! +${plus}`, a.x, a.y - 30, "#c8f7a8", 17);
+        p.vx += WEIT_V * Math.min(2, uebersprungen);
+        state.schwung = 1;
+        schrift("Weit! Schwung!", a.x, a.y - 30, "#c8f7a8", 17);
+        funkeln(p.x, p.y, "#c8f7a8", 10);
         kids()?.playJingle?.("unlock");
       }
       state.letzter = i;
     }
   }
 
-  function brechen(a) {
-    a.weg = true;
-    state.teile.push({ art: "ast", x: a.x, y: a.y + 8, vx: state.p.vx * 0.2, vy: 20, r: 0, dreh: 0.3, drehV: 4, leben: 1.2, max: 1.2, farbe: "#7a6b5a", schwer: 1 });
-    blaetter(a.x, a.y + 6, 6);
-    schrift("Knack!", a.x, a.y + 16, "#ffd0a0", 16);
-    abspringen();
-    state.stoss = 0.6;
-    kids()?.vibrate?.([14, 30, 14]);
+  // Eine Banane: ein Stoss nach vorn und ein wenig hinauf. Wer an der Liane
+  // hängt, bekommt davon, was die Liane durchlässt – den Schwung entlang des
+  // Bogens.
+  function bananenSchwung() {
+    const p = state.p;
+    p.vx = Math.max(p.vx, 0) + BANANE_VX;
+    p.vy = Math.max(p.vy, 0) + BANANE_VY;
+    state.schwung = 1;
+    state.stoss = Math.max(state.stoss, 0.4);
   }
 
   function platsch() {
@@ -1231,25 +1242,13 @@
   function takt(dt) {
     state.zeit += dt;
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 5);
+    if (state.schwung > 0) state.schwung = Math.max(0, state.schwung - dt * 1.2);
     const p = state.p;
-
-    state.anker.forEach((a, i) => {
-      if (!a.weite || i === state.haken) return;
-      a.t += dt;
-      bewegeAnker(a);
-    });
 
     if (state.schritt === "schwingen" || state.schritt === "fliegen") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n; i += 1) physik(dt / n);
 
-      if (state.schritt === "schwingen") {
-        const a = state.anker[state.haken];
-        if (a.morsch) {
-          a.halt += dt * 1000;
-          if (a.halt >= BRUCH_MS) brechen(a);
-        }
-      }
       if (state.schritt === "fliegen") {
         state.ziel = zielSuchen();
         if (state.greift && state.ziel >= 0) greifen(state.ziel);
@@ -1262,21 +1261,20 @@
         if (Math.hypot(f.x - p.x, f.y - p.y) > 19) return;
         f.weg = true;
         state.bananen += 1;
-        state.bonus += BANANE;
-        funkeln(f.x, f.y, "#ffe066", 12);
-        schrift(`+${BANANE}`, f.x, f.y + 20, "#ffe066", 19);
+        bananenSchwung();
+        funkeln(f.x, f.y, "#ffe066", 16);
+        schrift("Schwung!", f.x, f.y + 20, "#ffe066", 19);
         kids()?.playJingle?.("star");
-        kids()?.vibrate?.(14);
+        kids()?.vibrate?.([10, 30, 16]);
       });
 
       if (p.y < WASSER + KOERPER) platsch();
 
       state.maxX = Math.max(state.maxX, p.x);
       state.meter = Math.max(0, Math.floor((state.maxX - START.x) / METER));
-      const punkte = state.meter + state.bonus;
-      if (punkte !== state.punkte) {
-        state.punkte = punkte;
-        shell.setCount(punkte);
+      if (state.meter !== state.punkte) {
+        state.punkte = state.meter;
+        shell.setCount(state.punkte);
       }
     } else if (state.schritt === "platsch") {
       p.vy -= 160 * dt;
@@ -1327,7 +1325,7 @@
     }
     aesteBis(state.camX + view.w + REICH + 80);
 
-    if (state.phase === "spiel") gegner?.takt(state.punkte, { a: p.x - START.x, b: p.y });
+    if (state.phase === "spiel") gegner?.takt(state.punkte, { a: p.x - START.x, b: p.y, c: state.haken + 1 });
   }
 
   function loop(now) {
@@ -1347,14 +1345,15 @@
     stopLoop();
     shell.stopClock();
     shell.closeOverlay();
-    zufall.neu();
+    // Von vorn gewürfelt heisst hier: dieselbe Strecke wie jedes Mal.
+    strecke = mulberry32(SAAT);
     shell.setPhase("intro");
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
     state.meter = 0;
-    state.bonus = 0;
     state.bananen = 0;
+    state.schwung = 0;
     state.fruechte = [];
     state.haken = 0;
     state.letzter = 0;
@@ -1381,11 +1380,8 @@
     view.cssH = 0;
     messen();
 
-    // Der erste Ast hängt fest und für alle gleich.
-    state.anker = [{
-      x: ERSTER.x, y: ERSTER.y, basis: ERSTER.x, hoehe: ERSTER.y, weite: 0, periode: 0, ph: 0,
-      t: 0, morsch: false, halt: 0, weg: false, saat: 0.3,
-    }];
+    // Der erste Ast hängt über dem Baum, an dem alles beginnt.
+    state.anker = [{ x: ERSTER.x, y: ERSTER.y, saat: 0.3 }];
     state.camX = START.x - view.w * 0.32;
     state.camY = 0;
     aesteBis(state.camX + view.w + REICH + 80);
@@ -1435,12 +1431,11 @@
     }));
     kids()?.playJingle?.("win");
     const bananen = state.bananen === 1 ? "1 Banane" : `${state.bananen} Bananen`;
-    const strecke = `${state.meter} m · ${bananen}`;
     shell.showResult({
-      label: "Deine Punkte",
+      label: "Deine Meter",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : `${strecke}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} Punkte: ${state.meter} Meter und ${bananen}.${rekord ? " Das ist dein neuer Rekord!" : ""}`,
+      detail: rekord ? "Neuer Rekord!" : `${bananen}${vorher ? ` · Bestwert ${vorher} m` : ""}`,
+      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("li-rekord");
@@ -1460,7 +1455,9 @@
     clock: true,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo" }) || null;
+  // Eigene Fassung der Aufzeichnung: Seit die Strecke fest ist, passen
+  // Läufe von vorher (gewürfelte Äste, Bananen als Punkte) nicht mehr dazu.
+  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo", fassung: "s1" }) || null;
 
   startRun();
 

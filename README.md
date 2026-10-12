@@ -112,14 +112,14 @@ geht, lassen sich an- und abschalten (die Wahl gilt auf dem Gerät für alle
 Spiele) und zeigen während der Runde, wo man gegen den Gegner steht – grün,
 solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl schlägt.
 
-    mitlaufend   Blätter im Strom, Brückenbauer, Lianenschwung: Spiele mit
-                 fester Zeit. Der Gegner läuft mit seinem Stand von damals
-                 mit, Viertelsekunde für Viertelsekunde. Im Brückenbauer und
-                 im Lianenschwung zusätzlich als Geist im Bild – auf den
-                 eigenen Pfeilern, an Lianen, die nur er sieht.
-    Zielmarke    Turmbau, Drehscheibe, Fischteich, Kacheln-Knobeln: Spiele
-                 ohne Uhr. Der Gegner ist eine Zahl; im Turmbau eine Linie
-                 in der Höhe seines besten Turms.
+    mitlaufend   Blätter im Strom, Lianenschwung: Spiele mit fester Zeit.
+                 Der Gegner läuft mit seinem Stand von damals mit,
+                 Viertelsekunde für Viertelsekunde. Im Lianenschwung
+                 zusätzlich als Geist im Bild – die Strecke ist immer
+                 dieselbe, also schwingt er an denselben Lianen.
+    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Fischteich,
+                 Kacheln-Knobeln: Spiele ohne Uhr. Der Gegner ist eine Zahl;
+                 im Turmbau eine Linie in der Höhe seines besten Turms.
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
