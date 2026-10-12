@@ -287,6 +287,17 @@ pruefe("Die Startseite zeigt den Admin-Knopf nur mit Merkzeichen",
 pruefe("Die Spielseiten bleiben ohne Anmeldung (kein firebase-auth auf der Startseite)",
   !lies("index.html").includes("firebase-auth"));
 
+// --- 16. Der Probelauf --------------------------------------------------------
+// Der Admin spielt ein Spiel zur Probe, bevor es auf die Startseite oder in
+// ein Turnier kommt. Danach darf er nirgends stehen: nicht in der ewigen
+// Liste und in keinem Turnier. Der Probelauf wird deshalb vor allem anderen
+// abgefangen – vor dem Block des Turniers und vor melde().
+pruefe("admin.js öffnet die Spiele zur Probe mit ?probe=1", adminJs.includes("?probe=1"));
+pruefe("Ein Probelauf trägt nichts ein (mini-games.js fängt ihn vor Turnier und Bestenliste ab)",
+  /function ergebnis\(\{ punkte, geist = null \}\) \{\s*(\/\/[^\n]*\s*)*if \(probelauf\(\)\)/.test(miniJs));
+pruefe("Ein Probelauf zählt in keinem Turnier (turnier.js, aufSpielseite)",
+  /const aufSpielseite = \(\) => [^\n]*!mini\(\)\?\.probelauf\?\.\(\)/.test(lies("turnier.js")));
+
 // ---------------------------------------------------------------------------
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);

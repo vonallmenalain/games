@@ -3176,22 +3176,20 @@ h2 {
    Kästchen einzeln zu lesen. */
 .adm-auswahl {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 8px;
   margin: 10px 0;
 }
 .adm-wahl {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding-right: 6px;
   border-radius: 12px;
   border: 2px solid #ece9f6;
   background: #fbfaff;
-  cursor: pointer;
   font-weight: 800;
   color: #47506a;
-  user-select: none;
 }
 .adm-wahl:hover { border-color: var(--adm-farbe, #dcd9ea); }
 .adm-wahl.ist-an {
@@ -3200,7 +3198,19 @@ h2 {
   color: #243047;
   box-shadow: inset 4px 0 0 var(--adm-farbe, #F5A623);
 }
-.adm-wahl input {
+/* Der Haken samt Namen ist die grosse Fläche zum Tippen; der Knopf zum
+   Ausprobieren liegt daneben und nicht darin. */
+.adm-wahl-haken {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.adm-wahl-haken input {
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
@@ -3208,6 +3218,58 @@ h2 {
   cursor: pointer;
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ▶ – ein Spiel zur Probe. Klein und rund, damit der Haken die Zeile bleibt. */
+.adm-probe-knopf {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: #f2f3f7;
+  color: #47506a;
+}
+.adm-probe-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
+.adm-probe-knopf:hover { background: var(--adm-farbe, #F5A623); color: #fff; }
+
+/* Das Fenster für den Probelauf: das Spiel, so gross es geht, über dem
+   Adminbereich – auf dem Handy über den ganzen Bildschirm. */
+.adm-probe {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0px, 3vw, 28px);
+  background: rgba(20, 24, 40, 0.62);
+}
+.adm-probe-rahmen {
+  width: min(1100px, 100%);
+  height: min(860px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.adm-probe-kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 2px solid #e8e6f2;
+}
+.adm-probe-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.adm-probe-text strong { font-weight: 900; color: #243047; }
+.adm-probe-text span { font-size: 0.8rem; color: #667085; }
+.adm-probe-spiel { flex: 1 1 auto; display: block; width: 100%; border: 0; background: #a8ddf0; }
+body.adm-probe-offen { overflow: hidden; }
+@media (max-width: 640px) {
+  .adm-probe { padding: 0; }
+  .adm-probe-rahmen { border-radius: 0; }
+}
 
 /* ===========================================================================
    Der Weg in den Adminbereich
@@ -3468,6 +3530,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   gap: 12px;
 }
 .adm-turnier-form h3 { margin: 0; font-size: 1.1rem; font-weight: 900; color: #243047; }
+.adm-turnier-form-kopf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .adm-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .adm-zeile-wort { flex: 0 0 9.5rem; font-weight: 800; color: #47506a; font-size: 0.9rem; }
 .adm-zeile .adm-feld { flex: 1 1 14rem; }
@@ -3486,7 +3549,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .adm-gruppe legend { padding: 0 6px; font-weight: 900; color: #243047; font-size: 0.92rem; }
 .adm-gruppe .adm-auswahl { margin: 0; }
 .adm-option { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
-.adm-option input {
+.adm-option > input {
   width: 20px;
   height: 20px;
   margin: 2px 0 0;
@@ -3494,10 +3557,13 @@ p.tn-verdeckt:not(.mini-hinweis) {
   accent-color: var(--tn-gold);
   cursor: pointer;
 }
-.adm-option input:disabled + .adm-option-text { opacity: 0.45; }
+.adm-option > input:disabled + .adm-option-text { opacity: 0.45; }
 .adm-option-text { display: flex; flex-direction: column; gap: 2px; }
 .adm-option-text strong { font-weight: 800; color: #243047; font-size: 0.92rem; }
 .adm-option-text small { color: #667085; font-size: 0.8rem; line-height: 1.4; }
+/* Eine Wahl mit einem Feld dahinter: "Eine feste Zahl [ 3 ]". */
+.adm-option-reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.adm-feld-zahl { flex: 0 0 auto; width: 5.5rem; padding-top: 6px; padding-bottom: 6px; font-variant-numeric: tabular-nums; }
 @media (max-width: 560px) {
   .adm-zeile-wort { flex-basis: 100%; }
 }
@@ -3505,3 +3571,11 @@ p.tn-verdeckt:not(.mini-hinweis) {
    Turnier", solange das Formular offen ist), bleibt weg – auch dort, wo eine
    Regel oben display setzt. */
 .adm-seite [hidden] { display: none !important; }
+
+/* Ein offenes Turnierformular steht allein da: oben der Kopf des
+   Adminbereichs, darunter das Formular – und sonst nichts. Was weg ist,
+   kommt beim Schliessen unverändert zurück. */
+.adm-seite.ist-formular > :not(.adm-kopf):not(.adm-turniere) { display: none; }
+.adm-seite.ist-formular .adm-turniere > :not(.adm-turnier-formwirt) { display: none; }
+.adm-seite.ist-formular .adm-turniere { padding: 0; border: 0; background: none; overflow: visible; }
+.adm-seite.ist-formular .adm-turnier-form { margin: 0; }

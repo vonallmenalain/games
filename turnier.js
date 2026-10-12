@@ -45,7 +45,11 @@
   // Auf einer Spielseite heisst der Parameter "turnier" – so hat ihn zufall.js
   // schon immer gelesen, für die Saat. Auf der Turnierseite ist es das kurze
   // "t": Diesen Link schickt man herum.
-  const aufSpielseite = () => Boolean(spielHier() && ausDerAdresse("turnier"));
+  //
+  // Ein Probelauf aus dem Adminbereich (mini-games.js, probelauf) zählt nie,
+  // auch nicht mit einem Turnier in der Adresse: Er verbrauchte sonst einen
+  // Versuch, dessen Ergebnis nie ankäme.
+  const aufSpielseite = () => Boolean(spielHier() && ausDerAdresse("turnier") && !mini()?.probelauf?.());
   const aufTurnierseite = () => seite() === "turnier";
 
   const seitenLink = (id) => `/turnier?t=${encodeURIComponent(id)}`;

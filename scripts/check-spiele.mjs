@@ -1421,18 +1421,45 @@ try {
     const herbst = seite.locator(".adm-turnier", { hasText: "Herbstcup" });
     pruefe(/vorne: 1\. Leo/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
 
-    // Ein neues Turnier.
+    // Was im Adminbereich gerade zu sehen ist – gemessen, nicht nachgesehen,
+    // ob es im DOM steht: Die Ansicht für das Formular blendet aus, statt
+    // wegzuräumen.
+    const sichtbar = () => seite.evaluate(() => {
+      const da = (e) => Boolean(e) && e.getClientRects().length > 0;
+      return {
+        kopf: da(document.querySelector(".adm-kopf")),
+        form: da(document.querySelector(".adm-turnier-form")),
+        liste: [...document.querySelectorAll(".adm-turnier-liste .adm-turnier")].some(da),
+        streifen: da(document.querySelector(".adm-streifen")),
+        andere: [...document.querySelectorAll(".adm-seite > .adm-block:not(.adm-turniere)")].some(da),
+      };
+    });
+
+    // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
     await seite.click(".adm-turniere .adm-block-kopf button");
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    const allein = await sichtbar();
+    pruefe(allein.form && allein.kopf, `Das neue Turnier steht nicht da: ${JSON.stringify(allein)}`);
+    pruefe(!allein.liste && !allein.streifen && !allein.andere, `Unter dem neuen Turnier hängt noch der Rest des Adminbereichs: ${JSON.stringify(allein)}`);
     const form = seite.locator(".adm-turnier-form");
+    pruefe(await form.locator(".adm-wahl .adm-probe-knopf").count() === SPIELE.length,
+      `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Ausprobieren (${await form.locator(".adm-probe-knopf").count()} von ${SPIELE.length}).`);
     await form.locator('input[type="text"]').first().fill("Test-Cup Ä");
     await form.locator("button", { hasText: "Keine" }).click();
     await form.locator('input[value="towerStack"]').check();
     await form.locator('input[value="fishPond"]').check();
-    await form.locator("select.adm-feld-schmal").selectOption("0");
+    await form.locator('input[type="radio"][value="frei"]').check();
     const summeGesperrt = await form.locator('input[type="radio"][value="summe"]').isDisabled();
     pruefe(summeGesperrt, "Bei unbegrenzten Versuchen lässt sich «alle zusammen» wählen.");
-    await form.locator("select.adm-feld-schmal").selectOption("5");
+    // Eine Zahl, die in keiner Liste stand: Die Versuche werden getippt. Wer
+    // tippt, meint die feste Zahl, auch ohne den Punkt davor anzuklicken.
+    await form.locator("input.adm-feld-zahl").fill("0");
+    pruefe(await form.locator('input[type="radio"][value="zahl"]').isChecked(), "Wer eine Zahl der Versuche tippt, bleibt bei «unbegrenzt».");
+    await form.locator('button[type="submit"]').click();
+    const zuWenig = await form.locator(".adm-meldung").innerText();
+    pruefe(/1 bis 100/.test(zuWenig), `Null Versuche nimmt das Formular ohne Einwand an: ${zuWenig}`);
+    pruefe(await seite.evaluate(() => [...window.__miniTurniere.values()].every((t) => t.name !== "Test-Cup Ä")), "Ein Turnier mit null Versuchen wurde angelegt.");
+    await form.locator("input.adm-feld-zahl").fill("4");
     await form.locator('input[type="radio"][value="summe"]').check();
     await form.locator('input[type="radio"][value="prozent"]').check();
     await form.locator('input[type="radio"][value="link"]').check();
@@ -1445,14 +1472,60 @@ try {
     if (neu) {
       pruefe(/^test-cup-ae-[a-km-np-z2-9]{8}$/.test(neu.id), `Der Name des neuen Turniers taugt nicht als Link: ${neu.id}`);
       pruefe(JSON.stringify(neu.spiele) === JSON.stringify(["fishPond", "towerStack"]), `Im neuen Turnier stehen die Spiele ${neu.spiele.join(", ")}.`);
-      pruefe(neu.versuche === 5 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "gleich"
+      pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "gleich"
         && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
       const meldung = await seite.locator(".adm-turniere > .adm-meldung").innerText();
       pruefe(meldung.includes(`/turnier?t=${neu.id}`), `Nach dem Anlegen steht der Link nicht da: ${meldung}`);
       pruefe(await seite.locator(".adm-turnier h3", { hasText: "Test-Cup Ä" }).count() === 1, "Das neue Turnier steht nicht in der Liste.");
+      const danach = await sichtbar();
+      pruefe(!danach.form && danach.liste && danach.streifen && danach.andere, `Nach dem Anlegen kommt der Adminbereich nicht zurück: ${JSON.stringify(danach)}`);
     }
+
+    // Der Zurück-Knopf des Browsers schliesst das Formular – und bleibt im
+    // Adminbereich. Ebenso der Knopf oben im Formular.
+    await herbst.locator("button", { hasText: "Ändern" }).click();
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    pruefe(await seite.locator('.adm-turnier-form input[type="radio"][value="zahl"]').isChecked()
+      && await seite.inputValue(".adm-turnier-form input.adm-feld-zahl") === "2",
+      "Beim Ändern stehen die zwei Versuche des Herbstcups nicht im Formular.");
+    await seite.evaluate(() => history.back());
+    await seite.waitForFunction(() => !document.querySelector(".adm-turnier-form"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-turnier-form").count() === 0, "Der Zurück-Knopf des Browsers schliesst das Formular nicht.");
+    pruefe(new URL(seite.url()).pathname === "/admin", `Der Zurück-Knopf führt aus dem Adminbereich hinaus nach ${seite.url()}.`);
+    pruefe((await sichtbar()).liste, "Nach dem Zurück-Knopf fehlt die Liste der Turniere.");
+    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
+    pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
+    pruefe(!(await seite.evaluate(() => document.querySelector(".adm-seite").classList.contains("ist-formular"))), "Nach «Zurück zur Übersicht» bleibt der Adminbereich ausgeblendet.");
+
+    // Ein Spiel zur Probe: im Fenster über dem Adminbereich, ohne dass der
+    // Haken daneben sich bewegt – auf der Startseite wäre das sofort
+    // gespeichert.
+    const auswahl = seite.locator(".adm-seite > .adm-block:not(.adm-turniere)").first();
+    pruefe(await auswahl.locator(".adm-wahl .adm-probe-knopf").count() === SPIELE.length,
+      `In der Spielauswahl hat nicht jedes Spiel einen Knopf zum Ausprobieren (${await auswahl.locator(".adm-probe-knopf").count()} von ${SPIELE.length}).`);
+    const turmZeile = auswahl.locator(".adm-wahl", { hasText: "Turmbau" });
+    const vorProbe = await turmZeile.locator('input[type="checkbox"]').isChecked();
+    await turmZeile.locator(".adm-probe-knopf").click();
+    await seite.waitForSelector(".adm-probe iframe", { timeout: 4000 });
+    pruefe(await seite.getAttribute(".adm-probe iframe", "src") === "/turmbau?probe=1",
+      `Der Probelauf öffnet ${await seite.getAttribute(".adm-probe iframe", "src")} statt /turmbau?probe=1.`);
+    pruefe(await turmZeile.locator('input[type="checkbox"]').isChecked() === vorProbe && await seite.evaluate(() => window.__miniOffen === undefined),
+      "Der Knopf zum Ausprobieren hat den Haken umgelegt.");
+    const probe = seite.frameLocator(".adm-probe iframe");
+    await probe.locator(".cm-bar").waitFor({ timeout: 8000 });
+    pruefe(await probe.locator(".cm-bar-left a").first().getAttribute("href") === "/admin", "Im Probelauf führt der Weg oben links nicht zurück in den Adminbereich.");
+    await probe.locator(".cm-bar-left a").first().click();
+    await seite.waitForFunction(() => !document.querySelector(".adm-probe"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-probe").count() === 0, "Der Weg zurück im Probelauf schliesst das Fenster nicht.");
+    pruefe(await seite.locator(".adm-kopf").count() === 1 && new URL(seite.url()).pathname === "/admin", "Nach dem Probelauf ist der Adminbereich weg.");
+    await turmZeile.locator(".adm-probe-knopf").click();
+    await seite.waitForSelector(".adm-probe", { timeout: 4000 });
+    await seite.locator(".adm-probe-kopf button", { hasText: "Schliessen" }).click();
+    pruefe(await seite.locator(".adm-probe").count() === 0, "«Schliessen» schliesst den Probelauf nicht.");
 
     // Anhalten und löschen.
     await herbst.locator("button", { hasText: "Anhalten" }).click();
@@ -1470,6 +1543,40 @@ try {
     await seite.waitForSelector(".adm-anmeldung", { timeout: 4000 }).catch(() => {});
     pruefe(await seite.evaluate(() => localStorage.getItem("mini.admin")) === null, "Nach dem Abmelden bleibt das Merkzeichen für den Admin-Knopf stehen.");
     pruefe(fehlerHier.length === 0, `Der Adminbereich mit Turnieren hat sich beschwert – ${fehlerHier.join(" / ")}`);
+    await kontext.close();
+  }
+
+  // --- 4k. Ein Probelauf zählt nicht --------------------------------------------
+  // Der Admin spielt ein Spiel zur Probe (admin.js, ▶). Die Runde läuft wie
+  // jede andere, geht aber nirgends hin: nicht in die ewige Liste, nicht in
+  // den eigenen Bestwert, in kein Turnier – auch mit einem Namen auf dem
+  // Gerät, der sonst sofort eingetragen würde.
+  {
+    const { kontext, seite } = await mitTurnieren("/turmbau?probe=1", { vorher: () => localStorage.setItem("mini.name", "Admin") });
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    const zurueck = await seite.getAttribute(".cm-bar-left a", "href");
+    pruefe(zurueck === "/admin", `Im Probelauf führt der Weg oben links nach ${zurueck} statt in den Adminbereich.`);
+    pruefe(await spieleTurmbauZuEnde(seite), "Der Probelauf kam zu keinem Ergebnis.");
+    await seite.waitForSelector(".mini-ergebnis", { timeout: 4000 });
+    await seite.waitForTimeout(400);
+    const text = (await seite.locator(".mini-ergebnis").innerText()).replace(/\n/g, " ");
+    pruefe(/Probelauf/.test(text), `Unter dem Probelauf steht nicht, dass er nicht zählt: ${text}`);
+    pruefe(await seite.locator(".mini-namensfeld, .mini-name-steht").count() === 0, "Im Probelauf wird nach dem Namen gefragt.");
+    const spur = await seite.evaluate(() => ({
+      ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Admin").length,
+      best: localStorage.getItem("mini.best"),
+    }));
+    pruefe(spur.ewig === 0, "Der Probelauf steht in der ewigen Liste.");
+    pruefe(!spur.best, `Der Probelauf hat einen Bestwert auf dem Gerät hinterlassen: ${spur.best}`);
+    await kontext.close();
+  }
+  {
+    // Auch mit einem Turnier in der Adresse: keine Tafel, kein Versuch.
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}&probe=1`);
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    await seite.waitForTimeout(600);
+    pruefe(await seite.locator(".tn-tor").count() === 0, "Im Probelauf mit einem Turnier in der Adresse steht die Tafel des Turniers.");
+    pruefe(await seite.evaluate(() => window.LernappTurnier.aufSpielseite()) === false, "Ein Probelauf gilt als Runde im Turnier.");
     await kontext.close();
   }
 
