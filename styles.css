@@ -2579,6 +2579,27 @@ h2 {
 }
 .mini-listen-wirt { display: flex; flex-direction: column; gap: 6px; }
 
+/* "Du spielst als …" mit dem Knopf "Namen ändern" – unter dem Ergebnis, auf
+   der Startseite und auf der Turnierseite (mini-games.js, namensZeile). */
+.mini-wer { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mini-wer .mini-namensfeld { width: min(340px, 100%); }
+.mini-wer-hinweis {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-align: center;
+}
+.mini-wer-oben, .tn-wer {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  margin: 2px auto 10px;
+  padding: 0 16px;
+}
+.mini-wer-oben .mini-name-steht, .tn-wer .mini-name-steht { font-size: 0.92rem; }
+
 .mini-marke {
   margin: 0;
   font-size: 0.72rem;

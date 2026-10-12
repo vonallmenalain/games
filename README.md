@@ -331,6 +331,21 @@ Der Name gehört dem Gerät, nicht einem Konto (`localStorage`, `mini.name`).
 Auf einem anderen Gerät trägt man ihn neu ein – in der Liste steht man
 trotzdem einmal, gezählt wird der Name.
 
+**Namen ändern gilt nur für die nächsten Runden.** «Du spielst als … ·
+Namen ändern» steht auf der Startseite, auf der Turnierseite und unter dem
+Ergebnis (`mini-games.js`, `namensZeile`). Was schon in einer Liste steht,
+bleibt unter dem bisherigen Namen stehen, in der Hall of Fame wie in jedem
+Turnier. Darum spielt das Gerät mit einem neuen Namen als neuer Mitspieler:
+mit eigener Kennung, ohne Bestwerte und ohne eigenen Lauf (`namenWechseln`).
+Mit der alten Kennung schriebe die nächste Runde den neuen Namen auch über
+die alten Punkte – je Spiel und Kennung gibt es ein Dokument. Im Turnier ist
+ein neuer Name ein neuer Mitspieler, mit eigenen Versuchen.
+
+Wer zu einem Namen zurückwechselt, den das Gerät schon kennt (gross oder
+klein geschrieben), ist wieder dieser Mitspieler: mit seiner Kennung, seinen
+Bestwerten und seinem Lauf (`mini.wer`, höchstens zwölf). So teilen sich
+Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
+
 ## Prüfen
 
     npm run pruefen           die Dateien: Tabelle, Seiten, Service Worker,
