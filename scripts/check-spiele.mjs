@@ -1413,8 +1413,8 @@ try {
     ["/liane", "Lianenschwung", () => {
       const l = window.LernappLiane;
       const aeste = l.state.anker.slice(0, 4).map((a) => `${a.x.toFixed(3)}/${a.y.toFixed(3)}`);
-      const fruechte = l.state.fruechte.slice(0, 2).map((f) => `${f.x.toFixed(3)}/${f.y.toFixed(3)}`);
-      return `${aeste.join(" ")} | ${fruechte.join(" ")}`;
+      const bananen = l.state.anker.map((a, i) => (a.bananen ? i : -1)).filter((i) => i >= 0).join(",");
+      return `${aeste.join(" ")} | ${bananen}`;
     }],
   ]) {
     const befunde3 = [];
@@ -1431,6 +1431,48 @@ try {
     const [a, b] = befunde3;
     pruefe(a.fest && b.fest, `${titel}: Im Turnier würfelt der Zufall frei.`);
     pruefe(!/^Fehler/.test(a.welt) && a.welt === b.welt, `${titel}: Zwei Spieler bekommen im ersten Versuch verschiedene Welten – ${a.welt} gegen ${b.welt}.`);
+  }
+
+  // --- 4g3. Lianenschwung: die Bananen-Liane ---------------------------------------
+  // Keine Bananen mehr in der Luft. Ab und zu hängen sie an einer Liane: Wer
+  // von ihr loslässt, wird kräftig nach vorn gestossen – einmal, dann sind
+  // sie gegessen. Geschwungen wird an ihr wie an jeder anderen.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 700 });
+    await seite.goto(`${BASIS}/liane`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappLiane?.state?.anker?.length, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const L = window.LernappLiane;
+      const st = L.state;
+      while (st.anker.length < 40) st.anker.push(L.neuerAnker(st.anker.length, st.anker[st.anker.length - 1]));
+      const i = st.anker.findIndex((a) => a.bananen);
+      const anzahl = st.anker.filter((a) => a.bananen).length;
+      const a = st.anker[i];
+      // An die Bananen-Liane hängen, mitten im Schwung nach vorn.
+      st.phase = "spiel";
+      st.schritt = "schwingen";
+      st.haken = i;
+      st.seil = 90;
+      st.p = { x: a.x - 20, y: a.y - 88, vx: 260, vy: 30 };
+      L.druecken();
+      L.loslassen();
+      const nachher = { vx: st.p.vx, geerntet: a.geerntet, bananen: st.bananen, schritt: st.schritt };
+      // Eine gewöhnliche Liane gibt keinen Stoss.
+      const j = st.anker.findIndex((b, k) => k > 1 && !b.bananen);
+      const b = st.anker[j];
+      st.schritt = "schwingen";
+      st.haken = j;
+      st.p = { x: b.x - 20, y: b.y - 88, vx: 260, vy: 30 };
+      L.druecken();
+      L.loslassen();
+      return { i, anzahl, nachher, gewoehnlich: st.p.vx, fliegt: st.schritt };
+    });
+    pruefe(befund.i > 1 && befund.anzahl >= 3 && befund.anzahl <= 12, `Unter den ersten 40 Lianen tragen ${befund.anzahl} Bananen (erste bei ${befund.i}).`);
+    pruefe(befund.nachher.schritt === "fliegen" && befund.nachher.vx >= 260 + 150 && befund.nachher.geerntet && befund.nachher.bananen === 1,
+      `Loslassen von der Bananen-Liane gibt keinen Stoss nach vorn: ${JSON.stringify(befund.nachher)}`);
+    pruefe(befund.fliegt === "fliegen" && befund.gewoehnlich === 260, `Eine gewöhnliche Liane gibt beim Loslassen Schwung dazu: ${befund.gewoehnlich}`);
+    pruefe(await seite.evaluate(() => !("fruechte" in window.LernappLiane.state)), "Im Lianenschwung hängen noch Bananen frei in der Luft.");
+    await kontext.close();
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------

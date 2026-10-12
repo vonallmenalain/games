@@ -13,8 +13,9 @@
  *
  * Eine Runde dauert vierzig Sekunden, oder bis der Affe ins Wasser fällt.
  * Gezählt wird nur eines: wie weit er gekommen ist, in Metern. Bananen und
- * weite Sprünge geben keine Punkte, sondern Schwung – eine Banane einen
- * kräftigen Stoss nach vorn, ein übersprungener Ast mehr Tempo am nächsten.
+ * weite Sprünge geben keine Punkte, sondern Schwung. Ab und zu hängen an
+ * einer Liane Bananen – wer von ihr loslässt, fliegt mit einem kräftigen
+ * Stoss nach vorn davon. Ein übersprungener Ast gibt mehr Tempo am nächsten.
  * Und Tempo ist Strecke.
  *
  * Die Strecke ist immer dieselbe: dieselben Äste an denselben Stellen, für
@@ -92,16 +93,17 @@
   // Tiefer darf eine Liane nicht schwingen: sonst taucht der Affe ein.
   const SICHER = WASSER + KOERPER + 3;
 
-  // Schwung statt Punkte. Eine Banane stösst den Affen nach vorn und ein
-  // wenig hinauf; ein übersprungener Ast gibt am nächsten mehr Tempo nach
-  // vorn. Beides vor allem nach vorn: Nach oben hiesse über das Blätterdach
-  // hinaus, und dort hängt keine Liane mehr.
-  // Der Stoss war einmal 230 nach vorn und 60 hinauf – zu viel: Eine Banane
-  // entschied die Runde mehr als das Schwingen. Jetzt zwei Drittel davon.
+  // Schwung statt Punkte. Wer von einer Bananen-Liane loslässt, wird nach
+  // vorn und ein wenig hinauf gestossen; ein übersprungener Ast gibt am
+  // nächsten mehr Tempo nach vorn. Beides vor allem nach vorn: Nach oben
+  // hiesse über das Blätterdach hinaus, und dort hängt keine Liane mehr.
+  // Der Stoss war einmal 230 nach vorn und 60 hinauf – zu viel. Jetzt zwei
+  // Drittel davon, und nur beim Loslassen: Geschwungen wird an der
+  // Bananen-Liane genau wie an jeder anderen.
   const BANANE_VX = 153;
   const BANANE_VY = 40;
   const WEIT_V = 85;               // je übersprungenem Ast, höchstens zwei
-  const BANANE_ANTEIL = 0.3;       // vor so vielen Ästen hängt eine
+  const BANANEN_LIANE = 0.15;      // an so vielen Lianen hängen Bananen
 
   // Wie schwer der nächste Ast ist – nach Nummer, nicht nach Zeit.
   const SCHWER_BIS = 24;
@@ -114,7 +116,7 @@
     "Lianenschwung. Halte den Finger auf dem Bild, dann springt der Affe ab und schwingt an der Liane.",
     "Lass los, dann fliegt er. Drück wieder, dann greift er die nächste Liane – die am Ast mit dem Ring.",
     "Ist der Ring rot, ist die Liane noch zu lang: Der Affe würde ins Wasser schwingen. Warte, bis er gelb ist.",
-    "Es zählt nur, wie weit du kommst, in Metern. Eine Banane gibt dir einen kräftigen Schwung nach vorn, und wer einen Ast überspringt, wird schneller.",
+    "Es zählt nur, wie weit du kommst, in Metern. Hängen an einer Liane Bananen, gibt sie dir beim Loslassen einen kräftigen Schwung nach vorn. Und wer einen Ast überspringt, wird schneller.",
     "Du hast vierzig Sekunden. Die Strecke ist immer dieselbe – nach hinten hängen die Äste weiter auseinander.",
   ].join(" ");
 
@@ -161,10 +163,9 @@
     schritt: "start",
     punkte: 0,            // dasselbe wie meter – die Strecke ist die Punktzahl
     meter: 0,
-    bananen: 0,
-    schwung: 0,           // leuchtet nach einer Banane oder einem weiten Sprung
-    anker: [],            // { x, y, saat }
-    fruechte: [],         // { x, y, weg, saat }
+    bananen: 0,           // wie oft eine Bananen-Liane Schwung gab
+    schwung: 0,           // leuchtet nach einer Bananen-Liane oder einem weiten Sprung
+    anker: [],            // { x, y, saat, bananen, geerntet }
     haken: -1,            // an welchem Ast der Affe hängt
     seil: 0,              // wie lang die Liane ist, an der er hängt
     letzter: 0,           // der weiteste Ast, den er gegriffen hat
@@ -205,27 +206,27 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Äste und Bananen
+  // Äste und Bananen-Lianen
   // ---------------------------------------------------------------------------
   // Der Ast i hängt dort, wo ihn der i-te Schwung erreichen soll – auf der
   // festen Strecke an derselben Stelle wie bei jedem anderen Mal. Alle Äste
   // sind gleich; verschieden ist nur, wie weit auseinander und wie hoch sie
-  // hängen. Mit ihm entsteht die Banane, die davor in der Luft hängt (oder
-  // keine – meistens keine).
+  // hängen – und ob an seiner Liane Bananen hängen.
   function neuerAnker(i, vorher) {
     const k = clamp(i / SCHWER_BIS, 0, 1);
     const dx = von(lerp(98, 128, k), lerp(138, 192, k));
     const hoehe = von(lerp(214, 184, k), lerp(256, 262, k));
     const a = { x: vorher.x + dx, y: hoehe, saat: hash01(i * 3.7 + 0.4) };
 
-    // Die Banane: meist auf halbem Weg, mal tief, mal so hoch, dass nur ein
-    // steiler Flug sie holt.
+    // Ob Bananen dran hängen. Gewürfelt wird dabei genau so viel wie früher,
+    // als hier noch eine Banane frei in der Luft hing (drei Zahlen): So
+    // bleiben alle Äste dahinter an ihrem Platz, und die Strecke ist
+    // dieselbe wie immer.
     const frucht = strecke();
-    const fx = vorher.x + dx * von(0.35, 0.7);
-    const fy = Math.min(vorher.y, hoehe) - von(28, 90);
-    if (frucht < BANANE_ANTEIL && i > 1) {
-      state.fruechte.push({ x: fx, y: Math.max(SICHER + 42, fy), weg: false, saat: hash01(i * 1.9) });
-    }
+    strecke();
+    strecke();
+    a.bananen = frucht < BANANEN_LIANE && i > 1;
+    a.geerntet = false;
     return a;
   }
 
@@ -578,6 +579,8 @@
   }
 
   // Eine Liane, an der niemand hängt: ein kurzes Stück, das im Wind pendelt.
+  // Hängen Bananen dran, hängen sie am Ende – mit einem warmen Schein, damit
+  // man die Liane schon von weitem sieht.
   function zeichneStummel(a, i) {
     const schwank = ruhig() ? 0 : Math.sin(state.zeit * 1.7 + i * 1.3) * 3;
     const ex = a.x + schwank;
@@ -591,6 +594,40 @@
     g.fillStyle = "#62b84a";
     oval(ex + 2, ey + 3, 3.4, 1.7, 0.6);
     oval(a.x - 2, a.y - 10, 3, 1.5, -0.6);
+    if (a.bananen && !a.geerntet) zeichneBananen(ex, ey - 2, a.saat, true);
+  }
+
+  // Ein Büschel aus drei Bananen, mit dem Stiel oben bei (x, y): gebogen,
+  // gelb, mit dunkler Spitze. In Weltkoordinaten – y zählt nach oben, die
+  // Bananen hängen also nach unten.
+  function zeichneBananen(x, y, saat, schein) {
+    if (schein) {
+      const glanz = g.createRadialGradient(x, y - 7, 2, x, y - 7, 19);
+      glanz.addColorStop(0, "rgba(255, 236, 120, 0.5)");
+      glanz.addColorStop(1, "rgba(255, 236, 120, 0)");
+      g.fillStyle = glanz;
+      kreis(x, y - 7, 19);
+    }
+    const kipp = (saat - 0.5) * 2;
+    g.lineWidth = 0.9;
+    g.strokeStyle = "#b07d00";
+    [-1, 0, 1].forEach((l, j) => {
+      const sx = x + l * 2.2;
+      const tx = x + l * 6.5 + 2.5 + kipp;
+      const ty = y - 15 + Math.abs(l) * 2;
+      g.fillStyle = j === 1 ? "#ffe066" : "#ffd23f";
+      g.beginPath();
+      g.moveTo(sx, y);
+      g.quadraticCurveTo(tx + 4.5, y - 5, tx, ty);
+      g.quadraticCurveTo(tx - 1, y - 7, sx - 1.6, y);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = "#5a3a1a";
+      kreis(tx, ty, 1);
+    });
+    g.fillStyle = "#5a3a1a";
+    g.fillRect(x - 2, y - 1, 4, 3.5);
   }
 
   // Die Liane, an der der Affe hängt – bis zu seinen Händen. Hängt sie lose,
@@ -624,6 +661,13 @@
       const seite = j % 2 ? 1 : -1;
       g.fillStyle = j % 3 ? "#62b84a" : "#4a9a38";
       oval(bx + seite * 3, by, 3.4, 1.6, seite * 0.7);
+    }
+    // Die Bananen hängen über den Händen, bis er loslässt.
+    if (a.bananen && !a.geerntet) {
+      const k = 0.78;
+      const bx = (1 - k) * (1 - k) * a.x + 2 * (1 - k) * k * mx + k * k * hand.x;
+      const by = (1 - k) * (1 - k) * a.y + 2 * (1 - k) * k * my + k * k * hand.y;
+      zeichneBananen(bx, by, a.saat, true);
     }
   }
 
@@ -669,38 +713,6 @@
     g.stroke();
   }
 
-  function zeichneFruechte() {
-    const links = state.camX - 20;
-    const rechts = state.camX + view.w + 20;
-    state.fruechte.forEach((f) => {
-      if (f.weg || f.x < links || f.x > rechts) return;
-      const wipp = ruhig() ? 0 : Math.sin(state.zeit * 2.4 + f.saat * 6) * 1.6;
-      const x = f.x;
-      const y = f.y + wipp;
-      const schein = g.createRadialGradient(x, y, 2, x, y, 16);
-      schein.addColorStop(0, "rgba(255, 236, 120, 0.55)");
-      schein.addColorStop(1, "rgba(255, 236, 120, 0)");
-      g.fillStyle = schein;
-      kreis(x, y, 16);
-      g.save();
-      g.translate(x, y + 3);
-      g.rotate(-0.45 + f.saat * 0.5);
-      g.lineCap = "round";
-      g.strokeStyle = "#e0a800";
-      g.lineWidth = 5.4;
-      g.beginPath();
-      g.arc(0, 0, 8, Math.PI * 0.18, Math.PI * 0.82);
-      g.stroke();
-      g.strokeStyle = "#ffe066";
-      g.lineWidth = 3.4;
-      g.stroke();
-      g.fillStyle = "#5a3a1a";
-      kreis(Math.cos(Math.PI * 0.18) * 8, Math.sin(Math.PI * 0.18) * 8, 1.4);
-      kreis(Math.cos(Math.PI * 0.82) * 8, Math.sin(Math.PI * 0.82) * 8, 1.1);
-      g.restore();
-    });
-  }
-
   // ---------------------------------------------------------------------------
   // Der Affe
   // ---------------------------------------------------------------------------
@@ -709,7 +721,7 @@
     const haengt = state.haken >= 0;
     const fliegt = state.schritt === "fliegen";
     const zeit = ruhig() ? 0 : state.zeit;
-    // Spur im Flug – nach einer Banane oder einem weiten Sprung golden.
+    // Spur im Flug – nach einer Bananen-Liane oder einem weiten Sprung golden.
     const glut = state.schwung;
     state.spur.forEach((s, i) => {
       const k = i / state.spur.length;
@@ -877,7 +889,6 @@
       zeichneAst(a);
       if (i !== state.haken) zeichneStummel(a, i);
     });
-    zeichneFruechte();
     zeichneZiel();
     const geister = geisterOrte();
     geister.forEach(zeichneGeist);
@@ -1043,9 +1054,22 @@
   // Greifen, Loslassen, Schwung
   // ---------------------------------------------------------------------------
   function abspringen() {
+    const a = state.anker[state.haken];
     state.haken = -1;
     state.schritt = "fliegen";
     state.spur = [];
+    // Von einer Bananen-Liane: der Stoss nach vorn. Die Bananen sind dann
+    // gegessen – an dieser Liane gibt es keinen zweiten.
+    if (a?.bananen && !a.geerntet) {
+      a.geerntet = true;
+      state.bananen += 1;
+      bananenSchwung();
+      const p = state.p;
+      funkeln(p.x, p.y + 10, "#ffe066", 16);
+      schrift("Bananen-Schwung!", p.x, p.y + 34, "#ffe066", 18);
+      kids()?.playJingle?.("star");
+      kids()?.vibrate?.([10, 30, 16]);
+    }
   }
 
   // Wohin würde der Affe jetzt greifen? Zum nächsten Ast in Reichweite, der
@@ -1105,9 +1129,8 @@
     }
   }
 
-  // Eine Banane: ein Stoss nach vorn und ein wenig hinauf. Wer an der Liane
-  // hängt, bekommt davon, was die Liane durchlässt – den Schwung entlang des
-  // Bogens.
+  // Der Stoss einer Bananen-Liane, beim Loslassen: nach vorn und ein wenig
+  // hinauf – auch wer gerade zurückschwang, fliegt danach nach vorn.
   function bananenSchwung() {
     const p = state.p;
     p.vx = Math.max(p.vx, 0) + BANANE_VX;
@@ -1258,18 +1281,6 @@
         if (state.spur.length > 16) state.spur.shift();
       }
 
-      state.fruechte.forEach((f) => {
-        if (f.weg || Math.abs(f.x - p.x) > 20) return;
-        if (Math.hypot(f.x - p.x, f.y - p.y) > 19) return;
-        f.weg = true;
-        state.bananen += 1;
-        bananenSchwung();
-        funkeln(f.x, f.y, "#ffe066", 16);
-        schrift("Schwung!", f.x, f.y + 20, "#ffe066", 19);
-        kids()?.playJingle?.("star");
-        kids()?.vibrate?.([10, 30, 16]);
-      });
-
       if (p.y < WASSER + KOERPER) platsch();
 
       state.maxX = Math.max(state.maxX, p.x);
@@ -1356,7 +1367,6 @@
     state.meter = 0;
     state.bananen = 0;
     state.schwung = 0;
-    state.fruechte = [];
     state.haken = 0;
     state.letzter = 0;
     state.ziel = -1;
