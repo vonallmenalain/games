@@ -149,11 +149,6 @@
   const einheit = (spiel) => hs()?.spiel?.(spiel)?.einheit || "Punkte";
   const zahlWort = (n, eins, viele) => `${n} ${n === 1 ? eins : viele}`;
 
-  function versucheWort(t) {
-    if (!t.versuche) return "beliebig viele Versuche";
-    return t.versuche === 1 ? "einen Versuch" : `${t.versuche} Versuche`;
-  }
-
   // ---------------------------------------------------------------------------
   // Die Wertung
   // ---------------------------------------------------------------------------
@@ -745,17 +740,30 @@
    * nie: Das Turnier wird geladen, und das Spiel steht da wie ohne Turnier.
    * Gezählt wird ohnehin erst, wenn die Runde beginnt (rundeBeginnt).
    *
-   * Sie steht nur, wenn sie etwas zu sagen hat: der Name fehlt, oder es geht
-   * nichts – alle Versuche gespielt, allein vorne, das Turnier vorbei. Sie
-   * ist ein eigenes Element und nicht die Tafel der Bühne: Die Spiele räumen
-   * jene bei jedem Neustart ab (closeOverlay), diese aber muss bleiben, bis
-   * das Turnier sie wegnimmt.
+   * Wer gerade nicht spielen darf – allein vorne, alle Versuche gespielt,
+   * noch nicht begonnen, angehalten, vorbei –, sieht sie auch nicht: Er
+   * landet ohne ein Wort wieder auf der Turnierseite. Dort steht beim Spiel
+   * an der Stelle des Knopfs, warum (spielKarte). Und dort, nicht nebenan,
+   * wartet er, bis ihn jemand einholt.
+   *
+   * Sie steht nur noch, wenn der Name fehlt oder das Turnier nicht zu lesen
+   * war. Sie ist ein eigenes Element und nicht die Tafel der Bühne: Die
+   * Spiele räumen jene bei jedem Neustart ab (closeOverlay), diese aber muss
+   * bleiben, bis das Turnier sie wegnimmt.
    *
    * Solange das Turnier lädt, liegt sie unsichtbar über der Bühne – sie hält
    * nur die Finger vom Spiel fern. "Wird geladen" zeigt sie erst, wenn es
    * dauert (styles.css, .tn-tor.ist-leise).
    */
   const direkt = () => hier.geladen && !hier.fehler && spielbar() && Boolean(mini()?.name?.());
+  const gesperrt = () => hier.geladen && !hier.fehler && !spielbar();
+
+  // Zurück zur Turnierseite: ersetzt, nicht dazu – sonst führte der
+  // Zurück-Knopf gleich wieder hierher und von hier wieder weg. Über das
+  // Objekt der Datei, damit die Prüfung im Browser den Weg abfangen kann.
+  function zurueckZumTurnier() {
+    window.LernappTurnier.weg(seitenLink(hier.id));
+  }
 
   function zeigeTor() {
     const host = hier.buehne?.host;
@@ -773,7 +781,12 @@
     }
     host.append(hier.tor);
     const box = hier.tor.firstChild;
-    hier.tor.classList.toggle("ist-leise", !hier.geladen || direkt());
+    hier.tor.classList.toggle("ist-leise", !hier.geladen || direkt() || gesperrt());
+    if (gesperrt()) {
+      box.innerHTML = "";
+      zurueckZumTurnier();
+      return;
+    }
     if (direkt()) {
       box.innerHTML = "";
       // Nicht sofort: anBuehne kommt mitten aus dem Aufbau der Bühne
@@ -801,80 +814,25 @@
     hier.tor = null;
   }
 
+  // Was auf der Tafel steht: "wird geladen", die Frage nach dem Namen oder,
+  // ohne Verbindung, der Weg zum zweiten Versuch.
   function fuelleTafel(box) {
     box.innerHTML = "";
-    const spiel = spielHier();
-    const t = hier.t;
-    const satz = (text, klasse = "tn-tafel-text") => box.append(el("p", klasse, text));
-    const knoepfe = (...liste) => {
-      const zeile = el("div", "tn-tafel-knoepfe");
-      liste.forEach((k) => zeile.append(k));
-      box.append(zeile);
-    };
-    const zumTurnier = (wort = "Zum Turnier", klasse = "mini-knopf-hell") => verweis(wort, seitenLink(hier.id), klasse);
-    // Kein Weg ins Spiel ohne Turnier – nirgends. Das Turnier ist ein Raum
-    // für sich, und wer gerade nicht spielen darf (allein vorne, alle
-    // Versuche gespielt), soll auch nicht nebenan üben: Er wartet, bis ihn
-    // jemand einholt.
-
-    if (!hier.geladen) { satz("Das Turnier wird geladen..."); return; }
-    // Spielen darf, wer hier ist – es fehlt nur der Name. Dann nur die Frage
-    // danach: Ohne Namen kein Turnier, die Liste fasst nach Namen zusammen,
-    // und ein Versuch ohne Namen gehörte niemandem.
-    if (!hier.fehler && spielbar()) {
-      nachDemNamen(box);
+    if (!hier.geladen) {
+      box.append(el("p", "tn-tafel-text", "Das Turnier wird geladen..."));
       return;
     }
-
-    box.append(pokal("tn-tafel-pokal"));
-    box.append(el("p", "tn-marke", "Turnier"));
     if (hier.fehler) {
-      satz("Das Turnier ist gerade nicht zu haben – vielleicht fehlt die Verbindung.");
-      knoepfe(knopf("Noch einmal laden", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }));
+      box.append(el("p", "tn-tafel-text", "Das Turnier ist gerade nicht zu haben – vielleicht fehlt die Verbindung."));
+      const zeile = el("div", "tn-tafel-knoepfe");
+      zeile.append(knopf("Noch einmal laden", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }));
+      box.append(zeile);
       return;
     }
-    if (!t) {
-      satz("Dieses Turnier gibt es nicht (mehr).");
-      return;
-    }
-
-    box.append(el("h2", "tn-tafel-titel", t.name));
-    const jetzt = Date.now();
-    const l = lage(t, jetzt);
-    if (!t.spiele.includes(spiel)) {
-      satz(`«${titel(spiel)}» gehört nicht zu diesem Turnier.`);
-      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
-      return;
-    }
-    if (l === "geplant") {
-      satz(`Es beginnt ${datum(t.startMs)} – in ${dauer(t.startMs - jetzt)}.`);
-      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
-      return;
-    }
-    if (l === "angehalten") {
-      satz("Das Turnier ist gerade angehalten. Schau später wieder vorbei.");
-      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
-      return;
-    }
-    if (l === "beendet") {
-      satz("Das Turnier ist vorbei.");
-      knoepfe(zumTurnier("Zur Rangliste", "mini-knopf-voll"));
-      return;
-    }
-    if (t.spitzeWartet && hier.vorne) {
-      satz(`Du liegst in «${titel(spiel)}» allein vorne. Spielen kannst du hier wieder, sobald dich jemand einholt oder überholt.`);
-      if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
-      // Die Tafel liest nicht von selbst nach. Wer wissen will, ob schon
-      // jemand nachgezogen hat, fragt.
-      knoepfe(
-        knopf("Nachsehen", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }),
-        zumTurnier(),
-      );
-      return;
-    }
-    satz(`Du hast ${versucheWort(t) === "einen Versuch" ? "deinen Versuch" : `alle ${versucheWort(t)}`} in «${titel(spiel)}» gespielt.`);
-    if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
-    knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
+    // Spielen darf, wer hier ist – es fehlt nur der Name. Ohne Namen kein
+    // Turnier: Die Liste fasst nach Namen zusammen, und ein Versuch ohne
+    // Namen gehörte niemandem.
+    nachDemNamen(box);
   }
 
   function nachDemNamen(box) {
@@ -998,6 +956,20 @@
     los();
   }
 
+  /*
+   * Der Knopf "Noch einmal" unter dem Ergebnis (game-shell.js). Er steht nur,
+   * wenn es noch einmal geht – sonst bleibt der Pokal, der zum Turnier
+   * zurückführt. Ob jemand jetzt allein vorne liegt, sagt erst die frische
+   * Liste (hier.warten); bis dahin steht er nicht da, statt kurz zu
+   * erscheinen und wieder zu verschwinden.
+   */
+  function nochmalKnopf(knopf) {
+    if (!aufSpielseite() || !hier.freigegeben || !knopf) return;
+    knopf.hidden = true;
+    const stelle = () => { knopf.hidden = !spielbar(); };
+    (hier.warten || Promise.resolve()).then(stelle, stelle);
+  }
+
   function fehlerBeimAnmelden(fehler) {
     if (fehler?.code === "turnier/keine-versuche") return "Alle Versuche waren schon gespielt – vielleicht auf einem anderen Gerät. Diese Runde zählt nicht.";
     if (fehler?.code === "turnier/vorne") return "Du lagst in diesem Spiel schon allein vorne – diese Runde zählt nicht.";
@@ -1005,22 +977,13 @@
     return "Der Versuch liess sich nicht anmelden – ohne Verbindung zählt er nicht fürs Turnier.";
   }
 
-  function ergebnisSatz(t, stand, spiel) {
-    const e = einheit(spiel);
-    if (t.zaehlt === "summe") {
-      return stand.versuche === 1
-        ? `Eingetragen: ${stand.punkte} ${e}.`
-        : `Eingetragen. Zusammen: ${stand.punkte} ${e} aus ${stand.versuche} Versuchen.`;
-    }
-    if (stand.versuche === 1) return `Eingetragen: ${stand.punkte} ${e}.`;
-    if (stand.rekord) return `Dein bester Versuch bisher – ${stand.punkte} ${e}!`;
-    return `Eingetragen. Es bleibt dein bester Versuch: ${stand.punkte} ${e}.`;
-  }
-
   /*
    * Der Block unter dem Ergebnis, im Turnier. Statt Namensfeld und ewiger
-   * Liste: was ins Turnier eingetragen wurde, die Liste dieses Spiels im
-   * Turnier, und wie viele Versuche noch bleiben.
+   * Liste nur die Liste dieses Spiels im Turnier – kein Name des Turniers,
+   * kein Satz, was eingetragen wurde, kein Platz in Worten: Die Liste sagt
+   * das alles. Darüber «Neuer Rekord!», wenn diese Runde auf Platz 1 führt.
+   * Worte gibt es nur, wenn etwas schiefging: wenn die Runde nicht zählt
+   * oder nicht ankam.
    *
    * In die ewige Liste geht die Runde trotzdem (mini-games.js, melde) – eine
    * Runde ist eine Runde, und ein Rekord im Turnier ist auch einer in der
@@ -1030,11 +993,10 @@
     const spiel = spielHier();
     const t = hier.t;
     const block = el("div", "mini-ergebnis tn-ergebnis");
+    const rekord = el("p", "tn-rekord");
     const meldung = el("p", "mini-meldung");
-    const platz = el("p", "tn-platz");
     const listenWirt = el("div", "mini-listen-wirt");
-    const rest = el("p", "tn-rest");
-    block.append(el("p", "tn-marke", t ? `Turnier · ${t.name}` : "Turnier"), meldung, platz, listenWirt, rest);
+    block.append(rekord, meldung, listenWirt);
 
     mini()?.melde?.(spiel, punkte, geist)?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
 
@@ -1049,22 +1011,6 @@
       })?.catch?.((fehler) => console.warn("Der Lauf kam nicht ins Turnier", fehler));
     };
 
-    function restZeile() {
-      if (!t) return;
-      const l = lage(t);
-      if (l !== "laeuft") { rest.textContent = l === "beendet" ? "Das Turnier ist vorbei." : "Das Turnier ist gerade angehalten."; return; }
-      if (t.spitzeWartet) {
-        rest.textContent = hier.vorne
-          ? "Du liegst vorne. Weiterspielen kannst du hier, sobald dich jemand einholt."
-          : "Du kannst weiterspielen, bis du vorne liegst.";
-        return;
-      }
-      if (!t.versuche) { rest.textContent = "Du kannst weiterspielen, solange das Turnier läuft."; return; }
-      const uebrig = Math.max(0, t.versuche - hier.gespielt);
-      rest.textContent = uebrig === 0 ? "Das war dein letzter Versuch in diesem Spiel."
-        : uebrig === 1 ? "Noch ein Versuch." : `Noch ${uebrig} Versuche.`;
-    }
-
     // Die Liste dieses Spiels im Turnier, frisch nach dem Ergebnis. Mit
     // spitzeWartet sagt sie auch, ob dieses Gerät jetzt vorne liegt – dafür
     // wird sie selbst dann gelesen, wenn sie verdeckt bleibt.
@@ -1075,7 +1021,10 @@
       return liste;
     });
 
-    function zeigeListe(geladen) {
+    // "Neuer Rekord!" heisst hier: Diese Runde hat dich auf Platz 1 gebracht –
+    // sie steht jetzt für dich in der Liste (beim Zusammenzählen: sie hat
+    // dazugezählt), und vor dir ist niemand.
+    function zeigeListe(geladen, stand) {
       if (verdeckt()) {
         listenWirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
         return;
@@ -1084,7 +1033,8 @@
         listenWirt.innerHTML = "";
         listenWirt.append(mini().listeBauen(liste, spiel, { max: 5 }));
         const eigen = liste.find((e) => e.eigen);
-        if (eigen) platz.textContent = eigen.platz === 1 ? "Platz 1 im Turnier!" : `Platz ${eigen.platz} von ${liste.length} im Turnier.`;
+        const zaehlt = t.zaehlt === "summe" || stand.punkte === punkte;
+        if (eigen?.platz === 1 && zaehlt && punkte > 0) rekord.textContent = "Neuer Rekord!";
       }).catch(() => {
         listenWirt.textContent = "Die Rangliste des Turniers ist gerade nicht zu haben.";
       });
@@ -1094,7 +1044,6 @@
       meldung.textContent = t && lage(t) === "beendet"
         ? "Das Turnier ist vorbei – diese Runde zählt nicht mehr."
         : "Diese Runde zählt nicht fürs Turnier.";
-      restZeile();
       return block;
     }
 
@@ -1105,23 +1054,19 @@
     const eintragen = () => cloud().turnierErgebnis(hier.id, eintrag);
 
     function zeige(weg) {
-      meldung.textContent = "Wird ins Turnier eingetragen...";
+      meldung.textContent = "";
       block.querySelector(".tn-nochmal")?.remove();
       const fertig = weg.then((stand) => {
         hier.punkte = stand.punkte;
-        meldung.textContent = ergebnisSatz(t, stand, spiel);
         laufHinterlegen();
         const geladen = t.spitzeWartet || !verdeckt() ? ladeListe() : null;
-        zeigeListe(geladen);
-        if (t.spitzeWartet) geladen.then(restZeile, restZeile);
-        else restZeile();
+        zeigeListe(geladen, stand);
         // Das Turnier noch einmal lesen, für den nächsten Neustart: Wurde es
         // inzwischen angehalten oder beendet, soll die Tafel das sagen, statt
         // eine Runde anzubieten, die nicht mehr zählt.
         cloud().turnier(hier.id).then((frisch) => { if (frisch) hier.t = frisch; }, () => {});
         return t.spitzeWartet ? geladen : null;
       }, (fehler) => {
-        restZeile();
         if (fehler?.code === "turnier/nicht-angemeldet") {
           meldung.textContent = fehlerBeimAnmelden(fehler.ursache);
         } else if (fehler?.code === "turnier/kein-versuch") {
@@ -1181,8 +1126,12 @@
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel, geistLage,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, sprache, ziel, geistLage,
     hinweis,
+    // Der Weg zurück zur Turnierseite (zurueckZumTurnier). Die Prüfung im
+    // Browser setzt hier einen eigenen ein, wenn sie die Seite nicht
+    // verlassen will.
+    weg: (adresse) => window.location.replace(adresse),
     // Nur für die Prüfung im Browser: wie der Stand auf dieser Seite ist.
     stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor) }),
   };

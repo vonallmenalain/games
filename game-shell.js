@@ -325,7 +325,9 @@
 
       const parts = [el("p", "cm-result-label", label)];
       parts.push(el("p", "cm-result-score", String(points)));
-      if (detail) parts.push(el("p", "cm-result-detail", detail));
+      // Im Turnier nur die Zahl und die Liste darunter: Was das Spiel sonst
+      // dazu sagt (Bestwert, Rekord auf diesem Gerät), gilt dort nicht.
+      if (detail && !turnier()) parts.push(el("p", "cm-result-detail", detail));
       // Namensfeld, eigener Platz, die Liste aller. Bringt das Spiel eine
       // Aufzeichnung seines Laufs mit (geist.js, Spiele mit Uhr tun das), geht
       // sie denselben Weg wie die Punktzahl – ein Trichter, nicht zwei.
@@ -333,7 +335,8 @@
       if (block) parts.push(block);
 
       const actions = el("div", "cm-actions");
-      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => neuStart(), "big"));
+      const nochmal = iconButton("again", "Noch einmal", ICONS.again(), () => neuStart(), "big");
+      actions.append(nochmal);
       // Rechts der Pokal: ein Weg, kein Knopf – er führt direkt in die Hall of
       // Fame, dieselbe Adresse wie oben in der Leiste. Im Turnier führen beide
       // zurück zum Turnier.
@@ -341,6 +344,8 @@
       actions.append(iconLink("cup", wohin.wort, ICONS.cup(), wohin.link, "big"));
       parts.push(actions);
       panel(parts);
+      // Im Turnier gibt es "Noch einmal" nur, wenn es noch einmal geht.
+      turnier()?.nochmalKnopf?.(nochmal);
     }
 
     // Die Tafel des Turniers, falls diese Seite in einem gespielt wird. Sie

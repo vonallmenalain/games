@@ -1237,19 +1237,27 @@ try {
         // sichtbar hoch, und wer zu früh liest, liest eine Null.
         punkte: window.LernappTurmbau?.state?.punkte,
         pokal: document.querySelector(".cm-icon-cup")?.getAttribute("href"),
+        nochmal: Boolean(document.querySelector(".cm-actions .cm-icon-again:not([hidden])")),
+        liste: Boolean(document.querySelector(".tn-ergebnis .mini-liste")),
       };
     }, HERBST);
+    // Das Ergebnis ist da, wenn die Liste steht – und der Knopf "Noch einmal"
+    // entschieden ist.
+    const ergebnisDa = () => seite.waitForFunction(() => document.querySelector(".tn-ergebnis .mini-liste"), null, { timeout: 6000 })
+      .then(() => seite.waitForTimeout(150)).catch(() => {});
 
     pruefe(await spieleZuEnde(seite), "Der erste Turnierversuch kam zu keinem Ergebnis.");
-    await seite.waitForFunction(() => /Eingetragen/.test(document.querySelector(".tn-ergebnis .mini-meldung")?.textContent || ""), null, { timeout: 6000 })
-      .catch(() => {});
+    await ergebnisDa();
     const eins = await eintrag();
     pruefe(eins.turnier?.versuche === 1 && eins.turnier?.offen === false, `Nach dem ersten Versuch steht im Turnier: ${JSON.stringify(eins.turnier)}`);
     pruefe(eins.turnier?.punkte === eins.punkte, `Im Turnier stehen ${eins.turnier?.punkte} statt ${eins.punkte}.`);
     pruefe(eins.turnier?.name === "Turnierkind", `Im Turnier steht der Name "${eins.turnier?.name}".`);
     pruefe(eins.ewig?.punkte === eins.punkte, "Die Runde im Turnier fehlt in der ewigen Liste.");
-    pruefe(/Noch ein Versuch/.test(eins.text), `Nach dem ersten von zwei Versuchen steht nicht, dass noch einer bleibt: ${eins.text}`);
-    pruefe(/Grosi/.test(eins.text), `Unter dem Ergebnis fehlt die Rangliste des Turniers: ${eins.text}`);
+    pruefe(eins.nochmal, "Nach dem ersten von zwei Versuchen fehlt «Noch einmal».");
+    pruefe(eins.liste && /Grosi/.test(eins.text), `Unter dem Ergebnis fehlt die Rangliste des Turniers: ${eins.text}`);
+    // Und sonst nichts: kein Name des Turniers, kein «Eingetragen», kein Platz
+    // in Worten, keine übrigen Versuche.
+    pruefe(!/Herbstcup|Eingetragen|im Turnier|Versuch/.test(eins.text), `Unter dem Ergebnis im Turnier steht mehr als die Liste: ${eins.text}`);
     pruefe(eins.pokal === `/turnier?t=${HERBST}`, `Der Pokal unter dem Ergebnis führt nach ${eins.pokal} statt zum Turnier.`);
     const ohneImErgebnis = await klassenOhneRegel(seite);
     pruefe(ohneImErgebnis.length === 0, `Ergebnis im Turnier – Klassen ohne Regel: ${ohneImErgebnis.join(", ")}`);
@@ -1260,22 +1268,14 @@ try {
     const runde = await seite.evaluate(() => window.LernappZufall?.turnier?.()?.runde);
     pruefe(runde === "2", `Der zweite Versuch würfelt als Runde ${runde} statt 2.`);
     pruefe(await spieleZuEnde(seite), "Der zweite Turnierversuch kam zu keinem Ergebnis.");
-    await seite.waitForFunction(() => /letzter Versuch/.test(document.querySelector(".tn-ergebnis")?.textContent || ""), null, { timeout: 6000 })
-      .catch(() => {});
+    await ergebnisDa();
     const zwei = await eintrag();
     pruefe(zwei.turnier?.versuche === 2 && zwei.turnier?.offen === false, `Nach dem zweiten Versuch steht im Turnier: ${JSON.stringify(zwei.turnier)}`);
     pruefe(zwei.turnier?.punkte === Math.max(eins.punkte, zwei.punkte), `Es zählt nicht der bessere Versuch: ${zwei.turnier?.punkte} bei ${eins.punkte} und ${zwei.punkte}.`);
-    pruefe(/letzter Versuch/.test(zwei.text), `Nach dem letzten Versuch steht das nicht da: ${zwei.text}`);
-
-    // Einen dritten gibt es nicht.
-    await seite.click(".cm-actions .cm-icon-again");
-    await seite.waitForSelector(".tn-tor", { timeout: 4000 }).catch(() => {});
-    const schluss = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
-    pruefe(/alle 2 Versuche/.test(schluss), `Nach dem letzten Versuch sagt die Tafel: ${schluss || "nichts"}`);
-    pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, "Nach dem letzten Versuch lässt die Tafel noch einmal spielen.");
-    // Und kein Weg nebenan ins Spiel ohne Turnier: Wer fertig ist, ist fertig.
-    const hinaus = await seite.evaluate(() => [...document.querySelectorAll(".tn-tor a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/turnier\b/.test(h)));
-    pruefe(hinaus.length === 0, `Nach dem letzten Versuch führt die Tafel hinaus: ${hinaus.join(", ")}`);
+    // Einen dritten gibt es nicht: kein «Noch einmal», nur der Weg zurück
+    // zum Turnier.
+    pruefe(!zwei.nochmal, "Nach dem letzten Versuch steht noch «Noch einmal» da.");
+    pruefe(zwei.pokal === `/turnier?t=${HERBST}`, `Nach dem letzten Versuch führt der Pokal nach ${zwei.pokal}.`);
     pruefe(fehlerAufSeite.length === vorher, `Das Turnier hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
@@ -1345,7 +1345,7 @@ try {
     }, HERBST);
     pruefe(befund.eintrag?.versuche === 2 && befund.eintrag?.offen === false && befund.eintrag?.punkte === 7,
       `Zwei Versuche kurz nacheinander kamen durcheinander an: ${JSON.stringify(befund.eintrag)}`);
-    pruefe(/bester Versuch bisher/.test(befund.text), `Der zweite von zwei schnellen Versuchen meldet: ${befund.text}`);
+    pruefe(!/Eingetragen|Versuch/.test(befund.text), `Der zweite von zwei schnellen Versuchen meldet mehr als die Liste: ${befund.text}`);
     await kontext.close();
   }
 
@@ -1434,25 +1434,21 @@ try {
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
-  // Dann sagt die Tafel warum und lässt nicht spielen – auch nicht nebenan,
-  // ohne Turnier: Das Turnier ist ein Raum für sich.
-  for (const [adresse, erwartet, was] of [
-    ["/turmbau?turnier=zufall-test2345678", /gehört nicht zu diesem Turnier/, "ein Spiel, das nicht dazugehört"],
-    ["/turmbau?turnier=bald-test23456789", /beginnt/, "ein Turnier, das noch nicht angefangen hat"],
-    ["/turmbau?turnier=vorbei-test2345678", /vorbei/, "ein beendetes Turnier"],
-    ["/turmbau?turnier=pause-test2345678", /angehalten/, "ein angehaltenes Turnier"],
-    ["/turmbau?turnier=gibtsnicht-123456", /gibt es nicht/, "ein Turnier, das es nicht gibt"],
+  // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
+  // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
+  for (const [id, erwartet, was] of [
+    ["zufall-test2345678", /Würfelcup/, "ein Spiel, das nicht dazugehört"],
+    ["bald-test23456789", /beginnt/, "ein Turnier, das noch nicht angefangen hat"],
+    ["vorbei-test2345678", /beendet|Endstand/, "ein beendetes Turnier"],
+    ["pause-test2345678", /angehalten/, "ein angehaltenes Turnier"],
+    ["gibtsnicht-123456", /gibt es nicht/, "ein Turnier, das es nicht gibt"],
   ]) {
-    const { kontext, seite } = await mitTurnieren(adresse);
-    await seite.waitForFunction(() => {
-      const tor = document.querySelector(".tn-tor");
-      return tor && !/geladen/.test(tor.textContent);
-    }, null, { timeout: 8000 }).catch(() => {});
-    const text = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
-    pruefe(erwartet.test(text), `Für ${was} sagt die Tafel: ${text || "nichts"}`);
-    pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, `Für ${was} lässt die Tafel spielen.`);
-    const hinaus = await seite.evaluate(() => [...document.querySelectorAll(".tn-tor a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/turnier\b/.test(h)));
-    pruefe(hinaus.length === 0, `Für ${was} führt die Tafel hinaus ins Spiel ohne Turnier: ${hinaus.join(", ")}`);
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${id}`);
+    await seite.waitForURL((url) => url.pathname === "/turnier", { timeout: 8000 }).catch(() => {});
+    pruefe(seite.url().endsWith(`/turnier?t=${id}`), `Für ${was} geht es nicht zurück zum Turnier, sondern nach ${seite.url()}.`);
+    await seite.waitForFunction((muster) => new RegExp(muster).test(document.querySelector("[data-turnier]")?.textContent || ""), erwartet.source, { timeout: 8000 }).catch(() => {});
+    const text = (await seite.locator("[data-turnier]").innerText().catch(() => "")).replace(/\n/g, " ");
+    pruefe(erwartet.test(text), `Für ${was} sagt die Turnierseite: ${text || "nichts"}`);
     await kontext.close();
   }
 
@@ -1493,18 +1489,6 @@ try {
     pruefe(await seite.locator(".tn-tor").count() === 0, "Enter im Namensfeld der Tafel lässt das Turnier nicht beginnen.");
     pruefe(await seite.evaluate(() => localStorage.getItem("mini.name")) === "Turnier Kind",
       `Auf der Tafel kam der Name als "${await seite.evaluate(() => localStorage.getItem("mini.name"))}" an.`);
-    await kontext.close();
-  }
-  {
-    // Hier gehört das Spiel nicht zum Turnier – die Tafel bleibt. Eine Taste,
-    // die niemandem gilt, darf trotzdem keine Runde dahinter starten.
-    const { kontext, seite } = await mitTurnieren("/turmbau?turnier=zufall-test2345678");
-    await seite.waitForFunction(() => /gehört nicht/.test(document.querySelector(".tn-tor")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
-    await seite.keyboard.press("Space");
-    await seite.keyboard.press("Enter");
-    await seite.waitForTimeout(300);
-    pruefe(await seite.evaluate(() => window.LernappTurmbau.state.phase) === "bereit",
-      "Hinter der Tafel eines Turniers, in dem das Spiel nicht vorkommt, lief eine Runde an.");
     await kontext.close();
   }
 
@@ -1868,34 +1852,26 @@ try {
     await kontext.close();
   }
   {
-    // Auf der Spielseite sagt es die Tafel – bis jemand aufholt.
+    // Wer allein vorne liegt und das Spiel trotzdem öffnet, landet ohne ein
+    // Wort wieder auf der Turnierseite – dort steht «Du liegst vorne».
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: alsKoenig });
-    await seite.waitForFunction(() => {
-      const tor = document.querySelector(".tn-tor");
-      return tor && !/geladen/.test(tor.textContent);
-    }, null, { timeout: 8000 }).catch(() => {});
-    const text = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
-    pruefe(/allein vorne/.test(text), `Wer vorne liegt, liest auf der Tafel: ${text || "nichts"}`);
-    pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, "Wer allein vorne liegt, darf trotzdem spielen.");
-    await seite.evaluate((id) => {
-      const k = `${id}/towerStack_mini_leoleoleoleo`;
-      window.__miniTurnierEintraege.set(k, { ...window.__miniTurnierEintraege.get(k), punkte: 30 });
-    }, KOENIG);
-    await seite.locator(".tn-tor button", { hasText: "Nachsehen" }).click();
-    // König hat einen Namen – also keine Tafel mehr, sondern gleich das Spiel.
-    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben && !document.querySelector(".tn-tor"), null, { timeout: 4000 }).catch(() => {});
-    pruefe(await seite.evaluate(() => window.LernappTurnier.stand().freigegeben && !document.querySelector(".tn-tor")),
-      "Nachdem Leo gleichgezogen hat, darf König nach «Nachsehen» noch immer nicht spielen.");
+    await seite.waitForURL((url) => url.pathname === "/turnier", { timeout: 8000 }).catch(() => {});
+    pruefe(seite.url().endsWith(`/turnier?t=${KOENIG}`), `Wer allein vorne liegt, bleibt im Spiel: ${seite.url()}`);
+    await seite.waitForSelector(".tn-karte", { timeout: 8000 }).catch(() => {});
+    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 2,
+      "Zurück auf der Turnierseite steht nicht bei jedem Spiel «Du liegst vorne».");
     await kontext.close();
   }
   {
     // Leo spielt sich nach vorne. Ein sofortiges «Noch einmal» wartet, bis
-    // feststeht, dass er jetzt vorne liegt – und zeigt dann die Tafel statt
-    // einer Runde, die nicht zählen dürfte.
+    // feststeht, dass er jetzt vorne liegt – und führt dann zurück zum
+    // Turnier statt in eine Runde, die nicht zählen dürfte. Den Weg dorthin
+    // fängt die Prüfung ab (weg), sonst verliesse sie die Seite.
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); window.__miniLangsam = 400; } });
     await turnierLos(seite, "Leo");
     const befund = await seite.evaluate(async (id) => {
       const tn = window.LernappTurnier;
+      tn.weg = (adresse) => { window.__weg = adresse; };
       tn.rundeBeginnt();
       const block = tn.ergebnis({ punkte: 50 });
       let neu = false;
@@ -1906,16 +1882,17 @@ try {
         sofort,
         neu,
         eintrag: window.__miniTurnierEintraege.get(`${id}/towerStack_mini_leoleoleoleo`) || null,
-        rest: block.querySelector(".tn-rest")?.textContent || "",
+        rekord: block.querySelector(".tn-rekord")?.textContent || "",
         vorne: tn.stand().vorne,
-        tafel: document.querySelector(".tn-tor")?.textContent || "",
+        weg: window.__weg || "",
       };
     }, KOENIG);
     pruefe(befund.eintrag?.punkte === 50 && befund.eintrag?.versuche === 2 && befund.eintrag?.offen === false,
       `Leos Runde kam nicht an: ${JSON.stringify(befund.eintrag)}`);
     pruefe(!befund.sofort.neu, "«Noch einmal» wartet nicht, bis feststeht, ob die Runde nach vorne geführt hat.");
-    pruefe(befund.vorne && /vorne/.test(befund.rest), `Nach der Runde, die nach vorne führte, steht unter dem Ergebnis: ${befund.rest}`);
-    pruefe(befund.neu && /allein vorne/.test(befund.tafel), `Wer nach vorne gespielt hat, bekommt beim Neustart keine Tafel: ${befund.tafel || "keine"}`);
+    pruefe(befund.vorne, "Nach der Runde, die nach vorne führte, weiss die Seite nicht, dass Leo vorne liegt.");
+    pruefe(befund.rekord === "Neuer Rekord!", `Wer sich auf Platz 1 spielt, liest nicht «Neuer Rekord!»: ${befund.rekord || "nichts"}`);
+    pruefe(befund.neu && befund.weg === `/turnier?t=${KOENIG}`, `Wer nach vorne gespielt hat, kommt beim Neustart nicht zurück zum Turnier: ${befund.weg || "nirgends hin"}`);
     await kontext.close();
   }
 
