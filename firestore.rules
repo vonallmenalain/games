@@ -244,7 +244,9 @@ service cloud.firestore {
         && d.get("spitzeWartet", false) is bool
         && !(d.get("spitzeWartet", false) == true && d.versuche != 0)
         && d.wertung in ["platz", "prozent"]
-        && d.aufgaben in ["gleich", "zufall"]
+        // "wieErster": jeder Versuch ist derselbe Lauf, für alle – der, auf
+        // dem auch Platz 1 vorne liegt (turnier.js, stelleZufall).
+        && d.aufgaben in ["gleich", "zufall", "wieErster"]
         && d.sichtbar in ["alle", "link"]
         && d.verdeckt is bool
         // Ohne Gegner beim Spielen (geist.js): weder Platz 1 noch die eigene

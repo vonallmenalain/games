@@ -153,7 +153,8 @@ was es ausmacht:
     Gesamtwertung     Platzziffer (die Plätze zusammengezählt, die kleinste
                       Summe gewinnt) oder Prozent vom Besten (der Beste
                       eines Spiels bekommt 100, die anderen ihren Anteil)
-    Aufgaben          für alle gleich oder jedes Mal neu gewürfelt
+    Aufgaben          für alle gleich, gleiches Level wie der 1. Platzierte
+                      oder jedes Mal neu gewürfelt
     Wer es sieht      alle in der App (auf der Startseite) oder nur, wer den
                       Link hat
     Verdeckt          die Rangliste erst am Schluss zeigen
@@ -210,6 +211,19 @@ keine Liste befragen. Die Regeln lassen das Feld (`spitzeWartet`) nur zusammen
 mit unbegrenzten Versuchen zu. Wie «verdeckt» gilt es für das Spiel unter
 Freunden, nicht gegen jemanden, der die Datenbank von Hand beschreibt. Mit
 verdeckter Rangliste erfährt so nur der Führende, dass er vorne liegt.
+
+**Aufgaben: woher die Läufe kommen.** Viele Spiele würfeln ihre Welt:
+Pfeiler, Lianen, den Tunnel, die gesuchte Zahl. Im Turnier kommt dieser
+Zufall aus `zufall.js`, mit einer Saat aus Turnier, Versuch und Spiel.
+
+    für alle gleich      der erste Versuch ist für alle derselbe Lauf, der
+                         zweite auch – aber ein anderer als der erste
+    wie Platz 1          jeder Versuch ist der erste, für alle und immer
+                         wieder (`aufgaben: "wieErster"`). Wer vorne liegt,
+                         hat seine Punkte auf genau dem Lauf geholt, den alle
+                         spielen – auch im zehnten Versuch. Der Geist von
+                         Platz 1 fliegt dieselbe Strecke mit.
+    neu gewürfelt        wie ausserhalb des Turniers
 
 **Ein Turnier ist ein Raum für sich.** Von der Turnierseite und aus einem
 Spiel im Turnier führt kein Weg hinaus: kein «Ohne Turnier spielen», kein

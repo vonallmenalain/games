@@ -352,6 +352,7 @@ const KOENIG = "koenigscup-test234";
 const DAUER = "dauercup-test23456";
 const GESCHICK = "geschickcup-test23";
 const OHNE_GEGNER = "ohnegegner-test234";
+const LEVEL_EINS = "levelcup-test23456";
 const OHNE_ENDE = Date.UTC(9999, 11, 31);
 const TURNIERE = {
   turniere: [
@@ -372,6 +373,8 @@ const TURNIERE = {
     turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
+    // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
+    turnierVorlage(LEVEL_EINS, { name: "Levelcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["numberLine"], versuche: 0, aufgaben: "wieErster" }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
   // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
@@ -386,6 +389,7 @@ const TURNIERE = {
     { turnier: KOENIG, game: "towerStack", spieler: "mini_koenigkoenig", name: "König", punkte: 30, versuche: 3, offen: false, updatedAtMs: 1000 },
     { turnier: KOENIG, game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 20, versuche: 1, offen: false, updatedAtMs: 1100 },
     { turnier: KOENIG, game: "fishPond", spieler: "mini_koenigkoenig", name: "König", punkte: 9, versuche: 1, offen: false, updatedAtMs: 1200 },
+    { turnier: LEVEL_EINS, game: "numberLine", spieler: "mini_levellevellevel", name: "Lea", punkte: 4, versuche: 4, offen: false, updatedAtMs: 1000 },
   ],
 };
 
@@ -1381,6 +1385,35 @@ try {
     pruefe(a.zahl === a.erwartet, `Wo hält der Zug? nimmt seine Zahl nicht aus dem Zufall des Turniers (${a.zahl} statt ${a.erwartet}).`);
   }
   {
+    // Gleiches Level wie Platz 1: Auch wer schon viermal gespielt hat, spielt
+    // wieder den ersten Lauf – den, auf dem alle spielen.
+    const { kontext, seite } = await mitTurnieren(`/zahlengleis?turnier=${LEVEL_EINS}`, { vorher: () => {
+      localStorage.setItem("mini.id", "mini_levellevellevel");
+      localStorage.setItem("mini.name", "Lea");
+    } });
+    await turnierLos(seite, "Lea");
+    await seite.waitForFunction(() => Boolean(window.LernappZahlengleis?.state?.zahl), null, { timeout: 4000 }).catch(() => {});
+    const befund = await seite.evaluate(() => {
+      const z = window.LernappZufall.fuer("numberLine");
+      z.neu();
+      const { bis } = window.LernappZahlengleis.gleisFuer(0);
+      const moeglich = [];
+      for (let n = 1; n < bis; n += 1) moeglich.push(n);
+      return {
+        gespielt: window.LernappTurnier.stand().gespielt,
+        fest: window.LernappZufall.istFest(),
+        runde: window.LernappZufall.turnier()?.runde,
+        zahl: window.LernappZahlengleis.state.zahl,
+        erwartet: moeglich[z.ganz(moeglich.length)],
+      };
+    });
+    // Das Zahlengleis beginnt seine Runde sofort: Gespielt wird der fünfte.
+    pruefe(befund.gespielt === 5, `Im Levelcup läuft der ${befund.gespielt}. statt der fünfte Versuch.`);
+    pruefe(befund.fest && befund.runde === "1", `Mit gleichem Level wie Platz 1 würfelt der fünfte Versuch als Runde ${befund.runde} (fest: ${befund.fest}).`);
+    pruefe(befund.zahl === befund.erwartet, `Mit gleichem Level wie Platz 1 kommt eine andere Zahl (${befund.zahl} statt ${befund.erwartet}).`);
+    await kontext.close();
+  }
+  {
     const { kontext, seite } = await mitTurnieren("/zahlengleis?turnier=zufall-test2345678");
     await turnierLos(seite, "Würfler");
     const fest = await seite.evaluate(() => window.LernappZufall.istFest());
@@ -1739,6 +1772,7 @@ try {
     await form.locator('input[type="radio"][value="summe"]').check();
     await form.locator('input[type="radio"][value="prozent"]').check();
     await form.locator('input[type="radio"][value="link"]').check();
+    await form.locator('input[type="radio"][value="wieErster"]').check();
     await form.locator(".adm-option", { hasText: "verdecken" }).locator("input").check();
     const gegnerHaken = form.locator(".adm-option", { hasText: "Gegner beim Spielen" }).locator("input");
     pruefe(await gegnerHaken.isChecked(), "Ein neues Turnier zeigt die Gegner beim Spielen nicht von selbst.");
@@ -1751,7 +1785,7 @@ try {
     if (neu) {
       pruefe(/^test-cup-ae-[a-km-np-z2-9]{8}$/.test(neu.id), `Der Name des neuen Turniers taugt nicht als Link: ${neu.id}`);
       pruefe(JSON.stringify(neu.spiele) === JSON.stringify(["fishPond", "towerStack"]), `Im neuen Turnier stehen die Spiele ${neu.spiele.join(", ")}.`);
-      pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "gleich"
+      pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "wieErster"
         && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
@@ -1760,6 +1794,8 @@ try {
       pruefe(await seite.locator(".adm-turnier-name", { hasText: "Test-Cup Ä" }).count() === 1, "Das neue Turnier steht nicht in der Liste.");
       pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Test-Cup Ä",
         "Das eben angelegte Turnier ist nicht gleich ausgewählt.");
+      const eckdaten = await seite.locator(".adm-turnier.ist-offen .adm-turnier-detail .adm-klein").first().innerText().catch(() => "");
+      pruefe(/Level wie Platz 1/.test(eckdaten), `Beim neuen Turnier steht nicht, dass alle das Level von Platz 1 spielen: ${eckdaten}`);
       const danach = await sichtbar();
       pruefe(!danach.form && danach.liste && danach.streifen && danach.andere, `Nach dem Anlegen kommt der Adminbereich nicht zurück: ${JSON.stringify(danach)}`);
     }

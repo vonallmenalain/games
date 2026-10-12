@@ -794,6 +794,7 @@
 
     form.append(wahl("Aufgaben", "aufgaben", [
       ["gleich", "Für alle gleich", "Der erste Versuch ist für alle derselbe Lauf, der zweite auch – aber ein anderer als der erste. Kein Glück mit dem Würfel."],
+      ["wieErster", "Gleiches Level wie der 1. Platzierte", "Jeder Versuch ist derselbe Lauf, für alle – genau der, auf dem Platz 1 vorne liegt."],
       ["zufall", "Jedes Mal neu gewürfelt", "Wie ausserhalb des Turniers."],
     ], t.aufgaben));
 
@@ -938,7 +939,7 @@
       t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
-      t.aufgaben === "gleich" ? "gleiche Aufgaben" : "gewürfelt",
+      { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
