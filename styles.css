@@ -545,6 +545,9 @@ h2 {
 }
 .cm-icon svg { width: 24px; height: 24px; display: block; }
 .cm-icon:active { transform: scale(0.93); }
+/* Ein Knopf, den es gerade nicht gibt (im Turnier «Noch einmal», wenn es
+   nicht noch einmal geht) – display: grid oben würde hidden sonst überstimmen. */
+.cm-icon[hidden] { display: none; }
 .cm-icon:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
 /* Der Zähler bleibt dezent: eine Zahl mit Haken, kein Balken, kein Kasten in
@@ -3183,24 +3186,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .tn-tor.ist-leise .cm-panel { animation: cm-fade 0.2s ease 0.8s both; }
 .tn-tor.ist-leise .cm-panel:empty { display: none; }
 .tn-tafel { gap: clamp(6px, 1.4vh, 12px); }
-.tn-tafel-pokal { width: 44px; height: 44px; color: var(--tn-gold); }
-.tn-marke {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--tn-gold-dunkel);
-}
-.tn-tafel-titel {
-  margin: 0;
-  font-size: clamp(1.3rem, 4vw, 1.8rem);
-  font-weight: 900;
-  color: #243047;
-  overflow-wrap: anywhere;
-}
 .tn-tafel-text { margin: 0; font-weight: 700; color: #4b5563; line-height: 1.45; }
-.tn-tafel-stand { margin: 0; font-weight: 900; color: #243047; }
 .tn-tafel-form { width: min(360px, 100%); display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .tn-tafel-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .tn-tafel .tn-los { background: var(--tn-gold); }
@@ -3214,15 +3200,24 @@ p.tn-verdeckt:not(.mini-hinweis) {
     overflow-y: auto;
     gap: 6px;
   }
-  .tn-tafel-pokal { width: 30px; height: 30px; }
 }
 
 /* --- Unter dem Ergebnis ---------------------------------------------------- */
-.tn-ergebnis .tn-marke { text-align: center; }
-.tn-platz { margin: 0; text-align: center; font-weight: 900; color: #243047; }
-.tn-platz:empty { display: none; }
-.tn-rest { margin: 0; text-align: center; font-size: 0.85rem; font-weight: 800; color: #667085; }
-.tn-rest:empty { display: none; }
+/* Nur die Liste – und darüber «Neuer Rekord!», wenn die Runde auf Platz 1
+   führt. Worte stehen nur da, wenn etwas schiefging. */
+.tn-rekord {
+  align-self: center;
+  margin: 0;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, var(--tn-gold));
+  color: #5a3a08;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(224, 168, 0, 0.4);
+}
+.tn-rekord:empty,
+.tn-ergebnis .mini-meldung:empty { display: none; }
 .tn-nochmal { align-self: center; }
 
 /* --- Im Adminbereich ------------------------------------------------------- */

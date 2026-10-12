@@ -165,10 +165,15 @@ was es ausmacht:
 Gespielt wird es auf der Turnierseite (`/turnier?t=<id>`): Von dort führt
 jedes Spiel mit `?turnier=<id>` in der Adresse ins Spiel, und das Spiel steht
 sofort da – keine Tafel davor. Nur wer noch keinen Namen hat, wird einmal
-danach gefragt, und wer gerade nicht spielen darf (alle Versuche gespielt,
-allein vorne, noch nicht begonnen, vorbei), bekommt einen Satz, warum. Sonst
-läuft das Spiel wie immer, nur dass sein Ergebnis ins Turnier geht (und in
-die ewige Liste, eine Runde ist eine Runde).
+danach gefragt. Wer gerade nicht spielen darf (alle Versuche gespielt,
+allein vorne, noch nicht begonnen, angehalten, vorbei), landet ohne ein Wort
+wieder auf der Turnierseite; dort steht beim Spiel, warum. Sonst läuft das
+Spiel wie immer, nur dass sein Ergebnis ins Turnier geht (und in die ewige
+Liste, eine Runde ist eine Runde).
+
+Unter dem Ergebnis steht im Turnier nur die Rangliste des Spiels, darüber
+«Neuer Rekord!», wenn die Runde auf Platz 1 führt. «Noch einmal» gibt es nur,
+wenn es noch einmal geht; sonst bleibt der Pokal, der zum Turnier führt.
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
