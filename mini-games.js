@@ -124,16 +124,11 @@
   const spielLink = (id) => `/${NACH_ID.get(id)?.seite || ""}`;
   const uebersichtLink = () => "/";
 
-  // Ein Probelauf aus dem Adminbereich (/turmbau?probe=1): Das Spiel läuft
-  // wie immer, nur geht die Runde nirgends hin – nicht in die ewige Liste,
-  // in kein Turnier, nicht in den eigenen Bestwert auf dem Gerät. Wer ein
-  // Spiel testet, bevor es auf die Startseite kommt, soll danach nicht selbst
-  // zuoberst in dessen Liste stehen.
-  //
-  // Ein Schutz ist das nicht, nur eine Abmachung: Wer ?probe=1 an die Adresse
-  // hängt, spielt eben, ohne dass es zählt.
-  function probelauf() {
-    try { return new URLSearchParams(window.location.search).get("probe") === "1"; }
+  // Aus dem Adminbereich gestartet (/turmbau?von=admin, admin.js,
+  // zeigeSpiel): Das Spiel läuft wie immer, und die Runde zählt wie jede
+  // andere. Nur der Weg zurück führt in den Adminbereich.
+  function ausAdmin() {
+    try { return new URLSearchParams(window.location.search).get("von") === "admin"; }
     catch { return false; }
   }
 
@@ -583,22 +578,22 @@
   // zurück zum Turnier (turnier.js). Wer über die Turnierseite gekommen ist,
   // will dorthin zurück und nicht in die ewige Liste.
   //
-  // Im Probelauf geht es zurück in den Adminbereich, von dem er kam.
+  // Aus dem Adminbereich geht es dorthin zurück.
   function ziel() {
-    if (probelauf()) return { link: "/admin", wort: "Admin", titel: "Zurück in den Adminbereich" };
+    if (ausAdmin()) return { link: "/admin", wort: "Admin", titel: "Zurück in den Adminbereich" };
     return window.LernappTurnier?.ziel?.()
       || { link: uebersichtLink(), wort: "Hall of Fame", titel: "Zurück zur Hall of Fame" };
   }
 
-  // Läuft der Probelauf im Fenster über dem Adminbereich (admin.js,
-  // zeigeProbe), schliesst der Weg zurück dieses Fenster – statt den
-  // Adminbereich ein zweites Mal hineinzuladen.
-  if (probelauf() && window.parent !== window) {
+  // Läuft das Spiel im Fenster über dem Adminbereich (admin.js, zeigeSpiel),
+  // schliesst der Weg zurück dieses Fenster – statt den Adminbereich ein
+  // zweites Mal hineinzuladen.
+  if (ausAdmin() && window.parent !== window) {
     document.addEventListener("click", (ereignis) => {
       const weg = ereignis.target?.closest?.("a[href]");
       if (!weg || weg.getAttribute("href") !== ziel().link) return;
       ereignis.preventDefault();
-      try { window.parent.postMessage({ miniProbe: "zu" }, window.location.origin); } catch { /* dann bleibt es offen */ }
+      try { window.parent.postMessage({ miniAdmin: "zu" }, window.location.origin); } catch { /* dann bleibt es offen */ }
     }, true);
   }
 
@@ -643,14 +638,6 @@
   //   Rekord           dasselbe, nur mit einem Wort dazu: Das ist der Moment,
   //                    für den der Link verschickt wurde.
   function ergebnis({ punkte, geist = null }) {
-    // Ein Probelauf trägt nichts ein – und sagt das, statt nach einem Namen
-    // zu fragen.
-    if (probelauf()) {
-      const probe = el("div", "mini-ergebnis");
-      probe.append(el("p", "mini-meldung", "Probelauf – diese Runde wird nirgends eingetragen."));
-      return probe;
-    }
-
     // Im Turnier gilt dessen Block: was eingetragen wurde, die Liste des
     // Turniers, die übrigen Versuche. In die ewige Liste geht die Runde von
     // dort aus trotzdem (turnier.js, ergebnis).
@@ -770,7 +757,6 @@
   function ergebnisSprache({ punkte, label }) {
     const turnier = window.LernappTurnier;
     const wort = String(label || "Punkte").replace(/^Deine?\s+/i, "");
-    if (probelauf()) return `${punkte} ${wort}.`;
     if (turnier?.aufSpielseite?.()) return turnier.sprache({ punkte, label });
     return `${punkte} ${wort}. Trag deinen Namen ein, dann stehst du in der Bestenliste.`;
   }
@@ -1066,7 +1052,7 @@
     spielId,
     spielLink,
     uebersichtLink,
-    probelauf,
+    ausAdmin,
     ziel,
     alleSpiele,
     offeneSpiele,

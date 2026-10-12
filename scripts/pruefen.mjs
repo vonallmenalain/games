@@ -310,16 +310,14 @@ pruefe("Die Startseite zeigt den Admin-Knopf nur mit Merkzeichen",
 pruefe("Die Spielseiten bleiben ohne Anmeldung (kein firebase-auth auf der Startseite)",
   !lies("index.html").includes("firebase-auth"));
 
-// --- 16. Der Probelauf --------------------------------------------------------
-// Der Admin spielt ein Spiel zur Probe, bevor es auf die Startseite oder in
-// ein Turnier kommt. Danach darf er nirgends stehen: nicht in der ewigen
-// Liste und in keinem Turnier. Der Probelauf wird deshalb vor allem anderen
-// abgefangen – vor dem Block des Turniers und vor melde().
-pruefe("admin.js öffnet die Spiele zur Probe mit ?probe=1", adminJs.includes("?probe=1"));
-pruefe("Ein Probelauf trägt nichts ein (mini-games.js fängt ihn vor Turnier und Bestenliste ab)",
-  /function ergebnis\(\{ punkte, geist = null \}\) \{\s*(\/\/[^\n]*\s*)*if \(probelauf\(\)\)/.test(miniJs));
-pruefe("Ein Probelauf zählt in keinem Turnier (turnier.js, aufSpielseite)",
-  /const aufSpielseite = \(\) => [^\n]*!mini\(\)\?\.probelauf\?\.\(\)/.test(lies("turnier.js")));
+// --- 16. Spielen aus dem Adminbereich ------------------------------------------
+// Der Admin startet ein Spiel mit ▶ im Vollbild, und die Runde zählt wie jede
+// andere – unter dem Namen des Geräts. Einen Probelauf, der nirgends zählt,
+// gibt es nicht mehr.
+pruefe("admin.js startet die Spiele mit ?von=admin", adminJs.includes("?von=admin"));
+pruefe("admin.js bringt das Spiel ins Vollbild", /requestFullscreen/.test(adminJs));
+pruefe("Kein Probelauf mehr (?probe=1, probelauf)",
+  ![adminJs, miniJs, lies("turnier.js"), lies("geist.js")].some((text) => /probe=1|probelauf/.test(text)));
 
 // ---------------------------------------------------------------------------
 if (fehler.length) {

@@ -281,12 +281,12 @@ schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
 nicht haben will.
 
 Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
-Turniers – steht ein kleines ▶. Es öffnet das Spiel zur Probe in einem
-Fenster über dem Adminbereich, mit `?probe=1` in der Adresse: Die Runde läuft
-wie jede andere, wird aber nirgends eingetragen, weder in die ewige Liste noch
-in ein Turnier noch als Bestwert auf dem Gerät. So lässt sich ein Spiel
-ausprobieren, bevor es auf die Startseite oder in ein Turnier kommt, ohne dass
-danach der Admin selbst zuoberst in dessen Liste steht.
+Turniers – steht ein kleines ▶. Es startet das Spiel im Vollbild, in einem
+Fenster über dem Adminbereich (ein halb ausgefülltes Turnier darunter bleibt,
+wie es war), mit `?von=admin` in der Adresse. Die Runde zählt wie jede andere:
+Sie geht unter dem Namen dieses Geräts in die Hall of Fame, der beste Versuch
+bleibt stehen. Der Weg oben links im Spiel schliesst das Fenster wieder. Wo
+der Browser kein Vollbild kennt (iPhone), füllt das Fenster den Bildschirm.
 
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,

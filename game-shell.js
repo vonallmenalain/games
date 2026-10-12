@@ -115,14 +115,20 @@
    * Das Vollbild gilt für diese eine Seite. Wer zur Turnierseite zurückgeht
    * und das nächste Spiel öffnet, tippt den Knopf dort noch einmal – ohne
    * einen eigenen Tipp lässt kein Browser eine Seite ins Vollbild.
+   *
+   * Und nicht in einem Fenster einer anderen Seite: Im Adminbereich bringt
+   * das Fenster selbst das Spiel ins Vollbild (admin.js, zeigeSpiel). Ein
+   * Knopf darin zeigte "Vollbild", wo längst eines ist.
    */
   const vollbildErlaubt = () => Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   const imVollbild = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
   const alsApp = () => ["(display-mode: standalone)", "(display-mode: fullscreen)"]
     .some((frage) => window.matchMedia?.(frage).matches) || window.navigator.standalone === true;
 
+  const imFenster = () => { try { return window.self !== window.top; } catch { return true; } };
+
   function vollbildKnopf(host) {
-    if (!vollbildErlaubt() || alsApp()) return;
+    if (!vollbildErlaubt() || alsApp() || imFenster()) return;
     const knopf = el("button", "cm-vollbild");
     knopf.type = "button";
     const zeichne = () => {
