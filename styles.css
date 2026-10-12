@@ -3070,8 +3070,8 @@ h2 {
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ▶ – ein Spiel zur Probe. Klein und rund, damit der Haken die Zeile bleibt. */
-.adm-probe-knopf {
+/* ▶ – ein Spiel spielen. Klein und rund, damit der Haken die Zeile bleibt. */
+.adm-spielen-knopf {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
@@ -3080,47 +3080,19 @@ h2 {
   background: #f2f3f7;
   color: #47506a;
 }
-.adm-probe-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
-.adm-probe-knopf:hover { background: var(--adm-farbe, #F5A623); color: #fff; }
+.adm-spielen-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
+.adm-spielen-knopf:hover { background: var(--adm-farbe, #F5A623); color: #fff; }
 
-/* Das Fenster für den Probelauf: das Spiel, so gross es geht, über dem
-   Adminbereich – auf dem Handy über den ganzen Bildschirm. */
-.adm-probe {
+/* Das Spiel aus dem Adminbereich: im Vollbild, oder wo es keines gibt, über
+   den ganzen Bildschirm – ohne Rahmen, wie auf seiner eigenen Seite. */
+.adm-spiel {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(0px, 3vw, 28px);
-  background: rgba(20, 24, 40, 0.62);
+  background: var(--bg);
 }
-.adm-probe-rahmen {
-  width: min(1100px, 100%);
-  height: min(860px, 100%);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-}
-.adm-probe-kopf {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px 8px 16px;
-  border-bottom: 2px solid #e8e6f2;
-}
-.adm-probe-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.adm-probe-text strong { font-weight: 900; color: #243047; }
-.adm-probe-text span { font-size: 0.8rem; color: #667085; }
-.adm-probe-spiel { flex: 1 1 auto; display: block; width: 100%; border: 0; background: #a8ddf0; }
-body.adm-probe-offen { overflow: hidden; }
-@media (max-width: 640px) {
-  .adm-probe { padding: 0; }
-  .adm-probe-rahmen { border-radius: 0; }
-}
+.adm-spiel-fenster { display: block; width: 100%; height: 100%; border: 0; background: var(--bg); }
+body.adm-spiel-offen { overflow: hidden; }
 
 /* ===========================================================================
    Der Weg in den Adminbereich

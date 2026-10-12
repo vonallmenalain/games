@@ -544,8 +544,8 @@
       if (!lief) return null;
       const bahn = art === "tempo" && z.auf.p.length ? packe(z.auf) : "";
       // Der eigene beste Lauf bleibt auf dem Gerät – auch ohne Namen, auch
-      // ohne Netz. Ein Probelauf aus dem Adminbereich zählt nirgends.
-      if (!mini()?.probelauf?.() && z.punkte > 0 && z.punkte > (eigenerLauf(spiel, fassung)?.punkte || 0)) {
+      // ohne Netz.
+      if (z.punkte > 0 && z.punkte > (eigenerLauf(spiel, fassung)?.punkte || 0)) {
         merkeLauf(spiel, z.punkte, bahn, fassung);
       }
       return bahn ? { level: fassung, bahn } : null;

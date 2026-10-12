@@ -570,7 +570,8 @@ try {
     pruefe(await seite.locator(".cm-vollbild").count() === 1, "Oben rechts fehlt der Knopf fürs Vollbild.");
     if (await seite.locator(".cm-vollbild").count()) {
       await seite.click(".cm-vollbild");
-      await seite.waitForFunction(() => Boolean(document.fullscreenElement), null, { timeout: 3000 }).catch(() => {});
+      await seite.waitForFunction(() => Boolean(document.fullscreenElement) && document.querySelector(".cm-vollbild").getAttribute("aria-pressed") === "true",
+        null, { timeout: 3000 }).catch(() => {});
       const an = await seite.evaluate(() => ({ voll: Boolean(document.fullscreenElement), gedrueckt: document.querySelector(".cm-vollbild").getAttribute("aria-pressed") }));
       pruefe(an.voll && an.gedrueckt === "true", `Der Knopf fürs Vollbild bringt kein Vollbild: ${JSON.stringify(an)}`);
       await seite.click(".cm-vollbild");
@@ -1717,8 +1718,8 @@ try {
     pruefe(allein.form && allein.kopf, `Das neue Turnier steht nicht da: ${JSON.stringify(allein)}`);
     pruefe(!allein.liste && !allein.streifen && !allein.andere, `Unter dem neuen Turnier hängt noch der Rest des Adminbereichs: ${JSON.stringify(allein)}`);
     const form = seite.locator(".adm-turnier-form");
-    pruefe(await form.locator(".adm-wahl .adm-probe-knopf").count() === SPIELE.length,
-      `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Ausprobieren (${await form.locator(".adm-probe-knopf").count()} von ${SPIELE.length}).`);
+    pruefe(await form.locator(".adm-wahl .adm-spielen-knopf").count() === SPIELE.length,
+      `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Spielen (${await form.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
     await form.locator('input[type="text"]').first().fill("Test-Cup Ä");
     await form.locator("button", { hasText: "Keine" }).click();
     await form.locator('input[value="towerStack"]').check();
@@ -1782,31 +1783,31 @@ try {
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
     pruefe(!(await seite.evaluate(() => document.querySelector(".adm-seite").classList.contains("ist-formular"))), "Nach «Zurück zur Übersicht» bleibt der Adminbereich ausgeblendet.");
 
-    // Ein Spiel zur Probe: im Fenster über dem Adminbereich, ohne dass der
+    // Ein Spiel spielen: im Vollbild über dem Adminbereich, ohne dass der
     // Haken daneben sich bewegt – auf der Startseite wäre das sofort
     // gespeichert.
     const auswahl = seite.locator(".adm-seite > .adm-block:not(.adm-turniere)").first();
-    pruefe(await auswahl.locator(".adm-wahl .adm-probe-knopf").count() === SPIELE.length,
-      `In der Spielauswahl hat nicht jedes Spiel einen Knopf zum Ausprobieren (${await auswahl.locator(".adm-probe-knopf").count()} von ${SPIELE.length}).`);
+    pruefe(await auswahl.locator(".adm-wahl .adm-spielen-knopf").count() === SPIELE.length,
+      `In der Spielauswahl hat nicht jedes Spiel einen Knopf zum Spielen (${await auswahl.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
     const turmZeile = auswahl.locator(".adm-wahl", { hasText: "Turmbau" });
-    const vorProbe = await turmZeile.locator('input[type="checkbox"]').isChecked();
-    await turmZeile.locator(".adm-probe-knopf").click();
-    await seite.waitForSelector(".adm-probe iframe", { timeout: 4000 });
-    pruefe(await seite.getAttribute(".adm-probe iframe", "src") === "/turmbau?probe=1",
-      `Der Probelauf öffnet ${await seite.getAttribute(".adm-probe iframe", "src")} statt /turmbau?probe=1.`);
-    pruefe(await turmZeile.locator('input[type="checkbox"]').isChecked() === vorProbe && await seite.evaluate(() => window.__miniOffen === undefined),
-      "Der Knopf zum Ausprobieren hat den Haken umgelegt.");
-    const probe = seite.frameLocator(".adm-probe iframe");
-    await probe.locator(".cm-bar").waitFor({ timeout: 8000 });
-    pruefe(await probe.locator(".cm-bar-left a").first().getAttribute("href") === "/admin", "Im Probelauf führt der Weg oben links nicht zurück in den Adminbereich.");
-    await probe.locator(".cm-bar-left a").first().click();
-    await seite.waitForFunction(() => !document.querySelector(".adm-probe"), null, { timeout: 4000 }).catch(() => {});
-    pruefe(await seite.locator(".adm-probe").count() === 0, "Der Weg zurück im Probelauf schliesst das Fenster nicht.");
-    pruefe(await seite.locator(".adm-kopf").count() === 1 && new URL(seite.url()).pathname === "/admin", "Nach dem Probelauf ist der Adminbereich weg.");
-    await turmZeile.locator(".adm-probe-knopf").click();
-    await seite.waitForSelector(".adm-probe", { timeout: 4000 });
-    await seite.locator(".adm-probe-kopf button", { hasText: "Schliessen" }).click();
-    pruefe(await seite.locator(".adm-probe").count() === 0, "«Schliessen» schliesst den Probelauf nicht.");
+    const vorSpiel = await turmZeile.locator('input[type="checkbox"]').isChecked();
+    await turmZeile.locator(".adm-spielen-knopf").click();
+    await seite.waitForSelector(".adm-spiel iframe", { timeout: 4000 });
+    pruefe(await seite.getAttribute(".adm-spiel iframe", "src") === "/turmbau?von=admin",
+      `Der Knopf ▶ öffnet ${await seite.getAttribute(".adm-spiel iframe", "src")} statt /turmbau?von=admin.`);
+    pruefe(await turmZeile.locator('input[type="checkbox"]').isChecked() === vorSpiel && await seite.evaluate(() => window.__miniOffen === undefined),
+      "Der Knopf zum Spielen hat den Haken umgelegt.");
+    await seite.waitForFunction(() => document.fullscreenElement?.classList.contains("adm-spiel"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => document.fullscreenElement?.classList.contains("adm-spiel") === true), "Das Spiel aus dem Adminbereich startet nicht im Vollbild.");
+    const imSpiel = seite.frameLocator(".adm-spiel iframe");
+    await imSpiel.locator(".cm-bar").waitFor({ timeout: 8000 });
+    pruefe(await imSpiel.locator(".cm-bar-left a").first().getAttribute("href") === "/admin", "Im Spiel aus dem Adminbereich führt der Weg oben links nicht zurück.");
+    pruefe(await imSpiel.locator(".cm-vollbild").count() === 0, "Im Fenster des Adminbereichs steht ein zweiter Knopf fürs Vollbild.");
+    await imSpiel.locator(".cm-bar-left a").first().click();
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel") && !document.fullscreenElement, null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0, "Der Weg zurück im Spiel schliesst das Fenster nicht.");
+    pruefe(await seite.evaluate(() => !document.fullscreenElement), "Nach dem Spiel bleibt der Adminbereich im Vollbild.");
+    pruefe(await seite.locator(".adm-kopf").count() === 1 && new URL(seite.url()).pathname === "/admin", "Nach dem Spiel ist der Adminbereich weg.");
 
     // Ein Turnier, in dem wartet, wer vorne liegt: unbegrenzt für alle
     // anderen – zusammenzählen geht deshalb nicht.
@@ -1865,37 +1866,25 @@ try {
     await kontext.close();
   }
 
-  // --- 4k. Ein Probelauf zählt nicht --------------------------------------------
-  // Der Admin spielt ein Spiel zur Probe (admin.js, ▶). Die Runde läuft wie
-  // jede andere, geht aber nirgends hin: nicht in die ewige Liste, nicht in
-  // den eigenen Bestwert, in kein Turnier – auch mit einem Namen auf dem
-  // Gerät, der sonst sofort eingetragen würde.
+  // --- 4k. Aus dem Adminbereich zählt die Runde -----------------------------------
+  // Der Admin startet ein Spiel mit ▶ (admin.js). Die Runde läuft wie jede
+  // andere und geht unter dem Namen des Geräts in die ewige Liste; nur der Weg
+  // oben links führt zurück in den Adminbereich.
   {
-    const { kontext, seite } = await mitTurnieren("/turmbau?probe=1", { vorher: () => localStorage.setItem("mini.name", "Admin") });
+    const { kontext, seite } = await mitTurnieren("/turmbau?von=admin", { vorher: () => localStorage.setItem("mini.name", "Alain") });
     await seite.waitForSelector(".cm-bar", { timeout: 8000 });
     const zurueck = await seite.getAttribute(".cm-bar-left a", "href");
-    pruefe(zurueck === "/admin", `Im Probelauf führt der Weg oben links nach ${zurueck} statt in den Adminbereich.`);
-    pruefe(await spieleTurmbauZuEnde(seite), "Der Probelauf kam zu keinem Ergebnis.");
+    pruefe(zurueck === "/admin", `Aus dem Adminbereich führt der Weg oben links nach ${zurueck} statt zurück.`);
+    pruefe(await spieleTurmbauZuEnde(seite), "Die Runde aus dem Adminbereich kam zu keinem Ergebnis.");
     await seite.waitForSelector(".mini-ergebnis", { timeout: 4000 });
-    await seite.waitForTimeout(400);
-    const text = (await seite.locator(".mini-ergebnis").innerText()).replace(/\n/g, " ");
-    pruefe(/Probelauf/.test(text), `Unter dem Probelauf steht nicht, dass er nicht zählt: ${text}`);
-    pruefe(await seite.locator(".mini-namensfeld, .mini-name-steht").count() === 0, "Im Probelauf wird nach dem Namen gefragt.");
+    await seite.waitForFunction(() => [...window.__miniEintraege.values()].some((e) => e.name === "Alain"), null, { timeout: 4000 }).catch(() => {});
     const spur = await seite.evaluate(() => ({
-      ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Admin").length,
+      ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Alain").map((e) => ({ game: e.game, punkte: e.punkte })),
       best: localStorage.getItem("mini.best"),
     }));
-    pruefe(spur.ewig === 0, "Der Probelauf steht in der ewigen Liste.");
-    pruefe(!spur.best, `Der Probelauf hat einen Bestwert auf dem Gerät hinterlassen: ${spur.best}`);
-    await kontext.close();
-  }
-  {
-    // Auch mit einem Turnier in der Adresse: keine Tafel, kein Versuch.
-    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}&probe=1`);
-    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
-    await seite.waitForTimeout(600);
-    pruefe(await seite.locator(".tn-tor").count() === 0, "Im Probelauf mit einem Turnier in der Adresse steht die Tafel des Turniers.");
-    pruefe(await seite.evaluate(() => window.LernappTurnier.aufSpielseite()) === false, "Ein Probelauf gilt als Runde im Turnier.");
+    pruefe(spur.ewig.length === 1 && spur.ewig[0].game === "towerStack" && spur.ewig[0].punkte > 0,
+      `Die Runde aus dem Adminbereich steht nicht unter dem Namen in der ewigen Liste: ${JSON.stringify(spur.ewig)}`);
+    pruefe(Boolean(spur.best), "Die Runde aus dem Adminbereich hat keinen Bestwert auf dem Gerät hinterlassen.");
     await kontext.close();
   }
 

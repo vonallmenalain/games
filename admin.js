@@ -322,74 +322,73 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Ein Spiel zum Ausprobieren
+  // Ein Spiel spielen, aus dem Adminbereich
   // ---------------------------------------------------------------------------
-  // Bevor ein Spiel auf die Startseite kommt oder in ein Turnier, will man es
-  // gespielt haben. Der kleine Knopf neben jedem Haken öffnet es in einem
-  // Fenster über dem Adminbereich – ein halb ausgefülltes Turnier darunter
-  // bleibt, wie es war.
+  // Der kleine Knopf neben jedem Haken startet das Spiel im Vollbild – in
+  // einem Fenster über dem Adminbereich, damit ein halb ausgefülltes Turnier
+  // darunter bleibt, wie es war.
   //
-  // Mit ?probe=1 in der Adresse geht die Runde nirgends hin: nicht in die
-  // ewige Liste, in kein Turnier (mini-games.js, probelauf). Sonst stünde
-  // nach jedem Test der Admin selbst in der Bestenliste.
-  const probeAdresse = (spiel) => `${mini()?.spielLink?.(spiel) || "/"}?probe=1`;
-  let probeZu = null;
+  // Die Runde zählt wie jede andere: Sie geht unter dem Namen dieses Geräts
+  // in die Hall of Fame, und der beste Versuch bleibt dort stehen. Hat das
+  // Gerät noch keinen Namen, fragt das Spiel nach der Runde danach.
+  //
+  // Mit ?von=admin in der Adresse führt der Weg oben links im Spiel hierher
+  // zurück (mini-games.js, ausAdmin).
+  const spielAdresse = (spiel) => `${mini()?.spielLink?.(spiel) || "/"}?von=admin`;
+  let spielZu = null;
 
-  // Der Weg zurück im Spiel (oben links, der Pokal unter dem Ergebnis) führt
-  // im Probelauf hierher. Im Fenster meldet das Spiel das, statt den
-  // Adminbereich ein zweites Mal ins Fenster zu laden.
+  // Im Fenster meldet das Spiel den Weg zurück, statt den Adminbereich ein
+  // zweites Mal hineinzuladen.
   window.addEventListener("message", (ereignis) => {
-    if (ereignis.origin === window.location.origin && ereignis.data?.miniProbe === "zu") probeZu?.();
+    if (ereignis.origin === window.location.origin && ereignis.data?.miniAdmin === "zu") spielZu?.();
   });
 
-  function zeigeProbe(spiel) {
-    probeZu?.();
-    const adresse = probeAdresse(spiel);
-    const huelle = el("div", "adm-probe");
+  const vollbildDa = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+  function zeigeSpiel(spiel) {
+    spielZu?.();
+    const huelle = el("div", "adm-spiel");
     huelle.setAttribute("role", "dialog");
     huelle.setAttribute("aria-modal", "true");
-    huelle.setAttribute("aria-label", `${titel(spiel)} ausprobieren`);
-    const rahmen = el("div", "adm-probe-rahmen");
-
-    const kopf = el("header", "adm-probe-kopf");
-    const text = el("div", "adm-probe-text");
-    text.append(el("strong", "", titel(spiel)), el("span", "", "Probelauf – nichts wird eingetragen."));
-    const neuerTab = el("a", "adm-knopf adm-knopf-klein", "Neuer Tab");
-    neuerTab.href = adresse;
-    neuerTab.target = "_blank";
-    neuerTab.rel = "noopener";
-    const zu = knopf("Schliessen", "adm-knopf-hell", () => schliessen());
-    kopf.append(text, neuerTab, zu);
-
-    const fenster = el("iframe", "adm-probe-spiel");
-    fenster.src = adresse;
-    fenster.title = `${titel(spiel)} zum Ausprobieren`;
+    huelle.setAttribute("aria-label", titel(spiel));
+    const fenster = el("iframe", "adm-spiel-fenster");
+    fenster.src = spielAdresse(spiel);
+    fenster.title = titel(spiel);
     fenster.allow = "autoplay; fullscreen";
     // Die Spiele hören auf Tasten. Ohne Fokus im Fenster gingen die an den
     // Adminbereich, und beim Signal liesse sich keine Runde starten.
     fenster.addEventListener("load", () => { try { fenster.contentWindow?.focus(); } catch { /* egal */ } });
-    rahmen.append(kopf, fenster);
-    huelle.append(rahmen);
+    huelle.append(fenster);
 
     const vorher = document.activeElement;
     const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
     function schliessen() {
       document.removeEventListener("keydown", taste);
+      if (vollbildDa() === huelle) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* egal */ }
+      }
       huelle.remove();
-      document.body.classList.remove("adm-probe-offen");
-      if (probeZu === schliessen) probeZu = null;
+      document.body.classList.remove("adm-spiel-offen");
+      if (spielZu === schliessen) spielZu = null;
       vorher?.focus?.({ preventScroll: true });
     }
     document.addEventListener("keydown", taste);
-    document.body.classList.add("adm-probe-offen");
+    document.body.classList.add("adm-spiel-offen");
     document.body.append(huelle);
-    probeZu = schliessen;
+    spielZu = schliessen;
+
+    // Ins Vollbild, solange der Tipp auf ▶ noch frisch ist – ohne ihn lässt
+    // kein Browser eine Seite ins Vollbild. Wo es keines gibt (iPhone), füllt
+    // das Fenster eben den Bildschirm.
+    try {
+      (huelle.requestFullscreen || huelle.webkitRequestFullscreen)?.call(huelle, { navigationUI: "hide" })?.catch?.(() => {});
+    } catch { /* dann ohne */ }
   }
 
-  function probeKnopf(spiel) {
-    const node = knopf("", "adm-probe-knopf", () => zeigeProbe(spiel));
-    node.title = `${titel(spiel)} ausprobieren`;
-    node.setAttribute("aria-label", `${titel(spiel)} ausprobieren`);
+  function spielenKnopf(spiel) {
+    const node = knopf("", "adm-spielen-knopf", () => zeigeSpiel(spiel));
+    node.title = `${titel(spiel)} spielen`;
+    node.setAttribute("aria-label", `${titel(spiel)} spielen`);
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
@@ -402,7 +401,7 @@
     return node;
   }
 
-  // Ein Spiel zum Anhaken, mit dem Knopf zum Ausprobieren daneben. Der Knopf
+  // Ein Spiel zum Anhaken, mit dem Knopf zum Spielen daneben. Der Knopf
   // liegt neben dem Haken und nicht in seinem label: Ein Tipp auf "spielen"
   // soll nie zugleich den Haken umlegen – auf der Startseite wäre das sofort
   // gespeichert.
@@ -420,7 +419,7 @@
       beiAenderung(box.checked);
     });
     haken.append(box, el("span", "adm-wahl-name", titel(spiel)));
-    zeile.append(haken, probeKnopf(spiel));
+    zeile.append(haken, spielenKnopf(spiel));
     return { zeile, box };
   }
 
@@ -444,7 +443,7 @@
     const zahl = el("span", "adm-block-zahl", `${offen.length} von ${(mini()?.SPIELE || []).length} angehakt`);
     kopf.append(zahl);
     block.append(kopf);
-    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit ▶ spielst du ein Spiel zur Probe, ohne dass etwas eingetragen wird."));
+    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit ▶ spielst du ein Spiel im Vollbild – die Runde zählt unter deinem Namen."));
 
     const meldung = el("p", "adm-meldung");
     block.append(meldung);
