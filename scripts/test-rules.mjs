@@ -241,6 +241,7 @@ await darfNicht("Admin legt ein Turnier mit 101 Versuchen an", () => admin().doc
 await darfNicht("Admin zählt unbegrenzt viele Versuche zusammen", () => admin().doc(OEFFENTLICH).set(turnierDaten({ zaehlt: "summe", versuche: 0 })));
 await darfNicht("Admin erfindet eine Sichtbarkeit", () => admin().doc(OEFFENTLICH).set(turnierDaten({ sichtbar: "geheim" })));
 await darfNicht("Admin erfindet eine Wertung", () => admin().doc(OEFFENTLICH).set(turnierDaten({ wertung: "gefuehl" })));
+await darfNicht("Admin erfindet eine Art von Aufgaben", () => admin().doc(OEFFENTLICH).set(turnierDaten({ aufgaben: "wieLetzter" })));
 await darfNicht("Admin schmuggelt ein Feld ins Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ preis: 100 })));
 await darfNicht("Admin gibt dem Turnier einen Namen mit Leerzeichen", () => admin().doc("miniTurniere/Herbst Cup").set(turnierDaten()));
 await darfNicht("Admin gibt dem Turnier einen zu kurzen Namen", () => admin().doc("miniTurniere/abc").set(turnierDaten()));
@@ -259,6 +260,9 @@ await darf("Admin schaltet das Warten an der Spitze ausdrücklich aus", () => ad
 await darfNicht("Admin lässt die Spitze warten und gibt trotzdem eine feste Zahl von Versuchen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 3, spitzeWartet: true })));
 await darfNicht("Admin schreibt das Warten an der Spitze als Text", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: "ja" })));
 await darfNicht("Admin lässt die Spitze warten und zählt alle Versuche zusammen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: true, zaehlt: "summe" })));
+// Gleiches Level wie Platz 1: jeder Versuch derselbe Lauf (turnier.js).
+await darf("Admin legt ein Turnier an, in dem alle das Level von Platz 1 spielen", () => admin().doc("miniTurniere/level-p3o5i7u9").set(turnierDaten({ aufgaben: "wieErster", versuche: 0, spitzeWartet: true })));
+await darf("Admin würfelt die Aufgaben jedes Mal neu", () => admin().doc("miniTurniere/level-p3o5i7u9").set(turnierDaten({ aufgaben: "zufall" })));
 // Ohne Gegner beim Spielen (geist.js): ein Ja oder Nein, sonst nichts.
 await darf("Admin legt ein Turnier ohne Gegner beim Spielen an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: true })));
 await darf("Admin schaltet die Gegner ausdrücklich ein", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: false })));

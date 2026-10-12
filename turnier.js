@@ -711,8 +711,15 @@
   // Die Saat für den nächsten Versuch (zufall.js): Der wievielte er ist, und
   // ob das Turnier überhaupt feste Aufgaben will. Gilt ab dem neu() zu Beginn
   // der nächsten Runde.
+  //
+  // "wieErster" – gleiches Level wie Platz 1: Dann ist jeder Versuch der
+  // erste, für alle. Wer gerade vorne liegt, hat seine Punkte also auf genau
+  // dem Lauf geholt, den alle anderen spielen, auch im zehnten Versuch – und
+  // wer ihn schlägt, ebenso. Die Aufzeichnung von Platz 1 (geist.js) läuft
+  // so auf derselben Strecke mit.
   function stelleZufall() {
-    zufall()?.stelle?.({ runde: hier.gespielt + 1, frei: hier.t?.aufgaben === "zufall" });
+    const aufgaben = hier.t?.aufgaben;
+    zufall()?.stelle?.({ runde: aufgaben === "wieErster" ? 1 : hier.gespielt + 1, frei: aufgaben === "zufall" });
   }
 
   function spielbar(jetzt = Date.now()) {

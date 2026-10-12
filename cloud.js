@@ -54,7 +54,8 @@
  *                                 Fehlt bei allen anderen.
  *     zaehlt     "bester"         oder "summe": alle Versuche zusammen
  *     wertung    "platz"          oder "prozent" – siehe turnier.js
- *     aufgaben   "gleich"         oder "zufall" – siehe zufall.js
+ *     aufgaben   "gleich"         oder "zufall", oder "wieErster": immer
+ *                                 derselbe Lauf – siehe turnier.js
  *     sichtbar   "alle"           oder "link": nur, wer den Link hat
  *     verdeckt   false            Rangliste erst am Schluss zeigen
  *     ohneGeist  true             keine Gegner beim Spielen (geist.js).
@@ -425,6 +426,8 @@
   // ---------------------------------------------------------------------------
   const TURNIER_NAME_MAX = 60;
   const BESCHREIBUNG_MAX = 600;
+  // Woher die Läufe kommen (zufall.js, turnier.js). Das erste ist der Standard.
+  const AUFGABEN = ["gleich", "zufall", "wieErster"];
   // Höher als in miniScores: Mit "alle Versuche zusammen" wächst die Zahl mit
   // jedem Versuch.
   const TURNIER_PUNKTE_MAX = 10000000;
@@ -476,7 +479,7 @@
       versuche: Math.max(0, Math.round(Number(d.versuche) || 0)),
       zaehlt: d.zaehlt === "summe" ? "summe" : "bester",
       wertung: d.wertung === "prozent" ? "prozent" : "platz",
-      aufgaben: d.aufgaben === "zufall" ? "zufall" : "gleich",
+      aufgaben: AUFGABEN.includes(d.aufgaben) ? d.aufgaben : "gleich",
       sichtbar: d.sichtbar === "alle" ? "alle" : "link",
       verdeckt: d.verdeckt === true,
       ohneGeist: d.ohneGeist === true,
@@ -553,7 +556,7 @@
       versuche: Math.max(0, Math.min(100, Math.round(Number(daten.versuche) || 0))),
       zaehlt: daten.zaehlt === "summe" ? "summe" : "bester",
       wertung: daten.wertung === "prozent" ? "prozent" : "platz",
-      aufgaben: daten.aufgaben === "zufall" ? "zufall" : "gleich",
+      aufgaben: AUFGABEN.includes(daten.aufgaben) ? daten.aufgaben : "gleich",
       sichtbar: daten.sichtbar === "alle" ? "alle" : "link",
       verdeckt: daten.verdeckt === true,
       aktiv: daten.aktiv !== false,
