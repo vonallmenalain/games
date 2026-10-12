@@ -67,6 +67,9 @@
     { id: "bridgeBuilder", seite: "bruecke", page: "bridge" },
     { id: "dartWheel", seite: "drehscheibe", page: "wheel" },
     { id: "vineSwing", seite: "liane", page: "vine" },
+    { id: "slingShot", seite: "schleuder", page: "sling" },
+    { id: "iceStone", seite: "eisstock", page: "curling" },
+    { id: "rhythmTap", seite: "takt", page: "rhythm" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];

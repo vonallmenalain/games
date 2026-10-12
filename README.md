@@ -24,7 +24,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        neun Spielseiten, erzeugt
+    turmbau.html …        zwölf Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
@@ -112,14 +112,15 @@ geht, lassen sich an- und abschalten (die Wahl gilt auf dem Gerät für alle
 Spiele) und zeigen während der Runde, wo man gegen den Gegner steht – grün,
 solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl schlägt.
 
-    mitlaufend   Blätter im Strom, Lianenschwung: Spiele mit fester Zeit.
-                 Der Gegner läuft mit seinem Stand von damals mit,
-                 Viertelsekunde für Viertelsekunde. Im Lianenschwung
+    mitlaufend   Blätter im Strom, Lianenschwung, Taktgefühl: Spiele mit
+                 fester Zeit. Der Gegner läuft mit seinem Stand von
+                 damals mit, Viertelsekunde für Viertelsekunde. Im Lianenschwung
                  zusätzlich als Geist im Bild – die Strecke ist immer
                  dieselbe, also schwingt er an denselben Lianen.
-    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Fischteich,
-                 Kacheln-Knobeln: Spiele ohne Uhr. Der Gegner ist eine Zahl;
-                 im Turmbau eine Linie in der Höhe seines besten Turms.
+    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Schleuder, Eisstock,
+                 Fischteich, Kacheln-Knobeln: Spiele ohne Uhr. Der
+                 Gegner ist eine Zahl; im Turmbau eine Linie in der Höhe
+                 seines besten Turms.
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
@@ -142,7 +143,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle neun
+    Spiele            welche dazugehören, eines bis alle zwölf
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
