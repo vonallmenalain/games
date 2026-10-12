@@ -68,6 +68,16 @@
   // Startseite zur Chronik wird.
   const NACHLESE_MS = 3 * TAG;
 
+  // Ein Turnier ohne Zeitlimite läuft, bis es angehalten, beendet oder
+  // gelöscht wird. Ein Ende hat es trotzdem – so weit draussen, dass es nie
+  // kommt: Die Regeln rechnen mit endeMs (firestore.rules, imZeitraum), und so
+  // rechnen sie weiter, ohne etwas Neues lernen zu müssen. Wo ein Ende so weit
+  // weg liegt, steht überall "ohne Zeitlimite" statt eines Datums.
+  // "Jetzt beenden" setzt das Ende auf jetzt – dann ist es ein Turnier wie
+  // jedes andere, das vorbei ist.
+  const OHNE_ENDE = Date.UTC(9999, 11, 31);
+  const ohneEnde = (t) => (Number(t?.endeMs) || 0) >= OHNE_ENDE;
+
   // Wo ein Turnier gerade steht. Ein beendetes ist beendet, auch wenn es
   // zuletzt angehalten war: Dann gilt die Liste, wie sie ist.
   function lage(t, jetzt = Date.now()) {
@@ -106,6 +116,7 @@
   }
 
   function zeitraum(t) {
+    if (ohneEnde(t)) return `ab ${datum(t.startMs)}, ohne Zeitlimite`;
     const bis = new Date(t.endeMs);
     const gleicherTag = new Date(t.startMs).toDateString() === bis.toDateString();
     return `${datum(t.startMs)} bis ${gleicherTag ? uhr(bis) : datum(t.endeMs)}`;
@@ -113,7 +124,9 @@
 
   function statusText(t, jetzt = Date.now()) {
     switch (lage(t, jetzt)) {
-      case "laeuft": return t.endeMs - jetzt < MINUTE ? "endet gleich" : `läuft noch ${dauer(t.endeMs - jetzt)}`;
+      case "laeuft":
+        if (ohneEnde(t)) return "läuft ohne Zeitlimite";
+        return t.endeMs - jetzt < MINUTE ? "endet gleich" : `läuft noch ${dauer(t.endeMs - jetzt)}`;
       case "geplant": return t.startMs - jetzt < MINUTE ? "beginnt gleich" : `beginnt in ${dauer(t.startMs - jetzt)}`;
       case "angehalten": return "angehalten";
       case "beendet": return `beendet ${datum(t.endeMs)}`;
@@ -124,7 +137,7 @@
   // Die Zeile unter dem Namen: wie lange noch, und bis wann genau.
   function statusZeile(t, jetzt = Date.now()) {
     const l = lage(t, jetzt);
-    if (l === "laeuft") return `${statusText(t, jetzt)} · bis ${datum(t.endeMs)}`;
+    if (l === "laeuft") return ohneEnde(t) ? `${statusText(t, jetzt)} · seit ${datum(t.startMs)}` : `${statusText(t, jetzt)} · bis ${datum(t.endeMs)}`;
     if (l === "geplant") return `${statusText(t, jetzt)} · ${zeitraum(t)}`;
     if (l === "angehalten") return `angehalten · ${zeitraum(t)}`;
     return statusText(t, jetzt);
@@ -151,7 +164,9 @@
   }
 
   function regeln(t) {
-    const saetze = [`Es läuft ${zeitraum(t)}.`];
+    const saetze = [ohneEnde(t)
+      ? `Es läuft ab ${datum(t.startMs)} ohne Zeitlimite – bis es angehalten wird.`
+      : `Es läuft ${zeitraum(t)}.`];
     if (t.spitzeWartet) {
       saetze.push("Jedes Spiel darfst du so oft spielen, wie du willst – ausser, du liegst darin allein vorne. Dann wartest du, bis dich jemand einholt oder überholt. Wer überall vorne liegt, hat keinen Versuch mehr, bis die anderen nachziehen.");
     } else {
@@ -1149,6 +1164,7 @@
   // ---------------------------------------------------------------------------
   window.LernappTurnier = {
     lage, dauer, datum, zeitraum, statusText, regeln, gesamtwertung, alleinVorne,
+    OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel,
     hinweis,

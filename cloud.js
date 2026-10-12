@@ -574,6 +574,22 @@
     await ref.doc(String(id)).delete();
   }
 
+  // Einzelne Einträge eines Turniers weg – für den Namen, den man dort nicht
+  // haben will. Das Turnier selbst und alle anderen bleiben. Nur der Admin
+  // darf das (firestore.rules, eintraege: delete).
+  async function loescheTurnierEintraege(id, eintragIds) {
+    const db = starte();
+    const ref = turnierEintraege(id);
+    if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
+    const ids = [...new Set((eintragIds || []).map((e) => String(e || "").trim()).filter(Boolean))];
+    for (let i = 0; i < ids.length; i += 400) {
+      const weg = db.batch();
+      ids.slice(i, i + 400).forEach((e) => weg.delete(ref.doc(e)));
+      await weg.commit();
+    }
+    return ids.length;
+  }
+
   // Die Liste eines Turniers, auf Wunsch nur die eines Spiels – eine Abfrage
   // über ein einziges Feld, ohne zusammengesetzten Index. Weiterblättern
   // (startAfter) geht nach dem Dokumentnamen, nach dem Firestore ohnehin
@@ -726,7 +742,7 @@
     ergebnisse, speichere, benenneUm, lies,
     speichereGeist, geister,
     offeneSpiele, setzeOffeneSpiele,
-    turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier,
+    turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,

@@ -275,6 +275,13 @@ pruefe("Wer vorne liegt, wartet – das gibt es nur ohne feste Zahl von Versuche
   && regeln.includes('!(d.get("spitzeWartet", false) == true && d.versuche != 0)'));
 pruefe("Vor jeder Runde fragt die Spielseite noch einmal, ob vorne liegt, wer beginnt (turnier.js, rundeBeginnt)",
   /const anmelden = async \(\) => \{\s*if \(t\.spitzeWartet && await liegtVorne\(\)\)/.test(lies("turnier.js")));
+// Ohne Zeitlimite: ein Ende, das nie kommt. turnier.js legt es fest, admin.js
+// fällt im Notfall auf dasselbe zurück – und es muss als ganze Zahl in der
+// Datenbank ankommen, sonst wiesen die Regeln es ab (d.endeMs is int).
+const ohneEnde = /const OHNE_ENDE = Date\.UTC\(9999, 11, 31\);/;
+pruefe("Ohne Zeitlimite heisst in turnier.js und admin.js dasselbe Ende",
+  ohneEnde.test(lies("turnier.js")) && adminJs.includes("Date.UTC(9999, 11, 31)")
+  && Number.isSafeInteger(Date.UTC(9999, 11, 31)));
 pruefe("cloud.js fragt nur nach öffentlichen Turnieren",
   /where\("sichtbar", "==", "alle"\)/.test(lies("cloud.js")));
 

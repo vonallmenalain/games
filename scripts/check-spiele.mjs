@@ -202,6 +202,11 @@ const ATTRAPPE = `
       for (const k of [...tEintraege.keys()]) if (k.startsWith(id + "/")) tEintraege.delete(k);
       tSichern();
     },
+    loescheTurnierEintraege: async (id, ids) => {
+      (ids || []).forEach((e) => tEintraege.delete(id + "/" + e));
+      tSichern();
+      return (ids || []).length;
+    },
     turnierErgebnisse: async (id, { game = "" } = {}) => [...tEintraege.entries()]
       .filter(([k, e]) => k.startsWith(id + "/") && (!game || e.game === game))
       .map(([, e]) => ({ ...e })),
@@ -309,6 +314,8 @@ const turnierVorlage = (id, aenderung = {}) => ({
 });
 const HERBST = "herbstcup-test2345";
 const KOENIG = "koenigscup-test234";
+const DAUER = "dauercup-test23456";
+const OHNE_ENDE = Date.UTC(9999, 11, 31);
 const TURNIERE = {
   turniere: [
     turnierVorlage(HERBST, { name: "Herbstcup", beschreibung: "Wer gewinnt, wählt das Znacht." }),
@@ -322,6 +329,8 @@ const TURNIERE = {
     // Wer vorne liegt, wartet: König führt in beiden Spielen allein, Leo
     // liegt im Turmbau hinter ihm.
     turnierVorlage(KOENIG, { name: "Königscup", sichtbar: "link", startMs: JETZT - 30 * MINUTE, spiele: ["towerStack", "fishPond"], versuche: 0, spitzeWartet: true }),
+    // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
+    turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
   // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
@@ -1396,7 +1405,19 @@ try {
     const fehlerHier = [];
     seite.on("pageerror", (fehler) => fehlerHier.push(String(fehler.message || fehler)));
     seite.on("console", (n) => { if (n.type() === "error") fehlerHier.push(n.text()); });
-    seite.on("dialog", (frage) => frage.accept());
+    // Bestätigen ja; ein Prompt bekommt die Antwort, die die Prüfung
+    // vorher hinlegt (antwort), sonst seinen Vorschlag.
+    let antwort = null;
+    seite.on("dialog", (frage) => {
+      frage.accept(frage.type() === "prompt" && antwort !== null ? antwort : undefined);
+      antwort = null;
+    });
+    // Ein Turnier in der Liste auswählen. Ist es schon aufgeklappt, bleibt es so.
+    const waehle = async (name) => {
+      const karte = seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: name }) });
+      if (!(await karte.evaluate((k) => k.classList.contains("ist-offen")))) await karte.locator(".adm-turnier-wahl").click();
+      return seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: name }) });
+    };
     await seite.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
     await seite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
     await seite.route("https://www.gstatic.com/firebasejs/**", (route) => {
@@ -1421,12 +1442,54 @@ try {
 
     pruefe(await seite.evaluate(() => localStorage.getItem("mini.admin")) === "ja",
       "Nach der Anmeldung merkt sich der Adminbereich nicht, dass hier ein Admin ist.");
-    const namen = await seite.locator(".adm-turnier h3").allInnerTexts();
+    const namen = await seite.locator(".adm-turnier-name").allInnerTexts();
     pruefe(namen.length === TURNIERE.turniere.length, `Im Adminbereich stehen ${namen.length} Turniere statt ${TURNIERE.turniere.length} – auch die nur mit Link gehören hierher.`);
     pruefe(namen[0] === "Herbstcup" && namen[namen.length - 1] === "Frühlingscup",
       `Die Turniere stehen nicht in der Reihenfolge laufend – geplant – angehalten – vorbei: ${namen.join(", ")}`);
-    const herbst = seite.locator(".adm-turnier", { hasText: "Herbstcup" });
+    const herbst = seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: "Herbstcup" }) });
     pruefe(/vorne: 1\. Leo/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
+
+    // Die Liste: nach Stand gruppiert, die laufenden zuerst – und ohne den
+    // erklärenden Absatz von früher.
+    const gruppen = await seite.locator(".adm-turnier-gruppe-titel").allTextContents();
+    pruefe(/^Laufende Turniere/.test(gruppen[0] || "") && gruppen.some((g) => /^Beendet/.test(g)),
+      `Die Turniere stehen nicht nach laufend – … – beendet gruppiert: ${gruppen.join(", ")}`);
+    const turnierText = await seite.locator(".adm-turniere").innerText();
+    pruefe(!/eigene Bestenliste mit Anfang und Ende/.test(turnierText) && !/Noch kein Turnier/.test(turnierText),
+      "Über den Turnieren steht noch der alte Absatz.");
+    pruefe(await seite.locator(".adm-turnier-detail").count() === 0, "In der Liste ist schon ein Turnier aufgeklappt, bevor eines gewählt wurde.");
+    pruefe(/ohne Zeitlimite/.test(await seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: "Dauercup" }) }).innerText()),
+      "Beim Turnier ohne Zeitlimite steht ein Datum statt «ohne Zeitlimite».");
+
+    // Auswählen klappt auf: Aktionen und der ganze Stand. Ein zweiter Tipp
+    // klappt wieder zu.
+    await waehle("Herbstcup");
+    const aufgeklappt = await herbst.innerText();
+    for (const wort of ["Öffnen", "Link kopieren", "Umbenennen", "Bearbeiten", "Anhalten", "Jetzt beenden", "Löschen", "Entfernen"]) {
+      pruefe(aufgeklappt.includes(wort), `Im ausgewählten Turnier fehlt «${wort}»: ${aufgeklappt.replace(/\n/g, " | ")}`);
+    }
+    pruefe(await herbst.locator(".adm-turnier-tabelle tbody tr").count() === 3, "Im ausgewählten Turnier steht nicht der ganze Stand (drei Spieler).");
+    await herbst.locator(".adm-turnier-wahl").click();
+    pruefe(await seite.locator(".adm-turnier-detail").count() === 0, "Ein zweiter Tipp klappt das Turnier nicht wieder zu.");
+
+    // Einen Spieler aus dem Turnier entfernen – alle seine Einträge, sonst nichts.
+    await waehle("Herbstcup");
+    await herbst.locator(".adm-turnier-tabelle tr", { hasText: "Mia" }).locator("button", { hasText: "Entfernen" }).click();
+    await seite.waitForFunction((id) => ![...window.__miniTurnierEintraege.keys()].some((k) => k.startsWith(id + "/") && k.endsWith("_mini_miamiamiamia")), HERBST, { timeout: 4000 }).catch(() => {});
+    const nachEntfernen = await seite.evaluate((id) => [...window.__miniTurnierEintraege.entries()].filter(([k]) => k.startsWith(id + "/")).map(([, e]) => e.name), HERBST);
+    pruefe(!nachEntfernen.includes("Mia") && nachEntfernen.filter((n) => n === "Leo").length === 2 && nachEntfernen.includes("Grosi"),
+      `Nach «Entfernen» stehen im Herbstcup: ${nachEntfernen.join(", ")}`);
+    pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Herbstcup",
+      "Nach dem Entfernen ist der Herbstcup nicht mehr ausgewählt.");
+
+    // Umbenennen: ein neuer Name, derselbe Link.
+    await waehle("Wintercup");
+    antwort = "Neujahrscup";
+    await seite.locator(".adm-turnier.ist-offen button", { hasText: "Umbenennen" }).click();
+    await seite.waitForFunction(() => window.__miniTurniere.get("bald-test23456789")?.name === "Neujahrscup", null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.__miniTurniere.get("bald-test23456789")?.name) === "Neujahrscup", "«Umbenennen» hat den Namen nicht geändert.");
+    await seite.waitForSelector('.adm-turnier-name:text-is("Neujahrscup")', { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-turnier-name", { hasText: "Neujahrscup" }).count() === 1, "Der neue Name steht nicht in der Liste.");
 
     // Was im Adminbereich gerade zu sehen ist – gemessen, nicht nachgesehen,
     // ob es im DOM steht: Die Ansicht für das Formular blendet aus, statt
@@ -1485,14 +1548,17 @@ try {
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
       const meldung = await seite.locator(".adm-turniere > .adm-meldung").innerText();
       pruefe(meldung.includes(`/turnier?t=${neu.id}`), `Nach dem Anlegen steht der Link nicht da: ${meldung}`);
-      pruefe(await seite.locator(".adm-turnier h3", { hasText: "Test-Cup Ä" }).count() === 1, "Das neue Turnier steht nicht in der Liste.");
+      pruefe(await seite.locator(".adm-turnier-name", { hasText: "Test-Cup Ä" }).count() === 1, "Das neue Turnier steht nicht in der Liste.");
+      pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Test-Cup Ä",
+        "Das eben angelegte Turnier ist nicht gleich ausgewählt.");
       const danach = await sichtbar();
       pruefe(!danach.form && danach.liste && danach.streifen && danach.andere, `Nach dem Anlegen kommt der Adminbereich nicht zurück: ${JSON.stringify(danach)}`);
     }
 
     // Der Zurück-Knopf des Browsers schliesst das Formular – und bleibt im
     // Adminbereich. Ebenso der Knopf oben im Formular.
-    await herbst.locator("button", { hasText: "Ändern" }).click();
+    await waehle("Herbstcup");
+    await herbst.locator("button", { hasText: "Bearbeiten" }).click();
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     pruefe(await seite.locator('.adm-turnier-form input[type="radio"][value="zahl"]').isChecked()
       && await seite.inputValue(".adm-turnier-form input.adm-feld-zahl") === "2",
@@ -1548,18 +1614,35 @@ try {
     pruefe(spitze?.spitzeWartet === true && spitze.versuche === 0 && spitze.zaehlt === "bester",
       `Das Turnier, in dem wartet, wer vorne liegt, kam falsch an: ${JSON.stringify(spitze)}`);
     await seite.waitForSelector('.adm-turnier:has-text("Spitzencup")', { timeout: 4000 }).catch(() => {});
-    pruefe(/Platz 1 wartet/.test(await seite.locator(".adm-turnier", { hasText: "Spitzencup" }).innerText().catch(() => "")),
+    pruefe(/Platz 1 wartet/.test(await (await waehle("Spitzencup")).innerText().catch(() => "")),
       "In der Liste steht beim Spitzencup nicht, dass Platz 1 wartet.");
-    await seite.locator(".adm-turnier", { hasText: "Königscup" }).locator("button", { hasText: "Ändern" }).click();
+    await (await waehle("Königscup")).locator("button", { hasText: "Bearbeiten" }).click();
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     pruefe(await seite.locator('.adm-turnier-form input[type="radio"][value="spitze"]').isChecked(), "Beim Ändern des Königscups ist «Nur wer nicht vorne liegt» nicht gewählt.");
     await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
 
     // Anhalten und löschen.
+    // Ein Turnier ohne Zeitlimite.
+    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    const dauerForm = seite.locator(".adm-turnier-form");
+    await dauerForm.locator('input[type="text"]').first().fill("Endloscup");
+    await dauerForm.locator("select").first().selectOption("ohne");
+    pruefe(/bis du es anhältst/.test(await dauerForm.innerText()), "Bei «ohne Zeitlimite» sagt das Formular nicht, wie lange das Turnier läuft.");
+    await dauerForm.locator('button[type="submit"]').click();
+    await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Endloscup"), null, { timeout: 4000 }).catch(() => {});
+    const endlos = await seite.evaluate(() => [...window.__miniTurniere.values()].find((t) => t.name === "Endloscup") || null);
+    pruefe(endlos?.endeMs === OHNE_ENDE && endlos.startMs < endlos.endeMs, `Das Turnier ohne Zeitlimite kam falsch an: ${JSON.stringify(endlos)}`);
+    await (await waehle("Endloscup")).locator("button", { hasText: "Bearbeiten" }).click();
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    pruefe(await seite.locator(".adm-turnier-form select").first().inputValue() === "ohne", "Beim Bearbeiten ist «ohne Zeitlimite» nicht mehr gewählt.");
+    await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
+
+    await waehle("Herbstcup");
     await herbst.locator("button", { hasText: "Anhalten" }).click();
     await seite.waitForFunction((id) => window.__miniTurniere.get(id)?.aktiv === false, HERBST, { timeout: 4000 }).catch(() => {});
     pruefe(await seite.evaluate((id) => window.__miniTurniere.get(id)?.aktiv, HERBST) === false, "«Anhalten» hat das Turnier nicht angehalten.");
-    await seite.locator(".adm-turnier", { hasText: "Frühlingscup" }).locator("button", { hasText: "Löschen" }).click();
+    await (await waehle("Frühlingscup")).locator("button", { hasText: "Löschen" }).click();
     await seite.waitForFunction(() => ![...window.__miniTurniere.values()].some((t) => t.name === "Frühlingscup"), null, { timeout: 4000 }).catch(() => {});
     pruefe(await seite.evaluate(() => [...window.__miniTurniere.values()].some((t) => t.name === "Frühlingscup")) === false, "«Löschen» hat das Turnier nicht gelöscht.");
 
@@ -1697,6 +1780,27 @@ try {
     pruefe(!befund.sofort.neu, "«Noch einmal» wartet nicht, bis feststeht, ob die Runde nach vorne geführt hat.");
     pruefe(befund.vorne && /vorne/.test(befund.rest), `Nach der Runde, die nach vorne führte, steht unter dem Ergebnis: ${befund.rest}`);
     pruefe(befund.neu && /allein vorne/.test(befund.tafel), `Wer nach vorne gespielt hat, bekommt beim Neustart keine Tafel: ${befund.tafel || "keine"}`);
+    await kontext.close();
+  }
+
+  // --- 4m. Ein Turnier ohne Zeitlimite -------------------------------------------
+  // Es läuft, bis es angehalten wird. Nirgends steht ein Datum im Jahr 9999 –
+  // und nirgends "läuft noch 2 Millionen Tage".
+  {
+    const { kontext, seite } = await mitTurnieren(`/turnier?t=${DAUER}`);
+    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
+    pruefe(/läuft ohne Zeitlimite · seit/.test(text), `Oben auf der Turnierseite ohne Zeitlimite steht: ${await seite.locator(".tn-status").innerText()}`);
+    pruefe(/ohne Zeitlimite – bis es angehalten wird/.test(text), `Die Regeln erklären «ohne Zeitlimite» nicht: ${text}`);
+    pruefe(!/9999|Tage/.test(text), `Auf der Turnierseite ohne Zeitlimite steht ein Ende: ${text}`);
+    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
+    await kontext.close();
+  }
+  {
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`);
+    await seite.waitForSelector(".tn-tor .tn-los", { timeout: 8000 });
+    const tafel = (await seite.locator(".tn-tor").innerText()).replace(/\n/g, " ");
+    pruefe(/läuft ohne Zeitlimite/.test(tafel) && !/9999|Tage/.test(tafel), `Die Tafel im Turnier ohne Zeitlimite sagt: ${tafel}`);
     await kontext.close();
   }
 

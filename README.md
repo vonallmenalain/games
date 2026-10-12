@@ -150,8 +150,8 @@ Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
     Spiele            welche dazugehören, eines bis alle elf
-    Wann              Beginn und Dauer (30 Minuten bis ein Monat) oder ein
-                      eigenes Ende
+    Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
+                      eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
                       (1 bis 100) – oder nur, wer nicht vorne liegt
     Was zählt         der beste Versuch oder alle zusammen
@@ -185,6 +185,12 @@ Turnier weiter.
 **Verdeckt heisst: die Seite zeigt es nicht.** Wer will, liest die Zahlen
 trotzdem aus der Datenbank; die Einträge sind lesbar wie die ewige Liste.
 Das ist für die Spannung, nicht zur Geheimhaltung.
+
+**Ohne Zeitlimite heisst: bis es angehalten wird.** Ein solches Turnier
+läuft, bis der Admin es anhält, beendet oder löscht. Ein Ende hat es in der
+Datenbank trotzdem – den 31. Dezember 9999 (`OHNE_ENDE` in `turnier.js`).
+So rechnen die Regeln damit wie mit jedem anderen Turnier und mussten dafür
+nichts lernen; auf den Seiten steht statt des Datums «ohne Zeitlimite».
 
 **Nur wer nicht vorne liegt: Platz 1 wartet.** Jeder spielt jedes Spiel so
 oft, wie er will – ausser das, in dem er allein auf Platz 1 steht. Dort
@@ -242,6 +248,14 @@ danach der Admin selbst zuoberst in dessen Liste steht.
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,
 «Abbrechen» oder der Zurück-Knopf des Browsers führen wieder zur ganzen Seite.
+
+Die Turniere stehen nach ihrem Stand gruppiert da: zuerst die laufenden, dann
+geplante, angehaltene und beendete. Ein Tipp auf ein Turnier wählt es aus und
+klappt auf, was sich damit tun lässt – öffnen, Link kopieren, umbenennen (der
+Link bleibt derselbe), bearbeiten, starten, anhalten, fortsetzen, beenden,
+löschen – und den ganzen Stand. Daraus lässt sich ein einzelner Spieler
+entfernen, mit allen seinen Einträgen in diesem Turnier, ohne das Turnier
+selbst anzurühren.
 
 Er gehört bewusst nicht zur installierten App: kein Manifest, kein Service
 Worker, nicht im Zwischenspeicher. Wer hierherkommt, will die aktuellen Zahlen

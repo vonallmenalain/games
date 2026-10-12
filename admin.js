@@ -515,6 +515,9 @@
   // So viele Versuche je Spiel lassen die Regeln zu (firestore.rules,
   // istTurnier).
   const VERSUCHE_MAX = 100;
+  // Das Ende, das nie kommt – siehe turnier.js.
+  const OHNE_ENDE = () => tn()?.OHNE_ENDE || Date.UTC(9999, 11, 31);
+  const istOhneEnde = (t) => (Number(t?.endeMs) || 0) >= OHNE_ENDE();
 
   const zwei = (n) => String(n).padStart(2, "0");
   // Für <input type="datetime-local">: Ortszeit, ohne Sekunden.
@@ -664,13 +667,20 @@
       option.value = String(ms);
       dauer.append(option);
     });
+    // Ohne Zeitlimite: Das Turnier läuft, bis es angehalten, beendet oder
+    // gelöscht wird (turnier.js, OHNE_ENDE).
+    const ohne = el("option", "", "ohne Zeitlimite");
+    ohne.value = "ohne";
+    dauer.append(ohne);
     const eigen = el("option", "", "eigenes Ende …");
     eigen.value = "eigen";
     dauer.append(eigen);
     const passend = DAUERN.find(([, ms]) => ms === t.endeMs - t.startMs);
-    dauer.value = passend ? String(passend[1]) : "eigen";
+    dauer.value = istOhneEnde(t) ? "ohne" : passend ? String(passend[1]) : "eigen";
     const ende = feld("datetime-local", "");
-    ende.value = fuerFeld(t.endeMs);
+    // Ein Turnier ohne Zeitlimite hat sein Ende im Jahr 9999 – das soll
+    // nicht im Feld stehen, falls jemand doch ein eigenes Ende wählt.
+    ende.value = fuerFeld(istOhneEnde(t) ? t.startMs + TAG : t.endeMs);
     const endeZeile = el("label", "adm-zeile");
     endeZeile.append(el("span", "adm-zeile-wort", "Ende"), ende);
     const endeText = el("p", "adm-klein");
@@ -683,6 +693,7 @@
     dauerZeile.append(el("span", "adm-zeile-wort", "Dauer"), dauer);
 
     function endeMs() {
+      if (dauer.value === "ohne") return OHNE_ENDE();
       if (dauer.value === "eigen") return ausFeld(ende.value);
       return ausFeld(beginn.value) + Number(dauer.value);
     }
@@ -690,7 +701,8 @@
       const eigenesEnde = dauer.value === "eigen";
       endeZeile.hidden = !eigenesEnde;
       const bis = endeMs();
-      endeText.textContent = !eigenesEnde && Number.isFinite(bis) ? `Endet ${tn()?.datum?.(bis) || new Date(bis).toLocaleString("de-CH")}.` : "";
+      if (dauer.value === "ohne") endeText.textContent = "Läuft, bis du es anhältst, beendest oder löschst.";
+      else endeText.textContent = !eigenesEnde && Number.isFinite(bis) ? `Endet ${tn()?.datum?.(bis) || new Date(bis).toLocaleString("de-CH")}.` : "";
     }
     beginn.addEventListener("input", nachziehen);
     dauer.addEventListener("change", () => {
@@ -868,38 +880,56 @@
   // Wie ein Turnier gerade steht, in einem Wort und einer Farbe.
   const LAGE_WORT = { laeuft: "läuft", geplant: "geplant", angehalten: "angehalten", beendet: "beendet" };
 
-  function turnierZeile(t, eintraege, { bearbeiten, speichere, loesche }) {
-    const lage = tn()?.lage?.(t) || "laeuft";
-    const karte = el("article", `adm-turnier ist-${lage}`);
+  // Wer in einem Turnier steht, unter welchem Namen – so, wie die Rangliste
+  // Namen zusammenfasst (mini-games.js, verdichte).
+  const namensSchluessel = (name) => String(name || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("de");
 
-    const kopf = el("header", "adm-turnier-kopf");
-    kopf.append(el("h3", "", t.name));
+  /*
+   * Ein Turnier in der Liste. Zugeklappt eine Zeile: Name, wie es steht, wann
+   * es läuft, wer vorne liegt. Ein Tipp darauf wählt es aus und klappt auf,
+   * was sich damit tun lässt – öffnen, Link, umbenennen, bearbeiten,
+   * anhalten, beenden, löschen – und den ganzen Stand, aus dem sich einzelne
+   * Spieler entfernen lassen. Ein zweiter Tipp klappt es wieder zu.
+   */
+  function turnierZeile(t, eintraege, aktion) {
+    const lage = tn()?.lage?.(t) || "laeuft";
+    const offen = Boolean(aktion.offen);
+    const karte = el("article", `adm-turnier ist-${lage}${offen ? " ist-offen" : ""}`);
+
+    const wahl = el("button", "adm-turnier-wahl");
+    wahl.type = "button";
+    wahl.setAttribute("aria-expanded", String(offen));
+    const kopf = el("span", "adm-turnier-kopf");
+    kopf.append(el("strong", "adm-turnier-name", t.name));
     kopf.append(el("span", `adm-marke ist-${lage}`, tn()?.statusText?.(t) || LAGE_WORT[lage]));
     kopf.append(el("span", "adm-marke", t.sichtbar === "alle" ? "öffentlich" : "nur mit Link"));
     if (t.verdeckt) kopf.append(el("span", "adm-marke", "verdeckt"));
-    karte.append(kopf);
+    wahl.append(kopf);
 
+    // Wer vorne liegt – auch bei einem verdeckten Turnier: Der Admin muss die
+    // Siegerehrung vorbereiten können.
+    const wertung = Array.isArray(eintraege) ? tn()?.gesamtwertung?.(t, eintraege) : null;
+    const personen = wertung?.personen || [];
+    let stand = "Der Stand ist gerade nicht zu haben.";
+    if (Array.isArray(eintraege)) {
+      stand = personen.length
+        ? `${zahlWort(personen.length, "Spieler", "Spieler")} · vorne: ${personen.slice(0, 3).map((p) => `${p.platz}. ${p.name}`).join(", ")}`
+        : "Noch hat niemand gespielt.";
+    }
+    wahl.append(el("span", "adm-turnier-stand", `${tn()?.zeitraum?.(t) || ""} · ${stand}`));
+    wahl.addEventListener("click", () => aktion.waehle(offen ? null : t.id));
+    karte.append(wahl);
+    if (!offen) return karte;
+
+    const detail = el("div", "adm-turnier-detail");
     const eckdaten = [
-      tn()?.zeitraum?.(t) || "",
       t.spiele.map(titel).join(", "),
       t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       t.aufgaben === "gleich" ? "gleiche Aufgaben" : "gewürfelt",
     ].filter(Boolean);
-    karte.append(el("p", "adm-klein", eckdaten.join(" · ")));
-
-    // Wer vorne liegt – auch bei einem verdeckten Turnier: Der Admin muss die
-    // Siegerehrung vorbereiten können.
-    let stand = "Der Stand ist gerade nicht zu haben.";
-    if (Array.isArray(eintraege)) {
-      const wertung = tn()?.gesamtwertung?.(t, eintraege);
-      const personen = wertung?.personen || [];
-      stand = personen.length
-        ? `${zahlWort(personen.length, "Spieler", "Spieler")} · vorne: ${personen.slice(0, 3).map((p) => `${p.platz}. ${p.name}`).join(", ")}`
-        : "Noch hat niemand gespielt.";
-    }
-    karte.append(el("p", "adm-klein adm-turnier-stand", stand));
+    detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
 
     const adresse = tn()?.volleAdresse?.(t.id) || `${window.location.origin}/turnier?t=${t.id}`;
     const aktionen = el("div", "adm-kopf-aktionen");
@@ -913,32 +943,82 @@
       }
     });
     aktionen.append(kopieren);
-    aktionen.append(knopf("Ändern", "adm-knopf-klein", () => bearbeiten(t)));
+    // Umbenennen ohne das ganze Formular. Der Link bleibt, wie er ist: Er ist
+    // schon verschickt, und ein neuer Name soll ihn nicht ins Leere laufen
+    // lassen.
+    aktionen.append(knopf("Umbenennen", "adm-knopf-klein", () => {
+      const max = cloud()?.TURNIER_NAME_MAX || 60;
+      const neu = window.prompt(`Neuer Name (höchstens ${max} Zeichen). Der Link bleibt derselbe.`, t.name);
+      if (neu === null) return;
+      const sauber = String(neu).replace(/\s+/g, " ").trim().slice(0, max);
+      if (!sauber || sauber === t.name) return;
+      aktion.speichere({ ...t, name: sauber });
+    }));
+    aktionen.append(knopf("Bearbeiten", "adm-knopf-klein", () => aktion.bearbeiten(t)));
 
     // Bei Bedarf aktivieren: Ein vorbereitetes Turnier startet mit einem Klick,
     // ein laufendes lässt sich anhalten, ein angehaltenes fortsetzen.
     if (lage === "geplant") {
-      aktionen.append(knopf("Jetzt starten", "adm-knopf-klein", () => speichere({ ...t, startMs: Date.now() })));
+      aktionen.append(knopf("Jetzt starten", "adm-knopf-klein", () => aktion.speichere({ ...t, startMs: Date.now() })));
     }
     if (lage === "laeuft" || lage === "geplant") {
-      aktionen.append(knopf("Anhalten", "adm-knopf-klein", () => speichere({ ...t, aktiv: false })));
+      aktionen.append(knopf("Anhalten", "adm-knopf-klein", () => aktion.speichere({ ...t, aktiv: false })));
     }
     if (lage === "angehalten") {
-      aktionen.append(knopf("Fortsetzen", "adm-knopf-klein", () => speichere({ ...t, aktiv: true })));
+      aktionen.append(knopf("Fortsetzen", "adm-knopf-klein", () => aktion.speichere({ ...t, aktiv: true })));
     }
     if (lage === "laeuft" || (lage === "angehalten" && Date.now() > t.startMs)) {
       aktionen.append(knopf("Jetzt beenden", "adm-knopf-klein", () => {
         if (!window.confirm(`«${t.name}» jetzt beenden? Danach zählt keine Runde mehr.`)) return;
-        speichere({ ...t, endeMs: Date.now() });
+        aktion.speichere({ ...t, endeMs: Date.now() });
       }));
     }
     aktionen.append(knopf("Löschen", "adm-knopf-weg", () => {
       if (!window.confirm(`«${t.name}» löschen – mitsamt ${Array.isArray(eintraege) ? zahlWort(eintraege.length, "Eintrag", "Einträgen") : "allen Einträgen"}? Das lässt sich nicht rückgängig machen.`)) return;
-      loesche(t);
+      aktion.loesche(t);
     }));
-    karte.append(aktionen);
+    detail.append(aktionen);
+
+    // Der ganze Stand, und für jeden Namen ein Weg hinaus – für den Tag, an
+    // dem in einem Turnier ein Name steht, den man dort nicht haben will.
+    if (Array.isArray(eintraege) && personen.length) {
+      const tabelle = el("table", "adm-tabelle adm-turnier-tabelle");
+      const kopfZeile = el("tr");
+      [["Name", ""], ["Spiele", "zahl"], [t.wertung === "prozent" && t.spiele.length > 1 ? "Punkte" : "Plätze", "zahl"], ["", ""]]
+        .forEach(([wort, klasse]) => kopfZeile.append(el("th", klasse, wort)));
+      const thead = el("thead");
+      thead.append(kopfZeile);
+      tabelle.append(thead);
+      const body = el("tbody");
+      personen.forEach((person) => {
+        const zeile = el("tr");
+        zeile.append(el("td", "adm-name", `${person.platz}. ${person.name}`));
+        zeile.append(el("td", "zahl", `${person.gespielt}/${t.spiele.length}`));
+        zeile.append(el("td", "zahl", String(person.wert)));
+        const zelle = el("td", "adm-aktionen");
+        const seine = eintraege.filter((e) => namensSchluessel(e.name) === namensSchluessel(person.name));
+        zelle.append(knopf("Entfernen", "adm-knopf-weg", () => {
+          if (!window.confirm(`«${person.name}» aus «${t.name}» entfernen – mit ${zahlWort(seine.length, "Eintrag", "Einträgen")}? Das lässt sich nicht rückgängig machen.`)) return;
+          aktion.entferne(t, person.name, seine.map((e) => e.id));
+        }));
+        zeile.append(zelle);
+        body.append(zeile);
+      });
+      tabelle.append(body);
+      detail.append(tabelle);
+    }
+    karte.append(detail);
     return karte;
   }
+
+  // Die Gruppen der Liste, in dieser Reihenfolge. Die laufenden stehen immer
+  // da, auch wenn gerade keines läuft; die anderen nur, wenn es welche gibt.
+  const GRUPPEN = [
+    ["laeuft", "Laufende Turniere"],
+    ["geplant", "Geplant"],
+    ["angehalten", "Angehalten"],
+    ["beendet", "Beendet"],
+  ];
 
   function baueTurniere(offen) {
     const block = el("section", "adm-block adm-turniere");
@@ -947,7 +1027,6 @@
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
     kopf.append(neuKnopf);
     block.append(kopf);
-    block.append(el("p", "adm-hinweis", "Ein Turnier ist eine eigene Bestenliste mit Anfang und Ende: welche Spiele, wie lange, wie viele Versuche, wie gewertet wird. Öffentlich steht es auf der Startseite; nur mit Link findet es nur, wem du den Link schickst."));
 
     const formWirt = el("div", "adm-turnier-formwirt");
     const meldung = el("p", "adm-meldung");
@@ -990,6 +1069,7 @@
         sichern: async (daten) => {
           const id = vorlage?.id || neueTurnierId(daten.name);
           await cloud().setzeTurnier(id, daten);
+          gewaehlt = id;
           schliesse({ gespeichert: true });
           const adresse = tn()?.volleAdresse?.(id) || `${window.location.origin}/turnier?t=${id}`;
           sage(vorlage ? `«${daten.name}» ist gespeichert.` : `«${daten.name}» ist angelegt. Der Link: ${adresse}`, "ist-gut");
@@ -1025,9 +1105,47 @@
       await laden();
     }
 
+    async function entferne(t, name, ids) {
+      sage("Wird entfernt...");
+      try {
+        await cloud().loescheTurnierEintraege(t.id, ids);
+        sage(`«${name}» ist aus «${t.name}» entfernt.`, "ist-gut");
+      } catch (fehler) {
+        sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
+      }
+      await laden();
+    }
+
+    // Welches Turnier aufgeklappt ist. Es bleibt aufgeklappt, wenn die Liste
+    // nach einer Änderung neu gelesen wird – wer es eben angehalten hat, will
+    // sehen, dass es jetzt angehalten ist.
+    let gewaehlt = null;
+    let geladen = [];
+    function waehle(id) {
+      gewaehlt = id;
+      zeichne();
+    }
+
     // Laufende zuerst, dann geplante, angehaltene und zuletzt die vorbei sind –
     // die neuesten davon oben.
-    const REIHE = { laeuft: 0, geplant: 1, angehalten: 2, beendet: 3 };
+    function zeichne() {
+      liste.innerHTML = "";
+      const jetzt = Date.now();
+      const lage = (t) => tn()?.lage?.(t, jetzt) || "laeuft";
+      GRUPPEN.forEach(([art, ueberschrift]) => {
+        const darin = geladen.filter(({ t }) => lage(t) === art)
+          .sort((a, b) => (art === "beendet" ? b.t.endeMs - a.t.endeMs : a.t.startMs - b.t.startMs));
+        if (!darin.length && art !== "laeuft") return;
+        const gruppe = el("section", `adm-turnier-gruppe ist-${art}`);
+        gruppe.append(el("h3", "adm-turnier-gruppe-titel", darin.length ? `${ueberschrift} (${darin.length})` : ueberschrift));
+        if (!darin.length) gruppe.append(el("p", "adm-hinweis", "Gerade läuft kein Turnier."));
+        darin.forEach(({ t, eintraege }) => gruppe.append(turnierZeile(t, eintraege, {
+          offen: t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne,
+        })));
+        liste.append(gruppe);
+      });
+    }
+
     async function laden() {
       liste.innerHTML = "";
       liste.append(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
@@ -1039,19 +1157,11 @@
         liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
         return;
       }
-      const jetzt = Date.now();
-      const lage = (t) => tn()?.lage?.(t, jetzt) || "laeuft";
-      turniere.sort((a, b) => REIHE[lage(a)] - REIHE[lage(b)]
-        || (lage(a) === "beendet" ? b.endeMs - a.endeMs : a.startMs - b.startMs));
-      // Die Einträge je Turnier: für die Zahl der Spieler und wer vorne liegt.
-      const mitStand = await Promise.all(turniere.map((t) => cloud().turnierErgebnisse(t.id)
+      // Die Einträge je Turnier: für die Zahl der Spieler, wer vorne liegt und
+      // den ganzen Stand des aufgeklappten.
+      geladen = await Promise.all(turniere.map((t) => cloud().turnierErgebnisse(t.id)
         .then((eintraege) => ({ t, eintraege }), () => ({ t, eintraege: null }))));
-      liste.innerHTML = "";
-      if (!mitStand.length) {
-        liste.append(el("p", "adm-hinweis", "Noch kein Turnier. «Neues Turnier» legt eines an."));
-        return;
-      }
-      mitStand.forEach(({ t, eintraege }) => liste.append(turnierZeile(t, eintraege, { bearbeiten: oeffne, speichere, loesche })));
+      zeichne();
     }
 
     laden();
