@@ -270,6 +270,11 @@ pruefe("Ein Versuch im Turnier zählt ab seinem Beginn, sein Ergebnis kommt einm
   && regeln.includes("request.resource.data.offen == false"));
 pruefe("cloud.js meldet einen Versuch in einer Transaktion an",
   /async function turnierVersuch[\s\S]*?runTransaction/.test(lies("cloud.js")));
+pruefe("Wer vorne liegt, wartet – das gibt es nur ohne feste Zahl von Versuchen (firestore.rules, istTurnier)",
+  regeln.includes('d.get("spitzeWartet", false) is bool')
+  && regeln.includes('!(d.get("spitzeWartet", false) == true && d.versuche != 0)'));
+pruefe("Vor jeder Runde fragt die Spielseite noch einmal, ob vorne liegt, wer beginnt (turnier.js, rundeBeginnt)",
+  /const anmelden = async \(\) => \{\s*if \(t\.spitzeWartet && await liegtVorne\(\)\)/.test(lies("turnier.js")));
 pruefe("cloud.js fragt nur nach öffentlichen Turnieren",
   /where\("sichtbar", "==", "alle"\)/.test(lies("cloud.js")));
 

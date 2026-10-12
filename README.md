@@ -152,8 +152,8 @@ was es ausmacht:
     Spiele            welche dazugehören, eines bis alle elf
     Wann              Beginn und Dauer (30 Minuten bis ein Monat) oder ein
                       eigenes Ende
-    Versuche          je Spiel unbegrenzt oder eine feste Zahl, getippt
-                      (1 bis 100)
+    Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
+                      (1 bis 100) – oder nur, wer nicht vorne liegt
     Was zählt         der beste Versuch oder alle zusammen
     Gesamtwertung     Platzziffer (die Plätze zusammengezählt, die kleinste
                       Summe gewinnt) oder Prozent vom Besten (der Beste
@@ -185,6 +185,21 @@ Turnier weiter.
 **Verdeckt heisst: die Seite zeigt es nicht.** Wer will, liest die Zahlen
 trotzdem aus der Datenbank; die Einträge sind lesbar wie die ewige Liste.
 Das ist für die Spannung, nicht zur Geheimhaltung.
+
+**Nur wer nicht vorne liegt: Platz 1 wartet.** Jeder spielt jedes Spiel so
+oft, wie er will – ausser das, in dem er allein auf Platz 1 steht. Dort
+wartet er, bis ihn jemand einholt oder überholt. Wer überall vorne liegt, hat
+keinen Versuch mehr, bis die anderen nachziehen. Bei Gleichstand an der
+Spitze führt niemand (sonst liesse sich der Gleichstand nie mehr brechen),
+und mit null Punkten auch nicht (sonst sperrte ein abgebrochener erster
+Versuch aus). Gezählt wird wie bei «unbegrenzt» der beste Versuch.
+
+Das prüft die Seite (`turnier.js`, `alleinVorne`), nicht die Datenbank: Wer
+vorne liegt, steht erst in allen Einträgen eines Spiels, und eine Regel kann
+keine Liste befragen. Die Regeln lassen das Feld (`spitzeWartet`) nur zusammen
+mit unbegrenzten Versuchen zu. Wie «verdeckt» gilt es für das Spiel unter
+Freunden, nicht gegen jemanden, der die Datenbank von Hand beschreibt. Mit
+verdeckter Rangliste erfährt so nur der Führende, dass er vorne liegt.
 
 ## Firebase
 

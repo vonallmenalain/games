@@ -152,9 +152,13 @@
 
   function regeln(t) {
     const saetze = [`Es läuft ${zeitraum(t)}.`];
-    saetze.push(t.versuche
-      ? `Je Spiel hast du ${versucheWort(t)}. Ein Versuch zählt, sobald er beginnt – auch wenn du mittendrin aufhörst.`
-      : "Jedes Spiel darfst du so oft spielen, wie du willst, solange das Turnier läuft.");
+    if (t.spitzeWartet) {
+      saetze.push("Jedes Spiel darfst du so oft spielen, wie du willst – ausser, du liegst darin allein vorne. Dann wartest du, bis dich jemand einholt oder überholt. Wer überall vorne liegt, hat keinen Versuch mehr, bis die anderen nachziehen.");
+    } else {
+      saetze.push(t.versuche
+        ? `Je Spiel hast du ${versucheWort(t)}. Ein Versuch zählt, sobald er beginnt – auch wenn du mittendrin aufhörst.`
+        : "Jedes Spiel darfst du so oft spielen, wie du willst, solange das Turnier läuft.");
+    }
     saetze.push(wieGezaehltWird(t));
     if (t.aufgaben === "gleich") {
       saetze.push(t.versuche === 1
@@ -179,6 +183,28 @@
   // ewigen Liste (mini-games.js): ein Name eine Zeile, gleiche Zahl gleicher
   // Platz, wer früher dort war, steht bei Gleichstand oben.
   const rangliste = (eintraege, spiel) => mini()?.rangliste?.(eintraege.filter((e) => e.game === spiel)) || [];
+
+  /*
+   * "Nur wer nicht vorne liegt" (spitzeWartet): Wer in einem Spiel allein auf
+   * Platz 1 steht, wartet dort, bis ihn jemand einholt oder überholt. Die
+   * anderen spielen, so oft sie wollen. Wer überall vorne liegt, hat keinen
+   * Versuch mehr – bis jemand nachzieht.
+   *
+   * Allein vorne heisst: der einzige Name auf Platz 1, und mit mehr als null.
+   * Bei Gleichstand an der Spitze führt niemand, dann dürfen alle weiter, die
+   * gleichauf sind – sonst stünden zwei, die gleich viel haben, für immer
+   * still, und der Gleichstand liesse sich nie mehr brechen. Und wer mit null
+   * oben steht, weil sonst noch niemand gespielt hat, liegt nicht vorne: Ein
+   * abgebrochener erster Versuch soll niemanden aussperren.
+   *
+   * Das prüft die Seite, nicht die Datenbank: Wer vorne liegt, steht in allen
+   * Einträgen eines Spiels, und eine Regel kann keine Liste befragen
+   * (firestore.rules, istTurnier).
+   */
+  function alleinVorne(liste) {
+    const vorne = liste.filter((e) => e.platz === 1);
+    return vorne.length === 1 && Boolean(vorne[0].eigen) && (Number(vorne[0].punkte) || 0) > 0;
+  }
 
   /*
    * Die Gesamtwertung über alle Spiele des Turniers.
@@ -374,10 +400,19 @@
       inhalt.append(streifen([
         [t.spiele.length, t.spiele.length === 1 ? "Spiel" : "Spiele"],
         [personen.length, "Spieler"],
-        [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
+        t.spitzeWartet
+          ? ["∞", "Versuche – wer vorne liegt, wartet"]
+          : [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
       ]));
 
       if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
+
+      // Wer überall vorne liegt, findet unten keinen einzigen Knopf zum
+      // Spielen. Dann soll oben stehen, warum – nicht erst auf jeder Karte.
+      if (t.spitzeWartet && stand.lage === "laeuft"
+        && t.spiele.every((spiel) => alleinVorne(listen.get(spiel) || []))) {
+        inhalt.append(el("p", "tn-wartet", "Du liegst in allen Spielen vorne – jetzt sind die anderen dran. Sobald dich jemand einholt, kannst du dort wieder spielen."));
+      }
 
       const spieleBlock = el("section", "mini-block");
       spieleBlock.append(el("h2", "", t.spiele.length === 1 ? "Das Spiel" : "Die Spiele"));
@@ -445,11 +480,18 @@
     const meiner = kennung ? eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
     const gespielt = meiner?.versuche || 0;
     const uebrig = t.versuche ? Math.max(0, t.versuche - gespielt) : Infinity;
+    const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
     let mein;
     if (!meiner) mein = t.versuche ? `Du hast ${versucheWort(t)}.` : "Du hast noch nicht gespielt.";
     else {
       const versuche = t.versuche ? `${gespielt} von ${t.versuche} Versuchen` : zahlWort(gespielt, "Versuch", "Versuche");
       mein = `Du: ${meiner.punkte} ${einheit(spiel)} · ${versuche}`;
+    }
+    // Vorne liegen kann auch, wer auf einem anderen Gerät mit demselben Namen
+    // gespielt hat – dann gilt es hier genauso, ohne Eintrag dieses Geräts.
+    if (vorne) {
+      const warten = "Du liegst vorne und wartest, bis dich jemand einholt.";
+      mein = meiner ? `${mein} · ${warten}` : warten;
     }
     karte.append(el("p", "tn-mein", mein));
 
@@ -465,7 +507,8 @@
 
     const aktionen = el("div", "mini-karte-aktionen");
     const l = lage(t, jetzt);
-    if (l === "laeuft" && uebrig > 0) aktionen.append(verweis("Spielen", spielLink(t.id, spiel), "mini-knopf-voll"));
+    if (l === "laeuft" && vorne) aktionen.append(el("span", "tn-fertig", "Du liegst vorne"));
+    else if (l === "laeuft" && uebrig > 0) aktionen.append(verweis("Spielen", spielLink(t.id, spiel), "mini-knopf-voll"));
     else if (l === "laeuft") aktionen.append(el("span", "tn-fertig", "Alle Versuche gespielt"));
     else if (l === "geplant") aktionen.append(el("span", "tn-fertig", `Ab ${datum(t.startMs)}`));
     if (!verdeckt && liste.length > 3) {
@@ -613,6 +656,8 @@
     fehler: false,
     gespielt: 0,          // begonnene Versuche dieses Geräts in diesem Spiel
     punkte: 0,            // was davon im Turnier steht
+    vorne: false,         // allein auf Platz 1 – zählt nur mit spitzeWartet
+    warten: null,         // ob die letzte Runde nach vorne führte, steht noch aus
     freigegeben: false,   // die Tafel wurde mit "Los geht's" verlassen
     laeuft: false,        // eine angemeldete Runde läuft gerade
     anmeldung: null,      // die Anmeldung dieser Runde (ein Promise)
@@ -652,10 +697,13 @@
         kennung ? wolke.meinTurnierEintrag(hier.id, { game: spiel, spieler: kennung }) : null,
       ])
       : Promise.reject(new Error("Firestore ist nicht geladen."));
-    return fragen.then(([t, eintrag]) => {
+    return fragen.then(async ([t, eintrag]) => {
       hier.t = t || null;
       hier.gespielt = Math.max(hier.gespielt, eintrag?.versuche || 0);
       hier.punkte = eintrag?.punkte || 0;
+      // Ob dieses Gerät vorne liegt, sagt erst die ganze Liste des Spiels –
+      // gelesen wird sie nur, wo es darauf ankommt.
+      hier.vorne = t?.spitzeWartet ? alleinVorne(rangliste(await wolke.turnierErgebnisse(hier.id, { game: spiel }), spiel)) : false;
     }).catch((fehler) => {
       console.warn("Das Turnier war nicht zu lesen", fehler);
       hier.fehler = true;
@@ -675,7 +723,17 @@
   function spielbar(jetzt = Date.now()) {
     const t = hier.t;
     if (!t || lage(t, jetzt) !== "laeuft" || !t.spiele.includes(spielHier())) return false;
+    if (t.spitzeWartet && hier.vorne) return false;
     return !t.versuche || hier.gespielt < t.versuche;
+  }
+
+  // Liegt dieses Gerät gerade allein vorne? Frisch gelesen, nicht gemerkt:
+  // Gefragt wird vor einer Runde und nach ihrem Ergebnis, und dazwischen
+  // spielen die anderen.
+  async function liegtVorne() {
+    const spiel = spielHier();
+    hier.vorne = alleinVorne(rangliste(await cloud().turnierErgebnisse(hier.id, { game: spiel }), spiel));
+    return hier.vorne;
   }
 
   function versuchText(t) {
@@ -768,6 +826,18 @@
       knoepfe(zumTurnier("Zur Rangliste", "mini-knopf-voll"), ohne());
       return;
     }
+    if (t.spitzeWartet && hier.vorne) {
+      satz(`Du liegst in «${titel(spiel)}» allein vorne. Spielen kannst du hier wieder, sobald dich jemand einholt oder überholt.`);
+      if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
+      // Die Tafel liest nicht von selbst nach. Wer wissen will, ob schon
+      // jemand nachgezogen hat, fragt.
+      knoepfe(
+        knopf("Nachsehen", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }),
+        zumTurnier(),
+        ohne("Ohne Turnier weiterspielen"),
+      );
+      return;
+    }
     if (!spielbar(jetzt)) {
       satz(`Du hast ${versucheWort(t) === "einen Versuch" ? "deinen Versuch" : `alle ${versucheWort(t)}`} in «${titel(spiel)}» gespielt.`);
       if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
@@ -777,6 +847,7 @@
 
     satz(`${titel(spiel)} · ${versuchText(t)} · ${statusText(t, jetzt)}`, "tn-tafel-spiel");
     if (t.versuche) satz("Ein Versuch zählt, sobald er beginnt.");
+    if (t.spitzeWartet) satz("Wer allein vorne liegt, wartet, bis ihn jemand einholt.");
     satz(wieGezaehltWird(t));
 
     const form = el("form", "tn-tafel-form");
@@ -863,7 +934,18 @@
     hier.laeuft = true;
     hier.gespielt += 1;
     const wer = { game: spielHier(), spieler: mini().kennung(), name: mini().name(), grenze: t.versuche };
-    hier.anmeldung = nacheinander(() => cloud().turnierVersuch(hier.id, wer)).then((stand) => {
+    // Wer vorne liegt, wartet – auch wenn diese Seite es noch nicht wusste:
+    // ein zweiter Tab, in dem die Runde gespielt wurde, die nach vorne
+    // führte. Gefragt wird deshalb vor der Anmeldung noch einmal.
+    const anmelden = async () => {
+      if (t.spitzeWartet && await liegtVorne()) {
+        const vorne = new Error("Allein vorne – du wartest, bis dich jemand einholt.");
+        vorne.code = "turnier/vorne";
+        throw vorne;
+      }
+      return cloud().turnierVersuch(hier.id, wer);
+    };
+    hier.anmeldung = nacheinander(anmelden).then((stand) => {
       hier.gespielt = Math.max(hier.gespielt, stand.versuche);
       return stand;
     }, (fehler) => {
@@ -886,6 +968,10 @@
    */
   function neuStart({ mitten = false, los }) {
     if (!hier.freigegeben) { los(); return; }
+    // Steht noch aus, ob die letzte Runde nach vorne geführt hat (ergebnis,
+    // spitzeWartet), wird das erst abgewartet: einen Augenblick – statt einer
+    // ganzen Runde, die am Ende nicht zählen darf.
+    if (hier.warten) { hier.warten.then(() => neuStart({ mitten, los })); return; }
     if (mitten && hier.laeuft && hier.t?.versuche) {
       if (!window.confirm("Neu anfangen? Der angefangene Versuch zählt trotzdem als gespielt.")) return;
     }
@@ -902,6 +988,7 @@
 
   function fehlerBeimAnmelden(fehler) {
     if (fehler?.code === "turnier/keine-versuche") return "Alle Versuche waren schon gespielt – vielleicht auf einem anderen Gerät. Diese Runde zählt nicht.";
+    if (fehler?.code === "turnier/vorne") return "Du lagst in diesem Spiel schon allein vorne – diese Runde zählt nicht.";
     if (fehler?.code === "permission-denied") return "Das Turnier hat diese Runde nicht angenommen – es ist vorbei oder angehalten.";
     return "Der Versuch liess sich nicht anmelden – ohne Verbindung zählt er nicht fürs Turnier.";
   }
@@ -943,19 +1030,34 @@
       if (!t) return;
       const l = lage(t);
       if (l !== "laeuft") { rest.textContent = l === "beendet" ? "Das Turnier ist vorbei." : "Das Turnier ist gerade angehalten."; return; }
+      if (t.spitzeWartet) {
+        rest.textContent = hier.vorne
+          ? "Du liegst vorne. Weiterspielen kannst du hier, sobald dich jemand einholt."
+          : "Du kannst weiterspielen, bis du vorne liegst.";
+        return;
+      }
       if (!t.versuche) { rest.textContent = "Du kannst weiterspielen, solange das Turnier läuft."; return; }
       const uebrig = Math.max(0, t.versuche - hier.gespielt);
       rest.textContent = uebrig === 0 ? "Das war dein letzter Versuch in diesem Spiel."
         : uebrig === 1 ? "Noch ein Versuch." : `Noch ${uebrig} Versuche.`;
     }
 
-    function zeigeListe() {
-      if (t.verdeckt && lage(t) !== "beendet") {
+    // Die Liste dieses Spiels im Turnier, frisch nach dem Ergebnis. Mit
+    // spitzeWartet sagt sie auch, ob dieses Gerät jetzt vorne liegt – dafür
+    // wird sie selbst dann gelesen, wenn sie verdeckt bleibt.
+    const verdeckt = () => t.verdeckt && lage(t) !== "beendet";
+    const ladeListe = () => cloud().turnierErgebnisse(hier.id, { game: spiel }).then((alle) => {
+      const liste = rangliste(alle, spiel);
+      if (t.spitzeWartet) hier.vorne = alleinVorne(liste);
+      return liste;
+    });
+
+    function zeigeListe(geladen) {
+      if (verdeckt()) {
         listenWirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
         return;
       }
-      cloud().turnierErgebnisse(hier.id, { game: spiel }).then((alle) => {
-        const liste = rangliste(alle, spiel);
+      geladen.then((liste) => {
         listenWirt.innerHTML = "";
         listenWirt.append(mini().listeBauen(liste, spiel, { max: 5 }));
         const eigen = liste.find((e) => e.eigen);
@@ -982,15 +1084,18 @@
     function zeige(weg) {
       meldung.textContent = "Wird ins Turnier eingetragen...";
       block.querySelector(".tn-nochmal")?.remove();
-      weg.then((stand) => {
+      const fertig = weg.then((stand) => {
         hier.punkte = stand.punkte;
         meldung.textContent = ergebnisSatz(t, stand, spiel);
-        restZeile();
-        zeigeListe();
+        const geladen = t.spitzeWartet || !verdeckt() ? ladeListe() : null;
+        zeigeListe(geladen);
+        if (t.spitzeWartet) geladen.then(restZeile, restZeile);
+        else restZeile();
         // Das Turnier noch einmal lesen, für den nächsten Neustart: Wurde es
         // inzwischen angehalten oder beendet, soll die Tafel das sagen, statt
         // eine Runde anzubieten, die nicht mehr zählt.
         cloud().turnier(hier.id).then((frisch) => { if (frisch) hier.t = frisch; }, () => {});
+        return t.spitzeWartet ? geladen : null;
       }, (fehler) => {
         restZeile();
         if (fehler?.code === "turnier/nicht-angemeldet") {
@@ -1006,6 +1111,12 @@
           meldung.after(nochmal);
         }
       });
+      // Wer vorne liegt, wartet: Bis die frische Liste sagt, ob das jetzt so
+      // ist, wartet auch ein schnelles "Noch einmal" (neuStart).
+      if (t.spitzeWartet) {
+        const warten = fertig.catch(() => {}).finally(() => { if (hier.warten === warten) hier.warten = null; });
+        hier.warten = warten;
+      }
     }
 
     // Gleich jetzt in die Reihe, nicht erst, wenn die Anmeldung zurück ist:
@@ -1037,7 +1148,7 @@
   // Start
   // ---------------------------------------------------------------------------
   window.LernappTurnier = {
-    lage, dauer, datum, zeitraum, statusText, regeln, gesamtwertung,
+    lage, dauer, datum, zeitraum, statusText, regeln, gesamtwertung, alleinVorne,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel,
     hinweis,
