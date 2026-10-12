@@ -30,7 +30,7 @@
  *
  * Und, für Spiele mit festem Level, die Aufzeichnung eines Laufs:
  *
- *   miniGeister/trackRun_mini_a7f3…
+ *   miniGeister/<spiel>_mini_a7f3…   (zur Zeit nutzt das kein Spiel)
  *     game / spieler / name       dieselben wie nebenan
  *     punkte     742              die Runde, aus der die Aufzeichnung stammt
  *     level      "v1"             wozu sie gehört; ein Geist aus v1 ist auf
@@ -443,9 +443,15 @@
     const d = typeof doc?.data === "function" ? doc.data() : null;
     if (!d) return null;
     const name = String(d.name || "").trim().slice(0, TURNIER_NAME_MAX);
+    // Ein Spiel, das es nicht mehr gibt, gehört zu keinem Turnier mehr: Es
+    // hat keine Seite, und die Regeln nähmen das Turnier mit ihm nicht mehr
+    // an – ein Turnier von früher liesse sich sonst weder anhalten noch
+    // umbenennen. Bleibt gar keines übrig, gibt es das Turnier nicht mehr.
+    const bekannt = window.LernappMini?.SPIELE?.map?.((s) => s.id) || null;
     const spiele = [...new Set((Array.isArray(d.spiele) ? d.spiele : [])
       .map((id) => String(id || "").trim())
-      .filter(Boolean))];
+      .filter(Boolean))]
+      .filter((id) => !bekannt || bekannt.includes(id));
     const endeMs = Math.round(Number(d.endeMs) || 0);
     if (!name || !spiele.length || !endeMs) return null;
     return {

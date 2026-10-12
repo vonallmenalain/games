@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-03";
+export const FASSUNG = "2026-10-12-04";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -57,23 +57,10 @@ export const SPIELE = [
     baut: "das Raster",
   },
   {
-    seite: "wasfehlt", spiel: "missingItem", page: "missing", js: "wasfehlt.js",
-    kunst: ["strand-art.js"],
-    titel: "Was fehlt?", buehne: { id: "wf-stage", klasse: "cm-stage wf-stage" },
-    text: "Was fehlt? Merk dir die Fracht auf dem Wagen, und sag, welches Stück nach der Plane fehlt.",
-    baut: "der Wagen mit der Fracht",
-  },
-  {
     seite: "fischteich", spiel: "fishPond", page: "pond", js: "fischteich.js",
     titel: "Fischteich", buehne: { id: "ft-stage", klasse: "cm-stage ft-stage" },
     text: "Fischteich: Tippe jeden Fisch genau einmal an und merk dir, welche du schon hattest.",
     baut: "der Teich mit den Fischen",
-  },
-  {
-    seite: "signal", spiel: "goSignal", page: "signal", js: "signal.js",
-    titel: "Halt am Signal", buehne: { id: "sg-stage", klasse: "cm-stage sg-stage" },
-    text: "Halt am Signal: Bei Grün lässt du den Zug durch, bei Rot wartest du – tippe nur, wenn es grün ist.",
-    baut: "das Gleis mit dem Signal",
   },
   {
     seite: "blaetter", spiel: "leafFlow", page: "leaves", js: "blaetter.js",
@@ -99,24 +86,6 @@ export const SPIELE = [
     text: "Der Heizer: Jeder Kessel fällt – leg Kohle nach, aber nie im roten Feld.",
     baut: "die Reihe der Kessel",
   },
-  {
-    seite: "weichen", spiel: "shuntYard", page: "yard", js: "weichen.js",
-    titel: "Weichenwärter", buehne: { id: "ww-stage", klasse: "cm-stage ww-stage" },
-    text: "Weichenwärter: Schick jeden Wagen auf die Rampe, zu der seine Fracht gehört.",
-    baut: "die Anlage mit den Rampen",
-  },
-  {
-    seite: "bremsweg", spiel: "brakePoint", page: "brake", js: "bremsweg.js",
-    titel: "Bremsweg", buehne: { id: "bw-stage", klasse: "cm-stage bw-stage" },
-    text: "Bremsweg: Halte die Lok in acht Anläufen so genau wie möglich an der Haltetafel an.",
-    baut: "die Strecke mit der Haltetafel",
-  },
-  {
-    seite: "strecke", spiel: "trackRun", page: "track", js: "strecke.js",
-    titel: "Streckenlauf", buehne: { id: "sl-stage", klasse: "cm-stage sl-stage" },
-    text: "Streckenlauf: Spring über die Lücken durch ein festes Level – neben dir laufen die drei Besten.",
-    baut: "die Strecke mit den Läufern",
-  },
 ];
 
 // Das Firebase-SDK. Kein firebase-auth auf den Spielseiten: Dort meldet sich
@@ -128,9 +97,9 @@ const SDK = [
 // Nur der Adminbereich meldet jemanden an.
 const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js";
 
-// Was jede Seite lädt, in dieser Reihenfolge. train-art und strand-art holen
-// sich ihre Werkzeuge beim Laden, nicht beim Aufruf – sie müssen vor dem
-// stehen, was sie benutzt.
+// Was jede Seite lädt, in dieser Reihenfolge. train-art holt sich seine
+// Werkzeuge beim Laden, nicht beim Aufruf – es muss vor dem stehen, was es
+// benutzt.
 //
 // turnier.js steht bei allen: Die Startseite zeigt laufende Turniere, eine
 // Spielseite kann in einem gespielt werden, die Turnierseite ist eines, und

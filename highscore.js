@@ -54,22 +54,17 @@
     // Gedächtnis
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
-    { id: "missingItem", titel: "Was fehlt?", bereich: "gedaechtnis", art: "punkte", key: "lernapp.wasfehlt", einheit: "Wagen" },
 
     // Konzentration
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
     { id: "fishPond", titel: "Fischteich", bereich: "konzentration", art: "punkte", key: "lernapp.fischteich", einheit: "Fische" },
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
-    { id: "goSignal", titel: "Halt am Signal", bereich: "konzentration", art: "punkte", key: "lernapp.signal", einheit: "Punkte" },
     { id: "boilerRoom", titel: "Der Heizer", bereich: "konzentration", art: "punkte", key: "lernapp.heizer", einheit: "Punkte" },
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
-    { id: "shuntYard", titel: "Weichenwärter", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.weichen", einheit: "Wagen" },
-    { id: "brakePoint", titel: "Bremsweg", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.bremsweg", einheit: "Punkte" },
-    { id: "trackRun", titel: "Streckenlauf", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.strecke", einheit: "Punkte" },
 
     // Problemlösen
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die

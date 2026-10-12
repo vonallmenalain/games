@@ -5,10 +5,9 @@
  * Funktionen: rein geht eine Konfiguration, raus kommt ein SVG-Element. Kein
  * Zustand, keine Ereignisse.
  *
- * Zwei Spiele brauchen die Lok: "Halt am Signal" lässt sie am Signal warten,
- * "Wo hält der Zug?" schiebt sie über das Gleis. Alle übrigen brauchen nur
- * el() und shade() – die zwei Handgriffe, mit denen hier jede Zeichnung
- * entsteht.
+ * Ein Spiel braucht die Lok: "Wo hält der Zug?" schiebt sie über das Gleis.
+ * Alle übrigen brauchen nur el() und shade() – die zwei Handgriffe, mit denen
+ * hier jede Zeichnung entsteht.
  *
  * In der App steht in dieser Datei noch viel mehr: die Wagen in fünfzehn
  * Baustufen, die Bahnhöfe und Gebäude der Landschaft, die Zeichen der
