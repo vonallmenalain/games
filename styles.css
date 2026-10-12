@@ -3355,6 +3355,19 @@ body.adm-probe-offen { overflow: hidden; }
   line-height: 1.5;
   white-space: pre-line;
 }
+/* "Wer vorne liegt, wartet" – und wer überall vorne liegt, liest hier,
+   warum unten kein Knopf zum Spielen steht. */
+.tn-wartet {
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--tn-gold);
+  color: #3f3413;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: center;
+}
 /* Eine Karte im Turnier trägt eine Zeile mehr als auf der Startseite – den
    eigenen Stand. Etwas enger, damit sie nicht höher wird als nötig. */
 .tn-karte { gap: 10px; }

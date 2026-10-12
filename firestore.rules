@@ -217,8 +217,8 @@ service cloud.firestore {
         && d.keys().hasAll(["name", "spiele", "startMs", "endeMs", "versuche", "zaehlt", "wertung",
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
-                             "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs",
-                             "updatedAtMs", "updatedAt"])
+                             "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
+                             "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
         && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
@@ -229,6 +229,19 @@ service cloud.firestore {
         // Alle Versuche zusammenzählen geht nur, wenn es eine Zahl davon gibt –
         // sonst gewänne, wer am längsten spielt.
         && !(d.zaehlt == "summe" && d.versuche == 0)
+        // "Nur wer nicht vorne liegt": Wer in einem Spiel allein auf Platz 1
+        // steht, wartet dort, bis ihn jemand einholt. Das ist eine eigene Art,
+        // Versuche zu verteilen – neben "unbegrenzt" und einer festen Zahl,
+        // nicht zusätzlich zu ihr. Fehlt das Feld (jedes Turnier von vorher),
+        // gilt es als aus.
+        //
+        // Durchgesetzt wird das von der Seite (turnier.js), nicht von hier:
+        // Wer vorne liegt, lässt sich nur aus allen Einträgen eines Spiels
+        // ablesen, und eine Regel kann keine Liste befragen. Wie "verdeckt"
+        // ist es für das Spiel unter Freunden, nicht gegen jemanden, der die
+        // Datenbank von Hand beschreibt.
+        && d.get("spitzeWartet", false) is bool
+        && !(d.get("spitzeWartet", false) == true && d.versuche != 0)
         && d.wertung in ["platz", "prozent"]
         && d.aufgaben in ["gleich", "zufall"]
         && d.sichtbar in ["alle", "link"]

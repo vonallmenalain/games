@@ -308,6 +308,7 @@ const turnierVorlage = (id, aenderung = {}) => ({
   ...aenderung,
 });
 const HERBST = "herbstcup-test2345";
+const KOENIG = "koenigscup-test234";
 const TURNIERE = {
   turniere: [
     turnierVorlage(HERBST, { name: "Herbstcup", beschreibung: "Wer gewinnt, wählt das Znacht." }),
@@ -318,6 +319,9 @@ const TURNIERE = {
     turnierVorlage("pause-test2345678", { name: "Pausencup", aktiv: false }),
     turnierVorlage("verdeckt-test23456", { name: "Blindcup", sichtbar: "link", verdeckt: true }),
     turnierVorlage("zufall-test2345678", { name: "Würfelcup", sichtbar: "link", aufgaben: "zufall", spiele: ["numberLine"] }),
+    // Wer vorne liegt, wartet: König führt in beiden Spielen allein, Leo
+    // liegt im Turmbau hinter ihm.
+    turnierVorlage(KOENIG, { name: "Königscup", sichtbar: "link", startMs: JETZT - 30 * MINUTE, spiele: ["towerStack", "fishPond"], versuche: 0, spitzeWartet: true }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
   // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
@@ -329,6 +333,9 @@ const TURNIERE = {
     { turnier: HERBST, game: "fishPond", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 12, versuche: 1, offen: false, updatedAtMs: 1300 },
     { turnier: HERBST, game: "fishPond", spieler: "mini_miamiamiamia", name: "Mia", punkte: 3, versuche: 2, offen: false, updatedAtMs: 1400 },
     { turnier: "verdeckt-test23456", game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 25, versuche: 1, offen: false, updatedAtMs: 1100 },
+    { turnier: KOENIG, game: "towerStack", spieler: "mini_koenigkoenig", name: "König", punkte: 30, versuche: 3, offen: false, updatedAtMs: 1000 },
+    { turnier: KOENIG, game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 20, versuche: 1, offen: false, updatedAtMs: 1100 },
+    { turnier: KOENIG, game: "fishPond", spieler: "mini_koenigkoenig", name: "König", punkte: 9, versuche: 1, offen: false, updatedAtMs: 1200 },
   ],
 };
 
@@ -1527,6 +1534,27 @@ try {
     await seite.locator(".adm-probe-kopf button", { hasText: "Schliessen" }).click();
     pruefe(await seite.locator(".adm-probe").count() === 0, "«Schliessen» schliesst den Probelauf nicht.");
 
+    // Ein Turnier, in dem wartet, wer vorne liegt: unbegrenzt für alle
+    // anderen – zusammenzählen geht deshalb nicht.
+    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    const spitzeForm = seite.locator(".adm-turnier-form");
+    await spitzeForm.locator('input[type="text"]').first().fill("Spitzencup");
+    await spitzeForm.locator('input[type="radio"][value="spitze"]').check();
+    pruefe(await spitzeForm.locator('input[type="radio"][value="summe"]').isDisabled(), "Wenn wartet, wer vorne liegt, lassen sich alle Versuche zusammenzählen.");
+    await spitzeForm.locator('button[type="submit"]').click();
+    await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Spitzencup"), null, { timeout: 4000 }).catch(() => {});
+    const spitze = await seite.evaluate(() => [...window.__miniTurniere.values()].find((t) => t.name === "Spitzencup") || null);
+    pruefe(spitze?.spitzeWartet === true && spitze.versuche === 0 && spitze.zaehlt === "bester",
+      `Das Turnier, in dem wartet, wer vorne liegt, kam falsch an: ${JSON.stringify(spitze)}`);
+    await seite.waitForSelector('.adm-turnier:has-text("Spitzencup")', { timeout: 4000 }).catch(() => {});
+    pruefe(/Platz 1 wartet/.test(await seite.locator(".adm-turnier", { hasText: "Spitzencup" }).innerText().catch(() => "")),
+      "In der Liste steht beim Spitzencup nicht, dass Platz 1 wartet.");
+    await seite.locator(".adm-turnier", { hasText: "Königscup" }).locator("button", { hasText: "Ändern" }).click();
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    pruefe(await seite.locator('.adm-turnier-form input[type="radio"][value="spitze"]').isChecked(), "Beim Ändern des Königscups ist «Nur wer nicht vorne liegt» nicht gewählt.");
+    await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
+
     // Anhalten und löschen.
     await herbst.locator("button", { hasText: "Anhalten" }).click();
     await seite.waitForFunction((id) => window.__miniTurniere.get(id)?.aktiv === false, HERBST, { timeout: 4000 }).catch(() => {});
@@ -1577,6 +1605,98 @@ try {
     await seite.waitForTimeout(600);
     pruefe(await seite.locator(".tn-tor").count() === 0, "Im Probelauf mit einem Turnier in der Adresse steht die Tafel des Turniers.");
     pruefe(await seite.evaluate(() => window.LernappTurnier.aufSpielseite()) === false, "Ein Probelauf gilt als Runde im Turnier.");
+    await kontext.close();
+  }
+
+  // --- 4l. Wer vorne liegt, wartet ----------------------------------------------
+  // Im Königscup darf spielen, wer nicht allein auf Platz 1 steht. König
+  // führt in beiden Spielen und hat deshalb keinen Versuch mehr; Leo liegt
+  // im Turmbau hinten, spielt sich nach vorne – und wartet dann selbst.
+  {
+    const { kontext, seite } = await mitTurnieren("/");
+    await seite.waitForSelector(".cm-bar, .mini-kopf", { timeout: 8000 }).catch(() => {});
+    const faelle = await seite.evaluate(() => {
+      const vorne = window.LernappTurnier.alleinVorne;
+      return [
+        vorne([{ platz: 1, eigen: true, punkte: 5 }, { platz: 2, eigen: false, punkte: 3 }]),
+        vorne([{ platz: 1, eigen: true, punkte: 5 }, { platz: 1, eigen: false, punkte: 5 }]),
+        vorne([{ platz: 1, eigen: false, punkte: 5 }, { platz: 2, eigen: true, punkte: 3 }]),
+        vorne([{ platz: 1, eigen: true, punkte: 0 }]),
+        vorne([]),
+      ];
+    });
+    pruefe(JSON.stringify(faelle) === "[true,false,false,false,false]",
+      `Wer allein vorne liegt, wird falsch erkannt (allein, Gleichstand, dahinter, mit null, leer): ${JSON.stringify(faelle)}`);
+    await kontext.close();
+  }
+  const alsKoenig = () => { localStorage.setItem("mini.id", "mini_koenigkoenig"); localStorage.setItem("mini.name", "König"); };
+  const alsLeo = () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); };
+  {
+    const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsKoenig });
+    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
+    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
+    pruefe(await seite.locator(".tn-wartet").count() === 1, "Wer überall vorne liegt, liest auf der Turnierseite nicht, warum er nicht spielen kann.");
+    pruefe(/wer vorne liegt, wartet/i.test(text) && /allein vorne/.test(text), `Die Turnierseite erklärt das Warten an der Spitze nicht: ${text}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `Königscup – Klassen ohne Regel: ${ohne.join(", ")}`);
+    await kontext.close();
+  }
+  {
+    const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsLeo });
+    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    const spielen = await seite.locator(".tn-karte a", { hasText: "Spielen" }).count();
+    pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
+    pruefe(await seite.locator(".tn-wartet").count() === 0, "Wer nirgends vorne liegt, liest, er liege überall vorne.");
+    await kontext.close();
+  }
+  {
+    // Auf der Spielseite sagt es die Tafel – bis jemand aufholt.
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: alsKoenig });
+    await seite.waitForFunction(() => {
+      const tor = document.querySelector(".tn-tor");
+      return tor && !/geladen/.test(tor.textContent);
+    }, null, { timeout: 8000 }).catch(() => {});
+    const text = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
+    pruefe(/allein vorne/.test(text), `Wer vorne liegt, liest auf der Tafel: ${text || "nichts"}`);
+    pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, "Wer allein vorne liegt, darf trotzdem spielen.");
+    await seite.evaluate((id) => {
+      const k = `${id}/towerStack_mini_leoleoleoleo`;
+      window.__miniTurnierEintraege.set(k, { ...window.__miniTurnierEintraege.get(k), punkte: 30 });
+    }, KOENIG);
+    await seite.locator(".tn-tor button", { hasText: "Nachsehen" }).click();
+    await seite.waitForSelector(".tn-tor .tn-los", { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".tn-tor .tn-los").count() === 1, "Nachdem Leo gleichgezogen hat, darf König nach «Nachsehen» noch immer nicht spielen.");
+    await kontext.close();
+  }
+  {
+    // Leo spielt sich nach vorne. Ein sofortiges «Noch einmal» wartet, bis
+    // feststeht, dass er jetzt vorne liegt – und zeigt dann die Tafel statt
+    // einer Runde, die nicht zählen dürfte.
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); window.__miniLangsam = 400; } });
+    await turnierLos(seite, "Leo");
+    const befund = await seite.evaluate(async (id) => {
+      const tn = window.LernappTurnier;
+      tn.rundeBeginnt();
+      const block = tn.ergebnis({ punkte: 50 });
+      let neu = false;
+      tn.neuStart({ los: () => { neu = true; } });
+      const sofort = { neu, tor: Boolean(document.querySelector(".tn-tor")) };
+      await new Promise((weiter) => setTimeout(weiter, 2500));
+      return {
+        sofort,
+        neu,
+        eintrag: window.__miniTurnierEintraege.get(`${id}/towerStack_mini_leoleoleoleo`) || null,
+        rest: block.querySelector(".tn-rest")?.textContent || "",
+        vorne: tn.stand().vorne,
+        tafel: document.querySelector(".tn-tor")?.textContent || "",
+      };
+    }, KOENIG);
+    pruefe(befund.eintrag?.punkte === 50 && befund.eintrag?.versuche === 2 && befund.eintrag?.offen === false,
+      `Leos Runde kam nicht an: ${JSON.stringify(befund.eintrag)}`);
+    pruefe(!befund.sofort.neu, "«Noch einmal» wartet nicht, bis feststeht, ob die Runde nach vorne geführt hat.");
+    pruefe(befund.vorne && /vorne/.test(befund.rest), `Nach der Runde, die nach vorne führte, steht unter dem Ergebnis: ${befund.rest}`);
+    pruefe(befund.neu && /allein vorne/.test(befund.tafel), `Wer nach vorne gespielt hat, bekommt beim Neustart keine Tafel: ${befund.tafel || "keine"}`);
     await kontext.close();
   }
 

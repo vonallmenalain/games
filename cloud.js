@@ -48,6 +48,9 @@
  *     spiele     ["towerStack"]   was dazugehört
  *     startMs / endeMs            wann es läuft
  *     versuche   3                je Spiel; 0 heisst unbegrenzt
+ *     spitzeWartet true           nur bei 0: wer in einem Spiel allein vorne
+ *                                 liegt, wartet dort – siehe turnier.js.
+ *                                 Fehlt bei allen anderen.
  *     zaehlt     "bester"         oder "summe": alle Versuche zusammen
  *     wertung    "platz"          oder "prozent" – siehe turnier.js
  *     aufgaben   "gleich"         oder "zufall" – siehe zufall.js
@@ -459,6 +462,7 @@
       sichtbar: d.sichtbar === "alle" ? "alle" : "link",
       verdeckt: d.verdeckt === true,
       aktiv: d.aktiv !== false,
+      spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
       updatedAtMs: Math.round(Number(d.updatedAtMs) || 0),
     };
@@ -540,6 +544,9 @@
     };
     const beschreibung = String(daten.beschreibung || "").trim().slice(0, BESCHREIBUNG_MAX);
     if (beschreibung) doc.beschreibung = beschreibung;
+    // Nur, wo es gilt: Ein Turnier mit fester Zahl von Versuchen kennt das
+    // Warten an der Spitze nicht, und die Regeln wiesen es dort ab.
+    if (daten.spitzeWartet === true && doc.versuche === 0) doc.spitzeWartet = true;
     await ref.doc(kennung).set(doc);
     return liesTurnier({ id: kennung, data: () => doc });
   }

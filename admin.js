@@ -578,6 +578,7 @@
       sichtbar: "alle",
       verdeckt: false,
       aktiv: true,
+      spitzeWartet: false,
     };
 
     const form = el("form", "adm-turnier-form");
@@ -722,14 +723,16 @@
     }
     const gewaehlterWert = (name) => form.querySelector(`input[name="${name}-${nr}"]:checked`)?.value || "";
 
-    // Die Versuche: unbegrenzt oder eine feste Zahl, und die Zahl wird
+    // Die Versuche: unbegrenzt, eine feste Zahl – oder unbegrenzt für alle
+    // ausser dem, der vorne liegt (turnier.js, alleinVorne). Die Zahl wird
     // getippt, nicht aus einer Liste gewählt – vier Versuche sind so gut wie
     // drei oder fünf. Wer in das Zahlfeld tippt, meint die feste Zahl; der
     // Punkt davor springt von selbst mit.
     const versuche = wahl("Versuche je Spiel", "versuchsart", [
       ["frei", "Unbegrenzt", "So oft, wie jemand will, solange das Turnier läuft."],
       ["zahl", "Eine feste Zahl", "Ein Versuch zählt, sobald er beginnt – wer mittendrin neu lädt, hat ihn trotzdem gebraucht."],
-    ], t.versuche ? "zahl" : "frei");
+      ["spitze", "Nur wer nicht vorne liegt", "Unbegrenzt – ausser für den, der in einem Spiel allein auf Platz 1 steht: Er wartet dort, bis ihn jemand einholt oder überholt. Wer überall vorne liegt, kann gar nicht mehr spielen, bis die anderen nachziehen."],
+    ], t.spitzeWartet ? "spitze" : t.versuche ? "zahl" : "frei");
     const anzahl = feld("number", "3");
     anzahl.className = "adm-feld adm-feld-zahl";
     anzahl.min = "1";
@@ -834,6 +837,7 @@
         sichtbar: gewaehlterWert("sichtbar") || "alle",
         verdeckt: verdeckt.checked,
         aktiv: aktiv.checked,
+        spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
         erstelltMs: vorlage?.erstelltMs || Date.now(),
       };
       if (!daten.name) { sage("Ohne Namen gibt es kein Turnier.", "ist-fehler"); nameFeld.focus(); return; }
@@ -878,7 +882,7 @@
     const eckdaten = [
       tn()?.zeitraum?.(t) || "",
       t.spiele.map(titel).join(", "),
-      t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
+      t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       t.aufgaben === "gleich" ? "gleiche Aufgaben" : "gewürfelt",

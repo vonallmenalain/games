@@ -247,6 +247,13 @@ await darf("Admin legt ein Turnier nur mit Link an, ohne Beschreibung", () => {
 });
 await darf("Admin ändert ein Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ endeMs: JETZT + 2 * STUNDE, updatedAtMs: 2 })));
 await darf("Admin legt ein Turnier mit unbegrenzten Versuchen an", () => admin().doc("miniTurniere/offen-z7x5c3v1").set(turnierDaten({ versuche: 0, verdeckt: true })));
+// "Nur wer nicht vorne liegt": eine dritte Art neben "unbegrenzt" und einer
+// festen Zahl – also nur mit versuche 0, und nur als Ja oder Nein.
+await darf("Admin legt ein Turnier an, in dem wartet, wer vorne liegt", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: true })));
+await darf("Admin schaltet das Warten an der Spitze ausdrücklich aus", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 3, spitzeWartet: false })));
+await darfNicht("Admin lässt die Spitze warten und gibt trotzdem eine feste Zahl von Versuchen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 3, spitzeWartet: true })));
+await darfNicht("Admin schreibt das Warten an der Spitze als Text", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: "ja" })));
+await darfNicht("Admin lässt die Spitze warten und zählt alle Versuche zusammen", () => admin().doc("miniTurniere/spitze-h4j6k8m2").set(turnierDaten({ versuche: 0, spitzeWartet: true, zaehlt: "summe" })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
 
 await darf("Gast öffnet ein öffentliches Turnier", () => gast().doc(OEFFENTLICH).get());
@@ -423,6 +430,29 @@ await darf("cloud.js: Gast trägt sich in die ewige Liste ein", async () => {
 await darf("cloud.js: Admin sieht alle Turniere", async () => {
   const liste = await adminCloud.alleTurniere();
   erwarte(liste.some((t) => t.id === CT), "das Turnier nur mit Link fehlt beim Admin");
+});
+// Wer vorne liegt, wartet: cloud.js schreibt das Feld nur, wo es gilt –
+// mit fester Zahl von Versuchen liesse es weg, statt abgewiesen zu werden.
+const SPITZE = "spitze-cloudjs2345";
+await darf("cloud.js: Admin legt ein Turnier an, in dem wartet, wer vorne liegt", async () => {
+  await adminCloud.setzeTurnier(SPITZE, {
+    name: "Königscup", spiele: ["towerStack"], startMs: JETZT - STUNDE, endeMs: JETZT + STUNDE,
+    versuche: 0, zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true, spitzeWartet: true,
+  });
+  const t = await gastCloud.turnier(SPITZE);
+  erwarte(t?.spitzeWartet === true && t.versuche === 0, JSON.stringify(t));
+});
+await darf("cloud.js: Mit fester Zahl von Versuchen fällt das Warten an der Spitze weg", async () => {
+  await adminCloud.setzeTurnier(SPITZE, {
+    name: "Königscup", spiele: ["towerStack"], startMs: JETZT - STUNDE, endeMs: JETZT + STUNDE,
+    versuche: 3, zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true, spitzeWartet: true,
+  });
+  const t = await gastCloud.turnier(SPITZE);
+  erwarte(t?.spitzeWartet === false && t.versuche === 3, JSON.stringify(t));
+});
+await darf("cloud.js: Ein Turnier von vorher kennt das Warten an der Spitze nicht", async () => {
+  const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
+  erwarte(t?.spitzeWartet === false, JSON.stringify(t));
 });
 await darf("cloud.js: Admin löscht das Turnier samt Einträgen", async () => {
   await adminCloud.loescheTurnier(CT);
