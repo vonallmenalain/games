@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|zg|hz|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|zg|hz|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -313,6 +313,7 @@ const turnierVorlage = (id, aenderung = {}) => ({
 const HERBST = "herbstcup-test2345";
 const KOENIG = "koenigscup-test234";
 const DAUER = "dauercup-test23456";
+const GESCHICK = "geschickcup-test23";
 const OHNE_ENDE = Date.UTC(9999, 11, 31);
 const TURNIERE = {
   turniere: [
@@ -329,6 +330,8 @@ const TURNIERE = {
     turnierVorlage(KOENIG, { name: "Königscup", sichtbar: "link", startMs: JETZT - 30 * MINUTE, spiele: ["towerStack", "fishPond"], versuche: 0, spitzeWartet: true }),
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
+    // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing"], versuche: 0 }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
   // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
@@ -1245,6 +1248,44 @@ try {
     const ohne = await seite.evaluate(() => ({ fest: window.LernappZufall.istFest(), turnier: window.LernappZufall.turnier(), tor: Boolean(document.querySelector(".tn-tor")) }));
     pruefe(!ohne.fest && ohne.turnier === null && !ohne.tor, `Ohne Turnier in der Adresse ist trotzdem eines da: ${JSON.stringify(ohne)}`);
     await kontext.close();
+  }
+
+  // --- 4g2. Brückenbauer, Drehscheibe, Lianenschwung: derselbe Lauf ---------------
+  // Diese drei bauen ihre Welt aus dem Zufall – Pfeiler, Scheiben, Äste. Im
+  // Turnier bekommen zwei Spieler im selben Versuch dieselbe Welt.
+  for (const [adresse, titel, lies] of [
+    ["/bruecke", "Brückenbauer", () => {
+      const b = window.LernappBruecke;
+      const reihe = [b.state.pfeiler[1]];
+      for (let n = 1; n < 4; n += 1) reihe.push(b.neuerPfeiler(n, reihe[reihe.length - 1]));
+      return reihe.map((q) => `${q.x.toFixed(3)}/${q.w.toFixed(3)}`).join(" ");
+    }],
+    ["/drehscheibe", "Drehscheibe", () => {
+      const d = window.LernappDrehscheibe;
+      const reihe = [d.state.scheibe, d.neueScheibe(1), d.neueScheibe(2), d.neueScheibe(3)];
+      return reihe.map((q) => `${q.art}/${q.tempo.toFixed(4)}/${q.stecken.map((p) => p.w.toFixed(4))}/${q.aepfel.map((a) => a.w.toFixed(4))}`).join(" ");
+    }],
+    ["/liane", "Lianenschwung", () => {
+      const l = window.LernappLiane;
+      const aeste = l.state.anker.slice(0, 4).map((a) => `${a.basis.toFixed(3)}/${a.hoehe.toFixed(3)}`);
+      const fruechte = l.state.fruechte.slice(0, 2).map((f) => `${f.x.toFixed(3)}/${f.y.toFixed(3)}`);
+      return `${aeste.join(" ")} | ${fruechte.join(" ")}`;
+    }],
+  ]) {
+    const befunde3 = [];
+    for (const name of ["Anna", "Ben"]) {
+      const { kontext, seite } = await mitTurnieren(`${adresse}?turnier=${GESCHICK}`);
+      await turnierLos(seite, name);
+      await seite.waitForTimeout(250);
+      befunde3.push({
+        fest: await seite.evaluate(() => window.LernappZufall.istFest()),
+        welt: await seite.evaluate(lies).catch((f) => `Fehler: ${f.message}`),
+      });
+      await kontext.close();
+    }
+    const [a, b] = befunde3;
+    pruefe(a.fest && b.fest, `${titel}: Im Turnier würfelt der Zufall frei.`);
+    pruefe(!/^Fehler/.test(a.welt) && a.welt === b.welt, `${titel}: Zwei Spieler bekommen im ersten Versuch verschiedene Welten – ${a.welt} gegen ${b.welt}.`);
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------

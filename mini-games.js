@@ -64,6 +64,9 @@
     { id: "fishPond", seite: "fischteich", page: "pond" },
     { id: "leafFlow", seite: "blaetter", page: "leaves" },
     { id: "towerStack", seite: "turmbau", page: "tower" },
+    { id: "bridgeBuilder", seite: "bruecke", page: "bridge" },
+    { id: "dartWheel", seite: "drehscheibe", page: "wheel" },
+    { id: "vineSwing", seite: "liane", page: "vine" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];

@@ -60,13 +60,16 @@
     { id: "fishPond", titel: "Fischteich", bereich: "konzentration", art: "punkte", key: "lernapp.fischteich", einheit: "Fische" },
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
     { id: "boilerRoom", titel: "Der Heizer", bereich: "konzentration", art: "punkte", key: "lernapp.heizer", einheit: "Punkte" },
+    { id: "dartWheel", titel: "Drehscheibe", bereich: "konzentration", art: "punkte", key: "lernapp.drehscheibe", einheit: "Punkte" },
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
+    { id: "vineSwing", titel: "Lianenschwung", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.liane", einheit: "Punkte" },
 
     // Problemlösen
+    { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht fest, wenn die Aufgaben durch sind. Gemessen wird deshalb
     // die beste Runde, nicht das einzelne Level.

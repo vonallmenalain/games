@@ -24,7 +24,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        sechs Spielseiten, erzeugt
+    turmbau.html …        neun Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
@@ -123,7 +123,7 @@ die Fassung hoch, und die alten Geister verschwinden aus dem Bild.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle sechs
+    Spiele            welche dazugehören, eines bis alle neun
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
