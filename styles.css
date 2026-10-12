@@ -3498,20 +3498,70 @@ p.tn-verdeckt:not(.mini-hinweis) {
 
 /* --- Im Adminbereich ------------------------------------------------------- */
 .adm-turniere { border-top-color: var(--tn-gold); }
-.adm-turnier-liste { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.adm-turnier-liste { display: flex; flex-direction: column; gap: 18px; margin-top: 10px; }
+/* Die Turniere nach ihrem Stand: laufend, geplant, angehalten, beendet. */
+.adm-turnier-gruppe { display: flex; flex-direction: column; gap: 8px; }
+.adm-turnier-gruppe-titel {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #667085;
+}
 .adm-turnier {
-  padding: 12px 14px;
   border-radius: 14px;
   border: 2px solid #ece9f6;
   background: #fbfaff;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 .adm-turnier.ist-laeuft { border-color: rgba(224, 161, 0, 0.55); background: #fffaf0; }
 .adm-turnier.ist-beendet { opacity: 0.85; }
+.adm-turnier.ist-offen { opacity: 1; border-color: var(--tn-gold); box-shadow: 0 6px 18px rgba(50, 44, 109, 0.1); }
+/* Die ganze Zeile ist der Knopf zum Auswählen; aufgeklappt zeigt der Pfeil
+   nach oben. */
+.adm-turnier-wahl {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 40px 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  position: relative;
+}
+.adm-turnier-wahl::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 18px;
+  width: 9px;
+  height: 9px;
+  border-right: 2.5px solid #98a0b4;
+  border-bottom: 2.5px solid #98a0b4;
+  transform: rotate(45deg);
+}
+.adm-turnier-wahl[aria-expanded="true"]::after { top: 22px; transform: rotate(-135deg); }
+.adm-turnier-wahl:hover .adm-turnier-name { text-decoration: underline; }
+.adm-turnier-wahl:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
 .adm-turnier-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.adm-turnier-kopf h3 { margin: 0; font-size: 1.05rem; font-weight: 900; color: #243047; }
+.adm-turnier-name { font-size: 1.05rem; font-weight: 900; color: #243047; }
+.adm-turnier-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 14px 14px;
+  border-top: 2px solid #ece9f6;
+  padding-top: 10px;
+}
+.adm-turnier-tabelle { margin-top: 4px; }
 .adm-marke {
   display: inline-flex;
   align-items: center;
@@ -3526,7 +3576,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .adm-marke.ist-geplant { background: #e3f1fb; color: #1d5f86; }
 .adm-marke.ist-angehalten { background: #fdeaea; color: #a32020; }
 .adm-marke.ist-beendet { background: #eef0f6; color: #667085; }
-.adm-turnier-stand { font-weight: 700; color: #47506a; }
+.adm-turnier-stand { font-size: 0.85rem; font-weight: 700; color: #47506a; }
 .adm-turnier .adm-kopf-aktionen { margin-top: 4px; }
 
 /* Das Formular wird beim Öffnen ins Bild gerollt – mit etwas Luft darüber,

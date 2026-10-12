@@ -454,6 +454,33 @@ await darf("cloud.js: Ein Turnier von vorher kennt das Warten an der Spitze nich
   const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
   erwarte(t?.spitzeWartet === false, JSON.stringify(t));
 });
+// Ohne Zeitlimite: ein Ende, das nie kommt (turnier.js, OHNE_ENDE). Die Regeln
+// rechnen damit wie mit jedem anderen Ende – wenn es als ganze Zahl ankommt.
+const DAUER = "dauer-cloudjs23456";
+const OHNE_ENDE = Date.UTC(9999, 11, 31);
+await darf("cloud.js: Admin legt ein Turnier ohne Zeitlimite an", async () => {
+  await adminCloud.setzeTurnier(DAUER, {
+    name: "Endloscup", spiele: ["towerStack"], startMs: JETZT - STUNDE, endeMs: OHNE_ENDE,
+    versuche: 0, zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true,
+  });
+  const t = await gastCloud.turnier(DAUER);
+  erwarte(t?.endeMs === OHNE_ENDE, JSON.stringify(t));
+});
+await darf("cloud.js: Gast spielt im Turnier ohne Zeitlimite", async () => {
+  await gastCloud.turnierVersuch(DAUER, { ...ICH, grenze: 0 });
+  const stand = await gastCloud.turnierErgebnis(DAUER, { ...ICH, punkte: 7 });
+  erwarte(stand.punkte === 7, JSON.stringify(stand));
+});
+// Einen Namen aus einem Turnier nehmen, ohne das Turnier zu löschen.
+await darfNicht("cloud.js: Gast entfernt einen Eintrag aus einem Turnier",
+  () => gastCloud.loescheTurnierEintraege(DAUER, [`towerStack_${ICH.spieler}`]));
+await darf("cloud.js: Admin entfernt einen Spieler aus dem Turnier", async () => {
+  const vorher = await adminCloud.turnierErgebnisse(DAUER);
+  erwarte(vorher.length === 1, JSON.stringify(vorher));
+  await adminCloud.loescheTurnierEintraege(DAUER, vorher.map((e) => e.id));
+  erwarte((await gastCloud.turnierErgebnisse(DAUER)).length === 0, "der Eintrag ist noch da");
+  erwarte((await gastCloud.turnier(DAUER))?.name === "Endloscup", "das Turnier ist mit verschwunden");
+});
 await darf("cloud.js: Admin löscht das Turnier samt Einträgen", async () => {
   await adminCloud.loescheTurnier(CT);
   erwarte(await gastCloud.turnier(CT) === null, "das Turnier ist noch da");
