@@ -36,7 +36,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           miniGeister, die Aufzeichnungen der Läufe, und
                           miniTurniere mit ihren Einträgen.
     turnier.js            der Turniermodus: die Turnierseite, der Hinweis auf
-                          der Startseite, die Tafel vor dem Spiel, der Versuch,
+                          der Startseite, die Sperre vor dem Spiel, der Versuch,
                           das Ergebnis, die Gesamtwertung
     admin.js              anmelden, aufräumen, Turniere ausrichten. Der
                           einzige Ort mit Anmeldung; die Spielseiten laden
@@ -54,7 +54,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     kids.js               Lautsprecher, Ton, Vorlesen, Konfetti
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier
                           jede Zeichnung entsteht (el, shade)
-    train-scenes.js       die Landschaft hinter jedem Spiel
+    train-scenes.js       die Landschaften der App. Geladen, aber nicht mehr
+                          aufgebaut: Die Spiele stehen im Vollbild.
     highscore.js          welches Spiel wie heisst und wozu es gehört
     styles.css            das Aussehen
     pwa.js                Service Worker anmelden, Installation anbieten
@@ -162,10 +163,12 @@ was es ausmacht:
                       "Anhalten", "Jetzt beenden" gehen mit einem Klick
 
 Gespielt wird es auf der Turnierseite (`/turnier?t=<id>`): Von dort führt
-jedes Spiel mit `?turnier=<id>` in der Adresse ins Spiel, und dort steht vor
-der ersten Runde eine Tafel – welcher Versuch, wie lange noch, was zählt,
-unter welchem Namen. Danach läuft das Spiel wie immer, nur dass sein Ergebnis
-ins Turnier geht (und in die ewige Liste, eine Runde ist eine Runde).
+jedes Spiel mit `?turnier=<id>` in der Adresse ins Spiel, und das Spiel steht
+sofort da – keine Tafel davor. Nur wer noch keinen Namen hat, wird einmal
+danach gefragt, und wer gerade nicht spielen darf (alle Versuche gespielt,
+allein vorne, noch nicht begonnen, vorbei), bekommt einen Satz, warum. Sonst
+läuft das Spiel wie immer, nur dass sein Ergebnis ins Turnier geht (und in
+die ewige Liste, eine Runde ist eine Runde).
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
@@ -202,6 +205,44 @@ keine Liste befragen. Die Regeln lassen das Feld (`spitzeWartet`) nur zusammen
 mit unbegrenzten Versuchen zu. Wie «verdeckt» gilt es für das Spiel unter
 Freunden, nicht gegen jemanden, der die Datenbank von Hand beschreibt. Mit
 verdeckter Rangliste erfährt so nur der Führende, dass er vorne liegt.
+
+**Ein Turnier ist ein Raum für sich.** Von der Turnierseite und aus einem
+Spiel im Turnier führt kein Weg hinaus: kein «Ohne Turnier spielen», kein
+«Schon mal üben», kein Link zur Hall of Fame. Wer allein vorne liegt oder alle
+Versuche gespielt hat, kommt nur noch zurück zum Turnier. Die Turnierseite
+zeigt je Spiel nur den Namen, die Rangliste und den Knopf (oder an seiner
+Stelle «Du liegst vorne»); den Link zum Weitergeben hat der Adminbereich.
+
+**Ein Turnier auf dem Startbildschirm.** Wer im Turnier «Zum Startbildschirm»
+wählt, bekommt das Turnier als eigene App: mit seinem Namen, und sie öffnet
+direkt die Turnierseite. Dafür baut `turnier.js` (`alsApp`) im Browser ein
+eigenes Manifest, sobald das Turnier gelesen ist – Chrome und Edge lesen es.
+Safari auf dem iPhone nicht; dort setzt dieselbe Stelle den Namen
+(`apple-mobile-web-app-title`), und gestartet wird die Seite, auf der man
+beim Hinzufügen war.
+
+**Das Gerät merkt sich seine Turniere.** Jedes Turnier, das geöffnet wird,
+auch eines nur mit Link, steht danach auf der Startseite dieses Geräts,
+zuvorderst (`mini.turniere`, höchstens zehn). So findet es auch, wer die App
+schon installiert hat und den Link nur einmal angeklickt hat. Auf Android
+teilen sich Browser und installierte App diesen Speicher; auf dem iPhone
+kennt die App auf dem Startbildschirm nur, was in ihr selbst geöffnet wurde.
+
+## Vollbild
+
+Jedes Spiel füllt das Bild: Die Spielfläche reicht bis an den linken, rechten
+und unteren Rand, oben bleibt ein ruhiger Streifen mit den Knöpfen, der Uhr und
+den Gegnern (`styles.css`, Die Bühne). Die Landschaft aus der App baut die
+Bühne nicht mehr auf. Vier Spiele haben eine breiteste Welt (Turmbau,
+Brückenbauer, Drehscheibe, Lianenschwung); auf einem sehr flachen Bild steht
+ihre Fläche in der Mitte, statt oben ein Stück Welt zu verlieren.
+
+Oben rechts, neben dem Ton, holt ein Knopf das Spiel ins Vollbild des
+Browsers – ohne Adressleiste, auch ohne die App zu installieren. Ihn gibt es
+nur, wo der Browser das einer Seite erlaubt (am Computer, auf Android; auf dem
+iPhone nicht), und nicht in der installierten App, die ohnehin im Vollbild
+startet. Das Vollbild gilt für eine Seite: Wer ins nächste Spiel wechselt,
+tippt dort noch einmal.
 
 ## Firebase
 

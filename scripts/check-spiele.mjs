@@ -2,7 +2,7 @@
  * Die Mini-Games im Browser: läuft, was hier herausgeschnitten wurde?
  * ---------------------------------------------------------------------------
  * pruefen.mjs liest Dateien. Das hier spielt: Es öffnet jedes Spiel so, wie jemand es öffnet, dem der Link geschickt wurde, und schaut
- * nach, ob eine Bühne dasteht, die Landschaft dahinter, die Knöpfe oben links
+ * nach, ob eine Bühne dasteht, das Spiel im Vollbild, die Knöpfe oben links
  * – und ob der Browser dabei schweigt.
  *
  * Das ist der Punkt dieses Skripts. styles.css und train-art.js sind aus der
@@ -398,12 +398,15 @@ async function mitTurnieren(adresse, { viewport, vorher } = {}) {
   return { kontext, seite };
 }
 
-// Die Tafel vor dem Spiel verlassen – mit Namen, wenn sie danach fragt.
+// Ins Spiel im Turnier. Wer schon einen Namen hat, kommt ohne Tafel hinein;
+// sonst fragt sie danach, und nur danach.
 async function turnierLos(seite, name) {
-  await seite.waitForSelector(".tn-tor .tn-los", { timeout: 8000 });
-  const feld = seite.locator(".tn-tor .mini-namensfeld input");
-  if (await feld.count()) await feld.fill(name);
-  await seite.click(".tn-tor .tn-los");
+  await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben || document.querySelector(".tn-tor .tn-los"),
+    null, { timeout: 8000 });
+  if (await seite.locator(".tn-tor .tn-los").count()) {
+    await seite.locator(".tn-tor .mini-namensfeld input").fill(name);
+    await seite.click(".tn-tor .tn-los");
+  }
   await seite.waitForFunction(() => !document.querySelector(".tn-tor"), null, { timeout: 4000 });
 }
 
@@ -472,7 +475,8 @@ try {
       const buehne = kasten(document.getElementById(id));
       const play = kasten(document.querySelector(".cm-play"));
       const bar = kasten(document.querySelector(".cm-bar"));
-      const scene = kasten(document.querySelector(".scene"));
+      // Die Fläche des Spiels, wo es eine hat: Leinwand, Teich, Wasser.
+      const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld, .ft-pond, .bs-wasser"));
       const sprecher = kasten(document.querySelector(".help-voice-button"));
       return {
         hoch: window.innerHeight,
@@ -482,7 +486,9 @@ try {
         buehne: buehne && { b: Math.round(buehne.width), h: Math.round(buehne.height) },
         play: play && { b: Math.round(play.width), h: Math.round(play.height) },
         barHoch: bar ? Math.round(bar.height) : null,
-        scene: scene && { b: Math.round(scene.width), h: Math.round(scene.height) },
+        scene: Boolean(document.querySelector(".scene")),
+        flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
+        grund: getComputedStyle(document.getElementById(id)).backgroundColor,
         inhalt: document.querySelector(".cm-play")?.querySelectorAll("*").length ?? 0,
         sprecher: sprecher ? Math.round(sprecher.width) : 0,
         titel: document.querySelector(".cm-title")?.textContent || "",
@@ -500,10 +506,19 @@ try {
     pruefe(stand.blattHoch <= stand.hoch + 2, `${spiel.seite}: Die Seite lässt sich scrollen (${stand.blattHoch} px statt ${stand.hoch}) – ein Spiel füllt das Bild und hört dort auf.`);
     pruefe(stand.blattBreit <= stand.breit + 1, `${spiel.seite}: Die Seite steht ${stand.blattBreit - stand.breit} px über den rechten Rand.`);
     pruefe(stand.inhalt > 0, `${spiel.seite}: In der Spielfläche steht nichts (${stand.inhalt} Elemente).`);
-    // Die Landschaft deckt die Bühne: Ohne .scene bliebe der Himmel 0 px hoch,
-    // und hinter dem Spiel stünde nichts als Weiss.
-    pruefe(Boolean(stand.scene) && Math.abs(stand.scene.h - (stand.buehne?.h || 0)) <= 4,
-      `${spiel.seite}: Die Landschaft ist ${stand.scene?.h} px hoch, die Bühne ${stand.buehne?.h}.`);
+    // Vollbild: keine Landschaft aus der App mehr, die Bühne hat ihren eigenen
+    // Grund – und wo ein Spiel eine Fläche hat, reicht sie ohne runde Ecken
+    // bis an den unteren Rand und so breit, wie es geht: bis an beide Ränder,
+    // oder – wo die Welt eines Spiels endet (32 zu 15) – mittig, so breit
+    // wie diese Welt.
+    pruefe(!stand.scene, `${spiel.seite}: Hinter dem Spiel steht noch die Landschaft aus der App.`);
+    pruefe(stand.grund && stand.grund !== "rgba(0, 0, 0, 0)", `${spiel.seite}: Die Bühne hat keinen eigenen Grund (${stand.grund}).`);
+    if (stand.flaeche) {
+      const f = stand.flaeche;
+      const soll = Math.min(stand.breit, Math.floor((f.u - f.o) * 32 / 15));
+      pruefe(f.u >= stand.hoch - 1 && f.radius === "0px" && f.r - f.l >= soll && Math.abs(f.l - (stand.breit - f.r)) <= 1,
+        `${spiel.seite}: Die Spielfläche steht nicht im Vollbild: ${JSON.stringify(f)} bei ${stand.breit} × ${stand.hoch}.`);
+    }
     pruefe(stand.sprecher > 20 && stand.sprecher < 120, `${spiel.seite}: Der Hilfe-Lautsprecher ist ${stand.sprecher} px breit.`);
     pruefe(stand.titel.trim() === spiel.titel, `${spiel.seite}: Oben steht "${stand.titel}" statt "${spiel.titel}".`);
     // Oben links steht nur noch, was gebraucht wird: der Weg zurück und der
@@ -550,6 +565,18 @@ try {
     pruefe(await seite.locator(".cm-icon-again").count() === 1, "Der Knopf zum Neustarten fehlt.");
     pruefe(await seite.getAttribute("body", "data-spiel") === "towerStack", "Am body fehlt data-spiel.");
     pruefe(await seite.locator(".mini-fenster").count() === 0, "Das Fenster «Mini Games» ist noch da.");
+
+    // Oben rechts: Vollbild, auch ohne die App zu installieren – und zurück.
+    pruefe(await seite.locator(".cm-vollbild").count() === 1, "Oben rechts fehlt der Knopf fürs Vollbild.");
+    if (await seite.locator(".cm-vollbild").count()) {
+      await seite.click(".cm-vollbild");
+      await seite.waitForFunction(() => Boolean(document.fullscreenElement), null, { timeout: 3000 }).catch(() => {});
+      const an = await seite.evaluate(() => ({ voll: Boolean(document.fullscreenElement), gedrueckt: document.querySelector(".cm-vollbild").getAttribute("aria-pressed") }));
+      pruefe(an.voll && an.gedrueckt === "true", `Der Knopf fürs Vollbild bringt kein Vollbild: ${JSON.stringify(an)}`);
+      await seite.click(".cm-vollbild");
+      await seite.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).catch(() => {});
+      pruefe(await seite.evaluate(() => !document.fullscreenElement), "Aus dem Vollbild kommt man mit dem Knopf nicht mehr heraus.");
+    }
 
     // Eine Runde, und danach der Name.
     pruefe(await spieleTurmbauZuEnde(seite), "Die Runde kam nicht zu einem Ergebnis.");
@@ -904,6 +931,9 @@ try {
     // andere. Zwischen dem Lautsprecher links und dem Ton-Schalter rechts
     // bleiben dort gut 200 Pixel – der engste Fall, den es gibt.
     ["Handy hoch", { width: 390, height: 844 }],
+    // Die häufigste Breite auf Android – mit dem Vollbild-Knopf der engste
+    // Fall, in dem er noch dasteht.
+    ["Handy hoch Android", { width: 360, height: 740 }],
     ["Handy hoch schmal", { width: 320, height: 568 }],
   ]) {
     const { kontext, seite } = await neueSeite(viewport);
@@ -911,10 +941,13 @@ try {
     await seite.waitForSelector(".cm-bar-left .mini-knopf", { timeout: 8000 });
     await seite.waitForTimeout(300);
     const befund = await seite.evaluate(() => {
+      // Der Zähler so breit, wie er mitten in einer guten Runde wird.
+      document.querySelector(".cm-count-value").textContent = "123";
       const stuecke = [
         ...[...document.querySelectorAll(".cm-bar-left > *")].map((e) => ({ was: (e.textContent || "Neustart").trim() || "Neustart", r: e.getBoundingClientRect() })),
         { was: "Zähler", r: document.querySelector(".cm-count").getBoundingClientRect() },
         { was: "Lautsprecher", r: document.querySelector(".help-voice-button")?.getBoundingClientRect() },
+        { was: "Vollbild", r: document.querySelector(".cm-vollbild")?.getBoundingClientRect() },
         { was: "Ton", r: document.querySelector(".sound-toggle")?.getBoundingClientRect() },
       ].filter((s) => s.r && s.r.width > 0);
       const stoesse = [];
@@ -1066,6 +1099,42 @@ try {
     await kontext.close();
   }
   {
+    // Ein Turnier nur mit Link, das dieses Gerät geöffnet hat, steht danach
+    // auf seiner Startseite – zuvorderst. Eines, das es nicht mehr gibt, wird
+    // vergessen. Und die Turnierseite legt sich als eigene App auf den
+    // Startbildschirm: mit dem Namen des Turniers, direkt auf seiner Seite.
+    const { kontext, seite } = await mitTurnieren("/turnier?t=familie-geheim2345", {
+      vorher: () => { if (!localStorage.getItem("mini.turniere")) localStorage.setItem("mini.turniere", JSON.stringify(["gibtsnicht-123456"])); },
+    });
+    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    await seite.waitForFunction(() => document.querySelector('link[rel="manifest"]')?.href.startsWith("blob:"), null, { timeout: 4000 }).catch(() => {});
+    const app = await seite.evaluate(async () => {
+      const link = document.querySelector('link[rel="manifest"]').href;
+      const manifest = link.startsWith("blob:") ? await (await fetch(link)).json() : null;
+      return {
+        link,
+        name: manifest?.name,
+        start: manifest?.start_url,
+        id: manifest?.id,
+        icon: manifest?.icons?.[0]?.src,
+        apple: document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content,
+      };
+    });
+    pruefe(app.name === "Familienabend" && app.apple === "Familienabend", `Auf den Startbildschirm käme das Turnier nicht mit seinem Namen: ${JSON.stringify(app)}`);
+    pruefe(/^https?:\/\/[^/]+\/turnier\?t=familie-geheim2345$/.test(app.start || "") && app.id === app.start,
+      `Das Turnier als App startet nicht auf seiner Seite: ${JSON.stringify(app)}`);
+    pruefe(/^https?:\/\//.test(app.icon || ""), `Im Manifest des Turniers steht das Bild ohne volle Adresse: ${app.icon}`);
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".tn-hinweis", { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => a.innerText.replace(/\n/g, " ")));
+    pruefe(/Familienabend/.test(hinweise[0] || ""), `Das geöffnete Turnier nur mit Link steht nicht zuvorderst auf der Startseite: ${hinweise.join(" | ")}`);
+    pruefe(hinweise.length === 4, `Mit einem eigenen Turnier stehen ${hinweise.length} statt vier Turniere auf der Startseite: ${hinweise.join(" | ")}`);
+    const gemerkt = await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.turniere") || "[]"));
+    pruefe(gemerkt.length === 1 && gemerkt[0] === "familie-geheim2345", `Das Gerät merkt sich die falschen Turniere: ${JSON.stringify(gemerkt)}`);
+    await kontext.close();
+  }
+  {
     // Ohne Turnier bleibt oben nichts stehen, auch kein leerer Kasten.
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
@@ -1084,8 +1153,10 @@ try {
       status: document.querySelector(".tn-status")?.textContent || "",
       karten: [...document.querySelectorAll(".tn-karte h3")].map((h) => h.textContent),
       spielen: [...document.querySelectorAll(".tn-karte .mini-karte-aktionen a")].map((a) => a.getAttribute("href")),
-      regeln: [...document.querySelectorAll(".tn-regel-liste li")].map((li) => li.textContent),
-      link: document.querySelector(".tn-link-feld")?.value || "",
+      regeln: document.querySelectorAll(".tn-regel-liste, .tn-regeln").length,
+      teilen: document.querySelectorAll(".tn-teilen, .tn-link-feld").length,
+      kartenZusatz: [...document.querySelectorAll(".tn-karte .tn-mein, .tn-karte .mini-karte-zahl")].map((e) => e.textContent),
+      hinaus: [...document.querySelectorAll("[data-turnier] a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/(turnier|admin)\b/.test(h) && !/[?&]turnier=/.test(h)),
       erster: document.querySelector(".tn-tabelle tbody tr .tn-wer > span")?.textContent,
       ersterWert: document.querySelector(".tn-tabelle tbody tr .tn-wert")?.textContent,
       zeilen: document.querySelectorAll(".tn-tabelle tbody tr").length,
@@ -1097,9 +1168,14 @@ try {
     pruefe(/läuft noch/.test(stand.status), `${lage}: Unter dem Namen steht nicht, wie lange es noch läuft: ${stand.status}`);
     pruefe(stand.karten.length === 3, `${lage}: Auf der Turnierseite stehen ${stand.karten.length} Spiele statt drei.`);
     pruefe(stand.spielen.includes(`/turmbau?turnier=${HERBST}`), `${lage}: "Spielen" führt nicht ins Spiel im Turnier: ${stand.spielen.join(", ")}`);
-    pruefe(stand.regeln.length >= 5 && stand.regeln.some((r) => /2 Versuche/.test(r)) && stand.regeln.some((r) => /kleinste Summe/.test(r)),
-      `${lage}: Die Regeln stehen nicht in Sätzen da: ${stand.regeln.join(" / ")}`);
-    pruefe(stand.link.endsWith(`/turnier?t=${HERBST}`), `${lage}: Der Link zum Weitergeben ist "${stand.link}".`);
+    // Keine Regeln in Sätzen und kein Block zum Weitersagen: Dauer und
+    // Versuche stehen oben, den Link hat der Adminbereich. Und kein Weg
+    // hinaus – das Turnier ist ein Raum für sich.
+    pruefe(stand.regeln === 0, `${lage}: Auf der Turnierseite steht wieder ein Block mit Regeln.`);
+    pruefe(stand.teilen === 0, `${lage}: Auf der Turnierseite steht wieder der Block zum Weitersagen.`);
+    // Je Spiel: Name, Rangliste, Knopf. Kein Satz über den eigenen Stand.
+    pruefe(stand.kartenZusatz.length === 0, `${lage}: Auf den Karten der Turnierseite steht mehr als Name, Liste und Knopf: ${stand.kartenZusatz.join(" / ")}`);
+    pruefe(stand.hinaus.length === 0, `${lage}: Von der Turnierseite führt ein Weg hinaus: ${stand.hinaus.join(", ")}`);
     pruefe(stand.erster === "Leo" && stand.ersterWert === "4",
       `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${stand.erster} mit ${stand.ersterWert} statt Leo mit 4.`);
     pruefe(stand.zeilen === 3, `${lage}: In der Gesamtwertung stehen ${stand.zeilen} Spieler statt drei.`);
@@ -1129,14 +1205,16 @@ try {
   }
 
   // --- 4f. Ein Turnier, von vorne bis hinten --------------------------------------
-  // Tafel, Name, zwei Versuche, dann ist Schluss. Jeder Versuch geht ins
-  // Turnier und in die ewige Liste, und nach dem letzten gibt es keinen mehr.
+  // Name, zwei Versuche, dann ist Schluss. Jeder Versuch geht ins Turnier und
+  // in die ewige Liste, und nach dem letzten gibt es keinen mehr.
   {
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`);
     const vorher = fehlerAufSeite.length;
     await seite.waitForSelector(".tn-tor .tn-los", { timeout: 8000 });
+    // Ohne Namen steht nur die Frage danach da – keine Regeln, kein Versuch,
+    // keine Uhr.
     const tafel = (await seite.locator(".tn-tor").innerText()).replace(/\n/g, " ");
-    pruefe(/Herbstcup/.test(tafel) && /Versuch 1 von 2/.test(tafel), `Die Tafel vor dem Spiel sagt nicht, worum es geht: ${tafel}`);
+    pruefe(/Namen/.test(tafel) && !/Versuch|zählt|Herbstcup/.test(tafel), `Ohne Namen steht mehr da als die Frage danach: ${tafel}`);
     pruefe(await seite.locator(".tn-tor .mini-namensfeld input").count() === 1, "Ohne Namen fragt die Tafel nicht nach einem.");
     const zurueck = await seite.getAttribute(".cm-bar-left a", "href");
     pruefe(zurueck === `/turnier?t=${HERBST}`, `Oben links führt der Weg im Turnier nach ${zurueck} statt zurück zum Turnier.`);
@@ -1195,9 +1273,36 @@ try {
     const schluss = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
     pruefe(/alle 2 Versuche/.test(schluss), `Nach dem letzten Versuch sagt die Tafel: ${schluss || "nichts"}`);
     pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, "Nach dem letzten Versuch lässt die Tafel noch einmal spielen.");
-    const weiter = await seite.locator(".tn-tor a", { hasText: "Ohne Turnier" }).getAttribute("href").catch(() => null);
-    pruefe(weiter === "/turmbau", `Nach dem letzten Versuch führt "Ohne Turnier weiterspielen" nach ${weiter}.`);
+    // Und kein Weg nebenan ins Spiel ohne Turnier: Wer fertig ist, ist fertig.
+    const hinaus = await seite.evaluate(() => [...document.querySelectorAll(".tn-tor a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/turnier\b/.test(h)));
+    pruefe(hinaus.length === 0, `Nach dem letzten Versuch führt die Tafel hinaus: ${hinaus.join(", ")}`);
     pruefe(fehlerAufSeite.length === vorher, `Das Turnier hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Wer schon einen Namen hat, sieht vor dem Spiel gar nichts: Das Turnier
+    // lädt leise, und das Spiel steht da – bereit, nicht schon gestartet.
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`, { vorher: () => {
+      localStorage.setItem("mini.name", "Schnell");
+      window.__tafelTexte = [];
+      new MutationObserver(() => {
+        const tafel = document.querySelector(".tn-tor:not(.ist-leise) .tn-tafel");
+        if (tafel?.textContent) window.__tafelTexte.push(tafel.textContent);
+      }).observe(document, { childList: true, subtree: true, attributes: true });
+    } });
+    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben, null, { timeout: 8000 }).catch(() => {});
+    const befund = await seite.evaluate(() => ({
+      frei: window.LernappTurnier.stand().freigegeben,
+      tor: Boolean(document.querySelector(".tn-tor")),
+      texte: window.__tafelTexte,
+      phase: window.LernappTurmbau?.state?.phase,
+      runde: window.LernappZufall?.turnier?.()?.runde,
+    }));
+    pruefe(befund.frei && !befund.tor, `Mit Namen geht es im Turnier nicht direkt ins Spiel: ${JSON.stringify(befund)}`);
+    pruefe(befund.texte.length === 0, `Mit Namen stand vor dem Spiel trotzdem eine Tafel: ${befund.texte[0]}`);
+    pruefe(befund.phase === "bereit", `Ohne Tafel ist die Runde schon losgelaufen (${befund.phase}).`);
+    pruefe(befund.runde === "1", `Ohne Tafel würfelt der erste Versuch als Runde ${befund.runde}.`);
+    pruefe(await seite.evaluate(() => window.LernappTurnier.stand().gespielt) === 0, "Ohne Tafel zählt schon ein Versuch, bevor gespielt wurde.");
     await kontext.close();
   }
   {
@@ -1338,8 +1443,8 @@ try {
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
-  // Dann sagt die Tafel warum, lässt nicht spielen – und zeigt den Weg ins
-  // Spiel ohne Turnier.
+  // Dann sagt die Tafel warum und lässt nicht spielen – auch nicht nebenan,
+  // ohne Turnier: Das Turnier ist ein Raum für sich.
   for (const [adresse, erwartet, was] of [
     ["/turmbau?turnier=zufall-test2345678", /gehört nicht zu diesem Turnier/, "ein Spiel, das nicht dazugehört"],
     ["/turmbau?turnier=bald-test23456789", /beginnt/, "ein Turnier, das noch nicht angefangen hat"],
@@ -1355,8 +1460,8 @@ try {
     const text = (await seite.locator(".tn-tor").innerText().catch(() => "")).replace(/\n/g, " ");
     pruefe(erwartet.test(text), `Für ${was} sagt die Tafel: ${text || "nichts"}`);
     pruefe(await seite.locator(".tn-tor .tn-los").count() === 0, `Für ${was} lässt die Tafel spielen.`);
-    const ohne = await seite.locator(".tn-tor a", { hasText: /Ohne Turnier|üben/ }).first().getAttribute("href").catch(() => null);
-    pruefe(Boolean(ohne) && !ohne.includes("turnier="), `Für ${was} fehlt der Weg ins Spiel ohne Turnier (${ohne}).`);
+    const hinaus = await seite.evaluate(() => [...document.querySelectorAll(".tn-tor a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/turnier\b/.test(h)));
+    pruefe(hinaus.length === 0, `Für ${was} führt die Tafel hinaus ins Spiel ohne Turnier: ${hinaus.join(", ")}`);
     await kontext.close();
   }
 
@@ -1413,7 +1518,7 @@ try {
   }
 
   // --- 4i. Die Tafel auf einem flachen Handy --------------------------------------
-  // Name, Regeln, zwei Knöpfe – auf 320 Pixeln Höhe muss "Los geht's"
+  // Frage, Namensfeld, Knopf – auf 320 Pixeln Höhe muss "Los geht's"
   // erreichbar bleiben, notfalls über die rollende Tafel.
   {
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`, { viewport: { width: 568, height: 320 } });
@@ -1756,8 +1861,9 @@ try {
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
     pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
-    pruefe(await seite.locator(".tn-wartet").count() === 1, "Wer überall vorne liegt, liest auf der Turnierseite nicht, warum er nicht spielen kann.");
-    pruefe(/wer vorne liegt, wartet/i.test(text) && /allein vorne/.test(text), `Die Turnierseite erklärt das Warten an der Spitze nicht: ${text}`);
+    // Kein Satz darüber – an der Stelle jedes Knopfs steht «Du liegst vorne».
+    pruefe(await seite.locator(".tn-wartet").count() === 0, "Über den Spielen steht wieder ein Satz für den, der überall vorne liegt.");
+    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Königscup – Klassen ohne Regel: ${ohne.join(", ")}`);
     await kontext.close();
@@ -1767,7 +1873,7 @@ try {
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const spielen = await seite.locator(".tn-karte a", { hasText: "Spielen" }).count();
     pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
-    pruefe(await seite.locator(".tn-wartet").count() === 0, "Wer nirgends vorne liegt, liest, er liege überall vorne.");
+    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
     await kontext.close();
   }
   {
@@ -1785,8 +1891,10 @@ try {
       window.__miniTurnierEintraege.set(k, { ...window.__miniTurnierEintraege.get(k), punkte: 30 });
     }, KOENIG);
     await seite.locator(".tn-tor button", { hasText: "Nachsehen" }).click();
-    await seite.waitForSelector(".tn-tor .tn-los", { timeout: 4000 }).catch(() => {});
-    pruefe(await seite.locator(".tn-tor .tn-los").count() === 1, "Nachdem Leo gleichgezogen hat, darf König nach «Nachsehen» noch immer nicht spielen.");
+    // König hat einen Namen – also keine Tafel mehr, sondern gleich das Spiel.
+    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben && !document.querySelector(".tn-tor"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.LernappTurnier.stand().freigegeben && !document.querySelector(".tn-tor")),
+      "Nachdem Leo gleichgezogen hat, darf König nach «Nachsehen» noch immer nicht spielen.");
     await kontext.close();
   }
   {
@@ -1828,16 +1936,15 @@ try {
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
     pruefe(/läuft ohne Zeitlimite · seit/.test(text), `Oben auf der Turnierseite ohne Zeitlimite steht: ${await seite.locator(".tn-status").innerText()}`);
-    pruefe(/ohne Zeitlimite – bis es angehalten wird/.test(text), `Die Regeln erklären «ohne Zeitlimite» nicht: ${text}`);
     pruefe(!/9999|Tage/.test(text), `Auf der Turnierseite ohne Zeitlimite steht ein Ende: ${text}`);
     pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
     await kontext.close();
   }
   {
-    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`);
-    await seite.waitForSelector(".tn-tor .tn-los", { timeout: 8000 });
-    const tafel = (await seite.locator(".tn-tor").innerText()).replace(/\n/g, " ");
-    pruefe(/läuft ohne Zeitlimite/.test(tafel) && !/9999|Tage/.test(tafel), `Die Tafel im Turnier ohne Zeitlimite sagt: ${tafel}`);
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`, { vorher: alsLeo });
+    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben, null, { timeout: 8000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.LernappTurnier.stand().freigegeben && !document.querySelector(".tn-tor")),
+      "Im Turnier ohne Zeitlimite geht es mit Namen nicht direkt ins Spiel.");
     await kontext.close();
   }
 

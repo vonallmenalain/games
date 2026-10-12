@@ -464,43 +464,34 @@ h2 {
    Die Klassen heissen cm-, weil hier einmal Karten-Merker stand; das Spiel
    ist ausgezogen, die Bühne geblieben. Die Farbe setzt jedes Spiel selbst
    über --cm-accent.
+
+   Vollbild: Das Spiel ist das ganze Bild. In der App stand es als Fläche mit
+   runden Ecken vor der Landschaft – ein Bild im Bild. Hier reicht es bis an
+   den linken, rechten und unteren Rand; oben bleibt nur ein ruhiger Streifen
+   in der Farbe der anderen Seiten, mit der Leiste, der Uhr und den Gegnern.
+   Die Landschaft baut die Bühne gar nicht erst auf (game-shell.js).
    =========================================================================== */
 
 .cm-stage {
   --cm-accent: #F5A623;
   --cm-accent-dark: #b9741a;
-  /* Die Schrift, die ohne Kasten auf der Landschaft steht: Titel, Auftrag,
-     Beschriftungen. Dunkel, mit einer hellen Kante darunter – so hebt sie sich
-     von jedem Taghimmel ab. */
+  /* Die Schrift, die ohne Kasten auf dem Streifen oben steht: Titel, Auftrag,
+     Beschriftungen. */
   --cm-schrift: #243047;
   --cm-schrift-hof: 0 1px 0 rgba(255, 255, 255, 0.75);
   position: fixed;
   inset: 0;
-  /* clip statt hidden: die Landschaft ist breiter als der Bildschirm, und ein
-     hidden-Kasten lässt sich zwar nicht wischen, aber immer noch verschieben –
-     ein Tastendruck auf einen Knopf am Rand schöbe sonst die ganze Bühne zur
-     Seite und brächte sie nie mehr zurück. hidden bleibt als Rückfall stehen. */
+  /* Der Streifen oben und, wo ein Spiel keine eigene Fläche hat (Kacheln,
+     Heizer, Wo hält der Zug?), der Grund des ganzen Spiels. */
+  background: var(--bg);
+  /* clip statt hidden: ein hidden-Kasten lässt sich zwar nicht wischen, aber
+     immer noch verschieben – ein Tastendruck auf einen Knopf am Rand schöbe
+     sonst die ganze Bühne zur Seite und brächte sie nie mehr zurück. hidden
+     bleibt als Rückfall stehen. */
   overflow: hidden;
   overflow: clip;
   touch-action: manipulation;
 }
-
-/* Auf einem dunklen Himmel – Nacht, Weltraum – dreht sich das um: helle
-   Schrift mit einem dunklen Hof. Dunkel auf Dunkel war dort kaum zu lesen, und
-   die helle Kante darunter liess die Buchstaben nur verschwimmen. Eine Kante
-   allein reicht auch für die helle Schrift nicht: Sie steht nicht nur vor dem
-   Himmel, sondern auch vor dem Mond, der Erde und den grauen Kraterhügeln.
-   Der weiche Hof trägt sie über alles davon. Welcher Himmel hinter der Bühne
-   liegt, setzt game-shell.js. */
-.cm-stage[data-himmel="dunkel"] {
-  --cm-schrift: #f5f7fc;
-  --cm-schrift-hof: 0 1px 2px rgba(10, 16, 38, 0.85), 0 0 10px rgba(10, 16, 38, 0.6);
-}
-
-/* Die Landschaft steht still: es fährt kein Zug, und ein wandernder
-   Hintergrund würde beim Vergleichen auf Zeit nur stören. */
-.cm-stage .scene-strip,
-.cm-stage .scene-bird { animation-play-state: paused; }
 
 /* --- Leiste oben --- */
 
@@ -570,8 +561,6 @@ h2 {
   color: #2f6f4f;
   text-shadow: var(--cm-schrift-hof);
 }
-/* Dasselbe Grün, nur hell: Das dunkle ginge im Nachthimmel unter. */
-.cm-stage[data-himmel="dunkel"] .cm-count { color: #a8e8c0; }
 .cm-count-tick { width: 22px; height: 22px; color: #3fbf74; }
 .cm-count-value { font-variant-numeric: tabular-nums; }
 
@@ -585,7 +574,7 @@ h2 {
   z-index: 4;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(36, 48, 71, 0.1);
   overflow: hidden;
 }
 /* Uhr und Zähler gehören zum Lauf. Solange keiner läuft, wären sie nur zwei
@@ -713,15 +702,20 @@ h2 {
 
 /* --- Das Spiel --- */
 
+/* Bis an den unteren Rand. Den Abstand dort hält der Innenabstand – den
+   brauchen die Spiele, die ihre Knöpfe und Kacheln frei hinstellen. Eine
+   Fläche, die bis an den Rand reicht, liegt darüber (inset: 0) oder nimmt
+   ihn sich zurück (Fischteich, Blätter im Strom). */
 .cm-play {
   position: absolute;
-  inset: calc(var(--safe-top) + 88px) 0 calc(var(--safe-bottom) + 12px);
+  inset: calc(var(--safe-top) + 88px) 0 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 2.4vh, 22px);
+  padding-bottom: calc(var(--safe-bottom) + 12px);
 }
 
 .cm-prompt {
@@ -730,6 +724,55 @@ h2 {
   font-weight: 800;
   color: var(--cm-schrift);
   text-shadow: var(--cm-schrift-hof);
+}
+
+/* Die Spiele mit einer Leinwand: Turmbau, Brückenbauer, Drehscheibe,
+   Lianenschwung, Schleuder, Eisstock, Taktgefühl. Die Leinwand füllt die
+   ganze Spielfläche; jedes Spiel rechnet seine Welt aus der Form, die dabei
+   herauskommt (messen() im Spiel).
+
+   Vier davon haben eine breiteste Welt und setzen deshalb bei ihrem -feld
+   ein Seitenverhältnis. Auf einem sehr flachen Bild – einem Handy quer –
+   steht ihre Fläche dann in der Mitte, statt oben ein Stück Welt zu
+   verlieren. Breiter als das Bild wird keine (max-width). */
+.tb-platz, .br-platz, .dr-platz, .li-platz, .sl-platz, .es-platz, .tk-platz {
+  position: absolute;
+  inset: 0;
+}
+.tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  overflow: clip;
+}
+.tb-feld, .br-feld, .dr-feld, .li-feld { width: auto; }
+
+/* Der Satz vor dem ersten Zug liegt über der Leinwand, oben in der Mitte, und
+   blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
+   eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
+   Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
+.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .sl-prompt, .es-prompt, .tk-prompt {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 6px 16px;
+  border-radius: 18px;
+  font-size: clamp(0.85rem, 1.8vw, 1.1rem);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(31, 42, 51, 0.22);
+  text-align: center;
+  text-shadow: none;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 
 /* --- Start und Ergebnis --- */
@@ -893,15 +936,15 @@ h2 {
   gap: clamp(5px, 1.1vh, 12px);
   /* Das Raster behält sein Seitenverhältnis – sonst sind die Kacheln keine
      Kacheln mehr, sondern Streifen.
-     Drei Grenzen für die Höhe, und die kleinste gilt: der Platz in der
+     Zwei Grenzen für die Höhe, und die kleinere gilt: der Platz in der
      Spielfläche (100 %, den der Flexkasten nach dem Satz darüber noch übrig
-     lässt), ein Anteil des Bildschirms – und, das ist die neue, die Höhe, die
-     zur breitest möglichen Breite gehört. Ohne die dritte zog auf einem Handy
-     hochkant die Breite die Grenze, die Höhe blieb stehen, und aus 4 zu 3
-     wurde 4 zu 7: vier schmale Streifen statt vier Kacheln. */
-  height: min(100%, 74vh, min(94vw, 900px) * var(--kk-reihen, 3) / var(--kk-spalten, 4));
+     lässt) und die Höhe, die zur breitest möglichen Breite gehört. Ohne die
+     zweite zog auf einem Handy hochkant die Breite die Grenze, die Höhe blieb
+     stehen, und aus 4 zu 3 wurde 4 zu 7: vier schmale Streifen statt vier
+     Kacheln. Sonst keine Grenze – das Raster ist so gross, wie es geht. */
+  height: min(100%, 96vw * var(--kk-reihen, 3) / var(--kk-spalten, 4));
   aspect-ratio: var(--kk-spalten, 4) / var(--kk-reihen, 3);
-  max-width: min(94vw, 900px);
+  max-width: 96vw;
   padding: clamp(8px, 1.6vh, 16px);
   border-radius: 26px;
   background: rgba(253, 251, 246, 0.9);
@@ -977,15 +1020,16 @@ h2 {
 
 .ft-prompt { flex: 0 0 auto; }
 
+/* Der Teich reicht bis an die Ränder (Die Bühne, Vollbild). Der Satz bleibt
+   darüber stehen: Er gilt die ganze Runde. */
+.ft-stage .cm-play { padding-bottom: 0; }
 .ft-pond {
   position: relative;
   flex: 1 1 auto;
-  width: min(96vw, 1100px);
+  width: 100%;
   min-height: 0;
-  border-radius: 30px;
   overflow: hidden;
   overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
 .ft-pond-art {
@@ -1114,15 +1158,15 @@ h2 {
 .bs-stage[data-himmel="dunkel"] .bs-frage.is-treibt { color: #ffbf5e; }
 .bs-stage[data-himmel="dunkel"] .bs-frage.is-zeigt { color: #8fe3a5; }
 
+/* Das Wasser reicht bis an die Ränder (Die Bühne, Vollbild). */
+.bs-stage[data-phase="play"] .cm-play { padding-bottom: 0; }
 .bs-wasser {
   position: relative;
   flex: 1 1 auto;
-  width: min(96vw, 1100px);
+  width: 100%;
   min-height: 0;
-  border-radius: 30px;
   overflow: hidden;
   overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
 .bs-wasser-art {
@@ -1275,48 +1319,18 @@ h2 {
   touch-action: none;
 }
 
-/* Der Satz steht nur vor dem ersten Block. Seinen Platz behält er trotzdem:
-   verschwände er ganz, wüchse die Baustelle im selben Moment nach oben, und
-   die Leinwand müsste mitten im Spiel neu vermessen werden. */
-.tb-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
+/* Der Satz steht nur vor dem ersten Block. Er liegt über der Leinwand (Die
+   Bühne, Vollbild) und blendet aus – verschwände er ganz, liefe nichts
+   anders, aber so springt nichts. */
 .tb-stage:not([data-phase="intro"]) .tb-prompt { opacity: 0; }
 
-.tb-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-/* Oben und unten am Platz festgemacht: damit steht die Höhe fest, und das
-   Seitenverhältnis macht daraus die Breite. Weil die Höhe schon feststeht,
-   wirkt es hier wie eine Höchstbreite: gut doppelt so breit wie hoch, mehr
-   nicht. Genau das ist auf dem Handy quer der Fall – dort ist die Höhe knapp
-   und die Breite reichlich, und die Baustelle nimmt sie sich. Auf einem hohen
-   Bildschirm greift stattdessen max-width, und die Baustelle bleibt eine
-   stehende Fläche; über den Rand geht sie nie.
-
-   Wie viel Welt in dieser Fläche steckt, rechnet turmbau.js aus der Form aus:
+/* Wie viel Welt in der Fläche steckt, rechnet turmbau.js aus ihrer Form aus:
    die Höhe bleibt dieselbe, die Breite wächst mit – und mit ihr jeder Block.
-   Deshalb darf hier jede Form herauskommen, ohne dass das Spiel ein anderes
-   wird. */
-.tb-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
-}
+   Deshalb darf hier fast jede Form herauskommen, ohne dass das Spiel ein
+   anderes wird. Nur breiter als 7 zu 3 nicht: Dort endet die Welt
+   (WELT_W_MAX 700 bei SICHT_H 300), und auf einem noch flacheren Bild fehlte
+   oben ein Stück Himmel. */
+.tb-feld { aspect-ratio: 7 / 3; }
 
 .tb-canvas {
   display: block;
@@ -1426,36 +1440,11 @@ h2 {
   -webkit-touch-callout: none;
 }
 
-.br-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .br-stage:not([data-phase="intro"]) .br-prompt { opacity: 0; }
 
-.br-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-/* Wie beim Turmbau: oben und unten festgemacht, die Breite folgt dem
-   Seitenverhältnis bis an den Rand. bruecke.js rechnet die Welt aus der Form,
-   die herauskommt. */
-.br-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
-}
+/* bruecke.js rechnet die Welt aus der Form der Fläche – bis 32 zu 13 (WELT_W_MAX
+   640 bei SICHT_H 260). Flacher würde oben der lange Balken abgeschnitten. */
+.br-feld { aspect-ratio: 32 / 13; }
 
 .br-canvas {
   display: block;
@@ -1551,33 +1540,11 @@ h2 {
   user-select: none;
 }
 
-.dr-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .dr-stage:not([data-phase="intro"]) .dr-prompt { opacity: 0; }
 
-.dr-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.dr-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.35);
-}
+/* Bis 32 zu 15, wie die Welt von drehscheibe.js (WELT_W_MAX 640 bei SICHT_H
+   300) – flacher schnitte es die Scheibe oben und unten an. */
+.dr-feld { aspect-ratio: 32 / 15; }
 
 .dr-canvas {
   display: block;
@@ -1639,33 +1606,11 @@ h2 {
   -webkit-touch-callout: none;
 }
 
-.li-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .li-stage:not([data-phase="intro"]) .li-prompt { opacity: 0; }
 
-.li-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.li-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.4);
-}
+/* Bis 32 zu 15, wie die Welt von liane.js (WELT_W_MAX 640 bei SICHT_H 300) –
+   flacher hingen die Äste oben aus dem Bild. */
+.li-feld { aspect-ratio: 32 / 15; }
 
 .li-canvas {
   display: block;
@@ -1732,33 +1677,7 @@ h2 {
   -webkit-touch-callout: none;
 }
 
-.sl-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .sl-stage:not([data-phase="intro"]) .sl-prompt { opacity: 0; }
-
-.sl-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.sl-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.45);
-}
 
 .sl-canvas {
   display: block;
@@ -1821,33 +1740,7 @@ h2 {
   -webkit-touch-callout: none;
 }
 
-.es-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .es-stage:not([data-phase="intro"]) .es-prompt { opacity: 0; }
-
-.es-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.es-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
-}
 
 .es-canvas {
   display: block;
@@ -1920,34 +1813,9 @@ h2 {
   -webkit-touch-callout: none;
 }
 
-.tk-prompt {
-  flex: 0 0 auto;
-  min-height: 1.4em;
-  transition: opacity 0.25s ease;
-}
 .tk-stage:not([data-phase="intro"]) .tk-prompt { opacity: 0; }
 
-.tk-platz {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
-
-.tk-feld {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  aspect-ratio: 21 / 10;
-  max-width: min(92vw, 1100px);
-  border-radius: 30px;
-  overflow: hidden;
-  overflow: clip;
-  background: #1a1033;
-  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.28), inset 0 0 0 3px rgba(255, 255, 255, 0.25);
-}
+.tk-feld { background: #1a1033; }
 
 .tk-canvas {
   display: block;
@@ -2287,12 +2155,12 @@ h2 {
    zwei Stellen, spränge die Reihe in dem Bild, in dem der eine den anderen
    ablöst. */
 .hz-reihe {
-  --hz-breite: min(190px, 30vh);
+  --hz-breite: min(260px, 34vh);
   display: flex;
   justify-content: center;
   align-items: center;
   gap: clamp(6px, 1.6vw, 18px);
-  width: min(96vw, 1100px);
+  width: 96vw;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -2529,7 +2397,9 @@ h2 {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  width: clamp(88px, 22vw, 132px);
+  /* Nach Breite und Höhe: Auf einem flachen Bild stand sonst der Startknopf
+     unter dem unteren Rand. */
+  width: clamp(72px, min(22vw, 22vh), 180px);
 }
 /* Im Startbild steht der Kessel in einer Spalte, nicht in der Reihe: Dort ist
    die Hauptachse senkrecht, und flex-basis 0 machte ihn null hoch. */
@@ -2537,6 +2407,7 @@ h2 {
 .hz-demo-wort {
   font-size: clamp(0.8rem, 2vw, 1rem);
   font-weight: 800;
+  white-space: nowrap;
   color: var(--cm-schrift);
   text-shadow: var(--cm-schrift-hof);
 }
@@ -2626,6 +2497,69 @@ h2 {
     margin: 0 auto;
     transform: none;
   }
+}
+
+/* --- Der Vollbild-Knopf (game-shell.js, vollbildKnopf) ---------------------- */
+/* Neben dem Ton-Schalter und in seiner Form: zwei runde Knöpfe oben rechts,
+   die mit dem Spiel nichts zu tun haben, sondern mit dem Gerät. Steht er da,
+   endet die Leiste vor ihm statt vor dem Ton. */
+.cm-vollbild {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  right: calc(var(--safe-right) + 76px);
+  z-index: 8;
+  width: 52px;
+  height: 52px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--primary);
+  color: var(--primary-dark);
+  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
+  cursor: pointer;
+}
+.cm-vollbild svg { width: 22px; height: 22px; display: block; }
+.cm-vollbild:hover,
+.cm-vollbild:focus-visible { background: #f4f1ff; outline: none; }
+.cm-vollbild:active { transform: scale(0.93); }
+.cm-stage[data-vollbild] .cm-bar { right: calc(var(--safe-right) + 138px); }
+@media (max-width: 640px) {
+  .cm-vollbild { top: calc(var(--safe-top) + 10px); right: calc(var(--safe-right) + 66px); width: 46px; height: 46px; }
+  .cm-stage[data-vollbild] .cm-bar { right: calc(var(--safe-right) + 120px); }
+}
+/* Ganz schmal wird es eng zwischen den Knöpfen links und den zwei Knöpfen
+   rechts. Erst weicht der Haken vor dem Zähler (die Zahl bleibt), und unter
+   340 Pixeln der Vollbild-Knopf selbst – dort stünde sonst der Zähler auf
+   dem Neustart. */
+@media (min-width: 340px) and (max-width: 374px) {
+  .cm-stage[data-vollbild] .cm-count-tick { display: none; }
+}
+@media (max-width: 339px) {
+  .cm-vollbild { display: none; }
+  .cm-stage[data-vollbild] .cm-bar { right: calc(var(--safe-right) + 76px); }
+}
+
+/* Handy quer: Höhe ist knapp, Breite gibt es genug. Die beiden Gegner rücken
+   hinauf in die Leiste, zwischen die Knöpfe links und den Zähler rechts, und
+   der Zeitbalken gleich darunter – das Spiel gewinnt eine ganze Zeile. Dafür
+   weichen der Name des Spiels (er stünde genau dort) und das Wort im Knopf
+   zurück: Der Pfeil bleibt. */
+@media (max-height: 500px) and (min-width: 780px) {
+  .mini-knopf-wort { display: none; }
+  .cm-bar-left .mini-knopf-zurueck { gap: 0; padding: 0; width: clamp(40px, 8vw, 44px); }
+  .gs-leiste {
+    top: calc(var(--safe-top) + 20px);
+    left: calc(var(--safe-left) + 210px);
+    right: calc(var(--safe-right) + 150px);
+  }
+  .cm-stage[data-vollbild] .gs-leiste { right: calc(var(--safe-right) + 212px); }
+  .cm-time { top: calc(var(--safe-top) + 66px); }
+  .cm-play,
+  .cm-stage[data-gegner="an"] .cm-play { top: calc(var(--safe-top) + 76px); }
+  .cm-stage .cm-bar .cm-title { display: none; }
 }
 
 /* --- Der Knopf ------------------------------------------------------------- */
@@ -3406,23 +3340,9 @@ body.adm-probe-offen { overflow: hidden; }
   line-height: 1.5;
   white-space: pre-line;
 }
-/* "Wer vorne liegt, wartet" – und wer überall vorne liegt, liest hier,
-   warum unten kein Knopf zum Spielen steht. */
-.tn-wartet {
-  margin: 0;
-  padding: 12px 18px;
-  border-radius: 18px;
-  background: #fff;
-  border: 2px solid var(--tn-gold);
-  color: #3f3413;
-  font-weight: 800;
-  line-height: 1.45;
-  text-align: center;
-}
-/* Eine Karte im Turnier trägt eine Zeile mehr als auf der Startseite – den
-   eigenen Stand. Etwas enger, damit sie nicht höher wird als nötig. */
+/* Eine Karte im Turnier: Name, Rangliste, Knopf – etwas enger als auf der
+   Startseite. */
 .tn-karte { gap: 10px; }
-.tn-mein { margin: 0; font-size: 0.85rem; font-weight: 800; color: var(--mini-farbe-dunkel, #47506a); }
 .tn-verdeckt { margin: 0; color: #667085; font-weight: 700; }
 p.tn-verdeckt:not(.mini-hinweis) {
   padding: 12px;
@@ -3450,42 +3370,20 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .tn-wer { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tn-teile { font-size: 0.72rem; font-weight: 700; color: #8a93a6; line-height: 1.35; }
 .tn-wert { font-weight: 900; font-size: 1.05rem; color: #243047; }
-.tn-regel-liste {
-  margin: 0;
-  padding: 16px 18px 16px 34px;
-  border-radius: 18px;
-  background: #fff;
-  border: 2px solid rgba(36, 48, 71, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: #3a4657;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.tn-klein { margin: 0; font-size: 0.9rem; font-weight: 600; color: #667085; }
-.tn-regeln .tn-klein { padding: 0 6px; }
-.tn-link { display: flex; flex-wrap: wrap; gap: 8px; }
-.tn-link-feld {
-  flex: 1 1 16rem;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 2px solid #d7dbe6;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #243047;
-  background: #fff;
-}
-.tn-link-feld:focus-visible { outline: 3px solid var(--tn-gold); outline-offset: 2px; }
-.tn-teilen .mini-knopf-voll { background: var(--tn-gold); }
-.tn-fuss { margin: 0; text-align: center; font-weight: 700; }
-.tn-fuss a { color: var(--mini-ton-dunkel); }
 
 /* --- Die Tafel vor dem Spiel ----------------------------------------------- */
+/* Sie steht nur, wenn sie etwas zu sagen hat (turnier.js, zeigeTor). Solange
+   das Turnier lädt, liegt sie leise über der Bühne: durchsichtig, nur damit
+   kein Tipp ins Spiel geht. Das "Wird geladen" kommt erst, wenn es dauert –
+   wer eine gute Verbindung hat, sieht gar nichts. */
 .cm-overlay.tn-tor { z-index: 7; }
+.cm-overlay.tn-tor.ist-leise {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.tn-tor.ist-leise .cm-panel { animation: cm-fade 0.2s ease 0.8s both; }
+.tn-tor.ist-leise .cm-panel:empty { display: none; }
 .tn-tafel { gap: clamp(6px, 1.4vh, 12px); }
 .tn-tafel-pokal { width: 44px; height: 44px; color: var(--tn-gold); }
 .tn-marke {
@@ -3504,26 +3402,8 @@ p.tn-verdeckt:not(.mini-hinweis) {
   overflow-wrap: anywhere;
 }
 .tn-tafel-text { margin: 0; font-weight: 700; color: #4b5563; line-height: 1.45; }
-.tn-tafel-spiel {
-  margin: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--tn-gold-hell);
-  color: var(--tn-gold-dunkel);
-  font-weight: 900;
-}
 .tn-tafel-stand { margin: 0; font-weight: 900; color: #243047; }
 .tn-tafel-form { width: min(360px, 100%); display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
-.tn-tafel-name {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-weight: 700;
-  color: #5c6a67;
-}
 .tn-tafel-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .tn-tafel .tn-los { background: var(--tn-gold); }
 /* Auf einem flachen Bildschirm legt die Bühne ihre Tafel als Raster quer
