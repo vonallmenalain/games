@@ -263,7 +263,7 @@ for (const s of SPIELE) {
 
 // Entfernte Spiele bleiben entfernt: keine Seite, kein Skript, kein Eintrag in
 // den Listen. Was in der Bestenliste von ihnen steht, räumt der Admin weg.
-for (const weg of ["wasfehlt", "signal", "weichen", "bremsweg", "strecke"]) {
+for (const weg of ["wasfehlt", "signal", "weichen", "bremsweg", "strecke", "schleuder", "eisstock", "takt"]) {
   pruefe(`${weg} ist ganz weg (Seite und Skript)`, !existsSync(path.join(WURZEL, `${weg}.html`)) && !existsSync(path.join(WURZEL, `${weg}.js`)));
 }
 pruefe("strand-art.js ist mit «Was fehlt?» weg", !existsSync(path.join(WURZEL, "strand-art.js")));

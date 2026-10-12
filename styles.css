@@ -727,36 +727,34 @@ h2 {
 }
 
 /* Die Spiele mit einer Leinwand: Turmbau, Brückenbauer, Drehscheibe,
-   Lianenschwung, Schleuder, Eisstock, Taktgefühl. Die Leinwand füllt die
-   ganze Spielfläche; jedes Spiel rechnet seine Welt aus der Form, die dabei
-   herauskommt (messen() im Spiel).
+   Lianenschwung. Die Leinwand füllt die Spielfläche; jedes Spiel rechnet
+   seine Welt aus der Form, die dabei herauskommt (messen() im Spiel).
 
-   Vier davon haben eine breiteste Welt und setzen deshalb bei ihrem -feld
-   ein Seitenverhältnis. Auf einem sehr flachen Bild – einem Handy quer –
-   steht ihre Fläche dann in der Mitte, statt oben ein Stück Welt zu
-   verlieren. Breiter als das Bild wird keine (max-width). */
-.tb-platz, .br-platz, .dr-platz, .li-platz, .sl-platz, .es-platz, .tk-platz {
+   Jedes hat aber eine breiteste Welt und setzt deshalb bei seinem -feld ein
+   Seitenverhältnis: Oben und unten festgemacht, wird die Fläche so breit,
+   wie diese Welt es zulässt – auf jedem gewöhnlichen Bild bis an beide
+   Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
+   statt oben ein Stück Welt zu verlieren. */
+.tb-platz, .br-platz, .dr-platz, .li-platz {
   position: absolute;
   inset: 0;
 }
-.tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld {
+.tb-feld, .br-feld, .dr-feld, .li-feld {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
   max-width: 100%;
   overflow: hidden;
   overflow: clip;
 }
-.tb-feld, .br-feld, .dr-feld, .li-feld { width: auto; }
 
 /* Der Satz vor dem ersten Zug liegt über der Leinwand, oben in der Mitte, und
    blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
    eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
-.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .sl-prompt, .es-prompt, .tk-prompt {
+.tb-prompt, .br-prompt, .dr-prompt, .li-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1658,206 +1656,6 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .li-tipp-fuell { animation: none; stroke-dashoffset: 40; }
-}
-
-/* ===========================================================================
-   Schleuder
-   ---------------------------------------------------------------------------
-   In der Farbe des Bereichs Problemlösen. Eine Wiese, hinten die Scheibe,
-   vorn die Gabel – gezeichnet von schleuder.js. Gezogen wird auf der ganzen
-   Bühne, deshalb scrollt und markiert hier nichts.
-   =========================================================================== */
-
-.sl-stage {
-  --cm-accent: #3FA34D;
-  --cm-accent-dark: #2c7337;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.sl-stage:not([data-phase="intro"]) .sl-prompt { opacity: 0; }
-
-.sl-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Der Hinweis vor dem ersten Schuss: ein Punkt auf dem Leder, der nach
-   unten zieht. */
-.sl-tipp {
-  position: absolute;
-  top: 80%;
-  left: 50%;
-  width: clamp(34px, 8%, 52px);
-  transform: translate(-50%, -19%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
-}
-.sl-stage[data-phase="intro"] .sl-tipp { opacity: 0.95; }
-.sl-tipp svg { width: 100%; height: auto; display: block; }
-.sl-tipp-punkt { animation: sl-zug 1.6s ease-in-out infinite; }
-
-@keyframes sl-zug {
-  0% { transform: translateY(0); opacity: 1; }
-  60% { transform: translateY(40px); opacity: 1; }
-  75% { transform: translateY(40px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 0; }
-}
-
-.sl-rekord {
-  padding: 4px 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #bfeec4, #3FA34D);
-  color: #123f19;
-  font-weight: 950;
-  letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(63, 163, 77, 0.45);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sl-tipp-punkt { animation: none; transform: translateY(20px); }
-}
-
-/* ===========================================================================
-   Eisstock
-   ---------------------------------------------------------------------------
-   In der Farbe des Bereichs Konzentration. Die Eisbahn von oben, hochkant auf
-   einem hohen Bild und quer auf einem breiten (eisstock.js setzt data-lage).
-   Gewischt wird auf der ganzen Bühne.
-   =========================================================================== */
-
-.es-stage {
-  --cm-accent: #00A5B5;
-  --cm-accent-dark: #00707c;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.es-stage:not([data-phase="intro"]) .es-prompt { opacity: 0; }
-
-.es-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Der Hinweis vor dem ersten Stein: ein Wisch, der am Ende abbiegt – vom
-   Stein aus nach vorn, also nach oben oder, quer, nach rechts. */
-.es-tipp {
-  position: absolute;
-  bottom: 11%;
-  left: 50%;
-  width: clamp(40px, 13%, 60px);
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-}
-.es-feld[data-lage="quer"] .es-tipp {
-  top: 50%;
-  bottom: auto;
-  left: 17%;
-  width: clamp(36px, 7%, 56px);
-  transform: translate(-50%, -50%) rotate(90deg);
-}
-.es-stage[data-phase="intro"] .es-tipp { opacity: 0.95; }
-.es-tipp svg { width: 100%; height: auto; display: block; }
-.es-tipp-weg {
-  stroke-dasharray: 90;
-  stroke-dashoffset: 90;
-  animation: es-wisch 1.7s ease-in-out infinite;
-}
-
-@keyframes es-wisch {
-  0% { stroke-dashoffset: 90; opacity: 1; }
-  65% { stroke-dashoffset: 0; opacity: 1; }
-  100% { stroke-dashoffset: 0; opacity: 0; }
-}
-
-.es-rekord {
-  padding: 4px 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #9ff0f7, #00A5B5);
-  color: #00444b;
-  font-weight: 950;
-  letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(0, 165, 181, 0.45);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .es-tipp-weg { animation: none; stroke-dashoffset: 0; }
-}
-
-/* ===========================================================================
-   Taktgefühl
-   ---------------------------------------------------------------------------
-   In der Farbe des Bereichs Gedächtnis. Drei Bahnen auf dunkler Bühne,
-   unten die Kreise, auf die die Noten fallen – gezeichnet von takt.js.
-   Getippt wird auf die ganze Bühne; die Bahn sagt, wo.
-   =========================================================================== */
-
-.tk-stage {
-  --cm-accent: #7C5CE6;
-  --cm-accent-dark: #5a41b8;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.tk-stage:not([data-phase="intro"]) .tk-prompt { opacity: 0; }
-
-.tk-feld { background: #1a1033; }
-
-.tk-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Der Hinweis vor dem ersten Tipp: auf dem mittleren Kreis. */
-.tk-tipp {
-  position: absolute;
-  top: 84%;
-  left: 50%;
-  width: clamp(40px, 9%, 60px);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-}
-.tk-stage[data-phase="intro"] .tk-tipp { opacity: 0.95; }
-.tk-tipp svg { width: 100%; height: auto; display: block; }
-.tk-tipp-ring { transform-origin: 32px 32px; animation: tk-tipp 1.4s ease-out infinite; }
-.tk-tipp-ring.is-spaet { animation-delay: 0.7s; }
-
-@keyframes tk-tipp {
-  0% { transform: scale(0.65); opacity: 0.9; }
-  70% { transform: scale(2); opacity: 0; }
-  100% { transform: scale(2); opacity: 0; }
-}
-
-.tk-rekord {
-  padding: 4px 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #d9cdff, #7C5CE6);
-  color: #2a1a66;
-  font-weight: 950;
-  letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(124, 92, 230, 0.45);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tk-tipp-ring { animation: none; opacity: 0.35; }
 }
 
 /* ===========================================================================
