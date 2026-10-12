@@ -54,7 +54,6 @@
 
   const seitenLink = (id) => `/turnier?t=${encodeURIComponent(id)}`;
   const spielLink = (id, spiel) => `${mini()?.spielLink?.(spiel) || "/"}?turnier=${encodeURIComponent(id)}`;
-  const ohneTurnier = (spiel) => mini()?.spielLink?.(spiel) || "/";
   const volleAdresse = (id) => `${window.location.origin}${seitenLink(id)}`;
 
   // ---------------------------------------------------------------------------
@@ -153,43 +152,6 @@
   function versucheWort(t) {
     if (!t.versuche) return "beliebig viele Versuche";
     return t.versuche === 1 ? "einen Versuch" : `${t.versuche} Versuche`;
-  }
-
-  // Was die Tafel vor dem Spiel und die Turnierseite sagen. Ganze Sätze statt
-  // Stichworte: Wer über einen Link hereinkommt, hat das Turnier nicht
-  // angelegt und kennt keine der Einstellungen.
-  function wieGezaehltWird(t) {
-    if (t.zaehlt === "summe") return "Deine Versuche werden zusammengezählt.";
-    return t.versuche === 1 ? "Es zählt, was du in diesem einen Versuch schaffst." : "Es zählt dein bester Versuch.";
-  }
-
-  function regeln(t) {
-    const saetze = [ohneEnde(t)
-      ? `Es läuft ab ${datum(t.startMs)} ohne Zeitlimite – bis es angehalten wird.`
-      : `Es läuft ${zeitraum(t)}.`];
-    if (t.spitzeWartet) {
-      saetze.push("Jedes Spiel darfst du so oft spielen, wie du willst – ausser, du liegst darin allein vorne. Dann wartest du, bis dich jemand einholt oder überholt. Wer überall vorne liegt, hat keinen Versuch mehr, bis die anderen nachziehen.");
-    } else {
-      saetze.push(t.versuche
-        ? `Je Spiel hast du ${versucheWort(t)}. Ein Versuch zählt, sobald er beginnt – auch wenn du mittendrin aufhörst.`
-        : "Jedes Spiel darfst du so oft spielen, wie du willst, solange das Turnier läuft.");
-    }
-    saetze.push(wieGezaehltWird(t));
-    if (t.aufgaben === "gleich") {
-      saetze.push(t.versuche === 1
-        ? "Alle bekommen dieselbe Aufgabe."
-        : "Alle bekommen dieselben Aufgaben: Dein erster Versuch ist derselbe wie der erste aller anderen, dein zweiter wie deren zweiter.");
-    } else {
-      saetze.push("Die Aufgaben werden jedes Mal neu gewürfelt.");
-    }
-    if (t.spiele.length > 1) {
-      saetze.push(t.wertung === "prozent"
-        ? "Gesamtwertung: In jedem Spiel bekommt der Beste 100 Punkte, alle anderen so viele, wie sie in Prozent von ihm geschafft haben. Die höchste Summe gewinnt."
-        : "Gesamtwertung: Die Plätze aus allen Spielen werden zusammengezählt, die kleinste Summe gewinnt. Wer ein Spiel auslässt, bekommt dort den Platz hinter dem Letzten.");
-    }
-    if (t.verdeckt) saetze.push("Die Rangliste bleibt bis zum Schluss verdeckt – wer vorne liegt, zeigt sich erst am Ende.");
-    if (t.ohneGeist) saetze.push("Beim Spielen läuft kein Gegner mit – weder Platz 1 noch deine Bestmarke.");
-    return saetze;
   }
 
   // ---------------------------------------------------------------------------
@@ -329,19 +291,85 @@
     return wrap;
   }
 
-  // In die Zwischenablage – und wo der Browser das nicht erlaubt (ohne https,
-  // in manchen eingebauten Browsern), über das markierte Feld.
-  async function kopiere(text, feld) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      try {
-        feld?.select?.();
-        return document.execCommand("copy");
-      } catch { return false; }
-    }
+  // ---------------------------------------------------------------------------
+  // Das Turnier als eigene App
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer im Turnier "Zum Startbildschirm" wählt, soll dort das Turnier haben:
+   * mit seinem Namen und direkt auf der Turnierseite – nicht die Mini-Games
+   * mit der Hall of Fame. Das Manifest der Site sagt "Mini-Games" und "/";
+   * sobald das Turnier gelesen ist, bekommt die Seite ein eigenes. Gebaut
+   * wird es hier, im Browser, als Blob: Ein Turnier "nur mit Link" steht so
+   * auf keinem Server in einer Datei. Die Adressen darin sind vollständig –
+   * ein Blob hat keine eigene, gegen die sich "/" auflösen liesse – und die
+   * id ist die des Turniers, damit es neben den Mini-Games als zweite App
+   * Platz hat.
+   *
+   * Safari auf dem iPhone liest ein solches Manifest nicht. Es nimmt den
+   * Namen aus apple-mobile-web-app-title und als Start die Seite, auf der
+   * man gerade ist – und die steht ja im Turnier.
+   */
+  let appFuer = "";
+  function alsApp(t) {
+    if (!t?.id || !t.name) return;
+    document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", t.name);
+    document.querySelector('meta[name="application-name"]')?.setAttribute("content", t.name);
+    const link = document.querySelector('link[rel="manifest"]');
+    const schluessel = `${t.id}\n${t.name}`;
+    if (!link || appFuer === schluessel || typeof Blob !== "function" || !window.URL?.createObjectURL) return;
+    appFuer = schluessel;
+    const quelle = link.dataset.quelle || link.href;
+    link.dataset.quelle = quelle;
+    fetch(quelle).then((antwort) => antwort.json()).then((basis) => {
+      if (appFuer !== schluessel) return;
+      const voll = (pfad) => new URL(pfad, quelle).href;
+      const start = voll(seitenLink(t.id));
+      const manifest = {
+        ...basis,
+        id: start,
+        name: t.name,
+        short_name: t.name,
+        description: `Turnier der Mini-Games: ${t.name}`,
+        start_url: start,
+        scope: voll(basis.scope || "/"),
+        icons: (Array.isArray(basis.icons) ? basis.icons : []).map((icon) => ({ ...icon, src: voll(icon.src) })),
+      };
+      const alt = link.href;
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }));
+      if (alt.startsWith("blob:")) URL.revokeObjectURL(alt);
+    }).catch(() => { appFuer = ""; });
   }
+
+  // ---------------------------------------------------------------------------
+  // Die Turniere, die dieses Gerät kennt
+  // ---------------------------------------------------------------------------
+  /*
+   * Jedes Turnier, das hier geöffnet wird – auch eines nur mit Link –, merkt
+   * sich das Gerät, das zuletzt geöffnete zuerst. Die Startseite zeigt es
+   * dann neben den öffentlichen (hinweis): Wer die App auf dem
+   * Startbildschirm hat und den Link einmal angeklickt hat, findet das
+   * Turnier dort wieder, ohne den Link noch einmal zu suchen.
+   *
+   * Auf Android teilen sich der Browser und die installierte App diesen
+   * Speicher. Auf dem iPhone nicht: Dort kennt die App auf dem
+   * Startbildschirm nur, was in ihr selbst geöffnet wurde.
+   */
+  const GEMERKT_KEY = "mini.turniere";
+  const GEMERKT_MAX = 10;
+
+  function gemerkteTurniere() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(GEMERKT_KEY) || "[]");
+      return Array.isArray(roh) ? roh.filter((id) => typeof id === "string" && id) : [];
+    } catch { return []; }
+  }
+
+  function schreibeGemerkte(liste) {
+    try { localStorage.setItem(GEMERKT_KEY, JSON.stringify(liste.slice(0, GEMERKT_MAX))); } catch { /* privater Modus */ }
+  }
+
+  const merke = (id) => { if (id) schreibeGemerkte([id, ...gemerkteTurniere().filter((x) => x !== id)]); };
+  const vergiss = (id) => schreibeGemerkte(gemerkteTurniere().filter((x) => x !== id));
 
   // ---------------------------------------------------------------------------
   // Die Turnierseite
@@ -364,11 +392,9 @@
     const inhalt = el("div", "tn-inhalt");
     wirt.append(inhalt);
 
-    const fuss = el("p", "tn-fuss");
-    const halle = el("a", "", "Alle Mini-Games und die Hall of Fame");
-    halle.href = mini()?.uebersichtLink?.() || "/";
-    fuss.append(halle);
-    wirt.append(fuss);
+    // Kein Weg hinaus zu den anderen Spielen und der Hall of Fame: Ein
+    // Turnier ist ein Raum für sich, gerade eines, das nur kennt, wer den
+    // Link hat.
 
     function hinweis(satz) {
       inhalt.innerHTML = "";
@@ -393,10 +419,13 @@
         return;
       }
       if (!stand.t) {
+        vergiss(id);
         ueberschrift.textContent = "Kein Turnier";
         hinweis("Dieses Turnier gibt es nicht (mehr). Vielleicht wurde es gelöscht – frag, wer dir den Link geschickt hat.");
         return;
       }
+      merke(id);
+      alsApp(stand.t);
       zeichne();
     }
 
@@ -423,13 +452,6 @@
 
       if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
 
-      // Wer überall vorne liegt, findet unten keinen einzigen Knopf zum
-      // Spielen. Dann soll oben stehen, warum – nicht erst auf jeder Karte.
-      if (t.spitzeWartet && stand.lage === "laeuft"
-        && t.spiele.every((spiel) => alleinVorne(listen.get(spiel) || []))) {
-        inhalt.append(el("p", "tn-wartet", "Du liegst in allen Spielen vorne – jetzt sind die anderen dran. Sobald dich jemand einholt, kannst du dort wieder spielen."));
-      }
-
       const spieleBlock = el("section", "mini-block");
       spieleBlock.append(el("h2", "", t.spiele.length === 1 ? "Das Spiel" : "Die Spiele"));
       const karten = el("div", "mini-karten");
@@ -446,18 +468,9 @@
         inhalt.append(gesamt);
       }
 
-      const regelBlock = el("section", "mini-block tn-regeln");
-      regelBlock.append(el("h2", "", "So wird gespielt"));
-      const liste = el("ul", "tn-regel-liste");
-      regeln(t).forEach((satz) => liste.append(el("li", "", satz)));
-      regelBlock.append(liste);
-      const wer = mini()?.name?.();
-      regelBlock.append(el("p", "tn-klein", wer
-        ? `Du spielst als ${wer}.`
-        : "Beim ersten Spiel trägst du deinen Namen ein – ein Konto braucht es nicht."));
-      inhalt.append(regelBlock);
-
-      if (!vorbei) inhalt.append(teilenBlock(t));
+      // Keine Regeln in Sätzen und kein Block zum Weitersagen: Was zählt –
+      // wie lange, wie viele Versuche – steht schon oben im Kopf und im
+      // Streifen darunter. Den Link zum Weitergeben gibt es im Adminbereich.
     }
 
     // Die Uhr läuft auf der Seite mit, ohne die Liste neu zu lesen: Wie lange
@@ -485,31 +498,20 @@
     karte.style.setProperty("--mini-farbe", f.hell);
     karte.style.setProperty("--mini-farbe-dunkel", f.dunkel);
 
+    // Je Spiel nur das Nötige: der Name, die Rangliste und der Knopf – oder
+    // an seiner Stelle, warum es gerade nicht geht. Kein Satz über den eigenen
+    // Stand: Der steht in der Liste.
     const kopf = el("header", "mini-karte-kopf");
     kopf.append(el("h3", "", titel(spiel)));
-    kopf.append(el("span", "mini-karte-zahl", liste.length ? zahlWort(liste.length, "Spieler", "Spieler") : "noch frei"));
     karte.append(kopf);
 
-    // Der eigene Stand. Die Versuche hängen am Gerät, nicht am Namen – gezählt
-    // wird deshalb der Eintrag dieses Geräts.
+    // Die Versuche hängen am Gerät, nicht am Namen – gezählt wird deshalb der
+    // Eintrag dieses Geräts. Vorne liegen kann dagegen auch, wer auf einem
+    // anderen Gerät mit demselben Namen gespielt hat (alleinVorne).
     const kennung = mini()?.kennungFallsDa?.() || "";
     const meiner = kennung ? eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
-    const gespielt = meiner?.versuche || 0;
-    const uebrig = t.versuche ? Math.max(0, t.versuche - gespielt) : Infinity;
+    const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
     const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
-    let mein;
-    if (!meiner) mein = t.versuche ? `Du hast ${versucheWort(t)}.` : "Du hast noch nicht gespielt.";
-    else {
-      const versuche = t.versuche ? `${gespielt} von ${t.versuche} Versuchen` : zahlWort(gespielt, "Versuch", "Versuche");
-      mein = `Du: ${meiner.punkte} ${einheit(spiel)} · ${versuche}`;
-    }
-    // Vorne liegen kann auch, wer auf einem anderen Gerät mit demselben Namen
-    // gespielt hat – dann gilt es hier genauso, ohne Eintrag dieses Geräts.
-    if (vorne) {
-      const warten = "Du liegst vorne und wartest, bis dich jemand einholt.";
-      mein = meiner ? `${mein} · ${warten}` : warten;
-    }
-    karte.append(el("p", "tn-mein", mein));
 
     const wirt = el("div", "mini-listen-wirt");
     let ganz = false;
@@ -581,42 +583,15 @@
     return tabelle;
   }
 
-  function teilenBlock(t) {
-    const block = el("section", "mini-block tn-teilen");
-    block.append(el("h2", "", "Weitersagen"));
-    block.append(el("p", "tn-klein", t.sichtbar === "alle"
-      ? "Das Turnier steht auch auf der Startseite. Mit diesem Link kommt man direkt hierher:"
-      : "Dieses Turnier steht nirgends aufgeführt – finden kann es nur, wer den Link hat:"));
-    const adresse = volleAdresse(t.id);
-    const zeile = el("div", "tn-link");
-    const feld = el("input", "tn-link-feld");
-    feld.type = "text";
-    feld.readOnly = true;
-    feld.value = adresse;
-    feld.setAttribute("aria-label", "Link zum Turnier");
-    feld.addEventListener("focus", () => feld.select());
-    zeile.append(feld);
-    const kopieren = knopf("Link kopieren", "mini-knopf-voll", async () => {
-      kopieren.textContent = (await kopiere(adresse, feld)) ? "Kopiert" : "Bitte von Hand kopieren";
-      window.setTimeout(() => { kopieren.textContent = "Link kopieren"; }, 2200);
-    });
-    zeile.append(kopieren);
-    if (typeof navigator.share === "function") {
-      zeile.append(knopf("Teilen", "mini-knopf-hell", () => {
-        navigator.share({ title: t.name, text: `Spiel mit im Turnier «${t.name}»!`, url: adresse }).catch(() => {});
-      }));
-    }
-    block.append(zeile);
-    return block;
-  }
-
   // ---------------------------------------------------------------------------
   // Auf der Startseite
   // ---------------------------------------------------------------------------
   // Ein Hinweis je öffentliches Turnier, das läuft, bald beginnt oder eben zu
   // Ende ging – ganz oben, über den Spielen: Ein Turnier, das man erst unter
   // elf Karten findet, findet niemand. Turniere "nur mit Link" stehen hier
-  // nie; die Regeln liessen die Frage nach ihnen gar nicht zu.
+  // nur für das Gerät, das sie schon einmal geöffnet hat (gemerkteTurniere) –
+  // nach allen anderen liesse sich gar nicht fragen, die Regeln lassen es
+  // nicht zu. Die eigenen stehen vorne, und sie stehen alle da.
   //
   // mini-games.js stellt dafür einen Platz bereit ([data-turnier-hinweis]).
   // Wer von beiden zuerst da ist, ist gleich: Die Startseite ruft hinweis()
@@ -625,23 +600,35 @@
   async function hinweis(platz) {
     if (!platz || platz.dataset.turnierGefuellt) return;
     platz.dataset.turnierGefuellt = "ja";
+    const wolke = cloud();
     let liste = [];
-    try { liste = (await cloud()?.oeffentlicheTurniere?.()) || []; }
-    catch (fehler) { console.warn("Die Turniere waren nicht zu lesen", fehler); return; }
+    let eigene = [];
+    try {
+      [liste, eigene] = await Promise.all([
+        wolke?.oeffentlicheTurniere?.() || [],
+        // Ein eigenes, das nicht zu lesen ist, fehlt eben – es reisst die
+        // anderen nicht mit. Eines, das es nicht mehr gibt, wird vergessen.
+        Promise.all(wolke?.turnier ? gemerkteTurniere().map((id) => wolke.turnier(id).then((t) => {
+          if (!t) vergiss(id);
+          return t;
+        }, () => null)) : []),
+      ]);
+    } catch (fehler) { console.warn("Die Turniere waren nicht zu lesen", fehler); return; }
     const jetzt = Date.now();
     const reihe = { laeuft: 0, geplant: 1, beendet: 2 };
-    const zeigen = liste
-      .filter((t) => t.aktiv && t.endeMs > jetzt - NACHLESE_MS)
-      .sort((a, b) => {
-        const la = lage(a, jetzt);
-        const lb = lage(b, jetzt);
-        if (la !== lb) return reihe[la] - reihe[lb];
-        if (la === "geplant") return a.startMs - b.startMs;
-        if (la === "beendet") return b.endeMs - a.endeMs;
-        return a.endeMs - b.endeMs;
-      })
-      .slice(0, 3);
-    zeigen.forEach((t) => platz.append(hinweisKarte(t, jetzt)));
+    const sichtbar = (t) => t?.aktiv && t.endeMs > jetzt - NACHLESE_MS;
+    const ordnung = (a, b) => {
+      const la = lage(a, jetzt);
+      const lb = lage(b, jetzt);
+      if (la !== lb) return reihe[la] - reihe[lb];
+      if (la === "geplant") return a.startMs - b.startMs;
+      if (la === "beendet") return b.endeMs - a.endeMs;
+      return a.endeMs - b.endeMs;
+    };
+    const meine = eigene.filter(sichtbar).sort(ordnung);
+    const schonDa = new Set(meine.map((t) => t.id));
+    const andere = (liste || []).filter((t) => sichtbar(t) && !schonDa.has(t.id)).sort(ordnung).slice(0, 3);
+    [...meine, ...andere].forEach((t) => platz.append(hinweisKarte(t, jetzt)));
   }
 
   function hinweisKarte(t, jetzt) {
@@ -715,6 +702,7 @@
       : Promise.reject(new Error("Firestore ist nicht geladen."));
     return fragen.then(async ([t, eintrag]) => {
       hier.t = t || null;
+      if (t) { merke(hier.id); alsApp(t); } else vergiss(hier.id);
       hier.gespielt = Math.max(hier.gespielt, eintrag?.versuche || 0);
       hier.punkte = eintrag?.punkte || 0;
       // Ob dieses Gerät vorne liegt, sagt erst die ganze Liste des Spiels –
@@ -752,16 +740,23 @@
     return hier.vorne;
   }
 
-  function versuchText(t) {
-    const naechster = hier.gespielt + 1;
-    return t.versuche ? `Versuch ${naechster} von ${t.versuche}` : `Versuch ${naechster}`;
-  }
+  /*
+   * Die Tafel über der Bühne. Wer spielen darf und einen Namen hat, sieht sie
+   * nie: Das Turnier wird geladen, und das Spiel steht da wie ohne Turnier.
+   * Gezählt wird ohnehin erst, wenn die Runde beginnt (rundeBeginnt).
+   *
+   * Sie steht nur, wenn sie etwas zu sagen hat: der Name fehlt, oder es geht
+   * nichts – alle Versuche gespielt, allein vorne, das Turnier vorbei. Sie
+   * ist ein eigenes Element und nicht die Tafel der Bühne: Die Spiele räumen
+   * jene bei jedem Neustart ab (closeOverlay), diese aber muss bleiben, bis
+   * das Turnier sie wegnimmt.
+   *
+   * Solange das Turnier lädt, liegt sie unsichtbar über der Bühne – sie hält
+   * nur die Finger vom Spiel fern. "Wird geladen" zeigt sie erst, wenn es
+   * dauert (styles.css, .tn-tor.ist-leise).
+   */
+  const direkt = () => hier.geladen && !hier.fehler && spielbar() && Boolean(mini()?.name?.());
 
-  // Die Tafel liegt über der Bühne, bis jemand "Los geht's" drückt – und
-  // wieder, wenn nichts mehr geht: alle Versuche gespielt, das Turnier vorbei.
-  // Sie ist ein eigenes Element und nicht die Tafel der Bühne: Die Spiele
-  // räumen jene bei jedem Neustart ab (closeOverlay), diese aber muss bleiben,
-  // bis das Turnier sie wegnimmt.
   function zeigeTor() {
     const host = hier.buehne?.host;
     if (!host) return;
@@ -777,7 +772,21 @@
         .forEach((typ) => hier.tor.addEventListener(typ, (ereignis) => ereignis.stopPropagation()));
     }
     host.append(hier.tor);
-    fuelleTafel(hier.tor.firstChild);
+    const box = hier.tor.firstChild;
+    hier.tor.classList.toggle("ist-leise", !hier.geladen || direkt());
+    if (direkt()) {
+      box.innerHTML = "";
+      // Nicht sofort: anBuehne kommt mitten aus dem Aufbau der Bühne
+      // (game-shell.js, mount), und das Spiel, dessen Neustart hier ausgelöst
+      // wird, ist dann selbst noch nicht fertig.
+      window.setTimeout(() => {
+        if (!hier.tor) return;
+        if (direkt()) losGehts(null);
+        else zeigeTor();
+      }, 0);
+      return;
+    }
+    fuelleTafel(box);
   }
 
   // Und eine Taste, die gar nicht auf der Tafel gedrückt wird – weil noch
@@ -794,8 +803,6 @@
 
   function fuelleTafel(box) {
     box.innerHTML = "";
-    box.append(pokal("tn-tafel-pokal"));
-    box.append(el("p", "tn-marke", "Turnier"));
     const spiel = spielHier();
     const t = hier.t;
     const satz = (text, klasse = "tn-tafel-text") => box.append(el("p", klasse, text));
@@ -805,17 +812,29 @@
       box.append(zeile);
     };
     const zumTurnier = (wort = "Zum Turnier", klasse = "mini-knopf-hell") => verweis(wort, seitenLink(hier.id), klasse);
-    const ohne = (wort = "Ohne Turnier spielen") => verweis(wort, ohneTurnier(spiel), "mini-knopf-still");
+    // Kein Weg ins Spiel ohne Turnier – nirgends. Das Turnier ist ein Raum
+    // für sich, und wer gerade nicht spielen darf (allein vorne, alle
+    // Versuche gespielt), soll auch nicht nebenan üben: Er wartet, bis ihn
+    // jemand einholt.
 
     if (!hier.geladen) { satz("Das Turnier wird geladen..."); return; }
+    // Spielen darf, wer hier ist – es fehlt nur der Name. Dann nur die Frage
+    // danach: Ohne Namen kein Turnier, die Liste fasst nach Namen zusammen,
+    // und ein Versuch ohne Namen gehörte niemandem.
+    if (!hier.fehler && spielbar()) {
+      nachDemNamen(box);
+      return;
+    }
+
+    box.append(pokal("tn-tafel-pokal"));
+    box.append(el("p", "tn-marke", "Turnier"));
     if (hier.fehler) {
       satz("Das Turnier ist gerade nicht zu haben – vielleicht fehlt die Verbindung.");
-      knoepfe(knopf("Noch einmal laden", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }), ohne());
+      knoepfe(knopf("Noch einmal laden", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }));
       return;
     }
     if (!t) {
       satz("Dieses Turnier gibt es nicht (mehr).");
-      knoepfe(ohne());
       return;
     }
 
@@ -824,22 +843,22 @@
     const l = lage(t, jetzt);
     if (!t.spiele.includes(spiel)) {
       satz(`«${titel(spiel)}» gehört nicht zu diesem Turnier.`);
-      knoepfe(zumTurnier(), ohne());
+      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
       return;
     }
     if (l === "geplant") {
       satz(`Es beginnt ${datum(t.startMs)} – in ${dauer(t.startMs - jetzt)}.`);
-      knoepfe(zumTurnier(), ohne("Schon mal üben"));
+      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
       return;
     }
     if (l === "angehalten") {
       satz("Das Turnier ist gerade angehalten. Schau später wieder vorbei.");
-      knoepfe(zumTurnier(), ohne());
+      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
       return;
     }
     if (l === "beendet") {
       satz("Das Turnier ist vorbei.");
-      knoepfe(zumTurnier("Zur Rangliste", "mini-knopf-voll"), ohne());
+      knoepfe(zumTurnier("Zur Rangliste", "mini-knopf-voll"));
       return;
     }
     if (t.spitzeWartet && hier.vorne) {
@@ -850,58 +869,35 @@
       knoepfe(
         knopf("Nachsehen", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }),
         zumTurnier(),
-        ohne("Ohne Turnier weiterspielen"),
       );
       return;
     }
-    if (!spielbar(jetzt)) {
-      satz(`Du hast ${versucheWort(t) === "einen Versuch" ? "deinen Versuch" : `alle ${versucheWort(t)}`} in «${titel(spiel)}» gespielt.`);
-      if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
-      knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"), ohne("Ohne Turnier weiterspielen"));
-      return;
-    }
+    satz(`Du hast ${versucheWort(t) === "einen Versuch" ? "deinen Versuch" : `alle ${versucheWort(t)}`} in «${titel(spiel)}» gespielt.`);
+    if (hier.punkte) satz(`Im Turnier steht für dich: ${hier.punkte} ${einheit(spiel)}.`, "tn-tafel-stand");
+    knoepfe(zumTurnier("Zum Turnier", "mini-knopf-voll"));
+  }
 
-    satz(`${titel(spiel)} · ${versuchText(t)} · ${statusText(t, jetzt)}`, "tn-tafel-spiel");
-    if (t.versuche) satz("Ein Versuch zählt, sobald er beginnt.");
-    if (t.spitzeWartet) satz("Wer allein vorne liegt, wartet, bis ihn jemand einholt.");
-    satz(wieGezaehltWird(t));
-
+  function nachDemNamen(box) {
     const form = el("form", "tn-tafel-form");
-    let feld = null;
-    const zeigeFeld = (frage) => {
-      form.querySelector(".tn-tafel-name")?.remove();
-      feld = el("input");
-      feld.type = "text";
-      feld.maxLength = mini()?.NAME_MAX || 24;
-      feld.placeholder = "Dein Name";
-      feld.value = mini()?.name?.() || "";
-      feld.autocomplete = "nickname";
-      feld.setAttribute("aria-label", "Dein Name im Turnier");
-      const zeile = el("div", "mini-namensfeld");
-      zeile.append(feld);
-      form.prepend(el("p", "tn-tafel-text", frage), zeile);
-      feld.focus();
-    };
-    const wer = mini()?.name?.();
-    if (wer) {
-      const zeile = el("p", "tn-tafel-name");
-      zeile.append(document.createTextNode(`Du spielst als ${wer}. `));
-      zeile.append(knopf("Ändern", "mini-knopf-klein", () => zeigeFeld("Wie sollen die anderen dich nennen?")));
-      form.append(zeile);
-    }
+    const feld = el("input");
+    feld.type = "text";
+    feld.maxLength = mini()?.NAME_MAX || 24;
+    feld.placeholder = "Dein Name";
+    feld.autocomplete = "nickname";
+    feld.setAttribute("aria-label", "Dein Name im Turnier");
+    const zeile = el("div", "mini-namensfeld");
+    zeile.append(feld);
     const los = el("button", "mini-knopf mini-knopf-voll tn-los", "Los geht's");
     los.type = "submit";
-    const zeile = el("div", "tn-tafel-knoepfe");
-    zeile.append(los, zumTurnier());
-    form.append(zeile);
+    const knoepfe = el("div", "tn-tafel-knoepfe");
+    knoepfe.append(los);
+    form.append(el("p", "tn-tafel-text", "Unter welchem Namen spielst du mit?"), zeile, knoepfe);
     form.addEventListener("submit", (ereignis) => {
       ereignis.preventDefault();
       losGehts(feld);
     });
     box.append(form);
-    // Ohne Namen kein Turnier: Die Liste fasst nach Namen zusammen, und ein
-    // Versuch ohne Namen gehörte niemandem.
-    if (!wer) zeigeFeld("Unter welchem Namen spielst du mit?");
+    feld.focus();
   }
 
   function losGehts(feld) {
@@ -1182,7 +1178,7 @@
   // Start
   // ---------------------------------------------------------------------------
   window.LernappTurnier = {
-    lage, dauer, datum, zeitraum, statusText, regeln, gesamtwertung, alleinVorne,
+    lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, sprache, ziel, geistLage,

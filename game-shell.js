@@ -1,10 +1,10 @@
 /*
  * game-shell.js – Die gemeinsame Bühne der Mini-Games.
  *
- * Die Landschaft als Hintergrund, die Knöpfe und der Lautsprecher oben links,
- * ein Zähler oben rechts, wahlweise ein Zeitbalken darunter, und am Schluss
- * das Ergebnis mit der Bestenliste. Alles, was ein Spiel um einen Punktestand
- * gleich braucht – und nichts vom Spiel selbst.
+ * Die Knöpfe und der Lautsprecher oben links, ein Zähler oben rechts,
+ * wahlweise ein Zeitbalken darunter, und am Schluss das Ergebnis mit der
+ * Bestenliste. Alles, was ein Spiel um einen Punktestand gleich braucht – und
+ * nichts vom Spiel selbst.
  *
  * Das Spiel bekommt eine Fläche in der Mitte und ein paar Handgriffe:
  *   setCount(n)      Zähler oben rechts
@@ -34,7 +34,6 @@
   "use strict";
 
   const art = () => window.LernappTrainArt || null;
-  const scenes = () => window.LernappScenes || null;
   const kids = () => window.LernappKids || null;
   const mini = () => window.LernappMini || null;
   // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird
@@ -70,6 +69,15 @@
       art().el("path", { d: "M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
       art().el("path", { d: "M12 13v4m-3.5 3h7", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
     ],
+    // Vier Ecken nach aussen: Vollbild. Nach innen: zurück.
+    vollbild: () => [art().el("path", {
+      d: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5", fill: "none", stroke: "currentColor",
+      "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
+    })],
+    vollbildAus: () => [art().el("path", {
+      d: "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5", fill: "none", stroke: "currentColor",
+      "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
+    })],
   };
 
   function iconButton(name, label, paths, onClick, extraClass = "") {
@@ -94,6 +102,56 @@
   }
 
   /*
+   * Der Vollbild-Knopf oben rechts, neben dem Ton-Schalter: das ganze Bild
+   * für das Spiel, ohne Adressleiste und Ränder des Browsers – auch ohne die
+   * App zu installieren.
+   *
+   * Nur wo der Browser das einer Seite erlaubt (am Computer, auf Android; auf
+   * dem iPhone nicht) und nicht in der installierten App: Die steht ohnehin
+   * ohne Browser da und holt sich das Vollbild selbst (pwa.js). Wo es keinen
+   * Knopf gibt, rückt auch die Leiste nicht für ihn zur Seite (styles.css,
+   * data-vollbild).
+   *
+   * Das Vollbild gilt für diese eine Seite. Wer zur Turnierseite zurückgeht
+   * und das nächste Spiel öffnet, tippt den Knopf dort noch einmal – ohne
+   * einen eigenen Tipp lässt kein Browser eine Seite ins Vollbild.
+   */
+  const vollbildErlaubt = () => Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const imVollbild = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+  const alsApp = () => ["(display-mode: standalone)", "(display-mode: fullscreen)"]
+    .some((frage) => window.matchMedia?.(frage).matches) || window.navigator.standalone === true;
+
+  function vollbildKnopf(host) {
+    if (!vollbildErlaubt() || alsApp()) return;
+    const knopf = el("button", "cm-vollbild");
+    knopf.type = "button";
+    const zeichne = () => {
+      const an = imVollbild();
+      const wort = an ? "Vollbild beenden" : "Vollbild";
+      knopf.replaceChildren(svg(an ? ICONS.vollbildAus() : ICONS.vollbild()));
+      knopf.setAttribute("aria-label", wort);
+      knopf.setAttribute("aria-pressed", an ? "true" : "false");
+      knopf.title = wort;
+    };
+    knopf.addEventListener("click", () => {
+      const wurzel = document.documentElement;
+      try {
+        const fertig = imVollbild()
+          ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+          : (wurzel.requestFullscreen || wurzel.webkitRequestFullscreen).call(wurzel, { navigationUI: "hide" });
+        fertig?.catch?.(() => {});
+      } catch { /* Der Browser wollte nicht – dann bleibt es, wie es ist. */ }
+      // Die Spiele überhören Leertaste und Enter, solange ein Knopf den Fokus
+      // hat. Nach dem Tipp aufs Vollbild soll die Taste wieder dem Spiel gehören.
+      knopf.blur();
+    });
+    ["fullscreenchange", "webkitfullscreenchange"].forEach((typ) => document.addEventListener(typ, zeichne));
+    zeichne();
+    host.append(knopf);
+    host.dataset.vollbild = "da";
+  }
+
+  /*
    * Baut die Bühne.
    *
    *   host      das Element, in dem alles landet
@@ -115,18 +173,9 @@
     // Fassung wartet, bis ohnehin die Seite gewechselt wird.
     window.LernappBusy = () => host.dataset.phase === "play";
 
-    // --- Hintergrund: die Landschaft ----------------------------------------
-    // Jede Seite eine andere, der Reihe nach (mini-games.js, naechsteSzene).
-    // In der App wählt das Kind sie aus; hier wählt niemand, also drehen sie
-    // sich.
-    //
-    // Zwei davon sind dunkel: die Nacht und der Weltraum. Dort verschwand die
-    // dunkle Schrift, die auf jedem Taghimmel gut steht, im Hintergrund. Die
-    // Bühne sagt deshalb, was für ein Himmel hinter ihr liegt, und styles.css
-    // schreibt auf einem dunklen hell.
-    const szene = scenes() ? mini()?.naechsteSzene?.() || scenes().savedScene() : null;
-    if (szene) host.append(scenes().buildScene(szene));
-    host.dataset.himmel = szene?.dunkel ? "dunkel" : "hell";
+    // Keine Landschaft dahinter. In der App steht das Spiel vor der Landschaft,
+    // die das Kind ausgewählt hat; hier ist das Spiel das ganze Bild
+    // (styles.css, Die Bühne) – von einer Landschaft sähe man nichts mehr.
 
     // --- Der Lautsprecher oben links ----------------------------------------
     // Derselbe wie in der App: er kennt schon den Ton-Schalter, das Vorlesen
@@ -166,6 +215,7 @@
     count.append(countValue);
     bar.append(count);
     host.append(bar);
+    vollbildKnopf(host);
 
     // --- Zeitbalken ----------------------------------------------------------
     // Nicht jedes Spiel läuft gegen die Uhr. Ein Balken, der nie kleiner wird,

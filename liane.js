@@ -92,12 +92,14 @@
   // Tiefer darf eine Liane nicht schwingen: sonst taucht der Affe ein.
   const SICHER = WASSER + KOERPER + 3;
 
-  // Schwung statt Punkte. Eine Banane stösst den Affen kräftig nach vorn und
-  // ein wenig hinauf; ein übersprungener Ast gibt am nächsten mehr Tempo
-  // nach vorn. Beides vor allem nach vorn: Nach oben hiesse über das
-  // Blätterdach hinaus, und dort hängt keine Liane mehr.
-  const BANANE_VX = 230;
-  const BANANE_VY = 60;
+  // Schwung statt Punkte. Eine Banane stösst den Affen nach vorn und ein
+  // wenig hinauf; ein übersprungener Ast gibt am nächsten mehr Tempo nach
+  // vorn. Beides vor allem nach vorn: Nach oben hiesse über das Blätterdach
+  // hinaus, und dort hängt keine Liane mehr.
+  // Der Stoss war einmal 230 nach vorn und 60 hinauf – zu viel: Eine Banane
+  // entschied die Runde mehr als das Schwingen. Jetzt zwei Drittel davon.
+  const BANANE_VX = 153;
+  const BANANE_VY = 40;
   const WEIT_V = 85;               // je übersprungenem Ast, höchstens zwei
   const BANANE_ANTEIL = 0.3;       // vor so vielen Ästen hängt eine
 

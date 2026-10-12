@@ -97,8 +97,6 @@
   // wäre also jede erste Runde ein Rekord, und ein Rekord, den es umsonst
   // gibt, ist keiner.
   const BEST_KEY = "mini.best";
-  // Welche Landschaft zuletzt dran war. Siehe naechsteSzene().
-  const SZENE_KEY = "mini.szene";
   // Die zuletzt gelesene Auswahl. Siehe offeneSpiele().
   const OFFEN_KEY = "mini.offen";
   // Ob auf diesem Gerät der Admin angemeldet ist. Siehe adminKnopf().
@@ -233,33 +231,6 @@
     if (!spiel || !leer || !Array.isArray(leer.scores)) return null;
     const best = Math.max(0, Math.round(Number(bestwerte()[spiel]) || 0));
     return best ? { ...leer, runs: 0, scores: [best] } : null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Der Hintergrund
-  // ---------------------------------------------------------------------------
-  // In der App gehört die Landschaft dem Kind: Es spielt sie frei und wählt
-  // sie aus, und dann steht sie hinter jedem Spiel. Hier wählt niemand etwas
-  // aus – also drehen sie sich. Jede Spielseite, die geöffnet wird, nimmt die
-  // nächste: Turmbau vor der Wiese, danach der Heizer am Meer, danach der
-  // Fischteich in den Bergen.
-  //
-  // Gezählt wird auf dem Gerät, nicht gewürfelt: Zufall wiederholt sich, und
-  // zweimal dieselbe Landschaft hintereinander sähe aus, als drehe sich nichts.
-  // Ohne localStorage (privates Fenster) bleibt der Zufall als Rückfall – er
-  // ist besser als immer dieselbe.
-  function naechsteSzene() {
-    const szenen = window.LernappScenes?.SCENES;
-    if (!Array.isArray(szenen) || !szenen.length) return null;
-    let naechste = -1;
-    try {
-      const zuletzt = Number(localStorage.getItem(SZENE_KEY));
-      naechste = (Number.isFinite(zuletzt) && zuletzt >= 0 ? zuletzt + 1 : 0) % szenen.length;
-      localStorage.setItem(SZENE_KEY, String(naechste));
-    } catch {
-      naechste = Math.floor(Math.random() * szenen.length);
-    }
-    return szenen[naechste] || szenen[0];
   }
 
   // ---------------------------------------------------------------------------
@@ -1101,7 +1072,6 @@
     ziel,
     alleSpiele,
     offeneSpiele,
-    naechsteSzene,
     name,
     setzeName,
     kennung,

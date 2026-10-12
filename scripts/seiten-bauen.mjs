@@ -31,12 +31,13 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-08";
+export const FASSUNG = "2026-10-12-09";
 
-// Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
-// Startbilds der installierten App.
-const HIMMEL = "#a8ddf0";
-const SAND = "#fdf3e3";
+// Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
+// der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
+// styles.css). Früher der Himmel der Landschaft – die gibt es hinter den
+// Spielen nicht mehr.
+const GRUND = "#f7f3ff";
 
 /*
  * Die Spiele.
@@ -178,7 +179,7 @@ const kopf = ({ titel, text, viewport, manifest = true }) => `    <meta charset=
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Mini-Games" />
-    <meta name="theme-color" content="${HIMMEL}" />
+    <meta name="theme-color" content="${GRUND}" />
     <title>${titel}</title>
     <link rel="stylesheet" href="${v("styles.css")}" />
 ${manifest ? `    <link rel="manifest" href="${v("app.webmanifest")}" />\n` : ""}    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
@@ -244,9 +245,11 @@ export function turnierSeite() {
 
   Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
   Adresse; was darauf steht, baut turnier.js – wie lange es noch läuft, die
-  Spiele mit ihrer Rangliste, die Gesamtwertung, die Regeln und der Link zum
-  Weitergeben. Sie gehört zur installierten App: Wer im Turnier spielt, kommt
-  von jedem Spiel hierher zurück, auch ohne Netz.
+  Spiele mit ihrer Rangliste und die Gesamtwertung. Kein Weg hinaus zu den
+  anderen Spielen: Ein Turnier ist ein Raum für sich. Sie gehört zur
+  installierten App: Wer im Turnier spielt, kommt von jedem Spiel hierher
+  zurück, auch ohne Netz – und wer sie auf den Startbildschirm legt, legt das
+  Turnier dorthin, mit seinem Namen (turnier.js, alsApp).
 
   Nicht für Suchmaschinen: Ein Turnier "nur mit Link" soll auch dort nicht
   auftauchen.
@@ -314,8 +317,8 @@ export function manifest() {
     display: "fullscreen",
     display_override: ["fullscreen", "standalone", "minimal-ui"],
     orientation: "any",
-    background_color: SAND,
-    theme_color: HIMMEL,
+    background_color: GRUND,
+    theme_color: GRUND,
     categories: ["games"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
