@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|wf|ft|sg|bs|tb|zg|hz|ww|bw|sl|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|zg|hz|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -59,12 +59,10 @@ const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]
 //                    .cm-icon, der Name ist zum Finden da.
 //   sound-core …     Teile einer Zeichnung, die Farbe und Strich vom
 //                    Elternteil erben.
-//   sg-licht         das Licht des Signals; gefärbt wird es über
-//                    .sg-licht-gruen bzw. .sg-licht-rot.
 //   hz-zeiger        der Zeiger des Manometers; wo er steht, schreibt
 //                    heizer.js als transform-Attribut ins SVG. Eine Regel
 //                    dazu gäbe es nur, damit hier eine steht.
-const OHNE_REGEL = new Set(["sound-core", "sound-wave-wide", "rs-prompt-text", "rs-klappe", "sg-licht", "hz-zeiger"]);
+const OHNE_REGEL = new Set(["sound-core", "sound-wave-wide", "rs-prompt-text", "rs-klappe", "hz-zeiger"]);
 const brauchtRegel = (k) => UNSER.test(k) && !OHNE_REGEL.has(k) && !k.startsWith("cm-icon-");
 
 const server = spawn(process.execPath, [path.join(HIER, "local-pwa-server.cjs"), String(PORT)], { cwd: WURZEL, stdio: "ignore" });
@@ -823,60 +821,6 @@ try {
     await kontext.close();
   }
 
-  // --- 3i. "Was fehlt?" auf dem schwersten Wagen ------------------------------
-  // Zehn Stücke Fracht und vier Knöpfe: der Fall, den die Anfangsseite nicht
-  // zeigt. Beide Grössen hingen einmal nur an der Höhe – hochkant wurden die
-  // Stücke vom Flexkasten zu Streifen gequetscht und die äusseren Knöpfe lagen
-  // ausserhalb des Bildes. Gemessen wird deshalb der schwerste Wagen, nicht
-  // der erste.
-  for (const [name, viewport] of [
-    ["hochkant", { width: 390, height: 844 }],
-    ["hochkant schmal", { width: 360, height: 640 }],
-    ["quer", { width: 844, height: 390 }],
-    ["quer schmal", { width: 568, height: 320 }],
-  ]) {
-    const { kontext, seite } = await neueSeite(viewport);
-    await seite.goto(`${BASIS}/wasfehlt`, { waitUntil: "load" });
-    await seite.waitForSelector(".wf-ladung", { timeout: 8000 });
-    const befund = await seite.evaluate(() => {
-      // Den schwersten Wagen herstellen, statt ihn zu erspielen: Gemessen wird
-      // das Stylesheet, nicht der Ablauf.
-      const ladung = document.querySelector(".wf-ladung");
-      ladung.style.setProperty("--wf-stuecke", "10");
-      while (ladung.children.length < 10) ladung.append(ladung.firstElementChild.cloneNode(true));
-      let wahl = document.querySelector(".wf-wahl");
-      if (!wahl) {
-        wahl = document.createElement("div");
-        wahl.className = "wf-wahl";
-        document.querySelector(".cm-play").append(wahl);
-      }
-      while (wahl.children.length < 4) {
-        const knopf = document.createElement("button");
-        knopf.className = "wf-knopf";
-        wahl.append(knopf);
-      }
-      const kasten = (e) => e.getBoundingClientRect();
-      const stuecke = [...document.querySelectorAll(".wf-stueck")].map(kasten);
-      const knoepfe = [...document.querySelectorAll(".wf-knopf")].map(kasten);
-      const wagen = kasten(document.querySelector(".wf-wagen"));
-      const drin = (r) => r.left >= -1 && r.right <= window.innerWidth + 1;
-      return {
-        form: stuecke.length ? stuecke[0].width / Math.max(1, stuecke[0].height) : 0,
-        kleinstes: Math.round(Math.min(...stuecke.map((r) => r.width))),
-        wagenDrin: drin(wagen),
-        knoepfeDrin: knoepfe.every(drin),
-        knopfBreit: knoepfe.length ? Math.round(knoepfe[0].width) : 0,
-        ueberstand: document.documentElement.scrollWidth - window.innerWidth,
-      };
-    });
-    pruefe(Math.abs(befund.form - 1) < 0.06, `Was fehlt? ${name}: die Fracht ist ${befund.form.toFixed(2)} mal so breit wie hoch – Streifen statt Kistchen.`);
-    pruefe(befund.kleinstes >= 24, `Was fehlt? ${name}: ein Stück Fracht ist nur ${befund.kleinstes} px breit.`);
-    pruefe(befund.wagenDrin, `Was fehlt? ${name}: der Wagen steht über den Rand.`);
-    pruefe(befund.knoepfeDrin, `Was fehlt? ${name}: nicht alle vier Knöpfe stehen im Bild (je ${befund.knopfBreit} px).`);
-    pruefe(befund.ueberstand <= 1, `Was fehlt? ${name}: die Seite ist ${befund.ueberstand} px zu breit.`);
-    await kontext.close();
-  }
-
   // --- 3j. Die Ergebnistafel auf einem flachen Bildschirm ---------------------
   // Dort liegt sie quer: links Punkte und Knöpfe, rechts die Bestenliste.
   // Untereinander bräuchte sie mehr Höhe, als da ist. Die Regeln dafür standen
@@ -1307,7 +1251,7 @@ try {
   // Dann sagt die Tafel warum, lässt nicht spielen – und zeigt den Weg ins
   // Spiel ohne Turnier.
   for (const [adresse, erwartet, was] of [
-    [`/signal?turnier=${HERBST}`, /gehört nicht zu diesem Turnier/, "ein Spiel, das nicht dazugehört"],
+    ["/turmbau?turnier=zufall-test2345678", /gehört nicht zu diesem Turnier/, "ein Spiel, das nicht dazugehört"],
     ["/turmbau?turnier=bald-test23456789", /beginnt/, "ein Turnier, das noch nicht angefangen hat"],
     ["/turmbau?turnier=vorbei-test2345678", /vorbei/, "ein beendetes Turnier"],
     ["/turmbau?turnier=pause-test2345678", /angehalten/, "ein angehaltenes Turnier"],
@@ -1368,12 +1312,12 @@ try {
   {
     // Hier gehört das Spiel nicht zum Turnier – die Tafel bleibt. Eine Taste,
     // die niemandem gilt, darf trotzdem keine Runde dahinter starten.
-    const { kontext, seite } = await mitTurnieren(`/signal?turnier=${HERBST}`);
+    const { kontext, seite } = await mitTurnieren("/turmbau?turnier=zufall-test2345678");
     await seite.waitForFunction(() => /gehört nicht/.test(document.querySelector(".tn-tor")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
     await seite.keyboard.press("Space");
     await seite.keyboard.press("Enter");
     await seite.waitForTimeout(300);
-    pruefe(await seite.evaluate(() => window.LernappSignal.state.phase) === "intro",
+    pruefe(await seite.evaluate(() => window.LernappTurmbau.state.phase) === "bereit",
       "Hinter der Tafel eines Turniers, in dem das Spiel nicht vorkommt, lief eine Runde an.");
     await kontext.close();
   }

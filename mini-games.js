@@ -61,16 +61,11 @@
   // und den Service Worker; scripts/pruefen.mjs hält beides zusammen.
   const SPIELE = [
     { id: "tileMemory", seite: "kacheln", page: "tiles" },
-    { id: "missingItem", seite: "wasfehlt", page: "missing" },
     { id: "fishPond", seite: "fischteich", page: "pond" },
-    { id: "goSignal", seite: "signal", page: "signal" },
     { id: "leafFlow", seite: "blaetter", page: "leaves" },
     { id: "towerStack", seite: "turmbau", page: "tower" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
-    { id: "shuntYard", seite: "weichen", page: "yard" },
-    { id: "brakePoint", seite: "bremsweg", page: "brake" },
-    { id: "trackRun", seite: "strecke", page: "track" },
   ];
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
@@ -234,7 +229,7 @@
   // In der App gehört die Landschaft dem Kind: Es spielt sie frei und wählt
   // sie aus, und dann steht sie hinter jedem Spiel. Hier wählt niemand etwas
   // aus – also drehen sie sich. Jede Spielseite, die geöffnet wird, nimmt die
-  // nächste: Turmbau vor der Wiese, danach das Signal am Meer, danach der
+  // nächste: Turmbau vor der Wiese, danach der Heizer am Meer, danach der
   // Fischteich in den Bergen.
   //
   // Gezählt wird auf dem Gerät, nicht gewürfelt: Zufall wiederholt sich, und

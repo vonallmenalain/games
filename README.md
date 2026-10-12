@@ -24,7 +24,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        elf Spielseiten, erzeugt
+    turmbau.html …        sechs Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
@@ -52,7 +52,6 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier
                           jede Zeichnung entsteht (el, shade)
     train-scenes.js       die Landschaft hinter jedem Spiel
-    strand-art.js         die Schätze für drei der Spiele
     highscore.js          welches Spiel wie heisst und wozu es gehört
     styles.css            das Aussehen
     pwa.js                Service Worker anmelden, Installation anbieten
@@ -93,63 +92,38 @@ Zeile, sonst weist die Datenbank jeden Eintrag ab. `npm run pruefen` hält die
 beiden Listen zusammen, und der Merge nach `main` bringt die Regeln nach
 Firebase.
 
-### Geister
-
-Der Streckenlauf hat ein festes Level – dieselben Lücken, dieselben Kisten,
-Meter für Meter. Genau das macht etwas möglich, was sonst keines der Spiele
-kann: Ein Lauf lässt sich aufheben und neben dem nächsten noch einmal
-abspielen. Wer `/strecke` öffnet, läuft deshalb neben den drei Besten, so wie
-sie damals gelaufen sind.
-
-Aufgezeichnet werden Stellungen, keine Tastendrücke: alle 50 Millisekunden x
-und y, drei Bytes je Stellung, als Text. Eingaben wären kleiner, verlangten
-aber eine Physik, die sich nie mehr ändern darf – eine einzige Nachbesserung
-an der Sprunghöhe, und jeder alte Geist liefe durch Wände. Stellungen sind
-stumpf und halten das aus.
-
-Sie stehen in einer eigenen Sammlung (`miniGeister`), nicht in `miniScores`:
-Die Startseite liest jedes Punkte-Dokument, um die Hall of Fame zu bauen, und
-lüde sonst bei jedem Besuch ein paar Kilobyte je Spieler mit, die dort niemand
-ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der Punktzahl und
-nur bei einem Rekord – denselben Weg durch `mini-games.js`, keinen zweiten.
-
-Jede Aufzeichnung trägt die Fassung ihres Levels (`level`, zur Zeit `"v2"`).
-Ändert sich die Strecke, zählt `LEVEL` in `strecke.js` hoch, und die alten
-Geister verschwinden aus dem Bild. Das ist der Preis dafür, dass nie einer
-läuft, der nicht mehr passt.
-
-### Warum das Tempo nicht steigt, sondern verdient wird
-
-Die erste Fassung des Streckenlaufs liess das Tempo von selbst wachsen und
-deckelte es. Damit war ein fehlerfreier Lauf für jeden dieselbe Zahl – 959,
-und wer fünfmal nicht gepatzt hatte, konnte sich nie mehr verbessern. Eine
-Bestenliste, in der oben alle gleich stehen, ist keine.
-
-Seit v2 ist Tempo ein Vorrat: Schwung. Man füllt ihn durch Genauigkeit auf –
-Absprung im letzten Meter vor einer Lücke (*Kante*), Aufkommen dicht dahinter
-(*enge Landung*) –, und er verweht umso schneller, je mehr davon da ist. Es
-gibt deshalb keine Höchstgeschwindigkeit, sondern eine Höhe, auf der sich
-Nachschub und Abfluss die Waage halten. Wer genauer springt, steht höher.
-
-Das Fenster für eine enge Landung schrumpft dabei mit dem Tempo: bei 10,5
-Metern je Sekunde sind es 250 Millisekunden Haltezeit, bei 19 noch 30 bis 100.
-Das Spiel bremst sich selbst, ohne eine Grenze zu ziehen.
-
 Geeignet ist ein Spiel, das genau eine Zahl liefert, bei der grösser besser
 ist. Spiele mit Sternen je Level taugen nicht: Am Ende hätten alle drei, und
 die Liste sagte nichts mehr.
 
 Und es soll von selbst zu einem Ende kommen: eine feste Uhr wie bei Blätter im
-Strom, eine feste Zahl Anläufe wie beim Bremsweg oder wenigstens ein Deckel wie
-beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist keine Runde
-mehr, die man jemandem schickt.
+Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
+Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
+keine Runde mehr, die man jemandem schickt.
+
+### Geister
+
+Ein Spiel mit festem Level – dieselben Hindernisse an derselben Stelle, Lauf
+für Lauf – kann seinen Lauf aufheben und neben dem nächsten noch einmal
+abspielen: Wer spielt, läuft dann neben den drei Besten, so wie sie damals
+gelaufen sind. Gebaut wurde das für den Streckenlauf; seit der entfernt ist,
+nutzt es kein Spiel. Die Technik bleibt für das nächste, das sie braucht.
+
+Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
+eine Nachbesserung an der Physik, Eingaben nicht. Sie stehen in einer eigenen
+Sammlung (`miniGeister`), nicht in `miniScores`: Die Startseite liest jedes
+Punkte-Dokument und lüde sonst bei jedem Besuch Kilobytes mit, die dort
+niemand ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der
+Punktzahl und nur bei einem Rekord (`mini-games.js`, `melde`), und jede trägt
+die Fassung ihres Levels (`level`): Ändert sich das Level, zählt das Spiel
+die Fassung hoch, und die alten Geister verschwinden aus dem Bild.
 
 ## Turniere
 
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle elf
+    Spiele            welche dazugehören, eines bis alle sechs
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

@@ -67,12 +67,11 @@ service cloud.firestore {
     // und die Sammlung füllte sich mit Spielen, die es nicht gibt.
     function miniSpiele() {
       return [
-        "tileMemory", "missingItem",
-        "fishPond", "goSignal",
+        "tileMemory",
+        "fishPond",
         "leafFlow", "towerStack",
         "numberLine",
-        "boilerRoom", "shuntYard", "brakePoint",
-        "trackRun",
+        "boilerRoom",
       ];
     }
 
@@ -145,9 +144,10 @@ service cloud.firestore {
 
     // --- Die Geister ----------------------------------------------------------
     // Ein Lauf durch ein festes Level lässt sich aufzeichnen und neben dem
-    // nächsten noch einmal abspielen. Wer den Streckenlauf öffnet, läuft
-    // deshalb nicht allein: Neben ihm laufen die drei Besten, so wie sie
-    // damals gelaufen sind.
+    // nächsten noch einmal abspielen: Wer spielt, läuft dann nicht allein,
+    // neben ihm laufen die drei Besten, so wie sie damals gelaufen sind.
+    // Gebaut für den Streckenlauf; seit der entfernt ist, nutzt es kein
+    // Spiel – die Regeln bleiben für das nächste, das es braucht.
     //
     // Warum das eine eigene Sammlung ist und nicht ein Feld in miniScores:
     // Die Startseite liest JEDES Punkte-Dokument, um die Hall of Fame zu

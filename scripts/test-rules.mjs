@@ -120,6 +120,11 @@ await darfNicht("Gast legt einen Eintrag ohne Namen an", () => gast().doc(EINTRA
 await darfNicht("Gast legt einen Eintrag mit endlos langem Namen an", () => gast().doc(EINTRAG).set(eintrag({ name: "X".repeat(25) })));
 await darfNicht("Gast legt einen Eintrag mit erfundener Kennung an", () => gast().doc("miniScores/towerStack_wer-auch-immer").set(eintrag({ spieler: "wer-auch-immer" })));
 await darfNicht("Gast legt einen Eintrag für ein erfundenes Spiel an", () => gast().doc("miniScores/schachweltmeister_mini_abcdefghijkl").set(eintrag({ game: "schachweltmeister" })));
+// Entfernte Spiele nehmen nichts mehr an – was dort steht, bleibt lesbar, bis
+// der Admin es wegräumt, aber es kommt nichts dazu.
+for (const weg of ["missingItem", "goSignal", "shuntYard", "brakePoint", "trackRun"]) {
+  await darfNicht(`Gast trägt sich ins entfernte Spiel ${weg} ein`, () => gast().doc(`miniScores/${weg}_mini_abcdefghijkl`).set(eintrag({ game: weg })));
+}
 await darfNicht("Gast legt einen Eintrag mit unmöglicher Punktzahl an", () => gast().doc(EINTRAG).set(eintrag({ punkte: 99999999 })));
 await darfNicht("Gast legt einen Eintrag mit Kommazahl an", () => gast().doc(EINTRAG).set(eintrag({ punkte: 17.5 })));
 await darfNicht("Gast schmuggelt ein eigenes Feld in den Eintrag", () => gast().doc(EINTRAG).set(eintrag({ admin: true })));
@@ -170,9 +175,9 @@ await darfNicht("Admin legt eine zweite Konfiguration an", () => admin().doc("co
 // wird. Dieselben Fragen wie bei der Bestenliste, dazu zwei eigene: Die
 // Aufzeichnung darf nicht beliebig gross werden, und ein schwacher Lauf darf
 // den guten nicht ersetzen.
-const GEIST = "miniGeister/trackRun_mini_abcdefghijkl";
+const GEIST = "miniGeister/towerStack_mini_abcdefghijkl";
 const geist = (aenderung = {}) => ({
-  game: "trackRun",
+  game: "towerStack",
   spieler: "mini_abcdefghijkl",
   name: "Alain",
   punkte: 500,
@@ -183,9 +188,9 @@ const geist = (aenderung = {}) => ({
 });
 
 await darf("Gast liest die Geister", () => gast().collection("miniGeister").get());
-await darfNicht("Gast legt einen Geist unter fremdem Dokumentnamen an", () => gast().doc("miniGeister/trackRun_mini_xxxxxxxxxxxx").set(geist()));
+await darfNicht("Gast legt einen Geist unter fremdem Dokumentnamen an", () => gast().doc("miniGeister/towerStack_mini_xxxxxxxxxxxx").set(geist()));
 await darfNicht("Gast legt einen Geist für ein erfundenes Spiel an", () => gast().doc("miniGeister/schachweltmeister_mini_abcdefghijkl").set(geist({ game: "schachweltmeister" })));
-await darfNicht("Gast legt einen Geist mit erfundener Kennung an", () => gast().doc("miniGeister/trackRun_wer-auch-immer").set(geist({ spieler: "wer-auch-immer" })));
+await darfNicht("Gast legt einen Geist mit erfundener Kennung an", () => gast().doc("miniGeister/towerStack_wer-auch-immer").set(geist({ spieler: "wer-auch-immer" })));
 await darfNicht("Gast legt einen Geist ohne Aufzeichnung an", () => gast().doc(GEIST).set(geist({ bahn: "" })));
 await darfNicht("Gast legt einen Geist mit endloser Aufzeichnung an", () => gast().doc(GEIST).set(geist({ bahn: "A".repeat(12001) })));
 await darfNicht("Gast legt einen Geist ohne Level an", () => gast().doc(GEIST).set(geist({ level: "" })));
@@ -194,7 +199,7 @@ await darfNicht("Gast legt einen Geist ohne Punkte an", () => { const g = geist(
 await darf("Gast legt seinen Geist an", () => gast().doc(GEIST).set(geist()));
 await darf("Gast ersetzt seinen Geist durch einen besseren Lauf", () => gast().doc(GEIST).set(geist({ punkte: 640, bahn: "CQoLDA0ODxA=", updatedAtMs: 2 })));
 await darfNicht("Gast ersetzt seinen Geist durch einen schwächeren Lauf", () => gast().doc(GEIST).set(geist({ punkte: 100, updatedAtMs: 3 })));
-await darfNicht("Gast schiebt seinen Geist in ein anderes Spiel", () => gast().doc(GEIST).set(geist({ game: "towerStack", punkte: 999, updatedAtMs: 4 })));
+await darfNicht("Gast schiebt seinen Geist in ein anderes Spiel", () => gast().doc(GEIST).set(geist({ game: "fishPond", punkte: 999, updatedAtMs: 4 })));
 await darfNicht("Gast löscht einen Geist", () => gast().doc(GEIST).delete());
 await darfNicht("Ein angemeldeter Fremder löscht einen Geist", () => fremder().doc(GEIST).delete());
 await darf("Admin löscht einen Geist", () => admin().doc(GEIST).delete());
@@ -302,7 +307,7 @@ await darfNicht("Gast beginnt mit Punkten, die er noch nicht gespielt hat", () =
 await darfNicht("Gast beginnt gleich mit dem zweiten Versuch", () => gast().doc(VERSUCH).set(versuch({ versuche: 2 })));
 await darfNicht("Gast beginnt einen Versuch, der schon zu ist", () => gast().doc(VERSUCH).set(versuch({ offen: false })));
 await darfNicht("Gast beginnt unter fremdem Dokumentnamen", () => gast().doc(`${OEFFENTLICH}/eintraege/towerStack_mini_xxxxxxxxxxxx`).set(versuch()));
-await darfNicht("Gast spielt ein Spiel, das nicht zum Turnier gehört", () => gast().doc(`${OEFFENTLICH}/eintraege/goSignal_mini_abcdefghijkl`).set(versuch({ game: "goSignal" })));
+await darfNicht("Gast spielt ein Spiel, das nicht zum Turnier gehört", () => gast().doc(`${OEFFENTLICH}/eintraege/leafFlow_mini_abcdefghijkl`).set(versuch({ game: "leafFlow" })));
 await darfNicht("Gast beginnt vor dem Start des Turniers", () => gast().doc("miniTurniere/bald-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
 await darfNicht("Gast beginnt nach dem Ende des Turniers", () => gast().doc("miniTurniere/vorbei-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));
 await darfNicht("Gast beginnt in einem angehaltenen Turnier", () => gast().doc("miniTurniere/pause-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set(versuch()));

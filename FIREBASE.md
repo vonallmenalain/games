@@ -20,7 +20,8 @@ Lesen darf jeder, auch ohne Konto – die Liste ist der Sinn der Sache.
 Schreiben auch, aber nur in dieser Form (`firestore.rules`). Löschen darf nur
 der Admin.
 
-Daneben `miniGeister` (die Aufzeichnungen des Streckenlaufs), `config/miniGames`
+Daneben `miniGeister` (Aufzeichnungen für Spiele mit festem Level – zur Zeit
+nutzt sie keines), `config/miniGames`
 (welche Spiele offen sind) und die Turniere:
 
 ```

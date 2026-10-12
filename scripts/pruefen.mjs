@@ -246,16 +246,20 @@ for (const s of SPIELE) {
 }
 
 // Wer würfelt, würfelt im Turnier mit dem Turnier: Sonst bekäme jeder eine
-// andere Aufgabe, und es gewänne der mit dem freundlicheren Würfel. Der
-// Streckenlauf würfelt gar nicht – sein Level steht fest.
-const OHNE_ZUFALL = new Set(["strecke.js"]);
+// andere Aufgabe, und es gewänne der mit dem freundlicheren Würfel. Ein Spiel
+// mit festem Level, das gar nicht würfelt, käme hier in eine eigene Liste.
 for (const s of SPIELE) {
-  if (OHNE_ZUFALL.has(s.js)) continue;
   const quelle = lies(s.js);
   pruefe(`${s.js} nimmt seinen Zufall aus LernappZufall.fuer("${s.spiel}")`, quelle.includes(`LernappZufall?.fuer?.("${s.spiel}")`));
   pruefe(`${s.js} stellt den Zufall zu Beginn jeder Runde zurück (zufall.neu())`, /zufall\.neu\(\)/.test(quelle));
 }
-pruefe("strecke.js würfelt nicht – sonst gehörte es in die Liste darüber", !/Math\.random/.test(lies("strecke.js")));
+
+// Entfernte Spiele bleiben entfernt: keine Seite, kein Skript, kein Eintrag in
+// den Listen. Was in der Bestenliste von ihnen steht, räumt der Admin weg.
+for (const weg of ["wasfehlt", "signal", "weichen", "bremsweg", "strecke"]) {
+  pruefe(`${weg} ist ganz weg (Seite und Skript)`, !existsSync(path.join(WURZEL, `${weg}.html`)) && !existsSync(path.join(WURZEL, `${weg}.js`)));
+}
+pruefe("strand-art.js ist mit «Was fehlt?» weg", !existsSync(path.join(WURZEL, "strand-art.js")));
 
 // Die Regeln der Turniere: anlegen nur der Admin, auflisten nur öffentliche,
 // ein Versuch zählt ab seinem Beginn.
