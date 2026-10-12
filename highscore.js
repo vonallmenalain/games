@@ -54,7 +54,6 @@
     // Gedächtnis
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
-    { id: "rhythmTap", titel: "Taktgefühl", bereich: "gedaechtnis", art: "punkte", key: "lernapp.takt", einheit: "Punkte" },
 
     // Konzentration
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
@@ -62,7 +61,6 @@
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
     { id: "boilerRoom", titel: "Der Heizer", bereich: "konzentration", art: "punkte", key: "lernapp.heizer", einheit: "Punkte" },
     { id: "dartWheel", titel: "Drehscheibe", bereich: "konzentration", art: "punkte", key: "lernapp.drehscheibe", einheit: "Punkte" },
-    { id: "iceStone", titel: "Eisstock", bereich: "konzentration", art: "punkte", key: "lernapp.eisstock", einheit: "Punkte" },
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
@@ -72,7 +70,6 @@
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
-    { id: "slingShot", titel: "Schleuder", bereich: "problemloesen", art: "punkte", key: "lernapp.schleuder", einheit: "Punkte" },
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht fest, wenn die Aufgaben durch sind. Gemessen wird deshalb
     // die beste Runde, nicht das einzelne Level.

@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|sl|es|tk|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -369,7 +369,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "slingShot", "iceStone", "rhythmTap"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
   ],
@@ -476,7 +476,7 @@ try {
       const play = kasten(document.querySelector(".cm-play"));
       const bar = kasten(document.querySelector(".cm-bar"));
       // Die Fläche des Spiels, wo es eine hat: Leinwand, Teich, Wasser.
-      const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld, .ft-pond, .bs-wasser"));
+      const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .ft-pond, .bs-wasser"));
       const sprecher = kasten(document.querySelector(".help-voice-button"));
       return {
         hoch: window.innerHeight,
@@ -487,7 +487,7 @@ try {
         play: play && { b: Math.round(play.width), h: Math.round(play.height) },
         barHoch: bar ? Math.round(bar.height) : null,
         scene: Boolean(document.querySelector(".scene")),
-        flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .sl-feld, .es-feld, .tk-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
+        flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
         grund: getComputedStyle(document.getElementById(id)).backgroundColor,
         inhalt: document.querySelector(".cm-play")?.querySelectorAll("*").length ?? 0,
         sprecher: sprecher ? Math.round(sprecher.width) : 0,
@@ -1396,9 +1396,8 @@ try {
   }
 
   // --- 4g2. Die Geschicklichkeitsspiele: derselbe Lauf -----------------------------
-  // Diese bauen ihre Welt aus dem Zufall – Pfeiler, Scheiben, Äste, die Bahn
-  // der Zielscheibe, die Wächter auf dem Eis, die Noten. Im Turnier bekommen
-  // zwei Spieler im selben Versuch dieselbe Welt.
+  // Diese bauen ihre Welt aus dem Zufall – Pfeiler, Scheiben, Äste. Im
+  // Turnier bekommen zwei Spieler im selben Versuch dieselbe Welt.
   for (const [adresse, titel, lies] of [
     ["/bruecke", "Brückenbauer", () => {
       const b = window.LernappBruecke;
@@ -1417,14 +1416,6 @@ try {
       const fruechte = l.state.fruechte.slice(0, 2).map((f) => `${f.x.toFixed(3)}/${f.y.toFixed(3)}`);
       return `${aeste.join(" ")} | ${fruechte.join(" ")}`;
     }],
-    ["/schleuder", "Schleuder", () => window.LernappSchleuder.state.plan
-      .map((p) => `${p.art}/${p.x0.toFixed(3)}/${p.y0.toFixed(3)}/${p.weite.toFixed(3)}/${p.periode.toFixed(3)}/${p.ph.toFixed(3)}/${p.wind.toFixed(3)}`).join(" ")],
-    ["/eisstock", "Eisstock", () => {
-      const plan = window.LernappEisstock.state.plan;
-      const st = plan.stumpf;
-      return `${plan.waechter.map((w) => `${w.u.toFixed(3)}/${w.v.toFixed(3)}`).join(" ")} | ${st.u.toFixed(3)}/${st.v.toFixed(3)}/${st.ru.toFixed(3)}/${st.rv.toFixed(3)}`;
-    }],
-    ["/takt", "Taktgefühl", () => window.LernappTakt.state.noten.map((n) => `${n.t.toFixed(3)}/${n.bahn}`).join(" ")],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {

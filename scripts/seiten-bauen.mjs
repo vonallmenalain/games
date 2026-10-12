@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-09";
+export const FASSUNG = "2026-10-12-10";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -92,24 +92,6 @@ export const SPIELE = [
     titel: "Lianenschwung", buehne: { id: "li-stage", klasse: "cm-stage li-stage" },
     text: "Lianenschwung: Halten heisst festhalten, Loslassen heisst fliegen – schwing den Affen über den Fluss, so weit du kommst.",
     baut: "der Fluss mit den Lianen",
-  },
-  {
-    seite: "schleuder", spiel: "slingShot", page: "sling", js: "schleuder.js",
-    titel: "Schleuder", buehne: { id: "sl-stage", klasse: "cm-stage sl-stage" },
-    text: "Schleuder: Zieh das Gummi nach unten und lass los – je weiter, desto weiter fliegt die Kugel. Acht Schüsse auf die Scheibe.",
-    baut: "die Wiese mit der Scheibe",
-  },
-  {
-    seite: "eisstock", spiel: "iceStone", page: "curling", js: "eisstock.js",
-    titel: "Eisstock", buehne: { id: "es-stage", klasse: "cm-stage es-stage" },
-    text: "Eisstock: Wisch den Stein über das Eis – die Länge gibt die Kraft, ein Bogen am Ende den Drall. Sechs Steine ins Haus.",
-    baut: "die Eisbahn mit dem Haus",
-  },
-  {
-    seite: "takt", spiel: "rhythmTap", page: "rhythm", js: "takt.js",
-    titel: "Taktgefühl", buehne: { id: "tk-stage", klasse: "cm-stage tk-stage" },
-    text: "Taktgefühl: Die Noten gleiten auf drei Bahnen herunter – tippe genau auf der Linie, im Takt der Musik.",
-    baut: "die drei Bahnen mit den Noten",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",
