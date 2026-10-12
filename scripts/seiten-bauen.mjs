@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-16";
+export const FASSUNG = "2026-10-12-17";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -98,6 +98,36 @@ export const SPIELE = [
     titel: "Tunnelflug", buehne: { id: "tf-stage", klasse: "cm-stage tf-stage" },
     text: "Tunnelflug: Halten heisst steigen, Loslassen heisst sinken – flieg durch den Tunnel, ohne die Wände zu berühren. Er wird enger, du wirst schneller.",
     baut: "der Tunnel mit dem Flugzeug",
+  },
+  {
+    seite: "drift", spiel: "driftRace", page: "drift", js: "drift.js",
+    titel: "Drift-Rennen", buehne: { id: "dt-stage", klasse: "cm-stage dt-stage" },
+    text: "Drift-Rennen: Halten heisst driften, Loslassen heisst geradeaus – jag das Auto die Passstrasse hinauf, ohne die Leitplanke zu berühren.",
+    baut: "die Passstrasse mit dem Auto",
+  },
+  {
+    seite: "planeten", spiel: "planetHop", page: "planets", js: "planeten.js",
+    titel: "Planetenhüpfer", buehne: { id: "ph-stage", klasse: "cm-stage ph-stage" },
+    text: "Planetenhüpfer: Der Astronaut läuft um den Planeten – tippe im richtigen Moment, und er springt zum nächsten. Verfehlst du ihn, treibt er ins All.",
+    baut: "das All mit den Planeten",
+  },
+  {
+    seite: "mondlandung", spiel: "moonLander", page: "moon", js: "mondlandung.js",
+    titel: "Mondlandung", buehne: { id: "ml-stage", klasse: "cm-stage ml-stage" },
+    text: "Mondlandung: Halten gibt Schub, der Finger lenkt – setz die Fähre sanft auf die nächste Plattform, bevor der Treibstoff ausgeht.",
+    baut: "der Mond mit den Plattformen",
+  },
+  {
+    seite: "schwerkraft", spiel: "gravityRun", page: "gravity", js: "schwerkraft.js",
+    titel: "Schwerkraft-Läufer", buehne: { id: "sl-stage", klasse: "cm-stage sl-stage" },
+    text: "Schwerkraft-Läufer: Tippe, und die Schwerkraft kehrt sich um – renn an Boden und Decke vorbei an Lücken, Stacheln und Blöcken. Es wird immer schneller.",
+    baut: "der Neon-Korridor mit dem Läufer",
+  },
+  {
+    seite: "huegel", spiel: "hillGlide", page: "hills", js: "huegel.js",
+    titel: "Hügelflieger", buehne: { id: "hf-stage", klasse: "cm-stage hf-stage" },
+    text: "Hügelflieger: Halten macht den Vogel schwer, Loslassen leicht – rutsch die Hügel hinab und flieg über die Kuppen, bevor die Sonne untergeht.",
+    baut: "die Hügel mit dem Vogel",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

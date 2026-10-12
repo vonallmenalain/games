@@ -738,11 +738,11 @@ h2 {
    wie diese Welt es zulässt – auf jedem gewöhnlichen Bild bis an beide
    Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
    statt oben ein Stück Welt zu verlieren. */
-.tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz {
+.tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz {
   position: absolute;
   inset: 0;
 }
-.tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld {
+.tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .dt-feld, .ph-feld, .ml-feld, .sl-feld, .hf-feld {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -757,7 +757,7 @@ h2 {
    blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
    eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
-.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt {
+.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1724,6 +1724,327 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .tf-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
+   Drift-Rennen
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Eine Passstrasse von oben, die
+   nach oben führt, darauf der rote Wagen – gezeichnet von drift.js.
+   Gehalten wird auf der ganzen Bühne.
+   =========================================================================== */
+
+.dt-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.dt-stage:not([data-phase="intro"]) .dt-prompt { opacity: 0; }
+
+/* Die Strasse führt nach oben: Die Fläche füllt die ganze Breite, die Welt
+   rechnet drift.js aus jeder Form (mindestens 340 breit und 520 hoch). */
+.dt-feld { width: 100%; background: #76b04a; }
+
+.dt-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck. */
+.dt-tipp {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.dt-stage[data-phase="intro"] .dt-tipp { opacity: 0.95; }
+.dt-tipp svg { width: 100%; height: auto; display: block; }
+.dt-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.dt-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #F5A623);
+  color: #5a3a08;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
+   Planetenhüpfer
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Gedächtnis. Das All mit seinen Planeten, darauf
+   der Astronaut – gezeichnet von planeten.js. Getippt wird auf der ganzen
+   Bühne.
+   =========================================================================== */
+
+.ph-stage {
+  --cm-accent: #7C5CE6;
+  --cm-accent-dark: #5a41b8;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ph-stage:not([data-phase="intro"]) .ph-prompt { opacity: 0; }
+
+/* Es geht nach oben: Die Fläche füllt die ganze Breite, die Welt rechnet
+   planeten.js aus jeder Form (mindestens 320 breit und 520 hoch). */
+.ph-feld { width: 100%; background: #05061a; }
+
+.ph-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Tipp: ein Ring, der sich zusammenzieht – tippen,
+   nicht halten. */
+.ph-tipp {
+  position: absolute;
+  top: 66%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.ph-stage[data-phase="intro"] .ph-tipp { opacity: 0.95; }
+.ph-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.ph-tipp-ring {
+  transform-origin: 32px 32px;
+  animation: ph-tipp 1.3s ease-out infinite;
+}
+
+@keyframes ph-tipp {
+  0% { transform: scale(1.35); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: scale(0.75); opacity: 0; }
+}
+
+.ph-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d9c9ff, #7C5CE6);
+  color: #2a1a66;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(124, 92, 230, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-tipp-ring { animation: none; }
+}
+
+/* ===========================================================================
+   Mondlandung
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Problemlösen. Der Mond mit seinen Plattformen,
+   darüber die Erde – gezeichnet von mondlandung.js. Gehalten wird auf der
+   ganzen Bühne; wohin der Finger zeigt, dorthin neigt sich die Fähre.
+   =========================================================================== */
+
+.ml-stage {
+  --cm-accent: #3FA34D;
+  --cm-accent-dark: #2c7337;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ml-stage:not([data-phase="intro"]) .ml-prompt { opacity: 0; }
+
+.ml-feld { width: 100%; background: #020309; }
+
+.ml-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ml-tipp {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.ml-stage[data-phase="intro"] .ml-tipp { opacity: 0.95; }
+.ml-tipp svg { width: 100%; height: auto; display: block; }
+.ml-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.ml-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b6f0be, #3FA34D);
+  color: #123d1a;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(63, 163, 77, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
+   Schwerkraft-Läufer
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Zahl und Buchstabe. Ein Neon-Korridor vor einer
+   gestreiften Sonne, darin der Roboter – gezeichnet von schwerkraft.js.
+   Getippt wird auf der ganzen Bühne.
+   =========================================================================== */
+
+.sl-stage {
+  --cm-accent: #E8543F;
+  --cm-accent-dark: #a8321f;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sl-stage:not([data-phase="intro"]) .sl-prompt { opacity: 0; }
+
+/* Bis 13 zu 5, wie die breiteste Welt von schwerkraft.js (WELT_W_MAX 780
+   bei SICHT_H 300). */
+.sl-feld { aspect-ratio: 13 / 5; background: #0b0424; }
+
+.sl-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sl-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.sl-stage[data-phase="intro"] .sl-tipp { opacity: 0.95; }
+.sl-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.sl-tipp-ring {
+  transform-origin: 32px 32px;
+  animation: ph-tipp 1.3s ease-out infinite;
+}
+
+.sl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffb3c8, #E8543F);
+  color: #4a1208;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(232, 84, 63, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-tipp-ring { animation: none; }
+}
+
+/* ===========================================================================
+   Hügelflieger
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Gestreifte Hügel unter einem
+   Himmel, der in einer Minute vom Mittag zum Abend wird – gezeichnet von
+   huegel.js. Gehalten wird auf der ganzen Bühne.
+   =========================================================================== */
+
+.hf-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hf-stage:not([data-phase="intro"]) .hf-prompt { opacity: 0; }
+
+/* Die Fläche füllt die ganze Breite; huegel.js zeigt mindestens 380 breit
+   und 300 hoch und zoomt hinaus, wenn der Vogel hoch fliegt. */
+.hf-feld { width: 100%; background: #9fd8ff; }
+
+.hf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hf-tipp {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+.hf-stage[data-phase="intro"] .hf-tipp { opacity: 0.95; }
+.hf-tipp svg { width: 100%; height: auto; display: block; }
+.hf-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.hf-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #F5A623);
+  color: #5a3a08;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-tipp-fuell { animation: none; stroke-dashoffset: 40; }
 }
 
 /* ===========================================================================

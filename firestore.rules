@@ -70,7 +70,7 @@ service cloud.firestore {
         "tileMemory",
         "fishPond",
         "leafFlow", "towerStack", "bridgeBuilder", "dartWheel", "vineSwing",
-        "tunnelFlight",
+        "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide",
         "numberLine",
         "boilerRoom",
       ];
