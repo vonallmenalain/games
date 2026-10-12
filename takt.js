@@ -147,6 +147,7 @@
   const state = {
     phase: "bereit",
     takt: [],
+    erste: 0,             // der Schlag nach dem Einzählen: ab hier gibt es Noten
     noten: [],
     naechste: 0,          // ab hier könnte eine Note noch gespielt werden
     punkte: 0,
@@ -175,11 +176,13 @@
   const view = { dpr: 1, w: 0, h: 0 };
 
   // Die Uhr der Runde: der Ton, wenn er läuft, sonst der Browser.
-  const uhr = { ton: null, start: 0, startMs: 0, geplant: 0 };
+  // latenz: so viel später, als der Ton geplant ist, kommt er aus dem
+  // Lautsprecher. Bild und Wertung richten sich nach dem, was man hört.
+  const uhr = { ton: null, start: 0, startMs: 0, geplant: 0, latenz: 0 };
 
   function jetzt() {
     if (state.phase === "bereit") return -1;
-    if (uhr.ton) return uhr.ton.currentTime - uhr.start;
+    if (uhr.ton) return uhr.ton.currentTime - uhr.latenz - uhr.start;
     return (performance.now() - uhr.startMs) / 1000;
   }
 
@@ -327,7 +330,7 @@
   function masse() {
     const W = view.w;
     const H = view.h;
-    const bahnW = Math.min(W / BAHNEN, H * 0.3, 150);
+    const bahnW = Math.min(W / BAHNEN, Math.max(H * 0.5, 120), 200);
     const links = (W - bahnW * BAHNEN) / 2;
     const linie = H * 0.84;
     const oben = H * 0.04;
@@ -491,17 +494,22 @@
       g.textAlign = "center";
       g.font = `900 ${Math.round(gross * 1.2)}px system-ui, sans-serif`;
       const faktor = faktorBei(state.kette);
+      const text = `Kette ${state.kette}${faktor > 1 ? ` · ×${faktor}` : ""}`;
+      g.lineWidth = 4;
+      g.strokeStyle = "rgba(20, 10, 40, 0.7)";
+      g.strokeText(text, m.W / 2, m.oben + gross * 1.3);
       g.fillStyle = faktor >= 3 ? "#ffd23f" : "#ffffff";
-      g.fillText(`Kette ${state.kette}${faktor > 1 ? ` · ×${faktor}` : ""}`, m.W / 2, m.oben + gross * 1.3);
+      g.fillText(text, m.W / 2, m.oben + gross * 1.3);
     }
+    // Das Tempo, unten in der Ecke – oben fallen die Noten.
     const abschnitt = ABSCHNITTE.reduce((wahl, a) => (Math.max(0, t) >= a.ab ? a : wahl), ABSCHNITTE[0]);
     g.textAlign = "right";
     g.font = `800 ${Math.round(gross * 0.85)}px system-ui, sans-serif`;
-    g.fillStyle = "rgba(255, 255, 255, 0.7)";
-    g.fillText(`♩ ${abschnitt.bpm}`, m.W - 10, m.oben + gross * 1.3);
+    g.fillStyle = "rgba(255, 255, 255, 0.6)";
+    g.fillText(`♩ ${abschnitt.bpm}`, m.W - 12, m.H - gross * 0.9);
 
     // Das Einzählen: drei, zwei, eins, los – auf den Schlägen davor.
-    if (state.phase === "spiel" && t < state.takt[EINZAEHLEN]?.t) {
+    if (state.phase === "spiel" && t < state.erste) {
       const schlagNr = state.takt.filter((s) => !s.achtel && s.t <= t).length;
       const worte = ["", "3", "2", "1", "Los!"];
       const wort = worte[clamp(schlagNr, 0, 4)];
@@ -567,7 +575,7 @@
     }
     if (!beste) {
       // Ins Leere getippt: kostet die Kette, nicht die Punkte.
-      if (t > state.takt[EINZAEHLEN].t - 0.3) {
+      if (t > state.erste - 0.3) {
         state.daneben += 1;
         if (state.kette > 0) urteil("Daneben", bahn, "#c9b8ff", 0.9);
         kettenBruch();
@@ -614,7 +622,10 @@
     uhr.geplant = 0;
     // Ein kleiner Vorlauf, damit der erste Schlag nicht schon vorbei ist,
     // wenn der Ton anläuft.
-    if (uhr.ton) uhr.start = uhr.ton.currentTime + 0.12;
+    if (uhr.ton) {
+      uhr.start = uhr.ton.currentTime + 0.12;
+      uhr.latenz = clamp((Number(uhr.ton.outputLatency) || 0) + (Number(uhr.ton.baseLatency) || 0), 0, 0.25);
+    }
     uhr.startMs = performance.now() + 120;
     shell.startClock(RUNDE_MS, finish);
     gegner?.los();
@@ -673,6 +684,7 @@
     shell.setPhase("intro");
     state.phase = "bereit";
     state.takt = schlaege();
+    state.erste = state.takt.find((s) => !s.achtel && s.n === EINZAEHLEN).t;
     state.noten = noten(state.takt);
     state.naechste = 0;
     state.punkte = 0;
@@ -688,6 +700,7 @@
     state.zeit = 0;
     uhr.ton = null;
     uhr.geplant = 0;
+    uhr.latenz = 0;
     shell.setCount(0);
     gegner?.runde();
 

@@ -1859,9 +1859,9 @@ h2 {
    Stein aus nach vorn, also nach oben oder, quer, nach rechts. */
 .es-tipp {
   position: absolute;
-  bottom: 5%;
+  bottom: 11%;
   left: 50%;
-  width: clamp(36px, 11%, 56px);
+  width: clamp(40px, 13%, 60px);
   transform: translateX(-50%);
   opacity: 0;
   transition: opacity 0.25s ease;
@@ -1871,8 +1871,8 @@ h2 {
 .es-feld[data-lage="quer"] .es-tipp {
   top: 50%;
   bottom: auto;
-  left: 11%;
-  width: clamp(30px, 6%, 52px);
+  left: 17%;
+  width: clamp(36px, 7%, 56px);
   transform: translate(-50%, -50%) rotate(90deg);
 }
 .es-stage[data-phase="intro"] .es-tipp { opacity: 0.95; }

@@ -64,7 +64,7 @@
   const REIBUNG = 60;              // so viel Tempo verliert er je Sekunde
   const STUMPF = 2.1;              // auf der stumpfen Stelle so viel mehr
   const KURVE = 14;                // so stark zieht ganzer Drall zur Seite
-  const WISCHEN_REIBUNG = 0.72;    // gewischt: weniger Reibung ...
+  const WISCHEN_REIBUNG = 0.78;    // gewischt: weniger Reibung ...
   const WISCHEN_KURVE = 0.55;      // ... und weniger Drall
   const V_MIN = 170;
   const V_MAX = 290;
@@ -145,6 +145,7 @@
     spur: [],             // der Wisch, in Bildpunkten
     gedrueckt: false,     // während des Gleitens: es wird gewischt
     besen: 0,
+    jubel: 0,             // so lange jubelt die Tribüne noch
     teile: [],
     schriften: [],
     zeit: 0,
@@ -159,6 +160,9 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
+  // Halle und Publikum stehen still: einmal je Grösse gezeichnet, dann nur
+  // noch kopiert.
+  let kulisse = null;
 
   const view = { dpr: 1, w: 0, h: 0, s: 1, quer: false, ox: 0, oy: 0 };
 
@@ -221,6 +225,7 @@
     const ph = Math.round(h * dpr);
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
+    kulisse = null;
   }
 
   // Bahn → Bild.
@@ -256,6 +261,22 @@
   // Zeichnen
   // ---------------------------------------------------------------------------
   function zeichneHalle() {
+    if (!kulisse) {
+      const c = document.createElement("canvas");
+      c.width = canvas.width;
+      c.height = canvas.height;
+      const echt = g;
+      g = c.getContext("2d");
+      zeichneHalleNeu();
+      zeichnePublikum();
+      g = echt;
+      kulisse = c;
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(kulisse, 0, 0);
+  }
+
+  function zeichneHalleNeu() {
     bildTransform();
     const verlauf = g.createLinearGradient(0, 0, 0, view.h);
     verlauf.addColorStop(0, "#1d3550");
@@ -270,6 +291,73 @@
       schein.addColorStop(1, "rgba(255, 245, 210, 0)");
       g.fillStyle = schein;
       g.fillRect(0, 0, view.w, view.h);
+    }
+  }
+
+  // Das Publikum, von oben: Reihe um Reihe auf beiden Seiten der Bahn,
+  // Schultern und Scheitel. Zeichnet in Bahnkoordinaten, also hochkant wie
+  // quer an der richtigen Seite.
+  const JACKEN = ["#e8473f", "#f5c518", "#3d7fd1", "#3FA34D", "#7C5CE6", "#ff8a3d", "#ffffff", "#00A5B5", "#d94f9a"];
+  const HAARE = ["#3b2416", "#6b4423", "#1d1d22", "#d9b45a", "#a8562a", "#b8b8c0"];
+  function zeichnePublikum() {
+    bahnTransform();
+    const kurz = view.quer ? view.h : view.w;
+    const uMax = kurz / 2 / view.s + 6;
+    const vVon = view.quer ? -view.ox / view.s - 10 : -(view.h - view.oy) / view.s - 10;
+    const vBis = view.quer ? (view.w - view.ox) / view.s + 10 : view.oy / view.s + 10;
+    const innen = BAHN / 2 + 14;
+    // Der Boden zwischen Bande und Tribüne.
+    g.fillStyle = "#1b3047";
+    g.fillRect(-innen, vVon, innen * 2, vBis - vVon);
+    g.globalAlpha = 0.62;
+    for (const seite of [-1, 1]) {
+      for (let reihe = 0; ; reihe += 1) {
+        const u0 = innen + reihe * 13;
+        if (u0 > uMax) break;
+        g.fillStyle = reihe % 2 ? "#243f5e" : "#284766";
+        g.fillRect(seite > 0 ? u0 : -u0 - 13, vVon, 13, vBis - vVon);
+        g.fillStyle = "rgba(0, 0, 0, 0.18)";
+        g.fillRect(seite > 0 ? u0 : -u0 - 1.2, vVon, 1.2, vBis - vVon);
+        for (let v = vVon + (reihe % 2) * 7, i = 0; v < vBis; v += 14, i += 1) {
+          const h = hash01(seite * 1013 + reihe * 97.3 + i * 1.71);
+          if (h < 0.4) continue;
+          const u = seite * (u0 + 6.8) + (hash01(h * 77) - 0.5) * 1.6;
+          const vv = v + (hash01(h * 31) - 0.5) * 2.4;
+          g.fillStyle = JACKEN[Math.floor(hash01(h * 13) * JACKEN.length)];
+          g.beginPath();
+          g.ellipse(u, vv, 2.9, 4.6, 0, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = HAARE[Math.floor(hash01(h * 5.7) * HAARE.length)];
+          kreis(u - seite * 0.5, vv, 2.3);
+          if (hash01(h * 3.3) < 0.18) {
+            // Eine Mütze mit Bommel.
+            g.fillStyle = JACKEN[Math.floor(hash01(h * 2.1) * JACKEN.length)];
+            kreis(u - seite * 0.5, vv, 2.1);
+            g.fillStyle = "#ffffff";
+            kreis(u - seite * 0.5, vv, 0.8);
+          }
+        }
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  // Wenn ein Stein gut liegt, jubelt die Tribüne: Hände und Fähnchen über
+  // den Köpfen.
+  function zeichneJubel() {
+    if (state.jubel <= 0 || ruhig()) return;
+    bahnTransform();
+    const kurz = view.quer ? view.h : view.w;
+    const uMax = kurz / 2 / view.s;
+    const innen = BAHN / 2 + 14;
+    if (uMax < innen + 6) return;
+    const anzahl = Math.round(26 * Math.min(1, state.jubel));
+    for (let i = 0; i < anzahl; i += 1) {
+      const seite = Math.random() < 0.5 ? -1 : 1;
+      const u = seite * (innen + 4 + Math.random() * (uMax - innen - 4));
+      const v = HAUS - 160 + Math.random() * 260;
+      g.fillStyle = JACKEN[Math.floor(Math.random() * JACKEN.length)];
+      g.fillRect(u - 1, v - 1, 2.2, 2.2);
     }
   }
 
@@ -401,6 +489,53 @@
     kreis(bu + (Math.random() - 0.5) * 6, bv + (Math.random() - 0.5) * 6, 0.9);
   }
 
+  // Solange der Finger zieht: ein kurzer Pfeil am Stein, wohin er losgleitet
+  // und wie er dreht. Wie weit er kommt, sagt er nicht.
+  function zeichneZiel() {
+    if (state.schritt !== "wischen" || state.spur.length < 3) return;
+    const w = wurfAus(state.spur);
+    if (!w) return;
+    bahnTransform();
+    const lang = lerp(34, 70, w.kraft);
+    const su = Math.sin(w.richtung);
+    const sv = Math.cos(w.richtung);
+    const spitze = { u: su * lang, v: ABWURF + sv * lang };
+    g.save();
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.strokeStyle = "rgba(245, 197, 24, 0.75)";
+    g.lineWidth = 2.2;
+    g.setLineDash([3, 4]);
+    g.beginPath();
+    g.moveTo(su * (R + 3), ABWURF + sv * (R + 3));
+    g.lineTo(spitze.u, spitze.v);
+    g.stroke();
+    g.setLineDash([]);
+    // Der Drall: ein Haken an der Spitze, so weit gebogen, wie er dreht.
+    if (Math.abs(w.spin) > 0.08) {
+      const seite = Math.sign(w.spin);
+      const bogen = 0.5 + Math.abs(w.spin) * 1.6;
+      const r = 8;
+      const mu = spitze.u + sv * r * seite;
+      const mv = spitze.v - su * r * seite;
+      const start = Math.atan2(spitze.v - mv, spitze.u - mu);
+      const ende = start - seite * bogen;
+      g.strokeStyle = "rgba(245, 197, 24, 0.95)";
+      g.lineWidth = 2.6;
+      g.beginPath();
+      g.arc(mu, mv, r, start, ende, seite > 0);
+      g.stroke();
+      const eu = mu + Math.cos(ende) * r;
+      const ev = mv + Math.sin(ende) * r;
+      g.fillStyle = "rgba(245, 197, 24, 0.95)";
+      kreis(eu, ev, 2.2);
+    } else {
+      g.fillStyle = "rgba(245, 197, 24, 0.95)";
+      kreis(spitze.u, spitze.v, 2.2);
+    }
+    g.restore();
+  }
+
   // Der Wisch, solange der Finger zieht: eine helle Spur im Bild.
   function zeichneWisch() {
     if (state.spur.length < 2) return;
@@ -435,20 +570,21 @@
     g.textBaseline = "middle";
     g.textAlign = "left";
     const text = `Haus ${state.punkte}`;
-    const w = g.measureText(text).width + gross * 1.2;
+    const r = gross * 0.34;
+    const w = Math.max(g.measureText(text).width, r * 2.6 * STEINE - r * 0.6) + gross * 1.2;
+    const hoch = gross * 1.7 + r * 2 + 6;
     const x = 10;
     const y = 10;
-    g.fillStyle = "rgba(10, 30, 50, 0.55)";
+    g.fillStyle = "rgba(10, 26, 44, 0.82)";
     g.beginPath();
-    if (g.roundRect) g.roundRect(x, y, w, gross * 1.7, gross * 0.85);
-    else g.rect(x, y, w, gross * 1.7);
+    if (g.roundRect) g.roundRect(x, y, w, hoch, gross * 0.85);
+    else g.rect(x, y, w, hoch);
     g.fill();
     g.fillStyle = "#ffffff";
     g.fillText(text, x + gross * 0.6, y + gross * 0.86);
-    const r = gross * 0.36;
     for (let i = 0; i < STEINE; i += 1) {
-      const px = x + r + i * r * 2.6;
-      const py = y + gross * 1.7 + r + 6;
+      const px = x + gross * 0.6 + r + i * r * 2.6;
+      const py = y + gross * 1.55 + r;
       g.fillStyle = i < state.stein || (i === state.stein && state.schritt !== "warten" && state.schritt !== "wischen")
         ? "rgba(255, 255, 255, 0.3)"
         : "#f5c518";
@@ -480,6 +616,7 @@
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, canvas.width, canvas.height);
     zeichneHalle();
+    zeichneJubel();
     zeichneBahn();
     state.steine.forEach(zeichneStein);
     // Der nächste Stein wartet an der Abwurflinie.
@@ -488,6 +625,7 @@
     }
     zeichneBesen();
     zeichneTeile();
+    zeichneZiel();
     zeichneWisch();
     zeichneAnzeige();
     zeichneSchriften();
@@ -506,17 +644,20 @@
     if (ganz.f < 24) return null;
     const vorn = (view.quer ? view.w : view.h) * 0.5;
     const kraft = clamp((ganz.f - 24) / (vorn - 24), 0, 1);
-    const richtung = clamp(Math.atan2(ganz.l, ganz.f) * 0.5, -ZIEL_MAX, ZIEL_MAX);
-    // Der Drall: wie weit das letzte Drittel des Wischs von seiner ganzen
-    // Richtung abbiegt.
-    const ab = spur[Math.max(0, Math.floor(spur.length * 0.66) - 1)];
+    // Die Richtung gibt der Anfang des Wischs, die ersten zwei Drittel; der
+    // Drall ist, wie weit das letzte Drittel davon abbiegt. So lässt sich
+    // nach links zielen und nach rechts drehen – um einen Wächter herum.
+    const ab = spur[Math.max(1, Math.floor(spur.length * 0.66) - 1)];
+    const anfang = aufBahn(ab.x - a.x, ab.y - a.y);
+    const haupt = anfang.f > 12 ? anfang : ganz;
+    const richtung = clamp(Math.atan2(haupt.l, haupt.f) * 0.5, -ZIEL_MAX, ZIEL_MAX);
     const ende = aufBahn(e.x - ab.x, e.y - ab.y);
     let spin = 0;
     if (Math.hypot(ende.f, ende.l) > 6) {
-      const knick = Math.atan2(ende.l, Math.max(1, ende.f)) - Math.atan2(ganz.l, ganz.f);
+      const knick = Math.atan2(ende.l, Math.max(1, ende.f)) - Math.atan2(haupt.l, haupt.f);
       spin = clamp(knick / 0.6, -1, 1);
     }
-    return { tempo: lerp(V_MIN, V_MAX, kraft), richtung, spin };
+    return { tempo: lerp(V_MIN, V_MAX, kraft), kraft, richtung, spin };
   }
 
   function werfen(wurf) {
@@ -666,6 +807,7 @@
       state.schriften.push({ text: w ? `+${w}` : "0", u: s.u, v: s.v + 16, farbe: w >= 6 ? "#ffd23f" : "#ffffff", gross: w >= 10 ? 22 : 17, leben: 1, max: 1 });
       kids()?.playJingle?.(w >= 10 ? "unlock" : w >= 3 ? "correct" : "star");
       if (w >= 10) kids()?.vibrate?.([14, 30, 14]);
+      if (w >= 6) state.jubel = w >= 10 ? 1.6 : 1;
     } else {
       kids()?.playJingle?.("retry");
     }
@@ -704,6 +846,7 @@
   function schritt(dt) {
     state.zeit += dt;
     state.besen += dt;
+    if (state.jubel > 0) state.jubel = Math.max(0, state.jubel - dt);
     if (state.schritt === "gleiten") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n; i += 1) physik(dt / n);
@@ -756,6 +899,7 @@
     state.punkte = 0;
     state.spur = [];
     state.gedrueckt = false;
+    state.jubel = 0;
     state.teile = [];
     state.schriften = [];
     state.zeit = 0;
@@ -852,6 +996,6 @@
   // Für die Prüfskripte.
   window.LernappEisstock = {
     BAHN, LAENGE, ABWURF, HAUS, LINIE, R, RINGE, V_MIN, V_MAX, REIBUNG, KURVE, STEINE,
-    state, view, plane, wert, wurfAus, werfen, insBild,
+    state, view, plane, wert, wurfAus, werfen, insBild, physik, allesRuht,
   };
 })();

@@ -369,7 +369,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "slingShot", "iceStone", "rhythmTap"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
   ],
@@ -1290,9 +1290,10 @@ try {
     await kontext.close();
   }
 
-  // --- 4g2. Brückenbauer, Drehscheibe, Lianenschwung: derselbe Lauf ---------------
-  // Diese drei bauen ihre Welt aus dem Zufall – Pfeiler, Scheiben, Äste. Im
-  // Turnier bekommen zwei Spieler im selben Versuch dieselbe Welt.
+  // --- 4g2. Die Geschicklichkeitsspiele: derselbe Lauf -----------------------------
+  // Diese bauen ihre Welt aus dem Zufall – Pfeiler, Scheiben, Äste, die Bahn
+  // der Zielscheibe, die Wächter auf dem Eis, die Noten. Im Turnier bekommen
+  // zwei Spieler im selben Versuch dieselbe Welt.
   for (const [adresse, titel, lies] of [
     ["/bruecke", "Brückenbauer", () => {
       const b = window.LernappBruecke;
@@ -1311,6 +1312,14 @@ try {
       const fruechte = l.state.fruechte.slice(0, 2).map((f) => `${f.x.toFixed(3)}/${f.y.toFixed(3)}`);
       return `${aeste.join(" ")} | ${fruechte.join(" ")}`;
     }],
+    ["/schleuder", "Schleuder", () => window.LernappSchleuder.state.plan
+      .map((p) => `${p.art}/${p.x0.toFixed(3)}/${p.y0.toFixed(3)}/${p.weite.toFixed(3)}/${p.periode.toFixed(3)}/${p.ph.toFixed(3)}/${p.wind.toFixed(3)}`).join(" ")],
+    ["/eisstock", "Eisstock", () => {
+      const plan = window.LernappEisstock.state.plan;
+      const st = plan.stumpf;
+      return `${plan.waechter.map((w) => `${w.u.toFixed(3)}/${w.v.toFixed(3)}`).join(" ")} | ${st.u.toFixed(3)}/${st.v.toFixed(3)}/${st.ru.toFixed(3)}/${st.rv.toFixed(3)}`;
+    }],
+    ["/takt", "Taktgefühl", () => window.LernappTakt.state.noten.map((n) => `${n.t.toFixed(3)}/${n.bahn}`).join(" ")],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {

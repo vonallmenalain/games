@@ -9,7 +9,8 @@
  *
  * Acht Schüsse. Die ersten drei auf eine Scheibe, die stillsteht; dann
  * pendelt sie hin und her, dann fährt sie eine Acht, und der letzte Schuss
- * geht auf eine kleinere, schnellere. Ab dem fünften weht Wind – ein Fähnchen
+ * geht auf eine schnellere. Dabei wird sie von Schuss zu Schuss kleiner,
+ * zuletzt um fast ein Drittel. Ab dem fünften weht Wind – ein Fähnchen
  * zeigt, woher und wie stark. Keine Hilfslinie: Wie weit gezogen werden muss,
  * hat man im Gefühl oder nicht.
  *
@@ -46,8 +47,8 @@
   // ---------------------------------------------------------------------------
   const SCHUESSE = 8;
   const MITTE_Y = 2.2;             // so hoch hängt die Scheibe, in Scheibenradien
-  const X_GEWINN = 2.4;            // ganz zur Seite gezogen: so weit daneben
-  const Y_GEWINN = 4.2;            // so viel höher je ganzer Zugweite
+  const X_GEWINN = 3;              // ganz zur Seite gezogen: so weit daneben
+  const Y_GEWINN = 5.2;            // so viel höher je ganzer Zugweite
   const KRAFT_MITTE = 0.62;        // bei dieser Zugweite trifft der Stein die Höhe der Mitte
   const FLUG_MS = 560;             // so lange fliegt der Stein bis zur Scheibe
   const RUHE_MS = 950;             // bis der nächste Stein in der Schleuder liegt
@@ -103,6 +104,9 @@
   //   pendel   Schuss 4–5: hin und her
   //   acht     Schuss 6–7: eine liegende Acht
   //   klein    Schuss 8:   kleiner, und eine schnellere Acht
+  //
+  // Und von Schuss zu Schuss wird die Scheibe ein wenig kleiner.
+  const GROESSE = [1, 1, 0.95, 0.92, 0.88, 0.84, 0.8, 0.7];
   function plane() {
     const liste = [];
     for (let n = 0; n < SCHUESSE; n += 1) {
@@ -110,7 +114,7 @@
       const wind = n >= 4 ? von(0.25, lerp(0.55, 0.9, (n - 4) / 3)) * (zufall.zahl() < 0.5 ? -1 : 1) : 0;
       liste.push({
         art,
-        r: art === "klein" ? 0.72 : 1,
+        r: GROESSE[n],
         x0: art === "still" ? von(-1.2, 1.2) : 0,
         y0: art === "still" ? MITTE_Y + von(-0.35, 0.45) : MITTE_Y,
         weite: art === "pendel" ? von(1.1, 1.6) : art === "acht" ? von(1.1, 1.5) : art === "klein" ? 1.5 : 0,
@@ -137,7 +141,7 @@
   function treffpunkt(kraft, seite, wind) {
     return {
       x: -seite * X_GEWINN + wind,
-      y: MITTE_Y + (kraft - KRAFT_MITTE) * Y_GEWINN * 1.9,
+      y: MITTE_Y + (kraft - KRAFT_MITTE) * Y_GEWINN,
     };
   }
 
@@ -240,8 +244,11 @@
     const boden = horizont + k * 1.35;             // wo der Fuss des Gestells steht
     const schleuderY = H * 0.8;
     const ruhe = { x: W / 2, y: schleuderY + Math.min(W, H) * 0.02 };
-    const zugMax = Math.min(W, H) * 0.3;
-    return { W, H, horizont, k, boden, schleuderY, ruhe, zugMax };
+    const zugMax = Math.max(90, Math.min(W, H) * 0.36);
+    // Die Tasche folgt dem Finger, aber nie aus dem Bild: Auf einem flachen
+    // Bild geht sie einen kürzeren Weg als der Finger.
+    const zugBild = clamp((H - 16 - ruhe.y) / zugMax, 0.3, 1);
+    return { W, H, horizont, k, boden, schleuderY, ruhe, zugMax, zugBild };
   }
 
   // Ebene der Scheibe → Bild.
@@ -478,7 +485,7 @@
   function taschenOrt(m) {
     if (state.zug) {
       const z = zugVektor(m);
-      return { x: m.ruhe.x + z.dx, y: m.ruhe.y + z.dy };
+      return { x: m.ruhe.x + z.dx * m.zugBild, y: m.ruhe.y + z.dy * m.zugBild };
     }
     return { x: m.ruhe.x + state.gummi.x, y: m.ruhe.y + state.gummi.y };
   }
@@ -664,7 +671,7 @@
     state.zug = null;
     // Kaum gezogen: das war kein Schuss, nur ein Tipp.
     if (v.kraft < ZUG_MIN) {
-      state.gummi = { x: v.dx, y: v.dy, vx: 0, vy: 0 };
+      state.gummi = { x: v.dx * m.zugBild, y: v.dy * m.zugBild, vx: 0, vy: 0 };
       state.schritt = "warten";
       return;
     }
@@ -686,7 +693,7 @@
     };
     state.schritt = "flug";
     // Das Gummi schnellt zurück und schwingt nach.
-    state.gummi = { x: v.dx * -0.35, y: v.dy * -0.35, vx: 0, vy: 0 };
+    state.gummi = { x: v.dx * m.zugBild * -0.35, y: v.dy * m.zugBild * -0.35, vx: 0, vy: 0 };
     kids()?.vibrate?.(10);
     stepTimer = window.setTimeout(ankommen, FLUG_MS);
   }
