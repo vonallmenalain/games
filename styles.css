@@ -1300,6 +1300,315 @@ h2 {
 }
 
 /* ===========================================================================
+   Brückenbauer
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne, in der Farbe des Bereichs Problemlösen. Darauf eine breite
+   Fläche mit der Schlucht – breit, weil das Spiel quer läuft: Pfeiler,
+   Schlucht, nächster Pfeiler. Gezeichnet wird alles von bruecke.js auf eine
+   Leinwand; hier steht nur, wie gross sie ist und was darüber liegt.
+   =========================================================================== */
+
+.br-stage {
+  --cm-accent: #3FA34D;
+  --cm-accent-dark: #2c7337;
+  /* Gedrückt gehalten wird auf der ganzen Bühne. Ohne diese Zeile nähme der
+     Browser das Halten als Anlauf zum Rollen oder als langes Drücken. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.br-prompt {
+  flex: 0 0 auto;
+  min-height: 1.4em;
+  transition: opacity 0.25s ease;
+}
+.br-stage:not([data-phase="intro"]) .br-prompt { opacity: 0; }
+
+.br-platz {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Wie beim Turmbau: oben und unten festgemacht, die Breite folgt dem
+   Seitenverhältnis bis an den Rand. bruecke.js rechnet die Welt aus der Form,
+   die herauskommt. */
+.br-feld {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  aspect-ratio: 21 / 10;
+  max-width: min(92vw, 1100px);
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.br-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Genaue Treffer hintereinander. Steht nur, solange die Reihe hält. */
+.br-combo {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--cm-accent-dark);
+  font-size: clamp(0.9rem, 2.4vw, 1.15rem);
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(31, 42, 51, 0.25);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.7);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+.br-combo.is-an { opacity: 1; transform: translateX(-50%) scale(1); }
+.br-combo.is-pop { animation: br-pop 0.26s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+
+@keyframes br-pop {
+  0% { transform: translateX(-50%) scale(1); }
+  45% { transform: translateX(-50%) scale(1.15); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt. Er sagt
+   "halten", nicht "tippen". */
+.br-tipp {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(31, 42, 51, 0.45));
+}
+.br-stage[data-phase="intro"] .br-tipp { opacity: 0.95; }
+.br-tipp svg { width: 100%; height: auto; display: block; }
+.br-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: br-fuell 1.6s ease-in-out infinite;
+}
+
+@keyframes br-fuell {
+  0% { stroke-dashoffset: 139; opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+.br-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b7f0a0, #3FA34D);
+  color: #1f4f26;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(63, 163, 77, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .br-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+  .br-combo.is-pop { animation: none; }
+}
+
+/* ===========================================================================
+   Drehscheibe
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Konzentration. Eine breite Fläche, in deren Mitte
+   die Scheibe dreht – links davon die übrigen Pfeile, oben die Nummer der
+   Scheibe. Alles davon zeichnet drehscheibe.js auf die Leinwand.
+   =========================================================================== */
+
+.dr-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dr-prompt {
+  flex: 0 0 auto;
+  min-height: 1.4em;
+  transition: opacity 0.25s ease;
+}
+.dr-stage:not([data-phase="intro"]) .dr-prompt { opacity: 0; }
+
+.dr-platz {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.dr-feld {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  aspect-ratio: 21 / 10;
+  max-width: min(92vw, 1100px);
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
+.dr-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Wurf, unten, wo der Pfeil wartet. */
+.dr-tipp {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  width: clamp(40px, 12%, 64px);
+  transform: translate(-50%, 50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.dr-stage[data-phase="intro"] .dr-tipp { opacity: 0.9; }
+.dr-tipp svg { width: 100%; height: auto; display: block; }
+.dr-tipp-ring { transform-origin: 32px 32px; animation: dr-tipp 1.8s ease-out infinite; }
+.dr-tipp-ring.is-spaet { animation-delay: 0.9s; }
+
+@keyframes dr-tipp {
+  0% { transform: scale(0.55); opacity: 0.9; }
+  70% { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+.dr-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #9ff0f7, #00A5B5);
+  color: #00444b;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 165, 181, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-tipp-ring { animation: none; opacity: 0.35; }
+}
+
+/* ===========================================================================
+   Lianenschwung
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Eine breite Fläche mit dem Fluss
+   und den Ästen darüber – gezeichnet von liane.js. Gehalten wird wie beim
+   Brückenbauer auf der ganzen Bühne.
+   =========================================================================== */
+
+.li-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.li-prompt {
+  flex: 0 0 auto;
+  min-height: 1.4em;
+  transition: opacity 0.25s ease;
+}
+.li-stage:not([data-phase="intro"]) .li-prompt { opacity: 0; }
+
+.li-platz {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.li-feld {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  aspect-ratio: 21 / 10;
+  max-width: min(92vw, 1100px);
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.4);
+}
+
+.li-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck, neben dem Affen auf dem Baum. */
+.li-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.li-stage[data-phase="intro"] .li-tipp { opacity: 0.95; }
+.li-tipp svg { width: 100%; height: auto; display: block; }
+.li-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+@keyframes li-fuell {
+  0% { stroke-dashoffset: 139; opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+.li-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #F5A623);
+  color: #5a3a08;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .li-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
    Wo hält der Zug?
    ---------------------------------------------------------------------------
    Dieselbe Bühne wie die anderen Spiele, in der Farbe des Bereichs Zahl und

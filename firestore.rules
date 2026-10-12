@@ -69,7 +69,7 @@ service cloud.firestore {
       return [
         "tileMemory",
         "fishPond",
-        "leafFlow", "towerStack",
+        "leafFlow", "towerStack", "bridgeBuilder", "dartWheel", "vineSwing",
         "numberLine",
         "boilerRoom",
       ];

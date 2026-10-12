@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-04";
+export const FASSUNG = "2026-10-12-05";
 
 // Der Himmel der Landschaft: die Farbe der Leiste des Browsers und des
 // Startbilds der installierten App.
@@ -73,6 +73,24 @@ export const SPIELE = [
     titel: "Turmbau", buehne: { id: "tb-stage", klasse: "cm-stage tb-stage" },
     text: "Turmbau: ein Block schwingt über dem Turm – tippe im richtigen Moment und stapel so hoch wie du kannst.",
     baut: "die Baustelle",
+  },
+  {
+    seite: "bruecke", spiel: "bridgeBuilder", page: "bridge", js: "bruecke.js",
+    titel: "Brückenbauer", buehne: { id: "br-stage", klasse: "cm-stage br-stage" },
+    text: "Brückenbauer: Halte gedrückt, bis der Balken über die Schlucht reicht – und triff die rote Mitte des Pfeilers.",
+    baut: "die Schlucht mit den Pfeilern",
+  },
+  {
+    seite: "drehscheibe", spiel: "dartWheel", page: "wheel", js: "drehscheibe.js",
+    titel: "Drehscheibe", buehne: { id: "dr-stage", klasse: "cm-stage dr-stage" },
+    text: "Drehscheibe: Wirf Pfeil um Pfeil in die drehende Holzscheibe – ohne einen anderen zu treffen.",
+    baut: "die Scheibe mit den Pfeilen",
+  },
+  {
+    seite: "liane", spiel: "vineSwing", page: "vine", js: "liane.js",
+    titel: "Lianenschwung", buehne: { id: "li-stage", klasse: "cm-stage li-stage" },
+    text: "Lianenschwung: Halten heisst festhalten, Loslassen heisst fliegen – schwing den Affen über den Fluss, so weit du kommst.",
+    baut: "der Fluss mit den Lianen",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",
