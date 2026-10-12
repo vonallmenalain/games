@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-12-12";
+export const FASSUNG = "2026-10-12-13";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -92,6 +92,12 @@ export const SPIELE = [
     titel: "Lianenschwung", buehne: { id: "li-stage", klasse: "cm-stage li-stage" },
     text: "Lianenschwung: Halten heisst festhalten, Loslassen heisst fliegen – schwing den Affen über den Fluss, so weit du kommst.",
     baut: "der Fluss mit den Lianen",
+  },
+  {
+    seite: "tunnelflug", spiel: "tunnelFlight", page: "tunnel", js: "tunnelflug.js",
+    titel: "Tunnelflug", buehne: { id: "tf-stage", klasse: "cm-stage tf-stage" },
+    text: "Tunnelflug: Halten heisst steigen, Loslassen heisst sinken – flieg durch den Tunnel, ohne die Wände zu berühren. Er wird enger, du wirst schneller.",
+    baut: "der Tunnel mit dem Flugzeug",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

@@ -730,7 +730,7 @@ h2 {
 }
 
 /* Die Spiele mit einer Leinwand: Turmbau, Brückenbauer, Drehscheibe,
-   Lianenschwung. Die Leinwand füllt die Spielfläche; jedes Spiel rechnet
+   Lianenschwung, Tunnelflug. Die Leinwand füllt die Spielfläche; jedes Spiel rechnet
    seine Welt aus der Form, die dabei herauskommt (messen() im Spiel).
 
    Jedes hat aber eine breiteste Welt und setzt deshalb bei seinem -feld ein
@@ -738,11 +738,11 @@ h2 {
    wie diese Welt es zulässt – auf jedem gewöhnlichen Bild bis an beide
    Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
    statt oben ein Stück Welt zu verlieren. */
-.tb-platz, .br-platz, .dr-platz, .li-platz {
+.tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz {
   position: absolute;
   inset: 0;
 }
-.tb-feld, .br-feld, .dr-feld, .li-feld {
+.tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -757,7 +757,7 @@ h2 {
    blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
    eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
-.tb-prompt, .br-prompt, .dr-prompt, .li-prompt {
+.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1659,6 +1659,71 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .li-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
+   Tunnelflug
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Konzentration. Ein Tunnel aus Fels unter einem
+   Sternenhimmel, darin das Flugzeug – gezeichnet von tunnelflug.js.
+   Gehalten wird wie beim Lianenschwung auf der ganzen Bühne.
+   =========================================================================== */
+
+.tf-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tf-stage:not([data-phase="intro"]) .tf-prompt { opacity: 0; }
+
+/* Bis 32 zu 15, wie die Welt von tunnelflug.js (WELT_W_MAX 640 bei SICHT_H
+   300) – flacher fehlte oben und unten ein Stück Tunnel. */
+.tf-feld { aspect-ratio: 32 / 15; background: #070b24; }
+
+.tf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck: halten, nicht tippen. */
+.tf-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.tf-stage[data-phase="intro"] .tf-tipp { opacity: 0.95; }
+.tf-tipp svg { width: 100%; height: auto; display: block; }
+.tf-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.tf-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8ff1f8, #00A5B5);
+  color: #053c42;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 165, 181, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-tipp-fuell { animation: none; stroke-dashoffset: 40; }
 }
 
 /* ===========================================================================

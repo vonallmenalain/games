@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -369,7 +369,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
   ],
@@ -476,7 +476,7 @@ try {
       const play = kasten(document.querySelector(".cm-play"));
       const bar = kasten(document.querySelector(".cm-bar"));
       // Die Fläche des Spiels, wo es eine hat: Leinwand, Teich, Wasser.
-      const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .ft-pond, .bs-wasser"));
+      const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .ft-pond, .bs-wasser"));
       const sprecher = kasten(document.querySelector(".help-voice-button"));
       return {
         hoch: window.innerHeight,
@@ -487,7 +487,7 @@ try {
         play: play && { b: Math.round(play.width), h: Math.round(play.height) },
         barHoch: bar ? Math.round(bar.height) : null,
         scene: Boolean(document.querySelector(".scene")),
-        flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
+        flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
         grund: getComputedStyle(document.getElementById(id)).backgroundColor,
         inhalt: document.querySelector(".cm-play")?.querySelectorAll("*").length ?? 0,
         sprecher: sprecher ? Math.round(sprecher.width) : 0,
@@ -1416,6 +1416,11 @@ try {
       const bananen = l.state.anker.map((a, i) => (a.bananen ? i : -1)).filter((i) => i >= 0).join(",");
       return `${aeste.join(" ")} | ${bananen}`;
     }],
+    ["/tunnelflug", "Tunnelflug", () => {
+      const T = window.LernappTunnelflug;
+      T.tunnelBis(4000);
+      return T.state.tunnel.punkte.slice(0, 180).map((p) => `${p.oben.toFixed(3)}/${p.unten.toFixed(3)}`).join(" ");
+    }],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -1472,6 +1477,50 @@ try {
       `Loslassen von der Bananen-Liane gibt keinen Stoss nach vorn: ${JSON.stringify(befund.nachher)}`);
     pruefe(befund.fliegt === "fliegen" && befund.gewoehnlich === 260, `Eine gewöhnliche Liane gibt beim Loslassen Schwung dazu: ${befund.gewoehnlich}`);
     pruefe(await seite.evaluate(() => !("fruechte" in window.LernappLiane.state)), "Im Lianenschwung hängen noch Bananen frei in der Luft.");
+    await kontext.close();
+  }
+
+  // --- 4g4. Tunnelflug: immer fliegbar, und eine Wand beendet die Runde --------------
+  // Ein Autopilot fliegt mehrere gewürfelte Tunnel bis 2000 m: Wo er nicht
+  // durchkommt, verlangt der Tunnel mehr, als das Flugzeug kann. Und wer gar
+  // nichts drückt, sinkt auf den Boden – das ist das Ende, mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/tunnelflug`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTunnelflug?.state, null, { timeout: 8000 });
+    const fluege = await seite.evaluate(() => {
+      const T = window.LernappTunnelflug;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const st = T.state;
+        T.druecken();
+        T.loslassen();
+        let enge = Infinity;
+        for (let n = 0; st.schritt === "flug" && st.meter < 2000 && n < 400000; n += 1) {
+          const f = st.f;
+          const v = T.tempoBei(f.x);
+          let ziel = 0;
+          for (const d of [10, 25, 45, 70]) {
+            const w = T.wandBei(f.x + d * v / 200);
+            ziel += (w.oben + w.unten) / 8;   // Mittel der vier Mitten
+            enge = Math.min(enge, w.oben - w.unten);
+          }
+          if (ziel - f.y - f.vy * 0.16 > 0) T.druecken(); else T.loslassen();
+          T.takt(1 / 120);
+        }
+        T.loslassen();
+        raus.push({ meter: st.meter, schritt: st.schritt, enge: Math.round(enge) });
+      }
+      return raus;
+    });
+    pruefe(fluege.every((f) => f.meter >= 2000 && f.schritt === "flug" && f.enge >= 50),
+      `Tunnelflug: Der Autopilot kommt nicht durch jeden Tunnel – ${JSON.stringify(fluege)}`);
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.evaluate(() => { window.LernappTunnelflug.druecken(); window.LernappTunnelflug.loslassen(); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, schritt: window.LernappTunnelflug.state.schritt }));
+    pruefe(ende.schritt === "crash" && ende.zahl !== undefined, `Tunnelflug: Ohne Schub endet die Runde nicht an der Wand: ${JSON.stringify(ende)}`);
     await kontext.close();
   }
 

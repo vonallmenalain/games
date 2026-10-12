@@ -24,7 +24,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        neun Spielseiten, erzeugt
+    turmbau.html …        zehn Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
@@ -118,8 +118,8 @@ solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl schlägt.
                  damals mit, Viertelsekunde für Viertelsekunde. Im Lianenschwung
                  zusätzlich als Geist im Bild – die Strecke ist immer
                  dieselbe, also schwingt er an denselben Lianen.
-    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Fischteich,
-                 Kacheln-Knobeln: Spiele ohne Uhr. Der
+    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Tunnelflug,
+                 Fischteich, Kacheln-Knobeln: Spiele ohne Uhr. Der
                  Gegner ist eine Zahl; im Turmbau eine Linie in der Höhe
                  seines besten Turms.
 
@@ -144,7 +144,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle neun
+    Spiele            welche dazugehören, eines bis alle zehn
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
@@ -238,9 +238,10 @@ kennt die App auf dem Startbildschirm nur, was in ihr selbst geöffnet wurde.
 Jedes Spiel füllt das Bild: Die Spielfläche reicht bis an den linken, rechten
 und unteren Rand, oben bleibt ein ruhiger Streifen mit den Knöpfen, der Uhr und
 den Gegnern (`styles.css`, Die Bühne). Die Landschaft aus der App baut die
-Bühne nicht mehr auf. Vier Spiele haben eine breiteste Welt (Turmbau,
-Brückenbauer, Drehscheibe, Lianenschwung); auf einem sehr flachen Bild steht
-ihre Fläche in der Mitte, statt oben ein Stück Welt zu verlieren.
+Bühne nicht mehr auf. Die Spiele mit einer Leinwand haben eine breiteste
+Welt (Turmbau, Brückenbauer, Drehscheibe, Lianenschwung, Tunnelflug); auf
+einem sehr flachen Bild steht ihre Fläche in der Mitte, statt oben ein Stück
+Welt zu verlieren.
 
 Oben rechts, neben dem Ton, holt ein Knopf das Spiel ins Vollbild des
 Browsers – ohne Adressleiste, auch ohne die App zu installieren. Ihn gibt es
