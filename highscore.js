@@ -61,6 +61,7 @@
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
     { id: "boilerRoom", titel: "Der Heizer", bereich: "konzentration", art: "punkte", key: "lernapp.heizer", einheit: "Punkte" },
     { id: "dartWheel", titel: "Drehscheibe", bereich: "konzentration", art: "punkte", key: "lernapp.drehscheibe", einheit: "Punkte" },
+    { id: "tunnelFlight", titel: "Tunnelflug", bereich: "konzentration", art: "punkte", key: "lernapp.tunnelflug", einheit: "Meter" },
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
