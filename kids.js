@@ -233,6 +233,24 @@
       return audioContext;
     } catch { return null; }
   }
+  // Die Tonausgabe gleich bereitmachen, nicht erst beim ersten Klang: Sie
+  // einzurichten kann am Computer einen Moment dauern – mitten im Spiel stand
+  // dann das Bild still (im Schwerkraft-Läufer bei 100 m, beim ersten Ton
+  // der Runde). Angelegt wird sie, sobald die Seite Ruhe hat, geweckt beim
+  // ersten Tipp; vorher darf sie nicht klingen.
+  function bereitmachen() {
+    if (!audioEnabled()) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || audioContext) return;
+    try { audioContext = new AC(); } catch { /* dann eben beim ersten Ton */ }
+  }
+  if (typeof window !== "undefined") {
+    const spaeter = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 300));
+    spaeter(() => bereitmachen());
+    ["pointerdown", "touchstart", "keydown"].forEach((typ) => {
+      document.addEventListener(typ, () => { if (audioEnabled()) ensureAudio(); }, { capture: true, once: true, passive: true });
+    });
+  }
   function tone(freq, start, duration, type = "sine", volume = 0.05, destination = null) {
     const ctx = ensureAudio();
     if (!ctx) return;
@@ -706,6 +724,14 @@
 
   function musicPlaying() { return Boolean(musicTimer); }
 
+  // Die Seite tritt ab und macht einem Rahmen Platz (vollbild.js): kein Ton
+  // mehr von ihr, und die Tonausgabe schläft.
+  function stille() {
+    stopMusic({ fade: 0.05 });
+    stopSpeaking();
+    try { audioContext?.suspend?.(); } catch { /* egal */ }
+  }
+
   // Im Hintergrund schweigt die Musik – sonst spielt ein Tablet in der Tasche
   // weiter und frisst Akku.
   document.addEventListener("visibilitychange", () => {
@@ -924,7 +950,7 @@
     // Dampfhorn, Auspuffschläge und das Rattern der Zahnradstrecke
     playHorn, chuff, playRattle,
     // Menü-Musik
-    startMusic, stopMusic, musicPlaying,
+    startMusic, stopMusic, musicPlaying, stille,
     // Verlauf
     setLastPlayed, getLastPlayed,
     // Speicher-Helfer

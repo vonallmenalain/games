@@ -772,6 +772,52 @@ try {
     await kontext.close();
   }
 
+  // --- 3a. Das Vollbild bleibt über Seitenwechsel ------------------------------
+  // Im Browser endet ein Vollbild mit jedem Seitenwechsel. Hier nicht: Die
+  // Seite, auf der es begann, bleibt stehen, und die nächsten öffnen sich in
+  // ihrem Rahmen (vollbild.js) – wie in der installierten App.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    pruefe(await seite.locator(".mini-kopf .mini-vollbild").count() === 1, "Auf der Startseite fehlt der Knopf fürs Vollbild.");
+    const lage = () => seite.evaluate(() => {
+      const r = window.LernappVollbild?.rahmen?.();
+      let innen = null;
+      try { innen = r ? r.contentWindow.location.pathname : null; } catch { innen = "fremd"; }
+      return { voll: Boolean(document.fullscreenElement), pfad: window.location.pathname, innen, titel: document.title };
+    });
+    if (await seite.locator(".mini-kopf .mini-vollbild").count()) {
+      await seite.click(".mini-kopf .mini-vollbild");
+      await seite.waitForFunction(() => Boolean(document.fullscreenElement), null, { timeout: 3000 }).catch(() => {});
+      const spiel = SPIELE.find((s) => s.seite === "turmbau");
+      await seite.click(`.mini-karte-aktionen a[href="/${spiel.seite}"]`);
+      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".cm-bar"), null, { timeout: 8000 }).catch(() => {});
+      let jetzt = await lage();
+      pruefe(jetzt.voll && jetzt.innen === `/${spiel.seite}` && jetzt.pfad === `/${spiel.seite}` && jetzt.titel.includes(spiel.titel),
+        `Nach dem Weg ins Spiel ist das Vollbild weg oder die Seite nicht im Rahmen: ${JSON.stringify(jetzt)}`);
+      const innen = seite.frameLocator("iframe[data-vollbild-rahmen]");
+      pruefe(await innen.locator(".cm-vollbild").getAttribute("aria-pressed").catch(() => null) === "true",
+        "Im Rahmen zeigt der Knopf im Spiel nicht, dass Vollbild ist.");
+      await innen.locator(".cm-bar-left a").first().click();
+      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".mini-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
+      jetzt = await lage();
+      pruefe(jetzt.voll && jetzt.innen === "/" && jetzt.pfad === "/", `Nach dem Weg zurück ist das Vollbild weg: ${JSON.stringify(jetzt)}`);
+      await seite.goBack();
+      await seite.waitForFunction((pfad) => window.location.pathname === pfad && window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".cm-bar"), `/${spiel.seite}`, { timeout: 8000 }).catch(() => {});
+      jetzt = await lage();
+      pruefe(jetzt.voll && jetzt.innen === `/${spiel.seite}`, `Der Zurück-Weg des Browsers führt nicht ins Spiel zurück: ${JSON.stringify(jetzt)}`);
+      await seite.goBack();
+      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".mini-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
+      jetzt = await lage();
+      pruefe(jetzt.voll && jetzt.innen === "/" && jetzt.pfad === "/", `Zweimal zurück steht nicht die erste Seite da: ${JSON.stringify(jetzt)}`);
+      await innen.locator(".mini-kopf .mini-vollbild").click();
+      await seite.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).catch(() => {});
+      pruefe(!(await lage()).voll, "Mit dem Knopf im Rahmen endet das Vollbild nicht.");
+    }
+    await kontext.close();
+  }
+
   // --- 3b. Abgewählte Spiele stehen nicht da -----------------------------------
   // Der Adminbereich schreibt eine Liste, die Startseite liest sie. Dass die
   // Liste ankommt, sieht man nur hier: Eine Karte zu viel wäre ein Spiel, das
@@ -2351,7 +2397,7 @@ try {
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
     pruefe(!(await seite.evaluate(() => document.querySelector(".adm-seite").classList.contains("ist-formular"))), "Nach «Zurück zur Übersicht» bleibt der Adminbereich ausgeblendet.");
 
-    // Ein Spiel spielen: im Vollbild über dem Adminbereich, ohne dass der
+    // Ein Spiel spielen: über dem ganzen Adminbereich, ohne dass der
     // Haken daneben sich bewegt – auf der Startseite wäre das sofort
     // gespeichert.
     const auswahl = seite.locator(".adm-seite > .adm-block:not(.adm-turniere)").first();
@@ -2365,16 +2411,33 @@ try {
       `Der Knopf ▶ öffnet ${await seite.getAttribute(".adm-spiel iframe", "src")} statt /turmbau?von=admin.`);
     pruefe(await turmZeile.locator('input[type="checkbox"]').isChecked() === vorSpiel && await seite.evaluate(() => window.__miniOffen === undefined),
       "Der Knopf zum Spielen hat den Haken umgelegt.");
-    await seite.waitForFunction(() => document.fullscreenElement?.classList.contains("adm-spiel"), null, { timeout: 3000 }).catch(() => {});
-    pruefe(await seite.evaluate(() => document.fullscreenElement?.classList.contains("adm-spiel") === true), "Das Spiel aus dem Adminbereich startet nicht im Vollbild.");
+    // Nicht von selbst ins Vollbild – aber über das ganze Browserfenster.
+    const fuellt = await seite.evaluate(() => {
+      const r = document.querySelector(".adm-spiel iframe").getBoundingClientRect();
+      return { voll: Boolean(document.fullscreenElement), l: r.left, o: r.top, b: r.width - window.innerWidth, h: r.height - window.innerHeight };
+    });
+    pruefe(!fuellt.voll && fuellt.l === 0 && fuellt.o === 0 && Math.abs(fuellt.b) <= 1 && Math.abs(fuellt.h) <= 1,
+      `Das Spiel aus dem Adminbereich füllt das Fenster nicht oder geht von selbst ins Vollbild: ${JSON.stringify(fuellt)}`);
     const imSpiel = seite.frameLocator(".adm-spiel iframe");
     await imSpiel.locator(".cm-bar").waitFor({ timeout: 8000 });
     pruefe(await imSpiel.locator(".cm-bar-left a").first().getAttribute("href") === "/admin", "Im Spiel aus dem Adminbereich führt der Weg oben links nicht zurück.");
-    pruefe(await imSpiel.locator(".cm-vollbild").count() === 0, "Im Fenster des Adminbereichs steht ein zweiter Knopf fürs Vollbild.");
+    // Oben rechts der Knopf: Er bringt den Adminbereich samt Spiel ins
+    // Vollbild, und das bleibt nach dem Spiel.
+    pruefe(await imSpiel.locator(".cm-vollbild").count() === 1, "Im Spiel aus dem Adminbereich fehlt oben rechts der Knopf fürs Vollbild.");
+    if (await imSpiel.locator(".cm-vollbild").count()) {
+      await imSpiel.locator(".cm-vollbild").click();
+      await seite.waitForFunction(() => document.fullscreenElement === document.documentElement, null, { timeout: 3000 }).catch(() => {});
+      pruefe(await seite.evaluate(() => document.fullscreenElement === document.documentElement), "Der Knopf im Spiel bringt den Adminbereich nicht ins Vollbild.");
+      pruefe(await imSpiel.locator(".cm-vollbild").getAttribute("aria-pressed") === "true", "Der Knopf im Spiel zeigt nicht, dass Vollbild ist.");
+    }
     await imSpiel.locator(".cm-bar-left a").first().click();
-    await seite.waitForFunction(() => !document.querySelector(".adm-spiel") && !document.fullscreenElement, null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 4000 }).catch(() => {});
     pruefe(await seite.locator(".adm-spiel").count() === 0, "Der Weg zurück im Spiel schliesst das Fenster nicht.");
-    pruefe(await seite.evaluate(() => !document.fullscreenElement), "Nach dem Spiel bleibt der Adminbereich im Vollbild.");
+    pruefe(await seite.evaluate(() => Boolean(document.fullscreenElement)), "Nach dem Spiel endet das Vollbild – es soll bleiben, bis man es beendet.");
+    pruefe(await seite.locator(".adm-kopf .adm-vollbild[aria-pressed=\"true\"]").count() === 1, "Im Kopf des Adminbereichs fehlt der Knopf, der das Vollbild beendet.");
+    if (await seite.locator(".adm-kopf .adm-vollbild").count()) await seite.click(".adm-kopf .adm-vollbild");
+    await seite.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => !document.fullscreenElement), "Mit dem Knopf im Adminbereich endet das Vollbild nicht.");
     pruefe(await seite.locator(".adm-kopf").count() === 1 && new URL(seite.url()).pathname === "/admin", "Nach dem Spiel ist der Adminbereich weg.");
 
     // Ein Turnier, in dem wartet, wer vorne liegt: unbegrenzt für alle

@@ -378,6 +378,8 @@
     kopf.append(text);
     const zumAdmin = mini()?.adminKnopf?.();
     if (zumAdmin) kopf.append(zumAdmin);
+    const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
+    if (voll) kopf.append(voll);
     wirt.append(kopf);
 
     // Unter wessen Namen hier gespielt wird. Ein neuer Name ist im Turnier
@@ -1135,7 +1137,9 @@
     // Der Weg zurück zur Turnierseite (zurueckZumTurnier). Die Prüfung im
     // Browser setzt hier einen eigenen ein, wenn sie die Seite nicht
     // verlassen will.
-    weg: (adresse) => window.location.replace(adresse),
+    weg: (adresse) => (window.LernappVollbild
+      ? window.LernappVollbild.weiter(adresse, { ersetzen: true })
+      : window.location.replace(adresse)),
     // Nur für die Prüfung im Browser: wie der Stand auf dieser Seite ist.
     stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor) }),
   };

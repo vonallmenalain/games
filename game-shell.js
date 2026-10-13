@@ -69,15 +69,6 @@
       art().el("path", { d: "M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
       art().el("path", { d: "M12 13v4m-3.5 3h7", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
     ],
-    // Vier Ecken nach aussen: Vollbild. Nach innen: zurück.
-    vollbild: () => [art().el("path", {
-      d: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5", fill: "none", stroke: "currentColor",
-      "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
-    })],
-    vollbildAus: () => [art().el("path", {
-      d: "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5", fill: "none", stroke: "currentColor",
-      "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
-    })],
   };
 
   function iconButton(name, label, paths, onClick, extraClass = "") {
@@ -112,47 +103,14 @@
    * Knopf gibt, rückt auch die Leiste nicht für ihn zur Seite (styles.css,
    * data-vollbild).
    *
-   * Das Vollbild gilt für diese eine Seite. Wer zur Turnierseite zurückgeht
-   * und das nächste Spiel öffnet, tippt den Knopf dort noch einmal – ohne
-   * einen eigenen Tipp lässt kein Browser eine Seite ins Vollbild.
-   *
-   * Und nicht in einem Fenster einer anderen Seite: Im Adminbereich bringt
-   * das Fenster selbst das Spiel ins Vollbild (admin.js, zeigeSpiel). Ein
-   * Knopf darin zeigte "Vollbild", wo längst eines ist.
+   * Das Vollbild bleibt, bis man es selbst beendet – auch über das Ende der
+   * Runde und den Weg zurück hinaus (vollbild.js). Auch im Fenster des
+   * Adminbereichs steht der Knopf: Er bringt dort den ganzen Adminbereich ins
+   * Vollbild, mit dem Spiel darüber.
    */
-  const vollbildErlaubt = () => Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-  const imVollbild = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
-  const alsApp = () => ["(display-mode: standalone)", "(display-mode: fullscreen)"]
-    .some((frage) => window.matchMedia?.(frage).matches) || window.navigator.standalone === true;
-
-  const imFenster = () => { try { return window.self !== window.top; } catch { return true; } };
-
   function vollbildKnopf(host) {
-    if (!vollbildErlaubt() || alsApp() || imFenster()) return;
-    const knopf = el("button", "cm-vollbild");
-    knopf.type = "button";
-    const zeichne = () => {
-      const an = imVollbild();
-      const wort = an ? "Vollbild beenden" : "Vollbild";
-      knopf.replaceChildren(svg(an ? ICONS.vollbildAus() : ICONS.vollbild()));
-      knopf.setAttribute("aria-label", wort);
-      knopf.setAttribute("aria-pressed", an ? "true" : "false");
-      knopf.title = wort;
-    };
-    knopf.addEventListener("click", () => {
-      const wurzel = document.documentElement;
-      try {
-        const fertig = imVollbild()
-          ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
-          : (wurzel.requestFullscreen || wurzel.webkitRequestFullscreen).call(wurzel, { navigationUI: "hide" });
-        fertig?.catch?.(() => {});
-      } catch { /* Der Browser wollte nicht – dann bleibt es, wie es ist. */ }
-      // Die Spiele überhören Leertaste und Enter, solange ein Knopf den Fokus
-      // hat. Nach dem Tipp aufs Vollbild soll die Taste wieder dem Spiel gehören.
-      knopf.blur();
-    });
-    ["fullscreenchange", "webkitfullscreenchange"].forEach((typ) => document.addEventListener(typ, zeichne));
-    zeichne();
+    const knopf = window.LernappVollbild?.knopf?.("cm-vollbild");
+    if (!knopf) return;
     host.append(knopf);
     host.dataset.vollbild = "da";
   }

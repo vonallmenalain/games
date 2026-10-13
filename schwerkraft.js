@@ -60,6 +60,10 @@
   const WELT_W = 440;              // so viel Korridor ist mindestens zu sehen
   const WELT_W_MAX = 780;
   const LAEUFER_AN = 0.2;          // so weit vom linken Rand rennt er
+  // Im Hochformat weniger Korridor, dafür gross: Der Läufer rennt weiter
+  // links, damit vor ihm möglichst viel bleibt. Quer sieht man weiter.
+  const WELT_W_HOCH = 290;
+  const LAEUFER_AN_HOCH = 0.13;
   const METER = 10;
   const BREIT = 16;                // der Läufer: so breit …
   const GROSS = 22;                // … und so hoch
@@ -157,7 +161,7 @@
   let stepTimer = null;
   let gegner = null;
 
-  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, y0: 0 };
+  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, y0: 0, an: LAEUFER_AN };
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -434,7 +438,9 @@
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
-    view.w = clamp(SICHT_H * (cssW / cssH), WELT_W, WELT_W_MAX);
+    const hochformat = cssH > cssW * 1.05;
+    view.w = hochformat ? WELT_W_HOCH : clamp(SICHT_H * (cssW / cssH), WELT_W, WELT_W_MAX);
+    view.an = hochformat ? LAEUFER_AN_HOCH : LAEUFER_AN;
     view.s = cssW / view.w;
     view.h = cssH / view.s;
     // Der Korridor steht in der Mitte.
@@ -518,18 +524,25 @@
     }
     g.restore();
 
-    // Berge mit Neonkante.
+    // Berge mit Neonkante. Sie ziehen langsam vorbei, und jeder Gipfel
+    // bleibt dabei an seinem Platz in dieser fernen Welt: Die Punkte des
+    // Kamms gehören zu den Bergen, nicht zum Bildschirm – sonst rechnete
+    // jedes Bild die Höhen an anderen Stellen neu, und der Kamm zitterte.
+    const zug = state.camX * view.s * 0.08;
+    const schritt = 18;
     g.fillStyle = "#1a0633";
     g.strokeStyle = "#ff4fd8";
     g.lineWidth = 1.5;
     g.beginPath();
-    g.moveTo(0, horizont);
-    for (let x = 0; x <= W + 20; x += 18) {
-      const wx = (x + state.camX * view.s * 0.08) / 70;
+    g.moveTo(-schritt, horizont);
+    for (let i = Math.floor(zug / schritt) - 1; ; i += 1) {
+      const x = i * schritt - zug;
+      const wx = (i * schritt) / 70;
       const hoehe = (Math.abs(Math.sin(wx * 0.7)) * 0.6 + hash01(Math.floor(wx * 2)) * 0.4) * sr * 0.6;
       g.lineTo(x, horizont - hoehe);
+      if (x > W + schritt) break;
     }
-    g.lineTo(W + 20, horizont);
+    g.lineTo(W + schritt * 2, horizont);
     g.closePath();
     g.fill();
     g.stroke();
@@ -1076,7 +1089,7 @@
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
 
-    if (state.schritt !== "aus") state.camX = state.l.x - view.w * LAEUFER_AN;
+    if (state.schritt !== "aus") state.camX = state.l.x - view.w * view.an;
     korridorBis(state.camX + view.w + 400);
     if (state.phase === "spiel") gegner?.takt(state.punkte);
   }

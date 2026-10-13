@@ -52,6 +52,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Math.random; mit einem bekommt jeder im selben
                           Versuch denselben Lauf.
     kids.js               Lautsprecher, Ton, Vorlesen, Konfetti
+    vollbild.js           der Knopf fürs Vollbild und der Rahmen, in dem es
+                          über Seitenwechsel bestehen bleibt
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier
                           jede Zeichnung entsteht (el, shade)
     train-scenes.js       die Landschaften der App. Geladen, aber nicht mehr
@@ -269,11 +271,22 @@ einem sehr flachen Bild steht ihre Fläche in der Mitte, statt oben ein Stück
 Welt zu verlieren.
 
 Oben rechts, neben dem Ton, holt ein Knopf das Spiel ins Vollbild des
-Browsers – ohne Adressleiste, auch ohne die App zu installieren. Ihn gibt es
-nur, wo der Browser das einer Seite erlaubt (am Computer, auf Android; auf dem
-iPhone nicht), und nicht in der installierten App, die ohnehin im Vollbild
-startet. Das Vollbild gilt für eine Seite: Wer ins nächste Spiel wechselt,
-tippt dort noch einmal.
+Browsers – ohne Adressleiste, auch ohne die App zu installieren. Denselben
+Knopf gibt es rechts im Balken der Startseite und der Turnierseite und im
+Kopf des Adminbereichs. Ihn gibt es nur, wo der Browser das einer Seite
+erlaubt (am Computer, auf Android; auf dem iPhone nicht), und nicht in der
+installierten App, die ohnehin im Vollbild startet.
+
+Das Vollbild bleibt, bis man es selbst beendet – mit dem Knopf, mit Esc oder
+der Zurück-Geste –, auch über das Ende der Runde und jeden Seitenwechsel
+hinaus, wie in der installierten App (`vollbild.js`). Ein Browser verlässt
+das Vollbild sonst bei jedem Seitenwechsel. Deshalb bleibt im Vollbild die
+Seite stehen, auf der es begann, und ab dem nächsten Weg öffnen sich die
+Seiten in einem Fenster, das sie ganz ausfüllt (der Rahmen). Die alte Seite
+hält dabei an: keine Schleife, kein Ton. Die Adresse oben und der Name im Tab
+wandern mit, der Zurück-Weg des Browsers führt Seite um Seite zurück. Wer das
+Vollbild verlässt, bleibt im Rahmen und merkt davon nichts; ein Neuladen
+räumt ihn weg.
 
 ## Firebase
 
@@ -306,12 +319,14 @@ schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
 nicht haben will.
 
 Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
-Turniers – steht ein kleines ▶. Es startet das Spiel im Vollbild, in einem
-Fenster über dem Adminbereich (ein halb ausgefülltes Turnier darunter bleibt,
-wie es war), mit `?von=admin` in der Adresse. Die Runde zählt wie jede andere:
-Sie geht unter dem Namen dieses Geräts in die Hall of Fame, der beste Versuch
-bleibt stehen. Der Weg oben links im Spiel schliesst das Fenster wieder. Wo
-der Browser kein Vollbild kennt (iPhone), füllt das Fenster den Bildschirm.
+Turniers – steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
+das ganze Browserfenster füllt, über dem Adminbereich (ein halb ausgefülltes
+Turnier darunter bleibt, wie es war), mit `?von=admin` in der Adresse. Ins
+Vollbild geht es nicht von selbst: Dafür steht im Spiel oben rechts der
+Knopf, und das Vollbild bleibt auch nach dem Spiel, bis man es beendet. Die
+Runde zählt wie jede andere: Sie geht unter dem Namen dieses Geräts in die
+Hall of Fame, der beste Versuch bleibt stehen. Der Weg oben links im Spiel
+schliesst das Fenster wieder.
 
 Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
 Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.
