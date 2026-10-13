@@ -38,7 +38,7 @@ const ORDNER = ["icons"];
 const NIE = new Set([
   "netlify.toml", "package.json", "package-lock.json",
   "README.md", "FIREBASE.md",
-  "firestore.rules", "firebase.json", ".firebaserc",
+  "firestore.rules", "database.rules.json", "firebase.json", ".firebaserc",
 ]);
 
 rmSync(ZIEL, { recursive: true, force: true });
@@ -65,7 +65,7 @@ for (const pflicht of ["index.html", "service-worker.js", "app.webmanifest", "st
   if (!existsSync(path.join(ZIEL, pflicht))) throw new Error(`${pflicht} fehlt in dist/ – die Site wäre kaputt.`);
 }
 // Und nichts, was nicht hingehört.
-for (const verboten of ["node_modules", "scripts", "netlify", "package.json", "README.md", "firestore.rules", "firebase.json", ".firebaserc"]) {
+for (const verboten of ["node_modules", "scripts", "netlify", "package.json", "README.md", "firestore.rules", "database.rules.json", "firebase.json", ".firebaserc"]) {
   if (existsSync(path.join(ZIEL, verboten))) throw new Error(`${verboten} ist in dist/ gelandet – das gehört nicht auf die Site.`);
 }
 

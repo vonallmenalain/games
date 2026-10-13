@@ -1,5 +1,5 @@
 /*
- * Tun die Firestore-Regeln, was sie sagen?
+ * Tun die Firestore-Regeln, was sie sagen? Und die der Realtime Database?
  * ---------------------------------------------------------------------------
  * firestore.rules ist die einzige Schranke vor den Daten: Was hier durchgeht,
  * geht in der Datenbank durch. Und Regeln lügen leicht – ein rekursiver
@@ -19,8 +19,12 @@
  * klagen – er verweigert dann einfach alles. Das fängt dieser Test mit: Die
  * "darf"-Fälle schlagen fehl, und die Ursache steht in firestore-debug.log.
  *
- * Läuft ohne Netz und ohne Zugangsdaten. Braucht Java (für den Emulator) und
- * einmalig `npm install`. Startet den Emulator selbst und beendet ihn.
+ * Dasselbe für database.rules.json, die Regeln der Realtime Database (für den
+ * Live-Modus). Sie läuft in ihrem eigenen Emulator; dessen Regeln lädt
+ * initializeTestEnvironment aus der Datei, wie die von Firestore.
+ *
+ * Läuft ohne Netz und ohne Zugangsdaten. Braucht Java (für die Emulatoren) und
+ * einmalig `npm install`. Startet die Emulatoren selbst und beendet sie.
  *
  *   npm run test:rules        oder        node scripts/test-rules.mjs
  */
@@ -39,7 +43,7 @@ const PROJEKT = "demo-mini-games-rules";
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
   const java = spawnSync("java", ["-version"], { stdio: "ignore" });
   if (java.error || java.status !== 0) {
-    console.error("Java fehlt – ohne Java startet der Firestore-Emulator nicht.");
+    console.error("Java fehlt – ohne Java starten die Emulatoren nicht.");
     console.error("Einmalig einrichten: https://adoptium.net (Temurin 17 oder neuer).");
     process.exit(2);
   }
@@ -49,7 +53,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
     process.exit(2);
   }
   const innen = `${JSON.stringify(process.execPath)} ${JSON.stringify(fileURLToPath(import.meta.url))}`;
-  const lauf = spawnSync(firebase, ["emulators:exec", "--only", "firestore", "--project", PROJEKT, innen], {
+  const lauf = spawnSync(firebase, ["emulators:exec", "--only", "firestore,database", "--project", PROJEKT, innen], {
     cwd: WURZEL,
     stdio: "inherit",
   });
@@ -63,12 +67,19 @@ const { initializeTestEnvironment } = await import("@firebase/rules-unit-testing
 // Das SDK meldet jede Ablehnung als Fehler auf der Konsole. Hier ist jede
 // Ablehnung Absicht – und das Rauschen verdeckte die Befunde.
 try { (await import("firebase/firestore")).setLogLevel("silent"); } catch { /* dann eben laut */ }
+try { (await import("firebase/app")).setLogLevel("silent"); } catch { /* dann eben laut */ }
 
+if (!process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
+  console.error("Der Emulator der Realtime Database läuft nicht (FIREBASE_DATABASE_EMULATOR_HOST fehlt).");
+  process.exit(2);
+}
 const rules = readFileSync(path.join(WURZEL, "firestore.rules"), "utf8");
 const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
+const [dbHost, dbPort] = process.env.FIREBASE_DATABASE_EMULATOR_HOST.split(":");
 const env = await initializeTestEnvironment({
   projectId: PROJEKT,
   firestore: { rules, host, port: Number(port) },
+  database: { rules: readFileSync(path.join(WURZEL, "database.rules.json"), "utf8"), host: dbHost, port: Number(dbPort) },
 });
 
 const befunde = [];
@@ -85,7 +96,8 @@ async function darfNicht(was, tun) {
   catch (fehler) {
     // Nur eine Ablehnung durch die Regeln zählt – ein Netzfehler oder ein
     // Tippfehler im Test wäre auch eine Ausnahme, aber kein Beweis.
-    if (!/PERMISSION_DENIED|permission-denied|insufficient permissions/i.test(String(fehler))) {
+    // Die Realtime Database sagt es beim Lesen in Worten: «Permission denied».
+    if (!/PERMISSION_DENIED|permission-denied|permission denied|insufficient permissions/i.test(String(fehler))) {
       befunde.push(`Fehler statt Ablehnung: ${was}\n      ${kurz(fehler)}`);
     }
   }
@@ -600,6 +612,29 @@ await darfNicht("Gast liest eine erfundene Sammlung", () => gast().collection("w
 await darfNicht("Gast schreibt in eine erfundene Sammlung", () => gast().doc("was-auch-immer/x").set({ a: 1 }));
 await darfNicht("Admin schreibt in eine erfundene Sammlung", () => admin().doc("was-auch-immer/x").set({ a: 1 }));
 await darfNicht("Admin legt sich selbst eine Konto-Sammlung an", () => admin().doc("users/admin").set({ rolle: "admin" }));
+
+// --- Die Realtime Database ---------------------------------------------------
+// Sie ist für den Live-Modus da, und solange es den nicht gibt, ist sie zu –
+// für alle, auch für den Admin. Das ist dieselbe Fassung, die beim Anlegen in
+// der Console stand («gesperrter Modus»).
+const live = {
+  gast: () => env.unauthenticatedContext().database(),
+  admin: () => env.authenticatedContext("admin", { email: ADMIN_MAIL, email_verified: true }).database(),
+};
+// Gegenprobe: Der Emulator antwortet, und ohne Regeln ginge es. Sonst wäre
+// jedes «darf nicht» unten auch ein Netzfehler, der zufällig gleich aussieht.
+await darf("Ohne Regeln lässt sich die Realtime Database lesen und beschreiben", () =>
+  env.withSecurityRulesDisabled(async (kontext) => {
+    const ref = kontext.database().ref("probe");
+    await ref.set({ ok: true });
+    erwarte((await ref.get()).val()?.ok === true, "nichts zurückgelesen");
+    await ref.remove();
+  }));
+await darfNicht("Gast liest die Realtime Database", () => live.gast().ref("/").get());
+await darfNicht("Gast liest eine Live-Runde", () => live.gast().ref("live/K7QM").get());
+await darfNicht("Gast schreibt in die Realtime Database", () => live.gast().ref("live/K7QM/spieler/mini_abcdefghijkl").set({ name: "Alain" }));
+await darfNicht("Admin liest die Realtime Database", () => live.admin().ref("/").get());
+await darfNicht("Admin schreibt in die Realtime Database", () => live.admin().ref("live/K7QM/zustand").set({ phase: "lobby" }));
 
 await env.cleanup();
 
