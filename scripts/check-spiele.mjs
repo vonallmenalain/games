@@ -1872,11 +1872,11 @@ try {
   // Ein sparsamer Pilot gibt Schub, bis die Bahn ohne weiteren Schub übers
   // Gelände auf die nächste Plattform führt, gleitet und bremst im
   // Leitstrahl so spät wie möglich. Er kommt mit dem Treibstoff, den die
-  // Plattformen geben (grün alles, gelb die Hälfte, rot nichts), im Schnitt
-  // über acht Plattformen – wie weit genau, hängt auch vom Glück ab. Jede
-  // bringt 200 Punkte, jeder Schub kostet welche – sofort, schon vor der
-  // ersten Landung. Wer einfach fällt, zerschellt; wer mit leerem Tank
-  // landet, strandet.
+  // Plattformen geben (zweimal +100, dann +50, danach höchstens +50 und oft
+  // weniger), im Schnitt über fünf Plattformen – nicht viel weiter: Es soll
+  // schwer sein. Jede bringt 200 Punkte, jeder Schub kostet welche – sofort,
+  // schon vor der ersten Landung. Wer einfach fällt, zerschellt; wer mit
+  // leerem Tank landet, strandet.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 640 });
     // Der Mond wird gewürfelt, und welche Plattform wie viel gibt, auch. Damit
@@ -1955,18 +1955,22 @@ try {
         raus.push({ landungen: st.landungen, punkte: Math.round(st.punkte), schritt: st.schritt, tank: Math.round(st.tank) });
       }
       // Die Plattformen eines langen Monds: welche Arten, in welcher Folge.
+      M.bodenBei(st.platten[st.platten.length - 1].x1 + 30000);
       const arten = st.platten.slice(1, 60).map((p) => p.tank);
       return { raus, schonVorher, getankt, arten };
     });
     const schnitt = fluege.raus.reduce((summe, f) => summe + f.landungen, 0) / fluege.raus.length;
     console.log(`  Mondlandung: der sparsame Pilot landet ${fluege.raus.map((f) => f.landungen).join(", ")} Mal`);
-    pruefe(schnitt >= 8 && fluege.raus.every((f) => f.landungen >= 4),
-      `Mondlandung: Der sparsame Pilot kommt im Schnitt nicht über acht Plattformen (${schnitt}) – ${JSON.stringify(fluege.raus)}`);
-    pruefe(fluege.getankt.length > 0 && fluege.getankt.every((t) => [100, 50, 0].includes(t.art) && Math.abs(t.nachher - Math.min(100, t.vorher + t.art)) < 0.6),
+    pruefe(schnitt >= 5 && fluege.raus.every((f) => f.landungen >= 4),
+      `Mondlandung: Der sparsame Pilot kommt im Schnitt nicht über fünf Plattformen (${schnitt}) – ${JSON.stringify(fluege.raus)}`);
+    pruefe(fluege.getankt.length > 0 && fluege.getankt.every((t) => [100, 50, 40, 30, 20, 0].includes(t.art) && Math.abs(t.nachher - Math.min(100, t.vorher + t.art)) < 0.6),
       `Mondlandung: Getankt wird nicht, was die Plattform sagt – ${JSON.stringify(fluege.getankt.slice(0, 12))}`);
-    pruefe(fluege.arten.slice(0, 3).every((a) => a !== 0) && fluege.arten.every((a, i) => !(a === 0 && fluege.arten[i - 1] === 0))
-      && [100, 50, 0].every((a) => fluege.arten.includes(a)),
-      `Mondlandung: Die Plattformen geben nicht alles, die Hälfte und nichts, oder zwei rote stehen hintereinander: ${fluege.arten.join(",")}`);
+    const spaeter = fluege.arten.slice(3);
+    pruefe(fluege.arten.slice(0, 3).join() === "100,100,50"
+      && spaeter.every((a) => [50, 40, 30, 20, 0].includes(a))
+      && fluege.arten.every((a, i) => !(a === 0 && fluege.arten[i - 1] === 0))
+      && [0, 20].every((a) => spaeter.includes(a)),
+      `Mondlandung: Die Plattformen geben nicht zweimal +100, dann +50 und danach höchstens +50 (mit +20 und leeren, nie zwei leere hintereinander): ${fluege.arten.join(",")}`);
     pruefe(fluege.raus.every((f) => f.punkte > f.landungen * 50 && f.punkte < f.landungen * 200),
       `Mondlandung: Die Punkte passen nicht zu 200 je Plattform weniger dem Treibstoff – ${JSON.stringify(fluege.raus)}`);
     pruefe(fluege.schonVorher !== null && fluege.schonVorher < 0, `Mondlandung: Der Schub kostet vor der ersten Landung keine Punkte (${fluege.schonVorher}).`);

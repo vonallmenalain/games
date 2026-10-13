@@ -16,12 +16,13 @@
  * Es geht um den Treibstoff. Jede Plattform bringt Punkte, aber jeder
  * Tropfen Treibstoff kostet welche – vom ersten Schub an, und man sieht die
  * Zahl dabei sinken. Der Balken oben zeigt den Tank; er leert sich schnell.
- * Getankt wird auf den Plattformen, und jede sagt in ihrer Farbe, wie viel:
- * grün füllt den Tank (+100 %), gelb gibt die Hälfte dazu (+50 %), rot gibt
- * nichts (+0 %). Später kommen die roten öfter. Wer weiter will, muss
- * sparsam fliegen – kurz Schub, lange gleiten, spät bremsen – oder über eine
- * rote hinweg gleich zur nächsten. Wer mit leerem Tank landet, bleibt
- * stehen; dann ist die Runde aus.
+ * Getankt wird auf den Plattformen, und jede sagt mit Zahl und Farbe, wie
+ * viel: Die ersten beiden geben +100 (der Tank fasst 100), die dritte +50,
+ * danach nie mehr als +50 – meist +40, +30, +20 oder nichts, und je weiter,
+ * desto öfter wenig. Wer weiter will, muss sparsam fliegen – kurz Schub,
+ * lange gleiten, spät bremsen – oder über eine leere hinweg gleich zur
+ * nächsten. Wer mit leerem Tank landet, bleibt stehen; dann ist die Runde
+ * aus.
  *
  * Die Plattformen werden schmaler, liegen weiter auseinander und hinter
  * höheren Bergen. Gezählt werden die Punkte.
@@ -94,7 +95,7 @@
     "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
     "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
     "Jede Plattform bringt 200 Punkte – aber jeder Schub kostet Punkte, solange das Triebwerk brennt.",
-    "Auf den Plattformen wird getankt: grüne füllen den Tank, gelbe geben die Hälfte dazu, rote nichts. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
+    "Auf den Plattformen wird getankt, so viel wie unter der Plattform steht: am Anfang plus 100, danach höchstens plus 50, oft weniger, manchmal nichts. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -114,10 +115,14 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const schwereBei = (n) => 1 - Math.exp(-n / 12);
 
-  // Was eine Plattform in den Tank gibt, und in welcher Farbe sie das sagt.
+  // Was eine Plattform in den Tank gibt, und in welcher Farbe sie das sagt:
+  // von Grün (viel) über Gelb und Orange nach Rot (nichts).
   const TANKEN = {
     100: { farbe: "#4cff8a", dunkel: "#1f8a4c" },
-    50: { farbe: "#ffd166", dunkel: "#b8860b" },
+    50: { farbe: "#c8f55a", dunkel: "#6f9a1c" },
+    40: { farbe: "#ffd166", dunkel: "#b8860b" },
+    30: { farbe: "#ffb056", dunkel: "#b8661a" },
+    20: { farbe: "#ff8c4a", dunkel: "#a8501f" },
     0: { farbe: "#ff6b6b", dunkel: "#a33434" },
   };
 
@@ -256,13 +261,22 @@
     // So viel (und etwas mehr) gibt es bei der Landung davor.
     const steigen = Math.max(0, hoechster + 40 - vor.y);
     const bedarf = VERBRAUCH * ((weg / 85) * 0.45 + (steigen / 35) * 0.6 + 1.3);
-    // Was sie in den Tank gibt: alles, die Hälfte oder nichts. Am Anfang
-    // öfter alles, später öfter nichts – aber die ersten drei geben immer
-    // etwas, und nie stehen zwei rote hintereinander.
+    // Was sie in den Tank gibt: die ersten beiden +100, die dritte +50,
+    // danach höchstens +50 – und je weiter, desto öfter wenig oder nichts.
+    // Nie stehen zwei leere hintereinander.
     const wurf = zufall.zahl();
-    const pVoll = lerp(0.38, 0.14, k);
-    const pLeer = n <= 3 || vor.tank === 0 ? 0 : lerp(0.22, 0.5, k);
-    const tank = wurf < pVoll ? 100 : wurf < pVoll + pLeer ? 0 : 50;
+    let tank = n <= 2 ? 100 : 50;
+    if (n > 3) {
+      const gewichte = [
+        [50, lerp(0.16, 0.04, k)],
+        [40, lerp(0.22, 0.1, k)],
+        [30, lerp(0.24, 0.2, k)],
+        [20, lerp(0.22, 0.32, k)],
+        [0, vor.tank === 0 ? 0 : lerp(0.16, 0.34, k)],
+      ];
+      let rest = wurf * gewichte.reduce((summe, [, w]) => summe + w, 0);
+      tank = gewichte.find(([, w]) => (rest -= w) < 0)?.[0] ?? 20;
+    }
     platten.push({ n, x0, x1, y, bedarf, tank });
     punkt(x0, y);
     punkt(x1, y);
@@ -636,7 +650,7 @@
     g.textAlign = "left";
     g.textBaseline = "middle";
     schilder.forEach(({ p, art, erreicht }) => {
-      const text = `+${p.tank}%`;
+      const text = `+${p.tank}`;
       const tw = g.measureText(text).width;
       const h = gross * 1.5;
       const w = tw + gross * 1.55;
@@ -1425,7 +1439,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "tempo", fassung: "p4", alle: true }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "tempo", fassung: "p5", alle: true }) || null;
 
   startRun();
 
