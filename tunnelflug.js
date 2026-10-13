@@ -18,7 +18,9 @@
  * Die Gegner (geist.js) fliegen als Flugzeug aus Licht mit – genau so, wie
  * sie in ihrer besten Runde geflogen sind, durch ihren eigenen Tunnel. Platz
  * 1 und die eigene Bestmarke stehen dazu als Tor bei ihren Metern; wer
- * hindurchfliegt, hat sie geschlagen.
+ * hindurchfliegt, hat sie geschlagen. Und die besten Flüge lassen sich
+ * anschauen (?zuschauen=, geist.js): durch ihren eigenen Tunnel, gewürfelt
+ * mit derselben Saat.
  *
  * Gezeichnet wird auf eine Leinwand, gerechnet in Welteinheiten – zehn sind
  * ein Meter, y zählt nach oben. Der Tunnel liegt immer im Band zwischen 0
@@ -161,6 +163,8 @@
   let gedrueckt = false;
   // Die Gegner (geist.js): wer als Geist mitfliegt und als Tor im Tunnel steht.
   let gegner = null;
+  // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
+  let zuschauer = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -861,7 +865,11 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.5);
     const f = state.f;
 
-    if (state.schritt === "flug") {
+    if (state.phase === "zuschauen") {
+      zuschauenTakt();
+      state.spur.push({ x: f.x - 12, y: f.y + 1 });
+      if (state.spur.length > 22) state.spur.shift();
+    } else if (state.schritt === "flug") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "flug"; i += 1) physik(dt / n);
 
@@ -937,6 +945,38 @@
   // ---------------------------------------------------------------------------
   // Halten und Loslassen
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Flug durch seinen eigenen Tunnel: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit denselben Tunnel, und das
+  // Flugzeug steht Bild für Bild dort, wo es damals war.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "flug";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt() {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const f = state.f;
+    f.x = START.x + s.a;
+    f.y = START.y + s.b;
+    f.vy = s.vb;
+    state.neig = (s.c || 0) / 100;
+    const meter = Math.max(0, Math.floor(s.punkte));
+    if (meter !== state.meter) {
+      state.meter = meter;
+      state.punkte = meter;
+      shell.setCount(meter);
+    }
+    zuschauer.weiter();
+  }
+
   function druecken() {
     gedrueckt = true;
     if (state.phase !== "bereit") return;
@@ -1046,11 +1086,17 @@
     accentDark: "#00707c",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "tunnelFlight", host, art: "tempo", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "tunnelFlight", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "tunnelFlight", host, art: "tempo", alle: true, zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

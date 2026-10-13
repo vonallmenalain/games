@@ -12,11 +12,14 @@
  * Deshalb dieses Modul. Es hat zwei Betriebsarten, und welche gilt, steht in
  * der Adresse:
  *
- *   /turmbau                     kein Turnier – Math.random, wie bisher
+ *   /turmbau                     kein Turnier – jede Runde neu gewürfelt
  *   /turmbau?turnier=herbst24    Turnier – jeder bekommt denselben Lauf
  *
- * Ohne den Parameter ist hier nichts anders als vorher: zahl() IST
- * Math.random, ohne Umweg und ohne Zustand. Das ist Absicht.
+ * Ohne den Parameter würfelt jede Runde ihren eigenen Anfang (die Saat) aus
+ * Math.random und zieht daraus ihre Zahlen. Das ist so zufällig wie vorher –
+ * aber die Saat lässt sich aufschreiben: Wer einen Lauf aufzeichnet
+ * (geist.js), schreibt sie dazu, und wer ihn später anschaut, baut mit ihr
+ * dieselbe Welt wieder auf (halte).
  *
  * Im Turnier stellt turnier.js zwei Dinge nach, sobald es das Turnier gelesen
  * hat (stelle):
@@ -26,7 +29,7 @@
  *           So vergleicht das Turnier Gleiches mit Gleichem, und trotzdem
  *           lernt niemand seinen Lauf auswendig, indem er ihn dreimal spielt.
  *   frei    das Turnier will gar keinen festen Lauf ("jedes Mal neu
- *           gewürfelt"). Dann ist es wieder Math.random.
+ *           gewürfelt"). Dann würfelt jede Runde wieder frisch.
  *
  * Ein Spiel benutzt es so:
  *
@@ -111,16 +114,25 @@
   /*
    * Die Zufallsquelle eines Spiels.
    *
-   * Ohne Turnier ist zahl() Math.random und neu() ändert daran nichts – der
-   * normale Modus bleibt Bit für Bit der von vorher.
+   * Ohne Turnier würfelt neu() eine frische Saat aus Math.random.
    *
    * Mit Turnier hängt die Saat am Turnier, an der Runde UND am Spiel: sonst
    * begänne jedes Spiel desselben Turniers mit derselben Zahlenfolge, und wer
    * bei einem Spiel merkt, was kommt, wüsste es beim nächsten wieder.
+   *
+   * halte(saat) legt die Saat für alle folgenden Runden fest – so spielt das
+   * Zuschauen einen aufgezeichneten Lauf in seiner eigenen Welt ab.
    */
   function fuer(spiel) {
-    const saat = () => streuwert(`${lage.id}|${lage.runde}|${spiel}`);
-    const wuerfel = () => (istFest() ? mulberry32(saat()) : Math.random);
+    const turnierSaat = () => streuwert(`${lage.id}|${lage.runde}|${spiel}`);
+    let gehalten = null;
+    let jetzt = 0;
+    const wuerfel = () => {
+      if (gehalten !== null) jetzt = gehalten;
+      else if (istFest()) jetzt = turnierSaat();
+      else jetzt = Math.floor(Math.random() * 4294967296) >>> 0;
+      return mulberry32(jetzt);
+    };
     let aktuell = wuerfel();
 
     const zahl = () => aktuell();
@@ -128,8 +140,11 @@
       // Wahr, wenn dieser Lauf für alle derselbe ist.
       get fest() { return istFest(); },
       // Zurück an den Anfang – und zwar an den Anfang der Runde, die jetzt
-      // gilt. Ohne Turnier ist es ein leerer Handgriff.
+      // gilt. Ohne Turnier mit frischer Saat.
       neu() { aktuell = wuerfel(); },
+      // Mit welcher Saat diese Runde würfelt – für die Aufzeichnung.
+      saat: () => jetzt,
+      halte(saat) { gehalten = saat === null || saat === undefined ? null : Number(saat) >>> 0; },
       zahl,
       ganz: (n) => Math.floor(zahl() * n),
       von: (min, max) => min + zahl() * (max - min),

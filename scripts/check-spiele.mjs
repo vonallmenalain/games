@@ -2847,6 +2847,64 @@ try {
     await kontext.close();
   }
   {
+    // Die besten Läufe anschauen: Eine Runde im Schwerkraft-Läufer wird mit
+    // der Saat ihres Korridors aufgezeichnet. In der Hall of Fame steht bei
+    // ihr ein ▶, und wer ihn antippt, sieht denselben Korridor und den
+    // Läufer darin – bis zur Tafel am Schluss, mit «Nochmal» und «Zurück».
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__zuschauen")) return;
+      sessionStorage.setItem("__zuschauen", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/schwerkraft`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwerkraft?.state, null, { timeout: 8000 });
+    const korridor = () => window.LernappSchwerkraft.state.bahnen.map((bahn) => bahn.slice(0, 8).map((q) => `${q.art}:${Math.round(q.x0)}-${Math.round(q.x1)}`).join(" ")).join(" | ");
+    await seite.evaluate(() => window.LernappSchwerkraft.tippen());
+    await seite.waitForSelector(".cm-result-score", { timeout: 20000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("gravityRun_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate((quelle) => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`gravityRun_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a), punkte: geist?.punkte || 0, korridor: new Function(`return (${quelle})()`)() };
+    }, korridor.toString());
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0,
+      `Der Schwerkraft-Läufer hinterlegt seinen Lauf nicht mit Saat und Weg: ${JSON.stringify({ ...gespielt, korridor: undefined })}`);
+
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    await seite.waitForSelector(".mini-ansehen", { timeout: 6000 }).catch(() => {});
+    const play = await seite.evaluate(() => [...document.querySelectorAll(".mini-ansehen")].map((a) => a.getAttribute("href")));
+    pruefe(play.some((h) => h === `/schwerkraft?zuschauen=${gespielt.kennung}`), `In der Hall of Fame steht beim Schwerkraft-Läufer kein ▶ für den Lauf: ${JSON.stringify(play)}`);
+
+    await seite.goto(`${BASIS}/schwerkraft?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwerkraft?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate((quelle) => ({
+      phase: window.LernappSchwerkraft.state.phase,
+      leiste: document.querySelector(".gz-leiste")?.textContent || "",
+      gegner: document.querySelectorAll(".gs-chip").length,
+      korridor: new Function(`return (${quelle})()`)(),
+    }), korridor.toString());
+    pruefe(zu.phase === "zuschauen" && /Zora/.test(zu.leiste) && zu.gegner === 0,
+      `Das Zuschauen beginnt nicht, oder es stehen Gegner-Schalter da: ${JSON.stringify({ ...zu, korridor: undefined })}`);
+    pruefe(zu.korridor === gespielt.korridor, `Beim Zuschauen entsteht ein anderer Korridor:\n  gespielt ${gespielt.korridor}\n  angeschaut ${zu.korridor}`);
+    const x0 = await seite.evaluate(() => window.LernappSchwerkraft.state.l.x);
+    await seite.waitForTimeout(700);
+    const x1 = await seite.evaluate(() => window.LernappSchwerkraft.state.l.x);
+    pruefe(x1 > x0, `Beim Zuschauen läuft der Läufer nicht (${x0} → ${x1}).`);
+    await seite.evaluate(() => window.LernappSchwerkraft.tippen());
+    pruefe(await seite.evaluate(() => window.LernappSchwerkraft.state.phase) === "zuschauen", "Ein Tipp beim Zuschauen greift ins Spiel ein.");
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 25000 }).catch(() => {});
+    pruefe(await seite.locator(".gz-tafel:not([hidden]) .gz-nochmal").count() === 1 && await seite.locator(".gz-tafel:not([hidden]) .gz-zurueck").count() === 1,
+      "Am Ende des Laufs steht keine Tafel mit «Nochmal» und «Zurück».");
+    await seite.click(".gz-zu");
+    await seite.waitForURL((url) => new URL(url).pathname === "/", { timeout: 6000 }).catch(() => {});
+    pruefe(new URL(seite.url()).pathname === "/", `«Beenden» führt nicht zurück in die Hall of Fame: ${seite.url()}`);
+    await kontext.close();
+  }
+  {
     // Im Turnier ist Platz 1, wer im Turnier vorne liegt – nicht der aus der
     // Hall of Fame (dort hat Grosi 99).
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${HERBST}`);

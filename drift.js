@@ -27,6 +27,8 @@
  * Die Gegner (geist.js) fahren als Wagen aus Licht mit – genau so, wie sie
  * in ihrer besten Runde gefahren sind, auf ihrer eigenen Strasse. Platz 1
  * und die eigene Bestmarke stehen dazu als Zielstreifen bei ihren Metern.
+ * Und die besten Fahrten lassen sich anschauen (?zuschauen=, geist.js): auf
+ * ihrer eigenen Strasse, gewürfelt mit derselben Saat.
  *
  * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben,
  * Winkel wie in der Mathematik (0 nach rechts, ein Viertel nach oben).
@@ -182,6 +184,8 @@
   let stepTimer = null;
   let gedrueckt = false;
   let gegner = null;
+  // Wer eine Fahrt anschaut statt zu fahren (geist.js, zuschauer).
+  let zuschauer = null;
   let asphalt = null;
 
   const view = { s: 1, grund: 1, dpr: 1, cssW: 0, cssH: 0, w: MIN_W, h: MIN_H };
@@ -1548,7 +1552,9 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.4);
     const auto = state.auto;
 
-    if (state.schritt === "fahrt") {
+    if (state.phase === "zuschauen") {
+      zuschauenTakt();
+    } else if (state.schritt === "fahrt") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "fahrt"; i += 1) physik(dt / n);
 
@@ -1569,7 +1575,7 @@
 
     // Die Karosserie: im Drift schräg in die Kurve, danach zurück in die
     // Fahrtrichtung.
-    if (state.schritt !== "crash") {
+    if (state.schritt !== "crash" && state.phase !== "zuschauen") {
       const v = tempoBei(auto.s);
       const ziel = state.dreh ? state.dreh.sig * lerp(0.36, 0.52, clamp((v - V0) / (V_MAX - V0), 0, 1)) : 0;
       state.drift += (ziel - state.drift) * (1 - Math.exp(-dt * (state.dreh ? 9 : 6)));
@@ -1659,6 +1665,40 @@
   // ---------------------------------------------------------------------------
   // Halten und Loslassen
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Eine aufgezeichnete Fahrt auf ihrer eigenen Strasse: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit dieselbe Strasse, und der
+  // Wagen steht Bild für Bild dort, wo er damals war.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "fahrt";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt() {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const auto = state.auto;
+    auto.x = s.a;
+    auto.y = s.b;
+    if (Math.hypot(s.va, s.vb) > 5) auto.a = Math.atan2(s.vb, s.va);
+    state.koerper = HAUPT + (s.c || 0) / 100;
+    state.drift = state.koerper - auto.a;
+    auto.s = START_S + Math.max(0, s.punkte) * METER;
+    const meter = Math.max(0, Math.floor(s.punkte));
+    if (meter !== state.meter) {
+      state.meter = meter;
+      state.punkte = meter;
+      shell.setCount(meter);
+    }
+    zuschauer.weiter();
+  }
+
   function druecken() {
     gedrueckt = true;
     if (state.phase !== "bereit") return;
@@ -1782,11 +1822,17 @@
     accentDark: "#b9741a",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "driftRace", host, art: "tempo", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "driftRace", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "driftRace", host, art: "tempo", alle: true, zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

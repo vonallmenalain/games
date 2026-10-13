@@ -27,7 +27,10 @@
  * strenger, nie unmöglich.
  *
  * Die Gegner (geist.js) hüpfen als Astronaut aus Licht mit – genau so, wie
- * sie in ihrer besten Runde gehüpft sind, von ihren eigenen Planeten.
+ * sie in ihrer besten Runde gehüpft sind, von ihren eigenen Planeten. Und
+ * die besten Läufe lassen sich anschauen (?zuschauen=, geist.js): auf ihren
+ * eigenen Planeten, gewürfelt mit derselben Saat, die Planeten dort, wo die
+ * Uhr sie damals hatte.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben.
  */
@@ -165,6 +168,8 @@
   let last = 0;
   let stepTimer = null;
   let gegner = null;
+  // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
+  let zuschauer = null;
 
   const view = { s: 1, grund: 1, zoom: 1, dpr: 1, cssW: 0, cssH: 0, w: MIN_W, h: MIN_H };
 
@@ -1164,7 +1169,9 @@
     state.zeit += dt;
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.4);
 
-    if (state.schritt === "start") {
+    if (state.phase === "zuschauen") {
+      zuschauenTakt(dt);
+    } else if (state.schritt === "start") {
       state.uhr += dt;
       // Vor dem ersten Tipp steht er oben auf dem Planeten und wippt.
       state.theta = Math.PI / 2;
@@ -1248,8 +1255,59 @@
   // ---------------------------------------------------------------------------
   // Tippen
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Lauf auf seinen eigenen Planeten: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit dieselben Planeten, die
+  // Uhr beginnt, wo sie damals stand, und der Astronaut ist Bild für Bild
+  // dort, wo er damals war.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "lauf";
+    state.uhr = (zuschauer.lauf.vorlauf || 0) / 1000;
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt(dt) {
+    state.uhr += dt;
+    const s = zuschauer.stand();
+    if (!s) return;
+    const a = state.astro;
+    a.x = s.a;
+    a.y = s.b;
+    a.w = (s.c || 0) / 100;
+    // Steht er auf einem Planeten? Dann läuft er dort – und der Planet zählt
+    // als erreicht.
+    let steht = -1;
+    const bis = Math.min(state.planeten.length - 1, state.auf + 3);
+    for (let i = Math.max(0, state.auf - 1); i <= bis; i += 1) {
+      const p = state.planeten[i];
+      const m = mitte(p);
+      if (Math.abs(Math.hypot(a.x - m.x, a.y - m.y) - (p.r + HOEHE)) < 5) { steht = i; break; }
+    }
+    if (steht >= 0) {
+      if (steht > state.auf) state.auf = steht;
+      state.erreicht = Math.max(state.erreicht, state.auf);
+      state.schritt = "lauf";
+      state.theta = a.w;
+      state.hoehe = HOEHE;
+    } else {
+      state.schritt = "flug";
+    }
+    const punkte = Math.max(0, Math.round(s.punkte));
+    if (punkte !== state.punkte) {
+      state.punkte = punkte;
+      shell.setCount(punkte);
+    }
+    zuschauer.weiter();
+  }
+
   function tippen() {
-    if (state.phase === "ende") return;
+    if (state.phase === "ende" || state.phase === "zuschauen") return;
     if (state.phase === "bereit") {
       // Der erste Tipp: Er läuft los.
       state.phase = "spiel";
@@ -1369,11 +1427,19 @@
     accentDark: "#5a41b8",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "planetHop", host, art: "tempo", fassung: "p2", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "planetHop", fassung: "p2", zufall, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({
+      spiel: "planetHop", host, art: "tempo", fassung: "p2", alle: true, zufall, vorlauf: () => state.uhr * 1000,
+    }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

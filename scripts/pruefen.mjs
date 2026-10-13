@@ -330,6 +330,27 @@ pruefe("Alle Seiten laden vollbild.js",
 pruefe("Kein Probelauf mehr (?probe=1, probelauf)",
   ![adminJs, miniJs, lies("turnier.js"), lies("geist.js")].some((text) => /probe=1|probelauf/.test(text)));
 
+// --- 17. Läufe anschauen ------------------------------------------------------
+// Die Liste in mini-games.js (ANSEHBAR) sagt, welche Fassung der Aufzeichnung
+// zu einem Spiel gehört; das Spiel selbst sagt es zweimal – beim Aufzeichnen
+// (LernappGeist.fuer) und beim Zuschauen. Laufen sie auseinander, steht in
+// der Hall of Fame ein ▶, hinter dem sich nichts abspielen lässt.
+const ansehbar = miniJs.match(/const ANSEHBAR = \{([\s\S]*?)\n  \};/);
+pruefe("mini-games.js hat eine Liste ANSEHBAR", Boolean(ansehbar));
+if (ansehbar) {
+  for (const [, id, fassung] of ansehbar[1].matchAll(/(\w+): \{ fassung: "([^"]+)"/g)) {
+    const s = SPIELE.find((x) => x.spiel === id);
+    pruefe(`ANSEHBAR: ${id} ist ein Spiel`, Boolean(s));
+    if (!s) continue;
+    const quelle = lies(s.js);
+    const zu = quelle.match(/LernappGeist\?\.zuschauer\?\.\(\{([\s\S]*?)\}\)/);
+    const auf = quelle.match(/LernappGeist\?\.fuer\?\.\(\{([\s\S]*?)\}\)/);
+    const fassungIn = (treffer) => (treffer ? (treffer[1].match(/fassung: "([^"]+)"/)?.[1] || "t1") : null);
+    pruefe(`${s.js} schaut mit Fassung ${fassung} zu`, fassungIn(zu) === fassung);
+    pruefe(`${s.js} zeichnet mit Fassung ${fassung} auf`, fassungIn(auf) === fassung);
+  }
+}
+
 // ---------------------------------------------------------------------------
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);

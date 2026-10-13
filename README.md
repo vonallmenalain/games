@@ -48,9 +48,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Zielmarke, dazu die Aufzeichnung der eigenen Runde
     game-cloud.js         der Spielstand während einer Runde. Er überlebt die
                           Seite nicht, und das ist Absicht.
-    zufall.js             der Zufall. Ohne Turnier in der Adresse ist er
-                          Math.random; mit einem bekommt jeder im selben
-                          Versuch denselben Lauf.
+    zufall.js             der Zufall. Ohne Turnier in der Adresse würfelt
+                          jede Runde ihre eigene Saat; mit einem bekommt
+                          jeder im selben Versuch denselben Lauf.
     kids.js               Lautsprecher, Ton, Vorlesen, Konfetti
     vollbild.js           der Knopf fürs Vollbild und der Rahmen, in dem es
                           über Seitenwechsel bestehen bleibt
@@ -82,9 +82,12 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
 Ein Spiel, das würfelt, nimmt seine Zahlen aus `LernappZufall.fuer(<spiel>)`
 statt aus `Math.random` – und ruft `neu()` zu Beginn jeder Runde. Ohne Turnier
-in der Adresse ist beides dasselbe wie vorher; mit Turnier spielen alle
-denselben Lauf: den ersten Versuch alle gleich, den zweiten auch – aber einen
-anderen als den ersten. `npm run pruefen` besteht darauf.
+in der Adresse würfelt `neu()` eine frische Saat (aus `Math.random`), so
+zufällig wie vorher, aber aufschreibbar: Die Aufzeichnung eines Laufs trägt
+sie (`geist.js`), und wer ihn anschaut, baut mit `halte(saat)` dieselbe Welt
+wieder auf. Mit Turnier spielen alle denselben Lauf: den ersten Versuch alle
+gleich, den zweiten auch – aber einen anderen als den ersten. `npm run
+pruefen` besteht darauf.
 
 Nur was die Aufgabe entscheidet, kommt aus dem Turnier-Zufall. Was davon
 abhängt, wie jemand spielt – Funken beim perfekten Treffer, das Schlingern
@@ -139,6 +142,27 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Schwerkraft-Läufer stehen Platz 1 und die Bestmarke
                     zusätzlich als Tor, Zielstreifen oder Linie bei ihren
                     Metern.
+
+Im Schwerkraft-Läufer laufen alle gleich schnell – überholen kann dort
+niemand. Die Schalter zeigen deshalb nur, wie weit die Gegner gekommen sind,
+ohne «überholt!» und ohne Platz unter allen (`gleichschritt`).
+
+### Die besten Läufe anschauen
+
+In der Hall of Fame und auf der Turnierseite steht bei den ersten drei der
+sieben Spiele mit Geist im Bild ein kleiner ▶ – sofern es von ihrem Lauf eine
+Aufzeichnung gibt (`mini-games.js`, `ansehbareLaeufe`). Er öffnet das Spiel
+mit `?zuschauen=<spieler>` (aus einem Turnier dazu `&aus=<turnier>`; das ist
+kein Versuch im Turnier). Das Spiel spielt den Lauf ganz ab, in seiner eigenen
+Welt: Die Aufzeichnung trägt die Saat, mit der die Welt gewürfelt war, und im
+Planetenhüpfer auch, wo die Uhr der Planeten stand. Die Figur steht Bild für
+Bild dort, wo sie damals war (`geist.js`, `zuschauer`). Oben steht, wessen
+Lauf das ist, und «Beenden» – jederzeit. Am Schluss eine Tafel mit «Nochmal»
+und «Zurück». Welche Fassung der Aufzeichnung zu welchem Spiel gehört, steht
+in `ANSEHBAR` (`mini-games.js`); `npm run pruefen` hält sie mit den Spielen
+gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
+nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
+Strecke ist fest).
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die

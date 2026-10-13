@@ -31,7 +31,9 @@
  * werden sie höher und weiter.
  *
  * Die Gegner (geist.js) fliegen als Vögel aus Licht mit – genau so, wie sie
- * in ihrer besten Runde geflogen sind, Sekunde für Sekunde.
+ * in ihrer besten Runde geflogen sind, Sekunde für Sekunde. Und die besten
+ * Flüge lassen sich anschauen (?zuschauen=, geist.js): über ihren eigenen
+ * Hügeln, gewürfelt mit derselben Saat – mit Feuer, wo sie brannten.
  *
  * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben.
  */
@@ -149,6 +151,8 @@
   let stepTimer = null;
   let gedrueckt = false;
   let gegner = null;
+  // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
+  let zuschauer = null;
   let rundeStart = 0;
 
   const view = { s: 1, grundS: 1, dpr: 1, cssW: 0, cssH: 0, w: SICHT_W_MIN, h: SICHT_H, w0: SICHT_W_MIN, h0: SICHT_H };
@@ -1057,7 +1061,10 @@
         state.punkte = meter;
         shell.setCount(meter);
       }
-      gegner?.takt(state.punkte, { a: Math.round(state.v.x - START_X), b: Math.round(state.v.y) });
+      // c: ob er brennt (1) und ob er gedrückt wird (2) – fürs Zuschauen.
+      gegner?.takt(state.punkte, { a: Math.round(state.v.x - START_X), b: Math.round(state.v.y), c: (state.feuer ? 1 : 0) + (gedrueckt ? 2 : 0) });
+    } else if (state.phase === "zuschauen") {
+      zuschauenTakt(dt);
     } else if (state.phase === "aus") {
       // Er rutscht noch aus.
       const v = state.v;
@@ -1073,7 +1080,7 @@
     state.spur.push({ x: state.v.x, y: state.v.y + R });
     if (state.spur.length > 26) state.spur.shift();
 
-    if (state.feuer && state.phase === "spiel") {
+    if (state.feuer && (state.phase === "spiel" || state.phase === "zuschauen")) {
       const abstand = ruhig() ? 1 / 16 : 1 / 60;
       state.flammenTakt += dt;
       while (state.flammenTakt >= abstand) { state.flammenTakt -= abstand; flamme(); }
@@ -1124,7 +1131,50 @@
   // ---------------------------------------------------------------------------
   // Halten und Loslassen
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Flug über seinen eigenen Hügeln: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit dieselben Hügel, und der
+  // Vogel ist Bild für Bild dort, wo er damals war – schwer, wo er gedrückt
+  // wurde, mit Feuer, wo er brannte.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt(dt) {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const v = state.v;
+    v.x = START_X + s.a;
+    v.y = s.b;
+    v.vx = s.va;
+    v.vy = s.vb;
+    const c = s.c || 0;
+    gedrueckt = Boolean(c & 2);
+    const brennt = Boolean(c & 1);
+    if (brennt && !state.feuer) state.feuerZeit = state.zeit;
+    if (!brennt && state.feuer) state.vorbeiZeit = state.zeit;
+    state.feuer = brennt;
+    state.serie = brennt ? Math.max(3, state.serie) : 0;
+    state.amBoden = v.y - bodenBei(v.x) < 1.5;
+    state.flugZeit = state.amBoden ? 0 : state.flugZeit + dt;
+    state.tag = clamp(s.t / RUNDE_MS, 0, 1);
+    const meter = Math.max(0, Math.floor(s.punkte));
+    if (meter !== state.meter) {
+      state.meter = meter;
+      state.punkte = meter;
+      shell.setCount(meter);
+    }
+    zuschauer.weiter();
+  }
+
   function druecken() {
+    if (state.phase === "zuschauen") return;
     gedrueckt = true;
     if (state.phase !== "bereit") return;
     state.phase = "spiel";
@@ -1137,6 +1187,7 @@
   }
 
   function loslassen() {
+    if (state.phase === "zuschauen") return;
     gedrueckt = false;
   }
 
@@ -1242,11 +1293,17 @@
     accentDark: "#b9741a",
     help: HELP,
     clock: true,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "hillGlide", host, art: "tempo", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "hillGlide", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "hillGlide", host, art: "tempo", alle: true, zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

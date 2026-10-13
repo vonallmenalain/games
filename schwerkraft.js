@@ -28,6 +28,11 @@
  * Die Gegner (geist.js) laufen als Läufer aus Licht mit – genau so, wie sie
  * in ihrer besten Runde gelaufen sind, durch ihren eigenen Korridor. Platz 1
  * und die eigene Bestmarke stehen dazu als Linie quer durch den Korridor.
+ * Überholt wird hier niemand: Alle laufen gleich schnell. Die Schalter sagen
+ * deshalb nur, wie weit die Gegner gekommen sind (gleichschritt).
+ *
+ * Und die besten Läufe lassen sich anschauen (?zuschauen=, geist.js): in
+ * ihrem eigenen Korridor, gewürfelt mit derselben Saat.
  *
  * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben,
  * der Boden liegt bei 0, die Decke bei HOCH.
@@ -162,6 +167,8 @@
   let last = 0;
   let stepTimer = null;
   let gegner = null;
+  // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
+  let zuschauer = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, y0: 0, an: LAEUFER_AN };
 
@@ -1072,7 +1079,9 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.4);
     state.puls += dt * (tempoBei(state.l.x) / 120);
 
-    if (state.schritt === "lauf") {
+    if (state.phase === "zuschauen") {
+      zuschauenTakt();
+    } else if (state.schritt === "lauf") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "lauf"; i += 1) physik(dt / n);
       const meter = Math.floor(meterBei(state.l.x));
@@ -1094,9 +1103,12 @@
     }
 
     // Die Drehung folgt der Schwerkraft: im Fall zügig, am Boden sofort.
-    const ziel = state.l.richtung > 0 ? Math.PI : 0;
-    const zug = state.l.steht || state.schritt !== "lauf" ? 30 : 16;
-    state.drehung += (ziel - state.drehung) * (1 - Math.exp(-dt * zug));
+    // Beim Zuschauen kommt sie aus der Aufzeichnung.
+    if (state.phase !== "zuschauen") {
+      const ziel = state.l.richtung > 0 ? Math.PI : 0;
+      const zug = state.l.steht || state.schritt !== "lauf" ? 30 : 16;
+      state.drehung += (ziel - state.drehung) * (1 - Math.exp(-dt * zug));
+    }
 
     // Nachbilder im Fall.
     if (!ruhig() && state.schritt === "lauf" && !state.l.steht) {
@@ -1135,10 +1147,44 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Lauf, in seinem eigenen Korridor: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit denselben Korridor, und
+  // der Läufer steht Bild für Bild dort, wo er damals war.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "lauf";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt() {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const l = state.l;
+    l.x = s.a;
+    l.y = s.b;
+    l.vy = s.vb;
+    l.steht = Math.abs(s.vb) < 8;
+    state.drehung = (s.c || 0) / 100;
+    l.richtung = state.drehung > Math.PI / 2 ? 1 : -1;
+    const meter = Math.max(0, Math.floor(s.punkte));
+    if (meter !== state.meter) {
+      state.meter = meter;
+      state.punkte = meter;
+      shell.setCount(meter);
+    }
+    zuschauer.weiter();
+  }
+
+  // ---------------------------------------------------------------------------
   // Tippen
   // ---------------------------------------------------------------------------
   function tippen() {
-    if (state.phase === "ende") return;
+    if (state.phase === "ende" || state.phase === "zuschauen") return;
     if (state.phase === "bereit") {
       // Der erste Tipp: Er rennt los.
       state.phase = "spiel";
@@ -1253,11 +1299,17 @@
     accentDark: "#a8321f",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "gravityRun", host, art: "tempo", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "gravityRun", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "gravityRun", host, art: "tempo", alle: true, zufall, gleichschritt: true }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

@@ -515,13 +515,23 @@
 
     const wirt = el("div", "mini-listen-wirt");
     let ganz = false;
+    // Der ▶ bei den ersten drei: ihren besten Lauf in diesem Turnier
+    // anschauen (geist.js, zuschauer) – nicht, solange die Liste verdeckt ist.
+    let laeufe = new Map();
+    const ansehen = (eintrag) => laeufe.get(eintrag.spieler) || null;
     const zeichne = () => {
       wirt.innerHTML = "";
       if (verdeckt) wirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
-      else wirt.append(mini()?.listeBauen?.(liste, spiel, ganz ? {} : { max: 3 }) || el("span"));
+      else wirt.append(mini()?.listeBauen?.(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }) || el("span"));
     };
     zeichne();
     karte.append(wirt);
+    if (!verdeckt && !t.ohneGeist) {
+      mini()?.ansehbareLaeufe?.(spiel, liste, { aus: t.id })?.then((gefunden) => {
+        laeufe = gefunden;
+        if (laeufe.size) zeichne();
+      });
+    }
 
     const aktionen = el("div", "mini-karte-aktionen");
     const l = lage(t, jetzt);

@@ -77,6 +77,20 @@
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
 
+  // Die Spiele, deren beste Läufe sich anschauen lassen (geist.js,
+  // zuschauer): die Fassung ihrer Aufzeichnung – dieselbe, die das Spiel bei
+  // LernappGeist.fuer angibt – und ob ihre Welt immer dieselbe ist. Sonst
+  // braucht der Lauf seine Saat, um seine Welt wieder aufzubauen.
+  const ANSEHBAR = {
+    vineSwing: { fassung: "s1", fest: true },
+    tunnelFlight: { fassung: "t1" },
+    driftRace: { fassung: "t1" },
+    planetHop: { fassung: "p2" },
+    moonLander: { fassung: "p5" },
+    gravityRun: { fassung: "t1" },
+    hillGlide: { fassung: "t1" },
+  };
+
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
   // Konzentration türkis, Geschwindigkeit orange, Problemlösen grün, Zahlen
   // und Buchstaben rot. highscore.js sagt, welches Spiel zu welchem Bereich
@@ -610,6 +624,33 @@
   }
 
   /*
+   * Welche der ersten drei einer Liste einen Lauf hinterlegt haben, den man
+   * anschauen kann – aus der Hall of Fame oder, mit aus, aus einem Turnier.
+   * Gibt die Adressen zurück: Kennung des Spielers → Weg zum Zuschauen.
+   */
+  async function ansehbareLaeufe(spiel, liste, { aus = "" } = {}) {
+    const art = ANSEHBAR[spiel];
+    const raus = new Map();
+    if (!art || !cloud()) return raus;
+    const oben = (liste || []).filter((e) => e.platz <= 3 && e.spieler && e.punkte > 0).slice(0, 3);
+    if (!oben.length) return raus;
+    let gefunden = [];
+    try {
+      gefunden = aus
+        ? (await Promise.all(oben.map((e) => cloud().turnierGeist?.(aus, spiel, e.spieler).catch(() => null))))
+          .filter((g) => g && g.level === art.fassung)
+        : (await cloud().geister?.(spiel, oben.map((e) => e.spieler), art.fassung)) || [];
+    } catch { return raus; }
+    gefunden.forEach((g) => {
+      let d = null;
+      try { d = JSON.parse(g.bahn); } catch { return; }
+      if (!Array.isArray(d?.a) || (!art.fest && !Number.isInteger(d.s))) return;
+      raus.set(g.spieler, `${spielLink(spiel)}?zuschauen=${encodeURIComponent(g.spieler)}${aus ? `&aus=${encodeURIComponent(aus)}` : ""}`);
+    });
+    return raus;
+  }
+
+  /*
    * Die Geister der Besten eines Spiels.
    *
    * Gefragt wird nach ein paar mehr, als gebraucht werden: Wer ganz oben
@@ -670,7 +711,10 @@
   // wissen will, wo er steht – den Sechsten. Zwischen den Ersten und ihm
   // steht dann eine Zeile mit drei Punkten, damit niemand die Plätze
   // dazwischen für ausgelassen hält.
-  function listeBauen(eintraege, spiel, { max = 0 } = {}) {
+  //
+  // ansehen(eintrag): wohin der ▶ neben einem der ersten drei führt – oder
+  // null, wenn es von seinem Lauf keine Aufzeichnung gibt (ansehbareLaeufe).
+  function listeBauen(eintraege, spiel, { max = 0, ansehen = null } = {}) {
     const wrap = el("ol", "mini-liste");
     let gezeigt = max ? eintraege.slice(0, max) : eintraege;
     const eigen = eintraege.find((eintrag) => eintrag.eigen);
@@ -680,6 +724,14 @@
       const leer = el("li", "mini-liste-leer", "Noch niemand. Sei der Erste.");
       wrap.append(leer);
       return wrap;
+    }
+    const ziele = new Map();
+    if (ansehen) {
+      gezeigt.forEach((eintrag) => {
+        const ziel = eintrag.platz <= 3 ? ansehen(eintrag) : null;
+        if (ziel) ziele.set(eintrag, ziel);
+      });
+      if (ziele.size) wrap.classList.add("mit-ansehen");
     }
     gezeigt.forEach((eintrag, stelle) => {
       if (nachgestellt && stelle === gezeigt.length - 1 && gezeigt.length > 1) {
@@ -693,6 +745,18 @@
       const wert = el("span", "mini-wert", String(eintrag.punkte));
       wert.append(el("small", "mini-einheit", ` ${einheit(spiel)}`));
       zeile.append(wert);
+      if (ziele.size) {
+        const ziel = ziele.get(eintrag);
+        if (ziel) {
+          const play = el("a", "mini-ansehen", "▶");
+          play.href = ziel;
+          play.title = `Den Lauf von ${eintrag.name} anschauen`;
+          play.setAttribute("aria-label", play.title);
+          zeile.append(play);
+        } else {
+          zeile.append(el("span", "mini-ansehen-leer"));
+        }
+      }
       wrap.append(zeile);
     });
     return wrap;
@@ -1040,12 +1104,19 @@
     // keinen zweiten Weg.
     const wirt = el("div", "mini-listen-wirt");
     let ganz = false;
+    let laeufe = new Map();
+    const ansehen = (eintrag) => laeufe.get(eintrag.spieler) || null;
     const zeichne = () => {
       wirt.innerHTML = "";
-      wirt.append(listeBauen(liste, spiel, ganz ? {} : { max: 3 }));
+      wirt.append(listeBauen(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }));
     };
     zeichne();
     karte.append(wirt);
+    // Der ▶ bei den ersten drei, sobald feststeht, wessen Lauf es gibt.
+    ansehbareLaeufe(spiel, liste).then((gefunden) => {
+      laeufe = gefunden;
+      if (laeufe.size) zeichne();
+    });
 
     const aktionen = el("div", "mini-karte-aktionen");
     aktionen.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
@@ -1211,7 +1282,7 @@
     einheit,
     farbe,
     listeFuer,
-    listeBauen,
+    listeBauen, ansehbareLaeufe, ANSEHBAR,
     geister,
     rangliste,
     melde,
