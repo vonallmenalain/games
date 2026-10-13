@@ -1118,6 +1118,61 @@ try {
     await kontext.close();
   }
 
+  // --- 4a. Die Gegner-Schalter: jeder bleibt in seinem Feld ---------------------
+  // Drei Schalter (Platz 1, Bestmarke, Alle) auf einem Handy hochkant: Dort
+  // liefen «noch frei» und «noch keine» früher ineinander und über den Rand.
+  // Gemessen in jeder Lage und in drei Zuständen – leer, mit Gegnern vor der
+  // Runde, während der Runde –, mit einem Spiel mit drei und einem mit zwei
+  // Schaltern. Die Gegner werden dafür in die Schalter geschrieben: Es geht
+  // um den Platz, nicht um die Bestenliste.
+  for (const pfad of ["liane", "turmbau"]) {
+    for (const [name, viewport] of [
+      ["Handy hoch schmal", { width: 320, height: 568 }],
+      ["Handy hoch Android", { width: 360, height: 740 }],
+      ["Handy hoch", { width: 390, height: 844 }],
+      ["Handy quer", { width: 568, height: 320 }],
+      ["Tablet quer", { width: 844, height: 390 }],
+      ["Tablet", { width: 1024, height: 768 }],
+    ]) {
+      const { kontext, seite } = await neueSeite(viewport);
+      await seite.goto(`${BASIS}/${pfad}`, { waitUntil: "load" });
+      await seite.waitForSelector(".gs-chip", { timeout: 8000 });
+      await seite.waitForTimeout(300);
+      for (const zustand of ["leer", "voll", "spiel"]) {
+        const befund = await seite.evaluate((zustand) => {
+          const chips = [...document.querySelectorAll(".gs-chip")];
+          if (zustand !== "leer") {
+            chips.forEach((c, i) => {
+              c.classList.remove("ist-leer");
+              c.classList.add("is-an");
+              c.querySelector(".gs-name").textContent = i === 0 ? "Alexandra" : "";
+              c.querySelector(".gs-wert").textContent = i === 2 ? "12/20" : "12345";
+            });
+          }
+          if (zustand === "spiel") document.querySelector(".cm-stage").dataset.phase = "play";
+          const leiste = document.querySelector(".gs-leiste").getBoundingClientRect();
+          const kaesten = chips.map((c) => c.getBoundingClientRect());
+          const fehler = [];
+          chips.forEach((c, i) => {
+            const k = kaesten[i];
+            if (k.left < leiste.left - 1 || k.right > leiste.right + 1) fehler.push(`${c.title || i} steht neben der Leiste`);
+            if (i && kaesten[i - 1].right > k.left + 1) fehler.push(`${i}. und ${i + 1}. Schalter liegen übereinander`);
+            for (const teil of c.children) {
+              const t = teil.getBoundingClientRect();
+              if (t.width && t.right > k.right - 2) fehler.push(`«${(teil.textContent || teil.getAttribute("class")).trim()}» ragt aus dem ${i + 1}. Schalter`);
+            }
+          });
+          // Die Zahl steht immer ganz da: Sie ist, worum es geht.
+          const zahlen = zustand === "leer" ? [] : chips.map((c) => c.querySelector(".gs-wert")).filter((w) => w.scrollWidth > w.clientWidth + 1);
+          if (zahlen.length) fehler.push(`die Zahl ist abgeschnitten (${zahlen.length}×)`);
+          return fehler;
+        }, zustand);
+        pruefe(befund.length === 0, `${pfad}, ${name}, ${zustand}: Gegner-Schalter – ${befund.join(", ")}`);
+      }
+      await kontext.close();
+    }
+  }
+
   // --- 4b. Der Adminbereich ----------------------------------------------------
   // Er ist der einzige Ort mit Anmeldung, und er ist der einzige, der etwas
   // löschen kann. Geprüft wird hier nur, was ohne Konto zu sehen ist: dass die
@@ -2490,6 +2545,9 @@ try {
       await imSpiel.locator(".cm-vollbild").click();
       await seite.waitForFunction(() => document.fullscreenElement === document.documentElement, null, { timeout: 3000 }).catch(() => {});
       pruefe(await seite.evaluate(() => document.fullscreenElement === document.documentElement), "Der Knopf im Spiel bringt den Adminbereich nicht ins Vollbild.");
+      // fullscreenElement steht schon, bevor fullscreenchange kommt – erst
+      // dieses Ereignis zeichnet den Knopf neu (vollbild.js, verteile).
+      await imSpiel.locator('.cm-vollbild[aria-pressed="true"]').waitFor({ timeout: 3000 }).catch(() => {});
       pruefe(await imSpiel.locator(".cm-vollbild").getAttribute("aria-pressed") === "true", "Der Knopf im Spiel zeigt nicht, dass Vollbild ist.");
     }
     await imSpiel.locator(".cm-bar-left a").first().click();

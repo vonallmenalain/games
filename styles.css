@@ -479,6 +479,10 @@ h2 {
   justify-content: center;
   gap: 8px;
   pointer-events: none;
+  /* Was in die Schalter passt, richtet sich nach der Leiste selbst und nicht
+     nach dem Bildschirm: Im Querformat steht sie oben zwischen den Knöpfen
+     und ist viel schmaler als das Bild (Abfragen unten). */
+  container: gegner / inline-size;
 }
 .gs-leiste[hidden] { display: none; }
 .cm-stage[data-gegner="an"] .cm-play { top: calc(var(--safe-top) + 128px); }
@@ -489,7 +493,10 @@ h2 {
   align-items: center;
   gap: 5px;
   min-width: 0;
-  max-width: 48%;
+  max-width: calc((100% - 8px) / 2);
+  /* Was nicht hineinpasst, bleibt im Schalter und läuft nicht in den
+     nächsten hinüber. */
+  overflow: hidden;
   /* Kleiner als die Knöpfe sonst (44 px): Sie sind Schalter am Rand, nicht
      das Spiel. */
   min-height: 0;
@@ -531,8 +538,9 @@ h2 {
 .gs-erster .gs-zeichen { fill: #e0a800; }
 .gs-eigen .gs-zeichen { fill: #3a8fd6; }
 .gs-alle .gs-zeichen { fill: #8a6ad8; }
-/* Drei Schalter (mit «Alle»): jeder ein Drittel. */
-.gs-leiste[data-drei] .gs-chip { max-width: 33%; }
+/* Drei Schalter (mit «Alle»): jeder ein Drittel – nach Abzug der zwei
+   Abstände, sonst wären sie zusammen breiter als die Leiste. */
+.gs-leiste[data-drei] .gs-chip { max-width: calc((100% - 16px) / 3); }
 
 .gs-titel { color: #5b6678; }
 .gs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
@@ -544,8 +552,8 @@ h2 {
 .gs-chip:not(.is-an) .gs-zeichen,
 .gs-chip:not(.is-an) .gs-name,
 .gs-chip:not(.is-an) .gs-wert { opacity: 0.5; }
-.gs-chip.ist-leer .gs-haken { visibility: hidden; }
-.gs-chip.ist-leer .gs-wert { font-weight: 700; color: #5b6678; opacity: 1; }
+.gs-chip.ist-leer .gs-haken { display: none; }
+.gs-chip.ist-leer .gs-wert { font-weight: 700; color: #5b6678; opacity: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* Während der Runde: ohne das Wort davor, nur Zeichen, Name und Zahl. */
 .cm-stage[data-phase="play"] .gs-titel { display: none; }
@@ -566,6 +574,19 @@ h2 {
 @media (max-width: 420px) {
   .gs-chip { font-size: 0.78rem; padding-right: 10px; }
   .gs-name { max-width: 6em; }
+}
+/* Wird es eng, weicht zuerst das Wort vor der Zahl – Krone, Stern und Leute
+   sagen dasselbe, und im Schalter steht es als Titel. Ganz schmal auch der
+   Haken: Ein abgeschalteter Gegner steht ohnehin blass da. */
+@container gegner (max-width: 579px) {
+  .gs-leiste[data-drei] .gs-titel { display: none; }
+}
+@container gegner (max-width: 379px) {
+  .gs-titel { display: none; }
+}
+@container gegner (max-width: 329px) {
+  .gs-leiste[data-drei] .gs-haken { display: none; }
+  .gs-leiste[data-drei] .gs-chip { padding: 0 8px 0 6px; gap: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
