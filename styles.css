@@ -598,7 +598,8 @@ h2 {
 
 /* --- Die Gegner (geist.js) --- */
 
-/* Zwei Schalter unter dem Zeitbalken: Platz 1 und die eigene Bestmarke.
+/* Schalter unter dem Zeitbalken: Platz 1, die eigene Bestmarke und – wo die
+   Gegner als Geist im Bild mitfliegen – alle anderen.
    Vor der Runde sagen sie, gegen wen es geht, und lassen sich an- und
    abschalten; während der Runde zeigen sie, was der Gegner zu dieser Zeit
    hatte – grün, solange man vor ihm liegt. Stehen sie da, rückt die
@@ -664,6 +665,9 @@ h2 {
 .gs-zeichen { flex: 0 0 auto; width: 16px; height: 16px; }
 .gs-erster .gs-zeichen { fill: #e0a800; }
 .gs-eigen .gs-zeichen { fill: #3a8fd6; }
+.gs-alle .gs-zeichen { fill: #8a6ad8; }
+/* Drei Schalter (mit «Alle»): jeder ein Drittel. */
+.gs-leiste[data-drei] .gs-chip { max-width: 33%; }
 
 .gs-titel { color: #5b6678; }
 .gs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }

@@ -26,7 +26,8 @@
  * an der Grösse der Lufthülle und am Abstand – beides wird nach oben
  * strenger, nie unmöglich.
  *
- * Die Gegner (geist.js) stehen als Zahl oben über der Bühne.
+ * Die Gegner (geist.js) hüpfen als Astronaut aus Licht mit – genau so, wie
+ * sie in ihrer besten Runde gehüpft sind, von ihren eigenen Planeten.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben.
  */
@@ -375,8 +376,10 @@
     g.fillStyle = verlauf;
     g.fillRect(0, -10, W, H + 20);
 
-    const camSX = state.camX * view.s;
-    const camSY = state.camY * view.s;
+    // Am Massstab ohne Zoom: Am gezoomten sprangen Sterne und Nebel bei
+    // jedem Zoom, und je höher man war, desto weiter.
+    const camSX = state.camX * view.grund;
+    const camSY = state.camY * view.grund;
     const nebel = (fx, fy, r, farbe, tempo) => {
       const breite = W + r * 2;
       const hoch = H + r * 2;
@@ -724,6 +727,35 @@
 
   // Der Astronaut: weisser Anzug, runder Helm mit goldenem Visier, Rucksack.
   // Gezeichnet im Bild; "oben" ist bei ihm weg vom Planeten.
+  // Die Gegner als Geist: ein Astronaut aus Licht auf seinem eigenen Weg.
+  function zeichneGeister() {
+    if (!gegner || state.phase === "bereit") return;
+    const orte = window.LernappGeist?.orte?.(gegner) || [];
+    if (!orte.length) return;
+    bildTransform();
+    const s = view.s * ASTRO;
+    orte.forEach((o) => {
+      g.save();
+      g.globalAlpha = 0.6 * o.blass;
+      g.translate(bildX(o.a), bildY(o.b));
+      g.rotate(-((o.c || 0) / 100 - Math.PI / 2));
+      g.scale(s, s);
+      g.fillStyle = o.farbe;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(-4, -4.5, 8, 12, 3);
+      else g.rect(-4, -4.5, 8, 12);
+      g.moveTo(5.8, -8.5);
+      g.arc(0.4, -8.5, 5.4, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    });
+    const ms = gegner.zeit();
+    window.LernappGeist.namen(g, orte.map((o) => {
+      const d = Math.round(o.lauf.wert(ms) - state.punkte);
+      return { ...o, sx: bildX(o.a), sy: bildY(o.b) - 20 * s, weit: `${d > 0 ? "+" : ""}${d}` };
+    }), { breit: view.cssW, hoch: view.cssH });
+  }
+
   function zeichneAstronaut() {
     if (state.schritt === "verloren" && state.zeit - state.schrittZeit > 2.5) return;
     const a = state.astro;
@@ -950,6 +982,7 @@
     }
     zeichneSpur();
     zeichneTeile();
+    zeichneGeister();
     zeichneLuft();
     zeichneAstronaut();
     zeichneSchriften();
@@ -1198,7 +1231,9 @@
       state.camY += (my - state.camY) * k;
     }
 
-    if (state.phase === "spiel") gegner?.takt(state.punkte);
+    if (state.phase === "spiel") {
+      gegner?.takt(state.punkte, { a: Math.round(state.astro.x), b: Math.round(state.astro.y), c: Math.round(state.astro.w * 100) });
+    }
   }
 
   function loop(now) {
@@ -1302,7 +1337,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -1317,6 +1352,7 @@
       points: punkte,
       detail: rekord ? `Neuer Rekord! ${planeten}` : `${planeten}${treffer}${vorher ? ` · Bestwert ${vorher}` : ""}`,
       speech: `${punkte} Punkte, ${planeten}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ph-rekord");
     zaehleHoch(punkte);
@@ -1335,7 +1371,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "planetHop", host, art: "ziel", fassung: "p2" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "planetHop", host, art: "tempo", fassung: "p2", alle: true }) || null;
 
   startRun();
 

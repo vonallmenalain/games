@@ -3,8 +3,13 @@
  * ---------------------------------------------------------------------------
  * Allein spielt man gegen die Uhr. Packender ist es gegen jemanden: gegen den,
  * der auf Platz 1 steht, und gegen sich selbst, so gut man schon einmal war.
- * Diese Datei holt beide auf die Bühne – als zwei kleine Schalter über der
- * Spielfläche, die zugleich zeigen, wo man gegen sie steht.
+ * Diese Datei holt beide auf die Bühne – als kleine Schalter über der
+ * Spielfläche, die zugleich zeigen, wo man gegen sie steht. In den Spielen,
+ * in denen die Gegner als Geist im Bild mitfliegen (Lianenschwung,
+ * Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
+ * Hügelflieger), gibt es einen dritten: Alle – jeder, der in der Hall of
+ * Fame steht, im Turnier jeder, der dort mitspielt. Ob die Welt dieselbe
+ * ist, spielt keine Rolle: Der Geist fliegt seinen eigenen Weg.
  *
  * Zwei Arten, je nach Spiel:
  *
@@ -15,6 +20,10 @@
  *           Der Lianenschwung zeichnet dazu den Weg auf (ort) und zeigt den
  *           Gegner als Geist im Bild – auf seiner festen Strecke an denselben
  *           Lianen.
+ *           Ebenso die Spiele ohne Uhr, deren Gegner als Geist im Bild
+ *           mitfliegen (Tunnelflug, Drift-Rennen, Planetenhüpfer,
+ *           Mondlandung, Schwerkraft-Läufer): Ihr Lauf wird genauso
+ *           aufgezeichnet, nur dauert er, solange er eben dauert.
  *   ziel    Spiele ohne Uhr, die beim ersten Fehler enden (Turmbau,
  *           Brückenbauer, Drehscheibe, Fischteich, Kacheln). Dort gibt es
  *           keinen Takt, nur eine Zahl: die Zielmarke. Der Turmbau zieht sie
@@ -54,15 +63,18 @@
   // geister fragt nach genau dieser Fassung).
   const LEVEL = "t1";
   const TAKT_MS = 250;
-  // Zwei Minuten. Keine Runde mit Uhr dauert hier länger.
-  const PROBEN_MAX = 480;
+  // Sechs Minuten. Die Runden mit Uhr dauern höchstens zwei; die ohne Uhr
+  // (Mondlandung, Schwerkraft-Läufer …) auch bei den Besten selten länger.
+  // Was zu lang für die Datenbank ist, verdichtet packe().
+  const PROBEN_MAX = 1440;
   const BAHN_MAX = 12000;
   const WAHL_KEY = "mini.gegner";
   const LAUF_KEY = "mini.lauf";
-  // Gold für Platz 1, Hellblau für die eigene Bestmarke – im Bild der Spiele
-  // dieselben Farben wie auf den Schaltern.
-  const FARBE = { erster: "#ffd23f", eigen: "#8fd3ff" };
-  const ARTEN = ["erster", "eigen"];
+  // Gold für Platz 1, Hellblau für die eigene Bestmarke, Flieder für alle
+  // anderen – im Bild der Spiele dieselben Farben wie auf den Schaltern.
+  const FARBE = { erster: "#ffd23f", eigen: "#8fd3ff", alle: "#d9c7ff" };
+  // So viele Geister höchstens unter «Alle» – mehr sähe niemand mehr.
+  const ALLE_MAX = 20;
 
   const clamp = (wert, min, max) => Math.max(min, Math.min(max, wert));
 
@@ -87,6 +99,7 @@
   const KRONE = "M3 18.5h18l-1.6-10.2-4.6 4.3L12 5l-2.8 7.6-4.6-4.3z";
   const STERN = "M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z";
   const HAKEN = "M5 12.5l4.5 4.5L19 7.5";
+  const LEUTE = "M9 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm7.5 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2.5 20c0-3.6 2.9-6.2 6.5-6.2s6.5 2.6 6.5 6.2zm14.5 0c0-2-.6-3.8-1.7-5.1.5-.1 1-.2 1.6-.2 3 0 5.1 2.2 5.1 5.3z";
 
   // Etwas, das scheitern darf, ohne die Runde mitzunehmen.
   const vielleicht = (frage) => Promise.resolve().then(frage).catch((fehler) => {
@@ -108,10 +121,10 @@
     try { localStorage.setItem(schluessel, JSON.stringify(wert)); } catch { /* privater Modus */ }
   }
 
-  // Beide an, bis jemand etwas anderes wählt.
+  // Alle an, bis jemand etwas anderes wählt.
   function wahl() {
     const w = liesJson(WAHL_KEY);
-    return { erster: w.erster !== false, eigen: w.eigen !== false };
+    return { erster: w.erster !== false, eigen: w.eigen !== false, alle: w.alle !== false };
   }
 
   function setzeWahl(art, an) {
@@ -248,13 +261,16 @@
   // ---------------------------------------------------------------------------
   // Wer die Gegner sind
   // ---------------------------------------------------------------------------
-  // stand: { aus, erster, eigen, grund }
+  // stand: { aus, erster, eigen, alle, grund }
   //   aus     im Turnier abgeschaltet – dann gibt es keine Schalter
-  //   erster  { name, punkte, lauf, ich } oder null
+  //   erster  { name, punkte, lauf, ich, spieler } oder null
   //   eigen   { punkte, lauf } oder null
+  //   alle    [{ name, punkte, lauf, spieler }] – die anderen, mit Lauf
   //   grund   warum es keinen ersten gibt: "verdeckt", "frei"
-  async function ladeStand(spiel, art, lage, fassung) {
-    const stand = { aus: false, erster: null, eigen: null, grund: "frei" };
+  //
+  // mitAllen: das Spiel zeigt die Gegner als Geist im Bild und will alle.
+  async function ladeStand(spiel, art, lage, fassung, mitAllen = false) {
+    const stand = { aus: false, erster: null, eigen: null, alle: [], grund: "frei" };
     const t = lage?.t || null;
     if (t?.ohneGeist) { stand.aus = true; return stand; }
 
@@ -275,6 +291,16 @@
       if (t.verdeckt && turnier()?.lage?.(t) !== "beendet") { stand.grund = "verdeckt"; return stand; }
       const alle = await vielleicht(() => cloud()?.turnierErgebnisse?.(lage.id, { game: spiel }));
       const liste = mini()?.rangliste?.((alle || []).filter((e) => e.game === spiel)) || [];
+      // Alle, die in diesem Turnier mitspielen – mit ihrem besten Lauf hier.
+      if (mitAllen) {
+        const andere = liste.filter((e) => e.spieler && !e.eigen && e.punkte > 0).slice(0, ALLE_MAX);
+        const laeufe = await Promise.all(andere.map((e) => vielleicht(() => cloud()?.turnierGeist?.(lage.id, spiel, e.spieler))));
+        andere.forEach((e, i) => {
+          const geist = laeufe[i];
+          const lauf = geist?.bahn && geist.level === fassung ? abspieler(geist.bahn) : null;
+          if (lauf) stand.alle.push({ name: e.name, punkte: geist.punkte, lauf, spieler: e.spieler });
+        });
+      }
       const vorne = liste[0];
       if (!vorne || !(vorne.punkte > 0)) return stand;
       const geist = art === "tempo" && vorne.spieler
@@ -285,7 +311,7 @@
       // gegen die lässt sich keine einzelne Runde spielen. Dann gilt sein
       // bester einzelner Lauf, und ohne Aufzeichnung gibt es keinen.
       if (t.zaehlt === "summe") {
-        if (passt) stand.erster = { name: vorne.name, punkte: geist.punkte, lauf: abspieler(geist.bahn), ich: Boolean(vorne.eigen) };
+        if (passt) stand.erster = { name: vorne.name, punkte: geist.punkte, lauf: abspieler(geist.bahn), ich: Boolean(vorne.eigen), spieler: vorne.spieler };
         return stand;
       }
       stand.erster = {
@@ -293,22 +319,33 @@
         punkte: vorne.punkte,
         lauf: passt && geist.punkte === vorne.punkte ? abspieler(geist.bahn) : null,
         ich: Boolean(vorne.eigen),
+        spieler: vorne.spieler,
       };
       return stand;
     }
 
-    const liste = await vielleicht(() => mini()?.listeFuer?.(spiel));
-    const vorne = (liste || [])[0];
+    const liste = (await vielleicht(() => mini()?.listeFuer?.(spiel))) || [];
+    const vorne = liste[0];
+    // Für Platz 1 und, wenn das Spiel sie will, für alle anderen: die Läufe
+    // in einer Runde gelesen.
+    const fragen = [];
+    if (art === "tempo" && vorne?.spieler && vorne.punkte > 0) fragen.push(vorne.spieler);
+    const andere = mitAllen ? liste.filter((e) => e.spieler && !e.eigen && e.punkte > 0).slice(0, ALLE_MAX) : [];
+    andere.forEach((e) => { if (!fragen.includes(e.spieler)) fragen.push(e.spieler); });
+    const gefunden = fragen.length ? ((await vielleicht(() => cloud()?.geister?.(spiel, fragen, fassung))) || []) : [];
+    const nachSpieler = new Map(gefunden.map((g) => [g.spieler, g]));
+    andere.forEach((e) => {
+      const geist = nachSpieler.get(e.spieler);
+      if (geist?.bahn) stand.alle.push({ name: e.name, punkte: geist.punkte, lauf: abspieler(geist.bahn), spieler: e.spieler });
+    });
+    stand.alle = stand.alle.filter((g) => g.lauf);
     if (!vorne || !(vorne.punkte > 0)) return stand;
     let lauf = null;
-    if (art === "tempo" && vorne.spieler) {
-      const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [vorne.spieler], fassung));
-      const geist = (gefunden || [])[0];
-      // Nur der Lauf, der zu dieser Zahl gehört. Trägt jemand denselben Namen
-      // auf zwei Geräten, kann die Aufzeichnung vom anderen stammen.
-      if (geist?.bahn && geist.punkte === vorne.punkte) lauf = abspieler(geist.bahn);
-    }
-    stand.erster = { name: vorne.name, punkte: vorne.punkte, lauf, ich: Boolean(vorne.eigen) };
+    const geist = nachSpieler.get(vorne.spieler);
+    // Nur der Lauf, der zu dieser Zahl gehört. Trägt jemand denselben Namen
+    // auf zwei Geräten, kann die Aufzeichnung vom anderen stammen.
+    if (art === "tempo" && geist?.bahn && geist.punkte === vorne.punkte) lauf = abspieler(geist.bahn);
+    stand.erster = { name: vorne.name, punkte: vorne.punkte, lauf, ich: Boolean(vorne.eigen), spieler: vorne.spieler };
     return stand;
   }
 
@@ -335,8 +372,9 @@
    *   gegner.gegner()       wer gerade angezeigt wird, für das Bild
    *   gegner.zeit()         wie lange die Runde schon läuft, in ms
    */
-  function fuer({ spiel, host, art = "ziel", fassung = LEVEL }) {
+  function fuer({ spiel, host, art = "ziel", fassung = LEVEL, alle: mitAllen = false }) {
     if (!spiel || !host) return null;
+    const ARTEN = mitAllen ? ["erster", "eigen", "alle"] : ["erster", "eigen"];
 
     const z = {
       stand: null,
@@ -384,14 +422,36 @@
       eigen: baueSchalter("eigen", "Bestmarke", STERN),
     };
     leiste.append(schalter.erster.knopf, schalter.eigen.knopf);
+    if (mitAllen) {
+      schalter.alle = baueSchalter("alle", "Alle", LEUTE);
+      leiste.append(schalter.alle.knopf);
+      leiste.dataset.drei = "";
+    }
     host.insertBefore(leiste, host.querySelector(".cm-play"));
 
     const zeit = () => (z.laeuft ? performance.now() - z.t0 : z.endeMs);
 
     function gegnerVon(welche) {
+      if (welche === "alle") return null;
       const g = z.stand?.[welche];
       if (!g) return null;
       return { ...g, name: welche === "eigen" ? "Bestmarke" : g.ich ? "du" : g.name };
+    }
+
+    // Unter «Alle»: wer gerade mitläuft. Platz 1 nicht doppelt, wenn er
+    // schon als Platz 1 mitläuft.
+    function alleAndern() {
+      const s = z.stand;
+      if (!s?.alle?.length) return [];
+      const erster = wahl().erster && s.erster?.lauf ? s.erster.spieler : null;
+      return s.alle.filter((g) => g.spieler !== erster);
+    }
+
+    // Der eigene Platz unter allen: wie viele haben zu dieser Zeit mehr.
+    function rangUnterAllen(ms) {
+      const andere = z.stand?.alle || [];
+      const vor = andere.filter((g) => g.lauf.wert(ms) > z.punkte).length;
+      return { rang: vor + 1, von: andere.length + 1 };
     }
 
     // Was der Gegner zu dieser Zeit hatte: mit Aufzeichnung sein Stand von
@@ -416,7 +476,9 @@
       host.dataset.gegner = "an";
       const w = wahl();
       const ms = zeit();
+      if (schalter.alle) zeichneAlle(s, w, ms);
       ARTEN.forEach((welche) => {
+        if (welche === "alle") return;
         const c = schalter[welche];
         const g = gegnerVon(welche);
         const an = Boolean(g) && w[welche];
@@ -444,6 +506,31 @@
       });
     }
 
+    // Der Schalter «Alle»: wie viele mitlaufen, und während der Runde, auf
+    // welchem Platz man unter ihnen liegt.
+    function zeichneAlle(s, w, ms) {
+      const c = schalter.alle;
+      const n = s?.alle?.length || 0;
+      const an = n > 0 && w.alle;
+      c.knopf.disabled = !s || !n;
+      c.knopf.classList.toggle("is-an", an);
+      c.knopf.classList.toggle("ist-leer", Boolean(s) && !n);
+      c.knopf.setAttribute("aria-pressed", String(an));
+      setze(c.name, "");
+      if (!s || !n) {
+        setze(c.wert, !s ? "…" : s.grund === "verdeckt" ? "verdeckt" : "noch keine");
+        c.knopf.classList.remove("ist-vorne");
+        c.knopf.title = s?.grund === "verdeckt" ? "Die Rangliste dieses Turniers bleibt bis zum Schluss verdeckt." : "Alle anderen – noch hat niemand einen Lauf hinterlegt.";
+        return;
+      }
+      const { rang, von } = rangUnterAllen(ms);
+      if (Date.now() >= (z.meldungBis.alle || 0)) setze(c.wert, gespielt() ? `${rang}/${von}` : String(n));
+      c.knopf.classList.toggle("ist-vorne", an && gespielt() && rang === 1);
+      const wer = `Alle anderen: ${n} ${n === 1 ? "Lauf" : "Läufe"}`;
+      c.knopf.title = `${wer} – fliegen mit. Antippen zum ${an ? "Ausblenden" : "Einblenden"}.`;
+      c.knopf.setAttribute("aria-label", `${wer}. ${an ? "Werden angezeigt" : "Ausgeblendet"}.`);
+    }
+
     function melde(welche, text) {
       const c = schalter[welche];
       setze(c.wert, text);
@@ -462,7 +549,14 @@
       if (!s || s.aus || !z.laeuft) return;
       const w = wahl();
       const ms = zeit();
+      if (schalter.alle && w.alle && z.stand.alle?.length) {
+        // Unter allen ein Platz nach vorn: kurz gemeldet.
+        const { rang } = rangUnterAllen(ms);
+        if (z.rangAlle && rang < z.rangAlle && ms > 1200 && Date.now() - (z.zuletzt.alle || 0) > 2500) melde("alle", `${rang}. Platz`);
+        z.rangAlle = rang;
+      }
       ARTEN.forEach((welche) => {
+        if (welche === "alle") return;
         const g = gegnerVon(welche);
         if (!g || !w[welche]) return;
         const vorne = z.punkte > wertBei(g, ms);
@@ -500,7 +594,7 @@
         if (versuch < 60) window.setTimeout(() => { if (nr === z.ladung) lade(nr, versuch + 1); }, 250);
         return;
       }
-      ladeStand(spiel, art, lage?.t ? lage : null, fassung).then((stand) => {
+      ladeStand(spiel, art, lage?.t ? lage : null, fassung, mitAllen).then((stand) => {
         if (nr !== z.ladung) return;
         z.stand = stand;
         zeichne();
@@ -519,6 +613,7 @@
       z.geschlagen = {};
       z.meldungBis = {};
       z.zuletzt = {};
+      z.rangAlle = 0;
       z.ladung += 1;
       zeichne();
       lade(z.ladung, 0);
@@ -580,6 +675,11 @@
         if (welche === "eigen" && raus[0]?.ich && raus[0].punkte === g.punkte) return;
         raus.push({ art: welche, name: g.name, punkte: g.punkte, lauf: g.lauf, ich: Boolean(g.ich), farbe: FARBE[welche] });
       });
+      // Alle anderen hinten an: Sie werden zuerst gezeichnet, Platz 1 und
+      // die Bestmarke liegen darüber.
+      if (schalter.alle && w.alle) {
+        alleAndern().forEach((g) => raus.unshift({ art: "alle", name: g.name, punkte: g.punkte, lauf: g.lauf, ich: false, farbe: FARBE.alle }));
+      }
       return raus;
     }
 
@@ -592,17 +692,83 @@
 
   const angemeldet = [];
 
+  /*
+   * Die Namen über den Geistern im Bild – für alle Spiele gleich.
+   *
+   *   g        der Zeichenkontext, im Massstab des Bildes (CSS-Pixel)
+   *   orte     [{ name, art, farbe, sx, sy, blass, weit }] – sx, sy: wo der
+   *            Name im Bild steht; weit: was am Rand dazu steht ("+12 m")
+   *   bild     { breit, hoch, oben } – oben: so weit bleibt der Rand frei
+   *
+   * Wer ausserhalb des Bildes ist, steht als Hinweis am Rand – Platz 1 und
+   * die Bestmarke; die vielen unter «Alle» nicht, sonst stünde der Rand voll.
+   */
+  function namen(g, orte, { breit, hoch, oben = 0 }) {
+    const gross = Math.round(clamp(hoch * 0.028, 10, 13));
+    g.save();
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "bottom";
+    g.lineWidth = 3;
+    g.strokeStyle = "rgba(20, 24, 50, 0.65)";
+    orte.forEach((o) => {
+      if (!(o.blass > 0)) return;
+      const text = o.art === "eigen" ? "Bestmarke" : o.name;
+      const drin = o.sx >= 0 && o.sx <= breit && o.sy >= oben && o.sy <= hoch + gross;
+      g.globalAlpha = o.blass;
+      if (drin) {
+        g.strokeText(text, o.sx, o.sy);
+        g.fillStyle = "#ffffff";
+        g.fillText(text, o.sx, o.sy);
+        return;
+      }
+      if (o.art === "alle") return;
+      const zeile = o.weit ? `${text} ${o.weit}` : text;
+      const halb = g.measureText(zeile).width / 2 + 6;
+      const x = clamp(o.sx, halb, breit - halb);
+      const y = clamp(o.sy, oben + gross + 4, hoch - 6);
+      g.strokeText(zeile, x, y);
+      g.fillStyle = o.farbe;
+      g.fillText(zeile, x, y);
+    });
+    g.restore();
+  }
+
+  // Wo ein Geist gerade ist, für das Bild eines Spiels: ort(ms) seines Laufs,
+  // ein Stück voraus für die Richtung, und wie blass er nach seinem Ende ist.
+  function orte(steuerung) {
+    if (!steuerung) return [];
+    const ms = steuerung.zeit();
+    return steuerung.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
+      const ort = geg.lauf.ort(ms);
+      const bald = geg.lauf.ort(ms + 100);
+      const fertig = geg.lauf.fertig(ms);
+      return {
+        ...geg,
+        a: ort.a,
+        b: ort.b,
+        c: ort.c,
+        da: bald.a - ort.a,
+        db: bald.b - ort.b,
+        blass: fertig ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1,
+      };
+    }).filter((o) => o.blass > 0);
+  }
+
   window.LernappGeist = {
     LEVEL, TAKT_MS, FARBE,
-    fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf,
+    fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf, namen, orte,
     // Für die Prüfung im Browser: was die Spiele dieser Seite angemeldet haben.
-    stand: () => angemeldet.map(({ spiel, art, z }) => ({
+    stand: () => angemeldet.map(({ spiel, art, steuerung, z }) => ({
       spiel, art, laeuft: z.laeuft, punkte: z.punkte, proben: z.auf.p.length,
+      // Wer gerade im Bild mitläuft: «art:name».
+      zeigt: steuerung.gegner().map((g) => `${g.art}:${g.name}`),
       stand: z.stand ? {
         aus: z.stand.aus,
         grund: z.stand.grund,
         erster: z.stand.erster ? { name: z.stand.erster.name, punkte: z.stand.erster.punkte, lauf: Boolean(z.stand.erster.lauf), ich: z.stand.erster.ich } : null,
         eigen: z.stand.eigen ? { punkte: z.stand.eigen.punkte, lauf: Boolean(z.stand.eigen.lauf) } : null,
+        alle: (z.stand.alle || []).map((g) => ({ name: g.name, punkte: g.punkte })),
       } : null,
     })),
   };

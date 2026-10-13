@@ -13,8 +13,9 @@
  * selben Winkel, in dem der Hang abfällt, behält den Schwung und bekommt
  * etwas dazu: Perfekt! (+8 % Tempo). Drei perfekte Landungen, ohne dass eine
  * harte dazwischen kommt, und er ist On Fire: Er zieht eine kleine
- * Feuerspur hinter sich her, und jede weitere perfekte Landung gibt +14 %
- * statt +8 % – bis zur nächsten harten Landung. Wer in einen Gegenhang
+ * Feuerspur hinter sich her, brennt sich nach vorn (steter Schub, mehr
+ * Höchsttempo – gut ein Drittel weiter), und jede weitere perfekte Landung
+ * gibt +14 % statt +8 % – bis zur nächsten harten Landung. Wer in einen Gegenhang
  * kracht, verliert Tempo, und das Feuer ist aus. Oben links zählen drei
  * Punkte bis On Fire mit; brennt es, steht dort, was es bringt.
  *
@@ -69,6 +70,10 @@
   const AUFTRIEB = 0.35;           // … und so viel davon schiebt ihn nach vorn
   const V_MIN = 120;               // langsamer rutscht er nie – er flattert
   const V_MAX = 1150;
+  // On Fire: Er brennt sich nach vorn – ein steter Schub in Flugrichtung,
+  // weniger Luftwiderstand und mehr Höchsttempo.
+  const FEUER_SCHUB = 140;
+  const FEUER_TEMPO = 1.3;
   const REIBUNG = 0.055;           // am Boden, mit dem Gewicht: schwer bremst mehr
   const PERFEKT_WINKEL = 0.48;     // so flach muss er auf dem Abhang landen
   const SCHLECHT_WINKEL = 0.66;    // so steiler ist es eine harte Landung
@@ -78,7 +83,7 @@
     "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
     "Lass los, dann wird er leicht, fliegt über die Kuppe und gleitet mit ausgebreiteten Flügeln – mit genug Schwung über den nächsten Hügel hinweg. In der Luft halten, und er stürzt hinab.",
     "Lande genau auf einem Abhang, im Winkel des Hangs: Perfekt! Das gibt Schwung. Oben links zählen drei Punkte mit.",
-    "Nach drei perfekten Landungen ist er On Fire: Er zieht eine Feuerspur hinter sich her, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung löscht das Feuer.",
+    "Nach drei perfekten Landungen ist er On Fire: Er zieht eine Feuerspur hinter sich her, fliegt schneller, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung löscht das Feuer.",
     "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
   ].join(" ");
 
@@ -655,7 +660,9 @@
       g.lineWidth = 3;
       g.strokeStyle = "rgba(30, 40, 80, 0.6)";
       if (sx < 0 || sx > view.cssW) {
-        // Ausserhalb des Bildes: ein Hinweis am Rand, wie weit er weg ist.
+        // Ausserhalb des Bildes: ein Hinweis am Rand, wie weit er weg ist –
+        // für Platz 1 und die Bestmarke, nicht für die vielen unter «Alle».
+        if (geist.art === "alle") return;
         const rand = clamp(sx, 30, view.cssW - 30);
         const meter = Math.round((geist.x - state.v.x) / METER);
         const zeile = `${text} ${meter > 0 ? "+" : ""}${meter} m`;
@@ -763,7 +770,7 @@
     g.font = `800 ${klein}px system-ui, sans-serif`;
     if (state.feuer) {
       const titel = `On Fire ×${state.serie}`;
-      const zusatz = "+14 % je Perfekt";
+      const zusatz = "schneller · +14 % je Perfekt";
       const tw = g.measureText(titel).width;
       g.font = `700 ${Math.round(klein * 0.85)}px system-ui, sans-serif`;
       const zw = g.measureText(zusatz).width;
@@ -817,7 +824,7 @@
     const seitBeginn = state.zeit - state.feuerZeit;
     const seitEnde = state.zeit - state.vorbeiZeit;
     const banner = seitBeginn < 2.2
-      ? { titel: "ON FIRE!", text: "3 perfekte Landungen – jetzt gibt jede weitere +14 % Schwung", farbe: "#ffd84d", t: seitBeginn, dauer: 2.2 }
+      ? { titel: "ON FIRE!", text: "Er fliegt schneller – und jede perfekte Landung gibt +14 %", farbe: "#ffd84d", t: seitBeginn, dauer: 2.2 }
       : seitEnde < 1.8
         ? { titel: "Feuer aus", text: "Harte Landung – drei perfekte, und er brennt wieder", farbe: "#ffe0e0", t: seitEnde, dauer: 1.8 }
         : null;
@@ -930,11 +937,17 @@
       v.vy += ab;
       v.vx += ab * AUFTRIEB;
     }
+    if (state.feuer) {
+      const tempo = Math.max(1, Math.hypot(v.vx, v.vy));
+      v.vx += (v.vx / tempo) * FEUER_SCHUB * dt;
+      v.vy += (v.vy / tempo) * FEUER_SCHUB * dt;
+    }
     v.x += v.vx * dt;
     v.y += v.vy * dt;
-    // Luftwiderstand: kaum spürbar, bei hohem Tempo mehr.
+    // Luftwiderstand: kaum spürbar, bei hohem Tempo mehr – im Feuer erst
+    // später.
     const schnell = Math.hypot(v.vx, v.vy);
-    const bremse = 1 - (0.012 + Math.max(0, schnell - 650) * 0.0012) * dt;
+    const bremse = 1 - (0.012 + Math.max(0, schnell - (state.feuer ? 850 : 650)) * 0.0012) * dt;
     v.vx *= bremse;
     v.vy *= bremse;
 
@@ -975,9 +988,10 @@
       state.flugZeit += dt;
     }
     const tempo = Math.hypot(v.vx, v.vy);
-    if (tempo > V_MAX) {
-      v.vx *= V_MAX / tempo;
-      v.vy *= V_MAX / tempo;
+    const hoechstens = state.feuer ? V_MAX * FEUER_TEMPO : V_MAX;
+    if (tempo > hoechstens) {
+      v.vx *= hoechstens / tempo;
+      v.vy *= hoechstens / tempo;
     }
     state.hoechste = Math.max(state.hoechste, v.y - boden);
   }
@@ -1230,7 +1244,7 @@
     clock: true,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "hillGlide", host, art: "tempo" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "hillGlide", host, art: "tempo", alle: true }) || null;
 
   startRun();
 

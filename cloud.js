@@ -407,7 +407,7 @@
     const fassung = String(level || "").trim();
     const ids = [...new Set((Array.isArray(spieler) ? spieler : [])
       .map((id) => String(id || "").trim())
-      .filter(Boolean))].slice(0, 10);
+      .filter(Boolean))].slice(0, 25);
     const ref = geisterSammlung();
     if (!ref || !spielId || !ids.length) return [];
 

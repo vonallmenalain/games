@@ -109,24 +109,36 @@ keine Runde mehr, die man jemandem schickt.
 
 ### Gegner und Geister
 
-Wer spielt, spielt nicht allein: Über der Spielfläche stehen zwei Schalter,
-«Platz 1» und «Bestmarke» (`geist.js`). Sie sagen vor der Runde, gegen wen es
-geht, lassen sich an- und abschalten (die Wahl gilt auf dem Gerät für alle
-Spiele) und zeigen während der Runde, wo man gegen den Gegner steht – grün,
-solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl schlägt.
+Wer spielt, spielt nicht allein: Über der Spielfläche stehen die Schalter
+«Platz 1» und «Bestmarke» (`geist.js`), in den Spielen mit Geist im Bild dazu
+«Alle». Sie sagen vor der Runde, gegen wen es geht, lassen sich an- und
+abschalten (alle sind an, bis man etwas anderes wählt; die Wahl gilt auf dem
+Gerät für alle Spiele) und zeigen während der Runde, wo man gegen den Gegner
+steht – grün, solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl
+schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
 
-    mitlaufend   Blätter im Strom, Lianenschwung, Hügelflieger: Spiele
-                 mit fester Zeit. Der Gegner läuft mit seinem Stand von
-                 damals mit, Viertelsekunde für Viertelsekunde. Im
-                 Lianenschwung und im Hügelflieger zusätzlich als Geist im
-                 Bild – die Strecke ist immer dieselbe, also schwingt er an
-                 denselben Lianen und fliegt über dieselben Hügel.
-    Zielmarke    Turmbau, Brückenbauer, Drehscheibe, Tunnelflug,
-                 Drift-Rennen, Planetenhüpfer, Mondlandung,
-                 Schwerkraft-Läufer, Fischteich, Kacheln-Knobeln: Spiele
-                 ohne Uhr. Der Gegner ist eine Zahl; im Turmbau eine Linie
-                 in der Höhe seines besten Turms, im Drift-Rennen ein
-                 Zielstreifen quer über der Strasse.
+    Geist im Bild   Lianenschwung, Tunnelflug, Drift-Rennen,
+                    Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
+                    Hügelflieger. Aufgezeichnet wird der Weg (wo, wann, in
+                    welcher Lage), und der Gegner fliegt, fährt oder läuft
+                    als Figur aus Licht mit – genau so wie in seiner besten
+                    Runde. Ob seine Welt dieselbe war, spielt keine Rolle:
+                    Er folgt seinem eigenen Weg. Platz 1 in Gold, die
+                    Bestmarke hellblau, alle anderen in Flieder. «Alle» ist
+                    jeder, der in der Hall of Fame steht (bis zwanzig), im
+                    Turnier jeder, der dort mitspielt. Wer noch keinen Lauf
+                    hinterlegt hat – eine Zahl von früher –, läuft erst mit,
+                    wenn er sich verbessert.
+    mitlaufend      Blätter im Strom: feste Zeit, der Gegner läuft mit
+                    seinem Stand von damals mit, Viertelsekunde für
+                    Viertelsekunde – als Zahl, ohne Figur.
+    Zielmarke       Turmbau, Brückenbauer, Drehscheibe, Fischteich,
+                    Kacheln-Knobeln: Spiele ohne Uhr. Der Gegner ist eine
+                    Zahl; im Turmbau eine Linie in der Höhe seines besten
+                    Turms. Im Tunnelflug, Drift-Rennen und
+                    Schwerkraft-Läufer stehen Platz 1 und die Bestmarke
+                    zusätzlich als Tor, Zielstreifen oder Linie bei ihren
+                    Metern.
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
