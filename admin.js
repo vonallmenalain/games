@@ -1022,7 +1022,8 @@
       personen.forEach((person) => {
         const zeile = el("tr");
         zeile.append(el("td", "adm-name", `${person.platz}. ${person.name}`));
-        zeile.append(el("td", "zahl", `${person.gespielt}/${t.spiele.length}`));
+        // Gezählt wird, was zählt: die Spiele und die Live-Abende des Turniers.
+        zeile.append(el("td", "zahl", `${person.gespielt}/${wertung?.teile ?? t.spiele.length}`));
         zeile.append(el("td", "zahl", String(person.wert)));
         const zelle = el("td", "adm-aktionen");
         const seine = eintraege.filter((e) => namensSchluessel(e.name) === namensSchluessel(person.name));
