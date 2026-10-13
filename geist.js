@@ -48,6 +48,13 @@
  *
  * Gibt es zum Gegner keine Aufzeichnung (eine Bestzahl von früher), steht er
  * als Zielmarke da: seine Zahl, ohne Takt.
+ *
+ * Zuschauen: Die besten drei Läufe der Hall of Fame und eines Turniers lassen
+ * sich ganz anschauen (der ▶ in der Liste, mini-games.js). Die Spielseite
+ * kommt dann mit ?zuschauen=<spieler> (und &aus=<turnier>) und spielt den
+ * Lauf in seiner eigenen Welt ab: Die Aufzeichnung trägt die Saat, mit der
+ * die Welt gewürfelt war (zufall.js), und das Spiel stellt seine Figur Bild
+ * für Bild dorthin, wo sie damals war (zuschauer).
  */
 (() => {
   "use strict";
@@ -171,7 +178,12 @@
   // Zahl, die nicht gemittelt wird). Geschrieben wird sie als JSON, ganze
   // Zahlen, eine Probe je Stelle:
   //
-  //   {"v":1,"dt":250,"p":[0,0,1,…],"a":[…],"b":[…],"c":[…]}
+  //   {"v":1,"dt":250,"p":[0,0,1,…],"a":[…],"b":[…],"c":[…],"s":123456789}
+  //
+  // s ist die Saat der Welt (zufall.js) – damit lässt sich der Lauf später
+  // in derselben Welt anschauen. u ist, wo die Uhr des Spiels stand, als die
+  // Runde begann (in ms) – für Welten, die sich mit der Zeit bewegen
+  // (Planetenhüpfer).
   function neueAufzeichnung() {
     return { p: [], a: [], b: [], c: [], ort: false, mitC: false };
   }
@@ -193,7 +205,7 @@
 
   // Zu lang für die Datenbank? Dann jede zweite Probe, mit doppeltem Takt –
   // die letzte bleibt, was sie war: das Ergebnis.
-  function packe(auf) {
+  function packe(auf, saat = null, vorlauf = null) {
     const ende = auf.p[auf.p.length - 1];
     let dt = TAKT_MS;
     let p = auf.p;
@@ -204,6 +216,8 @@
       const daten = { v: 1, dt, p };
       if (a) Object.assign(daten, { a, b });
       if (c) daten.c = c;
+      if (saat !== null && saat !== undefined) daten.s = saat;
+      if (vorlauf !== null && vorlauf !== undefined) daten.u = Math.max(0, Math.round(vorlauf));
       const text = JSON.stringify(daten);
       if (text.length <= BAHN_MAX) return text;
       const halb = (liste) => liste.filter((_, i) => i % 2 === 0);
@@ -230,6 +244,8 @@
       a: mitOrt ? d.a.map(zahl) : null,
       b: mitOrt ? d.b.map(zahl) : null,
       c: mitC ? d.c.map(zahl) : null,
+      s: Number.isInteger(d.s) && d.s >= 0 ? d.s : null,
+      u: Number.isFinite(d.u) && d.u >= 0 ? d.u : 0,
     };
   }
 
@@ -247,6 +263,8 @@
     };
     return {
       dauer,
+      saat: d.s,
+      vorlauf: d.u,
       mitOrt: Boolean(d.a),
       wert: (ms) => d.p[stelle(ms).i],
       ort(ms) {
@@ -372,7 +390,7 @@
    *   gegner.gegner()       wer gerade angezeigt wird, für das Bild
    *   gegner.zeit()         wie lange die Runde schon läuft, in ms
    */
-  function fuer({ spiel, host, art = "ziel", fassung = LEVEL, alle: mitAllen = false }) {
+  function fuer({ spiel, host, art = "ziel", fassung = LEVEL, alle: mitAllen = false, zufall = null, gleichschritt = false, vorlauf = null }) {
     if (!spiel || !host) return null;
     const ARTEN = mitAllen ? ["erster", "eigen", "alle"] : ["erster", "eigen"];
 
@@ -496,9 +514,11 @@
           return;
         }
         setze(c.name, welche === "erster" ? g.name : "");
-        const soll = gespielt() ? wertBei(g, ms) : g.punkte;
+        // Im Gleichschritt (alle gleich schnell) sagt der laufende Stand
+        // nichts: Dort steht die Zahl vom Schluss.
+        const soll = gespielt() && !gleichschritt ? wertBei(g, ms) : g.punkte;
         if (Date.now() >= (z.meldungBis[welche] || 0)) setze(c.wert, String(soll));
-        c.knopf.classList.toggle("ist-vorne", an && gespielt() && z.punkte > soll);
+        c.knopf.classList.toggle("ist-vorne", an && gespielt() && z.punkte > soll && !gleichschritt);
         c.knopf.classList.toggle("ist-geschlagen", an && Boolean(z.geschlagen[welche]));
         const wer = welche === "erster" ? `Platz 1: ${g.name}, ${g.punkte}` : `Deine Bestmarke: ${g.punkte}`;
         c.knopf.title = `${wer}${g.lauf ? " – läuft mit" : ""}. Antippen zum ${an ? "Ausblenden" : "Einblenden"}.`;
@@ -524,8 +544,8 @@
         return;
       }
       const { rang, von } = rangUnterAllen(ms);
-      if (Date.now() >= (z.meldungBis.alle || 0)) setze(c.wert, gespielt() ? `${rang}/${von}` : String(n));
-      c.knopf.classList.toggle("ist-vorne", an && gespielt() && rang === 1);
+      if (Date.now() >= (z.meldungBis.alle || 0)) setze(c.wert, gespielt() && !gleichschritt ? `${rang}/${von}` : String(n));
+      c.knopf.classList.toggle("ist-vorne", an && gespielt() && rang === 1 && !gleichschritt);
       const wer = `Alle anderen: ${n} ${n === 1 ? "Lauf" : "Läufe"}`;
       c.knopf.title = `${wer} – fliegen mit. Antippen zum ${an ? "Ausblenden" : "Einblenden"}.`;
       c.knopf.setAttribute("aria-label", `${wer}. ${an ? "Werden angezeigt" : "Ausgeblendet"}.`);
@@ -549,7 +569,7 @@
       if (!s || s.aus || !z.laeuft) return;
       const w = wahl();
       const ms = zeit();
-      if (schalter.alle && w.alle && z.stand.alle?.length) {
+      if (schalter.alle && w.alle && z.stand.alle?.length && !gleichschritt) {
         // Unter allen ein Platz nach vorn: kurz gemeldet.
         const { rang } = rangUnterAllen(ms);
         if (z.rangAlle && rang < z.rangAlle && ms > 1200 && Date.now() - (z.zuletzt.alle || 0) > 2500) melde("alle", `${rang}. Platz`);
@@ -565,7 +585,7 @@
           melde(welche, welche === "eigen" ? "Bestmarke!" : g.ich ? "Rekord!" : "geschlagen!");
           kids()?.playJingle?.("unlock");
           kids()?.vibrate?.([12, 30, 12]);
-        } else if (g.lauf && vorne && !z.vorne[welche] && ms > 1200
+        } else if (g.lauf && vorne && !z.vorne[welche] && ms > 1200 && !gleichschritt
           && Date.now() - (z.zuletzt[welche] || 0) > 2500) {
           melde(welche, "überholt!");
         }
@@ -623,6 +643,7 @@
       if (z.laeuft) return;
       z.laeuft = true;
       z.t0 = performance.now();
+      z.vorlauf = vorlauf ? vorlauf() : null;
       z.endeMs = 0;
       probe(z.auf, 0, z.punkte, z.ort);
       stoppe();
@@ -652,7 +673,7 @@
       stoppe();
       zeichne();
       if (!lief) return null;
-      const bahn = art === "tempo" && z.auf.p.length ? packe(z.auf) : "";
+      const bahn = art === "tempo" && z.auf.p.length ? packe(z.auf, zufall?.saat?.() ?? null, z.vorlauf) : "";
       // Der eigene beste Lauf bleibt auf dem Gerät – auch ohne Namen, auch
       // ohne Netz.
       if (z.punkte > 0 && z.punkte > (eigenerLauf(spiel, fassung)?.punkte || 0)) {
@@ -755,9 +776,159 @@
     }).filter((o) => o.blass > 0);
   }
 
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Wessen Lauf die Adresse zeigen will: ?zuschauen=<spieler>, aus einem
+  // Turnier mit &aus=<turnier>. Kein Turnier im Sinn von turnier.js: Wer
+  // zuschaut, spielt keinen Versuch.
+  function zuschauAdresse() {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const spieler = (p.get("zuschauen") || "").trim().slice(0, 64);
+      if (!spieler) return null;
+      return { spieler, aus: (p.get("aus") || "").trim().slice(0, 64) };
+    } catch { return null; }
+  }
+
+  // Den Lauf holen – aus der Hall of Fame oder aus dem Turnier. Ohne Saat
+  // lässt er sich nur in einem Spiel mit immer derselben Welt anschauen.
+  async function ladeLauf(spiel, fassung, { spieler, aus }, fest) {
+    let geist = null;
+    if (aus) {
+      geist = await vielleicht(() => cloud()?.turnierGeist?.(aus, spiel, spieler));
+      if (geist && geist.level !== fassung) geist = null;
+    } else {
+      const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [spieler], fassung));
+      geist = (gefunden || [])[0] || null;
+    }
+    const lauf = geist ? abspieler(geist.bahn) : null;
+    if (!lauf?.mitOrt || (!fest && lauf.saat === null)) return null;
+    return { name: geist.name, punkte: geist.punkte, lauf };
+  }
+
+  // Ob sich ein Lauf anschauen lässt – für den ▶ in der Liste.
+  function ansehbar(bahn, fest = false) {
+    const d = entpacke(bahn);
+    return Boolean(d?.a) && (fest || d.s !== null);
+  }
+
+  /*
+   * Ein Spiel, das man anschauen kann, fragt beim Laden:
+   *
+   *   const zuschauer = LernappGeist.zuschauer({ host, spiel, fassung, zufall,
+   *     einheit: "m", nochmal: () => … });
+   *
+   * null heisst: Hier wird gespielt, nicht zugeschaut. Sonst:
+   *
+   *   zuschauer.laden      Promise – ob es den Lauf gibt; die Saat hält
+   *                        danach den Zufall des Spiels fest
+   *   zuschauer.los()      die Wiedergabe beginnt (nach dem Aufbau der Welt)
+   *   zuschauer.stand()    { a, b, c, va, vb, ab, punkte, t } – wo der
+   *                        Läufer jetzt ist, wie schnell er sich bewegt und
+   *                        wie er nach oben beschleunigt
+   *   zuschauer.weiter()   falsch, sobald der Lauf zu Ende ist (dann steht
+   *                        die Tafel mit «Nochmal» und «Zurück» da)
+   *
+   * Oben steht, wessen Lauf das ist, und ein Knopf, der jederzeit beendet.
+   */
+  function zuschauer({ host, spiel, fassung = LEVEL, zufall = null, fest = false, einheit = "", nochmal = null }) {
+    const wo = zuschauAdresse();
+    if (!wo || !host) return null;
+    const z = { lauf: null, name: "", punkte: 0, t0: 0, fertig: false };
+    const ziel = wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
+    const zurueck = () => {
+      if (window.LernappVollbild?.weiter) window.LernappVollbild.weiter(ziel);
+      else window.location.href = ziel;
+    };
+
+    const leiste = el("div", "gz-leiste");
+    const titel = el("span", "gz-titel", "Lauf wird geladen …");
+    const zu = el("button", "gz-zu", "Beenden");
+    zu.type = "button";
+    zu.addEventListener("click", zurueck);
+    leiste.append(el("span", "gz-zeichen", "▶"), titel, zu);
+    const tafel = el("div", "gz-tafel");
+    tafel.hidden = true;
+    host.append(leiste, tafel);
+    host.dataset.gegner = "an";
+    host.dataset.zuschauen = "an";
+
+    function zeigeTafel(text, mitNochmal) {
+      tafel.replaceChildren();
+      const karte = el("div", "gz-karte");
+      karte.append(el("p", "gz-text", text));
+      const knoepfe = el("div", "gz-knoepfe");
+      if (mitNochmal && nochmal) {
+        const wieder = el("button", "gz-knopf gz-nochmal", "Nochmal");
+        wieder.type = "button";
+        wieder.addEventListener("click", () => { tafel.hidden = true; nochmal(); });
+        knoepfe.append(wieder);
+      }
+      const weg = el("button", "gz-knopf gz-zurueck", "Zurück");
+      weg.type = "button";
+      weg.addEventListener("click", zurueck);
+      knoepfe.append(weg);
+      karte.append(knoepfe);
+      tafel.append(karte);
+      tafel.hidden = false;
+    }
+
+    const laden = ladeLauf(spiel, fassung, wo, fest).then((g) => {
+      if (!g) {
+        titel.textContent = "Kein Lauf";
+        zeigeTafel("Von diesem Lauf gibt es keine Aufzeichnung. Sie entsteht beim nächsten Rekord.", false);
+        return false;
+      }
+      z.lauf = g.lauf;
+      z.name = g.name;
+      z.punkte = g.punkte;
+      if (g.lauf.saat !== null) zufall?.halte?.(g.lauf.saat);
+      titel.textContent = `${g.name} · ${g.punkte}${einheit ? ` ${einheit}` : ""}`;
+      return true;
+    });
+
+    const zeit = () => (z.t0 ? performance.now() - z.t0 : 0);
+    return {
+      laden,
+      get lauf() { return z.lauf; },
+      get name() { return z.name; },
+      los() {
+        z.t0 = performance.now();
+        z.fertig = false;
+        tafel.hidden = true;
+      },
+      zeit,
+      stand() {
+        if (!z.lauf) return null;
+        const t = Math.min(zeit(), z.lauf.dauer);
+        const ort = z.lauf.ort(t);
+        const vor = z.lauf.ort(Math.max(0, t - 60));
+        const nach = z.lauf.ort(t + 60);
+        const dt = (Math.min(t + 60, z.lauf.dauer) - Math.max(0, t - 60)) / 1000 || 0.12;
+        // Die Beschleunigung nach oben, über eine Viertelsekunde je Seite –
+        // für Spiele, die zeigen wollen, wann ein Triebwerk brannte.
+        const h = TAKT_MS;
+        const oben = z.lauf.ort(Math.max(0, t - h));
+        const unten = z.lauf.ort(t + h);
+        const ab = (unten.b - 2 * ort.b + oben.b) / ((h / 1000) ** 2);
+        return { a: ort.a, b: ort.b, c: ort.c, va: (nach.a - vor.a) / dt, vb: (nach.b - vor.b) / dt, ab, punkte: z.lauf.wert(t), t };
+      },
+      weiter() {
+        if (!z.lauf || !z.t0) return false;
+        if (!z.fertig && zeit() > z.lauf.dauer + 400) {
+          z.fertig = true;
+          zeigeTafel(`Das war der Lauf von ${z.name}: ${z.punkte}${einheit ? ` ${einheit}` : ""}.`, true);
+        }
+        return !z.fertig;
+      },
+    };
+  }
+
   window.LernappGeist = {
     LEVEL, TAKT_MS, FARBE,
     fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf, namen, orte,
+    zuschauer, zuschauAdresse, ansehbar,
     // Für die Prüfung im Browser: was die Spiele dieser Seite angemeldet haben.
     stand: () => angemeldet.map(({ spiel, art, steuerung, z }) => ({
       spiel, art, laeuft: z.laeuft, punkte: z.punkte, proben: z.auf.p.length,

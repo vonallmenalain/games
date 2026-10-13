@@ -33,7 +33,9 @@
  * der Tank auf dem Weg dorthin hergibt.
  *
  * Die Gegner (geist.js) fliegen als Fähre aus Licht mit – genau so, wie sie
- * in ihrer besten Runde geflogen sind, über ihren eigenen Mond.
+ * in ihrer besten Runde geflogen sind, über ihren eigenen Mond. Und die
+ * besten Läufe lassen sich anschauen (?zuschauen=, geist.js): über ihrem
+ * eigenen Mond, gewürfelt mit derselben Saat.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben. Die Neigung zählt im
  * Uhrzeigersinn: positiv heisst nach rechts gekippt.
@@ -176,6 +178,8 @@
   let last = 0;
   let stepTimer = null;
   let gegner = null;
+  // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
+  let zuschauer = null;
   // Wo der Finger ist (im Bild), solange er liegt.
   const finger = { an: false, x: 0, y: 0, id: null };
   const tasten = { links: false, rechts: false, schub: false };
@@ -970,7 +974,9 @@
       unten = y + h + 8;
     }
 
-    // Der Tank.
+    // Der Tank – beim Zuschauen nicht: Aufgezeichnet ist der Weg, nicht der
+    // Treibstoff.
+    if (state.phase === "zuschauen") return;
     const bw = Math.min(W - 24, 440);
     const bh = clamp(gross * 0.95, 15, 20);
     const bx = x;
@@ -1224,8 +1230,10 @@
     if (state.tank < state.anzeige) state.anzeige = state.tank;
     else state.anzeige += (state.tank - state.anzeige) * (1 - Math.exp(-dt * 4));
 
-    if (state.schritt !== "flug") state.strahl = false;
-    if (state.schritt === "flug") {
+    if (state.schritt !== "flug" || state.phase === "zuschauen") state.strahl = false;
+    if (state.phase === "zuschauen") {
+      zuschauenTakt();
+    } else if (state.schritt === "flug") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "flug"; i += 1) physik(dt / n);
     } else if (state.schritt === "gelandet" || state.schritt === "start") {
@@ -1299,6 +1307,44 @@
     messen();
     takt(dt);
     zeichnen();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Flug über seinem eigenen Mond: Der Zufall hält die
+  // Saat (geist.js, zuschauer), startRun baut damit dieselben Plattformen,
+  // und die Fähre steht Bild für Bild dort, wo sie damals war. Das Triebwerk
+  // brennt, wo sie schneller stieg, als der Mond sie fallen liess.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "flug";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt() {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const f = state.f;
+    f.x = s.a;
+    f.y = s.b;
+    f.vx = s.va;
+    f.vy = s.vb;
+    f.neig = (s.c || 0) / 100;
+    const platte = platteBei(f.x);
+    const steht = platte && Math.abs(f.y - (platte.y + 13)) < 2.5 && Math.abs(s.vb) < 4 && Math.abs(s.va) < 4;
+    state.schritt = steht ? "gelandet" : "flug";
+    state.schub = !steht && s.ab > -G * 0.4;
+    if (steht && platte.n > state.auf) {
+      state.auf = platte.n;
+      state.landungen += 1;
+    }
+    state.punkte = s.punkte;
+    zeigeZahl();
+    zuschauer.weiter();
   }
 
   // ---------------------------------------------------------------------------
@@ -1437,11 +1483,17 @@
     accentDark: "#2c7337",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "tempo", fassung: "p5", alle: true }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "moonLander", fassung: "p5", zufall, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "tempo", fassung: "p5", alle: true, zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

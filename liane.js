@@ -25,7 +25,8 @@
  *
  * Wer mag, schwingt nicht allein: Platz 1 und die eigene Bestmarke fliegen
  * als Geister mit (geist.js) – auf derselben Strecke, an denselben Lianen,
- * genau so, wie sie damals geflogen sind.
+ * genau so, wie sie damals geflogen sind. Und die besten Läufe lassen sich
+ * ganz anschauen (?zuschauen=, geist.js).
  *
  * Gezeichnet wird wie beim Brückenbauer auf eine Leinwand, gerechnet in
  * Welteinheiten – zehn sind ein Meter. Fest steht die Höhe: SICHT_H Einheiten
@@ -194,6 +195,8 @@
   let gedrueckt = false;
   // Die Gegner (geist.js): wer mitfliegt, und wo er gerade ist.
   let gegner = null;
+  // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
+  let zuschauer = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -1030,7 +1033,47 @@
   // ---------------------------------------------------------------------------
   // Eingabe
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Zuschauen
+  // ---------------------------------------------------------------------------
+  // Ein aufgezeichneter Lauf auf der festen Strecke (geist.js, zuschauer):
+  // Der Affe ist Bild für Bild dort, wo er damals war, und hängt an der
+  // Liane, an der er damals hing.
+  function zuschauenStarten() {
+    if (!zuschauer?.lauf) return;
+    startRun();
+    state.phase = "zuschauen";
+    state.schritt = "fliegen";
+    shell.setPhase("play");
+    zuschauer.los();
+  }
+
+  function zuschauenTakt() {
+    const s = zuschauer.stand();
+    if (!s) return;
+    const p = state.p;
+    p.x = START.x + s.a;
+    p.y = s.b;
+    p.vx = s.va;
+    p.vy = s.vb;
+    state.haken = (s.c || 0) - 1;
+    state.schritt = state.haken >= 0 ? "schwingen" : "fliegen";
+    if (state.schritt === "fliegen") {
+      state.spur.push({ x: p.x, y: p.y });
+      if (state.spur.length > 16) state.spur.shift();
+    }
+    const punkte = Math.max(0, Math.floor(s.punkte));
+    state.meter = punkte;
+    state.maxX = Math.max(state.maxX, p.x);
+    if (punkte !== state.punkte) {
+      state.punkte = punkte;
+      shell.setCount(punkte);
+    }
+    zuschauer.weiter();
+  }
+
   function druecken() {
+    if (state.phase === "zuschauen") return;
     gedrueckt = true;
     if (state.phase === "bereit") {
       state.phase = "spiel";
@@ -1046,7 +1089,7 @@
   }
 
   function loslassen() {
-    if (!gedrueckt) return;
+    if (state.phase === "zuschauen" || !gedrueckt) return;
     gedrueckt = false;
     state.greift = false;
     if (state.phase !== "spiel" || state.schritt !== "schwingen") return;
@@ -1276,7 +1319,9 @@
     if (state.schwung > 0) state.schwung = Math.max(0, state.schwung - dt * 1.2);
     const p = state.p;
 
-    if (state.schritt === "schwingen" || state.schritt === "fliegen") {
+    if (state.phase === "zuschauen") {
+      zuschauenTakt();
+    } else if (state.schritt === "schwingen" || state.schritt === "fliegen") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n; i += 1) physik(dt / n);
 
@@ -1471,13 +1516,21 @@
     accentDark: "#b9741a",
     help: HELP,
     clock: true,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
   });
+  // Die besten Läufe anschauen (?zuschauen=): Die Strecke ist fest, eine
+  // Saat braucht es nicht.
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "vineSwing", fassung: "s1", fest: true, einheit: "m", nochmal: zuschauenStarten,
+  }) || null;
   // Eigene Fassung der Aufzeichnung: Seit die Strecke fest ist, passen
   // Läufe von vorher (gewürfelte Äste, Bananen als Punkte) nicht mehr dazu.
-  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo", fassung: "s1", alle: true }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo", fassung: "s1", alle: true }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
