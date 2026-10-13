@@ -175,6 +175,9 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen).
+  let zuschauer = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -307,6 +310,7 @@
       ? "Tippe jeden Fisch einmal an."
       : `Teich ${state.teich + 1}: ${teich.fische} Fische.`;
     place();
+    meldeZug(0);
   }
 
   // ---------------------------------------------------------------------------
@@ -327,7 +331,7 @@
     // ein einziger Schritt schöbe alle Fische quer durch den Teich.
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    if (state.phase !== "play" || !pond) return;
+    if ((state.phase !== "play" && state.phase !== "zuschauen") || !pond) return;
     const box = pond.getBoundingClientRect();
     if (!box.width) return;
     const { halbX, halbY } = masse(box);
@@ -378,12 +382,17 @@
     // Solange das Rad läuft, zählt kein Tipp – auch nicht auf einen anderen
     // Fisch. Das Rad zeigt, dass gewartet wird.
     if (performance.now() < state.sperreBis) return;
+    // Alle gefangen: Der Teich ist geschafft, bis der nächste kommt, zählt
+    // kein Tipp mehr – auch keiner auf einen, den man schon hatte.
+    if (state.fische.every((other) => other.gefangen)) return;
 
     if (fisch.gefangen) {
+      clearStep();
       state.phase = "over";
       fisch.node.classList.add("is-doppelt");
       kids()?.playJingle?.("retry");
       state.fische.forEach((other) => { other.node.disabled = true; });
+      meldeZug(2, state.fische.indexOf(fisch));
       stepTimer = window.setTimeout(() => finish(fisch.art), 760);
       return;
     }
@@ -395,10 +404,20 @@
     kids()?.playJingle?.("star");
     kids()?.vibrate?.(16);
     state.sperreBis = performance.now() + SPERRE_MS;
+    gefangenBild(fisch);
+    meldeZug(0);
 
-    // Erst füllt sich das Rad über dem Fisch, dann wird daraus das Häkchen.
-    // Das Häkchen steht kurz und geht wieder weg: bliebe es, müsste sich
-    // niemand mehr merken, wen er schon hatte.
+    if (state.fische.some((other) => !other.gefangen)) return;
+    state.teich += 1;
+    prompt.textContent = "Alle gefangen!";
+    // Der nächste Teich kommt erst, wenn das letzte Häkchen dagestanden hat.
+    stepTimer = window.setTimeout(nextPond, SPERRE_MS + FANG_MS);
+  }
+
+  // Erst füllt sich das Rad über dem Fisch, dann wird daraus das Häkchen.
+  // Das Häkchen steht kurz und geht wieder weg: bliebe es, müsste sich
+  // niemand mehr merken, wen er schon hatte.
+  function gefangenBild(fisch) {
     const node = fisch.node;
     node.classList.remove("is-gefangen", "is-laden");
     void node.offsetWidth;
@@ -408,15 +427,100 @@
       node.classList.remove("is-laden");
       if (!node.isConnected) return;
       node.classList.add("is-gefangen");
-      kids()?.playJingle?.("correct");
+      if (!zuschauer) kids()?.playJingle?.("correct");
       window.setTimeout(() => node.classList.remove("is-gefangen"), FANG_MS);
     }, SPERRE_MS);
+  }
 
-    if (state.fische.some((other) => !other.gefangen)) return;
-    state.teich += 1;
-    prompt.textContent = "Alle gefangen!";
-    // Der nächste Teich kommt erst, wenn das letzte Häkchen dagestanden hat.
-    stepTimer = window.setTimeout(nextPond, SPERRE_MS + FANG_MS);
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigenen Fänge für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, bei jedem Teich und jedem Tipp,
+   * immer der ganze Stand:
+   *
+   *   c   Teich × 4 + was gerade ist: 0 er fängt, 2 einen zweimal getippt
+   *   a   welche Fische er schon hat, als Bits
+   *   b   der zweimal getippte + 1 (sonst 0)
+   *
+   * Die Teiche kommen aus derselben Saat, also dieselben Fische an denselben
+   * Plätzen. Wie sie danach schwimmen, würfelt jedes Gerät selbst – wer
+   * zuschaut, sieht, welche der andere fängt, nicht jeden Bogen, den sie
+   * dabei schwimmen.
+   */
+  function meldeZug(was, doppelt = -1) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    let gefangen = 0;
+    state.fische.forEach((fisch, i) => { if (fisch.gefangen) gefangen += 2 ** i; });
+    live.zug(state.punkte, { a: gefangen, b: doppelt + 1, c: state.teich * 4 + was });
+  }
+
+  const zuschau = { gezeigt: "", frame: 0 };
+
+  // Der Stand des anderen, wie ihn der letzte Zug sagt. sofort: Er liegt
+  // schon zurück (beim Einsteigen) – dann ohne Rad, gleich gefangen.
+  function zeigeZug(probe, sofort) {
+    const teich = Math.floor(probe.c / 4);
+    const was = probe.c - teich * 4;
+    // Die Teiche dazwischen in derselben Reihe – sonst wären es andere Fische.
+    while (state.teich < teich) {
+      state.teich += 1;
+      nextPond();
+      state.fische.forEach((fisch) => { fisch.node.disabled = true; });
+    }
+    if (state.phase !== "zuschauen") return;
+    let alle = true;
+    state.fische.forEach((fisch, i) => {
+      const hat = Math.floor(probe.a / 2 ** i) % 2 === 1;
+      if (!hat) alle = false;
+      if (hat && !fisch.gefangen) {
+        fisch.gefangen = true;
+        if (!sofort) gefangenBild(fisch);
+      }
+    });
+    if (alle && state.fische.length) prompt.textContent = "Alle gefangen!";
+    if (was === 2) {
+      const fisch = state.fische[probe.b - 1];
+      fisch?.node.classList.add("is-doppelt");
+      state.phase = "zuschauen-aus";
+    }
+    state.punkte = probe.p;
+    shell.setCount(probe.p);
+  }
+
+  function zuschauSchleife() {
+    zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+    const jetzt = zuschauer?.jetzt?.();
+    const probe = zuschauer?.letzte?.(jetzt);
+    if (!probe) return;
+    const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
+    if (schluessel === zuschau.gezeigt) return;
+    zuschau.gezeigt = schluessel;
+    zeigeZug(probe, jetzt - probe.t > 1500);
+  }
+
+  // Ab jetzt der Teich des anderen: dieselben Fische, und welche er hat.
+  function zuschauenStarten() {
+    if (!zuschauer?.letzte) return;
+    clearStep();
+    stopLoop();
+    shell.closeOverlay();
+    zufall.neu();
+    shell.setPhase("play");
+    state.phase = "zuschauen";
+    state.teich = 0;
+    state.punkte = 0;
+    zuschau.gezeigt = "";
+    shell.clear();
+    prompt = shell.el("p", "cm-prompt ft-prompt", "Tippe jeden Fisch einmal an.");
+    pond = buildPond();
+    shell.play.append(prompt, pond);
+    nextPond();
+    state.fische.forEach((fisch) => { fisch.node.disabled = true; });
+    last = performance.now();
+    frame = window.requestAnimationFrame(step);
+    if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
   }
 
   function runsText(runs) {
@@ -428,6 +532,7 @@
   }
 
   function finish(doppelt) {
+    if (zuschauer) return;
     clearStep();
     stopLoop();
     state.phase = "over";
@@ -459,7 +564,7 @@
     clock: false,
     onRestart: startRun,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
-    live: { los: startRun, stopp: () => finish(null) },
+    live: { los: startRun, stopp: () => finish(null), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "fishPond", host, art: "ziel" }) || null;
 
@@ -467,7 +572,12 @@
 
   window.addEventListener("resize", place);
   window.addEventListener("orientationchange", place);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => {
+    clearStep();
+    stopLoop();
+    if (zuschau.frame) window.cancelAnimationFrame(zuschau.frame);
+    zuschau.frame = 0;
+  });
 
-  window.LernappFischteich = { TEICHE, FISCHE, TEMPO, RUNS_FOR_DONE, teichFuer };
+  window.LernappFischteich = { TEICHE, FISCHE, TEMPO, RUNS_FOR_DONE, teichFuer, state };
 })();

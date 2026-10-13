@@ -49,6 +49,70 @@
   const aufTurnierseite = () => seite() === "turnier";
 
   const seitenLink = (id) => `/turnier?t=${encodeURIComponent(id)}`;
+
+  // ---------------------------------------------------------------------------
+  // Die Turnier-App: ein Raum ohne Ausgang
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer ein Turnier als App auf dem Startbildschirm hat (alsApp), bleibt
+   * darin – kein Weg führt in die Hall of Fame. Das Fenster merkt sich, mit
+   * welchem Turnier es begann (sessionStorage: nur dieses Fenster der App,
+   * nicht der Browser daneben): War die erste Seite die eines Turniers und
+   * läuft die Seite als App, ist das Turnier ihr Zuhause (heim). Dann
+   *
+   *   - führt der Weg zurück in jedem Spiel zum Turnier (ziel), auch beim
+   *     Anschauen eines Laufs und in einem Spiel ohne ?turnier=,
+   *   - und wer trotzdem auf der Startseite oder in einem Spiel ausserhalb
+   *     des Turniers landet – ein vergessener Link, die Ersatzseite des
+   *     Service Workers ohne Netz –, kommt sofort zurück ins Turnier.
+   *
+   * Im Browser bleibt alles, wie es ist: Dort gibt es eine Adresszeile, und
+   * wer das Turnier nur mit Link kennt, soll trotzdem die Hall of Fame
+   * öffnen können.
+   */
+  const HEIM_KEY = "mini.heimTurnier";
+  const SITZUNG_KEY = "mini.sitzung";
+
+  function alsAppOffen() {
+    try {
+      if (window.navigator.standalone === true) return true;
+      const passt = (frage) => Boolean(window.matchMedia?.(frage).matches);
+      if (passt("(display-mode: standalone)") || passt("(display-mode: minimal-ui)")) return true;
+      // Ein Browser im Vollbild meldet dasselbe wie eine App – beim Laden der
+      // ersten Seite hat aber noch niemand das Vollbild verlangt.
+      return passt("(display-mode: fullscreen)") && !document.fullscreenElement && !document.webkitFullscreenElement;
+    } catch { return false; }
+  }
+
+  const heim = (() => {
+    try {
+      let id = sessionStorage.getItem(HEIM_KEY) || "";
+      if (!sessionStorage.getItem(SITZUNG_KEY)) {
+        sessionStorage.setItem(SITZUNG_KEY, "1");
+        const erste = seite() === "turnier" ? ausDerAdresse("t") : ausDerAdresse("turnier");
+        if (erste && alsAppOffen()) {
+          sessionStorage.setItem(HEIM_KEY, erste);
+          id = erste;
+        }
+      }
+      return /^[a-z0-9-]{1,64}$/.test(id) ? id : "";
+    } catch { return ""; }
+  })();
+
+  // Zuhause ist das Turnier: Die Startseite und ein Spiel, das zu keinem
+  // Turnier gehört, führen sofort dorthin zurück. Erlaubt bleiben ein Spiel
+  // im Turnier, das Anschauen eines Laufs daraus (aus=), eine Runde eines
+  // Multiplayers (live=), der Multiplayer selbst und der Adminbereich.
+  if (heim) {
+    let frei = true;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const hier = seite();
+      frei = hier === "turnier" || hier === "live" || hier === "admin"
+        || (spielHier() && (p.has("turnier") || p.has("aus") || p.has("live")));
+    } catch { frei = true; }
+    if (!frei) window.location.replace(seitenLink(heim));
+  }
   const spielLink = (id, spiel) => `${mini()?.spielLink?.(spiel) || "/"}?turnier=${encodeURIComponent(id)}`;
   const volleAdresse = (id) => `${window.location.origin}${seitenLink(id)}`;
 
@@ -1226,10 +1290,14 @@
   }
 
   // Wohin der Weg oben links und der Pokal unter dem Ergebnis führen: im
-  // Turnier zurück zum Turnier, nicht in die Hall of Fame.
+  // Turnier zurück zum Turnier, nicht in die Hall of Fame – auch beim
+  // Anschauen eines Laufs aus dem Turnier (?zuschauen=…&aus=<turnier>) und
+  // überall in der Turnier-App (heim).
   function ziel() {
-    if (!aufSpielseite()) return null;
-    return { link: seitenLink(ausDerAdresse("turnier")), wort: "Turnier", titel: "Zurück zum Turnier" };
+    if (!spielHier()) return null;
+    const id = ausDerAdresse("turnier") || ausDerAdresse("aus") || heim;
+    if (!id) return null;
+    return { link: seitenLink(id), wort: "Turnier", titel: "Zurück zum Turnier" };
   }
 
   // ---------------------------------------------------------------------------
@@ -1240,6 +1308,8 @@
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage,
+    // Das Turnier, in dem diese App lebt – leer, wenn sie keines hat.
+    heim: () => heim,
     hinweis,
     // Der Weg zurück zur Turnierseite (zurueckZumTurnier). Die Prüfung im
     // Browser setzt hier einen eigenen ein, wenn sie die Seite nicht

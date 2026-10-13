@@ -174,6 +174,7 @@
     stoss: 0,
     zeit: 0,
     platzenZeit: 0,
+    wuerfe: 0,            // Pfeile, die bisher im Holz ankamen
   };
 
   let shell = null;
@@ -185,6 +186,12 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen), bis zu welchem seiner Würfe die Scheibe schon steht und für
+  // welchen schon ein Pfeil fliegt.
+  let zuschauer = null;
+  let gesehenBis = -Infinity;
+  let fliegtFuer = -Infinity;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -570,7 +577,13 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    meldeZug(0, 0);
   }
+
+  // Beim Zuschauen wirft dieses Gerät nur nach – es klingelt und brummt nicht.
+  const zuschauend = () => state.phase === "zuschauen";
+  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   function werfen() {
     if (state.phase === "bereit") losGehts();
@@ -600,16 +613,23 @@
     state.schriften.push({ text, x, y, farbe, gross, leben: 0.95, max: 0.95 });
   }
 
-  // Die Spitze ist am Holz angekommen.
-  function einschlag() {
+  // Die Spitze ist am Holz angekommen. Beim Zuschauen sagt der andere, wo
+  // (erzwungen: { w, prallt }) – bis sein Wurf da ist, wartet der Pfeil am Holz.
+  function einschlag(erzwungen = null) {
     const sch = state.scheibe;
+    if (zuschauend() && !erzwungen) {
+      state.flug.y = mitteY() - R + STECK - PFEIL_L;
+      return;
+    }
     state.flug = null;
+    state.wuerfe += 1;
     // Ein steckender Pfeil liegt in der Scheibe unter dem Winkel w: gedreht um
     // winkel + w zeigt er von der Mitte nach aussen. Unten ist das π.
-    const w = norm(Math.PI - state.winkel);
+    const w = erzwungen ? erzwungen.w : norm(Math.PI - state.winkel);
     const unten = mitteY() - R;
-    const getroffen = sch.stecken.find((p) => abstand(p.w, w) < KOLL);
+    const getroffen = erzwungen ? erzwungen.prallt : sch.stecken.some((p) => abstand(p.w, w) < KOLL);
     if (getroffen) {
+      meldeZug(1, w);
       abgeprallt();
       return;
     }
@@ -619,7 +639,7 @@
     state.ruck = 1;
     state.nachladen = NACHLADE_MS;
     spaene(0, unten, 8, "#c98f4f");
-    kids()?.vibrate?.(10);
+    brumm(10);
 
     const apfel = sch.aepfel.find((a) => !a.weg && abstand(a.w, w) < APFEL_TREFF);
     if (apfel) {
@@ -633,14 +653,15 @@
       }));
       spaene(ax, ay, 8, "#ff8f8f");
       schrift("+2", ax + 30, ay - 6, "#ffd166", 15);
-      kids()?.playJingle?.("correct");
+      klang("correct");
     } else {
-      kids()?.playJingle?.("star");
+      klang("star");
     }
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
 
     if (state.uebrig <= 0) zerspringen();
+    meldeZug(0, w);
   }
 
   function abgeprallt() {
@@ -653,6 +674,8 @@
       vx: (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * 40), vy: -60, dreh: Math.PI, vdreh: 9,
     });
     spaene(0, y + 4, 10, "#d9dee6");
+    // Wer zuschaut, sieht ihn abprallen – das Ende gehört dem anderen.
+    if (zuschauend()) return;
     kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 40]);
     stepTimer = window.setTimeout(finish, ENDE_MS);
@@ -698,8 +721,106 @@
     });
     spaene(0, my, 18, "#e2ad6c");
     schrift(`Scheibe ${sch.n + 1} +${bonus}`, 0, my + 6, "#ffffff", 17);
-    kids()?.playJingle?.(sch.boss ? "unlock" : "correct");
-    kids()?.vibrate?.(30);
+    klang(sch.boss ? "unlock" : "correct");
+    brumm(30);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigenen Würfe für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, bei jedem Pfeil, der im Holz
+   * ankommt:
+   *
+   *   c   Pfeile bisher × 4 + wie: 0 steckt, 1 abgeprallt
+   *   a   wo, als Winkel in der Scheibe mal 10⁵
+   *   b   welche Scheibe × 100 + wie viele neue Pfeile darin stecken
+   *
+   * Die Scheiben kommen aus derselben Saat und drehen sich gleich. Wer
+   * zuschaut, lässt den Pfeil so fliegen, dass er zur selben Zeit ankommt,
+   * und steckt ihn dorthin, wo er beim anderen steckt – die Scheibe dreht
+   * sich dafür das letzte bisschen nach.
+   */
+  const FLUG_MS = ((ABSTAND - R + STECK - PFEIL_L) / FLUG_V) * 1000;
+
+  function meldeZug(wie, w) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauend() || !live.gestartet?.()) return;
+    const sch = state.scheibe;
+    const neu = sch ? sch.stecken.filter((p) => !p.alt).length : 0;
+    live.zug(state.punkte, { a: Math.round(norm(w) * 1e5), b: (sch?.n || 0) * 100 + neu, c: state.wuerfe * 4 + wie });
+  }
+
+  // Bis zur Scheibe n – die dazwischen sind beim Einsteigen schon geschafft.
+  function bisScheibe(n) {
+    let sicher = 0;
+    while (state.scheibe && state.scheibe.n < n && sicher < 200) {
+      naechsteScheibe();
+      state.auf = 1;
+      sicher += 1;
+    }
+  }
+
+  function zugAnwenden(probe, sofort) {
+    const wurf = Math.floor(probe.c / 4);
+    if (!wurf || state.schritt === "aus" || wurf <= state.wuerfe) return;
+    const n = Math.floor(probe.b / 100);
+    bisScheibe(n);
+    const w = probe.a / 1e5;
+    // Die Scheibe dreht sich die letzten Grad nach: Dann steckt der Pfeil
+    // genau unten, wo er herkam.
+    const d = norm(Math.PI - w) - norm(state.winkel);
+    state.winkel += d > Math.PI ? d - TAU : d < -Math.PI ? d + TAU : d;
+    state.wuerfe = wurf - 1;
+    const prallt = probe.c % 4 === 1;
+    // Wie viele noch fehlen, sagt der andere – falls hier ein Wurf nicht
+    // ankam, zerspringt die Scheibe trotzdem zur rechten Zeit.
+    if (!prallt && state.scheibe) state.uebrig = Math.max(1, state.scheibe.pfeile - (probe.b % 100) + 1);
+    einschlag({ w, prallt });
+    state.punkte = probe.p;
+    if (sofort) {
+      state.spaene.length = 0;
+      state.schriften.length = 0;
+      state.fliegende.length = 0;
+      state.stuecke.length = 0;
+      state.stoss = 0;
+      state.blitz = 0;
+      if (state.schritt === "platzen") {
+        naechsteScheibe();
+        state.auf = 1;
+      }
+    }
+  }
+
+  // Jedes Bild: die Würfe, die inzwischen dran sind – und für den nächsten
+  // schon der Pfeil in der Luft, damit er zur selben Zeit ankommt wie beim
+  // anderen. Was mehr als anderthalb Sekunden zurückliegt, steht gleich da.
+  function zuschauenTakt() {
+    if (!zuschauer?.seit) return;
+    const jetzt = zuschauer.jetzt();
+    zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
+      zugAnwenden(probe, jetzt - probe.t > 1500);
+      gesehenBis = probe.t;
+    });
+    shell.setCount(state.punkte);
+    const kommt = zuschauer.naechste(jetzt);
+    if (kommt && kommt.c >= 4 && kommt.t !== fliegtFuer && kommt.t - jetzt <= FLUG_MS
+      && !state.flug && state.schritt === "zielen") {
+      fliegtFuer = kommt.t;
+      state.flug = { y: ruheY() + FLUG_V * ((FLUG_MS - (kommt.t - jetzt)) / 1000) };
+    }
+  }
+
+  // Ab jetzt die Scheiben des anderen: von vorn, mit derselben Saat, und dann
+  // Wurf um Wurf, was er getroffen hat.
+  function zuschauenStarten() {
+    if (!zuschauer?.seit) return;
+    startRun();
+    state.phase = "zuschauen";
+    shell.setPhase("play");
+    gesehenBis = -Infinity;
+    fliegtFuer = -Infinity;
+    zuschauenTakt();
   }
 
   function naechsteScheibe() {
@@ -783,6 +904,7 @@
     // Kleine Schritte: Der Pfeil fliegt schnell, und bei einem langen Bild
     // flöge er sonst durch die Scheibe hindurch, bevor er sie berührt.
     const teile = Math.max(1, Math.ceil(dt / 0.008));
+    if (state.phase === "zuschauen") zuschauenTakt();
     for (let i = 0; i < teile; i += 1) schritt(dt / teile);
     zeichnen();
   }
@@ -808,6 +930,7 @@
     state.blitz = 0;
     state.ruck = 0;
     state.zeit = 0;
+    state.wuerfe = 0;
     shell.setCount(0);
     gegner?.runde();
 
@@ -842,6 +965,7 @@
   }
 
   function finish() {
+    if (state.phase === "zuschauen") return;
     clearStep();
     stopLoop();
     if (state.phase === "ende") return;
@@ -877,7 +1001,7 @@
     accentDark: "#00707c",
     clock: false,
     onRestart: startRun,
-    live: { los: losGehts, stopp: () => finish() },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "dartWheel", host, art: "ziel" }) || null;
 

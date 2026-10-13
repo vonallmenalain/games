@@ -47,11 +47,17 @@
  *                Zehntelsekunde weiter zurück, damit die Kamera ruhig bleibt.
  *                Oben lässt sich jeder antippen, der noch spielt. Wer gar
  *                nicht mitspielt, kann von Anfang an zuschauen.
+ *   Züge         Die Spiele ohne Figur (Turmbau, Brückenbauer, Drehscheibe …)
+ *                melden statt einer Lage im Takt ihre Züge (zug): sofort,
+ *                mit dem ganzen Stand. Wer zuschaut, bekommt dieselbe Quelle
+ *                – mit den Zügen bis zur Zeit, die gerade im Bild ist (seit,
+ *                letzte, naechste) –, und sein Spiel baut nach, was der
+ *                andere tut.
  *
  * Ein Spiel braucht dafür nur dreierlei, beim Aufbau der Bühne mitgegeben
  * (game-shell.js, mount): los – die Runde beginnt jetzt, ohne Tipp –, stopp
- * – die Zeit ist um, das Ergebnis bitte jetzt – und, wo es eine Figur im Bild
- * hat, zuschauen – zeig ab jetzt diese Quelle statt der eigenen Figur.
+ * – die Zeit ist um, das Ergebnis bitte jetzt – und, wo man ausscheidet,
+ * zuschauen – zeig ab jetzt, was diese Quelle zeigt, statt des eigenen Laufs.
  *
  * Ohne ?live= in der Adresse tut diese Datei nichts. Mit, aber ohne Rahmen
  * (jemand hat den Link der Runde allein geöffnet), führt sie zum Multiplayer.
@@ -110,7 +116,11 @@
   const GLATT_MS = 110;
   // Mehr als so weit daneben ist kein Ruckeln, sondern ein Sprung.
   const SPRUNG = 600;
-  const PUFFER_MS = 6000;
+  // Wie viele Proben je Spieler bleiben: genug für eine lange Runde. Die
+  // Spiele, die Zug um Zug nachbauen, brauchen alle seit dem Start.
+  const PROBEN_MAX = 12000;
+  // Zwei Züge so kurz hintereinander gehen als einer hinaus – der spätere.
+  const ZUG_MS = 40;
   // Das Lebenszeichen: so oft, und wer so lange schweigt, ist weg (dieselbe
   // Zahl wie in live.js, WEG_MS).
   const LEBT_MS = 3000;
@@ -155,6 +165,9 @@
     zuschauHaken: null,
     nurZuschauen: false,
     puls: null,
+    zugWartet: null,
+    zugTimer: null,
+    zugGesendet: "",
   };
 
   // --- Eingaben sperren -------------------------------------------------------
@@ -213,6 +226,37 @@
     try {
       rahmen.lage({ t: Math.max(0, Math.round(zeit())), a: zahl(ort.a), b: zahl(ort.b), c: zahl(ort.c), p: zahl(wert) });
     } catch { /* der Rahmen ist weg */ }
+  }
+
+  /*
+   * Ein Zug – in den Spielen ohne Figur im Bild (Turmbau, Brückenbauer …):
+   * wie es gerade steht, als { a, b, c } in der Sprache des Spiels. Geht
+   * sofort hinaus, nicht im Takt der Lage: Wer zuschaut, baut daraus nach,
+   * was der andere tut, und ein Zug, der auf den Takt wartet, käme eine
+   * Zehntelsekunde zu spät. Zwei kurz hintereinander werden einer – was ein
+   * Spiel meldet, sagt deshalb immer den ganzen Stand, nicht nur, was dazukam.
+   */
+  function zug(wert, ort) {
+    if (!runde || z.fertig || !z.gestartet || !ort) return;
+    const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+    const neu = { t: Math.max(0, Math.round(zeit())), a: zahl(ort.a), b: zahl(ort.b), c: zahl(ort.c), p: zahl(wert) };
+    const schluessel = `${neu.a}|${neu.b}|${neu.c}|${neu.p}`;
+    if (!z.zugWartet && schluessel === z.zugGesendet) return;
+    z.zugWartet = { ...neu, schluessel };
+    if (z.zugTimer) return;
+    const rest = ZUG_MS - (Date.now() - z.lageMs);
+    if (rest > 0) z.zugTimer = window.setTimeout(zugHinaus, rest);
+    else zugHinaus();
+  }
+
+  function zugHinaus() {
+    z.zugTimer = null;
+    const w = z.zugWartet;
+    z.zugWartet = null;
+    if (!w || !rahmen || !runde) return;
+    z.lageMs = Date.now();
+    z.zugGesendet = w.schluessel;
+    try { rahmen.lage({ t: w.t, a: w.a, b: w.b, c: w.c, p: w.p }); } catch { /* der Rahmen ist weg */ }
   }
 
   // --- Was die anderen machen ---------------------------------------------
@@ -333,6 +377,20 @@
   // In den Spielen, in denen c ein Winkel ist (mal 100), gleitet er mit;
   // sonst ist c ein Zustand (Ast, Schub …) und springt.
   const cIstWinkel = () => Boolean(runde && mini()?.ANSEHBAR?.[runde.spiel]?.winkel);
+  // Ob dieses Spiel Züge meldet statt einer Lage im Takt (mini-games.js,
+  // ZUSCHAUBAR).
+  const zugSpiel = () => Boolean(runde && mini()?.ZUSCHAUBAR?.[runde.spiel]?.zug);
+
+  // Die erste Probe nach t – gesucht, nicht gezählt: es können Tausende sein.
+  function nach(proben, t) {
+    let lo = 0;
+    let hi = proben.length;
+    while (lo < hi) {
+      const mitte = (lo + hi) >> 1;
+      if (proben[mitte].t <= t) lo = mitte + 1; else hi = mitte;
+    }
+    return lo;
+  }
 
   function merkeLage(lagen) {
     if (!lagen || typeof lagen !== "object") return;
@@ -346,14 +404,22 @@
       const letzte = proben[proben.length - 1];
       if (letzte && t <= letzte.t) return;
       const neu = { t, a: Number(l.a) || 0, b: Number(l.b) || 0, c: Number(l.c) || 0, p: Number(l.p) || 0 };
-      if (!letzte) { proben.push(neu); return; }
+      const zuege = zugSpiel();
+      if (!letzte && !zuege) { proben.push(neu); return; }
 
-      const bedarf = zeit() - letzte.t;
+      // Wie alt die bis dahin neueste Probe war, als diese kam. Bei Zügen,
+      // die kommen, wann sie wollen, zählt nur, wie lange diese unterwegs war.
+      const bedarf = zuege ? zeit() - t : zeit() - letzte.t;
       spur.bedarf.push(bedarf);
       if (spur.bedarf.length > 20) spur.bedarf.shift();
       const sortiert = [...spur.bedarf].sort((x, y) => x - y);
       const hoch = sortiert[Math.max(0, sortiert.length - 2)];
       spur.ziel = Math.max(VERZUG_MIN, Math.min(VERZUG_MAX, hoch + VERZUG_RAND));
+      if (zuege) {
+        proben.push(neu);
+        if (proben.length > PROBEN_MAX) proben.shift();
+        return;
+      }
 
       // Was die neue Probe an der Stelle ändert, die gerade im Bild ist –
       // das bleibt als Versatz stehen und verschwindet dann.
@@ -362,7 +428,7 @@
       const vorher = kurve(proben, jetzt, false, winkel);
       const alt = glatt(spur);
       proben.push(neu);
-      while (proben.length > 4 && proben[0].t < t - PUFFER_MS) proben.shift();
+      if (proben.length > PROBEN_MAX) proben.shift();
       const nachher = kurve(proben, jetzt, false, winkel);
       const da = vorher.a + alt.a - nachher.a;
       const db = vorher.b + alt.b - nachher.b;
@@ -393,60 +459,14 @@
     return { a: g.a * f, b: g.b * f };
   }
 
-  // Wie schnell sich k an Probe i ändert: aus beiden Nachbarn gemittelt
-  // (harmonisch), null an einer Umkehr. So läuft die Kurve weich durch jede
-  // Probe, ohne über sie hinauszuschiessen.
-  function steigung(proben, i, k) {
-    const p = proben[i];
-    const vor = proben[i - 1];
-    const nach = proben[i + 1];
-    const d0 = vor ? (p[k] - vor[k]) / Math.max(1, p.t - vor.t) : null;
-    const d1 = nach ? (nach[k] - p[k]) / Math.max(1, nach.t - p.t) : null;
-    if (d0 === null) return d1 ?? 0;
-    if (d1 === null) return d0;
-    if (d0 * d1 <= 0) return 0;
-    return (2 * d0 * d1) / (d0 + d1);
-  }
-
-  // Ein Stück Kurve von p0 nach p1 (kubisch, mit den Steigungen m0 und m1),
-  // h Millisekunden lang, an der Stelle s zwischen 0 und 1.
-  function hermite(p0, p1, m0, m1, h, s) {
-    const s2 = s * s;
-    const s3 = s2 * s;
-    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * m0 + (3 * s2 - 2 * s3) * p1 + (s3 - s2) * h * m1;
-  }
-
-  // Wo jemand zur Zeit ms war: zwischen zwei Proben auf der Kurve, hinter der
-  // letzten ein Stück in seiner Richtung weiter – ausser er ist fertig, dann
-  // bleibt er stehen. c springt, wenn es kein Winkel ist; ein Winkel, der
-  // sich zwischen zwei Proben um mehr als eine Vierteldrehung dreht, auch.
+  // Wo jemand zur Zeit ms war: auf derselben Kurve wie die Wiedergabe der
+  // besten Läufe (geist.js, kurve) – zwischen zwei Proben ein Bogen, hinter
+  // der letzten ein Stück in seiner Richtung weiter, ausser er ist fertig.
   function kurve(proben, ms, fertig, winkel) {
-    if (!proben.length) return { a: 0, b: 0, c: 0 };
-    const erste = proben[0];
-    if (ms <= erste.t) return { a: erste.a, b: erste.b, c: erste.c };
-    const n = proben.length;
-    const letzte = proben[n - 1];
-    if (ms >= letzte.t) {
-      if (fertig || n < 2) return { a: letzte.a, b: letzte.b, c: letzte.c };
-      const weiter = Math.min(ms - letzte.t, VORAUS_MAX);
-      return { a: letzte.a + steigung(proben, n - 1, "a") * weiter, b: letzte.b + steigung(proben, n - 1, "b") * weiter, c: letzte.c };
-    }
-    let lo = 0;
-    let hi = n - 1;
-    while (hi - lo > 1) {
-      const mitte = (lo + hi) >> 1;
-      if (proben[mitte].t <= ms) lo = mitte; else hi = mitte;
-    }
-    const s0 = proben[lo];
-    const s1 = proben[hi];
-    const h = Math.max(1, s1.t - s0.t);
-    const s = (ms - s0.t) / h;
-    const dc = s1.c - s0.c;
-    return {
-      a: hermite(s0.a, s1.a, steigung(proben, lo, "a"), steigung(proben, hi, "a"), h, s),
-      b: hermite(s0.b, s1.b, steigung(proben, lo, "b"), steigung(proben, hi, "b"), h, s),
-      c: winkel && Math.abs(dc) < 157 ? s0.c + dc * s : s < 0.5 ? s0.c : s1.c,
-    };
+    const k = window.LernappGeist?.kurve;
+    if (k) return k(proben, ms, { fertig, winkel, voraus: VORAUS_MAX });
+    const p = proben[proben.length - 1];
+    return p ? { a: p.a, b: p.b, c: p.c } : { a: 0, b: 0, c: 0 };
   }
 
   // Ein Lauf, wie geist.js ihn kennt (abspieler) – nur aus der Lage, die
@@ -476,8 +496,7 @@
       wert(ms) {
         const s = spur();
         const t = ms - s.verzug;
-        let p = 0;
-        for (let i = 0; i < s.proben.length && s.proben[i].t <= t; i += 1) p = s.proben[i].p;
+        const p = s.proben[nach(s.proben, t) - 1]?.p || 0;
         const gemeldet = Number(z.daten.punkte?.[kennung]?.p) || 0;
         return s.proben.length && t >= letzteT(s) ? Math.max(p, gemeldet) : p;
       },
@@ -560,6 +579,23 @@
         };
       },
       weiter: () => true,
+      // Für die Spiele, die Zug um Zug nachbauen: die Zeit seines Laufs, die
+      // gerade im Bild ist, seine Züge bis dahin (seit – nach t0, bis
+      // einschliesslich bis) und der letzte davor.
+      jetzt: () => lauf.zeitBei(geistZeit()),
+      seit(t0, bis) {
+        const proben = z.bahnen.get(kennung)?.proben || [];
+        return proben.slice(nach(proben, t0), nach(proben, bis));
+      },
+      letzte(bis) {
+        const proben = z.bahnen.get(kennung)?.proben || [];
+        return proben[nach(proben, bis) - 1] || null;
+      },
+      naechste(bis) {
+        const proben = z.bahnen.get(kennung)?.proben || [];
+        return proben[nach(proben, bis)] || null;
+      },
+      fertig: () => lauf.fertig(geistZeit()),
     };
     if (z.tafel) z.tafel.hidden = true;
     z.host.dataset.live = "zuschauen";
@@ -831,6 +867,7 @@
     buehne,
     punkte,
     lage,
+    zug,
     fertig,
     gestartet: () => z.gestartet,
     // Wie viele Millisekunden nach dem gemeinsamen Start dieses Gerät

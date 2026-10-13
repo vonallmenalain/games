@@ -441,7 +441,46 @@ pruefe("live.js wartet nicht auf einen, der schweigt (istWeg im Rundenende)",
 pruefe("live.js und live-spiel.js warten gleich lange (WEG_MS)",
   liveJs.match(/const WEG_MS = (\d+);/)?.[1] === liveSpielJs.match(/const WEG_MS = (\d+);/)?.[1]);
 pruefe("live-spiel.js zeigt die anderen mit gemessenem Verzug auf einer Kurve",
-  /function verzugVon\(/.test(liveSpielJs) && /function hermite\(/.test(liveSpielJs) && /lauf\.zeitBei\(t\)/.test(liveSpielJs));
+  /function verzugVon\(/.test(liveSpielJs) && /LernappGeist\?\.kurve/.test(liveSpielJs) && /lauf\.zeitBei\(t\)/.test(liveSpielJs));
+// Die Wiedergabe der besten Läufe: zehn Proben je Sekunde, als Schritte
+// gepackt (v 2), abgespielt auf derselben Kurve wie im Multiplayer.
+const geistJs = lies("geist.js");
+pruefe("geist.js zeichnet zehnmal je Sekunde auf (TAKT_MS 100)", /const TAKT_MS = 100;/.test(geistJs));
+pruefe("geist.js packt die Aufzeichnung als Schritte (v 2) und liest auch v 1",
+  /v: 2, dt, p: schritte\(p\)/.test(geistJs) && /d\.v !== 1 && d\.v !== 2/.test(geistJs));
+pruefe("geist.js spielt auf der Kurve ab (abspieler → kurve)", /ort: \(ms\) => \(proben \? kurve\(proben, ms, \{ winkel \}\) : null\)/.test(geistJs));
+
+// Zuschauen in den Spielen ohne Figur: Sie melden ihre Züge (zug) und bauen
+// beim Zuschauen nach, was der andere tut. ZUSCHAUBAR in mini-games.js sagt,
+// welche das sind; jedes davon braucht die Andockstelle live.zuschauen.
+const zuschaubar = miniJs.match(/const ZUSCHAUBAR = \{([\s\S]*?)\n  \};/);
+pruefe("mini-games.js hat eine Liste ZUSCHAUBAR", Boolean(zuschaubar));
+const ZUG_SPIELE = [...(zuschaubar?.[1] || "").matchAll(/(\w+): \{ zug: true \}/g)].map((m) => m[1]);
+pruefe("ZUSCHAUBAR nennt die Spiele, die Züge melden", ZUG_SPIELE.length >= 7);
+for (const id of ZUG_SPIELE) {
+  const x = SPIELE.find((s) => s.spiel === id);
+  pruefe(`ZUSCHAUBAR: ${id} ist ein Spiel`, Boolean(x));
+  if (!x) continue;
+  const quelle = lies(x.js);
+  pruefe(`${x.js} lässt im Live-Modus zuschauen (live.zuschauen)`, /zuschauen: \(quelle\) => \{ zuschauer = quelle; zuschauenStarten\(\); \}/.test(quelle));
+  pruefe(`${x.js} meldet seine Züge (live.zug)`, /live\.zug\(/.test(quelle));
+  pruefe(`${x.js} schreibt beim Zuschauen kein Ergebnis`, /if \((state\.phase === "zuschauen"|zuschauer)\) return;/.test(quelle));
+}
+pruefe("live-spiel.js schickt Züge sofort hinaus (zug)", /function zug\(wert, ort\)/.test(liveSpielJs) && /\n    zug,\n/.test(liveSpielJs));
+pruefe("live-spiel.js behält alle Proben der Runde (PROBEN_MAX)", /const PROBEN_MAX = \d+;/.test(liveSpielJs) && !liveSpielJs.includes("PUFFER_MS"));
+pruefe("live.js lässt allen Spielen aus ZUSCHAUBAR zuschauen", /ZUSCHAUBAR\?\.\[spiel\]/.test(liveJs));
+
+// Nichts lässt sich markieren – ausser in Eingabefeldern.
+const stilCss = lies("styles.css");
+pruefe("styles.css: kein Text lässt sich markieren (html, user-select: none)", /html \{[^}]*\buser-select: none;/.test(stilCss));
+pruefe("styles.css: Eingabefelder bleiben markierbar", /input,\s*textarea,\s*\[contenteditable="true"\] \{[^}]*user-select: text;/.test(stilCss));
+pruefe("mini-games.js fängt Markieren, Menü und Ziehen ab", /\["selectstart", "contextmenu", "dragstart"\]/.test(miniJs));
+
+// Die Turnier-App bleibt im Turnier.
+const turnierJs = lies("turnier.js");
+pruefe("turnier.js merkt sich das Turnier eines App-Fensters (mini.heimTurnier)", /const HEIM_KEY = "mini\.heimTurnier";/.test(turnierJs) && /window\.location\.replace\(seitenLink\(heim\)\)/.test(turnierJs));
+pruefe("turnier.js führt aus einem Lauf des Turniers zurück ins Turnier (aus=)", /ausDerAdresse\("turnier"\) \|\| ausDerAdresse\("aus"\) \|\| heim/.test(turnierJs));
+pruefe("live.js führt in der Turnier-App zum Turnier statt zur Startseite", /LernappTurnier\?\.heim\?\.\(\)/.test(liveJs));
 
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);

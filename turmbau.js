@@ -299,6 +299,10 @@
   // Die Gegner (geist.js). Im Turmbau laufen sie nicht mit – ein Turm hat
   // keinen Takt –, sie stehen als Linie in der Höhe ihres besten Turms.
   let gegner = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen) und bis zu welchem seiner Züge der Turm schon steht.
+  let zuschauer = null;
+  let gesehenBis = -Infinity;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, h: 400 };
 
@@ -728,7 +732,8 @@
   // der Höhe, die der beste Turm des Gegners hatte, und daneben sein Name.
   // Wer darüber baut, hat ihn geschlagen – dann wird die Linie blass.
   function zeichneZiele() {
-    const ziele = gegner?.gegner?.() || [];
+    // Wem gerade zugeschaut wird, dessen Turm steht ja im Bild.
+    const ziele = (gegner?.gegner?.() || []).filter((ziel) => !ziel.ziel);
     if (!ziele.length) return;
     const unten = state.camY - 10;
     const oben = state.camY + view.h + 10;
@@ -823,7 +828,13 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    meldeZug(0);
   }
+
+  // Beim Zuschauen baut dieses Gerät nur nach – es klingelt und brummt nicht.
+  const zuschauend = () => state.phase === "zuschauen";
+  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   function tap() {
     if (state.phase === "bereit") losGehts();
@@ -833,6 +844,7 @@
     s.fallend = true;
     s.vy = -40;            // ein kleiner Anschub, damit der Fall gleich anspringt
     kids()?.vibrate?.(10);
+    meldeZug(1);
   }
 
   function funkenSpruehen(x, y, farbe, anzahl) {
@@ -905,14 +917,14 @@
       state.stoss = 1;
       funkenSpruehen(s.x, s.y, "#fff3c4", 10);
       zeigeCombo();
-      kids()?.playJingle?.("correct");
-      kids()?.vibrate?.(24);
+      klang("correct");
+      brumm(24);
       // Drei genaue Treffer hintereinander: ein Stück Breite zurück, aber
       // nie über die Anfangsbreite hinaus.
       if (state.perfekte % BONUS_NACH === 0 && state.breite < welt.startW) {
         state.breite = Math.min(welt.startW, s.w + welt.bonus);
         funkenSpruehen(s.x, s.y + s.h, "#ffffff", 12);
-        kids()?.playJingle?.("unlock");
+        klang("unlock");
       } else {
         state.breite = s.w;
       }
@@ -921,11 +933,12 @@
       state.perfekte = 0;
       zeigeCombo();
       state.breite = s.w;
-      kids()?.playJingle?.("star");
-      kids()?.vibrate?.(12);
+      klang("star");
+      brumm(12);
     }
 
     neuerSchweber();
+    meldeZug(0);
   }
 
   // richtung: -1 = das Stück steht links über, 1 = rechts. Ausdrücklich
@@ -959,6 +972,7 @@
   // aus, nicht nach Spielende.
   function daneben() {
     const s = state.schweber;
+    const zuschauen = zuschauend();
     state.schweber = null;
     state.phase = "ende";
     const nachRechts = s.x > state.bloecke[state.bloecke.length - 1].x;
@@ -971,8 +985,155 @@
     if (oben && !oben.sockel) oben.wackel = 1;
     state.combo = 0;
     zeigeCombo();
+    // Wer zuschaut, sieht den Block fallen – das Ende gehört dem anderen.
+    if (zuschauen) { state.phase = "zuschauen"; return; }
     kids()?.playJingle?.("retry");
+    meldeZug(2, s);
     stepTimer = window.setTimeout(finish, ENDE_MS);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: der eigene Turm für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, wenn etwas geschieht:
+   *
+   *   c   Blöcke × 4 + was gerade ist: 0 der nächste schwingt, 1 er fällt,
+   *       2 er fällt daneben
+   *   a   wo: beim Schwingen die Mitte des obersten Blocks (und darüber, ab
+   *       10⁷, die Reihe genauer Treffer), sonst wo der Block losgelassen wurde
+   *   b   wie breit: beim Schwingen der oberste Block × 10⁶ + der nächste,
+   *       sonst der fallende
+   *
+   * Alles quer im Grundmass mal hundert (welt.mass): Dann ist es auf jedem
+   * Bildschirm derselbe Turm, ob hoch oder quer gehalten. Wer zuschaut,
+   * lässt den Block an derselben Stelle los wie der andere und rechnet den
+   * Rest selbst – und nimmt, wenn der Block liegt, Mitte und Breite noch
+   * einmal so, wie der andere sie hat.
+   */
+  const ZUG_X = 5e6;
+  const kodiere = (x) => Math.round((x / welt.mass) * 100);
+  const welt100 = (n) => (n / 100) * welt.mass;
+
+  function meldeZug(was, block = state.schweber) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || state.phase === "zuschauen" || !live.gestartet?.()) return;
+    if (was === 0) {
+      const oben = state.bloecke[state.bloecke.length - 1];
+      if (!oben) return;
+      live.zug(state.punkte, {
+        a: state.combo * 1e7 + kodiere(oben.x) + ZUG_X,
+        b: kodiere(oben.w) * 1e6 + kodiere(state.breite),
+        c: state.punkte * 4,
+      });
+    } else if (block) {
+      live.zug(state.punkte, { a: kodiere(block.x), b: kodiere(block.w), c: state.punkte * 4 + was });
+    }
+  }
+
+  // Ein Block, der nicht zu sehen war (der Zug kam nicht an, oder man schaut
+  // erst später zu): Er liegt gleich da, wo der Turm jetzt steht.
+  function blockDazu(x, w) {
+    state.bloecke.push({
+      x, y: spitze(), w, h: BLOCK_H,
+      farbe: FARBEN[(state.bloecke.length - 1) % FARBEN.length],
+      stauch: 0, glanz: 0, wackel: 0,
+    });
+    // Auch der Zufall (die Schwingung ab dem zwölften Block) bleibt im
+    // selben Takt wie beim anderen.
+    schwungFuer(state.punkte);
+    state.punkte += 1;
+  }
+
+  // So viele Blöcke, wie der andere hatte, als dieser Zug geschah.
+  function auffuellen(bloecke) {
+    if (state.punkte >= bloecke) return;
+    if (state.schweber?.fallend) landen();
+    if (state.punkte >= bloecke) return;
+    const oben = state.bloecke[state.bloecke.length - 1];
+    while (state.punkte < bloecke) blockDazu(oben.x, Math.min(oben.w, state.breite));
+    neuerSchweber();
+  }
+
+  // Ein Zug des anderen, im Bild. sofort: Er liegt schon zurück (beim
+  // Einsteigen) – dann ohne Fallen, ohne Funken, gleich das Ergebnis.
+  function zugAnwenden(probe, sofort) {
+    const bloecke = Math.floor(probe.c / 4);
+    const was = probe.c - bloecke * 4;
+    if (was === 0) {
+      if (state.punkte < bloecke - 1) auffuellen(bloecke - 1);
+      if (state.punkte === bloecke - 1 && state.schweber) {
+        // Er hat losgelassen, aber das war hier nicht zu sehen: dann jetzt.
+        const kombi = Math.floor(probe.a / 1e7);
+        state.schweber.x = welt100(probe.a - kombi * 1e7 - ZUG_X);
+        landen();
+      }
+      if (state.punkte < bloecke) auffuellen(bloecke);
+      // Mitte und Breite so, wie der andere sie hat.
+      const oben = state.bloecke[state.bloecke.length - 1];
+      const kombi = Math.floor(probe.a / 1e7);
+      const breiteOben = Math.floor(probe.b / 1e6);
+      if (oben && !oben.sockel) {
+        oben.x = welt100(probe.a - kombi * 1e7 - ZUG_X);
+        oben.w = welt100(breiteOben);
+      }
+      state.breite = welt100(probe.b - breiteOben * 1e6);
+      state.combo = kombi;
+      state.perfekte = kombi;
+      const s = state.schweber;
+      if (s && !s.fallend && oben) {
+        s.w = state.breite;
+        s.mitte = oben.x;
+      }
+      zeigeCombo();
+    } else {
+      auffuellen(bloecke);
+      const s = state.schweber;
+      if (!s) return;
+      s.x = welt100(probe.a);
+      s.w = welt100(probe.b);
+      s.einzug = 0;
+      s.fallend = true;
+      s.vy = -40;
+      if (sofort && was === 1) landen();
+    }
+    if (sofort) {
+      state.teile.length = 0;
+      state.funken.length = 0;
+      state.stoss = 0;
+    }
+  }
+
+  // Jedes Bild: die Züge, die inzwischen dran sind. Was mehr als anderthalb
+  // Sekunden zurückliegt, steht gleich da.
+  function zuschauenTakt() {
+    if (!zuschauer?.seit) return;
+    const jetzt = zuschauer.jetzt();
+    const neu = zuschauer.seit(gesehenBis, jetzt);
+    let sprung = false;
+    neu.forEach((probe) => {
+      const sofort = jetzt - probe.t > 1500;
+      sprung = sprung || sofort;
+      zugAnwenden(probe, sofort);
+      gesehenBis = probe.t;
+    });
+    shell.setCount(state.punkte);
+    if (sprung) {
+      // Die Kamera steht gleich oben, statt den ganzen Turm hinaufzufahren.
+      state.camY = Math.max(-GRUND, spitze() - view.h * FOLGE_HOEHE);
+      state.camX = state.bloecke[state.bloecke.length - 1]?.x ?? 0;
+    }
+  }
+
+  // Ab jetzt der Turm des anderen: von vorn, mit derselben Welt (dieselbe
+  // Saat), und dann Zug um Zug, was er gebaut hat.
+  function zuschauenStarten() {
+    if (!zuschauer?.seit) return;
+    startRun();
+    state.phase = "zuschauen";
+    shell.setPhase("play");
+    gesehenBis = -Infinity;
+    zuschauenTakt();
   }
 
   // ---------------------------------------------------------------------------
@@ -1054,6 +1215,7 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     messen();
+    if (state.phase === "zuschauen") zuschauenTakt();
     schritt(dt);
     zeichnen();
   }
@@ -1132,6 +1294,7 @@
   }
 
   function finish() {
+    if (state.phase === "zuschauen") return;
     clearStep();
     stopLoop();
     state.phase = "ende";
@@ -1168,7 +1331,7 @@
     accentDark: "#b9741a",
     clock: false,
     onRestart: startRun,
-    live: { los: losGehts, stopp: () => finish() },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "towerStack", host, art: "ziel" }) || null;
 

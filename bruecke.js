@@ -154,6 +154,10 @@
   let gedrueckt = false;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen) und bis zu welchem seiner Züge die Brücken schon stehen.
+  let zuschauer = null;
+  let gesehenBis = -Infinity;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
 
@@ -524,7 +528,13 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    meldeZug(0);
   }
+
+  // Beim Zuschauen baut dieses Gerät nur nach – es klingelt und brummt nicht.
+  const zuschauend = () => state.phase === "zuschauen";
+  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   function druecken() {
     gedrueckt = true;
@@ -534,6 +544,7 @@
     state.balken = { x: kante(p), len: 0, winkel: 0 };
     state.schritt = "wachsen";
     kids()?.vibrate?.(8);
+    meldeZug(1);
   }
 
   function loslassen() {
@@ -542,6 +553,7 @@
     if (state.phase !== "spiel" || state.schritt !== "wachsen") return;
     state.schritt = "kippen";
     state.kippZeit = 0;
+    meldeZug(2);
   }
 
   // ---------------------------------------------------------------------------
@@ -565,7 +577,7 @@
     state.schritt = "gehen";
     state.stoss = state.treffer ? 0.5 : 0.2;
     staub(spitze, OBEN, 7);
-    kids()?.vibrate?.(12);
+    brumm(12);
   }
 
   function angekommen() {
@@ -574,6 +586,8 @@
       state.arbeiter.vy = 40;
       state.kette = 0;
       zeigeCombo();
+      // Wer zuschaut, sieht ihn fallen – das Ende gehört dem anderen.
+      if (zuschauend()) return;
       kids()?.playJingle?.("retry");
       kids()?.vibrate?.([20, 40, 30]);
       stepTimer = window.setTimeout(finish, 950);
@@ -588,12 +602,12 @@
       state.stoss = 1;
       funken(p.x, OBEN + 2, "#ffe066", 16);
       schrift(`+${plus}`, p.x, OBEN + 34, "#ffe066", 22);
-      kids()?.playJingle?.(state.kette >= 3 ? "unlock" : "correct");
-      kids()?.vibrate?.(24);
+      klang(state.kette >= 3 ? "unlock" : "correct");
+      brumm(24);
     } else {
       state.kette = 0;
       schrift("+1", p.x, OBEN + 30, "#ffffff", 16);
-      kids()?.playJingle?.("star");
+      klang("star");
     }
     zeigeCombo();
     state.punkte += plus;
@@ -607,6 +621,7 @@
     // Was weit links liegt, sieht niemand mehr.
     while (state.alte.length > 6) state.alte.shift();
     state.schritt = "schieben";
+    meldeZug(0);
   }
 
   function staub(x, y, anzahl) {
@@ -653,6 +668,126 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigenen Brücken für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, wenn etwas geschieht:
+   *
+   *   c   Brücken × 8 + was gerade ist: 0 er wartet (die Brücke davor steht),
+   *       1 der Balken wächst, 2 er kippt
+   *   a   beim Warten die Reihe genauer Treffer, beim Kippen die Länge des
+   *       Balkens mal zehn
+   *
+   * Mehr braucht es nicht: Die Pfeiler kommen aus derselben Saat, und wie der
+   * Balken fällt, wohin der Arbeiter geht und was es gibt, folgt allein aus
+   * seiner Länge. Wer zuschaut, lässt den Balken dort los, wo der andere ihn
+   * losgelassen hat, und rechnet den Rest selbst.
+   */
+  function meldeZug(was) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauend() || !live.gestartet?.()) return;
+    const a = was === 2 ? Math.round((state.balken?.len || 0) * 10) : was === 0 ? state.kette : 0;
+    live.zug(state.punkte, { a, b: 0, c: state.bruecken * 8 + was });
+  }
+
+  // Die Brücke, an der gerade gebaut wird, gleich fertig: mit dem Balken so
+  // lang, wie er war – oder, wenn das hier nicht ankam, genau bis zur Mitte.
+  // ruck: auch das Bild gleich am nächsten Pfeiler, statt hinzugleiten.
+  function fertigBauen(len, ruck) {
+    const p = state.pfeiler[state.hier];
+    const weiter = state.pfeiler[state.hier + 1];
+    const vorne = state.schritt === "warten" || state.schritt === "schieben";
+    if (vorne || !state.balken) state.balken = { x: kante(p), len: 0, winkel: 0 };
+    if (vorne || state.schritt === "wachsen") {
+      state.balken.len = len ?? weiter.x - kante(p);
+      aufgeschlagen();
+    } else if (state.schritt === "kippen") {
+      if (len !== null) state.balken.len = len;
+      aufgeschlagen();
+    }
+    if (state.balken) state.balken.winkel = Math.PI / 2;
+    if (state.schritt === "gehen") {
+      state.arbeiter.x = state.ziel;
+      angekommen();
+    }
+    if (ruck) bildNachruecken();
+  }
+
+  function bildNachruecken() {
+    if (state.schritt !== "schieben") return;
+    state.camX = kante(state.pfeiler[state.hier]) - VOR_KANTE;
+    state.schritt = "warten";
+  }
+
+  // Bis zur Brücke n, die der andere als nächste baut. Nur die letzte
+  // gleitet noch ins Bild – ausser alles liegt schon zurück (sofort).
+  function bisBruecke(n, sofort) {
+    let sicher = 0;
+    while (state.bruecken < n && state.schritt !== "fallen" && sicher < 500) {
+      fertigBauen(null, sofort || state.bruecken < n - 1);
+      sicher += 1;
+    }
+  }
+
+  // Ein Zug des anderen, im Bild. sofort: Er liegt schon zurück (beim
+  // Einsteigen) – dann ohne Wachsen und Gehen, gleich das Ergebnis.
+  function zugAnwenden(probe, sofort) {
+    const n = Math.floor(probe.c / 8);
+    const was = probe.c - n * 8;
+    if (state.schritt === "fallen") return;
+    bisBruecke(n, sofort);
+    if (state.schritt === "fallen") return;
+    if (was === 0) {
+      state.punkte = probe.p;
+      state.kette = probe.a;
+      zeigeCombo();
+      if (sofort) bildNachruecken();
+    } else {
+      // Er drückt schon: Das Bild ist am Pfeiler, und der Balken wächst.
+      bildNachruecken();
+      if (state.schritt !== "wachsen" && state.schritt !== "kippen") {
+        state.balken = { x: kante(state.pfeiler[state.hier]), len: 0, winkel: 0 };
+        state.schritt = "wachsen";
+      }
+      if (was === 2 && state.schritt === "wachsen") {
+        state.balken.len = probe.a / 10;
+        state.schritt = "kippen";
+        state.kippZeit = 0;
+      }
+      if (was === 2 && sofort) fertigBauen(probe.a / 10, true);
+    }
+    if (sofort) {
+      state.funken.length = 0;
+      state.schriften.length = 0;
+      state.stoss = 0;
+    }
+  }
+
+  // Jedes Bild: die Züge, die inzwischen dran sind. Was mehr als anderthalb
+  // Sekunden zurückliegt, steht gleich da.
+  function zuschauenTakt() {
+    if (!zuschauer?.seit) return;
+    const jetzt = zuschauer.jetzt();
+    zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
+      zugAnwenden(probe, jetzt - probe.t > 1500);
+      gesehenBis = probe.t;
+    });
+    shell.setCount(state.punkte);
+  }
+
+  // Ab jetzt die Brücken des anderen: von vorn, mit derselben Welt (dieselbe
+  // Saat), und dann Zug um Zug, was er gebaut hat.
+  function zuschauenStarten() {
+    if (!zuschauer?.seit) return;
+    startRun();
+    state.phase = "zuschauen";
+    shell.setPhase("play");
+    gesehenBis = -Infinity;
+    zuschauenTakt();
+    state.camY = camYZiel();
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Schleife
   // ---------------------------------------------------------------------------
   function schritt(dt) {
@@ -688,7 +823,7 @@
           state.camX = ziel;
           state.schritt = "warten";
           // Wer den Finger schon wieder unten hat, baut gleich weiter.
-          if (gedrueckt) druecken();
+          if (gedrueckt && !zuschauend()) druecken();
         }
         break;
       }
@@ -724,6 +859,7 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     messen();
+    if (state.phase === "zuschauen") zuschauenTakt();
     schritt(dt);
     zeichnen();
   }
@@ -791,6 +927,7 @@
   }
 
   function finish() {
+    if (state.phase === "zuschauen") return;
     clearStep();
     stopLoop();
     shell.stopClock();
@@ -827,7 +964,7 @@
     accentDark: "#2c7337",
     clock: false,
     onRestart: startRun,
-    live: { los: losGehts, stopp: () => finish() },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "ziel" }) || null;
 

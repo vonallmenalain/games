@@ -336,6 +336,10 @@
   let frame = null;
   let letzteZeit = 0;
   let stepTimer = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen) und bis zu welchem seiner Züge die Kessel schon stehen.
+  let zuschauer = null;
+  let gesehenBis = -Infinity;
 
   // Wie lange die Schicht läuft. Sie ist die Punktzahl, und sie ist der Takt,
   // nach dem der Verbrauch steigt und der nächste Kessel kommt – alle drei
@@ -410,13 +414,17 @@
     state.kohle += 1;
     zeichne(kessel);
     kids()?.vibrate?.(8);
-    if (!ruhig()) {
-      kessel.node?.classList.remove("ist-kohle");
-      // Neu anstossen: Ohne das Auslösen des Umbruchs läuft die Bewegung beim
-      // zweiten Tipp innerhalb einer Sekunde nicht noch einmal.
-      void kessel.node?.offsetWidth;
-      kessel.node?.classList.add("ist-kohle");
-    }
+    kohleBild(kessel);
+    meldeZug(kessel.nummer - 1, kessel);
+  }
+
+  function kohleBild(kessel) {
+    if (ruhig()) return;
+    kessel.node?.classList.remove("ist-kohle");
+    // Neu anstossen: Ohne das Auslösen des Umbruchs läuft die Bewegung beim
+    // zweiten Tipp innerhalb einer Sekunde nicht noch einmal.
+    void kessel.node?.offsetWidth;
+    kessel.node?.classList.add("ist-kohle");
   }
 
   // ---------------------------------------------------------------------------
@@ -438,6 +446,7 @@
 
   function step(now) {
     frame = window.requestAnimationFrame(step);
+    if (state.phase === "zuschauen") { zuschauenSchritt(); return; }
     if (state.phase !== "play") return;
 
     // Der Schritt wird gedeckelt: Bleibt ein Bild einmal aus – eine lange
@@ -476,6 +485,7 @@
     stopLoop();
     shell.stopClock();
     if (kessel?.node) kessel.node.classList.add(grund === "platzt" ? "ist-geplatzt" : "ist-aus");
+    if (grund === "aus" || grund === "platzt") meldeZug(grund === "aus" ? ZUG_AUS : ZUG_PLATZT, kessel);
     kids()?.playJingle?.("retry");
     kids()?.vibrate?.([20, 40, 20]);
     // Einen Wimpernschlag stehen lassen: Man soll sehen, welcher Kessel es war.
@@ -494,9 +504,130 @@
     stepTimer = window.setTimeout(() => ergebnis(), 600);
   }
 
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigenen Kessel für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, beim Anfeuern, bei jedem Tipp und
+   * am Ende, immer mit allen Kesseln:
+   *
+   *   c   Kohle bisher × 8 + was: 0–4 auf diesen Kessel nachgelegt, 5 einer
+   *       ist aus, 6 einer ist geplatzt, 7 die Schicht beginnt
+   *   a   wie die Kessel stehen, je zehn Bit, mal zehn: der erste in den
+   *       untersten, der fünfte in den obersten
+   *   b   wie viele Kessel stehen × 8 + welcher aus ist oder geplatzt
+   *
+   * Dazwischen braucht es nichts: Wie schnell ein Kessel leerläuft, kommt aus
+   * derselben Saat, und wann der nächste kommt, aus der Uhr. Wer zuschaut,
+   * rechnet jeden Zeiger vom letzten Zug an selbst herunter – als Formel,
+   * nicht Bild für Bild, also genau so, wie er beim anderen fällt.
+   */
+  const ZUG_AUS = 5;
+  const ZUG_PLATZT = 6;
+  const ZUG_START = 7;
+  const BIT = 1024;
+
+  function meldeZug(was, kessel = null) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    let a = 0;
+    state.kessel.forEach((k, i) => { a += Math.round(Math.max(0, Math.min(VOLL, k.wert)) * 10) * BIT ** i; });
+    const b = state.kessel.length * 8 + (kessel ? kessel.nummer - 1 : 0);
+    live.zug(Math.floor(spielzeit() / 1000), { a, b, c: state.kohle * 8 + was });
+  }
+
+  // Wann der Kessel i (von null an) dazukommt, in Millisekunden der Schicht.
+  const ankunft = (i) => (i < KESSEL_START ? 0 : (i - KESSEL_START + 1) * KESSEL_DAZU_MS);
+
+  // Was ein Kessel zwischen zwei Zeiten verbraucht: dasselbe wie die Schritte
+  // in step, nur zusammengezählt (der Verbrauch steigt gleichmässig an).
+  function verbrauch(tempo, von, bis) {
+    const a = von / 1000;
+    const b = bis / 1000;
+    return tempo * (b - a + (ZUNAHME / 2) * (b * b - a * a));
+  }
+
+  function zugAnwenden(probe, sofort) {
+    const was = probe.c % 8;
+    const stehen = Math.floor(probe.b / 8);
+    // Jeder Kessel, den es zu diesem Zug schon gab, steht so, wie der andere
+    // ihn hatte – und fällt von da an weiter.
+    state.kessel.forEach((kessel, i) => {
+      if (i >= stehen) return;
+      kessel.basis = (Math.floor(probe.a / BIT ** i) % BIT) / 10;
+      kessel.seit = probe.t;
+    });
+    const kessel = state.kessel[was < 5 ? was : probe.b % 8];
+    if (was < 5 && kessel && !sofort) kohleBild(kessel);
+    if (was === ZUG_AUS || was === ZUG_PLATZT) {
+      state.phase = "zuschauen-aus";
+      raeumePlatz();
+      // Die Zeiger bleiben genau dort stehen, wo sie beim anderen stehen.
+      state.kessel.forEach((k) => { k.wert = k.basis; zeichne(k); });
+      if (kessel) {
+        if (was === ZUG_AUS) kessel.wert = 0;
+        zeichne(kessel);
+        kessel.node?.classList.add(was === ZUG_PLATZT ? "ist-geplatzt" : "ist-aus");
+      }
+    }
+  }
+
+  function zuschauenSchritt() {
+    if (!zuschauer?.seit) return;
+    const jetzt = Math.max(0, zuschauer.jetzt());
+    // Die Kessel, die es zu dieser Zeit beim anderen gibt – in derselben
+    // Reihe, sonst bekämen sie ein anderes Tempo.
+    while (state.kessel.length < KESSEL_MAX && ankunft(state.kessel.length) <= jetzt) {
+      const i = state.kessel.length;
+      if (i >= KESSEL_START) raeumePlatz();
+      const kessel = neuerKessel();
+      kessel.basis = START_WERT;
+      kessel.seit = ankunft(i);
+      if (i >= KESSEL_START && jetzt - kessel.seit < 1500) kessel.node?.classList.add("ist-neu", "ist-kohle");
+    }
+    zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
+      if (state.phase === "zuschauen") zugAnwenden(probe, jetzt - probe.t > 1500);
+      gesehenBis = probe.t;
+    });
+    if (state.phase !== "zuschauen") return;
+    state.kessel.forEach((kessel) => {
+      kessel.wert = Math.max(0, Math.min(VOLL, kessel.basis - verbrauch(kessel.tempo, kessel.seit, jetzt)));
+      zeichne(kessel);
+    });
+    if (state.kessel.length < KESSEL_MAX) {
+      const bis = ankunft(state.kessel.length) - jetzt;
+      if (bis <= VORSCHAU_MS) zeigePlatz(1 - bis / VORSCHAU_MS);
+    }
+    shell.setCount(Math.floor(jetzt / 1000));
+  }
+
+  // Ab jetzt die Kessel des anderen: dieselbe Schicht, und wie er nachlegt.
+  function zuschauenStarten() {
+    if (!zuschauer?.seit) return;
+    clearStep();
+    stopLoop();
+    shell.stopClock();
+    shell.closeOverlay();
+    zufall.neu();
+    state.phase = "zuschauen";
+    state.kessel = [];
+    state.kohle = 0;
+    state.ende = null;
+    gesehenBis = -Infinity;
+    shell.setPhase("play");
+    shell.setCount(0);
+    shell.clear();
+    shell.play.append(shell.el("p", "cm-prompt hz-tafel", "Nie auf null. Nie ins Rote tippen."));
+    raeumePlatz();
+    reihe = shell.el("div", "hz-reihe");
+    shell.play.append(reihe);
+    frame = window.requestAnimationFrame(step);
+  }
+
   const sekundenWort = (zehntel) => (zehntel / 10).toFixed(1).replace(".", ",");
 
   function ergebnis() {
+    if (zuschauer) return;
     clearStep();
     const punkte = Math.max(0, Math.round(Math.min(SCHICHT_MS, state.gelaufen) / 100));
     recordRun(punkte);
@@ -580,6 +711,7 @@
     shell.play.append(reihe);
 
     for (let i = 0; i < KESSEL_START; i += 1) neuerKessel();
+    meldeZug(ZUG_START);
 
     frame = window.requestAnimationFrame(step);
     shell.startClock(SCHICHT_MS, schichtEnde);
@@ -597,7 +729,7 @@
     onRestart: showIntro,
     // Live-Modus: Die Schicht beginnt zum gemeinsamen Start, ohne «Starten»,
     // und endet, wenn die Zeit des Live-Abends um ist.
-    live: { los: beginRound, stopp: schichtEnde },
+    live: { los: beginRound, stopp: schichtEnde, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
 
   showIntro();
@@ -638,4 +770,7 @@
   });
 
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+
+  // Für die Prüfskripte.
+  window.LernappHeizer = { VOLL, GEFAHR, KOHLE, KESSEL_MAX, state };
 })();

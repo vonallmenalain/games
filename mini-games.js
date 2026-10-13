@@ -94,6 +94,21 @@
     hillGlide: { fassung: "t1" },
   };
 
+  // Wem sich im Multiplayer zuschauen lässt, wenn man selbst ausgeschieden
+  // oder schon fertig ist: den Spielen oben, aus der Lage ihrer Figur, und denen, die ihre Züge
+  // melden (zug, live-spiel.js) – dort baut das Spiel des Zuschauers nach, was
+  // der andere tut, Block für Block, Wurf für Wurf.
+  const ZUSCHAUBAR = {
+    ...Object.fromEntries(Object.keys(ANSEHBAR).map((id) => [id, { zug: false }])),
+    towerStack: { zug: true },
+    bridgeBuilder: { zug: true },
+    dartWheel: { zug: true },
+    tileMemory: { zug: true },
+    fishPond: { zug: true },
+    boilerRoom: { zug: true },
+    numberLine: { zug: true },
+  };
+
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
   // Konzentration türkis, Geschwindigkeit orange, Problemlösen grün, Zahlen
   // und Buchstaben rot. highscore.js sagt, welches Spiel zu welchem Bereich
@@ -1281,6 +1296,28 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Nichts markieren, kein Menü beim langen Drücken
+  // ---------------------------------------------------------------------------
+  /*
+   * styles.css nimmt dem Text das Markieren (user-select). Das genügt nicht
+   * überall: Manche Browser markieren beim langen Drücken trotzdem ein Wort
+   * und bieten «Suchen» an, und auf Links und Bildern kommt ein Menü mit
+   * «In neuem Tab öffnen». Beides führt ein Kind mit einem Tipp aus der App
+   * hinaus. Hier wird beides abgesagt – ausser in Eingabefeldern, dort soll
+   * man seinen Namen markieren und korrigieren können. Gilt auf jeder Seite
+   * (mini-games.js steht überall).
+   */
+  const darfMarkieren = (ziel) => {
+    const knoten = ziel?.nodeType === 3 ? ziel.parentElement : ziel;
+    return Boolean(knoten?.closest?.("input, textarea, [contenteditable='true']"));
+  };
+  ["selectstart", "contextmenu", "dragstart"].forEach((typ) => {
+    document.addEventListener(typ, (ereignis) => {
+      if (!darfMarkieren(ereignis.target)) ereignis.preventDefault();
+    }, { capture: true });
+  });
+
+  // ---------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------
   // Welche Spiele es gibt, steht in dieser Datei – die Übersicht muss auf
@@ -1310,7 +1347,7 @@
     einheit,
     farbe,
     listeFuer,
-    listeBauen, ansehbareLaeufe, ANSEHBAR,
+    listeBauen, ansehbareLaeufe, ANSEHBAR, ZUSCHAUBAR,
     geister,
     rangliste,
     melde,
