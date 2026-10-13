@@ -62,15 +62,6 @@
   const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
-  const HELP = [
-    "Kacheln-Knobeln. Ein paar Kacheln leuchten kurz auf.",
-    "Merk dir, welche es waren.",
-    "Danach sehen alle Kacheln wieder gleich aus – tippe die leuchtenden nach.",
-    "Hast du alle, kommt eine Kachel mehr dazu.",
-    "Tippst du eine falsche an, ist die Runde vorbei.",
-    "Beim Tippen hast du so viel Zeit, wie du willst.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
@@ -251,13 +242,6 @@
     return runden === 1 ? "Ein Muster ganz gefunden." : `${runden} Muster ganz gefunden.`;
   }
 
-  function resultSpeech(punkte, runden, runs) {
-    const kacheln = punkte === 1 ? "eine Kachel" : `${punkte} Kacheln`;
-    const geschafft = runden === 0 ? "noch kein Muster"
-      : runden === 1 ? "ein Muster" : `${runden} Muster`;
-    return `Du hast ${kacheln} richtig getippt und ${geschafft} geschafft. ${runsText(runs)}`;
-  }
-
   function finish() {
     clearStep();
     state.phase = "over";
@@ -272,7 +256,6 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
-      speech: resultSpeech(punkte, state.runde, next.runs),
     });
   }
 
@@ -280,14 +263,13 @@
   // Start
   // ---------------------------------------------------------------------------
   // Kein Erklärbild und kein Startknopf: ein Tipp auf das Gebäude, und das
-  // erste Muster leuchtet. Was zu tun ist, sagt der Lautsprecher.
+  // erste Muster leuchtet.
   shell = shellApi.mount({
     host,
     title: "Kacheln-Knobeln",
     area: "gedaechtnis",
     accent: "#7C5CE6",
     accentDark: "#5a41b8",
-    help: HELP,
     clock: false,
     onRestart: startRun,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.

@@ -138,7 +138,7 @@
   function sperrt(ereignis) {
     if (!z.sperre) return;
     const ziel = ereignis.target;
-    if (ziel?.closest?.("[data-live-frei], .cm-bar, .cm-vollbild, .help-voice")) return;
+    if (ziel?.closest?.("[data-live-frei], .cm-bar, .cm-vollbild")) return;
     if (ereignis.type.startsWith("key") && ereignis.key === "Tab") return;
     ereignis.stopPropagation();
     if (ereignis.cancelable && ereignis.type !== "touchstart" && ereignis.type !== "touchend") ereignis.preventDefault();

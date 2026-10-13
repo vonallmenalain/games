@@ -115,6 +115,7 @@ const VERBOTEN = [
   ["LernappTrain\\b", "der Zug der App"],
   ["journey-plan", "die Reise"],
   ["entitlement\\.js", "die Schranke"],
+  ["help-voice|mountHelpButton|setHelp|pushHelp|speechSynthesis", "der Vorlese-Knopf der App – hier liest nichts vor"],
 ];
 for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js"))) {
   const quelle = lies(name);
@@ -122,6 +123,7 @@ for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js"))) {
     pruefe(`${name} fragt nicht nach ${muster} (${warum})`, !new RegExp(muster).test(quelle));
   }
 }
+pruefe("styles.css gestaltet keinen Vorlese-Knopf mehr (.help-voice)", !/\.help-voice/.test(lies("styles.css")));
 
 // --- 9. Jeder globale Name, den jemand benutzt, wird hier auch gesetzt ------
 const dateien = readdirSync(WURZEL).filter((n) => n.endsWith(".js"));

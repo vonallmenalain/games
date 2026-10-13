@@ -92,13 +92,6 @@
   const ZUM_STEG = fallZeit(STEG_U - GROSS);
   const VOM_STEG = fallZeit(STEG_O);
 
-  const HELP = [
-    "Schwerkraft-Läufer. Der Roboter rennt von allein.",
-    "Tippe aufs Bild, dann kehrt sich die Schwerkraft um: Er fällt an die Decke und rennt dort weiter. Tippe noch einmal, und er fällt zurück auf den Boden.",
-    "Weich den Lücken, den Stacheln und den Blöcken aus. Fehlen Boden und Decke, spring auf den Steg in der Mitte – vom Boden landest du darunter, von der Decke darauf.",
-    "Es wird immer schneller. Es zählt, wie weit du kommst, in Metern.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.schwerkraft", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1290,7 +1283,6 @@
       label: "Deine Meter",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${state.wechsel} Wechsel · ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
-      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("sl-rekord");
@@ -1306,7 +1298,6 @@
     area: "zahlbuchstabe",
     accent: "#E8543F",
     accentDark: "#a8321f",
-    help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|zg|hz|gs|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -490,7 +490,6 @@ try {
       const bar = kasten(document.querySelector(".cm-bar"));
       // Die Fläche des Spiels, wo es eine hat: Leinwand, Teich, Wasser.
       const flaeche = kasten(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .ft-pond, .bs-wasser"));
-      const sprecher = kasten(document.querySelector(".help-voice-button"));
       return {
         hoch: window.innerHeight,
         breit: window.innerWidth,
@@ -503,7 +502,7 @@ try {
         flaeche: flaeche && { l: Math.round(flaeche.left), r: Math.round(flaeche.right), o: Math.round(flaeche.top), u: Math.round(flaeche.bottom), radius: getComputedStyle(document.querySelector(".tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .ft-pond, .bs-wasser")).borderTopLeftRadius },
         grund: getComputedStyle(document.getElementById(id)).backgroundColor,
         inhalt: document.querySelector(".cm-play")?.querySelectorAll("*").length ?? 0,
-        sprecher: sprecher ? Math.round(sprecher.width) : 0,
+        vorlesen: Boolean(document.querySelector(".help-voice, .help-voice-button")),
         titel: document.querySelector(".cm-title")?.textContent || "",
         knoepfe: [...document.querySelectorAll(".cm-bar-left > *")].map((e) => (e.textContent || "").trim() || e.className),
         pfeil: Boolean(document.querySelector(".cm-bar-left .mini-pfeil")),
@@ -532,7 +531,7 @@ try {
       pruefe(f.u >= stand.hoch - 1 && f.radius === "0px" && f.r - f.l >= soll && Math.abs(f.l - (stand.breit - f.r)) <= 1,
         `${spiel.seite}: Die Spielfläche steht nicht im Vollbild: ${JSON.stringify(f)} bei ${stand.breit} × ${stand.hoch}.`);
     }
-    pruefe(stand.sprecher > 20 && stand.sprecher < 120, `${spiel.seite}: Der Hilfe-Lautsprecher ist ${stand.sprecher} px breit.`);
+    pruefe(!stand.vorlesen, `${spiel.seite}: Oben links steht noch der violette Vorlese-Knopf aus der App.`);
     pruefe(stand.titel.trim() === spiel.titel, `${spiel.seite}: Oben steht "${stand.titel}" statt "${spiel.titel}".`);
     // Oben links steht nur noch, was gebraucht wird: der Weg zurück und der
     // Neustart. Kein "Zur App" (diese Site verweist nicht auf die Kids-App)
@@ -1063,8 +1062,8 @@ try {
     ["Handy quer", { width: 568, height: 320 }],
     ["Tablet quer", { width: 844, height: 390 }],
     // Hochkant ist seit dem Wegfall des Dreh-Hinweises eine Lage wie jede
-    // andere. Zwischen dem Lautsprecher links und dem Ton-Schalter rechts
-    // bleiben dort gut 200 Pixel – der engste Fall, den es gibt.
+    // andere. Bis zu den Knöpfen rechts bleiben dort gut 230 Pixel – der
+    // engste Fall, den es gibt.
     ["Handy hoch", { width: 390, height: 844 }],
     // Die häufigste Breite auf Android – mit dem Vollbild-Knopf der engste
     // Fall, in dem er noch dasteht.
@@ -1081,7 +1080,6 @@ try {
       const stuecke = [
         ...[...document.querySelectorAll(".cm-bar-left > *")].map((e) => ({ was: (e.textContent || "Neustart").trim() || "Neustart", r: e.getBoundingClientRect() })),
         { was: "Zähler", r: document.querySelector(".cm-count").getBoundingClientRect() },
-        { was: "Lautsprecher", r: document.querySelector(".help-voice-button")?.getBoundingClientRect() },
         { was: "Vollbild", r: document.querySelector(".cm-vollbild")?.getBoundingClientRect() },
         { was: "Ton", r: document.querySelector(".sound-toggle")?.getBoundingClientRect() },
       ].filter((s) => s.r && s.r.width > 0);
@@ -1096,6 +1094,8 @@ try {
         }
       }
       const letzte = stuecke.reduce((max, s) => Math.max(max, s.r.right), 0);
+      // Links steht nichts mehr vor der Leiste: Sie beginnt am Rand.
+      const erste = Math.min(...stuecke.map((s) => s.r.left));
       // Eine Zeile oder zwei? Bricht die Leiste um, liegt nichts übereinander
       // – die zweite Zeile legt sich aber über die Spielfläche und über den
       // Satz, der dort steht. Gemessen wird deshalb die Leiste selbst gegen
@@ -1105,12 +1105,14 @@ try {
       return {
         stoesse,
         ueberRand: Math.round(letzte - window.innerWidth),
+        links: Math.round(erste),
         leisteHoch: Math.round(leiste.height),
         hoechstes: Math.round(hoechstes),
       };
     });
     pruefe(befund.stoesse.length === 0, `${name}: In der Leiste liegt etwas übereinander – ${befund.stoesse.join(", ")}`);
     pruefe(befund.ueberRand <= 0, `${name}: Die Leiste steht ${befund.ueberRand} px über den rechten Rand.`);
+    pruefe(befund.links >= 8 && befund.links <= 24, `${name}: Die Leiste beginnt bei ${befund.links} px statt am linken Rand.`);
     pruefe(befund.leisteHoch <= befund.hoechstes + 4,
       `${name}: Die Leiste bricht um – ${befund.leisteHoch} px hoch bei einem höchsten Stück von ${befund.hoechstes} px.`);
     await kontext.close();

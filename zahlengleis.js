@@ -102,18 +102,6 @@
   const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
-  const HELP = [
-    "Wo hält der Zug? Unten siehst du ein Gleis. Links ist der Bahnhof Null, rechts der letzte Bahnhof.",
-    "Dazwischen steht nichts – du musst dir selbst denken, wo eine Zahl liegt.",
-    "Oben steht eine Zahl. Schieb die Lok mit dem Finger dorthin, wo diese Zahl auf dem Gleis liegt, und lass los.",
-    "Du kannst die Stelle auch einfach antippen.",
-    "Der rote Strich unter der Lok zeigt ihre Mitte. Er zeigt nicht, wo die Zahl ist – nur, worauf du zielst.",
-    "Danach zeigt ein Schild, wo die Zahl wirklich liegt.",
-    "Je näher du dran bist, desto mehr Punkte gibt es: zehn, wenn du ganz genau triffst, und das ist schwer.",
-    "Das Gleis wird länger: erst bis hundert, dann bis fünfhundert, zuletzt bis tausend.",
-    "Zehn Zahlen, dann ist die Runde vorbei. Du hast so viel Zeit, wie du willst.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
@@ -206,7 +194,6 @@
   let plus = null;
   let marken = null;
   let stepTimer = null;
-  let releaseHelp = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -286,8 +273,6 @@
   // ---------------------------------------------------------------------------
   function startRun() {
     clearStep();
-    releaseHelp?.();
-    releaseHelp = null;
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("play");
@@ -346,14 +331,6 @@
     gleis.setAttribute("aria-valuenow", "0");
     gleis.setAttribute("aria-valuetext", `Lok steht bei 0. Gesucht ist ${state.zahl}.`);
     shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === state.index));
-
-    // Der Lautsprecher sagt jetzt die Zahl – wer sie nicht lesen kann, hört
-    // sie. Die Spielregeln bleiben darunter liegen und kommen zurück, sobald
-    // die Runde vorbei ist.
-    releaseHelp?.();
-    releaseHelp = kids()?.pushHelp?.(
-      `Die Zahl ist ${state.zahl}. Das Gleis geht von null bis ${bis}. Schieb die Lok dorthin, wo die ${state.zahl} liegt, und lass los.`,
-    ) || null;
   }
 
   function antwort(p) {
@@ -402,16 +379,9 @@
       : `Noch ${left} Runden bis zum fertigen Wagen.`;
   }
 
-  function resultSpeech(punkte, runs) {
-    const treffer = state.genau === 0 ? "keine Zahl" : state.genau === 1 ? "eine Zahl" : `${state.genau} Zahlen`;
-    return `Du hast ${punkte} von ${ZAHLEN_JE_RUNDE * PUNKTE_JE_ZAHL} Punkten und ${treffer} ganz genau getroffen. ${runsText(runs)}`;
-  }
-
   function finish() {
     clearStep();
     state.phase = "over";
-    releaseHelp?.();
-    releaseHelp = null;
     const punkte = state.punkte;
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
@@ -422,7 +392,6 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
-      speech: resultSpeech(punkte, next.runs),
     });
   }
 
@@ -435,7 +404,6 @@
     area: "zahlbuchstabe",
     accent: "#E8543F",
     accentDark: "#a8321f",
-    help: HELP,
     clock: false,
     // Es gibt nur eine Schwierigkeit – neu starten heisst neue Zahlen.
     onRestart: startRun,

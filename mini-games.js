@@ -803,9 +803,9 @@
   // anderes Spiel wählen konnte (zwei Wege zur selben Liste sind einer zu
   // viel – die Karten auf der Startseite können dasselbe).
   // Der Pfeil sagt, dass es hier hinausgeht, das Wort sagt wohin. Auf einem
-  // Handy hochkant bleibt für das Wort kein Platz: Links steht der
-  // Lautsprecher, rechts der Ton-Schalter, und dazwischen müssen noch der
-  // Neustart und der Zähler stehen. Dort steht deshalb nur der Pfeil – das
+  // Handy hochkant bleibt für das Wort kein Platz: Rechts stehen der
+  // Vollbild-Knopf und der Ton-Schalter, und davor müssen noch der Neustart
+  // und der Zähler stehen. Dort steht deshalb nur der Pfeil – das
   // Wort liegt in einem eigenen span, damit das Stylesheet es ausblenden
   // kann (.mini-knopf-wort). Der Knopf behält seinen Namen für alle, die ihn
   // nicht sehen: title und aria-label bleiben.
@@ -954,15 +954,6 @@
     }
 
     return block;
-  }
-
-  // Was der Lautsprecher nach der Runde sagt. In der App steht dort, wie weit
-  // es noch bis zum fertigen Wagen ist – hier gibt es keinen Wagen.
-  function ergebnisSprache({ punkte, label }) {
-    const turnier = window.LernappTurnier;
-    const wort = String(label || "Punkte").replace(/^Deine?\s+/i, "");
-    if (turnier?.aufSpielseite?.()) return turnier.sprache({ punkte, label });
-    return `${punkte} ${wort}. Trag deinen Namen ein, dann stehst du in der Bestenliste.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -1301,7 +1292,6 @@
     adminKnopf,
     leiste,
     ergebnis,
-    ergebnisSprache,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

@@ -113,14 +113,6 @@
   const START = { x: -88, y: 171 };
   const ERSTER = { x: 0, y: 240 };
 
-  const HELP = [
-    "Lianenschwung. Halte den Finger auf dem Bild, dann springt der Affe ab und schwingt an der Liane.",
-    "Lass los, dann fliegt er. Drück wieder, dann greift er die nächste Liane – die am Ast mit dem Ring.",
-    "Ist der Ring rot, ist die Liane noch zu lang: Der Affe würde ins Wasser schwingen. Warte, bis er gelb ist.",
-    "Es zählt nur, wie weit du kommst, in Metern. Hängen an einer Liane Bananen, gibt sie dir beim Loslassen einen kräftigen Schwung nach vorn. Und wer einen Ast überspringt, wird schneller.",
-    "Du hast vierzig Sekunden. Die Strecke ist immer dieselbe – nach hinten hängen die Äste weiter auseinander.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.liane", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1512,7 +1504,6 @@
       label: "Deine Meter",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${bananen}${vorher ? ` · Bestwert ${vorher} m` : ""}`,
-      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("li-rekord");
@@ -1528,7 +1519,6 @@
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

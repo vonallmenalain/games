@@ -129,19 +129,6 @@
   // Schwanken für alle dasselbe (zufall.js).
   const STREUUNG = 0.12;
 
-  const HELP = [
-    "Der Heizer. Auf jedem Kessel steht ein Manometer, und jeder Zeiger fällt.",
-    "Tippe auf einen Kessel, dann legst du Kohle nach und sein Zeiger steigt.",
-    "Tippen kannst du auf die Uhr oder auf die glühende Klappe darunter – dort liegt dein Finger nicht im Weg.",
-    "Je tiefer ein Zeiger steht, desto röter wird seine Uhr. Wird eine ganz rot, ist sie als nächste dran.",
-    "Fällt ein Zeiger auf null, geht das Feuer aus und die Schicht ist vorbei.",
-    "Aber Achtung: Im roten Feld oben darfst du nicht nachlegen, sonst platzt das Ventil.",
-    "Alle neun Sekunden kommt ein Kessel dazu, bis fünf nebeneinander stehen.",
-    "Er meldet sich vorher: Sein Umriss stellt sich daneben, und ein Ring darin füllt sich, bis er da ist.",
-    "Bleib dabei: Wer die Seite verlässt, lässt den Kessel allein, und die Schicht ist zu Ende.",
-    "Halte durch, so lange du kannst.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – nur für diese Seite, die grosse steht in mini-games.js
   // ---------------------------------------------------------------------------
@@ -509,29 +496,14 @@
 
   const sekundenWort = (zehntel) => (zehntel / 10).toFixed(1).replace(".", ",");
 
-  function grundText() {
-    if (state.ende === "platzt") return "Das Ventil ist geplatzt.";
-    if (state.ende === "aus") return "Ein Feuer ist ausgegangen.";
-    if (state.ende === "weg") return "Du hast den Kessel allein gelassen.";
-    return "Die Schicht ist zu Ende – durchgehalten bis zum Schluss.";
-  }
-
-  function resultSpeech(zehntel, rekord) {
-    const wie = `Du hast ${sekundenWort(zehntel)} Sekunden durchgehalten.`;
-    const lob = rekord ? "Das ist dein bester Lauf." : "";
-    return `${wie} ${grundText()} ${lob}`.trim();
-  }
-
   function ergebnis() {
     clearStep();
     const punkte = Math.max(0, Math.round(Math.min(SCHICHT_MS, state.gelaufen) / 100));
-    const vorher = Math.max(0, ...(store.read().scores || [0]));
     recordRun(punkte);
     shell.showResult({
       label: "Punkte",
       points: punkte,
       detail: `${sekundenWort(punkte)} Sekunden · ${state.kohle} Mal Kohle`,
-      speech: resultSpeech(punkte, punkte > vorher),
     });
   }
 
@@ -622,7 +594,6 @@
     area: "konzentration",
     accent: "#00A5B5",
     accentDark: "#00707c",
-    help: HELP,
     onRestart: showIntro,
     // Live-Modus: Die Schicht beginnt zum gemeinsamen Start, ohne «Starten»,
     // und endet, wenn die Zeit des Live-Abends um ist.

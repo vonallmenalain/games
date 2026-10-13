@@ -84,13 +84,6 @@
   const HALB_B = 5.2;
   const HALB_L = 9.5;
 
-  const HELP = [
-    "Drift-Rennen. Das Auto fährt von selbst die Passstrasse hinauf.",
-    "Halte den Finger auf dem Bild, dann driftet es um die Kurve – um den Punkt in ihrer Mitte.",
-    "Lass los, dann fährt es geradeaus weiter. Drück, wenn die Kurve beginnt, und lass los, wenn das Auto in die neue Gerade zeigt.",
-    "Berühr nie die Leitplanke. Die Strasse wird schmaler und das Auto schneller. Es zählt, wie weit du kommst, in Metern.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.drift", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1813,7 +1806,6 @@
       label: "Deine Meter",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${perfekt} · Spitze ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
-      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("dt-rekord");
@@ -1829,7 +1821,6 @@
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

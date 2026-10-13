@@ -179,17 +179,6 @@
   const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
-  const HELP = [
-    "Turmbau. Über dem Turm schwingt ein Block hin und her.",
-    "Tippe irgendwo aufs Bild, dann fällt er herunter.",
-    "Was auf dem Block darunter aufliegt, bleibt liegen. Was übersteht, bricht ab.",
-    "Der nächste Block ist dann nur noch so breit wie das, was liegen geblieben ist.",
-    "Triffst du genau, bleibt der Block ganz breit – und nach drei genauen Treffern bekommst du sogar ein Stück Breite zurück.",
-    "Je höher der Turm, desto schneller schwingt der Block.",
-    "Erst wenn du ganz daneben triffst, ist der Turm fertig.",
-    "Zeit hast du so viel du willst.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
@@ -1124,20 +1113,6 @@
       : `Noch ${left} Runden bis zum fertigen Wagen.`;
   }
 
-  function resultSpeech(punkte, best, rekord, runs) {
-    const turm = punkte === 0
-      ? "Der erste Block ist daneben gegangen."
-      : punkte === 1 ? "Dein Turm hat einen Block." : `Dein Turm hat ${punkte} Blöcke.`;
-    // Warum der Turm fertig war, gehört dazu: wer nicht liest, sieht den
-    // letzten Block fallen und hört hier, was ihn zu Fall gebracht hat. Beim
-    // leeren Turm steht es schon im Satz davor.
-    const warum = punkte === 0 ? "" : "Der letzte Block ist daneben gefallen.";
-    const marke = rekord
-      ? "Das ist dein neuer Rekord!"
-      : best ? `Dein bester Turm hat ${best} Blöcke.` : "";
-    return `${turm} ${warum} ${marke} ${runsText(runs)}`;
-  }
-
   // Die Zahl auf der Tafel läuft von null hoch, statt gleich fertig dazu-
   // stehen: so ist der Turm noch einmal zu sehen, Block für Block.
   function zaehleHoch(ziel) {
@@ -1173,7 +1148,6 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
-      speech: resultSpeech(punkte, vorher, rekord, next.runs),
     });
     // Das Rekord-Abzeichen ist derselbe Satz, nur hervorgehoben: eine eigene
     // Zeile mehr auf der Tafel hätte auf dem flachen Handy keinen Platz.
@@ -1185,14 +1159,13 @@
   // Start
   // ---------------------------------------------------------------------------
   // Kein Erklärbild und kein Startknopf: der Block schwingt schon, und der
-  // erste Tipp lässt ihn fallen. Was zu tun ist, sagt der Lautsprecher.
+  // erste Tipp lässt ihn fallen.
   shell = shellApi.mount({
     host,
     title: "Turmbau",
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    help: HELP,
     clock: false,
     onRestart: startRun,
     live: { los: losGehts, stopp: () => finish() },
