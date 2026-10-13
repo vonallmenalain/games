@@ -1,7 +1,7 @@
 /*
  * game-shell.js – Die gemeinsame Bühne der Mini-Games.
  *
- * Die Knöpfe und der Lautsprecher oben links, ein Zähler oben rechts,
+ * Die Knöpfe oben links, ein Zähler oben rechts,
  * wahlweise ein Zeitbalken darunter, und am Schluss das Ergebnis mit der
  * Bestenliste. Alles, was ein Spiel um einen Punktestand gleich braucht – und
  * nichts vom Spiel selbst.
@@ -34,7 +34,6 @@
   "use strict";
 
   const art = () => window.LernappTrainArt || null;
-  const kids = () => window.LernappKids || null;
   const mini = () => window.LernappMini || null;
   // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird
   // (?turnier= in der Adresse). Sonst ist hier alles wie immer.
@@ -124,7 +123,6 @@
    *
    *   host      das Element, in dem alles landet
    *   title     Name des Spiels – das Einzige, was oben steht
-   *   help      Text, den der Lautsprecher vorliest
    *   onRestart was der Neu-Knopf tut
    *
    * area, accent, accentDark und onBack kommen aus der App mit. Die Farben
@@ -138,7 +136,7 @@
    *             fremde Figur (nur Spiele mit Figur im Bild). Ohne los beginnt
    *             die Runde mit onRestart.
    */
-  function mount({ host, title, accent, accentDark, help, onRestart, clock = true, live: liveHaken = null }) {
+  function mount({ host, title, accent, accentDark, onRestart, clock = true, live: liveHaken = null }) {
     host.style.setProperty("--cm-accent", accent);
     host.style.setProperty("--cm-accent-dark", accentDark);
     host.innerHTML = "";
@@ -150,12 +148,6 @@
     // Keine Landschaft dahinter. In der App steht das Spiel vor der Landschaft,
     // die das Kind ausgewählt hat; hier ist das Spiel das ganze Bild
     // (styles.css, Die Bühne) – von einer Landschaft sähe man nichts mehr.
-
-    // --- Der Lautsprecher oben links ----------------------------------------
-    // Derselbe wie in der App: er kennt schon den Ton-Schalter, das Vorlesen
-    // und die Sprechblase für die, die mitlesen wollen.
-    kids()?.mountHelpButton?.();
-    if (help) kids()?.setHelp?.(help);
 
     // --- Neu anfangen ---------------------------------------------------------
     // Über den Knopf oben (mitten in der Runde) oder nach dem Ergebnis. Im
@@ -250,20 +242,16 @@
 
     // --- Der Überzug für das Ergebnis ---------------------------------------
     let overlay = null;
-    let releaseHelp = null;
 
-    // Nur die Tafel wegnehmen: panel() baut gleich die nächste auf und meldet
-    // ihren Vorlese-Text selbst an.
+    // Nur die Tafel wegnehmen: panel() baut gleich die nächste auf.
     function dropOverlay() {
       overlay?.remove();
       overlay = null;
     }
 
-    // Zurück ins Spiel: Tafel weg, und der Lautsprecher sagt wieder die Regeln.
+    // Zurück ins Spiel: Tafel weg.
     function closeOverlay() {
       dropOverlay();
-      releaseHelp?.();
-      releaseHelp = null;
     }
 
     function panel(children) {
@@ -292,7 +280,7 @@
      * die Liste, auf der die anderen stehen; zwei Bestenlisten übereinander
      * wären eine zu viel, und einen Wagen gibt es nicht.
      */
-    function showResult({ points, detail, speech, label = "Deine Punkte", geist = null }) {
+    function showResult({ points, detail, label = "Deine Punkte", geist = null }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
 
@@ -303,11 +291,6 @@
         live().fertig({ punkte: points, geist });
         return;
       }
-
-      // Der Lautsprecher oben links sagt jetzt das Ergebnis statt der Regeln.
-      releaseHelp?.();
-      const satz = mini()?.ergebnisSprache?.({ punkte: points, label }) || speech;
-      releaseHelp = satz ? kids()?.pushHelp?.(satz) || null : null;
 
       const parts = [el("p", "cm-result-label", label)];
       parts.push(el("p", "cm-result-score", String(points)));

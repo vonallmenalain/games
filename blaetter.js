@@ -86,16 +86,6 @@
   // Fahrt. Nicht am Rand: dort schnitte das Wasser sie an.
   const QUER = [0.28, 0.5, 0.72];
 
-  const HELP = [
-    "Blätter im Strom. Auf dem Wasser treiben Blätter.",
-    "Bei orangen Blättern wischst du dorthin, wohin sie schwimmen.",
-    "Bei grünen Blättern wischst du dorthin, wohin ihre Spitze zeigt.",
-    "Wischen kannst du auf dem Wasser nach oben, nach unten, nach links und nach rechts.",
-    "Nach jedem Wisch kommt sofort die nächste Welle.",
-    "Du hast fünfundvierzig Sekunden. Schaff so viele wie du kannst.",
-    "Tippe auf Starten, wenn du bereit bist.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
@@ -374,7 +364,7 @@
     // Zwei Beispiele nebeneinander, ohne ein Wort dazu: links treibt ein
     // oranges Blatt nach rechts, obwohl seine Spitze nach oben zeigt – rechts
     // liegt ein grünes still und zeigt nach rechts. Was zu tun ist, sieht man
-    // daran schneller als an jedem Satz; die Worte sagt der Lautsprecher.
+    // daran schneller als an jedem Satz.
     const demo = shell.el("div", "bs-demo");
     [
       { sorte: "treibt", dreh: 0 },
@@ -423,14 +413,6 @@
       : `Noch ${left} Runden bis zum fertigen Wagen.`;
   }
 
-  function resultSpeech(points, runs) {
-    const blaetter = points === 1 ? "ein Blatt" : `${points} Blätter`;
-    const daneben = state.falsch === 0
-      ? "Kein einziges daneben."
-      : state.falsch === 1 ? "Eines war daneben." : `${state.falsch} waren daneben.`;
-    return `Du hast ${blaetter} richtig erwischt. ${daneben} ${runsText(runs)}`;
-  }
-
   function finish() {
     clearStep();
     stopLoop();
@@ -446,7 +428,6 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
-      speech: resultSpeech(points, next.runs),
       geist,
     });
   }
@@ -460,7 +441,6 @@
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    help: HELP,
     onRestart: showIntro,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, ohne «Starten».
     live: { los: beginRound, stopp: () => finish() },

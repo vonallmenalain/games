@@ -67,15 +67,6 @@
 
   const PFEIL_FARBEN = ["#ff7a59", "#ffd166", "#7bdff2", "#c19bff", "#8ee59a"];
 
-  const HELP = [
-    "Drehscheibe. In der Mitte dreht sich eine Holzscheibe, unten wartet ein Pfeil.",
-    "Tippe, dann fliegt er in die Scheibe und bleibt stecken.",
-    "Er darf keinen Pfeil treffen, der schon steckt – sonst prallt er ab, und die Runde ist vorbei.",
-    "Wenn alle Pfeile einer Scheibe stecken, zerspringt sie, und die nächste kommt.",
-    "Triffst du einen Apfel am Rand, gibt es zwei Punkte dazu.",
-    "Jede Scheibe dreht sich anders – schau erst zu, dann wirf.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.drehscheibe", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -870,7 +861,6 @@
       label: "Deine Punkte",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${scheiben}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} Punkte, ${scheiben}.${rekord ? " Das ist dein neuer Rekord!" : ""}`,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("dr-rekord");
     zaehleHoch(punkte);
@@ -885,7 +875,6 @@
     area: "konzentration",
     accent: "#00A5B5",
     accentDark: "#00707c",
-    help: HELP,
     clock: false,
     onRestart: startRun,
     live: { los: losGehts, stopp: () => finish() },

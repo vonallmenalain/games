@@ -91,15 +91,6 @@
     { x: -6, y: 11 }, { x: 6, y: 11 }, { x: 0, y: 15 },
   ];
 
-  const HELP = [
-    "Mondlandung. Halte den Finger auf dem Bild, dann zündet das Triebwerk, und die Fähre neigt sich zu deinem Finger hin.",
-    "Finger über der Fähre: Sie steigt. Finger rechts oder links: Sie zieht dorthin. Lass los, dann fällt sie.",
-    "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
-    "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
-    "Jede Plattform bringt 200 Punkte – aber jeder Schub kostet Punkte, solange das Triebwerk brennt.",
-    "Auf den Plattformen wird getankt, so viel wie unter der Plattform steht: am Anfang plus 100, danach höchstens plus 50, oft weniger, manchmal nichts. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.mondlandung", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1474,7 +1465,6 @@
       label: "Deine Punkte",
       points: punkte,
       detail: rekord ? `Neuer Rekord! ${landungen}${kosten}` : `${landungen}${kosten}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} Punkte, ${landungen}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ml-rekord");
@@ -1490,7 +1480,6 @@
     area: "problemloesen",
     accent: "#3FA34D",
     accentDark: "#2c7337",
-    help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

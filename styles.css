@@ -3,7 +3,7 @@
  * ---------------------------------------------------------------------------
  * Herausgeschnitten aus dem Stylesheet von Gripszug (kids.alae.app): die
  * Grundlagen, die gemeinsame Bühne der Spiele (cm-…), die Landschaft
- * dahinter, der Hilfe-Lautsprecher, die zwölf Spiele – und die Bestenliste
+ * dahinter, die zwölf Spiele – und die Bestenliste
  * (mini-…), die es nur hier gibt.
  *
  * Was in der App danebensteht, steht hier nicht: kein Startbild mit Zug, keine
@@ -15,7 +15,6 @@
  * nebeneinander lesen lassen:
  *
  *   Grundlagen        kein Zoom, kein Fokusrahmen, Farben, body
- *   Lautsprecher      "Was mache ich hier?" (kids.js)
  *   Die Bühne         cm-… : Leiste, Zeitbalken, Spielfläche, Ergebnis
  *   Die Spiele        je ein Abschnitt, in der Reihenfolge der Bereiche
  *   Handy quer        alles passt aufs Bild
@@ -230,139 +229,6 @@ h2 {
 .confetti-piece { animation: none; }
 }
 
-/* =====================================================================
-   Hilfe-Lautsprecher: "Was mache ich hier?"
-   Ein fester Platz oben links auf jedem Bildschirm ausser der Startseite.
-   Die App spricht nie von selbst – erst ein Tipp hier lässt sie erzählen.
-   ===================================================================== */
-.help-voice {
-  position: fixed;
-  top: calc(var(--safe-top) + 14px);
-  left: calc(var(--safe-left) + 14px);
-  z-index: 110;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  max-width: min(420px, calc(100vw - 28px));
-  pointer-events: none;
-}
-
-/* Kräftiges Lila mit Fragezeichen – so ist der Hilfeknopf nie mit dem weissen
-   Ton-an/aus-Knopf oben rechts zu verwechseln. */
-.help-voice-button {
-  pointer-events: auto;
-  flex: 0 0 auto;
-  min-height: 52px;
-  padding: 0 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border-radius: 999px;
-  border: 3px solid #5a4bd4;
-  background: linear-gradient(120deg, #6c5ce7, #8338ec);
-  color: #fff;
-  font-weight: 950;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 12px 28px rgba(76, 62, 175, 0.34);
-  transition: transform 0.12s ease, filter 0.18s ease;
-}
-
-.help-voice-mark {
-  display: inline-block;
-  line-height: 1;
-  transform: translateY(-1px);
-}
-
-.help-voice-button svg {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.help-voice-button .help-voice-core { fill: currentColor; stroke-width: 1.6; }
-.help-voice-button .help-voice-wave { opacity: 0.9; }
-
-.help-voice-button:hover:not(:disabled),
-.help-voice-button:focus-visible {
-  filter: brightness(1.08);
-  outline: none;
-}
-
-.help-voice-button:active { transform: scale(0.95); }
-
-/* Während des Vorlesens wandern die Schallwellen – so sieht man, dass es läuft. */
-.help-voice-button.speaking {
-  background: linear-gradient(120deg, #06d6a0, #05b98c);
-  border-color: #05a97f;
-}
-
-.help-voice-button.speaking .help-voice-wave {
-  animation: help-wave 1.1s ease-in-out infinite;
-}
-
-.help-voice-button.speaking .help-voice-wave-wide {
-  animation-delay: 0.18s;
-}
-
-@keyframes help-wave {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 1; }
-}
-
-/* Der Text erscheint zusätzlich als Sprechblase – der Knopf hilft damit auch
-   auf Geräten ohne Sprachausgabe. */
-.help-voice-bubble {
-  pointer-events: auto;
-  margin: 0;
-  padding: 12px 16px;
-  border-radius: 18px;
-  border: 2px solid var(--line);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 0.98rem;
-  line-height: 1.45;
-  text-wrap: pretty;
-  box-shadow: 0 16px 34px rgba(36, 48, 71, 0.2);
-  animation: help-bubble-in 0.22s cubic-bezier(0.2, 1.3, 0.5, 1);
-}
-
-@keyframes help-bubble-in {
-  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (max-width: 640px) {
-  .help-voice {
-    top: calc(var(--safe-top) + 10px);
-    left: calc(var(--safe-left) + 10px);
-    right: calc(var(--safe-right) + 10px);
-    flex-direction: column;
-    max-width: none;
-  }
-
-  .help-voice-button {
-    align-self: flex-start;
-    min-height: 46px;
-    padding: 0 12px;
-  }
-
-  .help-voice-bubble { font-size: 0.92rem; padding: 10px 14px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-.help-voice-bubble { animation: none; }
-  .help-voice-button.speaking .help-voice-wave { animation: none; opacity: 1; }
-}
-
 /* --- Landschaft --- */
 .scene {
   position: absolute;
@@ -495,14 +361,13 @@ h2 {
 
 /* --- Leiste oben --- */
 
-/* Links steht der Lautsprecher aus kids.js (bei 14 Pixeln vom Rand, gut 70
-   breit), rechts die beiden festen Knöpfe für Ton und Konto (bei 14 und 76).
-   Die Leiste hält zu beiden Seiten Abstand – darunter läge sie unter ihnen und
-   wäre unsichtbar. */
+/* Rechts stehen die beiden festen Knöpfe für Ton und Konto (bei 14 und 76).
+   Die Leiste hält dort Abstand – darunter läge sie unter ihnen und wäre
+   unsichtbar. */
 .cm-bar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
-  left: calc(var(--safe-left) + 98px);
+  left: calc(var(--safe-left) + 14px);
   right: calc(var(--safe-right) + 138px);
   /* Über dem Start- und dem Ergebnisbild: wer aus Versehen im falschen Spiel
      gelandet ist, muss auch von dort wieder heraus. Der Platz für die Tafel
@@ -2726,16 +2591,16 @@ h2 {
 .cm-bar { right: calc(var(--safe-right) + 76px); }
 
 /* Die Leiste bleibt auf einer Zeile – immer.
-   Zwischen dem Lautsprecher links und dem Ton-Schalter rechts bleiben auf
-   einem Handy hochkant gut 200 Pixel, und darin müssen der Weg zurück, der
-   Neustart und der Zähler stehen. Eine zweite Zeile wäre die bequeme
-   Antwort, aber sie legte sich über die Spielfläche und über den Satz, der
-   dort steht – genau dort, wo das Spiel anfängt.
+   Bis zu den Knöpfen rechts bleiben auf einem Handy hochkant gut 230 Pixel,
+   und darin müssen der Weg zurück, der Neustart und der Zähler stehen. Eine
+   zweite Zeile wäre die bequeme Antwort, aber sie legte sich über die
+   Spielfläche und über den Satz, der dort steht – genau dort, wo das Spiel
+   anfängt.
 
    Also weicht das Wort und nicht die Zeile: Der Pfeil bleibt, "Hall of Fame"
-   geht, und der Knopf behält seinen Namen für den Lautsprecher und die
-   Sprachausgabe (title, aria-label in mini-games.js, leiste()). Ab 560 px
-   steht das Wort wieder da. */
+   geht, und der Knopf behält seinen Namen für die Sprachausgabe (title,
+   aria-label in mini-games.js, leiste()). Ab 560 px steht das Wort wieder
+   da. */
 .cm-bar { flex-wrap: nowrap; }
 .cm-bar-left { gap: clamp(4px, 1vw, 10px); min-width: 0; align-items: center; }
 .cm-bar-left .mini-knopf {
@@ -2773,10 +2638,8 @@ h2 {
 .cm-bar-left .cm-icon svg { width: clamp(20px, 4vw, 24px); height: auto; }
 /* Der Zähler behält seinen Platz: Er ist die Zahl, um die es im Spiel geht. */
 .cm-count { flex: 0 0 auto; min-width: 0; }
-/* Links bleibt der Platz für den Lautsprecher aus kids.js frei – er steht dort
-   fest, und Knöpfe darunter wären unerreichbar. Weichen darf dafür der
-   Spieltitel: Die Knöpfe sind das, was man braucht, der Name des Spiels steht
-   ohnehin im Spiel. */
+/* Weichen darf auf schmalen Bildschirmen der Spieltitel: Die Knöpfe sind das,
+   was man braucht, der Name des Spiels steht ohnehin im Spiel. */
 .cm-bar .cm-title { display: none; }
 @media (min-width: 860px) {
   .cm-bar .cm-title {
@@ -2840,7 +2703,7 @@ h2 {
   .cm-bar-left .mini-knopf-zurueck { gap: 0; padding: 0; width: clamp(40px, 8vw, 44px); }
   .gs-leiste {
     top: calc(var(--safe-top) + 20px);
-    left: calc(var(--safe-left) + 210px);
+    left: calc(var(--safe-left) + 126px);
     right: calc(var(--safe-right) + 150px);
   }
   .cm-stage[data-vollbild] .gs-leiste { right: calc(var(--safe-right) + 212px); }
@@ -4053,7 +3916,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
 @media (max-height: 500px) and (min-width: 780px) {
   .lv-leiste {
     top: calc(var(--safe-top) + 20px);
-    left: calc(var(--safe-left) + 210px);
+    left: calc(var(--safe-left) + 126px);
     right: calc(var(--safe-right) + 150px);
   }
   .cm-stage[data-vollbild] .lv-leiste { right: calc(var(--safe-right) + 212px); }

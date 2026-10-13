@@ -92,12 +92,6 @@
     { x: -6, y: -3.6 }, { x: -12, y: 1 }, { x: -9.5, y: 8.5 }, { x: -5, y: 4 },
   ];
 
-  const HELP = [
-    "Tunnelflug. Halte den Finger auf dem Bild, dann gibt das Flugzeug Schub und steigt.",
-    "Lass los, dann sinkt es. So fliegst du durch den Tunnel – berühr nie die Wände.",
-    "Der Tunnel wird immer enger und das Flugzeug immer schneller. Es zählt, wie weit du kommst, in Metern.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.tunnelflug", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1077,7 +1071,6 @@
       label: "Deine Meter",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `Spitze ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
-      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("tf-rekord");
@@ -1093,7 +1086,6 @@
     area: "konzentration",
     accent: "#00A5B5",
     accentDark: "#00707c",
-    help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

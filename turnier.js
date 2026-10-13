@@ -1219,12 +1219,6 @@
     return block;
   }
 
-  // Was der Lautsprecher nach einer Runde im Turnier sagt.
-  function sprache({ punkte, label }) {
-    const wort = String(label || "Punkte").replace(/^Deine?\s+/i, "");
-    return `${punkte} ${wort}. Die Runde zählt fürs Turnier.`;
-  }
-
   // Für geist.js: ob das Turnier gelesen ist, und welches. Erst dann steht
   // fest, ob es Gegner zeigen will (ohneGeist) und ob seine Liste verdeckt ist.
   function geistLage() {
@@ -1245,7 +1239,7 @@
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, sprache, ziel, geistLage,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage,
     hinweis,
     // Der Weg zurück zur Turnierseite (zurueckZumTurnier). Die Prüfung im
     // Browser setzt hier einen eigenen ein, wenn sie die Seite nicht

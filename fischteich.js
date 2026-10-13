@@ -90,17 +90,6 @@
     { id: "dunkelblau", name: "der dunkelblaue Fisch", body: "#3a5f9e", fin: "#254478", muster: "keins" },
   ];
 
-  const HELP = [
-    "Fischteich. Im Teich schwimmen Fische umher.",
-    "Tippe jeden Fisch genau einmal an.",
-    "Nach jedem Tipp füllt sich über dem Fisch ein kleines Rad. Erst wenn daraus ein Häkchen wird, kannst du den nächsten Fisch antippen.",
-    "Ein gefangener Fisch schwimmt weiter und sieht aus wie vorher – merk dir an der Farbe, welchen du schon hattest.",
-    "Hast du alle, kommt der nächste Teich mit einem Fisch mehr.",
-    "Tippst du denselben Fisch ein zweites Mal an, ist die Runde vorbei.",
-    "Ins Wasser daneben tippen macht nichts.",
-    "Zeit hast du so viel du willst.",
-  ].join(" ");
-
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
@@ -438,12 +427,6 @@
       : `Noch ${left} Runden bis zum fertigen Wagen.`;
   }
 
-  function resultSpeech(punkte, teiche, runs) {
-    const fische = punkte === 1 ? "einen Fisch" : `${punkte} Fische`;
-    const geschafft = teiche === 1 ? "einen Teich" : `${teiche} Teiche`;
-    return `Du hast ${fische} gefangen und ${geschafft} leer gefischt. ${runsText(runs)}`;
-  }
-
   function finish(doppelt) {
     clearStep();
     stopLoop();
@@ -459,7 +442,6 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
-      speech: resultSpeech(punkte, state.teich, next.runs),
     });
   }
 
@@ -467,14 +449,13 @@
   // Start
   // ---------------------------------------------------------------------------
   // Kein Erklärbild und kein Startknopf: ein Tipp auf das Gebäude, und die
-  // Fische schwimmen. Was zu tun ist, sagt der Lautsprecher.
+  // Fische schwimmen.
   shell = shellApi.mount({
     host,
     title: "Fischteich",
     area: "konzentration",
     accent: "#00A5B5",
     accentDark: "#00707c",
-    help: HELP,
     clock: false,
     onRestart: startRun,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.

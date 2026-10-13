@@ -89,14 +89,6 @@
   // schwerer werden.
   const SCHWER_BIS = 22;           // nach so vielen Brücken ist das Härteste erreicht
 
-  const HELP = [
-    "Brückenbauer. Halte den Finger auf dem Bild, dann wächst an der Kante ein Balken in die Höhe.",
-    "Lass los, dann kippt er nach vorn über die Schlucht.",
-    "Reicht er genau auf den nächsten Pfeiler, geht der Arbeiter hinüber. Ist er zu kurz oder zu lang, fällt er.",
-    "Triffst du die rote Mitte des Pfeilers, zählt die Brücke doppelt – und mehrere genaue hintereinander zählen noch mehr.",
-    "Es gibt keine Uhr: Die Runde dauert, bis der Arbeiter fällt. Mit jeder Brücke werden die Pfeiler schmaler und die Schluchten weiter.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.bruecke", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -818,7 +810,6 @@
       label: "Deine Punkte",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${bruecken}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} Punkte, ${bruecken}.${rekord ? " Das ist dein neuer Rekord!" : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("br-rekord");
@@ -834,7 +825,6 @@
     area: "problemloesen",
     accent: "#3FA34D",
     accentDark: "#2c7337",
-    help: HELP,
     clock: false,
     onRestart: startRun,
     live: { los: losGehts, stopp: () => finish() },

@@ -76,14 +76,6 @@
   const PUNKTE_MIN = 10;           // so viel bringt ein Sprung mindestens …
   const PUNKTE_MAX = 100;          // … und so viel, wer sofort springt
 
-  const HELP = [
-    "Planetenhüpfer. Der Astronaut läuft um den Planeten herum.",
-    "Tippe aufs Bild, dann springt er ab – senkrecht vom Planeten weg, dorthin, wohin sein Kopf zeigt.",
-    "Fliegt er durch die leuchtende Lufthülle des nächsten Planeten, landet er dort. Verfehlt er sie, treibt er ins All.",
-    "Jeder neue Planet bringt Punkte – umso mehr, je schneller du abspringst. Der Ring um den Astronauten zeigt den Sauerstoff, von Grün über Orange nach Rot.",
-    "Pass auf die Monde auf, und warte nicht zu lange: Geht der Sauerstoff aus, ist die Runde vorbei.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.planeten", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1424,7 +1416,6 @@
       label: "Deine Punkte",
       points: punkte,
       detail: rekord ? `Neuer Rekord! ${planeten}` : `${planeten}${treffer}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} Punkte, ${planeten}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ph-rekord");
@@ -1440,7 +1431,6 @@
     area: "gedaechtnis",
     accent: "#7C5CE6",
     accentDark: "#5a41b8",
-    help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

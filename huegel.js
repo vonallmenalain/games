@@ -81,14 +81,6 @@
   const SCHLECHT_WINKEL = 0.66;    // so steiler ist es eine harte Landung
   const R = 11;                    // der Vogel, als Kreis
 
-  const HELP = [
-    "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
-    "Lass los, dann wird er leicht, fliegt über die Kuppe und gleitet mit ausgebreiteten Flügeln – mit genug Schwung über den nächsten Hügel hinweg. In der Luft halten, und er stürzt hinab.",
-    "Lande genau auf einem Abhang, im Winkel des Hangs: Perfekt! Das gibt Schwung. Oben links zählen drei Punkte mit.",
-    "Nach drei perfekten Landungen ist er On Fire: Er zieht eine Feuerspur hinter sich her, fliegt schneller, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung löscht das Feuer.",
-    "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
-  ].join(" ");
-
   const TOP_COUNT = 5;
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.huegel", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -1286,7 +1278,6 @@
       label: "Deine Meter",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${perfekt}${vorher ? ` · Bestwert ${vorher} m` : ""}`,
-      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("hf-rekord");
@@ -1302,7 +1293,6 @@
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },

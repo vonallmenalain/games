@@ -1,7 +1,7 @@
 /*
  * kids.js – Gemeinsame Kinder-Funktionen für Gripszug.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
- * Sterne, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
+ * Sterne, Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).
  */
 (() => {
@@ -12,7 +12,6 @@
   // ---------------------------------------------------------------------------
   const KEYS = {
     stars: (game, levelId) => `lernapp.stars.${game}.${levelId}`,
-    tts: "lernapp.tts",
     lastPlayed: "lernapp.lastPlayed",
   };
 
@@ -81,60 +80,6 @@
     const previous = getStars(game, levelId);
     if (clamped > previous) writeRaw(KEYS.stars(game, levelId), String(clamped));
     return { stars: clamped, improved: clamped > previous, previous };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Vorlesen (Web Speech API)
-  // ---------------------------------------------------------------------------
-  function ttsSupported() {
-    return typeof window !== "undefined" && "speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function";
-  }
-  function ttsEnabled() {
-    const setting = readRaw(KEYS.tts);
-    if (setting === "0" || setting === "false" || setting === "off") return false;
-    if (setting === "1" || setting === "true" || setting === "on") return true;
-    // Standard: an für kleine Kinder, sonst auch an (Ton lässt sich abschalten).
-    return true;
-  }
-  function setTtsEnabled(enabled) {
-    writeRaw(KEYS.tts, enabled ? "1" : "0");
-    if (!enabled) stopHelp();
-  }
-  let germanVoice = null;
-  function pickGermanVoice() {
-    if (!ttsSupported()) return null;
-    if (germanVoice) return germanVoice;
-    const voices = window.speechSynthesis.getVoices() || [];
-    germanVoice = voices.find((v) => /de[-_]/i.test(v.lang) && /female|frau|petra|anna|marlene|google/i.test(v.name))
-      || voices.find((v) => /de[-_]/i.test(v.lang))
-      || null;
-    return germanVoice;
-  }
-  if (ttsSupported() && typeof window.speechSynthesis.addEventListener === "function") {
-    window.speechSynthesis.addEventListener("voiceschanged", () => { germanVoice = null; pickGermanVoice(); });
-  }
-  function stopSpeaking() {
-    if (ttsSupported()) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
-  }
-  // Wichtig: speak() wird ausschliesslich aus einem Klick auf einen
-  // Lautsprecher-Knopf heraus aufgerufen. Die App liest nie von selbst vor.
-  function speak(text, options = {}) {
-    if (!text || !ttsSupported() || !ttsEnabled()) { options.onEnd?.(); return; }
-    if (!options.queue) stopSpeaking();
-    try {
-      const utterance = new window.SpeechSynthesisUtterance(String(text));
-      utterance.lang = "de-DE";
-      utterance.rate = options.rate ?? 0.95;
-      utterance.pitch = options.pitch ?? 1.15;
-      const voice = pickGermanVoice();
-      if (voice) utterance.voice = voice;
-      if (options.onStart) utterance.addEventListener("start", () => options.onStart());
-      if (options.onEnd) {
-        utterance.addEventListener("end", () => options.onEnd());
-        utterance.addEventListener("error", () => options.onEnd());
-      }
-      window.speechSynthesis.speak(utterance);
-    } catch { options.onEnd?.(); }
   }
 
   // ---------------------------------------------------------------------------
@@ -219,7 +164,7 @@
   function setAudioEnabled(enabled) {
     writeRaw(AUDIO_KEY, enabled ? "1" : "0");
     // Die Musik hängt am selben Schalter wie alle anderen Töne.
-    if (!enabled) { stopMusic({ keepWanted: true, fade: 0.3 }); stopHelp(); }
+    if (!enabled) stopMusic({ keepWanted: true, fade: 0.3 });
     if (!enabled && audioContext?.state === "running") audioContext.suspend().catch(() => {});
     if (enabled && musicWanted) startMusic();
   }
@@ -362,147 +307,6 @@
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
-  // Hilfe-Lautsprecher ("Was mache ich hier?")
-  // ---------------------------------------------------------------------------
-  // Die App spricht nie von selbst. Jeder Bildschirm meldet hier an, was gerade
-  // zu tun ist; erklingt tut das erst, wenn das Kind den Lautsprecher antippt.
-  // Zusätzlich erscheint der Text als Sprechblase – so hilft der Knopf auch auf
-  // Geräten ohne Sprachausgabe.
-  const helpStack = [];
-  let helpButton = null;
-  let helpBubble = null;
-  let helpHideTimer = 0;
-  let helpToken = 0;
-  // Liest der Lautsprecher gerade vor? Das ist etwas anderes als "die Blase
-  // steht da": die Blase kann längst weggetippt sein, während die Stimme
-  // weiterliest – und dann muss der nächste Tipp auf den Lautsprecher die
-  // Stimme stoppen, nicht die Blase noch einmal zeigen.
-  let helpSpeaking = false;
-  let helpSpeechToken = 0;
-  let helpWatch = 0;
-
-  function currentHelp() {
-    return helpStack.length ? helpStack[helpStack.length - 1].text : "";
-  }
-  function refreshHelpButton() {
-    if (!helpButton) return;
-    const text = currentHelp();
-    helpButton.hidden = !text;
-    helpButton.disabled = !text;
-  }
-  // Wechselt der Text, der oben liegt, ist ein anderer Bildschirm da: was
-  // dazu noch vorgelesen wurde, gehört zum alten und hört auf.
-  function helpChanged(before) {
-    if (currentHelp() !== before) stopHelp();
-    refreshHelpButton();
-  }
-  // Setzt den Hilfetext der Grundebene (die aktuelle Seite/Ansicht).
-  function setHelp(text) {
-    const before = currentHelp();
-    const clean = String(text || "").replace(/\s+/g, " ").trim();
-    if (helpStack.length && helpStack[0].base) helpStack[0].text = clean;
-    else helpStack.unshift({ text: clean, base: true, id: "base" });
-    helpChanged(before);
-  }
-  // Legt einen Hilfetext obendrauf (Dialoge, Overlays). Gibt eine Funktion zum
-  // Entfernen zurück.
-  function pushHelp(text) {
-    const before = currentHelp();
-    helpToken += 1;
-    const entry = { text: String(text || "").replace(/\s+/g, " ").trim(), id: `h${helpToken}` };
-    helpStack.push(entry);
-    helpChanged(before);
-    return () => {
-      const index = helpStack.indexOf(entry);
-      if (index < 0) return;
-      const previous = currentHelp();
-      helpStack.splice(index, 1);
-      helpChanged(previous);
-    };
-  }
-  function setSpeaking(on) {
-    helpSpeaking = on;
-    helpButton?.classList.toggle("speaking", on);
-    if (helpWatch) window.clearInterval(helpWatch);
-    helpWatch = 0;
-  }
-  // Manche Browser melden das Ende einer Ansage nicht zuverlässig. Sobald die
-  // Stimme angefangen hat, wird deshalb nebenbei nachgeschaut, ob sie noch
-  // läuft – sonst bliebe der Knopf grün, und der nächste Tipp würde stoppen
-  // statt vorlesen.
-  function watchSpeech() {
-    if (helpWatch) window.clearInterval(helpWatch);
-    helpWatch = window.setInterval(() => {
-      try {
-        const synth = window.speechSynthesis;
-        if (!synth.speaking && !synth.pending) setSpeaking(false);
-      } catch { setSpeaking(false); }
-    }, 500);
-  }
-  // Nur die Sprechblase weg – das Vorlesen läuft weiter. Das passiert bei
-  // einem Tipp neben die Blase: wer den Text nicht mitlesen will, soll ihn
-  // trotzdem zu Ende hören dürfen.
-  function hideHelpBubble() {
-    if (helpHideTimer) window.clearTimeout(helpHideTimer);
-    helpHideTimer = 0;
-    if (helpBubble) helpBubble.hidden = true;
-  }
-  // Stimme sofort still, Knopf zurück, Blase weg.
-  function stopHelp() {
-    helpSpeechToken += 1;
-    stopSpeaking();
-    setSpeaking(false);
-    hideHelpBubble();
-  }
-  function showHelpBubble(text) {
-    if (!helpBubble) return;
-    helpBubble.textContent = text;
-    helpBubble.hidden = false;
-    if (helpHideTimer) window.clearTimeout(helpHideTimer);
-    // Die Blase bleibt so lange stehen, wie das Lesen ungefähr dauert – auch
-    // dann, wenn die Stimme früher fertig ist oder das Gerät gar keine hat.
-    helpHideTimer = window.setTimeout(hideHelpBubble, Math.min(30000, 3500 + text.length * 55));
-  }
-  // Der Lautsprecher: ein Tipp liest vor und zeigt den Text, der nächste
-  // Tipp macht die Stimme sofort still – auch dann, wenn die Blase längst
-  // weggetippt ist. Erst der Tipp danach liest wieder von vorn.
-  function speakHelp() {
-    const text = currentHelp();
-    if (!text) return;
-    if (helpSpeaking) { stopHelp(); return; }
-    showHelpBubble(text);
-    if (!ttsSupported() || !ttsEnabled()) return;
-    helpSpeechToken += 1;
-    const token = helpSpeechToken;
-    // Nur, wenn seither keine neue Ansage angefangen hat: das Ende einer
-    // abgebrochenen kommt verspätet und gehört nicht mehr zu dieser.
-    const gilt = () => token === helpSpeechToken;
-    let ended = false;
-    speak(text, {
-      onStart: () => { if (gilt()) watchSpeech(); },
-      onEnd: () => { if (!gilt()) return; ended = true; setSpeaking(false); },
-    });
-    if (!ended) {
-      setSpeaking(true);
-      // Fängt die Stimme gar nicht an – etwa ohne deutsche Stimme auf dem
-      // Gerät –, geht der Knopf nach kurzer Zeit von selbst zurück.
-      window.setTimeout(() => {
-        if (!gilt() || !helpSpeaking) return;
-        try {
-          const synth = window.speechSynthesis;
-          if (!synth.speaking && !synth.pending) setSpeaking(false);
-        } catch { setSpeaking(false); }
-      }, 2500);
-    }
-  }
-  // Ein Tipp irgendwo neben die Blase blendet sie aus. Auf den Lautsprecher
-  // selbst nicht: der hat seine eigene Bedeutung.
-  document.addEventListener("pointerdown", (event) => {
-    if (!helpBubble || helpBubble.hidden) return;
-    if (event.target?.closest?.(".help-voice")) return;
-    hideHelpBubble();
-  }, { capture: true, passive: true });
-  // ---------------------------------------------------------------------------
   // Ton-Schalter (oben rechts)
   // ---------------------------------------------------------------------------
   // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Tier-Sprung)
@@ -533,31 +337,6 @@
     document.body.append(audioToggle);
     updateAudioToggle();
     return audioToggle;
-  }
-
-  // Baut den Hilfe-Knopf. Die Startseite meldet keinen Text an – dort erklären
-  // sich die Kacheln selbst und der Knopf bleibt verborgen.
-  function mountHelpButton() {
-    if (helpButton || !document.body) return null;
-    const wrap = document.createElement("div");
-    wrap.className = "help-voice";
-    wrap.innerHTML = `
-      <button type="button" class="help-voice-button" aria-label="Vorlesen: Was mache ich hier?" title="Was mache ich hier?">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path class="help-voice-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
-          <path class="help-voice-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
-          <path class="help-voice-wave help-voice-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
-        </svg>
-        <span class="help-voice-mark" aria-hidden="true">?</span>
-      </button>
-      <p class="help-voice-bubble" role="status" aria-live="polite" hidden></p>`;
-    document.body.append(wrap);
-    helpButton = wrap.querySelector(".help-voice-button");
-    helpBubble = wrap.querySelector(".help-voice-bubble");
-    helpButton.addEventListener("click", speakHelp);
-    helpBubble.addEventListener("click", hideHelpBubble);
-    refreshHelpButton();
-    return helpButton;
   }
 
   // ---------------------------------------------------------------------------
@@ -728,7 +507,6 @@
   // mehr von ihr, und die Tonausgabe schläft.
   function stille() {
     stopMusic({ fade: 0.05 });
-    stopSpeaking();
     try { audioContext?.suspend?.(); } catch { /* egal */ }
   }
 
@@ -937,10 +715,6 @@
     // Wagen-Set: wie viele Runden ein Spiel für seinen Wagen braucht
     wagonSetId, wagonRounds,
 
-    // TTS (nur auf Lautsprecher-Klick)
-    ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
-    // Hilfe-Lautsprecher
-    setHelp, pushHelp, speakHelp, mountHelpButton, currentHelp,
     // Maskottchen + Effekte
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
@@ -957,10 +731,6 @@
     readJSON, writeJSON,
   };
 
-  // Der Knopf wird überall angelegt, zeigt sich aber nur, wenn der Bildschirm
-  // einen Hilfetext angemeldet hat. Die Startseite meldet keinen an – dort
-  // erklären die Kacheln sich selbst. Dialoge über der Startseite (z. B. "Wer
-  // spielt?") schieben einen Text nach und lassen den Knopf so erscheinen.
   // ---------------------------------------------------------------------------
   // Kein Zoom
   // ---------------------------------------------------------------------------
@@ -997,7 +767,6 @@
   // Drehen auffordert: Die Spiele laufen hochkant wie quer. Wer das Gerät
   // dreht, sieht dasselbe Spiel anders gelegt, nicht eine Aufforderung.
   function mountFixedButtons() {
-    mountHelpButton();
     mountAudioToggle();
     blockZoom();
   }
