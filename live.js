@@ -141,8 +141,8 @@
     letzteWertung: null,
     wachHalten: null,
     fehler: "",
-    // Wer in einer Runde nicht mitspielt, kann zuschauen – in den Spielen mit
-    // Figur im Bild. Gilt bis zum Ende der Runde.
+    // Wer in einer Runde nicht mitspielt, kann zuschauen – in den Spielen,
+    // die das können (zuschaubar). Gilt bis zum Ende der Runde.
     zuschauen: false,
     zuschauNr: null,
     // Das Grossbild für Fernseher und Beamer: niemand tritt bei, alles nur
@@ -168,9 +168,9 @@
   }
 
   const titel = (spiel) => hs()?.titel?.(spiel) || mini()?.titel?.(spiel) || spiel;
-  // Den Spielen mit Figur im Bild lässt sich zuschauen (dieselben, deren beste
-  // Läufe sich anschauen lassen).
-  const zuschaubar = (spiel) => Boolean(mini()?.ANSEHBAR?.[spiel]);
+  // Wem sich zuschauen lässt (mini-games.js, ZUSCHAUBAR): den Spielen mit
+  // Figur im Bild und denen, die ihre Züge melden.
+  const zuschaubar = (spiel) => Boolean(mini()?.ZUSCHAUBAR?.[spiel] || mini()?.ANSEHBAR?.[spiel]);
   const alleSpiele = () => (mini()?.SPIELE || []).map((s) => s.id);
   const serverJetzt = () => Date.now() + S.versatz;
 
@@ -452,7 +452,38 @@
 
   async function verlassen() {
     try { await S.db?.ref(`live/${S.code}/spieler/${S.ich?.kennung}/online`).set(false); } catch { /* egal */ }
-    window.location.href = "/";
+    window.location.href = heimweg().link;
+  }
+
+  /*
+   * Wohin es hinausgeht: in der Turnier-App (turnier.js, heim) zurück ins
+   * Turnier – nie in die Hall of Fame –, sonst zur Startseite. Gehört der
+   * Multiplayer zu einem Turnier, steht der Weg dorthin ohnehin daneben.
+   */
+  function heimweg() {
+    const t = window.LernappTurnier?.heim?.() || "";
+    return t
+      ? { link: `/turnier?t=${encodeURIComponent(t)}`, wort: "Zum Turnier", turnier: t }
+      : { link: "/", wort: "Zur Startseite", turnier: "" };
+  }
+
+  // Die Knöpfe am Schluss: zum Turnier des Multiplayers und zur Startseite –
+  // in der Turnier-App nur ins Turnier.
+  function wegeHinaus(info, erster) {
+    const weg = heimweg();
+    const box = el("div", "lv-knoepfe lv-unten");
+    const turnier = info?.turnier || weg.turnier;
+    if (turnier) {
+      const zumTurnier = el("a", `mini-knopf ${erster ? "mini-knopf-voll" : "mini-knopf-still"}`, "Zum Turnier");
+      zumTurnier.href = `/turnier?t=${encodeURIComponent(turnier)}`;
+      box.append(zumTurnier);
+    }
+    if (!weg.turnier) {
+      const startseite = el("a", `mini-knopf ${erster && !turnier ? "mini-knopf-voll" : "mini-knopf-still"}`, "Zur Startseite");
+      startseite.href = "/";
+      box.append(startseite);
+    }
+    return box;
   }
 
   // Der Bildschirm bleibt an, solange man im Multiplayer ist – wer zwischen
@@ -561,7 +592,7 @@
       S.zuschauen = false;
       S.zuschauNr = z?.phase === "runde" ? z.nr : null;
     }
-    // Das Grossbild schaut in jeder Runde mit Figur im Bild von selbst zu.
+    // Das Grossbild schaut in jeder Runde, der sich zuschauen lässt, von selbst zu.
     if (S.gross && z?.phase === "runde" && r && zuschaubar(r.spiel)) S.zuschauen = true;
     const dabei = Boolean(S.beigetreten && S.ich && z?.dabei?.[S.ich.kennung]);
     const soll = Boolean(z && z.phase === "runde" && r && (dabei || (S.zuschauen && zuschaubar(r.spiel))));
@@ -975,8 +1006,9 @@
     w.replaceChildren(kopf("Multiplayer"));
     const liste = el("div", "lv-offen");
     w.append(block("Jetzt offen", liste));
-    const zurueck = el("a", "lv-klein lv-link", "Zur Startseite");
-    zurueck.href = "/";
+    const weg = heimweg();
+    const zurueck = el("a", "lv-klein lv-link", weg.wort);
+    zurueck.href = weg.link;
     w.append(zurueck);
 
     const zeigeOffene = (offene) => {
@@ -1190,19 +1222,11 @@
     } else {
       w.append(hinweis("Es wurde keine Runde gewertet."));
     }
-    const aktionen = el("div", "lv-knoepfe lv-unten");
+    const aktionen = wegeHinaus(S.info, false);
     if (leitung) {
       const text = S.info.turnier ? "Ins Turnier eintragen und abschliessen" : "Multiplayer abschliessen";
-      aktionen.append(knopf(text, "mini-knopf-voll", (ereignis) => abschliessen(ereignis.currentTarget)));
+      aktionen.prepend(knopf(text, "mini-knopf-voll", (ereignis) => abschliessen(ereignis.currentTarget)));
     }
-    if (S.info.turnier) {
-      const zumTurnier = el("a", "mini-knopf mini-knopf-still", "Zum Turnier");
-      zumTurnier.href = `/turnier?t=${encodeURIComponent(S.info.turnier)}`;
-      aktionen.append(zumTurnier);
-    }
-    const heim = el("a", "mini-knopf mini-knopf-still", "Zur Startseite");
-    heim.href = "/";
-    aktionen.append(heim);
     w.append(aktionen);
   }
 
@@ -1214,17 +1238,7 @@
       w.append(podest(S.letzteWertung));
       w.append(block("Endstand", standTabelle(S.letzteWertung)));
     }
-    const heim = el("a", "mini-knopf mini-knopf-voll", "Zur Startseite");
-    heim.href = "/";
-    const box = el("div", "lv-knoepfe lv-unten");
-    if (info?.turnier) {
-      const zumTurnier = el("a", "mini-knopf mini-knopf-voll", "Zum Turnier");
-      zumTurnier.href = `/turnier?t=${encodeURIComponent(info.turnier)}`;
-      box.append(zumTurnier);
-      heim.className = "mini-knopf mini-knopf-still";
-    }
-    box.append(heim);
-    w.append(box);
+    w.append(wegeHinaus(info, true));
   }
 
   function zeichneUnbekannt() {

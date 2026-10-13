@@ -73,12 +73,22 @@
   // hoch – und die alten verschwinden von selbst aus dem Bild (cloud.js,
   // geister fragt nach genau dieser Fassung).
   const LEVEL = "t1";
-  const TAKT_MS = 250;
+  // Zehn Proben je Sekunde. Mit vier (bis Oktober 2026) lief die Wiedergabe
+  // eckig: Zwischen zwei Proben lag eine Viertelsekunde gerader Strich, über
+  // einen Hügel hinweg eine Sehne statt des Bogens.
+  const TAKT_MS = 100;
   // Sechs Minuten. Die Runden mit Uhr dauern höchstens zwei; die ohne Uhr
   // (Mondlandung, Schwerkraft-Läufer …) auch bei den Besten selten länger.
   // Was zu lang für die Datenbank ist, verdichtet packe().
-  const PROBEN_MAX = 1440;
+  const PROBEN_MAX = 3600;
   const BAHN_MAX = 12000;
+  // Über wie viel Zeit je Seite die Beschleunigung beim Zuschauen geschätzt
+  // wird (stand, ab) – für Spiele, die zeigen wollen, wann ein Triebwerk
+  // brannte. Länger als der Takt, sonst zitterte sie.
+  const AB_MS = 250;
+  // Wie weit die Kurve hinter der letzten Probe in ihrer Richtung weitergeht,
+  // wenn die nächste noch fehlt (nur im Multiplayer, live-spiel.js).
+  const VORAUS_MS = 250;
   const WAHL_KEY = "mini.gegner";
   const LAUF_KEY = "mini.lauf";
   // Gold für Platz 1, Hellblau für die eigene Bestmarke, Flieder für alle
@@ -179,33 +189,56 @@
   // ---------------------------------------------------------------------------
   // Alle TAKT_MS eine Probe: die Punkte und, wo das Spiel einen Geist zeigt,
   // wo er war (a, b, c – was das heisst, weiss das Spiel; c ist eine ganze
-  // Zahl, die nicht gemittelt wird). Geschrieben wird sie als JSON, ganze
-  // Zahlen, eine Probe je Stelle:
+  // Zahl, ein Zustand oder ein Winkel mal 100). Geschrieben wird sie als
+  // JSON, ganze Zahlen, jede Liste als Schritte: die erste Zahl, dann je der
+  // Unterschied zur vorigen – so passen zehn Proben je Sekunde in die
+  // Datenbank:
   //
-  //   {"v":1,"dt":250,"p":[0,0,1,…],"a":[…],"b":[…],"c":[…],"s":123456789}
+  //   {"v":2,"dt":100,"p":[0,0,1,…],"a":[0,31,30,…],"b":[…],"c":[…],"s":123456789}
   //
+  // v 1 (bis Oktober 2026) schrieb die Zahlen selbst; entpacke liest beides.
   // s ist die Saat der Welt (zufall.js) – damit lässt sich der Lauf später
   // in derselben Welt anschauen. u ist, wo die Uhr des Spiels stand, als die
   // Runde begann (in ms) – für Welten, die sich mit der Zeit bewegen
   // (Planetenhüpfer).
   function neueAufzeichnung() {
-    return { p: [], a: [], b: [], c: [], ort: false, mitC: false };
+    return { p: [], a: [], b: [], c: [], ort: false, mitC: false, vor: null };
   }
 
-  // Bis zur Zeit ms auffüllen. Kam ein Bild zu spät, steht der jetzige Stand
-  // auch in den Proben dazwischen – eine Viertelsekunde Unschärfe, mehr nicht.
+  /*
+   * Bis zur Zeit ms auffüllen. Eine Probe gehört genau auf ihren Takt (k ×
+   * TAKT_MS), ein Bild kommt aber, wann es kommt: Der Ort dort wird zwischen
+   * dem vorigen Bild und diesem gerechnet. Ohne das läge jede Probe bis zu
+   * ein Bild daneben, und die Wiedergabe holperte im Takt der Bilder.
+   */
   function probe(auf, ms, punkte, ort) {
     const soll = Math.min(PROBEN_MAX, Math.floor(Math.max(0, ms) / TAKT_MS) + 1);
     if (ort) auf.ort = true;
     if (ort && ort.c !== undefined) auf.mitC = true;
     const letzte = (liste) => (liste.length ? liste[liste.length - 1] : 0);
+    const jetzt = ort ? { a: Number(ort.a) || 0, b: Number(ort.b) || 0, c: Number(ort.c) || 0 } : null;
+    const vor = auf.vor;
     while (auf.p.length < soll) {
+      const tk = auf.p.length * TAKT_MS;
+      let o = jetzt;
+      if (jetzt && vor?.ort && ms > vor.ms && tk > vor.ms) {
+        const f = Math.min(1, (tk - vor.ms) / (ms - vor.ms));
+        o = { a: vor.ort.a + (jetzt.a - vor.ort.a) * f, b: vor.ort.b + (jetzt.b - vor.ort.b) * f, c: f < 0.5 ? vor.ort.c : jetzt.c };
+      }
       auf.p.push(Math.max(0, Math.round(punkte)));
-      auf.a.push(ort ? Math.round(ort.a) : letzte(auf.a));
-      auf.b.push(ort ? Math.round(ort.b || 0) : letzte(auf.b));
-      auf.c.push(ort ? Math.round(ort.c || 0) : letzte(auf.c));
+      auf.a.push(o ? Math.round(o.a) : letzte(auf.a));
+      auf.b.push(o ? Math.round(o.b) : letzte(auf.b));
+      auf.c.push(o ? Math.round(o.c) : letzte(auf.c));
     }
+    if (ms >= (vor?.ms ?? -1)) auf.vor = { ms, ort: jetzt || vor?.ort || null };
   }
+
+  // Eine Liste als Schritte (v 2) – und zurück.
+  const schritte = (liste) => liste.map((x, i) => (i ? x - liste[i - 1] : x));
+  const summen = (liste) => {
+    let summe = 0;
+    return liste.map((x) => { summe += x; return summe; });
+  };
 
   // Zu lang für die Datenbank? Dann jede zweite Probe, mit doppeltem Takt –
   // die letzte bleibt, was sie war: das Ergebnis.
@@ -217,9 +250,9 @@
     let b = auf.ort ? auf.b : null;
     let c = auf.ort && auf.mitC ? auf.c : null;
     for (let versuch = 0; versuch < 6 && p.length; versuch += 1) {
-      const daten = { v: 1, dt, p };
-      if (a) Object.assign(daten, { a, b });
-      if (c) daten.c = c;
+      const daten = { v: 2, dt, p: schritte(p) };
+      if (a) Object.assign(daten, { a: schritte(a), b: schritte(b) });
+      if (c) daten.c = schritte(c);
       if (saat !== null && saat !== undefined) daten.s = saat;
       if (vorlauf !== null && vorlauf !== undefined) daten.u = Math.max(0, Math.round(vorlauf));
       const text = JSON.stringify(daten);
@@ -237,45 +270,105 @@
   function entpacke(bahn) {
     let d = null;
     try { d = JSON.parse(String(bahn || "")); } catch { return null; }
-    if (!d || d.v !== 1 || !Array.isArray(d.p) || !d.p.length) return null;
+    if (!d || (d.v !== 1 && d.v !== 2) || !Array.isArray(d.p) || !d.p.length) return null;
     const zahl = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-    const p = d.p.map(zahl);
+    const lies = (liste) => (d.v === 2 ? summen(liste.map(zahl)) : liste.map(zahl));
+    const p = lies(d.p);
     const mitOrt = Array.isArray(d.a) && Array.isArray(d.b) && d.a.length === p.length && d.b.length === p.length;
     const mitC = mitOrt && Array.isArray(d.c) && d.c.length === p.length;
     return {
       dt: Number(d.dt) > 0 ? Number(d.dt) : TAKT_MS,
       p,
-      a: mitOrt ? d.a.map(zahl) : null,
-      b: mitOrt ? d.b.map(zahl) : null,
-      c: mitC ? d.c.map(zahl) : null,
+      a: mitOrt ? lies(d.a) : null,
+      b: mitOrt ? lies(d.b) : null,
+      c: mitC ? lies(d.c) : null,
       s: Number.isInteger(d.s) && d.s >= 0 ? d.s : null,
       u: Number.isFinite(d.u) && d.u >= 0 ? d.u : 0,
     };
   }
 
-  // Ein Lauf zum Abspielen: Punkte und Ort zu jeder Zeit. Nach seinem Ende
-  // bleibt er stehen, wo er aufgehört hat.
-  function abspieler(bahn) {
+  // ---------------------------------------------------------------------------
+  // Die Kurve durch die Proben
+  // ---------------------------------------------------------------------------
+  /*
+   * Zwischen zwei Proben nicht ein gerader Strich, sondern ein Bogen: kubisch
+   * (Hermite), mit der Steigung an jeder Probe aus ihren beiden Nachbarn. Die
+   * Figur fährt so weich durch jede Probe, Richtung und Tempo knicken nicht.
+   * An einer Umkehr (oben auf dem Hügel) ist die Steigung null – die Kurve
+   * schiesst nie über eine Probe hinaus. Dieselbe Kurve für die Wiedergabe
+   * und für die anderen im Multiplayer (live-spiel.js).
+   *
+   * proben: [{ t, a, b, c }], nach t aufsteigend. c springt, wenn es ein
+   * Zustand ist (Ast, Schub …); ist es ein Winkel (winkel), dreht es mit –
+   * ausser um mehr als eine Vierteldrehung zwischen zwei Proben, das ist ein
+   * Sprung. Hinter der letzten Probe: stehen (fertig) oder ein Stück in
+   * ihrer Richtung weiter.
+   */
+  function steigung(proben, i, k) {
+    const p = proben[i];
+    const vor = proben[i - 1];
+    const nach = proben[i + 1];
+    const d0 = vor ? (p[k] - vor[k]) / Math.max(1, p.t - vor.t) : null;
+    const d1 = nach ? (nach[k] - p[k]) / Math.max(1, nach.t - p.t) : null;
+    if (d0 === null) return d1 ?? 0;
+    if (d1 === null) return d0;
+    if (d0 * d1 <= 0) return 0;
+    return (2 * d0 * d1) / (d0 + d1);
+  }
+
+  function hermite(p0, p1, m0, m1, h, s) {
+    const s2 = s * s;
+    const s3 = s2 * s;
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * m0 + (3 * s2 - 2 * s3) * p1 + (s3 - s2) * h * m1;
+  }
+
+  function kurve(proben, ms, { fertig = true, winkel = false, voraus = VORAUS_MS } = {}) {
+    if (!proben.length) return { a: 0, b: 0, c: 0 };
+    const erste = proben[0];
+    if (ms <= erste.t) return { a: erste.a, b: erste.b, c: erste.c };
+    const n = proben.length;
+    const letzte = proben[n - 1];
+    if (ms >= letzte.t) {
+      if (fertig || n < 2) return { a: letzte.a, b: letzte.b, c: letzte.c };
+      const weiter = Math.min(ms - letzte.t, voraus);
+      return { a: letzte.a + steigung(proben, n - 1, "a") * weiter, b: letzte.b + steigung(proben, n - 1, "b") * weiter, c: letzte.c };
+    }
+    let lo = 0;
+    let hi = n - 1;
+    while (hi - lo > 1) {
+      const mitte = (lo + hi) >> 1;
+      if (proben[mitte].t <= ms) lo = mitte; else hi = mitte;
+    }
+    const s0 = proben[lo];
+    const s1 = proben[hi];
+    const h = Math.max(1, s1.t - s0.t);
+    const s = (ms - s0.t) / h;
+    const dc = s1.c - s0.c;
+    return {
+      a: hermite(s0.a, s1.a, steigung(proben, lo, "a"), steigung(proben, hi, "a"), h, s),
+      b: hermite(s0.b, s1.b, steigung(proben, lo, "b"), steigung(proben, hi, "b"), h, s),
+      c: winkel && Math.abs(dc) < 157 ? s0.c + dc * s : s < 0.5 ? s0.c : s1.c,
+    };
+  }
+
+  // Ob c in diesem Spiel ein Winkel ist (mini-games.js, ANSEHBAR).
+  const cIstWinkel = (spiel) => Boolean(mini()?.ANSEHBAR?.[spiel]?.winkel);
+
+  // Ein Lauf zum Abspielen: Punkte und Ort zu jeder Zeit, auf der Kurve durch
+  // seine Proben. Nach seinem Ende bleibt er stehen, wo er aufgehört hat.
+  function abspieler(bahn, { winkel = false } = {}) {
     const d = entpacke(bahn);
     if (!d) return null;
     const n = d.p.length;
     const dauer = (n - 1) * d.dt;
-    const stelle = (ms) => {
-      const f = Math.max(0, ms) / d.dt;
-      const i = Math.min(n - 1, Math.floor(f));
-      return { i, j: Math.min(n - 1, i + 1), k: clamp(f - i, 0, 1) };
-    };
+    const proben = d.a ? d.p.map((_, i) => ({ t: i * d.dt, a: d.a[i], b: d.b[i], c: d.c ? d.c[i] : 0 })) : null;
     return {
       dauer,
       saat: d.s,
       vorlauf: d.u,
       mitOrt: Boolean(d.a),
-      wert: (ms) => d.p[stelle(ms).i],
-      ort(ms) {
-        if (!d.a) return null;
-        const { i, j, k } = stelle(ms);
-        return { a: d.a[i] + (d.a[j] - d.a[i]) * k, b: d.b[i] + (d.b[j] - d.b[i]) * k, c: d.c ? d.c[i] : 0 };
-      },
+      wert: (ms) => d.p[Math.min(n - 1, Math.floor(Math.max(0, ms) / d.dt))],
+      ort: (ms) => (proben ? kurve(proben, ms, { winkel }) : null),
       fertig: (ms) => ms > dauer,
     };
   }
@@ -304,7 +397,7 @@
     if (best > 0) {
       stand.eigen = {
         punkte: best,
-        lauf: art === "tempo" && lokal?.bahn && lokal.punkte === best ? abspieler(lokal.bahn) : null,
+        lauf: art === "tempo" && lokal?.bahn && lokal.punkte === best ? abspieler(lokal.bahn, { winkel: cIstWinkel(spiel) }) : null,
       };
     }
 
@@ -319,7 +412,7 @@
         const laeufe = await Promise.all(andere.map((e) => vielleicht(() => cloud()?.turnierGeist?.(lage.id, spiel, e.spieler))));
         andere.forEach((e, i) => {
           const geist = laeufe[i];
-          const lauf = geist?.bahn && geist.level === fassung ? abspieler(geist.bahn) : null;
+          const lauf = geist?.bahn && geist.level === fassung ? abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }) : null;
           if (lauf) stand.alle.push({ name: e.name, punkte: geist.punkte, lauf, spieler: e.spieler });
         });
       }
@@ -333,13 +426,13 @@
       // gegen die lässt sich keine einzelne Runde spielen. Dann gilt sein
       // bester einzelner Lauf, und ohne Aufzeichnung gibt es keinen.
       if (t.zaehlt === "summe") {
-        if (passt) stand.erster = { name: vorne.name, punkte: geist.punkte, lauf: abspieler(geist.bahn), ich: Boolean(vorne.eigen), spieler: vorne.spieler };
+        if (passt) stand.erster = { name: vorne.name, punkte: geist.punkte, lauf: abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }), ich: Boolean(vorne.eigen), spieler: vorne.spieler };
         return stand;
       }
       stand.erster = {
         name: vorne.name,
         punkte: vorne.punkte,
-        lauf: passt && geist.punkte === vorne.punkte ? abspieler(geist.bahn) : null,
+        lauf: passt && geist.punkte === vorne.punkte ? abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }) : null,
         ich: Boolean(vorne.eigen),
         spieler: vorne.spieler,
       };
@@ -358,7 +451,7 @@
     const nachSpieler = new Map(gefunden.map((g) => [g.spieler, g]));
     andere.forEach((e) => {
       const geist = nachSpieler.get(e.spieler);
-      if (geist?.bahn) stand.alle.push({ name: e.name, punkte: geist.punkte, lauf: abspieler(geist.bahn), spieler: e.spieler });
+      if (geist?.bahn) stand.alle.push({ name: e.name, punkte: geist.punkte, lauf: abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }), spieler: e.spieler });
     });
     stand.alle = stand.alle.filter((g) => g.lauf);
     if (!vorne || !(vorne.punkte > 0)) return stand;
@@ -366,7 +459,7 @@
     const geist = nachSpieler.get(vorne.spieler);
     // Nur der Lauf, der zu dieser Zahl gehört. Trägt jemand denselben Namen
     // auf zwei Geräten, kann die Aufzeichnung vom anderen stammen.
-    if (art === "tempo" && geist?.bahn && geist.punkte === vorne.punkte) lauf = abspieler(geist.bahn);
+    if (art === "tempo" && geist?.bahn && geist.punkte === vorne.punkte) lauf = abspieler(geist.bahn, { winkel: cIstWinkel(spiel) });
     stand.erster = { name: vorne.name, punkte: vorne.punkte, lauf, ich: Boolean(vorne.eigen), spieler: vorne.spieler };
     return stand;
   }
@@ -833,7 +926,7 @@
       const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [spieler], fassung));
       geist = (gefunden || [])[0] || null;
     }
-    const lauf = geist ? abspieler(geist.bahn) : null;
+    const lauf = geist ? abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }) : null;
     if (!lauf?.mitOrt || (!fest && lauf.saat === null)) return null;
     return { name: geist.name, punkte: geist.punkte, lauf };
   }
@@ -939,7 +1032,7 @@
         const dt = (Math.min(t + 60, z.lauf.dauer) - Math.max(0, t - 60)) / 1000 || 0.12;
         // Die Beschleunigung nach oben, über eine Viertelsekunde je Seite –
         // für Spiele, die zeigen wollen, wann ein Triebwerk brannte.
-        const h = TAKT_MS;
+        const h = AB_MS;
         const oben = z.lauf.ort(Math.max(0, t - h));
         const unten = z.lauf.ort(t + h);
         const ab = (unten.b - 2 * ort.b + oben.b) / ((h / 1000) ** 2);
@@ -957,8 +1050,8 @@
   }
 
   window.LernappGeist = {
-    LEVEL, TAKT_MS, FARBE,
-    fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf, namen, orte,
+    LEVEL, TAKT_MS, AB_MS, FARBE,
+    fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf, namen, orte, kurve,
     zuschauer, zuschauAdresse, ansehbar,
     // Für die Prüfung im Browser: was die Spiele dieser Seite angemeldet haben.
     stand: () => angemeldet.map(({ spiel, art, steuerung, z }) => ({

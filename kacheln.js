@@ -110,6 +110,9 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
+  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
+  // Zuschauen).
+  let zuschauer = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -186,12 +189,14 @@
       kachel.disabled = true;
       if (state.muster.has(index)) kachel.classList.add("is-muster");
     });
+    meldeZug(0);
 
     stepTimer = window.setTimeout(() => {
       // Muster weg, Raster frei: ab jetzt sind alle Kacheln wieder gleich.
       felder.forEach((kachel) => { kachel.classList.remove("is-muster"); kachel.disabled = false; });
       state.phase = "tippen";
       prompt.textContent = "Tippe die Kacheln an.";
+      meldeZug(1);
     }, ZEIGEN_MS);
   }
 
@@ -209,6 +214,7 @@
       // Kurz zeigen, welche es gewesen wären – sonst bleibt die Runde ohne
       // Antwort, und beim nächsten Mal weiss man wieder nichts.
       state.muster.forEach((feld) => felder[feld].classList.add("is-muster"));
+      meldeZug(2, index);
       stepTimer = window.setTimeout(finish, 900);
       return;
     }
@@ -221,6 +227,7 @@
     kachel.classList.add("is-treffer");
     kids()?.playJingle?.("correct");
     kids()?.vibrate?.(16);
+    meldeZug(1);
 
     if (state.offen.size) return;
     state.phase = "merken";
@@ -242,7 +249,92 @@
     return runden === 1 ? "Ein Muster ganz gefunden." : `${runden} Muster ganz gefunden.`;
   }
 
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigenen Kacheln für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) – sofort, bei jedem Muster, jedem Wechsel
+   * vom Merken zum Tippen und jedem Tipp, immer der ganze Stand:
+   *
+   *   c   Runde × 4 + was gerade ist: 0 das Muster leuchtet, 1 er tippt,
+   *       2 daneben getippt
+   *   a   welche Kacheln des Musters er schon gefunden hat, als Bits
+   *   b   die Kachel daneben + 1 (sonst 0)
+   *
+   * Die Muster kommen aus derselben Saat. Wer zuschaut, würfelt sie in
+   * derselben Reihe und zeigt, was zu dem Zug gehört, der gerade dran ist.
+   */
+  function meldeZug(was, daneben = -1) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    let gefunden = 0;
+    state.muster.forEach((feld) => { if (!state.offen.has(feld)) gefunden += 2 ** feld; });
+    live.zug(state.punkte, { a: gefunden, b: daneben + 1, c: state.runde * 4 + was });
+  }
+
+  const zuschau = { muster: [], runde: -1, gezeigt: "", frame: 0 };
+
+  // Die Muster der Runden bis n – in derselben Reihe gewürfelt wie beim
+  // anderen, sonst wären es andere.
+  function musterDerRunde(n) {
+    while (zuschau.muster.length <= n) zuschau.muster.push(musterFuer(stufeFuer(zuschau.muster.length)));
+    return zuschau.muster[n];
+  }
+
+  function zeigeZug(probe) {
+    const runde = Math.floor(probe.c / 4);
+    const was = probe.c - runde * 4;
+    const muster = musterDerRunde(runde);
+    if (runde !== zuschau.runde) {
+      buildRaster(stufeFuer(runde));
+      zuschau.runde = runde;
+    }
+    let alle = true;
+    felder.forEach((kachel, index) => {
+      const drin = muster.has(index);
+      const gefunden = drin && Math.floor(probe.a / 2 ** index) % 2 === 1;
+      if (drin && !gefunden) alle = false;
+      kachel.disabled = true;
+      kachel.classList.toggle("is-muster", drin && was !== 1);
+      kachel.classList.toggle("is-treffer", gefunden);
+      kachel.classList.toggle("is-daneben", was === 2 && index === probe.b - 1);
+    });
+    prompt.textContent = was === 0 ? "Merk dir die Kacheln." : alle ? "Alle gefunden!" : "Tippe die Kacheln an.";
+    state.punkte = probe.p;
+    shell.setCount(probe.p);
+  }
+
+  function zuschauSchleife() {
+    zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+    const probe = zuschauer?.letzte?.(zuschauer.jetzt());
+    if (!probe) return;
+    const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
+    if (schluessel === zuschau.gezeigt) return;
+    zuschau.gezeigt = schluessel;
+    zeigeZug(probe);
+  }
+
+  // Ab jetzt die Kacheln des anderen: dieselben Muster, und jeweils, wie weit
+  // er damit ist.
+  function zuschauenStarten() {
+    if (!zuschauer?.letzte) return;
+    clearStep();
+    shell.closeOverlay();
+    zufall.neu();
+    shell.setPhase("play");
+    state.phase = "zuschauen";
+    zuschau.muster = [];
+    zuschau.runde = -1;
+    zuschau.gezeigt = "";
+    shell.clear();
+    prompt = shell.el("p", "cm-prompt kk-prompt", "");
+    raster = shell.el("div", "kk-raster");
+    shell.play.append(prompt, raster);
+    if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+  }
+
   function finish() {
+    if (zuschauer) return;
     clearStep();
     state.phase = "over";
     const punkte = state.punkte;
@@ -273,13 +365,17 @@
     clock: false,
     onRestart: startRun,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
-    live: { los: startRun, stopp: () => finish() },
+    live: { los: startRun, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "tileMemory", host, art: "ziel" }) || null;
 
   if (!shell.live) startRun();
 
-  window.addEventListener("pagehide", clearStep);
+  window.addEventListener("pagehide", () => {
+    clearStep();
+    if (zuschau.frame) window.cancelAnimationFrame(zuschau.frame);
+    zuschau.frame = 0;
+  });
 
-  window.LernappKacheln = { STUFEN, ZEIGEN_MS, RUNS_FOR_DONE, stufeFuer, musterFuer };
+  window.LernappKacheln = { STUFEN, ZEIGEN_MS, RUNS_FOR_DONE, stufeFuer, musterFuer, state };
 })();

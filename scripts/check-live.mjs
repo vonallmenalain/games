@@ -666,14 +666,17 @@ try {
     }
 
     // Runde 1: Alain fällt, Mia und Jonas tun nichts. Alain wartet nicht – er
-    // beendet die Runde von seiner Tafel aus.
+    // schaut einem der beiden zu und beendet die Runde über den Knopf
+    // «Leitung» unten im Bild (ohne Zuschauen stünde er auch auf der Tafel).
     const erste = await brueckenRunde(0);
     pruefe(await absturz(leitung, erste[0]), "Brückenbauer: Der Arbeiter der Leitung fällt nicht");
-    const ende = erste[0].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" });
-    pruefe(await bis(() => ende.isVisible()), "Die Tafel der Leitung bietet «Runde jetzt beenden» nicht an, während andere noch spielen");
-    pruefe(await bis(() => erste[1].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" }).count().then((n) => n === 0), { ms: 1500 }), "Ein Spieler bekommt den Knopf der Leitung");
-    await ende.click();
-    pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "pause")), "«Runde jetzt beenden» auf der Tafel beendet die Runde nicht");
+    pruefe(await bis(() => erste[0].evaluate(() => Boolean(window.LernappLiveSpiel.zuschauen())), { ms: 4000 }), "Brückenbauer: Die Leitung schaut nach dem Absturz niemandem zu");
+    const leitungKnopf = leitung.seite.locator(".lv-leitung-knopf");
+    pruefe(await bis(() => leitungKnopf.isVisible()), "Die Leitung hat beim Zuschauen keinen Knopf «Leitung»");
+    pruefe(await mia.seite.locator(".lv-leitung-knopf").count() === 0, "Ein Spieler bekommt den Knopf der Leitung");
+    await leitungKnopf.click();
+    await leitung.seite.locator(".lv-leitung-menue").getByRole("button", { name: "Runde jetzt beenden" }).click();
+    pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "pause")), "«Runde jetzt beenden» beim Zuschauen beendet die Runde nicht");
 
     // Runde 2: Jonas' Spiel liegt im Hintergrund – kein Bild mehr, die
     // Zeitgeber laufen gedrosselt weiter, die Verbindung steht.
@@ -682,10 +685,14 @@ try {
     const t0 = Date.now();
     pruefe(await absturz(leitung, zweite[0]), "Brückenbauer: Alains Arbeiter fällt nicht");
     pruefe(await absturz(mia, zweite[1]), "Brückenbauer: Mias Arbeiter fällt nicht");
-    pruefe(await bis(() => zweite[1].locator(".lv-tafel .lv-weg").count().then((n) => n === 1), { ms: 15000, schritt: 50 })
-      || (await stand(mia))?.phase === "pause", "Auf der Tafel steht nicht, dass Jonas weg ist");
+    const nachAbsturz = Date.now() - t0;
+    // Mia schaut nach ihrem Absturz Jonas zu, solange er als spielend gilt –
+    // dann steht «weg» an seinem Namen oben, sonst auf ihrer Tafel.
+    pruefe(await bis(() => zweite[1].locator(".lv-tafel .lv-weg, .lv-leiste .lv-chip.ist-weg").count().then((n) => n >= 1), { ms: 15000, schritt: 50 })
+      || (await stand(mia))?.phase === "pause", "Bei Mia steht nicht, dass Jonas weg ist");
     pruefe(await bis(async () => (await stand(leitung))?.phase === "pause", { ms: 20000 }), "Die Runde wartet ewig auf einen, dessen Spiel im Hintergrund liegt");
     const dauer = Date.now() - t0;
+    console.log(`Runde ohne Jonas: ${Math.round(dauer / 100) / 10} s, Abstürze bis ${Math.round(nachAbsturz / 100) / 10} s`);
     pruefe(dauer < 18000, `Die Runde endet erst nach ${Math.round(dauer / 1000)} s ohne Jonas`);
     const nr1 = await leitung.seite.evaluate(() => window.LernappLive.rundenWertung(1, "platz", false).map((e) => [e.name, e.p, e.fertig]));
     pruefe(nr1.length === 3 && nr1.some(([n, , f]) => n === "Jonas" && !f), `Jonas fehlt in der Wertung oder gilt als fertig (${JSON.stringify(nr1)})`);

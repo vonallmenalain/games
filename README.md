@@ -76,6 +76,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
     scripts/check-live.mjs     spielt einen Multiplayer mit vier Geräten durch
+    scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
+                               man ausscheidet, und vergleicht die Bilder
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
 
 ## Ein Spiel dazunehmen
@@ -185,7 +187,15 @@ nach der nächsten Runde als «Bestwert» zurück. Ohne Namen und ohne Netz
 bleibt alles, wie es ist.
 
 Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
-eine Nachbesserung an der Physik, Eingaben nicht. Sie stehen in einer eigenen
+eine Nachbesserung an der Physik, Eingaben nicht. Zehnmal je Sekunde, genau
+auf den Takt gerechnet (zwischen zwei Bildern, statt das nächste Bild zu
+nehmen), und gespeichert als Schritte von Probe zu Probe (`v: 2`): kleine
+Zahlen, die Aufzeichnung bleibt unter der Grenze der Datenbank. Abgespielt
+wird auf derselben weichen Kurve wie die Geister im Multiplayer (`geist.js`,
+`kurve`) – so läuft der Lauf so flüssig wie damals, ohne die Stufen, die
+viermal je Sekunde früher zeigten. Ältere Aufzeichnungen (viermal je
+Sekunde, `v: 1`) laufen auf derselben Kurve; genauer wird es mit dem
+nächsten Rekord. Sie stehen in einer eigenen
 Sammlung (`miniGeister`), nicht in `miniScores`: Die Startseite liest jedes
 Punkte-Dokument und lüde sonst bei jedem Besuch Kilobytes mit, die dort
 niemand ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der
@@ -297,6 +307,19 @@ Safari auf dem iPhone nicht; dort setzt dieselbe Stelle den Namen
 (`apple-mobile-web-app-title`), und gestartet wird die Seite, auf der man
 beim Hinzufügen war.
 
+**Die Turnier-App bleibt im Turnier.** Beginnt ein Fenster der installierten
+App (`display-mode: standalone`) auf einer Turnierseite oder einem Spiel
+des Turniers, gehört es zu diesem Turnier – gemerkt im Speicher des Fensters
+(`sessionStorage`, `mini.heimTurnier`), nicht des Geräts: Die Hauptapp, als
+eigene App installiert, bleibt die Hauptapp. In diesem Fenster führt jeder
+Weg zurück ins Turnier: Die Startseite und ein Spiel ohne Turnier in der
+Adresse leiten gleich auf die Turnierseite um, der Pokal unter dem Ergebnis
+und der Knopf oben im Spiel heissen «Turnier», ebenso beim Anschauen eines
+Laufs aus dem Turnier (`?aus=` – dort stand vorher «Hall of Fame», und genau
+so landeten Kinder plötzlich in der Hauptapp), und am Ende eines Multiplayers
+steht «Zum Turnier» statt «Zur Startseite». Erlaubt bleiben das Turnier, der
+Multiplayer und der Adminbereich (`turnier.js`, `heim`).
+
 **Das Gerät merkt sich seine Turniere.** Jedes Turnier, das geöffnet wird,
 auch eines nur mit Link, steht danach auf der Startseite dieses Geräts,
 zuvorderst (`mini.turniere`, höchstens zehn). So findet es auch, wer die App
@@ -361,11 +384,11 @@ nicht auf einen Tipp, sondern zur Serverzeit – jedes Gerät rechnet sie in
 seine eigene Uhr um. Im Browser-Test liegen vier Geräte dabei unter zehn
 Millisekunden auseinander. Die Tafel einer Übung sagt nur «Übungsrunde»
 (oder «Übungsrunde 1 von 2»). Oben stehen alle mit ihren Punkten und die
-Zeit. Wer ausscheidet, sieht eine Sekunde später, wie es bei den anderen
-steht. Die Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist;
-die Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
-Spiel oder, wenn sie selbst schon fertig ist, mit «Runde jetzt beenden» auf
-ihrer Tafel.
+Zeit. Wer ausscheidet, schaut eine Sekunde später den anderen zu (siehe
+Zuschauen); spielt niemand mehr, steht da, wie es bei den anderen steht. Die
+Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist; die
+Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
+Spiel, auch beim Zuschauen, oder mit «Runde jetzt beenden» auf ihrer Tafel.
 
 **Weg** ist, wer die Verbindung verliert – oder wer schweigt. Solange das
 Spiel im Bild ist und läuft, meldet es sich alle drei Sekunden, auch ohne
@@ -379,9 +402,10 @@ steht oft noch minutenlang, sein Spiel aber läuft nicht weiter, und alle
 anderen sassen vor «spielt noch». Kommt er zurück, solange die Runde noch
 läuft, spielt er weiter; gewertet wird, was er zuletzt gemeldet hat.
 
-**Jedes Spiel** gibt der Bühne dafür zweierlei mit (`game-shell.js`,
-`mount({ live: { los, stopp } })`): wie die Runde ohne Tipp beginnt und wie
-sie endet, wenn die Zeit des Abends um ist. Eine Runde gibt es nur einmal –
+**Jedes Spiel** gibt der Bühne dafür mit (`game-shell.js`,
+`mount({ live: { los, stopp, zuschauen } })`), wie die Runde ohne Tipp
+beginnt, wie sie endet, wenn die Zeit des Abends um ist, und – wo man
+ausscheidet – wie es einem anderen zuschaut. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
 **Die anderen im Bild.** In den sieben Spielen mit Figur (Lianenschwung,
@@ -417,14 +441,35 @@ zum nächsten. Dasselbe Abspielen wie bei den besten Läufen
 Verzug dessen zurück, dem man zuschaut, und noch eine Zehntelsekunde dazu,
 damit die Kamera ruhig bleibt. Der Planetenhüpfer stellt dabei die Uhr seiner
 Planeten nach der Zeit, die gerade im Bild ist.
-In den übrigen acht Spielen steht statt dessen der Stand der anderen da.
+
+In den Spielen ohne Figur (Turmbau, Brückenbauer, Drehscheibe,
+Kacheln-Knobeln, Fischteich, Heizer, Zahlengleis) gibt es nichts, dem eine
+Kamera folgen könnte – dort baut das Spiel des Zuschauers nach, was der
+andere tut. Jedes Gerät meldet dafür seine Züge (`live-spiel.js`, `zug`):
+sofort, nicht im Takt, und immer mit dem ganzen Stand in `a`, `b`, `c` – wie
+viele Blöcke und wo der oberste liegt, wann der Balken kippt und wie lang er
+ist, wo ein Pfeil steckt, welche Kacheln und Fische gefunden sind, wie die
+Kessel stehen, wo die Lok hält. Was zwischen zwei Zügen geschieht, rechnet
+der Zuschauer selbst: Die Welt kommt aus derselben Saat, der Block fällt,
+der Arbeiter geht, die Scheibe dreht sich, die Kessel leeren sich (als
+Formel, also genau wie beim anderen). Wer erst später zuschaut oder oben
+einen anderen antippt, sieht in einem Augenblick alles bis jetzt, ohne
+Fallen und Gehen; dafür behält jedes Gerät alle Proben der Runde. Was im
+Bild steht, prüft `scripts/check-zuschauen.mjs`: Am Schluss ist es Block
+für Block, Pfeil für Pfeil dasselbe wie beim anderen. Nur die Fische
+schwimmen bei jedem Zuschauer eigene Bögen – welche gefangen werden, ist
+dasselbe. Das Zahlengleis kennt kein Ausscheiden, aber wer seine zehn Zahlen
+schneller hat, schaut den anderen bei ihren zu. Bei «Blätter im Strom»
+enden alle zugleich. Die Leitung beendet die Runde auch beim Zuschauen
+über ihren Knopf «Leitung».
+
 Wer in einer Runde nicht mitspielt (ein Nachzügler), kann von Anfang an
 zuschauen («Zuschauen», oben «Schliessen»).
 
 **Das Grossbild** (`/live?code=K7QMX2PA9Z&gross`, der Link steht in der
 Lobby der Leitung) ist für Fernseher und Beamer: Es tritt nicht bei, zeigt
 alles grösser – in der Lobby den Link zum Abschreiben – und schaut in jeder
-Runde mit Figur von selbst dem zu, der vorne liegt.
+Runde, der sich zuschauen lässt, von selbst dem zu, der vorne liegt.
 
 **Die Auswertung.** Rundenpunkte, Zwischenstand, was als Nächstes kommt;
 «Weiter», «Runde wiederholen» (sie beginnt bei null), «Multiplayer beenden». Gleich
@@ -486,6 +531,15 @@ hält dabei an: keine Schleife, kein Ton. Die Adresse oben und der Name im Tab
 wandern mit, der Zurück-Weg des Browsers führt Seite um Seite zurück. Wer das
 Vollbild verlässt, bleibt im Rahmen und merkt davon nichts; ein Neuladen
 räumt ihn weg.
+
+**Nichts lässt sich markieren.** Ein Kind hält den Finger einen Moment zu
+lange auf einem Wort – «Übungsrunde» –, und das Tablet markiert es und bietet
+«Suchen» an: ein Tipp, und es steht in einem neuen Tab. Deshalb ist in der
+ganzen App kein Text markierbar (`styles.css`, `user-select` auf `html`),
+lange Tipps öffnen kein Menü, und Bilder lassen sich nicht wegziehen
+(`mini-games.js` fängt `selectstart`, `contextmenu` und `dragstart` ab). Nur
+Eingabefelder bleiben, wie sie sind – den eigenen Namen will man korrigieren
+können.
 
 ## Firebase
 
@@ -588,6 +642,10 @@ Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
                               Spieler in vier Browserfenstern, gegen den
                               Emulator der Realtime Database. Braucht Java
                               und Playwright, kein Netz.
+    npm run pruefen:zuschauen in jedem Spiel, in dem man ausscheidet, eine
+                              Runde mit drei Robotern: Wer draussen ist,
+                              schaut zu, und am Schluss muss im Bild genau
+                              stehen, was der andere hatte. Wie pruefen:live.
     npm run test:rules        die Firestore-Regeln im Emulator durchspielen –
                               und cloud.js dagegen laufen lassen, so wie es
                               im Browser läuft. Dazu die Regeln der Realtime

@@ -194,6 +194,9 @@
   let plus = null;
   let marken = null;
   let stepTimer = null;
+  // Im Multiplayer, nach den eigenen zehn Zahlen: wem zugeschaut wird
+  // (live-spiel.js, Zuschauen).
+  let zuschauer = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -243,6 +246,11 @@
     state.p = Math.max(0, Math.min(1, p));
     lok.classList.toggle("is-sofort", sofort);
     lok.style.setProperty("--zg-p", String(state.p));
+    // Im Multiplayer sehen die Zuschauer die Lok mitfahren – zehnmal je
+    // Sekunde reicht, dazwischen gleitet sie bei ihnen.
+    if (state.phase === "aufgabe" && !zuschauer) {
+      window.LernappLiveSpiel?.lage?.(state.punkte, { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 });
+    }
   }
 
   // Aus der Fingerstelle wird ein Anteil der Strecke. Gemessen wird an den
@@ -331,6 +339,7 @@
     gleis.setAttribute("aria-valuenow", "0");
     gleis.setAttribute("aria-valuetext", `Lok steht bei 0. Gesucht ist ${state.zahl}.`);
     shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === state.index));
+    meldeZug(0);
   }
 
   function antwort(p) {
@@ -346,19 +355,8 @@
     state[wie] += 1;
     state.punkte += punkte;
     shell.setCount(state.punkte);
-
-    // Das Schild fährt an die richtige Stelle; die Lok färbt sich danach, wie
-    // nah sie steht.
-    zielZahl.textContent = String(state.zahl);
-    ziel.className = `zg-ziel is-${wie}`;
-    ziel.style.setProperty("--zg-p", String(state.zahl / bis));
-    ziel.hidden = false;
-    lok.classList.add(`is-${wie}`);
-    plus.textContent = punkte ? `+${punkte}` : "0";
-    plus.className = `zg-plus is-${wie}`;
-    plus.hidden = false;
-    gleis.setAttribute("aria-valuenow", wert.toFixed(1));
-    gleis.setAttribute("aria-valuetext", `Lok steht bei ${wert.toFixed(1)}, gesucht war ${state.zahl}: ${punkte} Punkte.`);
+    zeigeAntwort(wert, punkte);
+    meldeZug(1);
 
     if (punkte >= 4) { kids()?.playJingle?.("correct"); kids()?.vibrate?.(16); }
     else if (punkte >= 2) kids()?.playJingle?.("star");
@@ -371,6 +369,117 @@
     }, ZEIGEN_MS);
   }
 
+  // Das Schild fährt an die richtige Stelle; die Lok färbt sich danach, wie
+  // nah sie steht.
+  function zeigeAntwort(wert, punkte) {
+    const { bis } = state.gleis;
+    const wie = WIE[punkte];
+    zielZahl.textContent = String(state.zahl);
+    ziel.className = `zg-ziel is-${wie}`;
+    ziel.style.setProperty("--zg-p", String(state.zahl / bis));
+    ziel.hidden = false;
+    lok.classList.add(`is-${wie}`);
+    plus.textContent = punkte ? `+${punkte}` : "0";
+    plus.className = `zg-plus is-${wie}`;
+    plus.hidden = false;
+    gleis.setAttribute("aria-valuenow", wert.toFixed(1));
+    gleis.setAttribute("aria-valuetext", `Lok steht bei ${wert.toFixed(1)}, gesucht war ${state.zahl}: ${punkte} Punkte.`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Im Multiplayer: die eigene Lok für die anderen, ihre für einen selbst
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Zug (live-spiel.js, zug) bei jeder neuen Zahl und jeder Antwort,
+   * dazwischen beim Schieben die Lage (lage, zehnmal je Sekunde):
+   *
+   *   c   die wievielte Zahl × 4 + was gerade ist: 0 sie wird gesucht,
+   *       1 die Antwort steht
+   *   a   wo die Lok steht, in Millionsteln der Strecke
+   *   b   1, solange der Finger auf der Lok liegt
+   *
+   * Die Zahlen kommen aus derselben Saat. Wer zuschaut, sucht sie in
+   * derselben Reihe heraus, lässt die Lok zwischen zwei Lagen gleiten und
+   * rechnet die Punkte der Antwort selbst.
+   */
+  const ZUG_P = 1e6;
+
+  function meldeZug(was) {
+    const live = window.LernappLiveSpiel;
+    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    live.zug(state.punkte, { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 + was });
+  }
+
+  const zuschau = { zahlen: [], index: -1, antwort: false, frame: 0 };
+
+  // Die Zahl Nummer i – in derselben Reihe gezogen wie beim anderen.
+  function zahlDer(i) {
+    while (zuschau.zahlen.length <= i) {
+      const n = zuschau.zahlen.length;
+      zuschau.zahlen.push(zahlFuer(gleisFuer(n), n ? zuschau.zahlen[n - 1] : null));
+    }
+    return zuschau.zahlen[i];
+  }
+
+  function zuschauSchleife() {
+    zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+    const jetzt = zuschauer?.jetzt?.();
+    const probe = zuschauer?.letzte?.(jetzt);
+    if (!probe || state.phase !== "zuschauen") return;
+    const index = Math.min(ZAHLEN_JE_RUNDE - 1, Math.floor(probe.c / 4));
+    const was = probe.c - Math.floor(probe.c / 4) * 4;
+    if (index !== zuschau.index) {
+      zuschau.index = index;
+      zuschau.antwort = false;
+      state.index = index;
+      state.gleis = gleisFuer(index);
+      state.zahl = zahlDer(index);
+      baueMarken(state.gleis);
+      ziel.hidden = true;
+      plus.hidden = true;
+      lok.classList.remove(...WIE.map((wie) => `is-${wie}`));
+      setLok(0, true);
+      schild.textContent = String(state.zahl);
+      schild.classList.remove("is-neu");
+      void schild.offsetWidth;
+      schild.classList.add("is-neu");
+      shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === index));
+    }
+    if (was === 1) {
+      if (!zuschau.antwort) {
+        zuschau.antwort = true;
+        lok.classList.remove("is-drag");
+        setLok(probe.a / ZUG_P);
+        const wert = state.p * state.gleis.bis;
+        zeigeAntwort(wert, punkteFuer(wert - state.zahl, state.gleis.bis));
+      }
+    } else {
+      // Zwischen zwei Lagen gleitet die Lok.
+      let p = probe.a / ZUG_P;
+      const nach = zuschauer.naechste(jetzt);
+      if (nach && nach.c === probe.c && nach.t > probe.t) {
+        p += (nach.a / ZUG_P - p) * Math.max(0, Math.min(1, (jetzt - probe.t) / (nach.t - probe.t)));
+      }
+      lok.classList.toggle("is-drag", probe.b === 1);
+      setLok(p, true);
+    }
+    state.punkte = probe.p;
+    shell.setCount(probe.p);
+  }
+
+  // Ab jetzt die Lok des anderen: dieselben Zahlen, und wo er hält.
+  function zuschauenStarten() {
+    if (!zuschauer?.letzte) return;
+    startRun();
+    clearStep();
+    state.phase = "zuschauen";
+    zuschau.zahlen = [];
+    zuschau.index = -1;
+    zuschau.antwort = false;
+    zufall.neu();
+    if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+  }
+
   function runsText(runs) {
     const left = RUNS_FOR_DONE - runs;
     if (left <= 0) return "Dieses Spiel ist geschafft – der Wagen ist gebaut.";
@@ -380,6 +489,7 @@
   }
 
   function finish() {
+    if (zuschauer) return;
     clearStep();
     state.phase = "over";
     const punkte = state.punkte;
@@ -408,7 +518,7 @@
     // Es gibt nur eine Schwierigkeit – neu starten heisst neue Zahlen.
     onRestart: startRun,
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
-    live: { los: startRun, stopp: () => finish() },
+    live: { los: startRun, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
 
   // Ohne Menü beginnt die Runde sofort: Es gibt nichts zu wählen. Im
@@ -469,7 +579,11 @@
     }
   });
 
-  window.addEventListener("pagehide", clearStep);
+  window.addEventListener("pagehide", () => {
+    clearStep();
+    if (zuschau.frame) window.cancelAnimationFrame(zuschau.frame);
+    zuschau.frame = 0;
+  });
 
   window.LernappZahlengleis = {
     GLEISE, PLAN, GENAU, bandGrenze, WIE, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,

@@ -619,17 +619,30 @@
     g.globalAlpha = 1;
   }
 
+  // Ein Vogel aus einer Aufzeichnung (oder vom Multiplayer): Zwischen zwei
+  // Proben läuft er auf einer Kurve, der Hang ist aber ein anderer Bogen.
+  // Liegt er knapp darüber oder darunter, liegt er auf ihm – sonst schwebte
+  // er über dem Hang oder tauchte in ihn ein. Die Welt ist dieselbe (Saat),
+  // der Hang an dieser Stelle also genau der seines Laufs.
+  function aufDemHang(x, y) {
+    const boden = bodenBei(x);
+    return y - boden < 2.5 ? boden : y;
+  }
+
   // Die Gegner als Vögel aus Licht, mit Namen darüber.
   function geisterOrte() {
     if (!gegner || state.phase === "bereit") return [];
     const ms = gegner.zeit();
+    const gleicheWelt = Boolean(shell.live);
     return gegner.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
       const ort = geg.lauf.ort(ms);
       const bald = geg.lauf.ort(ms + 100);
       return {
         ...geg,
         x: START_X + ort.a,
-        y: ort.b,
+        // Auf den Hang nur, wo die Welt dieselbe ist (im Multiplayer). Ein
+        // Gegner aus der Hall of Fame flog über andere Hügel.
+        y: gleicheWelt ? aufDemHang(START_X + ort.a, ort.b) : ort.b,
         winkel: Math.atan2(bald.b - ort.b, Math.max(1, bald.a - ort.a)),
         blass: geg.lauf.fertig(ms) ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1,
       };
@@ -1148,7 +1161,7 @@
     if (!s) return;
     const v = state.v;
     v.x = START_X + s.a;
-    v.y = s.b;
+    v.y = aufDemHang(v.x, s.b);
     v.vx = s.va;
     v.vy = s.vb;
     const c = s.c || 0;

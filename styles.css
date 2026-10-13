@@ -65,6 +65,27 @@ html {
      selbst, dass sie getroffen wurde: der Punkt wächst, das Bild wächst, der
      Bereich geht auf. */
   -webkit-tap-highlight-color: transparent;
+  /* Kein Text lässt sich markieren. Ein Kind hält den Finger länger auf dem
+     Bild – auch auf einem Wort wie «Übungsrunde» –, und schon ist es
+     markiert, mit «Suchen» daneben: ein Tipp, und es steht in einem anderen
+     Tab. Was man eintippt, bleibt markierbar (unten). */
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+/* Bilder und Zeichnungen lassen sich nicht wegziehen – auch das öffnete
+   sonst ein Menü oder einen neuen Tab. */
+img,
+svg,
+canvas,
+a {
+  -webkit-user-drag: none;
 }
 
 * { box-sizing: border-box; }
