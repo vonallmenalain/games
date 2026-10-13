@@ -54,7 +54,7 @@
     // Gedächtnis
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
-    { id: "planetHop", titel: "Planetenhüpfer", bereich: "gedaechtnis", art: "punkte", key: "lernapp.planeten", einheit: "Planeten" },
+    { id: "planetHop", titel: "Planetenhüpfer", bereich: "gedaechtnis", art: "punkte", key: "lernapp.planeten", einheit: "Punkte" },
 
     // Konzentration
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
@@ -74,7 +74,7 @@
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
-    { id: "moonLander", titel: "Mondlandung", bereich: "problemloesen", art: "punkte", key: "lernapp.mondlandung", einheit: "Landungen" },
+    { id: "moonLander", titel: "Mondlandung", bereich: "problemloesen", art: "punkte", key: "lernapp.mondlandung", einheit: "Punkte" },
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht fest, wenn die Aufgaben durch sind. Gemessen wird deshalb
     // die beste Runde, nicht das einzelne Level.

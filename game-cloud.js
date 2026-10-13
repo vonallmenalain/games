@@ -45,6 +45,17 @@
   function register({ empty = {} } = {}) {
     let aktuell = clone(window.LernappMini?.startStand?.(empty) || empty);
     const zuhoerer = [];
+    // Sagt der Server später etwas anderes über den eigenen Bestwert
+    // (mini-games.js, gleicheAb) – ein gelöschter Eintrag, ein besserer von
+    // einem anderen Gerät –, gilt das auch hier: Höhere Zahlen fallen weg, und
+    // seine steht in der Liste.
+    window.addEventListener("mini-bestwert", (event) => {
+      const best = Math.max(0, Math.round(Number(event?.detail?.punkte) || 0));
+      if (!Array.isArray(aktuell?.scores) || event?.detail?.spiel !== window.LernappMini?.spielId?.()) return;
+      const scores = aktuell.scores.filter((wert) => (Number(wert) || 0) <= best);
+      if (best && !scores.includes(best)) scores.push(best);
+      aktuell = { ...aktuell, scores: scores.sort((a, b) => b - a) };
+    });
     return {
       read() { return aktuell; },
       write(daten) {

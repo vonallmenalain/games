@@ -344,20 +344,62 @@
     } catch { return {}; }
   }
 
-  function merkeBestwert(spiel, punkte) {
-    const zahl = Math.max(0, Math.round(Number(punkte) || 0));
-    if (!spiel || !zahl) return;
-    const alle = bestwerte();
-    if ((Number(alle[spiel]) || 0) >= zahl) return;
-    alle[spiel] = zahl;
-    try { localStorage.setItem(BEST_KEY, JSON.stringify(alle)); } catch { /* privater Modus */ }
-  }
-
   // Der eigene Bestwert in einem Spiel, so wie dieses Gerät ihn kennt –
   // geist.js stellt ihn als Bestmarke neben die Runde.
   function bestwert(spiel) {
     return Math.max(0, Math.round(Number(bestwerte()[spiel]) || 0));
   }
+
+  /*
+   * Was der Server über den eigenen Bestwert sagt, gilt – auch nach unten.
+   *
+   * Das Gerät merkt sich den Bestwert (mini.best), die Bestmarke daneben
+   * (geist.js, mini.lauf) und gibt ihn jedem Spiel als Startstand mit. Löscht
+   * der Admin einen Eintrag, stünde die alte Zahl sonst nach der nächsten
+   * Runde wieder als "Bestwert" und als Bestmarke da – auf ewig, denn höher
+   * als 10 000 Meter kommt nach einem Umbau niemand mehr. Deshalb fragt jede
+   * Spielseite einmal nach dem einen Eintrag dieses Geräts (cloud.js,
+   * meinErgebnis) und setzt den Bestwert auf das, was dort steht – oder auf
+   * nichts, wenn dort nichts steht.
+   *
+   * Ohne Namen gibt es keinen Eintrag, und ohne Netz keine Antwort: Dann
+   * bleibt alles, wie es ist. Wer es wissen muss (geist.js, game-cloud.js),
+   * bekommt den abgeglichenen Wert mit einem Ereignis "mini-bestwert".
+   */
+  const abgeglichen = new Map();   // spiel → { punkte, ms }
+  const abgleiche = new Map();
+
+  function setzeBestwert(spiel, punkte) {
+    const zahl = Math.max(0, Math.round(Number(punkte) || 0));
+    if (!spiel) return;
+    const alle = bestwerte();
+    if (zahl) alle[spiel] = zahl;
+    else delete alle[spiel];
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(alle)); } catch { /* privater Modus */ }
+    abgeglichen.set(spiel, { punkte: zahl, ms: Date.now() });
+    try { window.dispatchEvent(new CustomEvent("mini-bestwert", { detail: { spiel, punkte: zahl } })); } catch { /* alt */ }
+  }
+
+  function gleicheAb(spiel = spielId()) {
+    const ich = kennungFallsDa();
+    if (!spiel || !ich || !name() || !cloud()?.meinErgebnis) return Promise.resolve(null);
+    if (!abgleiche.has(spiel)) {
+      abgleiche.set(spiel, cloud().meinErgebnis(spiel, ich)
+        .then((eintrag) => {
+          setzeBestwert(spiel, eintrag ? eintrag.punkte : 0);
+          return abgeglichen.get(spiel).punkte;
+        })
+        .catch(() => {
+          abgleiche.delete(spiel);
+          return null;
+        }));
+    }
+    return abgleiche.get(spiel);
+  }
+
+  // Der abgeglichene Bestwert, wenn es auf dieser Seite schon einen gibt:
+  // { punkte, ms } – wann der Server das gesagt hat. Sonst null.
+  const bestwertAbgeglichen = (spiel) => abgeglichen.get(spiel) || null;
 
   // Der Startstand für game-cloud.js: Was das Spiel für seinen eigenen
   // Vergleich braucht, und nichts weiter. Kein Spiel ohne Punktzahl und kein
@@ -540,8 +582,8 @@
     });
     zwischenspeicher = null;
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
-    // Runde: Er weiss, was vorher schon dastand.
-    if (ergebnis) merkeBestwert(spiel, ergebnis.punkte);
+    // Runde: Er weiss, was vorher schon dastand – und was nicht mehr.
+    if (ergebnis) setzeBestwert(spiel, ergebnis.punkte);
 
     // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
     // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
@@ -1172,6 +1214,8 @@
     namensZeile,
     startStand,
     bestwert,
+    gleicheAb,
+    bestwertAbgeglichen,
     auswertung,
     adminKnopf,
     leiste,
@@ -1180,7 +1224,9 @@
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js
-  // ab, was es braucht, wenn es so weit ist.
+  // ab, was es braucht, wenn es so weit ist. Den eigenen Bestwert gleicht sie
+  // gleich zu Beginn mit dem Server ab.
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", starteUebersicht);
   else starteUebersicht();
+  if (spielId()) gleicheAb();
 })();

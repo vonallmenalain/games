@@ -11,9 +11,12 @@
  *
  * Der Trick ist die Landung. Wer genau auf einem Abhang aufsetzt, im
  * selben Winkel, in dem der Hang abfällt, behält den Schwung und bekommt
- * etwas dazu: Perfekt! Drei perfekte Landungen nacheinander, und das Fieber
- * packt ihn – bis zur nächsten Bruchlandung. Wer in einen Gegenhang kracht,
- * verliert Tempo.
+ * etwas dazu: Perfekt! (+8 % Tempo). Drei perfekte Landungen, ohne dass eine
+ * harte dazwischen kommt, und das Fieber packt ihn: Er leuchtet orange, und
+ * jede weitere perfekte Landung gibt +14 % statt +8 % – bis zur nächsten
+ * harten Landung. Wer in einen Gegenhang kracht, verliert Tempo und das
+ * Fieber. Oben links zählen drei Punkte zum Fieber mit; ist es da, steht
+ * dort, was es bringt.
  *
  * Eine Minute lang, dann geht die Sonne unter. Gezählt wird, wie weit er
  * bis dahin kommt, in Metern.
@@ -70,7 +73,8 @@
   const HELP = [
     "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
     "Lass los, dann wird er leicht, fliegt über die Kuppe und gleitet mit ausgebreiteten Flügeln – mit genug Schwung über den nächsten Hügel hinweg. In der Luft halten, und er stürzt hinab.",
-    "Lande genau auf einem Abhang, dann behält er den Schwung – drei perfekte Landungen hintereinander, und er bekommt Fieber.",
+    "Lande genau auf einem Abhang, im Winkel des Hangs: Perfekt! Das gibt Schwung. Oben links zählen drei Punkte mit.",
+    "Nach drei perfekten Landungen packt ihn das Fieber: Er leuchtet orange, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung beendet das Fieber.",
     "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
   ].join(" ");
 
@@ -108,6 +112,8 @@
     perfekt: 0,
     serie: 0,
     fieber: false,
+    fieberZeit: -9,       // wann das Fieber zuletzt begann – für die Einblendung
+    vorbeiZeit: -9,       // … und wann es zuletzt endete
     v: { x: START_X, y: 0, vx: 0, vy: 0 },
     amBoden: true,
     flugZeit: 0,
@@ -708,7 +714,20 @@
   function zeichneAnzeige() {
     if (state.phase === "bereit") return;
     bildTransform();
+    const W = view.cssW;
+    const H = view.cssH;
     const gross = clamp(view.cssH * 0.05, 14, 24);
+
+    // Im Fieber glüht der Rand des Bildes.
+    if (state.fieber) {
+      const puls = ruhig() ? 0.7 : 0.6 + 0.4 * Math.sin(state.zeit * 5);
+      const glut = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.42, W / 2, H / 2, Math.max(W, H) * 0.75);
+      glut.addColorStop(0, "rgba(255, 150, 40, 0)");
+      glut.addColorStop(1, `rgba(255, 130, 30, ${0.28 * puls})`);
+      g.fillStyle = glut;
+      g.fillRect(0, 0, W, H);
+    }
+
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";
     g.textBaseline = "middle";
@@ -721,15 +740,95 @@
     g.fill();
     g.fillStyle = "#ffffff";
     g.fillText(text, 12 + gross * 0.55, 12 + gross * 0.82);
+
+    // Darunter die Serie: drei Punkte, die sich mit jeder perfekten Landung
+    // füllen – oder, im Fieber, was es bringt.
+    const klein = Math.round(gross * 0.6);
+    const y = 12 + gross * 1.6 + 6;
+    const h = klein * 1.75;
+    g.font = `800 ${klein}px system-ui, sans-serif`;
     if (state.fieber) {
-      g.font = `900 ${Math.round(gross * 0.7)}px system-ui, sans-serif`;
-      g.fillStyle = "#ffd84d";
-      g.lineWidth = 3;
-      g.strokeStyle = "rgba(120, 50, 0, 0.6)";
-      g.strokeText("Fieber!", 14, 12 + gross * 2.3);
-      g.fillText("Fieber!", 14, 12 + gross * 2.3);
+      const titel = `Fieber ×${state.serie}`;
+      const zusatz = "+14 % je Perfekt";
+      const tw = g.measureText(titel).width;
+      g.font = `700 ${Math.round(klein * 0.85)}px system-ui, sans-serif`;
+      const zw = g.measureText(zusatz).width;
+      const bw = h * 0.9 + tw + klein * 0.6 + zw + klein * 0.9;
+      const verlauf = g.createLinearGradient(12, y, 12 + bw, y);
+      verlauf.addColorStop(0, "#ff8a1f");
+      verlauf.addColorStop(1, "#ffcf3d");
+      g.fillStyle = verlauf;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(12, y, bw, h, h / 2);
+      else g.rect(12, y, bw, h);
+      g.fill();
+      // Eine kleine Flamme.
+      const fx = 12 + h * 0.5;
+      const fy = y + h * 0.55;
+      const flacker = ruhig() ? 1 : 1 + 0.12 * Math.sin(state.zeit * 18);
+      g.fillStyle = "#fff4c2";
+      g.beginPath();
+      g.moveTo(fx, fy - h * 0.36 * flacker);
+      g.quadraticCurveTo(fx + h * 0.24, fy - h * 0.02, fx, fy + h * 0.26);
+      g.quadraticCurveTo(fx - h * 0.24, fy - h * 0.02, fx, fy - h * 0.36 * flacker);
+      g.fill();
+      g.fillStyle = "#5a1e00";
+      g.font = `900 ${klein}px system-ui, sans-serif`;
+      g.fillText(titel, 12 + h * 0.9, y + h * 0.53);
+      g.font = `700 ${Math.round(klein * 0.85)}px system-ui, sans-serif`;
+      g.fillStyle = "rgba(90, 30, 0, 0.85)";
+      g.fillText(zusatz, 12 + h * 0.9 + tw + klein * 0.6, y + h * 0.55);
+    } else {
+      const label = "Fieber";
+      const lw = g.measureText(label).width;
+      const bw = klein * 0.7 + 3 * klein * 1.05 + klein * 0.4 + lw + klein * 0.8;
+      g.fillStyle = "rgba(30, 40, 80, 0.45)";
+      g.beginPath();
+      if (g.roundRect) g.roundRect(12, y, bw, h, h / 2);
+      else g.rect(12, y, bw, h);
+      g.fill();
+      for (let i = 0; i < 3; i += 1) {
+        const cx = 12 + klein * 0.7 + klein * 0.45 + i * klein * 1.05;
+        const voll = i < state.serie;
+        g.beginPath();
+        g.arc(cx, y + h / 2, klein * 0.36, 0, Math.PI * 2);
+        g.fillStyle = voll ? "#ffd84d" : "rgba(255, 255, 255, 0.25)";
+        g.fill();
+      }
+      g.fillStyle = state.serie ? "#ffe9a0" : "rgba(255, 255, 255, 0.7)";
+      g.fillText(label, 12 + klein * 0.7 + 3 * klein * 1.05 + klein * 0.4, y + h * 0.53);
+    }
+
+    // Die Einblendung, wenn das Fieber beginnt oder endet.
+    const seitBeginn = state.zeit - state.fieberZeit;
+    const seitEnde = state.zeit - state.vorbeiZeit;
+    const banner = seitBeginn < 2.2
+      ? { titel: "FIEBER!", text: "3 perfekte Landungen – jetzt gibt jede weitere +14 % Schwung", farbe: "#ffd84d", t: seitBeginn, dauer: 2.2 }
+      : seitEnde < 1.8
+        ? { titel: "Fieber vorbei", text: "Harte Landung – drei perfekte, und es ist wieder da", farbe: "#ffe0e0", t: seitEnde, dauer: 1.8 }
+        : null;
+    if (banner) {
+      const a = Math.min(1, banner.t * 5, (banner.dauer - banner.t) * 3);
+      g.globalAlpha = clamp(a, 0, 1);
+      const titelGross = Math.round(clamp(W * 0.09, 26, 48));
+      const by = H * 0.3;
+      g.textAlign = "center";
+      g.font = `900 ${titelGross}px system-ui, sans-serif`;
+      g.lineWidth = 5;
+      g.strokeStyle = "rgba(90, 30, 0, 0.55)";
+      g.strokeText(banner.titel, W / 2, by);
+      g.fillStyle = banner.farbe;
+      g.fillText(banner.titel, W / 2, by);
+      g.font = `800 ${Math.round(clamp(W * 0.032, 12, 17))}px system-ui, sans-serif`;
+      g.lineWidth = 4;
+      g.strokeStyle = "rgba(20, 30, 60, 0.6)";
+      g.strokeText(banner.text, W / 2, by + titelGross * 0.85, W - 24);
+      g.fillStyle = "#ffffff";
+      g.fillText(banner.text, W / 2, by + titelGross * 0.85, W - 24);
+      g.globalAlpha = 1;
     }
   }
+
 
   function zeichnen() {
     if (!g) return;
@@ -855,16 +954,23 @@
       v.vy *= schub;
       if (state.serie >= 3 && !state.fieber) {
         state.fieber = true;
-        schrift("Fieber!", v.x, v.y + 50, "#ffd84d", 20);
+        state.fieberZeit = state.zeit;
         kids()?.playJingle?.("win");
+      } else if (state.fieber) {
+        schrift(`Perfekt! +14 %`, v.x, v.y + 40, "#ffd84d", 16);
+        kids()?.playJingle?.("star");
       } else {
-        schrift(state.serie > 1 ? `Perfekt! ×${state.serie}` : "Perfekt!", v.x, v.y + 40, "#ffffff", 16);
+        schrift(`Perfekt! ${state.serie}/3`, v.x, v.y + 40, "#ffffff", 16);
         kids()?.playJingle?.("star");
       }
       sterne(v.x, v.y, 8, state.fieber ? "#ffd84d" : "#ffffff");
     } else if (winkel > SCHLECHT_WINKEL) {
+      if (state.fieber) {
+        state.vorbeiZeit = state.zeit;
+      } else if (state.serie > 0) {
+        schrift("Harte Landung – Serie weg", v.x, v.y + 40, "#ffe0e0", 13);
+      }
       state.serie = 0;
-      if (state.fieber) schrift("Fieber vorbei", v.x, v.y + 40, "#ffe0e0", 13);
       state.fieber = false;
       v.vx *= 0.82;
       v.vy *= 0.82;
@@ -986,6 +1092,8 @@
     state.perfekt = 0;
     state.serie = 0;
     state.fieber = false;
+    state.fieberZeit = -9;
+    state.vorbeiZeit = -9;
     state.huegel = [];
     huegelBis(4000);
     state.v = { x: START_X - 110, y: 0, vx: 0, vy: 0 };

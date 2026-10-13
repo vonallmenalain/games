@@ -150,6 +150,11 @@ const ATTRAPPE = `
       sichern();
       return { spiele: meine.length, geaendert };
     },
+    meinErgebnis: async (game, spieler) => {
+      if (window.__miniOhneNetz) throw new Error("kein Netz");
+      const e = eintraege.get(game + "_" + spieler);
+      return e ? { ...e } : null;
+    },
     speichere: async ({ game, spieler, name, punkte }) => {
       const id = game + "_" + spieler;
       const alt = eintraege.get(id);
@@ -208,7 +213,11 @@ const ATTRAPPE = `
           }),
         }),
         doc: (id) => ({
-          delete: async () => { eintraege.delete(id); sichern(); },
+          delete: async () => {
+            if (sammlung === "miniGeister") { geisterLager.delete(id); gSichern(); return; }
+            eintraege.delete(id);
+            sichern();
+          },
           set: async (daten) => { eintraege.set(id, { ...eintraege.get(id), ...daten }); sichern(); },
         }),
       }),
@@ -685,6 +694,50 @@ try {
     }));
     pruefe(zurueck.id === vorher.id && zurueck.best === vorher.best, `Zurück beim alten Namen ist das Gerät nicht wieder der alte Mitspieler: ${JSON.stringify(zurueck)}`);
     pruefe(/Willkommen zurück/.test(zurueck.hinweis), `Zurück beim alten Namen steht: ${zurueck.hinweis}`);
+    await kontext.close();
+  }
+
+  // --- 2b. Was der Admin löscht, bleibt gelöscht ---------------------------------
+  // Das Gerät merkt sich den eigenen Bestwert und den besten Lauf. Steht der
+  // Eintrag nicht mehr auf dem Server, gilt auch auf dem Gerät nichts mehr
+  // davon: keine Bestmarke mit der alten Zahl, kein "Bestwert" im Spiel. Ein
+  // anderes Spiel bleibt, wie es war. Und wer im Adminbereich löscht, nimmt
+  // den Geist gleich mit.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__geloescht")) return;
+      sessionStorage.setItem("__geloescht", "1");
+      localStorage.setItem("mini.id", "mini_geloeschtgeloescht");
+      localStorage.setItem("mini.name", "Alain");
+      localStorage.setItem("mini.best", JSON.stringify({ gravityRun: 10234, towerStack: 5 }));
+      localStorage.setItem("mini.lauf", JSON.stringify({ gravityRun: { punkte: 10234, bahn: "", level: "t1", ms: 1 } }));
+    });
+    await seite.goto(`${BASIS}/schwerkraft`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappMini?.bestwertAbgeglichen?.("gravityRun"), null, { timeout: 6000 }).catch(() => {});
+    await seite.waitForTimeout(300);
+    const stand = await seite.evaluate(() => ({
+      best: JSON.parse(localStorage.getItem("mini.best") || "{}"),
+      lauf: JSON.parse(localStorage.getItem("mini.lauf") || "{}"),
+      chip: document.querySelector(".gs-eigen")?.textContent || "",
+    }));
+    pruefe(!stand.best.gravityRun, `Ein gelöschter Eintrag steht auf dem Gerät noch als Bestwert: ${JSON.stringify(stand.best)}`);
+    pruefe(stand.best.towerStack === 5, `Der Abgleich hat den Bestwert eines anderen Spiels angefasst: ${JSON.stringify(stand.best)}`);
+    pruefe(!stand.lauf.gravityRun, `Der beste Lauf eines gelöschten Eintrags steht noch auf dem Gerät: ${JSON.stringify(stand.lauf)}`);
+    pruefe(!stand.chip.includes("10234") && !stand.chip.includes("10 234") && !stand.chip.includes("10’234"), `Die Bestmarke zeigt noch die gelöschte Zahl: ${stand.chip}`);
+    // Eine Runde danach: Der Bestwert ist der neue, nicht der alte.
+    const runde = await seite.evaluate(async () => {
+      const S = window.LernappSchwerkraft;
+      S.tippen();
+      for (let n = 0; n < 240 * 20 && S.state.schritt === "lauf"; n += 1) S.takt(1 / 240);
+      await new Promise((r) => setTimeout(r, 1800));
+      return {
+        best: JSON.parse(localStorage.getItem("mini.best") || "{}").gravityRun || 0,
+        meter: S.state.punkte,
+        detail: document.querySelector(".cm-result-detail")?.textContent || "",
+      };
+    });
+    pruefe(runde.best === runde.meter && !/10.?234/.test(runde.detail), `Nach der Runde steht als Bestwert ${runde.best} (${runde.detail}) statt ${runde.meter}.`);
     await kontext.close();
   }
 
@@ -1430,8 +1483,10 @@ try {
       const { bis } = window.LernappZahlengleis.gleisFuer(0);
       const moeglich = [];
       for (let n = 1; n < bis; n += 1) moeglich.push(n);
+      const stand = window.LernappTurnier.stand();
       return {
-        gespielt: window.LernappTurnier.stand().gespielt,
+        gespielt: stand.gespielt,
+        wie: `freigegeben ${stand.freigegeben}, läuft ${stand.laeuft}, Versuche in der Datenbank ${[...window.__miniTurnierEintraege.values()].find((e) => e.spieler === "mini_levellevellevel")?.versuche}, Zeit ${Math.round(performance.now())} ms`,
         fest: window.LernappZufall.istFest(),
         runde: window.LernappZufall.turnier()?.runde,
         zahl: window.LernappZahlengleis.state.zahl,
@@ -1439,7 +1494,7 @@ try {
       };
     });
     // Das Zahlengleis beginnt seine Runde sofort: Gespielt wird der fünfte.
-    pruefe(befund.gespielt === 5, `Im Levelcup läuft der ${befund.gespielt}. statt der fünfte Versuch.`);
+    pruefe(befund.gespielt === 5, `Im Levelcup läuft der ${befund.gespielt}. statt der fünfte Versuch (${befund.wie}).`);
     pruefe(befund.fest && befund.runde === "1", `Mit gleichem Level wie Platz 1 würfelt der fünfte Versuch als Runde ${befund.runde} (fest: ${befund.fest}).`);
     pruefe(befund.zahl === befund.erwartet, `Mit gleichem Level wie Platz 1 kommt eine andere Zahl (${befund.zahl} statt ${befund.erwartet}).`);
     await kontext.close();
@@ -1697,16 +1752,55 @@ try {
       for (let lauf = 0; lauf < 3; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         P.tippen();
-        for (let n = 0; st.schritt !== "verloren" && st.punkte < 30 && n < 200000; n += 1) {
+        for (let n = 0; st.schritt !== "verloren" && st.erreicht < 30 && n < 200000; n += 1) {
           if (st.schritt === "lauf" && st.zeit - st.schrittZeit > 0.2 && trifft()) P.tippen();
           P.takt(1 / 240);
         }
-        raus.push({ punkte: st.punkte, schritt: st.schritt, grund: st.grund });
+        raus.push({ erreicht: st.erreicht, punkte: st.punkte, schritt: st.schritt, grund: st.grund });
       }
       return raus;
     });
-    pruefe(wege.every((w) => w.punkte >= 30 && w.schritt !== "verloren"),
+    pruefe(wege.every((w) => w.erreicht >= 30 && w.schritt !== "verloren"),
       `Planetenhüpfer: Der Autopilot kommt nicht auf jedem Weg weiter – ${JSON.stringify(wege)}`);
+    pruefe(wege.every((w) => w.punkte >= w.erreicht * 10 && w.punkte <= w.erreicht * 100),
+      `Planetenhüpfer: Ein Sprung bringt nicht zwischen 10 und 100 Punkten – ${JSON.stringify(wege)}`);
+    // Wer trödelt, bekommt weniger: derselbe Autopilot, der erst springt,
+    // wenn der Sauerstoff unter die Hälfte gesunken ist.
+    const troedel = await seite.evaluate(() => {
+      const P = window.LernappPlaneten;
+      const st = P.state;
+      const trifft = () => {
+        const a = st.astro;
+        const tg = P.absprung();
+        const v = P.sprungBei(st.erreicht);
+        let x = a.x;
+        let y = a.y;
+        for (let t = 0; t < 2.2; t += 1 / 240) {
+          x += (tg.x * v) / 240;
+          y += (tg.y * v) / 240;
+          const uhr = st.uhr + t;
+          for (let i = Math.max(0, st.auf - 1); i <= st.auf + 3; i += 1) {
+            const p = st.planeten[i];
+            const mond = P.mondBei(p, uhr);
+            if (mond && Math.hypot(x - mond.x, y - mond.y) < mond.r + 5) return false;
+            if (i === st.auf && t < 0.45) continue;
+            const m = P.mitte(p, uhr);
+            if (Math.hypot(x - m.x, y - m.y) < p.r + p.luft * 0.6) return i === st.auf + 1;
+          }
+        }
+        return false;
+      };
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      P.tippen();
+      for (let n = 0; st.schritt !== "verloren" && st.erreicht < 12 && n < 200000; n += 1) {
+        if (st.schritt === "lauf" && st.luft / st.luftMax < 0.5 && trifft()) P.tippen();
+        P.takt(1 / 240);
+      }
+      return { erreicht: st.erreicht, punkte: st.punkte };
+    });
+    const schnell = wege.reduce((summe, w) => summe + w.punkte / w.erreicht, 0) / wege.length;
+    pruefe(troedel.erreicht > 0 && troedel.punkte / troedel.erreicht < schnell - 15,
+      `Planetenhüpfer: Wer trödelt, bekommt nicht weniger Punkte je Sprung (${(troedel.punkte / troedel.erreicht).toFixed(1)} gegen ${schnell.toFixed(1)}).`);
     const sprung = await seite.evaluate(() => {
       const P = window.LernappPlaneten;
       const st = P.state;
@@ -1731,7 +1825,8 @@ try {
   // --- 4g7. Mondlandung: landen, tanken, weiter ---------------------------------------
   // Ein sparsamer Autopilot steigt über das Gelände, fliegt hinüber und setzt
   // sanft auf – und kommt mit dem Treibstoff, den die Landungen geben, über
-  // zwölf Plattformen. Wer einfach fällt, zerschellt.
+  // zehn Plattformen. Jede Landung bringt 100 Punkte und bis zu 200 fürs
+  // Sparen. Wer einfach fällt, zerschellt.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 640 });
     await seite.goto(`${BASIS}/mondlandung`, { waitUntil: "load" });
@@ -1773,20 +1868,23 @@ try {
       const raus = [];
       for (let lauf = 0; lauf < 2; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
-        for (let n = 0; st.schritt !== "crash" && st.punkte < 12 && n < 120 * 400; n += 1) {
+        for (let n = 0; st.schritt !== "crash" && st.landungen < 30 && n < 120 * 400; n += 1) {
           pilot();
           M.takt(1 / 120);
         }
         M.schub(false);
         M.neige(null);
-        raus.push({ punkte: st.punkte, schritt: st.schritt, tank: Math.round(st.tank) });
+        raus.push({ landungen: st.landungen, punkte: st.punkte, schritt: st.schritt, tank: Math.round(st.tank) });
       }
       return raus;
     });
-    pruefe(fluege.every((f) => f.punkte >= 12), `Mondlandung: Der Autopilot kommt nicht über zwölf Plattformen – ${JSON.stringify(fluege)}`);
+    pruefe(fluege.every((f) => f.landungen >= 10), `Mondlandung: Der sparsame Autopilot kommt nicht über zehn Plattformen – ${JSON.stringify(fluege)}`);
+    pruefe(fluege.every((f) => f.punkte >= f.landungen * 100 && f.punkte <= f.landungen * 300),
+      `Mondlandung: Eine Landung bringt nicht 100 bis 300 Punkte – ${JSON.stringify(fluege)}`);
     // Auch wer grob fliegt, landet: zum Ziel hin kippen, Schub, wenn es
     // sinkt oder das Gelände hoch ist – und im Leitstrahl nur bremsen, wenn
-    // es zu schnell fällt. Das reicht in einer Minute für mehrere Landungen.
+    // es zu schnell fällt. Er kommt ein paar Plattformen weit, dann geht ihm
+    // der Treibstoff aus – und er hat weniger Punkte als der sparsame.
     const grob = await seite.evaluate(() => {
       const M = window.LernappMondlandung;
       const st = M.state;
@@ -1805,16 +1903,25 @@ try {
         M.schub(f.y - 13 - vorne < 50 || f.vy < (fern ? 0 : -40) || (fern && Math.abs(f.vx) < 30));
       };
       const raus = [];
-      for (let lauf = 0; lauf < 2; lauf += 1) {
+      let voll = false;
+      for (let lauf = 0; lauf < 3; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
-        for (let n = 0; st.schritt !== "crash" && n < 120 * 60; n += 1) { pilot(); M.takt(1 / 120); }
+        for (let n = 0; st.schritt !== "crash" && n < 120 * 300; n += 1) {
+          pilot();
+          M.takt(1 / 120);
+          if (st.landungen > 0 && st.schritt === "gelandet" && st.tank > M.TANK * 0.9 + 0.01) voll = true;
+        }
         M.schub(false);
         M.neige(null);
-        raus.push(st.punkte);
+        raus.push({ landungen: st.landungen, punkte: st.punkte, tank: Math.round(st.tank) });
       }
-      return raus;
+      return { raus, voll };
     });
-    pruefe(grob.every((n) => n >= 4), `Mondlandung: Wer grob fliegt, landet in einer Minute keine vier Mal – ${JSON.stringify(grob)}`);
+    pruefe(grob.raus.every((r) => r.landungen >= 2), `Mondlandung: Wer grob fliegt, kommt keine zwei Plattformen weit – ${JSON.stringify(grob.raus)}`);
+    pruefe(!grob.voll, "Mondlandung: Auf einer Plattform wird der Tank ganz voll.");
+    const sparsamSchnitt = fluege.reduce((summe, f) => summe + f.punkte, 0) / fluege.length;
+    const grobSchnitt = grob.raus.reduce((summe, r) => summe + r.punkte, 0) / grob.raus.length;
+    pruefe(sparsamSchnitt > grobSchnitt, `Mondlandung: Wer sparsam fliegt, hat nicht mehr Punkte (${sparsamSchnitt} gegen ${grobSchnitt}).`);
     const fall = await seite.evaluate(() => {
       const M = window.LernappMondlandung;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
@@ -2306,6 +2413,25 @@ try {
     await (await waehle("Frühlingscup")).locator("button", { hasText: "Löschen" }).click();
     await seite.waitForFunction(() => ![...window.__miniTurniere.values()].some((t) => t.name === "Frühlingscup"), null, { timeout: 4000 }).catch(() => {});
     pruefe(await seite.evaluate(() => [...window.__miniTurniere.values()].some((t) => t.name === "Frühlingscup")) === false, "«Löschen» hat das Turnier nicht gelöscht.");
+
+    // Eine ganze Bestenliste leeren – wenn ein Spiel umgebaut wurde und die
+    // alten Zahlen nichts mehr bedeuten. Die Geister gehen mit, die anderen
+    // Spiele bleiben.
+    await seite.evaluate(() => {
+      window.__miniGeister.set("fishPond_mini_vorherdagewesen", { game: "fishPond", spieler: "mini_vorherdagewesen", name: "Grosi", punkte: 12, level: "t1", bahn: "" });
+    });
+    const teich = seite.locator(".adm-block", { has: seite.locator("h2", { hasText: "Fischteich" }) });
+    pruefe(await teich.locator("button", { hasText: "Bestenliste leeren" }).count() === 1, "Beim Fischteich fehlt «Bestenliste leeren».");
+    await teich.locator("button", { hasText: "Bestenliste leeren" }).click();
+    await seite.waitForFunction(() => ![...window.__miniEintraege.values()].some((e) => e.game === "fishPond"), null, { timeout: 4000 }).catch(() => {});
+    const geleert = await seite.evaluate(() => ({
+      teich: [...window.__miniEintraege.values()].filter((e) => e.game === "fishPond").length,
+      geist: window.__miniGeister.has("fishPond_mini_vorherdagewesen"),
+      turm: [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack").length,
+    }));
+    pruefe(geleert.teich === 0, `«Bestenliste leeren» hat ${geleert.teich} Einträge im Fischteich stehen lassen.`);
+    pruefe(!geleert.geist, "«Bestenliste leeren» hat den Geist stehen lassen.");
+    pruefe(geleert.turm > 0, "«Bestenliste leeren» hat auch den Turmbau geleert.");
 
     const ohne = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ohne <= 1, `Der Adminbereich steht mit den Turnieren ${ohne} px über den Rand.`);
