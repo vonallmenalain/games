@@ -160,7 +160,7 @@
   // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
   let zuschauer = null;
 
-  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
+  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0 };
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -344,20 +344,29 @@
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
     const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
-    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
+    // Auf dem Handy reicht die Leinwand unter die Knöpfe oben (game-shell.js,
+    // frei). Gemalt wird dort auch – aber was zählt, steht darunter.
+    const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);
+    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
-    view.w = clamp(SICHT_H * (cssW / cssH), WELT_W, WELT_W_MAX);
-    view.s = cssW / view.w;
+    view.frei = frei;
+    const nutzH = cssH - frei;
+    view.w = clamp(SICHT_H * (cssW / nutzH), WELT_W, WELT_W_MAX);
+    // Das ganze Band steht immer im Bild; ist es dafür zu flach, steht vorn
+    // ein Stück mehr Tunnel.
+    view.s = Math.min(cssW / view.w, nutzH / SICHT_H);
+    view.w = cssW / view.s;
     view.h = cssH / view.s;
+    view.nutz = nutzH / view.s;
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
-    // Das Band steht in der Mitte; ist das Bild höher, ist darüber und
-    // darunter Fels.
-    state.camY = (BAND - view.h) / 2;
+    // Das Band steht in der Mitte (dessen, was unter den Knöpfen frei ist);
+    // ist das Bild höher, ist darüber und darunter Fels.
+    state.camY = (BAND - view.nutz) / 2;
   }
 
   const camXZiel = () => state.f.x - view.w * FLIEGER_AN;
@@ -763,6 +772,8 @@
   // Die Meter oben links – die eigentliche Zahl der Runde.
   function zeichneAnzeige() {
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const gross = clamp(view.cssH * 0.055, 14, 24);
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";

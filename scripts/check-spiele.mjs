@@ -315,8 +315,8 @@ const fehlerAufSeite = [];
 // Ohne Service Worker: Sobald einer die Seite bedient, beantwortet er die
 // Abrufe selbst – und die Attrappe käme nicht mehr zum Zug. Dass er da ist und
 // den richtigen Bereich bedient, prüft weiter unten ein eigenes Fenster.
-async function neueSeite(viewport = { width: 420, height: 820 }) {
-  const kontext = await browser.newContext({ viewport, serviceWorkers: "block" });
+async function neueSeite(viewport = { width: 420, height: 820 }, { handy = false } = {}) {
+  const kontext = await browser.newContext({ viewport, serviceWorkers: "block", ...(handy ? { hasTouch: true, isMobile: true } : {}) });
   const seite = await kontext.newPage();
   await seite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
   // Das SDK von gstatic braucht hier niemand: cloud.js ist ersetzt. So läuft
@@ -2870,6 +2870,39 @@ try {
     pruefe(danach?.eigen?.punkte === runde.punkte && danach.eigen.lauf === true,
       `Die eigene Runde steht danach nicht als Bestmarke da: ${JSON.stringify(danach)}`);
     await kontext.close();
+  }
+  {
+    // Auf dem Handy quer stehen die Schalter oben in der Leiste, zwischen den
+    // Knöpfen. Ein Finger darauf schaltet den Gegner ab – und startet nicht
+    // das Spiel (die Leiste lag einmal unsichtbar darüber). Und das Spiel ist
+    // das ganze Bild: die Leinwand bis an alle Ränder, die Meter unter den
+    // Knöpfen.
+    for (const [breit, hoch] of [[844, 390], [390, 844]]) {
+      const { kontext, seite } = await neueSeite({ width: breit, height: hoch }, { handy: true });
+      await seite.addInitScript(() => {
+        localStorage.setItem("__mini_attrappe", JSON.stringify([["vineSwing_mini_miamiamiamia", {
+          id: "vineSwing_mini_miamiamiamia", game: "vineSwing", spieler: "mini_miamiamiamia", name: "Mia", punkte: 30, versuche: 2, updatedAtMs: 1000,
+        }]]));
+      });
+      await seite.goto(`${BASIS}/liane`, { waitUntil: "load" });
+      await seite.waitForSelector(".gs-erster:not([hidden])", { timeout: 8000 });
+      await seite.waitForTimeout(300);
+      const chip = await seite.locator(".gs-erster").boundingBox();
+      const vorher = await seite.evaluate(() => document.querySelector(".gs-erster").classList.contains("is-an"));
+      await seite.touchscreen.tap(chip.x + chip.width / 2, chip.y + chip.height / 2);
+      await seite.waitForTimeout(200);
+      const nachher = await seite.evaluate(() => ({
+        an: document.querySelector(".gs-erster").classList.contains("is-an"),
+        phase: window.LernappLiane.state.phase,
+        leinwand: (() => { const r = document.querySelector(".li-canvas, .cm-play canvas").getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); })(),
+        frei: window.LernappGameShell.frei(),
+        leiste: Math.round(document.querySelector(".gs-leiste").getBoundingClientRect().bottom),
+      }));
+      pruefe(nachher.an !== vorher && nachher.phase === "bereit", `${breit}×${hoch}: Ein Finger auf dem Gegner-Schalter schaltet nicht, sondern startet das Spiel (${JSON.stringify(nachher)})`);
+      pruefe(nachher.leinwand.join() === [0, 0, breit, hoch].join(), `${breit}×${hoch}: Die Leinwand füllt nicht das ganze Bild: ${nachher.leinwand}`);
+      pruefe(nachher.frei >= nachher.leiste, `${breit}×${hoch}: Was oben unter den Knöpfen liegt, ist falsch gemessen (${nachher.frei} statt ${nachher.leiste})`);
+      await kontext.close();
+    }
   }
   {
     // Die Spiele ohne Uhr mit Geist im Bild (hier der Schwerkraft-Läufer):

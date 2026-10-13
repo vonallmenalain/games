@@ -835,6 +835,8 @@
   // Die Meter oben links – die eigentliche Zahl der Runde.
   function zeichneAnzeige() {
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const gross = clamp(view.cssH * 0.055, 14, 24);
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";

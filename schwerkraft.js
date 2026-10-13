@@ -163,7 +163,7 @@
   // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
   let zuschauer = null;
 
-  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, y0: 0, an: LAEUFER_AN };
+  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0, y0: 0, an: LAEUFER_AN };
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -436,17 +436,24 @@
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
     const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
-    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
+    // Auf dem Handy reicht die Leinwand unter die Knöpfe oben (game-shell.js,
+    // frei). Gemalt wird dort auch – aber was zählt, steht darunter.
+    const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);
+    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
+    view.frei = frei;
+    const nutzH = cssH - frei;
     const hochformat = cssH > cssW * 1.05;
-    view.w = hochformat ? WELT_W_HOCH : clamp(SICHT_H * (cssW / cssH), WELT_W, WELT_W_MAX);
+    view.w = hochformat ? WELT_W_HOCH : clamp(SICHT_H * (cssW / nutzH), WELT_W, WELT_W_MAX);
     view.an = hochformat ? LAEUFER_AN_HOCH : LAEUFER_AN;
-    view.s = cssW / view.w;
+    view.s = hochformat ? cssW / view.w : Math.min(cssW / view.w, nutzH / SICHT_H);
+    view.w = cssW / view.s;
     view.h = cssH / view.s;
-    // Der Korridor steht in der Mitte.
-    view.y0 = HOCH / 2 - view.h / 2;
+    view.nutz = nutzH / view.s;
+    // Der Korridor steht in der Mitte – dessen, was unter den Knöpfen frei ist.
+    view.y0 = HOCH / 2 - view.nutz / 2;
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
@@ -885,6 +892,8 @@
   function zeichneAnzeige() {
     if (state.schritt === "start") return;
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const gross = clamp(view.cssH * 0.05, 14, 24);
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";

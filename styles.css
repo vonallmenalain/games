@@ -397,7 +397,14 @@ h2 {
   display: flex;
   align-items: center;
   gap: 12px;
+  /* Die Leiste selbst ist durchlässig, nur ihre Knöpfe nicht: Auf dem Handy
+     quer stehen die Gegner-Schalter in ihrer Zeile, zwischen den Knöpfen –
+     und ein Tipp auf einen Schalter traf sonst die Leiste darüber und
+     startete das Spiel, statt den Gegner abzuschalten. */
+  pointer-events: none;
 }
+.cm-bar a,
+.cm-bar button { pointer-events: auto; }
 
 .cm-bar-left { display: flex; gap: 10px; }
 
@@ -506,7 +513,7 @@ h2 {
   container: gegner / inline-size;
 }
 .gs-leiste[hidden] { display: none; }
-.cm-stage[data-gegner="an"] .cm-play { top: calc(var(--safe-top) + 128px); }
+.cm-stage[data-gegner="an"] { --cm-oben: calc(var(--safe-top) + 128px); }
 
 .gs-chip {
   pointer-events: auto;
@@ -711,10 +718,15 @@ h2 {
 /* Bis an den unteren Rand. Den Abstand dort hält der Innenabstand – den
    brauchen die Spiele, die ihre Knöpfe und Kacheln frei hinstellen. Eine
    Fläche, die bis an den Rand reicht, liegt darüber (inset: 0) oder nimmt
-   ihn sich zurück (Fischteich, Blätter im Strom). */
+   ihn sich zurück (Fischteich, Blätter im Strom).
+
+   Oben beginnt sie unter der Leiste: --cm-oben sagt, wie weit das ist – mit
+   den Gegnern darunter mehr, auf dem Handy quer weniger. Auf dem Handy
+   beginnt sie ganz oben, und --cm-oben bleibt innen frei (Handy, unten). */
+.cm-stage { --cm-oben: calc(var(--safe-top) + 88px); }
 .cm-play {
   position: absolute;
-  inset: calc(var(--safe-top) + 88px) 0 0;
+  inset: var(--cm-oben) 0 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -2750,9 +2762,49 @@ h2 {
   }
   .cm-stage[data-vollbild] .gs-leiste { right: calc(var(--safe-right) + 212px); }
   .cm-time { top: calc(var(--safe-top) + 66px); }
-  .cm-play,
-  .cm-stage[data-gegner="an"] .cm-play { top: calc(var(--safe-top) + 76px); }
+  .cm-stage,
+  .cm-stage[data-gegner="an"] { --cm-oben: calc(var(--safe-top) + 76px); }
   .cm-stage .cm-bar .cm-title { display: none; }
+}
+
+/* Handy, hochkant wie quer: Das Spiel ist das ganze Bild. Die Spielfläche
+   beginnt ganz oben und reicht bis an alle vier Ränder; der Streifen oben ist
+   durchsichtig, und darüber schweben nur, was man anfassen oder lesen muss –
+   die Knöpfe, der Zähler, die Uhr und die Gegner, alle deckend. Die Leinwand
+   der Spiele mit eigener Welt füllt die ganze Breite, auch wo ihre breiteste
+   Welt schmaler ist (dann fehlt oben ein Streifen Himmel, kein Rand links und
+   rechts). Was im Spiel oben steht – der Satz vor dem ersten Zug, die Reihe
+   genauer Treffer, die Meter –, rückt unter die Knöpfe (--cm-oben; für die
+   Leinwand game-shell.js, frei). Die Spiele ohne Leinwand behalten ihre
+   Fläche unter der Leiste: Ihre Kacheln, Fische und Kessel gehören nicht
+   unter einen Knopf. */
+@media (max-width: 760px), (max-height: 500px) {
+  .cm-play { top: 0; padding-top: var(--cm-oben); }
+  .tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .sl-feld {
+    aspect-ratio: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    transform: none;
+  }
+  .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt {
+    top: calc(var(--cm-oben) + 8px);
+  }
+  .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }
+  /* Ohne Streifen dahinter: der Zähler auf einem eigenen Schild, die Uhr auf
+     einer hellen Spur – über dem dunklen Tunnel stünde die Zahl sonst im
+     Dunkeln. */
+  .cm-count {
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+    text-shadow: none;
+  }
+  .cm-time { background: rgba(255, 255, 255, 0.55); box-shadow: 0 1px 4px rgba(36, 48, 71, 0.18); }
+  /* Ein abgeschalteter Gegner bleibt ein Schalter: blass im Inhalt, aber
+     deckend – halb durchsichtig stünde er über dem dunklen Himmel grau. */
+  .gs-chip:not(.is-an) { background: #e6e9f1; }
 }
 
 /* --- Der Knopf ------------------------------------------------------------- */
@@ -3817,7 +3869,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .lv-leiste > :first-child { margin-left: auto; }
 .lv-leiste > :last-child { margin-right: auto; }
 .lv-leiste:empty { display: none; }
-.cm-stage[data-live] .cm-play { top: calc(var(--safe-top) + 128px); }
+.cm-stage[data-live] { --cm-oben: calc(var(--safe-top) + 128px); }
 .lv-chip {
   flex: 0 0 auto;
   display: inline-flex;
@@ -3992,7 +4044,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
     right: calc(var(--safe-right) + 150px);
   }
   .cm-stage[data-vollbild] .lv-leiste { right: calc(var(--safe-right) + 212px); }
-  .cm-stage[data-live] .cm-play { top: calc(var(--safe-top) + 76px); }
+  .cm-stage[data-live] { --cm-oben: calc(var(--safe-top) + 76px); }
   .lv-tafel { padding-top: calc(var(--safe-top) + 64px); }
 }
 @media (prefers-reduced-motion: reduce) {

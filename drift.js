@@ -1340,6 +1340,8 @@
   function zeichneAnzeige() {
     if (state.schritt === "start") return;
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const gross = clamp(view.cssH * 0.05, 14, 24);
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";

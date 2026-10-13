@@ -201,6 +201,36 @@
     const play = el("div", "cm-play");
     host.append(play);
 
+    /*
+     * Wie viele Pixel oben an einem Element (Vorgabe: die Spielfläche) unter
+     * dem liegen, was oben schwebt: Leiste, Uhr, Gegner, Multiplayer. Auf dem
+     * Handy beginnt die Spielfläche ganz oben (styles.css, Handy), und was ein
+     * Spiel selbst oben ins Bild zeichnet – die Meter, die Scheibe –, rückt um
+     * so viel nach unten. Sonst steht die Fläche unter der Leiste: null.
+     * Gemessen, nicht gerechnet – die Gegner kommen und gehen, und quer steht
+     * alles in einer Zeile. Eine Viertelsekunde gilt die letzte Messung.
+     */
+    const OBEN = ".cm-bar, .cm-time, .gs-leiste, .lv-leiste, .gz-leiste";
+    let gemessen = { ms: -1e9, knoten: null, wert: 0 };
+    function frei(knoten = play) {
+      const jetzt = performance.now();
+      if (gemessen.knoten === knoten && jetzt - gemessen.ms < 250) return gemessen.wert;
+      let wert = 0;
+      try {
+        const oben = knoten.getBoundingClientRect().top;
+        let unten = oben;
+        host.querySelectorAll(OBEN).forEach((teil) => {
+          if (teil.hidden) return;
+          const r = teil.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) unten = Math.max(unten, r.bottom);
+        });
+        wert = Math.max(0, Math.round(unten - oben));
+      } catch { wert = 0; }
+      gemessen = { ms: jetzt, knoten, wert };
+      return wert;
+    }
+    aktuell = { frei };
+
     // --- Uhr ------------------------------------------------------------------
     let ticker = null;
     let endsAt = 0;
@@ -362,9 +392,14 @@
       stopClock,
       showResult,
       closeOverlay,
+      frei,
       clear() { play.innerHTML = ""; },
     };
   }
 
-  window.LernappGameShell = { mount };
+  // Die Bühne dieser Seite (es gibt nur eine) – für geist.js, das die Namen
+  // der Geister nicht unter die Knöpfe schreiben soll.
+  let aktuell = null;
+
+  window.LernappGameShell = { mount, frei: (knoten) => aktuell?.frei?.(knoten) ?? 0 };
 })();
