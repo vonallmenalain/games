@@ -925,6 +925,8 @@
   // Tanken füllt er sich sichtbar auf.
   function zeichneAnzeige() {
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const W = view.cssW;
     const gross = clamp(view.cssH * 0.045, 14, 22);
     const x = 12;

@@ -193,7 +193,7 @@
   let gesehenBis = -Infinity;
   let fliegtFuer = -Infinity;
 
-  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
+  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0 };
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -232,13 +232,22 @@
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
     const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
-    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
+    // Auf dem Handy reicht die Leinwand unter die Knöpfe oben (game-shell.js,
+    // frei). Gemalt wird dort auch – aber was zählt, steht darunter.
+    const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);
+    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
-    view.w = clamp(SICHT_H * (cssW / cssH), WELT_W, WELT_W_MAX);
-    view.s = cssW / view.w;
+    view.frei = frei;
+    const nutzH = cssH - frei;
+    view.w = clamp(SICHT_H * (cssW / nutzH), WELT_W, WELT_W_MAX);
+    // Die ganze Höhe steht immer im Bild; ist es dafür zu flach, steht links
+    // und rechts mehr Wasser.
+    view.s = Math.min(cssW / view.w, nutzH / SICHT_H);
+    view.w = cssW / view.s;
     view.h = cssH / view.s;
+    view.nutz = nutzH / view.s;
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
@@ -246,8 +255,9 @@
   }
 
   // Ist das Bild höher als SICHT_H, steht alles in der Mitte – darüber und
-  // darunter gleich viel Luft.
-  const mitteY = () => MITTE_Y + (view.h - SICHT_H) / 2;
+  // darunter gleich viel Luft. In der Mitte dessen, was frei ist: nicht unter
+  // den Knöpfen.
+  const mitteY = () => MITTE_Y + (view.nutz - SICHT_H) / 2;
   const ruheY = () => mitteY() - ABSTAND;
 
   const wackel = () => (ruhig() ? 0 : Math.sin(state.zeit * 80) * 3 * state.stoss);
@@ -510,12 +520,14 @@
     const u = view.s;
     const mitte = view.cssW / 2;
     const ecke = 18 * u;
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    const oben = ecke + (shell?.frei?.(canvas) || 0);
     const block = Math.floor(sch.n / 5) * 5;
     for (let i = 0; i < 5; i += 1) {
       const n = block + i;
       const boss = i === 4;
       g.beginPath();
-      g.arc(ecke + i * 14 * u, ecke, (boss ? 5.2 : 4) * u, 0, TAU);
+      g.arc(ecke + i * 14 * u, oben, (boss ? 5.2 : 4) * u, 0, TAU);
       g.fillStyle = n < sch.n ? "#ffd166" : n === sch.n ? (boss ? "#ff5d5d" : "#ffffff") : "rgba(255, 255, 255, 0.25)";
       g.fill();
     }
@@ -523,7 +535,7 @@
     g.textBaseline = "middle";
     g.font = `800 ${Math.round(10 * u)}px system-ui, sans-serif`;
     g.fillStyle = sch.boss ? "#ffb4a8" : "rgba(255, 255, 255, 0.85)";
-    g.fillText(sch.boss ? `Boss · Scheibe ${sch.n + 1}` : `Scheibe ${sch.n + 1}`, ecke - 4 * u, ecke + 15 * u);
+    g.fillText(sch.boss ? `Boss · Scheibe ${sch.n + 1}` : `Scheibe ${sch.n + 1}`, ecke - 4 * u, oben + 15 * u);
     g.textAlign = "center";
 
     // Die übrigen Pfeile als kleine Striche, unten links neben dem Wurfplatz.

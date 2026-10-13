@@ -514,6 +514,23 @@ Welt (Turmbau, Brückenbauer, Drehscheibe, Lianenschwung, Tunnelflug); auf
 einem sehr flachen Bild steht ihre Fläche in der Mitte, statt oben ein Stück
 Welt zu verlieren.
 
+**Auf dem Handy** (hochkant bis 760 px breit, quer bis 500 px hoch) ist das
+Spiel das ganze Bild: Die Spielfläche beginnt ganz oben und reicht bis an
+alle vier Ränder, auch bei den Spielen mit breitester Welt. Der Streifen oben
+ist durchsichtig; darüber schweben nur die Knöpfe, der Zähler (auf einem
+eigenen Schild), die Uhr und die Gegner-Schalter, alle deckend. Was ein Spiel
+selbst oben zeigt – der Satz vor dem ersten Zug, die Meter, die Scheibe –,
+rückt unter sie: in CSS um `--cm-oben`, auf der Leinwand um das, was
+`game-shell.js` misst (`frei`). Drehscheibe, Schwerkraft-Läufer und Tunnelflug
+haben ein festes Bild (Scheibe, Korridor, Band): Es steht ganz im freien Teil,
+und unter den Knöpfen geht nur die Landschaft weiter. Die Spiele ohne
+Leinwand behalten ihre Fläche unter der Leiste – Kacheln, Fische und Kessel
+gehören nicht unter einen Knopf.
+
+Die Leiste oben fängt selbst keine Tipps, nur ihre Knöpfe: Auf dem Handy quer
+stehen die Gegner-Schalter in ihrer Zeile, und ein Finger darauf traf früher
+die Leiste und startete das Spiel, statt den Gegner abzuschalten.
+
 Oben rechts, neben dem Ton, holt ein Knopf das Spiel ins Vollbild des
 Browsers – ohne Adressleiste, auch ohne die App zu installieren. Denselben
 Knopf gibt es rechts im Balken der Startseite und der Turnierseite und im

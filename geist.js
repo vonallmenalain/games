@@ -829,7 +829,9 @@
    * Wer ausserhalb des Bildes ist, steht als Hinweis am Rand – Platz 1 und
    * die Bestmarke; die vielen unter «Alle» nicht, sonst stünde der Rand voll.
    */
-  function namen(g, orte, { breit, hoch, oben = 0 }) {
+  // oben: so weit bleibt der Rand frei – auf dem Handy, was unter den
+  // Knöpfen liegt (game-shell.js, frei).
+  function namen(g, orte, { breit, hoch, oben = window.LernappGameShell?.frei?.() || 0 }) {
     const gross = Math.round(clamp(hoch * 0.028, 10, 13));
     g.save();
     g.font = `800 ${gross}px system-ui, sans-serif`;

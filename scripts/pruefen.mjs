@@ -476,6 +476,17 @@ pruefe("styles.css: kein Text lässt sich markieren (html, user-select: none)", 
 pruefe("styles.css: Eingabefelder bleiben markierbar", /input,\s*textarea,\s*\[contenteditable="true"\] \{[^}]*user-select: text;/.test(stilCss));
 pruefe("mini-games.js fängt Markieren, Menü und Ziehen ab", /\["selectstart", "contextmenu", "dragstart"\]/.test(miniJs));
 
+// Handy: Das Spiel ist das ganze Bild, die Leiste fängt nur mit ihren
+// Knöpfen, und was im Spiel oben steht, rückt unter die Knöpfe.
+pruefe("styles.css: Die Leiste oben lässt Tipps durch, nur ihre Knöpfe nicht",
+  /\.cm-bar \{[^}]*pointer-events: none;/.test(stilCss) && /\.cm-bar a,\s*\.cm-bar button \{ pointer-events: auto; \}/.test(stilCss));
+pruefe("styles.css: Auf dem Handy beginnt die Spielfläche ganz oben (--cm-oben bleibt innen frei)",
+  /@media \(max-width: 760px\), \(max-height: 500px\) \{\s*\.cm-play \{ top: 0; padding-top: var\(--cm-oben\); \}/.test(stilCss));
+pruefe("game-shell.js misst, was oben unter den Knöpfen liegt (frei)", /function frei\(knoten = play\)/.test(lies("game-shell.js")));
+for (const datei of ["liane.js", "huegel.js", "tunnelflug.js", "drift.js", "planeten.js", "mondlandung.js", "schwerkraft.js", "drehscheibe.js"]) {
+  pruefe(`${datei} zeigt seine Anzeige oben unter den Knöpfen (frei)`, /shell\?\.frei\?\.\(canvas\)/.test(lies(datei)));
+}
+
 // Die Turnier-App bleibt im Turnier.
 const turnierJs = lies("turnier.js");
 pruefe("turnier.js merkt sich das Turnier eines App-Fensters (mini.heimTurnier)", /const HEIM_KEY = "mini\.heimTurnier";/.test(turnierJs) && /window\.location\.replace\(seitenLink\(heim\)\)/.test(turnierJs));

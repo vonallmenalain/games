@@ -759,6 +759,8 @@
   function zeichneAnzeige() {
     if (state.phase === "bereit") return;
     bildTransform();
+    // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
+    g.translate(0, shell?.frei?.(canvas) || 0);
     const W = view.cssW;
     const H = view.cssH;
     const gross = clamp(view.cssH * 0.05, 14, 24);
