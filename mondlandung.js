@@ -13,12 +13,12 @@
  * und hält über der Plattform still, übrig bleibt, sanft genug aufzusetzen.
  * Zu schnell, daneben oder gegen einen Berg – und es kracht.
  *
- * Es geht um den Treibstoff. Jede Landung bringt Punkte, und umso mehr, je
- * weniger der Flug dorthin verbraucht hat: Der Balken oben zeigt den Tank,
- * und ein Strich darauf, wie weit er für diesen Flug höchstens sinken
- * sollte. Wer darüber bleibt, fliegt sparsam. Auf der Plattform wird
- * nachgetankt, aber nie ganz – und von Plattform zu Plattform weniger. Fünf,
- * sechs Plattformen schafft jeder; wer weiter will, muss sparsam fliegen.
+ * Es geht um den Treibstoff. Jede Plattform bringt Punkte, aber jeder
+ * Tropfen Treibstoff kostet welche – vom ersten Schub an, und man sieht die
+ * Zahl dabei sinken. Der Balken oben zeigt den Tank; er leert sich schnell.
+ * Auf der Plattform wird nachgetankt, aber nie ganz und von Plattform zu
+ * Plattform weniger. Fünf, sechs Plattformen schafft jeder; wer weiter will,
+ * muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.
  *
  * Die Plattformen werden schmaler, liegen weiter auseinander und hinter
  * höheren Bergen. Gezählt werden die Punkte.
@@ -64,9 +64,9 @@
   const NEIG_MAX = 0.7;            // so weit neigt sich die Fähre höchstens
   const NEIG_TEMPO = 3.2;          // so schnell dreht sie sich dorthin
   const TANK = 100;
-  const VERBRAUCH = 8;             // je Sekunde Schub
-  const PUNKTE_PLATTE = 100;       // für jede erreichte Plattform …
-  const PUNKTE_SPAREN = 200;       // … und höchstens so viel dazu für einen sparsamen Flug
+  const VERBRAUCH = 16;            // je Sekunde Schub – der Tank reicht gut sechs Sekunden
+  const PUNKTE_PLATTE = 200;       // für jede erreichte Plattform …
+  const PUNKTE_TREIBSTOFF = 2;     // … und so viel kostet jedes Prozent Treibstoff
 
   // Was als Landung gilt.
   const LANDE_VY = 55;
@@ -89,8 +89,8 @@
     "Finger über der Fähre: Sie steigt. Finger rechts oder links: Sie zieht dorthin. Lass los, dann fällt sie.",
     "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
     "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
-    "Jede Plattform gibt 100 Punkte, und bis zu 200 dazu, je weniger Treibstoff dein Flug braucht. Der Strich auf dem Tankbalken zeigt, wie weit er für einen sparsamen Flug höchstens sinken sollte.",
-    "Auf der Plattform wird nachgetankt, aber nie ganz – und immer weniger. Wer weit kommen will, muss sparsam fliegen.",
+    "Jede Plattform bringt 200 Punkte – aber jeder Schub kostet Punkte, solange das Triebwerk brennt.",
+    "Auf der Plattform wird nachgetankt, aber nie ganz – und immer weniger. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -110,18 +110,11 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const schwereBei = (n) => 1 - Math.exp(-n / 12);
 
-  // Der Bonus für einen Flug, gemessen an dem, was er braucht (platte.bedarf):
-  // voll, wer nicht mehr als 85 Prozent davon verbraucht – bis zum Strich
-  // auf dem Balken –, nichts mehr ab dem Siebenviertelfachen.
-  const SPARSAM = 0.85;
-  const sparBonus = (verbraucht, bedarf) =>
-    Math.round(PUNKTE_SPAREN * clamp((1.75 - verbraucht / Math.max(1, bedarf)) / (1.75 - SPARSAM), 0, 1));
-
   // Wie viel auf einer Plattform nachgetankt wird: am Anfang reichlich für
   // den nächsten Flug, nach fünf, sechs Plattformen weniger, als ein
   // ordentlicher Flug braucht. Wer dann weiter will, lebt von dem, was er
   // vorher gespart hat – und fliegt sparsam.
-  const tankFaktor = (n) => lerp(1.5, 0.85, 1 - Math.exp(-n / 4.5));
+  const tankFaktor = (n) => lerp(1.1, 0.45, 1 - Math.exp(-n / 5));
   // Und voll wird er dabei nie: höchstens so weit.
   const TANK_NACH = TANK * 0.9;
 
@@ -139,7 +132,10 @@
     phase: "bereit",
     schritt: "start",
     punkte: 0,
-    sparsam: 0,           // Flüge mit vollem Bonus
+    sparsam: 0,           // Flüge, die höchstens 40 Prozent des Tanks gekostet haben
+    kostenFlug: 0,        // was der Treibstoff auf diesem Flug an Punkten gekostet hat
+    kostenGesamt: 0,      // … und in der ganzen Runde
+    angezeigt: 0,         // die Zahl oben in der Leiste
     landungen: 0,
     f: { x: 0, y: 0, vx: 0, vy: 0, neig: 0 },
     tank: TANK,
@@ -221,7 +217,7 @@
     const k = schwereBei(n);
     const vor = platten[n - 1];
     const breite = lerp(130, 58, k) * (0.85 + zufall.zahl() * 0.3);
-    const weg = lerp(170, 470, k) * (0.8 + zufall.zahl() * 0.4);
+    const weg = lerp(170, 320, k) * (0.8 + zufall.zahl() * 0.4);
     const y = clamp(vor.y + lerp(-80, 110, zufall.zahl()) * lerp(0.5, 1.1, k), 20, 560);
     const x0 = vor.x1 + weg;
     const x1 = x0 + breite;
@@ -231,7 +227,7 @@
     const unten = Math.min(vor.y, y) - lerp(40, 90, zufall.zahl());
     // Die ersten Sprünge gehen ohne Berg; danach immer öfter einer, immer höher.
     const berg = zufall.zahl() < (n < 3 ? 0 : lerp(0.15, 0.65, k));
-    const bergHoch = Math.max(vor.y, y) + lerp(20, 200, k) * (0.5 + zufall.zahl() * 0.5);
+    const bergHoch = Math.max(vor.y, y) + lerp(20, 110, k) * (0.5 + zufall.zahl() * 0.5);
     const bergMitte = lerp(0.3, 0.7, zufall.zahl());
     const wellen = 1 + Math.floor(zufall.zahl() * 3);
     const phase = zufall.zahl() * Math.PI * 2;
@@ -789,10 +785,9 @@
 
   // Oben links die Punkte und die Landungen, darunter, breit, der Tank.
   //
-  // Der Balken sinkt, solange das Triebwerk brennt. Hell abgesetzt steht
-  // daneben, was dieser Flug schon verbraucht hat, und ein Strich zeigt, wie
-  // weit er für einen sparsamen Flug höchstens sinken sollte: Wer darüber
-  // landet, bekommt den vollen Bonus. Beim Tanken füllt er sich sichtbar auf.
+  // Der Balken sinkt, solange das Triebwerk brennt – und mit ihm die Punkte.
+  // Hell abgesetzt steht daneben, was dieser Flug schon verbraucht hat. Beim
+  // Tanken füllt er sich sichtbar auf.
   function zeichneAnzeige() {
     bildTransform();
     const W = view.cssW;
@@ -805,7 +800,7 @@
       g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
       g.textAlign = "left";
       g.textBaseline = "middle";
-      const text = String(state.punkte);
+      const text = String(Math.round(state.punkte));
       const klein = Math.round(gross * 0.62);
       const landText = `${state.landungen}`;
       g.font = `800 ${klein}px system-ui, sans-serif`;
@@ -871,21 +866,6 @@
     if (getankt && !ruhig()) {
       g.fillStyle = `rgba(255, 255, 255, ${0.35 * (1 - (state.zeit - getankt.zeit) / 1.4)})`;
       g.fillRect(bx, by, bw * k, bh);
-    }
-    // Der Strich: so tief darf der Tank auf diesem Flug sinken, damit er
-    // sparsam war.
-    const p = state.platten[state.auf + 1];
-    if (p && state.schritt !== "crash") {
-      const strich = clamp((state.tankAb - p.bedarf * SPARSAM) / TANK, 0, 1);
-      const sx = bx + bw * strich;
-      g.fillStyle = "#ffffff";
-      g.fillRect(sx - 1.5, by - 5, 3, bh + 10);
-      g.beginPath();
-      g.moveTo(sx - 5, by - 7);
-      g.lineTo(sx + 5, by - 7);
-      g.lineTo(sx, by - 2);
-      g.closePath();
-      g.fill();
     }
     // Die Beschriftung im Balken.
     const schrift = Math.round(bh * 0.66);
@@ -996,13 +976,19 @@
     // Und sie gleitet über die Mitte der Plattform und hält dort still.
     if (strahl) {
       const mitte = (strahl.x0 + strahl.x1) / 2;
-      const soll = clamp((mitte - f.x) * 1.4, -45, 45);
+      const soll = clamp((mitte - f.x) * 1.4, -LANDE_VX * 0.7, LANDE_VX * 0.7);
       f.vx += (soll - f.vx) * (1 - Math.exp(-dt * 3));
     }
 
     const brennt = state.schub && state.tank > 0;
     if (brennt) {
-      state.tank = Math.max(0, state.tank - VERBRAUCH * dt);
+      const weg = Math.min(state.tank, VERBRAUCH * dt);
+      state.tank -= weg;
+      // Jeder Tropfen kostet Punkte, sofort.
+      const kosten = (weg / TANK) * 100 * PUNKTE_TREIBSTOFF;
+      state.punkte -= kosten;
+      state.kostenFlug += kosten;
+      state.kostenGesamt += kosten;
       if (state.tank <= 0) schrift("Tank leer!", f.x, f.y + 40, "#ff8c8c", 15);
       f.vx += Math.sin(f.neig) * SCHUB * dt;
       f.vy += Math.cos(f.neig) * SCHUB * dt;
@@ -1052,14 +1038,13 @@
     if (platte.n > state.auf) {
       state.auf = platte.n;
       state.landungen += 1;
-      // Die Punkte: für die Plattform, und dazu, wie sparsam der Flug
-      // hierher war – gemessen an dem, was er braucht.
-      const verbraucht = Math.max(0, state.tankAb - state.tank);
-      const bonus = sparBonus(verbraucht, platte.bedarf);
-      const plus = PUNKTE_PLATTE + bonus;
-      state.punkte += plus;
-      if (bonus >= PUNKTE_SPAREN * 0.9) state.sparsam += 1;
-      shell.setCount(state.punkte);
+      // Die Punkte für die Plattform. Was der Flug gekostet hat, ist schon
+      // abgezogen – Tropfen für Tropfen.
+      const kosten = Math.round(state.kostenFlug);
+      state.kostenFlug = 0;
+      state.punkte += PUNKTE_PLATTE;
+      if (kosten <= 40 * PUNKTE_TREIBSTOFF) state.sparsam += 1;
+      zeigeZahl();
       // Tanken – nie ganz voll, und von Plattform zu Plattform weniger.
       while (state.platten.length < platte.n + 3) naechstePlatte();
       const nach = clamp(Math.round(state.platten[platte.n + 1].bedarf * tankFaktor(platte.n)), 6, 60);
@@ -1067,18 +1052,21 @@
       state.tank = Math.max(vorher, Math.min(TANK_NACH, vorher + nach));
       state.tankAb = state.tank;
       state.getankt = { menge: Math.round(state.tank - vorher), zeit: state.zeit };
-      if (bonus >= PUNKTE_SPAREN * 0.9) {
-        schrift(`Sehr sparsam! +${plus}`, f.x, f.y + 34, "#ffe08a", 16);
-        kids()?.playJingle?.("star");
-      } else if (bonus >= PUNKTE_SPAREN * 0.45) {
-        schrift(`Sparsam +${plus}`, f.x, f.y + 34, "#9effc0", 15);
-        kids()?.playJingle?.("tap");
-      } else {
-        schrift(`Gelandet +${plus}`, f.x, f.y + 34, "#ffffff", 15);
-        kids()?.playJingle?.("tap");
-      }
+      const netto = PUNKTE_PLATTE - kosten;
+      const wort = kosten <= 40 * PUNKTE_TREIBSTOFF ? "Sparsam!" : netto > 0 ? "Gelandet" : "Teuer gelandet";
+      schrift(`${wort} +${PUNKTE_PLATTE}`, f.x, f.y + 38, kosten <= 40 * PUNKTE_TREIBSTOFF ? "#ffe08a" : "#ffffff", 16);
+      schrift(`Flug −${kosten}`, f.x, f.y + 20, "#ff9b9b", 12);
+      kids()?.playJingle?.(kosten <= 40 * PUNKTE_TREIBSTOFF ? "star" : "tap");
     }
     while (state.platten.length < state.auf + 4) naechstePlatte();
+  }
+
+  // Die Zahl oben in der Leiste – sie sinkt mit jedem Schub.
+  function zeigeZahl() {
+    const zahl = Math.round(state.punkte);
+    if (zahl === state.angezeigt) return;
+    state.angezeigt = zahl;
+    shell.setCount(zahl);
   }
 
   function crash() {
@@ -1154,7 +1142,8 @@
     state.camX += (mx - state.camX) * k;
     state.camY += (my - state.camY) * k;
 
-    if (state.phase === "spiel") gegner?.takt(state.punkte);
+    zeigeZahl();
+    if (state.phase === "spiel") gegner?.takt(Math.max(0, Math.round(state.punkte)));
   }
 
   function loop(now) {
@@ -1202,6 +1191,9 @@
     state.schritt = "start";
     state.punkte = 0;
     state.sparsam = 0;
+    state.kostenFlug = 0;
+    state.kostenGesamt = 0;
+    state.angezeigt = 0;
     state.landungen = 0;
     state.boden = [];
     state.platten = [];
@@ -1265,7 +1257,7 @@
     stopLoop();
     if (state.phase === "ende") return;
     state.phase = "ende";
-    const punkte = state.punkte;
+    const punkte = Math.max(0, Math.round(state.punkte));
     gegner?.ende(punkte);
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
@@ -1275,11 +1267,11 @@
     }));
     kids()?.playJingle?.("win");
     const landungen = state.landungen === 1 ? "1 Landung" : `${state.landungen} Landungen`;
-    const sparsam = state.sparsam ? ` · ${state.sparsam} sehr sparsam` : "";
+    const kosten = ` · −${Math.round(state.kostenGesamt)} für Treibstoff`;
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? `Neuer Rekord! ${landungen}${sparsam}` : `${landungen}${sparsam}${vorher ? ` · Bestwert ${vorher}` : ""}`,
+      detail: rekord ? `Neuer Rekord! ${landungen}${kosten}` : `${landungen}${kosten}${vorher ? ` · Bestwert ${vorher}` : ""}`,
       speech: `${punkte} Punkte, ${landungen}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ml-rekord");
@@ -1299,7 +1291,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "ziel", fassung: "p2" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "ziel", fassung: "p3" }) || null;
 
   startRun();
 
