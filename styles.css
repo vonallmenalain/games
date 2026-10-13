@@ -3693,6 +3693,24 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .adm-turnier-stand { font-size: 0.85rem; font-weight: 700; color: #47506a; }
 .adm-turnier .adm-kopf-aktionen { margin-top: 4px; }
 
+/* Die eigenen Multiplayer (admin.js, meineMultiplayer): der Weg zurück in die
+   Lobby und der Link – einer nur mit Link steht sonst nirgends. */
+.adm-multiplayer { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+.adm-multiplayer h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: var(--adm-farbe-dunkel, #243047); }
+.adm-multiplayer-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff4f4;
+  box-shadow: inset 0 0 0 1px rgba(217, 63, 69, 0.18);
+}
+.adm-multiplayer-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.adm-multiplayer-text small { color: #667085; font-weight: 700; }
+
 /* Das Formular wird beim Öffnen ins Bild gerollt – mit etwas Luft darüber,
    sonst klebt es am oberen Rand. */
 .adm-turnier-formwirt { scroll-margin-top: 16px; }
@@ -3933,6 +3951,18 @@ p.tn-verdeckt:not(.mini-hinweis) {
   animation: lv-puls 1.4s ease-in-out infinite;
 }
 @keyframes lv-puls { 50% { opacity: 0.55; } }
+/* Weg: schweigt seit zwölf Sekunden – Bildschirm aus, App im Hintergrund.
+   Auf ihn wartet die Runde nicht (live.js, WEG_MS). */
+.lv-weg {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #c3c8d4;
+  color: #fff;
+  font-size: 0.7rem;
+}
+/* Der Knopf der Leitung auf ihrer Tafel: ruhiger als ein Spielknopf. */
+.lv-knopf-still { border: 0; background: #243047; font: inherit; font-weight: 800; cursor: pointer; }
+.lv-knopf-still:disabled { opacity: 0.5; }
 
 @media (max-height: 500px) and (min-width: 780px) {
   .lv-leiste {
@@ -3961,15 +3991,6 @@ p.tn-verdeckt:not(.mini-hinweis) {
   animation: lv-puls 1.6s ease-in-out infinite;
 }
 .lv-status { margin: 0; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
-.lv-code-klein {
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.22);
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  font-variant-numeric: tabular-nums;
-}
 .lv-block { gap: 10px; }
 .lv-klein { margin: 0; font-size: 0.9rem; color: #5b6678; line-height: 1.4; }
 .lv-link { color: #5b6678; font-weight: 700; }
@@ -3989,19 +4010,31 @@ p.tn-verdeckt:not(.mini-hinweis) {
   font-size: 1.1rem;
   font-weight: 800;
 }
-.lv-beitreten .lv-code-feld { font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; text-align: center; }
 .lv-beitreten input:focus-visible { outline: 3px solid var(--mini-ton); outline-offset: 2px; }
-.lv-code-gross {
+.lv-link-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; overflow-wrap: anywhere; }
+/* Der Link auf dem Grossbild: so gross, dass man ihn vom Sofa abschreibt. */
+.lv-link-gross {
   margin: 0;
-  font-size: clamp(3rem, 16vw, 4.6rem);
+  font-size: clamp(1.4rem, 4vw, 2.6rem);
   font-weight: 900;
-  letter-spacing: 0.22em;
-  line-height: 1;
+  line-height: 1.2;
   color: #243047;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
-.lv-link-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; overflow-wrap: anywhere; }
+/* /live ohne Link: die Multiplayer, die gerade für alle offen sind. */
+.lv-offen { display: flex; flex-direction: column; gap: 10px; }
+.lv-offen-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.08);
+}
+.lv-offen-text { min-width: 0; color: #243047; overflow-wrap: anywhere; }
 .lv-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .lv-block .lv-knoepfe { justify-content: center; }
 .lv-unten { justify-content: center; }
@@ -4142,8 +4175,8 @@ body.lv-im-spiel { overflow: hidden; }
   .lv-punkt { animation: none; }
 }
 
-/* Der Weg in einen Live-Abend, oben auf der Startseite: mit dem roten Punkt
-   davor, wie bei einer Übertragung. */
+/* Der Weg in einen Multiplayer, oben auf der Startseite – nur, solange einer
+   für alle offen ist: mit dem roten Punkt davor, wie bei einer Übertragung. */
 .mini-knopf-live::before {
   content: "";
   width: 9px;
@@ -4154,6 +4187,7 @@ body.lv-im-spiel { overflow: hidden; }
 }
 .mini-knopf-live { gap: 8px; }
 .lv-tabelle .lv-spielt-noch { margin-left: 6px; background: #3fbf74; color: #fff; animation: lv-puls 1.4s ease-in-out infinite; }
+.lv-tabelle .lv-weg-klein { margin-left: 6px; background: #c3c8d4; color: #fff; }
 
 /* --- Live: zuschauen (live-spiel.js) -------------------------------------- */
 /* Nach dem eigenen Ende lässt sich oben jeder antippen, der noch spielt; wem
@@ -4177,7 +4211,6 @@ body.lv-im-spiel { overflow: hidden; }
 .lv-grossbild .mini-kopf h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
 .lv-grossbild .mini-tabelle { font-size: 1.25rem; }
 .lv-grossbild .mini-tabelle th { font-size: 0.9rem; }
-.lv-grossbild .lv-code-gross { font-size: clamp(5rem, 14vw, 10rem); }
 .lv-grossbild .lv-spieler li { font-size: 1.3rem; padding: 12px 18px; }
 .lv-grossbild .lv-podest { max-width: 900px; }
 .lv-grossbild .lv-stufe-1 { min-height: 280px; }
@@ -4185,7 +4218,7 @@ body.lv-im-spiel { overflow: hidden; }
 .lv-grossbild .lv-stufe-3 { min-height: 170px; }
 .lv-grossbild .lv-podest-platz { font-size: 3.2rem; }
 
-/* --- Turnier: ein Live-Abend (turnier.js, live.js) ---------------------------- */
+/* --- Turnier: ein Multiplayer (turnier.js, live.js) --------------------------- */
 /* Läuft gerade einer, steht er ganz oben – mit dem Weg hinein. */
 .tn-live {
   display: flex;

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-12";
+export const FASSUNG = "2026-10-13-13";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -173,7 +173,7 @@ const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 // geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
 // in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.
 // live-spiel.js steht vor der Bühne: Sie fragt beim Aufbauen, ob diese Seite
-// eine Runde eines Live-Abends ist.
+// eine Runde eines Multiplayers ist.
 const NACH_DER_KUNST = ["game-cloud.js", "live-spiel.js", "game-shell.js", "geist.js"];
 
 const v = (datei) => `${datei}?v=${FASSUNG}`;
@@ -198,7 +198,7 @@ export const turnierSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
 // zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
 export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 // Die Live-Seite: das Fundament, die Anmeldung (wer leitet) und die Realtime
-// Database. pwa.js gehört dazu – ein Live-Abend lässt sich auch aus der
+// Database. pwa.js gehört dazu – ein Multiplayer lässt sich auch aus der
 // installierten App heraus spielen.
 export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
 
@@ -310,24 +310,25 @@ export function liveSeite() {
 <!--
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
-  Der Live-Abend: /live (Code eingeben oder, als Admin, einen anlegen),
-  /live?code=K7QM (Lobby, Runden, Podest). Was darauf steht, baut live.js;
-  die Spiele laufen in einem Rahmen darüber (live-spiel.js).
+  Der Multiplayer: /live (die, die gerade für alle offen sind; als Admin
+  /live?neu, um einen anzulegen), /live?code=K7QMX2PA9Z (Lobby, Runden,
+  Podest). Was darauf steht, baut live.js; die Spiele laufen in einem Rahmen
+  darüber (live-spiel.js).
 
-  Nicht für Suchmaschinen: Ein Live-Abend ist eine Verabredung, kein Ort.
+  Nicht für Suchmaschinen: Ein Multiplayer ist eine Verabredung, kein Ort.
 -->
 <html lang="de">
   <head>
 ${kopf({
-    titel: "Live · Mini-Games",
-    text: "Ein Live-Abend der Mini-Games: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Code.",
+    titel: "Multiplayer · Mini-Games",
+    text: "Multiplayer der Mini-Games: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Link.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
   })}
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body data-page="live">
     <main class="mini-seite lv-seite" data-live>
-      <p class="mini-hinweis">Der Live-Abend wird geladen...</p>
+      <p class="mini-hinweis">Der Multiplayer wird geladen...</p>
     </main>
 
 ${skripte(liveSkripte())}

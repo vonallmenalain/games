@@ -189,11 +189,11 @@
    * Die Punkte selbst zusammenzuzählen wäre sinnlos: 40 Blöcke im Turmbau und
    * 40 Fische im Teich sind nicht dasselbe.
    *
-   * Dazu die Live-Abende, die zum Turnier gehören (live.js): Ihr Endstand
+   * Dazu die Multiplayer, die zum Turnier gehören (live.js): Ihr Endstand
    * zählt wie ein weiteres Spiel, mal ihr Gewicht (×1, ×2, ×3; 0 zählt gar
    * nicht). Wer einen verpasst hat, steht dort hinter dem Letzten – wie bei
-   * einem ausgelassenen Spiel. In einem Turnier, das nur live gespielt wird,
-   * zählen nur die Abende.
+   * einem ausgelassenen Spiel. In einem Turnier, das nur im Multiplayer
+   * gespielt wird, zählen nur sie.
    */
   function gesamtwertung(t, eintraege, abende = []) {
     const spiele = t.nurLive ? [] : t.spiele;
@@ -435,7 +435,7 @@
         const [t, eintraege, abende] = await Promise.all([
           cloud().turnier(id),
           cloud().turnierErgebnisse(id),
-          // Die Live-Abende dürfen fehlen – das Turnier steht auch ohne sie.
+          // Die Multiplayer dürfen fehlen – das Turnier steht auch ohne sie.
           Promise.resolve(cloud().turnierLive?.(id)).catch(() => []),
         ]);
         stand.t = t || null;
@@ -459,7 +459,7 @@
       schauLive();
     }
 
-    // Läuft gerade ein Live-Abend zu diesem Turnier? Dann steht ganz oben der
+    // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht ganz oben der
     // Weg hinein. Gefragt wird beim Laden und dann alle 20 Sekunden, solange
     // die Seite zu sehen ist.
     async function schauLive() {
@@ -484,14 +484,14 @@
       status.textContent = statusZeile(t, jetzt);
       inhalt.innerHTML = "";
 
-      // Ein Live-Abend läuft: ganz oben der Weg hinein.
+      // Ein Multiplayer läuft: ganz oben der Weg hinein.
       if (stand.zeiger) inhalt.append(liveHinweis(stand.zeiger));
 
       inhalt.append(streifen([
         [t.spiele.length, t.spiele.length === 1 ? "Spiel" : "Spiele"],
         [personen.length, "Spieler"],
         t.nurLive
-          ? [abende.length || "–", abende.length === 1 ? "Live-Abend" : "Live-Abende"]
+          ? [abende.length || "–", "Multiplayer"]
           : t.spitzeWartet
             ? ["∞", "Versuche – wer vorne liegt, wartet"]
             : [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
@@ -506,12 +506,12 @@
       spieleBlock.append(karten);
       inhalt.append(spieleBlock);
 
-      // Die Live-Abende, die schon gezählt haben: je ihr Endstand.
+      // Die Multiplayer, die schon gezählt haben: je ihr Endstand.
       if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
 
       // Mit einem einzigen Spiel ist dessen Liste schon die Gesamtwertung –
       // eine zweite Tabelle darunter sagte dasselbe noch einmal. Mit einem
-      // Live-Abend dazu nicht mehr.
+      // Multiplayer dazu nicht mehr.
       if (teile > 1 || (t.nurLive && teile > 0)) {
         const gesamt = el("section", "mini-block");
         gesamt.append(el("h2", "", vorbei ? "Endstand" : "Gesamtwertung"));
@@ -543,22 +543,22 @@
     laden();
   }
 
-  // Ein Live-Abend zu diesem Turnier läuft gerade (live.js): der Weg hinein.
+  // Ein Multiplayer zu diesem Turnier läuft gerade (live.js): der Weg hinein.
   function liveHinweis(zeiger) {
     const box = el("section", "tn-live");
     const text = el("div", "tn-live-text");
     const marke = el("strong", "tn-live-marke");
-    marke.append(el("span", "tn-live-punkt"), el("span", "", "Jetzt live"));
+    marke.append(el("span", "tn-live-punkt"), el("span", "", "Multiplayer läuft"));
     text.append(marke, el("span", "", zeiger.name));
     box.append(text, verweis("Mitspielen", `/live?code=${encodeURIComponent(zeiger.code)}`, "mini-knopf-voll"));
     return box;
   }
 
-  // Die Live-Abende, die zum Turnier gehören: je ihr Endstand und wie sie
+  // Die Multiplayer, die zum Turnier gehören: je ihr Endstand und wie sie
   // zählen. Bei einer verdeckten Rangliste nur, dass es sie gab.
   function liveAbende(abende, verdeckt) {
     const block = el("section", "mini-block");
-    block.append(el("h2", "", abende.length === 1 ? "Der Live-Abend" : "Die Live-Abende"));
+    block.append(el("h2", "", "Multiplayer"));
     const karten = el("div", "mini-karten");
     abende.forEach((a) => {
       const karte = el("article", "mini-karte tn-karte tn-live-karte");
@@ -627,7 +627,7 @@
 
     const aktionen = el("div", "mini-karte-aktionen");
     const l = lage(t, jetzt);
-    if (t.nurLive) aktionen.append(el("span", "tn-fertig", "Wird live gespielt"));
+    if (t.nurLive) aktionen.append(el("span", "tn-fertig", "Wird im Multiplayer gespielt"));
     else if (l === "laeuft" && vorne) aktionen.append(el("span", "tn-fertig", "Du liegst vorne"));
     else if (l === "laeuft" && uebrig > 0) aktionen.append(verweis("Spielen", spielLink(t.id, spiel), "mini-knopf-voll"));
     else if (l === "laeuft") aktionen.append(el("span", "tn-fertig", "Alle Versuche gespielt"));
@@ -676,12 +676,12 @@
         if (!je) return `${titel(spiel)} –`;
         return prozent ? `${titel(spiel)} ${Math.round(je.prozent)}` : `${titel(spiel)} ${je.platz}.`;
       });
-      // Die Live-Abende, mit ihrem Gewicht.
+      // Die Multiplayer, mit ihrem Gewicht.
       abende.forEach((a) => {
         const je = person.abende?.[a.id];
         const mal = a.gewicht > 1 ? ` ×${a.gewicht}` : "";
-        if (!je) teile.push(`Live «${a.name}» –`);
-        else teile.push(prozent ? `Live «${a.name}» ${Math.round(je.prozent)}${mal}` : `Live «${a.name}» ${je.platz}.${mal}`);
+        if (!je) teile.push(`«${a.name}» –`);
+        else teile.push(prozent ? `«${a.name}» ${Math.round(je.prozent)}${mal}` : `«${a.name}» ${je.platz}.${mal}`);
       });
       wer.append(el("small", "tn-teile", teile.join(" · ")));
       namensZelle.append(wer);
@@ -845,7 +845,7 @@
   function spielbar(jetzt = Date.now()) {
     const t = hier.t;
     if (!t || lage(t, jetzt) !== "laeuft" || !t.spiele.includes(spielHier())) return false;
-    // Nur live: Gespielt wird am Live-Abend, nicht hier.
+    // Nur im Multiplayer: Gespielt wird dort, nicht hier.
     if (t.nurLive) return false;
     if (t.spitzeWartet && hier.vorne) return false;
     return !t.versuche || hier.gespielt < t.versuche;

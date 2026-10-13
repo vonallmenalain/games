@@ -20,7 +20,7 @@
  * "darf"-Fälle schlagen fehl, und die Ursache steht in firestore-debug.log.
  *
  * Dasselbe für database.rules.json, die Regeln der Realtime Database (für den
- * Live-Modus): wer einen Live-Abend anlegen und steuern darf, und was Spieler
+ * Live-Modus): wer einen Multiplayer anlegen und steuern darf, und was Spieler
  * ohne Konto dort schreiben dürfen. Sie läuft in ihrem eigenen Emulator;
  * dessen Regeln lädt initializeTestEnvironment aus der Datei, wie die von
  * Firestore.
@@ -289,7 +289,7 @@ await darfNicht("Gast beginnt einen Versuch in einem Turnier, das nur live gespi
   game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
 }));
 
-// Der Endstand eines Live-Abends im Turnier: lesen jeder, schreiben der Admin.
+// Der Endstand eines Multiplayers im Turnier: lesen jeder, schreiben der Admin.
 const LIVE_ERGEBNIS = "miniTurniere/livecup-r5t7z9u1/live/K7QM-1760368000000";
 const liveErgebnis = (aenderung = {}) => ({
   name: "Familienabend",
@@ -301,16 +301,16 @@ const liveErgebnis = (aenderung = {}) => ({
   updatedAtMs: 1,
   ...aenderung,
 });
-await darfNicht("Gast trägt einen Live-Abend ins Turnier ein", () => gast().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
-await darfNicht("Ein angemeldeter Fremder trägt einen Live-Abend ein", () => fremder().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
-await darfNicht("Admin trägt einen Live-Abend mit Gewicht 5 ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ gewicht: 5 })));
-await darfNicht("Admin trägt einen Live-Abend ohne Endstand ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ endstand: "Alain" })));
-await darfNicht("Admin trägt einen Live-Abend unter erfundenem Namen ein", () => admin().doc("miniTurniere/livecup-r5t7z9u1/live/familienabend").set(liveErgebnis()));
-await darfNicht("Admin schmuggelt ein Feld in den Live-Abend", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ preis: 100 })));
-await darf("Admin trägt einen Live-Abend ins Turnier ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
-await darf("Gast liest die Live-Abende eines Turniers", () => gast().collection("miniTurniere/livecup-r5t7z9u1/live").get());
-await darfNicht("Gast löscht einen Live-Abend", () => gast().doc(LIVE_ERGEBNIS).delete());
-await darf("Admin löscht einen Live-Abend", () => admin().doc(LIVE_ERGEBNIS).delete());
+await darfNicht("Gast trägt einen Multiplayer ins Turnier ein", () => gast().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darfNicht("Ein angemeldeter Fremder trägt einen Multiplayer ein", () => fremder().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darfNicht("Admin trägt einen Multiplayer mit Gewicht 5 ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ gewicht: 5 })));
+await darfNicht("Admin trägt einen Multiplayer ohne Endstand ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ endstand: "Alain" })));
+await darfNicht("Admin trägt einen Multiplayer unter erfundenem Namen ein", () => admin().doc("miniTurniere/livecup-r5t7z9u1/live/familienabend").set(liveErgebnis()));
+await darfNicht("Admin schmuggelt ein Feld in den Multiplayer", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ preis: 100 })));
+await darf("Admin trägt einen Multiplayer ins Turnier ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darf("Gast liest die Multiplayer eines Turniers", () => gast().collection("miniTurniere/livecup-r5t7z9u1/live").get());
+await darfNicht("Gast löscht einen Multiplayer", () => gast().doc(LIVE_ERGEBNIS).delete());
+await darf("Admin löscht einen Multiplayer", () => admin().doc(LIVE_ERGEBNIS).delete());
 
 await darf("Gast öffnet ein öffentliches Turnier", () => gast().doc(OEFFENTLICH).get());
 await darf("Gast öffnet ein Turnier über den Link", () => gast().doc(GEHEIM).get());
@@ -645,7 +645,7 @@ await darfNicht("Admin schreibt in eine erfundene Sammlung", () => admin().doc("
 await darfNicht("Admin legt sich selbst eine Konto-Sammlung an", () => admin().doc("users/admin").set({ rolle: "admin" }));
 
 // --- Die Realtime Database: der Live-Modus ------------------------------
-// Ein Live-Abend liegt unter live/<code>. Lesen darf, wer den Code kennt;
+// Ein Multiplayer liegt unter live/<code>. Lesen darf, wer den Code kennt;
 // auflisten lässt sich nichts. Anlegen, steuern (zustand) und aufräumen darf
 // nur der Admin. Spieler schreiben ohne Konto nur unter ihrer Kennung: dass
 // sie da sind, ihre Punkte je Runde und wo ihre Figur gerade ist – in genau
@@ -673,18 +673,18 @@ await darf("Ohne Regeln lässt sich die Realtime Database lesen und beschreiben"
     await ref.remove();
   }));
 await darfNicht("Gast liest die ganze Realtime Database", () => live.gast().ref("/").get());
-await darfNicht("Gast listet alle Live-Abende auf", () => live.gast().ref("live").get());
-await darfNicht("Gast legt einen Live-Abend an", () => live.gast().ref(ABEND).set(abend()));
-await darfNicht("Fremder mit Konto legt einen Live-Abend an", () => live.fremder().ref(ABEND).set(abend({ host: "fremd" })));
-await darfNicht("Admin ohne bestätigte Adresse legt einen Live-Abend an", () => live.adminOhneVerifikation().ref(ABEND).set(abend({ host: "admin2" })));
-await darfNicht("Admin legt einen Live-Abend unter fremdem Namen an", () => live.admin().ref(ABEND).set(abend({ host: "jemand" })));
-await darfNicht("Admin legt einen Live-Abend mit unmöglichem Code an", () => live.admin().ref("live/k7qm").set(abend()));
-await darfNicht("Admin legt einen Live-Abend ohne Programm an", () => live.admin().ref(ABEND).set({ info: { name: "X", host: "admin", erstellt: 1, einstellungen: { a: 1 } }, zustand: { phase: "lobby" } }));
-await darfNicht("Admin schmuggelt etwas in den Live-Abend", () => live.admin().ref(ABEND).set({ ...abend(), geheim: { a: 1 } }));
-await darf("Admin legt einen Live-Abend an", () => live.admin().ref(ABEND).set(abend()));
-await darf("Gast liest den Live-Abend, dessen Code er kennt", () => live.gast().ref(ABEND).get());
-await darfNicht("Gast steuert den Live-Abend", () => live.gast().ref(`${ABEND}/zustand`).set({ phase: "runde", nr: 0 }));
-await darfNicht("Gast benennt den Live-Abend um", () => live.gast().ref(`${ABEND}/info/name`).set("Meins"));
+await darfNicht("Gast listet alle Multiplayer auf", () => live.gast().ref("live").get());
+await darfNicht("Gast legt einen Multiplayer an", () => live.gast().ref(ABEND).set(abend()));
+await darfNicht("Fremder mit Konto legt einen Multiplayer an", () => live.fremder().ref(ABEND).set(abend({ host: "fremd" })));
+await darfNicht("Admin ohne bestätigte Adresse legt einen Multiplayer an", () => live.adminOhneVerifikation().ref(ABEND).set(abend({ host: "admin2" })));
+await darfNicht("Admin legt einen Multiplayer unter fremdem Namen an", () => live.admin().ref(ABEND).set(abend({ host: "jemand" })));
+await darfNicht("Admin legt einen Multiplayer mit unmöglichem Code an", () => live.admin().ref("live/k7qm").set(abend()));
+await darfNicht("Admin legt einen Multiplayer ohne Programm an", () => live.admin().ref(ABEND).set({ info: { name: "X", host: "admin", erstellt: 1, einstellungen: { a: 1 } }, zustand: { phase: "lobby" } }));
+await darfNicht("Admin schmuggelt etwas in den Multiplayer", () => live.admin().ref(ABEND).set({ ...abend(), geheim: { a: 1 } }));
+await darf("Admin legt einen Multiplayer an", () => live.admin().ref(ABEND).set(abend()));
+await darf("Gast liest den Multiplayer, dessen Code er kennt", () => live.gast().ref(ABEND).get());
+await darfNicht("Gast steuert den Multiplayer", () => live.gast().ref(`${ABEND}/zustand`).set({ phase: "runde", nr: 0 }));
+await darfNicht("Gast benennt den Multiplayer um", () => live.gast().ref(`${ABEND}/info/name`).set("Meins"));
 await darfNicht("Admin setzt eine erfundene Phase", () => live.admin().ref(`${ABEND}/zustand`).set({ phase: "chaos" }));
 await darf("Admin startet eine Runde", () => live.admin().ref(`${ABEND}/zustand`).set({ phase: "runde", nr: 0, saat: 12345, startUm: 2, endeUm: 3, dabei: { [LIVE_ICH]: true } }));
 
@@ -695,7 +695,7 @@ await darfNicht("Gast tritt ohne Namen bei", () => live.gast().ref(SPIELER).set(
 await darfNicht("Gast tritt mit endlos langem Namen bei", () => live.gast().ref(SPIELER).set({ name: "X".repeat(25), online: true }));
 await darfNicht("Gast tritt mit erfundener Kennung bei", () => live.gast().ref(`${ABEND}/spieler/wer-auch-immer`).set({ name: "A", online: true }));
 await darfNicht("Gast schmuggelt ein Feld in seinen Eintrag", () => live.gast().ref(SPIELER).set({ name: "A", online: true, admin: true }));
-await darfNicht("Gast tritt einem Live-Abend bei, den es nicht gibt", () => live.gast().ref(`live/ZZZZ/spieler/${LIVE_ICH}`).set({ name: "A", online: true }));
+await darfNicht("Gast tritt einem Multiplayer bei, den es nicht gibt", () => live.gast().ref(`live/ZZZZ/spieler/${LIVE_ICH}`).set({ name: "A", online: true }));
 
 await darf("Gast meldet seine Punkte", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 42, fertig: false, t: 1500 }));
 await darf("Gast meldet sein Ergebnis", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 57, fertig: true, t: 9000 }));
@@ -709,18 +709,42 @@ await darfNicht("Gast meldet eine Figur ohne Ort", () => live.gast().ref(`${ABEN
 await darfNicht("Gast meldet einen Ort als Text", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1, a: "links", b: 2 }));
 await darfNicht("Gast schreibt neben die Spieler", () => live.gast().ref(`${ABEND}/notizen/x`).set("hallo"));
 
-await darfNicht("Gast räumt den Live-Abend weg", () => live.gast().ref(ABEND).remove());
+await darfNicht("Gast räumt den Multiplayer weg", () => live.gast().ref(ABEND).remove());
 
-// Der Hinweis auf der Turnierseite: welcher Live-Abend gerade zu einem
+// Der Hinweis auf der Turnierseite: welcher Multiplayer gerade zu einem
 // Turnier gehört. Lesen darf jeder, schreiben nur der Admin.
 const ZEIGER = "turnierLive/herbst-k3m9x2p7";
-await darf("Gast liest, ob zu einem Turnier ein Live-Abend läuft", () => live.gast().ref(ZEIGER).get());
-await darfNicht("Gast hängt einen Live-Abend an ein Turnier", () => live.gast().ref(ZEIGER).set({ code: "K7QM", name: "Finale" }));
-await darfNicht("Admin hängt einen Live-Abend mit falschem Code an", () => live.admin().ref(ZEIGER).set({ code: "k7", name: "Finale" }));
-await darf("Admin hängt einen Live-Abend an ein Turnier", () => live.admin().ref(ZEIGER).set({ code: "K7QM", name: "Finale", seit: 1 }));
+await darf("Gast liest, ob zu einem Turnier ein Multiplayer läuft", () => live.gast().ref(ZEIGER).get());
+await darfNicht("Gast hängt einen Multiplayer an ein Turnier", () => live.gast().ref(ZEIGER).set({ code: "K7QM", name: "Finale" }));
+await darfNicht("Admin hängt einen Multiplayer mit falschem Code an", () => live.admin().ref(ZEIGER).set({ code: "k7", name: "Finale" }));
+await darf("Admin hängt einen Multiplayer an ein Turnier", () => live.admin().ref(ZEIGER).set({ code: "K7QM", name: "Finale", seit: 1 }));
 await darfNicht("Gast listet alle Turnier-Hinweise auf", () => live.gast().ref("turnierLive").get());
 await darf("Admin nimmt den Hinweis wieder weg", () => live.admin().ref(ZEIGER).remove());
-await darf("Admin räumt den Live-Abend weg", () => live.admin().ref(ABEND).remove());
+
+// Ein Multiplayer mit langem Code (zehn Zeichen, nicht zu erraten) – und
+// liveOffen: welche gerade für alle offen sind. Die Liste lesen darf jeder
+// (die Startseite fragt ohne Anmeldung), schreiben nur der Admin, und nur für
+// einen Multiplayer, den es gibt.
+const LANG = "live/K7QMX2PA9Z";
+await darfNicht("Admin legt einen Multiplayer mit zu langem Code an", () => live.admin().ref("live/K7QMX2PA9ZK7QM").set(abend()));
+await darf("Admin legt einen Multiplayer mit langem Code an", () => live.admin().ref(LANG).set(abend({ einstellungen: { zeitlimit: 120, sichtbar: "alle" } })));
+await darf("Gast liest den Multiplayer, dessen Link er hat", () => live.gast().ref(LANG).get());
+await darf("Gast tritt dem Multiplayer mit langem Code bei", () => live.gast().ref(`${LANG}/spieler/${LIVE_ICH}`).set({ name: "Alain", online: true, seit: 1 }));
+const OFFEN = "liveOffen/K7QMX2PA9Z";
+await darf("Gast liest, welche Multiplayer für alle offen sind", () => live.gast().ref("liveOffen").get());
+await darfNicht("Gast macht einen Multiplayer für alle sichtbar", () => live.gast().ref(OFFEN).set({ name: "Finale", seit: 1 }));
+await darfNicht("Fremder mit Konto macht einen Multiplayer sichtbar", () => live.fremder().ref(OFFEN).set({ name: "Finale", seit: 1 }));
+await darfNicht("Admin zeigt einen Multiplayer, den es nicht gibt", () => live.admin().ref("liveOffen/ZZZZZZZZZZ").set({ name: "Finale", seit: 1 }));
+await darfNicht("Admin zeigt einen Multiplayer ohne Namen", () => live.admin().ref(OFFEN).set({ seit: 1 }));
+await darfNicht("Admin schmuggelt ein Feld in die offene Liste", () => live.admin().ref(OFFEN).set({ name: "Finale", seit: 1, code: "K7QM" }));
+await darf("Admin zeigt den Multiplayer allen", () => live.admin().ref(OFFEN).set({ name: "Finale", seit: 1 }));
+await darf("Admin hängt einen Multiplayer mit langem Code an ein Turnier", () => live.admin().ref(ZEIGER).set({ code: "K7QMX2PA9Z", name: "Finale", seit: 1 }));
+await darf("Admin stellt ihn auf «nur mit Link»", () => live.admin().ref(`${LANG}/info/einstellungen/sichtbar`).set("link"));
+await darfNicht("Gast nimmt ihn aus der offenen Liste", () => live.gast().ref(OFFEN).remove());
+await darf("Admin nimmt ihn aus der offenen Liste", () => live.admin().ref(OFFEN).remove());
+await darf("Admin nimmt ihn vom Turnier", () => live.admin().ref(ZEIGER).remove());
+await darf("Admin räumt den Multiplayer weg", () => live.admin().ref(LANG).remove());
+await darf("Admin räumt den Multiplayer weg", () => live.admin().ref(ABEND).remove());
 
 await env.cleanup();
 

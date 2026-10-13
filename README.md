@@ -26,7 +26,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     index.html            die Startseite: alle Spiele, alle Namen
     turmbau.html …        fünfzehn Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
-    live.html             der Live-Abend, erzeugt
+    live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -42,9 +42,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     admin.js              anmelden, aufräumen, Turniere ausrichten. Der
                           einzige Ort mit Anmeldung; die Spielseiten laden
                           firebase-auth gar nicht erst.
-    live.js               der Live-Abend: Code, Lobby, Leitung, Runden,
+    live.js               der Multiplayer: Sichtbarkeit, Lobby, Leitung, Runden,
                           Wertung, Podest – über die Realtime Database
-    live-spiel.js         ein Spiel als Runde eines Live-Abends: Countdown,
+    live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
                           Spielfläche, Ergebnis
@@ -69,13 +69,13 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     firestore.rules       die Regeln der Datenbank. Sie fahren von selbst
                           nach Firebase, sobald sie auf main stehen.
-    database.rules.json   die Regeln der Realtime Database (Live-Modus),
+    database.rules.json   die Regeln der Realtime Database (Multiplayer),
                           auf demselben Weg
 
     scripts/seiten-bauen.mjs   baut die erzeugten Dateien aus einer Tabelle
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
-    scripts/check-live.mjs     spielt einen Live-Abend mit vier Geräten durch
+    scripts/check-live.mjs     spielt einen Multiplayer mit vier Geräten durch
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
 
 ## Ein Spiel dazunehmen
@@ -304,19 +304,38 @@ schon installiert hat und den Link nur einmal angeklickt hat. Auf Android
 teilen sich Browser und installierte App diesen Speicher; auf dem iPhone
 kennt die App auf dem Startbildschirm nur, was in ihr selbst geöffnet wurde.
 
-## Live-Abend
+## Multiplayer
 
-Alle spielen zur selben Zeit dasselbe Level: `/live`. Wer leitet, ist im
-Adminbereich angemeldet («Live-Abend» oben im Adminbereich, oder `/live`
-→ «Neuen Live-Abend anlegen»). Mitspielen kann jeder mit dem Code – auf der
-Startseite «Live» antippen und ihn eingeben, oder den Link öffnen
-(`/live?code=K7QM`).
+Alle zur selben Zeit im selben Level: `/live`. Angelegt wird er im
+Adminbereich – «Neuer Multiplayer» neben «Neues Turnier» (`/live?neu`) –,
+und wer ihn anlegt, leitet ihn und spielt auf demselben Gerät mit.
+
+**Sichtbar.** Beim Anlegen (und in der Lobby noch umzustellen):
+
+- **Nur mit Einladungslink** (Voreinstellung): Er steht nirgends in der
+  App. Wer mitspielt, bekommt den Link (`/live?code=K7QMX2PA9Z`) – zehn
+  Zeichen, nicht zu erraten. Einen Code zum Abtippen gibt es nicht mehr.
+- **Für alle**: Auf der Startseite erscheint oben «Multiplayer» mit dem
+  roten Punkt – solange er offen ist, für jeden, der gerade die App offen
+  hat (die Startseite fragt alle 20 Sekunden nach, `liveOffen` in der
+  Realtime Database, ohne SDK). Ein Tipp, und man ist in der Lobby. Sind
+  mehrere offen, führt er nach `/live`, wo sie zur Wahl stehen. Gehört er zu
+  einem Turnier, steht er auch auf der Turnierseite.
+
+Ohne Nachzügler verschwindet der Knopf mit dem Start der ersten Runde,
+sonst mit dem Podest. Was länger als einen halben Tag offen steht, hat
+jemand zu schliessen vergessen – das zeigt die Startseite nicht mehr.
+
+Die Multiplayer, die auf einem Gerät angelegt wurden, stehen im
+Adminbereich unter «Neuer Multiplayer» – mit «Öffnen» und dem Link, solange
+es sie gibt. Einer nur mit Link ginge sonst mit dem Tab verloren.
 
 **Anlegen.** Ein Name, das Programm (Spiele in ihrer Reihenfolge, je 1–5
 Runden und 0–2 Übungsrunden) und die Einstellungen:
 
 | Einstellung | Auswahl |
 |---|---|
+| Sichtbar | nur mit Einladungslink oder für alle |
 | Zeitlimit je Runde | ohne, 30 s, 1, 1½, 2, 3, 5 Minuten |
 | Punkte je Runde | Platzpunkte 10 · 8 · 6 · 5 · 4 · 3 · 2 · 1 (dahinter je 1) oder Prozent vom Besten |
 | Level | jede Runde ein neues oder alle Runden eines Spiels gleich – immer für alle dasselbe |
@@ -330,54 +349,85 @@ Runden und 0–2 Übungsrunden) und die Einstellungen:
 Ein Programm lässt sich als Vorlage speichern (auf dem Gerät, das leitet);
 das zuletzt benutzte steht beim nächsten Mal schon da.
 
-**Die Lobby.** Code, Link und wer da ist (grüner Punkt, solange die
-Verbindung steht). Die Leitung spielt selbst mit – auf demselben Gerät.
+**Die Lobby.** Der Link (kopieren, teilen), wie man hineinkommt, und wer da
+ist (grüner Punkt, solange die Verbindung steht). Die Leitung spielt selbst
+mit – auf demselben Gerät.
 
 **Eine Runde.** «Start» schreibt, welche Runde mit welcher Saat ab wann
 läuft – zur Serverzeit. Jedes Gerät, das dabei ist, öffnet das Spiel in
-einem Rahmen über der Seite (`/turmbau?live=K7QM&nr=0`, `live-spiel.js`).
+einem Rahmen über der Seite (`/turmbau?live=K7QMX2PA9Z&nr=0`, `live-spiel.js`).
 Dort zählt eine Tafel herunter, Eingaben sind gesperrt, und gestartet wird
 nicht auf einen Tipp, sondern zur Serverzeit – jedes Gerät rechnet sie in
 seine eigene Uhr um. Im Browser-Test liegen vier Geräte dabei unter zehn
-Millisekunden auseinander. Oben stehen alle mit ihren Punkten und die
+Millisekunden auseinander. Die Tafel einer Übung sagt nur «Übungsrunde»
+(oder «Übungsrunde 1 von 2»). Oben stehen alle mit ihren Punkten und die
 Zeit. Wer ausscheidet, sieht eine Sekunde später, wie es bei den anderen
 steht. Die Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist;
-die Leitung kann sie auch von Hand beenden (der Knopf «Leitung» über dem
-Spiel).
+die Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
+Spiel oder, wenn sie selbst schon fertig ist, mit «Runde jetzt beenden» auf
+ihrer Tafel.
+
+**Weg** ist, wer die Verbindung verliert – oder wer schweigt. Solange das
+Spiel im Bild ist und läuft, meldet es sich alle drei Sekunden, auch ohne
+neue Punkte (`live-spiel.js`, Lebenszeichen; am Bild aufgehängt, nicht an
+einer Uhr, denn Zeitgeber laufen in verdeckten Tabs weiter). Wer zwölf
+Sekunden lang schweigt – Bildschirm aus, App im Hintergrund, ein vergessenes
+zweites Fenster –, steht bei den anderen als «weg», und die Runde wartet
+nicht auf ihn (`live.js`, `WEG_MS`). Ohne das hing eine Runde ohne Uhr
+(Brückenbauer, Turmbau …) ewig: Die Verbindung eines gesperrten Handys
+steht oft noch minutenlang, sein Spiel aber läuft nicht weiter, und alle
+anderen sassen vor «spielt noch». Kommt er zurück, solange die Runde noch
+läuft, spielt er weiter; gewertet wird, was er zuletzt gemeldet hat.
 
 **Jedes Spiel** gibt der Bühne dafür zweierlei mit (`game-shell.js`,
 `mount({ live: { los, stopp } })`): wie die Runde ohne Tipp beginnt und wie
 sie endet, wenn die Zeit des Abends um ist. Eine Runde gibt es nur einmal –
-kein «Noch einmal», kein Weg hinaus ausser über den Abend.
+kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
 **Die anderen im Bild.** In den sieben Spielen mit Figur (Lianenschwung,
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
-Hügelflieger) meldet jedes Gerät achtmal je Sekunde, wo seine Figur ist
+Hügelflieger) meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
 (`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
 gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
 einer Aufzeichnung beantwortet der Live-Strom die Frage «wo ist er zur Zeit
-t» (`live-spiel.js`, `liveLauf`). Zwischen zwei Proben wird gerechnet, hinter
-der letzten ein Stück in seiner Richtung weiter.
+t» (`live-spiel.js`, `liveLauf`).
+
+Und zwar nicht für «jetzt»: Bis eine Lage da ist, vergeht eine Zehntelsekunde
+oder zwei, und wer den anderen jetzt zeigen will, muss raten, wo er
+inzwischen ist – und springt zurück, wenn die nächste Lage etwas anderes
+sagt. So ruckelte es. Jedes Gerät zeigt jeden anderen deshalb gerade so weit
+zurück, dass fast immer die Lage danach schon da ist, und dazwischen läuft
+eine weiche Kurve (kubisch, durch jede Probe, ohne über sie
+hinauszuschiessen). Wie weit zurück, misst es selbst, je Spieler: bei jeder
+neuen Lage, wie alt die bis dahin neueste schon war – meist eine
+Fünftelsekunde. Der Verzug ändert sich nur langsam (höchstens 8 % schneller
+oder langsamer); kommt eine Lage doch zu spät, geht es kurz in der alten
+Richtung weiter, und was die Lage dann noch korrigiert, verschwindet in
+einer Zehntelsekunde statt in einem Sprung. In den Spielen, in denen `c` ein
+Winkel ist (`ANSEHBAR`, `winkel`), dreht sich die Figur dabei mit, statt zu
+springen. Der Browser-Test misst, wie stark sich das Tempo eines Geists von
+Bild zu Bild ändert, und lässt höchstens 0,3 px/ms zu (gemessen: 0,06 bis 0,13).
 
 **Zuschauen.** Wer ausgeschieden ist, sieht eine Sekunde später dem zu, der
 vorne liegt und noch spielt: Die Kamera folgt seiner Figur, sein Name steht
 auf einem Schild daran, die anderen fliegen als Geister mit. Oben lässt sich
 jeder antippen, der noch spielt; ist der, dem man zuschaut, fertig, geht es
 zum nächsten. Dasselbe Abspielen wie bei den besten Läufen
-(`zuschauenStarten`, die dritte Andockstelle `live.zuschauen`) – nur eine
-Drittelsekunde hinter der Wirklichkeit, damit es flüssig bleibt. Der
-Planetenhüpfer stellt dabei die Uhr seiner Planeten nach der Uhr des Abends.
+(`zuschauenStarten`, die dritte Andockstelle `live.zuschauen`) – um den
+Verzug dessen zurück, dem man zuschaut, und noch eine Zehntelsekunde dazu,
+damit die Kamera ruhig bleibt. Der Planetenhüpfer stellt dabei die Uhr seiner
+Planeten nach der Zeit, die gerade im Bild ist.
 In den übrigen acht Spielen steht statt dessen der Stand der anderen da.
 Wer in einer Runde nicht mitspielt (ein Nachzügler), kann von Anfang an
 zuschauen («Zuschauen», oben «Schliessen»).
 
-**Das Grossbild** (`/live?code=K7QM&gross`, der Link steht in der Lobby der
-Leitung) ist für Fernseher und Beamer: Es tritt nicht bei, zeigt alles
-grösser und schaut in jeder Runde mit Figur von selbst dem zu, der vorne
-liegt.
+**Das Grossbild** (`/live?code=K7QMX2PA9Z&gross`, der Link steht in der
+Lobby der Leitung) ist für Fernseher und Beamer: Es tritt nicht bei, zeigt
+alles grösser – in der Lobby den Link zum Abschreiben – und schaut in jeder
+Runde mit Figur von selbst dem zu, der vorne liegt.
 
 **Die Auswertung.** Rundenpunkte, Zwischenstand, was als Nächstes kommt;
-«Weiter», «Runde wiederholen» (sie beginnt bei null), «Abend beenden». Gleich
+«Weiter», «Runde wiederholen» (sie beginnt bei null), «Multiplayer beenden». Gleich
 viele Punkte heisst derselbe Platz. Gerechnet wird nichts in der Datenbank:
 Jedes Gerät rechnet aus denselben Punkten dasselbe.
 
@@ -385,27 +435,29 @@ Jedes Gerät rechnet aus denselben Punkten dasselbe.
 Namen, Rekord und Aufzeichnung. Übungsrunden nicht. Ein Versuch in einem
 Turnier ist eine Live-Runde nie.
 
-**Am Schluss** das Podest und der Endstand. «Abend abschliessen» löscht den
-Abend aus der Datenbank; wer noch zuschaut, behält das Podest auf dem Schirm.
+**Am Schluss** das Podest und der Endstand. «Multiplayer abschliessen»
+löscht ihn aus der Datenbank; wer noch zuschaut, behält das Podest auf dem
+Schirm.
 
 **Mit einem Turnier.** Beim Anlegen lässt sich ein Turnier wählen (oder im
-Adminbereich beim Turnier «Live-Abend» antippen – dann ist es schon
-gewählt, und seine Spiele stehen im Programm) und wie der Abend dort zählt:
-wie ein Spiel, doppelt, dreifach oder gar nicht. Solange der Abend offen
-ist, steht auf der Turnierseite ganz oben «Jetzt live» mit dem Weg hinein
-(`turnierLive/<turnier>` in der Realtime Database, gelesen ohne SDK).
-«Ins Turnier eintragen und abschliessen» schreibt den Endstand nach
-`miniTurniere/<id>/live/<code>-<zeit>`; in der Gesamtwertung ist er eine
-eigene Spalte, mal sein Gewicht – bei der Platzziffer zählt der Platz am
-Abend, bei «Prozent vom Besten» der Anteil an der höchsten Punktzahl des
-Abends. Wer den Abend verpasst hat, steht dort hinter dem Letzten, wie bei
-einem ausgelassenen Spiel. Auf der Turnierseite steht jeder Abend mit
-seinem Endstand.
+Adminbereich beim Turnier «Multiplayer» antippen – dann ist es schon
+gewählt, und seine Spiele stehen im Programm) und wie der Multiplayer dort
+zählt: wie ein Spiel, doppelt, dreifach oder gar nicht. Solange er offen und
+für alle sichtbar ist, steht auf der Turnierseite ganz oben «Multiplayer
+läuft» mit dem Weg hinein (`turnierLive/<turnier>` in der Realtime Database,
+gelesen ohne SDK); einer nur mit Link steht auch dort nicht. «Ins Turnier
+eintragen und abschliessen» schreibt den Endstand nach
+`miniTurniere/<id>/live/<code>-<zeit>` (die ersten vier Zeichen des Codes);
+in der Gesamtwertung ist er eine eigene Spalte, mal sein Gewicht – bei der
+Platzziffer zählt der Platz im Multiplayer, bei «Prozent vom Besten» der
+Anteil an seiner höchsten Punktzahl. Wer ihn verpasst hat, steht dort hinter
+dem Letzten, wie bei einem ausgelassenen Spiel. Auf der Turnierseite steht
+jeder Multiplayer mit seinem Endstand.
 
-**Nur live.** Ein Turnier mit dem Haken «Nur live spielen» kennt keine
-Versuche: Die Spiele stehen da, aber gespielt wird nur an seinen
-Live-Abenden (die Regeln lassen keinen Versuch beginnen), und die
-Gesamtwertung zählt nur die Abende.
+**Nur im Multiplayer.** Ein Turnier mit dem Haken «Nur im Multiplayer
+spielen» kennt keine Versuche: Die Spiele stehen da, aber gespielt wird nur
+in seinen Multiplayern (die Regeln lassen keinen Versuch beginnen), und die
+Gesamtwertung zählt nur sie.
 
 ## Vollbild
 
@@ -532,7 +584,7 @@ Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
     npm run pruefen:browser   jedes Spiel einmal öffnen und eine Runde
                               anspielen. Braucht Playwright:
                               npm i && npx playwright install chromium
-    npm run pruefen:live      einen Live-Abend durchspielen: Leitung und drei
+    npm run pruefen:live      einen Multiplayer durchspielen: Leitung und drei
                               Spieler in vier Browserfenstern, gegen den
                               Emulator der Realtime Database. Braucht Java
                               und Playwright, kein Netz.

@@ -60,7 +60,7 @@
  *     verdeckt   false            Rangliste erst am Schluss zeigen
  *     ohneGeist  true             keine Gegner beim Spielen (geist.js).
  *                                 Fehlt, wo sie gezeigt werden.
- *     nurLive    true             gespielt wird nur an Live-Abenden
+ *     nurLive    true             gespielt wird nur im Multiplayer
  *                                 (live.js), keine Versuche dazwischen.
  *                                 Fehlt bei allen anderen.
  *     aktiv      true             angehalten, wenn false
@@ -77,7 +77,7 @@
  *     Turnier, für den, der gegen ihn spielt
  *
  *   miniTurniere/<id>/live/K7QM-1760368000000
- *     der Endstand eines Live-Abends, der zum Turnier gehört (live.js):
+ *     der Endstand eines Multiplayers, der zum Turnier gehört (live.js):
  *     name, gewicht (0–3), endstand [{ spieler, name, punkte, platz }],
  *     runden, spiele, erstelltMs. Nur der Admin schreibt ihn.
  *
@@ -484,9 +484,9 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Live-Abende eines Turniers
+  // Multiplayer eines Turniers (live.js)
   // ---------------------------------------------------------------------------
-  // Was ein Live-Abend im Turnier hinterlässt: seinen Endstand, mit dem
+  // Was ein Multiplayer im Turnier hinterlässt: seinen Endstand, mit dem
   // Gewicht, mit dem er in der Gesamtwertung zählt.
   function liesLiveErgebnis(doc) {
     const d = typeof doc?.data === "function" ? doc.data() : null;
@@ -501,7 +501,7 @@
       .filter((e) => e.name);
     return {
       id: doc.id,
-      name: String(d.name || "Live-Abend").trim().slice(0, TURNIER_NAME_MAX),
+      name: String(d.name || "Multiplayer").trim().slice(0, TURNIER_NAME_MAX),
       gewicht: Math.max(0, Math.min(3, Math.round(Number(d.gewicht) || 0))),
       endstand,
       runden: Math.max(0, Math.round(Number(d.runden) || 0)),
@@ -516,12 +516,12 @@
     return sammle(await ref.limit(50).get(), liesLiveErgebnis).sort((a, b) => a.erstelltMs - b.erstelltMs);
   }
 
-  // Nur der Admin, am Ende eines Live-Abends (firestore.rules, live).
+  // Nur der Admin, am Ende eines Multiplayers (firestore.rules, live).
   async function speichereTurnierLive(id, abendId, daten) {
     const ref = turnierLiveRef(id);
     if (!ref) throw new Error("Firestore ist nicht bereit.");
     const doc = {
-      name: String(daten.name || "Live-Abend").trim().slice(0, TURNIER_NAME_MAX) || "Live-Abend",
+      name: String(daten.name || "Multiplayer").trim().slice(0, TURNIER_NAME_MAX) || "Multiplayer",
       gewicht: Math.max(0, Math.min(3, Math.round(Number(daten.gewicht) || 0))),
       endstand: (daten.endstand || []).slice(0, 200).map((e) => ({
         spieler: String(e.spieler || "").slice(0, 64),
@@ -539,8 +539,11 @@
     return liesLiveErgebnis({ id: abendId, data: () => doc });
   }
 
-  // Ob zu einem Turnier gerade ein Live-Abend offen ist – aus der Realtime
-  // Database, ohne ihr SDK: Die Turnierseite fragt einmal über die
+  // Der Code eines Multiplayers: zehn Zeichen, von früher auch vier.
+  const LIVE_CODE = /^[A-Z2-9]{4,12}$/;
+
+  // Ob zu einem Turnier gerade ein Multiplayer für alle offen ist – aus der
+  // Realtime Database, ohne ihr SDK: Die Turnierseite fragt über die
   // REST-Schnittstelle (turnierLive/<id> lesen darf jeder).
   async function liveZeiger(id) {
     const kennung = String(id || "").trim();
@@ -548,8 +551,40 @@
     const antwort = await fetch(`${firebaseConfig.databaseURL}/turnierLive/${kennung}.json`, { cache: "no-store" });
     if (!antwort.ok) return null;
     const d = await antwort.json();
-    if (!d || typeof d !== "object" || !/^[A-Z2-9]{4}$/.test(String(d.code || ""))) return null;
-    return { code: String(d.code), name: String(d.name || "Live-Abend").slice(0, 60) };
+    if (!d || typeof d !== "object" || !LIVE_CODE.test(String(d.code || ""))) return null;
+    return { code: String(d.code), name: String(d.name || "Multiplayer").slice(0, 60) };
+  }
+
+  // Was aus einem Multiplayer geworden ist (für den Adminbereich, der seine
+  // eigenen auflistet): Name, Phase, Sichtbarkeit – oder null, wenn es ihn
+  // nicht mehr gibt.
+  async function multiplayer(code) {
+    const c = String(code || "").trim();
+    if (!LIVE_CODE.test(c)) return null;
+    const hole = async (pfad) => {
+      const antwort = await fetch(`${firebaseConfig.databaseURL}/live/${c}/${pfad}.json`, { cache: "no-store" });
+      if (!antwort.ok) throw new Error(`Realtime Database: ${antwort.status}`);
+      return antwort.json();
+    };
+    const [name, sichtbar, phase] = await Promise.all([hole("info/name"), hole("info/einstellungen/sichtbar"), hole("zustand/phase")]);
+    if (typeof name !== "string") return null;
+    return { code: c, name: name.slice(0, 60), sichtbar: sichtbar === "alle" ? "alle" : "link", phase: String(phase || "lobby") };
+  }
+
+  // Die Multiplayer, die gerade für alle offen sind (liveOffen, live.js) –
+  // für den Knopf auf der Startseite, auf demselben Weg ohne SDK. Was älter
+  // ist als einen halben Tag, hat jemand zu schliessen vergessen.
+  async function offeneMultiplayer() {
+    const antwort = await fetch(`${firebaseConfig.databaseURL}/liveOffen.json`, { cache: "no-store" });
+    if (!antwort.ok) return [];
+    const d = await antwort.json();
+    if (!d || typeof d !== "object") return [];
+    const jetzt = Date.now();
+    return Object.entries(d)
+      .filter(([code, o]) => LIVE_CODE.test(code) && o && typeof o === "object")
+      .map(([code, o]) => ({ code, name: String(o.name || "Multiplayer").slice(0, 60), seit: Number(o.seit) || 0 }))
+      .filter((o) => !o.seit || jetzt - o.seit < 12 * 3600 * 1000)
+      .sort((a, b) => b.seit - a.seit);
   }
 
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
@@ -935,7 +970,7 @@
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     turnierGeist, speichereTurnierGeist,
-    turnierLive, speichereTurnierLive, liveZeiger,
+    turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };

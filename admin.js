@@ -821,14 +821,14 @@
     const gegnerText = el("span", "adm-option-text");
     gegnerText.append(el("strong", "", "Gegner beim Spielen zeigen"), el("small", "", "Platz 1 und die eigene Bestmarke laufen mit – als Zahl, als Linie oder als Geist im Bild. Jeder kann sie vor dem Spiel für sich ausblenden. Bei einer verdeckten Rangliste bleibt Platz 1 verborgen."));
     gegnerZeile.append(gegner, gegnerText);
-    // Nur live (live.js): keine Versuche dazwischen, gezählt werden nur die
-    // Live-Abende, die zum Turnier gehören.
+    // Nur im Multiplayer (live.js): keine Versuche dazwischen, gezählt werden
+    // nur die Multiplayer, die zum Turnier gehören.
     const nurLive = el("input");
     nurLive.type = "checkbox";
     nurLive.checked = Boolean(t.nurLive);
     const nurLiveZeile = el("label", "adm-option");
     const nurLiveText = el("span", "adm-option-text");
-    nurLiveText.append(el("strong", "", "Nur live spielen"), el("small", "", "Gespielt wird nur an Live-Abenden, die zu diesem Turnier gehören (Knopf «Live-Abend» beim Turnier). Dazwischen gibt es keine Versuche; die Gesamtwertung zählt nur die Abende."));
+    nurLiveText.append(el("strong", "", "Nur im Multiplayer spielen"), el("small", "", "Gespielt wird nur in Multiplayern, die zu diesem Turnier gehören (Knopf «Multiplayer» beim Turnier). Dazwischen gibt es keine Versuche; die Gesamtwertung zählt nur die Multiplayer."));
     nurLiveZeile.append(nurLive, nurLiveText);
     const aktiv = el("input");
     aktiv.type = "checkbox";
@@ -950,8 +950,8 @@
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
-      t.nurLive ? "nur live" : "",
-      aktion.abende?.length ? `${aktion.abende.length} ${aktion.abende.length === 1 ? "Live-Abend" : "Live-Abende"}` : "",
+      t.nurLive ? "nur Multiplayer" : "",
+      aktion.abende?.length ? `${aktion.abende.length} Multiplayer` : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
 
@@ -979,9 +979,9 @@
       aktion.speichere({ ...t, name: sauber });
     }));
     aktionen.append(knopf("Bearbeiten", "adm-knopf-klein", () => aktion.bearbeiten(t)));
-    // Einen Live-Abend zu diesem Turnier anlegen (live.js): Er zählt dann in
+    // Einen Multiplayer zu diesem Turnier anlegen (live.js): Er zählt dann in
     // der Gesamtwertung mit.
-    const live = el("a", "adm-knopf adm-knopf-klein", "Live-Abend");
+    const live = el("a", "adm-knopf adm-knopf-klein", "Multiplayer");
     live.href = `/live?neu&turnier=${encodeURIComponent(t.id)}`;
     aktionen.append(live);
 
@@ -1050,13 +1050,65 @@
     ["beendet", "Beendet"],
   ];
 
+  /*
+   * Die Multiplayer, die auf diesem Gerät angelegt wurden (live.js merkt sie
+   * sich) und die es noch gibt – mit dem Weg zurück in die Lobby und dem
+   * Link. Einer nur mit Link steht sonst nirgends; ohne diese Liste wäre er
+   * mit dem Tab verloren. Was es nicht mehr gibt, fällt heraus.
+   */
+  const MEINE_KEY = "mini.live.meine";
+  const PHASE = { lobby: "Lobby", runde: "läuft", pause: "zwischen zwei Runden", ende: "am Podest" };
+
+  function meineMultiplayer() {
+    const box = el("div", "adm-multiplayer");
+    box.hidden = true;
+    let gemerkt = [];
+    try { gemerkt = JSON.parse(localStorage.getItem(MEINE_KEY) || "[]"); } catch { gemerkt = []; }
+    if (!Array.isArray(gemerkt) || !gemerkt.length || !cloud()?.multiplayer) return box;
+    Promise.all(gemerkt.slice(0, 10).map((m) => Promise.resolve(cloud().multiplayer(m?.code)).catch(() => undefined))).then((stand) => {
+      // undefined: nicht zu erreichen – der bleibt gemerkt. null: gibt es nicht mehr.
+      const bleiben = gemerkt.filter((_, i) => stand[i] !== null);
+      try { localStorage.setItem(MEINE_KEY, JSON.stringify(bleiben)); } catch { /* privater Modus */ }
+      const da = stand.filter(Boolean);
+      if (!da.length) return;
+      box.append(el("h3", "", da.length === 1 ? "Dein Multiplayer" : "Deine Multiplayer"));
+      da.forEach((m) => {
+        const zeile = el("div", "adm-multiplayer-zeile");
+        const text = el("div", "adm-multiplayer-text");
+        text.append(el("strong", "", m.name), el("small", "", `${PHASE[m.phase] || m.phase} · ${m.sichtbar === "alle" ? "für alle offen" : "nur mit Link"}`));
+        const aktionen = el("div", "adm-kopf-aktionen");
+        const oeffnen = el("a", "adm-knopf adm-knopf-klein", "Öffnen");
+        oeffnen.href = `/live?code=${encodeURIComponent(m.code)}`;
+        const adresse = `${window.location.origin}/live?code=${m.code}`;
+        const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
+          if (await kopiere(adresse)) {
+            kopieren.textContent = "Kopiert";
+            window.setTimeout(() => { kopieren.textContent = "Link kopieren"; }, 2000);
+          }
+        });
+        aktionen.append(oeffnen, kopieren);
+        zeile.append(text, aktionen);
+        box.append(zeile);
+      });
+      box.hidden = false;
+    });
+    return box;
+  }
+
   function baueTurniere(offen) {
     const block = el("section", "adm-block adm-turniere");
     const kopf = el("header", "adm-block-kopf");
     kopf.append(el("h2", "", "Turniere"));
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
-    kopf.append(neuKnopf);
+    // Daneben einen Multiplayer: alle spielen zur selben Zeit, angelegt und
+    // geleitet auf /live (live.js) – die Anmeldung hier gilt dort auch.
+    const neuerMultiplayer = el("a", "adm-knopf adm-knopf-voll", "Neuer Multiplayer");
+    neuerMultiplayer.href = "/live?neu";
+    const neuKnoepfe = el("div", "adm-kopf-aktionen");
+    neuKnoepfe.append(neuKnopf, neuerMultiplayer);
+    kopf.append(neuKnoepfe);
     block.append(kopf);
+    block.append(meineMultiplayer());
 
     const formWirt = el("div", "adm-turnier-formwirt");
     const meldung = el("p", "adm-meldung");
@@ -1082,7 +1134,7 @@
     function schliesse({ gespeichert = false } = {}) {
       if (formularZu === schliesse) formularZu = null;
       formWirt.innerHTML = "";
-      neuKnopf.hidden = false;
+      neuKnoepfe.hidden = false;
       wirt.classList.remove("ist-formular");
       if (history.state?.admFormular) history.back();
       if (gespeichert) block.scrollIntoView?.({ block: "start" });
@@ -1091,7 +1143,7 @@
 
     function oeffne(vorlage) {
       formWirt.innerHTML = "";
-      neuKnopf.hidden = true;
+      neuKnoepfe.hidden = true;
       sage("");
       formWirt.append(turnierFormular(vorlage, {
         offen,
@@ -1347,11 +1399,7 @@
     const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer));
     const zuDenSpielen = el("a", "adm-knopf adm-knopf-hell", "Zu den Spielen");
     zuDenSpielen.href = "/";
-    // Einen Live-Abend anlegen und leiten (live.js) – die Anmeldung hier gilt
-    // dort auch.
-    const live = el("a", "adm-knopf adm-knopf-hell", "Live-Abend");
-    live.href = "/live?neu";
-    rechts.append(neu, zuDenSpielen, live, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
+    rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
     const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");
     if (voll) rechts.append(voll);
     kopf.append(rechts);

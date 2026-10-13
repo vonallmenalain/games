@@ -1,10 +1,10 @@
 /*
- * live-spiel.js – Ein Spiel als Runde eines Live-Abends.
+ * live-spiel.js – Ein Spiel als Runde eines Multiplayers.
  * ---------------------------------------------------------------------------
- * Im Live-Modus spielt niemand für sich. Die Spielseite steckt in einem
+ * Im Multiplayer spielt niemand für sich. Die Spielseite steckt in einem
  * Rahmen der Live-Seite (live.js), und die sagt ihr, wann es losgeht, mit
  * welcher Welt und wie lange. Die Adresse trägt nur, welche Runde gemeint
- * ist (/turmbau?live=K7QM&nr=3) – alles andere fragt diese Datei beim Rahmen
+ * ist (/turmbau?live=K7QMX2PA9Z&nr=3) – alles andere fragt diese Datei beim Rahmen
  * nach (LernappLiveRahmen.runde).
  *
  * Was sie tut:
@@ -20,23 +20,31 @@
  *   Punkte       Was die Bühne zählt (setCount) und, in den Spielen mit Geist
  *                im Bild, wo die Figur ist (geist.js, takt) – an den Rahmen,
  *                der es in die Datenbank schreibt.
- *   Zeitende     Hat der Abend ein Zeitlimit, endet die Runde zur Serverzeit
+ *   Zeitende     Hat der Multiplayer ein Zeitlimit, endet die Runde zur Serverzeit
  *                endeUm, auch mitten im Lauf (das Spiel gibt dafür stopp mit).
  *   Ende         Statt der Tafel mit «Noch einmal» – eine Runde gibt es hier
  *                nur einmal – geht das Ergebnis an den Rahmen und in die Hall
  *                of Fame (keine Übungsrunde). Eine Sekunde später zeigt die
- *                Seite, wie es bei den anderen steht.
+ *                Seite, wie es bei den anderen steht – und der Leitung den
+ *                Knopf, mit dem sie die Runde beendet.
+ *   Lebenszeichen Solange das Spiel im Bild ist und läuft, meldet es sich alle
+ *                drei Sekunden, auch ohne neue Punkte. Wer zwölf Sekunden
+ *                lang schweigt – Bildschirm aus, App im Hintergrund, Tab
+ *                verdeckt –, spielt nicht wirklich und gilt als weg: Auf ihn
+ *                wartet die Runde nicht. Kommt er zurück, spielt er weiter.
  *   Gegner       In den Spielen mit Figur im Bild laufen die anderen als
- *                Geister mit (geist.js fragt gegner()): wo sie gerade sind,
- *                aus ihrer Lage, die achtmal je Sekunde kommt. Dazwischen
- *                wird gerechnet – zurück ein Stück zwischen zwei Proben,
- *                voraus ein Stück in ihrer Richtung.
+ *                Geister mit (geist.js fragt gegner()): aus ihrer Lage, die
+ *                zehnmal je Sekunde kommt, je so weit zurück, dass fast
+ *                immer die nächste Probe schon da ist – gemessen, nicht
+ *                geschätzt, meist um eine Fünftelsekunde. Dazwischen läuft
+ *                eine weiche Kurve; nichts springt (siehe Die Lage der
+ *                anderen).
  *   Zuschauen    Wer ausgeschieden ist, schaut eine Sekunde später dem zu,
  *                der vorne liegt und noch spielt: Das Spiel stellt seine
  *                Figur dorthin, wo der andere ist – dieselbe Wiedergabe wie
  *                beim Anschauen der besten Läufe (geist.js, zuschauer), nur
- *                aus der Lage statt aus einer Aufzeichnung, eine Drittel-
- *                sekunde hinter der Wirklichkeit, damit sie flüssig bleibt.
+ *                aus der Lage statt aus einer Aufzeichnung, noch eine
+ *                Zehntelsekunde weiter zurück, damit die Kamera ruhig bleibt.
  *                Oben lässt sich jeder antippen, der noch spielt. Wer gar
  *                nicht mitspielt, kann von Anfang an zuschauen.
  *
@@ -46,7 +54,7 @@
  * hat, zuschauen – zeig ab jetzt diese Quelle statt der eigenen Figur.
  *
  * Ohne ?live= in der Adresse tut diese Datei nichts. Mit, aber ohne Rahmen
- * (jemand hat den Link der Runde allein geöffnet), führt sie zum Live-Abend.
+ * (jemand hat den Link der Runde allein geöffnet), führt sie zum Multiplayer.
  */
 (() => {
   "use strict";
@@ -59,7 +67,7 @@
       const p = new URLSearchParams(window.location.search);
       const code = String(p.get("live") || "").trim().toUpperCase();
       const nr = Number(p.get("nr"));
-      if (!/^[A-Z2-9]{4}$/.test(code) || !Number.isInteger(nr) || nr < 0) return null;
+      if (!/^[A-Z2-9]{4,12}$/.test(code) || !Number.isInteger(nr) || nr < 0) return null;
       return { code, nr };
     } catch { return null; }
   }
@@ -81,13 +89,32 @@
   try { runde = rahmen?.runde?.(adresse.code, adresse.nr) || null; } catch { runde = null; }
 
   const aktiv = () => Boolean(runde);
-  // Wie weit das Zuschauen hinter der Wirklichkeit bleibt: genug, dass fast
-  // immer schon die nächste Probe da ist und zwischen zweien gerechnet wird.
-  const VERZUG_MS = 350;
-  // Wie weit voraus gerechnet wird, wenn die nächste Probe auf sich warten
-  // lässt – länger stünde der Geist besser still.
-  const VORAUS_MAX = 450;
+  // Wie oft die eigene Lage hinausgeht: zehnmal je Sekunde.
+  const LAGE_MS = 90;
+  // Wie weit die anderen hinter der Wirklichkeit gezeigt werden (verzug):
+  // gemessen je Spieler, hier nur, wo es beginnt und wo es aufhört.
+  const VERZUG_START = 200;
+  const VERZUG_MIN = 60;
+  const VERZUG_MAX = 700;
+  const VERZUG_RAND = 20;
+  // Wie schnell der Verzug wandern darf: 8 Millisekunden je Zehntelsekunde –
+  // der Geist läuft dabei höchstens 8 % schneller oder langsamer.
+  const VERZUG_TEMPO = 0.08;
+  // Beim Zuschauen noch ein Stück mehr: Der, dem man zuschaut, ist die Figur,
+  // und die Kamera hängt an ihr.
+  const ZUSCHAU_EXTRA = 100;
+  // Wie weit voraus gerechnet wird, wenn die nächste Probe doch einmal auf
+  // sich warten lässt – länger stünde der Geist besser still.
+  const VORAUS_MAX = 250;
+  // Was eine späte Probe am Bild korrigiert, verschwindet in dieser Zeit.
+  const GLATT_MS = 110;
+  // Mehr als so weit daneben ist kein Ruckeln, sondern ein Sprung.
+  const SPRUNG = 600;
   const PUFFER_MS = 6000;
+  // Das Lebenszeichen: so oft, und wer so lange schweigt, ist weg (dieselbe
+  // Zahl wie in live.js, WEG_MS).
+  const LEBT_MS = 3000;
+  const WEG_MS = 12000;
   const verwaist = () => Boolean(adresse) && !runde;
 
   // Die Serverzeit, so gut dieses Gerät sie kennt.
@@ -127,6 +154,7 @@
     zielWegSeit: 0,
     zuschauHaken: null,
     nurZuschauen: false,
+    puls: null,
   };
 
   // --- Eingaben sperren -------------------------------------------------------
@@ -145,13 +173,25 @@
   }
 
   // --- An den Rahmen ----------------------------------------------------------
-  function sende(fertig = false) {
+  // lebt: auch ohne neue Punkte – das Lebenszeichen.
+  function sende(fertig = false, lebt = false) {
     if (!rahmen || !runde) return;
     const jetzt = Date.now();
-    if (!fertig && z.gesendet.p === z.punkte) return;
+    if (!fertig && !lebt && z.gesendet.p === z.punkte) return;
     if (!fertig && jetzt - z.gesendet.ms < 450) return;
     z.gesendet = { p: z.punkte, ms: jetzt };
     try { rahmen.melde({ p: z.punkte, fertig, t: Math.max(0, Math.round(zeit())) }); } catch { /* der Rahmen ist weg */ }
+  }
+
+  /*
+   * Das Lebenszeichen hängt am Bild, nicht an einer Uhr: requestAnimationFrame
+   * läuft nur, solange die Seite zu sehen ist. Ein Zeitgeber liefe in einem
+   * verdeckten Tab gedrosselt weiter und meldete einen, der gar nicht spielt.
+   */
+  function puls() {
+    z.puls = window.requestAnimationFrame(puls);
+    if (!runde || z.fertig || !z.gestartet || z.nurZuschauen) return;
+    if (Date.now() - z.gesendet.ms >= LEBT_MS) sende(false, true);
   }
 
   function punkte(wert) {
@@ -163,11 +203,11 @@
   }
 
   // Wo die Figur gerade ist – für die anderen, die sie im Bild mitlaufen
-  // sehen. Achtmal je Sekunde genügt; dazwischen rechnen sie selbst.
+  // sehen. Zehnmal je Sekunde; dazwischen rechnen sie selbst.
   function lage(wert, ort) {
     if (!runde || z.fertig || !z.gestartet || !ort) return;
     const jetzt = Date.now();
-    if (jetzt - z.lageMs < 120) return;
+    if (jetzt - z.lageMs < LAGE_MS) return;
     z.lageMs = jetzt;
     const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
     try {
@@ -178,6 +218,14 @@
   // --- Was die anderen machen ---------------------------------------------
   function name(kennung) {
     return z.daten.spieler?.[kennung]?.name || runde?.namen?.[kennung] || "?";
+  }
+
+  // Schweigt seit WEG_MS: kein Lebenszeichen, keine Punkte (live.js, istWeg).
+  function weg(kennung) {
+    const e = z.daten.punkte?.[kennung];
+    if (!runde || e?.fertig || kennung === runde.ich.kennung) return false;
+    const t = zeit();
+    return t > WEG_MS && t - (Number(e?.t) || 0) > WEG_MS;
   }
 
   // Wer in dieser Runde mitspielt, mit seinen Punkten – die meisten vorn.
@@ -194,7 +242,7 @@
         ich,
         p: ich ? Math.max(z.punkte, Number(e.p) || 0) : Math.max(0, Number(e.p) || 0),
         fertig: ich ? z.fertig : Boolean(e.fertig),
-        online: z.daten.spieler?.[kennung]?.online !== false,
+        online: z.daten.spieler?.[kennung]?.online !== false && !weg(kennung),
       };
     }).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name, "de"));
   }
@@ -259,80 +307,183 @@
   }
 
   // --- Die Lage der anderen ---------------------------------------------------
-  // Je Spieler die letzten Sekunden seiner Lage: { t, a, b, c, p }, t in
-  // Millisekunden seit dem gemeinsamen Start.
+  /*
+   * Je Spieler eine Spur: die letzten Sekunden seiner Lage (proben, je
+   * { t, a, b, c, p }, t in Millisekunden seit dem gemeinsamen Start) und wie
+   * weit hinter der Wirklichkeit er gezeigt wird (verzug).
+   *
+   * Warum hinterher: Die Lage kommt zehnmal je Sekunde, und bis eine Probe
+   * da ist, vergeht noch einmal eine Zehntelsekunde oder zwei. Wer den
+   * anderen «jetzt» zeigen will, muss raten, wo er inzwischen ist – und
+   * springt zurück, sobald die nächste Probe etwas anderes sagt. Das war das
+   * Ruckeln. Statt dessen steht jeder gerade so weit zurück, dass fast immer
+   * schon die Probe danach da ist, und dazwischen läuft eine weiche Kurve.
+   *
+   * Wie weit das ist, misst jedes Gerät selbst: Bei jeder neuen Probe, wie
+   * alt die bis dahin neueste schon war (bedarf). Die zweitgrösste der
+   * letzten zwanzig Messungen ist das Ziel, und der Verzug wandert langsam
+   * dorthin (VERZUG_TEMPO). Kommt eine Probe doch einmal zu spät, geht es ein
+   * Stück in der alten Richtung weiter; was die Probe dann noch korrigiert,
+   * verschwindet in einer Zehntelsekunde (glatt) statt in einem Sprung.
+   */
+  function neueSpur() {
+    return { proben: [], bedarf: [], verzug: VERZUG_START, ziel: VERZUG_START, uhr: 0, glatt: { a: 0, b: 0, seit: 0 } };
+  }
+
+  // In den Spielen, in denen c ein Winkel ist (mal 100), gleitet er mit;
+  // sonst ist c ein Zustand (Ast, Schub …) und springt.
+  const cIstWinkel = () => Boolean(runde && mini()?.ANSEHBAR?.[runde.spiel]?.winkel);
+
   function merkeLage(lagen) {
     if (!lagen || typeof lagen !== "object") return;
     Object.entries(lagen).forEach(([kennung, l]) => {
       if (!l || kennung === runde.ich.kennung || Number(l.n) !== runde.nr) return;
       const t = Number(l.t);
       if (!Number.isFinite(t)) return;
-      let bahn = z.bahnen.get(kennung);
-      if (!bahn) { bahn = []; z.bahnen.set(kennung, bahn); }
-      const letzte = bahn[bahn.length - 1];
+      let spur = z.bahnen.get(kennung);
+      if (!spur) { spur = neueSpur(); z.bahnen.set(kennung, spur); }
+      const { proben } = spur;
+      const letzte = proben[proben.length - 1];
       if (letzte && t <= letzte.t) return;
-      bahn.push({ t, a: Number(l.a) || 0, b: Number(l.b) || 0, c: Number(l.c) || 0, p: Number(l.p) || 0 });
-      while (bahn.length > 3 && bahn[0].t < t - PUFFER_MS) bahn.shift();
+      const neu = { t, a: Number(l.a) || 0, b: Number(l.b) || 0, c: Number(l.c) || 0, p: Number(l.p) || 0 };
+      if (!letzte) { proben.push(neu); return; }
+
+      const bedarf = zeit() - letzte.t;
+      spur.bedarf.push(bedarf);
+      if (spur.bedarf.length > 20) spur.bedarf.shift();
+      const sortiert = [...spur.bedarf].sort((x, y) => x - y);
+      const hoch = sortiert[Math.max(0, sortiert.length - 2)];
+      spur.ziel = Math.max(VERZUG_MIN, Math.min(VERZUG_MAX, hoch + VERZUG_RAND));
+
+      // Was die neue Probe an der Stelle ändert, die gerade im Bild ist –
+      // das bleibt als Versatz stehen und verschwindet dann.
+      const jetzt = geistZeit() - verzugVon(spur);
+      const winkel = cIstWinkel();
+      const vorher = kurve(proben, jetzt, false, winkel);
+      const alt = glatt(spur);
+      proben.push(neu);
+      while (proben.length > 4 && proben[0].t < t - PUFFER_MS) proben.shift();
+      const nachher = kurve(proben, jetzt, false, winkel);
+      const da = vorher.a + alt.a - nachher.a;
+      const db = vorher.b + alt.b - nachher.b;
+      spur.glatt = Math.hypot(da, db) > SPRUNG ? { a: 0, b: 0, seit: 0 } : { a: da, b: db, seit: performance.now() };
     });
   }
 
-  const hatBahn = (kennung) => (z.bahnen.get(kennung)?.length || 0) > 0;
-  const istFertig = (kennung) => Boolean(z.daten.punkte?.[kennung]?.fertig) || z.daten.spieler?.[kennung]?.online === false;
+  const hatBahn = (kennung) => (z.bahnen.get(kennung)?.proben.length || 0) > 0;
+  const istFertig = (kennung) => Boolean(z.daten.punkte?.[kennung]?.fertig) || z.daten.spieler?.[kennung]?.online === false || weg(kennung);
 
-  // Wo jemand zur Zeit ms war: zwischen zwei Proben gerechnet, hinter der
+  // Wie weit dieser Spieler gerade zurücksteht – auf dem Weg zu seinem Ziel,
+  // nie mit einem Ruck.
+  function verzugVon(spur) {
+    const jetzt = performance.now();
+    const dt = spur.uhr ? Math.min(250, jetzt - spur.uhr) : 0;
+    spur.uhr = jetzt;
+    const schritt = dt * VERZUG_TEMPO;
+    spur.verzug += Math.max(-schritt, Math.min(schritt, spur.ziel - spur.verzug));
+    return spur.verzug;
+  }
+
+  // Der Rest der letzten Korrektur.
+  function glatt(spur) {
+    const g = spur.glatt;
+    if (!g.seit) return { a: 0, b: 0 };
+    const f = Math.exp(-(performance.now() - g.seit) / GLATT_MS);
+    if (f < 0.01) { g.seit = 0; return { a: 0, b: 0 }; }
+    return { a: g.a * f, b: g.b * f };
+  }
+
+  // Wie schnell sich k an Probe i ändert: aus beiden Nachbarn gemittelt
+  // (harmonisch), null an einer Umkehr. So läuft die Kurve weich durch jede
+  // Probe, ohne über sie hinauszuschiessen.
+  function steigung(proben, i, k) {
+    const p = proben[i];
+    const vor = proben[i - 1];
+    const nach = proben[i + 1];
+    const d0 = vor ? (p[k] - vor[k]) / Math.max(1, p.t - vor.t) : null;
+    const d1 = nach ? (nach[k] - p[k]) / Math.max(1, nach.t - p.t) : null;
+    if (d0 === null) return d1 ?? 0;
+    if (d1 === null) return d0;
+    if (d0 * d1 <= 0) return 0;
+    return (2 * d0 * d1) / (d0 + d1);
+  }
+
+  // Ein Stück Kurve von p0 nach p1 (kubisch, mit den Steigungen m0 und m1),
+  // h Millisekunden lang, an der Stelle s zwischen 0 und 1.
+  function hermite(p0, p1, m0, m1, h, s) {
+    const s2 = s * s;
+    const s3 = s2 * s;
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * m0 + (3 * s2 - 2 * s3) * p1 + (s3 - s2) * h * m1;
+  }
+
+  // Wo jemand zur Zeit ms war: zwischen zwei Proben auf der Kurve, hinter der
   // letzten ein Stück in seiner Richtung weiter – ausser er ist fertig, dann
-  // bleibt er stehen. c (Ast, Drehung, Gewicht …) springt, statt zu gleiten:
-  // Was es bedeutet, weiss nur das Spiel.
-  function ortBei(bahn, ms, fertig) {
-    if (!bahn.length) return { a: 0, b: 0, c: 0 };
-    const erste = bahn[0];
+  // bleibt er stehen. c springt, wenn es kein Winkel ist; ein Winkel, der
+  // sich zwischen zwei Proben um mehr als eine Vierteldrehung dreht, auch.
+  function kurve(proben, ms, fertig, winkel) {
+    if (!proben.length) return { a: 0, b: 0, c: 0 };
+    const erste = proben[0];
     if (ms <= erste.t) return { a: erste.a, b: erste.b, c: erste.c };
-    const letzte = bahn[bahn.length - 1];
+    const n = proben.length;
+    const letzte = proben[n - 1];
     if (ms >= letzte.t) {
-      if (fertig || bahn.length < 2) return { a: letzte.a, b: letzte.b, c: letzte.c };
-      const vor = bahn[bahn.length - 2];
-      const dt = Math.max(1, letzte.t - vor.t);
+      if (fertig || n < 2) return { a: letzte.a, b: letzte.b, c: letzte.c };
       const weiter = Math.min(ms - letzte.t, VORAUS_MAX);
-      return { a: letzte.a + ((letzte.a - vor.a) / dt) * weiter, b: letzte.b + ((letzte.b - vor.b) / dt) * weiter, c: letzte.c };
+      return { a: letzte.a + steigung(proben, n - 1, "a") * weiter, b: letzte.b + steigung(proben, n - 1, "b") * weiter, c: letzte.c };
     }
     let lo = 0;
-    let hi = bahn.length - 1;
+    let hi = n - 1;
     while (hi - lo > 1) {
       const mitte = (lo + hi) >> 1;
-      if (bahn[mitte].t <= ms) lo = mitte; else hi = mitte;
+      if (proben[mitte].t <= ms) lo = mitte; else hi = mitte;
     }
-    const s0 = bahn[lo];
-    const s1 = bahn[hi];
-    const k = (ms - s0.t) / Math.max(1, s1.t - s0.t);
-    return { a: s0.a + (s1.a - s0.a) * k, b: s0.b + (s1.b - s0.b) * k, c: k < 0.5 ? s0.c : s1.c };
+    const s0 = proben[lo];
+    const s1 = proben[hi];
+    const h = Math.max(1, s1.t - s0.t);
+    const s = (ms - s0.t) / h;
+    const dc = s1.c - s0.c;
+    return {
+      a: hermite(s0.a, s1.a, steigung(proben, lo, "a"), steigung(proben, hi, "a"), h, s),
+      b: hermite(s0.b, s1.b, steigung(proben, lo, "b"), steigung(proben, hi, "b"), h, s),
+      c: winkel && Math.abs(dc) < 157 ? s0.c + dc * s : s < 0.5 ? s0.c : s1.c,
+    };
   }
 
   // Ein Lauf, wie geist.js ihn kennt (abspieler) – nur aus der Lage, die
-  // gerade hereinkommt.
+  // gerade hereinkommt, um den Verzug dieses Spielers zurück.
   function liveLauf(kennung) {
     if (z.laeufe.has(kennung)) return z.laeufe.get(kennung);
-    const bahn = () => z.bahnen.get(kennung) || [];
+    const spur = () => z.bahnen.get(kennung) || neueSpur();
+    const letzteT = (s) => s.proben[s.proben.length - 1]?.t ?? 0;
     const lauf = {
       mitOrt: true,
       saat: null,
       vorlauf: 0,
       get dauer() {
-        const b = bahn();
-        return istFertig(kennung) && b.length ? b[b.length - 1].t : Infinity;
+        const s = spur();
+        return istFertig(kennung) && s.proben.length ? letzteT(s) + s.verzug : Infinity;
       },
-      ort: (ms) => ortBei(bahn(), ms, istFertig(kennung)),
+      // Die Zeit des Laufs, die zur Zeit ms im Bild steht.
+      zeitBei: (ms) => ms - verzugVon(spur()),
+      ort(ms) {
+        const s = spur();
+        const o = kurve(s.proben, ms - verzugVon(s), istFertig(kennung), cIstWinkel());
+        const g = glatt(s);
+        return { a: o.a + g.a, b: o.b + g.b, c: o.c };
+      },
       // Die Punkte zur Zeit ms – hinter der letzten Probe, was er zuletzt
       // gemeldet hat.
       wert(ms) {
-        const b = bahn();
+        const s = spur();
+        const t = ms - s.verzug;
         let p = 0;
-        for (let i = 0; i < b.length && b[i].t <= ms; i += 1) p = b[i].p;
+        for (let i = 0; i < s.proben.length && s.proben[i].t <= t; i += 1) p = s.proben[i].p;
         const gemeldet = Number(z.daten.punkte?.[kennung]?.p) || 0;
-        return b.length && ms >= b[b.length - 1].t ? Math.max(p, gemeldet) : p;
+        return s.proben.length && t >= letzteT(s) ? Math.max(p, gemeldet) : p;
       },
       fertig(ms) {
-        const b = bahn();
-        return istFertig(kennung) && b.length > 0 && ms > b[b.length - 1].t;
+        const s = spur();
+        return istFertig(kennung) && s.proben.length > 0 && ms - s.verzug > letzteT(s);
       },
     };
     z.laeufe.set(kennung, lauf);
@@ -340,8 +491,9 @@
   }
 
   // Die Zeit, nach der die Geister im Bild stehen: beim Spielen jetzt, beim
-  // Zuschauen eine Drittelsekunde dahinter – dieselbe wie die der Figur.
-  const geistZeit = () => (z.zuschauen ? zeit() - VERZUG_MS : zeit());
+  // Zuschauen ein Stück dahinter – dieselbe wie die der Figur. Jeder Lauf
+  // zieht davon noch seinen eigenen Verzug ab.
+  const geistZeit = () => (z.zuschauen ? zeit() - ZUSCHAU_EXTRA : zeit());
 
   /*
    * Wer als Geist im Bild mitläuft (geist.js, gegner): alle anderen, von
@@ -388,7 +540,9 @@
       get name() { return name(kennung); },
       los() {},
       zeit: geistZeit,
-      // Wie geist.js, zuschauer: Ort, Tempo und Beschleunigung nach oben.
+      // Wie geist.js, zuschauer: Ort, Tempo und Beschleunigung nach oben –
+      // und die Zeit seines Laufs, die gerade im Bild ist (nach ihr stellt
+      // der Planetenhüpfer seine Planeten, der Hügelflieger seine Sonne).
       stand() {
         const t = geistZeit();
         const ort = lauf.ort(t);
@@ -402,7 +556,7 @@
           vb: (nach.b - vor.b) / 0.12,
           ab: (unten.b - 2 * ort.b + oben.b) / 0.0625,
           punkte: lauf.wert(t),
-          t,
+          t: lauf.zeitBei(t),
         };
       },
       weiter: () => true,
@@ -446,7 +600,7 @@
     const liste = stand();
     const laufen = liste.filter((s) => !s.fertig && s.online).length;
     const karte = el("div", "lv-karte");
-    karte.append(el("p", "lv-marke", runde.uebung ? "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()));
+    karte.append(el("p", "lv-marke", runde.uebung ? runde.uebungText || "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()));
     if (!z.nurZuschauen) {
       karte.append(el("p", "lv-gross", `${z.punkte}`));
       karte.append(el("p", "lv-klein", z.gestoppt ? "Die Zeit ist um." : "Deine Punkte in dieser Runde."));
@@ -458,10 +612,19 @@
       const li = el("li", `${s.ich ? "ist-ich" : ""}${s.fertig ? " ist-fertig" : ""}`.trim());
       li.append(el("span", "lv-platz", `${platz}.`), el("span", "lv-name", s.ich ? `${s.name} (du)` : s.name), el("span", "lv-wert", String(s.p)));
       if (!s.fertig && s.online) li.append(el("span", "lv-spielt", "spielt"));
+      else if (!s.fertig) li.append(el("span", "lv-weg", "weg"));
       ol.append(li);
     });
     karte.append(ol);
     karte.append(el("p", "lv-klein", laufen ? (laufen === 1 ? "Einer spielt noch." : `${laufen} spielen noch.`) : "Alle sind fertig – gleich kommt die Auswertung."));
+    // Die Leitung muss nicht warten: Sie beendet die Runde von hier aus.
+    if (laufen && runde.leitung && rahmen?.rundeBeenden) {
+      const ende = el("button", "lv-knopf lv-knopf-still", "Runde jetzt beenden");
+      ende.type = "button";
+      ende.dataset.liveFrei = "";
+      ende.dataset.rundeEnde = "";
+      karte.append(ende);
+    }
     const alt = z.tafel.textContent;
     const box = el("div");
     box.append(karte);
@@ -527,6 +690,8 @@
     window.setTimeout(() => { z.start.hidden = true; }, 650);
     if (z.nurZuschauen) return;
     try { z.los?.(); } catch (fehler) { console.warn("Das Spiel liess sich nicht starten", fehler); }
+    // Das erste Lebenszeichen gleich: Ich bin da und spiele.
+    sende(false, true);
   }
 
   /*
@@ -585,11 +750,12 @@
     z.start = el("div", "lv-start");
     z.start.dataset.stufe = "warten";
     const karte = el("div", "lv-start-karte");
+    // Eine Übung sagt nur, dass sie eine ist: «Übungsrunde 1 von 2».
     karte.append(
-      el("p", "lv-marke", z.nurZuschauen ? "Du schaust zu" : runde.uebung ? "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()),
+      el("p", "lv-marke", z.nurZuschauen ? "Du schaust zu" : runde.uebung ? runde.uebungText || "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()),
       el("p", "lv-titel", runde.titel || ""),
-      el("p", "lv-klein", runde.uebung ? "Zählt nicht – zum Kennenlernen." : runde.endeUm ? dauerText(runde.endeUm - runde.startUm) : "Bis alle ausgeschieden sind."),
     );
+    if (!runde.uebung) karte.append(el("p", "lv-klein", runde.endeUm ? dauerText(runde.endeUm - runde.startUm) : "Bis alle ausgeschieden sind."));
     z.zahl = el("p", "lv-zahl");
     z.zahl.setAttribute("aria-live", "assertive");
     karte.append(z.zahl);
@@ -599,6 +765,12 @@
     z.tafel = el("div", "lv-tafel");
     z.tafel.hidden = true;
     host.append(z.tafel);
+    z.tafel.addEventListener("click", (ereignis) => {
+      const knopf = ereignis.target.closest?.("[data-runde-ende]");
+      if (!knopf) return;
+      knopf.disabled = true;
+      try { rahmen.rundeBeenden(); } catch { /* der Rahmen ist weg */ }
+    });
 
     GESPERRT.forEach((typ) => window.addEventListener(typ, sperrt, { capture: true, passive: false }));
 
@@ -610,7 +782,7 @@
     } catch { /* ohne Nachrichten vom Rahmen steht nur die eigene Zahl da */ }
 
     // Einen Namen oben antippen: diesem zuschauen. «Schliessen» beim reinen
-    // Zuschauen: zurück zum Live-Abend.
+    // Zuschauen: zurück zum Multiplayer.
     z.leiste.addEventListener("click", (ereignis) => {
       const knopf = ereignis.target.closest?.("button");
       if (!knopf) return;
@@ -619,18 +791,19 @@
     });
 
     z.ticker = window.setInterval(takt, 100);
+    z.puls = window.requestAnimationFrame(puls);
     takt();
   }
 
   // Jemand hat den Link einer Runde allein geöffnet: Hier läuft nichts – der
-  // Weg führt zum Live-Abend.
+  // Weg führt zum Multiplayer.
   function zeigeVerwaist(host) {
     if (!verwaist() || !host) return;
     const tafel = el("div", "lv-start");
     tafel.dataset.stufe = "warten";
     const karte = el("div", "lv-start-karte");
-    karte.append(el("p", "lv-marke", "Live"), el("p", "lv-titel", "Diese Runde gehört zu einem Live-Abend."));
-    const weg = el("a", "lv-knopf", "Zum Live-Abend");
+    karte.append(el("p", "lv-marke", "Multiplayer"), el("p", "lv-titel", "Diese Runde gehört zu einem Multiplayer."));
+    const weg = el("a", "lv-knopf", "Zum Multiplayer");
     weg.href = `/live?code=${encodeURIComponent(adresse.code)}`;
     weg.dataset.liveFrei = "";
     karte.append(weg);
@@ -643,6 +816,8 @@
   window.addEventListener("pagehide", () => {
     if (z.ticker) window.clearInterval(z.ticker);
     z.ticker = null;
+    if (z.puls) window.cancelAnimationFrame(z.puls);
+    z.puls = null;
   });
 
   window.LernappLiveSpiel = {

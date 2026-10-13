@@ -1,5 +1,5 @@
 /*
- * Der Live-Modus im Browser: spielen drei Geräte wirklich zusammen?
+ * Der Multiplayer im Browser: spielen drei Geräte wirklich zusammen?
  * ---------------------------------------------------------------------------
  * check-spiele.mjs ersetzt Firebase durch eine Attrappe. Für den Live-Modus
  * reicht das nicht: Hier geht es gerade darum, was zwischen den Geräten hin
@@ -150,6 +150,11 @@ const ATTRAPPE = `
       const d = await antwort.json();
       return d && d.code ? { code: d.code, name: d.name } : null;
     },
+    async offeneMultiplayer() {
+      const antwort = await fetch("http://${EMULATOR}/liveOffen.json?ns=${NAMENSRAUM}");
+      const d = (await antwort.json()) || {};
+      return Object.entries(d).map(([code, o]) => ({ code, name: o.name, seit: o.seit || 0 }));
+    },
     async ergebnisse() { return []; },
     async geister() { return []; },
     async offeneSpiele() { return null; },
@@ -209,9 +214,15 @@ async function bild(g, name) {
 const spielFrame = (g) => g.seite.frames().find((f) => /[?&]live=/.test(f.url())) || null;
 
 try {
-  // --- Die Leitung legt einen Abend an ---------------------------------------
+  // --- Die Leitung legt einen Multiplayer an ---------------------------------
   const leitung = await geraet("Alain", { admin: true });
-  // Aus dem Turnier heraus (Adminbereich, «Live-Abend» beim Turnier).
+  // Ohne Link: keine Code-Eingabe mehr, nur was für alle offen ist – und
+  // nichts zum Anlegen (das geschieht im Adminbereich).
+  await leitung.seite.goto(`${BASIS}/live`, { waitUntil: "load" });
+  pruefe(await bis(() => leitung.seite.locator(".lv-offen .mini-hinweis", { hasText: "kein Multiplayer" }).count().then((n) => n === 1)), "/live sagt nicht, dass gerade keiner offen ist");
+  pruefe(await leitung.seite.locator("input#lv-code").count() === 0, "/live fragt noch nach einem Code");
+  pruefe(await leitung.seite.getByRole("button", { name: /anlegen/i }).count() === 0, "/live bietet das Anlegen an – das gehört in den Adminbereich");
+  // Aus dem Turnier heraus (Adminbereich, «Multiplayer» beim Turnier).
   await leitung.seite.goto(`${BASIS}/live?neu&turnier=${TURNIER_ID}`, { waitUntil: "load" });
   pruefe(await bis(() => leitung.seite.locator(".lv-formular").isVisible()), "Das Formular zum Anlegen erscheint für den Admin nicht");
   await bild(leitung, "0-formular");
@@ -232,47 +243,81 @@ try {
   await leitung.seite.selectOption("#lv-zeitlimit", "30");
   await leitung.seite.selectOption("#lv-countdown", "3");
   await leitung.seite.check("#lv-finale");
+  // Für alle sichtbar: Die Startseite zeigt «Multiplayer», die Turnierseite
+  // den Weg hinein.
+  await leitung.seite.selectOption("#lv-sichtbar", "alle");
   await leitung.seite.getByRole("button", { name: "Lobby öffnen" }).click();
   pruefe(await bis(async () => (await stand(leitung))?.beigetreten), "Die Leitung ist nach dem Anlegen nicht in ihrer eigenen Lobby");
   const code = (await stand(leitung))?.code || "";
-  pruefe(/^[A-Z2-9]{4}$/.test(code), `Der Code sieht falsch aus: «${code}»`);
-  pruefe((await leitung.seite.locator(".lv-code-gross").textContent()) === code, "Die Lobby zeigt der Leitung den Code nicht gross");
+  pruefe(/^[A-Z2-9]{10}$/.test(code), `Der Code sieht falsch aus: «${code}»`);
+  pruefe((await leitung.seite.locator(".lv-link-text").textContent())?.endsWith(`/live?code=${code}`), "Die Lobby zeigt der Leitung den Link nicht");
+  pruefe(await leitung.seite.locator(".lv-kopf", { hasText: code }).count() === 0, "Oben steht noch der Code");
   pruefe(new URL(leitung.seite.url()).searchParams.get("code") === code, "Die Adresse trägt den Code nicht");
   pruefe((await stand(leitung))?.leitung === true, "Die Leitung wird nicht als Leitung erkannt");
-  // Die Turnierseite erfährt, dass gerade live gespielt wird.
+  const gemerkt = await leitung.seite.evaluate(() => JSON.parse(localStorage.getItem("mini.live.meine") || "[]"));
+  pruefe(gemerkt[0]?.code === code, "Das Gerät der Leitung merkt sich den Multiplayer nicht (für den Adminbereich)");
+  // Die Turnierseite erfährt, dass gerade gespielt wird – und die Liste der
+  // offenen, dass es ihn gibt.
   const zeigerLesen = async () => (await fetch(`http://${EMULATOR}/turnierLive/${TURNIER_ID}.json?ns=${NAMENSRAUM}`)).json();
-  pruefe((await zeigerLesen())?.code === code, "Das Turnier zeigt nicht auf den Live-Abend");
+  const offenLesen = async () => (await fetch(`http://${EMULATOR}/liveOffen/${code}.json?ns=${NAMENSRAUM}`)).json();
+  pruefe((await zeigerLesen())?.code === code, "Das Turnier zeigt nicht auf den Multiplayer");
+  pruefe((await offenLesen())?.name === "Prüfabend", "Der Multiplayer steht nicht in der Liste der offenen");
   pruefe((await leitung.seite.locator(".lv-einstellungen").textContent())?.includes("×2"), "Die Lobby sagt nicht, wie der Abend im Turnier zählt");
   await bild(leitung, "1-lobby-leitung");
 
   // --- Das Grossbild: schaut zu, tritt nicht bei -----------------------------
   const tv = await geraet("Fernseher", { viewport: { width: 1280, height: 720 } });
   await tv.seite.goto(`${BASIS}/live?code=${code}&gross`, { waitUntil: "load" });
-  pruefe(await bis(() => tv.seite.locator(".lv-grossbild .lv-code-gross").count().then((n) => n === 1)), "Das Grossbild zeigt den Code nicht");
+  pruefe(await bis(() => tv.seite.locator(".lv-grossbild .lv-link-gross").count().then((n) => n === 1)), "Das Grossbild zeigt den Link nicht");
 
   // --- Zwei Spieler treten bei ------------------------------------------------
   const mia = await geraet("Mia");
   const jonas = await geraet("Jonas");
-  for (const g of [mia, jonas]) {
-    await g.seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await g.seite.locator(".mini-knopf-live").click();
-    await g.seite.waitForURL(/\/live$/);
-    await g.seite.fill("#lv-code", code.toLowerCase());
-    await g.seite.getByRole("button", { name: "Beitreten" }).click();
-    pruefe(await bis(async () => (await stand(g))?.beigetreten), `${g.name} kommt nicht in die Lobby`);
-  }
+  // Mia über die Startseite: «Multiplayer» führt direkt hinein. Jonas über
+  // /live und die Liste der offenen.
+  await mia.seite.goto(`${BASIS}/`, { waitUntil: "load" });
+  pruefe(await bis(() => mia.seite.locator(".mini-knopf-live").count().then((n) => n === 1)), "Die Startseite zeigt «Multiplayer» nicht, obwohl einer offen ist");
+  pruefe((await mia.seite.locator(".mini-knopf-live").textContent()) === "Multiplayer", "Der Knopf auf der Startseite heisst nicht «Multiplayer»");
+  await mia.seite.locator(".mini-knopf-live").click();
+  await mia.seite.waitForURL(/\/live\?code=/);
+  pruefe(await bis(async () => (await stand(mia))?.beigetreten), "Mia kommt über die Startseite nicht in die Lobby");
+  await jonas.seite.goto(`${BASIS}/live`, { waitUntil: "load" });
+  pruefe(await bis(() => jonas.seite.locator(".lv-offen-zeile", { hasText: "Prüfabend" }).count().then((n) => n === 1)), "/live zeigt den offenen Multiplayer nicht");
+  await jonas.seite.locator(".lv-offen-zeile", { hasText: "Prüfabend" }).getByRole("button", { name: "Mitspielen" }).click();
+  pruefe(await bis(async () => (await stand(jonas))?.beigetreten), "Jonas kommt über /live nicht in die Lobby");
   pruefe(await bis(async () => (await leitung.seite.locator(".lv-spieler li.ist-online").count()) === 3), "Die Leitung sieht nicht alle drei online");
-  // Auf der Turnierseite: «Jetzt live» mit dem Weg hinein.
+  // Auf der Turnierseite: «Multiplayer läuft» mit dem Weg hinein.
   {
     const blick = await geraet("Gast");
     await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
     pruefe(await bis(() => blick.seite.locator(".tn-live").count().then((n) => n === 1)), "Die Turnierseite zeigt nicht, dass gerade live gespielt wird");
     const weg = await blick.seite.locator(".tn-live a").getAttribute("href");
-    pruefe(weg === `/live?code=${code}`, `Der Weg in den Live-Abend stimmt nicht (${weg})`);
+    pruefe(weg === `/live?code=${code}`, `Der Weg in den Multiplayer stimmt nicht (${weg})`);
     await bild(blick, "11-turnier-live");
     await blick.kontext.close();
     geraete.splice(geraete.indexOf(blick), 1);
   }
+  // Nur mit Link: Startseite und Turnierseite zeigen nichts mehr – und
+  // wieder zurück.
+  await leitung.seite.getByRole("button", { name: "Nur mit Link" }).click();
+  pruefe(await bis(async () => (await offenLesen()) === null && (await zeigerLesen()) === null), "«Nur mit Link» nimmt den Multiplayer nicht aus der Liste der offenen und vom Turnier");
+  pruefe(await bis(() => leitung.seite.locator(".lv-einstellungen", { hasText: "nur mit Link" }).count().then((n) => n === 1)), "Die Lobby sagt nicht, dass er nur mit Link offen ist");
+  {
+    const blick = await geraet("Gast3");
+    await blick.seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await warte(1500);
+    pruefe(await blick.seite.locator(".mini-knopf-live").count() === 0, "Die Startseite zeigt «Multiplayer», obwohl er nur mit Link offen ist");
+    await blick.kontext.close();
+    geraete.splice(geraete.indexOf(blick), 1);
+  }
+  await leitung.seite.getByRole("button", { name: "Für alle öffnen" }).click();
+  pruefe(await bis(async () => (await offenLesen())?.name === "Prüfabend" && (await zeigerLesen())?.code === code), "«Für alle öffnen» zeigt den Multiplayer nicht wieder");
+  // Auf die Startseite setzt ihn nur der Admin.
+  const darfZeigen = await jonas.seite.evaluate(async (c) => {
+    try { await firebase.database().ref(`liveOffen/${c}`).set({ name: "Meins", seit: 1 }); return true; }
+    catch { return false; }
+  }, code);
+  pruefe(!darfZeigen, "Ein Spieler kann einen Multiplayer auf die Startseite setzen");
   pruefe((await mia.seite.locator(".lv-start-knopf").count()) === 0, "Ein Spieler sieht den Start-Knopf");
   pruefe((await mia.seite.locator(".lv-warten").textContent())?.includes("Warte"), "Ein Spieler sieht nicht, dass er wartet");
   await bild(mia, "2-lobby-spieler");
@@ -298,6 +343,11 @@ try {
     const vorher = await frames[1].evaluate(() => document.querySelector(".lv-start")?.hidden === false);
     await bild(mia, `3-countdown-${nr}`);
     pruefe(vorher, `Runde ${nr}: Keine Countdown-Tafel vor dem Start`);
+    // Die Tafel einer Übung sagt nur «Übungsrunde» – keinen Satz dazu.
+    if (nr === 0) {
+      const karte = await frames[1].evaluate(() => document.querySelector(".lv-start-karte")?.innerText || "");
+      pruefe(/Übungsrunde/i.test(karte) && !/Zählt nicht|Kennenlernen/i.test(karte), `Die Tafel der Übung sagt mehr als «Übungsrunde» (${karte.replace(/\s+/g, " ")})`);
+    }
     if (erwarteSpiel === "schwerkraft") {
       await frames[1].locator(".cm-stage").dispatchEvent("pointerdown");
       const phase = await frames[1].evaluate(() => window.LernappSchwerkraft.state.phase);
@@ -329,7 +379,7 @@ try {
   // Ohne Tipp fällt der Läufer bald – die Runde endet von selbst.
   pruefe(await bis(async () => (await Promise.all([leitung, mia, jonas].map(stand))).every((s) => s?.phase === "pause"), { ms: 30000 }),
     "Die Übung endet nicht, obwohl alle ausgeschieden sind");
-  pruefe(await bis(() => mia.seite.locator(".lv-block h2", { hasText: "Übungsrunde" }).count().then((n) => n === 1)), "Die Auswertung sagt nicht, dass die Übung nicht zählt");
+  pruefe(await bis(() => mia.seite.locator(".lv-block h2", { hasText: "Übungsrunde" }).count().then((n) => n === 1)), "Die Auswertung sagt nicht, dass es eine Übungsrunde war");
   await bild(leitung, "5-pause-leitung");
   pruefe(await mia.seite.evaluate(() => window.__hof.length) === 0, "Eine Übungsrunde ging in die Hall of Fame");
   pruefe((await stand(mia))?.rahmen === false, "Nach der Runde liegt das Spiel noch über der Seite");
@@ -376,6 +426,41 @@ try {
   // Die anderen laufen als Geister mit.
   pruefe(await bis(() => lianen[2].evaluate(() => window.LernappLiveSpiel.gegner().length >= 2)), "Im Spiel laufen die anderen nicht als Geister mit");
   pruefe(await bis(() => lianen[2].evaluate(() => window.LernappGeist.stand()[0].zeigt.some((z) => z.endsWith(":Lea")))), "geist.js zeigt die anderen nicht im Bild");
+  // Die anderen gleiten: Lea, wie Jonas sie sieht, Bild für Bild. Gemessen
+  // wird, wie stark sich ihr Tempo von einem Bild zum nächsten ändert – ein
+  // Sprung, wenn ihre nächste Lage kommt, wäre ein Ausreisser. Dazu, wie weit
+  // sie zurücksteht (gemessen, nicht geschätzt).
+  const gleiten = await lianen[2].evaluate((lea) => new Promise((fertig) => {
+    const L = window.LernappLiveSpiel;
+    const geg = L.gegner().find((g) => g.kennung === lea);
+    if (!geg) { fertig(null); return; }
+    const proben = [];
+    const schritt = () => {
+      const o = geg.lauf.ort(L.geistZeit());
+      proben.push({ t: performance.now(), a: o.a, b: o.b, z: geg.lauf.zeitBei(L.geistZeit()) });
+      if (proben.length < 120) { requestAnimationFrame(schritt); return; }
+      const tempo = [];
+      for (let i = 1; i < proben.length; i += 1) {
+        const dt = Math.max(1, proben[i].t - proben[i - 1].t);
+        tempo.push({ va: (proben[i].a - proben[i - 1].a) / dt, vb: (proben[i].b - proben[i - 1].b) / dt });
+      }
+      let sprung = 0;
+      let schnitt = 0;
+      for (let i = 1; i < tempo.length; i += 1) {
+        sprung = Math.max(sprung, Math.hypot(tempo[i].va - tempo[i - 1].va, tempo[i].vb - tempo[i - 1].vb));
+        schnitt += Math.hypot(tempo[i].va, tempo[i].vb) / tempo.length;
+      }
+      const letzte = proben[proben.length - 1];
+      fertig({ sprung, schnitt, verzug: L.zeit() - letzte.z });
+    };
+    requestAnimationFrame(schritt);
+  }), kennungen.Lea);
+  console.log(`Lea bei Jonas: Tempo ${gleiten?.schnitt?.toFixed(3)} px/ms, grösster Tempowechsel je Bild ${gleiten?.sprung?.toFixed(3)} px/ms, ${Math.round(gleiten?.verzug ?? -1)} ms zurück`);
+  pruefe(gleiten && gleiten.verzug >= 40 && gleiten.verzug <= 800, `Lea steht nicht um einen vernünftigen Verzug zurück (${JSON.stringify(gleiten)})`);
+  // Geraten statt gerechnet, sprang sie bei jeder Lage um einige Pixel – ein
+  // Tempowechsel von 0,5 px/ms und mehr in einem Bild. Gleitend bleibt er
+  // weit darunter.
+  pruefe(gleiten && gleiten.sprung < 0.3, `Lea ruckelt bei Jonas (${JSON.stringify(gleiten)})`);
   // Mia fällt und schaut dann Jonas zu – vorne, bei gleich vielen Metern
   // nach dem Namen.
   pruefe(await bis(() => lianen[1].evaluate(() => window.LernappLiveSpiel.istFertig()), { ms: 15000 }), "Mia fällt nicht ins Wasser");
@@ -477,7 +562,7 @@ try {
 
   // --- Abschliessen ----------------------------------------------------------
   await leitung.seite.getByRole("button", { name: "Ins Turnier eintragen und abschliessen" }).click();
-  pruefe(await bis(() => mia.seite.locator(".lv-status", { hasText: "vorbei" }).count().then((n) => n > 0)), "Die Spieler erfahren nicht, dass der Abend vorbei ist");
+  pruefe(await bis(() => mia.seite.locator(".lv-status", { hasText: "vorbei" }).count().then((n) => n > 0)), "Die Spieler erfahren nicht, dass der Multiplayer vorbei ist");
   pruefe(await mia.seite.locator(".lv-podest").count() === 1, "Nach dem Abschliessen ist das Podest weg");
   pruefe(await mia.seite.locator("a", { hasText: "Zum Turnier" }).count() >= 1, "Nach dem Abend führt kein Weg zum Turnier");
 
@@ -489,17 +574,19 @@ try {
   pruefe(ergebnis.turnier === TURNIER_ID && /^[A-Z2-9]{4}-[0-9]{6,16}$/.test(ergebnis.id || ""), `Der Endstand liegt nicht beim richtigen Turnier (${ergebnis.turnier}, ${ergebnis.id})`);
   pruefe(ergebnis.gewicht === 2 && ergebnis.endstand?.length === 5 && ergebnis.runden === 3, `Der Endstand ist nicht vollständig (${JSON.stringify({ g: ergebnis.gewicht, n: ergebnis.endstand?.length, r: ergebnis.runden })})`);
   pruefe(JSON.stringify(ergebnis.endstand?.map((e) => [e.name, e.punkte, e.platz])) === JSON.stringify(gesamt), "Im Turnier steht ein anderer Endstand als auf dem Podest");
-  pruefe((await zeigerLesen()) === null, "Nach dem Abschliessen zeigt das Turnier noch auf den Abend");
+  pruefe((await zeigerLesen()) === null, "Nach dem Abschliessen zeigt das Turnier noch auf den Multiplayer");
+  pruefe((await offenLesen()) === null, "Nach dem Abschliessen steht der Multiplayer noch in der Liste der offenen");
+  pruefe(new URL(leitung.seite.url()).pathname === "/admin", `Nach dem Abschliessen landet die Leitung nicht im Adminbereich (${leitung.seite.url()})`);
   // Die Gesamtwertung des Turniers mit dem Abend: Er zählt wie ein Spiel,
   // mal zwei; wer fehlt, steht hinter dem Letzten.
   {
     const blick = await geraet("Gast2");
     await blick.seite.addInitScript((daten) => { try { localStorage.setItem("__turnierLive", JSON.stringify(daten)); } catch { /* egal */ } }, eingetragen);
     await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
-    pruefe(await bis(() => blick.seite.locator(".tn-live-karte").count().then((n) => n === 1)), "Die Turnierseite zeigt den Live-Abend nicht");
+    pruefe(await bis(() => blick.seite.locator(".tn-live-karte").count().then((n) => n === 1)), "Die Turnierseite zeigt den Multiplayer nicht");
     pruefe(await blick.seite.locator(".tn-live-karte .mini-karte-zahl").textContent() === "zählt ×2", "Die Turnierseite sagt nicht, wie der Abend zählt");
     pruefe(await bis(() => blick.seite.locator(".tn-tabelle tbody tr").count().then((n) => n === 5)), "In der Gesamtwertung fehlen die Spieler des Abends");
-    pruefe((await blick.seite.locator(".tn-tabelle .tn-teile").first().textContent())?.includes("Live «Prüfabend» 1. ×2"), "Die Gesamtwertung zeigt die Live-Spalte nicht");
+    pruefe((await blick.seite.locator(".tn-tabelle .tn-teile").first().textContent())?.includes("«Prüfabend» 1. ×2"), "Die Gesamtwertung zeigt die Spalte des Multiplayers nicht");
     await bild(blick, "12-turnier-gesamt");
     const rechnung = await blick.seite.evaluate((abend) => {
       const t = { spiele: ["towerStack"], wertung: "platz" };
@@ -521,7 +608,89 @@ try {
     try { await firebase.database().ref(`live/${c}/zustand`).set({ phase: "runde", nr: 9 }); return true; }
     catch { return false; }
   }, code);
-  pruefe(!darfSteuern, "Ein Spieler kann den Abend steuern");
+  pruefe(!darfSteuern, "Ein Spieler kann den Multiplayer steuern");
+
+  // --- Wer nicht wirklich spielt, hält die Runde nicht auf -------------------
+  // Brückenbauer hat keine Uhr: Die Runde endet, wenn alle fertig sind. Ein
+  // Gerät im Hintergrund (Bildschirm aus, Tab verdeckt) bleibt «online», sein
+  // Spiel läuft aber nicht – ohne Lebenszeichen hinge die Runde ewig, und
+  // alle anderen sässen vor «spielt noch». Zwei Runden: In der ersten beendet
+  // die Leitung sie von ihrer Tafel aus, in der zweiten liegt Jonas im
+  // Hintergrund, und die Runde endet ohne ihn.
+  {
+    await leitung.seite.goto(`${BASIS}/live?neu`, { waitUntil: "load" });
+    pruefe(await bis(() => leitung.seite.locator(".lv-formular").isVisible()), "Das Formular erscheint für den zweiten Multiplayer nicht");
+    while (await leitung.seite.locator(".lv-zeile").count() > 1) await leitung.seite.locator(".lv-zeile").last().getByRole("button", { name: "Entfernen" }).click();
+    const zeile = leitung.seite.locator(".lv-zeile").first();
+    await zeile.locator(".lv-spiel-wahl").selectOption("bridgeBuilder");
+    await zeile.locator(".lv-runden-wahl").selectOption("2");
+    await zeile.locator(".lv-uebung-wahl").selectOption("0");
+    await leitung.seite.selectOption("#lv-turnier", "");
+    await leitung.seite.selectOption("#lv-sichtbar", "link");
+    await leitung.seite.selectOption("#lv-zeitlimit", "0");
+    await leitung.seite.selectOption("#lv-countdown", "3");
+    await leitung.seite.getByRole("button", { name: "Lobby öffnen" }).click();
+    pruefe(await bis(async () => (await stand(leitung))?.beigetreten), "Die Leitung kommt nicht in den zweiten Multiplayer");
+    const code2 = (await stand(leitung))?.code || "";
+    for (const g of [mia, jonas]) {
+      await g.seite.goto(`${BASIS}/live?code=${code2}`, { waitUntil: "load" });
+      pruefe(await bis(async () => (await stand(g))?.beigetreten), `${g.name} kommt nicht in den zweiten Multiplayer`);
+    }
+    await bis(async () => (await leitung.seite.locator(".lv-spieler li.ist-online").count()) === 3);
+    const drei = [leitung, mia, jonas];
+    async function brueckenRunde(nr) {
+      if (nr === 0) await leitung.seite.locator(".lv-start-knopf").click();
+      else await leitung.seite.getByRole("button", { name: "Weiter" }).click();
+      pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "runde" && x.nr === nr && x.rahmen)), `Brückenbauer ${nr}: Nicht alle bekommen das Spiel`);
+      const frames = [];
+      for (const g of drei) {
+        let f = null;
+        await bis(async () => { f = spielFrame(g); return f && new URL(f.url()).searchParams.get("nr") === String(nr) && await f.evaluate(() => Boolean(window.LernappLiveSpiel?.gestartet?.())); });
+        frames.push(f);
+      }
+      return frames;
+    }
+    // Den Finger halten, bis der Balken weit über den Pfeiler reicht: Der
+    // Arbeiter läuft ins Leere.
+    async function absturz(g, f) {
+      const box = await f.locator(".cm-stage").boundingBox();
+      await g.seite.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
+      await g.seite.mouse.down();
+      await bis(() => f.evaluate(() => {
+        const st = window.LernappBruecke.state;
+        const p = st.pfeiler[st.hier + 1];
+        return st.schritt === "wachsen" && st.balken && st.balken.x + st.balken.len > p.x + p.w;
+      }), { ms: 8000, schritt: 10 });
+      await g.seite.mouse.up();
+      return bis(() => f.evaluate(() => window.LernappLiveSpiel.istFertig()), { ms: 8000 });
+    }
+
+    // Runde 1: Alain fällt, Mia und Jonas tun nichts. Alain wartet nicht – er
+    // beendet die Runde von seiner Tafel aus.
+    const erste = await brueckenRunde(0);
+    pruefe(await absturz(leitung, erste[0]), "Brückenbauer: Der Arbeiter der Leitung fällt nicht");
+    const ende = erste[0].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" });
+    pruefe(await bis(() => ende.isVisible()), "Die Tafel der Leitung bietet «Runde jetzt beenden» nicht an, während andere noch spielen");
+    pruefe(await bis(() => erste[1].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" }).count().then((n) => n === 0), { ms: 1500 }), "Ein Spieler bekommt den Knopf der Leitung");
+    await ende.click();
+    pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "pause")), "«Runde jetzt beenden» auf der Tafel beendet die Runde nicht");
+
+    // Runde 2: Jonas' Spiel liegt im Hintergrund – kein Bild mehr, die
+    // Zeitgeber laufen gedrosselt weiter, die Verbindung steht.
+    const zweite = await brueckenRunde(1);
+    await zweite[2].evaluate(() => { window.requestAnimationFrame = () => 0; });
+    const t0 = Date.now();
+    pruefe(await absturz(leitung, zweite[0]), "Brückenbauer: Alains Arbeiter fällt nicht");
+    pruefe(await absturz(mia, zweite[1]), "Brückenbauer: Mias Arbeiter fällt nicht");
+    pruefe(await bis(() => zweite[1].locator(".lv-tafel .lv-weg").count().then((n) => n === 1), { ms: 15000, schritt: 50 })
+      || (await stand(mia))?.phase === "pause", "Auf der Tafel steht nicht, dass Jonas weg ist");
+    pruefe(await bis(async () => (await stand(leitung))?.phase === "pause", { ms: 20000 }), "Die Runde wartet ewig auf einen, dessen Spiel im Hintergrund liegt");
+    const dauer = Date.now() - t0;
+    pruefe(dauer < 18000, `Die Runde endet erst nach ${Math.round(dauer / 1000)} s ohne Jonas`);
+    const nr1 = await leitung.seite.evaluate(() => window.LernappLive.rundenWertung(1, "platz", false).map((e) => [e.name, e.p, e.fertig]));
+    pruefe(nr1.length === 3 && nr1.some(([n, , f]) => n === "Jonas" && !f), `Jonas fehlt in der Wertung oder gilt als fertig (${JSON.stringify(nr1)})`);
+    await bild(mia, "13-ohne-jonas");
+  }
 
   const spreizung = [...startZeiten.values()].map((z) => Math.max(...z) - Math.min(...z));
   console.log(`Start je Runde auseinander: ${spreizung.map((ms) => `${ms} ms`).join(", ")}`);
@@ -539,10 +708,10 @@ try {
 
 fehlerAufSeite.forEach((f) => befunde.push(`Konsole: ${f}`));
 if (process.env.LIVE_DEBUG) protokoll.slice(-60).forEach((z) => console.log(z));
-console.log(`${geprueft} Prüfungen im Live-Modus.`);
+console.log(`${geprueft} Prüfungen im Multiplayer.`);
 if (befunde.length) {
   console.error(`\n${befunde.length} Befund${befunde.length === 1 ? "" : "e"}:`);
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Live-Modus spielt zusammen.");
+console.log("Der Multiplayer spielt zusammen.");

@@ -81,13 +81,16 @@
   // zuschauer): die Fassung ihrer Aufzeichnung – dieselbe, die das Spiel bei
   // LernappGeist.fuer angibt – und ob ihre Welt immer dieselbe ist. Sonst
   // braucht der Lauf seine Saat, um seine Welt wieder aufzubauen.
+  // winkel: c in der Lage ist ein Winkel (mal 100) – im Multiplayer gleitet
+  // er bei den anderen mit, statt zehnmal je Sekunde zu springen
+  // (live-spiel.js). In den übrigen ist c ein Zustand (Ast, Schub).
   const ANSEHBAR = {
     vineSwing: { fassung: "s1", fest: true },
-    tunnelFlight: { fassung: "t1" },
-    driftRace: { fassung: "t1" },
-    planetHop: { fassung: "p2" },
-    moonLander: { fassung: "p5" },
-    gravityRun: { fassung: "t1" },
+    tunnelFlight: { fassung: "t1", winkel: true },
+    driftRace: { fassung: "t1", winkel: true },
+    planetHop: { fassung: "p2", winkel: true },
+    moonLander: { fassung: "p5", winkel: true },
+    gravityRun: { fassung: "t1", winkel: true },
     hillGlide: { fassung: "t1" },
   };
 
@@ -1160,6 +1163,38 @@
     return wrap;
   }
 
+  /*
+   * Der Knopf «Multiplayer» oben auf der Startseite (live.js): Er steht nur
+   * da, solange ein Multiplayer für alle offen ist – einer nur mit Link
+   * erscheint hier nie. Bei einem führt er direkt hinein, bei mehreren zur
+   * Auswahl. Gefragt wird beim Laden und alle 20 Sekunden, solange die Seite
+   * zu sehen ist: Wer gerade hier ist, sieht ihn auch, wenn er erst später
+   * aufgeht.
+   */
+  function multiplayerKnopf(kopf, vor) {
+    let knopf = null;
+    let zuletzt = "";
+    const schau = async () => {
+      let offene = [];
+      try { offene = (await cloud()?.offeneMultiplayer?.()) || []; } catch { offene = []; }
+      const ziel = offene.length === 1 ? `/live?code=${encodeURIComponent(offene[0].code)}` : offene.length ? "/live" : "";
+      if (ziel === zuletzt) return;
+      zuletzt = ziel;
+      knopf?.remove();
+      knopf = null;
+      if (!ziel) return;
+      knopf = verweis("Multiplayer", ziel, "mini-knopf-hell mini-knopf-live");
+      knopf.title = offene.length === 1 ? `Multiplayer «${offene[0].name}»: jetzt mitspielen` : "Multiplayer: jetzt mitspielen";
+      if (vor && vor.parentNode === kopf) kopf.insertBefore(knopf, vor);
+      else kopf.append(knopf);
+    };
+    schau();
+    const takt = window.setInterval(() => {
+      if (!kopf.isConnected) { window.clearInterval(takt); return; }
+      if (document.visibilityState === "visible") schau();
+    }, 20000);
+  }
+
   async function baueUebersicht(wirt) {
     wirt.innerHTML = "";
 
@@ -1178,16 +1213,13 @@
     // ihn (adminKnopf).
     const zumAdmin = adminKnopf();
     if (zumAdmin) kopf.append(zumAdmin);
-    // Der Weg in einen Live-Abend (live.js): den Code eingeben, den die
-    // Leitung sagt, und alle spielen zusammen.
-    const live = verweis("Live", "/live", "mini-knopf-hell mini-knopf-live");
-    live.title = "Live-Abend: mit dem Code beitreten";
-    kopf.append(live);
     // Ganz rechts das Vollbild – es bleibt auch in den Spielen und zurück
     // (vollbild.js).
     const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
     if (voll) kopf.append(voll);
     wirt.append(kopf);
+    // Davor, sobald ein Multiplayer für alle offen ist, der Weg hinein.
+    multiplayerKnopf(kopf, voll);
 
     // Unter wessen Namen hier gespielt wird – und der Weg, ihn zu ändern.
     wirt.append(namensZeile({ klasse: "mini-wer-oben" }));

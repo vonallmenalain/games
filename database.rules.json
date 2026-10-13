@@ -4,8 +4,8 @@
     ".write": false,
     "live": {
       "$code": {
-        ".read": "$code.matches(/^[A-Z2-9]{4}$/)",
-        ".write": "$code.matches(/^[A-Z2-9]{4}$/) && auth != null && auth.token.email_verified == true && (auth.token.email == 'alain.sc2@gmail.com' || auth.token.email == 'Alain.sc2@gmail.com')",
+        ".read": "$code.matches(/^[A-Z2-9]{4,12}$/)",
+        ".write": "$code.matches(/^[A-Z2-9]{4,12}$/) && auth != null && auth.token.email_verified == true && (auth.token.email == 'alain.sc2@gmail.com' || auth.token.email == 'Alain.sc2@gmail.com')",
         "info": {
           ".validate": "newData.hasChildren(['name', 'host', 'erstellt', 'programm', 'einstellungen'])",
           "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
@@ -60,12 +60,22 @@
         "$anderes": { ".validate": false }
       }
     },
+    "liveOffen": {
+      ".read": true,
+      "$code": {
+        ".write": "$code.matches(/^[A-Z2-9]{4,12}$/) && auth != null && auth.token.email_verified == true && (auth.token.email == 'alain.sc2@gmail.com' || auth.token.email == 'Alain.sc2@gmail.com')",
+        ".validate": "newData.hasChildren(['name']) && root.child('live').child($code).child('info').exists()",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+        "seit": { ".validate": "newData.isNumber()" },
+        "$anderes": { ".validate": false }
+      }
+    },
     "turnierLive": {
       "$turnier": {
         ".read": "$turnier.matches(/^[a-z0-9-]+$/)",
         ".write": "$turnier.matches(/^[a-z0-9-]+$/) && auth != null && auth.token.email_verified == true && (auth.token.email == 'alain.sc2@gmail.com' || auth.token.email == 'Alain.sc2@gmail.com')",
         ".validate": "newData.hasChildren(['code', 'name'])",
-        "code": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z2-9]{4}$/)" },
+        "code": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z2-9]{4,12}$/)" },
         "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
         "seit": { ".validate": "newData.isNumber()" },
         "$anderes": { ".validate": false }

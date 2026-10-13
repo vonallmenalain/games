@@ -28,7 +28,7 @@ nutzt sie keines), `config/miniGames`
 miniTurniere/<id>                    anlegen, ändern, löschen: nur der Admin
     name, beschreibung, spiele, startMs, endeMs, versuche,
     zaehlt, wertung, aufgaben, sichtbar, verdeckt, aktiv,
-    nurLive (nur an Live-Abenden – keine Versuche)
+    nurLive (nur im Multiplayer – keine Versuche)
 
 miniTurniere/<id>/eintraege/<spiel>_<spieler>
     game, spieler, name          wie in miniScores
@@ -38,7 +38,7 @@ miniTurniere/<id>/eintraege/<spiel>_<spieler>
 
 miniTurniere/<id>/live/<code>-<zeit>  schreiben: nur der Admin
     name, gewicht (0–3), endstand [{ spieler, name, punkte, platz }],
-    runden, spiele, erstelltMs   der Endstand eines Live-Abends (live.js)
+    runden, spiele, erstelltMs   der Endstand eines Multiplayers (live.js)
 ```
 
 Ein einzelnes Turnier lesen darf jeder, der seinen Namen kennt; auflisten
@@ -53,8 +53,8 @@ keinem die Runde weg, die er gerade spielt.
 Keine der Abfragen braucht einen zusammengesetzten Index: gefragt wird immer
 nur nach einem Feld. Es gibt also nichts, was von Hand nach Firebase müsste.
 
-Daneben gibt es eine **Realtime Database** für den geplanten Live-Modus
-(Lobby, gemeinsamer Start, Punkte in Echtzeit):
+Daneben gibt es eine **Realtime Database** für den Multiplayer (Lobby,
+gemeinsamer Start, Punkte in Echtzeit):
 
 ```
 https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app
@@ -62,11 +62,12 @@ https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app
 ```
 
 Ihre Regeln stehen in `database.rules.json`. Firestore bleibt für alles, was
-bleibt; die Realtime Database nur für das, was während eines Live-Abends hin
-und her geht (`live.js`):
+bleibt; die Realtime Database nur für das, was während eines Multiplayers
+hin und her geht (`live.js`):
 
 ```
-live/<code>                      lesen: wer den Code kennt (vier Zeichen)
+live/<code>                      lesen: wer den Link hat (zehn Zeichen im
+                                 Code, nicht zu erraten; vier von früher)
     info       name, host, hostKennung, erstellt,
                programm, einstellungen            schreiben: nur der Admin
     zustand    phase (lobby · runde · pause · ende),
@@ -75,16 +76,20 @@ live/<code>                      lesen: wer den Code kennt (vier Zeichen)
     punkte/<nr>/<kennung>   p, fertig, t          der Spieler selbst
     lage/<kennung>          n, t, a, b, c, p      der Spieler selbst
 
+liveOffen/<code>        name, seit                lesen: jeder (auch als Liste)
+                                                  schreiben: nur der Admin
 turnierLive/<turnier>   code, name, seit          schreiben: nur der Admin
 ```
 
-Auflisten lässt sich nichts, die Wurzel ist zu. Wie bei der Bestenliste gibt
+`liveOffen` sind die Multiplayer, die für alle sichtbar sind: Die Startseite
+liest die Liste ohne SDK und zeigt dann «Multiplayer». Einer nur mit Link
+steht dort nie. Sonst lässt sich nichts auflisten, die Wurzel ist zu. Wie bei der Bestenliste gibt
 es für Spieler kein Konto: Die Regeln prüfen, was geschrieben wird (eine
 Kennung `mini_…`, ein Name bis 24 Zeichen, Punkte als Zahl, keine
-zusätzlichen Felder) und dass es den Abend gibt – nicht, wer schreibt.
+zusätzlichen Felder) und dass es den Multiplayer gibt – nicht, wer schreibt.
 Anlegen, steuern und löschen darf nur der Admin, mit derselben Prüfung wie
-in Firestore (bestätigte Adresse). «Abend abschliessen» löscht den ganzen
-Abend; liegen bleibt nichts.
+in Firestore (bestätigte Adresse). «Abschliessen» löscht den ganzen
+Multiplayer samt seinem Eintrag in `liveOffen`; liegen bleibt nichts.
 
 ## 1. Die Regeln fahren von selbst nach Firebase
 
