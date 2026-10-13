@@ -2,12 +2,13 @@
  * planeten.js – Planetenhüpfer.
  * ---------------------------------------------------------------------------
  * Ein kleiner Astronaut läuft um einen Planeten, immer rundherum. Ein Tipp,
- * und er springt ab – geradeaus, in die Richtung, in die er gerade läuft.
- * Kommt er durch die Lufthülle des nächsten Planeten, fängt sie ihn ein, und
- * er läuft dort weiter. Verfehlt er sie, treibt er ins All.
+ * und er springt ab – senkrecht vom Planeten weg, dorthin, wohin sein Kopf
+ * zeigt. Kommt er durch die Lufthülle des nächsten Planeten, fängt sie ihn
+ * ein, und er läuft dort weiter. Verfehlt er sie, treibt er ins All. Eine
+ * Zielhilfe gibt es nicht: Man sieht es am Astronauten selbst.
  *
- * Es geht nach oben, Planet um Planet. Die Planeten werden kleiner, ihre
- * Lufthülle dünner, die Sprünge weiter; manche wandern hin und her, um
+ * Es geht nach oben, Planet um Planet. Die Sprünge werden schnell weiter,
+ * die Planeten kleiner, ihre Lufthülle dünner; manche wandern hin und her, um
  * manche kreist ein Mond, an dem man sich den Helm anschlägt. Und der
  * Sauerstoff reicht auf jedem Planeten nur eine Weile – wer zu lange auf den
  * perfekten Moment wartet, wartet zu lange.
@@ -16,8 +17,8 @@
  *
  * Gebaut wird der Weg aus dem Zufall (zufall.js): ohne Turnier jedes Mal ein
  * anderer, im Turnier für alle im selben Versuch derselbe. Er ist immer
- * schaffbar: Der Astronaut läuft rundherum, also kommt jede Richtung einmal
- * vorbei, und im All fliegt er geradeaus. Wie genau man treffen muss, hängt
+ * schaffbar: Der Astronaut läuft rundherum, also zeigt sein Kopf einmal in
+ * jede Richtung, und im All fliegt er geradeaus. Wie genau man treffen muss, hängt
  * an der Grösse der Lufthülle und am Abstand – beides wird nach oben
  * strenger, nie unmöglich.
  *
@@ -68,7 +69,7 @@
 
   const HELP = [
     "Planetenhüpfer. Der Astronaut läuft um den Planeten herum.",
-    "Tippe aufs Bild, dann springt er ab – geradeaus, in die Richtung, in die er gerade läuft.",
+    "Tippe aufs Bild, dann springt er ab – senkrecht vom Planeten weg, dorthin, wohin sein Kopf zeigt.",
     "Fliegt er durch die leuchtende Lufthülle des nächsten Planeten, landet er dort. Verfehlt er sie, treibt er ins All.",
     "Pass auf die Monde auf, und warte nicht zu lange: Der Sauerstoff reicht nur eine Weile. Es zählt, wie viele Planeten du erreichst.",
   ].join(" ");
@@ -89,7 +90,10 @@
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const lerp = (a, b, k) => a + (b - a) * k;
   // Wie streng es beim Planeten n zugeht: anfangs wenig, dann immer mehr.
-  const schwereBei = (n) => 1 - Math.exp(-n / 16);
+  // Die Abstände wachsen schneller als der Rest – nach zehn Planeten sind
+  // sie schon fast so weit, wie sie werden.
+  const schwereBei = (n) => 1 - Math.exp(-n / 12);
+  const weiteBei = (n) => 1 - Math.exp(-n / 6);
   const drehBei = (n) => lerp(DREH0, DREH_MAX, schwereBei(n));
   const sprungBei = (n) => lerp(SPRUNG0, SPRUNG_MAX, schwereBei(n));
   const luftBei = (n) => lerp(LUFT0, LUFT_MIN, schwereBei(n));
@@ -200,11 +204,12 @@
       return;
     }
     const k = schwereBei(n);
+    const kWeit = weiteBei(n);
     const vor = liste[n - 1];
     for (let versuch = 0; versuch < 12; versuch += 1) {
       const r = lerp(46, 21, k) * (0.82 + zufall.zahl() * 0.36);
       const luft = lerp(36, 15, k) * (0.9 + zufall.zahl() * 0.2);
-      const luecke = lerp(76, 175, k) * (0.82 + zufall.zahl() * 0.36);
+      const luecke = lerp(80, 205, kWeit) * (0.82 + zufall.zahl() * 0.36);
       // Meist nach oben, ein wenig zur Seite – und zurück zur Mitte, wenn
       // der Weg zu weit hinausläuft.
       const streu = lerp(0.65, 1.0, k);
@@ -725,26 +730,6 @@
     });
   }
 
-  // Wohin er gerade springen würde: ein kurzer, feiner Strich vor ihm.
-  function zeichneZiel() {
-    if (state.schritt !== "lauf") return;
-    const a = state.astro;
-    const t = tangente();
-    weltTransform();
-    const lang = 70;
-    const verlauf = g.createLinearGradient(a.x, a.y, a.x + t.x * lang, a.y + t.y * lang);
-    verlauf.addColorStop(0, "rgba(255,255,255,0.45)");
-    verlauf.addColorStop(1, "rgba(255,255,255,0)");
-    g.strokeStyle = verlauf;
-    g.lineWidth = 1.6 / view.s * 1.3;
-    g.setLineDash([4, 5]);
-    g.beginPath();
-    g.moveTo(a.x + t.x * 8, a.y + t.y * 8);
-    g.lineTo(a.x + t.x * lang, a.y + t.y * lang);
-    g.stroke();
-    g.setLineDash([]);
-  }
-
   function zeichneSpur() {
     if (state.spur.length < 2) return;
     weltTransform();
@@ -965,7 +950,6 @@
       zeichnePlanet(state.planeten[i]);
     }
     zeichneFahnen();
-    zeichneZiel();
     zeichneSpur();
     zeichneTeile();
     zeichneLuft();
@@ -996,10 +980,10 @@
   // ---------------------------------------------------------------------------
   // Der Lauf
   // ---------------------------------------------------------------------------
-  // Die Richtung, in die er gerade läuft – und in die er springen würde.
-  function tangente() {
-    const t = state.theta + state.richtung * Math.PI / 2;
-    return { x: Math.cos(t), y: Math.sin(t) };
+  // Wohin er springen würde: senkrecht vom Planeten weg, dorthin, wohin
+  // sein Kopf zeigt.
+  function absprung() {
+    return { x: Math.cos(state.theta), y: Math.sin(state.theta) };
   }
 
   function stellePosition() {
@@ -1013,11 +997,11 @@
 
   function springen() {
     if (state.schritt !== "lauf") return;
-    const t = tangente();
+    const t = absprung();
     const v = sprungBei(state.punkte);
-    // Genau in die Richtung, die der Strich vor ihm zeigt – auch von einem
-    // Planeten, der wandert. Sein Schwung käme sonst dazu, und man flöge
-    // anderswohin, als man zielt.
+    // Genau dorthin, wohin sein Kopf zeigt – auch von einem Planeten, der
+    // wandert. Dessen Schwung käme sonst dazu, und man flöge anderswohin,
+    // als man zielt.
     state.astro.vx = t.x * v;
     state.astro.vy = t.y * v;
     state.verlassen = state.auf;
@@ -1103,8 +1087,17 @@
       const a = state.astro;
       a.x += a.vx * dt;
       a.y += a.vy * dt;
-      a.w = Math.atan2(a.vy, a.vx);
       state.flugZeit += dt;
+      // Er fliegt mit dem Kopf voran los und dreht sich vor dem nächsten
+      // Planeten um, damit er auf den Füssen landet.
+      const ziel = state.planeten[Math.min(state.planeten.length - 1, state.auf + 1)];
+      const zm = mitte(ziel);
+      const nah = Math.hypot(a.x - zm.x, a.y - zm.y) - ziel.r - ziel.luft;
+      if (state.flugZeit > 0.12 && nah < 90) {
+        const soll = Math.atan2(a.y - zm.y, a.x - zm.x);
+        const diff = Math.atan2(Math.sin(soll - a.w), Math.cos(soll - a.w));
+        a.w += diff * (1 - Math.exp(-dt * 9));
+      }
       const von = Math.max(0, state.auf - 2);
       const bis = Math.min(state.planeten.length - 1, state.auf + 5);
       for (let i = von; i <= bis; i += 1) {
@@ -1361,6 +1354,6 @@
 
   // Für die Prüfskripte.
   window.LernappPlaneten = {
-    state, view, takt, tippen, planetenBis, mitte, mondBei, tangente, drehBei, sprungBei, luftBei,
+    state, view, takt, tippen, planetenBis, mitte, mondBei, absprung, drehBei, sprungBei, luftBei, weiteBei,
   };
 })();
