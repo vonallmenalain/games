@@ -1,23 +1,33 @@
 /*
- * live.js – Der Live-Abend: alle zusammen, zur selben Zeit, im selben Level.
+ * live.js – Der Multiplayer: alle zusammen, zur selben Zeit, im selben Level.
  * ---------------------------------------------------------------------------
- * Die Seite /live. Wer einen Code hat (/live?code=K7QM), kommt in die Lobby
- * und spielt mit; wer im Adminbereich angemeldet ist, kann einen Live-Abend
- * anlegen und leiten – auf demselben Gerät, auf dem er mitspielt.
+ * Die Seite /live. Wer den Link hat (/live?code=K7QMX2PA9Z), kommt in die
+ * Lobby und spielt mit. Ohne Link steht dort, welche Multiplayer gerade für
+ * alle offen sind (liveOffen) – dieselben, zu denen auf der Startseite der
+ * Knopf «Multiplayer» führt. Anlegen kann ihn, wer im Adminbereich
+ * angemeldet ist («Neuer Multiplayer», /live?neu), und leiten auf demselben
+ * Gerät, auf dem er mitspielt.
  *
- * Alles, was während des Abends hin und her geht, steht in der Realtime
+ * Sichtbar ist ein Multiplayer entweder für alle (einstellungen.sichtbar
+ * "alle": liveOffen/<code> zeigt auf ihn, die Startseite und, gehört er zu
+ * einem Turnier, die Turnierseite führen hinein) oder nur mit dem Link
+ * ("link": nirgends ein Hinweis). Der Code steckt nur noch in der Adresse:
+ * zehn Zeichen, nicht zu erraten. Die vierstelligen von früher gelten weiter.
+ *
+ * Alles, was während eines Multiplayers hin und her geht, steht in der Realtime
  * Database (database.rules.json), nicht in Firestore: Sie schickt jede
  * Änderung in Zehntelsekunden an alle, merkt, wer die Verbindung verliert,
  * und sagt jedem Gerät, wie weit seine Uhr von ihrer abweicht.
  *
  *   live/<code>
  *     info      name, host (uid), hostKennung, erstellt, programm,
- *               einstellungen                                 nur der Admin
+ *               einstellungen (mit sichtbar)                  nur der Admin
  *     zustand   phase (lobby · runde · pause · ende), nr, saat,
  *               startUm, endeUm, dabei                         nur der Admin
  *     spieler/<kennung>       name, online, seit       der Spieler selbst
  *     punkte/<nr>/<kennung>   p, fertig, t             der Spieler selbst
  *     lage/<kennung>          n, t, a, b, c, p         der Spieler selbst
+ *   liveOffen/<code>          name, seit         nur der Admin, lesen jeder
  *
  * Der Ablauf: Die Leitung drückt «Start». Dann schreibt sie in zustand, welche
  * Runde gespielt wird, mit welcher Saat und ab wann – zur Serverzeit. Jedes
@@ -30,13 +40,14 @@
  * Gerechnet wird nichts in der Datenbank. Jedes Gerät rechnet Rundenpunkte
  * und Stand aus denselben Punkten selbst (wertung) – und kommt aufs Gleiche.
  *
- * Gehört der Abend zu einem Turnier, steht das in info.turnier, und solange
- * er offen ist, zeigt turnierLive/<turnier> auf ihn (die Turnierseite fragt
- * dort nach: «Jetzt live»). «Abend abschliessen» trägt den Endstand mit
- * seinem Gewicht ins Turnier ein (Firestore, miniTurniere/<id>/live), dort
- * zählt er in der Gesamtwertung wie ein weiteres Spiel (turnier.js).
+ * Gehört der Multiplayer zu einem Turnier, steht das in info.turnier, und
+ * solange er offen und für alle sichtbar ist, zeigt turnierLive/<turnier>
+ * auf ihn (die Turnierseite fragt dort nach: «Multiplayer läuft»).
+ * «Abschliessen» trägt den Endstand mit seinem Gewicht ins Turnier ein
+ * (Firestore, miniTurniere/<id>/live), dort zählt er in der Gesamtwertung
+ * wie ein weiteres Spiel (turnier.js).
  *
- * Die Leitung ist das Gerät des Admins, der den Abend angelegt hat. Nur es
+ * Die Leitung ist das Gerät des Admins, der den Multiplayer angelegt hat. Nur es
  * schreibt zustand – so verlangen es die Regeln. Spielt es selbst mit, steht
  * über dem Spiel ein kleiner Knopf «Leitung», für den Fall, dass eine Runde
  * von Hand enden soll.
@@ -52,13 +63,20 @@
   // sorgt nur dafür, dass der Knopf zum Anlegen nicht jemandem angeboten
   // wird, den die Datenbank dann abweist.
   const ADMINS = ["alain.sc2@gmail.com"];
-  // Keine 0/O und 1/I: Der Code wird vorgelesen und abgetippt.
+  // Keine 0/O und 1/I: Der Code steht in einem Link, der auch einmal
+  // abgeschrieben wird. Zehn Zeichen lassen sich nicht erraten – ein
+  // Multiplayer nur mit Link bleibt so unter denen, die ihn haben. Die
+  // vierstelligen Codes von früher gelten weiter.
   const ZEICHEN = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const CODE_MUSTER = /^[A-Z2-9]{4}$/;
+  const CODE_LAENGE = 10;
+  const CODE_MUSTER = /^[A-Z2-9]{4,12}$/;
   // Platz 1 bis 8; wer dahinter liegt, bekommt einen Punkt.
   const PLATZPUNKTE = [10, 8, 6, 5, 4, 3, 2, 1];
   const ZULETZT_KEY = "mini.live.zuletzt";
   const VORLAGEN_KEY = "mini.live.vorlagen";
+  // Die Multiplayer, die auf diesem Gerät angelegt wurden – damit der Weg in
+  // einen nur mit Link nicht mit dem Tab verloren geht (admin.js zeigt sie).
+  const MEINE_KEY = "mini.live.meine";
   const ADMIN_KEY = "mini.admin";
   // Wie lange die Spielseite zum Laden bekommt, bevor der Countdown beginnt.
   const LADEZEIT_MS = 2500;
@@ -67,7 +85,7 @@
   const AUTO_WEITER_MS = 15000;
 
   const STANDARD = {
-    name: "Live-Abend",
+    name: "Multiplayer",
     programm: [{ spiel: "towerStack", runden: 2, uebung: 1 }],
     einstellungen: {
       zeitlimit: 120,
@@ -79,6 +97,7 @@
       nachzuegler: true,
       zwischenstand: true,
       gegner: true,
+      sichtbar: "link",
     },
   };
 
@@ -187,9 +206,9 @@
   }
 
   function zufallsCode() {
-    const zahlen = new Uint8Array(4);
+    const zahlen = new Uint8Array(CODE_LAENGE);
     if (window.crypto?.getRandomValues) window.crypto.getRandomValues(zahlen);
-    else for (let i = 0; i < 4; i += 1) zahlen[i] = Math.floor(Math.random() * 256);
+    else for (let i = 0; i < CODE_LAENGE; i += 1) zahlen[i] = Math.floor(Math.random() * 256);
     return [...zahlen].map((n) => ZEICHEN[n % ZEICHEN.length]).join("");
   }
 
@@ -218,7 +237,7 @@
     if (S.db) return S.db;
     const app = cloud()?.app?.();
     if (!app || !window.firebase?.database) {
-      S.fehler = "Die Verbindung für den Live-Modus liess sich nicht aufbauen.";
+      S.fehler = "Die Verbindung für den Multiplayer liess sich nicht aufbauen.";
       return null;
     }
     try {
@@ -237,7 +256,7 @@
       });
     } catch (fehler) {
       console.warn("Die Realtime Database liess sich nicht öffnen", fehler);
-      S.fehler = "Die Verbindung für den Live-Modus liess sich nicht aufbauen.";
+      S.fehler = "Die Verbindung für den Multiplayer liess sich nicht aufbauen.";
       return null;
     }
     return S.db;
@@ -271,7 +290,7 @@
   // Das Programm und die Wertung
   // ---------------------------------------------------------------------------
   /*
-   * Die Runden des Abends, der Reihe nach: je Spiel erst die Übungsrunden,
+   * Die Runden des Multiplayers, der Reihe nach: je Spiel erst die Übungsrunden,
    * dann die, die zählen. Alle Geräte bauen dieselbe Liste aus info.
    */
   function plan(info = S.info) {
@@ -294,7 +313,7 @@
 
   function rundenText(r) {
     if (!r) return "";
-    if (r.uebung) return r.von > 1 ? `Übung ${r.i} von ${r.von}` : "Übung";
+    if (r.uebung) return r.von > 1 ? `Übungsrunde ${r.i} von ${r.von}` : "Übungsrunde";
     return r.von > 1 ? `Runde ${r.i} von ${r.von}` : "Eine Runde";
   }
 
@@ -360,7 +379,7 @@
     return raus;
   }
 
-  // Der Stand des Abends: die Rundenpunkte zusammengezählt.
+  // Der Stand des Multiplayers: die Rundenpunkte zusammengezählt.
   function gesamt(runden = gewerteteRunden()) {
     const art = S.info?.einstellungen?.wertung === "prozent" ? "prozent" : "platz";
     const p = plan();
@@ -419,7 +438,7 @@
     window.location.href = "/";
   }
 
-  // Der Bildschirm bleibt an, solange man im Live-Abend ist – wer zwischen
+  // Der Bildschirm bleibt an, solange man im Multiplayer ist – wer zwischen
   // den Runden aufs Handy wartet, soll nicht aus dem Spiel fallen.
   async function wachHalten() {
     try {
@@ -457,6 +476,9 @@
         startUm: Number(z.startUm) || 0,
         endeUm: Number(z.endeUm) || 0,
         uebung: r.uebung,
+        // «Übungsrunde» oder «Übungsrunde 1 von 2» – mehr steht auf der
+        // Tafel einer Übung nicht.
+        uebungText: r.uebung ? rundenText(r) : "",
         countdown: Number(S.info?.einstellungen?.countdown) || 5,
         rundeText: r.uebung ? "" : `${r.zaehlNr} von ${r.zaehlVon}`,
         dabei: { ...(z.dabei || {}) },
@@ -558,7 +580,7 @@
     menue.hidden = true;
     menue.append(
       knopf("Runde jetzt beenden", "mini-knopf-voll", () => { menue.hidden = true; rundeBeenden(); }),
-      knopf("Abend beenden", "mini-knopf-still", () => { menue.hidden = true; abendBeenden(); }),
+      knopf("Multiplayer beenden", "mini-knopf-still", () => { menue.hidden = true; abendBeenden(); }),
       knopf("Zurück ins Spiel", "mini-knopf-still", () => { menue.hidden = true; }),
     );
     auf.addEventListener("click", () => { menue.hidden = !menue.hidden; });
@@ -585,7 +607,12 @@
     const z = S.zustand || { phase: "lobby", nr: -1 };
     const p = plan();
     const nr = nochmal ? z.nr : (z.phase === "lobby" ? 0 : z.nr + 1);
-    if (nr >= p.length) { setzeZustand({ phase: "ende", nr: z.nr, seit: serverJetzt() }); return; }
+    if (nr >= p.length) {
+      setzeZustand({ phase: "ende", nr: z.nr, seit: serverJetzt() });
+      // Am Podest gibt es nichts mehr mitzuspielen.
+      verbergen();
+      return;
+    }
     const r = p[nr];
     const e = S.info.einstellungen || {};
     const dabei = {};
@@ -596,6 +623,9 @@
     const startUm = serverJetzt() + LADEZEIT_MS + countdown;
     const zeitlimit = Math.max(0, Number(e.zeitlimit) || 0) * 1000;
     const schreib = () => setzeZustand({ phase: "runde", nr, saat, startUm, endeUm: zeitlimit ? startUm + zeitlimit : 0, dabei, seit: serverJetzt() });
+    // Ohne Nachzügler kommt nach dem Start niemand mehr dazu – dann führt
+    // auch kein Knopf mehr hinein.
+    if (z.phase === "lobby" && e.nachzuegler === false) verbergen();
     // Eine wiederholte Runde fängt bei null an.
     if (nochmal) S.db.ref(`live/${S.code}/punkte/${nr}`).remove().then(schreib, schreib);
     else schreib();
@@ -611,9 +641,12 @@
     const z = S.zustand || { nr: -1 };
     if (!istLeitung()) return;
     setzeZustand({ phase: "ende", nr: z.phase === "lobby" ? -1 : z.nr, seit: serverJetzt() });
+    // Am Podest gibt es nichts mehr mitzuspielen.
+    verbergen();
   }
 
-  // Der Hinweis auf der Turnierseite weg – wenn er noch auf diesen Abend zeigt.
+  // Der Hinweis auf der Turnierseite weg – wenn er noch auf diesen
+  // Multiplayer zeigt.
   async function zeigerWeg() {
     const t = S.info?.turnier;
     if (!t || !S.db) return;
@@ -625,8 +658,44 @@
   }
 
   /*
-   * Am Ende: Gehört der Abend zu einem Turnier, kommt sein Endstand dorthin
-   * – mit dem Gewicht, mit dem er zählt. Erst danach wird der Abend gelöscht;
+   * Für alle sichtbar: liveOffen/<code> zeigt auf diesen Multiplayer (die
+   * Startseite und /live führen hinein) und, gehört er zu einem Turnier,
+   * turnierLive/<turnier> (die Turnierseite). Nur mit Link: keines von beiden.
+   */
+  async function zeigen(code = S.code, info = S.info) {
+    const db = datenbank();
+    if (!db || !code || !info) return;
+    const seit = window.firebase.database.ServerValue.TIMESTAMP;
+    await db.ref(`liveOffen/${code}`).set({ name: info.name, seit });
+    if (info.turnier) {
+      await db.ref(`turnierLive/${info.turnier}`).set({ code, name: info.name, seit })
+        .catch((fehler) => console.warn("Der Hinweis im Turnier liess sich nicht setzen", fehler));
+    }
+  }
+
+  async function verbergen() {
+    if (!S.db || !S.code) return;
+    try { await S.db.ref(`liveOffen/${S.code}`).remove(); } catch (fehler) { console.warn("Der Multiplayer blieb sichtbar", fehler); }
+    await zeigerWeg();
+  }
+
+  // In der Lobby lässt sich die Sichtbarkeit noch umstellen.
+  async function sichtbarSetzen(wert) {
+    if (!istLeitung()) return;
+    const alle = wert === "alle";
+    try {
+      await S.db.ref(`live/${S.code}/info/einstellungen/sichtbar`).set(alle ? "alle" : "link");
+      if (alle) await zeigen(); else await verbergen();
+    } catch (fehler) {
+      console.warn("Die Sichtbarkeit liess sich nicht ändern", fehler);
+      S.fehler = "Das ging nicht – bist du im Adminbereich angemeldet?";
+      zeichneBald();
+    }
+  }
+
+  /*
+   * Am Ende: Gehört der Multiplayer zu einem Turnier, kommt sein Endstand
+   * dorthin – mit dem Gewicht, mit dem er zählt. Erst danach wird er gelöscht;
    * geht das Eintragen schief, bleibt er stehen und es lässt sich noch einmal
    * versuchen.
    */
@@ -637,7 +706,9 @@
       const stand = gesamt();
       if (knopfElement) { knopfElement.disabled = true; knopfElement.textContent = "Wird eingetragen …"; }
       try {
-        await cloud().speichereTurnierLive(t, `${S.code}-${Math.round(Number(S.info.erstellt) || Date.now())}`, {
+        // Der Name im Turnier: die ersten vier Zeichen des Codes und wann er
+        // begann (so verlangen es die Regeln von Firestore).
+        await cloud().speichereTurnierLive(t, `${S.code.slice(0, 4)}-${Math.round(Number(S.info.erstellt) || Date.now())}`, {
           name: S.info.name,
           gewicht: Number(S.info.einstellungen?.gewicht ?? 1),
           endstand: stand.map((p) => ({ spieler: p.kennung, name: p.name, punkte: p.punkte, platz: p.platz })),
@@ -657,7 +728,7 @@
 
   async function abendLoeschen() {
     if (!istLeitung()) return;
-    await zeigerWeg();
+    await verbergen();
     try {
       await S.db.ref(`live/${S.code}`).remove();
     } catch (fehler) {
@@ -666,7 +737,7 @@
       zeichneBald();
       return;
     }
-    window.location.href = "/live";
+    window.location.href = "/admin";
   }
 
   /*
@@ -705,15 +776,16 @@
     });
   }
 
+  // Oben der rote Punkt wie bei einer Übertragung – und kein Code mehr: Wer
+  // hier ist, kam über den Link.
   function kopf(text, untertitel) {
     const k = el("header", "mini-kopf lv-kopf");
     const links = el("div");
     const marke = el("p", "mini-marke lv-live");
-    marke.append(el("span", "lv-punkt"), el("span", "", "Live"));
+    marke.append(el("span", "lv-punkt"), el("span", "", "Multiplayer"));
     links.append(marke, el("h1", "", text));
     if (untertitel) links.append(el("p", "lv-status", untertitel));
     k.append(links);
-    if (S.code) k.append(el("span", "lv-code-klein", S.code));
     const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
     if (voll) k.append(voll);
     return k;
@@ -762,7 +834,7 @@
       if (jetzt) li.classList.add("ist-jetzt");
       li.append(el("span", "lv-name", titel(eintrag.spiel)));
       const teile = [];
-      if (Number(eintrag.uebung) > 0) teile.push(Number(eintrag.uebung) === 1 ? "1 Übung" : `${eintrag.uebung} Übungen`);
+      if (Number(eintrag.uebung) > 0) teile.push(Number(eintrag.uebung) === 1 ? "1 Übungsrunde" : `${eintrag.uebung} Übungsrunden`);
       teile.push(Number(eintrag.runden) === 1 ? "1 Runde" : `${eintrag.runden} Runden`);
       if (S.info?.einstellungen?.finaleDoppelt && i === liste(S.info.programm).length - 1 && i > 0) teile.push("zählt doppelt");
       li.append(el("span", "lv-klein", teile.join(" · ")));
@@ -778,6 +850,7 @@
     teile.push(!limit ? "ohne Zeitlimit" : limit < 60 ? `${limit} s je Runde` : `${String(Math.round((limit / 60) * 10) / 10).replace(".", ",")} min je Runde`);
     teile.push(e.wertung === "prozent" ? "Prozent vom Besten" : "Platzpunkte 10 · 8 · 6 …");
     if (!e.zwischenstand) teile.push("Zwischenstand verdeckt");
+    teile.push(e.sichtbar === "alle" ? "für alle offen" : "nur mit Link");
     if (S.info?.turnier) {
       const g = Number(e.gewicht ?? 1);
       const name = S.info.turnierName ? `«${S.info.turnierName}»` : "zum Turnier";
@@ -867,48 +940,65 @@
   }
 
   // --- Die einzelnen Ansichten ----------------------------------------------
+  /*
+   * /live ohne Link: die Multiplayer, die gerade für alle offen sind
+   * (liveOffen), je mit dem Weg hinein. Ohne einen steht nur da, dass der
+   * Link genügt. Angelegt wird hier nichts – das geschieht im Adminbereich.
+   */
+  let offenAbo = null;
+
   function zeichneEinstieg() {
     const w = S.wirt;
-    w.replaceChildren(kopf("Live-Abend", "Alle spielen zur selben Zeit dasselbe Level."));
-    const form = el("form", "lv-beitreten");
-    const feld = el("input", "lv-code-feld");
-    feld.id = "lv-code";
-    feld.maxLength = 4;
-    feld.autocomplete = "off";
-    feld.setAttribute("autocapitalize", "characters");
-    feld.spellcheck = false;
-    feld.placeholder = "CODE";
-    feld.setAttribute("aria-label", "Code des Live-Abends");
-    feld.addEventListener("input", () => { feld.value = feld.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
-    const los = el("button", "mini-knopf mini-knopf-voll", "Beitreten");
-    los.type = "submit";
-    form.append(feld, los);
-    const meldung = el("p", "lv-klein");
-    form.addEventListener("submit", (ereignis) => {
-      ereignis.preventDefault();
-      const code = feld.value.trim().toUpperCase();
-      if (!CODE_MUSTER.test(code)) { meldung.textContent = "Der Code hat vier Zeichen – Buchstaben und Ziffern."; feld.focus(); return; }
-      neueAdresse(`?code=${code}`);
-      starteAbend(code);
-    });
-    w.append(block("Beitreten", el("p", "lv-klein", "Den Code sagt dir, wer den Abend leitet."), form, meldung));
-
-    if (S.admin) {
-      w.append(block("Leiten", el("p", "lv-klein", "Programm zusammenstellen, Lobby öffnen, alle starten zusammen. Du kannst selbst mitspielen."),
-        knopf("Neuen Live-Abend anlegen", "mini-knopf-voll", () => { neueAdresse("?neu"); zeichneFormular(); })));
-    } else if (adminWarHier()) {
-      const weg = el("a", "lv-klein lv-link", "Leiten? Erst im Adminbereich anmelden.");
-      weg.href = "/admin";
-      w.append(weg);
-    }
+    w.replaceChildren(kopf("Multiplayer"));
+    const liste = el("div", "lv-offen");
+    w.append(block("Jetzt offen", liste));
     const zurueck = el("a", "lv-klein lv-link", "Zur Startseite");
     zurueck.href = "/";
     w.append(zurueck);
+
+    const zeigeOffene = (offene) => {
+      if (!offene.length) {
+        liste.replaceChildren(hinweis("Gerade ist kein Multiplayer für alle offen. Wer einen Einladungslink hat, öffnet ihn einfach – er führt direkt hinein."));
+        return;
+      }
+      liste.replaceChildren(...offene.map((o) => {
+        const zeile = el("div", "lv-offen-zeile");
+        const text = el("div", "lv-offen-text");
+        text.append(el("strong", "", o.name));
+        zeile.append(text, knopf("Mitspielen", "mini-knopf-voll", () => {
+          neueAdresse(`?code=${o.code}`);
+          starteAbend(o.code);
+        }));
+        return zeile;
+      }));
+    };
+    liste.replaceChildren(hinweis("Wird geladen …"));
+    const db = datenbank();
+    if (!db) { liste.replaceChildren(hinweis(S.fehler || "Die Verbindung liess sich nicht aufbauen.")); return; }
+    offenAbo?.();
+    const ref = db.ref("liveOffen");
+    const fn = (snap) => {
+      if (S.code) return;
+      zeigeOffene(offeneAus(snap.val()));
+    };
+    ref.on("value", fn, () => zeigeOffene([]));
+    offenAbo = () => { ref.off("value", fn); offenAbo = null; };
+  }
+
+  // Die offenen Multiplayer, die neusten zuerst – was älter ist als einen
+  // halben Tag, hat jemand zu schliessen vergessen.
+  function offeneAus(roh) {
+    const jetzt = serverJetzt();
+    return Object.entries(roh && typeof roh === "object" ? roh : {})
+      .filter(([code, o]) => CODE_MUSTER.test(code) && o && typeof o.name === "string")
+      .map(([code, o]) => ({ code, name: o.name.slice(0, 60), seit: Number(o.seit) || 0 }))
+      .filter((o) => !o.seit || jetzt - o.seit < 12 * 3600 * 1000)
+      .sort((a, b) => b.seit - a.seit);
   }
 
   function zeichneName() {
     const w = S.wirt;
-    w.replaceChildren(kopf(S.info?.name || "Live-Abend", `Code ${S.code}`));
+    w.replaceChildren(kopf(S.info?.name || "Multiplayer", "Gleich bist du dabei."));
     const form = el("form", "lv-beitreten");
     const feld = el("input", "lv-name-feld");
     feld.id = "lv-name";
@@ -932,32 +1022,42 @@
   function zeichneLobby() {
     const w = S.wirt;
     const leitung = istLeitung();
-    w.replaceChildren(kopf(S.info.name, leitung ? "Du leitest diesen Abend." : "Gleich geht es los."));
+    w.replaceChildren(kopf(S.info.name, leitung ? "Du leitest diesen Multiplayer." : "Gleich geht es los."));
     const fehler = fehlerZeile();
     if (fehler) w.append(fehler);
 
+    const adresse = `${window.location.origin}/live?code=${S.code}`;
+    const fuerAlle = S.info.einstellungen?.sichtbar === "alle";
     if (leitung) {
-      const adresse = `${window.location.origin}/live?code=${S.code}`;
-      const code = el("p", "lv-code-gross", S.code);
       const link = el("p", "lv-link-text", adresse.replace(/^https?:\/\//, ""));
       const teilen = el("div", "lv-knoepfe");
-      teilen.append(knopf("Link kopieren", "mini-knopf-still", async (ereignis) => {
+      teilen.append(knopf("Link kopieren", "mini-knopf-voll", async (ereignis) => {
         const k = ereignis.currentTarget;
         try { await navigator.clipboard.writeText(adresse); k.textContent = "Kopiert!"; }
         catch { k.textContent = adresse; }
       }));
       if (navigator.share) {
         teilen.append(knopf("Teilen", "mini-knopf-still", () => {
-          navigator.share({ title: S.info.name, text: `Live-Abend «${S.info.name}» – Code ${S.code}`, url: adresse }).catch(() => {});
+          navigator.share({ title: S.info.name, text: `Multiplayer «${S.info.name}»`, url: adresse }).catch(() => {});
         }));
       }
+      // Für alle oder nur mit Link – bis zum Start lässt sich das umstellen.
+      const umstellen = knopf(fuerAlle ? "Nur mit Link" : "Für alle öffnen", "mini-knopf-still", (ereignis) => {
+        ereignis.currentTarget.disabled = true;
+        sichtbarSetzen(fuerAlle ? "link" : "alle");
+      });
+      teilen.append(umstellen);
       const gross = el("a", "lv-klein lv-link", "Grossbild für Fernseher oder Beamer öffnen");
       gross.href = `/live?code=${S.code}&gross`;
       gross.target = "_blank";
       gross.rel = "noopener";
-      w.append(block("So kommen alle rein", el("p", "lv-klein", "Auf der Startseite «Live» antippen und den Code eingeben – oder den Link öffnen."), code, link, teilen, gross));
+      const satz = fuerAlle
+        ? "Für alle offen: Auf der Startseite steht jetzt «Multiplayer» – antippen und mitspielen. Oder schick den Link."
+        : "Nur mit Einladungslink: Schick ihn allen, die mitspielen sollen. In der App steht dieser Multiplayer nirgends.";
+      w.append(block("So kommen alle rein", el("p", "lv-klein", satz), link, teilen, gross));
     } else if (S.gross) {
-      w.append(block("So kommst du rein", el("p", "lv-klein", "Auf der Startseite «Live» antippen und diesen Code eingeben:"), el("p", "lv-code-gross", S.code)));
+      const satz = fuerAlle ? "Auf der Startseite «Multiplayer» antippen – oder diesen Link öffnen:" : "Diesen Link öffnen:";
+      w.append(block("So kommst du rein", el("p", "lv-klein", satz), el("p", "lv-link-gross", adresse.replace(/^https?:\/\//, ""))));
     }
 
     const online = onlineSpieler().length;
@@ -968,8 +1068,8 @@
     if (leitung) {
       const start = knopf("Start", "mini-knopf-voll lv-start-knopf", () => naechsteRunde());
       start.disabled = !online;
-      aktionen.append(start, knopf("Abend absagen", "mini-knopf-still", () => {
-        if (window.confirm?.("Den Live-Abend absagen und löschen?") === false) return;
+      aktionen.append(start, knopf("Multiplayer absagen", "mini-knopf-still", () => {
+        if (window.confirm?.("Den Multiplayer absagen und löschen?") === false) return;
         abendLoeschen();
       }));
     } else if (S.gross) {
@@ -1006,7 +1106,7 @@
     w.append(block("So steht es gerade", rundenTabelle(laufendeRunde(z), { laeuft: true })));
     if (leitung && !dabei) {
       const aktionen = el("div", "lv-knoepfe lv-unten");
-      aktionen.append(knopf("Runde jetzt beenden", "mini-knopf-voll", rundeBeenden), knopf("Abend beenden", "mini-knopf-still", abendBeenden));
+      aktionen.append(knopf("Runde jetzt beenden", "mini-knopf-voll", rundeBeenden), knopf("Multiplayer beenden", "mini-knopf-still", abendBeenden));
       w.append(aktionen);
     }
     zeichneUhr();
@@ -1025,7 +1125,7 @@
 
     const art = e.wertung === "prozent" ? "prozent" : "platz";
     const runde = rundenWertung(z.nr, art, r?.doppelt);
-    w.append(block(r?.uebung ? "Übungsrunde – zählt nicht" : `Ergebnis${r?.doppelt ? " (zählt doppelt)" : ""}`, rundenTabelle(runde, { zaehlt: !r?.uebung })));
+    w.append(block(r?.uebung ? rundenText(r) : `Ergebnis${r?.doppelt ? " (zählt doppelt)" : ""}`, rundenTabelle(runde, { zaehlt: !r?.uebung })));
 
     if (e.zwischenstand !== false || leitung) {
       const dazu = new Map(r?.uebung ? [] : runde.map((x) => [x.kennung, x]));
@@ -1045,7 +1145,7 @@
     if (leitung) {
       aktionen.append(knopf(naechste ? "Weiter" : "Zum Podest", "mini-knopf-voll", () => naechsteRunde()));
       aktionen.append(knopf("Runde wiederholen", "mini-knopf-still", () => naechsteRunde({ nochmal: true })));
-      if (naechste) aktionen.append(knopf("Abend beenden", "mini-knopf-still", abendBeenden));
+      if (naechste) aktionen.append(knopf("Multiplayer beenden", "mini-knopf-still", abendBeenden));
     } else {
       aktionen.append(el("p", "lv-warten", "Gleich geht es weiter …"));
     }
@@ -1069,7 +1169,7 @@
     }
     const aktionen = el("div", "lv-knoepfe lv-unten");
     if (leitung) {
-      const text = S.info.turnier ? "Ins Turnier eintragen und abschliessen" : "Abend abschliessen";
+      const text = S.info.turnier ? "Ins Turnier eintragen und abschliessen" : "Multiplayer abschliessen";
       aktionen.append(knopf(text, "mini-knopf-voll", (ereignis) => abschliessen(ereignis.currentTarget)));
     }
     if (S.info.turnier) {
@@ -1086,7 +1186,7 @@
   function zeichneVorbei() {
     const w = S.wirt;
     const info = S.info || S.letzteInfo;
-    w.replaceChildren(kopf(info?.name || "Live-Abend", "Dieser Live-Abend ist vorbei."));
+    w.replaceChildren(kopf(info?.name || "Multiplayer", "Dieser Multiplayer ist vorbei."));
     if (S.letzteWertung?.length) {
       w.append(podest(S.letzteWertung));
       w.append(block("Endstand", standTabelle(S.letzteWertung)));
@@ -1106,10 +1206,10 @@
 
   function zeichneUnbekannt() {
     const w = S.wirt;
-    w.replaceChildren(kopf("Live-Abend", `Code ${S.code}`));
-    w.append(hinweis("Zu diesem Code gibt es keinen Live-Abend. Vielleicht ist er schon vorbei – oder ein Zeichen stimmt nicht."));
+    w.replaceChildren(kopf("Multiplayer"));
+    w.append(hinweis("Diesen Multiplayer gibt es nicht. Vielleicht ist er schon vorbei – oder der Link ist nicht vollständig."));
     const box = el("div", "lv-knoepfe lv-unten");
-    box.append(knopf("Anderen Code eingeben", "mini-knopf-voll", () => { S.code = ""; neueAdresse(""); zeichneEinstieg(); }));
+    box.append(knopf("Offene Multiplayer", "mini-knopf-voll", () => { abo?.(); abo = null; S.code = ""; neueAdresse(""); zeichneEinstieg(); }));
     w.append(box);
   }
 
@@ -1120,7 +1220,7 @@
     S.wirt.classList.toggle("lv-grossbild", S.gross);
     if (!S.code) return;
     if (!S.infoGeladen) {
-      S.wirt.replaceChildren(kopf("Live-Abend", `Code ${S.code}`), hinweis(S.fehler || "Der Live-Abend wird geladen …"));
+      S.wirt.replaceChildren(kopf("Multiplayer"), hinweis(S.fehler || "Der Multiplayer wird geladen …"));
       return;
     }
     if (!S.info) { if (S.warDa) zeichneVorbei(); else zeichneUnbekannt(); return; }
@@ -1138,7 +1238,7 @@
       if (!mini()?.name?.()) { zeichneName(); return; }
       const begonnen = S.zustand && S.zustand.phase !== "lobby";
       if (begonnen && S.info.einstellungen?.nachzuegler === false && !S.spieler?.[mini()?.kennung?.()]) {
-        S.wirt.replaceChildren(kopf(S.info.name, "Dieser Live-Abend hat schon begonnen."), hinweis("Hier kommt niemand mehr dazu. Beim nächsten Mal!"));
+        S.wirt.replaceChildren(kopf(S.info.name, "Dieser Multiplayer hat schon begonnen."), hinweis("Hier kommt niemand mehr dazu. Beim nächsten Mal!"));
         return;
       }
       S.wirt.replaceChildren(kopf(S.info.name, "Du trittst bei …"));
@@ -1155,7 +1255,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Einen Live-Abend anlegen
+  // Einen Multiplayer anlegen (aus dem Adminbereich: «Neuer Multiplayer»)
   // ---------------------------------------------------------------------------
   function zeichneFormular() {
     const w = S.wirt;
@@ -1165,7 +1265,7 @@
     let programm = liste(vorlage.programm).filter((p) => alleSpiele().includes(p.spiel));
     if (!programm.length) programm = [...STANDARD.programm];
 
-    w.replaceChildren(kopf("Neuer Live-Abend", "Programm und Einstellungen – in der Lobby siehst du alles noch einmal."));
+    w.replaceChildren(kopf("Neuer Multiplayer", "Programm und Einstellungen – in der Lobby siehst du alles noch einmal."));
     const form = el("form", "lv-formular");
 
     const feld = (beschriftung, eingabe, hilfe) => {
@@ -1211,19 +1311,24 @@
     const nameFeld = el("input");
     nameFeld.id = "lv-abend-name";
     nameFeld.maxLength = 60;
-    nameFeld.value = vorlage.name || "Live-Abend";
+    nameFeld.value = vorlage.name || "Multiplayer";
     let nameGeaendert = false;
     nameFeld.addEventListener("input", () => { nameGeaendert = true; });
-    form.append(feld("Name des Abends", nameFeld));
+    form.append(feld("Name", nameFeld));
 
-    // Zu welchem Turnier der Abend gehört – und wie er dort zählt. Die Liste
+    // Wer ihn findet: alle, die gerade die App offen haben – oder nur, wer
+    // den Link bekommt.
+    const sichtbarWahl = auswahl("lv-sichtbar", [["link", "Nur mit Einladungslink"], ["alle", "Für alle – auf der Startseite"]], vorlage.einstellungen?.sichtbar === "alle" ? "alle" : "link");
+    form.append(feld("Sichtbar", sichtbarWahl, "Für alle: Auf der Startseite erscheint «Multiplayer», und wer die App gerade offen hat, kann direkt beitreten. Nur mit Link: Er steht nirgends, du schickst den Link."));
+
+    // Zu welchem Turnier der Multiplayer gehört – und wie er dort zählt. Die Liste
     // kommt aus Firestore (nur der Admin darf alle sehen); bis sie da ist,
     // steht nur das Turnier aus der Adresse darin.
     let ausDerAdresse = "";
     try { ausDerAdresse = String(new URLSearchParams(window.location.search).get("turnier") || "").trim(); } catch { ausDerAdresse = ""; }
     const turnierWahl = auswahl("lv-turnier", [["", "zu keinem Turnier"], ...(ausDerAdresse ? [[ausDerAdresse, "Turnier wird geladen …"]] : [])], ausDerAdresse);
     const gewichtWahl = auswahl("lv-gewicht", [[1, "zählt wie ein Spiel"], [2, "zählt doppelt"], [3, "zählt dreifach"], [0, "zählt nicht"]], vorlage.einstellungen?.gewicht ?? 1);
-    const gewichtFeld = feld("Im Turnier", gewichtWahl, "Der Endstand des Abends kommt als eigene Spalte in die Gesamtwertung. Wer fehlt, steht dort hinter dem Letzten.");
+    const gewichtFeld = feld("Im Turnier", gewichtWahl, "Der Endstand kommt als eigene Spalte in die Gesamtwertung. Wer fehlt, steht dort hinter dem Letzten. Die Turnierseite zeigt ihn nur, wenn er für alle sichtbar ist.");
     const turniere = new Map();
     const zeigeGewicht = () => { gewichtFeld.hidden = !turnierWahl.value; };
     form.append(feld("Turnier", turnierWahl), gewichtFeld);
@@ -1242,7 +1347,7 @@
       const runden = auswahl("", [1, 2, 3, 4, 5].map((n) => [n, n === 1 ? "1 Runde" : `${n} Runden`]), eintrag.runden || 1);
       runden.className = "lv-runden-wahl";
       runden.setAttribute("aria-label", "Runden");
-      const uebung = auswahl("", [[0, "ohne Übung"], [1, "1 Übung"], [2, "2 Übungen"]], eintrag.uebung || 0);
+      const uebung = auswahl("", [[0, "ohne Übungsrunde"], [1, "1 Übungsrunde"], [2, "2 Übungsrunden"]], eintrag.uebung || 0);
       uebung.className = "lv-uebung-wahl";
       uebung.setAttribute("aria-label", "Übungsrunden");
       const hoch = knopf("↑", "mini-knopf-still lv-klein-knopf", () => { const vor = zeile.previousElementSibling; if (vor) zeilen.insertBefore(zeile, vor); });
@@ -1256,7 +1361,7 @@
     zeilen.addEventListener("change", () => { programmGeaendert = true; });
 
     // Ein Turnier gewählt: seine Spiele ins Programm (solange es niemand von
-    // Hand geändert hat) und sein Name in den Namen des Abends.
+    // Hand geändert hat) und sein Name in den Namen.
     function turnierGewaehlt() {
       zeigeGewicht();
       const t = turniere.get(turnierWahl.value);
@@ -1264,7 +1369,7 @@
       if (!programmGeaendert) {
         zeilen.replaceChildren(...t.spiele.filter((id) => alleSpiele().includes(id)).map((spiel) => zeileBauen({ spiel, runden: 1, uebung: 1 })));
       }
-      if (!nameGeaendert) nameFeld.value = `${t.name} – live`.slice(0, 60);
+      if (!nameGeaendert) nameFeld.value = `${t.name} – Multiplayer`.slice(0, 60);
     }
     turnierWahl.addEventListener("change", turnierGewaehlt);
     Promise.resolve().then(() => cloud()?.alleTurniere?.()).then((liste2) => {
@@ -1272,7 +1377,7 @@
         .sort((a, b) => a.startMs - b.startMs);
       offen.forEach((t) => turniere.set(t.id, t));
       const vorher = turnierWahl.value;
-      turnierWahl.replaceChildren(...[["", "zu keinem Turnier"], ...offen.map((t) => [t.id, `${t.name}${t.nurLive ? " (nur live)" : ""}`])].map(([v, text]) => {
+      turnierWahl.replaceChildren(...[["", "zu keinem Turnier"], ...offen.map((t) => [t.id, `${t.name}${t.nurLive ? " (nur Multiplayer)" : ""}`])].map(([v, text]) => {
         const o = el("option", "", text);
         o.value = v;
         if (v === vorher) o.selected = true;
@@ -1317,7 +1422,7 @@
       meldung.hidden = false;
       meldung.className = "lv-ok";
       meldung.textContent = `Vorlage «${daten.name}» gespeichert.`;
-    }), knopf("Abbrechen", "mini-knopf-still", () => { neueAdresse(""); zeichneEinstieg(); }));
+    }), knopf("Abbrechen", "mini-knopf-still", () => { window.location.href = "/admin"; }));
     form.append(meldung, aktionen);
 
     function lies() {
@@ -1329,7 +1434,7 @@
       const wert = (id) => form.querySelector(`#${id}`);
       const turnier = turniere.has(turnierWahl.value) ? turniere.get(turnierWahl.value) : null;
       return {
-        name: (nameFeld.value || "").replace(/\s+/g, " ").trim().slice(0, 60) || "Live-Abend",
+        name: (nameFeld.value || "").replace(/\s+/g, " ").trim().slice(0, 60) || "Multiplayer",
         turnier: turnier?.id || "",
         turnierName: turnier?.name || "",
         programm: programm2,
@@ -1343,6 +1448,7 @@
           zwischenstand: wert("lv-zwischenstand").checked,
           nachzuegler: wert("lv-nachzuegler").checked,
           gegner: wert("lv-gegner").checked,
+          sichtbar: sichtbarWahl.value === "alle" ? "alle" : "link",
           gewicht: Number(gewichtWahl.value) || 0,
         },
       };
@@ -1351,7 +1457,7 @@
     form.addEventListener("submit", async (ereignis) => {
       ereignis.preventDefault();
       const daten = lies();
-      // Das Turnier gehört zu diesem Abend, nicht zur Vorlage.
+      // Das Turnier gehört zu diesem Multiplayer, nicht zur Vorlage.
       schreibeJson(ZULETZT_KEY, { ...daten, turnier: "", turnierName: "" });
       oeffnen.disabled = true;
       oeffnen.textContent = "Wird geöffnet …";
@@ -1371,7 +1477,7 @@
     w.append(form);
   }
 
-  // Einen freien Code suchen und den Abend anlegen.
+  // Einen freien Code suchen und den Multiplayer anlegen.
   async function anlegen(daten) {
     const db = datenbank();
     if (!db || !S.uid) throw new Error("nicht angemeldet");
@@ -1394,14 +1500,24 @@
         info.turnierName = String(daten.turnierName || "").slice(0, 60);
       }
       await ref.set({ info, zustand: { phase: "lobby", nr: -1 } });
-      // Die Turnierseite zeigt, dass gerade live gespielt wird.
-      if (daten.turnier) {
-        await db.ref(`turnierLive/${daten.turnier}`).set({ code, name: daten.name, seit: window.firebase.database.ServerValue.TIMESTAMP })
-          .catch((fehler) => console.warn("Der Hinweis im Turnier liess sich nicht setzen", fehler));
+      merkeMeinen(code, daten.name);
+      // Für alle: Startseite und Turnierseite zeigen, dass gerade gespielt
+      // wird. Geht das schief, steht er trotzdem – mit Link.
+      if (daten.einstellungen.sichtbar === "alle") {
+        await zeigen(code, info).catch((fehler) => console.warn("Der Multiplayer liess sich nicht zeigen", fehler));
       }
       return code;
     }
     throw new Error("Kein freier Code gefunden");
+  }
+
+  // Die Multiplayer dieses Geräts, die neusten zuerst (admin.js zeigt sie,
+  // solange es sie gibt).
+  function merkeMeinen(code, name) {
+    const alt = liesJson(MEINE_KEY, []);
+    const liste2 = (Array.isArray(alt) ? alt : []).filter((m) => m && m.code !== code);
+    liste2.unshift({ code, name, erstellt: Date.now() });
+    schreibeJson(MEINE_KEY, liste2.slice(0, 10));
   }
 
   // ---------------------------------------------------------------------------
@@ -1411,6 +1527,7 @@
 
   function starteAbend(code) {
     const db = datenbank();
+    offenAbo?.();
     S.code = code;
     S.info = null;
     S.infoGeladen = false;
@@ -1424,13 +1541,13 @@
     abo?.();
     const basis = db.ref(`live/${code}`);
     const lesefehler = (fehler) => {
-      console.warn("Der Live-Abend war nicht zu lesen", fehler);
-      S.fehler = "Der Live-Abend war nicht zu lesen.";
+      console.warn("Der Multiplayer war nicht zu lesen", fehler);
+      S.fehler = "Der Multiplayer war nicht zu lesen.";
       S.infoGeladen = true;
       zeichneBald();
     };
     const teile = [
-      // Ist der Abend gelöscht, bleibt das Letzte stehen, was man von ihm
+      // Ist der Multiplayer gelöscht, bleibt das Letzte stehen, was man von ihm
       // wusste – sein Name, sein Turnier.
       ["info", (s) => { S.info = s.val(); S.infoGeladen = true; if (S.info) { S.warDa = true; S.letzteInfo = S.info; } zeichneBald(); }],
       ["zustand", (s) => { S.zustand = s.val(); S.fehler = ""; zeichneBald(); }],
@@ -1451,7 +1568,7 @@
   async function starte() {
     S.wirt = document.querySelector("[data-live]");
     if (!S.wirt) return;
-    S.wirt.replaceChildren(kopf("Live-Abend"), hinweis("Wird geladen …"));
+    S.wirt.replaceChildren(kopf("Multiplayer"), hinweis("Wird geladen …"));
     await anmeldung();
     datenbank();
     const code = codeAusAdresse();

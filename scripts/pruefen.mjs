@@ -372,10 +372,10 @@ if (ansehbar) {
 }
 
 // ---------------------------------------------------------------------------
-// --- 18. Der Live-Modus --------------------------------------------------------
+// --- 18. Der Multiplayer -------------------------------------------------------
 // Eine eigene Seite mit der Realtime Database (live.js), und auf jeder
 // Spielseite live-spiel.js vor der Bühne – sie fragt beim Aufbauen, ob die
-// Seite eine Runde eines Live-Abends ist. Jedes Spiel gibt der Bühne mit, wie
+// Seite eine Runde eines Multiplayers ist. Jedes Spiel gibt der Bühne mit, wie
 // es ohne Tipp beginnt und wie es endet, wenn die Zeit des Abends um ist.
 const liveHtml = lies("live.html");
 pruefe("live.html trägt data-page=\"live\" und den Platz [data-live]", liveHtml.includes('data-page="live"') && liveHtml.includes("data-live"));
@@ -410,13 +410,29 @@ pruefe("planeten.js stellt die Uhr der Planeten im Live-Modus nach der Uhr des A
 // und der Endstand eines Abends zählt in der Gesamtwertung mit.
 pruefe("Ein Turnier «nur live» lässt keinen Versuch beginnen (firestore.rules, darfBeginnen)",
   /function darfBeginnen[\s\S]*?get\("nurLive", false\) == false/.test(regeln));
-pruefe("Den Endstand eines Live-Abends im Turnier schreibt nur der Admin",
+pruefe("Den Endstand eines Multiplayers im Turnier schreibt nur der Admin",
   /match \/live\/\{abendId\}[\s\S]*?allow create, update: if istAdmin\(\) && istLiveErgebnis/.test(regeln));
-pruefe("turnier.js zählt die Live-Abende in der Gesamtwertung", lies("turnier.js").includes("function gesamtwertung(t, eintraege, abende = [])"));
+pruefe("turnier.js zählt die Multiplayer in der Gesamtwertung", lies("turnier.js").includes("function gesamtwertung(t, eintraege, abende = [])"));
 const liveJs = lies("live.js");
 pruefe("live.js leitet nur mit dem Admin, der den Abend angelegt hat", /info\.host === S\.uid/.test(liveJs));
 pruefe("Die Live-Regeln lassen nur den Admin anlegen und steuern",
   /"\.write": "\$code\.matches[^"]*auth\.token\.email_verified == true/.test(lies("database.rules.json")));
+// Sichtbar für alle oder nur mit Link: Die Liste der offenen lesen alle (die
+// Startseite fragt ohne Anmeldung), schreiben nur der Admin. Einer nur mit
+// Link hat einen Code, den niemand errät – und keinen Knopf auf der
+// Startseite; der steht nur da, solange einer für alle offen ist.
+pruefe("Die offenen Multiplayer (liveOffen) lesen alle, schreiben nur der Admin",
+  liveRegeln?.liveOffen?.[".read"] === true && /auth\.token\.email_verified == true/.test(liveRegeln?.liveOffen?.$code?.[".write"] || ""));
+pruefe("Ein Multiplayer bekommt einen Code mit zehn Zeichen", /const CODE_LAENGE = 10;/.test(liveJs));
+pruefe("live.js fragt nach keinem Code mehr", !liveJs.includes("lv-code-feld"));
+const miniStart = lies("mini-games.js");
+pruefe("Die Startseite zeigt «Multiplayer» nur, wenn einer für alle offen ist",
+  miniStart.includes("offeneMultiplayer") && !/verweis\("Live"/.test(miniStart));
+// Die anderen im Bild: um einen gemessenen Verzug zurück, auf einer weichen
+// Kurve zwischen den Proben – nicht zur Zeit «jetzt» geraten (das ruckelte).
+const liveSpielJs = lies("live-spiel.js");
+pruefe("live-spiel.js zeigt die anderen mit gemessenem Verzug auf einer Kurve",
+  /function verzugVon\(/.test(liveSpielJs) && /function hermite\(/.test(liveSpielJs) && /lauf\.zeitBei\(t\)/.test(liveSpielJs));
 
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);
