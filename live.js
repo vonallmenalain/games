@@ -83,6 +83,12 @@
   // Wie lange nach dem Zeitende die Leitung auf die letzten Ergebnisse wartet.
   const NACHLAUF_MS = 2500;
   const AUTO_WEITER_MS = 15000;
+  // Wer in einer laufenden Runde so lange nichts von sich hören lässt – das
+  // Spiel meldet sich alle drei Sekunden, solange es im Bild ist –, spielt
+  // nicht wirklich: Bildschirm aus, App im Hintergrund, ein vergessenes
+  // Fenster. Er gilt als weg, und die Runde wartet nicht auf ihn
+  // (live-spiel.js, Lebenszeichen). Sonst hinge sie ohne Zeitlimit ewig.
+  const WEG_MS = 12000;
 
   const STANDARD = {
     name: "Multiplayer",
@@ -348,6 +354,16 @@
     return eintraege;
   }
 
+  // Schweigt seit WEG_MS: kein Lebenszeichen, keine Punkte. Wer noch nie
+  // etwas gemeldet hat, zählt ab dem Start.
+  function istWeg(z, kennung) {
+    if (!z || z.phase !== "runde") return false;
+    const e = S.punkte?.[z.nr]?.[kennung];
+    if (e?.fertig) return false;
+    const t = serverJetzt() - (Number(z.startUm) || 0);
+    return t > WEG_MS && t - (Number(e?.t) || 0) > WEG_MS;
+  }
+
   // Eine Runde, die noch läuft: alle, die dabei sind – auch die, die noch
   // nichts gemeldet haben –, nach ihren Punkten.
   function laufendeRunde(z) {
@@ -356,7 +372,8 @@
       kennung,
       name: name(kennung),
       p: Math.max(0, Number(punkte[kennung]?.p) || 0),
-      fertig: Boolean(punkte[kennung]?.fertig) || S.spieler?.[kennung]?.online === false,
+      weg: !punkte[kennung]?.fertig && (S.spieler?.[kennung]?.online === false || istWeg(z, kennung)),
+      fertig: Boolean(punkte[kennung]?.fertig) || S.spieler?.[kennung]?.online === false || istWeg(z, kennung),
     }));
     eintraege.sort((a, b) => b.p - a.p || a.name.localeCompare(b.name, "de"));
     let platz = 0;
@@ -481,6 +498,9 @@
         uebungText: r.uebung ? rundenText(r) : "",
         countdown: Number(S.info?.einstellungen?.countdown) || 5,
         rundeText: r.uebung ? "" : `${r.zaehlNr} von ${r.zaehlVon}`,
+        // Die Leitung bekommt auf der Tafel nach ihrem Ende «Runde jetzt
+        // beenden».
+        leitung: istLeitung(),
         dabei: { ...(z.dabei || {}) },
         ich: S.ich ? { ...S.ich } : { kennung: "", name: "" },
         namen,
@@ -489,6 +509,8 @@
         gross: S.gross,
       };
     },
+    // Die Tafel der Leitung: die Runde jetzt beenden.
+    rundeBeenden: () => rundeBeenden(),
     // Das reine Zuschauen beenden (der Knopf «Schliessen» oben im Spiel).
     schliessen() {
       S.zuschauen = false;
@@ -753,7 +775,7 @@
     if (z.phase === "runde") {
       const dabei = Object.keys(z.dabei || {});
       const punkte = S.punkte?.[z.nr] || {};
-      const alleFertig = dabei.length > 0 && dabei.every((k) => punkte[k]?.fertig || S.spieler?.[k]?.online === false);
+      const alleFertig = dabei.length > 0 && dabei.every((k) => punkte[k]?.fertig || S.spieler?.[k]?.online === false || istWeg(z, k));
       const zeitUm = z.endeUm && jetzt > z.endeUm + NACHLAUF_MS;
       if ((alleFertig && jetzt > z.startUm + 1500) || zeitUm) rundeBeenden();
     } else if (z.phase === "pause" && S.info?.einstellungen?.weiter === "auto") {
@@ -899,7 +921,8 @@
       const tr = el("tr", `${e.platz === 1 ? "ist-erster" : ""}${e.kennung === S.ich?.kennung ? " ist-ich" : ""}`.trim());
       const td = el("td", "mini-tabelle-name");
       td.append(el("span", "mini-rangzahl", String(e.platz)), el("span", "", e.name));
-      if (laeuft && !e.fertig) td.append(el("span", "lv-marke-klein lv-spielt-noch", "spielt"));
+      if (laeuft && e.weg) td.append(el("span", "lv-marke-klein lv-weg-klein", "weg"));
+      else if (laeuft && !e.fertig) td.append(el("span", "lv-marke-klein lv-spielt-noch", "spielt"));
       tr.append(td, el("td", "zahl", String(e.p)));
       if (zaehlt && !laeuft) tr.append(el("td", "zahl lv-dazu", `+${e.punkte}`));
       tbody.append(tr);

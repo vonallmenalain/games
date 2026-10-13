@@ -431,6 +431,15 @@ pruefe("Die Startseite zeigt «Multiplayer» nur, wenn einer für alle offen ist
 // Die anderen im Bild: um einen gemessenen Verzug zurück, auf einer weichen
 // Kurve zwischen den Proben – nicht zur Zeit «jetzt» geraten (das ruckelte).
 const liveSpielJs = lies("live-spiel.js");
+// Wer nicht wirklich spielt (Bildschirm aus, Tab verdeckt), hält die Runde
+// nicht auf: Das Lebenszeichen hängt am Bild, und wer zwölf Sekunden
+// schweigt, ist für die Leitung weg – auf beiden Seiten dieselbe Zahl.
+pruefe("live-spiel.js meldet sich am Bild (requestAnimationFrame), nicht an einer Uhr",
+  /function puls\(\) \{\s*z\.puls = window\.requestAnimationFrame\(puls\);/.test(liveSpielJs));
+pruefe("live.js wartet nicht auf einen, der schweigt (istWeg im Rundenende)",
+  /dabei\.every\(\(k\) => [^\n]*istWeg\(z, k\)\)/.test(liveJs));
+pruefe("live.js und live-spiel.js warten gleich lange (WEG_MS)",
+  liveJs.match(/const WEG_MS = (\d+);/)?.[1] === liveSpielJs.match(/const WEG_MS = (\d+);/)?.[1]);
 pruefe("live-spiel.js zeigt die anderen mit gemessenem Verzug auf einer Kurve",
   /function verzugVon\(/.test(liveSpielJs) && /function hermite\(/.test(liveSpielJs) && /lauf\.zeitBei\(t\)/.test(liveSpielJs));
 

@@ -3930,6 +3930,18 @@ p.tn-verdeckt:not(.mini-hinweis) {
   animation: lv-puls 1.4s ease-in-out infinite;
 }
 @keyframes lv-puls { 50% { opacity: 0.55; } }
+/* Weg: schweigt seit zwölf Sekunden – Bildschirm aus, App im Hintergrund.
+   Auf ihn wartet die Runde nicht (live.js, WEG_MS). */
+.lv-weg {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #c3c8d4;
+  color: #fff;
+  font-size: 0.7rem;
+}
+/* Der Knopf der Leitung auf ihrer Tafel: ruhiger als ein Spielknopf. */
+.lv-knopf-still { border: 0; background: #243047; font: inherit; font-weight: 800; cursor: pointer; }
+.lv-knopf-still:disabled { opacity: 0.5; }
 
 @media (max-height: 500px) and (min-width: 780px) {
   .lv-leiste {
@@ -4154,6 +4166,7 @@ body.lv-im-spiel { overflow: hidden; }
 }
 .mini-knopf-live { gap: 8px; }
 .lv-tabelle .lv-spielt-noch { margin-left: 6px; background: #3fbf74; color: #fff; animation: lv-puls 1.4s ease-in-out infinite; }
+.lv-tabelle .lv-weg-klein { margin-left: 6px; background: #c3c8d4; color: #fff; }
 
 /* --- Live: zuschauen (live-spiel.js) -------------------------------------- */
 /* Nach dem eigenen Ende lässt sich oben jeder antippen, der noch spielt; wem

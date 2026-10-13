@@ -610,6 +610,88 @@ try {
   }, code);
   pruefe(!darfSteuern, "Ein Spieler kann den Multiplayer steuern");
 
+  // --- Wer nicht wirklich spielt, hält die Runde nicht auf -------------------
+  // Brückenbauer hat keine Uhr: Die Runde endet, wenn alle fertig sind. Ein
+  // Gerät im Hintergrund (Bildschirm aus, Tab verdeckt) bleibt «online», sein
+  // Spiel läuft aber nicht – ohne Lebenszeichen hinge die Runde ewig, und
+  // alle anderen sässen vor «spielt noch». Zwei Runden: In der ersten beendet
+  // die Leitung sie von ihrer Tafel aus, in der zweiten liegt Jonas im
+  // Hintergrund, und die Runde endet ohne ihn.
+  {
+    await leitung.seite.goto(`${BASIS}/live?neu`, { waitUntil: "load" });
+    pruefe(await bis(() => leitung.seite.locator(".lv-formular").isVisible()), "Das Formular erscheint für den zweiten Multiplayer nicht");
+    while (await leitung.seite.locator(".lv-zeile").count() > 1) await leitung.seite.locator(".lv-zeile").last().getByRole("button", { name: "Entfernen" }).click();
+    const zeile = leitung.seite.locator(".lv-zeile").first();
+    await zeile.locator(".lv-spiel-wahl").selectOption("bridgeBuilder");
+    await zeile.locator(".lv-runden-wahl").selectOption("2");
+    await zeile.locator(".lv-uebung-wahl").selectOption("0");
+    await leitung.seite.selectOption("#lv-turnier", "");
+    await leitung.seite.selectOption("#lv-sichtbar", "link");
+    await leitung.seite.selectOption("#lv-zeitlimit", "0");
+    await leitung.seite.selectOption("#lv-countdown", "3");
+    await leitung.seite.getByRole("button", { name: "Lobby öffnen" }).click();
+    pruefe(await bis(async () => (await stand(leitung))?.beigetreten), "Die Leitung kommt nicht in den zweiten Multiplayer");
+    const code2 = (await stand(leitung))?.code || "";
+    for (const g of [mia, jonas]) {
+      await g.seite.goto(`${BASIS}/live?code=${code2}`, { waitUntil: "load" });
+      pruefe(await bis(async () => (await stand(g))?.beigetreten), `${g.name} kommt nicht in den zweiten Multiplayer`);
+    }
+    await bis(async () => (await leitung.seite.locator(".lv-spieler li.ist-online").count()) === 3);
+    const drei = [leitung, mia, jonas];
+    async function brueckenRunde(nr) {
+      if (nr === 0) await leitung.seite.locator(".lv-start-knopf").click();
+      else await leitung.seite.getByRole("button", { name: "Weiter" }).click();
+      pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "runde" && x.nr === nr && x.rahmen)), `Brückenbauer ${nr}: Nicht alle bekommen das Spiel`);
+      const frames = [];
+      for (const g of drei) {
+        let f = null;
+        await bis(async () => { f = spielFrame(g); return f && new URL(f.url()).searchParams.get("nr") === String(nr) && await f.evaluate(() => Boolean(window.LernappLiveSpiel?.gestartet?.())); });
+        frames.push(f);
+      }
+      return frames;
+    }
+    // Den Finger halten, bis der Balken weit über den Pfeiler reicht: Der
+    // Arbeiter läuft ins Leere.
+    async function absturz(g, f) {
+      const box = await f.locator(".cm-stage").boundingBox();
+      await g.seite.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
+      await g.seite.mouse.down();
+      await bis(() => f.evaluate(() => {
+        const st = window.LernappBruecke.state;
+        const p = st.pfeiler[st.hier + 1];
+        return st.schritt === "wachsen" && st.balken && st.balken.x + st.balken.len > p.x + p.w;
+      }), { ms: 8000, schritt: 10 });
+      await g.seite.mouse.up();
+      return bis(() => f.evaluate(() => window.LernappLiveSpiel.istFertig()), { ms: 8000 });
+    }
+
+    // Runde 1: Alain fällt, Mia und Jonas tun nichts. Alain wartet nicht – er
+    // beendet die Runde von seiner Tafel aus.
+    const erste = await brueckenRunde(0);
+    pruefe(await absturz(leitung, erste[0]), "Brückenbauer: Der Arbeiter der Leitung fällt nicht");
+    const ende = erste[0].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" });
+    pruefe(await bis(() => ende.isVisible()), "Die Tafel der Leitung bietet «Runde jetzt beenden» nicht an, während andere noch spielen");
+    pruefe(await bis(() => erste[1].locator(".lv-tafel button", { hasText: "Runde jetzt beenden" }).count().then((n) => n === 0), { ms: 1500 }), "Ein Spieler bekommt den Knopf der Leitung");
+    await ende.click();
+    pruefe(await bis(async () => (await Promise.all(drei.map(stand))).every((x) => x?.phase === "pause")), "«Runde jetzt beenden» auf der Tafel beendet die Runde nicht");
+
+    // Runde 2: Jonas' Spiel liegt im Hintergrund – kein Bild mehr, die
+    // Zeitgeber laufen gedrosselt weiter, die Verbindung steht.
+    const zweite = await brueckenRunde(1);
+    await zweite[2].evaluate(() => { window.requestAnimationFrame = () => 0; });
+    const t0 = Date.now();
+    pruefe(await absturz(leitung, zweite[0]), "Brückenbauer: Alains Arbeiter fällt nicht");
+    pruefe(await absturz(mia, zweite[1]), "Brückenbauer: Mias Arbeiter fällt nicht");
+    pruefe(await bis(() => zweite[1].locator(".lv-tafel .lv-weg").count().then((n) => n === 1), { ms: 15000, schritt: 50 })
+      || (await stand(mia))?.phase === "pause", "Auf der Tafel steht nicht, dass Jonas weg ist");
+    pruefe(await bis(async () => (await stand(leitung))?.phase === "pause", { ms: 20000 }), "Die Runde wartet ewig auf einen, dessen Spiel im Hintergrund liegt");
+    const dauer = Date.now() - t0;
+    pruefe(dauer < 18000, `Die Runde endet erst nach ${Math.round(dauer / 1000)} s ohne Jonas`);
+    const nr1 = await leitung.seite.evaluate(() => window.LernappLive.rundenWertung(1, "platz", false).map((e) => [e.name, e.p, e.fertig]));
+    pruefe(nr1.length === 3 && nr1.some(([n, , f]) => n === "Jonas" && !f), `Jonas fehlt in der Wertung oder gilt als fertig (${JSON.stringify(nr1)})`);
+    await bild(mia, "13-ohne-jonas");
+  }
+
   const spreizung = [...startZeiten.values()].map((z) => Math.max(...z) - Math.min(...z));
   console.log(`Start je Runde auseinander: ${spreizung.map((ms) => `${ms} ms`).join(", ")}`);
   for (const g2 of geraete) await g2.kontext.close();

@@ -25,7 +25,13 @@
  *   Ende         Statt der Tafel mit «Noch einmal» – eine Runde gibt es hier
  *                nur einmal – geht das Ergebnis an den Rahmen und in die Hall
  *                of Fame (keine Übungsrunde). Eine Sekunde später zeigt die
- *                Seite, wie es bei den anderen steht.
+ *                Seite, wie es bei den anderen steht – und der Leitung den
+ *                Knopf, mit dem sie die Runde beendet.
+ *   Lebenszeichen Solange das Spiel im Bild ist und läuft, meldet es sich alle
+ *                drei Sekunden, auch ohne neue Punkte. Wer zwölf Sekunden
+ *                lang schweigt – Bildschirm aus, App im Hintergrund, Tab
+ *                verdeckt –, spielt nicht wirklich und gilt als weg: Auf ihn
+ *                wartet die Runde nicht. Kommt er zurück, spielt er weiter.
  *   Gegner       In den Spielen mit Figur im Bild laufen die anderen als
  *                Geister mit (geist.js fragt gegner()): aus ihrer Lage, die
  *                zehnmal je Sekunde kommt, je so weit zurück, dass fast
@@ -105,6 +111,10 @@
   // Mehr als so weit daneben ist kein Ruckeln, sondern ein Sprung.
   const SPRUNG = 600;
   const PUFFER_MS = 6000;
+  // Das Lebenszeichen: so oft, und wer so lange schweigt, ist weg (dieselbe
+  // Zahl wie in live.js, WEG_MS).
+  const LEBT_MS = 3000;
+  const WEG_MS = 12000;
   const verwaist = () => Boolean(adresse) && !runde;
 
   // Die Serverzeit, so gut dieses Gerät sie kennt.
@@ -144,6 +154,7 @@
     zielWegSeit: 0,
     zuschauHaken: null,
     nurZuschauen: false,
+    puls: null,
   };
 
   // --- Eingaben sperren -------------------------------------------------------
@@ -162,13 +173,25 @@
   }
 
   // --- An den Rahmen ----------------------------------------------------------
-  function sende(fertig = false) {
+  // lebt: auch ohne neue Punkte – das Lebenszeichen.
+  function sende(fertig = false, lebt = false) {
     if (!rahmen || !runde) return;
     const jetzt = Date.now();
-    if (!fertig && z.gesendet.p === z.punkte) return;
+    if (!fertig && !lebt && z.gesendet.p === z.punkte) return;
     if (!fertig && jetzt - z.gesendet.ms < 450) return;
     z.gesendet = { p: z.punkte, ms: jetzt };
     try { rahmen.melde({ p: z.punkte, fertig, t: Math.max(0, Math.round(zeit())) }); } catch { /* der Rahmen ist weg */ }
+  }
+
+  /*
+   * Das Lebenszeichen hängt am Bild, nicht an einer Uhr: requestAnimationFrame
+   * läuft nur, solange die Seite zu sehen ist. Ein Zeitgeber liefe in einem
+   * verdeckten Tab gedrosselt weiter und meldete einen, der gar nicht spielt.
+   */
+  function puls() {
+    z.puls = window.requestAnimationFrame(puls);
+    if (!runde || z.fertig || !z.gestartet || z.nurZuschauen) return;
+    if (Date.now() - z.gesendet.ms >= LEBT_MS) sende(false, true);
   }
 
   function punkte(wert) {
@@ -197,6 +220,14 @@
     return z.daten.spieler?.[kennung]?.name || runde?.namen?.[kennung] || "?";
   }
 
+  // Schweigt seit WEG_MS: kein Lebenszeichen, keine Punkte (live.js, istWeg).
+  function weg(kennung) {
+    const e = z.daten.punkte?.[kennung];
+    if (!runde || e?.fertig || kennung === runde.ich.kennung) return false;
+    const t = zeit();
+    return t > WEG_MS && t - (Number(e?.t) || 0) > WEG_MS;
+  }
+
   // Wer in dieser Runde mitspielt, mit seinen Punkten – die meisten vorn.
   function stand() {
     if (!runde) return [];
@@ -211,7 +242,7 @@
         ich,
         p: ich ? Math.max(z.punkte, Number(e.p) || 0) : Math.max(0, Number(e.p) || 0),
         fertig: ich ? z.fertig : Boolean(e.fertig),
-        online: z.daten.spieler?.[kennung]?.online !== false,
+        online: z.daten.spieler?.[kennung]?.online !== false && !weg(kennung),
       };
     }).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name, "de"));
   }
@@ -340,7 +371,7 @@
   }
 
   const hatBahn = (kennung) => (z.bahnen.get(kennung)?.proben.length || 0) > 0;
-  const istFertig = (kennung) => Boolean(z.daten.punkte?.[kennung]?.fertig) || z.daten.spieler?.[kennung]?.online === false;
+  const istFertig = (kennung) => Boolean(z.daten.punkte?.[kennung]?.fertig) || z.daten.spieler?.[kennung]?.online === false || weg(kennung);
 
   // Wie weit dieser Spieler gerade zurücksteht – auf dem Weg zu seinem Ziel,
   // nie mit einem Ruck.
@@ -581,10 +612,19 @@
       const li = el("li", `${s.ich ? "ist-ich" : ""}${s.fertig ? " ist-fertig" : ""}`.trim());
       li.append(el("span", "lv-platz", `${platz}.`), el("span", "lv-name", s.ich ? `${s.name} (du)` : s.name), el("span", "lv-wert", String(s.p)));
       if (!s.fertig && s.online) li.append(el("span", "lv-spielt", "spielt"));
+      else if (!s.fertig) li.append(el("span", "lv-weg", "weg"));
       ol.append(li);
     });
     karte.append(ol);
     karte.append(el("p", "lv-klein", laufen ? (laufen === 1 ? "Einer spielt noch." : `${laufen} spielen noch.`) : "Alle sind fertig – gleich kommt die Auswertung."));
+    // Die Leitung muss nicht warten: Sie beendet die Runde von hier aus.
+    if (laufen && runde.leitung && rahmen?.rundeBeenden) {
+      const ende = el("button", "lv-knopf lv-knopf-still", "Runde jetzt beenden");
+      ende.type = "button";
+      ende.dataset.liveFrei = "";
+      ende.dataset.rundeEnde = "";
+      karte.append(ende);
+    }
     const alt = z.tafel.textContent;
     const box = el("div");
     box.append(karte);
@@ -650,6 +690,8 @@
     window.setTimeout(() => { z.start.hidden = true; }, 650);
     if (z.nurZuschauen) return;
     try { z.los?.(); } catch (fehler) { console.warn("Das Spiel liess sich nicht starten", fehler); }
+    // Das erste Lebenszeichen gleich: Ich bin da und spiele.
+    sende(false, true);
   }
 
   /*
@@ -723,6 +765,12 @@
     z.tafel = el("div", "lv-tafel");
     z.tafel.hidden = true;
     host.append(z.tafel);
+    z.tafel.addEventListener("click", (ereignis) => {
+      const knopf = ereignis.target.closest?.("[data-runde-ende]");
+      if (!knopf) return;
+      knopf.disabled = true;
+      try { rahmen.rundeBeenden(); } catch { /* der Rahmen ist weg */ }
+    });
 
     GESPERRT.forEach((typ) => window.addEventListener(typ, sperrt, { capture: true, passive: false }));
 
@@ -743,6 +791,7 @@
     });
 
     z.ticker = window.setInterval(takt, 100);
+    z.puls = window.requestAnimationFrame(puls);
     takt();
   }
 
@@ -767,6 +816,8 @@
   window.addEventListener("pagehide", () => {
     if (z.ticker) window.clearInterval(z.ticker);
     z.ticker = null;
+    if (z.puls) window.cancelAnimationFrame(z.puls);
+    z.puls = null;
   });
 
   window.LernappLiveSpiel = {

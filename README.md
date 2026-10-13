@@ -363,8 +363,21 @@ Millisekunden auseinander. Die Tafel einer Übung sagt nur «Übungsrunde»
 (oder «Übungsrunde 1 von 2»). Oben stehen alle mit ihren Punkten und die
 Zeit. Wer ausscheidet, sieht eine Sekunde später, wie es bei den anderen
 steht. Die Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist;
-die Leitung kann sie auch von Hand beenden (der Knopf «Leitung» über dem
-Spiel).
+die Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
+Spiel oder, wenn sie selbst schon fertig ist, mit «Runde jetzt beenden» auf
+ihrer Tafel.
+
+**Weg** ist, wer die Verbindung verliert – oder wer schweigt. Solange das
+Spiel im Bild ist und läuft, meldet es sich alle drei Sekunden, auch ohne
+neue Punkte (`live-spiel.js`, Lebenszeichen; am Bild aufgehängt, nicht an
+einer Uhr, denn Zeitgeber laufen in verdeckten Tabs weiter). Wer zwölf
+Sekunden lang schweigt – Bildschirm aus, App im Hintergrund, ein vergessenes
+zweites Fenster –, steht bei den anderen als «weg», und die Runde wartet
+nicht auf ihn (`live.js`, `WEG_MS`). Ohne das hing eine Runde ohne Uhr
+(Brückenbauer, Turmbau …) ewig: Die Verbindung eines gesperrten Handys
+steht oft noch minutenlang, sein Spiel aber läuft nicht weiter, und alle
+anderen sassen vor «spielt noch». Kommt er zurück, solange die Runde noch
+läuft, spielt er weiter; gewertet wird, was er zuletzt gemeldet hat.
 
 **Jedes Spiel** gibt der Bühne dafür zweierlei mit (`game-shell.js`,
 `mount({ live: { los, stopp } })`): wie die Runde ohne Tipp beginnt und wie
