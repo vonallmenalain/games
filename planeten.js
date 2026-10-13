@@ -740,6 +740,9 @@
     bildTransform();
     const s = view.s * ASTRO;
     orte.forEach((o) => {
+      // Wem im Live-Modus zugeschaut wird, der ist die Figur selbst – kein
+      // Geist dazu, nur sein Name (geist.js, namen).
+      if (o.ziel) return;
       g.save();
       g.globalAlpha = 0.6 * o.blass;
       g.translate(bildX(o.a), bildY(o.b));
@@ -1172,7 +1175,11 @@
     if (state.phase === "zuschauen") {
       zuschauenTakt(dt);
     } else if (state.schritt === "start") {
-      state.uhr += dt;
+      // Im Live-Modus läuft die Uhr der Planeten nach der Uhr des Abends: Beim
+      // gemeinsamen Start steht sie auf jedem Gerät auf null – sonst stünden
+      // die Planeten dort, wo sie seit dem Laden der Seite hingewandert sind.
+      const live = shell.live ? window.LernappLiveSpiel : null;
+      state.uhr = live ? live.zeit() / 1000 : state.uhr + dt;
       // Vor dem ersten Tipp steht er oben auf dem Planeten und wippt.
       state.theta = Math.PI / 2;
       state.hoehe = HOEHE + (ruhig() ? 0 : Math.abs(Math.sin(state.zeit * 3)) * 2);
@@ -1273,9 +1280,11 @@
   }
 
   function zuschauenTakt(dt) {
-    state.uhr += dt;
     const s = zuschauer.stand();
-    if (!s) return;
+    if (!s) { state.uhr += dt; return; }
+    // Die Uhr der Planeten nach der Zeit des Laufs – auch wenn das Zuschauen
+    // mitten in einem Live-Lauf beginnt.
+    state.uhr = ((zuschauer.lauf?.vorlauf || 0) + s.t) / 1000;
     const a = state.astro;
     a.x = s.a;
     a.y = s.b;
@@ -1434,7 +1443,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: () => finish() },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "planetHop", fassung: "p2", zufall, nochmal: zuschauenStarten,

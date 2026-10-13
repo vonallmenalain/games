@@ -197,11 +197,14 @@ try {
   await ersteZeile.locator(".lv-spiel-wahl").selectOption("gravityRun");
   await ersteZeile.locator(".lv-runden-wahl").selectOption("1");
   await ersteZeile.locator(".lv-uebung-wahl").selectOption("1");
-  await leitung.seite.getByRole("button", { name: "Spiel hinzufügen" }).click();
-  const zweiteZeile = leitung.seite.locator(".lv-zeile").nth(1);
-  await zweiteZeile.locator(".lv-spiel-wahl").selectOption("towerStack");
-  await zweiteZeile.locator(".lv-runden-wahl").selectOption("1");
-  await zweiteZeile.locator(".lv-uebung-wahl").selectOption("0");
+  // Dazwischen Lianenschwung: ein Spiel mit Figur im Bild – zum Zuschauen.
+  for (const [i, spiel] of [[1, "vineSwing"], [2, "towerStack"]]) {
+    await leitung.seite.getByRole("button", { name: "Spiel hinzufügen" }).click();
+    const zeile = leitung.seite.locator(".lv-zeile").nth(i);
+    await zeile.locator(".lv-spiel-wahl").selectOption(spiel);
+    await zeile.locator(".lv-runden-wahl").selectOption("1");
+    await zeile.locator(".lv-uebung-wahl").selectOption("0");
+  }
   await leitung.seite.selectOption("#lv-zeitlimit", "30");
   await leitung.seite.selectOption("#lv-countdown", "3");
   await leitung.seite.check("#lv-finale");
@@ -213,6 +216,11 @@ try {
   pruefe(new URL(leitung.seite.url()).searchParams.get("code") === code, "Die Adresse trägt den Code nicht");
   pruefe((await stand(leitung))?.leitung === true, "Die Leitung wird nicht als Leitung erkannt");
   await bild(leitung, "1-lobby-leitung");
+
+  // --- Das Grossbild: schaut zu, tritt nicht bei -----------------------------
+  const tv = await geraet("Fernseher", { viewport: { width: 1280, height: 720 } });
+  await tv.seite.goto(`${BASIS}/live?code=${code}&gross`, { waitUntil: "load" });
+  pruefe(await bis(() => tv.seite.locator(".lv-grossbild .lv-code-gross").count().then((n) => n === 1)), "Das Grossbild zeigt den Code nicht");
 
   // --- Zwei Spieler treten bei ------------------------------------------------
   const mia = await geraet("Mia");
@@ -282,7 +290,7 @@ try {
   // Ohne Tipp fällt der Läufer bald – die Runde endet von selbst.
   pruefe(await bis(async () => (await Promise.all([leitung, mia, jonas].map(stand))).every((s) => s?.phase === "pause"), { ms: 30000 }),
     "Die Übung endet nicht, obwohl alle ausgeschieden sind");
-  pruefe(await mia.seite.locator(".lv-block h2", { hasText: "Übungsrunde" }).count() === 1, "Die Auswertung sagt nicht, dass die Übung nicht zählt");
+  pruefe(await bis(() => mia.seite.locator(".lv-block h2", { hasText: "Übungsrunde" }).count().then((n) => n === 1)), "Die Auswertung sagt nicht, dass die Übung nicht zählt");
   await bild(leitung, "5-pause-leitung");
   pruefe(await mia.seite.evaluate(() => window.__hof.length) === 0, "Eine Übungsrunde ging in die Hall of Fame");
   pruefe((await stand(mia))?.rahmen === false, "Nach der Runde liegt das Spiel noch über der Seite");
@@ -303,56 +311,129 @@ try {
   const ergebnisZeilen = await leitung.seite.locator(".lv-block").first().locator("tbody tr").count();
   pruefe(ergebnisZeilen === 4, `Das Ergebnis der Runde hat ${ergebnisZeilen} statt 4 Zeilen`);
 
-  // --- Ein Spät-Nachzügler: kommt während der Runde --------------------------
+  // --- Runde 3: Lianenschwung – zuschauen ---------------------------------
+  // Alain und Mia springen ab und fallen ins Wasser; Jonas und Lea schwingen
+  // an der ersten Liane, bis die 30 Sekunden um sind. Wer ausgeschieden ist,
+  // schaut eine Sekunde später dem zu, der vorne liegt.
   await leitung.seite.getByRole("button", { name: "Weiter" }).click();
+  const kennungen = {};
+  for (const g of [leitung, mia, jonas, lea]) kennungen[g.name] = await g.seite.evaluate(() => window.LernappMini.kennung());
+  const lianen = await runde(2, {
+    erwarteSpiel: "liane",
+    alle: [leitung, mia, jonas, lea],
+    eingreifen: async (frames) => {
+      await Promise.all(frames.slice(0, 2).map((f) => f.evaluate(() => new Promise((fertig) => {
+        const L = window.LernappLiane;
+        const t = setInterval(() => {
+          if (L.state.p.x < L.state.anker[0].x + 4) return;
+          clearInterval(t);
+          L.druecken();
+          L.loslassen();
+          fertig();
+        }, 30);
+      }))));
+    },
+  });
+  // Die anderen laufen als Geister mit.
+  pruefe(await bis(() => lianen[2].evaluate(() => window.LernappLiveSpiel.gegner().length >= 2)), "Im Spiel laufen die anderen nicht als Geister mit");
+  pruefe(await bis(() => lianen[2].evaluate(() => window.LernappGeist.stand()[0].zeigt.some((z) => z.endsWith(":Lea")))), "geist.js zeigt die anderen nicht im Bild");
+  // Mia fällt und schaut dann Jonas zu – vorne, bei gleich vielen Metern
+  // nach dem Namen.
+  pruefe(await bis(() => lianen[1].evaluate(() => window.LernappLiveSpiel.istFertig()), { ms: 15000 }), "Mia fällt nicht ins Wasser");
+  const wartenAb = Date.now();
+  pruefe(await bis(() => lianen[1].evaluate(() => Boolean(window.LernappLiveSpiel.zuschauen())), { ms: 8000 }), "Wer ausgeschieden ist, schaut niemandem zu");
+  const { ziel, staende } = await lianen[1].evaluate(() => ({ ziel: window.LernappLiveSpiel.zuschauen(), staende: window.LernappLiveSpiel.stand() }));
+  pruefe(Date.now() - wartenAb > 300, "Das Zuschauen beginnt ohne Pause nach dem Ausscheiden");
+  // Vorne liegt, wer von den beiden, die noch schwingen, mehr Meter hat.
+  const noch = staende.filter((x) => !x.fertig);
+  const zielStand = staende.find((x) => x.kennung === ziel);
+  pruefe([kennungen.Jonas, kennungen.Lea].includes(ziel) && noch.every((x) => x.p <= (zielStand?.p ?? -1)),
+    `Mia schaut nicht dem zu, der vorne liegt und noch spielt (${ziel}, ${JSON.stringify(staende.map((x) => [x.name, x.p, x.fertig]))})`);
+  const zielName = ziel === kennungen.Jonas ? "Jonas" : "Lea";
+  const andererName = zielName === "Jonas" ? "Lea" : "Jonas";
+  pruefe(await lianen[1].evaluate(() => window.LernappLiane.state.phase) === "zuschauen", "Das Spiel zeigt beim Zuschauen nicht die fremde Figur");
+  // Der Affe steht dort, wo Jonas' Affe ist – eine Drittelsekunde dahinter.
+  await warte(800);
+  const zielFrame = zielName === "Jonas" ? lianen[2] : lianen[3];
+  const [hier, dort] = await Promise.all([lianen[1], zielFrame].map((f) => f.evaluate(() => window.LernappLiane.state.p.x)));
+  pruefe(Math.abs(hier - dort) < 160, `Beim Zuschauen ist die Figur nicht dort, wo ${zielName} ist (${Math.round(hier)} / ${Math.round(dort)})`);
+  pruefe(await bis(() => lianen[1].locator(".lv-chip.ist-ziel", { hasText: zielName }).count().then((n) => n === 1)), "Oben ist nicht hervorgehoben, wem zugeschaut wird");
+  await bild(mia, "9-zuschauen");
+  // Den anderen Namen antippen: jetzt dem zuschauen.
+  const zumAndern = lianen[1].locator("button.lv-chip", { hasText: andererName });
+  pruefe(await zumAndern.count() === 1, `Oben lässt sich ${andererName} nicht antippen`);
+  await zumAndern.click();
+  pruefe(await bis(async () => (await lianen[1].evaluate(() => window.LernappLiveSpiel.zuschauen())) === kennungen[andererName]), "Antippen wechselt nicht, wem zugeschaut wird");
+  pruefe(await lianen[1].evaluate(() => window.LernappLiane.state.phase) === "zuschauen", "Nach dem Wechsel ist das Zuschauen weg");
+
+  // Ein Nachzügler mitten in der Runde: spielt nicht, kann aber zuschauen.
   const tim = await geraet("Tim");
   await tim.seite.goto(`${BASIS}/live?code=${code}`, { waitUntil: "load" });
   pruefe(await bis(async () => (await stand(tim))?.beigetreten), "Ein Nachzügler mitten in der Runde kommt nicht hinein");
+  await warte(600);
+  await bild(tim, "6-nachzuegler");
+  pruefe((await stand(tim))?.rahmen === false, "Wer mitten in der Runde kam, bekommt trotzdem das Spiel");
+  pruefe(await tim.seite.locator(".mini-hinweis", { hasText: "nächsten" }).count() === 1, "Der Nachzügler erfährt nicht, dass er später mitspielt");
+  await tim.seite.getByRole("button", { name: "Zuschauen" }).click();
+  pruefe(await bis(async () => (await stand(tim))?.rahmen), "«Zuschauen» öffnet das Spiel nicht");
+  pruefe(await bis(() => spielFrame(tim)?.evaluate(() => Boolean(window.LernappLiveSpiel?.zuschauen?.()))), "Wer nur zuschaut, sieht niemandem zu");
+  pruefe(await spielFrame(tim)?.evaluate(() => window.LernappLiveSpiel.istFertig() && window.LernappLiveSpiel.runde().nurZuschauen), "Wer nur zuschaut, hat eine eigene Runde");
+  await spielFrame(tim).locator("button.lv-chip-zu").click();
+  pruefe(await bis(async () => (await stand(tim))?.rahmen === false), "«Schliessen» bringt den Zuschauer nicht zurück");
+  // Das Grossbild schaut von selbst zu.
+  pruefe(await bis(async () => (await stand(tv))?.rahmen), "Das Grossbild schaut einer Runde mit Figur nicht zu");
+  pruefe(await bis(() => spielFrame(tv)?.evaluate(() => Boolean(window.LernappLiveSpiel?.zuschauen?.()))), "Das Grossbild folgt niemandem");
+  await bild(tv, "10-grossbild");
 
-  // --- Runde 3: Turmbau, Finale, Zeitlimit ---------------------------------
+  pruefe(await bis(async () => (await stand(leitung))?.phase === "pause", { ms: 45000 }), "Die Lianen-Runde endet nicht mit dem Zeitlimit");
+  const nachLiane = await leitung.seite.evaluate(() => window.LernappLive.rundenWertung(2, "platz", false).map((e) => [e.name, e.fertig]));
+  pruefe(nachLiane.length === 4 && nachLiane.every(([, f]) => f), `Nach der Lianen-Runde ist nicht jeder fertig gemeldet (${JSON.stringify(nachLiane)})`);
+  pruefe(!nachLiane.some(([n]) => n === "Tim"), "Wer nur zugeschaut hat, steht im Ergebnis");
+
+  // --- Runde 4: Turmbau, Finale, Zeitlimit ---------------------------------
   // Niemand tippt: Der Block schwingt, bis die 30 Sekunden um sind. Vorher
-  // bekommt jeder eine andere Zahl, damit die Wertung etwas zu tun hat.
-  await runde(2, {
+  // bekommt jeder eine andere Zahl, damit die Wertung etwas zu tun hat. Tim
+  // war in der Auswertung da – jetzt spielt er mit.
+  await leitung.seite.getByRole("button", { name: "Weiter" }).click();
+  await runde(3, {
     erwarteSpiel: "turmbau",
-    alle: [leitung, mia, jonas, lea],
+    alle: [leitung, mia, jonas, lea, tim],
     eingreifen: async (frames) => {
-      const zahlen = [5, 3, 3, 1];
+      const zahlen = [5, 3, 3, 1, 0];
       await Promise.all(frames.map((f, i) => f.evaluate((n) => { window.LernappTurmbau.state.punkte = n; }, zahlen[i])));
     },
   });
-  await warte(1200);
-  await bild(tim, "6-nachzuegler");
-  await warte(2500);
+  await warte(3500);
   await bild(mia, "7-runde-laeuft");
-  pruefe((await stand(tim))?.rahmen === false, "Wer mitten in der Runde kam, bekommt trotzdem das Spiel");
-  pruefe(await tim.seite.locator(".mini-hinweis", { hasText: "nächsten" }).count() === 1, "Der Nachzügler erfährt nicht, dass er später mitspielt");
   pruefe(await bis(async () => (await stand(leitung))?.phase === "pause", { ms: 45000 }), "Das Zeitlimit beendet die Runde nicht");
   const punkte = await leitung.seite.evaluate(() => {
-    const r = window.LernappLive.rundenWertung(2, "platz", true);
+    const r = window.LernappLive.rundenWertung(3, "platz", true);
     return r.map((e) => [e.name, e.p, e.platz, e.punkte]);
   });
   const wie = Object.fromEntries(punkte.map(([n, p, platz, pkt]) => [n, { p, platz, pkt }]));
   pruefe(wie.Alain?.p === 5 && wie.Alain?.platz === 1 && wie.Alain?.pkt === 20, `Platz 1 im Finale bekommt nicht 2 × 10 (${JSON.stringify(wie.Alain)})`);
   pruefe(wie.Mia?.platz === 2 && wie.Jonas?.platz === 2 && wie.Mia?.pkt === 16, `Gleich viele Punkte, nicht derselbe Platz (${JSON.stringify([wie.Mia, wie.Jonas])})`);
   pruefe(wie.Lea?.platz === 4 && wie.Lea?.pkt === 10, `Platz 4 bekommt nicht 2 × 5 (${JSON.stringify(wie.Lea)})`);
+  pruefe(wie.Tim?.platz === 5 && wie.Tim?.pkt === 8, `Platz 5 bekommt nicht 2 × 4 (${JSON.stringify(wie.Tim)})`);
 
   // --- Das Podest ------------------------------------------------------------
   await leitung.seite.getByRole("button", { name: "Zum Podest" }).click();
-  pruefe(await bis(async () => (await Promise.all([leitung, mia, jonas, lea, tim].map(stand))).every((s) => s?.phase === "ende")), "Nicht alle sehen das Podest");
-  // Der Endstand ist die Summe der Rundenpunkte aus Runde 2 und dem Finale –
+  pruefe(await bis(async () => (await Promise.all([leitung, mia, jonas, lea, tim, tv].map(stand))).every((s) => s?.phase === "ende")), "Nicht alle sehen das Podest");
+  // Der Endstand ist die Summe der Rundenpunkte der drei zählenden Runden –
   // auf jedem Gerät dieselbe.
-  const gesamtJe = await Promise.all([mia, jonas, leitung].map((x) => x.seite.evaluate(() => JSON.stringify(window.LernappLive.gesamt().map((p) => [p.name, p.punkte, p.platz])))));
+  const gesamtJe = await Promise.all([mia, jonas, leitung, tv].map((x) => x.seite.evaluate(() => JSON.stringify(window.LernappLive.gesamt().map((p) => [p.name, p.punkte, p.platz])))));
   pruefe(new Set(gesamtJe).size === 1, "Nicht jedes Gerät rechnet denselben Endstand");
   const gesamt = JSON.parse(gesamtJe[0]);
   const erwartet = await mia.seite.evaluate(() => {
     const summe = {};
-    [[1, false], [2, true]].forEach(([nr, doppelt]) => window.LernappLive.rundenWertung(nr, "platz", doppelt).forEach((e) => { summe[e.name] = (summe[e.name] || 0) + e.punkte; }));
+    [[1, false], [2, false], [3, true]].forEach(([nr, doppelt]) => window.LernappLive.rundenWertung(nr, "platz", doppelt).forEach((e) => { summe[e.name] = (summe[e.name] || 0) + e.punkte; }));
     return summe;
   });
   pruefe(gesamt.every(([n, p]) => erwartet[n] === p), `Der Endstand ist nicht die Summe der Rundenpunkte (${JSON.stringify(gesamt)} / ${JSON.stringify(erwartet)})`);
-  pruefe(gesamt.length === 4 && !gesamt.some(([n]) => n === "Tim"), `Wer keine Runde gespielt hat, steht im Endstand – oder es fehlt jemand (${JSON.stringify(gesamt)})`);
+  pruefe(gesamt.length === 5 && !gesamt.some(([n]) => n === "Fernseher"), `Im Endstand fehlt jemand – oder das Grossbild spielt mit (${JSON.stringify(gesamt)})`);
   pruefe(gesamt.every(([, p], i) => i === 0 || p <= gesamt[i - 1][1]), "Der Endstand ist nicht absteigend sortiert");
   pruefe(await mia.seite.locator(".lv-podest .lv-stufe-1 .lv-podest-name").textContent() === gesamt[0][0], "Auf dem Podest steht nicht Platz 1 in der Mitte");
+  pruefe(await tv.seite.locator(".lv-grossbild .lv-podest").count() === 1, "Das Grossbild zeigt das Podest nicht");
   await bild(mia, "8-podest");
 
   // --- Abschliessen ----------------------------------------------------------
@@ -370,7 +451,7 @@ try {
 
   const spreizung = [...startZeiten.values()].map((z) => Math.max(...z) - Math.min(...z));
   console.log(`Start je Runde auseinander: ${spreizung.map((ms) => `${ms} ms`).join(", ")}`);
-  for (const g2 of [leitung, mia, jonas, lea, tim]) await g2.kontext.close();
+  for (const g2 of geraete) await g2.kontext.close();
 } catch (fehler) {
   befunde.push(`Abbruch: ${fehler.stack || fehler}`);
   // Was die Geräte gerade zeigen – das erklärt einen Abbruch meist sofort.

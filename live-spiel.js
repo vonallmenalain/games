@@ -26,10 +26,24 @@
  *                nur einmal – geht das Ergebnis an den Rahmen und in die Hall
  *                of Fame (keine Übungsrunde). Eine Sekunde später zeigt die
  *                Seite, wie es bei den anderen steht.
+ *   Gegner       In den Spielen mit Figur im Bild laufen die anderen als
+ *                Geister mit (geist.js fragt gegner()): wo sie gerade sind,
+ *                aus ihrer Lage, die achtmal je Sekunde kommt. Dazwischen
+ *                wird gerechnet – zurück ein Stück zwischen zwei Proben,
+ *                voraus ein Stück in ihrer Richtung.
+ *   Zuschauen    Wer ausgeschieden ist, schaut eine Sekunde später dem zu,
+ *                der vorne liegt und noch spielt: Das Spiel stellt seine
+ *                Figur dorthin, wo der andere ist – dieselbe Wiedergabe wie
+ *                beim Anschauen der besten Läufe (geist.js, zuschauer), nur
+ *                aus der Lage statt aus einer Aufzeichnung, eine Drittel-
+ *                sekunde hinter der Wirklichkeit, damit sie flüssig bleibt.
+ *                Oben lässt sich jeder antippen, der noch spielt. Wer gar
+ *                nicht mitspielt, kann von Anfang an zuschauen.
  *
- * Ein Spiel braucht dafür nur zweierlei, beim Aufbau der Bühne mitgegeben
- * (game-shell.js, mount): los – die Runde beginnt jetzt, ohne Tipp – und
- * stopp – die Zeit ist um, das Ergebnis bitte jetzt.
+ * Ein Spiel braucht dafür nur dreierlei, beim Aufbau der Bühne mitgegeben
+ * (game-shell.js, mount): los – die Runde beginnt jetzt, ohne Tipp –, stopp
+ * – die Zeit ist um, das Ergebnis bitte jetzt – und, wo es eine Figur im Bild
+ * hat, zuschauen – zeig ab jetzt diese Quelle statt der eigenen Figur.
  *
  * Ohne ?live= in der Adresse tut diese Datei nichts. Mit, aber ohne Rahmen
  * (jemand hat den Link der Runde allein geöffnet), führt sie zum Live-Abend.
@@ -67,6 +81,13 @@
   try { runde = rahmen?.runde?.(adresse.code, adresse.nr) || null; } catch { runde = null; }
 
   const aktiv = () => Boolean(runde);
+  // Wie weit das Zuschauen hinter der Wirklichkeit bleibt: genug, dass fast
+  // immer schon die nächste Probe da ist und zwischen zweien gerechnet wird.
+  const VERZUG_MS = 350;
+  // Wie weit voraus gerechnet wird, wenn die nächste Probe auf sich warten
+  // lässt – länger stünde der Geist besser still.
+  const VORAUS_MAX = 450;
+  const PUFFER_MS = 6000;
   const verwaist = () => Boolean(adresse) && !runde;
 
   // Die Serverzeit, so gut dieses Gerät sie kennt.
@@ -99,6 +120,13 @@
     zahl: null,
     ticker: null,
     tafelAb: 0,
+    bahnen: new Map(),
+    laeufe: new Map(),
+    zuschauen: null,
+    gewaehlt: false,
+    zielWegSeit: 0,
+    zuschauHaken: null,
+    nurZuschauen: false,
   };
 
   // --- Eingaben sperren -------------------------------------------------------
@@ -202,26 +230,227 @@
       kinder.push(uhr);
     }
     let platz = 0;
+    // Wer zuschauen kann, tippt einen Namen an – und schaut dem zu.
+    const waehlbar = Boolean(z.zuschauHaken) && z.fertig && Date.now() >= z.tafelAb;
     liste.forEach((s, i) => {
       if (i === 0 || s.p !== liste[i - 1].p) platz = i + 1;
-      const chip = el("span", `lv-chip${s.ich ? " ist-ich" : ""}${s.fertig ? " ist-fertig" : ""}${s.online ? "" : " ist-weg"}`);
+      const klick = waehlbar && !s.ich && !s.fertig && s.online && hatBahn(s.kennung);
+      const klasse = `lv-chip${s.ich ? " ist-ich" : ""}${s.fertig ? " ist-fertig" : ""}${s.online ? "" : " ist-weg"}${s.kennung === z.zuschauen ? " ist-ziel" : ""}${klick ? " ist-waehlbar" : ""}`;
+      const chip = el(klick ? "button" : "span", klasse);
+      if (klick) {
+        chip.type = "button";
+        chip.dataset.liveFrei = "";
+        chip.dataset.kennung = s.kennung;
+        chip.title = `${s.name} zuschauen`;
+      }
       chip.append(el("span", "lv-chip-platz", String(platz)), el("span", "lv-chip-name", s.ich ? "du" : s.name), el("span", "lv-chip-wert", String(s.p)));
       kinder.push(chip);
     });
+    if (z.nurZuschauen && rahmen?.schliessen && !runde.gross) {
+      const zu = el("button", "lv-chip lv-chip-zu", "Schliessen");
+      zu.type = "button";
+      zu.dataset.liveFrei = "";
+      zu.dataset.zu = "";
+      kinder.unshift(zu);
+    }
     const alt = [...z.leiste.children].map((k) => k.className + k.textContent).join("|");
     const neu = kinder.map((k) => k.className + k.textContent).join("|");
     if (alt !== neu) z.leiste.replaceChildren(...kinder);
   }
 
+  // --- Die Lage der anderen ---------------------------------------------------
+  // Je Spieler die letzten Sekunden seiner Lage: { t, a, b, c, p }, t in
+  // Millisekunden seit dem gemeinsamen Start.
+  function merkeLage(lagen) {
+    if (!lagen || typeof lagen !== "object") return;
+    Object.entries(lagen).forEach(([kennung, l]) => {
+      if (!l || kennung === runde.ich.kennung || Number(l.n) !== runde.nr) return;
+      const t = Number(l.t);
+      if (!Number.isFinite(t)) return;
+      let bahn = z.bahnen.get(kennung);
+      if (!bahn) { bahn = []; z.bahnen.set(kennung, bahn); }
+      const letzte = bahn[bahn.length - 1];
+      if (letzte && t <= letzte.t) return;
+      bahn.push({ t, a: Number(l.a) || 0, b: Number(l.b) || 0, c: Number(l.c) || 0, p: Number(l.p) || 0 });
+      while (bahn.length > 3 && bahn[0].t < t - PUFFER_MS) bahn.shift();
+    });
+  }
+
+  const hatBahn = (kennung) => (z.bahnen.get(kennung)?.length || 0) > 0;
+  const istFertig = (kennung) => Boolean(z.daten.punkte?.[kennung]?.fertig) || z.daten.spieler?.[kennung]?.online === false;
+
+  // Wo jemand zur Zeit ms war: zwischen zwei Proben gerechnet, hinter der
+  // letzten ein Stück in seiner Richtung weiter – ausser er ist fertig, dann
+  // bleibt er stehen. c (Ast, Drehung, Gewicht …) springt, statt zu gleiten:
+  // Was es bedeutet, weiss nur das Spiel.
+  function ortBei(bahn, ms, fertig) {
+    if (!bahn.length) return { a: 0, b: 0, c: 0 };
+    const erste = bahn[0];
+    if (ms <= erste.t) return { a: erste.a, b: erste.b, c: erste.c };
+    const letzte = bahn[bahn.length - 1];
+    if (ms >= letzte.t) {
+      if (fertig || bahn.length < 2) return { a: letzte.a, b: letzte.b, c: letzte.c };
+      const vor = bahn[bahn.length - 2];
+      const dt = Math.max(1, letzte.t - vor.t);
+      const weiter = Math.min(ms - letzte.t, VORAUS_MAX);
+      return { a: letzte.a + ((letzte.a - vor.a) / dt) * weiter, b: letzte.b + ((letzte.b - vor.b) / dt) * weiter, c: letzte.c };
+    }
+    let lo = 0;
+    let hi = bahn.length - 1;
+    while (hi - lo > 1) {
+      const mitte = (lo + hi) >> 1;
+      if (bahn[mitte].t <= ms) lo = mitte; else hi = mitte;
+    }
+    const s0 = bahn[lo];
+    const s1 = bahn[hi];
+    const k = (ms - s0.t) / Math.max(1, s1.t - s0.t);
+    return { a: s0.a + (s1.a - s0.a) * k, b: s0.b + (s1.b - s0.b) * k, c: k < 0.5 ? s0.c : s1.c };
+  }
+
+  // Ein Lauf, wie geist.js ihn kennt (abspieler) – nur aus der Lage, die
+  // gerade hereinkommt.
+  function liveLauf(kennung) {
+    if (z.laeufe.has(kennung)) return z.laeufe.get(kennung);
+    const bahn = () => z.bahnen.get(kennung) || [];
+    const lauf = {
+      mitOrt: true,
+      saat: null,
+      vorlauf: 0,
+      get dauer() {
+        const b = bahn();
+        return istFertig(kennung) && b.length ? b[b.length - 1].t : Infinity;
+      },
+      ort: (ms) => ortBei(bahn(), ms, istFertig(kennung)),
+      // Die Punkte zur Zeit ms – hinter der letzten Probe, was er zuletzt
+      // gemeldet hat.
+      wert(ms) {
+        const b = bahn();
+        let p = 0;
+        for (let i = 0; i < b.length && b[i].t <= ms; i += 1) p = b[i].p;
+        const gemeldet = Number(z.daten.punkte?.[kennung]?.p) || 0;
+        return b.length && ms >= b[b.length - 1].t ? Math.max(p, gemeldet) : p;
+      },
+      fertig(ms) {
+        const b = bahn();
+        return istFertig(kennung) && b.length > 0 && ms > b[b.length - 1].t;
+      },
+    };
+    z.laeufe.set(kennung, lauf);
+    return lauf;
+  }
+
+  // Die Zeit, nach der die Geister im Bild stehen: beim Spielen jetzt, beim
+  // Zuschauen eine Drittelsekunde dahinter – dieselbe wie die der Figur.
+  const geistZeit = () => (z.zuschauen ? zeit() - VERZUG_MS : zeit());
+
+  /*
+   * Wer als Geist im Bild mitläuft (geist.js, gegner): alle anderen, von
+   * denen eine Lage da ist – wer vorne liegt in Gold. Beim Zuschauen ist der,
+   * dem man zuschaut, dabei (ziel): Das Spiel zeichnet ihn nicht als Geist –
+   * er ist ja die Figur –, aber sein Name steht an ihr.
+   */
+  function gegner() {
+    if (!runde) return [];
+    const farbe = window.LernappGeist?.FARBE || { erster: "#ffd23f", alle: "#d9c7ff" };
+    const liste = stand();
+    const vorne = liste.find((s) => !s.ich)?.kennung;
+    const raus = [];
+    liste.forEach((s) => {
+      if (s.ich || !hatBahn(s.kennung)) return;
+      const ziel = s.kennung === z.zuschauen;
+      if (runde.gegner === false && !ziel) return;
+      raus.push({
+        art: s.kennung === vorne ? "erster" : "alle",
+        name: s.name,
+        punkte: s.p,
+        lauf: liveLauf(s.kennung),
+        ich: false,
+        farbe: s.kennung === vorne ? farbe.erster : farbe.alle,
+        ziel,
+        kennung: s.kennung,
+      });
+    });
+    // Gezeichnet wird von hinten nach vorn: die vielen, dann wer vorne liegt.
+    return raus.sort((a, b) => Number(a.art === "erster") - Number(b.art === "erster"));
+  }
+
+  // --- Zuschauen ------------------------------------------------------------
+  function starteZuschauen(kennung, { gewaehlt = false } = {}) {
+    if (!z.zuschauHaken || !hatBahn(kennung)) return;
+    const lauf = liveLauf(kennung);
+    z.zuschauen = kennung;
+    z.gewaehlt = gewaehlt;
+    z.zielWegSeit = 0;
+    const quelle = {
+      live: true,
+      kennung,
+      lauf,
+      get name() { return name(kennung); },
+      los() {},
+      zeit: geistZeit,
+      // Wie geist.js, zuschauer: Ort, Tempo und Beschleunigung nach oben.
+      stand() {
+        const t = geistZeit();
+        const ort = lauf.ort(t);
+        const vor = lauf.ort(t - 60);
+        const nach = lauf.ort(t + 60);
+        const oben = lauf.ort(t - 250);
+        const unten = lauf.ort(t + 250);
+        return {
+          a: ort.a, b: ort.b, c: ort.c,
+          va: (nach.a - vor.a) / 0.12,
+          vb: (nach.b - vor.b) / 0.12,
+          ab: (unten.b - 2 * ort.b + oben.b) / 0.0625,
+          punkte: lauf.wert(t),
+          t,
+        };
+      },
+      weiter: () => true,
+    };
+    if (z.tafel) z.tafel.hidden = true;
+    z.host.dataset.live = "zuschauen";
+    try { z.zuschauHaken(quelle); } catch (fehler) { console.warn("Zuschauen ging nicht", fehler); }
+    zeichneLeiste();
+  }
+
+  function beendeZuschauen() {
+    z.zuschauen = null;
+    z.gewaehlt = false;
+    z.host.dataset.live = "fertig";
+    zeichneTafel();
+  }
+
+  // Nach dem eigenen Ende: wem zuschauen? Dem, der vorne liegt und noch
+  // spielt. Ist der fertig, eine gute Sekunde später dem nächsten. Spielt
+  // niemand mehr, kommt die Tafel.
+  function zuschauTakt() {
+    if (!z.zuschauHaken || !z.fertig || Date.now() < z.tafelAb || !z.gestartet) return;
+    const liste = stand();
+    const laeuft = (s) => !s.ich && !s.fertig && s.online && hatBahn(s.kennung);
+    const ziel = z.zuschauen ? liste.find((s) => s.kennung === z.zuschauen) : null;
+    if (ziel && laeuft(ziel)) { z.zielWegSeit = 0; return; }
+    if (ziel && !z.zielWegSeit) { z.zielWegSeit = Date.now(); return; }
+    if (ziel && Date.now() - z.zielWegSeit < 1200) return;
+    const naechster = liste.find(laeuft);
+    if (naechster) starteZuschauen(naechster.kennung);
+    else if (z.zuschauen) beendeZuschauen();
+  }
+
   // Nach dem eigenen Ende: wie es bei den anderen steht.
   function zeichneTafel() {
     if (!z.tafel || !z.fertig || Date.now() < z.tafelAb) return;
+    if (z.zuschauen) { z.tafel.hidden = true; return; }
+    // Wer zuschauen kann, wartet kurz, ob es jemanden gibt – erst dann die
+    // Tafel.
+    if (z.zuschauHaken && !z.tafelErlaubt) return;
     const liste = stand();
     const laufen = liste.filter((s) => !s.fertig && s.online).length;
     const karte = el("div", "lv-karte");
     karte.append(el("p", "lv-marke", runde.uebung ? "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()));
-    karte.append(el("p", "lv-gross", `${z.punkte}`));
-    karte.append(el("p", "lv-klein", z.gestoppt ? "Die Zeit ist um." : "Deine Punkte in dieser Runde."));
+    if (!z.nurZuschauen) {
+      karte.append(el("p", "lv-gross", `${z.punkte}`));
+      karte.append(el("p", "lv-klein", z.gestoppt ? "Die Zeit ist um." : "Deine Punkte in dieser Runde."));
+    }
     const ol = el("ol", "lv-liste");
     let platz = 0;
     liste.forEach((s, i) => {
@@ -279,6 +508,9 @@
       // Ende (der Heizer räumt erst auf); den bekommen sie.
       fertig({ punkte: z.punkte });
     }
+    zuschauTakt();
+    // Ohne jemanden, dem man zuschauen könnte, nach einer Weile die Tafel.
+    if (z.fertig && !z.zuschauen && Date.now() >= z.tafelAb + 600) z.tafelErlaubt = true;
     zeichneLeiste();
     zeichneTafel();
   }
@@ -293,6 +525,7 @@
     kids()?.playJingle?.("unlock");
     kids()?.vibrate?.([10, 30, 10]);
     window.setTimeout(() => { z.start.hidden = true; }, 650);
+    if (z.nurZuschauen) return;
     try { z.los?.(); } catch (fehler) { console.warn("Das Spiel liess sich nicht starten", fehler); }
   }
 
@@ -324,15 +557,25 @@
    *
    *   host   die Bühne
    *   vor    das Element, vor dem die Leiste stehen soll (die Spielfläche)
-   *   los    was die Runde jetzt startet
-   *   stopp  was sie jetzt beendet
+   *   los        was die Runde jetzt startet
+   *   stopp      was sie jetzt beendet
+   *   zuschauen  was ab jetzt eine fremde Figur zeigt (nur Spiele mit Figur)
    */
-  function buehne({ host, vor = null, los, stopp }) {
+  function buehne({ host, vor = null, los, stopp, zuschauen = null }) {
     if (!runde || !host || z.host) return;
     z.host = host;
     z.los = los;
     z.stopp = stopp;
+    z.zuschauHaken = typeof zuschauen === "function" ? zuschauen : null;
     host.dataset.live = "warten";
+    // Wer nicht mitspielt, schaut von Anfang an zu: kein eigener Lauf, keine
+    // Punkte, kein Eintrag.
+    if (runde.nurZuschauen) {
+      z.nurZuschauen = true;
+      z.fertig = true;
+      z.tafelAb = 0;
+      host.dataset.live = "fertig";
+    }
 
     z.leiste = el("div", "lv-leiste");
     z.leiste.setAttribute("aria-label", "Wer wie viele Punkte hat");
@@ -343,7 +586,7 @@
     z.start.dataset.stufe = "warten";
     const karte = el("div", "lv-start-karte");
     karte.append(
-      el("p", "lv-marke", runde.uebung ? "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()),
+      el("p", "lv-marke", z.nurZuschauen ? "Du schaust zu" : runde.uebung ? "Übungsrunde" : `Runde ${runde.rundeText || ""}`.trim()),
       el("p", "lv-titel", runde.titel || ""),
       el("p", "lv-klein", runde.uebung ? "Zählt nicht – zum Kennenlernen." : runde.endeUm ? dauerText(runde.endeUm - runde.startUm) : "Bis alle ausgeschieden sind."),
     );
@@ -362,8 +605,18 @@
     try {
       rahmen.hoere((daten) => {
         z.daten = { spieler: daten?.spieler || {}, punkte: daten?.punkte || {} };
+        merkeLage(daten?.lage);
       });
     } catch { /* ohne Nachrichten vom Rahmen steht nur die eigene Zahl da */ }
+
+    // Einen Namen oben antippen: diesem zuschauen. «Schliessen» beim reinen
+    // Zuschauen: zurück zum Live-Abend.
+    z.leiste.addEventListener("click", (ereignis) => {
+      const knopf = ereignis.target.closest?.("button");
+      if (!knopf) return;
+      if (knopf.dataset.zu !== undefined) { try { rahmen.schliessen?.(); } catch { /* egal */ } return; }
+      if (knopf.dataset.kennung) starteZuschauen(knopf.dataset.kennung, { gewaehlt: true });
+    });
 
     z.ticker = window.setInterval(takt, 100);
     takt();
@@ -411,5 +664,9 @@
     istFertig: () => z.fertig,
     runde: () => runde,
     stand,
+    gegner,
+    geistZeit,
+    // Wem gerade zugeschaut wird – null, wenn niemandem.
+    zuschauen: () => z.zuschauen,
   };
 })();
