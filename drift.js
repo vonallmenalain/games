@@ -24,8 +24,9 @@
  * Gerade ist lang genug, um vor der nächsten Kurve wieder Luft zu holen.
  * Keine Kehre kommt einem anderen Stück Strasse zu nahe.
  *
- * Die Gegner (geist.js) stehen als Zielstreifen auf der Strasse, genau bei
- * den Metern von Platz 1 und der eigenen Bestmarke.
+ * Die Gegner (geist.js) fahren als Wagen aus Licht mit – genau so, wie sie
+ * in ihrer besten Runde gefahren sind, auf ihrer eigenen Strasse. Platz 1
+ * und die eigene Bestmarke stehen dazu als Zielstreifen bei ihren Metern.
  *
  * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben,
  * Winkel wie in der Mathematik (0 nach rechts, ein Viertel nach oben).
@@ -849,7 +850,7 @@
   // Die Gegner: ein Streifen quer über die Strasse bei ihren Metern, mit
   // Namen daneben. Wer darüber ist, hat sie geschlagen.
   function zeichneGegner() {
-    const ziele = gegner?.gegner?.() || [];
+    const ziele = (gegner?.gegner?.() || []).filter((ziel) => ziel.art !== "alle");
     if (!ziele.length) return;
     const s = sicht(60);
     ziele.forEach((ziel) => {
@@ -1158,6 +1159,35 @@
 
   // Der Wagen, von oben: ein roter Sportwagen mit weissen Streifen. Lokal
   // zeigt seine Nase nach +y.
+  // Die Gegner als Geist: ein Wagen aus Licht auf seinem eigenen Weg.
+  function zeichneGeister() {
+    if (!gegner || state.phase === "bereit") return;
+    const orte = window.LernappGeist?.orte?.(gegner) || [];
+    if (!orte.length) return;
+    weltTransform();
+    orte.forEach((o) => {
+      g.save();
+      g.globalAlpha = 0.45 * o.blass;
+      g.translate(o.a, o.b);
+      g.rotate((o.c || 0) / 100);
+      g.fillStyle = o.farbe;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(-6.5, -12, 13, 24, 4);
+      else g.rect(-6.5, -12, 13, 24);
+      g.fill();
+      g.globalAlpha = 0.3 * o.blass;
+      g.fillStyle = "#1d2230";
+      g.fillRect(-4.2, 0, 8.4, 5);
+      g.restore();
+    });
+    bildTransform();
+    const ms = gegner.zeit();
+    window.LernappGeist.namen(g, orte.map((o) => {
+      const d = Math.round(o.lauf.wert(ms) - state.punkte);
+      return { ...o, sx: bildX(o.a), sy: bildY(o.b) - 18 * view.s, weit: `${d > 0 ? "+" : ""}${d} m` };
+    }), { breit: view.cssW, hoch: view.cssH });
+  }
+
   function zeichneAuto() {
     const auto = state.auto;
     weltTransform();
@@ -1355,6 +1385,7 @@
     zeichneDrehpunkt();
     zeichneDeko(deko);
     zeichneTeile();
+    zeichneGeister();
     zeichneAuto();
     zeichneStriche();
     zeichneVignette();
@@ -1611,7 +1642,9 @@
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
 
-    if (state.phase === "spiel") gegner?.takt(state.punkte);
+    if (state.phase === "spiel") {
+      gegner?.takt(state.punkte, { a: Math.round(state.auto.x), b: Math.round(state.auto.y), c: Math.round((state.koerper - HAUPT) * 100) });
+    }
   }
 
   function loop(now) {
@@ -1717,7 +1750,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -1732,6 +1765,7 @@
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${perfekt} · Spitze ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
       speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("dt-rekord");
     zaehleHoch(punkte);
@@ -1750,7 +1784,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "driftRace", host, art: "ziel" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "driftRace", host, art: "tempo", alle: true }) || null;
 
   startRun();
 

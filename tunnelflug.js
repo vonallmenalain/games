@@ -15,9 +15,10 @@
  * steigen oder sinken kann. Und das Tempo hängt an der Strecke, nicht an der
  * Uhr: Wer gleich weit kommt, war gleich schnell.
  *
- * Die Gegner (geist.js) stehen als Tor im Tunnel – genau bei den Metern, die
- * Platz 1 und die eigene Bestmarke geschafft haben. Wer hindurchfliegt, hat
- * sie geschlagen.
+ * Die Gegner (geist.js) fliegen als Flugzeug aus Licht mit – genau so, wie
+ * sie in ihrer besten Runde geflogen sind, durch ihren eigenen Tunnel. Platz
+ * 1 und die eigene Bestmarke stehen dazu als Tor bei ihren Metern; wer
+ * hindurchfliegt, hat sie geschlagen.
  *
  * Gezeichnet wird auf eine Leinwand, gerechnet in Welteinheiten – zehn sind
  * ein Meter, y zählt nach oben. Der Tunnel liegt immer im Band zwischen 0
@@ -158,7 +159,7 @@
   let last = 0;
   let stepTimer = null;
   let gedrueckt = false;
-  // Die Gegner (geist.js): wer als Tor im Tunnel steht.
+  // Die Gegner (geist.js): wer als Geist mitfliegt und als Tor im Tunnel steht.
   let gegner = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H };
@@ -547,7 +548,7 @@
   // Die Gegner: ein Tor quer durch den Tunnel, bei ihren Metern, mit Namen.
   // Wer hindurch ist, hat sie geschlagen – dann wird das Tor blass.
   function zeichneTore() {
-    const ziele = gegner?.gegner?.() || [];
+    const ziele = (gegner?.gegner?.() || []).filter((ziel) => ziel.art !== "alle");
     if (!ziele.length) return;
     bildTransform();
     const gross = Math.round(clamp(view.cssH * 0.034, 10, 14));
@@ -689,6 +690,42 @@
     g.restore();
   }
 
+  // Die Gegner als Geist (geist.js): ein Flugzeug aus Licht auf ihrem Weg –
+  // durch ihren eigenen Tunnel, nicht durch diesen.
+  function zeichneGeister() {
+    if (!gegner || state.phase === "bereit") return;
+    const orte = window.LernappGeist?.orte?.(gegner) || [];
+    if (!orte.length) return;
+    bildTransform();
+    const s = view.s;
+    orte.forEach((o) => {
+      g.save();
+      g.globalAlpha = 0.6 * o.blass;
+      g.translate(bildX(START.x + o.a), bildY(START.y + o.b));
+      g.rotate(-(o.c || 0) / 100);
+      g.scale(s, s);
+      g.fillStyle = o.farbe;
+      g.beginPath();
+      g.moveTo(-12, -1);
+      g.quadraticCurveTo(-8, -4.5, 3, -4.8);
+      g.quadraticCurveTo(11, -4.4, 13.5, 0);
+      g.quadraticCurveTo(11, 4.2, 3, 4.6);
+      g.quadraticCurveTo(-6, 4.2, -12, 1);
+      g.closePath();
+      g.moveTo(-12, -1);
+      g.lineTo(-9.5, -8.5);
+      g.lineTo(-6, -8.5);
+      g.lineTo(-4, -2);
+      g.closePath();
+      g.fill();
+      g.restore();
+    });
+    window.LernappGeist.namen(g, orte.map((o) => {
+      const dx = START.x + o.a - state.f.x;
+      return { ...o, sx: bildX(START.x + o.a), sy: bildY(START.y + o.b) - 10 * s, weit: `${dx > 0 ? "+" : ""}${Math.round(dx / METER)} m` };
+    }), { breit: view.cssW, hoch: view.cssH });
+  }
+
   function zeichneTeile() {
     if (!state.teile.length) return;
     weltTransform();
@@ -752,6 +789,7 @@
     zeichneMarken();
     zeichneTore();
     zeichneSpur();
+    zeichneGeister();
     zeichneTeile();
     zeichneFlieger();
     zeichneSchriften();
@@ -882,7 +920,9 @@
     if (state.schritt !== "crash") state.camX = camXZiel();
     tunnelBis(state.camX + view.w + SEG * 3);
 
-    if (state.phase === "spiel") gegner?.takt(state.punkte);
+    if (state.phase === "spiel") {
+      gegner?.takt(state.punkte, { a: Math.round(state.f.x - START.x), b: Math.round(state.f.y - START.y), c: Math.round(state.neig * 100) });
+    }
   }
 
   function loop(now) {
@@ -974,7 +1014,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -989,6 +1029,7 @@
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `Spitze ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
       speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("tf-rekord");
     zaehleHoch(punkte);
@@ -1007,7 +1048,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "tunnelFlight", host, art: "ziel" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "tunnelFlight", host, art: "tempo", alle: true }) || null;
 
   startRun();
 

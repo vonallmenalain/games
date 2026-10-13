@@ -990,8 +990,13 @@
     g.textBaseline = "middle";
     const gross = Math.round(clamp(10 * view.s, 11, 16));
     g.font = `800 ${gross}px system-ui, sans-serif`;
-    geister.forEach((geist, i) => {
+    // Platz 1 und die Bestmarke gestaffelt, damit sie sich nicht decken; die
+    // vielen unter «Alle» nur über sich selbst und nie am Rand.
+    let nr = 0;
+    geister.forEach((geist) => {
       if (geist.blass <= 0) return;
+      const alle = geist.art === "alle";
+      const i = alle ? 0 : nr++;
       g.globalAlpha = 0.9 * geist.blass;
       const sx = bildX(geist.x);
       if (sx > -10 && sx < view.cssW + 10) {
@@ -1004,6 +1009,7 @@
         g.fillText(geist.name, sx, sy);
         return;
       }
+      if (alle) return;
       const rechts = sx >= view.cssW;
       const text = rechts ? `${geist.name} +${Math.max(1, geist.meter)} m ▸` : `◂ ${geist.name} ${Math.min(-1, geist.meter)} m`;
       const w = g.measureText(text).width + gross;
@@ -1469,7 +1475,7 @@
   });
   // Eigene Fassung der Aufzeichnung: Seit die Strecke fest ist, passen
   // Läufe von vorher (gewürfelte Äste, Bananen als Punkte) nicht mehr dazu.
-  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo", fassung: "s1" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "vineSwing", host, art: "tempo", fassung: "s1", alle: true }) || null;
 
   startRun();
 

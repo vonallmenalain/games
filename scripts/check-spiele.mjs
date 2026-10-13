@@ -1872,11 +1872,27 @@ try {
   // Ein sparsamer Pilot gibt Schub, bis die Bahn ohne weiteren Schub übers
   // Gelände auf die nächste Plattform führt, gleitet und bremst im
   // Leitstrahl so spät wie möglich. Er kommt mit dem Treibstoff, den die
-  // Landungen geben, über acht Plattformen. Jede bringt 200 Punkte, jeder
-  // Schub kostet welche – sofort, schon vor der ersten Landung. Wer einfach
-  // fällt, zerschellt.
+  // Plattformen geben (grün alles, gelb die Hälfte, rot nichts), im Schnitt
+  // über acht Plattformen – wie weit genau, hängt auch vom Glück ab. Jede
+  // bringt 200 Punkte, jeder Schub kostet welche – sofort, schon vor der
+  // ersten Landung. Wer einfach fällt, zerschellt; wer mit leerem Tank
+  // landet, strandet.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 640 });
+    // Der Mond wird gewürfelt, und welche Plattform wie viel gibt, auch. Damit
+    // die Prüfung jedes Mal dieselben Monde fliegt, würfelt sie mit festem
+    // Anfang – vor jedem Flug neu gesetzt (__wuerfle), denn bis dahin hat die
+    // laufende Seite schon ungezählt oft gewürfelt.
+    await seite.addInitScript(() => {
+      let z = 2;
+      window.__wuerfle = (n) => { z = n; };
+      Math.random = () => {
+        z = (z + 0x6d2b79f5) | 0;
+        let t = Math.imul(z ^ (z >>> 15), 1 | z);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    });
     await seite.goto(`${BASIS}/mondlandung`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappMondlandung?.state, null, { timeout: 8000 });
     const fluege = await seite.evaluate(() => {
@@ -1917,22 +1933,40 @@ try {
         M.schub(true);
       };
       const raus = [];
+      const getankt = [];
       let schonVorher = null;
-      for (let lauf = 0; lauf < 2; lauf += 1) {
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        window.__wuerfle(lauf + 1);
         document.querySelector(".cm-bar-left .cm-icon-again").click();
-        for (let n = 0; st.schritt !== "crash" && st.landungen < 30 && n < 120 * 400; n += 1) {
+        let auf = st.auf;
+        for (let n = 0; st.schritt !== "crash" && !st.gestrandet && st.landungen < 30 && n < 120 * 400; n += 1) {
+          const vorher = st.tank;
           pilot();
           M.takt(1 / 120);
           // Schon vor der ersten Landung kostet der Schub Punkte.
           if (schonVorher === null && st.schritt === "flug" && st.landungen === 0 && st.zeit - st.schrittZeit > 0.5) schonVorher = st.punkte;
+          if (st.auf !== auf) {
+            auf = st.auf;
+            getankt.push({ art: st.platten[auf].tank, vorher: Math.round(vorher * 10) / 10, nachher: Math.round(st.tank * 10) / 10 });
+          }
         }
         M.schub(false);
         M.neige(null);
         raus.push({ landungen: st.landungen, punkte: Math.round(st.punkte), schritt: st.schritt, tank: Math.round(st.tank) });
       }
-      return { raus, schonVorher };
+      // Die Plattformen eines langen Monds: welche Arten, in welcher Folge.
+      const arten = st.platten.slice(1, 60).map((p) => p.tank);
+      return { raus, schonVorher, getankt, arten };
     });
-    pruefe(fluege.raus.every((f) => f.landungen >= 8), `Mondlandung: Der sparsame Pilot kommt nicht über acht Plattformen – ${JSON.stringify(fluege.raus)}`);
+    const schnitt = fluege.raus.reduce((summe, f) => summe + f.landungen, 0) / fluege.raus.length;
+    console.log(`  Mondlandung: der sparsame Pilot landet ${fluege.raus.map((f) => f.landungen).join(", ")} Mal`);
+    pruefe(schnitt >= 8 && fluege.raus.every((f) => f.landungen >= 4),
+      `Mondlandung: Der sparsame Pilot kommt im Schnitt nicht über acht Plattformen (${schnitt}) – ${JSON.stringify(fluege.raus)}`);
+    pruefe(fluege.getankt.length > 0 && fluege.getankt.every((t) => [100, 50, 0].includes(t.art) && Math.abs(t.nachher - Math.min(100, t.vorher + t.art)) < 0.6),
+      `Mondlandung: Getankt wird nicht, was die Plattform sagt – ${JSON.stringify(fluege.getankt.slice(0, 12))}`);
+    pruefe(fluege.arten.slice(0, 3).every((a) => a !== 0) && fluege.arten.every((a, i) => !(a === 0 && fluege.arten[i - 1] === 0))
+      && [100, 50, 0].every((a) => fluege.arten.includes(a)),
+      `Mondlandung: Die Plattformen geben nicht alles, die Hälfte und nichts, oder zwei rote stehen hintereinander: ${fluege.arten.join(",")}`);
     pruefe(fluege.raus.every((f) => f.punkte > f.landungen * 50 && f.punkte < f.landungen * 200),
       `Mondlandung: Die Punkte passen nicht zu 200 je Plattform weniger dem Treibstoff – ${JSON.stringify(fluege.raus)}`);
     pruefe(fluege.schonVorher !== null && fluege.schonVorher < 0, `Mondlandung: Der Schub kostet vor der ersten Landung keine Punkte (${fluege.schonVorher}).`);
@@ -1958,22 +1992,20 @@ try {
         M.schub(f.y - 13 - vorne < 50 || f.vy < (fern ? 0 : -40) || (fern && Math.abs(f.vx) < 30));
       };
       const raus = [];
-      let voll = false;
       for (let lauf = 0; lauf < 3; lauf += 1) {
+        window.__wuerfle(lauf + 21);
         document.querySelector(".cm-bar-left .cm-icon-again").click();
-        for (let n = 0; st.schritt !== "crash" && n < 120 * 300; n += 1) {
+        for (let n = 0; st.schritt !== "crash" && !st.gestrandet && n < 120 * 300; n += 1) {
           pilot();
           M.takt(1 / 120);
-          if (st.landungen > 0 && st.schritt === "gelandet" && st.tank > M.TANK * 0.9 + 0.01) voll = true;
         }
         M.schub(false);
         M.neige(null);
         raus.push({ landungen: st.landungen, punkte: st.punkte, tank: Math.round(st.tank) });
       }
-      return { raus, voll };
+      return { raus };
     });
     pruefe(grob.raus.every((r) => r.landungen >= 2), `Mondlandung: Wer grob fliegt, kommt keine zwei Plattformen weit – ${JSON.stringify(grob.raus)}`);
-    pruefe(!grob.voll, "Mondlandung: Auf einer Plattform wird der Tank ganz voll.");
     const sparsamSchnitt = fluege.raus.reduce((summe, f) => summe + f.punkte, 0) / fluege.raus.length;
     const grobSchnitt = grob.raus.reduce((summe, r) => summe + r.punkte, 0) / grob.raus.length;
     pruefe(sparsamSchnitt > grobSchnitt, `Mondlandung: Wer sparsam fliegt, hat nicht mehr Punkte (${sparsamSchnitt} gegen ${grobSchnitt}).`);
@@ -1990,6 +2022,30 @@ try {
     pruefe(fall.schritt === "crash", `Mondlandung: Wer ungebremst fällt, zerschellt nicht: ${JSON.stringify(fall)}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
     pruefe(await seite.locator(".cm-result-score").count() === 1, "Mondlandung: Nach dem Absturz kommt kein Ergebnis.");
+    // Mit leerem Tank auf einer roten Plattform: gestrandet, die Runde ist aus.
+    const leer = await seite.evaluate(() => {
+      const M = window.LernappMondlandung;
+      const st = M.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      st.platten[1].tank = 0;
+      // Die Fähre steht auf der ersten Plattform, der Tank ist leer.
+      const p = st.platten[1];
+      M.schub(true);
+      M.takt(1 / 120);
+      M.schub(false);
+      st.f.x = (p.x0 + p.x1) / 2;
+      st.f.y = p.y + 14;
+      st.f.vx = 0;
+      st.f.vy = -5;
+      st.f.neig = 0;
+      st.schritt = "flug";
+      st.tank = 0;
+      for (let n = 0; n < 120 * 2 && !st.gestrandet; n += 1) M.takt(1 / 120);
+      return { gestrandet: st.gestrandet, schritt: st.schritt, auf: st.auf, tank: st.tank };
+    });
+    pruefe(leer.gestrandet && leer.auf === 1 && leer.tank === 0, `Mondlandung: Wer mit leerem Tank auf einer roten Plattform landet, strandet nicht: ${JSON.stringify(leer)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Mondlandung: Gestrandet – und kein Ergebnis.");
     await kontext.close();
   }
 
@@ -2665,8 +2721,9 @@ try {
 
   // --- 4k. Gegner beim Spielen (geist.js) -----------------------------------------
   // Platz 1 und die eigene Bestmarke: zwei Schalter über der Spielfläche, die
-  // sagen, gegen wen es geht, und sich abschalten lassen. Mit Aufzeichnung
-  // läuft der Gegner mit; die eigene Runde wird zur nächsten Bestmarke.
+  // sagen, gegen wen es geht, und sich abschalten lassen; in den Spielen mit
+  // Geist im Bild ein dritter, «Alle». Mit Aufzeichnung läuft der Gegner mit;
+  // die eigene Runde wird zur nächsten Bestmarke.
   const gegnerSchalter = (seite) => seite.evaluate(() => [...document.querySelectorAll(".gs-chip")].map((c) => ({
     text: c.textContent.replace(/\s+/g, " ").trim(),
     an: c.classList.contains("is-an"),
@@ -2691,7 +2748,17 @@ try {
     await seite.waitForSelector(".gs-chip", { timeout: 8000 });
     await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand, null, { timeout: 4000 }).catch(() => {});
     let schalter = await gegnerSchalter(seite);
-    pruefe(schalter.length === 2 && schalter.every((c) => c.sichtbar), `Im Lianenschwung stehen keine zwei Gegner-Schalter: ${JSON.stringify(schalter)}`);
+    pruefe(schalter.length === 3 && schalter.every((c) => c.sichtbar), `Im Lianenschwung stehen nicht die drei Gegner-Schalter: ${JSON.stringify(schalter)}`);
+    pruefe(/Alle/.test(schalter[2]?.text) && /1/.test(schalter[2]?.text) && schalter[2]?.an, `«Alle» steht nicht mit einem Lauf da und an: ${schalter[2]?.text}`);
+    // Mia ist Platz 1 und steht unter «Alle» – im Bild aber nur einmal; ist
+    // Platz 1 abgeschaltet, läuft sie unter «Alle» mit.
+    const imBild = await seite.evaluate(() => window.LernappGeist.stand()[0]);
+    pruefe(imBild?.stand?.alle?.length === 1 && imBild.stand.alle[0].name === "Mia" && imBild.zeigt.join() === "erster:Mia",
+      `Unter «Alle» steht nicht Mia, oder sie läuft doppelt mit: ${JSON.stringify({ alle: imBild?.stand?.alle, zeigt: imBild?.zeigt })}`);
+    await seite.click(".gs-erster");
+    const ohneErsten = await seite.evaluate(() => window.LernappGeist.stand()[0].zeigt);
+    pruefe(ohneErsten.join() === "alle:Mia", `Ohne Platz 1 läuft Mia nicht unter «Alle» mit: ${JSON.stringify(ohneErsten)}`);
+    await seite.click(".gs-erster");
     pruefe(/Platz 1/.test(schalter[0]?.text) && /Mia/.test(schalter[0]?.text) && /30/.test(schalter[0]?.text) && schalter[0]?.an,
       `Platz 1 steht nicht als Gegner da: ${schalter[0]?.text}`);
     pruefe(schalter[1]?.leer && /noch keine/.test(schalter[1]?.text), `Ohne eigene Runde steht trotzdem eine Bestmarke da: ${schalter[1]?.text}`);
@@ -2738,6 +2805,41 @@ try {
     const danach = await seite.evaluate(() => window.LernappGeist.stand()[0].stand);
     pruefe(danach?.eigen?.punkte === runde.punkte && danach.eigen.lauf === true,
       `Die eigene Runde steht danach nicht als Bestmarke da: ${JSON.stringify(danach)}`);
+    await kontext.close();
+  }
+  {
+    // Die Spiele ohne Uhr mit Geist im Bild (hier der Schwerkraft-Läufer):
+    // Alle aus der Hall of Fame laufen mit, ob ihre Welt dieselbe war oder
+    // nicht – und die eigene Runde wird mit dem Weg aufgezeichnet.
+    const LEO = JSON.stringify({ v: 1, dt: 250, p: Array.from({ length: 41 }, (_, i) => i * 3),
+      a: Array.from({ length: 41 }, (_, i) => i * 70), b: Array.from({ length: 41 }, () => 0), c: Array.from({ length: 41 }, () => 0) });
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.addInitScript((bahn) => {
+      if (sessionStorage.getItem("__geister")) return;
+      sessionStorage.setItem("__geister", "1");
+      const eintrag = (id, name, punkte) => [`gravityRun_${id}`, { id: `gravityRun_${id}`, game: "gravityRun", spieler: id, name, punkte, versuche: 1, updatedAtMs: 1000 }];
+      localStorage.setItem("__mini_attrappe", JSON.stringify([eintrag("mini_leoleoleoleo", "Leo", 120), eintrag("mini_noranoranora", "Nora", 80), eintrag("mini_timtimtimtim", "Tim", 60)]));
+      const geist = (id, name, punkte) => [`gravityRun_${id}`, { game: "gravityRun", spieler: id, name, punkte, level: "t1", bahn }];
+      localStorage.setItem("__mini_geister_attrappe", JSON.stringify([geist("mini_leoleoleoleo", "Leo", 120), geist("mini_noranoranora", "Nora", 80)]));
+    }, LEO);
+    await seite.goto(`${BASIS}/schwerkraft`, { waitUntil: "load" });
+    await seite.waitForSelector(".gs-chip", { timeout: 8000 });
+    await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand, null, { timeout: 4000 }).catch(() => {});
+    const schalter = await gegnerSchalter(seite);
+    const stand = await seite.evaluate(() => window.LernappGeist.stand()[0]);
+    pruefe(schalter.length === 3 && stand?.art === "tempo" && stand.stand?.erster?.lauf === true
+      && stand.stand.alle.map((g) => g.name).join() === "Leo,Nora" && stand.zeigt.join() === "alle:Nora,erster:Leo",
+      `Im Schwerkraft-Läufer laufen nicht Platz 1 und alle mit Lauf mit: ${JSON.stringify({ schalter, stand })}`);
+    // Eine Runde – sie läuft von selbst in den ersten Abgrund – wird mit dem
+    // Weg aufgezeichnet.
+    await seite.evaluate(() => window.LernappSchwerkraft.tippen());
+    await seite.waitForSelector(".cm-result-score", { timeout: 20000 }).catch(() => {});
+    const lauf = await seite.evaluate(() => {
+      const eigen = window.LernappGeist.eigenerLauf("gravityRun", "t1");
+      const d = eigen ? window.LernappGeist.entpacke(eigen.bahn) : null;
+      return { punkte: eigen?.punkte || 0, proben: d?.p?.length || 0, mitOrt: Array.isArray(d?.a) && d.a.some((x) => x > 0) };
+    });
+    pruefe(lauf.punkte > 0 && lauf.proben > 2 && lauf.mitOrt, `Der Schwerkraft-Läufer zeichnet seinen Weg nicht auf: ${JSON.stringify(lauf)}`);
     await kontext.close();
   }
   {

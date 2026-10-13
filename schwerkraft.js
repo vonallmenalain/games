@@ -25,7 +25,9 @@
  * ist, folgt aus dem Tempo an dieser Stelle – das Fenster, in dem ein
  * Wechsel gelingt, wird nach hinten schmaler, nie zu.
  *
- * Die Gegner (geist.js) stehen als Linie quer durch den Korridor.
+ * Die Gegner (geist.js) laufen als Läufer aus Licht mit – genau so, wie sie
+ * in ihrer besten Runde gelaufen sind, durch ihren eigenen Korridor. Platz 1
+ * und die eigene Bestmarke stehen dazu als Linie quer durch den Korridor.
  *
  * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben,
  * der Boden liegt bei 0, die Decke bei HOCH.
@@ -739,7 +741,7 @@
       g.fillStyle = "rgba(0, 240, 255, 0.7)";
       g.fillText(`${m} m`, sx, bildY(0) + LEISTE * view.s + 4);
     }
-    const ziele = gegner?.gegner?.() || [];
+    const ziele = (gegner?.gegner?.() || []).filter((ziel) => ziel.art !== "alle");
     ziele.forEach((ziel) => {
       const x = ziel.punkte * METER;
       if (x < state.camX - 20 || x > state.camX + view.w + 20) return;
@@ -764,6 +766,32 @@
       g.textBaseline = "top";
     });
     g.globalAlpha = 1;
+  }
+
+  // Die Gegner als Geist: ein Läufer aus Licht auf seinem eigenen Weg.
+  function zeichneGeister() {
+    if (!gegner || state.phase === "bereit") return;
+    const orte = window.LernappGeist?.orte?.(gegner) || [];
+    if (!orte.length) return;
+    weltTransform();
+    orte.forEach((o) => {
+      g.save();
+      g.globalAlpha = 0.6 * o.blass;
+      g.translate(o.a, o.b + GROSS / 2);
+      g.rotate((o.c || 0) / 100);
+      g.fillStyle = o.farbe;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(-BREIT / 2, -GROSS / 2 + 4, BREIT, GROSS - 4, 4);
+      else g.rect(-BREIT / 2, -GROSS / 2 + 4, BREIT, GROSS - 4);
+      g.fill();
+      g.restore();
+    });
+    bildTransform();
+    window.LernappGeist.namen(g, orte.map((o) => {
+      const dx = o.a - state.l.x;
+      const oben = (o.c || 0) > 157;
+      return { ...o, sx: bildX(o.a), sy: bildY(oben ? o.b - 6 : o.b + GROSS + 6), weit: `${dx > 0 ? "+" : ""}${Math.round(dx / METER)} m` };
+    }), { breit: view.cssW, hoch: view.cssH });
   }
 
   // Der Läufer: ein Würfel-Roboter mit leuchtendem Visier. Gezeichnet in der
@@ -877,6 +905,7 @@
     zeichneKorridor();
     zeichneMarken();
     state.schatten.forEach((s) => zeichneLaeufer(s, s.drehung, s.alpha, true));
+    zeichneGeister();
     zeichneTeile();
     if (!(state.schritt === "aus" && state.grund !== "loch" && state.zeit - state.endeZeit > 0.1)) {
       zeichneLaeufer(state.l, state.drehung);
@@ -1091,7 +1120,9 @@
 
     if (state.schritt !== "aus") state.camX = state.l.x - view.w * view.an;
     korridorBis(state.camX + view.w + 400);
-    if (state.phase === "spiel") gegner?.takt(state.punkte);
+    if (state.phase === "spiel") {
+      gegner?.takt(state.punkte, { a: Math.round(state.l.x), b: Math.round(state.l.y), c: Math.round(state.drehung * 100) });
+    }
   }
 
   function loop(now) {
@@ -1191,7 +1222,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -1205,6 +1236,7 @@
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${state.wechsel} Wechsel · ${kmh} km/h${vorher ? ` · Bestwert ${vorher} m` : ""}`,
       speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("sl-rekord");
     zaehleHoch(punkte);
@@ -1223,7 +1255,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "gravityRun", host, art: "ziel" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "gravityRun", host, art: "tempo", alle: true }) || null;
 
   startRun();
 

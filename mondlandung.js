@@ -16,9 +16,12 @@
  * Es geht um den Treibstoff. Jede Plattform bringt Punkte, aber jeder
  * Tropfen Treibstoff kostet welche – vom ersten Schub an, und man sieht die
  * Zahl dabei sinken. Der Balken oben zeigt den Tank; er leert sich schnell.
- * Auf der Plattform wird nachgetankt, aber nie ganz und von Plattform zu
- * Plattform weniger. Fünf, sechs Plattformen schafft jeder; wer weiter will,
- * muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.
+ * Getankt wird auf den Plattformen, und jede sagt in ihrer Farbe, wie viel:
+ * grün füllt den Tank (+100 %), gelb gibt die Hälfte dazu (+50 %), rot gibt
+ * nichts (+0 %). Später kommen die roten öfter. Wer weiter will, muss
+ * sparsam fliegen – kurz Schub, lange gleiten, spät bremsen – oder über eine
+ * rote hinweg gleich zur nächsten. Wer mit leerem Tank landet, bleibt
+ * stehen; dann ist die Runde aus.
  *
  * Die Plattformen werden schmaler, liegen weiter auseinander und hinter
  * höheren Bergen. Gezählt werden die Punkte.
@@ -28,7 +31,8 @@
  * schaffbar: Jede Plattform ist breiter als die Fähre, kein Berg höher, als
  * der Tank auf dem Weg dorthin hergibt.
  *
- * Die Gegner (geist.js) stehen als Zahl oben über der Bühne.
+ * Die Gegner (geist.js) fliegen als Fähre aus Licht mit – genau so, wie sie
+ * in ihrer besten Runde geflogen sind, über ihren eigenen Mond.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben. Die Neigung zählt im
  * Uhrzeigersinn: positiv heisst nach rechts gekippt.
@@ -90,7 +94,7 @@
     "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
     "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
     "Jede Plattform bringt 200 Punkte – aber jeder Schub kostet Punkte, solange das Triebwerk brennt.",
-    "Auf der Plattform wird nachgetankt, aber nie ganz – und immer weniger. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
+    "Auf den Plattformen wird getankt: grüne füllen den Tank, gelbe geben die Hälfte dazu, rote nichts. Wer weit kommen will, muss sparsam fliegen: kurz Schub, lange gleiten, spät bremsen.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -110,13 +114,12 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const schwereBei = (n) => 1 - Math.exp(-n / 12);
 
-  // Wie viel auf einer Plattform nachgetankt wird: am Anfang reichlich für
-  // den nächsten Flug, nach fünf, sechs Plattformen weniger, als ein
-  // ordentlicher Flug braucht. Wer dann weiter will, lebt von dem, was er
-  // vorher gespart hat – und fliegt sparsam.
-  const tankFaktor = (n) => lerp(1.1, 0.45, 1 - Math.exp(-n / 5));
-  // Und voll wird er dabei nie: höchstens so weit.
-  const TANK_NACH = TANK * 0.9;
+  // Was eine Plattform in den Tank gibt, und in welcher Farbe sie das sagt.
+  const TANKEN = {
+    100: { farbe: "#4cff8a", dunkel: "#1f8a4c" },
+    50: { farbe: "#ffd166", dunkel: "#b8860b" },
+    0: { farbe: "#ff6b6b", dunkel: "#a33434" },
+  };
 
   function hash01(n) {
     const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -133,6 +136,7 @@
     schritt: "start",
     punkte: 0,
     sparsam: 0,           // Flüge, die höchstens 40 Prozent des Tanks gekostet haben
+    gestrandet: false,    // mit leerem Tank gelandet – die Runde ist aus
     kostenFlug: 0,        // was der Treibstoff auf diesem Flug an Punkten gekostet hat
     kostenGesamt: 0,      // … und in der ganzen Runde
     angezeigt: 0,         // die Zahl oben in der Leiste
@@ -209,7 +213,7 @@
       // Vor der ersten Plattform ein Stück Gelände, damit links nicht das
       // Nichts beginnt.
       for (let x = -600; x < -60; x += SEG) punkt(x, 40 + Math.sin(x * 0.02) * 18 + hash01(x) * 8);
-      platten.push({ n: 0, x0: -60, x1: 60, y: 60 });
+      platten.push({ n: 0, x0: -60, x1: 60, y: 60, tank: null });
       punkt(-60, 60);
       punkt(60, 60);
       return;
@@ -252,7 +256,14 @@
     // So viel (und etwas mehr) gibt es bei der Landung davor.
     const steigen = Math.max(0, hoechster + 40 - vor.y);
     const bedarf = VERBRAUCH * ((weg / 85) * 0.45 + (steigen / 35) * 0.6 + 1.3);
-    platten.push({ n, x0, x1, y, bedarf });
+    // Was sie in den Tank gibt: alles, die Hälfte oder nichts. Am Anfang
+    // öfter alles, später öfter nichts – aber die ersten drei geben immer
+    // etwas, und nie stehen zwei rote hintereinander.
+    const wurf = zufall.zahl();
+    const pVoll = lerp(0.38, 0.14, k);
+    const pLeer = n <= 3 || vor.tank === 0 ? 0 : lerp(0.22, 0.5, k);
+    const tank = wurf < pVoll ? 100 : wurf < pVoll + pLeer ? 0 : 50;
+    platten.push({ n, x0, x1, y, bedarf, tank });
     punkt(x0, y);
     punkt(x1, y);
   }
@@ -388,9 +399,13 @@
     verlauf.addColorStop(1, "#0b0f22");
     g.fillStyle = verlauf;
     g.fillRect(0, -10, W, H + 20);
+    // Der Hintergrund zieht am Massstab ohne Zoom mit. Am gezoomten sprang
+    // er bei jedem Zoom – je weiter weg vom Start, desto weiter.
+    const camSX = state.camX * view.grund;
+    const camSY = state.camY * view.grund;
     STERNE.forEach((s) => {
-      const x = ((s.x * (W + 20) - state.camX * view.s * 0.03) % (W + 20) + W + 20) % (W + 20) - 10;
-      const y = ((s.y * (H + 20) + state.camY * view.s * 0.03) % (H + 20) + H + 20) % (H + 20) - 10;
+      const x = ((s.x * (W + 20) - camSX * 0.03) % (W + 20) + W + 20) % (W + 20) - 10;
+      const y = ((s.y * (H + 20) + camSY * 0.03) % (H + 20) + H + 20) % (H + 20) - 10;
       g.globalAlpha = 0.45 + 0.4 * (ruhig() ? 1 : 0.5 + 0.5 * Math.sin(state.zeit * 2 + s.funkel));
       g.fillStyle = "#ffffff";
       g.beginPath();
@@ -401,8 +416,8 @@
 
     // Die Erde: Ozean, Kontinente, Wolken, ein Schatten und ein blauer Hof.
     const r = Math.min(W, H) * 0.12;
-    const ex = W * 0.78 - state.camX * view.s * 0.015;
-    const ey = H * 0.22 + state.camY * view.s * 0.01;
+    const ex = W * 0.78 - camSX * 0.015;
+    const ey = H * 0.22 + camSY * 0.01;
     const hof = g.createRadialGradient(ex, ey, r * 0.9, ex, ey, r * 1.6);
     hof.addColorStop(0, "rgba(120, 190, 255, 0.35)");
     hof.addColorStop(1, "rgba(120, 190, 255, 0)");
@@ -443,22 +458,28 @@
     g.restore();
   }
 
-  // Berge weit hinten, in zwei Lagen, die langsamer vorbeiziehen.
+  // Berge weit hinten, in zwei Lagen, die langsamer vorbeiziehen. Die
+  // Punkte ihres Kamms gehören zu den Bergen, nicht zum Bildschirm – sonst
+  // formte sich der Kamm bei jedem Bild neu und zitterte.
   function zeichneHintergrund() {
     bildTransform();
     const W = view.cssW;
     const H = view.cssH;
+    const schritt = 20;
     [[0.25, "#1a1d2c", 0.62, 90], [0.5, "#24283a", 0.7, 60]].forEach(([tempo, farbe, hoehe, zacke], lage) => {
+      const zug = state.camX * view.grund * tempo;
       g.fillStyle = farbe;
       g.beginPath();
-      g.moveTo(0, H);
-      const basis = H * hoehe + state.camY * view.s * tempo * 0.4;
-      for (let sx = 0; sx <= W + 20; sx += 20) {
-        const wx = (sx + state.camX * view.s * tempo) / 60;
+      g.moveTo(-schritt, H);
+      const basis = H * hoehe + state.camY * view.grund * tempo * 0.4;
+      for (let i = Math.floor(zug / schritt) - 1; ; i += 1) {
+        const sx = i * schritt - zug;
+        const wx = (i * schritt) / 60;
         const y = basis - (Math.sin(wx * 0.9 + lage) * 0.5 + Math.sin(wx * 2.3 + lage * 3) * 0.3 + hash01(Math.floor(wx) + lage * 99) * 0.2) * zacke;
         g.lineTo(sx, y);
+        if (sx > W + schritt) break;
       }
-      g.lineTo(W, H);
+      g.lineTo(W + schritt * 2, H);
       g.closePath();
       g.fill();
     });
@@ -469,7 +490,19 @@
     const x1 = state.camX + view.w / 2 + SEG * 2;
     bodenBis(x1);
     const b = state.boden;
-    const sichtbar = b.filter((p) => p.x >= x0 && p.x <= x1);
+    // Dazu je ein Punkt links und rechts ausserhalb: Eine Plattform hat nur
+    // ihre zwei Enden. Lag eines knapp ausserhalb, begann die Fläche sonst am
+    // anderen mit einer senkrechten Kante – als wäre der Mond abgeschnitten.
+    const ab = (x) => {
+      let lo = 0;
+      let hi = b.length;
+      while (lo < hi) {
+        const m = (lo + hi) >> 1;
+        if (b[m].x < x) lo = m + 1; else hi = m;
+      }
+      return lo;
+    };
+    const sichtbar = b.slice(Math.max(0, ab(x0) - 1), Math.min(b.length, ab(x1) + 1));
     if (sichtbar.length < 2) return;
     const tief = state.camY - view.h / 2 - 40;
     weltTransform();
@@ -513,10 +546,13 @@
     g.stroke();
   }
 
-  // Eine Plattform: Stahl, gelb-schwarze Kanten, blinkende Lichter. Die
-  // nächste bekommt dazu einen Lichtstrahl, die erreichten leuchten grün.
+  // Eine Plattform: Stahl, Kanten und blinkende Lichter in ihrer Farbe –
+  // grün füllt den Tank, gelb gibt die Hälfte, rot nichts –, darunter ein
+  // kleines Schild, das es sagt. Die nächste bekommt dazu einen
+  // Lichtstrahl; die erreichten blinken nicht mehr und treten zurück.
   function zeichnePlatten() {
     weltTransform();
+    const schilder = [];
     state.platten.forEach((p) => {
       if (p.x1 < state.camX - view.w / 2 - 40 || p.x0 > state.camX + view.w / 2 + 40) return;
       const naechste = p.n === state.auf + 1;
@@ -565,22 +601,25 @@
       g.fillRect(p.x0, p.y - 5, p.x1 - p.x0, 5);
       g.fillStyle = "#9aa0b0";
       g.fillRect(p.x0, p.y - 7, p.x1 - p.x0, 2);
-      // Gelb-schwarze Kanten
+      // Die Kanten, gestreift in der Farbe des Tankens (der Start gelb).
+      const art = p.tank === null ? null : TANKEN[p.tank];
+      const ton = art ? art.farbe : "#ffc82e";
       for (let x = p.x0; x < p.x1; x += 6) {
         const kante = x < p.x0 + 14 || x > p.x1 - 20;
         if (!kante) continue;
-        g.fillStyle = Math.floor((x - p.x0) / 6) % 2 ? "#1c1d22" : "#ffc82e";
+        g.fillStyle = Math.floor((x - p.x0) / 6) % 2 ? "#1c1d22" : ton;
         g.fillRect(x, p.y - 5, Math.min(6, p.x1 - x), 5);
       }
+      if (art) schilder.push({ p, art, erreicht });
       // Lichter
-      const an = ruhig() || Math.sin(state.zeit * 6 + p.n) > -0.2;
-      const farbe = erreicht ? "#4cff8a" : naechste ? "#ffd166" : "#ff6b6b";
+      const an = ruhig() || erreicht || Math.sin(state.zeit * 6 + p.n) > -0.2;
+      const farbe = art ? art.farbe : "#ffffff";
       [p.x0 + 2, p.x1 - 2].forEach((lx) => {
         g.fillStyle = an ? farbe : "rgba(255,255,255,0.2)";
         g.beginPath();
         g.arc(lx, p.y + 2, 2.2, 0, Math.PI * 2);
         g.fill();
-        if (an) {
+        if (an && !erreicht) {
           g.fillStyle = `${farbe}44`;
           g.beginPath();
           g.arc(lx, p.y + 2, 6, 0, Math.PI * 2);
@@ -588,6 +627,46 @@
         }
       });
     });
+
+    // Die Schilder: ein Tropfen und die Zahl, unter der Platte – dort, wo
+    // die Fähre nie steht.
+    bildTransform();
+    const gross = Math.round(clamp(11 * view.zoom + 2, 10, 13));
+    g.font = `900 ${gross}px system-ui, sans-serif`;
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    schilder.forEach(({ p, art, erreicht }) => {
+      const text = `+${p.tank}%`;
+      const tw = g.measureText(text).width;
+      const h = gross * 1.5;
+      const w = tw + gross * 1.55;
+      const cx = bildX((p.x0 + p.x1) / 2);
+      const cy = bildY(p.y - 30);
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      g.globalAlpha = erreicht ? 0.35 : 1;
+      g.fillStyle = "rgba(10, 12, 24, 0.82)";
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, w, h, h / 2);
+      else g.rect(x, y, w, h);
+      g.fill();
+      g.strokeStyle = art.dunkel;
+      g.lineWidth = 1.5;
+      g.stroke();
+      // Der Tropfen
+      const tx = x + gross * 0.62;
+      const ty = cy + gross * 0.08;
+      const r = gross * 0.26;
+      g.fillStyle = art.farbe;
+      g.beginPath();
+      g.moveTo(tx, ty - r * 2.1);
+      g.quadraticCurveTo(tx + r * 1.15, ty - r * 0.4, tx + r, ty);
+      g.arc(tx, ty, r, 0, Math.PI);
+      g.quadraticCurveTo(tx - r * 1.15, ty - r * 0.4, tx, ty - r * 2.1);
+      g.fill();
+      g.fillText(text, x + gross * 1.1, cy + 0.5);
+    });
+    g.globalAlpha = 1;
   }
 
   // Ist sie gerade langsam und gerade genug für eine Landung?
@@ -598,6 +677,50 @@
 
   // Die Fähre: goldene Folie, silberne Kabine mit Fenster, vier Beine,
   // darunter die Düse – und die Flamme, wenn das Triebwerk läuft.
+  // Die Gegner als Geist: eine Fähre aus Licht auf ihrem eigenen Weg.
+  function zeichneGeister() {
+    if (!gegner || state.phase === "bereit") return;
+    const orte = window.LernappGeist?.orte?.(gegner) || [];
+    if (!orte.length) return;
+    weltTransform();
+    orte.forEach((o) => {
+      g.save();
+      g.globalAlpha = 0.6 * o.blass;
+      g.translate(o.a, o.b);
+      g.rotate(-(o.c || 0) / 100);
+      g.fillStyle = o.farbe;
+      g.strokeStyle = o.farbe;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(-6, -3);
+      g.lineTo(-11.5, -12);
+      g.moveTo(6, -3);
+      g.lineTo(11.5, -12);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-10, -4);
+      g.lineTo(10, -4);
+      g.lineTo(11, 3);
+      g.lineTo(-11, 3);
+      g.closePath();
+      g.moveTo(-8, 3);
+      g.lineTo(8, 3);
+      g.lineTo(6.5, 11);
+      g.lineTo(2.5, 14);
+      g.lineTo(-2.5, 14);
+      g.lineTo(-6.5, 11);
+      g.closePath();
+      g.fill();
+      g.restore();
+    });
+    bildTransform();
+    const ms = gegner.zeit();
+    window.LernappGeist.namen(g, orte.map((o) => {
+      const d = Math.round(o.lauf.wert(ms) - Math.max(0, state.punkte));
+      return { ...o, sx: bildX(o.a), sy: bildY(o.b + 22), weit: `${d > 0 ? "+" : ""}${d}` };
+    }), { breit: view.cssW, hoch: view.cssH });
+  }
+
   function zeichneFaehre() {
     if (state.schritt === "crash" && state.zeit - state.schrittZeit > 0.15) return;
     const f = state.f;
@@ -892,6 +1015,7 @@
     zeichneBoden();
     zeichnePlatten();
     zeichneTeile();
+    zeichneGeister();
     zeichneFaehre();
     zeichneSchriften();
     zeichneWegweiser();
@@ -1045,11 +1169,9 @@
       state.punkte += PUNKTE_PLATTE;
       if (kosten <= 40 * PUNKTE_TREIBSTOFF) state.sparsam += 1;
       zeigeZahl();
-      // Tanken – nie ganz voll, und von Plattform zu Plattform weniger.
-      while (state.platten.length < platte.n + 3) naechstePlatte();
-      const nach = clamp(Math.round(state.platten[platte.n + 1].bedarf * tankFaktor(platte.n)), 6, 60);
+      // Tanken: so viel, wie die Plattform hergibt.
       const vorher = state.tank;
-      state.tank = Math.max(vorher, Math.min(TANK_NACH, vorher + nach));
+      state.tank = Math.min(TANK, vorher + (platte.tank || 0));
       state.tankAb = state.tank;
       state.getankt = { menge: Math.round(state.tank - vorher), zeit: state.zeit };
       const netto = PUNKTE_PLATTE - kosten;
@@ -1093,6 +1215,14 @@
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "flug"; i += 1) physik(dt / n);
     } else if (state.schritt === "gelandet" || state.schritt === "start") {
+      // Mit leerem Tank gelandet: Hier geht es nicht mehr weiter.
+      if (state.schritt === "gelandet" && state.phase === "spiel" && state.tank < 0.5 && !stepTimer
+        && state.zeit - state.schrittZeit > 0.6) {
+        state.gestrandet = true;
+        schrift("Tank leer – gestrandet", state.f.x, state.f.y + 40, "#ff9b9b", 15);
+        kids()?.playJingle?.("retry");
+        stepTimer = window.setTimeout(finish, 1500);
+      }
       // Wer auf einer Plattform steht und Schub gibt, hebt ab.
       if (state.schub && state.phase === "spiel" && state.tank > 0 && state.zeit - state.schrittZeit > 0.25) {
         state.schritt = "flug";
@@ -1143,7 +1273,9 @@
     state.camY += (my - state.camY) * k;
 
     zeigeZahl();
-    if (state.phase === "spiel") gegner?.takt(Math.max(0, Math.round(state.punkte)));
+    if (state.phase === "spiel") {
+      gegner?.takt(Math.max(0, Math.round(state.punkte)), { a: Math.round(state.f.x), b: Math.round(state.f.y), c: Math.round(state.f.neig * 100) });
+    }
   }
 
   function loop(now) {
@@ -1206,6 +1338,7 @@
     state.tankAb = TANK;
     state.anzeige = TANK;
     state.getankt = null;
+    state.gestrandet = false;
     state.schub = false;
     state.neigZiel = 0;
     state.teile = [];
@@ -1258,7 +1391,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = Math.max(0, Math.round(state.punkte));
-    gegner?.ende(punkte);
+    const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -1273,6 +1406,7 @@
       points: punkte,
       detail: rekord ? `Neuer Rekord! ${landungen}${kosten}` : `${landungen}${kosten}${vorher ? ` · Bestwert ${vorher}` : ""}`,
       speech: `${punkte} Punkte, ${landungen}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ml-rekord");
     zaehleHoch(punkte);
@@ -1291,7 +1425,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "ziel", fassung: "p3" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "tempo", fassung: "p4", alle: true }) || null;
 
   startRun();
 
