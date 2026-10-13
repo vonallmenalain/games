@@ -1823,10 +1823,12 @@ try {
   }
 
   // --- 4g7. Mondlandung: landen, tanken, weiter ---------------------------------------
-  // Ein sparsamer Autopilot steigt über das Gelände, fliegt hinüber und setzt
-  // sanft auf – und kommt mit dem Treibstoff, den die Landungen geben, über
-  // zehn Plattformen. Jede Landung bringt 100 Punkte und bis zu 200 fürs
-  // Sparen. Wer einfach fällt, zerschellt.
+  // Ein sparsamer Pilot gibt Schub, bis die Bahn ohne weiteren Schub übers
+  // Gelände auf die nächste Plattform führt, gleitet und bremst im
+  // Leitstrahl so spät wie möglich. Er kommt mit dem Treibstoff, den die
+  // Landungen geben, über acht Plattformen. Jede bringt 200 Punkte, jeder
+  // Schub kostet welche – sofort, schon vor der ersten Landung. Wer einfach
+  // fällt, zerschellt.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 640 });
     await seite.goto(`${BASIS}/mondlandung`, { waitUntil: "load" });
@@ -1834,53 +1836,60 @@ try {
     const fluege = await seite.evaluate(() => {
       const M = window.LernappMondlandung;
       const st = M.state;
-      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
       const pilot = () => {
         const f = st.f;
         if (st.schritt === "gelandet" || st.schritt === "start") { M.schub(true); M.neige(0); return; }
         if (st.schritt !== "flug") { M.schub(false); M.neige(null); return; }
         const p = st.platten[st.auf + 1];
-        const ziel = (p.x0 + p.x1) / 2;
-        const dx = ziel - f.x;
-        const richtung = Math.sign(dx) || 1;
-        let hoch = -Infinity;
-        for (let x = f.x; richtung * (ziel - x) > -10; x += 8 * richtung) hoch = Math.max(hoch, M.bodenBei(x));
-        let vorne = -Infinity;
-        for (let x = f.x; Math.abs(x - f.x) < 160 && richtung * (ziel - x) > -10; x += 6 * richtung) vorne = Math.max(vorne, M.bodenBei(x));
-        const ueber = f.y - 13 - hoch;
-        const frei = f.y - 13 - vorne;
-        const ueberPlatte = f.y - 13 - p.y;
-        let sollVx;
-        let sollVy;
-        if (Math.abs(dx) > 40) {
-          sollVx = frei < 35 ? richtung * 8 : richtung * Math.min(90, Math.abs(dx) * 0.5 + 20);
-          sollVy = frei < 35 ? 55 : ueber < 45 ? 40 : ueber > 90 ? -10 : 0;
-        } else {
-          sollVx = clamp(dx * 1.2, -30, 30);
-          sollVy = -clamp(ueberPlatte * 0.6, 8, 32);
+        const mitte = (p.x0 + p.x1) / 2;
+        const bremsweg = (v) => (v > 0 ? (v * v) / (2 * (M.SCHUB - M.G)) : 0);
+        if (st.strahl) {
+          M.neige(0);
+          M.schub(-f.vy > 25 && f.y - 13 - p.y < bremsweg(-f.vy) * 1.15 + 4);
+          return;
         }
-        const ax = (sollVx - f.vx) * 1.8;
-        const ay = (sollVy - f.vy) * 2.2 + M.G;
-        const neig = clamp(Math.atan2(ax, Math.max(ay, 25)), -0.6, 0.6);
-        M.neige(Math.abs(dx) < 40 && ueberPlatte < 30 ? clamp(neig, -0.2, 0.2) : neig);
-        M.schub(Math.hypot(ax, Math.max(0, ay)) > M.SCHUB * 0.55);
+        // Wohin führt die Bahn ohne Schub? Übers Gelände in den Leitstrahl,
+        // hoch genug, um dort noch zu bremsen?
+        let x = f.x;
+        let y = f.y;
+        let vx = f.vx;
+        let vy = f.vy;
+        let gut = false;
+        for (let i = 0; i < 600; i += 1) {
+          vy -= M.G / 60;
+          x += vx / 60;
+          y += vy / 60;
+          const drueber = x > p.x0 - 18 && x < p.x1 + 18;
+          if (!drueber && y - 13 <= M.bodenBei(x) + 10) break;
+          if (drueber && vy < 0 && y - 13 - p.y < 160) { gut = y - 13 - p.y > bremsweg(-vy) * 1.3 + 12; break; }
+          if (vy < 0 && y - 13 < p.y - 10) break;
+        }
+        if (gut) { M.neige(0); M.schub(false); return; }
+        const r = Math.sign(mitte - f.x) || 1;
+        const zuSchnell = Math.sign(f.vx) === r && Math.abs(f.vx) > Math.max(40, Math.abs(mitte - f.x) * 0.9);
+        M.neige(zuSchnell ? 0 : r * 0.5);
+        M.schub(true);
       };
       const raus = [];
+      let schonVorher = null;
       for (let lauf = 0; lauf < 2; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         for (let n = 0; st.schritt !== "crash" && st.landungen < 30 && n < 120 * 400; n += 1) {
           pilot();
           M.takt(1 / 120);
+          // Schon vor der ersten Landung kostet der Schub Punkte.
+          if (schonVorher === null && st.schritt === "flug" && st.landungen === 0 && st.zeit - st.schrittZeit > 0.5) schonVorher = st.punkte;
         }
         M.schub(false);
         M.neige(null);
-        raus.push({ landungen: st.landungen, punkte: st.punkte, schritt: st.schritt, tank: Math.round(st.tank) });
+        raus.push({ landungen: st.landungen, punkte: Math.round(st.punkte), schritt: st.schritt, tank: Math.round(st.tank) });
       }
-      return raus;
+      return { raus, schonVorher };
     });
-    pruefe(fluege.every((f) => f.landungen >= 10), `Mondlandung: Der sparsame Autopilot kommt nicht über zehn Plattformen – ${JSON.stringify(fluege)}`);
-    pruefe(fluege.every((f) => f.punkte >= f.landungen * 100 && f.punkte <= f.landungen * 300),
-      `Mondlandung: Eine Landung bringt nicht 100 bis 300 Punkte – ${JSON.stringify(fluege)}`);
+    pruefe(fluege.raus.every((f) => f.landungen >= 8), `Mondlandung: Der sparsame Pilot kommt nicht über acht Plattformen – ${JSON.stringify(fluege.raus)}`);
+    pruefe(fluege.raus.every((f) => f.punkte > f.landungen * 50 && f.punkte < f.landungen * 200),
+      `Mondlandung: Die Punkte passen nicht zu 200 je Plattform weniger dem Treibstoff – ${JSON.stringify(fluege.raus)}`);
+    pruefe(fluege.schonVorher !== null && fluege.schonVorher < 0, `Mondlandung: Der Schub kostet vor der ersten Landung keine Punkte (${fluege.schonVorher}).`);
     // Auch wer grob fliegt, landet: zum Ziel hin kippen, Schub, wenn es
     // sinkt oder das Gelände hoch ist – und im Leitstrahl nur bremsen, wenn
     // es zu schnell fällt. Er kommt ein paar Plattformen weit, dann geht ihm
@@ -1919,7 +1928,7 @@ try {
     });
     pruefe(grob.raus.every((r) => r.landungen >= 2), `Mondlandung: Wer grob fliegt, kommt keine zwei Plattformen weit – ${JSON.stringify(grob.raus)}`);
     pruefe(!grob.voll, "Mondlandung: Auf einer Plattform wird der Tank ganz voll.");
-    const sparsamSchnitt = fluege.reduce((summe, f) => summe + f.punkte, 0) / fluege.length;
+    const sparsamSchnitt = fluege.raus.reduce((summe, f) => summe + f.punkte, 0) / fluege.raus.length;
     const grobSchnitt = grob.raus.reduce((summe, r) => summe + r.punkte, 0) / grob.raus.length;
     pruefe(sparsamSchnitt > grobSchnitt, `Mondlandung: Wer sparsam fliegt, hat nicht mehr Punkte (${sparsamSchnitt} gegen ${grobSchnitt}).`);
     const fall = await seite.evaluate(() => {
