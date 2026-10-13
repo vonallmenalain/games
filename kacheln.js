@@ -290,10 +290,12 @@
     help: HELP,
     clock: false,
     onRestart: startRun,
+    // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
+    live: { los: startRun, stopp: () => finish() },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "tileMemory", host, art: "ziel" }) || null;
 
-  startRun();
+  if (!shell.live) startRun();
 
   window.addEventListener("pagehide", clearStep);
 

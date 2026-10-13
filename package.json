@@ -7,6 +7,7 @@
     "bauen": "node scripts/seiten-bauen.mjs",
     "pruefen": "node scripts/pruefen.mjs",
     "pruefen:browser": "node scripts/check-spiele.mjs",
+    "pruefen:live": "node scripts/check-live.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {

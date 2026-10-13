@@ -572,12 +572,17 @@
   // ---------------------------------------------------------------------------
   // Werfen und Treffen
   // ---------------------------------------------------------------------------
+  // Die Runde beginnt: mit dem ersten Tipp – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    shell.setPhase("play");
+    gegner?.los();
+  }
+
   function werfen() {
-    if (state.phase === "bereit") {
-      state.phase = "spiel";
-      shell.setPhase("play");
-      gegner?.los();
-    }
+    if (state.phase === "bereit") losGehts();
     if (state.phase !== "spiel" || state.schritt !== "zielen" || state.auf < 0.85) return;
     if (state.flug || state.uebrig <= 0 || state.nachladen > NACHLADE_MS * 0.4) return;
     state.flug = { y: ruheY() };
@@ -883,6 +888,7 @@
     help: HELP,
     clock: false,
     onRestart: startRun,
+    live: { los: losGehts, stopp: () => finish() },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "dartWheel", host, art: "ziel" }) || null;
 

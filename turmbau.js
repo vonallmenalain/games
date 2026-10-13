@@ -827,12 +827,17 @@
   // ---------------------------------------------------------------------------
   // Fallen lassen und abgleichen
   // ---------------------------------------------------------------------------
+  // Die Runde beginnt: mit dem ersten Tipp – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    shell.setPhase("play");
+    gegner?.los();
+  }
+
   function tap() {
-    if (state.phase === "bereit") {
-      state.phase = "spiel";
-      shell.setPhase("play");
-      gegner?.los();
-    }
+    if (state.phase === "bereit") losGehts();
     if (state.phase !== "spiel") return;
     const s = state.schweber;
     if (!s || s.fallend || s.einzug > 0.5) return;
@@ -1190,6 +1195,7 @@
     help: HELP,
     clock: false,
     onRestart: startRun,
+    live: { los: losGehts, stopp: () => finish() },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "towerStack", host, art: "ziel" }) || null;
 

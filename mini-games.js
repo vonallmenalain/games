@@ -1187,6 +1187,11 @@
     // ihn (adminKnopf).
     const zumAdmin = adminKnopf();
     if (zumAdmin) kopf.append(zumAdmin);
+    // Der Weg in einen Live-Abend (live.js): den Code eingeben, den die
+    // Leitung sagt, und alle spielen zusammen.
+    const live = verweis("Live", "/live", "mini-knopf-hell mini-knopf-live");
+    live.title = "Live-Abend: mit dem Code beitreten";
+    kopf.append(live);
     // Ganz rechts das Vollbild – es bleibt auch in den Spielen und zurück
     // (vollbild.js).
     const voll = window.LernappVollbild?.knopf?.("mini-vollbild");

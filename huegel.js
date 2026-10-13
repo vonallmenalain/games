@@ -1173,9 +1173,9 @@
     zuschauer.weiter();
   }
 
-  function druecken() {
-    if (state.phase === "zuschauen") return;
-    gedrueckt = true;
+  // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
     if (state.phase !== "bereit") return;
     state.phase = "spiel";
     state.v.vx = 160;
@@ -1184,6 +1184,12 @@
     shell.startClock(RUNDE_MS, zeitUm);
     gegner?.los();
     kids()?.vibrate?.(8);
+  }
+
+  function druecken() {
+    if (state.phase === "zuschauen") return;
+    gedrueckt = true;
+    losGehts();
   }
 
   function loslassen() {
@@ -1294,6 +1300,7 @@
     help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: zeitUm },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "hillGlide", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

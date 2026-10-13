@@ -1,0 +1,46 @@
+<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Der Live-Abend: /live (Code eingeben oder, als Admin, einen anlegen),
+  /live?code=K7QM (Lobby, Runden, Podest). Was darauf steht, baut live.js;
+  die Spiele laufen in einem Rahmen darüber (live-spiel.js).
+
+  Nicht für Suchmaschinen: Ein Live-Abend ist eine Verabredung, kein Ort.
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Mini-Games" />
+    <meta name="description" content="Ein Live-Abend der Mini-Games: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Code." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mini-Games" />
+    <meta name="theme-color" content="#f7f3ff" />
+    <title>Live · Mini-Games</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-13-8" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-13-8" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body data-page="live">
+    <main class="mini-seite lv-seite" data-live>
+      <p class="mini-hinweis">Der Live-Abend wird geladen...</p>
+    </main>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
+    <script defer src="vollbild.js?v=2026-10-13-8"></script>
+    <script defer src="highscore.js?v=2026-10-13-8"></script>
+    <script defer src="cloud.js?v=2026-10-13-8"></script>
+    <script defer src="mini-games.js?v=2026-10-13-8"></script>
+    <script defer src="turnier.js?v=2026-10-13-8"></script>
+    <script defer src="live.js?v=2026-10-13-8"></script>
+    <script defer src="pwa.js?v=2026-10-13-8"></script>
+  </body>
+</html>

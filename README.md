@@ -26,6 +26,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     index.html            die Startseite: alle Spiele, alle Namen
     turmbau.html …        fünfzehn Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
+    live.html             der Live-Abend, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -41,6 +42,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     admin.js              anmelden, aufräumen, Turniere ausrichten. Der
                           einzige Ort mit Anmeldung; die Spielseiten laden
                           firebase-auth gar nicht erst.
+    live.js               der Live-Abend: Code, Lobby, Leitung, Runden,
+                          Wertung, Podest – über die Realtime Database
+    live-spiel.js         ein Spiel als Runde eines Live-Abends: Countdown,
+                          gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
                           Spielfläche, Ergebnis
     geist.js              die Gegner: Platz 1 und die eigene Bestmarke als
@@ -64,10 +69,13 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     firestore.rules       die Regeln der Datenbank. Sie fahren von selbst
                           nach Firebase, sobald sie auf main stehen.
+    database.rules.json   die Regeln der Realtime Database (Live-Modus),
+                          auf demselben Weg
 
     scripts/seiten-bauen.mjs   baut die erzeugten Dateien aus einer Tabelle
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
+    scripts/check-live.mjs     spielt einen Live-Abend mit vier Geräten durch
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
 
 ## Ein Spiel dazunehmen
@@ -296,6 +304,63 @@ schon installiert hat und den Link nur einmal angeklickt hat. Auf Android
 teilen sich Browser und installierte App diesen Speicher; auf dem iPhone
 kennt die App auf dem Startbildschirm nur, was in ihr selbst geöffnet wurde.
 
+## Live-Abend
+
+Alle spielen zur selben Zeit dasselbe Level: `/live`. Wer leitet, ist im
+Adminbereich angemeldet («Live-Abend» oben im Adminbereich, oder `/live`
+→ «Neuen Live-Abend anlegen»). Mitspielen kann jeder mit dem Code – auf der
+Startseite «Live» antippen und ihn eingeben, oder den Link öffnen
+(`/live?code=K7QM`).
+
+**Anlegen.** Ein Name, das Programm (Spiele in ihrer Reihenfolge, je 1–5
+Runden und 0–2 Übungsrunden) und die Einstellungen:
+
+| Einstellung | Auswahl |
+|---|---|
+| Zeitlimit je Runde | ohne, 30 s, 1, 1½, 2, 3, 5 Minuten |
+| Punkte je Runde | Platzpunkte 10 · 8 · 6 · 5 · 4 · 3 · 2 · 1 (dahinter je 1) oder Prozent vom Besten |
+| Level | jede Runde ein neues oder alle Runden eines Spiels gleich – immer für alle dasselbe |
+| Countdown | 3, 5 oder 10 Sekunden |
+| Nach jeder Runde | die Leitung drückt «Weiter» oder automatisch nach 15 Sekunden |
+| Finale doppelt | das letzte Spiel zählt doppelt |
+| Zwischenstand | nach jeder Runde zeigen oder bis zum Schluss verdeckt |
+| Nachzügler | dürfen ab der nächsten Runde mitspielen, oder nur bis zum Start |
+
+Ein Programm lässt sich als Vorlage speichern (auf dem Gerät, das leitet);
+das zuletzt benutzte steht beim nächsten Mal schon da.
+
+**Die Lobby.** Code, Link und wer da ist (grüner Punkt, solange die
+Verbindung steht). Die Leitung spielt selbst mit – auf demselben Gerät.
+
+**Eine Runde.** «Start» schreibt, welche Runde mit welcher Saat ab wann
+läuft – zur Serverzeit. Jedes Gerät, das dabei ist, öffnet das Spiel in
+einem Rahmen über der Seite (`/turmbau?live=K7QM&nr=0`, `live-spiel.js`).
+Dort zählt eine Tafel herunter, Eingaben sind gesperrt, und gestartet wird
+nicht auf einen Tipp, sondern zur Serverzeit – jedes Gerät rechnet sie in
+seine eigene Uhr um. Im Browser-Test liegen vier Geräte dabei unter zehn
+Millisekunden auseinander. Oben stehen alle mit ihren Punkten und die
+Zeit. Wer ausscheidet, sieht eine Sekunde später, wie es bei den anderen
+steht. Die Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist;
+die Leitung kann sie auch von Hand beenden (der Knopf «Leitung» über dem
+Spiel).
+
+**Jedes Spiel** gibt der Bühne dafür zweierlei mit (`game-shell.js`,
+`mount({ live: { los, stopp } })`): wie die Runde ohne Tipp beginnt und wie
+sie endet, wenn die Zeit des Abends um ist. Eine Runde gibt es nur einmal –
+kein «Noch einmal», kein Weg hinaus ausser über den Abend.
+
+**Die Auswertung.** Rundenpunkte, Zwischenstand, was als Nächstes kommt;
+«Weiter», «Runde wiederholen» (sie beginnt bei null), «Abend beenden». Gleich
+viele Punkte heisst derselbe Platz. Gerechnet wird nichts in der Datenbank:
+Jedes Gerät rechnet aus denselben Punkten dasselbe.
+
+**Die Hall of Fame** bekommt jede zählende Runde wie eine gewöhnliche – mit
+Namen, Rekord und Aufzeichnung. Übungsrunden nicht. Ein Versuch in einem
+Turnier ist eine Live-Runde nie.
+
+**Am Schluss** das Podest und der Endstand. «Abend abschliessen» löscht den
+Abend aus der Datenbank; wer noch zuschaut, behält das Podest auf dem Schirm.
+
 ## Vollbild
 
 Jedes Spiel füllt das Bild: Die Spielfläche reicht bis an den linken, rechten
@@ -421,6 +486,10 @@ Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
     npm run pruefen:browser   jedes Spiel einmal öffnen und eine Runde
                               anspielen. Braucht Playwright:
                               npm i && npx playwright install chromium
+    npm run pruefen:live      einen Live-Abend durchspielen: Leitung und drei
+                              Spieler in vier Browserfenstern, gegen den
+                              Emulator der Realtime Database. Braucht Java
+                              und Playwright, kein Netz.
     npm run test:rules        die Firestore-Regeln im Emulator durchspielen –
                               und cloud.js dagegen laufen lassen, so wie es
                               im Browser läuft. Dazu die Regeln der Realtime

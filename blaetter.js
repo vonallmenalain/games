@@ -462,6 +462,8 @@
     accentDark: "#b9741a",
     help: HELP,
     onRestart: showIntro,
+    // Live-Modus: Die Runde beginnt zum gemeinsamen Start, ohne «Starten».
+    live: { los: beginRound, stopp: () => finish() },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "leafFlow", host, art: "tempo" }) || null;
 

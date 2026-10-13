@@ -1072,16 +1072,23 @@
     zuschauer.weiter();
   }
 
+  // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    state.schritt = "schwingen";
+    shell.setPhase("play");
+    shell.startClock(RUNDE_MS, zeitUm);
+    gegner?.los();
+    kids()?.vibrate?.(8);
+  }
+
   function druecken() {
     if (state.phase === "zuschauen") return;
     gedrueckt = true;
     if (state.phase === "bereit") {
-      state.phase = "spiel";
-      state.schritt = "schwingen";
-      shell.setPhase("play");
-      shell.startClock(RUNDE_MS, zeitUm);
-      gegner?.los();
-      kids()?.vibrate?.(8);
+      losGehts();
       return;
     }
     if (state.phase !== "spiel") return;
@@ -1517,6 +1524,7 @@
     help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: zeitUm },
   });
   // Die besten Läufe anschauen (?zuschauen=): Die Strecke ist fest, eine
   // Saat braucht es nicht.

@@ -31,6 +31,9 @@
  *   frei    das Turnier will gar keinen festen Lauf ("jedes Mal neu
  *           gewürfelt"). Dann würfelt jede Runde wieder frisch.
  *
+ * Und im Live-Modus (live-spiel.js) gibt der Live-Abend die Saat vor: Alle,
+ * die eine Runde zusammen spielen, spielen dieselbe Welt.
+ *
  * Ein Spiel benutzt es so:
  *
  *   const zufall = LernappZufall.fuer("towerStack");   // einmal beim Laden
@@ -70,8 +73,14 @@
   }
 
   const istTurnier = () => turnier() !== null;
+  // Die Saat einer Live-Runde, sonst null.
+  const liveSaat = () => {
+    const saat = window.LernappLiveSpiel?.saat?.();
+    return Number.isInteger(saat) ? saat >>> 0 : null;
+  };
+
   // Ob die Runden gerade für alle dieselben sind.
-  const istFest = () => Boolean(lage.id) && !lage.frei;
+  const istFest = () => liveSaat() !== null || (Boolean(lage.id) && !lage.frei);
 
   /*
    * Was das Turnier aus dem Zufall macht. Gilt ab dem nächsten neu() – eine
@@ -122,6 +131,8 @@
    *
    * halte(saat) legt die Saat für alle folgenden Runden fest – so spielt das
    * Zuschauen einen aufgezeichneten Lauf in seiner eigenen Welt ab.
+   *
+   * Im Live-Modus kommt die Saat von der Runde des Live-Abends.
    */
   function fuer(spiel) {
     const turnierSaat = () => streuwert(`${lage.id}|${lage.runde}|${spiel}`);
@@ -129,6 +140,7 @@
     let jetzt = 0;
     const wuerfel = () => {
       if (gehalten !== null) jetzt = gehalten;
+      else if (liveSaat() !== null) jetzt = liveSaat();
       else if (istFest()) jetzt = turnierSaat();
       else jetzt = Math.floor(Math.random() * 4294967296) >>> 0;
       return mulberry32(jetzt);

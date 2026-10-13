@@ -455,7 +455,7 @@
     shell.showResult({
       label: "Deine Fische",
       points: punkte,
-      detail: `${doppelt.name}: den hattest du schon.`,
+      detail: doppelt ? `${doppelt.name}: den hattest du schon.` : "Die Zeit ist um.",
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
@@ -477,10 +477,12 @@
     help: HELP,
     clock: false,
     onRestart: startRun,
+    // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
+    live: { los: startRun, stopp: () => finish(null) },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "fishPond", host, art: "ziel" }) || null;
 
-  startRun();
+  if (!shell.live) startRun();
 
   window.addEventListener("resize", place);
   window.addEventListener("orientationchange", place);

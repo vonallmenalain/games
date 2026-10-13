@@ -525,13 +525,18 @@
   // ---------------------------------------------------------------------------
   // Eingabe
   // ---------------------------------------------------------------------------
+  // Die Runde beginnt: mit dem ersten Tipp – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    shell.setPhase("play");
+    gegner?.los();
+  }
+
   function druecken() {
     gedrueckt = true;
-    if (state.phase === "bereit") {
-      state.phase = "spiel";
-      shell.setPhase("play");
-      gegner?.los();
-    }
+    if (state.phase === "bereit") losGehts();
     if (state.phase !== "spiel" || state.schritt !== "warten") return;
     const p = state.pfeiler[state.hier];
     state.balken = { x: kante(p), len: 0, winkel: 0 };
@@ -832,6 +837,7 @@
     help: HELP,
     clock: false,
     onRestart: startRun,
+    live: { los: losGehts, stopp: () => finish() },
   });
   gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "ziel" }) || null;
 

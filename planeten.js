@@ -1309,18 +1309,24 @@
   function tippen() {
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     if (state.phase === "bereit") {
-      // Der erste Tipp: Er läuft los.
-      state.phase = "spiel";
-      state.schritt = "lauf";
-      state.schrittZeit = state.zeit;
-      state.luftMax = luftBei(0);
-      state.luft = state.luftMax;
-      shell.setPhase("play");
-      gegner?.los();
-      kids()?.vibrate?.(8);
+      losGehts();
       return;
     }
     springen();
+  }
+
+  // Der erste Tipp: Er läuft los – oder im Live-Modus der gemeinsame Start
+  // (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    state.schritt = "lauf";
+    state.schrittZeit = state.zeit;
+    state.luftMax = luftBei(0);
+    state.luft = state.luftMax;
+    shell.setPhase("play");
+    gegner?.los();
+    kids()?.vibrate?.(8);
   }
 
   // ---------------------------------------------------------------------------
@@ -1428,6 +1434,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: () => finish() },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "planetHop", fassung: "p2", zufall, nochmal: zuschauenStarten,

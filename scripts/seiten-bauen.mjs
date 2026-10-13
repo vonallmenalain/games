@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-7";
+export const FASSUNG = "2026-10-13-8";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -149,8 +149,12 @@ const SDK = [
   "https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js",
   "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js",
 ];
-// Nur der Adminbereich meldet jemanden an.
+// Nur der Adminbereich meldet jemanden an – und die Live-Seite fragt nach,
+// ob dort der Admin sitzt, der leiten darf.
 const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js";
+// Die Realtime Database braucht nur die Live-Seite (live.js). Die Spiele
+// einer Live-Runde reden mit ihr über den Rahmen, nicht selbst.
+const SDK_DATABASE = "https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js";
 
 // Was jede Seite lädt, in dieser Reihenfolge. train-art holt sich seine
 // Werkzeuge beim Laden, nicht beim Aufruf – es muss vor dem stehen, was es
@@ -168,7 +172,9 @@ const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "mini-games.js", "
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 // geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
 // in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.
-const NACH_DER_KUNST = ["game-cloud.js", "game-shell.js", "geist.js"];
+// live-spiel.js steht vor der Bühne: Sie fragt beim Aufbauen, ob diese Seite
+// eine Runde eines Live-Abends ist.
+const NACH_DER_KUNST = ["game-cloud.js", "live-spiel.js", "game-shell.js", "geist.js"];
 
 const v = (datei) => `${datei}?v=${FASSUNG}`;
 
@@ -191,6 +197,10 @@ export const turnierSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
 // gehört nicht in die installierte App, und ein Service Worker, der ihn
 // zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
 export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
+// Die Live-Seite: das Fundament, die Anmeldung (wer leitet) und die Realtime
+// Database. pwa.js gehört dazu – ein Live-Abend lässt sich auch aus der
+// installierten App heraus spielen.
+export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
 
 const kopf = ({ titel, text, viewport, manifest = true }) => `    <meta charset="UTF-8" />
     <meta name="viewport" content="${viewport}" />
@@ -295,6 +305,37 @@ ${skripte(turnierSkripte())}
 `;
 }
 
+export function liveSeite() {
+  return `<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Der Live-Abend: /live (Code eingeben oder, als Admin, einen anlegen),
+  /live?code=K7QM (Lobby, Runden, Podest). Was darauf steht, baut live.js;
+  die Spiele laufen in einem Rahmen darüber (live-spiel.js).
+
+  Nicht für Suchmaschinen: Ein Live-Abend ist eine Verabredung, kein Ort.
+-->
+<html lang="de">
+  <head>
+${kopf({
+    titel: "Live · Mini-Games",
+    text: "Ein Live-Abend der Mini-Games: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Code.",
+    viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+  })}
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body data-page="live">
+    <main class="mini-seite lv-seite" data-live>
+      <p class="mini-hinweis">Der Live-Abend wird geladen...</p>
+    </main>
+
+${skripte(liveSkripte())}
+  </body>
+</html>
+`;
+}
+
 export function adminSeite() {
   return `<!doctype html>
 <!--
@@ -353,8 +394,8 @@ export function manifest() {
 // Alles, was eine Seite lädt – jede Datei einmal, in der Reihenfolge, in der
 // sie zum ersten Mal vorkommt.
 export function dateien() {
-  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html"];
-  const skripteAlle = [...hubSkripte(), ...turnierSkripte()];
+  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html", "./live.html"];
+  const skripteAlle = [...hubSkripte(), ...turnierSkripte(), ...liveSkripte()];
   for (const s of SPIELE) for (const datei of seitenSkripte(s)) skripteAlle.push(datei);
   for (const datei of skripteAlle) {
     if (datei.startsWith("http")) continue;
@@ -383,6 +424,7 @@ export function alleDateien() {
   raus.set("index.html", hubSeite());
   for (const spiel of SPIELE) raus.set(`${spiel.seite}.html`, spielSeite(spiel));
   raus.set("turnier.html", turnierSeite());
+  raus.set("live.html", liveSeite());
   raus.set("admin.html", adminSeite());
   raus.set("app.webmanifest", manifest());
   raus.set("service-worker.js", serviceWorker());

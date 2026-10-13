@@ -90,6 +90,9 @@
     storageBucket: "games-a0cd4.firebasestorage.app",
     messagingSenderId: "462520409587",
     appId: "1:462520409587:web:21877e455bb1140a19c686",
+    // Die Realtime Database, nur für den Live-Modus (live.js). Die Seiten
+    // ohne Live laden ihr SDK gar nicht erst.
+    databaseURL: "https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app",
   };
 
   const NAME_MAX = 24;

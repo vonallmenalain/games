@@ -624,6 +624,9 @@
     accentDark: "#00707c",
     help: HELP,
     onRestart: showIntro,
+    // Live-Modus: Die Schicht beginnt zum gemeinsamen Start, ohne «Starten»,
+    // und endet, wenn die Zeit des Live-Abends um ist.
+    live: { los: beginRound, stopp: schichtEnde },
   });
 
   showIntro();
