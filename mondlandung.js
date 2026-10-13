@@ -8,10 +8,12 @@
  * Mond zieht sanft.
  *
  * Gelandet ist, wer mit beiden Füssen auf der nächsten Plattform steht,
- * langsam genug und fast gerade. Zu schnell, zu schief, daneben oder gegen
- * einen Berg – und es kracht. Jede Landung füllt den Tank ein Stück wieder
- * auf, aber nie ganz: Wer verschwenderisch fliegt, dem geht unterwegs der
- * Treibstoff aus.
+ * langsam genug und fast gerade. Über der nächsten Plattform steht ein
+ * Leitstrahl: Wer darin sinkt, dem hilft die Fähre – sie richtet sich auf
+ * und hält über der Plattform still, übrig bleibt, sanft genug aufzusetzen.
+ * Zu schnell, daneben oder gegen einen Berg – und es kracht. Jede Landung
+ * füllt den Tank wieder auf, aber nie ganz: Wer verschwenderisch fliegt,
+ * dem geht unterwegs der Treibstoff aus.
  *
  * Die Plattformen werden schmaler, liegen weiter auseinander und hinter
  * höheren Bergen. Gezählt werden die Landungen.
@@ -54,16 +56,20 @@
   const TAKT = 1 / 240;
 
   const G = 44;                    // der Mond zieht
-  const SCHUB = 104;               // das Triebwerk schiebt, etwa zweieinhalb Mal so stark
+  const SCHUB = 118;               // das Triebwerk schiebt, gut zweieinhalb Mal so stark
   const NEIG_MAX = 0.7;            // so weit neigt sich die Fähre höchstens
   const NEIG_TEMPO = 3.2;          // so schnell dreht sie sich dorthin
   const TANK = 100;
   const VERBRAUCH = 7;             // je Sekunde Schub
 
   // Was als Landung gilt.
-  const LANDE_VY = 36;
-  const LANDE_VX = 28;
-  const LANDE_NEIG = 0.28;
+  const LANDE_VY = 55;
+  const LANDE_VX = 40;
+  const LANDE_NEIG = 0.45;
+  // Der Leitstrahl über der nächsten Plattform: so hoch reicht er, und so
+  // weit seitlich daneben fängt er die Fähre noch ein.
+  const STRAHL_HOCH = 170;
+  const STRAHL_RAND = 22;
 
   // Die Fähre, wie sie trifft: die Füsse, und Punkte auf dem Rumpf.
   const FUSS = [{ x: -11.5, y: -13 }, { x: 11.5, y: -13 }];
@@ -75,7 +81,8 @@
   const HELP = [
     "Mondlandung. Halte den Finger auf dem Bild, dann zündet das Triebwerk, und die Fähre neigt sich zu deinem Finger hin.",
     "Finger über der Fähre: Sie steigt. Finger rechts oder links: Sie zieht dorthin. Lass los, dann fällt sie.",
-    "Lande sanft und gerade auf der nächsten Plattform – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
+    "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
+    "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
     "Jede Landung füllt den Tank ein Stück auf. Es zählt, wie oft du landest.",
   ].join(" ");
 
@@ -127,6 +134,7 @@
     zeit: 0,
     schrittZeit: 0,
     flamme: 0,
+    strahl: false,        // hilft der Leitstrahl gerade?
   };
 
   let shell = null;
@@ -186,17 +194,18 @@
     }
     const k = schwereBei(n);
     const vor = platten[n - 1];
-    const breite = lerp(110, 38, k) * (0.85 + zufall.zahl() * 0.3);
-    const weg = lerp(260, 640, k) * (0.8 + zufall.zahl() * 0.4);
-    const y = clamp(vor.y + lerp(-110, 150, zufall.zahl()) * lerp(0.6, 1.2, k), 20, 560);
+    const breite = lerp(130, 58, k) * (0.85 + zufall.zahl() * 0.3);
+    const weg = lerp(170, 470, k) * (0.8 + zufall.zahl() * 0.4);
+    const y = clamp(vor.y + lerp(-80, 110, zufall.zahl()) * lerp(0.5, 1.1, k), 20, 560);
     const x0 = vor.x1 + weg;
     const x1 = x0 + breite;
 
     // Das Gelände dazwischen: unter beiden Plattformen bleibt es meist, ab
     // und zu ragt ein Berg darüber hinaus.
     const unten = Math.min(vor.y, y) - lerp(40, 90, zufall.zahl());
-    const berg = zufall.zahl() < lerp(0.25, 0.75, k);
-    const bergHoch = Math.max(vor.y, y) + lerp(30, 230, k) * (0.5 + zufall.zahl() * 0.5);
+    // Die ersten Sprünge gehen ohne Berg; danach immer öfter einer, immer höher.
+    const berg = zufall.zahl() < (n < 3 ? 0 : lerp(0.15, 0.65, k));
+    const bergHoch = Math.max(vor.y, y) + lerp(20, 200, k) * (0.5 + zufall.zahl() * 0.5);
     const bergMitte = lerp(0.3, 0.7, zufall.zahl());
     const wellen = 1 + Math.floor(zufall.zahl() * 3);
     const phase = zufall.zahl() * Math.PI * 2;
@@ -491,17 +500,39 @@
       const naechste = p.n === state.auf + 1;
       const erreicht = p.n <= state.auf;
       if (naechste) {
-        const strahl = g.createLinearGradient(0, p.y, 0, p.y + 260);
-        strahl.addColorStop(0, "rgba(255, 220, 120, 0.28)");
-        strahl.addColorStop(1, "rgba(255, 220, 120, 0)");
+        // Der Leitstrahl: golden, und grün und heller, solange er hilft.
+        const farbe = state.strahl ? "120, 255, 170" : "255, 220, 120";
+        const hell = state.strahl ? 0.42 : 0.26;
+        const oben = p.y + STRAHL_HOCH + 13;
+        const strahl = g.createLinearGradient(0, p.y, 0, oben);
+        strahl.addColorStop(0, `rgba(${farbe}, ${hell})`);
+        strahl.addColorStop(0.75, `rgba(${farbe}, ${hell * 0.4})`);
+        strahl.addColorStop(1, `rgba(${farbe}, 0)`);
         g.fillStyle = strahl;
         g.beginPath();
         g.moveTo(p.x0 + 4, p.y);
-        g.lineTo(p.x0 - 14, p.y + 260);
-        g.lineTo(p.x1 + 14, p.y + 260);
+        g.lineTo(p.x0 - STRAHL_RAND, oben);
+        g.lineTo(p.x1 + STRAHL_RAND, oben);
         g.lineTo(p.x1 - 4, p.y);
         g.closePath();
         g.fill();
+        // Feine Ringe, die im Strahl nach oben wandern.
+        if (!ruhig()) {
+          g.strokeStyle = `rgba(${farbe}, ${hell * 0.9})`;
+          g.lineWidth = 1.4 / view.s;
+          for (let i = 0; i < 3; i += 1) {
+            const u = (state.zeit * 0.45 + i / 3) % 1;
+            const y = p.y + 6 + u * STRAHL_HOCH;
+            const halb = (p.x1 - p.x0) / 2 + u * (STRAHL_RAND - 4);
+            const mx = (p.x0 + p.x1) / 2;
+            g.globalAlpha = 1 - u;
+            g.beginPath();
+            g.moveTo(mx - halb, y);
+            g.lineTo(mx + halb, y);
+            g.stroke();
+          }
+          g.globalAlpha = 1;
+        }
       }
       // Stützen
       g.fillStyle = "#5c6070";
@@ -885,16 +916,37 @@
     }
   }
 
+  // Ist sie im Leitstrahl der nächsten Plattform – darüber, nicht zu hoch,
+  // und nicht im Steigen? Dann gibt das die Plattform zurück.
+  function imStrahl() {
+    const f = state.f;
+    const p = state.platten[state.auf + 1];
+    if (!p || state.schritt !== "flug") return null;
+    const ueber = f.y - 13 - p.y;
+    if (f.x < p.x0 - STRAHL_RAND || f.x > p.x1 + STRAHL_RAND) return null;
+    if (ueber < -4 || ueber > STRAHL_HOCH || f.vy > 25) return null;
+    return p;
+  }
+
   function physik(dt) {
     const f = state.f;
     stelleNeigung();
     // Ohne Schub richtet sie sich langsam auf – und gleich nach dem Abheben
-    // steigt sie erst ein Stück gerade, bevor sie sich neigt.
+    // steigt sie erst ein Stück gerade, bevor sie sich neigt. Im Leitstrahl
+    // richtet sie sich zügig auf, was der Finger auch sagt.
+    const strahl = imStrahl();
+    state.strahl = Boolean(strahl);
     const frisch = state.zeit - state.schrittZeit < 0.3;
-    const ziel = !frisch && (state.schub || tasten.links || tasten.rechts || pruef.neig !== null) ? state.neigZiel : 0;
-    const tempo = state.schub ? NEIG_TEMPO : NEIG_TEMPO * 0.6;
+    const ziel = !strahl && !frisch && (state.schub || tasten.links || tasten.rechts || pruef.neig !== null) ? state.neigZiel : 0;
+    const tempo = strahl ? NEIG_TEMPO * 1.6 : state.schub ? NEIG_TEMPO : NEIG_TEMPO * 0.6;
     const fehlt = ziel - f.neig;
     f.neig += clamp(fehlt, -tempo * dt, tempo * dt);
+    // Und sie gleitet über die Mitte der Plattform und hält dort still.
+    if (strahl) {
+      const mitte = (strahl.x0 + strahl.x1) / 2;
+      const soll = clamp((mitte - f.x) * 1.4, -45, 45);
+      f.vx += (soll - f.vx) * (1 - Math.exp(-dt * 3));
+    }
 
     const brennt = state.schub && state.tank > 0;
     if (brennt) {
@@ -953,12 +1005,12 @@
       // etwas mehr – anfangs reichlich, nach oben knapper. Wer
       // verschwenderisch fliegt, kommt so nicht ewig weiter.
       while (state.platten.length < platte.n + 3) naechstePlatte();
-      const weiter = state.platten[platte.n + 1].bedarf * lerp(1.45, 1.12, schwereBei(platte.n));
-      const nach = clamp(Math.round(weiter), 18, 85);
+      const weiter = state.platten[platte.n + 1].bedarf * lerp(1.9, 1.25, schwereBei(platte.n));
+      const nach = clamp(Math.round(weiter), 25, 90);
       state.tank = Math.min(TANK, state.tank + nach);
       const mitte = (platte.x0 + platte.x1) / 2;
       const genau = Math.abs(f.x - mitte) < (platte.x1 - platte.x0) * 0.15;
-      if (weich < 12 && genau) {
+      if (weich < 16 && genau) {
         state.perfekt += 1;
         schrift("Perfekt gelandet!", f.x, f.y + 34, "#ffe08a", 16);
         kids()?.playJingle?.("star");
@@ -987,6 +1039,7 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.2);
     state.flamme = ruhig() ? 0.5 : Math.random();
 
+    if (state.schritt !== "flug") state.strahl = false;
     if (state.schritt === "flug") {
       const n = Math.max(1, Math.ceil(dt / TAKT));
       for (let i = 0; i < n && state.schritt === "flug"; i += 1) physik(dt / n);

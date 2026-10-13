@@ -5,17 +5,25 @@
  * schneller. Ein Tipp, und die Schwerkraft kehrt sich um: Er fällt an die
  * Decke und rennt dort kopfüber weiter. Noch ein Tipp, und er fällt zurück.
  *
- * Im Weg liegen Lücken, in die er ins Leere stürzt, Stacheln und Blöcke.
- * Mal am Boden, mal an der Decke – nie an beiden zugleich, und dazwischen
- * immer ein Stück, auf dem beide frei sind, lang genug für einen Wechsel.
- * Wer im falschen Moment wechselt, landet im Loch.
+ * Im Weg liegen Lücken, in die er ins Leere stürzt, Stacheln und Blöcke –
+ * und bald auch beides zugleich:
+ *
+ *   Zickzack   Lücken oben und unten im Wechsel. Wer zu früh wechselt,
+ *              landet im Loch auf der anderen Seite; wer zu spät wechselt,
+ *              fällt in das auf seiner. Dazwischen ein schmales Fenster.
+ *   Steg       Boden und Decke fehlen, in der Mitte liegt ein Steg. Vom
+ *              Boden springt man unter ihn, von der Decke auf ihn – im
+ *              richtigen Moment, sonst stösst man an seine Stirn.
+ *   Stacheln   Später trägt eine Seite des Stegs Stacheln: Dann zählt, von
+ *              wo man kommt.
  *
  * Gezählt wird, wie weit er kommt, in Metern.
  *
  * Gebaut wird der Korridor aus dem Zufall (zufall.js): ohne Turnier jedes
- * Mal ein anderer, im Turnier für alle im selben Versuch derselbe. Wie lang
- * die freien Stücke sind, folgt aus dem Tempo an dieser Stelle: so lang, wie
- * ein Wechsel dauert, und etwas Zeit zum Reagieren – nach hinten weniger.
+ * Mal ein anderer, im Turnier für alle im selben Versuch derselbe. Jedes
+ * Stück ist aus der Fallzeit gerechnet: Wie weit er fliegt, bis er drüben
+ * ist, folgt aus dem Tempo an dieser Stelle – das Fenster, in dem ein
+ * Wechsel gelingt, wird nach hinten schmaler, nie zu.
  *
  * Die Gegner (geist.js) stehen als Linie quer durch den Korridor.
  *
@@ -44,6 +52,10 @@
   // Die Welt
   // ---------------------------------------------------------------------------
   const HOCH = 170;                // von Boden zu Decke
+  const MITTE = HOCH / 2;          // hier liegt ein Steg …
+  const DICK = 8;                  // … so dick
+  const STEG_U = MITTE - DICK / 2; // seine Unterseite
+  const STEG_O = MITTE + DICK / 2; // seine Oberseite
   const SICHT_H = 300;
   const WELT_W = 440;              // so viel Korridor ist mindestens zu sehen
   const WELT_W_MAX = 780;
@@ -55,20 +67,25 @@
   const LEISTE = 14;               // so dick sind Boden und Decke
   const SCHWER = 2600;             // so stark zieht es
   const VORLAUF = 400;             // freier Korridor vor dem Start
-  const START_FREI = 520;          // und danach, bevor das Erste kommt
+  const START_FREI = 380;          // und danach, bevor das Erste kommt
   const TAKT = 1 / 240;
 
-  const V0 = 240;
-  const V_MAX = 500;
-  const V_WEG = 900;               // Meter
+  const V0 = 270;
+  const V_MAX = 560;
+  const V_WEG = 700;               // Meter
 
-  // Wie lange ein Wechsel dauert: von einer Seite zur anderen fallen.
-  const WECHSEL = Math.sqrt((2 * (HOCH - GROSS)) / SCHWER);
+  // Wie lange er fällt: von einer Seite zur anderen, vom Boden unter den
+  // Steg (oder von der Decke auf ihn), und vom Steg weg.
+  const fallZeit = (weg) => Math.sqrt((2 * weg) / SCHWER);
+  const WECHSEL = fallZeit(HOCH - GROSS);
+  const ZUM_STEG = fallZeit(STEG_U - GROSS);
+  const VOM_STEG = fallZeit(STEG_O);
 
   const HELP = [
     "Schwerkraft-Läufer. Der Roboter rennt von allein.",
     "Tippe aufs Bild, dann kehrt sich die Schwerkraft um: Er fällt an die Decke und rennt dort weiter. Tippe noch einmal, und er fällt zurück auf den Boden.",
-    "Weich den Lücken, den Stacheln und den Blöcken aus. Es wird immer schneller. Es zählt, wie weit du kommst, in Metern.",
+    "Weich den Lücken, den Stacheln und den Blöcken aus. Fehlen Boden und Decke, spring auf den Steg in der Mitte – vom Boden landest du darunter, von der Decke darauf.",
+    "Es wird immer schneller. Es zählt, wie weit du kommst, in Metern.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -88,7 +105,13 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const meterBei = (x) => Math.max(0, x / METER);
   const tempoBei = (x) => V0 + (V_MAX - V0) * (1 - Math.exp(-meterBei(x) / V_WEG));
-  const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / 700);
+  const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / 450);
+  // Was davon abhängt: die Zeit zum Reagieren auf einem freien Stück, das
+  // Fenster, in dem ein Wechsel gelingt, und wie lange er mindestens steht,
+  // bevor er wieder wechseln muss – alles in Sekunden.
+  const reagierenBei = (k) => lerp(0.42, 0.18, k);
+  const fensterBei = (k) => lerp(0.26, 0.11, k);
+  const stehenBei = (k) => lerp(0.28, 0.09, k);
 
   function hash01(n) {
     const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -106,16 +129,14 @@
     punkte: 0,
     meter: 0,
     wechsel: 0,
-    l: { x: 0, y: 0, vy: 0 },
-    richtung: -1,         // -1: es zieht zum Boden, 1: zur Decke
-    steht: true,
+    l: null,              // der Läufer (neuerLaeufer)
     drehung: 0,           // 0 am Boden, π an der Decke – dazwischen im Fall
     vorgemerkt: 0,        // ein Tipp kurz vor der Landung gilt danach
-    losgelassen: 0,       // wann er zuletzt Boden unter den Füssen hatte
     bahnen: [[], []],     // Boden, Decke: { x0, x1, art }
     bloecke: [],          // { x0, x1, bahn, hoch }
+    stege: [],            // { x0, x1, oben, unten } – "fest" oder "stachel"
     kopf: 0,
-    blockiert: 0,         // welche Seite zuletzt versperrt war
+    ort: null,            // wo er am Ende des Gebauten sein muss: 0, 1 oder offen
     grund: "",
     teile: [],
     schatten: [],
@@ -152,17 +173,24 @@
   /*
    * Boden und Decke sind je eine Kette von Stücken: fest, Lücke oder
    * Stacheln, ohne Fuge. Dazu kommen Blöcke, die auf einem festen Stück
-   * stehen. Gebaut wird in Abschnitten:
+   * stehen, und Stege in der Mitte. Gebaut wird in Stücken, jedes mit einem
+   * Anlauf davor:
    *
-   *   versperrt   eine Seite hat eine Lücke, Stacheln oder Blöcke, die andere
-   *               ist frei – dort muss man sein
-   *   frei        beide Seiten frei, so lang, wie ein Wechsel dauert, und
-   *               ein wenig länger: Zeit, um zu reagieren
+   *   Seitenwechsel  eine Seite versperrt (Lücke, Stacheln oder Blöcke),
+   *                  die andere frei – dort muss man sein
+   *   Zickzack       Lücken oben und unten im Wechsel; jeder Wechsel hat
+   *                  ein Fenster: früher landet man im Loch drüben, später
+   *                  fällt man in das hüben
+   *   Steg           Boden und Decke fehlen, ein Steg in der Mitte trägt –
+   *                  von unten oder oben, oder nur von einer Seite, wenn
+   *                  die andere Stacheln hat
    *
-   * So gibt es immer einen Weg, und wer im richtigen Moment wechselt, kommt
-   * durch.
+   * Der Anlauf ist kurz, wenn der Läufer schon auf der richtigen Seite sein
+   * muss, und so lang wie ein Wechsel und die Zeit zum Reagieren, wenn er
+   * erst hinüber muss. So gibt es immer einen Weg.
    */
   function lege(bahn, x0, x1, art) {
+    if (x1 <= x0 + 0.01) return;
     const liste = state.bahnen[bahn];
     const vor = liste[liste.length - 1];
     if (vor && vor.art === art && Math.abs(vor.x1 - x0) < 0.01) vor.x1 = x1;
@@ -174,47 +202,148 @@
     lege(1, x0, x1, "fest");
   }
 
+  // Eine Seite von x0 bis x1: fest, wo eines der festen Stücke liegt, sonst
+  // die Gefahr. Stacheln greifen weiter als Lücken: Wer abspringt, ist noch
+  // einen Moment in ihrer Höhe, und wer ankommt, schon einen Moment vorher.
+  // Die festen Stücke reichen dort also etwas weiter, damit das Fenster für
+  // den Wechsel dasselbe bleibt.
+  function fuelle(bahn, x0, x1, feste, gefahr, v) {
+    const vorher = gefahr === "stachel" ? 8 + v * 0.012 : 0;
+    const nachher = gefahr === "stachel" ? 6 + v * 0.095 : 0;
+    let x = x0;
+    feste.forEach(([a, b]) => {
+      const von = clamp(a - vorher, x, x1);
+      const bis = clamp(b + nachher, x, x1);
+      if (bis <= von) return;
+      lege(bahn, x, von, gefahr);
+      lege(bahn, von, bis, "fest");
+      x = bis;
+    });
+    lege(bahn, x, x1, gefahr);
+  }
+
+  const gefahrBei = (k) => (zufall.zahl() < lerp(0.15, 0.45, k) ? "stachel" : "luecke");
+
+  function anlauf(seite, k, v) {
+    const x = state.kopf;
+    const hinueber = seite !== null && state.ort !== seite;
+    const lang = hinueber ? v * (WECHSEL + reagierenBei(k)) + BREIT * 2 : v * reagierenBei(k) * 0.5;
+    if (hinueber || state.ort === null) {
+      frei(x, x + lang);
+    } else {
+      lege(state.ort, x, x + lang, "fest");
+      lege(1 - state.ort, x, x + lang, "luecke");
+    }
+    state.kopf = x + lang;
+  }
+
+  function seitenwechsel(k, v) {
+    const zuletzt = state.ort;
+    // Meist ist gerade die Seite versperrt, auf der er ist.
+    const bahn = zuletzt !== null && zufall.zahl() < lerp(0.8, 0.7, k) ? zuletzt : zufall.zahl() < 0.5 ? 0 : 1;
+    const frei1 = 1 - bahn;
+    anlauf(frei1, k, v);
+    const x = state.kopf;
+    const lang = v * lerp(0.45, 1.0, zufall.zahl()) * lerp(1, 0.8, k);
+    const wahl = zufall.zahl();
+    const art = wahl < 0.42 ? "luecke" : wahl < 0.72 ? "stachel" : "block";
+    if (art === "block") {
+      // Ein bis drei Blöcke; der letzte schliesst mit dem Stück ab.
+      lege(bahn, x, x + lang, "fest");
+      lege(frei1, x, x + lang, "fest");
+      const anzahl = 1 + Math.floor(zufall.zahl() * 3);
+      const hoch = lerp(46, 64, zufall.zahl());
+      const breite = Math.min(70, lang / (anzahl * 1.6));
+      for (let i = 0; i < anzahl; i += 1) {
+        const bx = anzahl === 1 ? x : x + ((lang - breite) * i) / (anzahl - 1);
+        state.bloecke.push({ x0: bx, x1: bx + breite, bahn, hoch });
+      }
+    } else {
+      lege(bahn, x, x + lang, art);
+      lege(frei1, x, x + lang, "fest");
+    }
+    state.kopf = x + lang;
+    state.ort = frei1;
+  }
+
+  function zickzack(k, v) {
+    const seite0 = state.ort ?? (zufall.zahl() < 0.5 ? 0 : 1);
+    const anzahl = 2 + Math.floor(zufall.zahl() * lerp(2.2, 4.2, k));
+    const gefahr = [gefahrBei(k), gefahrBei(k)];
+    anlauf(seite0, k, v);
+    const x0 = state.kopf;
+    const fenster = v * fensterBei(k);
+    const flug = v * WECHSEL;
+    const feste = [[], []];
+    let seite = seite0;
+    let ab = x0;          // ab hier trägt seine Seite
+    let spaet = x0;       // spätestens hier ist er gelandet
+    for (let i = 0; i < anzahl; i += 1) {
+      const von = spaet + v * stehenBei(k) * (0.8 + zufall.zahl() * 0.6);
+      const bis = von + fenster;
+      // Hüben trägt es bis zum Ende des Fensters, drüben ab der frühesten
+      // Landung – wer zu spät abspringt, rennt noch ein paar Zentimeter
+      // über die Kante (und darf dort noch tippen), landet also später.
+      feste[seite].push([ab, bis]);
+      ab = von + flug;
+      spaet = bis + flug + BREIT / 2 + v * 0.08;
+      seite = 1 - seite;
+    }
+    const ende = spaet + v * reagierenBei(k) * 0.6;
+    feste[seite].push([ab, ende]);
+    fuelle(0, x0, ende, feste[0], gefahr[0], v);
+    fuelle(1, x0, ende, feste[1], gefahr[1], v);
+    state.kopf = ende;
+    state.ort = seite;
+  }
+
+  function steg(k, v) {
+    const stacheln = meterBei(state.kopf) >= 250 && zufall.zahl() < lerp(0.25, 0.5, k)
+      ? (zufall.zahl() < 0.5 ? "oben" : "unten")
+      : null;
+    // Oben Stacheln: Er muss vom Boden kommen und darunter hängen. Unten
+    // Stacheln: von der Decke, und obendrauf.
+    const seite = stacheln === "oben" ? 0 : stacheln === "unten" ? 1 : null;
+    const gefahr = [gefahrBei(k), gefahrBei(k)];
+    anlauf(seite, k, v);
+    const x0 = state.kopf;
+    const fenster = v * fensterBei(k) * 1.15;
+    const kurz = v * ZUM_STEG;
+    // Ab d0 fehlen Boden und Decke. Wer im Fenster davor abspringt, landet
+    // am Steg; wer früher springt, stösst an seine Stirn oder fliegt vorbei.
+    const d0 = x0 + v * stehenBei(k) * (1 + zufall.zahl() * 0.5) + fenster;
+    const s0 = d0 - fenster + kurz;
+    const d1 = d0 + v * lerp(0.6, 1.2, zufall.zahl()) * lerp(1, 0.9, k);
+    const s1 = Math.max(d1, s0 + 60) + v * lerp(0.22, 0.08, k);
+    const ende = s1 + v * (VOM_STEG + reagierenBei(k) * 0.5);
+    fuelle(0, x0, ende, [[x0, d0], [d1, ende]], gefahr[0], v);
+    fuelle(1, x0, ende, [[x0, d0], [d1, ende]], gefahr[1], v);
+    state.stege.push({
+      x0: s0, x1: s1,
+      oben: stacheln === "oben" ? "stachel" : "fest",
+      unten: stacheln === "unten" ? "stachel" : "fest",
+    });
+    state.kopf = ende;
+    state.ort = null;
+  }
+
   function naechsterAbschnitt() {
     const x = state.kopf;
     if (x < START_FREI) {
       frei(-VORLAUF, START_FREI);
       state.kopf = START_FREI;
+      state.ort = null;
       return;
     }
     const k = schwereBei(x);
     const v = tempoBei(x);
-    // Welche Seite versperrt ist: meist die andere als zuletzt.
-    const bahn = zufall.zahl() < lerp(0.84, 0.72, k) ? 1 - state.blockiert : state.blockiert;
-    state.blockiert = bahn;
-    const lang = v * lerp(0.42, 1.05, zufall.zahl()) * lerp(1, 0.85, k);
+    const m = meterBei(x);
     const wahl = zufall.zahl();
-    const art = wahl < 0.42 ? "luecke" : wahl < 0.74 ? "stachel" : "block";
-    if (art === "block") {
-      // Ein bis drei Blöcke auf der versperrten Seite. Der Boden darunter
-      // bleibt fest; wer zwischen ihnen Platz für zwei Wechsel findet, darf
-      // ihn nutzen.
-      lege(bahn, x, x + lang, "fest");
-      lege(1 - bahn, x, x + lang, "fest");
-      // Der erste Block steht erst ein Stück hinter dem Anfang: Wer am Ende
-      // des freien Stücks wechselt, ist schon über ihm.
-      const anzahl = 1 + Math.floor(zufall.zahl() * 3);
-      const hoch = lerp(46, 64, zufall.zahl());
-      const von = x + v * 0.18;
-      const platz = Math.max(40, x + lang - von);
-      const breite = Math.min(70, platz / (anzahl * 1.6));
-      for (let i = 0; i < anzahl; i += 1) {
-        const bx = von + (platz * (i + 0.5)) / anzahl - breite / 2;
-        state.bloecke.push({ x0: bx, x1: bx + breite, bahn, hoch });
-      }
-    } else {
-      lege(bahn, x, x + lang, art);
-      lege(1 - bahn, x, x + lang, "fest");
-    }
-    // Danach frei: ein Wechsel und die Zeit, ihn zu beginnen.
-    const reagieren = lerp(0.52, 0.27, k) * (0.85 + zufall.zahl() * 0.4);
-    const ruhe = v * (WECHSEL + reagieren) + BREIT * 2;
-    frei(x + lang, x + lang + ruhe);
-    state.kopf = x + lang + ruhe;
+    const zz = m < 40 ? 0 : lerp(0.34, 0.4, k);
+    const st = m < 90 ? 0 : lerp(0.24, 0.3, k);
+    if (wahl < zz) zickzack(k, v);
+    else if (wahl < zz + st) steg(k, v);
+    else seitenwechsel(k, v);
   }
 
   function korridorBis(x) {
@@ -242,6 +371,22 @@
     const b = stueckBei(bahn, x + BREIT / 2 - 3);
     return a.art !== "luecke" || b.art !== "luecke";
   }
+
+  // Was in der Nähe einer Stelle liegt: Stege und Blöcke sind nach ihrem
+  // Anfang geordnet, gesucht wird von hinten.
+  function nahe(liste, x, rand) {
+    const raus = [];
+    for (let i = liste.length - 1; i >= 0; i -= 1) {
+      const d = liste[i];
+      if (d.x0 > x + rand) continue;
+      if (d.x0 < x - 2000) break;
+      if (d.x1 >= x - rand) raus.push(d);
+    }
+    return raus;
+  }
+
+  // Steht er (mit der Fussspitze) auf einem Steg?
+  const aufSteg = (steg, x) => x + BREIT / 2 - 3 > steg.x0 && x - BREIT / 2 + 3 < steg.x1;
 
   // ---------------------------------------------------------------------------
   // Die Fläche
@@ -500,6 +645,46 @@
       });
     });
 
+    // Die Stege: schmale Leisten in der Mitte, grün leuchtend, oben und
+    // unten begehbar – ausser wo Stacheln stehen.
+    state.stege.forEach((st) => {
+      if (st.x1 < x0 || st.x0 > x1) return;
+      const w = st.x1 - st.x0;
+      const koerper = g.createLinearGradient(0, STEG_U, 0, STEG_O);
+      koerper.addColorStop(0, "rgba(10, 60, 45, 0.95)");
+      koerper.addColorStop(0.5, "rgba(30, 110, 80, 0.95)");
+      koerper.addColorStop(1, "rgba(10, 60, 45, 0.95)");
+      g.fillStyle = koerper;
+      g.fillRect(st.x0, STEG_U, w, DICK);
+      g.strokeStyle = `rgba(120, 255, 170, ${0.28 * puls})`;
+      g.lineWidth = 7 / view.s;
+      g.strokeRect(st.x0, STEG_U, w, DICK);
+      g.strokeStyle = "#78ffaa";
+      g.lineWidth = 1.8 / view.s;
+      g.strokeRect(st.x0, STEG_U, w, DICK);
+      // Leuchtpunkte an den Enden, damit man die Stirn sieht.
+      g.fillStyle = "#eafff2";
+      [st.x0 + 3, st.x1 - 3].forEach((ex) => {
+        g.beginPath();
+        g.arc(ex, MITTE, 1.8, 0, Math.PI * 2);
+        g.fill();
+      });
+      [["oben", STEG_O, 1], ["unten", STEG_U, -1]].forEach(([seite, flaeche, nach]) => {
+        if (st[seite] !== "stachel") return;
+        g.fillStyle = "#ff3355";
+        g.beginPath();
+        for (let sx = st.x0 + 2; sx + 10 <= st.x1 - 2 + 0.01; sx += 10) {
+          g.moveTo(sx, flaeche);
+          g.lineTo(sx + 5, flaeche + nach * STACHEL);
+          g.lineTo(sx + 10, flaeche);
+        }
+        g.fill();
+        g.strokeStyle = `rgba(255, 120, 140, ${0.5 * puls})`;
+        g.lineWidth = 1.2 / view.s;
+        g.stroke();
+      });
+    });
+
     // Die Blöcke: dunkel, mit Neonrand und Warnstreifen.
     state.bloecke.forEach((b) => {
       if (b.x1 < x0 || b.x0 > x1) return;
@@ -576,9 +761,9 @@
     g.globalAlpha = alpha;
     g.translate(l.x, l.y + GROSS / 2);
     g.rotate(drehung);
-    const lauf = state.steht && state.schritt === "lauf" && !nachbild ? Math.sin(state.zeit * 28) : 0;
+    const lauf = state.l.steht && state.schritt === "lauf" && !nachbild ? Math.sin(state.zeit * 28) : 0;
     if (nachbild) {
-      g.fillStyle = state.richtung > 0 ? "rgba(255, 79, 216, 0.5)" : "rgba(0, 240, 255, 0.5)";
+      g.fillStyle = state.l.richtung > 0 ? "rgba(255, 79, 216, 0.5)" : "rgba(0, 240, 255, 0.5)";
       g.fillRect(-BREIT / 2, -GROSS / 2, BREIT, GROSS);
       g.restore();
       return;
@@ -605,7 +790,7 @@
     // Visier, nach vorn
     g.fillStyle = "#0b0424";
     g.fillRect(-1, 2, BREIT / 2 + 0.5, 7);
-    g.fillStyle = state.richtung > 0 ? "#ff4fd8" : "#00f0ff";
+    g.fillStyle = state.l.richtung > 0 ? "#ff4fd8" : "#00f0ff";
     g.fillRect(1.5, 4, 5.5, 3);
     g.fillStyle = "rgba(255,255,255,0.8)";
     g.fillRect(5, 4.5, 1.2, 1.2);
@@ -616,7 +801,7 @@
     g.moveTo(-3, GROSS / 2);
     g.lineTo(-4.5, GROSS / 2 + 4);
     g.stroke();
-    g.fillStyle = state.richtung > 0 ? "#ff4fd8" : "#00f0ff";
+    g.fillStyle = state.l.richtung > 0 ? "#ff4fd8" : "#00f0ff";
     g.beginPath();
     g.arc(-4.5, GROSS / 2 + 4.5, 1.6, 0, Math.PI * 2);
     g.fill();
@@ -709,26 +894,112 @@
   // ---------------------------------------------------------------------------
   // Der Lauf
   // ---------------------------------------------------------------------------
+  // Der Läufer als eigenes Ding, damit sich sein Weg auch vorausrechnen
+  // lässt (für die Prüfskripte): wo er ist, wohin es ihn zieht, ob er steht
+  // und worauf – null heisst Boden oder Decke, sonst der Steg.
+  function neuerLaeufer() {
+    return { x: 0, y: 0, vy: 0, richtung: -1, steht: true, auf: null, losgelassen: -1, zeit: 0 };
+  }
+
+  // Darf er jetzt umkehren? Wenn er steht – oder eben erst über eine Kante
+  // gelaufen ist.
+  const kannKehren = (l) => l.steht || (Math.abs(l.vy) < 200 && l.zeit - l.losgelassen < 0.08);
+
+  function kehre(l) {
+    l.richtung = -l.richtung;
+    l.steht = false;
+    l.auf = null;
+  }
+
+  // Ein Schritt. Gibt zurück, woran er scheitert – "loch", "stachel",
+  // "block" –, sonst null.
+  function bewege(l, dt) {
+    l.zeit += dt;
+    l.x += tempoBei(l.x) * dt;
+    const r = l.richtung;
+    if (l.steht) {
+      const traegtNoch = l.auf ? aufSteg(l.auf, l.x) : traegt(r < 0 ? 0 : 1, l.x);
+      if (!traegtNoch) {
+        // Kein Boden mehr unter den Füssen: Er fällt hinaus.
+        l.steht = false;
+        l.auf = null;
+        l.losgelassen = l.zeit;
+      }
+    }
+    const stege = nahe(state.stege, l.x, BREIT);
+    if (!l.steht) {
+      const vorher = l.y;
+      l.vy += r * SCHWER * dt;
+      l.y += l.vy * dt;
+      // Landen: auf einem Steg, wenn er von oben kommt, darunter, wenn von
+      // unten – sonst am Boden oder an der Decke, wo es trägt.
+      let steg = null;
+      if (r < 0) {
+        steg = stege.find((st) => vorher >= STEG_O - 0.01 && l.y <= STEG_O && aufSteg(st, l.x)) || null;
+        if (steg) l.y = STEG_O;
+      } else {
+        steg = stege.find((st) => vorher + GROSS <= STEG_U + 0.01 && l.y + GROSS >= STEG_U && aufSteg(st, l.x)) || null;
+        if (steg) l.y = STEG_U - GROSS;
+      }
+      let gelandet = Boolean(steg);
+      if (!gelandet && r < 0 && l.y <= 0 && l.y > -8 && traegt(0, l.x)) {
+        l.y = 0;
+        gelandet = true;
+      } else if (!gelandet && r > 0 && l.y + GROSS >= HOCH && l.y + GROSS < HOCH + 8 && traegt(1, l.x)) {
+        l.y = HOCH - GROSS;
+        gelandet = true;
+      }
+      if (gelandet) {
+        l.vy = 0;
+        l.steht = true;
+        l.auf = steg;
+        if (steg && (r < 0 ? steg.oben : steg.unten) === "stachel") return "stachel";
+      }
+      if (l.y < -70 || l.y > HOCH + 70) return "loch";
+    }
+
+    // Stacheln: auf ihnen stehen, oder in sie hineinfallen.
+    const fussX0 = l.x - BREIT / 2 + 3;
+    const fussX1 = l.x + BREIT / 2 - 3;
+    for (const b of [0, 1]) {
+      const dran = b === 0 ? l.y < STACHEL - 2 && l.y > -6 : l.y + GROSS > HOCH - STACHEL + 2 && l.y + GROSS < HOCH + 6;
+      if (!dran) continue;
+      if (stueckBei(b, fussX0).art === "stachel" || stueckBei(b, fussX1).art === "stachel") return "stachel";
+    }
+    // Die Stirn eines Stegs.
+    for (const st of stege) {
+      if (l.x + BREIT / 2 - 2 > st.x0 && l.x - BREIT / 2 + 2 < st.x1 && l.y + GROSS - 2 > STEG_U && l.y + 2 < STEG_O) return "block";
+    }
+    // Blöcke.
+    for (const b of nahe(state.bloecke, l.x, BREIT)) {
+      const y0 = b.bahn === 0 ? 0 : HOCH - b.hoch;
+      const y1 = y0 + b.hoch;
+      if (l.x + BREIT / 2 - 2 > b.x0 && l.x - BREIT / 2 + 2 < b.x1 && l.y + GROSS - 2 > y0 && l.y + 2 < y1) return "block";
+    }
+    return null;
+  }
+
   function umkehren() {
-    state.richtung = -state.richtung;
-    state.steht = false;
+    const l = state.l;
+    kehre(l);
     state.wechsel += 1;
     state.puls += 0.5;
-    funken(state.l.x, state.richtung > 0 ? state.l.y : state.l.y + GROSS, state.richtung > 0 ? "#00f0ff" : "#ff4fd8", 6, -state.richtung);
+    funken(l.x, l.richtung > 0 ? l.y : l.y + GROSS, l.richtung > 0 ? "#00f0ff" : "#ff4fd8", 6, -l.richtung);
     kids()?.playJingle?.("tap");
   }
 
   function aus(grund) {
     if (state.schritt !== "lauf") return;
+    const l = state.l;
     state.schritt = "aus";
     state.grund = grund;
     state.endeZeit = state.zeit;
     if (grund !== "loch") {
       state.stoss = 1;
-      funken(state.l.x + BREIT / 2, state.l.y + GROSS / 2, "#ff3355", 22);
-      funken(state.l.x + BREIT / 2, state.l.y + GROSS / 2, "#8f7bff", 16);
+      funken(l.x + BREIT / 2, l.y + GROSS / 2, "#ff3355", 22);
+      funken(l.x + BREIT / 2, l.y + GROSS / 2, "#8f7bff", 16);
     } else {
-      schrift("Ins Leere!", state.l.x + 40, HOCH / 2, "#ff7aa8", 15);
+      schrift("Ins Leere!", l.x + 40, HOCH / 2, "#ff7aa8", 15);
     }
     kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 60]);
@@ -737,59 +1008,20 @@
 
   function physik(dt) {
     const l = state.l;
-    const v = tempoBei(l.x);
-    l.x += v * dt;
-    const bahn = state.richtung < 0 ? 0 : 1;
-
-    if (state.steht) {
-      if (!traegt(bahn, l.x)) {
-        // Kein Boden mehr unter den Füssen: Er fällt hinaus.
-        state.steht = false;
-        state.losgelassen = state.zeit;
-      }
-    } else {
-      l.vy += state.richtung * SCHWER * dt;
-      l.y += l.vy * dt;
-      // Landen, wenn unter ihm fest ist – sonst fällt er weiter.
-      if (state.richtung < 0 && l.y <= 0 && l.y > -8 && traegt(0, l.x)) {
-        l.y = 0;
-        l.vy = 0;
-        state.steht = true;
-        landung(0);
-      } else if (state.richtung > 0 && l.y + GROSS >= HOCH && l.y + GROSS < HOCH + 8 && traegt(1, l.x)) {
-        l.y = HOCH - GROSS;
-        l.vy = 0;
-        state.steht = true;
-        landung(1);
-      }
-      if (l.y < -70 || l.y > HOCH + 70) { aus("loch"); return; }
-    }
-
-    // Stacheln: auf ihnen stehen, oder in sie hineinfallen.
-    const fussX0 = l.x - BREIT / 2 + 3;
-    const fussX1 = l.x + BREIT / 2 - 3;
-    for (const b of [0, 1]) {
-      const nahe = b === 0 ? l.y < STACHEL - 2 && l.y > -6 : l.y + GROSS > HOCH - STACHEL + 2 && l.y + GROSS < HOCH + 6;
-      if (!nahe) continue;
-      if (stueckBei(b, fussX0).art === "stachel" || stueckBei(b, fussX1).art === "stachel") { aus("stachel"); return; }
-    }
-    // Blöcke.
-    for (const b of state.bloecke) {
-      if (b.x1 < l.x - BREIT || b.x0 > l.x + BREIT) continue;
-      const y0 = b.bahn === 0 ? 0 : HOCH - b.hoch;
-      const y1 = y0 + b.hoch;
-      if (l.x + BREIT / 2 - 2 > b.x0 && l.x - BREIT / 2 + 2 < b.x1 && l.y + GROSS - 2 > y0 && l.y + 2 < y1) { aus("block"); return; }
-    }
-
+    const stand = l.steht;
+    const grund = bewege(l, dt);
+    if (grund) { aus(grund); return; }
+    if (!stand && l.steht) landung(l);
     // Ein Tipp kurz vor der Landung gilt jetzt.
-    if (state.steht && state.vorgemerkt && state.zeit - state.vorgemerkt < 0.14) {
+    if (l.steht && state.vorgemerkt && l.zeit - state.vorgemerkt < 0.12) {
       state.vorgemerkt = 0;
       umkehren();
     }
   }
 
-  function landung(bahn) {
-    funken(state.l.x, bahn === 0 ? 0 : HOCH, bahn === 0 ? "#00f0ff" : "#ff4fd8", 5, bahn === 0 ? 1 : -1);
+  function landung(l) {
+    const y = l.richtung < 0 ? l.y : l.y + GROSS;
+    funken(l.x, y, l.auf ? "#78ffaa" : l.richtung < 0 ? "#00f0ff" : "#ff4fd8", 5, l.richtung < 0 ? 1 : -1);
     kids()?.vibrate?.(6);
   }
 
@@ -814,21 +1046,18 @@
     } else if (state.schritt === "start") {
       state.l.y = 0;
     } else if (state.schritt === "aus" && state.grund === "loch") {
-      state.l.vy += state.richtung * SCHWER * dt;
+      state.l.vy += state.l.richtung * SCHWER * dt;
       state.l.y += state.l.vy * dt;
       state.l.x += tempoBei(state.l.x) * dt * 0.5;
     }
 
-    // Die Drehung folgt dem Weg von einer Seite zur anderen.
-    const ziel = state.richtung > 0 ? Math.PI : 0;
-    if (state.steht || state.schritt !== "lauf") {
-      state.drehung += (ziel - state.drehung) * (1 - Math.exp(-dt * 30));
-    } else {
-      state.drehung = Math.PI * clamp(state.l.y / (HOCH - GROSS), 0, 1);
-    }
+    // Die Drehung folgt der Schwerkraft: im Fall zügig, am Boden sofort.
+    const ziel = state.l.richtung > 0 ? Math.PI : 0;
+    const zug = state.l.steht || state.schritt !== "lauf" ? 30 : 16;
+    state.drehung += (ziel - state.drehung) * (1 - Math.exp(-dt * zug));
 
     // Nachbilder im Fall.
-    if (!ruhig() && state.schritt === "lauf" && !state.steht) {
+    if (!ruhig() && state.schritt === "lauf" && !state.l.steht) {
       state.schatten.push({ x: state.l.x, y: state.l.y, drehung: state.drehung, alpha: 0.35 });
     }
     for (let i = state.schatten.length - 1; i >= 0; i -= 1) {
@@ -878,9 +1107,8 @@
     if (state.schritt !== "lauf") return;
     // Am Boden, oder eben erst über eine Kante: Er kehrt um. In der Luft
     // merkt er sich den Tipp für die Landung.
-    const kante = !state.steht && Math.abs(state.l.vy) < 200 && state.zeit - state.losgelassen < 0.08;
-    if (state.steht || kante) umkehren();
-    else state.vorgemerkt = state.zeit;
+    if (kannKehren(state.l)) umkehren();
+    else state.vorgemerkt = state.l.zeit;
   }
 
   // ---------------------------------------------------------------------------
@@ -897,16 +1125,14 @@
     state.punkte = 0;
     state.meter = 0;
     state.wechsel = 0;
-    state.l = { x: 0, y: 0, vy: 0 };
-    state.richtung = -1;
-    state.steht = true;
+    state.l = neuerLaeufer();
     state.drehung = 0;
     state.vorgemerkt = 0;
-    state.losgelassen = -1;
     state.bahnen = [[], []];
     state.bloecke = [];
+    state.stege = [];
     state.kopf = -VORLAUF;
-    state.blockiert = 1;
+    state.ort = null;
     state.grund = "";
     state.teile = [];
     state.schatten = [];
@@ -1008,6 +1234,7 @@
 
   // Für die Prüfskripte.
   window.LernappSchwerkraft = {
-    HOCH, GROSS, BREIT, WECHSEL, METER, state, view, takt, tippen, korridorBis, stueckBei, traegt, tempoBei,
+    HOCH, GROSS, BREIT, WECHSEL, ZUM_STEG, METER, STEG_U, STEG_O, state, view, takt, tippen, korridorBis, stueckBei, traegt, tempoBei,
+    neuerLaeufer, bewege, kehre, kannKehren, schwereBei, fensterBei,
   };
 })();

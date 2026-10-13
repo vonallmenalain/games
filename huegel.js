@@ -3,9 +3,11 @@
  * ---------------------------------------------------------------------------
  * Ein kleiner Vogel rutscht über eine Kette von Hügeln. Fliegen kann er
  * nicht recht – aber schwer und leicht werden. Wer den Finger aufs Bild
- * legt, macht ihn schwer: Er saust die Hügel hinab und holt Schwung. Wer
- * loslässt, macht ihn leicht: Er trägt den Schwung den nächsten Hügel
- * hinauf und hebt an der Kuppe ab.
+ * legt, macht ihn schwer: Er saust die Hügel hinab und holt Schwung, und in
+ * der Luft stürzt er wie ein Stein. Wer loslässt, macht ihn leicht: Er
+ * trägt den Schwung den nächsten Hügel hinauf, hebt an der Kuppe ab und
+ * breitet in der Luft die Flügel aus – er gleitet, und mit genug Schwung
+ * über den nächsten Hügel hinweg.
  *
  * Der Trick ist die Landung. Wer genau auf einem Abhang aufsetzt, im
  * selben Winkel, in dem der Hang abfällt, behält den Schwung und bekommt
@@ -54,8 +56,10 @@
   const START_X = 0;
   const TAKT = 1 / 240;
 
-  const G_LEICHT = 760;            // so zieht es, wenn er leicht ist …
-  const G_SCHWER = 2300;           // … und so, wenn er schwer ist
+  const G_LEICHT = 520;            // so zieht es, wenn er leicht ist …
+  const G_SCHWER = 3600;           // … und so, wenn er schwer ist
+  const GLEITEN = 1.5;             // losgelassen in der Luft: so fängt die Luft das Sinken ab …
+  const AUFTRIEB = 0.35;           // … und so viel davon schiebt ihn nach vorn
   const V_MIN = 120;               // langsamer rutscht er nie – er flattert
   const V_MAX = 1150;
   const REIBUNG = 0.055;           // am Boden, mit dem Gewicht: schwer bremst mehr
@@ -65,7 +69,7 @@
 
   const HELP = [
     "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
-    "Lass los, dann wird er leicht und fliegt über die nächste Kuppe.",
+    "Lass los, dann wird er leicht, fliegt über die Kuppe und gleitet mit ausgebreiteten Flügeln – mit genug Schwung über den nächsten Hügel hinweg. In der Luft halten, und er stürzt hinab.",
     "Lande genau auf einem Abhang, dann behält er den Schwung – drei perfekte Landungen hintereinander, und er bekommt Fieber.",
     "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
   ].join(" ");
@@ -496,7 +500,7 @@
 
   // Der Vogel: rund, mit Auge, Schnabel und Flügel. Leicht flattert er, schwer
   // legt er die Flügel an und wird etwas flacher.
-  function vogel(x, y, winkel, farbe, alpha, schwer, flattern, glut) {
+  function vogel(x, y, winkel, farbe, alpha, schwer, flattern, glut, gleitet = false) {
     g.save();
     g.globalAlpha = alpha;
     g.translate(x, y);
@@ -513,6 +517,15 @@
       g.arc(0, 0, R * 2.6, 0, Math.PI * 2);
       g.fill();
     }
+    // Im Gleiten: beide Flügel weit ausgebreitet, der hintere etwas dunkler.
+    if (gleitet) {
+      g.fillStyle = farbe[1];
+      g.globalAlpha = alpha * 0.7;
+      g.beginPath();
+      g.ellipse(-R * 0.15, R * 0.95, R * 1.35, R * 0.34, -0.7, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = alpha;
+    }
     // Körper
     const k = g.createRadialGradient(-R * 0.3, R * 0.35, R * 0.2, 0, 0, R);
     k.addColorStop(0, farbe[0]);
@@ -526,12 +539,28 @@
     g.beginPath();
     g.ellipse(R * 0.15, -R * 0.35, R * 0.6, R * 0.42, 0, 0, Math.PI * 2);
     g.fill();
-    // Flügel
+    // Flügel: angelegt, wenn er schwer ist, ausgebreitet im Gleiten, sonst
+    // flatternd.
     g.fillStyle = farbe[1];
     g.beginPath();
-    const schlag = schwer ? -0.2 : Math.sin(flattern) * 0.9;
-    g.ellipse(-R * 0.25, R * 0.15, R * 0.65, R * 0.32, schlag, 0, Math.PI * 2);
+    if (gleitet) {
+      g.ellipse(-R * 0.45, R * 0.75, R * 1.6, R * 0.44, -0.42, 0, Math.PI * 2);
+    } else {
+      const schlag = schwer ? -0.2 : Math.sin(flattern) * 0.9;
+      g.ellipse(-R * 0.25, R * 0.15, R * 0.65, R * 0.32, schlag, 0, Math.PI * 2);
+    }
     g.fill();
+    if (gleitet) {
+      // Die Schwungfedern als feine Linien.
+      g.strokeStyle = "rgba(255,255,255,0.45)";
+      g.lineWidth = R * 0.08;
+      g.beginPath();
+      for (let i = 0; i < 3; i += 1) {
+        g.moveTo(-R * (0.8 + i * 0.35), R * (0.8 + i * 0.16));
+        g.lineTo(-R * (1.35 + i * 0.35), R * (1.1 + i * 0.16));
+      }
+      g.stroke();
+    }
     // Auge
     g.fillStyle = "#ffffff";
     g.beginPath();
@@ -629,7 +658,8 @@
     const v = state.v;
     const winkel = Math.atan2(v.vy, Math.max(1, v.vx));
     const farbe = state.fieber ? ["#ffe9a0", "#ff9d2e"] : ["#9fd8ff", "#3f8fe0"];
-    vogel(v.x, v.y + R, winkel, farbe, 1, gedrueckt, state.flattern, state.fieber);
+    const gleitet = !gedrueckt && !state.amBoden && state.flugZeit > 0.12;
+    vogel(v.x, v.y + R, winkel, farbe, 1, gedrueckt, state.flattern, state.fieber, gleitet);
   }
 
   function zeichneTeile() {
@@ -753,6 +783,13 @@
     const v = state.v;
     const gEff = gedrueckt ? G_SCHWER : G_LEICHT;
     v.vy -= gEff * dt;
+    // In der Luft, losgelassen: Er breitet die Flügel aus und gleitet. Die
+    // Luft fängt das Sinken ab, ein Teil davon schiebt ihn nach vorn.
+    if (!state.amBoden && !gedrueckt && v.vy < 0) {
+      const ab = -v.vy * (1 - Math.exp(-GLEITEN * dt));
+      v.vy += ab;
+      v.vx += ab * AUFTRIEB;
+    }
     v.x += v.vx * dt;
     v.y += v.vy * dt;
     // Luftwiderstand: kaum spürbar, bei hohem Tempo mehr.
