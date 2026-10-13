@@ -305,10 +305,17 @@
     return liste;
   }
 
+  // Ein Eintrag geht mit seinem Geist: Er heisst gleich (<spiel>_<spieler>).
+  // Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen –
+  // ein schwächerer Lauf überschreibt keinen besseren –, und neben ihm liefe
+  // nie wieder sein eigener Geist.
   async function loesche(id) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
     await db.collection("miniScores").doc(id).delete();
+    try { await db.collection("miniGeister").doc(id).delete(); } catch (fehler) {
+      console.warn("Der Geist zum Eintrag ist geblieben", fehler);
+    }
   }
 
   async function benenneUm(id, name) {
@@ -1202,6 +1209,17 @@
     const runden = eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
     kopf.append(el("span", "adm-block-zahl",
       `${zahlWort(eintraege.length, "Eintrag", "Einträge")} · ${zahlWort(runden, "Runde", "Runden")}`));
+    // Wenn ein Spiel umgebaut wurde und die alten Zahlen nichts mehr
+    // bedeuten: die ganze Bestenliste auf einmal, mit den Geistern.
+    if (eintraege.length) {
+      kopf.append(knopf("Bestenliste leeren", "adm-knopf-weg adm-knopf-klein", async () => {
+        if (!window.confirm(`Die ganze Bestenliste von ${bekannt ? titel(spiel) : spiel} leeren – ${eintraege.length === 1 ? "den einen Eintrag" : `alle ${eintraege.length} Einträge`} samt Geistern? Das lässt sich nicht rückgängig machen.`)) return;
+        try {
+          for (const eintrag of eintraege) await loesche(eintrag.id);
+          neuLaden();
+        } catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
+      }));
+    }
     block.append(kopf);
 
     const tabelle = el("table", "adm-tabelle");

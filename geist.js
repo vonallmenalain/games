@@ -125,16 +125,28 @@
   // eingetragen wurde – dann kennt ihn mini-games.js nicht. Ein Lauf aus
   // einer anderen Fassung des Spiels zählt nicht: Seine Zahl hiess damals
   // etwas anderes.
+  //
+  // Und einer, der höher ist als das, was der Server für dieses Gerät kennt
+  // (mini-games.js, gleicheAb), ist keiner mehr: Der Admin hat den Eintrag
+  // gelöscht. Nur ein Lauf, der schon vor dieser Auskunft dastand – einer von
+  // eben, dessen Zahl noch unterwegs ist, bleibt.
   function eigenerLauf(spiel, fassung = LEVEL) {
-    const lauf = liesJson(LAUF_KEY)[spiel];
+    const alle = liesJson(LAUF_KEY);
+    const lauf = alle[spiel];
     const punkte = Math.round(Number(lauf?.punkte) || 0);
     if (!(punkte > 0) || (lauf.level || LEVEL) !== fassung) return null;
+    const server = mini()?.bestwertAbgeglichen?.(spiel);
+    if (server && punkte > server.punkte && (Number(lauf.ms) || 0) <= server.ms) {
+      delete alle[spiel];
+      schreibeJson(LAUF_KEY, alle);
+      return null;
+    }
     return { punkte, bahn: typeof lauf.bahn === "string" ? lauf.bahn : "" };
   }
 
   function merkeLauf(spiel, punkte, bahn, fassung = LEVEL) {
     const alle = liesJson(LAUF_KEY);
-    alle[spiel] = { punkte, bahn, level: fassung };
+    alle[spiel] = { punkte, bahn, level: fassung, ms: Date.now() };
     schreibeJson(LAUF_KEY, alle);
   }
 
@@ -246,6 +258,9 @@
     const t = lage?.t || null;
     if (t?.ohneGeist) { stand.aus = true; return stand; }
 
+    // Erst mit dem Server abgleichen: Ein gelöschter Eintrag nimmt die
+    // Bestmarke auf dem Gerät mit.
+    await vielleicht(() => mini()?.gleicheAb?.(spiel));
     const lokal = eigenerLauf(spiel, fassung);
     const best = Math.max(Math.round(Number(mini()?.bestwert?.(spiel)) || 0), lokal?.punkte || 0);
     if (best > 0) {

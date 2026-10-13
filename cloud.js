@@ -298,6 +298,22 @@
   }
 
   /*
+   * Der eine Eintrag dieses Geräts in einem Spiel – oder null, wenn es keinen
+   * gibt. Er ist die Wahrheit über den eigenen Bestwert: Hat der Admin ihn
+   * gelöscht, gilt auch auf dem Gerät nichts mehr davon (mini-games.js,
+   * gleicheAb). Kann nicht gelesen werden, wirft es – dann bleibt auf dem
+   * Gerät alles, wie es ist.
+   */
+  async function meinErgebnis(game, spieler) {
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const ref = sammlung();
+    if (!ref || !spielId || !spielerId) throw new Error("Firestore ist nicht bereit.");
+    const doc = await ref.doc(`${spielId}_${spielerId}`).get();
+    return doc.exists ? lies(doc) : null;
+  }
+
+  /*
    * Ein neuer Name, ohne dass eine Runde daraus wird.
    *
    * Ohne diesen Weg müsste sich ein Umbenennen als Runde verkleiden – und wer
@@ -824,7 +840,7 @@
     app,
     db: starte,
     projektId: firebaseConfig.projectId,
-    ergebnisse, speichere, benenneUm, lies,
+    ergebnisse, speichere, benenneUm, lies, meinErgebnis,
     speichereGeist, geister,
     offeneSpiele, setzeOffeneSpiele,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,

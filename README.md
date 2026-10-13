@@ -130,6 +130,14 @@ Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
 Gegner ganz abschalten. Die Bestmarke ist der eigene Bestwert auf dem Gerät.
 
+Was der Server über diesen Bestwert sagt, gilt – auch nach unten. Jede
+Spielseite fragt einmal nach dem Eintrag dieses Geräts (`cloud.js`,
+`meinErgebnis`) und setzt Bestwert, Bestmarke und den Startstand des Spiels
+darauf (`mini-games.js`, `gleicheAb`). Hat der Admin den Eintrag gelöscht,
+steht danach auch auf dem Gerät nichts mehr davon – sonst käme die alte Zahl
+nach der nächsten Runde als «Bestwert» zurück. Ohne Namen und ohne Netz
+bleibt alles, wie es ist.
+
 Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
 eine Nachbesserung an der Physik, Eingaben nicht. Sie stehen in einer eigenen
 Sammlung (`miniGeister`), nicht in `miniScores`: Die Startseite liest jedes
@@ -304,6 +312,11 @@ wie es war), mit `?von=admin` in der Adresse. Die Runde zählt wie jede andere:
 Sie geht unter dem Namen dieses Geräts in die Hall of Fame, der beste Versuch
 bleibt stehen. Der Weg oben links im Spiel schliesst das Fenster wieder. Wo
 der Browser kein Vollbild kennt (iPhone), füllt das Fenster den Bildschirm.
+
+Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
+Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.
+Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
+leert «Bestenliste leeren» beim Spiel die ganze Liste auf einmal.
 
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,

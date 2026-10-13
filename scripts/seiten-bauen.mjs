@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-1";
+export const FASSUNG = "2026-10-13-2";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -108,13 +108,13 @@ export const SPIELE = [
   {
     seite: "planeten", spiel: "planetHop", page: "planets", js: "planeten.js",
     titel: "Planetenhüpfer", buehne: { id: "ph-stage", klasse: "cm-stage ph-stage" },
-    text: "Planetenhüpfer: Der Astronaut läuft um den Planeten – tippe im richtigen Moment, und er springt zum nächsten. Verfehlst du ihn, treibt er ins All.",
+    text: "Planetenhüpfer: Der Astronaut läuft um den Planeten – tippe im richtigen Moment, und er springt zum nächsten. Je schneller du springst, desto mehr Punkte.",
     baut: "das All mit den Planeten",
   },
   {
     seite: "mondlandung", spiel: "moonLander", page: "moon", js: "mondlandung.js",
     titel: "Mondlandung", buehne: { id: "ml-stage", klasse: "cm-stage ml-stage" },
-    text: "Mondlandung: Halten gibt Schub, der Finger lenkt – setz die Fähre sanft auf die nächste Plattform, bevor der Treibstoff ausgeht.",
+    text: "Mondlandung: Halten gibt Schub, der Finger lenkt – setz die Fähre sanft auf die nächste Plattform. Je weniger Treibstoff du brauchst, desto mehr Punkte.",
     baut: "der Mond mit den Plattformen",
   },
   {

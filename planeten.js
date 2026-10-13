@@ -13,7 +13,11 @@
  * Sauerstoff reicht auf jedem Planeten nur eine Weile – wer zu lange auf den
  * perfekten Moment wartet, wartet zu lange.
  *
- * Gezählt werden die Planeten, die er erreicht.
+ * Gezählt werden Punkte, und es zählt das Tempo: Jeder Sprung auf einen
+ * neuen Planeten bringt zwischen 10 und 100, je nachdem, wie viel Sauerstoff
+ * beim Absprung noch übrig war. Wer gleich springt, wenn der Weg frei ist,
+ * holt fast alles; wer eine Runde mehr dreht, weniger. Der Ring um den
+ * Astronauten zeigt es, von Grün über Orange nach Rot.
  *
  * Gebaut wird der Weg aus dem Zufall (zufall.js): ohne Turnier jedes Mal ein
  * anderer, im Turnier für alle im selben Versuch derselbe. Er ist immer
@@ -22,8 +26,7 @@
  * an der Grösse der Lufthülle und am Abstand – beides wird nach oben
  * strenger, nie unmöglich.
  *
- * Die Gegner (geist.js) stehen als Fahne auf dem Planeten, den sie erreicht
- * haben.
+ * Die Gegner (geist.js) stehen als Zahl oben über der Bühne.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben.
  */
@@ -66,12 +69,15 @@
   const SPRUNG_MAX = 360;
   const LUFT0 = 9.5;               // Sekunden Sauerstoff auf einem Planeten
   const LUFT_MIN = 5.5;
+  const PUNKTE_MIN = 10;           // so viel bringt ein Sprung mindestens …
+  const PUNKTE_MAX = 100;          // … und so viel, wer sofort springt
 
   const HELP = [
     "Planetenhüpfer. Der Astronaut läuft um den Planeten herum.",
     "Tippe aufs Bild, dann springt er ab – senkrecht vom Planeten weg, dorthin, wohin sein Kopf zeigt.",
     "Fliegt er durch die leuchtende Lufthülle des nächsten Planeten, landet er dort. Verfehlt er sie, treibt er ins All.",
-    "Pass auf die Monde auf, und warte nicht zu lange: Der Sauerstoff reicht nur eine Weile. Es zählt, wie viele Planeten du erreichst.",
+    "Jeder neue Planet bringt Punkte – umso mehr, je schneller du abspringst. Der Ring um den Astronauten zeigt den Sauerstoff, von Grün über Orange nach Rot.",
+    "Pass auf die Monde auf, und warte nicht zu lange: Geht der Sauerstoff aus, ist die Runde vorbei.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -103,6 +109,17 @@
     return x - Math.floor(x);
   }
 
+  // Die Farbe des Sauerstoffs: Grün, solange viel da ist, über Orange nach
+  // Rot – fliessend, ohne Sprung.
+  const LUFT_FARBEN = [[255, 84, 84], [255, 168, 64], [126, 226, 120]];
+  function luftFarbe(k, alpha = 1) {
+    const t = clamp(k, 0, 1) * (LUFT_FARBEN.length - 1);
+    const i = Math.min(LUFT_FARBEN.length - 2, Math.floor(t));
+    const u = t - i;
+    const c = LUFT_FARBEN[i].map((wert, j) => Math.round(lerp(wert, LUFT_FARBEN[i + 1][j], u)));
+    return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+  }
+
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
@@ -112,7 +129,9 @@
     phase: "bereit",
     schritt: "start",
     punkte: 0,
+    erreicht: 0,          // wie viele Planeten er erreicht hat
     volltreffer: 0,
+    sprungLuft: 1,        // wie viel Sauerstoff beim letzten Absprung übrig war (0…1)
     planeten: [],
     auf: 0,               // auf welchem Planeten er steht
     theta: Math.PI / 2,   // wo, als Winkel um die Mitte
@@ -682,53 +701,7 @@
     }
   }
 
-  // Die Gegner: eine Fahne auf dem Planeten, den sie erreicht haben.
-  function zeichneFahnen() {
-    const ziele = gegner?.gegner?.() || [];
-    if (!ziele.length) return;
-    ziele.forEach((ziel) => {
-      const n = Math.round(ziel.punkte);
-      if (n < 1) return;
-      planetenBis(n + 2);
-      const p = state.planeten[n];
-      const m = mitte(p);
-      if (!imBild(m.x, m.y, 80)) return;
-      const geschlagen = state.punkte > ziel.punkte;
-      // Oben auf dem Planeten, etwas zur Seite – je Gegner eine andere.
-      const w = Math.PI / 2 + (ziel.art === "eigen" ? 0.5 : -0.5);
-      const fx = m.x + Math.cos(w) * p.r;
-      const fy = m.y + Math.sin(w) * p.r;
-      weltTransform();
-      g.globalAlpha = geschlagen ? 0.4 : 1;
-      g.strokeStyle = "#e9ecff";
-      g.lineWidth = 1.4;
-      g.beginPath();
-      g.moveTo(fx, fy);
-      g.lineTo(fx + Math.cos(w) * 18, fy + Math.sin(w) * 18);
-      g.stroke();
-      const sx = fx + Math.cos(w) * 18;
-      const sy = fy + Math.sin(w) * 18;
-      g.fillStyle = ziel.farbe;
-      g.beginPath();
-      g.moveTo(sx, sy);
-      g.lineTo(sx + 11, sy - 3);
-      g.lineTo(sx, sy - 7);
-      g.closePath();
-      g.fill();
-      bildTransform();
-      const gross = Math.round(clamp(view.cssH * 0.028, 10, 13));
-      g.font = `800 ${gross}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "bottom";
-      const text = ziel.art === "eigen" ? "Bestmarke" : ziel.name;
-      g.lineWidth = 3;
-      g.strokeStyle = "rgba(5, 6, 26, 0.8)";
-      g.strokeText(text, bildX(sx), bildY(sy) - 9);
-      g.fillStyle = "#ffffff";
-      g.fillText(text, bildX(sx), bildY(sy) - 9);
-      g.globalAlpha = 1;
-    });
-  }
+
 
   function zeichneSpur() {
     if (state.spur.length < 2) return;
@@ -836,19 +809,26 @@
     g.restore();
   }
 
-  // Wie lange der Sauerstoff noch reicht: ein Ring um den Astronauten,
-  // der kleiner wird – rot, wenn es knapp wird.
+  // Wie lange der Sauerstoff noch reicht – und wie viele Punkte der nächste
+  // Sprung noch bringt: ein feiner Ring um den Astronauten, immer da, der
+  // kürzer wird und von Grün über Orange nach Rot wechselt. Am Schluss
+  // pulsiert er.
   function zeichneLuft() {
     if (state.schritt !== "lauf" || state.phase !== "spiel") return;
     const a = state.astro;
     const k = clamp(state.luft / state.luftMax, 0, 1);
-    if (k > 0.6) return;
     weltTransform();
-    const knapp = k < 0.3;
-    g.strokeStyle = knapp ? `rgba(255, 90, 90, ${0.6 + 0.4 * Math.sin(state.zeit * 14)})` : "rgba(160, 230, 255, 0.7)";
-    g.lineWidth = 2;
+    const puls = k < 0.2 && !ruhig() ? 0.25 * (1 + Math.sin(state.zeit * 12)) : 0;
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    g.lineWidth = 1.6 / Math.max(0.6, view.s) * 1.4;
     g.beginPath();
-    g.arc(a.x, a.y, 17, Math.PI / 2, Math.PI / 2 + Math.PI * 2 * k);
+    g.arc(a.x, a.y, 18, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = luftFarbe(k, 0.6 + puls);
+    g.lineWidth = 2.2 / Math.max(0.6, view.s) * 1.4;
+    g.beginPath();
+    g.arc(a.x, a.y, 18, Math.PI / 2, Math.PI / 2 + Math.PI * 2 * k);
     g.stroke();
   }
 
@@ -894,8 +874,14 @@
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";
     g.textBaseline = "middle";
+    // Die Punkte, und daneben klein die erreichten Planeten.
     const text = String(state.punkte);
-    const w = g.measureText(text).width + gross * 2.2;
+    const textW = g.measureText(text).width;
+    const klein = Math.round(gross * 0.62);
+    g.font = `800 ${klein}px system-ui, sans-serif`;
+    const zahl = String(state.erreicht);
+    const zahlW = g.measureText(zahl).width;
+    const w = gross * 0.6 + textW + gross * 1.5 + zahlW + gross * 0.6;
     const x = 12;
     const y = 12;
     g.fillStyle = "rgba(5, 6, 26, 0.55)";
@@ -903,23 +889,27 @@
     if (g.roundRect) g.roundRect(x, y, w, gross * 1.6, gross * 0.8);
     else g.rect(x, y, w, gross * 1.6);
     g.fill();
-    // Ein kleiner Planet mit Ring vor der Zahl.
-    const px = x + gross * 0.85;
+    g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
+    g.fillStyle = "#ffffff";
+    g.fillText(text, x + gross * 0.6, y + gross * 0.84);
+    // Ein kleiner Planet mit Ring vor der Zahl der Planeten.
+    const px = x + gross * 0.6 + textW + gross * 0.75;
     const py = y + gross * 0.8;
-    const pk = g.createRadialGradient(px - 3, py - 3, 1, px, py, gross * 0.42);
+    const pk = g.createRadialGradient(px - 2, py - 2, 1, px, py, gross * 0.3);
     pk.addColorStop(0, "#ffe2a8");
     pk.addColorStop(1, "#c4703a");
     g.fillStyle = pk;
     g.beginPath();
-    g.arc(px, py, gross * 0.4, 0, Math.PI * 2);
+    g.arc(px, py, gross * 0.28, 0, Math.PI * 2);
     g.fill();
     g.strokeStyle = "rgba(255, 236, 200, 0.85)";
-    g.lineWidth = 1.6;
+    g.lineWidth = 1.3;
     g.beginPath();
-    g.ellipse(px, py, gross * 0.68, gross * 0.18, -0.4, 0, Math.PI * 2);
+    g.ellipse(px, py, gross * 0.48, gross * 0.13, -0.4, 0, Math.PI * 2);
     g.stroke();
-    g.fillStyle = "#ffffff";
-    g.fillText(text, x + gross * 1.55, y + gross * 0.84);
+    g.font = `800 ${klein}px system-ui, sans-serif`;
+    g.fillStyle = "rgba(255,255,255,0.85)";
+    g.fillText(zahl, px + gross * 0.62, y + gross * 0.86);
 
     // Der Sauerstoff.
     const bw = Math.max(w, 86);
@@ -930,11 +920,20 @@
     if (g.roundRect) g.roundRect(x, by, bw, 8, 4);
     else g.rect(x, by, bw, 8);
     g.fill();
-    g.fillStyle = k < 0.3 ? "#ff6b6b" : "#7fe3ff";
+    g.fillStyle = luftFarbe(k);
     g.beginPath();
     if (g.roundRect) g.roundRect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 5, 2.5);
     else g.rect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 5);
     g.fill();
+    // Daneben, was ein Sprung jetzt noch bringt.
+    if (state.schritt === "lauf") {
+      const jetzt = Math.round(PUNKTE_MIN + (PUNKTE_MAX - PUNKTE_MIN) * k);
+      g.font = `800 ${Math.round(gross * 0.6)}px system-ui, sans-serif`;
+      g.textAlign = "left";
+      g.textBaseline = "middle";
+      g.fillStyle = luftFarbe(k, 0.95);
+      g.fillText(`+${jetzt}`, x + bw + 8, by + 4);
+    }
   }
 
   function zeichnen() {
@@ -949,7 +948,6 @@
       weltTransform();
       zeichnePlanet(state.planeten[i]);
     }
-    zeichneFahnen();
     zeichneSpur();
     zeichneTeile();
     zeichneLuft();
@@ -998,13 +996,14 @@
   function springen() {
     if (state.schritt !== "lauf") return;
     const t = absprung();
-    const v = sprungBei(state.punkte);
+    const v = sprungBei(state.erreicht);
     // Genau dorthin, wohin sein Kopf zeigt – auch von einem Planeten, der
     // wandert. Dessen Schwung käme sonst dazu, und man flöge anderswohin,
     // als man zielt.
     state.astro.vx = t.x * v;
     state.astro.vy = t.y * v;
     state.verlassen = state.auf;
+    state.sprungLuft = clamp(state.luft / state.luftMax, 0, 1);
     state.flugZeit = 0;
     state.schritt = "flug";
     state.schrittZeit = state.zeit;
@@ -1036,8 +1035,11 @@
     kids()?.vibrate?.(12);
     if (!state.besucht.has(p.n)) {
       state.besucht.add(p.n);
-      state.punkte = state.besucht.size;
+      state.erreicht = state.besucht.size;
+      const plus = Math.round(PUNKTE_MIN + (PUNKTE_MAX - PUNKTE_MIN) * state.sprungLuft);
+      state.punkte += plus;
       shell.setCount(state.punkte);
+      schrift(`+${plus}`, a.x, a.y + 62, luftFarbe(state.sprungLuft), 17);
       if (vorbei < p.r * 0.35) {
         state.volltreffer += 1;
         schrift("Volltreffer!", a.x, a.y + 26, "#ffe08a", 16);
@@ -1045,7 +1047,7 @@
       } else {
         kids()?.playJingle?.("tap");
       }
-      if (state.punkte % 10 === 0) schrift(`${state.punkte} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
+      if (state.erreicht % 10 === 0) schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
     }
     planetenBis(state.auf + 6);
   }
@@ -1074,7 +1076,7 @@
   function physik(dt) {
     state.uhr += dt;
     if (state.schritt === "lauf") {
-      state.theta += state.richtung * drehBei(state.punkte) * dt;
+      state.theta += state.richtung * drehBei(state.erreicht) * dt;
       state.hoehe += (HOEHE - state.hoehe) * (1 - Math.exp(-dt * 12));
       stellePosition();
       if (state.phase === "spiel") {
@@ -1240,6 +1242,8 @@
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
+    state.erreicht = 0;
+    state.sprungLuft = 1;
     state.volltreffer = 0;
     state.planeten = [];
     planetenBis(8);
@@ -1306,12 +1310,13 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     kids()?.playJingle?.("win");
-    const treffer = state.volltreffer === 1 ? "1 Volltreffer" : `${state.volltreffer} Volltreffer`;
+    const planeten = state.erreicht === 1 ? "1 Planet" : `${state.erreicht} Planeten`;
+    const treffer = state.volltreffer ? ` · ${state.volltreffer} Volltreffer` : "";
     shell.showResult({
-      label: "Deine Planeten",
+      label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : `${treffer}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} ${punkte === 1 ? "Planet" : "Planeten"}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher}.` : ""}`,
+      detail: rekord ? `Neuer Rekord! ${planeten}` : `${planeten}${treffer}${vorher ? ` · Bestwert ${vorher}` : ""}`,
+      speech: `${punkte} Punkte, ${planeten}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ph-rekord");
     zaehleHoch(punkte);
@@ -1330,7 +1335,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "planetHop", host, art: "ziel" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "planetHop", host, art: "ziel", fassung: "p2" }) || null;
 
   startRun();
 

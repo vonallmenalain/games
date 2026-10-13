@@ -11,20 +11,24 @@
  * langsam genug und fast gerade. Über der nächsten Plattform steht ein
  * Leitstrahl: Wer darin sinkt, dem hilft die Fähre – sie richtet sich auf
  * und hält über der Plattform still, übrig bleibt, sanft genug aufzusetzen.
- * Zu schnell, daneben oder gegen einen Berg – und es kracht. Jede Landung
- * füllt den Tank wieder auf, aber nie ganz: Wer verschwenderisch fliegt,
- * dem geht unterwegs der Treibstoff aus.
+ * Zu schnell, daneben oder gegen einen Berg – und es kracht.
+ *
+ * Es geht um den Treibstoff. Jede Landung bringt Punkte, und umso mehr, je
+ * weniger der Flug dorthin verbraucht hat: Der Balken oben zeigt den Tank,
+ * und ein Strich darauf, wie weit er für diesen Flug höchstens sinken
+ * sollte. Wer darüber bleibt, fliegt sparsam. Auf der Plattform wird
+ * nachgetankt, aber nie ganz – und von Plattform zu Plattform weniger. Fünf,
+ * sechs Plattformen schafft jeder; wer weiter will, muss sparsam fliegen.
  *
  * Die Plattformen werden schmaler, liegen weiter auseinander und hinter
- * höheren Bergen. Gezählt werden die Landungen.
+ * höheren Bergen. Gezählt werden die Punkte.
  *
  * Gebaut wird der Mond aus dem Zufall (zufall.js): ohne Turnier jedes Mal
  * ein anderer, im Turnier für alle im selben Versuch derselbe. Er ist immer
  * schaffbar: Jede Plattform ist breiter als die Fähre, kein Berg höher, als
  * der Tank auf dem Weg dorthin hergibt.
  *
- * Die Gegner (geist.js) stehen als Fahne auf der Plattform, bis zu der sie
- * gekommen sind.
+ * Die Gegner (geist.js) stehen als Zahl oben über der Bühne.
  *
  * Gerechnet wird in Welteinheiten, y zählt nach oben. Die Neigung zählt im
  * Uhrzeigersinn: positiv heisst nach rechts gekippt.
@@ -60,7 +64,9 @@
   const NEIG_MAX = 0.7;            // so weit neigt sich die Fähre höchstens
   const NEIG_TEMPO = 3.2;          // so schnell dreht sie sich dorthin
   const TANK = 100;
-  const VERBRAUCH = 7;             // je Sekunde Schub
+  const VERBRAUCH = 8;             // je Sekunde Schub
+  const PUNKTE_PLATTE = 100;       // für jede erreichte Plattform …
+  const PUNKTE_SPAREN = 200;       // … und höchstens so viel dazu für einen sparsamen Flug
 
   // Was als Landung gilt.
   const LANDE_VY = 55;
@@ -83,7 +89,8 @@
     "Finger über der Fähre: Sie steigt. Finger rechts oder links: Sie zieht dorthin. Lass los, dann fällt sie.",
     "Über der nächsten Plattform leuchtet ein Leitstrahl. Sinkst du darin, richtet sich die Fähre von selbst auf und hält über der Plattform still.",
     "Du musst nur noch sanft aufsetzen – wenn die Lichter an den Füssen grün sind, bist du langsam genug.",
-    "Jede Landung füllt den Tank ein Stück auf. Es zählt, wie oft du landest.",
+    "Jede Plattform gibt 100 Punkte, und bis zu 200 dazu, je weniger Treibstoff dein Flug braucht. Der Strich auf dem Tankbalken zeigt, wie weit er für einen sparsamen Flug höchstens sinken sollte.",
+    "Auf der Plattform wird nachgetankt, aber nie ganz – und immer weniger. Wer weit kommen will, muss sparsam fliegen.",
   ].join(" ");
 
   const TOP_COUNT = 5;
@@ -103,6 +110,21 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const schwereBei = (n) => 1 - Math.exp(-n / 12);
 
+  // Der Bonus für einen Flug, gemessen an dem, was er braucht (platte.bedarf):
+  // voll, wer nicht mehr als 85 Prozent davon verbraucht – bis zum Strich
+  // auf dem Balken –, nichts mehr ab dem Siebenviertelfachen.
+  const SPARSAM = 0.85;
+  const sparBonus = (verbraucht, bedarf) =>
+    Math.round(PUNKTE_SPAREN * clamp((1.75 - verbraucht / Math.max(1, bedarf)) / (1.75 - SPARSAM), 0, 1));
+
+  // Wie viel auf einer Plattform nachgetankt wird: am Anfang reichlich für
+  // den nächsten Flug, nach fünf, sechs Plattformen weniger, als ein
+  // ordentlicher Flug braucht. Wer dann weiter will, lebt von dem, was er
+  // vorher gespart hat – und fliegt sparsam.
+  const tankFaktor = (n) => lerp(1.5, 0.85, 1 - Math.exp(-n / 4.5));
+  // Und voll wird er dabei nie: höchstens so weit.
+  const TANK_NACH = TANK * 0.9;
+
   function hash01(n) {
     const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
     return x - Math.floor(x);
@@ -117,9 +139,13 @@
     phase: "bereit",
     schritt: "start",
     punkte: 0,
-    perfekt: 0,
+    sparsam: 0,           // Flüge mit vollem Bonus
+    landungen: 0,
     f: { x: 0, y: 0, vx: 0, vy: 0, neig: 0 },
     tank: TANK,
+    tankAb: TANK,         // so voll war der Tank, als der Flug zur nächsten Plattform begann
+    anzeige: TANK,        // was der Balken zeigt: folgt dem Tank, beim Tanken sichtbar
+    getankt: null,        // { menge, zeit } – die letzte Füllung, für den Balken
     schub: false,
     neigZiel: 0,
     auf: 0,               // auf welcher Plattform sie steht (oder zuletzt stand)
@@ -568,47 +594,6 @@
     });
   }
 
-  // Die Gegner: eine Fahne auf der Plattform, bis zu der sie kamen.
-  function zeichneFahnen() {
-    const ziele = gegner?.gegner?.() || [];
-    ziele.forEach((ziel) => {
-      const n = Math.round(ziel.punkte);
-      if (n < 1) return;
-      while (state.platten.length <= n + 1) naechstePlatte();
-      const p = state.platten[n];
-      const seite = ziel.art === "eigen" ? p.x1 - 6 : p.x0 + 6;
-      if (seite < state.camX - view.w / 2 - 40 || seite > state.camX + view.w / 2 + 40) return;
-      const geschlagen = state.punkte > ziel.punkte;
-      weltTransform();
-      g.globalAlpha = geschlagen ? 0.4 : 1;
-      g.strokeStyle = "#e9ecff";
-      g.lineWidth = 1.4;
-      g.beginPath();
-      g.moveTo(seite, p.y);
-      g.lineTo(seite, p.y + 24);
-      g.stroke();
-      g.fillStyle = ziel.farbe;
-      g.beginPath();
-      g.moveTo(seite, p.y + 24);
-      g.lineTo(seite + 12, p.y + 20);
-      g.lineTo(seite, p.y + 16);
-      g.closePath();
-      g.fill();
-      bildTransform();
-      const gross = Math.round(clamp(view.cssH * 0.028, 10, 13));
-      g.font = `800 ${gross}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "bottom";
-      const text = ziel.art === "eigen" ? "Bestmarke" : ziel.name;
-      g.lineWidth = 3;
-      g.strokeStyle = "rgba(2, 3, 9, 0.8)";
-      g.strokeText(text, bildX(seite), bildY(p.y + 26));
-      g.fillStyle = "#ffffff";
-      g.fillText(text, bildX(seite), bildY(p.y + 26));
-      g.globalAlpha = 1;
-    });
-  }
-
   // Ist sie gerade langsam und gerade genug für eine Landung?
   function sanft() {
     const f = state.f;
@@ -802,52 +787,120 @@
     g.fillText(`${meter} m`, cx, cy + 19);
   }
 
-  // Oben links die Landungen, darunter der Tank.
+  // Oben links die Punkte und die Landungen, darunter, breit, der Tank.
+  //
+  // Der Balken sinkt, solange das Triebwerk brennt. Hell abgesetzt steht
+  // daneben, was dieser Flug schon verbraucht hat, und ein Strich zeigt, wie
+  // weit er für einen sparsamen Flug höchstens sinken sollte: Wer darüber
+  // landet, bekommt den vollen Bonus. Beim Tanken füllt er sich sichtbar auf.
   function zeichneAnzeige() {
-    if (state.schritt === "start") return;
     bildTransform();
-    const gross = clamp(view.cssH * 0.05, 14, 24);
-    g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
-    g.textAlign = "left";
-    g.textBaseline = "middle";
-    const text = String(state.punkte);
-    const w = g.measureText(text).width + gross * 2.1;
+    const W = view.cssW;
+    const gross = clamp(view.cssH * 0.045, 14, 22);
     const x = 12;
     const y = 12;
-    g.fillStyle = "rgba(2, 3, 9, 0.55)";
-    g.beginPath();
-    if (g.roundRect) g.roundRect(x, y, w, gross * 1.6, gross * 0.8);
-    else g.rect(x, y, w, gross * 1.6);
-    g.fill();
-    // Eine kleine Plattform vor der Zahl.
-    const px = x + gross * 0.4;
-    const py = y + gross * 0.95;
-    g.fillStyle = "#d8dbe4";
-    g.fillRect(px, py, gross * 0.9, gross * 0.18);
-    g.fillStyle = "#ffc82e";
-    g.fillRect(px, py, gross * 0.2, gross * 0.18);
-    g.fillRect(px + gross * 0.7, py, gross * 0.2, gross * 0.18);
-    g.fillStyle = "#4cff8a";
-    g.beginPath();
-    g.arc(px + gross * 0.45, py - gross * 0.25, gross * 0.14, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "#ffffff";
-    g.fillText(text, x + gross * 1.5, y + gross * 0.84);
+    let unten = y;
 
-    const bw = Math.max(w, 96);
-    const by = y + gross * 1.6 + 6;
-    const k = clamp(state.tank / TANK, 0, 1);
-    const knapp = k < 0.25;
-    g.fillStyle = "rgba(2, 3, 9, 0.55)";
+    if (state.schritt !== "start") {
+      g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
+      g.textAlign = "left";
+      g.textBaseline = "middle";
+      const text = String(state.punkte);
+      const klein = Math.round(gross * 0.62);
+      const landText = `${state.landungen}`;
+      g.font = `800 ${klein}px system-ui, sans-serif`;
+      const landW = g.measureText(landText).width;
+      g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
+      const w = g.measureText(text).width + gross * 1.3 + landW + gross * 1.6;
+      const h = gross * 1.6;
+      g.fillStyle = "rgba(2, 3, 9, 0.6)";
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, w, h, h / 2);
+      else g.rect(x, y, w, h);
+      g.fill();
+      g.fillStyle = "#ffffff";
+      g.fillText(text, x + gross * 0.6, y + h * 0.53);
+      // Daneben klein die Landungen, mit einer kleinen Plattform davor.
+      const px = x + gross * 0.6 + g.measureText(text).width + gross * 0.55;
+      const py = y + h * 0.62;
+      g.fillStyle = "#d8dbe4";
+      g.fillRect(px, py, gross * 0.75, gross * 0.15);
+      g.fillStyle = "#ffc82e";
+      g.fillRect(px, py, gross * 0.17, gross * 0.15);
+      g.fillRect(px + gross * 0.58, py, gross * 0.17, gross * 0.15);
+      g.fillStyle = "#4cff8a";
+      g.beginPath();
+      g.arc(px + gross * 0.37, py - gross * 0.22, gross * 0.12, 0, Math.PI * 2);
+      g.fill();
+      g.font = `800 ${klein}px system-ui, sans-serif`;
+      g.fillStyle = "rgba(255,255,255,0.85)";
+      g.fillText(landText, px + gross * 0.95, y + h * 0.55);
+      unten = y + h + 8;
+    }
+
+    // Der Tank.
+    const bw = Math.min(W - 24, 440);
+    const bh = clamp(gross * 0.95, 15, 20);
+    const bx = x;
+    const by = unten;
+    const k = clamp(state.anzeige / TANK, 0, 1);
+    const ab = clamp(state.tankAb / TANK, 0, 1);
+    g.fillStyle = "rgba(2, 3, 9, 0.62)";
     g.beginPath();
-    if (g.roundRect) g.roundRect(x, by, bw, 9, 4.5);
-    else g.rect(x, by, bw, 9);
+    if (g.roundRect) g.roundRect(bx - 3, by - 3, bw + 6, bh + 6, (bh + 6) / 2);
+    else g.rect(bx - 3, by - 3, bw + 6, bh + 6);
     g.fill();
-    g.fillStyle = knapp && !ruhig() && Math.sin(state.zeit * 12) < 0 ? "#ff9b9b" : knapp ? "#ff6b6b" : "#ffd166";
+    // Was dieser Flug schon verbraucht hat.
+    if (ab > k && state.schritt === "flug") {
+      g.fillStyle = "rgba(255, 150, 70, 0.38)";
+      g.fillRect(bx + bw * k, by, bw * (ab - k), bh);
+    }
+    // Der Inhalt: grün, wenn genug da ist, gelb, rot, wenn es knapp wird.
+    const farbe = k > 0.5 ? "#5ee08a" : k > 0.25 ? "#ffd166" : "#ff6b6b";
+    const blinkt = k <= 0.25 && !ruhig() && Math.sin(state.zeit * 12) < 0;
+    const inhalt = g.createLinearGradient(0, by, 0, by + bh);
+    inhalt.addColorStop(0, blinkt ? "#ffb0b0" : farbe);
+    inhalt.addColorStop(1, blinkt ? "#ff8080" : k > 0.5 ? "#2fa865" : k > 0.25 ? "#e0a020" : "#d83a3a");
+    g.fillStyle = inhalt;
     g.beginPath();
-    if (g.roundRect) g.roundRect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 6, 3);
-    else g.rect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 6);
+    if (g.roundRect) g.roundRect(bx, by, Math.max(bh * 0.5, bw * k), bh, bh / 2);
+    else g.rect(bx, by, bw * k, bh);
     g.fill();
+    // Ein Glanz beim Tanken.
+    const getankt = state.getankt && state.zeit - state.getankt.zeit < 1.4 ? state.getankt : null;
+    if (getankt && !ruhig()) {
+      g.fillStyle = `rgba(255, 255, 255, ${0.35 * (1 - (state.zeit - getankt.zeit) / 1.4)})`;
+      g.fillRect(bx, by, bw * k, bh);
+    }
+    // Der Strich: so tief darf der Tank auf diesem Flug sinken, damit er
+    // sparsam war.
+    const p = state.platten[state.auf + 1];
+    if (p && state.schritt !== "crash") {
+      const strich = clamp((state.tankAb - p.bedarf * SPARSAM) / TANK, 0, 1);
+      const sx = bx + bw * strich;
+      g.fillStyle = "#ffffff";
+      g.fillRect(sx - 1.5, by - 5, 3, bh + 10);
+      g.beginPath();
+      g.moveTo(sx - 5, by - 7);
+      g.lineTo(sx + 5, by - 7);
+      g.lineTo(sx, by - 2);
+      g.closePath();
+      g.fill();
+    }
+    // Die Beschriftung im Balken.
+    const schrift = Math.round(bh * 0.66);
+    g.font = `800 ${schrift}px system-ui, sans-serif`;
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    g.fillStyle = "rgba(10, 20, 30, 0.85)";
+    if (bw * k > schrift * 6) g.fillText("Treibstoff", bx + bh * 0.45, by + bh * 0.54);
+    if (getankt) {
+      g.textAlign = "left";
+      g.fillStyle = "#ffd166";
+      g.font = `900 ${schrift + 2}px system-ui, sans-serif`;
+      const tx = Math.min(bx + bw * k + 8, bx + bw - schrift * 3);
+      g.fillText(`+${getankt.menge}`, tx, by + bh * 0.54);
+    }
   }
 
   function zeichnen() {
@@ -858,7 +911,6 @@
     zeichneHintergrund();
     zeichneBoden();
     zeichnePlatten();
-    zeichneFahnen();
     zeichneTeile();
     zeichneFaehre();
     zeichneSchriften();
@@ -951,6 +1003,7 @@
     const brennt = state.schub && state.tank > 0;
     if (brennt) {
       state.tank = Math.max(0, state.tank - VERBRAUCH * dt);
+      if (state.tank <= 0) schrift("Tank leer!", f.x, f.y + 40, "#ff8c8c", 15);
       f.vx += Math.sin(f.neig) * SCHUB * dt;
       f.vy += Math.cos(f.neig) * SCHUB * dt;
     }
@@ -988,7 +1041,6 @@
 
   function landen(platte) {
     const f = state.f;
-    const weich = -f.vy;
     f.y = platte.y + 13;
     f.vx = 0;
     f.vy = 0;
@@ -999,26 +1051,32 @@
     kids()?.vibrate?.(14);
     if (platte.n > state.auf) {
       state.auf = platte.n;
-      state.punkte += 1;
+      state.landungen += 1;
+      // Die Punkte: für die Plattform, und dazu, wie sparsam der Flug
+      // hierher war – gemessen an dem, was er braucht.
+      const verbraucht = Math.max(0, state.tankAb - state.tank);
+      const bonus = sparBonus(verbraucht, platte.bedarf);
+      const plus = PUNKTE_PLATTE + bonus;
+      state.punkte += plus;
+      if (bonus >= PUNKTE_SPAREN * 0.9) state.sparsam += 1;
       shell.setCount(state.punkte);
-      // Tanken: so viel, wie der Weg zur nächsten Plattform kostet, und
-      // etwas mehr – anfangs reichlich, nach oben knapper. Wer
-      // verschwenderisch fliegt, kommt so nicht ewig weiter.
+      // Tanken – nie ganz voll, und von Plattform zu Plattform weniger.
       while (state.platten.length < platte.n + 3) naechstePlatte();
-      const weiter = state.platten[platte.n + 1].bedarf * lerp(1.9, 1.25, schwereBei(platte.n));
-      const nach = clamp(Math.round(weiter), 25, 90);
-      state.tank = Math.min(TANK, state.tank + nach);
-      const mitte = (platte.x0 + platte.x1) / 2;
-      const genau = Math.abs(f.x - mitte) < (platte.x1 - platte.x0) * 0.15;
-      if (weich < 16 && genau) {
-        state.perfekt += 1;
-        schrift("Perfekt gelandet!", f.x, f.y + 34, "#ffe08a", 16);
+      const nach = clamp(Math.round(state.platten[platte.n + 1].bedarf * tankFaktor(platte.n)), 6, 60);
+      const vorher = state.tank;
+      state.tank = Math.max(vorher, Math.min(TANK_NACH, vorher + nach));
+      state.tankAb = state.tank;
+      state.getankt = { menge: Math.round(state.tank - vorher), zeit: state.zeit };
+      if (bonus >= PUNKTE_SPAREN * 0.9) {
+        schrift(`Sehr sparsam! +${plus}`, f.x, f.y + 34, "#ffe08a", 16);
         kids()?.playJingle?.("star");
+      } else if (bonus >= PUNKTE_SPAREN * 0.45) {
+        schrift(`Sparsam +${plus}`, f.x, f.y + 34, "#9effc0", 15);
+        kids()?.playJingle?.("tap");
       } else {
-        schrift("Gelandet!", f.x, f.y + 34, "#9effc0", 15);
+        schrift(`Gelandet +${plus}`, f.x, f.y + 34, "#ffffff", 15);
         kids()?.playJingle?.("tap");
       }
-      schrift(`+${Math.round(nach)} Treibstoff`, f.x, f.y + 16, "#ffd166", 11);
     }
     while (state.platten.length < state.auf + 4) naechstePlatte();
   }
@@ -1038,6 +1096,9 @@
     state.zeit += dt;
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.2);
     state.flamme = ruhig() ? 0.5 : Math.random();
+    // Der Balken: Sinkt der Tank, sinkt er sofort; beim Tanken füllt er sich.
+    if (state.tank < state.anzeige) state.anzeige = state.tank;
+    else state.anzeige += (state.tank - state.anzeige) * (1 - Math.exp(-dt * 4));
 
     if (state.schritt !== "flug") state.strahl = false;
     if (state.schritt === "flug") {
@@ -1140,7 +1201,8 @@
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
-    state.perfekt = 0;
+    state.sparsam = 0;
+    state.landungen = 0;
     state.boden = [];
     state.platten = [];
     state.kopf = -600;
@@ -1149,6 +1211,9 @@
     state.auf = 0;
     state.f = { x: 0, y: state.platten[0].y + 13, vx: 0, vy: 0, neig: 0 };
     state.tank = TANK;
+    state.tankAb = TANK;
+    state.anzeige = TANK;
+    state.getankt = null;
     state.schub = false;
     state.neigZiel = 0;
     state.teile = [];
@@ -1166,7 +1231,7 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt ml-prompt", "Halten – Schub. Dein Finger lenkt.");
+    const prompt = shell.el("p", "cm-prompt ml-prompt", "Halten – Schub. Spar Treibstoff!");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -1209,12 +1274,13 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     kids()?.playJingle?.("win");
-    const perfekt = state.perfekt === 1 ? "1 perfekte Landung" : `${state.perfekt} perfekte Landungen`;
+    const landungen = state.landungen === 1 ? "1 Landung" : `${state.landungen} Landungen`;
+    const sparsam = state.sparsam ? ` · ${state.sparsam} sehr sparsam` : "";
     shell.showResult({
-      label: "Deine Landungen",
+      label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : `${perfekt}${vorher ? ` · Bestwert ${vorher}` : ""}`,
-      speech: `${punkte} ${punkte === 1 ? "Landung" : "Landungen"}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher}.` : ""}`,
+      detail: rekord ? `Neuer Rekord! ${landungen}${sparsam}` : `${landungen}${sparsam}${vorher ? ` · Bestwert ${vorher}` : ""}`,
+      speech: `${punkte} Punkte, ${landungen}.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Punkte.` : ""}`,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ml-rekord");
     zaehleHoch(punkte);
@@ -1233,7 +1299,7 @@
     clock: false,
     onRestart: startRun,
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "ziel" }) || null;
+  gegner = window.LernappGeist?.fuer?.({ spiel: "moonLander", host, art: "ziel", fassung: "p2" }) || null;
 
   startRun();
 
