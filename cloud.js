@@ -60,6 +60,9 @@
  *     verdeckt   false            Rangliste erst am Schluss zeigen
  *     ohneGeist  true             keine Gegner beim Spielen (geist.js).
  *                                 Fehlt, wo sie gezeigt werden.
+ *     nurLive    true             gespielt wird nur an Live-Abenden
+ *                                 (live.js), keine Versuche dazwischen.
+ *                                 Fehlt bei allen anderen.
  *     aktiv      true             angehalten, wenn false
  *
  *   miniTurniere/<id>/eintraege/towerStack_mini_a7f3…
@@ -72,6 +75,11 @@
  *   miniTurniere/<id>/geister/towerStack_mini_a7f3…
  *     wie miniGeister: der beste einzelne Lauf eines Spielers in diesem
  *     Turnier, für den, der gegen ihn spielt
+ *
+ *   miniTurniere/<id>/live/K7QM-1760368000000
+ *     der Endstand eines Live-Abends, der zum Turnier gehört (live.js):
+ *     name, gewicht (0–3), endstand [{ spieler, name, punkte, platz }],
+ *     runden, spiele, erstelltMs. Nur der Admin schreibt ihn.
  *
  * Ein Turnier-Eintrag ist nicht miniScores mit anderem Namen: Ein Versuch
  * zählt dort, sobald er beginnt (turnierVersuch), und sein Ergebnis kommt
@@ -469,6 +477,80 @@
     const kennung = String(id || "").trim();
     return ref && kennung ? ref.doc(kennung).collection("geister") : null;
   }
+  function turnierLiveRef(id) {
+    const ref = turnierSammlung();
+    const kennung = String(id || "").trim();
+    return ref && kennung ? ref.doc(kennung).collection("live") : null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Live-Abende eines Turniers
+  // ---------------------------------------------------------------------------
+  // Was ein Live-Abend im Turnier hinterlässt: seinen Endstand, mit dem
+  // Gewicht, mit dem er in der Gesamtwertung zählt.
+  function liesLiveErgebnis(doc) {
+    const d = typeof doc?.data === "function" ? doc.data() : null;
+    if (!d) return null;
+    const endstand = (Array.isArray(d.endstand) ? d.endstand : [])
+      .map((e) => ({
+        spieler: String(e?.spieler || ""),
+        name: String(e?.name || "").trim().slice(0, NAME_MAX),
+        punkte: Math.max(0, Math.round(Number(e?.punkte) || 0)),
+        platz: Math.max(1, Math.round(Number(e?.platz) || 1)),
+      }))
+      .filter((e) => e.name);
+    return {
+      id: doc.id,
+      name: String(d.name || "Live-Abend").trim().slice(0, TURNIER_NAME_MAX),
+      gewicht: Math.max(0, Math.min(3, Math.round(Number(d.gewicht) || 0))),
+      endstand,
+      runden: Math.max(0, Math.round(Number(d.runden) || 0)),
+      spiele: Array.isArray(d.spiele) ? d.spiele.map(String) : [],
+      erstelltMs: Math.round(Number(d.erstelltMs) || 0),
+    };
+  }
+
+  async function turnierLive(id) {
+    const ref = turnierLiveRef(id);
+    if (!ref) return [];
+    return sammle(await ref.limit(50).get(), liesLiveErgebnis).sort((a, b) => a.erstelltMs - b.erstelltMs);
+  }
+
+  // Nur der Admin, am Ende eines Live-Abends (firestore.rules, live).
+  async function speichereTurnierLive(id, abendId, daten) {
+    const ref = turnierLiveRef(id);
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const doc = {
+      name: String(daten.name || "Live-Abend").trim().slice(0, TURNIER_NAME_MAX) || "Live-Abend",
+      gewicht: Math.max(0, Math.min(3, Math.round(Number(daten.gewicht) || 0))),
+      endstand: (daten.endstand || []).slice(0, 200).map((e) => ({
+        spieler: String(e.spieler || "").slice(0, 64),
+        name: String(e.name || "").trim().slice(0, NAME_MAX),
+        punkte: Math.max(0, Math.round(Number(e.punkte) || 0)),
+        platz: Math.max(1, Math.round(Number(e.platz) || 1)),
+      })),
+      runden: Math.max(0, Math.min(100, Math.round(Number(daten.runden) || 0))),
+      spiele: (daten.spiele || []).slice(0, 50).map(String),
+      erstelltMs: Math.round(Number(daten.erstelltMs) || Date.now()),
+      updatedAtMs: Date.now(),
+      updatedAt: jetztAufDemServer(),
+    };
+    await ref.doc(String(abendId)).set(doc);
+    return liesLiveErgebnis({ id: abendId, data: () => doc });
+  }
+
+  // Ob zu einem Turnier gerade ein Live-Abend offen ist – aus der Realtime
+  // Database, ohne ihr SDK: Die Turnierseite fragt einmal über die
+  // REST-Schnittstelle (turnierLive/<id> lesen darf jeder).
+  async function liveZeiger(id) {
+    const kennung = String(id || "").trim();
+    if (!/^[a-z0-9-]+$/.test(kennung)) return null;
+    const antwort = await fetch(`${firebaseConfig.databaseURL}/turnierLive/${kennung}.json`, { cache: "no-store" });
+    if (!antwort.ok) return null;
+    const d = await antwort.json();
+    if (!d || typeof d !== "object" || !/^[A-Z2-9]{4}$/.test(String(d.code || ""))) return null;
+    return { code: String(d.code), name: String(d.name || "Live-Abend").slice(0, 60) };
+  }
 
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
   // zum freundlichen Wert – bis auf das, ohne das es kein Turnier ist: Name,
@@ -502,6 +584,7 @@
       sichtbar: d.sichtbar === "alle" ? "alle" : "link",
       verdeckt: d.verdeckt === true,
       ohneGeist: d.ohneGeist === true,
+      nurLive: d.nurLive === true,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
@@ -591,6 +674,8 @@
     // Ebenso: Nur wer die Gegner abschaltet, schreibt das Feld. Ein Turnier
     // ohne das Feld zeigt sie, wie jedes Turnier von vorher.
     if (daten.ohneGeist === true) doc.ohneGeist = true;
+    // Und nur, wer nur live spielen lässt.
+    if (daten.nurLive === true) doc.nurLive = true;
     await ref.doc(kennung).set(doc);
     return liesTurnier({ id: kennung, data: () => doc });
   }
@@ -608,8 +693,9 @@
     const ref = turnierSammlung();
     const eintraege = turnierEintraege(id);
     const geister = turnierGeisterRef(id);
-    if (!db || !ref || !eintraege || !geister) throw new Error("Firestore ist nicht bereit.");
-    for (const unter of [eintraege, geister]) {
+    const abende = turnierLiveRef(id);
+    if (!db || !ref || !eintraege || !geister || !abende) throw new Error("Firestore ist nicht bereit.");
+    for (const unter of [eintraege, geister, abende]) {
       for (let runde = 0; runde < 50; runde += 1) {
         const stapel = await unter.limit(400).get();
         if (stapel.empty) break;
@@ -849,6 +935,7 @@
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     turnierGeist, speichereTurnierGeist,
+    turnierLive, speichereTurnierLive, liveZeiger,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };

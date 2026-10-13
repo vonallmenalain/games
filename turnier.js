@@ -188,29 +188,52 @@
    *
    * Die Punkte selbst zusammenzuzählen wäre sinnlos: 40 Blöcke im Turmbau und
    * 40 Fische im Teich sind nicht dasselbe.
+   *
+   * Dazu die Live-Abende, die zum Turnier gehören (live.js): Ihr Endstand
+   * zählt wie ein weiteres Spiel, mal ihr Gewicht (×1, ×2, ×3; 0 zählt gar
+   * nicht). Wer einen verpasst hat, steht dort hinter dem Letzten – wie bei
+   * einem ausgelassenen Spiel. In einem Turnier, das nur live gespielt wird,
+   * zählen nur die Abende.
    */
-  function gesamtwertung(t, eintraege) {
-    const listen = new Map(t.spiele.map((spiel) => [spiel, rangliste(eintraege, spiel)]));
+  function gesamtwertung(t, eintraege, abende = []) {
+    const spiele = t.nurLive ? [] : t.spiele;
+    const listen = new Map(spiele.map((spiel) => [spiel, rangliste(eintraege, spiel)]));
+    const live = (abende || []).filter((a) => a && a.gewicht > 0 && Array.isArray(a.endstand) && a.endstand.length);
     const personen = new Map();
+    const person = (name, eigen) => {
+      const schluessel = String(name).toLocaleLowerCase("de");
+      if (!personen.has(schluessel)) personen.set(schluessel, { name, eigen: false, je: {}, abende: {} });
+      const p = personen.get(schluessel);
+      p.eigen = p.eigen || Boolean(eigen);
+      return p;
+    };
+    const kennung = mini()?.kennungFallsDa?.() || "";
+    live.forEach((a) => {
+      const bester = a.endstand.reduce((max, e) => Math.max(max, Number(e.punkte) || 0), 0);
+      a.endstand.forEach((e) => {
+        const p = person(e.name, kennung && e.spieler === kennung);
+        const punkte = Number(e.punkte) || 0;
+        p.abende[a.id] = { platz: e.platz, punkte, prozent: bester > 0 ? (punkte / bester) * 100 : 0 };
+      });
+    });
     for (const [spiel, liste] of listen) {
       const bester = liste.reduce((max, e) => Math.max(max, Number(e.punkte) || 0), 0);
       for (const e of liste) {
-        const schluessel = e.name.toLocaleLowerCase("de");
-        if (!personen.has(schluessel)) personen.set(schluessel, { name: e.name, eigen: false, je: {} });
-        const person = personen.get(schluessel);
-        person.eigen = person.eigen || Boolean(e.eigen);
+        const p = person(e.name, e.eigen);
         const punkte = Number(e.punkte) || 0;
-        person.je[spiel] = { platz: e.platz, punkte, prozent: bester > 0 ? (punkte / bester) * 100 : 0 };
+        p.je[spiel] = { platz: e.platz, punkte, prozent: bester > 0 ? (punkte / bester) * 100 : 0 };
       }
     }
 
     const prozent = t.wertung === "prozent";
-    const alle = [...personen.values()].map((person) => {
-      const gespielt = t.spiele.filter((spiel) => person.je[spiel]).length;
+    const alle = [...personen.values()].map((p) => {
+      const gespielt = spiele.filter((spiel) => p.je[spiel]).length + live.filter((a) => p.abende[a.id]).length;
       const wert = prozent
-        ? Math.round(t.spiele.reduce((summe, spiel) => summe + (person.je[spiel]?.prozent || 0), 0))
-        : t.spiele.reduce((summe, spiel) => summe + (person.je[spiel]?.platz || listen.get(spiel).length + 1), 0);
-      return { ...person, gespielt, wert };
+        ? Math.round(spiele.reduce((summe, spiel) => summe + (p.je[spiel]?.prozent || 0), 0)
+          + live.reduce((summe, a) => summe + (p.abende[a.id]?.prozent || 0) * a.gewicht, 0))
+        : spiele.reduce((summe, spiel) => summe + (p.je[spiel]?.platz || listen.get(spiel).length + 1), 0)
+          + live.reduce((summe, a) => summe + (p.abende[a.id]?.platz || a.endstand.length + 1) * a.gewicht, 0);
+      return { ...p, gespielt, wert };
     });
     alle.sort((a, b) => (prozent ? b.wert - a.wert : a.wert - b.wert)
       || b.gespielt - a.gespielt
@@ -221,7 +244,7 @@
       if (i === 0 || person.wert !== alle[i - 1].wert) platz = i + 1;
       person.platz = platz;
     });
-    return { personen: alle, listen };
+    return { personen: alle, listen, abende: live, teile: spiele.length + live.length };
   }
 
   // ---------------------------------------------------------------------------
@@ -367,7 +390,7 @@
   // ---------------------------------------------------------------------------
   function turnierSeite(wirt) {
     const id = ausDerAdresse("t");
-    const stand = { t: null, eintraege: [], geladenMs: 0, lage: "" };
+    const stand = { t: null, eintraege: [], abende: [], zeiger: null, geladenMs: 0, lage: "" };
 
     wirt.innerHTML = "";
     const kopf = el("header", "mini-kopf tn-kopf");
@@ -409,9 +432,15 @@
     async function laden() {
       if (!stand.t) hinweis("Das Turnier wird geladen...");
       try {
-        const [t, eintraege] = await Promise.all([cloud().turnier(id), cloud().turnierErgebnisse(id)]);
+        const [t, eintraege, abende] = await Promise.all([
+          cloud().turnier(id),
+          cloud().turnierErgebnisse(id),
+          // Die Live-Abende dürfen fehlen – das Turnier steht auch ohne sie.
+          Promise.resolve(cloud().turnierLive?.(id)).catch(() => []),
+        ]);
         stand.t = t || null;
         stand.eintraege = Array.isArray(eintraege) ? eintraege : [];
+        stand.abende = Array.isArray(abende) ? abende : [];
         stand.geladenMs = Date.now();
       } catch (fehler) {
         console.warn("Das Turnier war nicht zu lesen", fehler);
@@ -427,7 +456,20 @@
       merke(id);
       alsApp(stand.t);
       zeichne();
+      schauLive();
     }
+
+    // Läuft gerade ein Live-Abend zu diesem Turnier? Dann steht ganz oben der
+    // Weg hinein. Gefragt wird beim Laden und dann alle 20 Sekunden, solange
+    // die Seite zu sehen ist.
+    async function schauLive() {
+      let zeiger = null;
+      try { zeiger = await cloud().liveZeiger?.(id); } catch { zeiger = null; }
+      const vorher = JSON.stringify(stand.zeiger);
+      stand.zeiger = zeiger || null;
+      if (stand.t && JSON.stringify(stand.zeiger) !== vorher) zeichne();
+    }
+    window.setInterval(() => { if (document.visibilityState === "visible" && stand.t) schauLive(); }, 20000);
 
     function zeichne() {
       const t = stand.t;
@@ -435,19 +477,24 @@
       stand.lage = lage(t, jetzt);
       const vorbei = stand.lage === "beendet";
       const verdeckt = t.verdeckt && !vorbei;
-      const { personen, listen } = gesamtwertung(t, stand.eintraege);
+      const { personen, listen, abende, teile } = gesamtwertung(t, stand.eintraege, stand.abende);
 
       document.title = `${t.name} · Turnier · Mini-Games`;
       ueberschrift.textContent = t.name;
       status.textContent = statusZeile(t, jetzt);
       inhalt.innerHTML = "";
 
+      // Ein Live-Abend läuft: ganz oben der Weg hinein.
+      if (stand.zeiger) inhalt.append(liveHinweis(stand.zeiger));
+
       inhalt.append(streifen([
         [t.spiele.length, t.spiele.length === 1 ? "Spiel" : "Spiele"],
         [personen.length, "Spieler"],
-        t.spitzeWartet
-          ? ["∞", "Versuche – wer vorne liegt, wartet"]
-          : [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
+        t.nurLive
+          ? [abende.length || "–", abende.length === 1 ? "Live-Abend" : "Live-Abende"]
+          : t.spitzeWartet
+            ? ["∞", "Versuche – wer vorne liegt, wartet"]
+            : [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
       ]));
 
       if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
@@ -459,12 +506,16 @@
       spieleBlock.append(karten);
       inhalt.append(spieleBlock);
 
+      // Die Live-Abende, die schon gezählt haben: je ihr Endstand.
+      if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
+
       // Mit einem einzigen Spiel ist dessen Liste schon die Gesamtwertung –
-      // eine zweite Tabelle darunter sagte dasselbe noch einmal.
-      if (t.spiele.length > 1) {
+      // eine zweite Tabelle darunter sagte dasselbe noch einmal. Mit einem
+      // Live-Abend dazu nicht mehr.
+      if (teile > 1 || (t.nurLive && teile > 0)) {
         const gesamt = el("section", "mini-block");
         gesamt.append(el("h2", "", vorbei ? "Endstand" : "Gesamtwertung"));
-        gesamt.append(gesamtTabelle(t, personen, verdeckt));
+        gesamt.append(gesamtTabelle(t, personen, verdeckt, abende));
         inhalt.append(gesamt);
       }
 
@@ -490,6 +541,47 @@
     window.addEventListener("pageshow", (ereignis) => { if (ereignis.persisted) laden(); });
 
     laden();
+  }
+
+  // Ein Live-Abend zu diesem Turnier läuft gerade (live.js): der Weg hinein.
+  function liveHinweis(zeiger) {
+    const box = el("section", "tn-live");
+    const text = el("div", "tn-live-text");
+    const marke = el("strong", "tn-live-marke");
+    marke.append(el("span", "tn-live-punkt"), el("span", "", "Jetzt live"));
+    text.append(marke, el("span", "", zeiger.name));
+    box.append(text, verweis("Mitspielen", `/live?code=${encodeURIComponent(zeiger.code)}`, "mini-knopf-voll"));
+    return box;
+  }
+
+  // Die Live-Abende, die zum Turnier gehören: je ihr Endstand und wie sie
+  // zählen. Bei einer verdeckten Rangliste nur, dass es sie gab.
+  function liveAbende(abende, verdeckt) {
+    const block = el("section", "mini-block");
+    block.append(el("h2", "", abende.length === 1 ? "Der Live-Abend" : "Die Live-Abende"));
+    const karten = el("div", "mini-karten");
+    abende.forEach((a) => {
+      const karte = el("article", "mini-karte tn-karte tn-live-karte");
+      const kopf = el("header", "mini-karte-kopf");
+      kopf.append(el("h3", "", a.name), el("span", "mini-karte-zahl", !a.gewicht ? "zählt nicht" : a.gewicht === 1 ? "zählt wie ein Spiel" : `zählt ×${a.gewicht}`));
+      karte.append(kopf);
+      if (verdeckt) {
+        karte.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
+      } else {
+        const ol = el("ol", "tn-live-liste");
+        const kennung = mini()?.kennungFallsDa?.() || "";
+        a.endstand.slice(0, 5).forEach((e) => {
+          const li = el("li", kennung && e.spieler === kennung ? "ist-ich" : "");
+          li.append(el("span", "mini-rangzahl", String(e.platz)), el("span", "tn-live-name", e.name), el("span", "tn-live-wert", String(e.punkte)));
+          ol.append(li);
+        });
+        karte.append(ol);
+        if (a.endstand.length > 5) karte.append(el("p", "tn-fertig", `und ${a.endstand.length - 5} weitere`));
+      }
+      karten.append(karte);
+    });
+    block.append(karten);
+    return block;
   }
 
   function spielKarte(t, spiel, liste, eintraege, { jetzt, verdeckt }) {
@@ -535,7 +627,8 @@
 
     const aktionen = el("div", "mini-karte-aktionen");
     const l = lage(t, jetzt);
-    if (l === "laeuft" && vorne) aktionen.append(el("span", "tn-fertig", "Du liegst vorne"));
+    if (t.nurLive) aktionen.append(el("span", "tn-fertig", "Wird live gespielt"));
+    else if (l === "laeuft" && vorne) aktionen.append(el("span", "tn-fertig", "Du liegst vorne"));
     else if (l === "laeuft" && uebrig > 0) aktionen.append(verweis("Spielen", spielLink(t.id, spiel), "mini-knopf-voll"));
     else if (l === "laeuft") aktionen.append(el("span", "tn-fertig", "Alle Versuche gespielt"));
     else if (l === "geplant") aktionen.append(el("span", "tn-fertig", `Ab ${datum(t.startMs)}`));
@@ -551,7 +644,8 @@
     return karte;
   }
 
-  function gesamtTabelle(t, personen, verdeckt) {
+  function gesamtTabelle(t, personen, verdeckt, abende = []) {
+    const spiele = t.nurLive ? [] : t.spiele;
     if (verdeckt) {
       return el("p", "mini-hinweis tn-verdeckt", personen.length
         ? `Die Gesamtwertung bleibt bis zum Schluss verdeckt. Bisher ${personen.length === 1 ? "ist 1 Spieler" : `sind ${personen.length} Spieler`} dabei.`
@@ -577,15 +671,22 @@
       wer.append(el("span", "", person.name));
       // Woraus sich die Zahl zusammensetzt, klein darunter: Eine Summe, deren
       // Teile man nicht sieht, glaubt man weniger.
-      const teile = t.spiele.map((spiel) => {
+      const teile = spiele.map((spiel) => {
         const je = person.je[spiel];
         if (!je) return `${titel(spiel)} –`;
         return prozent ? `${titel(spiel)} ${Math.round(je.prozent)}` : `${titel(spiel)} ${je.platz}.`;
       });
+      // Die Live-Abende, mit ihrem Gewicht.
+      abende.forEach((a) => {
+        const je = person.abende?.[a.id];
+        const mal = a.gewicht > 1 ? ` ×${a.gewicht}` : "";
+        if (!je) teile.push(`Live «${a.name}» –`);
+        else teile.push(prozent ? `Live «${a.name}» ${Math.round(je.prozent)}${mal}` : `Live «${a.name}» ${je.platz}.${mal}`);
+      });
       wer.append(el("small", "tn-teile", teile.join(" · ")));
       namensZelle.append(wer);
       zeile.append(namensZelle);
-      zeile.append(el("td", "zahl", `${person.gespielt}/${t.spiele.length}`));
+      zeile.append(el("td", "zahl", `${person.gespielt}/${spiele.length + abende.length}`));
       zeile.append(el("td", "zahl tn-wert", String(person.wert)));
       koerper.append(zeile);
     });
@@ -744,6 +845,8 @@
   function spielbar(jetzt = Date.now()) {
     const t = hier.t;
     if (!t || lage(t, jetzt) !== "laeuft" || !t.spiele.includes(spielHier())) return false;
+    // Nur live: Gespielt wird am Live-Abend, nicht hier.
+    if (t.nurLive) return false;
     if (t.spitzeWartet && hier.vorne) return false;
     return !t.versuche || hier.gespielt < t.versuche;
   }

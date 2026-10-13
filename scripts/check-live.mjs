@@ -107,9 +107,16 @@ const SDK = new Map(["app", "firestore", "auth", "database"].map((teil) => [
 
 // cloud.js, nur so viel, wie der Live-Modus braucht: die Verbindung und die
 // Hall of Fame als Liste im Fenster.
+const TURNIER_ID = "herbstcup-k3m9x2p7";
 const ATTRAPPE = `
 (() => {
   let app = null;
+  const TURNIER = {
+    id: "${TURNIER_ID}", name: "Herbstcup", beschreibung: "", spiele: ["gravityRun", "vineSwing", "towerStack"],
+    startMs: Date.now() - 3600000, endeMs: Date.now() + 86400000, versuche: 0, zaehlt: "bester", wertung: "platz",
+    aufgaben: "gleich", sichtbar: "link", verdeckt: false, ohneGeist: false, nurLive: false, aktiv: true, spitzeWartet: false,
+  };
+  const liesAbende = () => { try { return JSON.parse(localStorage.getItem("__turnierLive") || "[]"); } catch { return []; } };
   // Gesammelt wird oben, auf der Live-Seite: Die Runde, die meldet, steckt
   // in einem Rahmen und ist nach der Runde wieder weg.
   if (window === window.top) window.__hof = [];
@@ -126,6 +133,23 @@ const ATTRAPPE = `
     NAME_MAX: 24, BAHN_MAX: 12000, MAX_JE_SPIEL: 300, MAX_JE_SPIELER: 50, TURNIER_NAME_MAX: 60, BESCHREIBUNG_MAX: 600,
     async speichere(e) { window.top.__hof.push({ game: e.game, punkte: e.punkte, name: e.name }); return { punkte: e.punkte, rekord: true, versuche: 1 }; },
     async speichereGeist() { return null; },
+    async alleTurniere() { return [TURNIER]; },
+    async turnier(id) { return id === TURNIER.id ? TURNIER : null; },
+    async turnierErgebnisse() { return []; },
+    async turnierLive() { return liesAbende(); },
+    async speichereTurnierLive(id, abendId, daten) {
+      // Auf dem Gerät gemerkt: Die Seite geht danach weiter.
+      const ergebnis = { id: abendId, turnier: id, ...daten };
+      let alle = [];
+      try { alle = JSON.parse(localStorage.getItem("__turnierLiveGespeichert") || "[]"); } catch { alle = []; }
+      localStorage.setItem("__turnierLiveGespeichert", JSON.stringify([...alle, ergebnis]));
+      return ergebnis;
+    },
+    async liveZeiger(id) {
+      const antwort = await fetch("http://${EMULATOR}/turnierLive/" + id + ".json?ns=${NAMENSRAUM}");
+      const d = await antwort.json();
+      return d && d.code ? { code: d.code, name: d.name } : null;
+    },
     async ergebnisse() { return []; },
     async geister() { return []; },
     async offeneSpiele() { return null; },
@@ -187,24 +211,24 @@ const spielFrame = (g) => g.seite.frames().find((f) => /[?&]live=/.test(f.url())
 try {
   // --- Die Leitung legt einen Abend an ---------------------------------------
   const leitung = await geraet("Alain", { admin: true });
-  await leitung.seite.goto(`${BASIS}/live?neu`, { waitUntil: "load" });
+  // Aus dem Turnier heraus (Adminbereich, «Live-Abend» beim Turnier).
+  await leitung.seite.goto(`${BASIS}/live?neu&turnier=${TURNIER_ID}`, { waitUntil: "load" });
   pruefe(await bis(() => leitung.seite.locator(".lv-formular").isVisible()), "Das Formular zum Anlegen erscheint für den Admin nicht");
   await bild(leitung, "0-formular");
+  // Das Turnier ist gewählt, seine Spiele stehen im Programm, sein Name im
+  // Namen des Abends.
+  pruefe(await bis(() => leitung.seite.locator("#lv-turnier option:checked").textContent().then((t) => t === "Herbstcup")), "Das Turnier aus der Adresse ist nicht gewählt");
+  pruefe(await bis(() => leitung.seite.locator(".lv-zeile").count().then((n) => n === 3)), "Die Spiele des Turniers stehen nicht im Programm");
+  const programmSpiele = await leitung.seite.locator(".lv-spiel-wahl").evaluateAll((s) => s.map((x) => x.value));
+  pruefe(JSON.stringify(programmSpiele) === JSON.stringify(["gravityRun", "vineSwing", "towerStack"]), `Das Programm ist nicht das des Turniers (${programmSpiele})`);
+  pruefe((await leitung.seite.inputValue("#lv-abend-name")).startsWith("Herbstcup"), "Der Name des Abends kommt nicht vom Turnier");
+  pruefe(await leitung.seite.locator("#lv-gewicht").isVisible(), "Wie der Abend im Turnier zählt, lässt sich nicht wählen");
   await leitung.seite.fill("#lv-abend-name", "Prüfabend");
-  // Programm: Schwerkraft-Läufer mit einer Übung und einer Runde, dann
-  // Turmbau mit einer Runde – das Finale zählt doppelt.
-  const ersteZeile = leitung.seite.locator(".lv-zeile").first();
-  await ersteZeile.locator(".lv-spiel-wahl").selectOption("gravityRun");
-  await ersteZeile.locator(".lv-runden-wahl").selectOption("1");
-  await ersteZeile.locator(".lv-uebung-wahl").selectOption("1");
-  // Dazwischen Lianenschwung: ein Spiel mit Figur im Bild – zum Zuschauen.
-  for (const [i, spiel] of [[1, "vineSwing"], [2, "towerStack"]]) {
-    await leitung.seite.getByRole("button", { name: "Spiel hinzufügen" }).click();
-    const zeile = leitung.seite.locator(".lv-zeile").nth(i);
-    await zeile.locator(".lv-spiel-wahl").selectOption(spiel);
-    await zeile.locator(".lv-runden-wahl").selectOption("1");
-    await zeile.locator(".lv-uebung-wahl").selectOption("0");
-  }
+  await leitung.seite.selectOption("#lv-gewicht", "2");
+  // Schwerkraft-Läufer mit einer Übung, Lianenschwung (zum Zuschauen) und
+  // Turmbau ohne – das Finale zählt doppelt.
+  await leitung.seite.locator(".lv-zeile").nth(1).locator(".lv-uebung-wahl").selectOption("0");
+  await leitung.seite.locator(".lv-zeile").nth(2).locator(".lv-uebung-wahl").selectOption("0");
   await leitung.seite.selectOption("#lv-zeitlimit", "30");
   await leitung.seite.selectOption("#lv-countdown", "3");
   await leitung.seite.check("#lv-finale");
@@ -215,6 +239,10 @@ try {
   pruefe((await leitung.seite.locator(".lv-code-gross").textContent()) === code, "Die Lobby zeigt der Leitung den Code nicht gross");
   pruefe(new URL(leitung.seite.url()).searchParams.get("code") === code, "Die Adresse trägt den Code nicht");
   pruefe((await stand(leitung))?.leitung === true, "Die Leitung wird nicht als Leitung erkannt");
+  // Die Turnierseite erfährt, dass gerade live gespielt wird.
+  const zeigerLesen = async () => (await fetch(`http://${EMULATOR}/turnierLive/${TURNIER_ID}.json?ns=${NAMENSRAUM}`)).json();
+  pruefe((await zeigerLesen())?.code === code, "Das Turnier zeigt nicht auf den Live-Abend");
+  pruefe((await leitung.seite.locator(".lv-einstellungen").textContent())?.includes("×2"), "Die Lobby sagt nicht, wie der Abend im Turnier zählt");
   await bild(leitung, "1-lobby-leitung");
 
   // --- Das Grossbild: schaut zu, tritt nicht bei -----------------------------
@@ -234,6 +262,17 @@ try {
     pruefe(await bis(async () => (await stand(g))?.beigetreten), `${g.name} kommt nicht in die Lobby`);
   }
   pruefe(await bis(async () => (await leitung.seite.locator(".lv-spieler li.ist-online").count()) === 3), "Die Leitung sieht nicht alle drei online");
+  // Auf der Turnierseite: «Jetzt live» mit dem Weg hinein.
+  {
+    const blick = await geraet("Gast");
+    await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
+    pruefe(await bis(() => blick.seite.locator(".tn-live").count().then((n) => n === 1)), "Die Turnierseite zeigt nicht, dass gerade live gespielt wird");
+    const weg = await blick.seite.locator(".tn-live a").getAttribute("href");
+    pruefe(weg === `/live?code=${code}`, `Der Weg in den Live-Abend stimmt nicht (${weg})`);
+    await bild(blick, "11-turnier-live");
+    await blick.kontext.close();
+    geraete.splice(geraete.indexOf(blick), 1);
+  }
   pruefe((await mia.seite.locator(".lv-start-knopf").count()) === 0, "Ein Spieler sieht den Start-Knopf");
   pruefe((await mia.seite.locator(".lv-warten").textContent())?.includes("Warte"), "Ein Spieler sieht nicht, dass er wartet");
   await bild(mia, "2-lobby-spieler");
@@ -437,9 +476,44 @@ try {
   await bild(mia, "8-podest");
 
   // --- Abschliessen ----------------------------------------------------------
-  await leitung.seite.getByRole("button", { name: "Abend abschliessen" }).click();
+  await leitung.seite.getByRole("button", { name: "Ins Turnier eintragen und abschliessen" }).click();
   pruefe(await bis(() => mia.seite.locator(".lv-status", { hasText: "vorbei" }).count().then((n) => n > 0)), "Die Spieler erfahren nicht, dass der Abend vorbei ist");
   pruefe(await mia.seite.locator(".lv-podest").count() === 1, "Nach dem Abschliessen ist das Podest weg");
+  pruefe(await mia.seite.locator("a", { hasText: "Zum Turnier" }).count() >= 1, "Nach dem Abend führt kein Weg zum Turnier");
+
+  // --- Im Turnier --------------------------------------------------------------
+  await bis(async () => new URL(leitung.seite.url()).search === "");
+  const eingetragen = await leitung.seite.evaluate(() => JSON.parse(localStorage.getItem("__turnierLiveGespeichert") || "[]")).catch(() => []);
+  pruefe(eingetragen.length === 1, `Der Endstand kam nicht ins Turnier (${eingetragen.length})`);
+  const ergebnis = eingetragen[0] || {};
+  pruefe(ergebnis.turnier === TURNIER_ID && /^[A-Z2-9]{4}-[0-9]{6,16}$/.test(ergebnis.id || ""), `Der Endstand liegt nicht beim richtigen Turnier (${ergebnis.turnier}, ${ergebnis.id})`);
+  pruefe(ergebnis.gewicht === 2 && ergebnis.endstand?.length === 5 && ergebnis.runden === 3, `Der Endstand ist nicht vollständig (${JSON.stringify({ g: ergebnis.gewicht, n: ergebnis.endstand?.length, r: ergebnis.runden })})`);
+  pruefe(JSON.stringify(ergebnis.endstand?.map((e) => [e.name, e.punkte, e.platz])) === JSON.stringify(gesamt), "Im Turnier steht ein anderer Endstand als auf dem Podest");
+  pruefe((await zeigerLesen()) === null, "Nach dem Abschliessen zeigt das Turnier noch auf den Abend");
+  // Die Gesamtwertung des Turniers mit dem Abend: Er zählt wie ein Spiel,
+  // mal zwei; wer fehlt, steht hinter dem Letzten.
+  {
+    const blick = await geraet("Gast2");
+    await blick.seite.addInitScript((daten) => { try { localStorage.setItem("__turnierLive", JSON.stringify(daten)); } catch { /* egal */ } }, eingetragen);
+    await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
+    pruefe(await bis(() => blick.seite.locator(".tn-live-karte").count().then((n) => n === 1)), "Die Turnierseite zeigt den Live-Abend nicht");
+    pruefe(await blick.seite.locator(".tn-live-karte .mini-karte-zahl").textContent() === "zählt ×2", "Die Turnierseite sagt nicht, wie der Abend zählt");
+    pruefe(await bis(() => blick.seite.locator(".tn-tabelle tbody tr").count().then((n) => n === 5)), "In der Gesamtwertung fehlen die Spieler des Abends");
+    pruefe((await blick.seite.locator(".tn-tabelle .tn-teile").first().textContent())?.includes("Live «Prüfabend» 1. ×2"), "Die Gesamtwertung zeigt die Live-Spalte nicht");
+    await bild(blick, "12-turnier-gesamt");
+    const rechnung = await blick.seite.evaluate((abend) => {
+      const t = { spiele: ["towerStack"], wertung: "platz" };
+      const eintraege = [{ game: "towerStack", spieler: "mini_xxxxxxxxxx", name: "Zoe", punkte: 9, versuche: 1 }];
+      const w = window.LernappTurnier.gesamtwertung(t, eintraege, [abend]);
+      return w.personen.map((p) => [p.name, p.wert]);
+    }, ergebnis);
+    const zoe = rechnung.find(([n]) => n === "Zoe");
+    pruefe(zoe && zoe[1] === 1 + (5 + 1) * 2, `Wer den Abend verpasst, steht nicht hinter dem Letzten, mal zwei (${JSON.stringify(rechnung)})`);
+    const erster = rechnung.find(([n]) => n === gesamt[0][0]);
+    pruefe(erster && erster[1] === 2 + gesamt[0][2] * 2, `Platz im Abend zählt nicht mal zwei (${JSON.stringify(rechnung)})`);
+    const nurLive = await blick.seite.evaluate((abend) => window.LernappTurnier.gesamtwertung({ spiele: ["towerStack"], wertung: "platz", nurLive: true }, [], [abend]).personen.map((p) => [p.name, p.wert, p.gespielt]), ergebnis);
+    pruefe(nurLive.length === 5 && nurLive.every(([, , g]) => g === 1), `Ein Turnier nur live zählt nicht nur die Abende (${JSON.stringify(nurLive)})`);
+  }
 
   // --- Die Regeln aus Sicht der Seite --------------------------------------
   // Ein Spieler darf nicht steuern.

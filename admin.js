@@ -821,6 +821,15 @@
     const gegnerText = el("span", "adm-option-text");
     gegnerText.append(el("strong", "", "Gegner beim Spielen zeigen"), el("small", "", "Platz 1 und die eigene Bestmarke laufen mit – als Zahl, als Linie oder als Geist im Bild. Jeder kann sie vor dem Spiel für sich ausblenden. Bei einer verdeckten Rangliste bleibt Platz 1 verborgen."));
     gegnerZeile.append(gegner, gegnerText);
+    // Nur live (live.js): keine Versuche dazwischen, gezählt werden nur die
+    // Live-Abende, die zum Turnier gehören.
+    const nurLive = el("input");
+    nurLive.type = "checkbox";
+    nurLive.checked = Boolean(t.nurLive);
+    const nurLiveZeile = el("label", "adm-option");
+    const nurLiveText = el("span", "adm-option-text");
+    nurLiveText.append(el("strong", "", "Nur live spielen"), el("small", "", "Gespielt wird nur an Live-Abenden, die zu diesem Turnier gehören (Knopf «Live-Abend» beim Turnier). Dazwischen gibt es keine Versuche; die Gesamtwertung zählt nur die Abende."));
+    nurLiveZeile.append(nurLive, nurLiveText);
     const aktiv = el("input");
     aktiv.type = "checkbox";
     aktiv.checked = t.aktiv;
@@ -828,7 +837,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, gegnerZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, nurLiveZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -859,6 +868,7 @@
         sichtbar: gewaehlterWert("sichtbar") || "alle",
         verdeckt: verdeckt.checked,
         ohneGeist: !gegner.checked,
+        nurLive: nurLive.checked,
         aktiv: aktiv.checked,
         spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
         erstelltMs: vorlage?.erstelltMs || Date.now(),
@@ -919,7 +929,7 @@
 
     // Wer vorne liegt – auch bei einem verdeckten Turnier: Der Admin muss die
     // Siegerehrung vorbereiten können.
-    const wertung = Array.isArray(eintraege) ? tn()?.gesamtwertung?.(t, eintraege) : null;
+    const wertung = Array.isArray(eintraege) ? tn()?.gesamtwertung?.(t, eintraege, aktion.abende || []) : null;
     const personen = wertung?.personen || [];
     let stand = "Der Stand ist gerade nicht zu haben.";
     if (Array.isArray(eintraege)) {
@@ -940,6 +950,8 @@
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
+      t.nurLive ? "nur live" : "",
+      aktion.abende?.length ? `${aktion.abende.length} ${aktion.abende.length === 1 ? "Live-Abend" : "Live-Abende"}` : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
 
@@ -967,6 +979,11 @@
       aktion.speichere({ ...t, name: sauber });
     }));
     aktionen.append(knopf("Bearbeiten", "adm-knopf-klein", () => aktion.bearbeiten(t)));
+    // Einen Live-Abend zu diesem Turnier anlegen (live.js): Er zählt dann in
+    // der Gesamtwertung mit.
+    const live = el("a", "adm-knopf adm-knopf-klein", "Live-Abend");
+    live.href = `/live?neu&turnier=${encodeURIComponent(t.id)}`;
+    aktionen.append(live);
 
     // Bei Bedarf aktivieren: Ein vorbereitetes Turnier startet mit einem Klick,
     // ein laufendes lässt sich anhalten, ein angehaltenes fortsetzen.
@@ -1151,8 +1168,8 @@
         const gruppe = el("section", `adm-turnier-gruppe ist-${art}`);
         gruppe.append(el("h3", "adm-turnier-gruppe-titel", darin.length ? `${ueberschrift} (${darin.length})` : ueberschrift));
         if (!darin.length) gruppe.append(el("p", "adm-hinweis", "Gerade läuft kein Turnier."));
-        darin.forEach(({ t, eintraege }) => gruppe.append(turnierZeile(t, eintraege, {
-          offen: t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne,
+        darin.forEach(({ t, eintraege, abende }) => gruppe.append(turnierZeile(t, eintraege, {
+          offen: t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne, abende,
         })));
         liste.append(gruppe);
       });
@@ -1171,8 +1188,12 @@
       }
       // Die Einträge je Turnier: für die Zahl der Spieler, wer vorne liegt und
       // den ganzen Stand des aufgeklappten.
-      geladen = await Promise.all(turniere.map((t) => cloud().turnierErgebnisse(t.id)
-        .then((eintraege) => ({ t, eintraege }), () => ({ t, eintraege: null }))));
+      // Dazu die Live-Abende, die zum Turnier gehören: Sie zählen in der
+      // Gesamtwertung mit.
+      geladen = await Promise.all(turniere.map((t) => Promise.all([
+        cloud().turnierErgebnisse(t.id),
+        Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
+      ]).then(([eintraege, abende]) => ({ t, eintraege, abende: abende || [] }), () => ({ t, eintraege: null, abende: [] }))));
       zeichne();
     }
 
