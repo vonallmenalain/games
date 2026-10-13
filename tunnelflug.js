@@ -703,6 +703,9 @@
     bildTransform();
     const s = view.s;
     orte.forEach((o) => {
+      // Wem im Live-Modus zugeschaut wird, der ist die Figur selbst – kein
+      // Geist dazu, nur sein Name (geist.js, namen).
+      if (o.ziel) return;
       g.save();
       g.globalAlpha = 0.6 * o.blass;
       g.translate(bildX(START.x + o.a), bildY(START.y + o.b));
@@ -1093,7 +1096,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: () => finish() },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "tunnelFlight", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

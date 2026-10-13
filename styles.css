@@ -3883,13 +3883,16 @@ p.tn-verdeckt:not(.mini-hinweis) {
   right: calc(var(--safe-right) + 12px);
   z-index: 5;
   display: flex;
-  justify-content: center;
+  /* Mittig, solange alle Platz haben – sonst von links an, und die Leiste
+     lässt sich schieben (zentriert verschwände der Anfang links). */
+  justify-content: flex-start;
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  pointer-events: none;
 }
 .lv-leiste::-webkit-scrollbar { display: none; }
+.lv-leiste > :first-child { margin-left: auto; }
+.lv-leiste > :last-child { margin-right: auto; }
 .lv-leiste:empty { display: none; }
 .cm-stage[data-live] .cm-play { top: calc(var(--safe-top) + 128px); }
 .lv-chip {
@@ -4267,3 +4270,33 @@ body.lv-im-spiel { overflow: hidden; }
 }
 .mini-knopf-live { gap: 8px; }
 .lv-tabelle .lv-spielt-noch { margin-left: 6px; background: #3fbf74; color: #fff; animation: lv-puls 1.4s ease-in-out infinite; }
+
+/* --- Live: zuschauen (live-spiel.js) -------------------------------------- */
+/* Nach dem eigenen Ende lässt sich oben jeder antippen, der noch spielt; wem
+   zugeschaut wird, steht hervorgehoben. */
+.lv-leiste button.lv-chip {
+  pointer-events: auto;
+  border: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.lv-chip.ist-waehlbar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 3px 10px rgba(36, 48, 71, 0.25); }
+.lv-chip.ist-ziel { background: #243047; color: #fff; opacity: 1; }
+.lv-chip.ist-ziel .lv-chip-platz { background: rgba(255, 255, 255, 0.2); }
+.lv-chip-zu { padding: 0 12px; background: #243047; color: #fff; }
+.lv-chip:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+
+/* --- Live: das Grossbild für Fernseher und Beamer --------------------------- */
+.lv-grossbild { max-width: 1400px; font-size: 1.35rem; }
+.lv-grossbild .mini-kopf h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
+.lv-grossbild .mini-tabelle { font-size: 1.25rem; }
+.lv-grossbild .mini-tabelle th { font-size: 0.9rem; }
+.lv-grossbild .lv-code-gross { font-size: clamp(5rem, 14vw, 10rem); }
+.lv-grossbild .lv-spieler li { font-size: 1.3rem; padding: 12px 18px; }
+.lv-grossbild .lv-podest { max-width: 900px; }
+.lv-grossbild .lv-stufe-1 { min-height: 280px; }
+.lv-grossbild .lv-stufe-2 { min-height: 220px; }
+.lv-grossbild .lv-stufe-3 { min-height: 170px; }
+.lv-grossbild .lv-podest-platz { font-size: 3.2rem; }

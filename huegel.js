@@ -647,7 +647,8 @@
   function zeichneGeister(geister) {
     weltTransform();
     geister.forEach((geist) => {
-      if (geist.blass <= 0) return;
+      // Wem im Live-Modus zugeschaut wird, der ist der Vogel selbst.
+      if (geist.blass <= 0 || geist.ziel) return;
       vogel(geist.x, geist.y + R, geist.winkel, [geist.farbe, geist.farbe], 0.45 * geist.blass, false, state.flattern);
     });
     bildTransform();
@@ -659,6 +660,10 @@
       if (geist.blass <= 0) return;
       const sx = bildX(geist.x);
       const sy = bildY(geist.y + R * 2.4);
+      if (geist.ziel) {
+        window.LernappGeist?.namen?.(g, [{ ...geist, sx, sy }], { breit: view.cssW, hoch: view.cssH });
+        return;
+      }
       const text = geist.art === "eigen" ? "Bestmarke" : geist.name;
       g.globalAlpha = geist.blass;
       g.lineWidth = 3;
@@ -1300,7 +1305,7 @@
     help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: zeitUm },
+    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "hillGlide", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

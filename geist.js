@@ -451,7 +451,10 @@
     }
     host.insertBefore(leiste, host.querySelector(".cm-play"));
 
-    const zeit = () => (z.laeuft ? performance.now() - z.t0 : z.endeMs);
+    // Im Live-Modus gilt die Uhr des Abends – für die eigene Aufzeichnung
+    // dieselbe Zahl, und für die Geister läuft sie auch nach dem eigenen Ende
+    // weiter (live-spiel.js, geistZeit).
+    const zeit = () => (live() ? live().geistZeit() : z.laeuft ? performance.now() - z.t0 : z.endeMs);
 
     function gegnerVon(welche) {
       if (welche === "alle") return null;
@@ -693,8 +696,10 @@
     // auf Platz 1, liefe die eigene Bestmarke genau unter dem ersten Geist
     // her; dann steht sie nur einmal da.
     function gegner() {
+      // Im Live-Modus: wer gerade mitspielt, aus seiner Lage (live-spiel.js).
+      if (live()) return live().gegner?.() || [];
       const s = z.stand;
-      if (live() || !s || s.aus) return [];
+      if (!s || s.aus) return [];
       const w = wahl();
       const raus = [];
       ARTEN.forEach((welche) => {
@@ -744,6 +749,25 @@
       const text = o.art === "eigen" ? "Bestmarke" : o.name;
       const drin = o.sx >= 0 && o.sx <= breit && o.sy >= oben && o.sy <= hoch + gross;
       g.globalAlpha = o.blass;
+      // Wem im Live-Modus zugeschaut wird: sein Name gross an der Figur, auf
+      // einem Schild – er ist die Figur, kein Geist.
+      if (o.ziel) {
+        if (!drin) return;
+        g.save();
+        g.font = `900 ${gross + 3}px system-ui, sans-serif`;
+        const w = g.measureText(text).width + 16;
+        const h = gross + 10;
+        const x = clamp(o.sx, w / 2 + 4, breit - w / 2 - 4);
+        g.fillStyle = "rgba(20, 24, 50, 0.78)";
+        g.beginPath();
+        if (g.roundRect) g.roundRect(x - w / 2, o.sy - h - 2, w, h, h / 2);
+        else g.rect(x - w / 2, o.sy - h - 2, w, h);
+        g.fill();
+        g.fillStyle = "#ffffff";
+        g.fillText(text, x, o.sy - 6);
+        g.restore();
+        return;
+      }
       if (drin) {
         g.strokeText(text, o.sx, o.sy);
         g.fillStyle = "#ffffff";

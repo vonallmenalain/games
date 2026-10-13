@@ -110,6 +110,13 @@
     letzteWertung: null,
     wachHalten: null,
     fehler: "",
+    // Wer in einer Runde nicht mitspielt, kann zuschauen – in den Spielen mit
+    // Figur im Bild. Gilt bis zum Ende der Runde.
+    zuschauen: false,
+    zuschauNr: null,
+    // Das Grossbild für Fernseher und Beamer: niemand tritt bei, alles nur
+    // grösser – und in einer Runde schaut es von selbst dem zu, der vorne liegt.
+    gross: false,
   };
 
   // ---------------------------------------------------------------------------
@@ -130,6 +137,9 @@
   }
 
   const titel = (spiel) => hs()?.titel?.(spiel) || mini()?.titel?.(spiel) || spiel;
+  // Den Spielen mit Figur im Bild lässt sich zuschauen (dieselben, deren beste
+  // Läufe sich anschauen lassen).
+  const zuschaubar = (spiel) => Boolean(mini()?.ANSEHBAR?.[spiel]);
   const alleSpiele = () => (mini()?.SPIELE || []).map((s) => s.id);
   const serverJetzt = () => Date.now() + S.versatz;
 
@@ -412,7 +422,7 @@
     } catch { /* nicht erlaubt – dann eben nicht */ }
   }
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && S.beigetreten) wachHalten();
+    if (document.visibilityState === "visible" && (S.beigetreten || S.gross)) wachHalten();
   });
 
   // ---------------------------------------------------------------------------
@@ -425,9 +435,11 @@
   window.LernappLiveRahmen = {
     runde(code, nr) {
       const z = S.zustand;
-      if (code !== S.code || !z || z.phase !== "runde" || z.nr !== nr || !S.ich) return null;
+      if (code !== S.code || !z || z.phase !== "runde" || z.nr !== nr) return null;
       const r = plan()[nr];
       if (!r) return null;
+      const dabei = Boolean(S.ich && z.dabei?.[S.ich.kennung]);
+      if (!dabei && !S.zuschauen) return null;
       const namen = {};
       Object.entries(S.spieler || {}).forEach(([k, s]) => { namen[k] = s?.name || "?"; });
       return {
@@ -442,22 +454,29 @@
         countdown: Number(S.info?.einstellungen?.countdown) || 5,
         rundeText: r.uebung ? "" : `${r.zaehlNr} von ${r.zaehlVon}`,
         dabei: { ...(z.dabei || {}) },
-        ich: { ...S.ich },
+        ich: S.ich ? { ...S.ich } : { kennung: "", name: "" },
         namen,
         gegner: S.info?.einstellungen?.gegner !== false,
+        nurZuschauen: !dabei,
+        gross: S.gross,
       };
+    },
+    // Das reine Zuschauen beenden (der Knopf «Schliessen» oben im Spiel).
+    schliessen() {
+      S.zuschauen = false;
+      zeichneBald();
     },
     versatz: () => S.versatz,
     melde({ p, fertig, t }) {
       const nr = S.rahmen?.nr;
-      if (!S.db || !S.ich || nr === undefined || nr === null) return;
+      if (!S.db || !S.ich || !S.rahmen?.dabei || nr === undefined || nr === null) return;
       S.db.ref(`live/${S.code}/punkte/${nr}/${S.ich.kennung}`)
         .set({ p: Math.max(0, Math.round(Number(p) || 0)), fertig: Boolean(fertig), t: Math.max(0, Math.round(Number(t) || 0)) })
         .catch((fehler) => console.warn("Die Punkte kamen nicht an", fehler));
     },
     lage({ t, a, b, c, p }) {
       const nr = S.rahmen?.nr;
-      if (!S.db || !S.ich || nr === undefined || nr === null) return;
+      if (!S.db || !S.ich || !S.rahmen?.dabei || nr === undefined || nr === null) return;
       const zahl = (x) => Math.round(Number(x) || 0);
       S.db.ref(`live/${S.code}/lage/${S.ich.kennung}`)
         .set({ n: nr, t: zahl(t), a: zahl(a), b: zahl(b), c: zahl(c), p: zahl(p) })
@@ -487,7 +506,15 @@
   function rahmenAbgleichen() {
     const z = S.zustand;
     const r = z ? plan()[z.nr] : null;
-    const soll = Boolean(S.beigetreten && z && z.phase === "runde" && r && S.ich && z.dabei?.[S.ich.kennung]);
+    // Zuschauen gilt nur für die Runde, in der es gewählt wurde.
+    if (!z || z.phase !== "runde" || S.zuschauNr !== z.nr) {
+      S.zuschauen = false;
+      S.zuschauNr = z?.phase === "runde" ? z.nr : null;
+    }
+    // Das Grossbild schaut in jeder Runde mit Figur im Bild von selbst zu.
+    if (S.gross && z?.phase === "runde" && r && zuschaubar(r.spiel)) S.zuschauen = true;
+    const dabei = Boolean(S.beigetreten && S.ich && z?.dabei?.[S.ich.kennung]);
+    const soll = Boolean(z && z.phase === "runde" && r && (dabei || (S.zuschauen && zuschaubar(r.spiel))));
     if (!soll) {
       if (S.rahmen) {
         S.rahmen.huelle.remove();
@@ -498,19 +525,22 @@
       }
       return;
     }
-    if (S.rahmen && S.rahmen.nr === z.nr && S.rahmen.saat === z.saat) return;
+    if (S.rahmen && S.rahmen.nr === z.nr && S.rahmen.saat === z.saat && S.rahmen.dabei === dabei) return;
     if (S.rahmen) { S.rahmen.huelle.remove(); S.hoerer = []; }
     const huelle = el("div", "lv-rahmen");
     const frame = document.createElement("iframe");
     frame.className = "lv-frame";
     frame.title = titel(r.spiel);
     frame.setAttribute("allow", "autoplay; fullscreen; screen-wake-lock");
+    // Ob das Gerät mitspielt oder nur zuschaut, fragt die Spielseite beim
+    // Rahmen nach (runde, nurZuschauen) – nicht in der Adresse: ?zuschauen=
+    // gehört dort dem Anschauen der besten Läufe (geist.js).
     frame.src = `${mini()?.spielLink?.(r.spiel) || "/"}?live=${encodeURIComponent(S.code)}&nr=${z.nr}`;
     huelle.append(frame);
     if (istLeitung()) huelle.append(leitungImSpiel());
     document.body.append(huelle);
     document.body.classList.add("lv-im-spiel");
-    S.rahmen = { huelle, frame, nr: z.nr, saat: z.saat };
+    S.rahmen = { huelle, frame, nr: z.nr, saat: z.saat, dabei };
   }
 
   // Der kleine Knopf über dem Spiel, für die Leitung, die mitspielt.
@@ -867,7 +897,13 @@
           navigator.share({ title: S.info.name, text: `Live-Abend «${S.info.name}» – Code ${S.code}`, url: adresse }).catch(() => {});
         }));
       }
-      w.append(block("So kommen alle rein", el("p", "lv-klein", "Auf der Startseite «Live» antippen und den Code eingeben – oder den Link öffnen."), code, link, teilen));
+      const gross = el("a", "lv-klein lv-link", "Grossbild für Fernseher oder Beamer öffnen");
+      gross.href = `/live?code=${S.code}&gross`;
+      gross.target = "_blank";
+      gross.rel = "noopener";
+      w.append(block("So kommen alle rein", el("p", "lv-klein", "Auf der Startseite «Live» antippen und den Code eingeben – oder den Link öffnen."), code, link, teilen, gross));
+    } else if (S.gross) {
+      w.append(block("So kommst du rein", el("p", "lv-klein", "Auf der Startseite «Live» antippen und diesen Code eingeben:"), el("p", "lv-code-gross", S.code)));
     }
 
     const online = onlineSpieler().length;
@@ -882,6 +918,8 @@
         if (window.confirm?.("Den Live-Abend absagen und löschen?") === false) return;
         abendLoeschen();
       }));
+    } else if (S.gross) {
+      aktionen.append(el("p", "lv-warten", "Gleich geht es los …"));
     } else {
       aktionen.append(el("p", "lv-warten", "Warte auf den Start …"), knopf("Verlassen", "mini-knopf-still", verlassen));
     }
@@ -900,11 +938,16 @@
     const uhr = el("p", "lv-uhr-text");
     uhr.dataset.lvUhr = "";
     w.append(uhr);
-    if (!dabei) {
+    if (!dabei && !S.gross) {
       const satz = S.info?.einstellungen?.nachzuegler === false
         ? "Diese Runde läuft schon. Du schaust zu."
         : "Diese Runde läuft schon – ab der nächsten spielst du mit.";
       w.append(hinweis(satz));
+      if (r && zuschaubar(r.spiel)) {
+        const box = el("div", "lv-knoepfe lv-unten");
+        box.append(knopf("Zuschauen", "mini-knopf-voll", () => { S.zuschauen = true; S.zuschauNr = z.nr; zeichneBald(); }));
+        w.append(box);
+      }
     }
     w.append(block("So steht es gerade", rundenTabelle(laufendeRunde(z), { laeuft: true })));
     if (leitung && !dabei) {
@@ -1006,13 +1049,24 @@
   function zeichne() {
     if (!S.wirt) return;
     rahmenAbgleichen();
-    window.LernappBusy = () => Boolean(S.beigetreten && S.zustand && S.zustand.phase !== "ende");
+    window.LernappBusy = () => Boolean((S.beigetreten || S.gross) && S.zustand && S.zustand.phase !== "ende");
+    S.wirt.classList.toggle("lv-grossbild", S.gross);
     if (!S.code) return;
     if (!S.infoGeladen) {
       S.wirt.replaceChildren(kopf("Live-Abend", `Code ${S.code}`), hinweis(S.fehler || "Der Live-Abend wird geladen …"));
       return;
     }
     if (!S.info) { if (S.warDa) zeichneVorbei(); else zeichneUnbekannt(); return; }
+    // Das Grossbild tritt nicht bei: Es zeigt nur, was alle sehen sollen.
+    if (S.gross) {
+      if (!S.wachHalten) wachHalten();
+      const phase = S.zustand?.phase || "lobby";
+      if (phase === "runde") zeichneRunde();
+      else if (phase === "pause") zeichnePause();
+      else if (phase === "ende") zeichneEnde();
+      else zeichneLobby();
+      return;
+    }
     if (!S.ich || !S.beigetreten) {
       if (!mini()?.name?.()) { zeichneName(); return; }
       const begonnen = S.zustand && S.zustand.phase !== "lobby";
@@ -1273,6 +1327,7 @@
     await anmeldung();
     datenbank();
     const code = codeAusAdresse();
+    try { S.gross = new URLSearchParams(window.location.search).has("gross"); } catch { S.gross = false; }
     if (code) { starteAbend(code); return; }
     let neu = false;
     try { neu = new URLSearchParams(window.location.search).has("neu"); } catch { neu = false; }

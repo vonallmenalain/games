@@ -132,10 +132,11 @@
    * hier nicht gibt – sie bleiben in der Liste, damit sich ein Spiel
    * unverändert herüberkopieren lässt.
    *
-   *   live      { los, stopp } für den Live-Modus (live-spiel.js): los
-   *             beginnt die Runde ohne Tipp, stopp beendet sie, wenn die Zeit
-   *             des Live-Abends um ist. Ohne los beginnt die Runde mit
-   *             onRestart.
+   *   live      { los, stopp, zuschauen } für den Live-Modus (live-spiel.js):
+   *             los beginnt die Runde ohne Tipp, stopp beendet sie, wenn die
+   *             Zeit des Live-Abends um ist, zuschauen zeigt ab jetzt eine
+   *             fremde Figur (nur Spiele mit Figur im Bild). Ohne los beginnt
+   *             die Runde mit onRestart.
    */
   function mount({ host, title, accent, accentDark, help, onRestart, clock = true, live: liveHaken = null }) {
     host.style.setProperty("--cm-accent", accent);
@@ -348,6 +349,7 @@
         vor: play,
         los: liveHaken?.los || (() => { stopClock(); closeOverlay(); onRestart(); }),
         stopp: liveHaken?.stopp || null,
+        zuschauen: liveHaken?.zuschauen || null,
       });
     } else {
       window.LernappLiveSpiel?.zeigeVerwaist?.(host);

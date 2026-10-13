@@ -353,6 +353,7 @@ pruefe("Kein Probelauf mehr (?probe=1, probelauf)",
 // (LernappGeist.fuer) und beim Zuschauen. Laufen sie auseinander, steht in
 // der Hall of Fame ein ▶, hinter dem sich nichts abspielen lässt.
 const ansehbar = miniJs.match(/const ANSEHBAR = \{([\s\S]*?)\n  \};/);
+const ANSEHBAR_LISTE = Object.fromEntries([...(ansehbar?.[1] || "").matchAll(/(\w+): \{ fassung/g)].map((m) => [m[1], true]));
 pruefe("mini-games.js hat eine Liste ANSEHBAR", Boolean(ansehbar));
 if (ansehbar) {
   for (const [, id, fassung] of ansehbar[1].matchAll(/(\w+): \{ fassung: "([^"]+)"/g)) {
@@ -391,6 +392,18 @@ for (const x of SPIELE) {
   pruefe(`${x.js} sagt der Bühne, wie eine Live-Runde beginnt und endet (live: { los, stopp })`,
     /live: \{ los: [^,]+, stopp: /.test(lies(x.js)));
 }
+// Zuschauen: Die Spiele mit Figur im Bild (dieselben, deren beste Läufe sich
+// anschauen lassen) zeigen im Live-Modus nach dem Ausscheiden eine fremde
+// Figur – und zeichnen den, dem zugeschaut wird, nicht noch als Geist dazu.
+for (const id of Object.keys(ANSEHBAR_LISTE)) {
+  const x = SPIELE.find((s) => s.spiel === id);
+  if (!x) continue;
+  const quelle = lies(x.js);
+  pruefe(`${x.js} lässt im Live-Modus zuschauen (live.zuschauen)`, /zuschauen: \(quelle\) => \{ zuschauer = quelle; zuschauenStarten\(\); \}/.test(quelle));
+  pruefe(`${x.js} zeichnet den, dem zugeschaut wird, nicht als Geist (ziel)`, /\.ziel\)? return;|\|\| geist\.ziel\) return;/.test(quelle));
+}
+pruefe("planeten.js stellt die Uhr der Planeten im Live-Modus nach der Uhr des Abends",
+  /live \? live\.zeit\(\) \/ 1000 : state\.uhr \+ dt/.test(lies("planeten.js")));
 const liveJs = lies("live.js");
 pruefe("live.js leitet nur mit dem Admin, der den Abend angelegt hat", /info\.host === S\.uid/.test(liveJs));
 pruefe("Die Live-Regeln lassen nur den Admin anlegen und steuern",

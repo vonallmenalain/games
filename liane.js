@@ -938,6 +938,8 @@
   // wenn er gerade hängt, seine Liane, ebenso blass.
   function zeichneGeist(geist) {
     if (geist.blass <= 0) return;
+    // Wem im Live-Modus zugeschaut wird, der ist der Affe selbst.
+    if (geist.ziel) return;
     if (geist.ast) {
       const s = HAND * AFFE_GROSS;
       g.save();
@@ -998,6 +1000,11 @@
     let nr = 0;
     geister.forEach((geist) => {
       if (geist.blass <= 0) return;
+      // Wem im Live-Modus zugeschaut wird: sein Name auf einem Schild am Affen.
+      if (geist.ziel) {
+        window.LernappGeist?.namen?.(g, [{ ...geist, sx: bildX(geist.x), sy: bildY(geist.y + 26 * AFFE_GROSS) }], { breit: view.cssW, hoch: view.cssH });
+        return;
+      }
       const alle = geist.art === "alle";
       const i = alle ? 0 : nr++;
       g.globalAlpha = 0.9 * geist.blass;
@@ -1524,7 +1531,7 @@
     help: HELP,
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: zeitUm },
+    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   // Die besten Läufe anschauen (?zuschauen=): Die Strecke ist fest, eine
   // Saat braucht es nicht.

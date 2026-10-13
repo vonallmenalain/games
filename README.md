@@ -325,6 +325,7 @@ Runden und 0–2 Übungsrunden) und die Einstellungen:
 | Finale doppelt | das letzte Spiel zählt doppelt |
 | Zwischenstand | nach jeder Runde zeigen oder bis zum Schluss verdeckt |
 | Nachzügler | dürfen ab der nächsten Runde mitspielen, oder nur bis zum Start |
+| Die anderen live im Bild | in den sieben Spielen mit Figur: die anderen als Geister, oder nicht |
 
 Ein Programm lässt sich als Vorlage speichern (auf dem Gerät, das leitet);
 das zuletzt benutzte steht beim nächsten Mal schon da.
@@ -348,6 +349,32 @@ Spiel).
 `mount({ live: { los, stopp } })`): wie die Runde ohne Tipp beginnt und wie
 sie endet, wenn die Zeit des Abends um ist. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Abend.
+
+**Die anderen im Bild.** In den sieben Spielen mit Figur (Lianenschwung,
+Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
+Hügelflieger) meldet jedes Gerät achtmal je Sekunde, wo seine Figur ist
+(`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
+gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
+einer Aufzeichnung beantwortet der Live-Strom die Frage «wo ist er zur Zeit
+t» (`live-spiel.js`, `liveLauf`). Zwischen zwei Proben wird gerechnet, hinter
+der letzten ein Stück in seiner Richtung weiter.
+
+**Zuschauen.** Wer ausgeschieden ist, sieht eine Sekunde später dem zu, der
+vorne liegt und noch spielt: Die Kamera folgt seiner Figur, sein Name steht
+auf einem Schild daran, die anderen fliegen als Geister mit. Oben lässt sich
+jeder antippen, der noch spielt; ist der, dem man zuschaut, fertig, geht es
+zum nächsten. Dasselbe Abspielen wie bei den besten Läufen
+(`zuschauenStarten`, die dritte Andockstelle `live.zuschauen`) – nur eine
+Drittelsekunde hinter der Wirklichkeit, damit es flüssig bleibt. Der
+Planetenhüpfer stellt dabei die Uhr seiner Planeten nach der Uhr des Abends.
+In den übrigen acht Spielen steht statt dessen der Stand der anderen da.
+Wer in einer Runde nicht mitspielt (ein Nachzügler), kann von Anfang an
+zuschauen («Zuschauen», oben «Schliessen»).
+
+**Das Grossbild** (`/live?code=K7QM&gross`, der Link steht in der Lobby der
+Leitung) ist für Fernseher und Beamer: Es tritt nicht bei, zeigt alles
+grösser und schaut in jeder Runde mit Figur von selbst dem zu, der vorne
+liegt.
 
 **Die Auswertung.** Rundenpunkte, Zwischenstand, was als Nächstes kommt;
 «Weiter», «Runde wiederholen» (sie beginnt bei null), «Abend beenden». Gleich
