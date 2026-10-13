@@ -30,6 +30,12 @@
  * Gerechnet wird nichts in der Datenbank. Jedes Gerät rechnet Rundenpunkte
  * und Stand aus denselben Punkten selbst (wertung) – und kommt aufs Gleiche.
  *
+ * Gehört der Abend zu einem Turnier, steht das in info.turnier, und solange
+ * er offen ist, zeigt turnierLive/<turnier> auf ihn (die Turnierseite fragt
+ * dort nach: «Jetzt live»). «Abend abschliessen» trägt den Endstand mit
+ * seinem Gewicht ins Turnier ein (Firestore, miniTurniere/<id>/live), dort
+ * zählt er in der Gesamtwertung wie ein weiteres Spiel (turnier.js).
+ *
  * Die Leitung ist das Gerät des Admins, der den Abend angelegt hat. Nur es
  * schreibt zustand – so verlangen es die Regeln. Spielt es selbst mit, steht
  * über dem Spiel ein kleiner Knopf «Leitung», für den Fall, dass eine Runde
@@ -607,8 +613,51 @@
     setzeZustand({ phase: "ende", nr: z.phase === "lobby" ? -1 : z.nr, seit: serverJetzt() });
   }
 
+  // Der Hinweis auf der Turnierseite weg – wenn er noch auf diesen Abend zeigt.
+  async function zeigerWeg() {
+    const t = S.info?.turnier;
+    if (!t || !S.db) return;
+    try {
+      const ref = S.db.ref(`turnierLive/${t}`);
+      const da = await ref.get();
+      if (da.val()?.code === S.code) await ref.remove();
+    } catch (fehler) { console.warn("Der Hinweis im Turnier blieb stehen", fehler); }
+  }
+
+  /*
+   * Am Ende: Gehört der Abend zu einem Turnier, kommt sein Endstand dorthin
+   * – mit dem Gewicht, mit dem er zählt. Erst danach wird der Abend gelöscht;
+   * geht das Eintragen schief, bleibt er stehen und es lässt sich noch einmal
+   * versuchen.
+   */
+  async function abschliessen(knopfElement) {
+    if (!istLeitung()) return;
+    const t = S.info?.turnier;
+    if (t) {
+      const stand = gesamt();
+      if (knopfElement) { knopfElement.disabled = true; knopfElement.textContent = "Wird eingetragen …"; }
+      try {
+        await cloud().speichereTurnierLive(t, `${S.code}-${Math.round(Number(S.info.erstellt) || Date.now())}`, {
+          name: S.info.name,
+          gewicht: Number(S.info.einstellungen?.gewicht ?? 1),
+          endstand: stand.map((p) => ({ spieler: p.kennung, name: p.name, punkte: p.punkte, platz: p.platz })),
+          runden: gewerteteRunden().length,
+          spiele: [...new Set(plan().map((r) => r.spiel))],
+          erstelltMs: Math.round(Number(S.info.erstellt) || Date.now()),
+        });
+      } catch (fehler) {
+        console.warn("Der Endstand kam nicht ins Turnier", fehler);
+        S.fehler = "Der Endstand kam nicht ins Turnier. Bist du im Adminbereich angemeldet? Versuch es noch einmal.";
+        zeichneBald();
+        return;
+      }
+    }
+    await abendLoeschen();
+  }
+
   async function abendLoeschen() {
     if (!istLeitung()) return;
+    await zeigerWeg();
     try {
       await S.db.ref(`live/${S.code}`).remove();
     } catch (fehler) {
@@ -729,6 +778,11 @@
     teile.push(!limit ? "ohne Zeitlimit" : limit < 60 ? `${limit} s je Runde` : `${String(Math.round((limit / 60) * 10) / 10).replace(".", ",")} min je Runde`);
     teile.push(e.wertung === "prozent" ? "Prozent vom Besten" : "Platzpunkte 10 · 8 · 6 …");
     if (!e.zwischenstand) teile.push("Zwischenstand verdeckt");
+    if (S.info?.turnier) {
+      const g = Number(e.gewicht ?? 1);
+      const name = S.info.turnierName ? `«${S.info.turnierName}»` : "zum Turnier";
+      teile.push(!g ? `gehört zu ${name}, zählt dort nicht` : g === 1 ? `zählt in ${name} wie ein Spiel` : `zählt in ${name} ×${g}`);
+    }
     return el("p", "lv-klein lv-einstellungen", teile.join(" · "));
   }
 
@@ -1015,7 +1069,13 @@
     }
     const aktionen = el("div", "lv-knoepfe lv-unten");
     if (leitung) {
-      aktionen.append(knopf("Abend abschliessen", "mini-knopf-voll", abendLoeschen));
+      const text = S.info.turnier ? "Ins Turnier eintragen und abschliessen" : "Abend abschliessen";
+      aktionen.append(knopf(text, "mini-knopf-voll", (ereignis) => abschliessen(ereignis.currentTarget)));
+    }
+    if (S.info.turnier) {
+      const zumTurnier = el("a", "mini-knopf mini-knopf-still", "Zum Turnier");
+      zumTurnier.href = `/turnier?t=${encodeURIComponent(S.info.turnier)}`;
+      aktionen.append(zumTurnier);
     }
     const heim = el("a", "mini-knopf mini-knopf-still", "Zur Startseite");
     heim.href = "/";
@@ -1025,7 +1085,8 @@
 
   function zeichneVorbei() {
     const w = S.wirt;
-    w.replaceChildren(kopf(S.info?.name || "Live-Abend", "Dieser Live-Abend ist vorbei."));
+    const info = S.info || S.letzteInfo;
+    w.replaceChildren(kopf(info?.name || "Live-Abend", "Dieser Live-Abend ist vorbei."));
     if (S.letzteWertung?.length) {
       w.append(podest(S.letzteWertung));
       w.append(block("Endstand", standTabelle(S.letzteWertung)));
@@ -1033,6 +1094,12 @@
     const heim = el("a", "mini-knopf mini-knopf-voll", "Zur Startseite");
     heim.href = "/";
     const box = el("div", "lv-knoepfe lv-unten");
+    if (info?.turnier) {
+      const zumTurnier = el("a", "mini-knopf mini-knopf-voll", "Zum Turnier");
+      zumTurnier.href = `/turnier?t=${encodeURIComponent(info.turnier)}`;
+      box.append(zumTurnier);
+      heim.className = "mini-knopf mini-knopf-still";
+    }
     box.append(heim);
     w.append(box);
   }
@@ -1145,7 +1212,24 @@
     nameFeld.id = "lv-abend-name";
     nameFeld.maxLength = 60;
     nameFeld.value = vorlage.name || "Live-Abend";
+    let nameGeaendert = false;
+    nameFeld.addEventListener("input", () => { nameGeaendert = true; });
     form.append(feld("Name des Abends", nameFeld));
+
+    // Zu welchem Turnier der Abend gehört – und wie er dort zählt. Die Liste
+    // kommt aus Firestore (nur der Admin darf alle sehen); bis sie da ist,
+    // steht nur das Turnier aus der Adresse darin.
+    let ausDerAdresse = "";
+    try { ausDerAdresse = String(new URLSearchParams(window.location.search).get("turnier") || "").trim(); } catch { ausDerAdresse = ""; }
+    const turnierWahl = auswahl("lv-turnier", [["", "zu keinem Turnier"], ...(ausDerAdresse ? [[ausDerAdresse, "Turnier wird geladen …"]] : [])], ausDerAdresse);
+    const gewichtWahl = auswahl("lv-gewicht", [[1, "zählt wie ein Spiel"], [2, "zählt doppelt"], [3, "zählt dreifach"], [0, "zählt nicht"]], vorlage.einstellungen?.gewicht ?? 1);
+    const gewichtFeld = feld("Im Turnier", gewichtWahl, "Der Endstand des Abends kommt als eigene Spalte in die Gesamtwertung. Wer fehlt, steht dort hinter dem Letzten.");
+    const turniere = new Map();
+    const zeigeGewicht = () => { gewichtFeld.hidden = !turnierWahl.value; };
+    form.append(feld("Turnier", turnierWahl), gewichtFeld);
+    zeigeGewicht();
+
+    let programmGeaendert = false;
 
     // Das Programm: Spiele in ihrer Reihenfolge, je mit Runden und Übungen.
     const programmBox = el("div", "lv-programm-form");
@@ -1169,6 +1253,34 @@
       return zeile;
     };
     programm.forEach((p) => zeilen.append(zeileBauen(p)));
+    zeilen.addEventListener("change", () => { programmGeaendert = true; });
+
+    // Ein Turnier gewählt: seine Spiele ins Programm (solange es niemand von
+    // Hand geändert hat) und sein Name in den Namen des Abends.
+    function turnierGewaehlt() {
+      zeigeGewicht();
+      const t = turniere.get(turnierWahl.value);
+      if (!t) return;
+      if (!programmGeaendert) {
+        zeilen.replaceChildren(...t.spiele.filter((id) => alleSpiele().includes(id)).map((spiel) => zeileBauen({ spiel, runden: 1, uebung: 1 })));
+      }
+      if (!nameGeaendert) nameFeld.value = `${t.name} – live`.slice(0, 60);
+    }
+    turnierWahl.addEventListener("change", turnierGewaehlt);
+    Promise.resolve().then(() => cloud()?.alleTurniere?.()).then((liste2) => {
+      const offen = (liste2 || []).filter((t) => window.LernappTurnier?.lage?.(t) !== "beendet")
+        .sort((a, b) => a.startMs - b.startMs);
+      offen.forEach((t) => turniere.set(t.id, t));
+      const vorher = turnierWahl.value;
+      turnierWahl.replaceChildren(...[["", "zu keinem Turnier"], ...offen.map((t) => [t.id, `${t.name}${t.nurLive ? " (nur live)" : ""}`])].map(([v, text]) => {
+        const o = el("option", "", text);
+        o.value = v;
+        if (v === vorher) o.selected = true;
+        return o;
+      }));
+      if (vorher && turniere.has(vorher)) turnierGewaehlt();
+      else zeigeGewicht();
+    }).catch((fehler) => console.warn("Die Turniere waren nicht zu haben", fehler));
     programmBox.append(zeilen, knopf("Spiel hinzufügen", "mini-knopf-still", () => {
       const vorhanden = new Set([...zeilen.querySelectorAll(".lv-spiel-wahl")].map((s) => s.value));
       const frei = alleSpiele().find((id) => !vorhanden.has(id)) || alleSpiele()[0];
@@ -1215,8 +1327,11 @@
         uebung: Number(z.querySelector(".lv-uebung-wahl").value) || 0,
       }));
       const wert = (id) => form.querySelector(`#${id}`);
+      const turnier = turniere.has(turnierWahl.value) ? turniere.get(turnierWahl.value) : null;
       return {
         name: (nameFeld.value || "").replace(/\s+/g, " ").trim().slice(0, 60) || "Live-Abend",
+        turnier: turnier?.id || "",
+        turnierName: turnier?.name || "",
         programm: programm2,
         einstellungen: {
           zeitlimit: Number(wert("lv-zeitlimit").value) || 0,
@@ -1228,6 +1343,7 @@
           zwischenstand: wert("lv-zwischenstand").checked,
           nachzuegler: wert("lv-nachzuegler").checked,
           gegner: wert("lv-gegner").checked,
+          gewicht: Number(gewichtWahl.value) || 0,
         },
       };
     }
@@ -1235,7 +1351,8 @@
     form.addEventListener("submit", async (ereignis) => {
       ereignis.preventDefault();
       const daten = lies();
-      schreibeJson(ZULETZT_KEY, daten);
+      // Das Turnier gehört zu diesem Abend, nicht zur Vorlage.
+      schreibeJson(ZULETZT_KEY, { ...daten, turnier: "", turnierName: "" });
       oeffnen.disabled = true;
       oeffnen.textContent = "Wird geöffnet …";
       try {
@@ -1272,7 +1389,16 @@
         einstellungen: daten.einstellungen,
       };
       if (!info.hostKennung) delete info.hostKennung;
+      if (daten.turnier) {
+        info.turnier = daten.turnier;
+        info.turnierName = String(daten.turnierName || "").slice(0, 60);
+      }
       await ref.set({ info, zustand: { phase: "lobby", nr: -1 } });
+      // Die Turnierseite zeigt, dass gerade live gespielt wird.
+      if (daten.turnier) {
+        await db.ref(`turnierLive/${daten.turnier}`).set({ code, name: daten.name, seit: window.firebase.database.ServerValue.TIMESTAMP })
+          .catch((fehler) => console.warn("Der Hinweis im Turnier liess sich nicht setzen", fehler));
+      }
       return code;
     }
     throw new Error("Kein freier Code gefunden");
@@ -1304,7 +1430,9 @@
       zeichneBald();
     };
     const teile = [
-      ["info", (s) => { S.info = s.val(); S.infoGeladen = true; if (S.info) S.warDa = true; zeichneBald(); }],
+      // Ist der Abend gelöscht, bleibt das Letzte stehen, was man von ihm
+      // wusste – sein Name, sein Turnier.
+      ["info", (s) => { S.info = s.val(); S.infoGeladen = true; if (S.info) { S.warDa = true; S.letzteInfo = S.info; } zeichneBald(); }],
       ["zustand", (s) => { S.zustand = s.val(); S.fehler = ""; zeichneBald(); }],
       ["spieler", (s) => { S.spieler = s.val() || {}; zeichneBald(); funke(); }],
       ["punkte", (s) => {

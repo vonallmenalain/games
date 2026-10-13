@@ -282,6 +282,35 @@ await darf("Admin legt ein Turnier ohne Gegner beim Spielen an", () => admin().d
 await darf("Admin schaltet die Gegner ausdrücklich ein", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: false })));
 await darfNicht("Admin schreibt «ohne Gegner» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: "ja" })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
+// Nur live: ein Ja oder Nein. Dann gibt es keine Versuche dazwischen.
+await darf("Admin legt ein Turnier an, das nur live gespielt wird", () => admin().doc("miniTurniere/livecup-r5t7z9u1").set(turnierDaten({ nurLive: true, versuche: 0 })));
+await darfNicht("Admin schreibt «nur live» als Text", () => admin().doc("miniTurniere/livecup-r5t7z9u1").set(turnierDaten({ nurLive: "ja" })));
+await darfNicht("Gast beginnt einen Versuch in einem Turnier, das nur live gespielt wird", () => gast().doc("miniTurniere/livecup-r5t7z9u1/eintraege/towerStack_mini_abcdefghijkl").set({
+  game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
+}));
+
+// Der Endstand eines Live-Abends im Turnier: lesen jeder, schreiben der Admin.
+const LIVE_ERGEBNIS = "miniTurniere/livecup-r5t7z9u1/live/K7QM-1760368000000";
+const liveErgebnis = (aenderung = {}) => ({
+  name: "Familienabend",
+  gewicht: 2,
+  endstand: [{ spieler: "mini_abcdefghijkl", name: "Alain", punkte: 30, platz: 1 }, { spieler: "mini_mnopqrstuvwx", name: "Mia", punkte: 26, platz: 2 }],
+  runden: 3,
+  spiele: ["towerStack", "vineSwing"],
+  erstelltMs: 1760368000000,
+  updatedAtMs: 1,
+  ...aenderung,
+});
+await darfNicht("Gast trägt einen Live-Abend ins Turnier ein", () => gast().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darfNicht("Ein angemeldeter Fremder trägt einen Live-Abend ein", () => fremder().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darfNicht("Admin trägt einen Live-Abend mit Gewicht 5 ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ gewicht: 5 })));
+await darfNicht("Admin trägt einen Live-Abend ohne Endstand ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ endstand: "Alain" })));
+await darfNicht("Admin trägt einen Live-Abend unter erfundenem Namen ein", () => admin().doc("miniTurniere/livecup-r5t7z9u1/live/familienabend").set(liveErgebnis()));
+await darfNicht("Admin schmuggelt ein Feld in den Live-Abend", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis({ preis: 100 })));
+await darf("Admin trägt einen Live-Abend ins Turnier ein", () => admin().doc(LIVE_ERGEBNIS).set(liveErgebnis()));
+await darf("Gast liest die Live-Abende eines Turniers", () => gast().collection("miniTurniere/livecup-r5t7z9u1/live").get());
+await darfNicht("Gast löscht einen Live-Abend", () => gast().doc(LIVE_ERGEBNIS).delete());
+await darf("Admin löscht einen Live-Abend", () => admin().doc(LIVE_ERGEBNIS).delete());
 
 await darf("Gast öffnet ein öffentliches Turnier", () => gast().doc(OEFFENTLICH).get());
 await darf("Gast öffnet ein Turnier über den Link", () => gast().doc(GEHEIM).get());

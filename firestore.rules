@@ -219,7 +219,7 @@ service cloud.firestore {
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
                              "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
-                             "ohneGeist", "erstelltMs", "updatedAtMs", "updatedAt"])
+                             "ohneGeist", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
         && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
@@ -252,6 +252,10 @@ service cloud.firestore {
         // Ohne Gegner beim Spielen (geist.js): weder Platz 1 noch die eigene
         // Bestmarke laufen mit. Fehlt das Feld, werden sie gezeigt.
         && d.get("ohneGeist", false) is bool
+        // Nur live (live.js): Gespielt wird nur an Live-Abenden, die zum
+        // Turnier gehören – keine Versuche dazwischen (darfBeginnen). Fehlt
+        // das Feld, ist es ein Turnier wie jedes von vorher.
+        && d.get("nurLive", false) is bool
         && d.aktiv is bool
         && d.erstelltMs is int
         && d.updatedAtMs is int;
@@ -313,7 +317,28 @@ service cloud.firestore {
     // hält neue Versuche auf, es nimmt keinem die Runde weg, die er gerade
     // spielt.
     function darfBeginnen(turnierId) {
-      return turnierDaten(turnierId).aktiv == true && imZeitraum(turnierId, 0);
+      return turnierDaten(turnierId).aktiv == true
+        && turnierDaten(turnierId).get("nurLive", false) == false
+        && imZeitraum(turnierId, 0);
+    }
+
+    // Der Endstand eines Live-Abends, der zu einem Turnier gehört (live.js,
+    // «Abend abschliessen»). Er zählt in der Gesamtwertung wie ein Spiel,
+    // mal sein Gewicht (turnier.js, gesamtwertung). Schreiben darf ihn nur
+    // der Admin – er hat den Abend geleitet. Der Name ist der Code des Abends
+    // und wann er begann: Codes kommen irgendwann wieder.
+    function istLiveErgebnis(abendId) {
+      let d = request.resource.data;
+      return abendId.matches('[A-Z2-9]{4}-[0-9]{6,16}')
+        && d.keys().hasAll(["name", "gewicht", "endstand", "erstelltMs", "updatedAtMs"])
+        && d.keys().hasOnly(["name", "gewicht", "endstand", "runden", "spiele", "erstelltMs", "updatedAtMs", "updatedAt"])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.gewicht is int && d.gewicht >= 0 && d.gewicht <= 3
+        && d.endstand is list && d.endstand.size() <= 200
+        && (!("runden" in d) || (d.runden is int && d.runden >= 0 && d.runden <= 100))
+        && (!("spiele" in d) || (d.spiele is list && d.spiele.size() <= 50))
+        && d.erstelltMs is int
+        && d.updatedAtMs is int;
     }
 
     function versuchUebrig(turnierId) {
@@ -370,6 +395,12 @@ service cloud.firestore {
       // die des Turniers: Das Spiel gehört dazu, das Turnier läuft (oder ist
       // eben erst vorbei, wie bei einem Ergebnis), und wer einen Lauf
       // hinterlegt, hat hier wirklich einen Versuch begonnen.
+      match /live/{abendId} {
+        allow read: if true;
+        allow create, update: if istAdmin() && istLiveErgebnis(abendId);
+        allow delete: if istAdmin();
+      }
+
       match /geister/{eintragId} {
         allow read: if true;
         allow create: if istGeist(eintragId)

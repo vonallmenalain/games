@@ -388,6 +388,25 @@ Turnier ist eine Live-Runde nie.
 **Am Schluss** das Podest und der Endstand. «Abend abschliessen» löscht den
 Abend aus der Datenbank; wer noch zuschaut, behält das Podest auf dem Schirm.
 
+**Mit einem Turnier.** Beim Anlegen lässt sich ein Turnier wählen (oder im
+Adminbereich beim Turnier «Live-Abend» antippen – dann ist es schon
+gewählt, und seine Spiele stehen im Programm) und wie der Abend dort zählt:
+wie ein Spiel, doppelt, dreifach oder gar nicht. Solange der Abend offen
+ist, steht auf der Turnierseite ganz oben «Jetzt live» mit dem Weg hinein
+(`turnierLive/<turnier>` in der Realtime Database, gelesen ohne SDK).
+«Ins Turnier eintragen und abschliessen» schreibt den Endstand nach
+`miniTurniere/<id>/live/<code>-<zeit>`; in der Gesamtwertung ist er eine
+eigene Spalte, mal sein Gewicht – bei der Platzziffer zählt der Platz am
+Abend, bei «Prozent vom Besten» der Anteil an der höchsten Punktzahl des
+Abends. Wer den Abend verpasst hat, steht dort hinter dem Letzten, wie bei
+einem ausgelassenen Spiel. Auf der Turnierseite steht jeder Abend mit
+seinem Endstand.
+
+**Nur live.** Ein Turnier mit dem Haken «Nur live spielen» kennt keine
+Versuche: Die Spiele stehen da, aber gespielt wird nur an seinen
+Live-Abenden (die Regeln lassen keinen Versuch beginnen), und die
+Gesamtwertung zählt nur die Abende.
+
 ## Vollbild
 
 Jedes Spiel füllt das Bild: Die Spielfläche reicht bis an den linken, rechten

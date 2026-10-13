@@ -4300,3 +4300,31 @@ body.lv-im-spiel { overflow: hidden; }
 .lv-grossbild .lv-stufe-2 { min-height: 220px; }
 .lv-grossbild .lv-stufe-3 { min-height: 170px; }
 .lv-grossbild .lv-podest-platz { font-size: 3.2rem; }
+
+/* --- Turnier: ein Live-Abend (turnier.js, live.js) ---------------------------- */
+/* Läuft gerade einer, steht er ganz oben – mit dem Weg hinein. */
+.tn-live {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: #243047;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.25);
+}
+.tn-live-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-weight: 800; }
+.tn-live-marke { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: #ff8a8f; }
+.tn-live-punkt { width: 10px; height: 10px; border-radius: 50%; background: #d93f45; box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.35); animation: lv-puls 1.6s ease-in-out infinite; }
+.tn-live-karte { border-top-color: #d93f45; }
+.tn-live-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tn-live-liste li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; font-weight: 800; color: #243047; }
+.tn-live-liste li.ist-ich { background: #fff3e0; }
+.tn-live-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-live-wert { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  .tn-live-punkt { animation: none; }
+}
+.lv-feld[hidden] { display: none; }

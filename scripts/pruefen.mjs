@@ -404,6 +404,13 @@ for (const id of Object.keys(ANSEHBAR_LISTE)) {
 }
 pruefe("planeten.js stellt die Uhr der Planeten im Live-Modus nach der Uhr des Abends",
   /live \? live\.zeit\(\) \/ 1000 : state\.uhr \+ dt/.test(lies("planeten.js")));
+// Mit einem Turnier: Ein Turnier «nur live» lässt keinen Versuch beginnen,
+// und der Endstand eines Abends zählt in der Gesamtwertung mit.
+pruefe("Ein Turnier «nur live» lässt keinen Versuch beginnen (firestore.rules, darfBeginnen)",
+  /function darfBeginnen[\s\S]*?get\("nurLive", false\) == false/.test(regeln));
+pruefe("Den Endstand eines Live-Abends im Turnier schreibt nur der Admin",
+  /match \/live\/\{abendId\}[\s\S]*?allow create, update: if istAdmin\(\) && istLiveErgebnis/.test(regeln));
+pruefe("turnier.js zählt die Live-Abende in der Gesamtwertung", lies("turnier.js").includes("function gesamtwertung(t, eintraege, abende = [])"));
 const liveJs = lies("live.js");
 pruefe("live.js leitet nur mit dem Admin, der den Abend angelegt hat", /info\.host === S\.uid/.test(liveJs));
 pruefe("Die Live-Regeln lassen nur den Admin anlegen und steuern",

@@ -27,13 +27,18 @@ nutzt sie keines), `config/miniGames`
 ```
 miniTurniere/<id>                    anlegen, ändern, löschen: nur der Admin
     name, beschreibung, spiele, startMs, endeMs, versuche,
-    zaehlt, wertung, aufgaben, sichtbar, verdeckt, aktiv
+    zaehlt, wertung, aufgaben, sichtbar, verdeckt, aktiv,
+    nurLive (nur an Live-Abenden – keine Versuche)
 
 miniTurniere/<id>/eintraege/<spiel>_<spieler>
     game, spieler, name          wie in miniScores
     punkte                       bester Versuch oder die Summe
     versuche                     wie viele begonnen wurden
     offen                        ob einer läuft, dessen Ergebnis noch aussteht
+
+miniTurniere/<id>/live/<code>-<zeit>  schreiben: nur der Admin
+    name, gewicht (0–3), endstand [{ spieler, name, punkte, platz }],
+    runden, spiele, erstelltMs   der Endstand eines Live-Abends (live.js)
 ```
 
 Ein einzelnes Turnier lesen darf jeder, der seinen Namen kennt; auflisten
