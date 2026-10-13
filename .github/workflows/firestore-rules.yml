@@ -1,14 +1,17 @@
-# Die Firestore-Regeln fahren automatisch nach Firebase.
+# Die Firebase-Regeln fahren automatisch nach Firebase: die von Firestore
+# (firestore.rules) und die der Realtime Database (database.rules.json, für den
+# Live-Modus).
 #
-# firestore.rules im Repository ist die Wahrheit; von Hand wird in der
+# Die Dateien im Repository sind die Wahrheit; von Hand wird in der
 # Firebase-Console nichts mehr angefasst. Sonst laufen zwei Fassungen
 # auseinander, und welche gilt, sieht man erst, wenn etwas nicht mehr geht.
 #
 # Zwei Jobs, und dass es zwei sind, ist der Kern der Sache:
 #
-#   pruefen          laeuft auf Pull Requests. Spielt die Regeln im Emulator
-#                    durch und laesst sie, wenn ein Pruefschluessel hinterlegt
-#                    ist, zusaetzlich von Firebase gegenlesen (--dry-run).
+#   pruefen          laeuft auf Pull Requests. Spielt beide Regeln in ihren
+#                    Emulatoren durch und laesst sie, wenn ein Pruefschluessel
+#                    hinterlegt ist, zusaetzlich von Firebase gegenlesen
+#                    (--dry-run).
 #
 #   veroeffentlichen laeuft nur auf main. Ab hier gelten die Regeln.
 #
@@ -31,7 +34,7 @@
 #
 # Eingerichtet wird das einmalig - siehe FIREBASE.md.
 
-name: Firestore-Regeln
+name: Firebase-Regeln
 
 on:
   # &pfade / *pfade ist ein YAML-Anker: Die Liste steht einmal da und wird
@@ -42,6 +45,7 @@ on:
     branches: [main]
     paths: &pfade
       - "firestore.rules"
+      - "database.rules.json"
       - "firebase.json"
       - ".firebaserc"
       - "scripts/test-rules.mjs"
@@ -93,7 +97,7 @@ jobs:
           node-version: "22"
           cache: npm
 
-      # Der Firestore-Emulator ist ein Java-Programm.
+      # Beide Emulatoren (Firestore, Realtime Database) sind Java-Programme.
       - name: Java einrichten
         uses: actions/setup-java@v4
         with:
@@ -103,7 +107,7 @@ jobs:
       - name: Werkzeuge installieren
         run: npm ci --no-audit --no-fund
 
-      - name: Regeln im Emulator durchspielen
+      - name: Regeln in den Emulatoren durchspielen
         run: npm run test:rules
 
       - name: Schlüssel prüfen
@@ -140,14 +144,14 @@ jobs:
         if: steps.schluessel.outputs.vorhanden == 'ja'
         run: |
           set -euo pipefail
-          firebase deploy --only firestore:rules \
+          firebase deploy --only firestore:rules,database \
             --project "${FIREBASE_PROJEKT}" \
             --dry-run \
             --non-interactive
           {
             echo "### Regeln geprüft"
             echo
-            echo "\`firestore.rules\` ist für \`${FIREBASE_PROJEKT}\` gültig."
+            echo "\`firestore.rules\` und \`database.rules.json\` sind für \`${FIREBASE_PROJEKT}\` gültig."
             echo "Veröffentlicht wurde nichts - das passiert erst beim Merge nach \`main\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -193,7 +197,7 @@ jobs:
       - name: Firebase CLI installieren
         run: npm install --global --no-audit --no-fund firebase-tools@15
 
-      - name: Regeln veröffentlichen
+      - name: Firestore-Regeln veröffentlichen
         run: |
           set -euo pipefail
           firebase deploy --only firestore:rules \
@@ -201,9 +205,28 @@ jobs:
             --non-interactive \
             --message "${GITHUB_SHA::7} aus ${GITHUB_REF_NAME}"
           {
-            echo "### Regeln veröffentlicht"
+            echo "### Firestore-Regeln veröffentlicht"
             echo
             echo "\`firestore.rules\` gilt ab jetzt in \`${FIREBASE_PROJEKT}\`."
+            echo
+            echo "Stand: \`${GITHUB_SHA::7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Ein eigener Schritt nach Firestore: Fehlt dem Dienstkonto das Recht
+      # für die Realtime Database, sind die Firestore-Regeln trotzdem draussen,
+      # und der Job zeigt rot, welcher Teil hängt (FIREBASE.md, «Wenn der Deploy
+      # scheitert»).
+      - name: Regeln der Realtime Database veröffentlichen
+        run: |
+          set -euo pipefail
+          firebase deploy --only database \
+            --project "${FIREBASE_PROJEKT}" \
+            --non-interactive \
+            --message "${GITHUB_SHA::7} aus ${GITHUB_REF_NAME}"
+          {
+            echo "### Regeln der Realtime Database veröffentlicht"
+            echo
+            echo "\`database.rules.json\` gilt ab jetzt in \`${FIREBASE_PROJEKT}\`."
             echo
             echo "Stand: \`${GITHUB_SHA::7}\`"
           } >> "$GITHUB_STEP_SUMMARY"

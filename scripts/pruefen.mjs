@@ -169,6 +169,23 @@ pruefe("Der Prüf-Job sieht den Deploy-Schlüssel nicht",
   !/pruefen:[\s\S]*?secrets\.FIREBASE_SERVICE_ACCOUNT\b(?![_A-Z])[\s\S]*?veroeffentlichen:/.test(workflow));
 pruefe("firebase.json zeigt auf firestore.rules", JSON.parse(lies("firebase.json")).firestore.rules === "firestore.rules");
 
+// Die Realtime Database (Live-Modus) hängt am selben Workflow. Ihre Regeln
+// stehen in database.rules.json; der Workflow prüft und veröffentlicht sie,
+// sobald sich die Datei ändert.
+pruefe("firebase.json zeigt auf database.rules.json", JSON.parse(lies("firebase.json")).database?.rules === "database.rules.json");
+pruefe("Der Workflow beobachtet database.rules.json", /paths: &pfade[\s\S]*?- "database\.rules\.json"/.test(workflow));
+pruefe("Der Workflow veröffentlicht die Regeln der Realtime Database",
+  /veroeffentlichen:[\s\S]*firebase deploy --only database\b/.test(workflow));
+pruefe("Der Workflow liest die Regeln der Realtime Database im Pull Request gegen",
+  /pruefen:[\s\S]*--only firestore:rules,database[\s\S]*--dry-run[\s\S]*veroeffentlichen:/.test(workflow));
+let liveRegeln = null;
+try { liveRegeln = JSON.parse(lies("database.rules.json")).rules; } catch { /* unten gemeldet */ }
+pruefe("database.rules.json ist gültiges JSON mit «rules»", Boolean(liveRegeln));
+// Oben an der Wurzel ist zu. Was offen sein soll, öffnet ein Zweig weiter
+// unten – eine Wurzel mit true öffnete alles darunter, egal was dort steht.
+pruefe("Die Realtime Database ist an der Wurzel zu",
+  liveRegeln?.[".read"] === false && liveRegeln?.[".write"] === false);
+
 // Netlify bricht den Deploy ab, wenn es im Ergebnis etwas findet, das nach
 // einem Geheimnis aussieht – der Web-API-Schlüssel tut das. Freigegeben wird
 // er in netlify.toml, und zwar genau der, der auch in cloud.js steht. Nach

@@ -423,8 +423,9 @@ Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
                               npm i && npx playwright install chromium
     npm run test:rules        die Firestore-Regeln im Emulator durchspielen –
                               und cloud.js dagegen laufen lassen, so wie es
-                              im Browser läuft. Braucht Java, kein Netz,
-                              keine Zugangsdaten.
+                              im Browser läuft. Dazu die Regeln der Realtime
+                              Database (database.rules.json). Braucht Java,
+                              kein Netz, keine Zugangsdaten.
 
 `pruefen:browser` ist das, was zählt: `styles.css` und `train-art.js` sind aus
 der App herausgeschnitten worden, und was dabei zu viel wegfiel, sieht man

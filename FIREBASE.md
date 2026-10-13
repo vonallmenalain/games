@@ -48,18 +48,31 @@ keinem die Runde weg, die er gerade spielt.
 Keine der Abfragen braucht einen zusammengesetzten Index: gefragt wird immer
 nur nach einem Feld. Es gibt also nichts, was von Hand nach Firebase müsste.
 
+Daneben gibt es eine **Realtime Database** für den geplanten Live-Modus
+(Lobby, gemeinsamer Start, Punkte in Echtzeit):
+
+```
+https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app
+    Standort Belgien (europe-west1), angelegt im gesperrten Modus
+```
+
+Ihre Regeln stehen in `database.rules.json`. Solange es den Live-Modus nicht
+gibt, ist sie für alle zu – auch für den Admin. Firestore bleibt für alles, was
+bleibt; die Realtime Database nur für das, was während eines Live-Abends hin
+und her geht.
+
 ## 1. Die Regeln fahren von selbst nach Firebase
 
-`firestore.rules` im Repository ist die Wahrheit. In der Firebase-Console wird
-an den Regeln **nichts von Hand** geändert – sonst laufen zwei Fassungen
+`firestore.rules` und `database.rules.json` im Repository sind die Wahrheit. In
+der Firebase-Console wird an den Regeln **nichts von Hand** geändert – sonst laufen zwei Fassungen
 auseinander, und welche gilt, sieht man erst, wenn etwas nicht mehr geht.
 
 `.github/workflows/firestore-rules.yml` macht das:
 
 | wann | was |
 |---|---|
-| Pull Request | Regeln im Emulator durchspielen (`npm run test:rules`), und – wenn ein Prüfschlüssel hinterlegt ist – von Firebase gegenlesen lassen |
-| Merge nach `main` | Regeln veröffentlichen |
+| Pull Request | beide Regeln in ihren Emulatoren durchspielen (`npm run test:rules`), und – wenn ein Prüfschlüssel hinterlegt ist – von Firebase gegenlesen lassen |
+| Merge nach `main` | erst die Firestore-Regeln veröffentlichen, dann die der Realtime Database (zwei Schritte) |
 
 Ein Merge nach `main` wirkt **sofort** auf die Produktionsdatenbank. Anders als
 bei Netlify gibt es hier kein gesperrtes Publishing dazwischen.
@@ -87,6 +100,10 @@ Firebase-Console, nicht aus einem selbst angelegten Dienstkonto:
      firestore.googleapis.com had HTTP Error: 403,
      Permission denied to get service [firestore.googleapis.com]
      ```
+   - `Firebase Realtime Database Admin` (`roles/firebasedatabase.admin`) –
+     die Regeln der Realtime Database veröffentlichen. Die Grundrolle des
+     Admin-SDK-Kontos deckt das wahrscheinlich schon ab; mit der Rolle ist es
+     sicher.
 
    **Auf die Projekt-ID schauen, nicht auf den Namen.** Genau daran ist es
    hier einmal gescheitert: Es gab zwei Google-Cloud-Projekte, beide hiessen
@@ -121,13 +138,13 @@ sie anfordert – und nur von den Branches, die in ihrer Regel stehen.
 Das Admin-SDK-Konto darf von Haus aus mehr, als für Regeln nötig wäre (unter
 anderem voller Lese- und Schreibzugriff auf Firestore). Wer das enger haben
 will, legt in der Cloud Console ein eigenes Dienstkonto an, gibt ihm nur die
-zwei Rollen von oben und legt dessen Schlüssel ins Secret. Der Workflow merkt
+drei Rollen von oben und legt dessen Schlüssel ins Secret. Der Workflow merkt
 davon nichts – er benutzt, was im Secret steht, und schreibt dessen Adresse
 ins Protokoll.
 
 ### Freiwillig
 
-Ein zweites Dienstkonto mit denselben beiden Rollen, hinterlegt als
+Ein zweites Dienstkonto mit denselben drei Rollen, hinterlegt als
 **Repository**-Secret `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG`, lässt Firebase die
 Regeln schon im Pull Request gegenlesen (`--dry-run`, veröffentlicht nichts).
 Fehlt es, wird der Schritt übersprungen statt zu scheitern.
@@ -146,6 +163,11 @@ Regeln, die sie hatte. Zwei Fälle kommen vor:
 - **Der Schlüssel ist kein JSON** – `scripts/pruefe-dienstkonto.mjs` sagt es
   im Protokoll. Meist wurde die Datei base64-kodiert ins Secret gelegt;
   gebraucht wird der Klartext.
+- **Nur der Schritt der Realtime Database ist rot** (z. B. „Could not get
+  instance details" oder „Unexpected error while deploying database rules")
+  – dem Konto fehlt das Recht dafür. Die Firestore-Regeln sind dann schon
+  draussen, sie kommen im Schritt davor. Die dritte Rolle oben nachtragen, ein
+  paar Minuten warten, Job neu starten.
 
 Solange die Regeln nicht draussen sind, gilt, was in Firebase steht. Bei
 einer frisch im Produktionsmodus angelegten Datenbank ist das „alles zu": Die
@@ -202,8 +224,9 @@ verloren.
 ## Prüfen, ohne etwas anzufassen
 
 ```
-npm run test:rules        Regeln im Firestore-Emulator durchspielen.
-                          Braucht Java, kein Netz, keine Zugangsdaten.
+npm run test:rules        Regeln in den Emulatoren durchspielen (Firestore
+                          und Realtime Database). Braucht Java, kein Netz,
+                          keine Zugangsdaten.
 npm run pruefen           Dateien: zeigen alle vier Stellen auf dasselbe
                           Projekt? Kennen die Regeln dieselben Spiele wie
                           mini-games.js?
