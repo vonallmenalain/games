@@ -1730,7 +1730,7 @@ try {
       const trifft = () => {
         const a = st.astro;
         const tg = P.absprung();
-        const v = P.sprungBei(st.punkte);
+        const v = P.sprungBei(st.erreicht);
         let x = a.x;
         let y = a.y;
         for (let t = 0; t < 2.2; t += 1 / 240) {
