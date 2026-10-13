@@ -369,6 +369,33 @@ if (ansehbar) {
 }
 
 // ---------------------------------------------------------------------------
+// --- 18. Der Live-Modus --------------------------------------------------------
+// Eine eigene Seite mit der Realtime Database (live.js), und auf jeder
+// Spielseite live-spiel.js vor der Bühne – sie fragt beim Aufbauen, ob die
+// Seite eine Runde eines Live-Abends ist. Jedes Spiel gibt der Bühne mit, wie
+// es ohne Tipp beginnt und wie es endet, wenn die Zeit des Abends um ist.
+const liveHtml = lies("live.html");
+pruefe("live.html trägt data-page=\"live\" und den Platz [data-live]", liveHtml.includes('data-page="live"') && liveHtml.includes("data-live"));
+pruefe("live.html lädt live.js", liveHtml.includes(`live.js?v=${FASSUNG}`));
+pruefe("live.html lädt die Realtime Database", liveHtml.includes("firebase-database-compat.js"));
+pruefe("live.html bittet um kein Google-Ergebnis", liveHtml.includes('name="robots"'));
+pruefe("SW kennt live.html", sw.includes('"./live.html"'));
+pruefe("cloud.js kennt die Adresse der Realtime Database",
+  lies("cloud.js").includes('databaseURL: "https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app"'));
+pruefe("Keine Spielseite lädt die Realtime Database – das tut nur die Live-Seite",
+  SPIELE.every((x) => !lies(`${x.seite}.html`).includes("firebase-database")));
+for (const x of SPIELE) {
+  const liste = seitenSkripte(x);
+  const wo = liste.indexOf("live-spiel.js");
+  pruefe(`${x.seite}.html lädt live-spiel.js vor game-shell.js`, wo >= 0 && wo < liste.indexOf("game-shell.js"));
+  pruefe(`${x.js} sagt der Bühne, wie eine Live-Runde beginnt und endet (live: { los, stopp })`,
+    /live: \{ los: [^,]+, stopp: /.test(lies(x.js)));
+}
+const liveJs = lies("live.js");
+pruefe("live.js leitet nur mit dem Admin, der den Abend angelegt hat", /info\.host === S\.uid/.test(liveJs));
+pruefe("Die Live-Regeln lassen nur den Admin anlegen und steuern",
+  /"\.write": "\$code\.matches[^"]*auth\.token\.email_verified == true/.test(lies("database.rules.json")));
+
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);
   for (const f of fehler) console.error(`   · ${f}`);

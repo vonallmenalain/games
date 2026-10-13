@@ -977,8 +977,9 @@
     zuschauer.weiter();
   }
 
-  function druecken() {
-    gedrueckt = true;
+  // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
     if (state.phase !== "bereit") return;
     state.phase = "spiel";
     state.schritt = "flug";
@@ -986,6 +987,11 @@
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+  }
+
+  function druecken() {
+    gedrueckt = true;
+    losGehts();
   }
 
   function loslassen() {
@@ -1087,6 +1093,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: () => finish() },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "tunnelFlight", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

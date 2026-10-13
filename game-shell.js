@@ -39,6 +39,10 @@
   // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird
   // (?turnier= in der Adresse). Sonst ist hier alles wie immer.
   const turnier = () => (window.LernappTurnier?.aufSpielseite?.() ? window.LernappTurnier : null);
+  // Der Live-Modus, aber nur, wenn diese Seite eine Runde eines Live-Abends
+  // ist (live-spiel.js). Dann startet die Runde zur Serverzeit statt auf
+  // einen Tipp, und es gibt sie nur einmal.
+  const live = () => (window.LernappLiveSpiel?.aktiv?.() ? window.LernappLiveSpiel : null);
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -127,8 +131,13 @@
    * gelten auch hier; area und onBack führten dort in die Spielauswahl, die es
    * hier nicht gibt – sie bleiben in der Liste, damit sich ein Spiel
    * unverändert herüberkopieren lässt.
+   *
+   *   live      { los, stopp } für den Live-Modus (live-spiel.js): los
+   *             beginnt die Runde ohne Tipp, stopp beendet sie, wenn die Zeit
+   *             des Live-Abends um ist. Ohne los beginnt die Runde mit
+   *             onRestart.
    */
-  function mount({ host, title, accent, accentDark, help, onRestart, clock = true }) {
+  function mount({ host, title, accent, accentDark, help, onRestart, clock = true, live: liveHaken = null }) {
     host.style.setProperty("--cm-accent", accent);
     host.style.setProperty("--cm-accent-dark", accentDark);
     host.innerHTML = "";
@@ -163,9 +172,13 @@
     const bar = el("div", "cm-bar");
     const left = el("div", "cm-bar-left");
     // Ein Weg hinaus – in die Hall of Fame oder, im Turnier, zurück zum
-    // Turnier (mini-games.js) – und der Neu-Knopf.
-    mini()?.leiste?.().forEach((knopf) => left.append(knopf));
-    left.append(iconButton("again", "Neu starten", ICONS.again(), () => neuStart(host.dataset.phase === "play")));
+    // Turnier (mini-games.js) – und der Neu-Knopf. Im Live-Modus keines von
+    // beiden: Die Runde gibt es nur einmal, und hinaus geht es über den
+    // Live-Abend, in dem diese Seite steckt.
+    if (!live()) {
+      mini()?.leiste?.().forEach((knopf) => left.append(knopf));
+      left.append(iconButton("again", "Neu starten", ICONS.again(), () => neuStart(host.dataset.phase === "play")));
+    }
     bar.append(left, el("h1", "cm-title", title));
 
     // Dezent oben rechts: wie viel bisher geschafft ist. Beim Karten-Merker ist
@@ -282,6 +295,14 @@
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
 
+      // Im Live-Modus keine Tafel mit «Noch einmal»: Das Ergebnis geht an
+      // den Live-Abend, und live-spiel.js zeigt, wie es bei den anderen steht.
+      if (live()) {
+        stopClock();
+        live().fertig({ punkte: points, geist });
+        return;
+      }
+
       // Der Lautsprecher oben links sagt jetzt das Ergebnis statt der Regeln.
       releaseHelp?.();
       const satz = mini()?.ergebnisSprache?.({ punkte: points, label }) || speech;
@@ -318,6 +339,20 @@
     // was zählte.
     turnier()?.anBuehne?.({ host, los: () => { stopClock(); closeOverlay(); onRestart(); } });
 
+    // Eine Runde eines Live-Abends: Countdown, Start zur Serverzeit, Ende,
+    // wenn die Zeit des Abends um ist. Oder – den Link einer Runde allein
+    // geöffnet – der Weg zum Live-Abend.
+    if (live()) {
+      live().buehne({
+        host,
+        vor: play,
+        los: liveHaken?.los || (() => { stopClock(); closeOverlay(); onRestart(); }),
+        stopp: liveHaken?.stopp || null,
+      });
+    } else {
+      window.LernappLiveSpiel?.zeigeVerwaist?.(host);
+    }
+
     return {
       play,
       el,
@@ -331,7 +366,13 @@
         if (phase === "play") turnier()?.rundeBeginnt?.();
         host.dataset.phase = phase;
       },
-      setCount(value) { countValue.textContent = String(value); },
+      setCount(value) {
+        countValue.textContent = String(value);
+        live()?.punkte?.(value);
+      },
+      // Wahr, wenn diese Seite eine Runde eines Live-Abends ist. Spiele, die
+      // beim Laden sofort loslegen, warten dann auf den Start (live.los).
+      live: Boolean(live()),
       startClock,
       stopClock,
       showResult,

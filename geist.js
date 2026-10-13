@@ -64,6 +64,10 @@
   const kids = () => window.LernappKids || null;
   // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird.
   const turnier = () => (window.LernappTurnier?.aufSpielseite?.() ? window.LernappTurnier : null);
+  // Eine Runde eines Live-Abends (live-spiel.js): Dort spielt man gegen die,
+  // die gerade mitspielen – die Schalter für Platz 1 und Bestmarke stehen
+  // nicht da, und wo die eigene Figur ist, geht an den Live-Abend.
+  const live = () => (window.LernappLiveSpiel?.aktiv?.() ? window.LernappLiveSpiel : null);
 
   // Die Fassung der Aufzeichnung. Ändert sich, was in einer steht, zählt sie
   // hoch – und die alten verschwinden von selbst aus dem Bild (cloud.js,
@@ -484,8 +488,9 @@
     function zeichne() {
       const s = z.stand;
       // Im Turnier erst, wenn feststeht, ob es Gegner zeigen will – sonst
-      // stünden die Schalter kurz da und verschwänden wieder.
-      if (s?.aus || (!s && turnier())) {
+      // stünden die Schalter kurz da und verschwänden wieder. Im Live-Modus
+      // nie: Dort stehen oben die, die gerade mitspielen (live-spiel.js).
+      if (live() || s?.aus || (!s && turnier())) {
         leiste.hidden = true;
         delete host.dataset.gegner;
         return;
@@ -608,6 +613,7 @@
     // gleich als solcher dasteht. Im Turnier erst, wenn das Turnier gelesen
     // ist – vorher weiss niemand, ob es überhaupt Gegner zeigen will.
     function lade(nr, versuch) {
+      if (live()) return;
       const t = turnier();
       const lage = t?.geistLage?.() || null;
       if (t && (!lage || !lage.geladen)) {
@@ -654,6 +660,7 @@
     function takt(punkte, ort = null) {
       z.punkte = Math.max(0, Math.round(Number(punkte) || 0));
       if (ort) z.ort = ort;
+      if (ort) live()?.lage?.(z.punkte, ort);
       if (!z.laeuft) return;
       probe(z.auf, zeit(), z.punkte, z.ort);
       pruefe();
@@ -687,7 +694,7 @@
     // her; dann steht sie nur einmal da.
     function gegner() {
       const s = z.stand;
-      if (!s || s.aus) return [];
+      if (live() || !s || s.aus) return [];
       const w = wahl();
       const raus = [];
       ARTEN.forEach((welche) => {

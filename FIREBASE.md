@@ -56,10 +56,30 @@ https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app
     Standort Belgien (europe-west1), angelegt im gesperrten Modus
 ```
 
-Ihre Regeln stehen in `database.rules.json`. Solange es den Live-Modus nicht
-gibt, ist sie für alle zu – auch für den Admin. Firestore bleibt für alles, was
+Ihre Regeln stehen in `database.rules.json`. Firestore bleibt für alles, was
 bleibt; die Realtime Database nur für das, was während eines Live-Abends hin
-und her geht.
+und her geht (`live.js`):
+
+```
+live/<code>                      lesen: wer den Code kennt (vier Zeichen)
+    info       name, host, hostKennung, erstellt,
+               programm, einstellungen            schreiben: nur der Admin
+    zustand    phase (lobby · runde · pause · ende),
+               nr, saat, startUm, endeUm, dabei   schreiben: nur der Admin
+    spieler/<kennung>       name, online, seit    der Spieler selbst
+    punkte/<nr>/<kennung>   p, fertig, t          der Spieler selbst
+    lage/<kennung>          n, t, a, b, c, p      der Spieler selbst
+
+turnierLive/<turnier>   code, name, seit          schreiben: nur der Admin
+```
+
+Auflisten lässt sich nichts, die Wurzel ist zu. Wie bei der Bestenliste gibt
+es für Spieler kein Konto: Die Regeln prüfen, was geschrieben wird (eine
+Kennung `mini_…`, ein Name bis 24 Zeichen, Punkte als Zahl, keine
+zusätzlichen Felder) und dass es den Abend gibt – nicht, wer schreibt.
+Anlegen, steuern und löschen darf nur der Admin, mit derselben Prüfung wie
+in Firestore (bestätigte Adresse). «Abend abschliessen» löscht den ganzen
+Abend; liegen bleibt nichts.
 
 ## 1. Die Regeln fahren von selbst nach Firebase
 

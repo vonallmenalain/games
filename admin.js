@@ -1325,7 +1325,11 @@
     const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer));
     const zuDenSpielen = el("a", "adm-knopf adm-knopf-hell", "Zu den Spielen");
     zuDenSpielen.href = "/";
-    rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
+    // Einen Live-Abend anlegen und leiten (live.js) – die Anmeldung hier gilt
+    // dort auch.
+    const live = el("a", "adm-knopf adm-knopf-hell", "Live-Abend");
+    live.href = "/live?neu";
+    rechts.append(neu, zuDenSpielen, live, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
     const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");
     if (voll) rechts.append(voll);
     kopf.append(rechts);

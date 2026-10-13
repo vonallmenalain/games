@@ -439,10 +439,13 @@
     clock: false,
     // Es gibt nur eine Schwierigkeit – neu starten heisst neue Zahlen.
     onRestart: startRun,
+    // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
+    live: { los: startRun, stopp: () => finish() },
   });
 
-  // Ohne Menü beginnt die Runde sofort: Es gibt nichts zu wählen.
-  startRun();
+  // Ohne Menü beginnt die Runde sofort: Es gibt nichts zu wählen. Im
+  // Live-Modus erst zum gemeinsamen Start.
+  if (!shell.live) startRun();
 
   // --- Schieben und Tippen ---------------------------------------------------
   // Ein Tipp auf das Gleis setzt die Lok dorthin und zählt schon als Antwort;

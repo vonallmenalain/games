@@ -20,8 +20,10 @@
  * "darf"-Fälle schlagen fehl, und die Ursache steht in firestore-debug.log.
  *
  * Dasselbe für database.rules.json, die Regeln der Realtime Database (für den
- * Live-Modus). Sie läuft in ihrem eigenen Emulator; dessen Regeln lädt
- * initializeTestEnvironment aus der Datei, wie die von Firestore.
+ * Live-Modus): wer einen Live-Abend anlegen und steuern darf, und was Spieler
+ * ohne Konto dort schreiben dürfen. Sie läuft in ihrem eigenen Emulator;
+ * dessen Regeln lädt initializeTestEnvironment aus der Datei, wie die von
+ * Firestore.
  *
  * Läuft ohne Netz und ohne Zugangsdaten. Braucht Java (für die Emulatoren) und
  * einmalig `npm install`. Startet die Emulatoren selbst und beendet sie.
@@ -613,14 +615,25 @@ await darfNicht("Gast schreibt in eine erfundene Sammlung", () => gast().doc("wa
 await darfNicht("Admin schreibt in eine erfundene Sammlung", () => admin().doc("was-auch-immer/x").set({ a: 1 }));
 await darfNicht("Admin legt sich selbst eine Konto-Sammlung an", () => admin().doc("users/admin").set({ rolle: "admin" }));
 
-// --- Die Realtime Database ---------------------------------------------------
-// Sie ist für den Live-Modus da, und solange es den nicht gibt, ist sie zu –
-// für alle, auch für den Admin. Das ist dieselbe Fassung, die beim Anlegen in
-// der Console stand («gesperrter Modus»).
+// --- Die Realtime Database: der Live-Modus ------------------------------
+// Ein Live-Abend liegt unter live/<code>. Lesen darf, wer den Code kennt;
+// auflisten lässt sich nichts. Anlegen, steuern (zustand) und aufräumen darf
+// nur der Admin. Spieler schreiben ohne Konto nur unter ihrer Kennung: dass
+// sie da sind, ihre Punkte je Runde und wo ihre Figur gerade ist – in genau
+// dieser Form. Wie bei der Bestenliste prüfen die Regeln, WAS geschrieben
+// wird, nicht WER.
 const live = {
   gast: () => env.unauthenticatedContext().database(),
   admin: () => env.authenticatedContext("admin", { email: ADMIN_MAIL, email_verified: true }).database(),
+  adminOhneVerifikation: () => env.authenticatedContext("admin2", { email: ADMIN_MAIL, email_verified: false }).database(),
+  fremder: () => env.authenticatedContext("fremd", { email: "fremd@example.com", email_verified: true }).database(),
 };
+const ABEND = "live/K7QM";
+const LIVE_ICH = "mini_abcdefghijkl";
+const abend = (aenderung = {}) => ({
+  info: { name: "Familienabend", host: "admin", hostKennung: LIVE_ICH, erstellt: 1, programm: [{ spiel: "towerStack", runden: 2, uebung: 1 }], einstellungen: { zeitlimit: 120, wertung: "platz" }, ...aenderung },
+  zustand: { phase: "lobby", nr: -1 },
+});
 // Gegenprobe: Der Emulator antwortet, und ohne Regeln ginge es. Sonst wäre
 // jedes «darf nicht» unten auch ein Netzfehler, der zufällig gleich aussieht.
 await darf("Ohne Regeln lässt sich die Realtime Database lesen und beschreiben", () =>
@@ -630,11 +643,55 @@ await darf("Ohne Regeln lässt sich die Realtime Database lesen und beschreiben"
     erwarte((await ref.get()).val()?.ok === true, "nichts zurückgelesen");
     await ref.remove();
   }));
-await darfNicht("Gast liest die Realtime Database", () => live.gast().ref("/").get());
-await darfNicht("Gast liest eine Live-Runde", () => live.gast().ref("live/K7QM").get());
-await darfNicht("Gast schreibt in die Realtime Database", () => live.gast().ref("live/K7QM/spieler/mini_abcdefghijkl").set({ name: "Alain" }));
-await darfNicht("Admin liest die Realtime Database", () => live.admin().ref("/").get());
-await darfNicht("Admin schreibt in die Realtime Database", () => live.admin().ref("live/K7QM/zustand").set({ phase: "lobby" }));
+await darfNicht("Gast liest die ganze Realtime Database", () => live.gast().ref("/").get());
+await darfNicht("Gast listet alle Live-Abende auf", () => live.gast().ref("live").get());
+await darfNicht("Gast legt einen Live-Abend an", () => live.gast().ref(ABEND).set(abend()));
+await darfNicht("Fremder mit Konto legt einen Live-Abend an", () => live.fremder().ref(ABEND).set(abend({ host: "fremd" })));
+await darfNicht("Admin ohne bestätigte Adresse legt einen Live-Abend an", () => live.adminOhneVerifikation().ref(ABEND).set(abend({ host: "admin2" })));
+await darfNicht("Admin legt einen Live-Abend unter fremdem Namen an", () => live.admin().ref(ABEND).set(abend({ host: "jemand" })));
+await darfNicht("Admin legt einen Live-Abend mit unmöglichem Code an", () => live.admin().ref("live/k7qm").set(abend()));
+await darfNicht("Admin legt einen Live-Abend ohne Programm an", () => live.admin().ref(ABEND).set({ info: { name: "X", host: "admin", erstellt: 1, einstellungen: { a: 1 } }, zustand: { phase: "lobby" } }));
+await darfNicht("Admin schmuggelt etwas in den Live-Abend", () => live.admin().ref(ABEND).set({ ...abend(), geheim: { a: 1 } }));
+await darf("Admin legt einen Live-Abend an", () => live.admin().ref(ABEND).set(abend()));
+await darf("Gast liest den Live-Abend, dessen Code er kennt", () => live.gast().ref(ABEND).get());
+await darfNicht("Gast steuert den Live-Abend", () => live.gast().ref(`${ABEND}/zustand`).set({ phase: "runde", nr: 0 }));
+await darfNicht("Gast benennt den Live-Abend um", () => live.gast().ref(`${ABEND}/info/name`).set("Meins"));
+await darfNicht("Admin setzt eine erfundene Phase", () => live.admin().ref(`${ABEND}/zustand`).set({ phase: "chaos" }));
+await darf("Admin startet eine Runde", () => live.admin().ref(`${ABEND}/zustand`).set({ phase: "runde", nr: 0, saat: 12345, startUm: 2, endeUm: 3, dabei: { [LIVE_ICH]: true } }));
+
+const SPIELER = `${ABEND}/spieler/${LIVE_ICH}`;
+await darf("Gast tritt bei", () => live.gast().ref(SPIELER).set({ name: "Alain", online: true, seit: 1 }));
+await darf("Gast geht offline", () => live.gast().ref(`${SPIELER}/online`).set(false));
+await darfNicht("Gast tritt ohne Namen bei", () => live.gast().ref(SPIELER).set({ name: "", online: true }));
+await darfNicht("Gast tritt mit endlos langem Namen bei", () => live.gast().ref(SPIELER).set({ name: "X".repeat(25), online: true }));
+await darfNicht("Gast tritt mit erfundener Kennung bei", () => live.gast().ref(`${ABEND}/spieler/wer-auch-immer`).set({ name: "A", online: true }));
+await darfNicht("Gast schmuggelt ein Feld in seinen Eintrag", () => live.gast().ref(SPIELER).set({ name: "A", online: true, admin: true }));
+await darfNicht("Gast tritt einem Live-Abend bei, den es nicht gibt", () => live.gast().ref(`live/ZZZZ/spieler/${LIVE_ICH}`).set({ name: "A", online: true }));
+
+await darf("Gast meldet seine Punkte", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 42, fertig: false, t: 1500 }));
+await darf("Gast meldet sein Ergebnis", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 57, fertig: true, t: 9000 }));
+await darfNicht("Gast meldet negative Punkte", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: -1, fertig: false }));
+await darfNicht("Gast meldet unmögliche Punkte", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 99999999, fertig: true }));
+await darfNicht("Gast meldet Punkte für eine erfundene Runde", () => live.gast().ref(`${ABEND}/punkte/abc/${LIVE_ICH}`).set({ p: 1, fertig: true }));
+await darfNicht("Gast schmuggelt ein Feld in seine Punkte", () => live.gast().ref(`${ABEND}/punkte/0/${LIVE_ICH}`).set({ p: 1, fertig: true, bonus: 5 }));
+
+await darf("Gast meldet, wo seine Figur ist", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1250, a: 400, b: 120, c: 3, p: 12 }));
+await darfNicht("Gast meldet eine Figur ohne Ort", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1250 }));
+await darfNicht("Gast meldet einen Ort als Text", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1, a: "links", b: 2 }));
+await darfNicht("Gast schreibt neben die Spieler", () => live.gast().ref(`${ABEND}/notizen/x`).set("hallo"));
+
+await darfNicht("Gast räumt den Live-Abend weg", () => live.gast().ref(ABEND).remove());
+
+// Der Hinweis auf der Turnierseite: welcher Live-Abend gerade zu einem
+// Turnier gehört. Lesen darf jeder, schreiben nur der Admin.
+const ZEIGER = "turnierLive/herbst-k3m9x2p7";
+await darf("Gast liest, ob zu einem Turnier ein Live-Abend läuft", () => live.gast().ref(ZEIGER).get());
+await darfNicht("Gast hängt einen Live-Abend an ein Turnier", () => live.gast().ref(ZEIGER).set({ code: "K7QM", name: "Finale" }));
+await darfNicht("Admin hängt einen Live-Abend mit falschem Code an", () => live.admin().ref(ZEIGER).set({ code: "k7", name: "Finale" }));
+await darf("Admin hängt einen Live-Abend an ein Turnier", () => live.admin().ref(ZEIGER).set({ code: "K7QM", name: "Finale", seit: 1 }));
+await darfNicht("Gast listet alle Turnier-Hinweise auf", () => live.gast().ref("turnierLive").get());
+await darf("Admin nimmt den Hinweis wieder weg", () => live.admin().ref(ZEIGER).remove());
+await darf("Admin räumt den Live-Abend weg", () => live.admin().ref(ABEND).remove());
 
 await env.cleanup();
 

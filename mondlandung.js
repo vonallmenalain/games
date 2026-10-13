@@ -1350,13 +1350,19 @@
   // ---------------------------------------------------------------------------
   // Finger und Tasten
   // ---------------------------------------------------------------------------
-  function schubAn() {
-    state.schub = true;
+  // Der Flug beginnt: mit dem ersten Schub – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
     if (state.phase !== "bereit") return;
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+  }
+
+  function schubAn() {
+    state.schub = true;
+    losGehts();
   }
 
   function schubAus() {
@@ -1484,6 +1490,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: () => finish() },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "moonLander", fassung: "p5", zufall, nochmal: zuschauenStarten,

@@ -1699,17 +1699,23 @@
     zuschauer.weiter();
   }
 
-  function druecken() {
-    gedrueckt = true;
+  // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
+  // gemeinsamen Start (game-shell.js, live.los).
+  function losGehts() {
     if (state.phase !== "bereit") return;
     // Der erste Druck startet den Wagen. Gedriftet wird erst nach dem
-    // ersten Loslassen.
+    // ersten Loslassen – im Live-Modus startet er ohne Druck, dann gleich.
     state.phase = "spiel";
     state.schritt = "fahrt";
-    state.wartetAufLos = true;
+    state.wartetAufLos = gedrueckt;
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+  }
+
+  function druecken() {
+    gedrueckt = true;
+    losGehts();
   }
 
   function loslassen() {
@@ -1823,6 +1829,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: () => finish() },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "driftRace", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

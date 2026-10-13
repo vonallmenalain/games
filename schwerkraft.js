@@ -1183,15 +1183,21 @@
   // ---------------------------------------------------------------------------
   // Tippen
   // ---------------------------------------------------------------------------
+  // Der erste Tipp: Er rennt los – oder im Live-Modus der gemeinsame Start
+  // (game-shell.js, live.los).
+  function losGehts() {
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    state.schritt = "lauf";
+    shell.setPhase("play");
+    gegner?.los();
+    kids()?.vibrate?.(8);
+  }
+
   function tippen() {
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     if (state.phase === "bereit") {
-      // Der erste Tipp: Er rennt los.
-      state.phase = "spiel";
-      state.schritt = "lauf";
-      shell.setPhase("play");
-      gegner?.los();
-      kids()?.vibrate?.(8);
+      losGehts();
       return;
     }
     if (state.schritt !== "lauf") return;
@@ -1300,6 +1306,7 @@
     help: HELP,
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
+    live: { los: losGehts, stopp: () => finish() },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "gravityRun", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

@@ -3872,3 +3872,398 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .adm-seite.ist-formular .adm-turniere > :not(.adm-turnier-formwirt) { display: none; }
 .adm-seite.ist-formular .adm-turniere { padding: 0; border: 0; background: none; overflow: visible; }
 .adm-seite.ist-formular .adm-turnier-form { margin: 0; }
+
+/* --- Live: die Runde im Spiel (live-spiel.js) ------------------------------- */
+/* Statt der Gegner-Schalter: alle, die gerade mitspielen, mit ihren Punkten –
+   und die Zeit, wenn der Abend ein Limit hat. Wer fertig ist, steht blass. */
+.lv-leiste {
+  position: absolute;
+  top: calc(var(--safe-top) + 87px);
+  left: calc(var(--safe-left) + 12px);
+  right: calc(var(--safe-right) + 12px);
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: none;
+}
+.lv-leiste::-webkit-scrollbar { display: none; }
+.lv-leiste:empty { display: none; }
+.cm-stage[data-live] .cm-play { top: calc(var(--safe-top) + 128px); }
+.lv-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #243047;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+}
+.lv-chip-platz {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #eef0f6;
+  font-size: 0.72rem;
+}
+.lv-chip-name { max-width: 7em; overflow: hidden; text-overflow: ellipsis; }
+.lv-chip-wert { font-variant-numeric: tabular-nums; }
+.lv-chip.ist-ich { background: var(--cm-accent, #F5A623); color: #fff; }
+.lv-chip.ist-ich .lv-chip-platz { background: rgba(255, 255, 255, 0.3); }
+.lv-chip.ist-fertig { opacity: 0.6; }
+.lv-chip.ist-weg { opacity: 0.35; }
+.lv-uhr { padding: 0 10px; background: #243047; color: #fff; font-variant-numeric: tabular-nums; }
+.lv-uhr.ist-knapp { background: #d93f45; }
+
+/* Vor dem Start: die Tafel mit dem Countdown. Darunter wartet das Spiel
+   schon in seiner Welt – wer genau hinsieht, sieht, was kommt. */
+.lv-start {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 18, 40, 0.42);
+  transition: background 0.3s ease;
+}
+.lv-start[hidden] { display: none; }
+.lv-start[data-stufe="los"] { background: rgba(15, 18, 40, 0); pointer-events: none; }
+.lv-start-karte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: min(360px, calc(100% - 32px));
+  padding: 22px 26px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  color: #243047;
+}
+.lv-start[data-stufe="los"] .lv-start-karte { background: transparent; box-shadow: none; }
+.lv-start[data-stufe="los"] .lv-start-karte > :not(.lv-zahl) { visibility: hidden; }
+.lv-start .lv-marke,
+.lv-tafel .lv-marke {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #d93f45;
+}
+.lv-start .lv-titel { margin: 0; font-size: 1.3rem; font-weight: 900; }
+.lv-start .lv-klein,
+.lv-tafel .lv-klein { margin: 0; font-size: 0.86rem; font-weight: 700; color: #5b6678; }
+.lv-zahl {
+  margin: 4px 0 0;
+  min-height: 1.1em;
+  font-size: clamp(3.4rem, 16vw, 5.5rem);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--cm-accent-dark, #b9741a);
+  font-variant-numeric: tabular-nums;
+}
+.lv-zahl:empty { min-height: 0; margin: 0; }
+.lv-start[data-stufe="los"] .lv-zahl { color: #fff; text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }
+.lv-zahl.is-pop { animation: lv-pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes lv-pop {
+  0% { transform: scale(0.6); opacity: 0.3; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.lv-knopf {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--cm-accent, #F5A623);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+/* Nach dem eigenen Ende: wie es bei den anderen steht. */
+.lv-tafel {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + 96px) 16px calc(var(--safe-bottom) + 16px);
+  background: rgba(15, 18, 40, 0.38);
+}
+.lv-tafel[hidden] { display: none; }
+.lv-karte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(380px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 20px 22px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  color: #243047;
+  text-align: center;
+}
+.lv-gross { margin: 0; font-size: 2.6rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--cm-accent-dark, #b9741a); }
+.lv-liste { list-style: none; margin: 8px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px; }
+.lv-liste li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: #f4f5fa;
+  font-weight: 800;
+  text-align: left;
+}
+.lv-liste li.ist-ich { background: var(--cm-accent, #F5A623); color: #fff; }
+.lv-liste .lv-platz { min-width: 1.6em; font-variant-numeric: tabular-nums; }
+.lv-liste .lv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-liste .lv-wert { font-variant-numeric: tabular-nums; }
+.lv-spielt {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #3fbf74;
+  color: #fff;
+  font-size: 0.7rem;
+  animation: lv-puls 1.4s ease-in-out infinite;
+}
+@keyframes lv-puls { 50% { opacity: 0.55; } }
+
+@media (max-height: 500px) and (min-width: 780px) {
+  .lv-leiste {
+    top: calc(var(--safe-top) + 20px);
+    left: calc(var(--safe-left) + 210px);
+    right: calc(var(--safe-right) + 150px);
+  }
+  .cm-stage[data-vollbild] .lv-leiste { right: calc(var(--safe-right) + 212px); }
+  .cm-stage[data-live] .cm-play { top: calc(var(--safe-top) + 76px); }
+  .lv-tafel { padding-top: calc(var(--safe-top) + 64px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-zahl.is-pop, .lv-spielt { animation: none; }
+}
+
+/* --- Live: die Seite /live (live.js) --------------------------------------- */
+.lv-seite { --lv-rot: #d93f45; max-width: 760px; }
+.lv-kopf { position: relative; }
+.lv-live { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.lv-punkt {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.9);
+  animation: lv-puls 1.6s ease-in-out infinite;
+}
+.lv-status { margin: 0; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
+.lv-code-klein {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.22);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+}
+.lv-block { gap: 10px; }
+.lv-klein { margin: 0; font-size: 0.9rem; color: #5b6678; line-height: 1.4; }
+.lv-link { color: #5b6678; font-weight: 700; }
+.lv-fehler { margin: 0; padding: 10px 14px; border-radius: 14px; background: #fdecec; color: #a3262c; font-weight: 800; }
+.lv-ok { margin: 0; padding: 10px 14px; border-radius: 14px; background: #eafbf0; color: #22713f; font-weight: 800; }
+.lv-beitreten { display: flex; gap: 10px; flex-wrap: wrap; }
+.lv-beitreten input {
+  flex: 1 1 180px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 2px solid rgba(36, 48, 71, 0.15);
+  border-radius: 16px;
+  background: #fff;
+  color: #243047;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+.lv-beitreten .lv-code-feld { font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; text-align: center; }
+.lv-beitreten input:focus-visible { outline: 3px solid var(--mini-ton); outline-offset: 2px; }
+.lv-code-gross {
+  margin: 0;
+  font-size: clamp(3rem, 16vw, 4.6rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: #243047;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.lv-link-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; overflow-wrap: anywhere; }
+.lv-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.lv-block .lv-knoepfe { justify-content: center; }
+.lv-unten { justify-content: center; }
+.lv-start-knopf { min-width: 10rem; font-size: 1.1rem; }
+.lv-warten { margin: 0; font-weight: 800; color: #5b6678; }
+.lv-spieler { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.lv-spieler li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.08);
+  font-weight: 800;
+  color: #243047;
+}
+.lv-spieler li.ist-weg { opacity: 0.5; }
+.lv-spieler .lv-leer { box-shadow: none; background: none; color: #5b6678; }
+.lv-punkt-klein { width: 9px; height: 9px; border-radius: 50%; background: #c3c8d4; }
+.lv-spieler li.ist-online .lv-punkt-klein { background: #3fbf74; }
+.lv-marke-klein { padding: 2px 8px; border-radius: 999px; background: #eef0f6; color: #5b6678; font-size: 0.72rem; }
+.lv-marke-klein.ist-ich { background: var(--mini-ton); color: #fff; }
+.lv-programm { margin: 0; padding: 0 0 0 1.4em; display: flex; flex-direction: column; gap: 6px; }
+.lv-programm li { padding: 4px 0; }
+.lv-programm li::marker { font-weight: 900; color: var(--mini-ton-dunkel); }
+.lv-programm .lv-name { font-weight: 900; color: #243047; margin-right: 8px; }
+.lv-programm li.ist-jetzt .lv-name { color: var(--lv-rot); }
+.lv-einstellungen { font-size: 0.82rem; }
+.lv-tabelle .lv-wert { font-weight: 900; }
+.lv-tabelle .lv-dazu { color: #22713f; font-weight: 800; }
+.lv-tabelle tr.ist-ich td { background: #fff3e0; }
+.lv-uhr-text { margin: 0; text-align: center; font-weight: 900; color: #243047; font-variant-numeric: tabular-nums; }
+.lv-uhr-text:empty { display: none; }
+.lv-weiter-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; }
+
+/* Das Podest: Platz 2, 1, 3 nebeneinander, die Mitte am höchsten. */
+.lv-podest {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+.lv-stufe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 6px 0;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(180deg, #ffe7b3, #f5c66b);
+  color: #243047;
+}
+.lv-stufe-1 { min-height: 170px; background: linear-gradient(180deg, #ffd96a, #f0a91f); }
+.lv-stufe-2 { min-height: 130px; background: linear-gradient(180deg, #eef0f6, #c9cfdc); }
+.lv-stufe-3 { min-height: 104px; background: linear-gradient(180deg, #f6d2b8, #d99a6c); }
+.lv-podest-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 900; }
+.lv-podest-wert { font-size: 0.85rem; font-weight: 800; color: rgba(36, 48, 71, 0.75); font-variant-numeric: tabular-nums; }
+.lv-podest-platz { font-size: 2rem; font-weight: 900; line-height: 1.2; color: rgba(36, 48, 71, 0.55); }
+
+/* Das Spiel liegt über der Seite, solange die Runde läuft. */
+body.lv-im-spiel { overflow: hidden; }
+.lv-rahmen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #10131f;
+}
+.lv-frame { display: block; width: 100%; height: 100%; border: 0; }
+.lv-leitung {
+  position: absolute;
+  left: calc(var(--safe-left) + 10px);
+  bottom: calc(var(--safe-bottom) + 10px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 8px;
+}
+.lv-leitung-knopf {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.82);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.lv-leitung-menue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+.lv-leitung-menue[hidden] { display: none; }
+
+/* Das Formular zum Anlegen. */
+.lv-formular { display: flex; flex-direction: column; gap: 18px; }
+.lv-feld { display: flex; flex-direction: column; gap: 6px; }
+.lv-feld-name { font-weight: 900; color: #243047; }
+.lv-formular input[type="text"],
+.lv-formular input:not([type]),
+.lv-formular select {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 2px solid rgba(36, 48, 71, 0.15);
+  border-radius: 14px;
+  background: #fff;
+  color: #243047;
+  font: inherit;
+  font-weight: 700;
+  min-width: 0;
+}
+.lv-haken { display: flex; align-items: center; gap: 10px; font-weight: 700; color: #243047; }
+.lv-haken input { width: 22px; height: 22px; accent-color: var(--mini-ton-dunkel); }
+.lv-zeilen { display: flex; flex-direction: column; gap: 8px; }
+.lv-zeile { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.lv-programm-form { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.lv-programm-form .lv-zeilen { width: 100%; }
+.lv-klein-knopf { min-width: 40px; padding: 0 10px; }
+.lv-einstellungs-form { display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 560px) {
+  .lv-zeile { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; }
+  .lv-zeile .lv-spiel-wahl { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-punkt { animation: none; }
+}
+
+/* Der Weg in einen Live-Abend, oben auf der Startseite: mit dem roten Punkt
+   davor, wie bei einer Übertragung. */
+.mini-knopf-live::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d93f45;
+  box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.2);
+}
+.mini-knopf-live { gap: 8px; }
+.lv-tabelle .lv-spielt-noch { margin-left: 6px; background: #3fbf74; color: #fff; animation: lv-puls 1.4s ease-in-out infinite; }
