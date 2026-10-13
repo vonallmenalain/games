@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-3";
+export const FASSUNG = "2026-10-13-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -156,12 +156,15 @@ const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat
 // Werkzeuge beim Laden, nicht beim Aufruf – es muss vor dem stehen, was es
 // benutzt.
 //
+// vollbild.js steht vorn: Die Knöpfe fürs Vollbild bauen alle anderen damit,
+// und auf der äussersten Seite hält es das Vollbild über die Seitenwechsel.
+//
 // turnier.js steht bei allen: Die Startseite zeigt laufende Turniere, eine
 // Spielseite kann in einem gespielt werden, die Turnierseite ist eines, und
 // der Adminbereich rechnet mit denselben Wertungen. Es steht vor der Bühne
 // (game-shell.js) und vor dem Spiel, denn beide fragen schon beim Aufbauen
 // danach.
-const GEMEINSAM = ["highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
+const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 // geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
 // in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.

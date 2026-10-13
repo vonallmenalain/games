@@ -315,11 +315,18 @@ pruefe("Die Spielseiten bleiben ohne Anmeldung (kein firebase-auth auf der Start
   !lies("index.html").includes("firebase-auth"));
 
 // --- 16. Spielen aus dem Adminbereich ------------------------------------------
-// Der Admin startet ein Spiel mit ▶ im Vollbild, und die Runde zählt wie jede
-// andere – unter dem Namen des Geräts. Einen Probelauf, der nirgends zählt,
-// gibt es nicht mehr.
+// Der Admin startet ein Spiel mit ▶ über das ganze Browserfenster, ins
+// Vollbild geht es erst mit dem Knopf im Spiel (vollbild.js). Die Runde zählt
+// wie jede andere – unter dem Namen des Geräts. Einen Probelauf, der nirgends
+// zählt, gibt es nicht mehr.
 pruefe("admin.js startet die Spiele mit ?von=admin", adminJs.includes("?von=admin"));
-pruefe("admin.js bringt das Spiel ins Vollbild", /requestFullscreen/.test(adminJs));
+pruefe("admin.js holt das Vollbild nicht von selbst", !/requestFullscreen/.test(adminJs));
+pruefe("Das Fenster des Adminbereichs lässt das Vollbild aus dem Spiel zu", /allowfullscreen/.test(adminJs));
+const vollbildJs = lies("vollbild.js");
+pruefe("vollbild.js hält das Vollbild über Seitenwechsel (Rahmen)",
+  vollbildJs.includes("data-vollbild-rahmen") && /navigation\?\.addEventListener/.test(vollbildJs));
+pruefe("Alle Seiten laden vollbild.js",
+  ["index.html", "turnier.html", "admin.html", ...SPIELE.map((s) => `${s.seite}.html`)].every((datei) => lies(datei).includes("vollbild.js")));
 pruefe("Kein Probelauf mehr (?probe=1, probelauf)",
   ![adminJs, miniJs, lies("turnier.js"), lies("geist.js")].some((text) => /probe=1|probelauf/.test(text)));
 

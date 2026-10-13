@@ -12,11 +12,15 @@
  * Der Trick ist die Landung. Wer genau auf einem Abhang aufsetzt, im
  * selben Winkel, in dem der Hang abfällt, behält den Schwung und bekommt
  * etwas dazu: Perfekt! (+8 % Tempo). Drei perfekte Landungen, ohne dass eine
- * harte dazwischen kommt, und das Fieber packt ihn: Er leuchtet orange, und
- * jede weitere perfekte Landung gibt +14 % statt +8 % – bis zur nächsten
- * harten Landung. Wer in einen Gegenhang kracht, verliert Tempo und das
- * Fieber. Oben links zählen drei Punkte zum Fieber mit; ist es da, steht
- * dort, was es bringt.
+ * harte dazwischen kommt, und er ist On Fire: Er zieht eine kleine
+ * Feuerspur hinter sich her, und jede weitere perfekte Landung gibt +14 %
+ * statt +8 % – bis zur nächsten harten Landung. Wer in einen Gegenhang
+ * kracht, verliert Tempo, und das Feuer ist aus. Oben links zählen drei
+ * Punkte bis On Fire mit; brennt es, steht dort, was es bringt.
+ *
+ * Flüssig vor prächtig: Der Hintergrund zieht ruhig mit, und was gezeichnet
+ * wird, ist so gebaut, dass es auch auf einem einfachen Handy jedes Bild
+ * schafft.
  *
  * Eine Minute lang, dann geht die Sonne unter. Gezählt wird, wie weit er
  * bis dahin kommt, in Metern.
@@ -66,15 +70,15 @@
   const V_MIN = 120;               // langsamer rutscht er nie – er flattert
   const V_MAX = 1150;
   const REIBUNG = 0.055;           // am Boden, mit dem Gewicht: schwer bremst mehr
-  const PERFEKT_WINKEL = 0.42;     // so flach muss er auf dem Abhang landen
-  const SCHLECHT_WINKEL = 0.62;
+  const PERFEKT_WINKEL = 0.48;     // so flach muss er auf dem Abhang landen
+  const SCHLECHT_WINKEL = 0.66;    // so steiler ist es eine harte Landung
   const R = 11;                    // der Vogel, als Kreis
 
   const HELP = [
     "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
     "Lass los, dann wird er leicht, fliegt über die Kuppe und gleitet mit ausgebreiteten Flügeln – mit genug Schwung über den nächsten Hügel hinweg. In der Luft halten, und er stürzt hinab.",
     "Lande genau auf einem Abhang, im Winkel des Hangs: Perfekt! Das gibt Schwung. Oben links zählen drei Punkte mit.",
-    "Nach drei perfekten Landungen packt ihn das Fieber: Er leuchtet orange, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung beendet das Fieber.",
+    "Nach drei perfekten Landungen ist er On Fire: Er zieht eine Feuerspur hinter sich her, und jede weitere perfekte Landung gibt fast doppelt so viel Schwung. Eine harte Landung löscht das Feuer.",
     "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
   ].join(" ");
 
@@ -111,9 +115,10 @@
     meter: 0,
     perfekt: 0,
     serie: 0,
-    fieber: false,
-    fieberZeit: -9,       // wann das Fieber zuletzt begann – für die Einblendung
-    vorbeiZeit: -9,       // … und wann es zuletzt endete
+    feuer: false,         // On Fire
+    feuerZeit: -9,        // wann das Feuer zuletzt anging – für die Einblendung
+    vorbeiZeit: -9,       // … und wann es zuletzt ausging
+    flammenTakt: 0,       // wann die nächste Flamme der Spur kommt
     v: { x: START_X, y: 0, vx: 0, vy: 0 },
     amBoden: true,
     flugZeit: 0,
@@ -267,7 +272,9 @@
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
-    const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
+    // Höchstens doppelt so fein wie ein Bildpunkt: Feiner sieht niemand,
+    // aber jedes Bild kostete ein Drittel mehr.
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
     if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
     view.cssW = cssW;
     view.cssH = cssH;
@@ -275,6 +282,8 @@
     // Mindestens SICHT_H hoch und SICHT_W_MIN breit.
     view.w0 = Math.max(SICHT_H * (cssW / cssH), SICHT_W_MIN);
     view.h0 = view.w0 / (cssW / cssH);
+    // Der Massstab ohne Zoom – an ihm zieht der Hintergrund vorbei.
+    view.s0 = cssW / view.w0;
     skaliere();
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
@@ -326,8 +335,10 @@
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
-  const WOLKEN = Array.from({ length: 9 }, (_, i) => ({
-    x: hash01(i * 3.3 + 1), y: 0.08 + hash01(i * 5.1 + 2) * 0.4, s: 0.6 + hash01(i * 7.7) * 0.8, lage: i % 3,
+  // Die Wolken: eine Lage, gleichmässig verteilt. Alle ziehen gleich schnell,
+  // so holt keine eine andere ein.
+  const WOLKEN = Array.from({ length: 6 }, (_, i) => ({
+    x: (i + 0.2 + hash01(i * 3.3 + 1) * 0.6) / 6, y: 0.08 + hash01(i * 5.1 + 2) * 0.34, s: 0.7 + hash01(i * 7.7) * 0.5,
   }));
 
   function zeichneHimmel() {
@@ -366,11 +377,16 @@
       g.globalAlpha = 1;
     }
 
-    // Wolken, die verschieden schnell vorbeiziehen.
+    // Der Hintergrund zieht ruhig mit: nach dem Weg, den der Vogel macht,
+    // gemessen im Massstab ohne Zoom. Am gezoomten Massstab sprang er bei
+    // jedem Zoom – je weiter vorn, desto weiter, bis die Wolken rückwärts
+    // flogen.
+    const weg = state.camX * view.s0;
+
+    // Wolken.
+    const breite = W + 240;
     WOLKEN.forEach((w) => {
-      const tempo = [0.04, 0.08, 0.14][w.lage];
-      const breite = W + 240;
-      const x = ((w.x * breite - state.camX * view.s * tempo) % breite + breite) % breite - 120;
+      const x = ((w.x * breite - weg * 0.06) % breite + breite) % breite - 120;
       const y = w.y * H;
       const s = w.s * Math.min(W, H) * 0.07;
       g.fillStyle = `rgba(255, 255, 255, ${lerp(0.85, 0.5, state.tag)})`;
@@ -382,17 +398,22 @@
       g.fill();
     });
 
-    // Ferne Hügel, zwei Lagen, im Dunst.
-    [[0.2, 0.62, "rgba(140, 190, 230, 0.55)"], [0.4, 0.7, "rgba(110, 170, 200, 0.6)"]].forEach(([tempo, hoehe, farbe], lage) => {
+    // Ferne Hügel, zwei Lagen, im Dunst. Die Punkte ihres Kamms gehören zu
+    // den Hügeln, nicht zum Bildschirm: Sie ziehen mit, statt sich bei jedem
+    // Bild neu zu formen.
+    [[0.15, 0.62, "rgba(140, 190, 230, 0.55)"], [0.3, 0.7, "rgba(110, 170, 200, 0.6)"]].forEach(([tempo, hoehe, farbe], lage) => {
+      const zug = weg * tempo;
+      const schritt = 16;
       g.fillStyle = farbe;
       g.beginPath();
-      g.moveTo(0, H);
-      for (let x = 0; x <= W + 20; x += 16) {
-        const wx = (x + state.camX * view.s * tempo) / 90;
-        const y = H * hoehe - (Math.sin(wx * 0.8 + lage) * 0.6 + Math.sin(wx * 1.9 + lage * 2) * 0.4) * H * 0.07 + state.camY * view.s * tempo * 0.3;
-        g.lineTo(x, y);
+      g.moveTo(-schritt, H);
+      for (let i = Math.floor(zug / schritt) - 1; ; i += 1) {
+        const x = i * schritt - zug;
+        const wx = (i * schritt) / 90;
+        g.lineTo(x, H * hoehe - (Math.sin(wx * 0.8 + lage) * 0.6 + Math.sin(wx * 1.9 + lage * 2) * 0.4) * H * 0.07);
+        if (x > W + schritt) break;
       }
-      g.lineTo(W, H);
+      g.lineTo(W + schritt * 2, H);
       g.closePath();
       g.fill();
     });
@@ -434,18 +455,18 @@
       g.fillStyle = farben[0];
       g.fill();
       g.clip();
-      // Schräge Streifen.
+      // Schräge Streifen – alle in einem Pfad, einmal gefüllt.
       g.fillStyle = farben[1];
       const hoch = Math.max(a.y, b.y) + 40;
+      g.beginPath();
       for (let sx = von - 300; sx < bis + 300; sx += 36) {
-        g.beginPath();
         g.moveTo(sx, unten);
         g.lineTo(sx + 18, unten);
         g.lineTo(sx + 18 + (hoch - unten) * 0.6, hoch);
         g.lineTo(sx + (hoch - unten) * 0.6, hoch);
         g.closePath();
-        g.fill();
       }
+      g.fill();
       // Nach unten dunkler.
       const schatten = g.createLinearGradient(0, b.y, 0, unten);
       schatten.addColorStop(0, "rgba(0,0,0,0)");
@@ -506,7 +527,7 @@
 
   // Der Vogel: rund, mit Auge, Schnabel und Flügel. Leicht flattert er, schwer
   // legt er die Flügel an und wird etwas flacher.
-  function vogel(x, y, winkel, farbe, alpha, schwer, flattern, glut, gleitet = false) {
+  function vogel(x, y, winkel, farbe, alpha, schwer, flattern, gleitet = false) {
     g.save();
     g.globalAlpha = alpha;
     g.translate(x, y);
@@ -514,15 +535,6 @@
     const sx = schwer ? 1.12 : 1;
     const sy = schwer ? 0.9 : 1;
     g.scale(sx, sy);
-    if (glut) {
-      const hof = g.createRadialGradient(0, 0, R * 0.5, 0, 0, R * 2.6);
-      hof.addColorStop(0, "rgba(255, 220, 90, 0.6)");
-      hof.addColorStop(1, "rgba(255, 140, 60, 0)");
-      g.fillStyle = hof;
-      g.beginPath();
-      g.arc(0, 0, R * 2.6, 0, Math.PI * 2);
-      g.fill();
-    }
     // Im Gleiten: beide Flügel weit ausgebreitet, der hintere etwas dunkler.
     if (gleitet) {
       g.fillStyle = farbe[1];
@@ -595,8 +607,8 @@
       const a = state.spur[i - 1];
       const b = state.spur[i];
       const k = i / state.spur.length;
-      g.globalAlpha = k * (state.fieber ? 0.9 : 0.5);
-      g.strokeStyle = state.fieber ? "#ffd84d" : "#ffffff";
+      g.globalAlpha = k * (state.feuer ? 0.7 : 0.5);
+      g.strokeStyle = state.feuer ? "#ff8a1f" : "#ffffff";
       g.lineWidth = (1 + k * 3.5) / Math.max(0.6, view.s) * 1.2;
       g.beginPath();
       g.moveTo(a.x, a.y);
@@ -627,7 +639,7 @@
     weltTransform();
     geister.forEach((geist) => {
       if (geist.blass <= 0) return;
-      vogel(geist.x, geist.y + R, geist.winkel, [geist.farbe, geist.farbe], 0.45 * geist.blass, false, state.flattern, false);
+      vogel(geist.x, geist.y + R, geist.winkel, [geist.farbe, geist.farbe], 0.45 * geist.blass, false, state.flattern);
     });
     bildTransform();
     const gross = Math.round(clamp(view.cssH * 0.028, 10, 13));
@@ -663,9 +675,9 @@
     weltTransform();
     const v = state.v;
     const winkel = Math.atan2(v.vy, Math.max(1, v.vx));
-    const farbe = state.fieber ? ["#ffe9a0", "#ff9d2e"] : ["#9fd8ff", "#3f8fe0"];
+    const farbe = ["#9fd8ff", "#3f8fe0"];
     const gleitet = !gedrueckt && !state.amBoden && state.flugZeit > 0.12;
-    vogel(v.x, v.y + R, winkel, farbe, 1, gedrueckt, state.flattern, state.fieber, gleitet);
+    vogel(v.x, v.y + R, winkel, farbe, 1, gedrueckt, state.flattern, gleitet);
   }
 
   function zeichneTeile() {
@@ -676,7 +688,19 @@
       g.globalAlpha = k;
       g.fillStyle = t.farbe;
       g.beginPath();
-      if (t.art === "stern") {
+      if (t.art === "flamme") {
+        // Ein Tropfen mit Spitze: hell und gross, wenn sie entsteht; dann
+        // orange, rot und klein.
+        g.globalAlpha = Math.min(1, k * 1.4);
+        g.fillStyle = k > 0.7 ? "#fff3b8" : k > 0.4 ? "#ffa62b" : "#ff4d1f";
+        const r = t.r * (0.4 + k * 0.6);
+        const px = -t.dy * r;
+        const py = t.dx * r;
+        g.moveTo(t.x + px, t.y + py);
+        g.quadraticCurveTo(t.x + px * 0.8 + t.dx * r * 1.3, t.y + py * 0.8 + t.dy * r * 1.3, t.x + t.dx * r * 2.4, t.y + t.dy * r * 2.4);
+        g.quadraticCurveTo(t.x - px * 0.8 + t.dx * r * 1.3, t.y - py * 0.8 + t.dy * r * 1.3, t.x - px, t.y - py);
+        g.quadraticCurveTo(t.x - t.dx * r * 1.5, t.y - t.dy * r * 1.5, t.x + px, t.y + py);
+      } else if (t.art === "stern") {
         const r = t.r * (0.6 + k * 0.6);
         for (let i = 0; i < 10; i += 1) {
           const w = (i / 10) * Math.PI * 2 + t.dreh;
@@ -718,16 +742,6 @@
     const H = view.cssH;
     const gross = clamp(view.cssH * 0.05, 14, 24);
 
-    // Im Fieber glüht der Rand des Bildes.
-    if (state.fieber) {
-      const puls = ruhig() ? 0.7 : 0.6 + 0.4 * Math.sin(state.zeit * 5);
-      const glut = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.42, W / 2, H / 2, Math.max(W, H) * 0.75);
-      glut.addColorStop(0, "rgba(255, 150, 40, 0)");
-      glut.addColorStop(1, `rgba(255, 130, 30, ${0.28 * puls})`);
-      g.fillStyle = glut;
-      g.fillRect(0, 0, W, H);
-    }
-
     g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
     g.textAlign = "left";
     g.textBaseline = "middle";
@@ -742,13 +756,13 @@
     g.fillText(text, 12 + gross * 0.55, 12 + gross * 0.82);
 
     // Darunter die Serie: drei Punkte, die sich mit jeder perfekten Landung
-    // füllen – oder, im Fieber, was es bringt.
+    // füllen – oder, wenn er brennt, was es bringt.
     const klein = Math.round(gross * 0.6);
     const y = 12 + gross * 1.6 + 6;
     const h = klein * 1.75;
     g.font = `800 ${klein}px system-ui, sans-serif`;
-    if (state.fieber) {
-      const titel = `Fieber ×${state.serie}`;
+    if (state.feuer) {
+      const titel = `On Fire ×${state.serie}`;
       const zusatz = "+14 % je Perfekt";
       const tw = g.measureText(titel).width;
       g.font = `700 ${Math.round(klein * 0.85)}px system-ui, sans-serif`;
@@ -779,7 +793,7 @@
       g.fillStyle = "rgba(90, 30, 0, 0.85)";
       g.fillText(zusatz, 12 + h * 0.9 + tw + klein * 0.6, y + h * 0.55);
     } else {
-      const label = "Fieber";
+      const label = "On Fire";
       const lw = g.measureText(label).width;
       const bw = klein * 0.7 + 3 * klein * 1.05 + klein * 0.4 + lw + klein * 0.8;
       g.fillStyle = "rgba(30, 40, 80, 0.45)";
@@ -799,13 +813,13 @@
       g.fillText(label, 12 + klein * 0.7 + 3 * klein * 1.05 + klein * 0.4, y + h * 0.53);
     }
 
-    // Die Einblendung, wenn das Fieber beginnt oder endet.
-    const seitBeginn = state.zeit - state.fieberZeit;
+    // Die Einblendung, wenn das Feuer angeht oder ausgeht.
+    const seitBeginn = state.zeit - state.feuerZeit;
     const seitEnde = state.zeit - state.vorbeiZeit;
     const banner = seitBeginn < 2.2
-      ? { titel: "FIEBER!", text: "3 perfekte Landungen – jetzt gibt jede weitere +14 % Schwung", farbe: "#ffd84d", t: seitBeginn, dauer: 2.2 }
+      ? { titel: "ON FIRE!", text: "3 perfekte Landungen – jetzt gibt jede weitere +14 % Schwung", farbe: "#ffd84d", t: seitBeginn, dauer: 2.2 }
       : seitEnde < 1.8
-        ? { titel: "Fieber vorbei", text: "Harte Landung – drei perfekte, und es ist wieder da", farbe: "#ffe0e0", t: seitEnde, dauer: 1.8 }
+        ? { titel: "Feuer aus", text: "Harte Landung – drei perfekte, und er brennt wieder", farbe: "#ffe0e0", t: seitEnde, dauer: 1.8 }
         : null;
     if (banner) {
       const a = Math.min(1, banner.t * 5, (banner.dauer - banner.t) * 3);
@@ -869,6 +883,33 @@
         farbe: "rgba(255,255,255,0.8)", leben: 0.4 + Math.random() * 0.3, max: 0.7,
       });
     }
+  }
+
+  // Die Feuerspur: kleine Flammen, die am Rücken entstehen, hinter ihm
+  // zurückbleiben und verglühen – die jüngsten sitzen noch an ihm, als
+  // brenne er. Wenige auf einmal (um die zwanzig): Sie sollen brennen, nicht
+  // das Bild aufhalten.
+  function flamme() {
+    const v = state.v;
+    const tempo = Math.max(1, Math.hypot(v.vx, v.vy));
+    const rx = -v.vx / tempo;
+    const ry = -v.vy / tempo;
+    const quer = (Math.random() - 0.5) * R * 0.8;
+    // Die Spitze zeigt nach hinten und etwas nach oben.
+    const sx = rx * 0.8;
+    const sy = ry * 0.8 + 0.6;
+    const sl = Math.hypot(sx, sy) || 1;
+    state.teile.push({
+      art: "flamme",
+      x: v.x + rx * R * 0.55 - ry * quer,
+      y: v.y + R + ry * R * 0.55 + rx * quer + R * 0.3,
+      vx: v.vx * 0.55 + (Math.random() - 0.5) * 30,
+      vy: v.vy * 0.55 + 15 + Math.random() * 25,
+      r: R * (0.6 + Math.random() * 0.3),
+      dx: sx / sl,
+      dy: sy / sl,
+      leben: 0.24 + Math.random() * 0.1, max: 0.34,
+    });
   }
 
   function schrift(text, x, y, farbe, gross) {
@@ -949,29 +990,29 @@
     if (steigung < -0.05 && winkel < PERFEKT_WINKEL && vt > 0) {
       state.perfekt += 1;
       state.serie += 1;
-      const schub = state.fieber ? 1.14 : 1.08;
+      const schub = state.feuer ? 1.14 : 1.08;
       v.vx *= schub;
       v.vy *= schub;
-      if (state.serie >= 3 && !state.fieber) {
-        state.fieber = true;
-        state.fieberZeit = state.zeit;
+      if (state.serie >= 3 && !state.feuer) {
+        state.feuer = true;
+        state.feuerZeit = state.zeit;
         kids()?.playJingle?.("win");
-      } else if (state.fieber) {
+      } else if (state.feuer) {
         schrift(`Perfekt! +14 %`, v.x, v.y + 40, "#ffd84d", 16);
         kids()?.playJingle?.("star");
       } else {
         schrift(`Perfekt! ${state.serie}/3`, v.x, v.y + 40, "#ffffff", 16);
         kids()?.playJingle?.("star");
       }
-      sterne(v.x, v.y, 8, state.fieber ? "#ffd84d" : "#ffffff");
+      sterne(v.x, v.y, 8, state.feuer ? "#ffd84d" : "#ffffff");
     } else if (winkel > SCHLECHT_WINKEL) {
-      if (state.fieber) {
+      if (state.feuer) {
         state.vorbeiZeit = state.zeit;
       } else if (state.serie > 0) {
         schrift("Harte Landung – Serie weg", v.x, v.y + 40, "#ffe0e0", 13);
       }
       state.serie = 0;
-      state.fieber = false;
+      state.feuer = false;
       v.vx *= 0.82;
       v.vy *= 0.82;
       staub(v.x, v.y, 10);
@@ -1018,9 +1059,18 @@
     state.spur.push({ x: state.v.x, y: state.v.y + R });
     if (state.spur.length > 26) state.spur.shift();
 
+    if (state.feuer && state.phase === "spiel") {
+      const abstand = ruhig() ? 1 / 16 : 1 / 60;
+      state.flammenTakt += dt;
+      while (state.flammenTakt >= abstand) { state.flammenTakt -= abstand; flamme(); }
+    } else {
+      state.flammenTakt = 0;
+    }
+
     for (let i = state.teile.length - 1; i >= 0; i -= 1) {
       const t = state.teile[i];
-      t.vy -= 200 * dt;
+      // Flammen steigen auf und bleiben in der Luft zurück; alles andere fällt.
+      if (t.art === "flamme") { t.vy += 160 * dt; t.vx *= 1 - 2.5 * dt; } else t.vy -= 200 * dt;
       t.x += t.vx * dt;
       t.y += t.vy * dt;
       t.dreh = (t.dreh || 0) + dt * 4;
@@ -1091,9 +1141,10 @@
     state.meter = 0;
     state.perfekt = 0;
     state.serie = 0;
-    state.fieber = false;
-    state.fieberZeit = -9;
+    state.feuer = false;
+    state.feuerZeit = -9;
     state.vorbeiZeit = -9;
+    state.flammenTakt = 0;
     state.huegel = [];
     huegelBis(4000);
     state.v = { x: START_X - 110, y: 0, vx: 0, vy: 0 };

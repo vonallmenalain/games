@@ -1944,6 +1944,11 @@ h2 {
 /* Bis 13 zu 5, wie die breiteste Welt von schwerkraft.js (WELT_W_MAX 780
    bei SICHT_H 300). */
 .sl-feld { aspect-ratio: 13 / 5; background: #0b0424; }
+/* Im Hochformat füllt die Fläche das Bild ganz; schwerkraft.js zeigt dort
+   weniger Korridor, dafür gross. */
+@media (orientation: portrait) {
+  .sl-feld { aspect-ratio: auto; left: 0; right: 0; width: 100%; transform: none; }
+}
 
 .sl-canvas {
   display: block;
@@ -3425,8 +3430,9 @@ h2 {
 .adm-spielen-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
 .adm-spielen-knopf:hover { background: var(--adm-farbe, #F5A623); color: #fff; }
 
-/* Das Spiel aus dem Adminbereich: im Vollbild, oder wo es keines gibt, über
-   den ganzen Bildschirm – ohne Rahmen, wie auf seiner eigenen Seite. */
+/* Das Spiel aus dem Adminbereich: über das ganze Browserfenster – ohne
+   Rahmen, wie auf seiner eigenen Seite. Ins Vollbild geht es mit dem Knopf
+   im Spiel. */
 .adm-spiel {
   position: fixed;
   inset: 0;
@@ -3435,6 +3441,9 @@ h2 {
 }
 .adm-spiel-fenster { display: block; width: 100%; height: 100%; border: 0; background: var(--bg); }
 body.adm-spiel-offen { overflow: hidden; }
+/* Der Vollbild-Knopf im Kopf des Adminbereichs: nur das Zeichen. */
+.adm-vollbild { width: 42px; height: 42px; padding: 0; display: inline-grid; place-items: center; }
+.adm-vollbild svg { width: 20px; height: 20px; display: block; }
 
 /* ===========================================================================
    Der Weg in den Adminbereich
@@ -3451,6 +3460,28 @@ body.adm-spiel-offen { overflow: hidden; }
   border-width: 2px;
   box-shadow: none;
 }
+
+/* Das Vollbild (vollbild.js), ganz rechts im Balken der Startseite und der
+   Turnierseite: rund und hell, wie der Weg in den Adminbereich – ein Knopf
+   fürs Gerät, nicht fürs Spiel. */
+.mini-kopf .mini-vollbild {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+}
+.mini-kopf .mini-vollbild svg { width: 20px; height: 20px; display: block; }
+.mini-kopf .mini-vollbild:hover,
+.mini-kopf .mini-vollbild:focus-visible { background: rgba(255, 255, 255, 0.32); outline: none; }
+.mini-kopf .mini-vollbild:active { transform: scale(0.93); }
 
 /* ===========================================================================
    Der Turniermodus

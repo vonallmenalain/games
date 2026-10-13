@@ -331,9 +331,12 @@
   // ---------------------------------------------------------------------------
   // Ein Spiel spielen, aus dem Adminbereich
   // ---------------------------------------------------------------------------
-  // Der kleine Knopf neben jedem Haken startet das Spiel im Vollbild – in
-  // einem Fenster über dem Adminbereich, damit ein halb ausgefülltes Turnier
-  // darunter bleibt, wie es war.
+  // Der kleine Knopf neben jedem Haken startet das Spiel in einem Fenster,
+  // das das ganze Browserfenster füllt – über dem Adminbereich, damit ein
+  // halb ausgefülltes Turnier darunter bleibt, wie es war. Ins Vollbild geht
+  // es nicht von selbst: Dafür steht im Spiel oben rechts der Knopf, und das
+  // Vollbild bleibt dann auch nach dem Spiel, bis man es beendet
+  // (vollbild.js).
   //
   // Die Runde zählt wie jede andere: Sie geht unter dem Namen dieses Geräts
   // in die Hall of Fame, und der beste Versuch bleibt dort stehen. Hat das
@@ -350,8 +353,6 @@
     if (ereignis.origin === window.location.origin && ereignis.data?.miniAdmin === "zu") spielZu?.();
   });
 
-  const vollbildDa = () => document.fullscreenElement || document.webkitFullscreenElement || null;
-
   function zeigeSpiel(spiel) {
     spielZu?.();
     const huelle = el("div", "adm-spiel");
@@ -362,6 +363,7 @@
     fenster.src = spielAdresse(spiel);
     fenster.title = titel(spiel);
     fenster.allow = "autoplay; fullscreen";
+    fenster.setAttribute("allowfullscreen", "");
     // Die Spiele hören auf Tasten. Ohne Fokus im Fenster gingen die an den
     // Adminbereich, und beim Signal liesse sich keine Runde starten.
     fenster.addEventListener("load", () => { try { fenster.contentWindow?.focus(); } catch { /* egal */ } });
@@ -371,9 +373,6 @@
     const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
     function schliessen() {
       document.removeEventListener("keydown", taste);
-      if (vollbildDa() === huelle) {
-        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* egal */ }
-      }
       huelle.remove();
       document.body.classList.remove("adm-spiel-offen");
       if (spielZu === schliessen) spielZu = null;
@@ -383,13 +382,6 @@
     document.body.classList.add("adm-spiel-offen");
     document.body.append(huelle);
     spielZu = schliessen;
-
-    // Ins Vollbild, solange der Tipp auf ▶ noch frisch ist – ohne ihn lässt
-    // kein Browser eine Seite ins Vollbild. Wo es keines gibt (iPhone), füllt
-    // das Fenster eben den Bildschirm.
-    try {
-      (huelle.requestFullscreen || huelle.webkitRequestFullscreen)?.call(huelle, { navigationUI: "hide" })?.catch?.(() => {});
-    } catch { /* dann ohne */ }
   }
 
   function spielenKnopf(spiel) {
@@ -1334,6 +1326,8 @@
     const zuDenSpielen = el("a", "adm-knopf adm-knopf-hell", "Zu den Spielen");
     zuDenSpielen.href = "/";
     rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
+    const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");
+    if (voll) rechts.append(voll);
     kopf.append(rechts);
     wirt.append(kopf);
 

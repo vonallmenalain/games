@@ -759,8 +759,9 @@
 
   // Läuft das Spiel im Fenster über dem Adminbereich (admin.js, zeigeSpiel),
   // schliesst der Weg zurück dieses Fenster – statt den Adminbereich ein
-  // zweites Mal hineinzuladen.
-  if (ausAdmin() && window.parent !== window) {
+  // zweites Mal hineinzuladen. Der Rahmen des Vollbilds (vollbild.js) ist
+  // kein solches Fenster: Dort geht der Weg wie sonst.
+  if (ausAdmin() && window.parent !== window && !window.LernappVollbild?.imRahmen?.()) {
     document.addEventListener("click", (ereignis) => {
       const weg = ereignis.target?.closest?.("a[href]");
       if (!weg || weg.getAttribute("href") !== ziel().link) return;
@@ -1115,6 +1116,10 @@
     // ihn (adminKnopf).
     const zumAdmin = adminKnopf();
     if (zumAdmin) kopf.append(zumAdmin);
+    // Ganz rechts das Vollbild – es bleibt auch in den Spielen und zurück
+    // (vollbild.js).
+    const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
+    if (voll) kopf.append(voll);
     wirt.append(kopf);
 
     // Unter wessen Namen hier gespielt wird – und der Weg, ihn zu ändern.

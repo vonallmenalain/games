@@ -84,12 +84,19 @@
   function reloadForUpdate() {
     if (refreshing) return;
     if (appBusy()) { pendingReload = true; return; }
-    refreshing = true;
-    window.location.reload();
+    neuLaden();
   }
 
   function reloadWhenHidden() {
     if (!pendingReload || refreshing || document.visibilityState !== "hidden") return;
+    neuLaden();
+  }
+
+  // Ist diese Seite zum Rahmen des Vollbilds geworden (vollbild.js), lädt
+  // die Seite darin selbst neu – sie hat ihr eigenes pwa.js. Hier oben neu
+  // zu laden, beendete das Vollbild.
+  function neuLaden() {
+    if (window.LernappVollbild?.rahmen?.()) return;
     refreshing = true;
     window.location.reload();
   }
