@@ -54,6 +54,7 @@
     // Gedächtnis
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
+    { id: "planetHop", titel: "Planetenhüpfer", bereich: "gedaechtnis", art: "punkte", key: "lernapp.planeten", einheit: "Planeten" },
 
     // Konzentration
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
@@ -68,9 +69,12 @@
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
     { id: "vineSwing", titel: "Lianenschwung", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.liane", einheit: "Meter" },
+    { id: "driftRace", titel: "Drift-Rennen", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.drift", einheit: "Meter" },
+    { id: "hillGlide", titel: "Hügelflieger", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.huegel", einheit: "Meter" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
+    { id: "moonLander", titel: "Mondlandung", bereich: "problemloesen", art: "punkte", key: "lernapp.mondlandung", einheit: "Landungen" },
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht fest, wenn die Aufgaben durch sind. Gemessen wird deshalb
     // die beste Runde, nicht das einzelne Level.
@@ -86,6 +90,7 @@
     { id: "kakuro", titel: "Kakuro", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "hidoku", titel: "Hidoku", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "numberLine", titel: "Wo hält der Zug?", bereich: "zahlbuchstabe", art: "punkte", key: "lernapp.zahlengleis", einheit: "Punkte" },
+    { id: "gravityRun", titel: "Schwerkraft-Läufer", bereich: "zahlbuchstabe", art: "punkte", key: "lernapp.schwerkraft", einheit: "Meter" },
   ];
 
   // Die fünf Bereiche des Zugs, nur mit Namen: der Adminbereich stellt seine

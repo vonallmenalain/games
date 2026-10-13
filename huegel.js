@@ -1,0 +1,1073 @@
+/*
+ * huegel.js – Hügelflieger.
+ * ---------------------------------------------------------------------------
+ * Ein kleiner Vogel rutscht über eine Kette von Hügeln. Fliegen kann er
+ * nicht recht – aber schwer und leicht werden. Wer den Finger aufs Bild
+ * legt, macht ihn schwer: Er saust die Hügel hinab und holt Schwung. Wer
+ * loslässt, macht ihn leicht: Er trägt den Schwung den nächsten Hügel
+ * hinauf und hebt an der Kuppe ab.
+ *
+ * Der Trick ist die Landung. Wer genau auf einem Abhang aufsetzt, im
+ * selben Winkel, in dem der Hang abfällt, behält den Schwung und bekommt
+ * etwas dazu: Perfekt! Drei perfekte Landungen nacheinander, und das Fieber
+ * packt ihn – bis zur nächsten Bruchlandung. Wer in einen Gegenhang kracht,
+ * verliert Tempo.
+ *
+ * Eine Minute lang, dann geht die Sonne unter. Gezählt wird, wie weit er
+ * bis dahin kommt, in Metern.
+ *
+ * Gebaut werden die Hügel aus dem Zufall (zufall.js): ohne Turnier jedes
+ * Mal andere, im Turnier für alle im selben Versuch dieselben. Nach hinten
+ * werden sie höher und weiter.
+ *
+ * Die Gegner (geist.js) fliegen als Vögel aus Licht mit – genau so, wie sie
+ * in ihrer besten Runde geflogen sind, Sekunde für Sekunde.
+ *
+ * Gerechnet wird in Welteinheiten, zehn sind ein Meter; y zählt nach oben.
+ */
+(() => {
+  "use strict";
+
+  if (document.body.dataset.page !== "hills") return;
+
+  const host = document.querySelector("#hf-stage");
+  const shellApi = window.LernappGameShell;
+  const cloudApi = window.LernappGameCloud;
+  if (!host || !shellApi) return;
+
+  const kids = () => window.LernappKids || null;
+  const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+
+  const zufall = window.LernappZufall?.fuer?.("hillGlide") || {
+    neu() {},
+    zahl: () => Math.random(),
+  };
+
+  // ---------------------------------------------------------------------------
+  // Die Welt
+  // ---------------------------------------------------------------------------
+  const RUNDE_MS = 60000;
+  const METER = 10;
+  const SICHT_H = 300;
+  const SICHT_W_MIN = 380;
+  const VOGEL_AN = 0.3;            // so weit vom linken Rand fliegt er
+  const START_X = 0;
+  const TAKT = 1 / 240;
+
+  const G_LEICHT = 760;            // so zieht es, wenn er leicht ist …
+  const G_SCHWER = 2300;           // … und so, wenn er schwer ist
+  const V_MIN = 120;               // langsamer rutscht er nie – er flattert
+  const V_MAX = 1150;
+  const REIBUNG = 0.055;           // am Boden, mit dem Gewicht: schwer bremst mehr
+  const PERFEKT_WINKEL = 0.42;     // so flach muss er auf dem Abhang landen
+  const SCHLECHT_WINKEL = 0.62;
+  const R = 11;                    // der Vogel, als Kreis
+
+  const HELP = [
+    "Hügelflieger. Halte den Finger auf dem Bild, dann wird der Vogel schwer und saust die Hügel hinab.",
+    "Lass los, dann wird er leicht und fliegt über die nächste Kuppe.",
+    "Lande genau auf einem Abhang, dann behält er den Schwung – drei perfekte Landungen hintereinander, und er bekommt Fieber.",
+    "Nach einer Minute geht die Sonne unter. Es zählt, wie weit du kommst, in Metern.",
+  ].join(" ");
+
+  const TOP_COUNT = 5;
+  const store = cloudApi
+    ? cloudApi.register({ key: "lernapp.huegel", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
+    : {
+      read: () => ({ runs: 0, scores: [] }),
+      write(data) { return data; },
+      update(fn) { return fn(this.read()); },
+      onChange() { return () => {}; },
+    };
+
+  // ---------------------------------------------------------------------------
+  // Kleine Rechnungen
+  // ---------------------------------------------------------------------------
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const meterBei = (x) => Math.max(0, (x - START_X) / METER);
+  const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / 1600);
+
+  function hash01(n) {
+    const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Zustand
+  // ---------------------------------------------------------------------------
+  // phase:   "bereit", "spiel", "ende"
+  const state = {
+    phase: "bereit",
+    punkte: 0,
+    meter: 0,
+    perfekt: 0,
+    serie: 0,
+    fieber: false,
+    v: { x: START_X, y: 0, vx: 0, vy: 0 },
+    amBoden: true,
+    flugZeit: 0,
+    hoechste: 0,
+    huegel: [],           // Extrempunkte { x, y }, abwechselnd Tal und Kuppe
+    spur: [],
+    teile: [],
+    schriften: [],
+    camX: 0,
+    camY: 0,
+    zoom: 1,
+    zeit: 0,
+    tag: 0,               // 0 Mittag … 1 Abend
+    flattern: 0,
+  };
+
+  let shell = null;
+  let feld = null;
+  let canvas = null;
+  let g = null;
+  let frame = null;
+  let last = 0;
+  let stepTimer = null;
+  let gedrueckt = false;
+  let gegner = null;
+  let rundeStart = 0;
+
+  const view = { s: 1, grundS: 1, dpr: 1, cssW: 0, cssH: 0, w: SICHT_W_MIN, h: SICHT_H, w0: SICHT_W_MIN, h0: SICHT_H };
+
+  function clearStep() {
+    if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
+  }
+
+  function stopLoop() {
+    if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Hügel
+  // ---------------------------------------------------------------------------
+  /*
+   * Die Hügel sind eine Kette von Tälern und Kuppen, verbunden mit einer
+   * Kosinuskurve – glatt, ohne Knick. Je weiter hinten, desto höher und
+   * weiter. Jeder Hügel (von Tal zu Tal) bekommt seine Farben.
+   */
+  function neuerPunkt() {
+    const h = state.huegel;
+    if (!h.length) {
+      // Der Start: ein langer Hang hinab, damit es gleich Schwung gibt.
+      h.push({ x: START_X - 300, y: 90 }, { x: START_X - 120, y: 140 }, { x: START_X + 260, y: -60 });
+      return;
+    }
+    const vor = h[h.length - 1];
+    const kuppe = vor.y < (h[h.length - 2]?.y ?? 0);   // nach einem Tal kommt eine Kuppe
+    const k = schwereBei(vor.x);
+    const weit = lerp(230, 380, k) * (0.8 + zufall.zahl() * 0.4);
+    const hoch = lerp(100, 230, k) * (0.65 + zufall.zahl() * 0.5);
+    // Die Mitte der Hügel bleibt bei 0: Täler unter, Kuppen über ihr.
+    const y = kuppe ? clamp(vor.y + hoch, 10, 260) : clamp(vor.y - hoch, -240, -10);
+    h.push({ x: vor.x + weit, y });
+  }
+
+  function huegelBis(x) {
+    while (!state.huegel.length || state.huegel[state.huegel.length - 1].x < x) neuerPunkt();
+  }
+
+  function abschnitt(x) {
+    huegelBis(x + 10);
+    const h = state.huegel;
+    let lo = 0;
+    let hi = h.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (h[mid].x <= x) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  function bodenBei(x) {
+    const i = abschnitt(x);
+    const a = state.huegel[i];
+    const b = state.huegel[i + 1];
+    const u = clamp((x - a.x) / (b.x - a.x), 0, 1);
+    return a.y + (b.y - a.y) * (1 - Math.cos(Math.PI * u)) / 2;
+  }
+
+  function steigungBei(x) {
+    const i = abschnitt(x);
+    const a = state.huegel[i];
+    const b = state.huegel[i + 1];
+    const L = b.x - a.x;
+    const u = clamp((x - a.x) / L, 0, 1);
+    return ((b.y - a.y) * Math.PI * Math.sin(Math.PI * u)) / (2 * L);
+  }
+
+  // Die Farben eines Hügels: zwei Streifen, im Wechsel. Nach der Nummer
+  // seines Tals, nicht nach dem Zufall.
+  const STREIFEN = [
+    ["#7fd36b", "#5fbf55"], ["#ffcf6b", "#ffb347"], ["#ff8fb1", "#ff6f99"],
+    ["#7fc8ff", "#5aa9f0"], ["#b9a2ff", "#9a7ff0"], ["#6fe0c8", "#4cc7ad"], ["#ffa07a", "#ff8460"],
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Die Fläche
+  // ---------------------------------------------------------------------------
+  function buildPlatz() {
+    const platz = shell.el("div", "hf-platz");
+    feld = shell.el("div", "hf-feld");
+    canvas = document.createElement("canvas");
+    canvas.className = "hf-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    feld.append(canvas);
+    g = canvas.getContext("2d");
+
+    const tipp = shell.el("span", "hf-tipp");
+    tipp.setAttribute("aria-hidden", "true");
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 64 64");
+    [
+      { r: 22, stroke: "rgba(255,255,255,0.5)", w: 5 },
+      { r: 22, stroke: "#ffffff", w: 5, klasse: "hf-tipp-fuell" },
+    ].forEach((ring) => {
+      const kreis = document.createElementNS(ns, "circle");
+      kreis.setAttribute("cx", "32");
+      kreis.setAttribute("cy", "32");
+      kreis.setAttribute("r", String(ring.r));
+      kreis.setAttribute("fill", "none");
+      kreis.setAttribute("stroke", ring.stroke);
+      kreis.setAttribute("stroke-width", String(ring.w));
+      if (ring.klasse) {
+        kreis.setAttribute("class", ring.klasse);
+        kreis.setAttribute("stroke-linecap", "round");
+      }
+      svg.append(kreis);
+    });
+    const punkt = document.createElementNS(ns, "circle");
+    punkt.setAttribute("cx", "32");
+    punkt.setAttribute("cy", "32");
+    punkt.setAttribute("r", "9");
+    punkt.setAttribute("fill", "#ffffff");
+    svg.append(punkt);
+    tipp.append(svg);
+    feld.append(tipp);
+    platz.append(feld);
+    return platz;
+  }
+
+  function messen() {
+    if (!canvas || !feld) return;
+    const cssW = Math.max(80, feld.clientWidth);
+    const cssH = Math.max(80, feld.clientHeight);
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
+    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
+    view.cssW = cssW;
+    view.cssH = cssH;
+    view.dpr = dpr;
+    // Mindestens SICHT_H hoch und SICHT_W_MIN breit.
+    view.w0 = Math.max(SICHT_H * (cssW / cssH), SICHT_W_MIN);
+    view.h0 = view.w0 / (cssW / cssH);
+    skaliere();
+    const pw = Math.round(cssW * dpr);
+    const ph = Math.round(cssH * dpr);
+    if (canvas.width !== pw) canvas.width = pw;
+    if (canvas.height !== ph) canvas.height = ph;
+  }
+
+  function skaliere() {
+    view.w = view.w0 * state.zoom;
+    view.h = view.h0 * state.zoom;
+    view.s = view.cssW / view.w;
+  }
+
+  function bildTransform() {
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  }
+
+  function weltTransform() {
+    const f = view.s * view.dpr;
+    g.setTransform(f, 0, 0, -f, -state.camX * f, (view.cssH + state.camY * view.s) * view.dpr);
+  }
+
+  const bildX = (x) => (x - state.camX) * view.s;
+  const bildY = (y) => view.cssH - (y - state.camY) * view.s;
+
+  // ---------------------------------------------------------------------------
+  // Zeichnen
+  // ---------------------------------------------------------------------------
+  // Der Himmel im Lauf des Tages: Mittag, goldener Nachmittag, Abendrot,
+  // Dämmerung. tag läuft von 0 bis 1.
+  const HIMMEL = [
+    { k: 0, oben: [86, 170, 255], unten: [190, 232, 255] },
+    { k: 0.55, oben: [92, 150, 230], unten: [255, 220, 160] },
+    { k: 0.8, oben: [120, 90, 190], unten: [255, 150, 110] },
+    { k: 1, oben: [30, 30, 90], unten: [200, 90, 120] },
+  ];
+
+  function himmelBei(tag, welche) {
+    for (let i = 0; i < HIMMEL.length - 1; i += 1) {
+      const a = HIMMEL[i];
+      const b = HIMMEL[i + 1];
+      if (tag <= b.k) {
+        const k = (tag - a.k) / (b.k - a.k);
+        const c = a[welche].map((v, j) => Math.round(lerp(v, b[welche][j], k)));
+        return `rgb(${c[0]},${c[1]},${c[2]})`;
+      }
+    }
+    const c = HIMMEL[HIMMEL.length - 1][welche];
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+
+  const WOLKEN = Array.from({ length: 9 }, (_, i) => ({
+    x: hash01(i * 3.3 + 1), y: 0.08 + hash01(i * 5.1 + 2) * 0.4, s: 0.6 + hash01(i * 7.7) * 0.8, lage: i % 3,
+  }));
+
+  function zeichneHimmel() {
+    bildTransform();
+    const W = view.cssW;
+    const H = view.cssH;
+    const verlauf = g.createLinearGradient(0, 0, 0, H);
+    verlauf.addColorStop(0, himmelBei(state.tag, "oben"));
+    verlauf.addColorStop(1, himmelBei(state.tag, "unten"));
+    g.fillStyle = verlauf;
+    g.fillRect(0, 0, W, H);
+
+    // Die Sonne sinkt im Lauf der Minute zum Horizont.
+    const sx = W * 0.75;
+    const sy = H * lerp(0.16, 0.78, state.tag);
+    const sr = Math.min(W, H) * 0.08;
+    const hof = g.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 3.4);
+    hof.addColorStop(0, `rgba(255, ${Math.round(lerp(250, 170, state.tag))}, 150, 0.55)`);
+    hof.addColorStop(1, "rgba(255, 200, 150, 0)");
+    g.fillStyle = hof;
+    g.fillRect(sx - sr * 3.4, sy - sr * 3.4, sr * 6.8, sr * 6.8);
+    g.fillStyle = `rgb(255, ${Math.round(lerp(244, 150, state.tag))}, ${Math.round(lerp(170, 90, state.tag))})`;
+    g.beginPath();
+    g.arc(sx, sy, sr, 0, Math.PI * 2);
+    g.fill();
+
+    // Sterne in der Dämmerung.
+    if (state.tag > 0.8) {
+      g.fillStyle = "#ffffff";
+      g.globalAlpha = (state.tag - 0.8) * 4;
+      for (let i = 0; i < 40; i += 1) {
+        g.beginPath();
+        g.arc(hash01(i * 2.7) * W, hash01(i * 4.1) * H * 0.5, 0.5 + hash01(i) * 1.2, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+
+    // Wolken, die verschieden schnell vorbeiziehen.
+    WOLKEN.forEach((w) => {
+      const tempo = [0.04, 0.08, 0.14][w.lage];
+      const breite = W + 240;
+      const x = ((w.x * breite - state.camX * view.s * tempo) % breite + breite) % breite - 120;
+      const y = w.y * H;
+      const s = w.s * Math.min(W, H) * 0.07;
+      g.fillStyle = `rgba(255, 255, 255, ${lerp(0.85, 0.5, state.tag)})`;
+      g.beginPath();
+      g.arc(x, y, s, 0, Math.PI * 2);
+      g.arc(x + s * 0.9, y + s * 0.2, s * 0.8, 0, Math.PI * 2);
+      g.arc(x - s * 0.9, y + s * 0.25, s * 0.7, 0, Math.PI * 2);
+      g.arc(x + s * 0.2, y - s * 0.4, s * 0.75, 0, Math.PI * 2);
+      g.fill();
+    });
+
+    // Ferne Hügel, zwei Lagen, im Dunst.
+    [[0.2, 0.62, "rgba(140, 190, 230, 0.55)"], [0.4, 0.7, "rgba(110, 170, 200, 0.6)"]].forEach(([tempo, hoehe, farbe], lage) => {
+      g.fillStyle = farbe;
+      g.beginPath();
+      g.moveTo(0, H);
+      for (let x = 0; x <= W + 20; x += 16) {
+        const wx = (x + state.camX * view.s * tempo) / 90;
+        const y = H * hoehe - (Math.sin(wx * 0.8 + lage) * 0.6 + Math.sin(wx * 1.9 + lage * 2) * 0.4) * H * 0.07 + state.camY * view.s * tempo * 0.3;
+        g.lineTo(x, y);
+      }
+      g.lineTo(W, H);
+      g.closePath();
+      g.fill();
+    });
+    // Abends färbt sich der Dunst.
+    if (state.tag > 0.5) {
+      g.fillStyle = `rgba(255, 120, 90, ${(state.tag - 0.5) * 0.25})`;
+      g.fillRect(0, 0, W, H);
+    }
+  }
+
+  // Die Hügel: von Tal zu Tal einer, in Streifen, mit heller Kante und einem
+  // Schatten nach unten.
+  function zeichneHuegel() {
+    const x0 = state.camX - 20;
+    const x1 = state.camX + view.w + 20;
+    huegelBis(x1 + 400);
+    const h = state.huegel;
+    const unten = state.camY - 40;
+    weltTransform();
+    let i = abschnitt(x0);
+    if (h[i].y > (h[i + 1]?.y ?? 0)) i = Math.max(0, i - 1);
+    // i ist jetzt ein Tal (oder davor): ein Hügel reicht bis zum übernächsten Punkt.
+    for (; i < h.length - 1 && h[i].x < x1; i += 1) {
+      const a = h[i];
+      const b = h[i + 1];
+      const c = h[i + 2] || b;
+      const tal = a.y < b.y;
+      if (!tal) continue;
+      const von = a.x;
+      const bis = c.x;
+      const farben = STREIFEN[Math.abs(Math.round(a.x / 7)) % STREIFEN.length];
+      g.save();
+      g.beginPath();
+      g.moveTo(von, unten);
+      for (let x = von; x <= bis; x += 6) g.lineTo(x, bodenBei(x));
+      g.lineTo(bis, bodenBei(bis));
+      g.lineTo(bis, unten);
+      g.closePath();
+      g.fillStyle = farben[0];
+      g.fill();
+      g.clip();
+      // Schräge Streifen.
+      g.fillStyle = farben[1];
+      const hoch = Math.max(a.y, b.y) + 40;
+      for (let sx = von - 300; sx < bis + 300; sx += 36) {
+        g.beginPath();
+        g.moveTo(sx, unten);
+        g.lineTo(sx + 18, unten);
+        g.lineTo(sx + 18 + (hoch - unten) * 0.6, hoch);
+        g.lineTo(sx + (hoch - unten) * 0.6, hoch);
+        g.closePath();
+        g.fill();
+      }
+      // Nach unten dunkler.
+      const schatten = g.createLinearGradient(0, b.y, 0, unten);
+      schatten.addColorStop(0, "rgba(0,0,0,0)");
+      schatten.addColorStop(1, "rgba(20, 20, 60, 0.45)");
+      g.fillStyle = schatten;
+      g.fillRect(von, unten, bis - von, b.y - unten + 60);
+      g.restore();
+    }
+    // Die helle Kante oben auf allen Hügeln.
+    g.strokeStyle = "rgba(255,255,255,0.75)";
+    g.lineWidth = 4 / view.s;
+    g.lineJoin = "round";
+    g.beginPath();
+    for (let x = x0; x <= x1; x += 6) {
+      const y = bodenBei(x);
+      if (x === x0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+    // Abends ein warmer Schleier über allem.
+    if (state.tag > 0.6) {
+      bildTransform();
+      g.fillStyle = `rgba(80, 30, 90, ${(state.tag - 0.6) * 0.35})`;
+      g.fillRect(0, 0, view.cssW, view.cssH);
+    }
+  }
+
+  // Alle hundert Meter ein Fähnchen auf dem Hügel.
+  function zeichneMarken() {
+    const von = Math.max(100, Math.ceil(meterBei(state.camX) / 100) * 100);
+    const bis = meterBei(state.camX + view.w);
+    bildTransform();
+    const gross = Math.round(clamp(view.cssH * 0.03, 10, 14));
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "bottom";
+    for (let m = von; m <= bis; m += 100) {
+      const x = START_X + m * METER;
+      const sx = bildX(x);
+      const sy = bildY(bodenBei(x));
+      g.strokeStyle = "rgba(255,255,255,0.8)";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.lineTo(sx, sy - 22);
+      g.stroke();
+      g.fillStyle = "#ffffff";
+      g.beginPath();
+      g.moveTo(sx, sy - 22);
+      g.lineTo(sx + 12, sy - 18);
+      g.lineTo(sx, sy - 14);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "rgba(30, 40, 80, 0.75)";
+      g.fillText(`${m} m`, sx, sy - 24);
+    }
+  }
+
+  // Der Vogel: rund, mit Auge, Schnabel und Flügel. Leicht flattert er, schwer
+  // legt er die Flügel an und wird etwas flacher.
+  function vogel(x, y, winkel, farbe, alpha, schwer, flattern, glut) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(x, y);
+    g.rotate(winkel);
+    const sx = schwer ? 1.12 : 1;
+    const sy = schwer ? 0.9 : 1;
+    g.scale(sx, sy);
+    if (glut) {
+      const hof = g.createRadialGradient(0, 0, R * 0.5, 0, 0, R * 2.6);
+      hof.addColorStop(0, "rgba(255, 220, 90, 0.6)");
+      hof.addColorStop(1, "rgba(255, 140, 60, 0)");
+      g.fillStyle = hof;
+      g.beginPath();
+      g.arc(0, 0, R * 2.6, 0, Math.PI * 2);
+      g.fill();
+    }
+    // Körper
+    const k = g.createRadialGradient(-R * 0.3, R * 0.35, R * 0.2, 0, 0, R);
+    k.addColorStop(0, farbe[0]);
+    k.addColorStop(1, farbe[1]);
+    g.fillStyle = k;
+    g.beginPath();
+    g.arc(0, 0, R, 0, Math.PI * 2);
+    g.fill();
+    // Bauch
+    g.fillStyle = "rgba(255,255,255,0.55)";
+    g.beginPath();
+    g.ellipse(R * 0.15, -R * 0.35, R * 0.6, R * 0.42, 0, 0, Math.PI * 2);
+    g.fill();
+    // Flügel
+    g.fillStyle = farbe[1];
+    g.beginPath();
+    const schlag = schwer ? -0.2 : Math.sin(flattern) * 0.9;
+    g.ellipse(-R * 0.25, R * 0.15, R * 0.65, R * 0.32, schlag, 0, Math.PI * 2);
+    g.fill();
+    // Auge
+    g.fillStyle = "#ffffff";
+    g.beginPath();
+    g.arc(R * 0.45, R * 0.38, R * 0.3, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#1d2440";
+    g.beginPath();
+    g.arc(R * 0.53, R * 0.36, R * 0.15, 0, Math.PI * 2);
+    g.fill();
+    // Schnabel
+    g.fillStyle = "#ffb52e";
+    g.beginPath();
+    g.moveTo(R * 0.85, R * 0.12);
+    g.lineTo(R * 1.45, -R * 0.02);
+    g.lineTo(R * 0.85, -R * 0.2);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  function zeichneSpur() {
+    if (state.spur.length < 2) return;
+    weltTransform();
+    g.lineCap = "round";
+    for (let i = 1; i < state.spur.length; i += 1) {
+      const a = state.spur[i - 1];
+      const b = state.spur[i];
+      const k = i / state.spur.length;
+      g.globalAlpha = k * (state.fieber ? 0.9 : 0.5);
+      g.strokeStyle = state.fieber ? "#ffd84d" : "#ffffff";
+      g.lineWidth = (1 + k * 3.5) / Math.max(0.6, view.s) * 1.2;
+      g.beginPath();
+      g.moveTo(a.x, a.y);
+      g.lineTo(b.x, b.y);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+
+  // Die Gegner als Vögel aus Licht, mit Namen darüber.
+  function geisterOrte() {
+    if (!gegner || state.phase === "bereit") return [];
+    const ms = gegner.zeit();
+    return gegner.gegner().filter((geg) => geg.lauf?.mitOrt).map((geg) => {
+      const ort = geg.lauf.ort(ms);
+      const bald = geg.lauf.ort(ms + 100);
+      return {
+        ...geg,
+        x: START_X + ort.a,
+        y: ort.b,
+        winkel: Math.atan2(bald.b - ort.b, Math.max(1, bald.a - ort.a)),
+        blass: geg.lauf.fertig(ms) ? clamp(1 - (ms - geg.lauf.dauer) / 1200, 0, 1) : 1,
+      };
+    });
+  }
+
+  function zeichneGeister(geister) {
+    weltTransform();
+    geister.forEach((geist) => {
+      if (geist.blass <= 0) return;
+      vogel(geist.x, geist.y + R, geist.winkel, [geist.farbe, geist.farbe], 0.45 * geist.blass, false, state.flattern, false);
+    });
+    bildTransform();
+    const gross = Math.round(clamp(view.cssH * 0.028, 10, 13));
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "bottom";
+    geister.forEach((geist) => {
+      if (geist.blass <= 0) return;
+      const sx = bildX(geist.x);
+      const sy = bildY(geist.y + R * 2.4);
+      const text = geist.art === "eigen" ? "Bestmarke" : geist.name;
+      g.globalAlpha = geist.blass;
+      g.lineWidth = 3;
+      g.strokeStyle = "rgba(30, 40, 80, 0.6)";
+      if (sx < 0 || sx > view.cssW) {
+        // Ausserhalb des Bildes: ein Hinweis am Rand, wie weit er weg ist.
+        const rand = clamp(sx, 30, view.cssW - 30);
+        const meter = Math.round((geist.x - state.v.x) / METER);
+        const zeile = `${text} ${meter > 0 ? "+" : ""}${meter} m`;
+        g.strokeText(zeile, rand, clamp(sy, 70, view.cssH - 10));
+        g.fillStyle = geist.farbe;
+        g.fillText(zeile, rand, clamp(sy, 70, view.cssH - 10));
+      } else {
+        g.strokeText(text, sx, sy);
+        g.fillStyle = "#ffffff";
+        g.fillText(text, sx, sy);
+      }
+    });
+    g.globalAlpha = 1;
+  }
+
+  function zeichneVogel() {
+    weltTransform();
+    const v = state.v;
+    const winkel = Math.atan2(v.vy, Math.max(1, v.vx));
+    const farbe = state.fieber ? ["#ffe9a0", "#ff9d2e"] : ["#9fd8ff", "#3f8fe0"];
+    vogel(v.x, v.y + R, winkel, farbe, 1, gedrueckt, state.flattern, state.fieber);
+  }
+
+  function zeichneTeile() {
+    if (!state.teile.length) return;
+    weltTransform();
+    state.teile.forEach((t) => {
+      const k = clamp(t.leben / t.max, 0, 1);
+      g.globalAlpha = k;
+      g.fillStyle = t.farbe;
+      g.beginPath();
+      if (t.art === "stern") {
+        const r = t.r * (0.6 + k * 0.6);
+        for (let i = 0; i < 10; i += 1) {
+          const w = (i / 10) * Math.PI * 2 + t.dreh;
+          const rr = i % 2 ? r * 0.45 : r;
+          if (i) g.lineTo(t.x + Math.cos(w) * rr, t.y + Math.sin(w) * rr);
+          else g.moveTo(t.x + Math.cos(w) * rr, t.y + Math.sin(w) * rr);
+        }
+        g.closePath();
+      } else {
+        g.arc(t.x, t.y, t.r * (1.6 - k * 0.6), 0, Math.PI * 2);
+      }
+      g.fill();
+    });
+    g.globalAlpha = 1;
+  }
+
+  function zeichneSchriften() {
+    if (!state.schriften.length) return;
+    bildTransform();
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    state.schriften.forEach((s) => {
+      const k = clamp(s.leben / s.max, 0, 1);
+      g.globalAlpha = Math.min(1, k * 2);
+      g.font = `900 ${Math.round(s.gross * clamp(view.s, 0.85, 1.5))}px system-ui, sans-serif`;
+      g.lineWidth = 4;
+      g.strokeStyle = "rgba(30, 40, 80, 0.6)";
+      g.strokeText(s.text, bildX(s.x), bildY(s.y) - (1 - k) * 30);
+      g.fillStyle = s.farbe;
+      g.fillText(s.text, bildX(s.x), bildY(s.y) - (1 - k) * 30);
+    });
+    g.globalAlpha = 1;
+  }
+
+  function zeichneAnzeige() {
+    if (state.phase === "bereit") return;
+    bildTransform();
+    const gross = clamp(view.cssH * 0.05, 14, 24);
+    g.font = `900 ${Math.round(gross)}px system-ui, sans-serif`;
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    const text = `${state.meter} m`;
+    const w = g.measureText(text).width + gross * 1.1;
+    g.fillStyle = "rgba(30, 40, 80, 0.45)";
+    g.beginPath();
+    if (g.roundRect) g.roundRect(12, 12, w, gross * 1.6, gross * 0.8);
+    else g.rect(12, 12, w, gross * 1.6);
+    g.fill();
+    g.fillStyle = "#ffffff";
+    g.fillText(text, 12 + gross * 0.55, 12 + gross * 0.82);
+    if (state.fieber) {
+      g.font = `900 ${Math.round(gross * 0.7)}px system-ui, sans-serif`;
+      g.fillStyle = "#ffd84d";
+      g.lineWidth = 3;
+      g.strokeStyle = "rgba(120, 50, 0, 0.6)";
+      g.strokeText("Fieber!", 14, 12 + gross * 2.3);
+      g.fillText("Fieber!", 14, 12 + gross * 2.3);
+    }
+  }
+
+  function zeichnen() {
+    if (!g) return;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    zeichneHimmel();
+    zeichneHuegel();
+    zeichneMarken();
+    const geister = geisterOrte();
+    zeichneGeister(geister);
+    zeichneSpur();
+    zeichneTeile();
+    zeichneVogel();
+    zeichneSchriften();
+    zeichneAnzeige();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Teilchen und Schriften
+  // ---------------------------------------------------------------------------
+  function sterne(x, y, anzahl, farbe) {
+    if (ruhig()) anzahl = Math.ceil(anzahl / 3);
+    for (let i = 0; i < anzahl; i += 1) {
+      const w = Math.random() * Math.PI;
+      const v = 60 + Math.random() * 160;
+      state.teile.push({
+        art: "stern", x, y, vx: Math.cos(w) * v, vy: Math.sin(w) * v, r: 3 + Math.random() * 3,
+        farbe, leben: 0.6 + Math.random() * 0.4, max: 1, dreh: Math.random() * 6,
+      });
+    }
+  }
+
+  function staub(x, y, anzahl) {
+    if (ruhig()) anzahl = Math.ceil(anzahl / 3);
+    for (let i = 0; i < anzahl; i += 1) {
+      state.teile.push({
+        art: "staub", x, y, vx: (Math.random() - 0.7) * 120, vy: Math.random() * 60, r: 2 + Math.random() * 2.5,
+        farbe: "rgba(255,255,255,0.8)", leben: 0.4 + Math.random() * 0.3, max: 0.7,
+      });
+    }
+  }
+
+  function schrift(text, x, y, farbe, gross) {
+    state.schriften.push({ text, x, y, farbe, gross, leben: 1.1, max: 1.1 });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Flug
+  // ---------------------------------------------------------------------------
+  function physik(dt) {
+    const v = state.v;
+    const gEff = gedrueckt ? G_SCHWER : G_LEICHT;
+    v.vy -= gEff * dt;
+    v.x += v.vx * dt;
+    v.y += v.vy * dt;
+    // Luftwiderstand: kaum spürbar, bei hohem Tempo mehr.
+    const schnell = Math.hypot(v.vx, v.vy);
+    const bremse = 1 - (0.012 + Math.max(0, schnell - 650) * 0.0012) * dt;
+    v.vx *= bremse;
+    v.vy *= bremse;
+
+    const boden = bodenBei(v.x);
+    if (v.y <= boden) {
+      const s = steigungBei(v.x);
+      const len = Math.hypot(1, s);
+      const tx = 1 / len;
+      const ty = s / len;
+      const nx = -s / len;
+      const ny = 1 / len;
+      const vn = v.vx * nx + v.vy * ny;
+      const vt = v.vx * tx + v.vy * ty;
+      if (!state.amBoden && state.flugZeit > 0.22) landung(vn, vt, s);
+      if (vn < 0) {
+        v.vx -= vn * nx;
+        v.vy -= vn * ny;
+      }
+      v.y = boden;
+      state.amBoden = true;
+      state.flugZeit = 0;
+      // Reibung am Boden, je schwerer, desto mehr: Wer bergauf schwer
+      // bleibt, bremst sich aus.
+      const t0 = v.vx * tx + v.vy * ty;
+      if (t0 > 0) {
+        const weniger = Math.min(t0, REIBUNG * gEff * ny * dt);
+        v.vx -= weniger * tx;
+        v.vy -= weniger * ty;
+      }
+      // Er flattert, wenn er zu langsam wird – stehen bleibt er nie.
+      const jetzt = v.vx * tx + v.vy * ty;
+      if (jetzt < V_MIN) {
+        v.vx += (V_MIN - jetzt) * tx;
+        v.vy += (V_MIN - jetzt) * ty;
+      }
+    } else if (v.y > boden + 1.5) {
+      state.amBoden = false;
+      state.flugZeit += dt;
+    }
+    const tempo = Math.hypot(v.vx, v.vy);
+    if (tempo > V_MAX) {
+      v.vx *= V_MAX / tempo;
+      v.vy *= V_MAX / tempo;
+    }
+    state.hoechste = Math.max(state.hoechste, v.y - boden);
+  }
+
+  // Wie er landet: Auf einem Abhang, im Winkel des Hangs, ist es perfekt.
+  // In einen Gegenhang hinein kostet es Tempo.
+  function landung(vn, vt, steigung) {
+    const v = state.v;
+    const winkel = Math.atan2(Math.abs(vn), Math.max(1, Math.abs(vt)));
+    if (steigung < -0.05 && winkel < PERFEKT_WINKEL && vt > 0) {
+      state.perfekt += 1;
+      state.serie += 1;
+      const schub = state.fieber ? 1.14 : 1.08;
+      v.vx *= schub;
+      v.vy *= schub;
+      if (state.serie >= 3 && !state.fieber) {
+        state.fieber = true;
+        schrift("Fieber!", v.x, v.y + 50, "#ffd84d", 20);
+        kids()?.playJingle?.("win");
+      } else {
+        schrift(state.serie > 1 ? `Perfekt! ×${state.serie}` : "Perfekt!", v.x, v.y + 40, "#ffffff", 16);
+        kids()?.playJingle?.("star");
+      }
+      sterne(v.x, v.y, 8, state.fieber ? "#ffd84d" : "#ffffff");
+    } else if (winkel > SCHLECHT_WINKEL) {
+      state.serie = 0;
+      if (state.fieber) schrift("Fieber vorbei", v.x, v.y + 40, "#ffe0e0", 13);
+      state.fieber = false;
+      v.vx *= 0.82;
+      v.vy *= 0.82;
+      staub(v.x, v.y, 10);
+      kids()?.vibrate?.(16);
+    } else {
+      staub(v.x, v.y, 4);
+    }
+  }
+
+  function zeitUm() {
+    if (state.phase !== "spiel") return;
+    state.phase = "aus";
+    schrift("Die Sonne ist untergegangen", state.v.x + 60, state.v.y + 70, "#ffe2a8", 15);
+    stepTimer = window.setTimeout(finish, 900);
+  }
+
+  function takt(dt) {
+    state.zeit += dt;
+    state.flattern += dt * (gedrueckt ? 4 : 22);
+    if (state.phase === "spiel") {
+      state.tag = clamp((performance.now() - rundeStart) / RUNDE_MS, 0, 1);
+      const n = Math.max(1, Math.ceil(dt / TAKT));
+      for (let i = 0; i < n; i += 1) physik(dt / n);
+      const meter = Math.floor(meterBei(state.v.x));
+      if (meter !== state.meter) {
+        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) kids()?.playJingle?.("tap");
+        state.meter = meter;
+        state.punkte = meter;
+        shell.setCount(meter);
+      }
+      gegner?.takt(state.punkte, { a: Math.round(state.v.x - START_X), b: Math.round(state.v.y) });
+    } else if (state.phase === "aus") {
+      // Er rutscht noch aus.
+      const v = state.v;
+      v.vx *= 1 - 2.5 * dt;
+      v.x += v.vx * dt;
+      v.y = Math.max(bodenBei(v.x), v.y + v.vy * dt);
+      v.vy -= G_LEICHT * dt;
+    } else if (state.phase === "bereit") {
+      // Vor dem ersten Druck sitzt er oben am Starthang und wippt.
+      state.v.y = bodenBei(state.v.x) + (ruhig() ? 0 : Math.abs(Math.sin(state.zeit * 3)) * 4);
+    }
+
+    state.spur.push({ x: state.v.x, y: state.v.y + R });
+    if (state.spur.length > 26) state.spur.shift();
+
+    for (let i = state.teile.length - 1; i >= 0; i -= 1) {
+      const t = state.teile[i];
+      t.vy -= 200 * dt;
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      t.dreh = (t.dreh || 0) + dt * 4;
+      t.leben -= dt;
+      if (t.leben <= 0) state.teile.splice(i, 1);
+    }
+    for (let i = state.schriften.length - 1; i >= 0; i -= 1) {
+      state.schriften[i].leben -= dt;
+      if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
+    }
+
+    // Die Kamera: der Vogel bei einem knappen Drittel; steigt er hoch, zoomt
+    // sie heraus, damit Vogel und Hügel im Bild bleiben.
+    const v = state.v;
+    huegelBis(v.x + view.w * 2.5);
+    let tief = Infinity;
+    for (let x = v.x - view.w * VOGEL_AN; x <= v.x + view.w * (1 - VOGEL_AN); x += 20) tief = Math.min(tief, bodenBei(x));
+    const noetig = (v.y + 60) - (tief - 30);
+    const zoomZiel = clamp(noetig / (view.h0 * 0.85), 1, 2.6);
+    const k = state.zeit < 0.05 ? 1 : 1 - Math.exp(-dt * 2.2);
+    state.zoom += (zoomZiel - state.zoom) * k;
+    skaliere();
+    state.camX = v.x - view.w * VOGEL_AN;
+    const zielY = Math.min(tief - 30, v.y - view.h * 0.55);
+    state.camY += (zielY - state.camY) * (state.zeit < 0.05 ? 1 : 1 - Math.exp(-dt * 4));
+  }
+
+  function loop(now) {
+    frame = window.requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    messen();
+    takt(dt);
+    zeichnen();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Halten und Loslassen
+  // ---------------------------------------------------------------------------
+  function druecken() {
+    gedrueckt = true;
+    if (state.phase !== "bereit") return;
+    state.phase = "spiel";
+    state.v.vx = 160;
+    rundeStart = performance.now();
+    shell.setPhase("play");
+    shell.startClock(RUNDE_MS, zeitUm);
+    gegner?.los();
+    kids()?.vibrate?.(8);
+  }
+
+  function loslassen() {
+    gedrueckt = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ablauf
+  // ---------------------------------------------------------------------------
+  function startRun() {
+    clearStep();
+    stopLoop();
+    shell.stopClock();
+    shell.closeOverlay();
+    zufall.neu();
+    shell.setPhase("intro");
+    state.phase = "bereit";
+    state.punkte = 0;
+    state.meter = 0;
+    state.perfekt = 0;
+    state.serie = 0;
+    state.fieber = false;
+    state.huegel = [];
+    huegelBis(4000);
+    state.v = { x: START_X - 110, y: 0, vx: 0, vy: 0 };
+    state.v.y = bodenBei(state.v.x);
+    state.amBoden = true;
+    state.flugZeit = 0;
+    state.hoechste = 0;
+    state.spur = [];
+    state.teile = [];
+    state.schriften = [];
+    state.zoom = 1;
+    state.zeit = 0;
+    state.tag = 0;
+    gedrueckt = false;
+    shell.setCount(0);
+    gegner?.runde();
+
+    shell.clear();
+    const prompt = shell.el("p", "cm-prompt hf-prompt", "Halten – schwer. Loslassen – fliegen.");
+    shell.play.append(prompt, buildPlatz());
+    view.cssW = 0;
+    view.cssH = 0;
+    messen();
+    takt(0);
+
+    last = performance.now();
+    frame = window.requestAnimationFrame(loop);
+  }
+
+  function zaehleHoch(ziel) {
+    const zahl = host.querySelector(".cm-result-score");
+    if (!zahl) return;
+    if (ruhig() || ziel <= 1) { zahl.textContent = String(ziel); return; }
+    const dauer = Math.min(900, 200 + ziel);
+    const start = performance.now();
+    zahl.textContent = "0";
+    const lauf = (now) => {
+      if (!zahl.isConnected) return;
+      const k = Math.min(1, (now - start) / dauer);
+      zahl.textContent = String(Math.round(ziel * (1 - (1 - k) * (1 - k))));
+      if (k < 1) window.requestAnimationFrame(lauf);
+    };
+    window.requestAnimationFrame(lauf);
+  }
+
+  function finish() {
+    clearStep();
+    stopLoop();
+    shell.stopClock();
+    if (state.phase === "ende") return;
+    state.phase = "ende";
+    const punkte = state.punkte;
+    const geist = gegner?.ende(punkte) || null;
+    const vorher = Number(store.read()?.scores?.[0]) || 0;
+    const rekord = punkte > vorher;
+    store.update((old) => ({
+      runs: (Number(old.runs) || 0) + 1,
+      scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
+    }));
+    kids()?.playJingle?.("win");
+    const perfekt = state.perfekt === 1 ? "1 perfekte Landung" : `${state.perfekt} perfekte Landungen`;
+    shell.showResult({
+      label: "Deine Meter",
+      points: punkte,
+      detail: rekord ? "Neuer Rekord!" : `${perfekt}${vorher ? ` · Bestwert ${vorher} m` : ""}`,
+      speech: `${punkte} Meter.${rekord ? " Das ist dein neuer Rekord!" : vorher ? ` Dein Bestwert sind ${vorher} Meter.` : ""}`,
+      geist,
+    });
+    if (rekord) host.querySelector(".cm-result-detail")?.classList.add("hf-rekord");
+    zaehleHoch(punkte);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Start
+  // ---------------------------------------------------------------------------
+  shell = shellApi.mount({
+    host,
+    title: "Hügelflieger",
+    area: "geschwindigkeit",
+    accent: "#F5A623",
+    accentDark: "#b9741a",
+    help: HELP,
+    clock: true,
+    onRestart: startRun,
+  });
+  gegner = window.LernappGeist?.fuer?.({ spiel: "hillGlide", host, art: "tempo" }) || null;
+
+  startRun();
+
+  host.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button, a, input")) return;
+    druecken();
+  });
+  window.addEventListener("pointerup", loslassen);
+  window.addEventListener("pointercancel", loslassen);
+  window.addEventListener("blur", loslassen);
+
+  const TASTEN = new Set([" ", "Enter", "ArrowDown"]);
+  document.addEventListener("keydown", (event) => {
+    if (!TASTEN.has(event.key)) return;
+    if (document.activeElement?.tagName === "BUTTON") return;
+    event.preventDefault();
+    if (event.repeat) return;
+    druecken();
+  });
+  document.addEventListener("keyup", (event) => {
+    if (!TASTEN.has(event.key)) return;
+    loslassen();
+  });
+
+  window.addEventListener("resize", messen);
+  window.addEventListener("orientationchange", messen);
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+
+  // Für die Prüfskripte. "zeit" stellt die Uhr der Runde, ohne zu warten.
+  window.LernappHuegel = {
+    RUNDE_MS, METER, state, view, takt, druecken, loslassen, bodenBei, steigungBei,
+    spuleVor(ms) { rundeStart -= ms; },
+    zeitUm,
+    get gedrueckt() { return gedrueckt; },
+  };
+})();

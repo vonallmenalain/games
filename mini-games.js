@@ -68,6 +68,11 @@
     { id: "dartWheel", seite: "drehscheibe", page: "wheel" },
     { id: "vineSwing", seite: "liane", page: "vine" },
     { id: "tunnelFlight", seite: "tunnelflug", page: "tunnel" },
+    { id: "driftRace", seite: "drift", page: "drift" },
+    { id: "planetHop", seite: "planeten", page: "planets" },
+    { id: "moonLander", seite: "mondlandung", page: "moon" },
+    { id: "gravityRun", seite: "schwerkraft", page: "gravity" },
+    { id: "hillGlide", seite: "huegel", page: "hills" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];

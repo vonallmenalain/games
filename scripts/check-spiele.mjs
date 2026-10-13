@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|zg|hz|gs|scene|help-voice|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -370,7 +370,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -1486,6 +1486,33 @@ try {
       T.tunnelBis(4000);
       return T.state.tunnel.punkte.slice(0, 180).map((p) => `${p.oben.toFixed(3)}/${p.unten.toFixed(3)}`).join(" ");
     }],
+    ["/drift", "Drift-Rennen", () => {
+      const D = window.LernappDrift;
+      D.bahnBis(6000);
+      return D.state.bahn.kurven.slice(0, 10).map((k) => `${k.px.toFixed(2)}/${k.py.toFixed(2)}/${k.R.toFixed(2)}/${k.sig}`).join(" ");
+    }],
+    ["/planeten", "Planetenhüpfer", () => {
+      const P = window.LernappPlaneten;
+      P.planetenBis(14);
+      return P.state.planeten.slice(0, 14).map((p) => `${p.x.toFixed(2)}/${p.y.toFixed(2)}/${p.r.toFixed(2)}/${p.luft.toFixed(2)}/${p.bahn ? p.bahn.amp.toFixed(2) : "-"}/${p.mond ? p.mond.bahnR.toFixed(2) : "-"}`).join(" ");
+    }],
+    ["/mondlandung", "Mondlandung", () => {
+      const M = window.LernappMondlandung;
+      M.bodenBei(3000);
+      return M.state.platten.slice(0, 6).map((p) => `${p.x0.toFixed(2)}/${p.x1.toFixed(2)}/${p.y.toFixed(2)}`).join(" ")
+        + ` | ${[500, 900, 1500, 2200].map((x) => M.bodenBei(x).toFixed(2)).join(" ")}`;
+    }],
+    ["/schwerkraft", "Schwerkraft-Läufer", () => {
+      const S = window.LernappSchwerkraft;
+      S.korridorBis(6000);
+      const bahn = (n) => S.state.bahnen[n].slice(0, 16).map((t) => `${t.x0.toFixed(1)}-${t.x1.toFixed(1)}:${t.art}`).join(",");
+      return `${bahn(0)} | ${bahn(1)} | ${S.state.bloecke.slice(0, 6).map((b) => `${b.x0.toFixed(1)}/${b.bahn}`).join(",")}`;
+    }],
+    ["/huegel", "Hügelflieger", () => {
+      const H = window.LernappHuegel;
+      H.bodenBei(6000);
+      return H.state.huegel.slice(0, 24).map((p) => `${p.x.toFixed(2)}/${p.y.toFixed(2)}`).join(" ");
+    }],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -1586,6 +1613,261 @@ try {
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
     const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, schritt: window.LernappTunnelflug.state.schritt }));
     pruefe(ende.schritt === "crash" && ende.zahl !== undefined, `Tunnelflug: Ohne Schub endet die Runde nicht an der Wand: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+
+  // --- 4g5. Drift-Rennen: immer fahrbar, und die Leitplanke beendet die Runde ------
+  // Ein Autopilot drückt, wenn die Kurve beginnt, und lässt los, wenn der
+  // Wagen in die neue Gerade zeigt – auf mehreren gewürfelten Strassen bis
+  // 2500 m. Wer nichts drückt, fährt in der ersten Kurve geradeaus in die
+  // Leitplanke.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
+    await seite.goto(`${BASIS}/drift`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappDrift?.state, null, { timeout: 8000 });
+    const fahrten = await seite.evaluate(() => {
+      const D = window.LernappDrift;
+      const st = D.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        D.druecken();
+        D.loslassen();
+        let fertig = null;
+        for (let n = 0; st.schritt === "fahrt" && st.meter < 2500 && n < 300000; n += 1) {
+          if (st.dreh) {
+            if (D.winkelDiff(st.dreh.kurve.a1, st.auto.a) * st.dreh.sig < 0.004) D.loslassen();
+          } else {
+            const k = D.aktiveKurve();
+            if (k && st.auto.s >= k.s0 && fertig !== k) { fertig = k; D.druecken(); }
+          }
+          D.takt(1 / 240);
+        }
+        D.loslassen();
+        raus.push({ meter: st.meter, schritt: st.schritt, perfekt: st.perfekt });
+      }
+      return raus;
+    });
+    pruefe(fahrten.every((f) => f.meter >= 2500 && f.schritt === "fahrt"),
+      `Drift-Rennen: Der Autopilot kommt nicht über jede Strasse – ${JSON.stringify(fahrten)}`);
+    pruefe(fahrten.every((f) => f.perfekt > 10), `Drift-Rennen: Genau losgelassen ist nicht «perfekt» – ${JSON.stringify(fahrten)}`);
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.evaluate(() => { window.LernappDrift.druecken(); window.LernappDrift.loslassen(); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 12000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, schritt: window.LernappDrift.state.schritt }));
+    pruefe(ende.schritt === "crash" && ende.zahl !== undefined, `Drift-Rennen: Ohne Lenken endet die Runde nicht an der Leitplanke: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+
+  // --- 4g6. Planetenhüpfer: jeder Weg ist schaffbar ---------------------------------
+  // Ein vorsichtiger Autopilot rechnet den Sprung voraus und springt nur,
+  // wenn er auf dem nächsten Planeten landet, ohne einen Mond zu treffen. Er
+  // kommt auf mehreren gewürfelten Wegen über den 30. Planeten, ohne dass der
+  // Sauerstoff ausgeht. Wer gar nicht springt, dem geht er aus.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
+    await seite.goto(`${BASIS}/planeten`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappPlaneten?.state, null, { timeout: 8000 });
+    const wege = await seite.evaluate(() => {
+      const P = window.LernappPlaneten;
+      const st = P.state;
+      const trifft = () => {
+        const a = st.astro;
+        const tg = P.tangente();
+        const v = P.sprungBei(st.punkte);
+        let x = a.x;
+        let y = a.y;
+        for (let t = 0; t < 2.2; t += 1 / 240) {
+          x += (tg.x * v) / 240;
+          y += (tg.y * v) / 240;
+          const uhr = st.uhr + t;
+          for (let i = Math.max(0, st.auf - 1); i <= st.auf + 3; i += 1) {
+            const p = st.planeten[i];
+            const mond = P.mondBei(p, uhr);
+            if (mond && Math.hypot(x - mond.x, y - mond.y) < mond.r + 5) return false;
+            if (i === st.auf && t < 0.45) continue;
+            const m = P.mitte(p, uhr);
+            if (Math.hypot(x - m.x, y - m.y) < p.r + p.luft * 0.6) return i === st.auf + 1;
+          }
+        }
+        return false;
+      };
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        P.tippen();
+        for (let n = 0; st.schritt !== "verloren" && st.punkte < 30 && n < 200000; n += 1) {
+          if (st.schritt === "lauf" && st.zeit - st.schrittZeit > 0.2 && trifft()) P.tippen();
+          P.takt(1 / 240);
+        }
+        raus.push({ punkte: st.punkte, schritt: st.schritt, grund: st.grund });
+      }
+      return raus;
+    });
+    pruefe(wege.every((w) => w.punkte >= 30 && w.schritt !== "verloren"),
+      `Planetenhüpfer: Der Autopilot kommt nicht auf jedem Weg weiter – ${JSON.stringify(wege)}`);
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappPlaneten.tippen(); });
+    const ohne = await seite.evaluate(() => {
+      const P = window.LernappPlaneten;
+      for (let n = 0; n < 240 * 12 && P.state.schritt !== "verloren"; n += 1) P.takt(1 / 240);
+      return { schritt: P.state.schritt, grund: P.state.grund };
+    });
+    pruefe(ohne.schritt === "verloren" && ohne.grund === "luft", `Planetenhüpfer: Wer nie springt, dem geht der Sauerstoff nicht aus: ${JSON.stringify(ohne)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Planetenhüpfer: Ohne Sauerstoff kommt kein Ergebnis.");
+    await kontext.close();
+  }
+
+  // --- 4g7. Mondlandung: landen, tanken, weiter ---------------------------------------
+  // Ein sparsamer Autopilot steigt über das Gelände, fliegt hinüber und setzt
+  // sanft auf – und kommt mit dem Treibstoff, den die Landungen geben, über
+  // zwölf Plattformen. Wer einfach fällt, zerschellt.
+  {
+    const { kontext, seite } = await neueSeite({ width: 900, height: 640 });
+    await seite.goto(`${BASIS}/mondlandung`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappMondlandung?.state, null, { timeout: 8000 });
+    const fluege = await seite.evaluate(() => {
+      const M = window.LernappMondlandung;
+      const st = M.state;
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const pilot = () => {
+        const f = st.f;
+        if (st.schritt === "gelandet" || st.schritt === "start") { M.schub(true); M.neige(0); return; }
+        if (st.schritt !== "flug") { M.schub(false); M.neige(null); return; }
+        const p = st.platten[st.auf + 1];
+        const ziel = (p.x0 + p.x1) / 2;
+        const dx = ziel - f.x;
+        const richtung = Math.sign(dx) || 1;
+        let hoch = -Infinity;
+        for (let x = f.x; richtung * (ziel - x) > -10; x += 8 * richtung) hoch = Math.max(hoch, M.bodenBei(x));
+        let vorne = -Infinity;
+        for (let x = f.x; Math.abs(x - f.x) < 160 && richtung * (ziel - x) > -10; x += 6 * richtung) vorne = Math.max(vorne, M.bodenBei(x));
+        const ueber = f.y - 13 - hoch;
+        const frei = f.y - 13 - vorne;
+        const ueberPlatte = f.y - 13 - p.y;
+        let sollVx;
+        let sollVy;
+        if (Math.abs(dx) > 40) {
+          sollVx = frei < 35 ? richtung * 8 : richtung * Math.min(90, Math.abs(dx) * 0.5 + 20);
+          sollVy = frei < 35 ? 55 : ueber < 45 ? 40 : ueber > 90 ? -10 : 0;
+        } else {
+          sollVx = clamp(dx * 1.2, -30, 30);
+          sollVy = -clamp(ueberPlatte * 0.6, 8, 32);
+        }
+        const ax = (sollVx - f.vx) * 1.8;
+        const ay = (sollVy - f.vy) * 2.2 + M.G;
+        const neig = clamp(Math.atan2(ax, Math.max(ay, 25)), -0.6, 0.6);
+        M.neige(Math.abs(dx) < 40 && ueberPlatte < 30 ? clamp(neig, -0.2, 0.2) : neig);
+        M.schub(Math.hypot(ax, Math.max(0, ay)) > M.SCHUB * 0.55);
+      };
+      const raus = [];
+      for (let lauf = 0; lauf < 2; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        for (let n = 0; st.schritt !== "crash" && st.punkte < 12 && n < 120 * 400; n += 1) {
+          pilot();
+          M.takt(1 / 120);
+        }
+        M.schub(false);
+        M.neige(null);
+        raus.push({ punkte: st.punkte, schritt: st.schritt, tank: Math.round(st.tank) });
+      }
+      return raus;
+    });
+    pruefe(fluege.every((f) => f.punkte >= 12), `Mondlandung: Der Autopilot kommt nicht über zwölf Plattformen – ${JSON.stringify(fluege)}`);
+    const fall = await seite.evaluate(() => {
+      const M = window.LernappMondlandung;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      // Steigen, dann loslassen und fallen lassen.
+      M.schub(true);
+      for (let n = 0; n < 120 * 2.2; n += 1) M.takt(1 / 120);
+      M.schub(false);
+      for (let n = 0; n < 120 * 8 && M.state.schritt === "flug"; n += 1) M.takt(1 / 120);
+      return { schritt: M.state.schritt };
+    });
+    pruefe(fall.schritt === "crash", `Mondlandung: Wer ungebremst fällt, zerschellt nicht: ${JSON.stringify(fall)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Mondlandung: Nach dem Absturz kommt kein Ergebnis.");
+    await kontext.close();
+  }
+
+  // --- 4g8. Schwerkraft-Läufer: immer ein Weg frei ------------------------------------
+  // Ein Autopilot wechselt, wenn auf seiner Seite etwas kommt und die andere
+  // frei ist – auf mehreren gewürfelten Korridoren bis 2500 m. Wer nie tippt,
+  // fällt ins erste Loch oder rennt in den ersten Block.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/schwerkraft`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwerkraft?.state, null, { timeout: 8000 });
+    const laeufe = await seite.evaluate(() => {
+      const S = window.LernappSchwerkraft;
+      const st = S.state;
+      const luecke = (bahn, x0, x1) => { for (let x = x0; x <= x1; x += 4) if (S.stueckBei(bahn, x).art !== "fest") return true; return false; };
+      const block = (bahn, x0, x1) => st.bloecke.some((b) => b.bahn === bahn && b.x1 > x0 && b.x0 < x1);
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.tippen();
+        for (let n = 0; st.schritt === "lauf" && st.meter < 2500 && n < 400000; n += 1) {
+          if (st.steht) {
+            const bahn = st.richtung < 0 ? 0 : 1;
+            const v = S.tempoBei(st.l.x);
+            const gefahr = luecke(bahn, st.l.x - 8, st.l.x + v * 0.1 + 12) || block(bahn, st.l.x - 8, st.l.x + v * 0.28 + 20);
+            const drueben = st.l.x + v * S.WECHSEL + 16;
+            if (gefahr && !luecke(1 - bahn, st.l.x - 8, drueben) && !block(1 - bahn, st.l.x - 8, drueben + 40)) S.tippen();
+          }
+          S.takt(1 / 240);
+        }
+        raus.push({ meter: st.meter, schritt: st.schritt, grund: st.grund, wechsel: st.wechsel });
+      }
+      return raus;
+    });
+    pruefe(laeufe.every((l) => l.meter >= 2500 && l.schritt === "lauf"), `Schwerkraft-Läufer: Der Autopilot kommt nicht durch jeden Korridor – ${JSON.stringify(laeufe)}`);
+    const ohne = await seite.evaluate(() => {
+      const S = window.LernappSchwerkraft;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.tippen();
+      for (let n = 0; n < 240 * 20 && S.state.schritt === "lauf"; n += 1) S.takt(1 / 240);
+      return { schritt: S.state.schritt, grund: S.state.grund };
+    });
+    pruefe(ohne.schritt === "aus", `Schwerkraft-Läufer: Wer nie tippt, rennt ewig weiter: ${JSON.stringify(ohne)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Schwerkraft-Läufer: Nach dem Sturz kommt kein Ergebnis.");
+    await kontext.close();
+  }
+
+  // --- 4g9. Hügelflieger: wer geschickt hält, kommt weiter ------------------------
+  // Eine Minute auf denselben Hügeln: Bergab schwer und bergauf leicht kommt
+  // deutlich weiter als immer schwer oder nie – und landet dabei perfekt.
+  // Wenn die Sonne untergeht, kommt das Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/huegel`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHuegel?.state, null, { timeout: 8000 });
+    const runden = await seite.evaluate(() => {
+      const H = window.LernappHuegel;
+      const st = H.state;
+      const strategien = { nie: () => false, immer: () => true, geschickt: () => H.steigungBei(st.v.x) < -0.02 };
+      const raus = {};
+      for (const [name, will] of Object.entries(strategien)) {
+        // Dieselben Hügel für alle drei: im Turnier wäre das so, hier ohne.
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        H.druecken();
+        H.loslassen();
+        for (let n = 0; n < 120 * 60; n += 1) {
+          if (will()) H.druecken(); else H.loslassen();
+          H.takt(1 / 120);
+        }
+        H.loslassen();
+        raus[name] = { meter: st.meter, perfekt: st.perfekt };
+      }
+      return raus;
+    });
+    pruefe(runden.geschickt.meter > runden.immer.meter * 1.25 && runden.immer.meter > runden.nie.meter,
+      `Hügelflieger: Geschicktes Halten zahlt sich nicht aus – ${JSON.stringify(runden)}`);
+    pruefe(runden.geschickt.perfekt >= 1, `Hügelflieger: Wer geschickt hält, landet nie perfekt – ${JSON.stringify(runden)}`);
+    await seite.evaluate(() => window.LernappHuegel.zeitUm());
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Hügelflieger: Wenn die Sonne untergeht, kommt kein Ergebnis.");
     await kontext.close();
   }
 
