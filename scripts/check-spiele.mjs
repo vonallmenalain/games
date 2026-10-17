@@ -155,6 +155,11 @@ const ATTRAPPE = `
       const e = eintraege.get(game + "_" + spieler);
       return e ? { ...e } : null;
     },
+    // Wie cloud.js: genau dieser Name, aus allen Spielen.
+    unterNamen: async (name) => {
+      if (window.__miniOhneNetz) throw new Error("kein Netz");
+      return [...eintraege.values()].filter((e) => e.name === name).map((e) => ({ ...e }));
+    },
     speichere: async ({ game, spieler, name, punkte }) => {
       const id = game + "_" + spieler;
       const alt = eintraege.get(id);
@@ -213,12 +218,24 @@ const ATTRAPPE = `
           }),
         }),
         doc: (id) => ({
+          get: async () => {
+            const d = sammlung === "miniGeister" ? geisterLager.get(id) : eintraege.get(id);
+            return { id, exists: Boolean(d), data: () => (d ? { ...d } : undefined) };
+          },
           delete: async () => {
             if (sammlung === "miniGeister") { geisterLager.delete(id); gSichern(); return; }
             eintraege.delete(id);
             sichern();
           },
-          set: async (daten) => { eintraege.set(id, { ...eintraege.get(id), ...daten }); sichern(); },
+          set: async (daten, wie = {}) => {
+            if (sammlung === "miniGeister") {
+              geisterLager.set(id, { ...(wie.merge ? geisterLager.get(id) : {}), ...daten });
+              gSichern();
+              return;
+            }
+            eintraege.set(id, { ...eintraege.get(id), ...daten, id });
+            sichern();
+          },
         }),
       }),
     }),
@@ -737,6 +754,112 @@ try {
       };
     });
     pruefe(runde.best === runde.meter && !/10.?234/.test(runde.detail), `Nach der Runde steht als Bestwert ${runde.best} (${runde.detail}) statt ${runde.meter}.`);
+    await kontext.close();
+  }
+
+  // --- 2c. Ein Name auf zwei Geräten ----------------------------------------------
+  // So stand es im Oktober 2026 in der Datenbank: "Alain" am Tablet (viele
+  // Runden, 36 Blöcke) und am Handy (wenige Runden, 32 Blöcke). Die Liste
+  // zeigte einmal Alain mit 36 – die Bestmarke am Handy aber 32. Derselbe
+  // Name ist derselbe Spieler: Die Bestmarke ist die 36, das Handy spielt ab
+  // jetzt unter der Kennung des Tablets, und der Adminbereich führt die
+  // alten Einträge zusammen.
+  {
+    const TABLET = "mini_tablettablet";
+    const HANDY = "mini_handyhandy01";
+    const BAHN = JSON.stringify({ v: 2, dt: 100, p: [0, 5025], a: [0, 40], b: [0, 0], c: [0, 0], s: 7 });
+    const kontext = await browser.newContext({ viewport: { width: 420, height: 820 }, serviceWorkers: "block" });
+    const seite = await kontext.newPage();
+    const fehlerHier = [];
+    seite.on("pageerror", (fehler) => fehlerHier.push(String(fehler.message || fehler)));
+    seite.on("dialog", (frage) => frage.accept());
+    await seite.addInitScript(({ TABLET, HANDY, BAHN }) => {
+      if (sessionStorage.getItem("__zweiGeraete")) return;
+      sessionStorage.setItem("__zweiGeraete", "1");
+      const e = (game, spieler, punkte, versuche) => [`${game}_${spieler}`, { id: `${game}_${spieler}`, game, spieler, name: "Alain", punkte, versuche, erstesMs: 1000 + versuche, updatedAtMs: 1000 }];
+      localStorage.setItem("__mini_attrappe", JSON.stringify([
+        e("towerStack", TABLET, 36, 45), e("boilerRoom", TABLET, 329, 17), e("tunnelFlight", TABLET, 1571, 2),
+        e("towerStack", HANDY, 32, 3), e("boilerRoom", HANDY, 384, 33), e("tunnelFlight", HANDY, 578, 1), e("hillGlide", HANDY, 5025, 4),
+        ["towerStack_mini_joshuajoshua", { id: "towerStack_mini_joshuajoshua", game: "towerStack", spieler: "mini_joshuajoshua", name: "Joshua", punkte: 42, versuche: 16, updatedAtMs: 900 }],
+      ]));
+      localStorage.setItem("__mini_geister_attrappe", JSON.stringify([
+        [`hillGlide_${HANDY}`, { game: "hillGlide", spieler: HANDY, name: "Alain", punkte: 5025, level: "t1", bahn: BAHN }],
+      ]));
+      localStorage.setItem("mini.id", HANDY);
+      localStorage.setItem("mini.name", "Alain");
+      localStorage.setItem("mini.best", JSON.stringify({ towerStack: 32 }));
+    }, { TABLET, HANDY, BAHN });
+    await seite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await seite.route("https://www.gstatic.com/firebasejs/**", (route) => {
+      if (route.request().url().includes("auth-compat")) {
+        return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `
+          window.firebase = window.firebase || {};
+          window.firebase.auth = function () {
+            return {
+              getRedirectResult: async () => null,
+              isSignInWithEmailLink: () => false,
+              onAuthStateChanged: (fn) => fn({ email: "alain.sc2@gmail.com", emailVerified: true }),
+              signOut: async () => {},
+            };
+          };
+          window.firebase.auth.GoogleAuthProvider = function () {};
+        ` });
+      }
+      return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" });
+    });
+
+    // Turmbau am Handy: Die Bestmarke ist die beste Zahl unter dem Namen.
+    await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappMini?.bestwertAbgeglichen?.("towerStack"), null, { timeout: 6000 }).catch(() => {});
+    await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand?.eigen, null, { timeout: 4000 }).catch(() => {});
+    const turm = await seite.evaluate(() => ({
+      id: localStorage.getItem("mini.id"),
+      best: JSON.parse(localStorage.getItem("mini.best") || "{}").towerStack,
+      eigen: window.LernappGeist.stand()[0]?.stand?.eigen || null,
+    }));
+    pruefe(turm.best === 36 && turm.eigen?.punkte === 36, `Am zweiten Gerät ist die Bestmarke nicht die beste Zahl unter dem Namen: ${JSON.stringify(turm)}`);
+    pruefe(turm.id === TABLET, `Das zweite Gerät spielt nicht unter der Kennung, unter der der Name am meisten gespielt hat: ${turm.id}`);
+
+    // Eine Runde: Sie kommt zu den Einträgen des Tablets, nicht zu neuen.
+    pruefe(await spieleTurmbauZuEnde(seite), "Die Runde am zweiten Gerät kam zu keinem Ergebnis.");
+    await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 });
+    const nachRunde = await seite.evaluate(({ TABLET, HANDY }) => ({
+      tablet: window.__miniEintraege.get(`towerStack_${TABLET}`)?.versuche,
+      handy: window.__miniEintraege.get(`towerStack_${HANDY}`)?.versuche,
+      zeilen: [...document.querySelectorAll(".mini-ergebnis .mini-zeile")].map((z) => z.textContent.replace(/\s+/g, " ").trim()),
+      meldung: document.querySelector(".mini-ergebnis .mini-meldung")?.textContent || "",
+      best: JSON.parse(localStorage.getItem("mini.best") || "{}").towerStack,
+    }), { TABLET, HANDY });
+    pruefe(nachRunde.tablet === 46 && nachRunde.handy === 3, `Die Runde am zweiten Gerät ging nicht zu den Einträgen des Namens: ${JSON.stringify(nachRunde)}`);
+    pruefe(nachRunde.zeilen.filter((z) => z.includes("Alain")).length === 1, `Alain steht mehrmals in der Liste: ${nachRunde.zeilen.join(" | ")}`);
+    pruefe(nachRunde.best >= 36 && !/Neue Bestzahl/.test(nachRunde.meldung), `Nach einer schwächeren Runde: Bestwert ${nachRunde.best}, «${nachRunde.meldung}»`);
+
+    // Hügelflieger: Die Bestmarke stammt vom anderen Gerät – mit ihrem Lauf.
+    await seite.goto(`${BASIS}/huegel`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand?.eigen, null, { timeout: 6000 }).catch(() => {});
+    const huegel = await seite.evaluate(() => window.LernappGeist.stand()[0]?.stand?.eigen || null);
+    pruefe(huegel?.punkte === 5025 && huegel.lauf, `Die Bestmarke vom anderen Gerät kommt ohne ihren Lauf: ${JSON.stringify(huegel)}`);
+
+    // Der Adminbereich führt zusammen: je Spiel ein Eintrag, die beste Zahl,
+    // alle Runden – und der Lauf zieht mit.
+    await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
+    const zeile = seite.locator(".adm-tabelle tr", { has: seite.locator("td.adm-name", { hasText: "auf 2 Geräten" }) });
+    await zeile.waitFor({ timeout: 8000 }).catch(() => {});
+    pruefe(await zeile.count() === 1, "Im Adminbereich steht nicht, dass Alain auf zwei Geräten spielt.");
+    if (await zeile.count()) {
+      await zeile.locator("button", { hasText: "Zusammenführen" }).click();
+      await seite.waitForFunction((h) => ![...window.__miniEintraege.values()].some((e) => e.spieler === h), HANDY, { timeout: 6000 }).catch(() => {});
+    }
+    const zusammen = await seite.evaluate(({ TABLET, HANDY }) => ({
+      alain: Object.fromEntries([...window.__miniEintraege.values()].filter((e) => e.name === "Alain").map((e) => [e.game, `${e.spieler === TABLET ? "T" : e.spieler === HANDY ? "H" : e.spieler}:${e.punkte}/${e.versuche}`])),
+      geister: [...window.__miniGeister.keys()],
+    }), { TABLET, HANDY });
+    pruefe(JSON.stringify(zusammen.alain) === JSON.stringify({ towerStack: "T:36/49", boilerRoom: "T:384/50", tunnelFlight: "T:1571/3", hillGlide: "T:5025/4" }),
+      `Nach dem Zusammenführen steht Alain so da: ${JSON.stringify(zusammen.alain)}`);
+    pruefe(zusammen.geister.includes(`hillGlide_${TABLET}`) && !zusammen.geister.some((k) => k.endsWith(HANDY)),
+      `Der Lauf ist nicht mit umgezogen: ${zusammen.geister.join(", ")}`);
+    pruefe(await seite.locator("td.adm-name", { hasText: "auf 2 Geräten" }).count() === 0, "Nach dem Zusammenführen steht Alain noch auf zwei Geräten.");
+    pruefe(fehlerHier.length === 0, `Fehler beim Zusammenführen: ${fehlerHier.join(" | ")}`);
     await kontext.close();
   }
 

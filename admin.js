@@ -2,8 +2,9 @@
  * admin.js – Der Adminbereich: anmelden, aufräumen, Turniere ausrichten.
  * ---------------------------------------------------------------------------
  * Drei Dinge kann er, und alle darf sonst niemand: die Spiele auswählen, die
- * auf der Startseite stehen, Einträge aus der Bestenliste löschen – und
- * Turniere anlegen, anhalten, beenden und wieder wegräumen.
+ * auf der Startseite stehen, Einträge aus der Bestenliste löschen oder
+ * zusammenführen – und Turniere anlegen, anhalten, beenden und wieder
+ * wegräumen.
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -317,6 +318,89 @@
       console.warn("Der Geist zum Eintrag ist geblieben", fehler);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Ein Name auf mehreren Geräten
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer denselben Namen auf zwei Geräten eingetragen hat, ist ein Spieler und
+   * steht in jeder Liste einmal da (mini-games.js, verdichte) – in der
+   * Datenbank aber zweimal, je Gerät ein Eintrag je Spiel. Neue Runden
+   * landen inzwischen unter einer Kennung (mini-games.js, stammKennung); was
+   * davor unter den anderen entstand, führt das hier zusammen:
+   *
+   *   je Spiel ein Eintrag   unter der Kennung, unter der am meisten gespielt
+   *                          wurde: die beste Zahl, alle Runden zusammen,
+   *                          das früheste erste Mal
+   *   der beste Lauf         zieht mit um, wenn er besser ist als der, der
+   *                          dort schon liegt
+   *   die anderen            werden gelöscht, samt ihren Läufen
+   *
+   * Alles innerhalb der Regeln, die für jeden gelten: Punkte fallen nicht,
+   * Runden steigen. Nur das Löschen braucht den Admin. Ein neuer Eintrag
+   * beginnt mit einer Runde (firestore.rules) – fehlt er unter der Kennung,
+   * wird er erst so angelegt und dann auf die Summe gesetzt.
+   *
+   * Turniere bleiben, wie sie sind: Dort hängen die Versuche an der Kennung,
+   * und ein Turnier ist bald vorbei.
+   */
+  async function fuehreZusammen(person) {
+    const db = cloud()?.db?.();
+    if (!db) throw new Error("Firestore ist nicht bereit.");
+    const stamm = mini()?.stammVon?.(person.eintraege);
+    if (!stamm) return 0;
+    const jetzt = () => ({
+      updatedAtMs: Date.now(),
+      updatedAt: window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null,
+    });
+    const nameVomStamm = person.eintraege.find((e) => e.spieler === stamm)?.name || person.name;
+    const nachSpiel = new Map();
+    person.eintraege.forEach((e) => {
+      if (!nachSpiel.has(e.game)) nachSpiel.set(e.game, []);
+      nachSpiel.get(e.game).push(e);
+    });
+
+    let geloescht = 0;
+    for (const [spiel, eintraege] of nachSpiel) {
+      const andere = eintraege.filter((e) => e.spieler !== stamm);
+      if (!andere.length) continue;
+      const ziel = eintraege.find((e) => e.spieler === stamm) || null;
+      const name = ziel?.name || nameVomStamm;
+      const punkte = Math.max(...eintraege.map((e) => e.punkte));
+      const versuche = eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
+      const erste = eintraege.map((e) => e.erstesMs).filter((ms) => ms > 0);
+      const seit = erste.length ? { erstesMs: Math.min(...erste) } : {};
+
+      const ref = db.collection("miniScores").doc(`${spiel}_${stamm}`);
+      if (!ziel) await ref.set({ game: spiel, spieler: stamm, name, punkte, versuche: 1, ...seit, ...jetzt() });
+      if (ziel || versuche > 1) await ref.set({ name, punkte, versuche, ...seit, ...jetzt() }, { merge: true });
+
+      const laeufe = await Promise.all(eintraege.map((e) => db.collection("miniGeister").doc(`${spiel}_${e.spieler}`).get()
+        .then((doc) => (doc.exists && doc.data()?.bahn ? { spieler: e.spieler, ...doc.data() } : null))
+        .catch(() => null)));
+      const besterLauf = laeufe.filter(Boolean).sort((a, b) => (Number(b.punkte) || 0) - (Number(a.punkte) || 0))[0] || null;
+      const stammLauf = laeufe.find((l) => l?.spieler === stamm) || null;
+      if (besterLauf && besterLauf.spieler !== stamm && (Number(besterLauf.punkte) || 0) > (Number(stammLauf?.punkte) || 0)) {
+        await db.collection("miniGeister").doc(`${spiel}_${stamm}`).set({
+          game: spiel,
+          spieler: stamm,
+          name,
+          punkte: Math.max(0, Math.round(Number(besterLauf.punkte) || 0)),
+          level: String(besterLauf.level || ""),
+          bahn: String(besterLauf.bahn),
+          ...jetzt(),
+        });
+      }
+
+      for (const e of andere) {
+        await loesche(e.id);
+        geloescht += 1;
+      }
+    }
+    return geloescht;
+  }
+
+  const kennungen = (person) => new Set(person.eintraege.map((e) => e.spieler)).size;
 
   async function benenneUm(id, name) {
     const db = cloud()?.db?.();
@@ -1356,6 +1440,26 @@
       return block;
     }
 
+    // Wer auf mehreren Geräten spielt, steht hier einmal – in der Datenbank
+    // aber mehrmals (fuehreZusammen).
+    const doppelt = personen.filter((person) => kennungen(person) > 1);
+    if (doppelt.length) {
+      const hinweis = el("p", "adm-hinweis",
+        `${doppelt.length === 1 ? `"${doppelt[0].name}" hat` : `${doppelt.length} Namen haben`} auf mehreren Geräten gespielt und ${doppelt.length === 1 ? "steht" : "stehen"} deshalb mehrmals in der Datenbank. `
+        + "Zusammengeführt bleibt je Spiel ein Eintrag: die beste Zahl, alle Runden zusammen. ");
+      if (doppelt.length > 1) {
+        hinweis.append(knopf("Alle zusammenführen", "adm-knopf-klein", async () => {
+          const namen = doppelt.map((person) => `"${person.name}"`).join(", ");
+          if (!window.confirm(`${namen} zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
+          try {
+            for (const person of doppelt) await fuehreZusammen(person);
+            neuLaden();
+          } catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
+        }));
+      }
+      block.append(hinweis);
+    }
+
     const tabelle = el("table", "adm-tabelle");
     const kopfZeile = el("tr");
     ["Name", "Spiele", "Runden", ""].forEach((text, i) => kopfZeile.append(el("th", i > 0 && i < 3 ? "zahl" : "", text)));
@@ -1366,10 +1470,21 @@
     const body = el("tbody");
     personen.forEach((person) => {
       const zeile = el("tr");
-      zeile.append(el("td", "adm-name", person.name));
+      const name = el("td", "adm-name");
+      name.append(el("span", "", person.name));
+      const geraete = kennungen(person);
+      if (geraete > 1) name.append(el("small", "adm-kennung", `auf ${geraete} Geräten`));
+      zeile.append(name);
       zeile.append(el("td", "zahl", String(person.spiele)));
       zeile.append(el("td", "zahl", String(person.runden)));
       const aktionen = el("td", "adm-aktionen");
+      if (geraete > 1) {
+        aktionen.append(knopf("Zusammenführen", "adm-knopf-klein", async () => {
+          if (!window.confirm(`"${person.name}" von ${geraete} Geräten zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
+          try { await fuehreZusammen(person); neuLaden(); }
+          catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
+        }));
+      }
       // Der Weg für den Tag, an dem jemand einen Namen einträgt, den man hier
       // nicht haben will: alles von ihm auf einmal.
       const wieViele = zahlWort(person.spiele, "Eintrag", "Einträge");

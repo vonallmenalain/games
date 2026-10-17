@@ -245,6 +245,18 @@ pruefe("Ein neuer Name benennt keine alten Einträge um",
   !/benenneUm|turnierUmbenennen/.test(miniJs + lies("turnier.js")));
 pruefe("Ein neuer Name ist ein neuer Mitspieler (eigene Kennung)",
   /function namenWechseln[\s\S]*?schreibe\(ID_KEY, neueKennung\(\)\)/.test(miniJs));
+// Derselbe Name auf zwei Geräten ist derselbe Spieler: in der Liste, in der
+// Bestmarke und in den Einträgen, in die seine Runden gehen.
+pruefe("Die Bestmarke zählt alles unter dem eigenen Namen (gleicheAb, melde)",
+  /function gleicheAb[\s\S]*?bestesUnterNamen\(/.test(miniJs) && /async function melde[\s\S]*?bestesUnterNamen\(/.test(miniJs));
+pruefe("Die Zeile eines Namens trägt die Kennung seines besten Ergebnisses (verdichte)",
+  /function verdichte[\s\S]*?bisher\.spieler = eintrag\.spieler;/.test(miniJs));
+pruefe("Ein Gerät spielt unter der Kennung seines Namens – nur nicht mitten im Turnier oder Multiplayer",
+  /async function melde[\s\S]*?await stammKennung\(spiel\);/.test(miniJs)
+  && /function stammKennung[\s\S]*?inTurnierOderLive\(\)/.test(miniJs)
+  && /p\.has\("turnier"\) \|\| p\.has\("live"\)/.test(miniJs));
+pruefe("Der Adminbereich führt einen Namen von mehreren Geräten zusammen",
+  /async function fuehreZusammen[\s\S]*?mini\(\)\?\.stammVon\?\.\(/.test(lies("admin.js")));
 for (const s of SPIELE) {
   const seite = lies(`${s.seite}.html`);
   pruefe(`${s.seite}.html lädt kein firebase-auth`, !seite.includes("firebase-auth"));

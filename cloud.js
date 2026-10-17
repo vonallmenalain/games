@@ -113,6 +113,8 @@
   // Und je Gerät: ein Dokument je Spiel, mehr kann es nicht geben. Die Grenze
   // steht nur da, damit eine kaputte Kennung nicht die halbe Sammlung liest.
   const MAX_JE_SPIELER = 50;
+  // Und je Name: ein Dokument je Spiel und Gerät, auf dem er eingetragen ist.
+  const MAX_JE_NAMEN = 200;
 
   const zustand = { app: null, db: null, fehler: "" };
 
@@ -172,6 +174,7 @@
       name,
       punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
       versuche: Math.max(1, Math.round(Number(daten.versuche) || 1)),
+      erstesMs: Number(daten.erstesMs) || 0,
       updatedAtMs: Number(daten.updatedAtMs) || 0,
     };
   }
@@ -322,6 +325,26 @@
     if (!ref || !spielId || !spielerId) throw new Error("Firestore ist nicht bereit.");
     const doc = await ref.doc(`${spielId}_${spielerId}`).get();
     return doc.exists ? lies(doc) : null;
+  }
+
+  /*
+   * Alle Einträge unter einem Namen, aus allen Spielen und von allen Geräten
+   * – für die Frage, unter welcher Kennung dieser Name spielt (mini-games.js,
+   * stammKennung). Eine Abfrage über ein einziges Feld, kein
+   * zusammengesetzter Index. Firestore vergleicht dabei genau: "Elin" findet
+   * kein "ELIN".
+   */
+  async function unterNamen(name) {
+    const wie = sauber(name);
+    const ref = sammlung();
+    if (!ref || !wie) return [];
+    const stand = await ref.where("name", "==", wie).limit(MAX_JE_NAMEN).get();
+    const liste = [];
+    stand.forEach((doc) => {
+      const eintrag = lies(doc);
+      if (eintrag) liste.push(eintrag);
+    });
+    return liste;
   }
 
   /*
@@ -964,7 +987,7 @@
     app,
     db: starte,
     projektId: firebaseConfig.projectId,
-    ergebnisse, speichere, benenneUm, lies, meinErgebnis,
+    ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen,
     speichereGeist, geister,
     offeneSpiele, setzeOffeneSpiele,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
