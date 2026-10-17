@@ -176,15 +176,18 @@ Strecke ist fest).
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
-Gegner ganz abschalten. Die Bestmarke ist der eigene Bestwert auf dem Gerät.
+Gegner ganz abschalten. Die Bestmarke ist der eigene Bestwert – der beste
+unter dem eigenen Namen, auch wenn er auf einem anderen Gerät gespielt wurde.
 
 Was der Server über diesen Bestwert sagt, gilt – auch nach unten. Jede
 Spielseite fragt einmal nach dem Eintrag dieses Geräts (`cloud.js`,
-`meinErgebnis`) und setzt Bestwert, Bestmarke und den Startstand des Spiels
-darauf (`mini-games.js`, `gleicheAb`). Hat der Admin den Eintrag gelöscht,
-steht danach auch auf dem Gerät nichts mehr davon – sonst käme die alte Zahl
-nach der nächsten Runde als «Bestwert» zurück. Ohne Namen und ohne Netz
-bleibt alles, wie es ist.
+`meinErgebnis`) und nach der Liste des Spiels, und setzt Bestwert, Bestmarke
+und den Startstand des Spiels auf das Beste unter dem eigenen Namen
+(`mini-games.js`, `gleicheAb`). Stammt es von einem anderen Gerät, läuft
+dessen Lauf als Bestmarke mit. Hat der Admin den Eintrag gelöscht, steht
+danach auch auf dem Gerät nichts mehr davon – sonst käme die alte Zahl nach
+der nächsten Runde als «Bestwert» zurück. Ohne Namen und ohne Netz bleibt
+alles, wie es ist.
 
 Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
 eine Nachbesserung an der Physik, Eingaben nicht. Zehnmal je Sekunde, genau
@@ -600,6 +603,13 @@ schliesst das Fenster wieder.
 
 Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
 Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.
+
+Hat jemand unter demselben Namen auf mehreren Geräten gespielt, steht bei
+«Die Spieler» «auf 2 Geräten» und ein Knopf «Zusammenführen» (`admin.js`,
+`fuehreZusammen`): Je Spiel bleibt ein Eintrag unter der Kennung, unter der
+am meisten gespielt wurde – mit der besten Zahl und allen Runden zusammen;
+der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Turniere
+bleiben, wie sie sind.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
 leert «Bestenliste leeren» beim Spiel die ganze Liste auf einmal.
 
@@ -630,7 +640,14 @@ unter Freunden, keine Urkunde.
 
 Der Name gehört dem Gerät, nicht einem Konto (`localStorage`, `mini.name`).
 Auf einem anderen Gerät trägt man ihn neu ein – in der Liste steht man
-trotzdem einmal, gezählt wird der Name.
+trotzdem einmal, gezählt wird der Name. **Derselbe Name ist derselbe
+Spieler:** Seine Zeile zeigt das beste Ergebnis und alle Runden, seine
+Bestmarke ist dieses beste Ergebnis, und jedes Gerät spielt unter der
+Kennung, unter der sein Name am meisten gespielt hat (`mini-games.js`,
+`stammKennung`, gefragt mit `cloud.js`, `unterNamen`) – so landen neue Runden
+in denselben Einträgen statt in einem zweiten Satz je Gerät. Nur nicht
+mitten im Turnier, im Multiplayer oder beim Zuschauen: Dort hängen Versuche
+und Plätze an der Kennung, mit der die Seite begann.
 
 **Namen ändern gilt nur für die nächsten Runden.** «Du spielst als … ·
 Namen ändern» steht auf der Startseite, auf der Turnierseite und unter dem

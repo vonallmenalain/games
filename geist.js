@@ -31,7 +31,9 @@
  *
  * Wer auf Platz 1 steht, sagt die Hall of Fame – im Turnier dessen eigene
  * Liste. Die eigene Bestmarke kennt das Gerät: mini-games.js merkt sich den
- * Bestwert, diese Datei den besten Lauf dazu. Was angezeigt wird, entscheidet
+ * Bestwert, diese Datei den besten Lauf dazu. Derselbe Name auf einem anderen
+ * Gerät ist derselbe Spieler – war er dort besser, gilt das, mit dem Lauf von
+ * dort (miniGeister). Was angezeigt wird, entscheidet
  * jeder selbst mit den beiden Schaltern; die Wahl gilt auf diesem Gerät für
  * alle Spiele.
  *
@@ -44,7 +46,8 @@
  *                  (mini-games.js, melde)
  *   Turnier        miniTurniere/<id>/geister, der beste Lauf jedes Spielers
  *                  in diesem Turnier (turnier.js, ergebnis)
- *   eigene         localStorage – auch ohne Namen und ohne Netz
+ *   eigene         localStorage – auch ohne Namen und ohne Netz; war ein
+ *                  anderes Gerät unter demselben Namen besser, miniGeister
  *
  * Gibt es zum Gegner keine Aufzeichnung (eine Bestzahl von früher), steht er
  * als Zielmarke da: seine Zahl, ohne Takt.
@@ -395,10 +398,16 @@
     const lokal = eigenerLauf(spiel, fassung);
     const best = Math.max(Math.round(Number(mini()?.bestwert?.(spiel)) || 0), lokal?.punkte || 0);
     if (best > 0) {
-      stand.eigen = {
-        punkte: best,
-        lauf: art === "tempo" && lokal?.bahn && lokal.punkte === best ? abspieler(lokal.bahn, { winkel: cIstWinkel(spiel) }) : null,
-      };
+      let lauf = art === "tempo" && lokal?.bahn && lokal.punkte === best ? abspieler(lokal.bahn, { winkel: cIstWinkel(spiel) }) : null;
+      // Stammt die Bestmarke nicht von diesem Gerät – ein anderes unter
+      // demselben Namen war besser, oder der Speicher hier ist neu –, liegt
+      // ihr Lauf dort, wo er hinterlegt wurde (mini-games.js, gleicheAb).
+      const server = mini()?.bestwertAbgeglichen?.(spiel);
+      if (!lauf && art === "tempo" && server?.spieler && server.punkte === best) {
+        const [geist] = (await vielleicht(() => cloud()?.geister?.(spiel, [server.spieler], fassung))) || [];
+        if (geist?.bahn && geist.punkte === best) lauf = abspieler(geist.bahn, { winkel: cIstWinkel(spiel) });
+      }
+      stand.eigen = { punkte: best, lauf };
     }
 
     if (t) {

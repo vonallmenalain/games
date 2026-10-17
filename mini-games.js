@@ -231,6 +231,12 @@
     }
   }
 
+  function setzeKennung(id) {
+    if (!gueltigeKennung(id)) return;
+    kennungMerker = id;
+    try { localStorage.setItem(ID_KEY, id); } catch { /* privates Fenster */ }
+  }
+
   // ---------------------------------------------------------------------------
   // Namen ändern
   // ---------------------------------------------------------------------------
@@ -369,6 +375,91 @@
     return wirt;
   }
 
+  // ---------------------------------------------------------------------------
+  // Ein Name, ein Spieler
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer denselben Namen auf dem Handy und am Tablet einträgt, ist ein
+   * Spieler: In jeder Liste steht er einmal (verdichte), mit seinem besten
+   * Ergebnis – und genau das ist auch seine Bestmarke (gleicheAb).
+   *
+   * Damit seine Runden auch in denselben Einträgen landen und nicht in
+   * zweien, die nur die Anzeige zusammenhält, spielt jedes Gerät unter der
+   * Kennung, die zu seinem Namen gehört: der, unter der am meisten gespielt
+   * wurde. Bei Gleichstand die kleinere, damit jedes Gerät dieselbe wählt.
+   * Die Wahl bleibt stehen: Gespielt wird ab dann nur noch unter ihr, ihre
+   * Runden wachsen, die der anderen nicht mehr. Was unter den anderen schon
+   * steht, führt der Adminbereich zusammen (admin.js, fuehreZusammen) – bis
+   * dahin hält es die Anzeige zusammen.
+   *
+   * Nicht mitten in einem Turnier, einem Multiplayer oder beim Zuschauen:
+   * Dort hängen Versuche und Plätze an der Kennung, mit der die Seite
+   * begann. Gewechselt wird beim nächsten gewöhnlichen Spiel.
+   */
+  function stammVon(eintraege) {
+    const runden = new Map();
+    (eintraege || []).forEach((e) => {
+      if (!gueltigeKennung(e?.spieler)) return;
+      runden.set(e.spieler, (runden.get(e.spieler) || 0) + Math.max(1, Math.round(Number(e.versuche) || 1)));
+    });
+    let stamm = "";
+    runden.forEach((anzahl, id) => {
+      const bisher = runden.get(stamm) || 0;
+      if (!stamm || anzahl > bisher || (anzahl === bisher && id < stamm)) stamm = id;
+    });
+    return stamm;
+  }
+
+  // Aus der Adresse und nicht aus turnier.js oder live-spiel.js: Die laden
+  // erst nach dieser Datei, gefragt wird aber schon beim Aufbauen.
+  function inTurnierOderLive() {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.has("turnier") || p.has("live") || p.has("zuschauen");
+    } catch { return true; }
+  }
+
+  const stammGeprueft = new Map();   // Name → Promise
+
+  function stammKennung(spiel = spielId()) {
+    const wie = name();
+    if (!wie || !cloud()?.unterNamen || inTurnierOderLive()) return Promise.resolve(null);
+    const schluessel = nameSchluessel(wie);
+    if (!stammGeprueft.has(schluessel)) {
+      // Gefragt wird nach dem Namen, so wie er geschrieben ist – Firestore
+      // vergleicht genau, und dieselbe Frage gibt in jedem Spiel dieselbe
+      // Antwort. Steht er so nirgends, aber anders geschrieben in der Liste
+      // dieses Spiels ("ELIN" für "Elin"), gilt die.
+      stammGeprueft.set(schluessel, cloud().unterNamen(wie).then(async (genau) => {
+        if (genau.length || !spiel) return genau;
+        return (await alleErgebnisse([spiel]).catch(() => [])).filter((e) => nameSchluessel(e.name) === schluessel);
+      }).then((eintraege) => {
+        const stamm = stammVon(eintraege);
+        // Inzwischen ein anderer Name: Dann gilt die Antwort nicht mehr.
+        if (!stamm || nameSchluessel(name()) !== schluessel) return null;
+        if (stamm !== kennungFallsDa()) setzeKennung(stamm);
+        return stamm;
+      }).catch(() => {
+        stammGeprueft.delete(schluessel);
+        return null;
+      }));
+    }
+    return stammGeprueft.get(schluessel);
+  }
+
+  // Das Beste unter einem Namen in einer Liste, von allen Kennungen ausser
+  // der genannten: { punkte, spieler } oder null.
+  function bestesUnterNamen(eintraege, wie, ausser = "") {
+    const schluessel = nameSchluessel(wie);
+    let bestes = null;
+    (eintraege || []).forEach((e) => {
+      if (!e || e.spieler === ausser || nameSchluessel(e.name) !== schluessel) return;
+      const punkte = Math.max(0, Math.round(Number(e.punkte) || 0));
+      if (!bestes || punkte > bestes.punkte) bestes = { punkte, spieler: e.spieler };
+    });
+    return bestes;
+  }
+
   function bestwerte() {
     try {
       const roh = JSON.parse(localStorage.getItem(BEST_KEY) || "{}");
@@ -394,31 +485,43 @@
    * meinErgebnis) und setzt den Bestwert auf das, was dort steht – oder auf
    * nichts, wenn dort nichts steht.
    *
+   * Und nach dem, was unter demselben Namen von einem anderen Gerät dasteht:
+   * Derselbe Name ist derselbe Spieler (stammKennung). Steht dort mehr, ist
+   * das die Bestmarke – mit der Kennung, an der ihr Lauf hängt (geist.js).
+   *
    * Ohne Namen gibt es keinen Eintrag, und ohne Netz keine Antwort: Dann
    * bleibt alles, wie es ist. Wer es wissen muss (geist.js, game-cloud.js),
    * bekommt den abgeglichenen Wert mit einem Ereignis "mini-bestwert".
    */
-  const abgeglichen = new Map();   // spiel → { punkte, ms }
+  const abgeglichen = new Map();   // spiel → { punkte, ms, spieler }
   const abgleiche = new Map();
 
-  function setzeBestwert(spiel, punkte) {
+  function setzeBestwert(spiel, punkte, spieler = "") {
     const zahl = Math.max(0, Math.round(Number(punkte) || 0));
     if (!spiel) return;
     const alle = bestwerte();
     if (zahl) alle[spiel] = zahl;
     else delete alle[spiel];
     try { localStorage.setItem(BEST_KEY, JSON.stringify(alle)); } catch { /* privater Modus */ }
-    abgeglichen.set(spiel, { punkte: zahl, ms: Date.now() });
+    abgeglichen.set(spiel, { punkte: zahl, ms: Date.now(), spieler: zahl ? String(spieler || "") : "" });
     try { window.dispatchEvent(new CustomEvent("mini-bestwert", { detail: { spiel, punkte: zahl } })); } catch { /* alt */ }
   }
 
   function gleicheAb(spiel = spielId()) {
-    const ich = kennungFallsDa();
-    if (!spiel || !ich || !name() || !cloud()?.meinErgebnis) return Promise.resolve(null);
+    if (!spiel || !name() || !cloud()?.meinErgebnis) return Promise.resolve(null);
     if (!abgleiche.has(spiel)) {
-      abgleiche.set(spiel, cloud().meinErgebnis(spiel, ich)
-        .then((eintrag) => {
-          setzeBestwert(spiel, eintrag ? eintrag.punkte : 0);
+      abgleiche.set(spiel, stammKennung(spiel)
+        .then(async () => {
+          const ich = kennungFallsDa();
+          if (!gueltigeKennung(ich)) return null;
+          const [meiner, liste] = await Promise.all([
+            cloud().meinErgebnis(spiel, ich),
+            alleErgebnisse([spiel]).catch(() => []),
+          ]);
+          const eigen = meiner ? meiner.punkte : 0;
+          const fremd = bestesUnterNamen(liste, name(), ich);
+          if (fremd && fremd.punkte > eigen) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
+          else setzeBestwert(spiel, eigen, ich);
           return abgeglichen.get(spiel).punkte;
         })
         .catch(() => {
@@ -430,7 +533,8 @@
   }
 
   // Der abgeglichene Bestwert, wenn es auf dieser Seite schon einen gibt:
-  // { punkte, ms } – wann der Server das gesagt hat. Sonst null.
+  // { punkte, ms, spieler } – wann der Server das gesagt hat, und unter
+  // welcher Kennung die Zahl steht. Sonst null.
   const bestwertAbgeglichen = (spiel) => abgeglichen.get(spiel) || null;
 
   // Der Startstand für game-cloud.js: Was das Spiel für seinen eigenen
@@ -540,7 +644,11 @@
 
   // Ein Ergebnis je Person und Spiel – genauso, wie die Bestenliste der Gruppe
   // in der App eine Zeile je Kind zeigt. Wer denselben Namen auf zwei Geräten
-  // einträgt, steht trotzdem einmal da: Es zählt sein bestes Ergebnis.
+  // einträgt, steht trotzdem einmal da: Es zählt sein bestes Ergebnis, und
+  // seine Runden zählen zusammen.
+  //
+  // Die Kennung der Zeile ist die des besten Ergebnisses: An ihr hängt der
+  // Lauf, der zu dieser Zahl gehört (geister, ansehbareLaeufe, geist.js).
   function verdichte(eintraege) {
     const nachName = new Map();
     // Wer bin ich in dieser Liste? Die Kennung dieses Geräts, und sonst der
@@ -564,7 +672,10 @@
         bisher.punkte = Number(eintrag.punkte) || 0;
         bisher.updatedAtMs = Number(eintrag.updatedAtMs) || 0;
         bisher.name = sauberName(eintrag.name);
+        bisher.spieler = eintrag.spieler;
+        bisher.id = eintrag.id;
       }
+      bisher.versuche = (Number(bisher.versuche) || 0) + (Number(eintrag.versuche) || 0);
       // Die eigene Zeile bleibt die eigene, auch wenn das bessere Ergebnis von
       // einem anderen Gerät desselben Namens kommt.
       bisher.eigen = bisher.eigen || eintrag.eigen;
@@ -606,16 +717,22 @@
   async function melde(spiel, punkte, geist = null) {
     const wie = name();
     if (!wie) return null;
-    const ergebnis = await cloud()?.speichere?.({
-      game: spiel,
-      spieler: kennung(),
-      name: wie,
-      punkte: Math.max(0, Math.round(Number(punkte) || 0)),
-    });
+    // Erst die Kennung, die zu diesem Namen gehört: Wer ihn eben zum ersten
+    // Mal eingetippt hat, hat vielleicht auf einem anderen Gerät schon
+    // gespielt – dann gehört die Runde zu dessen Einträgen.
+    await stammKennung(spiel);
+    const zahl = Math.max(0, Math.round(Number(punkte) || 0));
+    const ich = kennung();
+    const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl });
     zwischenspeicher = null;
+    if (!ergebnis) return null;
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
-    // Runde: Er weiss, was vorher schon dastand – und was nicht mehr.
-    if (ergebnis) setzeBestwert(spiel, ergebnis.punkte);
+    // Runde: Er weiss, was vorher schon dastand – und was nicht mehr. Dazu,
+    // was unter demselben Namen von einem anderen Gerät dasteht: Ein Rekord
+    // ist nur, was auch das schlägt.
+    const fremd = bestesUnterNamen(await alleErgebnisse([spiel], { neu: true }).catch(() => []), wie, ich);
+    if (fremd && fremd.punkte > ergebnis.punkte) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
+    else setzeBestwert(spiel, ergebnis.punkte, ich);
 
     // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
     // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
@@ -624,13 +741,13 @@
     //
     // Er darf scheitern, ohne die Runde mitzunehmen. Die Zahl ist das
     // Versprechen, die Aufzeichnung die Zugabe.
-    if (ergebnis?.rekord && geist?.bahn) {
+    if (ergebnis.rekord && geist?.bahn) {
       try {
         await cloud()?.speichereGeist?.({
           game: spiel,
-          spieler: kennung(),
+          spieler: ich,
           name: wie,
-          punkte: Math.max(0, Math.round(Number(punkte) || 0)),
+          punkte: zahl,
           level: geist.level,
           bahn: geist.bahn,
         });
@@ -638,7 +755,7 @@
         console.warn("Die Aufzeichnung ist nicht angekommen", fehler);
       }
     }
-    return ergebnis || null;
+    return { ...ergebnis, rekord: ergebnis.rekord && !(fremd && fremd.punkte >= zahl) };
   }
 
   /*
@@ -1343,6 +1460,7 @@
     setzeName,
     kennung,
     kennungFallsDa,
+    stammVon,
     titel,
     einheit,
     farbe,
