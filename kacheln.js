@@ -110,8 +110,11 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen).
+  // Die Aufzeichnung der Züge (geist.js, zuege): Mit ihr lässt sich der Lauf
+  // später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Wem zugeschaut wird: im Multiplayer nach dem eigenen Ende (live-spiel.js,
+  // Zuschauen), oder ein Lauf aus der Hall of Fame (geist.js, zuschauer).
   let zuschauer = null;
 
   function clearStep() {
@@ -168,6 +171,7 @@
     // Hier gibt es kein Vorher: Die Runde beginnt mit dem ersten Muster.
     gegner?.runde();
     gegner?.los();
+    aufnahme?.los();
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt kk-prompt", "Merk dir die Kacheln.");
@@ -265,11 +269,13 @@
    * derselben Reihe und zeigt, was zu dem Zug gehört, der gerade dran ist.
    */
   function meldeZug(was, daneben = -1) {
-    const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    if (zuschauer) return;
     let gefunden = 0;
     state.muster.forEach((feld) => { if (!state.offen.has(feld)) gefunden += 2 ** feld; });
-    live.zug(state.punkte, { a: gefunden, b: daneben + 1, c: state.runde * 4 + was });
+    const ort = { a: gefunden, b: daneben + 1, c: state.runde * 4 + was };
+    aufnahme?.zug(state.punkte, ort);
+    const live = window.LernappLiveSpiel;
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   const zuschau = { muster: [], runde: -1, gezeigt: "", frame: 0 };
@@ -306,6 +312,8 @@
 
   function zuschauSchleife() {
     zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer?.weiter?.();
     const probe = zuschauer?.letzte?.(zuschauer.jetzt());
     if (!probe) return;
     const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
@@ -330,6 +338,7 @@
     prompt = shell.el("p", "cm-prompt kk-prompt", "");
     raster = shell.el("div", "kk-raster");
     shell.play.append(prompt, raster);
+    zuschauer.los?.();
     if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
   }
 
@@ -338,7 +347,7 @@
     clearStep();
     state.phase = "over";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -348,6 +357,7 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
+      geist,
     });
   }
 
@@ -363,13 +373,21 @@
     accent: "#7C5CE6",
     accentDark: "#5a41b8",
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
     live: { los: startRun, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "tileMemory", host, art: "ziel" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "tileMemory", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "tileMemory", host, art: "ziel" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  }
 
-  if (!shell.live) startRun();
+  // Wer einen Lauf anschaut, spielt keinen: Die Muster kommen mit dem Lauf.
+  if (!shell.live && !zuschauer) startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   window.addEventListener("pagehide", () => {
     clearStep();

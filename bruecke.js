@@ -154,8 +154,12 @@
   let gedrueckt = false;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen) und bis zu welchem seiner Züge die Brücken schon stehen.
+  // Die Aufzeichnung der Züge (geist.js, zuege): Mit ihr lassen sich die
+  // Brücken später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Wem zugeschaut wird und bis zu welchem seiner Züge die Brücken schon
+  // stehen: im Multiplayer nach dem eigenen Ende (live-spiel.js, Zuschauen),
+  // oder Brücken aus der Hall of Fame (geist.js, zuschauer).
   let zuschauer = null;
   let gesehenBis = -Infinity;
 
@@ -528,6 +532,7 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    aufnahme?.los();
     meldeZug(0);
   }
 
@@ -684,10 +689,12 @@
    * losgelassen hat, und rechnet den Rest selbst.
    */
   function meldeZug(was) {
-    const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauend() || !live.gestartet?.()) return;
+    if (zuschauend()) return;
     const a = was === 2 ? Math.round((state.balken?.len || 0) * 10) : was === 0 ? state.kette : 0;
-    live.zug(state.punkte, { a, b: 0, c: state.bruecken * 8 + was });
+    const ort = { a, b: 0, c: state.bruecken * 8 + was };
+    aufnahme?.zug(state.punkte, ort);
+    const live = window.LernappLiveSpiel;
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   // Die Brücke, an der gerade gebaut wird, gleich fertig: mit dem Balken so
@@ -773,6 +780,8 @@
       gesehenBis = probe.t;
     });
     shell.setCount(state.punkte);
+    // Brücken aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer.weiter?.();
   }
 
   // Ab jetzt die Brücken des anderen: von vorn, mit derselben Welt (dieselbe
@@ -783,6 +792,7 @@
     state.phase = "zuschauen";
     shell.setPhase("play");
     gesehenBis = -Infinity;
+    zuschauer.los?.();
     zuschauenTakt();
     state.camY = camYZiel();
   }
@@ -934,7 +944,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    const geist = gegner?.ende(punkte) || null;
+    const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -963,12 +973,19 @@
     accent: "#3FA34D",
     accentDark: "#2c7337",
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "ziel" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "bridgeBuilder", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "bridgeBuilder", host, art: "ziel" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

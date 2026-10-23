@@ -281,6 +281,10 @@ await darf("Admin würfelt die Aufgaben jedes Mal neu", () => admin().doc("miniT
 await darf("Admin legt ein Turnier ohne Gegner beim Spielen an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: true })));
 await darf("Admin schaltet die Gegner ausdrücklich ein", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: false })));
 await darfNicht("Admin schreibt «ohne Gegner» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneGeist: "ja" })));
+// Ohne Replays (der ▶ in den Listen): ebenso ein Ja oder Nein.
+await darf("Admin legt ein Turnier ohne Replays an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: true })));
+await darf("Admin lässt die Replays ausdrücklich zu", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: false })));
+await darfNicht("Admin schreibt «ohne Replays» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: "ja" })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
 // Nur live: ein Ja oder Nein. Dann gibt es keine Versuche dazwischen.
 await darf("Admin legt ein Turnier an, das nur live gespielt wird", () => admin().doc("miniTurniere/livecup-r5t7z9u1").set(turnierDaten({ nurLive: true, versuche: 0 })));
@@ -550,6 +554,19 @@ await darf("cloud.js: Admin schaltet in einem Turnier die Gegner ab", async () =
 await darf("cloud.js: Ein Turnier von vorher zeigt die Gegner", async () => {
   const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
   erwarte(t?.ohneGeist === false, JSON.stringify(t));
+});
+// Ohne Replays: dasselbe – das Feld steht nur da, wenn es gilt.
+await darf("cloud.js: Admin schaltet in einem Turnier die Replays ab", async () => {
+  await adminCloud.setzeTurnier(SPITZE, {
+    name: "Königscup", spiele: ["towerStack"], startMs: JETZT - STUNDE, endeMs: JETZT + STUNDE,
+    versuche: 3, zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "link", verdeckt: false, aktiv: true, ohneReplay: true,
+  });
+  const t = await gastCloud.turnier(SPITZE);
+  erwarte(t?.ohneReplay === true && t?.ohneGeist === false, JSON.stringify(t));
+});
+await darf("cloud.js: Ein Turnier von vorher lässt die Replays anschauen", async () => {
+  const t = await gastCloud.turnier("herbstcup-k3m9x2p7");
+  erwarte(t?.ohneReplay === false, JSON.stringify(t));
 });
 // Ohne Zeitlimite: ein Ende, das nie kommt (turnier.js, OHNE_ENDE). Die Regeln
 // rechnen damit wie mit jedem anderen Ende – wenn es als ganze Zahl ankommt.

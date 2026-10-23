@@ -219,7 +219,7 @@ service cloud.firestore {
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
                              "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
-                             "ohneGeist", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
+                             "ohneGeist", "ohneReplay", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
         && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
@@ -252,6 +252,9 @@ service cloud.firestore {
         // Ohne Gegner beim Spielen (geist.js): weder Platz 1 noch die eigene
         // Bestmarke laufen mit. Fehlt das Feld, werden sie gezeigt.
         && d.get("ohneGeist", false) is bool
+        // Ohne Replays: Die besten Läufe dieses Turniers lassen sich nicht
+        // anschauen (turnier.js, geist.js). Fehlt das Feld, lassen sie sich.
+        && d.get("ohneReplay", false) is bool
         // Nur live (live.js): Gespielt wird nur an Live-Abenden, die zum
         // Turnier gehören – keine Versuche dazwischen (darfBeginnen). Fehlt
         // das Feld, ist es ein Turnier wie jedes von vorher.

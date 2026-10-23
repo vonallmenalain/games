@@ -52,12 +52,18 @@
  * Gibt es zum Gegner keine Aufzeichnung (eine Bestzahl von früher), steht er
  * als Zielmarke da: seine Zahl, ohne Takt.
  *
- * Zuschauen: Die besten drei Läufe der Hall of Fame und eines Turniers lassen
- * sich ganz anschauen (der ▶ in der Liste, mini-games.js). Die Spielseite
- * kommt dann mit ?zuschauen=<spieler> (und &aus=<turnier>) und spielt den
- * Lauf in seiner eigenen Welt ab: Die Aufzeichnung trägt die Saat, mit der
- * die Welt gewürfelt war (zufall.js), und das Spiel stellt seine Figur Bild
- * für Bild dorthin, wo sie damals war (zuschauer).
+ * Zuschauen: Der beste Lauf jedes Spielers in der Hall of Fame und in einem
+ * Turnier lässt sich ganz anschauen (der ▶ in der Liste, mini-games.js). Die
+ * Spielseite kommt dann mit ?zuschauen=<spieler> (und &aus=<turnier>) und
+ * spielt den Lauf in seiner eigenen Welt ab: Die Aufzeichnung trägt die Saat,
+ * mit der die Welt gewürfelt war (zufall.js), und das Spiel stellt seine Figur
+ * Bild für Bild dorthin, wo sie damals war (zuschauer).
+ *
+ * Die Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Heizer …) zeichnen
+ * dafür ihre Züge auf (zuege): dieselben, die sie im Multiplayer melden
+ * (live-spiel.js, zug), mit der Zeit seit dem Start. Beim Anschauen baut das
+ * Spiel sie nach – genau so, wie es im Multiplayer dem zuschaut, der noch
+ * spielt.
  */
 (() => {
   "use strict";
@@ -99,6 +105,11 @@
   const FARBE = { erster: "#ffd23f", eigen: "#8fd3ff", alle: "#d9c7ff" };
   // So viele Geister höchstens unter «Alle» – mehr sähe niemand mehr.
   const ALLE_MAX = 20;
+  // Die Züge eines Laufs (zuege): höchstens so viele. Die Lage dazwischen (die
+  // Lok im Zahlengleis, während sie geschoben wird) höchstens fünfmal je
+  // Sekunde – sie ist Zierde, die Züge sind der Lauf.
+  const ZUEGE_MAX = 4000;
+  const LAGE_MS = 200;
 
   const clamp = (wert, min, max) => Math.max(min, Math.min(max, wert));
 
@@ -287,6 +298,163 @@
       c: mitC ? lies(d.c) : null,
       s: Number.isInteger(d.s) && d.s >= 0 ? d.s : null,
       u: Number.isFinite(d.u) && d.u >= 0 ? d.u : 0,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Züge
+  // ---------------------------------------------------------------------------
+  /*
+   * In den Spielen ohne Figur im Bild gibt es keinen Ort, der sich zehnmal je
+   * Sekunde aufzeichnen liesse – dort geschieht etwas, wenn jemand tippt: Ein
+   * Block fällt, ein Balken kippt, Kohle kommt in den Kessel. Aufgezeichnet
+   * werden deshalb die Züge, in derselben Sprache wie im Multiplayer
+   * (live-spiel.js, zug: a, b, c in der Sprache des Spiels, p die Punkte),
+   * dazu t, die Zeit seit dem Start in ms. Jede Spalte als Schritte, und
+   * eine, die überall null ist, fehlt:
+   *
+   *   {"v":3,"s":123456789,"e":48210,"z":{"t":[0,412,…],"a":[…],"c":[…],"p":[…]}}
+   *
+   * e ist, wann die Runde zu Ende war – nach dem letzten Zug geschieht oft
+   * noch etwas (der Block fällt, der Arbeiter geht über den Balken und
+   * stürzt), und erst danach kommt beim Anschauen die Tafel.
+   *
+   * Hat das Spiel daneben einen Lauf mit Uhr (Blätter im Strom), steht z
+   * mit in dessen Aufzeichnung (v 2) – die Gegner lesen ihn wie bisher.
+   */
+  const ZUG_SPALTEN = ["t", "a", "b", "c", "p"];
+  const ganzeZahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+
+  // Zu lang für die Datenbank? Dann jede zweite Lage weniger – die Züge
+  // bleiben alle, ohne sie liesse sich der Lauf nicht nachbauen.
+  function packeZuege(basis, liste) {
+    let auswahl = liste;
+    for (let versuch = 0; versuch < 10 && auswahl.length; versuch += 1) {
+      const z = {};
+      ZUG_SPALTEN.forEach((k) => {
+        const werte = auswahl.map((e) => e[k]);
+        if (k === "t" || werte.some((x) => x !== 0)) z[k] = schritte(werte);
+      });
+      const text = JSON.stringify({ ...basis, z });
+      if (text.length <= BAHN_MAX) return text;
+      let n = 0;
+      const vorher = auswahl.length;
+      auswahl = auswahl.filter((e) => !e.lage || (n += 1) % 2 === 0);
+      if (auswahl.length === vorher) break;
+    }
+    return "";
+  }
+
+  function entpackeZuege(bahn) {
+    let d = null;
+    try { d = JSON.parse(String(bahn || "")); } catch { return null; }
+    const z = d?.z;
+    if (!z || !Array.isArray(z.t) || !z.t.length) return null;
+    const n = z.t.length;
+    const spalte = (k) => (Array.isArray(z[k]) && z[k].length === n ? summen(z[k].map(ganzeZahl)) : new Array(n).fill(0));
+    const [t, a, b, c, p] = ZUG_SPALTEN.map(spalte);
+    return {
+      proben: t.map((zeit, i) => ({ t: zeit, a: a[i], b: b[i], c: c[i], p: p[i] })),
+      s: Number.isInteger(d.s) && d.s >= 0 ? d.s : null,
+      e: Number.isFinite(d.e) && d.e >= 0 ? d.e : 0,
+    };
+  }
+
+  /*
+   * Ein Lauf aus Zügen zum Abspielen – dieselben Fragen, die ein Spiel im
+   * Multiplayer an den stellt, dem es zuschaut (live-spiel.js, quelle):
+   * seine Züge seit t0 bis einschliesslich bis, der letzte bis dahin und der
+   * nächste danach.
+   */
+  function zugAbspieler(bahn) {
+    const d = entpackeZuege(bahn);
+    if (!d) return null;
+    const { proben } = d;
+    const dauer = Math.max(proben[proben.length - 1].t, d.e);
+    // Der erste Zug nach t – gesucht, nicht gezählt.
+    const nach = (t) => {
+      let lo = 0;
+      let hi = proben.length;
+      while (lo < hi) {
+        const mitte = (lo + hi) >> 1;
+        if (proben[mitte].t <= t) lo = mitte + 1; else hi = mitte;
+      }
+      return lo;
+    };
+    return {
+      zuege: true,
+      saat: d.s,
+      dauer,
+      seit: (t0, bis) => proben.slice(nach(t0), nach(bis)),
+      letzte: (bis) => proben[nach(bis) - 1] || null,
+      naechste: (bis) => proben[nach(bis)] || null,
+      wert: (ms) => proben[nach(ms) - 1]?.p || 0,
+      fertig: (ms) => ms > dauer,
+    };
+  }
+
+  /*
+   * Die Aufzeichnung der Züge, für ein Spiel ohne Figur im Bild:
+   *
+   *   const aufnahme = LernappGeist.zuege({ fassung: "z1", zufall });
+   *
+   *   aufnahme.los()            wenn die Runde wirklich beginnt
+   *   aufnahme.zug(p, ort)      bei jedem Zug, mit dem ganzen Stand
+   *                             ({ a, b, c } – dasselbe wie live.zug)
+   *   aufnahme.lage(p, ort)     dazwischen, wo es etwas zu sehen gibt (höchstens
+   *                             alle LAGE_MS)
+   *   aufnahme.ende(geist)      am Schluss; gibt die Aufzeichnung für
+   *                             showResult zurück. geist: der Lauf mit Uhr,
+   *                             falls das Spiel auch einen hat – die Züge
+   *                             kommen dann dazu.
+   *
+   * Gespeichert wird sie wie jeder Lauf (mini-games.js, melde): beim Rekord.
+   */
+  function zuege({ fassung = "z1", zufall = null } = {}) {
+    const z = { t0: 0, laeuft: false, liste: [], lageMs: -Infinity, zuletzt: "" };
+
+    function merke(punkte, ort, lage) {
+      if (!z.laeuft || !ort || z.liste.length >= ZUEGE_MAX) return;
+      const neu = { t: Math.max(0, Math.round(performance.now() - z.t0)), a: ganzeZahl(ort.a), b: ganzeZahl(ort.b), c: ganzeZahl(ort.c), p: ganzeZahl(punkte), lage };
+      const schluessel = `${neu.a}|${neu.b}|${neu.c}|${neu.p}`;
+      if (schluessel === z.zuletzt) return;
+      // Zwei Züge in derselben Millisekunde: Der zweite kommt eine später –
+      // beim Abspielen zählt jeder Zug genau einmal (seit, nach seiner Zeit).
+      const vor = z.liste[z.liste.length - 1];
+      if (vor && neu.t <= vor.t) neu.t = vor.t + 1;
+      z.zuletzt = schluessel;
+      z.liste.push(neu);
+    }
+
+    return {
+      los() {
+        z.t0 = performance.now();
+        z.laeuft = true;
+        z.liste = [];
+        z.lageMs = -Infinity;
+        z.zuletzt = "";
+      },
+      zug: (punkte, ort) => merke(punkte, ort, false),
+      lage(punkte, ort) {
+        const jetzt = performance.now();
+        if (!z.laeuft || jetzt - z.lageMs < LAGE_MS) return;
+        z.lageMs = jetzt;
+        merke(punkte, ort, true);
+      },
+      ende(geist = null) {
+        if (!z.laeuft) return geist;
+        z.laeuft = false;
+        if (!z.liste.length) return geist;
+        let basis = { v: 3 };
+        if (geist?.bahn) {
+          try { basis = JSON.parse(geist.bahn); } catch { return geist; }
+        }
+        const saat = zufall?.saat?.();
+        if (Number.isInteger(saat) && saat >= 0) basis.s = saat;
+        basis.e = Math.max(0, Math.round(performance.now() - z.t0));
+        const bahn = packeZuege(basis, z.liste);
+        return bahn ? { level: geist?.level || fassung, bahn } : geist;
+      },
     };
   }
 
@@ -928,24 +1096,51 @@
 
   // Den Lauf holen – aus der Hall of Fame oder aus dem Turnier. Ohne Saat
   // lässt er sich nur in einem Spiel mit immer derselben Welt anschauen.
-  async function ladeLauf(spiel, fassung, { spieler, aus }, fest) {
+  // mitZuegen: ein Spiel ohne Figur, das seine Züge nachbaut.
+  //
+  // Ein Turnier ohne Replays lässt keinen Lauf anschauen, eines mit
+  // verdeckter Rangliste erst am Schluss – auch nicht über eine Adresse, die
+  // jemand von Hand tippt ({ gesperrt }).
+  async function ladeLauf(spiel, fassung, { spieler, aus }, fest, mitZuegen = false) {
     let geist = null;
     if (aus) {
+      const t = await vielleicht(() => cloud()?.turnier?.(aus));
+      if (t && (t.ohneReplay || (t.verdeckt && window.LernappTurnier?.lage?.(t) !== "beendet"))) return { gesperrt: true };
       geist = await vielleicht(() => cloud()?.turnierGeist?.(aus, spiel, spieler));
       if (geist && geist.level !== fassung) geist = null;
     } else {
       const gefunden = await vielleicht(() => cloud()?.geister?.(spiel, [spieler], fassung));
       geist = (gefunden || [])[0] || null;
     }
-    const lauf = geist ? abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }) : null;
-    if (!lauf?.mitOrt || (!fest && lauf.saat === null)) return null;
+    if (!geist) return null;
+    const lauf = mitZuegen ? zugAbspieler(geist.bahn) : abspieler(geist.bahn, { winkel: cIstWinkel(spiel) });
+    if (!lauf || (!mitZuegen && !lauf.mitOrt) || (!fest && lauf.saat === null)) return null;
     return { name: geist.name, punkte: geist.punkte, lauf };
   }
 
   // Ob sich ein Lauf anschauen lässt – für den ▶ in der Liste.
-  function ansehbar(bahn, fest = false) {
+  function ansehbar(bahn, fest = false, mitZuegen = false) {
+    if (mitZuegen) {
+      const d = entpackeZuege(bahn);
+      return Boolean(d) && (fest || d.s !== null);
+    }
     const d = entpacke(bahn);
     return Boolean(d?.a) && (fest || d.s !== null);
+  }
+
+  // Beim Zuschauen gehört kein Tipp und keine Taste dem Spiel – auch nicht in
+  // dem Augenblick, bevor der Lauf geladen ist (sonst begänne dort eine
+  // Runde, die in die Hall of Fame käme). Frei bleiben die Knöpfe oben und
+  // die Tafel am Schluss.
+  const GESPERRT = ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "keydown", "keyup"];
+  const FREI = ".gz-leiste, .gz-tafel, .cm-bar, .cm-vollbild";
+  function sperreEingaben() {
+    const sperrt = (ereignis) => {
+      if (ereignis.target?.closest?.(FREI)) return;
+      if (ereignis.type.startsWith("key") && ereignis.key === "Tab") return;
+      ereignis.stopPropagation();
+    };
+    GESPERRT.forEach((typ) => window.addEventListener(typ, sperrt, { capture: true }));
   }
 
   /*
@@ -965,11 +1160,21 @@
    *   zuschauer.weiter()   falsch, sobald der Lauf zu Ende ist (dann steht
    *                        die Tafel mit «Nochmal» und «Zurück» da)
    *
+   * Ein Spiel ohne Figur im Bild sagt zuege: true und bekommt statt stand()
+   * dieselben Fragen wie beim Zuschauen im Multiplayer (live-spiel.js):
+   *
+   *   zuschauer.jetzt()          die Zeit des Laufs, die gerade im Bild ist
+   *   zuschauer.seit(t0, bis)    seine Züge nach t0 bis einschliesslich bis
+   *   zuschauer.letzte(bis)      der letzte Zug bis dahin
+   *   zuschauer.naechste(bis)    der nächste danach
+   *
    * Oben steht, wessen Lauf das ist, und ein Knopf, der jederzeit beendet.
    */
-  function zuschauer({ host, spiel, fassung = LEVEL, zufall = null, fest = false, einheit = "", nochmal = null }) {
+  function zuschauer({ host, spiel, fassung = LEVEL, zufall = null, fest = false, einheit = "", nochmal = null, zuege: mitZuegen = false }) {
     const wo = zuschauAdresse();
     if (!wo || !host) return null;
+    if (!einheit) einheit = mini()?.einheit?.(spiel) || "";
+    sperreEingaben();
     const z = { lauf: null, name: "", punkte: 0, t0: 0, fertig: false };
     const ziel = wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
     const zurueck = () => {
@@ -1009,7 +1214,12 @@
       tafel.hidden = false;
     }
 
-    const laden = ladeLauf(spiel, fassung, wo, fest).then((g) => {
+    const laden = ladeLauf(spiel, fassung, wo, fest, mitZuegen).then((g) => {
+      if (g?.gesperrt) {
+        titel.textContent = "Kein Replay";
+        zeigeTafel("In diesem Turnier lassen sich die Läufe nicht anschauen.", false);
+        return false;
+      }
       if (!g) {
         titel.textContent = "Kein Lauf";
         zeigeTafel("Von diesem Lauf gibt es keine Aufzeichnung. Sie entsteht beim nächsten Rekord.", false);
@@ -1034,8 +1244,14 @@
         tafel.hidden = true;
       },
       zeit,
+      // Für die Spiele, die Zug um Zug nachbauen (zuege).
+      jetzt: zeit,
+      seit: (t0, bis) => z.lauf?.seit?.(t0, bis) || [],
+      letzte: (bis) => z.lauf?.letzte?.(bis) || null,
+      naechste: (bis) => z.lauf?.naechste?.(bis) || null,
+      fertig: () => Boolean(z.lauf?.fertig?.(zeit())),
       stand() {
-        if (!z.lauf) return null;
+        if (!z.lauf?.ort) return null;
         const t = Math.min(zeit(), z.lauf.dauer);
         const ort = z.lauf.ort(t);
         const vor = z.lauf.ort(Math.max(0, t - 60));
@@ -1063,7 +1279,7 @@
   window.LernappGeist = {
     LEVEL, TAKT_MS, AB_MS, FARBE,
     fuer, wahl, setzeWahl, entpacke, abspieler, eigenerLauf, namen, orte, kurve,
-    zuschauer, zuschauAdresse, ansehbar,
+    zuschauer, zuschauAdresse, ansehbar, zuege, entpackeZuege, zugAbspieler,
     // Für die Prüfung im Browser: was die Spiele dieser Seite angemeldet haben.
     stand: () => angemeldet.map(({ spiel, art, steuerung, z }) => ({
       spiel, art, laeuft: z.laeuft, punkte: z.punkte, proben: z.auf.p.length,

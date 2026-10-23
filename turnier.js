@@ -671,23 +671,22 @@
 
     const wirt = el("div", "mini-listen-wirt");
     let ganz = false;
-    // Der ▶ bei den ersten drei: ihren besten Lauf in diesem Turnier
-    // anschauen (geist.js, zuschauer) – nicht, solange die Liste verdeckt ist.
-    let laeufe = new Map();
-    const ansehen = (eintrag) => laeufe.get(eintrag.spieler) || null;
+    // Der ▶ bei jedem, der hier einen Lauf hat: seinen besten in diesem
+    // Turnier anschauen (geist.js, zuschauer) – nicht, solange die Liste
+    // verdeckt ist, und nicht in einem Turnier ohne Replays. Gefragt wird
+    // nach denen, die gerade dastehen.
+    const gezeigt = () => (ganz ? liste : mini()?.gezeigteEintraege?.(liste, 3) || liste.slice(0, 3));
+    const ansehen = !verdeckt && !t.ohneReplay
+      ? mini()?.ansehenFuer?.(spiel, gezeigt, () => zeichne(), { aus: t.id }) || null
+      : null;
     const zeichne = () => {
       wirt.innerHTML = "";
       if (verdeckt) wirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
       else wirt.append(mini()?.listeBauen?.(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }) || el("span"));
+      ansehen?.frage?.();
     };
     zeichne();
     karte.append(wirt);
-    if (!verdeckt && !t.ohneGeist) {
-      mini()?.ansehbareLaeufe?.(spiel, liste, { aus: t.id })?.then((gefunden) => {
-        laeufe = gefunden;
-        if (laeufe.size) zeichne();
-      });
-    }
 
     const aktionen = el("div", "mini-karte-aktionen");
     const l = lage(t, jetzt);
@@ -1184,11 +1183,13 @@
     mini()?.melde?.(spiel, punkte, geist)?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
 
     // Und der Lauf selbst, für die, die im Turnier gegen ihn spielen
-    // (geist.js): als bester einzelner Lauf dieses Spielers. Erst nach dem
-    // Ergebnis – ein Lauf ohne Zeile im Turnier gehörte zu niemandem. Er darf
-    // scheitern, ohne die Runde mitzunehmen.
+    // (geist.js), und für die, die ihn anschauen (der ▶): als bester
+    // einzelner Lauf dieses Spielers. Erst nach dem Ergebnis – ein Lauf ohne
+    // Zeile im Turnier gehörte zu niemandem. Er darf scheitern, ohne die
+    // Runde mitzunehmen. Ein Turnier ohne Gegner und ohne Replays braucht ihn
+    // nicht.
     const laufHinterlegen = () => {
-      if (!geist?.bahn || !t || t.ohneGeist) return;
+      if (!geist?.bahn || !t || (t.ohneGeist && t.ohneReplay)) return;
       cloud()?.speichereTurnierGeist?.(hier.id, {
         game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, level: geist.level, bahn: geist.bahn,
       })?.catch?.((fehler) => console.warn("Der Lauf kam nicht ins Turnier", fehler));

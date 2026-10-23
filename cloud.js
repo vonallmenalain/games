@@ -60,6 +60,9 @@
  *     verdeckt   false            Rangliste erst am Schluss zeigen
  *     ohneGeist  true             keine Gegner beim Spielen (geist.js).
  *                                 Fehlt, wo sie gezeigt werden.
+ *     ohneReplay true             die besten Läufe lassen sich nicht
+ *                                 anschauen (der ▶ in den Listen). Fehlt,
+ *                                 wo sie sich anschauen lassen.
  *     nurLive    true             gespielt wird nur im Multiplayer
  *                                 (live.js), keine Versuche dazwischen.
  *                                 Fehlt bei allen anderen.
@@ -642,6 +645,7 @@
       sichtbar: d.sichtbar === "alle" ? "alle" : "link",
       verdeckt: d.verdeckt === true,
       ohneGeist: d.ohneGeist === true,
+      ohneReplay: d.ohneReplay === true,
       nurLive: d.nurLive === true,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
@@ -732,6 +736,8 @@
     // Ebenso: Nur wer die Gegner abschaltet, schreibt das Feld. Ein Turnier
     // ohne das Feld zeigt sie, wie jedes Turnier von vorher.
     if (daten.ohneGeist === true) doc.ohneGeist = true;
+    // Ebenso die Replays.
+    if (daten.ohneReplay === true) doc.ohneReplay = true;
     // Und nur, wer nur live spielen lässt.
     if (daten.nurLive === true) doc.nurLive = true;
     await ref.doc(kennung).set(doc);

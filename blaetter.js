@@ -136,7 +136,7 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  const state = { phase: "intro", welle: null, letzte: null, richtig: 0, falsch: 0 };
+  const state = { phase: "intro", welle: null, letzte: null, richtig: 0, falsch: 0, wellen: 0 };
   let shell = null;
   let prompt = null;
   let wasser = null;
@@ -145,6 +145,17 @@
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke wischen mit –
   // als Zahl, die Sekunde für Sekunde zeigt, wie weit sie damals waren.
   let gegner = null;
+  // Die Aufzeichnung der Wische (geist.js, zuege) – mit ihr lässt sich die
+  // Runde später aus der Hall of Fame anschauen – und wer gerade eine
+  // anschaut (geist.js, zuschauer), bis zu welchem Wisch.
+  let aufnahme = null;
+  let zuschauer = null;
+  let gesehenBis = -Infinity;
+
+  // Beim Anschauen wischt dieses Gerät nur nach – es klingelt und brummt nicht.
+  const zuschauend = () => state.phase === "zuschauen";
+  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   const pick = (list) => list[Math.floor(zufall.zahl() * list.length)];
 
@@ -186,7 +197,7 @@
   // Eine Welle
   // ---------------------------------------------------------------------------
   function nextWelle() {
-    if (state.phase !== "play" || !wasser) return;
+    if ((state.phase !== "play" && !zuschauend()) || !wasser) return;
     wasser.querySelectorAll(".bs-welle").forEach((node) => node.remove());
 
     // Die Farbe wird für jede Welle neu gewürfelt. Eine feste Abfolge liesse
@@ -225,6 +236,8 @@
     wasser.append(gruppe);
 
     state.welle = {
+      // Die wievielte Welle – beim Anschauen gehört jeder Wisch zu seiner.
+      nr: state.wellen,
       sorte,
       fahrt,
       antwort,
@@ -234,6 +247,7 @@
       start: performance.now(),
       fertig: false,
     };
+    state.wellen += 1;
 
     prompt.className = `cm-prompt bs-frage is-${sorte}`;
     prompt.textContent = sorte === "treibt" ? "Wohin schwimmen sie?" : "Wohin zeigen sie?";
@@ -288,6 +302,7 @@
 
   function step(now) {
     frame = window.requestAnimationFrame(step);
+    if (zuschauend()) { zuschauenTakt(); place(now); return; }
     if (state.phase !== "play") return;
     place(now);
     const welle = state.welle;
@@ -309,21 +324,24 @@
 
   function answer(id) {
     const welle = state.welle;
-    if (state.phase !== "play" || !welle || welle.fertig) return;
+    if ((state.phase !== "play" && !zuschauend()) || !welle || welle.fertig) return;
     welle.fertig = true;
     const richtig = id === welle.antwort;
 
     if (richtig) {
       state.richtig += 1;
-      kids()?.playJingle?.("correct");
-      kids()?.vibrate?.(16);
+      klang("correct");
+      brumm(16);
     } else {
       state.falsch += 1;
       // Kein Abzug: der Ton sagt "nicht ganz", nicht "falsch gemacht".
-      kids()?.playJingle?.("retry");
+      klang("retry");
     }
     shell.setCount(state.richtig);
     gegner?.takt(state.richtig);
+    if (!zuschauend()) {
+      aufnahme?.zug(state.richtig, { a: RICHTUNGEN.findIndex((r) => r.id === id), b: 0, c: welle.nr * 4 + 1 });
+    }
     flash(richtig);
     // Sofort weiter: die nächste Welle ist da, bevor der Finger wieder oben
     // ist. Wer schnell ist, soll nicht auf das Spiel warten müssen.
@@ -336,8 +354,9 @@
     welle.fertig = true;
     state.falsch += 1;
     welle.gruppe.classList.add("is-vorbei");
-    kids()?.playJingle?.("retry");
+    klang("retry");
     flash(false);
+    if (!zuschauend()) aufnahme?.zug(state.richtig, { a: 0, b: 0, c: welle.nr * 4 + 2 });
     stepTimer = window.setTimeout(nextWelle, PAUSE_VERPASST);
   }
 
@@ -393,6 +412,7 @@
     state.letzte = null;
     shell.setPhase("play");
     shell.setCount(0);
+    state.wellen = 0;
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt bs-frage");
@@ -403,6 +423,73 @@
     frame = window.requestAnimationFrame(step);
     shell.startClock(ROUND_MS, finish);
     gegner?.los();
+    aufnahme?.los();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Anschauen
+  // ---------------------------------------------------------------------------
+  /*
+   * Eine Runde aus der Hall of Fame (geist.js, zuschauer). Aufgezeichnet ist
+   * jeder Wisch und jede verpasste Welle (aufnahme.zug):
+   *
+   *   c   die wievielte Welle × 4 + was: 1 gewischt, 2 verpasst
+   *   a   wohin gewischt wurde (RICHTUNGEN)
+   *   p   wie viele bis dahin richtig waren
+   *
+   * Die Wellen kommen aus derselben Saat in derselben Reihe. Die Wiedergabe
+   * wischt zur selben Zeit in dieselbe Richtung – und holt, falls eine Welle
+   * hier noch nicht da ist, sie zuerst.
+   */
+  function zugNachbauen(probe) {
+    const nr = Math.floor(probe.c / 4);
+    const was = probe.c - nr * 4;
+    let sicher = 0;
+    while (state.welle && state.welle.nr < nr && sicher < 500) {
+      clearStep();
+      nextWelle();
+      sicher += 1;
+    }
+    if (was === 1) answer(RICHTUNGEN[probe.a]?.id || "");
+    else if (was === 2) verpasst();
+    state.richtig = probe.p;
+    shell.setCount(probe.p);
+  }
+
+  function zuschauenTakt() {
+    if (!zuschauer?.seit) return;
+    zuschauer.seit(gesehenBis, zuschauer.jetzt()).forEach((probe) => {
+      gesehenBis = probe.t;
+      zugNachbauen(probe);
+    });
+    zuschauer.weiter?.();
+  }
+
+  function zuschauenStarten() {
+    if (!zuschauer?.seit) return;
+    clearStep();
+    stopLoop();
+    shell.closeOverlay();
+    zufall.neu();
+    state.phase = "zuschauen";
+    state.letzte = null;
+    state.richtig = 0;
+    state.falsch = 0;
+    state.wellen = 0;
+    gesehenBis = -Infinity;
+    shell.setPhase("play");
+    shell.setCount(0);
+
+    shell.clear();
+    prompt = shell.el("p", "cm-prompt bs-frage");
+    wasser = buildWasser();
+    shell.play.append(prompt, wasser);
+
+    zuschauer.los?.();
+    nextWelle();
+    frame = window.requestAnimationFrame(step);
+    // Die Uhr läuft mit wie in der Runde – das Ende kommt mit der Aufzeichnung.
+    shell.startClock(ROUND_MS, () => {});
   }
 
   function runsText(runs) {
@@ -414,11 +501,12 @@
   }
 
   function finish() {
+    if (zuschauer) return;
     clearStep();
     stopLoop();
     state.phase = "over";
     const points = state.richtig;
-    const geist = gegner?.ende(points) || null;
+    const geist = aufnahme?.ende(gegner?.ende(points) || null) || null;
     const next = recordRun(points);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -441,13 +529,20 @@
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
-    onRestart: showIntro,
+    onRestart: () => (zuschauer ? zuschauenStarten() : showIntro()),
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, ohne «Starten».
     live: { los: beginRound, stopp: () => finish() },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "leafFlow", host, art: "tempo" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "leafFlow", fassung: "t1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "leafFlow", host, art: "tempo" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "t1", zufall }) || null;
+  }
 
   showIntro();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   // --- Wischen ---------------------------------------------------------------
   // Auf der ganzen Bühne, nicht nur auf dem Wasser: unter Zeitdruck trifft ein
@@ -504,5 +599,9 @@
   window.addEventListener("orientationchange", () => place());
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
 
-  window.LernappBlaetter = { RICHTUNGEN, RICHTUNG, WELLE_MS, ROUND_MS, RUNS_FOR_DONE };
+  // Für die Prüfskripte. zeitUm beendet die Runde, ohne 45 Sekunden zu warten.
+  window.LernappBlaetter = {
+    RICHTUNGEN, RICHTUNG, WELLE_MS, ROUND_MS, RUNS_FOR_DONE, state,
+    zeitUm() { shell.stopClock(); finish(); },
+  };
 })();

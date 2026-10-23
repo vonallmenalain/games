@@ -663,6 +663,7 @@
       sichtbar: "alle",
       verdeckt: false,
       ohneGeist: false,
+      ohneReplay: false,
       aktiv: true,
       spitzeWartet: false,
     };
@@ -905,6 +906,15 @@
     const gegnerText = el("span", "adm-option-text");
     gegnerText.append(el("strong", "", "Gegner beim Spielen zeigen"), el("small", "", "Platz 1 und die eigene Bestmarke laufen mit – als Zahl, als Linie oder als Geist im Bild. Jeder kann sie vor dem Spiel für sich ausblenden. Bei einer verdeckten Rangliste bleibt Platz 1 verborgen."));
     gegnerZeile.append(gegner, gegnerText);
+    // Die Replays (geist.js, zuschauer): der ▶ neben jedem Spieler in den
+    // Listen des Turniers. Ohne Haken lässt sich kein Lauf anschauen.
+    const replay = el("input");
+    replay.type = "checkbox";
+    replay.checked = !t.ohneReplay;
+    const replayZeile = el("label", "adm-option");
+    const replayText = el("span", "adm-option-text");
+    replayText.append(el("strong", "", "Replays anschauen lassen"), el("small", "", "Neben jedem Spieler steht ein ▶: Damit lässt sich sein bester Lauf in diesem Turnier ganz anschauen. Ohne Haken lässt sich kein Lauf anschauen. Bei einer verdeckten Rangliste erst am Schluss."));
+    replayZeile.append(replay, replayText);
     // Nur im Multiplayer (live.js): keine Versuche dazwischen, gezählt werden
     // nur die Multiplayer, die zum Turnier gehören.
     const nurLive = el("input");
@@ -921,7 +931,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, gegnerZeile, nurLiveZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, replayZeile, nurLiveZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -952,6 +962,7 @@
         sichtbar: gewaehlterWert("sichtbar") || "alle",
         verdeckt: verdeckt.checked,
         ohneGeist: !gegner.checked,
+        ohneReplay: !replay.checked,
         nurLive: nurLive.checked,
         aktiv: aktiv.checked,
         spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
@@ -1034,6 +1045,7 @@
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
       { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
+      t.ohneReplay ? "ohne Replays" : "",
       t.nurLive ? "nur Multiplayer" : "",
       aktion.abende?.length ? `${aktion.abende.length} Multiplayer` : "",
     ].filter(Boolean);
