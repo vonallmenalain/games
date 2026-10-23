@@ -3315,7 +3315,13 @@ h2 {
 }
 
 .adm-form { display: flex; flex-wrap: wrap; gap: 8px; }
-.adm-form-pw { flex-direction: column; }
+/* Adresse, Passwort und darunter die beiden Wege nebeneinander. Die Felder
+   stehen übereinander – ohne flex: 0 0 auto wäre ihre Grundbreite von 200 px
+   in der Spalte ihre Höhe. */
+.adm-form-mail { flex-direction: column; flex-wrap: nowrap; }
+.adm-form-mail .adm-feld { flex: 0 0 auto; }
+.adm-form-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-form-knoepfe .adm-knopf { flex: 1 1 140px; }
 .adm-feld {
   flex: 1 1 200px;
   min-width: 0;
@@ -3327,8 +3333,7 @@ h2 {
   color: #243047;
 }
 .adm-feld:focus-visible { outline: none; border-color: var(--mini-ton, #F5A623); }
-.adm-form .adm-knopf { flex: 0 0 auto; }
-.adm-form-pw .adm-knopf { width: 100%; }
+.adm-form > .adm-knopf { flex: 0 0 auto; }
 
 .adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: #667085; }
 .adm-meldung.ist-fehler { color: #a32020; font-weight: 700; }
@@ -3469,6 +3474,45 @@ h2 {
   cursor: pointer;
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Die Tiers: drei Gruppen, je mit Titel, und neben jedem Spiel T1/T2/T3. */
+.adm-tiers { display: flex; flex-direction: column; gap: 4px; }
+/* Mit T1/T2/T3 in der Zeile braucht ein Spiel mehr Breite, sonst steht von
+   «Brückenbauer» nur noch «Brücken…» da. */
+.adm-tiers .adm-auswahl { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.adm-tier-titel {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #243047;
+}
+.adm-gruppe .adm-tier-titel { margin-top: 2px; }
+.adm-tier-marke {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #243047;
+  color: #fff;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+.adm-tier-zahl { font-size: 0.82rem; font-weight: 700; color: #98a0b4; }
+.adm-tier-leer { margin: 0; padding: 6px 2px; color: #98a0b4; }
+.adm-tier-wahl {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 2px solid #ece9f6;
+  background: #fff;
+  color: #47506a;
+  cursor: pointer;
+}
+.adm-tier-wahl:focus-visible { outline: none; border-color: var(--adm-farbe, #F5A623); }
 
 /* ▶ – ein Spiel spielen. Klein und rund, damit der Haken die Zeile bleibt. */
 .adm-spielen-knopf {

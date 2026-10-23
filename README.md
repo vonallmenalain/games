@@ -597,7 +597,8 @@ veröffentlicht die Regeln. In der Console wird nichts von Hand geändert.
 
 ## Der Adminbereich
 
-`/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort. Dahinter steht,
+`/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort (eine Adresse
+für beide: mit Passwort «Anmelden», ohne «Link per E-Mail»). Dahinter steht,
 was in der Bestenliste steht: Zahlen, alle Spieler, jedes Spiel mit seinen
 Einträgen, die Turniere. Und was kein Gast darf: löschen und Turniere
 ausrichten.
@@ -636,6 +637,29 @@ der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Turniere
 bleiben, wie sie sind.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
 leert «Bestenliste leeren» beim Spiel die ganze Liste auf einmal.
+
+**Tiers.** Im Block «Welche Spiele gespielt werden» stehen die Spiele in drei
+Gruppen, Tier 1 bis 3, und neben jedem ein kleines T1/T2/T3. Wer ein Spiel
+umteilt, speichert die Einteilung sofort (`config/miniGames`, Feld `tiers`,
+`cloud.js` `setzeTiers`). Im Formular eines Turniers stehen die Spiele genauso
+gruppiert, mit einem Knopf je Tier: Er nimmt das ganze Tier dazu – oder, wenn
+es schon ganz gewählt ist, wieder weg. Solange nie eingeteilt wurde, gilt die
+Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
+Lianenschwung, Tunnelflug, Drift-Rennen und Hügelflieger, Tier 2 Blätter im
+Strom, Drehscheibe, Planetenhüpfer und Der Heizer, Tier 3 der Rest.
+
+**In einer Deploy Preview anmelden.** Firebase lässt «Mit Google anmelden» nur
+auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy
+Preview hat ihre eigene. In einer Vorschau (`deploy-preview-<n>--gamesrepo.netlify.app`)
+öffnet «Mit Google anmelden» deshalb ein Fenster auf `games.alae.app/admin?vorschau=…`:
+Dort meldet Google an (in einer zweiten Firebase-Anwendung ohne Speicher,
+`cloud.js` `vorschauApp`), und das Token geht per `postMessage` zurück an die
+Vorschau, die sich damit bei Firebase anmeldet (`signInWithCredential` fragt
+nicht nach der Domain). Wie im Entdecker – mit einer Prüfung mehr, weil dieses
+Repository öffentlich ist: Das Token geht nur an die Vorschau eines Pull
+Requests aus `vonallmenalain/games` selbst, nicht aus einem Fork (die
+GitHub-API sagt, woher er kommt). Das Fenster auf der Live-Adresse ist Teil
+von `admin.js` – es geht erst, wenn diese Fassung dort veröffentlicht ist.
 
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,

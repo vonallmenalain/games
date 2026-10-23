@@ -181,6 +181,12 @@ await darfNicht("Admin schmuggelt ein Feld in die Liste", () => admin().doc(LIST
 await darfNicht("Admin setzt etwas, das keine Liste ist", () => admin().doc(LISTE).set(spieleListe({ spiele: "alle" })));
 await darf("Admin setzt die Liste", () => admin().doc(LISTE).set(spieleListe()));
 await darf("Admin macht die Liste leer", () => admin().doc(LISTE).set(spieleListe({ spiele: [] })));
+// Die Tiers: je Spiel, das es gibt, 1, 2 oder 3.
+await darf("Admin teilt die Spiele in Tiers ein", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1, fishPond: 3, leafFlow: 2 } })));
+await darfNicht("Admin teilt ein erfundenes Spiel ein", () => admin().doc(LISTE).set(spieleListe({ tiers: { schachweltmeister: 1 } })));
+await darfNicht("Admin setzt ein Tier 4", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 4 } })));
+await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
+await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
 await darfNicht("Gast legt eine zweite Konfiguration an", () => gast().doc("config/irgendwas").set({ a: 1 }));
 await darfNicht("Admin legt eine zweite Konfiguration an", () => admin().doc("config/irgendwas").set({ a: 1 }));
 
