@@ -73,6 +73,12 @@
     { id: "moonLander", seite: "mondlandung", page: "moon" },
     { id: "gravityRun", seite: "schwerkraft", page: "gravity" },
     { id: "hillGlide", seite: "huegel", page: "hills" },
+    { id: "balloonRide", seite: "ballon", page: "balloon" },
+    { id: "skiSlalom", seite: "slalom", page: "slalom" },
+    { id: "frogHop", seite: "frosch", page: "frog" },
+    { id: "waveRider", seite: "wellen", page: "waves" },
+    { id: "craneHarbor", seite: "kranhafen", page: "harbor" },
+    { id: "ropeWalk", seite: "seiltaenzer", page: "rope" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -85,6 +91,8 @@
   const TIERS_VORGABE = {
     towerStack: 1, bridgeBuilder: 1, vineSwing: 1, tunnelFlight: 1, driftRace: 1, hillGlide: 1,
     leafFlow: 2, dartWheel: 2, planetHop: 2, boilerRoom: 2,
+    // Die sechs neuen, gebaut nach dem Muster von Tier 1.
+    balloonRide: 1, skiSlalom: 1, frogHop: 1, waveRider: 1, craneHarbor: 1, ropeWalk: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -108,6 +116,11 @@
     moonLander: { fassung: "p5", winkel: true },
     gravityRun: { fassung: "t1", winkel: true },
     hillGlide: { fassung: "t1" },
+    balloonRide: { fassung: "t1" },
+    skiSlalom: { fassung: "t1", winkel: true },
+    frogHop: { fassung: "t1", winkel: true },
+    waveRider: { fassung: "t1", winkel: true },
+    ropeWalk: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -123,6 +136,7 @@
     fishPond: { fassung: "z1" },
     numberLine: { fassung: "z1" },
     boilerRoom: { fassung: "z1" },
+    craneHarbor: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -144,6 +158,7 @@
     fishPond: { zug: true },
     boilerRoom: { zug: true },
     numberLine: { zug: true },
+    craneHarbor: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,

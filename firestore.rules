@@ -71,6 +71,7 @@ service cloud.firestore {
         "fishPond",
         "leafFlow", "towerStack", "bridgeBuilder", "dartWheel", "vineSwing",
         "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide",
+        "balloonRide", "skiSlalom", "frogHop", "waveRider", "craneHarbor", "ropeWalk",
         "numberLine",
         "boilerRoom",
       ];

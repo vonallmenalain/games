@@ -391,6 +391,29 @@ const BOTS = {
     };
     requestAnimationFrame(tick);
   },
+  craneHarbor: ({ raus, seed }) => {
+    let r = seed;
+    const zufall = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
+    // Ein Ziel neben der Mitte – oder genau die Mitte (dort rastet "perfekt" ein).
+    const neu = () => { const z = (zufall() - 0.5) * 20; return Math.abs(z) < 3 ? 0 : z; };
+    let ziel = neu();
+    const host = document.querySelector(".cm-stage") || document.body;
+    const tick = () => {
+      const K = window.LernappKranhafen;
+      const st = K.state;
+      if (window.LernappLiveSpiel.istFertig() || st.phase === "ende" || st.phase === "zuschauen") return;
+      requestAnimationFrame(tick);
+      if (st.phase !== "spiel") return;
+      // Wo der Container landen würde, liesse man ihn jetzt los.
+      const v = K.vorhersage();
+      if (!v) return;
+      const tippen = st.punkte >= raus ? v.daneben : !v.daneben && Math.abs(v.ende - ziel) < 1.2;
+      if (!tippen) return;
+      ziel = neu();
+      host.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    };
+    requestAnimationFrame(tick);
+  },
 };
 
 // Was im Bild steht – beim Spielen wie beim Zuschauen dieselbe Beschreibung.
@@ -425,13 +448,19 @@ const BILD = {
     const antwort = !document.querySelector(".zg-ziel")?.hidden;
     return { zahl: Math.min(9, st.index), punkte: st.punkte, antwort, ...(antwort ? { p: Math.round(st.p * 1000) } : {}) };
   },
+  craneHarbor: () => {
+    // Die Container auf dem Schiff unter dem Kran, in Hundertstel – so genau,
+    // wie der Zug sie trägt.
+    const st = window.LernappKranhafen.state;
+    return { punkte: st.punkte, schiff: st.schiffNr, stapel: st.stapel.map((k) => Math.round(k.off * 100)) };
+  },
 };
 
 try {
   const leitung = await geraet("Alain", { admin: true });
   await leitung.seite.goto(`${BASIS}/live?neu`, { waitUntil: "load" });
   await bis(() => leitung.seite.locator(".lv-formular").isVisible());
-  const PROGRAMM = (process.env.PROGRAMM || "towerStack,bridgeBuilder,dartWheel,tileMemory,fishPond,boilerRoom,numberLine").split(",");
+  const PROGRAMM = (process.env.PROGRAMM || "towerStack,bridgeBuilder,dartWheel,tileMemory,fishPond,boilerRoom,numberLine,craneHarbor").split(",");
   while (await leitung.seite.locator(".lv-zeile").count() < PROGRAMM.length) await leitung.seite.getByRole("button", { name: "Spiel hinzufügen" }).click();
   while (await leitung.seite.locator(".lv-zeile").count() > PROGRAMM.length) await leitung.seite.locator(".lv-zeile").last().getByRole("button", { name: "Entfernen" }).click();
   for (let i = 0; i < PROGRAMM.length; i += 1) {
@@ -470,7 +499,7 @@ try {
     await Promise.all(frames.map((f) => f.evaluate(() => new Promise((ok) => { const t = setInterval(() => { if (window.LernappLiveSpiel.gestartet()) { clearInterval(t); ok(); } }, 20); }))));
     const kennungen = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().ich.kennung)));
     // Alain scheidet zuerst aus, Mia später, Jonas zuletzt.
-    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16] };
+    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [2, 6, 11] };
     const raus = RAUS[spiel] || [2, 6, 10];
     // Jeder merkt sich, was er zuletzt im Bild hatte – je nachdem, wem er
     // gerade zuschaut (oder sich selbst).

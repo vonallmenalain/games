@@ -753,11 +753,13 @@ h2 {
    wie diese Welt es zulässt – auf jedem gewöhnlichen Bild bis an beide
    Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
    statt oben ein Stück Welt zu verlieren. */
-.tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz {
+.tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
+.bl-platz, .sk-platz, .fr-platz, .wr-platz, .kh-platz, .st-platz {
   position: absolute;
   inset: 0;
 }
-.tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .dt-feld, .ph-feld, .ml-feld, .sl-feld, .hf-feld {
+.tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .dt-feld, .ph-feld, .ml-feld, .sl-feld, .hf-feld,
+.bl-feld, .sk-feld, .fr-feld, .wr-feld, .kh-feld, .st-feld {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -772,7 +774,8 @@ h2 {
    blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
    eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
-.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt {
+.tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
+.bl-prompt, .sk-prompt, .fr-prompt, .wr-prompt, .kh-prompt, .st-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -789,6 +792,253 @@ h2 {
   text-shadow: none;
   pointer-events: none;
   transition: opacity 0.25s ease;
+}
+
+
+/* --- Die sechs Spiele aus Tier 1 (Ballonfahrt, Slalom, Froschsprung,
+   Wellenreiter, Kranhafen, Seiltänzer) ------------------------------------
+   Alle zeichnen auf eine Leinwand, die die ganze Bühne füllt – jedes rechnet
+   seine Welt selbst so, dass sie hochkant wie quer passt. Gleich gebaut:
+   die Bühne (Farbe des Bereichs, kein Rollen, kein Markieren), die Fläche,
+   die Leinwand, der Hinweis vor dem ersten Zug (-tipp: ein Ring, der sich
+   füllt) und das Rekord-Abzeichen auf der Tafel. */
+
+.bl-stage {
+  --cm-accent: #3FA34D;
+  --cm-accent-dark: #2c7337;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.bl-stage:not([data-phase="intro"]) .bl-prompt { opacity: 0; }
+.bl-feld { width: 100%; background: #f6b88a; }
+.bl-canvas { display: block; width: 100%; height: 100%; }
+.bl-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.bl-stage[data-phase="intro"] .bl-tipp { opacity: 0.95; }
+.bl-tipp svg { width: 100%; height: auto; display: block; }
+.bl-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.bl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.sk-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sk-stage:not([data-phase="intro"]) .sk-prompt { opacity: 0; }
+.sk-feld { width: 100%; background: #eef5fb; }
+.sk-canvas { display: block; width: 100%; height: 100%; }
+.sk-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.sk-stage[data-phase="intro"] .sk-tipp { opacity: 0.95; }
+.sk-tipp svg { width: 100%; height: auto; display: block; }
+.sk-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.sk-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.fr-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.fr-stage:not([data-phase="intro"]) .fr-prompt { opacity: 0; }
+.fr-feld { width: 100%; background: #1d5a6b; }
+.fr-canvas { display: block; width: 100%; height: 100%; }
+.fr-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.fr-stage[data-phase="intro"] .fr-tipp { opacity: 0.95; }
+.fr-tipp svg { width: 100%; height: auto; display: block; }
+.fr-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.fr-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.wr-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.wr-stage:not([data-phase="intro"]) .wr-prompt { opacity: 0; }
+.wr-feld { width: 100%; background: #5ec2e6; }
+.wr-canvas { display: block; width: 100%; height: 100%; }
+.wr-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.wr-stage[data-phase="intro"] .wr-tipp { opacity: 0.95; }
+.wr-tipp svg { width: 100%; height: auto; display: block; }
+.wr-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.wr-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.kh-stage {
+  --cm-accent: #3FA34D;
+  --cm-accent-dark: #2c7337;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.kh-stage:not([data-phase="intro"]) .kh-prompt { opacity: 0; }
+.kh-feld { width: 100%; background: #24304f; }
+.kh-canvas { display: block; width: 100%; height: 100%; }
+.kh-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.kh-stage[data-phase="intro"] .kh-tipp { opacity: 0.95; }
+.kh-tipp svg { width: 100%; height: auto; display: block; }
+.kh-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.kh-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.st-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.st-stage:not([data-phase="intro"]) .st-prompt { opacity: 0; }
+.st-feld { width: 100%; background: #2b2350; }
+.st-canvas { display: block; width: 100%; height: 100%; }
+.st-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.st-stage[data-phase="intro"] .st-tipp { opacity: 0.95; }
+.st-tipp svg { width: 100%; height: auto; display: block; }
+.st-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.st-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bl-tipp-fuell, .sk-tipp-fuell, .fr-tipp-fuell, .wr-tipp-fuell, .kh-tipp-fuell, .st-tipp-fuell { animation: none; stroke-dashoffset: 40; }
 }
 
 /* --- Start und Ergebnis --- */
@@ -2787,7 +3037,8 @@ h2 {
     width: 100%;
     transform: none;
   }
-  .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt {
+  .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
+  .bl-prompt, .sk-prompt, .fr-prompt, .wr-prompt, .kh-prompt, .st-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

@@ -24,7 +24,7 @@ dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite: alle Spiele, alle Namen
-    turmbau.html …        fünfzehn Spielseiten, erzeugt
+    turmbau.html …        einundzwanzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -132,30 +132,33 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
 
     Geist im Bild   Lianenschwung, Tunnelflug, Drift-Rennen,
                     Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
-                    Hügelflieger. Aufgezeichnet wird der Weg (wo, wann, in
-                    welcher Lage), und der Gegner fliegt, fährt oder läuft
-                    als Figur aus Licht mit – genau so wie in seiner besten
-                    Runde. Ob seine Welt dieselbe war, spielt keine Rolle:
-                    Er folgt seinem eigenen Weg. Platz 1 in Gold, die
-                    Bestmarke hellblau, alle anderen in Flieder. «Alle» ist
-                    jeder, der in der Hall of Fame steht (bis zwanzig), im
-                    Turnier jeder, der dort mitspielt. Wer noch keinen Lauf
-                    hinterlegt hat – eine Zahl von früher –, läuft erst mit,
-                    wenn er sich verbessert.
+                    Hügelflieger, Ballonfahrt, Slalom, Froschsprung,
+                    Wellenreiter, Seiltänzer. Aufgezeichnet wird der Weg
+                    (wo, wann, in welcher Lage), und der Gegner fliegt,
+                    fährt oder läuft als Figur aus Licht mit – genau so wie
+                    in seiner besten Runde. Ob seine Welt dieselbe war,
+                    spielt keine Rolle: Er folgt seinem eigenen Weg.
+                    Platz 1 in Gold, die Bestmarke hellblau, alle anderen
+                    in Flieder. «Alle» ist jeder, der in der Hall of Fame
+                    steht (bis zwanzig), im Turnier jeder, der dort
+                    mitspielt. Wer noch keinen Lauf hinterlegt hat – eine
+                    Zahl von früher –, läuft erst mit, wenn er sich
+                    verbessert.
     mitlaufend      Blätter im Strom: feste Zeit, der Gegner läuft mit
                     seinem Stand von damals mit, Viertelsekunde für
                     Viertelsekunde – als Zahl, ohne Figur.
     Zielmarke       Turmbau, Brückenbauer, Drehscheibe, Fischteich,
-                    Kacheln-Knobeln: Spiele ohne Uhr. Der Gegner ist eine
-                    Zahl; im Turmbau eine Linie in der Höhe seines besten
-                    Turms. Im Tunnelflug, Drift-Rennen und
+                    Kacheln-Knobeln, Kranhafen: Spiele ohne Uhr. Der
+                    Gegner ist eine Zahl; im Turmbau eine Linie in der Höhe
+                    seines besten Turms. Im Tunnelflug, Drift-Rennen und
                     Schwerkraft-Läufer stehen Platz 1 und die Bestmarke
                     zusätzlich als Tor, Zielstreifen oder Linie bei ihren
                     Metern.
 
-Im Schwerkraft-Läufer laufen alle gleich schnell – überholen kann dort
-niemand. Die Schalter zeigen deshalb nur, wie weit die Gegner gekommen sind,
-ohne «überholt!» und ohne Platz unter allen (`gleichschritt`).
+Im Schwerkraft-Läufer und im Seiltänzer laufen alle gleich schnell –
+überholen kann dort niemand. Die Schalter zeigen deshalb nur, wie weit die
+Gegner gekommen sind, ohne «überholt!» und ohne Platz unter allen
+(`gleichschritt`).
 
 ### Die besten Läufe anschauen
 
@@ -180,8 +183,9 @@ gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
 nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
 Strecke ist fest).
 
-Die acht Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
-Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom)
+Die neun Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
+Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom,
+Kranhafen)
 zeichnen statt eines Weges ihre Züge auf (`geist.js`, `zuege`): dieselben,
 die sie im Multiplayer melden, mit der Zeit seit dem Start, der Saat und dem
 Ende der Runde. Beim Anschauen baut das Spiel sie nach – genau so, wie es im
@@ -235,7 +239,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle fünfzehn
+    Spiele            welche dazugehören, eines bis alle einundzwanzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
@@ -394,7 +398,7 @@ Runden und 0–2 Übungsrunden) und die Einstellungen:
 | Finale doppelt | das letzte Spiel zählt doppelt |
 | Zwischenstand | nach jeder Runde zeigen oder bis zum Schluss verdeckt |
 | Nachzügler | dürfen ab der nächsten Runde mitspielen, oder nur bis zum Start |
-| Die anderen live im Bild | in den sieben Spielen mit Figur: die anderen als Geister, oder nicht |
+| Die anderen live im Bild | in den zwölf Spielen mit Figur: die anderen als Geister, oder nicht |
 
 Ein Programm lässt sich als Vorlage speichern (auf dem Gerät, das leitet);
 das zuletzt benutzte steht beim nächsten Mal schon da.
@@ -435,9 +439,10 @@ beginnt, wie sie endet, wenn die Zeit des Abends um ist, und – wo man
 ausscheidet – wie es einem anderen zuschaut. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
-**Die anderen im Bild.** In den sieben Spielen mit Figur (Lianenschwung,
+**Die anderen im Bild.** In den zwölf Spielen mit Figur (Lianenschwung,
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
-Hügelflieger) meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
+Hügelflieger, Ballonfahrt, Slalom, Froschsprung, Wellenreiter, Seiltänzer)
+meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
 (`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
 gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
 einer Aufzeichnung beantwortet der Live-Strom die Frage «wo ist er zur Zeit
@@ -645,8 +650,10 @@ umteilt, speichert die Einteilung sofort (`config/miniGames`, Feld `tiers`,
 gruppiert, mit einem Knopf je Tier: Er nimmt das ganze Tier dazu – oder, wenn
 es schon ganz gewählt ist, wieder weg. Solange nie eingeteilt wurde, gilt die
 Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
-Lianenschwung, Tunnelflug, Drift-Rennen und Hügelflieger, Tier 2 Blätter im
-Strom, Drehscheibe, Planetenhüpfer und Der Heizer, Tier 3 der Rest.
+Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die sechs danach
+gebauten (Ballonfahrt, Slalom, Froschsprung, Wellenreiter, Kranhafen,
+Seiltänzer), Tier 2 Blätter im Strom, Drehscheibe, Planetenhüpfer und Der
+Heizer, Tier 3 der Rest.
 
 **In einer Deploy Preview anmelden.** Firebase lässt «Mit Google anmelden» nur
 auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy

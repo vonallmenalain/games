@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+  Geändert wird die Tabelle dort, dann "npm run bauen".
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="application-name" content="Mini-Games" />
+    <meta name="description" content="Slalom: Halten heisst Kurve nach rechts, Loslassen nach links – fahr durch jedes Tor, es wird immer schneller." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mini-Games" />
+    <meta name="theme-color" content="#f7f3ff" />
+    <title>Slalom · Mini-Games</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-13-19" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-13-19" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+  </head>
+  <body data-page="slalom" data-spiel="skiSlalom">
+    <!-- Die Bühne baut slalom.js: die Landschaft, darauf die Piste mit den Toren.
+         Bewusst leer im HTML – hier steht kein Wort ausser dem Namen des
+         Spiels, und den setzt die Bühne. -->
+    <div id="sk-stage" class="cm-stage sk-stage" aria-label="Slalom"></div>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="vollbild.js?v=2026-10-13-19"></script>
+    <script defer src="highscore.js?v=2026-10-13-19"></script>
+    <script defer src="cloud.js?v=2026-10-13-19"></script>
+    <script defer src="mini-games.js?v=2026-10-13-19"></script>
+    <script defer src="turnier.js?v=2026-10-13-19"></script>
+    <script defer src="zufall.js?v=2026-10-13-19"></script>
+    <script defer src="kids.js?v=2026-10-13-19"></script>
+    <script defer src="train-art.js?v=2026-10-13-19"></script>
+    <script defer src="train-scenes.js?v=2026-10-13-19"></script>
+    <script defer src="game-cloud.js?v=2026-10-13-19"></script>
+    <script defer src="live-spiel.js?v=2026-10-13-19"></script>
+    <script defer src="game-shell.js?v=2026-10-13-19"></script>
+    <script defer src="geist.js?v=2026-10-13-19"></script>
+    <script defer src="slalom.js?v=2026-10-13-19"></script>
+    <script defer src="pwa.js?v=2026-10-13-19"></script>
+  </body>
+</html>

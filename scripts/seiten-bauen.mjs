@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-18";
+export const FASSUNG = "2026-10-13-19";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -128,6 +128,42 @@ export const SPIELE = [
     titel: "Hügelflieger", buehne: { id: "hf-stage", klasse: "cm-stage hf-stage" },
     text: "Hügelflieger: Halten macht den Vogel schwer, Loslassen leicht – rutsch die Hügel hinab und flieg über die Kuppen, bevor die Sonne untergeht.",
     baut: "die Hügel mit dem Vogel",
+  },
+  {
+    seite: "ballon", spiel: "balloonRide", page: "balloon", js: "ballon.js",
+    titel: "Ballonfahrt", buehne: { id: "bl-stage", klasse: "cm-stage bl-stage" },
+    text: "Ballonfahrt: Halten heizt den Brenner, Loslassen kühlt – steuer den Ballon durch die Winde, über Berge und an Gewittern vorbei.",
+    baut: "der Himmel mit dem Ballon",
+  },
+  {
+    seite: "slalom", spiel: "skiSlalom", page: "slalom", js: "slalom.js",
+    titel: "Slalom", buehne: { id: "sk-stage", klasse: "cm-stage sk-stage" },
+    text: "Slalom: Halten heisst Kurve nach rechts, Loslassen nach links – fahr durch jedes Tor, es wird immer schneller.",
+    baut: "die Piste mit den Toren",
+  },
+  {
+    seite: "frosch", spiel: "frogHop", page: "frog", js: "frosch.js",
+    titel: "Froschsprung", buehne: { id: "fr-stage", klasse: "cm-stage fr-stage" },
+    text: "Froschsprung: Halten lädt den Sprung, Loslassen springt – lande auf dem nächsten Seerosenblatt, am besten genau in der Mitte.",
+    baut: "der Teich mit den Seerosen",
+  },
+  {
+    seite: "wellen", spiel: "waveRider", page: "waves", js: "wellen.js",
+    titel: "Wellenreiter", buehne: { id: "wr-stage", klasse: "cm-stage wr-stage" },
+    text: "Wellenreiter: Halten drückt das Brett in die Welle, Loslassen hebt es – bleib vor der brechenden Welle.",
+    baut: "das Meer mit der Welle",
+  },
+  {
+    seite: "kranhafen", spiel: "craneHarbor", page: "harbor", js: "kranhafen.js",
+    titel: "Kranhafen", buehne: { id: "kh-stage", klasse: "cm-stage kh-stage" },
+    text: "Kranhafen: Der Container pendelt am Kran – tippe im richtigen Moment und stapel ihn auf das fahrende Schiff.",
+    baut: "der Hafen mit dem Kran",
+  },
+  {
+    seite: "seiltaenzer", spiel: "ropeWalk", page: "rope", js: "seiltaenzer.js",
+    titel: "Seiltänzer", buehne: { id: "st-stage", klasse: "cm-stage st-stage" },
+    text: "Seiltänzer: Halten lehnt nach rechts, Loslassen nach links – halt das Gleichgewicht auf dem Seil, so weit du kommst.",
+    baut: "das Seil über der Schlucht",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

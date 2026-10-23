@@ -551,7 +551,8 @@ pruefe("styles.css: Die Leiste oben lässt Tipps durch, nur ihre Knöpfe nicht",
 pruefe("styles.css: Auf dem Handy beginnt die Spielfläche ganz oben (--cm-oben bleibt innen frei)",
   /@media \(max-width: 760px\), \(max-height: 500px\) \{\s*\.cm-play \{ top: 0; padding-top: var\(--cm-oben\); \}/.test(stilCss));
 pruefe("game-shell.js misst, was oben unter den Knöpfen liegt (frei)", /function frei\(knoten = play\)/.test(lies("game-shell.js")));
-for (const datei of ["liane.js", "huegel.js", "tunnelflug.js", "drift.js", "planeten.js", "mondlandung.js", "schwerkraft.js", "drehscheibe.js"]) {
+for (const datei of ["liane.js", "huegel.js", "tunnelflug.js", "drift.js", "planeten.js", "mondlandung.js", "schwerkraft.js", "drehscheibe.js",
+  "ballon.js", "slalom.js", "frosch.js", "wellen.js", "kranhafen.js", "seiltaenzer.js"]) {
   pruefe(`${datei} zeigt seine Anzeige oben unter den Knöpfen (frei)`, /shell\?\.frei\?\.\(canvas\)/.test(lies(datei)));
 }
 
