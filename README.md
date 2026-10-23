@@ -166,7 +166,10 @@ gerade in der Liste stehen: erst die ersten drei und der eigene Eintrag, mit
 «Ganze Liste» die übrigen (`ansehenFuer`, je 25 Aufzeichnungen auf einmal).
 Er öffnet das Spiel
 mit `?zuschauen=<spieler>` (aus einem Turnier dazu `&aus=<turnier>`; das ist
-kein Versuch im Turnier). Das Spiel spielt den Lauf ganz ab, in seiner eigenen
+kein Versuch im Turnier). Ein Turnier kann die Replays abschalten
+(`ohneReplay`): Dann steht dort kein ▶, und das Spiel zeigt auch über die
+Adresse nur «In diesem Turnier lassen sich die Läufe nicht anschauen» – wie
+bei einer verdeckten Rangliste bis zum Schluss. Das Spiel spielt den Lauf ganz ab, in seiner eigenen
 Welt: Die Aufzeichnung trägt die Saat, mit der die Welt gewürfelt war, und im
 Planetenhüpfer auch, wo die Uhr der Planeten stand. Die Figur steht Bild für
 Bild dort, wo sie damals war (`geist.js`, `zuschauer`). Oben steht, wessen
@@ -248,6 +251,9 @@ was es ausmacht:
     Verdeckt          die Rangliste erst am Schluss zeigen
     Gegner            Platz 1 und die eigene Bestmarke beim Spielen zeigen
                       (Vorgabe) oder nicht
+    Replays           den besten Lauf jedes Spielers im Turnier anschauen
+                      lassen (der ▶ in den Listen, Vorgabe) oder nicht –
+                      dann auch nicht über eine von Hand getippte Adresse
     Aktiv             angehalten, bis es gebraucht wird – "Jetzt starten",
                       "Anhalten", "Jetzt beenden" gehen mit einem Klick
 

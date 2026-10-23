@@ -410,6 +410,13 @@ for (const [id, fassung] of ZUG_ANSEHBAR) {
     /function zuege\(/.test(geistJs) && /function zugAbspieler\(/.test(geistJs) && /\n    zuschauer, zuschauAdresse, ansehbar, zuege,/.test(geistJs));
   pruefe("geist.js sperrt beim Zuschauen die Eingaben ins Spiel", /sperreEingaben\(\);/.test(geistJs));
 }
+// Ein Turnier kann die Replays abschalten (ohneReplay): Die Regeln lassen das
+// Feld zu, das Formular setzt es, die Turnierseite zeigt dann keinen ▶, und
+// das Spiel verweigert den Lauf auch über die Adresse.
+pruefe("Turniere ohne Replays: Regel, Formular, Turnierseite und Spiel kennen ohneReplay",
+  /"ohneReplay"/.test(regeln) && /d\.get\("ohneReplay", false\) is bool/.test(regeln)
+  && /ohneReplay: !replay\.checked/.test(lies("admin.js")) && /ohneReplay: d\.ohneReplay === true/.test(lies("cloud.js"))
+  && /!verdeckt && !t\.ohneReplay/.test(lies("turnier.js")) && /t\.ohneReplay \|\|/.test(lies("geist.js")));
 // Der ▶ steht bei jedem, dessen Lauf es gibt – nicht nur bei den ersten drei.
 pruefe("Die Listen zeigen den ▶ bei allen, nicht nur bei den ersten drei",
   !/platz <= 3/.test(miniJs) && /function ansehenFuer\(/.test(miniJs) && lies("turnier.js").includes("ansehenFuer"));

@@ -1097,9 +1097,15 @@
   // Den Lauf holen – aus der Hall of Fame oder aus dem Turnier. Ohne Saat
   // lässt er sich nur in einem Spiel mit immer derselben Welt anschauen.
   // mitZuegen: ein Spiel ohne Figur, das seine Züge nachbaut.
+  //
+  // Ein Turnier ohne Replays lässt keinen Lauf anschauen, eines mit
+  // verdeckter Rangliste erst am Schluss – auch nicht über eine Adresse, die
+  // jemand von Hand tippt ({ gesperrt }).
   async function ladeLauf(spiel, fassung, { spieler, aus }, fest, mitZuegen = false) {
     let geist = null;
     if (aus) {
+      const t = await vielleicht(() => cloud()?.turnier?.(aus));
+      if (t && (t.ohneReplay || (t.verdeckt && window.LernappTurnier?.lage?.(t) !== "beendet"))) return { gesperrt: true };
       geist = await vielleicht(() => cloud()?.turnierGeist?.(aus, spiel, spieler));
       if (geist && geist.level !== fassung) geist = null;
     } else {
@@ -1209,6 +1215,11 @@
     }
 
     const laden = ladeLauf(spiel, fassung, wo, fest, mitZuegen).then((g) => {
+      if (g?.gesperrt) {
+        titel.textContent = "Kein Replay";
+        zeigeTafel("In diesem Turnier lassen sich die Läufe nicht anschauen.", false);
+        return false;
+      }
       if (!g) {
         titel.textContent = "Kein Lauf";
         zeigeTafel("Von diesem Lauf gibt es keine Aufzeichnung. Sie entsteht beim nächsten Rekord.", false);

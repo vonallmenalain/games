@@ -2595,6 +2595,9 @@ try {
     const gegnerHaken = form.locator(".adm-option", { hasText: "Gegner beim Spielen" }).locator("input");
     pruefe(await gegnerHaken.isChecked(), "Ein neues Turnier zeigt die Gegner beim Spielen nicht von selbst.");
     await gegnerHaken.uncheck();
+    const replayHaken = form.locator(".adm-option", { hasText: "Replays anschauen" }).locator("input");
+    pruefe(await replayHaken.isChecked(), "Ein neues Turnier lässt die Replays nicht von selbst anschauen.");
+    await replayHaken.uncheck();
     await form.locator('button[type="submit"]').click();
     await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Test-Cup Ä"), null, { timeout: 4000 })
       .catch(() => {});
@@ -2604,7 +2607,7 @@ try {
       pruefe(/^test-cup-ae-[a-km-np-z2-9]{8}$/.test(neu.id), `Der Name des neuen Turniers taugt nicht als Link: ${neu.id}`);
       pruefe(JSON.stringify(neu.spiele) === JSON.stringify(["fishPond", "towerStack"]), `Im neuen Turnier stehen die Spiele ${neu.spiele.join(", ")}.`);
       pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "wieErster"
-        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true,
+        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true && neu.ohneReplay === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
       const meldung = await seite.locator(".adm-turniere > .adm-meldung").innerText();
@@ -2613,7 +2616,7 @@ try {
       pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Test-Cup Ä",
         "Das eben angelegte Turnier ist nicht gleich ausgewählt.");
       const eckdaten = await seite.locator(".adm-turnier.ist-offen .adm-turnier-detail .adm-klein").first().innerText().catch(() => "");
-      pruefe(/Level wie Platz 1/.test(eckdaten), `Beim neuen Turnier steht nicht, dass alle das Level von Platz 1 spielen: ${eckdaten}`);
+      pruefe(/Level wie Platz 1/.test(eckdaten) && /ohne Replays/.test(eckdaten), `Beim neuen Turnier steht nicht, dass alle das Level von Platz 1 spielen und es keine Replays gibt: ${eckdaten}`);
       const danach = await sichtbar();
       pruefe(!danach.form && danach.liste && danach.streifen && danach.andere, `Nach dem Anlegen kommt der Adminbereich nicht zurück: ${JSON.stringify(danach)}`);
     }
@@ -3317,6 +3320,52 @@ try {
     const schalter = await gegnerSchalter(seite);
     pruefe(schalter.length && schalter.every((c) => !c.sichtbar), `Im Turnier ohne Gegner stehen trotzdem Gegner-Schalter: ${JSON.stringify(schalter)}`);
     pruefe(await seite.evaluate(() => !document.querySelector("#tb-stage").dataset.gegner), "Im Turnier ohne Gegner rückt die Spielfläche trotzdem nach unten.");
+    await kontext.close();
+  }
+  {
+    // Die Replays im Turnier: Der ▶ steht bei jedem, der dort einen Lauf hat.
+    // Ein Turnier ohne Replays zeigt keinen – und lässt auch über die Adresse
+    // keinen Lauf anschauen.
+    const OHNE_REPLAY = "ohnereplay-test234";
+    const daten = {
+      turniere: [...TURNIERE.turniere, turnierVorlage(OHNE_REPLAY, { name: "Geheimcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneReplay: true })],
+      eintraege: [...TURNIERE.eintraege, { turnier: OHNE_REPLAY, game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 25, versuche: 1, offen: false, updatedAtMs: 1100 }],
+    };
+    const bahn = JSON.stringify({ v: 3, s: 7, e: 900, z: { t: [0, 400], c: [0, 1], p: [0, 0] } });
+    const { kontext, seite } = await neueSeite({ width: 900, height: 760 });
+    await seite.addInitScript(([d, b, herbst, ohne]) => {
+      window.__miniTurniereAnfang = d;
+      if (sessionStorage.getItem("__tnReplay")) return;
+      sessionStorage.setItem("__tnReplay", "1");
+      const geist = (t, id, name, punkte) => [`${t}/towerStack_${id}`, { game: "towerStack", spieler: id, name, punkte, level: "z1", bahn: b }];
+      localStorage.setItem("__mini_geister_attrappe", JSON.stringify([
+        geist(herbst, "mini_leoleoleoleo", "Leo", 25), geist(herbst, "mini_miamiamiamia", "Mia", 20), geist(ohne, "mini_leoleoleoleo", "Leo", 25),
+      ]));
+    }, [daten, bahn, HERBST, OHNE_REPLAY]);
+    const playIn = async (id) => {
+      await seite.goto(`${BASIS}/turnier?t=${id}`, { waitUntil: "load" });
+      const karte = seite.locator(".mini-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
+      await karte.locator(".mini-liste").waitFor({ timeout: 8000 }).catch(() => {});
+      await karte.locator(".mini-ansehen").first().waitFor({ timeout: 2500 }).catch(() => {});
+      await seite.waitForTimeout(300);
+      return karte.locator(".mini-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
+    };
+    const herbst = await playIn(HERBST);
+    pruefe(herbst.length === 2 && herbst.includes(`/turmbau?zuschauen=mini_leoleoleoleo&aus=${HERBST}`) && herbst.includes(`/turmbau?zuschauen=mini_miamiamiamia&aus=${HERBST}`),
+      `Im Turnier steht der ▶ nicht bei Platz 2 und 3, die einen Lauf haben: ${JSON.stringify(herbst)}`);
+    const ohne = await playIn(OHNE_REPLAY);
+    pruefe(ohne.length === 0, `Im Turnier ohne Replays steht trotzdem ein ▶: ${JSON.stringify(ohne)}`);
+    await seite.goto(`${BASIS}/turmbau?zuschauen=mini_leoleoleoleo&aus=${OHNE_REPLAY}`, { waitUntil: "load" });
+    await seite.waitForSelector(".gz-tafel:not([hidden])", { timeout: 6000 }).catch(() => {});
+    const gesperrt = await seite.evaluate(() => ({
+      tafel: document.querySelector(".gz-tafel:not([hidden])")?.textContent || "",
+      phase: window.LernappTurmbau?.state?.phase,
+    }));
+    pruefe(/nicht anschauen/.test(gesperrt.tafel) && gesperrt.phase !== "zuschauen",
+      `Ein Lauf aus dem Turnier ohne Replays lässt sich über die Adresse trotzdem anschauen: ${JSON.stringify(gesperrt)}`);
+    await seite.goto(`${BASIS}/turmbau?zuschauen=mini_miamiamiamia&aus=${HERBST}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTurmbau?.state?.phase === "zuschauen", null, { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.LernappTurmbau?.state?.phase) === "zuschauen", "Ein Lauf aus dem Herbstcup lässt sich nicht anschauen.");
     await kontext.close();
   }
 
