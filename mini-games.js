@@ -94,6 +94,27 @@
     hillGlide: { fassung: "t1" },
   };
 
+  // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
+  // Zug anschauen (geist.js, zuege) – das Spiel baut nach, was damals
+  // geschah, wie beim Zuschauen im Multiplayer. Blätter im Strom schreibt
+  // seine Züge in den Lauf mit Uhr (Fassung t1), den die Gegner lesen.
+  const ANSEHBAR_ZUEGE = {
+    leafFlow: { fassung: "t1" },
+    towerStack: { fassung: "z1" },
+    bridgeBuilder: { fassung: "z1" },
+    dartWheel: { fassung: "z1" },
+    tileMemory: { fassung: "z1" },
+    fishPond: { fassung: "z1" },
+    numberLine: { fassung: "z1" },
+    boilerRoom: { fassung: "z1" },
+  };
+
+  // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
+  function ansehArt(spiel) {
+    if (ANSEHBAR[spiel]) return ANSEHBAR[spiel];
+    return ANSEHBAR_ZUEGE[spiel] ? { ...ANSEHBAR_ZUEGE[spiel], zuege: true } : null;
+  }
+
   // Wem sich im Multiplayer zuschauen lässt, wenn man selbst ausgeschieden
   // oder schon fertig ist: den Spielen oben, aus der Lage ihrer Figur, und denen, die ihre Züge
   // melden (zug, live-spiel.js) – dort baut das Spiel des Zuschauers nach, was
@@ -758,31 +779,75 @@
     return { ...ergebnis, rekord: ergebnis.rekord && !(fremd && fremd.punkte >= zahl) };
   }
 
+  // Ob sich eine Aufzeichnung abspielen lässt: mit Weg (oder Zügen) und, wo
+  // die Welt jedes Mal neu gewürfelt wird, mit ihrer Saat (geist.js,
+  // ansehbar – das hier geladen ist, steht auf der Startseite nicht).
+  function abspielbar(bahn, art) {
+    let d = null;
+    try { d = JSON.parse(bahn); } catch { return false; }
+    if (!art.fest && !Number.isInteger(d?.s)) return false;
+    return art.zuege ? Array.isArray(d?.z?.t) && d.z.t.length > 0 : Array.isArray(d?.a);
+  }
+
   /*
-   * Welche der ersten drei einer Liste einen Lauf hinterlegt haben, den man
+   * Welche Einträge einer Liste einen Lauf hinterlegt haben, den man
    * anschauen kann – aus der Hall of Fame oder, mit aus, aus einem Turnier.
-   * Gibt die Adressen zurück: Kennung des Spielers → Weg zum Zuschauen.
+   * Gefragt wird nach denen, die übergeben werden (die Listen fragen nach
+   * denen, die gerade dastehen). Gibt die Adressen zurück: Kennung des
+   * Spielers → Weg zum Zuschauen.
    */
   async function ansehbareLaeufe(spiel, liste, { aus = "" } = {}) {
-    const art = ANSEHBAR[spiel];
+    const art = ansehArt(spiel);
     const raus = new Map();
     if (!art || !cloud()) return raus;
-    const oben = (liste || []).filter((e) => e.platz <= 3 && e.spieler && e.punkte > 0).slice(0, 3);
-    if (!oben.length) return raus;
+    const wer = [...new Set((liste || []).filter((e) => e.spieler && e.punkte > 0).map((e) => e.spieler))];
+    if (!wer.length) return raus;
     let gefunden = [];
     try {
-      gefunden = aus
-        ? (await Promise.all(oben.map((e) => cloud().turnierGeist?.(aus, spiel, e.spieler).catch(() => null))))
-          .filter((g) => g && g.level === art.fassung)
-        : (await cloud().geister?.(spiel, oben.map((e) => e.spieler), art.fassung)) || [];
+      if (aus) {
+        gefunden = (await Promise.all(wer.map((spieler) => Promise.resolve(cloud().turnierGeist?.(aus, spiel, spieler)).catch(() => null))))
+          .filter((g) => g && g.level === art.fassung);
+      } else {
+        // cloud.js liest höchstens 25 auf einmal.
+        const pakete = [];
+        for (let i = 0; i < wer.length; i += 25) pakete.push(wer.slice(i, i + 25));
+        gefunden = (await Promise.all(pakete.map((paket) => Promise.resolve(cloud().geister?.(spiel, paket, art.fassung)).catch(() => []))))
+          .flat().filter(Boolean);
+      }
     } catch { return raus; }
     gefunden.forEach((g) => {
-      let d = null;
-      try { d = JSON.parse(g.bahn); } catch { return; }
-      if (!Array.isArray(d?.a) || (!art.fest && !Number.isInteger(d.s))) return;
+      if (!abspielbar(g.bahn, art)) return;
       raus.set(g.spieler, `${spielLink(spiel)}?zuschauen=${encodeURIComponent(g.spieler)}${aus ? `&aus=${encodeURIComponent(aus)}` : ""}`);
     });
     return raus;
+  }
+
+  /*
+   * Der ▶ neben jedem, dessen besten Lauf es gibt – für eine Liste, die
+   * aufklappt. Gefragt wird nach denen, die gerade dastehen (gezeigt): erst
+   * die ersten drei, mit «Ganze Liste» die übrigen, jeder nur einmal. Was
+   * ankommt, zeichnet die Liste neu (neu).
+   *
+   *   const ansehen = ansehenFuer(spiel, gezeigt, neu, { aus });
+   *   listeBauen(liste, spiel, { ansehen });   ansehen(eintrag) → Adresse
+   *   ansehen.frage();                         nach dem Zeichnen
+   */
+  function ansehenFuer(spiel, gezeigt, neu, { aus = "" } = {}) {
+    const laeufe = new Map();
+    const gefragt = new Set();
+    const ansehen = (eintrag) => laeufe.get(eintrag.spieler) || null;
+    ansehen.frage = () => {
+      if (!ansehArt(spiel)) return;
+      const offen = (gezeigt() || []).filter((e) => e.spieler && !gefragt.has(e.spieler));
+      if (!offen.length) return;
+      offen.forEach((e) => gefragt.add(e.spieler));
+      ansehbareLaeufe(spiel, offen, { aus }).then((gefunden) => {
+        if (!gefunden.size) return;
+        gefunden.forEach((weg, spieler) => laeufe.set(spieler, weg));
+        neu();
+      });
+    };
+    return ansehen;
   }
 
   /*
@@ -847,14 +912,20 @@
   // steht dann eine Zeile mit drei Punkten, damit niemand die Plätze
   // dazwischen für ausgelassen hält.
   //
-  // ansehen(eintrag): wohin der ▶ neben einem der ersten drei führt – oder
-  // null, wenn es von seinem Lauf keine Aufzeichnung gibt (ansehbareLaeufe).
+  // ansehen(eintrag): wohin der ▶ neben einem Eintrag führt – oder null, wenn
+  // es von seinem Lauf keine Aufzeichnung gibt (ansehbareLaeufe).
+  //
+  // Wer dasteht: die ersten max (oder alle) und der eigene Eintrag.
+  function gezeigteEintraege(eintraege, max = 0) {
+    const gezeigt = max ? eintraege.slice(0, max) : eintraege;
+    const eigen = eintraege.find((eintrag) => eintrag.eigen);
+    return eigen && !gezeigt.includes(eigen) ? [...gezeigt, eigen] : gezeigt;
+  }
+
   function listeBauen(eintraege, spiel, { max = 0, ansehen = null } = {}) {
     const wrap = el("ol", "mini-liste");
-    let gezeigt = max ? eintraege.slice(0, max) : eintraege;
-    const eigen = eintraege.find((eintrag) => eintrag.eigen);
-    const nachgestellt = eigen && !gezeigt.includes(eigen);
-    if (nachgestellt) gezeigt = [...gezeigt, eigen];
+    const gezeigt = gezeigteEintraege(eintraege, max);
+    const nachgestellt = gezeigt.length > (max ? Math.min(max, eintraege.length) : eintraege.length);
     if (!gezeigt.length) {
       const leer = el("li", "mini-liste-leer", "Noch niemand. Sei der Erste.");
       wrap.append(leer);
@@ -863,7 +934,7 @@
     const ziele = new Map();
     if (ansehen) {
       gezeigt.forEach((eintrag) => {
-        const ziel = eintrag.platz <= 3 ? ansehen(eintrag) : null;
+        const ziel = ansehen(eintrag);
         if (ziel) ziele.set(eintrag, ziel);
       });
       if (ziele.size) wrap.classList.add("mit-ansehen");
@@ -1230,19 +1301,14 @@
     // keinen zweiten Weg.
     const wirt = el("div", "mini-listen-wirt");
     let ganz = false;
-    let laeufe = new Map();
-    const ansehen = (eintrag) => laeufe.get(eintrag.spieler) || null;
+    const ansehen = ansehenFuer(spiel, () => (ganz ? liste : gezeigteEintraege(liste, 3)), () => zeichne());
     const zeichne = () => {
       wirt.innerHTML = "";
       wirt.append(listeBauen(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }));
+      ansehen.frage();
     };
     zeichne();
     karte.append(wirt);
-    // Der ▶ bei den ersten drei, sobald feststeht, wessen Lauf es gibt.
-    ansehbareLaeufe(spiel, liste).then((gefunden) => {
-      laeufe = gefunden;
-      if (laeufe.size) zeichne();
-    });
 
     const aktionen = el("div", "mini-karte-aktionen");
     aktionen.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
@@ -1465,7 +1531,7 @@
     einheit,
     farbe,
     listeFuer,
-    listeBauen, ansehbareLaeufe, ANSEHBAR, ZUSCHAUBAR,
+    listeBauen, gezeigteEintraege, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
     geister,
     rangliste,
     melde,

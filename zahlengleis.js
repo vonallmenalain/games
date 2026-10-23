@@ -194,9 +194,13 @@
   let plus = null;
   let marken = null;
   let stepTimer = null;
-  // Im Multiplayer, nach den eigenen zehn Zahlen: wem zugeschaut wird
-  // (live-spiel.js, Zuschauen).
+  // Wem zugeschaut wird: im Multiplayer nach den eigenen zehn Zahlen
+  // (live-spiel.js, Zuschauen), oder ein Lauf aus der Hall of Fame (geist.js,
+  // zuschauer).
   let zuschauer = null;
+  // Die Aufzeichnung der Züge und dazwischen der Lok (geist.js, zuege): Mit
+  // ihr lässt sich der Lauf später aus der Hall of Fame anschauen.
+  let aufnahme = null;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -249,7 +253,9 @@
     // Im Multiplayer sehen die Zuschauer die Lok mitfahren – zehnmal je
     // Sekunde reicht, dazwischen gleitet sie bei ihnen.
     if (state.phase === "aufgabe" && !zuschauer) {
-      window.LernappLiveSpiel?.lage?.(state.punkte, { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 });
+      const ort = { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 };
+      aufnahme?.lage(state.punkte, ort);
+      window.LernappLiveSpiel?.lage?.(state.punkte, ort);
     }
   }
 
@@ -313,6 +319,7 @@
 
     shell.play.append(schild, fortschritt, gleis);
 
+    if (!zuschauer) aufnahme?.los();
     naechsteZahl();
   }
 
@@ -405,9 +412,11 @@
   const ZUG_P = 1e6;
 
   function meldeZug(was) {
+    if (zuschauer) return;
+    const ort = { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 + was };
+    aufnahme?.zug(state.punkte, ort);
     const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
-    live.zug(state.punkte, { a: Math.round(state.p * ZUG_P), b: state.drag ? 1 : 0, c: state.index * 4 + was });
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   const zuschau = { zahlen: [], index: -1, antwort: false, frame: 0 };
@@ -423,6 +432,8 @@
 
   function zuschauSchleife() {
     zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer?.weiter?.();
     const jetzt = zuschauer?.jetzt?.();
     const probe = zuschauer?.letzte?.(jetzt);
     if (!probe || state.phase !== "zuschauen") return;
@@ -477,6 +488,7 @@
     zuschau.index = -1;
     zuschau.antwort = false;
     zufall.neu();
+    zuschauer.los?.();
     if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
   }
 
@@ -493,6 +505,7 @@
     clearStep();
     state.phase = "over";
     const punkte = state.punkte;
+    const geist = aufnahme?.ende() || null;
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -502,6 +515,7 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
+      geist,
     });
   }
 
@@ -516,14 +530,19 @@
     accentDark: "#a8321f",
     clock: false,
     // Es gibt nur eine Schwierigkeit – neu starten heisst neue Zahlen.
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
     live: { los: startRun, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "numberLine", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
 
   // Ohne Menü beginnt die Runde sofort: Es gibt nichts zu wählen. Im
-  // Live-Modus erst zum gemeinsamen Start.
-  if (!shell.live) startRun();
+  // Live-Modus erst zum gemeinsamen Start, beim Anschauen mit dem Lauf.
+  if (!shell.live && !zuschauer) startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   // --- Schieben und Tippen ---------------------------------------------------
   // Ein Tipp auf das Gleis setzt die Lok dorthin und zählt schon als Antwort;

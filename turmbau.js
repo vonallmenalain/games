@@ -299,8 +299,12 @@
   // Die Gegner (geist.js). Im Turmbau laufen sie nicht mit – ein Turm hat
   // keinen Takt –, sie stehen als Linie in der Höhe ihres besten Turms.
   let gegner = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen) und bis zu welchem seiner Züge der Turm schon steht.
+  // Die Aufzeichnung der Züge (geist.js, zuege): Mit ihr lässt sich der Turm
+  // später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Wem zugeschaut wird und bis zu welchem seiner Züge der Turm schon steht:
+  // im Multiplayer nach dem eigenen Ende (live-spiel.js, Zuschauen), oder ein
+  // Turm aus der Hall of Fame (geist.js, zuschauer).
   let zuschauer = null;
   let gesehenBis = -Infinity;
 
@@ -828,6 +832,7 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    aufnahme?.los();
     meldeZug(0);
   }
 
@@ -1016,19 +1021,23 @@
   const welt100 = (n) => (n / 100) * welt.mass;
 
   function meldeZug(was, block = state.schweber) {
-    const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || state.phase === "zuschauen" || !live.gestartet?.()) return;
+    if (state.phase === "zuschauen") return;
+    let ort = null;
     if (was === 0) {
       const oben = state.bloecke[state.bloecke.length - 1];
       if (!oben) return;
-      live.zug(state.punkte, {
+      ort = {
         a: state.combo * 1e7 + kodiere(oben.x) + ZUG_X,
         b: kodiere(oben.w) * 1e6 + kodiere(state.breite),
         c: state.punkte * 4,
-      });
+      };
     } else if (block) {
-      live.zug(state.punkte, { a: kodiere(block.x), b: kodiere(block.w), c: state.punkte * 4 + was });
+      ort = { a: kodiere(block.x), b: kodiere(block.w), c: state.punkte * 4 + was };
     }
+    if (!ort) return;
+    aufnahme?.zug(state.punkte, ort);
+    const live = window.LernappLiveSpiel;
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   // Ein Block, der nicht zu sehen war (der Zug kam nicht an, oder man schaut
@@ -1123,6 +1132,8 @@
       state.camY = Math.max(-GRUND, spitze() - view.h * FOLGE_HOEHE);
       state.camX = state.bloecke[state.bloecke.length - 1]?.x ?? 0;
     }
+    // Ein Turm aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer.weiter?.();
   }
 
   // Ab jetzt der Turm des anderen: von vorn, mit derselben Welt (dieselbe
@@ -1133,6 +1144,7 @@
     state.phase = "zuschauen";
     shell.setPhase("play");
     gesehenBis = -Infinity;
+    zuschauer.los?.();
     zuschauenTakt();
   }
 
@@ -1299,7 +1311,7 @@
     stopLoop();
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     const next = recordRun(punkte);
@@ -1311,6 +1323,7 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
+      geist,
     });
     // Das Rekord-Abzeichen ist derselbe Satz, nur hervorgehoben: eine eigene
     // Zeile mehr auf der Tafel hätte auf dem flachen Handy keinen Platz.
@@ -1330,12 +1343,19 @@
     accent: "#F5A623",
     accentDark: "#b9741a",
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "towerStack", host, art: "ziel" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "towerStack", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "towerStack", host, art: "ziel" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   // --- Eingabe ---------------------------------------------------------------
   // Getippt wird auf der ganzen Bühne, nicht nur auf der Baustelle: der Block

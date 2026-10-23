@@ -382,6 +382,37 @@ if (ansehbar) {
     pruefe(`${s.js} zeichnet mit Fassung ${fassung} auf`, fassungIn(auf) === fassung);
   }
 }
+// Die Spiele ohne Figur im Bild (ANSEHBAR_ZUEGE): Sie zeichnen ihre Züge auf
+// (LernappGeist.zuege), geben die Aufzeichnung an die Tafel weiter (geist –
+// sonst käme sie nie in die Hall of Fame) und bauen sie beim Anschauen nach.
+const zugAnsehbar = miniJs.match(/const ANSEHBAR_ZUEGE = \{([\s\S]*?)\n  \};/);
+pruefe("mini-games.js hat eine Liste ANSEHBAR_ZUEGE", Boolean(zugAnsehbar));
+const ZUG_ANSEHBAR = [...(zugAnsehbar?.[1] || "").matchAll(/(\w+): \{ fassung: "([^"]+)"/g)].map((m) => [m[1], m[2]]);
+pruefe("Jedes Spiel lässt sich anschauen (ANSEHBAR und ANSEHBAR_ZUEGE)",
+  SPIELE.every((s) => ANSEHBAR_LISTE[s.spiel] || ZUG_ANSEHBAR.some(([id]) => id === s.spiel)));
+for (const [id, fassung] of ZUG_ANSEHBAR) {
+  const s = SPIELE.find((x) => x.spiel === id);
+  pruefe(`ANSEHBAR_ZUEGE: ${id} ist ein Spiel`, Boolean(s));
+  if (!s) continue;
+  const quelle = lies(s.js);
+  const zu = quelle.match(/LernappGeist\?\.zuschauer\?\.\(\{([\s\S]*?)\}\)/)?.[1] || "";
+  const auf = quelle.match(/LernappGeist\?\.zuege\?\.\(\{([\s\S]*?)\}\)/)?.[1] || "";
+  pruefe(`${s.js} schaut Zug um Zug zu (zuege: true), mit Fassung ${fassung}`,
+    zu.includes("zuege: true") && zu.match(/fassung: "([^"]+)"/)?.[1] === fassung);
+  pruefe(`${s.js} zeichnet seine Züge mit Fassung ${fassung} auf`, auf.match(/fassung: "([^"]+)"/)?.[1] === fassung);
+  pruefe(`${s.js} gibt die Aufzeichnung an die Tafel (showResult, geist)`, /aufnahme\?\.ende\(/.test(quelle) && /\n\s+geist,\n\s+\}\);/.test(quelle));
+  pruefe(`${s.js} beginnt das Anschauen, wenn der Lauf geladen ist`, /zuschauer\?\.laden\.then\(\(da\) => \{ if \(da\) zuschauenStarten\(\); \}\);/.test(quelle));
+  pruefe(`${s.js} zeigt am Schluss des Laufs die Tafel (weiter)`, /zuschauer\??\.weiter\?\.\(\)/.test(quelle));
+}
+{
+  const geistJs = lies("geist.js");
+  pruefe("geist.js zeichnet Züge auf und spielt sie ab (zuege, zugAbspieler)",
+    /function zuege\(/.test(geistJs) && /function zugAbspieler\(/.test(geistJs) && /\n    zuschauer, zuschauAdresse, ansehbar, zuege,/.test(geistJs));
+  pruefe("geist.js sperrt beim Zuschauen die Eingaben ins Spiel", /sperreEingaben\(\);/.test(geistJs));
+}
+// Der ▶ steht bei jedem, dessen Lauf es gibt – nicht nur bei den ersten drei.
+pruefe("Die Listen zeigen den ▶ bei allen, nicht nur bei den ersten drei",
+  !/platz <= 3/.test(miniJs) && /function ansehenFuer\(/.test(miniJs) && lies("turnier.js").includes("ansehenFuer"));
 
 // ---------------------------------------------------------------------------
 // --- 18. Der Multiplayer -------------------------------------------------------

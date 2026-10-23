@@ -175,8 +175,11 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen).
+  // Die Aufzeichnung der Fänge (geist.js, zuege): Mit ihr lässt sich der Lauf
+  // später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Wem zugeschaut wird: im Multiplayer nach dem eigenen Ende (live-spiel.js,
+  // Zuschauen), oder ein Lauf aus der Hall of Fame (geist.js, zuschauer).
   let zuschauer = null;
 
   function clearStep() {
@@ -252,6 +255,7 @@
     // Hier gibt es kein Vorher: Die Runde beginnt, sobald die Fische da sind.
     gegner?.runde();
     gegner?.los();
+    aufnahme?.los();
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt ft-prompt", "Tippe jeden Fisch einmal an.");
@@ -449,11 +453,13 @@
    * dabei schwimmen.
    */
   function meldeZug(was, doppelt = -1) {
-    const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    if (zuschauer) return;
     let gefangen = 0;
     state.fische.forEach((fisch, i) => { if (fisch.gefangen) gefangen += 2 ** i; });
-    live.zug(state.punkte, { a: gefangen, b: doppelt + 1, c: state.teich * 4 + was });
+    const ort = { a: gefangen, b: doppelt + 1, c: state.teich * 4 + was };
+    aufnahme?.zug(state.punkte, ort);
+    const live = window.LernappLiveSpiel;
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   const zuschau = { gezeigt: "", frame: 0 };
@@ -492,6 +498,8 @@
   function zuschauSchleife() {
     zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
     const jetzt = zuschauer?.jetzt?.();
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer?.weiter?.();
     const probe = zuschauer?.letzte?.(jetzt);
     if (!probe) return;
     const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
@@ -520,6 +528,7 @@
     state.fische.forEach((fisch) => { fisch.node.disabled = true; });
     last = performance.now();
     frame = window.requestAnimationFrame(step);
+    zuschauer.los?.();
     if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
   }
 
@@ -537,7 +546,7 @@
     stopLoop();
     state.phase = "over";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const next = recordRun(punkte);
     kids()?.playJingle?.("win");
     shell.showResult({
@@ -547,6 +556,7 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
+      geist,
     });
   }
 
@@ -562,13 +572,21 @@
     accent: "#00A5B5",
     accentDark: "#00707c",
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     // Live-Modus: Die Runde beginnt zum gemeinsamen Start, nicht beim Laden.
     live: { los: startRun, stopp: () => finish(null), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "fishPond", host, art: "ziel" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "fishPond", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "fishPond", host, art: "ziel" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  }
 
-  if (!shell.live) startRun();
+  // Wer einen Lauf anschaut, spielt keinen: Die Fische kommen mit dem Lauf.
+  if (!shell.live && !zuschauer) startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   window.addEventListener("resize", place);
   window.addEventListener("orientationchange", place);

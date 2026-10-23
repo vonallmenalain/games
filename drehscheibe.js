@@ -186,9 +186,13 @@
   let stepTimer = null;
   // Die Gegner (geist.js): Platz 1 und die eigene Bestmarke als Zielmarke.
   let gegner = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen), bis zu welchem seiner Würfe die Scheibe schon steht und für
-  // welchen schon ein Pfeil fliegt.
+  // Die Aufzeichnung der Würfe (geist.js, zuege): Mit ihr lässt sich der Lauf
+  // später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Wem zugeschaut wird – im Multiplayer nach dem eigenen Ende (live-spiel.js,
+  // Zuschauen) oder ein Lauf aus der Hall of Fame (geist.js, zuschauer) –,
+  // bis zu welchem seiner Würfe die Scheibe schon steht und für welchen schon
+  // ein Pfeil fliegt.
   let zuschauer = null;
   let gesehenBis = -Infinity;
   let fliegtFuer = -Infinity;
@@ -589,6 +593,7 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    aufnahme?.los();
     meldeZug(0, 0);
   }
 
@@ -756,11 +761,13 @@
   const FLUG_MS = ((ABSTAND - R + STECK - PFEIL_L) / FLUG_V) * 1000;
 
   function meldeZug(wie, w) {
-    const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauend() || !live.gestartet?.()) return;
+    if (zuschauend()) return;
     const sch = state.scheibe;
     const neu = sch ? sch.stecken.filter((p) => !p.alt).length : 0;
-    live.zug(state.punkte, { a: Math.round(norm(w) * 1e5), b: (sch?.n || 0) * 100 + neu, c: state.wuerfe * 4 + wie });
+    const ort = { a: Math.round(norm(w) * 1e5), b: (sch?.n || 0) * 100 + neu, c: state.wuerfe * 4 + wie };
+    aufnahme?.zug(state.punkte, ort);
+    const live = window.LernappLiveSpiel;
+    if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
   // Bis zur Scheibe n – die dazwischen sind beim Einsteigen schon geschafft.
@@ -821,6 +828,8 @@
       fliegtFuer = kommt.t;
       state.flug = { y: ruheY() + FLUG_V * ((FLUG_MS - (kommt.t - jetzt)) / 1000) };
     }
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
+    zuschauer.weiter?.();
   }
 
   // Ab jetzt die Scheiben des anderen: von vorn, mit derselben Saat, und dann
@@ -832,6 +841,7 @@
     shell.setPhase("play");
     gesehenBis = -Infinity;
     fliegtFuer = -Infinity;
+    zuschauer.los?.();
     zuschauenTakt();
   }
 
@@ -983,7 +993,7 @@
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
-    gegner?.ende(punkte);
+    const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     store.update((old) => ({
@@ -997,6 +1007,7 @@
       label: "Deine Punkte",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${scheiben}${vorher ? ` · Bestwert ${vorher}` : ""}`,
+      geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("dr-rekord");
     zaehleHoch(punkte);
@@ -1012,12 +1023,19 @@
     accent: "#00A5B5",
     accentDark: "#00707c",
     clock: false,
-    onRestart: startRun,
+    onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
-  gegner = window.LernappGeist?.fuer?.({ spiel: "dartWheel", host, art: "ziel" }) || null;
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "dartWheel", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) {
+    gegner = window.LernappGeist?.fuer?.({ spiel: "dartWheel", host, art: "ziel" }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  }
 
   startRun();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;

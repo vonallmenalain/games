@@ -336,10 +336,16 @@
   let frame = null;
   let letzteZeit = 0;
   let stepTimer = null;
-  // Im Multiplayer, nach dem eigenen Ende: wem zugeschaut wird (live-spiel.js,
-  // Zuschauen) und bis zu welchem seiner Züge die Kessel schon stehen.
+  // Wem zugeschaut wird und bis zu welchem seiner Züge die Kessel schon
+  // stehen: im Multiplayer nach dem eigenen Ende (live-spiel.js, Zuschauen),
+  // oder eine Schicht aus der Hall of Fame (geist.js, zuschauer).
   let zuschauer = null;
   let gesehenBis = -Infinity;
+  // Die Aufzeichnung der Schicht (geist.js, zuege): Mit ihr lässt sie sich
+  // später aus der Hall of Fame anschauen.
+  let aufnahme = null;
+  // Eine Schicht aus der Hall of Fame statt eines Spielers im Multiplayer.
+  const ausAufzeichnung = () => Boolean(zuschauer && !zuschauer.live);
 
   // Wie lange die Schicht läuft. Sie ist die Punktzahl, und sie ist der Takt,
   // nach dem der Verbrauch steigt und der nächste Kessel kommt – alle drei
@@ -446,7 +452,12 @@
 
   function step(now) {
     frame = window.requestAnimationFrame(step);
-    if (state.phase === "zuschauen") { zuschauenSchritt(); return; }
+    if (state.phase === "zuschauen" || state.phase === "zuschauen-aus") {
+      // Eine Schicht aus der Hall of Fame: am Schluss die Tafel.
+      zuschauer?.weiter?.();
+      if (state.phase === "zuschauen") zuschauenSchritt();
+      return;
+    }
     if (state.phase !== "play") return;
 
     // Der Schritt wird gedeckelt: Bleibt ein Bild einmal aus – eine lange
@@ -521,6 +532,12 @@
    * derselben Saat, und wann der nächste kommt, aus der Uhr. Wer zuschaut,
    * rechnet jeden Zeiger vom letzten Zug an selbst herunter – als Formel,
    * nicht Bild für Bild, also genau so, wie er beim anderen fällt.
+   *
+   * Die Aufzeichnung für die Hall of Fame (aufnahme) lässt a weg: Wie die
+   * Kessel stehen, rechnet die Wiedergabe auch über die Züge hinweg selbst
+   * (zugAnwenden). Fünf Kessel in einer Zahl wären gut zwanzig Zeichen je
+   * Tipp, und eine ganze Schicht hat Hunderte – so passt sie in die
+   * Datenbank.
    */
   const ZUG_AUS = 5;
   const ZUG_PLATZT = 6;
@@ -528,12 +545,16 @@
   const BIT = 1024;
 
   function meldeZug(was, kessel = null) {
+    if (zuschauer) return;
+    const b = state.kessel.length * 8 + (kessel ? kessel.nummer - 1 : 0);
+    const c = state.kohle * 8 + was;
+    const sekunden = Math.floor(spielzeit() / 1000);
+    aufnahme?.zug(sekunden, { a: 0, b, c });
     const live = window.LernappLiveSpiel;
-    if (!shell?.live || !live?.zug || zuschauer || !live.gestartet?.()) return;
+    if (!shell?.live || !live?.zug || !live.gestartet?.()) return;
     let a = 0;
     state.kessel.forEach((k, i) => { a += Math.round(Math.max(0, Math.min(VOLL, k.wert)) * 10) * BIT ** i; });
-    const b = state.kessel.length * 8 + (kessel ? kessel.nummer - 1 : 0);
-    live.zug(Math.floor(spielzeit() / 1000), { a, b, c: state.kohle * 8 + was });
+    live.zug(sekunden, { a, b, c });
   }
 
   // Wann der Kessel i (von null an) dazukommt, in Millisekunden der Schicht.
@@ -550,13 +571,25 @@
   function zugAnwenden(probe, sofort) {
     const was = probe.c % 8;
     const stehen = Math.floor(probe.b / 8);
-    // Jeder Kessel, den es zu diesem Zug schon gab, steht so, wie der andere
-    // ihn hatte – und fällt von da an weiter.
-    state.kessel.forEach((kessel, i) => {
-      if (i >= stehen) return;
-      kessel.basis = (Math.floor(probe.a / BIT ** i) % BIT) / 10;
-      kessel.seit = probe.t;
-    });
+    if (ausAufzeichnung()) {
+      // Aus der Aufzeichnung: Jeder Kessel steht, wie er bis zu diesem Zug
+      // gefallen ist, und der, auf den nachgelegt wurde, eine Schaufel höher.
+      state.kessel.forEach((kessel) => {
+        if (kessel.seit > probe.t) return;
+        kessel.basis = Math.max(0, Math.min(VOLL, kessel.basis - verbrauch(kessel.tempo, kessel.seit, probe.t)));
+        kessel.seit = probe.t;
+      });
+      const voll = was < 5 ? state.kessel[was] : null;
+      if (voll) voll.basis = Math.min(VOLL, voll.basis + KOHLE);
+    } else {
+      // Jeder Kessel, den es zu diesem Zug schon gab, steht so, wie der
+      // andere ihn hatte – und fällt von da an weiter.
+      state.kessel.forEach((kessel, i) => {
+        if (i >= stehen) return;
+        kessel.basis = (Math.floor(probe.a / BIT ** i) % BIT) / 10;
+        kessel.seit = probe.t;
+      });
+    }
     const kessel = state.kessel[was < 5 ? was : probe.b % 8];
     if (was < 5 && kessel && !sofort) kohleBild(kessel);
     if (was === ZUG_AUS || was === ZUG_PLATZT) {
@@ -574,7 +607,8 @@
 
   function zuschauenSchritt() {
     if (!zuschauer?.seit) return;
-    const jetzt = Math.max(0, zuschauer.jetzt());
+    // Eine Schicht aus der Hall of Fame dauert höchstens eine Schicht.
+    const jetzt = Math.max(0, ausAufzeichnung() ? Math.min(SCHICHT_MS, zuschauer.jetzt()) : zuschauer.jetzt());
     // Die Kessel, die es zu dieser Zeit beim anderen gibt – in derselben
     // Reihe, sonst bekämen sie ein anderes Tempo.
     while (state.kessel.length < KESSEL_MAX && ankunft(state.kessel.length) <= jetzt) {
@@ -621,6 +655,7 @@
     raeumePlatz();
     reihe = shell.el("div", "hz-reihe");
     shell.play.append(reihe);
+    zuschauer.los?.();
     frame = window.requestAnimationFrame(step);
   }
 
@@ -630,11 +665,13 @@
     if (zuschauer) return;
     clearStep();
     const punkte = Math.max(0, Math.round(Math.min(SCHICHT_MS, state.gelaufen) / 100));
+    const geist = aufnahme?.ende() || null;
     recordRun(punkte);
     shell.showResult({
       label: "Punkte",
       points: punkte,
       detail: `${sekundenWort(punkte)} Sekunden · ${state.kohle} Mal Kohle`,
+      geist,
     });
   }
 
@@ -711,6 +748,7 @@
     shell.play.append(reihe);
 
     for (let i = 0; i < KESSEL_START; i += 1) neuerKessel();
+    aufnahme?.los();
     meldeZug(ZUG_START);
 
     frame = window.requestAnimationFrame(step);
@@ -726,13 +764,18 @@
     area: "konzentration",
     accent: "#00A5B5",
     accentDark: "#00707c",
-    onRestart: showIntro,
+    onRestart: () => (zuschauer ? zuschauenStarten() : showIntro()),
     // Live-Modus: Die Schicht beginnt zum gemeinsamen Start, ohne «Starten»,
     // und endet, wenn die Zeit des Live-Abends um ist.
     live: { los: beginRound, stopp: schichtEnde, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
+  zuschauer = window.LernappGeist?.zuschauer?.({
+    host, spiel: "boilerRoom", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+  }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
 
   showIntro();
+  zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   // --- Tastatur --------------------------------------------------------------
   // Mit einer Maus ist Tippen auf fünf Ziele langsamer als mit zwei Daumen.

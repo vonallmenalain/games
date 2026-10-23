@@ -159,9 +159,12 @@ ohne «überholt!» und ohne Platz unter allen (`gleichschritt`).
 
 ### Die besten Läufe anschauen
 
-In der Hall of Fame und auf der Turnierseite steht bei den ersten drei der
-sieben Spiele mit Geist im Bild ein kleiner ▶ – sofern es von ihrem Lauf eine
-Aufzeichnung gibt (`mini-games.js`, `ansehbareLaeufe`). Er öffnet das Spiel
+In der Hall of Fame und auf der Turnierseite steht in jedem Spiel bei jedem
+Spieler ein kleiner ▶ – sofern es von seinem besten Lauf eine Aufzeichnung
+gibt (`mini-games.js`, `ansehbareLaeufe`). Gefragt wird nach denen, die
+gerade in der Liste stehen: erst die ersten drei und der eigene Eintrag, mit
+«Ganze Liste» die übrigen (`ansehenFuer`, je 25 Aufzeichnungen auf einmal).
+Er öffnet das Spiel
 mit `?zuschauen=<spieler>` (aus einem Turnier dazu `&aus=<turnier>`; das ist
 kein Versuch im Turnier). Das Spiel spielt den Lauf ganz ab, in seiner eigenen
 Welt: Die Aufzeichnung trägt die Saat, mit der die Welt gewürfelt war, und im
@@ -173,6 +176,21 @@ in `ANSEHBAR` (`mini-games.js`); `npm run pruefen` hält sie mit den Spielen
 gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
 nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
 Strecke ist fest).
+
+Die acht Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
+Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom)
+zeichnen statt eines Weges ihre Züge auf (`geist.js`, `zuege`): dieselben,
+die sie im Multiplayer melden, mit der Zeit seit dem Start, der Saat und dem
+Ende der Runde. Beim Anschauen baut das Spiel sie nach – genau so, wie es im
+Multiplayer dem zuschaut, der noch spielt (`zuschauer({ zuege: true })` gibt
+dieselben Fragen: `jetzt`, `seit`, `letzte`, `naechste`). Der Heizer lässt
+dabei die Stände der Kessel weg und rechnet sie selbst, sonst passte eine
+lange Schicht nicht in die Datenbank; Blätter im Strom schreibt seine Wische
+in den Lauf mit Uhr, den die Gegner lesen. Welche Fassung dazugehört, steht
+in `ANSEHBAR_ZUEGE`. Gespeichert wird die Aufzeichnung wie jede beim nächsten
+Rekord – Bestwerte von vorher lassen sich erst anschauen, wenn sie
+geschlagen sind. Beim Anschauen gehört kein Tipp und keine Taste dem Spiel,
+auch nicht, bevor der Lauf geladen ist.
 
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
