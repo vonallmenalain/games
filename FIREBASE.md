@@ -232,6 +232,10 @@ Seite. Schutz ist allein die erste: Die Datenbank fragt nicht den Browser.
 Ohne das schlägt Google-Anmeldung und E-Mail-Link mit
 `auth/unauthorized-domain` fehl. Der Adminbereich sagt das dann auch so.
 
+Die Deploy Previews von Netlify stehen dort nicht – und müssen es nicht: Dort
+meldet Google über `games.alae.app` an (README, Der Adminbereich). Der
+E-Mail-Link geht in einer Vorschau nicht, das Passwort schon.
+
 ## 3. Was hier NICHT steht
 
 Keine Konten von Spielern, kein Fortschritt, keine Käufe, keine Besuchszahlen.

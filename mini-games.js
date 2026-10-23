@@ -77,6 +77,22 @@
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
 
+  // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
+  // Anlegen eines Turniers stehen sie danach gruppiert (admin.js). Was hier
+  // steht, ist die Vorgabe; der Admin teilt im Adminbereich selbst ein, und
+  // das steht dann in config/miniGames (cloud.js, tiers). Ein Spiel, das in
+  // keiner der beiden Listen steht, ist Tier 3.
+  const TIERS_VORGABE = {
+    towerStack: 1, bridgeBuilder: 1, vineSwing: 1, tunnelFlight: 1, driftRace: 1, hillGlide: 1,
+    leafFlow: 2, dartWheel: 2, planetHop: 2, boilerRoom: 2,
+  };
+  const TIERS = [1, 2, 3];
+  // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
+  function tierVon(spiel, einteilung = null) {
+    const tier = Number(einteilung?.[spiel] ?? TIERS_VORGABE[spiel] ?? 3);
+    return TIERS.includes(tier) ? tier : 3;
+  }
+
   // Die Spiele, deren beste Läufe sich anschauen lassen (geist.js,
   // zuschauer): die Fassung ihrer Aufzeichnung – dieselbe, die das Spiel bei
   // LernappGeist.fuer angibt – und ob ihre Welt immer dieselbe ist. Sonst
@@ -1531,6 +1547,7 @@
     einheit,
     farbe,
     listeFuer,
+    TIERS, TIERS_VORGABE, tierVon,
     listeBauen, gezeigteEintraege, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
     geister,
     rangliste,

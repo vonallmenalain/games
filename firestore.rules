@@ -90,10 +90,16 @@ service cloud.firestore {
     function istSpieleListe() {
       let d = request.resource.data;
       return d.keys().hasAll(["spiele", "updatedAtMs"])
-        && d.keys().hasOnly(["spiele", "updatedAtMs", "updatedAt"])
+        && d.keys().hasOnly(["spiele", "tiers", "updatedAtMs", "updatedAt"])
         && d.spiele is list
         && d.spiele.size() <= 50
         && d.spiele.hasOnly(miniSpiele())
+        // Die Tiers (admin.js): je Spiel, das es gibt, 1, 2 oder 3. Fehlt das
+        // Feld, gilt die Vorgabe aus mini-games.js.
+        && (!("tiers" in d) || (d.tiers is map
+          && d.tiers.size() <= 50
+          && d.tiers.keys().hasOnly(miniSpiele())
+          && d.tiers.values().hasOnly([1, 2, 3])))
         && d.updatedAtMs is int;
     }
 

@@ -417,6 +417,24 @@ pruefe("Turniere ohne Replays: Regel, Formular, Turnierseite und Spiel kennen oh
   /"ohneReplay"/.test(regeln) && /d\.get\("ohneReplay", false\) is bool/.test(regeln)
   && /ohneReplay: !replay\.checked/.test(lies("admin.js")) && /ohneReplay: d\.ohneReplay === true/.test(lies("cloud.js"))
   && /!verdeckt && !t\.ohneReplay/.test(lies("turnier.js")) && /t\.ohneReplay \|\|/.test(lies("geist.js")));
+// Die Tiers: eine Vorgabe in mini-games.js, gespeichert in config/miniGames
+// (die Regeln lassen je Spiel 1, 2 oder 3 zu), eingeteilt und gruppiert im
+// Adminbereich.
+pruefe("Tiers: Vorgabe, Speicher, Regel und Adminbereich passen zusammen",
+  /const TIERS_VORGABE = \{/.test(miniJs) && /async function setzeTiers\(/.test(lies("cloud.js"))
+  && /d\.tiers\.values\(\)\.hasOnly\(\[1, 2, 3\]\)/.test(regeln)
+  && /function nachTier\(/.test(lies("admin.js")) && /tierKnopf/.test(lies("admin.js")));
+// In einer Deploy Preview meldet Google über die Live-Adresse an – und das
+// Token geht nur an Vorschauen eigener Pull Requests (kein Fork).
+{
+  const adminJs = lies("admin.js");
+  pruefe("Adminbereich: Google-Anmeldung in Vorschauen über die Live-Adresse, nur für eigene Pull Requests",
+    adminJs.includes('const LIVE = "https://games.alae.app";')
+    && /deploy-preview-\(\\d\+\)--gamesrepo\\\.netlify\\\.app\$/.test(adminJs)
+    && /head\?\.repo\?\.full_name === REPO/.test(adminJs)
+    && /opener\.postMessage\(\{[^}]*\}, ziel\)/.test(adminJs)
+    && /ereignis\.origin !== LIVE/.test(adminJs));
+}
 // Der ▶ steht bei jedem, dessen Lauf es gibt – nicht nur bei den ersten drei.
 pruefe("Die Listen zeigen den ▶ bei allen, nicht nur bei den ersten drei",
   !/platz <= 3/.test(miniJs) && /function ansehenFuer\(/.test(miniJs) && lies("turnier.js").includes("ansehenFuer"));

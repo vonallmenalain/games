@@ -28,6 +28,13 @@
  *     erstesMs / updatedAtMs      Uhrzeiten, für die Reihenfolge bei
  *                                 Gleichstand
  *
+ * Und welche Spiele offen sind und wie der Admin sie einteilt:
+ *
+ *   config/miniGames
+ *     spiele     ["towerStack", …]   was auf der Startseite steht
+ *     tiers      { towerStack: 1 }    Tier 1, 2 oder 3 je Spiel (admin.js).
+ *                                     Fehlt, wo nie eingeteilt wurde.
+ *
  * Und die Aufzeichnung des besten Laufs, für die, die gegen ihn spielen
  * (geist.js):
  *
@@ -249,8 +256,59 @@
     const liste = [...new Set((Array.isArray(spiele) ? spiele : [])
       .map((id) => String(id || "").trim())
       .filter(Boolean))];
-    await doc.set({ spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() });
+    // merge: Die Tiers im selben Dokument bleiben, wie sie sind.
+    await doc.set({ spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() }, { merge: true });
     return liste;
+  }
+
+  /*
+   * Die Tiers: wie der Admin die Spiele einteilt (admin.js) – je Spiel 1, 2
+   * oder 3, im selben Dokument wie die offenen Spiele. null heisst: nie
+   * eingeteilt, es gilt die Vorgabe (mini-games.js, TIERS_VORGABE).
+   */
+  async function tiers() {
+    const doc = listenDoc();
+    if (!doc) return null;
+    const stand = await doc.get();
+    const roh = stand.exists ? stand.data()?.tiers : null;
+    if (!roh || typeof roh !== "object") return null;
+    const raus = {};
+    Object.entries(roh).forEach(([spiel, tier]) => {
+      if ([1, 2, 3].includes(Number(tier))) raus[String(spiel)] = Number(tier);
+    });
+    return raus;
+  }
+
+  // Und sie setzen. offen: die Liste der offenen Spiele, falls es das Dokument
+  // noch nicht gibt – die Regeln verlangen sie, und «nie ausgewählt» hiesse
+  // ohnehin «alle».
+  async function setzeTiers(einteilung, offen = []) {
+    const doc = listenDoc();
+    if (!doc) throw new Error("Firestore ist nicht bereit.");
+    const sauber = {};
+    Object.entries(einteilung || {}).forEach(([spiel, tier]) => {
+      const id = String(spiel || "").trim();
+      if (id && [1, 2, 3].includes(Number(tier))) sauber[id] = Number(tier);
+    });
+    const daten = { tiers: sauber, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
+    const stand = await doc.get();
+    if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
+      daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
+    }
+    await doc.set(daten, { merge: true });
+    return sauber;
+  }
+
+  /*
+   * Eine zweite Anwendung ohne gespeicherte Anmeldung – für die Google-
+   * Anmeldung der Netlify-Vorschauen (admin.js, vorschau). Die Anmeldung des
+   * Adminbereichs auf der Live-Adresse bleibt davon unberührt.
+   */
+  function vorschauApp() {
+    const firebase = window.firebase;
+    if (!firebase?.initializeApp) return null;
+    const name = "vorschau-anmeldung";
+    return (firebase.apps || []).find((a) => a.name === name) || firebase.initializeApp(firebaseConfig, name);
   }
 
   /*
@@ -995,7 +1053,7 @@
     projektId: firebaseConfig.projectId,
     ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen,
     speichereGeist, geister,
-    offeneSpiele, setzeOffeneSpiele,
+    offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     turnierGeist, speichereTurnierGeist,

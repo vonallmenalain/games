@@ -18,6 +18,9 @@
  *   Passwort      klassisch; die Adresse muss bestätigt sein, sonst gilt sie
  *                 den Regeln nicht (firestore.rules, istAdmin)
  *
+ * In einer Deploy Preview von Netlify meldet Google über die Live-Adresse an
+ * (siehe Anmeldung in einer Netlify-Vorschau weiter unten).
+ *
  * Wer Admin ist, entscheidet nicht diese Datei, sondern firestore.rules.
  * Hier steht dieselbe Adresse noch einmal – aber nur, um dem Angemeldeten
  * sagen zu können, woran es liegt. Wer sie hier hineinschriebe, käme trotzdem
@@ -155,6 +158,130 @@
     return fehler?.message ? String(fehler.message) : "Das hat nicht geklappt.";
   }
 
+  // ---------------------------------------------------------------------------
+  // Anmeldung in einer Netlify-Vorschau
+  // ---------------------------------------------------------------------------
+  /*
+   * Firebase lässt «Mit Google anmelden» nur auf freigegebenen Adressen zu
+   * (Authorized domains) und kennt dort keine Platzhalter – jede Deploy
+   * Preview hat aber ihre eigene Adresse. Deshalb holt sich die Vorschau das
+   * Google-Token über die Live-Adresse: Dort öffnet sich ein Fenster
+   * (/admin?vorschau=<Adresse der Vorschau>), das bei Google anmeldet und das
+   * Token per postMessage zurückschickt. Damit meldet sich die Vorschau bei
+   * Firebase an – signInWithCredential fragt nicht nach der Domain. Dasselbe
+   * wie im Entdecker.
+   *
+   * Das Token geht nur an Deploy Previews dieses Netlify-Projekts, und nur an
+   * die eines Pull Requests aus diesem Repository selbst. Das Repository ist
+   * öffentlich: Einen Pull Request aus einem Fork kann jeder öffnen, und
+   * seine Vorschau führt fremden Code aus. Woher ein Pull Request kommt, sagt
+   * die GitHub-API.
+   *
+   * Das Fenster auf der Live-Adresse braucht diese Fassung von admin.js –
+   * erst wenn sie dort veröffentlicht ist, geht die Anmeldung in Vorschauen.
+   */
+  const LIVE = "https://games.alae.app";
+  const REPO = "vonallmenalain/games";
+  const VORSCHAU = /^https:\/\/deploy-preview-(\d+)--gamesrepo\.netlify\.app$/;
+  const VORSCHAU_NACHRICHT = "mini:vorschau-anmeldung";
+  const inVorschau = () => VORSCHAU.test(window.location.origin);
+  const authFehler = (code) => Object.assign(new Error(code), { code });
+
+  // In der Vorschau: das Fenster auf der Live-Adresse öffnen und auf das
+  // Token warten.
+  function googleUeberLive() {
+    const fenster = window.open(`${LIVE}/admin?vorschau=${encodeURIComponent(window.location.origin)}`,
+      "mini-vorschau-anmeldung", "popup,width=480,height=680");
+    if (!fenster) return Promise.reject(authFehler("auth/popup-blocked"));
+    return new Promise((fertig, scheitert) => {
+      function bote(ereignis) {
+        if (ereignis.source !== fenster || ereignis.origin !== LIVE) return;
+        const d = ereignis.data;
+        if (d?.type !== VORSCHAU_NACHRICHT) return;
+        const idToken = typeof d.idToken === "string" ? d.idToken : null;
+        const accessToken = typeof d.accessToken === "string" ? d.accessToken : null;
+        if (!idToken && !accessToken) return;
+        stop();
+        fertig(window.firebase.auth.GoogleAuthProvider.credential(idToken, accessToken));
+      }
+      // Fenster ohne Anmeldung geschlossen: wie bei signInWithPopup.
+      const uhr = window.setInterval(() => {
+        if (!fenster.closed) return;
+        stop();
+        scheitert(authFehler("auth/popup-closed-by-user"));
+      }, 500);
+      function stop() {
+        window.removeEventListener("message", bote);
+        window.clearInterval(uhr);
+      }
+      window.addEventListener("message", bote);
+    });
+  }
+
+  // Stammt der Pull Request aus diesem Repository (und nicht aus einem Fork)?
+  async function eigenerPullRequest(nummer) {
+    try {
+      const antwort = await fetch(`https://api.github.com/repos/${REPO}/pulls/${nummer}`, { headers: { Accept: "application/vnd.github+json" } });
+      if (!antwort.ok) return false;
+      const pr = await antwort.json();
+      return pr?.head?.repo?.full_name === REPO && pr?.base?.repo?.full_name === REPO;
+    } catch { return false; }
+  }
+
+  // Auf der Live-Adresse, im Fenster, das eine Vorschau geöffnet hat: bei
+  // Google anmelden – mit einer zweiten Anwendung ohne Speicher (cloud.js,
+  // vorschauApp), die eigene Anmeldung hier bleibt, wie sie ist – und das
+  // Token an die Vorschau schicken.
+  async function zeigeVorschauAnmeldung(ziel) {
+    leere();
+    const karte = el("section", "adm-karte adm-anmeldung");
+    karte.append(el("h1", "adm-titel", "Anmeldung für die Vorschau"));
+    wirt.append(karte);
+    const opener = window.opener;
+    const treffer = VORSCHAU.exec(ziel);
+    const zurueck = el("a", "adm-klein-link", "Zum Adminbereich");
+    zurueck.href = "/admin";
+    if (!opener || !treffer) {
+      karte.append(el("p", "adm-lead", "Diese Seite öffnet sich aus einer Vorschau des Adminbereichs."), zurueck);
+      return;
+    }
+    karte.append(el("p", "adm-lead", `Die Vorschau ${new URL(ziel).host} (Pull Request #${treffer[1]}) möchte dich mit deinem Google-Konto anmelden.`));
+    const meldung = el("p", "adm-meldung", "Der Pull Request wird geprüft...");
+    karte.append(meldung);
+    const sage = (text, art = "") => {
+      meldung.textContent = text;
+      meldung.className = `adm-meldung ${art}`.trim();
+    };
+    if (!(await eigenerPullRequest(treffer[1]))) {
+      sage(`Pull Request #${treffer[1]} stammt nicht aus ${REPO} – oder GitHub antwortet gerade nicht. Angemeldet wird nur in Vorschauen eigener Pull Requests.`, "ist-fehler");
+      karte.append(zurueck);
+      return;
+    }
+    sage("");
+    const google = knopf("Mit Google anmelden", "adm-knopf-voll", async () => {
+      const app = cloud()?.vorschauApp?.();
+      if (!app || !window.firebase?.auth) { sage("Firebase ist nicht geladen.", "ist-fehler"); return; }
+      const a = window.firebase.auth(app);
+      sage("Fenster öffnet sich...");
+      try {
+        await a.setPersistence(window.firebase.auth.Auth.Persistence.NONE);
+        const anbieter = new window.firebase.auth.GoogleAuthProvider();
+        anbieter.setCustomParameters({ prompt: "select_account" });
+        const ergebnis = await a.signInWithPopup(anbieter);
+        const nachweis = ergebnis?.credential || null;
+        await a.signOut();
+        if (!nachweis?.idToken && !nachweis?.accessToken) { sage("Google hat kein Token geschickt.", "ist-fehler"); return; }
+        opener.postMessage({ type: VORSCHAU_NACHRICHT, idToken: nachweis.idToken || null, accessToken: nachweis.accessToken || null }, ziel);
+        google.remove();
+        sage("Angemeldet. Dieses Fenster schliesst sich gleich.", "ist-gut");
+        window.setTimeout(() => window.close(), 1200);
+      } catch (fehler) {
+        sage(fehlerText(fehler), "ist-fehler");
+      }
+    });
+    karte.append(google);
+  }
+
   function zeigeAnmeldung(hinweis) {
     leere();
     const karte = el("section", "adm-karte adm-anmeldung");
@@ -174,6 +301,15 @@
       const a = auth();
       if (!a) { sage("Firebase ist nicht geladen.", "ist-fehler"); return; }
       sage("Fenster öffnet sich...");
+      // In einer Netlify-Vorschau: über die Live-Adresse.
+      if (inVorschau()) {
+        try {
+          await a.signInWithCredential(await googleUeberLive());
+        } catch (fehler) {
+          sage(fehlerText(fehler), "ist-fehler");
+        }
+        return;
+      }
       const anbieter = new window.firebase.auth.GoogleAuthProvider();
       try {
         await a.signInWithPopup(anbieter);
@@ -190,19 +326,25 @@
 
     karte.append(el("p", "adm-trenner", "oder"));
 
-    // --- E-Mail-Link ----------------------------------------------------------
-    const mailForm = el("form", "adm-form");
+    // --- E-Mail: Link oder Passwort ---------------------------------------
+    // Eine Adresse für beide Wege. Mit Passwort meldet «Anmelden» an, ohne
+    // schickt «Link per E-Mail» einen Link, der anmeldet.
+    const mailForm = el("form", "adm-form adm-form-mail");
     const mailFeld = feld("email", "deine@adresse.ch", "email");
     mailFeld.value = gemerkteMail();
     mailFeld.required = true;
+    const pwFeld = feld("password", "Passwort", "current-password");
+    const pwKnopf = el("button", "adm-knopf adm-knopf-hell", "Anmelden");
+    pwKnopf.type = "submit";
     const mailKnopf = el("button", "adm-knopf adm-knopf-hell", "Link per E-Mail");
-    mailKnopf.type = "submit";
-    mailForm.append(mailFeld, mailKnopf);
-    mailForm.addEventListener("submit", async (ereignis) => {
-      ereignis.preventDefault();
+    mailKnopf.type = "button";
+    const mailKnoepfe = el("div", "adm-form-knoepfe");
+    mailKnoepfe.append(pwKnopf, mailKnopf);
+    mailForm.append(mailFeld, pwFeld, mailKnoepfe);
+    mailKnopf.addEventListener("click", async () => {
       const a = auth();
       const adresse = mailFeld.value.trim();
-      if (!a || !adresse) return;
+      if (!a || !mailFeld.reportValidity() || !adresse) return;
       sage("Link wird verschickt...");
       try {
         await a.sendSignInLinkToEmail(adresse, { url: hierher(), handleCodeInApp: true });
@@ -212,31 +354,20 @@
         sage(fehlerText(fehler), "ist-fehler");
       }
     });
-    karte.append(mailForm);
-
-    // --- Passwort -------------------------------------------------------------
-    const pwForm = el("form", "adm-form adm-form-pw");
-    const pwMail = feld("email", "deine@adresse.ch", "email");
-    pwMail.value = gemerkteMail();
-    pwMail.required = true;
-    const pwFeld = feld("password", "Passwort", "current-password");
-    pwFeld.required = true;
-    const pwKnopf = el("button", "adm-knopf adm-knopf-hell", "Anmelden");
-    pwKnopf.type = "submit";
-    pwForm.append(pwMail, pwFeld, pwKnopf);
-    pwForm.addEventListener("submit", async (ereignis) => {
+    mailForm.addEventListener("submit", async (ereignis) => {
       ereignis.preventDefault();
       const a = auth();
       if (!a) return;
+      if (!pwFeld.value) { sage("Passwort eingeben – oder «Link per E-Mail».", "ist-fehler"); pwFeld.focus(); return; }
       sage("Wird angemeldet...");
       try {
-        await a.signInWithEmailAndPassword(pwMail.value.trim(), pwFeld.value);
-        merkeMail(pwMail.value.trim());
+        await a.signInWithEmailAndPassword(mailFeld.value.trim(), pwFeld.value);
+        merkeMail(mailFeld.value.trim());
       } catch (fehler) {
         sage(fehlerText(fehler), "ist-fehler");
       }
     });
-    karte.append(pwForm);
+    karte.append(mailForm);
 
     // Beim allerersten Mal gibt es das Konto noch nicht. Das Anlegen steht
     // klein daneben statt als eigener Weg: Wer hier landet, meldet sich in
@@ -246,7 +377,7 @@
     nebenbei.append(knopf("Anlegen", "adm-knopf-text", async () => {
       const a = auth();
       if (!a) return;
-      const adresse = pwMail.value.trim();
+      const adresse = mailFeld.value.trim();
       if (!adresse || !pwFeld.value) { sage("Adresse und Passwort ausfüllen, dann anlegen.", "ist-fehler"); return; }
       sage("Konto wird angelegt...");
       try {
@@ -488,7 +619,7 @@
   // liegt neben dem Haken und nicht in seinem label: Ein Tipp auf "spielen"
   // soll nie zugleich den Haken umlegen – auf der Startseite wäre das sofort
   // gespeichert.
-  function wahlZeile(spiel, an, beiAenderung) {
+  function wahlZeile(spiel, an, beiAenderung, zusatz = null) {
     const zeile = el("div", "adm-wahl");
     zeile.style.setProperty("--adm-farbe", farbe(spiel).hell);
     const haken = el("label", "adm-wahl-haken");
@@ -502,8 +633,54 @@
       beiAenderung(box.checked);
     });
     haken.append(box, el("span", "adm-wahl-name", titel(spiel)));
-    zeile.append(haken, spielenKnopf(spiel));
+    zeile.append(haken);
+    if (zusatz) zeile.append(zusatz);
+    zeile.append(spielenKnopf(spiel));
     return { zeile, box };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Tiers
+  // ---------------------------------------------------------------------------
+  // Drei Gruppen, in die der Admin die Spiele einteilt – im Block «Welche
+  // Spiele gespielt werden» mit T1/T2/T3 neben jedem Spiel. Gespeichert in
+  // config/miniGames (cloud.js, setzeTiers); beim Anlegen eines Turniers
+  // stehen die Spiele danach gruppiert, mit einem Knopf je Tier. Nie
+  // eingeteilt: die Vorgabe (mini-games.js, TIERS_VORGABE).
+  const TIER_LISTE = () => mini()?.TIERS || [1, 2, 3];
+
+  // Für jedes Spiel sein Tier – aus dem Gespeicherten, sonst aus der Vorgabe.
+  function vollstaendig(gespeichert) {
+    const einteilung = {};
+    (mini()?.SPIELE || []).forEach((s) => { einteilung[s.id] = mini()?.tierVon?.(s.id, gespeichert) ?? 3; });
+    return einteilung;
+  }
+
+  // Die Spiele je Tier, in der Reihenfolge der Liste (mini-games.js, SPIELE).
+  function nachTier(einteilung) {
+    const gruppen = new Map(TIER_LISTE().map((n) => [n, []]));
+    (mini()?.SPIELE || []).forEach((s) => gruppen.get(einteilung[s.id] || 3)?.push(s.id));
+    return gruppen;
+  }
+
+  function tierTitel(n, anzahl) {
+    const kopf = el("h3", "adm-tier-titel");
+    kopf.append(el("span", "adm-tier-marke", `Tier ${n}`), el("span", "adm-tier-zahl", `${anzahl} ${anzahl === 1 ? "Spiel" : "Spiele"}`));
+    return kopf;
+  }
+
+  function tierWahl(spiel, tier, beiWechsel) {
+    const wahl = el("select", "adm-tier-wahl");
+    wahl.setAttribute("aria-label", `Tier von ${titel(spiel)}`);
+    wahl.title = "In welches Tier dieses Spiel gehört";
+    TIER_LISTE().forEach((n) => {
+      const option = el("option", "", `T${n}`);
+      option.value = String(n);
+      wahl.append(option);
+    });
+    wahl.value = String(tier);
+    wahl.addEventListener("change", () => beiWechsel(Number(wahl.value)));
+    return wahl;
   }
 
   // ---------------------------------------------------------------------------
@@ -519,19 +696,19 @@
   // spielen – die Adresse bleibt, die Seite bleibt. Nur aufgeführt wird es
   // nicht mehr. Das ist Absicht: Ein Link, den jemand verschickt hat, soll
   // nicht ins Leere laufen.
-  function baueAuswahl(offen, neuLaden) {
+  function baueAuswahl(offen, neuLaden, einteilung) {
     const block = el("section", "adm-block");
     const kopf = el("header", "adm-block-kopf");
     kopf.append(el("h2", "", "Welche Spiele gespielt werden"));
     const zahl = el("span", "adm-block-zahl", `${offen.length} von ${(mini()?.SPIELE || []).length} angehakt`);
     kopf.append(zahl);
     block.append(kopf);
-    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit ▶ spielst du ein Spiel im Vollbild – die Runde zählt unter deinem Namen."));
+    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit T1, T2, T3 teilst du ein Spiel einem Tier zu – so stehen die Spiele auch beim Anlegen eines Turniers. Mit ▶ spielst du ein Spiel im Vollbild – die Runde zählt unter deinem Namen."));
 
     const meldung = el("p", "adm-meldung");
     block.append(meldung);
 
-    const gitter = el("div", "adm-auswahl");
+    const gitter = el("div", "adm-tiers");
     const gewaehlt = new Set(offen);
 
     async function sichern() {
@@ -549,14 +726,44 @@
       }
     }
 
-    (mini()?.SPIELE || []).forEach((spiel) => {
-      const { zeile } = wahlZeile(spiel.id, gewaehlt.has(spiel.id), (an) => {
-        if (an) gewaehlt.add(spiel.id);
-        else gewaehlt.delete(spiel.id);
-        sichern();
+    // Ein anderes Tier: Das Spiel wandert gleich in seine Gruppe, und die
+    // Einteilung ist gespeichert – auch für das nächste Turnier hier.
+    async function sichereTiers() {
+      meldung.textContent = "Wird gespeichert...";
+      meldung.className = "adm-meldung";
+      try {
+        await cloud().setzeTiers(einteilung, [...gewaehlt]);
+        meldung.textContent = "Tiers gespeichert.";
+        meldung.className = "adm-meldung ist-gut";
+      } catch (fehler) {
+        meldung.textContent = fehlerText(fehler);
+        meldung.className = "adm-meldung ist-fehler";
+      }
+    }
+
+    function zeichneGruppen() {
+      gitter.replaceChildren();
+      nachTier(einteilung).forEach((ids, n) => {
+        gitter.append(tierTitel(n, ids.length));
+        const gruppe = el("div", "adm-auswahl");
+        ids.forEach((id) => {
+          const wahl = tierWahl(id, n, (neu) => {
+            einteilung[id] = neu;
+            zeichneGruppen();
+            sichereTiers();
+          });
+          const { zeile } = wahlZeile(id, gewaehlt.has(id), (an) => {
+            if (an) gewaehlt.add(id);
+            else gewaehlt.delete(id);
+            sichern();
+          }, wahl);
+          gruppe.append(zeile);
+        });
+        if (!ids.length) gruppe.append(el("p", "adm-klein adm-tier-leer", "Noch kein Spiel in diesem Tier."));
+        gitter.append(gruppe);
       });
-      gitter.append(zeile);
-    });
+    }
+    zeichneGruppen();
     block.append(gitter);
 
     const alleAn = knopf("Alle anhaken", "adm-knopf-klein", () => {
@@ -645,7 +852,7 @@
    * Woche" ist das, was man sagen will. Wer ein krummes Ende braucht, wählt
    * "eigenes Ende" und bekommt das Feld dazu.
    */
-  function turnierFormular(vorlage, { offen, sichern, abbrechen }) {
+  function turnierFormular(vorlage, { offen, sichern, abbrechen, einteilung = vollstaendig(null) }) {
     const nr = (formularNummer += 1);
     const jetzt = Date.now();
     // Auf die nächsten fünf Minuten gerundet: 14:35 statt 14:32:17.
@@ -703,27 +910,41 @@
     const spieleGruppe = el("fieldset", "adm-gruppe");
     const spieleTitel = el("legend", "");
     spieleGruppe.append(spieleTitel);
-    const gitter = el("div", "adm-auswahl");
     const gewaehlt = new Set(t.spiele);
     const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt`; };
     const haken = [];
-    (mini()?.SPIELE || []).forEach((spiel) => {
-      const { zeile, box } = wahlZeile(spiel.id, gewaehlt.has(spiel.id), (an) => {
-        if (an) gewaehlt.add(spiel.id);
-        else gewaehlt.delete(spiel.id);
-        zaehle();
+    // Nach Tier gruppiert, so wie im Block «Welche Spiele gespielt werden»
+    // eingeteilt.
+    const gruppen = nachTier(einteilung);
+    gruppen.forEach((ids, n) => {
+      if (!ids.length) return;
+      spieleGruppe.append(tierTitel(n, ids.length));
+      const gitter = el("div", "adm-auswahl");
+      ids.forEach((id) => {
+        const { zeile, box } = wahlZeile(id, gewaehlt.has(id), (an) => {
+          if (an) gewaehlt.add(id);
+          else gewaehlt.delete(id);
+          zaehle();
+        });
+        gitter.append(zeile);
+        haken.push(box);
       });
-      gitter.append(zeile);
-      haken.push(box);
+      spieleGruppe.append(gitter);
     });
     zaehle();
-    spieleGruppe.append(gitter);
     const setze = (ids) => haken.forEach((box) => {
       const soll = ids.includes(box.value);
       if (box.checked !== soll) box.click();
     });
+    // Ein Tier dazu – oder, wenn es schon ganz gewählt ist, wieder weg.
+    const tierKnopf = (n) => knopf(`Tier ${n}`, "adm-knopf-klein", () => {
+      const ids = gruppen.get(n) || [];
+      const ganz = ids.length > 0 && ids.every((id) => gewaehlt.has(id));
+      setze(ganz ? [...gewaehlt].filter((id) => !ids.includes(id)) : [...new Set([...gewaehlt, ...ids])]);
+    });
     const auswahlKnoepfe = el("div", "adm-kopf-aktionen");
     auswahlKnoepfe.append(
+      ...TIER_LISTE().filter((n) => (gruppen.get(n) || []).length).map(tierKnopf),
       knopf("Alle", "adm-knopf-klein", () => setze(haken.map((b) => b.value))),
       knopf("Keine", "adm-knopf-klein", () => setze([])),
       knopf("Nur die offenen", "adm-knopf-klein", () => setze(offen)),
@@ -1191,7 +1412,7 @@
     return box;
   }
 
-  function baueTurniere(offen) {
+  function baueTurniere(offen, einteilung) {
     const block = el("section", "adm-block adm-turniere");
     const kopf = el("header", "adm-block-kopf");
     kopf.append(el("h2", "", "Turniere"));
@@ -1243,6 +1464,7 @@
       sage("");
       formWirt.append(turnierFormular(vorlage, {
         offen,
+        einteilung,
         abbrechen: () => schliesse(),
         sichern: async (daten) => {
           const id = vorlage?.id || neueTurnierId(daten.name);
@@ -1539,9 +1761,19 @@
 
     let alle = [];
     let offen = [];
+    let einteilung = vollstaendig(null);
     try {
       let gewaehlt;
-      [alle, gewaehlt] = await Promise.all([alleEintraege(), cloud().offeneSpiele()]);
+      let gespeichert;
+      [alle, gewaehlt, gespeichert] = await Promise.all([
+        alleEintraege(),
+        cloud().offeneSpiele(),
+        // Ohne Tiers geht es auch: dann gilt die Vorgabe.
+        Promise.resolve(cloud().tiers?.()).catch(() => null),
+      ]);
+      // Ein Objekt für beide Blöcke: Was oben eingeteilt wird, gilt gleich im
+      // nächsten Turnierformular.
+      einteilung = vollstaendig(gespeichert);
       // null heisst "es wurde nie etwas ausgewählt" – dann gelten alle, und
       // genau so steht es dann auch angehakt da.
       // Sonst wird gefiltert wie in der Übersicht (mini-games.js, offeneSpiele):
@@ -1569,8 +1801,8 @@
     ]));
 
     const neuLaden = () => zeigeAdmin(nutzer);
-    wirt.append(baueTurniere(offen));
-    wirt.append(baueAuswahl(offen, neuLaden));
+    wirt.append(baueTurniere(offen, einteilung));
+    wirt.append(baueAuswahl(offen, neuLaden, einteilung));
 
     if (!alle.length) {
       wirt.append(el("p", "adm-hinweis", "Die Bestenliste ist leer. Sobald jemand spielt und seinen Namen einträgt, steht er hier."));
@@ -1595,6 +1827,10 @@
   // Start
   // ---------------------------------------------------------------------------
   async function los() {
+    // Das Fenster, das eine Vorschau auf der Live-Adresse geöffnet hat.
+    const vorschau = new URLSearchParams(window.location.search).get("vorschau");
+    if (vorschau !== null) { zeigeVorschauAnmeldung(vorschau); return; }
+
     const a = auth();
     if (!a) {
       leere();

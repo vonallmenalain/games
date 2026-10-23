@@ -127,6 +127,8 @@ const ATTRAPPE = `
       return window.__miniOffen ?? null;
     },
     setzeOffeneSpiele: async (liste) => { window.__miniOffen = liste; return liste; },
+    tiers: async () => window.__miniTiers ?? null,
+    setzeTiers: async (einteilung) => { window.__miniTiers = { ...einteilung }; return window.__miniTiers; },
     ergebnisse: async (spiele) => {
       const gefragt = Array.isArray(spiele) ? spiele : [];
       window.__miniGefragt = gefragt;
@@ -1347,6 +1349,18 @@ try {
       pruefe(text.includes(weg), `Im Adminbereich fehlt der Weg "${weg}" (steht: ${text.replace(/\n/g, " | ")}).`);
     }
     pruefe(await seite.locator(".adm-anmeldung input[type=\"password\"]").count() === 1, "Im Adminbereich fehlt das Passwortfeld.");
+    // Eine Adresse für Link und Passwort, und kein Feld höher als eine Zeile
+    // (in der Spalte wurde die Grundbreite von 200 px einmal zur Höhe).
+    const felder = await seite.locator(".adm-anmeldung input").evaluateAll((liste) => liste.map((f) => ({ art: f.type, hoch: Math.round(f.getBoundingClientRect().height) })));
+    pruefe(felder.filter((f) => f.art === "email").length === 1 && felder.every((f) => f.hoch > 0 && f.hoch <= 60),
+      `Die Felder der Anmeldung stimmen nicht (ein Adressfeld, höchstens 60 px hoch): ${JSON.stringify(felder)}`);
+    // Das Fenster für die Anmeldung einer Netlify-Vorschau gibt nichts heraus,
+    // wenn es nicht aus einer Vorschau dieses Projekts geöffnet wurde.
+    await seite.goto(`${BASIS}/admin?vorschau=${encodeURIComponent("https://boese.example")}`, { waitUntil: "load" });
+    await seite.waitForSelector(".adm-anmeldung", { timeout: 6000 }).catch(() => {});
+    const vorschauText = await seite.locator(".adm-anmeldung").innerText().catch(() => "");
+    pruefe(/aus einer Vorschau/.test(vorschauText) && !/Mit Google/.test(vorschauText),
+      `Das Fenster für die Vorschau-Anmeldung bietet eine fremde Adresse an: ${vorschauText.replace(/\n/g, " | ")}`);
     pruefe(await seite.locator(".adm-tabelle").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Daten.");
     pruefe(await seite.locator(".adm-streifen").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Zahlen.");
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -2562,6 +2576,18 @@ try {
       };
     });
 
+    // Die Tiers: Vorgabe 6 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // umteilt, speichert es – und das nächste Turnier sieht es so.
+    const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 6 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+      && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
+      `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
+    await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
+    await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
+    const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /7/.test(umgeteilt.titel[0] || ""),
+      `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
+
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
     await seite.click(".adm-turniere .adm-block-kopf button");
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
@@ -2571,6 +2597,19 @@ try {
     const form = seite.locator(".adm-turnier-form");
     pruefe(await form.locator(".adm-wahl .adm-spielen-knopf").count() === SPIELE.length,
       `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Spielen (${await form.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
+    // Im Formular nach Tier gruppiert, mit einem Knopf je Tier: dazu, und ist
+    // es schon ganz gewählt, wieder weg.
+    await form.locator("button", { hasText: "Keine" }).click();
+    await form.locator("button", { hasText: /^Tier 1$/ }).click();
+    const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["bridgeBuilder", "driftRace", "fishPond", "hillGlide", "towerStack", "tunnelFlight", "vineSwing"])
+      && await form.locator(".adm-tier-titel").count() === 3,
+      `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
+    await form.locator("button", { hasText: /^Tier 2$/ }).click();
+    await form.locator("button", { hasText: /^Tier 1$/ }).click();
+    const tierZwei = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
+    pruefe(JSON.stringify(tierZwei) === JSON.stringify(["boilerRoom", "dartWheel", "leafFlow", "planetHop"]),
+      `«Tier 2» dazu und «Tier 1» wieder weg ergibt nicht Tier 2: ${tierZwei.join(", ")}`);
     await form.locator('input[type="text"]').first().fill("Test-Cup Ä");
     await form.locator("button", { hasText: "Keine" }).click();
     await form.locator('input[value="towerStack"]').check();
