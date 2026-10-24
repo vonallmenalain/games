@@ -15,7 +15,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, adminSkripte } from "./seiten-bauen.mjs";
+import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, turnierSkripte, adminSkripte } from "./seiten-bauen.mjs";
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lies = (p) => readFileSync(path.join(WURZEL, p), "utf8");
@@ -64,6 +64,19 @@ for (const datei of alleSkripte) {
   if (datei.startsWith("http")) continue;
   pruefe(`${datei} liegt da`, existsSync(path.join(WURZEL, datei)));
 }
+
+// Die Filme der Spielkacheln (vorschau.js): auf der Startseite und im
+// Turnier, vor mini-games.js – das fragt beim Bauen der Kacheln danach.
+for (const [wo, liste] of [["Startseite", hubSkripte()], ["Turnierseite", turnierSkripte()]]) {
+  pruefe(`${wo} lädt vorschau.js vor mini-games.js`,
+    liste.includes("vorschau.js") && liste.indexOf("vorschau.js") < liste.indexOf("mini-games.js"));
+}
+const vorschauJs = lies("vorschau.js");
+pruefe("vorschau.js hat einen Film für den Turmbau", /towerStack: \{ film: turmFilm/.test(vorschauJs));
+pruefe("vorschau.js zeichnet nur, was im Bild ist, und steht bei weniger Bewegung still",
+  /IntersectionObserver/.test(vorschauJs) && /prefers-reduced-motion/.test(vorschauJs) && /visibilitychange/.test(vorschauJs));
+pruefe("mini-games.js baut die Kachel mit Film (kachel) für Startseite und Turnier",
+  /function kachel\(/.test(miniJs) && /LernappVorschau\?\.hat\?\.\(spiel\)/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
 
 // --- 5. Der Service Worker kennt jede Datei ---------------------------------
 const sw = lies("service-worker.js");

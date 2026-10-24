@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -334,8 +334,8 @@ const fehlerAufSeite = [];
 // Ohne Service Worker: Sobald einer die Seite bedient, beantwortet er die
 // Abrufe selbst – und die Attrappe käme nicht mehr zum Zug. Dass er da ist und
 // den richtigen Bereich bedient, prüft weiter unten ein eigenes Fenster.
-async function neueSeite(viewport = { width: 420, height: 820 }, { handy = false } = {}) {
-  const kontext = await browser.newContext({ viewport, serviceWorkers: "block", ...(handy ? { hasTouch: true, isMobile: true } : {}) });
+async function neueSeite(viewport = { width: 420, height: 820 }, { handy = false, bewegung = "" } = {}) {
+  const kontext = await browser.newContext({ viewport, serviceWorkers: "block", ...(handy ? { hasTouch: true, isMobile: true } : {}), ...(bewegung ? { reducedMotion: bewegung } : {}) });
   const seite = await kontext.newPage();
   await seite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
   // Das SDK von gstatic braucht hier niemand: cloud.js ist ersetzt. So läuft
@@ -883,16 +883,68 @@ try {
     // der Auswertung noch in einer Ranglistenzeile. Die Zahl oben zählt alle
     // Runden zusammen – die verrät nicht, wer.
     pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
-    const zeilen = await seite.locator(".mini-karte .mini-zeile").allInnerTexts();
+    const zeilen = await seite.locator(".mini-karte :is(.mini-zeile, .gk-zeile)").allInnerTexts();
     const mitRunden = zeilen.filter((z) => /runde/i.test(z));
     pruefe(mitRunden.length === 0, `In der Rangliste eines Spiels stehen die Runden: ${mitRunden.join(" | ")}`);
     const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
     pruefe(gefragt.length === SPIELE.length, `Die Startseite fragt nach ${gefragt.length} Spielen statt nach ${SPIELE.length}.`);
     pruefe(await seite.locator('a[href*="kids.alae.app"]').count() === 0, "Auf der Startseite steht ein Link auf kids.alae.app.");
-    const spielen = await seite.getAttribute(".mini-karte-aktionen a", "href");
+    const spielen = await seite.getAttribute(":is(.mini-karte-aktionen a, .gk-play)", "href");
     pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `Ein Spiel-Link zeigt auf ${spielen}.`);
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ueberstand <= 1, `Die Startseite steht ${ueberstand} px über den rechten Rand.`);
+    await kontext.close();
+  }
+
+  // --- 3b. Die Spielkachel: der Film und der Play-Knopf -----------------------
+  // Der Turmbau hat eine Kachel mit Film (vorschau.js): Er zeichnet den Turm
+  // und läuft, der Play-Knopf und der Film selbst führen ins Spiel, der
+  // Rekord trägt die Krone. Die anderen Spiele haben noch die einfache Karte.
+  // Wer weniger Bewegung eingestellt hat, sieht ein Standbild.
+  for (const bewegung of ["no-preference", "reduce"]) {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".gk-karte .gk-film", { timeout: 8000 });
+    const karte = seite.locator(".gk-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
+    await karte.scrollIntoViewIfNeeded();
+    await seite.waitForTimeout(300);
+    const bild = () => karte.locator(".gk-film").evaluate((leinwand) => {
+      const d = leinwand.getContext("2d").getImageData(0, 0, leinwand.width, leinwand.height).data;
+      let summe = 0;
+      let deckend = 0;
+      let proben = 0;
+      for (let i = 0; i < d.length; i += 64) {
+        summe = (summe * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1e9;
+        if (d[i + 3] > 200) deckend += 1;
+        proben += 1;
+      }
+      return { breit: leinwand.width, summe, deckend: deckend / proben };
+    });
+    const vorher = await bild();
+    await seite.waitForTimeout(700);
+    const nachher = await bild();
+    const stand = await seite.evaluate(() => {
+      const k = document.querySelector(".gk-karte");
+      return {
+        kacheln: [...document.querySelectorAll(".gk-karte h3")].map((h) => h.textContent),
+        play: k?.querySelector(".gk-play")?.getAttribute("href"),
+        name: k?.querySelector(".gk-play")?.getAttribute("aria-label"),
+        buehne: k?.querySelector(".gk-buehne")?.getAttribute("href"),
+        rekord: k?.querySelector(".gk-zeile.ist-platz-1 .gk-name")?.textContent,
+        krone: Boolean(k?.querySelector(".gk-zeile.ist-platz-1 .gk-marke svg")),
+        alte: document.querySelectorAll(".mini-karte:not(.gk-karte) .mini-karte-aktionen a").length,
+      };
+    });
+    pruefe(JSON.stringify(stand.kacheln) === JSON.stringify(["Turmbau"]), `${bewegung}: Eine Kachel mit Film steht bei ${JSON.stringify(stand.kacheln)} statt nur beim Turmbau.`);
+    pruefe(stand.play === "/turmbau" && stand.buehne === "/turmbau" && stand.name === "Turmbau spielen",
+      `${bewegung}: Der Play-Knopf der Kachel führt nicht ins Spiel: ${JSON.stringify(stand)}`);
+    pruefe(stand.rekord === "Grosi" && stand.krone, `${bewegung}: Der Rekord der Kachel steht nicht mit Krone da: ${JSON.stringify(stand)}`);
+    pruefe(stand.alte === SPIELE.length - 1, `${bewegung}: ${stand.alte} statt ${SPIELE.length - 1} Spiele haben noch die einfache Karte mit «Spielen».`);
+    pruefe(vorher.breit > 100 && vorher.deckend > 0.95, `${bewegung}: Der Film der Kachel ist nicht gezeichnet: ${JSON.stringify(vorher)}`);
+    if (bewegung === "reduce") pruefe(vorher.summe === nachher.summe, "Bei weniger Bewegung läuft der Film der Kachel trotzdem.");
+    else pruefe(vorher.summe !== nachher.summe, "Der Film der Kachel steht still.");
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `${bewegung}: Startseite – Klassen ohne Regel: ${ohne.join(", ")}`);
     await kontext.close();
   }
 
@@ -915,7 +967,7 @@ try {
       await seite.click(".mini-kopf .mini-vollbild");
       await seite.waitForFunction(() => Boolean(document.fullscreenElement), null, { timeout: 3000 }).catch(() => {});
       const spiel = SPIELE.find((s) => s.seite === "turmbau");
-      await seite.click(`.mini-karte-aktionen a[href="/${spiel.seite}"]`);
+      await seite.click(`:is(.mini-karte-aktionen a, .gk-play)[href="/${spiel.seite}"]`);
       await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".cm-bar"), null, { timeout: 8000 }).catch(() => {});
       let jetzt = await lage();
       pruefe(jetzt.voll && jetzt.innen === `/${spiel.seite}` && jetzt.pfad === `/${spiel.seite}` && jetzt.titel.includes(spiel.titel),
@@ -1481,7 +1533,7 @@ try {
       titel: document.querySelector(".tn-kopf h1")?.textContent,
       status: document.querySelector(".tn-status")?.textContent || "",
       karten: [...document.querySelectorAll(".tn-karte h3")].map((h) => h.textContent),
-      spielen: [...document.querySelectorAll(".tn-karte .mini-karte-aktionen a")].map((a) => a.getAttribute("href")),
+      spielen: [...document.querySelectorAll(".tn-karte :is(.mini-karte-aktionen a, .gk-play)")].map((a) => a.getAttribute("href")),
       regeln: document.querySelectorAll(".tn-regel-liste, .tn-regeln").length,
       teilen: document.querySelectorAll(".tn-teilen, .tn-link-feld").length,
       kartenZusatz: [...document.querySelectorAll(".tn-karte .tn-mein, .tn-karte .mini-karte-zahl")].map((e) => e.textContent),
@@ -1519,7 +1571,7 @@ try {
     // Verdeckt: Wer spielt, sieht seine eigene Zahl, aber nicht, wer vorne liegt.
     const { kontext, seite } = await mitTurnieren("/turnier?t=verdeckt-test23456");
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    pruefe(await seite.locator(".tn-karte .mini-zeile").count() === 0, "Im verdeckten Turnier stehen die Ranglisten da.");
+    pruefe(await seite.locator(".tn-karte :is(.mini-zeile, .gk-zeile)").count() === 0, "Im verdeckten Turnier stehen die Ranglisten da.");
     pruefe(await seite.locator(".tn-tabelle").count() === 0, "Im verdeckten Turnier steht die Gesamtwertung da.");
     pruefe(await seite.locator(".tn-verdeckt").count() >= 1, "Im verdeckten Turnier steht nicht, dass die Liste verdeckt ist.");
     await kontext.close();
@@ -3235,7 +3287,7 @@ try {
     pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
     // Kein Satz darüber – an der Stelle jedes Knopfs steht «Du liegst vorne».
     pruefe(await seite.locator(".tn-wartet").count() === 0, "Über den Spielen steht wieder ein Satz für den, der überall vorne liegt.");
-    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
+    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Königscup – Klassen ohne Regel: ${ohne.join(", ")}`);
 
@@ -3262,7 +3314,7 @@ try {
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const spielen = await seite.locator(".tn-karte a", { hasText: "Spielen" }).count();
     pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
-    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
+    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
     await kontext.close();
   }
   {
@@ -3272,7 +3324,7 @@ try {
     await seite.waitForURL((url) => url.pathname === "/turnier", { timeout: 8000 }).catch(() => {});
     pruefe(seite.url().endsWith(`/turnier?t=${KOENIG}`), `Wer allein vorne liegt, bleibt im Spiel: ${seite.url()}`);
     await seite.waitForSelector(".tn-karte", { timeout: 8000 }).catch(() => {});
-    pruefe(await seite.locator(".tn-karte .tn-fertig", { hasText: "Du liegst vorne" }).count() === 2,
+    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2,
       "Zurück auf der Turnierseite steht nicht bei jedem Spiel «Du liegst vorne».");
     await kontext.close();
   }
@@ -3590,13 +3642,13 @@ try {
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".mini-karte", { timeout: 8000 });
     const karte = seite.locator(".mini-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
-    await karte.locator(".mini-ansehen").first().waitFor({ timeout: 6000 }).catch(() => {});
-    const play = async () => karte.locator(".mini-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
+    await karte.locator(":is(.mini-ansehen, .gk-ansehen)").first().waitFor({ timeout: 6000 }).catch(() => {});
+    const play = async () => karte.locator(":is(.mini-ansehen, .gk-ansehen)").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
     const zu = await play();
     pruefe(zu.includes(`/turmbau?zuschauen=${gespielt.kennung}`) && !zu.includes("/turmbau?zuschauen=mini_idaidaidaida"),
       `Beim Turmbau steht der ▶ nicht beim eigenen Lauf (Platz 5) – oder schon bei Ida, bevor die Liste offen ist: ${JSON.stringify(zu)}`);
-    await karte.getByRole("button", { name: "Ganze Liste" }).click();
-    await karte.locator('.mini-ansehen[href="/turmbau?zuschauen=mini_idaidaidaida"]').waitFor({ timeout: 4000 }).catch(() => {});
+    await karte.getByRole("button", { name: /^(Ganze Liste|Alle \d+ zeigen)$/ }).click();
+    await karte.locator(':is(.mini-ansehen, .gk-ansehen)[href="/turmbau?zuschauen=mini_idaidaidaida"]').waitFor({ timeout: 4000 }).catch(() => {});
     const auf = await play();
     pruefe(auf.includes("/turmbau?zuschauen=mini_idaidaidaida") && auf.length === 2,
       `In der ganzen Liste fehlt der ▶ bei Ida (Platz 4), oder er steht bei jemandem ohne Lauf: ${JSON.stringify(auf)}`);
@@ -3766,10 +3818,10 @@ try {
     const playIn = async (id) => {
       await seite.goto(`${BASIS}/turnier?t=${id}`, { waitUntil: "load" });
       const karte = seite.locator(".mini-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
-      await karte.locator(".mini-liste").waitFor({ timeout: 8000 }).catch(() => {});
-      await karte.locator(".mini-ansehen").first().waitFor({ timeout: 2500 }).catch(() => {});
+      await karte.locator(":is(.mini-liste, .gk-liste)").waitFor({ timeout: 8000 }).catch(() => {});
+      await karte.locator(":is(.mini-ansehen, .gk-ansehen)").first().waitFor({ timeout: 2500 }).catch(() => {});
       await seite.waitForTimeout(300);
-      return karte.locator(".mini-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
+      return karte.locator(":is(.mini-ansehen, .gk-ansehen)").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
     };
     const herbst = await playIn(HERBST);
     pruefe(herbst.length === 2 && herbst.includes(`/turmbau?zuschauen=mini_leoleoleoleo&aus=${HERBST}`) && herbst.includes(`/turmbau?zuschauen=mini_miamiamiamia&aus=${HERBST}`),

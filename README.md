@@ -32,7 +32,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     service-worker.js     erzeugt
 
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
-                          die Auswertung der Startseite
+                          die Spielkachel, die Auswertung der Startseite
+    vorschau.js           die kleinen Filme auf den Spielkacheln
     cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
                           miniGeister, die Aufzeichnungen der Läufe, und
                           miniTurniere mit ihren Einträgen.
@@ -119,6 +120,31 @@ Und es soll von selbst zu einem Ende kommen: eine feste Uhr wie bei Blätter im
 Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
+
+### Die Spielkachel
+
+Auf der Startseite und im Turnier steht jedes Spiel als Karte. Die neue Form
+davon, die Spielkachel (`mini-games.js`, `kachel`), hat bisher nur der
+Turmbau – sie ist der Test, bevor alle umgestellt werden:
+
+- Oben ein kleiner Film (`vorschau.js`), der zeigt, wie das Spiel aussieht
+  und wie es gespielt wird: Im Turmbau schwingt ein Block, ein Finger tippt,
+  der Block fällt, was übersteht, bricht ab, die Combo zählt, der Himmel wird
+  Abend – bis einer daneben geht und der Film von vorn beginnt. Gespielt wird
+  dabei nichts: Ein Film ist ein Drehbuch mit den Massen und Farben des
+  Spiels.
+- Daran der runde Play-Knopf statt «Spielen». Tippen auf den Film führt
+  ebenfalls ins Spiel. Im Turnier steht an seiner Stelle, warum es gerade
+  nicht geht («Alle Versuche gespielt», «Ab …», «Du liegst vorne»), und der
+  Film läuft gedämpft weiter.
+- Darunter Name, ein Satz, wie man spielt, und die Bestenliste: der Rekord
+  mit Krone, Platz 2 und 3 mit Silber und Bronze, die eigene Zeile mit «Du»,
+  hinter jeder Zeile ein Balken, wie weit sie vom Rekord weg ist, und der ▶
+  zum Anschauen bei allen, die einen Lauf haben.
+
+Alle Filme teilen sich einen Bildtakt, und gezeichnet wird nur, was im Bild
+ist. Wer weniger Bewegung eingestellt hat, sieht ein Standbild. Ein Spiel
+bekommt die Kachel, sobald es in `vorschau.js` (`FILME`) einen Film hat.
 
 ### Gegner und Geister
 

@@ -1313,7 +1313,187 @@
       a.schnitt - b.schnitt || b.spiele - a.spiele || a.name.localeCompare(b.name, "de"));
   }
 
+  // ---------------------------------------------------------------------------
+  // Die Spielkachel
+  // ---------------------------------------------------------------------------
+  // Für die Spiele, die einen Film haben (vorschau.js): oben der Film, wie
+  // das Spiel aussieht und wie es gespielt wird, und daran der runde
+  // Play-Knopf – er steht dort, wo der Daumen hinwill, und lässt den Film
+  // frei. Getippt werden darf auch auf den Film selbst. Darunter der Name, ein
+  // Satz, wie man spielt, und die Bestenliste: der Rekord mit Krone, die
+  // nächsten zwei mit Silber und Bronze, und hinter jeder Zeile ein Balken,
+  // wie weit sie vom Rekord weg ist – eine Zahl allein sagt nicht, ob 57 nah
+  // an 99 ist.
+  //
+  // Dieselbe Kachel steht auf der Startseite und im Turnier (turnier.js):
+  //
+  //   kachel(spiel, liste, {
+  //     klasse,      eine Klasse dazu (im Turnier: tn-karte)
+  //     link,        wohin der Play-Knopf führt – ohne ihn steht dort sperre
+  //     sperre,      { text, art: "zu" | "vorne" } an Stelle des Knopfs
+  //     chips,       kleine Angaben unter dem Namen («6 Spieler»)
+  //     aus,         die Turnier-Kennung für den ▶ (ansehenFuer)
+  //     ansehbar,    ob es den ▶ überhaupt gibt (nicht in Turnieren ohne Replays)
+  //     verdeckt,    die Rangliste bleibt verdeckt (Turnier)
+  //   })
+  const ICON = {
+    play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.3v13.4a1 1 0 0 0 1.52.85l10.7-6.7a1 1 0 0 0 0-1.7L9.72 4.45a1 1 0 0 0-1.52.85z"/></svg>',
+    krone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.2 8.4l4.6 3.9L12 5.2l4.2 7.1 4.6-3.9-1.9 10.1H5.1z"/></svg>',
+    leute: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.2" r="3.3"/><path d="M2.8 19.4c.4-3.4 3-5.6 6.2-5.6s5.8 2.2 6.2 5.6z"/><circle cx="17" cy="9" r="2.6"/><path d="M15.9 13.9c2.7-.3 4.9 1.5 5.3 4.4h-4.5c-.1-1.7-.4-3.1-.8-4.4z"/></svg>',
+    schloss: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10.5V8a5 5 0 0 1 10 0v2.5h.6A1.9 1.9 0 0 1 19.5 12.4v6.7A1.9 1.9 0 0 1 17.6 21H6.4a1.9 1.9 0 0 1-1.9-1.9v-6.7A1.9 1.9 0 0 1 6.4 10.5zm2.4 0h5.2V8a2.6 2.6 0 0 0-5.2 0z"/></svg>',
+    pfeil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.7 9.3a1 1 0 0 1 1.4 0L12 13.2l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4z"/></svg>',
+  };
+
+  function mitIcon(tag, klasse, icon, text) {
+    const knoten = el(tag, klasse);
+    const bild = el("span", "gk-icon");
+    bild.innerHTML = ICON[icon];
+    knoten.append(bild);
+    if (text !== undefined) knoten.append(el("span", "", text));
+    return knoten;
+  }
+
+  // Die Bestenliste der Kachel. Wie listeBauen – wer dasteht, die Punkte
+  // zwischen den Ersten und dem eigenen Eintrag, der ▶ –, nur anders
+  // gezeichnet. listeBauen bleibt, wie es ist: Es steht auch auf der Tafel
+  // nach einer Runde, und dort ist für Medaillen kein Platz.
+  function bestenliste(eintraege, spiel, { max = 0, ansehen = null } = {}) {
+    const wrap = el("ol", "gk-liste");
+    const gezeigt = gezeigteEintraege(eintraege, max);
+    if (!gezeigt.length) {
+      const leer = el("li", "gk-leer");
+      const krone = mitIcon("span", "gk-leer-krone", "krone");
+      const text = el("span", "gk-leer-text");
+      text.append(el("strong", "", "Der Rekord ist noch frei."), el("span", "", "Wer zuerst spielt, steht hier."));
+      leer.append(krone, text);
+      wrap.append(leer);
+      return wrap;
+    }
+    const nachgestellt = gezeigt.length > (max ? Math.min(max, eintraege.length) : eintraege.length);
+    const rekord = Math.max(1, Number(eintraege[0]?.punkte) || 0);
+    const ziele = new Map();
+    if (ansehen) gezeigt.forEach((eintrag) => { const ziel = ansehen(eintrag); if (ziel) ziele.set(eintrag, ziel); });
+    if (ziele.size) wrap.classList.add("mit-ansehen");
+    gezeigt.forEach((eintrag, stelle) => {
+      if (nachgestellt && stelle === gezeigt.length - 1 && gezeigt.length > 1) {
+        const luecke = el("li", "gk-luecke", "···");
+        luecke.setAttribute("aria-hidden", "true");
+        wrap.append(luecke);
+      }
+      const punkte = Number(eintrag.punkte) || 0;
+      // Gold, Silber, Bronze. Der ▶ steht trotzdem bei allen (ansehen).
+      const medaille = [1, 2, 3].includes(eintrag.platz) ? ` ist-platz-${eintrag.platz}` : "";
+      const zeile = el("li", `gk-zeile${medaille}${eintrag.eigen ? " ist-ich" : ""}`);
+      zeile.style.setProperty("--gk-anteil", `${Math.round(Math.max(0.06, Math.min(1, punkte / rekord)) * 100)}%`);
+      const marke = eintrag.platz === 1 ? mitIcon("span", "gk-marke", "krone") : el("span", "gk-marke", String(eintrag.platz));
+      marke.setAttribute("aria-label", `Platz ${eintrag.platz}`);
+      zeile.append(marke);
+      const name = el("span", "gk-name");
+      name.append(el("span", "gk-name-text", eintrag.name));
+      if (eintrag.eigen) name.append(el("small", "gk-du", "Du"));
+      zeile.append(name);
+      const wert = el("span", "gk-wert", String(punkte));
+      wert.append(el("small", "gk-einheit", einheit(spiel)));
+      zeile.append(wert);
+      if (ziele.size) {
+        const ziel = ziele.get(eintrag);
+        if (ziel) {
+          const play = mitIcon("a", "gk-ansehen", "play");
+          play.href = ziel;
+          play.title = `Den Lauf von ${eintrag.name} anschauen`;
+          play.setAttribute("aria-label", play.title);
+          zeile.append(play);
+        } else {
+          zeile.append(el("span", "gk-ansehen-leer"));
+        }
+      }
+      wrap.append(zeile);
+    });
+    return wrap;
+  }
+
+  function kachel(spiel, liste, { klasse = "", link = "", sperre = null, chips = [], aus = "", ansehbar = true, verdeckt = false } = {}) {
+    const f = farbe(spiel);
+    const karte = el("article", `mini-karte gk-karte${klasse ? ` ${klasse}` : ""}`);
+    karte.style.setProperty("--mini-farbe", f.hell);
+    karte.style.setProperty("--mini-farbe-dunkel", f.dunkel);
+    karte.dataset.spiel = spiel;
+
+    // Oben: der Film. Er ist selbst ein Weg ins Spiel (für den Finger, der
+    // irgendwo auf das Bild tippt); für Tastatur und Vorleser zählt nur der
+    // Play-Knopf.
+    const oben = el("div", "gk-oben");
+    const buehne = el(link ? "a" : "div", `gk-buehne${link ? "" : " ist-zu"}`);
+    if (link) {
+      buehne.href = link;
+      buehne.tabIndex = -1;
+      buehne.setAttribute("aria-hidden", "true");
+    }
+    const film = el("canvas", "gk-film");
+    film.setAttribute("aria-hidden", "true");
+    buehne.append(film);
+    oben.append(buehne);
+    if (link) {
+      const play = mitIcon("a", "gk-play", "play");
+      play.href = link;
+      play.title = `${titel(spiel)} spielen`;
+      play.setAttribute("aria-label", play.title);
+      oben.append(play);
+    } else if (sperre?.text) {
+      buehne.append(mitIcon("span", `gk-sperre${sperre.art === "vorne" ? " ist-vorne" : ""}`, sperre.art === "vorne" ? "krone" : "schloss", sperre.text));
+    }
+    karte.append(oben);
+    window.LernappVorschau?.zeige?.(film, spiel);
+
+    const koerper = el("div", "gk-koerper");
+    const kopf = el("header", "gk-kopf");
+    kopf.append(el("h3", "gk-titel", titel(spiel)));
+    const satz = window.LernappVorschau?.satz?.(spiel);
+    if (satz) kopf.append(el("p", "gk-satz", satz));
+    if (chips.length) {
+      const reihe = el("div", "gk-chips");
+      chips.forEach(({ text, icon }) => reihe.append(icon ? mitIcon("span", "gk-chip", icon, text) : el("span", "gk-chip", text)));
+      kopf.append(reihe);
+    }
+    koerper.append(kopf);
+
+    const wirt = el("div", "gk-listen-wirt");
+    let ganz = false;
+    const gezeigt = () => (ganz ? liste : gezeigteEintraege(liste, 3));
+    const ansehen = ansehbar && !verdeckt ? ansehenFuer(spiel, gezeigt, () => zeichne(), { aus }) : null;
+    const zeichne = () => {
+      wirt.innerHTML = "";
+      if (verdeckt) wirt.append(mitIcon("p", "gk-verdeckt", "schloss", "Die Rangliste bleibt bis zum Schluss verdeckt."));
+      else wirt.append(bestenliste(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }));
+      ansehen?.frage?.();
+    };
+    zeichne();
+    koerper.append(wirt);
+
+    // Erst ab der vierten Zeile gibt es etwas aufzuklappen.
+    if (!verdeckt && liste.length > 3) {
+      const mehr = mitIcon("button", "gk-mehr", "pfeil", `Alle ${liste.length} zeigen`);
+      mehr.type = "button";
+      mehr.setAttribute("aria-expanded", "false");
+      mehr.addEventListener("click", () => {
+        ganz = !ganz;
+        zeichne();
+        mehr.lastChild.textContent = ganz ? "Nur die ersten drei" : `Alle ${liste.length} zeigen`;
+        mehr.setAttribute("aria-expanded", String(ganz));
+      });
+      koerper.append(mehr);
+    }
+    karte.append(koerper);
+    return karte;
+  }
+
   function spielKarte(spiel, liste) {
+    if (window.LernappVorschau?.hat?.(spiel)) {
+      return kachel(spiel, liste, {
+        link: spielLink(spiel),
+        chips: [{ icon: "leute", text: liste.length ? zahlWort(liste.length, "Spieler", "Spieler") : "noch frei" }],
+      });
+    }
     const f = farbe(spiel);
     const karte = el("article", "mini-karte");
     karte.style.setProperty("--mini-farbe", f.hell);
@@ -1564,6 +1744,7 @@
     listeFuer,
     TIERS, TIERS_VORGABE, tierVon,
     listeBauen, gezeigteEintraege, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
+    kachel,
     geister,
     rangliste,
     melde,
