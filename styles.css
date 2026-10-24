@@ -754,12 +754,12 @@ h2 {
    Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
    statt oben ein Stück Welt zu verlieren. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .wr-platz, .kh-platz, .st-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz {
   position: absolute;
   inset: 0;
 }
 .tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .dt-feld, .ph-feld, .ml-feld, .sl-feld, .hf-feld,
-.bl-feld, .sk-feld, .fr-feld, .wr-feld, .kh-feld, .st-feld {
+.bl-feld, .sk-feld, .fr-feld, .kh-feld, .st-feld {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -769,13 +769,22 @@ h2 {
   overflow: hidden;
   overflow: clip;
 }
+/* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
+   Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
+.hd-feld, .zs-feld, .bh-feld {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  overflow: clip;
+}
 
 /* Der Satz vor dem ersten Zug liegt über der Leinwand, oben in der Mitte, und
    blendet aus, sobald es losgeht (je Spiel: :not([data-phase="intro"])). Eine
    eigene Zeile darüber kostete die Leinwand eine Zeile Höhe – für einen
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
 .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
-.bl-prompt, .sk-prompt, .fr-prompt, .wr-prompt, .kh-prompt, .st-prompt {
+.bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
+.hd-prompt, .zs-prompt, .bh-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -795,8 +804,8 @@ h2 {
 }
 
 
-/* --- Die sechs Spiele aus Tier 1 (Ballonfahrt, Slalom, Froschsprung,
-   Wellenreiter, Kranhafen, Seiltänzer) ------------------------------------
+/* --- Die Spiele aus Tier 1 (Windschichten, Slalom, Froschsprung, Kranhafen,
+   Seiltänzer, Heisser Draht, Zwei Spuren, Ball hochhalten) -----------------
    Alle zeichnen auf eine Leinwand, die die ganze Bühne füllt – jedes rechnet
    seine Welt selbst so, dass sie hochkant wie quer passt. Gleich gebaut:
    die Bühne (Farbe des Bereichs, kein Rollen, kein Markieren), die Fläche,
@@ -920,45 +929,6 @@ h2 {
   font-weight: 900;
 }
 
-.wr-stage {
-  --cm-accent: #F5A623;
-  --cm-accent-dark: #b9741a;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-.wr-stage:not([data-phase="intro"]) .wr-prompt { opacity: 0; }
-.wr-feld { width: 100%; background: #5ec2e6; }
-.wr-canvas { display: block; width: 100%; height: 100%; }
-.wr-tipp {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: clamp(44px, 13%, 68px);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
-}
-.wr-stage[data-phase="intro"] .wr-tipp { opacity: 0.95; }
-.wr-tipp svg { width: 100%; height: auto; display: block; }
-.wr-tipp-fuell {
-  stroke-dasharray: 139;
-  stroke-dashoffset: 139;
-  transform: rotate(-90deg);
-  transform-origin: 32px 32px;
-  animation: li-fuell 1.6s ease-in-out infinite;
-}
-.wr-rekord {
-  padding: 4px 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
-  color: #3a2400;
-  font-weight: 900;
-}
-
 .kh-stage {
   --cm-accent: #3FA34D;
   --cm-accent-dark: #2c7337;
@@ -1037,8 +1007,130 @@ h2 {
   font-weight: 900;
 }
 
+/* --- Die drei mit eigener Eingabe (Heisser Draht: ziehen, Zwei Spuren: zwei
+   Finger, Ball hochhalten: wo man tippt) – gebaut wie die sechs oben. ------ */
+
+.hd-stage {
+  --cm-accent: #1BA7A6;
+  --cm-accent-dark: #137978;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hd-stage:not([data-phase="intro"]) .hd-prompt { opacity: 0; }
+.hd-feld { width: 100%; background: #1b2433; }
+.hd-canvas { display: block; width: 100%; height: 100%; }
+.hd-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.hd-stage[data-phase="intro"] .hd-tipp { opacity: 0.95; }
+.hd-tipp svg { width: 100%; height: auto; display: block; }
+.hd-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.hd-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.zs-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.zs-stage:not([data-phase="intro"]) .zs-prompt { opacity: 0; }
+.zs-feld { width: 100%; background: #eef3f8; }
+.zs-canvas { display: block; width: 100%; height: 100%; }
+.zs-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.zs-stage[data-phase="intro"] .zs-tipp { opacity: 0.95; }
+.zs-tipp svg { width: 100%; height: auto; display: block; }
+.zs-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.zs-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+.bh-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.bh-stage:not([data-phase="intro"]) .bh-prompt { opacity: 0; }
+.bh-feld { width: 100%; background: #2f8f3a; }
+.bh-canvas { display: block; width: 100%; height: 100%; }
+.bh-tipp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(44px, 13%, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.bh-stage[data-phase="intro"] .bh-tipp { opacity: 0.95; }
+.bh-tipp svg { width: 100%; height: auto; display: block; }
+.bh-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+.bh-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
-  .bl-tipp-fuell, .sk-tipp-fuell, .fr-tipp-fuell, .wr-tipp-fuell, .kh-tipp-fuell, .st-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+  .bl-tipp-fuell, .sk-tipp-fuell, .fr-tipp-fuell, .kh-tipp-fuell, .st-tipp-fuell,
+  .hd-tipp-fuell, .zs-tipp-fuell, .bh-tipp-fuell { animation: none; stroke-dashoffset: 40; }
 }
 
 /* --- Start und Ergebnis --- */
@@ -3038,7 +3130,8 @@ h2 {
     transform: none;
   }
   .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
-  .bl-prompt, .sk-prompt, .fr-prompt, .wr-prompt, .kh-prompt, .st-prompt {
+  .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
+  .hd-prompt, .zs-prompt, .bh-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

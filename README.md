@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «alae arcade»: alle Spiele als Filme,
                           ihre Bestenlisten
-    turmbau.html …        einundzwanzig Spielseiten, erzeugt
+    turmbau.html …        dreiundzwanzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -212,8 +212,9 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
 
     Geist im Bild   Lianenschwung, Tunnelflug, Drift-Rennen,
                     Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
-                    Hügelflieger, Ballonfahrt, Slalom, Froschsprung,
-                    Wellenreiter, Seiltänzer. Aufgezeichnet wird der Weg
+                    Hügelflieger, Windschichten, Slalom, Froschsprung,
+                    Seiltänzer, Heisser Draht, Ball hochhalten.
+                    Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
                     in seiner besten Runde. Ob seine Welt dieselbe war,
@@ -224,7 +225,7 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     mitspielt. Wer noch keinen Lauf hinterlegt hat – eine
                     Zahl von früher –, läuft erst mit, wenn er sich
                     verbessert.
-    mitlaufend      Blätter im Strom: feste Zeit, der Gegner läuft mit
+    mitlaufend      Blätter im Strom, Zwei Spuren: der Gegner läuft mit
                     seinem Stand von damals mit, Viertelsekunde für
                     Viertelsekunde – als Zahl, ohne Figur.
     Zielmarke       Turmbau, Brückenbauer, Drehscheibe, Fischteich,
@@ -319,7 +320,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle einundzwanzig
+    Spiele            welche dazugehören, eines bis alle dreiundzwanzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
@@ -520,9 +521,10 @@ beginnt, wie sie endet, wenn die Zeit des Abends um ist, und – wo man
 ausscheidet – wie es einem anderen zuschaut. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
-**Die anderen im Bild.** In den zwölf Spielen mit Figur (Lianenschwung,
+**Die anderen im Bild.** In den dreizehn Spielen mit Figur (Lianenschwung,
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
-Hügelflieger, Ballonfahrt, Slalom, Froschsprung, Wellenreiter, Seiltänzer)
+Hügelflieger, Windschichten, Slalom, Froschsprung, Seiltänzer, Heisser Draht,
+Ball hochhalten)
 meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
 (`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
 gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
@@ -731,10 +733,10 @@ umteilt, speichert die Einteilung sofort (`config/miniGames`, Feld `tiers`,
 gruppiert, mit einem Knopf je Tier: Er nimmt das ganze Tier dazu – oder, wenn
 es schon ganz gewählt ist, wieder weg. Solange nie eingeteilt wurde, gilt die
 Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
-Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die sechs danach
-gebauten (Ballonfahrt, Slalom, Froschsprung, Wellenreiter, Kranhafen,
-Seiltänzer), Tier 2 Blätter im Strom, Drehscheibe, Planetenhüpfer und Der
-Heizer, Tier 3 der Rest.
+Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die danach
+gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
+Draht, Zwei Spuren, Ball hochhalten), Tier 2 Blätter im Strom, Drehscheibe,
+Planetenhüpfer und Der Heizer, Tier 3 der Rest.
 
 **In einer Deploy Preview anmelden.** Firebase lässt «Mit Google anmelden» nur
 auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy

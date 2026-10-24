@@ -398,7 +398,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "waveRider", "ropeWalk", "craneHarbor"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -1990,11 +1990,14 @@ try {
       H.bodenBei(6000);
       return H.state.huegel.slice(0, 24).map((p) => `${p.x.toFixed(2)}/${p.y.toFixed(2)}`).join(" ");
     }],
-    ["/ballon", "Ballonfahrt", () => {
+    ["/ballon", "Windschichten", () => {
       const B = window.LernappBallon;
       B.weltBis(8000);
       const w = B.state.welt;
-      return w.punkte.slice(0, 240).map((p) => `${p.mitte.toFixed(2)}/${p.boden.toFixed(2)}`).join(" ")
+      return w.schichten.slice(0, 8).map((s) => `${s.x0.toFixed(2)}/${s.a.toFixed(2)}/${s.b.toFixed(2)}`
+        + `/${s.grenzen.map((g) => `${g.y.toFixed(2)}:${g.A.toFixed(2)}`).join(",")}`
+        + `/${s.baender.map((b) => b.w.toFixed(2)).join(",")}`).join(" ")
+        + ` | ${w.punkte.slice(0, 240).map((p) => p.boden.toFixed(2)).join(" ")}`
         + ` | ${w.wolken.slice(0, 6).map((wo) => `${wo.x.toFixed(1)}/${wo.unten.toFixed(1)}/${wo.kreise.length}`).join(" ")}`
         + ` | ${w.decke.slice(0, 20).map((d) => d.y.toFixed(1)).join(" ")}`;
     }],
@@ -2011,11 +2014,6 @@ try {
       return w.masten.slice(0, 8).map((m) => Math.round(m.x)).join(",")
         + " | " + w.boeen.slice(0, 5).map((b) => `${Math.round(b.x0)}-${Math.round(b.x1)}:${b.dir}:${Math.round(b.G * 100)}`).join(" ");
     }],
-    ["/wellen", "Wellenreiter", () => {
-      const W = window.LernappWellen;
-      W.wellenBis(6000);
-      return W.state.wellen.slice(0, 24).map((p) => `${p.u.toFixed(2)}/${p.y.toFixed(2)}`).join(" ");
-    }],
     ["/kranhafen", "Kranhafen", () => {
       const p = window.LernappKranhafen.plan();
       return JSON.stringify({
@@ -2027,6 +2025,27 @@ try {
       const F = window.LernappFrosch;
       F.blaetterBis(14);
       return F.state.blaetter.slice(0, 14).map((b) => `${b.x0.toFixed(2)}/${b.r.toFixed(2)}/${b.amp.toFixed(2)}/${b.phase.toFixed(3)}`).join(" ");
+    }],
+    ["/draht", "Heisser Draht", () => {
+      const D = window.LernappDraht;
+      D.drahtBis(6000);
+      const d = D.state.draht;
+      return d.punkte.slice(0, 40).map((p) => `${p.s.toFixed(2)}/${p.q.toFixed(2)}/${p.f.toFixed(2)}`).join(" ")
+        + " | " + d.beweg.slice(0, 6).map((b) => `${b.art}:${b.s0.toFixed(1)}-${b.s1.toFixed(1)}/${b.B.toFixed(2)}/${b.ph.toFixed(3)}`).join(" ");
+    }],
+    ["/spuren", "Zwei Spuren", () => {
+      const Z = window.LernappSpuren;
+      Z.planBis(6000);
+      return Z.welt().slice(0, 60).map((d) => `${d.bahn}${d.spur}${d.art}@${d.y.toFixed(2)}`).join(" ");
+    }],
+    ["/ball", "Ball hochhalten", () => {
+      const B = window.LernappBall;
+      B.planBis(80);
+      const p = B.state.plan;
+      return p.ringe.slice(0, 8).map((r) => `${r.ab}:${r.x.toFixed(2)}/${r.y.toFixed(2)}/${r.innen.toFixed(2)}`).join(" ")
+        + ` | ${p.boeen.slice(0, 6).map((b) => `${b.ab}:${b.dir}:${b.staerke.toFixed(2)}/${b.dauer.toFixed(2)}`).join(" ")}`
+        + ` | ${p.voegel.slice(0, 5).map((v) => `${v.ab}:${v.dir}:${v.y.toFixed(2)}`).join(" ")}`
+        + ` | ${p.balken.slice(0, 4).map((s) => `${s.ab}:${s.seite}:${s.y.toFixed(2)}/${s.lang.toFixed(2)}`).join(" ")}`;
     }],
   ]) {
     const befunde3 = [];
@@ -2774,19 +2793,22 @@ try {
     await kontext.close();
   }
 
-  // --- 4g13. Ballonfahrt: immer fahrbar, und ohne Brenner endet die Fahrt am Berg -
-  // Ein Autopilot fährt mehrere gewürfelte Welten bis 2000 m: Er heizt, wenn
-  // die Hülle kühler ist, als es für die Gasse voraus nötig wäre (Wärme →
-  // Auftrieb → Steigen, alles mit Verzug). Wo er nicht durchkommt, verlangt
-  // die Welt mehr, als der Ballon kann; dabei bleibt er der Gewitterfront
-  // voraus. Und wer gar nichts drückt, sinkt auf den Berg – das ist das Ende,
-  // mit Ergebnis.
+  // --- 4g13. Windschichten: immer ein Weg nach Osten, und ohne Brenner endet die Fahrt -
+  // Ein Autopilot fährt mehrere gewürfelte Welten bis 2000 m: Er folgt dem
+  // sicheren Weg (zielBei, die Höhe des Messpunkts in der guten Schicht) ein
+  // Stück voraus und heizt, wenn die Hülle kühler ist, als es dafür nötig
+  // wäre (Wärme → Auftrieb → Steigen, alles mit Verzug). Dabei fällt er nie
+  // aus dem guten Wind (langsam), bleibt allem fern (knapp) und der
+  // Gewitterfront weit voraus. Wo nicht, verlangt die Welt mehr, als der
+  // Ballon kann. Und wer gar nichts drückt, sinkt auf die Wiese – das ist das
+  // Ende, mit Ergebnis.
   {
     const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
     await seite.goto(`${BASIS}/ballon`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappBallon?.state, null, { timeout: 8000 });
     const fahrten = await seite.evaluate(() => {
       const B = window.LernappBallon;
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
       const raus = [];
       for (let lauf = 0; lauf < 4; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
@@ -2795,24 +2817,29 @@ try {
         B.loslassen();
         let knapp = Infinity;
         let front = Infinity;
+        let langsam = 0;
         for (let n = 0; st.schritt === "fahrt" && st.meter < 2000 && n < 400000; n += 1) {
           const f = st.f;
+          const v = Math.max(40, f.vx);
           let ziel = 0;
-          for (const t of [0.3, 0.6, 0.9, 1.2]) ziel += B.mitteBei(f.x + f.vx * t) / 4;
-          const vyZiel = Math.max(-0.8 * B.VT, Math.min(0.8 * B.VT, (ziel - f.y) * 1.8));
+          for (const t of [0.3, 0.6, 0.9, 1.2]) ziel += (B.zielBei(f.x + v * t) - B.MESS) / 4;
+          const vyZiel = clamp((ziel - f.y) * 1.8, -0.8 * B.VT, 0.8 * B.VT);
           const kraft = B.DAEMPF * vyZiel + (vyZiel - f.vy) * 4;
           if (st.hitze < 0.5 + kraft / (2 * B.AUF)) B.druecken(); else B.loslassen();
           B.takt(1 / 120);
           front = Math.min(front, f.x - st.front.x);
-          if (n % 60 === 0) knapp = Math.min(knapp, B.pruefen().knapp);
+          if (n % 60 === 0) {
+            knapp = Math.min(knapp, B.pruefen().knapp);
+            if (B.windBei(f.x, f.y + B.MESS) < B.schichtBei(f.x).vGut * 0.9) langsam += 1;
+          }
         }
         B.loslassen();
-        raus.push({ meter: st.meter, schritt: st.schritt, grund: st.grund, knapp: Math.round(knapp), front: Math.round(front) });
+        raus.push({ meter: st.meter, schritt: st.schritt, grund: st.grund, knapp: Math.round(knapp), front: Math.round(front), langsam });
       }
       return raus;
     });
-    pruefe(fahrten.every((f) => f.meter >= 2000 && f.schritt === "fahrt" && f.knapp >= 8 && f.front > 100),
-      `Ballonfahrt: Der Autopilot kommt nicht durch jede Welt – ${JSON.stringify(fahrten)}`);
+    pruefe(fahrten.every((f) => f.meter >= 2000 && f.schritt === "fahrt" && f.knapp >= 3 && f.front > 300 && f.langsam === 0),
+      `Windschichten: Der Autopilot kommt nicht durch jede Welt – ${JSON.stringify(fahrten)}`);
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
     await seite.evaluate(() => { window.LernappBallon.druecken(); window.LernappBallon.loslassen(); });
     await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
@@ -2821,86 +2848,67 @@ try {
       schritt: window.LernappBallon.state.schritt,
       grund: window.LernappBallon.state.grund,
     }));
-    pruefe(ende.schritt === "crash" && ende.grund === "berg" && ende.zahl !== undefined,
-      `Ballonfahrt: Ohne Brenner endet die Fahrt nicht am Berg: ${JSON.stringify(ende)}`);
+    pruefe(ende.schritt === "crash" && ["boden", "berg"].includes(ende.grund) && ende.zahl !== undefined,
+      `Windschichten: Ohne Brenner endet die Fahrt nicht am Boden: ${JSON.stringify(ende)}`);
     await kontext.close();
   }
 
-  // --- 4g14. Wellenreiter: wer die Landungen trifft, hängt die Welle ab ----------
-  // Eine Minute Dünung, im Takt der Uhr gerechnet: Wer nie drückt, den holt die
-  // Brecherwelle bald ein. Wer bergab drückt und in der Luft im richtigen
-  // Moment schwer wird, landet perfekt auf der Rückseite der Wellen, kommt in
-  // den Flow und ist nach einer Minute noch vorn. Danach, ohne Eingabe:
-  // Die Welle holt ihn ein, und das Ergebnis kommt.
+  // --- 4g14. Heisser Draht: immer fahrbar, und wer nichts tut, berührt -----------
+  // Ein Autopilot führt den Ring auf mehreren gewürfelten Drähten bis 2000 m an
+  // der Mitte entlang – nie schneller, als der Ring darf (setzeRing fährt mit
+  // V_RING hin). Wo er nicht folgen kann, verlangt der Draht mehr, als der Ring
+  // kann. Dazu wird nachgerechnet, was der Draht quer verlangt (Tempo mal
+  // Steigung, und wie plötzlich er umlenkt) – nirgends mehr als vOkBei/aOkBei.
+  // Und wer nach dem Start gar nichts tut, berührt den Draht im ersten Bogen:
+  // Das ist das Ende, mit Ergebnis.
   {
     const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
-    await seite.goto(`${BASIS}/wellen`, { waitUntil: "load" });
-    await seite.waitForFunction(() => window.LernappWellen?.state, null, { timeout: 8000 });
-    const runden = await seite.evaluate(() => {
-      const W = window.LernappWellen;
-      const st = W.state;
-      // Wie er landet, wenn er von jetzt an schwer (oder leicht) bleibt.
-      const landet = (schwer) => {
-        let u = st.s.u; let y = st.s.y; let vu = st.s.vu; let vy = st.s.vy;
-        const g = schwer ? W.G_SCHWER : W.G_LEICHT;
-        for (let i = 0; i < 1200; i += 1) {
-          vy -= g / 240; u += vu / 240; y += vy / 240;
-          if (y <= W.wasserBei(u)) {
-            const s = W.steigungBei(u);
-            const len = Math.hypot(1, s);
-            const vn = (vu * -s + vy) / len;
-            const vt = (vu + vy * s) / len;
-            const w = Math.atan2(Math.abs(vn), Math.max(1, Math.abs(vt)));
-            return { perfekt: s < -0.05 && w < W.PERFEKT_WINKEL * 0.92 && vt > 0, hart: w > W.SCHLECHT_WINKEL };
-          }
-        }
-        return { perfekt: false, hart: true };
-      };
-      const strategien = {
-        nie: () => false,
-        geschickt: () => {
-          if (st.amBoden) return W.steigungBei(st.s.u) < -0.02;
-          const leicht = landet(false);
-          if (leicht.perfekt) return false;
-          const schwer = landet(true);
-          return schwer.perfekt || (leicht.hart && !schwer.hart);
-        },
-      };
-      const raus = {};
-      for (const [name, will] of Object.entries(strategien)) {
+    await seite.goto(`${BASIS}/draht`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappDraht?.state?.draht, null, { timeout: 8000 });
+    const laeufe = await seite.evaluate(() => {
+      const D = window.LernappDraht;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
-        W.druecken();
-        W.loslassen();
-        let flow = false;
-        let n = 0;
-        while (st.phase === "spiel" && n < 120 * 60) {
-          if (will()) W.druecken(); else W.loslassen();
-          W.takt(1 / 120);
-          if (st.flow) flow = true;
-          n += 1;
+        const st = D.state;
+        D.druecken();
+        D.loslassen();
+        let enge = Infinity;
+        for (let n = 0; st.schritt === "fahrt" && st.meter < 2000 && n < 400000; n += 1) {
+          const v = D.tempoBei(st.S / D.METER);
+          D.setzeRing(D.drahtBei((st.S + v / 120) / D.METER));
+          D.takt(1 / 120);
+          enge = Math.min(enge, D.toleranzBei(st.S / D.METER) - D.zitterBei(st.S / D.METER));
         }
-        W.loslassen();
-        raus[name] = { meter: st.meter, perfekt: st.perfekt, flow, phase: st.phase, sek: Math.round(n / 120) };
+        // Was der Draht quer verlangt, Stelle für Stelle bis 2000 m (ohne das
+        // Zittern – dem folgt man nicht, ihm weicht man in der Mitte aus).
+        const S0 = st.S;
+        const w = (x) => { st.S = x; return D.drahtBei(x / D.METER); };
+        let zuViel = 0;
+        for (let S = 1; S < 20000; S += 2) {
+          const v = D.tempoBei(S / D.METER);
+          const w0 = w(S - 0.5);
+          const w1 = w(S);
+          const w2 = w(S + 0.5);
+          zuViel = Math.max(zuViel, (Math.abs(w2 - w0) * v) / D.vOkBei(S / D.METER), (Math.abs(w2 - 2 * w1 + w0) * 4 * v * v) / D.aOkBei(S / D.METER));
+        }
+        st.S = S0;
+        raus.push({ meter: st.meter, schritt: st.schritt, enge: Math.round(enge * 10) / 10, zuViel: Math.round(zuViel * 1000) / 1000 });
       }
       return raus;
     });
-    pruefe(runden.nie.phase !== "spiel" && runden.nie.meter > 50,
-      `Wellenreiter: Wer nie drückt, den holt die Welle nicht ein – ${JSON.stringify(runden)}`);
-    pruefe(runden.geschickt.phase === "spiel" && runden.geschickt.meter > runden.nie.meter * 3,
-      `Wellenreiter: Geschicktes Drücken zahlt sich nicht aus – ${JSON.stringify(runden)}`);
-    pruefe(runden.geschickt.perfekt >= 10 && runden.geschickt.flow,
-      `Wellenreiter: Wer geschickt drückt, landet nicht perfekt oder kommt nie in den Flow – ${JSON.stringify(runden)}`);
-    // Ohne Eingabe: Die Welle holt ihn ein (im Takt gerechnet), nach dem
-    // Wipeout kommt das Ergebnis.
-    const ohne = await seite.evaluate(() => {
-      const W = window.LernappWellen;
-      let n = 0;
-      while (W.state.phase === "spiel" && n < 120 * 90) { W.takt(1 / 120); n += 1; }
-      return { phase: W.state.phase, gefangen: Boolean(W.state.wipe), sek: Math.round(n / 120) };
-    });
-    pruefe(ohne.phase === "aus" && ohne.gefangen, `Wellenreiter: Ohne Eingabe holt ihn die Welle nicht ein – ${JSON.stringify(ohne)}`);
-    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
-    pruefe(await seite.locator(".cm-result-score").count() === 1, "Wellenreiter: Nach dem Wipeout kommt kein Ergebnis.");
+    pruefe(laeufe.every((l) => l.meter >= 2000 && l.schritt === "fahrt" && l.enge >= 8 && l.zuViel <= 1.02),
+      `Heisser Draht: Der Autopilot kommt nicht an jedem Draht entlang, oder der Draht verlangt mehr, als der Ring kann – ${JSON.stringify(laeufe)}`);
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.evaluate(() => { window.LernappDraht.druecken(); window.LernappDraht.loslassen(); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 10000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({
+      zahl: document.querySelector(".cm-result-score")?.textContent,
+      schritt: window.LernappDraht.state.schritt,
+      meter: window.LernappDraht.state.meter,
+    }));
+    pruefe(ende.schritt === "crash" && ende.zahl !== undefined && ende.meter >= 15,
+      `Heisser Draht: Ohne Ziehen endet die Runde nicht am Draht: ${JSON.stringify(ende)}`);
     await kontext.close();
   }
 
@@ -2951,6 +2959,133 @@ try {
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
     const zahl = await seite.evaluate(() => document.querySelector(".cm-result-score")?.textContent);
     pruefe(ende === "ende" && zahl === "0", `Kranhafen: Ein Fehlwurf beendet die Runde nicht mit Ergebnis: ${ende} / ${zahl}`);
+    await kontext.close();
+  }
+
+  // --- 4g16. Zwei Spuren: immer fahrbar, und ohne Eingabe ist bald Schluss ---------
+  // Ein Autopilot fährt mehrere gewürfelte Welten zweieinhalb Minuten lang: In
+  // jedem Kanal fährt er in die Spur, die das nächste Ding verlangt – einmal
+  // so früh wie möglich, einmal so spät wie möglich (erst, wenn bis zum Ding
+  // nur noch der halbe Wechsel bleibt). Wo er nicht durchkommt, verlangt die
+  // Welt einen Wechsel, der nicht zu schaffen ist. Und wer nach dem Start
+  // nichts mehr tippt, trifft bald ein Hindernis oder verpasst einen Stern –
+  // das ist das Ende, mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
+    await seite.goto(`${BASIS}/spuren`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSpuren?.state, null, { timeout: 8000 });
+    const fahrten = await seite.evaluate(() => {
+      const Z = window.LernappSpuren;
+      const raus = [];
+      for (const art of ["frueh", "spaet"]) {
+        for (let lauf = 0; lauf < 4; lauf += 1) {
+          document.querySelector(".cm-bar-left .cm-icon-again").click();
+          const st = Z.state;
+          Z.tippe("links");   // der erste Tipp startet nur
+          for (let n = 0; st.phase === "spiel" && st.tick < 240 * 150 && n < 400000; n += 1) {
+            const v = Z.tempoBei(st.weg);
+            for (const bahn of [0, 1]) {
+              const ding = Z.naechste(bahn);
+              if (!ding || st.schlitten[bahn].ziel === ding.soll) continue;
+              if (art === "spaet" && ding.ab - Z.TREFF_L > v * (Z.K * Z.TAKT * 0.55 + 3 * Z.TAKT) + 1) continue;
+              Z.tippe(bahn);
+            }
+            Z.takt(1 / 120);
+          }
+          raus.push({ art, sekunden: Math.round(st.tick / 240), punkte: st.punkte, phase: st.phase, fehler: st.fehler?.text || null });
+        }
+      }
+      return raus;
+    });
+    pruefe(fahrten.every((f) => f.sekunden >= 150 && f.phase === "spiel" && f.punkte >= 250),
+      `Zwei Spuren: Der Autopilot kommt nicht durch jede Welt – ${JSON.stringify(fahrten)}`);
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.evaluate(() => window.LernappSpuren.tippe("links"));
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, phase: window.LernappSpuren.state.phase, fehler: window.LernappSpuren.state.fehler?.text || null }));
+    pruefe(ende.phase === "ende" && ende.zahl !== undefined && Boolean(ende.fehler),
+      `Zwei Spuren: Ohne Eingabe endet die Runde nicht mit Ergebnis: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+
+  // --- 4g17. Ball hochhalten: immer haltbar, und der Rasen beendet die Runde ---------
+  // Ein Autopilot tippt den Ball auf mehreren gewürfelten Welten bis 120
+  // Kontakte hoch – durch Böen, an Tauben und Schranken vorbei. Wo er den Ball
+  // verliert, verlangt der Plan mehr, als ein Kick kann. Der Ball bleibt dabei
+  // immer unter dem Netz. Und wer nach dem Anstoss nichts tippt, sieht ihn
+  // auf den Rasen fallen – das ist das Ende, mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+    await seite.goto(`${BASIS}/ball`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappBall?.state && window.LernappBall.view.cssW > 0, null, { timeout: 8000 });
+    const runden = await seite.evaluate(() => {
+      const B = window.LernappBall;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const st = B.state;
+        B.tippe(B.ball.x, B.ball.y);
+        let hoechst = 0;
+        for (let n = 0; st.schritt === "flug" && st.kontakte < 120 && n < 400000; n += 1) {
+          const b = B.ball;
+          hoechst = Math.max(hoechst, b.y + b.r);
+          const k = st.kontakte;
+          if (b.vy < 0 && b.y < 115 && st.zeit - st.letzterKick > 0.25) {
+            // Weg von einer Schranke, sonst zur Mitte; gegen die Böe vorhalten.
+            const gg = B.gBei(k);
+            const balken = st.plan.balken.find((s) => s.raus > 0.05 || (k >= s.ab - 1 && k < s.bis));
+            const ziel = balken ? -balken.seite * 70 : 0;
+            const hub = Math.max(B.APEX - b.y, B.HUB_MIN);
+            const T = Math.sqrt(2 * gg * hub) / gg + Math.sqrt(2 * (b.y + hub - 100) / gg);
+            const vx = (ziel - b.x) / T - st.wind.ax * 0.6;
+            const off = Math.max(-0.95, Math.min(0.95, -vx / B.vxBei(k)));
+            B.tippe(b.x + off * b.r, b.y);
+          }
+          B.takt(1 / 120);
+        }
+        raus.push({ kontakte: st.kontakte, schritt: st.schritt, hoechst: Math.round(hoechst), dach: B.DACH });
+      }
+      return raus;
+    });
+    pruefe(runden.every((r) => r.kontakte >= 120 && r.schritt === "flug" && r.hoechst <= r.dach + 1),
+      `Ball hochhalten: Der Autopilot hält den Ball nicht auf jeder Welt – ${JSON.stringify(runden)}`);
+    // Ohne Tipp: Anstoss mit der Leertaste, dann fällt der Ball auf den Rasen.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.keyboard.press("Space");
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({
+      zahl: document.querySelector(".cm-result-score")?.textContent,
+      schritt: window.LernappBall.state.schritt,
+      grund: window.LernappBall.state.grund,
+      phase: window.LernappBall.state.phase,
+    }));
+    pruefe(ende.schritt === "aus" && ende.phase === "ende" && ende.zahl !== undefined && ende.grund === "zu spät!",
+      `Ball hochhalten: Ohne Tipp endet die Runde nicht auf dem Rasen: ${JSON.stringify(ende)}`);
+    // Ein Tipp neben den Ball zählt nicht – und heisst am Ende «daneben getippt!».
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const luft = await seite.evaluate(() => {
+      const B = window.LernappBall;
+      B.tippe(B.ball.x, B.ball.y);
+      for (let n = 0; n < 60; n += 1) B.takt(1 / 120);
+      const vorher = B.state.kontakte;
+      const traf = B.tippe(B.ball.x + B.ball.r * 3, B.ball.y);
+      for (let n = 0; B.state.schritt === "flug" && n < 2000; n += 1) B.takt(1 / 120);
+      return { vorher, nachher: B.state.kontakte, traf, grund: B.state.grund };
+    });
+    pruefe(luft.traf === false && luft.nachher === luft.vorher && luft.grund === "daneben getippt!",
+      `Ball hochhalten: Ein Luftloch zählt oder wird nicht als solches gemeldet: ${JSON.stringify(luft)}`);
+    // Links getroffen fliegt er nach rechts, rechts getroffen nach links.
+    const richtung = await seite.evaluate(() => {
+      const B = window.LernappBall;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      B.tippe(B.ball.x - B.ball.r * 0.7, B.ball.y);
+      const nachRechts = B.ball.vx;
+      for (let n = 0; n < 200 && !(B.ball.vy < 0 && B.ball.y < 150); n += 1) B.takt(1 / 120);
+      B.tippe(B.ball.x + B.ball.r * 0.7, B.ball.y);
+      return { nachRechts, nachLinks: B.ball.vx };
+    });
+    pruefe(richtung.nachRechts > 0 && richtung.nachLinks < 0,
+      `Ball hochhalten: Die Richtung folgt nicht dem Treffpunkt: ${JSON.stringify(richtung)}`);
     await kontext.close();
   }
 
@@ -3140,16 +3275,16 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 12 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 14 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 12 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 14 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /13/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /15/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -3166,7 +3301,7 @@ try {
     await form.locator("button", { hasText: "Keine" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "frogHop", "hillGlide", "ropeWalk", "skiSlalom", "towerStack", "tunnelFlight", "vineSwing", "waveRider"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "frogHop", "hillGlide", "keepyUppy", "ropeWalk", "skiSlalom", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();

@@ -413,6 +413,32 @@ const BOTS = {
       host.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     };
     requestAnimationFrame(tick);
+  },  twinLanes: ({ raus, seed }) => {
+    let r = seed;
+    const zufall = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
+    const host = document.querySelector(".cm-stage") || document.body;
+    // Getippt wird wie mit dem Finger: auf die linke oder rechte Hälfte.
+    const tippe = (bahn) => {
+      const box = host.getBoundingClientRect();
+      host.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: box.left + box.width * (bahn ? 0.75 : 0.25), clientY: box.top + box.height * 0.6, pointerId: 1 + bahn }));
+    };
+    const vorhalt = [0.4, 0.4];
+    const tick = () => {
+      const Z = window.LernappSpuren;
+      const st = Z.state;
+      if (window.LernappLiveSpiel.istFertig() || st.phase === "ende" || st.phase === "zuschauen") return;
+      requestAnimationFrame(tick);
+      // Nach raus Punkten tippt er nicht mehr – bald ist ein Stern verpasst
+      // oder ein Hindernis getroffen.
+      if (st.phase !== "spiel" || st.punkte >= raus) return;
+      const v = Z.tempoBei(st.weg);
+      for (const b of [0, 1]) {
+        const n = Z.naechste(b);
+        if (!n || st.schlitten[b].ziel === n.soll) continue;
+        if (n.ab < v * vorhalt[b] + 30) { tippe(b); vorhalt[b] = 0.25 + zufall() * 0.45; }
+      }
+    };
+    requestAnimationFrame(tick);
   },
 };
 
@@ -453,6 +479,9 @@ const BILD = {
     // wie der Zug sie trägt.
     const st = window.LernappKranhafen.state;
     return { punkte: st.punkte, schiff: st.schiffNr, stapel: st.stapel.map((k) => Math.round(k.off * 100)) };
+  },  twinLanes: () => {
+    const st = window.LernappSpuren.state;
+    return { punkte: st.punkte, ziele: `${st.schlitten[0].ziel}${st.schlitten[1].ziel}`, fehler: st.fehler ? `${st.fehler.art}#${st.fehler.ding.id}` : "" };
   },
 };
 
@@ -460,7 +489,7 @@ try {
   const leitung = await geraet("Alain", { admin: true });
   await leitung.seite.goto(`${BASIS}/live?neu`, { waitUntil: "load" });
   await bis(() => leitung.seite.locator(".lv-formular").isVisible());
-  const PROGRAMM = (process.env.PROGRAMM || "towerStack,bridgeBuilder,dartWheel,tileMemory,fishPond,boilerRoom,numberLine,craneHarbor").split(",");
+  const PROGRAMM = (process.env.PROGRAMM || "towerStack,bridgeBuilder,dartWheel,tileMemory,fishPond,boilerRoom,numberLine,craneHarbor,twinLanes").split(",");
   while (await leitung.seite.locator(".lv-zeile").count() < PROGRAMM.length) await leitung.seite.getByRole("button", { name: "Spiel hinzufügen" }).click();
   while (await leitung.seite.locator(".lv-zeile").count() > PROGRAMM.length) await leitung.seite.locator(".lv-zeile").last().getByRole("button", { name: "Entfernen" }).click();
   for (let i = 0; i < PROGRAMM.length; i += 1) {
@@ -499,7 +528,7 @@ try {
     await Promise.all(frames.map((f) => f.evaluate(() => new Promise((ok) => { const t = setInterval(() => { if (window.LernappLiveSpiel.gestartet()) { clearInterval(t); ok(); } }, 20); }))));
     const kennungen = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().ich.kennung)));
     // Alain scheidet zuerst aus, Mia später, Jonas zuletzt.
-    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [2, 6, 11] };
+    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [2, 6, 11], twinLanes: [6, 16, 30] };
     const raus = RAUS[spiel] || [2, 6, 10];
     // Jeder merkt sich, was er zuletzt im Bild hatte – je nachdem, wem er
     // gerade zuschaut (oder sich selbst).
