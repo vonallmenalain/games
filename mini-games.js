@@ -1652,7 +1652,15 @@
     return (teile.length > 1 ? teile[0][0] + teile[1][0] : teile[0].slice(0, 2)).toLocaleUpperCase("de");
   }
 
+  // Baut sich die Seite neu (nach einem neuen Namen), räumt die alte zuerst
+  // ab: ihre Uhr, ihre Filme und was sie an window und document hörte.
+  let abbauUebersicht = null;
+
   async function baueUebersicht(wirt, { spiel: gewuenscht = "" } = {}) {
+    abbauUebersicht?.abort();
+    const ende = new AbortController();
+    abbauUebersicht = ende;
+    const { signal } = ende;
     wirt.innerHTML = "";
     wirt.classList.add("ar-seite");
     document.body.classList.add("ar");
@@ -1673,7 +1681,7 @@
     const rechts = el("div", "ar-kopf-rechts");
     const zumAdmin = adminKnopf();
     if (zumAdmin) rechts.append(zumAdmin);
-    rechts.append(nameChip(wirt));
+    rechts.append(nameChip(wirt, signal));
     const voll = window.LernappVollbild?.knopf?.("mini-vollbild ar-vollbild");
     if (voll) rechts.append(voll);
     kopf.append(rechts);
@@ -1682,10 +1690,11 @@
     multiplayerKnopf(rechts, rechts.querySelector(".ar-name"));
     // Der Kopf wird fest, sobald die Bühne nach oben wegscrollt.
     const merkeScroll = () => kopf.classList.toggle("ist-fest", window.scrollY > 24);
-    window.addEventListener("scroll", merkeScroll, { passive: true });
+    window.addEventListener("scroll", merkeScroll, { passive: true, signal });
     merkeScroll();
 
     const offen = await offeneSpiele();
+    if (signal.aborted) return;
     if (!offen.length) {
       wirt.append(el("p", "mini-hinweis ar-leer", "Gerade ist kein Spiel freigegeben. Schau später wieder vorbei."));
       zeigeInstall(wirt);
@@ -1695,6 +1704,7 @@
     // Die Reihen: nach Tier, wie der Admin sie eingeteilt hat.
     let einteilung = null;
     try { einteilung = await cloud()?.tiers?.(); } catch { einteilung = null; }
+    if (signal.aborted) return;
     const reihen = REIHEN.map((r) => ({ ...r, spiele: offen.filter((s) => tierVon(s, einteilung) === r.tier) }))
       .filter((r) => r.spiele.length);
     const reihenfolge = reihen.flatMap((r) => r.spiele);
@@ -1797,6 +1807,7 @@
         });
       }, { rootMargin: "0px 0px -8% 0px" });
       reihenWirt.querySelectorAll(".ar-reihe").forEach((r) => { r.classList.add("kommt"); beobachter.observe(r); });
+      signal.addEventListener("abort", () => beobachter.disconnect());
     }
 
     // --- Die Ergebnisse --------------------------------------------------------
@@ -2004,7 +2015,7 @@
       let zeitgeber = null;
       let sichtbar = true;
       let drauf = false;
-      const darf = () => !selbstGewaehlt && sichtbar && !drauf && document.visibilityState === "visible" && !ruhigHier();
+      const darf = () => !signal.aborted && !selbstGewaehlt && sichtbar && !drauf && document.visibilityState === "visible" && !ruhigHier();
       const naechster = () => {
         const liste = favoriten.length > 1 ? favoriten : reihenfolge;
         const i = liste.indexOf(aktuell);
@@ -2040,16 +2051,23 @@
       bleib();
       window.removeEventListener("scroll", beimScrollen);
     };
-    window.addEventListener("scroll", beimScrollen, { passive: true });
+    window.addEventListener("scroll", beimScrollen, { passive: true, signal });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") { spiele(ebenen[ebene]); uhr.weiter(); } else { ebenen.forEach((v) => v.pause()); uhr.stopp(); }
-    });
+    }, { signal });
     if ("IntersectionObserver" in window) {
-      new IntersectionObserver(([e]) => {
+      const imBild = new IntersectionObserver(([e]) => {
         uhr.sicht(e.isIntersecting);
         if (e.isIntersecting) spiele(ebenen[ebene]); else ebenen[ebene].pause();
-      }, { threshold: 0.25 }).observe(buehne);
+      }, { threshold: 0.25 });
+      imBild.observe(buehne);
+      signal.addEventListener("abort", () => imBild.disconnect());
     }
+    // Abgebaut: Uhr aus, und die Filme laden nicht weiter.
+    signal.addEventListener("abort", () => {
+      uhr.stopp();
+      ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
+    });
     // Wer Play drückt, kommt danach hierher zurück – auf dieses Spiel.
     play.addEventListener("click", () => {
       try { sessionStorage.setItem(ZULETZT_KEY, aktuell); } catch { /* egal */ }
@@ -2058,7 +2076,7 @@
     HOCHKANT.addEventListener?.("change", () => {
       kacheln.forEach((k, s) => { k.querySelector(".ar-kachel-bild").src = filmPfad(s, "webp"); });
       waehle(aktuell, { sofort: true });
-    });
+    }, { signal });
 
     waehle(start, { sofort: true });
 
@@ -2067,6 +2085,7 @@
     try {
       alle = await alleErgebnisse(offen, { neu: true });
     } catch {
+      if (signal.aborted) return;
       ladefehler = true;
       kachelnAuffrischen();
       tafelZeichnen();
@@ -2074,6 +2093,7 @@
       gesamtInhalt.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
       return;
     }
+    if (signal.aborted) return;
     listen = new Map(offen.map((spiel) => [spiel, rangliste(alle.filter((e) => e.game === spiel))]));
     geladen = true;
     kachelnAuffrischen();
@@ -2085,7 +2105,7 @@
 
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
   // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile).
-  function nameChip(seite) {
+  function nameChip(seite, signal) {
     const wirt = el("div", "ar-name");
     const knopfName = el("button", "ar-name-knopf");
     knopfName.type = "button";
@@ -2126,8 +2146,8 @@
       knopfName.setAttribute("aria-expanded", "true");
     };
     knopfName.addEventListener("click", () => (feld.hidden ? auf() : zu()));
-    document.addEventListener("pointerdown", (e) => { if (!feld.hidden && !wirt.contains(e.target)) zu(); });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !feld.hidden) { zu(); knopfName.focus(); } });
+    document.addEventListener("pointerdown", (e) => { if (!feld.hidden && !wirt.contains(e.target)) zu(); }, { signal });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !feld.hidden) { zu(); knopfName.focus(); } }, { signal });
     wirt.append(knopfName, feld);
     return wirt;
   }
