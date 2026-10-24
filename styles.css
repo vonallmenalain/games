@@ -5081,7 +5081,8 @@ body.ar {
 }
 .ar-kopf .mini-knopf-live { background: var(--ar-koralle); border-color: transparent; color: #2a0f0b; }
 
-/* Runde Knöpfe: Pokal, App, Vollbild, Schliessen. */
+/* Runde Knöpfe: Pokal, App, Vollbild, Schliessen. Wie alle Knöpfe der Seite
+   aus dunklem Glas – hochkant liegen sie auf dem Film. */
 .ar-rund {
   display: grid;
   place-items: center;
@@ -5089,9 +5090,11 @@ body.ar {
   width: var(--ar-rund);
   height: var(--ar-rund);
   padding: 0;
-  border: 1px solid var(--ar-linie);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(18, 17, 24, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
   color: var(--ar-text);
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.2s ease;
@@ -5112,9 +5115,11 @@ body.ar {
   max-width: 34vw;
   height: var(--ar-rund);
   padding: 3px 14px 3px 3px;
-  border: 1px solid var(--ar-linie);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(18, 17, 24, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
   color: var(--ar-text);
   font: inherit;
   font-size: 0.9rem;
@@ -5166,49 +5171,49 @@ body.ar {
 .ar-wer .mini-wer-hinweis { margin: 0; color: var(--ar-leise); font-size: 0.82rem; }
 
 /* --- Die Bühne: der Film und die Leiste ------------------------------------- */
+/* Hochkant: Der Film liegt über den ganzen Bildschirm hinter allem, die Leiste
+   unten darauf. Quer (weiter unten): der Film in seiner Form, die Leiste
+   daneben. */
 .ar-buehne {
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  padding: 0 var(--ar-rand);
-}
-.ar-filme {
-  position: relative;
-  isolation: isolate;
-  min-height: 0;
-  overflow: hidden;
-  border-radius: clamp(14px, 2vw, 22px);
-  background: #000;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  /* Wischen gehört dem Film (mini-games.js), nur das Zoomen dem Browser. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 var(--ar-rand) 2px;
+  /* Wischen gehört der Bühne (mini-games.js), nur das Zoomen dem Browser. */
   touch-action: pan-y pinch-zoom;
   cursor: grab;
 }
-.ar-filme:active { cursor: grabbing; }
-/* Hinter dem Film sein Standbild, gross und verschwommen: Wo der Film die
-   Fläche nicht füllt, steht kein schwarzer Balken. */
-.ar-schein {
+.ar-buehne:active { cursor: grabbing; }
+.ar-filme {
   position: absolute;
-  inset: -10%;
+  inset: 0;
   z-index: -1;
-  width: 120%;
-  height: 120%;
-  object-fit: cover;
-  filter: blur(26px) brightness(0.5) saturate(1.3);
+  isolation: isolate;
+  overflow: hidden;
+  background: #000;
+}
+/* Dunkel oben hinter den Knöpfen und unten hinter Leiste und Zeile – in der
+   Mitte bleibt der Film frei. */
+.ar-filme::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(13, 12, 17, 0.6) 0, rgba(13, 12, 17, 0) calc(var(--ar-kopf-h) + var(--safe-top) + 36px)),
+    linear-gradient(to top, rgba(13, 12, 17, 0.9) 0, rgba(13, 12, 17, 0.55) calc(var(--ar-kachel-b) * 9 / 16 + 70px + var(--safe-bottom)), rgba(13, 12, 17, 0) calc(var(--ar-kachel-b) * 9 / 16 + 150px + var(--safe-bottom)));
+  pointer-events: none;
 }
 .ar-film {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   opacity: 0;
   transition: opacity 0.6s ease;
 }
-.ar-filme.ist-voll .ar-film { object-fit: cover; }
 .ar-film.ist-an { opacity: 1; }
 .ar-filme.ist-wisch .ar-film { transition: none; }
 
@@ -5230,6 +5235,7 @@ body.ar {
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
 }
 .ar-aktionen { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
 /* Play: rund, weiss, das Dreieck in der Farbe des Spiels. */
@@ -5257,9 +5263,11 @@ body.ar {
   max-width: min(46vw, 260px);
   height: 44px;
   padding: 4px 14px 4px 4px;
-  border: 1px solid var(--ar-linie);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(18, 17, 24, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
   color: var(--ar-text);
   font: inherit;
   cursor: pointer;
@@ -5504,13 +5512,31 @@ body.ar {
 .ar-fenster .mini-install-schritte { color: #a39fb2; }
 
 /* --- Quer: die Leiste neben dem Film ----------------------------------------- */
+/* Der Film steht in seiner eigenen Form (16:9) so hoch wie die Bühne – ohne
+   Rand daneben; nur wo die Leiste sonst zu schmal würde, wird er schmaler und
+   oben und unten fällt etwas weg. */
 @media (orientation: landscape) {
   .ar-buehne {
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr) clamp(190px, 24vw, 340px);
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: stretch;
     gap: clamp(14px, 2vw, 28px);
+    padding: 0 var(--ar-rand);
   }
-  .ar-leiste { flex-direction: column; align-items: flex-start; justify-content: center; gap: clamp(12px, 2vh, 20px); }
+  .ar-filme {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    flex: 0 1 auto;
+    height: 100%;
+    aspect-ratio: 16 / 9;
+    min-width: 0;
+    max-width: calc(100% - 200px - clamp(14px, 2vw, 28px));
+    border-radius: clamp(14px, 2vw, 22px);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  .ar-filme::after { display: none; }
+  .ar-leiste { flex: 1 1 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: clamp(12px, 2vh, 20px); }
   .ar-titel {
     flex: 0 0 auto;
     max-width: 100%;
