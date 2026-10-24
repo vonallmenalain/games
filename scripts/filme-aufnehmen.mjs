@@ -137,6 +137,11 @@ async function aufnehmen(browser, spiel, vorfuehrung, formatName) {
   await kontext.close();
   if (fehler.length) throw new Error(`${spiel.seite}: Fehler in der Seite – ${fehler.join(" | ")}`);
   if (bilder.length < 30) throw new Error(`${spiel.seite}/${formatName}: nur ${bilder.length} Bilder aufgenommen.`);
+  // Stockt der Screencast unterwegs (unter Last schon vorgekommen), wäre der
+  // Film zu kurz – dann lieber noch einmal.
+  const soll = (vorfuehrung.dauer ?? 9000) / 1000;
+  const sekunden = bilder[bilder.length - 1].t - bilder[0].t;
+  if (sekunden < soll * 0.85) throw new Error(`${spiel.seite}/${formatName}: nur ${sekunden.toFixed(1)} von ${soll} s aufgenommen.`);
 
   // Die Bilder mit ihrer Dauer in eine Liste für ffmpeg (concat).
   const ordner = BILDER_BEHALTEN ? path.join(BILDER_BEHALTEN, `${spiel.seite}-${formatName}`) : mkdtempSync(path.join(os.tmpdir(), "film-"));
@@ -151,7 +156,6 @@ async function aufnehmen(browser, spiel, vorfuehrung, formatName) {
   liste.push(`file '${path.join(ordner, `b${String(bilder.length - 1).padStart(5, "0")}.jpg`)}'`);
   const listenDatei = path.join(ordner, "liste.txt");
   writeFileSync(listenDatei, `${liste.join("\n")}\n`);
-  const sekunden = bilder[bilder.length - 1].t - bilder[0].t;
 
   mkdirSync(ZIEL, { recursive: true });
   const [w, h] = f.aus;
@@ -192,12 +196,17 @@ try {
     const vorfuehrung = (await import(pathToFileURL(datei).href)).default;
     for (const formatName of Object.keys(FORMATE)) {
       if (NUR_FORMAT && NUR_FORMAT !== formatName) continue;
-      try {
-        const r = await aufnehmen(browser, spiel, vorfuehrung, formatName);
-        console.log(`✓ ${spiel.seite}-${formatName}: ${r.bilder} Bilder (${r.jeSekunde}/s), ${r.kb} KB, Standbild ${r.bildKb} KB`);
-      } catch (f) {
-        fehlgeschlagen += 1;
-        console.log(`✗ ${spiel.seite}-${formatName}: ${f.message}`);
+      // Ein zweiter Versuch, wenn der erste scheitert; erst dann zählt es.
+      for (let versuch = 1; versuch <= 2; versuch += 1) {
+        try {
+          const r = await aufnehmen(browser, spiel, vorfuehrung, formatName);
+          console.log(`✓ ${spiel.seite}-${formatName}: ${r.bilder} Bilder (${r.jeSekunde}/s), ${r.kb} KB, Standbild ${r.bildKb} KB`);
+          break;
+        } catch (f) {
+          if (versuch < 2) { console.log(`… ${spiel.seite}-${formatName}: ${f.message} – noch einmal`); continue; }
+          fehlgeschlagen += 1;
+          console.log(`✗ ${spiel.seite}-${formatName}: ${f.message}`);
+        }
       }
     }
   }
