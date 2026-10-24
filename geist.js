@@ -34,8 +34,9 @@
  * Bestwert, diese Datei den besten Lauf dazu. Derselbe Name auf einem anderen
  * Gerät ist derselbe Spieler – war er dort besser, gilt das, mit dem Lauf von
  * dort (miniGeister). Was angezeigt wird, entscheidet
- * jeder selbst mit den beiden Schaltern; die Wahl gilt auf diesem Gerät für
- * alle Spiele.
+ * jeder selbst mit den Schaltern: Zu Beginn ist alles aus – das Spiel steht
+ * allein da –, und ein Tipp auf einen Schalter blendet seinen Gegner ein. Die
+ * Wahl gilt auf diesem Gerät für alle Spiele.
  *
  * Im Turnier kann der Admin beides abschalten (ohneGeist), und eine
  * verdeckte Rangliste verrät auch hier nicht, wer vorne liegt.
@@ -98,7 +99,9 @@
   // Wie weit die Kurve hinter der letzten Probe in ihrer Richtung weitergeht,
   // wenn die nächste noch fehlt (nur im Multiplayer, live-spiel.js).
   const VORAUS_MS = 250;
-  const WAHL_KEY = "mini.gegner";
+  // Bis Oktober 2026 «mini.gegner», mit allem an, bis jemand abschaltete. Der
+  // neue Name lässt alle neu beginnen: alles aus.
+  const WAHL_KEY = "mini.geister";
   const LAUF_KEY = "mini.lauf";
   // Gold für Platz 1, Hellblau für die eigene Bestmarke, Flieder für alle
   // anderen – im Bild der Spiele dieselben Farben wie auf den Schaltern.
@@ -156,10 +159,10 @@
     try { localStorage.setItem(schluessel, JSON.stringify(wert)); } catch { /* privater Modus */ }
   }
 
-  // Alle an, bis jemand etwas anderes wählt.
+  // Alle aus, bis jemand einen einschaltet.
   function wahl() {
     const w = liesJson(WAHL_KEY);
-    return { erster: w.erster !== false, eigen: w.eigen !== false, alle: w.alle !== false };
+    return { erster: w.erster === true, eigen: w.eigen === true, alle: w.alle === true };
   }
 
   function setzeWahl(art, an) {
