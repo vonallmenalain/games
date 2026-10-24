@@ -328,12 +328,6 @@
     return node;
   }
 
-  function verweis(text, ziel, klasse) {
-    const node = el("a", `mini-knopf ${klasse || ""}`.trim(), text);
-    node.href = ziel;
-    return node;
-  }
-
   // Der Pokal, derselbe wie unter dem Ergebnis (game-shell.js).
   function pokal(klasse = "tn-pokal") {
     const NS = "http://www.w3.org/2000/svg";
@@ -357,16 +351,6 @@
     teil("M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11", false);
     teil("M12 13v4m-3.5 3h7", false);
     return svg;
-  }
-
-  function streifen(zahlen) {
-    const wrap = el("div", "mini-streifen");
-    zahlen.forEach(([wert, wort]) => {
-      const kasten = el("div");
-      kasten.append(el("strong", "", String(wert)), el("span", "", wort));
-      wrap.append(kasten);
-    });
-    return wrap;
   }
 
   // ---------------------------------------------------------------------------
@@ -452,40 +436,50 @@
   // ---------------------------------------------------------------------------
   // Die Turnierseite
   // ---------------------------------------------------------------------------
+  /*
+   * Sie sieht aus wie die Startseite und ist ein Bildschirm wie sie
+   * (mini-games.js, arcadeBuehne): das Bild des gewählten Spiels, darunter
+   * Rangliste und Play, unten die Spiele des Turniers in einer Zeile. Ein
+   * Tipp aufs Bild oder auf Play spielt im Turnier.
+   *
+   * Oben, statt der Marke: der Name des Turniers und in einer Zeile, wie
+   * lange es läuft und wie viele Versuche es gibt. Daneben (schmal: darunter)
+   * die Gesamtwertung über alle Spiele, die ersten drei – sie zählt im
+   * Turnier mehr als jede einzelne Liste. Ein Tipp öffnet die ganze Tabelle,
+   * mit der Beschreibung und den Multiplayern des Turniers.
+   *
+   * Kein Weg hinaus zu den anderen Spielen und der Hall of Fame: Ein Turnier
+   * ist ein Raum für sich, gerade eines, das nur kennt, wer den Link hat.
+   */
   function turnierSeite(wirt) {
     const id = ausDerAdresse("t");
     const stand = { t: null, eintraege: [], abende: [], zeiger: null, geladenMs: 0, lage: "" };
+    const m = mini();
+    const { signal } = new AbortController();
 
     wirt.innerHTML = "";
-    const kopf = el("header", "mini-kopf tn-kopf");
-    const text = el("div");
+    wirt.classList.add("ar-seite", "ist-turnier");
+    document.body.classList.add("ar");
+
+    // Der Kopf: links Name und Stand des Turniers, rechts der Name, unter dem
+    // hier gespielt wird. Ein neuer Name ist im Turnier ein neuer Mitspieler:
+    // Was schon gespielt ist, bleibt beim alten Namen, und wer vorne liegt,
+    // hängt an der Kennung – darum zeichnet die Seite sich danach neu.
+    const titelBlock = el("div", "tn-titel");
     const ueberschrift = el("h1", "", "Turnier");
     const status = el("p", "tn-status");
-    text.append(el("p", "mini-marke", "Turnier"), ueberschrift, status);
-    kopf.append(text);
-    const zumAdmin = mini()?.adminKnopf?.();
-    if (zumAdmin) kopf.append(zumAdmin);
-    const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
-    if (voll) kopf.append(voll);
+    titelBlock.append(ueberschrift, status);
+    const { kopf, rechts } = m.arcadeKopf({ signal, links: titelBlock, mitPokal: false, beiNamen: () => { if (stand.t) zeichne(); } });
+    // Zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, und die
+    // Gesamtwertung.
+    const oben = el("div", "tn-oben");
+    kopf.insertBefore(oben, rechts);
     wirt.append(kopf);
 
-    // Unter wessen Namen hier gespielt wird. Ein neuer Name ist im Turnier
-    // ein neuer Mitspieler: Was schon gespielt ist, bleibt beim alten Namen,
-    // und wer vorne liegt, hängt an der Kennung – darum zeichnet die Seite
-    // sich danach neu.
-    const wer = mini()?.namensZeile?.({ klasse: "tn-wer", beiWechsel: () => { if (stand.t) zeichne(); } });
-    if (wer) wirt.append(wer);
-
-    const inhalt = el("div", "tn-inhalt");
-    wirt.append(inhalt);
-
-    // Kein Weg hinaus zu den anderen Spielen und der Hall of Fame: Ein
-    // Turnier ist ein Raum für sich, gerade eines, das nur kennt, wer den
-    // Link hat.
-
+    const hinweisZeile = el("p", "mini-hinweis ar-leer");
     function hinweis(satz) {
-      inhalt.innerHTML = "";
-      inhalt.append(el("p", "mini-hinweis", satz));
+      hinweisZeile.textContent = satz;
+      if (!hinweisZeile.isConnected) wirt.append(hinweisZeile);
     }
 
     if (!id) {
@@ -523,9 +517,9 @@
       schauLive();
     }
 
-    // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht ganz oben der
-    // Weg hinein. Gefragt wird beim Laden und dann alle 20 Sekunden, solange
-    // die Seite zu sehen ist.
+    // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht oben der Weg
+    // hinein. Gefragt wird beim Laden und dann alle 20 Sekunden, solange die
+    // Seite zu sehen ist.
     async function schauLive() {
       let zeiger = null;
       try { zeiger = await cloud().liveZeiger?.(id); } catch { zeiger = null; }
@@ -535,57 +529,149 @@
     }
     window.setInterval(() => { if (document.visibilityState === "visible" && stand.t) schauLive(); }, 20000);
 
+    // Die Bühne steht einmal und bekommt danach nur neue Zahlen – ausser die
+    // Spiele des Turniers ändern sich.
+    let buehne = null;
+    let buehneEnde = null;
+    let buehneFuer = "";
+    let wertung = null;
+
+    // Wohin Play bei einem Spiel führt – oder warum es gerade nicht geht. Die
+    // Versuche hängen am Gerät, nicht am Namen – gezählt wird deshalb der
+    // Eintrag dieses Geräts. Vorne liegen kann dagegen auch, wer auf einem
+    // anderen Gerät mit demselben Namen gespielt hat (alleinVorne).
+    function wegFuer(spiel) {
+      const t = stand.t;
+      const liste = wertung?.listen.get(spiel) || [];
+      const kennung = m.kennungFallsDa?.() || "";
+      const meiner = kennung ? stand.eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
+      const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
+      const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
+      const l = lage(t);
+      if (t.nurLive) return { sperre: "Wird im Multiplayer gespielt" };
+      if (l === "laeuft" && vorne) return { sperre: "Du liegst vorne" };
+      if (l === "laeuft" && uebrig > 0) return { link: spielLink(t.id, spiel) };
+      if (l === "laeuft") return { sperre: "Alle Versuche gespielt" };
+      if (l === "geplant") return { sperre: `Ab ${datum(t.startMs)}` };
+      if (l === "angehalten") return { sperre: "Turnier angehalten" };
+      return { sperre: "Turnier vorbei" };
+    }
+
     function zeichne() {
       const t = stand.t;
       const jetzt = Date.now();
       stand.lage = lage(t, jetzt);
       const vorbei = stand.lage === "beendet";
       const verdeckt = t.verdeckt && !vorbei;
-      const { personen, listen, abende, teile } = gesamtwertung(t, stand.eintraege, stand.abende);
+      wertung = gesamtwertung(t, stand.eintraege, stand.abende);
 
       document.title = `${t.name} · Turnier · alae arcade`;
       ueberschrift.textContent = t.name;
-      status.textContent = statusZeile(t, jetzt);
-      inhalt.innerHTML = "";
+      ueberschrift.title = t.name;
+      zeigeStatus(jetzt);
+      hinweisZeile.remove();
 
-      // Ein Multiplayer läuft: ganz oben der Weg hinein.
-      if (stand.zeiger) inhalt.append(liveHinweis(stand.zeiger));
+      oben.innerHTML = "";
+      if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
+      oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
+      gesamtZeichnen?.();
 
-      inhalt.append(streifen([
-        [t.spiele.length, t.spiele.length === 1 ? "Spiel" : "Spiele"],
-        [personen.length, "Spieler"],
-        t.nurLive
-          ? [abende.length || "–", "Multiplayer"]
-          : t.spitzeWartet
-            ? ["∞", "Versuche – wer vorne liegt, wartet"]
-            : [t.versuche || "∞", t.versuche === 1 ? "Versuch je Spiel" : "Versuche je Spiel"],
-      ]));
-
-      if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
-
-      const spieleBlock = el("section", "mini-block");
-      spieleBlock.append(el("h2", "", t.spiele.length === 1 ? "Das Spiel" : "Die Spiele"));
-      const karten = el("div", "mini-karten");
-      t.spiele.forEach((spiel) => karten.append(spielKarte(t, spiel, listen.get(spiel) || [], stand.eintraege, { jetzt, verdeckt })));
-      spieleBlock.append(karten);
-      inhalt.append(spieleBlock);
-
-      // Die Multiplayer, die schon gezählt haben: je ihr Endstand.
-      if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
-
-      // Mit einem einzigen Spiel ist dessen Liste schon die Gesamtwertung –
-      // eine zweite Tabelle darunter sagte dasselbe noch einmal. Mit einem
-      // Multiplayer dazu nicht mehr.
-      if (teile > 1 || (t.nurLive && teile > 0)) {
-        const gesamt = el("section", "mini-block");
-        gesamt.append(el("h2", "", vorbei ? "Endstand" : "Gesamtwertung"));
-        gesamt.append(gesamtTabelle(t, personen, verdeckt, abende));
-        inhalt.append(gesamt);
+      const spiele = t.spiele.filter((spiel) => m.SPIELE.some((s) => s.id === spiel));
+      if (!spiele.length) {
+        buehneEnde?.abort();
+        wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
+        buehne = null;
+        buehneFuer = "";
+        hinweis(t.nurLive ? "Gespielt wird nur im Multiplayer." : "Zu diesem Turnier gehört gerade kein Spiel.");
+        return;
       }
+      if (!buehne || buehneFuer !== spiele.join()) {
+        buehneEnde?.abort();
+        wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
+        buehneEnde = new AbortController();
+        buehneFuer = spiele.join();
+        buehne = m.arcadeBuehne(wirt, {
+          signal: buehneEnde.signal,
+          reihenfolge: spiele,
+          weg: wegFuer,
+          aus: t.id,
+          ansehbar: !t.ohneReplay,
+          ...m.arcadeStart(spiele),
+        });
+      }
+      buehne.daten({ listen: wertung.listen, verdeckt });
+      buehne.neu();
+    }
 
-      // Keine Regeln in Sätzen und kein Block zum Weitersagen: Was zählt –
-      // wie lange, wie viele Versuche – steht schon oben im Kopf und im
-      // Streifen darunter. Den Link zum Weitergeben gibt es im Adminbereich.
+    // Die Zeile unter dem Namen: wie lange es läuft, und was gilt.
+    function zeigeStatus(jetzt) {
+      const t = stand.t;
+      const regel = t.nurLive ? "nur im Multiplayer"
+        : t.spitzeWartet ? "wer vorne liegt, wartet"
+          : t.versuche ? `${zahlWort(t.versuche, "Versuch", "Versuche")} je Spiel` : "";
+      status.textContent = regel && lage(t, jetzt) !== "beendet" ? `${statusZeile(t, jetzt)} · ${regel}` : statusZeile(t, jetzt);
+    }
+
+    // Die Gesamtwertung im Fenster: die ganze Tabelle, darüber die
+    // Beschreibung, darunter die Multiplayer, die schon gezählt haben.
+    let gesamtZeichnen = null;
+    function gesamtZeigen() {
+      const inhalt = el("div", "ar-gesamt");
+      const zeichneFenster = () => {
+        const t = stand.t;
+        const vorbei = lage(t) === "beendet";
+        const verdeckt = t.verdeckt && !vorbei;
+        const { personen, abende } = wertung;
+        inhalt.innerHTML = "";
+        if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
+        inhalt.append(gesamtTabelle(t, personen, verdeckt, abende));
+        if (!verdeckt && personen.length) {
+          inhalt.append(el("p", "tn-wie", t.wertung === "prozent"
+            ? "In jedem Spiel bekommt der Beste 100, die anderen ihren Anteil daran. Die höchste Summe gewinnt."
+            : "Die Plätze aus allen Spielen zusammengezählt. Die kleinste Summe gewinnt."));
+        }
+        if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
+      };
+      zeichneFenster();
+      gesamtZeichnen = zeichneFenster;
+      const dlg = m.fenster(lage(stand.t) === "beendet" ? "Endstand" : "Gesamtwertung", inhalt, { ueber: stand.t.name, klasse: "ist-gesamt" });
+      dlg.addEventListener("close", () => { if (gesamtZeichnen === zeichneFenster) gesamtZeichnen = null; });
+    }
+
+    // Der Knopf zur Gesamtwertung: der Pokal und die ersten drei – oder,
+    // solange sie verdeckt ist, wie viele schon dabei sind.
+    function wertungsKnopf(t, personen, verdeckt) {
+      const knopfWertung = el("button", "tn-wertung");
+      knopfWertung.type = "button";
+      knopfWertung.setAttribute("aria-haspopup", "dialog");
+      knopfWertung.append(m.mitIcon("span", "tn-wertung-pokal", verdeckt ? "schloss" : "pokal"));
+      const vorne = personen.filter((p) => p.platz <= 3).slice(0, 3);
+      let satz = "";
+      if (verdeckt) {
+        satz = personen.length ? `Verdeckt bis zum Schluss · ${zahlWort(personen.length, "Spieler", "Spieler")}` : "Verdeckt bis zum Schluss";
+        knopfWertung.append(el("span", "tn-wertung-text tn-verdeckt", satz));
+      } else if (!vorne.length) {
+        satz = "Noch hat niemand gespielt";
+        knopfWertung.append(el("span", "tn-wertung-text", satz));
+      } else {
+        const podest = el("ol", "tn-podest");
+        vorne.forEach((p) => {
+          const zeile = el("li", `ist-platz-${p.platz}${p.eigen ? " ist-ich" : ""}`);
+          zeile.append(el("span", "tn-medaille", String(p.platz)), el("span", "tn-podest-name", p.name));
+          podest.append(zeile);
+        });
+        knopfWertung.append(podest);
+        // Wer selbst weiter hinten steht, sieht seinen Platz daneben.
+        const ich = personen.find((p) => p.eigen);
+        if (ich && ich.platz > 3) knopfWertung.append(el("span", "tn-wertung-ich", `Du ${ich.platz}.`));
+        satz = vorne.map((p) => `${p.platz}. ${p.name}`).join(", ") + (ich && ich.platz > 3 ? `, du ${ich.platz}.` : "");
+      }
+      knopfWertung.append(m.mitIcon("span", "tn-wertung-mehr", "pfeil"));
+      const wort = lage(t) === "beendet" ? "Endstand" : "Gesamtwertung";
+      knopfWertung.title = wort;
+      knopfWertung.setAttribute("aria-label", `${wort}: ${satz}`);
+      knopfWertung.addEventListener("click", gesamtZeigen);
+      return knopfWertung;
     }
 
     // Die Uhr läuft auf der Seite mit, ohne die Liste neu zu lesen: Wie lange
@@ -596,7 +682,7 @@
       if (!stand.t) return;
       const jetzt = Date.now();
       if (lage(stand.t, jetzt) !== stand.lage) { zeichne(); return; }
-      status.textContent = statusZeile(stand.t, jetzt);
+      zeigeStatus(jetzt);
     }, 15000);
     const auffrischen = () => {
       if (document.visibilityState === "visible" && Date.now() - stand.geladenMs > 20000) laden();
@@ -609,25 +695,27 @@
 
   // Ein Multiplayer zu diesem Turnier läuft gerade (live.js): der Weg hinein.
   function liveHinweis(zeiger) {
-    const box = el("section", "tn-live");
-    const text = el("div", "tn-live-text");
+    const box = el("a", "tn-live");
+    box.href = `/live?code=${encodeURIComponent(zeiger.code)}`;
+    const text = el("span", "tn-live-text");
     const marke = el("strong", "tn-live-marke");
     marke.append(el("span", "tn-live-punkt"), el("span", "", "Multiplayer läuft"));
-    text.append(marke, el("span", "", zeiger.name));
-    box.append(text, verweis("Mitspielen", `/live?code=${encodeURIComponent(zeiger.code)}`, "mini-knopf-voll"));
+    text.append(marke, el("span", "tn-live-name", zeiger.name));
+    // Wo der Platz knapp ist, bleiben nur der Punkt und «Mitspielen».
+    box.append(el("span", "tn-live-punkt"), text, el("span", "tn-live-los", "Mitspielen"));
+    box.title = `Multiplayer läuft: ${zeiger.name}`;
     return box;
   }
 
   // Die Multiplayer, die zum Turnier gehören: je ihr Endstand und wie sie
   // zählen. Bei einer verdeckten Rangliste nur, dass es sie gab.
   function liveAbende(abende, verdeckt) {
-    const block = el("section", "mini-block");
-    block.append(el("h2", "", "Multiplayer"));
-    const karten = el("div", "mini-karten");
+    const block = el("section", "tn-abende");
+    block.append(el("h3", "", "Multiplayer"));
     abende.forEach((a) => {
-      const karte = el("article", "mini-karte tn-karte tn-live-karte");
-      const kopf = el("header", "mini-karte-kopf");
-      kopf.append(el("h3", "", a.name), el("span", "mini-karte-zahl", !a.gewicht ? "zählt nicht" : a.gewicht === 1 ? "zählt wie ein Spiel" : `zählt ×${a.gewicht}`));
+      const karte = el("article", "tn-live-karte");
+      const kopf = el("header", "tn-live-kopf");
+      kopf.append(el("strong", "", a.name), el("span", "mini-karte-zahl", !a.gewicht ? "zählt nicht" : a.gewicht === 1 ? "zählt wie ein Spiel" : `zählt ×${a.gewicht}`));
       karte.append(kopf);
       if (verdeckt) {
         karte.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
@@ -642,104 +730,9 @@
         karte.append(ol);
         if (a.endstand.length > 5) karte.append(el("p", "tn-fertig", `und ${a.endstand.length - 5} weitere`));
       }
-      karten.append(karte);
+      block.append(karte);
     });
-    block.append(karten);
     return block;
-  }
-
-  function spielKarte(t, spiel, liste, eintraege, { jetzt, verdeckt }) {
-    if (window.LernappVorschau?.hat?.(spiel) && mini()?.kachel) return spielKachel(t, spiel, liste, eintraege, { jetzt, verdeckt });
-    const f = mini()?.farbe?.(spiel) || { hell: "#F5A623", dunkel: "#b9741a" };
-    const karte = el("article", "mini-karte tn-karte");
-    karte.style.setProperty("--mini-farbe", f.hell);
-    karte.style.setProperty("--mini-farbe-dunkel", f.dunkel);
-
-    // Je Spiel nur das Nötige: der Name, die Rangliste und der Knopf – oder
-    // an seiner Stelle, warum es gerade nicht geht. Kein Satz über den eigenen
-    // Stand: Der steht in der Liste.
-    const kopf = el("header", "mini-karte-kopf");
-    kopf.append(el("h3", "", titel(spiel)));
-    karte.append(kopf);
-
-    // Die Versuche hängen am Gerät, nicht am Namen – gezählt wird deshalb der
-    // Eintrag dieses Geräts. Vorne liegen kann dagegen auch, wer auf einem
-    // anderen Gerät mit demselben Namen gespielt hat (alleinVorne).
-    const kennung = mini()?.kennungFallsDa?.() || "";
-    const meiner = kennung ? eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
-    const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
-    const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
-
-    const wirt = el("div", "mini-listen-wirt");
-    let ganz = false;
-    // Der ▶ bei jedem, der hier einen Lauf hat: seinen besten in diesem
-    // Turnier anschauen (geist.js, zuschauer) – nicht, solange die Liste
-    // verdeckt ist, und nicht in einem Turnier ohne Replays. Gefragt wird
-    // nach denen, die gerade dastehen.
-    const gezeigt = () => (ganz ? liste : mini()?.gezeigteEintraege?.(liste, 3) || liste.slice(0, 3));
-    const ansehen = !verdeckt && !t.ohneReplay
-      ? mini()?.ansehenFuer?.(spiel, gezeigt, () => zeichne(), { aus: t.id }) || null
-      : null;
-    const zeichne = () => {
-      wirt.innerHTML = "";
-      if (verdeckt) wirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
-      else wirt.append(mini()?.listeBauen?.(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }) || el("span"));
-      ansehen?.frage?.();
-    };
-    zeichne();
-    karte.append(wirt);
-
-    const aktionen = el("div", "mini-karte-aktionen");
-    const l = lage(t, jetzt);
-    if (t.nurLive) aktionen.append(el("span", "tn-fertig", "Wird im Multiplayer gespielt"));
-    else if (l === "laeuft" && vorne) aktionen.append(el("span", "tn-fertig", "Du liegst vorne"));
-    else if (l === "laeuft" && uebrig > 0) aktionen.append(verweis("Spielen", spielLink(t.id, spiel), "mini-knopf-voll"));
-    else if (l === "laeuft") aktionen.append(el("span", "tn-fertig", "Alle Versuche gespielt"));
-    else if (l === "geplant") aktionen.append(el("span", "tn-fertig", `Ab ${datum(t.startMs)}`));
-    if (!verdeckt && liste.length > 3) {
-      const mehr = knopf("Ganze Liste", "mini-knopf-still", () => {
-        ganz = !ganz;
-        zeichne();
-        mehr.textContent = ganz ? "Nur die ersten drei" : "Ganze Liste";
-      });
-      aktionen.append(mehr);
-    }
-    if (aktionen.children.length) karte.append(aktionen);
-    return karte;
-  }
-
-  // Die Spielkachel mit Film (mini-games.js, kachel): Der Play-Knopf führt ins
-  // Turnier – solange es läuft und Versuche übrig sind. Sonst steht an seiner
-  // Stelle, warum nicht, und der Film läuft trotzdem: Er zeigt, was hier
-  // gespielt wird, auch wenn man gerade nicht darf.
-  function spielKachel(t, spiel, liste, eintraege, { jetzt, verdeckt }) {
-    const kennung = mini()?.kennungFallsDa?.() || "";
-    const meiner = kennung ? eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
-    const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
-    const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
-    const l = lage(t, jetzt);
-    let link = "";
-    let sperre = null;
-    if (t.nurLive) sperre = { text: "Wird im Multiplayer gespielt" };
-    else if (l === "laeuft" && vorne) sperre = { text: "Du liegst vorne", art: "vorne" };
-    else if (l === "laeuft" && uebrig > 0) link = spielLink(t.id, spiel);
-    else if (l === "laeuft") sperre = { text: "Alle Versuche gespielt" };
-    else if (l === "geplant") sperre = { text: `Ab ${datum(t.startMs)}` };
-    else if (l === "angehalten") sperre = { text: "Turnier angehalten" };
-    else sperre = { text: "Turnier vorbei" };
-
-    // Wie viele mitspielen – und kein Satz über den eigenen Stand (wie viele
-    // Versuche übrig sind, wo man liegt): Der steht in der Liste, und die
-    // Versuche je Spiel stehen oben im Streifen.
-    return mini().kachel(spiel, liste, {
-      klasse: "tn-karte",
-      link,
-      sperre,
-      chips: [{ icon: "leute", text: liste.length ? `${liste.length} Spieler` : "noch frei" }],
-      aus: t.id,
-      ansehbar: !t.ohneReplay,
-      verdeckt,
-    });
   }
 
   function gesamtTabelle(t, personen, verdeckt, abende = []) {
@@ -966,7 +959,7 @@
    * Wer gerade nicht spielen darf – allein vorne, alle Versuche gespielt,
    * noch nicht begonnen, angehalten, vorbei –, sieht sie auch nicht: Er
    * landet ohne ein Wort wieder auf der Turnierseite. Dort steht beim Spiel
-   * an der Stelle des Knopfs, warum (spielKarte). Und dort, nicht nebenan,
+   * an der Stelle von Play, warum (turnierSeite, wegFuer). Und dort, nicht nebenan,
    * wartet er, bis ihn jemand einholt.
    *
    * Sie steht nur noch, wenn der Name fehlt oder das Turnier nicht zu lesen

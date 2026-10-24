@@ -3,9 +3,11 @@
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
   Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
-  Adresse; was darauf steht, baut turnier.js – wie lange es noch läuft, die
-  Spiele mit ihrer Rangliste und die Gesamtwertung. Kein Weg hinaus zu den
-  anderen Spielen: Ein Turnier ist ein Raum für sich. Sie gehört zur
+  Adresse; was darauf steht, baut turnier.js – wie die Startseite (alae
+  arcade), oben aber Name und Stand des Turniers und die Gesamtwertung, unten
+  nur seine Spiele. Dunkel schon hier, damit beim Laden nichts hell
+  aufblitzt. Kein Weg hinaus zu den anderen Spielen: Ein Turnier ist ein Raum
+  für sich. Sie gehört zur
   installierten App: Wer im Turnier spielt, kommt von jedem Spiel hierher
   zurück, auch ohne Netz – und wer sie auf den Startbildschirm legt, legt das
   Turnier dorthin, mit seinem Namen (turnier.js, alsApp).
@@ -23,27 +25,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="alae arcade" />
-    <meta name="theme-color" content="#f7f3ff" />
+    <meta name="theme-color" content="#0d0c11" />
     <title>Turnier · alae arcade</title>
-    <link rel="stylesheet" href="styles.css?v=2026-10-24-5" />
-    <link rel="manifest" href="app.webmanifest?v=2026-10-24-5" />
+    <link rel="stylesheet" href="styles.css?v=2026-10-24-6" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-24-6" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
     <meta name="robots" content="noindex, nofollow" />
   </head>
-  <body data-page="turnier">
-    <main class="mini-seite" data-turnier>
-      <p class="mini-hinweis">Das Turnier wird geladen...</p>
+  <body data-page="turnier" class="ar">
+    <main class="mini-seite ar-seite ist-turnier" data-turnier>
+      <p class="mini-hinweis ar-leer">Das Turnier wird geladen...</p>
     </main>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script defer src="vorschau.js?v=2026-10-24-5"></script>
-    <script defer src="vollbild.js?v=2026-10-24-5"></script>
-    <script defer src="highscore.js?v=2026-10-24-5"></script>
-    <script defer src="cloud.js?v=2026-10-24-5"></script>
-    <script defer src="mini-games.js?v=2026-10-24-5"></script>
-    <script defer src="turnier.js?v=2026-10-24-5"></script>
-    <script defer src="pwa.js?v=2026-10-24-5"></script>
+    <script defer src="vollbild.js?v=2026-10-24-6"></script>
+    <script defer src="highscore.js?v=2026-10-24-6"></script>
+    <script defer src="cloud.js?v=2026-10-24-6"></script>
+    <script defer src="mini-games.js?v=2026-10-24-6"></script>
+    <script defer src="turnier.js?v=2026-10-24-6"></script>
+    <script defer src="pwa.js?v=2026-10-24-6"></script>
   </body>
 </html>
