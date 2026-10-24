@@ -3304,7 +3304,7 @@ try {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsKoenig });
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
-    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
+    pruefe(await seite.locator(".tn-karte .gk-play").count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem ▶: ${text}`);
     // Kein Satz darüber – an der Stelle jedes Knopfs steht «Du liegst vorne».
     pruefe(await seite.locator(".tn-wartet").count() === 0, "Über den Spielen steht wieder ein Satz für den, der überall vorne liegt.");
     pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
@@ -3318,9 +3318,9 @@ try {
     await seite.click(".tn-wer .mini-name-steht button");
     await seite.fill(".tn-wer .mini-namensfeld input", "Prinz");
     await seite.click(".tn-wer .mini-namensfeld button[type=submit]");
-    await seite.waitForFunction(() => document.querySelectorAll(".tn-karte a").length === 2, null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForFunction(() => document.querySelectorAll(".tn-karte .gk-play").length === 2, null, { timeout: 4000 }).catch(() => {});
     const neu = await seite.evaluate((id) => ({
-      spielen: [...document.querySelectorAll(".tn-karte a")].filter((a) => /Spielen/.test(a.textContent)).length,
+      spielen: document.querySelectorAll(".tn-karte .gk-play[href]").length,
       koenig: [...window.__miniTurnierEintraege.values()].filter((e) => e.spieler === "mini_koenigkoenig").map((e) => e.name),
       id: localStorage.getItem("mini.id"),
     }), KOENIG);
@@ -3332,7 +3332,7 @@ try {
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsLeo });
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    const spielen = await seite.locator(".tn-karte a", { hasText: "Spielen" }).count();
+    const spielen = await seite.locator(".tn-karte .gk-play[href]").count();
     pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
     pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
     await kontext.close();
@@ -3391,7 +3391,7 @@ try {
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
     pruefe(/läuft ohne Zeitlimite · seit/.test(text), `Oben auf der Turnierseite ohne Zeitlimite steht: ${await seite.locator(".tn-status").innerText()}`);
     pruefe(!/9999|Tage/.test(text), `Auf der Turnierseite ohne Zeitlimite steht ein Ende: ${text}`);
-    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
+    pruefe(await seite.locator(".tn-karte .gk-play[href]").count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
     await kontext.close();
   }
   {
