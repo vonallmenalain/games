@@ -36,8 +36,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           die Spielkachel, die Auswertung der Startseite
     vorschau.js           die gezeichneten Filme auf den Spielkacheln im
                           Turnier
-    filme/                die Filme der Startseite: echte Runden, aufgenommen
-                          (quer und hoch, je mit Standbild)
+    bilder/               die Bilder der Startseite: echte Runden, im richtigen
+                          Moment aufgenommen (quer, hoch, klein)
+    filme/                die Filme von früher (ausgeschaltet, mini-games.js,
+                          FILME)
     cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
                           miniGeister, die Aufzeichnungen der Läufe, und
                           miniTurniere mit ihren Einträgen.
@@ -81,7 +83,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
     scripts/check-live.mjs     spielt einen Multiplayer mit vier Geräten durch
-    scripts/filme-aufnehmen.mjs  nimmt die Filme der Startseite auf – wie sich
+    scripts/filme-aufnehmen.mjs  nimmt die Bilder (und Filme) der Startseite auf – wie sich
                                jedes Spiel dabei selbst spielt, steht in
                                scripts/vorfuehrung/<seite>.mjs
     scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
@@ -133,19 +135,19 @@ keine Runde mehr, die man jemandem schickt.
 Dunkel, wie alae.app, und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
 hoch wie quer (`mini-games.js`, `baueUebersicht`):
 
-- **Der Film:** in einem Fenster in seiner eigenen Form – hochkant 9:16,
-  quer 16:9 –, so gross, wie es geht, ohne Rand darin. Es läuft der Film
-  (quer oder hoch), dessen Form dem Fenster näher ist, und er füllt es
-  (`filmFuer`). Ein Wisch nach links zeigt das nächste Spiel, nach rechts das
-  vorige (am Computer auch die Pfeiltasten).
-- **Die Leiste:** hochkant unter dem Film, quer daneben – der Name des
+- **Das Bild:** das Spiel mitten in einer Runde, in einem Fenster in seiner
+  eigenen Form – hochkant 9:16, quer 16:9 –, so gross, wie es geht, ohne
+  Rand darin. Es steht das Bild (quer oder hoch), dessen Form dem Fenster
+  näher ist, und es füllt es (`filmFuer`). Ein Tipp aufs Bild startet das
+  Spiel; ein Wisch nach links zeigt das nächste Spiel, nach rechts das vorige
+  (am Computer auch die Pfeiltasten) – ohne das Spiel zu starten.
+- **Die Leiste:** hochkant unter dem Bild, quer daneben – der Name des
   Spiels, der Knopf zur Rangliste mit dem Namen des Ersten und der runde
   Play-Knopf. Die Rangliste öffnet sich im Fenster: alle Plätze, mit Krone,
   Medaillen, «Du» und dem ▶ zum Anschauen.
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
-  zuerst), als kleine Kacheln mit Standbild und Namen; vorne die laufenden
+  zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Am Computer läuft der Film schon in der Kachel unter der Maus.
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
@@ -154,19 +156,23 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`):
   und das Vollbild. Links das Logo von alae.app (aus dessen Logo-Paket) mit
   «arcade».
 
-Wer weniger Bewegung eingestellt hat, sieht Standbilder, und oben wechselt
-nichts von selbst.
+**Die Bilder** sind echte Runden: `npm run bilder` (scripts/filme-aufnehmen.mjs
+--standbild) lässt jedes Spiel von einem Autopiloten spielen
+(`scripts/vorfuehrung/<seite>.mjs`, ohne Leiste, ohne Gegner, ohne Datenbank)
+und macht im richtigen Moment ein Bild mit doppelter Pixeldichte – wann, sagt
+die Vorführung (`bild`, `bildWenn`: im Turmbau nach fünf, sechs Blöcken, im
+Brückenbauer, während der Balken über die Schlucht wächst):
+`bilder/<seite>-quer.webp` (2560×1440), `-hoch.webp` (1080×1920) und
+`-klein.webp` (480×270, für die Zeile). Wer ein Spiel sichtbar ändert, nimmt
+sein Bild neu auf (`npm run bilder -- turmbau`) und zählt die Fassung hoch – sie
+hängt an den Adressen der Bilder.
 
-**Die Filme** sind echte Runden: `npm run filme` (scripts/filme-aufnehmen.mjs)
-lässt jedes Spiel von einem Autopiloten spielen
-(`scripts/vorfuehrung/<seite>.mjs`), schneidet im Browser mit (ohne Leiste,
-ohne Gegner, ohne Datenbank) und macht mit ffmpeg zwei Schleifen daraus:
-`filme/<seite>-quer.mp4` (1280×720, für breite Bildschirme) und
-`-hoch.mp4` (540×960, fürs Handy), dazu je ein Standbild (`.webp`). Wer ein
-Spiel sichtbar ändert, nimmt seinen Film neu auf
-(`npm run filme -- turmbau`) und zählt die Fassung hoch – sie hängt an den
-Adressen der Filme. Der Service Worker lässt die Filme durch: Safari spielt
-ein Video nur mit Range-Anfragen, und die beantwortet nur der Server.
+**Die Filme** (bis Oktober 2026 oben auf der Startseite) sind ausgeschaltet:
+Mit `FILME = true` in mini-games.js laufen sie wieder, aus `filme/`.
+`npm run filme` nimmt sie neu auf – mit ffmpeg zwei Schleifen je Spiel,
+`filme/<seite>-quer.mp4` (1280×720) und `-hoch.mp4` (540×960). Der Service
+Worker lässt Filme durch: Safari spielt ein Video nur mit Range-Anfragen, und
+die beantwortet nur der Server.
 
 ### Die Spielkachel im Turnier
 

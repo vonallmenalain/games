@@ -1536,31 +1536,35 @@
   // ---------------------------------------------------------------------------
   /*
    * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer.
-   * Oben läuft das Spiel als Film, in einem Fenster in seiner eigenen Form
-   * (hochkant 9:16, quer 16:9), so gross, wie es geht. Darunter (quer:
-   * daneben) eine schmale Leiste: der Name des Spiels, die Rangliste als
-   * Knopf mit dem Namen des Ersten – ein Tipp öffnet sie – und der
-   * Play-Knopf. Ganz unten alle Spiele in einer Zeile. Ein Tipp auf eines
-   * holt es nach oben, ein Wisch das nächste oder das vorige (am Computer
-   * auch die Pfeiltasten).
+   * Oben steht das Spiel als Bild, mitten in einer Runde, in einem Fenster in
+   * seiner eigenen Form (hochkant 9:16, quer 16:9), so gross, wie es geht. Ein
+   * Tipp aufs Bild startet das Spiel. Darunter (quer: daneben) eine schmale
+   * Leiste: der Name des Spiels, die Rangliste als Knopf mit dem Namen des
+   * Ersten – ein Tipp öffnet sie – und der Play-Knopf. Ganz unten alle Spiele
+   * in einer Zeile. Ein Tipp auf eines holt es nach oben, ein Wisch das
+   * nächste oder das vorige (am Computer auch die Pfeiltasten).
    *
-   * Die Filme liegen in filme/ (scripts/filme-aufnehmen.mjs), von jedem Spiel
-   * einer quer und einer hoch. Es läuft der, dessen Form dem Fenster näher
-   * ist, und er füllt es ganz – ohne Rand darin.
+   * Die Bilder liegen in bilder/ (scripts/filme-aufnehmen.mjs --standbild),
+   * von jedem Spiel eines quer, eines hoch und ein kleines für die Zeile. Es
+   * steht das, dessen Form dem Fenster näher ist, und es füllt es ganz.
+   * Bis Oktober 2026 liefen hier Filme (filme/); mit FILME = true laufen sie
+   * wieder.
    *
    * Solange niemand selbst wählt, kommt alle paar Sekunden der nächste
-   * Favorit. Wer weniger Bewegung eingestellt hat, sieht die Standbilder.
+   * Favorit.
    *
    * Oben rechts: die Gesamtwertung über alle Spiele (der Pokal), der Name,
    * das Vollbild – und, wo es geht, «Als App installieren».
    */
   const WECHSEL_MS = 9000;
   const ZULETZT_KEY = "arcade.zuletzt";
-  // Breite durch Höhe der beiden Filme.
+  // Oben ein Bild (false) oder ein laufender Film (true).
+  const FILME = false;
+  // Breite durch Höhe der beiden Formate.
   const FILMFORMATE = { quer: 1280 / 720, hoch: 540 / 960 };
 
-  // Die Fassung dieser Datei (mini-games.js?v=…): Sie hängt auch an Filmen und
-  // Standbildern – wer sie neu aufnimmt, zählt die Fassung hoch.
+  // Die Fassung dieser Datei (mini-games.js?v=…): Sie hängt auch an Bildern
+  // und Filmen – wer sie neu aufnimmt, zählt die Fassung hoch.
   const FASSUNG_HIER = (() => {
     try { return new URL(document.currentScript?.src || "", window.location.href).searchParams.get("v") || ""; } catch { return ""; }
   })();
@@ -1572,8 +1576,14 @@
     return `/filme/${seite}-${format}.${art}${FASSUNG_HIER ? `?v=${FASSUNG_HIER}` : ""}`;
   }
 
-  // Welcher Film in eine Fläche gehört: der, dessen Form ihr näher ist – er
-  // füllt sie, und es fällt am wenigsten von ihm weg.
+  // Das Bild eines Spiels: art "quer", "hoch" oder "klein" (für die Zeile).
+  function bildPfad(spiel, art) {
+    const seite = NACH_ID.get(spiel)?.seite || spiel;
+    return `/bilder/${seite}-${art}.webp${FASSUNG_HIER ? `?v=${FASSUNG_HIER}` : ""}`;
+  }
+
+  // Welches Format in eine Fläche gehört: das, dessen Form ihr näher ist – es
+  // füllt sie, und es fällt am wenigsten davon weg.
   function filmFuer(breit, hoch) {
     if (!breit || !hoch) return "quer";
     const weg = (form) => Math.abs(Math.log((breit / hoch) / form));
@@ -1601,8 +1611,18 @@
     return film;
   }
 
+  // Eine Ebene oben, wenn dort Bilder stehen.
+  function bildKnoten(klasse) {
+    const bild = el("img", klasse);
+    bild.alt = "";
+    bild.decoding = "async";
+    bild.draggable = false;
+    bild.setAttribute("aria-hidden", "true");
+    return bild;
+  }
+
   function spiele(film) {
-    if (ruhigHier()) return;
+    if (!FILME || ruhigHier()) return;
     const versuch = film.play?.();
     if (versuch?.catch) versuch.catch(() => { /* ohne Erlaubnis bleibt das Standbild */ });
   }
@@ -1721,8 +1741,9 @@
     // --- Die Bühne: der Film, darunter die Leiste ----------------------------
     const buehne = el("section", "ar-buehne");
     buehne.setAttribute("aria-label", "Gewähltes Spiel");
-    const filme = el("div", "ar-filme");
-    const ebenen = [filmKnoten("ar-film"), filmKnoten("ar-film")];
+    // Das Fenster oben ist ein Weg ins Spiel: ein Tipp darauf startet es.
+    const filme = el("a", "ar-filme");
+    const ebenen = FILME ? [filmKnoten("ar-film"), filmKnoten("ar-film")] : [bildKnoten("ar-film"), bildKnoten("ar-film")];
     filme.append(...ebenen);
     const leiste = el("div", "ar-leiste");
     const titelZeile = el("h2", "ar-titel");
@@ -1791,7 +1812,7 @@
       bild.alt = "";
       bild.loading = "lazy";
       bild.decoding = "async";
-      bild.src = filmPfad(spiel, "webp");
+      bild.src = FILME ? filmPfad(spiel, "webp") : bildPfad(spiel, "klein");
       bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
       const name = el("span", "ar-kachel-titel", titel(spiel));
       const zeit = el("span", "ar-zeit");
@@ -1802,7 +1823,7 @@
       // darauf liegt.
       let vorschau = null;
       k.addEventListener("pointerenter", (ereignis) => {
-        if (ereignis.pointerType !== "mouse" || ruhigHier()) return;
+        if (!FILME || ereignis.pointerType !== "mouse" || ruhigHier()) return;
         vorschau = filmKnoten("ar-kachel-film");
         vorschau.src = filmPfad(spiel, "mp4");
         vorschau.addEventListener("playing", () => k.classList.add("spielt"), { once: true });
@@ -1892,31 +1913,14 @@
         k.setAttribute("aria-current", s === spiel ? "true" : "false");
       });
 
-      // Der neue Film kommt auf die freie Ebene und blendet über die alte –
-      // nach einem Wisch gleitet er von der Seite herein.
-      const alt = ebenen[ebene];
-      ebene = 1 - ebene;
-      const neu = ebenen[ebene];
-      neu.poster = filmPfad(spiel, "webp", format);
-      neu.src = filmPfad(spiel, "mp4", format);
-      neu.currentTime = 0;
-      spiele(neu);
-      if (richtung && !ruhigHier() && neu.animate) {
-        filme.classList.add("ist-wisch");
-        const weite = 18 * richtung;
-        const art = { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
-        neu.animate([{ transform: `translateX(${weite}%)`, opacity: 0 }, { transform: "none", opacity: 1 }], art);
-        alt.animate([{ transform: "none", opacity: 1 }, { transform: `translateX(${-weite}%)`, opacity: 0 }], art)
-          .finished.then(() => filme.classList.remove("ist-wisch"), () => filme.classList.remove("ist-wisch"));
-      }
-      neu.classList.add("ist-an");
-      alt.classList.remove("ist-an");
-      window.setTimeout(() => { if (!alt.classList.contains("ist-an")) alt.pause(); }, 700);
+      zeigeOben(spiel, richtung);
 
       titelZeile.textContent = titel(spiel);
       play.href = spielLink(spiel);
       play.title = `${titel(spiel)} spielen`;
       play.setAttribute("aria-label", play.title);
+      filme.href = spielLink(spiel);
+      filme.setAttribute("aria-label", play.title);
       rangKnopf();
       if (vorher) {
         leiste.classList.remove("ist-neu");
@@ -1927,6 +1931,71 @@
       zeigeKachel(kacheln.get(spiel), Boolean(vorher));
       if (selbst && von) flug(von);
       if (!selbstGewaehlt) uhr.weiter();
+    }
+
+    // Das neue Bild kommt auf die freie Ebene und blendet über das alte,
+    // sobald es geladen ist – nach einem Wisch gleitet es von der Seite herein.
+    // Wer schneller weiterwischt, als ein Bild lädt, sieht nur das letzte.
+    let ladung = 0;
+    function zeigeOben(spiel, richtung) {
+      const nr = ++ladung;
+      const neu = ebenen[1 - ebene];
+      if (FILME) {
+        neu.poster = filmPfad(spiel, "webp", format);
+        neu.src = filmPfad(spiel, "mp4", format);
+        neu.currentTime = 0;
+        spiele(neu);
+      } else {
+        neu.src = bildPfad(spiel, format);
+      }
+      const geladen = !FILME && neu.decode ? neu.decode().catch(() => {}) : Promise.resolve();
+      geladen.then(() => {
+        if (nr !== ladung || signal.aborted) return;
+        const alt = ebenen[ebene];
+        ebene = 1 - ebene;
+        if (richtung && !ruhigHier() && neu.animate) {
+          filme.classList.add("ist-wisch");
+          const weite = 18 * richtung;
+          const art = { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
+          neu.animate([{ transform: `translateX(${weite}%)`, opacity: 0 }, { transform: "none", opacity: 1 }], art);
+          alt.animate([{ transform: "none", opacity: 1 }, { transform: `translateX(${-weite}%)`, opacity: 0 }], art)
+            .finished.then(() => filme.classList.remove("ist-wisch"), () => filme.classList.remove("ist-wisch"));
+        }
+        neu.classList.add("ist-an");
+        alt.classList.remove("ist-an");
+        if (FILME) window.setTimeout(() => { if (!alt.classList.contains("ist-an")) alt.pause(); }, 700);
+        vorladen(spiel);
+      });
+    }
+
+    // Alle Bilder im Format des Fensters schon laden und entpacken, eines
+    // nach dem anderen, wenn der Browser Zeit hat – zuerst die links und
+    // rechts vom gezeigten. Dann ist jeder Wechsel nur noch ein Überblenden:
+    // Kein Bild muss erst kommen, keines erst entpackt werden, auch beim
+    // ersten Mal nicht. (Sie sind klein: um 20 KB je Bild.) Die Map hält sie
+    // fest, damit der Browser sie nicht wieder wegwirft.
+    const vorgeladen = new Map();
+    let ladeReihe = [];
+    let laedt = false;
+    function vorladen(spiel) {
+      if (FILME) return;
+      const i = reihenfolge.indexOf(spiel);
+      const n = reihenfolge.length;
+      const nachAbstand = reihenfolge.map((_, k) => reihenfolge[(i + (k % 2 ? (k + 1) / 2 : -k / 2) + n * n) % n]);
+      ladeReihe = nachAbstand.map((s) => bildPfad(s, format)).filter((pfad) => !vorgeladen.has(pfad));
+      if (!laedt) ladeWeiter();
+    }
+    function ladeWeiter() {
+      const pfad = ladeReihe.shift();
+      if (!pfad || signal.aborted) { laedt = false; return; }
+      laedt = true;
+      if (vorgeladen.has(pfad)) { ladeWeiter(); return; }
+      const bild = new Image();
+      bild.decoding = "async";
+      bild.src = pfad;
+      vorgeladen.set(pfad, bild);
+      const weiter = () => (window.requestIdleCallback ? window.requestIdleCallback(ladeWeiter, { timeout: 300 }) : window.setTimeout(ladeWeiter, 30));
+      (bild.decode ? bild.decode() : Promise.resolve()).then(weiter, weiter);
     }
 
     // Das nächste oder das vorige Spiel – nach einem Wisch oder einer
@@ -2023,10 +2092,14 @@
 
     // Ein Wisch über die Bühne: nach links das nächste Spiel, nach rechts das
     // vorige – auf dem Film wie daneben; wer auf einem Knopf anfängt, tippt.
+    // Das Bild selbst ist ein Link: Nach einem Wisch darf es nicht auch noch
+    // das Spiel starten.
     let wisch = null;
+    let gewischtBis = 0;
     buehne.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest?.("a, button")) return;
+      const knopf = e.target.closest?.("a, button");
+      if (knopf && knopf !== filme) return;
       wisch = { x: e.clientX, y: e.clientY, id: e.pointerId };
     });
     buehne.addEventListener("pointerup", (e) => {
@@ -2035,7 +2108,12 @@
       const dy = e.clientY - wisch.y;
       wisch = null;
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+      gewischtBis = performance.now() + 400;
       blaettere(dx < 0 ? 1 : -1);
+    });
+    filme.addEventListener("click", (e) => {
+      if (performance.now() < gewischtBis) { e.preventDefault(); return; }
+      try { sessionStorage.setItem(ZULETZT_KEY, aktuell); } catch { /* egal */ }
     });
     buehne.addEventListener("pointercancel", () => { wisch = null; });
     // Am Computer: die Pfeiltasten – solange kein Fenster offen ist und
@@ -2049,7 +2127,7 @@
     }, { signal });
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") { spiele(ebenen[ebene]); uhr.weiter(); } else { ebenen.forEach((v) => v.pause()); uhr.stopp(); }
+      if (document.visibilityState === "visible") { spiele(ebenen[ebene]); uhr.weiter(); } else { if (FILME) ebenen.forEach((v) => v.pause()); uhr.stopp(); }
     }, { signal });
     // Wer Play drückt, kommt danach hierher zurück – auf dieses Spiel.
     play.addEventListener("click", () => {
@@ -2084,14 +2162,15 @@
     if (pwa() || document.readyState === "complete") appKnopf();
     else window.addEventListener("load", appKnopf, { once: true, signal });
 
-    // Abgebaut: Uhr aus, und die Filme laden nicht weiter.
+    // Abgebaut: Uhr aus, und die Filme (falls es welche gibt) laden nicht
+    // weiter.
     const groesse = "ResizeObserver" in window ? new ResizeObserver(() => passeFilm()) : null;
     if (groesse) groesse.observe(filme);
     else window.addEventListener("resize", passeFilm, { signal });
     signal.addEventListener("abort", () => {
       uhr.stopp();
       groesse?.disconnect();
-      ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
+      if (FILME) ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
     });
 
     passeFilm();

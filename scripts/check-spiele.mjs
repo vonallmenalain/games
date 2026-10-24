@@ -929,12 +929,12 @@ try {
     await kontext.close();
   }
 
-  // --- 3b. Die Bühne: der Film, der Wechsel, das Wischen ------------------------
-  // Oben steht zuerst der erste Favorit (Turmbau), als Film aus filme/ – auf
+  // --- 3b. Die Bühne: das Bild, der Wechsel, das Wischen ------------------------
+  // Oben steht zuerst der erste Favorit (Turmbau), als Bild aus bilder/ – auf
   // dem Handy hochkant aufgenommen, quer daneben die Leiste. Ein Tipp auf
-  // eine Kachel holt ein anderes Spiel nach oben, ein Wisch über den Film das
-  // nächste oder das vorige. Wer weniger Bewegung eingestellt hat, sieht das
-  // Standbild: Der Film läuft nicht.
+  // eine Kachel holt ein anderes Spiel nach oben, ein Wisch über das Bild das
+  // nächste oder das vorige – ohne das Spiel zu starten; ein Tipp aufs Bild
+  // startet es. Mit weniger Bewegung gleitet nichts, sonst ist alles gleich.
   for (const bewegung of ["no-preference", "reduce"]) {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
@@ -948,7 +948,7 @@ try {
         play: document.querySelector(".ar-play")?.getAttribute("href"),
         name: document.querySelector(".ar-play")?.getAttribute("aria-label"),
         film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
-        laeuft: film ? !film.paused : false,
+        link: document.querySelector(".ar-filme")?.getAttribute("href"),
         rekord: document.querySelector(".ar-rang-text strong")?.textContent,
         aktiv: document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel,
       };
@@ -956,7 +956,7 @@ try {
     const vorher = await buehne();
     pruefe(vorher.titel === "Turmbau" && vorher.play === "/turmbau" && vorher.name === "Turmbau spielen" && vorher.aktiv === "towerStack",
       `${bewegung}: Oben steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
-    pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film oben ist nicht der hochkant aufgenommene: ${vorher.film}`);
+    pruefe(vorher.film === "/bilder/turmbau-hoch.webp" && vorher.link === "/turmbau", `${bewegung}: Oben steht nicht das hochkant aufgenommene Bild, das ins Spiel führt: ${JSON.stringify(vorher)}`);
     // Hochkant steht der Film als Fenster in seiner Form (9:16), ohne Rand
     // darin, und die Leiste darunter.
     const fenster = await seite.evaluate(() => {
@@ -967,12 +967,11 @@ try {
     pruefe(Math.abs(fenster.form - 9 / 16) < 0.02 && fenster.leisteDarunter && fenster.passt === "cover",
       `${bewegung}: Hochkant steht der Film nicht in seiner Form (9:16) über der Leiste: ${JSON.stringify(fenster)}`);
     pruefe(vorher.rekord === "Grosi", `${bewegung}: Im Knopf zur Rangliste steht nicht der Rekord: ${JSON.stringify(vorher)}`);
-    if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film oben trotzdem.");
-    else pruefe(vorher.laeuft, "Der Film oben läuft nicht.");
+    pruefe(await seite.locator("video").count() === 0, `${bewegung}: Auf der Startseite läuft noch ein Film.`);
     await seite.locator('.ar-kachel[data-spiel="fishPond"]').click();
     await seite.waitForTimeout(900);
     const nachher = await buehne();
-    pruefe(nachher.titel === "Fischteich" && nachher.play === "/fischteich" && nachher.film === "/filme/fischteich-hoch.mp4" && nachher.aktiv === "fishPond" && nachher.rekord === "Grosi",
+    pruefe(nachher.titel === "Fischteich" && nachher.play === "/fischteich" && nachher.film === "/bilder/fischteich-hoch.webp" && nachher.link === "/fischteich" && nachher.aktiv === "fishPond" && nachher.rekord === "Grosi",
       `${bewegung}: Eine Kachel holt ihr Spiel nicht nach oben: ${JSON.stringify(nachher)}`);
     // Wischen: nach links das nächste Spiel der Zeile, nach rechts zurück.
     const reihe = await seite.evaluate(() => [...document.querySelectorAll(".ar-kachel")].map((k) => k.dataset.spiel));
@@ -989,12 +988,19 @@ try {
     pruefe(links.aktiv === reihe[reihe.indexOf("fishPond") + 1], `${bewegung}: Ein Wisch nach links bringt nicht das nächste Spiel: ${JSON.stringify(links)}`);
     const rechts = await wische(0.3, 0.75);
     pruefe(rechts.aktiv === "fishPond" && rechts.titel === "Fischteich", `${bewegung}: Ein Wisch nach rechts bringt nicht das vorige Spiel: ${JSON.stringify(rechts)}`);
+    pruefe(new URL(seite.url()).pathname === "/", `${bewegung}: Ein Wisch über das Bild hat das Spiel gestartet: ${seite.url()}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `${bewegung}: Startseite – Klassen ohne Regel: ${ohne.join(", ")}`);
+    // Ein Tipp aufs Bild startet das Spiel.
+    await Promise.all([
+      seite.waitForURL((u) => u.pathname === "/fischteich", { timeout: 6000 }).catch(() => {}),
+      seite.click(".ar-filme"),
+    ]);
+    pruefe(new URL(seite.url()).pathname === "/fischteich", `${bewegung}: Ein Tipp aufs Bild startet das Spiel nicht: ${seite.url()}`);
     await kontext.close();
   }
-  // Quer auf dem Handy: der Film quer aufgenommen, die Leiste daneben, die
-  // Zeile darunter – alles in einem Bild.
+  // Quer auf dem Handy: das Bild quer aufgenommen, die Leiste daneben, die
+  // Zeile darunter – alles auf einem Bildschirm.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 }, { handy: true });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
@@ -1014,7 +1020,7 @@ try {
         blatt: document.documentElement.scrollHeight,
       };
     });
-    pruefe(quer.film === "/filme/turmbau-quer.mp4", `Quer: Der Film oben ist nicht der quer aufgenommene: ${quer.film}`);
+    pruefe(quer.film === "/bilder/turmbau-quer.webp", `Quer: Oben steht nicht das quer aufgenommene Bild: ${quer.film}`);
     pruefe(Math.abs(quer.filmForm - 16 / 9) < 0.03, `Quer: Der Film steht nicht in seiner Form (16:9), sondern ${quer.filmForm.toFixed(2)} – mit Rand oder abgeschnitten.`);
     pruefe(quer.leisteLinks >= quer.filmRechts && quer.playUnten <= quer.fenster && quer.kachelUnten <= quer.fenster && quer.blatt <= quer.fenster + 1,
       `Quer: Film, Leiste und Zeile stehen nicht nebeneinander in einem Bild: ${JSON.stringify(quer)}`);

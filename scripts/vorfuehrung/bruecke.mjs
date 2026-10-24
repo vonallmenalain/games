@@ -52,4 +52,11 @@ export default {
   },
   vorlauf: 1200,
   dauer: 10000,
+  // Das Standbild: der Balken wächst, schon fast über die Schlucht.
+  bild: 3000,
+  bildWenn: () => {
+    const st = window.LernappBruecke.state;
+    const p = st.pfeiler[st.hier + 1];
+    return st.schritt === "wachsen" && Boolean(st.balken) && p && st.balken.len > 0.8 * (p.x - st.balken.x);
+  },
 };
