@@ -5171,39 +5171,33 @@ body.ar {
 .ar-wer .mini-wer-hinweis { margin: 0; color: var(--ar-leise); font-size: 0.82rem; }
 
 /* --- Die Bühne: der Film und die Leiste ------------------------------------- */
-/* Hochkant: Der Film liegt über den ganzen Bildschirm hinter allem, die Leiste
-   unten darauf. Quer (weiter unten): der Film in seiner Form, die Leiste
-   daneben. */
+/* Der Film steht als Fenster in seiner eigenen Form – hochkant 9:16, quer
+   16:9 – so gross, wie es geht, ohne Rand darin. Hochkant steht die Leiste
+   darunter, quer (weiter unten) daneben. */
 .ar-buehne {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 0 var(--ar-rand) 2px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--ar-rand);
   /* Wischen gehört der Bühne (mini-games.js), nur das Zoomen dem Browser. */
   touch-action: pan-y pinch-zoom;
   cursor: grab;
 }
 .ar-buehne:active { cursor: grabbing; }
 .ar-filme {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
+  position: relative;
   isolation: isolate;
+  flex: 1 1 0;
+  min-height: 0;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
   overflow: hidden;
+  border-radius: clamp(14px, 2vw, 22px);
   background: #000;
-}
-/* Dunkel oben hinter den Knöpfen und unten hinter Leiste und Zeile – in der
-   Mitte bleibt der Film frei. */
-.ar-filme::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to bottom, rgba(13, 12, 17, 0.6) 0, rgba(13, 12, 17, 0) calc(var(--ar-kopf-h) + var(--safe-top) + 36px)),
-    linear-gradient(to top, rgba(13, 12, 17, 0.9) 0, rgba(13, 12, 17, 0.55) calc(var(--ar-kachel-b) * 9 / 16 + 70px + var(--safe-bottom)), rgba(13, 12, 17, 0) calc(var(--ar-kachel-b) * 9 / 16 + 150px + var(--safe-bottom)));
-  pointer-events: none;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .ar-film {
   position: absolute;
@@ -5218,6 +5212,8 @@ body.ar {
 .ar-filme.ist-wisch .ar-film { transition: none; }
 
 .ar-leiste {
+  flex: 0 0 auto;
+  align-self: stretch;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -5518,24 +5514,16 @@ body.ar {
 @media (orientation: landscape) {
   .ar-buehne {
     flex-direction: row;
-    justify-content: flex-start;
     align-items: stretch;
     gap: clamp(14px, 2vw, 28px);
-    padding: 0 var(--ar-rand);
   }
   .ar-filme {
-    position: relative;
-    inset: auto;
-    z-index: auto;
     flex: 0 1 auto;
     height: 100%;
     aspect-ratio: 16 / 9;
     min-width: 0;
     max-width: calc(100% - 200px - clamp(14px, 2vw, 28px));
-    border-radius: clamp(14px, 2vw, 22px);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
-  .ar-filme::after { display: none; }
   .ar-leiste { flex: 1 1 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: clamp(12px, 2vh, 20px); }
   .ar-titel {
     flex: 0 0 auto;

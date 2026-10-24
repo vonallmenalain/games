@@ -1536,18 +1536,17 @@
   // ---------------------------------------------------------------------------
   /*
    * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer.
-   * Hochkant läuft das Spiel als Film über den ganzen Bildschirm, und alles
-   * andere liegt darauf: oben die Marke und die Knöpfe, unten eine schmale
-   * Leiste – der Name des Spiels, die Rangliste als Knopf mit dem Namen des
-   * Ersten (ein Tipp öffnet sie) und der Play-Knopf – und darunter alle
-   * Spiele in einer Zeile. Quer steht der Film in seiner eigenen Form (16:9)
-   * und die Leiste daneben. Ein Tipp auf ein Spiel der Zeile holt es nach
-   * oben, ein Wisch das nächste oder das vorige (am Computer auch die
-   * Pfeiltasten).
+   * Oben läuft das Spiel als Film, in einem Fenster in seiner eigenen Form
+   * (hochkant 9:16, quer 16:9), so gross, wie es geht. Darunter (quer:
+   * daneben) eine schmale Leiste: der Name des Spiels, die Rangliste als
+   * Knopf mit dem Namen des Ersten – ein Tipp öffnet sie – und der
+   * Play-Knopf. Ganz unten alle Spiele in einer Zeile. Ein Tipp auf eines
+   * holt es nach oben, ein Wisch das nächste oder das vorige (am Computer
+   * auch die Pfeiltasten).
    *
    * Die Filme liegen in filme/ (scripts/filme-aufnehmen.mjs), von jedem Spiel
-   * einer quer und einer hoch. Es läuft der, dessen Form der Fläche näher
-   * ist, und er füllt sie ganz – ohne Rand daneben.
+   * einer quer und einer hoch. Es läuft der, dessen Form dem Fenster näher
+   * ist, und er füllt es ganz – ohne Rand darin.
    *
    * Solange niemand selbst wählt, kommt alle paar Sekunden der nächste
    * Favorit. Wer weniger Bewegung eingestellt hat, sieht die Standbilder.
@@ -2023,8 +2022,7 @@
     });
 
     // Ein Wisch über die Bühne: nach links das nächste Spiel, nach rechts das
-    // vorige. Hochkant liegt der Film hinter allem – gewischt wird deshalb
-    // auf der Bühne, nicht auf dem Film; wer auf einem Knopf anfängt, tippt.
+    // vorige – auf dem Film wie daneben; wer auf einem Knopf anfängt, tippt.
     let wisch = null;
     buehne.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
