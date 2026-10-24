@@ -1535,19 +1535,19 @@
   // Die Startseite: alae arcade
   // ---------------------------------------------------------------------------
   /*
-   * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer. Oben
-   * läuft das Spiel als Film, frei, ohne Text darauf. Darunter (quer:
-   * daneben) eine schmale Leiste: der Name des Spiels, die Rangliste als
-   * Knopf mit dem Namen des Ersten – ein Tipp öffnet sie – und der
-   * Play-Knopf. Ganz unten alle Spiele in einer Zeile. Ein Tipp auf eines
-   * holt es nach oben, ein Wisch über den Film das nächste oder das vorige
-   * (am Computer auch die Pfeiltasten).
+   * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer.
+   * Hochkant läuft das Spiel als Film über den ganzen Bildschirm, und alles
+   * andere liegt darauf: oben die Marke und die Knöpfe, unten eine schmale
+   * Leiste – der Name des Spiels, die Rangliste als Knopf mit dem Namen des
+   * Ersten (ein Tipp öffnet sie) und der Play-Knopf – und darunter alle
+   * Spiele in einer Zeile. Quer steht der Film in seiner eigenen Form (16:9)
+   * und die Leiste daneben. Ein Tipp auf ein Spiel der Zeile holt es nach
+   * oben, ein Wisch das nächste oder das vorige (am Computer auch die
+   * Pfeiltasten).
    *
    * Die Filme liegen in filme/ (scripts/filme-aufnehmen.mjs), von jedem Spiel
-   * einer quer und einer hoch. Es läuft der, der in der Fläche grösser
-   * erscheint, und er steht ganz darin: Nur wo seine Form fast die der
-   * Fläche ist, füllt er sie, und was dabei wegfällt, ist ein schmaler Rand.
-   * Dahinter liegt sein Standbild, verschwommen.
+   * einer quer und einer hoch. Es läuft der, dessen Form der Fläche näher
+   * ist, und er füllt sie ganz – ohne Rand daneben.
    *
    * Solange niemand selbst wählt, kommt alle paar Sekunden der nächste
    * Favorit. Wer weniger Bewegung eingestellt hat, sieht die Standbilder.
@@ -1559,9 +1559,6 @@
   const ZULETZT_KEY = "arcade.zuletzt";
   // Breite durch Höhe der beiden Filme.
   const FILMFORMATE = { quer: 1280 / 720, hoch: 540 / 960 };
-  // So weit darf die Form der Fläche von der des Films abweichen, damit er
-  // sie füllt – dann fällt rundum höchstens ein schmaler Rand weg.
-  const FUELLT_BIS = 1.12;
 
   // Die Fassung dieser Datei (mini-games.js?v=…): Sie hängt auch an Filmen und
   // Standbildern – wer sie neu aufnimmt, zählt die Fassung hoch.
@@ -1576,14 +1573,12 @@
     return `/filme/${seite}-${format}.${art}${FASSUNG_HIER ? `?v=${FASSUNG_HIER}` : ""}`;
   }
 
-  // Welcher Film in eine Fläche gehört: der, der ganz darin am grössten
-  // erscheint – und ob er sie füllen darf.
+  // Welcher Film in eine Fläche gehört: der, dessen Form ihr näher ist – er
+  // füllt sie, und es fällt am wenigsten von ihm weg.
   function filmFuer(breit, hoch) {
-    if (!breit || !hoch) return { format: "quer", fuellt: false };
-    const groesse = (form) => Math.min(hoch * hoch * form, breit * breit / form);
-    const format = groesse(FILMFORMATE.hoch) > groesse(FILMFORMATE.quer) ? "hoch" : "quer";
-    const abweichung = (breit / hoch) / FILMFORMATE[format];
-    return { format, fuellt: Math.max(abweichung, 1 / abweichung) <= FUELLT_BIS };
+    if (!breit || !hoch) return "quer";
+    const weg = (form) => Math.abs(Math.log((breit / hoch) / form));
+    return weg(FILMFORMATE.hoch) < weg(FILMFORMATE.quer) ? "hoch" : "quer";
   }
 
   // Das Zeichen von alae.app (die zwei Winkel) und die Wortmarke «alae», wie
@@ -1728,12 +1723,8 @@
     const buehne = el("section", "ar-buehne");
     buehne.setAttribute("aria-label", "Gewähltes Spiel");
     const filme = el("div", "ar-filme");
-    const schein = el("img", "ar-schein");
-    schein.alt = "";
-    schein.setAttribute("aria-hidden", "true");
-    schein.decoding = "async";
     const ebenen = [filmKnoten("ar-film"), filmKnoten("ar-film")];
-    filme.append(schein, ...ebenen);
+    filme.append(...ebenen);
     const leiste = el("div", "ar-leiste");
     const titelZeile = el("h2", "ar-titel");
     const aktionen = el("div", "ar-aktionen");
@@ -1911,7 +1902,6 @@
       neu.src = filmPfad(spiel, "mp4", format);
       neu.currentTime = 0;
       spiele(neu);
-      schein.src = filmPfad(spiel, "webp", format);
       if (richtung && !ruhigHier() && neu.animate) {
         filme.classList.add("ist-wisch");
         const weite = 18 * richtung;
@@ -1984,9 +1974,8 @@
     function passeFilm() {
       const r = filme.getBoundingClientRect();
       const wahl = filmFuer(r.width, r.height);
-      filme.classList.toggle("ist-voll", wahl.fuellt);
-      if (wahl.format === format) return;
-      format = wahl.format;
+      if (wahl === format) return;
+      format = wahl;
       filme.dataset.format = format;
       if (aktuell) waehle(aktuell, { sofort: true });
     }
@@ -2033,14 +2022,16 @@
       });
     });
 
-    // Ein Wisch über den Film: nach links das nächste Spiel, nach rechts das
-    // vorige.
+    // Ein Wisch über die Bühne: nach links das nächste Spiel, nach rechts das
+    // vorige. Hochkant liegt der Film hinter allem – gewischt wird deshalb
+    // auf der Bühne, nicht auf dem Film; wer auf einem Knopf anfängt, tippt.
     let wisch = null;
-    filme.addEventListener("pointerdown", (e) => {
+    buehne.addEventListener("pointerdown", (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (e.target.closest?.("a, button")) return;
       wisch = { x: e.clientX, y: e.clientY, id: e.pointerId };
     });
-    filme.addEventListener("pointerup", (e) => {
+    buehne.addEventListener("pointerup", (e) => {
       if (!wisch || e.pointerId !== wisch.id) return;
       const dx = e.clientX - wisch.x;
       const dy = e.clientY - wisch.y;
@@ -2048,7 +2039,7 @@
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
       blaettere(dx < 0 ? 1 : -1);
     });
-    filme.addEventListener("pointercancel", () => { wisch = null; });
+    buehne.addEventListener("pointercancel", () => { wisch = null; });
     // Am Computer: die Pfeiltasten – solange kein Fenster offen ist und
     // niemand in ein Feld schreibt.
     document.addEventListener("keydown", (e) => {

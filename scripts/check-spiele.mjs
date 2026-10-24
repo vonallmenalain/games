@@ -957,6 +957,15 @@ try {
     pruefe(vorher.titel === "Turmbau" && vorher.play === "/turmbau" && vorher.name === "Turmbau spielen" && vorher.aktiv === "towerStack",
       `${bewegung}: Oben steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
     pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film oben ist nicht der hochkant aufgenommene: ${vorher.film}`);
+    // Hochkant füllt der Film den ganzen Bildschirm, ohne Rand, und die
+    // Leiste liegt darauf.
+    const voll = await seite.evaluate(() => {
+      const f = document.querySelector(".ar-filme").getBoundingClientRect();
+      const l = document.querySelector(".ar-leiste").getBoundingClientRect();
+      return { l: f.left, o: f.top, r: f.right - innerWidth, u: f.bottom - innerHeight, leiste: l.top > f.top && l.bottom < f.bottom, passt: getComputedStyle(document.querySelector(".ar-film")).objectFit };
+    });
+    pruefe(voll.l === 0 && voll.o === 0 && Math.abs(voll.r) <= 1 && Math.abs(voll.u) <= 1 && voll.leiste && voll.passt === "cover",
+      `${bewegung}: Hochkant füllt der Film nicht den ganzen Bildschirm, oder die Leiste liegt nicht darauf: ${JSON.stringify(voll)}`);
     pruefe(vorher.rekord === "Grosi", `${bewegung}: Im Knopf zur Rangliste steht nicht der Rekord: ${JSON.stringify(vorher)}`);
     if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film oben trotzdem.");
     else pruefe(vorher.laeuft, "Der Film oben läuft nicht.");
@@ -997,6 +1006,7 @@ try {
       return {
         film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
         filmRechts: r(".ar-filme").right,
+        filmForm: r(".ar-filme").width / r(".ar-filme").height,
         leisteLinks: r(".ar-leiste").left,
         playUnten: r(".ar-play").bottom,
         kachelUnten: r(".ar-kachel").bottom,
@@ -1005,6 +1015,7 @@ try {
       };
     });
     pruefe(quer.film === "/filme/turmbau-quer.mp4", `Quer: Der Film oben ist nicht der quer aufgenommene: ${quer.film}`);
+    pruefe(Math.abs(quer.filmForm - 16 / 9) < 0.03, `Quer: Der Film steht nicht in seiner Form (16:9), sondern ${quer.filmForm.toFixed(2)} – mit Rand oder abgeschnitten.`);
     pruefe(quer.leisteLinks >= quer.filmRechts && quer.playUnten <= quer.fenster && quer.kachelUnten <= quer.fenster && quer.blatt <= quer.fenster + 1,
       `Quer: Film, Leiste und Zeile stehen nicht nebeneinander in einem Bild: ${JSON.stringify(quer)}`);
     await kontext.close();
