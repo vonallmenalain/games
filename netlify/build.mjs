@@ -31,7 +31,8 @@ for (const [name, inhalt] of alleDateien()) {
 }
 
 const ENDUNGEN = new Set([".html", ".js", ".css", ".webmanifest"]);
-const ORDNER = ["icons"];
+// filme/: die Filme der Startseite (scripts/filme-aufnehmen.mjs).
+const ORDNER = ["icons", "filme"];
 // Was nie mit soll, auch wenn es die Endung hätte. firestore.rules und die
 // Firebase-Konfiguration gehören ins Repository und nach Firebase – nicht auf
 // die Site, wo sie jeder herunterladen könnte.

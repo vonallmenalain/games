@@ -286,7 +286,7 @@
     leere();
     const karte = el("section", "adm-karte adm-anmeldung");
     karte.append(el("h1", "adm-titel", "Adminbereich"));
-    karte.append(el("p", "adm-lead", "Die Bestenliste der Mini-Games – ansehen und aufräumen."));
+    karte.append(el("p", "adm-lead", "Die Bestenlisten der alae arcade – ansehen und aufräumen."));
 
     const meldung = el("p", "adm-meldung");
     if (hinweis) meldung.textContent = hinweis;
@@ -391,7 +391,7 @@
     }));
     karte.append(nebenbei);
 
-    const zurueck = el("a", "adm-klein-link", "Zurück zu den Mini-Games");
+    const zurueck = el("a", "adm-klein-link", "Zurück zur alae arcade");
     zurueck.href = "/";
     karte.append(zurueck);
 

@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -865,45 +865,84 @@ try {
     await kontext.close();
   }
 
-  // --- 3. Die Startseite -------------------------------------------------------
+  // --- 3. Die Startseite (alae arcade) -------------------------------------------
   {
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.waitForFunction(() => document.querySelector(".ar-bestenliste .gk-zeile"), null, { timeout: 8000 }).catch(() => {});
     const text = await seite.locator(".mini-seite").innerText();
-    pruefe(/mini-games/i.test(text), "Auf der Startseite steht nicht, wo man ist.");
-    pruefe(await seite.locator(".mini-karte").count() === SPIELE.length,
-      `Auf der Startseite stehen ${await seite.locator(".mini-karte").count()} Spiele statt ${SPIELE.length}.`);
+    pruefe(/alae\s*arcade/i.test(text), "Auf der Startseite steht nicht, wo man ist.");
+    pruefe(await seite.locator(".ar-kachel").count() === SPIELE.length,
+      `Auf der Startseite stehen ${await seite.locator(".ar-kachel").count()} Spiele statt ${SPIELE.length}.`);
     pruefe(text.includes("Grosi"), "Auf der Startseite fehlen die Spieler.");
-    pruefe(await seite.locator(".mini-wer-oben .mini-name-steht button").count() === 1, "Auf der Startseite fehlt «Namen ändern».");
-    pruefe(await seite.locator(".mini-tabelle tbody tr").count() >= 1, "Die Auswertung der Spieler fehlt.");
-    const kopfzeilen = await seite.locator(".mini-tabelle th").allInnerTexts();
-    pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Auswertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
+    pruefe(await seite.locator(".ar-kopf .ar-name-knopf").count() === 1, "Auf der Startseite fehlt der Name zum Ändern.");
+    // Die Gesamtwertung gibt es noch – unten, zugeklappt.
+    pruefe(await seite.locator(".ar-gesamt:not([open]) .mini-tabelle tbody tr").count() >= 1, "Die Gesamtwertung fehlt (oder steht offen da).");
+    const kopfzeilen = await seite.locator(".mini-tabelle th").allTextContents();
+    pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Gesamtwertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
     // Wie oft jemand gespielt hat, geht niemanden etwas an: Es steht weder in
-    // der Auswertung noch in einer Ranglistenzeile. Die Zahl oben zählt alle
-    // Runden zusammen – die verrät nicht, wer.
+    // der Auswertung noch in einer Ranglistenzeile.
     pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
-    const zeilen = await seite.locator(".mini-karte :is(.mini-zeile, .gk-zeile)").allInnerTexts();
+    const zeilen = await seite.locator(":is(.ar-bestenliste .gk-zeile, .ar-kachel-rekord)").allInnerTexts();
     const mitRunden = zeilen.filter((z) => /runde/i.test(z));
     pruefe(mitRunden.length === 0, `In der Rangliste eines Spiels stehen die Runden: ${mitRunden.join(" | ")}`);
     const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
     pruefe(gefragt.length === SPIELE.length, `Die Startseite fragt nach ${gefragt.length} Spielen statt nach ${SPIELE.length}.`);
     pruefe(await seite.locator('a[href*="kids.alae.app"]').count() === 0, "Auf der Startseite steht ein Link auf kids.alae.app.");
-    const spielen = await seite.getAttribute(":is(.mini-karte-aktionen a, .gk-play)", "href");
-    pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `Ein Spiel-Link zeigt auf ${spielen}.`);
+    const spielen = await seite.getAttribute(".ar-play", "href");
+    pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `Der Play-Knopf zeigt auf ${spielen}.`);
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ueberstand <= 1, `Die Startseite steht ${ueberstand} px über den rechten Rand.`);
     await kontext.close();
   }
 
-  // --- 3b. Die Spielkachel: der Film und der Play-Knopf -----------------------
-  // Der Turmbau hat eine Kachel mit Film (vorschau.js): Er zeichnet den Turm
-  // und läuft, der Play-Knopf und der Film selbst führen ins Spiel, der
-  // Rekord trägt die Krone. Die anderen Spiele haben noch die einfache Karte.
-  // Wer weniger Bewegung eingestellt hat, sieht ein Standbild.
+  // --- 3b. Die Bühne: der Film, die Bestenliste, der Wechsel --------------------
+  // Auf der Bühne steht zuerst der erste Favorit (Turmbau), als Film aus
+  // filme/ – hochkant auf dem Handy –, mit Play und Bestenliste. Ein Tipp auf
+  // eine Kachel holt ein anderes Spiel auf die Bühne. Wer weniger Bewegung
+  // eingestellt hat, sieht das Standbild: Der Film läuft nicht.
   for (const bewegung of ["no-preference", "reduce"]) {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.waitForFunction(() => document.querySelector(".ar-bestenliste .gk-zeile"), null, { timeout: 8000 }).catch(() => {});
+    await seite.waitForTimeout(900);
+    const buehne = () => seite.evaluate(() => {
+      const film = document.querySelector(".ar-film.ist-an");
+      return {
+        titel: document.querySelector(".ar-titel")?.textContent,
+        play: document.querySelector(".ar-play")?.getAttribute("href"),
+        name: document.querySelector(".ar-play")?.getAttribute("aria-label"),
+        film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
+        laeuft: film ? !film.paused : false,
+        rekord: document.querySelector(".ar-bestenliste .gk-zeile.ist-platz-1 .gk-name")?.textContent,
+        krone: Boolean(document.querySelector(".ar-bestenliste .gk-zeile.ist-platz-1 .gk-marke svg")),
+        aktiv: document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel,
+      };
+    });
+    const vorher = await buehne();
+    pruefe(vorher.titel === "Turmbau" && vorher.play === "/turmbau" && vorher.name === "Turmbau spielen" && vorher.aktiv === "towerStack",
+      `${bewegung}: Auf der Bühne steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
+    pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film der Bühne ist nicht der hochkant aufgenommene: ${vorher.film}`);
+    pruefe(vorher.rekord === "Grosi" && vorher.krone, `${bewegung}: Der Rekord steht nicht mit Krone in der Bestenliste: ${JSON.stringify(vorher)}`);
+    if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film der Bühne trotzdem.");
+    else pruefe(vorher.laeuft, "Der Film der Bühne läuft nicht.");
+    await seite.locator('.ar-kachel[data-spiel="fishPond"]').click();
+    await seite.waitForTimeout(900);
+    const nachher = await buehne();
+    pruefe(nachher.titel === "Fischteich" && nachher.play === "/fischteich" && nachher.film === "/filme/fischteich-hoch.mp4" && nachher.aktiv === "fishPond" && nachher.rekord === "Grosi",
+      `${bewegung}: Eine Kachel holt ihr Spiel nicht auf die Bühne: ${JSON.stringify(nachher)}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `${bewegung}: Startseite – Klassen ohne Regel: ${ohne.join(", ")}`);
+    await kontext.close();
+  }
+  // Im Turnier hat der Turmbau seine Kachel mit gezeichnetem Film
+  // (vorschau.js): Er zeichnet und läuft, und bei weniger Bewegung steht er.
+  for (const bewegung of ["no-preference", "reduce"]) {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
+    await seite.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
+    await seite.goto(`${BASIS}/turnier?t=${HERBST}`, { waitUntil: "load" });
     await seite.waitForSelector(".gk-karte .gk-film", { timeout: 8000 });
     const karte = seite.locator(".gk-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
     await karte.scrollIntoViewIfNeeded();
@@ -923,28 +962,11 @@ try {
     const vorher = await bild();
     await seite.waitForTimeout(700);
     const nachher = await bild();
-    const stand = await seite.evaluate(() => {
-      const k = document.querySelector(".gk-karte");
-      return {
-        kacheln: [...document.querySelectorAll(".gk-karte h3")].map((h) => h.textContent),
-        play: k?.querySelector(".gk-play")?.getAttribute("href"),
-        name: k?.querySelector(".gk-play")?.getAttribute("aria-label"),
-        buehne: k?.querySelector(".gk-buehne")?.getAttribute("href"),
-        rekord: k?.querySelector(".gk-zeile.ist-platz-1 .gk-name")?.textContent,
-        krone: Boolean(k?.querySelector(".gk-zeile.ist-platz-1 .gk-marke svg")),
-        alte: document.querySelectorAll(".mini-karte:not(.gk-karte) .mini-karte-aktionen a").length,
-      };
-    });
-    pruefe(JSON.stringify(stand.kacheln) === JSON.stringify(["Turmbau"]), `${bewegung}: Eine Kachel mit Film steht bei ${JSON.stringify(stand.kacheln)} statt nur beim Turmbau.`);
-    pruefe(stand.play === "/turmbau" && stand.buehne === "/turmbau" && stand.name === "Turmbau spielen",
-      `${bewegung}: Der Play-Knopf der Kachel führt nicht ins Spiel: ${JSON.stringify(stand)}`);
-    pruefe(stand.rekord === "Grosi" && stand.krone, `${bewegung}: Der Rekord der Kachel steht nicht mit Krone da: ${JSON.stringify(stand)}`);
-    pruefe(stand.alte === SPIELE.length - 1, `${bewegung}: ${stand.alte} statt ${SPIELE.length - 1} Spiele haben noch die einfache Karte mit «Spielen».`);
-    pruefe(vorher.breit > 100 && vorher.deckend > 0.95, `${bewegung}: Der Film der Kachel ist nicht gezeichnet: ${JSON.stringify(vorher)}`);
-    if (bewegung === "reduce") pruefe(vorher.summe === nachher.summe, "Bei weniger Bewegung läuft der Film der Kachel trotzdem.");
-    else pruefe(vorher.summe !== nachher.summe, "Der Film der Kachel steht still.");
-    const ohne = await klassenOhneRegel(seite);
-    pruefe(ohne.length === 0, `${bewegung}: Startseite – Klassen ohne Regel: ${ohne.join(", ")}`);
+    const play = await karte.locator(".gk-play").getAttribute("href").catch(() => null);
+    pruefe(play === `/turmbau?turnier=${HERBST}`, `${bewegung}: Der Play-Knopf der Turnier-Kachel führt nicht ins Turnier: ${play}`);
+    pruefe(vorher.breit > 100 && vorher.deckend > 0.95, `${bewegung}: Der Film der Turnier-Kachel ist nicht gezeichnet: ${JSON.stringify(vorher)}`);
+    if (bewegung === "reduce") pruefe(vorher.summe === nachher.summe, "Bei weniger Bewegung läuft der Film der Turnier-Kachel trotzdem.");
+    else pruefe(vorher.summe !== nachher.summe, "Der Film der Turnier-Kachel steht still.");
     await kontext.close();
   }
 
@@ -955,19 +977,19 @@ try {
   {
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    pruefe(await seite.locator(".mini-kopf .mini-vollbild").count() === 1, "Auf der Startseite fehlt der Knopf fürs Vollbild.");
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    pruefe(await seite.locator(".ar-kopf .mini-vollbild").count() === 1, "Auf der Startseite fehlt der Knopf fürs Vollbild.");
     const lage = () => seite.evaluate(() => {
       const r = window.LernappVollbild?.rahmen?.();
       let innen = null;
       try { innen = r ? r.contentWindow.location.pathname : null; } catch { innen = "fremd"; }
       return { voll: Boolean(document.fullscreenElement), pfad: window.location.pathname, innen, titel: document.title };
     });
-    if (await seite.locator(".mini-kopf .mini-vollbild").count()) {
-      await seite.click(".mini-kopf .mini-vollbild");
+    if (await seite.locator(".ar-kopf .mini-vollbild").count()) {
+      await seite.click(".ar-kopf .mini-vollbild");
       await seite.waitForFunction(() => Boolean(document.fullscreenElement), null, { timeout: 3000 }).catch(() => {});
       const spiel = SPIELE.find((s) => s.seite === "turmbau");
-      await seite.click(`:is(.mini-karte-aktionen a, .gk-play)[href="/${spiel.seite}"]`);
+      await seite.click(`.ar-play[href="/${spiel.seite}"]`);
       await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".cm-bar"), null, { timeout: 8000 }).catch(() => {});
       let jetzt = await lage();
       pruefe(jetzt.voll && jetzt.innen === `/${spiel.seite}` && jetzt.pfad === `/${spiel.seite}` && jetzt.titel.includes(spiel.titel),
@@ -976,7 +998,7 @@ try {
       pruefe(await innen.locator(".cm-vollbild").getAttribute("aria-pressed").catch(() => null) === "true",
         "Im Rahmen zeigt der Knopf im Spiel nicht, dass Vollbild ist.");
       await innen.locator(".cm-bar-left a").first().click();
-      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".mini-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
+      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".ar-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
       jetzt = await lage();
       pruefe(jetzt.voll && jetzt.innen === "/" && jetzt.pfad === "/", `Nach dem Weg zurück ist das Vollbild weg: ${JSON.stringify(jetzt)}`);
       await seite.goBack();
@@ -984,10 +1006,10 @@ try {
       jetzt = await lage();
       pruefe(jetzt.voll && jetzt.innen === `/${spiel.seite}`, `Der Zurück-Weg des Browsers führt nicht ins Spiel zurück: ${JSON.stringify(jetzt)}`);
       await seite.goBack();
-      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".mini-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
+      await seite.waitForFunction(() => window.LernappVollbild?.rahmen?.()?.contentDocument?.querySelector(".ar-kopf") && window.location.pathname === "/", null, { timeout: 8000 }).catch(() => {});
       jetzt = await lage();
       pruefe(jetzt.voll && jetzt.innen === "/" && jetzt.pfad === "/", `Zweimal zurück steht nicht die erste Seite da: ${JSON.stringify(jetzt)}`);
-      await innen.locator(".mini-kopf .mini-vollbild").click();
+      await innen.locator(".ar-kopf .mini-vollbild").click();
       await seite.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).catch(() => {});
       pruefe(!(await lage()).voll, "Mit dem Knopf im Rahmen endet das Vollbild nicht.");
     }
@@ -1003,8 +1025,8 @@ try {
     const { kontext, seite } = await neueSeite();
     await seite.addInitScript((liste) => { window.__miniOffen = liste; }, offen);
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    const karten = await seite.locator(".mini-karte h3").allInnerTexts();
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    const karten = await seite.locator(".ar-kachel-titel").allInnerTexts();
     pruefe(karten.length === offen.length,
       `Freigegeben sind ${offen.length} Spiele, auf der Startseite stehen ${karten.length}.`);
     for (const id of offen) {
@@ -1016,8 +1038,6 @@ try {
     const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
     pruefe(gefragt.length === offen.length && offen.every((id) => gefragt.includes(id)),
       `Gefragt wurde nach ${gefragt.join(", ") || "nichts"} statt nach ${offen.join(", ")}.`);
-    const zahl = (await seite.locator(".mini-streifen").innerText()).replace(/\n/g, " ");
-    pruefe(/\b2\b\s*Spiele/.test(zahl), `Oben steht nicht "2 Spiele", sondern: ${zahl}`);
     await kontext.close();
   }
 
@@ -1031,8 +1051,8 @@ try {
     await seite.waitForSelector(".mini-seite", { timeout: 8000 });
     await seite.waitForTimeout(400);
     const text = await seite.locator(".mini-seite").innerText();
-    pruefe(await seite.locator(".mini-karte").count() === 0,
-      "Es ist kein Spiel freigegeben, trotzdem steht eine Karte da.");
+    pruefe(await seite.locator(".ar-kachel").count() === 0,
+      "Es ist kein Spiel freigegeben, trotzdem steht eine Kachel da.");
     pruefe(/kein Spiel freigegeben/i.test(text),
       `Ohne freigegebenes Spiel steht kein Hinweis da, sondern: ${text.replace(/\n/g, " | ")}`);
     await kontext.close();
@@ -1049,9 +1069,9 @@ try {
     const { kontext, seite } = await neueSeite();
     await seite.addInitScript((liste) => { window.__miniOffen = liste; }, offen);
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    pruefe(await seite.locator(".mini-karte").count() === offen.length,
-      "Schon mit Netz stimmt die Zahl der Karten nicht – der Rest der Prüfung sagt dann nichts.");
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    pruefe(await seite.locator(".ar-kachel").count() === offen.length,
+      "Schon mit Netz stimmt die Zahl der Kacheln nicht – der Rest der Prüfung sagt dann nichts.");
 
     // Kein Netz mehr, und auch die Antwort von vorhin ist weg: Was die Seite
     // jetzt zeigt, kann nur aus dem Gerät kommen.
@@ -1059,7 +1079,7 @@ try {
     await seite.reload({ waitUntil: "load" });
     await seite.waitForSelector(".mini-seite", { timeout: 8000 });
     await seite.waitForTimeout(500);
-    const karten = await seite.locator(".mini-karte h3").allInnerTexts();
+    const karten = await seite.locator(".ar-kachel-titel").allInnerTexts();
     pruefe(karten.length === offen.length,
       `Ohne Netz stehen ${karten.length} Spiele da statt der ${offen.length} freigegebenen: ${karten.join(", ")}`);
     await kontext.close();
@@ -1073,9 +1093,9 @@ try {
     const { kontext, seite } = await neueSeite();
     await seite.addInitScript(() => { window.__miniOhneNetz = true; });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    pruefe(await seite.locator(".mini-karte").count() === SPIELE.length,
-      `Ohne Netz und ohne gemerkte Wahl stehen ${await seite.locator(".mini-karte").count()} Spiele da statt ${SPIELE.length}.`);
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    pruefe(await seite.locator(".ar-kachel").count() === SPIELE.length,
+      `Ohne Netz und ohne gemerkte Wahl stehen ${await seite.locator(".ar-kachel").count()} Spiele da statt ${SPIELE.length}.`);
     await kontext.close();
   }
 
@@ -1427,7 +1447,7 @@ try {
   {
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     pruefe(await seite.locator('a[href="/admin"]').count() === 0, "Ohne Anmeldung steht auf der Startseite ein Weg in den Adminbereich.");
     pruefe(!/anmelden|login/i.test(await seite.locator(".mini-seite").innerText()), "Auf der Startseite steht etwas vom Anmelden.");
     await kontext.close();
@@ -1436,13 +1456,13 @@ try {
     const { kontext, seite } = await neueSeite(viewport);
     await seite.addInitScript(() => localStorage.setItem("mini.admin", "ja"));
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    const knopf = seite.locator(".mini-kopf a.mini-knopf-admin");
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    const knopf = seite.locator(".ar-kopf a.mini-knopf-admin");
     pruefe(await knopf.count() === 1, `${lage}: Als Admin fehlt im Balken der Startseite der Knopf zum Adminbereich.`);
     if (await knopf.count()) {
       pruefe(await knopf.getAttribute("href") === "/admin", `${lage}: Der Admin-Knopf zeigt auf ${await knopf.getAttribute("href")}.`);
       const befund = await seite.evaluate(() => {
-        const balken = document.querySelector(".mini-kopf").getBoundingClientRect();
+        const balken = document.querySelector(".ar-kopf").getBoundingClientRect();
         const k = document.querySelector(".mini-knopf-admin").getBoundingClientRect();
         return {
           drin: k.top >= balken.top - 1 && k.bottom <= balken.bottom + 1 && k.left >= balken.left - 1 && k.right <= balken.right + 1,
@@ -1461,7 +1481,7 @@ try {
   {
     const { kontext, seite } = await mitTurnieren("/");
     await seite.waitForSelector(".tn-hinweis", { timeout: 8000 });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => ({ href: a.getAttribute("href"), text: a.innerText.replace(/\n/g, " ") })));
     const alleTexte = hinweise.map((h) => h.text).join(" | ");
     pruefe(hinweise.length === 3, `Auf der Startseite stehen ${hinweise.length} Turniere statt drei: ${alleTexte}`);
@@ -1473,7 +1493,7 @@ try {
       pruefe(!alleTexte.includes(nicht), `Auf der Startseite steht "${nicht}".`);
     }
     const oben = await seite.evaluate(() => document.querySelector(".tn-hinweis").getBoundingClientRect().top
-      < document.querySelector(".mini-karte").getBoundingClientRect().top);
+      < document.querySelector(".ar-kachel").getBoundingClientRect().top);
     pruefe(oben, "Die Turniere stehen unter den Spielen statt darüber.");
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Startseite mit Turnieren: Klassen ohne Regel – ${ohne.join(", ")}`);
@@ -1519,7 +1539,7 @@ try {
     // Ohne Turnier bleibt oben nichts stehen, auch kein leerer Kasten.
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     const hoehe = await seite.evaluate(() => document.querySelector(".tn-hinweise")?.getBoundingClientRect().height ?? 0);
     pruefe(hoehe === 0, `Ohne Turnier steht oben ein ${hoehe} px hoher Kasten.`);
     await kontext.close();
@@ -3263,7 +3283,7 @@ try {
   // im Turmbau hinten, spielt sich nach vorne – und wartet dann selbst.
   {
     const { kontext, seite } = await mitTurnieren("/");
-    await seite.waitForSelector(".cm-bar, .mini-kopf", { timeout: 8000 }).catch(() => {});
+    await seite.waitForSelector(".cm-bar, .ar-kopf", { timeout: 8000 }).catch(() => {});
     const faelle = await seite.evaluate(() => {
       const vorne = window.LernappTurnier.alleinVorne;
       return [
@@ -3278,13 +3298,16 @@ try {
       `Wer allein vorne liegt, wird falsch erkannt (allein, Gleichstand, dahinter, mit null, leer): ${JSON.stringify(faelle)}`);
     await kontext.close();
   }
+  // Der Weg ins Spiel auf einer Turnierkarte: das ▶ der Spielkachel (wo es
+  // eine Vorschau gibt) oder der Knopf «Spielen».
+  const SPIEL_WEG = '.tn-karte a.gk-play[href], .tn-karte a:has-text("Spielen")';
   const alsKoenig = () => { localStorage.setItem("mini.id", "mini_koenigkoenig"); localStorage.setItem("mini.name", "König"); };
   const alsLeo = () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); };
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsKoenig });
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
-    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
+    pruefe(await seite.locator(SPIEL_WEG).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
     // Kein Satz darüber – an der Stelle jedes Knopfs steht «Du liegst vorne».
     pruefe(await seite.locator(".tn-wartet").count() === 0, "Über den Spielen steht wieder ein Satz für den, der überall vorne liegt.");
     pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
@@ -3298,9 +3321,10 @@ try {
     await seite.click(".tn-wer .mini-name-steht button");
     await seite.fill(".tn-wer .mini-namensfeld input", "Prinz");
     await seite.click(".tn-wer .mini-namensfeld button[type=submit]");
-    await seite.waitForFunction(() => document.querySelectorAll(".tn-karte a").length === 2, null, { timeout: 4000 }).catch(() => {});
+    const wege = () => [...document.querySelectorAll(".tn-karte a")].filter((a) => a.matches(".gk-play[href]") || /Spielen/.test(a.textContent)).length;
+    await seite.waitForFunction(`(${wege})() === 2`, null, { timeout: 4000 }).catch(() => {});
     const neu = await seite.evaluate((id) => ({
-      spielen: [...document.querySelectorAll(".tn-karte a")].filter((a) => /Spielen/.test(a.textContent)).length,
+      spielen: [...document.querySelectorAll(".tn-karte a")].filter((a) => a.matches(".gk-play[href]") || /Spielen/.test(a.textContent)).length,
       koenig: [...window.__miniTurnierEintraege.values()].filter((e) => e.spieler === "mini_koenigkoenig").map((e) => e.name),
       id: localStorage.getItem("mini.id"),
     }), KOENIG);
@@ -3312,7 +3336,7 @@ try {
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsLeo });
     await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    const spielen = await seite.locator(".tn-karte a", { hasText: "Spielen" }).count();
+    const spielen = await seite.locator(SPIEL_WEG).count();
     pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
     pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
     await kontext.close();
@@ -3371,7 +3395,7 @@ try {
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
     pruefe(/läuft ohne Zeitlimite · seit/.test(text), `Oben auf der Turnierseite ohne Zeitlimite steht: ${await seite.locator(".tn-status").innerText()}`);
     pruefe(!/9999|Tage/.test(text), `Auf der Turnierseite ohne Zeitlimite steht ein Ende: ${text}`);
-    pruefe(await seite.locator(".tn-karte a", { hasText: "Spielen" }).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
+    pruefe(await seite.locator(SPIEL_WEG).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
     await kontext.close();
   }
   {
@@ -3566,9 +3590,11 @@ try {
       `Der Schwerkraft-Läufer hinterlegt seinen Lauf nicht mit Saat und Weg: ${JSON.stringify({ ...gespielt, korridor: undefined })}`);
 
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    await seite.waitForSelector(".mini-ansehen", { timeout: 6000 }).catch(() => {});
-    const play = await seite.evaluate(() => [...document.querySelectorAll(".mini-ansehen")].map((a) => a.getAttribute("href")));
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    // Die Bestenliste steht auf der Bühne: erst das Spiel dorthin holen.
+    await seite.locator('.ar-kachel[data-spiel="gravityRun"]').click();
+    await seite.waitForSelector(".ar-bestenliste .gk-ansehen", { timeout: 6000 }).catch(() => {});
+    const play = await seite.evaluate(() => [...document.querySelectorAll(".ar-bestenliste .gk-ansehen")].map((a) => a.getAttribute("href")));
     pruefe(play.some((h) => h === `/schwerkraft?zuschauen=${gespielt.kennung}`), `In der Hall of Fame steht beim Schwerkraft-Läufer kein ▶ für den Lauf: ${JSON.stringify(play)}`);
 
     await seite.goto(`${BASIS}/schwerkraft?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
@@ -3640,18 +3666,14 @@ try {
       `Der Turmbau hinterlegt seine Runde nicht mit Zügen und Saat: ${JSON.stringify({ ...gespielt, turm: undefined })}`);
 
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
-    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
-    const karte = seite.locator(".mini-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
-    await karte.locator(":is(.mini-ansehen, .gk-ansehen)").first().waitFor({ timeout: 6000 }).catch(() => {});
-    const play = async () => karte.locator(":is(.mini-ansehen, .gk-ansehen)").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
-    const zu = await play();
-    pruefe(zu.includes(`/turmbau?zuschauen=${gespielt.kennung}`) && !zu.includes("/turmbau?zuschauen=mini_idaidaidaida"),
-      `Beim Turmbau steht der ▶ nicht beim eigenen Lauf (Platz 5) – oder schon bei Ida, bevor die Liste offen ist: ${JSON.stringify(zu)}`);
-    await karte.getByRole("button", { name: /^(Ganze Liste|Alle \d+ zeigen)$/ }).click();
-    await karte.locator(':is(.mini-ansehen, .gk-ansehen)[href="/turmbau?zuschauen=mini_idaidaidaida"]').waitFor({ timeout: 4000 }).catch(() => {});
-    const auf = await play();
-    pruefe(auf.includes("/turmbau?zuschauen=mini_idaidaidaida") && auf.length === 2,
-      `In der ganzen Liste fehlt der ▶ bei Ida (Platz 4), oder er steht bei jemandem ohne Lauf: ${JSON.stringify(auf)}`);
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    // Auf der Bühne steht der Turmbau (der erste Favorit). Seine Bestenliste
+    // zeigt die ersten fünf: Ida auf Platz 4 und den eigenen Lauf auf Platz 5.
+    const tafel = seite.locator(".ar-bestenliste");
+    await tafel.locator('.gk-ansehen[href="/turmbau?zuschauen=mini_idaidaidaida"]').waitFor({ timeout: 6000 }).catch(() => {});
+    const zu = await tafel.locator(".gk-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
+    pruefe(zu.includes(`/turmbau?zuschauen=${gespielt.kennung}`) && zu.includes("/turmbau?zuschauen=mini_idaidaidaida") && zu.length === 2,
+      `Beim Turmbau steht der ▶ nicht bei Ida (Platz 4) und beim eigenen Lauf (Platz 5), oder bei jemandem ohne Lauf: ${JSON.stringify(zu)}`);
 
     await seite.goto(`${BASIS}/turmbau?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappTurmbau?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
@@ -3863,7 +3885,7 @@ try {
     if (manifest) {
       pruefe(manifest.scope === "/", `Der Bereich des Manifests ist ${manifest.scope} statt /.`);
       pruefe(manifest.start_url === "/", `Das Manifest startet bei ${manifest.start_url} statt bei /.`);
-      pruefe(manifest.short_name === "Mini-Games", `Auf dem Startbildschirm stünde "${manifest.short_name}".`);
+      pruefe(manifest.short_name === "alae arcade", `Auf dem Startbildschirm stünde "${manifest.short_name}".`);
       const fehlende = await seite.evaluate(async (icons) => {
         const raus = [];
         for (const icon of icons) {

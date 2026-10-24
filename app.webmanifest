@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Mini-Games",
-  "short_name": "Mini-Games",
+  "name": "alae arcade",
+  "short_name": "alae arcade",
   "description": "Eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle.",
   "lang": "de",
   "dir": "ltr",
@@ -14,8 +14,8 @@
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#f7f3ff",
-  "theme_color": "#f7f3ff",
+  "background_color": "#0d0c11",
+  "theme_color": "#0d0c11",
   "categories": [
     "games"
   ],
