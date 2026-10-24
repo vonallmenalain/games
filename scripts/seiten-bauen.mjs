@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-24-5";
+export const FASSUNG = "2026-10-24-6";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -230,11 +230,9 @@ export function seitenSkripte(spiel) {
 // Die Startseite (alae arcade) zeigt aufgenommene Filme (filme/) und braucht
 // dafür kein eigenes Skript.
 export const hubSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
-// Die Turnierseite: dasselbe wie die Startseite, dazu vorschau.js – die
-// gezeichneten Filme auf den Spielkacheln. Es steht vor mini-games.js, das
-// die Kacheln baut und es dabei fragt. Was die Seite zeigt, baut turnier.js
-// aus der Adresse (?t=).
-export const turnierSkripte = () => [...SDK, "vorschau.js", ...GEMEINSAM, "pwa.js"];
+// Die Turnierseite: dasselbe wie die Startseite. Was sie zeigt, baut
+// turnier.js aus der Adresse (?t=).
+export const turnierSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
 // Der Adminbereich: dasselbe Fundament, dazu die Anmeldung. Kein pwa.js – er
 // gehört nicht in die installierte App, und ein Service Worker, der ihn
 // zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
@@ -319,9 +317,11 @@ export function turnierSeite() {
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
   Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
-  Adresse; was darauf steht, baut turnier.js – wie lange es noch läuft, die
-  Spiele mit ihrer Rangliste und die Gesamtwertung. Kein Weg hinaus zu den
-  anderen Spielen: Ein Turnier ist ein Raum für sich. Sie gehört zur
+  Adresse; was darauf steht, baut turnier.js – wie die Startseite (alae
+  arcade), oben aber Name und Stand des Turniers und die Gesamtwertung, unten
+  nur seine Spiele. Dunkel schon hier, damit beim Laden nichts hell
+  aufblitzt. Kein Weg hinaus zu den anderen Spielen: Ein Turnier ist ein Raum
+  für sich. Sie gehört zur
   installierten App: Wer im Turnier spielt, kommt von jedem Spiel hierher
   zurück, auch ohne Netz – und wer sie auf den Startbildschirm legt, legt das
   Turnier dorthin, mit seinem Namen (turnier.js, alsApp).
@@ -335,12 +335,13 @@ ${kopf({
     titel: "Turnier · alae arcade",
     text: "Ein Turnier in der alae arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    farbe: DUNKEL,
   })}
     <meta name="robots" content="noindex, nofollow" />
   </head>
-  <body data-page="turnier">
-    <main class="mini-seite" data-turnier>
-      <p class="mini-hinweis">Das Turnier wird geladen...</p>
+  <body data-page="turnier" class="ar">
+    <main class="mini-seite ar-seite ist-turnier" data-turnier>
+      <p class="mini-hinweis ar-leer">Das Turnier wird geladen...</p>
     </main>
 
 ${skripte(turnierSkripte())}

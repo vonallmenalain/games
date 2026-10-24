@@ -3347,172 +3347,12 @@ h2 {
 .mini-karte-aktionen { display: flex; gap: 8px; margin-top: auto; }
 .mini-karte .mini-knopf-voll { flex: 1; }
 
-/* --- Die Spielkachel (mini-games.js, kachel; der Film: vorschau.js) -------- */
-/* Oben der Film, daran der runde Play-Knopf, darunter Name, Satz und die
-   Bestenliste. Die Karte hat keinen Innenabstand: Der Film reicht bis an
-   ihre Kanten, und erst der Körper darunter rückt ein. */
-/* Solange erst einzelne Spiele eine Kachel haben, ist sie höher als die
-   Karten daneben – die sollen dann nicht mit in die Länge gezogen werden. */
-.mini-karten:has(> .gk-karte) { align-items: start; }
-.mini-karte.gk-karte {
-  padding: 0;
-  gap: 0;
-  border: 0;
-  box-shadow: 0 1px 2px rgba(36, 48, 71, 0.06), 0 14px 34px rgba(36, 48, 71, 0.12);
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.28s ease;
-}
-.gk-karte:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 4px rgba(36, 48, 71, 0.06), 0 22px 44px rgba(36, 48, 71, 0.16);
-}
-
-.gk-oben { position: relative; }
-/* Bis der Film zum ersten Mal zeichnet, steht dort sein Himmel. */
-.gk-buehne {
-  position: relative;
-  display: block;
-  aspect-ratio: 16 / 10;
-  overflow: hidden;
-  border-radius: 20px 20px 0 0;
-  background: linear-gradient(#79c7ee, #dff2fc);
-  isolation: isolate;
-}
-/* Ein Hauch Schatten an der Unterkante: Der Film sitzt in der Karte, nicht
-   auf ihr. */
-.gk-buehne::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 -28px 36px -30px rgba(17, 24, 39, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  pointer-events: none;
-}
-.gk-film {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.gk-karte:hover .gk-film { transform: scale(1.035); }
-/* Gesperrt (im Turnier): Der Film läuft, aber gedämpft. */
-.gk-buehne.ist-zu .gk-film { filter: saturate(0.7) brightness(0.9); }
-
-/* Der Play-Knopf: halb auf dem Film, halb auf der Karte, wo der Daumen
-   hinwill – und der Film bleibt frei. */
-.gk-play {
-  position: absolute;
-  right: 16px;
-  bottom: 0;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
-  border-radius: 50%;
-  border: 4px solid #fff;
-  background-color: var(--mini-farbe, var(--mini-ton));
-  background-image:
-    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 58%),
-    linear-gradient(160deg, var(--mini-farbe, var(--mini-ton)), var(--mini-farbe-dunkel, var(--mini-ton-dunkel)));
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(36, 48, 71, 0.28), 0 2px 4px rgba(36, 48, 71, 0.18);
-  transform: translateY(50%);
-  transition: transform 0.22s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.22s ease;
-}
-.gk-play .gk-icon { width: 28px; height: 28px; margin-left: 3px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18)); }
-/* Ein Ring, der aufgeht: Hier geht es los. */
-.gk-play::before {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 3px solid var(--mini-farbe, var(--mini-ton));
-  opacity: 0;
-  animation: gk-puls 2.6s cubic-bezier(0.2, 0.7, 0.3, 1) 1.2s infinite;
-  pointer-events: none;
-}
-.gk-karte:hover .gk-play,
-.gk-play:focus-visible {
-  transform: translateY(50%) scale(1.08);
-  box-shadow: 0 14px 28px rgba(36, 48, 71, 0.32), 0 3px 6px rgba(36, 48, 71, 0.18);
-}
-.gk-play:active { transform: translateY(50%) scale(0.95); }
-.gk-play:focus-visible { outline: 3px solid var(--mini-farbe-dunkel, var(--mini-ton-dunkel)); outline-offset: 3px; }
-@keyframes gk-puls {
-  0% { transform: scale(1); opacity: 0.75; }
-  70%, 100% { transform: scale(1.5); opacity: 0; }
-}
-
-/* An Stelle des Knopfs, wenn gerade nicht gespielt werden darf. */
-.gk-sperre {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-  padding: 6px 12px 6px 10px;
-  border-radius: 999px;
-  background: rgba(23, 31, 48, 0.74);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 800;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.25);
-}
-.gk-sperre .gk-icon { width: 15px; height: 15px; }
-.gk-sperre.ist-vorne { background: linear-gradient(145deg, #ffe27a, #f5b416); color: #6b4200; }
-
+/* --- Die Bestenliste in den Fenstern (mini-games.js, bestenliste) --------- */
 .gk-icon { display: inline-grid; place-items: center; flex: 0 0 auto; }
 .gk-icon svg { display: block; width: 100%; height: 100%; fill: currentColor; }
 
-.gk-koerper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px 16px;
-}
-.gk-kopf { min-width: 0; }
-.gk-titel {
-  margin: 0;
-  /* Rechts daneben ragt der Play-Knopf herein. */
-  padding-right: 66px;
-  font-size: 1.28rem;
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  color: #1f2a3d;
-}
-.gk-satz {
-  margin: 3px 0 0;
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #667085;
-}
-.gk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.gk-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: #f2f4f8;
-  color: #4a5568;
-  font-size: 0.76rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.gk-chip .gk-icon { width: 15px; height: 15px; color: var(--mini-farbe-dunkel, var(--mini-ton-dunkel)); }
-
-/* Die Bestenliste der Kachel. Hinter jeder Zeile ein Balken: wie weit sie
-   vom Rekord weg ist (--gk-anteil). */
-.gk-listen-wirt { display: flex; flex-direction: column; }
+/* Hinter jeder Zeile ein Balken: wie weit sie vom Rekord weg ist
+   (--gk-anteil). */
 .gk-liste {
   margin: 0;
   padding: 0;
@@ -3657,49 +3497,6 @@ h2 {
 .gk-leer-krone .gk-icon { width: 20px; height: 20px; }
 .gk-leer-text { display: flex; flex-direction: column; font-size: 0.82rem; font-weight: 700; color: #667085; }
 .gk-leer-text strong { font-size: 0.94rem; font-weight: 900; color: #243047; }
-.gk-verdeckt {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 12px;
-  border-radius: 14px;
-  background: #f5f6f9;
-  color: #667085;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-.gk-verdeckt .gk-icon { width: 18px; height: 18px; }
-.gk-mehr {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: -4px;
-  padding: 4px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: var(--mini-farbe-dunkel, var(--mini-ton-dunkel));
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-.gk-mehr:hover,
-.gk-mehr:focus-visible { background: #f2f4f8; outline: none; }
-.gk-mehr .gk-icon { width: 18px; height: 18px; transition: transform 0.2s ease; }
-.gk-mehr[aria-expanded="true"] .gk-icon { transform: rotate(180deg); }
-
-@media (prefers-reduced-motion: reduce) {
-  .gk-karte,
-  .gk-film,
-  .gk-play { transition: none; }
-  .gk-karte:hover,
-  .gk-karte:hover .gk-film { transform: none; }
-  .gk-karte:hover .gk-play { transform: translateY(50%); }
-  .gk-play::before { animation: none; }
-}
 
 .mini-tabelle {
   width: 100%;
@@ -4234,28 +4031,9 @@ body.adm-spiel-offen { overflow: hidden; }
 }
 
 /* --- Die Turnierseite ------------------------------------------------------ */
-.tn-kopf {
-  background:
-    radial-gradient(circle at 88% -10%, rgba(255, 255, 255, 0.4), transparent 55%),
-    linear-gradient(135deg, var(--tn-gold), var(--mini-ton-dunkel));
-}
-.tn-kopf h1 { overflow-wrap: anywhere; }
-.tn-status { margin: 0; font-size: 0.95rem; font-weight: 800; color: rgba(255, 255, 255, 0.92); }
-.tn-inhalt { display: flex; flex-direction: column; gap: clamp(20px, 4vw, 34px); }
-.tn-beschreibung {
-  margin: 0;
-  padding: 14px 18px;
-  border-radius: 18px;
-  background: var(--tn-gold-hell);
-  border-left: 6px solid var(--tn-gold);
-  color: #3f3413;
-  font-weight: 700;
-  line-height: 1.5;
-  white-space: pre-line;
-}
-/* Eine Karte im Turnier: Name, Rangliste, Knopf – etwas enger als auf der
-   Startseite. */
-.tn-karte { gap: 10px; }
+/* Sie ist die Startseite (alae arcade, weiter unten) mit anderem Kopf und
+   steht dort. Hier nur, was im Fenster der Gesamtwertung und unter dem
+   Ergebnis eines Spiels gebraucht wird. */
 .tn-verdeckt { margin: 0; color: #667085; font-weight: 700; }
 p.tn-verdeckt:not(.mini-hinweis) {
   padding: 12px;
@@ -4941,28 +4719,55 @@ body.lv-im-spiel { overflow: hidden; }
 .lv-grossbild .lv-podest-platz { font-size: 3.2rem; }
 
 /* --- Turnier: ein Multiplayer (turnier.js, live.js) --------------------------- */
-/* Läuft gerade einer, steht er ganz oben – mit dem Weg hinein. */
+/* Läuft gerade einer, steht er oben auf der Turnierseite neben der
+   Gesamtwertung – ein Tipp führt hinein. */
 .tn-live {
+  flex: 1 1 260px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 14px 18px;
-  border-radius: 20px;
-  background: #243047;
+  gap: 10px;
+  height: 48px;
+  padding: 4px 4px 4px 16px;
+  border: 1px solid rgba(255, 138, 143, 0.45);
+  border-radius: 999px;
+  background: rgba(217, 63, 69, 0.2);
   color: #fff;
-  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.25);
+  text-decoration: none;
 }
-.tn-live-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-weight: 800; }
-.tn-live-marke { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: #ff8a8f; }
-.tn-live-punkt { width: 10px; height: 10px; border-radius: 50%; background: #d93f45; box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.35); animation: lv-puls 1.6s ease-in-out infinite; }
-.tn-live-karte { border-top-color: #d93f45; }
-.tn-live-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.tn-live-liste li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; font-weight: 800; color: #243047; }
-.tn-live-liste li.ist-ich { background: #fff3e0; }
+.tn-live:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.tn-live-text { display: flex; flex-direction: column; min-width: 0; font-weight: 800; line-height: 1.2; }
+.tn-live-text .tn-live-name { font-size: 0.9rem; }
+.tn-live > .tn-live-punkt { display: none; }
+.tn-live-marke { display: inline-flex; align-items: center; gap: 7px; font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: #ff8a8f; }
+.tn-live-punkt { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #ff5a61; box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.35); animation: lv-puls 1.6s ease-in-out infinite; }
+.tn-live-los {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ar-koralle, #fe7971);
+  color: #2a0f0b;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+/* Die Multiplayer, die schon gezählt haben – im Fenster der Gesamtwertung. */
+.tn-abende { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.tn-abende h3 { margin: 0; color: #ffd45e; font-size: 0.74rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.tn-live-karte { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border-top: 3px solid #d93f45; }
+.tn-live-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tn-live-kopf strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-live-kopf .mini-karte-zahl { color: #a39fb2; }
+.tn-live-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tn-live-liste li { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 10px; font-weight: 800; }
+.tn-live-liste li.ist-ich { background: rgba(255, 255, 255, 0.1); }
 .tn-live-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tn-live-wert { font-variant-numeric: tabular-nums; }
+.tn-abende .tn-fertig { min-height: 0; background: none; color: #a39fb2; }
+.tn-abende .tn-verdeckt { color: #a39fb2; border-color: rgba(255, 255, 255, 0.16); }
 @media (prefers-reduced-motion: reduce) {
   .tn-live-punkt { animation: none; }
 }
@@ -5485,6 +5290,194 @@ body.ar {
 
 .ar-leer { margin: 40px var(--ar-rand) 0; color: var(--ar-leise); }
 
+/* --- Gesperrt: im Turnier an der Stelle von Play ------------------------------ */
+/* Ein Schloss, so gross wie Play, und unten auf dem Bild, warum. */
+.ar-zu {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ar-leise);
+}
+.ar-zu .gk-icon { width: 22px; height: 22px; }
+.ar-grund {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(13, 12, 17, 0.74);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 800;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.ar-grund[hidden] { display: none; }
+.ar-grund .gk-icon { width: 14px; height: 14px; color: var(--ar-gold); }
+.ar-grund > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+/* Ohne Weg ins Spiel ist das Bild nur ein Bild. */
+.ar-filme:not([href]) { cursor: default; }
+.ar-filme:not([href])::after { display: none; }
+
+/* --- Die Turnierseite: oben Name, Stand und Gesamtwertung --------------------- */
+/* Schmal steht die Gesamtwertung unter Name und Knöpfen, breit dazwischen. */
+.ar-seite.ist-turnier .ar-kopf {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  height: auto;
+  min-height: calc(var(--ar-kopf-h) + var(--safe-top));
+  padding-bottom: 10px;
+}
+.tn-titel { order: 1; flex: 1 1 0; min-width: 0; padding-top: 8px; }
+.tn-titel h1 {
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 1.12rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tn-status {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--ar-leise);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.3;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ar-seite.ist-turnier .ar-kopf-rechts { order: 2; }
+.tn-oben { order: 3; flex: 1 0 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.tn-oben:empty { display: none; }
+/* Die Gesamtwertung: der Pokal und die ersten drei – im Turnier wichtiger
+   als jede einzelne Liste, darum golden und gross. */
+.tn-wertung {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid color-mix(in srgb, var(--ar-gold) 45%, transparent);
+  border-radius: 999px;
+  background: linear-gradient(140deg, rgba(255, 212, 94, 0.22), rgba(255, 212, 94, 0.05));
+  color: var(--ar-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.tn-wertung:hover,
+.tn-wertung:focus-visible { background-color: rgba(255, 255, 255, 0.08); outline: none; }
+.tn-wertung:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+.tn-wertung:active { transform: scale(0.98); }
+.tn-wertung-pokal {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe58a, #f5b416);
+  color: #7a4b00;
+}
+.tn-wertung-pokal .gk-icon { width: 21px; height: 21px; }
+.tn-podest { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; list-style: none; }
+/* Jeder der drei bekommt gleich viel Platz, keiner mehr, als sein Name braucht. */
+.tn-podest li { flex: 1 1 0; min-width: 0; max-width: max-content; display: flex; align-items: center; gap: 6px; }
+.tn-medaille {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe58a, #f5b416);
+  color: #5c3a00;
+  font-size: 0.74rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.tn-podest .ist-platz-2 .tn-medaille { background: linear-gradient(145deg, #f7f8fb, #c3c9d6); color: #3b4352; }
+.tn-podest .ist-platz-3 .tn-medaille { background: linear-gradient(145deg, #f8d8b8, #cf8650); color: #4d2a10; }
+.tn-podest-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; font-weight: 800; }
+.tn-podest .ist-platz-1 .tn-podest-name { color: #fff; font-size: 1rem; font-weight: 900; }
+.tn-podest .ist-ich .tn-podest-name { color: var(--ar-gold); }
+.tn-wertung-ich {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ar-gold);
+  font-size: 0.8rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.tn-wertung-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ar-leise); font-size: 0.88rem; font-weight: 800; }
+.tn-wertung-mehr { flex: 0 0 auto; color: var(--ar-leise); }
+.tn-wertung-mehr .gk-icon { width: 20px; height: 20px; transform: rotate(-90deg); }
+/* Wird die Gesamtwertung schmal (quer auf dem Handy, neben dem Multiplayer),
+   stehen nur die ersten zwei, dann nur noch der Erste. */
+.tn-wertung { container-type: inline-size; }
+@container (max-width: 320px) {
+  .tn-podest li:nth-child(3) { display: none; }
+}
+@container (max-width: 250px) {
+  .tn-podest li:nth-child(2) { display: none; }
+}
+/* Breit, und auf dem Handy quer: alles in einer Zeile. */
+@media (min-width: 900px), (orientation: landscape) and (max-height: 600px) {
+  .tn-titel { flex: 0 1 auto; max-width: 34%; padding-top: 0; }
+  .ar-seite.ist-turnier .ar-kopf { flex-wrap: nowrap; padding-bottom: 0; }
+  .tn-oben { order: 2; flex: 1 1 0; flex-wrap: nowrap; justify-content: flex-end; }
+  .tn-wertung,
+  .tn-live { flex: 0 1 460px; }
+  .ar-seite.ist-turnier .ar-kopf-rechts { order: 3; }
+}
+/* Auf dem Handy quer ist der Kopf eng: Vom Multiplayer bleiben der Punkt und
+   «Mitspielen». */
+@media (orientation: landscape) and (max-height: 600px) {
+  .tn-live { flex: 0 0 auto; padding-left: 12px; }
+  .tn-live-text { display: none; }
+  .tn-live > .tn-live-punkt { display: block; }
+}
+
+/* Die Gesamtwertung im Fenster: die Tabelle der Turnierseite, dunkel. */
+.ar-fenster .tn-beschreibung {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-left: 4px solid #ffd45e;
+  border-radius: 12px;
+  background: rgba(255, 212, 94, 0.08);
+  color: #f4f2f8;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+.ar-fenster .tn-wert { color: #fff; }
+.ar-fenster .tn-tabelle tbody tr.ist-ich { box-shadow: inset 4px 0 0 #ffd45e; }
+.ar-fenster .tn-tabelle tbody tr.ist-ich .tn-wer > span { color: #ffd45e; }
+.ar-fenster .tn-teile { color: #a39fb2; }
+.ar-fenster .tn-verdeckt { color: #a39fb2; }
+.tn-wie { margin: 10px 0 0; color: #a39fb2; font-size: 0.78rem; font-weight: 700; line-height: 1.4; }
+
 /* --- Fenster: Rangliste, Gesamtwertung, App ----------------------------------- */
 .ar-fenster {
   width: min(460px, calc(100vw - 24px));
@@ -5509,6 +5502,8 @@ body.ar {
 .ar-fenster-titel { margin: 0; font-size: 1.3rem; font-weight: 900; letter-spacing: -0.01em; }
 .ar-fenster-zu { --ar-rund: 36px; }
 .ar-fenster-inhalt { min-height: 0; overflow-y: auto; padding: 4px 18px 20px; overscroll-behavior: contain; }
+/* Die Gesamtwertung: die Tabelle darf schmal werden, die Namen brechen um. */
+.ar-gesamt { min-width: 0; }
 .ar-fenster .mini-hinweis { color: #a39fb2; }
 /* Die Liste darin: dieselbe wie auf der Kachel im Turnier (gk-…), nur dunkel. */
 .ar-fenster .gk-zeile { background: rgba(255, 255, 255, 0.06); color: #f4f2f8; }
@@ -5563,6 +5558,7 @@ body.ar {
   .ar-aktionen { flex-wrap: wrap; }
   /* Quer steht Play vorne, die Rangliste daneben. */
   .ar-play { order: -1; width: clamp(52px, 4.6vw, 64px); height: clamp(52px, 4.6vw, 64px); }
+  .ar-zu { order: -1; width: clamp(52px, 4.6vw, 64px); height: clamp(52px, 4.6vw, 64px); }
   .ar-rang { max-width: 100%; }
 }
 
@@ -5581,7 +5577,8 @@ body.ar {
   .ar-auswahl { padding-top: 8px; padding-bottom: calc(6px + var(--safe-bottom)); }
   .ar-name-text { display: none; }
   .ar-name-knopf { padding-right: 3px; }
-  .ar-play { width: 50px; height: 50px; }
+  .ar-play,
+  .ar-zu { width: 50px; height: 50px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

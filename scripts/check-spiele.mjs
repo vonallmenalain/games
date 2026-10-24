@@ -1026,36 +1026,35 @@ try {
       `Quer: Film, Leiste und Zeile stehen nicht nebeneinander in einem Bild: ${JSON.stringify(quer)}`);
     await kontext.close();
   }
-  // Im Turnier hat der Turmbau seine Kachel mit gezeichnetem Film
-  // (vorschau.js): Er zeichnet und läuft, und bei weniger Bewegung steht er.
-  for (const bewegung of ["no-preference", "reduce"]) {
-    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
+  // Im Turnier steht dieselbe Bühne: das Bild, Play ins Turnier, und unten
+  // nur die Spiele des Turniers.
+  for (const viewport of [{ width: 420, height: 820 }, { width: 900, height: 520 }]) {
+    const { kontext, seite } = await neueSeite(viewport);
     await seite.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
     await seite.goto(`${BASIS}/turnier?t=${HERBST}`, { waitUntil: "load" });
-    await seite.waitForSelector(".gk-karte .gk-film", { timeout: 8000 });
-    const karte = seite.locator(".gk-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
-    await karte.scrollIntoViewIfNeeded();
-    await seite.waitForTimeout(300);
-    const bild = () => karte.locator(".gk-film").evaluate((leinwand) => {
-      const d = leinwand.getContext("2d").getImageData(0, 0, leinwand.width, leinwand.height).data;
-      let summe = 0;
-      let deckend = 0;
-      let proben = 0;
-      for (let i = 0; i < d.length; i += 64) {
-        summe = (summe * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1e9;
-        if (d[i + 3] > 200) deckend += 1;
-        proben += 1;
-      }
-      return { breit: leinwand.width, summe, deckend: deckend / proben };
-    });
-    const vorher = await bild();
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     await seite.waitForTimeout(700);
-    const nachher = await bild();
-    const play = await karte.locator(".gk-play").getAttribute("href").catch(() => null);
-    pruefe(play === `/turmbau?turnier=${HERBST}`, `${bewegung}: Der Play-Knopf der Turnier-Kachel führt nicht ins Turnier: ${play}`);
-    pruefe(vorher.breit > 100 && vorher.deckend > 0.95, `${bewegung}: Der Film der Turnier-Kachel ist nicht gezeichnet: ${JSON.stringify(vorher)}`);
-    if (bewegung === "reduce") pruefe(vorher.summe === nachher.summe, "Bei weniger Bewegung läuft der Film der Turnier-Kachel trotzdem.");
-    else pruefe(vorher.summe !== nachher.summe, "Der Film der Turnier-Kachel steht still.");
+    const tn = await seite.evaluate(() => {
+      const film = document.querySelector(".ar-film.ist-an");
+      const r = (wahl) => document.querySelector(wahl)?.getBoundingClientRect();
+      return {
+        film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
+        play: document.querySelector(".ar-play")?.getAttribute("href"),
+        link: document.querySelector(".ar-filme")?.getAttribute("href"),
+        spiele: [...document.querySelectorAll(".ar-kachel")].map((k) => k.dataset.spiel),
+        wertungUnten: r(".tn-wertung")?.bottom,
+        filmOben: r(".ar-filme")?.top,
+        kachelUnten: r(".ar-kachel")?.bottom,
+        fenster: window.innerHeight,
+        blatt: document.documentElement.scrollHeight,
+      };
+    });
+    const wo = `Turnier ${viewport.width}×${viewport.height}`;
+    pruefe(/^\/bilder\/turmbau-(hoch|quer)\.webp$/.test(tn.film) && tn.play === `/turmbau?turnier=${HERBST}` && tn.link === tn.play,
+      `${wo}: Oben steht nicht das Bild des Turmbaus, das ins Turnier führt: ${JSON.stringify(tn)}`);
+    pruefe(JSON.stringify(tn.spiele) === JSON.stringify(["towerStack", "fishPond", "numberLine"]), `${wo}: In der Zeile stehen nicht die Spiele des Turniers: ${tn.spiele.join(", ")}`);
+    pruefe(tn.wertungUnten <= tn.filmOben + 1 && tn.kachelUnten <= tn.fenster && tn.blatt <= tn.fenster + 1,
+      `${wo}: Gesamtwertung, Bild und Zeile stehen nicht übereinander in einem Bild: ${JSON.stringify(tn)}`);
     await kontext.close();
   }
 
@@ -1599,7 +1598,7 @@ try {
     const { kontext, seite } = await mitTurnieren("/turnier?t=familie-geheim2345", {
       vorher: () => { if (!localStorage.getItem("mini.turniere")) localStorage.setItem("mini.turniere", JSON.stringify(["gibtsnicht-123456"])); },
     });
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    await seite.waitForSelector(".tn-wertung", { timeout: 8000 });
     await seite.waitForFunction(() => document.querySelector('link[rel="manifest"]')?.href.startsWith("blob:"), null, { timeout: 4000 }).catch(() => {});
     const app = await seite.evaluate(async () => {
       const link = document.querySelector('link[rel="manifest"]').href;
@@ -1638,54 +1637,73 @@ try {
   }
 
   // --- 4e. Die Turnierseite ------------------------------------------------------
+  // Die Bühne der Startseite, oben Name und Stand des Turniers und die
+  // Gesamtwertung: die ersten drei, ein Tipp öffnet die ganze Tabelle.
   for (const [lage, viewport] of [["breit", { width: 1000, height: 900 }], ["Handy", { width: 360, height: 740 }]]) {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${HERBST}`, { viewport, vorher: () => localStorage.setItem("mini.admin", "ja") });
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    await seite.waitForSelector(".tn-wertung", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     const stand = await seite.evaluate(() => ({
-      titel: document.querySelector(".tn-kopf h1")?.textContent,
+      titel: document.querySelector(".tn-titel h1")?.textContent,
       status: document.querySelector(".tn-status")?.textContent || "",
-      karten: [...document.querySelectorAll(".tn-karte h3")].map((h) => h.textContent),
-      spielen: [...document.querySelectorAll(".tn-karte :is(.mini-karte-aktionen a, .gk-play)")].map((a) => a.getAttribute("href")),
+      spiele: [...document.querySelectorAll(".ar-kachel")].map((k) => k.dataset.spiel),
+      play: document.querySelector(".ar-play")?.getAttribute("href"),
+      podest: [...document.querySelectorAll(".tn-podest .tn-podest-name")].map((n) => n.textContent),
       regeln: document.querySelectorAll(".tn-regel-liste, .tn-regeln").length,
       teilen: document.querySelectorAll(".tn-teilen, .tn-link-feld").length,
-      kartenZusatz: [...document.querySelectorAll(".tn-karte .tn-mein, .tn-karte .mini-karte-zahl")].map((e) => e.textContent),
       hinaus: [...document.querySelectorAll("[data-turnier] a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/(turnier|admin)\b/.test(h) && !/[?&]turnier=/.test(h)),
-      erster: document.querySelector(".tn-tabelle tbody tr .tn-wer > span")?.textContent,
-      ersterWert: document.querySelector(".tn-tabelle tbody tr .tn-wert")?.textContent,
-      zeilen: document.querySelectorAll(".tn-tabelle tbody tr").length,
-      beschreibung: document.querySelector(".tn-beschreibung")?.textContent,
-      admin: document.querySelector(".tn-kopf .mini-knopf-admin")?.getAttribute("href"),
+      admin: document.querySelector(".ar-kopf .mini-knopf-admin")?.getAttribute("href"),
       ueberstand: document.documentElement.scrollWidth - window.innerWidth,
+      blatt: document.documentElement.scrollHeight - window.innerHeight,
     }));
     pruefe(stand.titel === "Herbstcup", `${lage}: Die Turnierseite heisst "${stand.titel}".`);
-    pruefe(/läuft noch/.test(stand.status), `${lage}: Unter dem Namen steht nicht, wie lange es noch läuft: ${stand.status}`);
-    pruefe(stand.karten.length === 3, `${lage}: Auf der Turnierseite stehen ${stand.karten.length} Spiele statt drei.`);
-    pruefe(stand.spielen.includes(`/turmbau?turnier=${HERBST}`), `${lage}: "Spielen" führt nicht ins Spiel im Turnier: ${stand.spielen.join(", ")}`);
+    pruefe(/läuft noch/.test(stand.status) && /2 Versuche je Spiel/.test(stand.status), `${lage}: Unter dem Namen steht nicht, wie lange es noch läuft und was gilt: ${stand.status}`);
+    pruefe(stand.spiele.length === 3, `${lage}: Auf der Turnierseite stehen ${stand.spiele.length} Spiele statt drei.`);
+    pruefe(stand.play === `/turmbau?turnier=${HERBST}`, `${lage}: Play führt nicht ins Spiel im Turnier: ${stand.play}`);
+    pruefe(JSON.stringify(stand.podest) === JSON.stringify(["Leo", "Grosi", "Mia"]), `${lage}: Oben stehen nicht Leo, Grosi und Mia: ${stand.podest.join(", ")}`);
     // Keine Regeln in Sätzen und kein Block zum Weitersagen: Dauer und
     // Versuche stehen oben, den Link hat der Adminbereich. Und kein Weg
     // hinaus – das Turnier ist ein Raum für sich.
     pruefe(stand.regeln === 0, `${lage}: Auf der Turnierseite steht wieder ein Block mit Regeln.`);
     pruefe(stand.teilen === 0, `${lage}: Auf der Turnierseite steht wieder der Block zum Weitersagen.`);
-    // Je Spiel: Name, Rangliste, Knopf. Kein Satz über den eigenen Stand.
-    pruefe(stand.kartenZusatz.length === 0, `${lage}: Auf den Karten der Turnierseite steht mehr als Name, Liste und Knopf: ${stand.kartenZusatz.join(" / ")}`);
     pruefe(stand.hinaus.length === 0, `${lage}: Von der Turnierseite führt ein Weg hinaus: ${stand.hinaus.join(", ")}`);
-    pruefe(stand.erster === "Leo" && stand.ersterWert === "4",
-      `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${stand.erster} mit ${stand.ersterWert} statt Leo mit 4.`);
-    pruefe(stand.zeilen === 3, `${lage}: In der Gesamtwertung stehen ${stand.zeilen} Spieler statt drei.`);
-    pruefe(stand.beschreibung === "Wer gewinnt, wählt das Znacht.", `${lage}: Die Beschreibung fehlt.`);
     pruefe(stand.admin === "/admin", `${lage}: Als Admin fehlt auf der Turnierseite der Weg in den Adminbereich.`);
-    pruefe(stand.ueberstand <= 1, `${lage}: Die Turnierseite steht ${stand.ueberstand} px über den rechten Rand.`);
+    pruefe(stand.ueberstand <= 1 && stand.blatt <= 1, `${lage}: Die Turnierseite passt nicht in einen Bildschirm: ${stand.ueberstand} px zu breit, ${stand.blatt} px zu hoch.`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `${lage}: Turnierseite – Klassen ohne Regel: ${ohne.join(", ")}`);
+    // Die ganze Gesamtwertung im Fenster, mit der Beschreibung.
+    await seite.click(".tn-wertung");
+    await seite.waitForSelector("dialog.ist-gesamt .tn-tabelle", { timeout: 4000 }).catch(() => {});
+    const gesamt = await seite.evaluate(() => ({
+      erster: document.querySelector("dialog.ist-gesamt .tn-tabelle tbody tr .tn-wer > span")?.textContent,
+      ersterWert: document.querySelector("dialog.ist-gesamt .tn-tabelle tbody tr .tn-wert")?.textContent,
+      zeilen: document.querySelectorAll("dialog.ist-gesamt .tn-tabelle tbody tr").length,
+      beschreibung: document.querySelector("dialog.ist-gesamt .tn-beschreibung")?.textContent,
+    }));
+    pruefe(gesamt.erster === "Leo" && gesamt.ersterWert === "4",
+      `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${gesamt.erster} mit ${gesamt.ersterWert} statt Leo mit 4.`);
+    pruefe(gesamt.zeilen === 3, `${lage}: In der Gesamtwertung stehen ${gesamt.zeilen} Spieler statt drei.`);
+    pruefe(gesamt.beschreibung === "Wer gewinnt, wählt das Znacht.", `${lage}: Die Beschreibung fehlt.`);
+    const ohneFenster = await klassenOhneRegel(seite);
+    pruefe(ohneFenster.length === 0, `${lage}: Gesamtwertung im Turnier – Klassen ohne Regel: ${ohneFenster.join(", ")}`);
     await kontext.close();
   }
   {
     // Verdeckt: Wer spielt, sieht seine eigene Zahl, aber nicht, wer vorne liegt.
     const { kontext, seite } = await mitTurnieren("/turnier?t=verdeckt-test23456");
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    pruefe(await seite.locator(".tn-karte :is(.mini-zeile, .gk-zeile)").count() === 0, "Im verdeckten Turnier stehen die Ranglisten da.");
+    await seite.waitForSelector(".tn-wertung", { timeout: 8000 });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    pruefe(await seite.locator(".tn-podest").count() === 0, "Im verdeckten Turnier steht oben, wer vorne liegt.");
+    pruefe(await seite.locator(".tn-wertung .tn-verdeckt").count() === 1, "Im verdeckten Turnier steht oben nicht, dass die Wertung verdeckt ist.");
+    pruefe(/verdeckt/.test(await seite.locator(".ar-rang").innerText()), "Im verdeckten Turnier nennt der Knopf zur Rangliste einen Namen.");
+    await seite.click(".ar-rang");
+    await seite.waitForSelector("dialog.ist-rangliste", { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator("dialog.ist-rangliste .gk-zeile").count() === 0 && await seite.locator("dialog.ist-rangliste .tn-verdeckt").count() === 1,
+      "Im verdeckten Turnier steht die Rangliste eines Spiels da.");
+    await seite.keyboard.press("Escape");
+    await seite.click(".tn-wertung");
+    await seite.waitForSelector("dialog.ist-gesamt", { timeout: 4000 }).catch(() => {});
     pruefe(await seite.locator(".tn-tabelle").count() === 0, "Im verdeckten Turnier steht die Gesamtwertung da.");
-    pruefe(await seite.locator(".tn-verdeckt").count() >= 1, "Im verdeckten Turnier steht nicht, dass die Liste verdeckt ist.");
     await kontext.close();
   }
   {
@@ -3390,36 +3408,51 @@ try {
       `Wer allein vorne liegt, wird falsch erkannt (allein, Gleichstand, dahinter, mit null, leer): ${JSON.stringify(faelle)}`);
     await kontext.close();
   }
-  // Der Weg ins Spiel auf einer Turnierkarte: das ▶ der Spielkachel (wo es
-  // eine Vorschau gibt) oder der Knopf «Spielen».
-  const SPIEL_WEG = '.tn-karte a.gk-play[href], .tn-karte a:has-text("Spielen")';
+  // Der Weg ins Spiel auf der Turnierseite, je Spiel: Play – oder an seiner
+  // Stelle das Schloss, und auf dem Bild, warum nicht. Gelesen wird Spiel
+  // für Spiel, nach einem Tipp auf seine Kachel.
+  const wegeImTurnier = async (seite) => {
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 }).catch(() => {});
+    const raus = [];
+    for (const k of await seite.locator(".ar-kachel").all()) {
+      await k.click();
+      await seite.waitForTimeout(150);
+      raus.push(await seite.evaluate(() => ({
+        spiel: document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel,
+        link: document.querySelector(".ar-leiste .ar-play")?.getAttribute("href") || "",
+        grund: document.querySelector(".ar-grund:not([hidden])")?.textContent || "",
+      })));
+    }
+    return raus;
+  };
   const alsKoenig = () => { localStorage.setItem("mini.id", "mini_koenigkoenig"); localStorage.setItem("mini.name", "König"); };
   const alsLeo = () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); };
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsKoenig });
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
-    pruefe(await seite.locator(SPIEL_WEG).count() === 0, `Wer überall vorne liegt, findet auf der Turnierseite trotzdem «Spielen»: ${text}`);
-    // Kein Satz darüber – an der Stelle jedes Knopfs steht «Du liegst vorne».
+    const wege = await wegeImTurnier(seite);
+    pruefe(wege.length === 2 && wege.every((w) => !w.link), `Wer überall vorne liegt, findet auf der Turnierseite trotzdem Play: ${JSON.stringify(wege)}`);
+    // Kein Satz darüber – an der Stelle von Play steht «Du liegst vorne».
     pruefe(await seite.locator(".tn-wartet").count() === 0, "Über den Spielen steht wieder ein Satz für den, der überall vorne liegt.");
-    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2, `Wer überall vorne liegt, liest nicht auf jeder Karte «Du liegst vorne»: ${text}`);
+    pruefe(wege.every((w) => w.grund === "Du liegst vorne"), `Wer überall vorne liegt, liest nicht bei jedem Spiel «Du liegst vorne»: ${JSON.stringify(wege)}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Königscup – Klassen ohne Regel: ${ohne.join(", ")}`);
 
-    // Namen ändern auf der Turnierseite: Wer einen neuen Namen nimmt, ist im
-    // Turnier ein neuer Mitspieler. Königs Einträge bleiben, wo sie sind –
-    // und der Neue darf spielen.
-    pruefe(await seite.locator(".tn-wer .mini-name-steht", { hasText: "König" }).count() === 1, "Auf der Turnierseite steht nicht, unter welchem Namen man spielt.");
-    await seite.click(".tn-wer .mini-name-steht button");
-    await seite.fill(".tn-wer .mini-namensfeld input", "Prinz");
-    await seite.click(".tn-wer .mini-namensfeld button[type=submit]");
-    const wege = () => [...document.querySelectorAll(".tn-karte a")].filter((a) => a.matches(".gk-play[href]") || /Spielen/.test(a.textContent)).length;
-    await seite.waitForFunction(`(${wege})() === 2`, null, { timeout: 4000 }).catch(() => {});
+    // Namen ändern auf der Turnierseite (oben rechts): Wer einen neuen Namen
+    // nimmt, ist im Turnier ein neuer Mitspieler. Königs Einträge bleiben, wo
+    // sie sind – und der Neue darf spielen.
+    await seite.click(".ar-kopf .ar-name-knopf");
+    pruefe(await seite.locator(".ar-name-feld .mini-name-steht", { hasText: "König" }).count() === 1, "Auf der Turnierseite steht nicht, unter welchem Namen man spielt.");
+    await seite.click(".ar-name-feld .mini-name-steht button");
+    await seite.fill(".ar-name-feld .mini-namensfeld input", "Prinz");
+    await seite.click(".ar-name-feld .mini-namensfeld button[type=submit]");
+    await seite.waitForFunction(() => document.querySelector(".ar-leiste .ar-play"), null, { timeout: 4000 }).catch(() => {});
+    await seite.keyboard.press("Escape");
+    const nachher = await wegeImTurnier(seite);
     const neu = await seite.evaluate((id) => ({
-      spielen: [...document.querySelectorAll(".tn-karte a")].filter((a) => a.matches(".gk-play[href]") || /Spielen/.test(a.textContent)).length,
       koenig: [...window.__miniTurnierEintraege.values()].filter((e) => e.spieler === "mini_koenigkoenig").map((e) => e.name),
       id: localStorage.getItem("mini.id"),
     }), KOENIG);
+    neu.spielen = nachher.filter((w) => w.link).length;
     pruefe(neu.spielen === 2, `Nach dem neuen Namen kann im Königscup ${neu.spielen} statt beide Spiele gespielt werden.`);
     pruefe(neu.koenig.length === 2 && neu.koenig.every((n) => n === "König"), `Der neue Name hat Königs Einträge geändert: ${neu.koenig.join(", ")}`);
     pruefe(neu.id !== "mini_koenigkoenig", "Mit dem neuen Namen spielt das Gerät im Turnier noch als König.");
@@ -3427,10 +3460,10 @@ try {
   }
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${KOENIG}`, { vorher: alsLeo });
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
-    const spielen = await seite.locator(SPIEL_WEG).count();
+    const wege = await wegeImTurnier(seite);
+    const spielen = wege.filter((w) => w.link).length;
     pruefe(spielen === 2, `Wer nirgends vorne liegt, kann im Königscup ${spielen} statt beide Spiele spielen.`);
-    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 0, "Wer nirgends vorne liegt, liest, er liege vorne.");
+    pruefe(wege.every((w) => !w.grund), `Wer nirgends vorne liegt, liest, er liege vorne: ${JSON.stringify(wege)}`);
     await kontext.close();
   }
   {
@@ -3439,9 +3472,9 @@ try {
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: alsKoenig });
     await seite.waitForURL((url) => url.pathname === "/turnier", { timeout: 8000 }).catch(() => {});
     pruefe(seite.url().endsWith(`/turnier?t=${KOENIG}`), `Wer allein vorne liegt, bleibt im Spiel: ${seite.url()}`);
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 }).catch(() => {});
-    pruefe(await seite.locator(".tn-karte :is(.tn-fertig, .gk-sperre)", { hasText: "Du liegst vorne" }).count() === 2,
-      "Zurück auf der Turnierseite steht nicht bei jedem Spiel «Du liegst vorne».");
+    const wege = await wegeImTurnier(seite);
+    pruefe(wege.length === 2 && wege.every((w) => w.grund === "Du liegst vorne"),
+      `Zurück auf der Turnierseite steht nicht bei jedem Spiel «Du liegst vorne»: ${JSON.stringify(wege)}`);
     await kontext.close();
   }
   {
@@ -3483,11 +3516,12 @@ try {
   // und nirgends "läuft noch 2 Millionen Tage".
   {
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${DAUER}`);
-    await seite.waitForSelector(".tn-karte", { timeout: 8000 });
+    await seite.waitForSelector(".tn-wertung", { timeout: 8000 });
     const text = (await seite.locator("[data-turnier]").innerText()).replace(/\n/g, " ");
     pruefe(/läuft ohne Zeitlimite · seit/.test(text), `Oben auf der Turnierseite ohne Zeitlimite steht: ${await seite.locator(".tn-status").innerText()}`);
     pruefe(!/9999|Tage/.test(text), `Auf der Turnierseite ohne Zeitlimite steht ein Ende: ${text}`);
-    pruefe(await seite.locator(SPIEL_WEG).count() === 3, "Im Turnier ohne Zeitlimite lässt sich nicht spielen.");
+    const wege = await wegeImTurnier(seite);
+    pruefe(wege.length === 3 && wege.every((w) => w.link), `Im Turnier ohne Zeitlimite lässt sich nicht spielen: ${JSON.stringify(wege)}`);
     await kontext.close();
   }
   {
@@ -3940,13 +3974,18 @@ try {
         geist(herbst, "mini_leoleoleoleo", "Leo", 25), geist(herbst, "mini_miamiamiamia", "Mia", 20), geist(ohne, "mini_leoleoleoleo", "Leo", 25),
       ]));
     }, [daten, bahn, HERBST, OHNE_REPLAY]);
+    // Der ▶ steht in der Rangliste des Turmbaus – im Fenster hinter dem
+    // Knopf mit der Krone.
     const playIn = async (id) => {
       await seite.goto(`${BASIS}/turnier?t=${id}`, { waitUntil: "load" });
-      const karte = seite.locator(".mini-karte", { has: seite.locator("h3", { hasText: /^Turmbau$/ }) });
-      await karte.locator(":is(.mini-liste, .gk-liste)").waitFor({ timeout: 8000 }).catch(() => {});
-      await karte.locator(":is(.mini-ansehen, .gk-ansehen)").first().waitFor({ timeout: 2500 }).catch(() => {});
+      await seite.waitForSelector('.ar-kachel[data-spiel="towerStack"]', { timeout: 8000 }).catch(() => {});
+      await seite.click('.ar-kachel[data-spiel="towerStack"]').catch(() => {});
+      await seite.click(".ar-rang").catch(() => {});
+      const fenster = seite.locator("dialog.ist-rangliste");
+      await fenster.locator(".gk-liste").waitFor({ timeout: 8000 }).catch(() => {});
+      await fenster.locator(".gk-ansehen").first().waitFor({ timeout: 2500 }).catch(() => {});
       await seite.waitForTimeout(300);
-      return karte.locator(":is(.mini-ansehen, .gk-ansehen)").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
+      return fenster.locator(".gk-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
     };
     const herbst = await playIn(HERBST);
     pruefe(herbst.length === 2 && herbst.includes(`/turmbau?zuschauen=mini_leoleoleoleo&aus=${HERBST}`) && herbst.includes(`/turmbau?zuschauen=mini_miamiamiamia&aus=${HERBST}`),

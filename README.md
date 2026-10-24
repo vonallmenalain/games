@@ -33,9 +33,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     service-worker.js     erzeugt
 
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
-                          die Spielkachel, die Auswertung der Startseite
-    vorschau.js           die gezeichneten Filme auf den Spielkacheln im
-                          Turnier
+                          die Bühne der Start- und der Turnierseite, die
+                          Auswertung der Startseite
     bilder/               die Bilder der Startseite: echte Runden, im richtigen
                           Moment aufgenommen (quer, hoch, klein)
     filme/                die Filme von früher (ausgeschaltet, mini-games.js,
@@ -133,7 +132,8 @@ keine Runde mehr, die man jemandem schickt.
 ### Die Startseite: alae arcade
 
 Dunkel, wie alae.app, und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
-hoch wie quer (`mini-games.js`, `baueUebersicht`):
+hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
+`arcadeBuehne`, steht genauso auf der Turnierseite):
 
 - **Das Bild:** das Spiel mitten in einer Runde, in einem Fenster in seiner
   eigenen Form – hochkant 9:16, quer 16:9 –, so gross, wie es geht, ohne
@@ -174,29 +174,30 @@ Mit `FILME = true` in mini-games.js laufen sie wieder, aus `filme/`.
 Worker lässt Filme durch: Safari spielt ein Video nur mit Range-Anfragen, und
 die beantwortet nur der Server.
 
-### Die Spielkachel im Turnier
+### Die Turnierseite
 
-Im Turnier steht jedes Spiel als Karte. Die neue Form davon, die
-Spielkachel (`mini-games.js`, `kachel`), hat bisher nur der Turmbau:
+Sie sieht aus wie die Startseite (`turnier.js`, `turnierSeite`, mit
+`arcadeBuehne` aus mini-games.js): oben das Bild des gewählten Spiels,
+darunter Rangliste und Play, unten nur die Spiele des Turniers. Ein Tipp aufs
+Bild oder auf Play spielt im Turnier. Anders ist nur der Kopf – mit so wenig
+Text wie möglich:
 
-- Oben ein kleiner Film (`vorschau.js`), der zeigt, wie das Spiel aussieht
-  und wie es gespielt wird: Im Turmbau schwingt ein Block, ein Finger tippt,
-  der Block fällt, was übersteht, bricht ab, die Combo zählt, der Himmel wird
-  Abend – bis einer daneben geht und der Film von vorn beginnt. Gespielt wird
-  dabei nichts: Ein Film ist ein Drehbuch mit den Massen und Farben des
-  Spiels.
-- Daran der runde Play-Knopf statt «Spielen». Tippen auf den Film führt
-  ebenfalls ins Spiel. Im Turnier steht an seiner Stelle, warum es gerade
-  nicht geht («Alle Versuche gespielt», «Ab …», «Du liegst vorne»), und der
-  Film läuft gedämpft weiter.
-- Darunter Name, ein Satz, wie man spielt, und die Bestenliste: der Rekord
-  mit Krone, Platz 2 und 3 mit Silber und Bronze, die eigene Zeile mit «Du»,
-  hinter jeder Zeile ein Balken, wie weit sie vom Rekord weg ist, und der ▶
-  zum Anschauen bei allen, die einen Lauf haben.
+- **Links der Name des Turniers** und darunter eine Zeile, wie lange es
+  läuft und was gilt: «läuft ohne Zeitlimite · seit Mo 12.10., 23:30 ·
+  3 Versuche je Spiel».
+- **Die Gesamtwertung** über alle Spiele, golden und gross – im Turnier zählt
+  sie mehr als jede einzelne Liste: der Pokal und die ersten drei, daneben
+  der eigene Platz, wer weiter hinten steht («Du 5.»). Schmal steht sie unter
+  dem Namen, breit (und auf dem Handy quer) daneben. Ein Tipp öffnet die
+  ganze Tabelle im Fenster, mit der Beschreibung des Turniers, einem Satz, wie
+  gezählt wird, und den Multiplayern, die schon gezählt haben. Verdeckt steht
+  dort nur, wie viele dabei sind.
+- **Läuft gerade ein Multiplayer**, steht daneben «Multiplayer läuft» mit dem
+  Weg hinein.
 
-Alle Filme teilen sich einen Bildtakt, und gezeichnet wird nur, was im Bild
-ist. Wer weniger Bewegung eingestellt hat, sieht ein Standbild. Ein Spiel
-bekommt die Kachel, sobald es in `vorschau.js` (`FILME`) einen Film hat.
+Darf man ein Spiel gerade nicht spielen (alle Versuche gespielt, allein
+vorne, noch nicht begonnen, angehalten, vorbei), steht an der Stelle von Play
+ein Schloss und unten auf dem Bild, warum – das Bild führt dann nirgends hin.
 
 ### Gegner und Geister
 
@@ -406,8 +407,9 @@ Zufall aus `zufall.js`, mit einer Saat aus Turnier, Versuch und Spiel.
 Spiel im Turnier führt kein Weg hinaus: kein «Ohne Turnier spielen», kein
 «Schon mal üben», kein Link zur Hall of Fame. Wer allein vorne liegt oder alle
 Versuche gespielt hat, kommt nur noch zurück zum Turnier. Die Turnierseite
-zeigt je Spiel nur den Namen, die Rangliste und den Knopf (oder an seiner
-Stelle «Du liegst vorne»); den Link zum Weitergeben hat der Adminbereich.
+zeigt je Spiel nur den Namen, die Rangliste und Play (oder an seiner Stelle
+das Schloss und «Du liegst vorne»); den Link zum Weitergeben hat der
+Adminbereich.
 
 **Ein Turnier auf dem Startbildschirm.** Wer im Turnier «Zum Startbildschirm»
 wählt, bekommt das Turnier als eigene App: mit seinem Namen, und sie öffnet
@@ -599,7 +601,7 @@ Schirm.
 Adminbereich beim Turnier «Multiplayer» antippen – dann ist es schon
 gewählt, und seine Spiele stehen im Programm) und wie der Multiplayer dort
 zählt: wie ein Spiel, doppelt, dreifach oder gar nicht. Solange er offen und
-für alle sichtbar ist, steht auf der Turnierseite ganz oben «Multiplayer
+für alle sichtbar ist, steht auf der Turnierseite oben «Multiplayer
 läuft» mit dem Weg hinein (`turnierLive/<turnier>` in der Realtime Database,
 gelesen ohne SDK); einer nur mit Link steht auch dort nicht. «Ins Turnier
 eintragen und abschliessen» schreibt den Endstand nach
@@ -607,8 +609,8 @@ eintragen und abschliessen» schreibt den Endstand nach
 in der Gesamtwertung ist er eine eigene Spalte, mal sein Gewicht – bei der
 Platzziffer zählt der Platz im Multiplayer, bei «Prozent vom Besten» der
 Anteil an seiner höchsten Punktzahl. Wer ihn verpasst hat, steht dort hinter
-dem Letzten, wie bei einem ausgelassenen Spiel. Auf der Turnierseite steht
-jeder Multiplayer mit seinem Endstand.
+dem Letzten, wie bei einem ausgelassenen Spiel. Im Fenster der Gesamtwertung
+steht jeder Multiplayer mit seinem Endstand.
 
 **Nur im Multiplayer.** Ein Turnier mit dem Haken «Nur im Multiplayer
 spielen» kennt keine Versuche: Die Spiele stehen da, aber gespielt wird nur

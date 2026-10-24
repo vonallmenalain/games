@@ -291,7 +291,7 @@ try {
     const blick = await geraet("Gast");
     await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
     pruefe(await bis(() => blick.seite.locator(".tn-live").count().then((n) => n === 1)), "Die Turnierseite zeigt nicht, dass gerade live gespielt wird");
-    const weg = await blick.seite.locator(".tn-live a").getAttribute("href");
+    const weg = await blick.seite.locator(".tn-live").getAttribute("href");
     pruefe(weg === `/live?code=${code}`, `Der Weg in den Multiplayer stimmt nicht (${weg})`);
     await bild(blick, "11-turnier-live");
     await blick.kontext.close();
@@ -583,6 +583,9 @@ try {
     const blick = await geraet("Gast2");
     await blick.seite.addInitScript((daten) => { try { localStorage.setItem("__turnierLive", JSON.stringify(daten)); } catch { /* egal */ } }, eingetragen);
     await blick.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" });
+    // Die Gesamtwertung steht im Fenster hinter dem Knopf oben.
+    await blick.seite.waitForSelector(".tn-wertung", { timeout: 8000 }).catch(() => {});
+    await blick.seite.click(".tn-wertung").catch(() => {});
     pruefe(await bis(() => blick.seite.locator(".tn-live-karte").count().then((n) => n === 1)), "Die Turnierseite zeigt den Multiplayer nicht");
     pruefe(await blick.seite.locator(".tn-live-karte .mini-karte-zahl").textContent() === "zählt ×2", "Die Turnierseite sagt nicht, wie der Abend zählt");
     pruefe(await bis(() => blick.seite.locator(".tn-tabelle tbody tr").count().then((n) => n === 5)), "In der Gesamtwertung fehlen die Spieler des Abends");

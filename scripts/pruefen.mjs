@@ -65,19 +65,12 @@ for (const datei of alleSkripte) {
   pruefe(`${datei} liegt da`, existsSync(path.join(WURZEL, datei)));
 }
 
-// Die gezeichneten Filme der Spielkacheln im Turnier (vorschau.js): vor
-// mini-games.js – das fragt beim Bauen der Kacheln danach.
-{
-  const liste = turnierSkripte();
-  pruefe("Turnierseite lädt vorschau.js vor mini-games.js",
-    liste.includes("vorschau.js") && liste.indexOf("vorschau.js") < liste.indexOf("mini-games.js"));
-}
-const vorschauJs = lies("vorschau.js");
-pruefe("vorschau.js hat einen Film für den Turmbau", /towerStack: \{ film: turmFilm/.test(vorschauJs));
-pruefe("vorschau.js zeichnet nur, was im Bild ist, und steht bei weniger Bewegung still",
-  /IntersectionObserver/.test(vorschauJs) && /prefers-reduced-motion/.test(vorschauJs) && /visibilitychange/.test(vorschauJs));
-pruefe("mini-games.js baut die Kachel mit Film (kachel), turnier.js stellt sie hin",
-  /function kachel\(/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
+// Die Turnierseite ist die Startseite mit anderem Kopf: Sie baut dieselbe
+// Bühne (mini-games.js, arcadeBuehne) und lädt dieselben Skripte.
+pruefe("mini-games.js baut die Bühne der arcade (arcadeBuehne), turnier.js stellt sie hin",
+  /function arcadeBuehne\(/.test(miniJs) && lies("turnier.js").includes("m.arcadeBuehne("));
+pruefe("Die Turnierseite lädt dieselben Skripte wie die Startseite",
+  JSON.stringify(turnierSkripte()) === JSON.stringify(hubSkripte()));
 
 // --- alae arcade: die Startseite und ihre Bilder -------------------------------
 // Jedes Spiel hat drei aufgenommene Bilder – quer, hoch und klein für die Zeile
@@ -450,7 +443,8 @@ for (const [id, fassung] of ZUG_ANSEHBAR) {
 pruefe("Turniere ohne Replays: Regel, Formular, Turnierseite und Spiel kennen ohneReplay",
   /"ohneReplay"/.test(regeln) && /d\.get\("ohneReplay", false\) is bool/.test(regeln)
   && /ohneReplay: !replay\.checked/.test(lies("admin.js")) && /ohneReplay: d\.ohneReplay === true/.test(lies("cloud.js"))
-  && /!verdeckt && !t\.ohneReplay/.test(lies("turnier.js")) && /t\.ohneReplay \|\|/.test(lies("geist.js")));
+  && /ansehbar: !t\.ohneReplay/.test(lies("turnier.js")) && /if \(ansehbar && !ansehen\.has\(spiel\)\)/.test(miniJs)
+  && /t\.ohneReplay \|\|/.test(lies("geist.js")));
 // Die Tiers: eine Vorgabe in mini-games.js, gespeichert in config/miniGames
 // (die Regeln lassen je Spiel 1, 2 oder 3 zu), eingeteilt und gruppiert im
 // Adminbereich.
@@ -471,7 +465,8 @@ pruefe("Tiers: Vorgabe, Speicher, Regel und Adminbereich passen zusammen",
 }
 // Der ▶ steht bei jedem, dessen Lauf es gibt – nicht nur bei den ersten drei.
 pruefe("Die Listen zeigen den ▶ bei allen, nicht nur bei den ersten drei",
-  !/platz <= 3/.test(miniJs) && /function ansehenFuer\(/.test(miniJs) && lies("turnier.js").includes("ansehenFuer"));
+  !/platz <= 3/.test(miniJs) && /function ansehenFuer\(/.test(miniJs)
+  && /ansehenFuer\(spiel, \(\) => listen\.get\(spiel\) \|\| \[\]/.test(miniJs));
 
 // ---------------------------------------------------------------------------
 // --- 18. Der Multiplayer -------------------------------------------------------
