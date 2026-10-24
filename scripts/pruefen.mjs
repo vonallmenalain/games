@@ -79,17 +79,20 @@ pruefe("vorschau.js zeichnet nur, was im Bild ist, und steht bei weniger Bewegun
 pruefe("mini-games.js baut die Kachel mit Film (kachel), turnier.js stellt sie hin",
   /function kachel\(/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
 
-// --- alae arcade: die Startseite und ihre Filme -------------------------------
-// Jedes Spiel hat zwei aufgenommene Filme mit Standbild
-// (scripts/filme-aufnehmen.mjs), und für jeden Film eine Vorführung.
+// --- alae arcade: die Startseite und ihre Bilder -------------------------------
+// Jedes Spiel hat drei aufgenommene Bilder – quer, hoch und klein für die Zeile
+// (scripts/filme-aufnehmen.mjs --standbild) – und eine Vorführung, die es
+// spielt. Die Filme von früher (filme/) sind ausgeschaltet (mini-games.js,
+// FILME) und kein Muss mehr.
 {
   for (const s of SPIELE) {
     pruefe(`scripts/vorfuehrung/${s.seite}.mjs liegt da`, existsSync(path.join(WURZEL, "scripts", "vorfuehrung", `${s.seite}.mjs`)));
-    for (const datei of [`${s.seite}-quer.mp4`, `${s.seite}-hoch.mp4`, `${s.seite}-quer.webp`, `${s.seite}-hoch.webp`]) {
-      pruefe(`filme/${datei} liegt da`, existsSync(path.join(WURZEL, "filme", datei)));
+    for (const datei of [`${s.seite}-quer.webp`, `${s.seite}-hoch.webp`, `${s.seite}-klein.webp`]) {
+      pruefe(`bilder/${datei} liegt da`, existsSync(path.join(WURZEL, "bilder", datei)));
     }
   }
-  pruefe("netlify/build.mjs nimmt filme/ mit", /const ORDNER = \[[^\]]*"filme"/.test(lies("netlify/build.mjs")));
+  pruefe("netlify/build.mjs nimmt bilder/ mit", /const ORDNER = \[[^\]]*"bilder"/.test(lies("netlify/build.mjs")));
+  pruefe("mini-games.js zeigt oben Bilder (FILME = false)", /const FILME = false;/.test(miniJs));
   // Die Filme nimmt der Service Worker nicht in die Hand: Safari spielt ein
   // Video nur mit Range-Anfragen, und die beantwortet nur der Server.
   pruefe("service-worker.js lässt Videos durch (kein respondWith für video)",

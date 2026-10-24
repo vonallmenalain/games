@@ -1,17 +1,27 @@
 /*
- * Die Filme der Startseite: echte Runden, aufgenommen.
+ * Die Bilder und Filme der Startseite: echte Runden, aufgenommen.
  * ---------------------------------------------------------------------------
- * Die Startseite (alae arcade) zeigt jedes Spiel als laufenden Film. Der wird
- * nicht gezeichnet, sondern aufgenommen: Ein Autopilot spielt das echte Spiel,
- * der Browser schneidet mit, ffmpeg macht daraus eine kurze Schleife. So sieht
- * die Startseite genau aus wie das Spiel – und wer ein Spiel ändert, nimmt
- * seinen Film neu auf.
+ * Die Startseite (alae arcade) zeigt jedes Spiel als Bild – mitten in einer
+ * Runde, scharf, in der Form des Fensters. Gezeichnet wird es nicht, sondern
+ * aufgenommen: Ein Autopilot spielt das echte Spiel, und im richtigen Moment
+ * macht der Browser ein Bild, mit doppelter Pixeldichte. Wer ein Spiel ändert,
+ * nimmt sein Bild neu auf.
  *
- *   node scripts/filme-aufnehmen.mjs                  alle Spiele
+ *   node scripts/filme-aufnehmen.mjs --standbild      alle Bilder (npm run bilder)
+ *   node scripts/filme-aufnehmen.mjs                  alle Filme (npm run filme)
  *   node scripts/filme-aufnehmen.mjs turmbau liane    nur diese
  *        --format quer|hoch                           nur eines der Formate
  *        --port 4380                                  der lokale Server
- *        --bilder <ordner>                            Einzelbilder dort lassen
+ *        --bilder <ordner>                            Einzelbilder der Filme dort lassen
+ *
+ * Die Bilder:
+ *
+ *   bilder/<seite>-quer.webp   16:9, 2560×1440 – für breite Bildschirme
+ *   bilder/<seite>-hoch.webp   9:16, 1080×1920 – fürs Handy
+ *   bilder/<seite>-klein.webp  480×270 – für die Zeile mit allen Spielen
+ *
+ * Die Filme (bis Oktober 2026 auf der Startseite, dort ausgeschaltet –
+ * mini-games.js, FILME) bleiben aufnehmbar, wie unten beschrieben.
  *
  * Wie sich ein Spiel selbst spielt, steht in scripts/vorfuehrung/<seite>.mjs:
  *
@@ -20,7 +30,11 @@
  *     spiele: () => { … },     in der Seite: der Autopilot, im Bildtakt
  *     vorlauf: 1500,           so lange wird gespielt, bevor die Aufnahme beginnt
  *     dauer: 9000,             so lange wird aufgenommen
- *     stil: "…",               nach Bedarf: CSS nur für den Film
+ *     bild: 6000,              wann das Standbild entsteht (ms nach dem Start);
+ *                              ohne: vorlauf + standbild (s im Film, sonst 3,2)
+ *     bildWenn: () => …,       in der Seite: danach noch warten, bis das gilt
+ *                              (der Moment, der das Spiel zeigt)
+ *     stil: "…",               nach Bedarf: CSS nur für Bild und Film
  *   };
  *
  * Aufgenommen wird ohne Firestore (dieselbe Attrappe wie in check-spiele, aber
@@ -49,6 +63,7 @@ import { SPIELE } from "./seiten-bauen.mjs";
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, "..");
 const ZIEL = path.join(WURZEL, "filme");
+const ZIEL_BILDER = path.join(WURZEL, "bilder");
 const require = createRequire(path.join(WURZEL, "package.json"));
 const { chromium } = require("playwright");
 
@@ -57,7 +72,9 @@ const wert = (name) => { const i = args.indexOf(`--${name}`); return i >= 0 ? ar
 const PORT = Number(wert("port") || 4380);
 const NUR_FORMAT = wert("format");
 const BILDER_BEHALTEN = wert("bilder");
-const GEWAEHLT = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
+const STANDBILD = args.includes("--standbild");
+const OHNE_WERT = new Set(["--standbild"]);
+const GEWAEHLT = args.filter((a, i) => !a.startsWith("--") && (!args[i - 1]?.startsWith("--") || OHNE_WERT.has(args[i - 1])));
 
 // Breite und Höhe der Seite, gleich der Grösse des Films: Die Bilder des
 // Screencasts kommen in CSS-Pixeln, ein Pixelfaktor über 1 brächte also nur
@@ -96,16 +113,17 @@ function ffmpeg(argumente) {
   if (r.status !== 0) throw new Error(`ffmpeg: ${r.stderr || r.status}`);
 }
 
-async function aufnehmen(browser, spiel, vorfuehrung, formatName) {
-  const f = FORMATE[formatName];
+// Die Seite eines Spiels, bereit für den Autopiloten: ohne Firestore, ohne
+// Leiste, das Spiel geladen und schon gestartet.
+async function oeffne(browser, spiel, vorfuehrung, f, dpr) {
   const kontext = await browser.newContext({
     viewport: { width: f.breit, height: f.hoch },
-    deviceScaleFactor: f.dpr,
+    deviceScaleFactor: dpr,
     serviceWorkers: "block",
   });
   await kontext.route("**/cloud.js*", (r) => r.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
   await kontext.route("https://www.gstatic.com/firebasejs/**", (r) => r.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* */" }));
-  // Keine Einträge, keine Geister: Im Film spielt nur einer.
+  // Keine Einträge, keine Geister: Es spielt nur einer.
   await kontext.addInitScript(() => {
     if (sessionStorage.getItem("__film")) return;
     localStorage.clear();
@@ -123,6 +141,38 @@ async function aufnehmen(browser, spiel, vorfuehrung, formatName) {
   await seite.waitForFunction(vorfuehrung.bereit, null, { timeout: 10000 });
   await seite.waitForTimeout(400);
   await seite.evaluate(vorfuehrung.spiele);
+  return { kontext, seite, fehler };
+}
+
+// Ein Standbild: im richtigen Moment ein Bild mit doppelter Pixeldichte,
+// daraus das Bild fürs Fenster (und quer das kleine für die Zeile).
+async function standbild(browser, spiel, vorfuehrung, formatName) {
+  const f = FORMATE[formatName];
+  const { kontext, seite, fehler } = await oeffne(browser, spiel, vorfuehrung, f, 2);
+  const moment = vorfuehrung.bild ?? ((vorfuehrung.vorlauf ?? 1500) + (vorfuehrung.standbild ?? 3.2) * 1000);
+  await seite.waitForTimeout(moment);
+  if (vorfuehrung.bildWenn) await seite.waitForFunction(vorfuehrung.bildWenn, null, { timeout: 30000, polling: "raf" });
+  const ordner = mkdtempSync(path.join(os.tmpdir(), "bild-"));
+  const roh = path.join(ordner, "roh.png");
+  await seite.screenshot({ path: roh });
+  await kontext.close();
+  if (fehler.length) throw new Error(`${spiel.seite}: Fehler in der Seite – ${fehler.join(" | ")}`);
+  mkdirSync(ZIEL_BILDER, { recursive: true });
+  const bild = path.join(ZIEL_BILDER, `${spiel.seite}-${formatName}.webp`);
+  ffmpeg(["-i", roh, "-c:v", "libwebp", "-quality", "88", bild]);
+  const raus = { kb: Math.round(statSync(bild).size / 1024) };
+  if (formatName === "quer") {
+    const klein = path.join(ZIEL_BILDER, `${spiel.seite}-klein.webp`);
+    ffmpeg(["-i", roh, "-vf", "scale=480:270:flags=lanczos", "-c:v", "libwebp", "-quality", "80", klein]);
+    raus.kleinKb = Math.round(statSync(klein).size / 1024);
+  }
+  rmSync(ordner, { recursive: true, force: true });
+  return raus;
+}
+
+async function aufnehmen(browser, spiel, vorfuehrung, formatName) {
+  const f = FORMATE[formatName];
+  const { kontext, seite, fehler } = await oeffne(browser, spiel, vorfuehrung, f, f.dpr);
   await seite.waitForTimeout(vorfuehrung.vorlauf ?? 1500);
 
   const bilder = [];
@@ -199,6 +249,11 @@ try {
       // Ein zweiter Versuch, wenn der erste scheitert; erst dann zählt es.
       for (let versuch = 1; versuch <= 2; versuch += 1) {
         try {
+          if (STANDBILD) {
+            const r = await standbild(browser, spiel, vorfuehrung, formatName);
+            console.log(`✓ ${spiel.seite}-${formatName}: Bild ${r.kb} KB${r.kleinKb ? `, klein ${r.kleinKb} KB` : ""}`);
+            break;
+          }
           const r = await aufnehmen(browser, spiel, vorfuehrung, formatName);
           console.log(`✓ ${spiel.seite}-${formatName}: ${r.bilder} Bilder (${r.jeSekunde}/s), ${r.kb} KB, Standbild ${r.bildKb} KB`);
           break;
