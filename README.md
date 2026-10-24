@@ -133,13 +133,12 @@ keine Runde mehr, die man jemandem schickt.
 Dunkel, wie alae.app, und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
 hoch wie quer (`mini-games.js`, `baueUebersicht`):
 
-- **Der Film:** hochkant über den ganzen Bildschirm, ohne Rand – alles
-  andere liegt darauf, mit einem dunklen Verlauf oben und unten. Quer steht
-  er in seiner eigenen Form (16:9) so hoch wie möglich, die Leiste daneben.
-  Es läuft der Film (quer oder hoch), dessen Form der Fläche näher ist, und
-  er füllt sie (`filmFuer`). Ein Wisch nach links zeigt das nächste Spiel,
-  nach rechts das vorige (am Computer auch die Pfeiltasten).
-- **Die Leiste:** hochkant unten auf dem Film, quer daneben – der Name des
+- **Der Film:** in einem Fenster in seiner eigenen Form – hochkant 9:16,
+  quer 16:9 –, so gross, wie es geht, ohne Rand darin. Es läuft der Film
+  (quer oder hoch), dessen Form dem Fenster näher ist, und er füllt es
+  (`filmFuer`). Ein Wisch nach links zeigt das nächste Spiel, nach rechts das
+  vorige (am Computer auch die Pfeiltasten).
+- **Die Leiste:** hochkant unter dem Film, quer daneben – der Name des
   Spiels, der Knopf zur Rangliste mit dem Namen des Ersten und der runde
   Play-Knopf. Die Rangliste öffnet sich im Fenster: alle Plätze, mit Krone,
   Medaillen, «Du» und dem ▶ zum Anschauen.

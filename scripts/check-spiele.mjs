@@ -957,15 +957,15 @@ try {
     pruefe(vorher.titel === "Turmbau" && vorher.play === "/turmbau" && vorher.name === "Turmbau spielen" && vorher.aktiv === "towerStack",
       `${bewegung}: Oben steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
     pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film oben ist nicht der hochkant aufgenommene: ${vorher.film}`);
-    // Hochkant füllt der Film den ganzen Bildschirm, ohne Rand, und die
-    // Leiste liegt darauf.
-    const voll = await seite.evaluate(() => {
+    // Hochkant steht der Film als Fenster in seiner Form (9:16), ohne Rand
+    // darin, und die Leiste darunter.
+    const fenster = await seite.evaluate(() => {
       const f = document.querySelector(".ar-filme").getBoundingClientRect();
       const l = document.querySelector(".ar-leiste").getBoundingClientRect();
-      return { l: f.left, o: f.top, r: f.right - innerWidth, u: f.bottom - innerHeight, leiste: l.top > f.top && l.bottom < f.bottom, passt: getComputedStyle(document.querySelector(".ar-film")).objectFit };
+      return { form: f.width / f.height, leisteDarunter: l.top >= f.bottom - 1, passt: getComputedStyle(document.querySelector(".ar-film")).objectFit };
     });
-    pruefe(voll.l === 0 && voll.o === 0 && Math.abs(voll.r) <= 1 && Math.abs(voll.u) <= 1 && voll.leiste && voll.passt === "cover",
-      `${bewegung}: Hochkant füllt der Film nicht den ganzen Bildschirm, oder die Leiste liegt nicht darauf: ${JSON.stringify(voll)}`);
+    pruefe(Math.abs(fenster.form - 9 / 16) < 0.02 && fenster.leisteDarunter && fenster.passt === "cover",
+      `${bewegung}: Hochkant steht der Film nicht in seiner Form (9:16) über der Leiste: ${JSON.stringify(fenster)}`);
     pruefe(vorher.rekord === "Grosi", `${bewegung}: Im Knopf zur Rangliste steht nicht der Rekord: ${JSON.stringify(vorher)}`);
     if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film oben trotzdem.");
     else pruefe(vorher.laeuft, "Der Film oben läuft nicht.");
