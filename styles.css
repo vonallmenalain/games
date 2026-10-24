@@ -4967,3 +4967,610 @@ body.lv-im-spiel { overflow: hidden; }
   .tn-live-punkt { animation: none; }
 }
 .lv-feld[hidden] { display: none; }
+
+/* ==========================================================================
+   alae arcade – die Startseite (mini-games.js, baueUebersicht)
+   ==========================================================================
+   Dunkel wie alae.app. Oben die Bühne: ein Spiel als laufender Film
+   (filme/, aufgenommen mit scripts/filme-aufnehmen.mjs), darauf Name, Satz,
+   Play und Rekord, daneben die Bestenliste. Darunter die Reihen mit allen
+   Spielen. Die Farbe des Spiels auf der Bühne (--ar-farbe) leuchtet durch die
+   ganze Seite und wechselt mit ihm. */
+@property --ar-farbe {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #F5A623;
+}
+body.ar {
+  padding: 0;
+  background: #0d0c11;
+  color: #f4f2f8;
+  color-scheme: dark;
+}
+.mini-seite.ar-seite {
+  --ar-grund: #0d0c11;
+  --ar-flaeche: #17161d;
+  --ar-flaeche-2: #211f29;
+  --ar-linie: rgba(255, 255, 255, 0.09);
+  --ar-text: #f4f2f8;
+  --ar-leise: #a39fb2;
+  --ar-koralle: #ff7466;
+  --ar-rand: max(16px, var(--safe-left), var(--safe-right));
+  position: relative;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 calc(48px + var(--safe-bottom));
+  gap: 0;
+  color: var(--ar-text);
+  overflow-x: clip;
+  transition: --ar-farbe 0.9s ease;
+}
+/* Ein weiches Licht in der Farbe des Spiels, hinter allem. */
+.ar-seite::before {
+  content: "";
+  position: fixed;
+  inset: -20vh -20vw auto;
+  height: 90vh;
+  z-index: -1;
+  background: radial-gradient(60% 55% at 50% 30%, color-mix(in srgb, var(--ar-farbe) 26%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.ar-unsichtbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* --- Kopf ------------------------------------------------------------------ */
+.ar-kopf {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: calc(64px + var(--safe-top));
+  margin-bottom: calc(-64px - var(--safe-top));
+  padding: var(--safe-top) var(--ar-rand) 0;
+  background: linear-gradient(rgba(13, 12, 17, 0.72), rgba(13, 12, 17, 0));
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+}
+.ar-kopf.ist-fest {
+  background: rgba(13, 12, 17, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 1px 0 var(--ar-linie);
+}
+.ar-marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  text-decoration: none;
+}
+.ar-marke-zeichen { width: 34px; height: 20px; display: block; }
+.ar-marke-zeichen svg { display: block; width: 100%; height: 100%; }
+.ar-marke-wort { display: flex; align-items: baseline; gap: 6px; font-size: 1.22rem; letter-spacing: -0.01em; }
+.ar-marke-wort strong { font-weight: 900; }
+.ar-marke-wort span { font-weight: 500; color: var(--ar-leise); }
+.ar-kopf-rechts { display: flex; align-items: center; gap: 8px; }
+
+.ar-kopf .mini-knopf-admin,
+.ar-kopf .mini-knopf-live {
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid var(--ar-linie);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  font-size: 0.86rem;
+  box-shadow: none;
+}
+.ar-kopf .mini-knopf-live { background: var(--ar-koralle); border-color: transparent; color: #2a0f0b; }
+.ar-vollbild {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--ar-linie);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  cursor: pointer;
+}
+.ar-vollbild svg { width: 19px; height: 19px; display: block; }
+.ar-vollbild:hover,
+.ar-vollbild:focus-visible { background: rgba(255, 255, 255, 0.16); outline: none; }
+
+/* Der Name: ein Kreis mit zwei Buchstaben, daneben der Name. */
+.ar-name { position: relative; }
+.ar-name-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 46vw;
+  height: 40px;
+  padding: 3px 14px 3px 3px;
+  border: 1px solid var(--ar-linie);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ar-name-knopf:hover,
+.ar-name-knopf:focus-visible { background: rgba(255, 255, 255, 0.16); outline: none; }
+.ar-name-kreis {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--ar-koralle), #c9425f);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.ar-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ar-name-feld {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--ar-linie);
+  border-radius: 18px;
+  background: rgba(28, 26, 35, 0.96);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: ar-auf 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ar-name-feld[hidden] { display: none; }
+.ar-wer { display: flex; flex-direction: column; gap: 10px; }
+.ar-wer .mini-name-steht { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ar-leise); font-weight: 700; }
+.ar-wer .mini-name-steht strong { color: var(--ar-text); }
+.ar-wer .mini-knopf-klein { background: rgba(255, 255, 255, 0.1); color: var(--ar-text); }
+.ar-wer .mini-namensfeld input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--ar-linie);
+  color: var(--ar-text);
+}
+.ar-wer .mini-namensfeld .mini-knopf { background: var(--ar-koralle); color: #2a0f0b; }
+.ar-wer .mini-wer-hinweis { margin: 0; color: var(--ar-leise); font-size: 0.82rem; }
+
+/* --- Die Bühne --------------------------------------------------------------- */
+.ar-buehne {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(440px, 74vh, 860px);
+  min-height: clamp(440px, 74svh, 860px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  padding: calc(84px + var(--safe-top)) var(--ar-rand) clamp(28px, 5vh, 56px);
+  overflow: hidden;
+}
+.ar-filme { position: absolute; inset: 0; z-index: -2; background: #000; }
+.ar-film {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 0.7s ease, transform 1.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ar-film.ist-an { opacity: 1; transform: scale(1); }
+/* Das Dunkel über dem Film: links und unten, wo der Text steht. */
+.ar-licht {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to top, var(--ar-grund) 0%, rgba(13, 12, 17, 0.72) 26%, rgba(13, 12, 17, 0) 58%),
+    linear-gradient(to right, rgba(13, 12, 17, 0.82) 0%, rgba(13, 12, 17, 0.35) 42%, rgba(13, 12, 17, 0) 70%),
+    radial-gradient(70% 60% at 0% 100%, color-mix(in srgb, var(--ar-farbe) 30%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.ar-buehne-inhalt { max-width: 560px; display: flex; flex-direction: column; gap: 10px; }
+.ar-ueber {
+  margin: 0;
+  color: var(--ar-farbe);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.ar-titel {
+  margin: 0;
+  font-size: clamp(2.6rem, 7vw, 5.4rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.45);
+}
+.ar-satz {
+  margin: 4px 0 0;
+  max-width: 34em;
+  color: rgba(244, 242, 248, 0.86);
+  font-size: clamp(0.98rem, 1.6vw, 1.12rem);
+  font-weight: 600;
+  line-height: 1.45;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+.ar-aktionen { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin-top: 14px; }
+.ar-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 30px 0 22px;
+  border-radius: 999px;
+  background: #fff;
+  color: #111015;
+  font-size: 1.12rem;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--ar-farbe) 45%, transparent), 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.22s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.22s ease, background-color 0.2s ease;
+}
+.ar-play .gk-icon { width: 22px; height: 22px; color: var(--ar-farbe); transition: color 0.9s ease; }
+.ar-play:hover,
+.ar-play:focus-visible { transform: scale(1.05); outline: none; box-shadow: 0 18px 50px color-mix(in srgb, var(--ar-farbe) 60%, transparent), 0 0 0 4px rgba(255, 255, 255, 0.25); }
+.ar-play:active { transform: scale(0.97); }
+.ar-rekord { margin: 0; display: inline-flex; align-items: center; gap: 10px; min-height: 40px; }
+.ar-rekord-marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffd45e;
+  font-weight: 800;
+}
+.ar-rekord-marke > .gk-icon {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffe58a, #f5b416);
+  color: #7a4b00;
+  box-shadow: 0 4px 16px rgba(245, 180, 22, 0.45);
+}
+.ar-rekord-marke.ist-frei { color: var(--ar-leise); font-size: 0.92rem; }
+.ar-rekord-marke.ist-frei > .gk-icon { background: rgba(255, 255, 255, 0.1); color: #ffd45e; box-shadow: none; }
+.ar-rekord-text { display: flex; flex-direction: column; line-height: 1.15; }
+.ar-rekord-text strong { font-size: 1.12rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.ar-rekord-text span { font-size: 0.84rem; font-weight: 700; color: var(--ar-leise); }
+
+/* Neu auf der Bühne: der Text gleitet Zeile für Zeile herein. */
+.ar-buehne-inhalt.ist-neu > *,
+.ar-bestenliste.ist-neu { animation: ar-auf 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ar-buehne-inhalt.ist-neu > :nth-child(2) { animation-delay: 0.05s; }
+.ar-buehne-inhalt.ist-neu > :nth-child(3) { animation-delay: 0.1s; }
+.ar-buehne-inhalt.ist-neu > :nth-child(4) { animation-delay: 0.15s; }
+.ar-bestenliste.ist-neu { animation-delay: 0.12s; }
+@keyframes ar-auf {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Die Bestenliste der Bühne: Glas über dem Film. Darin dieselbe Liste wie auf
+   der Kachel im Turnier (gk-…), nur dunkel. */
+.ar-bestenliste {
+  width: min(360px, 34vw);
+  max-height: min(60vh, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(20, 19, 26, 0.62);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.ar-tafel-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ar-tafel-titel { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: #ffd45e; }
+.ar-tafel-titel .gk-icon { width: 18px; height: 18px; }
+.ar-tafel-zahl { font-size: 0.8rem; font-weight: 800; color: var(--ar-leise); }
+.ar-tafel-hinweis { margin: 0; color: var(--ar-leise); font-weight: 700; font-size: 0.9rem; }
+.ar-tafel-liste { overflow-y: auto; margin-right: -6px; padding-right: 6px; overscroll-behavior: contain; }
+.ar-bestenliste .gk-zeile { background: rgba(255, 255, 255, 0.06); color: var(--ar-text); }
+.ar-bestenliste .gk-zeile::before { opacity: 0.22; }
+.ar-bestenliste .gk-zeile.ist-platz-1 { background: rgba(255, 212, 94, 0.12); }
+.ar-bestenliste .gk-zeile.ist-platz-1::before { opacity: 0.2; }
+.ar-bestenliste .gk-zeile.ist-platz-1 .gk-name::before { color: #ffd45e; }
+.ar-bestenliste .gk-zeile.ist-ich { background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 2px var(--ar-farbe); }
+.ar-bestenliste .gk-marke { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14); color: var(--ar-leise); }
+.ar-bestenliste .gk-einheit { color: var(--ar-leise); }
+.ar-bestenliste .gk-ansehen { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: none; }
+.ar-bestenliste .gk-ansehen:hover,
+.ar-bestenliste .gk-ansehen:focus-visible { background: var(--ar-farbe); color: #111015; }
+.ar-bestenliste .gk-leer { border-color: rgba(255, 255, 255, 0.16); }
+.ar-bestenliste .gk-leer-krone { background: rgba(255, 212, 94, 0.14); }
+.ar-bestenliste .gk-leer-text { color: var(--ar-leise); }
+.ar-bestenliste .gk-leer-text strong { color: var(--ar-text); }
+.ar-bestenliste .gk-luecke { color: rgba(255, 255, 255, 0.3); }
+.ar-mehr { color: var(--ar-text); margin-top: 0; }
+.ar-mehr:hover,
+.ar-mehr:focus-visible { background: rgba(255, 255, 255, 0.1); }
+
+/* --- Turniere ----------------------------------------------------------------- */
+.ar-turniere { padding: 0 var(--ar-rand); margin-top: 8px; }
+.ar-turniere:empty { display: none; }
+.ar-seite .tn-hinweis {
+  border: 1px solid color-mix(in srgb, #ffd45e 40%, transparent);
+  background: linear-gradient(100deg, rgba(255, 212, 94, 0.16), rgba(255, 212, 94, 0.04));
+  color: var(--ar-text);
+  box-shadow: none;
+}
+.ar-seite .tn-hinweis-text strong { color: #fff; }
+.ar-seite .tn-hinweis-text span { color: var(--ar-leise); }
+.ar-seite .tn-hinweis .tn-hinweis-los { background: #ffd45e; color: #3b2600; box-shadow: none; }
+
+/* --- Die Reihen ---------------------------------------------------------------- */
+.ar-reihen { display: flex; flex-direction: column; gap: clamp(26px, 4vw, 40px); margin-top: clamp(22px, 4vw, 36px); }
+.ar-reihe-kopf { display: flex; align-items: baseline; gap: 12px; padding: 0 var(--ar-rand); margin-bottom: 12px; }
+.ar-reihe-titel { margin: 0; font-size: clamp(1.25rem, 2.6vw, 1.6rem); font-weight: 900; letter-spacing: -0.015em; color: #fff; }
+.ar-reihe-zahl { font-size: 0.82rem; font-weight: 800; color: var(--ar-leise); }
+.ar-reihe.kommt { opacity: 0; transform: translateY(26px); }
+.ar-reihe.kommt.ist-da { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ar-reihe.kommt .ar-kachel { opacity: 0; transform: translateX(30px); }
+.ar-reihe.kommt.ist-da .ar-kachel {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s ease calc(var(--ar-i, 0) * 60ms), transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--ar-i, 0) * 60ms);
+}
+.ar-spur-rand { position: relative; }
+.ar-spur {
+  display: flex;
+  gap: 14px;
+  padding: 10px var(--ar-rand) 18px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--ar-rand);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.ar-spur::-webkit-scrollbar { display: none; }
+.ar-blaettern {
+  position: absolute;
+  top: 10px;
+  bottom: 18px;
+  z-index: 3;
+  display: none;
+  place-items: center;
+  width: 52px;
+  padding: 0;
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.ar-blaettern .gk-icon { width: 34px; height: 34px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)); }
+.ar-blaettern.ist-zurueck { left: 0; background: linear-gradient(to right, rgba(13, 12, 17, 0.9), rgba(13, 12, 17, 0)); }
+.ar-blaettern.ist-zurueck .gk-icon { transform: rotate(90deg); }
+.ar-blaettern.ist-vor { right: 0; background: linear-gradient(to left, rgba(13, 12, 17, 0.9), rgba(13, 12, 17, 0)); }
+.ar-blaettern.ist-vor .gk-icon { transform: rotate(-90deg); }
+.ar-blaettern:disabled { visibility: hidden; }
+@media (hover: hover) and (pointer: fine) {
+  .ar-blaettern { display: grid; }
+  .ar-spur-rand:hover .ar-blaettern { opacity: 1; }
+}
+
+/* Eine Kachel: das Standbild des Films, unten Name und Rekord. Am Computer
+   läuft unter der Maus der Film (.ar-kachel-film). */
+.ar-kachel {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  width: clamp(220px, 23vw, 300px);
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--mini-farbe), var(--mini-farbe-dunkel));
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+}
+.ar-kachel-bild,
+.ar-kachel-film {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ar-kachel-film { opacity: 0; transition: opacity 0.35s ease; }
+.ar-kachel.spielt .ar-kachel-film { opacity: 1; }
+.ar-kachel.ohne-bild .ar-kachel-bild { display: none; }
+.ar-kachel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgba(10, 9, 14, 0.88) 0%, rgba(10, 9, 14, 0.3) 46%, rgba(10, 9, 14, 0) 70%);
+  pointer-events: none;
+}
+.ar-kachel-text {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ar-kachel-titel { font-size: 1.02rem; font-weight: 900; letter-spacing: -0.01em; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); }
+.ar-kachel-rekord {
+  overflow: hidden;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.78);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ar-kachel-rekord::before { content: "♛ "; color: #ffd45e; }
+.ar-kachel-rekord.ist-frei { color: #ffd45e; }
+.ar-kachel:hover,
+.ar-kachel:focus-visible {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(255, 255, 255, 0.5);
+  outline: none;
+}
+.ar-kachel:hover .ar-kachel-bild { transform: scale(1.06); }
+/* Das Spiel auf der Bühne: ein Rahmen in seiner Farbe. */
+.ar-kachel.ist-aktiv { box-shadow: 0 12px 34px color-mix(in srgb, var(--mini-farbe) 45%, transparent), 0 0 0 3px var(--mini-farbe); }
+/* Die Uhr der Bühne: ein Strich unter der Kachel, die gerade läuft. */
+.ar-zeit {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--mini-farbe);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.ar-kachel.ist-uhr .ar-zeit { animation: ar-zeit 9s linear both; }
+@keyframes ar-zeit { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Die Kachel auf dem Weg zur Bühne. */
+.ar-flug {
+  position: fixed;
+  z-index: 15;
+  object-fit: cover;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* --- Gesamtwertung, Installation ------------------------------------------ */
+.ar-gesamt {
+  margin: clamp(36px, 6vw, 56px) var(--ar-rand) 0;
+  border: 1px solid var(--ar-linie);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.ar-gesamt-titel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  color: var(--ar-leise);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.ar-gesamt-titel::-webkit-details-marker { display: none; }
+.ar-gesamt-titel::after { content: "+"; font-size: 1.3rem; line-height: 1; color: var(--ar-leise); }
+.ar-gesamt[open] .ar-gesamt-titel::after { content: "–"; }
+.ar-gesamt-inhalt { padding: 0 12px 14px; }
+.ar-gesamt .mini-tabelle { background: transparent; box-shadow: none; color: var(--ar-text); }
+.ar-gesamt .mini-tabelle th { background: transparent; color: var(--ar-leise); border-color: var(--ar-linie); }
+.ar-gesamt .mini-tabelle td { border-color: var(--ar-linie); color: var(--ar-text); }
+.ar-gesamt .mini-tabelle tr.ist-erster td { background: rgba(255, 212, 94, 0.08); }
+.ar-gesamt .mini-hinweis { color: var(--ar-leise); }
+.ar-seite .mini-install {
+  margin: 24px var(--ar-rand) 0;
+  border-color: var(--ar-linie);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+.ar-seite .mini-install-text strong { color: var(--ar-text); }
+.ar-seite .mini-install-text p,
+.ar-seite .mini-install-schritte { color: var(--ar-leise); }
+.ar-leer { margin: calc(100px + var(--safe-top)) var(--ar-rand) 0; color: var(--ar-leise); }
+
+/* --- Schmal: Tablet hochkant, Handy -------------------------------------------- */
+@media (max-width: 900px) {
+  .ar-buehne { grid-template-columns: minmax(0, 1fr); align-items: end; }
+  .ar-bestenliste { width: auto; max-height: none; }
+}
+/* Handy: Der Film füllt fast den ganzen Bildschirm (hochkant aufgenommen), der
+   Text sitzt unten darauf, die Bestenliste folgt darunter. */
+@media (max-width: 700px) {
+  .ar-buehne {
+    min-height: 0;
+    display: block;
+    padding: 0;
+  }
+  .ar-filme { position: relative; inset: auto; height: min(78svh, 178vw); }
+  .ar-film { object-position: center 40%; }
+  /* Leichter als am Computer: Auf dem Handy liegt das Spiel oft unten im
+     Bild, und der Text braucht nur einen Streifen. */
+  .ar-licht {
+    height: min(78svh, 178vw);
+    bottom: auto;
+    background:
+      linear-gradient(to top, var(--ar-grund) 0%, rgba(13, 12, 17, 0.62) 20%, rgba(13, 12, 17, 0) 46%),
+      linear-gradient(to bottom, rgba(13, 12, 17, 0.55) 0%, rgba(13, 12, 17, 0) 16%);
+  }
+  .ar-buehne-inhalt {
+    position: absolute;
+    left: var(--ar-rand);
+    right: var(--ar-rand);
+    top: min(78svh, 178vw);
+    transform: translateY(calc(-100% - 18px));
+    gap: 6px;
+  }
+  .ar-buehne-inhalt.ist-neu > * { animation-name: ar-auf; }
+  .ar-titel { font-size: clamp(2.3rem, 12vw, 3.4rem); }
+  .ar-satz { font-size: 0.95rem; }
+  .ar-aktionen { margin-top: 10px; gap: 12px 16px; }
+  .ar-play { min-height: 52px; padding: 0 26px 0 20px; }
+  /* Der Rekord steht gleich darunter in der Bestenliste. */
+  .ar-rekord { display: none; }
+  .ar-bestenliste {
+    margin: 4px var(--ar-rand) 0;
+    background: rgba(255, 255, 255, 0.04);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  .ar-name-text { display: none; }
+  .ar-name-knopf { padding-right: 3px; }
+  .ar-marke-wort { font-size: 1.1rem; }
+  /* Die Kacheln hochkant, wie die Filme fürs Handy. */
+  .ar-kachel { width: clamp(128px, 36vw, 170px); aspect-ratio: 9 / 16; border-radius: 12px; }
+  .ar-kachel-titel { font-size: 0.92rem; }
+  .ar-spur { gap: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-seite.ar-seite,
+  .ar-film,
+  .ar-kachel,
+  .ar-kachel-bild,
+  .ar-play { transition: none; }
+  .ar-film { transform: none; }
+  .ar-buehne-inhalt.ist-neu > *,
+  .ar-bestenliste.ist-neu,
+  .ar-name-feld { animation: none; }
+  .ar-kachel:hover,
+  .ar-kachel:focus-visible { transform: none; }
+  .ar-kachel.ist-uhr .ar-zeit { animation: none; }
+}

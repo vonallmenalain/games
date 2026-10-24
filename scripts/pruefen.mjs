@@ -65,18 +65,38 @@ for (const datei of alleSkripte) {
   pruefe(`${datei} liegt da`, existsSync(path.join(WURZEL, datei)));
 }
 
-// Die Filme der Spielkacheln (vorschau.js): auf der Startseite und im
-// Turnier, vor mini-games.js – das fragt beim Bauen der Kacheln danach.
-for (const [wo, liste] of [["Startseite", hubSkripte()], ["Turnierseite", turnierSkripte()]]) {
-  pruefe(`${wo} lädt vorschau.js vor mini-games.js`,
+// Die gezeichneten Filme der Spielkacheln im Turnier (vorschau.js): vor
+// mini-games.js – das fragt beim Bauen der Kacheln danach.
+{
+  const liste = turnierSkripte();
+  pruefe("Turnierseite lädt vorschau.js vor mini-games.js",
     liste.includes("vorschau.js") && liste.indexOf("vorschau.js") < liste.indexOf("mini-games.js"));
 }
 const vorschauJs = lies("vorschau.js");
 pruefe("vorschau.js hat einen Film für den Turmbau", /towerStack: \{ film: turmFilm/.test(vorschauJs));
 pruefe("vorschau.js zeichnet nur, was im Bild ist, und steht bei weniger Bewegung still",
   /IntersectionObserver/.test(vorschauJs) && /prefers-reduced-motion/.test(vorschauJs) && /visibilitychange/.test(vorschauJs));
-pruefe("mini-games.js baut die Kachel mit Film (kachel) für Startseite und Turnier",
-  /function kachel\(/.test(miniJs) && /LernappVorschau\?\.hat\?\.\(spiel\)/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
+pruefe("mini-games.js baut die Kachel mit Film (kachel), turnier.js stellt sie hin",
+  /function kachel\(/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
+
+// --- alae arcade: die Startseite und ihre Filme -------------------------------
+// Jedes Spiel hat einen Satz für die Bühne und zwei aufgenommene Filme mit
+// Standbild (scripts/filme-aufnehmen.mjs), und für jeden Film eine Vorführung.
+{
+  const saetze = miniJs.match(/const SAETZE = \{([\s\S]*?)\n  \};/);
+  for (const s of SPIELE) {
+    pruefe(`mini-games.js hat einen Satz für ${s.spiel} (SAETZE)`, Boolean(saetze && new RegExp(`\\b${s.spiel}: "`).test(saetze[1])));
+    pruefe(`scripts/vorfuehrung/${s.seite}.mjs liegt da`, existsSync(path.join(WURZEL, "scripts", "vorfuehrung", `${s.seite}.mjs`)));
+    for (const datei of [`${s.seite}-quer.mp4`, `${s.seite}-hoch.mp4`, `${s.seite}-quer.webp`, `${s.seite}-hoch.webp`]) {
+      pruefe(`filme/${datei} liegt da`, existsSync(path.join(WURZEL, "filme", datei)));
+    }
+  }
+  pruefe("netlify/build.mjs nimmt filme/ mit", /const ORDNER = \[[^\]]*"filme"/.test(lies("netlify/build.mjs")));
+  // Die Filme nimmt der Service Worker nicht in die Hand: Safari spielt ein
+  // Video nur mit Range-Anfragen, und die beantwortet nur der Server.
+  pruefe("service-worker.js lässt Videos durch (kein respondWith für video)",
+    !/destination === "video"/.test(lies("service-worker.js")));
+}
 
 // --- 5. Der Service Worker kennt jede Datei ---------------------------------
 const sw = lies("service-worker.js");

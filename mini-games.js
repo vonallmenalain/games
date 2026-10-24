@@ -1281,13 +1281,10 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Die Übersicht: die Startseite
+  // Die Gesamtwertung (ganz unten auf der Startseite, zugeklappt)
   // ---------------------------------------------------------------------------
-  // Zwei Fragen, und die zweite ist die, für die sich am Ende alle
-  // interessieren: Welche Spiele gibt es – und wer ist der beste Spieler über
-  // alle Spiele hinweg?
-  //
-  // "Der beste" ist dabei der Durchschnittsrang: Wer in drei Spielen Zweiter
+  // Wer ist der beste Spieler über alle Spiele hinweg? "Der beste" ist dabei
+  // der Durchschnittsrang: Wer in drei Spielen Zweiter
   // ist, steht über dem, der in einem Erster und in zweien Letzter ist. Die
   // Summe der Punkte wäre sinnlos – 40 Blöcke in Turmbau und 40 Fische im
   // Fischteich sind nicht dasselbe.
@@ -1487,55 +1484,6 @@
     return karte;
   }
 
-  function spielKarte(spiel, liste) {
-    if (window.LernappVorschau?.hat?.(spiel)) {
-      return kachel(spiel, liste, {
-        link: spielLink(spiel),
-        chips: [{ icon: "leute", text: liste.length ? zahlWort(liste.length, "Spieler", "Spieler") : "noch frei" }],
-      });
-    }
-    const f = farbe(spiel);
-    const karte = el("article", "mini-karte");
-    karte.style.setProperty("--mini-farbe", f.hell);
-    karte.style.setProperty("--mini-farbe-dunkel", f.dunkel);
-
-    const kopf = el("header", "mini-karte-kopf");
-    kopf.append(el("h3", "", titel(spiel)));
-    kopf.append(el("span", "mini-karte-zahl", liste.length
-      ? zahlWort(liste.length, "Spieler", "Spieler")
-      : "noch frei"));
-    karte.append(kopf);
-
-    // Drei Zeilen, und auf Wunsch alle. Das stand einmal in einem Fenster,
-    // das sich über die Seite legte – aber die Karte ist schon der Ort, an dem
-    // die Liste steht, und eine Liste, die aufgeht, wo sie ohnehin ist, kostet
-    // keinen zweiten Weg.
-    const wirt = el("div", "mini-listen-wirt");
-    let ganz = false;
-    const ansehen = ansehenFuer(spiel, () => (ganz ? liste : gezeigteEintraege(liste, 3)), () => zeichne());
-    const zeichne = () => {
-      wirt.innerHTML = "";
-      wirt.append(listeBauen(liste, spiel, ganz ? { ansehen } : { max: 3, ansehen }));
-      ansehen.frage();
-    };
-    zeichne();
-    karte.append(wirt);
-
-    const aktionen = el("div", "mini-karte-aktionen");
-    aktionen.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
-    // Erst ab der vierten Zeile gibt es etwas aufzuklappen.
-    if (liste.length > 3) {
-      const mehr = knopf("Ganze Liste", "mini-knopf-still", () => {
-        ganz = !ganz;
-        zeichne();
-        mehr.textContent = ganz ? "Nur die ersten drei" : "Ganze Liste";
-      });
-      aktionen.append(mehr);
-    }
-    karte.append(aktionen);
-    return karte;
-  }
-
   function spielerTabelle(personen) {
     if (!personen.length) return el("p", "mini-hinweis", "Noch hat niemand gespielt. Der erste Name, der hier steht, könnte deiner sein.");
     const tabelle = el("table", "mini-tabelle");
@@ -1560,16 +1508,6 @@
     });
     tabelle.append(koerperTeil);
     return tabelle;
-  }
-
-  function streifen(zahlen) {
-    const wrap = el("div", "mini-streifen");
-    zahlen.forEach(([wert, wort]) => {
-      const kasten = el("div");
-      kasten.append(el("strong", "", String(wert)), el("span", "", wort));
-      wrap.append(kasten);
-    });
-    return wrap;
   }
 
   /*
@@ -1604,89 +1542,594 @@
     }, 20000);
   }
 
-  async function baueUebersicht(wirt) {
-    wirt.innerHTML = "";
+  // ---------------------------------------------------------------------------
+  // Die Startseite: alae arcade
+  // ---------------------------------------------------------------------------
+  /*
+   * Oben die Bühne: ein Spiel gross, als laufender Film, dazu sein Name, ein
+   * Satz, wie man es spielt, der Weg hinein und seine Bestenliste. Darunter
+   * alle Spiele in Reihen, nach Tier (Favoriten zuerst): Ein Tipp auf eine
+   * Kachel holt das Spiel auf die Bühne. Solange niemand selbst wählt, geht
+   * die Bühne von allein durch die Favoriten.
+   *
+   * Die Filme sind echte Runden, aufgenommen (scripts/filme-aufnehmen.mjs):
+   * filme/<seite>-quer.mp4 für breite Bildschirme, -hoch.mp4 fürs Handy, und
+   * je ein Standbild (.webp) – das steht da, bis der Film läuft, und auf den
+   * Kacheln. Auf der ganzen Seite läuft immer nur ein Film: der auf der Bühne
+   * (und am Computer der unter der Maus).
+   *
+   * Wer weniger Bewegung eingestellt hat, sieht die Standbilder, und die
+   * Bühne wechselt nicht von selbst.
+   *
+   * Die Gesamtwertung über alle Spiele steht ganz unten, zugeklappt.
+   */
+  const WECHSEL_MS = 9000;
+  const ZULETZT_KEY = "arcade.zuletzt";
+  const REIHEN = [
+    { tier: 1, titel: "Favoriten" },
+    { tier: 2, titel: "Beliebt" },
+    { tier: 3, titel: "Zum Entdecken" },
+  ];
+  // Wofür ein Spiel ist (highscore.js, bereich) – klein über dem Namen.
+  const BEREICHE = {
+    geschwindigkeit: "Tempo & Geschick",
+    konzentration: "Konzentration",
+    gedaechtnis: "Gedächtnis",
+    problemloesen: "Knobeln",
+    zahlbuchstabe: "Zahlen",
+  };
 
-    // Kein Werbesatz und kein Vorspann: Wer hier ankommt, hat einen Link
-    // angeklickt und weiss, warum. Was er sucht, sind die Spiele und die
-    // Liste – der Name des Orts genügt darüber, und er ist zugleich die
-    // Überschrift der Seite.
-    const kopf = el("header", "mini-kopf");
-    const text = el("div");
-    // Nur "Mini-Games": Die Spiele stammen aus Gripszug, gehören aber nicht
-    // mehr dorthin – eigene Adresse, eigene Datenbank, eigener Adminbereich.
-    // Ein fremder Name im Titel versprach eine App, die es hier nicht gibt.
-    text.append(el("h1", "mini-marke", "Mini-Games"));
-    kopf.append(text);
-    // Rechts im Balken, und nur, wer im Adminbereich angemeldet ist, sieht
-    // ihn (adminKnopf).
+  // Wie man es spielt – ein Satz, auf der Bühne unter dem Namen.
+  const SAETZE = {
+    tileMemory: "Merk dir, welche Kacheln leuchten, und tippe sie nach.",
+    fishPond: "Tippe jeden Fisch genau einmal an – und merk dir, welche du schon hattest.",
+    leafFlow: "Wische die Blätter: orange dorthin, wo sie schwimmen, grüne dorthin, wo sie zeigen.",
+    towerStack: "Tippe, wenn der Block genau über dem Turm ist – was übersteht, bricht ab.",
+    bridgeBuilder: "Halte gedrückt, bis der Balken über die Schlucht reicht – und triff die rote Mitte.",
+    dartWheel: "Wirf Pfeil um Pfeil in die drehende Scheibe, ohne einen anderen zu treffen.",
+    vineSwing: "Halten heisst festhalten, Loslassen heisst fliegen – schwing dich über den Fluss.",
+    tunnelFlight: "Halten heisst steigen, Loslassen sinken – flieg durch den Tunnel, ohne die Wände zu berühren.",
+    driftRace: "Halten heisst driften, Loslassen geradeaus – jag das Auto die Passstrasse hinauf.",
+    planetHop: "Tippe im richtigen Moment, und der Astronaut springt zum nächsten Planeten.",
+    moonLander: "Halten gibt Schub, der Finger lenkt – setz die Fähre sanft auf die Plattform.",
+    gravityRun: "Tippe, und die Schwerkraft kehrt sich um – an Lücken, Stacheln und Blöcken vorbei.",
+    hillGlide: "Halten macht den Vogel schwer, Loslassen leicht – flieg über die Kuppen.",
+    balloonRide: "Halten heizt den Brenner, Loslassen kühlt – zwischen Bergen und Gewittern hindurch.",
+    skiSlalom: "Halten heisst Kurve nach rechts, Loslassen nach links – durch jedes Tor.",
+    frogHop: "Halten lädt den Sprung, Loslassen springt – lande mitten auf dem Seerosenblatt.",
+    waveRider: "Halten drückt das Brett in die Welle, Loslassen hebt es – bleib vor dem Brecher.",
+    craneHarbor: "Tippe im richtigen Moment und stapel den Container auf das schaukelnde Schiff.",
+    ropeWalk: "Halten lehnt nach rechts, Loslassen nach links – halt das Gleichgewicht auf dem Seil.",
+    numberLine: "Schieb den Zug auf dem Gleis dorthin, wo die Zahl liegt.",
+    boilerRoom: "Jeder Kessel fällt – leg Kohle nach, aber nie im roten Feld.",
+  };
+
+  // Die Fassung dieser Datei (mini-games.js?v=…): Sie hängt auch an Filmen und
+  // Standbildern – wer sie neu aufnimmt, zählt die Fassung hoch.
+  const FASSUNG_HIER = (() => {
+    try { return new URL(document.currentScript?.src || "", window.location.href).searchParams.get("v") || ""; } catch { return ""; }
+  })();
+
+  // Fürs Handy hochkant, sonst quer.
+  const HOCHKANT = window.matchMedia?.("(max-width: 700px)") || { matches: false, addEventListener() {} };
+  const ruhigHier = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+
+  function filmPfad(spiel, art) {
+    const seite = NACH_ID.get(spiel)?.seite || spiel;
+    const format = HOCHKANT.matches ? "hoch" : "quer";
+    return `/filme/${seite}-${format}.${art}${FASSUNG_HIER ? `?v=${FASSUNG_HIER}` : ""}`;
+  }
+
+  const MARKE = '<svg viewBox="0 0 34 20" aria-hidden="true"><path d="M2 17 9 4l7 13" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 17 25 4l7 13" fill="none" stroke="#ff7466" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // Der Film einer Ebene der Bühne: ein Video mit Standbild. Ohne Ton, in der
+  // Schleife, im Browser eingebettet (playsinline – sonst öffnet das iPhone
+  // ihn bildschirmfüllend).
+  function filmKnoten(klasse) {
+    const film = el("video", klasse);
+    film.muted = true;
+    film.defaultMuted = true;
+    film.loop = true;
+    film.playsInline = true;
+    film.preload = "auto";
+    film.setAttribute("muted", "");
+    film.setAttribute("playsinline", "");
+    film.setAttribute("aria-hidden", "true");
+    film.disablePictureInPicture = true;
+    return film;
+  }
+
+  function spiele(film) {
+    if (ruhigHier()) return;
+    const versuch = film.play?.();
+    if (versuch?.catch) versuch.catch(() => { /* ohne Erlaubnis bleibt das Standbild */ });
+  }
+
+  // Zwei Buchstaben für den Kreis neben dem Namen.
+  function kuerzel(wer) {
+    const teile = String(wer || "").trim().split(/\s+/).filter(Boolean);
+    if (!teile.length) return "?";
+    return (teile.length > 1 ? teile[0][0] + teile[1][0] : teile[0].slice(0, 2)).toLocaleUpperCase("de");
+  }
+
+  async function baueUebersicht(wirt, { spiel: gewuenscht = "" } = {}) {
+    wirt.innerHTML = "";
+    wirt.classList.add("ar-seite");
+    document.body.classList.add("ar");
+
+    // --- Oben: die Marke, und rechts der Name und das Vollbild ---------------
+    const kopf = el("header", "ar-kopf");
+    const marke = el("a", "ar-marke");
+    marke.href = "/";
+    marke.setAttribute("aria-label", "alae arcade");
+    const zeichen = el("span", "ar-marke-zeichen");
+    zeichen.innerHTML = MARKE;
+    const wort = el("span", "ar-marke-wort");
+    wort.append(el("strong", "", "alae"), el("span", "", "arcade"));
+    marke.append(zeichen, wort);
+    // Die Überschrift der Seite, für alle, die sie nicht sehen.
+    const h1 = el("h1", "ar-unsichtbar", "alae arcade");
+    kopf.append(marke, h1);
+    const rechts = el("div", "ar-kopf-rechts");
     const zumAdmin = adminKnopf();
-    if (zumAdmin) kopf.append(zumAdmin);
-    // Ganz rechts das Vollbild – es bleibt auch in den Spielen und zurück
-    // (vollbild.js).
-    const voll = window.LernappVollbild?.knopf?.("mini-vollbild");
-    if (voll) kopf.append(voll);
+    if (zumAdmin) rechts.append(zumAdmin);
+    rechts.append(nameChip(wirt));
+    const voll = window.LernappVollbild?.knopf?.("mini-vollbild ar-vollbild");
+    if (voll) rechts.append(voll);
+    kopf.append(rechts);
     wirt.append(kopf);
     // Davor, sobald ein Multiplayer für alle offen ist, der Weg hinein.
-    multiplayerKnopf(kopf, voll);
-
-    // Unter wessen Namen hier gespielt wird – und der Weg, ihn zu ändern.
-    wirt.append(namensZeile({ klasse: "mini-wer-oben" }));
-
-    // Gleich unter dem Balken: laufende Turniere, sofern es öffentliche gibt.
-    // Den Platz füllt turnier.js – wer von beiden zuerst geladen ist, ist
-    // gleich (siehe dort, hinweis).
-    const turniere = el("div", "tn-hinweise");
-    turniere.dataset.turnierHinweis = "";
-    wirt.append(turniere);
-    window.LernappTurnier?.hinweis?.(turniere);
-
-    const laedt = el("p", "mini-hinweis", "Die Ergebnisse werden geladen...");
-    wirt.append(laedt);
+    multiplayerKnopf(rechts, rechts.querySelector(".ar-name"));
+    // Der Kopf wird fest, sobald die Bühne nach oben wegscrollt.
+    const merkeScroll = () => kopf.classList.toggle("ist-fest", window.scrollY > 24);
+    window.addEventListener("scroll", merkeScroll, { passive: true });
+    merkeScroll();
 
     const offen = await offeneSpiele();
-    let alle = [];
-    try { alle = await alleErgebnisse(offen, { neu: true }); }
-    catch { laedt.textContent = "Die Ergebnisse sind gerade nicht zu haben. Probier es später noch einmal."; return; }
-
-    laedt.remove();
-
     if (!offen.length) {
-      wirt.append(el("p", "mini-hinweis", "Gerade ist kein Spiel freigegeben. Schau später wieder vorbei."));
+      wirt.append(el("p", "mini-hinweis ar-leer", "Gerade ist kein Spiel freigegeben. Schau später wieder vorbei."));
       zeigeInstall(wirt);
       return;
     }
 
-    // alle enthält nur die offenen Spiele (alleErgebnisse fragt gar nicht nach
-    // anderen) – die Zahl oben zählt also dasselbe, was darunter als Karte und
-    // als Spieler dasteht.
-    const runden = alle.reduce((summe, eintrag) => summe + Math.max(1, Number(eintrag.versuche) || 1), 0);
-    const personen = auswertung(alle, offen);
-    wirt.append(streifen([
-      [offen.length, offen.length === 1 ? "Spiel" : "Spiele"],
-      [personen.length, personen.length === 1 ? "Spieler" : "Spieler"],
-      [runden, runden === 1 ? "Runde" : "Runden"],
-    ]));
+    // Die Reihen: nach Tier, wie der Admin sie eingeteilt hat.
+    let einteilung = null;
+    try { einteilung = await cloud()?.tiers?.(); } catch { einteilung = null; }
+    const reihen = REIHEN.map((r) => ({ ...r, spiele: offen.filter((s) => tierVon(s, einteilung) === r.tier) }))
+      .filter((r) => r.spiele.length);
+    const reihenfolge = reihen.flatMap((r) => r.spiele);
+    const favoriten = reihen[0].spiele;
 
-    const spieleBlock = el("section", "mini-block");
-    spieleBlock.append(el("h2", "", "Die Spiele"));
-    const karten = el("div", "mini-karten");
-    offen.forEach((spiel) => {
-      const liste = rangliste(alle.filter((eintrag) => eintrag.game === spiel));
-      karten.append(spielKarte(spiel, liste));
+    // Welches Spiel zuerst auf der Bühne steht: das gewünschte, das, aus dem
+    // man gerade kommt, oder der erste Favorit. Wer aus einem Spiel kommt,
+    // will seinen Platz sehen – dort wechselt die Bühne nicht von selbst.
+    let zuletzt = "";
+    try { zuletzt = sessionStorage.getItem(ZULETZT_KEY) || ""; } catch { zuletzt = ""; }
+    let herkunft = "";
+    try {
+      const weg = new URL(document.referrer).pathname.replace(/^\//, "").replace(/\.html$/, "");
+      herkunft = SPIELE.find((s) => s.seite === weg)?.id || "";
+    } catch { herkunft = ""; }
+    const start = [gewuenscht, herkunft, zuletzt].find((s) => s && offen.includes(s)) || favoriten[0];
+
+    // --- Die Bühne -----------------------------------------------------------
+    const buehne = el("section", "ar-buehne");
+    buehne.setAttribute("aria-label", "Spiel auf der Bühne");
+    const filme = el("div", "ar-filme");
+    const ebenen = [filmKnoten("ar-film"), filmKnoten("ar-film")];
+    filme.append(...ebenen);
+    const licht = el("div", "ar-licht");
+    const inhalt = el("div", "ar-buehne-inhalt");
+    const ueber = el("p", "ar-ueber");
+    const titelZeile = el("h2", "ar-titel");
+    const satz = el("p", "ar-satz");
+    const aktionen = el("div", "ar-aktionen");
+    const play = mitIcon("a", "ar-play", "play", "Spielen");
+    const rekord = el("p", "ar-rekord");
+    aktionen.append(play, rekord);
+    inhalt.append(ueber, titelZeile, satz, aktionen);
+    const tafel = el("aside", "ar-bestenliste");
+    tafel.setAttribute("aria-label", "Bestenliste");
+    buehne.append(filme, licht, inhalt, tafel);
+    wirt.append(buehne);
+
+    // Laufende Turniere: gleich unter der Bühne (turnier.js füllt den Platz).
+    const turniere = el("div", "tn-hinweise ar-turniere");
+    turniere.dataset.turnierHinweis = "";
+    wirt.append(turniere);
+    window.LernappTurnier?.hinweis?.(turniere);
+
+    // --- Die Reihen ----------------------------------------------------------
+    const kacheln = new Map();
+    const reihenWirt = el("div", "ar-reihen");
+    reihen.forEach((r) => {
+      const block = el("section", "ar-reihe");
+      const kopfReihe = el("div", "ar-reihe-kopf");
+      kopfReihe.append(el("h2", "ar-reihe-titel", r.titel), el("span", "ar-reihe-zahl", zahlWort(r.spiele.length, "Spiel", "Spiele")));
+      const spur = el("div", "ar-spur");
+      spur.setAttribute("role", "list");
+      r.spiele.forEach((spiel, i) => {
+        const k = kachelBauen(spiel);
+        k.style.setProperty("--ar-i", String(i));
+        kacheln.set(spiel, k);
+        spur.append(k);
+      });
+      const zurueck = mitIcon("button", "ar-blaettern ist-zurueck", "pfeil");
+      const vor = mitIcon("button", "ar-blaettern ist-vor", "pfeil");
+      zurueck.type = "button";
+      vor.type = "button";
+      zurueck.setAttribute("aria-label", `${r.titel}: zurückblättern`);
+      vor.setAttribute("aria-label", `${r.titel}: weiterblättern`);
+      const blaettern = (richtung) => spur.scrollBy({ left: richtung * spur.clientWidth * 0.8, behavior: ruhigHier() ? "auto" : "smooth" });
+      zurueck.addEventListener("click", () => blaettern(-1));
+      vor.addEventListener("click", () => blaettern(1));
+      const rand = el("div", "ar-spur-rand");
+      rand.append(spur, zurueck, vor);
+      block.append(kopfReihe, rand);
+      reihenWirt.append(block);
+      const knoepfe = () => {
+        zurueck.disabled = spur.scrollLeft < 8;
+        vor.disabled = spur.scrollLeft + spur.clientWidth > spur.scrollWidth - 8;
+      };
+      spur.addEventListener("scroll", knoepfe, { passive: true });
+      window.requestAnimationFrame(knoepfe);
     });
-    spieleBlock.append(karten);
-    wirt.append(spieleBlock);
+    wirt.append(reihenWirt);
 
-    const leuteBlock = el("section", "mini-block");
-    leuteBlock.append(el("h2", "", "Die Spieler"));
-    leuteBlock.append(spielerTabelle(personen));
-    wirt.append(leuteBlock);
-
-    // Ganz unten, nach dem, wofür man gekommen ist: der Weg auf den
-    // Startbildschirm. Oben stünde er im Weg.
+    // Die Gesamtwertung: ganz unten, zugeklappt.
+    const gesamt = el("details", "ar-gesamt");
+    const zusammen = el("summary", "ar-gesamt-titel");
+    zusammen.append(el("span", "", "Gesamtwertung über alle Spiele"));
+    gesamt.append(zusammen);
+    const gesamtInhalt = el("div", "ar-gesamt-inhalt");
+    gesamtInhalt.append(el("p", "mini-hinweis", "Wird geladen..."));
+    gesamt.append(gesamtInhalt);
+    wirt.append(gesamt);
     zeigeInstall(wirt);
 
+    // Die Reihen gleiten herein, sobald sie ins Bild kommen.
+    if ("IntersectionObserver" in window && !ruhigHier()) {
+      const beobachter = new IntersectionObserver((eintraege) => {
+        eintraege.forEach((e) => {
+          if (!e.isIntersecting) return;
+          e.target.classList.add("ist-da");
+          beobachter.unobserve(e.target);
+        });
+      }, { rootMargin: "0px 0px -8% 0px" });
+      reihenWirt.querySelectorAll(".ar-reihe").forEach((r) => { r.classList.add("kommt"); beobachter.observe(r); });
+    }
+
+    // --- Die Ergebnisse --------------------------------------------------------
+    let listen = new Map();
+    let geladen = false;
+    let ladefehler = false;
+    const ansehen = new Map();
+
+    function kachelBauen(spiel) {
+      const k = el("button", "ar-kachel");
+      k.type = "button";
+      k.setAttribute("role", "listitem");
+      k.dataset.spiel = spiel;
+      const f = farbe(spiel);
+      k.style.setProperty("--mini-farbe", f.hell);
+      k.style.setProperty("--mini-farbe-dunkel", f.dunkel);
+      const bild = el("img", "ar-kachel-bild");
+      bild.alt = "";
+      bild.loading = "lazy";
+      bild.decoding = "async";
+      bild.src = filmPfad(spiel, "webp");
+      bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
+      const text = el("span", "ar-kachel-text");
+      text.append(el("span", "ar-kachel-titel", titel(spiel)), el("span", "ar-kachel-rekord", "…"));
+      const zeit = el("span", "ar-zeit");
+      k.append(bild, text, zeit);
+      k.setAttribute("aria-label", titel(spiel));
+      k.addEventListener("click", () => waehle(spiel, { von: k, selbst: true }));
+      // Am Computer: der Film läuft schon in der Kachel, solange die Maus
+      // darauf liegt.
+      let vorschau = null;
+      k.addEventListener("pointerenter", (ereignis) => {
+        if (ereignis.pointerType !== "mouse" || ruhigHier()) return;
+        vorschau = filmKnoten("ar-kachel-film");
+        vorschau.src = filmPfad(spiel, "mp4");
+        vorschau.addEventListener("playing", () => k.classList.add("spielt"), { once: true });
+        k.insertBefore(vorschau, text);
+        spiele(vorschau);
+      });
+      k.addEventListener("pointerleave", () => {
+        k.classList.remove("spielt");
+        vorschau?.remove();
+        vorschau = null;
+      });
+      return k;
+    }
+
+    function rekordText(spiel) {
+      if (ladefehler) return "";
+      if (!geladen) return "…";
+      const oben = (listen.get(spiel) || [])[0];
+      return oben ? `${oben.punkte} ${einheit(spiel)} · ${oben.name}` : "Rekord frei";
+    }
+
+    function kachelnAuffrischen() {
+      kacheln.forEach((k, spiel) => {
+        const zeile = k.querySelector(".ar-kachel-rekord");
+        const oben = (listen.get(spiel) || [])[0];
+        zeile.textContent = rekordText(spiel);
+        zeile.classList.toggle("ist-frei", geladen && !oben);
+      });
+    }
+
+    // Die Bestenliste der Bühne: die ersten fünf und der eigene Eintrag, und
+    // auf Wunsch alle – mit dem ▶ bei jedem, dessen Lauf es gibt.
+    let ganz = false;
+    function tafelZeichnen() {
+      const spiel = aktuell;
+      tafel.innerHTML = "";
+      const kopfTafel = el("div", "ar-tafel-kopf");
+      kopfTafel.append(mitIcon("span", "ar-tafel-titel", "krone", "Bestenliste"));
+      const liste = listen.get(spiel) || [];
+      if (geladen && liste.length) kopfTafel.append(el("span", "ar-tafel-zahl", zahlWort(liste.length, "Spieler", "Spieler")));
+      tafel.append(kopfTafel);
+      if (ladefehler) {
+        tafel.append(el("p", "ar-tafel-hinweis", "Die Bestenliste ist gerade nicht zu haben. Probier es später noch einmal."));
+        return;
+      }
+      if (!geladen) {
+        tafel.append(el("p", "ar-tafel-hinweis", "Wird geladen..."));
+        return;
+      }
+      if (!ansehen.has(spiel)) ansehen.set(spiel, ansehenFuer(spiel, () => (ganz ? liste : gezeigteEintraege(liste, 5)), () => { if (aktuell === spiel) tafelZeichnen(); }));
+      const fuer = ansehen.get(spiel);
+      const wirtListe = el("div", "ar-tafel-liste");
+      wirtListe.append(bestenliste(liste, spiel, ganz ? { ansehen: fuer } : { max: 5, ansehen: fuer }));
+      tafel.append(wirtListe);
+      fuer.frage();
+      if (liste.length > 5) {
+        const mehr = mitIcon("button", "gk-mehr ar-mehr", "pfeil", ganz ? "Nur die ersten fünf" : `Alle ${liste.length} zeigen`);
+        mehr.type = "button";
+        mehr.setAttribute("aria-expanded", String(ganz));
+        mehr.addEventListener("click", () => { ganz = !ganz; tafelZeichnen(); });
+        tafel.append(mehr);
+      }
+    }
+
+    // --- Ein Spiel auf die Bühne -------------------------------------------
+    let aktuell = "";
+    let ebene = 0;
+    let selbstGewaehlt = Boolean(gewuenscht || herkunft || zuletzt);
+
+    function waehle(spiel, { von = null, selbst = false, sofort = false } = {}) {
+      if (selbst) {
+        selbstGewaehlt = true;
+        uhr.stopp();
+      }
+      if (spiel === aktuell && !sofort) {
+        if (selbst) zurBuehne();
+        return;
+      }
+      const vorher = aktuell;
+      aktuell = spiel;
+      ganz = false;
+      const f = farbe(spiel);
+      wirt.style.setProperty("--ar-farbe", f.hell);
+      wirt.style.setProperty("--mini-farbe", f.hell);
+      wirt.style.setProperty("--mini-farbe-dunkel", f.dunkel);
+      kacheln.forEach((k, s) => {
+        k.classList.toggle("ist-aktiv", s === spiel);
+        k.setAttribute("aria-current", s === spiel ? "true" : "false");
+      });
+      // Der neue Film kommt auf die freie Ebene und blendet über die alte.
+      const alt = ebenen[ebene];
+      ebene = 1 - ebene;
+      const neu = ebenen[ebene];
+      neu.poster = filmPfad(spiel, "webp");
+      neu.src = filmPfad(spiel, "mp4");
+      neu.currentTime = 0;
+      spiele(neu);
+      neu.classList.add("ist-an");
+      alt.classList.remove("ist-an");
+      window.setTimeout(() => { if (!alt.classList.contains("ist-an")) alt.pause(); }, 700);
+
+      // Der Text: kurz weg, und neu herein.
+      ueber.textContent = BEREICHE[hs()?.spiel?.(spiel)?.bereich] || "";
+      titelZeile.textContent = titel(spiel);
+      satz.textContent = SAETZE[spiel] || "";
+      play.href = spielLink(spiel);
+      play.title = `${titel(spiel)} spielen`;
+      play.setAttribute("aria-label", play.title);
+      rekordZeile();
+      inhalt.classList.remove("ist-neu");
+      tafel.classList.remove("ist-neu");
+      void inhalt.offsetWidth;
+      if (vorher) { inhalt.classList.add("ist-neu"); tafel.classList.add("ist-neu"); }
+      tafelZeichnen();
+
+      // Ist die Bühne im Bild, fliegt die Kachel hinauf; sonst geht die Seite
+      // zur Bühne, und dort blendet der Film über.
+      if (selbst && !zurBuehne() && von) flug(von);
+      if (!selbstGewaehlt) uhr.weiter();
+    }
+
+    // Steht die Bühne nicht gut im Bild, scrollt die Seite hinauf. Sagt, ob sie
+    // es tat.
+    function zurBuehne() {
+      const r = buehne.getBoundingClientRect();
+      const sichtbar = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      if (sichtbar > Math.min(r.height, window.innerHeight) * 0.6) return false;
+      window.scrollTo({ top: 0, behavior: ruhigHier() ? "auto" : "smooth" });
+      return true;
+    }
+
+    function rekordZeile() {
+      rekord.innerHTML = "";
+      const oben = (listen.get(aktuell) || [])[0];
+      if (!geladen || ladefehler) return;
+      if (!oben) {
+        rekord.append(mitIcon("span", "ar-rekord-marke ist-frei", "krone", "Der Rekord ist noch frei"));
+        return;
+      }
+      const marke = mitIcon("span", "ar-rekord-marke", "krone");
+      const text = el("span", "ar-rekord-text");
+      text.append(el("strong", "", `${oben.punkte} ${einheit(aktuell)}`), el("span", "", oben.name));
+      rekord.append(marke, text);
+    }
+
+    // Die Kachel fliegt auf die Bühne: ihr Bild, vom Platz in der Reihe bis
+    // über die ganze Bühne – nur wenn beide im Bild sind.
+    function flug(von) {
+      if (ruhigHier() || !von.animate) return;
+      const bild = von.querySelector(".ar-kachel-bild");
+      const a = von.getBoundingClientRect();
+      const b = filme.getBoundingClientRect();
+      if (!bild || b.bottom < 40 || a.top > window.innerHeight) return;
+      const klon = bild.cloneNode();
+      klon.className = "ar-flug";
+      klon.removeAttribute("loading");
+      Object.assign(klon.style, { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
+      document.body.append(klon);
+      const sx = a.width / b.width;
+      const sy = a.height / b.height;
+      klon.animate([
+        { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${sx}, ${sy})`, opacity: 1, borderRadius: "14px" },
+        { transform: "translate(0, 0) scale(1, 1)", opacity: 1, borderRadius: "0px", offset: 0.75 },
+        { transform: "translate(0, 0) scale(1, 1)", opacity: 0, borderRadius: "0px" },
+      ], { duration: 720, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished.then(() => klon.remove(), () => klon.remove());
+    }
+
+    // Die Uhr der Bühne: Solange niemand selbst wählt, kommt alle paar
+    // Sekunden der nächste Favorit – nur wenn die Bühne zu sehen ist, die
+    // Seite vorne und keine Maus darauf liegt.
+    const uhr = (() => {
+      let zeitgeber = null;
+      let sichtbar = true;
+      let drauf = false;
+      const darf = () => !selbstGewaehlt && sichtbar && !drauf && document.visibilityState === "visible" && !ruhigHier();
+      const naechster = () => {
+        const liste = favoriten.length > 1 ? favoriten : reihenfolge;
+        const i = liste.indexOf(aktuell);
+        return liste[(i + 1) % liste.length];
+      };
+      const zeige = () => kacheln.get(aktuell)?.classList.toggle("ist-uhr", darf());
+      return {
+        weiter() {
+          window.clearTimeout(zeitgeber);
+          kacheln.forEach((k) => k.classList.remove("ist-uhr"));
+          const k = kacheln.get(aktuell);
+          if (k) { void k.offsetWidth; }
+          zeige();
+          if (!darf()) return;
+          zeitgeber = window.setTimeout(() => { if (darf()) waehle(naechster()); }, WECHSEL_MS);
+        },
+        stopp() {
+          window.clearTimeout(zeitgeber);
+          kacheln.forEach((k) => k.classList.remove("ist-uhr"));
+        },
+        sicht(wert) { sichtbar = wert; if (darf()) this.weiter(); else this.stopp(); },
+        maus(wert) { drauf = wert; if (darf()) this.weiter(); else this.stopp(); },
+      };
+    })();
+    buehne.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") uhr.maus(true); });
+    buehne.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") uhr.maus(false); });
+    // Wer die Bühne berührt oder die Seite bewegt, liest – dann bleibt das
+    // Spiel stehen, für immer.
+    const bleib = () => { selbstGewaehlt = true; uhr.stopp(); };
+    buehne.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse") bleib(); });
+    const beimScrollen = () => {
+      if (window.scrollY < 60) return;
+      bleib();
+      window.removeEventListener("scroll", beimScrollen);
+    };
+    window.addEventListener("scroll", beimScrollen, { passive: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") { spiele(ebenen[ebene]); uhr.weiter(); } else { ebenen.forEach((v) => v.pause()); uhr.stopp(); }
+    });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => {
+        uhr.sicht(e.isIntersecting);
+        if (e.isIntersecting) spiele(ebenen[ebene]); else ebenen[ebene].pause();
+      }, { threshold: 0.25 }).observe(buehne);
+    }
+    // Wer Play drückt, kommt danach hierher zurück – auf dieses Spiel.
+    play.addEventListener("click", () => {
+      try { sessionStorage.setItem(ZULETZT_KEY, aktuell); } catch { /* egal */ }
+    });
+    // Dreht jemand das Handy, passt das Format der Filme nicht mehr.
+    HOCHKANT.addEventListener?.("change", () => {
+      kacheln.forEach((k, s) => { k.querySelector(".ar-kachel-bild").src = filmPfad(s, "webp"); });
+      waehle(aktuell, { sofort: true });
+    });
+
+    waehle(start, { sofort: true });
+
+    // Jetzt die Ergebnisse – die Filme laufen schon.
+    let alle = [];
+    try {
+      alle = await alleErgebnisse(offen, { neu: true });
+    } catch {
+      ladefehler = true;
+      kachelnAuffrischen();
+      tafelZeichnen();
+      gesamtInhalt.innerHTML = "";
+      gesamtInhalt.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
+      return;
+    }
+    listen = new Map(offen.map((spiel) => [spiel, rangliste(alle.filter((e) => e.game === spiel))]));
+    geladen = true;
+    kachelnAuffrischen();
+    rekordZeile();
+    tafelZeichnen();
+    gesamtInhalt.innerHTML = "";
+    gesamtInhalt.append(spielerTabelle(auswertung(alle, offen)));
+  }
+
+  // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
+  // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile).
+  function nameChip(seite) {
+    const wirt = el("div", "ar-name");
+    const knopfName = el("button", "ar-name-knopf");
+    knopfName.type = "button";
+    knopfName.setAttribute("aria-haspopup", "dialog");
+    knopfName.setAttribute("aria-expanded", "false");
+    const kreis = el("span", "ar-name-kreis");
+    const text = el("span", "ar-name-text");
+    const beschriften = () => {
+      const wer = name();
+      kreis.textContent = wer ? kuerzel(wer) : "?";
+      text.textContent = wer || "Name";
+      knopfName.title = wer ? `Du spielst als ${wer} – Namen ändern` : "Namen festlegen";
+      knopfName.setAttribute("aria-label", knopfName.title);
+    };
+    beschriften();
+    knopfName.append(kreis, text);
+    const feld = el("div", "ar-name-feld");
+    feld.hidden = true;
+    feld.setAttribute("role", "dialog");
+    feld.setAttribute("aria-label", "Dein Name");
+    const zu = () => {
+      feld.hidden = true;
+      knopfName.setAttribute("aria-expanded", "false");
+    };
+    const auf = () => {
+      feld.innerHTML = "";
+      feld.append(namensZeile({
+        klasse: "ar-wer",
+        beiWechsel: () => {
+          beschriften();
+          // Wer man ist, ändert, welche Zeilen «Du» sind: neu aufbauen, auf
+          // demselben Spiel.
+          const jetzt = seite.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel || "";
+          window.setTimeout(() => baueUebersicht(seite, { spiel: jetzt }), 1400);
+        },
+      }));
+      feld.hidden = false;
+      knopfName.setAttribute("aria-expanded", "true");
+    };
+    knopfName.addEventListener("click", () => (feld.hidden ? auf() : zu()));
+    document.addEventListener("pointerdown", (e) => { if (!feld.hidden && !wirt.contains(e.target)) zu(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !feld.hidden) { zu(); knopfName.focus(); } });
+    wirt.append(knopfName, feld);
+    return wirt;
   }
 
   // ---------------------------------------------------------------------------

@@ -23,7 +23,8 @@ Kein Build-Werkzeug, kein Framework, keine Abhängigkeiten im Browser ausser
 dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
-    index.html            die Startseite: alle Spiele, alle Namen
+    index.html            die Startseite «alae arcade»: alle Spiele als Filme,
+                          ihre Bestenlisten
     turmbau.html …        einundzwanzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
@@ -33,7 +34,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
                           die Spielkachel, die Auswertung der Startseite
-    vorschau.js           die kleinen Filme auf den Spielkacheln
+    vorschau.js           die gezeichneten Filme auf den Spielkacheln im
+                          Turnier
+    filme/                die Filme der Startseite: echte Runden, aufgenommen
+                          (quer und hoch, je mit Standbild)
     cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
                           miniGeister, die Aufzeichnungen der Läufe, und
                           miniTurniere mit ihren Einträgen.
@@ -77,6 +81,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/pruefen.mjs        hält alles zusammen, ohne Browser
     scripts/check-spiele.mjs   spielt jedes Spiel einmal durch, im Browser
     scripts/check-live.mjs     spielt einen Multiplayer mit vier Geräten durch
+    scripts/filme-aufnehmen.mjs  nimmt die Filme der Startseite auf – wie sich
+                               jedes Spiel dabei selbst spielt, steht in
+                               scripts/vorfuehrung/<seite>.mjs
     scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
                                man ausscheidet, und vergleicht die Bilder
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
@@ -121,11 +128,45 @@ Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
 
-### Die Spielkachel
+### Die Startseite: alae arcade
 
-Auf der Startseite und im Turnier steht jedes Spiel als Karte. Die neue Form
-davon, die Spielkachel (`mini-games.js`, `kachel`), hat bisher nur der
-Turmbau – sie ist der Test, bevor alle umgestellt werden:
+Dunkel, wie alae.app, und gebaut wie eine Streaming-Seite (`mini-games.js`,
+`baueUebersicht`):
+
+- **Die Bühne:** ein Spiel gross, als laufender Film, darauf sein Name, ein
+  Satz, wie man es spielt (`SAETZE`), der Knopf «Spielen» und der Rekord –
+  daneben (auf dem Handy darunter) seine Bestenliste: die ersten fünf und der
+  eigene Eintrag, mit Krone, Medaillen, «Du», einem Balken bis zum Rekord und
+  dem ▶ zum Anschauen. Die Farbe des Spiels leuchtet durch die Seite.
+- **Die Reihen:** alle freigegebenen Spiele, nach Tier (Favoriten, Beliebt,
+  Zum Entdecken), als Kacheln mit Standbild und Rekord. Ein Tipp holt das
+  Spiel auf die Bühne – die Kachel fliegt hinauf, der Film blendet über. Am
+  Computer läuft der Film schon in der Kachel unter der Maus.
+- **Von selbst:** Solange niemand wählt, geht die Bühne alle neun Sekunden
+  zum nächsten Favoriten (ein Strich unter der Kachel zeigt die Zeit). Wer aus
+  einem Spiel zurückkommt, sieht dieses Spiel – und seinen Platz.
+- **Oben:** die Marke, der Name (ein Tipp ändert ihn), das Vollbild. Darunter,
+  wenn es welche gibt, die laufenden Turniere.
+- **Ganz unten, zugeklappt:** die Gesamtwertung über alle Spiele.
+
+Wer weniger Bewegung eingestellt hat, sieht Standbilder, und die Bühne
+wechselt nicht von selbst.
+
+**Die Filme** sind echte Runden: `npm run filme` (scripts/filme-aufnehmen.mjs)
+lässt jedes Spiel von einem Autopiloten spielen
+(`scripts/vorfuehrung/<seite>.mjs`), schneidet im Browser mit (ohne Leiste,
+ohne Gegner, ohne Datenbank) und macht mit ffmpeg zwei Schleifen daraus:
+`filme/<seite>-quer.mp4` (1280×720, für breite Bildschirme) und
+`-hoch.mp4` (540×960, fürs Handy), dazu je ein Standbild (`.webp`). Wer ein
+Spiel sichtbar ändert, nimmt seinen Film neu auf
+(`npm run filme -- turmbau`) und zählt die Fassung hoch – sie hängt an den
+Adressen der Filme. Der Service Worker lässt die Filme durch: Safari spielt
+ein Video nur mit Range-Anfragen, und die beantwortet nur der Server.
+
+### Die Spielkachel im Turnier
+
+Im Turnier steht jedes Spiel als Karte. Die neue Form davon, die
+Spielkachel (`mini-games.js`, `kachel`), hat bisher nur der Turmbau:
 
 - Oben ein kleiner Film (`vorschau.js`), der zeigt, wie das Spiel aussieht
   und wie es gespielt wird: Im Turmbau schwingt ein Block, ein Finger tippt,

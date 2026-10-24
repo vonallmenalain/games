@@ -9,6 +9,7 @@
     "pruefen:browser": "node scripts/check-spiele.mjs",
     "pruefen:live": "node scripts/check-live.mjs",
     "pruefen:zuschauen": "node scripts/check-zuschauen.mjs",
+    "filme": "node scripts/filme-aufnehmen.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
   "devDependencies": {
