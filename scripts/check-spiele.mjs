@@ -866,47 +866,80 @@ try {
   }
 
   // --- 3. Die Startseite (alae arcade) -------------------------------------------
-  {
-    const { kontext, seite } = await neueSeite();
+  // Ein Bildschirm, ohne Scrollen: oben der Film, die Leiste mit Name,
+  // Rangliste und Play, unten alle Spiele. Die Ranglisten stehen nicht da –
+  // ein Tipp auf den Knopf öffnet sie, den Pokal oben die Gesamtwertung.
+  for (const [breit, hoch] of [[420, 820], [1280, 720]]) {
+    const wo = `${breit} × ${hoch}`;
+    const { kontext, seite } = await neueSeite({ width: breit, height: hoch });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
-    await seite.waitForFunction(() => document.querySelector(".ar-bestenliste .gk-zeile"), null, { timeout: 8000 }).catch(() => {});
+    await seite.waitForFunction(() => /Grosi/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
     const text = await seite.locator(".mini-seite").innerText();
-    pruefe(/alae\s*arcade/i.test(text), "Auf der Startseite steht nicht, wo man ist.");
+    pruefe(/alae\s*arcade/i.test(text), `${wo}: Auf der Startseite steht nicht, wo man ist.`);
+    pruefe(await seite.locator(".ar-marke svg path").count() === 3, `${wo}: Das Logo von alae.app fehlt (Zeichen und «alae»).`);
     pruefe(await seite.locator(".ar-kachel").count() === SPIELE.length,
-      `Auf der Startseite stehen ${await seite.locator(".ar-kachel").count()} Spiele statt ${SPIELE.length}.`);
-    pruefe(text.includes("Grosi"), "Auf der Startseite fehlen die Spieler.");
-    pruefe(await seite.locator(".ar-kopf .ar-name-knopf").count() === 1, "Auf der Startseite fehlt der Name zum Ändern.");
-    // Die Gesamtwertung gibt es noch – unten, zugeklappt.
-    pruefe(await seite.locator(".ar-gesamt:not([open]) .mini-tabelle tbody tr").count() >= 1, "Die Gesamtwertung fehlt (oder steht offen da).");
-    const kopfzeilen = await seite.locator(".mini-tabelle th").allTextContents();
-    pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Gesamtwertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
-    // Wie oft jemand gespielt hat, geht niemanden etwas an: Es steht weder in
-    // der Auswertung noch in einer Ranglistenzeile.
-    pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
-    const zeilen = await seite.locator(":is(.ar-bestenliste .gk-zeile, .ar-kachel-rekord)").allInnerTexts();
-    const mitRunden = zeilen.filter((z) => /runde/i.test(z));
-    pruefe(mitRunden.length === 0, `In der Rangliste eines Spiels stehen die Runden: ${mitRunden.join(" | ")}`);
-    const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
-    pruefe(gefragt.length === SPIELE.length, `Die Startseite fragt nach ${gefragt.length} Spielen statt nach ${SPIELE.length}.`);
-    pruefe(await seite.locator('a[href*="kids.alae.app"]').count() === 0, "Auf der Startseite steht ein Link auf kids.alae.app.");
+      `${wo}: Auf der Startseite stehen ${await seite.locator(".ar-kachel").count()} Spiele statt ${SPIELE.length}.`);
+    pruefe(await seite.locator(".ar-kopf .ar-name-knopf").count() === 1, `${wo}: Auf der Startseite fehlt der Name zum Ändern.`);
+    // Kein Text über das Spiel ausser seinem Namen, und keine Rangliste, bevor
+    // jemand sie öffnet.
+    pruefe(!/Tempo & Geschick|Tippe, wenn/.test(text), `${wo}: Auf der Startseite steht noch Text zum Spiel: ${text.slice(0, 200)}`);
+    pruefe(await seite.locator(".gk-zeile, .mini-tabelle").count() === 0, `${wo}: Eine Rangliste steht offen da, bevor jemand sie öffnet.`);
+    pruefe(/Grosi/.test(await seite.locator(".ar-rang").innerText()), `${wo}: Im Knopf zur Rangliste steht nicht, wer vorne liegt.`);
+    const mass = await seite.evaluate(() => ({
+      blatt: document.documentElement.scrollHeight,
+      breite: document.documentElement.scrollWidth,
+      unten: document.querySelector(".ar-auswahl").getBoundingClientRect().bottom,
+      kachel: document.querySelector(".ar-kachel").getBoundingClientRect().bottom,
+      fenster: window.innerHeight,
+    }));
+    pruefe(mass.blatt <= mass.fenster + 1 && mass.unten <= mass.fenster + 1 && mass.kachel <= mass.fenster,
+      `${wo}: Die Startseite passt nicht auf einen Bildschirm: ${JSON.stringify(mass)}`);
+    pruefe(mass.breite <= breit + 1, `${wo}: Die Startseite steht ${mass.breite - breit} px über den rechten Rand.`);
     const spielen = await seite.getAttribute(".ar-play", "href");
-    pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `Der Play-Knopf zeigt auf ${spielen}.`);
-    const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    pruefe(ueberstand <= 1, `Die Startseite steht ${ueberstand} px über den rechten Rand.`);
+    pruefe(SPIELE.some((s) => spielen === `/${s.seite}`), `${wo}: Der Play-Knopf zeigt auf ${spielen}.`);
+    pruefe(!(await seite.locator(".ar-play").innerText()).trim(), `${wo}: Auf dem Play-Knopf steht Text.`);
+    const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
+    pruefe(gefragt.length === SPIELE.length, `${wo}: Die Startseite fragt nach ${gefragt.length} Spielen statt nach ${SPIELE.length}.`);
+    pruefe(await seite.locator('a[href*="kids.alae.app"]').count() === 0, `${wo}: Auf der Startseite steht ein Link auf kids.alae.app.`);
+
+    // Die Rangliste im Fenster – ohne die Runden je Spieler: Wie oft jemand
+    // gespielt hat, geht niemanden etwas an.
+    await seite.click(".ar-rang");
+    await seite.waitForSelector(".ar-fenster .gk-zeile", { timeout: 4000 }).catch(() => {});
+    const zeilen = await seite.locator(".ar-fenster .gk-zeile").allInnerTexts();
+    pruefe(zeilen.length >= 1 && /Grosi/.test(zeilen[0]), `${wo}: Die Rangliste im Fenster stimmt nicht: ${zeilen.join(" | ")}`);
+    const mitRunden = zeilen.filter((z) => /runde/i.test(z));
+    pruefe(mitRunden.length === 0, `${wo}: In der Rangliste eines Spiels stehen die Runden: ${mitRunden.join(" | ")}`);
+    await seite.keyboard.press("Escape");
+    await seite.waitForTimeout(200);
+    pruefe(await seite.locator(".ar-fenster").count() === 0, `${wo}: Escape schliesst die Rangliste nicht.`);
+
+    // Die Gesamtwertung: hinter dem Pokal.
+    await seite.click(".ar-pokal");
+    await seite.waitForSelector(".ar-fenster .mini-tabelle", { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".ar-fenster .mini-tabelle tbody tr").count() >= 1, `${wo}: Hinter dem Pokal steht keine Gesamtwertung.`);
+    const kopfzeilen = await seite.locator(".ar-fenster .mini-tabelle th").allTextContents();
+    pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `${wo}: In der Gesamtwertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
+    pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `${wo}: In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
+    // Ein Tipp neben das Fenster schliesst es.
+    await seite.mouse.click(5, hoch - 5);
+    await seite.waitForTimeout(200);
+    pruefe(await seite.locator(".ar-fenster").count() === 0, `${wo}: Ein Tipp neben die Gesamtwertung schliesst sie nicht.`);
     await kontext.close();
   }
 
-  // --- 3b. Die Bühne: der Film, die Bestenliste, der Wechsel --------------------
-  // Auf der Bühne steht zuerst der erste Favorit (Turmbau), als Film aus
-  // filme/ – hochkant auf dem Handy –, mit Play und Bestenliste. Ein Tipp auf
-  // eine Kachel holt ein anderes Spiel auf die Bühne. Wer weniger Bewegung
-  // eingestellt hat, sieht das Standbild: Der Film läuft nicht.
+  // --- 3b. Die Bühne: der Film, der Wechsel, das Wischen ------------------------
+  // Oben steht zuerst der erste Favorit (Turmbau), als Film aus filme/ – auf
+  // dem Handy hochkant aufgenommen, quer daneben die Leiste. Ein Tipp auf
+  // eine Kachel holt ein anderes Spiel nach oben, ein Wisch über den Film das
+  // nächste oder das vorige. Wer weniger Bewegung eingestellt hat, sieht das
+  // Standbild: Der Film läuft nicht.
   for (const bewegung of ["no-preference", "reduce"]) {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
-    await seite.waitForFunction(() => document.querySelector(".ar-bestenliste .gk-zeile"), null, { timeout: 8000 }).catch(() => {});
+    await seite.waitForFunction(() => /Grosi/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
     await seite.waitForTimeout(900);
     const buehne = () => seite.evaluate(() => {
       const film = document.querySelector(".ar-film.ist-an");
@@ -916,25 +949,64 @@ try {
         name: document.querySelector(".ar-play")?.getAttribute("aria-label"),
         film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
         laeuft: film ? !film.paused : false,
-        rekord: document.querySelector(".ar-bestenliste .gk-zeile.ist-platz-1 .gk-name")?.textContent,
-        krone: Boolean(document.querySelector(".ar-bestenliste .gk-zeile.ist-platz-1 .gk-marke svg")),
+        rekord: document.querySelector(".ar-rang-text strong")?.textContent,
         aktiv: document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel,
       };
     });
     const vorher = await buehne();
     pruefe(vorher.titel === "Turmbau" && vorher.play === "/turmbau" && vorher.name === "Turmbau spielen" && vorher.aktiv === "towerStack",
-      `${bewegung}: Auf der Bühne steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
-    pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film der Bühne ist nicht der hochkant aufgenommene: ${vorher.film}`);
-    pruefe(vorher.rekord === "Grosi" && vorher.krone, `${bewegung}: Der Rekord steht nicht mit Krone in der Bestenliste: ${JSON.stringify(vorher)}`);
-    if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film der Bühne trotzdem.");
-    else pruefe(vorher.laeuft, "Der Film der Bühne läuft nicht.");
+      `${bewegung}: Oben steht nicht der Turmbau mit seinem Play-Knopf: ${JSON.stringify(vorher)}`);
+    pruefe(vorher.film === "/filme/turmbau-hoch.mp4", `${bewegung}: Der Film oben ist nicht der hochkant aufgenommene: ${vorher.film}`);
+    pruefe(vorher.rekord === "Grosi", `${bewegung}: Im Knopf zur Rangliste steht nicht der Rekord: ${JSON.stringify(vorher)}`);
+    if (bewegung === "reduce") pruefe(!vorher.laeuft, "Bei weniger Bewegung läuft der Film oben trotzdem.");
+    else pruefe(vorher.laeuft, "Der Film oben läuft nicht.");
     await seite.locator('.ar-kachel[data-spiel="fishPond"]').click();
     await seite.waitForTimeout(900);
     const nachher = await buehne();
     pruefe(nachher.titel === "Fischteich" && nachher.play === "/fischteich" && nachher.film === "/filme/fischteich-hoch.mp4" && nachher.aktiv === "fishPond" && nachher.rekord === "Grosi",
-      `${bewegung}: Eine Kachel holt ihr Spiel nicht auf die Bühne: ${JSON.stringify(nachher)}`);
+      `${bewegung}: Eine Kachel holt ihr Spiel nicht nach oben: ${JSON.stringify(nachher)}`);
+    // Wischen: nach links das nächste Spiel der Zeile, nach rechts zurück.
+    const reihe = await seite.evaluate(() => [...document.querySelectorAll(".ar-kachel")].map((k) => k.dataset.spiel));
+    const kasten = await seite.locator(".ar-filme").boundingBox();
+    const wische = async (von, bis) => {
+      await seite.mouse.move(kasten.x + kasten.width * von, kasten.y + kasten.height / 2);
+      await seite.mouse.down();
+      await seite.mouse.move(kasten.x + kasten.width * bis, kasten.y + kasten.height / 2 + 4, { steps: 5 });
+      await seite.mouse.up();
+      await seite.waitForTimeout(700);
+      return buehne();
+    };
+    const links = await wische(0.75, 0.3);
+    pruefe(links.aktiv === reihe[reihe.indexOf("fishPond") + 1], `${bewegung}: Ein Wisch nach links bringt nicht das nächste Spiel: ${JSON.stringify(links)}`);
+    const rechts = await wische(0.3, 0.75);
+    pruefe(rechts.aktiv === "fishPond" && rechts.titel === "Fischteich", `${bewegung}: Ein Wisch nach rechts bringt nicht das vorige Spiel: ${JSON.stringify(rechts)}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `${bewegung}: Startseite – Klassen ohne Regel: ${ohne.join(", ")}`);
+    await kontext.close();
+  }
+  // Quer auf dem Handy: der Film quer aufgenommen, die Leiste daneben, die
+  // Zeile darunter – alles in einem Bild.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 }, { handy: true });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.waitForTimeout(600);
+    const quer = await seite.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const film = document.querySelector(".ar-film.ist-an");
+      return {
+        film: film ? new URL(film.currentSrc || film.src, location.href).pathname : "",
+        filmRechts: r(".ar-filme").right,
+        leisteLinks: r(".ar-leiste").left,
+        playUnten: r(".ar-play").bottom,
+        kachelUnten: r(".ar-kachel").bottom,
+        fenster: window.innerHeight,
+        blatt: document.documentElement.scrollHeight,
+      };
+    });
+    pruefe(quer.film === "/filme/turmbau-quer.mp4", `Quer: Der Film oben ist nicht der quer aufgenommene: ${quer.film}`);
+    pruefe(quer.leisteLinks >= quer.filmRechts && quer.playUnten <= quer.fenster && quer.kachelUnten <= quer.fenster && quer.blatt <= quer.fenster + 1,
+      `Quer: Film, Leiste und Zeile stehen nicht nebeneinander in einem Bild: ${JSON.stringify(quer)}`);
     await kontext.close();
   }
   // Im Turnier hat der Turmbau seine Kachel mit gezeichnetem Film
@@ -1476,13 +1548,16 @@ try {
   }
 
   // --- 4d. Turniere auf der Startseite ------------------------------------------
-  // Öffentliche, die laufen, bald beginnen oder eben vorbei sind – ganz oben.
-  // Nie eines nur mit Link, nie ein angehaltenes, nie eines von vor Wochen.
+  // Öffentliche, die laufen, bald beginnen oder eben vorbei sind – vorne in
+  // der Zeile mit den Spielen. Nie eines nur mit Link, nie ein angehaltenes,
+  // nie eines von vor Wochen. (Gelesen wird textContent: Das Wort auf dem
+  // Knopf – Mitspielen, Ansehen, Rangliste – steht in der schmalen Kachel
+  // nicht sichtbar da, gewählt wird es trotzdem.)
   {
     const { kontext, seite } = await mitTurnieren("/");
     await seite.waitForSelector(".tn-hinweis", { timeout: 8000 });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
-    const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => ({ href: a.getAttribute("href"), text: a.innerText.replace(/\n/g, " ") })));
+    const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => ({ href: a.getAttribute("href"), text: a.textContent })));
     const alleTexte = hinweise.map((h) => h.text).join(" | ");
     pruefe(hinweise.length === 3, `Auf der Startseite stehen ${hinweise.length} Turniere statt drei: ${alleTexte}`);
     pruefe(/Herbstcup/.test(hinweise[0]?.text || "") && /läuft noch/.test(hinweise[0]?.text || ""), `Zuoberst steht nicht das laufende Turnier: ${alleTexte}`);
@@ -1492,9 +1567,9 @@ try {
     for (const nicht of ["Familienabend", "Frühlingscup", "Pausencup", "Blindcup", "Würfelcup"]) {
       pruefe(!alleTexte.includes(nicht), `Auf der Startseite steht "${nicht}".`);
     }
-    const oben = await seite.evaluate(() => document.querySelector(".tn-hinweis").getBoundingClientRect().top
-      < document.querySelector(".ar-kachel").getBoundingClientRect().top);
-    pruefe(oben, "Die Turniere stehen unter den Spielen statt darüber.");
+    const vorne = await seite.evaluate(() => document.querySelector(".tn-hinweis").getBoundingClientRect().right
+      <= document.querySelector(".ar-kachel").getBoundingClientRect().left);
+    pruefe(vorne, "Die Turniere stehen nicht vorne in der Zeile mit den Spielen.");
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Startseite mit Turnieren: Klassen ohne Regel – ${ohne.join(", ")}`);
     await kontext.close();
@@ -1528,7 +1603,7 @@ try {
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".tn-hinweis", { timeout: 8000 });
     await seite.waitForTimeout(300);
-    const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => a.innerText.replace(/\n/g, " ")));
+    const hinweise = await seite.locator(".tn-hinweis").evaluateAll((alle) => alle.map((a) => a.textContent));
     pruefe(/Familienabend/.test(hinweise[0] || ""), `Das geöffnete Turnier nur mit Link steht nicht zuvorderst auf der Startseite: ${hinweise.join(" | ")}`);
     pruefe(hinweise.length === 4, `Mit einem eigenen Turnier stehen ${hinweise.length} statt vier Turniere auf der Startseite: ${hinweise.join(" | ")}`);
     const gemerkt = await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.turniere") || "[]"));
@@ -1536,12 +1611,12 @@ try {
     await kontext.close();
   }
   {
-    // Ohne Turnier bleibt oben nichts stehen, auch kein leerer Kasten.
+    // Ohne Turnier bleibt in der Zeile nichts stehen, auch kein leerer Kasten.
     const { kontext, seite } = await neueSeite();
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     const hoehe = await seite.evaluate(() => document.querySelector(".tn-hinweise")?.getBoundingClientRect().height ?? 0);
-    pruefe(hoehe === 0, `Ohne Turnier steht oben ein ${hoehe} px hoher Kasten.`);
+    pruefe(hoehe === 0, `Ohne Turnier steht in der Zeile ein ${hoehe} px hoher Kasten.`);
     await kontext.close();
   }
 
@@ -3591,10 +3666,12 @@ try {
 
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
-    // Die Bestenliste steht auf der Bühne: erst das Spiel dorthin holen.
+    // Die Rangliste öffnet der Knopf neben Play: erst das Spiel nach oben
+    // holen.
     await seite.locator('.ar-kachel[data-spiel="gravityRun"]').click();
-    await seite.waitForSelector(".ar-bestenliste .gk-ansehen", { timeout: 6000 }).catch(() => {});
-    const play = await seite.evaluate(() => [...document.querySelectorAll(".ar-bestenliste .gk-ansehen")].map((a) => a.getAttribute("href")));
+    await seite.click(".ar-rang");
+    await seite.waitForSelector(".ar-fenster .gk-ansehen", { timeout: 6000 }).catch(() => {});
+    const play = await seite.evaluate(() => [...document.querySelectorAll(".ar-fenster .gk-ansehen")].map((a) => a.getAttribute("href")));
     pruefe(play.some((h) => h === `/schwerkraft?zuschauen=${gespielt.kennung}`), `In der Hall of Fame steht beim Schwerkraft-Läufer kein ▶ für den Lauf: ${JSON.stringify(play)}`);
 
     await seite.goto(`${BASIS}/schwerkraft?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
@@ -3667,9 +3744,11 @@ try {
 
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
-    // Auf der Bühne steht der Turmbau (der erste Favorit). Seine Bestenliste
-    // zeigt die ersten fünf: Ida auf Platz 4 und den eigenen Lauf auf Platz 5.
-    const tafel = seite.locator(".ar-bestenliste");
+    // Oben steht der Turmbau (der erste Favorit). Seine Rangliste im Fenster:
+    // der ▶ bei Ida auf Platz 4 und beim eigenen Lauf auf Platz 5.
+    await seite.waitForFunction(() => !/…/.test(document.querySelector(".ar-rang")?.textContent || "…"), null, { timeout: 6000 }).catch(() => {});
+    await seite.click(".ar-rang");
+    const tafel = seite.locator(".ar-fenster");
     await tafel.locator('.gk-ansehen[href="/turmbau?zuschauen=mini_idaidaidaida"]').waitFor({ timeout: 6000 }).catch(() => {});
     const zu = await tafel.locator(".gk-ansehen").evaluateAll((liste) => liste.map((a) => a.getAttribute("href")));
     pruefe(zu.includes(`/turmbau?zuschauen=${gespielt.kennung}`) && zu.includes("/turmbau?zuschauen=mini_idaidaidaida") && zu.length === 2,

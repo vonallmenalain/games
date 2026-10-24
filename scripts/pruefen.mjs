@@ -80,12 +80,10 @@ pruefe("mini-games.js baut die Kachel mit Film (kachel), turnier.js stellt sie h
   /function kachel\(/.test(miniJs) && lies("turnier.js").includes("mini().kachel("));
 
 // --- alae arcade: die Startseite und ihre Filme -------------------------------
-// Jedes Spiel hat einen Satz für die Bühne und zwei aufgenommene Filme mit
-// Standbild (scripts/filme-aufnehmen.mjs), und für jeden Film eine Vorführung.
+// Jedes Spiel hat zwei aufgenommene Filme mit Standbild
+// (scripts/filme-aufnehmen.mjs), und für jeden Film eine Vorführung.
 {
-  const saetze = miniJs.match(/const SAETZE = \{([\s\S]*?)\n  \};/);
   for (const s of SPIELE) {
-    pruefe(`mini-games.js hat einen Satz für ${s.spiel} (SAETZE)`, Boolean(saetze && new RegExp(`\\b${s.spiel}: "`).test(saetze[1])));
     pruefe(`scripts/vorfuehrung/${s.seite}.mjs liegt da`, existsSync(path.join(WURZEL, "scripts", "vorfuehrung", `${s.seite}.mjs`)));
     for (const datei of [`${s.seite}-quer.mp4`, `${s.seite}-hoch.mp4`, `${s.seite}-quer.webp`, `${s.seite}-hoch.webp`]) {
       pruefe(`filme/${datei} liegt da`, existsSync(path.join(WURZEL, "filme", datei)));

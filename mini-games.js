@@ -21,9 +21,10 @@
  *
  *   1. Auf einer Spielseite baut sie den Weg zurück oben links und den Block
  *      unter dem Ergebnis: Namensfeld, eigener Platz, Bestenliste.
- *   2. Die Hall of Fame auf der Startseite: die Spiele als Karten, dazu die
- *      Auswertung über alle Namen – wer den besten Durchschnittsrang hat, wer
- *      wie oft gespielt hat, wer wie viele Spiele oben steht.
+ *   2. Die Startseite, alae arcade: ein Spiel als Film, darunter alle in
+ *      einer Zeile, dazu die Rangliste jedes Spiels und die Auswertung über
+ *      alle Namen – wer den besten Durchschnittsrang hat, wer wie oft
+ *      gespielt hat, wer wie viele Spiele oben steht.
  *   3. Den Hintergrund: Jede Spielseite bekommt eine andere Landschaft, der
  *      Reihe nach.
  *
@@ -1265,23 +1266,8 @@
     return karte;
   }
 
-  // pwa.js steht in der Seite hinter dieser Datei und hat beim Bauen der
-  // Übersicht womöglich noch nicht gelaufen: Aufgeschobene Skripte laufen der
-  // Reihe nach, und was hier auf eine Zusage wartet, kommt vor dem nächsten
-  // dran. Deshalb wird nicht gefragt "gibt es window.LernappInstall", sondern
-  // notfalls gewartet, bis die Seite fertig geladen ist.
-  function zeigeInstall(wirt) {
-    const bauen = () => {
-      const karte = installBlock();
-      if (karte) wirt.append(karte);
-    };
-    if (pwa()) { bauen(); return; }
-    if (document.readyState === "complete") { bauen(); return; }
-    window.addEventListener("load", bauen, { once: true });
-  }
-
   // ---------------------------------------------------------------------------
-  // Die Gesamtwertung (ganz unten auf der Startseite, zugeklappt)
+  // Die Gesamtwertung (auf der Startseite hinter dem Pokal oben rechts)
   // ---------------------------------------------------------------------------
   // Wer ist der beste Spieler über alle Spiele hinweg? "Der beste" ist dabei
   // der Durchschnittsrang: Wer in drei Spielen Zweiter
@@ -1339,6 +1325,9 @@
     leute: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.2" r="3.3"/><path d="M2.8 19.4c.4-3.4 3-5.6 6.2-5.6s5.8 2.2 6.2 5.6z"/><circle cx="17" cy="9" r="2.6"/><path d="M15.9 13.9c2.7-.3 4.9 1.5 5.3 4.4h-4.5c-.1-1.7-.4-3.1-.8-4.4z"/></svg>',
     schloss: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10.5V8a5 5 0 0 1 10 0v2.5h.6A1.9 1.9 0 0 1 19.5 12.4v6.7A1.9 1.9 0 0 1 17.6 21H6.4a1.9 1.9 0 0 1-1.9-1.9v-6.7A1.9 1.9 0 0 1 6.4 10.5zm2.4 0h5.2V8a2.6 2.6 0 0 0-5.2 0z"/></svg>',
     pfeil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.7 9.3a1 1 0 0 1 1.4 0L12 13.2l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4z"/></svg>',
+    pokal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11M12 13v4m-3.5 3h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    zu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    app: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v10m-4.5-4.5 4.5 4.5 4.5-4.5M5.5 19.5h13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
   function mitIcon(tag, klasse, icon, text) {
@@ -1546,63 +1535,33 @@
   // Die Startseite: alae arcade
   // ---------------------------------------------------------------------------
   /*
-   * Oben die Bühne: ein Spiel gross, als laufender Film, dazu sein Name, ein
-   * Satz, wie man es spielt, der Weg hinein und seine Bestenliste. Darunter
-   * alle Spiele in Reihen, nach Tier (Favoriten zuerst): Ein Tipp auf eine
-   * Kachel holt das Spiel auf die Bühne. Solange niemand selbst wählt, geht
-   * die Bühne von allein durch die Favoriten.
+   * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer. Oben
+   * läuft das Spiel als Film, frei, ohne Text darauf. Darunter (quer:
+   * daneben) eine schmale Leiste: der Name des Spiels, die Rangliste als
+   * Knopf mit dem Namen des Ersten – ein Tipp öffnet sie – und der
+   * Play-Knopf. Ganz unten alle Spiele in einer Zeile. Ein Tipp auf eines
+   * holt es nach oben, ein Wisch über den Film das nächste oder das vorige
+   * (am Computer auch die Pfeiltasten).
    *
-   * Die Filme sind echte Runden, aufgenommen (scripts/filme-aufnehmen.mjs):
-   * filme/<seite>-quer.mp4 für breite Bildschirme, -hoch.mp4 fürs Handy, und
-   * je ein Standbild (.webp) – das steht da, bis der Film läuft, und auf den
-   * Kacheln. Auf der ganzen Seite läuft immer nur ein Film: der auf der Bühne
-   * (und am Computer der unter der Maus).
+   * Die Filme liegen in filme/ (scripts/filme-aufnehmen.mjs), von jedem Spiel
+   * einer quer und einer hoch. Es läuft der, der in der Fläche grösser
+   * erscheint, und er steht ganz darin: Nur wo seine Form fast die der
+   * Fläche ist, füllt er sie, und was dabei wegfällt, ist ein schmaler Rand.
+   * Dahinter liegt sein Standbild, verschwommen.
    *
-   * Wer weniger Bewegung eingestellt hat, sieht die Standbilder, und die
-   * Bühne wechselt nicht von selbst.
+   * Solange niemand selbst wählt, kommt alle paar Sekunden der nächste
+   * Favorit. Wer weniger Bewegung eingestellt hat, sieht die Standbilder.
    *
-   * Die Gesamtwertung über alle Spiele steht ganz unten, zugeklappt.
+   * Oben rechts: die Gesamtwertung über alle Spiele (der Pokal), der Name,
+   * das Vollbild – und, wo es geht, «Als App installieren».
    */
   const WECHSEL_MS = 9000;
   const ZULETZT_KEY = "arcade.zuletzt";
-  const REIHEN = [
-    { tier: 1, titel: "Favoriten" },
-    { tier: 2, titel: "Beliebt" },
-    { tier: 3, titel: "Zum Entdecken" },
-  ];
-  // Wofür ein Spiel ist (highscore.js, bereich) – klein über dem Namen.
-  const BEREICHE = {
-    geschwindigkeit: "Tempo & Geschick",
-    konzentration: "Konzentration",
-    gedaechtnis: "Gedächtnis",
-    problemloesen: "Knobeln",
-    zahlbuchstabe: "Zahlen",
-  };
-
-  // Wie man es spielt – ein Satz, auf der Bühne unter dem Namen.
-  const SAETZE = {
-    tileMemory: "Merk dir, welche Kacheln leuchten, und tippe sie nach.",
-    fishPond: "Tippe jeden Fisch genau einmal an – und merk dir, welche du schon hattest.",
-    leafFlow: "Wische die Blätter: orange dorthin, wo sie schwimmen, grüne dorthin, wo sie zeigen.",
-    towerStack: "Tippe, wenn der Block genau über dem Turm ist – was übersteht, bricht ab.",
-    bridgeBuilder: "Halte gedrückt, bis der Balken über die Schlucht reicht – und triff die rote Mitte.",
-    dartWheel: "Wirf Pfeil um Pfeil in die drehende Scheibe, ohne einen anderen zu treffen.",
-    vineSwing: "Halten heisst festhalten, Loslassen heisst fliegen – schwing dich über den Fluss.",
-    tunnelFlight: "Halten heisst steigen, Loslassen sinken – flieg durch den Tunnel, ohne die Wände zu berühren.",
-    driftRace: "Halten heisst driften, Loslassen geradeaus – jag das Auto die Passstrasse hinauf.",
-    planetHop: "Tippe im richtigen Moment, und der Astronaut springt zum nächsten Planeten.",
-    moonLander: "Halten gibt Schub, der Finger lenkt – setz die Fähre sanft auf die Plattform.",
-    gravityRun: "Tippe, und die Schwerkraft kehrt sich um – an Lücken, Stacheln und Blöcken vorbei.",
-    hillGlide: "Halten macht den Vogel schwer, Loslassen leicht – flieg über die Kuppen.",
-    balloonRide: "Halten heizt den Brenner, Loslassen kühlt – zwischen Bergen und Gewittern hindurch.",
-    skiSlalom: "Halten heisst Kurve nach rechts, Loslassen nach links – durch jedes Tor.",
-    frogHop: "Halten lädt den Sprung, Loslassen springt – lande mitten auf dem Seerosenblatt.",
-    waveRider: "Halten drückt das Brett in die Welle, Loslassen hebt es – bleib vor dem Brecher.",
-    craneHarbor: "Tippe im richtigen Moment und stapel den Container auf das schaukelnde Schiff.",
-    ropeWalk: "Halten lehnt nach rechts, Loslassen nach links – halt das Gleichgewicht auf dem Seil.",
-    numberLine: "Schieb den Zug auf dem Gleis dorthin, wo die Zahl liegt.",
-    boilerRoom: "Jeder Kessel fällt – leg Kohle nach, aber nie im roten Feld.",
-  };
+  // Breite durch Höhe der beiden Filme.
+  const FILMFORMATE = { quer: 1280 / 720, hoch: 540 / 960 };
+  // So weit darf die Form der Fläche von der des Films abweichen, damit er
+  // sie füllt – dann fällt rundum höchstens ein schmaler Rand weg.
+  const FUELLT_BIS = 1.12;
 
   // Die Fassung dieser Datei (mini-games.js?v=…): Sie hängt auch an Filmen und
   // Standbildern – wer sie neu aufnimmt, zählt die Fassung hoch.
@@ -1610,17 +1569,26 @@
     try { return new URL(document.currentScript?.src || "", window.location.href).searchParams.get("v") || ""; } catch { return ""; }
   })();
 
-  // Fürs Handy hochkant, sonst quer.
-  const HOCHKANT = window.matchMedia?.("(max-width: 700px)") || { matches: false, addEventListener() {} };
   const ruhigHier = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
 
-  function filmPfad(spiel, art) {
+  function filmPfad(spiel, art, format = "quer") {
     const seite = NACH_ID.get(spiel)?.seite || spiel;
-    const format = HOCHKANT.matches ? "hoch" : "quer";
     return `/filme/${seite}-${format}.${art}${FASSUNG_HIER ? `?v=${FASSUNG_HIER}` : ""}`;
   }
 
-  const MARKE = '<svg viewBox="0 0 34 20" aria-hidden="true"><path d="M2 17 9 4l7 13" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 17 25 4l7 13" fill="none" stroke="#ff7466" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Welcher Film in eine Fläche gehört: der, der ganz darin am grössten
+  // erscheint – und ob er sie füllen darf.
+  function filmFuer(breit, hoch) {
+    if (!breit || !hoch) return { format: "quer", fuellt: false };
+    const groesse = (form) => Math.min(hoch * hoch * form, breit * breit / form);
+    const format = groesse(FILMFORMATE.hoch) > groesse(FILMFORMATE.quer) ? "hoch" : "quer";
+    const abweichung = (breit / hoch) / FILMFORMATE[format];
+    return { format, fuellt: Math.max(abweichung, 1 / abweichung) <= FUELLT_BIS };
+  }
+
+  // Das Zeichen von alae.app (die zwei Winkel) und die Wortmarke «alae», wie
+  // im Logo-Paket von alae.app (svg-freigestellt, quer-wortmarke).
+  const MARKE = '<svg viewBox="60 60 688.13 137.05" aria-hidden="true"><path fill="#ECEDF2" d="M61.35 180.34L122.71 65.98A11.34 11.34 0 0 1 142.7 65.98L173.38 123.16A11.34 11.34 0 0 1 168.75 138.52A11.34 11.34 0 0 1 153.39 133.88L132.71 95.33L81.34 191.06A11.34 11.34 0 0 1 65.98 195.7A11.34 11.34 0 0 1 61.35 180.34Z"/><path fill="#FE7971" d="M183.7 180.34L245.06 65.98A11.34 11.34 0 0 1 265.05 65.98L326.42 180.34A11.34 11.34 0 0 1 321.79 195.7A11.34 11.34 0 0 1 306.43 191.06L255.06 95.33L203.69 191.06A11.34 11.34 0 0 1 188.33 195.7A11.34 11.34 0 0 1 183.7 180.34Z"/><path fill="#ECEDF2" d="M479.22 196.48Q470.77 196.48 464.19 193.24Q457.61 189.99 453.96 184.3Q450.3 178.62 450.3 171.15Q450.3 163.35 454.2 157.91Q458.1 152.47 465.41 149.62Q472.72 146.78 482.95 146.78Q487.5 146.78 492.21 147.67Q496.92 148.57 502.44 150.68V143.86Q502.44 137.69 498.38 134.68Q494.32 131.68 485.88 131.68Q481.17 131.68 475.4 133.06Q469.63 134.44 462.32 137.52L453.23 119.17Q473.53 110.07 491.72 110.07Q509.1 110.07 518.77 118.36Q528.43 126.64 528.43 141.58V195.18H502.44V187.88Q496.92 192.42 491.4 194.45Q485.88 196.48 479.22 196.48ZM474.51 170.66Q474.51 174.72 477.92 176.91Q481.33 179.1 487.34 179.1Q491.56 179.1 495.3 178.05Q499.03 176.99 502.44 174.88V164.16Q498.87 163.35 495.3 162.86Q491.72 162.37 487.99 162.37Q481.49 162.37 478 164.49Q474.51 166.6 474.51 170.66ZM541.35 195.18V79.54L567.66 75.48V195.18ZM606.24 196.48Q597.8 196.48 591.22 193.24Q584.64 189.99 580.98 184.3Q577.33 178.62 577.33 171.15Q577.33 163.35 581.23 157.91Q585.13 152.47 592.44 149.62Q599.75 146.78 609.98 146.78Q614.53 146.78 619.24 147.67Q623.95 148.57 629.47 150.68V143.86Q629.47 137.69 625.41 134.68Q621.35 131.68 612.9 131.68Q608.19 131.68 602.43 133.06Q596.66 134.44 589.35 137.52L580.25 119.17Q600.56 110.07 618.75 110.07Q636.13 110.07 645.79 118.36Q655.46 126.64 655.46 141.58V195.18H629.47V187.88Q623.95 192.42 618.42 194.45Q612.9 196.48 606.24 196.48ZM601.53 170.66Q601.53 174.72 604.94 176.91Q608.35 179.1 614.36 179.1Q618.59 179.1 622.32 178.05Q626.06 176.99 629.47 174.88V164.16Q625.9 163.35 622.32 162.86Q618.75 162.37 615.01 162.37Q608.52 162.37 605.02 164.49Q601.53 166.6 601.53 170.66ZM708.82 196.81Q696.47 196.81 686.48 191.04Q676.5 185.28 670.57 175.45Q664.64 165.62 664.64 153.44Q664.64 141.1 670.16 131.35Q675.68 121.61 685.27 115.84Q694.85 110.07 706.87 110.07Q719.05 110.07 728.31 115.76Q737.57 121.44 742.85 131.43Q748.13 141.42 748.13 154.42V160.1H690.46Q691.76 164.81 694.52 168.38Q697.29 171.96 701.35 173.91Q705.41 175.86 710.12 175.86Q715.32 175.86 719.62 174.07Q723.92 172.28 726.69 168.87L744.06 183.33Q735.94 190.47 727.66 193.64Q719.38 196.81 708.82 196.81ZM690.46 145.16H723.76Q722.62 140.61 720.19 137.36Q717.75 134.11 714.34 132.33Q710.93 130.54 706.71 130.54Q702.65 130.54 699.32 132.24Q695.99 133.95 693.79 137.2Q691.6 140.45 690.46 145.16Z"/></svg>';
 
   // Der Film einer Ebene der Bühne: ein Video mit Standbild. Ohne Ton, in der
   // Schleife, im Browser eingebettet (playsinline – sonst öffnet das iPhone
@@ -1652,6 +1620,44 @@
     return (teile.length > 1 ? teile[0][0] + teile[1][0] : teile[0].slice(0, 2)).toLocaleUpperCase("de");
   }
 
+  // Ein runder Knopf mit einem Zeichen, oben rechts und in den Fenstern.
+  function rundKnopf(klasse, icon, wort) {
+    const knoten = mitIcon("button", `ar-rund ${klasse}`, icon);
+    knoten.type = "button";
+    knoten.title = wort;
+    knoten.setAttribute("aria-label", wort);
+    return knoten;
+  }
+
+  // Ein Fenster über der Seite: die Rangliste eines Spiels, die
+  // Gesamtwertung, die Installation. <dialog> hält den Fokus darin und
+  // schliesst mit Escape; ein Tipp daneben schliesst es auch.
+  function fenster(ueberschrift, inhalt, { ueber = "", klasse = "" } = {}) {
+    const dlg = el("dialog", `ar-fenster ${klasse}`.trim());
+    dlg.setAttribute("aria-label", ueber ? `${ueber}: ${ueberschrift}` : ueberschrift);
+    const kopf = el("div", "ar-fenster-kopf");
+    const texte = el("div", "ar-fenster-texte");
+    if (ueber) texte.append(el("p", "ar-fenster-ueber", ueber));
+    texte.append(el("h2", "ar-fenster-titel", ueberschrift));
+    const zu = rundKnopf("ar-fenster-zu", "zu", "Schliessen");
+    zu.addEventListener("click", () => dlg.close());
+    kopf.append(texte, zu);
+    const koerper = el("div", "ar-fenster-inhalt");
+    koerper.append(inhalt);
+    dlg.append(kopf, koerper);
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("close", () => dlg.remove());
+    document.body.append(dlg);
+    if (dlg.showModal) dlg.showModal();
+    else {
+      // Ohne <dialog>: offen hinlegen, Escape schliesst.
+      dlg.setAttribute("open", "");
+      dlg.close = () => { dlg.remove(); dlg.dispatchEvent(new Event("close")); };
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && dlg.isConnected) dlg.close(); });
+    }
+    return dlg;
+  }
+
   // Baut sich die Seite neu (nach einem neuen Namen), räumt die alte zuerst
   // ab: ihre Uhr, ihre Filme und was sie an window und document hörte.
   let abbauUebersicht = null;
@@ -1665,54 +1671,50 @@
     wirt.classList.add("ar-seite");
     document.body.classList.add("ar");
 
-    // --- Oben: die Marke, und rechts der Name und das Vollbild ---------------
+    // --- Oben: die Marke, und rechts Pokal, Name und Vollbild ----------------
     const kopf = el("header", "ar-kopf");
     const marke = el("a", "ar-marke");
     marke.href = "/";
     marke.setAttribute("aria-label", "alae arcade");
     const zeichen = el("span", "ar-marke-zeichen");
     zeichen.innerHTML = MARKE;
-    const wort = el("span", "ar-marke-wort");
-    wort.append(el("strong", "", "alae"), el("span", "", "arcade"));
-    marke.append(zeichen, wort);
+    marke.append(zeichen, el("span", "ar-marke-wort", "arcade"));
     // Die Überschrift der Seite, für alle, die sie nicht sehen.
     const h1 = el("h1", "ar-unsichtbar", "alae arcade");
     kopf.append(marke, h1);
     const rechts = el("div", "ar-kopf-rechts");
     const zumAdmin = adminKnopf();
     if (zumAdmin) rechts.append(zumAdmin);
-    rechts.append(nameChip(wirt, signal));
-    const voll = window.LernappVollbild?.knopf?.("mini-vollbild ar-vollbild");
+    const pokal = rundKnopf("ar-pokal", "pokal", "Gesamtwertung über alle Spiele");
+    pokal.setAttribute("aria-haspopup", "dialog");
+    const namensKnopf = nameChip(wirt, signal);
+    rechts.append(pokal, namensKnopf);
+    const voll = window.LernappVollbild?.knopf?.("mini-vollbild ar-rund");
     if (voll) rechts.append(voll);
     kopf.append(rechts);
     wirt.append(kopf);
     // Davor, sobald ein Multiplayer für alle offen ist, der Weg hinein.
-    multiplayerKnopf(rechts, rechts.querySelector(".ar-name"));
-    // Der Kopf wird fest, sobald die Bühne nach oben wegscrollt.
-    const merkeScroll = () => kopf.classList.toggle("ist-fest", window.scrollY > 24);
-    window.addEventListener("scroll", merkeScroll, { passive: true, signal });
-    merkeScroll();
+    multiplayerKnopf(rechts, pokal);
 
     const offen = await offeneSpiele();
     if (signal.aborted) return;
     if (!offen.length) {
+      pokal.remove();
       wirt.append(el("p", "mini-hinweis ar-leer", "Gerade ist kein Spiel freigegeben. Schau später wieder vorbei."));
-      zeigeInstall(wirt);
       return;
     }
 
-    // Die Reihen: nach Tier, wie der Admin sie eingeteilt hat.
+    // Die Reihenfolge: nach Tier, wie der Admin sie eingeteilt hat –
+    // Favoriten zuerst.
     let einteilung = null;
     try { einteilung = await cloud()?.tiers?.(); } catch { einteilung = null; }
     if (signal.aborted) return;
-    const reihen = REIHEN.map((r) => ({ ...r, spiele: offen.filter((s) => tierVon(s, einteilung) === r.tier) }))
-      .filter((r) => r.spiele.length);
-    const reihenfolge = reihen.flatMap((r) => r.spiele);
-    const favoriten = reihen[0].spiele;
+    const reihenfolge = TIERS.flatMap((tier) => offen.filter((s) => tierVon(s, einteilung) === tier));
+    const favoriten = reihenfolge.filter((s) => tierVon(s, einteilung) === 1);
 
-    // Welches Spiel zuerst auf der Bühne steht: das gewünschte, das, aus dem
-    // man gerade kommt, oder der erste Favorit. Wer aus einem Spiel kommt,
-    // will seinen Platz sehen – dort wechselt die Bühne nicht von selbst.
+    // Welches Spiel zuerst oben steht: das gewünschte, das, aus dem man
+    // gerade kommt, oder der erste Favorit. Wer aus einem Spiel kommt, will
+    // dort weitermachen – dann wechselt es nicht von selbst.
     let zuletzt = "";
     try { zuletzt = sessionStorage.getItem(ZULETZT_KEY) || ""; } catch { zuletzt = ""; }
     let herkunft = "";
@@ -1720,106 +1722,77 @@
       const weg = new URL(document.referrer).pathname.replace(/^\//, "").replace(/\.html$/, "");
       herkunft = SPIELE.find((s) => s.seite === weg)?.id || "";
     } catch { herkunft = ""; }
-    const start = [gewuenscht, herkunft, zuletzt].find((s) => s && offen.includes(s)) || favoriten[0];
+    const start = [gewuenscht, herkunft, zuletzt].find((s) => s && offen.includes(s)) || reihenfolge[0];
 
-    // --- Die Bühne -----------------------------------------------------------
+    // --- Die Bühne: der Film, darunter die Leiste ----------------------------
     const buehne = el("section", "ar-buehne");
-    buehne.setAttribute("aria-label", "Spiel auf der Bühne");
+    buehne.setAttribute("aria-label", "Gewähltes Spiel");
     const filme = el("div", "ar-filme");
+    const schein = el("img", "ar-schein");
+    schein.alt = "";
+    schein.setAttribute("aria-hidden", "true");
+    schein.decoding = "async";
     const ebenen = [filmKnoten("ar-film"), filmKnoten("ar-film")];
-    filme.append(...ebenen);
-    const licht = el("div", "ar-licht");
-    const inhalt = el("div", "ar-buehne-inhalt");
-    const ueber = el("p", "ar-ueber");
+    filme.append(schein, ...ebenen);
+    const leiste = el("div", "ar-leiste");
     const titelZeile = el("h2", "ar-titel");
-    const satz = el("p", "ar-satz");
     const aktionen = el("div", "ar-aktionen");
-    const play = mitIcon("a", "ar-play", "play", "Spielen");
-    const rekord = el("p", "ar-rekord");
-    aktionen.append(play, rekord);
-    inhalt.append(ueber, titelZeile, satz, aktionen);
-    const tafel = el("aside", "ar-bestenliste");
-    tafel.setAttribute("aria-label", "Bestenliste");
-    buehne.append(filme, licht, inhalt, tafel);
+    const rang = el("button", "ar-rang");
+    rang.type = "button";
+    rang.setAttribute("aria-haspopup", "dialog");
+    const play = mitIcon("a", "ar-play", "play");
+    aktionen.append(rang, play);
+    leiste.append(titelZeile, aktionen);
+    buehne.append(filme, leiste);
     wirt.append(buehne);
 
-    // Laufende Turniere: gleich unter der Bühne (turnier.js füllt den Platz).
+    // --- Unten: alle Spiele in einer Zeile -----------------------------------
+    const kacheln = new Map();
+    const auswahl = el("nav", "ar-auswahl");
+    auswahl.setAttribute("aria-label", "Spiele");
+    const spur = el("div", "ar-spur");
+    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    wirt.append(turniere);
-    window.LernappTurnier?.hinweis?.(turniere);
-
-    // --- Die Reihen ----------------------------------------------------------
-    const kacheln = new Map();
-    const reihenWirt = el("div", "ar-reihen");
-    reihen.forEach((r) => {
-      const block = el("section", "ar-reihe");
-      const kopfReihe = el("div", "ar-reihe-kopf");
-      kopfReihe.append(el("h2", "ar-reihe-titel", r.titel), el("span", "ar-reihe-zahl", zahlWort(r.spiele.length, "Spiel", "Spiele")));
-      const spur = el("div", "ar-spur");
-      spur.setAttribute("role", "list");
-      r.spiele.forEach((spiel, i) => {
-        const k = kachelBauen(spiel);
-        k.style.setProperty("--ar-i", String(i));
-        kacheln.set(spiel, k);
-        spur.append(k);
-      });
-      const zurueck = mitIcon("button", "ar-blaettern ist-zurueck", "pfeil");
-      const vor = mitIcon("button", "ar-blaettern ist-vor", "pfeil");
-      zurueck.type = "button";
-      vor.type = "button";
-      zurueck.setAttribute("aria-label", `${r.titel}: zurückblättern`);
-      vor.setAttribute("aria-label", `${r.titel}: weiterblättern`);
-      const blaettern = (richtung) => spur.scrollBy({ left: richtung * spur.clientWidth * 0.8, behavior: ruhigHier() ? "auto" : "smooth" });
-      zurueck.addEventListener("click", () => blaettern(-1));
-      vor.addEventListener("click", () => blaettern(1));
-      const rand = el("div", "ar-spur-rand");
-      rand.append(spur, zurueck, vor);
-      block.append(kopfReihe, rand);
-      reihenWirt.append(block);
-      const knoepfe = () => {
-        zurueck.disabled = spur.scrollLeft < 8;
-        vor.disabled = spur.scrollLeft + spur.clientWidth > spur.scrollWidth - 8;
-      };
-      spur.addEventListener("scroll", knoepfe, { passive: true });
-      window.requestAnimationFrame(knoepfe);
+    spur.append(turniere);
+    reihenfolge.forEach((spiel, i) => {
+      const k = kachelBauen(spiel);
+      k.style.setProperty("--ar-i", String(i));
+      kacheln.set(spiel, k);
+      spur.append(k);
     });
-    wirt.append(reihenWirt);
-
-    // Die Gesamtwertung: ganz unten, zugeklappt.
-    const gesamt = el("details", "ar-gesamt");
-    const zusammen = el("summary", "ar-gesamt-titel");
-    zusammen.append(el("span", "", "Gesamtwertung über alle Spiele"));
-    gesamt.append(zusammen);
-    const gesamtInhalt = el("div", "ar-gesamt-inhalt");
-    gesamtInhalt.append(el("p", "mini-hinweis", "Wird geladen..."));
-    gesamt.append(gesamtInhalt);
-    wirt.append(gesamt);
-    zeigeInstall(wirt);
-
-    // Die Reihen gleiten herein, sobald sie ins Bild kommen.
-    if ("IntersectionObserver" in window && !ruhigHier()) {
-      const beobachter = new IntersectionObserver((eintraege) => {
-        eintraege.forEach((e) => {
-          if (!e.isIntersecting) return;
-          e.target.classList.add("ist-da");
-          beobachter.unobserve(e.target);
-        });
-      }, { rootMargin: "0px 0px -8% 0px" });
-      reihenWirt.querySelectorAll(".ar-reihe").forEach((r) => { r.classList.add("kommt"); beobachter.observe(r); });
-      signal.addEventListener("abort", () => beobachter.disconnect());
-    }
+    const zurueck = mitIcon("button", "ar-blaettern ist-zurueck", "pfeil");
+    const vor = mitIcon("button", "ar-blaettern ist-vor", "pfeil");
+    zurueck.type = "button";
+    vor.type = "button";
+    zurueck.setAttribute("aria-label", "Spiele zurückblättern");
+    vor.setAttribute("aria-label", "Spiele weiterblättern");
+    const blaettern = (richtung) => spur.scrollBy({ left: richtung * spur.clientWidth * 0.8, behavior: ruhigHier() ? "auto" : "smooth" });
+    zurueck.addEventListener("click", () => blaettern(-1));
+    vor.addEventListener("click", () => blaettern(1));
+    const knoepfe = () => {
+      zurueck.disabled = spur.scrollLeft < 8;
+      vor.disabled = spur.scrollLeft + spur.clientWidth > spur.scrollWidth - 8;
+    };
+    spur.addEventListener("scroll", knoepfe, { passive: true });
+    auswahl.append(spur, zurueck, vor);
+    wirt.append(auswahl);
+    window.LernappTurnier?.hinweis?.(turniere);
+    window.requestAnimationFrame(knoepfe);
 
     // --- Die Ergebnisse --------------------------------------------------------
     let listen = new Map();
+    let alle = [];
     let geladen = false;
     let ladefehler = false;
     const ansehen = new Map();
+    // Was gerade in einem Fenster steht und neu gezeichnet wird, sobald die
+    // Ergebnisse da sind.
+    const offeneFenster = new Set();
 
     function kachelBauen(spiel) {
       const k = el("button", "ar-kachel");
       k.type = "button";
-      k.setAttribute("role", "listitem");
       k.dataset.spiel = spiel;
       const f = farbe(spiel);
       k.style.setProperty("--mini-farbe", f.hell);
@@ -1830,10 +1803,9 @@
       bild.decoding = "async";
       bild.src = filmPfad(spiel, "webp");
       bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
-      const text = el("span", "ar-kachel-text");
-      text.append(el("span", "ar-kachel-titel", titel(spiel)), el("span", "ar-kachel-rekord", "…"));
+      const name = el("span", "ar-kachel-titel", titel(spiel));
       const zeit = el("span", "ar-zeit");
-      k.append(bild, text, zeit);
+      k.append(bild, name, zeit);
       k.setAttribute("aria-label", titel(spiel));
       k.addEventListener("click", () => waehle(spiel, { von: k, selbst: true }));
       // Am Computer: der Film läuft schon in der Kachel, solange die Maus
@@ -1844,7 +1816,7 @@
         vorschau = filmKnoten("ar-kachel-film");
         vorschau.src = filmPfad(spiel, "mp4");
         vorschau.addEventListener("playing", () => k.classList.add("spielt"), { once: true });
-        k.insertBefore(vorschau, text);
+        k.insertBefore(vorschau, name);
         spiele(vorschau);
       });
       k.addEventListener("pointerleave", () => {
@@ -1855,73 +1827,72 @@
       return k;
     }
 
-    function rekordText(spiel) {
-      if (ladefehler) return "";
-      if (!geladen) return "…";
-      const oben = (listen.get(spiel) || [])[0];
-      return oben ? `${oben.punkte} ${einheit(spiel)} · ${oben.name}` : "Rekord frei";
+    // Der Knopf zur Rangliste: die Krone und wer vorne liegt.
+    function rangKnopf() {
+      rang.innerHTML = "";
+      const oben = (listen.get(aktuell) || [])[0];
+      rang.append(mitIcon("span", "ar-rang-krone", "krone"));
+      const text = el("span", "ar-rang-text");
+      if (ladefehler) text.append(el("strong", "", "Rangliste"));
+      else if (!geladen) text.append(el("strong", "", "…"));
+      else if (!oben) text.append(el("strong", "", "Rekord frei"));
+      else text.append(el("strong", "", oben.name), el("span", "", String(oben.punkte)));
+      rang.append(text);
+      rang.classList.toggle("ist-frei", geladen && !ladefehler && !oben);
+      rang.title = oben ? `Rangliste – vorne: ${oben.name} mit ${oben.punkte} ${einheit(aktuell)}` : "Rangliste";
+      rang.setAttribute("aria-label", rang.title);
     }
 
-    function kachelnAuffrischen() {
-      kacheln.forEach((k, spiel) => {
-        const zeile = k.querySelector(".ar-kachel-rekord");
-        const oben = (listen.get(spiel) || [])[0];
-        zeile.textContent = rekordText(spiel);
-        zeile.classList.toggle("ist-frei", geladen && !oben);
-      });
+    // Die Rangliste eines Spiels, im Fenster: alle, mit dem ▶ bei jedem,
+    // dessen Lauf es gibt.
+    function ranglisteZeigen(spiel) {
+      const wirtListe = el("div", "ar-rangliste");
+      const zeichne = () => {
+        wirtListe.innerHTML = "";
+        if (ladefehler) { wirtListe.append(el("p", "mini-hinweis", "Die Rangliste ist gerade nicht zu haben. Probier es später noch einmal.")); return; }
+        if (!geladen) { wirtListe.append(el("p", "mini-hinweis", "Wird geladen...")); return; }
+        const liste = listen.get(spiel) || [];
+        if (!ansehen.has(spiel)) ansehen.set(spiel, ansehenFuer(spiel, () => listen.get(spiel) || [], () => offeneFenster.forEach((z) => z())));
+        const fuer = ansehen.get(spiel);
+        wirtListe.append(bestenliste(liste, spiel, { ansehen: fuer }));
+        fuer.frage();
+      };
+      zeichne();
+      offeneFenster.add(zeichne);
+      const dlg = fenster(titel(spiel), wirtListe, { ueber: "Rangliste", klasse: "ist-rangliste" });
+      dlg.addEventListener("close", () => offeneFenster.delete(zeichne));
     }
+    rang.addEventListener("click", () => ranglisteZeigen(aktuell));
 
-    // Die Bestenliste der Bühne: die ersten fünf und der eigene Eintrag, und
-    // auf Wunsch alle – mit dem ▶ bei jedem, dessen Lauf es gibt.
-    let ganz = false;
-    function tafelZeichnen() {
-      const spiel = aktuell;
-      tafel.innerHTML = "";
-      const kopfTafel = el("div", "ar-tafel-kopf");
-      kopfTafel.append(mitIcon("span", "ar-tafel-titel", "krone", "Bestenliste"));
-      const liste = listen.get(spiel) || [];
-      if (geladen && liste.length) kopfTafel.append(el("span", "ar-tafel-zahl", zahlWort(liste.length, "Spieler", "Spieler")));
-      tafel.append(kopfTafel);
-      if (ladefehler) {
-        tafel.append(el("p", "ar-tafel-hinweis", "Die Bestenliste ist gerade nicht zu haben. Probier es später noch einmal."));
-        return;
-      }
-      if (!geladen) {
-        tafel.append(el("p", "ar-tafel-hinweis", "Wird geladen..."));
-        return;
-      }
-      if (!ansehen.has(spiel)) ansehen.set(spiel, ansehenFuer(spiel, () => (ganz ? liste : gezeigteEintraege(liste, 5)), () => { if (aktuell === spiel) tafelZeichnen(); }));
-      const fuer = ansehen.get(spiel);
-      const wirtListe = el("div", "ar-tafel-liste");
-      wirtListe.append(bestenliste(liste, spiel, ganz ? { ansehen: fuer } : { max: 5, ansehen: fuer }));
-      tafel.append(wirtListe);
-      fuer.frage();
-      if (liste.length > 5) {
-        const mehr = mitIcon("button", "gk-mehr ar-mehr", "pfeil", ganz ? "Nur die ersten fünf" : `Alle ${liste.length} zeigen`);
-        mehr.type = "button";
-        mehr.setAttribute("aria-expanded", String(ganz));
-        mehr.addEventListener("click", () => { ganz = !ganz; tafelZeichnen(); });
-        tafel.append(mehr);
-      }
-    }
+    // Die Gesamtwertung über alle Spiele, im Fenster.
+    pokal.addEventListener("click", () => {
+      const wirtTabelle = el("div", "ar-gesamt");
+      const zeichne = () => {
+        wirtTabelle.innerHTML = "";
+        if (ladefehler) wirtTabelle.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
+        else if (!geladen) wirtTabelle.append(el("p", "mini-hinweis", "Wird geladen..."));
+        else wirtTabelle.append(spielerTabelle(auswertung(alle, offen)));
+      };
+      zeichne();
+      offeneFenster.add(zeichne);
+      const dlg = fenster("Gesamtwertung", wirtTabelle, { ueber: "Alle Spiele", klasse: "ist-gesamt" });
+      dlg.addEventListener("close", () => offeneFenster.delete(zeichne));
+    });
 
-    // --- Ein Spiel auf die Bühne -------------------------------------------
+    // --- Ein Spiel nach oben ---------------------------------------------------
     let aktuell = "";
     let ebene = 0;
+    let format = "";
     let selbstGewaehlt = Boolean(gewuenscht || herkunft || zuletzt);
 
-    function waehle(spiel, { von = null, selbst = false, sofort = false } = {}) {
+    function waehle(spiel, { von = null, selbst = false, sofort = false, richtung = 0 } = {}) {
       if (selbst) {
         selbstGewaehlt = true;
         uhr.stopp();
       }
-      if (spiel === aktuell && !sofort) {
-        if (selbst) zurBuehne();
-        return;
-      }
+      if (spiel === aktuell && !sofort) return;
       const vorher = aktuell;
       aktuell = spiel;
-      ganz = false;
       const f = farbe(spiel);
       wirt.style.setProperty("--ar-farbe", f.hell);
       wirt.style.setProperty("--mini-farbe", f.hell);
@@ -1930,70 +1901,70 @@
         k.classList.toggle("ist-aktiv", s === spiel);
         k.setAttribute("aria-current", s === spiel ? "true" : "false");
       });
-      // Der neue Film kommt auf die freie Ebene und blendet über die alte.
+
+      // Der neue Film kommt auf die freie Ebene und blendet über die alte –
+      // nach einem Wisch gleitet er von der Seite herein.
       const alt = ebenen[ebene];
       ebene = 1 - ebene;
       const neu = ebenen[ebene];
-      neu.poster = filmPfad(spiel, "webp");
-      neu.src = filmPfad(spiel, "mp4");
+      neu.poster = filmPfad(spiel, "webp", format);
+      neu.src = filmPfad(spiel, "mp4", format);
       neu.currentTime = 0;
       spiele(neu);
+      schein.src = filmPfad(spiel, "webp", format);
+      if (richtung && !ruhigHier() && neu.animate) {
+        filme.classList.add("ist-wisch");
+        const weite = 18 * richtung;
+        const art = { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
+        neu.animate([{ transform: `translateX(${weite}%)`, opacity: 0 }, { transform: "none", opacity: 1 }], art);
+        alt.animate([{ transform: "none", opacity: 1 }, { transform: `translateX(${-weite}%)`, opacity: 0 }], art)
+          .finished.then(() => filme.classList.remove("ist-wisch"), () => filme.classList.remove("ist-wisch"));
+      }
       neu.classList.add("ist-an");
       alt.classList.remove("ist-an");
       window.setTimeout(() => { if (!alt.classList.contains("ist-an")) alt.pause(); }, 700);
 
-      // Der Text: kurz weg, und neu herein.
-      ueber.textContent = BEREICHE[hs()?.spiel?.(spiel)?.bereich] || "";
       titelZeile.textContent = titel(spiel);
-      satz.textContent = SAETZE[spiel] || "";
       play.href = spielLink(spiel);
       play.title = `${titel(spiel)} spielen`;
       play.setAttribute("aria-label", play.title);
-      rekordZeile();
-      inhalt.classList.remove("ist-neu");
-      tafel.classList.remove("ist-neu");
-      void inhalt.offsetWidth;
-      if (vorher) { inhalt.classList.add("ist-neu"); tafel.classList.add("ist-neu"); }
-      tafelZeichnen();
+      rangKnopf();
+      if (vorher) {
+        leiste.classList.remove("ist-neu");
+        void leiste.offsetWidth;
+        leiste.classList.add("ist-neu");
+      }
 
-      // Ist die Bühne im Bild, fliegt die Kachel hinauf; sonst geht die Seite
-      // zur Bühne, und dort blendet der Film über.
-      if (selbst && !zurBuehne() && von) flug(von);
+      zeigeKachel(kacheln.get(spiel), Boolean(vorher));
+      if (selbst && von) flug(von);
       if (!selbstGewaehlt) uhr.weiter();
     }
 
-    // Steht die Bühne nicht gut im Bild, scrollt die Seite hinauf. Sagt, ob sie
-    // es tat.
-    function zurBuehne() {
-      const r = buehne.getBoundingClientRect();
-      const sichtbar = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
-      if (sichtbar > Math.min(r.height, window.innerHeight) * 0.6) return false;
-      window.scrollTo({ top: 0, behavior: ruhigHier() ? "auto" : "smooth" });
-      return true;
+    // Das nächste oder das vorige Spiel – nach einem Wisch oder einer
+    // Pfeiltaste. Am Ende geht es vorne weiter.
+    function blaettere(richtung) {
+      const i = reihenfolge.indexOf(aktuell);
+      const n = reihenfolge.length;
+      waehle(reihenfolge[(i + richtung + n) % n], { selbst: true, richtung });
     }
 
-    function rekordZeile() {
-      rekord.innerHTML = "";
-      const oben = (listen.get(aktuell) || [])[0];
-      if (!geladen || ladefehler) return;
-      if (!oben) {
-        rekord.append(mitIcon("span", "ar-rekord-marke ist-frei", "krone", "Der Rekord ist noch frei"));
-        return;
-      }
-      const marke = mitIcon("span", "ar-rekord-marke", "krone");
-      const text = el("span", "ar-rekord-text");
-      text.append(el("strong", "", `${oben.punkte} ${einheit(aktuell)}`), el("span", "", oben.name));
-      rekord.append(marke, text);
+    // Die Kachel des Spiels oben ist in der Zeile zu sehen.
+    function zeigeKachel(k, sanft) {
+      if (!k) return;
+      const links = k.offsetLeft;
+      const rechtsRand = links + k.offsetWidth;
+      if (links >= spur.scrollLeft && rechtsRand <= spur.scrollLeft + spur.clientWidth) return;
+      spur.scrollTo({ left: Math.max(0, links - (spur.clientWidth - k.offsetWidth) / 2), behavior: sanft && !ruhigHier() ? "smooth" : "auto" });
     }
 
-    // Die Kachel fliegt auf die Bühne: ihr Bild, vom Platz in der Reihe bis
-    // über die ganze Bühne – nur wenn beide im Bild sind.
+    // Die Kachel fliegt nach oben: ihr Bild, vom Platz in der Zeile bis über
+    // die ganze Fläche des Films.
     function flug(von) {
       if (ruhigHier() || !von.animate) return;
       const bild = von.querySelector(".ar-kachel-bild");
       const a = von.getBoundingClientRect();
       const b = filme.getBoundingClientRect();
-      if (!bild || b.bottom < 40 || a.top > window.innerHeight) return;
+      if (!bild || !b.width || !b.height) return;
       const klon = bild.cloneNode();
       klon.className = "ar-flug";
       klon.removeAttribute("loading");
@@ -2002,20 +1973,31 @@
       const sx = a.width / b.width;
       const sy = a.height / b.height;
       klon.animate([
-        { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${sx}, ${sy})`, opacity: 1, borderRadius: "14px" },
-        { transform: "translate(0, 0) scale(1, 1)", opacity: 1, borderRadius: "0px", offset: 0.75 },
-        { transform: "translate(0, 0) scale(1, 1)", opacity: 0, borderRadius: "0px" },
-      ], { duration: 720, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished.then(() => klon.remove(), () => klon.remove());
+        { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${sx}, ${sy})`, opacity: 1, borderRadius: "10px" },
+        { transform: "translate(0, 0) scale(1, 1)", opacity: 1, borderRadius: "18px", offset: 0.7 },
+        { transform: "translate(0, 0) scale(1, 1)", opacity: 0, borderRadius: "18px" },
+      ], { duration: 640, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }).finished.then(() => klon.remove(), () => klon.remove());
     }
 
-    // Die Uhr der Bühne: Solange niemand selbst wählt, kommt alle paar
-    // Sekunden der nächste Favorit – nur wenn die Bühne zu sehen ist, die
-    // Seite vorne und keine Maus darauf liegt.
+    // Welcher Film in die Fläche gehört (filmFuer). Ändert sich das Format –
+    // das Handy gedreht, das Fenster schmaler –, kommt der andere Film.
+    function passeFilm() {
+      const r = filme.getBoundingClientRect();
+      const wahl = filmFuer(r.width, r.height);
+      filme.classList.toggle("ist-voll", wahl.fuellt);
+      if (wahl.format === format) return;
+      format = wahl.format;
+      filme.dataset.format = format;
+      if (aktuell) waehle(aktuell, { sofort: true });
+    }
+
+    // Die Uhr: Solange niemand selbst wählt, kommt alle paar Sekunden der
+    // nächste Favorit – nur wenn die Seite vorne ist und keine Maus auf der
+    // Bühne oder der Zeile liegt.
     const uhr = (() => {
       let zeitgeber = null;
-      let sichtbar = true;
       let drauf = false;
-      const darf = () => !signal.aborted && !selbstGewaehlt && sichtbar && !drauf && document.visibilityState === "visible" && !ruhigHier();
+      const darf = () => !signal.aborted && !selbstGewaehlt && !drauf && document.visibilityState === "visible" && !ruhigHier();
       const naechster = () => {
         const liste = favoriten.length > 1 ? favoriten : reihenfolge;
         const i = liste.indexOf(aktuell);
@@ -2036,71 +2018,111 @@
           window.clearTimeout(zeitgeber);
           kacheln.forEach((k) => k.classList.remove("ist-uhr"));
         },
-        sicht(wert) { sichtbar = wert; if (darf()) this.weiter(); else this.stopp(); },
         maus(wert) { drauf = wert; if (darf()) this.weiter(); else this.stopp(); },
       };
     })();
-    buehne.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") uhr.maus(true); });
-    buehne.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") uhr.maus(false); });
-    // Wer die Bühne berührt oder die Seite bewegt, liest – dann bleibt das
-    // Spiel stehen, für immer.
-    const bleib = () => { selbstGewaehlt = true; uhr.stopp(); };
-    buehne.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse") bleib(); });
-    const beimScrollen = () => {
-      if (window.scrollY < 60) return;
-      bleib();
-      window.removeEventListener("scroll", beimScrollen);
-    };
-    window.addEventListener("scroll", beimScrollen, { passive: true, signal });
+    [buehne, auswahl].forEach((teil) => {
+      teil.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") uhr.maus(true); });
+      teil.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") uhr.maus(false); });
+      // Wer mit dem Finger auf die Bühne oder in die Zeile kommt, sucht
+      // selbst – dann bleibt das Spiel stehen.
+      teil.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse") return;
+        selbstGewaehlt = true;
+        uhr.stopp();
+      });
+    });
+
+    // Ein Wisch über den Film: nach links das nächste Spiel, nach rechts das
+    // vorige.
+    let wisch = null;
+    filme.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      wisch = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    });
+    filme.addEventListener("pointerup", (e) => {
+      if (!wisch || e.pointerId !== wisch.id) return;
+      const dx = e.clientX - wisch.x;
+      const dy = e.clientY - wisch.y;
+      wisch = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+      blaettere(dx < 0 ? 1 : -1);
+    });
+    filme.addEventListener("pointercancel", () => { wisch = null; });
+    // Am Computer: die Pfeiltasten – solange kein Fenster offen ist und
+    // niemand in ein Feld schreibt.
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || document.querySelector("dialog[open]")) return;
+      if (e.target?.closest?.("input, textarea, [contenteditable='true']")) return;
+      e.preventDefault();
+      blaettere(e.key === "ArrowRight" ? 1 : -1);
+    }, { signal });
+
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") { spiele(ebenen[ebene]); uhr.weiter(); } else { ebenen.forEach((v) => v.pause()); uhr.stopp(); }
     }, { signal });
-    if ("IntersectionObserver" in window) {
-      const imBild = new IntersectionObserver(([e]) => {
-        uhr.sicht(e.isIntersecting);
-        if (e.isIntersecting) spiele(ebenen[ebene]); else ebenen[ebene].pause();
-      }, { threshold: 0.25 });
-      imBild.observe(buehne);
-      signal.addEventListener("abort", () => imBild.disconnect());
-    }
-    // Abgebaut: Uhr aus, und die Filme laden nicht weiter.
-    signal.addEventListener("abort", () => {
-      uhr.stopp();
-      ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
-    });
     // Wer Play drückt, kommt danach hierher zurück – auf dieses Spiel.
     play.addEventListener("click", () => {
       try { sessionStorage.setItem(ZULETZT_KEY, aktuell); } catch { /* egal */ }
     });
-    // Dreht jemand das Handy, passt das Format der Filme nicht mehr.
-    HOCHKANT.addEventListener?.("change", () => {
-      kacheln.forEach((k, s) => { k.querySelector(".ar-kachel-bild").src = filmPfad(s, "webp"); });
-      waehle(aktuell, { sofort: true });
-    }, { signal });
 
+    // «Als App installieren»: wo es geht, ein Knopf oben rechts; der Weg
+    // dorthin steht im Fenster. pwa.js steht hinter dieser Datei und ist
+    // womöglich noch nicht gelaufen – dann wird gewartet, bis die Seite
+    // geladen ist.
+    const appKnopf = () => {
+      if (signal.aborted) return;
+      const karte = installBlock();
+      if (!karte) return;
+      const knopfApp = rundKnopf("ar-app", "app", "Als App installieren");
+      knopfApp.setAttribute("aria-haspopup", "dialog");
+      knopfApp.addEventListener("click", () => {
+        const dlg = fenster("Als App installieren", karte, { klasse: "ist-app" });
+        // Installiert oder weggetippt: Die Karte nimmt sich selbst weg, und
+        // mit ihr gehen Fenster und Knopf.
+        const wache = new MutationObserver(() => {
+          if (karte.isConnected) return;
+          wache.disconnect();
+          dlg.close();
+          knopfApp.remove();
+        });
+        wache.observe(dlg, { childList: true, subtree: true });
+        dlg.addEventListener("close", () => wache.disconnect());
+      });
+      rechts.insertBefore(knopfApp, pokal);
+    };
+    if (pwa() || document.readyState === "complete") appKnopf();
+    else window.addEventListener("load", appKnopf, { once: true, signal });
+
+    // Abgebaut: Uhr aus, und die Filme laden nicht weiter.
+    const groesse = "ResizeObserver" in window ? new ResizeObserver(() => passeFilm()) : null;
+    if (groesse) groesse.observe(filme);
+    else window.addEventListener("resize", passeFilm, { signal });
+    signal.addEventListener("abort", () => {
+      uhr.stopp();
+      groesse?.disconnect();
+      ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
+    });
+
+    passeFilm();
     waehle(start, { sofort: true });
 
     // Jetzt die Ergebnisse – die Filme laufen schon.
-    let alle = [];
     try {
       alle = await alleErgebnisse(offen, { neu: true });
     } catch {
       if (signal.aborted) return;
       ladefehler = true;
-      kachelnAuffrischen();
-      tafelZeichnen();
-      gesamtInhalt.innerHTML = "";
-      gesamtInhalt.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
+      rangKnopf();
+      offeneFenster.forEach((z) => z());
       return;
     }
     if (signal.aborted) return;
     listen = new Map(offen.map((spiel) => [spiel, rangliste(alle.filter((e) => e.game === spiel))]));
     geladen = true;
-    kachelnAuffrischen();
-    rekordZeile();
-    tafelZeichnen();
-    gesamtInhalt.innerHTML = "";
-    gesamtInhalt.append(spielerTabelle(auswertung(alle, offen)));
+    rangKnopf();
+    offeneFenster.forEach((z) => z());
   }
 
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein

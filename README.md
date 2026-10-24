@@ -130,27 +130,33 @@ keine Runde mehr, die man jemandem schickt.
 
 ### Die Startseite: alae arcade
 
-Dunkel, wie alae.app, und gebaut wie eine Streaming-Seite (`mini-games.js`,
-`baueUebersicht`):
+Dunkel, wie alae.app, und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
+hoch wie quer (`mini-games.js`, `baueUebersicht`):
 
-- **Die Bühne:** ein Spiel gross, als laufender Film, darauf sein Name, ein
-  Satz, wie man es spielt (`SAETZE`), der Knopf «Spielen» und der Rekord –
-  daneben (auf dem Handy darunter) seine Bestenliste: die ersten fünf und der
-  eigene Eintrag, mit Krone, Medaillen, «Du», einem Balken bis zum Rekord und
-  dem ▶ zum Anschauen. Die Farbe des Spiels leuchtet durch die Seite.
-- **Die Reihen:** alle freigegebenen Spiele, nach Tier (Favoriten, Beliebt,
-  Zum Entdecken), als Kacheln mit Standbild und Rekord. Ein Tipp holt das
-  Spiel auf die Bühne – die Kachel fliegt hinauf, der Film blendet über. Am
-  Computer läuft der Film schon in der Kachel unter der Maus.
-- **Von selbst:** Solange niemand wählt, geht die Bühne alle neun Sekunden
-  zum nächsten Favoriten (ein Strich unter der Kachel zeigt die Zeit). Wer aus
-  einem Spiel zurückkommt, sieht dieses Spiel – und seinen Platz.
-- **Oben:** die Marke, der Name (ein Tipp ändert ihn), das Vollbild. Darunter,
-  wenn es welche gibt, die laufenden Turniere.
-- **Ganz unten, zugeklappt:** die Gesamtwertung über alle Spiele.
+- **Oben der Film:** das gewählte Spiel als laufender Film, frei, ohne Text
+  darauf. Es läuft der Film (quer oder hoch), der in der Fläche grösser
+  erscheint; er steht ganz darin und füllt sie nur, wo seine Form fast passt
+  (`filmFuer`). Dahinter liegt sein Standbild, verschwommen. Ein Wisch nach
+  links zeigt das nächste Spiel, nach rechts das vorige (am Computer auch die
+  Pfeiltasten).
+- **Die Leiste:** hochkant unter dem Film, quer daneben – der Name des
+  Spiels, der Knopf zur Rangliste mit dem Namen des Ersten und der runde
+  Play-Knopf. Die Rangliste öffnet sich im Fenster: alle Plätze, mit Krone,
+  Medaillen, «Du» und dem ▶ zum Anschauen.
+- **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
+  zuerst), als kleine Kacheln mit Standbild und Namen; vorne die laufenden
+  Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
+  Am Computer läuft der Film schon in der Kachel unter der Maus.
+- **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
+  Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
+  zurückkommt, sieht dieses Spiel.
+- **Oben rechts:** der Pokal (die Gesamtwertung über alle Spiele, im
+  Fenster), wo es geht «Als App installieren», der Name (ein Tipp ändert ihn)
+  und das Vollbild. Links das Logo von alae.app (aus dessen Logo-Paket) mit
+  «arcade».
 
-Wer weniger Bewegung eingestellt hat, sieht Standbilder, und die Bühne
-wechselt nicht von selbst.
+Wer weniger Bewegung eingestellt hat, sieht Standbilder, und oben wechselt
+nichts von selbst.
 
 **Die Filme** sind echte Runden: `npm run filme` (scripts/filme-aufnehmen.mjs)
 lässt jedes Spiel von einem Autopiloten spielen
