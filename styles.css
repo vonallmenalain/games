@@ -3347,6 +3347,360 @@ h2 {
 .mini-karte-aktionen { display: flex; gap: 8px; margin-top: auto; }
 .mini-karte .mini-knopf-voll { flex: 1; }
 
+/* --- Die Spielkachel (mini-games.js, kachel; der Film: vorschau.js) -------- */
+/* Oben der Film, daran der runde Play-Knopf, darunter Name, Satz und die
+   Bestenliste. Die Karte hat keinen Innenabstand: Der Film reicht bis an
+   ihre Kanten, und erst der Körper darunter rückt ein. */
+/* Solange erst einzelne Spiele eine Kachel haben, ist sie höher als die
+   Karten daneben – die sollen dann nicht mit in die Länge gezogen werden. */
+.mini-karten:has(> .gk-karte) { align-items: start; }
+.mini-karte.gk-karte {
+  padding: 0;
+  gap: 0;
+  border: 0;
+  box-shadow: 0 1px 2px rgba(36, 48, 71, 0.06), 0 14px 34px rgba(36, 48, 71, 0.12);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.28s ease;
+}
+.gk-karte:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 4px rgba(36, 48, 71, 0.06), 0 22px 44px rgba(36, 48, 71, 0.16);
+}
+
+.gk-oben { position: relative; }
+/* Bis der Film zum ersten Mal zeichnet, steht dort sein Himmel. */
+.gk-buehne {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(#79c7ee, #dff2fc);
+  isolation: isolate;
+}
+/* Ein Hauch Schatten an der Unterkante: Der Film sitzt in der Karte, nicht
+   auf ihr. */
+.gk-buehne::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 -28px 36px -30px rgba(17, 24, 39, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+.gk-film {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gk-karte:hover .gk-film { transform: scale(1.035); }
+/* Gesperrt (im Turnier): Der Film läuft, aber gedämpft. */
+.gk-buehne.ist-zu .gk-film { filter: saturate(0.7) brightness(0.9); }
+
+/* Der Play-Knopf: halb auf dem Film, halb auf der Karte, wo der Daumen
+   hinwill – und der Film bleibt frei. */
+.gk-play {
+  position: absolute;
+  right: 16px;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background-color: var(--mini-farbe, var(--mini-ton));
+  background-image:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 58%),
+    linear-gradient(160deg, var(--mini-farbe, var(--mini-ton)), var(--mini-farbe-dunkel, var(--mini-ton-dunkel)));
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(36, 48, 71, 0.28), 0 2px 4px rgba(36, 48, 71, 0.18);
+  transform: translateY(50%);
+  transition: transform 0.22s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.22s ease;
+}
+.gk-play .gk-icon { width: 28px; height: 28px; margin-left: 3px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18)); }
+/* Ein Ring, der aufgeht: Hier geht es los. */
+.gk-play::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid var(--mini-farbe, var(--mini-ton));
+  opacity: 0;
+  animation: gk-puls 2.6s cubic-bezier(0.2, 0.7, 0.3, 1) 1.2s infinite;
+  pointer-events: none;
+}
+.gk-karte:hover .gk-play,
+.gk-play:focus-visible {
+  transform: translateY(50%) scale(1.08);
+  box-shadow: 0 14px 28px rgba(36, 48, 71, 0.32), 0 3px 6px rgba(36, 48, 71, 0.18);
+}
+.gk-play:active { transform: translateY(50%) scale(0.95); }
+.gk-play:focus-visible { outline: 3px solid var(--mini-farbe-dunkel, var(--mini-ton-dunkel)); outline-offset: 3px; }
+@keyframes gk-puls {
+  0% { transform: scale(1); opacity: 0.75; }
+  70%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* An Stelle des Knopfs, wenn gerade nicht gespielt werden darf. */
+.gk-sperre {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  background: rgba(23, 31, 48, 0.74);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.25);
+}
+.gk-sperre .gk-icon { width: 15px; height: 15px; }
+.gk-sperre.ist-vorne { background: linear-gradient(145deg, #ffe27a, #f5b416); color: #6b4200; }
+
+.gk-icon { display: inline-grid; place-items: center; flex: 0 0 auto; }
+.gk-icon svg { display: block; width: 100%; height: 100%; fill: currentColor; }
+
+.gk-koerper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+.gk-kopf { min-width: 0; }
+.gk-titel {
+  margin: 0;
+  /* Rechts daneben ragt der Play-Knopf herein. */
+  padding-right: 66px;
+  font-size: 1.28rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #1f2a3d;
+}
+.gk-satz {
+  margin: 3px 0 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #667085;
+}
+.gk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.gk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f2f4f8;
+  color: #4a5568;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.gk-chip .gk-icon { width: 15px; height: 15px; color: var(--mini-farbe-dunkel, var(--mini-ton-dunkel)); }
+
+/* Die Bestenliste der Kachel. Hinter jeder Zeile ein Balken: wie weit sie
+   vom Rekord weg ist (--gk-anteil). */
+.gk-listen-wirt { display: flex; flex-direction: column; }
+.gk-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gk-zeile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 14px;
+  background: #f5f6f9;
+  color: #243047;
+  font-weight: 800;
+}
+.gk-liste.mit-ansehen .gk-zeile { grid-template-columns: 30px minmax(0, 1fr) auto 30px; padding-right: 8px; }
+.gk-zeile::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: var(--gk-anteil, 0%);
+  border-radius: inherit;
+  background: var(--mini-farbe, var(--mini-ton));
+  opacity: 0.13;
+}
+/* Der Rekord: grösser, warm, mit dem Wort darüber. */
+.gk-zeile.ist-platz-1 { padding-top: 10px; padding-bottom: 10px; background: #fff7e3; }
+.gk-zeile.ist-platz-1::before { background: #f5b416; opacity: 0.16; }
+.gk-zeile.ist-platz-1 .gk-name::before {
+  content: "Rekord";
+  position: absolute;
+  top: -12px;
+  left: 0;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c98a00;
+}
+.gk-zeile.ist-platz-1 .gk-name { position: relative; top: 5px; }
+.gk-zeile.ist-platz-1 .gk-wert { font-size: 1.4rem; }
+.gk-zeile.ist-ich { background: #fff; box-shadow: inset 0 0 0 2px var(--mini-farbe, var(--mini-ton)); }
+
+.gk-marke {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #e4e7ee;
+  color: #667085;
+  font-size: 0.86rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.gk-marke .gk-icon { width: 17px; height: 17px; }
+.gk-zeile.ist-platz-1 .gk-marke {
+  background: linear-gradient(145deg, #ffe58a, #f5b416);
+  color: #7a4b00;
+  box-shadow: 0 3px 9px rgba(245, 180, 22, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+}
+.gk-zeile.ist-platz-2 .gk-marke {
+  background: linear-gradient(145deg, #f7f8fb, #c3c9d6);
+  color: #4a5466;
+  box-shadow: 0 3px 8px rgba(110, 120, 140, 0.35), inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+.gk-zeile.ist-platz-3 .gk-marke {
+  background: linear-gradient(145deg, #f8d8b8, #cf8650);
+  color: #5e3415;
+  box-shadow: 0 3px 8px rgba(207, 134, 80, 0.38), inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+}
+.gk-name { display: flex; align-items: center; min-width: 0; }
+.gk-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gk-du {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mini-farbe, var(--mini-ton));
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+.gk-wert {
+  font-size: 1.12rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+.gk-einheit { margin-left: 4px; font-size: 0.7rem; font-weight: 700; color: #7b8494; }
+/* Der ▶ der Zeile – klein und still neben dem grossen Play-Knopf: Er spielt
+   nicht, er zeigt, wie der andere gespielt hat. */
+.gk-ansehen {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--mini-farbe-dunkel, var(--mini-ton-dunkel));
+  box-shadow: 0 1px 3px rgba(36, 48, 71, 0.16), inset 0 0 0 1.5px rgba(36, 48, 71, 0.07);
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.gk-ansehen .gk-icon { width: 13px; height: 13px; margin-left: 2px; }
+.gk-ansehen:hover,
+.gk-ansehen:focus-visible { background: var(--mini-farbe, var(--mini-ton)); color: #fff; transform: scale(1.08); outline: none; }
+.gk-ansehen-leer { width: 30px; }
+.gk-luecke {
+  color: #a6adbb;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  line-height: 0.7;
+  text-align: center;
+}
+.gk-leer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 2px dashed #e1e4ec;
+}
+.gk-leer-krone {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff4d6;
+  color: #f0b429;
+}
+.gk-leer-krone .gk-icon { width: 20px; height: 20px; }
+.gk-leer-text { display: flex; flex-direction: column; font-size: 0.82rem; font-weight: 700; color: #667085; }
+.gk-leer-text strong { font-size: 0.94rem; font-weight: 900; color: #243047; }
+.gk-verdeckt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f5f6f9;
+  color: #667085;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.gk-verdeckt .gk-icon { width: 18px; height: 18px; }
+.gk-mehr {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: -4px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--mini-farbe-dunkel, var(--mini-ton-dunkel));
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.gk-mehr:hover,
+.gk-mehr:focus-visible { background: #f2f4f8; outline: none; }
+.gk-mehr .gk-icon { width: 18px; height: 18px; transition: transform 0.2s ease; }
+.gk-mehr[aria-expanded="true"] .gk-icon { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gk-karte,
+  .gk-film,
+  .gk-play { transition: none; }
+  .gk-karte:hover,
+  .gk-karte:hover .gk-film { transform: none; }
+  .gk-karte:hover .gk-play { transform: translateY(50%); }
+  .gk-play::before { animation: none; }
+}
+
 .mini-tabelle {
   width: 100%;
   border-collapse: collapse;

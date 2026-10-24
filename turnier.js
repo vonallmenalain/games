@@ -649,6 +649,7 @@
   }
 
   function spielKarte(t, spiel, liste, eintraege, { jetzt, verdeckt }) {
+    if (window.LernappVorschau?.hat?.(spiel) && mini()?.kachel) return spielKachel(t, spiel, liste, eintraege, { jetzt, verdeckt });
     const f = mini()?.farbe?.(spiel) || { hell: "#F5A623", dunkel: "#b9741a" };
     const karte = el("article", "mini-karte tn-karte");
     karte.style.setProperty("--mini-farbe", f.hell);
@@ -705,6 +706,40 @@
     }
     if (aktionen.children.length) karte.append(aktionen);
     return karte;
+  }
+
+  // Die Spielkachel mit Film (mini-games.js, kachel): Der Play-Knopf führt ins
+  // Turnier – solange es läuft und Versuche übrig sind. Sonst steht an seiner
+  // Stelle, warum nicht, und der Film läuft trotzdem: Er zeigt, was hier
+  // gespielt wird, auch wenn man gerade nicht darf.
+  function spielKachel(t, spiel, liste, eintraege, { jetzt, verdeckt }) {
+    const kennung = mini()?.kennungFallsDa?.() || "";
+    const meiner = kennung ? eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
+    const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
+    const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
+    const l = lage(t, jetzt);
+    let link = "";
+    let sperre = null;
+    if (t.nurLive) sperre = { text: "Wird im Multiplayer gespielt" };
+    else if (l === "laeuft" && vorne) sperre = { text: "Du liegst vorne", art: "vorne" };
+    else if (l === "laeuft" && uebrig > 0) link = spielLink(t.id, spiel);
+    else if (l === "laeuft") sperre = { text: "Alle Versuche gespielt" };
+    else if (l === "geplant") sperre = { text: `Ab ${datum(t.startMs)}` };
+    else if (l === "angehalten") sperre = { text: "Turnier angehalten" };
+    else sperre = { text: "Turnier vorbei" };
+
+    // Wie viele mitspielen – und kein Satz über den eigenen Stand (wie viele
+    // Versuche übrig sind, wo man liegt): Der steht in der Liste, und die
+    // Versuche je Spiel stehen oben im Streifen.
+    return mini().kachel(spiel, liste, {
+      klasse: "tn-karte",
+      link,
+      sperre,
+      chips: [{ icon: "leute", text: liste.length ? `${liste.length} Spieler` : "noch frei" }],
+      aus: t.id,
+      ansehbar: !t.ohneReplay,
+      verdeckt,
+    });
   }
 
   function gesamtTabelle(t, personen, verdeckt, abende = []) {

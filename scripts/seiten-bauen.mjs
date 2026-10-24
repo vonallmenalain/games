@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-13-19";
+export const FASSUNG = "2026-10-13-20";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -225,10 +225,12 @@ export function seitenSkripte(spiel) {
     ...NACH_DER_KUNST, spiel.js, "pwa.js"];
 }
 
-export const hubSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
+// vorschau.js nur dort, wo Spielkacheln stehen: die kleinen Filme darauf.
+// Es steht vor mini-games.js, das die Kacheln baut und es dabei fragt.
+export const hubSkripte = () => [...SDK, "vorschau.js", ...GEMEINSAM, "pwa.js"];
 // Die Turnierseite: dasselbe wie die Startseite. Was sie zeigt, baut
 // turnier.js aus der Adresse (?t=).
-export const turnierSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
+export const turnierSkripte = () => [...SDK, "vorschau.js", ...GEMEINSAM, "pwa.js"];
 // Der Adminbereich: dasselbe Fundament, dazu die Anmeldung. Kein pwa.js – er
 // gehört nicht in die installierte App, und ein Service Worker, der ihn
 // zwischenspeichert, zeigte beim nächsten Mal alte Zahlen.
