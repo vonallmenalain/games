@@ -197,8 +197,9 @@ bekommt die Kachel, sobald es in `vorschau.js` (`FILME`) einen Film hat.
 Wer spielt, spielt nicht allein: Über der Spielfläche stehen die Schalter
 «Platz 1» und «Bestmarke» (`geist.js`), in den Spielen mit Geist im Bild dazu
 «Alle». Sie sagen vor der Runde, gegen wen es geht, lassen sich an- und
-abschalten (alle sind an, bis man etwas anderes wählt; die Wahl gilt auf dem
-Gerät für alle Spiele) und zeigen während der Runde, wo man gegen den Gegner
+abschalten (zu Beginn ist alles aus – ein Tipp auf einen Schalter blendet
+seinen Gegner ein; die Wahl gilt auf dem Gerät für alle Spiele, gemerkt unter
+`mini.geister`) und zeigen während der Runde, wo man gegen den Gegner
 steht – grün, solange man vor ihm liegt, mit einem Ton, wenn man seine Zahl
 schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
 

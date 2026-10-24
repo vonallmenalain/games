@@ -3494,9 +3494,9 @@ try {
 
   // --- 4k. Gegner beim Spielen (geist.js) -----------------------------------------
   // Platz 1 und die eigene Bestmarke: zwei Schalter über der Spielfläche, die
-  // sagen, gegen wen es geht, und sich abschalten lassen; in den Spielen mit
-  // Geist im Bild ein dritter, «Alle». Mit Aufzeichnung läuft der Gegner mit;
-  // die eigene Runde wird zur nächsten Bestmarke.
+  // sagen, gegen wen es geht; in den Spielen mit Geist im Bild ein dritter,
+  // «Alle». Zu Beginn ist alles aus – ein Tipp blendet den Gegner ein. Mit
+  // Aufzeichnung läuft er mit; die eigene Runde wird zur nächsten Bestmarke.
   const gegnerSchalter = (seite) => seite.evaluate(() => [...document.querySelectorAll(".gs-chip")].map((c) => ({
     text: c.textContent.replace(/\s+/g, " ").trim(),
     an: c.classList.contains("is-an"),
@@ -3522,9 +3522,15 @@ try {
     await seite.waitForFunction(() => window.LernappGeist?.stand?.()[0]?.stand, null, { timeout: 4000 }).catch(() => {});
     let schalter = await gegnerSchalter(seite);
     pruefe(schalter.length === 3 && schalter.every((c) => c.sichtbar), `Im Lianenschwung stehen nicht die drei Gegner-Schalter: ${JSON.stringify(schalter)}`);
-    pruefe(/Alle/.test(schalter[2]?.text) && /1/.test(schalter[2]?.text) && schalter[2]?.an, `«Alle» steht nicht mit einem Lauf da und an: ${schalter[2]?.text}`);
-    // Mia ist Platz 1 und steht unter «Alle» – im Bild aber nur einmal; ist
-    // Platz 1 abgeschaltet, läuft sie unter «Alle» mit.
+    pruefe(/Alle/.test(schalter[2]?.text) && /1/.test(schalter[2]?.text), `«Alle» steht nicht mit einem Lauf da: ${schalter[2]?.text}`);
+    // Zu Beginn ist alles aus: kein Schalter an, kein Geist im Bild.
+    const zuBeginn = await seite.evaluate(() => window.LernappGeist.stand()[0].zeigt);
+    pruefe(schalter.every((c) => !c.an) && zuBeginn.length === 0, `Zu Beginn sind Gegner eingeblendet: ${JSON.stringify({ schalter, zuBeginn })}`);
+    // Ein Tipp auf Platz 1 und auf «Alle» blendet sie ein. Mia ist Platz 1
+    // und steht unter «Alle» – im Bild aber nur einmal; ist Platz 1
+    // abgeschaltet, läuft sie unter «Alle» mit.
+    await seite.click(".gs-erster");
+    await seite.click(".gs-alle");
     const imBild = await seite.evaluate(() => window.LernappGeist.stand()[0]);
     pruefe(imBild?.stand?.alle?.length === 1 && imBild.stand.alle[0].name === "Mia" && imBild.zeigt.join() === "erster:Mia",
       `Unter «Alle» steht nicht Mia, oder sie läuft doppelt mit: ${JSON.stringify({ alle: imBild?.stand?.alle, zeigt: imBild?.zeigt })}`);
@@ -3532,23 +3538,22 @@ try {
     const ohneErsten = await seite.evaluate(() => window.LernappGeist.stand()[0].zeigt);
     pruefe(ohneErsten.join() === "alle:Mia", `Ohne Platz 1 läuft Mia nicht unter «Alle» mit: ${JSON.stringify(ohneErsten)}`);
     await seite.click(".gs-erster");
+    schalter = await gegnerSchalter(seite);
     pruefe(/Platz 1/.test(schalter[0]?.text) && /Mia/.test(schalter[0]?.text) && /30/.test(schalter[0]?.text) && schalter[0]?.an,
       `Platz 1 steht nicht als Gegner da: ${schalter[0]?.text}`);
     pruefe(schalter[1]?.leer && /noch keine/.test(schalter[1]?.text), `Ohne eigene Runde steht trotzdem eine Bestmarke da: ${schalter[1]?.text}`);
     const stand = await seite.evaluate(() => window.LernappGeist.stand()[0].stand);
     pruefe(stand?.erster?.lauf === true, `Der Lauf von Platz 1 läuft nicht mit: ${JSON.stringify(stand)}`);
 
-    // Abschalten bleibt abgeschaltet, auch nach dem Neuladen – und startet
-    // keine Runde.
-    await seite.click(".gs-erster");
-    pruefe(await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.gegner") || "{}").erster) === false, "Platz 1 lässt sich nicht abschalten.");
+    // Eingeschaltet bleibt eingeschaltet, auch nach dem Neuladen – und ein
+    // Tipp auf einen Schalter startet keine Runde.
+    pruefe(await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.geister") || "{}").erster) === true, "Platz 1 bleibt nicht eingeschaltet.");
     pruefe(await seite.evaluate(() => window.LernappLiane.state.phase) === "bereit", "Ein Tipp auf einen Gegner-Schalter hat die Runde gestartet.");
     await seite.reload({ waitUntil: "load" });
     await seite.waitForSelector(".gs-chip", { timeout: 8000 });
     await seite.waitForTimeout(400);
     schalter = await gegnerSchalter(seite);
-    pruefe(schalter[0] && !schalter[0].an, "Nach dem Neuladen ist Platz 1 wieder angeschaltet.");
-    await seite.click(".gs-erster");
+    pruefe(schalter[0]?.an, "Nach dem Neuladen ist Platz 1 wieder ausgeschaltet.");
 
     // Eine kurze Runde: Sie wird aufgezeichnet und ist beim nächsten Mal die
     // Bestmarke, die mitläuft.
@@ -3627,6 +3632,8 @@ try {
       localStorage.setItem("__mini_attrappe", JSON.stringify([eintrag("mini_leoleoleoleo", "Leo", 120), eintrag("mini_noranoranora", "Nora", 80), eintrag("mini_timtimtimtim", "Tim", 60)]));
       const geist = (id, name, punkte) => [`gravityRun_${id}`, { game: "gravityRun", spieler: id, name, punkte, level: "t1", bahn }];
       localStorage.setItem("__mini_geister_attrappe", JSON.stringify([geist("mini_leoleoleoleo", "Leo", 120), geist("mini_noranoranora", "Nora", 80)]));
+      // Alle Gegner eingeschaltet (zu Beginn ist alles aus).
+      localStorage.setItem("mini.geister", JSON.stringify({ erster: true, eigen: true, alle: true }));
     }, LEO);
     await seite.goto(`${BASIS}/schwerkraft`, { waitUntil: "load" });
     await seite.waitForSelector(".gs-chip", { timeout: 8000 });
