@@ -88,6 +88,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
                                man ausscheidet, und vergleicht die Bilder
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
+    scripts/icons-bauen.mjs    rendert das Zeichen der App aus icons/icon.svg
+                               (die zwei alae-Winkel als 8-Bit-Figur) und
+                               icons/favicon.svg in alle Grössen:
+                               npm run icons
 
 ## Ein Spiel dazunehmen
 

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="56 42 400 400" width="400" height="400" shape-rendering="crispEdges">
+  <title>alae arcade (klein)</title>
+  <defs>
+    <radialGradient id="a-licht" cx="50%" cy="48%" r="60%">
+      <stop offset="0" stop-color="#262038"/>
+      <stop offset="0.65" stop-color="#14121c"/>
+      <stop offset="1" stop-color="#0d0c11"/>
+    </radialGradient>
+  </defs>
+  <rect x="56" y="42" width="400" height="400" fill="url(#a-licht)"/>
+  <path fill="#ffffff" d="M156 142h25v25h-25z"/>
+  <path fill="#d3d0df" d="M181 142h25v25h-25zM181 167h25v25h-25zM181 192h50v25h-50zM181 217h50v25h-50z"/>
+  <path fill="#FE7971" d="M306 142h25v25h-25zM306 167h25v25h-25zM281 192h50v25h-50zM281 217h50v25h-50zM256 242h50v25h-50zM256 267h50v25h-50zM231 292h50v25h-50zM231 317h50v25h-50z"/>
+  <path fill="#e9645c" d="M331 142h25v25h-25zM331 167h25v25h-25zM331 192h50v25h-50zM331 217h50v25h-50zM356 242h50v25h-50zM356 267h50v25h-50zM381 292h50v25h-50zM381 317h50v25h-50z"/>
+  <path fill="#ECEDF2" d="M156 167h25v25h-25zM131 192h50v25h-50zM131 217h50v25h-50zM106 242h50v25h-50zM106 267h50v25h-50zM81 292h50v25h-50zM81 317h50v25h-50z"/>
+</svg>
