@@ -3946,6 +3946,38 @@ try {
     pruefe(new URL(seite.url()).pathname === "/", `«Beenden» führt nicht zurück in die Hall of Fame: ${seite.url()}`);
     await kontext.close();
   }
+  // Die Spiele mit Uhr und Figur (Lianenschwung, Hügelflieger): Beim
+  // Zuschauen läuft die Uhr mit, so weit wie die Runde des anderen – der
+  // Balken oben wird kürzer.
+  for (const [adresse, objekt, spiel] of [["liane", "LernappLiane", "vineSwing"], ["huegel", "LernappHuegel", "hillGlide"]]) {
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__uhr")) return;
+      sessionStorage.setItem("__uhr", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/${adresse}`, { waitUntil: "load" });
+    await seite.waitForFunction((o) => window[o]?.state, objekt, { timeout: 8000 });
+    // Eine kurze Runde: drücken, loslassen – der Affe fällt bald ins Wasser,
+    // im Hügelflieger ist danach die Zeit um.
+    await seite.evaluate((o) => window[o].druecken(), objekt);
+    await seite.waitForTimeout(1500);
+    await seite.evaluate((o) => window[o].loslassen(), objekt);
+    await seite.waitForTimeout(1500);
+    if (objekt === "LernappHuegel") await seite.evaluate(() => window.LernappHuegel.zeitUm());
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    await seite.waitForFunction((s) => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith(`${s}_`)), spiel, { timeout: 4000 }).catch(() => {});
+    const kennung = await seite.evaluate(() => localStorage.getItem("mini.id"));
+    await seite.goto(`${BASIS}/${adresse}?zuschauen=${kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction((o) => window[o]?.state?.phase === "zuschauen", objekt, { timeout: 8000 }).catch(() => {});
+    const balken = () => seite.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector(".cm-time-fill")).transform).a);
+    const vorher = await balken();
+    await seite.waitForTimeout(1200);
+    const nachher = await balken();
+    pruefe(await seite.evaluate((o) => window[o].state.phase, objekt) === "zuschauen" && nachher < vorher - 0.01 && nachher > 0,
+      `${adresse}: Beim Zuschauen zählt die Zeit nicht herunter (Balken ${vorher} → ${nachher}).`);
+    await kontext.close();
+  }
   {
     // Die Spiele ohne Figur im Bild lassen sich Zug um Zug anschauen (hier
     // der Turmbau): Die Runde wird mit ihren Zügen und der Saat hinterlegt.

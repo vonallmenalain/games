@@ -256,8 +256,11 @@ Adresse nur «In diesem Turnier lassen sich die Läufe nicht anschauen» – wie
 bei einer verdeckten Rangliste bis zum Schluss. Das Spiel spielt den Lauf ganz ab, in seiner eigenen
 Welt: Die Aufzeichnung trägt die Saat, mit der die Welt gewürfelt war, und im
 Planetenhüpfer auch, wo die Uhr der Planeten stand. Die Figur steht Bild für
-Bild dort, wo sie damals war (`geist.js`, `zuschauer`). Oben steht, wessen
-Lauf das ist, und «Beenden» – jederzeit. Am Schluss eine Tafel mit «Nochmal»
+Bild dort, wo sie damals war (`geist.js`, `zuschauer`). Wo das Spiel eine
+Uhr hat (Lianenschwung, Hügelflieger, Blätter im Strom), läuft sie mit – so
+weit wie die Runde des anderen, auch im Multiplayer, wo man erst mittendrin
+zuschaut (`startClock(rest, fertig, gesamt)` in `game-shell.js`). Oben steht,
+wessen Lauf das ist, und «Beenden» – jederzeit. Am Schluss eine Tafel mit «Nochmal»
 und «Zurück». Welche Fassung der Aufzeichnung zu welchem Spiel gehört, steht
 in `ANSEHBAR` (`mini-games.js`); `npm run pruefen` hält sie mit den Spielen
 gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
