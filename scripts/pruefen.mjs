@@ -452,14 +452,18 @@ pruefe("Tiers: Vorgabe, Speicher, Regel und Adminbereich passen zusammen",
   /const TIERS_VORGABE = \{/.test(miniJs) && /async function setzeTiers\(/.test(lies("cloud.js"))
   && /d\.tiers\.values\(\)\.hasOnly\(\[1, 2, 3\]\)/.test(regeln)
   && /function nachTier\(/.test(lies("admin.js")) && /tierKnopf/.test(lies("admin.js")));
-// In einer Deploy Preview meldet Google über die Live-Adresse an – und das
-// Token geht nur an Vorschauen eigener Pull Requests (kein Fork).
+// In einer Netlify-Vorschau meldet Google über die Live-Adresse an – und das
+// Token geht nur an eigene Vorschauen: die eines Pull Requests aus diesem
+// Repository (kein Fork) und einen Deploy, den Netlify als Stand von main
+// kennt.
 {
   const adminJs = lies("admin.js");
-  pruefe("Adminbereich: Google-Anmeldung in Vorschauen über die Live-Adresse, nur für eigene Pull Requests",
+  pruefe("Adminbereich: Google-Anmeldung in Vorschauen über die Live-Adresse, nur für main und eigene Pull Requests",
     adminJs.includes('const LIVE = "https://games.alae.app";')
-    && /deploy-preview-\(\\d\+\)--gamesrepo\\\.netlify\\\.app\$/.test(adminJs)
+    && adminJs.includes("const VORSCHAU = /^https:\\/\\/(?:deploy-preview-(\\d+)|([0-9a-f]{24}))--gamesrepo\\.netlify\\.app$/;")
     && /head\?\.repo\?\.full_name === REPO/.test(adminJs)
+    && /d\?\.site_id !== NETLIFY_SEITE/.test(adminJs)
+    && /d\.context === "production" && d\.branch === "main"/.test(adminJs)
     && /opener\.postMessage\(\{[^}]*\}, ziel\)/.test(adminJs)
     && /ereignis\.origin !== LIVE/.test(adminJs));
 }

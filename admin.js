@@ -171,18 +171,24 @@
    * Firebase an – signInWithCredential fragt nicht nach der Domain. Dasselbe
    * wie im Entdecker.
    *
-   * Das Token geht nur an Deploy Previews dieses Netlify-Projekts, und nur an
-   * die eines Pull Requests aus diesem Repository selbst. Das Repository ist
-   * öffentlich: Einen Pull Request aus einem Fork kann jeder öffnen, und
-   * seine Vorschau führt fremden Code aus. Woher ein Pull Request kommt, sagt
-   * die GitHub-API.
+   * Das Token geht nur an Vorschauen dieses Netlify-Projekts, und nur an
+   * solche aus diesem Repository selbst: an die Deploy Preview eines eigenen
+   * Pull Requests (deploy-preview-<n>--…) und an einen einzelnen Deploy
+   * (<kennung>--…), wenn er aus main gebaut ist – so zeigt Netlify den Stand,
+   * der noch nicht veröffentlicht ist – oder zu einem eigenen Pull Request
+   * gehört. Das Repository ist öffentlich: Einen Pull Request aus einem Fork
+   * kann jeder öffnen, und seine Vorschau führt fremden Code aus. Woher ein
+   * Pull Request kommt, sagt die GitHub-API, woraus ein Deploy gebaut ist,
+   * die Netlify-API (beide ohne Anmeldung).
    *
    * Das Fenster auf der Live-Adresse braucht diese Fassung von admin.js –
    * erst wenn sie dort veröffentlicht ist, geht die Anmeldung in Vorschauen.
    */
   const LIVE = "https://games.alae.app";
   const REPO = "vonallmenalain/games";
-  const VORSCHAU = /^https:\/\/deploy-preview-(\d+)--gamesrepo\.netlify\.app$/;
+  // Die Seite dieses Projekts bei Netlify (gamesrepo).
+  const NETLIFY_SEITE = "f509e792-125f-4e61-aade-64425bb5dde2";
+  const VORSCHAU = /^https:\/\/(?:deploy-preview-(\d+)|([0-9a-f]{24}))--gamesrepo\.netlify\.app$/;
   const VORSCHAU_NACHRICHT = "mini:vorschau-anmeldung";
   const inVorschau = () => VORSCHAU.test(window.location.origin);
   const authFehler = (code) => Object.assign(new Error(code), { code });
@@ -228,6 +234,22 @@
     } catch { return false; }
   }
 
+  // Ein einzelner Deploy: Woraus ist er gebaut? Vertraut wird dem Stand von
+  // main und der Vorschau eines eigenen Pull Requests – zurück kommt, was es
+  // ist, sonst null.
+  async function eigenerDeploy(kennung) {
+    try {
+      const antwort = await fetch(`https://api.netlify.com/api/v1/deploys/${kennung}`, { headers: { Accept: "application/json" } });
+      if (!antwort.ok) return null;
+      const d = await antwort.json();
+      if (d?.id !== kennung || d?.site_id !== NETLIFY_SEITE) return null;
+      if (d.context === "production" && d.branch === "main") return `Stand von main, ${String(d.commit_ref || "").slice(0, 7)}`;
+      const nummer = String(d.review_id ?? "");
+      if (d.context === "deploy-preview" && /^\d+$/.test(nummer) && await eigenerPullRequest(nummer)) return `Pull Request #${nummer}`;
+      return null;
+    } catch { return null; }
+  }
+
   // Auf der Live-Adresse, im Fenster, das eine Vorschau geöffnet hat: bei
   // Google anmelden – mit einer zweiten Anwendung ohne Speicher (cloud.js,
   // vorschauApp), die eigene Anmeldung hier bleibt, wie sie ist – und das
@@ -245,18 +267,23 @@
       karte.append(el("p", "adm-lead", "Diese Seite öffnet sich aus einer Vorschau des Adminbereichs."), zurueck);
       return;
     }
-    karte.append(el("p", "adm-lead", `Die Vorschau ${new URL(ziel).host} (Pull Request #${treffer[1]}) möchte dich mit deinem Google-Konto anmelden.`));
-    const meldung = el("p", "adm-meldung", "Der Pull Request wird geprüft...");
-    karte.append(meldung);
+    const [, nummer, kennung] = treffer;
+    const lead = el("p", "adm-lead", `Die Vorschau ${new URL(ziel).host} möchte dich mit deinem Google-Konto anmelden.`);
+    const meldung = el("p", "adm-meldung", "Die Vorschau wird geprüft...");
+    karte.append(lead, meldung);
     const sage = (text, art = "") => {
       meldung.textContent = text;
       meldung.className = `adm-meldung ${art}`.trim();
     };
-    if (!(await eigenerPullRequest(treffer[1]))) {
-      sage(`Pull Request #${treffer[1]} stammt nicht aus ${REPO} – oder GitHub antwortet gerade nicht. Angemeldet wird nur in Vorschauen eigener Pull Requests.`, "ist-fehler");
+    const woher = nummer
+      ? ((await eigenerPullRequest(nummer)) ? `Pull Request #${nummer}` : null)
+      : await eigenerDeploy(kennung);
+    if (!woher) {
+      sage(`Diese Vorschau stammt weder aus main noch aus einem Pull Request von ${REPO} – oder GitHub und Netlify antworten gerade nicht. Angemeldet wird nur in eigenen Vorschauen.`, "ist-fehler");
       karte.append(zurueck);
       return;
     }
+    lead.textContent = `Die Vorschau ${new URL(ziel).host} (${woher}) möchte dich mit deinem Google-Konto anmelden.`;
     sage("");
     const google = knopf("Mit Google anmelden", "adm-knopf-voll", async () => {
       const app = cloud()?.vorschauApp?.();
