@@ -316,6 +316,27 @@ Rekord – Bestwerte von vorher lassen sich erst anschauen, wenn sie
 geschlagen sind. Beim Anschauen gehört kein Tipp und keine Taste dem Spiel,
 auch nicht, bevor der Lauf geladen ist.
 
+**Zu jeder Bestmarke ihr Lauf, in jedem Modus.** Ob allein, im Turnier oder
+im Multiplayer: Jede Runde geht über `melde` in die Hall of Fame, und beim
+Rekord geht der Lauf gleich nach der Punktzahl hinauf – nicht erst nach der
+Liste, die danach gelesen wird. Trotzdem kann die Seite schneller weg sein
+(im Turnier sofort zurück zur Übersicht, im Multiplayer die nächste Runde,
+die App weggewischt): Dann ist die Zahl oben und der Lauf nicht. Deshalb
+steht er vorher auf dem Gerät (`mini.ausstehend`) und wird erst gestrichen,
+wenn er angekommen ist. Was liegen bleibt, holt die nächste Seite nach,
+sobald sie geladen ist (`nachreichen`) – dazu die besten Läufe, die
+`geist.js` ohnehin auf dem Gerät behält (`mini.lauf`, auch die der anderen
+Namen auf diesem Gerät). Ein Lauf gehört zu dem Eintrag mit demselben Namen
+(oder derselben Kennung) und genau seiner Zahl; so findet er ihn auch, wenn
+der Adminbereich den Eintrag unter eine andere Kennung zusammengeführt hat.
+Fehlt dort der Lauf oder liegt nur ein schwächerer, geht er hinauf; ein
+überholter Lauf wird nicht mehr gebraucht. Was nachgesehen ist, merkt sich
+das Gerät (`mini.lauf.nachgesehen`) und fragt erst wieder, wenn der Lauf
+besser geworden ist. Gefragt wird dafür nach dem Namen und nach der eigenen
+Kennung, nie nach ganzen Listen. Das Zusammenführen im Adminbereich bricht
+ab, wenn sich ein Lauf nicht lesen lässt, statt den Eintrag samt Lauf zu
+löschen.
+
 Platz 1 ist der Erste der Hall of Fame, im Turnier der Erste des Turniers –
 bei einer verdeckten Rangliste bleibt er verborgen, und ein Turnier kann die
 Gegner ganz abschalten. Die Bestmarke ist der eigene Bestwert – der beste
