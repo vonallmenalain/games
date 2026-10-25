@@ -560,9 +560,11 @@
       if (!ziel) await ref.set({ game: spiel, spieler: stamm, name, punkte, versuche: 1, ...seit, ...jetzt() });
       if (ziel || versuche > 1 || spielMs > 0) await ref.set({ name, punkte, versuche, ...seit, ...zeit, ...jetzt() }, { merge: true });
 
+      // Lässt sich ein Lauf nicht lesen, bricht das Zusammenführen hier ab –
+      // sonst würde gleich darauf mit seinem Eintrag auch der Lauf gelöscht,
+      // der nirgends hin umgezogen ist.
       const laeufe = await Promise.all(eintraege.map((e) => db.collection("miniGeister").doc(`${spiel}_${e.spieler}`).get()
-        .then((doc) => (doc.exists && doc.data()?.bahn ? { spieler: e.spieler, ...doc.data() } : null))
-        .catch(() => null)));
+        .then((doc) => (doc.exists && doc.data()?.bahn ? { spieler: e.spieler, ...doc.data() } : null))));
       const besterLauf = laeufe.filter(Boolean).sort((a, b) => (Number(b.punkte) || 0) - (Number(a.punkte) || 0))[0] || null;
       const stammLauf = laeufe.find((l) => l?.spieler === stamm) || null;
       if (besterLauf && besterLauf.spieler !== stamm && (Number(besterLauf.punkte) || 0) > (Number(stammLauf?.punkte) || 0)) {

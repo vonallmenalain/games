@@ -799,6 +799,12 @@
     await stammKennung(spiel);
     const zahl = Math.max(0, Math.round(Number(punkte) || 0));
     const ich = kennung();
+    // Der Lauf steht auf dem Gerät, bevor etwas ans Netz geht: Ist die Seite
+    // weg, bevor er oben ist, holt ihn die nächste nach (nachreichen).
+    const lauf = geist?.bahn && zahl > 0 && geist.bahn.length <= (cloud()?.BAHN_MAX || 12000)
+      ? { spiel, spieler: ich, name: wie, punkte: zahl, level: String(geist.level || ""), bahn: geist.bahn }
+      : null;
+    if (lauf) merkeAusstehend(lauf);
     // Die Dauer gilt einmal: Eine zweite Meldung derselben Runde zählt keine
     // Zeit mehr dazu.
     const ms = rundeMs;
@@ -806,6 +812,20 @@
     const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl, ms });
     zwischenspeicher = null;
     if (!ergebnis) return null;
+
+    // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
+    // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
+    // anderen neben sich laufen sehen. Und nur nach der Punktzahl: Ein Geist
+    // ohne Zeile in der Bestenliste gehörte zu niemandem. Aber gleich danach,
+    // nicht erst nach der Liste unten – jede Anfrage dazwischen ist ein
+    // Augenblick, in dem die Seite schon zu sein kann (im Turnier zurück zur
+    // Übersicht, im Multiplayer die nächste Runde).
+    //
+    // Er darf scheitern, ohne die Runde mitzunehmen. Die Zahl ist das
+    // Versprechen, die Aufzeichnung die Zugabe.
+    const hoch = ergebnis.rekord && lauf ? laufHinauf(lauf) : Promise.resolve(false);
+    // Steht für diese Kennung schon mehr da, braucht es den Lauf nie.
+    if (lauf && !ergebnis.rekord && ergebnis.punkte > zahl) streicheAusstehend(lauf);
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
     // Runde: Er weiss, was vorher schon dastand – und was nicht mehr. Dazu,
     // was unter demselben Namen von einem anderen Gerät dasteht: Ein Rekord
@@ -813,29 +833,158 @@
     const fremd = bestesUnterNamen(await alleErgebnisse([spiel], { neu: true }).catch(() => []), wie, ich);
     if (fremd && fremd.punkte > ergebnis.punkte) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
     else setzeBestwert(spiel, ergebnis.punkte, ich);
+    await hoch;
+    return { ...ergebnis, rekord: ergebnis.rekord && !(fremd && fremd.punkte >= zahl) };
+  }
 
-    // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
-    // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
-    // anderen neben sich laufen sehen. Und nur nach der Punktzahl: Ein Geist
-    // ohne Zeile in der Bestenliste gehörte zu niemandem.
-    //
-    // Er darf scheitern, ohne die Runde mitzunehmen. Die Zahl ist das
-    // Versprechen, die Aufzeichnung die Zugabe.
-    if (ergebnis.rekord && geist?.bahn) {
-      try {
-        await cloud()?.speichereGeist?.({
-          game: spiel,
-          spieler: ich,
-          name: wie,
-          punkte: zahl,
-          level: geist.level,
-          bahn: geist.bahn,
-        });
-      } catch (fehler) {
-        console.warn("Die Aufzeichnung ist nicht angekommen", fehler);
+  // ---------------------------------------------------------------------------
+  // Läufe nachreichen
+  // ---------------------------------------------------------------------------
+  /*
+   * Zu jeder Bestmarke gehört ihr Lauf – sonst fehlt in der Hall of Fame der
+   * ▶. melde lädt ihn gleich nach der Punktzahl hoch, und trotzdem kann die
+   * Seite schneller weg sein: Im Turnier geht es nach der Runde sofort
+   * zurück zur Übersicht, im Multiplayer kommt die nächste Runde, auf dem
+   * Handy wird die App weggewischt. Die Punktzahl ist dann oben, der Lauf
+   * nicht.
+   *
+   * Deshalb steht er vorher auf dem Gerät (AUSSTEHEND_KEY) und wird erst
+   * gestrichen, wenn er angekommen ist. Was liegen bleibt, holt die nächste
+   * Seite nach (nachreichen). Dazu die besten Läufe, die geist.js ohnehin auf
+   * dem Gerät behält (LAUF_KEY – auch die der anderen Namen auf diesem
+   * Gerät): So bekommen auch Bestmarken ihren Lauf, die vor dieser Regel
+   * ohne ihn geblieben sind.
+   *
+   * Zu welchem Eintrag ein Lauf gehört, sagt seine Zahl: derselbe Name (oder
+   * dieselbe Kennung) und genau diese Punkte. So findet er seinen Eintrag
+   * auch, wenn der Adminbereich ihn unter eine andere Kennung zusammengeführt
+   * hat. Ein Lauf, den ein besserer überholt hat, wird nicht mehr gebraucht.
+   */
+  const AUSSTEHEND_KEY = "mini.ausstehend";
+  const NACHREICHEN_MS = 2500;
+  const AUSSTEHEND_MAX = 24;
+  // Welche Läufe aus LAUF_KEY schon nachgesehen sind: "spiel|name" → Punkte.
+  const NACHGESEHEN_KEY = "mini.lauf.nachgesehen";
+  const laufSchluessel = (lauf) => `${lauf.spiel}|${nameSchluessel(lauf.name)}`;
+
+  function ausstehende() {
+    const liste = liesJson(AUSSTEHEND_KEY, []);
+    return Array.isArray(liste)
+      ? liste.filter((l) => l && typeof l.spiel === "string" && typeof l.bahn === "string" && l.bahn && l.punkte > 0 && sauberName(l.name))
+      : [];
+  }
+
+  // Je Spiel und Name der beste – ein schwächerer Lauf verdrängt keinen
+  // besseren, der noch nicht oben ist.
+  function merkeAusstehend(lauf) {
+    const alle = ausstehende();
+    const da = alle.find((l) => laufSchluessel(l) === laufSchluessel(lauf));
+    if (da && da.punkte >= lauf.punkte) return;
+    schreibe(AUSSTEHEND_KEY, [lauf, ...alle.filter((l) => l !== da)].slice(0, AUSSTEHEND_MAX));
+  }
+
+  function streicheAusstehend(lauf) {
+    const alle = ausstehende();
+    const rest = alle.filter((l) => !(laufSchluessel(l) === laufSchluessel(lauf) && l.punkte <= lauf.punkte));
+    if (rest.length !== alle.length) schreibe(AUSSTEHEND_KEY, rest.length ? rest : null);
+  }
+
+  async function laufHinauf(lauf, spieler = lauf.spieler, wie = lauf.name) {
+    try {
+      const oben = await cloud()?.speichereGeist?.({
+        game: lauf.spiel, spieler, name: wie, punkte: lauf.punkte, level: lauf.level, bahn: lauf.bahn,
+      });
+      if (oben) streicheAusstehend(lauf);
+      return Boolean(oben);
+    } catch (fehler) {
+      console.warn("Die Aufzeichnung ist nicht angekommen", fehler);
+      return false;
+    }
+  }
+
+  // Was es nachzusehen gibt: die ausstehenden Läufe und die besten auf dem
+  // Gerät, je Spiel und Name nur der beste.
+  function nachzusehen() {
+    const gesehen = liesJson(NACHGESEHEN_KEY, {});
+    const liste = ausstehende();
+    const vomGeraet = (wie, id, laeufe) => Object.entries(laeufe || {}).forEach(([spiel, l]) => {
+      const punkte = Math.round(Number(l?.punkte) || 0);
+      if (!sauberName(wie) || !(punkte > 0) || typeof l?.bahn !== "string" || !l.bahn) return;
+      const lauf = { spiel, spieler: id || "", name: wie, punkte, level: String(l.level || "t1"), bahn: l.bahn, vomGeraet: true };
+      if (gesehen[laufSchluessel(lauf)] === punkte) return;
+      liste.push(lauf);
+    });
+    vomGeraet(name(), kennungFallsDa(), liesJson(LAUF_KEY, {}));
+    bekannteNamen().forEach((e) => vomGeraet(e.name, e.id, e.lauf));
+    const bester = new Map();
+    liste.forEach((l) => {
+      const da = bester.get(laufSchluessel(l));
+      if (!da || l.punkte > da.punkte) bester.set(laufSchluessel(l), l);
+    });
+    return [...bester.values()];
+  }
+
+  // Erledigt: gestrichen, und ein Lauf vom Gerät als nachgesehen vermerkt –
+  // er wird erst wieder gefragt, wenn er besser geworden ist.
+  function erledigt(lauf) {
+    streicheAusstehend(lauf);
+    if (!lauf.vomGeraet) return;
+    const gesehen = liesJson(NACHGESEHEN_KEY, {});
+    gesehen[laufSchluessel(lauf)] = lauf.punkte;
+    schreibe(NACHGESEHEN_KEY, gesehen);
+  }
+
+  let nachgereicht = null;
+  function nachreichen() {
+    if (!nachgereicht) nachgereicht = reicheNach().catch((fehler) => console.warn("Läufe nachreichen ging nicht", fehler));
+    return nachgereicht;
+  }
+
+  // Gefragt wird nach dem Namen (eine Abfrage, alle Spiele) und nach dem
+  // Eintrag der Kennung – nicht nach ganzen Listen.
+  async function reicheNach() {
+    const c = cloud();
+    if (!c?.speichereGeist || !c?.geister || !c?.unterNamen || !c?.meinErgebnis) return 0;
+    const namen = new Map();
+    const unter = (wie) => {
+      if (!namen.has(wie)) namen.set(wie, Promise.resolve(c.unterNamen(wie)).catch(() => null));
+      return namen.get(wie);
+    };
+    let hinauf = 0;
+    for (const lauf of nachzusehen()) {
+      const art = ansehArt(lauf.spiel);
+      // Aus einer älteren Fassung des Spiels liesse er sich nicht abspielen.
+      if (!art || lauf.level !== art.fassung || !abspielbar(lauf.bahn, art) || lauf.bahn.length > (c.BAHN_MAX || 12000)) {
+        erledigt(lauf);
+        continue;
+      }
+      const [mitNamen, mitKennung] = await Promise.all([
+        unter(lauf.name),
+        gueltigeKennung(lauf.spieler) ? Promise.resolve(c.meinErgebnis(lauf.spiel, lauf.spieler)).catch(() => undefined) : null,
+      ]);
+      if (!Array.isArray(mitNamen) || mitKennung === undefined) continue;
+      const seine = [...mitNamen, ...(mitKennung ? [mitKennung] : [])].filter((e) => e?.game === lauf.spiel);
+      const eintrag = seine.find((e) => e.spieler === lauf.spieler && e.punkte === lauf.punkte)
+        || seine.find((e) => e.punkte === lauf.punkte);
+      if (!eintrag) {
+        // Überholt (unter diesem Namen steht schon mehr) – oder ein Lauf vom
+        // Gerät, der nie in eine Liste kam: Beide braucht es nicht mehr.
+        if (lauf.vomGeraet || seine.some((e) => e.punkte > lauf.punkte)) erledigt(lauf);
+        continue;
+      }
+      const [oben] = await Promise.resolve(c.geister(lauf.spiel, [eintrag.spieler])).catch(() => []);
+      const fehlt = !oben?.bahn || oben.punkte < lauf.punkte
+        || (oben.punkte === lauf.punkte && (oben.level !== art.fassung || !abspielbar(oben.bahn, art)));
+      if (!fehlt) {
+        erledigt(lauf);
+        continue;
+      }
+      if (await laufHinauf(lauf, eintrag.spieler, eintrag.name)) {
+        erledigt(lauf);
+        hinauf += 1;
       }
     }
-    return { ...ergebnis, rekord: ergebnis.rekord && !(fremd && fremd.punkte >= zahl) };
+    return hinauf;
   }
 
   // Ob sich eine Aufzeichnung abspielen lässt: mit Weg (oder Zügen) und, wo
@@ -2352,6 +2501,7 @@
     rangliste,
     marke,
     melde,
+    nachreichen,
     rundeBeginnt,
     rundeEndet,
     namenWechseln,
@@ -2373,4 +2523,14 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", starteUebersicht);
   else starteUebersicht();
   if (spielId()) gleicheAb();
+
+  // Läufe, die noch nicht oben sind, wenn die Seite ruhig ist – nicht im
+  // Multiplayer: Dessen Spiele laufen in einem Rahmen, der mit der Runde
+  // geht, und dort zählt jede Anfrage.
+  const nachDemLaden = () => window.setTimeout(() => {
+    try { if (new URLSearchParams(window.location.search).has("live")) return; } catch { return; }
+    nachreichen();
+  }, NACHREICHEN_MS);
+  if (document.readyState === "complete") nachDemLaden();
+  else window.addEventListener("load", nachDemLaden, { once: true });
 })();

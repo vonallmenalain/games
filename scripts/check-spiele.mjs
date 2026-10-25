@@ -4432,6 +4432,85 @@ try {
     await kontext.setOffline(false);
     await kontext.close();
   }
+
+  // --- 7. Läufe nachreichen ----------------------------------------------------
+  // Zu jeder Bestmarke ihr Lauf, auch wenn die Seite weg war, bevor er oben
+  // war (mini-games.js, nachreichen). Ninja: Die Runde im Turnier kam an, der
+  // Lauf nicht, und der Adminbereich hat den Eintrag inzwischen unter eine
+  // andere Kennung zusammengeführt – der Lauf wartet auf dem Gerät
+  // (mini.ausstehend). Lielle: Oben liegt nur ein älterer, schwächerer Lauf;
+  // der zur Bestmarke liegt bei den besten Läufen des Geräts (mini.lauf).
+  // Mia: Ihr Lauf auf dem Gerät ist überholt – er geht nicht hinauf.
+  {
+    const BAHN = JSON.stringify({ v: 2, dt: 100, p: [0, 300, 900], a: [0, 40, 80], b: [0, 2, 4], s: 4242 });
+    const eintraege = [
+      ["hillGlide_mini_ninjastamm001", { id: "hillGlide_mini_ninjastamm001", game: "hillGlide", spieler: "mini_ninjastamm001", name: "Ninja", punkte: 1555, versuche: 1, updatedAtMs: 1000 }],
+      ["hillGlide_mini_lielle0000001", { id: "hillGlide_mini_lielle0000001", game: "hillGlide", spieler: "mini_lielle0000001", name: "Lielle", punkte: 2393, versuche: 8, updatedAtMs: 1000 }],
+      ["hillGlide_mini_mia000000001", { id: "hillGlide_mini_mia000000001", game: "hillGlide", spieler: "mini_mia000000001", name: "Mia", punkte: 3000, versuche: 3, updatedAtMs: 1000 }],
+    ];
+    const geister = [
+      ["hillGlide_mini_lielle0000001", { game: "hillGlide", spieler: "mini_lielle0000001", name: "Lielle", punkte: 2305, level: "t1", bahn: BAHN }],
+    ];
+    const geraet = (name, id, extra) => `
+      if (!localStorage.getItem("__mini_attrappe")) {
+        localStorage.setItem("__mini_attrappe", ${JSON.stringify(JSON.stringify(eintraege))});
+        localStorage.setItem("__mini_geister_attrappe", ${JSON.stringify(JSON.stringify(geister))});
+        localStorage.setItem("mini.name", ${JSON.stringify(name)});
+        localStorage.setItem("mini.id", ${JSON.stringify(id)});
+        ${extra}
+      }`;
+    const faelle = [
+      ["Ninja", "mini_ninjageraet01", `localStorage.setItem("mini.ausstehend", ${JSON.stringify(JSON.stringify([{ spiel: "hillGlide", spieler: "mini_ninjageraet01", name: "Ninja", punkte: 1555, level: "t1", bahn: BAHN }]))});`],
+      ["Lielle", "mini_lielle0000001", `localStorage.setItem("mini.lauf", ${JSON.stringify(JSON.stringify({ hillGlide: { punkte: 2393, bahn: BAHN, level: "t1", ms: 5 } }))});`],
+      ["Mia", "mini_mia000000001", `localStorage.setItem("mini.lauf", ${JSON.stringify(JSON.stringify({ hillGlide: { punkte: 2100, bahn: BAHN, level: "t1", ms: 5 } }))});`],
+    ];
+    for (const [name, id, extra] of faelle) {
+      const { kontext, seite } = await neueSeite({ width: 1280, height: 720 });
+      await seite.addInitScript(geraet(name, id, extra));
+      await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+      await seite.waitForFunction((n) => {
+        const g = [...window.__miniGeister.values()].find((x) => x.name === n);
+        return n === "Mia" ? true : g && g.punkte !== 2305;
+      }, name, { timeout: 8000 }).catch(() => {});
+      if (name === "Mia") await seite.waitForTimeout(4000);
+      const stand = await seite.evaluate((n) => ({
+        geister: [...window.__miniGeister.entries()].filter(([, g]) => g.name === n).map(([k, g]) => `${k}:${g.punkte}`),
+        ausstehend: localStorage.getItem("mini.ausstehend"),
+        nachgesehen: JSON.parse(localStorage.getItem("mini.lauf.nachgesehen") || "{}"),
+      }), name);
+      if (name === "Ninja") {
+        pruefe(stand.geister.join() === "hillGlide_mini_ninjastamm001:1555",
+          `Ninjas Lauf kam nicht zu seinem (zusammengeführten) Eintrag: ${stand.geister.join() || "keiner"}`);
+        pruefe(!stand.ausstehend, `Nach dem Nachreichen wartet noch: ${stand.ausstehend}`);
+      } else if (name === "Lielle") {
+        pruefe(stand.geister.join() === "hillGlide_mini_lielle0000001:2393", `Lielles Lauf zur Bestmarke kam nicht hinauf: ${stand.geister.join()}`);
+        pruefe(stand.nachgesehen["hillGlide|lielle"] === 2393, `Der nachgereichte Lauf ist nicht vermerkt: ${JSON.stringify(stand.nachgesehen)}`);
+      } else {
+        pruefe(stand.geister.length === 0, `Ein überholter Lauf ging trotzdem hinauf: ${stand.geister.join()}`);
+        pruefe(stand.nachgesehen["hillGlide|mia"] === 2100, `Der überholte Lauf ist nicht als erledigt vermerkt: ${JSON.stringify(stand.nachgesehen)}`);
+      }
+      await kontext.close();
+    }
+
+    // Und gleich nach der Runde: Der Lauf steht auf dem Gerät, bevor etwas
+    // ans Netz geht, und ist wieder weg, sobald er oben ist.
+    const { kontext, seite } = await neueSeite({ width: 1280, height: 720 });
+    await seite.addInitScript(`if (!localStorage.getItem("mini.name")) localStorage.setItem("mini.name", "Jonas");`);
+    await seite.goto(`${BASIS}/huegel`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappMini?.melde, null, { timeout: 6000 }).catch(() => {});
+    const runde = await seite.evaluate(async (bahn) => {
+      window.__miniLangsam = true;
+      const zuvor = [];
+      const echt = window.MiniCloud.speichereGeist;
+      window.MiniCloud.speichereGeist = async (lauf) => { zuvor.push(localStorage.getItem("mini.ausstehend")); return echt(lauf); };
+      const stand = await window.LernappMini.melde("hillGlide", 900, { level: "t1", bahn });
+      window.MiniCloud.speichereGeist = echt;
+      return { rekord: stand?.rekord, vorher: zuvor[0] || "", nachher: localStorage.getItem("mini.ausstehend"), geist: window.__miniGeister.get(`hillGlide_${localStorage.getItem("mini.id")}`)?.punkte };
+    }, BAHN);
+    pruefe(/"punkte":900/.test(runde.vorher), `Der Lauf stand nicht auf dem Gerät, bevor er hinaufging: ${runde.vorher || "nichts"}`);
+    pruefe(runde.geist === 900 && !runde.nachher, `Nach der Runde: Lauf oben ${runde.geist}, auf dem Gerät noch ${runde.nachher}`);
+    await kontext.close();
+  }
 } finally {
   await browser.close();
   halt();
