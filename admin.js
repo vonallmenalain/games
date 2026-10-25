@@ -4,7 +4,9 @@
  * Drei Dinge kann er, und alle darf sonst niemand: die Spiele auswählen, die
  * auf der Startseite stehen, Einträge aus der Bestenliste löschen oder
  * zusammenführen – und Turniere anlegen, anhalten, beenden und wieder
- * wegräumen.
+ * wegräumen. Dazu zeigt er, was in der Bestenliste steckt: je Spiel, je
+ * Spieler (mit einer eigenen Auswertung), nach Tier, Startseite oder
+ * Turnier gefiltert.
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -86,6 +88,8 @@
     wirt.innerHTML = "";
     wirt.classList.remove("ist-formular");
     formularZu = null;
+    klappen.clear();
+    dashboard?.zu({ still: true });
   }
 
   const titel = (id) => hs()?.titel?.(id) || id;
@@ -104,6 +108,19 @@
         day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
       });
     } catch { return new Date(zahl).toISOString().slice(0, 16).replace("T", " "); }
+  }
+
+  // Kürzer für die Tabellen: ohne Jahr, solange es dieses Jahr ist.
+  function wannKurz(ms) {
+    const zahl = Number(ms) || 0;
+    if (!zahl) return "–";
+    const datum = new Date(zahl);
+    const diesesJahr = datum.getFullYear() === new Date().getFullYear();
+    try {
+      return datum.toLocaleString("de-CH", diesesJahr
+        ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+        : { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch { return wann(zahl); }
   }
 
   // ---------------------------------------------------------------------------
@@ -711,6 +728,255 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Übersicht: Bereiche zum Aufklappen, Tabellen zum Sortieren, ein Filter
+  // ---------------------------------------------------------------------------
+  /*
+   * Der Adminbereich ist lang geworden. Damit er auf einen Blick lesbar
+   * bleibt, steht jeder Bereich zuerst zugeklappt da: nur sein Titel und eine
+   * Zahl, die sagt, was drin ist. Was offen ist, wonach sortiert und wie
+   * gefiltert, merkt sich der Tab (sessionStorage) – nach "Neu laden" oder
+   * einem Löschen steht alles wieder so da, wie es war.
+   */
+  const ANSICHT_KEY = "mini.admin.ansicht";
+  const ansicht = (() => {
+    let gemerkt = null;
+    try { gemerkt = JSON.parse(sessionStorage.getItem(ANSICHT_KEY) || "null"); } catch { gemerkt = null; }
+    const roh = gemerkt && typeof gemerkt === "object" ? gemerkt : {};
+    return {
+      offen: Array.isArray(roh.offen) ? roh.offen.map(String) : [],
+      sortiert: roh.sortiert && typeof roh.sortiert === "object" ? roh.sortiert : {},
+      filter: {
+        tier: Number(roh.filter?.tier) || 0,
+        wahl: typeof roh.filter?.wahl === "string" ? roh.filter.wahl : "alle",
+      },
+      spiel: typeof roh.spiel === "string" ? roh.spiel : "",
+    };
+  })();
+
+  function merkeAnsicht() {
+    try { sessionStorage.setItem(ANSICHT_KEY, JSON.stringify(ansicht)); } catch { /* dann nur bis zum Neuladen */ }
+  }
+
+  // Ein Bereich zum Auf- und Zuklappen. Der Kopf ist ein einziger Knopf:
+  // Titel und Zahl. Was der Bereich kann – Knöpfe, Tabellen, Filter –, steht
+  // erst im aufgeklappten Teil; zugeklappt soll nichts ablenken.
+  const klappen = new Map();
+  function klappBlock(id, ueberschrift, klasse = "") {
+    const block = el("section", `adm-block adm-klapp ${klasse}`.trim());
+    block.id = `adm-${id}`;
+    const kopf = el("header", "adm-block-kopf");
+    const titelZeile = el("h2", "adm-klapp-titel");
+    const schalter = el("button", "adm-klapp-knopf");
+    schalter.type = "button";
+    schalter.setAttribute("aria-controls", `adm-${id}-inhalt`);
+    const zahl = el("span", "adm-block-zahl");
+    schalter.append(el("span", "adm-klapp-name", ueberschrift), zahl);
+    titelZeile.append(schalter);
+    kopf.append(titelZeile);
+    const inhalt = el("div", "adm-klapp-inhalt");
+    inhalt.id = `adm-${id}-inhalt`;
+    block.append(kopf, inhalt);
+
+    function setze(offen) {
+      block.classList.toggle("ist-offen", offen);
+      schalter.setAttribute("aria-expanded", String(offen));
+      inhalt.hidden = !offen;
+      const liste = new Set(ansicht.offen);
+      if (offen) liste.add(id);
+      else liste.delete(id);
+      ansicht.offen = [...liste];
+      merkeAnsicht();
+    }
+    schalter.addEventListener("click", () => setze(inhalt.hidden));
+    setze(ansicht.offen.includes(id));
+    const bereich = { block, inhalt, zahl, oeffne: () => setze(true) };
+    klappen.set(id, bereich);
+    return bereich;
+  }
+
+  // Für die Kacheln oben: den Bereich aufklappen und hinrollen.
+  function zeigeBereich(id) {
+    const bereich = klappen.get(id);
+    if (!bereich) return;
+    bereich.oeffne();
+    const ruhig = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    bereich.block.scrollIntoView?.({ behavior: ruhig ? "auto" : "smooth", block: "start" });
+  }
+
+  /*
+   * Eine Tabelle, die sich nach ihren Spalten sortieren lässt: Ein Tipp auf
+   * die Überschrift sortiert danach, ein zweiter dreht die Richtung um.
+   *
+   *   key     wie die Spalte in der gemerkten Sortierung heisst
+   *   wert    wonach sortiert wird (Zahl oder Text); ohne wert ist die
+   *           Spalte nicht sortierbar
+   *   zelle   was in der Zelle steht (Knoten oder Text); sonst der wert
+   *   ab      beim ersten Tipp absteigend (für "die meisten zuerst")
+   *
+   * Bei Gleichstand bleibt die Reihenfolge, in der die Zeilen kamen – die
+   * Spiele also in der Reihenfolge der Liste.
+   */
+  function sortierTabelle(name, spalten, { standard, leer = "Nichts zu zeigen.", zeile = null, klasse = "" } = {}) {
+    const tabelle = el("table", `adm-tabelle adm-sortierbar ${klasse}`.trim());
+    const kopfZeile = el("tr");
+    const body = el("tbody");
+    let daten = [];
+    const jetzt = () => {
+      const gemerkt = ansicht.sortiert[name];
+      return gemerkt && spalten.some((s) => s.key === gemerkt.key && s.wert) ? gemerkt : standard;
+    };
+
+    spalten.forEach((spalte) => {
+      const th = el("th", [spalte.zahl ? "zahl" : "", spalte.klasse || ""].join(" ").trim());
+      if (spalte.wert) {
+        th.dataset.key = spalte.key;
+        const b = el("button", "adm-sortier", spalte.titel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          const bisher = jetzt();
+          ansicht.sortiert[name] = { key: spalte.key, ab: bisher.key === spalte.key ? !bisher.ab : Boolean(spalte.ab) };
+          merkeAnsicht();
+          zeichne();
+        });
+        th.append(b);
+      } else if (spalte.titel) {
+        th.textContent = spalte.titel;
+      }
+      kopfZeile.append(th);
+    });
+    const thead = el("thead");
+    thead.append(kopfZeile);
+    tabelle.append(thead, body);
+
+    function zeichne() {
+      const { key, ab } = jetzt();
+      const spalte = spalten.find((s) => s.key === key) || spalten.find((s) => s.wert);
+      kopfZeile.querySelectorAll("th").forEach((th) => {
+        if (th.dataset.key === spalte.key) th.setAttribute("aria-sort", ab ? "descending" : "ascending");
+        else th.removeAttribute("aria-sort");
+      });
+      const sortiert = daten.slice().sort((a, b) => {
+        const x = spalte.wert(a);
+        const y = spalte.wert(b);
+        const unterschied = typeof x === "string" || typeof y === "string"
+          ? String(x).localeCompare(String(y), "de")
+          : (Number(x) || 0) - (Number(y) || 0);
+        return ab ? -unterschied : unterschied;
+      });
+      body.replaceChildren();
+      if (!sortiert.length) {
+        const tr = el("tr", "adm-leer");
+        const td = el("td", "", leer);
+        td.colSpan = spalten.length;
+        tr.append(td);
+        body.append(tr);
+      }
+      sortiert.forEach((daten) => {
+        const tr = el("tr");
+        spalten.forEach((s) => {
+          const td = el("td", [s.zahl ? "zahl" : "", s.klasse || ""].join(" ").trim());
+          const inhalt = s.zelle ? s.zelle(daten) : s.wert(daten);
+          if (inhalt instanceof Node) td.append(inhalt);
+          else td.textContent = String(inhalt ?? "");
+          tr.append(td);
+        });
+        body.append(tr);
+        zeile?.(daten, tr, body);
+      });
+    }
+
+    // Am Handy rollt die Tabelle für sich, nicht der ganze Bereich.
+    const wirt = el("div", "adm-tabelle-wirt");
+    wirt.append(tabelle);
+    return {
+      tabelle,
+      wirt,
+      zeige(neu) { daten = neu; zeichne(); },
+      zeichne,
+    };
+  }
+
+  /*
+   * Welche Spiele gezählt werden: ein Tier, was auf der Startseite steht
+   * (oder nicht) oder die Spiele eines Turniers. Es ist ein Filter für den
+   * ganzen Adminbereich – er steht bei den Spielen, bei den Spielern und in
+   * der Auswertung eines Spielers, und wer ihn an einer Stelle ändert, ändert
+   * ihn überall (stand.melde).
+   */
+  function passt(stand, spiel) {
+    const { tier, wahl } = ansicht.filter;
+    const bekannt = stand.bekannte.includes(spiel);
+    if (tier && (!bekannt || stand.einteilung[spiel] !== tier)) return false;
+    if (wahl === "an") return stand.offen.has(spiel);
+    if (wahl === "aus") return !stand.offen.has(spiel);
+    if (wahl.startsWith("t:")) return Boolean(stand.turniere.find((t) => t.id === wahl.slice(2))?.spiele?.includes(spiel));
+    return true;
+  }
+  const istGefiltert = () => Boolean(ansicht.filter.tier) || ansicht.filter.wahl !== "alle";
+
+  // Die Spiele, die es gibt, in der Reihenfolge der Liste – dahinter, was
+  // von Spielen übrig ist, die es nicht mehr gibt.
+  function alleSpiele(stand) {
+    const verwaist = [...new Set(stand.alle.map((e) => e.game))].filter((id) => !stand.bekannte.includes(id)).sort();
+    return [...stand.bekannte, ...verwaist];
+  }
+
+  function filterLeiste(stand) {
+    const leiste = el("div", "adm-filter");
+    const tiers = el("div", "adm-filter-tiers");
+    tiers.setAttribute("role", "group");
+    tiers.setAttribute("aria-label", "Nach Tier filtern");
+    const tierKnoepfe = [0, ...TIER_LISTE()].map((n) => {
+      const b = knopf(n ? `Tier ${n}` : "Alle Tiers", "adm-chip", () => {
+        ansicht.filter.tier = n;
+        stand.melde();
+      });
+      b.dataset.tier = String(n);
+      tiers.append(b);
+      return b;
+    });
+
+    const wahl = el("select", "adm-feld adm-filter-wahl");
+    wahl.setAttribute("aria-label", "Welche Spiele");
+    wahl.addEventListener("change", () => {
+      ansicht.filter.wahl = wahl.value;
+      stand.melde();
+    });
+    const aufheben = knopf("Filter aufheben", "adm-knopf-text adm-filter-weg", () => {
+      ansicht.filter = { tier: 0, wahl: "alle" };
+      stand.melde();
+    });
+    leiste.append(tiers, wahl, aufheben);
+
+    function zeichne() {
+      tierKnoepfe.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.tier) === ansicht.filter.tier)));
+      const option = (wert, text) => {
+        const o = el("option", "", text);
+        o.value = wert;
+        return o;
+      };
+      wahl.replaceChildren(option("alle", "Alle Spiele"), option("an", "Auf der Startseite"), option("aus", "Nicht auf der Startseite"));
+      if (stand.turniere.length) {
+        const gruppe = el("optgroup");
+        gruppe.label = "Im Turnier";
+        stand.turniere.forEach((t) => gruppe.append(option(`t:${t.id}`, t.name)));
+        wahl.append(gruppe);
+      }
+      // Ein gemerktes Turnier, solange die Turniere noch laden – und keines
+      // mehr, wenn es das Turnier nicht mehr gibt.
+      if (![...wahl.options].some((o) => o.value === ansicht.filter.wahl)) {
+        if (stand.turniereGeladen) ansicht.filter.wahl = "alle";
+        else wahl.append(option(ansicht.filter.wahl, "Turnier..."));
+      }
+      wahl.value = ansicht.filter.wahl;
+      aufheben.hidden = !istGefiltert();
+    }
+    stand.hoerer.add(zeichne);
+    zeichne();
+    return { leiste, weg: () => stand.hoerer.delete(zeichne) };
+  }
+
+  // ---------------------------------------------------------------------------
   // Welche Spiele gespielt werden können
   // ---------------------------------------------------------------------------
   // Ein Haken je Spiel. Was angehakt ist, steht auf der Startseite und in der
@@ -723,20 +989,21 @@
   // spielen – die Adresse bleibt, die Seite bleibt. Nur aufgeführt wird es
   // nicht mehr. Das ist Absicht: Ein Link, den jemand verschickt hat, soll
   // nicht ins Leere laufen.
-  function baueAuswahl(offen, einteilung) {
-    const block = el("section", "adm-block");
-    const kopf = el("header", "adm-block-kopf");
-    kopf.append(el("h2", "", "Welche Spiele gespielt werden"));
-    const zahl = el("span", "adm-block-zahl", `${offen.length} von ${(mini()?.SPIELE || []).length} angehakt`);
-    kopf.append(zahl);
-    block.append(kopf);
-    block.append(el("p", "adm-hinweis", "Angehakt heisst: steht auf der Startseite und in der Hall of Fame. Abgewählt heisst nur, dass es dort nicht mehr auftaucht – wer den Link hat, kann weiterspielen. Mit T1, T2, T3 teilst du ein Spiel einem Tier zu – so stehen die Spiele auch beim Anlegen eines Turniers. Mit ▶ spielst du ein Spiel im Vollbild – die Runde zählt unter deinem Namen."));
+  function baueAuswahl(stand) {
+    const { einteilung } = stand;
+    // Dieselbe Menge wie in den anderen Bereichen: Was hier angehakt wird,
+    // filtert dort gleich mit (passt).
+    const gewaehlt = stand.offen;
+    const bereich = klappBlock("auswahl", "Welche Spiele gespielt werden");
+    const zaehle = () => {
+      bereich.zahl.textContent = `${gewaehlt.size} von ${(mini()?.SPIELE || []).length} angehakt`;
+    };
+    zaehle();
 
     const meldung = el("p", "adm-meldung");
-    block.append(meldung);
+    bereich.inhalt.append(meldung);
 
     const gitter = el("div", "adm-tiers");
-    const gewaehlt = new Set(offen);
 
     // Geht das Speichern schief, springt der Haken zurück (zurueck) – ohne
     // die Seite neu zu bauen: Sonst verschwände mit ihr auch die Meldung, und
@@ -748,13 +1015,14 @@
         await cloud().setzeOffeneSpiele([...gewaehlt]);
         meldung.textContent = "Gespeichert.";
         meldung.className = "adm-meldung ist-gut";
-        zahl.textContent = `${gewaehlt.size} von ${(mini()?.SPIELE || []).length} angehakt`;
       } catch (fehler) {
         zurueck();
         zeichneGruppen();
         meldung.textContent = `Nicht gespeichert: ${fehlerText(fehler)}`;
         meldung.className = "adm-meldung ist-fehler";
       }
+      zaehle();
+      stand.melde();
     }
 
     // Ein anderes Tier: Das Spiel wandert gleich in seine Gruppe, und die
@@ -772,6 +1040,7 @@
         meldung.textContent = `Nicht gespeichert: ${fehlerText(fehler)}`;
         meldung.className = "adm-meldung ist-fehler";
       }
+      stand.melde();
     }
 
     function zeichneGruppen() {
@@ -798,7 +1067,7 @@
       });
     }
     zeichneGruppen();
-    block.append(gitter);
+    bereich.inhalt.append(gitter);
 
     const alleAn = knopf("Alle anhaken", "adm-knopf-klein", () => {
       gitter.querySelectorAll("input[type=checkbox]").forEach((h) => { if (!h.checked) h.click(); });
@@ -808,8 +1077,8 @@
     });
     const zeile = el("div", "adm-kopf-aktionen");
     zeile.append(alleAn, alleAus);
-    block.append(zeile);
-    return block;
+    bereich.inhalt.append(zeile);
+    return bereich;
   }
 
   // ---------------------------------------------------------------------------
@@ -1446,25 +1715,23 @@
     return box;
   }
 
-  function baueTurniere(offen, einteilung) {
-    const block = el("section", "adm-block adm-turniere");
-    const kopf = el("header", "adm-block-kopf");
-    kopf.append(el("h2", "", "Turniere"));
+  function baueTurniere(stand) {
+    const bereich = klappBlock("turniere", "Turniere", "adm-turniere");
+    const { block, inhalt } = bereich;
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
     // Daneben einen Multiplayer: alle spielen zur selben Zeit, angelegt und
     // geleitet auf /live (live.js) – die Anmeldung hier gilt dort auch.
     const neuerMultiplayer = el("a", "adm-knopf adm-knopf-voll", "Neuer Multiplayer");
     neuerMultiplayer.href = "/live?neu";
-    const neuKnoepfe = el("div", "adm-kopf-aktionen");
+    const neuKnoepfe = el("div", "adm-kopf-aktionen adm-werkzeug");
     neuKnoepfe.append(neuKnopf, neuerMultiplayer);
-    kopf.append(neuKnoepfe);
-    block.append(kopf);
-    block.append(meineMultiplayer());
+    inhalt.append(neuKnoepfe);
+    inhalt.append(meineMultiplayer());
 
     const formWirt = el("div", "adm-turnier-formwirt");
     const meldung = el("p", "adm-meldung");
     const liste = el("div", "adm-turnier-liste");
-    block.append(formWirt, meldung, liste);
+    inhalt.append(formWirt, meldung, liste);
 
     const sage = (text, art = "") => {
       meldung.textContent = text;
@@ -1497,8 +1764,8 @@
       neuKnoepfe.hidden = true;
       sage("");
       formWirt.append(turnierFormular(vorlage, {
-        offen,
-        einteilung,
+        offen: [...stand.offen],
+        einteilung: stand.einteilung,
         abbrechen: () => schliesse(),
         sichern: async (daten) => {
           const id = vorlage?.id || neueTurnierId(daten.name);
@@ -1589,6 +1856,7 @@
       } catch (fehler) {
         liste.innerHTML = "";
         liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
+        geladenMelden([]);
         return;
       }
       // Die Einträge je Turnier: für die Zahl der Spieler, wer vorne liegt und
@@ -1600,178 +1868,601 @@
         Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
       ]).then(([eintraege, abende]) => ({ t, eintraege, abende: abende || [] }), () => ({ t, eintraege: null, abende: [] }))));
       zeichne();
+      geladenMelden(turniere);
+    }
+
+    // Die Turniere gehen auch an die anderen Bereiche: für die Kachel oben
+    // und den Filter "Im Turnier".
+    function geladenMelden(turniere) {
+      const laufend = turniere.filter((t) => (tn()?.lage?.(t) || "laeuft") === "laeuft").length;
+      bereich.zahl.textContent = `${zahlWort(turniere.length, "Turnier", "Turniere")}${laufend ? ` · ${laufend} ${laufend === 1 ? "läuft" : "laufen"}` : ""}`;
+      stand.turniere = turniere;
+      stand.turniereGeladen = true;
+      stand.turniereDa();
+      stand.melde();
     }
 
     laden();
-    return block;
+    return bereich;
   }
 
-  function streifen(zahlen) {
+  // ---------------------------------------------------------------------------
+  // Die Kacheln oben
+  // ---------------------------------------------------------------------------
+  // Die Zahlen auf einen Blick – und jede ist ein Weg: Ein Tipp klappt den
+  // Bereich auf, in dem steht, was hinter der Zahl steckt. "Runden" zeigt
+  // die Spiele gleich danach sortiert, die am meisten gespielt werden.
+  function kacheln(stand) {
     const wrap = el("div", "adm-streifen");
-    zahlen.forEach(([wert, wort]) => {
-      const kasten = el("div");
-      kasten.append(el("strong", "", String(wert)), el("span", "", wort));
-      wrap.append(kasten);
+    const kachel = (ziel, beiKlick = () => zeigeBereich(ziel)) => {
+      const b = el("button", "adm-kachel");
+      b.type = "button";
+      b.setAttribute("aria-controls", `adm-${ziel}`);
+      const wert = el("strong");
+      const wort = el("span");
+      b.append(wert, wort);
+      b.addEventListener("click", beiKlick);
+      wrap.append(b);
+      return (zahl, text) => {
+        wert.textContent = String(zahl);
+        wort.textContent = text;
+      };
+    };
+    const turniere = kachel("turniere");
+    const offen = kachel("auswahl");
+    const spieler = kachel("spieler");
+    const eintraege = kachel("spiele");
+    const runden = kachel("spiele", () => {
+      ansicht.sortiert.spiele = { key: "runden", ab: true };
+      stand.melde();
+      zeigeBereich("spiele");
     });
+
+    function zeichne() {
+      const laufend = stand.turniere.filter((t) => (tn()?.lage?.(t) || "laeuft") === "laeuft").length;
+      turniere(stand.turniereGeladen ? stand.turniere.length : "…",
+        `${stand.turniere.length === 1 ? "Turnier" : "Turniere"}${laufend ? ` · ${laufend} ${laufend === 1 ? "läuft" : "laufen"}` : ""}`);
+      offen(stand.offen.size, `von ${stand.bekannte.length} Spielen offen`);
+      spieler(new Set(stand.alle.map((e) => e.name.toLocaleLowerCase("de"))).size, "Spieler");
+      eintraege(stand.alle.length, stand.alle.length === 1 ? "Eintrag" : "Einträge");
+      const alleRunden = stand.alle.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
+      runden(alleRunden, alleRunden === 1 ? "Runde" : "Runden");
+    }
+    stand.hoerer.add(zeichne);
+    zeichne();
     return wrap;
   }
 
-  function baueSpiel(spiel, eintraege, neuLaden, bekannt) {
-    const f = farbe(spiel);
-    const block = el("section", "adm-block");
-    block.style.setProperty("--adm-farbe", f.hell);
-    block.style.setProperty("--adm-farbe-dunkel", f.dunkel);
-
-    const kopf = el("header", "adm-block-kopf");
-    kopf.append(el("h2", "", bekannt ? titel(spiel) : `${spiel} (kein Spiel mehr)`));
-    const runden = eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
-    kopf.append(el("span", "adm-block-zahl",
-      `${zahlWort(eintraege.length, "Eintrag", "Einträge")} · ${zahlWort(runden, "Runde", "Runden")}`));
-    // Wenn ein Spiel umgebaut wurde und die alten Zahlen nichts mehr
-    // bedeuten: die ganze Bestenliste auf einmal, mit den Geistern.
-    if (eintraege.length) {
-      kopf.append(knopf("Bestenliste leeren", "adm-knopf-weg adm-knopf-klein", async () => {
-        if (!window.confirm(`Die ganze Bestenliste von ${bekannt ? titel(spiel) : spiel} leeren – ${eintraege.length === 1 ? "den einen Eintrag" : `alle ${eintraege.length} Einträge`} samt Geistern? Das lässt sich nicht rückgängig machen.`)) return;
-        try {
-          for (const eintrag of eintraege) await loesche(eintrag.id);
-          neuLaden();
-        } catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
-      }));
-    }
-    block.append(kopf);
-
-    const tabelle = el("table", "adm-tabelle");
-    const kopfZeile = el("tr");
-    ["Name", einheit(spiel), "Runden", "Zuletzt", ""].forEach((text, i) => {
-      kopfZeile.append(el("th", i > 0 && i < 4 ? "zahl" : "", text));
-    });
-    const thead = el("thead");
-    thead.append(kopfZeile);
-    tabelle.append(thead);
-
-    const body = el("tbody");
-    eintraege
-      .slice()
-      .sort((a, b) => b.punkte - a.punkte || a.updatedAtMs - b.updatedAtMs)
-      .forEach((eintrag) => {
-        const zeile = el("tr");
-        const name = el("td", "adm-name");
-        name.append(el("span", "", eintrag.name));
-        const kennung = el("small", "adm-kennung", eintrag.spieler);
-        name.append(kennung);
-        zeile.append(name);
-        zeile.append(el("td", "zahl", String(eintrag.punkte)));
-        zeile.append(el("td", "zahl", String(eintrag.versuche)));
-        zeile.append(el("td", "zahl", wann(eintrag.updatedAtMs)));
-
-        const aktionen = el("td", "adm-aktionen");
-        aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
-          const neu = window.prompt("Neuer Name (höchstens 24 Zeichen):", eintrag.name);
-          if (neu === null) return;
-          const sauber = String(neu).replace(/\s+/g, " ").trim().slice(0, 24);
-          if (!sauber) return;
-          try { await benenneUm(eintrag.id, sauber); neuLaden(); }
-          catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
-        }));
-        // Löschen fragt nach. Ein Eintrag ist weg, wenn er weg ist – und die
-        // beiden Knöpfe liegen nebeneinander.
-        aktionen.append(knopf("Löschen", "adm-knopf-weg", async () => {
-          if (!window.confirm(`"${eintrag.name}" aus ${bekannt ? titel(spiel) : spiel} löschen?`)) return;
-          try { await loesche(eintrag.id); neuLaden(); }
-          catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
-        }));
-        zeile.append(aktionen);
-        body.append(zeile);
-      });
-    tabelle.append(body);
-    block.append(tabelle);
-    return block;
+  // ---------------------------------------------------------------------------
+  // Bausteine für Spieler und Spiele
+  // ---------------------------------------------------------------------------
+  const schluesselVon = (name) => String(name || "").toLocaleLowerCase("de");
+  const rundenVon = (eintraege) => eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
+  const zuletztVon = (eintraege) => Math.max(0, ...eintraege.map((e) => Number(e.updatedAtMs) || 0));
+  function zuerstVon(eintraege) {
+    const erste = eintraege.map((e) => Number(e.erstesMs) || 0).filter((ms) => ms > 0);
+    return erste.length ? Math.min(...erste) : 0;
   }
 
-  function baueSpieler(alle, neuLaden) {
-    const block = el("section", "adm-block");
-    block.append(el("h2", "", "Die Spieler"));
-
-    const nachName = new Map();
-    alle.forEach((eintrag) => {
-      const schluessel = eintrag.name.toLocaleLowerCase("de");
-      if (!nachName.has(schluessel)) nachName.set(schluessel, { name: eintrag.name, spiele: 0, runden: 0, eintraege: [] });
-      const person = nachName.get(schluessel);
-      person.spiele += 1;
-      person.runden += Math.max(1, eintrag.versuche);
-      person.eintraege.push(eintrag);
+  // Ein Name ist hier, was er überall ist: gross oder klein geschrieben
+  // derselbe, auf allen Geräten zusammen (mini-games.js, verdichte).
+  function nachPerson(eintraege) {
+    const personen = new Map();
+    eintraege.forEach((e) => {
+      const schluessel = schluesselVon(e.name);
+      if (!personen.has(schluessel)) personen.set(schluessel, { schluessel, name: e.name, eintraege: [] });
+      personen.get(schluessel).eintraege.push(e);
     });
-    const personen = [...nachName.values()].sort((a, b) => b.runden - a.runden || a.name.localeCompare(b.name, "de"));
+    return [...personen.values()];
+  }
 
-    if (!personen.length) {
-      block.append(el("p", "adm-hinweis", "Noch hat niemand gespielt."));
-      return block;
+  function spielName(spiel, bekannt) {
+    const name = el("span", "adm-spielname");
+    name.style.setProperty("--adm-farbe", farbe(spiel).hell);
+    name.append(el("span", "adm-punkt"), el("span", "", bekannt ? titel(spiel) : `${spiel} (kein Spiel mehr)`));
+    return name;
+  }
+
+  const tierMarke = (tier) => (tier ? el("span", "adm-tier-marke", `T${tier}`) : "–");
+
+  function platzMarke(platz, von) {
+    const wrap = el("span", "adm-platz-wrap");
+    wrap.append(el("span", `adm-platz${platz <= 3 ? ` ist-${platz}` : ""}`, `${platz}.`));
+    if (von) wrap.append(el("small", "adm-von", `von ${von}`));
+    return wrap;
+  }
+
+  function personKnopf(name, beiKlick) {
+    const b = el("button", "adm-person", name);
+    b.type = "button";
+    b.title = `Auswertung von ${name}`;
+    b.addEventListener("click", beiKlick);
+    return b;
+  }
+
+  // Eine Handlung, die die Datenbank ändert, und danach alles neu gelesen.
+  async function undNeu(arbeit, neuLaden) {
+    try {
+      await arbeit();
+      await neuLaden();
+    } catch (fehler) {
+      window.alert(`Das ging nicht: ${fehlerText(fehler)}`);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Spieler
+  // ---------------------------------------------------------------------------
+  // Eine Zeile je Name: in wie vielen Spielen, wie viele Runden, welcher
+  // Platz im Schnitt (wie in der Hall of Fame, mini-games.js, auswertung).
+  // Ein Tipp auf den Namen öffnet seine ganze Auswertung. Gezählt wird, was
+  // der Filter durchlässt – "Tier 1" heisst: der Schnitt in Tier 1.
+  let gesucht = "";
+
+  function baueSpieler(stand, neuLaden) {
+    const bereich = klappBlock("spieler", "Spieler");
+    const alleLeute = nachPerson(stand.alle);
+    bereich.zahl.textContent = zahlWort(alleLeute.length, "Spieler", "Spieler");
 
     // Wer auf mehreren Geräten spielt, steht hier einmal – in der Datenbank
     // aber mehrmals (fuehreZusammen).
-    const doppelt = personen.filter((person) => kennungen(person) > 1);
+    const doppelt = alleLeute.filter((person) => kennungen(person) > 1);
     if (doppelt.length) {
-      const hinweis = el("p", "adm-hinweis",
+      const hinweis = el("p", "adm-hinweis adm-doppelt",
         `${doppelt.length === 1 ? `"${doppelt[0].name}" hat` : `${doppelt.length} Namen haben`} auf mehreren Geräten gespielt und ${doppelt.length === 1 ? "steht" : "stehen"} deshalb mehrmals in der Datenbank. `
         + "Zusammengeführt bleibt je Spiel ein Eintrag: die beste Zahl, alle Runden zusammen. ");
       if (doppelt.length > 1) {
         hinweis.append(knopf("Alle zusammenführen", "adm-knopf-klein", async () => {
           const namen = doppelt.map((person) => `"${person.name}"`).join(", ");
           if (!window.confirm(`${namen} zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
-          try {
-            for (const person of doppelt) await fuehreZusammen(person);
-            neuLaden();
-          } catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
+          await undNeu(async () => { for (const person of doppelt) await fuehreZusammen(person); }, neuLaden);
         }));
       }
-      block.append(hinweis);
+      bereich.inhalt.append(hinweis);
     }
 
-    const tabelle = el("table", "adm-tabelle");
-    const kopfZeile = el("tr");
-    ["Name", "Spiele", "Runden", ""].forEach((text, i) => kopfZeile.append(el("th", i > 0 && i < 3 ? "zahl" : "", text)));
-    const thead = el("thead");
-    thead.append(kopfZeile);
-    tabelle.append(thead);
-
-    const body = el("tbody");
-    personen.forEach((person) => {
-      const zeile = el("tr");
-      const name = el("td", "adm-name");
-      name.append(el("span", "", person.name));
-      const geraete = kennungen(person);
-      if (geraete > 1) name.append(el("small", "adm-kennung", `auf ${geraete} Geräten`));
-      zeile.append(name);
-      zeile.append(el("td", "zahl", String(person.spiele)));
-      zeile.append(el("td", "zahl", String(person.runden)));
-      const aktionen = el("td", "adm-aktionen");
-      if (geraete > 1) {
-        aktionen.append(knopf("Zusammenführen", "adm-knopf-klein", async () => {
-          if (!window.confirm(`"${person.name}" von ${geraete} Geräten zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
-          try { await fuehreZusammen(person); neuLaden(); }
-          catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
-        }));
-      }
-      // Der Weg für den Tag, an dem jemand einen Namen einträgt, den man hier
-      // nicht haben will: alles von ihm auf einmal.
-      const wieViele = zahlWort(person.spiele, "Eintrag", "Einträge");
-      aktionen.append(knopf(person.spiele === 1 ? "Eintrag löschen" : `Alle ${wieViele} löschen`, "adm-knopf-weg", async () => {
-        if (!window.confirm(`Wirklich ${person.spiele === 1 ? "den Eintrag" : `alle ${wieViele}`} von "${person.name}" löschen?`)) return;
-        try {
-          for (const eintrag of person.eintraege) await loesche(eintrag.id);
-          neuLaden();
-        } catch (fehler) { window.alert(`Das ging nicht: ${fehlerText(fehler)}`); }
-      }));
-      zeile.append(aktionen);
-      body.append(zeile);
+    const filter = filterLeiste(stand);
+    const suche = feld("search", "Name suchen");
+    suche.classList.add("adm-suche");
+    suche.setAttribute("aria-label", "Name suchen");
+    suche.value = gesucht;
+    suche.addEventListener("input", () => {
+      gesucht = suche.value;
+      zeichne();
     });
-    tabelle.append(body);
-    block.append(tabelle);
-    return block;
+    filter.leiste.append(suche);
+    const summe = el("p", "adm-klein adm-summe");
+
+    const tabelle = sortierTabelle("spieler", [
+      {
+        key: "name", titel: "Name", klasse: "adm-name",
+        wert: (p) => p.name,
+        zelle: (p) => {
+          const teile = document.createDocumentFragment();
+          teile.append(personKnopf(p.name, () => zeigeAuswertung(stand, p.schluessel, neuLaden)));
+          if (p.geraete > 1) teile.append(el("small", "adm-kennung", `auf ${p.geraete} Geräten`));
+          return teile;
+        },
+      },
+      { key: "spiele", titel: "Spiele", zahl: true, ab: true, wert: (p) => p.spiele },
+      { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (p) => p.runden },
+      { key: "schnitt", titel: "Ø Platz", zahl: true, wert: (p) => p.schnitt, zelle: (p) => p.schnitt.toFixed(1) },
+      { key: "siege", titel: "1. Plätze", zahl: true, ab: true, klasse: "adm-breit", wert: (p) => p.siege },
+      { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (p) => p.zuletzt, zelle: (p) => wannKurz(p.zuletzt) },
+      {
+        key: "aktionen", titel: "", klasse: "adm-aktionen",
+        zelle: (p) => {
+          const teile = document.createDocumentFragment();
+          if (p.geraete > 1) {
+            teile.append(knopf("Zusammenführen", "adm-knopf-klein", async () => {
+              if (!window.confirm(`"${p.name}" von ${p.geraete} Geräten zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
+              await undNeu(() => fuehreZusammen({ name: p.name, eintraege: p.alle }), neuLaden);
+            }));
+          }
+          // Am Handy reicht der Name: Er öffnet dieselbe Auswertung.
+          teile.append(knopf("Auswertung", "adm-knopf-klein adm-breit", () => zeigeAuswertung(stand, p.schluessel, neuLaden)));
+          return teile;
+        },
+      },
+    ], { standard: { key: "runden", ab: true }, leer: "Hier hat noch niemand gespielt." });
+
+    bereich.inhalt.append(filter.leiste, summe, tabelle.wirt);
+
+    function zeichne() {
+      const spiele = alleSpiele(stand).filter((spiel) => passt(stand, spiel));
+      const eintraege = stand.alle.filter((e) => spiele.includes(e.game));
+      const wertung = new Map((mini()?.auswertung?.(eintraege, spiele) || []).map((p) => [schluesselVon(p.name), p]));
+      const leute = nachPerson(eintraege).map((p) => {
+        const alle = alleLeute.find((a) => a.schluessel === p.schluessel)?.eintraege || p.eintraege;
+        const w = wertung.get(p.schluessel);
+        return {
+          schluessel: p.schluessel,
+          name: p.name,
+          alle,
+          geraete: new Set(alle.map((e) => e.spieler)).size,
+          spiele: new Set(p.eintraege.map((e) => e.game)).size,
+          runden: rundenVon(p.eintraege),
+          schnitt: w?.schnitt || 0,
+          siege: w?.siege || 0,
+          zuletzt: zuletztVon(p.eintraege),
+        };
+      });
+      const such = schluesselVon(gesucht.trim());
+      const gezeigt = such ? leute.filter((p) => p.schluessel.includes(such)) : leute;
+      summe.textContent = `${gezeigt.length} von ${zahlWort(alleLeute.length, "Spieler", "Spielern")} · gezählt in ${zahlWort(spiele.length, "Spiel", "Spielen")}`;
+      tabelle.zeige(gezeigt);
+    }
+    stand.hoerer.add(zeichne);
+    zeichne();
+    return bereich;
   }
 
-  async function zeigeAdmin(nutzer) {
+  // ---------------------------------------------------------------------------
+  // Die Spiele und ihre Bestenlisten
+  // ---------------------------------------------------------------------------
+  // Eine Zeile je Spiel – auch für die, die noch niemand gespielt hat: Tier,
+  // ob es auf der Startseite steht, wie viele spielen, wie oft, wer den
+  // Rekord hält. Nach jeder Spalte sortierbar, nach Tier, Startseite oder
+  // Turnier zu filtern. Ein Tipp auf das Spiel klappt seine Bestenliste auf,
+  // mit allem, was es zum Aufräumen braucht.
+  function spielZahlen(stand, spiel) {
+    const eintraege = stand.alle.filter((e) => e.game === spiel);
+    const liste = mini()?.rangliste?.(eintraege) || [];
+    return {
+      id: spiel,
+      bekannt: stand.bekannte.includes(spiel),
+      tier: stand.bekannte.includes(spiel) ? stand.einteilung[spiel] || 0 : 0,
+      an: stand.offen.has(spiel),
+      eintraege,
+      liste,
+      spieler: liste.length,
+      runden: rundenVon(eintraege),
+      zuletzt: zuletztVon(eintraege),
+    };
+  }
+
+  function bestenliste(z, stand, neuLaden) {
+    const name = z.bekannt ? titel(z.id) : z.id;
+    const platzVon = new Map(z.liste.map((e) => [schluesselVon(e.name), e.platz]));
+    const tabelle = el("table", "adm-tabelle adm-bestenliste");
+    const kopfZeile = el("tr");
+    ["Platz", "Name", einheit(z.id), "Runden", "Zuletzt", ""].forEach((text, i) => {
+      kopfZeile.append(el("th", [i === 0 || (i > 1 && i < 5) ? "zahl" : "", i === 4 ? "adm-breit" : ""].join(" ").trim(), text));
+    });
+    const thead = el("thead");
+    thead.append(kopfZeile);
+    const body = el("tbody");
+    // Ein Name auf mehreren Geräten hat einen Platz: Die weiteren Einträge
+    // stehen darunter, als das, was sie sind.
+    const schonDa = new Set();
+    z.eintraege
+      .slice()
+      .sort((a, b) => b.punkte - a.punkte || a.updatedAtMs - b.updatedAtMs)
+      .forEach((eintrag) => {
+        const zeile = el("tr");
+        const platz = el("td", "zahl");
+        const schluessel = schluesselVon(eintrag.name);
+        platz.append(schonDa.has(schluessel) ? el("small", "adm-von", "weiteres Gerät") : platzMarke(platzVon.get(schluessel) || 0));
+        schonDa.add(schluessel);
+        const wer = el("td", "adm-name");
+        wer.append(personKnopf(eintrag.name, () => zeigeAuswertung(stand, schluesselVon(eintrag.name), neuLaden)));
+        wer.append(el("small", "adm-kennung", eintrag.spieler));
+        zeile.append(platz, wer);
+        zeile.append(el("td", "zahl", String(eintrag.punkte)));
+        zeile.append(el("td", "zahl", String(eintrag.versuche)));
+        zeile.append(el("td", "zahl adm-breit", wannKurz(eintrag.updatedAtMs)));
+        const aktionen = el("td", "adm-aktionen");
+        aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
+          const neu = window.prompt("Neuer Name (höchstens 24 Zeichen):", eintrag.name);
+          if (neu === null) return;
+          const sauber = String(neu).replace(/\s+/g, " ").trim().slice(0, 24);
+          if (!sauber) return;
+          await undNeu(() => benenneUm(eintrag.id, sauber), neuLaden);
+        }));
+        // Löschen fragt nach. Ein Eintrag ist weg, wenn er weg ist – und die
+        // beiden Knöpfe liegen nebeneinander.
+        aktionen.append(knopf("Löschen", "adm-knopf-weg", async () => {
+          if (!window.confirm(`"${eintrag.name}" aus ${name} löschen?`)) return;
+          await undNeu(() => loesche(eintrag.id), neuLaden);
+        }));
+        zeile.append(aktionen);
+        body.append(zeile);
+      });
+    tabelle.append(thead, body);
+    const wirt = el("div", "adm-tabelle-wirt");
+    wirt.append(tabelle);
+    return wirt;
+  }
+
+  function baueSpiele(stand, neuLaden) {
+    const bereich = klappBlock("spiele", "Spiele und Bestenlisten");
+    const filter = filterLeiste(stand);
+    const summe = el("p", "adm-klein adm-summe");
+
+    function schalter(z) {
+      const b = el("button", "adm-spiel-schalter");
+      b.type = "button";
+      b.setAttribute("aria-expanded", String(ansicht.spiel === z.id));
+      b.title = "Bestenliste zeigen";
+      b.append(spielName(z.id, z.bekannt));
+      b.addEventListener("click", () => {
+        ansicht.spiel = ansicht.spiel === z.id ? "" : z.id;
+        merkeAnsicht();
+        tabelle.zeichne();
+      });
+      return b;
+    }
+
+    // Die Bestenliste unter ihrer Zeile, über die ganze Breite.
+    function detail(z, tr, body) {
+      if (ansicht.spiel !== z.id) return;
+      tr.classList.add("ist-offen");
+      const zeile = el("tr", "adm-detail");
+      const zelle = el("td");
+      zelle.colSpan = 8;
+      const kasten = el("div", "adm-spiel-detail");
+      kasten.style.setProperty("--adm-farbe", farbe(z.id).hell);
+      if (!z.eintraege.length) {
+        kasten.append(el("p", "adm-hinweis", "Noch hat niemand gespielt."));
+      } else {
+        const kopf = el("div", "adm-detail-kopf");
+        kopf.append(el("span", "adm-klein", `${zahlWort(z.eintraege.length, "Eintrag", "Einträge")} · ${zahlWort(z.runden, "Runde", "Runden")}`));
+        // Wenn ein Spiel umgebaut wurde und die alten Zahlen nichts mehr
+        // bedeuten: die ganze Bestenliste auf einmal, mit den Geistern.
+        kopf.append(knopf("Bestenliste leeren", "adm-knopf-weg", async () => {
+          const name = z.bekannt ? titel(z.id) : z.id;
+          if (!window.confirm(`Die ganze Bestenliste von ${name} leeren – ${z.eintraege.length === 1 ? "den einen Eintrag" : `alle ${z.eintraege.length} Einträge`} samt Geistern? Das lässt sich nicht rückgängig machen.`)) return;
+          await undNeu(async () => { for (const eintrag of z.eintraege) await loesche(eintrag.id); }, neuLaden);
+        }));
+        kasten.append(kopf, bestenliste(z, stand, neuLaden));
+      }
+      zelle.append(kasten);
+      zeile.append(zelle);
+      body.append(zeile);
+    }
+
+    const tabelle = sortierTabelle("spiele", [
+      { key: "spiel", titel: "Spiel", wert: (z) => (z.bekannt ? titel(z.id) : z.id), zelle: schalter },
+      { key: "tier", titel: "Tier", wert: (z) => z.tier || 9, zelle: (z) => tierMarke(z.tier) },
+      // Offen heisst: steht auf der Startseite (Welche Spiele gespielt werden).
+      { key: "an", titel: "Offen", ab: true, wert: (z) => (z.an ? 1 : 0), zelle: (z) => el("span", z.an ? "adm-an" : "adm-aus", z.an ? "✓" : "–") },
+      { key: "spieler", titel: "Spieler", zahl: true, ab: true, wert: (z) => z.spieler },
+      { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden },
+      {
+        key: "rekord", titel: "Rekord", klasse: "adm-breit",
+        zelle: (z) => (z.liste[0] ? `${z.liste[0].punkte} ${einheit(z.id)} · ${z.liste[0].name}` : "–"),
+      },
+      { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuletzt, zelle: (z) => wannKurz(z.zuletzt) },
+      { key: "spielen", titel: "", klasse: "adm-breit", zelle: (z) => (z.bekannt ? spielenKnopf(z.id) : "") },
+    ], { standard: { key: "tier", ab: false }, leer: "Kein Spiel passt zum Filter.", zeile: detail, klasse: "adm-spieltabelle" });
+
+    bereich.inhalt.append(filter.leiste, summe, tabelle.wirt);
+
+    function zeichne() {
+      const alle = alleSpiele(stand);
+      const gezeigt = alle.filter((spiel) => passt(stand, spiel)).map((spiel) => spielZahlen(stand, spiel));
+      const eintraege = gezeigt.reduce((summe, z) => summe + z.eintraege.length, 0);
+      bereich.zahl.textContent = `${zahlWort(stand.bekannte.length, "Spiel", "Spiele")} · ${zahlWort(stand.alle.length, "Eintrag", "Einträge")}`;
+      summe.textContent = `${gezeigt.length} von ${zahlWort(alle.length, "Spiel", "Spielen")} · ${zahlWort(eintraege, "Eintrag", "Einträge")} · ${zahlWort(gezeigt.reduce((s, z) => s + z.runden, 0), "Runde", "Runden")}`;
+      tabelle.zeige(gezeigt);
+    }
+    stand.hoerer.add(zeichne);
+    zeichne();
+    return bereich;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Auswertung eines Spielers
+  // ---------------------------------------------------------------------------
+  /*
+   * Alles über einen Namen an einem Ort, in einem Fenster über dem
+   * Adminbereich: welche Spiele, welcher Platz in jedem, wie oft gespielt,
+   * seit wann – und in welchen Turnieren. Dazu, was sich mit ihm machen
+   * lässt: umbenennen, zusammenführen, ein einzelnes Ergebnis oder alle
+   * löschen. Nach jedem davon wird neu gelesen, und das Fenster steht
+   * wieder da (neuLaden merkt sich, wessen es war).
+   *
+   * Der Filter gilt auch hier: "Tier 1" zeigt den Schnitt in Tier 1.
+   */
+  let dashboard = null;
+
+  function zeigeAuswertung(stand, schluessel, neuLaden) {
+    dashboard?.zu({ still: true });
+    const seine = stand.alle.filter((e) => schluesselVon(e.name) === schluessel);
+    if (!seine.length) return;
+    const name = seine[0].name;
+    const geraete = new Set(seine.map((e) => e.spieler)).size;
+
+    const huelle = el("div", "adm-dash-huelle");
+    const karte = el("article", "adm-dash");
+    karte.setAttribute("role", "dialog");
+    karte.setAttribute("aria-modal", "true");
+    karte.setAttribute("aria-labelledby", "adm-dash-titel");
+    karte.tabIndex = -1;
+
+    const kopf = el("header", "adm-dash-kopf");
+    const links = el("div");
+    const ueberschrift = el("h2", "adm-dash-titel", name);
+    ueberschrift.id = "adm-dash-titel";
+    const seit = zuerstVon(seine);
+    links.append(ueberschrift, el("p", "adm-klein", [
+      geraete > 1 ? `auf ${geraete} Geräten` : "auf einem Gerät",
+      seit ? `zum ersten Mal ${wann(seit)}` : "",
+      `zuletzt ${wann(zuletztVon(seine))}`,
+    ].filter(Boolean).join(" · ")));
+    kopf.append(links, knopf("Schliessen", "adm-knopf-hell adm-dash-zu", () => schliessen()));
+
+    const filter = filterLeiste(stand);
+    const zahlen = el("div", "adm-streifen adm-dash-zahlen");
+
+    const teil = (ueber) => {
+      const box = el("section", "adm-dash-teil");
+      box.append(el("h3", "", ueber));
+      return box;
+    };
+
+    const tabelle = sortierTabelle("auswertung", [
+      { key: "spiel", titel: "Spiel", wert: (z) => (z.bekannt ? titel(z.id) : z.id), zelle: (z) => spielName(z.id, z.bekannt) },
+      { key: "tier", titel: "Tier", klasse: "adm-breit", wert: (z) => z.tier || 9, zelle: (z) => tierMarke(z.tier) },
+      { key: "platz", titel: "Platz", zahl: true, wert: (z) => z.platz, zelle: (z) => platzMarke(z.platz, z.von) },
+      {
+        key: "punkte", titel: "Bestwert", zahl: true,
+        zelle: (z) => {
+          const wert = el("span", "adm-bestwert", `${z.punkte} ${einheit(z.id)}`);
+          if (z.eintraege.length > 1) wert.append(el("small", "adm-von", `${z.eintraege.length} Geräte`));
+          return wert;
+        },
+      },
+      { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden },
+      { key: "zuerst", titel: "Zuerst", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuerst, zelle: (z) => wannKurz(z.zuerst) },
+      { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuletzt, zelle: (z) => wannKurz(z.zuletzt) },
+      {
+        key: "weg", titel: "", klasse: "adm-aktionen",
+        zelle: (z) => knopf("Löschen", "adm-knopf-weg", async () => {
+          const spiel = z.bekannt ? titel(z.id) : z.id;
+          if (!window.confirm(`Das Ergebnis von "${name}" in ${spiel} löschen${z.eintraege.length > 1 ? ` (${z.eintraege.length} Einträge, je Gerät einer)` : ""}?`)) return;
+          await undNeu(async () => { for (const e of z.eintraege) await loesche(e.id); }, neuLaden);
+        }),
+      },
+    ], { standard: { key: "platz", ab: false }, leer: "In diesen Spielen hat er oder sie noch nicht gespielt." });
+    const jeSpiel = teil("Je Spiel");
+    jeSpiel.append(tabelle.wirt);
+
+    const turniere = teil("Turniere");
+    const turnierListe = el("div", "adm-dash-turniere");
+    turniere.append(turnierListe);
+
+    const aufraeumen = teil("Aufräumen");
+    const aktionen = el("div", "adm-kopf-aktionen");
+    aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
+      const neu = window.prompt(`Neuer Name für "${name}" in allen Spielen (höchstens 24 Zeichen):`, name);
+      if (neu === null) return;
+      const sauber = String(neu).replace(/\s+/g, " ").trim().slice(0, 24);
+      if (!sauber || sauber === name) return;
+      dashboard.schluessel = schluesselVon(sauber);
+      await undNeu(async () => { for (const e of seine) await benenneUm(e.id, sauber); }, neuLaden);
+    }));
+    if (geraete > 1) {
+      aktionen.append(knopf(`Von ${geraete} Geräten zusammenführen`, "adm-knopf-klein", async () => {
+        if (!window.confirm(`"${name}" von ${geraete} Geräten zusammenführen? Je Spiel bleibt ein Eintrag mit der besten Zahl und allen Runden; die übrigen Einträge werden gelöscht. Das lässt sich nicht rückgängig machen.`)) return;
+        await undNeu(() => fuehreZusammen({ name, eintraege: seine }), neuLaden);
+      }));
+    }
+    // Der Weg für den Tag, an dem jemand einen Namen einträgt, den man hier
+    // nicht haben will: alles von ihm auf einmal.
+    const wieViele = zahlWort(seine.length, "Eintrag", "Einträge");
+    aktionen.append(knopf(seine.length === 1 ? "Eintrag löschen" : `Alle ${wieViele} löschen`, "adm-knopf-weg", async () => {
+      if (!window.confirm(`Wirklich ${seine.length === 1 ? "den Eintrag" : `alle ${wieViele}`} von "${name}" löschen? Das lässt sich nicht rückgängig machen.`)) return;
+      await undNeu(async () => { for (const e of seine) await loesche(e.id); }, neuLaden);
+    }));
+    aufraeumen.append(aktionen);
+
+    karte.append(kopf, filter.leiste, zahlen, jeSpiel, turniere, aufraeumen);
+    huelle.append(karte);
+
+    function zeilen() {
+      const proSpiel = new Map();
+      seine.forEach((e) => {
+        if (!proSpiel.has(e.game)) proSpiel.set(e.game, []);
+        proSpiel.get(e.game).push(e);
+      });
+      return alleSpiele(stand).filter((spiel) => proSpiel.has(spiel) && passt(stand, spiel)).map((spiel) => {
+        const eintraege = proSpiel.get(spiel);
+        const liste = mini()?.rangliste?.(stand.alle.filter((e) => e.game === spiel)) || [];
+        const bekannt = stand.bekannte.includes(spiel);
+        return {
+          id: spiel,
+          bekannt,
+          tier: bekannt ? stand.einteilung[spiel] || 0 : 0,
+          eintraege,
+          platz: liste.find((e) => schluesselVon(e.name) === schluessel)?.platz || liste.length,
+          von: liste.length,
+          punkte: Math.max(0, ...eintraege.map((e) => Number(e.punkte) || 0)),
+          runden: rundenVon(eintraege),
+          zuerst: zuerstVon(eintraege),
+          zuletzt: zuletztVon(eintraege),
+        };
+      });
+    }
+
+    function zeichne() {
+      const daten = zeilen();
+      const moeglich = alleSpiele(stand).filter((spiel) => passt(stand, spiel)).length;
+      const schnitt = daten.length ? daten.reduce((summe, z) => summe + z.platz, 0) / daten.length : 0;
+      const kachel = (wert, wort) => {
+        const box = el("div");
+        box.append(el("strong", "", String(wert)), el("span", "", wort));
+        return box;
+      };
+      zahlen.replaceChildren(
+        kachel(daten.length, `von ${zahlWort(moeglich, "Spiel", "Spielen")} gespielt`),
+        kachel(daten.reduce((summe, z) => summe + z.runden, 0), "Runden"),
+        kachel(daten.length ? schnitt.toFixed(1) : "–", "Platz im Schnitt"),
+        kachel(daten.filter((z) => z.platz === 1).length, "1. Plätze"),
+        kachel(daten.filter((z) => z.platz <= 3).length, "Podestplätze"),
+      );
+      tabelle.zeige(daten);
+    }
+
+    // In welchen Turnieren er mitspielt und auf welchem Platz: gelesen erst
+    // hier, wenn das Fenster aufgeht – für die Liste oben braucht es das nicht.
+    async function ladeTurniere() {
+      turnierListe.replaceChildren(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
+      await stand.turniereBereit;
+      const funde = await Promise.all(stand.turniere.map(async (t) => {
+        try {
+          const [eintraege, abende] = await Promise.all([
+            cloud().turnierErgebnisse(t.id),
+            Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
+          ]);
+          const wertung = tn()?.gesamtwertung?.(t, eintraege || [], abende || []);
+          const p = wertung?.personen?.find((x) => schluesselVon(x.name) === schluessel);
+          return p ? { t, platz: p.platz, von: wertung.personen.length, gespielt: p.gespielt, teile: wertung.teile } : null;
+        } catch { return null; }
+      }));
+      if (!huelle.isConnected) return;
+      const dabei = funde.filter(Boolean).sort((a, b) => (b.t.startMs || 0) - (a.t.startMs || 0));
+      turnierListe.replaceChildren();
+      if (!dabei.length) {
+        turnierListe.append(el("p", "adm-hinweis", "In keinem Turnier dabei."));
+        return;
+      }
+      dabei.forEach(({ t, platz, von, gespielt, teile }) => {
+        const lage = tn()?.lage?.(t) || "laeuft";
+        const zeile = el("div", "adm-dash-turnier");
+        zeile.append(platzMarke(platz, von), el("strong", "", t.name), el("span", `adm-marke ist-${lage}`, tn()?.statusText?.(t) || LAGE_WORT[lage]));
+        zeile.append(el("span", "adm-klein", `${gespielt} von ${zahlWort(teile, "Teil", "Teilen")} gespielt`));
+        turnierListe.append(zeile);
+      });
+    }
+
+    const vorher = document.activeElement;
+    const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
+    huelle.addEventListener("click", (ereignis) => { if (ereignis.target === huelle) schliessen(); });
+    function schliessen({ still = false } = {}) {
+      document.removeEventListener("keydown", taste);
+      stand.hoerer.delete(zeichne);
+      filter.weg();
+      huelle.remove();
+      document.body.classList.remove("adm-dash-offen");
+      if (dashboard?.zu === schliessen) dashboard = null;
+      if (!still) vorher?.focus?.({ preventScroll: true });
+    }
+
+    stand.hoerer.add(zeichne);
+    zeichne();
+    ladeTurniere();
+    document.addEventListener("keydown", taste);
+    document.body.classList.add("adm-dash-offen");
+    document.body.append(huelle);
+    karte.focus({ preventScroll: true });
+    dashboard = { schluessel, zu: schliessen };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der ganze Adminbereich
+  // ---------------------------------------------------------------------------
+  async function zeigeAdmin(nutzer, { person = null } = {}) {
     leere();
 
     const kopf = el("header", "adm-kopf");
@@ -1805,8 +2496,8 @@
         // Ohne Tiers geht es auch: dann gilt die Vorgabe.
         Promise.resolve(cloud().tiers?.()).catch(() => null),
       ]);
-      // Ein Objekt für beide Blöcke: Was oben eingeteilt wird, gilt gleich im
-      // nächsten Turnierformular.
+      // Ein Objekt für alle Bereiche: Was oben eingeteilt wird, gilt gleich im
+      // nächsten Turnierformular und im Filter.
       einteilung = vollstaendig(gespeichert);
       // null heisst "es wurde nie etwas ausgewählt" – dann gelten alle, und
       // genau so steht es dann auch angehakt da.
@@ -1824,37 +2515,41 @@
     }
     laedt.remove();
 
-    const namen = new Set(alle.map((e) => e.name.toLocaleLowerCase("de")));
-    const runden = alle.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
-    const mitEintraegen = new Set(alle.map((e) => e.game));
-    wirt.append(streifen([
-      [alle.length, alle.length === 1 ? "Eintrag" : "Einträge"],
-      [namen.size, namen.size === 1 ? "Spieler" : "Spieler"],
-      [runden, runden === 1 ? "Runde" : "Runden"],
-      [offen.length, `von ${bekannte.length} Spielen offen`],
-    ]));
+    /*
+     * Was alle Bereiche teilen: die Einträge, die Spiele, die Tiers, was auf
+     * der Startseite steht, die Turniere. Ändert sich daran etwas ohne neues
+     * Lesen – ein Haken, ein Tier, der Filter, die Turniere sind da –, sagt
+     * melde es allen, die zuhören (hoerer), und die zeichnen sich neu.
+     */
+    const stand = {
+      alle,
+      bekannte,
+      einteilung,
+      offen: new Set(offen),
+      turniere: [],
+      turniereGeladen: false,
+      hoerer: new Set(),
+      melde() {
+        merkeAnsicht();
+        this.hoerer.forEach((zeichne) => zeichne());
+      },
+    };
+    stand.turniereBereit = new Promise((fertig) => { stand.turniereDa = fertig; });
 
-    const neuLaden = () => zeigeAdmin(nutzer);
-    wirt.append(baueTurniere(offen, einteilung));
-    wirt.append(baueAuswahl(offen, einteilung));
+    // Nach einer Änderung neu lesen – und dort bleiben, wo man war, samt dem
+    // Fenster eines Spielers, wenn eines offen war.
+    const neuLaden = async () => {
+      const y = window.scrollY;
+      await zeigeAdmin(nutzer, { person: dashboard?.schluessel || null });
+      window.scrollTo(0, y);
+    };
 
-    if (!alle.length) {
-      wirt.append(el("p", "adm-hinweis", "Die Bestenliste ist leer. Sobald jemand spielt und seinen Namen einträgt, steht er hier."));
-      return;
-    }
-
-    wirt.append(baueSpieler(alle, neuLaden));
-
-    // Erst die Spiele, die es gibt, in der Reihenfolge der Liste – dann, was
-    // von Spielen übrig ist, die es nicht mehr gibt.
-    const gespielt = bekannte.filter((id) => mitEintraegen.has(id));
-    const verwaist = [...mitEintraegen].filter((id) => !bekannte.includes(id)).sort();
-    for (const spiel of gespielt) {
-      wirt.append(baueSpiel(spiel, alle.filter((e) => e.game === spiel), neuLaden, true));
-    }
-    for (const spiel of verwaist) {
-      wirt.append(baueSpiel(spiel, alle.filter((e) => e.game === spiel), neuLaden, false));
-    }
+    wirt.append(kacheln(stand));
+    wirt.append(baueTurniere(stand).block);
+    wirt.append(baueAuswahl(stand).block);
+    wirt.append(baueSpieler(stand, neuLaden).block);
+    wirt.append(baueSpiele(stand, neuLaden).block);
+    if (person) zeigeAuswertung(stand, person, neuLaden);
   }
 
   // ---------------------------------------------------------------------------

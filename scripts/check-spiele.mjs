@@ -850,6 +850,8 @@ try {
     // Der Adminbereich führt zusammen: je Spiel ein Eintrag, die beste Zahl,
     // alle Runden – und der Lauf zieht mit.
     await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
+    // Zugeklappt, bis die Kachel "Spieler" die Spieler aufklappt.
+    await seite.locator(".adm-streifen .adm-kachel", { hasText: "Spieler" }).click();
     const zeile = seite.locator(".adm-tabelle tr", { has: seite.locator("td.adm-name", { hasText: "auf 2 Geräten" }) });
     await zeile.waitFor({ timeout: 8000 }).catch(() => {});
     pruefe(await zeile.count() === 1, "Im Adminbereich steht nicht, dass Alain auf zwei Geräten spielt.");
@@ -3241,6 +3243,16 @@ try {
       return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" });
     });
     await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
+    // Zuerst ist alles zugeklappt: nur die Köpfe der Bereiche mit ihren
+    // Zahlen. Die Kacheln oben sind Knöpfe – "Turniere" klappt die Turniere auf.
+    await seite.waitForSelector(".adm-seite > .adm-klapp", { timeout: 8000 });
+    const zu = await seite.evaluate(() => [...document.querySelectorAll(".adm-seite > .adm-klapp")].map((b) => ({
+      titel: b.querySelector(".adm-klapp-name")?.textContent || "",
+      offen: b.classList.contains("ist-offen") || !b.querySelector(".adm-klapp-inhalt").hidden,
+    })));
+    pruefe(zu.length === 4 && zu.every((b) => !b.offen), `Der Adminbereich steht nicht zugeklappt da: ${JSON.stringify(zu)}`);
+    pruefe(await seite.locator(".adm-streifen button.adm-kachel").count() === 5, "Oben stehen nicht fünf Kacheln zum Antippen.");
+    await seite.locator(".adm-kachel", { hasText: "Turnier" }).click();
     await seite.waitForSelector(".adm-turniere .adm-turnier", { timeout: 8000 });
 
     pruefe(await seite.evaluate(() => localStorage.getItem("mini.admin")) === "ja",
@@ -3310,6 +3322,10 @@ try {
 
     // Die Tiers: Vorgabe 14 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
+    await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
+    const auswahlText = await seite.locator("#adm-auswahl").innerText();
+    pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
+      `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
     pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 14 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
@@ -3321,7 +3337,7 @@ try {
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
-    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     const allein = await sichtbar();
     pruefe(allein.form && allein.kopf, `Das neue Turnier steht nicht da: ${JSON.stringify(allein)}`);
@@ -3381,7 +3397,7 @@ try {
         && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true && neu.ohneReplay === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
-      const meldung = await seite.locator(".adm-turniere > .adm-meldung").innerText();
+      const meldung = await seite.locator(".adm-turniere .adm-klapp-inhalt > .adm-meldung").innerText();
       pruefe(meldung.includes(`/turnier?t=${neu.id}`), `Nach dem Anlegen steht der Link nicht da: ${meldung}`);
       pruefe(await seite.locator(".adm-turnier-name", { hasText: "Test-Cup Ä" }).count() === 1, "Das neue Turnier steht nicht in der Liste.");
       pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Test-Cup Ä",
@@ -3405,7 +3421,7 @@ try {
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "Der Zurück-Knopf des Browsers schliesst das Formular nicht.");
     pruefe(new URL(seite.url()).pathname === "/admin", `Der Zurück-Knopf führt aus dem Adminbereich hinaus nach ${seite.url()}.`);
     pruefe((await sichtbar()).liste, "Nach dem Zurück-Knopf fehlt die Liste der Turniere.");
-    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
@@ -3480,7 +3496,7 @@ try {
 
     // Ein Turnier, in dem wartet, wer vorne liegt: unbegrenzt für alle
     // anderen – zusammenzählen geht deshalb nicht.
-    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     const spitzeForm = seite.locator(".adm-turnier-form");
     await spitzeForm.locator('input[type="text"]').first().fill("Spitzencup");
@@ -3501,7 +3517,7 @@ try {
 
     // Anhalten und löschen.
     // Ein Turnier ohne Zeitlimite.
-    await seite.click(".adm-turniere .adm-block-kopf button");
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     const dauerForm = seite.locator(".adm-turnier-form");
     await dauerForm.locator('input[type="text"]').first().fill("Endloscup");
@@ -3530,7 +3546,32 @@ try {
     await seite.evaluate(() => {
       window.__miniGeister.set("fishPond_mini_vorherdagewesen", { game: "fishPond", spieler: "mini_vorherdagewesen", name: "Grosi", punkte: 12, level: "t1", bahn: "" });
     });
-    const teich = seite.locator(".adm-block", { has: seite.locator("h2", { hasText: "Fischteich" }) });
+    // Die Spiele: eine Zeile je Spiel, nach Tier zu filtern, nach dem, was
+    // auf der Startseite steht, oder nach einem Turnier – und nach jeder
+    // Spalte zu sortieren. Der Filter gilt überall.
+    await seite.locator(".adm-kachel", { hasText: "Einträge" }).click();
+    const spielZeilen = "#adm-spiele .adm-spieltabelle > tbody > tr:not(.adm-detail)";
+    pruefe(await seite.locator(spielZeilen).count() === SPIELE.length, `In den Spielen stehen ${await seite.locator(spielZeilen).count()} Zeilen statt ${SPIELE.length}.`);
+    await seite.locator('#adm-spiele .adm-chip[data-tier="2"]').click();
+    const nurZwei = await seite.$$eval(`${spielZeilen} td:nth-child(2)`, (z) => z.map((t) => t.textContent));
+    pruefe(nurZwei.length > 0 && nurZwei.every((t) => t === "T2"), `Der Filter «Tier 2» zeigt: ${nurZwei.join(", ")}`);
+    pruefe(await seite.locator('#adm-spieler .adm-chip[data-tier="2"][aria-pressed="true"]').count() === 1, "Der Filter gilt bei den Spielern nicht mit.");
+    await seite.locator("#adm-spiele .adm-chip", { hasText: "Alle Tiers" }).click();
+    await seite.locator("#adm-spiele .adm-filter-wahl").selectOption(`t:${HERBST}`);
+    const imHerbst = await seite.$$eval("#adm-spiele .adm-spiel-schalter", (z) => z.map((s) => s.textContent.trim()));
+    pruefe(imHerbst.length === 3 && ["Turmbau", "Fischteich", "Wo hält der Zug?"].every((t) => imHerbst.includes(t)),
+      `Der Filter «Im Turnier: Herbstcup» zeigt: ${imHerbst.join(", ")}`);
+    await seite.locator("#adm-spiele .adm-filter-weg").click();
+    pruefe(await seite.locator(spielZeilen).count() === SPIELE.length, "«Filter aufheben» zeigt nicht wieder alle Spiele.");
+    await seite.locator("#adm-spiele th button", { hasText: "Spieler" }).click();
+    const nachSpielern = await seite.$$eval(`${spielZeilen} td:nth-child(4)`, (z) => z.map((t) => Number(t.textContent)));
+    pruefe(nachSpielern[0] >= 1 && nachSpielern.every((n, i) => i === 0 || nachSpielern[i - 1] >= n), `Nach Spielern sortiert steht: ${nachSpielern.join(", ")}`);
+    await seite.locator(".adm-kachel", { hasText: "Runden" }).click();
+    pruefe(/Runden/i.test(await seite.locator('#adm-spiele th[aria-sort="descending"]').innerText().catch(() => "")),
+      "Die Kachel «Runden» sortiert die Spiele nicht nach Runden.");
+
+    await seite.locator(".adm-spiel-schalter", { hasText: "Fischteich" }).click();
+    const teich = seite.locator(".adm-spiel-detail");
     pruefe(await teich.locator("button", { hasText: "Bestenliste leeren" }).count() === 1, "Beim Fischteich fehlt «Bestenliste leeren».");
     await teich.locator("button", { hasText: "Bestenliste leeren" }).click();
     await seite.waitForFunction(() => ![...window.__miniEintraege.values()].some((e) => e.game === "fishPond"), null, { timeout: 4000 }).catch(() => {});
@@ -3542,6 +3583,35 @@ try {
     pruefe(geleert.teich === 0, `«Bestenliste leeren» hat ${geleert.teich} Einträge im Fischteich stehen lassen.`);
     pruefe(!geleert.geist, "«Bestenliste leeren» hat den Geist stehen lassen.");
     pruefe(geleert.turm > 0, "«Bestenliste leeren» hat auch den Turmbau geleert.");
+
+    // Die Auswertung eines Spielers: ein Tipp auf den Namen. Je Spiel der
+    // Platz, dazu die Turniere – und alles, was sich mit ihm machen lässt.
+    await seite.locator(".adm-kachel", { hasText: "Spieler" }).click();
+    await seite.locator("#adm-spieler .adm-person", { hasText: "Grosi" }).click();
+    await seite.waitForSelector(".adm-dash", { timeout: 4000 });
+    await seite.waitForFunction(() => /Herbstcup/.test(document.querySelector(".adm-dash-turniere")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    const auswertung = await seite.evaluate(() => ({
+      titel: document.querySelector(".adm-dash-titel")?.textContent || "",
+      spiele: [...document.querySelectorAll(".adm-dash tbody tr")].map((z) => z.innerText.replace(/\s+/g, " ").trim()),
+      turniere: document.querySelector(".adm-dash-turniere")?.textContent.replace(/\s+/g, " ") || "",
+    }));
+    pruefe(auswertung.titel === "Grosi" && auswertung.spiele.length === 1 && /^Turmbau T\d 1\. von \d+ 99 /.test(auswertung.spiele[0]),
+      `Die Auswertung von Grosi zeigt nicht ihre Spiele: ${JSON.stringify(auswertung)}`);
+    pruefe(/\d\.\s*von \d\s*Herbstcup/.test(auswertung.turniere), `In der Auswertung fehlt der Platz im Herbstcup: ${auswertung.turniere}`);
+    await seite.keyboard.press("Escape");
+    pruefe(await seite.locator(".adm-dash").count() === 0, "Escape schliesst die Auswertung nicht.");
+    await seite.locator("#adm-spieler .adm-person", { hasText: "Grosi" }).click();
+    antwort = "Grossmami";
+    await seite.locator(".adm-dash button", { hasText: "Namen ändern" }).click();
+    await seite.waitForFunction(() => document.querySelector(".adm-dash-titel")?.textContent === "Grossmami", null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.__miniEintraege.get("towerStack_mini_vorherdagewesen")?.name) === "Grossmami"
+      && await seite.locator(".adm-dash-titel").innerText().catch(() => "") === "Grossmami",
+      "Nach «Namen ändern» heisst der Eintrag nicht anders, oder die Auswertung ist zu.");
+    await seite.locator(".adm-dash tbody tr", { hasText: "Turmbau" }).locator("button", { hasText: "Löschen" }).click();
+    await seite.waitForFunction(() => !window.__miniEintraege.has("towerStack_mini_vorherdagewesen"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(!(await seite.evaluate(() => window.__miniEintraege.has("towerStack_mini_vorherdagewesen"))), "«Löschen» in der Auswertung hat das Ergebnis stehen lassen.");
+    await seite.waitForFunction(() => !document.querySelector(".adm-dash"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-dash").count() === 0, "Ohne Einträge bleibt die Auswertung offen.");
 
     const ohne = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ohne <= 1, `Der Adminbereich steht mit den Turnieren ${ohne} px über den Rand.`);
