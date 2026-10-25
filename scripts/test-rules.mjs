@@ -158,6 +158,25 @@ await darfNicht("Gast schreibt eine Runde ohne neuen Versuch", () => gast().doc(
 await darfNicht("Gast schiebt seinen Eintrag in ein anderes Spiel", () => gast().doc(EINTRAG).set({ game: "fishPond", name: "Alain", punkte: 42, versuche: 5, updatedAtMs: 5 }, { merge: true }));
 await darfNicht("Gast übernimmt den Eintrag mit einer anderen Kennung", () => gast().doc(EINTRAG).set({ spieler: "mini_zzzzzzzzzzzz", name: "Alain", punkte: 42, versuche: 5, updatedAtMs: 5 }, { merge: true }));
 
+// --- Die Spielzeit ----------------------------------------------------------
+// Jede Runde bringt ihre Dauer mit und zählt sie zu spielMs dazu – höchstens
+// eine halbe Stunde je Runde, und weniger wird es nie. Der Eintrag oben ist
+// noch ohne das Feld angelegt: Es zählt dann als 0.
+await darf("Gast zählt die Dauer einer Runde zur Spielzeit", () => gast().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 5, spielMs: 45000, updatedAtMs: 8 }, { merge: true }));
+await darf("Gast zählt eine weitere Runde dazu", () => gast().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 6, spielMs: 105000, updatedAtMs: 9 }, { merge: true }));
+await darf("Gast schreibt eine Runde ohne Spielzeit (ältere Fassung)", () => gast().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 7, updatedAtMs: 10 }, { merge: true }));
+await darfNicht("Gast schreibt sich Stunden in einer Runde gut", () => gast().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 8, spielMs: 105000 + 2 * 3600000, updatedAtMs: 11 }, { merge: true }));
+await darfNicht("Gast rechnet seine Spielzeit klein", () => gast().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 8, spielMs: 1000, updatedAtMs: 11 }, { merge: true }));
+await darfNicht("Gast schreibt Spielzeit ohne Runde", () => gast().doc(EINTRAG).set({ name: "Alain V.", spielMs: 200000, updatedAtMs: 11 }, { merge: true }));
+const ZEIT = "miniScores/towerStack_mini_zeitzeitzeit";
+await darfNicht("Gast legt einen Eintrag mit Spielzeit als Text an", () => gast().doc(ZEIT).set(eintrag({ spieler: "mini_zeitzeitzeit", spielMs: "lang" })));
+await darfNicht("Gast legt einen Eintrag mit endloser erster Runde an", () => gast().doc(ZEIT).set(eintrag({ spieler: "mini_zeitzeitzeit", spielMs: 2 * 3600000 })));
+await darf("Gast legt einen Eintrag mit der Dauer der ersten Runde an", () => gast().doc(ZEIT).set(eintrag({ spieler: "mini_zeitzeitzeit", spielMs: 30000 })));
+// Zusammenführen: die Spielzeit aller Geräte auf einmal – das darf nur der Admin.
+await darfNicht("Ein angemeldeter Fremder schreibt sich die Spielzeit von Stunden gut", () => fremder().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 9, spielMs: 5 * 3600000, updatedAtMs: 12 }, { merge: true }));
+await darf("Admin führt die Spielzeit mehrerer Geräte zusammen", () => admin().doc(EINTRAG).set({ name: "Alain V.", punkte: 42, versuche: 9, spielMs: 5 * 3600000, updatedAtMs: 12 }, { merge: true }));
+await darfNicht("Auch der Admin schmuggelt kein eigenes Feld in den Eintrag", () => admin().doc(EINTRAG).set({ admin: true, updatedAtMs: 13 }, { merge: true }));
+
 // --- Aufräumen darf nur der Admin -------------------------------------------
 // Dafür, und für nichts anderes, gibt es hier überhaupt eine Anmeldung.
 await darfNicht("Gast löscht einen Eintrag", () => gast().doc(EINTRAG).delete());

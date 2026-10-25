@@ -4161,6 +4161,13 @@ body.adm-dash-offen { overflow: hidden; }
   min-width: 0;
 }
 .adm-dash-teil h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: #243047; }
+/* Sechs Zahlen auf einer Zeile, solange Platz ist. */
+.adm-dash-zahlen { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+/* Das erste Mal je Spiel erst auf einem breiten Bildschirm – sonst rollte die
+   Tabelle der Auswertung schon am Laptop. */
+@media (max-width: 1320px) {
+  .adm-sehr-breit { display: none; }
+}
 .adm-dash-turniere { display: flex; flex-direction: column; gap: 6px; }
 .adm-dash-turnier { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .adm-dash-turnier .adm-klein { margin: 0; }

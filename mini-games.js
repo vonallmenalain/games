@@ -770,6 +770,22 @@
     return rangliste(alle);
   }
 
+  // Wie lange eine Runde gedauert hat: vom Start (game-shell.js, setPhase
+  // "play") bis zum Ergebnis (showResult). Gemeldet wird die Dauer mit der
+  // Runde und dort zur Spielzeit des Eintrags gezählt (cloud.js, speichere) –
+  // auch wenn der Name erst nach der Runde eingetippt wird, zählt nur die
+  // Runde selbst.
+  let rundeSeit = 0;
+  let rundeMs = 0;
+  function rundeBeginnt() {
+    rundeSeit = Date.now();
+    rundeMs = 0;
+  }
+  function rundeEndet() {
+    if (rundeSeit) rundeMs = Date.now() - rundeSeit;
+    rundeSeit = 0;
+  }
+
   // Eine Runde ist zu Ende. Geschrieben wird immer beides: die Punktzahl, wenn
   // sie besser ist als die bisherige, und ein Versuch mehr. Ohne Namen wird
   // noch nichts geschrieben – dann steht erst das Feld da, und der Eintrag
@@ -783,7 +799,11 @@
     await stammKennung(spiel);
     const zahl = Math.max(0, Math.round(Number(punkte) || 0));
     const ich = kennung();
-    const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl });
+    // Die Dauer gilt einmal: Eine zweite Meldung derselben Runde zählt keine
+    // Zeit mehr dazu.
+    const ms = rundeMs;
+    rundeMs = 0;
+    const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl, ms });
     zwischenspeicher = null;
     if (!ergebnis) return null;
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
@@ -2318,6 +2338,8 @@
     geister,
     rangliste,
     melde,
+    rundeBeginnt,
+    rundeEndet,
     namenWechseln,
     namensZeile,
     startStand,

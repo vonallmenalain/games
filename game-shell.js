@@ -314,6 +314,7 @@
      */
     function showResult({ points, detail, label = "Deine Punkte", geist = null }) {
       host.dataset.phase = "over";
+      mini()?.rundeEndet?.();
       timeFill.style.transform = "scaleX(0)";
 
       // Im Live-Modus keine Tafel mit «Noch einmal»: Das Ergebnis geht an
@@ -378,9 +379,13 @@
       // bleibt, damit ein Spiel, das danach fragt, unverändert läuft.
       journey: null,
       // "play" heisst: Jetzt beginnt eine Runde. Im Turnier ist das der
-      // Moment, in dem der Versuch zählt (turnier.js, rundeBeginnt).
+      // Moment, in dem der Versuch zählt (turnier.js, rundeBeginnt) – und
+      // überall der, ab dem die Spielzeit läuft (mini-games.js).
       setPhase(phase) {
-        if (phase === "play") turnier()?.rundeBeginnt?.();
+        if (phase === "play") {
+          turnier()?.rundeBeginnt?.();
+          mini()?.rundeBeginnt?.();
+        }
         host.dataset.phase = phase;
       },
       setCount(value) {
