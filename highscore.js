@@ -72,7 +72,7 @@
     { id: "driftRace", titel: "Drift-Rennen", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.drift", einheit: "Meter" },
     { id: "hillGlide", titel: "Hügelflieger", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.huegel", einheit: "Meter" },
     { id: "balloonRide", titel: "Windschichten", bereich: "problemloesen", art: "punkte", key: "lernapp.wind", einheit: "Meter" },
-    { id: "skiSlalom", titel: "Slalom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.slalom", einheit: "Tore" },
+    { id: "skiSlalom", titel: "Slalom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.slalom", einheit: "Punkte" },
     { id: "frogHop", titel: "Froschsprung", bereich: "konzentration", art: "punkte", key: "lernapp.frosch", einheit: "Punkte" },
     { id: "craneHarbor", titel: "Kranhafen", bereich: "problemloesen", art: "punkte", key: "lernapp.kranhafen", einheit: "Container" },
     { id: "ropeWalk", titel: "Seiltänzer", bereich: "konzentration", art: "punkte", key: "lernapp.seiltaenzer", einheit: "Meter" },
