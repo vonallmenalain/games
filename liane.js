@@ -1046,12 +1046,27 @@
     state.phase = "zuschauen";
     state.schritt = "fliegen";
     shell.setPhase("play");
+    uhrEnde = 0;
     zuschauer.los();
+  }
+
+  // Die Uhr beim Zuschauen: so weit wie die Runde des anderen (s.t) – im
+  // Multiplayer schaut man erst mitten in der Runde zu. Sie läuft von selbst
+  // weiter und wird nur neu gestellt, wenn sie davonläuft (etwa nach einer
+  // Zeit im Hintergrund). Ihr Ende tut nichts: Das kommt mit der Aufzeichnung.
+  let uhrEnde = 0;
+  function uhrMit(t) {
+    const rest = Math.max(0, RUNDE_MS - (Number(t) || 0));
+    const ende = Date.now() + rest;
+    if (Math.abs(ende - uhrEnde) < 400 || (rest === 0 && uhrEnde)) return;
+    uhrEnde = ende;
+    shell.startClock(rest, () => {}, RUNDE_MS);
   }
 
   function zuschauenTakt() {
     const s = zuschauer.stand();
     if (!s) return;
+    uhrMit(s.t);
     const p = state.p;
     p.x = START.x + s.a;
     p.y = s.b;

@@ -8,7 +8,9 @@
  *
  * Das Spiel bekommt eine Fläche in der Mitte und ein paar Handgriffe:
  *   setCount(n)      Zähler oben rechts
- *   startClock(ms)   Uhr starten; sie meldet sich, wenn die Zeit um ist
+ *   startClock(ms)   Uhr starten; sie meldet sich, wenn die Zeit um ist.
+ *                    startClock(rest, fertig, gesamt): mitten in einer Runde
+ *                    einsteigen – der Balken steht dann bei rest / gesamt
  *   showResult(...)  Ergebnis mit "noch einmal" und dem Weg zu den anderen.
  *                    Wer seinen Lauf aufzeichnet (geist.js), gibt ihn als
  *                    geist mit; er wird zusammen mit der Punktzahl
@@ -249,9 +251,9 @@
       onTimeUp?.();
     }
 
-    function startClock(ms, callback) {
+    function startClock(ms, callback, gesamt = ms) {
       stopClock();
-      duration = ms;
+      duration = gesamt;
       endsAt = Date.now() + ms;
       onTimeUp = callback;
       paintClock();

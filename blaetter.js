@@ -488,8 +488,11 @@
     zuschauer.los?.();
     nextWelle();
     frame = window.requestAnimationFrame(step);
-    // Die Uhr läuft mit wie in der Runde – das Ende kommt mit der Aufzeichnung.
-    shell.startClock(ROUND_MS, () => {});
+    // Die Uhr läuft mit wie in der Runde, so weit wie die des anderen (im
+    // Multiplayer schaut man erst mittendrin zu) – das Ende kommt mit der
+    // Aufzeichnung.
+    const schon = Math.max(0, Number(zuschauer.jetzt?.()) || 0);
+    shell.startClock(Math.max(0, ROUND_MS - schon), () => {}, ROUND_MS);
   }
 
   function runsText(runs) {
