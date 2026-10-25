@@ -752,7 +752,11 @@ h2 {
    Seitenverhältnis: Oben und unten festgemacht, wird die Fläche so breit,
    wie diese Welt es zulässt – auf jedem gewöhnlichen Bild bis an beide
    Ränder (max-width), auf einem sehr flachen (Handy quer) in der Mitte,
-   statt oben ein Stück Welt zu verlieren. */
+   statt oben ein Stück Welt zu verlieren.
+
+   min-height hält sie dabei unten fest: Schneidet max-width die Breite ab,
+   rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
+   kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
 .bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz {
   position: absolute;
@@ -766,6 +770,7 @@ h2 {
   left: 50%;
   transform: translateX(-50%);
   max-width: 100%;
+  min-height: 100%;
   overflow: hidden;
   overflow: clip;
 }
