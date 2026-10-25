@@ -297,10 +297,11 @@ try {
     await blick.kontext.close();
     geraete.splice(geraete.indexOf(blick), 1);
   }
-  // Nur mit Link: Startseite und Turnierseite zeigen nichts mehr – und
-  // wieder zurück.
+  // Nur mit Link: Die Startseite zeigt nichts mehr – im Turnier bleibt er,
+  // denn wer dort spielt, soll ihn sehen. Und wieder zurück.
   await leitung.seite.getByRole("button", { name: "Nur mit Link" }).click();
-  pruefe(await bis(async () => (await offenLesen()) === null && (await zeigerLesen()) === null), "«Nur mit Link» nimmt den Multiplayer nicht aus der Liste der offenen und vom Turnier");
+  pruefe(await bis(async () => (await offenLesen()) === null && (await zeigerLesen())?.code === code),
+    "«Nur mit Link» nimmt den Multiplayer nicht aus der Liste der offenen – oder auch vom Turnier");
   pruefe(await bis(() => leitung.seite.locator(".lv-einstellungen", { hasText: "nur mit Link" }).count().then((n) => n === 1)), "Die Lobby sagt nicht, dass er nur mit Link offen ist");
   {
     const blick = await geraet("Gast3");

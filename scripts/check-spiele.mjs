@@ -259,6 +259,9 @@ const ATTRAPPE = `
     },
     oeffentlicheTurniere: async () => [...turniere.values()].filter((t) => t.sichtbar === "alle").map((t) => ({ ...t })),
     alleTurniere: async () => [...turniere.values()].map((t) => ({ ...t })),
+    // Der Multiplayer zu einem Turnier (live.js, turnierLive/<turnier>): Die
+    // Prüfung legt ihn in window.__miniLiveZeiger hin.
+    liveZeiger: async (id) => (window.__miniLiveZeiger || {})[id] || null,
     setzeTurnier: async (id, daten) => {
       const t = { ...daten, id, spiele: [...new Set(daten.spiele)] };
       turniere.set(id, t);
@@ -3793,6 +3796,71 @@ try {
     pruefe(await seite.evaluate(() => window.LernappTurnier.stand().freigegeben && !document.querySelector(".tn-tor")),
       "Im Turnier ohne Zeitlimite geht es mit Namen nicht direkt ins Spiel.");
     await kontext.close();
+  }
+
+  // --- 4n. Ein Multiplayer im Turnier ---------------------------------------------
+  // Hängt am Turnier ein Multiplayer, sieht ihn, wer im Turnier ist: auf der
+  // Turnierseite oben und einmal in einem Fenster, in den Spielen als Band –
+  // ausser während einer Runde.
+  {
+    // Als Text: Eine Funktion käme ohne ihre Variablen im Browser an.
+    const zeiger = `window.__miniLiveZeiger = { "${HERBST}": { code: "K7QM", name: "Finale am Abend" } };`;
+    const { kontext, seite } = await mitTurnieren(`/turnier?t=${HERBST}`, { vorher: zeiger });
+    await seite.waitForSelector(".tn-live-dialog", { timeout: 8000 }).catch(() => {});
+    const fenster = await seite.evaluate(() => ({
+      offen: Boolean(document.querySelector(".tn-live-dialog[open]")),
+      text: document.querySelector(".tn-live-dialog")?.textContent || "",
+      weg: document.querySelector(".tn-live-dialog .tn-live-fenster-los")?.getAttribute("href") || "",
+      oben: document.querySelector(".tn-oben .tn-live")?.getAttribute("href") || "",
+    }));
+    pruefe(fenster.offen && /Finale am Abend/.test(fenster.text) && fenster.weg === "/live?code=K7QM" && fenster.oben === "/live?code=K7QM",
+      `Der Multiplayer im Turnier steht nicht im Fenster und oben: ${JSON.stringify(fenster)}`);
+    await seite.locator(".tn-live-dialog button", { hasText: "Später" }).click();
+    await seite.reload({ waitUntil: "load" });
+    await seite.waitForSelector(".tn-oben .tn-live", { timeout: 8000 }).catch(() => {});
+    await seite.waitForTimeout(500);
+    pruefe(await seite.locator(".tn-oben .tn-live").count() === 1 && await seite.locator(".tn-live-dialog").count() === 0,
+      "Nach «Später» geht das Fenster beim nächsten Laden wieder auf – oder der Hinweis oben fehlt.");
+    await kontext.close();
+  }
+  {
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`, {
+      vorher: `localStorage.setItem("mini.name", "Leo"); window.__miniLiveZeiger = { "${DAUER}": { code: "K7QM", name: "Finale" } };`,
+    });
+    await seite.waitForSelector(".tn-live-band", { timeout: 8000 }).catch(() => {});
+    const band = await seite.evaluate(() => {
+      const b = document.querySelector(".tn-live-band");
+      const r = b?.getBoundingClientRect();
+      return { da: Boolean(b && r.width > 0), weg: b?.getAttribute("href") || "", unten: r ? Math.round(window.innerHeight - r.bottom) : null };
+    });
+    pruefe(band.da && band.weg === "/live?code=K7QM" && band.unten >= 0 && band.unten < 60,
+      `Im Spiel des Turniers steht der Multiplayer nicht unten: ${JSON.stringify(band)}`);
+    await seite.evaluate(() => { document.querySelector(".cm-stage").dataset.phase = "play"; });
+    pruefe(await seite.evaluate(() => document.querySelector(".tn-live-band").getClientRects().length === 0),
+      "Während einer Runde steht das Band des Multiplayers über dem Spiel.");
+    await kontext.close();
+  }
+
+  // --- 4o. Das Bild eines Spiels steht ganz da ------------------------------------
+  // Oben links im Bild steht die Zahl des Spiels, knapp am Rand. Die Fläche
+  // hat deshalb genau die Form des Bildes (16:9, hochkant 9:16) – auch am
+  // Tablet quer, wo neben ihr die Leiste Platz braucht. Bis Oktober 2026 fiel
+  // dort links und rechts je ein Zehntel weg.
+  for (const [adresse, wo] of [["/", "Startseite"], [`/turnier?t=${HERBST}`, "Turnierseite"]]) {
+    for (const [breit, hoch] of [[1180, 820], [1024, 768], [844, 390], [820, 1180]]) {
+      const { kontext, seite } = await mitTurnieren(adresse, { viewport: { width: breit, height: hoch } });
+      await seite.waitForSelector(".ar-film.ist-an", { timeout: 8000 }).catch(() => {});
+      await seite.waitForFunction(() => document.querySelector(".ar-film.ist-an")?.naturalWidth > 0, null, { timeout: 8000 }).catch(() => {});
+      const weg = await seite.evaluate(() => {
+        const bild = document.querySelector(".ar-film.ist-an");
+        const box = document.querySelector(".ar-filme").getBoundingClientRect();
+        const s = Math.max(box.width / bild.naturalWidth, box.height / bild.naturalHeight);
+        return Math.max(bild.naturalWidth * s - box.width, bild.naturalHeight * s - box.height) / 2 / s
+          / Math.min(bild.naturalWidth, bild.naturalHeight);
+      });
+      pruefe(weg < 0.01, `${wo} ${breit} × ${hoch}: Vom Bild des Spiels fällt am Rand ${(weg * 100).toFixed(1)} % weg.`);
+      await kontext.close();
+    }
   }
 
   // --- 4k. Gegner beim Spielen (geist.js) -----------------------------------------

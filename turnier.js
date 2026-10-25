@@ -518,14 +518,16 @@
     }
 
     // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht oben der Weg
-    // hinein. Gefragt wird beim Laden und dann alle 20 Sekunden, solange die
-    // Seite zu sehen ist.
+    // hinein – und ist er neu, geht einmal ein Fenster auf (liveFenster).
+    // Gefragt wird beim Laden und dann alle 20 Sekunden, solange die Seite zu
+    // sehen ist.
     async function schauLive() {
       let zeiger = null;
       try { zeiger = await cloud().liveZeiger?.(id); } catch { zeiger = null; }
       const vorher = JSON.stringify(stand.zeiger);
       stand.zeiger = zeiger || null;
       if (stand.t && JSON.stringify(stand.zeiger) !== vorher) zeichne();
+      if (stand.t && stand.zeiger && document.visibilityState === "visible") liveFenster(stand.zeiger);
     }
     window.setInterval(() => { if (document.visibilityState === "visible" && stand.t) schauLive(); }, 20000);
 
@@ -693,10 +695,80 @@
     laden();
   }
 
+  // ---------------------------------------------------------------------------
+  // Ein Multiplayer zum Turnier
+  // ---------------------------------------------------------------------------
+  /*
+   * Hängt am Turnier ein Multiplayer (live.js, turnierLive/<turnier>), soll
+   * ihn sehen, wer im Turnier ist – ob er für alle offen ist oder nur mit
+   * Link:
+   *
+   *   auf der Turnierseite   oben der Weg hinein (liveHinweis); kommt er neu
+   *                          dazu, geht einmal ein Fenster auf (liveFenster)
+   *   in den Spielen         unten ein Band (liveBand), solange keine Runde
+   *                          läuft – wer mitten im Spiel ist, wird nicht
+   *                          gestört; nach der Runde steht es wieder da
+   *
+   * Das Fenster kommt je Multiplayer einmal (sessionStorage): Wer «Später»
+   * sagt, hat den Hinweis oben noch.
+   */
+  const GESEHEN_KEY = "mini.turnier.live.gesehen";
+  function gesehen() {
+    try { return (sessionStorage.getItem(GESEHEN_KEY) || "").split(",").filter(Boolean); } catch { return []; }
+  }
+  function merkeGesehen(code) {
+    try { sessionStorage.setItem(GESEHEN_KEY, [...gesehen().filter((c) => c !== code), code].slice(-20).join(",")); } catch { /* dann eben noch einmal */ }
+  }
+  const liveLink = (zeiger) => `/live?code=${encodeURIComponent(zeiger.code)}`;
+
+  function liveFenster(zeiger) {
+    const m = mini();
+    if (!m?.fenster || gesehen().includes(zeiger.code) || document.querySelector("dialog[open]")) return;
+    merkeGesehen(zeiger.code);
+    const inhalt = el("div", "tn-live-fenster");
+    const marke = el("p", "tn-live-marke");
+    marke.append(el("span", "tn-live-punkt"), el("span", "", "Jetzt live"));
+    inhalt.append(marke, el("p", "tn-live-fenster-text", "Alle spielen zur selben Zeit dasselbe Spiel. Komm dazu!"));
+    const knoepfe = el("div", "tn-live-fenster-knoepfe");
+    const los = el("a", "mini-knopf mini-knopf-voll tn-live-fenster-los", "Mitspielen");
+    los.href = liveLink(zeiger);
+    knoepfe.append(los);
+    inhalt.append(knoepfe);
+    const dlg = m.fenster(zeiger.name, inhalt, { ueber: "Multiplayer im Turnier", klasse: "tn-live-dialog" });
+    const spaeter = el("button", "mini-knopf mini-knopf-still", "Später");
+    spaeter.type = "button";
+    spaeter.addEventListener("click", () => dlg?.close?.());
+    knoepfe.append(spaeter);
+  }
+
+  // In einem Spiel des Turniers: das Band unten. Gefragt wird wie auf der
+  // Turnierseite – beim Laden und alle 20 Sekunden, solange die Seite zu
+  // sehen ist.
+  function liveBand() {
+    let band = null;
+    let bisher = "";
+    async function schau() {
+      let zeiger = null;
+      try { zeiger = await cloud()?.liveZeiger?.(hier.id); } catch { zeiger = null; }
+      const jetzt = zeiger ? JSON.stringify(zeiger) : "";
+      if (jetzt === bisher) return;
+      bisher = jetzt;
+      band?.remove();
+      band = null;
+      if (!zeiger) return;
+      band = liveHinweis(zeiger);
+      band.classList.add("tn-live-band");
+      document.body.append(band);
+    }
+    schau();
+    window.setInterval(() => { if (document.visibilityState === "visible") schau(); }, 20000);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") schau(); });
+  }
+
   // Ein Multiplayer zu diesem Turnier läuft gerade (live.js): der Weg hinein.
   function liveHinweis(zeiger) {
     const box = el("a", "tn-live");
-    box.href = `/live?code=${encodeURIComponent(zeiger.code)}`;
+    box.href = liveLink(zeiger);
     const text = el("span", "tn-live-text");
     const marke = el("strong", "tn-live-marke");
     marke.append(el("span", "tn-live-punkt"), el("span", "", "Multiplayer läuft"));
@@ -1350,7 +1422,10 @@
     stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor) }),
   };
 
-  if (aufSpielseite()) ladeSpielseite();
+  if (aufSpielseite()) {
+    ladeSpielseite();
+    liveBand();
+  }
   if (aufTurnierseite()) {
     const wirt = document.querySelector("[data-turnier]");
     if (wirt) turnierSeite(wirt);
