@@ -138,7 +138,9 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Das Bild:** das Spiel mitten in einer Runde, in einem Fenster in seiner
   eigenen Form – hochkant 9:16, quer 16:9 –, so gross, wie es geht, ohne
   Rand darin. Es steht das Bild (quer oder hoch), dessen Form dem Fenster
-  näher ist, und es füllt es (`filmFuer`). Ein Tipp aufs Bild startet das
+  näher ist, und es füllt es (`filmFuer`). Braucht quer die Leiste daneben
+  Platz (Tablet), wird das Fenster schmaler und niedriger und bleibt 16:9 –
+  sonst fiele links und rechts ein Stück Bild weg, samt der Zahl oben links. Ein Tipp aufs Bild startet das
   Spiel; ein Wisch nach links zeigt das nächste Spiel, nach rechts das vorige
   (am Computer auch die Pfeiltasten) – ohne das Spiel zu starten.
 - **Die Leiste:** hochkant unter dem Bild, quer daneben – der Name des
@@ -192,8 +194,11 @@ Text wie möglich:
   ganze Tabelle im Fenster, mit der Beschreibung des Turniers, einem Satz, wie
   gezählt wird, und den Multiplayern, die schon gezählt haben. Verdeckt steht
   dort nur, wie viele dabei sind.
-- **Läuft gerade ein Multiplayer**, steht daneben «Multiplayer läuft» mit dem
-  Weg hinein.
+- **Läuft gerade ein Multiplayer** zum Turnier, steht daneben «Multiplayer
+  läuft» mit dem Weg hinein – und kommt er neu dazu, geht einmal ein Fenster
+  auf («Mitspielen» oder «Später»; je Multiplayer einmal, `sessionStorage`).
+  In den Spielen des Turniers steht er als Band unten, ausser während einer
+  Runde (`turnier.js`, `liveBand`).
 
 Darf man ein Spiel gerade nicht spielen (alle Versuche gespielt, allein
 vorne, noch nicht begonnen, angehalten, vorbei), steht an der Stelle von Play
@@ -605,10 +610,12 @@ Schirm.
 **Mit einem Turnier.** Beim Anlegen lässt sich ein Turnier wählen (oder im
 Adminbereich beim Turnier «Multiplayer» antippen – dann ist es schon
 gewählt, und seine Spiele stehen im Programm) und wie der Multiplayer dort
-zählt: wie ein Spiel, doppelt, dreifach oder gar nicht. Solange er offen und
-für alle sichtbar ist, steht auf der Turnierseite oben «Multiplayer
-läuft» mit dem Weg hinein (`turnierLive/<turnier>` in der Realtime Database,
-gelesen ohne SDK); einer nur mit Link steht auch dort nicht. «Ins Turnier
+zählt: wie ein Spiel, doppelt, dreifach oder gar nicht. Solange er offen
+ist, steht auf der Turnierseite oben «Multiplayer läuft» mit dem Weg hinein,
+beim ersten Mal auch in einem Fenster, und in den Spielen des Turniers als
+Band unten (`turnierLive/<turnier>` in der Realtime Database, gelesen ohne
+SDK) – auch wenn er nur mit Link offen ist: Wer im Turnier spielt, soll ihn
+sehen. «Nur mit Link» nimmt ihn dann nur von der Startseite. «Ins Turnier
 eintragen und abschliessen» schreibt den Endstand nach
 `miniTurniere/<id>/live/<code>-<zeit>` (die ersten vier Zeichen des Codes);
 in der Gesamtwertung ist er eine eigene Spalte, mal sein Gewicht – bei der

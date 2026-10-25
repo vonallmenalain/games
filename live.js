@@ -41,8 +41,9 @@
  * und Stand aus denselben Punkten selbst (wertung) – und kommt aufs Gleiche.
  *
  * Gehört der Multiplayer zu einem Turnier, steht das in info.turnier, und
- * solange er offen und für alle sichtbar ist, zeigt turnierLive/<turnier>
- * auf ihn (die Turnierseite fragt dort nach: «Multiplayer läuft»).
+ * solange er offen ist, zeigt turnierLive/<turnier> auf ihn – auch nur mit
+ * Link: Wer im Turnier spielt, soll ihn sehen (turnier.js, auf der
+ * Turnierseite und in den Spielen des Turniers: «Multiplayer läuft»).
  * «Abschliessen» trägt den Endstand mit seinem Gewicht ins Turnier ein
  * (Firestore, miniTurniere/<id>/live), dort zählt er in der Gesamtwertung
  * wie ein weiteres Spiel (turnier.js).
@@ -711,15 +712,16 @@
   }
 
   /*
-   * Für alle sichtbar: liveOffen/<code> zeigt auf diesen Multiplayer (die
-   * Startseite und /live führen hinein) und, gehört er zu einem Turnier,
-   * turnierLive/<turnier> (die Turnierseite). Nur mit Link: keines von beiden.
+   * Gehört er zu einem Turnier, zeigt turnierLive/<turnier> auf ihn – immer,
+   * ob für alle oder nur mit Link: Im Turnier sehen ihn alle, die dort
+   * spielen. Für alle sichtbar heisst darüber hinaus: liveOffen/<code> (die
+   * Startseite und /live führen hinein).
    */
-  async function zeigen(code = S.code, info = S.info) {
+  async function zeigen(code = S.code, info = S.info, { fuerAlle = true } = {}) {
     const db = datenbank();
     if (!db || !code || !info) return;
     const seit = window.firebase.database.ServerValue.TIMESTAMP;
-    await db.ref(`liveOffen/${code}`).set({ name: info.name, seit });
+    if (fuerAlle) await db.ref(`liveOffen/${code}`).set({ name: info.name, seit });
     if (info.turnier) {
       await db.ref(`turnierLive/${info.turnier}`).set({ code, name: info.name, seit })
         .catch((fehler) => console.warn("Der Hinweis im Turnier liess sich nicht setzen", fehler));
@@ -732,13 +734,14 @@
     await zeigerWeg();
   }
 
-  // In der Lobby lässt sich die Sichtbarkeit noch umstellen.
+  // In der Lobby lässt sich die Sichtbarkeit noch umstellen. Nur mit Link
+  // nimmt ihn von der Startseite – im Turnier bleibt er.
   async function sichtbarSetzen(wert) {
     if (!istLeitung()) return;
     const alle = wert === "alle";
     try {
       await S.db.ref(`live/${S.code}/info/einstellungen/sichtbar`).set(alle ? "alle" : "link");
-      if (alle) await zeigen(); else await verbergen();
+      if (alle) await zeigen(); else await S.db.ref(`liveOffen/${S.code}`).remove();
     } catch (fehler) {
       console.warn("Die Sichtbarkeit liess sich nicht ändern", fehler);
       S.fehler = "Das ging nicht – bist du im Adminbereich angemeldet?";
@@ -1106,9 +1109,14 @@
       gross.href = `/live?code=${S.code}&gross`;
       gross.target = "_blank";
       gross.rel = "noopener";
+      const imTurnier = S.info.turnier
+        ? ` Im Turnier ${S.info.turnierName ? `«${S.info.turnierName}» ` : ""}steht er für alle, die dort spielen.`
+        : "";
       const satz = fuerAlle
-        ? "Für alle offen: Auf der Startseite steht jetzt «Multiplayer» – antippen und mitspielen. Oder schick den Link."
-        : "Nur mit Einladungslink: Schick ihn allen, die mitspielen sollen. In der App steht dieser Multiplayer nirgends.";
+        ? `Für alle offen: Auf der Startseite steht jetzt «Multiplayer» – antippen und mitspielen. Oder schick den Link.${imTurnier}`
+        : S.info.turnier
+          ? `Nur mit Einladungslink: Auf der Startseite steht er nicht.${imTurnier} Allen anderen schickst du den Link.`
+          : "Nur mit Einladungslink: Schick ihn allen, die mitspielen sollen. In der App steht dieser Multiplayer nirgends.";
       w.append(block("So kommen alle rein", el("p", "lv-klein", satz), link, teilen, gross));
     } else if (S.gross) {
       const satz = fuerAlle ? "Auf der Startseite «Multiplayer» antippen – oder diesen Link öffnen:" : "Diesen Link öffnen:";
@@ -1356,7 +1364,7 @@
     // Wer ihn findet: alle, die gerade die App offen haben – oder nur, wer
     // den Link bekommt.
     const sichtbarWahl = auswahl("lv-sichtbar", [["link", "Nur mit Einladungslink"], ["alle", "Für alle – auf der Startseite"]], vorlage.einstellungen?.sichtbar === "alle" ? "alle" : "link");
-    form.append(feld("Sichtbar", sichtbarWahl, "Für alle: Auf der Startseite erscheint «Multiplayer», und wer die App gerade offen hat, kann direkt beitreten. Nur mit Link: Er steht nirgends, du schickst den Link."));
+    form.append(feld("Sichtbar", sichtbarWahl, "Für alle: Auf der Startseite erscheint «Multiplayer», und wer die App gerade offen hat, kann direkt beitreten. Nur mit Link: Er steht nicht auf der Startseite, du schickst den Link. Gehört er zu einem Turnier, steht er dort in jedem Fall – für alle, die im Turnier spielen."));
 
     // Zu welchem Turnier der Multiplayer gehört – und wie er dort zählt. Die Liste
     // kommt aus Firestore (nur der Admin darf alle sehen); bis sie da ist,
@@ -1538,10 +1546,11 @@
       }
       await ref.set({ info, zustand: { phase: "lobby", nr: -1 } });
       merkeMeinen(code, daten.name);
-      // Für alle: Startseite und Turnierseite zeigen, dass gerade gespielt
-      // wird. Geht das schief, steht er trotzdem – mit Link.
-      if (daten.einstellungen.sichtbar === "alle") {
-        await zeigen(code, info).catch((fehler) => console.warn("Der Multiplayer liess sich nicht zeigen", fehler));
+      // Startseite (für alle) und Turnier (immer) zeigen, dass gerade
+      // gespielt wird. Geht das schief, steht er trotzdem – mit Link.
+      if (daten.einstellungen.sichtbar === "alle" || info.turnier) {
+        await zeigen(code, info, { fuerAlle: daten.einstellungen.sichtbar === "alle" })
+          .catch((fehler) => console.warn("Der Multiplayer liess sich nicht zeigen", fehler));
       }
       return code;
     }
