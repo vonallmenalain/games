@@ -189,7 +189,7 @@
     fenster.setAttribute("data-vollbild-rahmen", "");
     fenster.setAttribute("allow", "fullscreen; autoplay");
     fenster.setAttribute("allowfullscreen", "");
-    fenster.title = "alae arcade";
+    fenster.title = "arcade";
     fenster.style.cssText = "position:fixed;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;"
       + "display:block;background:#f7f3ff;z-index:2147483647";
     const koerper = document.body;

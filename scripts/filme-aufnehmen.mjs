@@ -1,7 +1,7 @@
 /*
  * Die Bilder und Filme der Startseite: echte Runden, aufgenommen.
  * ---------------------------------------------------------------------------
- * Die Startseite (alae arcade) zeigt jedes Spiel als Bild – mitten in einer
+ * Die Startseite (arcade) zeigt jedes Spiel als Bild – mitten in einer
  * Runde, scharf, in der Form des Fensters. Gezeichnet wird es nicht, sondern
  * aufgenommen: Ein Autopilot spielt das echte Spiel, und im richtigen Moment
  * macht der Browser ein Bild, mit doppelter Pixeldichte. Wer ein Spiel ändert,

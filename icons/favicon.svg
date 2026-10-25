@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="56 42 400 400" width="400" height="400" shape-rendering="crispEdges">
-  <title>alae arcade (klein)</title>
+  <title>arcade (klein)</title>
   <defs>
     <radialGradient id="a-licht" cx="50%" cy="48%" r="60%">
       <stop offset="0" stop-color="#262038"/>

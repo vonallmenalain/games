@@ -274,6 +274,8 @@
   async function zeigeVorschauAnmeldung(ziel) {
     leere();
     const karte = el("section", "adm-karte adm-anmeldung");
+    const logo = mini()?.marke?.("ar-marke-klein");
+    if (logo) karte.append(logo);
     karte.append(el("h1", "adm-titel", "Anmeldung für die Vorschau"));
     wirt.append(karte);
     const opener = window.opener;
@@ -329,8 +331,10 @@
   function zeigeAnmeldung(hinweis) {
     leere();
     const karte = el("section", "adm-karte adm-anmeldung");
+    const logo = mini()?.marke?.("ar-marke-klein");
+    if (logo) karte.append(logo);
     karte.append(el("h1", "adm-titel", "Adminbereich"));
-    karte.append(el("p", "adm-lead", "Die Bestenlisten der alae arcade – ansehen und aufräumen."));
+    karte.append(el("p", "adm-lead", "Die Bestenlisten der arcade – ansehen und aufräumen."));
 
     const meldung = el("p", "adm-meldung");
     if (hinweis) meldung.textContent = hinweis;
@@ -435,7 +439,7 @@
     }));
     karte.append(nebenbei);
 
-    const zurueck = el("a", "adm-klein-link", "Zurück zur alae arcade");
+    const zurueck = el("a", "adm-klein-link", "Zurück zur arcade");
     zurueck.href = "/";
     karte.append(zurueck);
 
@@ -445,6 +449,8 @@
   function zeigeKeinAdmin(nutzer) {
     leere();
     const karte = el("section", "adm-karte adm-anmeldung");
+    const logo = mini()?.marke?.("ar-marke-klein");
+    if (logo) karte.append(logo);
     karte.append(el("h1", "adm-titel", "Adminbereich"));
     karte.append(el("p", "adm-meldung ist-fehler", nutzer.emailVerified
       ? `Angemeldet als ${nutzer.email} – aber das ist kein Admin dieser Site.`
@@ -2492,6 +2498,8 @@
 
     const kopf = el("header", "adm-kopf");
     const links = el("div");
+    const logo = mini()?.marke?.("ar-marke-klein");
+    if (logo) links.append(logo);
     links.append(el("h1", "adm-titel", "Adminbereich"), el("p", "adm-klein", `${nutzer.email} · ${cloud()?.projektId || ""}`));
     kopf.append(links);
     const rechts = el("div", "adm-kopf-aktionen");

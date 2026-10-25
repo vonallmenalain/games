@@ -391,7 +391,7 @@
         id: start,
         name: t.name,
         short_name: t.name,
-        description: `Turnier in der alae arcade: ${t.name}`,
+        description: `Turnier in der arcade: ${t.name}`,
         start_url: start,
         scope: voll(basis.scope || "/"),
         icons: (Array.isArray(basis.icons) ? basis.icons : []).map((icon) => ({ ...icon, src: voll(icon.src) })),
@@ -567,7 +567,7 @@
       const verdeckt = t.verdeckt && !vorbei;
       wertung = gesamtwertung(t, stand.eintraege, stand.abende);
 
-      document.title = `${t.name} · Turnier · alae arcade`;
+      document.title = `${t.name} · Turnier · arcade`;
       ueberschrift.textContent = t.name;
       ueberschrift.title = t.name;
       zeigeStatus(jetzt);

@@ -72,7 +72,7 @@ pruefe("mini-games.js baut die Bühne der arcade (arcadeBuehne), turnier.js stel
 pruefe("Die Turnierseite lädt dieselben Skripte wie die Startseite",
   JSON.stringify(turnierSkripte()) === JSON.stringify(hubSkripte()));
 
-// --- alae arcade: die Startseite und ihre Bilder -------------------------------
+// --- arcade: die Startseite und ihre Bilder ------------------------------------
 // Jedes Spiel hat drei aufgenommene Bilder – quer, hoch und klein für die Zeile
 // (scripts/filme-aufnehmen.mjs --standbild) – und eine Vorführung, die es
 // spielt. Die Filme von früher (filme/) sind ausgeschaltet (mini-games.js,
@@ -118,8 +118,17 @@ for (const icon of manifest.icons) {
   pruefe(`${icon.src} liegt da`, existsSync(path.join(WURZEL, icon.src.replace(/^\//, ""))));
 }
 pruefe("Es gibt ein maskierbares Zeichen", manifest.icons.some((i) => i.purpose === "maskable"));
-for (const name of ["icon-32.png", "icon-180.png"]) {
+for (const name of ["icon-32.png", "icon-180.png", "vorschau.jpg"]) {
   pruefe(`icons/${name} liegt da`, existsSync(path.join(WURZEL, "icons", name)));
+}
+pruefe("Die App heisst «arcade»", manifest.name === "arcade" && manifest.short_name === "arcade");
+// Ein geteilter Link (WhatsApp & Co.) zeigt Titel, einen kurzen Satz und das
+// Logo – das Bild nur über eine volle Adresse.
+for (const datei of ["index.html", "turnier.html", "live.html", ...SPIELE.map((sp) => `${sp.seite}.html`)]) {
+  const html = lies(datei);
+  pruefe(`${datei}: Vorschau mit Bild`, html.includes('<meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />'));
+  pruefe(`${datei}: Vorschau mit Titel und Satz`, /<meta property="og:title" content="(?:[^"]+ · )?arcade" \/>/.test(html) && /<meta property="og:description" content="[^"]{10,80}" \/>/.test(html));
+  pruefe(`${datei}: kein «alae arcade» mehr`, !/alae arcade/i.test(html));
 }
 
 // --- 7. Die Bühne jedes Spiels hat eine Regel im Stylesheet -----------------

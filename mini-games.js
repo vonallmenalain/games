@@ -21,7 +21,7 @@
  *
  *   1. Auf einer Spielseite baut sie den Weg zurück oben links und den Block
  *      unter dem Ergebnis: Namensfeld, eigener Platz, Bestenliste.
- *   2. Die Startseite, alae arcade: ein Spiel als Film, darunter alle in
+ *   2. Die Startseite, die arcade: ein Spiel als Film, darunter alle in
  *      einer Zeile, dazu die Rangliste jedes Spiels und die Auswertung über
  *      alle Namen – wer den besten Durchschnittsrang hat, wer wie oft
  *      gespielt hat, wer wie viele Spiele oben steht.
@@ -1467,7 +1467,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Die Startseite: alae arcade
+  // Die Startseite: die arcade
   // ---------------------------------------------------------------------------
   /*
    * Ein Bildschirm, ohne Scrollen – fürs Handy gemacht, hoch wie quer.
@@ -1525,9 +1525,28 @@
     return weg(FILMFORMATE.hoch) < weg(FILMFORMATE.quer) ? "hoch" : "quer";
   }
 
-  // Das Zeichen von alae.app (die zwei Winkel) und die Wortmarke «alae», wie
-  // im Logo-Paket von alae.app (svg-freigestellt, quer-wortmarke).
-  const MARKE = '<svg viewBox="60 60 688.13 137.05" aria-hidden="true"><path fill="#ECEDF2" d="M61.35 180.34L122.71 65.98A11.34 11.34 0 0 1 142.7 65.98L173.38 123.16A11.34 11.34 0 0 1 168.75 138.52A11.34 11.34 0 0 1 153.39 133.88L132.71 95.33L81.34 191.06A11.34 11.34 0 0 1 65.98 195.7A11.34 11.34 0 0 1 61.35 180.34Z"/><path fill="#FE7971" d="M183.7 180.34L245.06 65.98A11.34 11.34 0 0 1 265.05 65.98L326.42 180.34A11.34 11.34 0 0 1 321.79 195.7A11.34 11.34 0 0 1 306.43 191.06L255.06 95.33L203.69 191.06A11.34 11.34 0 0 1 188.33 195.7A11.34 11.34 0 0 1 183.7 180.34Z"/><path fill="#ECEDF2" d="M479.22 196.48Q470.77 196.48 464.19 193.24Q457.61 189.99 453.96 184.3Q450.3 178.62 450.3 171.15Q450.3 163.35 454.2 157.91Q458.1 152.47 465.41 149.62Q472.72 146.78 482.95 146.78Q487.5 146.78 492.21 147.67Q496.92 148.57 502.44 150.68V143.86Q502.44 137.69 498.38 134.68Q494.32 131.68 485.88 131.68Q481.17 131.68 475.4 133.06Q469.63 134.44 462.32 137.52L453.23 119.17Q473.53 110.07 491.72 110.07Q509.1 110.07 518.77 118.36Q528.43 126.64 528.43 141.58V195.18H502.44V187.88Q496.92 192.42 491.4 194.45Q485.88 196.48 479.22 196.48ZM474.51 170.66Q474.51 174.72 477.92 176.91Q481.33 179.1 487.34 179.1Q491.56 179.1 495.3 178.05Q499.03 176.99 502.44 174.88V164.16Q498.87 163.35 495.3 162.86Q491.72 162.37 487.99 162.37Q481.49 162.37 478 164.49Q474.51 166.6 474.51 170.66ZM541.35 195.18V79.54L567.66 75.48V195.18ZM606.24 196.48Q597.8 196.48 591.22 193.24Q584.64 189.99 580.98 184.3Q577.33 178.62 577.33 171.15Q577.33 163.35 581.23 157.91Q585.13 152.47 592.44 149.62Q599.75 146.78 609.98 146.78Q614.53 146.78 619.24 147.67Q623.95 148.57 629.47 150.68V143.86Q629.47 137.69 625.41 134.68Q621.35 131.68 612.9 131.68Q608.19 131.68 602.43 133.06Q596.66 134.44 589.35 137.52L580.25 119.17Q600.56 110.07 618.75 110.07Q636.13 110.07 645.79 118.36Q655.46 126.64 655.46 141.58V195.18H629.47V187.88Q623.95 192.42 618.42 194.45Q612.9 196.48 606.24 196.48ZM601.53 170.66Q601.53 174.72 604.94 176.91Q608.35 179.1 614.36 179.1Q618.59 179.1 622.32 178.05Q626.06 176.99 629.47 174.88V164.16Q625.9 163.35 622.32 162.86Q618.75 162.37 615.01 162.37Q608.52 162.37 605.02 164.49Q601.53 166.6 601.53 170.66ZM708.82 196.81Q696.47 196.81 686.48 191.04Q676.5 185.28 670.57 175.45Q664.64 165.62 664.64 153.44Q664.64 141.1 670.16 131.35Q675.68 121.61 685.27 115.84Q694.85 110.07 706.87 110.07Q719.05 110.07 728.31 115.76Q737.57 121.44 742.85 131.43Q748.13 141.42 748.13 154.42V160.1H690.46Q691.76 164.81 694.52 168.38Q697.29 171.96 701.35 173.91Q705.41 175.86 710.12 175.86Q715.32 175.86 719.62 174.07Q723.92 172.28 726.69 168.87L744.06 183.33Q735.94 190.47 727.66 193.64Q719.38 196.81 708.82 196.81ZM690.46 145.16H723.76Q722.62 140.61 720.19 137.36Q717.75 134.11 714.34 132.33Q710.93 130.54 706.71 130.54Q702.65 130.54 699.32 132.24Q695.99 133.95 693.79 137.2Q691.6 140.45 690.46 145.16Z"/></svg>';
+  // Das Zeichen der arcade: die zwei Winkel von alae.app als 8-Bit-Figur, wie
+  // im App-Icon (icons/icon.svg) – nur die Blöcke, ohne Grund und Sterne.
+  const MARKE = '<svg viewBox="81 142 350 200" shape-rendering="crispEdges" aria-hidden="true">'
+    + '<path fill="#ffffff" d="M156 142h25v25h-25z"/>'
+    + '<path fill="#d3d0df" d="M181 142h25v25h-25zM181 167h25v25h-25zM181 192h50v25h-50zM181 217h50v25h-50z"/>'
+    + '<path fill="#FE7971" d="M306 142h25v25h-25zM306 167h25v25h-25zM281 192h50v25h-50zM281 217h50v25h-50zM256 242h50v25h-50zM256 267h50v25h-50zM231 292h50v25h-50zM231 317h50v25h-50z"/>'
+    + '<path fill="#e9645c" d="M331 142h25v25h-25zM331 167h25v25h-25zM331 192h50v25h-50zM331 217h50v25h-50zM356 242h50v25h-50zM356 267h50v25h-50zM381 292h50v25h-50zM381 317h50v25h-50z"/>'
+    + '<path fill="#ECEDF2" d="M156 167h25v25h-25zM131 192h50v25h-50zM131 217h50v25h-50zM106 242h50v25h-50zM106 267h50v25h-50zM81 292h50v25h-50zM81 317h50v25h-50z"/>'
+    + '</svg>';
+
+  // Das Logo als Link zur Startseite: das Zeichen und «arcade». Steht oben auf
+  // jeder Seite, die einen eigenen Kopf hat (Startseite, Turnier, Multiplayer,
+  // Adminbereich).
+  function marke(klasse = "") {
+    const knoten = el("a", `ar-marke ${klasse}`.trim());
+    knoten.href = "/";
+    knoten.setAttribute("aria-label", "arcade – zur Startseite");
+    const zeichen = el("span", "ar-marke-zeichen");
+    zeichen.innerHTML = MARKE;
+    knoten.append(zeichen, el("span", "ar-marke-wort", "arcade"));
+    return knoten;
+  }
 
   // Der Film einer Ebene der Bühne: ein Video mit Standbild. Ohne Ton, in der
   // Schleife, im Browser eingebettet (playsinline – sonst öffnet das iPhone
@@ -1614,14 +1633,8 @@
     const kopf = el("header", "ar-kopf");
     if (links) kopf.append(links);
     else {
-      const marke = el("a", "ar-marke");
-      marke.href = "/";
-      marke.setAttribute("aria-label", "alae arcade");
-      const zeichen = el("span", "ar-marke-zeichen");
-      zeichen.innerHTML = MARKE;
-      marke.append(zeichen, el("span", "ar-marke-wort", "arcade"));
       // Die Überschrift der Seite, für alle, die sie nicht sehen.
-      kopf.append(marke, el("h1", "ar-unsichtbar", "alae arcade"));
+      kopf.append(marke(), el("h1", "ar-unsichtbar", "arcade"));
     }
     const rechts = el("div", "ar-kopf-rechts");
     const zumAdmin = adminKnopf();
@@ -2337,6 +2350,7 @@
     listeBauen, gezeigteEintraege, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
     geister,
     rangliste,
+    marke,
     melde,
     rundeBeginnt,
     rundeEndet,

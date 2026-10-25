@@ -1,4 +1,4 @@
-# Mini-Games
+# arcade
 
 Die Spiele aus [Gripszug](https://kids.alae.app) einzeln, für alle, ohne Konto.
 
@@ -23,7 +23,7 @@ Kein Build-Werkzeug, kein Framework, keine Abhängigkeiten im Browser ausser
 dem Firebase-SDK. Die Site sind die Dateien im Wurzelverzeichnis; Netlify
 kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
-    index.html            die Startseite «alae arcade»: alle Spiele als Filme,
+    index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
     turmbau.html …        dreiundzwanzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
@@ -90,8 +90,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
     scripts/icons-bauen.mjs    rendert das Zeichen der App aus icons/icon.svg
                                (die zwei alae-Winkel als 8-Bit-Figur) und
-                               icons/favicon.svg in alle Grössen:
-                               npm run icons
+                               icons/favicon.svg in alle Grössen, dazu das
+                               Bild zu geteilten Links (icons/vorschau.svg →
+                               vorschau.jpg): npm run icons
 
 ## Ein Spiel dazunehmen
 
@@ -133,9 +134,33 @@ Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
 
-### Die Startseite: alae arcade
+### Das Aussehen: dunkel, überall
 
-Dunkel, wie alae.app, und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
+Alle Seiten – Startseite, Turnier, Spiele, Multiplayer, Adminbereich – stehen
+auf demselben dunklen Grund. Die Farben stehen einmal oben in `styles.css`
+(`:root`): `--ar-grund` (#0d0c11), die Flächen `--ar-flaeche` und
+`--ar-flaeche-hoch`, das Glas über Bildern (`--ar-glas`, mit Unschärfe), die
+Schrift `--ar-text` und `--ar-leise`, dazu Koralle, Gold und Grün für das,
+was hervorsticht. Knöpfe über einem Spiel oder einem Bild sind aus dunklem
+Glas, damit sie auf jedem Hintergrund lesbar bleiben.
+
+**Das Logo** sind die zwei Winkel von alae.app als 8-Bit-Figur – dieselben
+Blöcke wie im App-Icon – mit «arcade» daneben (`mini-games.js`, `marke`). Es
+steht oben auf jeder Seite mit eigenem Kopf und führt zur Startseite.
+
+**Ein geteilter Link** (WhatsApp, Signal, iMessage) zeigt eine Vorschau: den
+Titel der Seite («Multiplayer · arcade»), einen kurzen Satz und das Logo
+(`icons/vorschau.jpg`, 1200 × 630, Logo in der Mitte, damit es auch
+quadratisch beschnitten ganz bleibt). Die Angaben stehen im Kopf jeder Seite
+(`scripts/seiten-bauen.mjs`, `kopf`, `og:`); das Bild braucht eine volle
+Adresse und zeigt deshalb immer auf `games.alae.app`. Der Satz bleibt kurz:
+bei den Spielen ihr Text ohne den Namen davor, bis zum ersten
+Gedankenstrich (`kurzText`). «Teilen» im Multiplayer schickt nur seinen
+Namen mit – was es ist, sagt die Vorschau.
+
+### Die Startseite: arcade
+
+Dunkel und ein Bildschirm ohne Scrollen – fürs Handy gemacht,
 hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 `arcadeBuehne`, steht genauso auf der Turnierseite):
 
@@ -159,8 +184,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
   zurückkommt, sieht dieses Spiel.
 - **Oben rechts:** der Pokal (die Gesamtwertung über alle Spiele, im
   Fenster), wo es geht «Als App installieren», der Name (ein Tipp ändert ihn)
-  und das Vollbild. Links das Logo von alae.app (aus dessen Logo-Paket) mit
-  «arcade».
+  und das Vollbild. Links das Logo: die Pixel-Winkel und «arcade».
 
 **Die Bilder** sind echte Runden: `npm run bilder` (scripts/filme-aufnehmen.mjs
 --standbild) lässt jedes Spiel von einem Autopiloten spielen

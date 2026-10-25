@@ -3,7 +3,7 @@
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
   Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
-  Adresse; was darauf steht, baut turnier.js – wie die Startseite (alae
+  Adresse; was darauf steht, baut turnier.js – wie die Startseite (die
   arcade), oben aber Name und Stand des Turniers und die Gesamtwertung, unten
   nur seine Spiele. Dunkel schon hier, damit beim Laden nichts hell
   aufblitzt. Kein Weg hinaus zu den anderen Spielen: Ein Turnier ist ein Raum
@@ -19,16 +19,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="application-name" content="alae arcade" />
-    <meta name="description" content="Ein Turnier in der alae arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung." />
+    <meta name="application-name" content="arcade" />
+    <meta name="description" content="Ein Turnier in der arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="alae arcade" />
+    <meta name="apple-mobile-web-app-title" content="arcade" />
     <meta name="theme-color" content="#0d0c11" />
-    <title>Turnier · alae arcade</title>
-    <link rel="stylesheet" href="styles.css?v=2026-10-25-8" />
-    <link rel="manifest" href="app.webmanifest?v=2026-10-25-8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="arcade" />
+    <meta property="og:title" content="Turnier · arcade" />
+    <meta property="og:description" content="Dieselben Spiele, eine eigene Rangliste." />
+    <meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="arcade" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Turnier · arcade</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-25-9" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-25-9" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
     <meta name="robots" content="noindex, nofollow" />
@@ -40,11 +50,11 @@
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script defer src="vollbild.js?v=2026-10-25-8"></script>
-    <script defer src="highscore.js?v=2026-10-25-8"></script>
-    <script defer src="cloud.js?v=2026-10-25-8"></script>
-    <script defer src="mini-games.js?v=2026-10-25-8"></script>
-    <script defer src="turnier.js?v=2026-10-25-8"></script>
-    <script defer src="pwa.js?v=2026-10-25-8"></script>
+    <script defer src="vollbild.js?v=2026-10-25-9"></script>
+    <script defer src="highscore.js?v=2026-10-25-9"></script>
+    <script defer src="cloud.js?v=2026-10-25-9"></script>
+    <script defer src="mini-games.js?v=2026-10-25-9"></script>
+    <script defer src="turnier.js?v=2026-10-25-9"></script>
+    <script defer src="pwa.js?v=2026-10-25-9"></script>
   </body>
 </html>
