@@ -723,7 +723,7 @@
   // spielen – die Adresse bleibt, die Seite bleibt. Nur aufgeführt wird es
   // nicht mehr. Das ist Absicht: Ein Link, den jemand verschickt hat, soll
   // nicht ins Leere laufen.
-  function baueAuswahl(offen, neuLaden, einteilung) {
+  function baueAuswahl(offen, einteilung) {
     const block = el("section", "adm-block");
     const kopf = el("header", "adm-block-kopf");
     kopf.append(el("h2", "", "Welche Spiele gespielt werden"));
@@ -738,7 +738,10 @@
     const gitter = el("div", "adm-tiers");
     const gewaehlt = new Set(offen);
 
-    async function sichern() {
+    // Geht das Speichern schief, springt der Haken zurück (zurueck) – ohne
+    // die Seite neu zu bauen: Sonst verschwände mit ihr auch die Meldung, und
+    // es sähe aus, als hätte der Klick einfach nichts getan.
+    async function sichern(zurueck) {
       meldung.textContent = "Wird gespeichert...";
       meldung.className = "adm-meldung";
       try {
@@ -747,15 +750,16 @@
         meldung.className = "adm-meldung ist-gut";
         zahl.textContent = `${gewaehlt.size} von ${(mini()?.SPIELE || []).length} angehakt`;
       } catch (fehler) {
-        meldung.textContent = fehlerText(fehler);
+        zurueck();
+        zeichneGruppen();
+        meldung.textContent = `Nicht gespeichert: ${fehlerText(fehler)}`;
         meldung.className = "adm-meldung ist-fehler";
-        neuLaden();
       }
     }
 
     // Ein anderes Tier: Das Spiel wandert gleich in seine Gruppe, und die
     // Einteilung ist gespeichert – auch für das nächste Turnier hier.
-    async function sichereTiers() {
+    async function sichereTiers(zurueck) {
       meldung.textContent = "Wird gespeichert...";
       meldung.className = "adm-meldung";
       try {
@@ -763,7 +767,9 @@
         meldung.textContent = "Tiers gespeichert.";
         meldung.className = "adm-meldung ist-gut";
       } catch (fehler) {
-        meldung.textContent = fehlerText(fehler);
+        zurueck();
+        zeichneGruppen();
+        meldung.textContent = `Nicht gespeichert: ${fehlerText(fehler)}`;
         meldung.className = "adm-meldung ist-fehler";
       }
     }
@@ -775,14 +781,15 @@
         const gruppe = el("div", "adm-auswahl");
         ids.forEach((id) => {
           const wahl = tierWahl(id, n, (neu) => {
+            const vorher = einteilung[id];
             einteilung[id] = neu;
             zeichneGruppen();
-            sichereTiers();
+            sichereTiers(() => { einteilung[id] = vorher; });
           });
           const { zeile } = wahlZeile(id, gewaehlt.has(id), (an) => {
             if (an) gewaehlt.add(id);
             else gewaehlt.delete(id);
-            sichern();
+            sichern(() => { if (an) gewaehlt.delete(id); else gewaehlt.add(id); });
           }, wahl);
           gruppe.append(zeile);
         });
@@ -1829,7 +1836,7 @@
 
     const neuLaden = () => zeigeAdmin(nutzer);
     wirt.append(baueTurniere(offen, einteilung));
-    wirt.append(baueAuswahl(offen, neuLaden, einteilung));
+    wirt.append(baueAuswahl(offen, einteilung));
 
     if (!alle.length) {
       wirt.append(el("p", "adm-hinweis", "Die Bestenliste ist leer. Sobald jemand spielt und seinen Namen einträgt, steht er hier."));

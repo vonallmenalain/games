@@ -736,7 +736,12 @@ Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
 Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die danach
 gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
 Draht, Zwei Spuren, Ball hochhalten), Tier 2 Blätter im Strom, Drehscheibe,
-Planetenhüpfer und Der Heizer, Tier 3 der Rest.
+Planetenhüpfer und Der Heizer, Tier 3 der Rest. Ein Spiel, das es nicht mehr
+gibt (wie der Wellenreiter), fällt beim nächsten Speichern aus den Tiers
+(`cloud.js`, `ohneAlteSpiele`): Die Regeln lassen dort nur Spiele zu, die es
+gibt, und ohne das scheiterte jedes Speichern an seinem alten Eintrag.
+Lehnt die Datenbank einen Haken ab, springt er zurück, und darüber steht,
+warum.
 
 **In einer Vorschau anmelden.** Firebase lässt «Mit Google anmelden» nur
 auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy

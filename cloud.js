@@ -256,9 +256,32 @@
     const liste = [...new Set((Array.isArray(spiele) ? spiele : [])
       .map((id) => String(id || "").trim())
       .filter(Boolean))];
-    // merge: Die Tiers im selben Dokument bleiben, wie sie sind.
-    await doc.set({ spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() }, { merge: true });
+    // merge: Die Tiers im selben Dokument bleiben, wie sie sind – bis auf
+    // die von Spielen, die es nicht mehr gibt (ohneAlteSpiele).
+    const daten = { spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
+    await doc.set(ohneAlteSpiele(await doc.get(), daten), { merge: true });
     return liste;
+  }
+
+  /*
+   * Ein Spiel, das es nicht mehr gibt (wie der Wellenreiter), kann noch in
+   * den gespeicherten Tiers stehen. Die Regeln lassen dort nur Spiele zu, die
+   * es gibt (firestore.rules, istSpieleListe) – und merge liesse seinen
+   * Schlüssel stehen: Jedes weitere Speichern scheiterte daran, auch nur ein
+   * Haken. Darum fällt er im selben Schreiben weg. Welche Spiele es gibt,
+   * weiss mini-games.js (SPIELE); fehlt es, bleibt alles, wie es ist.
+   */
+  function ohneAlteSpiele(stand, daten) {
+    const bekannt = window.LernappMini?.SPIELE;
+    const alt = stand?.exists ? stand.data()?.tiers : null;
+    const loeschen = window.firebase?.firestore?.FieldValue?.delete;
+    if (!Array.isArray(bekannt) || !bekannt.length || !alt || typeof alt !== "object" || !loeschen) return daten;
+    const ids = new Set(bekannt.map((s) => s.id));
+    const weg = Object.keys(alt).filter((id) => !ids.has(id));
+    if (!weg.length) return daten;
+    const tiers = { ...(daten.tiers || {}) };
+    weg.forEach((id) => { tiers[id] = window.firebase.firestore.FieldValue.delete(); });
+    return { ...daten, tiers };
   }
 
   /*
@@ -295,7 +318,7 @@
     if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
       daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
     }
-    await doc.set(daten, { merge: true });
+    await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
     return sauber;
   }
 

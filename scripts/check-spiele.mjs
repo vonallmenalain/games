@@ -126,7 +126,12 @@ const ATTRAPPE = `
       if (window.__miniOhneNetz) throw new Error("kein Netz");
       return window.__miniOffen ?? null;
     },
-    setzeOffeneSpiele: async (liste) => { window.__miniOffen = liste; return liste; },
+    setzeOffeneSpiele: async (liste) => {
+      // Wie die Datenbank, wenn ihre Regeln ablehnen.
+      if (window.__miniSpeichernScheitert) throw Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
+      window.__miniOffen = liste;
+      return liste;
+    },
     tiers: async () => window.__miniTiers ?? null,
     setzeTiers: async (einteilung) => { window.__miniTiers = { ...einteilung }; return window.__miniTiers; },
     ergebnisse: async (spiele) => {
@@ -3451,6 +3456,27 @@ try {
     await seite.waitForFunction(() => !document.fullscreenElement, null, { timeout: 3000 }).catch(() => {});
     pruefe(await seite.evaluate(() => !document.fullscreenElement), "Mit dem Knopf im Adminbereich endet das Vollbild nicht.");
     pruefe(await seite.locator(".adm-kopf").count() === 1 && new URL(seite.url()).pathname === "/admin", "Nach dem Spiel ist der Adminbereich weg.");
+
+    // Ein Haken, den die Datenbank ablehnt, springt zurück – und die Meldung,
+    // warum, bleibt stehen (früher baute sich die Seite neu, und sie war weg).
+    // Der nächste Haken, der durchgeht, ist gespeichert.
+    const turmHaken = turmZeile.locator('input[type="checkbox"]');
+    const turmVorher = await turmHaken.isChecked();
+    await seite.evaluate(() => { window.__miniSpeichernScheitert = true; });
+    await turmHaken.click();
+    await seite.waitForFunction(() => /Nicht gespeichert/.test(document.querySelector(".adm-seite .adm-meldung.ist-fehler")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    const abgelehnt = await seite.evaluate(() => ({
+      meldung: document.querySelector(".adm-seite .adm-meldung.ist-fehler")?.textContent || "",
+      offen: window.__miniOffen,
+    }));
+    pruefe(await turmHaken.isChecked() === turmVorher && /Nicht gespeichert/.test(abgelehnt.meldung) && abgelehnt.offen === undefined,
+      `Ein abgelehnter Haken springt nicht zurück oder sagt nicht, warum: ${JSON.stringify({ ...abgelehnt, haken: await turmHaken.isChecked() })}`);
+    await seite.evaluate(() => { window.__miniSpeichernScheitert = false; });
+    await turmHaken.click();
+    await seite.waitForFunction(() => Array.isArray(window.__miniOffen), null, { timeout: 4000 }).catch(() => {});
+    const gespeichert = await seite.evaluate(() => window.__miniOffen);
+    pruefe(Array.isArray(gespeichert) && gespeichert.includes("towerStack") === !turmVorher && await turmHaken.isChecked() === !turmVorher,
+      `Nach einem abgelehnten Haken lässt sich nicht mehr speichern: ${JSON.stringify(gespeichert)}`);
 
     // Ein Turnier, in dem wartet, wer vorne liegt: unbegrenzt für alle
     // anderen – zusammenzählen geht deshalb nicht.
