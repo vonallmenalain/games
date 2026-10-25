@@ -893,25 +893,44 @@ h2 {
 .sk-stage:not([data-phase="intro"]) .sk-prompt { opacity: 0; }
 .sk-feld { width: 100%; background: #eef5fb; }
 .sk-canvas { display: block; width: 100%; height: 100%; }
+/* Die zwei Knöpfe: unten links und rechts, aus dunklem Glas. Gedrückt wird
+   die ganze Hälfte des Bildes; die Knöpfe zeigen, wo, und leuchten, solange
+   ein Finger darauf liegt. Vor dem ersten Druck pulsieren sie. */
 .sk-tipp {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: clamp(44px, 13%, 68px);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  left: 0;
+  right: 0;
+  bottom: calc(14px + var(--safe-bottom, 0px));
+  display: flex;
+  justify-content: space-between;
+  padding: 0 clamp(12px, 4%, 28px);
   pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
 }
-.sk-stage[data-phase="intro"] .sk-tipp { opacity: 0.95; }
-.sk-tipp svg { width: 100%; height: auto; display: block; }
-.sk-tipp-fuell {
-  stroke-dasharray: 139;
-  stroke-dashoffset: 139;
-  transform: rotate(-90deg);
-  transform-origin: 32px 32px;
-  animation: li-fuell 1.6s ease-in-out infinite;
+.sk-knopf {
+  display: grid;
+  place-items: center;
+  width: clamp(54px, 15vmin, 76px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(18, 17, 24, 0.42);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, 0.85);
+  opacity: 0.55;
+  transition: opacity 0.15s ease, transform 0.12s ease, background 0.12s ease;
+}
+.sk-knopf svg { width: 46%; height: 46%; display: block; }
+.sk-knopf.ist-an { opacity: 1; transform: scale(0.9); background: rgba(18, 17, 24, 0.78); border-color: #fff; color: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35); }
+.sk-stage[data-phase="intro"] .sk-knopf { opacity: 0.95; animation: sk-puls 1.4s ease-in-out infinite; }
+/* Abwechselnd: erst links, dann rechts. */
+.sk-stage[data-phase="intro"] .sk-knopf-l { animation-delay: 0s; }
+.sk-stage[data-phase="intro"] .sk-knopf-r { animation-delay: 0.7s; }
+/* Beim Anschauen eines Laufs lenkt niemand. */
+.sk-stage[data-zuschauen] .sk-tipp { display: none; }
+@keyframes sk-puls {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
 }
 .sk-rekord {
   padding: 4px 16px;
@@ -1160,8 +1179,9 @@ h2 {
 
 
 @media (prefers-reduced-motion: reduce) {
-  .bl-tipp-fuell, .sk-tipp-fuell, .fr-tipp-fuell, .kh-tipp-fuell, .st-tipp-fuell,
+  .bl-tipp-fuell, .fr-tipp-fuell, .kh-tipp-fuell, .st-tipp-fuell,
   .hd-tipp-fuell, .zs-tipp-fuell, .bh-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+  .sk-stage[data-phase="intro"] .sk-knopf { animation: none; }
 }
 
 /* --- Start und Ergebnis --- */

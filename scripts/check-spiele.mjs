@@ -2726,9 +2726,11 @@ try {
   // --- 4g11. Slalom: immer fahrbar, und ein verpasstes Tor beendet die Runde ---------
   // Ein Autopilot fährt mehrere gewürfelte Kurse bis 2000 m: Er hält auf das
   // nächste Tor zu und dreht schon zum übernächsten, sobald er das nächste
-  // auch so noch sicher trifft. Wo er nicht durchkommt, verlangt der Kurs
-  // mehr, als der Fahrer carven kann. Und wer nach dem Start nichts mehr
-  // drückt, carvt immer nach links – in den Wald, mit Ergebnis.
+  // auch so noch sicher trifft – immer links oder rechts, nie geradeaus. Wo
+  // er nicht durchkommt, verlangt der Kurs mehr, als der Fahrer carven kann.
+  // Wer nach dem Start nichts mehr drückt, fährt geradeaus weiter – am
+  // nächsten Tor vorbei, mit Ergebnis. Und die zwei Knöpfe: links hält nach
+  // links, rechts nach rechts, zwei Finger – der zweite gilt.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
     await seite.goto(`${BASIS}/slalom`, { waitUntil: "load" });
@@ -2740,7 +2742,7 @@ try {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         const st = S.state;
         const sk = st.sk;
-        S.druecken();
+        S.lenke(1);
         let n = 0;
         for (; st.schritt === "fahrt" && sk.y < 20000 && n < 400000; n += 1) {
           const tore = st.kurs.tore;
@@ -2764,10 +2766,10 @@ try {
           }
           const rand = S.R_STANGE + S.R_FAHRER + 3;
           if (x > S.stangeL(t1) + rand && x < S.stangeR(t1) - rand) soll = phi2;
-          if (soll > sk.phi + sk.w * 0.05) S.druecken(); else S.loslassen();
+          S.lenke(soll > sk.phi + sk.w * 0.05 ? 1 : -1);
           S.takt(1 / 120);
         }
-        S.loslassen();
+        S.lenke(0);
         raus.push({ meter: Math.round(sk.y / S.METER), schritt: st.schritt, tore: st.tore, grund: st.sturz?.grund || null });
       }
       return raus;
@@ -2775,11 +2777,45 @@ try {
     pruefe(fahrten.every((f) => f.meter >= 2000 && f.schritt === "fahrt" && f.tore >= 70),
       `Slalom: Der Autopilot kommt nicht durch jeden Kurs – ${JSON.stringify(fahrten)}`);
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    await seite.evaluate(() => { window.LernappSlalom.druecken(); window.LernappSlalom.loslassen(); });
-    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    await seite.evaluate(() => { window.LernappSlalom.lenke(1); window.LernappSlalom.lenke(0); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 12000 }).catch(() => {});
     const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, schritt: window.LernappSlalom.state.schritt, grund: window.LernappSlalom.state.sturz?.grund }));
-    pruefe(ende.schritt === "sturz" && ende.zahl !== undefined && ende.grund === "rand",
-      `Slalom: Ohne Eingabe endet die Runde nicht im Wald: ${JSON.stringify(ende)}`);
+    pruefe(ende.schritt === "sturz" && ende.zahl !== undefined,
+      `Slalom: Ohne Eingabe endet die Runde nicht: ${JSON.stringify(ende)}`);
+
+    // Die Knöpfe mit echten Fingern: links, rechts, beide (der zweite gilt),
+    // loslassen (geradeaus). Und mit den Pfeiltasten.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const box = await seite.locator(".sk-feld").boundingBox();
+    const tippe = (id, x, typ) => seite.evaluate(({ id, x, y, typ }) => {
+      const ziel = typ === "pointerdown" ? document.elementFromPoint(x, y) : window;
+      ziel.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+    }, { id, x, y: box.y + box.height * 0.6, typ });
+    const lage = () => seite.evaluate(() => ({
+      phase: window.LernappSlalom.state.phase,
+      l: document.querySelector(".sk-knopf-l")?.classList.contains("ist-an"),
+      r: document.querySelector(".sk-knopf-r")?.classList.contains("ist-an"),
+    }));
+    const schritte = [];
+    await tippe(1, box.x + box.width * 0.2, "pointerdown");
+    schritte.push(await lage());
+    await tippe(2, box.x + box.width * 0.8, "pointerdown");
+    schritte.push(await lage());
+    await tippe(2, box.x + box.width * 0.8, "pointerup");
+    schritte.push(await lage());
+    await tippe(1, box.x + box.width * 0.2, "pointerup");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowRight");
+    const soll = [
+      { phase: "spiel", l: true, r: false },
+      { phase: "spiel", l: false, r: true },
+      { phase: "spiel", l: true, r: false },
+      { phase: "spiel", l: false, r: false },
+      { phase: "spiel", l: false, r: true },
+    ];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Slalom: Die zwei Knöpfe lenken nicht richtig: ${JSON.stringify(schritte)}`);
     await kontext.close();
   }
 

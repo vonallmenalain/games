@@ -1,11 +1,12 @@
 /*
  * slalom.js – Slalom.
  * ---------------------------------------------------------------------------
- * Ein Skifahrer jagt die Piste hinunter, Tor um Tor. Gelenkt wird mit einem
- * Finger, und gelenkt wird immer: Wer den Finger aufs Bild legt, carvt nach
- * rechts; wer loslässt, nach links. Die Richtung ändert sich dabei nie
- * schlagartig, sondern mit dem Zug einer Kante im Schnee – wer zu spät
- * umsteigt, kommt am Tor vorbei.
+ * Ein Skifahrer jagt die Piste hinunter, Tor um Tor. Gelenkt wird mit zwei
+ * Knöpfen: Wer links aufs Bild hält, carvt nach links, wer rechts hält, nach
+ * rechts (am Rechner Pfeil links und rechts). Ohne Finger bleibt die Kante,
+ * wie sie ist, und der Fahrer fährt in seiner Richtung weiter. Die Richtung
+ * ändert sich dabei nie schlagartig, sondern mit dem Zug einer Kante im
+ * Schnee – wer zu spät umsteigt, kommt am Tor vorbei.
  *
  * Jedes Tor sind zwei Stangen, rot und blau im Wechsel. Wer zwischen ihnen
  * durchfährt, hat es; wer eines auslässt, eine Stange mitnimmt oder in den
@@ -163,7 +164,12 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
-  let gedrueckt = false;
+  // Wohin gelenkt wird: -1 links, 0 gar nicht, 1 rechts. Dazu die Finger (und
+  // Tasten), die gerade aufliegen – liegen zwei auf, gilt der zuletzt
+  // gekommene.
+  let lenkung = 0;
+  const finger = [];
+  let knoepfe = null;
   // Die Gegner (geist.js): wer als Schatten mitfährt und als Banner über der
   // Piste hängt.
   let gegner = null;
@@ -281,38 +287,28 @@
     feld.append(canvas);
     g = canvas.getContext("2d");
 
-    // Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten,
-    // nicht tippen.
-    const tipp = shell.el("span", "sk-tipp");
-    tipp.setAttribute("aria-hidden", "true");
+    // Die zwei Knöpfe unten links und rechts. Gedrückt wird die ganze Hälfte
+    // des Bildes – die Knöpfe zeigen nur, wo, und leuchten, solange ein
+    // Finger darauf liegt. Vor dem ersten Druck pulsieren sie.
+    knoepfe = shell.el("div", "sk-tipp");
+    knoepfe.setAttribute("aria-hidden", "true");
     const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 64 64");
-    [
-      { r: 22, stroke: "rgba(255,255,255,0.55)", w: 5 },
-      { r: 22, stroke: "#ffffff", w: 5, klasse: "sk-tipp-fuell" },
-    ].forEach((ring) => {
-      const kreis = document.createElementNS(ns, "circle");
-      kreis.setAttribute("cx", "32");
-      kreis.setAttribute("cy", "32");
-      kreis.setAttribute("r", String(ring.r));
-      kreis.setAttribute("fill", "none");
-      kreis.setAttribute("stroke", ring.stroke);
-      kreis.setAttribute("stroke-width", String(ring.w));
-      if (ring.klasse) {
-        kreis.setAttribute("class", ring.klasse);
-        kreis.setAttribute("stroke-linecap", "round");
-      }
-      svg.append(kreis);
+    [-1, 1].forEach((seite) => {
+      const knopf = shell.el("span", `sk-knopf ${seite < 0 ? "sk-knopf-l" : "sk-knopf-r"}`);
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      const pfeil = document.createElementNS(ns, "path");
+      pfeil.setAttribute("d", seite < 0 ? "M14.5 5.5 8 12l6.5 6.5" : "M9.5 5.5 16 12l-6.5 6.5");
+      pfeil.setAttribute("fill", "none");
+      pfeil.setAttribute("stroke", "currentColor");
+      pfeil.setAttribute("stroke-width", "3");
+      pfeil.setAttribute("stroke-linecap", "round");
+      pfeil.setAttribute("stroke-linejoin", "round");
+      svg.append(pfeil);
+      knopf.append(svg);
+      knoepfe.append(knopf);
     });
-    const punkt = document.createElementNS(ns, "circle");
-    punkt.setAttribute("cx", "32");
-    punkt.setAttribute("cy", "32");
-    punkt.setAttribute("r", "9");
-    punkt.setAttribute("fill", "#ffffff");
-    svg.append(punkt);
-    tipp.append(svg);
-    feld.append(tipp);
+    feld.append(knoepfe);
     platz.append(feld);
     return platz;
   }
@@ -1879,7 +1875,7 @@
   function physik(dt) {
     const sk = state.sk;
     const dreh = drehBei(sk.y);
-    const ziel = gedrueckt ? dreh : -dreh;
+    const ziel = lenkung * dreh;
     sk.w += (ziel - sk.w) * (1 - Math.exp(-dt / DREH_TAU));
     sk.phi += sk.w * dt;
     if (sk.phi > PHI_MAX) { sk.phi = PHI_MAX; if (sk.w > 0) sk.w = 0; }
@@ -2138,7 +2134,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Halten und Loslassen
+  // Links und rechts
   // ---------------------------------------------------------------------------
   // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
   // gemeinsamen Start (game-shell.js, live.los).
@@ -2154,13 +2150,41 @@
     kids()?.vibrate?.(8);
   }
 
-  function druecken() {
-    gedrueckt = true;
+  function lenkeNeu() {
+    lenkung = finger.length ? finger[finger.length - 1].r : 0;
+    knoepfe?.querySelector(".sk-knopf-l")?.classList.toggle("ist-an", lenkung < 0);
+    knoepfe?.querySelector(".sk-knopf-r")?.classList.toggle("ist-an", lenkung > 0);
+  }
+
+  // Ein Finger (oder eine Taste) kommt: Er lenkt, bis er geht. Der erste
+  // startet die Runde.
+  function fingerAuf(id, r) {
+    const da = finger.findIndex((f) => f.id === id);
+    if (da >= 0) finger.splice(da, 1);
+    finger.push({ id, r });
+    lenkeNeu();
     losGehts();
   }
 
-  function loslassen() {
-    gedrueckt = false;
+  function fingerWeg(id) {
+    const da = finger.findIndex((f) => f.id === id);
+    if (da < 0) return;
+    finger.splice(da, 1);
+    lenkeNeu();
+  }
+
+  function alleWeg() {
+    finger.length = 0;
+    lenkeNeu();
+  }
+
+  // Für die Prüfskripte und die Vorführung: lenken wie mit einem Finger –
+  // -1 links, 1 rechts, 0 loslassen.
+  function lenke(r) {
+    finger.length = 0;
+    if (r) finger.push({ id: "auto", r: Math.sign(r) });
+    lenkeNeu();
+    if (r) losGehts();
   }
 
   // ---------------------------------------------------------------------------
@@ -2200,13 +2224,13 @@
     state.tumble = 0;
     state.lean = 0;
     state.sprayRest = 0;
-    gedrueckt = false;
     shell.setCount(0);
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt sk-prompt", "Halten – nach rechts. Loslassen – nach links.");
+    const prompt = shell.el("p", "cm-prompt sk-prompt", "Links halten – nach links, rechts – nach rechts.");
     shell.play.append(prompt, buildPlatz());
+    alleWeg();
     view.cssW = 0;
     view.cssH = 0;
     messen();
@@ -2284,26 +2308,39 @@
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
+  // Die linke Hälfte des Bildes lenkt nach links, die rechte nach rechts –
+  // jeder Finger für sich (pointerdown je Zeiger). Ein Finger bleibt auf
+  // seiner Seite, bis er geht. Nur Knöpfe bleiben Knöpfe.
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    druecken();
+    const rahmen = (feld || host).getBoundingClientRect();
+    fingerAuf(event.pointerId, event.clientX < rahmen.left + rahmen.width / 2 ? -1 : 1);
   });
-  window.addEventListener("pointerup", loslassen);
-  window.addEventListener("pointercancel", loslassen);
-  // Wer das Fenster verlässt, nimmt auch den Finger vom Bild.
-  window.addEventListener("blur", loslassen);
+  window.addEventListener("pointerup", (event) => fingerWeg(event.pointerId));
+  window.addEventListener("pointercancel", (event) => fingerWeg(event.pointerId));
+  // Wer das Fenster verlässt, nimmt auch die Finger vom Bild.
+  window.addEventListener("blur", alleWeg);
 
-  const TASTEN = new Set([" ", "Enter", "ArrowRight"]);
+  // Pfeil links oder A, Pfeil rechts oder D. Leertaste und Enter starten nur.
+  // Steht der Fokus auf einem Knopf, gilt die Taste dem Knopf.
+  const seiteDerTaste = (event) => {
+    if (event.key === "ArrowLeft" || event.code === "KeyA") return -1;
+    if (event.key === "ArrowRight" || event.code === "KeyD") return 1;
+    return 0;
+  };
   document.addEventListener("keydown", (event) => {
-    if (!TASTEN.has(event.key)) return;
+    const r = seiteDerTaste(event);
+    const start = event.key === " " || event.key === "Enter";
+    if (!r && !start) return;
     if (document.activeElement?.tagName === "BUTTON") return;
     event.preventDefault();
     if (event.repeat) return;
-    druecken();
+    if (r) fingerAuf(r < 0 ? "taste-l" : "taste-r", r);
+    else losGehts();
   });
   document.addEventListener("keyup", (event) => {
-    if (!TASTEN.has(event.key)) return;
-    loslassen();
+    const r = seiteDerTaste(event);
+    if (r) fingerWeg(r < 0 ? "taste-l" : "taste-r");
   });
 
   window.addEventListener("resize", messen);
@@ -2312,7 +2349,7 @@
 
   // Für die Prüfskripte.
   window.LernappSlalom = {
-    METER, PISTE_HALB, PHI_MAX, R_FAHRER, R_STANGE, state, view, takt, druecken, loslassen,
+    METER, PISTE_HALB, PHI_MAX, R_FAHRER, R_STANGE, state, view, takt, lenke,
     toreBis, toreBisNr, pisteBei, tempoBei, drehBei, stangeL, stangeR,
   };
 })();

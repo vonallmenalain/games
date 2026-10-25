@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-25-10";
+export const FASSUNG = "2026-10-25-11";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -140,7 +140,7 @@ export const SPIELE = [
   {
     seite: "slalom", spiel: "skiSlalom", page: "slalom", js: "slalom.js",
     titel: "Slalom", buehne: { id: "sk-stage", klasse: "cm-stage sk-stage" },
-    text: "Slalom: Halten heisst Kurve nach rechts, Loslassen nach links – fahr durch jedes Tor, es wird immer schneller.",
+    text: "Slalom: Links halten lenkt nach links, rechts halten nach rechts – fahr durch jedes Tor, es wird immer schneller.",
     baut: "die Piste mit den Toren",
   },
   {
