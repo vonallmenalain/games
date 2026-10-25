@@ -707,6 +707,39 @@ Dafür gibt es die Anmeldung überhaupt. Eine Liste, in die jeder ohne Konto
 schreiben darf, ist irgendwann eine Liste mit einem Namen darin, den man dort
 nicht haben will.
 
+**Aufbau.** Oben fünf Kacheln – Turniere, offene Spiele, Spieler, Einträge,
+Runden. Jede ist ein Knopf: Sie klappt den Bereich auf, in dem steht, was
+hinter der Zahl steckt («Runden» zeigt die Spiele gleich nach Runden
+sortiert). Darunter vier Bereiche, zuerst alle zugeklappt – nur Titel und
+Zahl:
+
+    Turniere                       anlegen, ändern, anhalten, Multiplayer
+    Welche Spiele gespielt werden  Haken für die Startseite, Tiers, ▶
+    Spieler                        eine Zeile je Name; ein Tipp auf den Namen
+                                   öffnet seine Auswertung
+    Spiele und Bestenlisten        eine Zeile je Spiel; ein Tipp auf das Spiel
+                                   klappt seine Bestenliste auf
+
+Was aufgeklappt ist, wonach sortiert und wie gefiltert wird, merkt sich der
+Tab (`sessionStorage`, `mini.admin.ansicht`): Nach «Neu laden» oder einem
+Löschen steht alles wieder so da. Die Tabellen der Spieler und Spiele lassen
+sich nach jeder Spalte sortieren (ein Tipp auf die Überschrift, ein zweiter
+dreht um). Ein Filter gilt für den ganzen Adminbereich: nach Tier, nach dem,
+was auf der Startseite steht (oder nicht), oder nach den Spielen eines
+Turniers – «Tier 1» heisst dann bei den Spielern auch: Platz im Schnitt in
+Tier 1. Bei den Spielern sucht ein Feld nach dem Namen.
+
+**Die Auswertung eines Spielers** (ein Fenster über dem Adminbereich): wo er
+überall gespielt hat, je Spiel der Platz (von wie vielen), der Bestwert, die
+Runden, das erste und das letzte Mal; dazu die Zahlen zusammen – Spiele,
+Runden, Platz im Schnitt, erste Plätze, Podestplätze – und in welchen
+Turnieren er auf welchem Platz steht. Aufräumen geht dort auch: ein einzelnes
+Ergebnis löschen, alle löschen, den Namen in allen Spielen ändern, von
+mehreren Geräten zusammenführen. Ein Name ist dabei, was er überall ist:
+gross oder klein geschrieben derselbe, auf allen Geräten zusammen. Wie lange
+jemand gespielt hat, steht (noch) nicht in der Datenbank – die Einträge
+kennen nur das erste und das letzte Mal.
+
 Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
 Turniers – steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
 das ganze Browserfenster füllt, über dem Adminbereich (ein halb ausgefülltes
@@ -721,13 +754,14 @@ Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
 Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.
 
 Hat jemand unter demselben Namen auf mehreren Geräten gespielt, steht bei
-«Die Spieler» «auf 2 Geräten» und ein Knopf «Zusammenführen» (`admin.js`,
+«Spieler» «auf 2 Geräten» und ein Knopf «Zusammenführen» (`admin.js`,
 `fuehreZusammen`): Je Spiel bleibt ein Eintrag unter der Kennung, unter der
 am meisten gespielt wurde – mit der besten Zahl und allen Runden zusammen;
 der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Turniere
 bleiben, wie sie sind.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
-leert «Bestenliste leeren» beim Spiel die ganze Liste auf einmal.
+leert «Bestenliste leeren» in der aufgeklappten Bestenliste des Spiels die
+ganze Liste auf einmal.
 
 **Tiers.** Im Block «Welche Spiele gespielt werden» stehen die Spiele in drei
 Gruppen, Tier 1 bis 3, und neben jedem ein kleines T1/T2/T3. Wer ein Spiel

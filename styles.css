@@ -3921,6 +3921,248 @@ h2 {
   .adm-aktionen .adm-knopf + .adm-knopf { margin: 4px 0 0 0; }
 }
 
+/* --- Aufklappen, Kacheln, Filter, Sortieren ------------------------------- */
+/* Jeder Bereich steht zuerst zugeklappt da: Titel, Zahl, ein Pfeil. Der ganze
+   Kopf ist der Knopf. */
+.adm-klapp > .adm-block-kopf { margin-bottom: 0; }
+.adm-klapp.ist-offen > .adm-block-kopf { margin-bottom: 14px; }
+.adm-klapp-titel { flex: 1 1 100%; }
+.adm-klapp-knopf {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.adm-klapp-knopf::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin: 0 2px 0 3px;
+  border-right: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  opacity: 0.55;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.adm-klapp.ist-offen .adm-klapp-knopf::before { transform: rotate(45deg); }
+.adm-klapp-knopf:hover .adm-klapp-name { text-decoration: underline; text-underline-offset: 3px; }
+.adm-klapp-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 6px; }
+.adm-klapp-knopf .adm-block-zahl { margin-left: auto; }
+.adm-klapp-inhalt { display: flex; flex-direction: column; gap: 10px; }
+.adm-werkzeug { margin-bottom: 4px; }
+
+/* Die Kacheln oben sind Knöpfe: Sie klappen ihren Bereich auf. */
+.adm-kachel {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  background: #fff;
+  border-radius: 14px;
+  border: 2px solid #ece9f6;
+  padding: 14px 34px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.adm-kachel::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 3px solid #c5c9d6;
+  border-bottom: 3px solid #c5c9d6;
+  transform: translateY(-50%) rotate(-45deg);
+}
+.adm-kachel:hover { border-color: var(--mini-ton, #F5A623); box-shadow: 0 6px 16px rgba(50, 44, 109, 0.08); }
+.adm-kachel:active { transform: scale(0.98); }
+.adm-kachel:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+
+/* Der Filter: Tier als Schalterreihe, daneben welche Spiele. */
+.adm-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.adm-filter-tiers { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 999px; background: #f2f3f7; }
+.adm-chip { padding: 5px 12px; font-size: 0.8rem; background: transparent; color: #47506a; }
+.adm-chip:hover { background: #e6e8f0; }
+.adm-chip[aria-pressed="true"] { background: #243047; color: #fff; }
+.adm-filter-wahl { flex: 0 1 260px; padding: 7px 12px; font-size: 0.9rem; }
+.adm-suche { flex: 1 1 180px; max-width: 280px; padding: 7px 12px; font-size: 0.9rem; }
+.adm-filter-weg { font-size: 0.85rem; }
+.adm-summe { margin: 0; }
+
+/* Sortieren: die Überschrift ist der Knopf, der Pfeil zeigt die Richtung. */
+.adm-sortier {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.adm-sortier:hover { color: #47506a; }
+.adm-sortier:focus-visible { outline: 2px solid #243047; outline-offset: 2px; border-radius: 4px; }
+.adm-sortier::after { content: "↕"; opacity: 0.35; font-size: 0.9em; }
+th[aria-sort] .adm-sortier { color: #243047; }
+th[aria-sort="ascending"] .adm-sortier::after { content: "↑"; opacity: 1; }
+th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
+.adm-tabelle tr.adm-leer td { color: #98a0b4; text-align: center; padding: 18px 10px; }
+.adm-tabelle-wirt { overflow-x: auto; }
+
+/* Spiele, Spieler, Plätze. */
+.adm-spielname { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: #243047; }
+.adm-punkt { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--adm-farbe, #F5A623); }
+.adm-spiel-schalter, .adm-person {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.adm-spiel-schalter { display: inline-flex; align-items: center; gap: 8px; }
+.adm-spiel-schalter::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid #98a0b4;
+  border-bottom: 2px solid #98a0b4;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.adm-spiel-schalter[aria-expanded="true"]::after { transform: rotate(45deg); }
+.adm-spiel-schalter:hover .adm-spielname span:last-child,
+.adm-person:hover { text-decoration: underline; text-underline-offset: 3px; }
+.adm-spiel-schalter:focus-visible, .adm-person:focus-visible { outline: 2px solid #243047; outline-offset: 2px; border-radius: 4px; }
+.adm-person { font-weight: 800; color: #243047; }
+.adm-spieltabelle tr.ist-offen td { background: #fbfaff; border-bottom-color: transparent; }
+.adm-an { color: #2c7337; font-weight: 800; white-space: nowrap; }
+.adm-aus { color: #98a0b4; }
+.adm-tabelle .adm-tier-marke { font-size: 0.72rem; }
+.adm-tabelle tr.adm-detail > td { padding: 0 8px 14px; background: #fbfaff; }
+/* Breite 0, mindestens die ganze Zeile: So macht die Bestenliste darin die
+   Tabelle der Spiele nicht breiter – sie rollt für sich. */
+.adm-spiel-detail {
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  padding: 10px 12px;
+  border-left: 4px solid var(--adm-farbe, #F5A623);
+  border-radius: 0 12px 12px 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adm-detail-kopf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.adm-detail-kopf .adm-klein { margin: 0; }
+.adm-platz-wrap { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.adm-platz {
+  display: inline-block;
+  min-width: 2.3em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f2f3f7;
+  color: #47506a;
+  font-weight: 900;
+  text-align: center;
+}
+.adm-platz.ist-1 { background: #fff1bf; color: #7a5800; }
+.adm-platz.ist-2 { background: #e9ecf3; color: #3d465c; }
+.adm-platz.ist-3 { background: #f7e1cf; color: #7d4317; }
+.adm-von { color: #98a0b4; font-size: 0.75rem; }
+.adm-doppelt .adm-knopf { margin-left: 4px; }
+
+.adm-sortierbar td.zahl, .adm-bestenliste td.zahl { white-space: nowrap; }
+.adm-bestwert { display: inline-flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+
+@media (max-width: 620px) {
+  .adm-breit { display: none; }
+  .adm-filter-wahl, .adm-suche { flex: 1 1 100%; max-width: none; }
+  .adm-sortierbar th, .adm-sortierbar td,
+  .adm-bestenliste th, .adm-bestenliste td { padding-left: 6px; padding-right: 6px; }
+  .adm-sortierbar th, .adm-bestenliste th { letter-spacing: 0.02em; }
+  .adm-tabelle tr.adm-detail > td { padding: 0 0 10px; }
+  .adm-spiel-detail { padding: 8px 6px; }
+  .adm-platz-wrap { flex-direction: column; align-items: flex-end; gap: 0; }
+  /* Die Pfeile nur, wo gerade sortiert ist; die Knöpfe nebeneinander – die
+     Tabelle rollt, statt dass jede Zeile hoch wird. */
+  .adm-sortier::after { display: none; }
+  th[aria-sort] .adm-sortier::after { display: inline; }
+  .adm-tabelle-wirt .adm-aktionen { white-space: nowrap; }
+  .adm-tabelle-wirt .adm-aktionen .adm-knopf + .adm-knopf { margin: 0 0 0 6px; }
+}
+
+/* --- Die Auswertung eines Spielers ----------------------------------------- */
+/* Ein Fenster über dem Adminbereich; am Handy füllt es den Bildschirm. */
+body.adm-dash-offen { overflow: hidden; }
+.adm-dash-huelle {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(23, 27, 45, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: clamp(0px, 4vw, 40px) clamp(0px, 3vw, 28px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.adm-dash {
+  width: min(980px, 100%);
+  margin: auto 0;
+  background: #f7f6fc;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(20, 24, 40, 0.35);
+  padding: clamp(16px, 3vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.adm-dash:focus { outline: none; }
+.adm-dash [hidden] { display: none !important; }
+.adm-dash-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.adm-dash-titel { margin: 0; font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 900; color: #243047; overflow-wrap: anywhere; }
+.adm-dash-zu { flex: 0 0 auto; }
+.adm-dash-teil {
+  background: #fff;
+  border-radius: 16px;
+  border: 2px solid #ece9f6;
+  padding: clamp(12px, 2.5vw, 18px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-dash-teil h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: #243047; }
+.adm-dash-turniere { display: flex; flex-direction: column; gap: 6px; }
+.adm-dash-turnier { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.adm-dash-turnier .adm-klein { margin: 0; }
+@media (max-width: 620px) {
+  .adm-dash { border-radius: 0; min-height: 100%; margin: 0; }
+}
+
 /* --- Die Spielauswahl im Adminbereich -------------------------------------- */
 /* Ein Haken je Spiel, in der Reihenfolge der Bereiche. Angehakt trägt die
    Farbe des Bereichs – so sieht man mit einem Blick, was offen ist, ohne die
@@ -4364,7 +4606,8 @@ p.tn-verdeckt:not(.mini-hinweis) {
    Adminbereichs, darunter das Formular – und sonst nichts. Was weg ist,
    kommt beim Schliessen unverändert zurück. */
 .adm-seite.ist-formular > :not(.adm-kopf):not(.adm-turniere) { display: none; }
-.adm-seite.ist-formular .adm-turniere > :not(.adm-turnier-formwirt) { display: none; }
+.adm-seite.ist-formular .adm-turniere > :not(.adm-klapp-inhalt),
+.adm-seite.ist-formular .adm-turniere .adm-klapp-inhalt > :not(.adm-turnier-formwirt) { display: none; }
 .adm-seite.ist-formular .adm-turniere { padding: 0; border: 0; background: none; overflow: visible; }
 .adm-seite.ist-formular .adm-turnier-form { margin: 0; }
 
