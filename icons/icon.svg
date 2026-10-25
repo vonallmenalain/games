@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>alae arcade</title>
+  <defs>
+    <radialGradient id="a-licht" cx="50%" cy="48%" r="60%">
+      <stop offset="0" stop-color="#262038"/>
+      <stop offset="0.65" stop-color="#14121c"/>
+      <stop offset="1" stop-color="#0d0c11"/>
+    </radialGradient>
+    <pattern id="a-zeilen" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="3" fill="#ffffff" fill-opacity="0.025"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" fill="url(#a-licht)"/>
+  <rect width="512" height="512" fill="url(#a-zeilen)"/>
+  <path fill="#ffd45e" d="M127.5 102.5h9v27h-9zM118.5 111.5h27v9h-27z"/>
+  <path fill="#00A5B5" d="M388.5 93.5h7v21h-7zM381.5 100.5h21v7h-21z"/>
+  <path fill="#7C5CE6" d="M410 392h8v24h-8zM402 400h24v8h-24z"/>
+  <path fill="#ECEDF2" d="M97 395h6v18h-6zM91 401h18v6h-18z"/>
+  <path fill="#342e4e" d="M100 354h20v12h-20zM124 354h20v12h-20zM148 354h20v12h-20zM172 354h20v12h-20zM196 354h20v12h-20zM220 354h20v12h-20zM244 354h20v12h-20zM268 354h20v12h-20zM292 354h20v12h-20zM316 354h20v12h-20zM340 354h20v12h-20zM364 354h20v12h-20zM388 354h20v12h-20z"/><path fill="#4c4470" d="M100 354h20v4h-20zM124 354h20v4h-20zM148 354h20v4h-20zM172 354h20v4h-20zM196 354h20v4h-20zM220 354h20v4h-20zM244 354h20v4h-20zM268 354h20v4h-20zM292 354h20v4h-20zM316 354h20v4h-20zM340 354h20v4h-20zM364 354h20v4h-20zM388 354h20v4h-20z"/>
+  <path fill="#ffffff" d="M156 142h25v25h-25z"/>
+  <path fill="#d3d0df" d="M181 142h25v25h-25zM181 167h25v25h-25zM181 192h50v25h-50zM181 217h50v25h-50z"/>
+  <path fill="#FE7971" d="M306 142h25v25h-25zM306 167h25v25h-25zM281 192h50v25h-50zM281 217h50v25h-50zM256 242h50v25h-50zM256 267h50v25h-50zM231 292h50v25h-50zM231 317h50v25h-50z"/>
+  <path fill="#e9645c" d="M331 142h25v25h-25zM331 167h25v25h-25zM331 192h50v25h-50zM331 217h50v25h-50zM356 242h50v25h-50zM356 267h50v25h-50zM381 292h50v25h-50zM381 317h50v25h-50z"/>
+  <path fill="#ECEDF2" d="M156 167h25v25h-25zM131 192h50v25h-50zM131 217h50v25h-50zM106 242h50v25h-50zM106 267h50v25h-50zM81 292h50v25h-50zM81 317h50v25h-50z"/>
+</svg>

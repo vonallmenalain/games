@@ -10,6 +10,7 @@
     "pruefen:live": "node scripts/check-live.mjs",
     "pruefen:zuschauen": "node scripts/check-zuschauen.mjs",
     "bilder": "node scripts/filme-aufnehmen.mjs --standbild",
+    "icons": "node scripts/icons-bauen.mjs",
     "filme": "node scripts/filme-aufnehmen.mjs",
     "test:rules": "node scripts/test-rules.mjs"
   },
