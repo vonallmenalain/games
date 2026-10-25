@@ -4,7 +4,7 @@
 
   Die Startseite und zugleich der Startpunkt der installierten App: Wer die
   Spiele auf den Startbildschirm legt, landet hier. Was darauf steht, baut
-  mini-games.js – alae arcade: oben ein Spiel als Film mit seiner
+  mini-games.js – die arcade: oben ein Spiel als Film mit seiner
   Bestenliste, darunter alle Spiele in Reihen. Dunkel schon hier, damit beim
   Laden nichts hell aufblitzt.
 -->
@@ -12,31 +12,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="application-name" content="alae arcade" />
-    <meta name="description" content="alae arcade: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle." />
+    <meta name="application-name" content="arcade" />
+    <meta name="description" content="arcade: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="alae arcade" />
+    <meta name="apple-mobile-web-app-title" content="arcade" />
     <meta name="theme-color" content="#0d0c11" />
-    <title>alae arcade</title>
-    <link rel="stylesheet" href="styles.css?v=2026-10-25-8" />
-    <link rel="manifest" href="app.webmanifest?v=2026-10-25-8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="arcade" />
+    <meta property="og:title" content="arcade" />
+    <meta property="og:description" content="Eine Runde spielen, Namen eintragen, oben stehen." />
+    <meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="arcade" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>arcade</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-25-9" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-25-9" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
   </head>
   <body data-page="hub" class="ar">
     <main class="mini-seite ar-seite" data-uebersicht>
-      <p class="mini-hinweis ar-leer">alae arcade wird geladen...</p>
+      <p class="mini-hinweis ar-leer">arcade wird geladen...</p>
     </main>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script defer src="vollbild.js?v=2026-10-25-8"></script>
-    <script defer src="highscore.js?v=2026-10-25-8"></script>
-    <script defer src="cloud.js?v=2026-10-25-8"></script>
-    <script defer src="mini-games.js?v=2026-10-25-8"></script>
-    <script defer src="turnier.js?v=2026-10-25-8"></script>
-    <script defer src="pwa.js?v=2026-10-25-8"></script>
+    <script defer src="vollbild.js?v=2026-10-25-9"></script>
+    <script defer src="highscore.js?v=2026-10-25-9"></script>
+    <script defer src="cloud.js?v=2026-10-25-9"></script>
+    <script defer src="mini-games.js?v=2026-10-25-9"></script>
+    <script defer src="turnier.js?v=2026-10-25-9"></script>
+    <script defer src="pwa.js?v=2026-10-25-9"></script>
   </body>
 </html>

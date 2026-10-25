@@ -855,6 +855,7 @@ try {
     await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
     // Zugeklappt, bis die Kachel "Spieler" die Spieler aufklappt.
     await seite.locator(".adm-streifen .adm-kachel", { hasText: "Spieler" }).click();
+    pruefe(await seite.locator(".adm-kopf .ar-marke svg path").count() === 5, "Im Adminbereich fehlt oben das Logo.");
     const zeile = seite.locator(".adm-tabelle tr", { has: seite.locator("td.adm-name", { hasText: "auf 2 Geräten" }) });
     await zeile.waitFor({ timeout: 8000 }).catch(() => {});
     pruefe(await zeile.count() === 1, "Im Adminbereich steht nicht, dass Alain auf zwei Geräten spielt.");
@@ -875,7 +876,7 @@ try {
     await kontext.close();
   }
 
-  // --- 3. Die Startseite (alae arcade) -------------------------------------------
+  // --- 3. Die Startseite (arcade) ------------------------------------------------
   // Ein Bildschirm, ohne Scrollen: oben der Film, die Leiste mit Name,
   // Rangliste und Play, unten alle Spiele. Die Ranglisten stehen nicht da –
   // ein Tipp auf den Knopf öffnet sie, den Pokal oben die Gesamtwertung.
@@ -886,8 +887,9 @@ try {
     await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
     await seite.waitForFunction(() => /Grosi/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
     const text = await seite.locator(".mini-seite").innerText();
-    pruefe(/alae\s*arcade/i.test(text), `${wo}: Auf der Startseite steht nicht, wo man ist.`);
-    pruefe(await seite.locator(".ar-marke svg path").count() === 3, `${wo}: Das Logo von alae.app fehlt (Zeichen und «alae»).`);
+    pruefe(/\barcade\b/i.test(text) && !/alae/i.test(text), `${wo}: Auf der Startseite steht nicht, wo man ist.`);
+    pruefe(await seite.locator(".ar-kopf .ar-marke svg path").count() === 5 && (await seite.locator(".ar-kopf .ar-marke-wort").innerText()) === "arcade",
+      `${wo}: Das Logo fehlt (die zwei Winkel als Pixel und «arcade»).`);
     pruefe(await seite.locator(".ar-kachel").count() === SPIELE.length,
       `${wo}: Auf der Startseite stehen ${await seite.locator(".ar-kachel").count()} Spiele statt ${SPIELE.length}.`);
     pruefe(await seite.locator(".ar-kopf .ar-name-knopf").count() === 1, `${wo}: Auf der Startseite fehlt der Name zum Ändern.`);
@@ -4390,7 +4392,7 @@ try {
     if (manifest) {
       pruefe(manifest.scope === "/", `Der Bereich des Manifests ist ${manifest.scope} statt /.`);
       pruefe(manifest.start_url === "/", `Das Manifest startet bei ${manifest.start_url} statt bei /.`);
-      pruefe(manifest.short_name === "alae arcade", `Auf dem Startbildschirm stünde "${manifest.short_name}".`);
+      pruefe(manifest.short_name === "arcade", `Auf dem Startbildschirm stünde "${manifest.short_name}".`);
       const fehlende = await seite.evaluate(async (icons) => {
         const raus = [];
         for (const icon of icons) {

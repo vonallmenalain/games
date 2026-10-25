@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <title>arcade (Vorschau eines geteilten Links)</title>
+  <defs>
+    <radialGradient id="v-licht" cx="50%" cy="46%" r="62%">
+      <stop offset="0" stop-color="#262038"/>
+      <stop offset="0.6" stop-color="#14121c"/>
+      <stop offset="1" stop-color="#0d0c11"/>
+    </radialGradient>
+    <pattern id="v-zeilen" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="3" fill="#ffffff" fill-opacity="0.025"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#v-licht)"/>
+  <rect width="1200" height="630" fill="url(#v-zeilen)"/>
+  <g shape-rendering="crispEdges">
+    <path fill="#ffd45e" d="M215 96h12v36h-12zM203 108h36v12h-36z"/>
+    <path fill="#00A5B5" d="M985 120h10v30h-10zM975 130h30v10h-30z"/>
+    <path fill="#7C5CE6" d="M1012 452h12v36h-12zM1000 464h36v12h-36z"/>
+    <path fill="#ECEDF2" d="M176 470h8v24h-8zM168 478h24v8h-24z"/>
+    <path fill="#FE7971" d="M1086 278h6v18h-6zM1080 284h18v6h-18z"/>
+    <path fill="#ffd45e" d="M106 300h6v18h-6zM100 306h18v6h-18z"/>
+    <g transform="translate(390 92) scale(1.2) translate(-81 -142)">
+      <path fill="#342e4e" d="M100 354h20v12h-20zM124 354h20v12h-20zM148 354h20v12h-20zM172 354h20v12h-20zM196 354h20v12h-20zM220 354h20v12h-20zM244 354h20v12h-20zM268 354h20v12h-20zM292 354h20v12h-20zM316 354h20v12h-20zM340 354h20v12h-20zM364 354h20v12h-20zM388 354h20v12h-20z"/>
+      <path fill="#4c4470" d="M100 354h20v4h-20zM124 354h20v4h-20zM148 354h20v4h-20zM172 354h20v4h-20zM196 354h20v4h-20zM220 354h20v4h-20zM244 354h20v4h-20zM268 354h20v4h-20zM292 354h20v4h-20zM316 354h20v4h-20zM340 354h20v4h-20zM364 354h20v4h-20zM388 354h20v4h-20z"/>
+      <path fill="#ffffff" d="M156 142h25v25h-25z"/>
+      <path fill="#d3d0df" d="M181 142h25v25h-25zM181 167h25v25h-25zM181 192h50v25h-50zM181 217h50v25h-50z"/>
+      <path fill="#FE7971" d="M306 142h25v25h-25zM306 167h25v25h-25zM281 192h50v25h-50zM281 217h50v25h-50zM256 242h50v25h-50zM256 267h50v25h-50zM231 292h50v25h-50zM231 317h50v25h-50z"/>
+      <path fill="#e9645c" d="M331 142h25v25h-25zM331 167h25v25h-25zM331 192h50v25h-50zM331 217h50v25h-50zM356 242h50v25h-50zM356 267h50v25h-50zM381 292h50v25h-50zM381 317h50v25h-50z"/>
+      <path fill="#ECEDF2" d="M156 167h25v25h-25zM131 192h50v25h-50zM131 217h50v25h-50zM106 242h50v25h-50zM106 267h50v25h-50zM81 292h50v25h-50zM81 317h50v25h-50z"/>
+    </g>
+  </g>
+  <text x="600" y="540" text-anchor="middle" fill="#f4f2f8" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="132" font-weight="800" letter-spacing="-2">arcade</text>
+</svg>

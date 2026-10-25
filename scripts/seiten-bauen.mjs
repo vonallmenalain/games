@@ -31,15 +31,15 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-25-8";
+export const FASSUNG = "2026-10-25-9";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
-// der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
-// styles.css). Früher der Himmel der Landschaft – die gibt es hinter den
-// Spielen nicht mehr.
-const GRUND = "#f7f3ff";
-// Die Startseite (alae arcade) ist dunkel – und mit ihr der Start der App.
+// der dunkle Grund aller Seiten (--bg in styles.css).
 const DUNKEL = "#0d0c11";
+
+// Wo die arcade wohnt. Die Vorschau eines geteilten Links (WhatsApp, Signal,
+// iMessage) holt ihr Bild nur über eine volle Adresse.
+const ADRESSE = "https://games.alae.app";
 
 /*
  * Die Spiele.
@@ -239,7 +239,7 @@ export function seitenSkripte(spiel) {
     ...NACH_DER_KUNST, spiel.js, "pwa.js"];
 }
 
-// Die Startseite (alae arcade) zeigt aufgenommene Filme (filme/) und braucht
+// Die Startseite (die arcade) zeigt aufgenommene Filme (filme/) und braucht
 // dafür kein eigenes Skript.
 export const hubSkripte = () => [...SDK, ...GEMEINSAM, "pwa.js"];
 // Die Turnierseite: dasselbe wie die Startseite. Was sie zeigt, baut
@@ -254,21 +254,47 @@ export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 // installierten App heraus spielen.
 export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
 
-const kopf = ({ titel, text, viewport, manifest = true, farbe = GRUND }) => `    <meta charset="UTF-8" />
+/*
+ * Der Kopf jeder Seite. Dazu die Vorschau, wenn jemand den Link teilt: Titel,
+ * ein kurzer Satz (kurz – so wenig Text wie möglich) und das Logo als Bild
+ * (icons/vorschau.jpg, 1200 × 630, entsteht mit npm run icons).
+ */
+const kopf = ({ titel, text, kurz = text, viewport, manifest = true, farbe = DUNKEL }) => `    <meta charset="UTF-8" />
     <meta name="viewport" content="${viewport}" />
-    <meta name="application-name" content="alae arcade" />
+    <meta name="application-name" content="arcade" />
     <meta name="description" content="${text}" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="alae arcade" />
+    <meta name="apple-mobile-web-app-title" content="arcade" />
     <meta name="theme-color" content="${farbe}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="arcade" />
+    <meta property="og:title" content="${titel}" />
+    <meta property="og:description" content="${kurz}" />
+    <meta property="og:image" content="${ADRESSE}/icons/vorschau.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="arcade" />
+    <meta name="twitter:card" content="summary_large_image" />
     <title>${titel}</title>
     <link rel="stylesheet" href="${v("styles.css")}" />
 ${manifest ? `    <link rel="manifest" href="${v("app.webmanifest")}" />\n` : ""}    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />`;
 
 const SPIELVIEWPORT = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover";
+
+// Für die Vorschau eines geteilten Spiels: der Text ohne den Namen davor (der
+// steht schon im Titel) und nur bis zum ersten Gedankenstrich.
+export function kurzText(spiel) {
+  const ohneName = spiel.text.startsWith(spiel.titel)
+    ? spiel.text.slice(spiel.titel.length).replace(/^[:?]?\s*/, "")
+    : spiel.text;
+  const satz = ohneName.split(" – ")[0].trim().replace(/[.,;:]$/, "");
+  const gross = satz.charAt(0).toLocaleUpperCase("de") + satz.slice(1);
+  return /[.!?]$/.test(gross) ? gross : `${gross}.`;
+}
 
 export function spielSeite(spiel) {
   return `<!doctype html>
@@ -278,7 +304,7 @@ export function spielSeite(spiel) {
 -->
 <html lang="de">
   <head>
-${kopf({ titel: `${spiel.titel} · alae arcade`, text: spiel.text, viewport: SPIELVIEWPORT })}
+${kopf({ titel: `${spiel.titel} · arcade`, text: spiel.text, kurz: kurzText(spiel), viewport: SPIELVIEWPORT })}
   </head>
   <body data-page="${spiel.page}" data-spiel="${spiel.spiel}">
     <!-- Die Bühne baut ${spiel.js}: die Landschaft, darauf ${spiel.baut}.
@@ -299,22 +325,23 @@ export function hubSeite() {
 
   Die Startseite und zugleich der Startpunkt der installierten App: Wer die
   Spiele auf den Startbildschirm legt, landet hier. Was darauf steht, baut
-  mini-games.js – alae arcade: oben ein Spiel als Film mit seiner
+  mini-games.js – die arcade: oben ein Spiel als Film mit seiner
   Bestenliste, darunter alle Spiele in Reihen. Dunkel schon hier, damit beim
   Laden nichts hell aufblitzt.
 -->
 <html lang="de">
   <head>
 ${kopf({
-    titel: "alae arcade",
-    text: "alae arcade: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle.",
+    titel: "arcade",
+    text: "arcade: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle.",
+    kurz: "Eine Runde spielen, Namen eintragen, oben stehen.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
     farbe: DUNKEL,
   })}
   </head>
   <body data-page="hub" class="ar">
     <main class="mini-seite ar-seite" data-uebersicht>
-      <p class="mini-hinweis ar-leer">alae arcade wird geladen...</p>
+      <p class="mini-hinweis ar-leer">arcade wird geladen...</p>
     </main>
 
 ${skripte(hubSkripte())}
@@ -329,7 +356,7 @@ export function turnierSeite() {
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
   Die Turnierseite: /turnier?t=<id>. Welches Turnier gemeint ist, steht in der
-  Adresse; was darauf steht, baut turnier.js – wie die Startseite (alae
+  Adresse; was darauf steht, baut turnier.js – wie die Startseite (die
   arcade), oben aber Name und Stand des Turniers und die Gesamtwertung, unten
   nur seine Spiele. Dunkel schon hier, damit beim Laden nichts hell
   aufblitzt. Kein Weg hinaus zu den anderen Spielen: Ein Turnier ist ein Raum
@@ -344,8 +371,9 @@ export function turnierSeite() {
 <html lang="de">
   <head>
 ${kopf({
-    titel: "Turnier · alae arcade",
-    text: "Ein Turnier in der alae arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung.",
+    titel: "Turnier · arcade",
+    text: "Ein Turnier in der arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung.",
+    kurz: "Dieselben Spiele, eine eigene Rangliste.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
     farbe: DUNKEL,
   })}
@@ -377,8 +405,9 @@ export function liveSeite() {
 <html lang="de">
   <head>
 ${kopf({
-    titel: "Multiplayer · alae arcade",
-    text: "Multiplayer in der alae arcade: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Link.",
+    titel: "Multiplayer · arcade",
+    text: "Multiplayer in der arcade: alle spielen zur selben Zeit dasselbe Level. Ohne Konto, mit einem Link.",
+    kurz: "Alle spielen gleichzeitig dasselbe Level.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
   })}
     <meta name="robots" content="noindex, nofollow" />
@@ -406,8 +435,8 @@ export function adminSeite() {
 <html lang="de">
   <head>
 ${kopf({
-    titel: "Adminbereich · alae arcade",
-    text: "Die Bestenlisten der alae arcade ansehen und aufräumen.",
+    titel: "Adminbereich · arcade",
+    text: "Die Bestenlisten der arcade ansehen und aufräumen.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
     manifest: false,
   })}
@@ -427,8 +456,8 @@ ${skripte(adminSkripte())}
 export function manifest() {
   return JSON.stringify({
     id: "/",
-    name: "alae arcade",
-    short_name: "alae arcade",
+    name: "arcade",
+    short_name: "arcade",
     description: "Eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle.",
     lang: "de",
     dir: "ltr",

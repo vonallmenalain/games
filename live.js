@@ -839,6 +839,8 @@
     const links = el("div");
     const marke = el("p", "mini-marke lv-live");
     marke.append(el("span", "lv-punkt"), el("span", "", "Multiplayer"));
+    const logo = window.LernappMini?.marke?.("ar-marke-klein");
+    if (logo) links.append(logo);
     links.append(marke, el("h1", "", text));
     if (untertitel) links.append(el("p", "lv-status", untertitel));
     k.append(links);
@@ -1096,7 +1098,8 @@
       }));
       if (navigator.share) {
         teilen.append(knopf("Teilen", "mini-knopf-still", () => {
-          navigator.share({ title: S.info.name, text: `Multiplayer «${S.info.name}»`, url: adresse }).catch(() => {});
+          // Nur der Name – was es ist, sagt die Vorschau des Links darunter.
+          navigator.share({ title: S.info.name, text: S.info.name, url: adresse }).catch(() => {});
         }));
       }
       // Für alle oder nur mit Link – bis zum Start lässt sich das umstellen.

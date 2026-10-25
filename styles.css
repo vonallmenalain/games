@@ -14,7 +14,8 @@
  * Die Reihenfolge ist die der App geblieben, damit sich beide Dateien
  * nebeneinander lesen lassen:
  *
- *   Grundlagen        kein Zoom, kein Fokusrahmen, Farben, body
+ *   Grundlagen        kein Zoom, kein Fokusrahmen, Farben, body – dunkel wie
+ *                     die arcade, auf jeder Seite
  *   Die Bühne         cm-… : Leiste, Zeitbalken, Spielfläche, Ergebnis
  *   Die Spiele        je ein Abschnitt, in der Reihenfolge der Bereiche
  *   Handy quer        alles passt aufs Bild
@@ -22,12 +23,26 @@
  */
 
 :root {
-  color-scheme: light;
-  --bg: #f7f3ff;
-  --ink: #243047;
-  --primary: #6c5ce7;
-  --primary-dark: #5141c9;
-  --line: #d9d6ee;
+  /* Dunkel wie die arcade – auf jeder Seite: in den Spielen, im Multiplayer,
+     im Adminbereich. Bis Oktober 2026 waren sie hell und orange (aus der App
+     herübergekommen). */
+  color-scheme: dark;
+  --bg: #0d0c11;
+  --ink: #f4f2f8;
+  --primary: #7c5ce6;
+  --primary-dark: #6247d0;
+  --line: rgba(255, 255, 255, 0.12);
+  /* Die Farben der arcade. */
+  --ar-grund: #0d0c11;
+  --ar-flaeche: #1a1920;
+  --ar-flaeche-hoch: #24222d;
+  --ar-glas: rgba(18, 17, 24, 0.66);
+  --ar-linie: rgba(255, 255, 255, 0.09);
+  --ar-text: #f4f2f8;
+  --ar-leise: #a39fb2;
+  --ar-koralle: #fe7971;
+  --ar-gold: #ffd45e;
+  --ar-gruen: #5ad893;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -99,8 +114,8 @@ body {
   color: var(--ink);
   overflow-x: hidden;
   background:
-    radial-gradient(circle at top left, rgba(255, 209, 102, 0.45), transparent 32rem),
-    radial-gradient(circle at bottom right, rgba(108, 92, 231, 0.20), transparent 28rem),
+    radial-gradient(circle at top left, rgba(254, 121, 113, 0.10), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(124, 92, 230, 0.14), transparent 28rem),
     var(--bg);
 }
 
@@ -126,7 +141,7 @@ button {
 }
 
 select {
-  background: #fff;
+  background: var(--ar-flaeche-hoch);
   border-color: var(--line);
   color: var(--ink);
 }
@@ -159,10 +174,12 @@ h2 {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: #fff;
-  border: 3px solid var(--primary);
-  color: var(--primary-dark);
-  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--ar-text);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
 }
 
 /* Oben rechts, auf dem ersten Platz. In der App sitzt dort der Konto-Knopf und
@@ -192,9 +209,8 @@ h2 {
 }
 
 .sound-toggle.muted {
-  background: #fff7f7;
-  border-color: #ef476f;
-  color: #b4234a;
+  border-color: rgba(254, 121, 113, 0.7);
+  color: var(--ar-koralle);
 }
 
 .sound-toggle.muted .sound-off-line {
@@ -206,15 +222,13 @@ h2 {
 }
 .sound-toggle:hover:not(:disabled),
 .sound-toggle:focus-visible {
-  background: #f4f1ff;
-  color: var(--primary-dark);
+  background: rgba(40, 38, 50, 0.85);
   outline: none;
 }
 
 .sound-toggle.muted:hover:not(:disabled),
 .sound-toggle.muted:focus-visible {
-  background: #ffe7ec;
-  color: #9f1738;
+  color: var(--ar-koralle);
 }
 
 @media (max-width: 640px) {
@@ -354,8 +368,10 @@ h2 {
 
    Vollbild: Das Spiel ist das ganze Bild. In der App stand es als Fläche mit
    runden Ecken vor der Landschaft – ein Bild im Bild. Hier reicht es bis an
-   den linken, rechten und unteren Rand; oben bleibt nur ein ruhiger Streifen
-   in der Farbe der anderen Seiten, mit der Leiste, der Uhr und den Gegnern.
+   den linken, rechten und unteren Rand; oben bleibt nur ein ruhiger, dunkler
+   Streifen wie auf den anderen Seiten, mit der Leiste, der Uhr und den
+   Gegnern. Was über dem Spiel schwebt, ist dunkles Glas (wie die runden
+   Knöpfe der arcade): Es steht auf jedem Himmel.
    Die Landschaft baut die Bühne gar nicht erst auf (game-shell.js).
    =========================================================================== */
 
@@ -364,8 +380,8 @@ h2 {
   --cm-accent-dark: #b9741a;
   /* Die Schrift, die ohne Kasten auf dem Streifen oben steht: Titel, Auftrag,
      Beschriftungen. */
-  --cm-schrift: #243047;
-  --cm-schrift-hof: 0 1px 0 rgba(255, 255, 255, 0.75);
+  --cm-schrift: #f4f2f8;
+  --cm-schrift-hof: 0 1px 2px rgba(0, 0, 0, 0.45);
   position: fixed;
   inset: 0;
   /* Der Streifen oben und, wo ein Spiel keine eigene Fläche hat (Kacheln,
@@ -427,13 +443,13 @@ h2 {
   height: 48px;
   padding: 0;
   border-radius: 50%;
-  border: 3px solid #fff;
+  border: 2px solid rgba(255, 255, 255, 0.22);
   background: var(--cm-accent);
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.22);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease;
 }
 .cm-icon svg { width: 24px; height: 24px; display: block; }
@@ -441,7 +457,7 @@ h2 {
 /* Ein Knopf, den es gerade nicht gibt (im Turnier «Noch einmal», wenn es
    nicht noch einmal geht) – display: grid oben würde hidden sonst überstimmen. */
 .cm-icon[hidden] { display: none; }
-.cm-icon:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.cm-icon:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
 /* Der Zähler bleibt dezent: eine Zahl mit Haken, kein Balken, kein Kasten in
    Signalfarbe. Er soll im Blick sein, nicht im Weg. */
@@ -454,10 +470,10 @@ h2 {
   justify-content: flex-end;
   font-size: clamp(1.2rem, 3vw, 1.7rem);
   font-weight: 900;
-  color: #2f6f4f;
+  color: var(--ar-gruen);
   text-shadow: var(--cm-schrift-hof);
 }
-.cm-count-tick { width: 22px; height: 22px; color: #3fbf74; }
+.cm-count-tick { width: 22px; height: 22px; color: var(--ar-gruen); }
 .cm-count-value { font-variant-numeric: tabular-nums; }
 
 /* --- Zeitbalken --- */
@@ -470,7 +486,7 @@ h2 {
   z-index: 4;
   height: 6px;
   border-radius: 3px;
-  background: rgba(36, 48, 71, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 /* Uhr und Zähler gehören zum Lauf. Solange keiner läuft, wären sie nur zwei
@@ -530,21 +546,23 @@ h2 {
   min-height: 0;
   height: 32px;
   padding: 0 12px 0 6px;
-  border: 2px solid rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #243047;
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  color: var(--ar-text);
   font: inherit;
   font-size: 0.85rem;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.15s ease;
 }
 .gs-chip:active { transform: scale(0.96); }
-.gs-chip:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.gs-chip:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .gs-chip:disabled { cursor: default; opacity: 1; }
 
 /* Das Kästchen vorne: angehakt heisst, der Gegner läuft mit. */
@@ -555,8 +573,8 @@ h2 {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid #9aa7b4;
-  background: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
 }
 .gs-haken-zeichen { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
 .gs-chip.is-an .gs-haken { border-color: var(--cm-accent-dark); background: var(--cm-accent-dark); }
@@ -570,23 +588,23 @@ h2 {
    Abstände, sonst wären sie zusammen breiter als die Leiste. */
 .gs-leiste[data-drei] .gs-chip { max-width: calc((100% - 16px) / 3); }
 
-.gs-titel { color: #5b6678; }
+.gs-titel { color: var(--ar-leise); }
 .gs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
 .gs-name:empty { display: none; }
 .gs-wert { font-variant-numeric: tabular-nums; }
 
 /* Abgeschaltet oder (noch) niemand da: blass, aber lesbar. */
-.gs-chip:not(.is-an) { background: rgba(255, 255, 255, 0.66); }
+.gs-chip:not(.is-an) { background: rgba(18, 17, 24, 0.5); }
 .gs-chip:not(.is-an) .gs-zeichen,
 .gs-chip:not(.is-an) .gs-name,
 .gs-chip:not(.is-an) .gs-wert { opacity: 0.5; }
 .gs-chip.ist-leer .gs-haken { display: none; }
-.gs-chip.ist-leer .gs-wert { font-weight: 700; color: #5b6678; opacity: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gs-chip.ist-leer .gs-wert { font-weight: 700; color: var(--ar-leise); opacity: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* Während der Runde: ohne das Wort davor, nur Zeichen, Name und Zahl. */
 .cm-stage[data-phase="play"] .gs-titel { display: none; }
 
-.gs-chip.is-an.ist-vorne { border-color: #3fbf74; background: #eafbf0; }
+.gs-chip.is-an.ist-vorne { border-color: var(--ar-gruen); background: rgba(22, 64, 44, 0.85); }
 .gs-chip.is-an.ist-geschlagen { border-color: #2f9e5e; background: #3fbf74; color: #fff; }
 .gs-chip.is-an.ist-geschlagen .gs-titel { color: rgba(255, 255, 255, 0.85); }
 .gs-chip.is-an.ist-geschlagen .gs-haken { border-color: #fff; background: #fff; }
@@ -637,15 +655,18 @@ h2 {
   max-width: calc(100% - 24px);
   height: 34px;
   padding: 0 4px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
-  color: #243047;
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  color: var(--ar-text);
   font-size: 0.88rem;
   font-weight: 800;
   white-space: nowrap;
 }
-.gz-zeichen { color: var(--cm-accent-dark, #b9741a); font-size: 0.8rem; }
+.gz-zeichen { color: var(--cm-accent, var(--ar-koralle)); font-size: 0.8rem; }
 .gz-titel { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gz-zu {
   min-height: 0;
@@ -653,8 +674,8 @@ h2 {
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: #243047;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--ar-text);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 800;
@@ -666,18 +687,19 @@ h2 {
   z-index: 7;
   display: grid;
   place-items: center;
-  background: rgba(15, 18, 40, 0.35);
+  background: rgba(6, 5, 9, 0.5);
 }
 .gz-tafel[hidden] { display: none; }
 .gz-karte {
   max-width: min(360px, calc(100% - 32px));
   padding: 22px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  background: var(--ar-flaeche);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
   text-align: center;
 }
-.gz-text { margin: 0 0 16px; color: #243047; font-weight: 800; line-height: 1.35; }
+.gz-text { margin: 0 0 16px; color: var(--ar-text); font-weight: 800; line-height: 1.35; }
 .gz-knoepfe { display: flex; justify-content: center; gap: 10px; }
 .gz-knopf {
   min-height: 44px;
@@ -689,7 +711,7 @@ h2 {
   cursor: pointer;
 }
 .gz-nochmal { background: var(--cm-accent, #F5A623); color: #fff; }
-.gz-zurueck { background: #eef0f6; color: #243047; }
+.gz-zurueck { background: rgba(255, 255, 255, 0.1); color: var(--ar-text); }
 @media (max-height: 500px) and (min-width: 780px) {
   .gz-leiste { top: calc(var(--safe-top) + 20px); }
 }
@@ -708,7 +730,7 @@ h2 {
   font-size: 0.7rem;
   line-height: 1;
   text-decoration: none;
-  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .mini-ansehen:hover,
 .mini-ansehen:focus-visible { background: var(--mini-farbe-dunkel, #b9741a); outline: none; }
@@ -798,10 +820,14 @@ h2 {
   width: max-content;
   max-width: calc(100% - 24px);
   padding: 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 18px;
   font-size: clamp(0.85rem, 1.8vw, 1.1rem);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 14px rgba(31, 42, 51, 0.22);
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  color: var(--ar-text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
   text-align: center;
   text-shadow: none;
   pointer-events: none;
@@ -1147,9 +1173,9 @@ h2 {
   display: grid;
   place-items: center;
   padding: calc(var(--safe-top) + 84px) 16px calc(var(--safe-bottom) + 16px);
-  background: rgba(23, 34, 42, 0.42);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: rgba(6, 5, 9, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   animation: cm-fade 0.2s ease both;
 }
 @keyframes cm-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -1159,9 +1185,11 @@ h2 {
   max-height: 100%;
   overflow-y: auto;
   padding: clamp(16px, 3vh, 26px);
-  border-radius: 26px;
-  background: #fff;
-  box-shadow: 0 18px 44px rgba(36, 48, 71, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: var(--ar-flaeche);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  color: var(--ar-text);
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -1187,7 +1215,7 @@ h2 {
   font-size: clamp(1.2rem, 3vw, 1.6rem);
   font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 10px 26px rgba(185, 116, 26, 0.4);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--cm-accent) 45%, transparent);
 }
 .cm-start::after {
   content: "";
@@ -1199,23 +1227,23 @@ h2 {
   animation: cm-pulse 2.1s ease-in-out infinite;
 }
 .cm-start:active { transform: scale(0.96); }
-.cm-start:focus-visible { outline: 3px solid #243047; outline-offset: 6px; }
+.cm-start:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
 
 @keyframes cm-pulse {
   0%, 100% { transform: scale(1); opacity: 0.55; }
   50% { transform: scale(1.09); opacity: 0.1; }
 }
 
-.cm-result-label { margin: 0; font-size: 0.95rem; font-weight: 800; color: #5c6a67; letter-spacing: 0.04em; text-transform: uppercase; }
+.cm-result-label { margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--ar-leise); letter-spacing: 0.04em; text-transform: uppercase; }
 .cm-result-score {
   margin: 0;
   font-size: clamp(2.8rem, 9vh, 4.4rem);
   font-weight: 900;
   line-height: 1;
-  color: var(--cm-accent-dark);
+  color: var(--cm-accent);
   font-variant-numeric: tabular-nums;
 }
-.cm-result-detail { margin: 0; font-size: 1rem; font-weight: 700; color: #243047; }
+.cm-result-detail { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ar-text); }
 
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
@@ -1328,7 +1356,7 @@ h2 {
 }
 
 .kk-kachel:active:not(:disabled) { transform: scale(0.94); }
-.kk-kachel:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.kk-kachel:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 /* Gesperrt heisst hier nicht "ausgegraut": während man sich das Muster merkt,
    sind alle Kacheln gesperrt – blass werden dürfen sie dabei nicht. */
 .kk-kachel:disabled { cursor: default; opacity: 1; }
@@ -1425,7 +1453,7 @@ h2 {
   display: block;
   transform: scaleX(var(--ft-blick, 1));
 }
-.ft-fisch:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.ft-fisch:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 /* Nach dem letzten Tipp sind alle Fische gesperrt. Blass werden dürfen sie
    dabei nicht – man soll ja noch sehen, welcher die Runde beendet hat. */
 .ft-fisch:disabled { cursor: default; opacity: 1; }
@@ -2465,7 +2493,7 @@ h2 {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: rgba(36, 48, 71, 0.22);
+  background: rgba(255, 255, 255, 0.22);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 .zg-punkt.is-dran { background: var(--cm-accent); transform: scale(1.35); }
@@ -2489,7 +2517,7 @@ h2 {
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
-.zg-gleis:focus-visible .zg-schiene { box-shadow: 0 0 0 3px #243047; }
+.zg-gleis:focus-visible .zg-schiene { box-shadow: 0 0 0 3px #fff; }
 
 /* Zwei Schienen über dem Messband – und keine Schwellen.
    Schwellen lagen in gleichem Abstand über die ganze Strecke, und was in
@@ -2532,7 +2560,7 @@ h2 {
   width: 9px;
   height: var(--zg-strich);
   border-radius: 0 0 3px 3px;
-  background: #243047;
+  background: var(--ar-leise);
   transform: translateX(-50%);
 }
 .zg-marke.is-bahnhof .zg-marke-strich { background: #8a3a2c; }
@@ -2647,7 +2675,7 @@ h2 {
   width: 6px;
   height: calc(var(--zg-lok) + 24px + var(--zg-strich));
   border-radius: 3px;
-  background: #243047;
+  background: var(--ar-text);
   transform: translateX(-50%);
   pointer-events: none;
   animation: zg-ziel 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) both;
@@ -2739,7 +2767,7 @@ h2 {
   transition: transform 0.08s ease, filter 0.22s ease;
 }
 .hz-kessel:active { transform: scale(0.95); }
-.hz-kessel:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 16px; }
+.hz-kessel:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 16px; }
 /* Im Startbild stehen zwei Kessel, die nur zum Ansehen da sind. Ohne diese
    Zeile blasst sie die allgemeine Regel für abgeschaltete Knöpfe auf die
    Hälfte aus – und ausgerechnet die Farbe ist hier das, was sie erklären. */
@@ -2974,17 +3002,15 @@ h2 {
    Gedacht für jemanden, dem ein Link geschickt wurde – eine Seite, die in
    zehn Sekunden verstanden ist, sonst ist der Besucher wieder weg.
 
-   Die Farben sind die der App, und die Wärme kommt von Turmbau: das Orange des
-   Bereichs Geschwindigkeit (#F5A623) als Hausfarbe, der Himmel der Landschaft
-   (#a8ddf0) darüber, das dunkle Blau der Schrift (#243047) darunter. Jede
-   Spielkarte trägt zusätzlich die Farbe ihres Bereichs – dieselbe wie am Wagen
-   und auf der Bühne des Spiels. Bunt, aber nicht laut: eine Farbe je Karte,
-   der Rest ist Weiss und Abstand.
+   Dunkel wie die arcade: Flächen in dunklem Grau (--ar-flaeche), Schrift
+   hell, Koralle als Hausfarbe. Jeder Knopf und jede Karte eines Spiels trägt
+   die Farbe seines Bereichs – dieselbe wie auf der Bühne des Spiels. Bunt,
+   aber nicht laut: eine Farbe je Spiel, der Rest ist Dunkel und Abstand.
    =========================================================================== */
 
 :root {
-  --mini-ton: #F5A623;
-  --mini-ton-dunkel: #b9741a;
+  --mini-ton: #f0635b;
+  --mini-ton-dunkel: #c94a43;
   --mini-himmel: #a8ddf0;
 }
 
@@ -3067,15 +3093,17 @@ h2 {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: #fff;
-  border: 3px solid var(--primary);
-  color: var(--primary-dark);
-  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--ar-text);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
   cursor: pointer;
 }
 .cm-vollbild svg { width: 22px; height: 22px; display: block; }
 .cm-vollbild:hover,
-.cm-vollbild:focus-visible { background: #f4f1ff; outline: none; }
+.cm-vollbild:focus-visible { background: rgba(40, 38, 50, 0.85); outline: none; }
 .cm-vollbild:active { transform: scale(0.93); }
 .cm-stage[data-vollbild] .cm-bar { right: calc(var(--safe-right) + 138px); }
 @media (max-width: 640px) {
@@ -3140,20 +3168,23 @@ h2 {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }
-  /* Ohne Streifen dahinter: der Zähler auf einem eigenen Schild, die Uhr auf
-     einer hellen Spur – über dem dunklen Tunnel stünde die Zahl sonst im
-     Dunkeln. */
+  /* Ohne Streifen dahinter: der Zähler auf einem eigenen Schild aus dunklem
+     Glas, die Uhr auf einer Spur – über dem hellen Himmel stünde die Zahl
+     sonst im Hellen. */
   .cm-count {
     padding: 4px 12px 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+    background: var(--ar-glas);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3);
+    backdrop-filter: blur(10px) saturate(1.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
     text-shadow: none;
   }
-  .cm-time { background: rgba(255, 255, 255, 0.55); box-shadow: 0 1px 4px rgba(36, 48, 71, 0.18); }
+  .cm-time { background: rgba(18, 17, 24, 0.5); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
   /* Ein abgeschalteter Gegner bleibt ein Schalter: blass im Inhalt, aber
-     deckend – halb durchsichtig stünde er über dem dunklen Himmel grau. */
-  .gs-chip:not(.is-an) { background: #e6e9f1; }
+     deckend – halb durchsichtig verschwände er im Himmel. */
+  .gs-chip:not(.is-an) { background: rgba(26, 25, 32, 0.88); }
 }
 
 /* --- Der Knopf ------------------------------------------------------------- */
@@ -3167,7 +3198,7 @@ h2 {
   gap: 6px;
   min-height: 44px;
   padding: 0 18px;
-  border: 3px solid #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   background: var(--mini-farbe, var(--mini-ton));
   color: #fff;
@@ -3177,18 +3208,34 @@ h2 {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.22);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .mini-knopf:active { transform: scale(0.95); }
-.mini-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.mini-knopf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .mini-knopf-voll { background: var(--mini-farbe, var(--mini-ton)); }
-.mini-knopf-hell { background: #fff; color: #243047; border-color: rgba(36, 48, 71, 0.12); }
+/* Hell hiess einmal: weiss. Jetzt ist es dunkles Glas – es steht über dem
+   Himmel eines Spiels wie auf dem dunklen Grund der Seiten. */
+.mini-knopf-hell {
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  color: var(--ar-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
 .mini-knopf-still {
-  background: #f1f3f8;
-  color: #3a4657;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
   border-color: transparent;
   box-shadow: none;
+}
+/* Über dem Spiel steht auch der leise Knopf auf dunklem Glas – auf Schnee
+   oder Himmel verschwände er sonst. */
+.cm-bar .mini-knopf-still {
+  background: var(--ar-glas);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 .mini-knopf-still.ist-an {
   background: var(--mini-farbe, var(--mini-ton));
@@ -3203,9 +3250,9 @@ h2 {
   min-height: 0;
   padding: 3px 12px;
   font-size: 0.82rem;
-  border-width: 2px;
-  background: #f1f3f8;
-  color: #3a4657;
+  border-width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
   border-color: transparent;
   box-shadow: none;
 }
@@ -3230,12 +3277,12 @@ h2 {
   gap: 10px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: #f4f5f8;
+  background: rgba(255, 255, 255, 0.05);
   font-weight: 800;
-  color: #243047;
+  color: var(--ar-text);
   text-align: left;
 }
-.mini-zeile.ist-erster { background: #fff5e2; box-shadow: inset 0 0 0 2px rgba(245, 166, 35, 0.45); }
+.mini-zeile.ist-erster { background: rgba(255, 212, 94, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 212, 94, 0.45); }
 .mini-zeile.ist-ich { background: var(--mini-farbe, var(--mini-ton)); color: #fff; }
 .mini-zeile.ist-ich.ist-erster { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6); }
 .mini-platz { font-size: 0.95rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
@@ -3245,7 +3292,7 @@ h2 {
 /* Die drei Punkte zwischen den Ersten und der eigenen Zeile weiter hinten. */
 .mini-luecke {
   padding: 0 12px;
-  color: #a6adbb;
+  color: var(--ar-leise);
   font-weight: 900;
   letter-spacing: 0.3em;
   line-height: 1;
@@ -3254,8 +3301,8 @@ h2 {
 .mini-liste-leer {
   padding: 12px;
   border-radius: 12px;
-  border: 2px dashed #d7dbe6;
-  color: #667085;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: var(--ar-leise);
   font-weight: 700;
   text-align: center;
 }
@@ -3275,7 +3322,7 @@ h2 {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 800;
-  color: var(--cm-accent-dark, #b9741a);
+  color: var(--cm-accent, var(--ar-koralle));
   text-align: center;
 }
 .mini-namensfeld { display: flex; gap: 8px; }
@@ -3284,15 +3331,16 @@ h2 {
   min-width: 0;
   min-height: 44px;
   padding: 0 14px;
-  border: 2px solid #d7dbe6;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   font: inherit;
   font-size: 1rem;
   font-weight: 700;
-  color: #243047;
-  background: #fff;
+  color: var(--ar-text);
+  background: rgba(255, 255, 255, 0.06);
 }
-.mini-namensfeld input:focus-visible { outline: 3px solid var(--cm-accent, #F5A623); outline-offset: 2px; }
+.mini-namensfeld input::placeholder { color: var(--ar-leise); }
+.mini-namensfeld input:focus-visible { outline: 3px solid var(--cm-accent, var(--ar-koralle)); outline-offset: 2px; }
 .mini-namensfeld .mini-knopf { background: var(--cm-accent, var(--mini-ton)); }
 .mini-name-steht {
   margin: 0;
@@ -3303,7 +3351,7 @@ h2 {
   flex-wrap: wrap;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #5c6a67;
+  color: var(--ar-leise);
 }
 .mini-listen-wirt { display: flex; flex-direction: column; gap: 6px; }
 
@@ -3316,7 +3364,7 @@ h2 {
   max-width: 34rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--ar-leise);
   text-align: center;
 }
 .mini-wer-oben, .tn-wer {
@@ -3334,14 +3382,14 @@ h2 {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--mini-ton-dunkel);
+  color: var(--ar-koralle);
 }
 .mini-hinweis {
   margin: 0;
   padding: 14px;
   border-radius: 14px;
-  background: #f4f5f8;
-  color: #5c6a67;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ar-leise);
   font-weight: 700;
   text-align: center;
 }
@@ -3364,12 +3412,14 @@ h2 {
   /* Der Text nimmt den Platz, der Knopf nur seinen eigenen – sonst bricht der
      Vorspann mitten im Satz um, während rechts daneben nichts steht. */
   padding: clamp(14px, 3vw, 20px) clamp(18px, 4vw, 26px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 22px;
-  color: #fff;
+  color: var(--ar-text);
   background:
-    radial-gradient(circle at 88% -10%, rgba(255, 255, 255, 0.35), transparent 55%),
-    linear-gradient(135deg, var(--mini-ton), var(--mini-ton-dunkel));
-  box-shadow: 0 18px 40px rgba(185, 116, 26, 0.28);
+    radial-gradient(120% 140% at 100% 0%, rgba(254, 121, 113, 0.22), transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, rgba(124, 92, 230, 0.18), transparent 60%),
+    var(--ar-flaeche);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 .mini-kopf > div { flex: 1 1 auto; min-width: 0; }
 .mini-kopf h1.mini-marke {
@@ -3378,7 +3428,7 @@ h2 {
   letter-spacing: 0.1em;
 }
 .mini-kopf > .mini-knopf { flex: 0 0 auto; }
-.mini-kopf .mini-marke { color: rgba(255, 255, 255, 0.85); }
+.mini-kopf .mini-marke { color: var(--ar-koralle); }
 .mini-kopf h1 {
   margin: 6px 0 10px;
   font-size: clamp(1.6rem, 5vw, 2.4rem);
@@ -3393,25 +3443,25 @@ h2 {
 .mini-streifen > div {
   padding: 14px 10px;
   border-radius: 18px;
-  background: #fff;
-  border: 2px solid rgba(168, 221, 240, 0.7);
+  background: var(--ar-flaeche);
+  border: 1px solid var(--ar-linie);
   text-align: center;
 }
 .mini-streifen strong {
   display: block;
   font-size: clamp(1.5rem, 5vw, 2rem);
   font-weight: 900;
-  color: var(--mini-ton-dunkel);
+  color: var(--ar-koralle);
   font-variant-numeric: tabular-nums;
 }
-.mini-streifen span { font-size: 0.82rem; font-weight: 700; color: #667085; }
+.mini-streifen span { font-size: 0.82rem; font-weight: 700; color: var(--ar-leise); }
 
 .mini-block { display: flex; flex-direction: column; gap: 14px; }
 .mini-block > h2 {
   margin: 0;
   font-size: clamp(1.2rem, 3.4vw, 1.6rem);
   font-weight: 900;
-  color: #243047;
+  color: var(--ar-text);
 }
 .mini-karten {
   display: grid;
@@ -3424,10 +3474,10 @@ h2 {
   gap: 12px;
   padding: 16px;
   border-radius: 20px;
-  background: #fff;
-  border: 2px solid rgba(36, 48, 71, 0.08);
-  border-top: 6px solid var(--mini-farbe, var(--mini-ton));
-  box-shadow: 0 10px 26px rgba(36, 48, 71, 0.08);
+  background: var(--ar-flaeche);
+  border: 1px solid var(--ar-linie);
+  border-top: 4px solid var(--mini-farbe, var(--mini-ton));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
 }
 .mini-karte-kopf {
   display: flex;
@@ -3439,9 +3489,9 @@ h2 {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 900;
-  color: var(--mini-farbe-dunkel, #243047);
+  color: var(--ar-text);
 }
-.mini-karte-zahl { font-size: 0.78rem; font-weight: 800; color: #667085; white-space: nowrap; }
+.mini-karte-zahl { font-size: 0.78rem; font-weight: 800; color: var(--ar-leise); white-space: nowrap; }
 .mini-karte-aktionen { display: flex; gap: 8px; margin-top: auto; }
 .mini-karte .mini-knopf-voll { flex: 1; }
 
@@ -3569,7 +3619,7 @@ h2 {
 .gk-ansehen:focus-visible { background: var(--mini-farbe, var(--mini-ton)); color: #fff; transform: scale(1.08); outline: none; }
 .gk-ansehen-leer { width: 30px; }
 .gk-luecke {
-  color: #a6adbb;
+  color: var(--ar-leise);
   font-weight: 900;
   letter-spacing: 0.3em;
   line-height: 0.7;
@@ -3599,31 +3649,32 @@ h2 {
 .mini-tabelle {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 26px rgba(36, 48, 71, 0.08);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
   font-size: 0.92rem;
+  color: var(--ar-text);
 }
 .mini-tabelle th,
 .mini-tabelle td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #eef0f5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .mini-tabelle th {
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #667085;
-  background: #f8f9fc;
+  color: var(--ar-leise);
+  background: rgba(255, 255, 255, 0.03);
   white-space: nowrap;
 }
 .mini-tabelle .zahl { text-align: right; font-variant-numeric: tabular-nums; }
 .mini-tabelle tbody tr:last-child td { border-bottom: none; }
-.mini-tabelle tbody tr.ist-erster { background: #fff8ec; }
-.mini-tabelle-name { display: flex; align-items: center; gap: 10px; font-weight: 800; color: #243047; }
+.mini-tabelle tbody tr.ist-erster { background: rgba(255, 212, 94, 0.08); }
+.mini-tabelle-name { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--ar-text); }
 .mini-rangzahl {
   display: grid;
   place-items: center;
@@ -3733,13 +3784,13 @@ h2 {
   margin: 0;
   font-size: clamp(1.5rem, 4vw, 2.1rem);
   font-weight: 900;
-  color: #243047;
+  color: var(--ar-text);
   letter-spacing: -0.01em;
 }
 
-.adm-lead { margin: 6px 0 0; color: #667085; }
-.adm-klein { margin: 4px 0 0; font-size: 0.85rem; color: #667085; }
-.adm-klein-link { font-size: 0.85rem; color: #667085; }
+.adm-lead { margin: 6px 0 0; color: var(--ar-leise); }
+.adm-klein { margin: 4px 0 0; font-size: 0.85rem; color: var(--ar-leise); }
+.adm-klein-link { font-size: 0.85rem; color: var(--ar-leise); }
 
 .adm-kopf {
   display: flex;
@@ -3748,7 +3799,7 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 2px solid #e8e6f2;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.09);
 }
 .adm-kopf-aktionen { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -3763,7 +3814,7 @@ h2 {
   font-size: 0.92rem;
   line-height: 1.2;
   color: #fff;
-  background: var(--mini-ton, #F5A623);
+  background: var(--ar-koralle);
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
@@ -3772,28 +3823,28 @@ h2 {
   white-space: nowrap;
 }
 .adm-knopf:active { transform: scale(0.97); }
-.adm-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-.adm-knopf-voll { background: var(--mini-ton, #F5A623); }
-.adm-knopf-hell { background: #fff; color: #243047; border-color: rgba(36, 48, 71, 0.14); }
-.adm-knopf-still { background: #f2f3f7; color: #47506a; }
-.adm-knopf-klein { padding: 5px 12px; font-size: 0.8rem; background: #f2f3f7; color: #47506a; }
+.adm-knopf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.adm-knopf-voll { background: var(--ar-koralle); }
+.adm-knopf-hell { background: var(--ar-flaeche); color: var(--ar-text); border-color: rgba(255, 255, 255, 0.16); }
+.adm-knopf-still { background: rgba(255, 255, 255, 0.08); color: #d4d0e2; }
+.adm-knopf-klein { padding: 5px 12px; font-size: 0.8rem; background: rgba(255, 255, 255, 0.08); color: #d4d0e2; }
 /* Der eine Knopf, der etwas wegnimmt. Rot, und er fragt vorher. */
-.adm-knopf-weg { padding: 5px 12px; font-size: 0.8rem; background: #fdeaea; color: #a32020; border-color: rgba(163, 32, 32, 0.18); }
-.adm-knopf-weg:hover { background: #f9d6d6; }
+.adm-knopf-weg { padding: 5px 12px; font-size: 0.8rem; background: rgba(254, 121, 113, 0.14); color: #ff9a94; border-color: rgba(254, 121, 113, 0.3); }
+.adm-knopf-weg:hover { background: rgba(254, 121, 113, 0.24); }
 .adm-knopf-text {
   padding: 0;
   background: none;
   border: none;
-  color: var(--mini-ton-dunkel, #b9741a);
+  color: var(--ar-koralle);
   font-size: inherit;
   text-decoration: underline;
 }
 
 /* --- Die Anmeldung --------------------------------------------------------- */
 .adm-karte {
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(50, 44, 109, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   padding: clamp(20px, 5vw, 36px);
 }
 .adm-anmeldung {
@@ -3809,7 +3860,7 @@ h2 {
 .adm-trenner {
   margin: 2px 0;
   font-size: 0.8rem;
-  color: #98a0b4;
+  color: #8d889e;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -3828,16 +3879,16 @@ h2 {
   font: inherit;
   padding: 10px 14px;
   border-radius: 12px;
-  border: 2px solid #dcd9ea;
-  background: #fbfaff;
-  color: #243047;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ar-text);
 }
-.adm-feld:focus-visible { outline: none; border-color: var(--mini-ton, #F5A623); }
+.adm-feld:focus-visible { outline: none; border-color: var(--ar-koralle); }
 .adm-form > .adm-knopf { flex: 0 0 auto; }
 
-.adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: #667085; }
-.adm-meldung.ist-fehler { color: #a32020; font-weight: 700; }
-.adm-meldung.ist-gut { color: #2c7337; font-weight: 700; }
+.adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: var(--ar-leise); }
+.adm-meldung.ist-fehler { color: #ff9a94; font-weight: 700; }
+.adm-meldung.ist-gut { color: var(--ar-gruen); font-weight: 700; }
 
 /* --- Zahlen und Blöcke ----------------------------------------------------- */
 .adm-streifen {
@@ -3846,9 +3897,9 @@ h2 {
   gap: 10px;
 }
 .adm-streifen > div {
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 14px;
-  border: 2px solid #ece9f6;
+  border: 2px solid rgba(255, 255, 255, 0.09);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -3857,16 +3908,16 @@ h2 {
 .adm-streifen strong {
   font-size: clamp(1.4rem, 4vw, 1.9rem);
   font-weight: 900;
-  color: var(--mini-ton-dunkel, #b9741a);
+  color: var(--ar-koralle);
   font-variant-numeric: tabular-nums;
 }
-.adm-streifen span { font-size: 0.82rem; color: #667085; font-weight: 700; }
+.adm-streifen span { font-size: 0.82rem; color: var(--ar-leise); font-weight: 700; }
 
 .adm-block {
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 18px;
-  border: 2px solid #ece9f6;
-  border-top: 5px solid var(--adm-farbe, var(--mini-ton, #F5A623));
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  border-top: 5px solid var(--adm-farbe, var(--ar-koralle));
   padding: clamp(14px, 3vw, 22px);
   overflow-x: auto;
 }
@@ -3874,7 +3925,7 @@ h2 {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 900;
-  color: var(--adm-farbe-dunkel, #243047);
+  color: var(--ar-text);
 }
 .adm-block-kopf {
   display: flex;
@@ -3884,7 +3935,7 @@ h2 {
   gap: 8px;
   margin-bottom: 10px;
 }
-.adm-block-zahl { font-size: 0.85rem; color: #667085; font-weight: 700; }
+.adm-block-zahl { font-size: 0.85rem; color: var(--ar-leise); font-weight: 700; }
 
 /* --- Tabellen -------------------------------------------------------------- */
 .adm-tabelle {
@@ -3898,27 +3949,27 @@ h2 {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #98a0b4;
-  border-bottom: 2px solid #ece9f6;
+  color: #8d889e;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.09);
   white-space: nowrap;
 }
 .adm-tabelle th.zahl, .adm-tabelle td.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 .adm-tabelle td {
   padding: 9px 10px;
-  border-bottom: 1px solid #f2f0f9;
-  color: #243047;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
   vertical-align: middle;
 }
 .adm-tabelle tbody tr:last-child td { border-bottom: none; }
 .adm-name { font-weight: 800; }
 /* Die Kennung des Geräts klein darunter: Zwei Zeilen mit demselben Namen sind
    zwei Geräte, und das sieht man nur hier. */
-.adm-kennung { display: block; font-weight: 400; font-size: 0.72rem; color: #98a0b4; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.adm-kennung { display: block; font-weight: 400; font-size: 0.72rem; color: #8d889e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .adm-aktionen { text-align: right; white-space: nowrap; }
 .adm-aktionen .adm-knopf + .adm-knopf { margin-left: 6px; }
 
-.adm-hinweis { margin: 0; color: #667085; }
-.adm-hinweis.ist-fehler { color: #a32020; font-weight: 700; }
+.adm-hinweis { margin: 0; color: var(--ar-leise); }
+.adm-hinweis.ist-fehler { color: #ff9a94; font-weight: 700; }
 
 @media (max-width: 620px) {
   .adm-kennung { display: none; }
@@ -3962,7 +4013,7 @@ h2 {
 }
 .adm-klapp.ist-offen .adm-klapp-knopf::before { transform: rotate(45deg); }
 .adm-klapp-knopf:hover .adm-klapp-name { text-decoration: underline; text-underline-offset: 3px; }
-.adm-klapp-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 4px; border-radius: 6px; }
+.adm-klapp-knopf:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 6px; }
 .adm-klapp-knopf .adm-block-zahl { margin-left: auto; }
 .adm-klapp-inhalt { display: flex; flex-direction: column; gap: 10px; }
 .adm-werkzeug { margin-bottom: 4px; }
@@ -3974,9 +4025,9 @@ h2 {
   text-align: left;
   cursor: pointer;
   position: relative;
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 14px;
-  border: 2px solid #ece9f6;
+  border: 2px solid rgba(255, 255, 255, 0.09);
   padding: 14px 34px 14px 16px;
   display: flex;
   flex-direction: column;
@@ -3990,20 +4041,20 @@ h2 {
   top: 50%;
   width: 8px;
   height: 8px;
-  border-right: 3px solid #c5c9d6;
-  border-bottom: 3px solid #c5c9d6;
+  border-right: 3px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.3);
   transform: translateY(-50%) rotate(-45deg);
 }
-.adm-kachel:hover { border-color: var(--mini-ton, #F5A623); box-shadow: 0 6px 16px rgba(50, 44, 109, 0.08); }
+.adm-kachel:hover { border-color: var(--ar-koralle); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
 .adm-kachel:active { transform: scale(0.98); }
-.adm-kachel:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.adm-kachel:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 /* Der Filter: Tier als Schalterreihe, daneben welche Spiele. */
 .adm-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.adm-filter-tiers { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 999px; background: #f2f3f7; }
-.adm-chip { padding: 5px 12px; font-size: 0.8rem; background: transparent; color: #47506a; }
-.adm-chip:hover { background: #e6e8f0; }
-.adm-chip[aria-pressed="true"] { background: #243047; color: #fff; }
+.adm-filter-tiers { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.adm-chip { padding: 5px 12px; font-size: 0.8rem; background: transparent; color: #d4d0e2; }
+.adm-chip:hover { background: rgba(255, 255, 255, 0.14); }
+.adm-chip[aria-pressed="true"] { background: var(--ar-text); color: var(--ar-grund); }
 .adm-filter-wahl { flex: 0 1 260px; padding: 7px 12px; font-size: 0.9rem; }
 .adm-suche { flex: 1 1 180px; max-width: 280px; padding: 7px 12px; font-size: 0.9rem; }
 .adm-filter-weg { font-size: 0.85rem; }
@@ -4024,18 +4075,18 @@ h2 {
   align-items: center;
   gap: 4px;
 }
-.adm-sortier:hover { color: #47506a; }
-.adm-sortier:focus-visible { outline: 2px solid #243047; outline-offset: 2px; border-radius: 4px; }
+.adm-sortier:hover { color: #d4d0e2; }
+.adm-sortier:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
 .adm-sortier::after { content: "↕"; opacity: 0.35; font-size: 0.9em; }
-th[aria-sort] .adm-sortier { color: #243047; }
+th[aria-sort] .adm-sortier { color: var(--ar-text); }
 th[aria-sort="ascending"] .adm-sortier::after { content: "↑"; opacity: 1; }
 th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
-.adm-tabelle tr.adm-leer td { color: #98a0b4; text-align: center; padding: 18px 10px; }
+.adm-tabelle tr.adm-leer td { color: #8d889e; text-align: center; padding: 18px 10px; }
 .adm-tabelle-wirt { overflow-x: auto; }
 
 /* Spiele, Spieler, Plätze. */
-.adm-spielname { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: #243047; }
-.adm-punkt { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--adm-farbe, #F5A623); }
+.adm-spielname { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: var(--ar-text); }
+.adm-punkt { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--adm-farbe, var(--ar-koralle)); }
 .adm-spiel-schalter, .adm-person {
   appearance: none;
   padding: 0;
@@ -4051,21 +4102,21 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
   content: "";
   width: 6px;
   height: 6px;
-  border-right: 2px solid #98a0b4;
-  border-bottom: 2px solid #98a0b4;
+  border-right: 2px solid #8d889e;
+  border-bottom: 2px solid #8d889e;
   transform: rotate(-45deg);
   transition: transform 0.15s ease;
 }
 .adm-spiel-schalter[aria-expanded="true"]::after { transform: rotate(45deg); }
 .adm-spiel-schalter:hover .adm-spielname span:last-child,
 .adm-person:hover { text-decoration: underline; text-underline-offset: 3px; }
-.adm-spiel-schalter:focus-visible, .adm-person:focus-visible { outline: 2px solid #243047; outline-offset: 2px; border-radius: 4px; }
-.adm-person { font-weight: 800; color: #243047; }
-.adm-spieltabelle tr.ist-offen td { background: #fbfaff; border-bottom-color: transparent; }
-.adm-an { color: #2c7337; font-weight: 800; white-space: nowrap; }
-.adm-aus { color: #98a0b4; }
+.adm-spiel-schalter:focus-visible, .adm-person:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
+.adm-person { font-weight: 800; color: var(--ar-text); }
+.adm-spieltabelle tr.ist-offen td { background: rgba(255, 255, 255, 0.03); border-bottom-color: transparent; }
+.adm-an { color: var(--ar-gruen); font-weight: 800; white-space: nowrap; }
+.adm-aus { color: #8d889e; }
 .adm-tabelle .adm-tier-marke { font-size: 0.72rem; }
-.adm-tabelle tr.adm-detail > td { padding: 0 8px 14px; background: #fbfaff; }
+.adm-tabelle tr.adm-detail > td { padding: 0 8px 14px; background: rgba(255, 255, 255, 0.03); }
 /* Breite 0, mindestens die ganze Zeile: So macht die Bestenliste darin die
    Tabelle der Spiele nicht breiter – sie rollt für sich. */
 .adm-spiel-detail {
@@ -4073,9 +4124,9 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
   width: 0;
   min-width: 100%;
   padding: 10px 12px;
-  border-left: 4px solid var(--adm-farbe, #F5A623);
+  border-left: 4px solid var(--adm-farbe, var(--ar-koralle));
   border-radius: 0 12px 12px 0;
-  background: #fff;
+  background: var(--ar-flaeche);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -4088,15 +4139,15 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
   min-width: 2.3em;
   padding: 1px 7px;
   border-radius: 999px;
-  background: #f2f3f7;
-  color: #47506a;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4d0e2;
   font-weight: 900;
   text-align: center;
 }
-.adm-platz.ist-1 { background: #fff1bf; color: #7a5800; }
-.adm-platz.ist-2 { background: #e9ecf3; color: #3d465c; }
-.adm-platz.ist-3 { background: #f7e1cf; color: #7d4317; }
-.adm-von { color: #98a0b4; font-size: 0.75rem; }
+.adm-platz.ist-1 { background: rgba(255, 212, 94, 0.18); color: #ffd45e; }
+.adm-platz.ist-2 { background: rgba(255, 255, 255, 0.12); color: #e6e3ef; }
+.adm-platz.ist-3 { background: rgba(230, 150, 90, 0.18); color: #f0b48a; }
+.adm-von { color: #8d889e; font-size: 0.75rem; }
 .adm-doppelt .adm-knopf { margin-left: 4px; }
 
 .adm-sortierbar td.zahl, .adm-bestenliste td.zahl { white-space: nowrap; }
@@ -4126,7 +4177,7 @@ body.adm-dash-offen { overflow: hidden; }
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(23, 27, 45, 0.5);
+  background: rgba(6, 5, 9, 0.6);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -4137,9 +4188,10 @@ body.adm-dash-offen { overflow: hidden; }
 .adm-dash {
   width: min(980px, 100%);
   margin: auto 0;
-  background: #f7f6fc;
+  background: var(--ar-grund);
   border-radius: 22px;
-  box-shadow: 0 30px 80px rgba(20, 24, 40, 0.35);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--ar-linie);
   padding: clamp(16px, 3vw, 28px);
   display: flex;
   flex-direction: column;
@@ -4148,19 +4200,19 @@ body.adm-dash-offen { overflow: hidden; }
 .adm-dash:focus { outline: none; }
 .adm-dash [hidden] { display: none !important; }
 .adm-dash-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.adm-dash-titel { margin: 0; font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 900; color: #243047; overflow-wrap: anywhere; }
+.adm-dash-titel { margin: 0; font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 900; color: var(--ar-text); overflow-wrap: anywhere; }
 .adm-dash-zu { flex: 0 0 auto; }
 .adm-dash-teil {
-  background: #fff;
+  background: var(--ar-flaeche);
   border-radius: 16px;
-  border: 2px solid #ece9f6;
+  border: 2px solid rgba(255, 255, 255, 0.09);
   padding: clamp(12px, 2.5vw, 18px);
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
 }
-.adm-dash-teil h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: #243047; }
+.adm-dash-teil h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: var(--ar-text); }
 /* Sechs Zahlen auf einer Zeile, solange Platz ist. */
 .adm-dash-zahlen { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
 /* Das erste Mal je Spiel erst auf einem breiten Bildschirm – sonst rollte die
@@ -4191,17 +4243,17 @@ body.adm-dash-offen { overflow: hidden; }
   gap: 6px;
   padding-right: 6px;
   border-radius: 12px;
-  border: 2px solid #ece9f6;
-  background: #fbfaff;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
   font-weight: 800;
-  color: #47506a;
+  color: #d4d0e2;
 }
-.adm-wahl:hover { border-color: var(--adm-farbe, #dcd9ea); }
+.adm-wahl:hover { border-color: var(--adm-farbe, rgba(255, 255, 255, 0.24)); }
 .adm-wahl.ist-an {
-  border-color: var(--adm-farbe, #F5A623);
-  background: #fff;
-  color: #243047;
-  box-shadow: inset 4px 0 0 var(--adm-farbe, #F5A623);
+  border-color: var(--adm-farbe, var(--ar-koralle));
+  background: var(--ar-flaeche);
+  color: var(--ar-text);
+  box-shadow: inset 4px 0 0 var(--adm-farbe, var(--ar-koralle));
 }
 /* Der Haken samt Namen ist die grosse Fläche zum Tippen; der Knopf zum
    Ausprobieren liegt daneben und nicht darin. */
@@ -4219,7 +4271,7 @@ body.adm-dash-offen { overflow: hidden; }
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
-  accent-color: var(--adm-farbe, #F5A623);
+  accent-color: var(--adm-farbe, var(--ar-koralle));
   cursor: pointer;
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4236,19 +4288,19 @@ body.adm-dash-offen { overflow: hidden; }
   margin: 8px 0 0;
   font-size: 0.95rem;
   font-weight: 900;
-  color: #243047;
+  color: var(--ar-text);
 }
 .adm-gruppe .adm-tier-titel { margin-top: 2px; }
 .adm-tier-marke {
   padding: 2px 10px;
   border-radius: 999px;
-  background: #243047;
-  color: #fff;
+  background: var(--ar-text);
+  color: var(--ar-grund);
   font-size: 0.8rem;
   letter-spacing: 0.02em;
 }
-.adm-tier-zahl { font-size: 0.82rem; font-weight: 700; color: #98a0b4; }
-.adm-tier-leer { margin: 0; padding: 6px 2px; color: #98a0b4; }
+.adm-tier-zahl { font-size: 0.82rem; font-weight: 700; color: #8d889e; }
+.adm-tier-leer { margin: 0; padding: 6px 2px; color: #8d889e; }
 .adm-tier-wahl {
   flex: 0 0 auto;
   font: inherit;
@@ -4256,12 +4308,12 @@ body.adm-dash-offen { overflow: hidden; }
   font-weight: 800;
   padding: 4px 6px;
   border-radius: 8px;
-  border: 2px solid #ece9f6;
-  background: #fff;
-  color: #47506a;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  background: var(--ar-flaeche);
+  color: #d4d0e2;
   cursor: pointer;
 }
-.adm-tier-wahl:focus-visible { outline: none; border-color: var(--adm-farbe, #F5A623); }
+.adm-tier-wahl:focus-visible { outline: none; border-color: var(--adm-farbe, var(--ar-koralle)); }
 
 /* ▶ – ein Spiel spielen. Klein und rund, damit der Haken die Zeile bleibt. */
 .adm-spielen-knopf {
@@ -4270,11 +4322,11 @@ body.adm-dash-offen { overflow: hidden; }
   height: 32px;
   padding: 0;
   border-radius: 50%;
-  background: #f2f3f7;
-  color: #47506a;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4d0e2;
 }
 .adm-spielen-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
-.adm-spielen-knopf:hover { background: var(--adm-farbe, #F5A623); color: #fff; }
+.adm-spielen-knopf:hover { background: var(--adm-farbe, var(--ar-koralle)); color: #fff; }
 
 /* Das Spiel aus dem Adminbereich: über das ganze Browserfenster – ohne
    Rahmen, wie auf seiner eigenen Seite. Ins Vollbild geht es mit dem Knopf
@@ -4283,9 +4335,9 @@ body.adm-dash-offen { overflow: hidden; }
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: var(--bg);
+  background: var(--ar-grund);
 }
-.adm-spiel-fenster { display: block; width: 100%; height: 100%; border: 0; background: var(--bg); }
+.adm-spiel-fenster { display: block; width: 100%; height: 100%; border: 0; background: var(--ar-grund); }
 body.adm-spiel-offen { overflow: hidden; }
 /* Der Vollbild-Knopf im Kopf des Adminbereichs: nur das Zeichen. */
 .adm-vollbild { width: 42px; height: 42px; padding: 0; display: inline-grid; place-items: center; }
@@ -4294,10 +4346,9 @@ body.adm-spiel-offen { overflow: hidden; }
 /* ===========================================================================
    Der Weg in den Adminbereich
    ---------------------------------------------------------------------------
-   Rechts im orangen Balken der Startseite, und nur für den, der im
-   Adminbereich angemeldet ist (mini-games.js, adminKnopf). Hell auf Orange,
-   klein und ohne Schatten: Er ist ein Weg für einen, nicht ein Angebot an
-   alle.
+   Rechts im Kopf, und nur für den, der im Adminbereich angemeldet ist
+   (mini-games.js, adminKnopf). Klein und ohne Schatten: Er ist ein Weg für
+   einen, nicht ein Angebot an alle.
    =========================================================================== */
 .mini-kopf .mini-knopf-admin {
   min-height: 38px;
@@ -4319,14 +4370,14 @@ body.adm-spiel-offen { overflow: hidden; }
   display: grid;
   place-items: center;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
   cursor: pointer;
 }
 .mini-kopf .mini-vollbild svg { width: 20px; height: 20px; display: block; }
 .mini-kopf .mini-vollbild:hover,
-.mini-kopf .mini-vollbild:focus-visible { background: rgba(255, 255, 255, 0.32); outline: none; }
+.mini-kopf .mini-vollbild:focus-visible { background: rgba(255, 255, 255, 0.16); outline: none; }
 .mini-kopf .mini-vollbild:active { transform: scale(0.93); }
 
 /* ===========================================================================
@@ -4340,8 +4391,8 @@ body.adm-spiel-offen { overflow: hidden; }
    =========================================================================== */
 :root {
   --tn-gold: #e0a100;
-  --tn-gold-hell: #fff4d1;
-  --tn-gold-dunkel: #8a6200;
+  --tn-gold-hell: rgba(255, 212, 94, 0.12);
+  --tn-gold-dunkel: #ffd45e;
 }
 
 .tn-pokal { width: 30px; height: 30px; flex: 0 0 auto; color: var(--tn-gold); }
@@ -4358,16 +4409,16 @@ body.adm-spiel-offen { overflow: hidden; }
   padding: 14px 16px;
   border-radius: 20px;
   background: var(--tn-gold-hell);
-  border: 2px solid rgba(224, 161, 0, 0.45);
-  color: #243047;
+  border: 1px solid rgba(255, 212, 94, 0.4);
+  color: var(--ar-text);
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(138, 98, 0, 0.12);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
 }
-.tn-hinweis:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-.tn-hinweis.ist-beendet { background: #fff; border-style: dashed; box-shadow: none; }
+.tn-hinweis:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.tn-hinweis.ist-beendet { background: rgba(255, 255, 255, 0.04); border-style: dashed; box-shadow: none; }
 .tn-hinweis-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tn-hinweis-text strong { font-size: 1.05rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; }
-.tn-hinweis-text span { font-size: 0.85rem; font-weight: 700; color: #6b5a2c; }
+.tn-hinweis-text span { font-size: 0.85rem; font-weight: 700; color: var(--ar-leise); }
 .tn-hinweis .tn-hinweis-los { flex: 0 0 auto; background: var(--tn-gold); pointer-events: none; }
 /* Schmal: Pokal und Text bleiben nebeneinander, der Knopf geht darunter
    über die ganze Breite. Mit flex-wrap allein rutschte bei einem längeren
@@ -4378,14 +4429,14 @@ body.adm-spiel-offen { overflow: hidden; }
 }
 
 /* --- Die Turnierseite ------------------------------------------------------ */
-/* Sie ist die Startseite (alae arcade, weiter unten) mit anderem Kopf und
+/* Sie ist die Startseite (arcade, weiter unten) mit anderem Kopf und
    steht dort. Hier nur, was im Fenster der Gesamtwertung und unter dem
    Ergebnis eines Spiels gebraucht wird. */
-.tn-verdeckt { margin: 0; color: #667085; font-weight: 700; }
+.tn-verdeckt { margin: 0; color: var(--ar-leise); font-weight: 700; }
 p.tn-verdeckt:not(.mini-hinweis) {
   padding: 12px;
   border-radius: 12px;
-  border: 2px dashed #d7dbe6;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
   text-align: center;
   font-size: 0.9rem;
 }
@@ -4397,17 +4448,17 @@ p.tn-verdeckt:not(.mini-hinweis) {
   min-height: 44px;
   padding: 0 12px;
   border-radius: 999px;
-  background: #f1f3f8;
-  color: #667085;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-leise);
   font-size: 0.88rem;
   font-weight: 800;
   text-align: center;
 }
-.tn-tabelle tbody tr.ist-ich { box-shadow: inset 4px 0 0 var(--mini-ton); }
-.tn-tabelle tbody tr.ist-ich .tn-wer > span { color: var(--mini-ton-dunkel); }
+.tn-tabelle tbody tr.ist-ich { box-shadow: inset 4px 0 0 var(--ar-koralle); }
+.tn-tabelle tbody tr.ist-ich .tn-wer > span { color: var(--ar-koralle); }
 .tn-wer { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.tn-teile { font-size: 0.72rem; font-weight: 700; color: #8a93a6; line-height: 1.35; }
-.tn-wert { font-weight: 900; font-size: 1.05rem; color: #243047; }
+.tn-teile { font-size: 0.72rem; font-weight: 700; color: var(--ar-leise); line-height: 1.35; }
+.tn-wert { font-weight: 900; font-size: 1.05rem; color: var(--ar-text); }
 
 /* --- Die Tafel vor dem Spiel ----------------------------------------------- */
 /* Sie steht nur, wenn sie etwas zu sagen hat (turnier.js, zeigeTor). Solange
@@ -4423,10 +4474,10 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .tn-tor.ist-leise .cm-panel { animation: cm-fade 0.2s ease 0.8s both; }
 .tn-tor.ist-leise .cm-panel:empty { display: none; }
 .tn-tafel { gap: clamp(6px, 1.4vh, 12px); }
-.tn-tafel-text { margin: 0; font-weight: 700; color: #4b5563; line-height: 1.45; }
+.tn-tafel-text { margin: 0; font-weight: 700; color: #d7d3e2; line-height: 1.45; }
 .tn-tafel-form { width: min(360px, 100%); display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .tn-tafel-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.tn-tafel .tn-los { background: var(--tn-gold); }
+.tn-tafel .tn-los { background: var(--tn-gold); color: #2a1d00; }
 /* Auf einem flachen Bildschirm legt die Bühne ihre Tafel als Raster quer
    (Punkte links, Liste rechts). Diese hier hat keine Liste – sie bleibt eine
    Spalte und rollt, wenn es eng wird. */
@@ -4448,10 +4499,10 @@ p.tn-verdeckt:not(.mini-hinweis) {
   padding: 4px 16px;
   border-radius: 999px;
   background: linear-gradient(135deg, #ffe08a, var(--tn-gold));
-  color: #5a3a08;
+  color: #3d2706;
   font-weight: 950;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(224, 168, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(224, 168, 0, 0.35);
 }
 .tn-rekord:empty,
 .tn-ergebnis .mini-meldung:empty { display: none; }
@@ -4468,18 +4519,18 @@ p.tn-verdeckt:not(.mini-hinweis) {
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #667085;
+  color: var(--ar-leise);
 }
 .adm-turnier {
   border-radius: 14px;
-  border: 2px solid #ece9f6;
-  background: #fbfaff;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
 }
-.adm-turnier.ist-laeuft { border-color: rgba(224, 161, 0, 0.55); background: #fffaf0; }
+.adm-turnier.ist-laeuft { border-color: rgba(224, 161, 0, 0.55); background: rgba(255, 212, 94, 0.06); }
 .adm-turnier.ist-beendet { opacity: 0.85; }
-.adm-turnier.ist-offen { opacity: 1; border-color: var(--tn-gold); box-shadow: 0 6px 18px rgba(50, 44, 109, 0.1); }
+.adm-turnier.ist-offen { opacity: 1; border-color: var(--tn-gold); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
 /* Die ganze Zeile ist der Knopf zum Auswählen; aufgeklappt zeigt der Pfeil
    nach oben. */
 .adm-turnier-wahl {
@@ -4505,21 +4556,21 @@ p.tn-verdeckt:not(.mini-hinweis) {
   top: 18px;
   width: 9px;
   height: 9px;
-  border-right: 2.5px solid #98a0b4;
-  border-bottom: 2.5px solid #98a0b4;
+  border-right: 2.5px solid #8d889e;
+  border-bottom: 2.5px solid #8d889e;
   transform: rotate(45deg);
 }
 .adm-turnier-wahl[aria-expanded="true"]::after { top: 22px; transform: rotate(-135deg); }
 .adm-turnier-wahl:hover .adm-turnier-name { text-decoration: underline; }
-.adm-turnier-wahl:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.adm-turnier-wahl:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .adm-turnier-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.adm-turnier-name { font-size: 1.05rem; font-weight: 900; color: #243047; }
+.adm-turnier-name { font-size: 1.05rem; font-weight: 900; color: var(--ar-text); }
 .adm-turnier-detail {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 0 14px 14px;
-  border-top: 2px solid #ece9f6;
+  border-top: 2px solid rgba(255, 255, 255, 0.09);
   padding-top: 10px;
 }
 .adm-turnier-tabelle { margin-top: 4px; }
@@ -4528,22 +4579,22 @@ p.tn-verdeckt:not(.mini-hinweis) {
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  background: #eef0f6;
-  color: #47506a;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4d0e2;
   font-size: 0.75rem;
   font-weight: 800;
 }
-.adm-marke.ist-laeuft { background: var(--tn-gold); color: #fff; }
-.adm-marke.ist-geplant { background: #e3f1fb; color: #1d5f86; }
-.adm-marke.ist-angehalten { background: #fdeaea; color: #a32020; }
-.adm-marke.ist-beendet { background: #eef0f6; color: #667085; }
-.adm-turnier-stand { font-size: 0.85rem; font-weight: 700; color: #47506a; }
+.adm-marke.ist-laeuft { background: var(--ar-gold); color: #2a1d00; }
+.adm-marke.ist-geplant { background: rgba(110, 180, 240, 0.16); color: #9ccff2; }
+.adm-marke.ist-angehalten { background: rgba(254, 121, 113, 0.14); color: #ff9a94; }
+.adm-marke.ist-beendet { background: rgba(255, 255, 255, 0.08); color: var(--ar-leise); }
+.adm-turnier-stand { font-size: 0.85rem; font-weight: 700; color: #d4d0e2; }
 .adm-turnier .adm-kopf-aktionen { margin-top: 4px; }
 
 /* Die eigenen Multiplayer (admin.js, meineMultiplayer): der Weg zurück in die
    Lobby und der Link – einer nur mit Link steht sonst nirgends. */
 .adm-multiplayer { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
-.adm-multiplayer h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: var(--adm-farbe-dunkel, #243047); }
+.adm-multiplayer h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: var(--ar-text); }
 .adm-multiplayer-zeile {
   display: flex;
   flex-wrap: wrap;
@@ -4552,11 +4603,11 @@ p.tn-verdeckt:not(.mini-hinweis) {
   gap: 8px 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: #fff4f4;
-  box-shadow: inset 0 0 0 1px rgba(217, 63, 69, 0.18);
+  background: rgba(254, 121, 113, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(254, 121, 113, 0.3);
 }
 .adm-multiplayer-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
-.adm-multiplayer-text small { color: #667085; font-weight: 700; }
+.adm-multiplayer-text small { color: var(--ar-leise); font-weight: 700; }
 
 /* Das Formular wird beim Öffnen ins Bild gerollt – mit etwas Luft darüber,
    sonst klebt es am oberen Rand. */
@@ -4566,29 +4617,29 @@ p.tn-verdeckt:not(.mini-hinweis) {
   padding: clamp(12px, 3vw, 18px);
   border-radius: 16px;
   border: 2px solid rgba(224, 161, 0, 0.45);
-  background: #fffdf7;
+  background: rgba(255, 212, 94, 0.04);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.adm-turnier-form h3 { margin: 0; font-size: 1.1rem; font-weight: 900; color: #243047; }
+.adm-turnier-form h3 { margin: 0; font-size: 1.1rem; font-weight: 900; color: var(--ar-text); }
 .adm-turnier-form-kopf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .adm-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.adm-zeile-wort { flex: 0 0 9.5rem; font-weight: 800; color: #47506a; font-size: 0.9rem; }
+.adm-zeile-wort { flex: 0 0 9.5rem; font-weight: 800; color: #d4d0e2; font-size: 0.9rem; }
 .adm-zeile .adm-feld { flex: 1 1 14rem; }
 .adm-zeile .adm-feld-schmal { flex: 0 0 auto; width: auto; min-width: 8rem; }
 .adm-textfeld { resize: vertical; min-height: 4.5rem; font: inherit; }
 .adm-gruppe {
   margin: 0;
   padding: 10px 12px 12px;
-  border: 2px solid #ece9f6;
+  border: 2px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
 }
-.adm-gruppe legend { padding: 0 6px; font-weight: 900; color: #243047; font-size: 0.92rem; }
+.adm-gruppe legend { padding: 0 6px; font-weight: 900; color: var(--ar-text); font-size: 0.92rem; }
 .adm-gruppe .adm-auswahl { margin: 0; }
 .adm-option { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
 .adm-option > input {
@@ -4601,8 +4652,8 @@ p.tn-verdeckt:not(.mini-hinweis) {
 }
 .adm-option > input:disabled + .adm-option-text { opacity: 0.45; }
 .adm-option-text { display: flex; flex-direction: column; gap: 2px; }
-.adm-option-text strong { font-weight: 800; color: #243047; font-size: 0.92rem; }
-.adm-option-text small { color: #667085; font-size: 0.8rem; line-height: 1.4; }
+.adm-option-text strong { font-weight: 800; color: var(--ar-text); font-size: 0.92rem; }
+.adm-option-text small { color: var(--ar-leise); font-size: 0.8rem; line-height: 1.4; }
 /* Eine Wahl mit einem Feld dahinter: "Eine feste Zahl [ 3 ]". */
 .adm-option-reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .adm-feld-zahl { flex: 0 0 auto; width: 5.5rem; padding-top: 6px; padding-bottom: 6px; font-variant-numeric: tabular-nums; }
@@ -4653,13 +4704,13 @@ p.tn-verdeckt:not(.mini-hinweis) {
   height: 30px;
   padding: 0 10px 0 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #243047;
+  background: var(--ar-glas);
+  color: var(--ar-text);
   font-size: 0.82rem;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
-  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 .lv-chip-platz {
   display: grid;
@@ -4667,16 +4718,16 @@ p.tn-verdeckt:not(.mini-hinweis) {
   min-width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #eef0f6;
+  background: rgba(255, 255, 255, 0.08);
   font-size: 0.72rem;
 }
 .lv-chip-name { max-width: 7em; overflow: hidden; text-overflow: ellipsis; }
 .lv-chip-wert { font-variant-numeric: tabular-nums; }
-.lv-chip.ist-ich { background: var(--cm-accent, #F5A623); color: #fff; }
+.lv-chip.ist-ich { background: var(--cm-accent, var(--ar-koralle)); color: #fff; }
 .lv-chip.ist-ich .lv-chip-platz { background: rgba(255, 255, 255, 0.3); }
 .lv-chip.ist-fertig { opacity: 0.6; }
 .lv-chip.ist-weg { opacity: 0.35; }
-.lv-uhr { padding: 0 10px; background: #243047; color: #fff; font-variant-numeric: tabular-nums; }
+.lv-uhr { padding: 0 10px; background: var(--ar-glas); color: #fff; font-variant-numeric: tabular-nums; }
 .lv-uhr.ist-knapp { background: #d93f45; }
 
 /* Vor dem Start: die Tafel mit dem Countdown. Darunter wartet das Spiel
@@ -4687,7 +4738,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   z-index: 9;
   display: grid;
   place-items: center;
-  background: rgba(15, 18, 40, 0.42);
+  background: rgba(6, 5, 9, 0.55);
   transition: background 0.3s ease;
 }
 .lv-start[hidden] { display: none; }
@@ -4700,10 +4751,10 @@ p.tn-verdeckt:not(.mini-hinweis) {
   max-width: min(360px, calc(100% - 32px));
   padding: 22px 26px;
   border-radius: 24px;
-  background: #fff;
+  background: var(--ar-flaeche);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
   text-align: center;
-  color: #243047;
+  color: var(--ar-text);
 }
 .lv-start[data-stufe="los"] .lv-start-karte { background: transparent; box-shadow: none; }
 .lv-start[data-stufe="los"] .lv-start-karte > :not(.lv-zahl) { visibility: hidden; }
@@ -4718,14 +4769,14 @@ p.tn-verdeckt:not(.mini-hinweis) {
 }
 .lv-start .lv-titel { margin: 0; font-size: 1.3rem; font-weight: 900; }
 .lv-start .lv-klein,
-.lv-tafel .lv-klein { margin: 0; font-size: 0.86rem; font-weight: 700; color: #5b6678; }
+.lv-tafel .lv-klein { margin: 0; font-size: 0.86rem; font-weight: 700; color: var(--ar-leise); }
 .lv-zahl {
   margin: 4px 0 0;
   min-height: 1.1em;
   font-size: clamp(3.4rem, 16vw, 5.5rem);
   font-weight: 900;
   line-height: 1;
-  color: var(--cm-accent-dark, #b9741a);
+  color: var(--cm-accent, var(--ar-koralle));
   font-variant-numeric: tabular-nums;
 }
 .lv-zahl:empty { min-height: 0; margin: 0; }
@@ -4742,7 +4793,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   margin-top: 8px;
   padding: 0 20px;
   border-radius: 999px;
-  background: var(--cm-accent, #F5A623);
+  background: var(--cm-accent, var(--ar-koralle));
   color: #fff;
   font-weight: 800;
   text-decoration: none;
@@ -4756,7 +4807,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   display: grid;
   place-items: center;
   padding: calc(var(--safe-top) + 96px) 16px calc(var(--safe-bottom) + 16px);
-  background: rgba(15, 18, 40, 0.38);
+  background: rgba(6, 5, 9, 0.55);
 }
 .lv-tafel[hidden] { display: none; }
 .lv-karte {
@@ -4769,12 +4820,12 @@ p.tn-verdeckt:not(.mini-hinweis) {
   overflow-y: auto;
   padding: 20px 22px;
   border-radius: 24px;
-  background: #fff;
+  background: var(--ar-flaeche);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
-  color: #243047;
+  color: var(--ar-text);
   text-align: center;
 }
-.lv-gross { margin: 0; font-size: 2.6rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--cm-accent-dark, #b9741a); }
+.lv-gross { margin: 0; font-size: 2.6rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--cm-accent, var(--ar-koralle)); }
 .lv-liste { list-style: none; margin: 8px 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px; }
 .lv-liste li {
   display: flex;
@@ -4782,11 +4833,11 @@ p.tn-verdeckt:not(.mini-hinweis) {
   gap: 8px;
   padding: 7px 10px;
   border-radius: 12px;
-  background: #f4f5fa;
+  background: rgba(255, 255, 255, 0.05);
   font-weight: 800;
   text-align: left;
 }
-.lv-liste li.ist-ich { background: var(--cm-accent, #F5A623); color: #fff; }
+.lv-liste li.ist-ich { background: var(--cm-accent, var(--ar-koralle)); color: #fff; }
 .lv-liste .lv-platz { min-width: 1.6em; font-variant-numeric: tabular-nums; }
 .lv-liste .lv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv-liste .lv-wert { font-variant-numeric: tabular-nums; }
@@ -4804,12 +4855,12 @@ p.tn-verdeckt:not(.mini-hinweis) {
 .lv-weg {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #c3c8d4;
+  background: rgba(255, 255, 255, 0.24);
   color: #fff;
   font-size: 0.7rem;
 }
 /* Der Knopf der Leitung auf ihrer Tafel: ruhiger als ein Spielknopf. */
-.lv-knopf-still { border: 0; background: #243047; font: inherit; font-weight: 800; cursor: pointer; }
+.lv-knopf-still { border: 0; background: rgba(255, 255, 255, 0.14); font: inherit; font-weight: 800; cursor: pointer; }
 .lv-knopf-still:disabled { opacity: 0.5; }
 
 @media (max-height: 500px) and (min-width: 780px) {
@@ -4834,39 +4885,39 @@ p.tn-verdeckt:not(.mini-hinweis) {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ar-flaeche);
   box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.9);
   animation: lv-puls 1.6s ease-in-out infinite;
 }
 .lv-status { margin: 0; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
 .lv-block { gap: 10px; }
-.lv-klein { margin: 0; font-size: 0.9rem; color: #5b6678; line-height: 1.4; }
-.lv-link { color: #5b6678; font-weight: 700; }
-.lv-fehler { margin: 0; padding: 10px 14px; border-radius: 14px; background: #fdecec; color: #a3262c; font-weight: 800; }
-.lv-ok { margin: 0; padding: 10px 14px; border-radius: 14px; background: #eafbf0; color: #22713f; font-weight: 800; }
+.lv-klein { margin: 0; font-size: 0.9rem; color: var(--ar-leise); line-height: 1.4; }
+.lv-link { color: var(--ar-leise); font-weight: 700; }
+.lv-fehler { margin: 0; padding: 10px 14px; border-radius: 14px; background: rgba(254, 121, 113, 0.12); color: #ff9a94; font-weight: 800; }
+.lv-ok { margin: 0; padding: 10px 14px; border-radius: 14px; background: rgba(90, 216, 147, 0.12); color: var(--ar-gruen); font-weight: 800; }
 .lv-beitreten { display: flex; gap: 10px; flex-wrap: wrap; }
 .lv-beitreten input {
   flex: 1 1 180px;
   min-width: 0;
   min-height: 52px;
   padding: 0 16px;
-  border: 2px solid rgba(36, 48, 71, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 16px;
-  background: #fff;
-  color: #243047;
+  background: var(--ar-flaeche);
+  color: var(--ar-text);
   font: inherit;
   font-size: 1.1rem;
   font-weight: 800;
 }
-.lv-beitreten input:focus-visible { outline: 3px solid var(--mini-ton); outline-offset: 2px; }
-.lv-link-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; overflow-wrap: anywhere; }
+.lv-beitreten input:focus-visible { outline: 3px solid var(--ar-koralle); outline-offset: 2px; }
+.lv-link-text { margin: 0; text-align: center; font-weight: 800; color: var(--ar-leise); overflow-wrap: anywhere; }
 /* Der Link auf dem Grossbild: so gross, dass man ihn vom Sofa abschreibt. */
 .lv-link-gross {
   margin: 0;
   font-size: clamp(1.4rem, 4vw, 2.6rem);
   font-weight: 900;
   line-height: 1.2;
-  color: #243047;
+  color: var(--ar-text);
   text-align: center;
   overflow-wrap: anywhere;
 }
@@ -4879,15 +4930,15 @@ p.tn-verdeckt:not(.mini-hinweis) {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.08);
+  background: var(--ar-flaeche);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
-.lv-offen-text { min-width: 0; color: #243047; overflow-wrap: anywhere; }
+.lv-offen-text { min-width: 0; color: var(--ar-text); overflow-wrap: anywhere; }
 .lv-knoepfe { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .lv-block .lv-knoepfe { justify-content: center; }
 .lv-unten { justify-content: center; }
 .lv-start-knopf { min-width: 10rem; font-size: 1.1rem; }
-.lv-warten { margin: 0; font-weight: 800; color: #5b6678; }
+.lv-warten { margin: 0; font-weight: 800; color: var(--ar-leise); }
 .lv-spieler { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .lv-spieler li {
   display: inline-flex;
@@ -4895,29 +4946,29 @@ p.tn-verdeckt:not(.mini-hinweis) {
   gap: 7px;
   padding: 8px 12px;
   border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.08);
+  background: var(--ar-flaeche);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   font-weight: 800;
-  color: #243047;
+  color: var(--ar-text);
 }
 .lv-spieler li.ist-weg { opacity: 0.5; }
-.lv-spieler .lv-leer { box-shadow: none; background: none; color: #5b6678; }
-.lv-punkt-klein { width: 9px; height: 9px; border-radius: 50%; background: #c3c8d4; }
+.lv-spieler .lv-leer { box-shadow: none; background: none; color: var(--ar-leise); }
+.lv-punkt-klein { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.24); }
 .lv-spieler li.ist-online .lv-punkt-klein { background: #3fbf74; }
-.lv-marke-klein { padding: 2px 8px; border-radius: 999px; background: #eef0f6; color: #5b6678; font-size: 0.72rem; }
+.lv-marke-klein { padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--ar-leise); font-size: 0.72rem; }
 .lv-marke-klein.ist-ich { background: var(--mini-ton); color: #fff; }
 .lv-programm { margin: 0; padding: 0 0 0 1.4em; display: flex; flex-direction: column; gap: 6px; }
 .lv-programm li { padding: 4px 0; }
 .lv-programm li::marker { font-weight: 900; color: var(--mini-ton-dunkel); }
-.lv-programm .lv-name { font-weight: 900; color: #243047; margin-right: 8px; }
+.lv-programm .lv-name { font-weight: 900; color: var(--ar-text); margin-right: 8px; }
 .lv-programm li.ist-jetzt .lv-name { color: var(--lv-rot); }
 .lv-einstellungen { font-size: 0.82rem; }
 .lv-tabelle .lv-wert { font-weight: 900; }
-.lv-tabelle .lv-dazu { color: #22713f; font-weight: 800; }
-.lv-tabelle tr.ist-ich td { background: #fff3e0; }
-.lv-uhr-text { margin: 0; text-align: center; font-weight: 900; color: #243047; font-variant-numeric: tabular-nums; }
+.lv-tabelle .lv-dazu { color: var(--ar-gruen); font-weight: 800; }
+.lv-tabelle tr.ist-ich td { background: rgba(254, 121, 113, 0.12); }
+.lv-uhr-text { margin: 0; text-align: center; font-weight: 900; color: var(--ar-text); font-variant-numeric: tabular-nums; }
 .lv-uhr-text:empty { display: none; }
-.lv-weiter-text { margin: 0; text-align: center; font-weight: 800; color: #5b6678; }
+.lv-weiter-text { margin: 0; text-align: center; font-weight: 800; color: var(--ar-leise); }
 
 /* Das Podest: Platz 2, 1, 3 nebeneinander, die Mitte am höchsten. */
 .lv-podest {
@@ -4939,7 +4990,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   padding: 10px 6px 0;
   border-radius: 16px 16px 0 0;
   background: linear-gradient(180deg, #ffe7b3, #f5c66b);
-  color: #243047;
+  color: #1d1a14;
 }
 .lv-stufe-1 { min-height: 170px; background: linear-gradient(180deg, #ffd96a, #f0a91f); }
 .lv-stufe-2 { min-height: 130px; background: linear-gradient(180deg, #eef0f6, #c9cfdc); }
@@ -4972,7 +5023,7 @@ body.lv-im-spiel { overflow: hidden; }
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: rgba(36, 48, 71, 0.82);
+  background: rgba(18, 17, 24, 0.82);
   color: #fff;
   font: inherit;
   font-size: 0.8rem;
@@ -4985,7 +5036,7 @@ body.lv-im-spiel { overflow: hidden; }
   gap: 8px;
   padding: 12px;
   border-radius: 18px;
-  background: #fff;
+  background: var(--ar-flaeche);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
 }
 .lv-leitung-menue[hidden] { display: none; }
@@ -4993,21 +5044,21 @@ body.lv-im-spiel { overflow: hidden; }
 /* Das Formular zum Anlegen. */
 .lv-formular { display: flex; flex-direction: column; gap: 18px; }
 .lv-feld { display: flex; flex-direction: column; gap: 6px; }
-.lv-feld-name { font-weight: 900; color: #243047; }
+.lv-feld-name { font-weight: 900; color: var(--ar-text); }
 .lv-formular input[type="text"],
 .lv-formular input:not([type]),
 .lv-formular select {
   min-height: 46px;
   padding: 0 12px;
-  border: 2px solid rgba(36, 48, 71, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  background: #fff;
-  color: #243047;
+  background: var(--ar-flaeche);
+  color: var(--ar-text);
   font: inherit;
   font-weight: 700;
   min-width: 0;
 }
-.lv-haken { display: flex; align-items: center; gap: 10px; font-weight: 700; color: #243047; }
+.lv-haken { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--ar-text); }
 .lv-haken input { width: 22px; height: 22px; accent-color: var(--mini-ton-dunkel); }
 .lv-zeilen { display: flex; flex-direction: column; gap: 8px; }
 .lv-zeile { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
@@ -5035,7 +5086,7 @@ body.lv-im-spiel { overflow: hidden; }
 }
 .mini-knopf-live { gap: 8px; }
 .lv-tabelle .lv-spielt-noch { margin-left: 6px; background: #3fbf74; color: #fff; animation: lv-puls 1.4s ease-in-out infinite; }
-.lv-tabelle .lv-weg-klein { margin-left: 6px; background: #c3c8d4; color: #fff; }
+.lv-tabelle .lv-weg-klein { margin-left: 6px; background: rgba(255, 255, 255, 0.24); color: #fff; }
 
 /* --- Live: zuschauen (live-spiel.js) -------------------------------------- */
 /* Nach dem eigenen Ende lässt sich oben jeder antippen, der noch spielt; wem
@@ -5048,11 +5099,11 @@ body.lv-im-spiel { overflow: hidden; }
   font-weight: 800;
   cursor: pointer;
 }
-.lv-chip.ist-waehlbar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 3px 10px rgba(36, 48, 71, 0.25); }
-.lv-chip.ist-ziel { background: #243047; color: #fff; opacity: 1; }
-.lv-chip.ist-ziel .lv-chip-platz { background: rgba(255, 255, 255, 0.2); }
-.lv-chip-zu { padding: 0 12px; background: #243047; color: #fff; }
-.lv-chip:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.lv-chip.ist-waehlbar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 3px 10px rgba(0, 0, 0, 0.3); }
+.lv-chip.ist-ziel { background: var(--ar-text); color: #14121a; opacity: 1; }
+.lv-chip.ist-ziel .lv-chip-platz { background: rgba(0, 0, 0, 0.12); }
+.lv-chip-zu { padding: 0 12px; background: var(--ar-glas); color: #fff; }
+.lv-chip:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 /* --- Live: das Grossbild für Fernseher und Beamer --------------------------- */
 .lv-grossbild { max-width: 1400px; font-size: 1.35rem; }
@@ -5153,7 +5204,7 @@ body:has(.cm-stage[data-phase="play"]) .tn-live-band { display: none; }
 .lv-feld[hidden] { display: none; }
 
 /* ==========================================================================
-   alae arcade – die Startseite (mini-games.js, baueUebersicht)
+   arcade – die Startseite (mini-games.js, baueUebersicht)
    ==========================================================================
    Dunkel wie alae.app, ein Bildschirm ohne Scrollen. Drei Zeilen: oben der
    Kopf, in der Mitte die Bühne (der Film und die Leiste mit Name, Rangliste
@@ -5229,27 +5280,30 @@ body.ar {
   height: calc(var(--ar-kopf-h) + var(--safe-top));
   padding: var(--safe-top) var(--ar-rand) 0;
 }
-/* Das Logo von alae.app (Zeichen und «alae» als Pfade), dahinter «arcade». */
+/* Das Logo: die zwei Winkel als 8-Bit-Figur (wie das App-Icon), dahinter
+   «arcade». Ein Link zur Startseite – auf jeder Seite mit eigenem Kopf. */
 .ar-marke {
-  --ar-marke-h: 22px;
+  --ar-marke-h: 24px;
   display: inline-flex;
-  align-items: flex-end;
-  gap: 0.3em;
+  align-items: center;
+  gap: calc(var(--ar-marke-h) * 0.4);
   min-width: 0;
-  color: #fff;
+  color: var(--ar-text);
   text-decoration: none;
 }
-.ar-marke-zeichen { display: block; height: var(--ar-marke-h); aspect-ratio: 688.13 / 137.05; }
+.ar-marke-zeichen { display: block; flex: 0 0 auto; height: var(--ar-marke-h); aspect-ratio: 350 / 200; }
 .ar-marke-zeichen svg { display: block; width: 100%; height: 100%; }
 .ar-marke-wort {
-  /* So gross, dass die Kleinbuchstaben gleich hoch stehen wie die von «alae». */
-  font-size: calc(var(--ar-marke-h) * 1.18);
-  line-height: 0.8;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: #9da4b1;
+  font-size: calc(var(--ar-marke-h) * 1.02);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--ar-text);
   white-space: nowrap;
 }
+.ar-marke:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 6px; }
+/* Klein über dem Titel: auf der Multiplayer-Seite und im Adminbereich. */
+.ar-marke.ar-marke-klein { --ar-marke-h: 18px; display: flex; width: max-content; margin: 0 0 12px; }
 .ar-kopf-rechts { display: flex; align-items: center; gap: 8px; }
 
 .ar-kopf .mini-knopf-admin,
@@ -5959,7 +6013,7 @@ body.ar {
 /* --- Schmal: Handy hochkant ------------------------------------------------------ */
 @media (max-width: 600px) {
   .mini-seite.ar-seite { --ar-kopf-h: 54px; --ar-rund: 38px; }
-  .ar-marke { --ar-marke-h: 18px; }
+  .ar-marke { --ar-marke-h: 20px; }
   .ar-name-text { display: none; }
   .ar-name-knopf { padding-right: 3px; }
   .ar-rang { max-width: 44vw; }
@@ -5967,7 +6021,7 @@ body.ar {
 /* --- Flach: Handy quer -------------------------------------------------------------- */
 @media (max-height: 520px) {
   .mini-seite.ar-seite { --ar-kopf-h: 46px; --ar-rund: 36px; --ar-kachel-b: 104px; }
-  .ar-marke { --ar-marke-h: 17px; }
+  .ar-marke { --ar-marke-h: 19px; }
   .ar-auswahl { padding-top: 8px; padding-bottom: calc(6px + var(--safe-bottom)); }
   .ar-name-text { display: none; }
   .ar-name-knopf { padding-right: 3px; }
