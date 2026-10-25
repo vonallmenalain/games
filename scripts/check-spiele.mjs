@@ -2776,12 +2776,49 @@ try {
     });
     pruefe(fahrten.every((f) => f.meter >= 2000 && f.schritt === "fahrt" && f.tore >= 70),
       `Slalom: Der Autopilot kommt nicht durch jeden Kurs – ${JSON.stringify(fahrten)}`);
+
+    // Die Punkte: ein Tor eins, das erste perfekte zwei, jedes weitere
+    // perfekte in Folge drei – bis eines nicht perfekt ist. Ein zweiter
+    // Autopilot zielt dafür knapp an die innere Stange (wie die Vorführung)
+    // und verpasst ab und zu absichtlich das goldene Stück.
+    const wertung = await seite.evaluate(() => {
+      const S = window.LernappSlalom;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      const st = S.state;
+      const sk = st.sk;
+      const rand = S.R_STANGE + S.R_FAHRER;
+      S.lenke(1);
+      for (let n = 0; st.schritt === "fahrt" && st.tore < 40 && n < 200000; n += 1) {
+        const tore = st.kurs.tore;
+        const i = tore.findIndex((q) => q.zustand === "offen" && q.y > sk.y);
+        const t = tore[i];
+        const stange = t.innen < 0 ? S.stangeL(t) : S.stangeR(t);
+        // Jedes fünfte Tor mitten durch, sonst nah an die innere Stange.
+        const ziel = i % 5 === 4 ? t.x : stange - t.innen * (rand + Math.max(7, t.breite * 0.26) * 0.5);
+        const soll = Math.atan2(ziel - sk.x, Math.max(1, t.y - sk.y));
+        S.lenke(soll > sk.phi + sk.w * 0.05 ? 1 : -1);
+        S.takt(1 / 120);
+      }
+      S.lenke(0);
+      let reihe = 0;
+      let erwartet = 0;
+      for (const t of st.kurs.tore) {
+        if (t.zustand === "perfekt") { reihe += 1; erwartet += reihe >= 2 ? 3 : 2; }
+        else if (t.zustand === "durch") { reihe = 0; erwartet += 1; }
+      }
+      return { tore: st.tore, bonus: st.bonus, punkte: st.punkte, erwartet, perfekte: st.perfekte, zaehler: document.querySelector(".cm-count-value")?.textContent };
+    });
+    pruefe(wertung.tore >= 20 && wertung.perfekte >= 5 && wertung.bonus > 0 && wertung.punkte === wertung.erwartet
+      && wertung.punkte === wertung.tore + wertung.bonus && wertung.zaehler === String(wertung.punkte),
+      `Slalom: Die Punkte stimmen nicht mit «1 – perfekt 2 – in Folge 3»: ${JSON.stringify(wertung)}`);
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
     await seite.evaluate(() => { window.LernappSlalom.lenke(1); window.LernappSlalom.lenke(0); });
     await seite.waitForSelector(".cm-result-score", { timeout: 12000 }).catch(() => {});
     const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, schritt: window.LernappSlalom.state.schritt, grund: window.LernappSlalom.state.sturz?.grund }));
     pruefe(ende.schritt === "sturz" && ende.zahl !== undefined,
       `Slalom: Ohne Eingabe endet die Runde nicht: ${JSON.stringify(ende)}`);
+    const tafel = await seite.evaluate(() => document.querySelector(".sk-aufstellung")?.textContent || "");
+    pruefe(/^\d+ Tore?\+ \d+ Bonus= \d+$/.test(tafel), `Slalom: Auf der Tafel steht nicht «Tore + Bonus = Punkte»: «${tafel}»`);
 
     // Die Knöpfe mit echten Fingern: links, rechts, beide (der zweite gilt),
     // loslassen (geradeaus). Und mit den Pfeiltasten.

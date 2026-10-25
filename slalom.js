@@ -10,10 +10,12 @@
  *
  * Jedes Tor sind zwei Stangen, rot und blau im Wechsel. Wer zwischen ihnen
  * durchfährt, hat es; wer eines auslässt, eine Stange mitnimmt oder in den
- * Wald am Pistenrand fährt, stürzt – und die Runde ist vorbei. Gezählt wird
- * nur eines: wie viele Tore. Wer knapp an der inneren Stange vorbeizieht,
- * fährt die kürzere Linie: «perfekt», ein kleiner Schub, und in Folge eine
- * Reihe (×2, ×3 …).
+ * Wald am Pistenrand fährt, stürzt – und die Runde ist vorbei. Jedes Tor
+ * gibt einen Punkt. Wer knapp an der inneren Stange vorbeizieht, fährt die
+ * kürzere Linie: «perfekt», ein kleiner Schub – und mehr Punkte: das erste
+ * perfekte Tor zwei, jedes weitere in Folge drei, bis ein Tor nicht perfekt
+ * ist; dann gibt es wieder einen. Auf der Tafel steht, woraus die Zahl
+ * besteht: Tore plus Bonus.
  *
  * Das Tempo hängt an der Richtung: Geradeaus die Falllinie hinunter wird der
  * Fahrer schnell, quer zum Hang bremst er. Die enge, direkte Linie ist also
@@ -82,6 +84,8 @@
   const ANZUG = 1.3;               // so schnell nähert sich das Tempo seinem Ziel
   const V_MIN = 45;
   const STOSS_PERFEKT = 16;        // der kleine Schub einer perfekten Linie
+  // Was ein Tor wert ist: eins, perfekt zwei, perfekt in Folge drei.
+  const wertDesTors = (perfekt, reihe) => (!perfekt ? 1 : reihe >= 2 ? 3 : 2);
   const TAKT = 1 / 240;            // gerechnet wird in festen kleinen Schritten
   const R_FAHRER = 3.4;            // so breit trifft er (halbe Breite)
   const R_STANGE = 1.5;
@@ -130,8 +134,9 @@
   const state = {
     phase: "bereit",
     schritt: "start",
-    punkte: 0,            // dasselbe wie tore
+    punkte: 0,            // Tore plus Bonus
     tore: 0,
+    bonus: 0,             // was perfekte Tore mehr gebracht haben
     perfekte: 0,
     reihe: 0,             // perfekte Tore in Folge
     spitze: 0,
@@ -1217,6 +1222,21 @@
     g.fillText("START", x, yb - h + 4.2);
   }
 
+  // Hinter welchem Tor ein Gegner aufgehört hat: aus seinem Lauf, wo er
+  // zuletzt war. Ohne Lauf (eine Zahl von früher, als jedes Tor einen Punkt
+  // gab) aus seiner Zahl.
+  const toreDesLaufs = new WeakMap();
+  function torZahlVon(z) {
+    if (!z.lauf?.ort) return Math.max(1, z.punkte);
+    if (!toreDesLaufs.has(z.lauf)) {
+      const ende = z.lauf.ort(z.lauf.dauer);
+      const y = START.y + (Number(ende?.b) || 0);
+      toreBis(y + 1);
+      toreDesLaufs.set(z.lauf, Math.max(1, state.kurs.tore.filter((t) => t.y <= y).length));
+    }
+    return toreDesLaufs.get(z.lauf);
+  }
+
   // Platz 1 und die eigene Bestmarke: ein Banner quer über die Piste, hinter
   // ihrem letzten Tor. Wer darunter durchfährt, hat sie hinter sich.
   function zeichneBanner() {
@@ -1224,7 +1244,7 @@
     if (!ziele.length) return;
     const gross = Math.round(clamp(view.cssH * 0.03, 11, 15));
     ziele.forEach((z, i) => {
-      const n = z.punkte;
+      const n = torZahlVon(z);
       toreBisNr(n);
       const t = state.kurs.tore;
       const y = (t[n - 1].y + t[n].y) / 2 + i * 16;
@@ -1262,7 +1282,7 @@
       g.fillStyle = ton([255, 255, 255], 0.45);
       band(0, 1.5);
       // Die Schrift in Bildpunkten, damit sie überall lesbar ist.
-      const text = z.art === "eigen" ? `Bestmarke · ${n} Tore` : `Platz 1 · ${z.name} · ${n} Tore`;
+      const text = z.art === "eigen" ? `Bestmarke · ${z.punkte} Punkte` : `Platz 1 · ${z.name} · ${z.punkte} Punkte`;
       bildschirm();
       g.font = `900 ${gross}px system-ui, sans-serif`;
       g.textAlign = "center";
@@ -1615,8 +1635,8 @@
     g.globalAlpha = 1;
   }
 
-  // Die Tore oben links – die eigentliche Zahl der Runde – und darunter die
-  // Reihe perfekter Tore.
+  // Die Tore oben links und darunter die Reihe perfekter Tore mit dem, was
+  // jedes davon gerade wert ist. Die Punkte stehen oben in der Leiste.
   function zeichneAnzeige() {
     bildschirm();
     // Auf dem Handy liegt der obere Rand unter den Knöpfen: dann darunter.
@@ -1636,10 +1656,10 @@
     g.fill();
     g.fillStyle = "#ffffff";
     g.fillText(text, x + gross * 0.55, y + gross * 0.82);
-    if (state.reihe >= 2) {
+    if (state.reihe >= 1) {
       const klein = Math.round(gross * 0.7);
       g.font = `900 ${klein}px system-ui, sans-serif`;
-      const t2 = `perfekt ×${state.reihe}`;
+      const t2 = `perfekt ×${state.reihe} · +${wertDesTors(true, state.reihe)}`;
       const w2 = g.measureText(t2).width + klein * 1.2;
       const glanz = 0.75 + 0.25 * Math.sin(state.zeit * 8);
       g.fillStyle = `rgba(255, 196, 64, ${(0.85 * glanz).toFixed(3)})`;
@@ -1781,6 +1801,7 @@
         torDurch(tor, x);
       } else if (!pruefen) {
         tor.zustand = "durch";
+        state.tore += 1;
       } else if (Math.abs(x - l) < R_STANGE + R_FAHRER || Math.abs(x - r) < R_STANGE + R_FAHRER) {
         tor.zustand = "getroffen";
         tor.wackel[Math.abs(x - l) < Math.abs(x - r) ? 0 : 1] = 1;
@@ -1805,18 +1826,20 @@
     tor.zustand = perfekt ? "perfekt" : "durch";
     tor.wackel[tor.innen < 0 ? 0 : 1] = perfekt ? 0.9 : 0.25;
     state.reihe = perfekt ? state.reihe + 1 : 0;
+    const wert = wertDesTors(perfekt, state.reihe);
     if (perfekt) {
       funkeln(innen, tor.y);
-      schrift(state.reihe >= 2 ? `perfekt ×${state.reihe}` : "perfekt!", 0, -30, "#ffd23f", 13, 1.1, true);
+      schrift(state.reihe >= 2 ? `+${wert} perfekt ×${state.reihe}` : `+${wert} perfekt!`, 0, -30, "#ffd23f", 13, 1.1, true);
     } else if (knapp) {
       schrift("knapp!", 0, -30, "#ffffff", 12, 0.9, true);
     }
     if (knapp && !ruhig() && state.phase === "spiel") state.zeitlupe = Math.max(state.zeitlupe, 0.12);
+    state.tore += 1;
     // Beim Zuschauen kommt die Zahl aus dem Lauf, und es bleibt still.
     if (state.phase === "zuschauen") return;
-    state.tore += 1;
-    state.punkte = state.tore;
-    shell.setCount(state.tore);
+    state.bonus += wert - 1;
+    state.punkte += wert;
+    shell.setCount(state.punkte);
     if (perfekt) {
       state.perfekte += 1;
       sk.v += STOSS_PERFEKT;
@@ -2116,11 +2139,10 @@
     state.lean += (clamp((sk.w * sk.v) / 260, -1, 1) * 2.6 - state.lean) * (1 - Math.exp(-dt * 10));
     toreBis(sk.y + 400);
     if (sk.y > y0) toreQueren(x0, y0, sk.x, sk.y, false);
-    const tore = Math.max(0, Math.floor(s.punkte));
-    if (tore !== state.tore) {
-      state.tore = tore;
-      state.punkte = tore;
-      shell.setCount(tore);
+    const punkte = Math.max(0, Math.floor(s.punkte));
+    if (punkte !== state.punkte) {
+      state.punkte = punkte;
+      shell.setCount(punkte);
     }
     if (sk.v > 1) fahrtEffekte(dt);
     // Am Ende des Laufs: der Sturz, wie er damals war.
@@ -2200,6 +2222,7 @@
     state.schritt = "start";
     state.punkte = 0;
     state.tore = 0;
+    state.bonus = 0;
     state.perfekte = 0;
     state.reihe = 0;
     state.spitze = 0;
@@ -2276,12 +2299,21 @@
     const kmh = Math.round(state.spitze / METER * 3.6);
     const perfekt = state.perfekte === 1 ? "1 perfekt" : `${state.perfekte} perfekt`;
     shell.showResult({
-      label: "Deine Tore",
+      label: "Deine Punkte",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : `${perfekt} · Spitze ${kmh} km/h${vorher ? ` · Bestwert ${vorher}` : ""}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("sk-rekord");
+    // Unter der Zahl, woraus sie besteht: Tore plus Bonus der perfekten.
+    const zahl = host.querySelector(".cm-result-score");
+    if (zahl) {
+      const aufstellung = shell.el("p", "sk-aufstellung");
+      const tore = shell.el("span", "", `${state.tore} ${state.tore === 1 ? "Tor" : "Tore"}`);
+      const bonus = shell.el("span", "sk-aufstellung-bonus", `+ ${state.bonus} Bonus`);
+      aufstellung.append(tore, bonus, shell.el("span", "", `= ${punkte}`));
+      zahl.after(aufstellung);
+    }
     zaehleHoch(punkte);
   }
 
@@ -2299,7 +2331,7 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "skiSlalom", fassung: "t1", zufall, einheit: "Tore", nochmal: zuschauenStarten,
+    host, spiel: "skiSlalom", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
     gegner = window.LernappGeist?.fuer?.({ spiel: "skiSlalom", host, art: "tempo", alle: true, zufall }) || null;
