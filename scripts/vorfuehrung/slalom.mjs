@@ -46,9 +46,9 @@ export default {
       const phi2 = Math.atan2(f2.ziel - f1.ziel, t2.y - t1.y);
       const ab = (xBei(sk, t1, phi2) - f1.stange) * -t1.innen;
       if (ab > f1.nah && ab < f1.weit) soll = phi2;
-      if (soll > sk.phi + sk.w * 0.05) S.druecken(); else S.loslassen();
+      S.lenke(soll > sk.phi + sk.w * 0.05 ? 1 : -1);
     };
-    S.druecken();
+    S.lenke(1);
     requestAnimationFrame(tick);
   },
   vorlauf: 4000,
