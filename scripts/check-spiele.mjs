@@ -1521,6 +1521,34 @@ try {
     const vorschauText = await seite.locator(".adm-anmeldung").innerText().catch(() => "");
     pruefe(/aus einer Vorschau/.test(vorschauText) && !/Mit Google/.test(vorschauText),
       `Das Fenster für die Vorschau-Anmeldung bietet eine fremde Adresse an: ${vorschauText.replace(/\n/g, " | ")}`);
+    // Aus einem einzelnen Deploy (<kennung>--gamesrepo.netlify.app) geöffnet:
+    // Angeboten wird die Anmeldung nur, wenn Netlify ihn als Stand von main
+    // kennt – nicht der Vorschau eines Pull Requests aus einem Fork, nicht
+    // dem Deploy einer anderen Netlify-Seite. Die Antworten von Netlify und
+    // GitHub stehen hier fest.
+    const NETLIFY_SEITE = "f509e792-125f-4e61-aade-64425bb5dde2";
+    const DEPLOYS = {
+      ["a".repeat(24)]: { site_id: NETLIFY_SEITE, context: "production", branch: "main", commit_ref: "4c6c00572bfae432b5789552de6d39360e5804e0", review_id: null },
+      ["b".repeat(24)]: { site_id: NETLIFY_SEITE, context: "deploy-preview", branch: "patch-1", commit_ref: "1234567", review_id: 77 },
+      ["c".repeat(24)]: { site_id: "eine-andere-seite", context: "production", branch: "main", commit_ref: "1234567", review_id: null },
+    };
+    const alsJson = (route, daten, status = 200) => route.fulfill({ status, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(daten) });
+    await kontext.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await kontext.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* */" }));
+    await kontext.route("https://api.netlify.com/api/v1/deploys/*", (route) => {
+      const kennung = route.request().url().split("/").pop();
+      return DEPLOYS[kennung] ? alsJson(route, { id: kennung, ...DEPLOYS[kennung] }) : alsJson(route, {}, 404);
+    });
+    await kontext.route("https://api.github.com/repos/vonallmenalain/games/pulls/77", (route) => alsJson(route, { head: { repo: { full_name: "jemand/games" } }, base: { repo: { full_name: "vonallmenalain/games" } } }));
+    for (const [kennung, offen] of [["a".repeat(24), true], ["b".repeat(24), false], ["c".repeat(24), false]]) {
+      const ziel = `${BASIS}/admin?vorschau=${encodeURIComponent(`https://${kennung}--gamesrepo.netlify.app`)}`;
+      const [fenster] = await Promise.all([kontext.waitForEvent("page"), seite.evaluate((adresse) => { window.open(adresse, "_blank"); }, ziel)]);
+      await fenster.waitForFunction(() => !/wird geprüft/.test(document.querySelector(".adm-anmeldung")?.innerText || "wird geprüft"), null, { timeout: 8000 }).catch(() => {});
+      const text = (await fenster.locator(".adm-anmeldung").innerText().catch(() => "")).replace(/\n/g, " | ");
+      if (offen) pruefe(/Stand von main, 4c6c005/.test(text) && /Mit Google/.test(text), `Ein Deploy von main bekommt keine Anmeldung angeboten: ${text}`);
+      else pruefe(/stammt weder aus main/.test(text) && !/Mit Google/.test(text), `Ein fremder Deploy (${kennung.slice(0, 1)}…) bekommt die Anmeldung angeboten: ${text}`);
+      await fenster.close();
+    }
     pruefe(await seite.locator(".adm-tabelle").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Daten.");
     pruefe(await seite.locator(".adm-streifen").count() === 0, "Ohne Anmeldung stehen im Adminbereich schon Zahlen.");
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

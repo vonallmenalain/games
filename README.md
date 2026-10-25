@@ -738,18 +738,25 @@ gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
 Draht, Zwei Spuren, Ball hochhalten), Tier 2 Blätter im Strom, Drehscheibe,
 Planetenhüpfer und Der Heizer, Tier 3 der Rest.
 
-**In einer Deploy Preview anmelden.** Firebase lässt «Mit Google anmelden» nur
+**In einer Vorschau anmelden.** Firebase lässt «Mit Google anmelden» nur
 auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy
-Preview hat ihre eigene. In einer Vorschau (`deploy-preview-<n>--gamesrepo.netlify.app`)
-öffnet «Mit Google anmelden» deshalb ein Fenster auf `games.alae.app/admin?vorschau=…`:
+Preview hat ihre eigene, und jeder einzelne Deploy auch. In einer Vorschau
+(`deploy-preview-<n>--gamesrepo.netlify.app` oder ein einzelner Deploy,
+`<kennung>--gamesrepo.netlify.app` – so zeigt Netlify den Stand von main, der
+noch nicht veröffentlicht ist) öffnet «Mit Google anmelden» deshalb ein
+Fenster auf `games.alae.app/admin?vorschau=…`:
 Dort meldet Google an (in einer zweiten Firebase-Anwendung ohne Speicher,
 `cloud.js` `vorschauApp`), und das Token geht per `postMessage` zurück an die
 Vorschau, die sich damit bei Firebase anmeldet (`signInWithCredential` fragt
 nicht nach der Domain). Wie im Entdecker – mit einer Prüfung mehr, weil dieses
-Repository öffentlich ist: Das Token geht nur an die Vorschau eines Pull
-Requests aus `vonallmenalain/games` selbst, nicht aus einem Fork (die
-GitHub-API sagt, woher er kommt). Das Fenster auf der Live-Adresse ist Teil
-von `admin.js` – es geht erst, wenn diese Fassung dort veröffentlicht ist.
+Repository öffentlich ist: Das Token geht nur an eigene Vorschauen. Bei einer
+Deploy Preview muss der Pull Request aus `vonallmenalain/games` selbst
+stammen, nicht aus einem Fork (das sagt die GitHub-API). Bei einem einzelnen
+Deploy fragt das Fenster die Netlify-API, woraus er gebaut ist: aus `main`
+(Kontext «production») oder als Vorschau eines eigenen Pull Requests – sonst
+gibt es kein Token. Beide Fragen gehen ohne Anmeldung. Das Fenster auf der
+Live-Adresse ist Teil von `admin.js` – es geht erst, wenn diese Fassung dort
+veröffentlicht ist.
 
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,
