@@ -798,7 +798,8 @@ h2 {
 }
 /* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
-.hd-feld, .zs-feld, .bh-feld {
+.hd-feld, .zs-feld, .bh-feld,
+.jg-feld, .sj-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -811,7 +812,8 @@ h2 {
    Satz, der nach dem ersten Tipp niemandem mehr etwas sagt. */
 .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
-.hd-prompt, .zs-prompt, .bh-prompt {
+.hd-prompt, .zs-prompt, .bh-prompt,
+.jg-prompt, .sj-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1176,6 +1178,142 @@ h2 {
   color: #3a2400;
   font-weight: 900;
 }
+
+/* === Jongleur (jongleur.js) – Anfang ======================================== */
+.jg-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.jg-stage:not([data-phase="intro"]) .jg-prompt { opacity: 0; }
+.jg-feld { width: 100%; background: #101018; }
+.jg-canvas { display: block; width: 100%; height: 100%; }
+.jg-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Jongleur – Ende ========================================================== */
+
+
+
+/* === Skispringen (skispringen.js) – Anfang ======================================== */
+.sj-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sj-stage:not([data-phase="intro"]) .sj-prompt { opacity: 0; }
+.sj-feld { width: 100%; background: #101018; }
+.sj-canvas { display: block; width: 100%; height: 100%; }
+.sj-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Skispringen – Ende ========================================================== */
+
+
+
+/* === Fallschirm (fallschirm.js) – Anfang ======================================== */
+.fs-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.fs-stage:not([data-phase="intro"]) .fs-prompt { opacity: 0; }
+.fs-feld { width: 100%; background: #101018; }
+.fs-canvas { display: block; width: 100%; height: 100%; }
+.fs-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Fallschirm – Ende ========================================================== */
+
+
+
+/* === Holzfäller (holzfaeller.js) – Anfang ======================================== */
+.hl-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hl-stage:not([data-phase="intro"]) .hl-prompt { opacity: 0; }
+.hl-feld { width: 100%; background: #101018; }
+.hl-canvas { display: block; width: 100%; height: 100%; }
+.hl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Holzfäller – Ende ========================================================== */
+
+
+
+/* === Fledermaus (fledermaus.js) – Anfang ======================================== */
+.fm-stage {
+  --cm-accent: #7C5CE6;
+  --cm-accent-dark: #5a41b8;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.fm-stage:not([data-phase="intro"]) .fm-prompt { opacity: 0; }
+.fm-feld { width: 100%; background: #101018; }
+.fm-canvas { display: block; width: 100%; height: 100%; }
+.fm-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Fledermaus – Ende ========================================================== */
+
+
+
+/* === Zeitlupen-Ninja (ninja.js) – Anfang ======================================== */
+.nj-stage {
+  --cm-accent: #3FA34D;
+  --cm-accent-dark: #2c7337;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.nj-stage:not([data-phase="intro"]) .nj-prompt { opacity: 0; }
+.nj-feld { width: 100%; background: #101018; }
+.nj-canvas { display: block; width: 100%; height: 100%; }
+.nj-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 900;
+}
+/* === Zeitlupen-Ninja – Ende ========================================================== */
 
 
 @media (prefers-reduced-motion: reduce) {
@@ -3184,7 +3322,8 @@ h2 {
   }
   .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
-  .hd-prompt, .zs-prompt, .bh-prompt {
+  .hd-prompt, .zs-prompt, .bh-prompt,
+  .jg-prompt, .sj-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

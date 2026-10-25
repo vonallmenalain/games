@@ -82,6 +82,12 @@
     { id: "wireLoop", seite: "draht", page: "wire" },
     { id: "twinLanes", seite: "spuren", page: "lanes" },
     { id: "keepyUppy", seite: "ball", page: "keepy" },
+    { id: "juggler", seite: "jongleur", page: "juggle" },
+    { id: "skiJump", seite: "skispringen", page: "skijump" },
+    { id: "skyDive", seite: "fallschirm", page: "skydive" },
+    { id: "lumberCut", seite: "holzfaeller", page: "lumber" },
+    { id: "batEcho", seite: "fledermaus", page: "bat" },
+    { id: "timeNinja", seite: "ninja", page: "ninja" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -98,6 +104,9 @@
     balloonRide: 1, skiSlalom: 1, frogHop: 1, craneHarbor: 1, ropeWalk: 1,
     // Die drei mit eigener Eingabe: Ziehen, zwei Finger, Tippen auf den Ball.
     wireLoop: 1, twinLanes: 1, keepyUppy: 1,
+    // Die sechs mit neuen Mechaniken: zwei Hände, Schanze, Fallschirm, Schnitt,
+    // Echo und Zeitlupe.
+    juggler: 1, skiJump: 1, skyDive: 1, lumberCut: 1, batEcho: 1, timeNinja: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -127,6 +136,10 @@
     ropeWalk: { fassung: "t1", winkel: true },
     wireLoop: { fassung: "t1" },
     keepyUppy: { fassung: "t1" },
+    skiJump: { fassung: "t1", winkel: true },
+    skyDive: { fassung: "t1", winkel: true },
+    batEcho: { fassung: "t1", winkel: true },
+    timeNinja: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -144,6 +157,8 @@
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z1" },
     twinLanes: { fassung: "t1" },
+    juggler: { fassung: "z1" },
+    lumberCut: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -167,6 +182,8 @@
     numberLine: { zug: true },
     craneHarbor: { zug: true },
     twinLanes: { zug: true },
+    juggler: { zug: true },
+    lumberCut: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
