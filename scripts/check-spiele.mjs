@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|sj|fs|hl|fm|nj|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -406,7 +406,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "skiJump", "skyDive", "lumberCut", "batEcho", "timeNinja"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2087,6 +2087,14 @@ try {
         + ` | ${p.voegel.slice(0, 5).map((v) => `${v.ab}:${v.dir}:${v.y.toFixed(2)}`).join(" ")}`
         + ` | ${p.balken.slice(0, 4).map((s) => `${s.ab}:${s.seite}:${s.y.toFixed(2)}/${s.lang.toFixed(2)}`).join(" ")}`;
     }],
+    // Die sechs mit neuen Mechaniken: Jedes beschreibt seine gewürfelte Welt
+    // selbst (weltText) – dieselbe Saat, derselbe Text.
+    ["/jongleur", "Jongleur", () => window.LernappJongleur.weltText()],
+    ["/skispringen", "Skispringen", () => window.LernappSkispringen.weltText()],
+    ["/fallschirm", "Fallschirm", () => window.LernappFallschirm.weltText()],
+    ["/holzfaeller", "Holzfäller", () => window.LernappHolzfaeller.weltText()],
+    ["/fledermaus", "Fledermaus", () => window.LernappFledermaus.weltText()],
+    ["/ninja", "Zeitlupen-Ninja", () => window.LernappNinja.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -3200,6 +3208,36 @@ try {
     pruefe(richtung.nachRechts > 0 && richtung.nachLinks < 0,
       `Ball hochhalten: Die Richtung folgt nicht dem Treffpunkt: ${JSON.stringify(richtung)}`);
     await kontext.close();
+  }
+
+  // --- 4g18. Jongleur: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von jongleur.js)
+  {
+  }
+
+  // --- 4g19. Skispringen: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von skispringen.js)
+  {
+  }
+
+  // --- 4g20. Fallschirm: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von fallschirm.js)
+  {
+  }
+
+  // --- 4g21. Holzfäller: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von holzfaeller.js)
+  {
+  }
+
+  // --- 4g22. Fledermaus: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von fledermaus.js)
+  {
+  }
+
+  // --- 4g23. Zeitlupen-Ninja: schaffbar, und wer nichts tut, ist bald draussen ----------
+  // (gefüllt von ninja.js)
+  {
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------

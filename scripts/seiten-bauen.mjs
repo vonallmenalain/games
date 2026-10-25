@@ -180,6 +180,42 @@ export const SPIELE = [
     baut: "der Platz mit dem Ball",
   },
   {
+    seite: "jongleur", spiel: "juggler", page: "juggle", js: "jongleur.js",
+    titel: "Jongleur", buehne: { id: "jg-stage", klasse: "cm-stage jg-stage" },
+    text: "Jongleur: Links wirft die linke Hand, rechts die rechte – halte alle Bälle in der Luft. Alle zehn Fänge kommt einer dazu.",
+    baut: "die Manege mit dem Jongleur",
+  },
+  {
+    seite: "skispringen", spiel: "skiJump", page: "skijump", js: "skispringen.js",
+    titel: "Skispringen", buehne: { id: "sj-stage", klasse: "cm-stage sj-stage" },
+    text: "Skispringen: Tippe genau am Schanzentisch, halte in der Luft die Balance – und lande im Telemark.",
+    baut: "die Schanze mit dem Springer",
+  },
+  {
+    seite: "fallschirm", spiel: "skyDive", page: "skydive", js: "fallschirm.js",
+    titel: "Fallschirm", buehne: { id: "fs-stage", klasse: "cm-stage fs-stage" },
+    text: "Fallschirm: Zieh so spät wie möglich – und lande mitten auf dem Ziel.",
+    baut: "der Himmel mit dem Springer",
+  },
+  {
+    seite: "holzfaeller", spiel: "lumberCut", page: "lumber", js: "holzfaeller.js",
+    titel: "Holzfäller", buehne: { id: "hl-stage", klasse: "cm-stage hl-stage" },
+    text: "Holzfäller: Schneide jeden Stamm mit einem Wisch genau an der Markierung – je genauer, desto mehr Punkte.",
+    baut: "der Holzplatz mit den Stämmen",
+  },
+  {
+    seite: "fledermaus", spiel: "batEcho", page: "bat", js: "fledermaus.js",
+    titel: "Fledermaus", buehne: { id: "fm-stage", klasse: "cm-stage fm-stage" },
+    text: "Fledermaus: Die Höhle ist dunkel – tippe, und dein Ruf zeigt für einen Moment die Wände.",
+    baut: "die dunkle Höhle mit der Fledermaus",
+  },
+  {
+    seite: "ninja", spiel: "timeNinja", page: "ninja", js: "ninja.js",
+    titel: "Zeitlupen-Ninja", buehne: { id: "nj-stage", klasse: "cm-stage nj-stage" },
+    text: "Zeitlupen-Ninja: Die Zeit läuft nur, wenn du dich bewegst – zieh den Ninja durch die Pfeile.",
+    baut: "der Dojo-Hof mit dem Ninja",
+  },
+  {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",
     titel: "Wo hält der Zug?", buehne: { id: "zg-stage", klasse: "cm-stage zg-stage" },
     text: "Wo hält der Zug? Schieb den Zug auf dem Gleis dorthin, wo die Zahl liegt.",
