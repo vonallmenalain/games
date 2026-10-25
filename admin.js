@@ -545,10 +545,14 @@
       const versuche = eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
       const erste = eintraege.map((e) => e.erstesMs).filter((ms) => ms > 0);
       const seit = erste.length ? { erstesMs: Math.min(...erste) } : {};
+      // Die Spielzeit aller Geräte zusammen – mehr als eine Runde auf
+      // einmal, das darf nur der Admin (firestore.rules).
+      const spielMs = eintraege.reduce((summe, e) => summe + (Number(e.spielMs) || 0), 0);
+      const zeit = spielMs > 0 ? { spielMs } : {};
 
       const ref = db.collection("miniScores").doc(`${spiel}_${stamm}`);
       if (!ziel) await ref.set({ game: spiel, spieler: stamm, name, punkte, versuche: 1, ...seit, ...jetzt() });
-      if (ziel || versuche > 1) await ref.set({ name, punkte, versuche, ...seit, ...jetzt() }, { merge: true });
+      if (ziel || versuche > 1 || spielMs > 0) await ref.set({ name, punkte, versuche, ...seit, ...zeit, ...jetzt() }, { merge: true });
 
       const laeufe = await Promise.all(eintraege.map((e) => db.collection("miniGeister").doc(`${spiel}_${e.spieler}`).get()
         .then((doc) => (doc.exists && doc.data()?.bahn ? { spieler: e.spieler, ...doc.data() } : null))
@@ -1938,6 +1942,19 @@
   // ---------------------------------------------------------------------------
   const schluesselVon = (name) => String(name || "").toLocaleLowerCase("de");
   const rundenVon = (eintraege) => eintraege.reduce((summe, e) => summe + Math.max(1, e.versuche), 0);
+  const zeitVon = (eintraege) => eintraege.reduce((summe, e) => summe + (Number(e.spielMs) || 0), 0);
+
+  // Wie lange gespielt wurde, so kurz wie möglich: 45 s, 12 min, 3 h 05 min.
+  // Erfasst wird die Spielzeit erst seit Fassung 2026-10-25-6 (cloud.js,
+  // speichere) – was davor gespielt wurde, zählt nicht mit.
+  function dauerText(ms) {
+    const sekunden = Math.round((Number(ms) || 0) / 1000);
+    if (!sekunden) return "–";
+    if (sekunden < 60) return `${sekunden} s`;
+    const minuten = Math.round(sekunden / 60);
+    if (minuten < 60) return `${minuten} min`;
+    return `${Math.floor(minuten / 60)} h ${String(minuten % 60).padStart(2, "0")} min`;
+  }
   const zuletztVon = (eintraege) => Math.max(0, ...eintraege.map((e) => Number(e.updatedAtMs) || 0));
   function zuerstVon(eintraege) {
     const erste = eintraege.map((e) => Number(e.erstesMs) || 0).filter((ms) => ms > 0);
@@ -2046,6 +2063,7 @@
       },
       { key: "spiele", titel: "Spiele", zahl: true, ab: true, wert: (p) => p.spiele },
       { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (p) => p.runden },
+      { key: "zeit", titel: "Spielzeit", zahl: true, ab: true, klasse: "adm-breit", wert: (p) => p.zeit, zelle: (p) => dauerText(p.zeit) },
       { key: "schnitt", titel: "Ø Platz", zahl: true, wert: (p) => p.schnitt, zelle: (p) => p.schnitt.toFixed(1) },
       { key: "siege", titel: "1. Plätze", zahl: true, ab: true, klasse: "adm-breit", wert: (p) => p.siege },
       { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (p) => p.zuletzt, zelle: (p) => wannKurz(p.zuletzt) },
@@ -2082,6 +2100,7 @@
           geraete: new Set(alle.map((e) => e.spieler)).size,
           spiele: new Set(p.eintraege.map((e) => e.game)).size,
           runden: rundenVon(p.eintraege),
+          zeit: zeitVon(p.eintraege),
           schnitt: w?.schnitt || 0,
           siege: w?.siege || 0,
           zuletzt: zuletztVon(p.eintraege),
@@ -2117,6 +2136,7 @@
       liste,
       spieler: liste.length,
       runden: rundenVon(eintraege),
+      zeit: zeitVon(eintraege),
       zuletzt: zuletztVon(eintraege),
     };
   }
@@ -2126,8 +2146,8 @@
     const platzVon = new Map(z.liste.map((e) => [schluesselVon(e.name), e.platz]));
     const tabelle = el("table", "adm-tabelle adm-bestenliste");
     const kopfZeile = el("tr");
-    ["Platz", "Name", einheit(z.id), "Runden", "Zuletzt", ""].forEach((text, i) => {
-      kopfZeile.append(el("th", [i === 0 || (i > 1 && i < 5) ? "zahl" : "", i === 4 ? "adm-breit" : ""].join(" ").trim(), text));
+    ["Platz", "Name", einheit(z.id), "Runden", "Spielzeit", "Zuletzt", ""].forEach((text, i) => {
+      kopfZeile.append(el("th", [i === 0 || (i > 1 && i < 6) ? "zahl" : "", i >= 4 && i < 6 ? "adm-breit" : ""].join(" ").trim(), text));
     });
     const thead = el("thead");
     thead.append(kopfZeile);
@@ -2150,6 +2170,7 @@
         zeile.append(platz, wer);
         zeile.append(el("td", "zahl", String(eintrag.punkte)));
         zeile.append(el("td", "zahl", String(eintrag.versuche)));
+        zeile.append(el("td", "zahl adm-breit", dauerText(eintrag.spielMs)));
         zeile.append(el("td", "zahl adm-breit", wannKurz(eintrag.updatedAtMs)));
         const aktionen = el("td", "adm-aktionen");
         aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
@@ -2199,7 +2220,7 @@
       tr.classList.add("ist-offen");
       const zeile = el("tr", "adm-detail");
       const zelle = el("td");
-      zelle.colSpan = 8;
+      zelle.colSpan = 9;
       const kasten = el("div", "adm-spiel-detail");
       kasten.style.setProperty("--adm-farbe", farbe(z.id).hell);
       if (!z.eintraege.length) {
@@ -2228,6 +2249,7 @@
       { key: "an", titel: "Offen", ab: true, wert: (z) => (z.an ? 1 : 0), zelle: (z) => el("span", z.an ? "adm-an" : "adm-aus", z.an ? "✓" : "–") },
       { key: "spieler", titel: "Spieler", zahl: true, ab: true, wert: (z) => z.spieler },
       { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden },
+      { key: "zeit", titel: "Spielzeit", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zeit, zelle: (z) => dauerText(z.zeit) },
       {
         key: "rekord", titel: "Rekord", klasse: "adm-breit",
         zelle: (z) => (z.liste[0] ? `${z.liste[0].punkte} ${einheit(z.id)} · ${z.liste[0].name}` : "–"),
@@ -2243,7 +2265,7 @@
       const gezeigt = alle.filter((spiel) => passt(stand, spiel)).map((spiel) => spielZahlen(stand, spiel));
       const eintraege = gezeigt.reduce((summe, z) => summe + z.eintraege.length, 0);
       bereich.zahl.textContent = `${zahlWort(stand.bekannte.length, "Spiel", "Spiele")} · ${zahlWort(stand.alle.length, "Eintrag", "Einträge")}`;
-      summe.textContent = `${gezeigt.length} von ${zahlWort(alle.length, "Spiel", "Spielen")} · ${zahlWort(eintraege, "Eintrag", "Einträge")} · ${zahlWort(gezeigt.reduce((s, z) => s + z.runden, 0), "Runde", "Runden")}`;
+      summe.textContent = `${gezeigt.length} von ${zahlWort(alle.length, "Spiel", "Spielen")} · ${zahlWort(eintraege, "Eintrag", "Einträge")} · ${zahlWort(gezeigt.reduce((s, z) => s + z.runden, 0), "Runde", "Runden")} · ${dauerText(gezeigt.reduce((s, z) => s + z.zeit, 0))} gespielt`;
       tabelle.zeige(gezeigt);
     }
     stand.hoerer.add(zeichne);
@@ -2314,7 +2336,8 @@
         },
       },
       { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden },
-      { key: "zuerst", titel: "Zuerst", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuerst, zelle: (z) => wannKurz(z.zuerst) },
+      { key: "zeit", titel: "Spielzeit", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zeit, zelle: (z) => dauerText(z.zeit) },
+      { key: "zuerst", titel: "Zuerst", zahl: true, ab: true, klasse: "adm-breit adm-sehr-breit", wert: (z) => z.zuerst, zelle: (z) => wannKurz(z.zuerst) },
       { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuletzt, zelle: (z) => wannKurz(z.zuletzt) },
       {
         key: "weg", titel: "", klasse: "adm-aktionen",
@@ -2379,6 +2402,7 @@
           von: liste.length,
           punkte: Math.max(0, ...eintraege.map((e) => Number(e.punkte) || 0)),
           runden: rundenVon(eintraege),
+          zeit: zeitVon(eintraege),
           zuerst: zuerstVon(eintraege),
           zuletzt: zuletztVon(eintraege),
         };
@@ -2397,6 +2421,7 @@
       zahlen.replaceChildren(
         kachel(daten.length, `von ${zahlWort(moeglich, "Spiel", "Spielen")} gespielt`),
         kachel(daten.reduce((summe, z) => summe + z.runden, 0), "Runden"),
+        kachel(dauerText(daten.reduce((summe, z) => summe + z.zeit, 0)), "Spielzeit"),
         kachel(daten.length ? schnitt.toFixed(1) : "–", "Platz im Schnitt"),
         kachel(daten.filter((z) => z.platz === 1).length, "1. Plätze"),
         kachel(daten.filter((z) => z.platz <= 3).length, "Podestplätze"),

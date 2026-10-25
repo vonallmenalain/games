@@ -185,6 +185,7 @@
       punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
       versuche: Math.max(1, Math.round(Number(daten.versuche) || 1)),
       erstesMs: Number(daten.erstesMs) || 0,
+      spielMs: Math.max(0, Math.round(Number(daten.spielMs) || 0)),
       updatedAtMs: Number(daten.updatedAtMs) || 0,
     };
   }
@@ -353,11 +354,16 @@
    * In der Transaktion liest Firestore noch einmal, wenn dazwischen jemand
    * geschrieben hat, und rechnet gegen den frischen Stand.
    */
-  async function speichere({ game, spieler, name, punkte }) {
+  // Die Dauer einer Runde zählt zur Spielzeit des Eintrags (spielMs) – nie
+  // mehr als eine halbe Stunde: So viel lassen die Regeln je Runde zu.
+  const RUNDE_MS = 30 * 60 * 1000;
+
+  async function speichere({ game, spieler, name, punkte, ms = 0 }) {
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
     const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
+    const dauer = Math.max(0, Math.min(RUNDE_MS, Math.round(Number(ms) || 0)));
     if (!spielId || !spielerId || !wie) throw new Error("Für einen Eintrag fehlt etwas.");
     const db = starte();
     const ref = sammlung();
@@ -377,6 +383,7 @@
           punkte: zahl,
           versuche: 1,
           erstesMs: jetzt,
+          spielMs: dauer,
           updatedAtMs: jetzt,
           updatedAt: jetztAufDemServer(),
         });
@@ -388,6 +395,7 @@
         name: wie,
         punkte: rekord ? zahl : alt.punkte,
         versuche: alt.versuche + 1,
+        spielMs: alt.spielMs + dauer,
         updatedAtMs: jetzt,
         updatedAt: jetztAufDemServer(),
       }, { merge: true });

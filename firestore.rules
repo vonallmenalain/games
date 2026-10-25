@@ -52,6 +52,9 @@ service cloud.firestore {
     //                                       Fremden
     //   Versuche zählen nur hoch            eine Runde, die gespielt wurde,
     //                                       verschwindet nicht wieder
+    //   die Spielzeit zählt nur hoch        jede Runde bringt ihre Dauer mit,
+    //                                       höchstens eine halbe Stunde
+    //                                       (RUNDE_MS); weniger wird es nie
     //
     // Was bleibt, ist, dass jemand einen fremden Eintrag HOCHsetzen könnte.
     // Dagegen hilft nur ein Konto, und ein Konto ist genau das, was dieser
@@ -114,13 +117,24 @@ service cloud.firestore {
       let d = request.resource.data;
       return eintragId == d.game + "_" + d.spieler
         && d.keys().hasAll(["game", "spieler", "name", "punkte", "versuche", "updatedAtMs"])
-        && d.keys().hasOnly(["game", "spieler", "name", "punkte", "versuche", "erstesMs", "updatedAtMs", "updatedAt"])
+        && d.keys().hasOnly(["game", "spieler", "name", "punkte", "versuche", "erstesMs", "spielMs", "updatedAtMs", "updatedAt"])
         && d.game is string && d.game in miniSpiele()
         && istMiniSpieler(d.spieler)
         && d.name is string && d.name.size() > 0 && d.name.size() <= 24
         && d.punkte is int && d.punkte >= 0 && d.punkte <= 1000000
         && d.versuche is int && d.versuche >= 1 && d.versuche <= 100000
+        && (!("spielMs" in d) || (d.spielMs is int && d.spielMs >= 0 && d.spielMs <= 10000000000))
         && d.updatedAtMs is int;
+    }
+
+    // Wie lange gespielt wurde, in Millisekunden. Ältere Einträge haben das
+    // Feld nicht – dann zählt es als 0. Eine Runde bringt höchstens eine
+    // halbe Stunde dazu: Mehr dauert keine, und wer ein Spiel offen liegen
+    // lässt, hat nicht gespielt.
+    function spielMsNachher() { return request.resource.data.get("spielMs", 0); }
+    function spielMsVorher() { return resource.data.get("spielMs", 0); }
+    function eineRundeSpielzeit(vorher) {
+      return spielMsNachher() >= vorher && spielMsNachher() <= vorher + 1800000;
     }
 
     // Ein Eintrag bleibt, wem er gehört, und bleibt in seinem Spiel.
@@ -132,12 +146,15 @@ service cloud.firestore {
     match /miniScores/{eintragId} {
       // Lesen darf jeder, auch ohne Konto: Die Liste ist der Sinn der Sache.
       allow read: if true;
-      allow create: if istMiniEintrag(eintragId) && request.resource.data.versuche == 1;
-      // Eine Runde: die Punktzahl steigt oder bleibt, der Zähler steigt.
+      allow create: if istMiniEintrag(eintragId) && request.resource.data.versuche == 1
+        && eineRundeSpielzeit(0);
+      // Eine Runde: die Punktzahl steigt oder bleibt, der Zähler steigt, die
+      // Spielzeit wächst um die Dauer dieser Runde.
       allow update: if istMiniEintrag(eintragId)
         && istDerselbeEintrag()
         && request.resource.data.punkte >= resource.data.punkte
-        && request.resource.data.versuche > resource.data.versuche;
+        && request.resource.data.versuche > resource.data.versuche
+        && eineRundeSpielzeit(spielMsVorher());
       // Und ein neuer Name, ohne dass eine Runde daraus wird. Wer sich
       // umbenennt, hat nicht gespielt – ein Zähler, der dabei stiege, machte
       // aus jeder Umbenennung einen Versuch, den es nie gab. Erlaubt ist
@@ -148,6 +165,11 @@ service cloud.firestore {
         && request.resource.data.versuche == resource.data.versuche
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(["name", "updatedAtMs", "updatedAt"]);
+      // Der Admin führt zusammen, was ein Name auf mehreren Geräten gespielt
+      // hat (admin.js, fuehreZusammen): Dort kommt die Spielzeit aller Geräte
+      // auf einmal dazu – mehr als eine Runde. Im selben Eintrag, in denselben
+      // Grenzen wie jeder andere.
+      allow update: if istAdmin() && istMiniEintrag(eintragId) && istDerselbeEintrag();
       allow delete: if istAdmin();
     }
 

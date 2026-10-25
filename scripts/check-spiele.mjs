@@ -167,16 +167,16 @@ const ATTRAPPE = `
       if (window.__miniOhneNetz) throw new Error("kein Netz");
       return [...eintraege.values()].filter((e) => e.name === name).map((e) => ({ ...e }));
     },
-    speichere: async ({ game, spieler, name, punkte }) => {
+    speichere: async ({ game, spieler, name, punkte, ms = 0 }) => {
       const id = game + "_" + spieler;
       const alt = eintraege.get(id);
       if (!alt) {
-        eintraege.set(id, { id, game, spieler, name, punkte, versuche: 1, updatedAtMs: Date.now() });
+        eintraege.set(id, { id, game, spieler, name, punkte, versuche: 1, spielMs: ms, updatedAtMs: Date.now() });
         sichern();
         return { rekord: true, punkte, versuche: 1 };
       }
       const rekord = punkte > alt.punkte;
-      eintraege.set(id, { ...alt, name, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1, updatedAtMs: Date.now() });
+      eintraege.set(id, { ...alt, name, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1, spielMs: (alt.spielMs || 0) + ms, updatedAtMs: Date.now() });
       sichern();
       return { rekord, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1 };
     },
@@ -3637,11 +3637,15 @@ try {
     await seite.waitForSelector(".mini-ergebnis", { timeout: 4000 });
     await seite.waitForFunction(() => [...window.__miniEintraege.values()].some((e) => e.name === "Alain"), null, { timeout: 4000 }).catch(() => {});
     const spur = await seite.evaluate(() => ({
-      ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Alain").map((e) => ({ game: e.game, punkte: e.punkte })),
+      ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Alain").map((e) => ({ game: e.game, punkte: e.punkte, spielMs: e.spielMs })),
       best: localStorage.getItem("mini.best"),
     }));
     pruefe(spur.ewig.length === 1 && spur.ewig[0].game === "towerStack" && spur.ewig[0].punkte > 0,
       `Die Runde aus dem Adminbereich steht nicht unter dem Namen in der ewigen Liste: ${JSON.stringify(spur.ewig)}`);
+    // Mit ihrer Dauer: Sie zählt zur Spielzeit des Eintrags (mini-games.js,
+    // rundeBeginnt/rundeEndet) – und mehr als eine halbe Stunde ist keine Runde.
+    pruefe(spur.ewig[0]?.spielMs > 0 && spur.ewig[0].spielMs < 30 * 60 * 1000,
+      `Die Runde kam ohne ihre Dauer in die ewige Liste: ${JSON.stringify(spur.ewig)}`);
     pruefe(Boolean(spur.best), "Die Runde aus dem Adminbereich hat keinen Bestwert auf dem Gerät hinterlassen.");
     await kontext.close();
   }

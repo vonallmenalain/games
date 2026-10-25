@@ -736,9 +736,19 @@ Runden, Platz im Schnitt, erste Plätze, Podestplätze – und in welchen
 Turnieren er auf welchem Platz steht. Aufräumen geht dort auch: ein einzelnes
 Ergebnis löschen, alle löschen, den Namen in allen Spielen ändern, von
 mehreren Geräten zusammenführen. Ein Name ist dabei, was er überall ist:
-gross oder klein geschrieben derselbe, auf allen Geräten zusammen. Wie lange
-jemand gespielt hat, steht (noch) nicht in der Datenbank – die Einträge
-kennen nur das erste und das letzte Mal.
+gross oder klein geschrieben derselbe, auf allen Geräten zusammen.
+
+**Spielzeit.** Jede Runde misst ihre Dauer – vom Start (`game-shell.js`,
+`setPhase("play")`) bis zum Ergebnis (`showResult`), in `mini-games.js`
+(`rundeBeginnt`, `rundeEndet`) – und meldet sie mit der Runde. `cloud.js`
+zählt sie zum Feld `spielMs` des Eintrags dazu, höchstens eine halbe Stunde
+je Runde. Die Regeln prüfen dasselbe: Die Spielzeit wächst nur mit einer
+Runde und je Runde um höchstens 30 Minuten; nur der Admin darf mehr auf
+einmal schreiben – beim Zusammenführen, wo die Zeit aller Geräte
+zusammenkommt. Der Adminbereich zeigt sie bei den Spielern, bei den Spielen,
+in jeder Bestenliste und in der Auswertung eines Spielers. Erfasst wird sie
+seit Fassung 2026-10-25-6; was davor gespielt wurde, zählt nicht mit (ältere
+Einträge haben das Feld nicht, es gilt dann als 0).
 
 Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
 Turniers – steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
