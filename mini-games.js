@@ -77,9 +77,11 @@
     { id: "balloonRide", seite: "ballon", page: "balloon" },
     { id: "skiSlalom", seite: "slalom", page: "slalom" },
     { id: "frogHop", seite: "frosch", page: "frog" },
-    { id: "waveRider", seite: "wellen", page: "waves" },
     { id: "craneHarbor", seite: "kranhafen", page: "harbor" },
     { id: "ropeWalk", seite: "seiltaenzer", page: "rope" },
+    { id: "wireLoop", seite: "draht", page: "wire" },
+    { id: "twinLanes", seite: "spuren", page: "lanes" },
+    { id: "keepyUppy", seite: "ball", page: "keepy" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -92,8 +94,10 @@
   const TIERS_VORGABE = {
     towerStack: 1, bridgeBuilder: 1, vineSwing: 1, tunnelFlight: 1, driftRace: 1, hillGlide: 1,
     leafFlow: 2, dartWheel: 2, planetHop: 2, boilerRoom: 2,
-    // Die sechs neuen, gebaut nach dem Muster von Tier 1.
-    balloonRide: 1, skiSlalom: 1, frogHop: 1, waveRider: 1, craneHarbor: 1, ropeWalk: 1,
+    // Gebaut nach dem Muster von Tier 1.
+    balloonRide: 1, skiSlalom: 1, frogHop: 1, craneHarbor: 1, ropeWalk: 1,
+    // Die drei mit eigener Eingabe: Ziehen, zwei Finger, Tippen auf den Ball.
+    wireLoop: 1, twinLanes: 1, keepyUppy: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -117,11 +121,12 @@
     moonLander: { fassung: "p5", winkel: true },
     gravityRun: { fassung: "t1", winkel: true },
     hillGlide: { fassung: "t1" },
-    balloonRide: { fassung: "t1" },
+    balloonRide: { fassung: "t2" },
     skiSlalom: { fassung: "t1", winkel: true },
     frogHop: { fassung: "t1", winkel: true },
-    waveRider: { fassung: "t1", winkel: true },
     ropeWalk: { fassung: "t1", winkel: true },
+    wireLoop: { fassung: "t1" },
+    keepyUppy: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -138,6 +143,7 @@
     numberLine: { fassung: "z1" },
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z1" },
+    twinLanes: { fassung: "t1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -160,6 +166,7 @@
     boilerRoom: { zug: true },
     numberLine: { zug: true },
     craneHarbor: { zug: true },
+    twinLanes: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-24-6";
+export const FASSUNG = "2026-10-24-7";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der ruhige Grund, auf dem oben die Knöpfe der Spiele stehen (--bg in
@@ -133,9 +133,9 @@ export const SPIELE = [
   },
   {
     seite: "ballon", spiel: "balloonRide", page: "balloon", js: "ballon.js",
-    titel: "Ballonfahrt", buehne: { id: "bl-stage", klasse: "cm-stage bl-stage" },
-    text: "Ballonfahrt: Halten heizt den Brenner, Loslassen kühlt – steuer den Ballon durch die Winde, über Berge und an Gewittern vorbei.",
-    baut: "der Himmel mit dem Ballon",
+    titel: "Windschichten", buehne: { id: "bl-stage", klasse: "cm-stage bl-stage" },
+    text: "Windschichten: Halten heizt den Brenner, Loslassen kühlt – jede Höhe hat ihren eigenen Wind. Such die Schicht, die dich weiterträgt.",
+    baut: "der Himmel mit den Winden",
   },
   {
     seite: "slalom", spiel: "skiSlalom", page: "slalom", js: "slalom.js",
@@ -150,12 +150,6 @@ export const SPIELE = [
     baut: "der Teich mit den Seerosen",
   },
   {
-    seite: "wellen", spiel: "waveRider", page: "waves", js: "wellen.js",
-    titel: "Wellenreiter", buehne: { id: "wr-stage", klasse: "cm-stage wr-stage" },
-    text: "Wellenreiter: Halten drückt das Brett in die Welle, Loslassen hebt es – bleib vor der brechenden Welle.",
-    baut: "das Meer mit der Welle",
-  },
-  {
     seite: "kranhafen", spiel: "craneHarbor", page: "harbor", js: "kranhafen.js",
     titel: "Kranhafen", buehne: { id: "kh-stage", klasse: "cm-stage kh-stage" },
     text: "Kranhafen: Der Container pendelt am Kran – tippe im richtigen Moment und stapel ihn auf das fahrende Schiff.",
@@ -166,6 +160,24 @@ export const SPIELE = [
     titel: "Seiltänzer", buehne: { id: "st-stage", klasse: "cm-stage st-stage" },
     text: "Seiltänzer: Halten lehnt nach rechts, Loslassen nach links – halt das Gleichgewicht auf dem Seil, so weit du kommst.",
     baut: "das Seil über der Schlucht",
+  },
+  {
+    seite: "draht", spiel: "wireLoop", page: "wire", js: "draht.js",
+    titel: "Heisser Draht", buehne: { id: "hd-stage", klasse: "cm-stage hd-stage" },
+    text: "Heisser Draht: Führ den Ring mit dem Finger am Draht entlang – berührt er ihn, ist die Runde vorbei.",
+    baut: "der Draht mit dem Ring",
+  },
+  {
+    seite: "spuren", spiel: "twinLanes", page: "lanes", js: "spuren.js",
+    titel: "Zwei Spuren", buehne: { id: "zs-stage", klasse: "cm-stage zs-stage" },
+    text: "Zwei Spuren: Links tippen lenkt den linken Schlitten, rechts den rechten – weich aus und sammle, mit beiden zugleich.",
+    baut: "die zwei Bahnen",
+  },
+  {
+    seite: "ball", spiel: "keepyUppy", page: "keepy", js: "ball.js",
+    titel: "Ball hochhalten", buehne: { id: "bh-stage", klasse: "cm-stage bh-stage" },
+    text: "Ball hochhalten: Tippe auf den Ball, bevor er fällt – wo du ihn triffst, dorthin fliegt er.",
+    baut: "der Platz mit dem Ball",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",
