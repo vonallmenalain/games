@@ -187,6 +187,18 @@ await darfNicht("Admin teilt ein erfundenes Spiel ein", () => admin().doc(LISTE)
 await darfNicht("Admin setzt ein Tier 4", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 4 } })));
 await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
 await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
+// Ein Spiel, das es nicht mehr gibt, in den gespeicherten Tiers (wie der
+// Wellenreiter nach seinem Abschied): Mit merge bliebe sein Schlüssel stehen,
+// und jedes Speichern – auch nur ein Haken – wird abgelehnt. Fällt er im
+// selben Schreiben weg (FieldValue.delete, cloud.js ohneAlteSpiele), geht es.
+{
+  const { default: compat } = await import("firebase/compat/app");
+  await import("firebase/compat/firestore");
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1, waveRider: 2 } })));
+  await darfNicht("Admin hakt an, solange ein entferntes Spiel in den Tiers steht", () => admin().doc(LISTE).set({ spiele: ["towerStack"], updatedAtMs: 2 }, { merge: true }));
+  await darf("Admin hakt an und räumt das entfernte Spiel dabei aus den Tiers", () => admin().doc(LISTE).set({ spiele: ["towerStack"], tiers: { waveRider: compat.firestore.FieldValue.delete() }, updatedAtMs: 2 }, { merge: true }));
+  await darf("Danach geht ein Haken wieder ohne Weiteres", () => admin().doc(LISTE).set({ spiele: ["towerStack", "fishPond"], updatedAtMs: 3 }, { merge: true }));
+}
 await darfNicht("Gast legt eine zweite Konfiguration an", () => gast().doc("config/irgendwas").set({ a: 1 }));
 await darfNicht("Admin legt eine zweite Konfiguration an", () => admin().doc("config/irgendwas").set({ a: 1 }));
 
