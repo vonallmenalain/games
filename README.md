@@ -134,6 +134,79 @@ Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
 
+### Die sechs Spiele vom Oktober 2026
+
+Kurze Runden, schnell schwerer, viel Können: Jedes würfelt seine Welt aus
+`zufall.js` (im Turnier für alle dieselbe), und in jedem beweist ein
+Autopilot in `npm run pruefen:browser` (Abschnitte 4g18–4g23), dass die Welt
+schaffbar ist. Die Schrauben für die Schwierigkeit stehen als Konstanten oben
+in der jeweiligen Datei.
+
+**Jongleur** (`jongleur.js`, `juggler`) – In der Zirkusmanege jongliert ein
+Jongleur im Scheinwerferlicht. Ein Tipp links wirft mit der linken Hand,
+rechts mit der rechten. Jeder Ball fliegt in die andere Hand, und keine Hand
+darf zwei halten. Wer gleich nach dem Fang wirft, wirft perfekt: Der Ball
+zieht eine goldene Spur und rückt in den gleichmässigen Takt. Länger halten
+wirft höher und schafft Platz. Alle zehn Fänge wirft ein Clown mit
+Trommelwirbel ein weiteres Ding ein, später auch Keulen, Fackeln, schwere
+Kugeln und einen Apfel, und die Bälle fliegen immer schneller. Gezählt werden
+die Fänge. Die besten Runden lassen sich Zug um Zug anschauen.
+
+**Skispringen** (`skispringen.js`, `skiJump`) – Eine Serie auf immer
+grösseren Schanzen, von HS 100 bis zum Skiflug auf HS 240. Im Anlauf zieht
+sich ein Ring auf die Kante zusammen: Wer genau dann tippt, springt mit voller
+Kraft. In der Luft hält man die Lage im grünen Bereich – rechts lehnt nach
+vorne, links zurück –, während Wind und sichtbare Böen am Springer drehen. Zu
+weit vorne überschlägt er sich, zu weit hinten reisst die Strömung ab. Kurz
+vor dem Boden landet man mit beiden Seiten zugleich im Telemark, perfekt gibt
+es Bonusmeter. Gezählt werden die Meter aller Sprünge. Wer stürzt oder die
+grüne Qualifikationslinie verfehlt, ist draussen. Mit jedem Sprung wird das
+Fenster an der Kante enger, der Wind launischer, die Linie rückt nach hinten
+– und es wird Abend, bis unter Flutlicht in die Nacht gesprungen wird.
+
+**Fallschirm** (`fallschirm.js`, `skyDive`) – Sprung um Sprung aus dem
+Flugzeug über einem Tal mit See, Fluss, Dorf und Wäldern, von oben gesehen:
+Der Boden kommt aus 900 m Höhe herauf. Wer links oder rechts aufs Bild hält,
+gleitet zur Seite, an Vogelschwärmen, Ballonen, Gewitterwolken und Seglern
+vorbei. Ein Wisch nach oben zieht den Schirm – je näher an der Mindesthöhe,
+desto mehr Punkte, darunter ist es zu spät. Unter dem Schirm geht es gegen
+Wind und Böen auf die Ringe (50/25/10), und kurz vor dem Boden fängt derselbe
+Wisch die Landung ab. Mit jedem Sprung fällt man schneller, die Ziele werden
+kleiner und rücken an Wasser, Wald und Dächer, fahren als Floss oder Boot,
+und es wird Abend und Nacht. Der erste Fehler beendet die Runde.
+
+**Holzfäller** (`holzfaeller.js`, `lumberCut`) – Holzfäller-Show auf einer
+Waldlichtung zur goldenen Stunde. Baumstämme fliegen in hohem Bogen ins Bild
+und drehen sich. Ein gerader Wisch quer durch einen Stamm schneidet ihn – je
+näher am roten Strich, desto mehr Punkte: «Perfekt» gibt 10, perfekte
+Schnitte in Folge vervielfachen die Punkte bis ×5, Goldstämme zählen doppelt.
+Die zwei Hälften fliegen mit Sägemehl und Spänen auseinander und zeigen ihre
+Jahresringe. Drei Äxte: Ein Stamm, der ungeschnitten fällt, ein Schnitt weit
+neben dem Strich, durch einen Ast oder durch einen Nagelstamm kostet je eine.
+Welle um Welle fliegen die Stämme schneller, drehen stärker und kommen zu
+zweit bis zu viert, manche tragen zwei Striche. Jeder Schnitt ist ein Zug,
+der sich in der Hall of Fame und im Multiplayer genau nachspielen lässt.
+
+**Fledermaus** (`fledermaus.js`, `batEcho`) – Eine Fledermaus fliegt durch
+eine stockdunkle Höhle, die immer schneller nach rechts weiterzieht. Rechts
+tippen ist ein Flügelschlag, links tippen ein Ruf: Ein Ring aus Schall läuft
+durch die Höhle, die Kanten von Fels und Tropfsteinen glühen cyan und violett
+auf und verblassen wieder – den Weg voraus muss man sich merken. Rufe gibt es
+drei, sie laden langsam nach; ein gefangenes Glühwürmchen lädt sofort. Später
+kommen Spinnen am Faden, Tropfsteine, die sich lösen, und Gabeln mit einer
+Sackgasse. Gezählt werden die Meter. Jeder Abschnitt hat einen freien
+Korridor, den der Autopilot in der Prüfung bis 2000 m abfliegt.
+
+**Zeitlupen-Ninja** (`ninja.js`, `timeNinja`) – Ein nächtlicher Dojo-Hof,
+von oben gesehen, Raum über Raum. Die Zeit läuft nur, wenn der Ninja läuft:
+Wer stillsteht, sieht Pfeile, Wurfsterne und Kirschblüten fast reglos in der
+Luft hängen – wer rennt, sieht die Welt in normalem Tempo. Man zieht den
+Ninja wie auf einem Trackpad (oder mit Pfeiltasten/WASD) an Bogenschützen,
+Klingen, Fallen und den Lichtkegeln der Wächter vorbei zum Tor. Jeder Raum
+gibt 10 Punkte, Schriftrollen und ein schneller Raum (in echter Zeit) geben
+dazu; der erste Treffer beendet die Runde. Die Räume werden immer dichter,
+und beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
+
 ### Das Aussehen: dunkel, überall
 
 Alle Seiten – Startseite, Turnier, Spiele, Multiplayer, Adminbereich – stehen
@@ -246,7 +319,9 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
     Geist im Bild   Lianenschwung, Tunnelflug, Drift-Rennen,
                     Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
-                    Seiltänzer, Heisser Draht, Ball hochhalten.
+                    Seiltänzer, Heisser Draht, Ball hochhalten,
+                    Skispringen, Fallschirm, Fledermaus,
+                    Zeitlupen-Ninja.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
@@ -300,9 +375,9 @@ gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
 nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
 Strecke ist fest).
 
-Die neun Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
+Die elf Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
 Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom,
-Kranhafen)
+Kranhafen, Jongleur, Holzfäller)
 zeichnen statt eines Weges ihre Züge auf (`geist.js`, `zuege`): dieselben,
 die sie im Multiplayer melden, mit der Zeit seit dem Start, der Saat und dem
 Ende der Runde. Beim Anschauen baut das Spiel sie nach – genau so, wie es im
@@ -578,10 +653,10 @@ beginnt, wie sie endet, wenn die Zeit des Abends um ist, und – wo man
 ausscheidet – wie es einem anderen zuschaut. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
-**Die anderen im Bild.** In den dreizehn Spielen mit Figur (Lianenschwung,
+**Die anderen im Bild.** In den siebzehn Spielen mit Figur (Lianenschwung,
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
 Hügelflieger, Windschichten, Slalom, Froschsprung, Seiltänzer, Heisser Draht,
-Ball hochhalten)
+Ball hochhalten, Skispringen, Fallschirm, Fledermaus, Zeitlupen-Ninja)
 meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
 (`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
 gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
@@ -615,7 +690,7 @@ damit die Kamera ruhig bleibt. Der Planetenhüpfer stellt dabei die Uhr seiner
 Planeten nach der Zeit, die gerade im Bild ist.
 
 In den Spielen ohne Figur (Turmbau, Brückenbauer, Drehscheibe,
-Kacheln-Knobeln, Fischteich, Heizer, Zahlengleis) gibt es nichts, dem eine
+Kacheln-Knobeln, Fischteich, Heizer, Zahlengleis, Jongleur, Holzfäller) gibt es nichts, dem eine
 Kamera folgen könnte – dort baut das Spiel des Zuschauers nach, was der
 andere tut. Jedes Gerät meldet dafür seine Züge (`live-spiel.js`, `zug`):
 sofort, nicht im Takt, und immer mit dem ganzen Stand in `a`, `b`, `c` – wie
@@ -838,7 +913,8 @@ es schon ganz gewählt ist, wieder weg. Solange nie eingeteilt wurde, gilt die
 Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
 Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die danach
 gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
-Draht, Zwei Spuren, Ball hochhalten), Tier 2 Blätter im Strom, Drehscheibe,
+Draht, Zwei Spuren, Ball hochhalten, Jongleur, Skispringen, Fallschirm,
+Holzfäller, Fledermaus, Zeitlupen-Ninja), Tier 2 Blätter im Strom, Drehscheibe,
 Planetenhüpfer und Der Heizer, Tier 3 der Rest. Ein Spiel, das es nicht mehr
 gibt (wie der Wellenreiter), fällt beim nächsten Speichern aus den Tiers
 (`cloud.js`, `ohneAlteSpiele`): Die Regeln lassen dort nur Spiele zu, die es

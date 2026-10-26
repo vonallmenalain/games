@@ -79,6 +79,12 @@
     { id: "wireLoop", titel: "Heisser Draht", bereich: "konzentration", art: "punkte", key: "lernapp.draht", einheit: "Meter" },
     { id: "twinLanes", titel: "Zwei Spuren", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.spuren", einheit: "Punkte" },
     { id: "keepyUppy", titel: "Ball hochhalten", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.ball", einheit: "Kontakte" },
+    { id: "juggler", titel: "Jongleur", bereich: "konzentration", art: "punkte", key: "lernapp.jongleur", einheit: "Fänge" },
+    { id: "skiJump", titel: "Skispringen", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.skispringen", einheit: "Meter" },
+    { id: "skyDive", titel: "Fallschirm", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.fallschirm", einheit: "Punkte" },
+    { id: "lumberCut", titel: "Holzfäller", bereich: "konzentration", art: "punkte", key: "lernapp.holzfaeller", einheit: "Punkte" },
+    { id: "batEcho", titel: "Fledermaus", bereich: "gedaechtnis", art: "punkte", key: "lernapp.fledermaus", einheit: "Meter" },
+    { id: "timeNinja", titel: "Zeitlupen-Ninja", bereich: "problemloesen", art: "punkte", key: "lernapp.ninja", einheit: "Punkte" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },

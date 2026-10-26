@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+  Geändert wird die Tabelle dort, dann "npm run bauen".
+-->
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="application-name" content="arcade" />
+    <meta name="description" content="Holzfäller: Wisch quer durch jeden fliegenden Stamm – genau am roten Strich. Äste und Nagelstämme nicht treffen!" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="arcade" />
+    <meta name="theme-color" content="#0d0c11" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="arcade" />
+    <meta property="og:title" content="Holzfäller · arcade" />
+    <meta property="og:description" content="Wisch quer durch jeden fliegenden Stamm." />
+    <meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="arcade" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Holzfäller · arcade</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-26-1" />
+    <link rel="manifest" href="app.webmanifest?v=2026-10-26-1" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+  </head>
+  <body data-page="lumber" data-spiel="lumberCut">
+    <!-- Die Bühne baut holzfaeller.js: die Landschaft, darauf der Holzplatz mit den Stämmen.
+         Bewusst leer im HTML – hier steht kein Wort ausser dem Namen des
+         Spiels, und den setzt die Bühne. -->
+    <div id="hl-stage" class="cm-stage hl-stage" aria-label="Holzfäller"></div>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="vollbild.js?v=2026-10-26-1"></script>
+    <script defer src="highscore.js?v=2026-10-26-1"></script>
+    <script defer src="cloud.js?v=2026-10-26-1"></script>
+    <script defer src="mini-games.js?v=2026-10-26-1"></script>
+    <script defer src="turnier.js?v=2026-10-26-1"></script>
+    <script defer src="zufall.js?v=2026-10-26-1"></script>
+    <script defer src="kids.js?v=2026-10-26-1"></script>
+    <script defer src="train-art.js?v=2026-10-26-1"></script>
+    <script defer src="train-scenes.js?v=2026-10-26-1"></script>
+    <script defer src="game-cloud.js?v=2026-10-26-1"></script>
+    <script defer src="live-spiel.js?v=2026-10-26-1"></script>
+    <script defer src="game-shell.js?v=2026-10-26-1"></script>
+    <script defer src="geist.js?v=2026-10-26-1"></script>
+    <script defer src="holzfaeller.js?v=2026-10-26-1"></script>
+    <script defer src="pwa.js?v=2026-10-26-1"></script>
+  </body>
+</html>
