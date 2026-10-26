@@ -2050,7 +2050,7 @@
       maleKulisse(von, bis);
       return;
     }
-    const schluessel = `${bilder.schluessel}|${kam.y}|${state.raum}|${von}|${bis}|${state.raeume[state.raum - 1]?.tauStand ?? ""}`;
+    const schluessel = `${bilder.schluessel}|${view.my}|${view.versatz}|${kam.y}|${state.raum}|${von}|${bis}|${state.raeume[state.raum - 1]?.tauStand ?? ""}`;
     if (!kulisse.c || kulisse.c.width !== canvas.width || kulisse.c.height !== canvas.height || kulisse.schluessel !== schluessel) {
       if (!kulisse.c) kulisse.c = document.createElement("canvas");
       kulisse.c.width = canvas.width;
