@@ -33,6 +33,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Was die Scheiben tun – wie viele Pfeile, welche schon stecken, wo Äpfel
@@ -597,9 +598,12 @@
     meldeZug(0, 0);
   }
 
-  // Beim Zuschauen wirft dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Zuschauen wirft dieses Gerät nur nach – es brummt nicht, aber es
+  // klingt: Die Würfe des anderen sind zu hören. Still bleibt nur, was beim
+  // Einsteigen auf einen Schlag nachgeholt wird (leise).
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  let leise = false;
+  const ton = (id, wahl) => { if (!leise) klang()?.ton?.(id, wahl); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   function werfen() {
@@ -607,6 +611,8 @@
     if (state.phase !== "spiel" || state.schritt !== "zielen" || state.auf < 0.85) return;
     if (state.flug || state.uebrig <= 0 || state.nachladen > NACHLADE_MS * 0.4) return;
     state.flug = { y: ruheY() };
+    // Jeder Wurf, also leiser als das, was er trifft.
+    ton("drehscheibe.wurf", { laut: 0.6 });
     kids()?.vibrate?.(6);
   }
 
@@ -670,10 +676,12 @@
       }));
       spaene(ax, ay, 8, "#ff8f8f");
       schrift("+2", ax + 30, ay - 6, "#ffd166", 15);
-      klang("correct");
-    } else {
-      klang("star");
     }
+    // Der Pfeil steckt im Holz; ein Apfel daran platzt hörbar dazu. Mit dem
+    // letzten Pfeil einer Scheibe klingt statt des Apfels der Meilenstein
+    // (zerspringen) – drei Klänge auf einmal wären nur noch Lärm.
+    ton("drehscheibe.einschlag", { laut: 0.8 });
+    if (apfel && state.uebrig > 0) ton("drehscheibe.apfel");
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
 
@@ -691,9 +699,10 @@
       vx: (Math.random() < 0.5 ? -1 : 1) * (70 + Math.random() * 40), vy: -60, dreh: Math.PI, vdreh: 9,
     });
     spaene(0, y + 4, 10, "#d9dee6");
+    // Metall auf Metall – das hört auch, wer zuschaut.
+    ton("drehscheibe.klirr");
     // Wer zuschaut, sieht ihn abprallen – das Ende gehört dem anderen.
     if (zuschauend()) return;
-    kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 40]);
     stepTimer = window.setTimeout(finish, ENDE_MS);
   }
@@ -738,7 +747,8 @@
     });
     spaene(0, my, 18, "#e2ad6c");
     schrift(`Scheibe ${sch.n + 1} +${bonus}`, 0, my + 6, "#ffffff", 17);
-    klang(sch.boss ? "unlock" : "correct");
+    // Eine Scheibe geschafft, die nächste kommt: ein neues Level.
+    ton("meilenstein");
     brumm(30);
   }
 
@@ -818,7 +828,9 @@
     if (!zuschauer?.seit) return;
     const jetzt = zuschauer.jetzt();
     zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
-      zugAnwenden(probe, jetzt - probe.t > 1500);
+      const sofort = jetzt - probe.t > 1500;
+      leise = sofort;
+      try { zugAnwenden(probe, sofort); } finally { leise = false; }
       gesehenBis = probe.t;
     });
     shell.setCount(state.punkte);
@@ -827,6 +839,7 @@
       && !state.flug && state.schritt === "zielen") {
       fliegtFuer = kommt.t;
       state.flug = { y: ruheY() + FLUG_V * ((FLUG_MS - (kommt.t - jetzt)) / 1000) };
+      ton("drehscheibe.wurf", { laut: 0.6 });
     }
     // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
     zuschauer.weiter?.();
@@ -1000,7 +1013,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const geschafft = state.scheibe ? state.scheibe.n : 0;
     const scheiben = geschafft === 1 ? "1 Scheibe geschafft" : `${geschafft} Scheiben geschafft`;
     shell.showResult({
