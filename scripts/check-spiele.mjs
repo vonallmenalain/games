@@ -6032,7 +6032,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 109, `klang.js kennt nicht alle 109 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 107, `klang.js kennt nicht alle 107 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
@@ -6048,7 +6048,7 @@ try {
     const stumm = await aus.seite.evaluate(async () => {
       const K = window.ArcadeKlang;
       const vor = window.__klangKnoten;
-      ["punkt", "rekord", "ball.kick", "serie"].forEach((id) => K.ton(id, { stufe: 3 }));
+      ["punkt", "rekord", "ball.kick", "countdown"].forEach((id) => K.ton(id, { stufe: 3 }));
       const k = K.kulisse("ball.publikum");
       k.setze(0.9);
       k.stop();

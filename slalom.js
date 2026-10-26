@@ -1846,16 +1846,13 @@
   }
 
   // Das Tor klackt, beim Spielen wie beim Zuschauen. Dazu leise die Harfe
-  // für ein perfektes, in Folge die Leiter – alle 25 Tore stattdessen der
-  // Meilenstein (nie drei Klänge übereinander).
+  // für das erste perfekte in Folge.
   function torKlang(perfekt) {
     const jetzt = performance.now();
     if (jetzt - torKlack < 60) return;
     torKlack = jetzt;
     klang()?.ton("slalom.tor", { laut: 0.8 });
-    if (state.tore % 25 === 0) klang()?.ton("meilenstein");
-    else if (perfekt && state.reihe >= 2) klang()?.ton("serie", { stufe: state.reihe, laut: 0.8 });
-    else if (perfekt) klang()?.ton("perfekt", { laut: 0.7 });
+    if (perfekt && state.reihe < 2) klang()?.ton("perfekt", { laut: 0.7 });
   }
 
   function torDurch(tor, x) {

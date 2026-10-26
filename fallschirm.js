@@ -1812,8 +1812,8 @@
   function perfektTon(perfekt, o = {}) {
     if (!perfekt) { perfektFolge = 0; return; }
     perfektFolge += 1;
+    // Nur der erste in Folge – danach nicht jedes Mal ein Ton dazu.
     if (perfektFolge === 1) ton("perfekt", o, 100);
-    else ton("serie", { ...o, stufe: perfektFolge }, 100);
   }
 
   // Jedes Bild: der Propeller, solange das Flugzeug im Bild ist (leiser, je
@@ -3749,8 +3749,6 @@
     if (!ersterSprung) {
       state.weiss = 1;
       state.banner = { titel: `Sprung ${n}`, unter: `${ORTSNAME[sp.art]} · mindestens ${sp.hMin} m`, leben: 2.3, max: 2.3 };
-      // Der nächste Sprung, ein Stück schwerer.
-      if (state.phase === "spiel" || state.phase === "zuschauen") ton("meilenstein", {}, 800);
     }
     state.teile = state.teile.filter((t) => t.art === "konfetti");
     kameraFolgt(0, true);

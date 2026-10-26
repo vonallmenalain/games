@@ -1063,11 +1063,10 @@
         klang()?.ton("meilenstein");
       } else if (state.feuer) {
         schrift(`Perfekt! +14 %`, v.x, v.y + 40, "#ffd84d", 16);
-        klang()?.ton("serie", { stufe: state.serie, laut: 0.8 });
       } else {
         schrift(`Perfekt! ${state.serie}/3`, v.x, v.y + 40, "#ffffff", 16);
-        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie, laut: 0.8 });
-        else klang()?.ton("perfekt", { laut: 0.7 });
+        // Die Harfe nur zur ersten perfekten Landung in Folge.
+        if (state.serie === 1) klang()?.ton("perfekt", { laut: 0.7 });
       }
       sterne(v.x, v.y, 8, state.feuer ? "#ffd84d" : "#ffffff");
     } else if (winkel > SCHLECHT_WINKEL) {
@@ -1108,9 +1107,6 @@
       for (let i = 0; i < n; i += 1) physik(dt / n);
       const meter = Math.floor(meterBei(state.v.x));
       if (meter !== state.meter) {
-        // Er ist schnell: Die Hunderter flögen nur so vorbei. Erst ein
-        // Kilometer ist eine Harfe wert.
-        if (Math.floor(meter / 1000) > Math.floor(state.meter / 1000)) klang()?.ton("meilenstein");
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);

@@ -747,11 +747,10 @@
     zuletzt.set(id, ms);
     klang()?.ton?.(id, o);
   }
-  // Perfekt in Folge: alle fünf perfekten Würfe einen Ton – zuerst die Harfe,
-  // dann die Leiter, Stufe um Stufe.
+  // Perfekt in Folge: nach den ersten fünf perfekten Würfen einmal die Harfe,
+  // danach genügen Wurf und Fang.
   function perfektTon(stufe) {
     if (stufe <= 1) ton("perfekt", { laut: 0.7 }, 100);
-    else ton("serie", { stufe, laut: 0.8 }, 100);
   }
 
   // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
@@ -854,15 +853,10 @@
       state.bild.jubelBis = state.echt + 1.3;
       state.jubel = Math.max(state.jubel, 1);
       funken(d.x1, d.y1, 16, ["#ffffff", "#9ff2f8", "#ffd23f"], 170);
-      // Ein Ding mehr in der Kaskade: die nächste Stufe.
-      ton("meilenstein", {}, 800);
     }
     if (state.punkte % 50 === 0) {
       schrift(`${state.punkte} Fänge!`, 0, 236, "#ffffff", 22, 1.4);
       state.jubel = Math.max(state.jubel, 0.8);
-      // Solange der Clown noch etwas bringt, kündigt ihn hier gleich die
-      // Trommel an – erst danach zählen die Fünfziger selbst.
-      if (anzahlDinge() >= DINGE_MAX) ton("meilenstein", {}, 800);
     }
     if (state.punkte > 0) setzeZahl();
   }

@@ -392,7 +392,6 @@
         if (phase === "play") {
           turnier()?.rundeBeginnt?.();
           mini()?.rundeBeginnt?.();
-          if (host.dataset.phase !== "play") klang()?.ton?.("start");
         }
         host.dataset.phase = phase;
       },

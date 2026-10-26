@@ -502,8 +502,6 @@
     // ist-kohle dazu: Der neue Kessel wird angefeuert, und das sieht aus wie
     // Anfeuern.
     kessel.node?.classList.add("ist-neu", "ist-kohle");
-    // Ein Kessel mehr: das nächste Level der Schicht.
-    klang()?.ton?.("meilenstein");
     kids()?.vibrate?.(14);
   }
 
@@ -688,10 +686,7 @@
       const kessel = neuerKessel();
       kessel.basis = START_WERT;
       kessel.seit = ankunft(i);
-      if (i >= KESSEL_START && jetzt - kessel.seit < 1500) {
-        kessel.node?.classList.add("ist-neu", "ist-kohle");
-        klang()?.ton?.("meilenstein");
-      }
+      if (i >= KESSEL_START && jetzt - kessel.seit < 1500) kessel.node?.classList.add("ist-neu", "ist-kohle");
     }
     zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
       if (state.phase === "zuschauen") zugAnwenden(probe, jetzt - probe.t > 1500);

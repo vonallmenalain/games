@@ -468,11 +468,6 @@
       node.classList.remove("is-laden");
       if (!node.isConnected) return;
       node.classList.add("is-gefangen");
-      // Das Häkchen ist da, der nächste Tipp zählt wieder: ein leiser Punkt.
-      // Nach dem letzten Fisch eines Teichs nicht – da kommt schon der
-      // nächste Teich. Und nicht mehr nach dem Ende der Runde.
-      const laeuft = state.phase === "play" || state.phase === "zuschauen";
-      if (laeuft && !state.fische.every((other) => other.gefangen)) klang()?.ton?.("punkt", { laut: 0.5 });
       window.setTimeout(() => node.classList.remove("is-gefangen"), FANG_MS);
     }, SPERRE_MS);
   }

@@ -1552,9 +1552,8 @@
         state.serie += 1;
         const text = state.serie > 1 ? `Perfekt! ×${state.serie}` : "Perfekt!";
         schrift(text, state.auto.x, state.auto.y + 30, "#ffe08a", 17);
-        // Perfekt in Folge: jede Kurve einen Ton höher.
-        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie });
-        else klang()?.ton("perfekt");
+        // Perfekt: die Harfe – nur der erste in Folge.
+        if (state.serie === 1) klang()?.ton("perfekt");
       } else {
         state.serie = 0;
       }
@@ -1592,11 +1591,6 @@
 
       const meter = Math.floor(meterBei(auto.s));
       if (meter !== state.meter) {
-        // An jeder Hundertermarke ein Pop, alle 500 m die lange Harfe.
-        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-          if (Math.floor(meter / 100) % 5 === 0) klang()?.ton("meilenstein");
-          else klang()?.ton("punkt", { laut: 0.6 });
-        }
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);

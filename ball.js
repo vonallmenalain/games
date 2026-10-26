@@ -246,12 +246,10 @@
     return true;
   }
   // Ein Kontakt: der Kick, eher leise – er kommt oft. Dazu für einen
-  // perfekten die Harfe, in Folge die Leiter; alle 25 Kontakte stattdessen
-  // der Meilenstein.
+  // perfekten die Harfe (nur der erste in Folge – danach genügt der Kick).
   function kickKlang(perfekt, reihe = state.combo) {
     if (!tonMitPause("ball.kick", { laut: 0.65 })) return;
-    if (state.kontakte % 25 === 0) klang()?.ton("meilenstein");
-    else if (perfekt) klang()?.ton(reihe >= 2 ? "serie" : "perfekt", { stufe: reihe, laut: 0.7 });
+    if (perfekt && reihe < 2) klang()?.ton("perfekt", { laut: 0.7 });
   }
 
   // ---------------------------------------------------------------------------

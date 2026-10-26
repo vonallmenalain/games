@@ -125,13 +125,9 @@
   // ---------------------------------------------------------------------------
   // Klänge
   // ---------------------------------------------------------------------------
-  // Ein ganzes Muster ohne Fehler ist ein perfekter Zug, und weil ein Fehler
-  // den Lauf beendet, ist jedes weitere eines in Folge: ab dem zweiten die
-  // Leiter, jedes Muster eine Stufe höher. Alle fünf Muster klingt statt
-  // dessen der Meilenstein. runden: wie viele Muster jetzt ganz gefunden sind.
-  function musterKlang(runden) {
-    if (runden % 5 === 0) klang()?.ton?.("meilenstein");
-    else klang()?.ton?.(runden >= 2 ? "serie" : "perfekt", { stufe: runden });
+  // Ein ganzes Muster ohne Fehler ist ein perfekter Zug: die Harfe.
+  function musterKlang() {
+    klang()?.ton?.("perfekt");
   }
 
   // Daneben getippt: Die Kachel klingt wie jede, dazu der Fehler – ein
@@ -259,7 +255,7 @@
     if (state.offen.size) return;
     state.phase = "merken";
     state.runde += 1;
-    musterKlang(state.runde);
+    musterKlang();
     prompt.textContent = "Alle gefunden!";
     stepTimer = window.setTimeout(nextRound, 620);
   }
@@ -326,7 +322,7 @@
     const jetzt = gefundenZahl(probe.a);
     if (jetzt <= schon) return;
     klang()?.ton?.("kacheln.tippen", { laut: 0.7 });
-    if (jetzt >= stufeFuer(runde).kacheln) musterKlang(runde + 1);
+    if (jetzt >= stufeFuer(runde).kacheln) musterKlang();
   }
 
   // Die Muster der Runden bis n – in derselben Reihe gewürfelt wie beim

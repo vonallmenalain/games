@@ -2819,7 +2819,6 @@
         if (meter !== state.meter) {
           if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
             schrift(`${Math.floor(meter / 100) * 100} m`, f.x + 40, f.y + 30, "#c9b8ff", 17);
-            ton("meilenstein", {}, 800);
           }
           state.meter = meter;
           state.punkte = meter;
@@ -2954,7 +2953,6 @@
     }
     const punkte = Math.max(0, Math.floor(s.punkte));
     if (punkte !== state.punkte) {
-      if (Math.floor(punkte / 100) > Math.floor(state.punkte / 100)) ton("meilenstein", {}, 800);
       state.punkte = punkte;
       state.meter = punkte;
       shell.setCount(punkte);

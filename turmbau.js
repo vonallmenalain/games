@@ -952,14 +952,12 @@
   }
 
   // Jeder Block, der liegen bleibt, schlägt auf – das ist der Punkt, er
-  // braucht keinen eigenen. Dazu höchstens ein zweiter Klang, nie mehr: alle
-  // zehn Blöcke der Meilenstein, sonst ein genauer Treffer (die Harfe, ab dem
-  // zweiten in Folge die Leiter, jede Stufe höher) oder das Stück, das
-  // abbricht.
+  // braucht keinen eigenen. Dazu höchstens ein zweiter Klang, nie mehr: der
+  // erste genaue Treffer in Folge (die Harfe – danach genügt das Landen) oder
+  // das Stück, das abbricht.
   function landeKlang(genau, brach) {
     ton("turmbau.landen", { laut: 0.8 });
-    if (state.punkte % 10 === 0) ton("meilenstein");
-    else if (genau) ton(state.combo >= 2 ? "serie" : "perfekt", { stufe: state.combo, laut: 0.8 });
+    if (genau) { if (state.combo < 2) ton("perfekt", { laut: 0.8 }); }
     else if (brach) ton("turmbau.ab", { laut: 0.8 });
   }
 

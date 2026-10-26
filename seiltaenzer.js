@@ -296,7 +296,6 @@
   let schrittGezaehlt = 0;
   let schrittZuletzt = -1e9;
   let boeGehoert = -1;
-  let meilensteinZuletzt = -1e9;
 
   // Ein Schritt je ganzem Gang, leise.
   function schrittKlang() {
@@ -318,19 +317,9 @@
     klang()?.ton("seiltaenzer.boee", { laut: 0.6 + 0.6 * w.rel });
   }
 
-  // 100 m und eine neue Landschaft können zusammenfallen: ein Meilenstein.
-  function meilenstein() {
-    const jetzt = performance.now();
-    if (jetzt - meilensteinZuletzt < 4000) return;
-    meilensteinZuletzt = jetzt;
-    klang()?.ton("meilenstein");
-  }
-
-  // «Gleichgewicht ×n»: die Harfe, in Folge die Leiter – für die ersten drei,
-  // danach nur noch für jede fünfte.
+  // «Gleichgewicht ×n»: die Harfe – nur das erste Mal in Folge.
   function ruheKlang(n) {
-    if (n > 3 && n % 5 !== 0) return;
-    klang()?.ton(n >= 2 ? "serie" : "perfekt", { stufe: n, laut: 0.8 });
+    if (n === 1) klang()?.ton("perfekt", { laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------
@@ -2663,7 +2652,6 @@
       if (meter !== state.meter && state.schritt === "lauf") {
         if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
           schrift(`${Math.floor(meter / 100) * 100} m`, l.x + 40, l.y + 64, "#ffffff", 17);
-          meilenstein();
         }
         state.meter = meter;
         state.punkte = meter;
@@ -2708,9 +2696,6 @@
     // Eine neue Landschaft beginnt.
     const n = Math.floor(meterBei(l.x) / ETAPPE);
     if (n > state.etappe) {
-      // Wer mitten im Lauf zuzuschauen beginnt, springt über Landschaften –
-      // das klingt nicht.
-      if (n === state.etappe + 1 && (state.phase === "spiel" || state.phase === "zuschauen")) meilenstein();
       state.etappe = n;
       state.etappeZeit = state.echt;
     }
@@ -2816,7 +2801,6 @@
     }
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
-      if (state.meter > 0 && Math.floor(meter / 100) === Math.floor(state.meter / 100) + 1) meilenstein();
       state.meter = meter;
       state.punkte = meter;
       shell.setCount(meter);

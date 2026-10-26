@@ -916,9 +916,6 @@
         if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
           const marke = Math.floor(meter / 100) * 100;
           schrift(`${marke} m`, f.x + 30, f.y + 26, "#7ff3ff", 16);
-          // Alle 100 m ein Pop, alle 500 m die lange Harfe – selten bleibt sie wertvoll.
-          if (marke % 500 === 0) klang()?.ton("meilenstein");
-          else klang()?.ton("punkt", { laut: 0.7 });
         }
         state.meter = meter;
         state.punkte = meter;

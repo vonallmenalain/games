@@ -3323,9 +3323,8 @@
         const text = state.serie > 1 ? `perfekt! ×${state.serie}` : "perfekt!";
         schrift(text, f.x + 24, f.y + 56, state.serie > 2 ? "#ffd23f" : "#fff1a8", state.serie > 2 ? 20 : 18);
         glanz(f.x, f.y + 12, Math.min(3, state.serie));
-        // Sauber in Folge: jeder Übergang einen Ton höher.
-        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie });
-        else klang()?.ton("perfekt");
+        // Sauber: die Harfe – nur der erste in Folge, danach nicht jedes Mal.
+        if (state.serie === 1) klang()?.ton("perfekt");
         kids()?.vibrate?.(10);
       } else {
         state.serie = 0;
@@ -3378,9 +3377,6 @@
           if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
             const marke = Math.floor(meter / 100) * 100;
             schrift(`${marke} m`, f.x + 40, f.y + 36, "#ffffff", 16);
-            // Alle 100 m ein Pop, alle 500 m die lange Harfe.
-            if (marke % 500 === 0) klang()?.ton("meilenstein");
-            else klang()?.ton("punkt", { laut: 0.7 });
           }
           state.meter = meter;
           state.punkte = meter;

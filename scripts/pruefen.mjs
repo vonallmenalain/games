@@ -610,7 +610,7 @@ pruefe("live.js führt in der Turnier-App zum Turnier statt zur Startseite", /Le
 // seine Plätze und keinen der alten Kinder-App-Klänge mehr.
 const klangJs = lies("klang.js");
 const plaetze = [...klangJs.matchAll(/^    "?([a-z]+(?:\.[a-z]+)?)"?: \{ ([sd]): "([a-z0-9-]+)"/gm)].map((m) => ({ id: m[1], art: m[2], name: m[3] }));
-pruefe(`klang.js nennt 109 Plätze (gefunden: ${plaetze.length})`, plaetze.length === 109);
+pruefe(`klang.js nennt 107 Plätze (gefunden: ${plaetze.length})`, plaetze.length === 107);
 const klangDateien = existsSync(path.join(WURZEL, "klang")) ? readdirSync(path.join(WURZEL, "klang")) : [];
 const genannt = new Set(plaetze.filter((p) => p.art === "d").map((p) => `${p.name}.mp3`));
 for (const d of genannt) pruefe(`klang/${d} liegt da`, klangDateien.includes(d));
@@ -626,8 +626,8 @@ for (const s of SPIELE) {
   }
 }
 const shellJs = lies("game-shell.js");
-pruefe("game-shell.js: Start, Tafel/Rekord und Stille kommen aus klang.js",
-  /ton\?\.\("start"\)/.test(shellJs) && /"rekord" : "tafel"/.test(shellJs) && /stille\?\.\(\)/.test(shellJs));
+pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum Start",
+  !/ton\?\.\("start"\)/.test(shellJs) && /"rekord" : "tafel"/.test(shellJs) && /stille\?\.\(\)/.test(shellJs));
 
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);
