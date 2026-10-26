@@ -3184,8 +3184,243 @@ try {
   }
 
   // --- 4g20. Fallschirm: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // (gefüllt von fallschirm.js)
+  // Ein Autopilot springt mehrere gewürfelte Runden bis zum zwölften Sprung –
+  // tief in die schwere Phase. Im Fall plant er voraus: Für die nächsten drei
+  // Hindernisse wählt er je eine Seite, rechnet den Weg mit denselben
+  // Schritten wie das Spiel durch und nimmt den, der nirgends anstösst. Er
+  // zieht knapp über der Mindesthöhe, hält unter dem Schirm gegen den Wind
+  // aufs Ziel und fängt im Band ab. Wo er nicht durchkommt, verlangt der Plan
+  // Unmögliches. Wer nach dem Absprung nichts tut, zieht nicht – die Reserve
+  // geht auf, die Runde ist vorbei. Wer zu tief zieht, ebenso. Dazu: die zwei
+  // Hälften lenken, der Wisch zieht, die Tasten tun dasselbe. Und ein Lauf,
+  // angeschaut, springt dieselben Sprünge mit derselben Zahl am Schluss.
   {
+    const fallschirmPilot = () => {
+      const F = window.LernappFallschirm;
+      const st = F.state;
+      const H = 1 / 240;
+      const pilot = { rand: 8, plan: null, planZeit: -1, planSprung: 0 };
+      const zielX = (sp, ts) => sp.x0 + sp.beweg * ts;
+      const vorausFall = (soll, bisZ) => {
+        const sp = st.sp;
+        let { x, z, vx, vz } = st.j;
+        let ts = st.ts;
+        for (let n = 0; n < 240 * 8 && z > bisZ; n += 1) {
+          const d = soll(ts, z) - x - vx * 0.22;
+          const lenk = Math.abs(d) < 0.25 ? 0 : Math.sign(d);
+          vz += 100 * (1 - (vz / sp.v) ** 2) * H;
+          z -= vz * H;
+          vx += (lenk * F.V_QUER_FREI + F.windHoehe(sp.wind, z) * 0.25 - vx) * (1 - Math.exp(-H / 0.28));
+          x += vx * H;
+          ts += H;
+          for (const h of sp.hindernisse) {
+            const lage = F.hindernisLage(h, ts);
+            if (z >= lage.z - h.dz && z <= lage.z + h.dz && Math.abs(x - lage.x) < h.r + F.R_FREI + 0.35) return { treffer: true, x, ts };
+          }
+        }
+        return { treffer: false, x, ts };
+      };
+      const planeFall = () => {
+        const sp = st.sp;
+        const j = st.j;
+        const bisZ = sp.hMin + pilot.rand;
+        const tSchirm = 0.8 + Math.max(10, bisZ - 45) / F.V_SINK;
+        const zielEnde = (ts) => zielX(sp, ts + tSchirm) - sp.wind * 1.5;
+        const kommende = sp.hindernisse.filter((h) => !h.getroffen && j.z > F.hindernisLage(h, st.ts).z - h.dz)
+          .sort((a, b) => a.tK - b.tK).slice(0, 3);
+        let seiten = [[]];
+        for (let m = 0; m < kommende.length; m += 1) seiten = seiten.flatMap((w) => [[...w, -1], [...w, 1]]);
+        let bester = null;
+        for (const wahl of seiten) {
+          const soll = (ts, z) => {
+            for (let m = 0; m < kommende.length; m += 1) {
+              const h = kommende[m];
+              const lage = F.hindernisLage(h, ts);
+              if (z > lage.z - h.dz) {
+                const tK = Math.max(ts, F.tFall(st.sprung, Math.min(z, lage.z + h.dz)));
+                return F.hindernisLage(h, tK).x + wahl[m] * (h.r + F.R_FREI + 1.6);
+              }
+            }
+            return zielEnde(ts);
+          };
+          const r = vorausFall(soll, bisZ);
+          const fehl = r.treffer ? 1e6 : Math.abs(r.x - zielEnde(r.ts));
+          if (!bester || fehl < bester.fehl) bester = { soll, fehl };
+        }
+        return bester;
+      };
+      pilot.schritt = (dt) => {
+        const j = st.j;
+        const sp = st.sp;
+        let lenk = 0;
+        if (st.schritt === "frei") {
+          if (!pilot.plan || st.ts - pilot.planZeit > 0.05 || pilot.planSprung !== st.sprung) {
+            pilot.plan = planeFall();
+            pilot.planZeit = st.ts;
+            pilot.planSprung = st.sprung;
+          }
+          const d = pilot.plan.soll(st.ts, j.z) - j.x - j.vx * 0.22;
+          lenk = Math.abs(d) < 0.25 ? 0 : Math.sign(d);
+        } else if (st.schritt === "schirm" || st.schritt === "auf") {
+          const tRest = Math.max(0.3, j.z / Math.max(1, j.vz));
+          const r = ((zielX(sp, st.ts + tRest) - j.x) / Math.max(0.5, tRest * 0.6) - st.wind.x) / F.V_QUER;
+          lenk = r > 0.15 ? 1 : r < -0.15 ? -1 : 0;
+        }
+        F.lenke(lenk);
+        const mitte = (F.FLARE_BAND.butter[0] + F.FLARE_BAND.butter[1]) / 2;
+        if ((st.schritt === "frei" && st.ts > 0.7 && j.z <= sp.hMin + pilot.rand) || (st.schritt === "schirm" && !st.flare && j.z <= mitte)) F.wisch();
+        if (dt) F.takt(dt);
+      };
+      window.__fsPilot = pilot;
+    };
+    const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+    await seite.goto(`${BASIS}/fallschirm`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFallschirm?.state && window.LernappFallschirm.view.cssW > 0, null, { timeout: 8000 });
+    await seite.evaluate(fallschirmPilot);
+    const runden = await seite.evaluate(() => {
+      const F = window.LernappFallschirm;
+      const st = F.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        F.losGehts();
+        const orte = new Set();
+        let hindernisse = 0;
+        for (let n = 0; st.phase === "spiel" && st.sprung <= 12 && n < 120 * 400; n += 1) {
+          if (st.schritt === "flugzeug" && st.t < 0.01) { orte.add(st.sp.art); hindernisse += st.sp.hindernisse.length; }
+          window.__fsPilot.schritt(1 / 120);
+        }
+        const ringe = st.serie.filter((s) => s.ring > 0).length;
+        raus.push({ sprung: st.sprung, phase: st.phase, schritt: st.schritt, grund: st.grund, punkte: st.punkte, landungen: st.serie.length, ringe, hindernisse, orte: [...orte].join(",") });
+      }
+      return raus;
+    });
+    pruefe(runden.every((r) => r.sprung >= 13 && r.phase === "spiel" && r.landungen >= 12 && r.ringe >= 12 && r.hindernisse >= 15 && r.punkte >= 1200),
+      `Fallschirm: Der Autopilot kommt nicht durch jede Runde – ${JSON.stringify(runden)}`);
+    // Jedes Ziel ist erreichbar: Die Ringe liegen ganz im Trockenen, auf
+    // dem Floss und dem Boot ganz auf dem Deck, und daneben ist Wasser.
+    const ziele = await seite.evaluate(() => {
+      const F = window.LernappFallschirm;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      const fehler = [];
+      F.planBis(40).forEach((sp) => {
+        if (sp.deck ? sp.r10 > sp.deck : [-1, 1].some((s) => F.untergrund(sp.x0 + s * sp.r10, sp.y) !== "boden")) fehler.push(`${sp.n}:${sp.art}`);
+        if (sp.deck && F.untergrund(sp.x0 + sp.deck + 3, sp.y) !== "wasser") fehler.push(`${sp.n}:${sp.art} ohne Wasser`);
+      });
+      return fehler;
+    });
+    pruefe(ziele.length === 0, `Fallschirm: Ein Ziel liegt nicht im Trockenen – ${ziele.join(" ")}`);
+    // Ohne Eingabe nach dem Absprung: nicht gezogen, die Reserve, die Tafel.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.keyboard.press("Space");
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ohne = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, phase: window.LernappFallschirm.state.phase, grund: window.LernappFallschirm.state.grund }));
+    pruefe(ohne.phase === "ende" && ohne.zahl !== undefined && ohne.grund === "Nicht gezogen!",
+      `Fallschirm: Ohne Eingabe endet die Runde nicht mit Ergebnis: ${JSON.stringify(ohne)}`);
+    // Zu tief gezogen: auch das ist das Ende.
+    const tief = await seite.evaluate(() => {
+      const F = window.LernappFallschirm;
+      const st = F.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      F.losGehts();
+      for (let n = 0; st.schritt === "frei" && st.j.z > st.sp.hMin - 4 && n < 120 * 30; n += 1) F.takt(1 / 120);
+      F.wisch();
+      for (let n = 0; st.phase === "spiel" && n < 120 * 5; n += 1) F.takt(1 / 120);
+      return { phase: st.phase, schritt: st.schritt, grund: st.grund, punkte: st.punkte };
+    });
+    pruefe(tief.phase === "ende" && tief.schritt === "reserve" && tief.grund === "Zu tief gezogen!" && tief.punkte === 0,
+      `Fallschirm: Zu tief gezogen beendet die Runde nicht: ${JSON.stringify(tief)}`);
+    // Die zwei Hälften mit echten Fingern: links, rechts (der zweite gilt),
+    // loslassen. Ein Wisch nach oben zieht – und lenkt nicht. Mit den Tasten
+    // dasselbe.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const box = await seite.locator(".fs-feld").boundingBox();
+    const finger = (id, x, y, typ) => seite.evaluate(({ id, x, y, typ }) => {
+      const ziel = typ === "pointerdown" ? document.elementFromPoint(x, y) : window;
+      ziel.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+    }, { id, x, y, typ });
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappFallschirm.state.phase, lenkung: window.LernappFallschirm.state.lenkung }));
+    const y0 = box.y + box.height * 0.7;
+    const schritte = [];
+    await finger(1, box.x + box.width * 0.2, y0, "pointerdown");
+    schritte.push(await lage());
+    await finger(2, box.x + box.width * 0.8, y0, "pointerdown");
+    schritte.push(await lage());
+    await finger(2, box.x + box.width * 0.8, y0, "pointerup");
+    schritte.push(await lage());
+    await finger(1, box.x + box.width * 0.2, y0, "pointerup");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowRight");
+    const soll = [
+      { phase: "spiel", lenkung: -1 }, { phase: "spiel", lenkung: 1 }, { phase: "spiel", lenkung: -1 },
+      { phase: "spiel", lenkung: 0 }, { phase: "spiel", lenkung: 1 },
+    ];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Fallschirm: Die zwei Hälften lenken nicht richtig: ${JSON.stringify(schritte)}`);
+    await seite.waitForFunction(() => window.LernappFallschirm.state.ts > 0.8, null, { timeout: 8000 }).catch(() => {});
+    await finger(3, box.x + box.width * 0.7, y0, "pointerdown");
+    await finger(3, box.x + box.width * 0.7, y0 - 70, "pointermove");
+    const wisch = await seite.evaluate(() => ({ lenkung: window.LernappFallschirm.state.lenkung }));
+    await seite.waitForTimeout(150);
+    await finger(3, box.x + box.width * 0.7, y0 - 70, "pointerup");
+    const gezogen = await seite.evaluate(() => ({ schritt: window.LernappFallschirm.state.schritt, zug: window.LernappFallschirm.state.zug }));
+    pruefe(wisch.lenkung === 0 && (gezogen.schritt === "auf" || gezogen.schritt === "schirm") && Boolean(gezogen.zug),
+      `Fallschirm: Der Wisch nach oben zieht nicht (oder lenkt): ${JSON.stringify({ wisch, gezogen })}`);
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.keyboard.press("ArrowLeft");
+    await seite.waitForFunction(() => window.LernappFallschirm.state.ts > 0.8, null, { timeout: 8000 }).catch(() => {});
+    await seite.keyboard.press("Space");
+    await seite.waitForTimeout(100);
+    pruefe(["auf", "schirm"].includes(await seite.evaluate(() => window.LernappFallschirm.state.schritt)),
+      "Fallschirm: Die Leertaste zieht den Schirm nicht.");
+    await kontext.close();
+
+    // Anschauen: Eine kurze Runde – ein Sprung bis zur Landung, im zweiten
+    // zieht er nicht – wird mit Saat und Weg hinterlegt. Angeschaut springt
+    // sie an denselben Orten und endet mit derselben Zahl.
+    const { kontext: k2, seite: s2 } = await neueSeite({ width: 390, height: 844 });
+    await s2.addInitScript(() => {
+      if (sessionStorage.getItem("__fs")) return;
+      sessionStorage.setItem("__fs", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await s2.goto(`${BASIS}/fallschirm`, { waitUntil: "load" });
+    await s2.waitForFunction(() => window.LernappFallschirm?.state && window.LernappFallschirm.view.cssW > 0, null, { timeout: 8000 });
+    await s2.evaluate(fallschirmPilot);
+    await s2.evaluate(() => new Promise((fertig) => {
+      const F = window.LernappFallschirm;
+      const st = F.state;
+      F.losGehts();
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.sprung === 1) window.__fsPilot.schritt(0);
+        else F.lenke(0);
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await s2.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    await s2.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("skyDive_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await s2.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`skyDive_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a), punkte: geist?.punkte || 0, welt: window.LernappFallschirm.weltText(),
+        landungen: window.LernappFallschirm.state.serie.length };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.landungen === 1,
+      `Fallschirm: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, welt: undefined })}`);
+    await s2.goto(`${BASIS}/fallschirm?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await s2.waitForFunction(() => window.LernappFallschirm?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await s2.evaluate(() => ({ phase: window.LernappFallschirm.state.phase, welt: window.LernappFallschirm.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === gespielt.welt, `Fallschirm: Beim Zuschauen entsteht eine andere Welt: ${JSON.stringify({ phase: zu.phase, gleich: zu.welt === gespielt.welt })}`);
+    await s2.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 45000 }).catch(() => {});
+    const ende = await s2.evaluate(() => ({ punkte: window.LernappFallschirm.state.punkte, sprung: window.LernappFallschirm.state.sprung, schritt: window.LernappFallschirm.state.schritt }));
+    pruefe(ende.punkte === gespielt.punkte && ende.sprung === 2 && ende.schritt === "reserve",
+      `Fallschirm: Der angeschaute Lauf endet anders als gespielt: ${JSON.stringify({ ende, gespielt: gespielt.punkte })}`);
+    await k2.close();
   }
 
   // --- 4g21. Holzfäller: schaffbar, und wer nichts tut, ist bald draussen ----------

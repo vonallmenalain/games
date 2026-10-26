@@ -1958,7 +1958,7 @@
     { tint: [255, 238, 214], dunst: [216, 230, 246], dunstA: 0.36, licht: 0 },
     { tint: [255, 255, 255], dunst: [206, 226, 248], dunstA: 0.3, licht: 0 },
     { tint: [255, 190, 138], dunst: [255, 198, 152], dunstA: 0.36, licht: 0.3 },
-    { tint: [58, 70, 124], dunst: [20, 26, 58], dunstA: 0.42, licht: 1 },
+    { tint: [52, 64, 120], dunst: [16, 22, 52], dunstA: 0.4, licht: 1 },
   ];
   const tagBei = (n) => (n <= 2 ? 0.15 * (n - 1) : n <= 5 ? 1 : n === 6 ? 1.45 : n === 7 ? 1.95 : n === 8 ? 2.35 : n === 9 ? 2.75 : 3);
 
@@ -2755,6 +2755,7 @@
   // Der Springer – mit allem, was zu ihm gehört.
   function zeichneSpringer(liste) {
     const j = state.j;
+    state.schirmOben = null;
     const sch = state.schritt;
     const pJ = proj(j.x, j.y, j.z);
     if (!pJ) return;
@@ -2814,6 +2815,7 @@
               g.stroke();
             } });
           }
+          state.schirmOben = pS.y - TIEFE * 0.6 * pS.k;
           liste.push({ d: pS.d, malen: () => {
             if (j.auf > 0.25) maleLeinen(pS, pS.k, pJ, pJ.k, neig);
             maleSchirm(pS, pS.k, j.auf, neig, SCHIRM_FARBEN);
@@ -2871,7 +2873,7 @@
       }
       g.restore();
       // Nachts blitzt am Helm ein Licht.
-      if (tag.licht > 0.4 && !amBoden && Math.sin(state.echt * 6.5) > 0.85) lichtPunkt(pJ.x, pJ.y - 0.4 * pJ.k, 1.4 * pJ.k + 6, "weiss", tag.licht);
+      if (tag.licht > 0.4 && !amBoden && Math.sin(state.echt * 6.5) > 0.85) lichtPunkt(pJ.x, pJ.y - 0.4 * pJ.k, 0.45 * pJ.k + 5, "weiss", tag.licht);
     } });
   }
 
@@ -3061,7 +3063,7 @@
     const orte = window.LernappGeist?.orte?.(gegner) || [];
     if (!orte.length) return;
     const namen = [];
-    for (const o of orte) {
+    orte.forEach((o) => {
       // Wem im Live-Modus zugeschaut wird, der ist der Springer selbst –
       // kein Geist dazu, nur sein Name (geist.js, namen).
       const lage = cLesen(o.c || 0);
@@ -3069,11 +3071,11 @@
       const z = o.b / 10;
       const p = proj(x, state.sp.y, Math.max(0, z), 1.5);
       if (!p) {
-        namen.push({ ...o, sx: view.cssW / 2 + (x - kam.x) * 2, sy: view.frei - 40, weit: "" });
-        continue;
+        namen.push({ ...o, sx: view.cssW / 2 + (x - kam.x) * view.K * 0.3, sy: view.frei - 40, weit: "" });
+        return;
       }
       namen.push({ ...o, sx: p.x, sy: p.y - (lage.teil >= 2 ? 6 : 1.4) * p.k - 4, weit: "" });
-      if (o.ziel) continue;
+      if (o.ziel) return;
       liste.push({ d: p.d + 0.02, malen: () => {
         g.globalAlpha = 0.42 * o.blass;
         if (lage.teil >= 2 && lage.teil !== 4 && lage.teil !== 5) {
@@ -3090,7 +3092,7 @@
         g.restore();
         g.globalAlpha = 1;
       } });
-    }
+    });
     geisterNamen = namen;
   }
   let geisterNamen = [];
@@ -3175,6 +3177,8 @@
       if (sp) {
         const tx = zielXJetzt();
         const r = (sp.deck || sp.r10) + 1.5;
+        const pm = proj(tx, sp.y, 0);
+        if (pm) lichtPunkt(pm.x, pm.y, Math.max(10, r * 1.5 * pm.k), "warm", T.licht * 0.55);
         for (let m = 0; m < 16; m += 1) {
           const a = (m / 16) * Math.PI * 2;
           const p = proj(tx + Math.cos(a) * r, sp.y + Math.sin(a) * r * (sp.deck ? 0.8 : 1), 0.3);
@@ -3281,6 +3285,7 @@
     if (!state.schriften.length) return;
     const j = state.j;
     const pJ = proj(j.x, j.y, Math.max(0, j.z)) || { x: view.cssW / 2, y: view.frei + view.hu * 0.4 };
+    const oben = Math.min(pJ.y - 0.9 * pJ.k, state.schirmOben ?? Infinity) - 22;
     g.textAlign = "center";
     g.textBaseline = "middle";
     for (const s of state.schriften) {
@@ -3289,7 +3294,7 @@
       const pop = alter < 0.16 && !ruhig() ? 0.6 + (alter / 0.16) * 0.4 + Math.sin((alter / 0.16) * Math.PI) * 0.25 : 1;
       const gross = Math.round(s.gross * clamp(view.hu / 700, 0.85, 1.5) * pop);
       const x = clamp(pJ.x, 90, view.cssW - 90);
-      const y = Math.max(view.frei + gross + 40, pJ.y - 60 + s.dy - (1 - k) * 26);
+      const y = Math.max(view.frei + gross + 40, oben + s.dy - (1 - k) * 26);
       g.globalAlpha = Math.min(1, k * 2.5);
       g.font = `900 ${gross}px system-ui, sans-serif`;
       g.lineWidth = Math.max(3, gross * 0.2);
@@ -3518,7 +3523,9 @@
       geisterNamen = [];
     }
     if (state.weiss > 0.01) {
-      g.fillStyle = `rgba(250, 252, 255, ${state.weiss * (ruhig() ? 0.5 : 0.85)})`;
+      const T = tageszeit();
+      const nebel = [lerp(250, T.dunst[0], T.licht), lerp(252, T.dunst[1], T.licht), lerp(255, T.dunst[2] + 30, T.licht)].map(Math.round);
+      g.fillStyle = rgba(nebel, state.weiss * (ruhig() ? 0.5 : 0.85));
       g.fillRect(0, 0, view.cssW, view.cssH);
     }
     if (state.blitz > 0.01 && !ruhig()) {
@@ -3996,6 +4003,12 @@
     }
     effekteTakt(dt);
     kameraFolgt(dt);
+    const bald = state.phase === "spiel" && state.sp && ((state.schritt === "frei" && state.j.z < state.sp.hMin + 2.5 * state.sp.tau)
+      || (state.schritt === "schirm" && !state.flare && state.j.z < FLARE_BAND.butter[1] + 14));
+    if (knoepfe && bald !== wischBald) {
+      wischBald = bald;
+      knoepfe.querySelector(".fs-wisch")?.classList.toggle("ist-bald", bald);
+    }
     if (state.phase === "spiel" && state.sp) {
       gegner?.takt(state.punkte, { a: Math.round((state.j.x - state.sp.x0) * 10), b: Math.round(Math.max(0, state.j.z) * 10), c: cKodieren() });
     }
@@ -4013,6 +4026,7 @@
     if (ersteBilder > 0) ersteBilder -= 1;
   }
   let ersteBilder = 0;
+  let wischBald = false;
 
   // ---------------------------------------------------------------------------
   // Zuschauen
@@ -4205,6 +4219,7 @@
     planBis(2);
     sprungBeginnen(1, true);
     ersteBilder = 3;
+    wischBald = false;
 
     last = performance.now();
     frame = window.requestAnimationFrame(loop);
