@@ -693,7 +693,7 @@
           z.zahl.classList.remove("is-pop");
           void z.zahl.offsetWidth;
           z.zahl.classList.add("is-pop");
-          kids()?.playJingle?.("star");
+          window.ArcadeKlang?.ton?.("countdown", { stufe: Number(n) });
         }
       } else {
         starte();
@@ -721,7 +721,7 @@
     z.sperre = false;
     setze(z.zahl, "Los!");
     z.start.dataset.stufe = "los";
-    kids()?.playJingle?.("unlock");
+    window.ArcadeKlang?.ton?.("countdown", { stufe: 0 });
     kids()?.vibrate?.([10, 30, 10]);
     window.setTimeout(() => { z.start.hidden = true; }, 650);
     if (z.nurZuschauen) return;

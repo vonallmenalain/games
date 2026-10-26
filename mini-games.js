@@ -1780,7 +1780,8 @@
     koerper.append(inhalt);
     dlg.append(kopf, koerper);
     dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
-    dlg.addEventListener("close", () => dlg.remove());
+    dlg.addEventListener("close", () => { window.ArcadeKlang?.ton?.("fenster", { laut: 0.7 }); dlg.remove(); });
+    window.ArcadeKlang?.ton?.("fenster");
     document.body.append(dlg);
     if (dlg.showModal) dlg.showModal();
     else {

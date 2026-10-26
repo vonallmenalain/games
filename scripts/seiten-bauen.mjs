@@ -254,7 +254,7 @@ const SDK_DATABASE = "https://www.gstatic.com/firebasejs/12.7.0/firebase-databas
 // der Adminbereich rechnet mit denselben Wertungen. Es steht vor der Bühne
 // (game-shell.js) und vor dem Spiel, denn beide fragen schon beim Aufbauen
 // danach.
-const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
+const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "klang.js", "mini-games.js", "turnier.js"];
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 // geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
 // in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.

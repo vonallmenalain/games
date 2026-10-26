@@ -55,6 +55,7 @@ const CORE_ASSETS = [
   "./vollbild.js?v=2026-10-26-1",
   "./highscore.js?v=2026-10-26-1",
   "./cloud.js?v=2026-10-26-1",
+  "./klang.js?v=2026-10-26-1",
   "./mini-games.js?v=2026-10-26-1",
   "./turnier.js?v=2026-10-26-1",
   "./pwa.js?v=2026-10-26-1",
