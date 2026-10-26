@@ -208,6 +208,41 @@ gibt 10 Punkte, Schriftrollen und ein schneller Raum (in echter Zeit) geben
 dazu; der erste Treffer beendet die Runde. Die Räume werden immer dichter,
 und beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
 
+### Die Klänge
+
+Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
+`playJingle`). Jetzt hat jedes Spiel eigene Klänge, ausgewählt auf einer
+Klangauswahl mit 442 Vorschlägen für 109 Plätze. Gespielt werden sie von
+`klang.js` (`window.ArcadeKlang`):
+
+    ArcadeKlang.ton("punkt")                 einheitlich für alle Spiele
+    ArcadeKlang.ton("ball.kick", { laut })   der eigene Klang eines Spiels
+    ArcadeKlang.ton("serie", { stufe })      jede Stufe einen Ton höher
+    ArcadeKlang.kulisse("huegel.wind")       eine Schleife: setze(0…1), laut(0…1), stop()
+
+**Für alle Spiele gleich** sind Start, Punkt, Perfekt, Serie, Meilenstein,
+Fehler, die Tafel nach der Runde, der eigene Rekord (ein eigener, festlicher
+Klang, wenn der Bestwert fällt), Gegner überholt, der Countdown im
+Multiplayer, Knöpfe und Fenster. Start, Tafel/Rekord und Stille kommen aus
+der Bühne (`game-shell.js`), Überholen aus `geist.js`, der Countdown aus
+`live-spiel.js`; den Rest ruft das Spiel selbst.
+
+**Je Spiel** gibt es eigene Klänge (Kick, Tor, Platsch, Schnitt, Echo-Ruf …)
+und leise **Kulissen**, die mit dem Spiel gehen: der Motor mit dem Tempo, der
+Wind mit der Schicht, der Brenner nur solange gedrückt, die Ski in der Spur,
+der Herzschlag des Ninjas mit der Weltzeit. Eine Kulisse startet mit der
+Runde und endet mit ihr; die Tafel hält alle an (`stille()`).
+
+**Woher:** 47 kurze Aufnahmen aus freien Sammlungen (Kenney, OpenGameArt –
+alle CC0) liegen als MP3 unter `klang/` und werden je Spiel vorgeladen; der
+Rest entsteht im Browser (Glocken, 8-Bit-Töne, Wind, Schnee, Motoren). Alles
+ist auf dieselbe Lautheit gebracht (Einmal-Klänge −20 dB, Kulissen −27 dB,
+gemessen) und läuft über einen leisen Hauptregler mit Begrenzer: Die Klänge
+sollen begleiten, nicht übertönen. Der Ton-Schalter oben rechts (`kids.js`)
+gilt auch hier – beide spielen über denselben AudioContext. `npm run pruefen`
+hält fest, dass jedes Spiel alle seine Plätze benutzt und keinen alten
+Kinder-App-Klang mehr.
+
 ### Das Aussehen: dunkel, überall
 
 Alle Seiten – Startseite, Turnier, Spiele, Multiplayer, Adminbereich – stehen
