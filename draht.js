@@ -233,7 +233,6 @@
     summen.setze(nah);
     summen.laut(0.5 + 0.7 * nah);
   }
-  let meilensteinZuletzt = -1e9;
 
   // ---------------------------------------------------------------------------
   // Der Draht
@@ -1588,22 +1587,11 @@
     summenStellen();
   }
 
-  // Alle 100 m ein Meilenstein – still bleibt der Sprung, wenn jemand mitten
-  // im Lauf zuzuschauen beginnt.
-  function meterKlang(vorher, meter) {
-    if (vorher <= 0 && meter > 100) return;
-    if (Math.floor(meter / 100) <= Math.floor(vorher / 100)) return;
-    const jetzt = performance.now();
-    if (jetzt - meilensteinZuletzt < 2000) return;
-    meilensteinZuletzt = jetzt;
-    klang()?.ton("meilenstein");
-  }
 
   function zaehle() {
     const meter = Math.floor(meterBei(state.S));
     if (meter === state.meter) return;
     if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) schrift(`${Math.floor(meter / 100) * 100} m`, "#5fe6dc", 1);
-    meterKlang(state.meter, meter);
     state.meter = meter;
     state.punkte = meter;
     shell.setCount(meter);
@@ -1698,7 +1686,6 @@
     }
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
-      meterKlang(state.meter, meter);
       state.meter = meter;
       state.punkte = meter;
       shell.setCount(meter);

@@ -1217,11 +1217,10 @@
       const wort = kosten <= 40 * PUNKTE_TREIBSTOFF ? "Sparsam!" : netto > 0 ? "Gelandet" : "Teuer gelandet";
       schrift(`${wort} +${PUNKTE_PLATTE}`, f.x, f.y + 38, kosten <= 40 * PUNKTE_TREIBSTOFF ? "#ffe08a" : "#ffffff", 16);
       schrift(`Flug −${kosten}`, f.x, f.y + 20, "#ff9b9b", 12);
-      // Zum Aufsetzen leise dazu: alle fünf Plattformen die lange Harfe,
-      // sonst für den ersten sparsamen Flug in Folge die Harfe.
+      // Zum Aufsetzen leise dazu: für den ersten sparsamen Flug in Folge die
+      // Harfe.
       state.sparFolge = kosten <= 40 * PUNKTE_TREIBSTOFF ? state.sparFolge + 1 : 0;
-      if (state.landungen % 5 === 0) klang()?.ton("meilenstein");
-      else if (state.sparFolge === 1) klang()?.ton("perfekt", { laut: 0.7 });
+      if (state.sparFolge === 1) klang()?.ton("perfekt", { laut: 0.7 });
       // Das Tanken, sobald der Balken sich füllt.
       if (state.getankt.menge > 0) klang()?.ton("mondlandung.tanken", { laut: 0.8, verzoegerung: 0.3 });
     }

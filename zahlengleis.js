@@ -274,11 +274,6 @@
     else klang()?.ton?.("fehler", spaeter);
   }
 
-  // Ein neues Gleis (bis 500, bis 1000): ein neues Level.
-  function gleisKlang(index) {
-    if (index > 0 && PLAN[index] !== PLAN[index - 1]) klang()?.ton?.("meilenstein");
-  }
-
   // ---------------------------------------------------------------------------
   // Das Gleis
   // ---------------------------------------------------------------------------
@@ -420,7 +415,6 @@
     gleis.setAttribute("aria-valuenow", "0");
     gleis.setAttribute("aria-valuetext", `Lok steht bei 0. Gesucht ist ${state.zahl}.`);
     shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === state.index));
-    gleisKlang(state.index);
     meldeZug(0);
   }
 
@@ -533,7 +527,6 @@
       void schild.offsetWidth;
       schild.classList.add("is-neu");
       shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === index));
-      if (frisch) gleisKlang(index);
     }
     if (was === 1) {
       fahrtAus();

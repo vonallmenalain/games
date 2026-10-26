@@ -2,12 +2,16 @@
  * klang.js – die Klänge der arcade.
  * ---------------------------------------------------------------------------
  * Ausgewählt im Oktober 2026 auf einer Klangauswahl mit 442 Vorschlägen für
- * 109 Plätze: einheitliche Klänge für alle Spiele (Start, Punkt, Perfekt,
+ * 109 Plätze: einheitliche Klänge für alle Spiele (Punkt, Perfekt,
  * Meilenstein, Fehler, Tafel, Rekord, Überholt, Countdown, Knopf, Fenster)
- * und je Spiel eigene. Die «Serie» (jedes Perfekt in Folge einen Ton höher)
- * ist wieder weg: Zum Klang der Aktion selbst war sie einer zu viel. Ein Teil sind kurze Aufnahmen aus freien
- * Sammlungen (Kenney, OpenGameArt – alle CC0) unter klang/, der Rest entsteht
- * hier im Browser: Glocken, 8-Bit-Töne, Wind, Motoren, Schnee.
+ * und je Spiel eigene. Ein Teil sind kurze Aufnahmen aus freien Sammlungen
+ * (Kenney, OpenGameArt – alle CC0) unter klang/, der Rest entsteht hier im
+ * Browser: Glocken, 8-Bit-Töne, Wind, Motoren, Schnee.
+ *
+ * Weniger ist mehr: Wieder weg sind die «Serie» (jedes Perfekt in Folge
+ * einen Ton höher) und der Ton zum Rundenstart. Ein Klang kommt nur noch zu
+ * einem perfekten Zug oder wenn etwas geschafft ist (Scheibe, Teich, Schiff,
+ * Raum) – nie nur, weil eine Zahl erreicht ist (alle 10, alle 100 m).
  *
  * Ein Spiel ruft:
  *
@@ -48,7 +52,6 @@
   // tempo: setze() einer Aufnahme verstellt die Abspielgeschwindigkeit
   // (Motoren); sonst nur ihre Lautstärke.
   const PLAETZE = {
-    start: { s: "start" },
     punkt: { s: "pop" },
     perfekt: { s: "harfe" },
     meilenstein: { s: "harfe-lang" },
@@ -334,11 +337,6 @@
   // Die Einmal-Klänge. t ist der Zeitpunkt im AudioContext, o die Wahl aus
   // ton() (stufe).
   const SYNTH = {
-    start: (t) => {
-      rausch(t, { dauer: 0.28, f: 400, f2: 3000, q: 1.5, a: 0.2, r: 0.06, laut: 0.12 });
-      ton(note(84), t + 0.25, { typ: "triangle", r: 0.35, laut: 0.16 });
-      ton(note(91), t + 0.25, { r: 0.35, laut: 0.08 });
-    },
     pop: (t) => { ton(280, t, { f2: 900, gleit: 0.05, r: 0.09, laut: 0.35 }); rausch(t, { dauer: 0.015, f: 3000, r: 0.01, laut: 0.05 }); },
     harfe: (t) => [72, 76, 79, 84].forEach((n, i) => ton(note(n + 12), t + i * 0.06, { typ: "triangle", r: 0.45, laut: 0.14 })),
     "harfe-lang": (t) => [72, 76, 79, 84, 88, 91, 96].forEach((n, i) => ton(note(n), t + i * 0.055, { typ: "triangle", r: 0.6, laut: 0.13 })),
@@ -405,7 +403,7 @@
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
   // Schleifen bei k = 0.5 auf -27 dB (wie die Aufnahmen in klang/).
   const PEGEL = {
-    start: 9.0, pop: 0.4, harfe: 6.1, "harfe-lang": 5.2, "ab-sanft": 6.1, "fanfare-klein": 3.7, fanfare: 6.6,
+    pop: 0.4, harfe: 6.1, "harfe-lang": 5.2, "ab-sanft": 6.1, "fanfare-klein": 3.7, fanfare: 6.6,
     ueberholt: 11.0, countdown: 0.3, klick: 10.2, "woosh-kurz": 14.0, holzblock: -0.5, ab: 5.7, "whomp-weich": -0.6,
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,

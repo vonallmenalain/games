@@ -344,13 +344,11 @@
     welle.fertig = true;
     const richtig = id === welle.antwort;
 
-    // Jeder Wisch rauscht, darum nicht zu laut; dazu sagt ein zweiter Klang,
-    // ob er stimmte: ein Punkt, alle zehn richtigen der Meilenstein.
+    // Jeder Wisch rauscht, darum nicht zu laut. Daneben sagt der Fehler, dass
+    // er nicht stimmte; ein richtiger braucht keinen zweiten Klang.
     klang()?.ton?.("blaetter.wisch", { laut: 0.7 });
     if (richtig) {
       state.richtig += 1;
-      if (state.richtig % 10 === 0) klang()?.ton?.("meilenstein");
-      else klang()?.ton?.("punkt", { laut: 0.7 });
       brumm(16);
     } else {
       state.falsch += 1;

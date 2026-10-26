@@ -520,10 +520,8 @@
     const x = spurX(d.bahn, d.spur);
     funken(x, d.y, ruhig() ? 4 : 11, 0.9);
     schrift("+1", bx(x), by(d.y) - 14, "#ffd23f", 1.2, 0.75);
-    if (state.punkte % 10 === 0) {
-      state.glanz = 1;
-      klang()?.ton("meilenstein");
-    } else tonMitPause("punkt", { laut: 0.8 });
+    if (state.punkte % 10 === 0) state.glanz = 1;
+    tonMitPause("punkt", { laut: 0.8 });
     erledigt(d);
   }
 

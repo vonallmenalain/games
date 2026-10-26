@@ -1591,11 +1591,6 @@
 
       const meter = Math.floor(meterBei(auto.s));
       if (meter !== state.meter) {
-        // An jeder Hundertermarke ein Pop, alle 500 m die lange Harfe.
-        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-          if (Math.floor(meter / 100) % 5 === 0) klang()?.ton("meilenstein");
-          else klang()?.ton("punkt", { laut: 0.6 });
-        }
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);

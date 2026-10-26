@@ -1107,9 +1107,6 @@
       for (let i = 0; i < n; i += 1) physik(dt / n);
       const meter = Math.floor(meterBei(state.v.x));
       if (meter !== state.meter) {
-        // Er ist schnell: Die Hunderter flögen nur so vorbei. Erst ein
-        // Kilometer ist eine Harfe wert.
-        if (Math.floor(meter / 1000) > Math.floor(state.meter / 1000)) klang()?.ton("meilenstein");
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);

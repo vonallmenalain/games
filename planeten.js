@@ -1108,14 +1108,9 @@
       } else {
         state.trefferFolge = 0;
       }
-      // Zur Landung leise dazu: alle zehn Planeten die lange Harfe, sonst
-      // für den ersten Volltreffer in Folge die Harfe.
-      if (state.erreicht % 10 === 0) {
-        schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
-        klang()?.ton("meilenstein");
-      } else if (state.trefferFolge === 1) {
-        klang()?.ton("perfekt", { laut: 0.7 });
-      }
+      // Zur Landung leise dazu: für den ersten Volltreffer in Folge die Harfe.
+      if (state.erreicht % 10 === 0) schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
+      if (state.trefferFolge === 1) klang()?.ton("perfekt", { laut: 0.7 });
     }
     planetenBis(state.auf + 6);
   }

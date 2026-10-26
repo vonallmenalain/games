@@ -2987,8 +2987,6 @@
     state.startRest = 1.3;
     state.blendeZiel = 0;
     karteZeigen(state.startRest + 1.4);
-    // Die nächste, grössere Schanze.
-    ton("meilenstein", {}, 800);
     if (state.nr === 4) schrift("Flutlicht an!", "#fff6c8", 20, 1.6, { folgt: false, x: state.sp.x + 6, y: state.sp.y + 6 });
   }
 
@@ -3185,7 +3183,6 @@
       state.schritt = "start";
       state.blende = 0.8;
       karteZeigen(2.4);
-      if (nr > 0) ton("meilenstein", {}, 800);
     }
     const sp = state.sp;
     const sch = state.sch;

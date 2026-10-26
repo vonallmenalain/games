@@ -3749,8 +3749,6 @@
     if (!ersterSprung) {
       state.weiss = 1;
       state.banner = { titel: `Sprung ${n}`, unter: `${ORTSNAME[sp.art]} · mindestens ${sp.hMin} m`, leben: 2.3, max: 2.3 };
-      // Der nächste Sprung, ein Stück schwerer.
-      if (state.phase === "spiel" || state.phase === "zuschauen") ton("meilenstein", {}, 800);
     }
     state.teile = state.teile.filter((t) => t.art === "konfetti");
     kameraFolgt(0, true);
