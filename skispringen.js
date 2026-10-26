@@ -595,9 +595,10 @@
    * Leinwänden – der Himmel so gross wie das Bild, die drei Bergketten als
    * Streifen, die sich nahtlos aneinanderreihen. Im Bild werden sie nur
    * kopiert, jede mit ihrer eigenen Verschiebung (Parallaxe): die Alpen
-   * kaum, die Wälder davor mehr. Gemalt wird eine Tageszeit erst, wenn sie
-   * gebraucht wird (zwischen zwei Sprüngen, hinter der Blende), und
-   * höchstens zwei liegen im Speicher.
+   * kaum, die Wälder davor mehr – in der Auflösung der Leinwand, Bildpunkt
+   * für Bildpunkt. Gemalt wird eine Tageszeit erst, wenn sie gebraucht wird
+   * (zwischen zwei Sprüngen, hinter der Blende), und nur eine liegt im
+   * Speicher.
    */
   const TAGESZEITEN = [
     {
@@ -689,16 +690,15 @@
     if (bilder.schluessel !== schluessel) {
       bilder.schluessel = schluessel;
       bilder.tage.clear();
-      bilder.q = Math.min(view.dpr, 1.5);
+      // In der Auflösung der Leinwand: Dann ist jedes Bild nur ein Kopieren,
+      // ohne Skalieren.
+      bilder.q = view.dpr;
     }
     let b = bilder.tage.get(i);
     if (!b) {
-      if (bilder.tage.size >= 2) {
-        // Die am weitesten entfernte Tageszeit macht Platz.
-        let weg = null;
-        bilder.tage.forEach((_, k) => { if (weg === null || Math.abs(k - i) > Math.abs(weg - i)) weg = k; });
-        bilder.tage.delete(weg);
-      }
+      // Nur eine Tageszeit liegt im Speicher: Sie ist so gross wie die
+      // Leinwand, und zurück geht es nie.
+      bilder.tage.clear();
       b = maleTag(i);
       bilder.tage.set(i, b);
     }
@@ -706,7 +706,7 @@
   }
 
   // So breit ist ein Streifen der Berge, bevor er sich wiederholt.
-  const streifenBreite = () => Math.round(Math.max(view.cssW, 640) * 1.6);
+  const streifenBreite = () => Math.round(Math.max(view.cssW, 560) * 1.3);
 
   function maleTag(i) {
     const T = TAGESZEITEN[i];
@@ -907,7 +907,8 @@
 
     // Tannen: drei schlanke und drei im Schatten (für den Wald vorne am
     // Hang), fertig gemalt – im Bild nur noch kopiert.
-    const baeume = [0, 1, 2, 3, 4, 5].map((n) => maleTanne(T, n % 3, n >= 3, i >= 4, q));
+    // Sie werden meist kleiner gezeichnet, als sie gemalt sind: halbe Auflösung genügt.
+    const baeume = [0, 1, 2, 3, 4, 5].map((n) => maleTanne(T, n % 3, n >= 3, i >= 4, Math.min(q, 1.25)));
 
     return { himmel: himmel.c, fern: fern.c, mitte: mitte.c, nah: nah.c, wolken, baeume, TW, fernH, mitteH, nahH, T };
   }
@@ -1041,32 +1042,45 @@
 
   function zeichneHintergrund() {
     const B = tagesBilder(tagBei(state.nr));
+    // In Bildpunkten der Leinwand, ganzzahlig: nur Kopieren.
     g.setTransform(1, 0, 0, 1, 0, 0);
-    g.drawImage(B.himmel, 0, 0, canvas.width, canvas.height);
-    flach();
-    const W = view.cssW;
-    const H = view.cssH;
+    const q = view.dpr;
+    const W = canvas.width;
+    const H = canvas.height;
+    g.drawImage(B.himmel, 0, 0);
     const yRef = state.sch ? state.sch.kPunkt.y * 0.5 : 0;
     const dy = kam.y - yRef;
     // Die Wolken ziehen langsam, unabhängig vom Springer.
+    flach();
     B.wolken.forEach((w, n) => {
-      const breite = W + w.w * 2;
+      const breite = view.cssW + w.w * 2;
       const x = ((((n * 0.37 + 0.1) * breite - state.echt * (4 + n * 2) - kam.x * 0.2) % breite) + breite) % breite - w.w;
-      const y = H * (0.08 + n * 0.09) + dy * 0.1;
+      const y = view.cssH * (0.08 + n * 0.09) + dy * 0.1;
       g.drawImage(w.c, x, y, w.w, w.h);
     });
+    g.setTransform(1, 0, 0, 1, 0, 0);
     for (const e of EBENEN) {
       const bild = B[e.art];
-      const hoch = B[`${e.art}H`];
-      const TW = B.TW;
-      const oben = Math.round(H * e.fuss - hoch + dy * e.py);
-      const x0 = (((-kam.x * e.px) % TW) + TW) % TW - TW;
-      for (let x = x0; x < W; x += TW) g.drawImage(bild, Math.round(x), oben, TW, hoch);
+      const TW = bild.width;
+      const hoch = bild.height;
+      const oben = Math.round((view.cssH * e.fuss - B[`${e.art}H`] + dy * e.py) * q);
+      const x0 = Math.round(((((-kam.x * e.px) % B.TW) + B.TW) % B.TW - B.TW) * q);
+      // Nur kopieren, was im Bild ist – quer und hoch zugeschnitten.
+      const y0 = Math.max(0, -oben);
+      const y1 = Math.min(hoch, H - oben);
+      if (y1 > y0) {
+        for (let x = x0; x < W; x += TW) {
+          const sx = Math.max(0, -x);
+          const sw = Math.min(TW, W - x) - sx;
+          if (sw > 0) g.drawImage(bild, sx, y0, sw, y1 - y0, x + sx, oben + y0, sw, y1 - y0);
+        }
+      }
       if (e.art === "nah" && oben + hoch < H) {
         g.fillStyle = B.T.nah.wald;
         g.fillRect(0, oben + hoch - 1, W, H - oben - hoch + 1);
       }
     }
+    flach();
   }
 
   // ---------------------------------------------------------------------------
@@ -1739,15 +1753,6 @@
       const runter = b.dreh > 0;
       const farbe = runter ? "255, 196, 120" : "150, 225, 255";
       const stark = Math.abs(b.dreh) / 66;
-      // Ein Hauch Farbe über der ganzen Stelle.
-      const mx = (b.x0 + b.x1) / 2;
-      const grund = hangBei(sch, mx).y;
-      const saeule = g.createLinearGradient(0, bildY(grund + hoehe), 0, bildY(grund));
-      saeule.addColorStop(0, `rgba(${farbe}, 0)`);
-      saeule.addColorStop(0.5, `rgba(${farbe}, ${(0.035 + stark * 0.04) * vorbei})`);
-      saeule.addColorStop(1, `rgba(${farbe}, 0)`);
-      g.fillStyle = saeule;
-      g.fillRect(bildX(b.x0), bildY(grund + hoehe), (b.x1 - b.x0) * z, hoehe * z);
       const anzahl = 11;
       g.lineCap = "round";
       for (let n = 0; n < anzahl; n += 1) {
