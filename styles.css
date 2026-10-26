@@ -1429,7 +1429,7 @@ h2 {
   -webkit-touch-callout: none;
 }
 .nj-stage:not([data-phase="intro"]) .nj-prompt { opacity: 0; }
-.nj-feld { width: 100%; background: #101018; }
+.nj-feld { width: 100%; background: #0b0f18; }
 .nj-canvas { display: block; width: 100%; height: 100%; }
 .nj-rekord {
   padding: 4px 16px;

@@ -3927,8 +3927,308 @@ try {
   }
 
   // --- 4g23. Zeitlupen-Ninja: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // (gefüllt von ninja.js)
+  // Ein Autopilot, der die Zukunft kennt, läuft durch mehrere gewürfelte
+  // Welten 24 Räume weit – tief in die schwere Phase. Bliebe er stecken, hätte
+  // der Zufall einen Raum gebaut, durch den kein Weg führt. Dazu: Die Zeit
+  // läuft nur mit dem Ninja (steht er, kriecht sie mit R_MIN), wer nichts tut,
+  // wird bald getroffen, und wer stur zum Tor läuft, auch – beides mit
+  // Ergebnis. Tasten und Ziehen bewegen ihn. Und ein Lauf, den man anschaut,
+  // endet im selben Raum, mit denselben Punkten, an derselben Stelle.
   {
+    // Der Autopilot (läuft in der Seite): Alle 0,1 s Weltzeit wählt er eine
+    // von neun Aktionen – acht Richtungen oder warten (auf der Stelle treten).
+    // Welche, entscheidet eine Suche in Strahlen fünf Entscheide voraus: Jeder
+    // Zweig wird wirklich gerechnet (sichern, schritt, zurueck) – Pfeile,
+    // Klingen, Fallen, was zielt und was verfolgt –, wer getroffen wird,
+    // fällt weg, die besten nach dem Weg zum Tor bleiben. Gerät er in eine
+    // Klemme (kein Zweig überlebt bis zum Ende), geht er ein paar Entscheide
+    // zurück und sucht dort tiefer. aufzeichnen gibt die Eingabe jedes
+    // Schritts mit, damit sich der Lauf im Bildtakt wiederholen lässt (plane).
+    const ninjaPilot = ({ raeume = 24, tiefe = 5, breite = 24, entscheid = 24, maxEntscheide = 8000, aufzeichnen = false } = {}) => {
+      const N = window.LernappNinja;
+      const st = N.state;
+      const R = Math.SQRT1_2;
+      const AKTIONEN = [[0, 1], [R, R], [1, 0], [R, -R], [0, -1], [-R, -R], [-1, 0], [-R, R], null];
+      const eingaben = [];
+      const fuehre = (a, n, merken) => {
+        for (let i = 0; i < n; i += 1) {
+          const e = a ? { x: a[0], y: a[1] } : { x: i % 2 ? -1 : 1, y: 0 };
+          N.steuere(e.x, e.y);
+          if (merken) eingaben.push(e);
+          N.schritt();
+          if (st.schritt !== "lauf") return;
+        }
+      };
+      // Wie gut ein Stand ist: der Weg zum Tor – und nicht zu nah an den
+      // Seitenmauern, wo die Schützen aus nächster Nähe treffen.
+      const wert = () => {
+        if (st.schritt === "wechsel") return -1000;
+        const rand = N.HALB - Math.abs(st.ninja.x);
+        return Math.min(5000, N.wegZumTor(st.ninja.x, st.ninja.y)) + Math.max(0, 18 - rand) * 1.5;
+      };
+      // Eine Suche in Strahlen, t Entscheide tief, b breit. voll: ein Zweig hat
+      // bis ans Ende überlebt (oder das Tor erreicht).
+      const suche = (t, b) => {
+        const wurzel = N.sichern();
+        let strahl = [{ k: wurzel, erste: -1, wert: wert() }];
+        let bester = null;
+        let voll = false;
+        for (let d = 0; d < t; d += 1) {
+          const zellen = new Map();
+          for (const knoten of strahl) {
+            for (let ai = 0; ai < AKTIONEN.length; ai += 1) {
+              N.zurueck(knoten.k);
+              fuehre(AKTIONEN[ai], entscheid, false);
+              if (st.schritt === "aus") continue;
+              const kind = { k: N.sichern(), erste: d === 0 ? ai : knoten.erste, wert: wert() };
+              if (kind.wert < -500) { bester = kind; voll = true; break; }
+              const zelle = `${Math.round(st.ninja.x / 3)},${Math.round(st.ninja.y / 3)}`;
+              if (!zellen.has(zelle) || zellen.get(zelle).wert > kind.wert) zellen.set(zelle, kind);
+            }
+            if (voll) break;
+          }
+          if (voll) break;
+          const neu = [...zellen.values()].sort((x, y) => x.wert - y.wert);
+          if (!neu.length) break;
+          strahl = neu.slice(0, b);
+          bester = strahl[0];
+          if (d === t - 1) voll = true;
+        }
+        N.zurueck(wurzel);
+        return { erste: bester ? bester.erste : -1, voll };
+      };
+      N.sim(true);
+      let entscheide = 0;
+      let verlauf = [];
+      let stark = 0;
+      let rueck = 0;
+      let raum = st.raum;
+      let ruecksprung = 0;
+      while (st.phase === "spiel" && st.geschafft < raeume && entscheide < maxEntscheide) {
+        if (st.schritt === "wechsel") { N.steuere(0, 0); N.schritt(); continue; }
+        if (st.schritt !== "lauf") break;
+        if (st.raum !== raum) { raum = st.raum; verlauf = []; rueck = 0; stark = 0; }
+        entscheide += 1;
+        verlauf.push({ k: N.sichern(), e: eingaben.length });
+        const s = stark > 0 ? suche(9, 64) : suche(tiefe, breite);
+        if (stark > 0) stark -= 1;
+        if (!s.voll && rueck < 5 && verlauf.length > 1) {
+          // In der Klemme: ein Stück zurück und dort genauer suchen.
+          rueck += 1;
+          ruecksprung += 1;
+          const um = Math.min(verlauf.length, 4 * rueck);
+          const ziel = verlauf[verlauf.length - um];
+          verlauf.length -= um;
+          N.zurueck(ziel.k);
+          eingaben.length = ziel.e;
+          stark = um + 3;
+          continue;
+        }
+        fuehre(s.erste >= 0 ? AKTIONEN[s.erste] : null, entscheid, aufzeichnen);
+      }
+      N.steuere(null);
+      N.sim(false);
+      return { raeume: st.geschafft, punkte: st.punkte, schritt: st.schritt, grund: st.grund, raum: st.raum, W: st.W, entscheide, ruecksprung, eingaben };
+    };
+
+    const oeffne = async (name = "") => {
+      const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+      if (name) {
+        await seite.addInitScript((n) => {
+          if (sessionStorage.getItem("__ninja")) return;
+          sessionStorage.setItem("__ninja", "1");
+          localStorage.setItem("mini.name", n);
+        }, name);
+      }
+      await seite.goto(`${BASIS}/ninja`, { waitUntil: "load" });
+      await seite.waitForFunction(() => window.LernappNinja?.state && window.LernappNinja.view.cssW > 0, null, { timeout: 8000 });
+      await seite.evaluate(`window.__ninjaPilot = ${ninjaPilot.toString()}`);
+      const neu = () => seite.evaluate(() => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        return window.LernappNinja.state.phase;
+      });
+      return { kontext, seite, neu };
+    };
+    let { kontext, seite, neu } = await oeffne();
+
+    // Schaffbar: vier Welten, je 24 Räume.
+    const laeufe = [];
+    for (let welt = 0; welt < 4; welt += 1) {
+      await neu();
+      laeufe.push(await seite.evaluate(() => {
+        window.LernappNinja.losGehts();
+        const r = window.__ninjaPilot({ raeume: 24 });
+        return { raeume: r.raeume, punkte: r.punkte, schritt: r.schritt, grund: r.grund, saat: window.LernappNinja.saat() };
+      }));
+    }
+    pruefe(laeufe.every((l) => l.raeume >= 24 && l.schritt !== "aus"),
+      `Zeitlupen-Ninja: Der Autopilot kommt nicht durch jede Welt – ${JSON.stringify(laeufe)}`);
+
+    // Die Zeit läuft nur mit dem Ninja: eine Sekunde stehen, eine laufen.
+    await neu();
+    const zeit = await seite.evaluate(() => {
+      const N = window.LernappNinja;
+      const st = N.state;
+      N.losGehts();
+      const w0 = st.W;
+      for (let i = 0; i < 240; i += 1) N.schritt();
+      const steht = st.W - w0;
+      N.steuere(1, 0);
+      const w1 = st.W;
+      for (let i = 0; i < 120; i += 1) N.schritt();
+      N.steuere(-1, 0);
+      for (let i = 0; i < 120; i += 1) N.schritt();
+      N.steuere(null);
+      return { steht, laeuft: st.W - w1, R_MIN: N.R_MIN };
+    });
+    pruefe(Math.abs(zeit.steht - zeit.R_MIN) < 0.01 && Math.abs(zeit.laeuft - 1) < 0.01,
+      `Zeitlupen-Ninja: Die Weltzeit läuft nicht mit dem Ninja (eine Sekunde stehen, eine laufen): ${JSON.stringify(zeit)}`);
+
+    // Wer nichts tut, wird getroffen – mit Ergebnis.
+    await neu();
+    const still = await seite.evaluate(() => {
+      const N = window.LernappNinja;
+      const st = N.state;
+      N.losGehts();
+      let n = 0;
+      for (; st.phase === "spiel" && n < 60 * 600; n += 1) N.takt(1 / 60);
+      return { sekunden: Math.round(n / 60), phase: st.phase, grund: st.grund, zahl: document.querySelector(".cm-result-score")?.textContent };
+    });
+    pruefe(still.phase === "ende" && still.grund === "pfeil" && still.zahl !== undefined,
+      `Zeitlupen-Ninja: Ohne Eingabe endet die Runde nicht mit Ergebnis: ${JSON.stringify(still)}`);
+
+    // Wer stur den kürzesten Weg zum Tor läuft, ohne auszuweichen, kommt
+    // nicht weit.
+    const stur = [];
+    for (let welt = 0; welt < 3; welt += 1) {
+      await neu();
+      stur.push(await seite.evaluate(() => {
+        const N = window.LernappNinja;
+        const st = N.state;
+        N.losGehts();
+        let n = 0;
+        for (; st.phase === "spiel" && n < 60 * 600; n += 1) {
+          if (st.schritt === "lauf") {
+            const x = st.ninja.x;
+            const y = st.ninja.y;
+            const w = (dx, dy) => N.wegZumTor(x + dx, y + dy);
+            const gx = w(1, 0) - w(-1, 0);
+            const gy = w(0, 1) - w(0, -1);
+            const l = Math.hypot(gx, gy) || 1;
+            N.steuere(-gx / l, -gy / l);
+          }
+          N.takt(1 / 60);
+        }
+        N.steuere(null);
+        return { raeume: st.geschafft, phase: st.phase, grund: st.grund };
+      }));
+    }
+    pruefe(stur.every((l) => l.phase === "ende" && l.grund && l.raeume < 12),
+      `Zeitlupen-Ninja: Wer nicht ausweicht, kommt zu weit oder ohne Ende: ${JSON.stringify(stur)}`);
+
+    // Tasten und Ziehen: Die Pfeiltaste nach oben und ein Zug mit der Maus
+    // nach rechts bewegen ihn – der Zug genau so weit wie die Maus (geteilt
+    // durch den Massstab), ohne dass er unter dem Finger klebt.
+    await neu();
+    const vorTaste = await seite.evaluate(() => ({ ...window.LernappNinja.ninja }));
+    await seite.keyboard.down("ArrowUp");
+    await seite.waitForTimeout(400);
+    await seite.keyboard.up("ArrowUp");
+    const nachTaste = await seite.evaluate(() => ({ ...window.LernappNinja.ninja, phase: window.LernappNinja.state.phase }));
+    pruefe(nachTaste.phase === "spiel" && nachTaste.y > vorTaste.y + 15 && Math.abs(nachTaste.x - vorTaste.x) < 2,
+      `Zeitlupen-Ninja: Die Pfeiltaste bewegt den Ninja nicht nach oben: ${JSON.stringify({ vorTaste, nachTaste })}`);
+    await neu();
+    const vorZug = await seite.evaluate(() => ({ ...window.LernappNinja.ninja, s: window.LernappNinja.view.s }));
+    await seite.mouse.move(100, 700);
+    await seite.mouse.down();
+    for (let i = 1; i <= 12; i += 1) {
+      await seite.mouse.move(100 + i * 4, 700);
+      await seite.waitForTimeout(30);
+    }
+    await seite.mouse.up();
+    await seite.waitForTimeout(300);
+    const nachZug = await seite.evaluate(() => ({ ...window.LernappNinja.ninja, phase: window.LernappNinja.state.phase }));
+    const soll = 48 / vorZug.s;
+    pruefe(nachZug.phase === "spiel" && Math.abs(nachZug.x - vorZug.x - soll) < soll * 0.25 && Math.abs(nachZug.y - vorZug.y) < 1.5,
+      `Zeitlupen-Ninja: Ziehen bewegt den Ninja nicht um den Weg des Fingers (${soll.toFixed(1)}): ${JSON.stringify({ vorZug, nachZug })}`);
+
+    // Anschauen: Ein Lauf durch zwei Räume, im Bildtakt gespielt (der Plan
+    // gibt jedem Schritt seine Eingabe), dann so, dass er bald getroffen
+    // wird. Wer ihn anschaut, sieht dieselben Räume und den Ninja bis an
+    // dieselbe Stelle – mit denselben Punkten. Auf einer frischen Seite:
+    // Sonst läge dort schon ein Lauf mit ebenso vielen Punkten.
+    await kontext.close();
+    ({ kontext, seite, neu } = await oeffne("Zora"));
+    const geplant = await seite.evaluate(() => {
+      const N = window.LernappNinja;
+      const st = N.state;
+      const saat = N.saat();
+      N.losGehts();
+      const r = window.__ninjaPilot({ raeume: 2, aufzeichnen: true });
+      const plan = r.eingaben;
+      N.sim(true);
+      while (st.schritt === "wechsel") N.schritt();
+      // Erst eine Weile in eine Richtung, dann in eine zweite: die
+      // Verbindung, die am schnellsten trifft.
+      const k = N.sichern();
+      const richtung = (a) => ({ x: Math.cos((a * Math.PI) / 4), y: Math.sin((a * Math.PI) / 4) });
+      let bester = null;
+      for (const lang of [0, 60, 150, 300]) {
+        for (let a = 0; a < 8; a += 1) {
+          for (let b = 0; b < 8; b += 1) {
+            N.zurueck(k);
+            let n = 0;
+            for (; st.schritt === "lauf" && n < 240 * 5; n += 1) {
+              const e = richtung(n < lang ? a : b);
+              N.steuere(e.x, e.y);
+              N.schritt();
+            }
+            if (st.schritt === "aus" && (!bester || n < bester.n)) bester = { n, a, b, lang };
+          }
+        }
+      }
+      N.zurueck(k);
+      N.steuere(null);
+      N.sim(false);
+      for (let n = 0; bester && n < bester.n + 240; n += 1) plan.push(richtung(n < bester.lang ? bester.a : bester.b));
+      // Von vorn, mit derselben Saat – und im Bildtakt.
+      N.halte(saat);
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      N.halte(null);
+      N.plane(plan);
+      N.losGehts();
+      return { saat, schritte: plan.length, gerichtet: Boolean(bester) };
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 45000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("timeNinja_")), null, { timeout: 6000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const N = window.LernappNinja;
+      const st = N.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`timeNinja_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return {
+        kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a) && Array.isArray(d?.c), punkte: st.punkte, geistPunkte: geist?.punkte || 0,
+        raum: st.raum, grund: st.grund, x: st.aus?.x ?? null, y: st.aus?.y ?? null, W: st.W, welt: N.weltText(),
+      };
+    });
+    pruefe(geplant.gerichtet && gespielt.kennung && gespielt.saat === geplant.saat && gespielt.mitOrt && gespielt.raum === 2 && gespielt.grund
+      && gespielt.punkte >= 20 && gespielt.geistPunkte === gespielt.punkte,
+      `Zeitlupen-Ninja: Der Lauf im Bildtakt geht nicht wie geplant oder wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ geplant, gespielt: { ...gespielt, welt: undefined } })}`);
+    await seite.goto(`${BASIS}/ninja?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappNinja?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const anfang = await seite.evaluate(() => ({ phase: window.LernappNinja.state.phase, welt: window.LernappNinja.weltText() }));
+    pruefe(anfang.phase === "zuschauen" && anfang.welt === gespielt.welt, `Zeitlupen-Ninja: Beim Zuschauen entstehen andere Räume:\n  gespielt ${gespielt.welt}\n  angeschaut ${anfang.welt}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappNinja.state;
+      return { raum: st.raum, punkte: st.punkte, x: st.aus?.x ?? null, y: st.aus?.y ?? null, W: st.W, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.tafel && angeschaut.raum === gespielt.raum && angeschaut.punkte === gespielt.punkte
+      && Math.hypot(angeschaut.x - gespielt.x, angeschaut.y - gespielt.y) < 4 && Math.abs(angeschaut.W - gespielt.W) < 0.15,
+      `Zeitlupen-Ninja: Der angeschaute Lauf endet anders als gespielt: ${JSON.stringify({ gespielt: { ...gespielt, welt: undefined }, angeschaut })}`);
+    await kontext.close();
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
