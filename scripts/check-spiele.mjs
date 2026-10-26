@@ -3745,8 +3745,185 @@ try {
   }
 
   // --- 4g22. Fledermaus: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // (gefüllt von fledermaus.js)
+  // Jede gewürfelte Höhle hat einen Weg mit einem freien Korridor (pfadBei,
+  // halbBei): Darin ist an keiner Stelle Fels – keine Wand, kein Tropfstein,
+  // keine Zunge, keine Spinne und kein fallender Tropfstein zu der Zeit, da
+  // die Fledermaus dort ist. Ein Autopilot, der die Höhle kennt, fliegt vier
+  // Höhlen bis 2000 m, weit in die schwere Phase: Er rechnet mit derselben
+  // Physik im Voraus, wann der nächste Flügelschlag kommt, und nimmt den
+  // Plan, der am weitesten vom Fels bleibt. Wo er nicht durchkommt, verlangt
+  // die Höhle mehr, als die Fledermaus kann. Wer nach dem Start nicht
+  // flattert, sinkt zu Boden – das Ende, mit Ergebnis. Die Hälften des
+  // Bildes: links ruft, rechts flattert, auch mit zwei Fingern zugleich; ←
+  // und ↑ ebenso. Und ein eigener Lauf lässt sich anschauen: dieselbe Höhle,
+  // dieselben Rufe, derselbe Aufprall.
   {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/fledermaus`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFledermaus?.state && window.LernappFledermaus.view.cssW > 0, null, { timeout: 8000 });
+    const fluege = await seite.evaluate(() => {
+      const F = window.LernappFledermaus;
+      const raus = [];
+      const H = 1 / 120;
+      const SICHT = Math.ceil(0.9 / H);
+      const WARTE = [0, 1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20, 25, 30, 40, 60, 200];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const st = F.state;
+        // Der Korridor, abgetastet: Mitte und Ränder.
+        F.hoehleBis(21000);
+        let imKorridor = 0;
+        for (let x = 0; x < 20000; x += 4) {
+          const p = F.pfadBei(x);
+          const h = F.halbBei(x);
+          for (const off of [-1, -0.5, 0, 0.5, 1]) if (F.abstand(x, p + off * h) < F.R_FM) imKorridor += 1;
+        }
+        F.schlag();
+        let enge = Infinity;
+        let letzter = -9;
+        for (let n = 0; st.schritt === "flug" && st.meter < 2000 && n < 600000; n += 1) {
+          const f = st.fm;
+          let best = null;
+          for (const w of WARTE) {
+            const p = { x: f.x, y: f.y, vy: f.vy, schub: f.schub, schubA: f.schubA };
+            let frei = Infinity;
+            let abw = 0;
+            let stoss = -1;
+            let seit = 99;
+            for (let j = 0; j < SICHT; j += 1) {
+              if (j === w) { F.schlagAuf(p); seit = 0; } else if (j > w && seit > 8 && p.vy < 50 && p.y + p.vy * 0.2 < F.pfadBei(p.x + F.tempoBei(p.x) * 0.22) - 3) { F.schlagAuf(p); seit = 0; }
+              seit += 1;
+              F.fliegeSchritt(p, H / 2);
+              F.fliegeSchritt(p, H / 2);
+              if (j % 2 === 0 || j < 30) {
+                const a = F.abstand(p.x, p.y) - F.R_FM;
+                if (a < frei) frei = a;
+                if (a < 0.6) { stoss = j; break; }
+              }
+              abw += Math.abs(p.y - F.pfadBei(p.x)) / F.halbBei(p.x);
+            }
+            const wert = stoss >= 0 ? -1e7 + stoss * 1e3 : Math.min(frei, 10) * 1000 - abw * 4;
+            if (!best || wert > best.wert) best = { wert, w };
+          }
+          if (best.w === 0 && n - letzter > 2) { F.schlag(); letzter = n; }
+          F.takt(H);
+          if (st.schritt === "flug") enge = Math.min(enge, F.abstand(st.fm.x, st.fm.y) - F.R_FM);
+        }
+        const arten = new Set(st.hoehle.abschnitte.filter((a) => a.x0 < 20000).map((a) => a.art));
+        raus.push({ meter: st.meter, schritt: st.schritt, grund: st.grund, enge: Math.round(enge * 10) / 10, imKorridor, arten: [...arten].sort().join(",") });
+      }
+      return raus;
+    });
+    pruefe(fluege.every((f) => f.imKorridor === 0), `Fledermaus: Im Korridor um den Weg steht Fels – ${JSON.stringify(fluege)}`);
+    pruefe(fluege.every((f) => f.meter >= 2000 && f.schritt === "flug" && f.enge >= 0),
+      `Fledermaus: Der Autopilot kommt nicht durch jede Höhle – ${JSON.stringify(fluege)}`);
+    pruefe(fluege.some((f) => ["gabel", "spinne", "faller", "slalom", "kammer", "enge"].every((art) => f.arten.includes(art))),
+      `Fledermaus: In 2000 m kommt nicht jede Art Abschnitt vor – ${JSON.stringify(fluege.map((f) => f.arten))}`);
+
+    // Ohne Flügelschlag: Ein Ruf startet die Runde, dann sinkt die
+    // Fledermaus zu Boden.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.keyboard.press("ArrowLeft");
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({
+      zahl: document.querySelector(".cm-result-score")?.textContent,
+      schritt: window.LernappFledermaus.state.schritt,
+      phase: window.LernappFledermaus.state.phase,
+      rufe: window.LernappFledermaus.state.rufZahl,
+      grund: window.LernappFledermaus.state.grund,
+    }));
+    pruefe(ende.schritt === "crash" && ende.phase === "ende" && ende.zahl !== undefined && ende.rufe === 1 && ende.grund === "An die Wand geflogen",
+      `Fledermaus: Ohne Flügelschlag endet die Runde nicht am Boden: ${JSON.stringify(ende)}`);
+
+    // Die zwei Hälften mit echten Fingern, dann die Tasten.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const box = await seite.locator(".fm-feld").boundingBox();
+    const finger = (id, x, typ) => seite.evaluate(({ id, x, y, typ }) => {
+      const ziel = typ === "pointerdown" ? document.elementFromPoint(x, y) : window;
+      ziel.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
+    }, { id, x, y: box.y + box.height * 0.6, typ });
+    const lage = () => seite.evaluate(() => {
+      const st = window.LernappFledermaus.state;
+      return {
+        phase: st.phase, rufe: st.rufZahl, schlaege: st.schlaege,
+        l: document.querySelector(".fm-knopf-ruf")?.classList.contains("ist-an"),
+        r: document.querySelector(".fm-knopf-schlag")?.classList.contains("ist-an"),
+      };
+    });
+    const schritte = [];
+    await finger(1, box.x + box.width * 0.2, "pointerdown");
+    schritte.push(await lage());
+    await finger(2, box.x + box.width * 0.8, "pointerdown");
+    schritte.push(await lage());
+    await finger(1, box.x + box.width * 0.2, "pointerup");
+    await finger(2, box.x + box.width * 0.8, "pointerup");
+    schritte.push(await lage());
+    await seite.keyboard.press("ArrowUp");
+    await seite.keyboard.press("e");
+    schritte.push(await lage());
+    const soll = [
+      { phase: "spiel", rufe: 1, schlaege: 0, l: true, r: false },
+      { phase: "spiel", rufe: 1, schlaege: 1, l: true, r: true },
+      { phase: "spiel", rufe: 1, schlaege: 1, l: false, r: false },
+      { phase: "spiel", rufe: 2, schlaege: 2, l: false, r: false },
+    ];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Fledermaus: Die Hälften und Tasten tun nicht, was sie sollen: ${JSON.stringify(schritte)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Höhle
+    // aufgezeichnet, und wer ihn anschaut, sieht dieselbe Höhle, dieselben
+    // Rufe und am Schluss denselben Aufprall – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 900, height: 520 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__fledermaus")) return;
+      sessionStorage.setItem("__fledermaus", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/fledermaus`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFledermaus?.state && window.LernappFledermaus.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Dem Weg nach, zwei Rufe,
+    // dann keine Flügelschläge mehr.
+    await seite.evaluate(() => {
+      const F = window.LernappFledermaus;
+      const st = F.state;
+      F.schlag();
+      const tick = () => {
+        if (st.schritt !== "flug") return;
+        requestAnimationFrame(tick);
+        if (st.meter >= 45) return;
+        const f = st.fm;
+        if (f.y + f.vy * 0.25 < F.pfadBei(f.x + F.tempoBei(f.x) * 0.3) - 2 && f.vy < 60) F.schlag();
+        if ((st.meter >= 12 && st.rufZahl === 0) || (st.meter >= 30 && st.rufZahl === 1)) F.ruf();
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 20000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("batEcho_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappFledermaus.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`batEcho_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a) && Array.isArray(d?.c), meter: st.meter, rufe: st.rufZahl, welt: window.LernappFledermaus.weltText() };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.meter >= 45 && gespielt.rufe === 2,
+      `Fledermaus: Der Lauf wird nicht mit Saat, Weg und Rufen hinterlegt: ${JSON.stringify({ ...gespielt, welt: undefined })}`);
+    await seite.goto(`${BASIS}/fledermaus?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFledermaus?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const welt = await seite.evaluate(() => window.LernappFledermaus.weltText());
+    pruefe(welt === gespielt.welt, "Fledermaus: Beim Zuschauen entsteht eine andere Höhle.");
+    await seite.evaluate(() => window.LernappFledermaus.schlag());
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 25000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappFledermaus.state;
+      return { phase: st.phase, schritt: st.schritt, rufe: st.rufZahl, meter: st.punkte, schlaege: st.schlaege };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.schritt === "crash" && angeschaut.rufe === gespielt.rufe
+      && angeschaut.meter === gespielt.meter && angeschaut.schlaege === 0,
+      `Fledermaus: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, welt: undefined }, angeschaut })}`);
+    await kontext.close();
   }
 
   // --- 4g23. Zeitlupen-Ninja: schaffbar, und wer nichts tut, ist bald draussen ----------
