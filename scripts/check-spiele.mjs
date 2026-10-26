@@ -3189,8 +3189,174 @@ try {
   }
 
   // --- 4g21. Holzfäller: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // (gefüllt von holzfaeller.js)
+  // Ein Autopilot schneidet auf mehreren gewürfelten Welten jeden Strich
+  // perfekt – aber mit menschlichem Tempo: frühestens eine Fünftelsekunde,
+  // nachdem ein Strich im Bild ist, höchstens alle 0.28 s ein Wisch, und nur
+  // einer, der allein seinen Stamm durchquert (keinen Ast, keinen
+  // Nagelstamm daneben). So kommt er bis weit in die schwere Phase – Welle
+  // 70: vier Stämme auf einmal, Nagelstämme, Äste nah am Strich – ohne einen
+  // Fehler. Lässt er einen Stamm fallen, verlangt die Welt mehr, als eine
+  // Hand kann. Wer nach dem Hochwerfen nichts tut, verliert bald seine drei
+  // Äxte – das Ende, mit Ergebnis. Ein Schnitt weit neben den Strich und
+  // einer durch einen Nagelstamm kosten je eine Axt. Und wer seine Runde
+  // anschaut, sieht dieselben Schnitte in denselben Schritten und denselben
+  // Endstand.
   {
+    const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+    await seite.goto(`${BASIS}/holzfaeller`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHolzfaeller?.state && window.LernappHolzfaeller.view.cssW > 0, null, { timeout: 8000 });
+    // Der Autopilot im Spiel, als Text: Er läuft auch in den Seiten unten.
+    const pilot = `(bisWelle, nagelSuchen) => {
+      const H = window.LernappHolzfaeller;
+      const st = H.state;
+      const gesehen = new Map();
+      let letzter = 0;
+      let knapp = Infinity;
+      if (st.phase === "bereit") {
+        const z = H.ziele()[0];
+        H.wischen([[z.ax, z.ay], [z.bx, z.by]]);
+      }
+      for (let n = 0; st.phase === "spiel" && !st.aus && st.welle <= bisWelle && n < 120 * 300; n += 1) {
+        const zeit = st.tick / 240;
+        if (nagelSuchen) {
+          for (const p of st.stuecke) {
+            if (!p.nagel || p.getroffen || p.y < 60 || p.y > 300 || Math.abs(p.x) > 120) continue;
+            const l = p.R + 14;
+            const wisch = [[p.x - Math.sin(p.w) * l, p.y + Math.cos(p.w) * l], [p.x + Math.sin(p.w) * l, p.y - Math.cos(p.w) * l]];
+            const pr = H.probe(wisch[0][0], wisch[0][1], wisch[1][0], wisch[1][1]);
+            if (pr.length === 1 && pr[0].nagel) return wisch;
+          }
+        }
+        const ziele = H.ziele();
+        for (const z of ziele) if (z.sichtbar && !gesehen.has(z.id + "|" + z.u)) gesehen.set(z.id + "|" + z.u, zeit);
+        if (zeit - letzter >= 0.28) {
+          const reif = ziele.filter((z) => z.sichtbar && zeit - gesehen.get(z.id + "|" + z.u) >= 0.2).sort((a, b) => a.rest - b.rest);
+          for (const z of reif) {
+            const p = H.probe(z.ax, z.ay, z.bx, z.by);
+            if (p.length !== 1 || p[0].id !== z.id || p[0].art !== "perfekt") continue;
+            knapp = Math.min(knapp, z.rest);
+            H.wischen([[z.ax, z.ay], [z.bx, z.by]]);
+            letzter = zeit;
+            break;
+          }
+        }
+        H.takt(1 / 120);
+      }
+      return { welle: st.welle - 1, sekunden: Math.round(st.tick / 240), punkte: st.punkte, schnitte: st.schnitte, perfekte: st.perfekte, fehler: st.fehler, grund: st.grund, knapp: Math.round(knapp * 100) / 100 };
+    }`;
+    const runden = await seite.evaluate((quelle) => {
+      const spiele = new Function(`return (${quelle})`)();
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        raus.push(spiele(70, false));
+      }
+      return raus;
+    }, pilot);
+    pruefe(runden.every((r) => r.welle >= 70 && r.fehler === 0 && r.schnitte === r.perfekte && r.schnitte >= 150),
+      `Holzfäller: Der Autopilot kommt nicht auf jeder Welt fehlerfrei bis Welle 70 – ${JSON.stringify(runden)}`);
+
+    // Ohne Eingabe: Die Leertaste wirft den ersten Stamm hoch, dann fallen
+    // die Stämme – drei Äxte sind bald weg.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.keyboard.press("Space");
+    const ohne = await seite.evaluate(() => {
+      const H = window.LernappHolzfaeller;
+      for (let n = 0; n < 120 * 60 && !H.state.aus; n += 1) H.takt(1 / 120);
+      return { sekunden: Math.round(H.state.tick / 240), fehler: H.state.fehler, grund: H.state.grund };
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, phase: window.LernappHolzfaeller.state.phase }));
+    pruefe(ohne.fehler === 3 && ohne.grund === "verpasst" && ohne.sekunden <= 15 && ende.phase === "ende" && ende.zahl === "0",
+      `Holzfäller: Ohne Eingabe endet die Runde nicht bald mit Ergebnis: ${JSON.stringify({ ...ohne, ...ende })}`);
+
+    // Falsch geschnitten: weit neben dem Strich, dann durch einen Nagelstamm.
+    const falsch = await seite.evaluate((quelle) => {
+      const H = window.LernappHolzfaeller;
+      const st = H.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      const z = H.ziele()[0];
+      const d = (z.u > 0 ? -1 : 1) * 30;
+      const daneben = H.wischen([[z.ax + z.ex * d, z.ay + z.ey * d], [z.bx + z.ex * d, z.by + z.ey * d]]);
+      const nachDaneben = { fehler: st.fehler, grund: st.grund, art: daneben[0]?.art || "", phase: st.phase };
+      const wisch = new Function(`return (${quelle})`)()(30, true);
+      let nachNagel = null;
+      if (Array.isArray(wisch)) {
+        const vorher = st.fehler;
+        const e = H.wischen(wisch);
+        nachNagel = { art: e[0]?.art || "", mehr: st.fehler - vorher, grund: st.grund };
+      }
+      return { nachDaneben, nachNagel };
+    }, pilot);
+    pruefe(falsch.nachDaneben.art === "daneben" && falsch.nachDaneben.fehler === 1 && falsch.nachDaneben.phase === "spiel"
+      && falsch.nachNagel?.art === "nagel" && falsch.nachNagel.mehr === 1 && falsch.nachNagel.grund === "nagel",
+      `Holzfäller: Ein Schnitt neben den Strich oder durch einen Nagelstamm kostet keine Axt: ${JSON.stringify(falsch)}`);
+    await kontext.close();
+  }
+  {
+    // Zuschauen: Eine Runde in Echtzeit – ein Autopilot schneidet gut sieben
+    // Sekunden lang, nicht immer genau, dann lässt er die Stämme fallen. Sie
+    // kommt mit Saat und Zügen in die Hall of Fame. Wer sie anschaut, sieht
+    // dieselben Schnitte in denselben Schritten, dieselben Fehler und am
+    // Schluss dieselben Punkte.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__holz")) return;
+      sessionStorage.setItem("__holz", "1");
+      localStorage.setItem("mini.name", "Holly");
+    });
+    await seite.goto(`${BASIS}/holzfaeller`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHolzfaeller?.state && window.LernappHolzfaeller.view.cssW > 0, null, { timeout: 8000 });
+    await seite.evaluate(() => {
+      const H = window.LernappHolzfaeller;
+      const st = H.state;
+      const gesehen = new Map();
+      let letzter = 0;
+      const tick = () => {
+        if (st.phase === "ende") return;
+        requestAnimationFrame(tick);
+        if (st.phase === "bereit") {
+          const z = H.ziele()[0];
+          if (z) H.wischen([[z.ax, z.ay], [z.bx, z.by]]);
+          return;
+        }
+        const zeit = st.tick / 240;
+        if (st.aus || zeit > 7.5 || zeit - letzter < 0.3) return;
+        const ziele = H.ziele();
+        for (const z of ziele) if (z.sichtbar && !gesehen.has(z.id + "|" + z.u)) gesehen.set(z.id + "|" + z.u, zeit);
+        const z = ziele.filter((q) => q.sichtbar && zeit - gesehen.get(q.id + "|" + q.u) > 0.2).sort((a, b) => a.rest - b.rest)[0];
+        if (!z) return;
+        const d = (Math.random() - 0.5) * 16;
+        H.wischen([[z.ax + z.ex * d, z.ay + z.ey * d], [z.bx + z.ex * d, z.by + z.ey * d]]);
+        letzter = zeit;
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 45000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("lumberCut_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappHolzfaeller.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`lumberCut_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return {
+        kennung, level: geist?.level, saat: d?.s ?? null, zuege: d?.z?.t?.length || 0,
+        punkte: st.punkte, fehler: st.fehler, schnitte: st.schnitte, protokoll: st.protokoll.join(" "),
+      };
+    });
+    pruefe(gespielt.kennung && gespielt.level === "z1" && Number.isInteger(gespielt.saat) && gespielt.zuege >= 5 && gespielt.fehler === 3 && gespielt.schnitte >= 4,
+      `Holzfäller: Die Runde kommt nicht mit Saat und Zügen in die Hall of Fame: ${JSON.stringify({ ...gespielt, protokoll: undefined })}`);
+    await seite.goto(`${BASIS}/holzfaeller?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHolzfaeller?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappHolzfaeller.state;
+      return { phase: st.phase, punkte: st.punkte, fehler: st.fehler, schnitte: st.schnitte, protokoll: st.protokoll.join(" ") };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.protokoll === gespielt.protokoll && angeschaut.punkte === gespielt.punkte && angeschaut.fehler === 3,
+      `Holzfäller: Beim Anschauen geschieht etwas anderes als in der Runde:\n  gespielt ${gespielt.punkte} – ${gespielt.protokoll}\n  angeschaut ${angeschaut.punkte} – ${angeschaut.protokoll}`);
+    await kontext.close();
   }
 
   // --- 4g22. Fledermaus: schaffbar, und wer nichts tut, ist bald draussen ----------
