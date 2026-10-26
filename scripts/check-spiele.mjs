@@ -3211,8 +3211,166 @@ try {
   }
 
   // --- 4g18. Jongleur: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // (gefüllt von jongleur.js)
+  // Ein Autopilot jongliert auf mehreren gewürfelten Welten: Er wirft jedes
+  // Ding gleich nach dem Fang (im Fenster für «perfekt», einmal sofort, einmal
+  // mit Streuung wie eine ruhige Hand) – durch alle Zugaben des Clowns bis zu
+  // zehn Dingen, mit Keulen, Fackeln, Kugeln und Äpfeln. Wo er etwas fallen
+  // lässt, verlangt das Spiel mehr, als perfektes Timing kann. Wer dagegen
+  // immer zu spät wirft, bringt den Takt durcheinander und ist bald draussen.
+  // Wer nach dem Start nichts tut, verliert – mit Ergebnis. Ein Tipp mit
+  // leerer Hand ist ein Luftgriff, langes Halten wirft höher. Und eine Runde,
+  // angeschaut aus der Hall of Fame, endet genau wie gespielt: gleich viele
+  // Fänge, derselbe Zusammenstoss im selben Schritt.
   {
+    const { kontext, seite } = await neueSeite({ width: 390, height: 844 });
+    await seite.goto(`${BASIS}/jongleur`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappJongleur?.state && window.LernappJongleur.view.cssW > 0, null, { timeout: 8000 });
+    const runden = await seite.evaluate(() => {
+      const J = window.LernappJongleur;
+      const raus = [];
+      for (const art of ["sofort", "ruhig", "spaet"]) {
+        for (let lauf = 0; lauf < (art === "spaet" ? 2 : 4); lauf += 1) {
+          document.querySelector(".cm-bar-left .cm-icon-again").click();
+          const st = J.state;
+          const wann = new Map();
+          let meiste = 0;
+          const arten = new Set();
+          J.tippe(0);
+          for (let n = 0; st.phase === "spiel" && st.punkte < 260 && n < 240 * 240; n += 1) {
+            for (const h of [0, 1]) {
+              const d = J.dingVon(st.haende[h].ding);
+              if (!d) continue;
+              const k = `${d.id}|${d.fangTick}`;
+              if (!wann.has(k)) {
+                const streu = art === "sofort" ? 0 : art === "ruhig" ? Math.floor(Math.random() * (J.PERFEKT_NACH - 3)) : J.PERFEKT_NACH + 6 + Math.floor(Math.random() * 12);
+                wann.set(k, streu);
+              }
+              if (d.start || st.tick - d.fangTick >= wann.get(k)) J.tippe(h);
+            }
+            meiste = Math.max(meiste, J.anzahlDinge());
+            st.dinge.forEach((d) => arten.add(d.art));
+            J.takt(1 / 240);
+          }
+          raus.push({ art, punkte: st.punkte, phase: st.phase, fehler: st.fehler?.art || null, meiste, arten: [...arten].sort().join(","), sekunden: Math.round(st.tick / 240) });
+        }
+      }
+      return raus;
+    });
+    const gut = runden.filter((r) => r.art !== "spaet");
+    pruefe(gut.every((r) => r.punkte >= 260 && r.phase === "spiel" && !r.fehler && r.meiste >= 9),
+      `Jongleur: Der Autopilot hält mit perfektem Timing nicht jede Welt bis zu neun Dingen – ${JSON.stringify(gut)}`);
+    pruefe(gut.some((r) => /keule|fackel|kugel|apfel/.test(r.arten)),
+      `Jongleur: In keiner Welt kam ein besonderes Ding dazu – ${JSON.stringify(gut.map((r) => r.arten))}`);
+    pruefe(runden.filter((r) => r.art === "spaet").every((r) => r.fehler && r.punkte < 200),
+      `Jongleur: Wer immer zu spät wirft, bleibt trotzdem im Takt – ${JSON.stringify(runden.filter((r) => r.art === "spaet"))}`);
+
+    // Ein Tipp mit leerer Hand ist ein Luftgriff: kein Wurf, und die Hand ist
+    // kurz gesperrt. Lange gehalten, fliegt ein Wurf länger.
+    const griffe = await seite.evaluate(() => {
+      const J = window.LernappJongleur;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      const st = J.state;
+      J.tippe(0);                       // links wirft – die linke Hand ist leer
+      for (let n = 0; n < 20; n += 1) J.takt(1 / 240);
+      J.tippe(0);                       // Luftgriff
+      const gesperrt = st.haende[0].sperreBis > st.tick;
+      const fliegend = st.dinge.filter((d) => d.ort === "flug").length;
+      J.druecke(1);                     // rechts halten …
+      for (let n = 0; n < J.H_VOLL + 12; n += 1) J.takt(1 / 240);
+      const vorher = st.tick;
+      J.loslassen(1);                   // … und hoch werfen
+      const hoch = st.dinge.find((d) => d.ort === "flug" && d.von === 1);
+      return { gesperrt, fliegend, punkte: st.punkte, hoch: hoch ? { flug: hoch.landTick - vorher, normal: J.flugTicks(st.punkte), istHoch: hoch.hoch } : null };
+    });
+    pruefe(griffe.gesperrt && griffe.fliegend === 1 && griffe.punkte === 0,
+      `Jongleur: Ein Luftgriff wirft etwas oder sperrt die Hand nicht: ${JSON.stringify(griffe)}`);
+    pruefe(griffe.hoch?.istHoch && griffe.hoch.flug > griffe.hoch.normal * 1.3,
+      `Jongleur: Langes Halten wirft nicht höher: ${JSON.stringify(griffe.hoch)}`);
+
+    // Ohne Eingabe: Mit der Leertaste beginnt die Runde, beide Hände halten
+    // ihren Ball – zu lange. Und wer einmal wirft und dann nichts mehr tut,
+    // bekommt den Ball in die volle Hand.
+    for (const [wie, grund] of [["leertaste", "lange"], ["ein-wurf", "stoss"]]) {
+      await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+      if (wie === "leertaste") await seite.keyboard.press("Space");
+      else await seite.keyboard.press("KeyA");
+      await seite.waitForSelector(".cm-result-score", { timeout: 9000 }).catch(() => {});
+      const ende = await seite.evaluate(() => ({
+        zahl: document.querySelector(".cm-result-score")?.textContent,
+        phase: window.LernappJongleur.state.phase,
+        fehler: window.LernappJongleur.state.fehler?.art || null,
+      }));
+      pruefe(ende.phase === "ende" && ende.zahl !== undefined && ende.fehler === grund,
+        `Jongleur: Ohne Eingabe (${wie}) endet die Runde nicht mit Ergebnis: ${JSON.stringify(ende)}`);
+    }
+    await kontext.close();
+  }
+  {
+    // Die Runde Zug um Zug: gespielt im echten Takt (der Autopilot wirft im
+    // Bildtakt nach jedem Fang, bis über die erste Zugabe des Clowns), dann
+    // nichts mehr – der Zusammenstoss. Hinterlegt wird sie mit Saat und
+    // Zügen; aus der Hall of Fame angeschaut, läuft genau dieselbe Runde ab.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__jongleur")) return;
+      sessionStorage.setItem("__jongleur", "1");
+      localStorage.setItem("mini.name", "Jule");
+    });
+    await seite.goto(`${BASIS}/jongleur`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappJongleur?.state && window.LernappJongleur.view.cssW > 0, null, { timeout: 8000 });
+    await seite.evaluate(() => {
+      const J = window.LernappJongleur;
+      const st = J.state;
+      J.tippe(0);
+      const pilot = () => {
+        if (st.phase !== "spiel") return;
+        requestAnimationFrame(pilot);
+        if (st.punkte >= 15) return;
+        for (const h of [0, 1]) {
+          if (J.dingVon(st.haende[h].ding)) J.tippe(h);
+        }
+      };
+      requestAnimationFrame(pilot);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 30000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("juggler_")), null, { timeout: 4000 }).catch(() => {});
+    const runde = () => {
+      const st = window.LernappJongleur.state;
+      return { punkte: st.punkte, fehler: st.fehler ? `${st.fehler.art}/${st.fehler.hand}/${st.fehler.tick}` : null, zugaben: st.zugaben, perfekte: st.perfekte };
+    };
+    const gespielt = await seite.evaluate((quelle) => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`juggler_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, level: geist?.level, saat: d?.s ?? null, zuege: d?.z?.t?.length || 0, punkte: geist?.punkte || 0, runde: new Function(`return (${quelle})()`)() };
+    }, runde.toString());
+    pruefe(gespielt.kennung && gespielt.level === "z1" && Number.isInteger(gespielt.saat) && gespielt.zuege >= 10
+      && gespielt.punkte === gespielt.runde.punkte && gespielt.runde.punkte >= 15 && /^stoss/.test(gespielt.runde.fehler || ""),
+      `Jongleur: Die Runde wird nicht mit Zügen und Saat hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/jongleur?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappJongleur?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const anfang = await seite.evaluate(() => ({
+      phase: window.LernappJongleur.state.phase,
+      leiste: document.querySelector(".gz-leiste")?.textContent || "",
+      gegner: document.querySelectorAll(".gs-chip").length,
+    }));
+    pruefe(anfang.phase === "zuschauen" && /Jule/.test(anfang.leiste) && /Fänge/.test(anfang.leiste) && anfang.gegner === 0,
+      `Jongleur: Das Anschauen beginnt nicht, oder es stehen Gegner-Schalter da: ${JSON.stringify(anfang)}`);
+    // Ein Tipp und eine Taste gehören beim Anschauen nicht dem Spiel.
+    await seite.mouse.click(100, 500);
+    await seite.keyboard.press("KeyL");
+    pruefe(await seite.evaluate(() => window.LernappJongleur.state.phase) === "zuschauen", "Jongleur: Ein Tipp beim Anschauen greift ins Spiel ein.");
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const angeschaut = await seite.evaluate((quelle) => new Function(`return (${quelle})()`)(), runde.toString());
+    pruefe(JSON.stringify(angeschaut) === JSON.stringify(gespielt.runde),
+      `Jongleur: Beim Anschauen läuft eine andere Runde ab:\n  gespielt ${JSON.stringify(gespielt.runde)}\n  angeschaut ${JSON.stringify(angeschaut)}`);
+    await seite.click(".gz-nochmal");
+    await seite.waitForTimeout(300);
+    const nochmal = await seite.evaluate(() => ({ phase: window.LernappJongleur.state.phase, punkte: window.LernappJongleur.state.punkte }));
+    pruefe(nochmal.phase === "zuschauen" && nochmal.punkte < gespielt.runde.punkte,
+      `Jongleur: «Nochmal» spielt die Runde nicht von vorn ab: ${JSON.stringify(nochmal)}`);
+    await kontext.close();
   }
 
   // --- 4g19. Skispringen: schaffbar, und wer nichts tut, ist bald draussen ----------
