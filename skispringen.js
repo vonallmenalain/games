@@ -609,7 +609,7 @@
       fern: { fels: "#8b84aa", schatten: "#5f5b86", schnee: "#ffeae2", schneeSchatten: "#b7a7cd", dunst: "rgba(253, 214, 186, 0.55)" },
       mitte: { grund: "#5d6d8e", hell: "#7383a3", schnee: "#e7e2ef", wald: "#3f5468" },
       nah: { grund: "#2f4a4c", wald: "#24403f", licht: "#ffd38a" },
-      hang: ["#fff8f4", "#cfd2ec"], baum: ["#3b5b4f", "#26413a"], bau: ["#c9c3d6", "#8e88a6"], gelaende: "#e7e3f1",
+      hang: ["#fff8f4", "#cfd2ec"], baum: ["#3b5b4f", "#26413a"], bau: ["#c9c3d6", "#8e88a6"],
     },
     {
       name: "mittag",
@@ -620,7 +620,7 @@
       fern: { fels: "#7d8ea8", schatten: "#5a6a88", schnee: "#ffffff", schneeSchatten: "#bdd0ea", dunst: "rgba(214, 233, 255, 0.55)" },
       mitte: { grund: "#4f7088", hell: "#6a8ca0", schnee: "#f2f7fc", wald: "#2f5a4f" },
       nah: { grund: "#2e5a44", wald: "#1f4a37", licht: "#ffd38a" },
-      hang: ["#ffffff", "#c7d9f0"], baum: ["#2f6248", "#1d4634"], bau: ["#d6dbe3", "#8f9bab"], gelaende: "#eef4fb",
+      hang: ["#ffffff", "#c7d9f0"], baum: ["#2f6248", "#1d4634"], bau: ["#d6dbe3", "#8f9bab"],
     },
     {
       name: "nachmittag",
@@ -631,7 +631,7 @@
       fern: { fels: "#8a8aa4", schatten: "#5d6182", schnee: "#fff9ee", schneeSchatten: "#c5c7de", dunst: "rgba(250, 232, 200, 0.55)" },
       mitte: { grund: "#5a6f86", hell: "#7a8ea0", schnee: "#f5f1ea", wald: "#355749" },
       nah: { grund: "#33533f", wald: "#244533", licht: "#ffd38a" },
-      hang: ["#fffaf2", "#cbd4ea"], baum: ["#335c45", "#203f30"], bau: ["#d8d4cf", "#958f8c"], gelaende: "#f1eee8",
+      hang: ["#fffaf2", "#cbd4ea"], baum: ["#335c45", "#203f30"], bau: ["#d8d4cf", "#958f8c"],
     },
     {
       name: "abendrot",
@@ -643,7 +643,7 @@
       fern: { fels: "#7a5a86", schatten: "#4a3a6a", schnee: "#ffc6b0", schneeSchatten: "#a77aa6", dunst: "rgba(255, 160, 130, 0.45)" },
       mitte: { grund: "#4c3f6c", hell: "#6a4f7c", schnee: "#e6b9c6", wald: "#2e2a4e" },
       nah: { grund: "#28284a", wald: "#1c1d3a", licht: "#ffcf7a" },
-      hang: ["#ffe9e2", "#b9a6cc"], baum: ["#2e3a4c", "#1e2636"], bau: ["#c9a8b4", "#7a6082"], gelaende: "#e6d2dc",
+      hang: ["#ffe9e2", "#b9a6cc"], baum: ["#2e3a4c", "#1e2636"], bau: ["#c9a8b4", "#7a6082"],
     },
     {
       name: "daemmerung",
@@ -654,7 +654,7 @@
       fern: { fels: "#3f3c70", schatten: "#2a2852", schnee: "#a9a5d8", schneeSchatten: "#6e6aa6", dunst: "rgba(150, 110, 170, 0.4)" },
       mitte: { grund: "#25285a", hell: "#30336a", schnee: "#8d8cc2", wald: "#181c40" },
       nah: { grund: "#141a38", wald: "#0e1430", licht: "#ffcf7a" },
-      hang: ["#dfe5fb", "#8c93c4"], baum: ["#1d2a40", "#121c2e"], bau: ["#8e93b8", "#4e5480"], gelaende: "#a7acd2",
+      hang: ["#dfe5fb", "#8c93c4"], baum: ["#1d2a40", "#121c2e"], bau: ["#8e93b8", "#4e5480"],
       flutlicht: true,
     },
     {
@@ -666,7 +666,7 @@
       fern: { fels: "#1f2550", schatten: "#151a3c", schnee: "#7c86b8", schneeSchatten: "#4b5488", dunst: "rgba(60, 80, 150, 0.35)" },
       mitte: { grund: "#141a3c", hell: "#1b2248", schnee: "#525c90", wald: "#0e1430" },
       nah: { grund: "#0b1028", wald: "#070b1e", licht: "#ffcf7a" },
-      hang: ["#e4ebff", "#7d89bd"], baum: ["#14203a", "#0b1426"], bau: ["#7a82aa", "#3d4470"], gelaende: "#6f78a6",
+      hang: ["#e4ebff", "#7d89bd"], baum: ["#14203a", "#0b1426"], bau: ["#7a82aa", "#3d4470"],
       flutlicht: true,
     },
   ];
@@ -1102,11 +1102,19 @@
     const bis = sichtBis() + 20;
     const tief = bildY(sch.ende.y - 400);
 
+    // Hang und Gelände teilen einen Verlauf – an der Kante keine Naht.
+    const h = sch.hang;
+    const ds = h[1].s - h[0].s;
+    const schritt = Math.max(1, Math.floor(2.5 / (ds * z)));
+    const i0 = clamp(Math.floor(hangBei(sch, Math.max(0, von)).s / ds) - 1, 0, h.length - 2) || 0;
+    const i1 = clamp(Math.ceil(hangBei(sch, Math.max(0, bis)).s / ds) + 1, i0 + 1, h.length - 1) || h.length - 1;
+    const oberkante = Math.min(bildY(h[i0].y), bildY(h[i1].y));
+    const verlauf = g.createLinearGradient(0, oberkante, 0, oberkante + Math.max(80, view.cssH * 0.75));
+    verlauf.addColorStop(0, T.hang[0]);
+    verlauf.addColorStop(0.55, T.hang[1]);
+    verlauf.addColorStop(1, mische(T.hang[1], T.baum[1], 0.45));
     // Das Gelände hinter und unter dem Anlauf: ein verschneiter Waldhang.
-    const gel = g.createLinearGradient(0, bildY(gelaendeY(sch, -sch.L)), 0, bildY(-sch.h0 - 30 * sch.f));
-    gel.addColorStop(0, T.gelaende);
-    gel.addColorStop(1, T.hang[1]);
-    g.fillStyle = gel;
+    g.fillStyle = verlauf;
     g.beginPath();
     const links = Math.min(von, -sch.L * 1.6);
     g.moveTo(bildX(links), bildY(gelaendeY(sch, links)));
@@ -1136,16 +1144,6 @@
     zeichneFahnen(sch);
 
     // Der Aufsprunghang.
-    const h = sch.hang;
-    const ds = h[1].s - h[0].s;
-    const schritt = Math.max(1, Math.floor(2.5 / (ds * z)));
-    const i0 = clamp(Math.floor(hangBei(sch, Math.max(0, von)).s / ds) - 1, 0, h.length - 2) || 0;
-    const i1 = clamp(Math.ceil(hangBei(sch, Math.max(0, bis)).s / ds) + 1, i0 + 1, h.length - 1) || h.length - 1;
-    const oberkante = Math.min(bildY(h[i0].y), bildY(h[i1].y));
-    const verlauf = g.createLinearGradient(0, oberkante, 0, oberkante + Math.max(80, view.cssH * 0.75));
-    verlauf.addColorStop(0, T.hang[0]);
-    verlauf.addColorStop(0.55, T.hang[1]);
-    verlauf.addColorStop(1, mische(T.hang[1], T.baum[1], 0.45));
     g.fillStyle = verlauf;
     g.beginPath();
     g.moveTo(bildX(h[i0].x), tief);
@@ -1197,12 +1195,13 @@
     const wf = Math.sqrt(sch.f);
     const abst = 3.4 * wf;
     const unterkante = view.cssH + 20;
-    for (let n = Math.floor(Math.max(1, von) / abst); n <= Math.ceil(bis / abst); n += 1) {
+    for (let n = Math.floor(Math.max(-sch.L * 1.6, von) / abst); n <= Math.ceil(bis / abst); n += 1) {
       for (let reihe = 0; reihe < 3; reihe += 1) {
         const h = (k) => hash01(n * 3.73 + reihe * 17.1 + k * 2.17 + sch.n);
         const x = (n + h(1) * 0.9) * abst;
-        if (x < 4 || h(2) < 0.25) continue;
-        const flaeche = hangBei(sch, x).y;
+        if ((x > -3 && x < 4) || h(2) < 0.25) continue;
+        // Unter dem Anlauf steht der Wald im Gelände, sonst am Hang.
+        const flaeche = x < 0 ? gelaendeY(sch, x) : hangBei(sch, x).y;
         const tief = (9 + reihe * 9 + h(3) * 7) * wf;
         const hoehe = (5 + h(4) * 4) * wf;
         const fuss = flaeche - tief;
