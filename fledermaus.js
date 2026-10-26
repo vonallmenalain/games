@@ -274,6 +274,50 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Beim Zuschauen klingt es wie gespielt. Jeder Klang hat eine Mindestpause
+  // in echter Zeit – die Prüfskripte fliegen ganze Höhlen am Stück.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 80) {
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms, der Takt kommt in kleinen Schritten –, aus() am
+  // Ende. Hat die Tafel oder der Neustart sie gestoppt, holt an() sie neu
+  // (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetzt = performance.now();
+        if (jetzt - ms < 50) return;
+        ms = jetzt;
+        if (!k || (!k.laeuft && jetzt - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetzt; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+
+  // Die Höhle: Tropfen und Stille, solange sie fliegt. Draussen im Mondlicht
+  // leise, drinnen voller.
+  const hoehle = schleife("fledermaus.hoehle");
+  function klangTakt() {
+    const an = state.schritt === "flug" && (state.phase === "spiel" || (state.phase === "zuschauen" && !zuschauer?.fertig?.()));
+    if (an) hoehle.an(0.2 + 0.6 * clamp(state.fm.x / MOND_BIS, 0, 1), 0.8);
+    else hoehle.aus();
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Höhle
   // ---------------------------------------------------------------------------
   /*
@@ -2573,6 +2617,8 @@
     schlagAuf(state.fm);
     state.schlaege += 1;
     fluegelAnimation();
+    // Flügelschläge kommen dicht – leise.
+    ton("fledermaus.fluegel", { laut: 0.55 }, 60);
     // Ein Hauch Staub unter den Flügeln.
     if (!ruhig() && Math.random() < 0.7) {
       teil({ art: "staub", x: state.fm.x - 4, y: state.fm.y - 8, vx: -40 - Math.random() * 30, vy: -30 - Math.random() * 30,
@@ -2585,7 +2631,7 @@
   function rufAus(x, y) {
     state.rufe.push({ x: x + 6, y: y + 1, t0: state.zeit, r: rufWeite(x), fade: fadeBei(x) });
     state.rufBlitz = 1;
-    kids()?.playStarSound?.(2);
+    ton("fledermaus.echo", { laut: 0.9 });
   }
 
   function ruf() {
@@ -2596,8 +2642,9 @@
     }
     if (state.schritt !== "flug") return;
     if (state.ladung < 1) {
-      // Leer: ein Piepsen ohne Echo.
+      // Leer: kein Echo, nur ein leises «nichts».
       state.leerBis = state.zeit + 0.45;
+      ton("fehler", { laut: 0.45 }, 500);
       funken(state.fm.x + 8, state.fm.y, 3, ["#ff9ab8", "#ffffff"], 50);
       if (Math.random() < 0.5) schrift("Ruf lädt …", state.fm.x + 24, state.fm.y + 26, "#ffb3c9", 13, 0.7);
       return;
@@ -2618,9 +2665,9 @@
     blitzLicht(x, y, 85, 0.75, 0.9, 6);
     funken(x, y, 14, ["#f4ffc0", "#d8ff6a", "#ffffff"], 110);
     state.ladung = Math.min(LADUNG_MAX, state.ladung + 1);
+    ton("punkt", { laut: 0.9 }, 100);
     if (still) return;
     schrift("+1 Ruf", x, y + 16, "#e4ff8a", 15, 0.9);
-    kids()?.playJingle?.("correct");
     kids()?.vibrate?.(10);
   }
 
@@ -2676,8 +2723,10 @@
     blitzLicht(f.x, f.y, 140, 1.1, 1.1, 8);
     funken(f.x + 4, f.y, 26, ["#ffffff", "#e3d6ff", "#a98bff", "#7fe8ff"], 170);
     staubWolke(f.x, f.y, 10);
+    // Der Aufprall beendet die Runde – die Höhle verstummt.
+    hoehle.aus();
+    ton("fledermaus.aufprall", {}, 300);
     if (still) return;
-    kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1350);
   }
@@ -2770,7 +2819,7 @@
         if (meter !== state.meter) {
           if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
             schrift(`${Math.floor(meter / 100) * 100} m`, f.x + 40, f.y + 30, "#c9b8ff", 17);
-            kids()?.playJingle?.("star");
+            ton("meilenstein", {}, 800);
           }
           state.meter = meter;
           state.punkte = meter;
@@ -2830,6 +2879,8 @@
     if (state.schritt !== "crash") state.camX = camZiel();
     hoehleBis(state.camX + view.w + SEG * 6);
 
+    klangTakt();
+
     if (state.phase === "spiel") {
       const winkel = Math.round(clamp(state.winkel, -1.2, 1.2) * 100);
       gegner?.takt(state.punkte, { a: Math.round(f.x), b: Math.round(f.y), c: state.rufZahl * 1000 + 500 + winkel });
@@ -2838,7 +2889,9 @@
 
   function loop(now) {
     frame = window.requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000);
+    // Nie rückwärts: Der Zeitstempel eines Bildes kann vor dem letzten
+    // Neustart liegen – ein Ruf gleich danach liefe sonst mit negativem Alter.
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
     ruhigFragen();
     messen();
@@ -2878,7 +2931,10 @@
       state.weltZeit = zeitBei(f.x);
       state.winkel = clamp(((c % 1000) - 500) / 100, -1.3, 1.3);
       // Ein Flügelschlag zeigt sich als Ruck nach oben.
-      if (f.vy - vorher > 45 * Math.max(1, dt * 60) && state.zeit - state.schlagZeit > 0.12) fluegelAnimation();
+      if (f.vy - vorher > 45 * Math.max(1, dt * 60) && state.zeit - state.schlagZeit > 0.12) {
+        fluegelAnimation();
+        ton("fledermaus.fluegel", { laut: 0.55 }, 60);
+      }
       while (state.rufZahl < rufe) {
         state.rufZahl += 1;
         state.ladung = Math.max(0, state.ladung - 1);
@@ -2898,6 +2954,7 @@
     }
     const punkte = Math.max(0, Math.floor(s.punkte));
     if (punkte !== state.punkte) {
+      if (Math.floor(punkte / 100) > Math.floor(state.punkte / 100)) ton("meilenstein", {}, 800);
       state.punkte = punkte;
       state.meter = punkte;
       shell.setCount(punkte);
@@ -2943,6 +3000,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    hoehle.aus();
     shell.closeOverlay();
     ruhigFragen();
     zufall.neu();
@@ -3021,6 +3079,7 @@
     stopLoop();
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     state.phase = "ende";
+    hoehle.aus();
     const punkte = state.punkte;
     const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
@@ -3029,7 +3088,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const rufe = `${state.rufZahl} ${state.rufZahl === 1 ? "Ruf" : "Rufe"}`;
     const best = vorher ? `Bestwert ${vorher} m` : "";
     shell.showResult({

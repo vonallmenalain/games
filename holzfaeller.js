@@ -251,6 +251,51 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Beim Zuschauen klingt es wie gespielt. Jeder Klang hat eine Mindestpause
+  // in echter Zeit: Ein Wisch durch drei Stämme klingt einmal, und die
+  // Prüfskripte, die viele Schnitte am Stück rechnen, bleiben leise.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 80) {
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms, der Takt kommt in kleinen Schritten –, aus() am
+  // Ende. Hat die Tafel oder der Neustart sie gestoppt, holt an() sie neu
+  // (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetzt = performance.now();
+        if (jetzt - ms < 50) return;
+        ms = jetzt;
+        if (!k || (!k.laeuft && jetzt - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetzt; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+
+  // Der Wald im Hintergrund: Vögel und Wind, solange die Runde läuft – nach
+  // der dritten Axt ist Feierabend.
+  const wald = schleife("holzfaeller.wald");
+  function klangTakt() {
+    const an = !state.aus && (state.phase === "spiel" || (state.phase === "zuschauen" && !zuschauer?.fertig?.()));
+    if (an) wald.an(0.4, 0.8);
+    else wald.aus();
+  }
+
+  // ---------------------------------------------------------------------------
   // Der Plan
   // ---------------------------------------------------------------------------
   /*
@@ -2279,6 +2324,9 @@
       q.om *= 0.5;
     }
     spaene(p, ort, winkel, fehlschnitt ? 0.7 : 1);
+    // Die Klinge geht durch den Stamm – auch daneben und durch den Ast (dort
+    // kommt der Fehler dazu).
+    ton("holzfaeller.schnitt", { laut: b.art === "perfekt" ? 1 : fehlschnitt ? 0.8 : 0.9 }, 45);
     if (fehlschnitt) {
       if (b.art === "ast") splitter(p, ort);
       ring(ort.x, ort.y, "fehler");
@@ -2313,20 +2361,20 @@
       state.blitz = 0.9;
       state.blitzFarbe = "255, 214, 120";
       state.stoss = Math.max(state.stoss, 0.75);
+      // Zum Schnitt: ein neuer Faktor ist ein Meilenstein, sonst die Harfe –
+      // und ab dem zweiten Perfekten in Folge die Leiter, Stufe um Stufe.
       if (faktor > faktorVorher) {
         banner(`Serie ×${faktor}!`, "#ffd23f", 1.2, 1.1);
-        if (!zuschauen) kids()?.playJingle?.("unlock");
-      } else if (!zuschauen) kids()?.playJingle?.("correct");
+        ton("meilenstein", {}, 400);
+      } else if (state.serie >= 2) ton("serie", { stufe: state.serie, laut: 0.9 }, 100);
+      else ton("perfekt", { laut: 0.9 }, 100);
       if (!zuschauen) kids()?.vibrate?.([8, 24, 8]);
     } else {
       const wort = basis >= 8 ? "SUPER" : basis >= 5 ? "GUT" : "KNAPP";
       schrift(`${wort} ${dazu}`, ort.x, ort.y + p.R + 20, basis >= 8 ? "#fff1d6" : "#f2e6d8", basis >= 5 ? 18 : 16, 1, unter, "#ffe9a8");
       ring(ort.x, ort.y, "gut");
       state.stoss = Math.max(state.stoss, 0.45);
-      if (!zuschauen) {
-        kids()?.playJingle?.("star");
-        kids()?.vibrate?.(10);
-      }
+      if (!zuschauen) kids()?.vibrate?.(10);
     }
     if (gold > 1) glanz(ort.x, ort.y, 14, p.R * 3);
     state.protokoll.push(`${state.tick}:${p.id}:${b.art}:${dazu}`);
@@ -2350,12 +2398,12 @@
     state.blitzFarbe = "255, 70, 40";
     schrift(FEHLER_TEXT[art] || "FEHLER!", x, clamp(y, 22, OBEN - 20) + 18, "#ff7a5c", 22, 1.3);
     const zuschauen = state.phase === "zuschauen";
-    if (!zuschauen) {
-      kids()?.playJingle?.("retry");
-      kids()?.vibrate?.([30, 40, 60]);
-    }
+    // Eine Axt weniger: Klinge auf Eisen – die letzte am lautesten.
+    ton("holzfaeller.nagel", { laut: state.fehler >= LEBEN ? 1.2 : 1 }, 150);
+    if (!zuschauen) kids()?.vibrate?.([30, 40, 60]);
     if (state.fehler >= LEBEN) {
       state.aus = true;
+      wald.aus();
       state.uhrRest = 0;
       if (!ruhig()) state.lupe = 0.3;
       banner("Feierabend!", "#ffe9a8", 2.4, 1.25);
@@ -2517,6 +2565,7 @@
         teil("glanz", o.x, o.y, 0, 10, 0.45, 1 + Math.random(), "#fff3c2");
       }
     }
+    klangTakt();
   }
 
   let gezeigt = 0;
@@ -2841,6 +2890,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    wald.aus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -2898,6 +2948,7 @@
     state.fertig = true;
     state.phase = "ende";
     stopLoop();
+    wald.aus();
     if (g) zeichnen();
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
@@ -2907,7 +2958,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const teileText = [
       GRUND_TEXT[state.grund] || "",
       state.schnitte ? `${state.schnitte} Schnitte, ${state.perfekte} perfekt` : "",

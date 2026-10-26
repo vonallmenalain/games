@@ -731,9 +731,58 @@
   // ---------------------------------------------------------------------------
   const zeigen = () => !state.stumm;
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (fn) => { if (zeigen() && !zuschauend()) fn(kids()); };
   const brumm = (muster) => { if (zeigen() && !zuschauend()) kids()?.vibrate?.(muster); };
   const jetzt = () => state.tick * TAKT;
+
+  // Die Klänge (klang.js). Beim Zuschauen klingt es wie gespielt, beim
+  // stillen Nachbauen nie. Jeder Klang hat eine Mindestpause in echter Zeit:
+  // Holt die Runde viele Schritte auf einmal auf (oder rechnen die
+  // Prüfskripte tausende am Stück), klingt es nur einmal.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 60) {
+    if (!zeigen()) return;
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+  // Perfekt in Folge: alle fünf perfekten Würfe einen Ton – zuerst die Harfe,
+  // dann die Leiter, Stufe um Stufe.
+  function perfektTon(stufe) {
+    if (stufe <= 1) ton("perfekt", { laut: 0.7 }, 100);
+    else ton("serie", { stufe, laut: 0.8 }, 100);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms, der Takt kommt in kleinen Schritten –, aus() am
+  // Ende. Hat die Tafel oder der Neustart sie gestoppt, holt an() sie neu
+  // (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetztMs = performance.now();
+        if (jetztMs - ms < 50) return;
+        ms = jetztMs;
+        if (!k || (!k.laeuft && jetztMs - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetztMs; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+
+  // Das Publikum im Zelt: ganz leise, solange die Runde läuft – lauter, wenn
+  // es jubelt und viel in der Luft ist.
+  const zirkus = schleife("jongleur.zirkus");
+  function zirkusTakt() {
+    const an = (state.phase === "spiel" || (zuschauend() && !zuschauer?.fertig?.())) && !state.fehler && !state.stumm;
+    if (an) zirkus.an(clamp(0.25 + state.jubel * 0.5 + anzahlDinge() * 0.02, 0, 1), 0.55);
+    else zirkus.aus();
+  }
 
   // Der Bogen: von der Hand, die wirft, zur Fangstelle der anderen.
   function wurfBild(d, h, FT) {
@@ -756,10 +805,12 @@
     hv.vy += d.hoch ? 220 : 150;
     hv.laden = 0;
     state.bild.leanZiel = -seite * 2.5;
+    // Würfe kommen dicht – leise.
+    ton("jongleur.wurf", { laut: d.hoch ? 0.75 : 0.55 });
     if (d.perfekt) {
       if (state.serie >= 2) funken(d.x0, d.y0, 6, ["#fff4c2", "#ffd23f"], 90);
+      if (state.serie > 0 && state.serie % 5 === 0) perfektTon(state.serie / 5);
       if (state.serie > 0 && state.serie % 10 === 0) serieFest();
-      else if (state.serie > 0 && state.serie % 5 === 0) klang((k) => k?.playJingle?.("correct"));
     }
     if (d.hoch) welle(d.x0, d.y0, "hoch");
   }
@@ -775,7 +826,10 @@
     welle(hv.x, hv.y + 4, "luft");
     hv.vy -= 60;
     schrift("Luftgriff", hv.x, hv.y + 34, "#e8eef5", 12, 0.6);
-    if (hatte >= 3) schrift("Serie vorbei", 0, 228, "#e8eef5", 13, 0.8);
+    if (hatte >= 3) {
+      schrift("Serie vorbei", 0, 228, "#e8eef5", 13, 0.8);
+      ton("fehler", { laut: 0.6 }, 400);
+    }
   }
 
   function fangBild(d, h, vomClown) {
@@ -788,7 +842,7 @@
     state.bild.bobV -= d.art === "kugel" ? 34 : 18;
     state.bild.leanZiel = seite * 2.5;
     welle(d.x1, d.y1 - 2, "fang");
-    klang((k) => k?.playStarSound?.(h));
+    ton("jongleur.fang", { laut: d.art === "kugel" ? 0.85 : 0.6 });
     brumm(d.art === "kugel" ? 14 : 6);
     if (d.art === "fackel") funken(d.x1, d.y1 + 16, 6, ["#ffd36b", "#ff8a2a", "#ffefb0"], 110);
     if (d.art === "apfel" && d.faenge > 1 && d.faenge < APFEL_FAENGE) {
@@ -800,11 +854,15 @@
       state.bild.jubelBis = state.echt + 1.3;
       state.jubel = Math.max(state.jubel, 1);
       funken(d.x1, d.y1, 16, ["#ffffff", "#9ff2f8", "#ffd23f"], 170);
-      klang((k) => k?.playJingle?.("unlock"));
+      // Ein Ding mehr in der Kaskade: die nächste Stufe.
+      ton("meilenstein", {}, 800);
     }
     if (state.punkte % 50 === 0) {
       schrift(`${state.punkte} Fänge!`, 0, 236, "#ffffff", 22, 1.4);
       state.jubel = Math.max(state.jubel, 0.8);
+      // Solange der Clown noch etwas bringt, kündigt ihn hier gleich die
+      // Trommel an – erst danach zählen die Fünfziger selbst.
+      if (anzahlDinge() >= DINGE_MAX) ton("meilenstein", {}, 800);
     }
     if (state.punkte > 0) setzeZahl();
   }
@@ -817,15 +875,16 @@
     state.bild.kauenBis = state.echt + 1.4;
     state.bild.jubelBis = state.echt + 1.4;
     schrift("Mmh, gegessen!", 0, 214, "#ffe68f", 17, 1.2);
+    ton("punkt", { laut: 0.8 }, 100);
   }
 
-  // Alle zehn perfekten Würfe Konfetti, alle 25 auch eine Schrift.
+  // Alle zehn perfekten Würfe Konfetti, alle 25 auch eine Schrift. Der
+  // Klang dazu ist die Leiter der Serie (wurfBild).
   function serieFest() {
     if (state.serie % 25 === 0) schrift(`Perfekt ×${state.serie}`, 0, 262, "#ffd23f", 22, 1.3);
     konfetti(ruhig() ? 14 : 50);
     state.jubel = Math.max(state.jubel, 1);
     state.bild.jubelBis = state.echt + 1.4;
-    klang((k) => k?.playJingle?.("unlock"));
     brumm([10, 30, 10]);
   }
 
@@ -840,6 +899,9 @@
     B.clownSichtbar = true;
     B.clownWurf = -9;
     B.schreckBis = state.echt + 0.5;
+    // Der Wirbel dauert so lange, wie der Clown zielt; der Beckenschlag
+    // fällt etwa auf seinen Wurf.
+    ton("jongleur.trommel", { laut: 0.9 }, 1500);
   }
 
   function clownWurfBild(d, z) {
@@ -855,6 +917,7 @@
     if (!zeigen()) return;
     state.bild.clownWurf = state.echt;
     schrift("Hepp!", d.x0, d.y0 + 40, "#ffffff", 15, 0.7);
+    ton("jongleur.wurf", { laut: 0.7 });
   }
 
   function fehlerBild(art, h, d) {
@@ -899,7 +962,9 @@
     }
     funken(hv.x, hv.y + 12, 18, ["#ffffff", "#ffb3a8", "#ffd23f"], 220);
     welle(hv.x, hv.y + 10, "stoss");
-    klang((k) => k?.playJingle?.("retry"));
+    // Das Ende der Runde: Das Publikum verstummt.
+    zirkus.aus();
+    ton("fehler", {}, 300);
     brumm([30, 40, 60]);
   }
 
@@ -3277,6 +3342,7 @@
       state.schriften[i].leben -= h;
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
+    zirkusTakt();
   }
 
   function setzeZahl() {
@@ -3382,6 +3448,7 @@
     state.fertig = false;
     state.stumm = false;
     state.tippGezeigt = false;
+    zirkus.aus();
     state.bild = neuesBild();
     state.lupe = 0;
     state.stoss = 0;
@@ -3442,6 +3509,7 @@
     state.fertig = true;
     state.phase = "ende";
     stopLoop();
+    zirkus.aus();
     if (g) zeichnen();
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
@@ -3451,7 +3519,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((a, b) => b - a).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const teile = [grundText(), `${state.meisteDinge} Dinge`, state.besteSerie >= 3 ? `Serie ${state.besteSerie}` : "", vorher ? `Bestwert ${vorher}` : ""];
     shell.showResult({
       label: "Deine Fänge",
