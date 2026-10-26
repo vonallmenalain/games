@@ -105,7 +105,6 @@
   const R_FREI = 0.8;              // so breit trifft der Springer im Fall (halb, m)
   const R_SCHIRM = 3.4;            // … und am Schirm
   const ZUG_MAX = 100;             // Punkte für das Ziehen genau an der Mindesthöhe
-  const RING_PUNKTE = [50, 25, 10];
   const T_INTRO = 1.5;             // so lange fliegt das Flugzeug vor jedem weiteren Sprung (s)
   const T_GELANDET = 1.9;          // so lange steht er nach einer Landung (s)
   const T_FEHLER = 1.5;            // so lange nach einem Fehler bis zur Tafel (s)
@@ -1452,10 +1451,11 @@
    *   wolken       die Saat der Wolken (nur zum Ansehen)
    *
    * Die Hindernisse liegen auf dem Weg vom Absprung zum Ziel, je eines in
-   * einem eigenen Höhenband – zwischen zweien bleibt immer Zeit zum Lenken.
-   * Wer bewegt ist (Vögel, Ballon, Segler, ein Schirm), ist so gesetzt, dass
-   * er dort ist, wenn der Springer im freien Fall seine Höhe erreicht: Der
-   * Fall ist ohne Ziehen für alle gleich schnell.
+   * einem eigenen Zeitfenster des Falls, und immer so, dass ein Weg frei
+   * bleibt (setzeHindernisse). Wer bewegt ist (Vögel, Ballon, Segler, ein
+   * Schirm), ist so gesetzt, dass er dort ist, wenn der Springer im freien
+   * Fall seine Höhe erreicht: Der Fall ist ohne Ziehen für alle gleich
+   * schnell.
    */
   const Z_JE_SPRUNG = 48;
   const HINDERNIS = {
