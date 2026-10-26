@@ -51,6 +51,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   const zufall = window.LernappZufall?.fuer?.("moonLander") || {
@@ -134,6 +135,7 @@
     schritt: "start",
     punkte: 0,
     sparsam: 0,           // Flüge, die höchstens 40 Prozent des Tanks gekostet haben
+    sparFolge: 0,         // … und wie viele davon hintereinander
     gestrandet: false,    // mit leerem Tank gelandet – die Runde ist aus
     kostenFlug: 0,        // was der Treibstoff auf diesem Flug an Punkten gekostet hat
     kostenGesamt: 0,      // … und in der ganzen Runde
@@ -176,6 +178,9 @@
   const tasten = { links: false, rechts: false, schub: false };
   // Für die Prüfskripte: eine Neigung, so fein wie ein Finger.
   const pruef = { neig: null };
+  // Das Triebwerk (klang.js): eine Schleife über die ganze Runde, hörbar
+  // nur, solange es brennt.
+  let triebwerk = null;
 
   const view = { s: 1, grund: 1, zoom: 1, dpr: 1, cssW: 0, cssH: 0, w: MIN_W, h: MIN_H };
 
@@ -185,6 +190,23 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // Das Triebwerk faucht, solange Schub gegeben wird und Treibstoff da ist –
+  // weich ein und aus (klang.js blendet).
+  function triebwerkAn() {
+    triebwerk = klang()?.kulisse("mondlandung.schub") || null;
+    triebwerkStellen();
+  }
+
+  function triebwerkStellen() {
+    const brennt = state.schub && state.schritt === "flug" && (state.phase === "zuschauen" || state.tank > 0);
+    triebwerk?.laut(brennt ? 1 : 0);
+  }
+
+  function triebwerkAus() {
+    triebwerk?.stop();
+    triebwerk = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1174,6 +1196,7 @@
     state.schritt = "gelandet";
     state.schrittZeit = state.zeit;
     staub(f.x, platte.y, 14, 0.8);
+    klang()?.ton("mondlandung.landung");
     kids()?.vibrate?.(14);
     if (platte.n > state.auf) {
       state.auf = platte.n;
@@ -1194,7 +1217,14 @@
       const wort = kosten <= 40 * PUNKTE_TREIBSTOFF ? "Sparsam!" : netto > 0 ? "Gelandet" : "Teuer gelandet";
       schrift(`${wort} +${PUNKTE_PLATTE}`, f.x, f.y + 38, kosten <= 40 * PUNKTE_TREIBSTOFF ? "#ffe08a" : "#ffffff", 16);
       schrift(`Flug −${kosten}`, f.x, f.y + 20, "#ff9b9b", 12);
-      kids()?.playJingle?.(kosten <= 40 * PUNKTE_TREIBSTOFF ? "star" : "tap");
+      // Zum Aufsetzen leise dazu: alle fünf Plattformen die lange Harfe,
+      // sonst für einen sparsamen Flug die Harfe – hintereinander höher.
+      state.sparFolge = kosten <= 40 * PUNKTE_TREIBSTOFF ? state.sparFolge + 1 : 0;
+      if (state.landungen % 5 === 0) klang()?.ton("meilenstein");
+      else if (state.sparFolge > 1) klang()?.ton("serie", { stufe: state.sparFolge, laut: 0.8 });
+      else if (state.sparFolge === 1) klang()?.ton("perfekt", { laut: 0.7 });
+      // Das Tanken, sobald der Balken sich füllt.
+      if (state.getankt.menge > 0) klang()?.ton("mondlandung.tanken", { laut: 0.8, verzoegerung: 0.3 });
     }
     while (state.platten.length < state.auf + 4) naechstePlatte();
   }
@@ -1213,7 +1243,8 @@
     state.schrittZeit = state.zeit;
     state.stoss = 1;
     explosion(state.f.x, state.f.y);
-    kids()?.playJingle?.("retry");
+    triebwerkAus();
+    klang()?.ton("mondlandung.explosion");
     kids()?.vibrate?.([30, 40, 80]);
     stepTimer = window.setTimeout(finish, 1500);
   }
@@ -1238,7 +1269,8 @@
         && state.zeit - state.schrittZeit > 0.6) {
         state.gestrandet = true;
         schrift("Tank leer – gestrandet", state.f.x, state.f.y + 40, "#ff9b9b", 15);
-        kids()?.playJingle?.("retry");
+        triebwerkAus();
+        klang()?.ton("fehler");
         stepTimer = window.setTimeout(finish, 1500);
       }
       // Wer auf einer Plattform steht und Schub gibt, hebt ab.
@@ -1294,6 +1326,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(Math.max(0, Math.round(state.punkte)), { a: Math.round(state.f.x), b: Math.round(state.f.y), c: Math.round(state.f.neig * 100) });
     }
+    triebwerkStellen();
   }
 
   function loop(now) {
@@ -1319,6 +1352,7 @@
     state.schritt = "flug";
     shell.setPhase("play");
     zuschauer.los();
+    triebwerkAn();
   }
 
   function zuschauenTakt() {
@@ -1337,10 +1371,13 @@
     if (steht && platte.n > state.auf) {
       state.auf = platte.n;
       state.landungen += 1;
+      // Aufsetzen und Tanken wie damals (wie viel genau, weiss nur die Plattform).
+      klang()?.ton("mondlandung.landung");
+      if (platte.tank > 0) klang()?.ton("mondlandung.tanken", { laut: 0.8, verzoegerung: 0.3 });
     }
     state.punkte = s.punkte;
     zeigeZahl();
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) triebwerkAus();
   }
 
   // ---------------------------------------------------------------------------
@@ -1353,6 +1390,7 @@
     state.phase = "spiel";
     shell.setPhase("play");
     gegner?.los();
+    triebwerkAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1378,6 +1416,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    triebwerkAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1385,6 +1424,7 @@
     state.schritt = "start";
     state.punkte = 0;
     state.sparsam = 0;
+    state.sparFolge = 0;
     state.kostenFlug = 0;
     state.kostenGesamt = 0;
     state.angezeigt = 0;
@@ -1450,6 +1490,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    triebwerkAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = Math.max(0, Math.round(state.punkte));
@@ -1460,7 +1501,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const landungen = state.landungen === 1 ? "1 Landung" : `${state.landungen} Landungen`;
     const kosten = ` · −${Math.round(state.kostenGesamt)} für Treibstoff`;
     shell.showResult({
@@ -1543,7 +1583,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); triebwerkAus(); });
 
   // Für die Prüfskripte: steuern wie mit Finger und Tasten.
   window.LernappMondlandung = {

@@ -44,6 +44,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Nur die Strasse zieht daraus – Bäume, Rauch und Funken
@@ -180,6 +181,9 @@
   // Wer eine Fahrt anschaut statt zu fahren (geist.js, zuschauer).
   let zuschauer = null;
   let asphalt = null;
+  // Motor und Reifen (klang.js): zwei Schleifen, solange der Wagen fährt.
+  let motor = null;
+  let reifen = null;
 
   const view = { s: 1, grund: 1, dpr: 1, cssW: 0, cssH: 0, w: MIN_W, h: MIN_H };
 
@@ -189,6 +193,33 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Motor und Reifen
+  // ---------------------------------------------------------------------------
+  // Der Motor dreht mit dem Tempo hoch. Die Reifen rutschen hörbar, so weit
+  // der Wagen quer steht – geradeaus (unter knapp zwei Grad) sind sie still.
+  // Mehr als ein Bogenmass quer driftet kein Wagen: Das gibt es nur beim
+  // Zuschauen, wenn die Richtung aus der Aufzeichnung am Anfang kurz
+  // danebenliegt, oder wenn er sich nach dem Crash dreht – dann schweigen sie.
+  function klaengeAn() {
+    motor = klang()?.kulisse("drift.motor") || null;
+    reifen = klang()?.kulisse("drift.drift") || null;
+    klaengeStellen();
+  }
+
+  function klaengeStellen() {
+    motor?.setze(tempoBei(state.auto.s) / V_MAX);
+    const quer = Math.abs(winkelDiff(state.koerper, state.auto.a));
+    reifen?.laut(quer > 1 ? 0 : clamp((quer - 0.03) / 0.4, 0, 1));
+  }
+
+  function klaengeAus() {
+    motor?.stop();
+    reifen?.stop();
+    motor = null;
+    reifen = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1521,7 +1552,9 @@
         state.serie += 1;
         const text = state.serie > 1 ? `Perfekt! ×${state.serie}` : "Perfekt!";
         schrift(text, state.auto.x, state.auto.y + 30, "#ffe08a", 17);
-        kids()?.playJingle?.("star");
+        // Perfekt in Folge: jede Kurve einen Ton höher.
+        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie });
+        else klang()?.ton("perfekt");
       } else {
         state.serie = 0;
       }
@@ -1540,7 +1573,8 @@
     state.dreht = (Math.random() < 0.5 ? -1 : 1) * 7;
     state.crashV = tempoBei(state.auto.s) * 0.55;
     funken(wo.x, wo.y, 36);
-    kids()?.playJingle?.("retry");
+    klaengeAus();
+    klang()?.ton("drift.crash");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1200);
   }
@@ -1558,7 +1592,11 @@
 
       const meter = Math.floor(meterBei(auto.s));
       if (meter !== state.meter) {
-        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) kids()?.playJingle?.("tap");
+        // An jeder Hundertermarke ein Pop, alle 500 m die lange Harfe.
+        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
+          if (Math.floor(meter / 100) % 5 === 0) klang()?.ton("meilenstein");
+          else klang()?.ton("punkt", { laut: 0.6 });
+        }
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);
@@ -1649,6 +1687,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(state.punkte, { a: Math.round(state.auto.x), b: Math.round(state.auto.y), c: Math.round((state.koerper - HAUPT) * 100) });
     }
+    klaengeStellen();
   }
 
   function loop(now) {
@@ -1676,6 +1715,7 @@
     state.schritt = "fahrt";
     shell.setPhase("play");
     zuschauer.los();
+    klaengeAn();
   }
 
   function zuschauenTakt() {
@@ -1694,7 +1734,7 @@
       state.punkte = meter;
       shell.setCount(meter);
     }
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) klaengeAus();
   }
 
   // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
@@ -1708,6 +1748,7 @@
     state.wartetAufLos = gedrueckt;
     shell.setPhase("play");
     gegner?.los();
+    klaengeAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1727,6 +1768,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    klaengeAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1791,6 +1833,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    klaengeAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1801,7 +1844,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const kmh = Math.round((state.spitze / METER) * 3.6);
     const perfekt = state.perfekt === 1 ? "1 perfekter Drift" : `${state.perfekt} perfekte Drifts`;
     shell.showResult({
@@ -1860,7 +1902,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); klaengeAus(); });
 
   // Für die Prüfskripte.
   window.LernappDrift = {
