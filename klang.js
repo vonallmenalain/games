@@ -13,7 +13,7 @@
  *   ArcadeKlang.ton("punkt")                 einheitlich für alle Spiele
  *   ArcadeKlang.ton("ball.kick")             der eigene Klang eines Spiels
  *   ArcadeKlang.ton("serie", { stufe: 3 })   jede Stufe einen Ton höher
- *   const wind = ArcadeKlang.kulisse("huegel.wind");
+ *   const wind = ArcadeKlang.kulisse("huegel.wind");   // oder ({ laut: 0 })
  *   wind.setze(0…1);  wind.laut(0…1);  wind.stop();
  *
  * ton() nimmt ausserdem { laut } (0…1.5, Vorgabe 1), { hoehe } (Faktor auf
@@ -728,7 +728,7 @@
   // Eine Kulisse, die nichts tut – ohne Ton, ohne Web Audio.
   const STUMM = { setze() {}, laut() {}, stop() {}, laeuft: false };
 
-  function kulisse(id) {
+  function kulisse(id, { laut: startLaut = 1 } = {}) {
     const platz = PLAETZE[id];
     if (!platz || !platz.schleife) return STUMM;
     if (laufend.has(id)) return laufend.get(id);
@@ -736,7 +736,8 @@
     merkeIn(id, "kulisse");
     if (!c) return STUMM;
     let k = 0.5;
-    let lautheit = 1;
+    // Was stumm beginnt (Brenner, Schub, Reifen), startet mit laut: 0.
+    let lautheit = Math.max(0, Math.min(1.5, Number(startLaut) || 0));
     let quelle = null;    // Aufnahme: AudioBufferSourceNode
     let bau = null;       // erzeugt: { setze, aufraeumen }
     let gestoppt = false;
