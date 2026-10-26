@@ -1270,7 +1270,8 @@ h2 {
   -webkit-touch-callout: none;
 }
 .hl-stage:not([data-phase="intro"]) .hl-prompt { opacity: 0; }
-.hl-feld { width: 100%; background: #101018; }
+/* Der Grund der Lichtung, bis die Leinwand gemalt ist; die Maus ist die Klinge. */
+.hl-feld { width: 100%; background: #2a2014; cursor: crosshair; }
 .hl-canvas { display: block; width: 100%; height: 100%; }
 .hl-rekord {
   padding: 4px 16px;
