@@ -36,6 +36,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier treiben allen dieselben Wellen entgegen (zufall.js). Wer schneller
@@ -152,10 +153,25 @@
   let zuschauer = null;
   let gesehenBis = -Infinity;
 
-  // Beim Anschauen wischt dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Anschauen wischt dieses Gerät nur nach – es brummt nicht, aber es
+  // klingt: Jeder Wisch des anderen ist zu hören.
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
+
+  // Unter allem rauscht leise der Fluss, solange die Runde läuft – auch beim
+  // Anschauen; dessen Ende kennt das Spiel (zuschauer.weiter).
+  let fluss = null;
+
+  function flussAn() {
+    if (fluss?.laeuft) return;
+    fluss = klang()?.kulisse?.("blaetter.fluss") || null;
+    fluss?.laut(0.8);
+  }
+
+  function flussAus() {
+    fluss?.stop();
+    fluss = null;
+  }
 
   const pick = (list) => list[Math.floor(zufall.zahl() * list.length)];
 
@@ -328,14 +344,18 @@
     welle.fertig = true;
     const richtig = id === welle.antwort;
 
+    // Jeder Wisch rauscht, darum nicht zu laut; dazu sagt ein zweiter Klang,
+    // ob er stimmte: ein Punkt, alle zehn richtigen der Meilenstein.
+    klang()?.ton?.("blaetter.wisch", { laut: 0.7 });
     if (richtig) {
       state.richtig += 1;
-      klang("correct");
+      if (state.richtig % 10 === 0) klang()?.ton?.("meilenstein");
+      else klang()?.ton?.("punkt", { laut: 0.7 });
       brumm(16);
     } else {
       state.falsch += 1;
       // Kein Abzug: der Ton sagt "nicht ganz", nicht "falsch gemacht".
-      klang("retry");
+      klang()?.ton?.("fehler");
     }
     shell.setCount(state.richtig);
     gegner?.takt(state.richtig);
@@ -354,7 +374,7 @@
     welle.fertig = true;
     state.falsch += 1;
     welle.gruppe.classList.add("is-vorbei");
-    klang("retry");
+    klang()?.ton?.("fehler");
     flash(false);
     if (!zuschauend()) aufnahme?.zug(state.richtig, { a: 0, b: 0, c: welle.nr * 4 + 2 });
     stepTimer = window.setTimeout(nextWelle, PAUSE_VERPASST);
@@ -366,6 +386,7 @@
   function showIntro() {
     clearStep();
     stopLoop();
+    flussAus();
     shell.stopClock();
     shell.closeOverlay();
     shell.setPhase("intro");
@@ -419,6 +440,9 @@
     wasser = buildWasser();
     shell.play.append(prompt, wasser);
 
+    // Der Fluss vor der ersten Welle und der Uhr: Richtet er dabei die
+    // Tonausgabe erst ein, geht das nicht von der Runde ab.
+    flussAn();
     nextWelle();
     frame = window.requestAnimationFrame(step);
     shell.startClock(ROUND_MS, finish);
@@ -462,7 +486,8 @@
       gesehenBis = probe.t;
       zugNachbauen(probe);
     });
-    zuschauer.weiter?.();
+    // Am Schluss die Tafel – und der Fluss wird still.
+    if (zuschauer.weiter?.() === false) flussAus();
   }
 
   function zuschauenStarten() {
@@ -485,6 +510,7 @@
     wasser = buildWasser();
     shell.play.append(prompt, wasser);
 
+    flussAn();
     zuschauer.los?.();
     nextWelle();
     frame = window.requestAnimationFrame(step);
@@ -507,11 +533,11 @@
     if (zuschauer) return;
     clearStep();
     stopLoop();
+    flussAus();
     state.phase = "over";
     const points = state.richtig;
     const geist = aufnahme?.ende(gegner?.ende(points) || null) || null;
     const next = recordRun(points);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Richtige Blätter",
       points,
@@ -600,7 +626,7 @@
 
   window.addEventListener("resize", () => place());
   window.addEventListener("orientationchange", () => place());
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); flussAus(); });
 
   // Für die Prüfskripte. zeitUm beendet die Runde, ohne 45 Sekunden zu warten.
   window.LernappBlaetter = {

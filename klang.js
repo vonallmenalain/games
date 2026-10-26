@@ -23,8 +23,8 @@
  * Eine Kulisse ist eine Schleife: Wind, Motor, Publikum. setze() verstellt,
  * was sie ausmacht (Tempo, Drehzahl, Stärke – je nach Kulisse), laut() nur
  * die Lautstärke. Dieselbe Kulisse läuft nie zweimal: kulisse() gibt die
- * laufende zurück. stille() hält alle an; die Bühne (game-shell.js) ruft es,
- * sobald die Tafel kommt.
+ * laufende zurück; laeuft(id) fragt, ohne zu starten. stille() hält alle an;
+ * die Bühne (game-shell.js) ruft es, sobald die Tafel kommt.
  *
  * Lautstärke: Alles ist auf dieselbe Lautheit gebracht (Einmal-Klänge
  * -20 dB RMS, Kulissen -27 dB, gemessen) und läuft über einen leisen
@@ -697,22 +697,28 @@
     s.start(t);
   }
 
-  function ton(id, o = {}) {
+  // Heisst nicht ton(): So heisst oben der Baustein der erzeugten Klänge,
+  // und zwei Funktionen gleichen Namens überschreiben sich still.
+  function spieleTon(id, o = {}) {
     const platz = PLAETZE[id];
     merkeIn(id, "ton");
     if (!platz || platz.schleife) return;
     const c = kontext();
     if (!c) return;
     try {
-      const t = c.currentTime + 0.005 + Math.max(0, Number(o.verzoegerung) || 0);
+      const warte = Math.max(0, Number(o.verzoegerung) || 0);
+      const t = c.currentTime + 0.005 + warte;
       if (platz.s) { spieleSynth(platz.s, t, o, effekte); return; }
       const b = puffer.get(platz.d);
       if (b) spielePuffer(b, t, o, effekte);
       // Noch nicht geladen (die erste Runde gleich nach dem Öffnen): laden
-      // und nur dann nachholen, wenn es kaum zu spät ist.
+      // und nur dann nachholen, wenn es kaum zu spät ist – zur verlangten Zeit.
       else {
         const seit = performance.now();
-        ladeDatei(platz.d).then((x) => { if (x && performance.now() - seit < 150) spielePuffer(x, c.currentTime + 0.005, o, effekte); });
+        ladeDatei(platz.d).then((x) => {
+          const vorbei = (performance.now() - seit) / 1000;
+          if (x && vorbei < warte + 0.15) spielePuffer(x, c.currentTime + 0.005 + Math.max(0, warte - vorbei), o, effekte);
+        });
       }
     } catch { /* ein Klang darf nie ein Spiel anhalten */ }
   }
@@ -795,6 +801,9 @@
     return k_;
   }
 
+  // Ob eine Kulisse läuft – ohne sie zu starten.
+  const laeuft = (id) => laufend.has(id);
+
   // Alle Kulissen aus – die Tafel kommt, die Runde ist vorbei.
   function stille() {
     [...laufend.values()].forEach((x) => x.stop());
@@ -812,12 +821,12 @@
     if (document.body?.dataset?.seite === "admin" || location.pathname.includes("admin")) return;
     if (knopf.closest(".cm-play") && !knopf.closest(".cm-overlay")) return;
     if (knopf.closest(".ar-fenster-zu")) return; // das Fenster klingt selbst
-    ton("knopf");
+    spieleTon("knopf");
   }, { capture: true, passive: true });
 
   // Vorladen, sobald die Seite Ruhe hat.
   const spaeter = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400));
   spaeter(() => { const b = BEREICH[document.body?.dataset?.spiel || ""]; if (b) vorladen(b); });
 
-  window.ArcadeKlang = { ton, kulisse, stille, vorladen, PLAETZE, protokoll };
+  window.ArcadeKlang = { ton: spieleTon, kulisse, laeuft, stille, vorladen, PLAETZE, protokoll };
 })();
