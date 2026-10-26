@@ -52,6 +52,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier Math.random; im Turnier bekommen alle dieselben
   // Blätter in derselben Reihenfolge. Nur die Blätter ziehen daraus – Tropfen,
@@ -230,6 +231,44 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Zwei Kulissen: der Teich, solange die Runde läuft – mit der Nacht zirpen
+  // die Grillen dichter –, und das Laden, solange der Finger liegt: Der Ton
+  // steigt mit der Ladung. Beim Zuschauen genauso, bis der Lauf zu Ende ist.
+  let teich = null;
+  let laden = null;
+  let klangGestellt = -1e9;
+  function teichAn() {
+    if (!teich?.laeuft) teich = klang()?.kulisse("frosch.ambient") || null;
+    teich?.laut(0.8);
+  }
+  function kulissenAus() {
+    teich?.stop();
+    teich = null;
+    laden?.stop();
+    laden = null;
+  }
+  // Jedes Bild: Laden an oder aus, und beide nachgestellt – höchstens alle
+  // 30 ms, die Kulissen gleiten ohnehin.
+  function klangTakt() {
+    if (state.phase === "zuschauen" && zuschauer?.fertig?.()) { kulissenAus(); return; }
+    const an = state.laedt && state.schritt === "sitzt" && (state.phase === "spiel" || state.phase === "zuschauen");
+    if (an && !laden) {
+      laden = klang()?.kulisse("frosch.laden") || null;
+      laden?.setze(state.ladung);
+    } else if (!an && laden) {
+      laden.stop();
+      laden = null;
+    }
+    const jetzt = performance.now();
+    if (jetzt - klangGestellt < 30) return;
+    klangGestellt = jetzt;
+    if (laden?.laeuft) laden.setze(state.ladung);
+    if (teich?.laeuft) teich.setze(0.3 + 0.7 * state.nacht);
   }
 
   // ---------------------------------------------------------------------------
@@ -1424,6 +1463,10 @@
     }
     spritzer(f.x - 4, 6, 0.5);
     ring(f.x, false, 0.7);
+    // Das Laden verstummt, er springt.
+    laden?.stop();
+    laden = null;
+    klang()?.ton("frosch.sprung", { laut: 0.85 });
     if (state.phase !== "zuschauen") kids()?.vibrate?.(8);
   }
 
@@ -1446,6 +1489,7 @@
     b.besetzt = true;
     ring(f.x, false, 1);
     spritzer(f.x, 8, 0.45);
+    klang()?.ton("frosch.landung", { laut: 0.85 });
 
     const neu = b.n > state.auf && !b.erreicht;
     state.auf = Math.max(state.auf, b.n);
@@ -1471,18 +1515,18 @@
       if (state.kette >= 3) ring(mitte, true, 1.5);
       glanz(mitte, BLATT_Y + 6, 12 + Math.min(16, state.kette * 2));
       schrift(state.kette >= 2 ? `perfekt ×${state.kette}` : "perfekt!", mitte, BLATT_Y + 34, "#ffd451", 15);
-      if (!zuschauen) {
-        kids()?.playJingle?.(state.kette >= 3 ? "unlock" : "correct");
-        kids()?.vibrate?.(18);
-      }
+      // Zur Landung die Harfe, in Folge die Leiter – auf jedem zehnten Blatt
+      // stattdessen der Meilenstein.
+      if (b.n % 10 !== 0) klang()?.ton(state.kette >= 2 ? "serie" : "perfekt", { stufe: state.kette, laut: 0.75 });
+      if (!zuschauen) kids()?.vibrate?.(18);
     } else {
       state.kette = 0;
       if (ab >= b.r * KNAPP_ANTEIL) {
         schrift("knapp!", f.x, BLATT_Y + 30, "#ffad5c", 13);
         state.stoss = Math.max(state.stoss, 0.35);
       }
-      if (!zuschauen) kids()?.playJingle?.("star");
     }
+    if (b.n % 10 === 0) klang()?.ton("meilenstein");
     if (!zuschauen) {
       state.punkte += plus;
       shell.setCount(state.punkte);
@@ -1519,8 +1563,11 @@
       text = ziel && f.x < blattX(ziel) ? "zu kurz!" : "zu weit!";
     }
     schrift(text, f.x, BLATT_Y + 32, "#ff8f6b", 17);
+    // Der Teich verstummt, es platscht – auch am Ende eines Laufs, den man
+    // anschaut.
+    kulissenAus();
+    klang()?.ton("frosch.wasser");
     if (state.phase !== "zuschauen") {
-      kids()?.playJingle?.("retry");
       kids()?.vibrate?.([30, 40, 60]);
       stepTimer = window.setTimeout(finish, 1150);
     }
@@ -1720,6 +1767,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(state.punkte, { a: Math.round(f.x - START.x), b: Math.round(f.y - START.y), c: cFuer() });
     }
+    klangTakt();
   }
 
   // Was der Geist über die Figur wissen muss (deuteC).
@@ -1745,7 +1793,8 @@
   // (geist.js, zuschauer), startRun baut damit dieselben Blätter, die Uhr des
   // Teichs folgt der Zeit des Laufs, und der Frosch ist Bild für Bild dort,
   // wo er damals war. Absprung, Landung, «perfekt» und Platsch liest das Bild
-  // aus c (deuteC) und zeigt sie wie im Spiel – nur still.
+  // aus c (deuteC) und zeigt sie wie im Spiel, mit denselben Klängen – nur
+  // ohne Vibration.
   function zuschauenStarten() {
     if (!zuschauer?.lauf) return;
     startRun();
@@ -1753,11 +1802,16 @@
     state.schritt = "sitzt";
     shell.setPhase("play");
     zuschauer.los();
+    teichAn();
   }
 
   function zuschauenTakt(dt) {
     const s = zuschauer.stand();
     if (!s) return;
+    // Die erste Probe eines Laufs liegt noch bei null (geist.js nimmt sie
+    // vor dem ersten Bild): Der Frosch spränge dort ab, mit Spritzer und
+    // Klang. Die erste Zehntelsekunde bleibt er darum sitzen.
+    if (s.t < 100) { zuschauer.weiter(); return; }
     state.uhr = Math.max(0, s.t) / 1000;
     const f = state.frosch;
     const lage = deuteC(s.c);
@@ -1813,6 +1867,7 @@
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+    teichAn();
   }
 
   function druecken() {
@@ -1833,6 +1888,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    kulissenAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1900,6 +1956,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    kulissenAus();
     if (state.phase === "ende") return;
     if (state.phase === "zuschauen") return;
     state.phase = "ende";
@@ -1911,7 +1968,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const blaetter = state.erreicht === 1 ? "1 Blatt" : `${state.erreicht} Blätter`;
     const reihe = state.besteKette >= 2 ? ` · ${state.besteKette} perfekt in Folge` : state.perfekte ? ` · ${state.perfekte} perfekt` : "";
     shell.showResult({
@@ -1971,7 +2027,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); kulissenAus(); });
 
   // Für die Prüfskripte.
   window.LernappFrosch = {

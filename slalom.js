@@ -54,6 +54,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Nur der Kurs zieht daraus – die Tore und der Schwung der
   // Piste. Bäume, Glitzern, Pulverschnee und Wolken hängen an festen Zahlen
@@ -190,6 +191,35 @@
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
   }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Die Kanten im Schnee laufen als Kulisse, solange er fährt – beim Spielen
+  // wie beim Zuschauen. Ihr Tempo ist seins, laut wird sie in der Kurve.
+  let carven = null;
+  function carvenAn() {
+    if (!carven?.laeuft) carven = klang()?.kulisse("slalom.carven") || null;
+  }
+  function carvenAus() {
+    carven?.stop();
+    carven = null;
+  }
+  // Nachgestellt wird höchstens alle 40 ms: Die Kulisse gleitet ohnehin
+  // weich, und die Prüfskripte rechnen tausende Bilder am Stück.
+  let carvenGestellt = -1e9;
+  function carvenStellen() {
+    if (!carven?.laeuft) return;
+    const jetzt = performance.now();
+    if (jetzt - carvenGestellt < 40) return;
+    carvenGestellt = jetzt;
+    const sk = state.sk;
+    carven.setze(clamp((sk.v - V_MIN) / (V_MAX - V_MIN), 0, 1));
+    carven.laut(0.45 + 0.75 * clamp(Math.abs(sk.w) / drehBei(sk.y), 0, 1));
+  }
+  // Tore können in einer Vertikalen dicht kommen – und die Prüfskripte
+  // rechnen viele Bilder auf einmal: ein Klack höchstens alle 60 ms.
+  let torKlack = -1e9;
 
   // ---------------------------------------------------------------------------
   // Der Kurs
@@ -1815,6 +1845,19 @@
     }
   }
 
+  // Das Tor klackt, beim Spielen wie beim Zuschauen. Dazu leise die Harfe
+  // für ein perfektes, in Folge die Leiter – alle 25 Tore stattdessen der
+  // Meilenstein (nie drei Klänge übereinander).
+  function torKlang(perfekt) {
+    const jetzt = performance.now();
+    if (jetzt - torKlack < 60) return;
+    torKlack = jetzt;
+    klang()?.ton("slalom.tor", { laut: 0.8 });
+    if (state.tore % 25 === 0) klang()?.ton("meilenstein");
+    else if (perfekt && state.reihe >= 2) klang()?.ton("serie", { stufe: state.reihe, laut: 0.8 });
+    else if (perfekt) klang()?.ton("perfekt", { laut: 0.7 });
+  }
+
   function torDurch(tor, x) {
     const sk = state.sk;
     const l = stangeL(tor);
@@ -1835,7 +1878,8 @@
     }
     if (knapp && !ruhig() && state.phase === "spiel") state.zeitlupe = Math.max(state.zeitlupe, 0.12);
     state.tore += 1;
-    // Beim Zuschauen kommt die Zahl aus dem Lauf, und es bleibt still.
+    torKlang(perfekt);
+    // Beim Zuschauen kommt die Zahl aus dem Lauf.
     if (state.phase === "zuschauen") return;
     state.bonus += wert - 1;
     state.punkte += wert;
@@ -1843,15 +1887,11 @@
     if (perfekt) {
       state.perfekte += 1;
       sk.v += STOSS_PERFEKT;
-      kids()?.playJingle?.("correct");
       kids()?.vibrate?.(12);
     } else {
       kids()?.vibrate?.(5);
     }
-    if (state.tore % 25 === 0) {
-      schrift(`${state.tore} Tore!`, 0, -52, "#7ff3ff", 18, 1.4, true);
-      kids()?.playJingle?.("star");
-    }
+    if (state.tore % 25 === 0) schrift(`${state.tore} Tore!`, 0, -52, "#7ff3ff", 18, 1.4, true);
   }
 
   function randPruefen() {
@@ -1874,6 +1914,10 @@
     // Was passiert ist, steht gross da: Daran soll man sich erinnern.
     const text = { verpasst: "Tor verpasst!", stange: "Stange!", rand: "Ab in den Wald!" }[grund];
     if (text) schrift(text, sk.x, sk.y - 26, "#ff5a4a", 19, 1.6);
+    // Die Kanten verstummen, er stürzt in den Schnee – auch am Ende eines
+    // Laufs, den man anschaut.
+    carvenAus();
+    klang()?.ton("slalom.sturz");
     // Ski und Stöcke fliegen davon.
     const v = sk.v;
     for (let i = 0; i < 4; i += 1) {
@@ -1889,7 +1933,6 @@
       });
     }
     if (state.phase === "spiel") {
-      kids()?.playJingle?.("retry");
       kids()?.vibrate?.([30, 40, 60]);
       stepTimer = window.setTimeout(finish, 1150);
     }
@@ -2093,6 +2136,7 @@
     const kraft = clamp((Math.abs(sk.w) * sk.v) / 700, 0, 1) * clamp(Math.abs(sk.phi) * 1.6 + 0.3, 0, 1);
     const innen = Math.sign(sk.w || 1);
     spray(dt, -innen * Math.cos(sk.phi), innen * Math.sin(sk.phi), kraft);
+    carvenStellen();
   }
 
   function loop(now) {
@@ -2120,6 +2164,7 @@
     state.schritt = "fahrt";
     shell.setPhase("play");
     zuschauer.los();
+    carvenAn();
   }
 
   function zuschauenTakt(dt) {
@@ -2170,6 +2215,7 @@
     gegner?.los();
     wolkeSchnee(state.sk.x, state.sk.y + 4, 10, 0.4);
     kids()?.vibrate?.(8);
+    carvenAn();
   }
 
   function lenkeNeu() {
@@ -2215,6 +2261,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    carvenAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -2284,6 +2331,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    carvenAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -2294,7 +2342,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     // Das Tempo in km/h: zehn Einheiten sind ein Meter.
     const kmh = Math.round(state.spitze / METER * 3.6);
     const perfekt = state.perfekte === 1 ? "1 perfekt" : `${state.perfekte} perfekt`;
@@ -2377,7 +2424,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); carvenAus(); });
 
   // Für die Prüfskripte.
   window.LernappSlalom = {
