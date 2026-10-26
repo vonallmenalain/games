@@ -121,7 +121,6 @@
   const SCHULTER_X = 22;
   const SCHULTER_Y = 128;
   const OBERARM = 32;
-  const UNTERARM = 34;
   const H_NORM = 185;              // so hoch steigt ein gewöhnlicher Wurf über die Hände
   const CLOWN_X = 158;             // dort steht der Clown, wenn er wirft (auf schmalen Bildern weiter innen)
 
@@ -162,7 +161,7 @@
   // (Anteil), hoehe – wie hoch der Bogen im Bild aussieht.
   const ART = {
     ball: { flug: 1, hoehe: 1, name: "Ball", r: 14 },
-    keule: { flug: 1.15, hoehe: 1.18, name: "Keule", r: 16, lang: 54 },
+    keule: { flug: 1.15, hoehe: 1.08, name: "Keule", r: 16, lang: 54 },
     fackel: { flug: 1, hoehe: 1.06, name: "Fackel", r: 15, lang: 46 },
     kugel: { flug: 0.85, hoehe: 0.62, name: "Kugel", r: 15.5 },
     apfel: { flug: 1, hoehe: 1, name: "Apfel", r: 14.5 },
@@ -849,7 +848,7 @@
     d.y0 = 168 + auflage(d.art);
     d.x1 = (z.hand === 0 ? -1 : 1) * FANG_X;
     d.y1 = HAND_Y + auflage(d.art);
-    d.bogen = 150 + Math.abs(d.x1 - d.x0) * 0.25;
+    d.bogen = 95 + Math.abs(d.x1 - d.x0) * 0.2;
     d.dreh0 = 0;
     d.drehungen = 1;
     d.spin = -seite * 6;
@@ -1936,16 +1935,16 @@
   // ---------------------------------------------------------------------------
   // Der Jongleur
   // ---------------------------------------------------------------------------
-  // Zwei Glieder vom Schulter- zum Handpunkt: wo der Ellbogen steht. Er zeigt
-  // nach unten, an die Seite des Körpers – wie bei jemandem, der jongliert.
-  function ellbogen(sx, sy, hx, hy, l1, l2, seite) {
-    const dx = hx - sx;
-    const dy = hy - sy;
-    const d = clamp(Math.hypot(dx, dy), Math.abs(l1 - l2) + 0.01, l1 + l2 - 0.01);
-    const a = Math.atan2(dy, dx);
-    const b = Math.acos(clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
-    const w = a + (seite < 0 ? b : -b);
-    return { x: sx + Math.cos(w) * l1, y: sy + Math.sin(w) * l1 };
+  // Wo der Ellbogen steht: Er hängt an der Seite des Körpers, leicht nach
+  // aussen – wie bei jemandem, der jongliert –, und wandert erst nach aussen
+  // und oben, wenn die Hand weit hinaus oder über die Schulter geht. Der
+  // Unterarm zeigt dazu oft nach vorn, zum Publikum: Im Bild ist er dann
+  // kürzer.
+  function ellbogen(sx, sy, hx, hy, l1, seite) {
+    const hoch = clamp((hy - (sy - 34)) / 70, 0, 1);
+    const weit = clamp((Math.abs(hx - sx) - 30) / 40, 0, 1);
+    const w = (0.18 + 0.55 * weit + 1.1 * hoch) * seite;
+    return { x: sx + Math.sin(w) * l1, y: sy - Math.cos(w) * l1 };
   }
 
   // Wie dem Jongleur zumute ist: "froh" vor dem Start, "konzentriert" beim
@@ -2086,7 +2085,7 @@
       let hx = hv.x;
       let hy = hv.y;
       if (schock) { hx = lerp(hx, seite * 44, 0.6); hy = lerp(hy, 168, 0.6); }
-      const e = ellbogen(sx, sy, hx, hy, OBERARM, UNTERARM, seite);
+      const e = ellbogen(sx, sy, hx, hy, OBERARM, seite);
       g.strokeStyle = "#00909f";
       g.lineWidth = 10;
       g.beginPath();
@@ -3161,19 +3160,26 @@
         }
       }
       if (state.fehler) { tx = seite * 44; ty = 168; }
+      // Die Feder in kleinen Schritten: Auch nach einem langen Bild schwingt
+      // sie nicht auf.
       const w = 30;
-      const ax = w * w * (tx - hv.x) - 2 * w * hv.vx;
-      const ay = w * w * (ty - hv.y) - 2 * w * hv.vy;
-      hv.vx += ax * dt;
-      hv.vy += ay * dt;
-      hv.x += hv.vx * dt;
-      hv.y += hv.vy * dt;
+      const n = Math.max(1, Math.ceil(dt / TAKT));
+      const h2 = dt / n;
+      for (let i = 0; i < n; i += 1) {
+        hv.vx += (w * w * (tx - hv.x) - 2 * w * hv.vx) * h2;
+        hv.vy += (w * w * (ty - hv.y) - 2 * w * hv.vy) * h2;
+        hv.x += hv.vx * h2;
+        hv.y += hv.vy * h2;
+      }
     });
     // Der Körper wippt beim Fang in den Knien und lehnt sich zur fangenden
     // Hand.
     const kb = 16;
-    B.bobV += (-kb * kb * B.bob - 2 * 0.5 * kb * B.bobV) * dt;
-    B.bob += B.bobV * dt;
+    const nb = Math.max(1, Math.ceil(dt / TAKT));
+    for (let i = 0; i < nb; i += 1) {
+      B.bobV += (-kb * kb * B.bob - 2 * 0.5 * kb * B.bobV) * (dt / nb);
+      B.bob += B.bobV * (dt / nb);
+    }
     B.lean += (B.leanZiel - B.lean) * Math.min(1, dt * 6);
     B.leanZiel *= Math.max(0, 1 - dt * 2);
     // Der Clown läuft herein, wartet mit dem Ding, wirft, winkt kurz und
