@@ -40,8 +40,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     filme/                die Filme von früher (ausgeschaltet, mini-games.js,
                           FILME)
     cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
-                          miniGeister, die Aufzeichnungen der Läufe, und
-                          miniTurniere mit ihren Einträgen.
+                          miniRunden, jede Runde mit ihrer Uhrzeit (nur für
+                          den Admin), miniGeister, die Aufzeichnungen der
+                          Läufe, und miniTurniere mit ihren Einträgen.
     turnier.js            der Turniermodus: die Turnierseite, der Hinweis auf
                           der Startseite, die Sperre vor dem Spiel, der Versuch,
                           das Ergebnis, die Gesamtwertung
@@ -817,6 +818,13 @@ Domains), steht in [FIREBASE.md](FIREBASE.md).
 `firestore.rules` im Repository ist die Wahrheit: Ein Merge nach `main`
 veröffentlicht die Regeln. In der Console wird nichts von Hand geändert.
 
+Was in der Datenbank steht, beschreibt der Kopf von `cloud.js`: `miniScores`
+(je Spiel und Spieler die Summen), `miniRunden` (jede Runde einzeln, siehe
+unten beim Adminbereich), `miniGeister`, `config/miniGames` und
+`miniTurniere`. Abgefragt wird immer nur über ein einziges Feld – es braucht
+keinen zusammengesetzten Index und damit keine Datei, die jemand von Hand
+nach Firebase bringen muss.
+
 ## Der Adminbereich
 
 `/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort (eine Adresse
@@ -858,13 +866,15 @@ sich nach jeder Spalte sortieren (ein Tipp auf die Überschrift, ein zweiter
 dreht um). Ein Filter gilt für den ganzen Adminbereich: nach Tier, nach dem,
 was auf der Startseite steht (oder nicht), oder nach den Spielen eines
 Turniers – «Tier 1» heisst dann bei den Spielern auch: Platz im Schnitt in
-Tier 1. Bei den Spielern sucht ein Feld nach dem Namen.
+Tier 1. Bei den Spielern sucht ein Feld nach dem Namen, und ein Zeitraum
+zeigt nur, was darin gespielt wurde (siehe **Zeitraum**).
 
 **Die Auswertung eines Spielers** (ein Fenster über dem Adminbereich): wo er
 überall gespielt hat, je Spiel der Platz (von wie vielen), der Bestwert, die
 Runden, das erste und das letzte Mal; dazu die Zahlen zusammen – Spiele,
 Runden, Platz im Schnitt, erste Plätze, Podestplätze – und in welchen
-Turnieren er auf welchem Platz steht. Aufräumen geht dort auch: ein einzelnes
+Turnieren er auf welchem Platz steht. Mit einem Zeitraum gilt das alles für
+die Runden darin. Aufräumen geht dort auch: ein einzelnes
 Ergebnis löschen, alle löschen, den Namen in allen Spielen ändern, von
 mehreren Geräten zusammenführen. Ein Name ist dabei, was er überall ist:
 gross oder klein geschrieben derselbe, auf allen Geräten zusammen.
@@ -881,6 +891,45 @@ in jeder Bestenliste und in der Auswertung eines Spielers. Erfasst wird sie
 seit Fassung 2026-10-25-6; was davor gespielt wurde, zählt nicht mit (ältere
 Einträge haben das Feld nicht, es gilt dann als 0).
 
+**Das Rundenprotokoll.** `miniScores` kennt nur Summen – wann gespielt
+wurde, steht dort nicht. Deshalb hält `cloud.js` (`speichere`) jede Runde,
+die dort zählt, zusätzlich als eigenes Dokument fest, in derselben
+Transaktion: `miniRunden/<spiel>_<spieler>_<nr>` mit Name, Punkten, Dauer
+(`ms`, höchstens 30 Minuten), Uhrzeit (`zeitMs`) und – aus einem Turnier
+oder einem Multiplayer – woher (`quelle`). `nr` ist der Zähler `versuche`
+nach dieser Runde. Turnier- und Multiplayer-Runden laufen über denselben Weg
+(`mini-games.js`, `melde`), sie stehen also genauso da. Die Regeln lassen
+eine Runde nur zu, wenn der Eintrag daneben im selben Schreiben genau um sie
+wächst (Zähler um eins, Spielzeit um ihre Dauer, derselbe Name, Bestwert
+mindestens so hoch), mit einer Uhrzeit höchstens zehn Minuten neben der des
+Servers; ändern lässt sie sich nie, lesen und löschen nur der Admin. Weist
+die Datenbank das Protokoll ab (Regeln noch nicht veröffentlicht, eine Uhr,
+die weit danebenliegt), geht die Runde allein noch einmal – sie zählt dann
+wie früher, nur ohne Protokoll. Erfasst wird ab der Fassung, die das
+mitbringt; was davor gespielt wurde, steht nur in den Summen.
+
+**Zeitraum.** Bei den Spielern und in der Auswertung eines Spielers steht
+unter dem Filter eine zweite Reihe: «Alle Zeit» (wie immer, die Summen aus
+`miniScores`), «Heute», «Gestern», «Letzte 7 Tage» (heute und die sechs Tage
+davor), «Ein Tag …» (ein Datum, 00:00 bis 23:59) und «Von – bis …» (zwei
+Zeitpunkte mit Uhrzeit, beide eingeschlossen; eines darf leer bleiben). Mit
+einem Zeitraum rechnet beides aus den Runden darin (`cloud.js`, `runden`,
+eine Bereichsabfrage auf `zeitMs` – gelesen wird nur, was im Zeitraum
+liegt): Es steht nur da, wer darin gespielt hat; Runden ist ihre Zahl,
+Spielzeit ihre Dauer zusammen, Bestwert der beste Wert darin, Zuerst und
+Zuletzt die erste und die letzte Runde darin. Der Platz ist der Rang unter
+allen, die im Zeitraum dasselbe Spiel gespielt haben, nach ihrem Bestwert
+dort – daraus auch Ø Platz, 1. Plätze und Podestplätze. Tier, Spiele und
+«Name suchen» gelten weiter. Der Zeitraum gilt für die Liste und die
+Auswertung zugleich und bleibt wie die anderen Filter über «Neu laden»
+stehen: Wer aus der gefilterten Liste eine Auswertung öffnet, sieht
+denselben und kann ihn dort ändern. Ein Streifen in Koralle sagt, welcher
+gilt, mit «× Alle Zeit» daneben; zugeklappt steht es in der Zahl im Kopf.
+Beginnt der Zeitraum vor der ersten festgehaltenen Runde, steht darunter,
+seit wann es einzelne Runden gibt. Die Spiele und ihre Bestenlisten, die
+Kacheln oben, die Turniere und das Aufräumen bleiben bei allen Zeit – und
+gelöscht wird immer der ganze Eintrag, nie nur ein Zeitraum.
+
 Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
 Turniers – steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
 das ganze Browserfenster füllt, über dem Adminbereich (ein halb ausgefülltes
@@ -893,13 +942,17 @@ schliesst das Fenster wieder.
 
 Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
 Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.
+Und mit seinen Runden (`miniRunden`, `cloud.js` `loescheRunden`): Wer aus
+der Liste genommen wurde, taucht auch in keinem Zeitraum mehr auf.
 
 Hat jemand unter demselben Namen auf mehreren Geräten gespielt, steht bei
 «Spieler» «auf 2 Geräten» und ein Knopf «Zusammenführen» (`admin.js`,
 `fuehreZusammen`): Je Spiel bleibt ein Eintrag unter der Kennung, unter der
 am meisten gespielt wurde – mit der besten Zahl und allen Runden zusammen;
-der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Turniere
-bleiben, wie sie sind.
+der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Die
+Runden der anderen Geräte ziehen unter die Kennung, die bleibt (`cloud.js`,
+`zieheRundenUm`), mit ihrer Uhrzeit und einer Nummer hinter den Runden, die
+dort schon standen. Turniere bleiben, wie sie sind.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
 leert «Bestenliste leeren» in der aufgeklappten Bestenliste des Spiels die
 ganze Liste auf einmal.
@@ -921,6 +974,14 @@ gibt (wie der Wellenreiter), fällt beim nächsten Speichern aus den Tiers
 gibt, und ohne das scheiterte jedes Speichern an seinem alten Eintrag.
 Lehnt die Datenbank einen Haken ab, springt er zurück, und darüber steht,
 warum.
+
+**Auswahllisten.** Die aufgeklappte Liste einer Auswahl (Spiele-Filter,
+Tier, Dauer eines Turniers, Multiplayer) zeichnet der Browser selbst – unter
+Windows mit dem Grund der Auswahl, und war der fast durchsichtig, mit Weiss:
+Die helle Schrift stand auf Weiss. `styles.css` gibt jeder Auswahl
+`color-scheme: dark` und den Einträgen ihre Farben ausdrücklich: dunkler
+Grund, helle Schrift, Gruppen («Im Turnier») in Gold, nicht wählbare
+gedämpft.
 
 **In einer Vorschau anmelden.** Firebase lässt «Mit Google anmelden» nur
 auf freigegebenen Adressen zu und kennt dort keine Platzhalter – jede Deploy
@@ -1026,5 +1087,6 @@ die Schranke vor der zweiten Runde – das alles ist Gripszug und bleibt dort.
 Aus der App kommt nur, was ein Spiel zum Laufen braucht.
 
 Besuche zählt hier niemand. Wer spielt, hinterlässt eine Zeile in
-`miniScores`, sobald er seinen Namen einträgt, und wer in einem Turnier
-spielt, eine in dessen Liste – und sonst nichts.
+`miniScores`, sobald er seinen Namen einträgt, dazu je Runde eine in
+`miniRunden` (wann und wie lange – lesen kann das nur der Admin), und wer in
+einem Turnier spielt, eine in dessen Liste – und sonst nichts.

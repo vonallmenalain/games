@@ -10,7 +10,8 @@ rules_version = '2';
  * welche gilt, sieht man erst, wenn etwas nicht mehr geht.
  *
  * In dieser Datenbank steht genau eine Sache: die Bestenliste – die ewige und
- * die der Turniere. Keine Konten, keine Kinder, kein Fortschritt – wer hier
+ * die der Turniere, dazu wann ihre Runden gespielt wurden (miniRunden, nur
+ * für den Admin). Keine Konten, keine Kinder, kein Fortschritt – wer hier
  * spielt, hat einen Link angeklickt.
  *
  * Angemeldet ist deshalb nur einer: der Admin. Er braucht die Anmeldung für
@@ -221,6 +222,93 @@ service cloud.firestore {
       allow update: if istGeist(eintragId)
         && istDerselbeEintrag()
         && request.resource.data.punkte >= resource.data.punkte;
+      allow delete: if istAdmin();
+    }
+
+    // --- Das Rundenprotokoll -------------------------------------------------
+    // miniScores hält je Spiel und Spieler nur Summen – den Bestwert, wie oft,
+    // wie lange. Wann gespielt wurde, steht dort nicht, und ohne das lässt
+    // sich im Adminbereich nicht fragen, was gestern Abend gespielt wurde.
+    // Deshalb hält jede Runde, die in miniScores zählt, zusätzlich ein eigenes
+    // Dokument fest (cloud.js, speichere – in derselben Transaktion):
+    //
+    //   miniRunden/<spiel>_<spieler>_<nr>
+    //
+    // nr ist die wievielte Runde dieses Eintrags: der Zähler versuche, wie er
+    // nach ihr in miniScores steht.
+    //
+    // Lesen darf nur der Admin. Wer wann gespielt hat, braucht keine Seite
+    // ausser dem Adminbereich, und es geht auch niemanden sonst etwas an.
+    //
+    // Geprüft wird wie nebenan das WAS:
+    //
+    //   nur diese Felder, in diesen Grenzen  wie in miniScores; eine Runde
+    //                                        dauert höchstens 30 Minuten
+    //   der Name passt zu den Feldern        <spiel>_<spieler>_<nr>
+    //   die Uhr stimmt ungefähr              zeitMs höchstens zehn Minuten
+    //                                        neben der des Servers
+    //   die Runde zählt in miniScores        im selben Schreiben steigt dort
+    //                                        versuche von nr − 1 auf nr, die
+    //                                        Spielzeit um genau ms, der Name
+    //                                        ist derselbe und der Bestwert
+    //                                        mindestens so hoch (get vorher,
+    //                                        getAfter nachher). Eine Runde,
+    //                                        die nirgends zählt, gibt es so
+    //                                        nicht – und zu jeder Runde nur
+    //                                        ein Dokument: Sein Name ist mit
+    //                                        nr vergeben.
+    //   nie geändert                         was gespielt wurde, bleibt
+    //
+    // Löschen darf nur der Admin, mit dem Eintrag, zu dem sie gehören
+    // (admin.js, loesche). Und nur er legt eine Runde an, ohne dass in
+    // miniScores eine dazukommt: beim Zusammenführen, wo die Runden der
+    // anderen Geräte unter die Kennung ziehen, unter der der Eintrag bleibt
+    // (cloud.js, zieheRundenUm).
+    function istRunde(rundeId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(["game", "spieler", "name", "nr", "punkte", "ms", "zeitMs"])
+        && d.keys().hasOnly(["game", "spieler", "name", "nr", "punkte", "ms", "zeitMs", "quelle"])
+        && d.game is string && d.game in miniSpiele()
+        && istMiniSpieler(d.spieler)
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 24
+        && d.nr is int && d.nr >= 1 && d.nr <= 100000
+        && d.punkte is int && d.punkte >= 0 && d.punkte <= 1000000
+        && d.ms is int && d.ms >= 0 && d.ms <= 1800000
+        && d.zeitMs is int
+        // Woher sie kommt: aus einem Turnier oder einem Multiplayer. Fehlt
+        // das Feld, wurde auf der Spielseite selbst gespielt.
+        && (!("quelle" in d) || d.quelle in ["turnier", "live"])
+        && rundeId == d.game + "_" + d.spieler + "_" + string(d.nr);
+    }
+
+    function zurUhrDesServers(ms) {
+      return ms >= request.time.toMillis() - 600000
+        && ms <= request.time.toMillis() + 600000;
+    }
+
+    function eintragDerRunde(d) {
+      return /databases/$(database)/documents/miniScores/$(d.game + "_" + d.spieler);
+    }
+
+    function zaehltInMiniScores(d) {
+      let nachher = getAfter(eintragDerRunde(d)).data;
+      return nachher.versuche == d.nr
+        && nachher.name == d.name
+        && nachher.punkte >= d.punkte
+        && ((d.nr == 1
+              && !exists(eintragDerRunde(d))
+              && nachher.get("spielMs", 0) == d.ms)
+          || (d.nr > 1
+              && get(eintragDerRunde(d)).data.versuche == d.nr - 1
+              && nachher.get("spielMs", 0) == get(eintragDerRunde(d)).data.get("spielMs", 0) + d.ms));
+    }
+
+    match /miniRunden/{rundeId} {
+      allow read: if istAdmin();
+      allow create: if istRunde(rundeId)
+        && zurUhrDesServers(request.resource.data.zeitMs)
+        && zaehltInMiniScores(request.resource.data);
+      allow create: if istAdmin() && istRunde(rundeId);
       allow delete: if istAdmin();
     }
 

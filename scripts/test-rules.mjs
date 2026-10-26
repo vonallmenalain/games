@@ -255,6 +255,86 @@ await darfNicht("Gast löscht einen Geist", () => gast().doc(GEIST).delete());
 await darfNicht("Ein angemeldeter Fremder löscht einen Geist", () => fremder().doc(GEIST).delete());
 await darf("Admin löscht einen Geist", () => admin().doc(GEIST).delete());
 
+// --- Das Rundenprotokoll -----------------------------------------------------
+// Jede Runde, die in miniScores zählt, steht zusätzlich als eigenes Dokument
+// da (miniRunden) – im selben Schreiben wie ihr Eintrag, und nur dann. Lesen
+// und löschen darf es nur der Admin, ändern niemand.
+{
+  const WER = "mini_rundenprotokoll";
+  const EINTRAG_R = `miniScores/towerStack_${WER}`;
+  const RUNDE = (nr) => `miniRunden/towerStack_${WER}_${nr}`;
+  const runde = (nr, aenderung = {}) => ({
+    game: "towerStack", spieler: WER, name: "Rita", nr, punkte: 10, ms: 30000, zeitMs: Date.now(), ...aenderung,
+  });
+  const ersterEintrag = (aenderung = {}) => ({
+    game: "towerStack", spieler: WER, name: "Rita", punkte: 10, versuche: 1, erstesMs: 1, spielMs: 30000, updatedAtMs: 1, ...aenderung,
+  });
+  // Eintrag und Runde in einem Zug – so, wie cloud.js in der Transaktion
+  // schreibt. Weitere Runden mit merge, wie dort.
+  const zusammen = (db, eintrag, runden, { merge = false } = {}) => {
+    const stapel = db.batch();
+    if (eintrag) {
+      if (merge) stapel.set(db.doc(EINTRAG_R), eintrag, { merge: true });
+      else stapel.set(db.doc(EINTRAG_R), eintrag);
+    }
+    runden.forEach(([pfad, daten]) => stapel.set(db.doc(pfad), daten));
+    return stapel.commit();
+  };
+
+  await darfNicht("Gast legt eine Runde an, die in keinem Eintrag zählt", () => gast().doc(RUNDE(1)).set(runde(1)));
+  await darfNicht("Gast legt eine Runde unter falschem Namen an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(2), runde(1)]]));
+  await darfNicht("Gast schmuggelt ein Feld in die Runde", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { heimlich: true })]]));
+  await darfNicht("Gast legt eine Runde mit der Uhrzeit von gestern an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { zeitMs: Date.now() - 24 * 3600000 })]]));
+  await darfNicht("Gast legt eine Runde aus der Zukunft an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { zeitMs: Date.now() + 3600000 })]]));
+  await darfNicht("Gast legt eine Runde mit Uhrzeit als Text an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { zeitMs: String(Date.now()) })]]));
+  await darfNicht("Gast legt eine Runde an, die länger dauert als ihr Eintrag wächst", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { ms: 90000 })]]));
+  await darfNicht("Gast legt eine endlose Runde an", () => zusammen(gast(), ersterEintrag({ spielMs: 2 * 3600000 }), [[RUNDE(1), runde(1, { ms: 2 * 3600000 })]]));
+  await darfNicht("Gast legt eine Runde mit mehr Punkten als der Eintrag an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { punkte: 99 })]]));
+  await darfNicht("Gast legt eine Runde unter anderem Namen als der Eintrag an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { name: "Jemand" })]]));
+  await darfNicht("Gast legt eine Runde mit erfundener Herkunft an", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1, { quelle: "admin" })]]));
+  await darfNicht("Gast legt eine Runde für ein erfundenes Spiel an", () => gast().doc(`miniRunden/schachweltmeister_${WER}_1`).set(runde(1, { game: "schachweltmeister" })));
+  await darf("Gast trägt sich mit seiner ersten Runde ein", () => zusammen(gast(), ersterEintrag(), [[RUNDE(1), runde(1)]]));
+  await darfNicht("Gast legt dieselbe Runde ein zweites Mal an", () => gast().doc(RUNDE(1)).set(runde(1, { punkte: 5 })));
+  await darfNicht("Gast legt die nächste Runde an, ohne dass der Eintrag wächst", () => gast().doc(RUNDE(2)).set(runde(2)));
+  await darf("Gast zählt die zweite Runde, aus einem Turnier", () => zusammen(gast(),
+    { name: "Rita", punkte: 12, versuche: 2, spielMs: 75000, updatedAtMs: 2 },
+    [[RUNDE(2), runde(2, { punkte: 12, ms: 45000, quelle: "turnier" })]], { merge: true }));
+  await darf("Gast zählt eine schwächere dritte Runde, aus einem Multiplayer", () => zusammen(gast(),
+    { name: "Rita", punkte: 12, versuche: 3, spielMs: 95000, updatedAtMs: 3 },
+    [[RUNDE(3), runde(3, { punkte: 4, ms: 20000, quelle: "live" })]], { merge: true }));
+  await darfNicht("Gast schreibt zwei Runden zu einem einzigen Versuch", () => zusammen(gast(),
+    { name: "Rita", punkte: 12, versuche: 4, spielMs: 95000, updatedAtMs: 4 },
+    [[RUNDE(4), runde(4, { ms: 0 })], [RUNDE(5), runde(5, { ms: 0 })]], { merge: true }));
+  await darfNicht("Gast überspringt eine Nummer", () => zusammen(gast(),
+    { name: "Rita", punkte: 12, versuche: 4, spielMs: 95000, updatedAtMs: 4 },
+    [[RUNDE(5), runde(5, { ms: 0 })]], { merge: true }));
+  await darf("Ohne Runde zählt eine Runde wie bisher (ältere Fassung)", () => gast().doc(EINTRAG_R).set({ name: "Rita", punkte: 12, versuche: 4, spielMs: 95000, updatedAtMs: 4 }, { merge: true }));
+  await darfNicht("Gast ändert eine Runde", () => gast().doc(RUNDE(2)).set({ punkte: 999 }, { merge: true }));
+  await darfNicht("Auch der Admin ändert keine Runde", () => admin().doc(RUNDE(2)).set({ punkte: 999 }, { merge: true }));
+  await darfNicht("Gast liest das Rundenprotokoll", () => gast().collection("miniRunden").get());
+  await darfNicht("Gast liest eine einzelne Runde", () => gast().doc(RUNDE(1)).get());
+  await darfNicht("Ein angemeldeter Fremder liest das Rundenprotokoll", () => fremder().collection("miniRunden").get());
+  await darfNicht("Der Admin mit unbestätigter Adresse liest das Rundenprotokoll", () => adminOhneVerifikation().collection("miniRunden").get());
+  await darf("Admin liest die Runden eines Zeitraums", async () => {
+    const stand = await admin().collection("miniRunden").where("zeitMs", ">=", Date.now() - 3600000).where("zeitMs", "<=", Date.now() + 3600000).orderBy("zeitMs").get();
+    if (stand.size !== 3) throw new Error(`${stand.size} Runden statt 3`);
+  });
+  // Zusammenführen: Die Runden eines anderen Geräts ziehen unter die Kennung,
+  // unter der der Eintrag bleibt – mit ihrer alten Uhrzeit, ohne neue Runde.
+  await darfNicht("Gast legt eine Runde von früher an, ohne dass etwas zählt", () => gast().doc(RUNDE(9)).set(runde(9, { zeitMs: 1000 })));
+  await darfNicht("Ein angemeldeter Fremder zieht eine Runde um", () => fremder().doc(RUNDE(9)).set(runde(9, { zeitMs: 1000 })));
+  await darfNicht("Admin zieht eine Runde unter falschem Namen um", () => admin().doc(RUNDE(8)).set(runde(9, { zeitMs: 1000 })));
+  await darf("Admin zieht beim Zusammenführen eine Runde um", () => admin().doc(RUNDE(9)).set(runde(9, { zeitMs: 1000 })));
+  await darfNicht("Gast löscht eine Runde", () => gast().doc(RUNDE(1)).delete());
+  await darfNicht("Ein angemeldeter Fremder löscht eine Runde", () => fremder().doc(RUNDE(1)).delete());
+  await darf("Admin löscht eine Runde", () => admin().doc(RUNDE(1)).delete());
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const nr of [2, 3, 9]) await db.doc(RUNDE(nr)).delete();
+    await db.doc(EINTRAG_R).delete();
+  });
+}
+
 // --- Turniere ----------------------------------------------------------------
 // Anlegen darf nur der Admin, und nur ein vollständiges Turnier. Lesen darf
 // jeder, der den Namen kennt; auflisten nur die öffentlichen – ein Turnier
@@ -552,6 +632,60 @@ await darf("cloud.js: Gast trägt sich in die ewige Liste ein", async () => {
   const stand = await gastCloud.speichere({ ...ICH, punkte: 5 });
   erwarte(stand.rekord === true, JSON.stringify(stand));
 });
+// Das Rundenprotokoll: Jede Runde, die cloud.js einträgt, steht danach auch
+// in miniRunden – in derselben Transaktion, an den Regeln vorbei, die das
+// verlangen. Lesen, umziehen und löschen kann nur der Admin.
+await darf("cloud.js: Gast spielt eine zweite Runde, mit ihrer Dauer", async () => {
+  const stand = await gastCloud.speichere({ ...ICH, punkte: 3, ms: 20000 });
+  erwarte(stand.versuche === 2 && stand.punkte === 5, JSON.stringify(stand));
+});
+await darf("cloud.js: Beide Runden stehen im Protokoll", async () => {
+  const liste = (await adminCloud.runden({ vonMs: JETZT - STUNDE, bisMs: Date.now() + STUNDE })).filter((r) => r.spieler === ICH.spieler);
+  erwarte(liste.length === 2
+    && liste[0].id === `towerStack_${ICH.spieler}_1` && liste[0].nr === 1 && liste[0].punkte === 5 && liste[0].ms === 0
+    && liste[1].nr === 2 && liste[1].punkte === 3 && liste[1].ms === 20000 && liste[1].name === "Cloud" && liste[1].quelle === "",
+  JSON.stringify(liste));
+  const erste = await adminCloud.ersteRunde();
+  erwarte(erste > 0 && erste <= liste[0].zeitMs, `erste Runde ${erste}`);
+});
+await darf("cloud.js: Ein Zeitraum ohne Runden ist leer", async () => {
+  const liste = await adminCloud.runden({ vonMs: 1000, bisMs: 2000 });
+  erwarte(liste.length === 0, JSON.stringify(liste));
+});
+await wirft("cloud.js: Gast liest das Rundenprotokoll", "permission-denied", () => gastCloud.runden({ vonMs: 0, bisMs: Date.now() }));
+// Liegt unter der nächsten Nummer schon eine Runde (vom Löschen liegen
+// geblieben), zählt die Runde trotzdem – nur ohne Protokoll.
+await darf("cloud.js: Eine liegen gebliebene Runde kostet die nächste nicht", async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc(`miniRunden/towerStack_${ICH.spieler}_3`).set({
+    game: "towerStack", spieler: ICH.spieler, name: "Alt", nr: 3, punkte: 1, ms: 0, zeitMs: 1000,
+  }));
+  const stand = await gastCloud.speichere({ ...ICH, punkte: 8, ms: 1000 });
+  erwarte(stand.versuche === 3 && stand.rekord === true, JSON.stringify(stand));
+  const alt = (await adminCloud.runden({ vonMs: 0, bisMs: 5000 }))[0];
+  erwarte(alt?.name === "Alt", JSON.stringify(alt));
+});
+// Zusammenführen: Ein zweites Gerät desselben Namens hat zwei Runden. Sie
+// ziehen hinter die drei des ersten, mit ihrer Uhrzeit.
+const ZWEITES = { ...ICH, spieler: "mini_cloudjszweites" };
+await darf("cloud.js: Admin zieht die Runden eines zweiten Geräts um", async () => {
+  await gastCloud.speichere({ ...ZWEITES, punkte: 4, ms: 5000 });
+  await gastCloud.speichere({ ...ZWEITES, punkte: 6, ms: 7000 });
+  const gezogen = await adminCloud.zieheRundenUm({ game: "towerStack", nach: ICH.spieler, name: "Cloud", basis: 3, von: [{ spieler: ZWEITES.spieler, versuche: 2 }] });
+  erwarte(gezogen === 2, `umgezogen: ${gezogen}`);
+  const liste = await adminCloud.runden({ vonMs: JETZT - STUNDE, bisMs: Date.now() + STUNDE });
+  const ids = liste.map((r) => r.id);
+  erwarte(!liste.some((r) => r.spieler === ZWEITES.spieler), `noch unter dem zweiten Gerät: ${ids.join(", ")}`);
+  const vier = liste.find((r) => r.id === `towerStack_${ICH.spieler}_4`);
+  const fuenf = liste.find((r) => r.id === `towerStack_${ICH.spieler}_5`);
+  erwarte(vier?.punkte === 4 && vier.ms === 5000 && fuenf?.punkte === 6 && fuenf.nr === 5, ids.join(", "));
+});
+await darf("cloud.js: Admin löscht die Runden mit dem Eintrag", async () => {
+  const weg = await adminCloud.loescheRunden([{ game: "towerStack", spieler: ICH.spieler }, { game: "fishPond", spieler: ICH.spieler }]);
+  erwarte(weg === 5, `gelöscht: ${weg}`);
+  const uebrig = (await adminCloud.runden({ vonMs: 0, bisMs: Date.now() + STUNDE })).filter((r) => r.spieler === ICH.spieler);
+  erwarte(uebrig.length === 0, JSON.stringify(uebrig));
+});
+await wirft("cloud.js: Gast löscht Runden", "permission-denied", () => gastCloud.loescheRunden([{ game: "towerStack", spieler: ICH.spieler }]));
 await darf("cloud.js: Admin sieht alle Turniere", async () => {
   const liste = await adminCloud.alleTurniere();
   erwarte(liste.some((t) => t.id === CT), "das Turnier nur mit Link fehlt beim Admin");

@@ -25,8 +25,29 @@
  *     name       "Jonas"          was in der Liste steht
  *     punkte     42               der Bestwert, er fällt nie
  *     versuche   7                wie oft gespielt wurde
+ *     spielMs    412000           wie lange, alle Runden zusammen (ältere
+ *                                 Einträge haben das Feld nicht)
  *     erstesMs / updatedAtMs      Uhrzeiten, für die Reihenfolge bei
  *                                 Gleichstand
+ *
+ * Das sind Summen: Wann gespielt wurde, steht dort nicht. Deshalb hält jede
+ * Runde, die dort zählt, zusätzlich ein eigenes Dokument fest – in derselben
+ * Transaktion (speichere), also genau die Runden, die in miniScores zählen,
+ * auch die aus einem Turnier oder einem Multiplayer:
+ *
+ *   miniRunden/towerStack_mini_a7f3…_7
+ *     game / spieler / name       wie im Eintrag
+ *     nr         7                die wievielte Runde dieses Eintrags – der
+ *                                 Zähler versuche nach ihr; daher der Name
+ *     punkte     38               was diese Runde brachte
+ *     ms         52000            wie lange sie dauerte (höchstens 30 min)
+ *     zeitMs     1761473400000    wann sie zu Ende war
+ *     quelle     "turnier"        oder "live" (Multiplayer); fehlt bei einer
+ *                                 Runde auf der Spielseite selbst
+ *
+ * Lesen darf sie nur der Admin: Er fragt damit, wer in einem Zeitraum was
+ * gespielt hat (admin.js, Zeitraum). Was vor dieser Sammlung gespielt wurde,
+ * steht nur in den Summen.
  *
  * Und welche Spiele offen sind und wie der Admin sie einteilt:
  *
@@ -164,6 +185,7 @@
 
   const sammlung = () => starte()?.collection("miniScores") || null;
   const geisterSammlung = () => starte()?.collection("miniGeister") || null;
+  const rundenSammlung = () => starte()?.collection("miniRunden") || null;
   // Dieselbe Grenze wie in firestore.rules. Sie steht hier ein zweites Mal,
   // damit eine zu lange Aufzeichnung gar nicht erst hinausgeht – abgewiesen
   // würde sie ohnehin, aber erst nach der Reise.
@@ -353,10 +375,28 @@
    *
    * In der Transaktion liest Firestore noch einmal, wenn dazwischen jemand
    * geschrieben hat, und rechnet gegen den frischen Stand.
+   *
+   * Im selben Zug geht die Runde selbst ins Protokoll (miniRunden): unter
+   * ihrer Nummer, dem Zähler nach dieser Runde. Die Regeln lassen sie nur
+   * zu, wenn der Eintrag daneben genau um diese Runde wächst – so steht dort
+   * jede Runde, die in miniScores zählt, und keine andere.
    */
   // Die Dauer einer Runde zählt zur Spielzeit des Eintrags (spielMs) – nie
   // mehr als eine halbe Stunde: So viel lassen die Regeln je Runde zu.
   const RUNDE_MS = 30 * 60 * 1000;
+
+  // Woher eine Runde kommt, fürs Protokoll: aus einem Multiplayer (die Runde
+  // steckt in live.html, ?live= in der Adresse), aus einem Turnier
+  // (?turnier=) – oder von der Spielseite selbst, dann fehlt das Feld.
+  function woher() {
+    try {
+      if (window.LernappLiveSpiel?.aktiv?.()) return "live";
+      const p = new URLSearchParams(window.location?.search || "");
+      if (p.has("live")) return "live";
+      if (p.has("turnier")) return "turnier";
+    } catch { /* ohne Adresse: von der Spielseite */ }
+    return "";
+  }
 
   async function speichere({ game, spieler, name, punkte, ms = 0 }) {
     const spielId = String(game || "").trim();
@@ -370,10 +410,26 @@
     if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
 
     const doc = ref.doc(`${spielId}_${spielerId}`);
-    return db.runTransaction(async (lauf) => {
+    const protokoll = rundenSammlung();
+    const quelle = woher();
+    const eintragen = (mitRunde) => db.runTransaction(async (lauf) => {
       const vorher = await lauf.get(doc);
       const alt = vorher.exists ? lies(vorher) : null;
       const jetzt = Date.now();
+
+      if (mitRunde && protokoll) {
+        const nr = alt ? alt.versuche + 1 : 1;
+        lauf.set(protokoll.doc(`${spielId}_${spielerId}_${nr}`), {
+          game: spielId,
+          spieler: spielerId,
+          name: wie,
+          nr,
+          punkte: zahl,
+          ms: dauer,
+          zeitMs: jetzt,
+          ...(quelle ? { quelle } : {}),
+        });
+      }
 
       if (!alt) {
         lauf.set(doc, {
@@ -401,6 +457,19 @@
       }, { merge: true });
       return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1 };
     });
+
+    // Die Runde ist das Versprechen, das Protokoll die Zugabe. Weist die
+    // Datenbank beides zusammen ab, geht die Runde allein noch einmal – sonst
+    // kostete ein Protokoll, das nicht passt (Regeln noch ohne miniRunden,
+    // eine Uhr, die weit danebenliegt, eine Runde, die nach einem Löschen
+    // liegen blieb), die Runde selbst. Weist sie auch die ab, war es nie das
+    // Protokoll.
+    try {
+      return await eintragen(true);
+    } catch (fehler) {
+      if (fehler?.code !== "permission-denied") throw fehler;
+      return eintragen(false);
+    }
   }
 
   /*
@@ -561,6 +630,168 @@
       });
     });
     return liste;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Das Rundenprotokoll – nur für den Adminbereich
+  // ---------------------------------------------------------------------------
+  // Gelesen wird Seite für Seite. Ein Tag sind ein paar Dutzend Runden, ein
+  // Jahr ein paar Tausend; MAX_RUNDEN hält nur fest, dass ein Zeitraum nicht
+  // die ganze Sammlung in den Browser zieht.
+  const RUNDEN_SEITE = 1000;
+  const MAX_RUNDEN = 20000;
+
+  function liesRunde(doc) {
+    const d = typeof doc?.data === "function" ? doc.data() : null;
+    if (!d) return null;
+    const game = String(d.game || "").trim();
+    const spieler = String(d.spieler || "").trim();
+    const zeitMs = Math.round(Number(d.zeitMs) || 0);
+    if (!game || !spieler || !zeitMs) return null;
+    return {
+      id: doc.id,
+      game,
+      spieler,
+      name: String(d.name || "").trim().slice(0, NAME_MAX),
+      nr: Math.max(1, Math.round(Number(d.nr) || 1)),
+      punkte: Math.max(0, Math.round(Number(d.punkte) || 0)),
+      ms: Math.max(0, Math.min(RUNDE_MS, Math.round(Number(d.ms) || 0))),
+      zeitMs,
+      quelle: d.quelle === "turnier" || d.quelle === "live" ? d.quelle : "",
+    };
+  }
+
+  // Die Runden zwischen zwei Zeitpunkten, beide eingeschlossen, nach der
+  // Zeit. Eine Bereichsabfrage über ein einziges Feld – kein
+  // zusammengesetzter Index – und nur über das, was im Zeitraum liegt.
+  async function runden({ vonMs = 0, bisMs = Date.now() } = {}) {
+    const ref = rundenSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    let frage = ref
+      .where("zeitMs", ">=", Math.max(0, Math.round(Number(vonMs) || 0)))
+      .where("zeitMs", "<=", Math.round(Number(bisMs) || 0))
+      .orderBy("zeitMs")
+      .limit(RUNDEN_SEITE);
+    const liste = [];
+    for (;;) {
+      const seite = await frage.get();
+      liste.push(...sammle(seite, liesRunde));
+      if (seite.size < RUNDEN_SEITE || liste.length >= MAX_RUNDEN) return liste.slice(0, MAX_RUNDEN);
+      frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+    }
+  }
+
+  // Wann die erste Runde festgehalten wurde – was davor gespielt wurde, steht
+  // nur in den Summen von miniScores. 0 heisst: noch keine.
+  async function ersteRunde() {
+    const ref = rundenSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const stand = await ref.orderBy("zeitMs").limit(1).get();
+    let ms = 0;
+    stand.forEach((doc) => { ms = liesRunde(doc)?.zeitMs || 0; });
+    return ms;
+  }
+
+  // Die Runden eines Geräts in den genannten Spielen. Gefragt wird nach dem
+  // Gerät allein – ein Feld, kein Index –, das Spiel sortiert diese Datei.
+  async function rundenDesGeraets(spieler, spiele) {
+    const ref = rundenSammlung();
+    const wer = String(spieler || "").trim();
+    if (!ref || !wer) return [];
+    const welche = new Set(spiele);
+    let frage = ref.where("spieler", "==", wer).limit(RUNDEN_SEITE);
+    const docs = [];
+    for (;;) {
+      const seite = await frage.get();
+      seite.forEach((doc) => { if (welche.has(String(doc.data()?.game || ""))) docs.push(doc); });
+      if (seite.size < RUNDEN_SEITE) return docs;
+      frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+    }
+  }
+
+  /*
+   * Die Runden zu Einträgen löschen, mit dem Eintrag (admin.js, loesche):
+   * Wer aus der Liste genommen wurde, soll auch in keinem Zeitraum mehr
+   * auftauchen – und eine liegen gebliebene Runde trüge den Namen, den die
+   * nächste Runde dieses Eintrags braucht. eintraege: [{ game, spieler }].
+   * Nur der Admin darf das.
+   */
+  async function loescheRunden(eintraege) {
+    const db = starte();
+    if (!db) throw new Error("Firestore ist nicht bereit.");
+    const jeGeraet = new Map();
+    (eintraege || []).forEach((e) => {
+      const wer = String(e?.spieler || "").trim();
+      const spiel = String(e?.game || "").trim();
+      if (!wer || !spiel) return;
+      if (!jeGeraet.has(wer)) jeGeraet.set(wer, new Set());
+      jeGeraet.get(wer).add(spiel);
+    });
+    let weg = 0;
+    for (const [wer, spiele] of jeGeraet) {
+      const docs = await rundenDesGeraets(wer, [...spiele]);
+      for (let i = 0; i < docs.length; i += 400) {
+        const stapel = db.batch();
+        docs.slice(i, i + 400).forEach((doc) => stapel.delete(doc.ref));
+        await stapel.commit();
+      }
+      weg += docs.length;
+    }
+    return weg;
+  }
+
+  /*
+   * Zusammenführen (admin.js, fuehreZusammen): Die Runden eines Spiels von
+   * den anderen Geräten ziehen unter die Kennung, unter der der Eintrag
+   * bleibt. Sonst blieben sie unter einer Kennung ohne Eintrag liegen, und
+   * wer den Eintrag später löscht, löschte sie nicht mit.
+   *
+   * Geändert wird eine Runde nie (firestore.rules): Sie wird unter der neuen
+   * Kennung angelegt und die alte gelöscht, in einem Stapel. Ihre Nummer
+   * kommt hinter alle Runden, die der Eintrag dort schon hatte (basis),
+   * Gerät für Gerät – so, wie die Versuche zusammengezählt werden. Die
+   * nächste Runde zählt danach weiter; keine Nummer ist doppelt.
+   *
+   *   von   [{ spieler, versuche }] in der Reihenfolge, in der gezählt wird
+   */
+  async function zieheRundenUm({ game, nach, name, basis = 0, von = [] }) {
+    const db = starte();
+    const ref = rundenSammlung();
+    const spiel = String(game || "").trim();
+    const ziel = String(nach || "").trim();
+    const wie = sauber(name);
+    if (!db || !ref || !spiel || !ziel || !wie) throw new Error("Für das Umziehen fehlt etwas.");
+    let versatz = Math.max(0, Math.round(Number(basis) || 0));
+    let gezogen = 0;
+    for (const geraet of von) {
+      const wer = String(geraet?.spieler || "").trim();
+      if (!wer || wer === ziel) continue;
+      const docs = await rundenDesGeraets(wer, [spiel]);
+      for (let i = 0; i < docs.length; i += 200) {
+        const stapel = db.batch();
+        docs.slice(i, i + 200).forEach((doc) => {
+          const r = liesRunde(doc);
+          if (r) {
+            const nr = versatz + r.nr;
+            stapel.set(ref.doc(`${spiel}_${ziel}_${nr}`), {
+              game: spiel,
+              spieler: ziel,
+              name: wie,
+              nr,
+              punkte: r.punkte,
+              ms: r.ms,
+              zeitMs: r.zeitMs,
+              ...(r.quelle ? { quelle: r.quelle } : {}),
+            });
+            gezogen += 1;
+          }
+          stapel.delete(doc.ref);
+        });
+        await stapel.commit();
+      }
+      versatz += Math.max(1, Math.round(Number(geraet.versuche) || 1));
+    }
+    return gezogen;
   }
 
   // ---------------------------------------------------------------------------
@@ -1084,12 +1315,13 @@
     projektId: firebaseConfig.projectId,
     ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen,
     speichereGeist, geister,
+    runden, ersteRunde, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
-    MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX,
+    MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };
 })();

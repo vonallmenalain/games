@@ -6,7 +6,8 @@
  * zusammenführen – und Turniere anlegen, anhalten, beenden und wieder
  * wegräumen. Dazu zeigt er, was in der Bestenliste steckt: je Spiel, je
  * Spieler (mit einer eigenen Auswertung), nach Tier, Startseite oder
- * Turnier gefiltert.
+ * Turnier gefiltert – und bei den Spielern nach Zeitraum, aus den einzelnen
+ * Runden (miniRunden).
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -491,12 +492,24 @@
   // Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen –
   // ein schwächerer Lauf überschreibt keinen besseren –, und neben ihm liefe
   // nie wieder sein eigener Geist.
-  async function loesche(id) {
+  //
+  // Und mit seinen Runden (miniRunden, cloud.js loescheRunden): Wer aus der
+  // Liste genommen wurde, taucht auch in keinem Zeitraum mehr auf. Nur beim
+  // Zusammenführen bleiben sie – dort sind sie schon umgezogen (runden:
+  // false).
+  async function loesche(eintraege, { runden = true } = {}) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
-    await db.collection("miniScores").doc(id).delete();
-    try { await db.collection("miniGeister").doc(id).delete(); } catch (fehler) {
-      console.warn("Der Geist zum Eintrag ist geblieben", fehler);
+    const liste = (Array.isArray(eintraege) ? eintraege : [eintraege]).filter((e) => e?.id);
+    for (const e of liste) {
+      await db.collection("miniScores").doc(e.id).delete();
+      try { await db.collection("miniGeister").doc(e.id).delete(); } catch (fehler) {
+        console.warn("Der Geist zum Eintrag ist geblieben", fehler);
+      }
+    }
+    if (!runden || !liste.length) return;
+    try { await cloud().loescheRunden?.(liste); } catch (fehler) {
+      console.warn("Die Runden zum Eintrag sind geblieben", fehler);
     }
   }
 
@@ -579,10 +592,24 @@
         });
       }
 
-      for (const e of andere) {
-        await loesche(e.id);
-        geloescht += 1;
+      // Die Runden der anderen Geräte ziehen mit um (cloud.js,
+      // zieheRundenUm) – hinter die, die der Eintrag hier schon hatte. Geht
+      // das nicht, bleiben sie, wo sie sind: lieber eine Runde unter einer
+      // alten Kennung als gar keine.
+      try {
+        await cloud().zieheRundenUm?.({
+          game: spiel,
+          nach: stamm,
+          name,
+          basis: ziel ? Math.max(1, ziel.versuche) : 0,
+          von: andere.map((e) => ({ spieler: e.spieler, versuche: e.versuche })),
+        });
+      } catch (fehler) {
+        console.warn("Die Runden sind nicht mit umgezogen", fehler);
       }
+
+      await loesche(andere, { runden: false });
+      geloescht += andere.length;
     }
     return geloescht;
   }
@@ -750,16 +777,34 @@
    * einem Löschen steht alles wieder so da, wie es war.
    */
   const ANSICHT_KEY = "mini.admin.ansicht";
+  // Die Zeiträume (zeitLeiste): «alle» ist alle Zeit, wie immer.
+  const ZEIT_WAHL = [
+    ["alle", "Alle Zeit"],
+    ["heute", "Heute"],
+    ["gestern", "Gestern"],
+    ["woche", "Letzte 7 Tage"],
+    ["tag", "Ein Tag …"],
+    ["frei", "Von – bis …"],
+  ];
   const ansicht = (() => {
     let gemerkt = null;
     try { gemerkt = JSON.parse(sessionStorage.getItem(ANSICHT_KEY) || "null"); } catch { gemerkt = null; }
     const roh = gemerkt && typeof gemerkt === "object" ? gemerkt : {};
+    const text = (wert) => (typeof wert === "string" ? wert : "");
     return {
       offen: Array.isArray(roh.offen) ? roh.offen.map(String) : [],
       sortiert: roh.sortiert && typeof roh.sortiert === "object" ? roh.sortiert : {},
       filter: {
         tier: Number(roh.filter?.tier) || 0,
         wahl: typeof roh.filter?.wahl === "string" ? roh.filter.wahl : "alle",
+      },
+      // Der Zeitraum bei den Spielern und in der Auswertung: welche Art, und
+      // für «Ein Tag» und «Von – bis» die Felder, so wie sie dastehen.
+      zeit: {
+        art: ZEIT_WAHL.some(([art]) => art === roh.zeit?.art) ? roh.zeit.art : "alle",
+        tag: text(roh.zeit?.tag),
+        von: text(roh.zeit?.von),
+        bis: text(roh.zeit?.bis),
       },
       spiel: typeof roh.spiel === "string" ? roh.spiel : "",
     };
@@ -825,6 +870,9 @@
    *   zelle   was in der Zelle steht (Knoten oder Text); sonst der wert
    *   ab      beim ersten Tipp absteigend (für "die meisten zuerst")
    *
+   * leer ist der Satz für eine leere Tabelle – oder eine Funktion, die ihn
+   * erst beim Zeichnen sagt (der Zeitraum: «wird geladen» oder «niemand»).
+   *
    * Bei Gleichstand bleibt die Reihenfolge, in der die Zeilen kamen – die
    * Spiele also in der Reihenfolge der Liste.
    */
@@ -878,7 +926,7 @@
       body.replaceChildren();
       if (!sortiert.length) {
         const tr = el("tr", "adm-leer");
-        const td = el("td", "", leer);
+        const td = el("td", "", typeof leer === "function" ? leer() : leer);
         td.colSpan = spalten.length;
         tr.append(td);
         body.append(tr);
@@ -929,7 +977,8 @@
   // Die Spiele, die es gibt, in der Reihenfolge der Liste – dahinter, was
   // von Spielen übrig ist, die es nicht mehr gibt.
   function alleSpiele(stand) {
-    const verwaist = [...new Set(stand.alle.map((e) => e.game))].filter((id) => !stand.bekannte.includes(id)).sort();
+    const gespielt = [...stand.alle, ...(stand.zeit?.eintraege || [])].map((e) => e.game);
+    const verwaist = [...new Set(gespielt)].filter((id) => !stand.bekannte.includes(id)).sort();
     return [...stand.bekannte, ...verwaist];
   }
 
@@ -982,6 +1031,288 @@
       }
       wahl.value = ansicht.filter.wahl;
       aufheben.hidden = !istGefiltert();
+    }
+    stand.hoerer.add(zeichne);
+    zeichne();
+    return { leiste, weg: () => stand.hoerer.delete(zeichne) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Zeitraum: bei den Spielern und in der Auswertung eines Spielers
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer hat gestern Abend was gespielt? miniScores weiss das nicht – dort
+   * stehen Summen. Seit es das Rundenprotokoll gibt (miniRunden, cloud.js
+   * speichere), steht jede Runde mit ihrer Uhrzeit da, und daraus rechnet
+   * der Adminbereich, sobald ein Zeitraum gewählt ist:
+   *
+   *   Alle Zeit       wie immer: die Summen aus miniScores
+   *   Heute, Gestern  ganze Tage in Ortszeit
+   *   Letzte 7 Tage   heute und die sechs Tage davor
+   *   Ein Tag …       ein Datum, 00:00 bis 23:59
+   *   Von – bis …     zwei Zeitpunkte mit Uhrzeit, beide eingeschlossen
+   *
+   * Mit einem Zeitraum zählt nur, wer darin gespielt hat, und von ihm nur
+   * die Runden darin: Runden ist ihre Zahl, Spielzeit ihre Dauer zusammen,
+   * Bestwert der beste Wert darin, Zuerst und Zuletzt die erste und die
+   * letzte Runde darin. Der Platz ist der Rang unter allen, die im Zeitraum
+   * dasselbe Spiel gespielt haben, nach ihrem Bestwert dort – daraus auch
+   * Ø Platz, 1. Plätze und Podestplätze. Die übrigen Filter (Tier, Spiele,
+   * Name) gelten weiter.
+   *
+   * Der Zeitraum gilt für die Liste und die Auswertung zugleich (stand.zeit):
+   * Wer aus der gefilterten Liste eine Auswertung öffnet, sieht denselben,
+   * und wer ihn dort ändert, ändert ihn auch in der Liste. Gelesen wird nur,
+   * was im Zeitraum liegt (cloud.js, runden), und erst, wenn einer gewählt
+   * ist – «Alle Zeit» braucht keine einzige Runde.
+   */
+  const WOCHENTAG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  // Kein Ende: das Ende aller Daten in JavaScript. So bleibt der Schlüssel
+  // des Zeitraums stehen und wird nicht bei jedem Zeichnen ein neuer.
+  const OFFEN_BIS = 8.64e15;
+
+  function tagesAnfang(ms) {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  function tagesEnde(ms) {
+    const d = new Date(ms);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+  // Für <input type="date">. new Date("2026-10-26") wäre Mitternacht in UTC,
+  // nicht hier – deshalb von Hand.
+  function fuerTag(ms) {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}`;
+  }
+  function ausTag(wert) {
+    const teile = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(wert || ""));
+    return teile ? new Date(Number(teile[1]), Number(teile[2]) - 1, Number(teile[3])).getTime() : NaN;
+  }
+  const datumText = (ms) => {
+    const d = new Date(ms);
+    return `${WOCHENTAG[d.getDay()]} ${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()}`;
+  };
+  const uhrText = (ms) => {
+    const d = new Date(ms);
+    return `${zwei(d.getHours())}:${zwei(d.getMinutes())}`;
+  };
+
+  // Der gewählte Zeitraum in Millisekunden, oder null für alle Zeit (und für
+  // ein Feld, das noch leer ist).
+  function zeitraum() {
+    const { art, tag, von, bis } = ansicht.zeit;
+    const heute = tagesAnfang(Date.now());
+    const tageZurueck = (n) => {
+      const d = new Date(heute);
+      d.setDate(d.getDate() - n);
+      return d.getTime();
+    };
+    if (art === "heute") return { vonMs: heute, bisMs: tagesEnde(heute) };
+    if (art === "gestern") return { vonMs: tageZurueck(1), bisMs: tagesEnde(tageZurueck(1)) };
+    if (art === "woche") return { vonMs: tageZurueck(6), bisMs: tagesEnde(heute) };
+    if (art === "tag") {
+      const t = ausTag(tag);
+      return Number.isFinite(t) ? { vonMs: t, bisMs: tagesEnde(t) } : null;
+    }
+    if (art === "frei") {
+      let a = ausFeld(von);
+      let b = ausFeld(bis);
+      if (!Number.isFinite(a) && !Number.isFinite(b)) return null;
+      if (Number.isFinite(a) && Number.isFinite(b) && a > b) [a, b] = [b, a];
+      return {
+        vonMs: Number.isFinite(a) ? a : 0,
+        // «bis 14:30» heisst: diese Minute noch ganz dazu.
+        bisMs: Number.isFinite(b) ? b + MINUTE - 1 : OFFEN_BIS,
+        ohneAnfang: !Number.isFinite(a),
+        ohneEnde: !Number.isFinite(b),
+      };
+    }
+    return null;
+  }
+
+  function zeitText(raum, art = "") {
+    const { vonMs, bisMs, ohneAnfang, ohneEnde } = raum;
+    const vorne = { heute: "Heute, ", gestern: "Gestern, ", woche: "Letzte 7 Tage, " }[art] || "";
+    if (ohneAnfang) return `bis ${datumText(bisMs)}, ${uhrText(bisMs)}`;
+    if (ohneEnde) return `ab ${datumText(vonMs)}, ${uhrText(vonMs)}`;
+    const einTag = tagesAnfang(vonMs) === tagesAnfang(bisMs);
+    if (vonMs === tagesAnfang(vonMs) && bisMs === tagesEnde(bisMs)) {
+      return `${vorne}${einTag ? datumText(vonMs) : `${datumText(vonMs)} bis ${datumText(bisMs)}`}`;
+    }
+    if (einTag) return `${vorne}${datumText(vonMs)}, ${uhrText(vonMs)} bis ${uhrText(bisMs)}`;
+    return `${vorne}${datumText(vonMs)}, ${uhrText(vonMs)} bis ${datumText(bisMs)}, ${uhrText(bisMs)}`;
+  }
+
+  // Was im Adminbereich zum Zeitraum gehört (stand.zeit): die Runden darin,
+  // zu Einträgen verdichtet, und wann die erste Runde überhaupt war.
+  const neueZeit = () => ({ raum: null, schluessel: "", laedt: false, fehler: "", runden: 0, eintraege: [], ersteMs: null, voll: false });
+
+  /*
+   * Aus den Runden eines Zeitraums Einträge wie die aus miniScores – je
+   * Spiel und Gerät einer: der beste Wert darin, die Zahl der Runden, ihre
+   * Dauer zusammen, die erste und die letzte. So rechnet danach alles wie
+   * bei allen Zeit (nachPerson, rangliste, auswertung). Der Name ist der,
+   * unter dem der Eintrag heute steht: Umbenannt wird nur miniScores.
+   */
+  function ausRunden(stand, runden) {
+    const echt = new Map(stand.alle.map((e) => [e.id, e]));
+    const je = new Map();
+    runden.forEach((r) => {
+      const id = `${r.game}_${r.spieler}`;
+      let e = je.get(id);
+      if (!e) {
+        e = { id, game: r.game, spieler: r.spieler, name: echt.get(id)?.name || r.name, punkte: 0, versuche: 0, spielMs: 0, erstesMs: 0, updatedAtMs: 0 };
+        je.set(id, e);
+      }
+      e.punkte = Math.max(e.punkte, Number(r.punkte) || 0);
+      e.versuche += 1;
+      e.spielMs += Number(r.ms) || 0;
+      e.erstesMs = e.erstesMs ? Math.min(e.erstesMs, r.zeitMs) : r.zeitMs;
+      e.updatedAtMs = Math.max(e.updatedAtMs, r.zeitMs);
+    });
+    return [...je.values()].filter((e) => e.name);
+  }
+
+  // Die Einträge, aus denen gerade gerechnet wird.
+  const eintraegeFuer = (stand) => (stand.zeit?.raum ? stand.zeit.eintraege : stand.alle);
+
+  // Den gewählten Zeitraum lesen, falls er nicht schon gelesen ist. Kommt
+  // eine Antwort zu einem Zeitraum, der inzwischen nicht mehr gilt, fällt
+  // sie weg.
+  function ladeZeit(stand) {
+    const z = stand.zeit;
+    const raum = zeitraum();
+    z.raum = raum;
+    if (!raum) {
+      Object.assign(z, { schluessel: "", laedt: false, fehler: "" });
+      return;
+    }
+    const schluessel = `${raum.vonMs}-${raum.bisMs}`;
+    if (z.schluessel === schluessel) return;
+    Object.assign(z, { schluessel, laedt: true, fehler: "", runden: 0, eintraege: [], voll: false });
+    const erste = z.ersteMs === null
+      ? Promise.resolve(cloud()?.ersteRunde?.()).then((ms) => Number(ms) || 0).catch(() => null)
+      : Promise.resolve(z.ersteMs);
+    Promise.all([Promise.resolve(cloud()?.runden?.({ vonMs: raum.vonMs, bisMs: raum.bisMs })), erste])
+      .then(([runden, ersteMs]) => {
+        if (z.schluessel !== schluessel) return;
+        const liste = Array.isArray(runden) ? runden : [];
+        Object.assign(z, {
+          laedt: false,
+          ersteMs,
+          runden: liste.length,
+          voll: liste.length >= (cloud()?.MAX_RUNDEN || Infinity),
+          eintraege: ausRunden(stand, liste),
+        });
+        stand.melde();
+      })
+      .catch((fehler) => {
+        if (z.schluessel !== schluessel) return;
+        Object.assign(z, { laedt: false, fehler: fehlerText(fehler) });
+        stand.melde();
+      });
+  }
+
+  /*
+   * Die Leiste dazu: Schalter wie die Tiers, darunter die Felder für einen
+   * Tag oder von – bis, und solange ein Zeitraum gilt, ein Streifen, der es
+   * sagt, mit dem Weg zurück zu «Alle Zeit». Dazu, wenn der Zeitraum vor der
+   * ersten festgehaltenen Runde beginnt, ein Satz dazu.
+   */
+  function zeitLeiste(stand) {
+    const leiste = el("div", "adm-zeit");
+    const wahl = el("div", "adm-filter-tiers adm-zeit-wahl");
+    wahl.setAttribute("role", "group");
+    wahl.setAttribute("aria-label", "Zeitraum");
+    const schalter = ZEIT_WAHL.map(([art, text]) => {
+      const b = knopf(text, "adm-chip", () => waehle(art));
+      b.dataset.zeit = art;
+      wahl.append(b);
+      return b;
+    });
+
+    const felder = el("div", "adm-zeit-felder");
+    const mitWort = (wort, eingabe) => {
+      const box = el("label", "adm-zeit-feld");
+      box.append(el("span", "adm-zeit-wort", wort), eingabe);
+      return box;
+    };
+    const tag = feld("date", "");
+    const von = feld("datetime-local", "");
+    const bis = feld("datetime-local", "");
+    const tagBox = mitWort("Tag", tag);
+    const vonBox = mitWort("Von", von);
+    const bisBox = mitWort("Bis", bis);
+    felder.append(tagBox, vonBox, bisBox);
+    [[tag, "tag"], [von, "von"], [bis, "bis"]].forEach(([eingabe, schluessel]) => {
+      eingabe.addEventListener("change", () => {
+        ansicht.zeit[schluessel] = eingabe.value;
+        stand.melde();
+      });
+    });
+
+    const streifen = el("div", "adm-zeit-streifen");
+    streifen.setAttribute("role", "status");
+    const was = el("span", "adm-zeit-text");
+    const alleZeit = knopf("× Alle Zeit", "adm-knopf-klein adm-zeit-weg", () => waehle("alle"));
+    alleZeit.title = "Zeitraum aufheben – wieder alles, was je gespielt wurde";
+    streifen.append(was, alleZeit);
+    const hinweis = el("p", "adm-hinweis adm-zeit-hinweis");
+    leiste.append(wahl, felder, streifen, hinweis);
+
+    // Wer zum ersten Mal «Ein Tag» oder «Von – bis» wählt, findet darin, was
+    // eben galt – aus «Gestern» wird so mit einem Tipp gestern ab 18 Uhr.
+    function waehle(art) {
+      const bisher = zeitraum();
+      const z = ansicht.zeit;
+      const jetzt = Date.now();
+      if (art === "tag" && !z.tag) z.tag = fuerTag(bisher && !bisher.ohneAnfang ? bisher.vonMs : jetzt);
+      if (art === "frei" && !z.von && !z.bis) {
+        z.von = fuerFeld(bisher && !bisher.ohneAnfang ? bisher.vonMs : tagesAnfang(jetzt));
+        z.bis = fuerFeld(bisher && !bisher.ohneEnde ? bisher.bisMs : jetzt);
+      }
+      z.art = art;
+      stand.melde();
+    }
+
+    function zeichne() {
+      const z = ansicht.zeit;
+      const lage = stand.zeit;
+      const raum = lage.raum;
+      schalter.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.zeit === z.art)));
+      tagBox.hidden = z.art !== "tag";
+      vonBox.hidden = z.art !== "frei";
+      bisBox.hidden = z.art !== "frei";
+      felder.hidden = tagBox.hidden && vonBox.hidden;
+      // Was jemand gerade eintippt, bleibt stehen.
+      [[tag, z.tag], [von, z.von], [bis, z.bis]].forEach(([eingabe, wert]) => {
+        if (document.activeElement !== eingabe && eingabe.value !== wert) eingabe.value = wert;
+      });
+
+      leiste.classList.toggle("ist-gefiltert", Boolean(raum));
+      streifen.hidden = !raum;
+      if (raum) {
+        was.replaceChildren(el("strong", "", "Nur "), document.createTextNode(zeitText(raum, z.art)));
+        if (lage.laedt) was.append(el("span", "adm-zeit-zahl", " · Runden werden geladen …"));
+        else if (!lage.fehler) was.append(el("span", "adm-zeit-zahl", ` · ${zahlWort(lage.runden, "Runde", "Runden")}`));
+      }
+
+      let text = "";
+      if (z.art !== "alle" && !raum) {
+        text = z.art === "tag" ? "Wähle einen Tag – bis dahin zählt alle Zeit." : "Wähle «Von» oder «Bis» – bis dahin zählt alle Zeit.";
+      } else if (raum && lage.fehler) {
+        text = `Die Runden sind nicht zu haben: ${lage.fehler}`;
+      } else if (raum && !lage.laedt && lage.ersteMs !== null) {
+        if (!lage.ersteMs) text = "Einzelne Runden werden erst mit dieser Fassung festgehalten – bisher gibt es noch keine.";
+        else if (raum.vonMs < lage.ersteMs) text = `Einzelne Runden gibt es erst seit ${wann(lage.ersteMs)}. Was davor gespielt wurde, steht nur in den Summen («Alle Zeit»).`;
+      }
+      if (raum && !lage.laedt && lage.voll) text = `${text} Mehr als ${lage.runden} Runden – gezählt sind die ersten ${lage.runden}.`.trim();
+      hinweis.textContent = text;
+      hinweis.classList.toggle("ist-fehler", Boolean(raum && lage.fehler));
+      hinweis.hidden = !text;
     }
     stand.hoerer.add(zeichne);
     zeichne();
@@ -2021,7 +2352,9 @@
   // Eine Zeile je Name: in wie vielen Spielen, wie viele Runden, welcher
   // Platz im Schnitt (wie in der Hall of Fame, mini-games.js, auswertung).
   // Ein Tipp auf den Namen öffnet seine ganze Auswertung. Gezählt wird, was
-  // der Filter durchlässt – "Tier 1" heisst: der Schnitt in Tier 1.
+  // der Filter durchlässt – "Tier 1" heisst: der Schnitt in Tier 1 – und,
+  // ist einer gewählt, im Zeitraum (zeitLeiste): nur wer darin gespielt hat,
+  // mit den Runden darin.
   let gesucht = "";
 
   function baueSpieler(stand, neuLaden) {
@@ -2056,6 +2389,7 @@
       zeichne();
     });
     filter.leiste.append(suche);
+    const zeit = zeitLeiste(stand);
     const summe = el("p", "adm-klein adm-summe");
 
     const tabelle = sortierTabelle("spieler", [
@@ -2090,16 +2424,25 @@
           return teile;
         },
       },
-    ], { standard: { key: "runden", ab: true }, leer: "Hier hat noch niemand gespielt." });
+    ], {
+      standard: { key: "runden", ab: true },
+      leer: () => {
+        if (!stand.zeit.raum) return "Hier hat noch niemand gespielt.";
+        return stand.zeit.laedt ? "Die Runden werden geladen …" : "In diesem Zeitraum hat hier niemand gespielt.";
+      },
+    });
 
-    bereich.inhalt.append(filter.leiste, summe, tabelle.wirt);
+    bereich.inhalt.append(filter.leiste, zeit.leiste, summe, tabelle.wirt);
 
     function zeichne() {
+      const raum = stand.zeit.raum;
       const spiele = alleSpiele(stand).filter((spiel) => passt(stand, spiel));
-      const eintraege = stand.alle.filter((e) => spiele.includes(e.game));
+      const eintraege = eintraegeFuer(stand).filter((e) => spiele.includes(e.game));
       const wertung = new Map((mini()?.auswertung?.(eintraege, spiele) || []).map((p) => [schluesselVon(p.name), p]));
       const leute = nachPerson(eintraege).map((p) => {
-        const alle = alleLeute.find((a) => a.schluessel === p.schluessel)?.eintraege || p.eintraege;
+        // Geräte und Zusammenführen gehören zu den Einträgen in miniScores,
+        // nicht zu den Runden eines Zeitraums.
+        const alle = alleLeute.find((a) => a.schluessel === p.schluessel)?.eintraege || (raum ? [] : p.eintraege);
         const w = wertung.get(p.schluessel);
         return {
           schluessel: p.schluessel,
@@ -2116,7 +2459,15 @@
       });
       const such = schluesselVon(gesucht.trim());
       const gezeigt = such ? leute.filter((p) => p.schluessel.includes(such)) : leute;
-      summe.textContent = `${gezeigt.length} von ${zahlWort(alleLeute.length, "Spieler", "Spielern")} · gezählt in ${zahlWort(spiele.length, "Spiel", "Spielen")}`;
+      const imZeitraum = raum && !stand.zeit.laedt
+        ? ` · ${zahlWort(gezeigt.reduce((summe, p) => summe + p.runden, 0), "Runde", "Runden")} im Zeitraum`
+        : "";
+      summe.textContent = `${gezeigt.length} von ${zahlWort(alleLeute.length, "Spieler", "Spielern")} · gezählt in ${zahlWort(spiele.length, "Spiel", "Spielen")}${imZeitraum}`;
+      // Auch zugeklappt soll man sehen, dass nur ein Zeitraum zählt.
+      bereich.zahl.textContent = raum
+        ? `${zahlWort(alleLeute.length, "Spieler", "Spieler")} · ${stand.zeit.laedt ? "Zeitraum" : `${leute.length} im Zeitraum`}`
+        : zahlWort(alleLeute.length, "Spieler", "Spieler");
+      bereich.block.classList.toggle("ist-zeitraum", Boolean(raum));
       tabelle.zeige(gezeigt);
     }
     stand.hoerer.add(zeichne);
@@ -2192,7 +2543,7 @@
         // beiden Knöpfe liegen nebeneinander.
         aktionen.append(knopf("Löschen", "adm-knopf-weg", async () => {
           if (!window.confirm(`"${eintrag.name}" aus ${name} löschen?`)) return;
-          await undNeu(() => loesche(eintrag.id), neuLaden);
+          await undNeu(() => loesche(eintrag), neuLaden);
         }));
         zeile.append(aktionen);
         body.append(zeile);
@@ -2241,7 +2592,7 @@
         kopf.append(knopf("Bestenliste leeren", "adm-knopf-weg", async () => {
           const name = z.bekannt ? titel(z.id) : z.id;
           if (!window.confirm(`Die ganze Bestenliste von ${name} leeren – ${z.eintraege.length === 1 ? "den einen Eintrag" : `alle ${z.eintraege.length} Einträge`} samt Geistern? Das lässt sich nicht rückgängig machen.`)) return;
-          await undNeu(async () => { for (const eintrag of z.eintraege) await loesche(eintrag.id); }, neuLaden);
+          await undNeu(() => loesche(z.eintraege), neuLaden);
         }));
         kasten.append(kopf, bestenliste(z, stand, neuLaden));
       }
@@ -2292,13 +2643,22 @@
    * löschen. Nach jedem davon wird neu gelesen, und das Fenster steht
    * wieder da (neuLaden merkt sich, wessen es war).
    *
-   * Der Filter gilt auch hier: "Tier 1" zeigt den Schnitt in Tier 1.
+   * Der Filter gilt auch hier: "Tier 1" zeigt den Schnitt in Tier 1. Und der
+   * Zeitraum, derselbe wie in der Liste: Die Zahlen und die Tabelle rechnen
+   * dann aus den Runden darin (zeitLeiste). Kopf, Turniere und Aufräumen
+   * bleiben, was sie sind – gelöscht wird immer der ganze Eintrag, nie nur
+   * ein Zeitraum.
    */
   let dashboard = null;
 
   function zeigeAuswertung(stand, schluessel, neuLaden) {
     dashboard?.zu({ still: true });
-    const seine = stand.alle.filter((e) => schluesselVon(e.name) === schluessel);
+    // Seine Einträge in miniScores. Hat er nur noch Runden (der Eintrag ist
+    // weg, die Runden blieben liegen), dann eben die – so lassen sie sich
+    // hier wegräumen.
+    const vonIhm = (liste) => liste.filter((e) => schluesselVon(e.name) === schluessel);
+    const echte = vonIhm(stand.alle);
+    const seine = echte.length ? echte : vonIhm(stand.zeit.raum ? stand.zeit.eintraege : []);
     if (!seine.length) return;
     const name = seine[0].name;
     const geraete = new Set(seine.map((e) => e.spieler)).size;
@@ -2349,13 +2709,23 @@
       { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuletzt, zelle: (z) => wannKurz(z.zuletzt) },
       {
         key: "weg", titel: "", klasse: "adm-aktionen",
+        // Gelöscht wird das ganze Ergebnis in diesem Spiel – alle Einträge
+        // und alle Runden, auch mit einem Zeitraum nicht nur die darin.
         zelle: (z) => knopf("Löschen", "adm-knopf-weg", async () => {
           const spiel = z.bekannt ? titel(z.id) : z.id;
-          if (!window.confirm(`Das Ergebnis von "${name}" in ${spiel} löschen${z.eintraege.length > 1 ? ` (${z.eintraege.length} Einträge, je Gerät einer)` : ""}?`)) return;
-          await undNeu(async () => { for (const e of z.eintraege) await loesche(e.id); }, neuLaden);
+          const mehrere = z.weg.length > 1 ? ` (${z.weg.length} Einträge, je Gerät einer)` : "";
+          const ganz = stand.zeit.raum ? " – das ganze Ergebnis mit allen Runden, nicht nur die im Zeitraum" : "";
+          if (!window.confirm(`Das Ergebnis von "${name}" in ${spiel} löschen${mehrere}${ganz}?`)) return;
+          await undNeu(() => loesche(z.weg), neuLaden);
         }),
       },
-    ], { standard: { key: "platz", ab: false }, leer: "In diesen Spielen hat er oder sie noch nicht gespielt." });
+    ], {
+      standard: { key: "platz", ab: false },
+      leer: () => {
+        if (!stand.zeit.raum) return "In diesen Spielen hat er oder sie noch nicht gespielt.";
+        return stand.zeit.laedt ? "Die Runden werden geladen …" : "In diesem Zeitraum hat er oder sie hier nicht gespielt.";
+      },
+    });
     const jeSpiel = teil("Je Spiel");
     jeSpiel.append(tabelle.wirt);
 
@@ -2384,28 +2754,37 @@
     const wieViele = zahlWort(seine.length, "Eintrag", "Einträge");
     aktionen.append(knopf(seine.length === 1 ? "Eintrag löschen" : `Alle ${wieViele} löschen`, "adm-knopf-weg", async () => {
       if (!window.confirm(`Wirklich ${seine.length === 1 ? "den Eintrag" : `alle ${wieViele}`} von "${name}" löschen? Das lässt sich nicht rückgängig machen.`)) return;
-      await undNeu(async () => { for (const e of seine) await loesche(e.id); }, neuLaden);
+      await undNeu(() => loesche(seine), neuLaden);
     }));
     aufraeumen.append(aktionen);
 
-    karte.append(kopf, filter.leiste, zahlen, jeSpiel, turniere, aufraeumen);
+    const zeit = zeitLeiste(stand);
+    karte.append(kopf, filter.leiste, zeit.leiste, zahlen, jeSpiel, turniere, aufraeumen);
     huelle.append(karte);
 
+    // Je Spiel eine Zeile, aus dem, woraus gerade gerechnet wird: den
+    // Einträgen in miniScores oder den Runden des Zeitraums. Der Platz ist
+    // der unter allen, die dort stehen.
     function zeilen() {
+      const quelle = eintraegeFuer(stand);
       const proSpiel = new Map();
-      seine.forEach((e) => {
+      vonIhm(quelle).forEach((e) => {
         if (!proSpiel.has(e.game)) proSpiel.set(e.game, []);
         proSpiel.get(e.game).push(e);
       });
       return alleSpiele(stand).filter((spiel) => proSpiel.has(spiel) && passt(stand, spiel)).map((spiel) => {
         const eintraege = proSpiel.get(spiel);
-        const liste = mini()?.rangliste?.(stand.alle.filter((e) => e.game === spiel)) || [];
+        const liste = mini()?.rangliste?.(quelle.filter((e) => e.game === spiel)) || [];
         const bekannt = stand.bekannte.includes(spiel);
+        const hier = echte.filter((e) => e.game === spiel);
         return {
           id: spiel,
           bekannt,
           tier: bekannt ? stand.einteilung[spiel] || 0 : 0,
           eintraege,
+          // Was «Löschen» wegnimmt: seine Einträge in diesem Spiel – und
+          // Runden ohne Eintrag dazu, falls welche liegen geblieben sind.
+          weg: [...hier, ...eintraege.filter((e) => !hier.some((h) => h.id === e.id))],
           platz: liste.find((e) => schluesselVon(e.name) === schluessel)?.platz || liste.length,
           von: liste.length,
           punkte: Math.max(0, ...eintraege.map((e) => Number(e.punkte) || 0)),
@@ -2476,6 +2855,7 @@
       document.removeEventListener("keydown", taste);
       stand.hoerer.delete(zeichne);
       filter.weg();
+      zeit.weg();
       huelle.remove();
       document.body.classList.remove("adm-dash-offen");
       if (dashboard?.zu === schliessen) dashboard = null;
@@ -2552,9 +2932,12 @@
 
     /*
      * Was alle Bereiche teilen: die Einträge, die Spiele, die Tiers, was auf
-     * der Startseite steht, die Turniere. Ändert sich daran etwas ohne neues
-     * Lesen – ein Haken, ein Tier, der Filter, die Turniere sind da –, sagt
-     * melde es allen, die zuhören (hoerer), und die zeichnen sich neu.
+     * der Startseite steht, die Turniere, der Zeitraum. Ändert sich daran
+     * etwas ohne neues Lesen – ein Haken, ein Tier, der Filter, die Turniere
+     * oder die Runden eines Zeitraums sind da –, sagt melde es allen, die
+     * zuhören (hoerer), und die zeichnen sich neu. Ist ein anderer Zeitraum
+     * gewählt, liest melde zuerst seine Runden (ladeZeit) und meldet sich
+     * noch einmal, sobald sie da sind.
      */
     const stand = {
       alle,
@@ -2563,13 +2946,17 @@
       offen: new Set(offen),
       turniere: [],
       turniereGeladen: false,
+      zeit: neueZeit(),
       hoerer: new Set(),
       melde() {
         merkeAnsicht();
+        ladeZeit(this);
         this.hoerer.forEach((zeichne) => zeichne());
       },
     };
     stand.turniereBereit = new Promise((fertig) => { stand.turniereDa = fertig; });
+    // Ein Zeitraum, der vom letzten Mal noch gilt (sessionStorage).
+    ladeZeit(stand);
 
     // Nach einer Änderung neu lesen – und dort bleiben, wo man war, samt dem
     // Fenster eines Spielers, wenn eines offen war.
