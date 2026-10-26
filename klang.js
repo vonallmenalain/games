@@ -733,8 +733,8 @@
     if (!platz || !platz.schleife) return STUMM;
     if (laufend.has(id)) return laufend.get(id);
     const c = kontext();
-    merkeIn(id, "kulisse");
     if (!c) return STUMM;
+    merkeIn(id, "kulisse");
     let k = 0.5;
     // Was stumm beginnt (Brenner, Schub, Reifen), startet mit laut: 0.
     let lautheit = Math.max(0, Math.min(1.5, Number(startLaut) || 0));
@@ -825,9 +825,16 @@
     spieleTon("knopf");
   }, { capture: true, passive: true });
 
-  // Vorladen, sobald die Seite Ruhe hat.
+  // Vorladen, sobald die Seite Ruhe hat – die Aufnahmen des Spiels und der
+  // Weg zum Lautsprecher samt Rauschen. Sonst baut der erste Klang einer
+  // Runde all das mitten in einem Bild auf (im Replay ein spürbarer Ruck).
   const spaeter = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400));
-  spaeter(() => { const b = BEREICH[document.body?.dataset?.spiel || ""]; if (b) vorladen(b); });
+  spaeter(() => {
+    const b = BEREICH[document.body?.dataset?.spiel || ""];
+    if (!b) return;
+    vorladen(b);
+    if (ctx) rauschen();
+  });
 
   window.ArcadeKlang = { ton: spieleTon, kulisse, laeuft, stille, vorladen, PLAETZE, protokoll };
 })();
