@@ -1157,11 +1157,11 @@
   // ---------------------------------------------------------------------------
   /*
    * Was sich nicht bewegt, liegt fertig gemalt in Leinwänden, so gross wie
-   * das Bild: das Dunkel der Höhle mit dem dunkleren Rand, die Tiefe
-   * dahinter (sie zieht langsamer vorbei), der Himmel vor dem Eingang. Dazu leuchtende Flecken
+   * das Bild: das Dunkel der Höhle mit der Tiefe dahinter und dem dunkleren
+   * Rand, der Himmel vor dem Eingang. Dazu leuchtende Flecken
    * je Farbe, die nur noch kopiert werden.
    */
-  const bilder = { schluessel: "", grund: null, tiefe: null, himmel: null, glut: {} };
+  const bilder = { schluessel: "", grund: null, himmel: null, glut: {} };
 
   function leinwand(w, h) {
     const c = document.createElement("canvas");
@@ -1187,19 +1187,12 @@
     mitte.addColorStop(1, "#030207");
     cg.fillStyle = mitte;
     cg.fillRect(0, 0, W, H);
-    // Ringsum dunkler – gleich hier hinein gemalt, nicht als eigene Schicht
-    // über allem: Das spart je Bild einen Durchgang über das ganze Bild.
     const rand = cg.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.hypot(W, H) * 0.56);
     rand.addColorStop(0, "rgba(0, 0, 0, 0)");
     rand.addColorStop(1, "rgba(0, 0, 0, 0.7)");
-    cg.fillStyle = rand;
-    cg.fillRect(0, 0, W, H);
-    bilder.grund = l.c;
-
     // Die Tiefe: ferne Säulen und Nebel, kaum zu sehen – weiche Flecken
-    // ohne Kanten. Sie wiederholt sich nach der Breite des Bildes, nahtlos.
-    l = leinwand(W, H);
-    cg = l.g;
+    // ohne Kanten, fest im Dunkel (eine eigene Ebene, die langsamer
+    // vorbeizieht, kostete je Bild einen Durchgang über das ganze Bild).
     const mitteY = view.oy * q - (BAND / 2) * view.s * q;
     const bandH = BAND * view.s * q;
     for (let n = 0; n < 16; n += 1) {
@@ -1208,19 +1201,21 @@
       const ry = (60 + hash01(n * 5.7) * 110) * view.s * q;
       const y = mitteY + (n % 2 === 0 ? -1 : 1) * bandH * (0.35 + hash01(n * 2.9) * 0.3);
       const a = 0.05 + hash01(n * 1.7) * 0.05;
-      for (const dx of [-W, 0, W]) {
-        cg.save();
-        cg.translate(x + dx, y);
-        cg.scale(rx / 100, ry / 100);
-        const fleckG = cg.createRadialGradient(0, 0, 0, 0, 0, 100);
-        fleckG.addColorStop(0, `rgba(78, 58, 140, ${a.toFixed(3)})`);
-        fleckG.addColorStop(1, "rgba(78, 58, 140, 0)");
-        cg.fillStyle = fleckG;
-        cg.fillRect(-100, -100, 200, 200);
-        cg.restore();
-      }
+      cg.save();
+      cg.translate(x, y);
+      cg.scale(rx / 100, ry / 100);
+      const fleckG = cg.createRadialGradient(0, 0, 0, 0, 0, 100);
+      fleckG.addColorStop(0, `rgba(78, 58, 140, ${a.toFixed(3)})`);
+      fleckG.addColorStop(1, "rgba(78, 58, 140, 0)");
+      cg.fillStyle = fleckG;
+      cg.fillRect(-100, -100, 200, 200);
+      cg.restore();
     }
-    bilder.tiefe = l.c;
+    // Ringsum dunkler – gleich hier hinein gemalt, nicht als eigene Schicht
+    // über allem: Das spart je Bild einen Durchgang über das ganze Bild.
+    cg.fillStyle = rand;
+    cg.fillRect(0, 0, W, H);
+    bilder.grund = l.c;
 
     // Der Himmel vor dem Eingang: Nacht, Sterne, der Mond mit Hof.
     l = leinwand(W, H);
@@ -1463,11 +1458,6 @@
   function zeichneGrund() {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(bilder.grund, 0, 0);
-    // Die Tiefe zieht langsamer vorbei als die Höhle.
-    const W = canvas.width;
-    const off = -((((state.camX * view.s * view.dpr * 0.28) % W) + W) % W);
-    g.drawImage(bilder.tiefe, Math.round(off), 0);
-    g.drawImage(bilder.tiefe, Math.round(off + W), 0);
   }
 
   /*
