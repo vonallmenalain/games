@@ -62,6 +62,7 @@
   // weniger Schneestaub, keine Tempostriche und einen kleineren Zoom beim
   // Fehler. Die Bobs fahren trotzdem – das ist das Spiel.
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; im Turnier
   // und im Live-Modus bekommt jeder dieselben Reihen (zufall.js). Nur die
@@ -243,10 +244,43 @@
   const cam = { z: 1, ex: 0, ey: 0 };
   const bilder = {};
 
-  // Beim Anschauen fährt dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Anschauen fährt dieses Gerät nur nach – es klingt wie im Spiel,
+  // aber es brummt nicht.
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
+
+  // Die Kufen auf dem Eis (klang.js), solange die Bobs fahren – schneller mit
+  // dem Tempo. Nachgestellt höchstens alle 50 ms: Die Kulisse gleitet
+  // ohnehin, und die Prüfskripte rechnen viele Schritte am Stück.
+  let kufen = null;
+  let kufenGestellt = -1e9;
+  function kufenAn() {
+    if (!kufen?.laeuft) kufen = klang()?.kulisse("spuren.kufen") || null;
+    kufenStellen(true);
+  }
+  function kufenAus() {
+    kufen?.stop();
+    kufen = null;
+  }
+  function kufenStellen(sofort = false) {
+    if (!kufen?.laeuft) return;
+    const jetzt = performance.now();
+    if (!sofort && jetzt - kufenGestellt < 50) return;
+    kufenGestellt = jetzt;
+    kufen.setze(0.2 + 0.8 * clamp((tempoBei(state.weg) - V0) / (VMAX - V0), 0, 1));
+  }
+  // Was dicht kommen kann (zwei Wechsel zugleich, zwei Sterne in einer
+  // Reihe, das Aufholen beim Zuschauen), klingt höchstens alle 60 ms.
+  const tonZuletzt = {};
+  function tonMitPause(id, o) {
+    const jetzt = performance.now();
+    if (jetzt - (tonZuletzt[id] ?? -1e9) < 60) return;
+    tonZuletzt[id] = jetzt;
+    klang()?.ton(id, o);
+  }
+  // Doppeltipps in Folge – Reihe um Reihe – sind eine Serie.
+  let doppelReihe = 0;
+  let doppelZeile = -9;
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -488,8 +522,8 @@
     schrift("+1", bx(x), by(d.y) - 14, "#ffd23f", 1.2, 0.75);
     if (state.punkte % 10 === 0) {
       state.glanz = 1;
-      klang("unlock");
-    } else klang("star");
+      klang()?.ton("meilenstein");
+    } else tonMitPause("punkt", { laut: 0.8 });
     erledigt(d);
   }
 
@@ -514,7 +548,10 @@
     punkteZeigen();
     schrift("Doppelt! +1", view.mx, view.sy - 58, "#ffb22e", 1.25, 1);
     state.schlitten.forEach((sl) => funken(schlittenX(sl), state.weg + 8, ruhig() ? 3 : 8, 1));
-    klang("correct");
+    // Die Harfe – folgt der Doppeltipp gleich auf den vorigen, die Leiter.
+    doppelReihe = z.id === doppelZeile + 1 ? doppelReihe + 1 : 1;
+    doppelZeile = z.id;
+    klang()?.ton(doppelReihe >= 2 ? "serie" : "perfekt", { stufe: doppelReihe, laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------
@@ -529,6 +566,10 @@
     state.fehler = { ding: d, art: d.art, bahn: d.bahn, x, y: d.y, zeit: 0, text: stern ? "Stern verpasst!" : `${NAMEN[d.art]}!` };
     state.lupe = 1;
     state.stoss = stern ? 0.35 : 1;
+    // Die Kufen verstummen. Ein Hindernis kracht; ein verpasster Stern ist
+    // kein Crash, nur das Ende.
+    kufenAus();
+    klang()?.ton(stern ? "fehler" : "spuren.crash");
     const sl = state.schlitten[d.bahn];
     if (!stern) {
       sl.crash = true;
@@ -545,7 +586,6 @@
     const art = (d.art === "stern" ? ZUG_STERN : ZUG_HINDERNIS) + d.bahn;
     meldeZug(art, d.id);
     state.phase = "ende";
-    kids()?.playJingle?.("retry");
     kids()?.vibrate?.(d.art === "stern" ? [20, 30, 40] : [30, 40, 70]);
     stepTimer = window.setTimeout(finish, ENDE_MS);
   }
@@ -1287,6 +1327,7 @@
   // ---------------------------------------------------------------------------
   function wechselEffekt(sl) {
     sl.spruehen = 0.16;
+    tonMitPause("spuren.wechsel", { laut: 0.7 });
     if (ruhig()) return;
     const x = schlittenX(sl);
     const richtung = sl.ziel === 1 ? 1 : -1;
@@ -1406,6 +1447,7 @@
     }
     for (const d of state.dinge) if (d.wackel > 0) d.wackel = Math.max(0, d.wackel - dt * 2.5);
     aufraeumen();
+    kufenStellen();
   }
 
   // Was weit hinter den Bobs liegt, fällt aus den Listen.
@@ -1983,6 +2025,7 @@
     meldeZug(ZUG_START);
     kids()?.vibrate?.(8);
     state.schlitten.forEach((sl) => { sl.spurY = state.weg; sl.wackel = 1; });
+    kufenAn();
   }
 
   // Ein Tipp auf eine Seite (0 oder "links", 1 oder "rechts"). Der erste
@@ -2081,8 +2124,10 @@
       anwenden();
     }
     punkteZeigen();
-    // Eine Fahrt aus der Hall of Fame: am Schluss die Tafel.
+    // Eine Fahrt aus der Hall of Fame: am Schluss die Tafel – und die Kufen
+    // schweigen, wie auch immer die Fahrt endete.
     zuschauer.weiter?.();
+    if (zuschauer.fertig?.()) kufenAus();
   }
 
   // Ab jetzt die Fahrt des anderen: von vorn, mit derselben Welt (dieselbe
@@ -2098,6 +2143,7 @@
     zugAnker = -1;
     state.schlitten.forEach((sl) => { sl.spurY = state.weg; });
     zuschauer.los?.();
+    kufenAn();
     zuschauenTakt();
   }
 
@@ -2107,6 +2153,9 @@
   function startRun() {
     clearStep();
     stopLoop();
+    kufenAus();
+    doppelReihe = 0;
+    doppelZeile = -9;
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -2178,13 +2227,13 @@
     state.fertig = true;
     state.phase = "ende";
     stopLoop();
+    kufenAus();
     if (g) zeichnen();
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     recordRun(punkte);
-    kids()?.playJingle?.("win");
     const grund = runsGrund();
     const teileText = [grund, vorher ? `Bestwert ${vorher}` : ""].filter(Boolean).join(" · ");
     shell.showResult({
@@ -2261,7 +2310,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); kufenAus(); });
 
   // Für die Prüfskripte: der Zustand, ein Schritt ohne Bild (takt), Tippen
   // (tippe("links") / tippe("rechts")), die Welt (welt, planBis) und was in

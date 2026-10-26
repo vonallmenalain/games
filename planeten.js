@@ -45,6 +45,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Nur der Weg zieht daraus – Sterne, Nebel und Funken hängen
@@ -127,6 +128,7 @@
     punkte: 0,
     erreicht: 0,          // wie viele Planeten er erreicht hat
     volltreffer: 0,
+    trefferFolge: 0,      // Volltreffer hintereinander
     sprungLuft: 1,        // wie viel Sauerstoff beim letzten Absprung übrig war (0…1)
     planeten: [],
     auf: 0,               // auf welchem Planeten er steht
@@ -150,6 +152,7 @@
     uhr: 0,               // die Zeit, nach der sich Planeten und Monde bewegen
     schrittZeit: 0,
     endeZeit: 0,
+    klangZeit: -9,        // beim Zuschauen: wann zuletzt Sprung oder Landung klang
   };
 
   let shell = null;
@@ -162,6 +165,8 @@
   let gegner = null;
   // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
   let zuschauer = null;
+  // Das All (klang.js): eine leise Schleife, solange die Runde läuft.
+  let weltraum = null;
 
   const view = { s: 1, grund: 1, zoom: 1, dpr: 1, cssW: 0, cssH: 0, w: MIN_W, h: MIN_H };
 
@@ -171,6 +176,26 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Das All
+  // ---------------------------------------------------------------------------
+  // Im Hintergrund schwebt es leise mit – im Flug etwas voller, auf dem
+  // Planeten tritt es zurück.
+  function weltraumAn() {
+    weltraum = klang()?.kulisse("planeten.ambient") || null;
+    weltraum?.laut(0.8);
+    weltraumStellen();
+  }
+
+  function weltraumStellen() {
+    weltraum?.setze(state.schritt === "flug" ? 0.75 : 0.45);
+  }
+
+  function weltraumAus() {
+    weltraum?.stop();
+    weltraum = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1044,7 +1069,7 @@
     state.schrittZeit = state.zeit;
     state.spur = [];
     staub(state.astro.x - Math.cos(state.theta) * 4, state.astro.y - Math.sin(state.theta) * 4, "#e9ecff", 8);
-    kids()?.playJingle?.("tap");
+    klang()?.ton("planeten.sprung", { laut: 0.8 });
   }
 
   function landen(p, m) {
@@ -1067,6 +1092,7 @@
     state.luft = state.luftMax;
     state.spur = [];
     staub(m.x + (rx / d) * p.r, m.y + (ry / d) * p.r, p.art.fleck2, 16);
+    klang()?.ton("planeten.landung", { laut: 0.8 });
     kids()?.vibrate?.(12);
     if (!state.besucht.has(p.n)) {
       state.besucht.add(p.n);
@@ -1077,12 +1103,21 @@
       schrift(`+${plus}`, a.x, a.y + 62, luftFarbe(state.sprungLuft), 17);
       if (vorbei < p.r * 0.35) {
         state.volltreffer += 1;
+        state.trefferFolge += 1;
         schrift("Volltreffer!", a.x, a.y + 26, "#ffe08a", 16);
-        kids()?.playJingle?.("star");
       } else {
-        kids()?.playJingle?.("tap");
+        state.trefferFolge = 0;
       }
-      if (state.erreicht % 10 === 0) schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
+      // Zur Landung leise dazu: alle zehn Planeten die lange Harfe, sonst
+      // für einen Volltreffer die Harfe – hintereinander jedes Mal höher.
+      if (state.erreicht % 10 === 0) {
+        schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
+        klang()?.ton("meilenstein");
+      } else if (state.trefferFolge > 1) {
+        klang()?.ton("serie", { stufe: state.trefferFolge, laut: 0.8 });
+      } else if (state.trefferFolge === 1) {
+        klang()?.ton("perfekt", { laut: 0.7 });
+      }
     }
     planetenBis(state.auf + 6);
   }
@@ -1103,7 +1138,8 @@
       state.astro.vy = Math.sin(state.theta) * 40;
       schrift("Kein Sauerstoff mehr!", state.astro.x, state.astro.y + 30, "#ff8c8c", 15);
     }
-    kids()?.playJingle?.("retry");
+    weltraumAus();
+    klang()?.ton("fehler");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, grund === "all" ? 900 : 1500);
   }
@@ -1242,6 +1278,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(state.punkte, { a: Math.round(state.astro.x), b: Math.round(state.astro.y), c: Math.round(state.astro.w * 100) });
     }
+    weltraumStellen();
   }
 
   function loop(now) {
@@ -1271,6 +1308,7 @@
     state.uhr = (zuschauer.lauf.vorlauf || 0) / 1000;
     shell.setPhase("play");
     zuschauer.los();
+    weltraumAn();
   }
 
   function zuschauenTakt(dt) {
@@ -1286,6 +1324,7 @@
     // Steht er auf einem Planeten? Dann läuft er dort – und der Planet zählt
     // als erreicht.
     let steht = -1;
+    const vorher = state.schritt;
     const bis = Math.min(state.planeten.length - 1, state.auf + 3);
     for (let i = Math.max(0, state.auf - 1); i <= bis; i += 1) {
       const p = state.planeten[i];
@@ -1301,12 +1340,19 @@
     } else {
       state.schritt = "flug";
     }
+    // Sprung und Landung, wie die Aufzeichnung sie zeigt – nie dicht
+    // hintereinander, falls der Ort an der Kante kurz hin und her springt.
+    if (vorher !== state.schritt && state.zeit - state.klangZeit > 0.25) {
+      state.klangZeit = state.zeit;
+      if (state.schritt === "flug") klang()?.ton("planeten.sprung", { laut: 0.8 });
+      else klang()?.ton("planeten.landung", { laut: 0.8 });
+    }
     const punkte = Math.max(0, Math.round(s.punkte));
     if (punkte !== state.punkte) {
       state.punkte = punkte;
       shell.setCount(punkte);
     }
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) weltraumAus();
   }
 
   function tippen() {
@@ -1329,6 +1375,7 @@
     state.luft = state.luftMax;
     shell.setPhase("play");
     gegner?.los();
+    weltraumAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1338,6 +1385,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    weltraumAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1347,6 +1395,7 @@
     state.erreicht = 0;
     state.sprungLuft = 1;
     state.volltreffer = 0;
+    state.trefferFolge = 0;
     state.planeten = [];
     planetenBis(8);
     state.auf = 0;
@@ -1366,6 +1415,7 @@
     state.stoss = 0;
     state.zeit = 0;
     state.uhr = 0;
+    state.klangZeit = -9;
     shell.setCount(0);
     gegner?.runde();
 
@@ -1401,6 +1451,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    weltraumAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1411,7 +1462,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const planeten = state.erreicht === 1 ? "1 Planet" : `${state.erreicht} Planeten`;
     const treffer = state.volltreffer ? ` · ${state.volltreffer} Volltreffer` : "";
     shell.showResult({
@@ -1465,7 +1515,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); weltraumAus(); });
 
   // Für die Prüfskripte.
   window.LernappPlaneten = {

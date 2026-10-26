@@ -40,6 +40,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Ohne Turnier Math.random; im Turnier bekommen alle dieselben
@@ -536,10 +537,34 @@
     meldeZug(0);
   }
 
-  // Beim Zuschauen baut dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Zuschauen baut dieses Gerät nur nach – es brummt nicht, aber es
+  // klingt: Die Brücken des anderen sind zu hören. Still bleibt nur, was
+  // beim Einsteigen auf einen Schlag nachgeholt wird (leise).
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  let leise = false;
+  const ton = (id, wahl) => { if (!leise) klang()?.ton?.(id, wahl); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
+
+  // Der wachsende Balken ratscht, solange er wächst – und klingt dabei höher,
+  // je länger er schon ist. Bild für Bild nach dem, was gerade geschieht,
+  // nicht nach dem Finger: So ratscht er auch beim Zuschauen genau so lange
+  // wie beim anderen. Am Anschlag (so hoch wie das Bild) wächst er nicht
+  // mehr, also ratscht er auch nicht mehr.
+  const RATSCHE_LANG = 220;        // der längste Balken, der je gebraucht wird
+  let ratsche = null;
+
+  function ratscheStellen() {
+    const b = state.balken;
+    const an = state.schritt === "wachsen" && b && b.len < view.h && !leise;
+    if (!an) { ratscheAus(); return; }
+    if (!ratsche) ratsche = klang()?.kulisse?.("bruecke.wachsen") || null;
+    ratsche?.setze(clamp(b.len / RATSCHE_LANG, 0, 1));
+  }
+
+  function ratscheAus() {
+    ratsche?.stop();
+    ratsche = null;
+  }
 
   function druecken() {
     gedrueckt = true;
@@ -582,6 +607,10 @@
     state.schritt = "gehen";
     state.stoss = state.treffer ? 0.5 : 0.2;
     staub(spitze, OBEN, 7);
+    // Der Balken schlägt auf – auch der zu kurze: Er liegt, bis der
+    // Arbeiter an seinem Ende ankommt.
+    ratscheAus();
+    ton("bruecke.kippen", { laut: 0.9 });
     brumm(12);
   }
 
@@ -591,9 +620,10 @@
       state.arbeiter.vy = 40;
       state.kette = 0;
       zeigeCombo();
+      // Er fällt – das hört auch, wer zuschaut.
+      ton("bruecke.absturz");
       // Wer zuschaut, sieht ihn fallen – das Ende gehört dem anderen.
       if (zuschauend()) return;
-      kids()?.playJingle?.("retry");
       kids()?.vibrate?.([20, 40, 30]);
       stepTimer = window.setTimeout(finish, 950);
       return;
@@ -607,16 +637,20 @@
       state.stoss = 1;
       funken(p.x, OBEN + 2, "#ffe066", 16);
       schrift(`+${plus}`, p.x, OBEN + 34, "#ffe066", 22);
-      klang(state.kette >= 3 ? "unlock" : "correct");
       brumm(24);
     } else {
       state.kette = 0;
       schrift("+1", p.x, OBEN + 30, "#ffffff", 16);
-      klang("star");
     }
     zeigeCombo();
     state.punkte += plus;
     state.bruecken += 1;
+    // Angekommen: die rote Mitte getroffen klingt die Harfe, ab der zweiten
+    // in Folge die Leiter (jede Stufe höher), sonst ein Punkt. Jede zehnte
+    // Brücke klingt statt dessen der Meilenstein.
+    if (state.bruecken % 10 === 0) ton("meilenstein");
+    else if (state.genau) ton(state.kette >= 2 ? "serie" : "perfekt", { stufe: state.kette });
+    else ton("punkt");
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
     state.alte.push(state.balken);
@@ -731,7 +765,12 @@
   function bisBruecke(n, sofort) {
     let sicher = 0;
     while (state.bruecken < n && state.schritt !== "fallen" && sicher < 500) {
-      fertigBauen(null, sofort || state.bruecken < n - 1);
+      // Brücken, die nur nachgeholt werden, stehen still da – zu hören ist
+      // allein die letzte, die noch ins Bild gleitet.
+      const ruck = sofort || state.bruecken < n - 1;
+      const vorher = leise;
+      leise = vorher || ruck;
+      try { fertigBauen(null, ruck); } finally { leise = vorher; }
       sicher += 1;
     }
   }
@@ -776,7 +815,9 @@
     if (!zuschauer?.seit) return;
     const jetzt = zuschauer.jetzt();
     zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
-      zugAnwenden(probe, jetzt - probe.t > 1500);
+      const sofort = jetzt - probe.t > 1500;
+      leise = sofort;
+      try { zugAnwenden(probe, sofort); } finally { leise = false; }
       gesehenBis = probe.t;
     });
     shell.setCount(state.punkte);
@@ -862,6 +903,7 @@
 
     const zielY = camYZiel();
     state.camY += (zielY - state.camY) * (1 - Math.exp(-10 * dt));
+    ratscheStellen();
   }
 
   function loop(now) {
@@ -880,6 +922,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    ratscheAus();
     shell.stopClock();
     shell.closeOverlay();
     zufall.neu();
@@ -940,6 +983,7 @@
     if (state.phase === "zuschauen") return;
     clearStep();
     stopLoop();
+    ratscheAus();
     shell.stopClock();
     if (state.phase === "ende") return;
     state.phase = "ende";
@@ -951,7 +995,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const bruecken = state.bruecken === 1 ? "1 Brücke" : `${state.bruecken} Brücken`;
     shell.showResult({
       label: "Deine Punkte",
@@ -1010,7 +1053,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); ratscheAus(); });
 
   // Für die Prüfskripte.
   window.LernappBruecke = {

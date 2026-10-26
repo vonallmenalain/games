@@ -53,6 +53,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier bekommt jeder im selben Versuch dasselbe Seil. Nur die Strecke
@@ -283,6 +284,53 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Leise Schritte auf dem Seil, Böen, die man kommen hört, der Absturz –
+  // beim Zuschauen wie beim Spielen. Was dicht kommen kann, hat eine
+  // Mindestpause in echter Zeit (die Prüfskripte rechnen viele Bilder am
+  // Stück).
+  let schrittGezaehlt = 0;
+  let schrittZuletzt = -1e9;
+  let boeGehoert = -1;
+  let meilensteinZuletzt = -1e9;
+
+  // Ein Schritt je ganzem Gang, leise.
+  function schrittKlang() {
+    const n = Math.floor(state.gang);
+    if (n === schrittGezaehlt) return;
+    schrittGezaehlt = n;
+    const jetzt = performance.now();
+    if (jetzt - schrittZuletzt < 120) return;
+    schrittZuletzt = jetzt;
+    klang()?.ton("seiltaenzer.schritt", { laut: 0.45 });
+  }
+
+  // Die Böe schwillt an, kurz bevor sie drückt – wie man sie an den Blättern
+  // kommen sieht. Je mehr sie der Stange abverlangt, desto lauter.
+  function boeKlang() {
+    const w = state.wind;
+    if (boeGehoert === state.boe || !w.dir || (w.warn < 0.45 && w.wirkt <= 0)) return;
+    boeGehoert = state.boe;
+    klang()?.ton("seiltaenzer.boee", { laut: 0.6 + 0.6 * w.rel });
+  }
+
+  // 100 m und eine neue Landschaft können zusammenfallen: ein Meilenstein.
+  function meilenstein() {
+    const jetzt = performance.now();
+    if (jetzt - meilensteinZuletzt < 4000) return;
+    meilensteinZuletzt = jetzt;
+    klang()?.ton("meilenstein");
+  }
+
+  // «Gleichgewicht ×n»: die Harfe, in Folge die Leiter – für die ersten drei,
+  // danach nur noch für jede fünfte.
+  function ruheKlang(n) {
+    if (n > 3 && n % 5 !== 0) return;
+    klang()?.ton(n >= 2 ? "serie" : "perfekt", { stufe: n, laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------
@@ -2499,8 +2547,8 @@
       stange: { x: stangeX, y: stangeY, vx: -dir * 25 + l.v * 0.3, vy: 70, dreh: l.th + l.p * 0.2, w: -dir * 4.5, liegt: false },
     };
     funken(l.x, l.y + 2, 10, ["#ffffff", "#ffd166"]);
+    klang()?.ton("seiltaenzer.absturz");
     if (gefuehrt) return;
-    kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1250);
   }
@@ -2582,8 +2630,7 @@
         state.glanz = 1;
         schrift(`Gleichgewicht ×${state.ruheN}`, l.x, l.y + 82, "#ffe08a", 13);
         funken(l.x, l.y + 30, 16, ["#fff4d6", "#ffd166", "#ffe08a"], "glanz");
-        // Ein Ton für die ersten drei, danach nur noch für jede fünfte.
-        if (state.ruheN <= 3 || state.ruheN % 5 === 0) kids()?.playJingle?.("correct");
+        ruheKlang(state.ruheN);
       }
     } else if (a > 0.25) {
       state.ruhe = 0;
@@ -2616,7 +2663,7 @@
       if (meter !== state.meter && state.schritt === "lauf") {
         if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
           schrift(`${Math.floor(meter / 100) * 100} m`, l.x + 40, l.y + 64, "#ffffff", 17);
-          kids()?.playJingle?.("star");
+          meilenstein();
         }
         state.meter = meter;
         state.punkte = meter;
@@ -2630,6 +2677,7 @@
       l.y = 0;
     }
     if (state.schritt === "sturz") sturzTakt(dt);
+    if (state.schritt === "lauf" && (state.phase === "spiel" || state.phase === "zuschauen")) schrittKlang();
 
     // Fürs Bild: Gehen, Blick, Gefahr, Wind, Wimpel, Kamera.
     state.geht += ((state.schritt === "lauf" ? 1 : 0) - state.geht) * Math.min(1, dt * 6);
@@ -2637,6 +2685,7 @@
     const gf = state.schritt === "lauf" ? Math.abs(l.th) / KIPP_MAX : 0;
     state.gefahr += (gf - state.gefahr) * Math.min(1, dt * 14);
     windLage();
+    if (state.schritt === "lauf" && (state.phase === "spiel" || state.phase === "zuschauen")) boeKlang();
     const wind = state.wind;
     const fahneZiel = wind.dir ? -0.3 + wind.dir * (wind.warn * 0.6 + wind.wirkt) * 1.3 : -0.3;
     state.fahne += (clamp(fahneZiel, -1, 1) - state.fahne) * Math.min(1, dt * 3);
@@ -2659,9 +2708,11 @@
     // Eine neue Landschaft beginnt.
     const n = Math.floor(meterBei(l.x) / ETAPPE);
     if (n > state.etappe) {
+      // Wer mitten im Lauf zuzuschauen beginnt, springt über Landschaften –
+      // das klingt nicht.
+      if (n === state.etappe + 1 && (state.phase === "spiel" || state.phase === "zuschauen")) meilenstein();
       state.etappe = n;
       state.etappeZeit = state.echt;
-      if (state.phase === "spiel") kids()?.playJingle?.("unlock");
     }
 
     // Die Kamera: folgt ihm; beim Sturz fährt sie ein Stück mit nach unten.
@@ -2765,6 +2816,7 @@
     }
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
+      if (state.meter > 0 && Math.floor(meter / 100) === Math.floor(state.meter / 100) + 1) meilenstein();
       state.meter = meter;
       state.punkte = meter;
       shell.setCount(meter);
@@ -2772,12 +2824,12 @@
     zuschauer.weiter();
   }
 
-  // Beim Zuschauen nur das Leuchten – ohne Töne.
+  // Beim Zuschauen nur das Leuchten und der Klang – ohne Schrift.
   function rueckmeldungZuschauen() {
     const a = Math.abs(state.l.th);
     if (a < RUHIG_BIS) {
       state.ruhe += 1 / 60;
-      if (state.ruhe >= RUHE_DAUER) { state.ruhe = 0; state.ruheN += 1; state.glanz = 1; }
+      if (state.ruhe >= RUHE_DAUER) { state.ruhe = 0; state.ruheN += 1; state.glanz = 1; ruheKlang(state.ruheN); }
     } else if (a > 0.25) {
       state.ruhe = 0;
       state.ruheN = 0;
@@ -2861,6 +2913,8 @@
     state.etappeZeit = -9;
     state.blick = 0;
     gedrueckt = false;
+    schrittGezaehlt = 0;
+    boeGehoert = -1;
     weltBis(START.x + 2000);
     state.spanne = spanneBei(START.x);
     shell.setCount(0);
@@ -2909,7 +2963,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     // Woran es lag: Wer nach rechts kippt, hat zu lange gehalten.
     const grund = state.gekippt > 0
       ? "Nach rechts gekippt – früher loslassen"

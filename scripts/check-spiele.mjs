@@ -5990,6 +5990,75 @@ try {
     await kontext.close();
   }
 
+  // --- 4q. Die Klänge (klang.js) -------------------------------------------------
+  // Jeder Platz der Klangauswahl erzeugt Töne (die Grillen zirpen zufällig
+  // und dürfen in der kurzen Probe schweigen), jede Aufnahme unter klang/
+  // lädt, und nichts wirft. Ist der Ton aus, entsteht gar nichts.
+  {
+    const zaehler = () => {
+      window.__klangKnoten = 0;
+      for (const art of ["createOscillator", "createBufferSource"]) {
+        const alt = AudioContext.prototype[art];
+        AudioContext.prototype[art] = function (...x) { window.__klangKnoten += 1; return alt.apply(this, x); };
+      }
+    };
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await kontext.addInitScript(zaehler);
+    const dateien = [];
+    seite.on("response", (r) => { if (r.url().includes("/klang/")) dateien.push({ url: r.url(), ok: r.ok() }); });
+    await seite.goto(`${BASIS}/ball`, { waitUntil: "load" });
+    await seite.mouse.click(5, 5);
+    const klang = await seite.evaluate(async () => {
+      const K = window.ArcadeKlang;
+      if (!K) return null;
+      const ids = Object.keys(K.PLAETZE);
+      [...new Set(ids.filter((i) => i.includes(".")).map((i) => i.split(".")[0]))].forEach((b) => K.vorladen(b));
+      const bis = Date.now() + 8000;
+      while (Date.now() < bis && document.readyState !== "complete") await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 2500));
+      const stumm = [];
+      for (const id of ids) {
+        const vor = window.__klangKnoten;
+        if (K.PLAETZE[id].schleife) {
+          const k = K.kulisse(id);
+          k.setze(0.8);
+          await new Promise((r) => setTimeout(r, 400));
+          k.stop();
+        } else K.ton(id, { stufe: 2 });
+        await new Promise((r) => setTimeout(r, 30));
+        if (window.__klangKnoten === vor && id !== "frosch.ambient") stumm.push(id);
+      }
+      K.kulisse("huegel.wind");
+      K.stille();
+      return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
+    });
+    pruefe(klang && klang.ids === 109, `klang.js kennt nicht alle 109 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
+    pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
+    pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
+      `Nicht jede Aufnahme unter klang/ lädt: ${dateien.filter((d) => !d.ok).map((d) => d.url).join(", ") || `${dateien.length} von ${klang?.dateien}`}`);
+    await kontext.close();
+
+    // Ton aus (der Schalter oben rechts): kein Klang, kein Fehler.
+    const aus = await neueSeite({ width: 420, height: 820 });
+    await aus.kontext.addInitScript(zaehler);
+    await aus.kontext.addInitScript(() => { try { localStorage.setItem("lernapp.audioFeedback", "0"); } catch { /* privat */ } });
+    await aus.seite.goto(`${BASIS}/ball`, { waitUntil: "load" });
+    await aus.seite.mouse.click(5, 5);
+    const stumm = await aus.seite.evaluate(async () => {
+      const K = window.ArcadeKlang;
+      const vor = window.__klangKnoten;
+      ["punkt", "rekord", "ball.kick", "serie"].forEach((id) => K.ton(id, { stufe: 3 }));
+      const k = K.kulisse("ball.publikum");
+      k.setze(0.9);
+      k.stop();
+      await new Promise((r) => setTimeout(r, 300));
+      return window.__klangKnoten - vor;
+    });
+    pruefe(stumm === 0, `Bei ausgeschaltetem Ton entstehen trotzdem Klänge (${stumm}).`);
+    await aus.kontext.close();
+  }
+
   // --- 5. Die eigene App -------------------------------------------------------
   // Installierbar ist das nur, wenn drei Dinge zusammenkommen: ein Manifest
   // mit Namen und Bereich, ein Service Worker, der diesen Bereich bedient, und

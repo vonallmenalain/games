@@ -44,6 +44,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier suchen alle dieselben zehn Zahlen (zufall.js).
@@ -184,6 +185,8 @@
   const state = {
     phase: "aufgabe", index: 0, gleis: null, zahl: 0, vorher: null,
     p: 0, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false,
+    // Genaue Treffer hintereinander – für die Leiter (antwortKlang).
+    serie: 0,
   };
   let shell = null;
   let schild = null;
@@ -204,6 +207,76 @@
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Klänge
+  // ---------------------------------------------------------------------------
+  // Solange die Lok geschoben wird, fährt sie hörbar: je schneller der
+  // Finger, desto schneller schnauft sie. Gemessen wird Bild für Bild, wie
+  // weit sie gefahren ist – liegt der Finger still, rollt sie aus und
+  // schnauft nur noch leise im Stand. Ein blosser Tipp aufs Gleis fährt
+  // nicht: Die Fahrt beginnt erst, wenn die Lok wirklich rollt.
+  const FAHRT_VOLL = 1.2;          // so schnell (Strecken je Sekunde) fährt sie voll
+  const fahrt = { kulisse: null, p: 0, zeit: 0, tempo: 0, frame: 0 };
+
+  function fahrtMessen(geschoben, now = performance.now()) {
+    if (!geschoben) { fahrtAus(); return; }
+    const dt = Math.max(0.001, (now - fahrt.zeit) / 1000);
+    const v = fahrt.zeit ? Math.abs(state.p - fahrt.p) / dt : 0;
+    fahrt.zeit = now;
+    fahrt.p = state.p;
+    // Geglättet: pointermove kommt nicht in jedem Bild, und ohne Glättung
+    // stotterte das Tempo zwischen null und voll.
+    fahrt.tempo += (Math.min(1, v / FAHRT_VOLL) - fahrt.tempo) * (1 - Math.exp(-6 * Math.min(dt, 0.1)));
+    if (!fahrt.kulisse && fahrt.tempo > 0.04) fahrt.kulisse = klang()?.kulisse?.("zahlengleis.fahrt") || null;
+    fahrt.kulisse?.setze(fahrt.tempo);
+    fahrt.kulisse?.laut(0.4 + 0.6 * fahrt.tempo);
+  }
+
+  // Ab jetzt zählt der Weg, nicht der Sprung an die Fingerstelle.
+  function fahrtAb() {
+    fahrt.p = state.p;
+    fahrt.zeit = performance.now();
+    fahrt.tempo = 0;
+  }
+
+  function fahrtSchleife(now) {
+    const geschoben = state.drag && state.phase === "aufgabe";
+    fahrtMessen(geschoben, now);
+    fahrt.frame = geschoben ? window.requestAnimationFrame(fahrtSchleife) : 0;
+  }
+
+  function fahrtAus() {
+    fahrt.kulisse?.stop();
+    fahrt.kulisse = null;
+    fahrt.zeit = 0;
+    fahrt.tempo = 0;
+    if (fahrt.frame) { window.cancelAnimationFrame(fahrt.frame); fahrt.frame = 0; }
+  }
+
+  // Die Lok hält: Erst bremst sie, dann sagt ein zweiter Klang, wie nah es
+  // war – ein Wimpernschlag später, damit er nicht im Bremsen untergeht.
+  // Genau getroffen die Harfe (ab dem zweiten genauen in Folge die Leiter),
+  // nah dran die Pfeife (der Zug ist da), ein Stück daneben ein Punkt, weit
+  // daneben der Fehler.
+  function antwortKlang(punkte) {
+    klang()?.ton?.("zahlengleis.halt");
+    const spaeter = { verzoegerung: 0.22 };
+    if (punkte === PUNKTE_JE_ZAHL) {
+      state.serie += 1;
+      klang()?.ton?.(state.serie >= 2 ? "serie" : "perfekt", { ...spaeter, stufe: state.serie });
+      return;
+    }
+    state.serie = 0;
+    if (punkte >= 4) klang()?.ton?.("zahlengleis.pfeife", spaeter);
+    else if (punkte >= 2) klang()?.ton?.("punkt", spaeter);
+    else klang()?.ton?.("fehler", spaeter);
+  }
+
+  // Ein neues Gleis (bis 500, bis 1000): ein neues Level.
+  function gleisKlang(index) {
+    if (index > 0 && PLAN[index] !== PLAN[index - 1]) klang()?.ton?.("meilenstein");
   }
 
   // ---------------------------------------------------------------------------
@@ -290,7 +363,8 @@
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("play");
-    Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false });
+    Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false, serie: 0 });
+    fahrtAus();
     shell.setCount(0);
 
     shell.clear();
@@ -346,6 +420,7 @@
     gleis.setAttribute("aria-valuenow", "0");
     gleis.setAttribute("aria-valuetext", `Lok steht bei 0. Gesucht ist ${state.zahl}.`);
     shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === state.index));
+    gleisKlang(state.index);
     meldeZug(0);
   }
 
@@ -353,6 +428,7 @@
     if (state.phase !== "aufgabe") return;
     state.phase = "zeigen";
     state.drag = false;
+    fahrtAus();
     lok.classList.remove("is-drag");
     setLok(p);
     const { bis } = state.gleis;
@@ -365,9 +441,8 @@
     zeigeAntwort(wert, punkte);
     meldeZug(1);
 
-    if (punkte >= 4) { kids()?.playJingle?.("correct"); kids()?.vibrate?.(16); }
-    else if (punkte >= 2) kids()?.playJingle?.("star");
-    else kids()?.playJingle?.("retry");
+    antwortKlang(punkte);
+    if (punkte >= 4) kids()?.vibrate?.(16);
 
     stepTimer = window.setTimeout(() => {
       state.index += 1;
@@ -432,13 +507,16 @@
 
   function zuschauSchleife() {
     zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
-    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
-    zuschauer?.weiter?.();
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel – und die Lok steht.
+    if (zuschauer?.weiter?.() === false) fahrtAus();
     const jetzt = zuschauer?.jetzt?.();
     const probe = zuschauer?.letzte?.(jetzt);
     if (!probe || state.phase !== "zuschauen") return;
     const index = Math.min(ZAHLEN_JE_RUNDE - 1, Math.floor(probe.c / 4));
     const was = probe.c - Math.floor(probe.c / 4) * 4;
+    // Zu hören ist, was beim anderen gerade geschieht – nicht, was beim
+    // Einsteigen schon zurückliegt.
+    const frisch = jetzt - probe.t < 1500;
     if (index !== zuschau.index) {
       zuschau.index = index;
       zuschau.antwort = false;
@@ -455,14 +533,19 @@
       void schild.offsetWidth;
       schild.classList.add("is-neu");
       shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === index));
+      if (frisch) gleisKlang(index);
     }
     if (was === 1) {
+      fahrtAus();
       if (!zuschau.antwort) {
         zuschau.antwort = true;
         lok.classList.remove("is-drag");
         setLok(probe.a / ZUG_P);
         const wert = state.p * state.gleis.bis;
-        zeigeAntwort(wert, punkteFuer(wert - state.zahl, state.gleis.bis));
+        const punkte = punkteFuer(wert - state.zahl, state.gleis.bis);
+        zeigeAntwort(wert, punkte);
+        if (frisch) antwortKlang(punkte);
+        else state.serie = punkte === PUNKTE_JE_ZAHL ? state.serie + 1 : 0;
       }
     } else {
       // Zwischen zwei Lagen gleitet die Lok.
@@ -473,6 +556,7 @@
       }
       lok.classList.toggle("is-drag", probe.b === 1);
       setLok(p, true);
+      fahrtMessen(probe.b === 1 && frisch);
     }
     state.punkte = probe.p;
     shell.setCount(probe.p);
@@ -503,11 +587,11 @@
   function finish() {
     if (zuschauer) return;
     clearStep();
+    fahrtAus();
     state.phase = "over";
     const punkte = state.punkte;
     const geist = aufnahme?.ende() || null;
     const next = recordRun(punkte);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
@@ -555,6 +639,8 @@
     lok.classList.add("is-drag");
     try { gleis.setPointerCapture(event.pointerId); } catch { /* egal */ }
     setLok(anteilVon(event.clientX), true);
+    fahrtAb();
+    if (!fahrt.frame) fahrt.frame = window.requestAnimationFrame(fahrtSchleife);
   });
 
   host.addEventListener("pointermove", (event) => {
@@ -570,6 +656,7 @@
   host.addEventListener("pointercancel", () => {
     if (!state.drag) return;
     state.drag = false;
+    fahrtAus();
     lok.classList.remove("is-drag");
   });
 
@@ -600,6 +687,7 @@
 
   window.addEventListener("pagehide", () => {
     clearStep();
+    fahrtAus();
     if (zuschau.frame) window.cancelAnimationFrame(zuschau.frame);
     zuschau.frame = 0;
   });

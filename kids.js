@@ -719,6 +719,9 @@
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
     audioEnabled, setAudioEnabled, updateAudioToggle,
+    // Die Tonausgabe selbst – klang.js spielt über denselben AudioContext,
+    // damit der Ton-Schalter beide schaltet. null, wenn der Ton aus ist.
+    audioKontext: ensureAudio,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
     // Dampfhorn, Auspuffschläge und das Rattern der Zahnradstrecke

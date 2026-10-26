@@ -46,6 +46,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Die Strecke. Gewürfelt wird sie einmal, mit fester Saat – und dann ist
   // sie für alle und immer dieselbe, im Turnier wie ohne. Darum fragt dieses
@@ -199,6 +200,24 @@
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
   }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Leise der Dschungel, solange geschwungen wird – beim Zuschauen wie beim
+  // Spielen. Er verstummt, sobald der Affe im Wasser oder die Zeit um ist.
+  let dschungel = null;
+  function dschungelAn() {
+    if (!dschungel?.laeuft) dschungel = klang()?.kulisse("liane.ambient") || null;
+    dschungel?.laut(0.75);
+  }
+  function dschungelAus() {
+    dschungel?.stop();
+    dschungel = null;
+  }
+  // Weite Sprünge in Folge – jeder Griff überspringt einen Ast – sind eine
+  // Serie.
+  let weitReihe = 0;
 
   // ---------------------------------------------------------------------------
   // Äste und Bananen-Lianen
@@ -1048,6 +1067,9 @@
     shell.setPhase("play");
     uhrEnde = 0;
     zuschauer.los();
+    zuschauHaken = state.haken;
+    zuschauNass = false;
+    dschungelAn();
   }
 
   // Die Uhr beim Zuschauen: so weit wie die Runde des anderen (s.t) – im
@@ -1063,6 +1085,26 @@
     shell.startClock(rest, () => {}, RUNDE_MS);
   }
 
+  // Was beim Zuschauen klingt, liest sich aus dem Lauf: Lässt er die Liane
+  // los, greift er eine neue, fällt er ins Wasser? Am Ende des Laufs
+  // verstummt der Dschungel. ms: die Zeit des Laufs – seine erste Probe liegt
+  // noch bei null (geist.js nimmt sie vor dem ersten Bild), also im Wasser.
+  let zuschauHaken = 0;
+  let zuschauNass = false;
+  function zuschauenKlang(ms) {
+    if (state.haken !== zuschauHaken) {
+      if (state.haken < 0) klang()?.ton("liane.schwung", { laut: 0.8 });
+      else klang()?.ton("liane.greifen", { laut: 0.8 });
+      zuschauHaken = state.haken;
+    }
+    if (!zuschauNass && ms > 500 && state.p.y < WASSER + KOERPER) {
+      zuschauNass = true;
+      dschungelAus();
+      klang()?.ton("liane.platsch");
+    }
+    if (zuschauer.fertig?.()) dschungelAus();
+  }
+
   function zuschauenTakt() {
     const s = zuschauer.stand();
     if (!s) return;
@@ -1074,6 +1116,7 @@
     p.vy = s.vb;
     state.haken = (s.c || 0) - 1;
     state.schritt = state.haken >= 0 ? "schwingen" : "fliegen";
+    zuschauenKlang(s.t);
     if (state.schritt === "fliegen") {
       state.spur.push({ x: p.x, y: p.y });
       if (state.spur.length > 16) state.spur.shift();
@@ -1098,6 +1141,7 @@
     shell.startClock(RUNDE_MS, zeitUm);
     gegner?.los();
     kids()?.vibrate?.(8);
+    dschungelAn();
   }
 
   function druecken() {
@@ -1130,6 +1174,7 @@
     state.haken = -1;
     state.schritt = "fliegen";
     state.spur = [];
+    klang()?.ton("liane.schwung", { laut: 0.8 });
     // Von einer Bananen-Liane: der Stoss nach vorn. Die Bananen sind dann
     // gegessen – an dieser Liane gibt es keinen zweiten.
     if (a?.bananen && !a.geerntet) {
@@ -1139,7 +1184,8 @@
       const p = state.p;
       funkeln(p.x, p.y + 10, "#ffe066", 16);
       schrift("Bananen-Schwung!", p.x, p.y + 34, "#ffe066", 18);
-      kids()?.playJingle?.("star");
+      // Ein Bonus: leise die Harfe zum Schwung.
+      klang()?.ton("perfekt", { laut: 0.75 });
       kids()?.vibrate?.([10, 30, 16]);
     }
   }
@@ -1185,6 +1231,7 @@
     state.greift = false;
     state.spur = [];
     blaetter(a.x, a.y, 3);
+    klang()?.ton("liane.greifen", { laut: 0.8 });
     kids()?.vibrate?.(10);
     if (i > state.letzter) {
       // Ein Ast übersprungen: mehr Tempo nach vorn. Was davon entlang des
@@ -1195,8 +1242,10 @@
         state.schwung = 1;
         schrift("Weit! Schwung!", a.x, a.y - 30, "#c8f7a8", 17);
         funkeln(p.x, p.y, "#c8f7a8", 10);
-        kids()?.playJingle?.("unlock");
-      }
+        // Zum Griff die Harfe, mehrmals hintereinander weit die Leiter.
+        weitReihe += 1;
+        klang()?.ton(weitReihe >= 2 ? "serie" : "perfekt", { stufe: weitReihe, laut: 0.75 });
+      } else weitReihe = 0;
       state.letzter = i;
     }
   }
@@ -1221,7 +1270,8 @@
     shell.stopClock();
     spritzer(state.p.x, WASSER + 2, 20);
     state.ringe.push({ x: state.p.x, t: 0 });
-    kids()?.playJingle?.("retry");
+    dschungelAus();
+    klang()?.ton("liane.platsch");
     kids()?.vibrate?.([20, 40, 30]);
     stepTimer = window.setTimeout(finish, 1000);
   }
@@ -1430,6 +1480,8 @@
   function startRun() {
     clearStep();
     stopLoop();
+    dschungelAus();
+    weitReihe = 0;
     shell.stopClock();
     shell.closeOverlay();
     // Von vorn gewürfelt heisst hier: dieselbe Strecke wie jedes Mal.
@@ -1481,7 +1533,8 @@
     if (state.phase !== "spiel" || state.schritt === "platsch" || state.schritt === "ende") return;
     state.schritt = "ende";
     schrift("Zeit!", state.p.x, state.p.y + 34, "#ffffff", 22);
-    kids()?.playJingle?.("star");
+    // Kein eigener Klang: Die Tafel klingt gleich danach.
+    dschungelAus();
     stepTimer = window.setTimeout(finish, 450);
   }
 
@@ -1505,6 +1558,7 @@
     clearStep();
     stopLoop();
     shell.stopClock();
+    dschungelAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1515,7 +1569,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const bananen = state.bananen === 1 ? "1 Banane" : `${state.bananen} Bananen`;
     shell.showResult({
       label: "Deine Meter",
@@ -1577,7 +1630,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); dschungelAus(); });
 
   // Für die Prüfskripte.
   window.LernappLiane = {

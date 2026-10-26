@@ -55,6 +55,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier bekommt jeder im selben Versuch denselben Plan. Nur der Plan
@@ -208,6 +209,49 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Ganz leise das Publikum am Bolzplatz, solange der Ball in der Luft ist –
+  // bei einer Serie perfekter Kontakte etwas lauter. Beim Zuschauen wie
+  // beim Spielen.
+  let publikum = null;
+  let publikumGestellt = -1e9;
+  function publikumAn() {
+    if (!publikum?.laeuft) publikum = klang()?.kulisse("ball.publikum") || null;
+    publikum?.laut(0.6);
+    publikumStellen(true);
+  }
+  function publikumAus() {
+    publikum?.stop();
+    publikum = null;
+  }
+  function publikumStellen(sofort = false) {
+    if (!publikum?.laeuft) return;
+    const jetzt = performance.now();
+    if (!sofort && jetzt - publikumGestellt < 100) return;
+    publikumGestellt = jetzt;
+    publikum.setze(0.25 + 0.06 * Math.min(10, state.combo));
+  }
+  // Was dicht kommen kann (Kick um Kick, das Netz, wildes Tippen), klingt
+  // höchstens alle 60 ms.
+  const tonZuletzt = {};
+  function tonMitPause(id, o) {
+    const jetzt = performance.now();
+    if (jetzt - (tonZuletzt[id] ?? -1e9) < 60) return false;
+    tonZuletzt[id] = jetzt;
+    klang()?.ton(id, o);
+    return true;
+  }
+  // Ein Kontakt: der Kick, eher leise – er kommt oft. Dazu für einen
+  // perfekten die Harfe, in Folge die Leiter; alle 25 Kontakte stattdessen
+  // der Meilenstein.
+  function kickKlang(perfekt, reihe = state.combo) {
+    if (!tonMitPause("ball.kick", { laut: 0.65 })) return;
+    if (state.kontakte % 25 === 0) klang()?.ton("meilenstein");
+    else if (perfekt) klang()?.ton(reihe >= 2 ? "serie" : "perfekt", { stufe: reihe, laut: 0.7 });
   }
 
   // ---------------------------------------------------------------------------
@@ -1591,23 +1635,19 @@
       state.glanz = 1;
       schrift(state.combo >= 3 ? `Perfekt ×${state.combo}` : "Perfekt!", b.x, b.y + b.r + 26, "#ffd23f", state.combo >= 3 ? 20 : 17, 0.9);
       funken(tx, ty, 14, ["#fff4c2", "#ffd23f", "#ffb02e"], 190);
-      kids()?.playJingle?.("correct");
     } else {
       if (state.combo >= 3) schrift("Serie vorbei", b.x, b.y + b.r + 24, "#e8eef5", 13, 0.8);
       state.combo = 0;
       funken(tx, ty, 6, ["#ffffff", "#dfe8ff"], 120);
-      kids()?.playJingle?.("star");
     }
+    kickKlang(perfekt);
     state.besteCombo = Math.max(state.besteCombo, state.combo);
     state.punkte = state.kontakte + state.bonus;
     shell.setCount(state.punkte);
     welle(tx, ty, perfekt ? "perfekt" : "treffer");
     kids()?.vibrate?.(perfekt ? 14 : 8);
 
-    if (state.kontakte % 25 === 0) {
-      schrift(`${state.kontakte} Kontakte!`, 0, 320, "#ffffff", 22, 1.4);
-      kids()?.playJingle?.("unlock");
-    }
+    if (state.kontakte % 25 === 0) schrift(`${state.kontakte} Kontakte!`, 0, 320, "#ffffff", 22, 1.4);
     if (state.kontakte === LICHT_AB) {
       state.lichtAn = state.echt;
       schrift("Flutlicht an!", 0, 300, "#fff6c8", 20, 1.4);
@@ -1624,12 +1664,15 @@
     if (state.combo >= 3) schrift("Serie vorbei", state.ball.x, state.ball.y + state.ball.r + 24, "#e8eef5", 13, 0.8);
     state.combo = 0;
     schrift("Luftloch", x, y + 18, "#e8eef5", 12, 0.6);
+    // Ein Fehler, der die Runde nicht beendet: leise.
+    tonMitPause("fehler", { laut: 0.45 });
   }
 
   function ringTreffer(r, still = false) {
     r.getroffen = state.zeit;
     const b = state.ball;
     funken(r.x, r.y, 22, ["#fff4c2", "#ffd23f", "#ff9f1c", "#ffffff"], 220);
+    klang()?.ton("punkt");
     if (still) return;
     state.bonus += 3;
     state.ringe += 1;
@@ -1637,7 +1680,6 @@
     shell.setCount(state.punkte);
     state.glanz = 1;
     schrift("Treffer! +3", r.x, r.y + 30, "#ffd23f", 20, 1.1);
-    kids()?.playJingle?.("unlock");
     kids()?.vibrate?.([10, 30, 10]);
     if (b) b.quetsch = Math.max(b.quetsch, 0.4);
   }
@@ -1711,6 +1753,7 @@
         b.w *= 0.5;
         b.quetsch = Math.max(b.quetsch, 0.5);
         b.quetschW = Math.PI / 2;
+        tonMitPause("ball.netz", { laut: 0.5 + 0.5 * state.netz.staerke });
         if (state.phase === "spiel") kids()?.vibrate?.(6);
       }
     }
@@ -1749,6 +1792,7 @@
       v.hx = o.x;
       v.hy = o.y;
       federn(o.x, o.y);
+      klang()?.ton("ball.taube");
       b.quetsch = Math.max(b.quetsch, 0.5);
       b.quetschW = Math.atan2(ny, -nx);
       if (state.phase === "spiel") kids()?.vibrate?.(10);
@@ -1796,12 +1840,15 @@
     state.blitz = 1;
     if (!ruhig()) state.lupe = 0.3;
     staub(b.x, 22);
+    // Das Publikum verstummt, der Ball schlägt auf – auch am Ende einer
+    // Runde, die man anschaut.
+    publikumAus();
+    klang()?.ton("ball.rasen");
     if (state.phase === "zuschauen") {
       schrift("Aus!", b.x, b.y + 60, "#ff9a7a", 24, 1.3);
       return;
     }
     schrift(state.grund, b.x, b.y + 60, "#ff9a7a", 24, 1.3);
-    kids()?.playJingle?.("retry");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1100);
   }
@@ -1911,6 +1958,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(state.punkte, { a: Math.round(b.x), b: Math.round(b.y), c: state.kontakte * 100 + Math.min(99, state.combo) });
     }
+    publikumStellen();
   }
 
   function loop(now) {
@@ -1937,6 +1985,7 @@
     state.schritt = "flug";
     shell.setPhase("play");
     zuschauer.los();
+    publikumAn();
   }
 
   function zuschauenTakt(dt) {
@@ -1954,6 +2003,7 @@
       state.kontakte += 1;
       kontaktBeginnt(state.kontakte);
       const perfekt = c % 100 > state.combo;
+      kickKlang(perfekt, c % 100);
       welle(b.x, b.y - b.r * 0.6, perfekt ? "perfekt" : "treffer");
       if (perfekt) state.glanz = 1;
       b.quetsch = 1;
@@ -1976,16 +2026,24 @@
         v.hx = o.x;
         v.hy = o.y;
         federn(o.x, o.y);
+        klang()?.ton("ball.taube");
       }
     }
-    // Im Spiel kommt der Ball nur am Schluss auf den Rasen.
-    if (state.schritt !== "aus" && s.b <= rBei(state.kontakte) + 2) aufschlag();
+    // Im Spiel kommt der Ball nur am Schluss auf den Rasen. Die erste Probe
+    // eines Laufs liegt noch bei null (geist.js nimmt sie vor dem ersten
+    // Bild) – darum zählt ein Aufschlag erst nach einer halben Sekunde, sonst
+    // hiesse es gleich zu Beginn «Aus!», und das Publikum verstummte. Und
+    // springt der Ball zwischen zwei Proben auf, ist er spätestens am Ende
+    // des Laufs auf dem Rasen.
+    const amEnde = Boolean(zuschauer.fertig?.());
+    if (state.schritt !== "aus" && s.t > 500 && (amEnde || s.b <= rBei(state.kontakte) + 2)) aufschlag();
     const punkte = Math.max(0, Math.floor(s.punkte));
     if (punkte !== state.punkte) {
       state.punkte = punkte;
       shell.setCount(punkte);
     }
     zuschauer.weiter();
+    if (zuschauer.fertig?.()) publikumAus();
   }
 
   // ---------------------------------------------------------------------------
@@ -2005,6 +2063,7 @@
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+    publikumAn();
   }
 
   /*
@@ -2072,6 +2131,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    publikumAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -2140,6 +2200,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    publikumAus();
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -2150,7 +2211,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     // Woran es lag, und was dazukam.
     const grund = state.grund === "daneben getippt!" ? "Daneben getippt" : state.grund ? "Zu spät getippt" : "";
     const dazu = state.bonus ? `${state.kontakte} Kontakte + ${state.bonus} Bonus` : "";
@@ -2209,7 +2269,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); publikumAus(); });
 
   // Für die Prüfskripte. tippe(x, y) nimmt Weltkoordinaten (x: 0 Mitte des
   // Platzes, y: 0 Rasen, nach oben), tippeBild(sx, sy) CSS-Pixel der
