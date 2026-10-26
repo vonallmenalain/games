@@ -1455,9 +1455,12 @@
   // ---------------------------------------------------------------------------
   // Zeichnen
   // ---------------------------------------------------------------------------
+  // Das Dunkel ersetzt das letzte Bild ganz: kopieren, nicht überblenden.
   function zeichneGrund() {
     g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = "copy";
     g.drawImage(bilder.grund, 0, 0);
+    g.globalCompositeOperation = "source-over";
   }
 
   /*
