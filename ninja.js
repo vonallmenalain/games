@@ -1979,8 +1979,7 @@
     vignette.schluessel = schluessel;
     const W = view.cssW;
     const H = view.cssH;
-    const q = Math.min(1, view.dpr);
-    const { c, g: cg } = leinwand(W, H, q);
+    const { c, g: cg } = leinwand(W, H, view.dpr);
     const v = cg.createRadialGradient(W / 2, view.my, Math.min(W, H) * 0.3, W / 2, view.my, Math.hypot(W, H) * 0.62);
     v.addColorStop(0, "rgba(0, 0, 0, 0)");
     v.addColorStop(1, "rgba(2, 4, 12, 0.48)");
@@ -2002,17 +2001,78 @@
     return [Math.max(-2, von), bis];
   }
 
-  function zeichneHintergrund() {
-    const [von, bis] = raeumeImBild();
-    raumBis(Math.max(0, bis + 1));
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.fillStyle = "#0b0f18";
-    g.fillRect(0, 0, canvas.width, canvas.height);
-    bildTransform();
+  /*
+   * Die Kulisse: alles, was gerade stillsteht – die Räume im Bild, im
+   * nächsten Raum, was kommt (Fallen, Klingen, Wächter und Schützen, noch
+   * reglos), im vorigen, wie es zuletzt war, und das Halbdunkel über beiden.
+   * Steht die Kamera, liegt das fertig in einer Leinwand von der Grösse des
+   * Bildes: Jedes Bild beginnt mit einem einzigen Kopieren, ohne Skalieren.
+   * Nur während des Schwenks wird sie Bild für Bild neu gemalt.
+   */
+  const kulisse = { c: null, schluessel: "" };
+
+  function maleKulisse(von, bis) {
     const s = view.s;
     for (let k = von; k <= bis; k += 1) {
       const b = raumBild(k);
       g.drawImage(b.c, bildX(-view.xb), bildY(k * SCHRITT + RAUM_H), 2 * view.xb * s, SCHRITT * s);
+    }
+    const nachbar = state.raeume[state.raum + 1];
+    const vorher = state.raeume[state.raum - 1];
+    if (vorher) {
+      zeichneFallen(vorher, vorher.tauStand, 0.85);
+      zeichneKlingen(vorher, vorher.tauStand, 0.85, false);
+    }
+    if (nachbar) {
+      zeichneFallen(nachbar, 0, 0.85);
+      zeichneKlingen(nachbar, 0, 0.85, false);
+      zeichneKegel(nachbar, 0, 0.35);
+      zeichneWachen(nachbar, 0);
+      zeichneSchuetzen(nachbar, 0, false);
+      zeichneTore(nachbar, false);
+    }
+    zeichneDaemmer(von, bis);
+    // Die dunklen Ränder gehören zur Kulisse – ein Durchgang weniger je Bild.
+    g.save();
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.drawImage(vignetteBild(), 0, 0, view.cssW, view.cssH);
+    g.restore();
+  }
+
+  function zeichneHintergrund(von, bis) {
+    raumBis(Math.max(0, bis + 1));
+    const bewegt = Boolean(state.aus) || state.stoss > 0;
+    if (kam.t < 1 || !g) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = "#0b0f18";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      bildTransform();
+      maleKulisse(von, bis);
+      return;
+    }
+    const schluessel = `${bilder.schluessel}|${kam.y}|${state.raum}|${von}|${bis}|${state.raeume[state.raum - 1]?.tauStand ?? ""}`;
+    if (!kulisse.c || kulisse.c.width !== canvas.width || kulisse.c.height !== canvas.height || kulisse.schluessel !== schluessel) {
+      if (!kulisse.c) kulisse.c = document.createElement("canvas");
+      kulisse.c.width = canvas.width;
+      kulisse.c.height = canvas.height;
+      kulisse.schluessel = schluessel;
+      const haupt = g;
+      g = kulisse.c.getContext("2d");
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = "#0b0f18";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      maleKulisse(von, bis);
+      g = haupt;
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (bewegt) {
+      g.fillStyle = "#0b0f18";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      bildTransform();
+      g.drawImage(kulisse.c, 0, 0, view.cssW, view.cssH);
+    } else {
+      g.drawImage(kulisse.c, 0, 0);
     }
   }
 
@@ -2997,32 +3057,33 @@
     }
   }
 
+  // Gemalt je Farbe in einem einzigen Pfad: Jedes Blatt ist ein kleines
+  // gedrehtes Viereck mit runden Seiten, die Ecken von Hand gerechnet.
   function zeichneBlaetter() {
     const s = view.s;
     const cx = view.cssW / 2;
     const cy = view.cssH / 2;
-    for (const b of state.blaetter) {
-      // Höhere Blätter sind näher: grösser und etwas nach aussen verschoben.
-      const px = bildX(b.x);
-      const py = bildY(b.y);
-      const x = px + (px - cx) * b.h * 0.12;
-      const y = py + (py - cy) * b.h * 0.12;
-      if (x < -10 || x > view.cssW + 10 || y < -10 || y > view.cssH + 10) continue;
-      const r = b.gross * (1 + b.h * 0.7) * s;
-      g.save();
-      g.translate(x, y);
-      g.rotate(b.dreh);
-      g.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(b.flatter)));
-      g.globalAlpha = 0.55 + b.h * 0.4;
-      g.fillStyle = b.farbe;
+    for (let f = 0; f < BLATT_FARBEN.length; f += 1) {
+      g.fillStyle = BLATT_FARBEN[f];
+      g.globalAlpha = 0.8;
       g.beginPath();
-      g.moveTo(-r, 0);
-      g.quadraticCurveTo(-r * 0.2, -r * 0.75, r, -r * 0.15);
-      g.lineTo(r * 0.7, 0);
-      g.lineTo(r, r * 0.15);
-      g.quadraticCurveTo(-r * 0.2, r * 0.75, -r, 0);
+      for (let i = f; i < state.blaetter.length; i += BLATT_FARBEN.length) {
+        const b = state.blaetter[i];
+        // Höhere Blätter sind näher: grösser und etwas nach aussen verschoben.
+        const px = bildX(b.x);
+        const py = bildY(b.y);
+        const x = px + (px - cx) * b.h * 0.12;
+        const y = py + (py - cy) * b.h * 0.12;
+        if (x < -10 || x > view.cssW + 10 || y < -10 || y > view.cssH + 10) continue;
+        const r = b.gross * (1 + b.h * 0.7) * s;
+        const q = r * (0.25 + 0.5 * Math.abs(Math.cos(b.flatter)));
+        const ux = Math.cos(b.dreh);
+        const uy = Math.sin(b.dreh);
+        g.moveTo(x - ux * r, y - uy * r);
+        g.quadraticCurveTo(x - uy * q * 1.4, y + ux * q * 1.4, x + ux * r, y + uy * r);
+        g.quadraticCurveTo(x + uy * q * 1.4, y - ux * q * 1.4, x - ux * r, y - uy * r);
+      }
       g.fill();
-      g.restore();
     }
     g.globalAlpha = 1;
   }
@@ -3094,18 +3155,16 @@
   const kaelte = () => weich(clamp((1 - state.tempo) / (1 - R_MIN), 0, 1));
 
   // Steht die Zeit, wird die Welt kühl und blass: ein Überzug, der Rot und
-  // Grün dämpft, und ein Schleier in Blaugrau. Was gefährlich ist, kommt erst
-  // danach ins Bild – es bleibt kräftig.
+  // Grün dämpft (ein einziger Durchgang, «multiply»). Was gefährlich ist,
+  // kommt erst danach ins Bild – es bleibt kräftig.
   function zeichneKaelte() {
     const k = kaelte();
     if (k < 0.02) return;
     flachTransform();
     g.globalCompositeOperation = "multiply";
-    g.fillStyle = `rgb(${Math.round(255 - 95 * k)}, ${Math.round(255 - 62 * k)}, ${Math.round(255 - 12 * k)})`;
+    g.fillStyle = `rgb(${Math.round(255 - 105 * k)}, ${Math.round(255 - 70 * k)}, ${Math.round(255 - 18 * k)})`;
     g.fillRect(0, 0, view.cssW, view.cssH);
     g.globalCompositeOperation = "source-over";
-    g.fillStyle = `rgba(70, 86, 120, ${0.16 * k})`;
-    g.fillRect(0, 0, view.cssW, view.cssH);
   }
 
   // Die Räume, in denen er nicht ist, liegen im Halbdunkel.
@@ -3287,33 +3346,15 @@
   function zeichnen() {
     if (!g) return;
     const [von, bis] = raeumeImBild();
-    zeichneHintergrund();
+    zeichneHintergrund(von, bis);
     bildTransform();
     const r = aktRaum();
     const nachbar = state.raeume[state.raum + 1];
-    const vorher = state.raeume[state.raum - 1];
-    // Der nächste Raum zeigt, was kommt (noch steht alles still), der
-    // vorige, wie es war.
-    if (nachbar) {
-      zeichneFallen(nachbar, 0, 0.85);
-      zeichneKlingen(nachbar, 0, 0.85, false);
-    }
-    if (vorher) {
-      zeichneFallen(vorher, vorher.tauStand, 0.85);
-      zeichneKlingen(vorher, vorher.tauStand, 0.85, false);
-    }
     zeichneFallen(r, state.tau);
-    zeichneDaemmer(von, bis);
     zeichneKaelte();
     bildTransform();
     zeichneFlackern(r);
-    if (nachbar) {
-      zeichneKegel(nachbar, 0, 0.35);
-      zeichneWachen(nachbar, 0);
-      zeichneSchuetzen(nachbar, 0, false);
-      zeichneRollen(nachbar, false);
-      zeichneTore(nachbar, false);
-    }
+    if (nachbar) zeichneRollen(nachbar, false);
     zeichneKegel(r, state.tau);
     zeichneTore(r, true);
     zeichneRollen(r, true);
@@ -3334,7 +3375,6 @@
       g.fillStyle = `rgba(255, 240, 235, ${state.blitz * 0.35})`;
       g.fillRect(0, 0, view.cssW, view.cssH);
     }
-    g.drawImage(vignetteBild(), 0, 0, view.cssW, view.cssH);
     zeichneAnzeige();
   }
 
