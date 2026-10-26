@@ -1765,6 +1765,72 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Beim Zuschauen klingt es wie gespielt. Jeder Klang hat eine Mindestpause
+  // in echter Zeit – die Prüfskripte rechnen ganze Runden am Stück.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 80) {
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms, der Takt kommt in kleinen Schritten –, aus() am
+  // Ende. Hat die Tafel oder der Neustart sie gestoppt, holt an() sie neu
+  // (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetzt = performance.now();
+        if (jetzt - ms < 50) return;
+        ms = jetzt;
+        if (!k || (!k.laeuft && jetzt - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetzt; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+  const fahrtwind = schleife("fallschirm.freifall");
+  const propeller = schleife("fallschirm.flugzeug");
+  function klangAus() {
+    fahrtwind.aus();
+    propeller.aus();
+  }
+  const V_FALL_MAX = 220;          // so schnell fällt man höchstens (vFallBei) – für den Fahrtwind
+
+  // Perfekt in Folge – perfekt gezogen, mitten ins Ziel: zuerst die Harfe,
+  // ab der zweiten die Leiter, Stufe um Stufe.
+  let perfektFolge = 0;
+  function perfektTon(perfekt, o = {}) {
+    if (!perfekt) { perfektFolge = 0; return; }
+    perfektFolge += 1;
+    if (perfektFolge === 1) ton("perfekt", o, 100);
+    else ton("serie", { ...o, stufe: perfektFolge }, 100);
+  }
+
+  // Jedes Bild: der Propeller, solange das Flugzeug im Bild ist (leiser, je
+  // weiter es weg ist), und im freien Fall der Fahrtwind – lauter, je
+  // schneller und je tiefer.
+  function klangTakt() {
+    const j = state.j;
+    const an = j && state.sp && !FEHLER.has(state.schritt)
+      && (state.phase === "spiel" || (state.phase === "zuschauen" && !zuschauer?.fertig?.()));
+    if (an && state.flugzeug) propeller.an(0.6, state.schritt === "flugzeug" ? 1 : clamp(1 - state.ts / 4, 0, 1));
+    else propeller.aus();
+    if (an && state.schritt === "frei") {
+      fahrtwind.an(clamp(0.15 + 0.45 * Math.max(0, j.vz) / V_FALL_MAX + 0.4 * (1 - j.z / H_AB), 0, 1));
+    } else fahrtwind.aus();
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Fläche und die Kamera
   // ---------------------------------------------------------------------------
   let knoepfe = null;
@@ -3683,6 +3749,8 @@
     if (!ersterSprung) {
       state.weiss = 1;
       state.banner = { titel: `Sprung ${n}`, unter: `${ORTSNAME[sp.art]} · mindestens ${sp.hMin} m`, leben: 2.3, max: 2.3 };
+      // Der nächste Sprung, ein Stück schwerer.
+      if (state.phase === "spiel" || state.phase === "zuschauen") ton("meilenstein", {}, 800);
     }
     state.teile = state.teile.filter((t) => t.art === "konfetti");
     kameraFolgt(0, true);
@@ -3738,7 +3806,10 @@
     if (!ruhig()) state.lupe = 0.35;
     const gut = punkte >= 70;
     schrift(punkte >= 95 ? `Perfekt! +${punkte}` : `Schirm auf! +${punkte}`, gut ? "#ffd23f" : "#ffffff", gut ? 26 : 21, 1.6);
-    kids()?.playJingle?.(punkte >= 80 ? "unlock" : punkte >= 35 ? "correct" : "star");
+    // Der Ruck des Schirms – und nach ihm die Harfe, wenn es perfekt war.
+    fahrtwind.aus();
+    ton("fallschirm.schirm");
+    perfektTon(punkte >= 95, { laut: 0.9, verzoegerung: 0.3 });
   }
 
   // Abfangen: einmal je Sprung, kurz vor dem Boden.
@@ -3768,10 +3839,14 @@
     if (art === "platsch") spritzer(j.x, j.y, 34);
     if (art === "baum") blaetter(j.x, j.y, 7, 26);
     if (art === "dach") staub(j.x, j.y, 14, ["#c4553d", "#9d3f2c", "#e8dcc0"]);
-    if (state.phase !== "zuschauen") {
-      kids()?.playJingle?.("retry");
-      kids()?.vibrate?.([30, 40, 60]);
-    }
+    // Die Runde ist vorbei: Die Reserve geht mit einem Ruck auf, auf Baum und
+    // Dach schlägt er auf – und dazu der Fehler.
+    klangAus();
+    perfektTon(false);
+    if (art === "reserve") ton("fallschirm.schirm", { laut: 0.8 });
+    else if (art !== "platsch") ton("fallschirm.landung", { laut: 1.1 });
+    ton("fehler", { verzoegerung: 0.2 }, 300);
+    if (state.phase !== "zuschauen") kids()?.vibrate?.([30, 40, 60]);
   }
 
   // Ein Hindernis getroffen: Federn, Funken – und er trudelt.
@@ -3840,10 +3915,12 @@
     state.stoss = flare < 0 ? 0.7 : 0.25;
     schrift(ring === 50 ? "Mitte! +50" : ring ? `Ring +${ring}` : "Daneben", ring === 50 ? "#ffd23f" : ring ? "#ffffff" : "#cfd8e3", ring === 50 ? 28 : 22, 1.7, 0);
     schrift(flare === 25 ? "Butterweich +25" : flare === 10 ? "Weich +10" : "Hart −10", flare === 25 ? "#7dff9e" : flare === 10 ? "#c7f7d2" : "#ff9a7a", 19, 1.7, 34);
-    if (state.phase !== "zuschauen") {
-      kids()?.playJingle?.(ring === 50 ? "unlock" : ring ? "correct" : "star");
-      kids()?.vibrate?.(flare < 0 ? [30, 20, 30] : 14);
-    }
+    // Aufsetzen: weich oder hart. Dazu, was der Ring bringt – die Mitte ist
+    // perfekt.
+    ton("fallschirm.landung", { laut: flare === 25 ? 0.7 : flare === 10 ? 0.9 : 1.2 });
+    perfektTon(ring === 50, { laut: 0.9 });
+    if (ring > 0 && ring < 50) ton("punkt", {}, 100);
+    if (state.phase !== "zuschauen") kids()?.vibrate?.(flare < 0 ? [30, 20, 30] : 14);
   }
 
   // Der Wind unter dem Schirm: unten schwach, oben stärker, dazu Böen, die
@@ -4053,6 +4130,7 @@
     }
     effekteTakt(dt);
     kameraFolgt(dt);
+    klangTakt();
     const bald = state.phase === "spiel" && state.sp && ((state.schritt === "frei" && state.j.z < state.sp.hMin + 2.5 * state.sp.tau)
       || (state.schritt === "schirm" && !state.flare && state.j.z < FLARE_BAND.butter[1] + 14));
     if (knoepfe && bald !== wischBald) {
@@ -4243,6 +4321,8 @@
   function startRun() {
     clearStep();
     stopLoop();
+    klangAus();
+    perfektFolge = 0;
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -4305,6 +4385,7 @@
     stopLoop();
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     state.phase = "ende";
+    klangAus();
     alleWeg();
     const punkte = state.punkte;
     const geist = gegner?.ende(punkte) || null;
@@ -4314,7 +4395,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const n = state.serie.length;
     const grund = state.grund ? state.grund.replace(/!$/, "") : "";
     const best = vorher ? `Bestwert ${vorher}` : "";

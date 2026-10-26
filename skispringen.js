@@ -2484,6 +2484,74 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Beim Zuschauen klingt es wie gespielt. Jeder Klang hat eine Mindestpause
+  // in echter Zeit – die Prüfskripte rechnen ganze Serien am Stück.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 80) {
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms, der Takt kommt in kleinen Schritten –, aus() am
+  // Ende. Hat die Tafel oder der Neustart sie gestoppt, holt an() sie neu
+  // (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetzt = performance.now();
+        if (jetzt - ms < 50) return;
+        ms = jetzt;
+        if (!k || (!k.laeuft && jetzt - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetzt; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+  const spur = schleife("skispringen.anlauf");
+  const fahrtwind = schleife("skispringen.flug");
+  function klangAus() {
+    spur.aus();
+    fahrtwind.aus();
+  }
+
+  // Perfekt in Folge – an der Kante und im Telemark: zuerst die Harfe, ab
+  // der zweiten die Leiter, Stufe um Stufe.
+  let perfektFolge = 0;
+  function perfektTon(perfekt, laut = 1, verzoegerung = 0) {
+    if (!perfekt) { perfektFolge = 0; return; }
+    perfektFolge += 1;
+    if (perfektFolge === 1) ton("perfekt", { laut, verzoegerung }, 100);
+    else ton("serie", { stufe: perfektFolge, laut, verzoegerung }, 100);
+  }
+
+  // Jedes Bild: Ski in der Spur (Anlauf und Auslauf), Wind im Flug – je
+  // schneller, desto mehr; in der Luft voller, solange die Lage im grünen
+  // Bereich liegt.
+  function klangTakt() {
+    const sp = state.sp;
+    const sch = state.sch;
+    const an = sp && sch && (state.phase === "spiel" || (state.phase === "zuschauen" && !zuschauer?.fertig?.()));
+    const schritt = an ? state.schritt : "";
+    const v = sp ? Math.hypot(sp.vx, sp.vy) : 0;
+    if (schritt === "anlauf" || (schritt === "auslauf" && !sp.sturz && v > 1)) spur.an(clamp(v / sch.vKante, 0, 1));
+    else spur.aus();
+    if (schritt === "flug") {
+      const lage = 1 - 0.4 * clamp((Math.abs(sp.k) - IDEAL) / (UEBERSCHLAG - IDEAL), 0, 1);
+      fahrtwind.an(clamp((0.2 + 0.8 * v / (sch.vKante * 1.25)) * lage, 0, 1));
+    } else fahrtwind.aus();
+  }
+
+  // ---------------------------------------------------------------------------
   // Der Sprung
   // ---------------------------------------------------------------------------
   function neuerSpringer(sch) {
@@ -2613,16 +2681,17 @@
     if (state.phase !== "spiel") return;
     const farbe = { perfekt: "#3dff8c", gut: "#ffffff", frueh: "#ffb347", spaet: "#ffb347" }[art];
     state.ring = { x: 0, y: 0, t: state.echt, farbe };
+    // Der Tipp an der Kante – kräftig, wenn er sitzt.
+    ton("skispringen.absprung", { laut: art === "perfekt" ? 1 : art === "gut" ? 0.9 : 0.7 });
+    perfektTon(art === "perfekt", 0.9);
     if (art === "perfekt") {
       schrift("Perfekt!", "#ffd23f", 24, 1.1);
       funken(0, 0.3, 16, ["#fff4c2", "#ffd23f", "#ffb02e"]);
       if (!ruhig()) state.zeitlupe = 0.5;
       state.blitz = 0.6;
-      kids()?.playJingle?.("correct");
       kids()?.vibrate?.(16);
     } else if (art === "gut") {
       schrift("Gut", "#ffffff", 20, 0.9);
-      kids()?.playJingle?.("star");
       kids()?.vibrate?.(10);
     } else {
       schrift(art === "frueh" ? "Zu früh" : "Zu spät", "#ffb347", 20, 1);
@@ -2638,6 +2707,7 @@
     sp.k = Math.max(sp.k, 7);
     sp.kw = Math.max(sp.kw, 24);
     if (state.phase !== "spiel") return;
+    perfektTon(false);
     schrift("Verpasst!", "#ff7a6b", 22, 1.1);
     kids()?.vibrate?.([20, 30]);
   }
@@ -2686,6 +2756,7 @@
       if (sp.k < ABRISS && !sprung.abriss && sprung.tele < 0 && state.phase === "spiel") {
         sprung.abriss = true;
         schrift("Strömungsabriss!", "#8fd3ff", 20, 1.2);
+        ton("fehler", { laut: 0.5 }, 400);
         kids()?.vibrate?.([12, 20, 12]);
       }
     }
@@ -2806,6 +2877,10 @@
     state.stoss = art === "sturz" ? 1 : art === "hart" ? 0.7 : 0.35;
     staub(sp.x, sp.y, art === "sturz" ? 34 : 22, art === "sturz" ? 1.4 : 1);
     kids()?.vibrate?.(art === "sturz" ? [30, 40, 60] : art === "telemark" ? [10, 30, 14] : 14);
+    // Aufsetzen im Schnee: härter, wenn er stürzt oder hart landet.
+    fahrtwind.aus();
+    ton("skispringen.landung", { laut: art === "sturz" ? 1.3 : art === "hart" ? 1.1 : 0.9 });
+    perfektTon(art === "telemark" && sprung.quali, 0.75);
 
     const oben = `SPRUNG ${n + 1} · HS ${sch.HS}`;
     const qualiText = sprung.quali ? `Quali ${sch.quali} m ✓` : `Quali ${sch.quali} m – nicht erreicht`;
@@ -2827,7 +2902,8 @@
       }
       schrift(grund === "Kein Telemark" ? "Sturz – kein Telemark" : `Sturz – ${grund}`, "#ff7a6b", 22, 1.8);
       tvZeigen({ oben, gross: `${weite} m`, rechts: "Sturz", rechtsFarbe: "#ff7a6b", unten: qualiText, untenFarbe: qualiFarbe, farbe: "#ff3b30" }, state.weiterIn);
-      kids()?.playJingle?.("retry");
+      // Der Sturz beendet die Runde.
+      ton("fehler", { verzoegerung: 0.25 }, 300);
       return;
     }
     state.schritt = "auslauf";
@@ -2842,7 +2918,6 @@
       schrift("Telemark!", "#ffd23f", 24, 1.2);
       funken(sp.x, sp.y + 1.2, 18, ["#fff4c2", "#ffd23f", "#ffffff"]);
       state.jubel = 1;
-      kids()?.playJingle?.("unlock");
     } else if (art === "hart") {
       schrift("Hart gelandet", "#ffb347", 20, 1.1);
     } else if (art === "wackel") {
@@ -2855,9 +2930,13 @@
       state.jubel = Math.max(state.jubel, 0.5);
     }
     if (!sprung.quali) {
-      kids()?.playJingle?.("retry");
-    } else if (art !== "telemark") {
-      kids()?.playJingle?.("star");
+      // Die Quali verpasst: Die Runde ist nach dem Auslauf vorbei.
+      ton("fehler", { verzoegerung: 0.25 }, 300);
+    } else if (art === "telemark" || weite >= sch.K) {
+      // Das Publikum jubelt einen Augenblick später – bei einem weiten
+      // Sprung, im Telemark, und am lautesten bei beidem.
+      const laut = 0.7 + (art === "telemark" ? 0.3 : 0) + (weite >= sch.K ? 0.2 : 0) + (weite >= sch.HS ? 0.2 : 0);
+      ton("skispringen.publikum", { laut, verzoegerung: 0.35 }, 500);
     }
   }
 
@@ -2909,6 +2988,8 @@
     state.startRest = 1.3;
     state.blendeZiel = 0;
     karteZeigen(state.startRest + 1.4);
+    // Die nächste, grössere Schanze.
+    ton("meilenstein", {}, 800);
     if (state.nr === 4) schrift("Flutlicht an!", "#fff6c8", 20, 1.6, { folgt: false, x: state.sp.x + 6, y: state.sp.y + 6 });
   }
 
@@ -2985,6 +3066,7 @@
     } else if (state.phase === "bereit" && state.sp) {
       state.sp.poseZiel = POSEN.sitzen;
     }
+    klangTakt();
     const sp = state.sp;
     if (sp) {
       if (state.phase !== "zuschauen") poseWaehlen();
@@ -3104,6 +3186,7 @@
       state.schritt = "start";
       state.blende = 0.8;
       karteZeigen(2.4);
+      if (nr > 0) ton("meilenstein", {}, 800);
     }
     const sp = state.sp;
     const sch = state.sch;
@@ -3126,6 +3209,7 @@
       sp.poseRate = 6;
       sp.tf = 0;
     } else if (luft) {
+      if (state.schritt === "anlauf") ton("skispringen.absprung", { laut: 0.9 });
       state.schritt = "flug";
       sp.tf += dt;
       // Die Lage aus dem Winkel der Ski.
@@ -3141,6 +3225,7 @@
         state.sprung.landeZeit = state.zeit;
         state.stoss = 0.4;
         staub(x, y, 20);
+        ton("skispringen.landung", { laut: 0.9 });
         const quali = weite >= sch.quali;
         tvZeigen({
           oben: `SPRUNG ${nr + 1} · HS ${sch.HS}`, gross: `${weite} m`, rechts: "",
@@ -3166,7 +3251,11 @@
         state.tv.gross = `${dazu} m`;
         state.tv.rechts = state.sprung.quer ? "Sturz" : "";
         state.tv.rechtsFarbe = "#ff7a6b";
-        if (!state.sprung.quer && dazu > state.sprung.weite + 1) state.jubel = 1;
+        // Mehr als die Weite: Telemark – das Publikum jubelt.
+        if (!state.sprung.quer && dazu > state.sprung.weite + 1) {
+          state.jubel = 1;
+          ton("skispringen.publikum", { laut: 1 }, 500);
+        }
       }
       state.punkte = punkte;
       shell.setCount(punkte);
@@ -3277,6 +3366,8 @@
   // ---------------------------------------------------------------------------
   function startRun() {
     stopLoop();
+    klangAus();
+    perfektFolge = 0;
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -3338,6 +3429,7 @@
     stopLoop();
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     state.phase = "ende";
+    klangAus();
     alleWeg();
     const punkte = state.punkte;
     const geist = gegner?.ende(punkte) || null;
@@ -3347,7 +3439,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const anzahl = state.sprunge.length;
     const weitester = anzahl ? Math.max(...state.sprunge) : 0;
     const grund = state.aus === "sturz" ? "Sturz" : state.aus === "quali" ? "Quali verpasst" : "";

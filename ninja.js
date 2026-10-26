@@ -288,6 +288,84 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Beim Zuschauen klingt es wie gespielt, beim Vorausrechnen (sim) nie.
+  // Jeder Klang hat eine Mindestpause in echter Zeit.
+  const klang = () => window.ArcadeKlang || null;
+  const zuletzt = new Map();
+  function ton(id, o = {}, pause = 80) {
+    if (state.sim) return;
+    const ms = performance.now();
+    if (ms - (zuletzt.get(id) ?? -1e9) < pause) return;
+    zuletzt.set(id, ms);
+    klang()?.ton?.(id, o);
+  }
+
+  // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben
+  // höchstens alle 50 ms –, aus() am Ende. Hat die Tafel oder der Neustart
+  // sie gestoppt, holt an() sie neu (ohne Ton nur alle zwei Sekunden).
+  function schleife(id) {
+    let k = null;
+    let ms = -1e9;
+    let neu = -1e9;
+    return {
+      an(wert, laut = 1) {
+        const jetzt = performance.now();
+        if (jetzt - ms < 50) return;
+        ms = jetzt;
+        if (!k || (!k.laeuft && jetzt - neu > 2000)) { k = klang()?.kulisse?.(id) || null; neu = jetzt; }
+        k?.setze(wert);
+        k?.laut(laut);
+      },
+      aus() { k?.stop(); k = null; ms = -1e9; },
+    };
+  }
+
+  // Der Herzschlag: so schnell, wie die Welt gerade läuft – steht der Ninja,
+  // schlägt es langsam und tief.
+  const herz = schleife("ninja.zeit");
+  function klangTakt() {
+    const an = !state.sim && ((state.phase === "spiel" && state.schritt !== "aus")
+      || (state.phase === "zuschauen" && !state.zs?.ende && !zuschauer?.fertig?.()));
+    if (an) herz.an(clamp(state.tempo, 0, 1));
+    else herz.aus();
+  }
+
+  // Ein Geschoss, das nah am Ninja vorbeizischt – einmal je Pfeil oder
+  // Stern, tiefer, je langsamer die Welt läuft. Was weiter weg fliegt,
+  // bleibt still.
+  const NAH = 36;                  // so nah zischt ein Geschoss hörbar vorbei (R_NINJA 7)
+  function zisch(d) {
+    ton("ninja.pfeil", { laut: 0.5 + 0.5 * clamp(1 - d / NAH, 0, 1), hoehe: 0.7 + 0.3 * clamp(state.rate, 0, 1) }, 150);
+  }
+  function zischPruefen(lx, ly) {
+    if (state.sim || state.schritt !== "lauf" || (state.phase !== "spiel" && state.phase !== "zuschauen")) return;
+    for (const p of state.pfeile) {
+      if (p.zischt || p.weg < 0) continue;
+      // Wo der Pfeil dem Ninja am nächsten kommt, und wie nah.
+      const t = (lx - p.ox) * p.dx + (ly - p.oy) * p.dy;
+      const d = Math.abs((lx - p.ox) * p.dy - (ly - p.oy) * p.dx);
+      if (d < NAH && t <= p.L && p.weg >= t - 14 && p.weg <= t + PFEIL_L) {
+        p.zischt = true;
+        zisch(d);
+      }
+    }
+    for (const st of state.sterne) {
+      if (st.zischt) continue;
+      const d = Math.hypot(lx - st.x, ly - st.y);
+      if (d < NAH) {
+        st.zischt = true;
+        zisch(d);
+      }
+    }
+  }
+
+  // Ein Raum in Blitzschnell, mehrere in Folge: zuerst die Harfe, dann die
+  // Leiter, Stufe um Stufe.
+  let blitzFolge = 0;
+
+  // ---------------------------------------------------------------------------
   // Die Räume
   // ---------------------------------------------------------------------------
   const aktRaum = () => state.raeume[state.raum];
@@ -1040,6 +1118,7 @@
         state.sterne.splice(i, 1);
       }
     }
+    zischPruefen(lx, ly);
 
     for (let i = 0; i < r.wachen.length; i += 1) {
       const wa = r.wachen[i];
@@ -1134,7 +1213,7 @@
     shell.setCount(state.punkte);
     schrift(`Rolle +${PUNKTE_ROLLE}`, q.x, q.y + 16, r.y0, "#ffe08a", 16, 1.1);
     funken(r.y0, q.x, q.y, 16, ["#fff4c2", "#ffd23f", "#ffb02e", "#ffffff"], 120, true);
-    kids()?.playJingle?.("star");
+    ton("ninja.rolle");
     kids()?.vibrate?.(10);
   }
 
@@ -1158,7 +1237,12 @@
     schrift(`+${PUNKTE_RAUM}`, r.torO, RAUM_H + 26, r.y0, "#ffffff", 22, 1.2);
     if (stufe) schrift(`${stufe[2]} +${bonus}`, r.torO, RAUM_H + 2, r.y0, bonus >= 5 ? "#ffd23f" : bonus >= 3 ? "#bfe3ff" : "#d9d2c3", 15, 1.4);
     funken(r.y0, r.torO, RAUM_H + 8, 14, ["#c8ffd4", "#ffffff", "#ffe08a"], 110, true);
-    kids()?.playJingle?.(bonus >= 5 ? "unlock" : "correct");
+    // Ein Raum geschafft. Blitzschnell dazu: nach der langen Harfe die kurze
+    // (oder die Leiter, wenn es mehrere Räume in Folge so ging).
+    ton("meilenstein", {}, 500);
+    blitzFolge = bonus >= 5 ? blitzFolge + 1 : 0;
+    if (blitzFolge === 1) ton("perfekt", { laut: 0.8, verzoegerung: 0.4 }, 100);
+    else if (blitzFolge > 1) ton("serie", { stufe: blitzFolge, laut: 0.8, verzoegerung: 0.4 }, 100);
     kids()?.vibrate?.(12);
     kameraZu(r.k + 1);
   }
@@ -1230,7 +1314,9 @@
         farbe: ["#ffc1d6", "#ff9fbf", "#ffe0ea"][i % 3], leben: 1.6, max: 1.6, dreh: Math.random() * 6, echt: true });
     }
     schrift(GRUENDE[art]?.[0] || "Erwischt!", n.x, ly + 26, r.y0, "#ff8a6a", 24, 1.6);
-    kids()?.playJingle?.("retry");
+    // Getroffen: Ende der Runde, das Herz steht still.
+    herz.aus();
+    ton("ninja.treffer", {}, 300);
     kids()?.vibrate?.([30, 40, 60]);
   }
 
@@ -3440,6 +3526,8 @@
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
 
+    klangTakt();
+
     if (state.phase === "spiel") {
       if (state.schritt !== "aus") {
         gegner?.takt(state.punkte, { a: Math.round(n.x), b: Math.round(n.y), c: Math.round(state.W * 100) });
@@ -3529,6 +3617,7 @@
         if (!state.rollen[j] && Math.hypot(n.x - rr.rollen[j].x, n.y - rr.y0 - rr.rollen[j].y) < R_NINJA + 7) {
           state.rollen[j] = true;
           funken(rr.y0, rr.rollen[j].x, rr.rollen[j].y, 16, ["#fff4c2", "#ffd23f", "#ffb02e", "#ffffff"], 120, true);
+          ton("ninja.rolle");
         }
       }
     }
@@ -3549,6 +3638,8 @@
       state.stoss = 1;
       state.blitz = 1;
       rauch(n.x, n.y, 18);
+      herz.aus();
+      ton("ninja.treffer", {}, 300);
     }
     zuschauer.weiter();
   }
@@ -3564,6 +3655,7 @@
     state.zs.frieren = true;
     state.zs.frierW = state.W;
     schrift(`+${PUNKTE_RAUM}`, r.torO, RAUM_H + 26, r.y0, "#ffffff", 22, 1.2);
+    ton("meilenstein", {}, 500);
     kameraZu(geschafft);
   }
 
@@ -3603,6 +3695,8 @@
   // ---------------------------------------------------------------------------
   function startRun() {
     stopLoop();
+    herz.aus();
+    blitzFolge = 0;
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -3677,6 +3771,7 @@
     stopLoop();
     if (state.phase === "ende" || state.phase === "zuschauen") return;
     state.phase = "ende";
+    herz.aus();
     const punkte = state.punkte;
     const geist = gegner?.ende(punkte) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
@@ -3685,7 +3780,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const grund = GRUENDE[state.grund]?.[1] || "";
     const raeume = state.geschafft === 1 ? "1 Raum" : `${state.geschafft} Räume`;
     const best = vorher ? `Bestwert ${vorher}` : "";
