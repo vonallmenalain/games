@@ -2617,8 +2617,7 @@
     const y = lichtY(l);
     blitzLicht(x, y, 85, 0.75, 0.9, 6);
     funken(x, y, 14, ["#f4ffc0", "#d8ff6a", "#ffffff"], 110);
-    state.ladung = Math.min(LADUNG_MAX, Math.floor(state.ladung) + 1 + (state.ladung % 1));
-    if (state.ladung > LADUNG_MAX) state.ladung = LADUNG_MAX;
+    state.ladung = Math.min(LADUNG_MAX, state.ladung + 1);
     if (still) return;
     schrift("+1 Ruf", x, y + 16, "#e4ff8a", 15, 0.9);
     kids()?.playJingle?.("correct");
