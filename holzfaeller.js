@@ -2398,8 +2398,10 @@
     state.blitzFarbe = "255, 70, 40";
     schrift(FEHLER_TEXT[art] || "FEHLER!", x, clamp(y, 22, OBEN - 20) + 18, "#ff7a5c", 22, 1.3);
     const zuschauen = state.phase === "zuschauen";
-    // Eine Axt weniger: Klinge auf Eisen – die letzte am lautesten.
-    ton("holzfaeller.nagel", { laut: state.fehler >= LEBEN ? 1.2 : 1 }, 150);
+    // Eine Axt weniger: Klinge auf Eisen – die letzte am lautesten, und sie
+    // klingt immer, auch gleich nach der vorletzten.
+    const letzte = state.fehler >= LEBEN;
+    ton("holzfaeller.nagel", { laut: letzte ? 1.2 : 1 }, letzte ? 0 : 150);
     if (!zuschauen) kids()?.vibrate?.([30, 40, 60]);
     if (state.fehler >= LEBEN) {
       state.aus = true;
