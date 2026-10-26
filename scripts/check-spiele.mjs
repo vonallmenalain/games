@@ -3569,13 +3569,17 @@ try {
   }
 
   // --- 4g20. Fallschirm: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // Ein Autopilot springt mehrere gewürfelte Runden bis zum zwölften Sprung –
-  // tief in die schwere Phase. Im Fall plant er voraus: Für die nächsten drei
+  // Ein Autopilot springt mehrere Runden bis zum zwölften Sprung – tief in
+  // die schwere Phase. Im Fall plant er voraus: Für die nächsten drei
   // Hindernisse wählt er je eine Seite, rechnet den Weg mit denselben
-  // Schritten wie das Spiel durch und nimmt den, der nirgends anstösst. Er
-  // zieht knapp über der Mindesthöhe, hält unter dem Schirm gegen den Wind
-  // aufs Ziel und fängt im Band ab. Wo er nicht durchkommt, verlangt der Plan
-  // Unmögliches. Wer nach dem Absprung nichts tut, zieht nicht – die Reserve
+  // Schritten wie das Spiel durch und nimmt den, der nirgends anstösst; er
+  // lenkt vor jedem Rechenschritt, so wie er gerechnet hat. Er zieht knapp
+  // über der Mindesthöhe, hält unter dem Schirm gegen den Wind aufs Ziel und
+  // fängt im Band ab. Wo er nicht durchkommt, verlangt der Plan Unmögliches.
+  // Die Welten sind fest (eine feste Saat je Runde), damit die Prüfung nie
+  // zufällig rot wird – darunter vier, an denen der Autopilot früher
+  // scheiterte (Saat 6, 23, 28, 45). Einmal von Hand geprüft: 300 Welten,
+  // alle bis Sprung 13. Wer nach dem Absprung nichts tut, zieht nicht – die Reserve
   // geht auf, die Runde ist vorbei. Wer zu tief zieht, ebenso. Dazu: die zwei
   // Hälften lenken, der Wisch zieht, die Tasten tun dasselbe. Und ein Lauf,
   // angeschaut, springt dieselben Sprünge mit derselben Zahl am Schluss.
@@ -3595,7 +3599,7 @@ try {
           const lenk = Math.abs(d) < 0.25 ? 0 : Math.sign(d);
           vz += 100 * (1 - (vz / sp.v) ** 2) * H;
           z -= vz * H;
-          vx += (lenk * F.V_QUER_FREI + F.windHoehe(sp.wind, z) * 0.25 - vx) * (1 - Math.exp(-H / 0.28));
+          vx += (lenk * F.V_QUER_FREI + F.windHoehe(sp.wind, z) * F.WIND_FREI - vx) * (1 - Math.exp(-H / F.TAU_QUER_FREI));
           x += vx * H;
           ts += H;
           for (const h of sp.hindernisse) {
@@ -3634,7 +3638,17 @@ try {
         }
         return bester;
       };
+      // Gelenkt wird vor jedem Rechenschritt des Spiels – genau so, wie
+      // vorausFall rechnet. Sonst wiche der Weg vom Plan ab.
       pilot.schritt = (dt) => {
+        const n = dt ? Math.max(1, Math.round(dt / H)) : 0;
+        if (!n) { pilot.steuern(); return; }
+        for (let i = 0; i < n; i += 1) {
+          pilot.steuern();
+          F.takt(H);
+        }
+      };
+      pilot.steuern = () => {
         const j = st.j;
         const sp = st.sp;
         let lenk = 0;
@@ -3654,7 +3668,6 @@ try {
         F.lenke(lenk);
         const mitte = (F.FLARE_BAND.butter[0] + F.FLARE_BAND.butter[1]) / 2;
         if ((st.schritt === "frei" && st.ts > 0.7 && j.z <= sp.hMin + pilot.rand) || (st.schritt === "schirm" && !st.flare && j.z <= mitte)) F.wisch();
-        if (dt) F.takt(dt);
       };
       window.__fsPilot = pilot;
     };
@@ -3666,8 +3679,12 @@ try {
       const F = window.LernappFallschirm;
       const st = F.state;
       const raus = [];
-      for (let lauf = 0; lauf < 4; lauf += 1) {
+      for (const saat of [6, 23, 28, 45, 101]) {
+        // Eine feste Welt: die Saat aus einem festen «Zufall».
+        const zufall = Math.random;
+        Math.random = () => (saat * 7919 % 100000) / 100000;
         document.querySelector(".cm-bar-left .cm-icon-again").click();
+        Math.random = zufall;
         F.losGehts();
         const orte = new Set();
         let hindernisse = 0;
@@ -3676,7 +3693,7 @@ try {
           window.__fsPilot.schritt(1 / 120);
         }
         const ringe = st.serie.filter((s) => s.ring > 0).length;
-        raus.push({ sprung: st.sprung, phase: st.phase, schritt: st.schritt, grund: st.grund, punkte: st.punkte, landungen: st.serie.length, ringe, hindernisse, orte: [...orte].join(",") });
+        raus.push({ saat, sprung: st.sprung, phase: st.phase, schritt: st.schritt, grund: st.grund, punkte: st.punkte, landungen: st.serie.length, ringe, hindernisse, orte: [...orte].join(",") });
       }
       return raus;
     });

@@ -88,6 +88,7 @@
   const G_FALL = 100;              // so heftig beschleunigt der Fall nach dem Absprung (m/s²)
   const V_QUER_FREI = 18;          // so schnell gleitet er im freien Fall zur Seite (m/s)
   const TAU_QUER_FREI = 0.28;      // … und so träge folgt er dem Lenken (s)
+  const WIND_FREI = 0.25;          // so viel vom Wind vertreibt ihn im freien Fall
   const V_SINK = 12;               // so schnell sinkt der Schirm nahe am Boden (m/s)
   const SINK_AB = 60;              // darüber sinkt er schneller …
   const SINK_DAZU = 0.25;          // … je Meter um so viel (m/s)
@@ -142,10 +143,44 @@
   // Der Wind in der Höhe z, aus dem Wind am Boden: oben stärker.
   const windHoehe = (w, z) => w * (1 + Math.max(0, z) / 120);
   const sinkBei = (z) => V_SINK + Math.max(0, z - SINK_AB) * SINK_DAZU;
-  // Wie lange der freie Fall bis zur Höhe z dauert (ohne Lenken gleich).
-  const tFall = (n, z) => {
+  // Wie lange der freie Fall bis zur Höhe z dauert – ohne Lenken für alle
+  // gleich. Gerechnet mit denselben Schritten wie im Spiel, vom Absprung mit
+  // V_ABSPRUNG an: Eine Formel läge um ein paar Hundertstel daneben, und ein
+  // Segler mit 30 m/s wäre dann schon anderthalb Meter weiter.
+  const V_ABSPRUNG = 4;
+  const fallTabellen = new Map();
+  function fallTabelle(n) {
     const v = vFallBei(n);
-    return (v / G_FALL) * Math.acosh(Math.exp(Math.max(0, H_AB - z) * G_FALL / (v * v)));
+    let zs = fallTabellen.get(v);
+    if (zs) return zs;
+    zs = [H_AB];
+    let z = H_AB;
+    let vz = V_ABSPRUNG;
+    while (z > -60) {
+      vz += G_FALL * (1 - (vz / v) ** 2) * TAKT;
+      z -= vz * TAKT;
+      zs.push(z);
+    }
+    fallTabellen.set(v, zs);
+    return zs;
+  }
+  const tFall = (n, z) => {
+    const zs = fallTabelle(n);
+    if (z >= H_AB) return 0;
+    let lo = 0;
+    let hi = zs.length - 1;
+    while (hi - lo > 1) {
+      const m = (lo + hi) >> 1;
+      if (zs[m] > z) lo = m; else hi = m;
+    }
+    return (lo + (zs[lo] - z) / ((zs[lo] - zs[hi]) || 1)) * TAKT;
+  };
+  // Und umgekehrt: in welcher Höhe er nach t Sekunden Fall ist.
+  const fallZ = (n, t) => {
+    const zs = fallTabelle(n);
+    const k = Math.max(0, t / TAKT);
+    const i = Math.floor(k);
+    return i >= zs.length - 1 ? zs[zs.length - 1] : lerp(zs[i], zs[i + 1], k - i);
   };
 
   const TOP_COUNT = 5;
@@ -1508,22 +1543,26 @@
    * Die Hindernisse eines Sprungs – immer so, dass ein Weg frei bleibt.
    * Gerechnet wird, wohin der Springer bis zu jedem Hindernis kommen kann
    * (eine Menge von Strecken in x, die mit der Zeit wächst, so schnell er
-   * gleitet). Ein Hindernis sperrt darin seine Breite; es darf nur dorthin,
-   * wo danach noch mindestens 6 m frei bleiben, und am Schluss muss das Ziel
-   * noch erreichbar sein. Sonst rückt es zur Seite oder fällt weg. Zwischen
-   * zwei Hindernissen liegt mindestens eine Dreiviertelsekunde Fall.
+   * gleitet). Vorsichtig gerechnet: als müsste er jedes Mal erst ganz
+   * umsteuern (das kostet ihn 2 · TAU_QUER_FREI), und mit dem Wind, der ihn
+   * im Fall vertreibt – gegen den Wind kommt er weniger weit. Ein Hindernis
+   * sperrt in dieser Menge seine Breite; es darf nur dorthin, wo danach noch
+   * mindestens 7 m frei bleiben, und am Schluss muss das Ziel noch
+   * erreichbar sein. Sonst rückt es zur Seite oder fällt weg. Zwischen zwei
+   * Hindernissen liegt mindestens eine Dreiviertelsekunde Fall.
    */
-  function setzeHindernisse(n, z, { v, hMin, ort, x0, ab, zielX, linieX, anzahlWunsch }) {
-    const fallZ = (t) => H_AB - ((v * v) / G_FALL) * Math.log(Math.cosh((G_FALL * t) / v));
+  function setzeHindernisse(n, z, { v, hMin, ort, x0, ab, wind, zielX, linieX, anzahlWunsch }) {
     const tA = tFall(n, H_AB - 170);
     const tB = tFall(n, hMin + 130);
     for (let anzahl = Math.min(anzahlWunsch, Math.floor((tB - tA) / 0.75)); anzahl >= 0; anzahl -= 1) {
       const liste = [];
       let menge = [[x0 + ab, x0 + ab]];
       let tVor = 0;
-      const dehnen = (dt) => {
-        const d = V_QUER_FREI * Math.max(0, dt - 0.35);
-        menge = vereinen(menge.map(([a, b]) => [a - d, b + d]));
+      const dehnen = (t0, t1) => {
+        const dt = t1 - t0;
+        const frei = Math.max(0, dt - 2 * TAU_QUER_FREI * (1 - Math.exp(-dt / TAU_QUER_FREI)));
+        const w = windHoehe(wind, fallZ(n, (t0 + t1) / 2)) * WIND_FREI;
+        menge = vereinen(menge.map(([a, b]) => [a + (w - V_QUER_FREI) * frei, b + (w + V_QUER_FREI) * frei]));
       };
       const slot = (tB - tA) / Math.max(1, anzahl);
       for (let m = 0; m < anzahl; m += 1) {
@@ -1535,11 +1574,11 @@
         if (n >= 4 && m === 0) arten.push("gewitter", "gewitter");
         const was = arten[Math.min(arten.length - 1, Math.floor(u[0] * arten.length))];
         const H = HINDERNIS[was];
-        let zz = fallZ(tA + slot * (m + 0.2 + 0.6 * u[1]));
+        let zz = fallZ(n, tA + slot * (m + 0.2 + 0.6 * u[1]));
         if (was === "gewitter") zz = Math.min(zz, H_AB - 230);
         const tK = tFall(n, zz);
         const durch = (2 * H.dz) / Math.max(20, v - (was === "schirm" ? V_ANDERER : 0));
-        dehnen(tK - durch / 2 - tVor);
+        dehnen(tVor, tK - durch / 2);
         const W = H.r + R_FREI + 0.8;
         const v1 = (u[2] - 0.5) * 1.2 * (H.r + R_FREI);
         const v2 = (Math.sign(v1) || 1) * (H.r + R_FREI) * 1.15;
@@ -1547,7 +1586,7 @@
         for (const versatz of [v1, -v1, v2, -v2]) {
           const ox = linieX(zz) + versatz;
           const rest = abziehen(menge, ox - W, ox + W);
-          if (rest.reduce((sum, [a, b]) => sum + b - a, 0) >= 6) { gewaehlt = { ox, rest }; break; }
+          if (rest.reduce((sum, [a, b]) => sum + b - a, 0) >= 7) { gewaehlt = { ox, rest }; break; }
         }
         if (!gewaehlt) continue;
         menge = gewaehlt.rest;
@@ -1565,7 +1604,7 @@
       // Am Schluss muss das Ziel erreichbar bleiben: bis zum Ziehen gleiten,
       // unter dem Schirm noch ein Stück.
       const tZug = tFall(n, hMin + 15);
-      dehnen(tZug - tVor);
+      dehnen(tVor, tZug);
       const tLand = tZug + 0.8 + 2.5;
       const zx = zielX(tLand);
       if (menge.some(([a, b]) => zx >= a - 10 && zx <= b + 10)) return liste;
@@ -1622,7 +1661,7 @@
     const zielX = (ts) => x0 + beweg * ts;
     const unten = hMin + 180;
     const linieX = (zz) => zielX(tFall(n, zz)) + ab * clamp((zz - unten) / (H_AB - unten), 0, 1);
-    const hindernisse = setzeHindernisse(n, z, { v, hMin, ort, x0, ab, zielX, linieX, anzahlWunsch });
+    const hindernisse = setzeHindernisse(n, z, { v, hMin, ort, x0, ab, wind, zielX, linieX, anzahlWunsch });
 
     p.spruenge.push({
       n, art, ort, x0, y: ort.y, beweg, deck, r10, r25, r50, ab, wind, boeen, hindernisse, v, hMin,
@@ -3666,7 +3705,7 @@
     j.x = f.x + 1.15;
     j.y = state.sp.y;
     j.z = H_AB;
-    j.vz = 4;
+    j.vz = V_ABSPRUNG;
     j.vx = 0;
     f.vy = -45;
     if (state.sprung === 1) state.banner = { titel: "Sprung 1", unter: `${ORTSNAME[state.sp.art]} · mindestens ${state.sp.hMin} m`, leben: 2.1, max: 2.1 };
@@ -3855,11 +3894,11 @@
     } else if (sch === "frei") {
       j.vz += G_FALL * (1 - (j.vz / sp.v) ** 2) * h;
       j.z -= j.vz * h;
-      const zielVx = lenk * V_QUER_FREI + windHoehe(sp.wind, j.z) * 0.25;
+      const zielVx = lenk * V_QUER_FREI + windHoehe(sp.wind, j.z) * WIND_FREI;
       j.vx += (zielVx - j.vx) * (1 - Math.exp(-h / TAU_QUER_FREI));
       j.x += j.vx * h;
       j.w += (-lenk * 0.38 + Math.sin(state.zeit * 1.3) * 0.04 - j.w) * (1 - Math.exp(-h / 0.2));
-      state.wind.x = windHoehe(sp.wind, j.z) * 0.25;
+      state.wind.x = windHoehe(sp.wind, j.z) * WIND_FREI;
       kollision();
       if (state.schritt === "frei") {
         if (state.aktion && state.ts > 0.6) ziehen();
@@ -4365,7 +4404,7 @@
   // zieht oder fängt ab, takt(dt) rechnet weiter. springer ist der Springer
   // (x, y, z, vx, vz, auf), sprungDaten(n) der Plan eines Sprungs.
   window.LernappFallschirm = {
-    H_AB, TAKT, R_FREI, R_SCHIRM, V_QUER, V_QUER_FREI, V_SINK, FLARE_BAND, HINDERNIS, WELT,
+    H_AB, TAKT, R_FREI, R_SCHIRM, V_QUER, V_QUER_FREI, TAU_QUER_FREI, WIND_FREI, V_ABSPRUNG, V_SINK, FLARE_BAND, HINDERNIS, WELT,
     state, view, kam, takt, lenke, wisch: aktion, losGehts, weltText, planBis, sprungDaten,
     untergrund, zielX: zielXJetzt, hindernisLage, tFall, vFallBei, hMinBei, windHoehe, sinkBei, flareSinken,
     kacheln: () => kacheln.size,
