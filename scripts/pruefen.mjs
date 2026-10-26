@@ -604,6 +604,31 @@ pruefe("turnier.js merkt sich das Turnier eines App-Fensters (mini.heimTurnier)"
 pruefe("turnier.js führt aus einem Lauf des Turniers zurück ins Turnier (aus=)", /ausDerAdresse\("turnier"\) \|\| ausDerAdresse\("aus"\) \|\| heim/.test(turnierJs));
 pruefe("live.js führt in der Turnier-App zum Turnier statt zur Startseite", /LernappTurnier\?\.heim\?\.\(\)/.test(liveJs));
 
+// --- 19. Die Klänge ----------------------------------------------------------
+// klang.js kennt jeden Platz der Klangauswahl. Eine Aufnahme, die es nennt,
+// liegt unter klang/, und keine liegt dort umsonst. Jedes Spiel benutzt alle
+// seine Plätze und keinen der alten Kinder-App-Klänge mehr.
+const klangJs = lies("klang.js");
+const plaetze = [...klangJs.matchAll(/^    "?([a-z]+(?:\.[a-z]+)?)"?: \{ ([sd]): "([a-z0-9-]+)"/gm)].map((m) => ({ id: m[1], art: m[2], name: m[3] }));
+pruefe(`klang.js nennt 109 Plätze (gefunden: ${plaetze.length})`, plaetze.length === 109);
+const klangDateien = existsSync(path.join(WURZEL, "klang")) ? readdirSync(path.join(WURZEL, "klang")) : [];
+const genannt = new Set(plaetze.filter((p) => p.art === "d").map((p) => `${p.name}.mp3`));
+for (const d of genannt) pruefe(`klang/${d} liegt da`, klangDateien.includes(d));
+for (const d of klangDateien) pruefe(`klang/${d} wird von klang.js gebraucht`, genannt.has(d));
+pruefe("netlify/build.mjs nimmt klang/ mit", /const ORDNER = \[[^\]]*"klang"/.test(lies("netlify/build.mjs")));
+for (const s of SPIELE) {
+  if (!existsSync(path.join(WURZEL, s.js))) continue;
+  const quelle = lies(s.js);
+  pruefe(`${s.js} spielt keine Kinder-App-Klänge mehr (playJingle & Co.)`,
+    !/\b(playJingle|playChime|playStarSound|playWhistle|playHorn|playRattle|chuff)\b/.test(quelle));
+  for (const p of plaetze.filter((x) => x.id.startsWith(`${s.seite}.`))) {
+    pruefe(`${s.js} benutzt den Klang «${p.id}»`, quelle.includes(`"${p.id}"`));
+  }
+}
+const shellJs = lies("game-shell.js");
+pruefe("game-shell.js: Start, Tafel/Rekord und Stille kommen aus klang.js",
+  /ton\?\.\("start"\)/.test(shellJs) && /"rekord" : "tafel"/.test(shellJs) && /stille\?\.\(\)/.test(shellJs));
+
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);
   for (const f of fehler) console.error(`   · ${f}`);
