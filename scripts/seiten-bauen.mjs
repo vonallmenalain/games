@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-25-12";
+export const FASSUNG = "2026-10-26-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -182,37 +182,37 @@ export const SPIELE = [
   {
     seite: "jongleur", spiel: "juggler", page: "juggle", js: "jongleur.js",
     titel: "Jongleur", buehne: { id: "jg-stage", klasse: "cm-stage jg-stage" },
-    text: "Jongleur: Links wirft die linke Hand, rechts die rechte – halte alle Bälle in der Luft. Alle zehn Fänge kommt einer dazu.",
+    text: "Jongleur: Links wirft die linke Hand, rechts die rechte – halte alle Bälle in der Luft. Länger halten wirft höher. Alle zehn Fänge kommt einer dazu.",
     baut: "die Manege mit dem Jongleur",
   },
   {
     seite: "skispringen", spiel: "skiJump", page: "skijump", js: "skispringen.js",
     titel: "Skispringen", buehne: { id: "sj-stage", klasse: "cm-stage sj-stage" },
-    text: "Skispringen: Tippe genau am Schanzentisch, halte in der Luft die Balance – und lande im Telemark.",
+    text: "Skispringen: Tippe genau an der Kante, halte in der Luft die Lage – und lande im Telemark. Gezählt werden die Meter aller Sprünge.",
     baut: "die Schanze mit dem Springer",
   },
   {
     seite: "fallschirm", spiel: "skyDive", page: "skydive", js: "fallschirm.js",
     titel: "Fallschirm", buehne: { id: "fs-stage", klasse: "cm-stage fs-stage" },
-    text: "Fallschirm: Zieh so spät wie möglich – und lande mitten auf dem Ziel.",
+    text: "Fallschirm: Halten lenkt, ein Wisch nach oben zieht den Schirm – so spät wie möglich, und lande mitten im Ziel.",
     baut: "der Himmel mit dem Springer",
   },
   {
     seite: "holzfaeller", spiel: "lumberCut", page: "lumber", js: "holzfaeller.js",
     titel: "Holzfäller", buehne: { id: "hl-stage", klasse: "cm-stage hl-stage" },
-    text: "Holzfäller: Schneide jeden Stamm mit einem Wisch genau an der Markierung – je genauer, desto mehr Punkte.",
+    text: "Holzfäller: Wisch quer durch jeden fliegenden Stamm – genau am roten Strich. Äste und Nagelstämme nicht treffen!",
     baut: "der Holzplatz mit den Stämmen",
   },
   {
     seite: "fledermaus", spiel: "batEcho", page: "bat", js: "fledermaus.js",
     titel: "Fledermaus", buehne: { id: "fm-stage", klasse: "cm-stage fm-stage" },
-    text: "Fledermaus: Die Höhle ist dunkel – tippe, und dein Ruf zeigt für einen Moment die Wände.",
+    text: "Fledermaus: Die Höhle ist dunkel – tippe links, und dein Ruf lässt die Wände kurz aufleuchten. Rechts flatterst du.",
     baut: "die dunkle Höhle mit der Fledermaus",
   },
   {
     seite: "ninja", spiel: "timeNinja", page: "ninja", js: "ninja.js",
     titel: "Zeitlupen-Ninja", buehne: { id: "nj-stage", klasse: "cm-stage nj-stage" },
-    text: "Zeitlupen-Ninja: Die Zeit läuft nur, wenn du dich bewegst – zieh den Ninja durch die Pfeile.",
+    text: "Zeitlupen-Ninja: Die Zeit läuft nur, wenn du läufst – zieh den Ninja an Pfeilen, Klingen und Fallen vorbei bis zum Tor.",
     baut: "der Dojo-Hof mit dem Ninja",
   },
   {
