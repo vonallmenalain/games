@@ -1812,8 +1812,8 @@
   function perfektTon(perfekt, o = {}) {
     if (!perfekt) { perfektFolge = 0; return; }
     perfektFolge += 1;
+    // Nur der erste in Folge – danach nicht jedes Mal ein Ton dazu.
     if (perfektFolge === 1) ton("perfekt", o, 100);
-    else ton("serie", { ...o, stufe: perfektFolge }, 100);
   }
 
   // Jedes Bild: der Propeller, solange das Flugzeug im Bild ist (leiser, je

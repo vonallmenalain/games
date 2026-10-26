@@ -217,15 +217,17 @@ Klangauswahl mit 442 Vorschlägen für 109 Plätze. Gespielt werden sie von
 
     ArcadeKlang.ton("punkt")                 einheitlich für alle Spiele
     ArcadeKlang.ton("ball.kick", { laut })   der eigene Klang eines Spiels
-    ArcadeKlang.ton("serie", { stufe })      jede Stufe einen Ton höher
     ArcadeKlang.kulisse("huegel.wind")       eine Schleife: setze(0…1), laut(0…1), stop()
 
-**Für alle Spiele gleich** sind Start, Punkt, Perfekt, Serie, Meilenstein,
+**Für alle Spiele gleich** sind Start, Punkt, Perfekt, Meilenstein,
 Fehler, die Tafel nach der Runde, der eigene Rekord (ein eigener, festlicher
 Klang, wenn der Bestwert fällt), Gegner überholt, der Countdown im
 Multiplayer, Knöpfe und Fenster. Start, Tafel/Rekord und Stille kommen aus
 der Bühne (`game-shell.js`), Überholen aus `geist.js`, der Countdown aus
-`live-spiel.js`; den Rest ruft das Spiel selbst.
+`live-spiel.js`; den Rest ruft das Spiel selbst. Perfekt klingt nur beim
+ersten perfekten Zug in Folge – danach genügt der Klang der Aktion (Block
+landet, Liane gepackt). Eine «Serie», die mit jedem Perfekt einen Ton höher
+stieg, gab es kurz; sie war einer zu viel.
 
 **Je Spiel** gibt es eigene Klänge (Kick, Tor, Platsch, Schnitt, Echo-Ruf …)
 und leise **Kulissen**, die mit dem Spiel gehen: der Motor mit dem Tempo, der

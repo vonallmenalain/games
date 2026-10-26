@@ -1576,8 +1576,8 @@
       st.glanz = 1;
       schrift(st.sauberN > 1 ? `sauber ×${st.sauberN}` : "sauber!", "#7ff7ea", 0.9);
       funken(st.S, st.q, 16, 0.5, GLITZER);
-      // Sauber: die Harfe, in Folge die Leiter.
-      klang()?.ton(st.sauberN >= 2 ? "serie" : "perfekt", { stufe: st.sauberN, laut: 0.8 });
+      // Sauber: die Harfe – nur der erste in Folge.
+      if (st.sauberN < 2) klang()?.ton("perfekt", { laut: 0.8 });
     }
     if (st.frei < 0.1 && st.zeit - st.knappZeit > 1.4) {
       st.knappZeit = st.zeit;

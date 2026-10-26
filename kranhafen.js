@@ -2356,8 +2356,8 @@
       funken(x + KISTE_W / 2, y, 7);
       funken(x, y + KISTE_H, 6, "warm");
       schrift(state.combo >= 2 ? `Perfekt ×${state.combo}` : "Perfekt!", x, y + KISTE_H + 18, state.combo >= 3 ? "#7dffa8" : "#ffd23f", 22 + Math.min(10, state.combo * 2));
-      // Zum Aufsetzen die Harfe, in Folge die Leiter.
-      klang()?.ton(state.combo >= 2 ? "serie" : "perfekt", { stufe: state.combo, laut: 0.75 });
+      // Zum Aufsetzen die Harfe – nur das erste Mal in Folge.
+      if (state.combo < 2) klang()?.ton("perfekt", { laut: 0.75 });
       brumm(24);
     } else if (knapp) {
       state.stoss = Math.max(state.stoss, 0.4);

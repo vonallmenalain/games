@@ -1109,12 +1109,10 @@
         state.trefferFolge = 0;
       }
       // Zur Landung leise dazu: alle zehn Planeten die lange Harfe, sonst
-      // für einen Volltreffer die Harfe – hintereinander jedes Mal höher.
+      // für den ersten Volltreffer in Folge die Harfe.
       if (state.erreicht % 10 === 0) {
         schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
         klang()?.ton("meilenstein");
-      } else if (state.trefferFolge > 1) {
-        klang()?.ton("serie", { stufe: state.trefferFolge, laut: 0.8 });
       } else if (state.trefferFolge === 1) {
         klang()?.ton("perfekt", { laut: 0.7 });
       }

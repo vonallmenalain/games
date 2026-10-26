@@ -1238,11 +1238,10 @@
     if (stufe) schrift(`${stufe[2]} +${bonus}`, r.torO, RAUM_H + 2, r.y0, bonus >= 5 ? "#ffd23f" : bonus >= 3 ? "#bfe3ff" : "#d9d2c3", 15, 1.4);
     funken(r.y0, r.torO, RAUM_H + 8, 14, ["#c8ffd4", "#ffffff", "#ffe08a"], 110, true);
     // Ein Raum geschafft. Blitzschnell dazu: nach der langen Harfe die kurze
-    // (oder die Leiter, wenn es mehrere Räume in Folge so ging).
+    // (nur beim ersten blitzschnellen Raum in Folge).
     ton("meilenstein", {}, 500);
     blitzFolge = bonus >= 5 ? blitzFolge + 1 : 0;
     if (blitzFolge === 1) ton("perfekt", { laut: 0.8, verzoegerung: 0.4 }, 100);
-    else if (blitzFolge > 1) ton("serie", { stufe: blitzFolge, laut: 0.8, verzoegerung: 0.4 }, 100);
     kids()?.vibrate?.(12);
     kameraZu(r.k + 1);
   }

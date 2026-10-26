@@ -747,11 +747,10 @@
     zuletzt.set(id, ms);
     klang()?.ton?.(id, o);
   }
-  // Perfekt in Folge: alle fünf perfekten Würfe einen Ton – zuerst die Harfe,
-  // dann die Leiter, Stufe um Stufe.
+  // Perfekt in Folge: nach den ersten fünf perfekten Würfen einmal die Harfe,
+  // danach genügen Wurf und Fang.
   function perfektTon(stufe) {
     if (stufe <= 1) ton("perfekt", { laut: 0.7 }, 100);
-    else ton("serie", { stufe, laut: 0.8 }, 100);
   }
 
   // Eine Kulisse, die mit der Runde läuft: an() jedes Bild – weitergegeben

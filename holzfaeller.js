@@ -2362,12 +2362,11 @@
       state.blitzFarbe = "255, 214, 120";
       state.stoss = Math.max(state.stoss, 0.75);
       // Zum Schnitt: ein neuer Faktor ist ein Meilenstein, sonst die Harfe –
-      // und ab dem zweiten Perfekten in Folge die Leiter, Stufe um Stufe.
+      // nur für den ersten Perfekten in Folge.
       if (faktor > faktorVorher) {
         banner(`Serie ×${faktor}!`, "#ffd23f", 1.2, 1.1);
         ton("meilenstein", {}, 400);
-      } else if (state.serie >= 2) ton("serie", { stufe: state.serie, laut: 0.9 }, 100);
-      else ton("perfekt", { laut: 0.9 }, 100);
+      } else if (state.serie < 2) ton("perfekt", { laut: 0.9 }, 100);
       if (!zuschauen) kids()?.vibrate?.([8, 24, 8]);
     } else {
       const wort = basis >= 8 ? "SUPER" : basis >= 5 ? "GUT" : "KNAPP";

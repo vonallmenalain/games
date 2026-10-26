@@ -645,11 +645,11 @@
     zeigeCombo();
     state.punkte += plus;
     state.bruecken += 1;
-    // Angekommen: die rote Mitte getroffen klingt die Harfe, ab der zweiten
-    // in Folge die Leiter (jede Stufe höher), sonst ein Punkt. Jede zehnte
-    // Brücke klingt statt dessen der Meilenstein.
+    // Angekommen: die rote Mitte zum ersten Mal in Folge getroffen klingt die
+    // Harfe, sonst ein Punkt. Jede zehnte Brücke klingt statt dessen der
+    // Meilenstein.
     if (state.bruecken % 10 === 0) ton("meilenstein");
-    else if (state.genau) ton(state.kette >= 2 ? "serie" : "perfekt", { stufe: state.kette });
+    else if (state.genau && state.kette < 2) ton("perfekt");
     else ton("punkt");
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);

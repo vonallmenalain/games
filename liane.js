@@ -1242,9 +1242,10 @@
         state.schwung = 1;
         schrift("Weit! Schwung!", a.x, a.y - 30, "#c8f7a8", 17);
         funkeln(p.x, p.y, "#c8f7a8", 10);
-        // Zum Griff die Harfe, mehrmals hintereinander weit die Leiter.
+        // Zum Griff die Harfe – nur beim ersten weiten Sprung in Folge, danach
+        // genügt das Greifen.
         weitReihe += 1;
-        klang()?.ton(weitReihe >= 2 ? "serie" : "perfekt", { stufe: weitReihe, laut: 0.75 });
+        if (weitReihe < 2) klang()?.ton("perfekt", { laut: 0.75 });
       } else weitReihe = 0;
       state.letzter = i;
     }

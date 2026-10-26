@@ -265,7 +265,7 @@
     const spaeter = { verzoegerung: 0.22 };
     if (punkte === PUNKTE_JE_ZAHL) {
       state.serie += 1;
-      klang()?.ton?.(state.serie >= 2 ? "serie" : "perfekt", { ...spaeter, stufe: state.serie });
+      if (state.serie < 2) klang()?.ton?.("perfekt", spaeter);
       return;
     }
     state.serie = 0;

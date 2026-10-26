@@ -548,10 +548,11 @@
     punkteZeigen();
     schrift("Doppelt! +1", view.mx, view.sy - 58, "#ffb22e", 1.25, 1);
     state.schlitten.forEach((sl) => funken(schlittenX(sl), state.weg + 8, ruhig() ? 3 : 8, 1));
-    // Die Harfe – folgt der Doppeltipp gleich auf den vorigen, die Leiter.
+    // Die Harfe – nicht noch einmal, wenn der Doppeltipp gleich auf den
+    // vorigen folgt.
     doppelReihe = z.id === doppelZeile + 1 ? doppelReihe + 1 : 1;
     doppelZeile = z.id;
-    klang()?.ton(doppelReihe >= 2 ? "serie" : "perfekt", { stufe: doppelReihe, laut: 0.8 });
+    if (doppelReihe < 2) klang()?.ton("perfekt", { laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------

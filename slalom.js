@@ -1854,8 +1854,7 @@
     torKlack = jetzt;
     klang()?.ton("slalom.tor", { laut: 0.8 });
     if (state.tore % 25 === 0) klang()?.ton("meilenstein");
-    else if (perfekt && state.reihe >= 2) klang()?.ton("serie", { stufe: state.reihe, laut: 0.8 });
-    else if (perfekt) klang()?.ton("perfekt", { laut: 0.7 });
+    else if (perfekt && state.reihe < 2) klang()?.ton("perfekt", { laut: 0.7 });
   }
 
   function torDurch(tor, x) {

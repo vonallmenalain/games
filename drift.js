@@ -1552,9 +1552,8 @@
         state.serie += 1;
         const text = state.serie > 1 ? `Perfekt! ×${state.serie}` : "Perfekt!";
         schrift(text, state.auto.x, state.auto.y + 30, "#ffe08a", 17);
-        // Perfekt in Folge: jede Kurve einen Ton höher.
-        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie });
-        else klang()?.ton("perfekt");
+        // Perfekt: die Harfe – nur der erste in Folge.
+        if (state.serie === 1) klang()?.ton("perfekt");
       } else {
         state.serie = 0;
       }

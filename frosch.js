@@ -1515,9 +1515,9 @@
       if (state.kette >= 3) ring(mitte, true, 1.5);
       glanz(mitte, BLATT_Y + 6, 12 + Math.min(16, state.kette * 2));
       schrift(state.kette >= 2 ? `perfekt ×${state.kette}` : "perfekt!", mitte, BLATT_Y + 34, "#ffd451", 15);
-      // Zur Landung die Harfe, in Folge die Leiter – auf jedem zehnten Blatt
-      // stattdessen der Meilenstein.
-      if (b.n % 10 !== 0) klang()?.ton(state.kette >= 2 ? "serie" : "perfekt", { stufe: state.kette, laut: 0.75 });
+      // Zur Landung die Harfe (nur die erste in Folge) – auf jedem zehnten
+      // Blatt stattdessen der Meilenstein.
+      if (b.n % 10 !== 0 && state.kette < 2) klang()?.ton("perfekt", { laut: 0.75 });
       if (!zuschauen) kids()?.vibrate?.(18);
     } else {
       state.kette = 0;

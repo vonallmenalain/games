@@ -2524,14 +2524,13 @@
     fahrtwind.aus();
   }
 
-  // Perfekt in Folge – an der Kante und im Telemark: zuerst die Harfe, ab
-  // der zweiten die Leiter, Stufe um Stufe.
+  // Perfekt – an der Kante und im Telemark: die Harfe, nur die erste in
+  // Folge.
   let perfektFolge = 0;
   function perfektTon(perfekt, laut = 1, verzoegerung = 0) {
     if (!perfekt) { perfektFolge = 0; return; }
     perfektFolge += 1;
     if (perfektFolge === 1) ton("perfekt", { laut, verzoegerung }, 100);
-    else ton("serie", { stufe: perfektFolge, laut, verzoegerung }, 100);
   }
 
   // Jedes Bild: Ski in der Spur (Anlauf und Auslauf), Wind im Flug – je

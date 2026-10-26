@@ -326,11 +326,9 @@
     klang()?.ton("meilenstein");
   }
 
-  // «Gleichgewicht ×n»: die Harfe, in Folge die Leiter – für die ersten drei,
-  // danach nur noch für jede fünfte.
+  // «Gleichgewicht ×n»: die Harfe – nur das erste Mal in Folge.
   function ruheKlang(n) {
-    if (n > 3 && n % 5 !== 0) return;
-    klang()?.ton(n >= 2 ? "serie" : "perfekt", { stufe: n, laut: 0.8 });
+    if (n === 1) klang()?.ton("perfekt", { laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------

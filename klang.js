@@ -3,8 +3,9 @@
  * ---------------------------------------------------------------------------
  * Ausgewählt im Oktober 2026 auf einer Klangauswahl mit 442 Vorschlägen für
  * 109 Plätze: einheitliche Klänge für alle Spiele (Start, Punkt, Perfekt,
- * Serie, Meilenstein, Fehler, Tafel, Rekord, Überholt, Countdown, Knopf,
- * Fenster) und je Spiel eigene. Ein Teil sind kurze Aufnahmen aus freien
+ * Meilenstein, Fehler, Tafel, Rekord, Überholt, Countdown, Knopf, Fenster)
+ * und je Spiel eigene. Die «Serie» (jedes Perfekt in Folge einen Ton höher)
+ * ist wieder weg: Zum Klang der Aktion selbst war sie einer zu viel. Ein Teil sind kurze Aufnahmen aus freien
  * Sammlungen (Kenney, OpenGameArt – alle CC0) unter klang/, der Rest entsteht
  * hier im Browser: Glocken, 8-Bit-Töne, Wind, Motoren, Schnee.
  *
@@ -12,12 +13,12 @@
  *
  *   ArcadeKlang.ton("punkt")                 einheitlich für alle Spiele
  *   ArcadeKlang.ton("ball.kick")             der eigene Klang eines Spiels
- *   ArcadeKlang.ton("serie", { stufe: 3 })   jede Stufe einen Ton höher
  *   const wind = ArcadeKlang.kulisse("huegel.wind");   // oder ({ laut: 0 })
  *   wind.setze(0…1);  wind.laut(0…1);  wind.stop();
  *
  * ton() nimmt ausserdem { laut } (0…1.5, Vorgabe 1), { hoehe } (Faktor auf
- * die Tonhöhe einer Aufnahme) und { verzoegerung } (Sekunden bis zum Klang). Aufnahmen streuen von selbst ein wenig in der
+ * die Tonhöhe einer Aufnahme), { verzoegerung } (Sekunden bis zum Klang) und
+ * beim Countdown { stufe } (3, 2, 1, 0 = «Los!»). Aufnahmen streuen von selbst ein wenig in der
  * Tonhöhe, damit derselbe Schritt nicht wie ein Maschinengewehr klingt.
  *
  * Eine Kulisse ist eine Schleife: Wind, Motor, Publikum. setze() verstellt,
@@ -50,7 +51,6 @@
     start: { s: "start" },
     punkt: { s: "pop" },
     perfekt: { s: "harfe" },
-    serie: { s: "serie" },
     meilenstein: { s: "harfe-lang" },
     fehler: { s: "ab-sanft" },
     tafel: { s: "fanfare-klein" },
@@ -331,9 +331,6 @@
     ton(110, t, { f2: 60, gleit: 0.15, r: 0.2, laut: 0.4 });
     rausch(t, { dauer: 0.1, typ: "lowpass", f: 300, r: 0.08, laut: 0.15 });
   };
-  // Die Leiter der Serie: pentatonisch, jede Stufe einen Ton höher.
-  const LEITER = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93];
-
   // Die Einmal-Klänge. t ist der Zeitpunkt im AudioContext, o die Wahl aus
   // ton() (stufe).
   const SYNTH = {
@@ -345,11 +342,6 @@
     pop: (t) => { ton(280, t, { f2: 900, gleit: 0.05, r: 0.09, laut: 0.35 }); rausch(t, { dauer: 0.015, f: 3000, r: 0.01, laut: 0.05 }); },
     harfe: (t) => [72, 76, 79, 84].forEach((n, i) => ton(note(n + 12), t + i * 0.06, { typ: "triangle", r: 0.45, laut: 0.14 })),
     "harfe-lang": (t) => [72, 76, 79, 84, 88, 91, 96].forEach((n, i) => ton(note(n), t + i * 0.055, { typ: "triangle", r: 0.6, laut: 0.13 })),
-    // Im Spiel ein Ton je Stufe (die Auswahlseite spielte die Leiter ganz).
-    serie: (t, o) => {
-      const n = LEITER[Math.max(0, Math.min(LEITER.length - 1, Math.round(Number(o?.stufe) || 1) - 1))];
-      ton(note(n + 12), t, { typ: "square", r: 0.14, laut: 0.07, tief: 5000 });
-    },
     "ab-sanft": (t) => { ton(note(67), t, { typ: "triangle", r: 0.22, laut: 0.2 }); ton(note(60), t + 0.18, { typ: "triangle", r: 0.45, laut: 0.2 }); },
     "fanfare-klein": (t) => {
       [72, 76, 79].forEach((n, i) => ton(note(n), t + i * 0.1, { typ: "triangle", r: 0.15, laut: 0.16 }));
@@ -413,7 +405,7 @@
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
   // Schleifen bei k = 0.5 auf -27 dB (wie die Aufnahmen in klang/).
   const PEGEL = {
-    start: 9.0, pop: 0.4, harfe: 6.1, "harfe-lang": 5.2, serie: 12.1, "ab-sanft": 6.1, "fanfare-klein": 3.7, fanfare: 6.6,
+    start: 9.0, pop: 0.4, harfe: 6.1, "harfe-lang": 5.2, "ab-sanft": 6.1, "fanfare-klein": 3.7, fanfare: 6.6,
     ueberholt: 11.0, countdown: 0.3, klick: 10.2, "woosh-kurz": 14.0, holzblock: -0.5, ab: 5.7, "whomp-weich": -0.6,
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
