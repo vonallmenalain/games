@@ -26,6 +26,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier setzt jeder Teich für alle dieselben Fische an dieselben Plätze
@@ -190,6 +191,41 @@
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
   }
 
+  // ---------------------------------------------------------------------------
+  // Klänge
+  // ---------------------------------------------------------------------------
+  // Unter allem blubbert leise der Teich, solange gefangen wird. Beim
+  // Zuschauen nur bei einem Lauf aus der Hall of Fame: Dessen Ende kennt
+  // das Spiel (weiter). Im Multiplayer endet das Zuschauen in live-spiel.js,
+  // ohne dass es hier jemand erführe – das Blubbern liefe weiter.
+  let teichKulisse = null;
+
+  function teichAn() {
+    if (teichKulisse?.laeuft) return;
+    teichKulisse = klang()?.kulisse?.("fischteich.teich") || null;
+    teichKulisse?.laut(0.8);
+  }
+
+  function teichAus() {
+    teichKulisse?.stop();
+    teichKulisse = null;
+  }
+
+  // Ein Fisch gefangen: Er blubbert. Der letzte eines Teichs bringt dazu den
+  // Meilenstein – der nächste Teich kommt.
+  function fangKlang(letzter) {
+    klang()?.ton?.("fischteich.fisch", { laut: 0.8 });
+    if (letzter) klang()?.ton?.("meilenstein");
+  }
+
+  // Einer zweimal: Er blubbert wie jeder, dazu der Fehler – ein eigener Klang
+  // für das Ende fehlt diesem Spiel.
+  function doppeltKlang() {
+    teichAus();
+    klang()?.ton?.("fischteich.fisch", { laut: 0.6 });
+    klang()?.ton?.("fehler");
+  }
+
   function teichFuer(nummer) {
     return TEICHE[Math.min(nummer, TEICHE.length - 1)];
   }
@@ -265,6 +301,7 @@
     nextPond();
     last = performance.now();
     frame = window.requestAnimationFrame(step);
+    teichAn();
   }
 
   function nextPond() {
@@ -394,7 +431,7 @@
       clearStep();
       state.phase = "over";
       fisch.node.classList.add("is-doppelt");
-      kids()?.playJingle?.("retry");
+      doppeltKlang();
       state.fische.forEach((other) => { other.node.disabled = true; });
       meldeZug(2, state.fische.indexOf(fisch));
       stepTimer = window.setTimeout(() => finish(fisch.art), 760);
@@ -405,7 +442,7 @@
     state.punkte += 1;
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
-    kids()?.playJingle?.("star");
+    fangKlang(state.fische.every((other) => other.gefangen));
     kids()?.vibrate?.(16);
     state.sperreBis = performance.now() + SPERRE_MS;
     gefangenBild(fisch);
@@ -431,7 +468,11 @@
       node.classList.remove("is-laden");
       if (!node.isConnected) return;
       node.classList.add("is-gefangen");
-      if (!zuschauer) kids()?.playJingle?.("correct");
+      // Das Häkchen ist da, der nächste Tipp zählt wieder: ein leiser Punkt.
+      // Nach dem letzten Fisch eines Teichs nicht – da kommt schon der
+      // nächste Teich. Und nicht mehr nach dem Ende der Runde.
+      const laeuft = state.phase === "play" || state.phase === "zuschauen";
+      if (laeuft && !state.fische.every((other) => other.gefangen)) klang()?.ton?.("punkt", { laut: 0.5 });
       window.setTimeout(() => node.classList.remove("is-gefangen"), FANG_MS);
     }, SPERRE_MS);
   }
@@ -477,19 +518,26 @@
     }
     if (state.phase !== "zuschauen") return;
     let alle = true;
+    let neu = 0;
     state.fische.forEach((fisch, i) => {
       const hat = Math.floor(probe.a / 2 ** i) % 2 === 1;
       if (!hat) alle = false;
       if (hat && !fisch.gefangen) {
         fisch.gefangen = true;
+        neu += 1;
         if (!sofort) gefangenBild(fisch);
       }
     });
     if (alle && state.fische.length) prompt.textContent = "Alle gefangen!";
+    // Was beim anderen gerade geschieht, klingt hier auch – was beim
+    // Einsteigen nachgeholt wird (sofort), nicht.
+    if (neu && !sofort) fangKlang(alle);
     if (was === 2) {
       const fisch = state.fische[probe.b - 1];
       fisch?.node.classList.add("is-doppelt");
       state.phase = "zuschauen-aus";
+      if (sofort) teichAus();
+      else doppeltKlang();
     }
     state.punkte = probe.p;
     shell.setCount(probe.p);
@@ -498,8 +546,8 @@
   function zuschauSchleife() {
     zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
     const jetzt = zuschauer?.jetzt?.();
-    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
-    zuschauer?.weiter?.();
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel – und Ruhe im Teich.
+    if (zuschauer?.weiter?.() === false) teichAus();
     const probe = zuschauer?.letzte?.(jetzt);
     if (!probe) return;
     const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
@@ -529,6 +577,8 @@
     last = performance.now();
     frame = window.requestAnimationFrame(step);
     zuschauer.los?.();
+    if (!zuschauer.live) teichAn();
+    else teichAus();
     if (!zuschau.frame) zuschau.frame = window.requestAnimationFrame(zuschauSchleife);
   }
 
@@ -544,11 +594,11 @@
     if (zuschauer) return;
     clearStep();
     stopLoop();
+    teichAus();
     state.phase = "over";
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const next = recordRun(punkte);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Deine Fische",
       points: punkte,
@@ -593,6 +643,7 @@
   window.addEventListener("pagehide", () => {
     clearStep();
     stopLoop();
+    teichAus();
     if (zuschau.frame) window.cancelAnimationFrame(zuschau.frame);
     zuschau.frame = 0;
   });
