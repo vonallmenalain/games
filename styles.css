@@ -146,6 +146,33 @@ select {
   color: var(--ink);
 }
 
+/* Die aufgeklappte Liste einer Auswahl zeichnet der Browser selbst – unter
+   Windows und Linux mit dem Hintergrund der Auswahl, und ist der fast
+   durchsichtig (.adm-feld), mit Weiss. Die helle Schrift stand dann auf
+   Weiss. Deshalb trägt jede Auswahl ihr dunkles Farbschema selbst, und die
+   Einträge haben ihre Farben ausdrücklich: dunkler Grund, helle Schrift,
+   Gruppen («Im Turnier») in Gold und fett, was nicht wählbar ist, deutlich
+   gedämpft. */
+select { color-scheme: dark; }
+select option,
+select optgroup {
+  background-color: var(--ar-flaeche-hoch);
+  color: var(--ar-text);
+}
+select optgroup {
+  color: var(--ar-gold);
+  font-style: normal;
+  font-weight: 800;
+}
+select option:checked {
+  background-color: #3a3746;
+  color: #fff;
+}
+select option:disabled {
+  color: #7d788e;
+  background-color: var(--ar-flaeche);
+}
+
 button {
   background: var(--primary);
   color: white;
@@ -4248,6 +4275,9 @@ h2 {
   color: var(--ar-text);
 }
 .adm-feld:focus-visible { outline: none; border-color: var(--ar-koralle); }
+/* Eine Auswahl braucht einen deckenden Grund: Er ist auch der ihrer
+   aufgeklappten Liste (siehe select oben). */
+select.adm-feld { background-color: var(--ar-flaeche); }
 .adm-form > .adm-knopf { flex: 0 0 auto; }
 
 .adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: var(--ar-leise); }
@@ -4424,6 +4454,40 @@ h2 {
 .adm-filter-weg { font-size: 0.85rem; }
 .adm-summe { margin: 0; }
 
+/* Der Zeitraum (admin.js, zeitLeiste): Schalter wie die Tiers, Felder wie
+   «Name suchen» – und solange einer gilt, ein Streifen in Koralle, der es
+   sagt, mit dem Weg zurück zu «Alle Zeit». */
+.adm-zeit { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; }
+/* Sechs Schalter brechen um: dann eine abgerundete Fläche, keine Pille. */
+.adm-zeit-wahl { max-width: 100%; border-radius: 20px; }
+.adm-zeit-felder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 100%; }
+.adm-zeit-feld { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.adm-zeit-wort { flex: 0 0 auto; min-width: 2.2em; font-size: 0.8rem; font-weight: 800; color: var(--ar-leise); }
+.adm-zeit-feld .adm-feld { flex: 0 1 auto; min-width: 0; padding: 7px 12px; font-size: 0.9rem; }
+.adm-zeit-streifen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 6px 6px 14px;
+  border-radius: 14px;
+  border: 2px solid rgba(254, 121, 113, 0.55);
+  background: rgba(254, 121, 113, 0.12);
+  color: var(--ar-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.adm-zeit-text { min-width: 0; overflow-wrap: anywhere; }
+.adm-zeit-text strong { color: #ff9a94; font-weight: 900; }
+.adm-zeit-zahl { color: #d4d0e2; font-weight: 600; }
+.adm-zeit-weg { flex: 0 0 auto; background: rgba(255, 255, 255, 0.12); color: var(--ar-text); }
+.adm-zeit-weg:hover { background: rgba(255, 255, 255, 0.2); }
+.adm-zeit-hinweis { font-size: 0.85rem; max-width: 60ch; }
+/* Zugeklappt sagt die Zahl im Kopf, dass nur ein Zeitraum zählt. */
+.adm-klapp.ist-zeitraum .adm-block-zahl { color: #ff9a94; }
+
 /* Sortieren: die Überschrift ist der Knopf, der Pfeil zeigt die Richtung. */
 .adm-sortier {
   appearance: none;
@@ -4520,6 +4584,14 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
 @media (max-width: 620px) {
   .adm-breit { display: none; }
   .adm-filter-wahl, .adm-suche { flex: 1 1 100%; max-width: none; }
+  /* Die Felder des Zeitraums untereinander, so breit wie die Seite: Am
+     Handy öffnet ein Tipp darauf die Auswahl von Datum und Uhrzeit. */
+  .adm-zeit { align-items: stretch; }
+  .adm-zeit-wahl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .adm-zeit-wahl .adm-chip { padding-left: 4px; padding-right: 4px; }
+  .adm-zeit-felder { flex-direction: column; align-items: stretch; }
+  .adm-zeit-feld { display: flex; }
+  .adm-zeit-feld .adm-feld { flex: 1 1 auto; }
   .adm-sortierbar th, .adm-sortierbar td,
   .adm-bestenliste th, .adm-bestenliste td { padding-left: 6px; padding-right: 6px; }
   .adm-sortierbar th, .adm-bestenliste th { letter-spacing: 0.02em; }

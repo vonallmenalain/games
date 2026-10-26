@@ -119,6 +119,28 @@ const ATTRAPPE = `
   const gSichern = () => { try { localStorage.setItem(GLAGER, JSON.stringify([...geisterLager])); } catch {} };
   window.__miniGeister = geisterLager;
 
+  // Das Rundenprotokoll (miniRunden): wie in cloud.js je gezaehlter Runde ein
+  // Eintrag unter "<spiel>_<spieler>_<nr>", mit Uhrzeit und Dauer. Eigene
+  // Runden legt die Pruefung in window.__miniRundenAnfang hin.
+  const RLAGER = "__mini_runden_attrappe";
+  let rGemerkt = null;
+  try { rGemerkt = JSON.parse(localStorage.getItem(RLAGER) || "null"); } catch { rGemerkt = null; }
+  const rundenLager = new Map(Array.isArray(rGemerkt) ? rGemerkt
+    : (window.__miniRundenAnfang || []).map((r) => [r.game + "_" + r.spieler + "_" + r.nr, { ...r, id: r.game + "_" + r.spieler + "_" + r.nr }]));
+  const rSichern = () => { try { localStorage.setItem(RLAGER, JSON.stringify([...rundenLager])); } catch {} };
+  window.__miniRunden = rundenLager;
+  const woher = () => {
+    const p = new URLSearchParams(location.search);
+    return p.has("live") ? "live" : p.has("turnier") ? "turnier" : "";
+  };
+  const protokolliere = (game, spieler, name, nr, punkte, ms) => {
+    const id = game + "_" + spieler + "_" + nr;
+    if (rundenLager.has(id)) return;
+    const quelle = woher();
+    rundenLager.set(id, { id, game, spieler, name, nr, punkte, ms, zeitMs: Date.now(), ...(quelle ? { quelle } : {}) });
+    rSichern();
+  };
+
   window.MiniCloud = {
     offeneSpiele: async () => {
       // Wie cloud.js: Nicht lesen koennen wirft, "nichts eingetragen" gibt
@@ -173,12 +195,52 @@ const ATTRAPPE = `
       if (!alt) {
         eintraege.set(id, { id, game, spieler, name, punkte, versuche: 1, spielMs: ms, updatedAtMs: Date.now() });
         sichern();
+        protokolliere(game, spieler, name, 1, punkte, ms);
         return { rekord: true, punkte, versuche: 1 };
       }
       const rekord = punkte > alt.punkte;
       eintraege.set(id, { ...alt, name, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1, spielMs: (alt.spielMs || 0) + ms, updatedAtMs: Date.now() });
       sichern();
+      protokolliere(game, spieler, name, alt.versuche + 1, punkte, ms);
       return { rekord, punkte: rekord ? punkte : alt.punkte, versuche: alt.versuche + 1 };
+    },
+
+    // Fuer den Adminbereich: das Rundenprotokoll lesen, loeschen, umziehen.
+    MAX_RUNDEN: 20000,
+    runden: async ({ vonMs = 0, bisMs = Date.now() } = {}) => {
+      window.__miniRundenGefragt = { vonMs, bisMs };
+      return [...rundenLager.values()]
+        .filter((r) => r.zeitMs >= vonMs && r.zeitMs <= bisMs)
+        .sort((a, b) => a.zeitMs - b.zeitMs)
+        .map((r) => ({ quelle: "", ...r }));
+    },
+    ersteRunde: async () => {
+      const zeiten = [...rundenLager.values()].map((r) => r.zeitMs).filter((ms) => ms > 0);
+      return zeiten.length ? Math.min(...zeiten) : 0;
+    },
+    loescheRunden: async (liste) => {
+      const weg = new Set((liste || []).map((e) => e.game + "_" + e.spieler));
+      let n = 0;
+      for (const [k, r] of [...rundenLager]) if (weg.has(r.game + "_" + r.spieler)) { rundenLager.delete(k); n += 1; }
+      rSichern();
+      return n;
+    },
+    zieheRundenUm: async ({ game, nach, name, basis = 0, von = [] }) => {
+      let versatz = basis;
+      let n = 0;
+      for (const g of von) {
+        for (const [k, r] of [...rundenLager]) {
+          if (r.game !== game || r.spieler !== g.spieler) continue;
+          const nr = versatz + r.nr;
+          const id = game + "_" + nach + "_" + nr;
+          rundenLager.delete(k);
+          rundenLager.set(id, { ...r, id, spieler: nach, name, nr });
+          n += 1;
+        }
+        versatz += Math.max(1, g.versuche || 1);
+      }
+      rSichern();
+      return n;
     },
 
     speichereGeist: async ({ game, spieler, name, punkte, level, bahn }) => {
@@ -4972,6 +5034,204 @@ try {
     await seite.waitForFunction(() => !document.querySelector(".adm-dash"), null, { timeout: 4000 }).catch(() => {});
     pruefe(await seite.locator(".adm-dash").count() === 0, "Ohne Einträge bleibt die Auswertung offen.");
 
+    // Die Auswahllisten: Ihre aufgeklappte Liste zeichnet der Browser selbst,
+    // mit den Farben der Einträge – helle Schrift auf hellem Grund war dort
+    // einmal fast unsichtbar. Gemessen wird der Kontrast wie bei WCAG, für
+    // einen Eintrag, eine Gruppe und einen, der nicht wählbar ist.
+    const farben = await seite.evaluate(() => {
+      const rgb = (text) => (String(text).match(/[\d.]+/g) || []).map(Number);
+      const licht = ([r, g, b]) => {
+        const k = (c) => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+        return 0.2126 * k(r) + 0.7152 * k(g) + 0.0722 * k(b);
+      };
+      const kontrast = (a, b) => { const [x, y] = [licht(a), licht(b)].sort((m, n) => n - m); return Math.round(((x + 0.05) / (y + 0.05)) * 10) / 10; };
+      const messe = (e) => {
+        const s = getComputedStyle(e);
+        const grund = rgb(s.backgroundColor);
+        return { schrift: s.color, grund: s.backgroundColor, deckend: grund.length === 3 || grund[3] === 1, kontrast: kontrast(rgb(s.color), grund), schema: getComputedStyle(e.closest("select")).colorScheme };
+      };
+      const wahl = document.querySelector("#adm-spieler .adm-filter-wahl");
+      const gesperrt = document.createElement("option");
+      gesperrt.disabled = true;
+      gesperrt.textContent = "nicht wählbar";
+      wahl.append(gesperrt);
+      const raus = {
+        eintrag: messe(wahl.querySelector("option:not(:checked)")),
+        gruppe: messe(wahl.querySelector("optgroup")),
+        gesperrt: messe(gesperrt),
+        tier: messe(document.querySelector(".adm-tier-wahl option")),
+        auswahl: getComputedStyle(wahl).backgroundColor,
+      };
+      gesperrt.remove();
+      return raus;
+    });
+    pruefe(farben.eintrag.deckend && farben.eintrag.kontrast >= 7 && farben.eintrag.schema === "dark"
+      && farben.tier.deckend && farben.tier.kontrast >= 7,
+      `Die Einträge einer Auswahlliste sind schlecht lesbar: ${JSON.stringify(farben)}`);
+    pruefe(farben.gruppe.deckend && farben.gruppe.kontrast >= 4.5, `Die Gruppe «Im Turnier» in der Auswahlliste ist schlecht lesbar: ${JSON.stringify(farben.gruppe)}`);
+    pruefe(farben.gesperrt.kontrast >= 3 && farben.gesperrt.schrift !== farben.eintrag.schrift,
+      `Ein nicht wählbarer Eintrag ist nicht lesbar oder nicht von den anderen zu unterscheiden: ${JSON.stringify(farben.gesperrt)}`);
+    pruefe(!/rgba\(.*, 0\.0\d*\)$/.test(farben.auswahl), `Die Auswahl hat keinen deckenden Grund: ${farben.auswahl}`);
+
+    // Der Zeitraum, bei den Spielern und in der Auswertung – aus den
+    // einzelnen Runden. Vor drei Tagen spielen Zeno (zweimal Turmbau) und Yara
+    // (Turmbau und Fischteich), am Tag davor Zeno schon einmal, heute Xaver.
+    // Die Runden davor (Zeno hat sieben) gibt es nur als Summe.
+    const tagTest = await seite.evaluate(() => {
+      const tag = new Date();
+      tag.setHours(0, 0, 0, 0);
+      tag.setDate(tag.getDate() - 3);
+      const um = (davor, stunde, minute = 0) => {
+        const d = new Date(tag);
+        d.setDate(d.getDate() - davor);
+        d.setHours(stunde, minute, 0, 0);
+        return d.getTime();
+      };
+      const jetzt = Date.now() - 1000;
+      const runden = [
+        { game: "towerStack", spieler: "mini_zenozenozeno", name: "Zeno", nr: 5, punkte: 50, ms: 30000, zeitMs: um(1, 12) },
+        { game: "towerStack", spieler: "mini_zenozenozeno", name: "Zeno", nr: 6, punkte: 30, ms: 60000, zeitMs: um(0, 10) },
+        { game: "towerStack", spieler: "mini_zenozenozeno", name: "Zeno", nr: 7, punkte: 45, ms: 90000, zeitMs: um(0, 15, 30) },
+        { game: "towerStack", spieler: "mini_yarayarayara", name: "Yara", nr: 1, punkte: 38, ms: 120000, zeitMs: um(0, 11) },
+        { game: "fishPond", spieler: "mini_yarayarayara", name: "Yara", nr: 1, punkte: 7, ms: 45000, zeitMs: um(0, 16) },
+        { game: "fishPond", spieler: "mini_xaverxaverxa", name: "Xaver", nr: 1, punkte: 3, ms: 20000, zeitMs: jetzt },
+      ];
+      runden.forEach((r) => { const id = `${r.game}_${r.spieler}_${r.nr}`; window.__miniRunden.set(id, { ...r, id }); });
+      [
+        { game: "towerStack", spieler: "mini_zenozenozeno", name: "Zeno", punkte: 50, versuche: 7, spielMs: 400000, erstesMs: um(30, 9), updatedAtMs: um(0, 15, 30) },
+        { game: "towerStack", spieler: "mini_yarayarayara", name: "Yara", punkte: 38, versuche: 1, spielMs: 120000, erstesMs: um(0, 11), updatedAtMs: um(0, 11) },
+        { game: "fishPond", spieler: "mini_yarayarayara", name: "Yara", punkte: 7, versuche: 1, spielMs: 45000, erstesMs: um(0, 16), updatedAtMs: um(0, 16) },
+        { game: "fishPond", spieler: "mini_xaverxaverxa", name: "Xaver", punkte: 3, versuche: 1, spielMs: 20000, erstesMs: jetzt, updatedAtMs: jetzt },
+      ].forEach((e) => { const id = `${e.game}_${e.spieler}`; window.__miniEintraege.set(id, { ...e, id }); });
+      const feld = (ms) => {
+        const d = new Date(ms);
+        const z = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+      };
+      return { tag: feld(tag.getTime()), vorher: feld(um(2, 0)), erste: um(1, 12) };
+    });
+    await seite.locator(".adm-kopf button", { hasText: "Neu laden" }).click();
+    await seite.waitForSelector("#adm-spieler .adm-zeit", { timeout: 4000 });
+    await seite.locator(".adm-kachel", { hasText: "Spieler" }).click();
+    const liste = "#adm-spieler";
+    const zeilenDer = (wo) => seite.$$eval(`${wo} .adm-sortierbar tbody tr`, (z) => z.map((tr) => [...tr.cells].map((c) => c.innerText.replace(/\s+/g, " ").trim())));
+    const nachName = (zeilen) => Object.fromEntries(zeilen.filter((z) => z.length > 1).map((z) => [z[0].split(" ")[0], z]));
+    const geladen = (wo) => seite.waitForFunction((w) => {
+      const s = document.querySelector(`${w} .adm-zeit-streifen`);
+      return s && !s.hidden && /Runde/.test(s.textContent) && !/geladen/.test(s.textContent);
+    }, wo, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(`${liste} .adm-zeit .adm-chip`).count() === 6
+      && await seite.locator(`${liste} .adm-zeit .adm-chip[aria-pressed="true"]`).innerText() === "Alle Zeit"
+      && await seite.locator(`${liste} .adm-zeit-streifen`).isHidden(),
+      "Bei den Spielern fehlt die Wahl des Zeitraums, oder sie steht nicht auf «Alle Zeit».");
+    pruefe(await seite.evaluate(() => window.__miniRundenGefragt === undefined), "Für «Alle Zeit» werden Runden gelesen.");
+
+    // Ein Tag: Zeno und Yara, mit den Runden dieses Tages.
+    await seite.locator(`${liste} .adm-zeit .adm-chip`, { hasText: "Ein Tag" }).click();
+    await seite.locator(`${liste} .adm-zeit input[type="date"]`).fill(tagTest.tag);
+    await geladen(liste);
+    let zeilen = nachName(await zeilenDer(liste));
+    const streifen = await seite.locator(`${liste} .adm-zeit-streifen`).innerText();
+    pruefe(JSON.stringify(Object.keys(zeilen).sort()) === JSON.stringify(["Yara", "Zeno"]),
+      `Ein Tag zeigt nicht genau die, die an dem Tag gespielt haben: ${JSON.stringify(zeilen)}`);
+    // Spalten: Name, Spiele, Runden, Spielzeit, Ø Platz, 1. Plätze, Zuletzt.
+    pruefe(zeilen.Zeno?.slice(1, 6).join("|") === "1|2|3 min|1.0|1" && /15:30/.test(zeilen.Zeno?.[6] || ""),
+      `Zeno an einem Tag: ${JSON.stringify(zeilen.Zeno)} (erwartet 1 Spiel, 2 Runden, 3 min, Platz 1.0, ein 1. Platz, zuletzt 15:30)`);
+    pruefe(zeilen.Yara?.slice(1, 6).join("|") === "2|2|3 min|1.5|1",
+      `Yara an einem Tag: ${JSON.stringify(zeilen.Yara)} (erwartet 2 Spiele, 2 Runden, 3 min, Platz 1.5, ein 1. Platz)`);
+    pruefe(/Nur/.test(streifen) && /4 Runden/.test(streifen) && streifen.includes(tagTest.tag.split("-").reverse().join(".")),
+      `Der Streifen sagt nicht, dass nur dieser Tag zählt: ${streifen}`);
+    pruefe(await seite.locator(`${liste} .adm-zeit-hinweis`).isHidden(), "Ein Tag nach der ersten Runde bekommt den Hinweis auf fehlende Runden.");
+    pruefe(/im Zeitraum/.test(await seite.locator(`${liste} .adm-block-zahl`).innerText()), "Zugeklappt sähe man nicht, dass bei den Spielern ein Zeitraum gilt.");
+    // Die anderen Filter gelten weiter: der Name, und die Spiele eines
+    // Turniers (der Stillcup hat nur Turmbau).
+    await seite.locator(`${liste} .adm-suche`).fill("ze");
+    zeilen = nachName(await zeilenDer(liste));
+    pruefe(JSON.stringify(Object.keys(zeilen)) === JSON.stringify(["Zeno"]), `Name suchen und ein Tag zusammen zeigen: ${Object.keys(zeilen).join(", ")}`);
+    await seite.locator(`${liste} .adm-suche`).fill("");
+    await seite.locator(`${liste} .adm-filter-wahl`).selectOption(`t:${OHNE_GEGNER}`);
+    zeilen = nachName(await zeilenDer(liste));
+    pruefe(zeilen.Yara?.slice(1, 3).join("|") === "1|1" && zeilen.Zeno?.slice(1, 3).join("|") === "1|2",
+      `Ein Turnier und ein Tag zusammen: ${JSON.stringify(zeilen)}`);
+    await seite.locator(`${liste} .adm-filter-weg`).click();
+
+    // Aus der gefilterten Liste in die Auswertung: derselbe Zeitraum.
+    await seite.locator(`${liste} .adm-person`, { hasText: "Zeno" }).click();
+    await seite.waitForSelector(".adm-dash", { timeout: 4000 });
+    const dash = ".adm-dash";
+    const imDash = await seite.evaluate(() => ({
+      gewaehlt: document.querySelector(".adm-dash .adm-zeit .adm-chip[aria-pressed=\"true\"]")?.textContent || "",
+      tag: document.querySelector(".adm-dash .adm-zeit input[type=\"date\"]")?.value || "",
+      streifen: document.querySelector(".adm-dash .adm-zeit-streifen")?.innerText || "",
+      zeilen: [...document.querySelectorAll(".adm-dash .adm-sortierbar tbody tr")].map((z) => z.innerText.replace(/\s+/g, " ").trim()),
+      zahlen: [...document.querySelectorAll(".adm-dash-zahlen > div")].map((k) => k.innerText.replace(/\s+/g, " ").trim()),
+    }));
+    pruefe(/Ein Tag/.test(imDash.gewaehlt) && imDash.tag === tagTest.tag && /4 Runden/.test(imDash.streifen),
+      `Die Auswertung aus der gefilterten Liste hat nicht denselben Zeitraum: ${JSON.stringify(imDash)}`);
+    pruefe(imDash.zeilen.length === 1 && /^Turmbau T\d 1\. von 2 45 /.test(imDash.zeilen[0]) && imDash.zahlen.includes("2 Runden"),
+      `Zenos Auswertung an einem Tag: ${JSON.stringify(imDash)} (erwartet Turmbau, Platz 1 von 2, Bestwert 45, 2 Runden)`);
+    // In der Auswertung geändert, gilt er auch in der Liste: von 10:30 bis
+    // 15:00 hat nur Yara gespielt.
+    await seite.locator(`${dash} .adm-zeit .adm-chip`, { hasText: "Von – bis" }).click();
+    pruefe(await seite.locator(`${dash} .adm-zeit input[type="datetime-local"]`).first().inputValue() === `${tagTest.tag}T00:00`,
+      "«Von – bis» übernimmt nicht den Tag, der eben galt.");
+    await seite.locator(`${dash} .adm-zeit input[type="datetime-local"]`).first().fill(`${tagTest.tag}T10:30`);
+    await seite.locator(`${dash} .adm-zeit input[type="datetime-local"]`).last().fill(`${tagTest.tag}T15:00`);
+    await geladen(dash);
+    await seite.waitForFunction(() => /10:30 bis 15:00/.test(document.querySelector(".adm-dash .adm-zeit-streifen")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    const leerImDash = await seite.locator(`${dash} .adm-sortierbar tbody`).innerText();
+    pruefe(/nicht gespielt/.test(leerImDash), `Zeno hat von 10:30 bis 15:00 nicht gespielt, die Auswertung zeigt: ${leerImDash}`);
+    await seite.keyboard.press("Escape");
+    zeilen = nachName(await zeilenDer(liste));
+    pruefe(JSON.stringify(Object.keys(zeilen)) === JSON.stringify(["Yara"]) && zeilen.Yara?.slice(1, 3).join("|") === "1|1",
+      `Von 10:30 bis 15:00 zeigt die Liste: ${JSON.stringify(zeilen)}`);
+    pruefe(await seite.locator(`${liste} .adm-zeit .adm-chip[aria-pressed="true"]`).innerText() === "Von – bis …",
+      "Der Zeitraum aus der Auswertung gilt nicht in der Liste.");
+
+    // Heute: nur Xaver. Und ein Tag vor der ersten Runde sagt, warum er leer ist.
+    await seite.locator(`${liste} .adm-zeit .adm-chip`, { hasText: "Heute" }).click();
+    await geladen(liste);
+    zeilen = nachName(await zeilenDer(liste));
+    pruefe(JSON.stringify(Object.keys(zeilen)) === JSON.stringify(["Xaver"]), `«Heute» zeigt: ${Object.keys(zeilen).join(", ")}`);
+    await seite.locator(`${liste} .adm-zeit .adm-chip`, { hasText: "Ein Tag" }).click();
+    await seite.locator(`${liste} .adm-zeit input[type="date"]`).fill(tagTest.vorher);
+    await geladen(liste);
+    const hinweis = await seite.locator(`${liste} .adm-zeit-hinweis`).innerText().catch(() => "");
+    const ab = await seite.evaluate((ms) => new Date(ms).toLocaleString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }), tagTest.erste);
+    pruefe(/Einzelne Runden gibt es erst seit/.test(hinweis) && hinweis.includes(ab),
+      `Ein Tag vor der ersten Runde sagt nicht, seit wann es Runden gibt (${ab}): ${hinweis}`);
+    pruefe(/niemand gespielt/.test(await seite.locator(`${liste} .adm-sortierbar tbody`).innerText()), "Ein Tag ohne Runden zeigt nicht, dass niemand gespielt hat.");
+
+    // Ein Tipp zurück auf alle Zeit: wieder die Summen aus miniScores.
+    await seite.locator(`${liste} .adm-zeit-weg`).click();
+    zeilen = nachName(await zeilenDer(liste));
+    pruefe(await seite.locator(`${liste} .adm-zeit-streifen`).isHidden() && zeilen.Zeno?.[2] === "7" && ["Yara", "Xaver"].every((n) => zeilen[n]),
+      `Nach «Alle Zeit» stehen nicht wieder alle mit allen Runden da: ${JSON.stringify(zeilen)}`);
+
+    // Wer einen Eintrag löscht, löscht seine Runden mit: Yaras Fischteich.
+    await seite.locator(`${liste} .adm-person`, { hasText: "Yara" }).click();
+    await seite.waitForSelector(".adm-dash", { timeout: 4000 });
+    await seite.locator(`${dash} tbody tr`, { hasText: "Fischteich" }).locator("button", { hasText: "Löschen" }).click();
+    await seite.waitForFunction(() => !window.__miniEintraege.has("fishPond_mini_yarayarayara")
+      && ![...window.__miniRunden.keys()].some((k) => k.startsWith("fishPond_mini_yarayarayara_")), null, { timeout: 4000 }).catch(() => {});
+    const nachLoeschen = await seite.evaluate(() => [...window.__miniRunden.keys()].sort());
+    pruefe(!nachLoeschen.some((k) => k.startsWith("fishPond_mini_yarayarayara_")) && nachLoeschen.includes("towerStack_mini_yarayarayara_1")
+      && nachLoeschen.filter((k) => k.startsWith("towerStack_mini_zenozenozeno_")).length === 3,
+      `Nach dem Löschen von Yaras Fischteich stehen diese Runden da: ${nachLoeschen.join(", ")}`);
+    await seite.keyboard.press("Escape");
+
+    // Am Handy: der Zeitraum mit seinen Feldern ohne Rollen zur Seite.
+    await seite.setViewportSize({ width: 390, height: 844 });
+    await seite.locator(`${liste} .adm-zeit .adm-chip`, { hasText: "Von – bis" }).click();
+    const handy = await seite.evaluate(() => ({
+      ueber: document.documentElement.scrollWidth - window.innerWidth,
+      felder: [...document.querySelectorAll("#adm-spieler .adm-zeit-feld")].filter((f) => f.getClientRects().length).map((f) => Math.round(f.getBoundingClientRect().right)),
+    }));
+    pruefe(handy.ueber <= 1 && handy.felder.length === 2 && handy.felder.every((r) => r <= 390),
+      `Am Handy steht der Zeitraum über den Rand: ${JSON.stringify(handy)}`);
+    await seite.locator(`${liste} .adm-zeit-weg`).click();
+    await seite.setViewportSize({ width: 1100, height: 1000 });
+
     const ohne = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ohne <= 1, `Der Adminbereich steht mit den Turnieren ${ohne} px über den Rand.`);
 
@@ -4997,8 +5257,13 @@ try {
     await seite.waitForFunction(() => [...window.__miniEintraege.values()].some((e) => e.name === "Alain"), null, { timeout: 4000 }).catch(() => {});
     const spur = await seite.evaluate(() => ({
       ewig: [...window.__miniEintraege.values()].filter((e) => e.name === "Alain").map((e) => ({ game: e.game, punkte: e.punkte, spielMs: e.spielMs })),
+      runden: [...window.__miniRunden.values()].filter((r) => r.name === "Alain").map((r) => ({ id: r.id, nr: r.nr, punkte: r.punkte, ms: r.ms, vor: Date.now() - r.zeitMs })),
       best: localStorage.getItem("mini.best"),
     }));
+    // Und im Rundenprotokoll: diese eine Runde, mit Punkten, Dauer und Uhrzeit.
+    pruefe(spur.runden.length === 1 && spur.runden[0].nr === 1 && spur.runden[0].punkte === spur.ewig[0]?.punkte
+      && spur.runden[0].ms === spur.ewig[0]?.spielMs && spur.runden[0].vor >= 0 && spur.runden[0].vor < 60000,
+      `Die Runde aus dem Adminbereich steht nicht im Rundenprotokoll: ${JSON.stringify(spur.runden)}`);
     pruefe(spur.ewig.length === 1 && spur.ewig[0].game === "towerStack" && spur.ewig[0].punkte > 0,
       `Die Runde aus dem Adminbereich steht nicht unter dem Namen in der ewigen Liste: ${JSON.stringify(spur.ewig)}`);
     // Mit ihrer Dauer: Sie zählt zur Spielzeit des Eintrags (mini-games.js,
