@@ -16,8 +16,8 @@
  *   const wind = ArcadeKlang.kulisse("huegel.wind");
  *   wind.setze(0…1);  wind.laut(0…1);  wind.stop();
  *
- * ton() nimmt ausserdem { laut } (0…1.5, Vorgabe 1) und { hoehe } (Faktor auf
- * die Tonhöhe einer Aufnahme). Aufnahmen streuen von selbst ein wenig in der
+ * ton() nimmt ausserdem { laut } (0…1.5, Vorgabe 1), { hoehe } (Faktor auf
+ * die Tonhöhe einer Aufnahme) und { verzoegerung } (Sekunden bis zum Klang). Aufnahmen streuen von selbst ein wenig in der
  * Tonhöhe, damit derselbe Schritt nicht wie ein Maschinengewehr klingt.
  *
  * Eine Kulisse ist eine Schleife: Wind, Motor, Publikum. setze() verstellt,
