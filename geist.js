@@ -864,7 +864,7 @@
         if (!z.geschlagen[welche] && z.punkte > g.punkte) {
           z.geschlagen[welche] = true;
           melde(welche, welche === "eigen" ? "Bestmarke!" : g.ich ? "Rekord!" : "geschlagen!");
-          kids()?.playJingle?.("unlock");
+          window.ArcadeKlang?.ton?.("ueberholt");
           kids()?.vibrate?.([12, 30, 12]);
         } else if (g.lauf && vorne && !z.vorne[welche] && ms > 1200 && !gleichschritt
           && Date.now() - (z.zuletzt[welche] || 0) > 2500) {

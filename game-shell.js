@@ -37,6 +37,7 @@
 
   const art = () => window.LernappTrainArt || null;
   const mini = () => window.LernappMini || null;
+  const klang = () => window.ArcadeKlang || null;
   // Das Turnier, aber nur, wenn diese Seite in einem gespielt wird
   // (?turnier= in der Adresse). Sonst ist hier alles wie immer.
   const turnier = () => (window.LernappTurnier?.aufSpielseite?.() ? window.LernappTurnier : null);
@@ -157,7 +158,7 @@
     // gebrauchter Versuch, und wer keinen mehr hat, bekommt die Tafel statt
     // einer neuen Runde.
     function neuStart(mitten = false) {
-      const los = () => { stopClock(); closeOverlay(); onRestart(); };
+      const los = () => { stopClock(); closeOverlay(); klang()?.stille?.(); onRestart(); };
       const t = turnier();
       if (t) t.neuStart({ mitten, los });
       else los();
@@ -314,8 +315,13 @@
      */
     function showResult({ points, detail, label = "Deine Punkte", geist = null }) {
       host.dataset.phase = "over";
+      // Der Bestwert von vorher – bevor die Runde ihn ersetzt (mini-games.js,
+      // ergebnis). Wer ihn schlägt, hört den Rekord statt der Tafel. Ohne
+      // Bestwert ist die erste Runde kein Rekord: Den gäbe es umsonst.
+      const vorher = Number(mini()?.bestwert?.(document.body?.dataset?.spiel || "")) || 0;
       mini()?.rundeEndet?.();
       timeFill.style.transform = "scaleX(0)";
+      klang()?.stille?.();
 
       // Im Live-Modus keine Tafel mit «Noch einmal»: Das Ergebnis geht an
       // den Live-Abend, und live-spiel.js zeigt, wie es bei den anderen steht.
@@ -325,6 +331,7 @@
         return;
       }
 
+      klang()?.ton?.(vorher > 0 && points > vorher ? "rekord" : "tafel");
       const parts = [el("p", "cm-result-label", label)];
       parts.push(el("p", "cm-result-score", String(points)));
       // Im Turnier nur die Zahl und die Liste darunter: Was das Spiel sonst
@@ -385,6 +392,7 @@
         if (phase === "play") {
           turnier()?.rundeBeginnt?.();
           mini()?.rundeBeginnt?.();
+          if (host.dataset.phase !== "play") klang()?.ton?.("start");
         }
         host.dataset.phase = phase;
       },

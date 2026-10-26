@@ -60,6 +60,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
@@ -117,6 +118,10 @@
   const FRONT_F1 = 0.92;
   const FRONT_START = 540;
   const FRONT_MAX = 600;
+  // Fürs Ohr: So nah ist die Front, wenn ihr Donner grollt – und so weit muss
+  // sie zurückfallen, bevor er wieder grollen darf.
+  const FRONT_NAH = 240;
+  const FRONT_WEG = 420;
 
   // Die Schichten
   const UEBER = 150;               // so lang ist der Übergang zwischen zwei Abschnitten
@@ -303,6 +308,8 @@
     zeitlupe: 0,
     knappZeit: -9,
     windZeit: -9,
+    frontNah: false,      // hat der Donner der nahen Front schon gegrollt?
+    donnerZeit: -9,
     zeit: 0,
     crashZeit: 0,
     rissSeite: 1,
@@ -321,6 +328,9 @@
   let gegner = null;
   // Wer eine Fahrt anschaut statt zu fahren (geist.js, zuschauer).
   let zuschauer = null;
+  // Brenner und Wind (klang.js): zwei Schleifen, solange die Fahrt läuft.
+  let brenner = null;
+  let windSchleife = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0 };
 
@@ -330,6 +340,49 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Brenner, Wind und Donner
+  // ---------------------------------------------------------------------------
+  function klaengeAn() {
+    brenner = klang()?.kulisse("ballon.brenner") || null;
+    windSchleife = klang()?.kulisse("ballon.wind") || null;
+    windSchleife?.laut(0.8);
+    klaengeStellen(gedrueckt);
+  }
+
+  // Der Brenner faucht nur, solange er brennt. Der Wind weht so stark wie
+  // die Schicht, in der der Ballon gerade fährt – gemessen am Grundtempo
+  // dort, damit man die Schichten schon am Anfang auseinanderhört. Und zieht
+  // die Front heran, grollt einmal Donner.
+  function klaengeStellen(brennt) {
+    const f = state.f;
+    brenner?.laut(brennt ? 1 : 0);
+    windSchleife?.setze(clamp(Math.abs(windBei(f.x, f.y + MESS)) / (tempoBei(f.x) * 1.85), 0, 1));
+    const abstand = f.x - LINKS - state.front.x;
+    if (!state.frontNah && abstand < FRONT_NAH) {
+      state.frontNah = true;
+      state.donnerZeit = state.zeit;
+      klang()?.ton("ballon.gewitter");
+    } else if (state.frontNah && abstand > FRONT_WEG) {
+      state.frontNah = false;
+    }
+  }
+
+  function klaengeAus() {
+    brenner?.stop();
+    windSchleife?.stop();
+    brenner = null;
+    windSchleife = null;
+  }
+
+  // Die Hülle reisst. Wo ein Blitz einschlägt (alles ausser Berg und
+  // Boden), donnert es – ausser der Donner der Front grollt noch.
+  function rissKlang(grund) {
+    const blitz = grund && grund !== "berg" && grund !== "boden";
+    if (blitz && state.zeit - state.donnerZeit > 3) klang()?.ton("ballon.gewitter");
+    else klang()?.ton("fehler");
   }
 
   // ---------------------------------------------------------------------------
@@ -3229,7 +3282,8 @@
     else blitzSchlagen(px + (Math.random() - 0.5) * 30, grund === "front" ? DECKE : Math.min(DECKE, py + 140), px, py, 1.4);
     state.schriften = [];
     schrift(GRUENDE[grund]?.bild || "", f.x + 20, f.y + 48, "#ffd6a0", 22);
-    kids()?.playJingle?.("retry");
+    klaengeAus();
+    rissKlang(grund);
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1100);
   }
@@ -3269,7 +3323,9 @@
         const text = state.serie > 1 ? `perfekt! ×${state.serie}` : "perfekt!";
         schrift(text, f.x + 24, f.y + 56, state.serie > 2 ? "#ffd23f" : "#fff1a8", state.serie > 2 ? 20 : 18);
         glanz(f.x, f.y + 12, Math.min(3, state.serie));
-        kids()?.playJingle?.(state.serie > 2 ? "star" : "correct");
+        // Sauber in Folge: jeder Übergang einen Ton höher.
+        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie });
+        else klang()?.ton("perfekt");
         kids()?.vibrate?.(10);
       } else {
         state.serie = 0;
@@ -3320,14 +3376,18 @@
         const meter = Math.floor(meterBei(state.weit));
         if (meter !== state.meter) {
           if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-            schrift(`${Math.floor(meter / 100) * 100} m`, f.x + 40, f.y + 36, "#ffffff", 16);
-            kids()?.playJingle?.("star");
+            const marke = Math.floor(meter / 100) * 100;
+            schrift(`${marke} m`, f.x + 40, f.y + 36, "#ffffff", 16);
+            // Alle 100 m ein Pop, alle 500 m die lange Harfe.
+            if (marke % 500 === 0) klang()?.ton("meilenstein");
+            else klang()?.ton("punkt", { laut: 0.7 });
           }
           state.meter = meter;
           state.punkte = meter;
           shell.setCount(meter);
           ueberholen();
         }
+        klaengeStellen(gedrueckt);
       }
     } else if (state.schritt === "start") {
       // Vor dem ersten Druck schwebt der Ballon über der Wiese, und ab und
@@ -3394,8 +3454,8 @@
       const schluessel = `${ziel.art}:${ziel.punkte}`;
       if (state.punkte <= ziel.punkte || state.geschlagen.has(schluessel)) return;
       state.geschlagen.add(schluessel);
+      // Der Klang dazu kommt aus geist.js («ueberholt») – derselbe Moment.
       schrift(ziel.art === "eigen" ? "Bestmarke!" : "Platz 1!", state.f.x + 30, state.f.y + 60, ziel.farbe, 19);
-      kids()?.playJingle?.("correct");
     });
   }
 
@@ -3422,6 +3482,7 @@
     state.phase = "zuschauen";
     shell.setPhase("play");
     zuschauer.los();
+    klaengeAn();
   }
 
   function zuschauenTakt(dt) {
@@ -3430,7 +3491,7 @@
     const f = state.f;
     if (state.schritt === "crash") {
       stuerzen(dt);
-      zuschauer.weiter();
+      if (!zuschauer.weiter()) klaengeAus();
       return;
     }
     state.schritt = "fahrt";
@@ -3455,7 +3516,7 @@
       state.punkte = meter;
       shell.setCount(meter);
     }
-    // Am Ende der Fahrt: die Hülle reisst, wie damals – nur im Bild.
+    // Am Ende der Fahrt: die Hülle reisst, wie damals – im Bild und im Ohr.
     if (zuschauer.fertig?.()) {
       const p = pruefen();
       state.schritt = "crash";
@@ -3464,8 +3525,12 @@
       state.rissSeite = p.x >= f.x ? 1 : -1;
       f.vy = Math.min(f.vy, 0);
       zerreissen(f.x, f.y + 4);
+      klaengeAus();
+      rissKlang(p.grund);
+    } else {
+      klaengeStellen(brennt);
     }
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) klaengeAus();
   }
 
   // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
@@ -3481,6 +3546,7 @@
     state.neigV = 0;
     shell.setPhase("play");
     gegner?.los();
+    klaengeAn();
     kids()?.vibrate?.(8);
   }
 
@@ -3504,6 +3570,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    klaengeAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -3537,6 +3604,8 @@
     state.zeitlupe = 0;
     state.knappZeit = -9;
     state.windZeit = -9;
+    state.frontNah = false;
+    state.donnerZeit = -9;
     state.zeit = 0;
     state.geschlagen = new Set();
     gedrueckt = false;
@@ -3576,6 +3645,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    klaengeAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -3586,7 +3656,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const grund = GRUENDE[state.grund]?.tafel || "";
     shell.showResult({
       label: "Deine Meter",
@@ -3645,7 +3714,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); klaengeAus(); });
 
   // Für die Vorführung: eine feste Welt (dieselbe Saat wie beim Zuschauen).
   function festeWelt(saat) {

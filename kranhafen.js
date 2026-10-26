@@ -60,6 +60,7 @@
   // Nachziehen der Kamera und weniger Funken. Das Pendel pendelt trotzdem –
   // das ist das Spiel, nicht die Zierde.
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; im Turnier
   // und im Live-Modus bekommt jeder dieselben Schiffe und Pendel (zufall.js).
@@ -2127,11 +2128,41 @@
   // ---------------------------------------------------------------------------
   // Zierde: Funken, Staub, Spritzer, Schriften
   // ---------------------------------------------------------------------------
-  // Beim Zuschauen baut dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Zuschauen baut dieses Gerät nur nach – es klingt wie im Spiel, aber
+  // es brummt nicht.
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
   const viele = (n) => (ruhig() ? Math.ceil(n * 0.35) : n);
+
+  // Der Hafen im Hintergrund (klang.js), solange gestapelt wird – mit dem
+  // Wind eines Schiffs ein wenig lauter. Er verstummt, sobald ein Container
+  // danebengeht.
+  let hafen = null;
+  function hafenAn() {
+    if (!hafen?.laeuft) hafen = klang()?.kulisse("kranhafen.ambient") || null;
+    hafenStellen();
+  }
+  function hafenStellen() {
+    if (!hafen?.laeuft) return;
+    hafen.laut(0.75);
+    hafen.setze(0.35 + 0.5 * clamp(Math.abs(state.schiff?.plan.wind || 0) / 0.13, 0, 1));
+  }
+  function hafenAus() {
+    hafen?.stop();
+    hafen = null;
+  }
+  // Ein Container prallt aufs Deck oder auf den Stapel – höchstens alle
+  // 80 ms ein Schlag.
+  let aufsetzenZuletzt = -1e9;
+  // Ob der Container dieser Runde schon im Wasser ist: Hüpft er lange übers
+  // Deck, kommt die Tafel zuerst – dann platscht es mit ihr.
+  let platschte = false;
+  function aufsetzen(laut) {
+    const jetzt = performance.now();
+    if (jetzt - aufsetzenZuletzt < 80) return;
+    aufsetzenZuletzt = jetzt;
+    klang()?.ton("kranhafen.aufsetzen", { laut });
+  }
 
   function teil(t) {
     if (state.teile.length < TEILE_MAX) state.teile.push(t);
@@ -2214,9 +2245,10 @@
     gegner?.los();
     aufnahme?.los();
     meldeZug(0);
+    hafenAn();
   }
 
-  // Der Spreader schnellt nach dem Loslassen hoch.
+  // Der Spreader öffnet sich und schnellt nach dem Loslassen hoch.
   function hakenLos(k, uhr) {
     const h = state.haken;
     h.x = kisteX(k, uhr);
@@ -2225,6 +2257,7 @@
     h.vy = 170;
     h.neig = kisteNeig(k, uhr);
     h.zu = false;
+    klang()?.ton("kranhafen.los", { laut: 0.8 });
   }
 
   function tap() {
@@ -2258,7 +2291,6 @@
       kisteDaneben({ d: e.ende, vRel: e.vRel, uhr: k.f.uhr }, false);
       meldeZug(2, e);
       state.phase = "ende";
-      kids()?.playJingle?.("retry");
       kids()?.vibrate?.([30, 50, 80]);
       stepTimer = window.setTimeout(finish, ENDE_MS);
       return;
@@ -2317,24 +2349,24 @@
     state.bobV += 5 + state.stapel.length * 0.4;
     staub(x - KISTE_W / 2, y, 5, -1);
     staub(x + KISTE_W / 2, y, 5, 1);
+    aufsetzen(1);
     if (perfekt) {
       state.stoss = Math.max(state.stoss, 0.55);
       funken(x - KISTE_W / 2, y, 7);
       funken(x + KISTE_W / 2, y, 7);
       funken(x, y + KISTE_H, 6, "warm");
       schrift(state.combo >= 2 ? `Perfekt ×${state.combo}` : "Perfekt!", x, y + KISTE_H + 18, state.combo >= 3 ? "#7dffa8" : "#ffd23f", 22 + Math.min(10, state.combo * 2));
-      klang("correct");
+      // Zum Aufsetzen die Harfe, in Folge die Leiter.
+      klang()?.ton(state.combo >= 2 ? "serie" : "perfekt", { stufe: state.combo, laut: 0.75 });
       brumm(24);
     } else if (knapp) {
       state.stoss = Math.max(state.stoss, 0.4);
       state.lupe = LUPE_ZEIT;
       state.wackelV += 0.12 * Math.sign(ende);
       schrift("Knapp!", x, y + KISTE_H + 16, "#ff9f43", 20);
-      klang("star");
       brumm([12, 40, 12]);
     } else {
       state.stoss = Math.max(state.stoss, 0.3);
-      klang("star");
       brumm(12);
     }
   }
@@ -2357,7 +2389,8 @@
       }
       schrift("Schiff voll!", 0, 250, "#7dffa8", 28, 1.7, 10, 0.45);
       schrift(`Gute Fahrt, ${SCHIFF_NAMEN[alt.plan.name]}!`, 0, 228, "#ffffff", 15, 1.7, 10, 0.55);
-      klang("unlock");
+      // Mit der Schrift, nach dem Aufsetzen – nicht darüber.
+      klang()?.ton("meilenstein", { verzoegerung: 0.45 });
       brumm([20, 60, 40]);
     }
     state.schiffNr += 1;
@@ -2367,6 +2400,7 @@
     state.wackelV = 0;
     state.bob = 0;
     state.bobV = 0;
+    hafenStellen();
   }
 
   /*
@@ -2379,6 +2413,7 @@
     const plan = k ? k.plan : state.plan.kisten[Math.min(state.punkte, state.plan.kisten.length - 1)];
     state.kiste = null;
     state.combo = 0;
+    hafenAus();
     if (sofort) return;
     const halb = KISTE_W / 2;
     const seite = d < 0 ? -1 : 1;
@@ -2392,6 +2427,8 @@
     if (Math.abs(d) < KISTE_W) {
       w.modus = "kippen";
       w.kippV = 1.2 + clamp(Math.abs(w.rel) / halb, 0, 1) * 2.5;
+      // Er schlägt noch auf der Kante auf, bevor er kippt.
+      aufsetzen(0.7);
     }
     state.wracks.push(w);
     state.fehler = { zeit: 0 };
@@ -2453,12 +2490,15 @@
           state.stoss = Math.max(state.stoss, 0.5);
           funken(w.x, boden, 10);
           staub(w.x, boden, 6, weg);
+          aufsetzen(0.55);
         }
       }
       if (w.y < KISTE_H * 0.3) {
         w.nass = true;
         spritzer(w.x, 1);
         state.stoss = Math.max(state.stoss, 0.45);
+        platschte = true;
+        klang()?.ton("kranhafen.wasser");
       }
       return;
     }
@@ -2581,8 +2621,10 @@
     });
     state.uhr = Math.max(state.uhr, jetzt / 1000 + state.uhrVersatz);
     shell.setCount(state.punkte);
-    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel.
+    // Ein Lauf aus der Hall of Fame: am Schluss die Tafel – und der Hafen
+    // schweigt, wie auch immer der Lauf endete.
     zuschauer.weiter?.();
+    if (zuschauer.fertig?.()) hafenAus();
   }
 
   // Ab jetzt der Lauf des anderen: von vorn, mit derselben Welt (dieselbe
@@ -2594,6 +2636,7 @@
     shell.setPhase("play");
     gesehenBis = -Infinity;
     zuschauer.los?.();
+    hafenAn();
     zuschauenTakt();
   }
 
@@ -2778,6 +2821,8 @@
   function startRun() {
     clearStep();
     stopLoop();
+    hafenAus();
+    platschte = false;
     shell.closeOverlay();
     zufall.neu();
     state.plan = planBauen();
@@ -2858,13 +2903,14 @@
     if (state.phase === "zuschauen") return;
     clearStep();
     stopLoop();
+    hafenAus();
+    if (state.wracks.length && !platschte) klang()?.ton("kranhafen.wasser");
     state.phase = "ende";
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     const next = recordRun(punkte);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Deine Container",
       points: punkte,
@@ -2941,7 +2987,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); hafenAus(); });
 
   // Nach aussen sichtbar für die Prüfskripte: der Zustand, ein Schritt ohne
   // Bild (takt), Tippen, und wo der Container landen würde (vorhersage).

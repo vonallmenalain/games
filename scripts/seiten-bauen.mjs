@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-26-2";
+export const FASSUNG = "2026-10-26-3";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -254,7 +254,7 @@ const SDK_DATABASE = "https://www.gstatic.com/firebasejs/12.7.0/firebase-databas
 // der Adminbereich rechnet mit denselben Wertungen. Es steht vor der Bühne
 // (game-shell.js) und vor dem Spiel, denn beide fragen schon beim Aufbauen
 // danach.
-const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "mini-games.js", "turnier.js"];
+const GEMEINSAM = ["vollbild.js", "highscore.js", "cloud.js", "klang.js", "mini-games.js", "turnier.js"];
 const SPIELSEITE = ["zufall.js", "kids.js", "train-art.js", "train-scenes.js"];
 // geist.js steht hinter der Bühne und vor dem Spiel: Es hängt seine Schalter
 // in die Bühne, und das Spiel meldet sich beim Aufbauen dort an.

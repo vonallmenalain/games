@@ -38,6 +38,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   // Wer weniger Bewegung eingestellt hat, bekommt keinen Parallax-Himmel und
   // keinen Stoss aufs Bild. Der Block fällt trotzdem und die Punkte zählen
   // trotzdem hoch – das ist das Spiel, nicht die Zierde.
@@ -836,9 +837,13 @@
     meldeZug(0);
   }
 
-  // Beim Zuschauen baut dieses Gerät nur nach – es klingelt und brummt nicht.
+  // Beim Zuschauen baut dieses Gerät nur nach – es brummt nicht, aber es
+  // klingt: Der Turm des anderen wächst hörbar, Block für Block. Still
+  // bleibt nur, was beim Einsteigen auf einen Schlag nachgeholt wird (leise),
+  // sonst schlügen zwanzig Blöcke in einem Bild auf.
   const zuschauend = () => state.phase === "zuschauen";
-  const klang = (name) => { if (!zuschauend()) kids()?.playJingle?.(name); };
+  let leise = false;
+  const ton = (id, wahl) => { if (!leise) klang()?.ton?.(id, wahl); };
   const brumm = (muster) => { if (!zuschauend()) kids()?.vibrate?.(muster); };
 
   function tap() {
@@ -896,13 +901,14 @@
     const versatz = s.x - unten.x;
     const genau = Math.abs(versatz) <= Math.max(welt.perfektMin, s.w * PERFEKT_ANTEIL);
 
+    let brach = false;
     if (genau) {
       s.x = unten.x;
     } else {
       // Was übersteht, bricht ab und fällt sichtbar aus dem Bild – nicht
       // einfach weg. Ein Kind soll sehen, was es gekostet hat.
-      if (b1 < links) abbrechen(b1, links, s, -1);
-      if (b2 > rechts) abbrechen(rechts, b2, s, 1);
+      if (b1 < links) brach = abbrechen(b1, links, s, -1) || brach;
+      if (b2 > rechts) brach = abbrechen(rechts, b2, s, 1) || brach;
       s.x = (links + rechts) / 2;
       s.w = Math.max(welt.kleinsteW, rechts - links);
     }
@@ -922,14 +928,13 @@
       state.stoss = 1;
       funkenSpruehen(s.x, s.y, "#fff3c4", 10);
       zeigeCombo();
-      klang("correct");
       brumm(24);
       // Drei genaue Treffer hintereinander: ein Stück Breite zurück, aber
-      // nie über die Anfangsbreite hinaus.
+      // nie über die Anfangsbreite hinaus. Zu hören ist das an der Leiter
+      // (landeKlang) – sie steht dann schon auf der dritten Stufe.
       if (state.perfekte % BONUS_NACH === 0 && state.breite < welt.startW) {
         state.breite = Math.min(welt.startW, s.w + welt.bonus);
         funkenSpruehen(s.x, s.y + s.h, "#ffffff", 12);
-        klang("unlock");
       } else {
         state.breite = s.w;
       }
@@ -938,12 +943,24 @@
       state.perfekte = 0;
       zeigeCombo();
       state.breite = s.w;
-      klang("star");
       brumm(12);
     }
+    landeKlang(genau, brach);
 
     neuerSchweber();
     meldeZug(0);
+  }
+
+  // Jeder Block, der liegen bleibt, schlägt auf – das ist der Punkt, er
+  // braucht keinen eigenen. Dazu höchstens ein zweiter Klang, nie mehr: alle
+  // zehn Blöcke der Meilenstein, sonst ein genauer Treffer (die Harfe, ab dem
+  // zweiten in Folge die Leiter, jede Stufe höher) oder das Stück, das
+  // abbricht.
+  function landeKlang(genau, brach) {
+    ton("turmbau.landen", { laut: 0.8 });
+    if (state.punkte % 10 === 0) ton("meilenstein");
+    else if (genau) ton(state.combo >= 2 ? "serie" : "perfekt", { stufe: state.combo, laut: 0.8 });
+    else if (brach) ton("turmbau.ab", { laut: 0.8 });
   }
 
   // richtung: -1 = das Stück steht links über, 1 = rechts. Ausdrücklich
@@ -952,7 +969,7 @@
   // gefallenen Blocks.
   function abbrechen(von, bis, block, richtung) {
     const w = bis - von;
-    if (w <= 0.4) return;
+    if (w <= 0.4) return false;
     const nachRechts = richtung > 0;
     state.teile.push({
       x: (von + bis) / 2,
@@ -967,6 +984,7 @@
       // aussen, nicht in den Turm hinein.
       vdreh: (nachRechts ? -1 : 1) * (1.8 + Math.random() * 1.2),
     });
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -990,9 +1008,10 @@
     if (oben && !oben.sockel) oben.wackel = 1;
     state.combo = 0;
     zeigeCombo();
+    // Der Turm stürzt – das hört auch, wer zuschaut.
+    ton("turmbau.einsturz");
     // Wer zuschaut, sieht den Block fallen – das Ende gehört dem anderen.
     if (zuschauen) { state.phase = "zuschauen"; return; }
-    kids()?.playJingle?.("retry");
     meldeZug(2, s);
     stepTimer = window.setTimeout(finish, ENDE_MS);
   }
@@ -1123,7 +1142,8 @@
     neu.forEach((probe) => {
       const sofort = jetzt - probe.t > 1500;
       sprung = sprung || sofort;
-      zugAnwenden(probe, sofort);
+      leise = sofort;
+      try { zugAnwenden(probe, sofort); } finally { leise = false; }
       gesehenBis = probe.t;
     });
     shell.setCount(state.punkte);
@@ -1315,7 +1335,6 @@
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
     const next = recordRun(punkte);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Deine Blöcke",
       points: punkte,

@@ -25,6 +25,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
   // Turnier leuchten für alle dieselben Kacheln (zufall.js).
@@ -122,6 +123,25 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Klänge
+  // ---------------------------------------------------------------------------
+  // Ein ganzes Muster ohne Fehler ist ein perfekter Zug, und weil ein Fehler
+  // den Lauf beendet, ist jedes weitere eines in Folge: ab dem zweiten die
+  // Leiter, jedes Muster eine Stufe höher. Alle fünf Muster klingt statt
+  // dessen der Meilenstein. runden: wie viele Muster jetzt ganz gefunden sind.
+  function musterKlang(runden) {
+    if (runden % 5 === 0) klang()?.ton?.("meilenstein");
+    else klang()?.ton?.(runden >= 2 ? "serie" : "perfekt", { stufe: runden });
+  }
+
+  // Daneben getippt: Die Kachel klingt wie jede, dazu der Fehler – ein
+  // eigener Klang für das Ende fehlt diesem Spiel.
+  function danebenKlang() {
+    klang()?.ton?.("kacheln.tippen", { laut: 0.6 });
+    klang()?.ton?.("fehler");
+  }
+
+  // ---------------------------------------------------------------------------
   // Das Raster
   // ---------------------------------------------------------------------------
   // Hochkant wird das Raster gekippt: aus 5 mal 4 werden 4 mal 5. Es sind
@@ -193,6 +213,8 @@
       kachel.disabled = true;
       if (state.muster.has(index)) kachel.classList.add("is-muster");
     });
+    // Ein Ton, wenn das Muster aufleuchtet: Alle Kacheln leuchten zugleich.
+    klang()?.ton?.("kacheln.leuchten");
     meldeZug(0);
 
     stepTimer = window.setTimeout(() => {
@@ -213,7 +235,7 @@
       kachel.disabled = true;
       kachel.classList.add("is-daneben");
       state.phase = "over";
-      kids()?.playJingle?.("retry");
+      danebenKlang();
       felder.forEach((other) => { other.disabled = true; });
       // Kurz zeigen, welche es gewesen wären – sonst bleibt die Runde ohne
       // Antwort, und beim nächsten Mal weiss man wieder nichts.
@@ -229,13 +251,15 @@
     gegner?.takt(state.punkte);
     kachel.disabled = true;
     kachel.classList.add("is-treffer");
-    kids()?.playJingle?.("correct");
+    // Jeder Tipp, also nicht zu laut.
+    klang()?.ton?.("kacheln.tippen", { laut: 0.7 });
     kids()?.vibrate?.(16);
     meldeZug(1);
 
     if (state.offen.size) return;
     state.phase = "merken";
     state.runde += 1;
+    musterKlang(state.runde);
     prompt.textContent = "Alle gefunden!";
     stepTimer = window.setTimeout(nextRound, 620);
   }
@@ -278,7 +302,32 @@
     if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
   }
 
-  const zuschau = { muster: [], runde: -1, gezeigt: "", frame: 0 };
+  const zuschau = { muster: [], runde: -1, gezeigt: "", frame: 0, probe: null };
+
+  // Wie viele Kacheln eines Musters gefunden sind (die Bits in a). Geteilt
+  // statt geschoben: Ab 32 Feldern rechnet ein Shift in JavaScript falsch.
+  function gefundenZahl(a) {
+    let n = 0;
+    for (let x = a; x > 0; x = Math.floor(x / 2)) n += x % 2;
+    return n;
+  }
+
+  // Beim Zuschauen klingt, was beim anderen klang: das Muster, jeder Tipp,
+  // das Ende. vorher: der Zug, der davor zu sehen war.
+  function zugKlang(probe, vorher) {
+    const runde = Math.floor(probe.c / 4);
+    const was = probe.c - runde * 4;
+    if (was === 0) {
+      if (vorher?.c !== probe.c) klang()?.ton?.("kacheln.leuchten");
+      return;
+    }
+    if (was === 2) { danebenKlang(); return; }
+    const schon = vorher && Math.floor(vorher.c / 4) === runde ? gefundenZahl(vorher.a) : 0;
+    const jetzt = gefundenZahl(probe.a);
+    if (jetzt <= schon) return;
+    klang()?.ton?.("kacheln.tippen", { laut: 0.7 });
+    if (jetzt >= stufeFuer(runde).kacheln) musterKlang(runde + 1);
+  }
 
   // Die Muster der Runden bis n – in derselben Reihe gewürfelt wie beim
   // anderen, sonst wären es andere.
@@ -319,6 +368,10 @@
     const schluessel = `${probe.c}|${probe.a}|${probe.b}|${probe.p}`;
     if (schluessel === zuschau.gezeigt) return;
     zuschau.gezeigt = schluessel;
+    // Nur, was gerade geschieht: Wer mitten in einen Lauf einsteigt, hört
+    // nicht alles Vergangene auf einmal.
+    if (zuschauer.jetzt() - probe.t < 1500) zugKlang(probe, zuschau.probe);
+    zuschau.probe = probe;
     zeigeZug(probe);
   }
 
@@ -334,6 +387,7 @@
     zuschau.muster = [];
     zuschau.runde = -1;
     zuschau.gezeigt = "";
+    zuschau.probe = null;
     shell.clear();
     prompt = shell.el("p", "cm-prompt kk-prompt", "");
     raster = shell.el("div", "kk-raster");
@@ -349,7 +403,6 @@
     const punkte = state.punkte;
     const geist = aufnahme?.ende(gegner?.ende(punkte) || null) || null;
     const next = recordRun(punkte);
-    kids()?.playJingle?.("win");
     shell.showResult({
       label: "Deine Kacheln",
       points: punkte,

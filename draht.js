@@ -54,6 +54,7 @@
 
   const kids = () => window.LernappKids || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  const klang = () => window.ArcadeKlang || null;
 
   // Der Zufall. Ohne Turnier jedes Mal ein anderer Draht, im Turnier für alle
   // im selben Versuch derselbe. Nur der Draht zieht daraus – Funken, Blitze
@@ -204,6 +205,35 @@
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
   }
+
+  // ---------------------------------------------------------------------------
+  // Klänge (klang.js)
+  // ---------------------------------------------------------------------------
+  // Der Strom summt, solange der Ring fährt – beim Spielen wie beim
+  // Zuschauen –, leise in der Mitte, lauter und heller, je näher der Draht
+  // dem Ring kommt. Nachgestellt höchstens alle 40 ms: Die Kulisse gleitet
+  // ohnehin, und die Prüfskripte rechnen tausende Bilder am Stück.
+  let summen = null;
+  let summenGestellt = -1e9;
+  function summenAn() {
+    if (!summen?.laeuft) summen = klang()?.kulisse("draht.summen") || null;
+    summen?.setze(0);
+    summen?.laut(0.5);
+  }
+  function summenAus() {
+    summen?.stop();
+    summen = null;
+  }
+  function summenStellen() {
+    if (!summen?.laeuft) return;
+    const jetzt = performance.now();
+    if (jetzt - summenGestellt < 40) return;
+    summenGestellt = jetzt;
+    const nah = clamp(1 - state.frei, 0, 1);
+    summen.setze(nah);
+    summen.laut(0.5 + 0.7 * nah);
+  }
+  let meilensteinZuletzt = -1e9;
 
   // ---------------------------------------------------------------------------
   // Der Draht
@@ -1516,16 +1546,20 @@
     funken(state.kontakt.s, state.kontakt.q, 46, 1.2, FUNKEN);
     funken(state.kontakt.s, state.kontakt.q, 14, 0.6, ["#ffffff", "#bfe8ff"]);
     schrift("Berührt!", "#ff8a5c", 1.15);
+    // Das Summen bricht ab, es knallt – auch am Ende eines Laufs, den man
+    // anschaut.
+    summenAus();
+    klang()?.ton("draht.beruehrung");
     if (state.phase === "spiel") {
-      kids()?.playJingle?.("retry");
       kids()?.vibrate?.([45, 30, 45, 30, 90]);
       stepTimer = window.setTimeout(finish, 1100);
     }
   }
 
   // Glimmen, «knapp!», «sauber!» – aus der Luft, die der Ring in diesem
-  // Bild hatte. Mit Ton nur im eigenen Spiel.
-  function rueckmeldung(dt, mitTon) {
+  // Bild hatte. Es klingt auch beim Zuschauen; vibriert wird nur im eigenen
+  // Spiel (eigen).
+  function rueckmeldung(dt, eigen) {
     const st = state;
     const nah = clamp(1 - st.frei / KNAPP, 0, 1);
     st.glimm += (nah - st.glimm) * Math.min(1, dt * (nah > st.glimm ? 22 : 6));
@@ -1542,23 +1576,34 @@
       st.glanz = 1;
       schrift(st.sauberN > 1 ? `sauber ×${st.sauberN}` : "sauber!", "#7ff7ea", 0.9);
       funken(st.S, st.q, 16, 0.5, GLITZER);
-      if (mitTon) kids()?.playJingle?.("correct");
+      // Sauber: die Harfe, in Folge die Leiter.
+      klang()?.ton(st.sauberN >= 2 ? "serie" : "perfekt", { stufe: st.sauberN, laut: 0.8 });
     }
     if (st.frei < 0.1 && st.zeit - st.knappZeit > 1.4) {
       st.knappZeit = st.zeit;
       schrift("knapp!", "#ffb35c", 0.8);
-      if (mitTon) kids()?.vibrate?.(12);
+      if (eigen) kids()?.vibrate?.(12);
     }
     st.glanz = Math.max(0, st.glanz - dt * 1.3);
+    summenStellen();
   }
 
-  function zaehle(mitTon) {
+  // Alle 100 m ein Meilenstein – still bleibt der Sprung, wenn jemand mitten
+  // im Lauf zuzuschauen beginnt.
+  function meterKlang(vorher, meter) {
+    if (vorher <= 0 && meter > 100) return;
+    if (Math.floor(meter / 100) <= Math.floor(vorher / 100)) return;
+    const jetzt = performance.now();
+    if (jetzt - meilensteinZuletzt < 2000) return;
+    meilensteinZuletzt = jetzt;
+    klang()?.ton("meilenstein");
+  }
+
+  function zaehle() {
     const meter = Math.floor(meterBei(state.S));
     if (meter === state.meter) return;
-    if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-      schrift(`${Math.floor(meter / 100) * 100} m`, "#5fe6dc", 1);
-      if (mitTon) kids()?.playJingle?.("star");
-    }
+    if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) schrift(`${Math.floor(meter / 100) * 100} m`, "#5fe6dc", 1);
+    meterKlang(state.meter, meter);
     state.meter = meter;
     state.punkte = meter;
     shell.setCount(meter);
@@ -1575,7 +1620,7 @@
       const n = Math.max(1, Math.ceil(dt / TAKT - 1e-9));
       for (let i = 0; i < n && state.schritt === "fahrt"; i += 1) physik(dt / n);
       if (state.schritt === "fahrt") rueckmeldung(dt, true);
-      zaehle(true);
+      zaehle();
     } else if (state.schritt === "start") {
       // Vor dem ersten Zug schwebt der Ring am Draht, und der Draht summt.
       state.q = START_Q + (ruhig() ? 0 : Math.sin(state.zeit * 2.2) * 2.5);
@@ -1623,8 +1668,8 @@
   // ---------------------------------------------------------------------------
   // Ein aufgezeichneter Lauf an seinem eigenen Draht: Der Zufall hält die
   // Saat (geist.js, zuschauer), startRun baut damit denselben Draht, und der
-  // Ring steht Bild für Bild dort, wo er damals war. Glimmen und Funken
-  // folgen aus derselben Rechnung wie im Spiel – nur ohne Ton.
+  // Ring steht Bild für Bild dort, wo er damals war. Glimmen, Funken und
+  // Klänge folgen aus derselben Rechnung wie im Spiel – nur ohne Vibration.
   function zuschauenStarten() {
     if (!zuschauer?.lauf) return;
     startRun();
@@ -1632,6 +1677,7 @@
     state.schritt = "fahrt";
     shell.setPhase("play");
     zuschauer.los();
+    summenAn();
   }
 
   function zuschauenTakt(dt) {
@@ -1645,15 +1691,21 @@
       state.frei = 1;
       const ab = pruefeBeruehrung(false);
       if (s.c >= 1) beruehrt(ab);
-      else rueckmeldung(dt, false);
+      // Die erste Probe eines Laufs liegt noch bei null (geist.js nimmt sie
+      // vor dem ersten Bild), weit neben dem Draht: kein Glimmen, kein
+      // Summen dafür.
+      else if (s.t >= 100) rueckmeldung(dt, false);
     }
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
+      meterKlang(state.meter, meter);
       state.meter = meter;
       state.punkte = meter;
       shell.setCount(meter);
     }
     zuschauer.weiter();
+    // Ist der Lauf zu Ende (auch ohne Berührung), schweigt der Draht.
+    if (zuschauer.fertig?.()) summenAus();
   }
 
   // ---------------------------------------------------------------------------
@@ -1671,6 +1723,7 @@
     shell.setPhase("play");
     gegner?.los();
     kids()?.vibrate?.(8);
+    summenAn();
   }
 
   function druecken() {
@@ -1707,6 +1760,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    summenAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1772,6 +1826,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    summenAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1782,7 +1837,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const best = vorher ? `Bestwert ${vorher} m` : "";
     shell.showResult({
       label: "Deine Meter",
@@ -1861,7 +1915,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); summenAus(); });
 
   // Für die Prüfskripte und die Vorführung. Strecken in Metern, quer in
   // Welteinheiten (0 bis BAND).
