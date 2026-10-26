@@ -70,6 +70,7 @@
   if (!host || !shellApi || !art) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
@@ -241,8 +242,8 @@
     const halo = shell.el("span", "hz-halo");
     halo.setAttribute("aria-hidden", "true");
     feld.append(halo);
-    // Der Funke beim Nachlegen: ein kurzes Aufleuchten, kein Ton. Bei vier
-    // Tipps in der Sekunde wäre jeder Ton ein Geräusch.
+    // Der Funke beim Nachlegen: ein kurzes Aufleuchten. Zu hören ist die
+    // Schaufel (nachlegKlang) – leise, bei vier Tipps in der Sekunde.
     const funke = shell.el("span", "hz-funke");
     funke.setAttribute("aria-hidden", "true");
     feld.append(funke);
@@ -355,6 +356,59 @@
   const clearStep = () => { if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; } };
   const stopLoop = () => { if (frame) { window.cancelAnimationFrame(frame); frame = null; } };
 
+  // ---------------------------------------------------------------------------
+  // Klänge
+  // ---------------------------------------------------------------------------
+  // Unter allem brodelt leise der Kesselraum – und brodelt heftiger, je
+  // weiter die Schicht ist: Der Verbrauch steigt, die Kessel werden heisser
+  // (setze nach demselben Faktor, nach dem die Zeiger schneller fallen).
+  // Beim Zuschauen nur bei einer Schicht aus der Hall of Fame: Deren Ende
+  // kennt das Spiel. Im Multiplayer endet das Zuschauen in live-spiel.js,
+  // ohne dass es hier jemand erführe – das Brodeln liefe weiter.
+  let kesselraum = null;
+
+  function kesselraumAn() {
+    if (kesselraum?.laeuft) return;
+    kesselraum = klang()?.kulisse?.("heizer.kessel") || null;
+    kesselraum?.laut(0.8);
+  }
+
+  function kesselraumStellen(ms) {
+    const faktor = 1 + ZUNAHME * (ms / 1000);
+    kesselraum?.setze(Math.min(1, 0.2 + (faktor - 1) * 0.4));
+  }
+
+  function kesselraumAus() {
+    kesselraum?.stop();
+    kesselraum = null;
+  }
+
+  // Jede Schaufel Kohle ist zu hören, aber leise, und nie zweimal im selben
+  // Augenblick (zwei Daumen auf zwei Kesseln). Steigt der Druck dabei ins
+  // Rote, zischt der Dampf: Der Kessel arbeitet – und sagt «genug». Das
+  // Zischen ist lang; zwei davon übereinander wären nur Rauschen.
+  let schaufelZuletzt = -Infinity;
+  let dampfZuletzt = -Infinity;
+
+  function nachlegKlang(vorher, nachher) {
+    const jetzt = performance.now();
+    if (jetzt - schaufelZuletzt > 70) {
+      schaufelZuletzt = jetzt;
+      klang()?.ton?.("heizer.schaufel", { laut: 0.6 });
+    }
+    if (vorher <= GEFAHR && nachher > GEFAHR && jetzt - dampfZuletzt > 450) {
+      dampfZuletzt = jetzt;
+      klang()?.ton?.("heizer.dampf", { laut: 0.5 });
+    }
+  }
+
+  // Das Ende: Das Ventil platzt hörbar; geht ein Feuer aus, klingt der
+  // Fehler – dafür hat das Spiel keinen eigenen Klang.
+  function endeKlang(platzt) {
+    kesselraumAus();
+    klang()?.ton?.(platzt ? "heizer.platzt" : "fehler");
+  }
+
   function neuerKessel() {
     const nummer = state.kessel.length + 1;
     const kessel = {
@@ -416,9 +470,11 @@
   function nachlegen(kessel) {
     if (state.phase !== "play") return;
     if (kessel.wert > GEFAHR) { ende("platzt", kessel); return; }
+    const vorher = kessel.wert;
     kessel.wert = Math.min(VOLL, kessel.wert + KOHLE);
     state.kohle += 1;
     zeichne(kessel);
+    nachlegKlang(vorher, kessel.wert);
     kids()?.vibrate?.(8);
     kohleBild(kessel);
     meldeZug(kessel.nummer - 1, kessel);
@@ -446,15 +502,17 @@
     // ist-kohle dazu: Der neue Kessel wird angefeuert, und das sieht aus wie
     // Anfeuern.
     kessel.node?.classList.add("ist-neu", "ist-kohle");
-    kids()?.playJingle?.("star");
+    // Ein Kessel mehr: das nächste Level der Schicht.
+    klang()?.ton?.("meilenstein");
     kids()?.vibrate?.(14);
   }
 
   function step(now) {
     frame = window.requestAnimationFrame(step);
     if (state.phase === "zuschauen" || state.phase === "zuschauen-aus") {
-      // Eine Schicht aus der Hall of Fame: am Schluss die Tafel.
-      zuschauer?.weiter?.();
+      // Eine Schicht aus der Hall of Fame: am Schluss die Tafel – und Ruhe
+      // im Kesselraum.
+      if (zuschauer?.weiter?.() === false) kesselraumAus();
       if (state.phase === "zuschauen") zuschauenSchritt();
       return;
     }
@@ -482,6 +540,7 @@
       else if (bis <= VORSCHAU_MS) zeigePlatz(1 - bis / VORSCHAU_MS);
     }
 
+    kesselraumStellen(gelaufen);
     shell.setCount(Math.floor(gelaufen / 1000));
   }
 
@@ -497,7 +556,9 @@
     shell.stopClock();
     if (kessel?.node) kessel.node.classList.add(grund === "platzt" ? "ist-geplatzt" : "ist-aus");
     if (grund === "aus" || grund === "platzt") meldeZug(grund === "aus" ? ZUG_AUS : ZUG_PLATZT, kessel);
-    kids()?.playJingle?.("retry");
+    // Wer weggeht (weg), hört ohnehin nichts mehr – dann nur Ruhe.
+    if (grund === "weg") kesselraumAus();
+    else endeKlang(grund === "platzt");
     kids()?.vibrate?.([20, 40, 20]);
     // Einen Wimpernschlag stehen lassen: Man soll sehen, welcher Kessel es war.
     stepTimer = window.setTimeout(() => ergebnis(), 700);
@@ -510,7 +571,8 @@
     state.gelaufen = SCHICHT_MS;
     raeumePlatz();
     stopLoop();
-    kids()?.playJingle?.("win");
+    // Geschafft: Die Fanfare kommt mit der Tafel (game-shell.js).
+    kesselraumAus();
     if (!ruhig()) kids()?.burstConfetti?.();
     stepTimer = window.setTimeout(() => ergebnis(), 600);
   }
@@ -571,6 +633,8 @@
   function zugAnwenden(probe, sofort) {
     const was = probe.c % 8;
     const stehen = Math.floor(probe.b / 8);
+    // Wie der Kessel stand, bevor der andere nachlegte – für den Dampf.
+    const vorher = was < 5 ? state.kessel[was]?.wert : undefined;
     if (ausAufzeichnung()) {
       // Aus der Aufzeichnung: Jeder Kessel steht, wie er bis zu diesem Zug
       // gefallen ist, und der, auf den nachgelegt wurde, eine Schaufel höher.
@@ -591,9 +655,16 @@
       });
     }
     const kessel = state.kessel[was < 5 ? was : probe.b % 8];
-    if (was < 5 && kessel && !sofort) kohleBild(kessel);
+    // Was beim anderen gerade geschieht, klingt hier auch – was beim
+    // Einsteigen nachgeholt wird (sofort), nicht.
+    if (was < 5 && kessel && !sofort) {
+      kohleBild(kessel);
+      nachlegKlang(vorher ?? kessel.basis, kessel.basis);
+    }
     if (was === ZUG_AUS || was === ZUG_PLATZT) {
       state.phase = "zuschauen-aus";
+      if (sofort) kesselraumAus();
+      else endeKlang(was === ZUG_PLATZT);
       raeumePlatz();
       // Die Zeiger bleiben genau dort stehen, wo sie beim anderen stehen.
       state.kessel.forEach((k) => { k.wert = k.basis; zeichne(k); });
@@ -617,7 +688,10 @@
       const kessel = neuerKessel();
       kessel.basis = START_WERT;
       kessel.seit = ankunft(i);
-      if (i >= KESSEL_START && jetzt - kessel.seit < 1500) kessel.node?.classList.add("ist-neu", "ist-kohle");
+      if (i >= KESSEL_START && jetzt - kessel.seit < 1500) {
+        kessel.node?.classList.add("ist-neu", "ist-kohle");
+        klang()?.ton?.("meilenstein");
+      }
     }
     zuschauer.seit(gesehenBis, jetzt).forEach((probe) => {
       if (state.phase === "zuschauen") zugAnwenden(probe, jetzt - probe.t > 1500);
@@ -632,6 +706,7 @@
       const bis = ankunft(state.kessel.length) - jetzt;
       if (bis <= VORSCHAU_MS) zeigePlatz(1 - bis / VORSCHAU_MS);
     }
+    kesselraumStellen(jetzt);
     shell.setCount(Math.floor(jetzt / 1000));
   }
 
@@ -655,6 +730,8 @@
     raeumePlatz();
     reihe = shell.el("div", "hz-reihe");
     shell.play.append(reihe);
+    if (ausAufzeichnung()) kesselraumAn();
+    else kesselraumAus();
     zuschauer.los?.();
     frame = window.requestAnimationFrame(step);
   }
@@ -681,6 +758,7 @@
   function showIntro() {
     clearStep();
     stopLoop();
+    kesselraumAus();
     shell.stopClock();
     shell.closeOverlay();
     shell.setPhase("intro");
@@ -736,6 +814,10 @@
     state.ende = null;
     state.gelaufen = 0;
     state.faellig = KESSEL_DAZU_MS;
+    // Der Kesselraum vor der Uhr: Richtet er dabei die Tonausgabe erst ein,
+    // geht das nicht von der Schicht ab.
+    kesselraumAn();
+    kesselraumStellen(0);
     state.start = Date.now();
     letzteZeit = performance.now();
     shell.setPhase("play");
@@ -812,7 +894,7 @@
     if (document.hidden && state.phase === "play") ende("weg");
   });
 
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); kesselraumAus(); });
 
   // Für die Prüfskripte.
   window.LernappHeizer = { VOLL, GEFAHR, KOHLE, KESSEL_MAX, state };
