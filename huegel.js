@@ -48,6 +48,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   const zufall = window.LernappZufall?.fuer?.("hillGlide") || {
@@ -80,6 +81,8 @@
   const PERFEKT_WINKEL = 0.48;     // so flach muss er auf dem Abhang landen
   const SCHLECHT_WINKEL = 0.66;    // so steiler ist es eine harte Landung
   const R = 11;                    // der Vogel, als Kreis
+  const ABHEBEN = 0.1;             // so lange in der Luft, und er ist abgehoben (fürs Ohr)
+  const LANDEN = 0.22;             // so lange, und das Aufsetzen ist eine Landung
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -121,6 +124,7 @@
     v: { x: START_X, y: 0, vx: 0, vy: 0 },
     amBoden: true,
     flugZeit: 0,
+    abgehoben: false,     // hat das Abheben schon geklungen?
     hoechste: 0,
     huegel: [],           // Extrempunkte { x, y }, abwechselnd Tal und Kuppe
     spur: [],
@@ -146,6 +150,8 @@
   // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
   let zuschauer = null;
   let rundeStart = 0;
+  // Der Fahrtwind (klang.js): eine Schleife, solange die Runde läuft.
+  let wind = null;
 
   const view = { s: 1, grundS: 1, dpr: 1, cssW: 0, cssH: 0, w: SICHT_W_MIN, h: SICHT_H, w0: SICHT_W_MIN, h0: SICHT_H };
 
@@ -155,6 +161,29 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // Der Fahrtwind rauscht, je schneller der Vogel ist.
+  function windAn() {
+    wind = klang()?.kulisse("huegel.wind") || null;
+    wind?.laut(0.9);
+    windStellen();
+  }
+
+  function windStellen() {
+    wind?.setze(clamp(Math.hypot(state.v.vx, state.v.vy) / V_MAX, 0, 1));
+  }
+
+  function windAus() {
+    wind?.stop();
+    wind = null;
+  }
+
+  // In der Luft: Hat er länger als einen Hüpfer abgehoben, klingt es einmal.
+  function abhebenHoeren() {
+    if (state.amBoden || state.abgehoben || state.flugZeit < ABHEBEN) return;
+    state.abgehoben = true;
+    klang()?.ton("huegel.abheben", { laut: 0.8 });
   }
 
   // ---------------------------------------------------------------------------
@@ -977,7 +1006,7 @@
       const ny = 1 / len;
       const vn = v.vx * nx + v.vy * ny;
       const vt = v.vx * tx + v.vy * ty;
-      if (!state.amBoden && state.flugZeit > 0.22) landung(vn, vt, s);
+      if (!state.amBoden && state.flugZeit > LANDEN) landung(vn, vt, s);
       if (vn < 0) {
         v.vx -= vn * nx;
         v.vy -= vn * ny;
@@ -985,6 +1014,7 @@
       v.y = boden;
       state.amBoden = true;
       state.flugZeit = 0;
+      state.abgehoben = false;
       // Reibung am Boden, je schwerer, desto mehr: Wer bergauf schwer
       // bleibt, bremst sich aus.
       const t0 = v.vx * tx + v.vy * ty;
@@ -1002,6 +1032,7 @@
     } else if (v.y > boden + 1.5) {
       state.amBoden = false;
       state.flugZeit += dt;
+      abhebenHoeren();
     }
     const tempo = Math.hypot(v.vx, v.vy);
     const hoechstens = state.feuer ? V_MAX * FEUER_TEMPO : V_MAX;
@@ -1023,19 +1054,26 @@
       const schub = state.feuer ? 1.14 : 1.08;
       v.vx *= schub;
       v.vy *= schub;
+      // Er setzt auf, und leise dazu: On Fire ist ein Meilenstein, sonst
+      // klingt die Harfe – in Folge jedes Mal höher.
+      klang()?.ton("huegel.landung", { laut: 0.8 });
       if (state.serie >= 3 && !state.feuer) {
         state.feuer = true;
         state.feuerZeit = state.zeit;
-        kids()?.playJingle?.("win");
+        klang()?.ton("meilenstein");
       } else if (state.feuer) {
         schrift(`Perfekt! +14 %`, v.x, v.y + 40, "#ffd84d", 16);
-        kids()?.playJingle?.("star");
+        klang()?.ton("serie", { stufe: state.serie, laut: 0.8 });
       } else {
         schrift(`Perfekt! ${state.serie}/3`, v.x, v.y + 40, "#ffffff", 16);
-        kids()?.playJingle?.("star");
+        if (state.serie > 1) klang()?.ton("serie", { stufe: state.serie, laut: 0.8 });
+        else klang()?.ton("perfekt", { laut: 0.7 });
       }
       sterne(v.x, v.y, 8, state.feuer ? "#ffd84d" : "#ffffff");
     } else if (winkel > SCHLECHT_WINKEL) {
+      klang()?.ton("huegel.landung");
+      // Ging dabei etwas verloren (Feuer, Serie), sagt es das sanft.
+      if (state.feuer || state.serie > 0) klang()?.ton("fehler", { laut: 0.6 });
       if (state.feuer) {
         state.vorbeiZeit = state.zeit;
       } else if (state.serie > 0) {
@@ -1049,12 +1087,14 @@
       kids()?.vibrate?.(16);
     } else {
       staub(v.x, v.y, 4);
+      klang()?.ton("huegel.landung", { laut: 0.7 });
     }
   }
 
   function zeitUm() {
     if (state.phase !== "spiel") return;
     state.phase = "aus";
+    windAus();
     schrift("Die Sonne ist untergegangen", state.v.x + 60, state.v.y + 70, "#ffe2a8", 15);
     stepTimer = window.setTimeout(finish, 900);
   }
@@ -1068,7 +1108,9 @@
       for (let i = 0; i < n; i += 1) physik(dt / n);
       const meter = Math.floor(meterBei(state.v.x));
       if (meter !== state.meter) {
-        if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) kids()?.playJingle?.("tap");
+        // Er ist schnell: Die Hunderter flögen nur so vorbei. Erst ein
+        // Kilometer ist eine Harfe wert.
+        if (Math.floor(meter / 1000) > Math.floor(state.meter / 1000)) klang()?.ton("meilenstein");
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);
@@ -1089,6 +1131,7 @@
       state.v.y = bodenBei(state.v.x) + (ruhig() ? 0 : Math.abs(Math.sin(state.zeit * 3)) * 4);
     }
 
+    windStellen();
     state.spur.push({ x: state.v.x, y: state.v.y + R });
     if (state.spur.length > 26) state.spur.shift();
 
@@ -1157,6 +1200,7 @@
     shell.setPhase("play");
     uhrEnde = 0;
     zuschauer.los();
+    windAn();
   }
 
   // Die Uhr beim Zuschauen: so weit wie die Runde des anderen (s.t) – im
@@ -1184,12 +1228,23 @@
     const c = s.c || 0;
     gedrueckt = Boolean(c & 2);
     const brennt = Boolean(c & 1);
-    if (brennt && !state.feuer) state.feuerZeit = state.zeit;
+    if (brennt && !state.feuer) {
+      state.feuerZeit = state.zeit;
+      klang()?.ton("meilenstein");
+    }
     if (!brennt && state.feuer) state.vorbeiZeit = state.zeit;
     state.feuer = brennt;
     state.serie = brennt ? Math.max(3, state.serie) : 0;
+    // Abheben und Landen wie im Spiel, nach dem, was die Aufzeichnung zeigt.
+    const flog = state.flugZeit;
     state.amBoden = v.y - bodenBei(v.x) < 1.5;
     state.flugZeit = state.amBoden ? 0 : state.flugZeit + dt;
+    if (state.amBoden) {
+      if (flog > LANDEN) klang()?.ton("huegel.landung", { laut: 0.7 });
+      state.abgehoben = false;
+    } else {
+      abhebenHoeren();
+    }
     state.tag = clamp(s.t / RUNDE_MS, 0, 1);
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
@@ -1197,7 +1252,7 @@
       state.punkte = meter;
       shell.setCount(meter);
     }
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) windAus();
   }
 
   // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
@@ -1210,6 +1265,7 @@
     shell.setPhase("play");
     shell.startClock(RUNDE_MS, zeitUm);
     gegner?.los();
+    windAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1230,6 +1286,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    windAus();
     shell.stopClock();
     shell.closeOverlay();
     zufall.neu();
@@ -1249,6 +1306,7 @@
     state.v.y = bodenBei(state.v.x);
     state.amBoden = true;
     state.flugZeit = 0;
+    state.abgehoben = false;
     state.hoechste = 0;
     state.spur = [];
     state.teile = [];
@@ -1291,6 +1349,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    windAus();
     shell.stopClock();
     if (state.phase === "ende") return;
     state.phase = "ende";
@@ -1302,7 +1361,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const perfekt = state.perfekt === 1 ? "1 perfekte Landung" : `${state.perfekt} perfekte Landungen`;
     shell.showResult({
       label: "Deine Meter",
@@ -1360,7 +1418,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); windAus(); });
 
   // Für die Prüfskripte. "zeit" stellt die Uhr der Runde, ohne zu warten.
   window.LernappHuegel = {

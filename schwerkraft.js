@@ -48,6 +48,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   const zufall = window.LernappZufall?.fuer?.("gravityRun") || {
@@ -162,6 +163,8 @@
   let gegner = null;
   // Wer einen Lauf anschaut statt zu spielen (geist.js, zuschauer).
   let zuschauer = null;
+  // Die Schritte (klang.js): eine Schleife, solange er rennt.
+  let schritte = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0, y0: 0, an: LAEUFER_AN };
 
@@ -171,6 +174,24 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // Die Schritte folgen dem Tempo; in der Luft – also auch gleich nach dem
+  // Umkehren – ist es still.
+  function schritteAn() {
+    schritte = klang()?.kulisse("schwerkraft.schritte") || null;
+    schritteStellen();
+  }
+
+  function schritteStellen() {
+    if (!schritte) return;
+    schritte.setze(clamp((tempoBei(state.l.x) - 150) / (V_MAX - 150), 0, 1));
+    schritte.laut(state.l.steht ? 0.8 : 0);
+  }
+
+  function schritteAus() {
+    schritte?.stop();
+    schritte = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1039,7 +1060,7 @@
     state.wechsel += 1;
     state.puls += 0.5;
     funken(l.x, l.richtung > 0 ? l.y : l.y + GROSS, l.richtung > 0 ? "#00f0ff" : "#ff4fd8", 6, -l.richtung);
-    kids()?.playJingle?.("tap");
+    klang()?.ton("schwerkraft.wechsel", { laut: 0.7 });
   }
 
   function aus(grund) {
@@ -1055,7 +1076,8 @@
     } else {
       schrift("Ins Leere!", l.x + 40, HOCH / 2, "#ff7aa8", 15);
     }
-    kids()?.playJingle?.("retry");
+    schritteAus();
+    klang()?.ton("schwerkraft.crash");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, grund === "loch" ? 900 : 1100);
   }
@@ -1092,8 +1114,11 @@
       const meter = Math.floor(meterBei(state.l.x));
       if (meter !== state.meter) {
         if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-          schrift(`${Math.floor(meter / 100) * 100} m`, state.l.x + 60, HOCH / 2, "#00f0ff", 16);
-          kids()?.playJingle?.("star");
+          const marke = Math.floor(meter / 100) * 100;
+          schrift(`${marke} m`, state.l.x + 60, HOCH / 2, "#00f0ff", 16);
+          // Alle 100 m ein Pop, alle 500 m die lange Harfe.
+          if (marke % 500 === 0) klang()?.ton("meilenstein");
+          else klang()?.ton("punkt", { laut: 0.6 });
         }
         state.meter = meter;
         state.punkte = meter;
@@ -1140,6 +1165,7 @@
     if (state.phase === "spiel") {
       gegner?.takt(state.punkte, { a: Math.round(state.l.x), b: Math.round(state.l.y), c: Math.round(state.drehung * 100) });
     }
+    schritteStellen();
   }
 
   function loop(now) {
@@ -1164,6 +1190,7 @@
     state.schritt = "lauf";
     shell.setPhase("play");
     zuschauer.los();
+    schritteAn();
   }
 
   function zuschauenTakt() {
@@ -1175,14 +1202,17 @@
     l.vy = s.vb;
     l.steht = Math.abs(s.vb) < 8;
     state.drehung = (s.c || 0) / 100;
-    l.richtung = state.drehung > Math.PI / 2 ? 1 : -1;
+    const richtung = state.drehung > Math.PI / 2 ? 1 : -1;
+    // Die Schwerkraft dreht: hörbar, wo er sich im Bild umdreht.
+    if (richtung !== l.richtung) klang()?.ton("schwerkraft.wechsel", { laut: 0.7 });
+    l.richtung = richtung;
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
       state.meter = meter;
       state.punkte = meter;
       shell.setCount(meter);
     }
-    zuschauer.weiter();
+    if (!zuschauer.weiter()) schritteAus();
   }
 
   // ---------------------------------------------------------------------------
@@ -1196,6 +1226,7 @@
     state.schritt = "lauf";
     shell.setPhase("play");
     gegner?.los();
+    schritteAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1218,6 +1249,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    schritteAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1276,6 +1308,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    schritteAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1286,7 +1319,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     const kmh = Math.round((tempoBei(state.l.x) / METER) * 3.6);
     shell.showResult({
       label: "Deine Meter",
@@ -1337,7 +1369,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); schritteAus(); });
 
   // Für die Prüfskripte.
   window.LernappSchwerkraft = {

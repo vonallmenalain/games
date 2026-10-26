@@ -38,6 +38,7 @@
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const klang = () => window.ArcadeKlang || null;
   const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
 
   // Der Zufall. Ohne Turnier in der Adresse ist das Math.random; in einem
@@ -159,6 +160,8 @@
   let gegner = null;
   // Wer einen Flug anschaut statt zu fliegen (geist.js, zuschauer).
   let zuschauer = null;
+  // Der Antrieb (klang.js): eine Schleife, solange das Flugzeug fliegt.
+  let antrieb = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, w: WELT_W, h: SICHT_H, nutz: SICHT_H, frei: 0 };
 
@@ -168,6 +171,28 @@
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Antrieb
+  // ---------------------------------------------------------------------------
+  // Mit Schub dreht er hoch und wird lauter, ohne sinkt er zurück – das Ohr
+  // hört, ob das Flugzeug steigt. Mit dem Tempo klingt er etwas höher.
+  function antriebAn() {
+    antrieb = klang()?.kulisse("tunnelflug.antrieb") || null;
+    antriebStellen(gedrueckt);
+  }
+
+  function antriebStellen(schub) {
+    if (!antrieb) return;
+    const tempo = clamp((tempoBei(state.f.x) - V0) / (V_MAX - V0), 0, 1);
+    antrieb.setze(schub ? 0.7 + 0.3 * tempo : 0.15 + 0.25 * tempo);
+    antrieb.laut(schub ? 1 : 0.5);
+  }
+
+  function antriebAus() {
+    antrieb?.stop();
+    antrieb = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -862,7 +887,8 @@
     state.crashZeit = state.zeit;
     state.stoss = 1;
     funken(state.f.x + 6, state.f.y, 34);
-    kids()?.playJingle?.("retry");
+    antriebAus();
+    klang()?.ton("tunnelflug.crash");
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1100);
   }
@@ -888,13 +914,17 @@
       const meter = Math.floor(meterBei(f.x));
       if (meter !== state.meter) {
         if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
-          schrift(`${Math.floor(meter / 100) * 100} m`, f.x + 30, f.y + 26, "#7ff3ff", 16);
-          kids()?.playJingle?.("star");
+          const marke = Math.floor(meter / 100) * 100;
+          schrift(`${marke} m`, f.x + 30, f.y + 26, "#7ff3ff", 16);
+          // Alle 100 m ein Pop, alle 500 m die lange Harfe – selten bleibt sie wertvoll.
+          if (marke % 500 === 0) klang()?.ton("meilenstein");
+          else klang()?.ton("punkt", { laut: 0.7 });
         }
         state.meter = meter;
         state.punkte = meter;
         shell.setCount(meter);
       }
+      antriebStellen(gedrueckt);
     } else if (state.schritt === "start") {
       // Vor dem ersten Druck schwebt das Flugzeug am Eingang.
       f.y = START.y + Math.sin(state.zeit * 2.4) * (ruhig() ? 0 : 4);
@@ -966,6 +996,7 @@
     state.schritt = "flug";
     shell.setPhase("play");
     zuschauer.los();
+    antriebAn();
   }
 
   function zuschauenTakt() {
@@ -982,7 +1013,9 @@
       state.punkte = meter;
       shell.setCount(meter);
     }
-    zuschauer.weiter();
+    // Schub gab es, wo es nach oben beschleunigte (geist.js, ab).
+    antriebStellen(s.ab > 0);
+    if (!zuschauer.weiter()) antriebAus();
   }
 
   // Die Runde beginnt: mit dem ersten Druck – oder im Live-Modus zum
@@ -994,6 +1027,7 @@
     state.f.vy = 0;
     shell.setPhase("play");
     gegner?.los();
+    antriebAn();
     kids()?.vibrate?.(8);
   }
 
@@ -1012,6 +1046,7 @@
   function startRun() {
     clearStep();
     stopLoop();
+    antriebAus();
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
@@ -1065,6 +1100,7 @@
   function finish() {
     clearStep();
     stopLoop();
+    antriebAus();
     if (state.phase === "ende") return;
     state.phase = "ende";
     const punkte = state.punkte;
@@ -1075,7 +1111,6 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    kids()?.playJingle?.("win");
     // Das Tempo in km/h: zehn Einheiten sind ein Meter.
     const kmh = Math.round(state.spitze / METER * 3.6);
     shell.showResult({
@@ -1135,7 +1170,7 @@
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
-  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); });
+  window.addEventListener("pagehide", () => { clearStep(); stopLoop(); antriebAus(); });
 
   // Für die Prüfskripte.
   window.LernappTunnelflug = {
