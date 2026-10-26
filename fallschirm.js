@@ -814,6 +814,8 @@
   let kachelWunsch = [];
   let bildNr = 0;
   let uhr = 0;                     // die Wanduhr in Sekunden, für das Einblenden
+  // Wie lange das Malen dauert (ms) – für die Prüfung der Bildrate.
+  const leistung = { bilder: 0, zeichnen: 0, kacheln: 0, stufen: [] };
 
   const FARBE = {
     wiese: "#7fbb57",
@@ -1387,7 +1389,10 @@
     }
     const cg = c.getContext("2d");
     cg.setTransform(1, 0, 0, 1, 0, 0);
+    const t0 = performance.now();
     maleKachel(cg, L, i, j);
+    const ms = performance.now() - t0;
+    leistung.stufen[L] = Math.max(leistung.stufen[L] || 0, Math.round(ms));
     kacheln.set(kachelKey(L, i, j), { c, L, i, j, geboren: uhr, benutzt: bildNr });
   }
 
@@ -3102,17 +3107,23 @@
     const j = state.j;
     const vz = j.vz;
     if (!state.striche.length) return;
-    const a = clamp((vz - 20) / 150, 0, 1) * 0.38 + (state.schritt === "schirm" ? 0.1 : 0);
+    const a = clamp((vz - 20) / 150, 0, 1) * 0.3 + (state.schritt === "schirm" ? 0.1 : 0);
     if (a < 0.02) return;
     g.strokeStyle = `rgba(255, 255, 255, ${a})`;
     g.lineWidth = 1.2;
     g.beginPath();
+    const lang = clamp(view.K * 1.4, 22, 60);
     for (const s of state.striche) {
       const p0 = proj(s.x, s.y, s.z, 1);
-      const p1 = proj(s.x - state.wind.x * 0.05, s.y, s.z + Math.max(0.6, vz * 0.028 * s.l), 1);
+      const p1 = proj(s.x - state.wind.x * 0.05, s.y, s.z + Math.max(0.6, vz * 0.022 * s.l), 1);
       if (!p0 || !p1) continue;
+      // Nah an der Kamera würden sie zu langen Fäden: gekürzt.
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const l = Math.hypot(dx, dy);
+      const f = l > lang ? lang / l : 1;
       g.moveTo(p0.x, p0.y);
-      g.lineTo(p1.x, p1.y);
+      g.lineTo(p0.x + dx * f, p0.y + dy * f);
     }
     g.stroke();
   }
@@ -3223,17 +3234,17 @@
       const trifft = Math.abs(j.x - dann.x) < h.r + rJ;
       const x = pJ.x + (dann.x - j.x) * pJ.k;
       const a = clamp(1 - bis / WARN_T, 0, 1);
-      g.globalAlpha = 0.25 + a * 0.75;
-      g.setLineDash([6, 5]);
+      g.globalAlpha = (trifft ? 0.35 : 0.2) + a * (trifft ? 0.65 : 0.45);
+      g.setLineDash([5, 6]);
       g.lineDashOffset = -state.echt * 30;
-      g.strokeStyle = trifft ? "#ff4a3a" : "rgba(255, 255, 255, 0.85)";
-      g.lineWidth = trifft ? 3 : 2;
+      g.strokeStyle = trifft ? "#ff4a3a" : "#ffffff";
+      g.lineWidth = trifft ? 2.5 : 1.5;
       g.beginPath();
-      g.ellipse(x, pJ.y, h.r * pJ.k, Math.min(h.r, 3) * pJ.k * 0.5 + 6, 0, 0, Math.PI * 2);
+      g.ellipse(x, pJ.y, h.r * pJ.k, Math.min(h.r, 2.5) * pJ.k * 0.45 + 5, 0, 0, Math.PI * 2);
       g.stroke();
       g.setLineDash([]);
       if (trifft) {
-        g.fillStyle = "rgba(255, 74, 58, 0.14)";
+        g.fillStyle = "rgba(255, 74, 58, 0.1)";
         g.fill();
       }
       g.globalAlpha = 1;
@@ -3852,7 +3863,7 @@
       kollision();
       if (state.schritt === "frei") {
         if (state.aktion && state.ts > 0.6) ziehen();
-        else if (j.z < sp.hMin * 0.5) automat("Nicht gezogen!");
+        else if (j.z < sp.hMin - 10) automat("Nicht gezogen!");
       }
     } else if (sch === "auf") {
       j.auf = clamp(state.t / T_AUF, 0, 1);
@@ -3891,9 +3902,9 @@
       kollision();
       if (state.schritt === "schirm" && j.z <= 0) landen();
     } else if (sch === "reserve") {
-      j.reserve = clamp(j.reserve + h / 0.7, 0, 1);
-      const v = j.reserve > 0.6 ? V_RESERVE : j.vz;
-      j.vz += (v - j.vz) * (1 - Math.exp(-h / 0.35));
+      j.reserve = clamp(j.reserve + h / 0.5, 0, 1);
+      const v = j.reserve > 0.3 ? V_RESERVE : j.vz;
+      j.vz += (v - j.vz) * (1 - Math.exp(-h / 0.2));
       j.trudelW = (j.trudelW || 0) * Math.exp(-h / 0.8);
       j.trudel += j.trudelW * h;
       if (j.z > 0) {
@@ -3937,10 +3948,10 @@
     // Durch eine Wolke: alles weiss.
     let weiss = 0;
     for (const w of state.wolken) {
-      if (Math.abs(kam.z - w.z) < 14 && Math.abs(kam.x - w.x) < w.w * 0.33 && Math.abs(kam.y - w.y) < w.w * 0.24) weiss = 0.75;
+      if (Math.abs(kam.z - w.z) < 12 && Math.abs(kam.x - w.x) < w.w * 0.3 && Math.abs(kam.y - w.y) < w.w * 0.22) weiss = 0.42;
     }
-    if (weiss > state.weiss) state.weiss += (weiss - state.weiss) * (1 - Math.exp(-dt / 0.06));
-    else state.weiss += (weiss - state.weiss) * (1 - Math.exp(-dt / 0.35));
+    if (weiss > state.weiss) state.weiss += (weiss - state.weiss) * (1 - Math.exp(-dt / 0.05));
+    else state.weiss += (weiss - state.weiss) * (1 - Math.exp(-dt / 0.18));
     // Blitze nahe an einer Gewitterwolke.
     const sp = state.sp;
     if (sp && !ruhig()) {
@@ -4020,13 +4031,21 @@
     last = now;
     uhr = now / 1000;
     messen();
-    takt(dt);
+    if (!angehalten) takt(dt);
+    const t0 = performance.now();
     zeichnen();
+    const t1 = performance.now();
     kachelnMalen(ersteBilder > 0 ? 30 : BUDGET_MS);
     if (ersteBilder > 0) ersteBilder -= 1;
+    // Wie lange ein Bild braucht – für die Prüfung der Bildrate.
+    leistung.bilder += 1;
+    leistung.zeichnen += t1 - t0;
+    leistung.kacheln += performance.now() - t1;
   }
   let ersteBilder = 0;
   let wischBald = false;
+  // Für das Standbild der Startseite: die Welt bleibt stehen, gemalt wird weiter.
+  let angehalten = false;
 
   // ---------------------------------------------------------------------------
   // Zuschauen
@@ -4075,7 +4094,7 @@
       }
       if (FEHLER.has(neu)) {
         const grund = neu === "platsch" ? "Ins Wasser!" : neu === "baum" ? "Im Baum gelandet!" : neu === "dach" ? "Auf dem Dach gelandet!"
-          : alt === "frei" && j.z < sp.hMin * 0.6 ? "Nicht gezogen!" : alt === "frei" && j.z < sp.hMin ? "Zu tief gezogen!" : "Getroffen!";
+          : alt === "frei" && j.z < sp.hMin - 9 ? "Nicht gezogen!" : alt === "frei" && j.z < sp.hMin ? "Zu tief gezogen!" : "Getroffen!";
         j.auf = neu === "reserve" ? 0 : 1;
         fehlerZeigen(neu, grund);
       }
@@ -4085,7 +4104,7 @@
       state.tSchirm += dt;
       if (lage.teil === 9 && !state.flare) state.flare = { t0: state.tSchirm, v0: V_SINK };
     }
-    if (neu === "reserve") j.reserve = clamp(j.reserve + dt / 0.7, 0, 1);
+    if (neu === "reserve") j.reserve = clamp(j.reserve + dt / 0.5, 0, 1);
     if (neu !== "flugzeug") {
       j.x = sp.x0 + s.a / 10;
       j.z = Math.max(0, s.b / 10);
@@ -4219,6 +4238,7 @@
     planBis(2);
     sprungBeginnen(1, true);
     ersteBilder = 3;
+    angehalten = false;
     wischBald = false;
 
     last = performance.now();
@@ -4349,6 +4369,8 @@
     state, view, kam, takt, lenke, wisch: aktion, losGehts, weltText, planBis, sprungDaten,
     untergrund, zielX: zielXJetzt, hindernisLage, tFall, vFallBei, hMinBei, windHoehe, sinkBei, flareSinken,
     kacheln: () => kacheln.size,
+    anhalten: (an = true) => { angehalten = Boolean(an); },
+    leistung,
     get springer() { return state.j; },
   };
 })();
