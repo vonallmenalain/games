@@ -571,6 +571,38 @@ ansieht, spielt nicht. Ändert sich, wer einen Versuch offen hat, liest die
 Seite auch die Liste neu: Ein neues Ergebnis steht da, ohne dass jemand neu
 lädt.
 
+**Live zuschauen.** Wer gerade spielt, ist auf der Turnierseite ein Weg zum
+Zuschauen: der Name unter dem Spiel («Joshua spielt gerade», daneben
+«Zuschauen»), oben im Hinweis, im Reiter «Spiele» – und im Fenster der
+Gesamtwertung steht bei jedem Rang «Live zuschauen» (oder, spielt er gerade
+nicht, «Zuschauen»). Das öffnet sein Spiel im **Beobachtungsmodus**
+(`/<spiel>?mitschauen=<kennung>&aus=<turnier>`, `geist.js`, `mitschauer`):
+dieselbe Welt (die Saat seiner Runde), dieselbe Figur, dieselben Züge, gut
+anderthalb Sekunden hinter ihm. Der Modus folgt dem Spieler, nicht dem Spiel,
+und bleibt, bis jemand «Beenden» tippt: Beginnt er eine neue Runde, lädt die
+Seite mit ihrer Welt neu – in einem anderen Spiel geht sie gleich dorthin.
+Spielt er gerade nicht (Runde zu Ende gespielt, oder seit 15 Sekunden nichts
+mehr gehört), steht nur «<Name> spielt gerade nicht», darunter, was er
+zuletzt hatte.
+
+Geschrieben wird das von der laufenden Runde selbst (`turnier.js`,
+`mitschauenSender`), aus denselben Stellen, die auch den Lauf fürs Replay
+aufzeichnen (`geist.js`, `fuer` und `zuege`): der Ort der Figur dreissigmal
+je Sekunde, in den Spielen ohne Figur jeder Zug – alle halbe Sekunde ein
+Stück in die Realtime Database (`turnierMitschauen/<turnier>/<kennung>`:
+`name`, `runde` mit Spiel und Saat, `teile`, `ende`, `lebt`; über die
+REST-Schnittstelle ohne SDK, `cloud.js`, `mitschauenSchreiben`). Wer
+zuschaut, hört per Streaming mit (`mitschauenHoeren`, EventSource). Die
+Realtime Database rechnet nach Datenmenge, nicht nach Anfragen: Ein
+Zuschauer lädt um 5 MB je Stunde, frei sind 360 MB am Tag. Je Spieler und
+Turnier steht nur die letzte Runde da; die nächste überschreibt sie.
+
+Wie das Anschauen der besten Läufe gibt es das nur, wo das Turnier Replays
+zulässt (`ohneReplay`), und nicht, solange die Rangliste verdeckt ist –
+geschrieben wird dann gar nicht erst (`mitschauenErlaubt`). Die Regeln
+(`database.rules.json`) lassen nur genau diese Form zu, unter einer Kennung,
+wie bei den Spielern eines Multiplayers.
+
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
 und die Runde hat es nie gegeben. Die Regeln der Datenbank setzen das durch

@@ -950,6 +950,30 @@ await darf("Admin nimmt ihn vom Turnier", () => live.admin().ref(ZEIGER).remove(
 await darf("Admin räumt den Multiplayer weg", () => live.admin().ref(LANG).remove());
 await darf("Admin räumt den Multiplayer weg", () => live.admin().ref(ABEND).remove());
 
+// Live mitschauen (turnier.js, geist.js): Wer im Turnier spielt, schreibt
+// unter seiner Kennung, was er gerade tut – ohne Konto, wie die Spieler eines
+// Multiplayers, und nur in genau dieser Form. Lesen darf, wer das Turnier
+// kennt; über alle Turniere hinweg auflisten lässt sich nichts.
+const MIT = `turnierMitschauen/herbst-k3m9x2p7/${LIVE_ICH}`;
+const mitRunde = (aenderung = {}) => ({ name: "Alain", runde: { id: "lq8x2k9a", spiel: "towerStack", saat: 12345, start: 1, ...aenderung }, lebt: 1 });
+await darf("Gast beginnt eine Runde zum Zuschauen", () => live.gast().ref(MIT).set(mitRunde()));
+await darf("Gast schreibt ein Stück seiner Runde", () => live.gast().ref(MIT).update({ "teile/0": JSON.stringify({ jo: 450, o: [[0, 1, 2, 3, 0], [45, 4, 5, 6, 1]] }), lebt: 2 }));
+await darf("Gast schreibt die Saat nach", () => live.gast().ref(MIT).update({ "runde/saat": 777, lebt: 3 }));
+await darf("Gast meldet das Ende seiner Runde", () => live.gast().ref(MIT).update({ "teile/1": "{}", ende: { p: 42, o: 900 }, lebt: 4 }));
+await darf("Gast schaut zu", () => live.gast().ref(MIT).get());
+await darf("Gast liest, wer in diesem Turnier gerade spielt", () => live.gast().ref("turnierMitschauen/herbst-k3m9x2p7").get());
+await darfNicht("Gast listet alle Turniere zum Zuschauen auf", () => live.gast().ref("turnierMitschauen").get());
+await darfNicht("Gast schreibt unter einer erfundenen Kennung", () => live.gast().ref("turnierMitschauen/herbst-k3m9x2p7/wer-auch-immer").set(mitRunde()));
+await darfNicht("Gast schreibt in ein Turnier mit unmöglichem Namen", () => live.gast().ref(`turnierMitschauen/HERBST/${LIVE_ICH}`).set(mitRunde()));
+await darfNicht("Gast beginnt eine Runde ohne Spiel", () => live.gast().ref(MIT).set({ name: "Alain", runde: { id: "lq8x2k9a", start: 1 }, lebt: 1 }));
+await darfNicht("Gast beginnt eine Runde in einem erfundenen Spiel", () => live.gast().ref(MIT).set(mitRunde({ spiel: "<script>" })));
+await darfNicht("Gast schmuggelt ein Feld in die Runde", () => live.gast().ref(MIT).set(mitRunde({ bonus: 5 })));
+await darfNicht("Gast schmuggelt ein Feld neben die Runde", () => live.gast().ref(MIT).set({ ...mitRunde(), geheim: "x" }));
+await darfNicht("Gast schreibt ein riesiges Stück", () => live.gast().ref(`${MIT}/teile/2`).set("x".repeat(8001)));
+await darfNicht("Gast schreibt ein Stück mit erfundener Nummer", () => live.gast().ref(`${MIT}/teile/abc`).set("{}"));
+await darfNicht("Gast meldet ein Ende ohne Punkte", () => live.gast().ref(`${MIT}/ende`).set({ o: 1 }));
+await darfNicht("Gast meldet einen Namen von 25 Zeichen", () => live.gast().ref(`${MIT}/name`).set("X".repeat(25)));
+
 await env.cleanup();
 
 console.log(`${geprueft} Zugriffe gegen die Regeln geprüft.`);

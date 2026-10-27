@@ -361,6 +361,45 @@ const ATTRAPPE = `
       tSichern();
       window.__miniLebenszeichen = (window.__miniLebenszeichen || 0) + 1;
     },
+    // Live mitschauen (turnier.js schreibt, geist.js hört): der Knoten je
+    // Turnier und Kennung in localStorage, damit eine zweite Seite im selben
+    // Browser ihn sieht – wie die Realtime Database, ganz (PUT) oder Pfad für
+    // Pfad (PATCH). Gehört wird alle 150 ms.
+    mitschauenSchreiben: async (turnier, kennung, daten, wie) => {
+      const k = "__mitschauen/" + turnier + "/" + kennung;
+      let neu = null;
+      if (wie && wie.ganz) neu = JSON.parse(JSON.stringify(daten));
+      else {
+        try { neu = JSON.parse(localStorage.getItem(k) || "null") || {}; } catch { neu = {}; }
+        Object.keys(daten).forEach((pfad) => {
+          const teile = pfad.split("/");
+          let o = neu;
+          for (let i = 0; i < teile.length - 1; i += 1) {
+            if (!o[teile[i]] || typeof o[teile[i]] !== "object") o[teile[i]] = {};
+            o = o[teile[i]];
+          }
+          o[teile[teile.length - 1]] = daten[pfad];
+        });
+      }
+      localStorage.setItem(k, JSON.stringify(neu));
+      window.__mitschauenGeschrieben = (window.__mitschauenGeschrieben || 0) + 1;
+      return true;
+    },
+    mitschauenHoeren: (turnier, kennung, beiStand) => {
+      const k = "__mitschauen/" + turnier + "/" + kennung;
+      let vorher;
+      const schau = () => {
+        const roh = localStorage.getItem(k);
+        if (roh === vorher) return;
+        vorher = roh;
+        let d = null;
+        try { d = JSON.parse(roh || "null"); } catch { d = null; }
+        beiStand(d);
+      };
+      schau();
+      const uhr = setInterval(schau, 150);
+      return () => clearInterval(uhr);
+    },
     turnierVersuch: async (id, { game, spieler, name, grenze = 0 }) => {
       await langsam();
       const t = turniere.get(id);
@@ -1929,7 +1968,15 @@ try {
     pruefe(/Zoe/.test(live.kopf) && /gerade/i.test(live.kopf) && !/Alt|Ich/.test(live.kopf), `Oben steht nicht, dass Zoe gerade spielt: ${live.kopf}`);
     await seite.click('.ar-kachel[data-spiel="fishPond"]');
     await seite.waitForFunction(() => /Zoe spielt gerade/.test(document.querySelector(".ar-spielen:not([hidden])")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
-    pruefe(/^Zoe spielt gerade$/.test(await seite.locator(".ar-spielen").innerText().catch(() => "")), "Unter dem Namen des Fischteichs steht nicht, dass Zoe ihn gerade spielt.");
+    pruefe(/^Zoe spielt gerade/.test(await seite.locator(".ar-spielen-text").innerText().catch(() => "")), "Unter dem Namen des Fischteichs steht nicht, dass Zoe ihn gerade spielt.");
+    // Wer spielt, ist ein Weg zum Zuschauen: der Name und der Knopf daneben.
+    const zuschauWeg = await seite.evaluate(() => ({
+      name: document.querySelector(".ar-spielen a.ar-zuschauen")?.getAttribute("href"),
+      knopf: document.querySelector(".ar-spielen a.ar-zuschau-knopf")?.getAttribute("href"),
+      oben: document.querySelector(".tn-oben .tn-spielen a.tn-zuschauen")?.getAttribute("href"),
+    }));
+    const zuZoe = `/fischteich?mitschauen=mini_zoezoezoezoe&aus=${HERBST}&wer=Zoe`;
+    pruefe(zuschauWeg.name === zuZoe && zuschauWeg.knopf === zuZoe && zuschauWeg.oben === zuZoe, `Wer gerade spielt, führt nicht zum Zuschauen: ${JSON.stringify(zuschauWeg)}`);
     await seite.click(".tn-wertung");
     await seite.waitForSelector("dialog.ist-gesamt .tn-avatar.ist-am-spielen", { timeout: 4000 }).catch(() => {});
     // Im Fenster: ein grüner Punkt an Zoes Kreis, und beim Fischteich steht,
@@ -1967,6 +2014,65 @@ try {
     pruefe(!fertig.kachel && fertig.zoe === "1" && !nachher.kreise.length && !nachher.spiele.length && /Zoe/.test(fertig.rang),
       `Nach Zoes Ergebnis liest die Turnierseite nicht neu: ${JSON.stringify(fertig)}`);
     pruefe(fehlerAufSeite.length === vorher, `Wer gerade spielt – die Seite hat sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Live mitschauen: Ein Gerät spielt im Turnier, ein zweites schaut zu –
+    // hier zwei Seiten im selben Browser (die Attrappe hält den Knoten der
+    // Realtime Database in localStorage). Der Beobachtungsmodus folgt dem
+    // Spieler: durch seine Runde, auf die Tafel, wenn er nicht spielt, und in
+    // das nächste Spiel, das er beginnt – bis «Beenden».
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`, { vorher: () => localStorage.setItem("mini.name", "Herz") });
+    const vorher = fehlerAufSeite.length;
+    await turnierLos(seite, "Herz");
+    const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
+    const tipp = () => seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
+    await tipp();
+    await seite.waitForFunction(() => window.LernappTurnier.stand().laeuft, null, { timeout: 4000 }).catch(() => {});
+    const kennung = await seite.evaluate(() => localStorage.getItem("mini.id"));
+    const zweite = await kontext.newPage();
+    await zweite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await zweite.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" }));
+    await zweite.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
+    zweite.on("pageerror", (fehler) => fehlerAufSeite.push(String(fehler.message || fehler)));
+    await zweite.goto(`${BASIS}/turmbau?mitschauen=${kennung}&aus=${DAUER}&wer=Herz`, { waitUntil: "load" });
+    for (let i = 0; i < 3; i += 1) {
+      await tipp();
+      await seite.waitForTimeout(700);
+    }
+    await zweite.waitForTimeout(2600);
+    const blick = () => Promise.all([
+      seite.evaluate(() => window.LernappTurmbau?.state?.bloecke?.length ?? -1),
+      zweite.evaluate(() => ({
+        bloecke: window.LernappTurmbau?.state?.bloecke?.length ?? -1,
+        phase: window.LernappTurmbau?.state?.phase,
+        live: Boolean(document.querySelector(".gz-leiste.ist-live")),
+        titel: document.querySelector(".gz-titel")?.textContent || "",
+        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\n/g, " ") || "",
+        pfad: window.location.pathname,
+      })),
+    ]);
+    const [selbst, zu] = await blick();
+    pruefe(zu.live && zu.phase === "zuschauen" && /^Herz/.test(zu.titel) && !zu.tafel && selbst > 1 && zu.bloecke === selbst,
+      `Wer zuschaut, sieht den Turm nicht mitwachsen: Spieler ${selbst} Blöcke, Zuschauer ${JSON.stringify(zu)}`);
+    // Zu Ende gespielt: die Tafel, kurz.
+    pruefe(await spieleZuEnde(seite), "Die Runde, der zugeschaut wurde, kam zu keinem Ergebnis.");
+    await zweite.waitForFunction(() => /spielt gerade nicht/.test(document.querySelector(".gz-tafel:not([hidden])")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
+    const [, danach] = await blick();
+    pruefe(/^Herz spielt gerade nicht zuletzt \d+ Blöcke/.test(danach.tafel), `Nach der Runde steht nicht, dass Herz gerade nicht spielt: ${danach.tafel}`);
+    // Eine neue Runde in einem anderen Spiel: Der Zuschauer geht mit.
+    await seite.goto(`${BASIS}/fischteich?turnier=${DAUER}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().freigegeben, null, { timeout: 8000 }).catch(() => {});
+    await seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.6));
+    await zweite.waitForURL(/\/fischteich\?mitschauen=/, { timeout: 8000 }).catch(() => {});
+    pruefe(new URL(zweite.url()).pathname === "/fischteich" && new URL(zweite.url()).searchParams.get("mitschauen") === kennung,
+      `Der Zuschauer geht nicht mit ins nächste Spiel: ${zweite.url()}`);
+    // «Beenden» verlässt den Beobachtungsmodus – zurück zum Turnier.
+    await zweite.waitForSelector(".gz-leiste .gz-zu", { timeout: 6000 }).catch(() => {});
+    await zweite.click(".gz-leiste .gz-zu").catch(() => {});
+    await zweite.waitForURL(/\/turnier\?t=/, { timeout: 6000 }).catch(() => {});
+    pruefe(new URL(zweite.url()).pathname === "/turnier", `«Beenden» führt nicht zurück zum Turnier: ${zweite.url()}`);
+    pruefe(fehlerAufSeite.length === vorher, `Live mitschauen – die Seiten haben sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
   {

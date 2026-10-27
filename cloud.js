@@ -933,6 +933,88 @@
       .sort((a, b) => b.seit - a.seit);
   }
 
+  /*
+   * Live mitschauen im Turnier (turnier.js schreibt, geist.js schaut zu):
+   * turnierMitschauen/<turnier>/<kennung> in der Realtime Database, über ihre
+   * REST-Schnittstelle, ohne SDK – die Spielseiten laden es gar nicht erst.
+   *
+   *   name     wer spielt
+   *   runde    { id, spiel, saat, start } – die Runde, die gerade läuft
+   *            oder zuletzt lief
+   *   teile    { 0: "…", 1: "…" } – die Proben, je ein Stück JSON (Ort
+   *            und Züge), alle halbe Sekunde eines
+   *   ende     { p, o, z } – die Runde ist fertig: Punkte, letzte Zeiten
+   *   lebt     wann das Gerät zuletzt geschrieben hat
+   *
+   * mitschauenSchreiben setzt den ganzen Knoten (ganz, zu Beginn einer Runde)
+   * oder ändert einzelne Pfade darin ({ "teile/4": "…", lebt: … }).
+   * mitschauenHoeren hört mit (EventSource, Streaming der REST-Schnittstelle)
+   * und meldet nach jeder Änderung den ganzen Knoten; gibt das Abmelden
+   * zurück.
+   */
+  const TURNIER_ID = /^[a-z0-9-]{6,48}$/;
+  const SPIELER_ID = /^mini_[A-Za-z0-9_-]{8,48}$/;
+  function mitschauenAdresse(turnier, kennung) {
+    const t = String(turnier || "");
+    const k = String(kennung || "");
+    return TURNIER_ID.test(t) && SPIELER_ID.test(k) ? `${firebaseConfig.databaseURL}/turnierMitschauen/${t}/${k}.json` : "";
+  }
+
+  async function mitschauenSchreiben(turnier, kennung, daten, { ganz = false } = {}) {
+    const adresse = mitschauenAdresse(turnier, kennung);
+    if (!adresse) return false;
+    const antwort = await fetch(adresse, {
+      method: ganz ? "PUT" : "PATCH",
+      body: JSON.stringify(daten),
+      keepalive: true,
+    });
+    return antwort.ok;
+  }
+
+  // Einen Wert an einem Pfad setzen ("/", "/teile/4") – null löscht ihn.
+  function setzeBei(knoten, pfad, wert) {
+    const teile = String(pfad || "/").split("/").filter(Boolean);
+    if (!teile.length) return wert;
+    const kopie = knoten && typeof knoten === "object" ? { ...knoten } : {};
+    const [erster, ...rest] = teile;
+    const neu = setzeBei(kopie[erster], rest.join("/"), wert);
+    if (neu === null || neu === undefined) delete kopie[erster];
+    else kopie[erster] = neu;
+    return Object.keys(kopie).length ? kopie : null;
+  }
+
+  function mitschauenHoeren(turnier, kennung, beiStand) {
+    const adresse = mitschauenAdresse(turnier, kennung);
+    if (!adresse || typeof window.EventSource !== "function") return () => {};
+    let knoten = null;
+    let quelle = null;
+    let aus = false;
+    const melde = () => { try { beiStand(knoten); } catch (fehler) { console.warn("Mitschauen", fehler); } };
+    const verbinde = () => {
+      if (aus) return;
+      quelle = new window.EventSource(adresse);
+      quelle.addEventListener("put", (e) => {
+        try {
+          const { path, data } = JSON.parse(e.data);
+          knoten = setzeBei(knoten, path, data);
+          melde();
+        } catch { /* eine kaputte Nachricht überspringen */ }
+      });
+      quelle.addEventListener("patch", (e) => {
+        try {
+          const { path, data } = JSON.parse(e.data);
+          Object.entries(data || {}).forEach(([k, v]) => { knoten = setzeBei(knoten, `${path}/${k}`, v); });
+          melde();
+        } catch { /* eine kaputte Nachricht überspringen */ }
+      });
+      // Die Datenbank kündigt den Strom (Regeln geändert, Verbindung weg):
+      // in ein paar Sekunden noch einmal.
+      quelle.addEventListener("cancel", () => { quelle.close(); window.setTimeout(verbinde, 3000); });
+    };
+    verbinde();
+    return () => { aus = true; quelle?.close(); };
+  }
+
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
   // zum freundlichen Wert – bis auf das, ohne das es kein Turnier ist: Name,
   // Spiele, Ende.
@@ -1349,7 +1431,7 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
-    turnierAmSpielen, turnierLebenszeichen,
+    turnierAmSpielen, turnierLebenszeichen, mitschauenSchreiben, mitschauenHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,

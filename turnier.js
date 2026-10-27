@@ -221,6 +221,15 @@
   // Ein Name eine Person – so, wie die Gesamtwertung Namen zusammenfasst.
   const namensSchluessel = (name) => String(name || "").toLocaleLowerCase("de");
 
+  // Darf man in diesem Turnier zuschauen – live (mitschauen) wie beim
+  // Replay? Nicht ohne Replays und nicht, solange die Rangliste verdeckt ist:
+  // Zuschauen hiesse sonst, die Punkte doch zu sehen.
+  const mitschauenErlaubt = (t) => Boolean(t) && !t.ohneReplay && !(t.verdeckt && lage(t) !== "beendet");
+  // Der Weg in den Beobachtungsmodus (geist.js, mitschauer): das Spiel, das
+  // er gerade spielt – oder, spielt er nicht, das erste des Turniers. Von
+  // dort folgt die Seite ihm von selbst.
+  const mitschauLink = (t, spieler, name, spiel = "") => `${mini()?.spielLink?.(spiel || t.spiele[0]) || "/"}?mitschauen=${encodeURIComponent(spieler)}&aus=${encodeURIComponent(t.id)}&wer=${encodeURIComponent(name)}`;
+
   /*
    * "Nur wer nicht vorne liegt" (spitzeWartet): Wer in einem Spiel allein auf
    * Platz 1 steht, wartet dort, bis ihn jemand einholt oder überholt. Die
@@ -270,7 +279,7 @@
       const alt = beobachtet.get(e.id);
       if (!alt || alt.stempel !== stempel) beobachtet.set(e.id, { stempel, seitMs: alt ? jetzt : Math.min(jetzt, stempel) });
       if (e.offen === false || (ohne && e.spieler === ohne)) return;
-      if (jetzt - beobachtet.get(e.id).seitMs < AKTIV_MS) spielen.push({ name: e.name, game: e.game });
+      if (jetzt - beobachtet.get(e.id).seitMs < AKTIV_MS) spielen.push({ name: e.name, game: e.game, spieler: e.spieler });
     });
     [...beobachtet.keys()].forEach((k) => { if (!da.has(k)) beobachtet.delete(k); });
     return spielen.sort((a, b) => a.name.localeCompare(b.name, "de") || a.game.localeCompare(b.game));
@@ -800,14 +809,17 @@
       oben.innerHTML = "";
       if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
       oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
-      if (stand.spielen.length) oben.append(spielenHinweis(stand.spielen));
+      if (stand.spielen.length) oben.append(spielenHinweis(stand.spielen, t));
     }
 
     // Wer gerade spielt, je Spiel: für die Bühne (unter dem Namen des Spiels
-    // und auf den Kacheln).
+    // und auf den Kacheln) – mit dem Weg zum Zuschauen, wo das geht.
     function jeSpiel() {
       const karte = new Map();
-      stand.spielen.forEach(({ name, game }) => karte.set(game, [...(karte.get(game) || []), name]));
+      const darf = mitschauenErlaubt(stand.t);
+      stand.spielen.forEach(({ name, game, spieler }) => karte.set(game, [...(karte.get(game) || []), {
+        name, link: darf && spieler ? mitschauLink(stand.t, spieler, name, game) : "",
+      }]));
       return karte;
     }
 
@@ -891,8 +903,13 @@
           return;
         }
         if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
-        if (verdeckt && stand.spielen.length) inhalt.append(spielenHinweis(stand.spielen));
+        if (verdeckt && stand.spielen.length) inhalt.append(spielenHinweis(stand.spielen, t));
         inhalt.append(gesamtAnsicht(t, personen, verdeckt, abende, stand.spielen, {
+          // Wer nicht gerade spielt: seine Kennung aus dem Eintrag, in dem er
+          // zuletzt gespielt hat.
+          kennungVon: (name) => stand.eintraege
+            .filter((e) => namensSchluessel(e.name) === namensSchluessel(name) && e.spieler)
+            .sort((a, b) => (Number(b.updatedAtMs) || 0) - (Number(a.updatedAtMs) || 0))[0]?.spieler || "",
           offen,
           // Der Fokus bleibt auf dem Rang, der eben angetippt wurde.
           waehle: (wer) => {
@@ -1085,17 +1102,39 @@
   // Wer gerade spielt, in einem Satz mit grünem Punkt: oben auf der
   // Turnierseite (breit neben der Gesamtwertung) und im Fenster einer
   // verdeckten Wertung.
-  function spielenHinweis(spielen) {
+  function spielenHinweis(spielen, t = null) {
     const box = el("p", "tn-spielen");
     const namen = [...new Set(spielen.map((s) => s.name))];
     const text = el("span", "tn-spielen-text");
-    text.append(
-      el("strong", "tn-spielen-marke", namen.length === 1 ? "Spielt gerade" : "Spielen gerade"),
-      el("span", "tn-spielen-namen", mini()?.namenListe?.(namen) || namen.join(", ")),
-    );
+    const zeile = namenZumZuschauen(spielen, t);
+    zeile.classList.add("tn-spielen-namen");
+    text.append(el("strong", "tn-spielen-marke", namen.length === 1 ? "Spielt gerade" : "Spielen gerade"), zeile);
     box.append(el("span", "ar-live-punkt"), text);
     box.title = spielen.map((s) => `${s.name}: ${titel(s.game)}`).join(" · ");
     return box;
+  }
+
+  // Wer gerade spielt, als Namen zum Antippen: Jeder führt in den
+  // Beobachtungsmodus (mitschauLink) – wo das Turnier Zuschauen erlaubt.
+  // «Joshua», «Joshua und Mia», «Joshua, Mia und 2 weitere».
+  function namenZumZuschauen(spielen, t = null) {
+    const zeile = el("span", "tn-zuschau-namen");
+    const je = [];
+    spielen.forEach((s) => { if (!je.some((x) => namensSchluessel(x.name) === namensSchluessel(s.name))) je.push(s); });
+    const zeigen = je.length > 3 ? je.slice(0, 2) : je;
+    zeigen.forEach((s, i) => {
+      if (i > 0) zeile.append(i === zeigen.length - 1 && je.length <= 3 ? " und " : ", ");
+      if (t && s.spieler && mitschauenErlaubt(t)) {
+        const link = el("a", "tn-zuschauen", s.name);
+        link.href = mitschauLink(t, s.spieler, s.name, s.game);
+        link.title = `${s.name} zuschauen`;
+        zeile.append(link);
+      } else {
+        zeile.append(s.name);
+      }
+    });
+    if (je.length > 3) zeile.append(` und ${je.length - 2} weitere`);
+    return zeile;
   }
 
   // Ein Kreis mit zwei Buchstaben, je Name in einer eigenen Farbe – dieselbe
@@ -1126,7 +1165,7 @@
    *   offen    der Name (klein), dessen Einzelheiten aufgeklappt sind
    *   waehle   was ein Tipp auf einen Rang tut
    */
-  function gesamtAnsicht(t, personen, verdeckt, abende = [], spielen = [], { offen = "", waehle = () => {} } = {}) {
+  function gesamtAnsicht(t, personen, verdeckt, abende = [], spielen = [], { offen = "", waehle = () => {}, kennungVon = () => "" } = {}) {
     if (verdeckt) {
       return el("p", "mini-hinweis tn-verdeckt", personen.length
         ? `Die Gesamtwertung bleibt bis zum Schluss verdeckt. Bisher ${personen.length === 1 ? "ist 1 Spieler" : `sind ${personen.length} Spieler`} dabei.`
@@ -1137,9 +1176,9 @@
     const spiele = t.nurLive ? [] : t.spiele.filter((spiel) => mini()?.SPIELE?.some((s) => s.id === spiel) ?? true);
     const prozent = t.wertung === "prozent";
     const amZug = new Map();
-    spielen.forEach(({ name, game }) => {
-      const k = namensSchluessel(name);
-      amZug.set(k, [...(amZug.get(k) || []), game]);
+    spielen.forEach((s) => {
+      const k = namensSchluessel(s.name);
+      amZug.set(k, [...(amZug.get(k) || []), s]);
     });
     const wertWort = prozent ? "Ø von 100" : "Ø Platz";
 
@@ -1163,7 +1202,7 @@
       const was = amZug.get(namensSchluessel(person.name));
       if (was) {
         k.classList.add("ist-am-spielen");
-        k.title = `${person.name} spielt gerade ${was.map(titel).join(", ")}`;
+        k.title = `${person.name} spielt gerade ${was.map((s) => titel(s.game)).join(", ")}`;
       }
       return k;
     }
@@ -1179,8 +1218,16 @@
       const was = amZug.get(namensSchluessel(person.name));
       if (was) {
         const live = el("p", "tn-detail-live");
-        live.append(el("span", "ar-live-punkt"), el("span", "", `Spielt gerade ${was.map(titel).join(", ")}`));
+        live.append(el("span", "ar-live-punkt"), el("span", "", `Spielt gerade ${was.map((s) => titel(s.game)).join(", ")}`));
         box.append(live);
+      }
+      // Zuschauen – live, und danach jede weitere Runde (geist.js,
+      // mitschauer). Spielt er gerade nicht, wartet die Seite auf ihn.
+      const kennung = was?.[0]?.spieler || kennungVon(person.name);
+      if (!person.eigen && kennung && mitschauenErlaubt(t)) {
+        const link = el("a", "tn-detail-zuschauen", was ? "Live zuschauen" : "Zuschauen");
+        link.href = mitschauLink(t, kennung, person.name, was?.[0]?.game || "");
+        box.append(link);
       }
       const liste = el("ul", "tn-detail-liste");
       const teile = [];
@@ -1309,12 +1356,15 @@
       bild.src = mini()?.bildPfad?.(spiel, "klein") || "";
       bild.addEventListener("error", () => bild.classList.add("ist-leer"), { once: true });
       const liste = listen.get(spiel) || [];
-      const namen = spielen.filter((s) => s.game === spiel).map((s) => s.name);
+      const hier = spielen.filter((s) => s.game === spiel);
+      const namen = hier.map((s) => s.name);
       const texte = el("span", "tn-spiel-texte");
       texte.append(el("strong", "tn-spiel-titel", titel(spiel)));
       if (namen.length) {
         const live = el("span", "tn-spiel-live");
-        live.append(el("span", "ar-live-punkt"), el("span", "", mini()?.spielenSatz?.(namen) || namen.join(", ")));
+        const satz = el("span", "");
+        satz.append(namenZumZuschauen(hier, t), ` ${new Set(namen.map(namensSchluessel)).size === 1 ? "spielt" : "spielen"} gerade`);
+        live.append(el("span", "ar-live-punkt"), satz);
         texte.append(live);
       } else {
         texte.append(el("span", "tn-spiel-zahl", liste.length ? zahlWort(liste.length, "Spieler", "Spieler") : "Noch niemand"));
@@ -1708,6 +1758,153 @@
   }
 
   /*
+   * Live mitschauen: Was in einer Turnierrunde geschieht, geht im Takt von
+   * einer halben Sekunde in die Realtime Database (cloud.js,
+   * mitschauenSchreiben) – wer zuschaut, sieht es kurz danach in seinem
+   * eigenen Spiel (geist.js, zuschauer mit ?mitschauen=).
+   *
+   * Die Proben kommen von geist.js, aus denselben Stellen, die auch den Lauf
+   * fürs Replay aufzeichnen: der Ort der Figur dreissigmal je Sekunde (Strom
+   * «o», aus fuer) und in den Spielen ohne Figur jeder Zug (Strom «z», aus
+   * zuege). Jeder Strom hat seine eigene Uhr – die Zeit seit seinem los() –,
+   * und mit jedem Stück geht mit, wie weit sie gerade ist (jo, jz): Daran
+   * misst der Zuschauer, wie weit er hinterherläuft.
+   *
+   * Eine Runde beginnt mit dem ersten los() eines Stroms und setzt den
+   * ganzen Knoten neu (neue id, neue Saat, keine Stücke). Ein zweiter Strom
+   * derselben Runde (Blätter im Strom zeichnet beide auf) kommt dazu. Fertig
+   * ist sie, wenn jeder Strom, der begann, sein ende() hatte.
+   *
+   * Geschrieben wird nur, wo das Turnier das Anschauen der Läufe erlaubt
+   * (ohneReplay) und die Rangliste nicht verdeckt ist – zuschauen hiesse
+   * sonst, die Punkte doch zu sehen. Und nur, solange die Seite im Bild ist.
+   */
+  // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde –
+  // dreimal so oft wie im Replay (geist.js, TAKT_MS): Die Realtime Database
+  // rechnet nach Datenmenge, nicht nach Anfragen, und ein Zuschauer lädt so
+  // um 5 MB je Stunde. Die Züge alle.
+  const MITSCHAUEN_MS = 500;
+  const MITSCHAUEN_ORT_MS = 30;
+  const mitschauen = { runde: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null };
+
+  function mitschauenKnoten() {
+    return { turnier: hier.id, kennung: mini()?.kennung?.() || "" };
+  }
+
+  function mitschauenFlush({ zuletzt = false } = {}) {
+    const r = mitschauen.runde;
+    if (!r) return;
+    const { o, z } = mitschauen.puffer;
+    const jetzt = performance.now();
+    const uhr = (art) => {
+      const u = mitschauen.uhr[art];
+      return u ? Math.round(u.t + (mitschauen.fertig.has(art) ? 0 : jetzt - u.lokal)) : undefined;
+    };
+    const aenderung = { lebt: Date.now() };
+    // Die Saat, falls sie zu Beginn noch nicht feststand.
+    if (r.saat === null && r.saatFn) {
+      const saat = r.saatFn();
+      if (saat !== null) {
+        r.saat = saat;
+        r.saatFn = null;
+        aenderung["runde/saat"] = saat;
+      }
+    }
+    if (o.length || z.length || zuletzt) {
+      const stueck = { jo: uhr("o"), jz: uhr("z") };
+      // Höchstens so viele je Stück – was darüber ist, kommt mit dem nächsten
+      // (die Regeln nehmen ein Stück nur bis 8000 Zeichen).
+      if (o.length) stueck.o = o.splice(0, 120);
+      if (z.length) stueck.z = z.splice(0, 120);
+      aenderung[`teile/${mitschauen.teil}`] = JSON.stringify(stueck);
+      mitschauen.teil += 1;
+    }
+    if (zuletzt && mitschauen.ende) aenderung.ende = mitschauen.ende;
+    const { turnier, kennung } = mitschauenKnoten();
+    Promise.resolve(cloud()?.mitschauenSchreiben?.(turnier, kennung, aenderung)).catch(() => {});
+  }
+
+  function mitschauenTakt() {
+    if (document.visibilityState !== "visible") return;
+    mitschauenFlush();
+  }
+
+  // Für geist.js – nur auf einer Spielseite im Turnier, und nur, wo
+  // zugeschaut werden darf. Sonst null: Dann wird nichts gesammelt.
+  function mitschauenSender() {
+    if (!aufSpielseite() || !hier.freigegeben || !mitschauenErlaubt(hier.t) || !cloud()?.mitschauenSchreiben) return null;
+    return mitschauenApi;
+  }
+
+  const mitschauenApi = {
+    // Ein Strom beginnt: der erste einer neuen Runde – oder der zweite der
+    // laufenden. saat: woher die Saat der Welt kommt (zufall.js) – steht sie
+    // noch nicht fest, wird beim nächsten Stück noch einmal gefragt.
+    los(art, saatFn = null) {
+      const frage = () => { try { const s = saatFn?.(); return Number.isInteger(s) && s >= 0 ? s : null; } catch { return null; } };
+      const saat = frage();
+      const r = mitschauen.runde;
+      const dazu = r && !mitschauen.ende && !mitschauen.laeuft.has(art) && performance.now() - r.lokal < 3000;
+      mitschauen.laeuft.add(art);
+      mitschauen.uhr[art] = { t: 0, lokal: performance.now() };
+      if (dazu) {
+        if (r.saat === null) r.saatFn = frage;
+        return;
+      }
+      window.clearInterval(mitschauen.timer);
+      const neu = {
+        id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        spiel: spielHier(),
+        saat,
+        saatFn: saat === null ? frage : null,
+        start: Date.now(),
+        lokal: performance.now(),
+      };
+      mitschauen.runde = neu;
+      mitschauen.teil = 0;
+      mitschauen.puffer = { o: [], z: [] };
+      mitschauen.ortZuletzt = -Infinity;
+      mitschauen.laeuft = new Set([art]);
+      mitschauen.fertig = new Set();
+      mitschauen.ende = null;
+      const { turnier, kennung } = mitschauenKnoten();
+      const runde = { id: neu.id, spiel: neu.spiel, start: neu.start };
+      if (neu.saat !== null) runde.saat = neu.saat;
+      Promise.resolve(cloud().mitschauenSchreiben(turnier, kennung, { name: mini()?.name?.() || "?", runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
+      mitschauen.timer = window.setInterval(mitschauenTakt, MITSCHAUEN_MS);
+    },
+    // Eine Probe: t in der Uhr des Stroms, Punkte, Ort (a, b, c) – bei einem
+    // Zug dazu, ob es nur eine Lage dazwischen war.
+    probe(art, t, punkte, ort, zwischen = false) {
+      if (!mitschauen.runde || mitschauen.ende || !mitschauen.laeuft.has(art) || !ort) return;
+      const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+      const zeit = Math.max(0, Math.round(Number(t) || 0));
+      mitschauen.uhr[art] = { t: zeit, lokal: performance.now() };
+      if (art === "o") {
+        if (zeit - mitschauen.ortZuletzt < MITSCHAUEN_ORT_MS) return;
+        mitschauen.ortZuletzt = zeit;
+      }
+      const probe = [zeit, zahl(ort.a), zahl(ort.b), zahl(ort.c), zahl(punkte)];
+      if (art === "z") probe.push(zwischen ? 1 : 0);
+      mitschauen.puffer[art].push(probe);
+    },
+    // Ein Strom ist zu Ende. Sind es alle, geht das Ende mit dem letzten
+    // Stück hinaus.
+    ende(art, t, punkte) {
+      if (!mitschauen.runde || !mitschauen.laeuft.has(art) || mitschauen.fertig.has(art)) return;
+      mitschauen.fertig.add(art);
+      mitschauen.uhr[art] = { t: Math.max(0, Math.round(Number(t) || 0)), lokal: performance.now() };
+      if (mitschauen.fertig.size < mitschauen.laeuft.size) return;
+      const ende = { p: Math.max(0, Math.round(Number(punkte) || 0)) };
+      if (mitschauen.uhr.o) ende.o = mitschauen.uhr.o.t;
+      if (mitschauen.uhr.z) ende.z = mitschauen.uhr.z.t;
+      mitschauen.ende = ende;
+      window.clearInterval(mitschauen.timer);
+      mitschauenFlush({ zuletzt: true });
+    },
+  };
+
+  /*
    * Jemand will neu anfangen – über den Knopf oben (mitten) oder nach dem
    * Ergebnis. Eine angefangene Runde ist ein gebrauchter Versuch; das sagt
    * die Frage vorher. Und wer keinen Versuch mehr hat, bekommt die Tafel
@@ -1903,7 +2100,7 @@
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenSender,
     // Das Turnier, in dem diese App lebt – leer, wenn sie keines hat.
     heim: () => heim,
     hinweis,

@@ -1987,15 +1987,39 @@
 
     // Wer gerade spielt, je Spiel (im Turnier, turnier.js amSpielen): unter
     // dem Namen des Spiels oben ein Satz, auf den Kacheln ein grüner Punkt mit
-    // dem Namen – oder, sind es mehrere, wie viele.
+    // dem Namen – oder, sind es mehrere, wie viele. Je Spiel eine Liste von
+    // { name, link }: Wo es einen Weg zum Zuschauen gibt, ist der Name einer.
     let spielend = new Map();
     function spielenZeigen() {
       const hier = spielend.get(aktuell) || [];
       amSpielen.hidden = !hier.length;
       amSpielen.replaceChildren();
-      if (hier.length) amSpielen.append(el("span", "ar-live-punkt"), el("span", "ar-spielen-text", spielenSatz(hier)));
+      if (hier.length) {
+        const text = el("span", "ar-spielen-text");
+        const zeigen = hier.length > 3 ? hier.slice(0, 2) : hier;
+        zeigen.forEach((s, i) => {
+          if (i > 0) text.append(i === zeigen.length - 1 && hier.length <= 3 ? " und " : ", ");
+          if (s.link) {
+            const link = el("a", "ar-zuschauen", s.name);
+            link.href = s.link;
+            link.title = `${s.name} zuschauen`;
+            text.append(link);
+          } else {
+            text.append(s.name);
+          }
+        });
+        if (hier.length > 3) text.append(` und ${hier.length - 2} weitere`);
+        text.append(` ${hier.length === 1 ? "spielt" : "spielen"} gerade`);
+        amSpielen.append(el("span", "ar-live-punkt"), text);
+        // Einer allein: daneben gleich der Knopf dazu.
+        if (hier.length === 1 && hier[0].link) {
+          const knopf = mitIcon("a", "ar-zuschau-knopf", "play", "Zuschauen");
+          knopf.href = hier[0].link;
+          amSpielen.append(knopf);
+        }
+      }
       kacheln.forEach((k, spiel) => {
-        const namen = spielend.get(spiel) || [];
+        const namen = (spielend.get(spiel) || []).map((s) => s.name);
         const live = k.querySelector(".ar-kachel-live");
         if (!live) return;
         live.hidden = !namen.length;
@@ -2338,7 +2362,7 @@
         wegZeigen();
         rangKnopf();
       },
-      // Wer gerade spielt: Map Spiel → Namen.
+      // Wer gerade spielt: Map Spiel → [{ name, link }].
       spielen(neu) {
         if (signal.aborted) return;
         spielend = neu instanceof Map ? neu : new Map();
