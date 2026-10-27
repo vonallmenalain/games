@@ -13,14 +13,16 @@
  * Leertaste für den Flügelschlag, ← oder E für den Ruf. Jeder Finger zählt
  * für sich – man kann zugleich flattern und rufen.
  *
- * Rufe gibt es nicht beliebig: drei Ladungen, die langsam nachladen. Ein
- * gefangenes Glühwürmchen lädt sofort eine nach und leuchtet die Wände
- * ringsum kurz an – und Glühwürmchen fliegen gern dort, wo es knapp ist.
+ * Rufe gibt es nicht beliebig: drei zu Beginn, und sie laden nicht von
+ * selbst nach (bis Oktober 2026 taten sie es, dann wurde es nie knapp). Neue
+ * gibt es nur von Glühwürmchen: Ein gefangenes bringt sofort einen Ruf und
+ * leuchtet die Wände ringsum kurz an. Wer keinen mehr hat, fliegt blind bis
+ * zum nächsten.
  *
  * Gezählt werden die Meter. Die Höhle zieht nach rechts weiter, immer
  * schneller (das Tempo hängt an der Strecke, nicht an der Uhr), und sie wird
  * enger und verwinkelter; der Ruf reicht weniger weit, die Kanten verblassen
- * schneller, die Ladungen kommen langsamer, Pilze werden seltener. Dazu
+ * schneller, Pilze werden seltener. Dazu
  * kommen Tropfsteine von oben und unten und Felsbrocken (ab 50 m), Slaloms
  * zwischen Tropfsteinen (ab 90 m), Kammern (ab 120 m), Engstellen (ab
  * 150 m), Spinnen, die am Faden auf und ab laufen (ab 250 m), Tropfsteine,
@@ -136,10 +138,7 @@
   const FADE_MIN = 1.15;
   const FADE_WEG = 700;
   const KRISTALL_FADE = 2.2;       // Kristalle leuchten so viel länger
-  const LADUNG_MAX = 3;
-  const LADE0 = 1.4;               // so lange braucht eine Ladung am Anfang (s) …
-  const LADE_MAX = 2.5;            // … und später
-  const LADE_WEG = 800;
+  const LADUNG_MAX = 3;            // so viele Rufe höchstens – und zu Beginn
   const SICHT = 270;               // so weit voraus sieht man, was selbst leuchtet
 
   // Ab wann was kommt (Meter).
@@ -180,7 +179,6 @@
   const schwereBei = (x) => 1 - nach(x, 800);
   const rufWeite = (x) => RUF_R_MIN + (RUF_R0 - RUF_R_MIN) * nach(x, RUF_WEG);
   const fadeBei = (x) => FADE_MIN + (FADE0 - FADE_MIN) * nach(x, FADE_WEG);
-  const ladeZeit = (x) => LADE_MAX - (LADE_MAX - LADE0) * nach(x, LADE_WEG);
 
   /*
    * Die Flugzeit vom Start bis x: das Integral über dx / v(x). Mit
@@ -221,7 +219,7 @@
     fluegel: 0.3,         // Stellung der Flügel: 1 oben, −1 unten
     schlagZeit: -9,       // wann der letzte Flügelschlag war
     schlagVon: 0.3,       // wo die Flügel da standen
-    ladung: LADUNG_MAX,   // Rufe: der ganze Teil ist verfügbar, der Rest lädt
+    ladung: LADUNG_MAX,   // so viele Rufe sind übrig (nur Glühwürmchen bringen neue)
     rufZahl: 0,           // so oft wurde gerufen
     rufe: [],             // die Ringe, die gerade laufen oder nachglühen
     gefangen: 0,          // so viele Glühwürmchen
@@ -243,6 +241,7 @@
     lupe: 0,
     rufBlitz: 0,
     leerBis: -9,
+    leerHinweis: -9,      // wann zuletzt stand, woher neue Rufe kommen
     hinweis: false,       // der Satz zum ersten Ruf steht schon da
     zeit: 0,
     echt: 0,
@@ -2445,7 +2444,7 @@
   }
 
   // Oben links, unter den Knöpfen: die Meter, darunter die Rufe – drei
-  // Zeichen, die sich füllen, während sie nachladen.
+  // Zeichen, so viele hell, wie übrig sind.
   function zeichneAnzeige() {
     if (state.phase === "bereit") return;
     flachTransform();
@@ -2642,11 +2641,15 @@
     }
     if (state.schritt !== "flug") return;
     if (state.ladung < 1) {
-      // Leer: kein Echo, nur ein leises «nichts».
+      // Leer: kein Echo, nur ein leises «nichts» – und, nicht zu oft, woher
+      // neue kommen.
       state.leerBis = state.zeit + 0.45;
       ton("fehler", { laut: 0.45 }, 500);
       funken(state.fm.x + 8, state.fm.y, 3, ["#ff9ab8", "#ffffff"], 50);
-      if (Math.random() < 0.5) schrift("Ruf lädt …", state.fm.x + 24, state.fm.y + 26, "#ffb3c9", 13, 0.7);
+      if (state.zeit - state.leerHinweis > 1.6) {
+        state.leerHinweis = state.zeit;
+        schrift("Keine Rufe – fang ein Glühwürmchen", state.fm.x + 24, state.fm.y + 26, "#ffb3c9", 13, 1.1);
+      }
       return;
     }
     state.ladung -= 1;
@@ -2814,7 +2817,6 @@
       for (let i = 0; i < n && state.schritt === "flug"; i += 1) physik(dt / n);
       if (state.schritt === "flug") {
         lichterPruefen();
-        state.ladung = Math.min(LADUNG_MAX, state.ladung + dt / ladeZeit(f.x));
         const meter = Math.floor(meterBei(f.x));
         if (meter !== state.meter) {
           if (Math.floor(meter / 100) > Math.floor(state.meter / 100)) {
@@ -2939,7 +2941,6 @@
         state.ladung = Math.max(0, state.ladung - 1);
         rufAus(f.x, f.y);
       }
-      state.ladung = Math.min(LADUNG_MAX, state.ladung + dt / ladeZeit(f.x));
       lichterPruefen();
       if (state.camMix < 1) state.camMix = Math.min(1, state.camMix + dt / 1.1);
       if (meterBei(f.x) > 1 && ((s.va || 0) < -15 || abstand(f.x, f.y, state.weltZeit) < R_FM - 2.5)) crash(true);
@@ -3036,6 +3037,7 @@
     state.lupe = 0;
     state.rufBlitz = 0;
     state.leerBis = -9;
+    state.leerHinweis = -9;
     state.hinweis = false;
     state.zeit = 0;
     state.echt = 0;
@@ -3180,7 +3182,7 @@
   window.LernappFledermaus = {
     METER, BAND, SEG, R_FM, G, ZUG, SCHLAG, SCHLAG_DAUER, VY_MAX, VY_FALL, TAKT, LADUNG_MAX, START,
     state, view, takt, zeichnen, schlag, ruf, losGehts, hoehleBis, pfadBei, halbBei, tempoBei, zeitBei, abstand,
-    fliegeSchritt, schlagAuf, wandBei, rufWeite, fadeBei, ladeZeit, weltText,
+    fliegeSchritt, schlagAuf, wandBei, rufWeite, fadeBei, weltText,
     get trefferArt() { return trefferArt; },
   };
 })();

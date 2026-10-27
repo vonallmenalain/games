@@ -9,16 +9,20 @@
  * mit R_MIN weiter (fast stehend, nie ganz, sonst endete die Runde nie). Wer
  * mit voller Geschwindigkeit läuft, sieht die Welt in normalem Tempo.
  *
- * Gesteuert wird wie auf einem Trackpad: irgendwo aufs Bild legen und ziehen.
- * Der Ninja geht genau so weit mit, wie der Finger sich bewegt (höchstens
- * V_MAX schnell), der Finger verdeckt ihn also nie. Am Rechner gehen auch
- * die Pfeiltasten und WASD (immer mit voller Geschwindigkeit) und Ziehen mit
- * der Maus.
+ * Gesteuert wird mit Finger oder Maus über ein Steuerfeld am unteren Rand
+ * (pad) – wie ein Joystick: Wo man es hält, dorthin läuft der Ninja, am Rand
+ * mit voller Geschwindigkeit, nahe der Mitte langsam; das Feld steht dezent
+ * im Bild, mit Pfeilen. Es liegt unter dem Hof (hochkant reserviert es dafür
+ * einen Streifen) – oder, wo daneben Platz ist (quer), unten rechts im
+ * Garten. Am Rechner gehen auch die Pfeiltasten und WASD (immer mit voller
+ * Geschwindigkeit).
  *
- * Punkte: jeder Raum PUNKTE_RAUM, jede Schriftrolle PUNKTE_ROLLE, und wer
- * einen Raum in wenig echter Zeit schafft, bekommt dazu (TEMPO_STUFEN): Die
- * echte Zeit misst, wie entschlossen man war – nachdenken darf man, solange
- * man will, es kostet nur diesen Zuschlag. Ein Treffer beendet die Runde.
+ * Punkte: jeder Raum PUNKTE_RAUM, jede Schriftrolle PUNKTE_ROLLE (im Bild
+ * «+3 Punkte»), und wer einen Raum in wenig echter Zeit schafft, bekommt den
+ * Tempo-Bonus dazu (TEMPO_STUFEN), oben links gross mit seiner ablaufenden
+ * Zeit: Die echte Zeit misst, wie entschlossen man war – stehen bleiben darf
+ * man, solange man will, es kostet keine Punkte, nur diesen Bonus. Ein
+ * Treffer beendet die Runde.
  * Damit niemand ewig in einer Ecke wartet, werden die Wachen nach LUNTE
  * Sekunden Weltzeit in einem Raum unruhig (Pfeilhagel), und nach DECKEL ist
  * man gefangen.
@@ -87,8 +91,13 @@
   const R_MIN = 0.07;              // so schnell läuft die Welt, wenn er steht
   const R_NINJA = 7;               // so breit ist er an Mauern und Säulen
   const R_TREFF = 5.5;             // und für Pfeile, Sterne, Klingen: ein wenig schmaler, als er aussieht
-  const ZUG_MAX = 14;              // so weit hinkt er dem Finger höchstens hinterher (schneller als V_MAX verfällt)
-  const ZUG_GAIN = 1;              // so viel Weg je Bildpunkt Finger (in Bildpunkten der Welt)
+  // Das Steuerfeld (Bildpunkte): so gross, so weit vom Rand. Nahe der Mitte
+  // steht er (PAD_TOT), ab PAD_VOLL (Anteil bis zum Rand) läuft er voll.
+  const PAD_MIN = 104;
+  const PAD_MAX = 156;
+  const PAD_RAND = 14;
+  const PAD_TOT = 0.16;
+  const PAD_VOLL = 0.72;
   const WECHSEL = 0.55;            // so lange (echt) dauert der Gang durchs Tor
   const KAMERA = 0.85;             // und der Schwenk in den nächsten Raum
   const AUS_DAUER = 1.7;           // so lange (echt) nach dem Treffer, bis die Tafel kommt
@@ -105,8 +114,13 @@
 
   const PUNKTE_RAUM = 10;
   const PUNKTE_ROLLE = 3;
-  // Wer einen Raum in so viel echter Zeit schafft, bekommt so viel dazu.
-  const TEMPO_STUFEN = [[4, 5, "Blitzschnell"], [7, 3, "Entschlossen"], [12, 1, "Ruhig"]];
+  // Wer einen Raum in so viel echter Zeit schafft, bekommt so viel dazu –
+  // blitzschnell doppelt so viel wie für den Raum selbst. Bis Oktober 2026
+  // waren es 5, 3 und 1: zu wenig, als dass sich Durchlaufen lohnte.
+  const TEMPO_STUFEN = [[4, 10, "Blitzschnell"], [7, 6, "Entschlossen"], [12, 3, "Ruhig"]];
+  // Die Stufe gerade – und ihre Farbe (Gold, Hellblau, Sand).
+  const tempoStufe = (echt) => TEMPO_STUFEN.findIndex(([bis]) => echt <= bis);
+  const TEMPO_FARBEN = ["#ffd23f", "#bfe3ff", "#e6dcc6"];
 
   // Was es in einem Raum geben kann, ab welchem Raum, was es kostet (das
   // Budget wächst mit jedem Raum) und wie oft höchstens.
@@ -237,7 +251,6 @@
     rate: R_MIN,          // so schnell lief die Welt im letzten Schritt
     echtRaum: 0,          // so viel echte Zeit im Raum
     ninja: { x: 0, y: 14, wvx: 0, wvy: 0, blick: Math.PI / 2, blickZiel: Math.PI / 2, lauf: 0, schwung: 0 },
-    zug: { x: 0, y: 0 },  // was der Finger noch schuldig ist
     steuer: null,         // Richtung von aussen (Prüfung): { x, y }, Länge bis 1
     plan: [],             // oder Schritt für Schritt (Vorführung)
     planI: 0,
@@ -282,6 +295,10 @@
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, frei: 0, mx: 0, my: 0, xb: 160, versatz: 0 };
   const kam = { y: RAUM_H / 2, von: RAUM_H / 2, nach: RAUM_H / 2, t: 1 };
   const tasten = { links: false, rechts: false, hoch: false, runter: false };
+  // Das Steuerfeld (messen setzt, wo es steht): welcher Finger es hält (id),
+  // wohin (richtung, Länge bis 1 = volles Tempo) und wo der Knopf steht.
+  // hinweis: wann jemand daneben getippt hat – dann winkt es kurz.
+  const pad = { x: 0, y: 0, halb: 60, seitlich: false, id: null, knopfX: 0, knopfY: 0, richtung: { x: 0, y: 0 }, hinweis: -9 };
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
@@ -1000,6 +1017,7 @@
   function eingabe() {
     if (state.planI < state.plan.length) return state.plan[state.planI++];
     if (state.steuer) return state.steuer;
+    if (pad.id !== null) return pad.richtung;
     const x = (tasten.rechts ? 1 : 0) - (tasten.links ? 1 : 0);
     const y = (tasten.hoch ? 1 : 0) - (tasten.runter ? 1 : 0);
     if (x || y) return { x, y };
@@ -1021,15 +1039,6 @@
         const f = (Math.min(1, l) * smax) / l;
         mx = e.x * f;
         my = e.y * f;
-      }
-    } else {
-      const l = Math.hypot(state.zug.x, state.zug.y);
-      if (l > 1e-6) {
-        const d = Math.min(l, smax);
-        mx = (state.zug.x / l) * d;
-        my = (state.zug.y / l) * d;
-        state.zug.x -= mx;
-        state.zug.y -= my;
       }
     }
     const ax = n.x;
@@ -1211,7 +1220,7 @@
     if (state.sim) return;
     const q = r.rollen[i];
     shell.setCount(state.punkte);
-    schrift(`Rolle +${PUNKTE_ROLLE}`, q.x, q.y + 16, r.y0, "#ffe08a", 16, 1.1);
+    schrift(`+${PUNKTE_ROLLE} Punkte`, q.x, q.y + 16, r.y0, "#ffe08a", 18, 1.2);
     funken(r.y0, q.x, q.y, 16, ["#fff4c2", "#ffd23f", "#ffb02e", "#ffffff"], 120, true);
     ton("ninja.rolle");
     kids()?.vibrate?.(10);
@@ -1224,23 +1233,22 @@
     state.schritt = "wechsel";
     state.wechsel = { t: 0, vonX: n.x, vonY: n.y, nachX: r.torO, nachY: (r.k + 1) * SCHRITT + 14 };
     state.geschafft += 1;
-    const stufe = TEMPO_STUFEN.find(([bis]) => state.echtRaum <= bis);
+    const i = tempoStufe(state.echtRaum);
+    const stufe = TEMPO_STUFEN[i] || null;
     const bonus = stufe ? stufe[1] : 0;
     state.punkte += PUNKTE_RAUM + bonus;
     state.tempoBonus += bonus;
-    state.zug.x = 0;
-    state.zug.y = 0;
     r.tauStand = state.tau;
     raumBis(r.k + 3);
     if (state.sim) return;
     shell.setCount(state.punkte);
     schrift(`+${PUNKTE_RAUM}`, r.torO, RAUM_H + 26, r.y0, "#ffffff", 22, 1.2);
-    if (stufe) schrift(`${stufe[2]} +${bonus}`, r.torO, RAUM_H + 2, r.y0, bonus >= 5 ? "#ffd23f" : bonus >= 3 ? "#bfe3ff" : "#d9d2c3", 15, 1.4);
+    if (stufe) schrift(`Tempo-Bonus +${bonus}`, r.torO, RAUM_H + 2, r.y0, TEMPO_FARBEN[i], i === 0 ? 18 : 16, 1.5);
     funken(r.y0, r.torO, RAUM_H + 8, 14, ["#c8ffd4", "#ffffff", "#ffe08a"], 110, true);
     // Ein Raum geschafft. Blitzschnell dazu: nach der langen Harfe die kurze
     // (nur beim ersten blitzschnellen Raum in Folge).
     ton("meilenstein", {}, 500);
-    blitzFolge = bonus >= 5 ? blitzFolge + 1 : 0;
+    blitzFolge = i === 0 ? blitzFolge + 1 : 0;
     if (blitzFolge === 1) ton("perfekt", { laut: 0.8, verzoegerung: 0.4 }, 100);
     kids()?.vibrate?.(12);
     kameraZu(r.k + 1);
@@ -1398,7 +1406,20 @@
     view.cssH = cssH;
     view.dpr = dpr;
     view.frei = frei;
-    const nutzH = cssH - frei;
+    // Das Steuerfeld: so gross, wie der Platz erlaubt. Steht neben dem Hof
+    // genug frei (quer), kommt es unten rechts in den Garten, und der Hof
+    // bleibt, wie er ist; sonst unter den Hof, der dafür unten einen
+    // Streifen abgibt – hochkant ist er ohnehin durch die Breite begrenzt.
+    const halb = clamp(Math.min(cssW, cssH) * 0.28, PAD_MIN, PAD_MAX) / 2;
+    const s0 = Math.min(cssW / SICHT_B, (cssH - frei) / SICHT_H);
+    const neben = (cssW - SICHT_B * s0) / 2;
+    const unterRand = PAD_RAND + sicherUnten();
+    pad.halb = halb;
+    pad.seitlich = neben >= 2 * (halb + PAD_RAND);
+    pad.x = pad.seitlich ? cssW - neben / 2 : cssW / 2;
+    pad.y = cssH - unterRand - halb;
+    view.unten = pad.seitlich ? 0 : 2 * halb + PAD_RAND + unterRand;
+    const nutzH = cssH - frei - view.unten;
     // Der ganze Raum – Mauern, Tore – steht immer im Bild, gleich gross in
     // Welteinheiten. Was übrig ist, zeigt hochkant den nächsten Raum (darum
     // rückt der Hof ein wenig nach unten) und quer den Garten daneben.
@@ -1415,6 +1436,16 @@
     kam.nach = kamZiel(state.raum);
     if (kam.t >= 1) kam.y = kam.nach;
     blaetterVerteilen();
+  }
+
+  // Wie viel unten das Handy selbst braucht (der Strich zum Wischen).
+  function sicherUnten() {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;bottom:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
+    document.body.append(probe);
+    const h = probe.getBoundingClientRect().height || 0;
+    probe.remove();
+    return Math.min(40, h);
   }
 
   function kameraZu(k) {
@@ -3331,7 +3362,7 @@
   }
 
   // Vor dem ersten Zug: ein Ring um den Ninja, der pulsiert, und Pfeile in
-  // alle Richtungen – ziehen, wohin man will.
+  // alle Richtungen – wohin man will (das Steuerfeld unten winkt dazu).
   function zeichneHinweis() {
     if (state.phase !== "bereit" || shell.live) return;
     const n = state.ninja;
@@ -3362,7 +3393,9 @@
 
   // Oben links, unter den Knöpfen: die Punkte mit einer kleinen Uhr, deren
   // Zeiger mit der Weltzeit läuft (und fast steht, wenn der Ninja steht),
-  // darunter der Raum und, solange es ihn gibt, der Zuschlag fürs Tempo.
+  // darunter gross der Tempo-Bonus dieses Raums – die Zahl, die es gerade
+  // gäbe, und ein Balken, der bis zur nächsten Stufe abläuft: Wer stehen
+  // bleibt, sieht ihn schrumpfen –, dann der Raum.
   function zeichneAnzeige() {
     if (state.phase === "bereit") return;
     flachTransform();
@@ -3418,14 +3451,104 @@
       g.fillText(inhalt, x + klein * 0.7, y + ph / 2 + 1);
       y += ph + 5;
     };
-    zeile(`Raum ${state.raum + 1}`, "rgba(10, 14, 28, 0.55)", "#e6ecf7");
     if (state.phase === "spiel" && state.schritt === "lauf") {
-      const stufe = TEMPO_STUFEN.find(([bis]) => state.echtRaum <= bis);
-      if (stufe) {
-        const farbe = stufe[1] >= 5 ? "rgba(255, 210, 63, 0.92)" : stufe[1] >= 3 ? "rgba(191, 227, 255, 0.9)" : "rgba(217, 210, 195, 0.85)";
-        zeile(`Tempo +${stufe[1]}`, farbe, "#1a1f33");
-      }
+      const i = tempoStufe(state.echtRaum);
+      const stufe = TEMPO_STUFEN[i] || null;
+      const von = i > 0 ? TEMPO_STUFEN[i - 1][0] : 0;
+      const rest = stufe ? clamp((stufe[0] - state.echtRaum) / (stufe[0] - von), 0, 1) : 0;
+      const farbe = stufe ? TEMPO_FARBEN[i] : "rgba(205, 210, 225, 0.5)";
+      // So breit wie «+10» und die Beschriftung – die Pille springt nicht,
+      // wenn die Stufe wechselt.
+      g.font = `900 ${Math.round(gross * 1.2)}px system-ui, sans-serif`;
+      const zw = g.measureText(`+${TEMPO_STUFEN[0][1]}`).width;
+      g.font = `900 ${Math.round(gross * 0.5)}px system-ui, sans-serif`;
+      const lw = g.measureText("TEMPO-BONUS").width;
+      const pw = gross * 1.75 + zw + lw;
+      const ph = gross * 2.1;
+      pille(x, y, pw, ph, "rgba(10, 14, 28, 0.74)");
+      g.strokeStyle = farbe;
+      g.lineWidth = 2;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x + 1, y + 1, pw - 2, ph - 2, (ph - 2) / 2);
+      else g.rect(x + 1, y + 1, pw - 2, ph - 2);
+      g.stroke();
+      const zahl = `+${stufe ? stufe[1] : 0}`;
+      g.font = `900 ${Math.round(gross * 1.2)}px system-ui, sans-serif`;
+      g.fillStyle = farbe;
+      g.fillText(zahl, x + gross * 0.6, y + ph / 2 + 1);
+      const lx = x + gross * 0.6 + zw + gross * 0.45;
+      g.font = `900 ${Math.round(gross * 0.5)}px system-ui, sans-serif`;
+      g.fillStyle = stufe ? "#ffffff" : "rgba(230, 236, 247, 0.6)";
+      g.fillText("TEMPO-BONUS", lx, y + ph * 0.36);
+      const bw = x + pw - gross * 0.6 - lx;
+      const bh = Math.max(4, gross * 0.22);
+      const by = y + ph * 0.66 - bh / 2;
+      pille(lx, by, bw, bh, "rgba(255, 255, 255, 0.16)");
+      if (rest > 0) pille(lx, by, Math.max(bh, bw * rest), bh, farbe);
+      y += ph + 6;
     }
+    zeile(`Raum ${state.raum + 1}`, "rgba(10, 14, 28, 0.55)", "#e6ecf7");
+  }
+
+  // Das Steuerfeld: ein feines Quadrat mit Pfeilen in alle vier Richtungen
+  // und einem Kreis in der Mitte, wo er stehen bleibt. Hält es ein Finger,
+  // zeigt ein Knopf, wohin er führt, und der Pfeil in diese Richtung
+  // leuchtet. Vor dem Start und nach einem Tipp daneben winkt es.
+  function zeichnePad() {
+    if (state.phase !== "spiel" && state.phase !== "bereit") return;
+    flachTransform();
+    const { x, y, halb } = pad;
+    const aktiv = pad.id !== null;
+    const winkt = !aktiv && !ruhig() && (state.phase === "bereit" || state.echt - pad.hinweis < 1.2);
+    const puls = winkt ? 0.5 + 0.5 * Math.sin(state.echt * 6) : 0;
+    g.save();
+    g.globalAlpha = aktiv ? 1 : 0.7 + 0.3 * puls;
+    g.fillStyle = aktiv ? "rgba(8, 12, 24, 0.42)" : "rgba(8, 12, 24, 0.3)";
+    g.strokeStyle = `rgba(255, 255, 255, ${aktiv ? 0.4 : 0.24 + 0.2 * puls})`;
+    g.lineWidth = 1.5;
+    g.beginPath();
+    if (g.roundRect) g.roundRect(x - halb, y - halb, 2 * halb, 2 * halb, halb * 0.3);
+    else g.rect(x - halb, y - halb, 2 * halb, 2 * halb);
+    g.fill();
+    g.stroke();
+    g.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.arc(x, y, halb * PAD_TOT * 1.25, 0, PI2);
+    g.stroke();
+    const r = pad.richtung;
+    const st = Math.hypot(r.x, r.y);
+    const spitze = halb * 0.17;
+    for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+      const an = aktiv && st > 0 ? Math.max(0, (r.x * dx + r.y * dy) / st) : 0;
+      const px = x + dx * halb * 0.7;
+      const py = y - dy * halb * 0.7;
+      g.strokeStyle = `rgba(255, 255, 255, ${0.4 + 0.6 * an})`;
+      g.lineWidth = 2.5;
+      g.lineCap = "round";
+      g.lineJoin = "round";
+      g.beginPath();
+      g.moveTo(px - dy * spitze - dx * spitze * 0.6, py - dx * spitze + dy * spitze * 0.6);
+      g.lineTo(px + dx * spitze * 0.4, py - dy * spitze * 0.4);
+      g.lineTo(px + dy * spitze - dx * spitze * 0.6, py + dx * spitze + dy * spitze * 0.6);
+      g.stroke();
+    }
+    if (aktiv) {
+      g.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(pad.knopfX, pad.knopfY);
+      g.stroke();
+      g.fillStyle = "rgba(255, 255, 255, 0.9)";
+      g.strokeStyle = "#3FA34D";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(pad.knopfX, pad.knopfY, halb * 0.24, 0, PI2);
+      g.fill();
+      g.stroke();
+    }
+    g.restore();
   }
 
   function zeichnen() {
@@ -3461,6 +3584,7 @@
       g.fillRect(0, 0, view.cssW, view.cssH);
     }
     zeichneAnzeige();
+    zeichnePad();
   }
 
   // ---------------------------------------------------------------------------
@@ -3674,19 +3798,29 @@
     kids()?.vibrate?.(8);
   }
 
-  // Der Finger hat sich um (dx, dy) Bildpunkte bewegt.
-  function ziehe(dx, dy) {
-    if (state.phase === "zuschauen" || state.phase === "ende") return;
-    if (state.phase === "bereit") {
-      if (shell.live || Math.hypot(dx, dy) < 0.5) return;
-      losGehts();
+  // Das Steuerfeld, gehalten an (px, py) Bildpunkten: die Richtung – in der
+  // Mitte steht er, ab PAD_VOLL zum Rand läuft er voll; über den Rand hinaus
+  // bleibt der Knopf am Rand.
+  function padRichtung(px, py) {
+    const vx = clamp((px - pad.x) / pad.halb, -1, 1);
+    const vy = clamp((pad.y - py) / pad.halb, -1, 1);
+    pad.knopfX = pad.x + vx * pad.halb;
+    pad.knopfY = pad.y - vy * pad.halb;
+    const l = Math.hypot(vx, vy);
+    if (l < PAD_TOT) {
+      pad.richtung = { x: 0, y: 0 };
+      return;
     }
-    if (state.schritt !== "lauf") return;
-    const z = state.zug;
-    z.x += (dx / view.s) * ZUG_GAIN;
-    z.y -= (dy / view.s) * ZUG_GAIN;
-    const l = Math.hypot(z.x, z.y);
-    if (l > ZUG_MAX) { z.x *= ZUG_MAX / l; z.y *= ZUG_MAX / l; }
+    const m = clamp((l - PAD_TOT) / (PAD_VOLL - PAD_TOT), 0, 1);
+    pad.richtung = { x: (vx / l) * m, y: (vy / l) * m };
+    // Die Runde beginnt mit dem ersten Schritt – im Live-Modus zum
+    // gemeinsamen Start.
+    if (state.phase === "bereit" && !shell.live) losGehts();
+  }
+
+  function padLos() {
+    pad.id = null;
+    pad.richtung = { x: 0, y: 0 };
   }
 
   // ---------------------------------------------------------------------------
@@ -3711,7 +3845,6 @@
     state.rate = R_MIN;
     state.tempo = R_MIN;
     state.ninja = { x: state.raeume[0].ein.x, y: state.raeume[0].ein.y, wvx: 0, wvy: 0, blick: Math.PI / 2, blickZiel: Math.PI / 2, lauf: 0, schwung: 0 };
-    state.zug = { x: 0, y: 0 };
     state.steuer = null;
     state.plan = [];
     state.planI = 0;
@@ -3732,12 +3865,12 @@
     raumBetreten(0);
     state.tuerZu = -9;
     tasten.links = tasten.rechts = tasten.hoch = tasten.runter = false;
-    zeiger = null;
+    padLos();
     shell.setCount(0);
     gegner?.runde();
 
     shell.clear();
-    promptKnoten = shell.el("p", "cm-prompt nj-prompt", "Ziehen: Die Zeit läuft nur, wenn du läufst.");
+    promptKnoten = shell.el("p", "cm-prompt nj-prompt", "Steuern im Feld unten – die Zeit läuft nur, wenn du läufst.");
     shell.play.append(promptKnoten, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -3812,29 +3945,40 @@
     gegner = window.LernappGeist?.fuer?.({ spiel: "timeNinja", host, art: "tempo", alle: true, zufall }) || null;
   }
 
-  let zeiger = null;
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // Ein Finger irgendwo aufs Bild: Er führt ab jetzt, relativ – wie weit er
-  // sich bewegt, so weit geht der Ninja. Ein neuer Finger übernimmt.
+  // Finger oder Maus aufs Steuerfeld (etwas grosszügiger als gezeichnet):
+  // Es führt, bis er loslässt – auch wenn er dabei hinausrutscht, dann am
+  // Rand, mit vollem Tempo. Ein neuer Finger übernimmt. Anderswo aufs Bild
+  // getippt, winkt das Feld.
+  const imBild = (event) => {
+    const rect = canvas?.getBoundingClientRect();
+    if (!rect?.width) return null;
+    const k = view.cssW / rect.width;
+    return { x: (event.clientX - rect.left) * k, y: (event.clientY - rect.top) * k };
+  };
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    if (state.phase === "zuschauen") return;
-    zeiger = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    if (state.phase === "zuschauen" || state.phase === "ende") return;
+    const p = imBild(event);
+    if (!p) return;
+    const griff = pad.halb + 28;
+    if (Math.abs(p.x - pad.x) > griff || Math.abs(p.y - pad.y) > griff) {
+      pad.hinweis = state.echt;
+      return;
+    }
+    event.preventDefault();
+    pad.id = event.pointerId;
+    padRichtung(p.x, p.y);
   });
   window.addEventListener("pointermove", (event) => {
-    if (!zeiger || event.pointerId !== zeiger.id) return;
-    const dx = event.clientX - zeiger.x;
-    const dy = event.clientY - zeiger.y;
-    zeiger.x = event.clientX;
-    zeiger.y = event.clientY;
-    const rect = canvas?.getBoundingClientRect();
-    const k = rect?.width ? view.cssW / rect.width : 1;
-    ziehe(dx * k, dy * k);
+    if (pad.id === null || event.pointerId !== pad.id) return;
+    const p = imBild(event);
+    if (p) padRichtung(p.x, p.y);
   });
   const fingerWeg = (event) => {
-    if (zeiger && event.pointerId === zeiger.id) zeiger = null;
+    if (pad.id !== null && event.pointerId === pad.id) padLos();
   };
   window.addEventListener("pointerup", fingerWeg);
   window.addEventListener("pointercancel", fingerWeg);
@@ -3860,7 +4004,7 @@
   });
   // Wer das Fenster verlässt, lässt auch Finger und Tasten los.
   window.addEventListener("blur", () => {
-    zeiger = null;
+    padLos();
     tasten.links = tasten.rechts = tasten.hoch = tasten.runter = false;
   });
 
@@ -3894,7 +4038,9 @@
   // ohne Bild und Ton.
   window.LernappNinja = {
     HALB, RAUM_H, WAND, SCHRITT, TOR, TAKT, V_MAX, R_MIN, R_NINJA, R_TREFF, LUNTE, DECKEL,
-    state, view, kam, takt, schritt, losGehts, ziehe, weltText, raumBis,
+    state, view, kam, takt, schritt, losGehts, weltText, raumBis,
+    // Wo das Steuerfeld steht (Bildpunkte der Leinwand) – für die Prüfung.
+    pad: () => ({ x: pad.x, y: pad.y, halb: pad.halb, seitlich: pad.seitlich }),
     saat: () => zufall.saat?.() ?? null,
     halte: (saat) => zufall.halte?.(saat),
     get ninja() { return state.ninja; },
@@ -3910,7 +4056,7 @@
         W: state.W, tau: state.tau, raum: state.raum, schritt: state.schritt, punkte: state.punkte,
         geschafft: state.geschafft, rollenZahl: state.rollenZahl, tempoBonus: state.tempoBonus,
         echtRaum: state.echtRaum, rate: state.rate, lunte: state.lunte, grund: state.grund, akku: state.akku,
-        zug: { ...state.zug }, wechsel: state.wechsel ? { ...state.wechsel } : null,
+        wechsel: state.wechsel ? { ...state.wechsel } : null,
         pfeile: state.pfeile.map((p) => ({ ...p })),
         sterne: state.sterne.map((st) => ({ ...st, spur: [] })),
         wachen: state.wachen.map((w) => ({ ...w })),
@@ -3921,7 +4067,6 @@
       Object.assign(state, {
         ...k,
         ninja: { ...k.ninja },
-        zug: { ...k.zug },
         wechsel: k.wechsel ? { ...k.wechsel } : null,
         pfeile: k.pfeile.map((p) => ({ ...p })),
         sterne: k.sterne.map((st) => ({ ...st, spur: [] })),

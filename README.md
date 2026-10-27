@@ -193,7 +193,8 @@ eine stockdunkle Höhle, die immer schneller nach rechts weiterzieht. Rechts
 tippen ist ein Flügelschlag, links tippen ein Ruf: Ein Ring aus Schall läuft
 durch die Höhle, die Kanten von Fels und Tropfsteinen glühen cyan und violett
 auf und verblassen wieder – den Weg voraus muss man sich merken. Rufe gibt es
-drei, sie laden langsam nach; ein gefangenes Glühwürmchen lädt sofort. Später
+drei zu Beginn, und sie laden nicht von selbst nach: Neue bringen nur die
+gelben Glühwürmchen (je einen); wer keinen mehr hat, fliegt blind. Später
 kommen Spinnen am Faden, Tropfsteine, die sich lösen, und Gabeln mit einer
 Sackgasse. Gezählt werden die Meter. Jeder Abschnitt hat einen freien
 Korridor, den der Autopilot in der Prüfung bis 2000 m abfliegt.
@@ -201,12 +202,16 @@ Korridor, den der Autopilot in der Prüfung bis 2000 m abfliegt.
 **Zeitlupen-Ninja** (`ninja.js`, `timeNinja`) – Ein nächtlicher Dojo-Hof,
 von oben gesehen, Raum über Raum. Die Zeit läuft nur, wenn der Ninja läuft:
 Wer stillsteht, sieht Pfeile, Wurfsterne und Kirschblüten fast reglos in der
-Luft hängen – wer rennt, sieht die Welt in normalem Tempo. Man zieht den
-Ninja wie auf einem Trackpad (oder mit Pfeiltasten/WASD) an Bogenschützen,
-Klingen, Fallen und den Lichtkegeln der Wächter vorbei zum Tor. Jeder Raum
-gibt 10 Punkte, Schriftrollen und ein schneller Raum (in echter Zeit) geben
-dazu; der erste Treffer beendet die Runde. Die Räume werden immer dichter,
-und beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
+Luft hängen – wer rennt, sieht die Welt in normalem Tempo. Gesteuert wird
+mit dem Steuerfeld am unteren Rand wie mit einem Joystick (hochkant unter dem
+Hof, quer unten rechts im Garten; am Rand volles Tempo) oder mit
+Pfeiltasten/WASD – an Bogenschützen, Klingen, Fallen und den Lichtkegeln der
+Wächter vorbei zum Tor. Jeder Raum gibt 10 Punkte, jede Schriftrolle «+3
+Punkte», und der **Tempo-Bonus** oben links zeigt gross, was ein Raum in
+echter Zeit noch dazugibt: +10 bis 4 s, +6 bis 7 s, +3 bis 12 s, mit einem
+Balken, der abläuft – Stehenbleiben kostet keine Punkte, nur diesen Bonus.
+Der erste Treffer beendet die Runde. Die Räume werden immer dichter, und
+beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
 
 ### Die Klänge
 
