@@ -4026,7 +4026,7 @@ try {
       const geist = window.__miniGeister?.get(`skiJump_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a) && Array.isArray(d?.c), punkte: geist?.punkte || 0, gezaehlt: window.LernappSkispringen.state.punkte, sprunge: window.LernappSkispringen.state.sprunge.length };
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: window.LernappSkispringen.state.punkte, sprunge: window.LernappSkispringen.state.sprunge.length };
     });
     pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.sprunge === 2,
       `Skispringen: Der Lauf wird nicht mit Saat, Ort und Winkel hinterlegt: ${JSON.stringify(gespielt)}`);
@@ -4286,7 +4286,7 @@ try {
       const geist = window.__miniGeister?.get(`skyDive_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a), punkte: geist?.punkte || 0, welt: window.LernappFallschirm.weltText(),
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.a), punkte: geist?.punkte || 0, welt: window.LernappFallschirm.weltText(),
         landungen: window.LernappFallschirm.state.serie.length };
     });
     pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.landungen === 1,
@@ -4635,7 +4635,7 @@ try {
       const geist = window.__miniGeister?.get(`batEcho_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a) && Array.isArray(d?.c), meter: st.meter, rufe: st.rufZahl, welt: window.LernappFledermaus.weltText() };
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), meter: st.meter, rufe: st.rufZahl, welt: window.LernappFledermaus.weltText() };
     });
     pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.meter >= 45 && gespielt.rufe === 2,
       `Fledermaus: Der Lauf wird nicht mit Saat, Weg und Rufen hinterlegt: ${JSON.stringify({ ...gespielt, welt: undefined })}`);
@@ -4938,7 +4938,7 @@ try {
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return {
-        kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a) && Array.isArray(d?.c), punkte: st.punkte, geistPunkte: geist?.punkte || 0,
+        kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, geistPunkte: geist?.punkte || 0,
         raum: st.raum, grund: st.grund, x: st.aus?.x ?? null, y: st.aus?.y ?? null, W: st.W, welt: N.weltText(),
       };
     });
@@ -6122,7 +6122,7 @@ try {
       const geist = window.__miniGeister?.get(`gravityRun_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, mitOrt: Array.isArray(d?.a), punkte: geist?.punkte || 0, korridor: new Function(`return (${quelle})()`)() };
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.a), punkte: geist?.punkte || 0, korridor: new Function(`return (${quelle})()`)() };
     }, korridor.toString());
     pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0,
       `Der Schwerkraft-Läufer hinterlegt seinen Lauf nicht mit Saat und Weg: ${JSON.stringify({ ...gespielt, korridor: undefined })}`);
