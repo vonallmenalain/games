@@ -585,9 +585,9 @@ Spielt er gerade nicht (Runde zu Ende gespielt, oder seit 15 Sekunden nichts
 mehr gehört), steht nur «<Name> spielt gerade nicht», darunter, was er
 zuletzt hatte.
 
-Geschrieben wird das von der laufenden Runde selbst (`turnier.js`,
-`mitschauenSender`), aus denselben Stellen, die auch den Lauf fürs Replay
-aufzeichnen (`geist.js`, `fuer` und `zuege`): der Ort der Figur dreissigmal
+Geschrieben wird das von der laufenden Runde selbst (`geist.js`, «Live
+mitschauen: senden»), aus denselben Stellen, die auch den Lauf fürs Replay
+aufzeichnen (`fuer` und `zuege`): der Ort der Figur dreissigmal
 je Sekunde, in den Spielen ohne Figur jeder Zug – alle halbe Sekunde ein
 Stück in die Realtime Database (`turnierMitschauen/<turnier>/<kennung>`:
 `name`, `runde` mit Spiel und Saat, `teile`, `ende`, `lebt`; über die
@@ -602,6 +602,21 @@ zulässt (`ohneReplay`), und nicht, solange die Rangliste verdeckt ist –
 geschrieben wird dann gar nicht erst (`mitschauenErlaubt`). Die Regeln
 (`database.rules.json`) lassen nur genau diese Form zu, unter einer Kennung,
 wie bei den Spielern eines Multiplayers.
+
+**Zuschauen in der App.** Dasselbe gibt es ausserhalb der Turniere: Wer mit
+Namen spielt, steht auf der Startseite – grüner Punkt auf der Kachel, «Joshua
+spielt gerade» unter dem Namen des Spiels (daneben «Zuschauen») und in der
+Rangliste bei seinem Namen. Jeder dieser Wege öffnet den Beobachtungsmodus
+ohne Turnier (`/<spiel>?mitschauen=<kennung>&wer=<name>`); er folgt dem
+Spieler durch alle Spiele der App, bis «Beenden» zurück zur Startseite führt.
+Die Runde schreibt dafür nach `mitschauen/<kennung>` (dieselbe Form wie im
+Turnier) und legt dazu einen kleinen Zettel nach `amSpielen/<kennung>`
+(`name`, `spiel`, `lebt`, am Ende `fertig`): Den hört die Startseite
+(`cloud.js`, `amSpielenHoeren`), ohne die Läufe selbst mitzuladen. Wer seit 25
+Sekunden nichts gesagt hat (alle zehn Sekunden, solange die Runde läuft) oder
+fertig ist, spielt nicht mehr. Ohne Namen geht nichts hinaus, ebenso wenig im
+Multiplayer (der hat sein eigenes Zuschauen) – und eine Runde im Turnier geht
+nur ins Turnier, nie in die App: Ein Turnier «nur mit Link» bleibt für sich.
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,

@@ -1757,152 +1757,13 @@
     }, LEBENSZEICHEN_MS);
   }
 
-  /*
-   * Live mitschauen: Was in einer Turnierrunde geschieht, geht im Takt von
-   * einer halben Sekunde in die Realtime Database (cloud.js,
-   * mitschauenSchreiben) – wer zuschaut, sieht es kurz danach in seinem
-   * eigenen Spiel (geist.js, zuschauer mit ?mitschauen=).
-   *
-   * Die Proben kommen von geist.js, aus denselben Stellen, die auch den Lauf
-   * fürs Replay aufzeichnen: der Ort der Figur dreissigmal je Sekunde (Strom
-   * «o», aus fuer) und in den Spielen ohne Figur jeder Zug (Strom «z», aus
-   * zuege). Jeder Strom hat seine eigene Uhr – die Zeit seit seinem los() –,
-   * und mit jedem Stück geht mit, wie weit sie gerade ist (jo, jz): Daran
-   * misst der Zuschauer, wie weit er hinterherläuft.
-   *
-   * Eine Runde beginnt mit dem ersten los() eines Stroms und setzt den
-   * ganzen Knoten neu (neue id, neue Saat, keine Stücke). Ein zweiter Strom
-   * derselben Runde (Blätter im Strom zeichnet beide auf) kommt dazu. Fertig
-   * ist sie, wenn jeder Strom, der begann, sein ende() hatte.
-   *
-   * Geschrieben wird nur, wo das Turnier das Anschauen der Läufe erlaubt
-   * (ohneReplay) und die Rangliste nicht verdeckt ist – zuschauen hiesse
-   * sonst, die Punkte doch zu sehen. Und nur, solange die Seite im Bild ist.
-   */
-  // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde –
-  // dreimal so oft wie im Replay (geist.js, TAKT_MS): Die Realtime Database
-  // rechnet nach Datenmenge, nicht nach Anfragen, und ein Zuschauer lädt so
-  // um 5 MB je Stunde. Die Züge alle.
-  const MITSCHAUEN_MS = 500;
-  const MITSCHAUEN_ORT_MS = 30;
-  const mitschauen = { runde: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null };
-
-  function mitschauenKnoten() {
-    return { turnier: hier.id, kennung: mini()?.kennung?.() || "" };
+  // Live mitschauen (geist.js schreibt, was die Runde tut): in diesem
+  // Turnier – aber nur auf einer Spielseite, die freigegeben ist, und nur,
+  // wo zugeschaut werden darf. Sonst leer: Dann geht nichts hinaus, auch
+  // nicht in die App.
+  function mitschauenZiel() {
+    return aufSpielseite() && hier.freigegeben && mitschauenErlaubt(hier.t) ? hier.id : "";
   }
-
-  function mitschauenFlush({ zuletzt = false } = {}) {
-    const r = mitschauen.runde;
-    if (!r) return;
-    const { o, z } = mitschauen.puffer;
-    const jetzt = performance.now();
-    const uhr = (art) => {
-      const u = mitschauen.uhr[art];
-      return u ? Math.round(u.t + (mitschauen.fertig.has(art) ? 0 : jetzt - u.lokal)) : undefined;
-    };
-    const aenderung = { lebt: Date.now() };
-    // Die Saat, falls sie zu Beginn noch nicht feststand.
-    if (r.saat === null && r.saatFn) {
-      const saat = r.saatFn();
-      if (saat !== null) {
-        r.saat = saat;
-        r.saatFn = null;
-        aenderung["runde/saat"] = saat;
-      }
-    }
-    if (o.length || z.length || zuletzt) {
-      const stueck = { jo: uhr("o"), jz: uhr("z") };
-      // Höchstens so viele je Stück – was darüber ist, kommt mit dem nächsten
-      // (die Regeln nehmen ein Stück nur bis 8000 Zeichen).
-      if (o.length) stueck.o = o.splice(0, 120);
-      if (z.length) stueck.z = z.splice(0, 120);
-      aenderung[`teile/${mitschauen.teil}`] = JSON.stringify(stueck);
-      mitschauen.teil += 1;
-    }
-    if (zuletzt && mitschauen.ende) aenderung.ende = mitschauen.ende;
-    const { turnier, kennung } = mitschauenKnoten();
-    Promise.resolve(cloud()?.mitschauenSchreiben?.(turnier, kennung, aenderung)).catch(() => {});
-  }
-
-  function mitschauenTakt() {
-    if (document.visibilityState !== "visible") return;
-    mitschauenFlush();
-  }
-
-  // Für geist.js – nur auf einer Spielseite im Turnier, und nur, wo
-  // zugeschaut werden darf. Sonst null: Dann wird nichts gesammelt.
-  function mitschauenSender() {
-    if (!aufSpielseite() || !hier.freigegeben || !mitschauenErlaubt(hier.t) || !cloud()?.mitschauenSchreiben) return null;
-    return mitschauenApi;
-  }
-
-  const mitschauenApi = {
-    // Ein Strom beginnt: der erste einer neuen Runde – oder der zweite der
-    // laufenden. saat: woher die Saat der Welt kommt (zufall.js) – steht sie
-    // noch nicht fest, wird beim nächsten Stück noch einmal gefragt.
-    los(art, saatFn = null) {
-      const frage = () => { try { const s = saatFn?.(); return Number.isInteger(s) && s >= 0 ? s : null; } catch { return null; } };
-      const saat = frage();
-      const r = mitschauen.runde;
-      const dazu = r && !mitschauen.ende && !mitschauen.laeuft.has(art) && performance.now() - r.lokal < 3000;
-      mitschauen.laeuft.add(art);
-      mitschauen.uhr[art] = { t: 0, lokal: performance.now() };
-      if (dazu) {
-        if (r.saat === null) r.saatFn = frage;
-        return;
-      }
-      window.clearInterval(mitschauen.timer);
-      const neu = {
-        id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-        spiel: spielHier(),
-        saat,
-        saatFn: saat === null ? frage : null,
-        start: Date.now(),
-        lokal: performance.now(),
-      };
-      mitschauen.runde = neu;
-      mitschauen.teil = 0;
-      mitschauen.puffer = { o: [], z: [] };
-      mitschauen.ortZuletzt = -Infinity;
-      mitschauen.laeuft = new Set([art]);
-      mitschauen.fertig = new Set();
-      mitschauen.ende = null;
-      const { turnier, kennung } = mitschauenKnoten();
-      const runde = { id: neu.id, spiel: neu.spiel, start: neu.start };
-      if (neu.saat !== null) runde.saat = neu.saat;
-      Promise.resolve(cloud().mitschauenSchreiben(turnier, kennung, { name: mini()?.name?.() || "?", runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
-      mitschauen.timer = window.setInterval(mitschauenTakt, MITSCHAUEN_MS);
-    },
-    // Eine Probe: t in der Uhr des Stroms, Punkte, Ort (a, b, c) – bei einem
-    // Zug dazu, ob es nur eine Lage dazwischen war.
-    probe(art, t, punkte, ort, zwischen = false) {
-      if (!mitschauen.runde || mitschauen.ende || !mitschauen.laeuft.has(art) || !ort) return;
-      const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
-      const zeit = Math.max(0, Math.round(Number(t) || 0));
-      mitschauen.uhr[art] = { t: zeit, lokal: performance.now() };
-      if (art === "o") {
-        if (zeit - mitschauen.ortZuletzt < MITSCHAUEN_ORT_MS) return;
-        mitschauen.ortZuletzt = zeit;
-      }
-      const probe = [zeit, zahl(ort.a), zahl(ort.b), zahl(ort.c), zahl(punkte)];
-      if (art === "z") probe.push(zwischen ? 1 : 0);
-      mitschauen.puffer[art].push(probe);
-    },
-    // Ein Strom ist zu Ende. Sind es alle, geht das Ende mit dem letzten
-    // Stück hinaus.
-    ende(art, t, punkte) {
-      if (!mitschauen.runde || !mitschauen.laeuft.has(art) || mitschauen.fertig.has(art)) return;
-      mitschauen.fertig.add(art);
-      mitschauen.uhr[art] = { t: Math.max(0, Math.round(Number(t) || 0)), lokal: performance.now() };
-      if (mitschauen.fertig.size < mitschauen.laeuft.size) return;
-      const ende = { p: Math.max(0, Math.round(Number(punkte) || 0)) };
-      if (mitschauen.uhr.o) ende.o = mitschauen.uhr.o.t;
-      if (mitschauen.uhr.z) ende.z = mitschauen.uhr.z.t;
-      mitschauen.ende = ende;
-      window.clearInterval(mitschauen.timer);
-      mitschauenFlush({ zuletzt: true });
-    },
-  };
 
   /*
    * Jemand will neu anfangen – über den Knopf oben (mitten) oder nach dem
@@ -2100,7 +1961,7 @@
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenSender,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel,
     // Das Turnier, in dem diese App lebt – leer, wenn sie keines hat.
     heim: () => heim,
     hinweis,

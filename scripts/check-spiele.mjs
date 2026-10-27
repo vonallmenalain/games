@@ -400,6 +400,28 @@ const ATTRAPPE = `
       const uhr = setInterval(schau, 150);
       return () => clearInterval(uhr);
     },
+    // Die Zettel der App (amSpielen): alle in einem Eintrag.
+    amSpielenSchreiben: async (kennung, daten, wie) => {
+      let alle = {};
+      try { alle = JSON.parse(localStorage.getItem("__amSpielen") || "{}") || {}; } catch { alle = {}; }
+      alle[kennung] = wie && wie.ganz ? { ...daten } : { ...(alle[kennung] || {}), ...daten };
+      localStorage.setItem("__amSpielen", JSON.stringify(alle));
+      return true;
+    },
+    amSpielenHoeren: (beiStand) => {
+      let vorher;
+      const schau = () => {
+        const roh = localStorage.getItem("__amSpielen");
+        if (roh === vorher) return;
+        vorher = roh;
+        let d = null;
+        try { d = JSON.parse(roh || "null"); } catch { d = null; }
+        beiStand(d);
+      };
+      schau();
+      const uhr = setInterval(schau, 150);
+      return () => clearInterval(uhr);
+    },
     turnierVersuch: async (id, { game, spieler, name, grenze = 0 }) => {
       await langsam();
       const t = turniere.get(id);
@@ -2073,6 +2095,114 @@ try {
     await zweite.waitForURL(/\/turnier\?t=/, { timeout: 6000 }).catch(() => {});
     pruefe(new URL(zweite.url()).pathname === "/turnier", `«Beenden» führt nicht zurück zum Turnier: ${zweite.url()}`);
     pruefe(fehlerAufSeite.length === vorher, `Live mitschauen – die Seiten haben sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Live mitschauen in der App: Wer mit Namen spielt, steht auf der
+    // Startseite – auf der Kachel, unter dem Namen des Spiels und in seiner
+    // Rangliste –, und ein Tipp darauf schaut zu. Der Beobachtungsmodus
+    // bleibt über die Runde hinaus, bis «Beenden»; das führt zur Startseite.
+    const { kontext, seite } = await mitTurnieren("/turmbau", { vorher: () => localStorage.setItem("mini.name", "Herz") });
+    const vorher = fehlerAufSeite.length;
+    const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
+    const tipp = () => seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
+    const nochEine = async (adresse) => {
+      const neu = await kontext.newPage();
+      await neu.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+      await neu.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" }));
+      await neu.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
+      neu.on("pageerror", (fehler) => fehlerAufSeite.push(String(fehler.message || fehler)));
+      await neu.goto(`${BASIS}${adresse}`, { waitUntil: "load" });
+      return neu;
+    };
+    await tipp();
+    await seite.waitForFunction(() => window.LernappTurmbau?.state?.phase === "spiel", null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForTimeout(300);
+    const kennung = await seite.evaluate(() => localStorage.getItem("mini.id"));
+    const zettel = await seite.evaluate(() => JSON.parse(localStorage.getItem("__amSpielen") || "{}"));
+    pruefe(zettel[kennung]?.name === "Herz" && zettel[kennung]?.spiel === "towerStack" && !zettel[kennung]?.fertig,
+      `Wer in der App spielt, legt keinen Zettel hin: ${JSON.stringify(zettel)}`);
+    const zuHerz = `/turmbau?mitschauen=${kennung}&wer=Herz`;
+    const start = await nochEine("/");
+    await start.waitForSelector('.ar-kachel[data-spiel="towerStack"] .ar-kachel-live:not([hidden])', { timeout: 6000 }).catch(() => {});
+    await start.click('.ar-kachel[data-spiel="towerStack"]').catch(() => {});
+    await start.waitForFunction(() => /Herz spielt gerade/.test(document.querySelector(".ar-spielen:not([hidden])")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
+    const aufStart = await start.evaluate(() => ({
+      kachel: document.querySelector('.ar-kachel[data-spiel="towerStack"] .ar-kachel-live:not([hidden])')?.textContent || "",
+      satz: document.querySelector(".ar-spielen:not([hidden]) .ar-spielen-text")?.textContent || "",
+      name: document.querySelector(".ar-spielen a.ar-zuschauen")?.getAttribute("href"),
+      knopf: document.querySelector(".ar-spielen a.ar-zuschau-knopf")?.getAttribute("href"),
+    }));
+    pruefe(/Herz/.test(aufStart.kachel) && /^Herz spielt gerade/.test(aufStart.satz) && aufStart.name === zuHerz && aufStart.knopf === zuHerz,
+      `Die Startseite zeigt nicht, dass Herz Turmbau spielt, mit dem Weg zum Zuschauen: ${JSON.stringify(aufStart)}`);
+    await start.click(".ar-zuschau-knopf");
+    await start.waitForURL(/\/turmbau\?mitschauen=/, { timeout: 6000 }).catch(() => {});
+    for (let i = 0; i < 3; i += 1) {
+      await tipp();
+      await seite.waitForTimeout(700);
+    }
+    await start.waitForTimeout(2600);
+    const blick = () => Promise.all([
+      seite.evaluate(() => window.LernappTurmbau?.state?.bloecke?.length ?? -1),
+      start.evaluate(() => ({
+        bloecke: window.LernappTurmbau?.state?.bloecke?.length ?? -1,
+        phase: window.LernappTurmbau?.state?.phase,
+        live: Boolean(document.querySelector(".gz-leiste.ist-live")),
+        titel: document.querySelector(".gz-titel")?.textContent || "",
+        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\n/g, " ") || "",
+        neu: !window.__alteSeite,
+      })),
+    ]);
+    const [selbst, zu] = await blick();
+    pruefe(zu.live && zu.phase === "zuschauen" && /^Herz/.test(zu.titel) && !zu.tafel && selbst > 1 && zu.bloecke === selbst,
+      `Wer in der App zuschaut, sieht den Turm nicht mitwachsen: Spieler ${selbst} Blöcke, Zuschauer ${JSON.stringify(zu)}`);
+    pruefe(await spieleZuEnde(seite), "Die Runde in der App, der zugeschaut wurde, kam zu keinem Ergebnis.");
+    await start.waitForFunction(() => /spielt gerade nicht/.test(document.querySelector(".gz-tafel:not([hidden])")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
+    const [, danach] = await blick();
+    pruefe(/^Herz spielt gerade nicht zuletzt \d+ Blöcke/.test(danach.tafel), `Nach der Runde in der App steht nicht, dass Herz gerade nicht spielt: ${danach.tafel}`);
+    const fertig = await seite.evaluate(() => JSON.parse(localStorage.getItem("__amSpielen") || "{}"));
+    pruefe(fertig[kennung]?.fertig === true, `Nach der Runde sagt der Zettel nicht, dass Herz fertig ist: ${JSON.stringify(fertig[kennung])}`);
+    // Herz spielt noch eine Runde: Der Zuschauer ist von selbst wieder dabei
+    // (die Seite lädt dafür neu, mit der Welt der neuen Runde).
+    await start.evaluate(() => { window.__alteSeite = true; });
+    await seite.click(".cm-bar-left .cm-icon-again").catch(() => {});
+    for (let i = 0; i < 3; i += 1) {
+      await tipp();
+      await seite.waitForTimeout(600);
+    }
+    let weiter = null;
+    for (let i = 0; i < 40; i += 1) {
+      await start.waitForTimeout(250);
+      weiter = await blick().then(([, z]) => z).catch(() => null);
+      if (weiter?.neu && weiter.phase === "zuschauen" && !weiter.tafel) break;
+    }
+    pruefe(weiter?.neu && weiter.live && weiter.phase === "zuschauen" && !weiter.tafel, `Bei der nächsten Runde schaut der Zuschauer nicht von selbst wieder zu: ${JSON.stringify(weiter)}`);
+    // Herz steht jetzt in der Rangliste: Dort trägt der Name den grünen
+    // Punkt, und «spielt gerade» ist ein Weg zum Zuschauen.
+    const liste = await nochEine("/");
+    await liste.click('.ar-kachel[data-spiel="towerStack"]').catch(() => {});
+    await liste.waitForSelector(".ar-spielen:not([hidden])", { timeout: 4000 }).catch(() => {});
+    await liste.click(".ar-rang");
+    await liste.waitForSelector("dialog .gk-zeile.ist-am-spielen", { timeout: 4000 }).catch(() => {});
+    const inListe = await liste.evaluate(() => {
+      const zeile = document.querySelector("dialog .gk-zeile.ist-am-spielen");
+      return { name: zeile?.querySelector(".gk-name-text")?.textContent || "", link: zeile?.querySelector("a.gk-spielt")?.getAttribute("href") || "" };
+    });
+    pruefe(inListe.name === "Herz" && inListe.link === zuHerz, `In der Rangliste steht nicht, dass Herz gerade spielt, mit dem Weg zum Zuschauen: ${JSON.stringify(inListe)}`);
+    // «Beenden»: zurück zur Startseite.
+    await start.click(".gz-leiste .gz-zu").catch(() => {});
+    await start.waitForURL((url) => url.pathname === "/" || url.pathname === "/index.html", { timeout: 6000 }).catch(() => {});
+    pruefe(["/", "/index.html"].includes(new URL(start.url()).pathname), `«Beenden» führt in der App nicht zur Startseite: ${start.url()}`);
+    // Ohne Namen geht nichts hinaus.
+    await seite.evaluate(() => { localStorage.removeItem("mini.name"); });
+    await Promise.all([seite.close(), liste.close()]);
+    await start.evaluate(() => { localStorage.removeItem("__amSpielen"); });
+    const ohne = await nochEine("/turmbau");
+    await ohne.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
+    await ohne.waitForTimeout(1200);
+    const leer = await ohne.evaluate(() => localStorage.getItem("__amSpielen"));
+    pruefe(!leer || leer === "{}", `Wer ohne Namen spielt, legt trotzdem einen Zettel hin: ${leer}`);
+    pruefe(fehlerAufSeite.length === vorher, `Live mitschauen in der App – die Seiten haben sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
   {

@@ -974,6 +974,29 @@ await darfNicht("Gast schreibt ein Stück mit erfundener Nummer", () => live.gas
 await darfNicht("Gast meldet ein Ende ohne Punkte", () => live.gast().ref(`${MIT}/ende`).set({ o: 1 }));
 await darfNicht("Gast meldet einen Namen von 25 Zeichen", () => live.gast().ref(`${MIT}/name`).set("X".repeat(25)));
 
+// Dasselbe in der App (geist.js): unter mitschauen/<kennung>, und dazu der
+// Zettel in amSpielen, an dem die Startseite sieht, wer gerade spielt. Den
+// Zettel lesen alle auf einmal; die Läufe nur je Spieler.
+const APP = `mitschauen/${LIVE_ICH}`;
+const ZETTEL = `amSpielen/${LIVE_ICH}`;
+await darf("Gast beginnt eine Runde in der App", () => live.gast().ref(APP).set(mitRunde()));
+await darf("Gast schreibt ein Stück seiner Runde in der App", () => live.gast().ref(APP).update({ "teile/0": JSON.stringify({ jo: 450, o: [[0, 1, 2, 3, 0]] }), lebt: 2 }));
+await darf("Gast meldet das Ende seiner Runde in der App", () => live.gast().ref(APP).update({ "teile/1": "{}", ende: { p: 42, o: 900 }, lebt: 4 }));
+await darf("Gast schaut in der App zu", () => live.gast().ref(APP).get());
+await darfNicht("Gast listet alle Läufe der App auf", () => live.gast().ref("mitschauen").get());
+await darfNicht("Gast schreibt in der App unter einer erfundenen Kennung", () => live.gast().ref("mitschauen/wer-auch-immer").set(mitRunde()));
+await darfNicht("Gast schmuggelt ein Feld in seinen Lauf in der App", () => live.gast().ref(APP).set({ ...mitRunde(), geheim: "x" }));
+await darfNicht("Gast schreibt in der App ein riesiges Stück", () => live.gast().ref(`${APP}/teile/2`).set("x".repeat(8001)));
+await darf("Gast legt seinen Zettel hin", () => live.gast().ref(ZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
+await darf("Gast sagt, dass er noch spielt", () => live.gast().ref(ZETTEL).update({ lebt: 2 }));
+await darf("Gast sagt, dass er fertig ist", () => live.gast().ref(ZETTEL).update({ lebt: 3, fertig: true }));
+await darf("Gast liest, wer gerade spielt", () => live.gast().ref("amSpielen").get());
+await darfNicht("Gast legt einen Zettel ohne Spiel hin", () => live.gast().ref(ZETTEL).set({ name: "Alain", lebt: 1 }));
+await darfNicht("Gast legt einen Zettel für ein erfundenes Spiel hin", () => live.gast().ref(ZETTEL).set({ name: "Alain", spiel: "<b>", lebt: 1 }));
+await darfNicht("Gast schmuggelt ein Feld auf den Zettel", () => live.gast().ref(ZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1, punkte: 5 }));
+await darfNicht("Gast legt einen Zettel unter einer erfundenen Kennung hin", () => live.gast().ref("amSpielen/wer-auch-immer").set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
+await darfNicht("Gast überschreibt alle Zettel auf einmal", () => live.gast().ref("amSpielen").set(null));
+
 await env.cleanup();
 
 console.log(`${geprueft} Zugriffe gegen die Regeln geprüft.`);

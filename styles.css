@@ -6843,6 +6843,10 @@ body.ar {
 /* In der Liste eines Spiels: wer es gerade spielt. */
 .gk-spielt { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; margin-left: 8px; color: var(--ar-gruen); font-size: 0.7rem; font-weight: 850; }
 .gk-spielt .ar-live-punkt { width: 7px; height: 7px; }
+/* Wo sich zuschauen lässt, ist «spielt gerade» ein Weg dorthin. */
+a.gk-spielt { margin-top: -4px; margin-bottom: -4px; padding: 4px 0; text-decoration: none; }
+a.gk-spielt:hover > span:last-child,
+a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 .gk-zeile.ist-am-spielen { box-shadow: inset 0 0 0 1px rgba(90, 216, 147, 0.35); }
 @media (max-width: 420px) {
   .tn-sieger { gap: 5px; }
@@ -6851,7 +6855,7 @@ body.ar {
   .tn-stufe.ist-platz-1 .tn-avatar-gross { width: 62px; height: 62px; font-size: 1.2rem; }
   .tn-stufe .tn-person-wert { padding: 3px 8px; }
   .tn-reihe-zeile { gap: 8px; }
-  .gk-spielt > span:last-child { display: none; }
+  small.gk-spielt > span:last-child { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ar-live-punkt,
