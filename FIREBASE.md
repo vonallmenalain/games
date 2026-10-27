@@ -75,7 +75,7 @@ live/<code>                      lesen: wer den Link hat (zehn Zeichen im
                nr, saat, startUm, endeUm, dabei   schreiben: nur der Admin
     spieler/<kennung>       name, online, seit    der Spieler selbst
     punkte/<nr>/<kennung>   p, fertig, t          der Spieler selbst
-    lage/<kennung>          n, t, a, b, c, p      der Spieler selbst
+    lage/<kennung>          n, t, a, b, c, p, v   der Spieler selbst
 
 liveOffen/<code>        name, seit                lesen: jeder (auch als Liste)
                                                   schreiben: nur der Admin

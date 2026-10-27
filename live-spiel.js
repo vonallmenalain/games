@@ -33,8 +33,9 @@
  *                verdeckt –, spielt nicht wirklich und gilt als weg: Auf ihn
  *                wartet die Runde nicht. Kommt er zurück, spielt er weiter.
  *   Gegner       In den Spielen mit Figur im Bild laufen die anderen als
- *                Geister mit (geist.js fragt gegner()): aus ihrer Lage, die
- *                zehnmal je Sekunde kommt, je so weit zurück, dass fast
+ *                Geister mit (geist.js fragt gegner()): aus ihrer Lage –
+ *                dreissigmal je Sekunde gemessen, zehnmal verschickt, die
+ *                Proben dazwischen dabei –, je so weit zurück, dass fast
  *                immer die nächste Probe schon da ist – gemessen, nicht
  *                geschätzt, meist um eine Fünftelsekunde. Dazwischen läuft
  *                eine weiche Kurve; nichts springt (siehe Die Lage der
@@ -95,8 +96,15 @@
   try { runde = rahmen?.runde?.(adresse.code, adresse.nr) || null; } catch { runde = null; }
 
   const aktiv = () => Boolean(runde);
-  // Wie oft die eigene Lage hinausgeht: zehnmal je Sekunde.
+  // Wie oft die eigene Lage gemessen wird: dreissigmal je Sekunde (wie die
+  // Läufe in der Hall of Fame, geist.js, TAKT_MS) – und wie oft sie
+  // hinausgeht: zehnmal, mit den Proben seit dem letzten Mal (vorher). So
+  // sehen die anderen jede Bewegung so fein wie im Replay, und die Datenbank
+  // trägt kaum mehr als zehn Proben je Sekunde.
+  const PROBE_MS = 30;
   const LAGE_MS = 90;
+  // Mehr Proben gehen nicht in eine Lage (die Regeln lassen 240 Zeichen zu).
+  const VORHER_MAX = 6;
   // Wie weit die anderen hinter der Wirklichkeit gezeigt werden (verzug):
   // gemessen je Spieler, hier nur, wo es beginnt und wo es aufhört.
   const VERZUG_START = 200;
@@ -151,6 +159,8 @@
     punkte: 0,
     gesendet: { p: -1, ms: 0 },
     lageMs: 0,
+    probeMs: 0,
+    vorher: [],
     daten: { spieler: {}, punkte: {} },
     tafel: null,
     leiste: null,
@@ -216,16 +226,38 @@
   }
 
   // Wo die Figur gerade ist – für die anderen, die sie im Bild mitlaufen
-  // sehen. Zehnmal je Sekunde; dazwischen rechnen sie selbst.
+  // sehen. Dreissigmal je Sekunde gemessen, zehnmal hinaus: die neueste
+  // Probe wie immer (t, a, b, c, p), die davor in v, als Text
+  // «Abstand,a,b,c,p;…» – der Abstand in Millisekunden vor t.
   function lage(wert, ort) {
     if (!runde || z.fertig || !z.gestartet || !ort) return;
     const jetzt = Date.now();
-    if (jetzt - z.lageMs < LAGE_MS) return;
-    z.lageMs = jetzt;
+    if (jetzt - z.probeMs < PROBE_MS) return;
+    z.probeMs = jetzt;
     const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+    const neu = { t: Math.max(0, Math.round(zeit())), a: zahl(ort.a), b: zahl(ort.b), c: zahl(ort.c), p: zahl(wert) };
+    if (jetzt - z.lageMs < LAGE_MS) {
+      z.vorher.push(neu);
+      if (z.vorher.length > VORHER_MAX) z.vorher.shift();
+      return;
+    }
+    z.lageMs = jetzt;
+    const v = z.vorher.filter((x) => x.t < neu.t).map((x) => [neu.t - x.t, x.a, x.b, x.c, x.p].join(",")).join(";");
+    z.vorher = [];
     try {
-      rahmen.lage({ t: Math.max(0, Math.round(zeit())), a: zahl(ort.a), b: zahl(ort.b), c: zahl(ort.c), p: zahl(wert) });
+      rahmen.lage(v.length && v.length <= 240 ? { ...neu, v } : neu);
     } catch { /* der Rahmen ist weg */ }
+  }
+
+  // Die Proben vor einer Lage (v), älteste zuerst – was nicht passt, fällt weg.
+  function vorherAus(v, t) {
+    if (typeof v !== "string" || !v || v.length > 240) return [];
+    return v.split(";").map((teil) => {
+      const [d, a, b, c, p] = teil.split(",").map(Number);
+      return { t: t - d, a, b, c, p, d };
+    }).filter((x) => x.d > 0 && [x.a, x.b, x.c, x.p].every(Number.isFinite))
+      .map(({ t: zt, a, b, c, p }) => ({ t: zt, a, b, c, p }))
+      .sort((x, y) => x.t - y.t);
   }
 
   /*
@@ -356,8 +388,8 @@
    * { t, a, b, c, p }, t in Millisekunden seit dem gemeinsamen Start) und wie
    * weit hinter der Wirklichkeit er gezeigt wird (verzug).
    *
-   * Warum hinterher: Die Lage kommt zehnmal je Sekunde, und bis eine Probe
-   * da ist, vergeht noch einmal eine Zehntelsekunde oder zwei. Wer den
+   * Warum hinterher: Die Lage kommt zehnmal je Sekunde (mit drei Proben),
+   * und bis sie da ist, vergeht noch einmal eine Zehntelsekunde oder zwei. Wer den
    * anderen «jetzt» zeigen will, muss raten, wo er inzwischen ist – und
    * springt zurück, sobald die nächste Probe etwas anderes sagt. Das war das
    * Ruckeln. Statt dessen steht jeder gerade so weit zurück, dass fast immer
@@ -405,7 +437,9 @@
       if (letzte && t <= letzte.t) return;
       const neu = { t, a: Number(l.a) || 0, b: Number(l.b) || 0, c: Number(l.c) || 0, p: Number(l.p) || 0 };
       const zuege = zugSpiel();
-      if (!letzte && !zuege) { proben.push(neu); return; }
+      // Mit den Proben davor (v): erst die, dann die neueste.
+      const dazu = [...(zuege ? [] : vorherAus(l.v, t).filter((x) => !letzte || x.t > letzte.t)), neu];
+      if (!letzte && !zuege) { proben.push(...dazu); return; }
 
       // Wie alt die bis dahin neueste Probe war, als diese kam. Bei Zügen,
       // die kommen, wann sie wollen, zählt nur, wie lange diese unterwegs war.
@@ -427,8 +461,8 @@
       const winkel = cIstWinkel();
       const vorher = kurve(proben, jetzt, false, winkel);
       const alt = glatt(spur);
-      proben.push(neu);
-      if (proben.length > PROBEN_MAX) proben.shift();
+      proben.push(...dazu);
+      if (proben.length > PROBEN_MAX) proben.splice(0, proben.length - PROBEN_MAX);
       const nachher = kurve(proben, jetzt, false, winkel);
       const da = vorher.a + alt.a - nachher.a;
       const db = vorher.b + alt.b - nachher.b;

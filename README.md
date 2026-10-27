@@ -836,8 +836,14 @@ kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
 Hügelflieger, Windschichten, Slalom, Froschsprung, Seiltänzer, Heisser Draht,
 Ball hochhalten, Skispringen, Fallschirm, Fledermaus, Zeitlupen-Ninja)
-meldet jedes Gerät zehnmal je Sekunde, wo seine Figur ist
-(`lage`). Die anderen laufen als Geister mit – wer vorne liegt in Gold –,
+misst jedes Gerät dreissigmal je Sekunde, wo seine Figur ist, und schickt
+das zehnmal je Sekunde hinaus (`lage`): die neueste Probe in `t`, `a`, `b`,
+`c`, `p`, die zwei davor als kurzer Text in `v` («Abstand,a,b,c,p;…»). So
+sehen die anderen jede Bewegung so fein wie im Replay, und die Datenbank
+trägt etwa ein Drittel mehr als vorher, nicht das Dreifache – sie rechnet
+nach Datenmenge, und jede Lage geht an jedes Gerät der Runde. Ein Gerät mit
+einer älteren Fassung lässt `v` einfach liegen. Die anderen laufen als
+Geister mit – wer vorne liegt in Gold –,
 gebaut auf denselben Geistern wie in der Hall of Fame (`geist.js`): Statt
 einer Aufzeichnung beantwortet der Live-Strom die Frage «wo ist er zur Zeit
 t» (`live-spiel.js`, `liveLauf`).
