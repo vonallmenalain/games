@@ -1768,6 +1768,9 @@
       mitOrt: !mitZuegen,
       zuege: mitZuegen,
       get saat() { return m.runde?.saat ?? null; },
+      // Ob das Ende feststeht: Bis dahin ist dauer nur, wie weit der Lauf
+      // schon angekommen ist – nicht, wo er aufhört.
+      get abgeschlossen() { return Boolean(m.ende); },
       get dauer() {
         const liste = mitZuegen ? m.zuege : m.orte;
         const zuletzt = liste[liste.length - 1]?.t || 0;

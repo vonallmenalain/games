@@ -212,7 +212,8 @@ Tor. Jeder Raum gibt 10 Punkte, jede Schriftrolle «+3
 Punkte», und der **Tempo-Bonus** oben links zeigt gross, was ein Raum in
 echter Zeit noch dazugibt: +10 bis 4 s, +6 bis 7 s, +3 bis 12 s, mit einem
 Balken, der abläuft – Stehenbleiben kostet keine Punkte, nur diesen Bonus.
-Der erste Treffer beendet die Runde. Die Räume werden immer dichter, und
+Am Tor steht nur der Tempo-Bonus («Tempo-Bonus +6»), auch beim Zuschauen;
+die 10 Punkte des Raums zählen still mit. Der erste Treffer beendet die Runde. Die Räume werden immer dichter, und
 beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
 
 ### Die Klänge

@@ -20,8 +20,9 @@
  * «+3 Punkte»), und wer einen Raum in wenig echter Zeit schafft, bekommt den
  * Tempo-Bonus dazu (TEMPO_STUFEN), oben links gross mit seiner ablaufenden
  * Zeit: Die echte Zeit misst, wie entschlossen man war – stehen bleiben darf
- * man, solange man will, es kostet keine Punkte, nur diesen Bonus. Ein
- * Treffer beendet die Runde.
+ * man, solange man will, es kostet keine Punkte, nur diesen Bonus. Am Tor
+ * steht nur er («Tempo-Bonus +6»); die Punkte des Raums zählen still mit.
+ * Ein Treffer beendet die Runde.
  * Damit niemand ewig in einer Ecke wartet, werden die Wachen nach LUNTE
  * Sekunden Weltzeit in einem Raum unruhig (Pfeilhagel), und nach DECKEL ist
  * man gefangen.
@@ -1237,8 +1238,9 @@
     raumBis(r.k + 3);
     if (state.sim) return;
     shell.setCount(state.punkte);
-    schrift(`+${PUNKTE_RAUM}`, r.torO, RAUM_H + 26, r.y0, "#ffffff", 22, 1.2);
-    if (stufe) schrift(`Tempo-Bonus +${bonus}`, r.torO, RAUM_H + 2, r.y0, TEMPO_FARBEN[i], i === 0 ? 18 : 16, 1.5);
+    // Am Tor steht nur der Tempo-Bonus – die Punkte des Raums zählen still
+    // mit, sonst stünden zwei Zahlen da, und welche der Bonus ist, ginge unter.
+    if (stufe) tempoSchrift(r, bonus);
     funken(r.y0, r.torO, RAUM_H + 8, 14, ["#c8ffd4", "#ffffff", "#ffe08a"], 110, true);
     // Ein Raum geschafft. Blitzschnell dazu: nach der langen Harfe die kurze
     // (nur beim ersten blitzschnellen Raum in Folge).
@@ -1361,6 +1363,13 @@
     if (state.sim) return;
     state.stecken.push({ x, y: y + r.y0, dx, dy, stern, alter: 0, dreh: Math.random() * 6 });
     if (state.stecken.length > 40) state.stecken.shift();
+  }
+
+  // «Tempo-Bonus +6» am Tor, in der Farbe seiner Stufe.
+  function tempoSchrift(r, bonus) {
+    const i = TEMPO_STUFEN.findIndex(([, wert]) => wert === bonus);
+    if (i < 0) return;
+    schrift(`Tempo-Bonus +${bonus}`, r.torO, RAUM_H + 16, r.y0, TEMPO_FARBEN[i], i === 0 ? 22 : 20, 1.6);
   }
 
   function schrift(text, x, y, y0, farbe, gross, dauer = 1.1) {
@@ -3694,11 +3703,17 @@
     zs.W = W;
     const punkte = Math.max(0, Math.floor(s.punkte || 0));
     if (punkte !== state.punkte) {
+      // Im Tor kommen die Punkte des Raums dazu: Die Aufzeichnung kennt nur
+      // die Summe – was über PUNKTE_RAUM geht, ist der Tempo-Bonus.
+      const dazu = punkte - state.punkte;
       state.punkte = punkte;
       shell.setCount(punkte);
+      if (imTor && dazu > PUNKTE_RAUM) tempoSchrift(r, dazu - PUNKTE_RAUM);
     }
-    // Der Treffer: Die Aufzeichnung endet AUS_DAUER danach.
-    const dauer = zuschauer.lauf?.dauer;
+    // Der Treffer: Die Aufzeichnung endet AUS_DAUER danach. Live steht das
+    // Ende erst fest, wenn seine Runde vorbei ist (geist.js, mitschauer).
+    const lauf = zuschauer.lauf;
+    const dauer = lauf?.live && !lauf.abgeschlossen ? Infinity : lauf?.dauer;
     if (!zs.ende && Number.isFinite(dauer) && s.t >= dauer - AUS_DAUER * 1000 + 50) {
       zs.ende = true;
       state.schritt = "aus";
@@ -3723,7 +3738,6 @@
     state.geschafft = geschafft;
     state.zs.frieren = true;
     state.zs.frierW = state.W;
-    schrift(`+${PUNKTE_RAUM}`, r.torO, RAUM_H + 26, r.y0, "#ffffff", 22, 1.2);
     ton("meilenstein", {}, 500);
     kameraZu(geschafft);
   }
