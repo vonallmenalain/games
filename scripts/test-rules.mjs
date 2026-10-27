@@ -996,6 +996,21 @@ await darfNicht("Gast legt einen Zettel in ein Turnier mit unmöglichem Namen", 
 await darfNicht("Gast legt im Turnier einen Zettel unter erfundener Kennung hin", () => live.gast().ref("turnierAmSpielen/herbst-k3m9x2p7/wer-auch-immer").set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
 await darfNicht("Gast schmuggelt im Turnier ein Feld auf den Zettel", () => live.gast().ref(TZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1, versuche: 9 }));
 
+// Wer zuschaut, meldet sich beim Spieler (zuschauer/<spieler>/<ich>): Der
+// Spieler liest alle, die ihm zuschauen; über alle Spieler hinweg niemand.
+const ZU = `zuschauer/${LIVE_ICH}/mini_zuschauerzuschauer`;
+await darf("Gast meldet sich als Zuschauer", () => live.gast().ref(ZU).set({ name: "Zoe", lebt: 1 }));
+await darf("Gast meldet sich ohne Namen als Zuschauer", () => live.gast().ref(ZU).set({ name: "", lebt: 2 }));
+await darf("Gast liest, wer ihm zuschaut", () => live.gast().ref(`zuschauer/${LIVE_ICH}`).get());
+await darf("Gast schaut nicht mehr zu", () => live.gast().ref(ZU).remove());
+await darfNicht("Gast listet, wem alle zuschauen", () => live.gast().ref("zuschauer").get());
+await darfNicht("Gast meldet sich ohne Lebenszeichen", () => live.gast().ref(ZU).set({ name: "Zoe" }));
+await darfNicht("Gast meldet einen Zuschauer mit 25 Zeichen", () => live.gast().ref(ZU).set({ name: "X".repeat(25), lebt: 1 }));
+await darfNicht("Gast schmuggelt ein Feld in die Meldung", () => live.gast().ref(ZU).set({ name: "Zoe", lebt: 1, spiel: "towerStack" }));
+await darfNicht("Gast meldet sich unter einer erfundenen Kennung", () => live.gast().ref(`zuschauer/${LIVE_ICH}/wer-auch-immer`).set({ name: "Zoe", lebt: 1 }));
+await darfNicht("Gast meldet sich bei einem erfundenen Spieler", () => live.gast().ref("zuschauer/wer-auch-immer/mini_zuschauerzuschauer").set({ name: "Zoe", lebt: 1 }));
+await darfNicht("Gast löscht alle Zuschauer eines Spielers auf einmal", () => live.gast().ref(`zuschauer/${LIVE_ICH}`).set(null));
+
 await env.cleanup();
 
 console.log(`${geprueft} Zugriffe gegen die Regeln geprüft.`);

@@ -1015,6 +1015,26 @@
   // fertig } } – die der App oder, mit turnier, die dieses Turniers.
   const amSpielenHoeren = (beiStand, turnier = "") => hoere(amSpielenAdresse(turnier), beiStand);
 
+  /*
+   * Wer gerade zuschaut: zuschauer/<spieler>/<zuschauer> – { name, lebt }.
+   * Der Beobachtungsmodus meldet sich dort an und alle zehn Sekunden wieder
+   * (geist.js, mitschauer) und meldet sich beim Gehen ab (daten null); die
+   * Spielseite des Spielers hört mit und zeigt «Alain schaut gerade zu».
+   */
+  const zuschauerAdresse = (spieler, ich = null) => {
+    if (!SPIELER_ID.test(String(spieler || ""))) return "";
+    if (ich === null) return `${firebaseConfig.databaseURL}/zuschauer/${spieler}.json`;
+    return SPIELER_ID.test(String(ich)) ? `${firebaseConfig.databaseURL}/zuschauer/${spieler}/${ich}.json` : "";
+  };
+  async function zuschauerMelden(spieler, ich, daten) {
+    const adresse = zuschauerAdresse(spieler, String(ich || ""));
+    if (!adresse) return false;
+    if (daten) return schreibeRest(adresse, daten, true);
+    const antwort = await fetch(adresse, { method: "DELETE", keepalive: true });
+    return antwort.ok;
+  }
+  const zuschauerHoeren = (spieler, beiStand) => hoere(zuschauerAdresse(spieler), beiStand);
+
   function hoere(adresse, beiStand) {
     if (!adresse || typeof window.EventSource !== "function") return () => {};
     let knoten = null;
@@ -1447,7 +1467,7 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
-    mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren,
+    mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,

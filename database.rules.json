@@ -166,6 +166,18 @@
           "$anderes": { ".validate": false }
         }
       }
+    },
+    "zuschauer": {
+      "$spieler": {
+        ".read": "$spieler.matches(/^mini_[A-Za-z0-9_-]{8,48}$/)",
+        "$ich": {
+          ".write": "$spieler.matches(/^mini_[A-Za-z0-9_-]{8,48}$/) && $ich.matches(/^mini_[A-Za-z0-9_-]{8,48}$/)",
+          ".validate": "newData.hasChildren(['name', 'lebt'])",
+          "name": { ".validate": "newData.isString() && newData.val().length <= 24" },
+          "lebt": { ".validate": "newData.isNumber()" },
+          "$anderes": { ".validate": false }
+        }
+      }
     }
   }
 }

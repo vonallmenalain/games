@@ -411,6 +411,31 @@ const ATTRAPPE = `
       const uhr = setInterval(schau, 150);
       return () => clearInterval(uhr);
     },
+    // Wer zuschaut (zuschauer/<spieler>/<ich>): «__zuschauer/<spieler>».
+    zuschauerMelden: async (spieler, ich, daten) => {
+      const k = "__zuschauer/" + spieler;
+      let alle = {};
+      try { alle = JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch { alle = {}; }
+      if (daten) alle[ich] = { ...daten };
+      else delete alle[ich];
+      localStorage.setItem(k, JSON.stringify(alle));
+      return true;
+    },
+    zuschauerHoeren: (spieler, beiStand) => {
+      const k = "__zuschauer/" + spieler;
+      let vorher;
+      const schau = () => {
+        const roh = localStorage.getItem(k);
+        if (roh === vorher) return;
+        vorher = roh;
+        let d = null;
+        try { d = JSON.parse(roh || "null"); } catch { d = null; }
+        beiStand(d);
+      };
+      schau();
+      const uhr = setInterval(schau, 150);
+      return () => clearInterval(uhr);
+    },
     turnierVersuch: async (id, { game, spieler, name, grenze = 0 }) => {
       await langsam();
       const t = turniere.get(id);
@@ -2157,6 +2182,18 @@ try {
     const [selbst, zu] = await blick();
     pruefe(zu.live && zu.phase === "zuschauen" && /^Herz/.test(zu.titel) && !zu.tafel && selbst > 1 && zu.bloecke === selbst,
       `Wer in der App zuschaut, sieht den Turm nicht mitwachsen: Spieler ${selbst} Blöcke, Zuschauer ${JSON.stringify(zu)}`);
+    // Wer zuschaut, steht beim Spieler unten links – klein, mit grünem
+    // Punkt, und nicht anklickbar. (Hier schaut Herz sich selbst zu, aus
+    // einem zweiten Fenster.)
+    await seite.waitForFunction(() => /schaut gerade zu/.test(document.querySelector(".gz-zuschauer:not([hidden])")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    const hinweis = await seite.evaluate(() => {
+      const p = document.querySelector(".gz-zuschauer:not([hidden])");
+      if (!p) return null;
+      const r = p.getBoundingClientRect();
+      return { text: p.textContent.trim(), punkt: Boolean(p.querySelector(".ar-live-punkt")), zeiger: getComputedStyle(p).pointerEvents, links: Math.round(r.left), unten: Math.round(window.innerHeight - r.bottom), breit: Math.round(r.width) };
+    });
+    pruefe(hinweis?.text === "Herz schaut gerade zu" && hinweis.punkt && hinweis.zeiger === "none" && hinweis.links >= 0 && hinweis.links < 40 && hinweis.unten >= 0 && hinweis.unten < 60 && hinweis.breit < breit / 2,
+      `Beim Spieler steht nicht unten links, dass jemand zuschaut: ${JSON.stringify(hinweis)}`);
     pruefe(await spieleZuEnde(seite), "Die Runde in der App, der zugeschaut wurde, kam zu keinem Ergebnis.");
     await start.waitForFunction(() => /spielt gerade nicht/.test(document.querySelector(".gz-tafel:not([hidden])")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
     const [, danach] = await blick();
@@ -2194,6 +2231,9 @@ try {
     await start.click(".gz-leiste .gz-zu").catch(() => {});
     await start.waitForURL((url) => url.pathname === "/" || url.pathname === "/index.html", { timeout: 6000 }).catch(() => {});
     pruefe(["/", "/index.html"].includes(new URL(start.url()).pathname), `«Beenden» führt in der App nicht zur Startseite: ${start.url()}`);
+    await seite.waitForFunction(() => !document.querySelector(".gz-zuschauer:not([hidden])"), null, { timeout: 4000 }).catch(() => {});
+    const nochDa = await seite.evaluate(() => document.querySelector(".gz-zuschauer:not([hidden])")?.textContent || "");
+    pruefe(!nochDa, `Nach «Beenden» steht beim Spieler noch, dass jemand zuschaut: ${nochDa}`);
     // Ohne Namen geht nichts hinaus.
     await seite.evaluate(() => { localStorage.removeItem("mini.name"); });
     await Promise.all([seite.close(), liste.close()]);
