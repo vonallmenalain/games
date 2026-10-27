@@ -356,7 +356,7 @@ const ATTRAPPE = `
     turnierLebenszeichen: async (id, { game, spieler }) => {
       const k = id + "/" + game + "_" + spieler;
       const alt = tEintraege.get(k);
-      if (!alt) throw fehler("gibt es nicht", "not-found");
+      if (!alt) throw fehler("abgewiesen", "permission-denied");
       tEintraege.set(k, { ...alt, updatedAtMs: Date.now() });
       tSichern();
       window.__miniLebenszeichen = (window.__miniLebenszeichen || 0) + 1;

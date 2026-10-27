@@ -623,7 +623,9 @@ await darf("cloud.js: Die laufende Runde gibt ein Lebenszeichen", async () => {
   erwarte(offen.length === 1 && e?.offen === true && e.versuche === vorher.versuche && e.punkte === vorher.punkte
     && e.updatedAtMs > vorher.updatedAtMs, JSON.stringify({ vorher, offen }));
 });
-await wirft("cloud.js: Ein Lebenszeichen legt keinen Eintrag an", "not-found",
+// Ohne Eintrag gibt es nichts zu aktualisieren: Die Regeln sehen ein Update
+// ohne Dokument davor und weisen es ab – angelegt wird nichts.
+await wirft("cloud.js: Ein Lebenszeichen legt keinen Eintrag an", "permission-denied",
   () => gastCloud.turnierLebenszeichen(CT, { game: "fishPond", spieler: ICH.spieler }));
 await darf("cloud.js: Beide Versuche werden zusammengezählt", async () => {
   const stand = await gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 30, zaehlt: "summe" });
