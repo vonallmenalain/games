@@ -611,6 +611,22 @@ await darf("cloud.js: Gast beginnt den zweiten Versuch", async () => {
   const stand = await gastCloud.turnierVersuch(CT, { ...ICH, grenze: 2 });
   erwarte(stand.versuche === 2 && stand.punkte === 12, JSON.stringify(stand));
 });
+// Wer gerade spielt (turnier.js, amSpielen): Die laufende Runde setzt nur
+// die Uhrzeit ihres Eintrags neu – das lassen die Regeln zu wie einen neuen
+// Namen. Die Turnierseite fragt nur nach den offenen Versuchen.
+await darf("cloud.js: Die laufende Runde gibt ein Lebenszeichen", async () => {
+  const vorher = await gastCloud.meinTurnierEintrag(CT, ICH);
+  await new Promise((weiter) => setTimeout(weiter, 5));
+  await gastCloud.turnierLebenszeichen(CT, ICH);
+  const offen = await gastCloud.turnierAmSpielen(CT);
+  const e = offen.find((x) => x.spieler === ICH.spieler);
+  erwarte(offen.length === 1 && e?.offen === true && e.versuche === vorher.versuche && e.punkte === vorher.punkte
+    && e.updatedAtMs > vorher.updatedAtMs, JSON.stringify({ vorher, offen }));
+});
+// Ohne Eintrag gibt es nichts zu aktualisieren: Die Regeln sehen ein Update
+// ohne Dokument davor und weisen es ab – angelegt wird nichts.
+await wirft("cloud.js: Ein Lebenszeichen legt keinen Eintrag an", "permission-denied",
+  () => gastCloud.turnierLebenszeichen(CT, { game: "fishPond", spieler: ICH.spieler }));
 await darf("cloud.js: Beide Versuche werden zusammengezählt", async () => {
   const stand = await gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 30, zaehlt: "summe" });
   erwarte(stand.punkte === 42, JSON.stringify(stand));

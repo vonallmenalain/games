@@ -1492,6 +1492,29 @@
   let formularNummer = 0;
 
   /*
+   * Presets: ein Turnier, wie es eingestellt war – Name, Beschreibung,
+   * Spiele, Dauer, Versuche, Wertung und alle Haken –, unter einem eigenen
+   * Namen gespeichert. Beim nächsten neuen Turnier steht es oben in der
+   * Auswahl, und ein Tipp stellt alles wieder so ein. Nur der Beginn kommt
+   * nicht mit: Er ist jedes Mal jetzt.
+   *
+   * Auf diesem Gerät, wie die Vorlagen des Multiplayers (live.js,
+   * VORLAGEN_KEY). In der Datenbank brauchte es dafür einen eigenen Ort und
+   * eine Regel dazu.
+   */
+  const PRESETS_KEY = "mini.admin.presets";
+  const PRESETS_MAX = 50;
+  function liesPresets() {
+    try {
+      const liste = JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]");
+      return Array.isArray(liste) ? liste.filter((p) => p && typeof p.name === "string" && p.name && p.turnier && typeof p.turnier === "object") : [];
+    } catch { return []; }
+  }
+  function schreibePresets(liste) {
+    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(liste.slice(0, PRESETS_MAX))); return true; } catch { return false; }
+  }
+
+  /*
    * Das Formular für ein Turnier – neu oder zum Ändern.
    *
    * Die Dauer ist eine Auswahl und kein zweites Datumsfeld: "ein Tag", "eine
@@ -1531,7 +1554,17 @@
     // auch oben, nicht nur unter dem letzten Feld.
     const formKopf = el("header", "adm-turnier-form-kopf");
     formKopf.append(el("h3", "", vorlage ? `«${vorlage.name}» ändern` : "Neues Turnier"));
-    formKopf.append(knopf("Zurück zur Übersicht", "adm-knopf-klein", abbrechen));
+    // Daneben, bei einem neuen Turnier: die gespeicherten Presets. Wer eines
+    // wählt, hat alles so eingestellt, wie es gespeichert wurde
+    // (presetLaden, weiter unten).
+    const kopfRechts = el("div", "adm-turnier-form-werkzeug");
+    const presetWahl = el("select", "adm-feld adm-preset-wahl");
+    presetWahl.setAttribute("aria-label", "Gespeichertes Preset laden");
+    const presetWeg = knopf("Preset löschen", "adm-knopf-klein", () => presetLoeschen());
+    presetWeg.hidden = true;
+    if (!vorlage) kopfRechts.append(presetWahl, presetWeg);
+    kopfRechts.append(knopf("Zurück zur Übersicht", "adm-knopf-klein", abbrechen));
+    formKopf.append(kopfRechts);
     form.append(formKopf);
 
     // --- Name und Beschreibung ------------------------------------------------
@@ -1590,9 +1623,9 @@
     });
     const auswahlKnoepfe = el("div", "adm-kopf-aktionen");
     auswahlKnoepfe.append(
+      knopf("Alle abwählen", "adm-knopf-klein", () => setze([])),
+      knopf("Alle wählen", "adm-knopf-klein", () => setze(haken.map((b) => b.value))),
       ...TIER_LISTE().filter((n) => (gruppen.get(n) || []).length).map(tierKnopf),
-      knopf("Alle", "adm-knopf-klein", () => setze(haken.map((b) => b.value))),
-      knopf("Keine", "adm-knopf-klein", () => setze([])),
       knopf("Nur die offenen", "adm-knopf-klein", () => setze(offen)),
       // Ein Überraschungsturnier: drei Spiele, die niemand vorher kennt.
       knopf("3 zufällige", "adm-knopf-klein", () => {
@@ -1604,7 +1637,9 @@
         setze(topf.slice(0, 3));
       }),
     );
-    spieleGruppe.append(auswahlKnoepfe);
+    // Gleich unter dem Titel, nicht unter dem letzten Spiel: Die Liste ist
+    // lang, und wer neu wählt, fängt mit «Alle abwählen» an.
+    spieleTitel.after(auswahlKnoepfe);
     form.append(spieleGruppe);
 
     // --- Wann ------------------------------------------------------------------
@@ -1739,8 +1774,8 @@
     pruefeSumme();
 
     form.append(wahl("Gesamtwertung über alle Spiele", "wertung", [
-      ["platz", "Platzziffer", "Die Plätze aus allen Spielen zusammengezählt – die kleinste Summe gewinnt. Wer ein Spiel auslässt, bekommt dort den Platz hinter dem Letzten."],
-      ["prozent", "Prozent vom Besten", "Der Beste eines Spiels bekommt 100, alle anderen ihren Anteil an seiner Zahl – die höchste Summe gewinnt. Hier zählt, wie knapp jemand dran war."],
+      ["platz", "Platz im Schnitt", "Der Durchschnitt der Plätze aus den Spielen, die jemand gespielt hat – der kleinste gewinnt. Wer weniger Spiele gespielt hat, hat keinen Nachteil; bei Gleichstand liegt vorne, wer mehr gespielt hat."],
+      ["prozent", "Prozent vom Besten", "Der Beste eines Spiels bekommt 100, alle anderen ihren Anteil an seiner Zahl – es zählt der Schnitt über die gespielten Spiele, der höchste gewinnt. Hier zählt, wie knapp jemand dran war."],
     ], t.wertung));
 
     form.append(wahl("Aufgaben", "aufgaben", [
@@ -1750,7 +1785,7 @@
     ], t.aufgaben));
 
     form.append(wahl("Wer es sieht", "sichtbar", [
-      ["alle", "Für alle in der App", "Steht auf der Startseite, solange es läuft, und noch drei Tage danach."],
+      ["alle", "Für alle in der App", "Steht auf der Startseite, solange es läuft, und noch zwölf Stunden danach."],
       ["link", "Nur mit Link", "Steht nirgends. Mitspielen kann, wem du den Link schickst."],
     ], t.sichtbar));
 
@@ -1806,7 +1841,10 @@
     const knoepfe = el("div", "adm-kopf-aktionen");
     const speichern = el("button", "adm-knopf adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
     speichern.type = "submit";
-    knoepfe.append(speichern, knopf("Abbrechen", "adm-knopf-hell", abbrechen));
+    // Statt anzulegen: alles, wie es jetzt eingestellt ist, als Preset
+    // merken (presetSpeichern).
+    const alsPreset = knopf("Als Preset speichern", "adm-knopf-hell", () => presetSpeichern());
+    knoepfe.append(speichern, alsPreset, knopf("Abbrechen", "adm-knopf-hell", abbrechen));
     form.append(meldung, knoepfe);
 
     const sage = (text, art = "") => {
@@ -1814,27 +1852,115 @@
       meldung.className = `adm-meldung ${art}`.trim();
     };
 
+    // Was im Formular steht – fürs Turnier und fürs Preset.
+    const ausDemFormular = () => ({
+      name: nameFeld.value.replace(/\s+/g, " ").trim(),
+      beschreibung: beschreibung.value.trim(),
+      spiele: haken.filter((b) => b.checked).map((b) => b.value),
+      startMs: ausFeld(beginn.value),
+      endeMs: endeMs(),
+      versuche: unbegrenzt() ? 0 : getippt(),
+      zaehlt: gewaehlterWert("zaehlt") || "bester",
+      wertung: gewaehlterWert("wertung") || "platz",
+      aufgaben: gewaehlterWert("aufgaben") || "gleich",
+      sichtbar: gewaehlterWert("sichtbar") || "alle",
+      verdeckt: verdeckt.checked,
+      ohneGeist: !gegner.checked,
+      ohneReplay: !replay.checked,
+      nurLive: nurLive.checked,
+      aktiv: aktiv.checked,
+      spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
+    });
+
+    // --- Presets -------------------------------------------------------------------
+    // Ins Preset kommt alles ausser dem Beginn: statt des Endes die gewählte
+    // Dauer (bei «eigenes Ende» die Zeit vom Beginn bis dorthin), statt der
+    // Zahl der Versuche auch, welche Art gewählt war – und die getippte Zahl,
+    // selbst wenn gerade «unbegrenzt» gilt.
+    function presetAusDemFormular() {
+      const wie = ausDemFormular();
+      const lang = wie.endeMs - wie.startMs;
+      ["startMs", "endeMs", "versuche"].forEach((feldName) => delete wie[feldName]);
+      return {
+        ...wie,
+        dauer: dauer.value,
+        dauerMs: Number.isFinite(lang) && lang > 0 ? lang : TAG,
+        versuchsart: gewaehlterWert("versuchsart") || "zahl",
+        anzahl: anzahl.value,
+      };
+    }
+    const waehleWert = (name, wert) => {
+      const radio = [...form.querySelectorAll(`input[name="${name}-${nr}"]`)].find((r) => r.value === wert);
+      if (radio && !radio.disabled) radio.checked = true;
+    };
+    function presetLaden(p) {
+      const w = p.turnier || {};
+      if (typeof w.name === "string") nameFeld.value = w.name;
+      if (typeof w.beschreibung === "string") beschreibung.value = w.beschreibung;
+      if (Array.isArray(w.spiele)) setze(w.spiele);
+      const dauern = [...dauer.options].map((o) => o.value);
+      if (dauern.includes(String(w.dauer))) dauer.value = String(w.dauer);
+      if (dauer.value === "eigen") ende.value = fuerFeld(ausFeld(beginn.value) + (Number(w.dauerMs) || TAG));
+      nachziehen();
+      if (w.anzahl !== undefined) anzahl.value = String(w.anzahl);
+      waehleWert("versuchsart", w.versuchsart);
+      pruefeSumme();
+      ["zaehlt", "wertung", "aufgaben", "sichtbar"].forEach((name) => waehleWert(name, w[name]));
+      verdeckt.checked = Boolean(w.verdeckt);
+      gegner.checked = !w.ohneGeist;
+      replay.checked = !w.ohneReplay;
+      nurLive.checked = Boolean(w.nurLive);
+      aktiv.checked = w.aktiv !== false;
+      sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
+    }
+    function presetListe(gewaehlt = "") {
+      const presets = liesPresets();
+      presetWahl.innerHTML = "";
+      const leer = el("option", "", presets.length ? "Preset laden …" : "Keine Presets gespeichert");
+      leer.value = "";
+      presetWahl.append(leer, ...presets.map((p) => {
+        const option = el("option", "", p.name);
+        option.value = p.name;
+        return option;
+      }));
+      presetWahl.disabled = !presets.length;
+      presetWahl.value = presets.some((p) => p.name === gewaehlt) ? gewaehlt : "";
+      presetWeg.hidden = !presetWahl.value;
+    }
+    presetWahl.addEventListener("change", () => {
+      const p = liesPresets().find((x) => x.name === presetWahl.value);
+      presetWeg.hidden = !p;
+      if (p) presetLaden(p);
+    });
+    function presetSpeichern() {
+      const vorschlag = presetWahl.value || nameFeld.value.replace(/\s+/g, " ").trim();
+      const eingabe = window.prompt("Unter welchem Namen soll das Preset gespeichert werden?", vorschlag);
+      if (eingabe === null) return;
+      const name = eingabe.replace(/\s+/g, " ").trim().slice(0, 60);
+      if (!name) { sage("Ein Preset braucht einen Namen.", "ist-fehler"); return; }
+      const presets = liesPresets();
+      const da = presets.some((p) => p.name === name);
+      if (da && !window.confirm(`Das Preset «${name}» gibt es schon. Überschreiben?`)) return;
+      const neu = { name, turnier: presetAusDemFormular(), gespeichertMs: Date.now() };
+      if (!schreibePresets([neu, ...presets.filter((p) => p.name !== name)])) {
+        sage("Das Preset liess sich auf diesem Gerät nicht speichern.", "ist-fehler");
+        return;
+      }
+      presetListe(name);
+      sage(`Preset «${name}» ${da ? "überschrieben" : "gespeichert"}. Beim nächsten neuen Turnier steht es oben in der Auswahl.`, "ist-gut");
+    }
+    function presetLoeschen() {
+      const name = presetWahl.value;
+      if (!name || !window.confirm(`Das Preset «${name}» löschen?`)) return;
+      schreibePresets(liesPresets().filter((p) => p.name !== name));
+      presetListe();
+      sage(`Preset «${name}» gelöscht.`, "ist-gut");
+    }
+    presetListe();
+
     form.addEventListener("submit", async (ereignis) => {
       ereignis.preventDefault();
-      const daten = {
-        name: nameFeld.value.replace(/\s+/g, " ").trim(),
-        beschreibung: beschreibung.value.trim(),
-        spiele: haken.filter((b) => b.checked).map((b) => b.value),
-        startMs: ausFeld(beginn.value),
-        endeMs: endeMs(),
-        versuche: unbegrenzt() ? 0 : getippt(),
-        zaehlt: gewaehlterWert("zaehlt") || "bester",
-        wertung: gewaehlterWert("wertung") || "platz",
-        aufgaben: gewaehlterWert("aufgaben") || "gleich",
-        sichtbar: gewaehlterWert("sichtbar") || "alle",
-        verdeckt: verdeckt.checked,
-        ohneGeist: !gegner.checked,
-        ohneReplay: !replay.checked,
-        nurLive: nurLive.checked,
-        aktiv: aktiv.checked,
-        spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
-        erstelltMs: vorlage?.erstelltMs || Date.now(),
-      };
+      const daten = { ...ausDemFormular(), erstelltMs: vorlage?.erstelltMs || Date.now() };
       if (!daten.name) { sage("Ohne Namen gibt es kein Turnier.", "ist-fehler"); nameFeld.focus(); return; }
       if (!daten.spiele.length) { sage("Mindestens ein Spiel muss dabei sein.", "ist-fehler"); return; }
       if (!Number.isFinite(daten.startMs) || !Number.isFinite(daten.endeMs)) { sage("Beginn und Ende brauchen ein Datum und eine Uhrzeit.", "ist-fehler"); return; }
@@ -1909,7 +2035,7 @@
       t.spiele.map(titel).join(", "),
       t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
-      t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platzziffer") : "",
+      t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platz im Schnitt") : "",
       { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
       t.ohneReplay ? "ohne Replays" : "",
@@ -1976,7 +2102,7 @@
     if (Array.isArray(eintraege) && personen.length) {
       const tabelle = el("table", "adm-tabelle adm-turnier-tabelle");
       const kopfZeile = el("tr");
-      [["Name", ""], ["Spiele", "zahl"], [t.wertung === "prozent" && t.spiele.length > 1 ? "Punkte" : "Plätze", "zahl"], ["", ""]]
+      [["Name", ""], ["Spiele", "zahl"], [t.wertung === "prozent" ? "Ø von 100" : "Ø Platz", "zahl"], ["", ""]]
         .forEach(([wort, klasse]) => kopfZeile.append(el("th", klasse, wort)));
       const thead = el("thead");
       thead.append(kopfZeile);
@@ -1987,7 +2113,7 @@
         zeile.append(el("td", "adm-name", `${person.platz}. ${person.name}`));
         // Gezählt wird, was zählt: die Spiele und die Live-Abende des Turniers.
         zeile.append(el("td", "zahl", `${person.gespielt}/${wertung?.teile ?? t.spiele.length}`));
-        zeile.append(el("td", "zahl", String(person.wert)));
+        zeile.append(el("td", "zahl", person.wertText ?? String(person.wert)));
         const zelle = el("td", "adm-aktionen");
         const seine = eintraege.filter((e) => namensSchluessel(e.name) === namensSchluessel(person.name));
         zelle.append(knopf("Entfernen", "adm-knopf-weg", () => {

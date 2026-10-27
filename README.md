@@ -330,14 +330,29 @@ Text wie möglich:
 
 - **Links der Name des Turniers** und darunter eine Zeile, wie lange es
   läuft und was gilt: «läuft ohne Zeitlimite · seit Mo 12.10., 23:30 ·
-  3 Versuche je Spiel».
+  3 Versuche je Spiel». Davor, nur bei einem öffentlichen Turnier, das Logo
+  als Weg zur Startseite (schmal nur die Figur). Eines nur mit Link bleibt
+  ohne – ein Raum für sich –, ebenso jedes in seiner eigenen App.
 - **Die Gesamtwertung** über alle Spiele, golden und gross – im Turnier zählt
   sie mehr als jede einzelne Liste: der Pokal und die ersten drei, daneben
   der eigene Platz, wer weiter hinten steht («Du 5.»). Schmal steht sie unter
-  dem Namen, breit (und auf dem Handy quer) daneben. Ein Tipp öffnet die
-  ganze Tabelle im Fenster, mit der Beschreibung des Turniers, einem Satz, wie
-  gezählt wird, und den Multiplayern, die schon gezählt haben. Verdeckt steht
+  dem Namen, breit (und auf dem Handy quer) daneben. Ein Tipp öffnet sie im
+  Fenster, mit zwei Reitern oben (`turnier.js`, `gesamtZeigen`):
+  «Gesamtwertung» zeigt die Beschreibung des Turniers, ein Podest – Platz 1
+  in der Mitte und am höchsten, mit Krone, links der Zweite, rechts der
+  Dritte – und darunter alle weiteren Ränge, je nur Name und Schnitt
+  (`gesamtAnsicht`). Ein Tipp auf einen Rang klappt auf, woraus sich sein
+  Schnitt zusammensetzt: der Platz in jedem Spiel, die Rechnung
+  («Ø Platz 2,33: (2 + 3 + 2) ÷ 3») und wie gezählt wird. «Spiele» zeigt
+  jedes Spiel mit seiner ganzen Rangliste, mit dem ▶ zum Anschauen, dazu die
+  Multiplayer, die schon gezählt haben (`spieleAnsicht`). Verdeckt steht
   dort nur, wie viele dabei sind.
+- **Wer gerade spielt**, steht live da: ein grüner Punkt an seiner Medaille
+  in der Gesamtwertung oben, unter dem Namen des Spiels («Joshua spielt
+  gerade»), auf der Kachel des Spiels, breit auch als eigener Hinweis neben
+  der Gesamtwertung («Spielen gerade – Joshua und Mia»), im Fenster am Kreis
+  der Person und in der Liste des Spiels. Siehe «Wer gerade spielt» unter
+  Turniere.
 - **Läuft gerade ein Multiplayer** zum Turnier, steht daneben «Multiplayer
   läuft» mit dem Weg hinein – und kommt er neu dazu, geht einmal ein Fenster
   auf («Mitspielen» oder «Später»; je Multiplayer einmal, `sessionStorage`).
@@ -501,13 +516,14 @@ was es ausmacht:
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
                       (1 bis 100) – oder nur, wer nicht vorne liegt
     Was zählt         der beste Versuch oder alle zusammen
-    Gesamtwertung     Platzziffer (die Plätze zusammengezählt, die kleinste
-                      Summe gewinnt) oder Prozent vom Besten (der Beste
-                      eines Spiels bekommt 100, die anderen ihren Anteil)
+    Gesamtwertung     Platz im Schnitt (der Durchschnitt der Plätze aus den
+                      gespielten Spielen, der kleinste gewinnt) oder Prozent
+                      vom Besten (der Beste eines Spiels bekommt 100, die
+                      anderen ihren Anteil; der höchste Schnitt gewinnt)
     Aufgaben          für alle gleich, gleiches Level wie der 1. Platzierte
                       oder jedes Mal neu gewürfelt
-    Wer es sieht      alle in der App (auf der Startseite) oder nur, wer den
-                      Link hat
+    Wer es sieht      alle in der App (auf der Startseite, bis zwölf Stunden
+                      nach dem Ende) oder nur, wer den Link hat
     Verdeckt          die Rangliste erst am Schluss zeigen
     Gegner            Platz 1 und die eigene Bestmarke beim Spielen zeigen
                       (Vorgabe) oder nicht
@@ -529,6 +545,31 @@ Liste, eine Runde ist eine Runde).
 Unter dem Ergebnis steht im Turnier nur die Rangliste des Spiels, darüber
 «Neuer Rekord!», wenn die Runde auf Platz 1 führt. «Noch einmal» gibt es nur,
 wenn es noch einmal geht; sonst bleibt der Pokal, der zum Turnier führt.
+
+**Wer weniger spielt, hat keinen Nachteil.** Die Gesamtwertung zählt nur,
+was jemand gespielt hat: den Durchschnitt seiner Plätze (oder seiner
+Prozente) über die gespielten Spiele, Multiplayer mit ihrem Gewicht (×2 zählt
+wie zwei Spiele; `turnier.js`, `gesamtwertung`). Bei gleichem Schnitt steht
+vorne, wer mehr gespielt hat – den Platz teilen sie sich trotzdem. Bis
+Oktober 2026 zählte ein ausgelassenes Spiel als Platz hinter dem Letzten;
+wer später dazukam, lag damit fast sicher hinten. Die Kehrseite: Wer nur das
+eine Spiel spielt, das er am besten kann, und dort gewinnt, steht mit
+Ø 1 ganz vorne.
+
+**Wer gerade spielt.** Ein Versuch ist offen (`offen`), solange sein Ergebnis
+aussteht – auch, wenn jemand mittendrin weggeht. Darum setzt eine laufende
+Runde alle zwanzig Sekunden die Uhrzeit ihres Eintrags neu, solange sie im
+Bild ist (`turnier.js`, `lebenszeichen`; `cloud.js`,
+`turnierLebenszeichen`) – nur `updatedAtMs`, was die Regeln zulassen wie
+einen neuen Namen. Die Turnierseite fragt alle fünfzehn Sekunden nach den
+offenen Versuchen (`turnierAmSpielen`, nicht nach der ganzen Liste), und wer
+sich seit fünfzig Sekunden nicht gemeldet hat, spielt nicht mehr
+(`amSpielen`). Verglichen wird dabei nicht nur die Uhr des Spielers mit der
+eigenen: Ändert sich die Zeit eines Eintrags zwischen zwei Blicken, hat sich
+das Spiel eben gemeldet. Das eigene Gerät spielt nie – wer die Turnierseite
+ansieht, spielt nicht. Ändert sich, wer einen Versuch offen hat, liest die
+Seite auch die Liste neu: Ein neues Ergebnis steht da, ohne dass jemand neu
+lädt.
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
@@ -581,7 +622,9 @@ Zufall aus `zufall.js`, mit einer Saat aus Turnier, Versuch und Spiel.
 
 **Ein Turnier ist ein Raum für sich.** Von der Turnierseite und aus einem
 Spiel im Turnier führt kein Weg hinaus: kein «Ohne Turnier spielen», kein
-«Schon mal üben», kein Link zur Hall of Fame. Wer allein vorne liegt oder alle
+«Schon mal üben», kein Link zur Hall of Fame. Einzig ein öffentliches
+Turnier trägt oben links das Logo, den Weg zur Startseite – es steht ja
+ohnehin dort; eines nur mit Link nicht. Wer allein vorne liegt oder alle
 Versuche gespielt hat, kommt nur noch zurück zum Turnier. Die Turnierseite
 zeigt je Spiel nur den Namen, die Rangliste und Play (oder an seiner Stelle
 das Schloss und «Du liegst vorne»); den Link zum Weitergeben hat der
@@ -610,10 +653,23 @@ Multiplayer und der Adminbereich (`turnier.js`, `heim`).
 
 **Das Gerät merkt sich seine Turniere.** Jedes Turnier, das geöffnet wird,
 auch eines nur mit Link, steht danach auf der Startseite dieses Geräts,
-zuvorderst (`mini.turniere`, höchstens zehn). So findet es auch, wer die App
+zuvorderst (`mini.turniere`, höchstens zehn) – wie die öffentlichen bis zwölf
+Stunden nach seinem Ende (`NACHLESE_MS`; bis Oktober 2026 waren es drei
+Tage). So findet es auch, wer die App
 schon installiert hat und den Link nur einmal angeklickt hat. Auf Android
 teilen sich Browser und installierte App diesen Speicher; auf dem iPhone
 kennt die App auf dem Startbildschirm nur, was in ihr selbst geöffnet wurde.
+
+**Deine Turniere.** Wer auf der Startseite oben rechts auf seinen Namen
+tippt, sieht unter «Du spielst als …» die Turniere, in denen auf diesem
+Gerät gespielt wurde – die laufenden zuerst, dann die zuletzt beendeten,
+je mit dem eigenen Platz in der Gesamtwertung (`turnier.js`,
+`meineTurniere`; höchstens acht). Dabei ist ein Turnier, sobald hier ein
+Versuch beginnt oder die Turnierseite den eigenen Namen in der Wertung
+findet (`mini.turniere.dabei`). Gemerkt wird auf dem Gerät: Ein Konto gibt
+es nicht, und über alle Turniere hinweg nach einem Namen zu fragen, liessen
+die Regeln nicht zu. Auf der Turnierseite steht die Liste nicht – dort bleibt
+das Turnier ein Raum für sich.
 
 ## Multiplayer
 
@@ -1048,6 +1104,19 @@ veröffentlicht ist.
 Ein Turnier anlegen oder ändern geschieht für sich allein: Solange das
 Formular offen ist, steht darunter nichts anderes. «Zurück zur Übersicht»,
 «Abbrechen» oder der Zurück-Knopf des Browsers führen wieder zur ganzen Seite.
+Gleich unter «Spiele» stehen «Alle abwählen», «Alle wählen», die Tiers,
+«Nur die offenen» und «3 zufällige» – oben, nicht unter dem letzten Spiel.
+
+**Presets.** Unten neben «Turnier anlegen» steht «Als Preset speichern»: Es
+merkt sich alles, was im Formular eingestellt ist – Name, Beschreibung,
+Spiele, Dauer, Versuche, Wertung, Aufgaben, wer es sieht, alle Haken –
+unter einem eigenen Namen, ohne ein Turnier anzulegen. Beim nächsten neuen
+Turnier steht es oben neben «Zurück zur Übersicht» in der Auswahl; ein Tipp
+stellt alles wieder so ein, nur der Beginn ist jetzt. «Preset löschen»
+daneben nimmt es wieder weg. Gemerkt wird auf dem Gerät (`localStorage`,
+`mini.admin.presets`, `admin.js`, `liesPresets`) wie die Vorlagen des
+Multiplayers – in der Datenbank brauchte es dafür einen eigenen Ort und eine
+Regel dazu.
 
 Die Turniere stehen nach ihrem Stand gruppiert da: zuerst die laufenden, dann
 geplante, angehaltene und beendete. Ein Tipp auf ein Turnier wählt es aus und

@@ -579,7 +579,8 @@ try {
   pruefe((await offenLesen()) === null, "Nach dem Abschliessen steht der Multiplayer noch in der Liste der offenen");
   pruefe(new URL(leitung.seite.url()).pathname === "/admin", `Nach dem Abschliessen landet die Leitung nicht im Adminbereich (${leitung.seite.url()})`);
   // Die Gesamtwertung des Turniers mit dem Abend: Er zählt wie ein Spiel,
-  // mal zwei; wer fehlt, steht hinter dem Letzten.
+  // mal zwei – im Schnitt also wie zwei Spiele; wer ihn verpasst hat, für
+  // den zählt er nicht.
   {
     const blick = await geraet("Gast2");
     await blick.seite.addInitScript((daten) => { try { localStorage.setItem("__turnierLive", JSON.stringify(daten)); } catch { /* egal */ } }, eingetragen);
@@ -589,19 +590,27 @@ try {
     await blick.seite.click(".tn-wertung").catch(() => {});
     pruefe(await bis(() => blick.seite.locator(".tn-live-karte").count().then((n) => n === 1)), "Die Turnierseite zeigt den Multiplayer nicht");
     pruefe(await blick.seite.locator(".tn-live-karte .mini-karte-zahl").textContent() === "zählt ×2", "Die Turnierseite sagt nicht, wie der Abend zählt");
-    pruefe(await bis(() => blick.seite.locator(".tn-tabelle tbody tr").count().then((n) => n === 5)), "In der Gesamtwertung fehlen die Spieler des Abends");
-    pruefe((await blick.seite.locator(".tn-tabelle .tn-teile").first().textContent())?.includes("«Prüfabend» 1. ×2"), "Die Gesamtwertung zeigt die Spalte des Multiplayers nicht");
+    pruefe(await bis(() => blick.seite.locator("dialog.ist-gesamt .tn-person").count().then((n) => n === 5)), "In der Gesamtwertung fehlen die Spieler des Abends");
+    // Ein Tipp auf den Ersten: Woraus sich sein Schnitt zusammensetzt, mit
+    // dem Abend und seinem Gewicht.
+    await blick.seite.locator("dialog.ist-gesamt .tn-sieger .ist-stelle-1").click().catch(() => {});
+    const zeilen = await blick.seite.locator("dialog.ist-gesamt .tn-detail .tn-detail-zeile").allInnerTexts().catch(() => []);
+    pruefe(zeilen.some((z) => /«Prüfabend» · zählt ×2/.test(z) && /1\./.test(z)), `Die Gesamtwertung zeigt den Multiplayer nicht (${JSON.stringify(zeilen)})`);
     await bild(blick, "12-turnier-gesamt");
-    const rechnung = await blick.seite.evaluate((abend) => {
+    const rechnung = await blick.seite.evaluate(([abend, sieger]) => {
       const t = { spiele: ["towerStack"], wertung: "platz" };
-      const eintraege = [{ game: "towerStack", spieler: "mini_xxxxxxxxxx", name: "Zoe", punkte: 9, versuche: 1 }];
+      const eintraege = [
+        { game: "towerStack", spieler: "mini_xxxxxxxxxx", name: "Zoe", punkte: 9, versuche: 1 },
+        { game: "towerStack", spieler: "mini_yyyyyyyyyy", name: sieger, punkte: 5, versuche: 1 },
+      ];
       const w = window.LernappTurnier.gesamtwertung(t, eintraege, [abend]);
       return w.personen.map((p) => [p.name, p.wert]);
-    }, ergebnis);
+    }, [ergebnis, gesamt[0][0]]);
     const zoe = rechnung.find(([n]) => n === "Zoe");
-    pruefe(zoe && zoe[1] === 1 + (5 + 1) * 2, `Wer den Abend verpasst, steht nicht hinter dem Letzten, mal zwei (${JSON.stringify(rechnung)})`);
+    pruefe(zoe && zoe[1] === 1, `Wer den Abend verpasst, hat dafür einen Nachteil (${JSON.stringify(rechnung)})`);
+    // Im Turmbau Zweiter, im Abend (×2) auf seinem Platz: (2 + Platz · 2) / 3.
     const erster = rechnung.find(([n]) => n === gesamt[0][0]);
-    pruefe(erster && erster[1] === 2 + gesamt[0][2] * 2, `Platz im Abend zählt nicht mal zwei (${JSON.stringify(rechnung)})`);
+    pruefe(erster && erster[1] === Math.round(((2 + gesamt[0][2] * 2) / 3) * 100) / 100, `Platz im Abend zählt im Schnitt nicht doppelt (${JSON.stringify(rechnung)})`);
     const nurLive = await blick.seite.evaluate((abend) => window.LernappTurnier.gesamtwertung({ spiele: ["towerStack"], wertung: "platz", nurLive: true }, [], [abend]).personen.map((p) => [p.name, p.wert, p.gespielt]), ergebnis);
     pruefe(nurLive.length === 5 && nurLive.every(([, , g]) => g === 1), `Ein Turnier nur live zählt nicht nur die Abende (${JSON.stringify(nurLive)})`);
   }

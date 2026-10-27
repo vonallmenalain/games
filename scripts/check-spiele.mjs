@@ -347,6 +347,20 @@ const ATTRAPPE = `
       const e = tEintraege.get(id + "/" + game + "_" + spieler);
       return e ? { ...e } : null;
     },
+    // Wer gerade spielt (turnier.js, amSpielen): die offenen Versuche, und
+    // das Lebenszeichen einer laufenden Runde – nur die Uhrzeit, wie in den
+    // Regeln. Die Prüfung zählt die Lebenszeichen in window.__miniLebenszeichen.
+    turnierAmSpielen: async (id) => [...tEintraege.entries()]
+      .filter(([k, e]) => k.startsWith(id + "/") && e.offen)
+      .map(([, e]) => ({ ...e })),
+    turnierLebenszeichen: async (id, { game, spieler }) => {
+      const k = id + "/" + game + "_" + spieler;
+      const alt = tEintraege.get(k);
+      if (!alt) throw fehler("abgewiesen", "permission-denied");
+      tEintraege.set(k, { ...alt, updatedAtMs: Date.now() });
+      tSichern();
+      window.__miniLebenszeichen = (window.__miniLebenszeichen || 0) + 1;
+    },
     turnierVersuch: async (id, { game, spieler, name, grenze = 0 }) => {
       await langsam();
       const t = turniere.get(id);
@@ -457,7 +471,10 @@ const TURNIERE = {
     turnierVorlage(HERBST, { name: "Herbstcup", beschreibung: "Wer gewinnt, wählt das Znacht." }),
     turnierVorlage("familie-geheim2345", { name: "Familienabend", sichtbar: "link", spiele: ["numberLine", "tileMemory"], versuche: 0 }),
     turnierVorlage("bald-test23456789", { name: "Wintercup", startMs: JETZT + 3 * STUNDE }),
-    turnierVorlage("vorbei-test2345678", { name: "Sommercup", startMs: JETZT - 3 * TAG, endeMs: JETZT - TAG }),
+    // Eben vorbei: Zwölf Stunden lang steht es noch auf der Startseite.
+    turnierVorlage("vorbei-test2345678", { name: "Sommercup", startMs: JETZT - 2 * TAG, endeMs: JETZT - 2 * STUNDE }),
+    // Seit einem Tag vorbei: Es steht nicht mehr auf der Startseite.
+    turnierVorlage("gestern-test234567", { name: "Gesterncup", startMs: JETZT - 3 * TAG, endeMs: JETZT - TAG }),
     turnierVorlage("alt-test234567890", { name: "Frühlingscup", startMs: JETZT - 20 * TAG, endeMs: JETZT - 10 * TAG }),
     turnierVorlage("pause-test2345678", { name: "Pausencup", aktiv: false }),
     turnierVorlage("verdeckt-test23456", { name: "Blindcup", sichtbar: "link", verdeckt: true }),
@@ -475,8 +492,9 @@ const TURNIERE = {
     turnierVorlage(LEVEL_EINS, { name: "Levelcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["numberLine"], versuche: 0, aufgaben: "wieErster" }),
   ],
   // Im Herbstcup: Turmbau Grosi 30, Leo 25, Mia 20; Fischteich Leo 12, Mia 3;
-  // im dritten Spiel noch niemand. Nach Platzziffer ist das Leo 2+1+1 = 4,
-  // Grosi 1+3+1 = 5, Mia 3+2+1 = 6.
+  // im dritten Spiel noch niemand. Im Schnitt der gespielten Plätze ist das
+  // Grosi 1 (nur Turmbau), Leo (2+1)/2 = 1,5, Mia (3+2)/2 = 2,5 – wer ein
+  // Spiel auslässt, hat keinen Nachteil.
   eintraege: [
     { turnier: HERBST, game: "towerStack", spieler: "mini_vorherdagewesen", name: "Grosi", punkte: 30, versuche: 2, offen: false, updatedAtMs: 1000 },
     { turnier: HERBST, game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 25, versuche: 1, offen: false, updatedAtMs: 1100 },
@@ -1682,7 +1700,7 @@ try {
     pruefe(hinweise.some((h) => h.href === `/turnier?t=${HERBST}`), `Der Hinweis führt nicht auf die Turnierseite: ${hinweise.map((h) => h.href).join(", ")}`);
     pruefe(hinweise.some((h) => /Wintercup/.test(h.text) && /beginnt in/.test(h.text)), `Das geplante Turnier fehlt: ${alleTexte}`);
     pruefe(hinweise.some((h) => /Sommercup/.test(h.text) && /Rangliste/.test(h.text)), `Das eben beendete Turnier fehlt: ${alleTexte}`);
-    for (const nicht of ["Familienabend", "Frühlingscup", "Pausencup", "Blindcup", "Würfelcup"]) {
+    for (const nicht of ["Familienabend", "Frühlingscup", "Pausencup", "Blindcup", "Würfelcup", "Gesterncup"]) {
       pruefe(!alleTexte.includes(nicht), `Auf der Startseite steht "${nicht}".`);
     }
     const vorne = await seite.evaluate(() => document.querySelector(".tn-hinweis").getBoundingClientRect().right
@@ -1718,6 +1736,16 @@ try {
     pruefe(/^https?:\/\/[^/]+\/turnier\?t=familie-geheim2345$/.test(app.start || "") && app.id === app.start,
       `Das Turnier als App startet nicht auf seiner Seite: ${JSON.stringify(app)}`);
     pruefe(/^https?:\/\//.test(app.icon || ""), `Im Manifest des Turniers steht das Bild ohne volle Adresse: ${app.icon}`);
+    // Nur mit Link: ein Raum für sich – kein Logo, kein Weg zur Startseite,
+    // und unter dem Namen oben rechts keine anderen Turniere.
+    await seite.click(".ar-name-knopf");
+    const zu = await seite.evaluate(() => ({
+      logo: document.querySelectorAll("[data-turnier] .ar-marke").length,
+      start: [...document.querySelectorAll("[data-turnier] a")].filter((a) => a.getAttribute("href") === "/").length,
+      meine: document.querySelectorAll(".tn-meine").length,
+    }));
+    pruefe(zu.logo === 0 && zu.start === 0 && zu.meine === 0, `Das Turnier nur mit Link führt hinaus: ${JSON.stringify(zu)}`);
+    await seite.keyboard.press("Escape");
     await seite.goto(`${BASIS}/`, { waitUntil: "load" });
     await seite.waitForSelector(".tn-hinweis", { timeout: 8000 });
     await seite.waitForTimeout(300);
@@ -1726,6 +1754,31 @@ try {
     pruefe(hinweise.length === 4, `Mit einem eigenen Turnier stehen ${hinweise.length} statt vier Turniere auf der Startseite: ${hinweise.join(" | ")}`);
     const gemerkt = await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.turniere") || "[]"));
     pruefe(gemerkt.length === 1 && gemerkt[0] === "familie-geheim2345", `Das Gerät merkt sich die falschen Turniere: ${JSON.stringify(gemerkt)}`);
+    await kontext.close();
+  }
+  {
+    // Deine Turniere: Unter dem Namen oben rechts auf der Startseite stehen
+    // die Turniere, in denen auf diesem Gerät gespielt wurde – auch eines,
+    // das schon lange nicht mehr in der Zeile steht –, mit dem eigenen Platz.
+    // Eines, das es nicht mehr gibt, wird vergessen.
+    const { kontext, seite } = await mitTurnieren("/", { vorher: () => {
+      localStorage.setItem("mini.id", "mini_leoleoleoleo");
+      localStorage.setItem("mini.name", "Leo");
+      if (!localStorage.getItem("mini.turniere.dabei")) localStorage.setItem("mini.turniere.dabei", JSON.stringify(["alt-test234567890", "gibtsnicht-123456", "herbstcup-test2345"]));
+    } });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.click(".ar-name-knopf");
+    await seite.waitForFunction(() => document.querySelectorAll(".tn-meine .tn-meine-zeile").length === 2
+      && document.querySelector(".tn-meine .tn-meine-platz.ist-da"), null, { timeout: 6000 }).catch(() => {});
+    const meine = await seite.evaluate(() => ({
+      zeilen: [...document.querySelectorAll(".tn-meine .tn-meine-zeile")].map((z) => [z.getAttribute("href"), z.querySelector("strong").textContent, z.querySelector(".tn-meine-platz").textContent]),
+      gemerkt: JSON.parse(localStorage.getItem("mini.turniere.dabei") || "[]"),
+    }));
+    pruefe(JSON.stringify(meine.zeilen) === JSON.stringify([["/turnier?t=herbstcup-test2345", "Herbstcup", "2."], ["/turnier?t=alt-test234567890", "Frühlingscup", ""]]),
+      `Unter dem Namen stehen nicht die eigenen Turniere – das laufende zuerst, mit dem Platz: ${JSON.stringify(meine.zeilen)}`);
+    pruefe(!meine.gemerkt.includes("gibtsnicht-123456"), `Ein Turnier, das es nicht mehr gibt, bleibt gemerkt: ${JSON.stringify(meine.gemerkt)}`);
+    const ohneMeine = await klassenOhneRegel(seite);
+    pruefe(ohneMeine.length === 0, `Deine Turniere – Klassen ohne Regel: ${ohneMeine.join(", ")}`);
     await kontext.close();
   }
   {
@@ -1753,7 +1806,8 @@ try {
       podest: [...document.querySelectorAll(".tn-podest .tn-podest-name")].map((n) => n.textContent),
       regeln: document.querySelectorAll(".tn-regel-liste, .tn-regeln").length,
       teilen: document.querySelectorAll(".tn-teilen, .tn-link-feld").length,
-      hinaus: [...document.querySelectorAll("[data-turnier] a")].map((a) => a.getAttribute("href")).filter((h) => !/^\/(turnier|admin)\b/.test(h) && !/[?&]turnier=/.test(h)),
+      hinaus: [...document.querySelectorAll("[data-turnier] a:not(.ar-marke)")].map((a) => a.getAttribute("href")).filter((h) => !/^\/(turnier|admin)\b/.test(h) && !/[?&]turnier=/.test(h)),
+      logo: document.querySelector("[data-turnier] .tn-titel .ar-marke")?.getAttribute("href") ?? null,
       admin: document.querySelector(".ar-kopf .mini-knopf-admin")?.getAttribute("href"),
       ueberstand: document.documentElement.scrollWidth - window.innerWidth,
       blatt: document.documentElement.scrollHeight - window.innerHeight,
@@ -1762,29 +1816,69 @@ try {
     pruefe(/läuft noch/.test(stand.status) && /2 Versuche je Spiel/.test(stand.status), `${lage}: Unter dem Namen steht nicht, wie lange es noch läuft und was gilt: ${stand.status}`);
     pruefe(stand.spiele.length === 3, `${lage}: Auf der Turnierseite stehen ${stand.spiele.length} Spiele statt drei.`);
     pruefe(stand.play === `/turmbau?turnier=${HERBST}`, `${lage}: Play führt nicht ins Spiel im Turnier: ${stand.play}`);
-    pruefe(JSON.stringify(stand.podest) === JSON.stringify(["Leo", "Grosi", "Mia"]), `${lage}: Oben stehen nicht Leo, Grosi und Mia: ${stand.podest.join(", ")}`);
+    pruefe(JSON.stringify(stand.podest) === JSON.stringify(["Grosi", "Leo", "Mia"]), `${lage}: Oben stehen nicht Grosi, Leo und Mia: ${stand.podest.join(", ")}`);
     // Keine Regeln in Sätzen und kein Block zum Weitersagen: Dauer und
     // Versuche stehen oben, den Link hat der Adminbereich. Und kein Weg
     // hinaus – das Turnier ist ein Raum für sich.
     pruefe(stand.regeln === 0, `${lage}: Auf der Turnierseite steht wieder ein Block mit Regeln.`);
     pruefe(stand.teilen === 0, `${lage}: Auf der Turnierseite steht wieder der Block zum Weitersagen.`);
     pruefe(stand.hinaus.length === 0, `${lage}: Von der Turnierseite führt ein Weg hinaus: ${stand.hinaus.join(", ")}`);
+    // Ein öffentliches Turnier trägt oben links das Logo – den Weg zur
+    // Startseite. (Eines nur mit Link nicht, siehe Familienabend.)
+    pruefe(stand.logo === "/", `${lage}: Beim öffentlichen Turnier fehlt oben links das Logo zur Startseite (${stand.logo}).`);
     pruefe(stand.admin === "/admin", `${lage}: Als Admin fehlt auf der Turnierseite der Weg in den Adminbereich.`);
     pruefe(stand.ueberstand <= 1 && stand.blatt <= 1, `${lage}: Die Turnierseite passt nicht in einen Bildschirm: ${stand.ueberstand} px zu breit, ${stand.blatt} px zu hoch.`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `${lage}: Turnierseite – Klassen ohne Regel: ${ohne.join(", ")}`);
-    // Die ganze Gesamtwertung im Fenster, mit der Beschreibung.
+    // Die ganze Gesamtwertung im Fenster, mit der Beschreibung: oben das
+    // Podest, in der Mitte der Erste – nur Namen und Schnitt. Darunter, für
+    // sich, jedes Spiel mit seiner Rangliste.
     await seite.click(".tn-wertung");
-    await seite.waitForSelector("dialog.ist-gesamt .tn-tabelle", { timeout: 4000 }).catch(() => {});
+    await seite.waitForSelector("dialog.ist-gesamt .tn-sieger", { timeout: 4000 }).catch(() => {});
     const gesamt = await seite.evaluate(() => ({
-      erster: document.querySelector("dialog.ist-gesamt .tn-tabelle tbody tr .tn-wer > span")?.textContent,
-      ersterWert: document.querySelector("dialog.ist-gesamt .tn-tabelle tbody tr .tn-wert")?.textContent,
-      zeilen: document.querySelectorAll("dialog.ist-gesamt .tn-tabelle tbody tr").length,
+      erster: document.querySelector("dialog.ist-gesamt .tn-sieger .ist-stelle-1 .tn-person-name")?.textContent,
+      ersterWert: document.querySelector("dialog.ist-gesamt .tn-sieger .ist-stelle-1 .tn-person-wert strong")?.textContent,
+      zweiterWert: document.querySelector("dialog.ist-gesamt .tn-sieger .ist-stelle-2 .tn-person-wert strong")?.textContent,
+      zeilen: document.querySelectorAll("dialog.ist-gesamt .tn-person").length,
+      zu: document.querySelectorAll("dialog.ist-gesamt .tn-detail, dialog.ist-gesamt .tn-raenge .tn-wie").length,
+      spieleSchonDa: document.querySelectorAll("dialog.ist-gesamt .tn-spiel").length,
+      reiter: [...document.querySelectorAll("dialog.ist-gesamt .tn-reiter-knopf")].map((k) => `${k.textContent}${k.classList.contains("ist-an") ? "*" : ""}`),
       beschreibung: document.querySelector("dialog.ist-gesamt .tn-beschreibung")?.textContent,
     }));
-    pruefe(gesamt.erster === "Leo" && gesamt.ersterWert === "4",
-      `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${gesamt.erster} mit ${gesamt.ersterWert} statt Leo mit 4.`);
+    pruefe(gesamt.erster === "Grosi" && gesamt.ersterWert === "1" && gesamt.zweiterWert === "1,5",
+      `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${gesamt.erster} mit ${gesamt.ersterWert} (dahinter ${gesamt.zweiterWert}) statt Grosi mit 1 und Leo mit 1,5.`);
     pruefe(gesamt.zeilen === 3, `${lage}: In der Gesamtwertung stehen ${gesamt.zeilen} Spieler statt drei.`);
+    pruefe(gesamt.zu === 0, `${lage}: In der Gesamtwertung steht schon vor dem ersten Tipp, woraus sich ein Rang zusammensetzt.`);
+    pruefe(JSON.stringify(gesamt.reiter) === JSON.stringify(["Gesamtwertung*", "Spiele"]) && gesamt.spieleSchonDa === 0,
+      `${lage}: Oben im Fenster stehen nicht die Reiter «Gesamtwertung» (gewählt) und «Spiele»: ${JSON.stringify(gesamt)}`);
+    // Ein Tipp auf den Zweiten klappt auf, woraus sich sein Schnitt
+    // zusammensetzt – ein zweiter klappt es wieder zu.
+    await seite.click("dialog.ist-gesamt .tn-sieger .ist-stelle-2");
+    const einzeln = await seite.evaluate(() => ({
+      zeilen: [...document.querySelectorAll("dialog.ist-gesamt .tn-detail .tn-detail-zeile")].map((z) => `${z.querySelector(".tn-detail-spiel").textContent} ${z.querySelector(".tn-detail-platz").textContent}`),
+      rechnung: document.querySelector("dialog.ist-gesamt .tn-detail .tn-detail-rechnung")?.textContent || "",
+      wie: Boolean(document.querySelector("dialog.ist-gesamt .tn-detail .tn-wie")),
+    }));
+    pruefe(JSON.stringify(einzeln.zeilen) === JSON.stringify(["Turmbau 2.", "Fischteich 1.", "Wo hält der Zug? nicht gespielt"])
+      && einzeln.rechnung === "Ø Platz 1,5: (2 + 1) ÷ 2" && einzeln.wie,
+      `${lage}: Ein Tipp auf den Zweiten zeigt nicht, woraus sich sein Schnitt zusammensetzt: ${JSON.stringify(einzeln)}`);
+    await seite.click("dialog.ist-gesamt .tn-sieger .ist-stelle-2");
+    pruefe(await seite.locator("dialog.ist-gesamt .tn-detail").count() === 0, `${lage}: Ein zweiter Tipp klappt die Einzelheiten nicht wieder zu.`);
+    // Der Reiter «Spiele»: jedes Spiel mit seiner Rangliste – und nichts vom
+    // Podest.
+    await seite.click('dialog.ist-gesamt .tn-reiter-knopf[data-reiter="spiele"]');
+    const spieleReiter = await seite.evaluate(() => ({
+      spiele: [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].map((k) => [
+        k.querySelector(".tn-spiel-titel")?.textContent,
+        [...k.querySelectorAll(".gk-name-text")].map((n) => n.textContent).join(" "),
+      ]),
+      podest: document.querySelectorAll("dialog.ist-gesamt .tn-sieger").length,
+    }));
+    pruefe(JSON.stringify(spieleReiter.spiele) === JSON.stringify([["Turmbau", "Grosi Leo Mia"], ["Fischteich", "Leo Mia"], ["Wo hält der Zug?", ""]]) && spieleReiter.podest === 0,
+      `${lage}: Unter «Spiele» stehen die Spiele nicht mit ihren Ranglisten: ${JSON.stringify(spieleReiter)}`);
+    const ohneReiter = await klassenOhneRegel(seite);
+    pruefe(ohneReiter.length === 0, `${lage}: Reiter «Spiele» – Klassen ohne Regel: ${ohneReiter.join(", ")}`);
+    await seite.click('dialog.ist-gesamt .tn-reiter-knopf[data-reiter="gesamt"]');
     pruefe(gesamt.beschreibung === "Wer gewinnt, wählt das Znacht.", `${lage}: Die Beschreibung fehlt.`);
     const ohneFenster = await klassenOhneRegel(seite);
     pruefe(ohneFenster.length === 0, `${lage}: Gesamtwertung im Turnier – Klassen ohne Regel: ${ohneFenster.join(", ")}`);
@@ -1805,7 +1899,92 @@ try {
     await seite.keyboard.press("Escape");
     await seite.click(".tn-wertung");
     await seite.waitForSelector("dialog.ist-gesamt", { timeout: 4000 }).catch(() => {});
-    pruefe(await seite.locator(".tn-tabelle").count() === 0, "Im verdeckten Turnier steht die Gesamtwertung da.");
+    pruefe(await seite.locator(".tn-sieger, .tn-person").count() === 0, "Im verdeckten Turnier steht die Gesamtwertung da.");
+    await kontext.close();
+  }
+  {
+    // Wer gerade spielt: offene Versuche mit frischem Lebenszeichen – Zoe im
+    // Fischteich. Nicht dabei sind ein offener Versuch, der seit Minuten
+    // schweigt (liegen gelassen), und der eigene dieses Geräts: Wer die
+    // Turnierseite ansieht, spielt nicht.
+    const { kontext, seite } = await mitTurnieren(`/turnier?t=${HERBST}`, { viewport: { width: 1500, height: 900 }, vorher: () => {
+      localStorage.setItem("mini.id", "mini_ichichichichich");
+      localStorage.setItem("mini.name", "Ich");
+      const d = window.__miniTurniereAnfang;
+      const t = d.turniere.find((x) => x.name === "Herbstcup").id;
+      d.eintraege = [...d.eintraege,
+        { turnier: t, game: "fishPond", spieler: "mini_zoezoezoezoe", name: "Zoe", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() },
+        { turnier: t, game: "numberLine", spieler: "mini_altaltaltalt", name: "Alt", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() - 10 * 60000 },
+        { turnier: t, game: "towerStack", spieler: "mini_ichichichichich", name: "Ich", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() },
+      ];
+    } });
+    const vorher = fehlerAufSeite.length;
+    await seite.waitForSelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live:not([hidden])', { timeout: 8000 }).catch(() => {});
+    const live = await seite.evaluate(() => ({
+      kacheln: Object.fromEntries([...document.querySelectorAll(".ar-kachel")].map((k) => [k.dataset.spiel, k.querySelector(".ar-kachel-live:not([hidden])")?.textContent || ""])),
+      kopf: document.querySelector(".tn-oben .tn-spielen")?.textContent || "",
+    }));
+    pruefe(live.kacheln.fishPond === "Zoe" && !live.kacheln.towerStack && !live.kacheln.numberLine,
+      `Auf den Kacheln steht nicht genau, dass Zoe im Fischteich spielt: ${JSON.stringify(live.kacheln)}`);
+    pruefe(/Zoe/.test(live.kopf) && /gerade/i.test(live.kopf) && !/Alt|Ich/.test(live.kopf), `Oben steht nicht, dass Zoe gerade spielt: ${live.kopf}`);
+    await seite.click('.ar-kachel[data-spiel="fishPond"]');
+    await seite.waitForFunction(() => /Zoe spielt gerade/.test(document.querySelector(".ar-spielen:not([hidden])")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
+    pruefe(/^Zoe spielt gerade$/.test(await seite.locator(".ar-spielen").innerText().catch(() => "")), "Unter dem Namen des Fischteichs steht nicht, dass Zoe ihn gerade spielt.");
+    await seite.click(".tn-wertung");
+    await seite.waitForSelector("dialog.ist-gesamt .tn-avatar.ist-am-spielen", { timeout: 4000 }).catch(() => {});
+    // Im Fenster: ein grüner Punkt an Zoes Kreis, und beim Fischteich steht,
+    // dass sie ihn gerade spielt.
+    const reiter = (art) => seite.click(`dialog.ist-gesamt .tn-reiter-knopf[data-reiter="${art}"]`);
+    const amSpiel = async () => {
+      await reiter("gesamt");
+      const kreise = await seite.evaluate(() => [...document.querySelectorAll("dialog.ist-gesamt .tn-person")]
+        .filter((p) => p.querySelector(".tn-avatar.ist-am-spielen")).map((p) => p.querySelector(".tn-person-name").textContent));
+      await reiter("spiele");
+      const spiele = await seite.evaluate(() => [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].filter((k) => k.querySelector(".tn-spiel-live"))
+        .map((k) => `${k.querySelector(".tn-spiel-titel").textContent}: ${k.querySelector(".tn-spiel-live").textContent} / ${[...k.querySelectorAll(".gk-zeile.ist-am-spielen .gk-name-text")].map((n) => n.textContent).join(",")}`));
+      await reiter("gesamt");
+      return { kreise, spiele };
+    };
+    const imFenster = await amSpiel();
+    pruefe(JSON.stringify(imFenster) === JSON.stringify({ kreise: ["Zoe"], spiele: ["Fischteich: Zoe spielt gerade / Zoe"] }),
+      `Im Fenster der Gesamtwertung steht nicht, dass Zoe Fischteich spielt: ${JSON.stringify(imFenster)}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `Wer gerade spielt – Klassen ohne Regel: ${ohne.join(", ")}`);
+    // Zoe ist fertig: Ihr Ergebnis kommt, der Versuch ist zu. Beim nächsten
+    // Blick (alle 15 Sekunden) liest die Seite auch die Liste neu – Zoe steht
+    // mit ihrem Fischteich vorne, und niemand spielt mehr.
+    await seite.evaluate(() => {
+      const k = [...window.__miniTurnierEintraege.keys()].find((x) => x.endsWith("/fishPond_mini_zoezoezoezoe"));
+      window.__miniTurnierEintraege.set(k, { ...window.__miniTurnierEintraege.get(k), punkte: 99, offen: false, updatedAtMs: Date.now() });
+    });
+    await seite.waitForFunction(() => document.querySelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live')?.hidden, null, { timeout: 20000 }).catch(() => {});
+    const fertig = await seite.evaluate(() => ({
+      kachel: !document.querySelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live')?.hidden,
+      zoe: [...document.querySelectorAll("dialog.ist-gesamt .tn-person")].find((p) => p.querySelector(".tn-person-name")?.textContent === "Zoe")?.querySelector(".tn-person-wert strong")?.textContent,
+      rang: document.querySelector(".ar-rang")?.textContent || "",
+    }));
+    const nachher = await amSpiel();
+    pruefe(!fertig.kachel && fertig.zoe === "1" && !nachher.kreise.length && !nachher.spiele.length && /Zoe/.test(fertig.rang),
+      `Nach Zoes Ergebnis liest die Turnierseite nicht neu: ${JSON.stringify(fertig)}`);
+    pruefe(fehlerAufSeite.length === vorher, `Wer gerade spielt – die Seite hat sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Das Lebenszeichen: Solange eine Runde im Turnier läuft, setzt das Spiel
+    // alle zwanzig Sekunden die Uhrzeit seines Eintrags neu – und nur die.
+    const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`, { vorher: () => localStorage.setItem("mini.name", "Herz") });
+    await turnierLos(seite, "Herz");
+    const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
+    await seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
+    const eintrag = () => seite.evaluate((id) => window.__miniTurnierEintraege.get(`${id}/towerStack_${localStorage.getItem("mini.id")}`) || null, DAUER);
+    await seite.waitForFunction(() => window.LernappTurnier.stand().laeuft, null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForTimeout(500);
+    const anfang = await eintrag();
+    await seite.waitForFunction(() => (window.__miniLebenszeichen || 0) >= 1, null, { timeout: 25000 }).catch(() => {});
+    const spaeter = await eintrag();
+    pruefe(anfang?.offen === true && spaeter?.offen === true && spaeter.updatedAtMs > anfang.updatedAtMs
+      && spaeter.versuche === anfang.versuche && spaeter.punkte === anfang.punkte,
+      `Die laufende Runde gibt kein Lebenszeichen: ${JSON.stringify({ anfang, spaeter, zahl: await seite.evaluate(() => window.__miniLebenszeichen || 0) })}`);
     await kontext.close();
   }
   {
@@ -4683,7 +4862,8 @@ try {
     pruefe(namen[0] === "Herbstcup" && namen[namen.length - 1] === "Frühlingscup",
       `Die Turniere stehen nicht in der Reihenfolge laufend – geplant – angehalten – vorbei: ${namen.join(", ")}`);
     const herbst = seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: "Herbstcup" }) });
-    pruefe(/vorne: 1\. Leo/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
+    // Im Schnitt der gespielten Plätze: Grosi 1, Leo 1,5, Mia 2,5.
+    pruefe(/vorne: 1\. Grosi, 2\. Leo, 3\. Mia/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
 
     // Die Liste: nach Stand gruppiert, die laufenden zuerst – und ohne den
     // erklärenden Absatz von früher.
@@ -4768,7 +4948,7 @@ try {
       `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Spielen (${await form.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
     // Im Formular nach Tier gruppiert, mit einem Knopf je Tier: dazu, und ist
     // es schon ganz gewählt, wieder weg.
-    await form.locator("button", { hasText: "Keine" }).click();
+    await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
     pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "frogHop", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiJump", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
@@ -4780,7 +4960,7 @@ try {
     pruefe(JSON.stringify(tierZwei) === JSON.stringify(["boilerRoom", "dartWheel", "leafFlow", "planetHop"]),
       `«Tier 2» dazu und «Tier 1» wieder weg ergibt nicht Tier 2: ${tierZwei.join(", ")}`);
     await form.locator('input[type="text"]').first().fill("Test-Cup Ä");
-    await form.locator("button", { hasText: "Keine" }).click();
+    await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator('input[value="towerStack"]').check();
     await form.locator('input[value="fishPond"]').check();
     await form.locator('input[type="radio"][value="frei"]').check();
@@ -4806,6 +4986,21 @@ try {
     const replayHaken = form.locator(".adm-option", { hasText: "Replays anschauen" }).locator("input");
     pruefe(await replayHaken.isChecked(), "Ein neues Turnier lässt die Replays nicht von selbst anschauen.");
     await replayHaken.uncheck();
+    // Bevor es angelegt wird: alles so, wie es jetzt steht, als Preset
+    // merken. Es kommt auf dieses Gerät, mit allem ausser dem Beginn.
+    pruefe(await form.locator("select.adm-preset-wahl").isDisabled(), "Ohne gespeicherte Presets lässt sich trotzdem eines wählen.");
+    antwort = "Mein Preset";
+    await form.locator("button", { hasText: "Als Preset speichern" }).click();
+    const preset = await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.admin.presets") || "[]"));
+    const p0 = preset[0]?.turnier || {};
+    pruefe(preset.length === 1 && preset[0].name === "Mein Preset" && p0.name === "Test-Cup Ä"
+      && JSON.stringify([...(p0.spiele || [])].sort()) === JSON.stringify(["fishPond", "towerStack"])
+      && p0.versuchsart === "zahl" && p0.anzahl === "4" && p0.zaehlt === "summe" && p0.wertung === "prozent"
+      && p0.aufgaben === "wieErster" && p0.sichtbar === "link" && p0.verdeckt === true && p0.ohneGeist === true && p0.ohneReplay === true
+      && p0.dauer === String(TAG) && !("startMs" in p0),
+      `Das Preset hält nicht fest, was eingestellt war: ${JSON.stringify(preset)}`);
+    pruefe(await form.locator("select.adm-preset-wahl").inputValue() === "Mein Preset", "Das eben gespeicherte Preset steht nicht in der Auswahl.");
+    pruefe(await seite.evaluate(() => [...window.__miniTurniere.values()].every((t) => t.name !== "Test-Cup Ä")), "«Als Preset speichern» hat das Turnier angelegt.");
     await form.locator('button[type="submit"]').click();
     await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Test-Cup Ä"), null, { timeout: 4000 })
       .catch(() => {});
@@ -4844,6 +5039,28 @@ try {
     pruefe((await sichtbar()).liste, "Nach dem Zurück-Knopf fehlt die Liste der Turniere.");
     await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    // Das Preset von vorhin: Ein Tipp in der Auswahl stellt alles wieder so
+    // ein – nur der Beginn ist jetzt.
+    await seite.locator(".adm-turnier-form select.adm-preset-wahl").selectOption("Mein Preset");
+    const ausPreset = await seite.evaluate(() => {
+      const f = document.querySelector(".adm-turnier-form");
+      const an = (wert) => Boolean(f.querySelector(`input[type="radio"][value="${wert}"]`)?.checked);
+      const haken = (wort) => [...f.querySelectorAll(".adm-option")].find((o) => o.textContent.includes(wort))?.querySelector("input")?.checked;
+      return {
+        name: f.querySelector('input[type="text"]').value,
+        spiele: [...f.querySelectorAll(".adm-wahl input:checked")].map((b) => b.value).sort(),
+        regeln: [an("zahl"), f.querySelector("input.adm-feld-zahl").value, an("summe"), an("prozent"), an("link"), an("wieErster")],
+        haken: [haken("verdecken"), haken("Gegner beim Spielen"), haken("Replays anschauen")],
+      };
+    });
+    pruefe(ausPreset.name === "Test-Cup Ä" && JSON.stringify(ausPreset.spiele) === JSON.stringify(["fishPond", "towerStack"])
+      && JSON.stringify(ausPreset.regeln) === JSON.stringify([true, "4", true, true, true, true])
+      && JSON.stringify(ausPreset.haken) === JSON.stringify([true, false, false]),
+      `Das Preset stellt das Formular nicht wieder her: ${JSON.stringify(ausPreset)}`);
+    await seite.locator(".adm-turnier-form button", { hasText: "Preset löschen" }).click();
+    pruefe(await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.admin.presets") || "[]").length === 0)
+      && await seite.locator(".adm-turnier-form select.adm-preset-wahl").isDisabled(),
+      "«Preset löschen» lässt das Preset stehen.");
     await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
     pruefe(!(await seite.evaluate(() => document.querySelector(".adm-seite").classList.contains("ist-formular"))), "Nach «Zurück zur Übersicht» bleibt der Adminbereich ausgeblendet.");
@@ -4942,7 +5159,7 @@ try {
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
     const dauerForm = seite.locator(".adm-turnier-form");
     await dauerForm.locator('input[type="text"]').first().fill("Endloscup");
-    await dauerForm.locator("select").first().selectOption("ohne");
+    await dauerForm.locator("select:not(.adm-preset-wahl)").first().selectOption("ohne");
     pruefe(/bis du es anhältst/.test(await dauerForm.innerText()), "Bei «ohne Zeitlimite» sagt das Formular nicht, wie lange das Turnier läuft.");
     await dauerForm.locator('button[type="submit"]').click();
     await seite.waitForFunction(() => [...window.__miniTurniere.values()].some((t) => t.name === "Endloscup"), null, { timeout: 4000 }).catch(() => {});
