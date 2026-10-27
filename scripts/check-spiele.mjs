@@ -1841,18 +1841,16 @@ try {
       zweiterWert: document.querySelector("dialog.ist-gesamt .tn-sieger .ist-stelle-2 .tn-person-wert strong")?.textContent,
       zeilen: document.querySelectorAll("dialog.ist-gesamt .tn-person").length,
       zu: document.querySelectorAll("dialog.ist-gesamt .tn-detail, dialog.ist-gesamt .tn-raenge .tn-wie").length,
-      spiele: [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].map((k) => [
-        k.querySelector(".tn-spiel-titel")?.textContent,
-        [...k.querySelectorAll(".gk-name-text")].map((n) => n.textContent).join(" "),
-      ]),
+      spieleSchonDa: document.querySelectorAll("dialog.ist-gesamt .tn-spiel").length,
+      reiter: [...document.querySelectorAll("dialog.ist-gesamt .tn-reiter-knopf")].map((k) => `${k.textContent}${k.classList.contains("ist-an") ? "*" : ""}`),
       beschreibung: document.querySelector("dialog.ist-gesamt .tn-beschreibung")?.textContent,
     }));
     pruefe(gesamt.erster === "Grosi" && gesamt.ersterWert === "1" && gesamt.zweiterWert === "1,5",
       `${lage}: Die Gesamtwertung rechnet falsch – vorne steht ${gesamt.erster} mit ${gesamt.ersterWert} (dahinter ${gesamt.zweiterWert}) statt Grosi mit 1 und Leo mit 1,5.`);
     pruefe(gesamt.zeilen === 3, `${lage}: In der Gesamtwertung stehen ${gesamt.zeilen} Spieler statt drei.`);
     pruefe(gesamt.zu === 0, `${lage}: In der Gesamtwertung steht schon vor dem ersten Tipp, woraus sich ein Rang zusammensetzt.`);
-    pruefe(JSON.stringify(gesamt.spiele) === JSON.stringify([["Turmbau", "Grosi Leo Mia"], ["Fischteich", "Leo Mia"], ["Wo hält der Zug?", ""]]),
-      `${lage}: Unter der Gesamtwertung stehen die Spiele nicht mit ihren Ranglisten: ${JSON.stringify(gesamt.spiele)}`);
+    pruefe(JSON.stringify(gesamt.reiter) === JSON.stringify(["Gesamtwertung*", "Spiele"]) && gesamt.spieleSchonDa === 0,
+      `${lage}: Oben im Fenster stehen nicht die Reiter «Gesamtwertung» (gewählt) und «Spiele»: ${JSON.stringify(gesamt)}`);
     // Ein Tipp auf den Zweiten klappt auf, woraus sich sein Schnitt
     // zusammensetzt – ein zweiter klappt es wieder zu.
     await seite.click("dialog.ist-gesamt .tn-sieger .ist-stelle-2");
@@ -1866,6 +1864,21 @@ try {
       `${lage}: Ein Tipp auf den Zweiten zeigt nicht, woraus sich sein Schnitt zusammensetzt: ${JSON.stringify(einzeln)}`);
     await seite.click("dialog.ist-gesamt .tn-sieger .ist-stelle-2");
     pruefe(await seite.locator("dialog.ist-gesamt .tn-detail").count() === 0, `${lage}: Ein zweiter Tipp klappt die Einzelheiten nicht wieder zu.`);
+    // Der Reiter «Spiele»: jedes Spiel mit seiner Rangliste – und nichts vom
+    // Podest.
+    await seite.click('dialog.ist-gesamt .tn-reiter-knopf[data-reiter="spiele"]');
+    const spieleReiter = await seite.evaluate(() => ({
+      spiele: [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].map((k) => [
+        k.querySelector(".tn-spiel-titel")?.textContent,
+        [...k.querySelectorAll(".gk-name-text")].map((n) => n.textContent).join(" "),
+      ]),
+      podest: document.querySelectorAll("dialog.ist-gesamt .tn-sieger").length,
+    }));
+    pruefe(JSON.stringify(spieleReiter.spiele) === JSON.stringify([["Turmbau", "Grosi Leo Mia"], ["Fischteich", "Leo Mia"], ["Wo hält der Zug?", ""]]) && spieleReiter.podest === 0,
+      `${lage}: Unter «Spiele» stehen die Spiele nicht mit ihren Ranglisten: ${JSON.stringify(spieleReiter)}`);
+    const ohneReiter = await klassenOhneRegel(seite);
+    pruefe(ohneReiter.length === 0, `${lage}: Reiter «Spiele» – Klassen ohne Regel: ${ohneReiter.join(", ")}`);
+    await seite.click('dialog.ist-gesamt .tn-reiter-knopf[data-reiter="gesamt"]');
     pruefe(gesamt.beschreibung === "Wer gewinnt, wählt das Znacht.", `${lage}: Die Beschreibung fehlt.`);
     const ohneFenster = await klassenOhneRegel(seite);
     pruefe(ohneFenster.length === 0, `${lage}: Gesamtwertung im Turnier – Klassen ohne Regel: ${ohneFenster.join(", ")}`);
@@ -1921,12 +1934,17 @@ try {
     await seite.waitForSelector("dialog.ist-gesamt .tn-avatar.ist-am-spielen", { timeout: 4000 }).catch(() => {});
     // Im Fenster: ein grüner Punkt an Zoes Kreis, und beim Fischteich steht,
     // dass sie ihn gerade spielt.
-    const amSpiel = () => seite.evaluate(() => ({
-      kreise: [...document.querySelectorAll("dialog.ist-gesamt .tn-person")].filter((p) => p.querySelector(".tn-avatar.ist-am-spielen"))
-        .map((p) => p.querySelector(".tn-person-name").textContent),
-      spiele: [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].filter((k) => k.querySelector(".tn-spiel-live"))
-        .map((k) => `${k.querySelector(".tn-spiel-titel").textContent}: ${k.querySelector(".tn-spiel-live").textContent} / ${[...k.querySelectorAll(".gk-zeile.ist-am-spielen .gk-name-text")].map((n) => n.textContent).join(",")}`),
-    }));
+    const reiter = (art) => seite.click(`dialog.ist-gesamt .tn-reiter-knopf[data-reiter="${art}"]`);
+    const amSpiel = async () => {
+      await reiter("gesamt");
+      const kreise = await seite.evaluate(() => [...document.querySelectorAll("dialog.ist-gesamt .tn-person")]
+        .filter((p) => p.querySelector(".tn-avatar.ist-am-spielen")).map((p) => p.querySelector(".tn-person-name").textContent));
+      await reiter("spiele");
+      const spiele = await seite.evaluate(() => [...document.querySelectorAll("dialog.ist-gesamt .tn-spiel")].filter((k) => k.querySelector(".tn-spiel-live"))
+        .map((k) => `${k.querySelector(".tn-spiel-titel").textContent}: ${k.querySelector(".tn-spiel-live").textContent} / ${[...k.querySelectorAll(".gk-zeile.ist-am-spielen .gk-name-text")].map((n) => n.textContent).join(",")}`));
+      await reiter("gesamt");
+      return { kreise, spiele };
+    };
     const imFenster = await amSpiel();
     pruefe(JSON.stringify(imFenster) === JSON.stringify({ kreise: ["Zoe"], spiele: ["Fischteich: Zoe spielt gerade / Zoe"] }),
       `Im Fenster der Gesamtwertung steht nicht, dass Zoe Fischteich spielt: ${JSON.stringify(imFenster)}`);
@@ -4844,7 +4862,8 @@ try {
     pruefe(namen[0] === "Herbstcup" && namen[namen.length - 1] === "Frühlingscup",
       `Die Turniere stehen nicht in der Reihenfolge laufend – geplant – angehalten – vorbei: ${namen.join(", ")}`);
     const herbst = seite.locator(".adm-turnier", { has: seite.locator(".adm-turnier-name", { hasText: "Herbstcup" }) });
-    pruefe(/vorne: 1\. Leo/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
+    // Im Schnitt der gespielten Plätze: Grosi 1, Leo 1,5, Mia 2,5.
+    pruefe(/vorne: 1\. Grosi, 2\. Leo, 3\. Mia/.test(await herbst.innerText()), `Beim Herbstcup steht nicht, wer vorne liegt: ${(await herbst.innerText()).replace(/\n/g, " ")}`);
 
     // Die Liste: nach Stand gruppiert, die laufenden zuerst – und ohne den
     // erklärenden Absatz von früher.
