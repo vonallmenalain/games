@@ -739,6 +739,26 @@ h2 {
 }
 .gz-nochmal { background: var(--cm-accent, #F5A623); color: #fff; }
 .gz-zurueck { background: rgba(255, 255, 255, 0.1); color: var(--ar-text); }
+/* Live mitschauen (geist.js, mitschauer): ein roter Punkt, der atmet, statt
+   des ▶ – und dieselbe Tafel, wenn er gerade nicht spielt. */
+.gz-live {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff5a61;
+  box-shadow: 0 0 0 3px rgba(217, 63, 69, 0.35);
+  animation: lv-puls 1.6s ease-in-out infinite;
+}
+.gz-leiste.ist-live { border-color: rgba(255, 138, 143, 0.45); }
+.gz-warten .gz-text { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
+.gz-warten .gz-live { background: var(--ar-leise); box-shadow: 0 0 0 3px rgba(163, 159, 178, 0.25); }
+.gz-neben { margin: 0 0 16px; color: var(--ar-leise); font-size: 0.86rem; font-weight: 700; }
+.gz-warten .gz-knoepfe { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .gz-live { animation: none; }
+}
 @media (max-height: 500px) and (min-width: 780px) {
   .gz-leiste { top: calc(var(--safe-top) + 20px); }
 }
@@ -6419,6 +6439,30 @@ body.ar {
 }
 .ar-spielen[hidden] { display: none; }
 .ar-spielen-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Wer spielt, ist ein Weg zum Zuschauen (geist.js, mitschauer). */
+.ar-zuschauen,
+.tn-zuschauen { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: rgba(90, 216, 147, 0.55); }
+.ar-zuschauen:hover,
+.tn-zuschauen:hover { text-decoration-color: currentColor; }
+.ar-zuschau-knopf {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  background: rgba(90, 216, 147, 0.16);
+  color: var(--ar-gruen);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ar-zuschau-knopf .gk-icon { width: 12px; height: 12px; }
+.ar-zuschau-knopf:hover,
+.ar-zuschau-knopf:focus-visible { background: rgba(90, 216, 147, 0.28); outline: none; }
+.tn-zuschau-namen { min-width: 0; }
 .ar-kachel-live {
   position: absolute;
   top: 6px;
@@ -6734,6 +6778,23 @@ body.ar {
 .tn-detail-zeile.ist-leer .tn-detail-platz { background: transparent; color: var(--ar-leise); font-weight: 700; }
 .tn-detail-rechnung { margin: 0; color: #f4f2f8; font-size: 0.82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .tn-detail .tn-wie { margin: 0; }
+/* Zuschauen: live, und danach jede weitere Runde. */
+.tn-detail-zuschauen {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(90, 216, 147, 0.16);
+  color: var(--ar-gruen);
+  font-size: 0.86rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+.tn-detail-zuschauen::before { content: "▶"; margin-right: 8px; font-size: 0.7rem; }
+.tn-detail-zuschauen:hover,
+.tn-detail-zuschauen:focus-visible { background: rgba(90, 216, 147, 0.28); outline: none; }
 /* Die Reiter oben: Gesamtwertung und Spiele. Sie bleiben stehen, wenn die
    Spiele darunter durchrollen. */
 .tn-reiter {
@@ -6782,6 +6843,10 @@ body.ar {
 /* In der Liste eines Spiels: wer es gerade spielt. */
 .gk-spielt { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; margin-left: 8px; color: var(--ar-gruen); font-size: 0.7rem; font-weight: 850; }
 .gk-spielt .ar-live-punkt { width: 7px; height: 7px; }
+/* Wo sich zuschauen lässt, ist «spielt gerade» ein Weg dorthin. */
+a.gk-spielt { margin-top: -4px; margin-bottom: -4px; padding: 4px 0; text-decoration: none; }
+a.gk-spielt:hover > span:last-child,
+a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 .gk-zeile.ist-am-spielen { box-shadow: inset 0 0 0 1px rgba(90, 216, 147, 0.35); }
 @media (max-width: 420px) {
   .tn-sieger { gap: 5px; }
@@ -6790,7 +6855,7 @@ body.ar {
   .tn-stufe.ist-platz-1 .tn-avatar-gross { width: 62px; height: 62px; font-size: 1.2rem; }
   .tn-stufe .tn-person-wert { padding: 3px 8px; }
   .tn-reihe-zeile { gap: 8px; }
-  .gk-spielt > span:last-child { display: none; }
+  small.gk-spielt > span:last-child { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ar-live-punkt,

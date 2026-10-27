@@ -421,7 +421,11 @@
     const FERN = 0.05;
     const zelle = 3000;
     const basis = Math.floor(state.camY * FERN / (zelle * FERN)) ;
-    for (let i = basis - 1; i <= basis + 1; i += 1) {
+    // Drei Zellen, abgezählt: Weit draussen (ab 2^53) kommt i + 1 nicht mehr
+    // von i weg, und eine Schleife bis basis + 1 liefe für immer.
+    for (let d = -1; d <= 1; d += 1) {
+      const i = basis + d;
+      if (!Number.isFinite(i)) break;
       const art = Math.floor(hash01(i * 5.17 + 0.3) * 3);
       const fx = hash01(i * 2.9 + 1.7);
       const sx = fx * W;
@@ -1276,7 +1280,10 @@
 
   function loop(now) {
     frame = window.requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000);
+    // Nie rückwärts: Das erste Bild nach dem Start trägt eine Zeit, die ein
+    // wenig vor performance.now() beim Start liegen kann. Ein negativer
+    // Schritt liesse die Kamera und die Höhe davonlaufen, statt nachzuziehen.
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     messen();
     takt(dt);

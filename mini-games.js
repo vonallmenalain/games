@@ -492,7 +492,7 @@
   function inTurnierOderLive() {
     try {
       const p = new URLSearchParams(window.location.search);
-      return p.has("turnier") || p.has("live") || p.has("zuschauen");
+      return p.has("turnier") || p.has("live") || p.has("zuschauen") || p.has("mitschauen");
     } catch { return true; }
   }
 
@@ -1519,8 +1519,9 @@
   // zwischen den Ersten und dem eigenen Eintrag, der ▶ –, nur anders
   // gezeichnet. listeBauen bleibt, wie es ist: Es steht auch auf der Tafel
   // nach einer Runde, und dort ist für Medaillen kein Platz.
-  // spielt: die Namen (klein geschrieben), die dieses Spiel gerade spielen –
-  // im Turnier (turnier.js, gesamtAnsicht). Sie tragen den grünen Punkt.
+  // spielt: die Namen (klein geschrieben), die dieses Spiel gerade spielen
+  // (Set) – oder eine Map Name → Weg zum Zuschauen. Sie tragen den grünen
+  // Punkt; wo es einen Weg gibt, ist «spielt gerade» einer.
   function bestenliste(eintraege, spiel, { max = 0, ansehen = null, spielt = null } = {}) {
     const wrap = el("ol", "gk-liste");
     const gezeigt = gezeigteEintraege(eintraege, max);
@@ -1547,7 +1548,8 @@
       const punkte = Number(eintrag.punkte) || 0;
       // Gold, Silber, Bronze. Der ▶ steht trotzdem bei allen (ansehen).
       const medaille = [1, 2, 3].includes(eintrag.platz) ? ` ist-platz-${eintrag.platz}` : "";
-      const amSpielen = Boolean(spielt?.has?.(String(eintrag.name).toLocaleLowerCase("de")));
+      const schluessel = String(eintrag.name).toLocaleLowerCase("de");
+      const amSpielen = Boolean(spielt?.has?.(schluessel));
       const zeile = el("li", `gk-zeile${medaille}${eintrag.eigen ? " ist-ich" : ""}${amSpielen ? " ist-am-spielen" : ""}`);
       zeile.style.setProperty("--gk-anteil", `${Math.round(Math.max(0.06, Math.min(1, punkte / rekord)) * 100)}%`);
       const marke = eintrag.platz === 1 ? mitIcon("span", "gk-marke", "krone") : el("span", "gk-marke", String(eintrag.platz));
@@ -1557,7 +1559,12 @@
       name.append(el("span", "gk-name-text", eintrag.name));
       if (eintrag.eigen) name.append(el("small", "gk-du", "Du"));
       if (amSpielen) {
-        const live = el("small", "gk-spielt");
+        const zuschauen = spielt.get?.(schluessel) || "";
+        const live = el(zuschauen ? "a" : "small", "gk-spielt");
+        if (zuschauen) {
+          live.href = zuschauen;
+          live.title = `${eintrag.name} zuschauen`;
+        }
         live.append(el("span", "ar-live-punkt"), el("span", "", "spielt gerade"));
         name.append(live);
       }
@@ -1985,17 +1992,43 @@
       return k;
     }
 
-    // Wer gerade spielt, je Spiel (im Turnier, turnier.js amSpielen): unter
-    // dem Namen des Spiels oben ein Satz, auf den Kacheln ein grüner Punkt mit
-    // dem Namen – oder, sind es mehrere, wie viele.
+    // Wer gerade spielt, je Spiel (im Turnier turnier.js amSpielen, sonst
+    // spielendeHoeren): unter dem Namen des Spiels oben ein Satz, auf den
+    // Kacheln ein grüner Punkt mit dem Namen – oder, sind es mehrere, wie
+    // viele –, und in der Rangliste bei seinem Namen. Je Spiel eine Liste von
+    // { name, link }: Wo es einen Weg zum Zuschauen gibt, ist der Name einer.
     let spielend = new Map();
+    const spieltIn = (spiel) => new Map((spielend.get(spiel) || []).map((s) => [String(s.name).toLocaleLowerCase("de"), s.link || ""]));
     function spielenZeigen() {
       const hier = spielend.get(aktuell) || [];
       amSpielen.hidden = !hier.length;
       amSpielen.replaceChildren();
-      if (hier.length) amSpielen.append(el("span", "ar-live-punkt"), el("span", "ar-spielen-text", spielenSatz(hier)));
+      if (hier.length) {
+        const text = el("span", "ar-spielen-text");
+        const zeigen = hier.length > 3 ? hier.slice(0, 2) : hier;
+        zeigen.forEach((s, i) => {
+          if (i > 0) text.append(i === zeigen.length - 1 && hier.length <= 3 ? " und " : ", ");
+          if (s.link) {
+            const link = el("a", "ar-zuschauen", s.name);
+            link.href = s.link;
+            link.title = `${s.name} zuschauen`;
+            text.append(link);
+          } else {
+            text.append(s.name);
+          }
+        });
+        if (hier.length > 3) text.append(` und ${hier.length - 2} weitere`);
+        text.append(` ${hier.length === 1 ? "spielt" : "spielen"} gerade`);
+        amSpielen.append(el("span", "ar-live-punkt"), text);
+        // Einer allein: daneben gleich der Knopf dazu.
+        if (hier.length === 1 && hier[0].link) {
+          const knopf = mitIcon("a", "ar-zuschau-knopf", "play", "Zuschauen");
+          knopf.href = hier[0].link;
+          amSpielen.append(knopf);
+        }
+      }
       kacheln.forEach((k, spiel) => {
-        const namen = spielend.get(spiel) || [];
+        const namen = (spielend.get(spiel) || []).map((s) => s.name);
         const live = k.querySelector(".ar-kachel-live");
         if (!live) return;
         live.hidden = !namen.length;
@@ -2058,7 +2091,7 @@
         const liste = listen.get(spiel) || [];
         if (ansehbar && !ansehen.has(spiel)) ansehen.set(spiel, ansehenFuer(spiel, () => listen.get(spiel) || [], () => offeneFenster.forEach((z) => z()), { aus }));
         const fuer = ansehen.get(spiel) || null;
-        wirtListe.append(bestenliste(liste, spiel, { ansehen: fuer }));
+        wirtListe.append(bestenliste(liste, spiel, { ansehen: fuer, spielt: spieltIn(spiel) }));
         fuer?.frage();
       };
       zeichne();
@@ -2338,11 +2371,13 @@
         wegZeigen();
         rangKnopf();
       },
-      // Wer gerade spielt: Map Spiel → Namen.
+      // Wer gerade spielt: Map Spiel → [{ name, link }].
       spielen(neu) {
         if (signal.aborted) return;
+        const vorher = JSON.stringify([...spielend]);
         spielend = neu instanceof Map ? neu : new Map();
         spielenZeigen();
+        if (JSON.stringify([...spielend]) !== vorher) offeneFenster.forEach((z) => z());
       },
       aktuell: () => aktuell,
     };
@@ -2361,6 +2396,47 @@
     } catch { herkunft = ""; }
     const start = [gewuenscht, herkunft, zuletzt].find((s) => s && reihenfolge.includes(s)) || reihenfolge[0];
     return { start, ruhig: Boolean(gewuenscht || herkunft || zuletzt) };
+  }
+
+  /*
+   * Wer gerade spielt – in der App, nicht im Turnier: geist.js legt dafür
+   * einen Zettel in amSpielen (cloud.js). Gemeldet wird je Spiel eine Liste
+   * { name, link }; link führt in den Beobachtungsmodus (geist.js,
+   * mitschauer).
+   *
+   * Ob einer noch spielt, sagt die Uhr seines Geräts (lebt), und die geht
+   * nicht überall gleich. Darum zählt, wann dieses Gerät die Änderung
+   * gesehen hat – nur beim ersten Blick gilt seine Uhr. Wer seit SPIELT_MS
+   * nichts gesagt hat (alle zehn Sekunden, solange die Runde läuft), spielt
+   * nicht mehr; wer fertig ist, auch nicht.
+   */
+  const SPIELT_MS = 25000;
+  function spielendeHoeren({ signal, spiele, beiWechsel }) {
+    const c = cloud();
+    if (!c?.amSpielenHoeren || signal.aborted) return;
+    const gesehen = new Map();
+    let knoten = null;
+    const rechne = () => {
+      if (signal.aborted) return;
+      const jetzt = Date.now();
+      const karte = new Map();
+      Object.entries(knoten || {}).forEach(([kennung, z]) => {
+        if (!z || typeof z !== "object") return;
+        const lebt = Number(z.lebt) || 0;
+        const alt = gesehen.get(kennung);
+        if (!alt || alt.lebt !== lebt) gesehen.set(kennung, { lebt, seit: alt ? jetzt : Math.min(jetzt, lebt) });
+        const spiel = String(z.spiel || "");
+        const wer = sauberName(z.name);
+        if (z.fertig || !wer || !spiele.includes(spiel) || jetzt - gesehen.get(kennung).seit > SPIELT_MS) return;
+        const link = `${spielLink(spiel)}?mitschauen=${encodeURIComponent(kennung)}&wer=${encodeURIComponent(wer)}`;
+        karte.set(spiel, [...(karte.get(spiel) || []), { name: wer, link }]);
+      });
+      karte.forEach((liste) => liste.sort((a, b) => a.name.localeCompare(b.name, "de")));
+      beiWechsel(karte);
+    };
+    const aus = c.amSpielenHoeren((neu) => { knoten = neu; rechne(); });
+    const uhr = window.setInterval(rechne, 5000);
+    signal.addEventListener("abort", () => { aus(); window.clearInterval(uhr); }, { once: true });
   }
 
   // Baut sich die Seite neu (nach einem neuen Namen), räumt die alte zuerst
@@ -2412,6 +2488,9 @@
     turniere.dataset.turnierHinweis = "";
     const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
+    // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
+    // seiner Rangliste – ein Tipp darauf, und man schaut zu.
+    spielendeHoeren({ signal, spiele: reihenfolge, beiWechsel: (karte) => buehne.spielen(karte) });
 
     // Die Gesamtwertung über alle Spiele, im Fenster.
     let alle = null;

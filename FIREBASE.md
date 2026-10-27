@@ -63,7 +63,8 @@ https://games-a0cd4-default-rtdb.europe-west1.firebasedatabase.app
 
 Ihre Regeln stehen in `database.rules.json`. Firestore bleibt für alles, was
 bleibt; die Realtime Database nur für das, was während eines Multiplayers
-hin und her geht (`live.js`):
+hin und her geht (`live.js`) – und für das Live-Zuschauen im Turnier
+(`turnier.js`, `geist.js`):
 
 ```
 live/<code>                      lesen: wer den Link hat (zehn Zeichen im
@@ -79,6 +80,17 @@ live/<code>                      lesen: wer den Link hat (zehn Zeichen im
 liveOffen/<code>        name, seit                lesen: jeder (auch als Liste)
                                                   schreiben: nur der Admin
 turnierLive/<turnier>   code, name, seit          schreiben: nur der Admin
+
+turnierMitschauen/<turnier>/<kennung>             lesen: wer das Turnier kennt
+    name, lebt
+    runde      id, spiel, saat, start
+    teile/<n>  ein Stück Proben (JSON, bis 8000 Zeichen)
+    ende       p, o, z                            der Spieler selbst
+
+mitschauen/<kennung>    dasselbe in der App       lesen: wer die Kennung kennt
+                                                  der Spieler selbst
+amSpielen/<kennung>     name, spiel, lebt, fertig lesen: jeder (auch als Liste)
+                                                  der Spieler selbst
 ```
 
 `liveOffen` sind die Multiplayer, die für alle sichtbar sind: Die Startseite
@@ -90,6 +102,14 @@ zusätzlichen Felder) und dass es den Multiplayer gibt – nicht, wer schreibt.
 Anlegen, steuern und löschen darf nur der Admin, mit derselben Prüfung wie
 in Firestore (bestätigte Adresse). «Abschliessen» löscht den ganzen
 Multiplayer samt seinem Eintrag in `liveOffen`; liegen bleibt nichts.
+
+`turnierMitschauen` hält je Spieler und Turnier nur die letzte Runde, damit
+andere live zuschauen können (README, «Live zuschauen»). Eine neue Runde
+überschreibt sie ganz; wie bei den Spielern eines Multiplayers prüfen die
+Regeln die Form und die Kennung, nicht wer schreibt. `mitschauen` ist
+dasselbe für die Runden in der App, und `amSpielen` der kleine Zettel dazu,
+an dem die Startseite sieht, wer gerade was spielt (README, «Zuschauen in der
+App») – auflisten lassen sich nur die Zettel, nicht die Läufe.
 
 ## 1. Die Regeln fahren von selbst nach Firebase
 

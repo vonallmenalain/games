@@ -78,6 +78,9 @@
   // die gerade mitspielen – die Schalter für Platz 1 und Bestmarke stehen
   // nicht da, und wo die eigene Figur ist, geht an den Live-Abend.
   const live = () => (window.LernappLiveSpiel?.aktiv?.() ? window.LernappLiveSpiel : null);
+  // Wer zuschaut, bekommt Ort und Züge der laufenden Runde (Live mitschauen:
+  // senden, weiter unten).
+  const sender = () => mitschauenApi;
 
   // Die Fassung der Aufzeichnung. Ändert sich, was in einer steht, zählt sie
   // hoch – und die alten verschwinden von selbst aus dem Bild (cloud.js,
@@ -200,6 +203,190 @@
     alle[spiel] = { punkte, bahn, level: fassung, ms: Date.now() };
     schreibeJson(LAUF_KEY, alle);
   }
+
+  // ---------------------------------------------------------------------------
+  // Live mitschauen: senden
+  // ---------------------------------------------------------------------------
+  /*
+   * Was in einer Runde geschieht, geht im Takt von einer halben Sekunde in
+   * die Realtime Database (cloud.js, mitschauenSchreiben) – wer zuschaut,
+   * sieht es kurz danach in seinem eigenen Spiel (mitschauer, weiter unten).
+   *
+   * Wohin (mitschauZiel): Gehört die Runde zu einem Turnier, in dessen
+   * Knoten – aber nur, wo das Turnier Zuschauen erlaubt (turnier.js,
+   * mitschauenZiel); sonst nirgends hin. Ohne Turnier in den der App, wenn
+   * der Spieler einen Namen hat – und dazu sein Zettel in amSpielen, an dem
+   * die Startseite sieht, wer gerade was spielt. Nichts geht hinaus im
+   * Multiplayer (der hat sein eigenes Zuschauen) und nichts, solange diese
+   * Seite selbst zuschaut.
+   *
+   * Die Proben kommen aus denselben Stellen, die auch den Lauf fürs Replay
+   * aufzeichnen: der Ort der Figur dreissigmal je Sekunde (Strom «o», aus
+   * fuer) und in den Spielen ohne Figur jeder Zug (Strom «z», aus zuege).
+   * Jeder Strom hat seine eigene Uhr – die Zeit seit seinem los() –, und mit
+   * jedem Stück geht mit, wie weit sie gerade ist (jo, jz): Daran misst der
+   * Zuschauer, wie weit er hinterherläuft.
+   *
+   * Eine Runde beginnt mit dem ersten los() eines Stroms und setzt den
+   * ganzen Knoten neu (neue id, neue Saat, keine Stücke). Ein zweiter Strom
+   * derselben Runde (Blätter im Strom zeichnet beide auf) kommt dazu. Fertig
+   * ist sie, wenn jeder Strom, der begann, sein ende() hatte. Geschrieben
+   * wird nur, solange die Seite im Bild ist.
+   */
+  // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde –
+  // dreimal so oft wie im Replay (TAKT_MS): Die Realtime Database rechnet
+  // nach Datenmenge, nicht nach Anfragen, und ein Zuschauer lädt so um 5 MB
+  // je Stunde. Die Züge alle.
+  const MITSCHAUEN_MS = 500;
+  const MITSCHAUEN_ORT_MS = 30;
+  // Der Zettel in amSpielen: so oft «läuft noch».
+  const AM_SPIELEN_MS = 10000;
+  const spielHier = () => document.body?.dataset?.spiel || "";
+
+  function mitschauZiel() {
+    if (zuschauAdresse() || live() || !cloud()?.mitschauenSchreiben) return null;
+    // Ohne Namen steht niemand in einer Liste – und schaut ihm auch niemand
+    // zu. Erst dann die Kennung: Sie entsteht, wenn sie fehlt.
+    const name = mini()?.name?.() || "";
+    const kennung = name ? mini()?.kennung?.() || "" : "";
+    if (!kennung) return null;
+    if (window.LernappTurnier?.aufSpielseite?.()) {
+      const id = window.LernappTurnier.mitschauenZiel?.() || "";
+      return id ? { turnier: id, kennung, name } : null;
+    }
+    return { turnier: "", kennung, name };
+  }
+
+  const mitschauen = { runde: null, ziel: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null, zettel: 0 };
+
+  // Der Zettel der App: wer was spielt, und ob noch.
+  function zettel(daten, ganz = false) {
+    const { turnier, kennung } = mitschauen.ziel || {};
+    if (turnier !== "" || !kennung) return;
+    mitschauen.zettel = performance.now();
+    Promise.resolve(cloud()?.amSpielenSchreiben?.(kennung, daten, { ganz })).catch(() => {});
+  }
+
+  function mitschauenFlush({ zuletzt = false } = {}) {
+    const r = mitschauen.runde;
+    if (!r || !mitschauen.ziel) return;
+    const { o, z } = mitschauen.puffer;
+    const jetzt = performance.now();
+    const uhr = (art) => {
+      const u = mitschauen.uhr[art];
+      return u ? Math.round(u.t + (mitschauen.fertig.has(art) ? 0 : jetzt - u.lokal)) : undefined;
+    };
+    const aenderung = { lebt: Date.now() };
+    // Die Saat, falls sie zu Beginn noch nicht feststand.
+    if (r.saat === null && r.saatFn) {
+      const saat = r.saatFn();
+      if (saat !== null) {
+        r.saat = saat;
+        r.saatFn = null;
+        aenderung["runde/saat"] = saat;
+      }
+    }
+    if (o.length || z.length || zuletzt) {
+      const stueck = { jo: uhr("o"), jz: uhr("z") };
+      // Höchstens so viele je Stück – was darüber ist, kommt mit dem nächsten
+      // (die Regeln nehmen ein Stück nur bis 8000 Zeichen).
+      if (o.length) stueck.o = o.splice(0, 120);
+      if (z.length) stueck.z = z.splice(0, 120);
+      aenderung[`teile/${mitschauen.teil}`] = JSON.stringify(stueck);
+      mitschauen.teil += 1;
+    }
+    if (zuletzt && mitschauen.ende) aenderung.ende = mitschauen.ende;
+    const { turnier, kennung } = mitschauen.ziel;
+    Promise.resolve(cloud()?.mitschauenSchreiben?.(turnier, kennung, aenderung)).catch(() => {});
+    if (zuletzt) zettel({ lebt: Date.now(), fertig: true });
+    else if (jetzt - mitschauen.zettel > AM_SPIELEN_MS) zettel({ lebt: Date.now() });
+  }
+
+  function mitschauenTakt() {
+    if (document.visibilityState !== "visible") return;
+    mitschauenFlush();
+  }
+
+  // Wer mitten in der Runde weggeht, spielt nicht mehr – auf der Startseite
+  // sofort, nicht erst, wenn sein Zettel alt ist.
+  window.addEventListener("pagehide", () => {
+    if (mitschauen.runde && !mitschauen.ende) zettel({ lebt: Date.now(), fertig: true });
+  });
+
+  const mitschauenApi = {
+    // Ein Strom beginnt: der erste einer neuen Runde – oder der zweite der
+    // laufenden. saatFn: woher die Saat der Welt kommt (zufall.js) – steht
+    // sie noch nicht fest, wird beim nächsten Stück noch einmal gefragt.
+    los(art, saatFn = null) {
+      const frage = () => { try { const s = saatFn?.(); return Number.isInteger(s) && s >= 0 ? s : null; } catch { return null; } };
+      const saat = frage();
+      const r = mitschauen.runde;
+      const dazu = r && mitschauen.ziel && !mitschauen.ende && !mitschauen.laeuft.has(art) && performance.now() - r.lokal < 3000;
+      if (dazu) {
+        mitschauen.laeuft.add(art);
+        mitschauen.uhr[art] = { t: 0, lokal: performance.now() };
+        if (r.saat === null) r.saatFn = frage;
+        return;
+      }
+      window.clearInterval(mitschauen.timer);
+      const ziel = mitschauZiel();
+      mitschauen.ziel = ziel;
+      mitschauen.runde = null;
+      if (!ziel) return;
+      const neu = {
+        id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        spiel: spielHier(),
+        saat,
+        saatFn: saat === null ? frage : null,
+        start: Date.now(),
+        lokal: performance.now(),
+      };
+      mitschauen.runde = neu;
+      mitschauen.teil = 0;
+      mitschauen.puffer = { o: [], z: [] };
+      mitschauen.uhr = { o: null, z: null };
+      mitschauen.uhr[art] = { t: 0, lokal: performance.now() };
+      mitschauen.ortZuletzt = -Infinity;
+      mitschauen.laeuft = new Set([art]);
+      mitschauen.fertig = new Set();
+      mitschauen.ende = null;
+      const runde = { id: neu.id, spiel: neu.spiel, start: neu.start };
+      if (neu.saat !== null) runde.saat = neu.saat;
+      const name = ziel.name.slice(0, 24);
+      Promise.resolve(cloud().mitschauenSchreiben(ziel.turnier, ziel.kennung, { name, runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
+      zettel({ name, spiel: neu.spiel, lebt: Date.now() }, true);
+      mitschauen.timer = window.setInterval(mitschauenTakt, MITSCHAUEN_MS);
+    },
+    // Eine Probe: t in der Uhr des Stroms, Punkte, Ort (a, b, c) – bei einem
+    // Zug dazu, ob es nur eine Lage dazwischen war.
+    probe(art, t, punkte, ort, zwischen = false) {
+      if (!mitschauen.runde || mitschauen.ende || !mitschauen.laeuft.has(art) || !ort) return;
+      const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
+      const zeit = Math.max(0, Math.round(Number(t) || 0));
+      mitschauen.uhr[art] = { t: zeit, lokal: performance.now() };
+      if (art === "o") {
+        if (zeit - mitschauen.ortZuletzt < MITSCHAUEN_ORT_MS) return;
+        mitschauen.ortZuletzt = zeit;
+      }
+      const probe = [zeit, zahl(ort.a), zahl(ort.b), zahl(ort.c), zahl(punkte)];
+      if (art === "z") probe.push(zwischen ? 1 : 0);
+      mitschauen.puffer[art].push(probe);
+    },
+    // Ein Strom ist zu Ende. Sind es alle, geht das Ende mit dem letzten
+    // Stück hinaus.
+    ende(art, t, punkte) {
+      if (!mitschauen.runde || !mitschauen.laeuft.has(art) || mitschauen.fertig.has(art)) return;
+      mitschauen.fertig.add(art);
+      mitschauen.uhr[art] = { t: Math.max(0, Math.round(Number(t) || 0)), lokal: performance.now() };
+      if (mitschauen.fertig.size < mitschauen.laeuft.size) return;
+      const ende = { p: Math.max(0, Math.round(Number(punkte) || 0)) };
+      if (mitschauen.uhr.o) ende.o = mitschauen.uhr.o.t;
+      if (mitschauen.uhr.z) ende.z = mitschauen.uhr.z.t;
+      mitschauen.ende = ende;
+      window.clearInterval(mitschauen.timer);
+      mitschauenFlush({ zuletzt: true });
+    },
+  };
 
   // ---------------------------------------------------------------------------
   // Die Aufzeichnung
@@ -427,6 +614,7 @@
       if (vor && neu.t <= vor.t) neu.t = vor.t + 1;
       z.zuletzt = schluessel;
       z.liste.push(neu);
+      sender()?.probe?.("z", neu.t, neu.p, neu, lage);
     }
 
     return {
@@ -436,6 +624,7 @@
         z.liste = [];
         z.lageMs = -Infinity;
         z.zuletzt = "";
+        sender()?.los?.("z", () => zufall?.saat?.() ?? null);
       },
       zug: (punkte, ort) => merke(punkte, ort, false),
       lage(punkte, ort) {
@@ -447,6 +636,7 @@
       ende(geist = null) {
         if (!z.laeuft) return geist;
         z.laeuft = false;
+        sender()?.ende?.("z", Math.round(performance.now() - z.t0), z.liste[z.liste.length - 1]?.p || 0);
         if (!z.liste.length) return geist;
         let basis = { v: 3 };
         if (geist?.bahn) {
@@ -927,6 +1117,7 @@
       z.t0 = performance.now();
       z.vorlauf = vorlauf ? vorlauf() : null;
       z.endeMs = 0;
+      if (art === "tempo") sender()?.los?.("o", () => zufall?.saat?.() ?? null);
       probe(z.auf, 0, z.punkte, z.ort);
       stoppe();
       z.ticker = window.setInterval(tick, 150);
@@ -938,6 +1129,7 @@
       if (ort) z.ort = ort;
       if (ort) live()?.lage?.(z.punkte, ort);
       if (!z.laeuft) return;
+      if (ort && art === "tempo") sender()?.probe?.("o", zeit(), z.punkte, ort);
       probe(z.auf, zeit(), z.punkte, z.ort);
       pruefe();
     }
@@ -956,6 +1148,7 @@
       stoppe();
       zeichne();
       if (!lief) return null;
+      if (art === "tempo") sender()?.ende?.("o", ms, z.punkte);
       const bahn = art === "tempo" && z.auf.p.length ? packe(z.auf, zufall?.saat?.() ?? null, z.vorlauf) : "";
       // Der eigene beste Lauf bleibt auf dem Gerät – auch ohne Namen, auch
       // ohne Netz.
@@ -1088,12 +1281,18 @@
   // Wessen Lauf die Adresse zeigen will: ?zuschauen=<spieler>, aus einem
   // Turnier mit &aus=<turnier>. Kein Turnier im Sinn von turnier.js: Wer
   // zuschaut, spielt keinen Versuch.
+  //
+  // ?mitschauen=<kennung> heisst: live, dem Spieler folgen (mitschauer) – in
+  // der App, oder mit &aus=<turnier> in diesem Turnier.
   function zuschauAdresse() {
     try {
       const p = new URLSearchParams(window.location.search);
+      const aus = (p.get("aus") || "").trim().slice(0, 64);
+      const mit = (p.get("mitschauen") || "").trim().slice(0, 64);
+      if (mit) return { spieler: mit, aus, live: true, wer: (p.get("wer") || "").trim().slice(0, 24) };
       const spieler = (p.get("zuschauen") || "").trim().slice(0, 64);
       if (!spieler) return null;
-      return { spieler, aus: (p.get("aus") || "").trim().slice(0, 64) };
+      return { spieler, aus };
     } catch { return null; }
   }
 
@@ -1177,6 +1376,7 @@
     const wo = zuschauAdresse();
     if (!wo || !host) return null;
     if (!einheit) einheit = mini()?.einheit?.(spiel) || "";
+    if (wo.live) return mitschauer({ host, spiel, zufall, einheit, mitZuegen, wo });
     sperreEingaben();
     const z = { lauf: null, name: "", punkte: 0, t0: 0, fertig: false };
     const ziel = wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
@@ -1275,6 +1475,287 @@
           zeigeTafel(`Das war der Lauf von ${z.name}: ${z.punkte}${einheit ? ` ${einheit}` : ""}.`, true);
         }
         return !z.fertig;
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Live mitschauen: zuschauen
+  // ---------------------------------------------------------------------------
+  /*
+   * ?mitschauen=<kennung>: Diese Seite folgt einem Spieler – nicht einem
+   * Lauf. Was er gerade spielt – in der App, oder mit &aus=<turnier> in
+   * diesem Turnier –, kommt aus der Realtime Database (cloud.js,
+   * mitschauenHoeren; geschrieben von Live mitschauen: senden, oben) und
+   * läuft hier im eigenen Spiel ab, auf
+   * demselben Weg wie ein Replay (zuschauer): dieselbe Welt (die Saat der
+   * Runde), dieselbe Figur, dieselben Züge – nur kurz hinter ihm her
+   * (MITSCHAU_VERZUG), damit fast immer das nächste Stück schon da ist.
+   *
+   * Der Beobachtungsmodus bleibt, bis jemand «Beenden» tippt:
+   *
+   *   spielt er hier     sieht man ihm zu
+   *   ein anderes Spiel  geht die Seite gleich dorthin (dieselbe Adresse,
+   *                      anderes Spiel)
+   *   eine neue Runde    lädt die Seite neu – mit der Welt der neuen Runde
+   *   gerade nichts      steht da «<Name> spielt gerade nicht», und es geht
+   *                      weiter, sobald er wieder spielt
+   *
+   * «Gerade nichts» heisst auch: Seine Runde ist zu Ende gespielt, oder er
+   * hat seit MITSCHAU_STILL nichts geschrieben (Bildschirm aus, weggegangen).
+   */
+  // Anderthalb Sekunden: drei Stücke (turnier.js, MITSCHAUEN_MS) – fast
+  // immer ist das nächste schon da, und die Figur läuft ohne Halt.
+  const MITSCHAU_VERZUG = 1500;
+  const MITSCHAU_STILL = 15000;
+  // Beim Hineinkommen zählt die Uhr des Spielers: So frisch muss sein
+  // letztes Lebenszeichen sein, damit seine Runde noch läuft.
+  const MITSCHAU_FRISCH = 20000;
+
+  function mitschauer({ host, spiel, zufall = null, einheit = "", mitZuegen = false, wo }) {
+    sperreEingaben();
+    const art = mitZuegen ? "z" : "o";
+    const winkel = cIstWinkel(spiel);
+    const m = {
+      runde: null, gelesen: new Set(), orte: [], punkte: [], zuege: [], versatz: null, ende: null,
+      name: wo.wer || "", zuletzt: 0, gestartet: false, zeitMax: 0, warten: false, gesperrt: false, aus: null,
+    };
+    // Beenden führt zurück: ins Turnier – oder auf die Startseite, die sich
+    // an diesem Spiel öffnet (sie liest, woher man kommt).
+    const ziel = wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
+    const geh = (adresse) => {
+      if (window.LernappVollbild?.weiter) window.LernappVollbild.weiter(adresse, { ersetzen: true });
+      else window.location.replace(adresse);
+    };
+    const zurueck = () => {
+      m.aus?.();
+      if (window.LernappVollbild?.weiter) window.LernappVollbild.weiter(ziel);
+      else window.location.href = ziel;
+    };
+    // Dieselbe Adresse für ein anderes Spiel.
+    const adresseFuer = (anderes) => `${mini()?.spielLink?.(anderes) || "/"}?mitschauen=${encodeURIComponent(wo.spieler)}${wo.aus ? `&aus=${encodeURIComponent(wo.aus)}` : ""}${m.name || wo.wer ? `&wer=${encodeURIComponent(m.name || wo.wer)}` : ""}`;
+
+    const leiste = el("div", "gz-leiste ist-live");
+    const titel = el("span", "gz-titel", wo.wer || "Verbinde …");
+    const zu = el("button", "gz-zu", "Beenden");
+    zu.type = "button";
+    zu.addEventListener("click", zurueck);
+    const punkt = el("span", "gz-zeichen gz-live");
+    punkt.setAttribute("aria-hidden", "true");
+    leiste.append(punkt, titel, zu);
+    const tafel = el("div", "gz-tafel");
+    tafel.hidden = true;
+    host.append(leiste, tafel);
+    host.dataset.gegner = "an";
+    host.dataset.zuschauen = "an";
+    host.dataset.mitschauen = "an";
+
+    // Die Tafel: spielt gerade nicht (mit dem, was er zuletzt hatte) – oder
+    // hier lässt sich nicht zuschauen.
+    function zeigeTafel(text, nebenbei = "") {
+      tafel.replaceChildren();
+      const karte = el("div", "gz-karte gz-warten");
+      const zeile = el("p", "gz-text");
+      if (!m.gesperrt) zeile.append(el("span", "gz-live"));
+      zeile.append(el("span", "", text));
+      karte.append(zeile);
+      if (nebenbei) karte.append(el("p", "gz-neben", nebenbei));
+      const knoepfe = el("div", "gz-knoepfe");
+      const weg = el("button", "gz-knopf gz-zurueck", "Beenden");
+      weg.type = "button";
+      weg.addEventListener("click", zurueck);
+      knoepfe.append(weg);
+      karte.append(knoepfe);
+      tafel.append(karte);
+      tafel.hidden = false;
+    }
+    function warte(nebenbei = "") {
+      m.warten = true;
+      const wer = m.name || "Der Spieler";
+      titel.textContent = wer;
+      zeigeTafel(`${wer} spielt gerade nicht`, nebenbei);
+    }
+    function weiterSpielen() {
+      if (!m.warten) return;
+      m.warten = false;
+      tafel.hidden = true;
+    }
+
+    // --- Der Lauf, der wächst --------------------------------------------------
+    const nach = (liste, t) => {
+      let lo = 0;
+      let hi = liste.length;
+      while (lo < hi) {
+        const mitte = (lo + hi) >> 1;
+        if (liste[mitte].t <= t) lo = mitte + 1; else hi = mitte;
+      }
+      return lo;
+    };
+    const lauf = {
+      live: true,
+      mitOrt: !mitZuegen,
+      zuege: mitZuegen,
+      get saat() { return m.runde?.saat ?? null; },
+      get dauer() {
+        const liste = mitZuegen ? m.zuege : m.orte;
+        const zuletzt = liste[liste.length - 1]?.t || 0;
+        const ende = m.ende?.[art];
+        return Number.isFinite(ende) ? Math.max(zuletzt, ende) : zuletzt;
+      },
+      wert(ms) {
+        const liste = mitZuegen ? m.zuege : m.punkte;
+        return liste[nach(liste, ms) - 1]?.p || 0;
+      },
+      ort: (ms) => (m.orte.length ? kurve(m.orte, ms, { winkel, fertig: Boolean(m.ende) }) : null),
+      seit: (t0, bis) => m.zuege.slice(nach(m.zuege, t0), nach(m.zuege, bis)),
+      letzte: (bis) => m.zuege[nach(m.zuege, bis) - 1] || null,
+      naechste: (bis) => m.zuege[nach(m.zuege, bis)] || null,
+      fertig: (ms) => Boolean(m.ende) && ms > lauf.dauer,
+    };
+    const hatDaten = () => (mitZuegen ? m.zuege.length > 0 : m.orte.length > 0) && m.versatz !== null;
+
+    // Wo der Spieler gerade ist, in der Uhr seines Stroms – und davon der
+    // Verzug ab. Gemessen am schnellsten Stück, das je ankam: so wenig
+    // hinterher wie möglich, und die Zeit läuft nie zurück.
+    const zeit = () => {
+      if (m.versatz === null) return 0;
+      let t = performance.now() + m.versatz - MITSCHAU_VERZUG;
+      if (m.ende) t = Math.min(t, lauf.dauer + 1000);
+      m.zeitMax = Math.max(m.zeitMax, t);
+      return Math.max(0, m.zeitMax);
+    };
+
+    let fertigLaden = null;
+    const laden = new Promise((fertig) => { fertigLaden = fertig; });
+
+    function lies(knoten) {
+      m.zuletzt = performance.now();
+      if (!knoten?.runde) { if (!m.gestartet) warte(); return; }
+      m.name = String(knoten.name || "").slice(0, 24) || m.name;
+      const r = knoten.runde;
+      const frisch = Date.now() - (Number(knoten.lebt) || 0) < MITSCHAU_FRISCH;
+      const laeuft = !knoten.ende && frisch;
+      // Er spielt ein anderes Spiel: dorthin.
+      if (r.spiel !== spiel) {
+        if (laeuft && mini()?.SPIELE?.some((s) => s.id === r.spiel)) { m.aus?.(); geh(adresseFuer(r.spiel)); return; }
+        if (!m.gestartet || m.ende) warte();
+        return;
+      }
+      // Eine neue Runde in diesem Spiel: neu laden, mit ihrer Welt.
+      if (m.runde && r.id !== m.runde.id) {
+        if (m.gestartet) { if (laeuft) { m.aus?.(); geh(adresseFuer(spiel)); } return; }
+        m.gelesen = new Set();
+        m.orte = [];
+        m.punkte = [];
+        m.zuege = [];
+        m.versatz = null;
+      }
+      if (!m.runde || m.runde.id !== r.id || (m.runde.saat === null && Number.isInteger(r.saat))) {
+        m.runde = { id: r.id, saat: Number.isInteger(r.saat) ? r.saat : null };
+      }
+      // Die neuen Stücke, der Reihe nach.
+      const jetzt = performance.now();
+      Object.keys(knoten.teile || {}).map(Number).filter((n) => Number.isInteger(n) && !m.gelesen.has(n)).sort((a, b) => a - b).forEach((n) => {
+        m.gelesen.add(n);
+        let stueck = null;
+        try { stueck = JSON.parse(knoten.teile[n]); } catch { return; }
+        (Array.isArray(stueck?.o) ? stueck.o : []).forEach(([t, a, b, c, p]) => {
+          if (m.orte.length && t <= m.orte[m.orte.length - 1].t) return;
+          m.orte.push({ t, a, b, c });
+          m.punkte.push({ t, p });
+        });
+        (Array.isArray(stueck?.z) ? stueck.z : []).forEach(([t, a, b, c, p, l]) => {
+          const vor = m.zuege[m.zuege.length - 1];
+          m.zuege.push({ t: vor && t <= vor.t ? vor.t + 1 : t, a, b, c, p, lage: Boolean(l) });
+        });
+        const j = Number(stueck?.[`j${art}`]);
+        if (Number.isFinite(j)) m.versatz = m.versatz === null ? j - jetzt : Math.max(m.versatz, j - jetzt);
+      });
+      m.ende = knoten.ende || null;
+      if (!m.gestartet) {
+        // Hinein erst, wenn die Runde läuft und etwas zu sehen ist – und mit
+        // ihrer Welt.
+        if (!laeuft) { warte(m.ende ? `zuletzt ${m.ende.p}${einheit ? ` ${einheit}` : ""}` : ""); return; }
+        if (!hatDaten() || (m.runde.saat === null && !mini()?.ANSEHBAR?.[spiel]?.fest)) return;
+        if (m.runde.saat !== null) zufall?.halte?.(m.runde.saat);
+        weiterSpielen();
+        titel.textContent = m.name;
+        fertigLaden(true);
+        return;
+      }
+      if (laeuft) weiterSpielen();
+    }
+
+    // Darf hier überhaupt zugeschaut werden? In der App ja. Im Turnier wie
+    // beim Replay: nicht ohne Replays und nicht, solange die Rangliste
+    // verdeckt ist.
+    function gesperrt(text) {
+      m.gesperrt = true;
+      titel.textContent = "Zuschauen";
+      zeigeTafel(text);
+      fertigLaden(false);
+    }
+    if (!cloud()?.mitschauenHoeren) {
+      gesperrt("Zuschauen geht gerade nicht.");
+    } else if (!wo.aus) {
+      m.aus = cloud().mitschauenHoeren("", wo.spieler, lies);
+    } else {
+      vielleicht(() => cloud().turnier?.(wo.aus)).then((t) => {
+        if (!t) gesperrt("Dieses Turnier gibt es nicht (mehr).");
+        else if (t.ohneReplay || (t.verdeckt && window.LernappTurnier?.lage?.(t) !== "beendet")) gesperrt("In diesem Turnier lässt sich nicht zuschauen.");
+        else m.aus = cloud().mitschauenHoeren(wo.aus, wo.spieler, lies);
+      });
+    }
+
+    // Oben: wer, und wie viel er gerade hat.
+    const anzeige = window.setInterval(() => {
+      if (!m.gestartet || m.warten) return;
+      const punkte = lauf.wert(Math.min(zeit(), lauf.dauer));
+      titel.textContent = `${m.name} · ${punkte}${einheit ? ` ${einheit}` : ""}`;
+    }, 400);
+    window.addEventListener("pagehide", () => { window.clearInterval(anzeige); m.aus?.(); });
+
+    return {
+      laden,
+      get lauf() { return m.gestartet || hatDaten() ? lauf : null; },
+      get name() { return m.name; },
+      live: true,
+      los() {
+        m.gestartet = true;
+        tafel.hidden = true;
+      },
+      zeit,
+      jetzt: zeit,
+      seit: (t0, bis) => lauf.seit(t0, bis),
+      letzte: (bis) => lauf.letzte(bis),
+      naechste: (bis) => lauf.naechste(bis),
+      fertig: () => lauf.fertig(zeit()),
+      stand() {
+        if (!m.orte.length) return null;
+        const t = Math.min(zeit(), lauf.dauer);
+        const ort = lauf.ort(t);
+        const vor = lauf.ort(Math.max(0, t - 60));
+        const nachher = lauf.ort(t + 60);
+        const h = AB_MS;
+        const oben = lauf.ort(Math.max(0, t - h));
+        const unten = lauf.ort(t + h);
+        const ab = (unten.b - 2 * ort.b + oben.b) / ((h / 1000) ** 2);
+        return { a: ort.a, b: ort.b, c: ort.c, va: (nachher.a - vor.a) / 0.12, vb: (nachher.b - vor.b) / 0.12, ab, punkte: lauf.wert(t), t };
+      },
+      // Läuft es noch? Nein, wenn seine Runde zu Ende gespielt ist – oder
+      // wenn er seit MITSCHAU_STILL nichts mehr geschrieben hat. Dann steht
+      // die Tafel; kommt er zurück, geht es weiter (lies).
+      weiter() {
+        if (!m.gestartet) return false;
+        if (m.ende && zeit() > lauf.dauer + 400) {
+          if (!m.warten) warte(`zuletzt ${m.ende.p}${einheit ? ` ${einheit}` : ""}`);
+          return false;
+        }
+        if (!m.ende && performance.now() - m.zuletzt > MITSCHAU_STILL) {
+          if (!m.warten) warte();
+          return false;
+        }
+        return !m.warten;
       },
     };
   }

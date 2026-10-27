@@ -933,6 +933,107 @@
       .sort((a, b) => b.seit - a.seit);
   }
 
+  /*
+   * Live mitschauen (geist.js schreibt und schaut zu): im Turnier
+   * turnierMitschauen/<turnier>/<kennung>, sonst – in der App –
+   * mitschauen/<kennung>. In der Realtime Database, über ihre
+   * REST-Schnittstelle, ohne SDK – die Spielseiten laden es gar nicht erst.
+   *
+   *   name     wer spielt
+   *   runde    { id, spiel, saat, start } – die Runde, die gerade läuft
+   *            oder zuletzt lief
+   *   teile    { 0: "…", 1: "…" } – die Proben, je ein Stück JSON (Ort
+   *            und Züge), alle halbe Sekunde eines
+   *   ende     { p, o, z } – die Runde ist fertig: Punkte, letzte Zeiten
+   *   lebt     wann das Gerät zuletzt geschrieben hat
+   *
+   * mitschauenSchreiben setzt den ganzen Knoten (ganz, zu Beginn einer Runde)
+   * oder ändert einzelne Pfade darin ({ "teile/4": "…", lebt: … }).
+   * mitschauenHoeren hört mit (EventSource, Streaming der REST-Schnittstelle)
+   * und meldet nach jeder Änderung den ganzen Knoten; gibt das Abmelden
+   * zurück. Ohne Turnier (turnier leer) ist der Knoten der der App gemeint.
+   *
+   * Dazu, nur in der App, ein Zettel je Spieler: amSpielen/<kennung>
+   *
+   *   name, spiel   wer was spielt
+   *   lebt          wann das Gerät zuletzt gesagt hat, dass die Runde läuft
+   *   fertig        true: die Runde ist zu Ende gespielt
+   *
+   * Daran sieht die Startseite, wer gerade spielt (amSpielenHoeren), ohne
+   * die Stücke aller Läufe mitzuladen.
+   */
+  const TURNIER_ID = /^[a-z0-9-]{6,48}$/;
+  const SPIELER_ID = /^mini_[A-Za-z0-9_-]{8,48}$/;
+  function mitschauenAdresse(turnier, kennung) {
+    const t = String(turnier || "");
+    const k = String(kennung || "");
+    if (!SPIELER_ID.test(k)) return "";
+    if (!t) return `${firebaseConfig.databaseURL}/mitschauen/${k}.json`;
+    return TURNIER_ID.test(t) ? `${firebaseConfig.databaseURL}/turnierMitschauen/${t}/${k}.json` : "";
+  }
+
+  async function schreibeRest(adresse, daten, ganz) {
+    if (!adresse) return false;
+    const antwort = await fetch(adresse, {
+      method: ganz ? "PUT" : "PATCH",
+      body: JSON.stringify(daten),
+      keepalive: true,
+    });
+    return antwort.ok;
+  }
+
+  const mitschauenSchreiben = (turnier, kennung, daten, { ganz = false } = {}) => schreibeRest(mitschauenAdresse(turnier, kennung), daten, ganz);
+
+  const amSpielenSchreiben = (kennung, daten, { ganz = false } = {}) => schreibeRest(
+    SPIELER_ID.test(String(kennung || "")) ? `${firebaseConfig.databaseURL}/amSpielen/${kennung}.json` : "", daten, ganz);
+
+  // Einen Wert an einem Pfad setzen ("/", "/teile/4") – null löscht ihn.
+  function setzeBei(knoten, pfad, wert) {
+    const teile = String(pfad || "/").split("/").filter(Boolean);
+    if (!teile.length) return wert;
+    const kopie = knoten && typeof knoten === "object" ? { ...knoten } : {};
+    const [erster, ...rest] = teile;
+    const neu = setzeBei(kopie[erster], rest.join("/"), wert);
+    if (neu === null || neu === undefined) delete kopie[erster];
+    else kopie[erster] = neu;
+    return Object.keys(kopie).length ? kopie : null;
+  }
+
+  const mitschauenHoeren = (turnier, kennung, beiStand) => hoere(mitschauenAdresse(turnier, kennung), beiStand);
+  // Alle Zettel auf einmal: { <kennung>: { name, spiel, lebt, fertig } }.
+  const amSpielenHoeren = (beiStand) => hoere(`${firebaseConfig.databaseURL}/amSpielen.json`, beiStand);
+
+  function hoere(adresse, beiStand) {
+    if (!adresse || typeof window.EventSource !== "function") return () => {};
+    let knoten = null;
+    let quelle = null;
+    let aus = false;
+    const melde = () => { try { beiStand(knoten); } catch (fehler) { console.warn("Mitschauen", fehler); } };
+    const verbinde = () => {
+      if (aus) return;
+      quelle = new window.EventSource(adresse);
+      quelle.addEventListener("put", (e) => {
+        try {
+          const { path, data } = JSON.parse(e.data);
+          knoten = setzeBei(knoten, path, data);
+          melde();
+        } catch { /* eine kaputte Nachricht überspringen */ }
+      });
+      quelle.addEventListener("patch", (e) => {
+        try {
+          const { path, data } = JSON.parse(e.data);
+          Object.entries(data || {}).forEach(([k, v]) => { knoten = setzeBei(knoten, `${path}/${k}`, v); });
+          melde();
+        } catch { /* eine kaputte Nachricht überspringen */ }
+      });
+      // Die Datenbank kündigt den Strom (Regeln geändert, Verbindung weg):
+      // in ein paar Sekunden noch einmal.
+      quelle.addEventListener("cancel", () => { quelle.close(); window.setTimeout(verbinde, 3000); });
+    };
+    verbinde();
+    return () => { aus = true; quelle?.close(); };
+  }
+
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
   // zum freundlichen Wert – bis auf das, ohne das es kein Turnier ist: Name,
   // Spiele, Ende.
@@ -1349,7 +1450,7 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
-    turnierAmSpielen, turnierLebenszeichen,
+    turnierAmSpielen, turnierLebenszeichen, mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,
