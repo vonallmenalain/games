@@ -54,6 +54,7 @@
             "b": { ".validate": "newData.isNumber()" },
             "c": { ".validate": "newData.isNumber()" },
             "p": { ".validate": "newData.isNumber()" },
+            "v": { ".validate": "newData.isString() && newData.val().length <= 240 && newData.val().matches(/^[-0-9,;]*$/)" },
             "$anderes": { ".validate": false }
           }
         },

@@ -26,7 +26,7 @@
  *               startUm, endeUm, dabei                         nur der Admin
  *     spieler/<kennung>       name, online, seit       der Spieler selbst
  *     punkte/<nr>/<kennung>   p, fertig, t             der Spieler selbst
- *     lage/<kennung>          n, t, a, b, c, p         der Spieler selbst
+ *     lage/<kennung>          n, t, a, b, c, p, v      der Spieler selbst
  *   liveOffen/<code>          name, seit         nur der Admin, lesen jeder
  *
  * Der Ablauf: Die Leitung drückt «Start». Dann schreibt sie in zustand, welche
@@ -556,12 +556,15 @@
         .set({ p: Math.max(0, Math.round(Number(p) || 0)), fertig: Boolean(fertig), t: Math.max(0, Math.round(Number(t) || 0)) })
         .catch((fehler) => console.warn("Die Punkte kamen nicht an", fehler));
     },
-    lage({ t, a, b, c, p }) {
+    // v: die Proben vor dieser (live-spiel.js, lage).
+    lage({ t, a, b, c, p, v }) {
       const nr = S.rahmen?.nr;
       if (!S.db || !S.ich || !S.rahmen?.dabei || nr === undefined || nr === null) return;
       const zahl = (x) => Math.round(Number(x) || 0);
+      const daten = { n: nr, t: zahl(t), a: zahl(a), b: zahl(b), c: zahl(c), p: zahl(p) };
+      if (typeof v === "string" && v.length <= 240 && /^[-0-9,;]+$/.test(v)) daten.v = v;
       S.db.ref(`live/${S.code}/lage/${S.ich.kennung}`)
-        .set({ n: nr, t: zahl(t), a: zahl(a), b: zahl(b), c: zahl(c), p: zahl(p) })
+        .set(daten)
         .catch(() => { /* die nächste kommt gleich */ });
     },
     hoere(fn) {

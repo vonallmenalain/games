@@ -895,6 +895,10 @@ await darfNicht("Gast schmuggelt ein Feld in seine Punkte", () => live.gast().re
 await darf("Gast meldet, wo seine Figur ist", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1250, a: 400, b: 120, c: 3, p: 12 }));
 await darfNicht("Gast meldet eine Figur ohne Ort", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1250 }));
 await darfNicht("Gast meldet einen Ort als Text", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1, a: "links", b: 2 }));
+await darf("Gast meldet seine Figur mit den Proben davor", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1350, a: 410, b: 118, c: 3, p: 12, v: "67,402,121,3,12;33,406,119,-3,12" }));
+await darfNicht("Gast schmuggelt Fremdes in die Proben davor", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1350, a: 410, b: 118, v: "<b>hallo</b>" }));
+await darfNicht("Gast schickt zu viele Proben auf einmal", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1350, a: 410, b: 118, v: "1,2,3,4,5;".repeat(30) }));
+await darfNicht("Gast schickt die Proben davor als Zahl", () => live.gast().ref(`${ABEND}/lage/${LIVE_ICH}`).set({ n: 0, t: 1350, a: 410, b: 118, v: 33 }));
 await darfNicht("Gast schreibt neben die Spieler", () => live.gast().ref(`${ABEND}/notizen/x`).set("hallo"));
 
 await darfNicht("Gast räumt den Multiplayer weg", () => live.gast().ref(ABEND).remove());
