@@ -486,15 +486,18 @@ der nächsten Runde als «Bestwert» zurück. Ohne Namen und ohne Netz bleibt
 alles, wie es ist.
 
 Aufgezeichnet werden Stellungen, keine Tastendrücke – Stellungen überstehen
-eine Nachbesserung an der Physik, Eingaben nicht. Zehnmal je Sekunde, genau
-auf den Takt gerechnet (zwischen zwei Bildern, statt das nächste Bild zu
-nehmen), und gespeichert als Schritte von Probe zu Probe (`v: 2`): kleine
-Zahlen, die Aufzeichnung bleibt unter der Grenze der Datenbank. Abgespielt
+eine Nachbesserung an der Physik, Eingaben nicht. Dreissigmal je Sekunde
+(wie beim Live-Zuschauen), genau auf den Takt gerechnet (zwischen zwei
+Bildern, statt das nächste Bild zu nehmen), und gespeichert als Schritte von
+Probe zu Probe, die Schritte als Text (`v: 4`, Base64-VLQ wie in den
+Quellkarten der Browser, Wiederholungen als `~` und Anzahl): meist ein
+Zeichen je Zahl. Zwei Minuten Flug brauchen so um 7 400 Zeichen – gut drei
+Minuten passen in die Grenze von 12 000, ohne dass die Regeln sie anheben
+müssen; erst ein längerer Lauf wird verdichtet (jede zweite Probe). Abgespielt
 wird auf derselben weichen Kurve wie die Geister im Multiplayer (`geist.js`,
-`kurve`) – so läuft der Lauf so flüssig wie damals, ohne die Stufen, die
-viermal je Sekunde früher zeigten. Ältere Aufzeichnungen (viermal je
-Sekunde, `v: 1`) laufen auf derselben Kurve; genauer wird es mit dem
-nächsten Rekord. Sie stehen in einer eigenen
+`kurve`) – so läuft der Lauf so flüssig wie damals. Ältere Aufzeichnungen
+(viermal je Sekunde als Zahlen, `v: 1`; zehnmal als Liste von Schritten,
+`v: 2`) laufen auf derselben Kurve; genauer wird es mit dem nächsten Rekord. Sie stehen in einer eigenen
 Sammlung (`miniGeister`), nicht in `miniScores`: Die Startseite liest jedes
 Punkte-Dokument und lüde sonst bei jedem Besuch Kilobytes mit, die dort
 niemand ansieht. Geschrieben wird eine Aufzeichnung nur zusammen mit der
