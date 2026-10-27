@@ -2070,7 +2070,7 @@ try {
         phase: window.LernappTurmbau?.state?.phase,
         live: Boolean(document.querySelector(".gz-leiste.ist-live")),
         titel: document.querySelector(".gz-titel")?.textContent || "",
-        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\n/g, " ") || "",
+        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\s+/g, " ").trim() || "",
         pfad: window.location.pathname,
       })),
     ]);
@@ -2149,7 +2149,7 @@ try {
         phase: window.LernappTurmbau?.state?.phase,
         live: Boolean(document.querySelector(".gz-leiste.ist-live")),
         titel: document.querySelector(".gz-titel")?.textContent || "",
-        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\n/g, " ") || "",
+        tafel: document.querySelector(".gz-tafel:not([hidden])")?.innerText.replace(/\s+/g, " ").trim() || "",
         neu: !window.__alteSeite,
       })),
     ]);
