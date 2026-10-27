@@ -1519,7 +1519,9 @@
   // zwischen den Ersten und dem eigenen Eintrag, der ▶ –, nur anders
   // gezeichnet. listeBauen bleibt, wie es ist: Es steht auch auf der Tafel
   // nach einer Runde, und dort ist für Medaillen kein Platz.
-  function bestenliste(eintraege, spiel, { max = 0, ansehen = null } = {}) {
+  // spielt: die Namen (klein geschrieben), die dieses Spiel gerade spielen –
+  // im Turnier (turnier.js, gesamtAnsicht). Sie tragen den grünen Punkt.
+  function bestenliste(eintraege, spiel, { max = 0, ansehen = null, spielt = null } = {}) {
     const wrap = el("ol", "gk-liste");
     const gezeigt = gezeigteEintraege(eintraege, max);
     if (!gezeigt.length) {
@@ -1545,7 +1547,8 @@
       const punkte = Number(eintrag.punkte) || 0;
       // Gold, Silber, Bronze. Der ▶ steht trotzdem bei allen (ansehen).
       const medaille = [1, 2, 3].includes(eintrag.platz) ? ` ist-platz-${eintrag.platz}` : "";
-      const zeile = el("li", `gk-zeile${medaille}${eintrag.eigen ? " ist-ich" : ""}`);
+      const amSpielen = Boolean(spielt?.has?.(String(eintrag.name).toLocaleLowerCase("de")));
+      const zeile = el("li", `gk-zeile${medaille}${eintrag.eigen ? " ist-ich" : ""}${amSpielen ? " ist-am-spielen" : ""}`);
       zeile.style.setProperty("--gk-anteil", `${Math.round(Math.max(0.06, Math.min(1, punkte / rekord)) * 100)}%`);
       const marke = eintrag.platz === 1 ? mitIcon("span", "gk-marke", "krone") : el("span", "gk-marke", String(eintrag.platz));
       marke.setAttribute("aria-label", `Platz ${eintrag.platz}`);
@@ -1553,6 +1556,11 @@
       const name = el("span", "gk-name");
       name.append(el("span", "gk-name-text", eintrag.name));
       if (eintrag.eigen) name.append(el("small", "gk-du", "Du"));
+      if (amSpielen) {
+        const live = el("small", "gk-spielt");
+        live.append(el("span", "ar-live-punkt"), el("span", "", "spielt gerade"));
+        name.append(live);
+      }
       zeile.append(name);
       const wert = el("span", "gk-wert", String(punkte));
       wert.append(el("small", "gk-einheit", einheit(spiel)));
@@ -1754,6 +1762,22 @@
     return (teile.length > 1 ? teile[0][0] + teile[1][0] : teile[0].slice(0, 2)).toLocaleUpperCase("de");
   }
 
+  // Wer gerade spielt, in einem Satz (im Turnier): «Joshua spielt gerade»,
+  // «Joshua und Mia spielen gerade», «Joshua, Mia und 2 weitere spielen
+  // gerade».
+  function spielenSatz(namen) {
+    const liste = [...new Set(namen)];
+    if (!liste.length) return "";
+    return `${namenListe(liste)} ${liste.length === 1 ? "spielt" : "spielen"} gerade`;
+  }
+  // «Joshua», «Joshua und Mia», «Joshua, Mia und Leo», «Joshua, Mia und 2
+  // weitere».
+  function namenListe(namen) {
+    const liste = [...new Set(namen)];
+    if (liste.length > 3) return `${liste.slice(0, 2).join(", ")} und ${liste.length - 2} weitere`;
+    return liste.length > 1 ? `${liste.slice(0, -1).join(", ")} und ${liste[liste.length - 1]}` : liste[0] || "";
+  }
+
   // Ein runder Knopf mit einem Zeichen, oben rechts und in den Fenstern.
   function rundKnopf(klasse, icon, wort) {
     const knoten = mitIcon("button", `ar-rund ${klasse}`, icon);
@@ -1796,7 +1820,7 @@
   // Der Kopf der arcade: links die Marke (oder, im Turnier, sein Name),
   // rechts der Weg in den Adminbereich, der Pokal, der Name und das Vollbild.
   // beiNamen: was nach einem neuen Namen geschieht.
-  function arcadeKopf({ signal, links = null, mitPokal = true, beiNamen = null } = {}) {
+  function arcadeKopf({ signal, links = null, mitPokal = true, beiNamen = null, mitTurnieren = false } = {}) {
     const kopf = el("header", "ar-kopf");
     if (links) kopf.append(links);
     else {
@@ -1812,7 +1836,7 @@
       pokal.setAttribute("aria-haspopup", "dialog");
       rechts.append(pokal);
     }
-    rechts.append(nameChip(signal, beiNamen));
+    rechts.append(nameChip(signal, beiNamen, { turniere: mitTurnieren }));
     const voll = window.LernappVollbild?.knopf?.("mini-vollbild ar-rund");
     if (voll) rechts.append(voll);
     kopf.append(rechts);
@@ -1859,6 +1883,11 @@
     filme.append(...ebenen);
     const leiste = el("div", "ar-leiste");
     const titelZeile = el("h2", "ar-titel");
+    // Unter dem Namen, im Turnier: wer dieses Spiel gerade spielt (spielen).
+    const titelWirt = el("div", "ar-titel-wirt");
+    const amSpielen = el("p", "ar-spielen");
+    amSpielen.hidden = true;
+    titelWirt.append(titelZeile, amSpielen);
     const aktionen = el("div", "ar-aktionen");
     const rang = el("button", "ar-rang");
     rang.type = "button";
@@ -1872,7 +1901,7 @@
     grund.hidden = true;
     filme.append(grund);
     aktionen.append(rang, play);
-    leiste.append(titelZeile, aktionen);
+    leiste.append(titelWirt, aktionen);
     buehne.append(filme, leiste);
     wirt.append(buehne);
 
@@ -1931,7 +1960,10 @@
       bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
       const name = el("span", "ar-kachel-titel", titel(spiel));
       const zeit = el("span", "ar-zeit");
-      k.append(bild, name, zeit);
+      // Im Turnier: wer dieses Spiel gerade spielt (spielen).
+      const live = el("span", "ar-kachel-live");
+      live.hidden = true;
+      k.append(bild, name, zeit, live);
       k.setAttribute("aria-label", titel(spiel));
       k.addEventListener("click", () => waehle(spiel, { von: k, selbst: true }));
       // Am Computer: der Film läuft schon in der Kachel, solange die Maus
@@ -1951,6 +1983,27 @@
         vorschau = null;
       });
       return k;
+    }
+
+    // Wer gerade spielt, je Spiel (im Turnier, turnier.js amSpielen): unter
+    // dem Namen des Spiels oben ein Satz, auf den Kacheln ein grüner Punkt mit
+    // dem Namen – oder, sind es mehrere, wie viele.
+    let spielend = new Map();
+    function spielenZeigen() {
+      const hier = spielend.get(aktuell) || [];
+      amSpielen.hidden = !hier.length;
+      amSpielen.replaceChildren();
+      if (hier.length) amSpielen.append(el("span", "ar-live-punkt"), el("span", "ar-spielen-text", spielenSatz(hier)));
+      kacheln.forEach((k, spiel) => {
+        const namen = spielend.get(spiel) || [];
+        const live = k.querySelector(".ar-kachel-live");
+        if (!live) return;
+        live.hidden = !namen.length;
+        live.replaceChildren();
+        if (!namen.length) return;
+        live.append(el("span", "ar-live-punkt"), el("span", "", namen.length === 1 ? namen[0] : String(namen.length)));
+        live.title = spielenSatz(namen);
+      });
     }
 
     // Der Knopf zur Rangliste: die Krone und wer vorne liegt.
@@ -2043,6 +2096,7 @@
       titelZeile.textContent = titel(spiel);
       wegZeigen();
       rangKnopf();
+      spielenZeigen();
       if (vorher) {
         leiste.classList.remove("ist-neu");
         void leiste.offsetWidth;
@@ -2284,6 +2338,12 @@
         wegZeigen();
         rangKnopf();
       },
+      // Wer gerade spielt: Map Spiel → Namen.
+      spielen(neu) {
+        if (signal.aborted) return;
+        spielend = neu instanceof Map ? neu : new Map();
+        spielenZeigen();
+      },
       aktuell: () => aktuell,
     };
   }
@@ -2321,6 +2381,7 @@
     // demselben Spiel.
     const { kopf, rechts, pokal } = arcadeKopf({
       signal,
+      mitTurnieren: true,
       beiNamen: () => {
         const jetzt = wirt.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel || "";
         window.setTimeout(() => baueUebersicht(wirt, { spiel: jetzt }), 1400);
@@ -2416,7 +2477,10 @@
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
   // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile); was danach
   // geschieht, sagt die Seite (beiWechsel).
-  function nameChip(signal, beiWechsel = null) {
+  // turniere: darunter die Turniere, in denen auf diesem Gerät gespielt
+  // wurde (turnier.js, meineTurniere) – nur auf der Startseite. Auf einer
+  // Turnierseite bleibt das Turnier ein Raum für sich.
+  function nameChip(signal, beiWechsel = null, { turniere = false } = {}) {
     const wirt = el("div", "ar-name");
     const knopfName = el("button", "ar-name-knopf");
     knopfName.type = "button";
@@ -2450,6 +2514,8 @@
           beiWechsel?.();
         },
       }));
+      const meine = turniere ? window.LernappTurnier?.meineTurniere?.() : null;
+      if (meine) feld.append(meine);
       feld.hidden = false;
       knopfName.setAttribute("aria-expanded", "true");
     };
@@ -2532,7 +2598,7 @@
     adminKnopf,
     leiste,
     ergebnis,
-    arcadeKopf, arcadeBuehne, arcadeStart, fenster, mitIcon,
+    arcadeKopf, arcadeBuehne, arcadeStart, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

@@ -1192,6 +1192,36 @@
     return stand.exists ? liesTurnierEintrag(stand) : null;
   }
 
+  /*
+   * Wer gerade spielt: die Einträge mit einem offenen Versuch (turnier.js,
+   * amSpielen). Gefragt wird nur nach diesen – die Turnierseite fragt alle
+   * paar Sekunden, und die ganze Liste jedes Mal zu lesen, kostete bei
+   * jedem Blick so viele Lesungen, wie es Einträge gibt.
+   *
+   * Offen bleibt ein Versuch auch, wenn jemand mittendrin weggeht. Ob er
+   * noch läuft, sagt deshalb erst die Uhrzeit: Solange die Runde im Bild
+   * ist, setzt das Spiel sie alle zwanzig Sekunden neu (turnierLebenszeichen).
+   */
+  async function turnierAmSpielen(id) {
+    const ref = turnierEintraege(id);
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const seite = await ref.where("offen", "==", true).limit(TURNIER_SEITE).get();
+    return sammle(seite, liesTurnierEintrag);
+  }
+
+  // Die Runde läuft noch: nur die Uhrzeit des Eintrags, sonst nichts. Die
+  // Regeln lassen das zu wie einen neuen Namen (firestore.rules, «Ein neuer
+  // Name, sonst nichts») – an Punkten, Versuchen und «offen» ändert es
+  // nichts. update() statt set(): Ist der Eintrag weg (vom Admin entfernt),
+  // legt ein Lebenszeichen ihn nicht halb wieder an.
+  async function turnierLebenszeichen(id, { game, spieler }) {
+    const ref = turnierEintraege(id);
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    if (!ref || !spielId || !spielerId) return;
+    await ref.doc(`${spielId}_${spielerId}`).update({ updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() });
+  }
+
   function turnierFehler(text, code) {
     const fehler = new Error(text);
     fehler.code = code;
@@ -1319,6 +1349,7 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
+    turnierAmSpielen, turnierLebenszeichen,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,

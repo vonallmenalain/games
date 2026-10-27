@@ -122,10 +122,12 @@
   const MINUTE = 60 * 1000;
   const STUNDE = 60 * MINUTE;
   const TAG = 24 * STUNDE;
-  // So lange steht ein beendetes öffentliches Turnier noch auf der Startseite:
-  // lange genug, dass alle das Ergebnis sehen – nicht so lange, dass die
-  // Startseite zur Chronik wird.
-  const NACHLESE_MS = 3 * TAG;
+  // So lange steht ein beendetes Turnier noch auf der Startseite: lange
+  // genug, dass alle am Abend oder am Morgen danach das Ergebnis sehen –
+  // nicht so lange, dass die Startseite zur Chronik wird. Bis Oktober 2026
+  // waren es drei Tage. Wer mitgespielt hat, findet es danach unter seinem
+  // Namen oben rechts (meineTurniere).
+  const NACHLESE_MS = 12 * STUNDE;
 
   // Ein Turnier ohne Zeitlimite läuft, bis es angehalten, beendet oder
   // gelöscht wird. Ein Ende hat es trotzdem – so weit draussen, dass es nie
@@ -216,6 +218,8 @@
   // ewigen Liste (mini-games.js): ein Name eine Zeile, gleiche Zahl gleicher
   // Platz, wer früher dort war, steht bei Gleichstand oben.
   const rangliste = (eintraege, spiel) => mini()?.rangliste?.(eintraege.filter((e) => e.game === spiel)) || [];
+  // Ein Name eine Person – so, wie die Gesamtwertung Namen zusammenfasst.
+  const namensSchluessel = (name) => String(name || "").toLocaleLowerCase("de");
 
   /*
    * "Nur wer nicht vorne liegt" (spitzeWartet): Wer in einem Spiel allein auf
@@ -240,24 +244,66 @@
   }
 
   /*
+   * Wer gerade spielt – aus den Einträgen mit offenem Versuch (cloud.js,
+   * turnierAmSpielen). Offen heisst noch nicht spielend: Wer mittendrin
+   * weggeht, lässt seinen Versuch offen, bis zum nächsten. Gespielt wird,
+   * solange das Spiel seine Uhrzeit neu setzt (lebenszeichen, alle zwanzig
+   * Sekunden) – wer seit AKTIV_MS keines mehr gegeben hat, spielt nicht mehr.
+   *
+   * Verglichen wird nicht nur die Uhr des Spielers mit der eigenen: Geht eine
+   * der beiden falsch, stimmte das nie. Ändert sich die Zeit eines Eintrags
+   * zwischen zwei Blicken, hat sich das Spiel eben gemeldet – das zählt ab
+   * dem Blick, der es sah. Nur beim ersten Blick bleibt die Uhrzeit selbst.
+   *
+   * Das eigene Gerät spielt nie: Wer die Turnierseite ansieht, spielt nicht
+   * gerade – ein offener Versuch von ihm ist einer, den er liegen liess.
+   */
+  const AKTIV_MS = 50000;
+  const beobachtet = new Map();
+  function amSpielen(offen, jetzt = Date.now(), ohne = "") {
+    const da = new Set();
+    const spielen = [];
+    (offen || []).forEach((e) => {
+      if (!e?.id) return;
+      da.add(e.id);
+      const stempel = Number(e.updatedAtMs) || 0;
+      const alt = beobachtet.get(e.id);
+      if (!alt || alt.stempel !== stempel) beobachtet.set(e.id, { stempel, seitMs: alt ? jetzt : Math.min(jetzt, stempel) });
+      if (e.offen === false || (ohne && e.spieler === ohne)) return;
+      if (jetzt - beobachtet.get(e.id).seitMs < AKTIV_MS) spielen.push({ name: e.name, game: e.game });
+    });
+    [...beobachtet.keys()].forEach((k) => { if (!da.has(k)) beobachtet.delete(k); });
+    return spielen.sort((a, b) => a.name.localeCompare(b.name, "de") || a.game.localeCompare(b.game));
+  }
+
+  /*
    * Die Gesamtwertung über alle Spiele des Turniers.
    *
-   *   platz     Platzziffer: die Plätze zusammengezählt, die kleinste Summe
-   *             gewinnt. Ein ausgelassenes Spiel zählt als Platz hinter dem
-   *             Letzten – sonst gewänne, wer nur das Spiel spielt, das er
-   *             kann.
+   *   platz     Platz im Schnitt: der Durchschnitt der Plätze aus den
+   *             Spielen, die jemand gespielt hat. Der kleinste gewinnt.
    *   prozent   In jedem Spiel bekommt der Beste 100, alle anderen ihren
-   *             Anteil an seiner Zahl. Die höchste Summe gewinnt. Anders als
-   *             bei den Plätzen zählt hier, wie knapp jemand dran war.
+   *             Anteil an seiner Zahl. Der höchste Schnitt gewinnt. Anders
+   *             als bei den Plätzen zählt hier, wie knapp jemand dran war.
+   *
+   * Gezählt wird nur, was jemand gespielt hat – wie in der Hall of Fame
+   * (mini-games.js, auswertung). Wer erst ein Spiel von dreien gespielt hat,
+   * steht deshalb nicht hinter allen, die alle drei haben. Bis Oktober 2026
+   * zählte ein ausgelassenes Spiel als Platz hinter dem Letzten (bei Prozent
+   * als 0) – wer später dazukam oder ein Spiel nicht mochte, lag damit fast
+   * sicher hinten. Bei gleichem Schnitt steht vorne, wer mehr gespielt hat;
+   * den Platz teilen sie sich trotzdem.
    *
    * Die Punkte selbst zusammenzuzählen wäre sinnlos: 40 Blöcke im Turmbau und
    * 40 Fische im Teich sind nicht dasselbe.
    *
    * Dazu die Multiplayer, die zum Turnier gehören (live.js): Ihr Endstand
    * zählt wie ein weiteres Spiel, mal ihr Gewicht (×1, ×2, ×3; 0 zählt gar
-   * nicht). Wer einen verpasst hat, steht dort hinter dem Letzten – wie bei
-   * einem ausgelassenen Spiel. In einem Turnier, das nur im Multiplayer
-   * gespielt wird, zählen nur sie.
+   * nicht) – im Schnitt also wie zwei oder drei Spiele. Wer einen verpasst
+   * hat, für den zählt er nicht, wie ein ausgelassenes Spiel. In einem
+   * Turnier, das nur im Multiplayer gespielt wird, zählen nur sie.
+   *
+   * wert ist die Zahl, nach der geordnet wird (der Schnitt, auf zwei
+   * Stellen), wertText dieselbe zum Zeigen: «1,33» oder «87».
    */
   function gesamtwertung(t, eintraege, abende = []) {
     const spiele = t.nurLive ? [] : t.spiele;
@@ -265,7 +311,7 @@
     const live = (abende || []).filter((a) => a && a.gewicht > 0 && Array.isArray(a.endstand) && a.endstand.length);
     const personen = new Map();
     const person = (name, eigen) => {
-      const schluessel = String(name).toLocaleLowerCase("de");
+      const schluessel = namensSchluessel(name);
       if (!personen.has(schluessel)) personen.set(schluessel, { name, eigen: false, je: {}, abende: {} });
       const p = personen.get(schluessel);
       p.eigen = p.eigen || Boolean(eigen);
@@ -291,13 +337,16 @@
 
     const prozent = t.wertung === "prozent";
     const alle = [...personen.values()].map((p) => {
-      const gespielt = spiele.filter((spiel) => p.je[spiel]).length + live.filter((a) => p.abende[a.id]).length;
-      const wert = prozent
-        ? Math.round(spiele.reduce((summe, spiel) => summe + (p.je[spiel]?.prozent || 0), 0)
-          + live.reduce((summe, a) => summe + (p.abende[a.id]?.prozent || 0) * a.gewicht, 0))
-        : spiele.reduce((summe, spiel) => summe + (p.je[spiel]?.platz || listen.get(spiel).length + 1), 0)
-          + live.reduce((summe, a) => summe + (p.abende[a.id]?.platz || a.endstand.length + 1) * a.gewicht, 0);
-      return { ...p, gespielt, wert };
+      // Was gespielt ist, mit seinem Gewicht: ein Spiel 1, ein Multiplayer
+      // so viel, wie er zählt.
+      const teile = [
+        ...spiele.filter((spiel) => p.je[spiel]).map((spiel) => [p.je[spiel], 1]),
+        ...live.filter((a) => p.abende[a.id]).map((a) => [p.abende[a.id], a.gewicht]),
+      ];
+      const gewicht = teile.reduce((summe, [, g]) => summe + g, 0) || 1;
+      const schnitt = teile.reduce((summe, [je, g]) => summe + (prozent ? je.prozent : je.platz) * g, 0) / gewicht;
+      const wert = prozent ? Math.round(schnitt) : Math.round(schnitt * 100) / 100;
+      return { ...p, gespielt: teile.length, wert, wertText: String(wert).replace(".", ",") };
     });
     alle.sort((a, b) => (prozent ? b.wert - a.wert : a.wert - b.wert)
       || b.gespielt - a.gespielt
@@ -433,6 +482,100 @@
   const merke = (id) => { if (id) schreibeGemerkte([id, ...gemerkteTurniere().filter((x) => x !== id)]); };
   const vergiss = (id) => schreibeGemerkte(gemerkteTurniere().filter((x) => x !== id));
 
+  /*
+   * Deine Turniere: die, in denen auf diesem Gerät gespielt wurde – unter dem
+   * eigenen Namen oben rechts auf der Startseite (mini-games.js, nameChip),
+   * auch wenn sie längst nicht mehr in der Zeile stehen (NACHLESE_MS).
+   *
+   * Gemerkt wird auf dem Gerät, nicht in der Datenbank: Ein Konto gibt es
+   * nicht, und über alle Turniere hinweg nach einem Namen zu fragen, liessen
+   * die Regeln nicht zu. Dabei ist ein Turnier, sobald hier ein Versuch
+   * beginnt (rundeBeginnt) – oder sobald die Turnierseite den eigenen Namen
+   * in der Gesamtwertung findet: So steht es auch da, wenn man unter
+   * demselben Namen auf einem anderen Gerät gespielt hat und hier nur
+   * hineinschaut.
+   */
+  const DABEI_KEY = "mini.turniere.dabei";
+  const DABEI_MAX = 30;
+  function dabeiListe() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(DABEI_KEY) || "[]");
+      return Array.isArray(roh) ? roh.filter((id) => typeof id === "string" && /^[a-z0-9-]{1,64}$/.test(id)) : [];
+    } catch { return []; }
+  }
+  function merkeDabei(id) {
+    if (!id) return;
+    const liste = dabeiListe();
+    if (liste[0] === id) return;
+    try { localStorage.setItem(DABEI_KEY, JSON.stringify([id, ...liste.filter((x) => x !== id)].slice(0, DABEI_MAX))); } catch { /* privater Modus */ }
+  }
+  function vergissDabei(id) {
+    const liste = dabeiListe();
+    if (!liste.includes(id)) return;
+    try { localStorage.setItem(DABEI_KEY, JSON.stringify(liste.filter((x) => x !== id))); } catch { /* egal */ }
+  }
+
+  /*
+   * Die Liste dazu, für das Fenster unter dem Namen: je Turnier sein Name,
+   * wie es steht, und der eigene Platz in der Gesamtwertung (bei einer
+   * verdeckten bis zum Schluss nicht). Die laufenden zuerst, dann die
+   * zuletzt beendeten. Gelesen wird erst, wenn das Fenster aufgeht.
+   */
+  const DABEI_ZEIGEN = 8;
+  function meineTurniere() {
+    const ids = dabeiListe();
+    if (!ids.length || !cloud()?.turnier) return null;
+    const block = el("section", "tn-meine");
+    block.append(el("h3", "tn-meine-titel", "Deine Turniere"));
+    const liste = el("ol", "tn-meine-liste");
+    liste.append(el("li", "tn-meine-leer", "Wird geladen..."));
+    block.append(liste);
+    const wolke = cloud();
+    Promise.all(ids.map((id) => wolke.turnier(id).then((t) => {
+      if (!t) vergissDabei(id);
+      return t;
+    }, () => null))).then(async (turniere) => {
+      const jetzt = Date.now();
+      const vorbei = (t) => (lage(t, jetzt) === "laeuft" ? 0 : 1);
+      const da = turniere.filter(Boolean)
+        .sort((a, b) => vorbei(a) - vorbei(b) || b.endeMs - a.endeMs)
+        .slice(0, DABEI_ZEIGEN);
+      liste.replaceChildren();
+      if (!da.length) { block.remove(); return; }
+      const zeilen = da.map((t) => {
+        const zeile = el("li");
+        const link = el("a", "tn-meine-zeile");
+        link.href = seitenLink(t.id);
+        const texte = el("span", "tn-meine-texte");
+        texte.append(el("strong", "", t.name), el("span", "", statusText(t, jetzt)));
+        const platz = el("span", "tn-meine-platz");
+        link.append(pokal("tn-meine-pokal"), texte, platz);
+        zeile.append(link);
+        liste.append(zeile);
+        return { t, platz };
+      });
+      // Der eigene Platz: je Turnier seine Einträge – nur für die, die hier
+      // stehen, und erst jetzt, wo jemand das Fenster offen hat.
+      await Promise.all(zeilen.map(async ({ t, platz }) => {
+        if (t.verdeckt && lage(t) !== "beendet") return;
+        try {
+          const [eintraege, abende] = await Promise.all([
+            wolke.turnierErgebnisse(t.id),
+            Promise.resolve(wolke.turnierLive?.(t.id)).catch(() => []),
+          ]);
+          const { personen } = gesamtwertung(t, eintraege || [], abende || []);
+          const ich = personen.find((p) => p.eigen);
+          if (!ich) return;
+          platz.textContent = `${ich.platz}.`;
+          platz.title = `Platz ${ich.platz} von ${personen.length}`;
+          if (ich.platz <= 3) platz.classList.add(`ist-platz-${ich.platz}`);
+          platz.classList.add("ist-da");
+        } catch { /* dann eben ohne Platz */ }
+      }));
+    });
+    return block;
+  }
+
   // ---------------------------------------------------------------------------
   // Die Turnierseite
   // ---------------------------------------------------------------------------
@@ -453,7 +596,7 @@
    */
   function turnierSeite(wirt) {
     const id = ausDerAdresse("t");
-    const stand = { t: null, eintraege: [], abende: [], zeiger: null, geladenMs: 0, lage: "" };
+    const stand = { t: null, eintraege: [], abende: [], zeiger: null, geladenMs: 0, lage: "", spielen: [] };
     const m = mini();
     const { signal } = new AbortController();
 
@@ -465,10 +608,27 @@
     // hier gespielt wird. Ein neuer Name ist im Turnier ein neuer Mitspieler:
     // Was schon gespielt ist, bleibt beim alten Namen, und wer vorne liegt,
     // hängt an der Kennung – darum zeichnet die Seite sich danach neu.
+    //
+    // Davor, nur bei einem öffentlichen Turnier, das Logo – der Weg zur
+    // Startseite. Eines nur mit Link bleibt ein Raum für sich, ohne Weg
+    // hinaus; ebenso jedes in seiner eigenen App (heim).
     const titelBlock = el("div", "tn-titel");
+    const titelTexte = el("div", "tn-titel-texte");
     const ueberschrift = el("h1", "", "Turnier");
     const status = el("p", "tn-status");
-    titelBlock.append(ueberschrift, status);
+    titelTexte.append(ueberschrift, status);
+    titelBlock.append(titelTexte);
+    let logo = null;
+    const zeigeLogo = (t) => {
+      const soll = t?.sichtbar === "alle" && !heim;
+      if (soll && !logo) {
+        logo = m.marke?.("tn-marke-oben") || null;
+        if (logo) titelBlock.prepend(logo);
+      } else if (!soll && logo) {
+        logo.remove();
+        logo = null;
+      }
+    };
     const { kopf, rechts } = m.arcadeKopf({ signal, links: titelBlock, mitPokal: false, beiNamen: () => { if (stand.t) zeichne(); } });
     // Zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, und die
     // Gesamtwertung.
@@ -507,6 +667,7 @@
       }
       if (!stand.t) {
         vergiss(id);
+        vergissDabei(id);
         ueberschrift.textContent = "Kein Turnier";
         hinweis("Dieses Turnier gibt es nicht (mehr). Vielleicht wurde es gelöscht – frag, wer dir den Link geschickt hat.");
         return;
@@ -515,7 +676,32 @@
       alsApp(stand.t);
       zeichne();
       schauLive();
+      if (offenStand === null) schauSpielen();
     }
+
+    /*
+     * Wer gerade spielt (amSpielen): gefragt beim Laden und dann alle
+     * fünfzehn Sekunden, solange die Seite zu sehen ist – nur nach den
+     * offenen Versuchen, nicht nach der ganzen Liste. Ändert sich, wer einen
+     * offen hat – jemand beginnt, jemand ist fertig –, wird auch die Liste
+     * neu gelesen: So steht ein neues Ergebnis da, ohne dass jemand neu lädt.
+     */
+    let offenStand = null;
+    async function schauSpielen() {
+      if (!stand.t || !cloud()?.turnierAmSpielen) return;
+      let offen = null;
+      try { offen = await cloud().turnierAmSpielen(id); } catch { return; }
+      if (!Array.isArray(offen)) return;
+      const schluessel = offen.map((e) => `${e.id}:${e.versuche}`).sort().join("|");
+      const vorher = offenStand;
+      offenStand = schluessel;
+      const spielen = amSpielen(offen, Date.now(), m.kennungFallsDa?.() || "");
+      const anders = JSON.stringify(spielen) !== JSON.stringify(stand.spielen);
+      stand.spielen = spielen;
+      if (vorher !== null && vorher !== schluessel) laden();
+      else if (anders) zeichneSpielen();
+    }
+    window.setInterval(() => { if (document.visibilityState === "visible" && stand.t) schauSpielen(); }, 15000);
 
     // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht oben der Weg
     // hinein – und ist er neu, geht einmal ein Fenster auf (liveFenster).
@@ -566,16 +752,16 @@
       const vorbei = stand.lage === "beendet";
       const verdeckt = t.verdeckt && !vorbei;
       wertung = gesamtwertung(t, stand.eintraege, stand.abende);
+      if (wertung.personen.some((p) => p.eigen)) merkeDabei(t.id);
 
       document.title = `${t.name} · Turnier · arcade`;
+      zeigeLogo(t);
       ueberschrift.textContent = t.name;
       ueberschrift.title = t.name;
       zeigeStatus(jetzt);
       hinweisZeile.remove();
 
-      oben.innerHTML = "";
-      if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
-      oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
+      zeichneOben();
       gesamtZeichnen?.();
 
       const spiele = t.spiele.filter((spiel) => m.SPIELE.some((s) => s.id === spiel));
@@ -603,6 +789,35 @@
       }
       buehne.daten({ listen: wertung.listen, verdeckt });
       buehne.neu();
+      buehne.spielen(jeSpiel());
+    }
+
+    // Oben zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, die
+    // Gesamtwertung und, wer gerade spielt.
+    function zeichneOben() {
+      const t = stand.t;
+      const verdeckt = t.verdeckt && lage(t) !== "beendet";
+      oben.innerHTML = "";
+      if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
+      oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
+      if (stand.spielen.length) oben.append(spielenHinweis(stand.spielen));
+    }
+
+    // Wer gerade spielt, je Spiel: für die Bühne (unter dem Namen des Spiels
+    // und auf den Kacheln).
+    function jeSpiel() {
+      const karte = new Map();
+      stand.spielen.forEach(({ name, game }) => karte.set(game, [...(karte.get(game) || []), name]));
+      return karte;
+    }
+
+    // Nur wer spielt, hat sich geändert: Kopf, Bühne und ein offenes Fenster
+    // bekommen es mit, sonst bleibt alles stehen.
+    function zeichneSpielen() {
+      if (!stand.t || !wertung) return;
+      zeichneOben();
+      buehne?.spielen(jeSpiel());
+      gesamtZeichnen?.();
     }
 
     // Die Zeile unter dem Namen: wie lange es läuft, und was gilt.
@@ -614,25 +829,81 @@
       status.textContent = regel && lage(t, jetzt) !== "beendet" ? `${statusZeile(t, jetzt)} · ${regel}` : statusZeile(t, jetzt);
     }
 
-    // Die Gesamtwertung im Fenster: die ganze Tabelle, darüber die
-    // Beschreibung, darunter die Multiplayer, die schon gezählt haben.
+    /*
+     * Die Gesamtwertung im Fenster, mit zwei Reitern oben:
+     *
+     *   Gesamtwertung   zuerst: die Beschreibung, das Podest und alle Ränge
+     *                   (gesamtAnsicht)
+     *   Spiele          jedes Spiel mit seiner ganzen Rangliste, dazu die
+     *                   Multiplayer, die schon gezählt haben (spieleAnsicht)
+     *
+     * Wer gerade spielt, steht in beiden – das Fenster zeichnet sich neu, wenn
+     * sich das ändert (zeichneSpielen), und behält dabei den Reiter und
+     * welcher Rang aufgeklappt ist.
+     */
     let gesamtZeichnen = null;
     function gesamtZeigen() {
       const inhalt = el("div", "ar-gesamt");
+      let erstesMal = true;
+      let offen = "";
+      let reiter = "gesamt";
+      // Wer sich je Spiel anschauen lässt (der ▶), über das Neuzeichnen
+      // hinweg.
+      const laeufe = new Map();
+      const ansehen = (spiel, gezeigt) => {
+        if (!laeufe.has(spiel)) laeufe.set(spiel, m.ansehenFuer?.(spiel, gezeigt, () => gesamtZeichnen?.(), { aus: stand.t.id }) || null);
+        return laeufe.get(spiel);
+      };
       const zeichneFenster = () => {
         const t = stand.t;
         const vorbei = lage(t) === "beendet";
         const verdeckt = t.verdeckt && !vorbei;
         const { personen, abende } = wertung;
         inhalt.innerHTML = "";
-        if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
-        inhalt.append(gesamtTabelle(t, personen, verdeckt, abende));
-        if (!verdeckt && personen.length) {
-          inhalt.append(el("p", "tn-wie", t.wertung === "prozent"
-            ? "In jedem Spiel bekommt der Beste 100, die anderen ihren Anteil daran. Die höchste Summe gewinnt."
-            : "Die Plätze aus allen Spielen zusammengezählt. Die kleinste Summe gewinnt."));
+        // Beim Öffnen steigt das Podest auf; beim Neuzeichnen steht es.
+        inhalt.classList.toggle("ist-neu", erstesMal);
+        erstesMal = false;
+        // Die Reiter – nur, wo es unter «Spiele» etwas zu sehen gibt.
+        const mitReitern = !verdeckt && personen.length > 0 && (!t.nurLive || stand.abende.length > 0);
+        if (mitReitern) {
+          const leiste = el("div", "tn-reiter");
+          leiste.setAttribute("role", "tablist");
+          [["gesamt", "Gesamtwertung"], ["spiele", t.nurLive ? "Multiplayer" : "Spiele"]].forEach(([art, wort]) => {
+            const knopf = el("button", `tn-reiter-knopf${reiter === art ? " ist-an" : ""}`, wort);
+            knopf.type = "button";
+            knopf.dataset.reiter = art;
+            knopf.setAttribute("role", "tab");
+            knopf.setAttribute("aria-selected", reiter === art ? "true" : "false");
+            knopf.addEventListener("click", () => {
+              if (reiter === art) return;
+              reiter = art;
+              zeichneFenster();
+              inhalt.querySelector(`.tn-reiter-knopf[data-reiter="${art}"]`)?.focus({ preventScroll: true });
+              inhalt.closest(".ar-fenster-inhalt")?.scrollTo({ top: 0 });
+            });
+            leiste.append(knopf);
+          });
+          inhalt.append(leiste);
         }
-        if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
+        if (mitReitern && reiter === "spiele") {
+          inhalt.append(spieleAnsicht(t, wertung.listen, stand.spielen, { ansehen }));
+          if (stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
+          return;
+        }
+        if (t.beschreibung) inhalt.append(el("p", "tn-beschreibung", t.beschreibung));
+        if (verdeckt && stand.spielen.length) inhalt.append(spielenHinweis(stand.spielen));
+        inhalt.append(gesamtAnsicht(t, personen, verdeckt, abende, stand.spielen, {
+          offen,
+          // Der Fokus bleibt auf dem Rang, der eben angetippt wurde.
+          waehle: (wer) => {
+            const vorher = offen;
+            offen = wer;
+            zeichneFenster();
+            inhalt.querySelector(`[data-wer="${CSS.escape(wer || vorher)}"]`)?.focus({ preventScroll: true });
+          },
+        }));
+        // Ohne Reiter (verdeckt) stehen die Multiplayer hier.
+        if (!mitReitern && stand.abende.length) inhalt.append(liveAbende(stand.abende, verdeckt));
       };
       zeichneFenster();
       gesamtZeichnen = zeichneFenster;
@@ -657,9 +928,13 @@
         knopfWertung.append(el("span", "tn-wertung-text", satz));
       } else {
         const podest = el("ol", "tn-podest");
+        const spielend = new Set(stand.spielen.map((s) => namensSchluessel(s.name)));
         vorne.forEach((p) => {
-          const zeile = el("li", `ist-platz-${p.platz}${p.eigen ? " ist-ich" : ""}`);
+          // Wer davon gerade spielt: ein grüner Punkt an seiner Medaille.
+          const spielt = spielend.has(namensSchluessel(p.name));
+          const zeile = el("li", `ist-platz-${p.platz}${p.eigen ? " ist-ich" : ""}${spielt ? " ist-am-spielen" : ""}`);
           zeile.append(el("span", "tn-medaille", String(p.platz)), el("span", "tn-podest-name", p.name));
+          if (spielt) zeile.title = `${p.name} spielt gerade`;
           podest.append(zeile);
         });
         knopfWertung.append(podest);
@@ -807,8 +1082,51 @@
     return block;
   }
 
-  function gesamtTabelle(t, personen, verdeckt, abende = []) {
-    const spiele = t.nurLive ? [] : t.spiele;
+  // Wer gerade spielt, in einem Satz mit grünem Punkt: oben auf der
+  // Turnierseite (breit neben der Gesamtwertung) und im Fenster einer
+  // verdeckten Wertung.
+  function spielenHinweis(spielen) {
+    const box = el("p", "tn-spielen");
+    const namen = [...new Set(spielen.map((s) => s.name))];
+    const text = el("span", "tn-spielen-text");
+    text.append(
+      el("strong", "tn-spielen-marke", namen.length === 1 ? "Spielt gerade" : "Spielen gerade"),
+      el("span", "tn-spielen-namen", mini()?.namenListe?.(namen) || namen.join(", ")),
+    );
+    box.append(el("span", "ar-live-punkt"), text);
+    box.title = spielen.map((s) => `${s.name}: ${titel(s.game)}`).join(" · ");
+    return box;
+  }
+
+  // Ein Kreis mit zwei Buchstaben, je Name in einer eigenen Farbe – dieselbe
+  // auf jedem Gerät, weil sie aus dem Namen kommt.
+  function avatar(name, klasse = "") {
+    const kreis = el("span", `tn-avatar ${klasse}`.trim(), mini()?.kuerzel?.(name) || String(name).slice(0, 2));
+    let summe = 0;
+    for (const zeichen of namensSchluessel(name)) summe = (summe * 31 + zeichen.codePointAt(0)) % 360;
+    kreis.style.setProperty("--tn-farbton", String(summe));
+    kreis.setAttribute("aria-hidden", "true");
+    return kreis;
+  }
+
+  /*
+   * Die Gesamtwertung im Fenster, ihr erster Reiter: vorne steht nur, was
+   * zuerst zählt – das Podest, die ersten drei gross, Platz 1 in der Mitte
+   * und am höchsten, mit Krone, und darunter alle weiteren Ränge. Je Person
+   * nur Name und Schnitt. Ein Tipp auf einen Rang klappt auf, woraus sich
+   * sein Schnitt zusammensetzt: der Platz in jedem Spiel, die Rechnung, und
+   * wie gezählt wird. Die Ranglisten der Spiele hat der zweite Reiter
+   * (spieleAnsicht).
+   *
+   * Bis Oktober 2026 stand hier eine Tabelle mit allen Plätzen in Worten
+   * («Tunnelflug 1. · Drift-Rennen 3. · …»); das war zu viel auf einmal.
+   *
+   * Wer gerade spielt (amSpielen), trägt einen grünen Punkt an seinem Kreis.
+   *
+   *   offen    der Name (klein), dessen Einzelheiten aufgeklappt sind
+   *   waehle   was ein Tipp auf einen Rang tut
+   */
+  function gesamtAnsicht(t, personen, verdeckt, abende = [], spielen = [], { offen = "", waehle = () => {} } = {}) {
     if (verdeckt) {
       return el("p", "mini-hinweis tn-verdeckt", personen.length
         ? `Die Gesamtwertung bleibt bis zum Schluss verdeckt. Bisher ${personen.length === 1 ? "ist 1 Spieler" : `sind ${personen.length} Spieler`} dabei.`
@@ -816,45 +1134,199 @@
     }
     if (!personen.length) return el("p", "mini-hinweis", "Noch hat niemand gespielt. Der erste Name hier könnte deiner sein.");
 
+    const spiele = t.nurLive ? [] : t.spiele.filter((spiel) => mini()?.SPIELE?.some((s) => s.id === spiel) ?? true);
     const prozent = t.wertung === "prozent";
-    const tabelle = el("table", "mini-tabelle tn-tabelle");
-    const kopf = el("thead");
-    const kopfZeile = el("tr");
-    [["Spieler", ""], ["Spiele", "zahl"], [prozent ? "Punkte" : "Plätze", "zahl"]]
-      .forEach(([wort, klasse]) => kopfZeile.append(el("th", klasse, wort)));
-    kopf.append(kopfZeile);
-    tabelle.append(kopf);
-
-    const koerper = el("tbody");
-    personen.forEach((person) => {
-      const zeile = el("tr", `${person.platz === 1 ? "ist-erster" : ""}${person.eigen ? " ist-ich" : ""}`.trim());
-      const namensZelle = el("td", "mini-tabelle-name");
-      namensZelle.append(el("span", "mini-rangzahl", String(person.platz)));
-      const wer = el("span", "tn-wer");
-      wer.append(el("span", "", person.name));
-      // Woraus sich die Zahl zusammensetzt, klein darunter: Eine Summe, deren
-      // Teile man nicht sieht, glaubt man weniger.
-      const teile = spiele.map((spiel) => {
-        const je = person.je[spiel];
-        if (!je) return `${titel(spiel)} –`;
-        return prozent ? `${titel(spiel)} ${Math.round(je.prozent)}` : `${titel(spiel)} ${je.platz}.`;
-      });
-      // Die Multiplayer, mit ihrem Gewicht.
-      abende.forEach((a) => {
-        const je = person.abende?.[a.id];
-        const mal = a.gewicht > 1 ? ` ×${a.gewicht}` : "";
-        if (!je) teile.push(`«${a.name}» –`);
-        else teile.push(prozent ? `«${a.name}» ${Math.round(je.prozent)}${mal}` : `«${a.name}» ${je.platz}.${mal}`);
-      });
-      wer.append(el("small", "tn-teile", teile.join(" · ")));
-      namensZelle.append(wer);
-      zeile.append(namensZelle);
-      zeile.append(el("td", "zahl", `${person.gespielt}/${spiele.length + abende.length}`));
-      zeile.append(el("td", "zahl tn-wert", String(person.wert)));
-      koerper.append(zeile);
+    const amZug = new Map();
+    spielen.forEach(({ name, game }) => {
+      const k = namensSchluessel(name);
+      amZug.set(k, [...(amZug.get(k) || []), game]);
     });
-    tabelle.append(koerper);
-    return tabelle;
+    const wertWort = prozent ? "Ø von 100" : "Ø Platz";
+
+    // Ein Rang lässt sich antippen: Er klappt seine Einzelheiten auf (und
+    // wieder zu).
+    function antippbar(knoten, person) {
+      const k = namensSchluessel(person.name);
+      knoten.dataset.wer = k;
+      knoten.setAttribute("role", "button");
+      knoten.tabIndex = 0;
+      knoten.setAttribute("aria-expanded", k === offen ? "true" : "false");
+      knoten.addEventListener("click", () => waehle(k === offen ? "" : k));
+      knoten.addEventListener("keydown", (ereignis) => {
+        if (ereignis.key !== "Enter" && ereignis.key !== " ") return;
+        ereignis.preventDefault();
+        waehle(k === offen ? "" : k);
+      });
+    }
+    function kreis(person, klasse = "") {
+      const k = avatar(person.name, klasse);
+      const was = amZug.get(namensSchluessel(person.name));
+      if (was) {
+        k.classList.add("ist-am-spielen");
+        k.title = `${person.name} spielt gerade ${was.map(titel).join(", ")}`;
+      }
+      return k;
+    }
+
+    // Die Einzelheiten eines Rangs: je Spiel sein Platz, die Rechnung, und
+    // wie gezählt wird.
+    function einzelheiten(person) {
+      const box = el("div", "tn-detail");
+      const kopf = el("p", "tn-detail-kopf");
+      const teileGesamt = spiele.length + abende.length;
+      kopf.append(el("strong", "", person.name), el("span", "", `${person.gespielt} von ${zahlWort(teileGesamt, abende.length && !spiele.length ? "Multiplayer" : "Spiel", abende.length && !spiele.length ? "Multiplayern" : "Spielen")} gespielt`));
+      box.append(kopf);
+      const was = amZug.get(namensSchluessel(person.name));
+      if (was) {
+        const live = el("p", "tn-detail-live");
+        live.append(el("span", "ar-live-punkt"), el("span", "", `Spielt gerade ${was.map(titel).join(", ")}`));
+        box.append(live);
+      }
+      const liste = el("ul", "tn-detail-liste");
+      const teile = [];
+      let gewicht = 0;
+      const zeile = (bild, wort, je, mal = 1) => {
+        const wert = !je ? "nicht gespielt" : prozent ? String(Math.round(je.prozent)) : `${je.platz}.`;
+        const medaille = je && !prozent && je.platz <= 3 ? ` ist-platz-${je.platz}` : "";
+        const li = el("li", `tn-detail-zeile${je ? "" : " ist-leer"}`);
+        li.append(bild, el("span", "tn-detail-spiel", wort), el("span", `tn-detail-platz${medaille}`, wert));
+        liste.append(li);
+        if (!je) return;
+        const zahl = prozent ? Math.round(je.prozent) : je.platz;
+        teile.push(mal > 1 ? `${zahl} × ${mal}` : String(zahl));
+        gewicht += mal;
+      };
+      spiele.forEach((spiel) => {
+        const bild = el("img", "tn-detail-bild");
+        bild.alt = "";
+        bild.loading = "lazy";
+        bild.decoding = "async";
+        bild.src = mini()?.bildPfad?.(spiel, "klein") || "";
+        bild.addEventListener("error", () => bild.classList.add("ist-leer"), { once: true });
+        zeile(bild, titel(spiel), person.je[spiel]);
+      });
+      abende.forEach((a) => {
+        zeile(el("span", "tn-detail-mp", "MP"), `«${a.name}»${a.gewicht > 1 ? ` · zählt ×${a.gewicht}` : ""}`, person.abende?.[a.id], a.gewicht);
+      });
+      box.append(liste);
+      if (teile.length > 1) {
+        box.append(el("p", "tn-detail-rechnung", `${wertWort} ${person.wertText}: (${teile.join(" + ")}) ÷ ${gewicht}`));
+      }
+      box.append(el("p", "tn-wie", prozent
+        ? "In jedem Spiel bekommt der Beste 100, die anderen ihren Anteil daran. Es zählt der Schnitt über die Spiele, die jemand gespielt hat – der höchste gewinnt."
+        : "Es zählt der Platz im Schnitt über die Spiele, die jemand gespielt hat – der kleinste gewinnt. Wer weniger gespielt hat, hat keinen Nachteil; bei Gleichstand liegt vorne, wer mehr gespielt hat."));
+      return box;
+    }
+
+    const ansicht = el("div", "tn-gesamt");
+
+    // --- Oben: das Podest und alle weiteren Ränge -----------------------------------
+    // Die ersten drei der Liste (bei Gleichstand teilen sie den Platz und die
+    // Farbe). In der Mitte der Erste, links der Zweite, rechts der Dritte.
+    const raenge = el("section", "tn-raenge");
+    raenge.setAttribute("aria-label", "Rangliste");
+    const podest = el("ol", "tn-sieger");
+    const oben = personen.slice(0, 3);
+    oben.forEach((person, i) => {
+      const stufe = Math.min(person.platz, 3);
+      const k = namensSchluessel(person.name);
+      const li = el("li", `tn-person tn-stufe ist-platz-${stufe} ist-stelle-${i + 1}${person.eigen ? " ist-ich" : ""}${k === offen ? " ist-gewaehlt" : ""}`);
+      antippbar(li, person);
+      const wer = el("div", "tn-stufe-wer");
+      if (stufe === 1) wer.append(mini()?.mitIcon?.("span", "tn-krone", "krone") || el("span", "tn-krone"));
+      wer.append(kreis(person, "tn-avatar-gross"));
+      const name = el("strong", "tn-person-name", person.name);
+      name.title = person.name;
+      wer.append(name);
+      const wert = el("span", "tn-person-wert");
+      wert.append(el("strong", "", person.wertText), el("small", "", wertWort));
+      if (person.eigen) wert.append(el("span", "tn-du", "Du"));
+      wer.append(wert);
+      const sockel = el("div", "tn-sockel");
+      sockel.append(el("span", "tn-sockel-platz", String(person.platz)));
+      li.append(wer, sockel);
+      podest.append(li);
+    });
+    raenge.append(podest);
+    const obenOffen = oben.find((p) => namensSchluessel(p.name) === offen);
+    if (obenOffen) raenge.append(einzelheiten(obenOffen));
+
+    const rest = personen.slice(3);
+    if (rest.length) {
+      const liste = el("ol", "tn-rest");
+      rest.forEach((person) => {
+        const k = namensSchluessel(person.name);
+        const li = el("li", `tn-person tn-reihe${person.eigen ? " ist-ich" : ""}${k === offen ? " ist-gewaehlt" : ""}`);
+        const zeile = el("div", "tn-reihe-zeile");
+        antippbar(zeile, person);
+        zeile.append(el("span", "tn-reihe-platz", String(person.platz)), kreis(person));
+        const name = el("strong", "tn-person-name", person.name);
+        name.title = person.name;
+        const wer = el("span", "tn-reihe-wer");
+        wer.append(name);
+        if (person.eigen) wer.append(el("span", "tn-du", "Du"));
+        const wert = el("span", "tn-person-wert");
+        wert.append(el("strong", "", person.wertText), el("small", "", wertWort));
+        zeile.append(wer, wert, mini()?.mitIcon?.("span", "tn-reihe-mehr", "pfeil") || el("span", "tn-reihe-mehr"));
+        li.append(zeile);
+        if (k === offen) li.append(einzelheiten(person));
+        liste.append(li);
+      });
+      raenge.append(liste);
+    }
+    ansicht.append(raenge);
+
+    return ansicht;
+  }
+
+  /*
+   * Der zweite Reiter im Fenster der Gesamtwertung: jedes Spiel mit seiner
+   * ganzen Rangliste – wer dort vorne liegt, mit wie viel, wer es gerade
+   * spielt, und (wo das Turnier es zulässt) der ▶ zum Anschauen des besten
+   * Laufs.
+   *
+   *   ansehen   je Spiel, wer sich anschauen lässt (mini-games.js,
+   *             ansehenFuer) – über das Neuzeichnen hinweg gemerkt, damit
+   *             nicht bei jedem Blick neu gefragt wird
+   */
+  function spieleAnsicht(t, listen, spielen = [], { ansehen = null } = {}) {
+    const spiele = t.nurLive ? [] : t.spiele.filter((spiel) => mini()?.SPIELE?.some((s) => s.id === spiel) ?? true);
+    const teil = el("div", "tn-spiele");
+    spiele.forEach((spiel) => {
+      const karte = el("article", "tn-spiel");
+      // Die Balken der Liste in der Farbe des Spiels, wie in seiner
+      // eigenen Rangliste.
+      const f = mini()?.farbe?.(spiel);
+      if (f) {
+        karte.style.setProperty("--mini-farbe", f.hell);
+        karte.style.setProperty("--mini-farbe-dunkel", f.dunkel);
+      }
+      const kopf = el("header", "tn-spiel-kopf");
+      const bild = el("img", "tn-spiel-bild");
+      bild.alt = "";
+      bild.loading = "lazy";
+      bild.decoding = "async";
+      bild.src = mini()?.bildPfad?.(spiel, "klein") || "";
+      bild.addEventListener("error", () => bild.classList.add("ist-leer"), { once: true });
+      const liste = listen.get(spiel) || [];
+      const namen = spielen.filter((s) => s.game === spiel).map((s) => s.name);
+      const texte = el("span", "tn-spiel-texte");
+      texte.append(el("strong", "tn-spiel-titel", titel(spiel)));
+      if (namen.length) {
+        const live = el("span", "tn-spiel-live");
+        live.append(el("span", "ar-live-punkt"), el("span", "", mini()?.spielenSatz?.(namen) || namen.join(", ")));
+        texte.append(live);
+      } else {
+        texte.append(el("span", "tn-spiel-zahl", liste.length ? zahlWort(liste.length, "Spieler", "Spieler") : "Noch niemand"));
+      }
+      kopf.append(bild, texte);
+      const fuer = ansehen && !t.ohneReplay ? ansehen(spiel, () => listen.get(spiel) || []) : null;
+      const spielt = new Set(namen.map(namensSchluessel));
+      karte.append(kopf, mini()?.bestenliste?.(liste, spiel, { ansehen: fuer, spielt }) || el("p", "mini-hinweis", "Die Rangliste ist gerade nicht zu haben."));
+      fuer?.frage?.();
+      teil.append(karte);
+    });
+    return teil;
   }
 
   // ---------------------------------------------------------------------------
@@ -1197,8 +1669,10 @@
       }
       return cloud().turnierVersuch(hier.id, wer);
     };
-    hier.anmeldung = nacheinander(anmelden).then((stand) => {
+    const anmeldung = nacheinander(anmelden).then((stand) => {
       hier.gespielt = Math.max(hier.gespielt, stand.versuche);
+      merkeDabei(hier.id);
+      lebenszeichen(anmeldung, wer);
       return stand;
     }, (fehler) => {
       // Nicht angemeldet heisst nicht gezählt – ausser, das Gerät hatte schon
@@ -1207,9 +1681,30 @@
       hier.gespielt = fehler?.code === "turnier/keine-versuche" ? t.versuche : Math.max(0, hier.gespielt - 1);
       throw fehler;
     });
+    hier.anmeldung = anmeldung;
     // Ob die Anmeldung geklappt hat, sagt erst das Ergebnis. Bis dahin soll
     // ein Fehlschlag nicht als unbehandelter Fehler in der Konsole stehen.
     hier.anmeldung.catch(() => {});
+  }
+
+  /*
+   * Das Lebenszeichen einer Runde: Solange sie läuft und im Bild ist, setzt
+   * das Spiel alle zwanzig Sekunden die Uhrzeit seines Eintrags neu
+   * (cloud.js, turnierLebenszeichen). Daran sieht die Turnierseite, wer
+   * gerade spielt (amSpielen) – «offen» allein sagt das nicht: Offen bleibt
+   * auch ein Versuch, den jemand mittendrin liegen gelassen hat.
+   *
+   * Es endet mit der Runde – mit ihrem Ergebnis oder einem Neustart, die
+   * beide hier.anmeldung ersetzen –, und es schweigt, solange die Seite
+   * nicht zu sehen ist: Wer das Handy weglegt, spielt nicht.
+   */
+  const LEBENSZEICHEN_MS = 20000;
+  function lebenszeichen(anmeldung, wer) {
+    const uhr = window.setInterval(() => {
+      if (hier.anmeldung !== anmeldung || !hier.laeuft) { window.clearInterval(uhr); return; }
+      if (document.visibilityState !== "visible") return;
+      Promise.resolve(cloud()?.turnierLebenszeichen?.(hier.id, wer)).catch(() => {});
+    }, LEBENSZEICHEN_MS);
   }
 
   /*
@@ -1405,7 +1900,7 @@
   // Start
   // ---------------------------------------------------------------------------
   window.LernappTurnier = {
-    lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne,
+    lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage,
