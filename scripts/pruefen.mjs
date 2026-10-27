@@ -552,12 +552,12 @@ pruefe("live.js und live-spiel.js warten gleich lange (WEG_MS)",
   liveJs.match(/const WEG_MS = (\d+);/)?.[1] === liveSpielJs.match(/const WEG_MS = (\d+);/)?.[1]);
 pruefe("live-spiel.js zeigt die anderen mit gemessenem Verzug auf einer Kurve",
   /function verzugVon\(/.test(liveSpielJs) && /LernappGeist\?\.kurve/.test(liveSpielJs) && /lauf\.zeitBei\(t\)/.test(liveSpielJs));
-// Die Wiedergabe der besten Läufe: zehn Proben je Sekunde, als Schritte
-// gepackt (v 2), abgespielt auf derselben Kurve wie im Multiplayer.
+// Die Wiedergabe der besten Läufe: dreissig Proben je Sekunde, als Schritte
+// in Text gepackt (v 4), abgespielt auf derselben Kurve wie im Multiplayer.
 const geistJs = lies("geist.js");
-pruefe("geist.js zeichnet zehnmal je Sekunde auf (TAKT_MS 100)", /const TAKT_MS = 100;/.test(geistJs));
-pruefe("geist.js packt die Aufzeichnung als Schritte (v 2) und liest auch v 1",
-  /v: 2, dt, p: schritte\(p\)/.test(geistJs) && /d\.v !== 1 && d\.v !== 2/.test(geistJs));
+pruefe("geist.js zeichnet dreissigmal je Sekunde auf (TAKT_MS 33)", /const TAKT_MS = 33;/.test(geistJs));
+pruefe("geist.js packt die Aufzeichnung als Text (v 4) und liest auch v 1 und v 2",
+  /v: 4, dt, p: alsText\(p\)/.test(geistJs) && /!\[1, 2, 4\]\.includes\(d\.v\)/.test(geistJs));
 pruefe("geist.js spielt auf der Kurve ab (abspieler → kurve)", /ort: \(ms\) => \(proben \? kurve\(proben, ms, \{ winkel \}\) : null\)/.test(geistJs));
 
 // Zuschauen in den Spielen ohne Figur: Sie melden ihre Züge (zug) und bauen

@@ -6346,9 +6346,9 @@ try {
       const geist = window.__miniGeister?.get(`leafFlow_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, v: d?.v, p: Array.isArray(d?.p), zuege: d?.z?.t?.length || 0, saat: d?.s ?? null };
+      return { kennung, v: d?.v, p: window.LernappGeist.entpacke(geist?.bahn)?.p?.length > 0, zuege: d?.z?.t?.length || 0, saat: d?.s ?? null };
     });
-    pruefe(runde.richtig + runde.falsch === 6 && (runde.richtig === 0 || (blatt.v === 2 && blatt.p && blatt.zuege === 6 && Number.isInteger(blatt.saat))),
+    pruefe(runde.richtig + runde.falsch === 6 && (runde.richtig === 0 || (blatt.v === 4 && blatt.p && blatt.zuege === 6 && Number.isInteger(blatt.saat))),
       `Blätter im Strom hinterlegt die Wische nicht mit dem Lauf für die Gegner: ${JSON.stringify({ runde, blatt })}`);
     if (runde.richtig > 0) {
       await seite.goto(`${BASIS}/blaetter?zuschauen=${blatt.kennung}`, { waitUntil: "load" });

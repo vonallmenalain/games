@@ -86,14 +86,14 @@
   // hoch – und die alten verschwinden von selbst aus dem Bild (cloud.js,
   // geister fragt nach genau dieser Fassung).
   const LEVEL = "t1";
-  // Zehn Proben je Sekunde. Mit vier (bis Oktober 2026) lief die Wiedergabe
-  // eckig: Zwischen zwei Proben lag eine Viertelsekunde gerader Strich, über
-  // einen Hügel hinweg eine Sehne statt des Bogens.
-  const TAKT_MS = 100;
+  // Dreissig Proben je Sekunde – so oft wie beim Live-Zuschauen. Mit vier
+  // (bis Oktober 2026) lief die Wiedergabe eckig, mit zehn lag über einem
+  // kurzen Haken oder einem Aufprall noch eine Zehntelsekunde Sehne.
+  const TAKT_MS = 33;
   // Sechs Minuten. Die Runden mit Uhr dauern höchstens zwei; die ohne Uhr
   // (Mondlandung, Schwerkraft-Läufer …) auch bei den Besten selten länger.
   // Was zu lang für die Datenbank ist, verdichtet packe().
-  const PROBEN_MAX = 3600;
+  const PROBEN_MAX = Math.ceil((6 * 60 * 1000) / TAKT_MS);
   const BAHN_MAX = 12000;
   // Über wie viel Zeit je Seite die Beschleunigung beim Zuschauen geschätzt
   // wird (stand, ab) – für Spiele, die zeigen wollen, wann ein Triebwerk
@@ -233,10 +233,10 @@
    * ist sie, wenn jeder Strom, der begann, sein ende() hatte. Geschrieben
    * wird nur, solange die Seite im Bild ist.
    */
-  // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde –
-  // dreimal so oft wie im Replay (TAKT_MS): Die Realtime Database rechnet
-  // nach Datenmenge, nicht nach Anfragen, und ein Zuschauer lädt so um 5 MB
-  // je Stunde. Die Züge alle.
+  // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde – so
+  // oft wie im Replay (TAKT_MS): Die Realtime Database rechnet nach
+  // Datenmenge, nicht nach Anfragen, und ein Zuschauer lädt so um 5 MB je
+  // Stunde. Die Züge alle.
   const MITSCHAUEN_MS = 500;
   const MITSCHAUEN_ORT_MS = 30;
   // Der Zettel in amSpielen: so oft «läuft noch».
@@ -394,13 +394,16 @@
   // Alle TAKT_MS eine Probe: die Punkte und, wo das Spiel einen Geist zeigt,
   // wo er war (a, b, c – was das heisst, weiss das Spiel; c ist eine ganze
   // Zahl, ein Zustand oder ein Winkel mal 100). Geschrieben wird sie als
-  // JSON, ganze Zahlen, jede Liste als Schritte: die erste Zahl, dann je der
-  // Unterschied zur vorigen – so passen zehn Proben je Sekunde in die
+  // JSON, ganze Zahlen, jede Liste als Schritte – die erste Zahl, dann je der
+  // Unterschied zur vorigen –, und die Schritte als Text (alsText): meist ein
+  // Zeichen je Zahl, und wo sich ein Schritt wiederholt, nur wie oft. So
+  // passen dreissig Proben je Sekunde gut zwei Minuten lang in die
   // Datenbank:
   //
-  //   {"v":2,"dt":100,"p":[0,0,1,…],"a":[0,31,30,…],"b":[…],"c":[…],"s":123456789}
+  //   {"v":4,"dt":33,"p":"A~kC…","a":"gBGG~E…","b":"…","c":"…","s":123456789}
   //
-  // v 1 (bis Oktober 2026) schrieb die Zahlen selbst; entpacke liest beides.
+  // v 1 schrieb die Zahlen selbst, v 2 (bis Oktober 2026) die Schritte als
+  // Liste ([0,31,30,…]); entpacke liest alle drei.
   // s ist die Saat der Welt (zufall.js) – damit lässt sich der Lauf später
   // in derselben Welt anschauen. u ist, wo die Uhr des Spiels stand, als die
   // Runde begann (in ms) – für Welten, die sich mit der Zeit bewegen
@@ -444,6 +447,82 @@
     return liste.map((x) => { summe += x; return summe; });
   };
 
+  /*
+   * Die Schritte als Text (v 4) – wie die Quellkarten der Browser
+   * (Base64-VLQ): fünf Bits je Zeichen, das sechste sagt «es geht weiter»,
+   * das unterste Bit der Zahl das Vorzeichen. Ein Schritt zwischen -15 und
+   * 15 ist ein Zeichen, bis 511 zwei. Wiederholt er sich – die Figur steht,
+   * fliegt gleich schnell, die Punkte bleiben –, steht danach «~» und wie
+   * oft noch. Alle Zeichen gehen ohne Escape durch JSON.
+   */
+  const VLQ = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  function vlq(zahl) {
+    const n = Math.round(Number(zahl)) || 0;
+    let x = Math.abs(n) * 2 + (n < 0 ? 1 : 0);
+    let text = "";
+    do {
+      const ziffer = x % 32;
+      x = Math.floor(x / 32);
+      text += VLQ[ziffer + (x > 0 ? 32 : 0)];
+    } while (x > 0);
+    return text;
+  }
+
+  function alsText(liste) {
+    const d = schritte(liste);
+    let text = "";
+    for (let i = 0; i < d.length;) {
+      let gleich = 1;
+      while (i + gleich < d.length && d[i + gleich] === d[i]) gleich += 1;
+      const zeichen = vlq(d[i]);
+      text += zeichen;
+      const noch = gleich - 1;
+      const kurz = `~${vlq(noch)}`;
+      text += noch && kurz.length < zeichen.length * noch ? kurz : zeichen.repeat(noch);
+      i += gleich;
+    }
+    return text;
+  }
+
+  // Zurück zur Liste – oder null, wenn der Text kaputt ist. Länger als
+  // PROBEN_MAX wird sie nie: Wer sich «~» mit einer Riesenzahl ausdenkt,
+  // bekommt keinen Lauf, statt den Speicher zu füllen.
+  function ausText(text) {
+    const zeichen = String(text || "");
+    const liste = [];
+    let summe = 0;
+    let schritt = 0;
+    let i = 0;
+    const lies = () => {
+      let x = 0;
+      let faktor = 1;
+      let ziffer = 32;
+      while (ziffer & 32) {
+        ziffer = VLQ.indexOf(zeichen[i]);
+        i += 1;
+        if (ziffer < 0 || faktor > 2 ** 40) return NaN;
+        x += (ziffer & 31) * faktor;
+        faktor *= 32;
+      }
+      return x % 2 ? -(x - 1) / 2 : x / 2;
+    };
+    while (i < zeichen.length) {
+      let mal = 1;
+      if (zeichen[i] === "~") {
+        i += 1;
+        mal = lies();
+      } else {
+        schritt = lies();
+      }
+      if (!Number.isFinite(schritt) || !Number.isFinite(mal) || mal < 0 || liste.length + mal > PROBEN_MAX * 2) return null;
+      for (let k = 0; k < mal; k += 1) {
+        summe += schritt;
+        liste.push(summe);
+      }
+    }
+    return liste;
+  }
+
   // Zu lang für die Datenbank? Dann jede zweite Probe, mit doppeltem Takt –
   // die letzte bleibt, was sie war: das Ergebnis.
   function packe(auf, saat = null, vorlauf = null) {
@@ -454,9 +533,9 @@
     let b = auf.ort ? auf.b : null;
     let c = auf.ort && auf.mitC ? auf.c : null;
     for (let versuch = 0; versuch < 6 && p.length; versuch += 1) {
-      const daten = { v: 2, dt, p: schritte(p) };
-      if (a) Object.assign(daten, { a: schritte(a), b: schritte(b) });
-      if (c) daten.c = schritte(c);
+      const daten = { v: 4, dt, p: alsText(p) };
+      if (a) Object.assign(daten, { a: alsText(a), b: alsText(b) });
+      if (c) daten.c = alsText(c);
       if (saat !== null && saat !== undefined) daten.s = saat;
       if (vorlauf !== null && vorlauf !== undefined) daten.u = Math.max(0, Math.round(vorlauf));
       const text = JSON.stringify(daten);
@@ -474,18 +553,26 @@
   function entpacke(bahn) {
     let d = null;
     try { d = JSON.parse(String(bahn || "")); } catch { return null; }
-    if (!d || (d.v !== 1 && d.v !== 2) || !Array.isArray(d.p) || !d.p.length) return null;
+    if (!d || ![1, 2, 4].includes(d.v)) return null;
     const zahl = (x) => (Number.isFinite(Number(x)) ? Number(x) : 0);
-    const lies = (liste) => (d.v === 2 ? summen(liste.map(zahl)) : liste.map(zahl));
+    // Jede Liste als Zahlen – oder null, wo sie fehlt oder kaputt ist.
+    const lies = (feld) => {
+      if (d.v === 4) return typeof feld === "string" ? ausText(feld) : null;
+      if (!Array.isArray(feld)) return null;
+      return d.v === 2 ? summen(feld.map(zahl)) : feld.map(zahl);
+    };
     const p = lies(d.p);
-    const mitOrt = Array.isArray(d.a) && Array.isArray(d.b) && d.a.length === p.length && d.b.length === p.length;
-    const mitC = mitOrt && Array.isArray(d.c) && d.c.length === p.length;
+    if (!p?.length) return null;
+    const passt = (liste) => (liste?.length === p.length ? liste : null);
+    let a = passt(lies(d.a));
+    let b = passt(lies(d.b));
+    if (!a || !b) { a = null; b = null; }
     return {
       dt: Number(d.dt) > 0 ? Number(d.dt) : TAKT_MS,
       p,
-      a: mitOrt ? lies(d.a) : null,
-      b: mitOrt ? lies(d.b) : null,
-      c: mitC ? lies(d.c) : null,
+      a,
+      b,
+      c: a ? passt(lies(d.c)) : null,
       s: Number.isInteger(d.s) && d.s >= 0 ? d.s : null,
       u: Number.isFinite(d.u) && d.u >= 0 ? d.u : 0,
     };

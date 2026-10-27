@@ -1011,7 +1011,8 @@
     let d = null;
     try { d = JSON.parse(bahn); } catch { return false; }
     if (!art.fest && !Number.isInteger(d?.s)) return false;
-    return art.zuege ? Array.isArray(d?.z?.t) && d.z.t.length > 0 : Array.isArray(d?.a);
+    // Der Ort als Liste (bis v 2) oder als Text (v 4, geist.js alsText).
+    return art.zuege ? Array.isArray(d?.z?.t) && d.z.t.length > 0 : Array.isArray(d?.a) || (typeof d?.a === "string" && d.a.length > 0);
   }
 
   /*
