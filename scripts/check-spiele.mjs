@@ -347,21 +347,7 @@ const ATTRAPPE = `
       const e = tEintraege.get(id + "/" + game + "_" + spieler);
       return e ? { ...e } : null;
     },
-    // Wer gerade spielt (turnier.js, amSpielen): die offenen Versuche, und
-    // das Lebenszeichen einer laufenden Runde – nur die Uhrzeit, wie in den
-    // Regeln. Die Prüfung zählt die Lebenszeichen in window.__miniLebenszeichen.
-    turnierAmSpielen: async (id) => [...tEintraege.entries()]
-      .filter(([k, e]) => k.startsWith(id + "/") && e.offen)
-      .map(([, e]) => ({ ...e })),
-    turnierLebenszeichen: async (id, { game, spieler }) => {
-      const k = id + "/" + game + "_" + spieler;
-      const alt = tEintraege.get(k);
-      if (!alt) throw fehler("abgewiesen", "permission-denied");
-      tEintraege.set(k, { ...alt, updatedAtMs: Date.now() });
-      tSichern();
-      window.__miniLebenszeichen = (window.__miniLebenszeichen || 0) + 1;
-    },
-    // Live mitschauen (turnier.js schreibt, geist.js hört): der Knoten je
+    // Live mitschauen (geist.js schreibt und hört): der Knoten je
     // Turnier und Kennung in localStorage, damit eine zweite Seite im selben
     // Browser ihn sieht – wie die Realtime Database, ganz (PUT) oder Pfad für
     // Pfad (PATCH). Gehört wird alle 150 ms.
@@ -400,18 +386,21 @@ const ATTRAPPE = `
       const uhr = setInterval(schau, 150);
       return () => clearInterval(uhr);
     },
-    // Die Zettel der App (amSpielen): alle in einem Eintrag.
-    amSpielenSchreiben: async (kennung, daten, wie) => {
+    // Die Zettel (amSpielen): je Liste ein Eintrag – «__amSpielen» die der
+    // App, «__amSpielen/<turnier>» die eines Turniers.
+    amSpielenSchreiben: async (turnier, kennung, daten, wie) => {
+      const k = "__amSpielen" + (turnier ? "/" + turnier : "");
       let alle = {};
-      try { alle = JSON.parse(localStorage.getItem("__amSpielen") || "{}") || {}; } catch { alle = {}; }
+      try { alle = JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch { alle = {}; }
       alle[kennung] = wie && wie.ganz ? { ...daten } : { ...(alle[kennung] || {}), ...daten };
-      localStorage.setItem("__amSpielen", JSON.stringify(alle));
+      localStorage.setItem(k, JSON.stringify(alle));
       return true;
     },
-    amSpielenHoeren: (beiStand) => {
+    amSpielenHoeren: (beiStand, turnier = "") => {
+      const k = "__amSpielen" + (turnier ? "/" + turnier : "");
       let vorher;
       const schau = () => {
-        const roh = localStorage.getItem("__amSpielen");
+        const roh = localStorage.getItem(k);
         if (roh === vorher) return;
         vorher = roh;
         let d = null;
@@ -1964,41 +1953,47 @@ try {
     await kontext.close();
   }
   {
-    // Wer gerade spielt: offene Versuche mit frischem Lebenszeichen – Zoe im
-    // Fischteich. Nicht dabei sind ein offener Versuch, der seit Minuten
-    // schweigt (liegen gelassen), und der eigene dieses Geräts: Wer die
-    // Turnierseite ansieht, spielt nicht.
+    // Wer gerade spielt: die Zettel des Turniers (Realtime Database, hier in
+    // localStorage) – Zoe im Fischteich, mit Punkten. Nicht dabei sind ein
+    // Zettel, der seit Minuten schweigt (liegen gelassen), und wer in der App
+    // spielt: Die Turnierseite zeigt nur das Turnier.
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${HERBST}`, { viewport: { width: 1500, height: 900 }, vorher: () => {
       localStorage.setItem("mini.id", "mini_ichichichichich");
       localStorage.setItem("mini.name", "Ich");
       const d = window.__miniTurniereAnfang;
       const t = d.turniere.find((x) => x.name === "Herbstcup").id;
-      d.eintraege = [...d.eintraege,
-        { turnier: t, game: "fishPond", spieler: "mini_zoezoezoezoe", name: "Zoe", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() },
-        { turnier: t, game: "numberLine", spieler: "mini_altaltaltalt", name: "Alt", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() - 10 * 60000 },
-        { turnier: t, game: "towerStack", spieler: "mini_ichichichichich", name: "Ich", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() },
-      ];
+      d.eintraege = [...d.eintraege, { turnier: t, game: "fishPond", spieler: "mini_zoezoezoezoe", name: "Zoe", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() }];
+      localStorage.setItem(`__amSpielen/${t}`, JSON.stringify({
+        mini_zoezoezoezoe: { name: "Zoe", spiel: "fishPond", p: 120, lebt: Date.now() },
+        mini_altaltaltalt: { name: "Alt", spiel: "numberLine", p: 3, lebt: Date.now() - 10 * 60000 },
+      }));
+      localStorage.setItem("__amSpielen", JSON.stringify({ mini_maxmaxmaxmax: { name: "Max", spiel: "towerStack", p: 7, lebt: Date.now() } }));
     } });
     const vorher = fehlerAufSeite.length;
     await seite.waitForSelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live:not([hidden])', { timeout: 8000 }).catch(() => {});
+    const zuZoe = `/fischteich?mitschauen=mini_zoezoezoezoe&aus=${HERBST}&wer=Zoe`;
     const live = await seite.evaluate(() => ({
       kacheln: Object.fromEntries([...document.querySelectorAll(".ar-kachel")].map((k) => [k.dataset.spiel, k.querySelector(".ar-kachel-live:not([hidden])")?.textContent || ""])),
-      kopf: document.querySelector(".tn-oben .tn-spielen")?.textContent || "",
+      karten: [...document.querySelectorAll(".ar-live:not([hidden]) .ar-live-karte")].map((k) => ({
+        text: k.querySelector(".ar-live-text").innerText.replace(/\s+/g, " ").trim(),
+        link: k.querySelector("a.ar-live-zuschauen:not([hidden])")?.getAttribute("href") || "",
+      })),
+      oben: document.querySelector(".tn-oben .tn-spielen")?.textContent || "",
+      reihe: getComputedStyle(document.querySelector(".ar-seite")).gridTemplateRows.split(" ").length,
     }));
     pruefe(live.kacheln.fishPond === "Zoe" && !live.kacheln.towerStack && !live.kacheln.numberLine,
       `Auf den Kacheln steht nicht genau, dass Zoe im Fischteich spielt: ${JSON.stringify(live.kacheln)}`);
-    pruefe(/Zoe/.test(live.kopf) && /gerade/i.test(live.kopf) && !/Alt|Ich/.test(live.kopf), `Oben steht nicht, dass Zoe gerade spielt: ${live.kopf}`);
+    pruefe(live.karten.length === 1 && /^Zoe spielt Fischteich 120 /.test(live.karten[0].text) && live.karten[0].link === zuZoe && !live.oben && live.reihe === 4,
+      `Oben in der Live-Leiste steht nicht genau Zoe mit Fischteich, Punkten und Zuschauen: ${JSON.stringify(live)}`);
     await seite.click('.ar-kachel[data-spiel="fishPond"]');
     await seite.waitForFunction(() => /Zoe spielt gerade/.test(document.querySelector(".ar-spielen:not([hidden])")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
-    pruefe(/^Zoe spielt gerade/.test(await seite.locator(".ar-spielen-text").innerText().catch(() => "")), "Unter dem Namen des Fischteichs steht nicht, dass Zoe ihn gerade spielt.");
+    pruefe(/^Zoe spielt gerade · 120 /.test(await seite.locator(".ar-spielen-text").innerText().catch(() => "")), "Unter dem Namen des Fischteichs steht nicht, dass Zoe ihn gerade spielt, mit ihren Punkten.");
     // Wer spielt, ist ein Weg zum Zuschauen: der Name und der Knopf daneben.
     const zuschauWeg = await seite.evaluate(() => ({
       name: document.querySelector(".ar-spielen a.ar-zuschauen")?.getAttribute("href"),
       knopf: document.querySelector(".ar-spielen a.ar-zuschau-knopf")?.getAttribute("href"),
-      oben: document.querySelector(".tn-oben .tn-spielen a.tn-zuschauen")?.getAttribute("href"),
     }));
-    const zuZoe = `/fischteich?mitschauen=mini_zoezoezoezoe&aus=${HERBST}&wer=Zoe`;
-    pruefe(zuschauWeg.name === zuZoe && zuschauWeg.knopf === zuZoe && zuschauWeg.oben === zuZoe, `Wer gerade spielt, führt nicht zum Zuschauen: ${JSON.stringify(zuschauWeg)}`);
+    pruefe(zuschauWeg.name === zuZoe && zuschauWeg.knopf === zuZoe, `Wer gerade spielt, führt nicht zum Zuschauen: ${JSON.stringify(zuschauWeg)}`);
     await seite.click(".tn-wertung");
     await seite.waitForSelector("dialog.ist-gesamt .tn-avatar.ist-am-spielen", { timeout: 4000 }).catch(() => {});
     // Im Fenster: ein grüner Punkt an Zoes Kreis, und beim Fischteich steht,
@@ -2019,21 +2014,27 @@ try {
       `Im Fenster der Gesamtwertung steht nicht, dass Zoe Fischteich spielt: ${JSON.stringify(imFenster)}`);
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Wer gerade spielt – Klassen ohne Regel: ${ohne.join(", ")}`);
-    // Zoe ist fertig: Ihr Ergebnis kommt, der Versuch ist zu. Beim nächsten
-    // Blick (alle 15 Sekunden) liest die Seite auch die Liste neu – Zoe steht
-    // mit ihrem Fischteich vorne, und niemand spielt mehr.
-    await seite.evaluate(() => {
+    // Zoe ist fertig: Ihr Zettel sagt es, ihr Ergebnis kommt. Die Seite liest
+    // gleich danach auch die Liste neu – Zoe steht mit ihrem Fischteich
+    // vorne, niemand spielt mehr, und die Live-Leiste ist weg.
+    await seite.evaluate((t) => {
       const k = [...window.__miniTurnierEintraege.keys()].find((x) => x.endsWith("/fishPond_mini_zoezoezoezoe"));
       window.__miniTurnierEintraege.set(k, { ...window.__miniTurnierEintraege.get(k), punkte: 99, offen: false, updatedAtMs: Date.now() });
-    });
-    await seite.waitForFunction(() => document.querySelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live')?.hidden, null, { timeout: 20000 }).catch(() => {});
+      const zettel = JSON.parse(localStorage.getItem(`__amSpielen/${t}`));
+      zettel.mini_zoezoezoezoe = { ...zettel.mini_zoezoezoezoe, p: 99, lebt: Date.now(), fertig: true };
+      localStorage.setItem(`__amSpielen/${t}`, JSON.stringify(zettel));
+    }, HERBST);
+    await seite.waitForFunction(() => document.querySelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live')?.hidden, null, { timeout: 6000 }).catch(() => {});
+    await seite.waitForFunction(() => /Zoe/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
     const fertig = await seite.evaluate(() => ({
       kachel: !document.querySelector('.ar-kachel[data-spiel="fishPond"] .ar-kachel-live')?.hidden,
+      leiste: !document.querySelector(".ar-live")?.hidden,
+      reihe: getComputedStyle(document.querySelector(".ar-seite")).gridTemplateRows.split(" ").length,
       zoe: [...document.querySelectorAll("dialog.ist-gesamt .tn-person")].find((p) => p.querySelector(".tn-person-name")?.textContent === "Zoe")?.querySelector(".tn-person-wert strong")?.textContent,
       rang: document.querySelector(".ar-rang")?.textContent || "",
     }));
     const nachher = await amSpiel();
-    pruefe(!fertig.kachel && fertig.zoe === "1" && !nachher.kreise.length && !nachher.spiele.length && /Zoe/.test(fertig.rang),
+    pruefe(!fertig.kachel && !fertig.leiste && fertig.reihe === 3 && fertig.zoe === "1" && !nachher.kreise.length && !nachher.spiele.length && /Zoe/.test(fertig.rang),
       `Nach Zoes Ergebnis liest die Turnierseite nicht neu: ${JSON.stringify(fertig)}`);
     pruefe(fehlerAufSeite.length === vorher, `Wer gerade spielt – die Seite hat sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
@@ -2206,21 +2207,92 @@ try {
     await kontext.close();
   }
   {
-    // Das Lebenszeichen: Solange eine Runde im Turnier läuft, setzt das Spiel
-    // alle zwanzig Sekunden die Uhrzeit seines Eintrags neu – und nur die.
+    // Der Zettel einer Turnierrunde: Wer im Turnier spielt, steht mit Spiel
+    // und Punkten in dessen Liste (nie in der der App), und am Ende «fertig».
+    // Ist die Rangliste verdeckt, stehen keine Punkte darauf.
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${DAUER}`, { vorher: () => localStorage.setItem("mini.name", "Herz") });
+    const vorher = fehlerAufSeite.length;
     await turnierLos(seite, "Herz");
     const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
-    await seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
-    const eintrag = () => seite.evaluate((id) => window.__miniTurnierEintraege.get(`${id}/towerStack_${localStorage.getItem("mini.id")}`) || null, DAUER);
+    const tipp = () => seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
+    await tipp();
     await seite.waitForFunction(() => window.LernappTurnier.stand().laeuft, null, { timeout: 4000 }).catch(() => {});
-    await seite.waitForTimeout(500);
-    const anfang = await eintrag();
-    await seite.waitForFunction(() => (window.__miniLebenszeichen || 0) >= 1, null, { timeout: 25000 }).catch(() => {});
-    const spaeter = await eintrag();
-    pruefe(anfang?.offen === true && spaeter?.offen === true && spaeter.updatedAtMs > anfang.updatedAtMs
-      && spaeter.versuche === anfang.versuche && spaeter.punkte === anfang.punkte,
-      `Die laufende Runde gibt kein Lebenszeichen: ${JSON.stringify({ anfang, spaeter, zahl: await seite.evaluate(() => window.__miniLebenszeichen || 0) })}`);
+    for (let i = 0; i < 2; i += 1) {
+      await tipp();
+      await seite.waitForTimeout(700);
+    }
+    await seite.waitForTimeout(2600);
+    const zettel = (id = "") => seite.evaluate((k) => {
+      const alle = JSON.parse(localStorage.getItem(k) || "{}");
+      return alle[localStorage.getItem("mini.id")] || null;
+    }, `__amSpielen${id ? `/${id}` : ""}`);
+    const imSpiel = await zettel(DAUER);
+    const blöcke = await seite.evaluate(() => window.LernappTurmbau.state.bloecke.length);
+    pruefe(imSpiel?.name === "Herz" && imSpiel.spiel === "towerStack" && imSpiel.p >= 1 && imSpiel.p <= blöcke && !imSpiel.fertig && !(await zettel()),
+      `Die Turnierrunde legt ihren Zettel nicht richtig hin: ${JSON.stringify({ imSpiel, blöcke, app: await zettel() })}`);
+    pruefe(await spieleZuEnde(seite), "Die Turnierrunde mit Zettel kam zu keinem Ergebnis.");
+    await seite.waitForTimeout(400);
+    const amEnde = await zettel(DAUER);
+    pruefe(amEnde?.fertig === true && Number.isInteger(amEnde.p), `Am Ende sagt der Zettel nicht, dass Herz fertig ist: ${JSON.stringify(amEnde)}`);
+    // Verdeckt: der Zettel ohne Punkte.
+    await seite.goto(`${BASIS}/turmbau?turnier=verdeckt-test23456`, { waitUntil: "load" });
+    await turnierLos(seite, "Herz");
+    await tipp();
+    await seite.waitForFunction(() => window.LernappTurnier.stand().laeuft, null, { timeout: 4000 }).catch(() => {});
+    await tipp();
+    await seite.waitForTimeout(2600);
+    const blind = await zettel("verdeckt-test23456");
+    pruefe(blind?.name === "Herz" && blind.spiel === "towerStack" && !("p" in blind), `Im verdeckten Turnier stehen Punkte auf dem Zettel: ${JSON.stringify(blind)}`);
+    pruefe(fehlerAufSeite.length === vorher, `Der Zettel der Turnierrunde – die Seite hat sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Die Live-Leiste der Startseite: wer in der App spielt und wer in einem
+    // öffentlichen Turnier (mit dessen Namen) – nicht, wer in einem Turnier
+    // nur mit Link spielt. Je mit Punkten und Zuschauen. Spielt niemand, ist
+    // sie weg und die Seite wie immer.
+    const { kontext, seite } = await mitTurnieren("/", { viewport: { width: 1280, height: 800 }, vorher: () => {
+      if (sessionStorage.getItem("__zettel")) return;
+      sessionStorage.setItem("__zettel", "1");
+      localStorage.setItem("__amSpielen", JSON.stringify({ mini_maxmaxmaxmax: { name: "Max", spiel: "towerStack", p: 7, lebt: Date.now() } }));
+      localStorage.setItem("__amSpielen/herbstcup-test2345", JSON.stringify({ mini_zoezoezoezoe: { name: "Zoe", spiel: "fishPond", p: 120, lebt: Date.now() } }));
+      localStorage.setItem("__amSpielen/familie-geheim2345", JSON.stringify({ mini_geheimgeheim: { name: "Geheim", spiel: "numberLine", p: 3, lebt: Date.now() } }));
+    } });
+    const vorher = fehlerAufSeite.length;
+    await seite.waitForFunction(() => document.querySelectorAll(".ar-live:not([hidden]) .ar-live-karte").length >= 2, null, { timeout: 8000 }).catch(() => {});
+    const leiste = () => seite.evaluate(() => ({
+      karten: [...document.querySelectorAll(".ar-live:not([hidden]) .ar-live-karte")].map((k) => ({
+        text: k.querySelector(".ar-live-text").innerText.replace(/\s+/g, " ").trim(),
+        link: k.querySelector("a.ar-live-zuschauen:not([hidden])")?.getAttribute("href") || "",
+      })),
+      reihe: getComputedStyle(document.querySelector(".ar-seite")).gridTemplateRows.split(" ").length,
+      bild: Math.round(document.querySelector(".ar-filme").getBoundingClientRect().height),
+    }));
+    const mit = await leiste();
+    const [max, zoe] = mit.karten;
+    pruefe(mit.karten.length === 2 && mit.reihe === 4
+      && /^Max spielt Turmbau 7 /.test(max?.text || "") && max.link === "/turmbau?mitschauen=mini_maxmaxmaxmax&wer=Max"
+      && /^Zoe spielt Fischteich im Turnier Herbstcup 120 /.test(zoe?.text || "") && zoe.link === `/fischteich?mitschauen=mini_zoezoezoezoe&aus=${HERBST}&wer=Zoe`,
+      `Die Live-Leiste der Startseite zeigt nicht genau Max (App) und Zoe (Herbstcup): ${JSON.stringify(mit)}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `Live-Leiste – Klassen ohne Regel: ${ohne.join(", ")}`);
+    // Ein Tipp auf das Spiel holt es nach oben.
+    await seite.click(".ar-live-karte .ar-live-spiel");
+    await seite.waitForFunction(() => document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel === "fishPond" || document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel === "towerStack", null, { timeout: 3000 }).catch(() => {});
+    pruefe((await seite.evaluate(() => document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel)) === "towerStack", "Ein Tipp auf das Spiel in der Live-Leiste holt es nicht nach oben.");
+    // Alle fertig: Die Leiste geht, das Bild wird wieder so gross wie vorher.
+    await seite.evaluate(() => {
+      for (const k of ["__amSpielen", "__amSpielen/herbstcup-test2345"]) {
+        const alle = JSON.parse(localStorage.getItem(k));
+        Object.values(alle).forEach((z) => { z.fertig = true; z.lebt = Date.now(); });
+        localStorage.setItem(k, JSON.stringify(alle));
+      }
+    });
+    await seite.waitForFunction(() => document.querySelector(".ar-live")?.hidden, null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForTimeout(300);
+    const danach = await leiste();
+    pruefe(!danach.karten.length && danach.reihe === 3 && danach.bild > mit.bild, `Ohne Spieler bleibt die Live-Leiste stehen: ${JSON.stringify({ mit, danach })}`);
+    pruefe(fehlerAufSeite.length === vorher, `Live-Leiste der Startseite – die Seite hat sich beschwert: ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
   {

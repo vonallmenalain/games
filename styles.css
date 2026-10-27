@@ -6460,6 +6460,174 @@ body.ar {
   white-space: nowrap;
 }
 .ar-zuschau-knopf .gk-icon { width: 12px; height: 12px; }
+
+/* --- Live: wer gerade spielt, oben zwischen Kopf und Bild --------------------- */
+/* Nur wenn jemand spielt (mini-games.js, liveZeigen). Dann nimmt sich die
+   Leiste eine eigene Zeile im Raster, und die Bühne darunter wird um so viel
+   niedriger – das Bild (Seitenverhältnis fest) entsprechend kleiner. Spielt
+   niemand, ist die Leiste nicht da und die Seite wie immer. */
+.mini-seite.ar-seite.mit-live { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.ar-live {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--ar-rand) 12px;
+}
+.ar-live[hidden] { display: none; }
+.ar-live-marke {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  background: rgba(90, 216, 147, 0.16);
+  color: var(--ar-gruen);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.ar-live-spur {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.ar-live-spur::-webkit-scrollbar { display: none; }
+.ar-live-karte {
+  flex: 0 0 auto;
+  max-width: min(440px, 84vw);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 5px 5px 6px;
+  border: 1px solid rgba(90, 216, 147, 0.34);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(90, 216, 147, 0.17), rgba(90, 216, 147, 0.05));
+  scroll-snap-align: start;
+  animation: ar-live-rein 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ar-live-rein {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+/* Der Kreis mit den zwei Buchstaben, grün umrandet, mit atmendem Punkt. */
+.ar-live-kreis {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #24222d;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 900;
+  box-shadow: 0 0 0 2px var(--ar-gruen);
+}
+.ar-live-kreis::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ar-gruen);
+  box-shadow: 0 0 0 2px var(--ar-grund);
+  animation: ar-live-atmen 1.6s ease-in-out infinite;
+}
+.ar-live-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.ar-live-zeile {
+  overflow: hidden;
+  color: var(--ar-leise);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ar-live-zeile strong { color: #fff; font-weight: 900; }
+.ar-live-spiel {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ar-live-spiel:hover,
+.ar-live-spiel:focus-visible { text-decoration-color: currentColor; outline: none; }
+.ar-live-neben {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--ar-leise);
+  font-size: 0.74rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.ar-live-neben:empty { display: none; }
+.ar-live-wo { overflow: hidden; text-overflow: ellipsis; }
+.ar-live-wert { flex: 0 0 auto; color: var(--ar-gruen); font-weight: 900; font-variant-numeric: tabular-nums; }
+.ar-live-wert[hidden] { display: none; }
+.ar-live-zuschauen {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px;
+  background: var(--ar-gruen);
+  color: #0b2617;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ar-live-zuschauen[hidden] { display: none; }
+.ar-live-zuschauen .gk-icon { width: 13px; height: 13px; }
+.ar-live-zuschauen:hover,
+.ar-live-zuschauen:focus-visible { transform: scale(1.04); box-shadow: 0 0 0 3px rgba(90, 216, 147, 0.35); outline: none; }
+.ar-live-zuschauen:active { transform: scale(0.97); }
+.ar-spielen-wert { color: #fff; font-variant-numeric: tabular-nums; }
+/* Schmal: ohne «Live» davor (der Punkt am Kreis sagt es), eine Karte allein
+   über die ganze Breite; spielen mehrere, schaut die nächste am Rand
+   herein – wischen. */
+@media (max-width: 600px) {
+  .ar-live { gap: 8px; padding-bottom: 10px; }
+  .ar-live-marke { display: none; }
+  .ar-live-karte { gap: 8px; max-width: calc(100vw - 2 * var(--ar-rand) - 56px); }
+  .ar-live-karte:only-child { flex: 1 1 auto; max-width: 100%; }
+  .ar-live-kreis { width: 30px; height: 30px; font-size: 0.68rem; }
+  .ar-live-zeile { font-size: 0.82rem; }
+  .ar-live-zuschauen { height: 34px; padding: 0 11px 0 9px; font-size: 0.78rem; }
+}
+@media (max-height: 520px) {
+  .ar-live { padding-bottom: 6px; }
+  .ar-live-karte { padding: 3px 3px 3px 4px; }
+  .ar-live-kreis { width: 28px; height: 28px; font-size: 0.66rem; }
+  .ar-live-zuschauen { height: 30px; }
+}
+/* Quer, neben dem Bild: die Zeile unter dem Namen darf umbrechen statt den
+   Namen abzuschneiden. */
+@media (orientation: landscape) {
+  .ar-spielen { flex-wrap: wrap; }
+  .ar-spielen-text { white-space: normal; }
+}
 .ar-zuschau-knopf:hover,
 .ar-zuschau-knopf:focus-visible { background: rgba(90, 216, 147, 0.28); outline: none; }
 .tn-zuschau-namen { min-width: 0; }
@@ -6859,6 +7027,8 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ar-live-punkt,
+  .ar-live-karte,
+  .ar-live-kreis::after,
   .tn-avatar.ist-am-spielen::after,
   .tn-podest .ist-am-spielen .tn-medaille::after,
   .tn-detail,

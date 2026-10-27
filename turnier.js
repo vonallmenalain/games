@@ -253,39 +253,6 @@
   }
 
   /*
-   * Wer gerade spielt – aus den Einträgen mit offenem Versuch (cloud.js,
-   * turnierAmSpielen). Offen heisst noch nicht spielend: Wer mittendrin
-   * weggeht, lässt seinen Versuch offen, bis zum nächsten. Gespielt wird,
-   * solange das Spiel seine Uhrzeit neu setzt (lebenszeichen, alle zwanzig
-   * Sekunden) – wer seit AKTIV_MS keines mehr gegeben hat, spielt nicht mehr.
-   *
-   * Verglichen wird nicht nur die Uhr des Spielers mit der eigenen: Geht eine
-   * der beiden falsch, stimmte das nie. Ändert sich die Zeit eines Eintrags
-   * zwischen zwei Blicken, hat sich das Spiel eben gemeldet – das zählt ab
-   * dem Blick, der es sah. Nur beim ersten Blick bleibt die Uhrzeit selbst.
-   *
-   * Das eigene Gerät spielt nie: Wer die Turnierseite ansieht, spielt nicht
-   * gerade – ein offener Versuch von ihm ist einer, den er liegen liess.
-   */
-  const AKTIV_MS = 50000;
-  const beobachtet = new Map();
-  function amSpielen(offen, jetzt = Date.now(), ohne = "") {
-    const da = new Set();
-    const spielen = [];
-    (offen || []).forEach((e) => {
-      if (!e?.id) return;
-      da.add(e.id);
-      const stempel = Number(e.updatedAtMs) || 0;
-      const alt = beobachtet.get(e.id);
-      if (!alt || alt.stempel !== stempel) beobachtet.set(e.id, { stempel, seitMs: alt ? jetzt : Math.min(jetzt, stempel) });
-      if (e.offen === false || (ohne && e.spieler === ohne)) return;
-      if (jetzt - beobachtet.get(e.id).seitMs < AKTIV_MS) spielen.push({ name: e.name, game: e.game, spieler: e.spieler });
-    });
-    [...beobachtet.keys()].forEach((k) => { if (!da.has(k)) beobachtet.delete(k); });
-    return spielen.sort((a, b) => a.name.localeCompare(b.name, "de") || a.game.localeCompare(b.game));
-  }
-
-  /*
    * Die Gesamtwertung über alle Spiele des Turniers.
    *
    *   platz     Platz im Schnitt: der Durchschnitt der Plätze aus den
@@ -685,32 +652,39 @@
       alsApp(stand.t);
       zeichne();
       schauLive();
-      if (offenStand === null) schauSpielen();
+      schauSpielen();
     }
 
     /*
-     * Wer gerade spielt (amSpielen): gefragt beim Laden und dann alle
-     * fünfzehn Sekunden, solange die Seite zu sehen ist – nur nach den
-     * offenen Versuchen, nicht nach der ganzen Liste. Ändert sich, wer einen
-     * offen hat – jemand beginnt, jemand ist fertig –, wird auch die Liste
-     * neu gelesen: So steht ein neues Ergebnis da, ohne dass jemand neu lädt.
+     * Wer gerade spielt: die Zettel dieses Turniers (cloud.js, amSpielen;
+     * geist.js legt sie hin), als Strom – wer eine Runde beginnt, steht eine
+     * Sekunde später da, mit seinen Punkten, solange die Rangliste nicht
+     * verdeckt ist. Wird einer fertig, liest die Seite auch die Liste neu:
+     * So steht sein Ergebnis da, ohne dass jemand neu lädt.
      */
-    let offenStand = null;
-    async function schauSpielen() {
-      if (!stand.t || !cloud()?.turnierAmSpielen) return;
-      let offen = null;
-      try { offen = await cloud().turnierAmSpielen(id); } catch { return; }
-      if (!Array.isArray(offen)) return;
-      const schluessel = offen.map((e) => `${e.id}:${e.versuche}`).sort().join("|");
-      const vorher = offenStand;
-      offenStand = schluessel;
-      const spielen = amSpielen(offen, Date.now(), m.kennungFallsDa?.() || "");
-      const anders = JSON.stringify(spielen) !== JSON.stringify(stand.spielen);
-      stand.spielen = spielen;
-      if (vorher !== null && vorher !== schluessel) laden();
-      else if (anders) zeichneSpielen();
+    const zettelLesen = m.zettelLeser?.() || null;
+    let zettel = null;
+    let hoertZu = false;
+    let nachlesen = null;
+    function spielenNeu() {
+      if (!stand.t || !zettelLesen) return;
+      const verdeckt = stand.t.verdeckt && lage(stand.t) !== "beendet";
+      const { spielen, fertig } = zettelLesen(zettel);
+      const neu = spielen.map((s) => ({ name: s.name, game: s.spiel, spieler: s.kennung, punkte: verdeckt ? null : s.punkte }));
+      const anders = JSON.stringify(neu) !== JSON.stringify(stand.spielen);
+      stand.spielen = neu;
+      if (fertig) {
+        window.clearTimeout(nachlesen);
+        nachlesen = window.setTimeout(laden, 2500);
+      }
+      if (anders) zeichneSpielen();
     }
-    window.setInterval(() => { if (document.visibilityState === "visible" && stand.t) schauSpielen(); }, 15000);
+    function schauSpielen() {
+      if (hoertZu || !cloud()?.amSpielenHoeren) return;
+      hoertZu = true;
+      cloud().amSpielenHoeren((neu) => { zettel = neu; spielenNeu(); }, id);
+      window.setInterval(spielenNeu, 5000);
+    }
 
     // Läuft gerade ein Multiplayer zu diesem Turnier? Dann steht oben der Weg
     // hinein – und ist er neu, geht einmal ein Fenster auf (liveFenster).
@@ -801,24 +775,25 @@
       buehne.spielen(jeSpiel());
     }
 
-    // Oben zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, die
-    // Gesamtwertung und, wer gerade spielt.
+    // Oben zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, und
+    // die Gesamtwertung. Wer gerade spielt, steht darunter in der Live-Leiste
+    // der Bühne (mini-games.js, liveZeigen).
     function zeichneOben() {
       const t = stand.t;
       const verdeckt = t.verdeckt && lage(t) !== "beendet";
       oben.innerHTML = "";
       if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
       oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
-      if (stand.spielen.length) oben.append(spielenHinweis(stand.spielen, t));
     }
 
-    // Wer gerade spielt, je Spiel: für die Bühne (unter dem Namen des Spiels
-    // und auf den Kacheln) – mit dem Weg zum Zuschauen, wo das geht.
+    // Wer gerade spielt, je Spiel: für die Bühne (die Live-Leiste, unter dem
+    // Namen des Spiels und auf den Kacheln) – mit Punkten und dem Weg zum
+    // Zuschauen, wo das geht.
     function jeSpiel() {
       const karte = new Map();
       const darf = mitschauenErlaubt(stand.t);
-      stand.spielen.forEach(({ name, game, spieler }) => karte.set(game, [...(karte.get(game) || []), {
-        name, link: darf && spieler ? mitschauLink(stand.t, spieler, name, game) : "",
+      stand.spielen.forEach(({ name, game, spieler, punkte }) => karte.set(game, [...(karte.get(game) || []), {
+        name, punkte, link: darf && spieler ? mitschauLink(stand.t, spieler, name, game) : "",
       }]));
       return karte;
     }
@@ -1393,6 +1368,20 @@
   // Wer von beiden zuerst da ist, ist gleich: Die Startseite ruft hinweis()
   // auf, wenn es diese Datei schon gibt, und diese Datei füllt jeden Platz,
   // den sie beim Laden vorfindet.
+  // Die öffentlichen Turniere – einmal gefragt für die Hinweise und für die
+  // Live-Leiste der Startseite (mini-games.js, spielendeHoeren), frisch
+  // wieder nach fünf Minuten.
+  let oeffentlich = null;
+  function oeffentlicheHolen() {
+    if (!oeffentlich || Date.now() - oeffentlich.ms > 5 * 60 * 1000) {
+      oeffentlich = { ms: Date.now(), liste: Promise.resolve(cloud()?.oeffentlicheTurniere?.() || []) };
+      oeffentlich.liste.catch(() => { oeffentlich = null; });
+    }
+    return oeffentlich.liste;
+  }
+  // Davon die, die gerade laufen – nur wirklich öffentliche.
+  const oeffentlichLaufend = () => oeffentlicheHolen().then((liste) => (liste || []).filter((t) => t?.sichtbar === "alle" && lage(t) === "laeuft"));
+
   async function hinweis(platz) {
     if (!platz || platz.dataset.turnierGefuellt) return;
     platz.dataset.turnierGefuellt = "ja";
@@ -1401,7 +1390,7 @@
     let eigene = [];
     try {
       [liste, eigene] = await Promise.all([
-        wolke?.oeffentlicheTurniere?.() || [],
+        oeffentlicheHolen(),
         // Ein eigenes, das nicht zu lesen ist, fehlt eben – es reisst die
         // anderen nicht mit. Eines, das es nicht mehr gibt, wird vergessen.
         Promise.all(wolke?.turnier ? gemerkteTurniere().map((id) => wolke.turnier(id).then((t) => {
@@ -1722,7 +1711,6 @@
     const anmeldung = nacheinander(anmelden).then((stand) => {
       hier.gespielt = Math.max(hier.gespielt, stand.versuche);
       merkeDabei(hier.id);
-      lebenszeichen(anmeldung, wer);
       return stand;
     }, (fehler) => {
       // Nicht angemeldet heisst nicht gezählt – ausser, das Gerät hatte schon
@@ -1737,32 +1725,14 @@
     hier.anmeldung.catch(() => {});
   }
 
-  /*
-   * Das Lebenszeichen einer Runde: Solange sie läuft und im Bild ist, setzt
-   * das Spiel alle zwanzig Sekunden die Uhrzeit seines Eintrags neu
-   * (cloud.js, turnierLebenszeichen). Daran sieht die Turnierseite, wer
-   * gerade spielt (amSpielen) – «offen» allein sagt das nicht: Offen bleibt
-   * auch ein Versuch, den jemand mittendrin liegen gelassen hat.
-   *
-   * Es endet mit der Runde – mit ihrem Ergebnis oder einem Neustart, die
-   * beide hier.anmeldung ersetzen –, und es schweigt, solange die Seite
-   * nicht zu sehen ist: Wer das Handy weglegt, spielt nicht.
-   */
-  const LEBENSZEICHEN_MS = 20000;
-  function lebenszeichen(anmeldung, wer) {
-    const uhr = window.setInterval(() => {
-      if (hier.anmeldung !== anmeldung || !hier.laeuft) { window.clearInterval(uhr); return; }
-      if (document.visibilityState !== "visible") return;
-      Promise.resolve(cloud()?.turnierLebenszeichen?.(hier.id, wer)).catch(() => {});
-    }, LEBENSZEICHEN_MS);
-  }
-
-  // Live mitschauen (geist.js schreibt, was die Runde tut): in diesem
-  // Turnier – aber nur auf einer Spielseite, die freigegeben ist, und nur,
-  // wo zugeschaut werden darf. Sonst leer: Dann geht nichts hinaus, auch
-  // nicht in die App.
+  // Was eine Runde in diesem Turnier hinausschickt (geist.js, Live
+  // mitschauen): nur auf einer Spielseite, die freigegeben ist, und dann
+  // immer den Zettel (wer spielt was), den ganzen Lauf nur, wo zugeschaut
+  // werden darf (schauen), die Punkte nicht, solange die Rangliste verdeckt
+  // ist. Sonst null: Dann geht nichts hinaus, auch nicht in die App.
   function mitschauenZiel() {
-    return aufSpielseite() && hier.freigegeben && mitschauenErlaubt(hier.t) ? hier.id : "";
+    if (!aufSpielseite() || !hier.freigegeben || !hier.t) return null;
+    return { id: hier.id, schauen: mitschauenErlaubt(hier.t), verdeckt: Boolean(hier.t.verdeckt) && lage(hier.t) !== "beendet" };
   }
 
   /*
@@ -1962,6 +1932,7 @@
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel,
+    oeffentlichLaufend, mitschauenErlaubt, mitschauLink,
     // Das Turnier, in dem diese App lebt – leer, wenn sie keines hat.
     heim: () => heim,
     hinweis,

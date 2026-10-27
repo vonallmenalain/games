@@ -147,8 +147,24 @@
         "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
         "spiel": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z]{2,30}$/)" },
         "lebt": { ".validate": "newData.isNumber()" },
+        "p": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000" },
         "fertig": { ".validate": "newData.isBoolean()" },
         "$anderes": { ".validate": false }
+      }
+    },
+    "turnierAmSpielen": {
+      "$turnier": {
+        ".read": "$turnier.matches(/^[a-z0-9-]{6,48}$/)",
+        "$kennung": {
+          ".write": "$turnier.matches(/^[a-z0-9-]{6,48}$/) && $kennung.matches(/^mini_[A-Za-z0-9_-]{8,48}$/)",
+          ".validate": "newData.hasChildren(['name', 'spiel', 'lebt'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+          "spiel": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z]{2,30}$/)" },
+          "lebt": { ".validate": "newData.isNumber()" },
+          "p": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000" },
+          "fertig": { ".validate": "newData.isBoolean()" },
+          "$anderes": { ".validate": false }
+        }
       }
     }
   }

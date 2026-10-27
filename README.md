@@ -347,12 +347,13 @@ Text wie möglich:
   jedes Spiel mit seiner ganzen Rangliste, mit dem ▶ zum Anschauen, dazu die
   Multiplayer, die schon gezählt haben (`spieleAnsicht`). Verdeckt steht
   dort nur, wie viele dabei sind.
-- **Wer gerade spielt**, steht live da: ein grüner Punkt an seiner Medaille
-  in der Gesamtwertung oben, unter dem Namen des Spiels («Joshua spielt
-  gerade»), auf der Kachel des Spiels, breit auch als eigener Hinweis neben
-  der Gesamtwertung («Spielen gerade – Joshua und Mia»), im Fenster am Kreis
-  der Person und in der Liste des Spiels. Siehe «Wer gerade spielt» unter
-  Turniere.
+- **Wer gerade spielt**, steht live da – zuerst in der **Live-Leiste**
+  zwischen Kopf und Bild: je eine Karte «Joshua spielt Turmbau», mit den
+  Punkten, die er gerade hat, und «Zuschauen». Dazu ein grüner Punkt an
+  seiner Medaille in der Gesamtwertung, unter dem Namen des Spiels («Joshua
+  spielt gerade · 12 Blöcke»), auf der Kachel des Spiels, im Fenster am
+  Kreis der Person und in der Liste des Spiels. Siehe «Wer gerade spielt»
+  unter Turniere.
 - **Läuft gerade ein Multiplayer** zum Turnier, steht daneben «Multiplayer
   läuft» mit dem Weg hinein – und kommt er neu dazu, geht einmal ein Fenster
   auf («Mitspielen» oder «Später»; je Multiplayer einmal, `sessionStorage`).
@@ -559,24 +560,26 @@ wer später dazukam, lag damit fast sicher hinten. Die Kehrseite: Wer nur das
 eine Spiel spielt, das er am besten kann, und dort gewinnt, steht mit
 Ø 1 ganz vorne.
 
-**Wer gerade spielt.** Ein Versuch ist offen (`offen`), solange sein Ergebnis
-aussteht – auch, wenn jemand mittendrin weggeht. Darum setzt eine laufende
-Runde alle zwanzig Sekunden die Uhrzeit ihres Eintrags neu, solange sie im
-Bild ist (`turnier.js`, `lebenszeichen`; `cloud.js`,
-`turnierLebenszeichen`) – nur `updatedAtMs`, was die Regeln zulassen wie
-einen neuen Namen. Die Turnierseite fragt alle fünfzehn Sekunden nach den
-offenen Versuchen (`turnierAmSpielen`, nicht nach der ganzen Liste), und wer
-sich seit fünfzig Sekunden nicht gemeldet hat, spielt nicht mehr
-(`amSpielen`). Verglichen wird dabei nicht nur die Uhr des Spielers mit der
-eigenen: Ändert sich die Zeit eines Eintrags zwischen zwei Blicken, hat sich
-das Spiel eben gemeldet. Das eigene Gerät spielt nie – wer die Turnierseite
-ansieht, spielt nicht. Ändert sich, wer einen Versuch offen hat, liest die
-Seite auch die Liste neu: Ein neues Ergebnis steht da, ohne dass jemand neu
-lädt.
+**Wer gerade spielt.** Jede Runde legt einen kleinen Zettel in die Realtime
+Database (`geist.js`, «Live mitschauen: senden»; `cloud.js`, `amSpielen`):
+im Turnier nach `turnierAmSpielen/<turnier>/<kennung>` – `name`, `spiel`,
+`p` (die Punkte gerade), `lebt`, am Ende `fertig`. Beim Start sofort, mit
+neuen Punkten höchstens alle zwei Sekunden, sonst alle zehn, solange die
+Runde im Bild ist. Die Turnierseite hört die Zettel ihres Turniers als Strom
+(`amSpielenHoeren`, EventSource): Wer beginnt, steht eine Sekunde später da,
+ohne Neuladen – auch auf dem Handy; kommt die Seite aus dem Hintergrund
+zurück und ist der Strom eingeschlafen, verbindet sie neu. Wer seit 25
+Sekunden nichts gesagt hat oder fertig ist, spielt nicht mehr
+(`mini-games.js`, `zettelLeser`; gezählt wird, wann dieses Gerät eine
+Änderung sah, nicht die Uhr des Spielers). Wird einer fertig, liest die
+Seite auch die Liste neu: Sein Ergebnis steht da, ohne dass jemand neu lädt.
+Solange die Rangliste verdeckt ist, stehen keine Punkte auf dem Zettel. Die
+Zettel gibt es in jedem Turnier, auch wo sich nicht zuschauen lässt – dann
+nur ohne «Zuschauen».
 
 **Live zuschauen.** Wer gerade spielt, ist auf der Turnierseite ein Weg zum
-Zuschauen: der Name unter dem Spiel («Joshua spielt gerade», daneben
-«Zuschauen»), oben im Hinweis, im Reiter «Spiele» – und im Fenster der
+Zuschauen: «Zuschauen» in der Live-Leiste oben, der Name unter dem Spiel
+(«Joshua spielt gerade», daneben «Zuschauen»), im Reiter «Spiele» – und im Fenster der
 Gesamtwertung steht bei jedem Rang «Live zuschauen» (oder, spielt er gerade
 nicht, «Zuschauen»). Das öffnet sein Spiel im **Beobachtungsmodus**
 (`/<spiel>?mitschauen=<kennung>&aus=<turnier>`, `geist.js`, `mitschauer`):
@@ -607,19 +610,25 @@ geschrieben wird dann gar nicht erst (`mitschauenErlaubt`). Die Regeln
 wie bei den Spielern eines Multiplayers.
 
 **Zuschauen in der App.** Dasselbe gibt es ausserhalb der Turniere: Wer mit
-Namen spielt, steht auf der Startseite – grüner Punkt auf der Kachel, «Joshua
-spielt gerade» unter dem Namen des Spiels (daneben «Zuschauen») und in der
+Namen spielt, steht auf der Startseite – in der Live-Leiste oben («Alain
+spielt Turmbau», Punkte, «Zuschauen»), mit grünem Punkt auf der Kachel,
+«Alain spielt gerade · 3 Blöcke» unter dem Namen des Spiels und in der
 Rangliste bei seinem Namen. Jeder dieser Wege öffnet den Beobachtungsmodus
 ohne Turnier (`/<spiel>?mitschauen=<kennung>&wer=<name>`); er folgt dem
 Spieler durch alle Spiele der App, bis «Beenden» zurück zur Startseite führt.
 Die Runde schreibt dafür nach `mitschauen/<kennung>` (dieselbe Form wie im
-Turnier) und legt dazu einen kleinen Zettel nach `amSpielen/<kennung>`
-(`name`, `spiel`, `lebt`, am Ende `fertig`): Den hört die Startseite
-(`cloud.js`, `amSpielenHoeren`), ohne die Läufe selbst mitzuladen. Wer seit 25
-Sekunden nichts gesagt hat (alle zehn Sekunden, solange die Runde läuft) oder
-fertig ist, spielt nicht mehr. Ohne Namen geht nichts hinaus, ebenso wenig im
-Multiplayer (der hat sein eigenes Zuschauen) – und eine Runde im Turnier geht
-nur ins Turnier, nie in die App: Ein Turnier «nur mit Link» bleibt für sich.
+Turnier) und legt ihren Zettel nach `amSpielen/<kennung>`. Ohne Namen geht
+nichts hinaus, ebenso wenig im Multiplayer (der hat sein eigenes Zuschauen).
+
+Die Live-Leiste der Startseite zeigt dazu, wer in einem **öffentlichen**
+Turnier spielt, das gerade läuft – «Joshua spielt Fischteich, im Turnier
+Herbstcup» –: Sie hört auch die Zettel dieser Turniere (`turnier.js`,
+`oeffentlichLaufend`; die Liste frisch alle fünf Minuten). Ein Turnier «nur
+mit Link» kennt die Startseite gar nicht, es bleibt für sich. Umgekehrt
+zeigt die Turnierseite nur, wer in diesem Turnier spielt, nie die App. Die
+Leiste erscheint nur, wenn jemand spielt; dann nimmt sie sich eine Zeile
+über dem Bild, und das Bild wird um so viel kleiner (`mit-live`). Spielt
+niemand, ist die Seite wie immer.
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,

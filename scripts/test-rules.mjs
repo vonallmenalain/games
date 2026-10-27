@@ -611,22 +611,6 @@ await darf("cloud.js: Gast beginnt den zweiten Versuch", async () => {
   const stand = await gastCloud.turnierVersuch(CT, { ...ICH, grenze: 2 });
   erwarte(stand.versuche === 2 && stand.punkte === 12, JSON.stringify(stand));
 });
-// Wer gerade spielt (turnier.js, amSpielen): Die laufende Runde setzt nur
-// die Uhrzeit ihres Eintrags neu – das lassen die Regeln zu wie einen neuen
-// Namen. Die Turnierseite fragt nur nach den offenen Versuchen.
-await darf("cloud.js: Die laufende Runde gibt ein Lebenszeichen", async () => {
-  const vorher = await gastCloud.meinTurnierEintrag(CT, ICH);
-  await new Promise((weiter) => setTimeout(weiter, 5));
-  await gastCloud.turnierLebenszeichen(CT, ICH);
-  const offen = await gastCloud.turnierAmSpielen(CT);
-  const e = offen.find((x) => x.spieler === ICH.spieler);
-  erwarte(offen.length === 1 && e?.offen === true && e.versuche === vorher.versuche && e.punkte === vorher.punkte
-    && e.updatedAtMs > vorher.updatedAtMs, JSON.stringify({ vorher, offen }));
-});
-// Ohne Eintrag gibt es nichts zu aktualisieren: Die Regeln sehen ein Update
-// ohne Dokument davor und weisen es ab – angelegt wird nichts.
-await wirft("cloud.js: Ein Lebenszeichen legt keinen Eintrag an", "permission-denied",
-  () => gastCloud.turnierLebenszeichen(CT, { game: "fishPond", spieler: ICH.spieler }));
 await darf("cloud.js: Beide Versuche werden zusammengezählt", async () => {
   const stand = await gastCloud.turnierErgebnis(CT, { ...ICH, punkte: 30, zaehlt: "summe" });
   erwarte(stand.punkte === 42, JSON.stringify(stand));
@@ -989,6 +973,8 @@ await darfNicht("Gast schmuggelt ein Feld in seinen Lauf in der App", () => live
 await darfNicht("Gast schreibt in der App ein riesiges Stück", () => live.gast().ref(`${APP}/teile/2`).set("x".repeat(8001)));
 await darf("Gast legt seinen Zettel hin", () => live.gast().ref(ZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
 await darf("Gast sagt, dass er noch spielt", () => live.gast().ref(ZETTEL).update({ lebt: 2 }));
+await darf("Gast schreibt seine Punkte auf den Zettel", () => live.gast().ref(ZETTEL).update({ lebt: 2, p: 17 }));
+await darfNicht("Gast schreibt negative Punkte auf den Zettel", () => live.gast().ref(`${ZETTEL}/p`).set(-1));
 await darf("Gast sagt, dass er fertig ist", () => live.gast().ref(ZETTEL).update({ lebt: 3, fertig: true }));
 await darf("Gast liest, wer gerade spielt", () => live.gast().ref("amSpielen").get());
 await darfNicht("Gast legt einen Zettel ohne Spiel hin", () => live.gast().ref(ZETTEL).set({ name: "Alain", lebt: 1 }));
@@ -996,6 +982,19 @@ await darfNicht("Gast legt einen Zettel für ein erfundenes Spiel hin", () => li
 await darfNicht("Gast schmuggelt ein Feld auf den Zettel", () => live.gast().ref(ZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1, punkte: 5 }));
 await darfNicht("Gast legt einen Zettel unter einer erfundenen Kennung hin", () => live.gast().ref("amSpielen/wer-auch-immer").set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
 await darfNicht("Gast überschreibt alle Zettel auf einmal", () => live.gast().ref("amSpielen").set(null));
+
+// Und je Turnier eine Liste solcher Zettel (turnierAmSpielen): Die
+// Turnierseite hört sie, die Startseite die der öffentlichen Turniere. Lesen
+// darf, wer das Turnier kennt; über alle Turniere hinweg nichts.
+const TZETTEL = `turnierAmSpielen/herbst-k3m9x2p7/${LIVE_ICH}`;
+await darf("Gast legt seinen Zettel im Turnier hin", () => live.gast().ref(TZETTEL).set({ name: "Alain", spiel: "towerStack", p: 0, lebt: 1 }));
+await darf("Gast schreibt seine Punkte im Turnier", () => live.gast().ref(TZETTEL).update({ p: 5, lebt: 2 }));
+await darf("Gast ist im Turnier fertig", () => live.gast().ref(TZETTEL).update({ p: 9, lebt: 3, fertig: true }));
+await darf("Gast liest, wer im Turnier gerade spielt", () => live.gast().ref("turnierAmSpielen/herbst-k3m9x2p7").get());
+await darfNicht("Gast listet die Zettel aller Turniere", () => live.gast().ref("turnierAmSpielen").get());
+await darfNicht("Gast legt einen Zettel in ein Turnier mit unmöglichem Namen", () => live.gast().ref(`turnierAmSpielen/HERBST/${LIVE_ICH}`).set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
+await darfNicht("Gast legt im Turnier einen Zettel unter erfundener Kennung hin", () => live.gast().ref("turnierAmSpielen/herbst-k3m9x2p7/wer-auch-immer").set({ name: "Alain", spiel: "towerStack", lebt: 1 }));
+await darfNicht("Gast schmuggelt im Turnier ein Feld auf den Zettel", () => live.gast().ref(TZETTEL).set({ name: "Alain", spiel: "towerStack", lebt: 1, versuche: 9 }));
 
 await env.cleanup();
 

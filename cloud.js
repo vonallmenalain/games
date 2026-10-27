@@ -953,14 +953,18 @@
    * und meldet nach jeder Änderung den ganzen Knoten; gibt das Abmelden
    * zurück. Ohne Turnier (turnier leer) ist der Knoten der der App gemeint.
    *
-   * Dazu, nur in der App, ein Zettel je Spieler: amSpielen/<kennung>
+   * Dazu ein Zettel je Spieler und Runde – in der App amSpielen/<kennung>,
+   * im Turnier turnierAmSpielen/<turnier>/<kennung>:
    *
    *   name, spiel   wer was spielt
+   *   p             wie viele Punkte er gerade hat (fehlt, solange die
+   *                 Rangliste des Turniers verdeckt ist)
    *   lebt          wann das Gerät zuletzt gesagt hat, dass die Runde läuft
    *   fertig        true: die Runde ist zu Ende gespielt
    *
-   * Daran sieht die Startseite, wer gerade spielt (amSpielenHoeren), ohne
-   * die Stücke aller Läufe mitzuladen.
+   * Daran sehen die Startseite und die Turnierseite, wer gerade spielt
+   * (amSpielenHoeren), ohne die Stücke der Läufe mitzuladen – sofort, über
+   * denselben Strom.
    */
   const TURNIER_ID = /^[a-z0-9-]{6,48}$/;
   const SPIELER_ID = /^mini_[A-Za-z0-9_-]{8,48}$/;
@@ -984,8 +988,15 @@
 
   const mitschauenSchreiben = (turnier, kennung, daten, { ganz = false } = {}) => schreibeRest(mitschauenAdresse(turnier, kennung), daten, ganz);
 
-  const amSpielenSchreiben = (kennung, daten, { ganz = false } = {}) => schreibeRest(
-    SPIELER_ID.test(String(kennung || "")) ? `${firebaseConfig.databaseURL}/amSpielen/${kennung}.json` : "", daten, ganz);
+  // Die Zettel: alle einer Liste (kennung leer) oder der eines Spielers.
+  function amSpielenAdresse(turnier, kennung = null) {
+    const t = String(turnier || "");
+    const liste = t ? (TURNIER_ID.test(t) ? `turnierAmSpielen/${t}` : "") : "amSpielen";
+    if (!liste) return "";
+    if (kennung === null) return `${firebaseConfig.databaseURL}/${liste}.json`;
+    return SPIELER_ID.test(String(kennung)) ? `${firebaseConfig.databaseURL}/${liste}/${kennung}.json` : "";
+  }
+  const amSpielenSchreiben = (turnier, kennung, daten, { ganz = false } = {}) => schreibeRest(amSpielenAdresse(turnier, String(kennung || "")), daten, ganz);
 
   // Einen Wert an einem Pfad setzen ("/", "/teile/4") – null löscht ihn.
   function setzeBei(knoten, pfad, wert) {
@@ -1000,8 +1011,9 @@
   }
 
   const mitschauenHoeren = (turnier, kennung, beiStand) => hoere(mitschauenAdresse(turnier, kennung), beiStand);
-  // Alle Zettel auf einmal: { <kennung>: { name, spiel, lebt, fertig } }.
-  const amSpielenHoeren = (beiStand) => hoere(`${firebaseConfig.databaseURL}/amSpielen.json`, beiStand);
+  // Alle Zettel einer Liste auf einmal: { <kennung>: { name, spiel, p, lebt,
+  // fertig } } – die der App oder, mit turnier, die dieses Turniers.
+  const amSpielenHoeren = (beiStand, turnier = "") => hoere(amSpielenAdresse(turnier), beiStand);
 
   function hoere(adresse, beiStand) {
     if (!adresse || typeof window.EventSource !== "function") return () => {};
@@ -1027,11 +1039,26 @@
         } catch { /* eine kaputte Nachricht überspringen */ }
       });
       // Die Datenbank kündigt den Strom (Regeln geändert, Verbindung weg):
-      // in ein paar Sekunden noch einmal.
+      // in ein paar Sekunden noch einmal. Bricht er sonst ab, versucht es der
+      // Browser selbst – ausser er hat aufgegeben (CLOSED).
       quelle.addEventListener("cancel", () => { quelle.close(); window.setTimeout(verbinde, 3000); });
+      quelle.addEventListener("error", () => {
+        if (quelle.readyState === 2) window.setTimeout(() => { if (quelle.readyState === 2) verbinde(); }, 3000);
+      });
     };
+    // Zurück aus dem Hintergrund (Handy, App): Ist der Strom dabei
+    // eingeschlafen, gleich neu – der erste Stand kommt dann ganz.
+    const wach = () => {
+      if (aus || document.visibilityState !== "visible" || !quelle || quelle.readyState !== 2) return;
+      verbinde();
+    };
+    document.addEventListener("visibilitychange", wach);
     verbinde();
-    return () => { aus = true; quelle?.close(); };
+    return () => {
+      aus = true;
+      quelle?.close();
+      document.removeEventListener("visibilitychange", wach);
+    };
   }
 
   // Ein Turnier, so wie der Rest es braucht. Was fehlt oder nicht passt, wird
@@ -1293,36 +1320,6 @@
     return stand.exists ? liesTurnierEintrag(stand) : null;
   }
 
-  /*
-   * Wer gerade spielt: die Einträge mit einem offenen Versuch (turnier.js,
-   * amSpielen). Gefragt wird nur nach diesen – die Turnierseite fragt alle
-   * paar Sekunden, und die ganze Liste jedes Mal zu lesen, kostete bei
-   * jedem Blick so viele Lesungen, wie es Einträge gibt.
-   *
-   * Offen bleibt ein Versuch auch, wenn jemand mittendrin weggeht. Ob er
-   * noch läuft, sagt deshalb erst die Uhrzeit: Solange die Runde im Bild
-   * ist, setzt das Spiel sie alle zwanzig Sekunden neu (turnierLebenszeichen).
-   */
-  async function turnierAmSpielen(id) {
-    const ref = turnierEintraege(id);
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
-    const seite = await ref.where("offen", "==", true).limit(TURNIER_SEITE).get();
-    return sammle(seite, liesTurnierEintrag);
-  }
-
-  // Die Runde läuft noch: nur die Uhrzeit des Eintrags, sonst nichts. Die
-  // Regeln lassen das zu wie einen neuen Namen (firestore.rules, «Ein neuer
-  // Name, sonst nichts») – an Punkten, Versuchen und «offen» ändert es
-  // nichts. update() statt set(): Ist der Eintrag weg (vom Admin entfernt),
-  // legt ein Lebenszeichen ihn nicht halb wieder an.
-  async function turnierLebenszeichen(id, { game, spieler }) {
-    const ref = turnierEintraege(id);
-    const spielId = String(game || "").trim();
-    const spielerId = String(spieler || "").trim();
-    if (!ref || !spielId || !spielerId) return;
-    await ref.doc(`${spielId}_${spielerId}`).update({ updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() });
-  }
-
   function turnierFehler(text, code) {
     const fehler = new Error(text);
     fehler.code = code;
@@ -1450,7 +1447,7 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
-    turnierAmSpielen, turnierLebenszeichen, mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren,
+    mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,

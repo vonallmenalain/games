@@ -214,11 +214,13 @@
    *
    * Wohin (mitschauZiel): Gehört die Runde zu einem Turnier, in dessen
    * Knoten – aber nur, wo das Turnier Zuschauen erlaubt (turnier.js,
-   * mitschauenZiel); sonst nirgends hin. Ohne Turnier in den der App, wenn
-   * der Spieler einen Namen hat – und dazu sein Zettel in amSpielen, an dem
-   * die Startseite sieht, wer gerade was spielt. Nichts geht hinaus im
-   * Multiplayer (der hat sein eigenes Zuschauen) und nichts, solange diese
-   * Seite selbst zuschaut.
+   * mitschauenZiel). Ohne Turnier in den der App, wenn der Spieler einen
+   * Namen hat. Dazu in jedem Fall sein Zettel (cloud.js, amSpielen): wer was
+   * spielt und mit wie vielen Punkten – daran sehen Startseite und
+   * Turnierseite, wer gerade spielt, auch wo sich nicht zuschauen lässt.
+   * Die Punkte nur, wo die Rangliste nicht verdeckt ist. Nichts geht hinaus
+   * im Multiplayer (der hat sein eigenes Zuschauen) und nichts, solange
+   * diese Seite selbst zuschaut.
    *
    * Die Proben kommen aus denselben Stellen, die auch den Lauf fürs Replay
    * aufzeichnen: der Ort der Figur dreissigmal je Sekunde (Strom «o», aus
@@ -239,8 +241,9 @@
   // Stunde. Die Züge alle.
   const MITSCHAUEN_MS = 500;
   const MITSCHAUEN_ORT_MS = 30;
-  // Der Zettel in amSpielen: so oft «läuft noch».
+  // Der Zettel: so oft «läuft noch» – und mit neuen Punkten so oft höchstens.
   const AM_SPIELEN_MS = 10000;
+  const AM_SPIELEN_PUNKTE_MS = 2000;
   const spielHier = () => document.body?.dataset?.spiel || "";
 
   function mitschauZiel() {
@@ -250,28 +253,38 @@
     const name = mini()?.name?.() || "";
     const kennung = name ? mini()?.kennung?.() || "" : "";
     if (!kennung) return null;
+    // schauen: der ganze Lauf geht hinaus; punkte: die Punkte auf dem Zettel.
     if (window.LernappTurnier?.aufSpielseite?.()) {
-      const id = window.LernappTurnier.mitschauenZiel?.() || "";
-      return id ? { turnier: id, kennung, name } : null;
+      const t = window.LernappTurnier.mitschauenZiel?.() || null;
+      return t?.id ? { turnier: t.id, kennung, name, schauen: Boolean(t.schauen), punkte: !t.verdeckt } : null;
     }
-    return { turnier: "", kennung, name };
+    return { turnier: "", kennung, name, schauen: true, punkte: true };
   }
 
-  const mitschauen = { runde: null, ziel: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null, zettel: 0 };
+  const mitschauen = { runde: null, ziel: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null, zettel: 0, punkte: 0, gemeldet: -1 };
 
-  // Der Zettel der App: wer was spielt, und ob noch.
+  // Der Zettel: wer was spielt, mit wie vielen Punkten, und ob noch.
   function zettel(daten, ganz = false) {
-    const { turnier, kennung } = mitschauen.ziel || {};
-    if (turnier !== "" || !kennung) return;
+    const { turnier, kennung, punkte } = mitschauen.ziel || {};
+    if (!kennung) return;
+    const mit = { ...daten };
+    if (punkte) {
+      mit.p = Math.max(0, Math.round(mitschauen.punkte) || 0);
+      mitschauen.gemeldet = mit.p;
+    }
     mitschauen.zettel = performance.now();
-    Promise.resolve(cloud()?.amSpielenSchreiben?.(kennung, daten, { ganz })).catch(() => {});
+    Promise.resolve(cloud()?.amSpielenSchreiben?.(turnier, kennung, mit, { ganz })).catch(() => {});
   }
 
   function mitschauenFlush({ zuletzt = false } = {}) {
     const r = mitschauen.runde;
     if (!r || !mitschauen.ziel) return;
-    const { o, z } = mitschauen.puffer;
     const jetzt = performance.now();
+    const neuePunkte = mitschauen.ziel.punkte && Math.round(mitschauen.punkte) !== mitschauen.gemeldet;
+    if (zuletzt) zettel({ lebt: Date.now(), fertig: true });
+    else if (jetzt - mitschauen.zettel > AM_SPIELEN_MS || (neuePunkte && jetzt - mitschauen.zettel > AM_SPIELEN_PUNKTE_MS)) zettel({ lebt: Date.now() });
+    if (!mitschauen.ziel.schauen) return;
+    const { o, z } = mitschauen.puffer;
     const uhr = (art) => {
       const u = mitschauen.uhr[art];
       return u ? Math.round(u.t + (mitschauen.fertig.has(art) ? 0 : jetzt - u.lokal)) : undefined;
@@ -298,8 +311,6 @@
     if (zuletzt && mitschauen.ende) aenderung.ende = mitschauen.ende;
     const { turnier, kennung } = mitschauen.ziel;
     Promise.resolve(cloud()?.mitschauenSchreiben?.(turnier, kennung, aenderung)).catch(() => {});
-    if (zuletzt) zettel({ lebt: Date.now(), fertig: true });
-    else if (jetzt - mitschauen.zettel > AM_SPIELEN_MS) zettel({ lebt: Date.now() });
   }
 
   function mitschauenTakt() {
@@ -350,10 +361,11 @@
       mitschauen.laeuft = new Set([art]);
       mitschauen.fertig = new Set();
       mitschauen.ende = null;
+      mitschauen.punkte = 0;
       const runde = { id: neu.id, spiel: neu.spiel, start: neu.start };
       if (neu.saat !== null) runde.saat = neu.saat;
       const name = ziel.name.slice(0, 24);
-      Promise.resolve(cloud().mitschauenSchreiben(ziel.turnier, ziel.kennung, { name, runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
+      if (ziel.schauen) Promise.resolve(cloud().mitschauenSchreiben(ziel.turnier, ziel.kennung, { name, runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
       zettel({ name, spiel: neu.spiel, lebt: Date.now() }, true);
       mitschauen.timer = window.setInterval(mitschauenTakt, MITSCHAUEN_MS);
     },
@@ -363,7 +375,9 @@
       if (!mitschauen.runde || mitschauen.ende || !mitschauen.laeuft.has(art) || !ort) return;
       const zahl = (x) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : 0);
       const zeit = Math.max(0, Math.round(Number(t) || 0));
+      mitschauen.punkte = zahl(punkte);
       mitschauen.uhr[art] = { t: zeit, lokal: performance.now() };
+      if (!mitschauen.ziel?.schauen) return;
       if (art === "o") {
         if (zeit - mitschauen.ortZuletzt < MITSCHAUEN_ORT_MS) return;
         mitschauen.ortZuletzt = zeit;
@@ -380,6 +394,7 @@
       mitschauen.uhr[art] = { t: Math.max(0, Math.round(Number(t) || 0)), lokal: performance.now() };
       if (mitschauen.fertig.size < mitschauen.laeuft.size) return;
       const ende = { p: Math.max(0, Math.round(Number(punkte) || 0)) };
+      mitschauen.punkte = ende.p;
       if (mitschauen.uhr.o) ende.o = mitschauen.uhr.o.t;
       if (mitschauen.uhr.z) ende.z = mitschauen.uhr.z.t;
       mitschauen.ende = ende;
