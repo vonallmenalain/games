@@ -1419,6 +1419,8 @@
     pad.x = pad.seitlich ? cssW - neben / 2 : cssW / 2;
     pad.y = cssH - unterRand - halb;
     view.unten = pad.seitlich ? 0 : 2 * halb + PAD_RAND + unterRand;
+    // «… schaut gerade zu» (geist.js) steht unten links neben dem Steuerfeld.
+    feld.closest(".cm-stage")?.style.setProperty("--gz-breit", pad.seitlich ? "" : `${Math.max(90, Math.floor(cssW / 2 - halb - 22))}px`);
     const nutzH = cssH - frei - view.unten;
     // Der ganze Raum – Mauern, Tore – steht immer im Bild, gleich gross in
     // Welteinheiten. Was übrig ist, zeigt hochkant den nächsten Raum (darum

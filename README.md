@@ -625,6 +625,21 @@ Die Runde schreibt dafür nach `mitschauen/<kennung>` (dieselbe Form wie im
 Turnier) und legt ihren Zettel nach `amSpielen/<kennung>`. Ohne Namen geht
 nichts hinaus, ebenso wenig im Multiplayer (der hat sein eigenes Zuschauen).
 
+**Wer mir zuschaut.** Schaut jemand zu, steht beim Spieler unten links im
+Bild, klein und mit grünem Punkt: «Alain schaut gerade zu» (mehrere: «Alain
+und Zoe schauen gerade zu»; wer keinen Namen hat, ist «jemand»). Nur ein
+Hinweis – nicht anklickbar, und wo ein Spiel unten Knöpfe hat (Slalom,
+Skispringen, Fallschirm, Fledermaus) oder das Steuerfeld des Ninjas,
+steht er darüber oder daneben (`--gz-unten`, `--gz-breit`). Der
+Beobachtungsmodus meldet sich dafür beim Spieler an (`geist.js`,
+`mitschauer`; `cloud.js`, `zuschauerMelden`, nach
+`zuschauer/<spieler>/<kennung>`: `name`, `lebt`) – alle zehn Sekunden neu,
+solange er im Bild ist, und beim Gehen ab. Wer noch keine Kennung hat,
+bekommt eine für dieses Fenster. Die Spielseite hört das als Strom
+(`zuschauerHinweis`, `zuschauerHoeren`); wer seit 25 Sekunden nichts gesagt
+hat, schaut nicht mehr zu. Wie der Zettel nur mit Namen und nie im
+Multiplayer.
+
 Die Live-Leiste der Startseite zeigt dazu, wer in einem **öffentlichen**
 Turnier spielt, das gerade läuft – «Joshua spielt Fischteich, im Turnier
 Herbstcup» –: Sie hört auch die Zettel dieser Turniere (`turnier.js`,

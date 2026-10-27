@@ -324,6 +324,62 @@
     if (mitschauen.runde && !mitschauen.ende) zettel({ lebt: Date.now(), fertig: true });
   });
 
+  /*
+   * Wer mir gerade zuschaut: auf der eigenen Spielseite unten links, klein
+   * und mit grünem Punkt – «Alain schaut gerade zu». Nicht anklickbar
+   * (pointer-events: none), und nur, solange jemand zuschaut. Gehört wird
+   * zuschauer/<eigene Kennung> (cloud.js, zuschauerHoeren), wo sich der
+   * Beobachtungsmodus anmeldet (mitschauer). Nur mit Namen – ohne schaut
+   * niemand zu –, nicht im Multiplayer und nicht, wenn diese Seite selbst
+   * zuschaut. Ein Spiel mit Knöpfen oder Feldern unten gibt mit --gz-unten
+   * und --gz-breit an, wie viel Platz dort bleibt (styles.css).
+   */
+  const ZUSCHAUER_MS = 25000;
+  let zuschauerDa = false;
+  function zuschauerHinweis() {
+    if (zuschauerDa || zuschauAdresse() || live() || !cloud()?.zuschauerHoeren) return;
+    const name = mini()?.name?.() || "";
+    const kennung = name ? mini()?.kennungFallsDa?.() || "" : "";
+    const buehne = document.querySelector(".cm-stage");
+    if (!kennung || !buehne) return;
+    zuschauerDa = true;
+    const box = el("p", "gz-zuschauer");
+    box.hidden = true;
+    box.setAttribute("aria-live", "polite");
+    const text = el("span", "gz-zuschauer-text");
+    box.append(el("span", "ar-live-punkt"), text);
+    buehne.append(box);
+    const gesehen = new Map();
+    let knoten = null;
+    const zeige = () => {
+      const jetzt = Date.now();
+      const namen = new Set();
+      let ohne = 0;
+      Object.entries(knoten || {}).forEach(([wer, z]) => {
+        if (!z || typeof z !== "object" || wer === kennung) return;
+        const lebt = Number(z.lebt) || 0;
+        const alt = gesehen.get(wer);
+        if (!alt || alt.lebt !== lebt) gesehen.set(wer, { lebt, seit: alt ? jetzt : Math.min(jetzt, lebt) });
+        if (jetzt - gesehen.get(wer).seit > ZUSCHAUER_MS) return;
+        const name = String(z.name || "").trim().slice(0, 24);
+        if (name) namen.add(name);
+        else ohne += 1;
+      });
+      // Wer keinen Namen hat, ist «jemand» – mehrere davon «2 weitere».
+      const teile = [...namen];
+      if (ohne) teile.push(ohne === 1 ? (teile.length ? "jemand" : "Jemand") : `${ohne} ${teile.length ? "weitere" : "Leute"}`);
+      const wieViele = namen.size + ohne;
+      const satz = wieViele ? `${mini()?.namenListe?.(teile) || teile.join(", ")} ${wieViele === 1 ? "schaut" : "schauen"} gerade zu` : "";
+      if (text.textContent !== satz) text.textContent = satz;
+      box.hidden = !satz;
+    };
+    cloud().zuschauerHoeren(kennung, (neu) => { knoten = neu; zeige(); });
+    window.setInterval(zeige, 5000);
+  }
+  // Beim Laden – und, wer erst jetzt einen Namen hat, mit der ersten Runde.
+  if (document.readyState === "complete") window.setTimeout(zuschauerHinweis, 0);
+  else window.addEventListener("load", zuschauerHinweis, { once: true });
+
   const mitschauenApi = {
     // Ein Strom beginnt: der erste einer neuen Runde – oder der zweite der
     // laufenden. saatFn: woher die Saat der Welt kommt (zufall.js) – steht
@@ -342,6 +398,7 @@
       window.clearInterval(mitschauen.timer);
       const ziel = mitschauZiel();
       mitschauen.ziel = ziel;
+      zuschauerHinweis();
       mitschauen.runde = null;
       if (!ziel) return;
       const neu = {
@@ -1614,6 +1671,19 @@
   // letztes Lebenszeichen sein, damit seine Runde noch läuft.
   const MITSCHAU_FRISCH = 20000;
 
+  // Eine Kennung nur für dieses Fenster – für wen zuschaut, ohne je
+  // gespielt zu haben.
+  function fensterKennung() {
+    try {
+      let id = sessionStorage.getItem("mini.zuschauId") || "";
+      if (!/^mini_[a-z0-9]{12}$/.test(id)) {
+        id = `mini_${Array.from({ length: 12 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("")}`;
+        sessionStorage.setItem("mini.zuschauId", id);
+      }
+      return id;
+    } catch { return ""; }
+  }
+
   function mitschauer({ host, spiel, zufall = null, einheit = "", mitZuegen = false, wo }) {
     sperreEingaben();
     const art = mitZuegen ? "z" : "o";
@@ -1801,12 +1871,37 @@
       gesperrt("Zuschauen geht gerade nicht.");
     } else if (!wo.aus) {
       m.aus = cloud().mitschauenHoeren("", wo.spieler, lies);
+      anmelden();
     } else {
       vielleicht(() => cloud().turnier?.(wo.aus)).then((t) => {
         if (!t) gesperrt("Dieses Turnier gibt es nicht (mehr).");
         else if (t.ohneReplay || (t.verdeckt && window.LernappTurnier?.lage?.(t) !== "beendet")) gesperrt("In diesem Turnier lässt sich nicht zuschauen.");
-        else m.aus = cloud().mitschauenHoeren(wo.aus, wo.spieler, lies);
+        else {
+          m.aus = cloud().mitschauenHoeren(wo.aus, wo.spieler, lies);
+          anmelden();
+        }
       });
+    }
+
+    // Beim Spieler anmelden: Er sieht, wer zuschaut (zuschauerHinweis) – alle
+    // zehn Sekunden neu, solange diese Seite im Bild ist, und beim Gehen ab.
+    // Wer keine Kennung hat – oder sich selbst von einem zweiten Gerät aus
+    // zuschaut –, bekommt eine für dieses Fenster.
+    function anmelden() {
+      const eigene = mini()?.kennungFallsDa?.() || "";
+      const ich = eigene && eigene !== wo.spieler ? eigene : fensterKennung();
+      if (!ich || ich === wo.spieler || !cloud()?.zuschauerMelden) return;
+      const melde = () => {
+        if (document.visibilityState !== "visible") return;
+        Promise.resolve(cloud().zuschauerMelden(wo.spieler, ich, { name: (mini()?.name?.() || "").slice(0, 24), lebt: Date.now() })).catch(() => {});
+      };
+      melde();
+      const uhr = window.setInterval(melde, 10000);
+      document.addEventListener("visibilitychange", melde);
+      window.addEventListener("pagehide", () => {
+        window.clearInterval(uhr);
+        Promise.resolve(cloud().zuschauerMelden(wo.spieler, ich, null)).catch(() => {});
+      }, { once: true });
     }
 
     // Oben: wer, und wie viel er gerade hat.

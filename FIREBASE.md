@@ -93,6 +93,8 @@ amSpielen/<kennung>     name, spiel, p, lebt,     lesen: jeder (auch als Liste)
                         fertig                    der Spieler selbst
 turnierAmSpielen/<turnier>/<kennung>              lesen: wer das Turnier kennt
     name, spiel, p, lebt, fertig                  der Spieler selbst
+zuschauer/<spieler>/<kennung>                     lesen: wer den Spieler kennt
+    name, lebt                                    der Zuschauer selbst
 ```
 
 `liveOffen` sind die Multiplayer, die für alle sichtbar sind: Die Startseite
@@ -114,6 +116,9 @@ an dem die Startseite sieht, wer gerade was spielt (README, «Zuschauen in der
 App») – auflisten lassen sich nur die Zettel, nicht die Läufe.
 `turnierAmSpielen` sind die Zettel je Turnier (README, «Wer gerade spielt»):
 Die Turnierseite hört sie, die Startseite die der öffentlichen Turniere.
+Unter `zuschauer/<spieler>` meldet sich, wer gerade zuschaut – daran sieht
+der Spieler «Alain schaut gerade zu» (README, «Wer mir zuschaut»); lesen
+lässt sich das nur je Spieler, nicht als Liste über alle.
 
 ## 1. Die Regeln fahren von selbst nach Firebase
 
