@@ -331,8 +331,8 @@
    * zuschauer/<eigene Kennung> (cloud.js, zuschauerHoeren), wo sich der
    * Beobachtungsmodus anmeldet (mitschauer). Nur mit Namen – ohne schaut
    * niemand zu –, nicht im Multiplayer und nicht, wenn diese Seite selbst
-   * zuschaut. Ein Spiel mit Knöpfen oder Feldern unten gibt mit --gz-unten
-   * und --gz-breit an, wie viel Platz dort bleibt (styles.css).
+   * zuschaut. Wo ein Spiel unten Knöpfe hat, steht er darüber (styles.css,
+   * --gz-unten).
    */
   const ZUSCHAUER_MS = 25000;
   let zuschauerDa = false;

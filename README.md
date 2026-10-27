@@ -203,10 +203,12 @@ Korridor, den der Autopilot in der Prüfung bis 2000 m abfliegt.
 von oben gesehen, Raum über Raum. Die Zeit läuft nur, wenn der Ninja läuft:
 Wer stillsteht, sieht Pfeile, Wurfsterne und Kirschblüten fast reglos in der
 Luft hängen – wer rennt, sieht die Welt in normalem Tempo. Gesteuert wird
-mit dem Steuerfeld am unteren Rand wie mit einem Joystick (hochkant unter dem
-Hof, quer unten rechts im Garten; am Rand volles Tempo) oder mit
-Pfeiltasten/WASD – an Bogenschützen, Klingen, Fallen und den Lichtkegeln der
-Wächter vorbei zum Tor. Jeder Raum gibt 10 Punkte, jede Schriftrolle «+3
+mit Finger oder Maus, irgendwo im Bild: Ziehen gibt die Richtung, Halten
+läuft weiter, jede neue Zugrichtung lenkt ihn genau dorthin (es zählt, wohin
+der Finger zuletzt gezogen hat, nicht, wo er aufgesetzt wurde), erst
+Loslassen hält ihn an; am Rechner auch mit Pfeiltasten/WASD. Der Weg führt
+an Bogenschützen, Klingen, Fallen und den Lichtkegeln der Wächter vorbei zum
+Tor. Jeder Raum gibt 10 Punkte, jede Schriftrolle «+3
 Punkte», und der **Tempo-Bonus** oben links zeigt gross, was ein Raum in
 echter Zeit noch dazugibt: +10 bis 4 s, +6 bis 7 s, +3 bis 12 s, mit einem
 Balken, der abläuft – Stehenbleiben kostet keine Punkte, nur diesen Bonus.
@@ -629,8 +631,7 @@ nichts hinaus, ebenso wenig im Multiplayer (der hat sein eigenes Zuschauen).
 Bild, klein und mit grünem Punkt: «Alain schaut gerade zu» (mehrere: «Alain
 und Zoe schauen gerade zu»; wer keinen Namen hat, ist «jemand»). Nur ein
 Hinweis – nicht anklickbar, und wo ein Spiel unten Knöpfe hat (Slalom,
-Skispringen, Fallschirm, Fledermaus) oder das Steuerfeld des Ninjas,
-steht er darüber oder daneben (`--gz-unten`, `--gz-breit`). Der
+Skispringen, Fallschirm, Fledermaus), steht er darüber (`--gz-unten`). Der
 Beobachtungsmodus meldet sich dafür beim Spieler an (`geist.js`,
 `mitschauer`; `cloud.js`, `zuschauerMelden`, nach
 `zuschauer/<spieler>/<kennung>`: `name`, `lebt`) – alle zehn Sekunden neu,

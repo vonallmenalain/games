@@ -1091,7 +1091,7 @@ try {
     pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `${wo}: In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
     // Ein Tipp neben das Fenster schliesst es.
     await seite.mouse.click(5, hoch - 5);
-    await seite.waitForTimeout(200);
+    await seite.waitForFunction(() => !document.querySelector(".ar-fenster"), null, { timeout: 2000 }).catch(() => {});
     pruefe(await seite.locator(".ar-fenster").count() === 0, `${wo}: Ein Tipp neben die Gesamtwertung schliesst sie nicht.`);
     await kontext.close();
   }
@@ -4985,10 +4985,11 @@ try {
     pruefe(stur.every((l) => l.phase === "ende" && l.grund && l.raeume < 12),
       `Zeitlupen-Ninja: Wer nicht ausweicht, kommt zu weit oder ohne Ende: ${JSON.stringify(stur)}`);
 
-    // Tasten und Steuerfeld: Die Pfeiltaste nach oben bewegt ihn. Das Feld
-    // unten wie ein Joystick: oben am Rand gehalten läuft er voll nach oben,
-    // rechts nach rechts, in der Mitte steht er, losgelassen auch. Daneben
-    // getippt, bewegt er sich nicht.
+    // Tasten und Ziehen: Die Pfeiltaste nach oben bewegt ihn. Mit Finger
+    // oder Maus, irgendwo im Bild: Ein Tipp ohne Ziehen bewegt ihn nicht.
+    // Nach oben gezogen und gehalten, läuft er weiter nach oben; von dort
+    // nach rechts gezogen (nicht zurück zum Anfang), läuft er nach rechts –
+    // und erst losgelassen steht er.
     await neu();
     const vorTaste = await seite.evaluate(() => ({ ...window.LernappNinja.ninja }));
     await seite.keyboard.down("ArrowUp");
@@ -4998,37 +4999,39 @@ try {
     pruefe(nachTaste.phase === "spiel" && nachTaste.y > vorTaste.y + 15 && Math.abs(nachTaste.x - vorTaste.x) < 2,
       `Zeitlupen-Ninja: Die Pfeiltaste bewegt den Ninja nicht nach oben: ${JSON.stringify({ vorTaste, nachTaste })}`);
     await neu();
-    const feld = await seite.evaluate(() => {
-      const p = window.LernappNinja.pad();
+    const ort = () => seite.evaluate(() => ({ ...window.LernappNinja.ninja, phase: window.LernappNinja.state.phase }));
+    const da = await seite.evaluate(() => {
       const r = document.querySelector(".nj-canvas").getBoundingClientRect();
-      const k = r.width / window.LernappNinja.view.cssW;
-      const hof = window.LernappNinja.bildY(window.LernappNinja.state.raeume[0].y0);
-      return { x: r.left + p.x * k, y: r.top + p.y * k, halb: p.halb * k, seitlich: p.seitlich, hofUnten: r.top + hof * k };
+      return { x: r.left + r.width * 0.3, y: r.top + r.height * 0.7 };
     });
-    pruefe(!feld.seitlich && feld.y - feld.halb > feld.hofUnten - 2, `Zeitlupen-Ninja: Hochkant liegt das Steuerfeld nicht unter dem Hof: ${JSON.stringify(feld)}`);
-    const halte = async (dx, dy, ms) => {
-      const vor = await seite.evaluate(() => ({ ...window.LernappNinja.ninja }));
-      await seite.mouse.move(feld.x + dx * feld.halb, feld.y - dy * feld.halb);
-      await seite.mouse.down();
-      await seite.waitForTimeout(ms);
-      await seite.mouse.up();
-      await seite.waitForTimeout(120);
-      const nach = await seite.evaluate(() => ({ ...window.LernappNinja.ninja, phase: window.LernappNinja.state.phase }));
-      return { dx: nach.x - vor.x, dy: nach.y - vor.y, phase: nach.phase };
-    };
-    const hoch = await halte(0, 0.95, 400);
-    const rechts = await halte(0.95, 0, 300);
-    const mitte = await halte(0.05, 0.05, 300);
-    // Ein Tipp mitten in den Hof: kein Schritt.
-    const vorTipp = await seite.evaluate(() => ({ ...window.LernappNinja.ninja }));
-    await seite.mouse.move(feld.x, feld.y - feld.halb * 4);
+    const vorTipp = await ort();
+    await seite.mouse.move(da.x, da.y);
     await seite.mouse.down();
     await seite.waitForTimeout(300);
     await seite.mouse.up();
-    const nachTipp = await seite.evaluate(() => ({ ...window.LernappNinja.ninja }));
-    pruefe(hoch.phase === "spiel" && hoch.dy > 25 && Math.abs(hoch.dx) < 2 && rechts.dx > 15 && Math.abs(rechts.dy) < 2
-      && Math.hypot(mitte.dx, mitte.dy) < 0.5 && Math.hypot(nachTipp.x - vorTipp.x, nachTipp.y - vorTipp.y) < 0.5,
-      `Zeitlupen-Ninja: Das Steuerfeld führt den Ninja nicht wie ein Joystick: ${JSON.stringify({ hoch, rechts, mitte, tipp: { dx: nachTipp.x - vorTipp.x, dy: nachTipp.y - vorTipp.y } })}`);
+    const nachTipp = await ort();
+    await seite.mouse.down();
+    await seite.mouse.move(da.x, da.y - 30, { steps: 3 });
+    const hoch0 = await ort();
+    await seite.waitForTimeout(400);
+    const hoch1 = await ort();
+    await seite.mouse.move(da.x + 30, da.y - 30, { steps: 3 });
+    const rechts0 = await ort();
+    await seite.waitForTimeout(300);
+    const rechts1 = await ort();
+    await seite.mouse.up();
+    await seite.waitForTimeout(60);
+    const los0 = await ort();
+    await seite.waitForTimeout(300);
+    const los1 = await ort();
+    const zieh = {
+      tipp: Math.hypot(nachTipp.x - vorTipp.x, nachTipp.y - vorTipp.y), tippPhase: nachTipp.phase,
+      hoch: { dx: hoch1.x - hoch0.x, dy: hoch1.y - hoch0.y }, rechts: { dx: rechts1.x - rechts0.x, dy: rechts1.y - rechts0.y },
+      los: Math.hypot(los1.x - los0.x, los1.y - los0.y), phase: los1.phase,
+    };
+    pruefe(zieh.tipp < 0.5 && zieh.tippPhase === "bereit" && zieh.hoch.dy > 25 && Math.abs(zieh.hoch.dx) < 2
+      && zieh.rechts.dx > 15 && Math.abs(zieh.rechts.dy) < 2 && zieh.los < 0.5 && zieh.phase === "spiel",
+      `Zeitlupen-Ninja: Ziehen und halten führt den Ninja nicht: ${JSON.stringify(zieh)}`);
 
     // Anschauen: Ein Lauf durch zwei Räume, im Bildtakt gespielt (der Plan
     // gibt jedem Schritt seine Eingabe), dann so, dass er bald getroffen
