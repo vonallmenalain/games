@@ -5037,9 +5037,20 @@ try {
     // gibt jedem Schritt seine Eingabe), dann so, dass er bald getroffen
     // wird. Wer ihn anschaut, sieht dieselben Räume und den Ninja bis an
     // dieselbe Stelle – mit denselben Punkten. Auf einer frischen Seite:
-    // Sonst läge dort schon ein Lauf mit ebenso vielen Punkten.
+    // Sonst läge dort schon ein Lauf mit ebenso vielen Punkten. Am Tor steht
+    // beim Spielen wie beim Anschauen nur der Tempo-Bonus, nie «+10».
+    const texteSammeln = () => seite.evaluate(() => {
+      window.__njTexte = new Set();
+      const sammle = () => {
+        (window.LernappNinja?.state?.schriften || []).forEach((s) => window.__njTexte.add(s.text));
+        requestAnimationFrame(sammle);
+      };
+      sammle();
+    });
+    const texte = () => seite.evaluate(() => [...(window.__njTexte || [])]);
     await kontext.close();
     ({ kontext, seite, neu } = await oeffne("Zora"));
+    await texteSammeln();
     const geplant = await seite.evaluate(() => {
       const N = window.LernappNinja;
       const st = N.state;
@@ -5097,7 +5108,12 @@ try {
     pruefe(geplant.gerichtet && gespielt.kennung && gespielt.saat === geplant.saat && gespielt.mitOrt && gespielt.raum === 2 && gespielt.grund
       && gespielt.punkte >= 20 && gespielt.geistPunkte === gespielt.punkte,
       `Zeitlupen-Ninja: Der Lauf im Bildtakt geht nicht wie geplant oder wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ geplant, gespielt: { ...gespielt, welt: undefined } })}`);
+    const imSpiel = await texte();
+    const boni = imSpiel.filter((t) => /^Tempo-Bonus \+\d+$/.test(t));
+    pruefe(boni.length >= 1 && !imSpiel.some((t) => /^\+\d+$/.test(t)),
+      `Zeitlupen-Ninja: Am Tor steht nicht nur der Tempo-Bonus: ${JSON.stringify(imSpiel)}`);
     await seite.goto(`${BASIS}/ninja?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await texteSammeln();
     await seite.waitForFunction(() => window.LernappNinja?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const anfang = await seite.evaluate(() => ({ phase: window.LernappNinja.state.phase, welt: window.LernappNinja.weltText() }));
     pruefe(anfang.phase === "zuschauen" && anfang.welt === gespielt.welt, `Zeitlupen-Ninja: Beim Zuschauen entstehen andere Räume:\n  gespielt ${gespielt.welt}\n  angeschaut ${anfang.welt}`);
@@ -5109,6 +5125,37 @@ try {
     pruefe(angeschaut.tafel && angeschaut.raum === gespielt.raum && angeschaut.punkte === gespielt.punkte
       && Math.hypot(angeschaut.x - gespielt.x, angeschaut.y - gespielt.y) < 4 && Math.abs(angeschaut.W - gespielt.W) < 0.15,
       `Zeitlupen-Ninja: Der angeschaute Lauf endet anders als gespielt: ${JSON.stringify({ gespielt: { ...gespielt, welt: undefined }, angeschaut })}`);
+    const beimAnschauen = await texte();
+    pruefe(boni.every((t) => beimAnschauen.includes(t)) && !beimAnschauen.some((t) => /^\+\d+$/.test(t)),
+      `Zeitlupen-Ninja: Beim Anschauen steht am Tor nicht derselbe Tempo-Bonus: gespielt ${JSON.stringify(imSpiel)}, angeschaut ${JSON.stringify(beimAnschauen)}`);
+    await kontext.close();
+
+    // Live zuschauen: Solange der Spieler läuft, läuft der Ninja auch beim
+    // Zuschauer – an derselben Stelle, nicht getroffen, nur weil der Lauf
+    // noch wächst (geist.js, abgeschlossen).
+    ({ kontext, seite, neu } = await oeffne("Zora"));
+    await seite.keyboard.down("ArrowUp");
+    await seite.waitForTimeout(300);
+    const liveKennung = await seite.evaluate(() => localStorage.getItem("mini.id"));
+    const zu = await kontext.newPage();
+    await zu.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await zu.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" }));
+    zu.on("pageerror", (fehler) => fehlerAufSeite.push(String(fehler.message || fehler)));
+    await zu.goto(`${BASIS}/ninja?mitschauen=${liveKennung}&wer=Zora`, { waitUntil: "load" });
+    await seite.waitForTimeout(900);
+    await seite.keyboard.up("ArrowUp");
+    await seite.keyboard.down("ArrowRight");
+    await seite.waitForTimeout(600);
+    await seite.keyboard.up("ArrowRight");
+    await zu.waitForTimeout(2400);
+    const ninjaBei = (s) => s.evaluate(() => {
+      const st = window.LernappNinja.state;
+      return { phase: st.phase, schritt: st.schritt, x: Math.round(st.ninja.x), y: Math.round(st.ninja.y) };
+    });
+    const [dort, hier] = [await ninjaBei(seite), await ninjaBei(zu)];
+    pruefe(dort.phase === "spiel" && dort.schritt === "lauf" && dort.y > 40 && hier.phase === "zuschauen" && hier.schritt === "lauf"
+      && Math.hypot(hier.x - dort.x, hier.y - dort.y) < 3,
+      `Zeitlupen-Ninja: Beim Live-Zuschauen steht der Ninja nicht dort, wo er läuft: ${JSON.stringify({ dort, hier })}`);
     await kontext.close();
   }
 
