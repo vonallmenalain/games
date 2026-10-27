@@ -766,8 +766,7 @@ h2 {
 /* Wer mir gerade zuschaut (geist.js, zuschauerHinweis): unten links, klein,
    mit dem grünen Punkt von «spielt gerade». Nur ein Hinweis – nicht
    anklickbar, und wo ein Spiel unten Knöpfe hat, steht er darüber
-   (--gz-unten); wo unten in der Mitte etwas liegt, bleibt er schmaler
-   (--gz-breit). */
+   (--gz-unten). */
 .gz-zuschauer {
   position: absolute;
   left: calc(var(--safe-left, 0px) + 10px);
@@ -776,7 +775,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 7px;
-  max-width: var(--gz-breit, calc(50% - 20px));
+  max-width: calc(50% - 20px);
   margin: 0;
   padding: 4px 10px 4px 8px;
   border-radius: 13px;

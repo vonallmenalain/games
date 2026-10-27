@@ -9,13 +9,12 @@
  * mit R_MIN weiter (fast stehend, nie ganz, sonst endete die Runde nie). Wer
  * mit voller Geschwindigkeit läuft, sieht die Welt in normalem Tempo.
  *
- * Gesteuert wird mit Finger oder Maus über ein Steuerfeld am unteren Rand
- * (pad) – wie ein Joystick: Wo man es hält, dorthin läuft der Ninja, am Rand
- * mit voller Geschwindigkeit, nahe der Mitte langsam; das Feld steht dezent
- * im Bild, mit Pfeilen. Es liegt unter dem Hof (hochkant reserviert es dafür
- * einen Streifen) – oder, wo daneben Platz ist (quer), unten rechts im
- * Garten. Am Rechner gehen auch die Pfeiltasten und WASD (immer mit voller
- * Geschwindigkeit).
+ * Gesteuert wird mit Finger oder Maus, irgendwo im Bild (finger): Ziehen
+ * gibt die Richtung, und solange der Finger liegt, läuft der Ninja weiter
+ * dorthin, mit voller Geschwindigkeit. Jede neue Zugrichtung lenkt ihn genau
+ * dorthin – es zählt, wohin der Finger zuletzt gezogen hat (ZUG_SCHRITT),
+ * nicht, wo er aufgesetzt wurde. Erst Loslassen hält ihn an. Am Rechner
+ * gehen auch die Pfeiltasten und WASD.
  *
  * Punkte: jeder Raum PUNKTE_RAUM, jede Schriftrolle PUNKTE_ROLLE (im Bild
  * «+3 Punkte»), und wer einen Raum in wenig echter Zeit schafft, bekommt den
@@ -91,13 +90,9 @@
   const R_MIN = 0.07;              // so schnell läuft die Welt, wenn er steht
   const R_NINJA = 7;               // so breit ist er an Mauern und Säulen
   const R_TREFF = 5.5;             // und für Pfeile, Sterne, Klingen: ein wenig schmaler, als er aussieht
-  // Das Steuerfeld (Bildpunkte): so gross, so weit vom Rand. Nahe der Mitte
-  // steht er (PAD_TOT), ab PAD_VOLL (Anteil bis zum Rand) läuft er voll.
-  const PAD_MIN = 104;
-  const PAD_MAX = 156;
-  const PAD_RAND = 14;
-  const PAD_TOT = 0.16;
-  const PAD_VOLL = 0.72;
+  // So weit (Bildpunkte) muss der Finger ziehen, bis eine Richtung gilt –
+  // und jede neue: kleiner, und ein zitternder Finger lenkte mit.
+  const ZUG_SCHRITT = 9;
   const WECHSEL = 0.55;            // so lange (echt) dauert der Gang durchs Tor
   const KAMERA = 0.85;             // und der Schwenk in den nächsten Raum
   const AUS_DAUER = 1.7;           // so lange (echt) nach dem Treffer, bis die Tafel kommt
@@ -295,10 +290,10 @@
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, frei: 0, mx: 0, my: 0, xb: 160, versatz: 0 };
   const kam = { y: RAUM_H / 2, von: RAUM_H / 2, nach: RAUM_H / 2, t: 1 };
   const tasten = { links: false, rechts: false, hoch: false, runter: false };
-  // Das Steuerfeld (messen setzt, wo es steht): welcher Finger es hält (id),
-  // wohin (richtung, Länge bis 1 = volles Tempo) und wo der Knopf steht.
-  // hinweis: wann jemand daneben getippt hat – dann winkt es kurz.
-  const pad = { x: 0, y: 0, halb: 60, seitlich: false, id: null, knopfX: 0, knopfY: 0, richtung: { x: 0, y: 0 }, hinweis: -9 };
+  // Der Finger (oder die Maus): welcher (id), wo er liegt (x, y, Bildpunkte),
+  // von wo die nächste Richtung gemessen wird (ankerX, ankerY) und die, die
+  // gerade gilt (richtung, Länge 1 – oder 0, solange er nur liegt).
+  const finger = { id: null, x: 0, y: 0, ankerX: 0, ankerY: 0, richtung: { x: 0, y: 0 } };
 
   function stopLoop() {
     if (frame) { window.cancelAnimationFrame(frame); frame = null; }
@@ -1017,7 +1012,7 @@
   function eingabe() {
     if (state.planI < state.plan.length) return state.plan[state.planI++];
     if (state.steuer) return state.steuer;
-    if (pad.id !== null) return pad.richtung;
+    if (finger.id !== null) return finger.richtung;
     const x = (tasten.rechts ? 1 : 0) - (tasten.links ? 1 : 0);
     const y = (tasten.hoch ? 1 : 0) - (tasten.runter ? 1 : 0);
     if (x || y) return { x, y };
@@ -1406,22 +1401,7 @@
     view.cssH = cssH;
     view.dpr = dpr;
     view.frei = frei;
-    // Das Steuerfeld: so gross, wie der Platz erlaubt. Steht neben dem Hof
-    // genug frei (quer), kommt es unten rechts in den Garten, und der Hof
-    // bleibt, wie er ist; sonst unter den Hof, der dafür unten einen
-    // Streifen abgibt – hochkant ist er ohnehin durch die Breite begrenzt.
-    const halb = clamp(Math.min(cssW, cssH) * 0.28, PAD_MIN, PAD_MAX) / 2;
-    const s0 = Math.min(cssW / SICHT_B, (cssH - frei) / SICHT_H);
-    const neben = (cssW - SICHT_B * s0) / 2;
-    const unterRand = PAD_RAND + sicherUnten();
-    pad.halb = halb;
-    pad.seitlich = neben >= 2 * (halb + PAD_RAND);
-    pad.x = pad.seitlich ? cssW - neben / 2 : cssW / 2;
-    pad.y = cssH - unterRand - halb;
-    view.unten = pad.seitlich ? 0 : 2 * halb + PAD_RAND + unterRand;
-    // «… schaut gerade zu» (geist.js) steht unten links neben dem Steuerfeld.
-    feld.closest(".cm-stage")?.style.setProperty("--gz-breit", pad.seitlich ? "" : `${Math.max(90, Math.floor(cssW / 2 - halb - 22))}px`);
-    const nutzH = cssH - frei - view.unten;
+    const nutzH = cssH - frei;
     // Der ganze Raum – Mauern, Tore – steht immer im Bild, gleich gross in
     // Welteinheiten. Was übrig ist, zeigt hochkant den nächsten Raum (darum
     // rückt der Hof ein wenig nach unten) und quer den Garten daneben.
@@ -1438,16 +1418,6 @@
     kam.nach = kamZiel(state.raum);
     if (kam.t >= 1) kam.y = kam.nach;
     blaetterVerteilen();
-  }
-
-  // Wie viel unten das Handy selbst braucht (der Strich zum Wischen).
-  function sicherUnten() {
-    const probe = document.createElement("div");
-    probe.style.cssText = "position:fixed;bottom:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
-    document.body.append(probe);
-    const h = probe.getBoundingClientRect().height || 0;
-    probe.remove();
-    return Math.min(40, h);
   }
 
   function kameraZu(k) {
@@ -3364,7 +3334,7 @@
   }
 
   // Vor dem ersten Zug: ein Ring um den Ninja, der pulsiert, und Pfeile in
-  // alle Richtungen – wohin man will (das Steuerfeld unten winkt dazu).
+  // alle Richtungen – wohin man will (irgendwo hin ziehen und halten).
   function zeichneHinweis() {
     if (state.phase !== "bereit" || shell.live) return;
     const n = state.ninja;
@@ -3492,62 +3462,36 @@
     zeile(`Raum ${state.raum + 1}`, "rgba(10, 14, 28, 0.55)", "#e6ecf7");
   }
 
-  // Das Steuerfeld: ein feines Quadrat mit Pfeilen in alle vier Richtungen
-  // und einem Kreis in der Mitte, wo er stehen bleibt. Hält es ein Finger,
-  // zeigt ein Knopf, wohin er führt, und der Pfeil in diese Richtung
-  // leuchtet. Vor dem Start und nach einem Tipp daneben winkt es.
-  function zeichnePad() {
-    if (state.phase !== "spiel" && state.phase !== "bereit") return;
+  // Wo der Finger liegt: ein leiser Ring, und gilt eine Richtung, ein Pfeil
+  // in diese Richtung. Mehr braucht es nicht – das Feld ist das ganze Bild.
+  function zeichneFinger() {
+    if (finger.id === null || (state.phase !== "spiel" && state.phase !== "bereit")) return;
     flachTransform();
-    const { x, y, halb } = pad;
-    const aktiv = pad.id !== null;
-    const winkt = !aktiv && !ruhig() && (state.phase === "bereit" || state.echt - pad.hinweis < 1.2);
-    const puls = winkt ? 0.5 + 0.5 * Math.sin(state.echt * 6) : 0;
+    const { x, y, richtung: r } = finger;
+    const st = Math.hypot(r.x, r.y);
     g.save();
-    g.globalAlpha = aktiv ? 1 : 0.7 + 0.3 * puls;
-    g.fillStyle = aktiv ? "rgba(8, 12, 24, 0.42)" : "rgba(8, 12, 24, 0.3)";
-    g.strokeStyle = `rgba(255, 255, 255, ${aktiv ? 0.4 : 0.24 + 0.2 * puls})`;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.fillStyle = "rgba(8, 12, 24, 0.22)";
+    g.strokeStyle = "rgba(255, 255, 255, 0.38)";
     g.lineWidth = 1.5;
     g.beginPath();
-    if (g.roundRect) g.roundRect(x - halb, y - halb, 2 * halb, 2 * halb, halb * 0.3);
-    else g.rect(x - halb, y - halb, 2 * halb, 2 * halb);
+    g.arc(x, y, 26, 0, PI2);
     g.fill();
     g.stroke();
-    g.strokeStyle = "rgba(255, 255, 255, 0.2)";
-    g.lineWidth = 1;
-    g.beginPath();
-    g.arc(x, y, halb * PAD_TOT * 1.25, 0, PI2);
-    g.stroke();
-    const r = pad.richtung;
-    const st = Math.hypot(r.x, r.y);
-    const spitze = halb * 0.17;
-    for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
-      const an = aktiv && st > 0 ? Math.max(0, (r.x * dx + r.y * dy) / st) : 0;
-      const px = x + dx * halb * 0.7;
-      const py = y - dy * halb * 0.7;
-      g.strokeStyle = `rgba(255, 255, 255, ${0.4 + 0.6 * an})`;
-      g.lineWidth = 2.5;
-      g.lineCap = "round";
-      g.lineJoin = "round";
-      g.beginPath();
-      g.moveTo(px - dy * spitze - dx * spitze * 0.6, py - dx * spitze + dy * spitze * 0.6);
-      g.lineTo(px + dx * spitze * 0.4, py - dy * spitze * 0.4);
-      g.lineTo(px + dy * spitze - dx * spitze * 0.6, py + dx * spitze + dy * spitze * 0.6);
-      g.stroke();
-    }
-    if (aktiv) {
-      g.strokeStyle = "rgba(255, 255, 255, 0.35)";
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(x, y);
-      g.lineTo(pad.knopfX, pad.knopfY);
-      g.stroke();
-      g.fillStyle = "rgba(255, 255, 255, 0.9)";
-      g.strokeStyle = "#3FA34D";
+    if (st > 0) {
+      const ux = r.x / st;
+      const uy = -r.y / st;
+      const sx = x + ux * 40;
+      const sy = y + uy * 40;
+      g.strokeStyle = "rgba(255, 255, 255, 0.75)";
       g.lineWidth = 3;
       g.beginPath();
-      g.arc(pad.knopfX, pad.knopfY, halb * 0.24, 0, PI2);
-      g.fill();
+      g.moveTo(x + ux * 12, y + uy * 12);
+      g.lineTo(sx, sy);
+      g.moveTo(sx - ux * 9 - uy * 7, sy - uy * 9 + ux * 7);
+      g.lineTo(sx, sy);
+      g.lineTo(sx - ux * 9 + uy * 7, sy - uy * 9 - ux * 7);
       g.stroke();
     }
     g.restore();
@@ -3586,7 +3530,7 @@
       g.fillRect(0, 0, view.cssW, view.cssH);
     }
     zeichneAnzeige();
-    zeichnePad();
+    zeichneFinger();
   }
 
   // ---------------------------------------------------------------------------
@@ -3800,29 +3744,27 @@
     kids()?.vibrate?.(8);
   }
 
-  // Das Steuerfeld, gehalten an (px, py) Bildpunkten: die Richtung – in der
-  // Mitte steht er, ab PAD_VOLL zum Rand läuft er voll; über den Rand hinaus
-  // bleibt der Knopf am Rand.
-  function padRichtung(px, py) {
-    const vx = clamp((px - pad.x) / pad.halb, -1, 1);
-    const vy = clamp((pad.y - py) / pad.halb, -1, 1);
-    pad.knopfX = pad.x + vx * pad.halb;
-    pad.knopfY = pad.y - vy * pad.halb;
-    const l = Math.hypot(vx, vy);
-    if (l < PAD_TOT) {
-      pad.richtung = { x: 0, y: 0 };
-      return;
-    }
-    const m = clamp((l - PAD_TOT) / (PAD_VOLL - PAD_TOT), 0, 1);
-    pad.richtung = { x: (vx / l) * m, y: (vy / l) * m };
+  // Der Finger ist bei (px, py) Bildpunkten: Ist er seit dem Anker weit
+  // genug gezogen, gilt genau diese Richtung, und der Anker rückt nach – die
+  // nächste Richtung misst ab hier. Liegt er still, bleibt sie, wie sie ist.
+  function fingerZieht(px, py) {
+    finger.x = px;
+    finger.y = py;
+    const dx = px - finger.ankerX;
+    const dy = finger.ankerY - py;
+    const l = Math.hypot(dx, dy);
+    if (l < ZUG_SCHRITT) return;
+    finger.richtung = { x: dx / l, y: dy / l };
+    finger.ankerX = px;
+    finger.ankerY = py;
     // Die Runde beginnt mit dem ersten Schritt – im Live-Modus zum
     // gemeinsamen Start.
     if (state.phase === "bereit" && !shell.live) losGehts();
   }
 
-  function padLos() {
-    pad.id = null;
-    pad.richtung = { x: 0, y: 0 };
+  function fingerLos() {
+    finger.id = null;
+    finger.richtung = { x: 0, y: 0 };
   }
 
   // ---------------------------------------------------------------------------
@@ -3867,12 +3809,12 @@
     raumBetreten(0);
     state.tuerZu = -9;
     tasten.links = tasten.rechts = tasten.hoch = tasten.runter = false;
-    padLos();
+    fingerLos();
     shell.setCount(0);
     gegner?.runde();
 
     shell.clear();
-    promptKnoten = shell.el("p", "cm-prompt nj-prompt", "Steuern im Feld unten – die Zeit läuft nur, wenn du läufst.");
+    promptKnoten = shell.el("p", "cm-prompt nj-prompt", "Ziehen und halten – die Zeit läuft nur, wenn du läufst.");
     shell.play.append(promptKnoten, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -3950,10 +3892,8 @@
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // Finger oder Maus aufs Steuerfeld (etwas grosszügiger als gezeichnet):
-  // Es führt, bis er loslässt – auch wenn er dabei hinausrutscht, dann am
-  // Rand, mit vollem Tempo. Ein neuer Finger übernimmt. Anderswo aufs Bild
-  // getippt, winkt das Feld.
+  // Finger oder Maus, irgendwo aufs Bild: Er führt, bis er loslässt (siehe
+  // fingerZieht). Ein neuer Finger übernimmt.
   const imBild = (event) => {
     const rect = canvas?.getBoundingClientRect();
     if (!rect?.width) return null;
@@ -3965,22 +3905,19 @@
     if (state.phase === "zuschauen" || state.phase === "ende") return;
     const p = imBild(event);
     if (!p) return;
-    const griff = pad.halb + 28;
-    if (Math.abs(p.x - pad.x) > griff || Math.abs(p.y - pad.y) > griff) {
-      pad.hinweis = state.echt;
-      return;
-    }
     event.preventDefault();
-    pad.id = event.pointerId;
-    padRichtung(p.x, p.y);
+    finger.id = event.pointerId;
+    finger.x = finger.ankerX = p.x;
+    finger.y = finger.ankerY = p.y;
+    finger.richtung = { x: 0, y: 0 };
   });
   window.addEventListener("pointermove", (event) => {
-    if (pad.id === null || event.pointerId !== pad.id) return;
+    if (finger.id === null || event.pointerId !== finger.id) return;
     const p = imBild(event);
-    if (p) padRichtung(p.x, p.y);
+    if (p) fingerZieht(p.x, p.y);
   });
   const fingerWeg = (event) => {
-    if (pad.id !== null && event.pointerId === pad.id) padLos();
+    if (finger.id !== null && event.pointerId === finger.id) fingerLos();
   };
   window.addEventListener("pointerup", fingerWeg);
   window.addEventListener("pointercancel", fingerWeg);
@@ -4006,7 +3943,7 @@
   });
   // Wer das Fenster verlässt, lässt auch Finger und Tasten los.
   window.addEventListener("blur", () => {
-    padLos();
+    fingerLos();
     tasten.links = tasten.rechts = tasten.hoch = tasten.runter = false;
   });
 
@@ -4041,8 +3978,6 @@
   window.LernappNinja = {
     HALB, RAUM_H, WAND, SCHRITT, TOR, TAKT, V_MAX, R_MIN, R_NINJA, R_TREFF, LUNTE, DECKEL,
     state, view, kam, takt, schritt, losGehts, weltText, raumBis,
-    // Wo das Steuerfeld steht (Bildpunkte der Leinwand) – für die Prüfung.
-    pad: () => ({ x: pad.x, y: pad.y, halb: pad.halb, seitlich: pad.seitlich }),
     saat: () => zufall.saat?.() ?? null,
     halte: (saat) => zufall.halte?.(saat),
     get ninja() { return state.ninja; },
