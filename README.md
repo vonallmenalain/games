@@ -9,8 +9,8 @@ Ein Link, ein Spiel, eine Bestenliste, auf der alle stehen:
 Gedacht zum Weitergeben. Wer den Link öffnet, spielt sofort: keine Anmeldung,
 keine Schranke, kein Zug, der wächst. Nur die Frage, wer die höchste Zahl
 schafft. Unter `/` stehen alle Spiele nebeneinander, dazu die Hall of Fame –
-wer den besten Durchschnittsrang hat, wer wie oft gespielt hat, wer wie viele
-Spiele anführt.
+und eine Gesamtwertung über alle Spiele, in der mehr Spiele niemandem einen
+Vorteil verschaffen.
 
 Und ab und zu ein Turnier: eine eigene Rangliste mit Anfang und Ende, für
 alle auf der Startseite oder nur für die, denen man den Link schickt.
@@ -337,8 +337,37 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
 - **Oben rechts:** der Pokal (die Gesamtwertung über alle Spiele, im
-  Fenster), wo es geht «Als App installieren», der Name (ein Tipp ändert ihn)
-  und das Vollbild. Links das Logo: die Pixel-Winkel und «arcade».
+  Fenster, siehe unten), wo es geht «Als App installieren», der Name (ein
+  Tipp ändert ihn) und das Vollbild. Links das Logo: die Pixel-Winkel und
+  «arcade».
+
+**Die Gesamtwertung** (`mini-games.js`, `gesamtwertung`, `gesamtTafel`). Der
+Platz im Schnitt allein ist nicht fair: Platz 2 von zwei zählte wie Platz 2
+von zwanzig, und wer ein einziges Spiel gespielt hat, stand vor jemandem mit
+vierzehn. Die Zahl der Siege auch nicht: Wer mehr spielt, sammelt mehr.
+Deshalb zählen **Duelle**: Jedes Spiel ist eine Reihe davon – wer in der
+Rangliste hinter dir steht, hat gegen dich verloren, wer vor dir steht,
+gewonnen, wer gleich viel hat, teilt es. Die **Wertung** ist der Anteil
+gewonnener Duelle (0–100); ein grosses Feld zählt so mehr als ein kleines, und
+wer allein in einem Spiel steht, hat dort keines. Dazu kommen sechs Duelle,
+die als geteilt zählen (`AUSGLEICH`): Wer erst wenige hat, steht nahe der
+Mitte, auch wenn er alle gewonnen hat. Mehr Spiele heben niemanden, der nicht
+besser spielt – ein Anteil bleibt ein Anteil. Siege und Podest stehen als
+Anteil an den eigenen Spielen da.
+
+Oben im Fenster wird gewählt, was zählt: «Spiele» (alle oder ein Tier) und
+«Gespielt» (alle, ab 3, ab 5, ab 10 Spielen). Darunter das Podest wie im
+Turnier und die Tabelle – Wertung, Spiele, Ø Platz, Siege, Podest, jede
+Spalte mit einem Tipp sortierbar. Die Wahl merkt sich das Gerät
+(`mini.gesamt`). «So wird gerechnet» klappt die Erklärung auf.
+
+**Ein Tipp auf einen Namen** (in der Tabelle oder auf dem Podest) zeigt im
+selben Fenster seine Karte (`spielerKarte`): Platz und Wertung, wie viele
+Spiele von allen, Platz im Schnitt, wie oft vorne und auf dem Podest; seine
+besten Spiele (nach den gewonnenen Duellen, mit Ausgleich – Platz 2 von 6 vor
+Platz 1 von 2); was er am meisten spielt, als Balken **ohne Zahl** (wie oft
+jemand spielt, geht niemanden etwas an); alle seine Spiele nach dem Platz und
+die, die er noch nie gespielt hat. Jedes Spiel darin führt zum Spiel.
 
 **Die Bilder** sind echte Runden: `npm run bilder` (scripts/filme-aufnehmen.mjs
 --standbild) lässt jedes Spiel von einem Autopiloten spielen

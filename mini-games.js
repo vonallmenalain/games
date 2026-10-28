@@ -2088,31 +2088,364 @@
     return wrap;
   }
 
-  function spielerTabelle(personen) {
-    if (!personen.length) return el("p", "mini-hinweis", "Noch hat niemand gespielt. Der erste Name, der hier steht, könnte deiner sein.");
-    const tabelle = el("table", "mini-tabelle");
-    const kopf = el("thead");
-    const kopfZeile = el("tr");
-    [["Spieler", ""], ["Spiele", "zahl"], ["Ø Rang", "zahl"], ["Bester", "zahl"], ["Siege", "zahl"]]
-      .forEach(([text, klasse]) => kopfZeile.append(el("th", klasse, text)));
-    kopf.append(kopfZeile);
-    tabelle.append(kopf);
+  // ---------------------------------------------------------------------------
+  // Die Gesamtwertung: fair, zum Filtern, mit einer Karte je Spieler
+  // ---------------------------------------------------------------------------
+  /*
+   * Wer ist über alle Spiele vorne? Zwei Fallen, und die alte Tabelle trat in
+   * beide:
+   *
+   *   Der Platz im Schnitt nur über die gespielten Spiele: Wer ein einziges
+   *   Spiel als Zweiter gespielt hat, stand vor jemandem, der in vierzehn
+   *   Spielen im Schnitt etwas schlechter ist – und Platz 2 von zwei zählte
+   *   wie Platz 2 von zwanzig.
+   *   Die Zahl der Siege: Wer mehr Spiele spielt, sammelt mehr, ohne darin
+   *   besser zu sein.
+   *
+   * Deshalb zählen hier Duelle. Jedes Spiel ist eine Reihe davon: Wer in der
+   * Rangliste hinter dir steht, hat sein Duell gegen dich verloren, wer vor
+   * dir steht, hat es gewonnen, wer gleich viel hat, teilt es. Die Wertung ist
+   * der Anteil gewonnener Duelle, von 0 bis 100. Ein grosses Feld zählt so
+   * mehr als ein kleines, und wer allein in einem Spiel steht, hat dort kein
+   * Duell – weder gewonnen noch verloren.
+   *
+   * Dazu ein Ausgleich: AUSGLEICH Duelle, die als geteilt zählen. Wer erst
+   * wenige Duelle hat, steht damit nahe der Mitte, auch wenn er alle gewonnen
+   * hat; mit jedem Spiel zählt mehr, wie er wirklich spielt. Mehr Spiele
+   * heben niemanden, der nicht besser ist – der Anteil bleibt ein Anteil.
+   *
+   * Siege und Podestplätze stehen als Anteil an den eigenen Spielen da, nicht
+   * als Zahl, aus demselben Grund. Die Stärke je Spiel (für die Karte eines
+   * Spielers) ist der Anteil gewonnener Duelle in diesem Spiel.
+   */
+  const AUSGLEICH = 6;
+  const MITTE = 50;
 
-    const koerperTeil = el("tbody");
-    personen.forEach((person, index) => {
-      const zeile = el("tr", index === 0 ? "ist-erster" : "");
-      const namensZelle = el("td", "mini-tabelle-name");
-      namensZelle.append(el("span", "mini-rangzahl", `${index + 1}`), el("span", "", person.name));
-      zeile.append(namensZelle);
-      zeile.append(el("td", "zahl", String(person.spiele)));
-      zeile.append(el("td", "zahl", person.schnitt.toFixed(1).replace(".", ",")));
-      zeile.append(el("td", "zahl", String(person.bester ?? "–")));
-      zeile.append(el("td", "zahl", String(person.siege)));
-      koerperTeil.append(zeile);
+  function gesamtwertung(alle, spiele) {
+    const personen = new Map();
+    spiele.forEach((spiel) => {
+      const liste = rangliste(alle.filter((e) => e.game === spiel));
+      liste.forEach((e) => {
+        const schluessel = nameSchluessel(e.name);
+        if (!personen.has(schluessel)) personen.set(schluessel, { schluessel, name: e.name, eigen: false, je: [] });
+        const p = personen.get(schluessel);
+        p.eigen = p.eigen || Boolean(e.eigen);
+        const vorne = liste.filter((x) => x.platz < e.platz).length;
+        const gleich = liste.filter((x) => x !== e && x.platz === e.platz).length;
+        const hinten = liste.length - 1 - vorne - gleich;
+        const duelle = liste.length - 1;
+        p.je.push({
+          spiel,
+          platz: e.platz,
+          von: liste.length,
+          punkte: Number(e.punkte) || 0,
+          versuche: Number(e.versuche) || 0,
+          gewonnen: hinten + gleich / 2,
+          duelle,
+          staerke: duelle ? ((hinten + gleich / 2) / duelle) * 100 : MITTE,
+        });
+      });
     });
-    tabelle.append(koerperTeil);
-    return tabelle;
+    const raus = [...personen.values()].map((p) => {
+      const n = p.je.length;
+      const gewonnen = p.je.reduce((s, j) => s + j.gewonnen, 0);
+      const duelle = p.je.reduce((s, j) => s + j.duelle, 0);
+      return {
+        ...p,
+        spiele: n,
+        duelle,
+        schnitt: p.je.reduce((s, j) => s + j.platz, 0) / (n || 1),
+        anteil: duelle ? (gewonnen / duelle) * 100 : MITTE,
+        wert: Math.round(((gewonnen + AUSGLEICH / 2) / (duelle + AUSGLEICH)) * 1000) / 10,
+        siege: p.je.filter((j) => j.platz === 1).length,
+        podest: p.je.filter((j) => j.platz < 4).length,
+      };
+    });
+    raus.sort((a, b) => b.wert - a.wert || b.duelle - a.duelle || a.name.localeCompare(b.name, "de"));
+    let platz = 0;
+    raus.forEach((p, i) => {
+      if (i === 0 || p.wert !== raus[i - 1].wert) platz = i + 1;
+      p.platz = platz;
+    });
+    return raus;
   }
+
+  // Ein Kreis mit zwei Buchstaben, in einer Farbe, die zum Namen gehört –
+  // wie in der Gesamtwertung eines Turniers (turnier.js, avatar).
+  function kreisVon(name, klasse = "") {
+    const kreis = el("span", `tn-avatar ${klasse}`.trim(), kuerzel(name));
+    let summe = 0;
+    for (const zeichen of nameSchluessel(name)) summe = (summe * 31 + zeichen.codePointAt(0)) % 360;
+    kreis.style.setProperty("--tn-farbton", String(summe));
+    kreis.setAttribute("aria-hidden", "true");
+    return kreis;
+  }
+
+  const wertText = (wert) => String(Math.round(wert));
+  const anteilText = (teil, von) => (von ? `${Math.round((teil / von) * 100)} %` : "–");
+
+  // Was die Gesamtwertung sich merkt, solange man auf diesem Gerät ist:
+  // welche Spiele zählen, ab wie vielen, wonach sortiert. Nur eine
+  // Bequemlichkeit – fehlt der Speicher, gilt die Vorgabe.
+  const GESAMT_KEY = "mini.gesamt";
+  const MINDESTENS = [1, 3, 5, 10];
+  // Die Spalten der Tabelle, in ihrer Reihenfolge – jede lässt sich sortieren.
+  const SORTIERUNG = {
+    wert: { wort: "Wertung", wert: (p) => p.wert, ab: true, zelle: (p) => wertText(p.wert) },
+    spiele: { wort: "Spiele", wert: (p) => p.spiele, ab: true, zelle: (p) => String(p.spiele) },
+    schnitt: { wort: "Ø Platz", wert: (p) => p.schnitt, ab: false, zelle: (p) => p.schnitt.toFixed(1).replace(".", ",") },
+    siege: { wort: "Siege", wert: (p) => (p.spiele ? p.siege / p.spiele : 0), ab: true, zelle: (p) => anteilText(p.siege, p.spiele) },
+    podest: { wort: "Podest", wert: (p) => (p.spiele ? p.podest / p.spiele : 0), ab: true, zelle: (p) => anteilText(p.podest, p.spiele) },
+  };
+
+  function gesamtEinstellung() {
+    const roh = liesJson(GESAMT_KEY, {});
+    return {
+      tier: [0, 1, 2, 3].includes(Number(roh.tier)) ? Number(roh.tier) : 0,
+      mindestens: MINDESTENS.includes(Number(roh.mindestens)) ? Number(roh.mindestens) : 1,
+      sortiert: SORTIERUNG[roh.sortiert] ? roh.sortiert : "wert",
+    };
+  }
+
+  /*
+   * Das Fenster hinter dem Pokal: oben, was zählt (Tier, ab wie vielen
+   * Spielen, wonach sortiert), dann das Podest und die Tabelle. Ein Tipp auf
+   * einen Namen öffnet seine Karte (spielerKarte) – im selben Fenster, mit
+   * dem Weg zurück. Neu gerechnet wird bei jeder Wahl, gelesen nichts.
+   */
+  function gesamtTafel(alle, offen, einteilung = null) {
+    const wirt = el("div", "mini-gesamt");
+    const stand = gesamtEinstellung();
+    let karteVon = "";
+
+    const merke = () => schreibe(GESAMT_KEY, { tier: stand.tier, mindestens: stand.mindestens, sortiert: stand.sortiert });
+    const spiele = () => (stand.tier ? offen.filter((s) => tierVon(s, einteilung) === stand.tier) : offen);
+
+    function chips(wort, werte, jetzt, text, waehle) {
+      const reihe = el("div", "mini-gesamt-reihe");
+      reihe.append(el("span", "mini-gesamt-wort", wort));
+      const gruppe = el("div", "mini-gesamt-chips");
+      gruppe.setAttribute("role", "group");
+      gruppe.setAttribute("aria-label", wort);
+      werte.forEach((w) => {
+        const b = el("button", "mini-gesamt-chip", text(w));
+        b.type = "button";
+        b.addEventListener("click", () => { waehle(w); merke(); zeichne(); });
+        b.setAttribute("aria-pressed", w === jetzt ? "true" : "false");
+        gruppe.append(b);
+      });
+      reihe.append(gruppe);
+      return reihe;
+    }
+
+    function zeichne() {
+      wirt.replaceChildren();
+      const welche = spiele();
+      const alleLeute = gesamtwertung(alle, welche);
+      if (karteVon) {
+        const person = alleLeute.find((p) => p.schluessel === karteVon);
+        if (person) { wirt.append(spielerKarte(person, alleLeute, welche, () => { karteVon = ""; zeichne(); })); return; }
+        karteVon = "";
+      }
+
+      const filter = el("div", "mini-gesamt-filter");
+      filter.append(
+        chips("Spiele", [0, ...TIERS], stand.tier, (t) => (t ? `Tier ${t}` : "Alle"), (t) => { stand.tier = t; }),
+        chips("Gespielt", MINDESTENS, stand.mindestens, (n) => (n === 1 ? "Alle" : `ab ${n}`), (n) => { stand.mindestens = n; }),
+      );
+      wirt.append(filter);
+
+      const leute = alleLeute.filter((p) => p.spiele >= stand.mindestens);
+      if (!leute.length) {
+        wirt.append(el("p", "mini-hinweis", alleLeute.length
+          ? `Mit ${stand.mindestens} oder mehr gespielten Spielen steht hier noch niemand.`
+          : "Noch hat niemand gespielt. Der erste Name, der hier steht, könnte deiner sein."));
+        return;
+      }
+
+      // Das Podest: die ersten drei nach der Wertung – wie im Turnier.
+      const podest = el("ol", "tn-sieger mini-gesamt-podest");
+      leute.slice(0, 3).forEach((p, i) => {
+        const stufe = Math.min(p.platz, 3);
+        const li = el("li", `tn-person tn-stufe ist-platz-${stufe} ist-stelle-${i + 1}${p.eigen ? " ist-ich" : ""}`);
+        li.setAttribute("role", "button");
+        li.tabIndex = 0;
+        li.title = `${p.name}: Karte öffnen`;
+        const oeffne = () => { karteVon = p.schluessel; zeichne(); };
+        li.addEventListener("click", oeffne);
+        li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); oeffne(); } });
+        const wer = el("div", "tn-stufe-wer");
+        if (stufe === 1) wer.append(mitIcon("span", "tn-krone", "krone"));
+        wer.append(kreisVon(p.name, "tn-avatar-gross"), el("strong", "tn-person-name", p.name));
+        const wert = el("span", "tn-person-wert");
+        wert.append(el("strong", "", wertText(p.wert)), el("small", "", "Wertung"));
+        if (p.eigen) wert.append(el("span", "tn-du", "Du"));
+        wer.append(wert);
+        const sockel = el("div", "tn-sockel");
+        sockel.append(el("span", "tn-sockel-platz", String(p.platz)));
+        li.append(wer, sockel);
+        podest.append(li);
+      });
+      wirt.append(podest);
+
+      // Die Tabelle: nach jeder Spalte sortierbar.
+      const sortierung = SORTIERUNG[stand.sortiert];
+      const gezeigt = leute.slice().sort((a, b) => {
+        const x = sortierung.wert(a);
+        const y = sortierung.wert(b);
+        return (sortierung.ab ? y - x : x - y) || a.platz - b.platz;
+      });
+      const tabelle = el("table", "mini-tabelle mini-gesamt-tabelle");
+      const kopfZeile = el("tr");
+      kopfZeile.append(el("th", "", "Spieler"));
+      Object.entries(SORTIERUNG).forEach(([key, s]) => {
+        const th = el("th", "zahl");
+        const b = el("button", "mini-gesamt-sortier", s.wort);
+        b.type = "button";
+        b.addEventListener("click", () => { stand.sortiert = key; merke(); zeichne(); });
+        if (key === stand.sortiert) th.setAttribute("aria-sort", s.ab ? "descending" : "ascending");
+        th.append(b);
+        kopfZeile.append(th);
+      });
+      const kopf = el("thead");
+      kopf.append(kopfZeile);
+      const koerperTeil = el("tbody");
+      gezeigt.forEach((p) => {
+        const zeile = el("tr", `${p.platz === 1 ? "ist-erster" : ""}${p.eigen ? " ist-ich" : ""}`.trim());
+        const namensZelle = el("td", "mini-tabelle-name");
+        const b = el("button", "mini-gesamt-person");
+        b.type = "button";
+        b.title = `${p.name}: Karte öffnen`;
+        b.append(el("span", "mini-rangzahl", String(p.platz)), el("span", "", p.name));
+        b.addEventListener("click", () => { karteVon = p.schluessel; zeichne(); });
+        namensZelle.append(b);
+        zeile.append(namensZelle);
+        Object.entries(SORTIERUNG).forEach(([key, spalte]) => {
+          const zelle = el("td", key === "wert" ? "zahl mini-gesamt-wert" : "zahl");
+          // Hinter der Wertung ein Balken: wie weit bis 100.
+          if (key === "wert") zelle.style.setProperty("--wert", String(Math.max(0, Math.min(100, p.wert)) / 100));
+          zelle.append(el("span", "", spalte.zelle(p)));
+          zeile.append(zelle);
+        });
+        koerperTeil.append(zeile);
+      });
+      tabelle.append(kopf, koerperTeil);
+      const rollt = el("div", "mini-gesamt-rollt");
+      rollt.append(tabelle);
+      wirt.append(rollt);
+
+      const wie = el("details", "mini-gesamt-wie");
+      wie.append(el("summary", "", "So wird gerechnet"), el("p", "", "Jedes Spiel ist eine Reihe von Duellen: Wer hinter dir steht, hat gegen dich verloren, wer vor dir steht, hat gewonnen. "
+        + "Die Wertung ist dein Anteil gewonnener Duelle, von 0 bis 100 – Platz 2 von 20 zählt also mehr als Platz 2 von 3. "
+        + `Dazu kommen ${AUSGLEICH} Duelle, die als unentschieden zählen: Wer erst wenige hat, steht so nahe der Mitte, auch wenn er alle gewonnen hat. `
+        + "Mehr Spiele heben niemanden, der nicht besser spielt. Siege und Podest stehen als Anteil an den eigenen Spielen da."));
+      wirt.append(wie);
+    }
+
+    zeichne();
+    return wirt;
+  }
+
+  /*
+   * Die Karte eines Spielers: wo er steht, seine stärksten Spiele, was er am
+   * meisten spielt (ohne zu sagen, wie oft – das geht niemanden etwas an),
+   * alle Spiele mit ihrem Platz und die, die er noch nie gespielt hat.
+   */
+  function spielerKarte(p, alleLeute, spiele, zurueck) {
+    const karte = el("div", "mini-profil");
+    const kopf = el("header", "mini-profil-kopf");
+    kopf.append(knopf("Zur Gesamtwertung", "mini-knopf-klein mini-knopf-still mini-profil-zurueck", zurueck));
+    const wer = el("div", "mini-profil-wer");
+    wer.append(kreisVon(p.name, "tn-avatar-gross"));
+    const texte = el("div", "mini-profil-texte");
+    texte.append(el("h3", "mini-profil-name", p.name), el("p", "mini-profil-platz", `Platz ${p.platz} von ${alleLeute.length} · Wertung ${wertText(p.wert)}`));
+    if (p.eigen) texte.append(el("span", "tn-du", "Du"));
+    wer.append(texte);
+    kopf.append(wer);
+    karte.append(kopf);
+
+    const kacheln = el("div", "mini-profil-kacheln");
+    const kachel = (wert, wort) => {
+      const k = el("div", "mini-profil-kachel");
+      k.append(el("strong", "", wert), el("span", "", wort));
+      return k;
+    };
+    kacheln.append(
+      kachel(`${p.spiele} von ${spiele.length}`, "Spiele gespielt"),
+      kachel(p.schnitt.toFixed(1).replace(".", ","), "Platz im Schnitt"),
+      kachel(String(p.siege), p.siege === 1 ? "Spiel vorne" : "Spiele vorne"),
+      kachel(String(p.podest), "auf dem Podest"),
+    );
+    karte.append(kacheln);
+
+    const teil = (ueberschrift) => {
+      const box = el("div", "mini-profil-teil");
+      box.append(el("h4", "mini-profil-titel", ueberschrift));
+      return box;
+    };
+    const spielZeile = (j, rechts) => {
+      const li = el("li", "mini-profil-zeile");
+      const link = el("a", "mini-profil-spiel");
+      link.href = spielLink(j.spiel);
+      const bild = el("img", "mini-profil-bild");
+      bild.alt = "";
+      bild.loading = "lazy";
+      bild.decoding = "async";
+      bild.src = bildPfad(j.spiel, "klein");
+      bild.addEventListener("error", () => bild.classList.add("ist-leer"), { once: true });
+      link.append(bild, el("span", "mini-profil-spielname", titel(j.spiel)));
+      li.append(link, rechts);
+      return li;
+    };
+    const platzMarke = (j) => el("span", `mini-profil-rang${j.platz < 4 ? ` ist-platz-${j.platz}` : ""}`, `${j.platz}. von ${j.von}`);
+
+    // Die stärksten: wo er am weitesten vorne steht.
+    // Mit einem gewonnenen und einem verlorenen Duell dazu: Platz 2 von 6 ist
+    // ein besseres Spiel als Platz 1 von 2.
+    const sicher = (j) => (j.gewonnen + 1) / (j.duelle + 2);
+    const staerkste = p.je.slice().sort((a, b) => sicher(b) - sicher(a) || a.platz - b.platz).slice(0, 3);
+    const best = teil(staerkste.length === 1 ? "Sein bestes Spiel" : "Seine besten Spiele");
+    const bestListe = el("ol", "mini-profil-liste");
+    staerkste.forEach((j) => bestListe.append(spielZeile(j, platzMarke(j))));
+    best.append(bestListe);
+    karte.append(best);
+
+    // Am meisten gespielt: als Balken, ohne Zahl.
+    const oft = p.je.slice().sort((a, b) => b.versuche - a.versuche).slice(0, 5);
+    const meiste = Math.max(1, ...oft.map((j) => j.versuche));
+    const lieblinge = teil("Am meisten gespielt");
+    const oftListe = el("ol", "mini-profil-liste");
+    oft.forEach((j) => {
+      const balken = el("span", "mini-profil-oft");
+      balken.style.setProperty("--wie-oft", `${Math.max(8, Math.round((j.versuche / meiste) * 100))}%`);
+      balken.setAttribute("aria-hidden", "true");
+      oftListe.append(spielZeile(j, balken));
+    });
+    lieblinge.append(oftListe);
+    karte.append(lieblinge);
+
+    // Alle seine Spiele, nach dem Platz.
+    const alleTeil = teil("Alle seine Spiele");
+    const alleListe = el("ol", "mini-profil-liste");
+    p.je.slice().sort((a, b) => a.platz - b.platz || b.staerke - a.staerke).forEach((j) => alleListe.append(spielZeile(j, platzMarke(j))));
+    alleTeil.append(alleListe);
+    karte.append(alleTeil);
+
+    const nie = spiele.filter((s) => !p.je.some((j) => j.spiel === s));
+    if (nie.length) {
+      const nochNie = teil("Noch nie gespielt");
+      const reihe = el("div", "mini-profil-nie");
+      nie.forEach((s) => {
+        const weg = el("a", "mini-profil-chip", titel(s));
+        weg.href = spielLink(s);
+        reihe.append(weg);
+      });
+      nochNie.append(reihe);
+      karte.append(nochNie);
+    }
+    return karte;
+  }
+
 
   /*
    * Der Knopf «Multiplayer» oben auf der Startseite (live.js): Er steht nur
@@ -3150,7 +3483,7 @@
         wirtTabelle.innerHTML = "";
         if (ladefehler) wirtTabelle.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
         else if (!alle) wirtTabelle.append(el("p", "mini-hinweis", "Wird geladen..."));
-        else wirtTabelle.append(spielerTabelle(auswertung(alle, offen)));
+        else wirtTabelle.append(gesamtTafel(alle, offen, einteilung));
       };
       zeichne();
       gesamtZeichnen = zeichne;
