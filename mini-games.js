@@ -320,19 +320,29 @@
   // Namen ändern
   // ---------------------------------------------------------------------------
   /*
-   * Ein neuer Name gilt nur für die Runden, die noch kommen. Was schon in
-   * einer Liste steht, bleibt unter dem bisherigen Namen stehen – in der
-   * Hall of Fame wie in jedem Turnier.
+   * Zwei Dinge, die gleich aussehen und es nicht sind:
    *
-   * Darum spielt das Gerät mit einem neuen Namen als neuer Mitspieler: mit
-   * einer eigenen Kennung, ohne Bestwerte und ohne eigenen Lauf. Denn in den
-   * Listen gibt es je Spiel und Kennung ein Dokument; mit der alten Kennung
-   * schriebe die nächste Runde den neuen Namen auch über die alten Punkte.
+   *   Namen ändern       Ich heisse jetzt anders. Alles, was unter dem alten
+   *                      Namen steht, kommt mit – Bestwerte, Runden, Plätze,
+   *                      in jedem Spiel und in den Turnieren, in denen das
+   *                      Gerät dabei war (namenAendern, cloud.js benenneUm).
+   *                      Die Kennung bleibt, die Bestwerte und der Lauf auf
+   *                      dem Gerät auch.
+   *   Jemand anderes     Ein anderer Mensch spielt jetzt auf diesem Gerät
+   *                      (namenWechseln): mit eigener Kennung, ohne Bestwerte
+   *                      und ohne eigenen Lauf. Denn in den Listen gibt es je
+   *                      Spiel und Kennung ein Dokument; mit der alten
+   *                      Kennung landeten seine Runden in fremden Einträgen.
    *
    * Wer zu einem Namen zurückwechselt, den das Gerät schon kennt, ist wieder
    * dieser Mitspieler – mit seiner Kennung, seinen Bestwerten, seinem Lauf.
    * So teilen sich Geschwister ein Handy, ohne einander in die Quere zu
    * kommen. Gross- und Kleinschreibung zählt dabei nicht.
+   *
+   * Auf den anderen Geräten desselben Spielers kommt der neue Name von selbst
+   * an: Was der Server über den Namen der eigenen Kennung sagt, gilt
+   * (uebernimmName), und eine Runde ändert den Namen eines Eintrags nie
+   * (cloud.js, speichere).
    */
   const WER_KEY = "mini.wer";
   const LAUF_KEY = "mini.lauf";        // der eigene beste Lauf je Spiel (geist.js)
@@ -358,6 +368,18 @@
     return Array.isArray(liste) ? liste.filter((e) => e && sauberName(e.name) && gueltigeKennung(e.id)) : [];
   }
 
+  // Ein Name, unter dem auf diesem Gerät schon jemand anderes spielt.
+  const spieltHierSchon = (wert) => bekannteNamen().some((e) => nameSchluessel(e.name) === nameSchluessel(wert));
+
+  // Wer sonst noch wissen muss, dass der Name ein anderer ist: der Name oben
+  // rechts (nameChip), jede Zeile «Du spielst als …» (namensZeile).
+  function nameGeaendert() {
+    stammGeprueft.clear();
+    abgleiche.clear();
+    zwischenspeicher = null;
+    try { window.dispatchEvent(new CustomEvent("mini-name", { detail: { name: name() } })); } catch { /* alt */ }
+  }
+
   // Gibt den Namen zurück, unter dem ab jetzt gespielt wird, und wie es dazu
   // kam: "gleich" (derselbe Mitspieler, nur anders geschrieben), "erster"
   // (bisher ohne Namen), "zurueck" (ein Name, den das Gerät schon kennt) oder
@@ -369,6 +391,7 @@
     const altId = kennungFallsDa();
     if (!alt) {
       setzeName(neu);
+      nameGeaendert();
       return { name: neu, wie: "erster" };
     }
     if (nameSchluessel(alt) === nameSchluessel(neu)) {
@@ -394,20 +417,73 @@
     }
     kennungMerker = "";
     setzeName(neu);
-    zwischenspeicher = null;
+    // Die neue Kennung kann selbst umgezogen sein (folgeUmzug).
+    umzugGeprueft = null;
+    nameGeaendert();
     return { name: neu, wie: da ? "zurueck" : "neu" };
   }
 
   /*
+   * Ich heisse jetzt anders – und nehme alles mit. Erst auf dem Server, dann
+   * auf dem Gerät: Geht das Umbenennen nicht (kein Netz), wirft es, und der
+   * Name bleibt, wie er war. Sonst stünde auf dem Gerät ein Name, unter dem
+   * in den Listen nichts steht – und der nächste Abgleich holte den alten
+   * zurück (uebernimmName).
+   *
+   * Ist der neue Name einer, unter dem auf diesem Gerät schon jemand anderes
+   * spielt, ist das dieser Mitspieler (namenWechseln) – kein neuer Name für
+   * mich. Und steht der neue Name schon in einer Liste, zählt ab jetzt beides
+   * als ein Spieler: Derselbe Name ist derselbe Spieler (stammKennung). Ob
+   * man das will, fragt die Zeile vorher (namensZeile, gibtEsSchon).
+   */
+  async function namenAendern(wert) {
+    const neu = sauberName(wert);
+    const alt = name();
+    if (!neu) return { name: alt, wie: "leer" };
+    if (!alt) return namenWechseln(neu);
+    if (neu === alt) return { name: neu, wie: "gleich" };
+    if (nameSchluessel(neu) !== nameSchluessel(alt) && spieltHierSchon(neu)) return namenWechseln(neu);
+    const ich = kennungFallsDa();
+    if (gueltigeKennung(ich)) {
+      if (!cloud()?.benenneUm) throw new Error("Die Bestenliste ist gerade nicht zu haben.");
+      await cloud().benenneUm({
+        spieler: ich,
+        alt,
+        name: neu,
+        turniere: window.LernappTurnier?.turnierIds?.() || [],
+      });
+    }
+    setzeName(neu);
+    nameGeaendert();
+    return { name: neu, wie: "umbenannt" };
+  }
+
+  // Steht der Name schon in einer Liste, unter einer anderen Kennung als
+  // dieser? Gefragt wird nach genau dieser Schreibweise (cloud.js,
+  // unterNamen) – eine Abfrage, nicht die ganzen Listen.
+  async function gibtEsSchon(wert) {
+    const ich = kennungFallsDa();
+    const da = await (cloud()?.unterNamen?.(sauberName(wert)) || Promise.resolve([]));
+    return (da || []).some((e) => e.spieler !== ich);
+  }
+
+  /*
    * Die Zeile "Du spielst als …" mit dem Knopf "Namen ändern". Ein Tipp
-   * darauf macht aus ihr ein Feld; der neue Name gilt ab der nächsten Runde.
-   * beiWechsel bekommt, was namenWechseln zurückgibt – die Turnierseite
-   * zeichnet sich damit neu, denn wer vorne liegt, hängt an der Kennung.
+   * darauf macht aus ihr ein Feld: Der neue Name nimmt alles mit
+   * (namenAendern). Darunter der Weg für jemand anderen auf diesem Gerät
+   * (namenWechseln), mit den Namen, die es schon kennt.
+   *
+   * beiWechsel bekommt, was dabei herauskam – die Turnierseite zeichnet sich
+   * damit neu, denn wer vorne liegt, hängt an der Kennung.
    */
   function namensZeile({ beiWechsel = null, klasse = "" } = {}) {
     const wirt = el("div", `mini-wer ${klasse}`.trim());
+    // Solange ein Feld offen ist, schreibt ein Name von aussen (folgeUmzug,
+    // uebernimmName) nicht darüber.
+    let offen = false;
 
     function zeige(meldung = "") {
+      offen = false;
       wirt.innerHTML = "";
       const zeile = el("p", "mini-name-steht");
       const wer = name();
@@ -421,37 +497,194 @@
       if (meldung) wirt.append(el("p", "mini-wer-hinweis", meldung));
     }
 
-    function frage() {
-      wirt.innerHTML = "";
+    function feldMit(platzhalter, wort) {
       const form = el("form", "mini-namensfeld");
       const feld = el("input");
       feld.type = "text";
       feld.maxLength = NAME_MAX;
-      feld.placeholder = name() ? "Neuer Name" : "Dein Name";
+      feld.placeholder = platzhalter;
       feld.autocomplete = "nickname";
-      feld.setAttribute("aria-label", "Neuer Name");
-      const ok = el("button", "mini-knopf mini-knopf-voll", "Übernehmen");
+      feld.setAttribute("aria-label", platzhalter);
+      const ok = el("button", "mini-knopf mini-knopf-voll", wort);
       ok.type = "submit";
       form.append(feld, ok);
+      return { form, feld, ok };
+    }
+
+    function fertig(wechsel) {
+      const satz = {
+        zurueck: `Willkommen zurück, ${wechsel.name}!`,
+        umbenannt: `Du heisst jetzt ${wechsel.name} – deine Punkte und Runden sind mitgekommen.`,
+        neu: `Ab der nächsten Runde spielst du als ${wechsel.name}.`,
+        erster: `Ab der nächsten Runde spielst du als ${wechsel.name}.`,
+      }[wechsel.wie] || "";
+      zeige(satz);
+      beiWechsel?.(wechsel);
+    }
+
+    // Umbenennen, und solange es dauert, nichts anderes. Geht es nicht,
+    // bleibt der alte Name – und es steht da, warum.
+    async function benenne(neu, hinweis, gesperrt = []) {
+      gesperrt.forEach((k) => { k.disabled = true; });
+      hinweis.classList.remove("ist-fehler");
+      hinweis.textContent = "Einen Moment …";
+      try {
+        fertig(await namenAendern(neu));
+      } catch (fehler) {
+        console.warn("Der Name liess sich nicht ändern", fehler);
+        gesperrt.forEach((k) => { k.disabled = false; });
+        hinweis.classList.add("ist-fehler");
+        hinweis.textContent = `Das ging gerade nicht – vielleicht fehlt die Verbindung. Du heisst weiter ${name()}.`;
+      }
+    }
+
+    function frage() {
+      offen = true;
+      wirt.innerHTML = "";
+      const vorher = name();
+      const { form, feld, ok } = feldMit(vorher ? "Neuer Name" : "Dein Name", "Übernehmen");
+      const hinweis = el("p", "mini-wer-hinweis", vorher
+        ? "Deine Punkte, Runden und Plätze nimmst du mit – in allen Spielen."
+        : "Unter diesem Namen stehst du in den Listen.");
+      form.addEventListener("submit", async (ereignis) => {
+        ereignis.preventDefault();
+        const neu = sauberName(feld.value);
+        if (!neu) { feld.focus(); return; }
+        if (!vorher || neu === vorher || spieltHierSchon(neu)) {
+          await benenne(neu, hinweis, [feld, ok]);
+          return;
+        }
+        if (nameSchluessel(neu) !== nameSchluessel(vorher)) {
+          [feld, ok].forEach((k) => { k.disabled = true; });
+          const schon = await gibtEsSchon(neu).catch(() => false);
+          [feld, ok].forEach((k) => { k.disabled = false; });
+          if (schon) { bestaetige(neu); return; }
+        }
+        await benenne(neu, hinweis, [feld, ok]);
+      });
+      const knoepfe = el("div", "mini-wer-knoepfe");
+      knoepfe.append(knopf("Abbrechen", "mini-knopf-klein mini-knopf-still", () => zeige()));
+      if (vorher) knoepfe.append(knopf("Jemand anderes spielt", "mini-knopf-klein mini-knopf-still", wechsle));
+      wirt.append(form, hinweis, knoepfe);
+      feld.focus();
+    }
+
+    // Der neue Name steht schon in einer Liste: Bin ich das?
+    function bestaetige(neu) {
+      offen = true;
+      wirt.innerHTML = "";
+      const hinweis = el("p", "mini-wer-hinweis", `«${neu}» steht schon in der Bestenliste. Bist du das? Dann zählt ihr ab jetzt als ein Spieler.`);
+      const knoepfe = el("div", "mini-wer-knoepfe");
+      const ja = knopf("Ja, das bin ich", "mini-knopf mini-knopf-voll", () => benenne(neu, hinweis, [ja, nein]));
+      const nein = knopf("Anderer Name", "mini-knopf-klein mini-knopf-still", frage);
+      knoepfe.append(ja, nein);
+      wirt.append(hinweis, knoepfe);
+      ja.focus();
+    }
+
+    // Jemand anderes spielt auf diesem Gerät: ein neuer Mitspieler oder einer,
+    // den das Gerät schon kennt.
+    function wechsle() {
+      offen = true;
+      wirt.innerHTML = "";
+      const { form, feld } = feldMit("Wer spielt?", "Los");
       form.addEventListener("submit", (ereignis) => {
         ereignis.preventDefault();
         const wechsel = namenWechseln(feld.value);
         if (wechsel.wie === "leer") { feld.focus(); return; }
-        const satz = wechsel.wie === "zurueck"
-          ? `Willkommen zurück, ${wechsel.name}!`
-          : `Ab der nächsten Runde spielst du als ${wechsel.name}.`;
-        zeige(satz);
-        beiWechsel?.(wechsel);
+        fertig(wechsel);
       });
-      const zurueck = knopf("Abbrechen", "mini-knopf-klein mini-knopf-still", () => zeige());
-      wirt.append(form, el("p", "mini-wer-hinweis", name()
-        ? "Gilt nur für die nächsten Runden – was du schon gespielt hast, bleibt unter deinem bisherigen Namen stehen."
-        : "Unter diesem Namen stehst du in den Listen."), zurueck);
+      wirt.append(el("p", "mini-wer-hinweis", `Für jemand anderen auf diesem Gerät. Wer neu ist, fängt ohne Punkte an – was ${name()} gespielt hat, bleibt bei ${name()}.`));
+      const andere = bekannteNamen();
+      if (andere.length) {
+        const reihe = el("div", "mini-wer-andere");
+        andere.forEach((e) => reihe.append(knopf(e.name, "mini-knopf-klein", () => fertig(namenWechseln(e.name)))));
+        wirt.append(reihe);
+      }
+      const knoepfe = el("div", "mini-wer-knoepfe");
+      knoepfe.append(knopf("Abbrechen", "mini-knopf-klein mini-knopf-still", () => zeige()));
+      wirt.append(form, knoepfe);
       feld.focus();
     }
 
+    // Kommt der Name von aussen (ein anderes Gerät, der Adminbereich), steht
+    // er gleich hier. Eine Zeile, die schon wieder weg ist, hört auf.
+    let warDa = false;
+    const auffrischen = () => {
+      if (wirt.isConnected) warDa = true;
+      else if (warDa) { window.removeEventListener("mini-name", auffrischen); return; }
+      if (!offen) zeige();
+    };
+    window.addEventListener("mini-name", auffrischen);
+
     zeige();
     return wirt;
+  }
+
+  /*
+   * Was der Server über den Namen der eigenen Kennung sagt, gilt.
+   *
+   * Hat sich der Spieler auf einem anderen Gerät umbenannt (namenAendern)
+   * oder der Admin ihn (admin.js), stehen seine Einträge unter dem neuen
+   * Namen – dieses Gerät kennt noch den alten. Steht unter der eigenen
+   * Kennung kein Eintrag mehr mit dem Namen des Geräts, gilt der, unter dem
+   * zuletzt gespielt wurde. Gelesen wird dafür nichts eigens: Gefragt wird in
+   * dem, was die Seite ohnehin gelesen hat (gleicheAb, die Startseite, melde).
+   * Gibt true zurück, wenn sich der Name geändert hat.
+   */
+  function uebernimmName(eintraege) {
+    const ich = kennungFallsDa();
+    const wie = name();
+    if (!gueltigeKennung(ich) || !wie) return false;
+    const meine = (eintraege || []).filter((e) => e?.spieler === ich && sauberName(e.name));
+    if (!meine.length || meine.some((e) => nameSchluessel(e.name) === nameSchluessel(wie))) return false;
+    const zuletzt = meine.reduce((a, b) => ((Number(b.updatedAtMs) || 0) > (Number(a.updatedAtMs) || 0) ? b : a));
+    setzeName(zuletzt.name);
+    nameGeaendert();
+    return true;
+  }
+
+  /*
+   * Ist die eigene Kennung umgezogen? Der Adminbereich führt Namen und Geräte
+   * zusammen (admin.js, fuehreNamenZusammen, fuehreZusammen): Je Spiel bleibt
+   * ein Eintrag unter einer Kennung, die anderen verschwinden – und für jede
+   * bleibt ein Zettel, wohin es weitergeht (cloud.js, umzug). Das Gerät folgt
+   * ihm einmal je Seite, über ein Dokument, nicht über eine Abfrage – auch
+   * über mehrere Umzüge, aber nie im Kreis. Danach spielt es unter der neuen
+   * Kennung und dem Namen dort weiter.
+   *
+   * Nicht mitten in einem Turnier, einem Multiplayer oder beim Zuschauen
+   * (inTurnierOderLive): Dort hängen Versuche und Plätze an der Kennung, mit
+   * der die Seite begann. Gefolgt wird beim nächsten gewöhnlichen Spiel oder
+   * auf der Startseite.
+   */
+  let umzugGeprueft = null;
+  function folgeUmzug() {
+    if (umzugGeprueft) return umzugGeprueft;
+    const start = kennungFallsDa();
+    if (!gueltigeKennung(start) || !cloud()?.umzug || inTurnierOderLive()) return Promise.resolve(null);
+    umzugGeprueft = (async () => {
+      const gesehen = new Set([start]);
+      let ich = start;
+      let wie = "";
+      for (let schritt = 0; schritt < 5; schritt += 1) {
+        const weiter = await cloud().umzug(ich);
+        if (!weiter || gesehen.has(weiter.nach)) break;
+        gesehen.add(weiter.nach);
+        ich = weiter.nach;
+        wie = weiter.name;
+      }
+      if (ich === start || kennungFallsDa() !== start) return null;
+      setzeKennung(ich);
+      if (wie) setzeName(wie);
+      nameGeaendert();
+      return { kennung: ich, name: name() };
+    })().catch((fehler) => {
+      // Regeln ohne miniUmzuege, kein Netz: Dann eben beim nächsten Mal.
+      console.warn("Der Umzug liess sich nicht nachsehen", fehler);
+      return null;
+    });
+    return umzugGeprueft;
   }
 
   // ---------------------------------------------------------------------------
@@ -501,8 +734,36 @@
   const stammGeprueft = new Map();   // Name → Promise
 
   function stammKennung(spiel = spielId()) {
+    if (!name() || !cloud()?.unterNamen || inTurnierOderLive()) return Promise.resolve(null);
+    // Zuerst, ob die eigene Kennung umgezogen ist, und wie sie heute heisst:
+    // Danach kann der Name ein anderer sein. Erst dann wird nach dem Namen
+    // gesucht – mit dem alten fände das Gerät sonst Einträge, die es nicht
+    // mehr sind, und spielte unter einer fremden Kennung weiter.
+    return folgeUmzug().then(() => eigenenNamenPruefen()).then(() => stammZumNamen(spiel));
+  }
+
+  // Wie heisst die eigene Kennung heute? Einmal je Seite und Kennung gefragt
+  // (cloud.js, vonKennung) – auch für Spiele, die das Gerät hier noch nie
+  // gespielt hat (uebernimmName).
+  let eigenerNameGeprueft = null;
+  let eigenerNameFuer = "";
+  function eigenenNamenPruefen() {
+    const ich = kennungFallsDa();
+    if (!gueltigeKennung(ich) || !name() || !cloud()?.vonKennung) return Promise.resolve(false);
+    if (eigenerNameGeprueft && eigenerNameFuer === ich) return eigenerNameGeprueft;
+    eigenerNameFuer = ich;
+    eigenerNameGeprueft = Promise.resolve(cloud().vonKennung(ich))
+      .then((liste) => uebernimmName(liste))
+      .catch(() => {
+        eigenerNameGeprueft = null;
+        return false;
+      });
+    return eigenerNameGeprueft;
+  }
+
+  function stammZumNamen(spiel) {
     const wie = name();
-    if (!wie || !cloud()?.unterNamen || inTurnierOderLive()) return Promise.resolve(null);
+    if (!wie) return Promise.resolve(null);
     const schluessel = nameSchluessel(wie);
     if (!stammGeprueft.has(schluessel)) {
       // Gefragt wird nach dem Namen, so wie er geschrieben ist – Firestore
@@ -597,6 +858,9 @@
             cloud().meinErgebnis(spiel, ich),
             alleErgebnisse([spiel]).catch(() => []),
           ]);
+          // Heisst der eigene Eintrag inzwischen anders (ein anderes Gerät,
+          // der Adminbereich), gilt sein Name – auch für die Bestmarke.
+          uebernimmName([meiner, ...liste].filter(Boolean));
           const eigen = meiner ? meiner.punkte : 0;
           const fremd = bestesUnterNamen(liste, name(), ich);
           if (fremd && fremd.punkte > eigen) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
@@ -831,6 +1095,9 @@
     const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl, ms });
     zwischenspeicher = null;
     if (!ergebnis) return null;
+    // Der Eintrag behält seinen Namen (cloud.js, speichere). Heisst er anders
+    // als das Gerät, hat sich der Spieler anderswo umbenannt: Dann gilt der.
+    if (ergebnis.name) uebernimmName([{ spieler: ich, name: ergebnis.name, updatedAtMs: Date.now() }]);
 
     // Und, wenn das Spiel eine Aufzeichnung mitgibt: der Lauf selbst. Nur
     // beim Rekord – sonst ersetzte ein schwächerer Lauf den Geist, den die
@@ -849,7 +1116,7 @@
     // Runde: Er weiss, was vorher schon dastand – und was nicht mehr. Dazu,
     // was unter demselben Namen von einem anderen Gerät dasteht: Ein Rekord
     // ist nur, was auch das schlägt.
-    const fremd = bestesUnterNamen(await alleErgebnisse([spiel], { neu: true }).catch(() => []), wie, ich);
+    const fremd = bestesUnterNamen(await alleErgebnisse([spiel], { neu: true }).catch(() => []), name() || wie, ich);
     if (fremd && fremd.punkte > ergebnis.punkte) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
     else setzeBestwert(spiel, ergebnis.punkte, ich);
     await hoch;
@@ -2615,7 +2882,10 @@
     // Davor, sobald ein Multiplayer für alle offen ist, der Weg hinein.
     multiplayerKnopf(rechts, pokal);
 
-    const offen = await offeneSpiele();
+    // Daneben, ob die eigene Kennung umgezogen ist (folgeUmzug): Dann
+    // spielt das Gerät ab jetzt unter einer anderen, und die Listen unten
+    // sollen das schon wissen.
+    const [offen] = await Promise.all([offeneSpiele(), folgeUmzug()]);
     if (signal.aborted) return;
     if (!offen.length) {
       pokal.remove();
@@ -2697,6 +2967,9 @@
       return;
     }
     if (signal.aborted) return;
+    // Wer sich auf einem anderen Gerät umbenannt hat, heisst hier ab jetzt
+    // auch so – bevor die Listen sagen, welche Zeile «Du» ist.
+    uebernimmName(alle);
     buehne.daten({ listen: new Map(offen.map((spiel) => [spiel, rangliste(alle.filter((e) => e.game === spiel))])) });
     gesamtZeichnen?.();
   }
@@ -2723,6 +2996,8 @@
       knopfName.setAttribute("aria-label", knopfName.title);
     };
     beschriften();
+    // Ein Name von aussen (folgeUmzug, uebernimmName) steht gleich hier.
+    window.addEventListener("mini-name", beschriften, { signal });
     knopfName.append(kreis, text);
     const feld = el("div", "ar-name-feld");
     feld.hidden = true;
@@ -2816,7 +3091,9 @@
     rundeBeginnt,
     rundeEndet,
     namenWechseln,
+    namenAendern,
     namensZeile,
+    folgeUmzug,
     startStand,
     bestwert,
     gleicheAb,

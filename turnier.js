@@ -485,6 +485,9 @@
     if (liste[0] === id) return;
     try { localStorage.setItem(DABEI_KEY, JSON.stringify([id, ...liste.filter((x) => x !== id)].slice(0, DABEI_MAX))); } catch { /* privater Modus */ }
   }
+  // Alle Turniere, die dieses Gerät kennt – für den neuen Namen, der dort
+  // mitkommt (mini-games.js, namenAendern).
+  const turnierIds = () => [...new Set([...dabeiListe(), ...gemerkteTurniere()])];
   function vergissDabei(id) {
     const liste = dabeiListe();
     if (!liste.includes(id)) return;
@@ -1666,8 +1669,9 @@
     }
     const wie = mini()?.name?.() || "";
     if (!wie || !spielbar()) { zeigeTor(); return; }
-    // Umbenannt wird hier nichts: Ein Name gilt für die Runden, die kommen
-    // (mini-games.js, namenWechseln). Was schon in der Liste steht, bleibt.
+    // Hier kommt nur ein Name dazu, wo noch keiner war. Umbenannt wird über
+    // «Namen ändern» (mini-games.js, namenAendern) – dort kommt mit, was
+    // schon in den Listen steht.
 
     hier.freigegeben = true;
     hier.laeuft = false;
@@ -1928,7 +1932,7 @@
   // Start
   // ---------------------------------------------------------------------------
   window.LernappTurnier = {
-    lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere,
+    lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere, turnierIds,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel,

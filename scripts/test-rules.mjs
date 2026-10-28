@@ -547,6 +547,27 @@ await darf("Admin löscht einen Turniereintrag", () => admin().doc(VERSUCH).dele
 await darfNicht("Gast löscht ein Turnier", () => gast().doc(GEHEIM).delete());
 await darf("Admin löscht ein Turnier", () => admin().doc(GEHEIM).delete());
 
+// --- Umzüge -----------------------------------------------------------------
+// Wohin eine zusammengeführte Kennung gezogen ist: lesen darf jeder, der die
+// Kennung kennt, auflisten und schreiben nur der Admin.
+const UMZUG = "miniUmzuege/mini_umzugumzugalt";
+const umzugDaten = (aenderung = {}) => ({ nach: "mini_umzugumzugneu", name: "Efraim", updatedAtMs: 1, ...aenderung });
+await darfNicht("Gast legt einen Umzug an", () => gast().doc(UMZUG).set(umzugDaten()));
+await darfNicht("Ein angemeldeter Fremder legt einen Umzug an", () => fremder().doc(UMZUG).set(umzugDaten()));
+await darfNicht("Der Admin mit unbestätigter Adresse legt einen Umzug an", () => adminOhneVerifikation().doc(UMZUG).set(umzugDaten()));
+await darfNicht("Admin lässt eine Kennung zu sich selbst ziehen", () => admin().doc(UMZUG).set(umzugDaten({ nach: "mini_umzugumzugalt" })));
+await darfNicht("Admin lässt eine Kennung zu einer erfundenen ziehen", () => admin().doc(UMZUG).set(umzugDaten({ nach: "wer-auch-immer" })));
+await darfNicht("Admin legt einen Umzug ohne Namen an", () => admin().doc(UMZUG).set(umzugDaten({ name: "" })));
+await darfNicht("Admin schmuggelt ein Feld in den Umzug", () => admin().doc(UMZUG).set(umzugDaten({ heimlich: true })));
+await darfNicht("Admin legt einen Umzug für eine erfundene Kennung an", () => admin().doc("miniUmzuege/wer-auch-immer").set(umzugDaten()));
+await darf("Admin legt einen Umzug an", () => admin().doc(UMZUG).set(umzugDaten()));
+await darf("Gast liest den Umzug seiner Kennung", () => gast().doc(UMZUG).get());
+await darfNicht("Gast listet alle Umzüge auf", () => gast().collection("miniUmzuege").get());
+await darfNicht("Gast ändert einen Umzug", () => gast().doc(UMZUG).set(umzugDaten({ nach: "mini_umzugumzugdritt" })));
+await darfNicht("Gast löscht einen Umzug", () => gast().doc(UMZUG).delete());
+await darf("Admin listet die Umzüge auf", () => admin().collection("miniUmzuege").get());
+await darf("Admin löscht einen Umzug", () => admin().doc(UMZUG).delete());
+
 // --- cloud.js gegen die Regeln ------------------------------------------------
 // Die Prüfung im Browser ersetzt cloud.js durch eine Attrappe – sie sieht also
 // nie, ob das, was cloud.js wirklich schreibt, an diesen Regeln vorbeikommt.
@@ -690,6 +711,56 @@ await darf("cloud.js: Admin sieht alle Turniere", async () => {
   const liste = await adminCloud.alleTurniere();
   erwarte(liste.some((t) => t.id === CT), "das Turnier nur mit Link fehlt beim Admin");
 });
+// Namen ändern nimmt alles mit: Efu spielt auf zwei Geräten und in einem
+// Turnier. Er benennt sich auf dem ersten um – seine Einträge auf beiden
+// Geräten und im Turnier heissen danach Efraim, die Uhr bleibt stehen, und
+// das zweite Gerät, das noch «Efu» kennt, schreibt den alten Namen mit
+// seiner nächsten Runde nicht zurück.
+const EFU = { game: "towerStack", spieler: "mini_cloudjsefuefu1", name: "Efu" };
+const EFU2 = { ...EFU, spieler: "mini_cloudjsefuefu2" };
+await darf("cloud.js: Gast benennt sich um, und alles kommt mit", async () => {
+  await gastCloud.speichere({ ...EFU, punkte: 9, ms: 1000 });
+  await gastCloud.speichere({ ...EFU, game: "fishPond", punkte: 3, ms: 1000 });
+  await gastCloud.speichere({ ...EFU2, punkte: 11, ms: 1000 });
+  await gastCloud.turnierVersuch(CT, { ...EFU, grenze: 2 });
+  const vorher = (await gastCloud.unterNamen("Efu")).map((e) => e.updatedAtMs).sort().join(",");
+  const stand = await gastCloud.benenneUm({ spieler: EFU.spieler, alt: "Efu", name: "Efraim", turniere: [CT, "gibt-es-nicht-1234"] });
+  erwarte(stand.geaendert === 3 && stand.turniere === 1, JSON.stringify(stand));
+  const neu = await gastCloud.unterNamen("Efraim");
+  erwarte(neu.length === 3 && (await gastCloud.unterNamen("Efu")).length === 0, JSON.stringify(neu));
+  erwarte(neu.map((e) => e.updatedAtMs).sort().join(",") === vorher, "Umbenennen hat die Uhr verstellt");
+  const imTurnier = (await gastCloud.turnierErgebnisse(CT)).find((e) => e.spieler === EFU.spieler);
+  erwarte(imTurnier?.name === "Efraim", JSON.stringify(imTurnier));
+  const meine = await gastCloud.vonKennung(EFU.spieler);
+  erwarte(meine.length === 2 && meine.every((e) => e.name === "Efraim"), JSON.stringify(meine));
+});
+await darf("cloud.js: Eine Runde unter dem alten Namen lässt den neuen stehen", async () => {
+  const stand = await gastCloud.speichere({ ...EFU2, punkte: 2, ms: 1000 });
+  erwarte(stand.name === "Efraim" && stand.versuche === 2, JSON.stringify(stand));
+  erwarte((await gastCloud.meinErgebnis("towerStack", EFU2.spieler))?.name === "Efraim", "der alte Name ist zurück");
+  const runde = (await adminCloud.runden({ vonMs: JETZT - STUNDE, bisMs: Date.now() + STUNDE })).find((r) => r.id === `towerStack_${EFU2.spieler}_2`);
+  erwarte(runde?.name === "Efraim", `Runde: ${JSON.stringify(runde)}`);
+});
+await darf("cloud.js: Admin vermerkt, wohin ein Gerät zieht", async () => {
+  const gezogen = await adminCloud.setzeUmzuege([EFU2.spieler, EFU.spieler], { nach: EFU.spieler, name: "Efraim" });
+  erwarte(gezogen === 1, `gezogen: ${gezogen}`);
+  const weiter = await gastCloud.umzug(EFU2.spieler);
+  erwarte(weiter?.nach === EFU.spieler && weiter.name === "Efraim", JSON.stringify(weiter));
+  erwarte(await gastCloud.umzug(EFU.spieler) === null, "die Kennung, die bleibt, zieht weiter");
+});
+await darf("cloud.js: Zieht die bleibende Kennung später selbst um, gilt ihr alter Zettel nicht mehr", async () => {
+  await adminCloud.setzeUmzuege([EFU.spieler], { nach: EFU2.spieler, name: "Efraim" });
+  erwarte(await gastCloud.umzug(EFU2.spieler) === null, "im Kreis");
+  erwarte((await gastCloud.umzug(EFU.spieler))?.nach === EFU2.spieler, "der neue Umzug fehlt");
+});
+await wirft("cloud.js: Gast vermerkt einen Umzug", "permission-denied",
+  () => gastCloud.setzeUmzuege([EFU2.spieler], { nach: EFU.spieler, name: "Efraim" }));
+await darf("cloud.js: Admin benennt einzelne Einträge eines Turniers um", async () => {
+  const n = await adminCloud.turnierEintraegeBenennen(CT, [`towerStack_${EFU.spieler}`], "Efi");
+  const e = (await gastCloud.turnierErgebnisse(CT)).find((x) => x.spieler === EFU.spieler);
+  erwarte(n === 1 && e?.name === "Efi", JSON.stringify(e));
+});
+
 // Wer vorne liegt, wartet: cloud.js schreibt das Feld nur, wo es gilt –
 // mit fester Zahl von Versuchen liesse es weg, statt abgewiesen zu werden.
 const SPITZE = "spitze-cloudjs2345";
