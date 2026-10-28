@@ -2455,6 +2455,9 @@ try {
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 1, null, { timeout: 4000 }).catch(() => {});
     await seite.click(".cm-bar-left .cm-icon-again");
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 2, null, { timeout: 4000 }).catch(() => {});
+    // Gezählt ist der Versuch hier sofort, angemeldet einen Augenblick
+    // später: Gelesen wird erst, wenn die Anmeldung angekommen ist.
+    await seite.waitForFunction((id) => window.__miniTurnierEintraege?.get(`${id}/numberLine_${localStorage.getItem("mini.id")}`)?.versuche === 2, HERBST, { timeout: 4000 }).catch(() => {});
     const stand = await seite.evaluate((id) => {
       const ich = localStorage.getItem("mini.id");
       return { eintrag: window.__miniTurnierEintraege.get(`${id}/numberLine_${ich}`), tor: Boolean(document.querySelector(".tn-tor")) };
@@ -4071,6 +4074,9 @@ try {
       S.aktion();
       for (let n = 0; n < 8000 && !(st.schritt === "wippen" && Math.abs(S.ringRest()) < 1 / 200); n += 1) S.takt(1 / 120);
       S.aktion();
+      // Nach einem perfekten Absprung läuft kurz die Zeitlupe – gemessen
+      // wird danach.
+      for (let n = 0; n < 240 && st.zeitlupe > 0; n += 1) S.takt(1 / 120);
       const w0 = st.sp.winkel;
       for (let n = 0; n < 48; n += 1) S.takt(1 / 120);
       const offen = st.sp.winkel - w0;
@@ -5353,7 +5359,7 @@ try {
     const zu = await seite.evaluate(() => ({ phase: window.LernappFreitaucher.state.phase, welt: window.LernappFreitaucher.weltText() }));
     pruefe(zu.phase === "zuschauen" && zu.welt === welt,
       `Freitaucher: Beim Zuschauen entstehen andere Plätze:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
-    await seite.waitForTimeout(3000);
+    await seite.waitForFunction(() => window.LernappFreitaucher.state.schritt === "tauchen", null, { timeout: 15000 }).catch(() => {});
     const unterwegs = await seite.evaluate(() => ({ schritt: window.LernappFreitaucher.state.schritt, tiefe: -window.LernappFreitaucher.state.taucher.y }));
     pruefe(unterwegs.schritt === "tauchen" && unterwegs.tiefe > 1.5, `Freitaucher: Beim Zuschauen taucht er nicht ab: ${JSON.stringify(unterwegs)}`);
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 120000 }).catch(() => {});
@@ -5560,20 +5566,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 20 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 21 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 20 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 21 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /21/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /22/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -6888,7 +6894,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 107, `klang.js kennt nicht alle 107 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 113, `klang.js kennt nicht alle 113 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
