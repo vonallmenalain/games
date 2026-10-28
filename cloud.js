@@ -522,6 +522,18 @@
   }
 
   /*
+   * Alle Einträge einer Kennung, aus allen Spielen – für die Frage, wie sie
+   * heute heisst (mini-games.js, eigenenNamenPruefen). Eine Abfrage über ein
+   * einziges Feld, kein zusammengesetzter Index.
+   */
+  async function vonKennung(spieler) {
+    const spielerId = String(spieler || "").trim();
+    const ref = sammlung();
+    if (!ref || !spielerId) return [];
+    return sammle(await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get(), lies);
+  }
+
+  /*
    * Ein neuer Name, ohne dass eine Runde daraus wird – und alles, was unter
    * dem alten steht, kommt mit (mini-games.js, namenAendern).
    *
@@ -1560,7 +1572,7 @@
     app,
     db: starte,
     projektId: firebaseConfig.projectId,
-    ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen, umzug, setzeUmzuege,
+    ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen, vonKennung, umzug, setzeUmzuege,
     speichereGeist, geister,
     runden, ersteRunde, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,

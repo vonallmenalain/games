@@ -735,9 +735,30 @@
 
   function stammKennung(spiel = spielId()) {
     if (!name() || !cloud()?.unterNamen || inTurnierOderLive()) return Promise.resolve(null);
-    // Zuerst, ob die eigene Kennung umgezogen ist: Danach kann der Name ein
-    // anderer sein.
-    return folgeUmzug().then(() => stammZumNamen(spiel));
+    // Zuerst, ob die eigene Kennung umgezogen ist, und wie sie heute heisst:
+    // Danach kann der Name ein anderer sein. Erst dann wird nach dem Namen
+    // gesucht – mit dem alten fände das Gerät sonst Einträge, die es nicht
+    // mehr sind, und spielte unter einer fremden Kennung weiter.
+    return folgeUmzug().then(() => eigenenNamenPruefen()).then(() => stammZumNamen(spiel));
+  }
+
+  // Wie heisst die eigene Kennung heute? Einmal je Seite und Kennung gefragt
+  // (cloud.js, vonKennung) – auch für Spiele, die das Gerät hier noch nie
+  // gespielt hat (uebernimmName).
+  let eigenerNameGeprueft = null;
+  let eigenerNameFuer = "";
+  function eigenenNamenPruefen() {
+    const ich = kennungFallsDa();
+    if (!gueltigeKennung(ich) || !name() || !cloud()?.vonKennung) return Promise.resolve(false);
+    if (eigenerNameGeprueft && eigenerNameFuer === ich) return eigenerNameGeprueft;
+    eigenerNameFuer = ich;
+    eigenerNameGeprueft = Promise.resolve(cloud().vonKennung(ich))
+      .then((liste) => uebernimmName(liste))
+      .catch(() => {
+        eigenerNameGeprueft = null;
+        return false;
+      });
+    return eigenerNameGeprueft;
   }
 
   function stammZumNamen(spiel) {

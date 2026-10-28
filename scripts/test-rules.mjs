@@ -731,6 +731,8 @@ await darf("cloud.js: Gast benennt sich um, und alles kommt mit", async () => {
   erwarte(neu.map((e) => e.updatedAtMs).sort().join(",") === vorher, "Umbenennen hat die Uhr verstellt");
   const imTurnier = (await gastCloud.turnierErgebnisse(CT)).find((e) => e.spieler === EFU.spieler);
   erwarte(imTurnier?.name === "Efraim", JSON.stringify(imTurnier));
+  const meine = await gastCloud.vonKennung(EFU.spieler);
+  erwarte(meine.length === 2 && meine.every((e) => e.name === "Efraim"), JSON.stringify(meine));
 });
 await darf("cloud.js: Eine Runde unter dem alten Namen lässt den neuen stehen", async () => {
   const stand = await gastCloud.speichere({ ...EFU2, punkte: 2, ms: 1000 });

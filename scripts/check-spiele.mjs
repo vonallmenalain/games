@@ -189,6 +189,10 @@ const ATTRAPPE = `
       tSichern();
       return { spiele: meine.length, geaendert: meine.length, turniere: inTurnieren };
     },
+    vonKennung: async (spieler) => {
+      if (window.__miniOhneNetz) throw new Error("kein Netz");
+      return [...eintraege.values()].filter((e) => e.spieler === spieler).map((e) => ({ ...e }));
+    },
     // Die Umzuege (miniUmzuege): wohin eine zusammengefuehrte Kennung zog.
     umzug: async (kennung) => {
       if (window.__miniOhneNetz) throw new Error("kein Netz");
