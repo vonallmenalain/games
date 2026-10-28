@@ -136,7 +136,7 @@ await darfNicht("Gast legt einen Eintrag mit erfundener Kennung an", () => gast(
 await darfNicht("Gast legt einen Eintrag für ein erfundenes Spiel an", () => gast().doc("miniScores/schachweltmeister_mini_abcdefghijkl").set(eintrag({ game: "schachweltmeister" })));
 // Entfernte Spiele nehmen nichts mehr an – was dort steht, bleibt lesbar, bis
 // der Admin es wegräumt, aber es kommt nichts dazu.
-for (const weg of ["missingItem", "goSignal", "shuntYard", "brakePoint", "trackRun"]) {
+for (const weg of ["missingItem", "goSignal", "shuntYard", "brakePoint", "trackRun", "skiJump"]) {
   await darfNicht(`Gast trägt sich ins entfernte Spiel ${weg} ein`, () => gast().doc(`miniScores/${weg}_mini_abcdefghijkl`).set(eintrag({ game: weg })));
 }
 await darfNicht("Gast legt einen Eintrag mit unmöglicher Punktzahl an", () => gast().doc(EINTRAG).set(eintrag({ punkte: 99999999 })));

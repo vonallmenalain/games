@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-27-10";
+export const FASSUNG = "2026-10-28-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -186,10 +186,10 @@ export const SPIELE = [
     baut: "die Manege mit dem Jongleur",
   },
   {
-    seite: "skispringen", spiel: "skiJump", page: "skijump", js: "skispringen.js",
-    titel: "Skispringen", buehne: { id: "sj-stage", klasse: "cm-stage sj-stage" },
-    text: "Skispringen: Tippe genau an der Kante, halte in der Luft die Lage – und lande im Telemark. Gezählt werden die Meter aller Sprünge.",
-    baut: "die Schanze mit dem Springer",
+    seite: "turmspringen", spiel: "highDive", page: "highdive", js: "turmspringen.js",
+    titel: "Turmspringen", buehne: { id: "ts-stage", klasse: "cm-stage ts-stage" },
+    text: "Turmspringen: Tippe genau an der Kante, halte für das Päckchen, lass los zum Strecken – und tauch senkrecht ein.",
+    baut: "der Sprungturm im Bergsee",
   },
   {
     seite: "fallschirm", spiel: "skyDive", page: "skydive", js: "fallschirm.js",
@@ -214,6 +214,12 @@ export const SPIELE = [
     titel: "Zeitlupen-Ninja", buehne: { id: "nj-stage", klasse: "cm-stage nj-stage" },
     text: "Zeitlupen-Ninja: Die Zeit läuft nur, wenn du läufst – zieh den Ninja an Pfeilen, Klingen und Fallen vorbei bis zum Tor.",
     baut: "der Dojo-Hof mit dem Ninja",
+  },
+  {
+    seite: "freitaucher", spiel: "freeDive", page: "freedive", js: "freitaucher.js",
+    titel: "Freitaucher", buehne: { id: "fd-stage", klasse: "cm-stage fd-stage" },
+    text: "Freitaucher: Ein Atemzug, so tief du dich traust – halte, um zu schwimmen. Nur Perlen, die du nach oben bringst, zählen.",
+    baut: "das Meer mit dem Taucher",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

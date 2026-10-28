@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|sj|fs|hl|fm|nj|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -560,7 +560,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "skiJump", "skyDive", "lumberCut", "batEcho", "timeNinja"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2455,6 +2455,9 @@ try {
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 1, null, { timeout: 4000 }).catch(() => {});
     await seite.click(".cm-bar-left .cm-icon-again");
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 2, null, { timeout: 4000 }).catch(() => {});
+    // Gezählt ist der Versuch hier sofort, angemeldet einen Augenblick
+    // später: Gelesen wird erst, wenn die Anmeldung angekommen ist.
+    await seite.waitForFunction((id) => window.__miniTurnierEintraege?.get(`${id}/numberLine_${localStorage.getItem("mini.id")}`)?.versuche === 2, HERBST, { timeout: 4000 }).catch(() => {});
     const stand = await seite.evaluate((id) => {
       const ich = localStorage.getItem("mini.id");
       return { eintrag: window.__miniTurnierEintraege.get(`${id}/numberLine_${ich}`), tor: Boolean(document.querySelector(".tn-tor")) };
@@ -2679,11 +2682,12 @@ try {
     // Die sechs mit neuen Mechaniken: Jedes beschreibt seine gewürfelte Welt
     // selbst (weltText) – dieselbe Saat, derselbe Text.
     ["/jongleur", "Jongleur", () => window.LernappJongleur.weltText()],
-    ["/skispringen", "Skispringen", () => window.LernappSkispringen.weltText()],
+    ["/turmspringen", "Turmspringen", () => window.LernappTurmspringen.weltText()],
     ["/fallschirm", "Fallschirm", () => window.LernappFallschirm.weltText()],
     ["/holzfaeller", "Holzfäller", () => window.LernappHolzfaeller.weltText()],
     ["/fledermaus", "Fledermaus", () => window.LernappFledermaus.weltText()],
     ["/ninja", "Zeitlupen-Ninja", () => window.LernappNinja.weltText()],
+    ["/freitaucher", "Freitaucher", () => window.LernappFreitaucher.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -3962,198 +3966,188 @@ try {
     await kontext.close();
   }
 
-  // --- 4g19. Skispringen: schaffbar, und wer nichts tut, ist bald draussen ----------
-  // Ein Autopilot springt mehrere gewürfelte Serien: Er tippt, wenn die Kante
-  // in diesem Bild kommt, hält die Lage mit etwas Vorhalt im grünen Bereich
-  // und landet im Telemark, wenn sich die Ringe treffen. Er kommt auf jeder
-  // Welt mindestens durch acht Sprünge bis HS 240 – Wind und Böen machen
-  // nichts unmöglich. Wer nach dem Start nichts mehr tut, kippt über die
-  // Kante und stürzt; wer nur abspringt und nicht lehnt, kippt in der Luft;
-  // wer nicht landet, stürzt im Auslauf – jedes Mal mit Ergebnis. Dazu die
-  // Steuerung (links zurück, rechts vor, beide lehnen nicht), der Telemark
-  // nur nah am Boden – und ein Lauf, angeschaut, in derselben Welt mit
-  // derselben Zahl am Schluss.
+  // --- 4g19. Turmspringen: schaffbar, und jede Runde endet von selbst ---------------
+  // Ein Autopilot springt mehrere gewürfelte Serien: Er tippt, wenn an der
+  // Kante der Moment in diesem Bild kommt, hält das Päckchen, bis die
+  // Drehung beim Strecken genau die Pflicht ergibt, und streckt sich dann.
+  // Er kommt auf jeder Welt durch mindestens zehn Sprünge – bis 27 m und zur
+  // Pflicht von zweieinhalb Saltos; Wind und Böen machen nichts unmöglich.
+  // Und jede Runde endet von selbst: Ab dem dreizehnten Sprung verlangt die
+  // Pflicht mehr, als bis zum Wasser geht. Wer nach dem Start nichts tut,
+  // kippt von der Kante und klatscht; wer nur gestreckt springt, klatscht
+  // auch; wer im Päckchen bleibt, macht eine Arschbombe – jedes Mal mit
+  // Ergebnis. Ein Tipp weit vor dem Moment springt nicht ab. Und ein Lauf,
+  // angeschaut, in derselben Welt mit derselben Zahl am Schluss.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
-    await seite.goto(`${BASIS}/skispringen`, { waitUntil: "load" });
-    await seite.waitForFunction(() => window.LernappSkispringen?.state?.sch && window.LernappSkispringen.view.cssW > 0, null, { timeout: 8000 });
-    // Der Pilot als Text: Er läuft in mehreren evaluate. lage: ob er lehnt,
-    // tele: ob er landet.
-    const PILOT = `(S, st, lage = true, tele = true) => {
-      if (st.schritt === "anlauf" && S.zeitBisKante() < 1 / 120) S.aktion();
-      if (st.schritt === "flug") {
-        const f = st.sp.k + st.sp.kw * 0.12;
-        S.lenke(lage ? (f > 1.5 ? -1 : f < -1.5 ? 1 : 0) : 0);
-        if (tele && st.sprung.tele < 0 && st.anflug && st.tauVoraus <= S.TELE_ZIEL) S.aktion();
-      } else S.lenke(0);
+    await seite.goto(`${BASIS}/turmspringen`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTurmspringen?.state?.sp && window.LernappTurmspringen.view.cssW > 0, null, { timeout: 8000 });
+    // Der Pilot als Text: Er läuft in mehreren evaluate. halten: im Flug
+    // immer (true) oder nie (false) das Päckchen statt zu rechnen.
+    const PILOT = `(S, st, halten = null) => {
+      if (st.schritt === "wippen" && !st.sprung.abgesprungen && Math.abs(S.ringRest()) < 1 / 200) S.aktion();
+      if (st.schritt === "flug" && !st.sprung.verpasst) {
+        if (halten !== null) { S.halte(halten); return; }
+        const v = S.vorausWinkel(true).winkel;
+        const ziel = Math.max(S.pflichtBei(st.nr), Math.ceil((v - 10) / 180)) * 180;
+        S.halte(v < ziel - 0.5);
+      } else S.halte(false);
     }`;
     const serien = await seite.evaluate((quelle) => {
       const pilot = new Function(`return (${quelle})`)();
-      const S = window.LernappSkispringen;
+      const S = window.LernappTurmspringen;
       const st = S.state;
       const raus = [];
       for (let lauf = 0; lauf < 5; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         S.aktion();
-        let maxK = 0;
-        for (let n = 0; st.phase === "spiel" && st.nr < 8 && n < 400000; n += 1) {
+        for (let n = 0; st.phase === "spiel" && n < 900000; n += 1) {
           pilot(S, st);
-          if (st.schritt === "flug") maxK = Math.max(maxK, Math.abs(st.sp.k));
           S.takt(1 / 120);
         }
-        S.lenke(0);
-        raus.push({ nr: st.nr, hs: st.sch.HS, phase: st.phase, aus: st.aus, punkte: st.punkte, maxK: Math.round(maxK), weiten: st.sprunge.join(" ") });
+        S.halte(false);
+        raus.push({ nr: st.nr, phase: st.phase, aus: st.aus, punkte: st.punkte, sprunge: st.sprunge.join(" ") });
       }
       return raus;
     }, PILOT);
-    pruefe(serien.every((s) => s.nr >= 8 && s.hs === 240 && s.phase === "spiel" && !s.aus && s.maxK <= 6 && s.punkte >= 1300),
-      `Skispringen: Der Autopilot kommt nicht durch acht Sprünge – ${JSON.stringify(serien)}`);
+    pruefe(serien.every((s) => s.nr >= 10 && s.phase === "ende" && s.aus && s.punkte >= 300),
+      `Turmspringen: Der Autopilot kommt nicht durch zehn Sprünge, oder die Runde endet nicht von selbst – ${JSON.stringify(serien)}`);
 
-    // Wer nichts tut, ausser zu starten: Er fällt über die Kante und stürzt.
+    // Wer nichts tut, ausser zu starten: Er kippt von der Kante und klatscht.
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
     await seite.keyboard.press("Space");
-    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    await seite.waitForSelector(".cm-result-score", { timeout: 20000 }).catch(() => {});
     const nichts = await seite.evaluate(() => {
-      const st = window.LernappSkispringen.state;
+      const st = window.LernappTurmspringen.state;
       return { zahl: document.querySelector(".cm-result-score")?.textContent, phase: st.phase, aus: st.aus, nr: st.nr, art: st.sprung.art };
     });
-    pruefe(nichts.phase === "ende" && nichts.aus === "sturz" && nichts.nr === 0 && nichts.art === "verpasst" && nichts.zahl !== undefined,
-      `Skispringen: Ohne Eingabe endet die Runde nicht mit einem Sturz: ${JSON.stringify(nichts)}`);
+    pruefe(nichts.phase === "ende" && nichts.aus === "klatscher" && nichts.nr === 0 && nichts.art === "verpasst" && nichts.zahl !== undefined,
+      `Turmspringen: Ohne Eingabe endet die Runde nicht mit einem Klatscher: ${JSON.stringify(nichts)}`);
 
-    // Nur abspringen und landen, nie lehnen: Die Lage läuft davon. Und nie
-    // landen: Sturz im Auslauf.
+    // Nur gestreckt: zu wenig Drehung – Klatscher. Nur im Päckchen:
+    // Arschbombe.
     const halb = await seite.evaluate((quelle) => {
       const pilot = new Function(`return (${quelle})`)();
-      const S = window.LernappSkispringen;
+      const S = window.LernappTurmspringen;
       const st = S.state;
       const raus = {};
-      for (const [art, lage, tele] of [["ohneLage", false, true], ["ohneTelemark", true, false]]) {
+      for (const [art, halten] of [["gestreckt", false], ["paeckchen", true]]) {
         const liste = [];
         for (let lauf = 0; lauf < 3; lauf += 1) {
           document.querySelector(".cm-bar-left .cm-icon-again").click();
           S.aktion();
           for (let n = 0; st.phase === "spiel" && n < 200000; n += 1) {
-            pilot(S, st, lage, tele);
+            pilot(S, st, halten);
             S.takt(1 / 120);
           }
+          S.halte(false);
           liste.push({ nr: st.nr, aus: st.aus, grund: st.grund, ergebnis: Boolean(document.querySelector(".cm-result-score")) });
         }
         raus[art] = liste;
       }
       return raus;
     }, PILOT);
-    pruefe(halb.ohneLage.every((r) => r.aus === "sturz" && r.nr <= 2 && r.ergebnis),
-      `Skispringen: Wer nie lehnt, kommt zu weit: ${JSON.stringify(halb.ohneLage)}`);
-    pruefe(halb.ohneTelemark.every((r) => r.aus === "sturz" && r.nr === 0 && r.grund === "Kein Telemark" && r.ergebnis),
-      `Skispringen: Wer nicht landet, stürzt nicht: ${JSON.stringify(halb.ohneTelemark)}`);
+    pruefe(halb.gestreckt.every((r) => r.aus === "klatscher" && r.nr === 0 && r.ergebnis),
+      `Turmspringen: Wer sich nie zusammenzieht, klatscht nicht: ${JSON.stringify(halb.gestreckt)}`);
+    pruefe(halb.paeckchen.every((r) => r.aus === "bombe" && r.nr === 0 && r.grund === "Arschbombe" && r.ergebnis),
+      `Turmspringen: Wer im Päckchen bleibt, macht keine Arschbombe: ${JSON.stringify(halb.paeckchen)}`);
 
-    // Der Telemark geht nur nah am Boden: hoch in der Luft zählt die
-    // Leertaste nicht.
-    const hoch = await seite.evaluate((quelle) => {
-      const pilot = new Function(`return (${quelle})`)();
-      const S = window.LernappSkispringen;
+    // Ein Tipp gleich nach dem Ankommen an der Kante – lange vor dem Moment –
+    // springt nicht ab.
+    const frueh = await seite.evaluate(() => {
+      const S = window.LernappTurmspringen;
       const st = S.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       S.aktion();
-      for (let n = 0; n < 20000 && !(st.schritt === "flug" && st.sp.tf > 0.6); n += 1) { pilot(S, st); S.takt(1 / 120); }
-      const tau = S.vorausLandung().tau;
+      for (let n = 0; n < 4000 && st.schritt !== "wippen"; n += 1) S.takt(1 / 120);
+      const rest = S.ringRest();
       S.aktion();
-      return { tau, tele: st.sprung.tele, schritt: st.schritt };
-    }, PILOT);
-    pruefe(hoch.schritt === "flug" && hoch.tau > 1 && hoch.tele < 0, `Skispringen: Der Telemark greift hoch in der Luft: ${JSON.stringify(hoch)}`);
+      return { rest, schritt: st.schritt, ab: st.sprung.abgesprungen };
+    });
+    pruefe(frueh.rest > 0.5 && frueh.schritt === "wippen" && !frueh.ab, `Turmspringen: Ein Tipp lange vor dem Moment springt ab: ${JSON.stringify(frueh)}`);
 
-    // Die zwei Hälften: links lehnt zurück, rechts vor, beide lehnen nicht
-    // (das ist am Boden der Telemark). Und mit den Pfeiltasten.
-    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    const box = await seite.locator(".sj-feld").boundingBox();
-    const finger = (id, x, typ) => seite.evaluate(({ id, x, y, typ }) => {
-      const ziel = typ === "pointerdown" ? document.elementFromPoint(x, y) : window;
-      ziel.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x, clientY: y, bubbles: true }));
-    }, { id, x, y: box.y + box.height * 0.6, typ });
-    const lage = () => seite.evaluate(() => ({
-      phase: window.LernappSkispringen.state.phase,
-      lenkung: window.LernappSkispringen.state.lenkung,
-      l: document.querySelector(".sj-knopf-l")?.classList.contains("ist-an"),
-      r: document.querySelector(".sj-knopf-r")?.classList.contains("ist-an"),
-    }));
-    const schritte = [];
-    await finger(1, box.x + box.width * 0.2, "pointerdown");
-    schritte.push(await lage());
-    await finger(2, box.x + box.width * 0.8, "pointerdown");
-    schritte.push(await lage());
-    await finger(2, box.x + box.width * 0.8, "pointerup");
-    schritte.push(await lage());
-    await finger(1, box.x + box.width * 0.2, "pointerup");
-    schritte.push(await lage());
-    await seite.keyboard.down("ArrowRight");
-    schritte.push(await lage());
-    await seite.keyboard.up("ArrowRight");
-    const soll = [
-      { phase: "spiel", lenkung: -1, l: true, r: false },
-      { phase: "spiel", lenkung: 0, l: true, r: true },
-      { phase: "spiel", lenkung: -1, l: true, r: false },
-      { phase: "spiel", lenkung: 0, l: false, r: false },
-      { phase: "spiel", lenkung: 1, l: false, r: true },
-    ];
-    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Skispringen: Die zwei Hälften lehnen nicht richtig: ${JSON.stringify(schritte)}`);
+    // Halten heisst Päckchen: Wer hält, dreht sich schneller.
+    const dreh = await seite.evaluate(() => {
+      const S = window.LernappTurmspringen;
+      const st = S.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.aktion();
+      for (let n = 0; n < 8000 && !(st.schritt === "wippen" && Math.abs(S.ringRest()) < 1 / 200); n += 1) S.takt(1 / 120);
+      S.aktion();
+      // Nach einem perfekten Absprung läuft kurz die Zeitlupe – gemessen
+      // wird danach.
+      for (let n = 0; n < 240 && st.zeitlupe > 0; n += 1) S.takt(1 / 120);
+      const w0 = st.sp.winkel;
+      for (let n = 0; n < 48; n += 1) S.takt(1 / 120);
+      const offen = st.sp.winkel - w0;
+      S.halte(true);
+      const w1 = st.sp.winkel;
+      for (let n = 0; n < 48; n += 1) S.takt(1 / 120);
+      const zu = st.sp.winkel - w1;
+      S.halte(false);
+      return { offen, zu, schritt: st.schritt };
+    });
+    pruefe(dreh.schritt === "flug" && dreh.zu > dreh.offen * 2.5, `Turmspringen: Im Päckchen dreht er nicht schneller: ${JSON.stringify(dreh)}`);
 
     await kontext.close();
   }
   {
-    // Ein Lauf in echter Zeit – ein guter Sprung, dann einer ohne Lage –,
+    // Ein Lauf in echter Zeit – ein guter Sprung, dann eine Arschbombe –,
     // aufgezeichnet und angeschaut: dieselbe Welt, am Schluss dieselbe Zahl.
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     await seite.addInitScript(() => {
-      if (sessionStorage.getItem("__sprung")) return;
-      sessionStorage.setItem("__sprung", "1");
+      if (sessionStorage.getItem("__turm")) return;
+      sessionStorage.setItem("__turm", "1");
       localStorage.setItem("mini.name", "Zora");
     });
-    await seite.goto(`${BASIS}/skispringen`, { waitUntil: "load" });
-    await seite.waitForFunction(() => window.LernappSkispringen?.state?.sch && window.LernappSkispringen.view.cssW > 0, null, { timeout: 8000 });
-    const PILOT = `(S, st, lage = true, tele = true) => {
-      if (st.schritt === "anlauf" && S.zeitBisKante() < 1 / 120) S.aktion();
-      if (st.schritt === "flug") {
-        const f = st.sp.k + st.sp.kw * 0.12;
-        S.lenke(lage ? (f > 1.5 ? -1 : f < -1.5 ? 1 : 0) : 0);
-        if (tele && st.sprung.tele < 0 && st.anflug && st.tauVoraus <= S.TELE_ZIEL) S.aktion();
-      } else S.lenke(0);
+    await seite.goto(`${BASIS}/turmspringen`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTurmspringen?.state?.sp && window.LernappTurmspringen.view.cssW > 0, null, { timeout: 8000 });
+    const PILOT = `(S, st, halten = null) => {
+      if (st.schritt === "wippen" && !st.sprung.abgesprungen && Math.abs(S.ringRest()) < 1 / 60) S.aktion();
+      if (st.schritt === "flug" && !st.sprung.verpasst) {
+        if (halten !== null) { S.halte(halten); return; }
+        const v = S.vorausWinkel(true).winkel;
+        const ziel = Math.max(S.pflichtBei(st.nr), Math.ceil((v - 10) / 180)) * 180;
+        S.halte(v < ziel - 0.5);
+      } else S.halte(false);
     }`;
-    const welt = await seite.evaluate(() => window.LernappSkispringen.weltText());
+    const welt = await seite.evaluate(() => window.LernappTurmspringen.weltText());
     await seite.evaluate((quelle) => new Promise((fertig) => {
       const pilot = new Function(`return (${quelle})`)();
-      const S = window.LernappSkispringen;
+      const S = window.LernappTurmspringen;
       const st = S.state;
       S.aktion();
       const lauf = () => {
         if (st.phase !== "spiel") { fertig(); return; }
-        pilot(S, st, st.nr === 0, true);
+        pilot(S, st, st.nr === 0 ? null : true);
         requestAnimationFrame(lauf);
       };
       requestAnimationFrame(lauf);
     }), PILOT);
-    await seite.waitForSelector(".cm-result-score", { timeout: 30000 }).catch(() => {});
-    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("skiJump_")), null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("highDive_")), null, { timeout: 4000 }).catch(() => {});
     const gespielt = await seite.evaluate(() => {
       const kennung = localStorage.getItem("mini.id");
-      const geist = window.__miniGeister?.get(`skiJump_${kennung}`) || null;
+      const geist = window.__miniGeister?.get(`highDive_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: window.LernappSkispringen.state.punkte, sprunge: window.LernappSkispringen.state.sprunge.length };
+      const st = window.LernappTurmspringen.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, sprunge: st.sprunge.length, aus: st.aus };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.sprunge === 2,
-      `Skispringen: Der Lauf wird nicht mit Saat, Ort und Winkel hinterlegt: ${JSON.stringify(gespielt)}`);
-    await seite.goto(`${BASIS}/skispringen?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
-    await seite.waitForFunction(() => window.LernappSkispringen?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
-    const zu = await seite.evaluate(() => ({ phase: window.LernappSkispringen.state.phase, welt: window.LernappSkispringen.weltText(), knoepfe: getComputedStyle(document.querySelector(".sj-tipp")).display }));
-    pruefe(zu.phase === "zuschauen" && zu.welt === welt && zu.knoepfe === "none",
-      `Skispringen: Beim Zuschauen entsteht eine andere Welt (oder die Knöpfe stehen da):\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
-    await seite.waitForTimeout(2500);
-    const unterwegs = await seite.evaluate(() => ({ schritt: window.LernappSkispringen.state.schritt, x: window.LernappSkispringen.state.sp.x }));
-    pruefe(unterwegs.schritt !== "start" && unterwegs.x > -40, `Skispringen: Beim Zuschauen fährt der Springer nicht an: ${JSON.stringify(unterwegs)}`);
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.sprunge === 2 && gespielt.aus === "bombe",
+      `Turmspringen: Der Lauf wird nicht mit Saat, Ort und Drehung hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/turmspringen?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappTurmspringen?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappTurmspringen.state.phase, welt: window.LernappTurmspringen.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Turmspringen: Beim Zuschauen entsteht eine andere Welt:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForTimeout(3500);
+    const unterwegs = await seite.evaluate(() => ({ schritt: window.LernappTurmspringen.state.schritt, x: window.LernappTurmspringen.state.sp.x }));
+    pruefe(["wippen", "flug", "wasser"].includes(unterwegs.schritt), `Turmspringen: Beim Zuschauen geht der Springer nicht an die Kante: ${JSON.stringify(unterwegs)}`);
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
-    const schluss = await seite.evaluate(() => ({ punkte: window.LernappSkispringen.state.punkte, nr: window.LernappSkispringen.state.nr, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) }));
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappTurmspringen.state.punkte, nr: window.LernappTurmspringen.state.nr, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) }));
     pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.nr === 1,
-      `Skispringen: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+      `Turmspringen: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
     await kontext.close();
   }
 
@@ -5159,6 +5153,222 @@ try {
     await kontext.close();
   }
 
+  // --- 4g24. Freitaucher: schaffbar, und wer zu lange unten bleibt, ist draussen ----
+  // Oben trägt das Wasser, in NEUTRAL Metern schwebt der Taucher, tiefer
+  // sinkt er. Ein Autopilot taucht mehrere gewürfelte Runden: Er nimmt die
+  // Muschel, die am meisten bringt für den Weg, und kehrt um, wenn das Netz
+  // zwei trägt oder die Luft knapp wird. Er kommt durch alle fünf
+  // Tauchgänge ohne Blackout und bringt fast jedes Mal Perlen herauf – die
+  // Plätze verlangen nichts Unmögliches. Wer nach dem Start nichts tut,
+  // treibt an der Oberfläche, und Platz um Platz wird ausgelassen: die Runde
+  // endet von selbst, mit null. Wer nur hinunter schwimmt, hat einen
+  // Blackout – das Netz ist weg. Die Pfeiltasten schwimmen in ihre Richtung.
+  // Und ein Lauf, angeschaut, an denselben Plätzen mit derselben Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.goto(`${BASIS}/freitaucher`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreitaucher?.state?.taucher && window.LernappFreitaucher.view.cssW > 0, null, { timeout: 8000 });
+    const auf = await seite.evaluate(() => {
+      const F = window.LernappFreitaucher;
+      return { oben: F.auftrieb(0), schwebe: F.auftrieb(F.NEUTRAL), tief: F.auftrieb(30), werte: [5, 15, 25, 30, 40].map(F.wertBei).join(",") };
+    });
+    pruefe(auf.oben > 0.5 && Math.abs(auf.schwebe) < 1e-9 && auf.tief < -1 && auf.werte === "1,2,3,5,8",
+      `Freitaucher: Auftrieb oder Wert der Perlen stimmen nicht: ${JSON.stringify(auf)}`);
+    const PILOT = `(F, st) => {
+      const t = st.taucher;
+      const p = st.platz;
+      if (st.schritt !== "oben" && st.schritt !== "tauchen") { F.lass(); return; }
+      const d = -t.y;
+      const h = F.haende(t);
+      // Das Ziel: die Muschel, die am meisten bringt für den Weg dorthin –
+      // und nur, wenn die Luft für hin und zurück reicht.
+      const kosten = (m) => 0.05 + Math.hypot(m.x - t.x, m.y - t.y) * 0.018 + m.tiefe * 0.017;
+      const offen = p.muscheln.filter((m) => !m.leer && kosten(m) < t.luft - 0.12);
+      offen.sort((a, b) => b.wert / kosten(b) - a.wert / kosten(a));
+      const ziel = offen[0];
+      const hinauf = !ziel || st.netz.length >= 2 || (st.schritt === "tauchen" && t.luft < st.bedarf + 0.15);
+      // Liegt ein Fels im Weg, erst über ihn hinweg.
+      const umweg = (zx, zy) => {
+        for (const f of p.felsen) {
+          const ax = zx - t.x;
+          const ay = zy - t.y;
+          const l2 = ax * ax + ay * ay || 1;
+          const u = ((f.x - t.x) * ax + (f.y - t.y) * ay) / l2;
+          if (u < 0 || u > 1) continue;
+          if (Math.hypot(t.x + ax * u - f.x, t.y + ay * u - f.y) < f.r + 0.9) return { x: f.x + (t.x < f.x ? -1 : 1) * (f.r + 0.8), y: f.y + f.r + 1.4 };
+        }
+        return { x: zx, y: zy };
+      };
+      if (hinauf) {
+        if (d < 0.4) { F.lass(); return; }
+        const w = umweg(t.x, 0.5);
+        F.schwimme(w.x - t.x, w.y - t.y);
+        return;
+      }
+      const w = umweg(ziel.x, ziel.y + 0.25);
+      const dx = w.x - h.x;
+      const dy = w.y - h.y;
+      // Unter der Schwebetiefe sinkt er von selbst: gleiten, solange es
+      // ohnehin hinuntergeht.
+      if (d > F.NEUTRAL + 2 && dy < -3 && Math.abs(dx) < 3 && t.vy < -1.2) { F.lass(); return; }
+      F.schwimme(dx, dy);
+    }`;
+    const runden = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const F = window.LernappFreitaucher;
+      const st = F.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 5; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        F.schwimme(0, -1);
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) {
+          pilot(F, st);
+          F.takt(1 / 120);
+        }
+        F.lass();
+        raus.push({ phase: st.phase, aus: st.aus, punkte: st.punkte, ergebnisse: st.ergebnisse });
+      }
+      return raus;
+    }, PILOT);
+    pruefe(runden.every((r) => r.phase === "ende" && r.aus === "fertig" && r.ergebnisse.length === 5 && r.punkte >= 6 && r.ergebnisse.filter((x) => x > 0).length >= 4),
+      `Freitaucher: Der Autopilot kommt nicht ohne Blackout mit Perlen durch fünf Tauchgänge – ${JSON.stringify(runden)}`);
+
+    // Wer nichts tut: Ein Druck zum Start, dann treibt er oben – jeder Platz
+    // wird ausgelassen, und die Runde endet von selbst.
+    const nichts = await seite.evaluate(() => {
+      const F = window.LernappFreitaucher;
+      const st = F.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      F.schwimme(0, -1);
+      F.takt(1 / 120);
+      F.lass();
+      for (let n = 0; st.phase !== "ende" && n < 40000; n += 1) F.takt(1 / 120);
+      return { phase: st.phase, punkte: st.punkte, ergebnisse: st.ergebnisse.join(","), zahl: document.querySelector(".cm-result-score")?.textContent };
+    });
+    pruefe(nichts.phase === "ende" && nichts.punkte === 0 && nichts.ergebnisse === "0,0,0,0,0" && nichts.zahl !== undefined,
+      `Freitaucher: Wer nichts tut, kommt nicht von selbst ans Ende: ${JSON.stringify(nichts)}`);
+
+    // Nur hinunter: Blackout, das Netz ist weg.
+    const unten = await seite.evaluate(() => {
+      const F = window.LernappFreitaucher;
+      const st = F.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      F.schwimme(0.6, -1);
+      let tiefe = 0;
+      for (let n = 0; st.phase !== "ende" && n < 40000; n += 1) { F.takt(1 / 120); tiefe = Math.max(tiefe, -st.taucher.y); }
+      F.lass();
+      return { phase: st.phase, aus: st.aus, punkte: st.punkte, nr: st.nr, tiefe: Math.round(tiefe) };
+    });
+    pruefe(unten.phase === "ende" && unten.aus === "blackout" && unten.punkte === 0 && unten.nr === 0 && unten.tiefe > 4,
+      `Freitaucher: Wer unten bleibt, hat keinen Blackout: ${JSON.stringify(unten)}`);
+
+    // Die Pfeiltasten: Pfeil hinunter schwimmt hinunter, Pfeil links dazu
+    // schräg; Loslassen gleitet.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => ({ halten: window.LernappFreitaucher.state.halten, r: window.LernappFreitaucher.state.richtung && [Math.round(window.LernappFreitaucher.state.richtung.x * 100), Math.round(window.LernappFreitaucher.state.richtung.y * 100)] }));
+    const schritte = [];
+    await seite.keyboard.down("ArrowDown");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowLeft");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowDown");
+    await seite.keyboard.up("ArrowLeft");
+    schritte.push(await lage());
+    const soll = [{ halten: true, r: [0, -100] }, { halten: true, r: [-71, -71] }, { halten: false, r: null }];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Freitaucher: Die Pfeiltasten schwimmen nicht in ihre Richtung: ${JSON.stringify(schritte)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – zwei Tauchgänge mit Perlen, dann einer bis
+    // zum Blackout –, aufgezeichnet und angeschaut: dieselben Plätze, am
+    // Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__taucher")) return;
+      sessionStorage.setItem("__taucher", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/freitaucher`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreitaucher?.state?.taucher && window.LernappFreitaucher.view.cssW > 0, null, { timeout: 8000 });
+    const PILOT = `(F, st) => {
+      const t = st.taucher;
+      const p = st.platz;
+      if (st.schritt !== "oben" && st.schritt !== "tauchen") { F.lass(); return; }
+      const d = -t.y;
+      const h = F.haende(t);
+      // Das Ziel: die Muschel, die am meisten bringt für den Weg dorthin –
+      // und nur, wenn die Luft für hin und zurück reicht.
+      const kosten = (m) => 0.05 + Math.hypot(m.x - t.x, m.y - t.y) * 0.018 + m.tiefe * 0.017;
+      const offen = p.muscheln.filter((m) => !m.leer && kosten(m) < t.luft - 0.12);
+      offen.sort((a, b) => b.wert / kosten(b) - a.wert / kosten(a));
+      const ziel = offen[0];
+      const hinauf = !ziel || st.netz.length >= 2 || (st.schritt === "tauchen" && t.luft < st.bedarf + 0.15);
+      // Liegt ein Fels im Weg, erst über ihn hinweg.
+      const umweg = (zx, zy) => {
+        for (const f of p.felsen) {
+          const ax = zx - t.x;
+          const ay = zy - t.y;
+          const l2 = ax * ax + ay * ay || 1;
+          const u = ((f.x - t.x) * ax + (f.y - t.y) * ay) / l2;
+          if (u < 0 || u > 1) continue;
+          if (Math.hypot(t.x + ax * u - f.x, t.y + ay * u - f.y) < f.r + 0.9) return { x: f.x + (t.x < f.x ? -1 : 1) * (f.r + 0.8), y: f.y + f.r + 1.4 };
+        }
+        return { x: zx, y: zy };
+      };
+      if (hinauf) {
+        if (d < 0.4) { F.lass(); return; }
+        const w = umweg(t.x, 0.5);
+        F.schwimme(w.x - t.x, w.y - t.y);
+        return;
+      }
+      const w = umweg(ziel.x, ziel.y + 0.25);
+      const dx = w.x - h.x;
+      const dy = w.y - h.y;
+      // Unter der Schwebetiefe sinkt er von selbst: gleiten, solange es
+      // ohnehin hinuntergeht.
+      if (d > F.NEUTRAL + 2 && dy < -3 && Math.abs(dx) < 3 && t.vy < -1.2) { F.lass(); return; }
+      F.schwimme(dx, dy);
+    }`;
+    const welt = await seite.evaluate(() => window.LernappFreitaucher.weltText());
+    await seite.evaluate((quelle) => new Promise((fertig) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const F = window.LernappFreitaucher;
+      const st = F.state;
+      F.schwimme(0, -1);
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.nr < 2) pilot(F, st); else F.schwimme(0.6, -1);
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }), PILOT);
+    await seite.waitForSelector(".cm-result-score", { timeout: 120000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("freeDive_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`freeDive_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappFreitaucher.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, aus: st.aus, nr: st.nr };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.aus === "blackout" && gespielt.nr === 2,
+      `Freitaucher: Der Lauf wird nicht mit Saat, Ort und Richtung hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/freitaucher?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreitaucher?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappFreitaucher.state.phase, welt: window.LernappFreitaucher.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Freitaucher: Beim Zuschauen entstehen andere Plätze:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappFreitaucher.state.schritt === "tauchen", null, { timeout: 15000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => ({ schritt: window.LernappFreitaucher.state.schritt, tiefe: -window.LernappFreitaucher.state.taucher.y }));
+    pruefe(unterwegs.schritt === "tauchen" && unterwegs.tiefe > 1.5, `Freitaucher: Beim Zuschauen taucht er nicht ab: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 120000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappFreitaucher.state.punkte, nr: window.LernappFreitaucher.state.nr, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.nr === 2,
+      `Freitaucher: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -5356,20 +5566,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 20 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 21 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 20 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 21 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /21/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /22/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -5386,7 +5596,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "frogHop", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiJump", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -6684,7 +6894,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 107, `klang.js kennt nicht alle 107 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 113, `klang.js kennt nicht alle 113 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
