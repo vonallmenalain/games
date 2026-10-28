@@ -278,7 +278,9 @@ service cloud.firestore {
     //                                        dauert höchstens 30 Minuten
     //   der Name passt zu den Feldern        <spiel>_<spieler>_<nr>
     //   die Uhr stimmt ungefähr              zeitMs höchstens zehn Minuten
-    //                                        neben der des Servers
+    //                                        neben der des Servers – oder,
+    //                                        ohne Netz gespielt (offline),
+    //                                        bis zu 30 Tage davor
     //   die Runde zählt in miniScores        im selben Schreiben steigt dort
     //                                        versuche von nr − 1 auf nr, die
     //                                        Spielzeit um genau ms, der Name
@@ -299,7 +301,7 @@ service cloud.firestore {
     function istRunde(rundeId) {
       let d = request.resource.data;
       return d.keys().hasAll(["game", "spieler", "name", "nr", "punkte", "ms", "zeitMs"])
-        && d.keys().hasOnly(["game", "spieler", "name", "nr", "punkte", "ms", "zeitMs", "quelle"])
+        && d.keys().hasOnly(["game", "spieler", "name", "nr", "punkte", "ms", "zeitMs", "quelle", "offline"])
         && d.game is string && d.game in miniSpiele()
         && istMiniSpieler(d.spieler)
         && d.name is string && d.name.size() > 0 && d.name.size() <= 24
@@ -310,12 +312,24 @@ service cloud.firestore {
         // Woher sie kommt: aus einem Turnier oder einem Multiplayer. Fehlt
         // das Feld, wurde auf der Spielseite selbst gespielt.
         && (!("quelle" in d) || d.quelle in ["turnier", "live"])
+        // Ohne Netz gespielt und später hochgeladen (mini-games.js,
+        // sendeWartende). Fehlt das Feld, kam die Runde gleich.
+        && (!("offline" in d) || d.offline == true)
         && rundeId == d.game + "_" + d.spieler + "_" + string(d.nr);
     }
 
     function zurUhrDesServers(ms) {
       return ms >= request.time.toMillis() - 600000
         && ms <= request.time.toMillis() + 600000;
+    }
+
+    // Ohne Netz gespielt: Die Runde kommt, sobald das Gerät wieder online
+    // ist, mit der Uhrzeit, zu der sie zu Ende war – höchstens 30 Tage
+    // zurück, nie in der Zukunft.
+    function ohneNetzGespielt(d) {
+      return d.get("offline", false) == true
+        && d.zeitMs >= request.time.toMillis() - 2592000000
+        && d.zeitMs <= request.time.toMillis() + 600000;
     }
 
     function eintragDerRunde(d) {
@@ -338,7 +352,7 @@ service cloud.firestore {
     match /miniRunden/{rundeId} {
       allow read: if istAdmin();
       allow create: if istRunde(rundeId)
-        && zurUhrDesServers(request.resource.data.zeitMs)
+        && (zurUhrDesServers(request.resource.data.zeitMs) || ohneNetzGespielt(request.resource.data))
         && zaehltInMiniScores(request.resource.data);
       allow create: if istAdmin() && istRunde(rundeId);
       allow delete: if istAdmin();
