@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        dreiundzwanzig Spielseiten, erzeugt
+    turmbau.html …        dreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -135,12 +135,14 @@ Strom, eine feste Zahl Runden wie bei Wo hält der Zug? oder wenigstens ein
 Deckel wie beim Heizer. Eine Runde, die eine Viertelstunde dauern kann, ist
 keine Runde mehr, die man jemandem schickt.
 
-### Die sechs Spiele vom Oktober 2026
+### Die Spiele vom Oktober 2026
 
 Kurze Runden, schnell schwerer, viel Können: Jedes würfelt seine Welt aus
 `zufall.js` (im Turnier für alle dieselbe), und in jedem beweist ein
-Autopilot in `npm run pruefen:browser` (Abschnitte 4g18–4g23), dass die Welt
-schaffbar ist. Die Schrauben für die Schwierigkeit stehen als Konstanten oben
+Autopilot in `npm run pruefen:browser` (Abschnitte 4g18–4g24), dass die Welt
+schaffbar ist. Am 28. Oktober ersetzte das Turmspringen das Skispringen
+(dessen Bestenliste `skiJump` bleibt in der Datenbank liegen, die Regeln
+nehmen keine neuen Einträge mehr an), und der Freitaucher kam dazu. Die Schrauben für die Schwierigkeit stehen als Konstanten oben
 in der jeweiligen Datei.
 
 **Jongleur** (`jongleur.js`, `juggler`) – In der Zirkusmanege jongliert ein
@@ -153,17 +155,24 @@ Trommelwirbel ein weiteres Ding ein, später auch Keulen, Fackeln, schwere
 Kugeln und einen Apfel, und die Bälle fliegen immer schneller. Gezählt werden
 die Fänge. Die besten Runden lassen sich Zug um Zug anschauen.
 
-**Skispringen** (`skispringen.js`, `skiJump`) – Eine Serie auf immer
-grösseren Schanzen, von HS 100 bis zum Skiflug auf HS 240. Im Anlauf zieht
-sich ein Ring auf die Kante zusammen: Wer genau dann tippt, springt mit voller
-Kraft. In der Luft hält man die Lage im grünen Bereich – rechts lehnt nach
-vorne, links zurück –, während Wind und sichtbare Böen am Springer drehen. Zu
-weit vorne überschlägt er sich, zu weit hinten reisst die Strömung ab. Kurz
-vor dem Boden landet man mit beiden Seiten zugleich im Telemark, perfekt gibt
-es Bonusmeter. Gezählt werden die Meter aller Sprünge. Wer stürzt oder die
-grüne Qualifikationslinie verfehlt, ist draussen. Mit jedem Sprung wird das
-Fenster an der Kante enger, der Wind launischer, die Linie rückt nach hinten
-– und es wird Abend, bis unter Flutlicht in die Nacht gesprungen wird.
+**Turmspringen** (`turmspringen.js`, `highDive`) – Ein Sprungturm aus Stahl
+in einem Bergsee, die Alpen dahinter, auf den Booten das Publikum. Sprung um
+Sprung geht es höher, von 10 bis 27 m. An der Kante wippt der Springer, und
+bei jedem Wippen zieht sich ein Ring auf seine Füsse zusammen (wie die Kante
+im Skispringen): Wer genau dann tippt, springt hoch und mit dem richtigen
+Drall; zu früh dreht er zu wenig, zu spät zu viel, und wer dreimal nicht
+tippt, kippt von der Kante. In der Luft heisst Halten Päckchen – er dreht
+sechsmal schneller –, Loslassen heisst strecken; der Drall bleibt, wie er
+beim Absprung war, aufhören kann die Drehung nie. Böen drehen ihn vor
+(orange) oder zurück (blau). Ins Wasser geht es senkrecht, Kopf oder Füsse
+voran; der Kompass um den Springer zeigt grün, wo seine Achse dafür stehen
+muss. Punkte gibt es: halbe Saltos mal Note (bis 10, nach dem Winkel und ob
+er ganz gestreckt ist), drei Richter zeigen sie. Jede Höhe hat ihre Pflicht
+an halben Saltos; mehr wagen bringt mehr. Ein Bauch- oder Rückenklatscher,
+eine Arschbombe oder eine verfehlte Pflicht beendet die Runde – und ab dem
+dreizehnten Sprung verlangt die Pflicht mehr Drehung, als bis zum Wasser
+geht. Dazu wird es Abend und unter Flutlicht Nacht. Im ersten Sprung sagt
+das Spiel, wann halten und wann loslassen.
 
 **Fallschirm** (`fallschirm.js`, `skyDive`) – Sprung um Sprung aus dem
 Flugzeug über einem Tal mit See, Fluss, Dorf und Wäldern, von oben gesehen:
@@ -216,6 +225,23 @@ Am Tor steht nur der Tempo-Bonus («Tempo-Bonus +6»), auch beim Zuschauen;
 die 10 Punkte des Raums zählen still mit. Der erste Treffer beendet die Runde. Die Räume werden immer dichter, und
 beim Zuschauen stehen Pfeile und Klingen genau dort, wo sie damals waren.
 
+**Freitaucher** (`freitaucher.js`, `freeDive`) – Ein Atemzug, so tief man
+sich traut: fünf Tauchgänge an fünf Plätzen (Bucht, Riffkante, Quallenfeld,
+Muränenriff, Nachttauchgang), jeder tiefer, von 21 bis 42 m. Halten heisst
+schwimmen – Flossenschlag um Flossenschlag dorthin, wo der Finger liegt (am
+Rechner mit den Pfeiltasten) –, Loslassen gleiten. Wie beim echten
+Freitauchen trägt das Wasser oben, in 11 m schwebt der Taucher, darunter
+sinkt er von selbst, immer schneller: Hinunter ist leicht, hinauf teuer.
+Jeder Schlag kostet Luft, gleiten fast keine; der Luftring um den Taucher
+läuft leer, und sein weisser Strich sagt, wie viel der Weg nach oben kostet.
+Auf dem Grund liegen Muscheln mit Perlen – je tiefer, desto wertvoller (1,
+2, 3, 5, 8) –, sie zählen erst, wenn sie oben sind. Strömung zieht quer,
+Quallen stechen (Luft weg, kurz kein Schlag), Muränen reissen die beste
+Perle aus dem Netz, nachts leuchten nur Perlen und Quallen. Geht die Luft
+aus, ist es ein Blackout: Das Netz ist weg und die Runde vorbei. Wer zu
+lange an der Oberfläche liegt, lässt den Platz aus. Gezählt werden die
+Perlen.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -244,8 +270,11 @@ zu viel.
 
 **Je Spiel** gibt es eigene Klänge (Kick, Tor, Platsch, Schnitt, Echo-Ruf …)
 und leise **Kulissen**, die mit dem Spiel gehen: der Motor mit dem Tempo, der
-Wind mit der Schicht, der Brenner nur solange gedrückt, die Ski in der Spur,
-der Herzschlag des Ninjas mit der Weltzeit. Eine Kulisse startet mit der
+Wind mit der Schicht, der Brenner nur solange gedrückt, der Fahrtwind des
+Turmspringers im Fall, der Herzschlag des Ninjas mit der Weltzeit, das Meer
+des Freitauchers mit der Tiefe und sein Herz, sobald die Luft knapp wird.
+Ein sauberes Eintauchen klingt nach einem leisen Plopp, ein Klatscher nach
+Platsch. Eine Kulisse startet mit der
 Runde und endet mit ihr; die Tafel hält alle an (`stille()`).
 
 **Woher:** 47 kurze Aufnahmen aus freien Sammlungen (Kenney, OpenGameArt –
@@ -387,8 +416,8 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
                     Seiltänzer, Heisser Draht, Ball hochhalten,
-                    Skispringen, Fallschirm, Fledermaus,
-                    Zeitlupen-Ninja.
+                    Turmspringen, Fallschirm, Fledermaus,
+                    Zeitlupen-Ninja, Freitaucher.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
@@ -522,7 +551,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle dreiundzwanzig
+    Spiele            welche dazugehören, eines bis alle dreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
@@ -632,7 +661,7 @@ nichts hinaus, ebenso wenig im Multiplayer (der hat sein eigenes Zuschauen).
 Bild, klein und mit grünem Punkt: «Alain schaut gerade zu» (mehrere: «Alain
 und Zoe schauen gerade zu»; wer keinen Namen hat, ist «jemand»). Nur ein
 Hinweis – nicht anklickbar, und wo ein Spiel unten Knöpfe hat (Slalom,
-Skispringen, Fallschirm, Fledermaus), steht er darüber (`--gz-unten`). Der
+Fallschirm, Fledermaus), steht er darüber (`--gz-unten`). Der
 Beobachtungsmodus meldet sich dafür beim Spieler an (`geist.js`,
 `mitschauer`; `cloud.js`, `zuschauerMelden`, nach
 `zuschauer/<spieler>/<kennung>`: `name`, `lebt`) – alle zehn Sekunden neu,
@@ -833,10 +862,11 @@ beginnt, wie sie endet, wenn die Zeit des Abends um ist, und – wo man
 ausscheidet – wie es einem anderen zuschaut. Eine Runde gibt es nur einmal –
 kein «Noch einmal», kein Weg hinaus ausser über den Multiplayer.
 
-**Die anderen im Bild.** In den siebzehn Spielen mit Figur (Lianenschwung,
+**Die anderen im Bild.** In den achtzehn Spielen mit Figur (Lianenschwung,
 Tunnelflug, Drift-Rennen, Planetenhüpfer, Mondlandung, Schwerkraft-Läufer,
 Hügelflieger, Windschichten, Slalom, Froschsprung, Seiltänzer, Heisser Draht,
-Ball hochhalten, Skispringen, Fallschirm, Fledermaus, Zeitlupen-Ninja)
+Ball hochhalten, Turmspringen, Fallschirm, Fledermaus, Zeitlupen-Ninja,
+Freitaucher)
 misst jedes Gerät dreissigmal je Sekunde, wo seine Figur ist, und schickt
 das zehnmal je Sekunde hinaus (`lage`): die neueste Probe in `t`, `a`, `b`,
 `c`, `p`, die zwei davor als kurzer Text in `v` («Abstand,a,b,c,p;…»). So
@@ -1151,8 +1181,8 @@ es schon ganz gewählt ist, wieder weg. Solange nie eingeteilt wurde, gilt die
 Vorgabe aus `mini-games.js` (`TIERS_VORGABE`): Tier 1 Turmbau, Brückenbauer,
 Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die danach
 gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
-Draht, Zwei Spuren, Ball hochhalten, Jongleur, Skispringen, Fallschirm,
-Holzfäller, Fledermaus, Zeitlupen-Ninja), Tier 2 Blätter im Strom, Drehscheibe,
+Draht, Zwei Spuren, Ball hochhalten, Jongleur, Turmspringen, Fallschirm,
+Holzfäller, Fledermaus, Zeitlupen-Ninja, Freitaucher), Tier 2 Blätter im Strom, Drehscheibe,
 Planetenhüpfer und Der Heizer, Tier 3 der Rest. Ein Spiel, das es nicht mehr
 gibt (wie der Wellenreiter), fällt beim nächsten Speichern aus den Tiers
 (`cloud.js`, `ohneAlteSpiele`): Die Regeln lassen dort nur Spiele zu, die es

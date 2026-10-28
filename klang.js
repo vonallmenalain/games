@@ -140,11 +140,11 @@
     "jongleur.fang": { d: "jongleur-fang" },
     "jongleur.trommel": { s: "trommelwirbel" },
     "jongleur.zirkus": { d: "publikum", schleife: true },
-    "skispringen.anlauf": { s: "a-spur", schleife: true },
-    "skispringen.absprung": { s: "absprung" },
-    "skispringen.flug": { s: "a-fahrtwind", schleife: true },
-    "skispringen.landung": { s: "schnee-landung" },
-    "skispringen.publikum": { d: "skispringen-publikum" },
+    "turmspringen.absprung": { s: "absprung" },
+    "turmspringen.flug": { s: "a-fahrtwind", schleife: true },
+    "turmspringen.eintauchen": { d: "platsch" },
+    "turmspringen.rip": { s: "rip" },
+    "turmspringen.publikum": { d: "turmspringen-publikum" },
     "fallschirm.freifall": { d: "fallschirm-freifall", schleife: true },
     "fallschirm.schirm": { s: "schirm" },
     "fallschirm.landung": { s: "whomp-weich" },
@@ -160,6 +160,12 @@
     "ninja.pfeil": { d: "ninja-pfeil" },
     "ninja.treffer": { d: "ninja-treffer" },
     "ninja.rolle": { s: "pling" },
+    "freitaucher.flosse": { s: "flosse" },
+    "freitaucher.perle": { s: "perle" },
+    "freitaucher.meer": { s: "a-unterwasser", schleife: true },
+    "freitaucher.herz": { s: "a-herz", schleife: true },
+    "freitaucher.atem": { s: "atem" },
+    "freitaucher.qualle": { s: "stich" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -171,8 +177,8 @@
     frogHop: "frosch", craneHarbor: "kranhafen", ropeWalk: "seiltaenzer", wireLoop: "draht",
     twinLanes: "spuren", keepyUppy: "ball", leafFlow: "blaetter", tileMemory: "kacheln",
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
-    skiJump: "skispringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
-    timeNinja: "ninja",
+    highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
+    timeNinja: "ninja", freeDive: "freitaucher",
   };
 
   // ---------------------------------------------------------------------------
@@ -398,6 +404,14 @@
     },
     sonar: (t) => ton(2200, t, { r: 0.22, laut: 0.12, ziel: echo(0.16, 0.45) }),
     pling: (t) => { ton(note(91), t, { r: 0.4, laut: 0.16 }); ton(note(98), t, { r: 0.18, laut: 0.05 }); },
+    // Turmspringen: sauber eingetaucht – kein Platsch, nur ein tiefes Plopp.
+    rip: (t) => { ton(190, t, { f2: 70, gleit: 0.18, r: 0.22, laut: 0.38 }); rausch(t, { dauer: 0.12, typ: "lowpass", f: 900, f2: 300, r: 0.1, laut: 0.12 }); },
+    // Freitaucher: ein Flossenschlag unter Wasser, eine Perle, der erste
+    // Atemzug oben, eine Qualle.
+    flosse: (t) => rausch(t, { dauer: 0.32, typ: "lowpass", f: 420, f2: 160, q: 0.9, a: 0.05, r: 0.2, laut: 0.4 }),
+    perle: (t) => [88, 95, 100].forEach((n, i) => ton(note(n), t + i * 0.045, { r: 0.35, laut: 0.12 })),
+    atem: (t) => rausch(t, { dauer: 0.55, f: 1300, f2: 700, q: 0.7, a: 0.12, r: 0.3, laut: 0.35 }),
+    stich: (t) => { ton(900, t, { typ: "square", f2: 300, gleit: 0.12, r: 0.12, laut: 0.08, tief: 2500 }); rausch(t, { dauer: 0.1, typ: "highpass", f: 2500, r: 0.08, laut: 0.12 }); },
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -407,12 +421,12 @@
     ueberholt: 11.0, countdown: 0.3, klick: 10.2, "woosh-kurz": 14.0, holzblock: -0.5, ab: 5.7, "whomp-weich": -0.6,
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
-    schirm: 2.3, sonar: 10.1, pling: 6.3,
+    schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,
     "a-propeller": 3.9, "a-schnee": 3.6, "a-schritte": 10.2, "a-spur": 6.6, "a-summen": 9.9, "a-weltraum": 0.6,
-    "a-wind": 1.8, "a-zug": 2.0, aufladen: -0.6, ratsche: 13.5,
+    "a-wind": 1.8, "a-zug": 2.0, aufladen: -0.6, ratsche: 13.5, "a-unterwasser": 6.0,
   };
   const db = (x) => Math.pow(10, (x || 0) / 20);
 
@@ -608,6 +622,19 @@
         ton(58, t + 0.2, { f2: 38, gleit: 0.1, r: 0.16, laut: 0.28, ziel: aus });
       }, 50);
       return { setze: (w) => { k = w; } };
+    }),
+    // Unter Wasser: tiefes Rauschen, ab und zu eine Blase. k = wie tief.
+    "a-unterwasser": () => schleifeBauen(({ aus, merke, takt }) => {
+      const s = merke(rauschQuelle());
+      const lp = filter("lowpass", 220, 0.6);
+      const g = verst(0.25);
+      s.connect(lp).connect(g).connect(aus);
+      let k = 0.5;
+      takt(() => {
+        if (Math.random() > 0.25 + 0.3 * k) return;
+        ton(500 + Math.random() * 700, ctx.currentTime + 0.01, { f2: 900 + Math.random() * 900, gleit: 0.05, r: 0.05, laut: 0.03, ziel: aus });
+      }, 300);
+      return { setze: (w) => { k = w; glatt(lp.frequency, 300 - 160 * w); glatt(g.gain, 0.2 + 0.15 * w); } };
     }),
     // Der Balken wächst: eine Ratsche, die mit k höher klingt.
     ratsche: () => schleifeBauen(({ aus, takt }) => {

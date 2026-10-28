@@ -795,7 +795,7 @@ h2 {
 .gz-zuschauer-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .gz-zuschauer .ar-live-punkt { width: 7px; height: 7px; }
 /* Über den runden Knöpfen unten links. */
-.sk-stage, .sj-stage, .fs-stage, .fm-stage { --gz-unten: calc(clamp(54px, 15vmin, 76px) + 10px); }
+.sk-stage, .fs-stage, .fm-stage { --gz-unten: calc(clamp(54px, 15vmin, 76px) + 10px); }
 
 /* Der ▶ neben den ersten drei einer Rangliste: diesen Lauf anschauen
    (mini-games.js, listeBauen). */
@@ -880,7 +880,7 @@ h2 {
 /* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
-.jg-feld, .sj-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld {
+.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -894,7 +894,7 @@ h2 {
 .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
-.jg-prompt, .sj-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt {
+.jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1295,8 +1295,8 @@ h2 {
 
 
 
-/* === Skispringen (skispringen.js) – Anfang ======================================== */
-.sj-stage {
+/* === Turmspringen (turmspringen.js) – Anfang ====================================== */
+.ts-stage {
   --cm-accent: #F5A623;
   --cm-accent-dark: #b9741a;
   touch-action: none;
@@ -1304,75 +1304,38 @@ h2 {
   user-select: none;
   -webkit-touch-callout: none;
 }
-.sj-stage:not([data-phase="intro"]) .sj-prompt { opacity: 0; }
-.sj-feld { width: 100%; background: #101018; }
-.sj-canvas { display: block; width: 100%; height: 100%; }
-.sj-rekord {
+.ts-stage:not([data-phase="intro"]) .ts-prompt { opacity: 0; }
+.ts-feld { width: 100%; background: #101018; }
+.ts-canvas { display: block; width: 100%; height: 100%; }
+.ts-rekord {
   padding: 4px 16px;
   border-radius: 999px;
   background: linear-gradient(135deg, #ffd23f, #ff9f1c);
   color: #3a2400;
   font-weight: 900;
 }
-/* Die zwei Knöpfe: unten links (zurücklehnen) und rechts (vorlehnen), aus
-   dunklem Glas. Gedrückt wird die ganze Hälfte des Bildes; die Knöpfe
-   zeigen, wo, und leuchten, solange ein Finger darauf liegt. Vor dem ersten
-   Tipp pulsieren sie, kurz vor dem Boden leuchten beide (Telemark). */
-.sj-tipp {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(14px + var(--safe-bottom, 0px));
-  display: flex;
-  justify-content: space-between;
-  padding: 0 clamp(12px, 4%, 28px);
-  pointer-events: none;
+/* === Turmspringen – Ende ========================================================= */
+
+/* === Freitaucher (freitaucher.js) – Anfang ======================================= */
+.fd-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
-.sj-knopf {
-  display: grid;
-  place-items: center;
-  width: clamp(54px, 15vmin, 76px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: rgba(14, 16, 30, 0.42);
-  border: 1.5px solid rgba(255, 255, 255, 0.38);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: rgba(255, 255, 255, 0.88);
-  opacity: 0.6;
-  transition: opacity 0.15s ease, transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+.fd-stage:not([data-phase="intro"]) .fd-prompt { opacity: 0; }
+.fd-feld { width: 100%; background: #04121c; }
+.fd-canvas { display: block; width: 100%; height: 100%; }
+.fd-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7ff0ff, #00a5b5);
+  color: #00262b;
+  font-weight: 900;
 }
-.sj-knopf svg { width: 50%; height: 50%; display: block; }
-.sj-knopf-l svg { transform: translateX(-1px); }
-.sj-knopf-r svg { transform: translateX(1px); }
-.sj-knopf.ist-an {
-  opacity: 1;
-  transform: scale(0.9);
-  background: rgba(14, 16, 30, 0.78);
-  border-color: #fff;
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
-}
-/* Nah am Boden: beide zugleich – der Telemark. */
-.sj-tipp.ist-beide .sj-knopf {
-  opacity: 1;
-  border-color: #78e6ff;
-  color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(120, 230, 255, 0.45);
-  animation: sj-puls 0.5s ease-in-out infinite;
-}
-.sj-stage[data-phase="intro"] .sj-knopf { opacity: 0.95; animation: sj-puls 1.4s ease-in-out infinite; }
-.sj-stage[data-phase="intro"] .sj-knopf-r { animation-delay: 0.7s; }
-/* Beim Anschauen eines Laufs drückt niemand. */
-.sj-stage[data-zuschauen] .sj-tipp { display: none; }
-@keyframes sj-puls {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
-  50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sj-stage[data-phase="intro"] .sj-knopf, .sj-tipp.ist-beide .sj-knopf { animation: none; }
-}
-/* === Skispringen – Ende ========================================================== */
+/* === Freitaucher – Ende ========================================================== */
 
 
 
@@ -3609,7 +3572,7 @@ h2 {
   .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
-  .jg-prompt, .sj-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt {
+  .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

@@ -77,7 +77,7 @@ service cloud.firestore {
         "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide",
         "balloonRide", "skiSlalom", "frogHop", "craneHarbor", "ropeWalk",
         "wireLoop", "twinLanes", "keepyUppy",
-        "juggler", "skiJump", "skyDive", "lumberCut", "batEcho", "timeNinja",
+        "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive",
         "numberLine",
         "boilerRoom",
       ];
