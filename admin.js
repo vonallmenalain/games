@@ -383,9 +383,9 @@
     mailFeld.value = gemerkteMail();
     mailFeld.required = true;
     const pwFeld = feld("password", "Passwort", "current-password");
-    const pwKnopf = el("button", "adm-knopf adm-knopf-hell", "Anmelden");
+    const pwKnopf = el("button", "adm-knopf-hell", "Anmelden");
     pwKnopf.type = "submit";
-    const mailKnopf = el("button", "adm-knopf adm-knopf-hell", "Link per E-Mail");
+    const mailKnopf = el("button", "adm-knopf-hell", "Link per E-Mail");
     mailKnopf.type = "button";
     const mailKnoepfe = el("div", "adm-form-knoepfe");
     mailKnoepfe.append(pwKnopf, mailKnopf);
@@ -537,8 +537,14 @@
    *
    * Turniere bleiben, wie sie sind: Dort hängen die Versuche an der Kennung,
    * und ein Turnier ist bald vorbei.
+   *
+   * Bevor etwas gelöscht wird, steht für jede andere Kennung fest, wohin es
+   * weitergeht (cloud.js, setzeUmzuege): Ein Gerät, das noch unter einer
+   * davon spielt, zieht beim nächsten Öffnen mit um (mini-games.js,
+   * folgeUmzug), statt unter ihr neu anzufangen. umzug: false, wenn das
+   * schon geschehen ist (fuehreNamenZusammen).
    */
-  async function fuehreZusammen(person) {
+  async function fuehreZusammen(person, { umzug = true } = {}) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
     const stamm = mini()?.stammVon?.(person.eintraege);
@@ -548,6 +554,14 @@
       updatedAt: window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null,
     });
     const nameVomStamm = person.eintraege.find((e) => e.spieler === stamm)?.name || person.name;
+    if (umzug) {
+      try {
+        await cloud().setzeUmzuege?.(person.eintraege.map((e) => e.spieler), { nach: stamm, name: nameVomStamm });
+      } catch (fehler) {
+        // Derselbe Name findet seine Kennung auch so wieder (stammKennung).
+        console.warn("Der Umzug ist nicht vermerkt", fehler);
+      }
+    }
     const nachSpiel = new Map();
     person.eintraege.forEach((e) => {
       if (!nachSpiel.has(e.game)) nachSpiel.set(e.game, []);
@@ -616,14 +630,106 @@
 
   const kennungen = (person) => new Set(person.eintraege.map((e) => e.spieler)).size;
 
+  // Nur der Name: Die Uhr daneben sagt, wann zuletzt gespielt wurde – und
+  // ordnet Gleichstände. Umbenennen ist nicht spielen.
   async function benenneUm(id, name) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
-    await db.collection("miniScores").doc(id).set({
+    await db.collection("miniScores").doc(id).set({ name }, { merge: true });
+  }
+
+  /*
+   * Ein neuer Name in den Turnieren (fuehreNamenZusammen, «Namen ändern»):
+   * Die Gesamtwertung fasst dort nach Namen zusammen (turnier.js,
+   * gesamtwertung) – stünde jemand in einem Turnier noch unter dem alten,
+   * wäre er dort zwei. Gemeint ist jeder Eintrag unter einer der Kennungen
+   * oder einem der Namen, dazu der Endstand der Multiplayer, die zu einem
+   * Turnier gehören. Die Versuche bleiben, wo sie sind: Sie hängen an der
+   * Kennung (firestore.rules).
+   */
+  async function benenneInTurnieren(stand, { namen, kennungen: wer, name }) {
+    await stand.turniereBereit;
+    const schluessel = new Set(namen.map(schluesselVon));
+    const kennung = new Set(wer);
+    const gemeint = (e) => e && e.name !== name && (kennung.has(e.spieler) || schluessel.has(schluesselVon(e.name)));
+    let geaendert = 0;
+    for (const t of stand.turniere) {
+      const [eintraege, abende] = await Promise.all([
+        cloud().turnierErgebnisse(t.id),
+        Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
+      ]);
+      const ids = (eintraege || []).filter(gemeint).map((e) => e.id);
+      if (ids.length) geaendert += await cloud().turnierEintraegeBenennen(t.id, ids, name);
+      for (const abend of abende || []) {
+        if (!abend.endstand.some(gemeint)) continue;
+        await cloud().speichereTurnierLive(t.id, abend.id, {
+          ...abend,
+          endstand: abend.endstand.map((e) => (gemeint(e) ? { ...e, name } : e)),
+        });
+        geaendert += 1;
+      }
+    }
+    return geaendert;
+  }
+
+  // Ein Spieler bekommt einen neuen Namen: in allen Spielen und Turnieren.
+  // Seine Geräte übernehmen ihn beim nächsten Öffnen (mini-games.js,
+  // uebernimmName).
+  async function benenneUmUeberall(stand, eintraege, name) {
+    for (const e of eintraege) if (e.name !== name) await benenneUm(e.id, name);
+    await benenneInTurnieren(stand, {
+      namen: [...new Set(eintraege.map((e) => e.name))],
+      kennungen: eintraege.map((e) => e.spieler),
       name,
-      updatedAtMs: Date.now(),
-      updatedAt: window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null,
-    }, { merge: true });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Zwei Namen, ein Spieler
+  // ---------------------------------------------------------------------------
+  /*
+   * «Efu» und «Efraim» sind derselbe Mensch: Im Adminbereich werden beide
+   * ausgewählt, einer bleibt (zeigeZusammenfuehren). Danach steht
+   * nur noch er da – mit allem, was beide gespielt haben:
+   *
+   *   1. wohin es weitergeht   für jede Kennung ausser der, die bleibt
+   *                            (cloud.js, setzeUmzuege). Zuerst, damit kein
+   *                            Gerät seinen Weg verliert, falls danach etwas
+   *                            schiefgeht.
+   *   2. ein Name überall      in allen Spielen und Turnieren
+   *                            (benenneUmUeberall)
+   *   3. je Spiel ein Eintrag  wie bei einem Namen auf mehreren Geräten
+   *                            (fuehreZusammen): die beste Zahl, alle Runden
+   *                            und die Spielzeit zusammen, der beste Lauf
+   *
+   * Bleiben wird die Kennung, unter der am meisten gespielt wurde – egal,
+   * welcher Name bleibt. Die Geräte unter dem anderen Namen spielen ab ihrem
+   * nächsten Öffnen unter ihr und dem bleibenden Namen weiter
+   * (mini-games.js, folgeUmzug, uebernimmName).
+   *
+   * Lässt die Datenbank Schritt 1 nicht zu (die Regeln für miniUmzuege sind
+   * noch nicht veröffentlicht), bleibt es bei Schritt 2: Die Namen sind
+   * dann schon einer, die Einträge liegen aber noch je Gerät da – zu sehen
+   * an «auf 2 Geräten» und mit «Zusammenführen» später nachzuholen. Ohne den
+   * Zettel fände ein Gerät unter dem alten Namen sonst nichts mehr von sich.
+   */
+  async function fuehreNamenZusammen(stand, personen, bleibt) {
+    const alle = personen.flatMap((p) => p.eintraege);
+    const stamm = mini()?.stammVon?.(alle);
+    if (!stamm || personen.length < 2) throw new Error("Es gibt nichts zusammenzuführen.");
+    let umgezogen = true;
+    try {
+      await cloud().setzeUmzuege(alle.map((e) => e.spieler), { nach: stamm, name: bleibt });
+    } catch (fehler) {
+      if (fehler?.code !== "permission-denied") throw fehler;
+      console.warn("Der Umzug ist nicht vermerkt – zusammengeführt wird nur der Name", fehler);
+      umgezogen = false;
+    }
+    await benenneUmUeberall(stand, alle, bleibt);
+    if (umgezogen && new Set(alle.map((e) => e.spieler)).size > 1) {
+      await fuehreZusammen({ name: bleibt, eintraege: alle.map((e) => ({ ...e, name: bleibt })) }, { umzug: false });
+    }
+    return { umgezogen, geraete: new Set(alle.map((e) => e.spieler)).size };
   }
 
   // ---------------------------------------------------------------------------
@@ -1839,7 +1945,7 @@
     // --- Speichern ---------------------------------------------------------------
     const meldung = el("p", "adm-meldung");
     const knoepfe = el("div", "adm-kopf-aktionen");
-    const speichern = el("button", "adm-knopf adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
+    const speichern = el("button", "adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
     speichern.type = "submit";
     // Statt anzulegen: alles, wie es jetzt eingestellt ist, als Preset
     // merken (presetSpeichern).
@@ -2046,7 +2152,7 @@
 
     const adresse = tn()?.volleAdresse?.(t.id) || `${window.location.origin}/turnier?t=${t.id}`;
     const aktionen = el("div", "adm-kopf-aktionen");
-    const oeffnen = el("a", "adm-knopf adm-knopf-klein", "Öffnen");
+    const oeffnen = el("a", "adm-knopf-klein", "Öffnen");
     oeffnen.href = tn()?.seitenLink?.(t.id) || `/turnier?t=${t.id}`;
     aktionen.append(oeffnen);
     const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
@@ -2070,7 +2176,7 @@
     aktionen.append(knopf("Bearbeiten", "adm-knopf-klein", () => aktion.bearbeiten(t)));
     // Einen Multiplayer zu diesem Turnier anlegen (live.js): Er zählt dann in
     // der Gesamtwertung mit.
-    const live = el("a", "adm-knopf adm-knopf-klein", "Multiplayer");
+    const live = el("a", "adm-knopf-klein", "Multiplayer");
     live.href = `/live?neu&turnier=${encodeURIComponent(t.id)}`;
     aktionen.append(live);
 
@@ -2166,7 +2272,7 @@
         const text = el("div", "adm-multiplayer-text");
         text.append(el("strong", "", m.name), el("small", "", `${PHASE[m.phase] || m.phase} · ${m.sichtbar === "alle" ? "für alle offen" : "nur mit Link"}`));
         const aktionen = el("div", "adm-kopf-aktionen");
-        const oeffnen = el("a", "adm-knopf adm-knopf-klein", "Öffnen");
+        const oeffnen = el("a", "adm-knopf-klein", "Öffnen");
         oeffnen.href = `/live?code=${encodeURIComponent(m.code)}`;
         const adresse = `${window.location.origin}/live?code=${m.code}`;
         const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
@@ -2190,7 +2296,7 @@
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
     // Daneben einen Multiplayer: alle spielen zur selben Zeit, angelegt und
     // geleitet auf /live (live.js) – die Anmeldung hier gilt dort auch.
-    const neuerMultiplayer = el("a", "adm-knopf adm-knopf-voll", "Neuer Multiplayer");
+    const neuerMultiplayer = el("a", "adm-knopf-voll", "Neuer Multiplayer");
     neuerMultiplayer.href = "/live?neu";
     const neuKnoepfe = el("div", "adm-kopf-aktionen adm-werkzeug");
     neuKnoepfe.append(neuKnopf, neuerMultiplayer);
@@ -2482,6 +2588,9 @@
   // ist einer gewählt, im Zeitraum (zeitLeiste): nur wer darin gespielt hat,
   // mit den Runden darin.
   let gesucht = "";
+  // Die Namen, die zum Zusammenführen gewählt sind (zeigeZusammenfuehren) –
+  // über «Neu laden» und den Zeitraum hinweg, bis sie zusammengeführt sind.
+  const gewaehlt = new Set();
 
   function baueSpieler(stand, neuLaden) {
     const bereich = klappBlock("spieler", "Spieler");
@@ -2518,13 +2627,52 @@
     const zeit = zeitLeiste(stand);
     const summe = el("p", "adm-klein adm-summe");
 
+    // Zwei Namen, ein Spieler: Wer hier zwei (oder mehr) ankreuzt, kann sie
+    // zusammenführen und wählt dabei, welcher bleibt.
+    const merkLeiste = el("div", "adm-merk-leiste");
+    function zeigeGewaehlt() {
+      // Wer nicht mehr dasteht (gelöscht, umbenannt), ist auch nicht mehr gewählt.
+      [...gewaehlt].forEach((k) => { if (!alleLeute.some((p) => p.schluessel === k)) gewaehlt.delete(k); });
+      const personen = alleLeute.filter((p) => gewaehlt.has(p.schluessel));
+      merkLeiste.replaceChildren();
+      merkLeiste.hidden = !personen.length;
+      if (!personen.length) return;
+      const namen = personen.map((p) => `«${p.name}»`);
+      merkLeiste.append(el("span", "adm-merk-text", personen.length === 1
+        ? `${namen[0]} gewählt – wähle einen zweiten Namen, um beide zusammenzuführen.`
+        : `${mini()?.namenListe?.(namen) || namen.join(", ")} gewählt`));
+      const los = knopf("Zusammenführen …", "adm-knopf-klein adm-knopf-voll", () => zeigeZusammenfuehren(stand, personen, neuLaden));
+      los.disabled = personen.length < 2;
+      merkLeiste.append(los, knopf("Auswahl aufheben", "adm-knopf-klein", () => {
+        gewaehlt.clear();
+        zeigeGewaehlt();
+        tabelle.zeichne();
+      }));
+    }
+
+    // Der Haken steht vor dem Namen, in derselben Zelle.
+    function merkHaken(p) {
+      const haken = el("input", "adm-merk-haken");
+      haken.type = "checkbox";
+      haken.checked = gewaehlt.has(p.schluessel);
+      haken.setAttribute("aria-label", `${p.name} zum Zusammenführen wählen`);
+      haken.title = "Zum Zusammenführen wählen";
+      haken.addEventListener("change", () => {
+        if (haken.checked) gewaehlt.add(p.schluessel);
+        else gewaehlt.delete(p.schluessel);
+        haken.closest("tr")?.classList.toggle("ist-gemerkt", haken.checked);
+        zeigeGewaehlt();
+      });
+      return haken;
+    }
+
     const tabelle = sortierTabelle("spieler", [
       {
         key: "name", titel: "Name", klasse: "adm-name",
         wert: (p) => p.name,
         zelle: (p) => {
           const teile = document.createDocumentFragment();
-          teile.append(personKnopf(p.name, () => zeigeAuswertung(stand, p.schluessel, neuLaden)));
+          teile.append(merkHaken(p), personKnopf(p.name, () => zeigeAuswertung(stand, p.schluessel, neuLaden)));
           if (p.geraete > 1) teile.append(el("small", "adm-kennung", `auf ${p.geraete} Geräten`));
           return teile;
         },
@@ -2556,9 +2704,11 @@
         if (!stand.zeit.raum) return "Hier hat noch niemand gespielt.";
         return stand.zeit.laedt ? "Die Runden werden geladen …" : "In diesem Zeitraum hat hier niemand gespielt.";
       },
+      zeile: (p, tr) => tr.classList.toggle("ist-gemerkt", gewaehlt.has(p.schluessel)),
     });
 
-    bereich.inhalt.append(filter.leiste, zeit.leiste, summe, tabelle.wirt);
+    bereich.inhalt.append(filter.leiste, zeit.leiste, summe, merkLeiste, tabelle.wirt);
+    zeigeGewaehlt();
 
     function zeichne() {
       const raum = stand.zeit.raum;
@@ -2599,6 +2749,109 @@
     stand.hoerer.add(zeichne);
     zeichne();
     return bereich;
+  }
+
+  /*
+   * Das Fenster dazu: Welcher Name bleibt? Je Name, was hinter ihm steht –
+   * Spiele, Runden, wann zuletzt, auf wie vielen Geräten –, vorgewählt der
+   * mit den meisten Runden. Darunter in einem Satz, was danach passiert.
+   * Zusammengeführt wird erst nach einer Rückfrage (fuehreNamenZusammen).
+   */
+  function zeigeZusammenfuehren(stand, personen, neuLaden) {
+    dashboard?.zu({ still: true });
+    const huelle = el("div", "adm-dash-huelle");
+    const karte = el("article", "adm-dash adm-zusammen");
+    karte.setAttribute("role", "dialog");
+    karte.setAttribute("aria-modal", "true");
+    karte.setAttribute("aria-labelledby", "adm-zusammen-titel");
+    karte.tabIndex = -1;
+
+    const kopf = el("header", "adm-dash-kopf");
+    const links = el("div");
+    const ueberschrift = el("h2", "adm-dash-titel", "Namen zusammenführen");
+    ueberschrift.id = "adm-zusammen-titel";
+    links.append(ueberschrift, el("p", "adm-klein", `${zahlWort(personen.length, "Name", "Namen")}, ein Spieler`));
+    kopf.append(links, knopf("Schliessen", "adm-knopf-hell adm-dash-zu", () => schliessen()));
+
+    const teil = el("section", "adm-dash-teil");
+    teil.append(el("h3", "", "Welcher Name bleibt?"));
+    const liste = el("div", "adm-zusammen-liste");
+    let bleibt = personen.slice().sort((a, b) => rundenVon(b.eintraege) - rundenVon(a.eintraege))[0];
+    const erklaerung = el("p", "adm-hinweis");
+    const erklaere = () => {
+      const andere = personen.filter((p) => p !== bleibt).map((p) => `«${p.name}»`);
+      const eins = andere.length === 1;
+      erklaerung.textContent = `${mini()?.namenListe?.(andere) || andere.join(", ")} ${eins ? "verschwindet" : "verschwinden"}. `
+        + `Danach steht nur noch «${bleibt.name}» da – je Spiel mit der besten Zahl, allen Runden und der ganzen Spielzeit, auch in den Turnieren. `
+        + `Wer unter ${eins ? "dem anderen Namen" : "den anderen Namen"} spielt, spielt ab dem nächsten Öffnen als «${bleibt.name}» weiter.`;
+    };
+    personen.forEach((p) => {
+      const zeile = el("label", "adm-zusammen-wahl");
+      const knopfWahl = el("input");
+      knopfWahl.type = "radio";
+      knopfWahl.name = "adm-bleibt";
+      knopfWahl.value = p.schluessel;
+      knopfWahl.checked = p === bleibt;
+      knopfWahl.addEventListener("change", () => {
+        if (!knopfWahl.checked) return;
+        bleibt = p;
+        erklaere();
+      });
+      const geraete = kennungen(p);
+      const text = el("span", "adm-zusammen-text");
+      text.append(el("strong", "", p.name), el("small", "adm-klein", [
+        zahlWort(new Set(p.eintraege.map((e) => e.game)).size, "Spiel", "Spiele"),
+        zahlWort(rundenVon(p.eintraege), "Runde", "Runden"),
+        `zuletzt ${wannKurz(zuletztVon(p.eintraege))}`,
+        geraete > 1 ? `auf ${geraete} Geräten` : "",
+      ].filter(Boolean).join(" · ")));
+      zeile.append(knopfWahl, text);
+      liste.append(zeile);
+    });
+    erklaere();
+
+    const meldung = el("p", "adm-hinweis ist-fehler");
+    meldung.hidden = true;
+    const aktionen = el("div", "adm-kopf-aktionen");
+    const los = knopf("Zusammenführen", "adm-knopf-voll", async () => {
+      const andere = personen.filter((p) => p !== bleibt).map((p) => `"${p.name}"`).join(", ");
+      if (!window.confirm(`${andere} mit "${bleibt.name}" zusammenführen? Danach gibt es nur noch "${bleibt.name}". Das lässt sich nicht rückgängig machen.`)) return;
+      los.disabled = true;
+      los.textContent = "Wird zusammengeführt …";
+      meldung.hidden = true;
+      try {
+        const { umgezogen, geraete } = await fuehreNamenZusammen(stand, personen, bleibt.name);
+        personen.forEach((p) => gewaehlt.delete(p.schluessel));
+        schliessen({ still: true });
+        if (!umgezogen && geraete > 1) {
+          window.alert(`Die Namen sind jetzt einer: "${bleibt.name}". Die Einträge liegen aber noch je Gerät da, weil die Datenbank keine Umzüge annimmt (Regeln noch nicht veröffentlicht). «Zusammenführen» bei "${bleibt.name}" holt das später nach.`);
+        }
+        await neuLaden();
+      } catch (fehler) {
+        los.disabled = false;
+        los.textContent = "Zusammenführen";
+        meldung.textContent = `Das ging nicht: ${fehlerText(fehler)}`;
+        meldung.hidden = false;
+      }
+    });
+    aktionen.append(los, knopf("Abbrechen", "adm-knopf-hell", () => schliessen()));
+    teil.append(liste, erklaerung, meldung, aktionen);
+    karte.append(kopf, teil);
+    huelle.append(karte);
+
+    const vorher = document.activeElement;
+    const taste = (ereignis) => { if (ereignis.key === "Escape" && !los.disabled) schliessen(); };
+    huelle.addEventListener("click", (ereignis) => { if (ereignis.target === huelle && !los.disabled) schliessen(); });
+    function schliessen({ still = false } = {}) {
+      document.removeEventListener("keydown", taste);
+      huelle.remove();
+      document.body.classList.remove("adm-dash-offen");
+      if (!still) vorher?.focus?.({ preventScroll: true });
+    }
+    document.addEventListener("keydown", taste);
+    document.body.classList.add("adm-dash-offen");
+    document.body.append(huelle);
+    karte.focus({ preventScroll: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -2862,12 +3115,12 @@
     const aufraeumen = teil("Aufräumen");
     const aktionen = el("div", "adm-kopf-aktionen");
     aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
-      const neu = window.prompt(`Neuer Name für "${name}" in allen Spielen (höchstens 24 Zeichen):`, name);
+      const neu = window.prompt(`Neuer Name für "${name}" in allen Spielen und Turnieren (höchstens 24 Zeichen):`, name);
       if (neu === null) return;
       const sauber = String(neu).replace(/\s+/g, " ").trim().slice(0, 24);
       if (!sauber || sauber === name) return;
       dashboard.schluessel = schluesselVon(sauber);
-      await undNeu(async () => { for (const e of seine) await benenneUm(e.id, sauber); }, neuLaden);
+      await undNeu(() => benenneUmUeberall(stand, seine, sauber), neuLaden);
     }));
     if (geraete > 1) {
       aktionen.append(knopf(`Von ${geraete} Geräten zusammenführen`, "adm-knopf-klein", async () => {
@@ -3012,7 +3265,7 @@
     kopf.append(links);
     const rechts = el("div", "adm-kopf-aktionen");
     const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer));
-    const zuDenSpielen = el("a", "adm-knopf adm-knopf-hell", "Zu den Spielen");
+    const zuDenSpielen = el("a", "adm-knopf-hell", "Zu den Spielen");
     zuDenSpielen.href = "/";
     rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
     const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");

@@ -275,12 +275,24 @@ pruefe("cloud.js trägt eine Runde in einer Transaktion ein",
 // alt, stünde derselbe Mensch zweimal in der Hall of Fame.
 pruefe("cloud.js benennt alle Spiele dieses Geräts um",
   /where\("spieler", "==", spielerId\)/.test(lies("cloud.js")));
-// Ein neuer Name gilt nur für die Runden, die kommen: Die Seiten benennen
-// nichts um, was schon in einer Liste steht (umbenennen darf nur der Admin).
-pruefe("Ein neuer Name benennt keine alten Einträge um",
-  !/benenneUm|turnierUmbenennen/.test(miniJs + lies("turnier.js")));
-pruefe("Ein neuer Name ist ein neuer Mitspieler (eigene Kennung)",
+// Namen ändern nimmt alles mit: Umbenannt wird auf dem Server, unter der
+// Kennung und unter dem alten Namen, dazu in den Turnieren des Geräts – erst
+// danach gilt der neue Name auf dem Gerät.
+pruefe("Namen ändern benennt alles unter dem alten Namen um, auch in den Turnieren",
+  /async function namenAendern[\s\S]*?await cloud\(\)\.benenneUm\(\{[\s\S]*?alt,[\s\S]*?turnierIds[\s\S]*?setzeName\(neu\)/.test(miniJs)
+  && /function umzubenennen[\s\S]*?where\("name", "==", vorher\)/.test(lies("cloud.js")));
+// Jemand anderes auf demselben Gerät ist ein neuer Mitspieler.
+pruefe("Jemand anderes auf dem Gerät ist ein neuer Mitspieler (eigene Kennung)",
   /function namenWechseln[\s\S]*?schreibe\(ID_KEY, neueKennung\(\)\)/.test(miniJs));
+// Eine Runde schreibt den Namen eines Eintrags nicht zurück – sonst holte ein
+// zweites Gerät mit dem alten Namen ihn Spiel für Spiel wieder.
+pruefe("Eine Runde ändert den Namen eines Eintrags nicht (speichere)",
+  /const hiess = alt \? alt\.name : wie;/.test(lies("cloud.js")));
+pruefe("Was der Server über den eigenen Namen sagt, gilt (gleicheAb, melde, Startseite)",
+  /function gleicheAb[\s\S]*?uebernimmName\(/.test(miniJs) && /async function melde[\s\S]*?uebernimmName\(/.test(miniJs)
+  && /uebernimmName\(alle\);/.test(miniJs));
+pruefe("Ein Gerät folgt dem Umzug seiner Kennung – nur nicht mitten im Turnier oder Multiplayer",
+  /function folgeUmzug[\s\S]*?inTurnierOderLive\(\)/.test(miniJs) && /function stammKennung[\s\S]*?folgeUmzug\(\)/.test(miniJs));
 // Derselbe Name auf zwei Geräten ist derselbe Spieler: in der Liste, in der
 // Bestmarke und in den Einträgen, in die seine Runden gehen.
 pruefe("Die Bestmarke zählt alles unter dem eigenen Namen (gleicheAb, melde)",
@@ -293,6 +305,13 @@ pruefe("Ein Gerät spielt unter der Kennung seines Namens – nur nicht mitten i
   && /p\.has\("turnier"\) \|\| p\.has\("live"\)/.test(miniJs));
 pruefe("Der Adminbereich führt einen Namen von mehreren Geräten zusammen",
   /async function fuehreZusammen[\s\S]*?mini\(\)\?\.stammVon\?\.\(/.test(lies("admin.js")));
+// Bevor ein Eintrag verschwindet, steht fest, wohin es für sein Gerät geht.
+pruefe("Zusammenführen vermerkt den Umzug, bevor es löscht",
+  /async function fuehreZusammen[\s\S]*?setzeUmzuege[\s\S]*?await loesche\(andere/.test(lies("admin.js")));
+pruefe("Der Adminbereich führt zwei Namen zusammen: Umzug, ein Name überall, je Spiel ein Eintrag",
+  /async function fuehreNamenZusammen[\s\S]*?setzeUmzuege[\s\S]*?benenneUmUeberall[\s\S]*?fuehreZusammen\(/.test(lies("admin.js")));
+pruefe("Die Regeln kennen die Umzüge (miniUmzuege, schreiben nur der Admin)",
+  /match \/miniUmzuege\/\{kennung\}[\s\S]*?allow create, update: if istAdmin\(\) && istUmzug/.test(lies("firestore.rules")));
 for (const s of SPIELE) {
   const seite = lies(`${s.seite}.html`);
   pruefe(`${s.seite}.html lädt kein firebase-auth`, !seite.includes("firebase-auth"));

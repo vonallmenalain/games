@@ -39,7 +39,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Moment aufgenommen (quer, hoch, klein)
     filme/                die Filme von früher (ausgeschaltet, mini-games.js,
                           FILME)
-    cloud.js              Firestore: miniScores lesen, schreiben, umbenennen –
+    cloud.js              Firestore: miniScores lesen, schreiben, umbenennen,
+                          miniUmzuege (wohin eine zusammengeführte Kennung zog) –
                           miniRunden, jede Runde mit ihrer Uhrzeit (nur für
                           den Admin), miniGeister, die Aufzeichnungen der
                           Läufe, und miniTurniere mit ihren Einträgen.
@@ -1070,7 +1071,8 @@ Zahl:
     Turniere                       anlegen, ändern, anhalten, Multiplayer
     Welche Spiele gespielt werden  Haken für die Startseite, Tiers, ▶
     Spieler                        eine Zeile je Name; ein Tipp auf den Namen
-                                   öffnet seine Auswertung
+                                   öffnet seine Auswertung, der Haken davor
+                                   wählt ihn zum Zusammenführen
     Spiele und Bestenlisten        eine Zeile je Spiel; ein Tipp auf das Spiel
                                    klappt seine Bestenliste auf
 
@@ -1090,8 +1092,9 @@ Runden, das erste und das letzte Mal; dazu die Zahlen zusammen – Spiele,
 Runden, Platz im Schnitt, erste Plätze, Podestplätze – und in welchen
 Turnieren er auf welchem Platz steht. Mit einem Zeitraum gilt das alles für
 die Runden darin. Aufräumen geht dort auch: ein einzelnes
-Ergebnis löschen, alle löschen, den Namen in allen Spielen ändern, von
-mehreren Geräten zusammenführen. Ein Name ist dabei, was er überall ist:
+Ergebnis löschen, alle löschen, den Namen in allen Spielen und Turnieren
+ändern (die Geräte übernehmen ihn beim nächsten Öffnen), von mehreren Geräten
+zusammenführen. Ein Name ist dabei, was er überall ist:
 gross oder klein geschrieben derselbe, auf allen Geräten zusammen.
 
 **Spielzeit.** Jede Runde misst ihre Dauer – vom Start (`game-shell.js`,
@@ -1168,6 +1171,26 @@ der beste Lauf zieht mit um, die übrigen Einträge werden gelöscht. Die
 Runden der anderen Geräte ziehen unter die Kennung, die bleibt (`cloud.js`,
 `zieheRundenUm`), mit ihrer Uhrzeit und einer Nummer hinter den Runden, die
 dort schon standen. Turniere bleiben, wie sie sind.
+Bevor etwas gelöscht wird, steht für jede andere Kennung fest, wohin es
+weitergeht (siehe **Umzüge** unter «Ohne Konto»): Ein Gerät, das noch unter
+einer davon spielt, zieht beim nächsten Öffnen mit um.
+
+**Zwei Namen, ein Spieler.** Sind «Efu» und «Efraim» derselbe Mensch, kreuzt
+man bei «Spieler» beide an (der Haken vor dem Namen). Darüber erscheint eine
+Leiste mit «Zusammenführen …»; sie öffnet ein Fenster: Welcher Name bleibt?
+Je Name steht, was hinter ihm steckt (Spiele, Runden, zuletzt, Geräte),
+vorgewählt ist der mit den meisten Runden, darunter in einem Satz, was danach
+passiert. Nach einer Rückfrage führt `admin.js` (`fuehreNamenZusammen`) in drei
+Schritten zusammen: zuerst die Umzüge für jede Kennung ausser der, unter der
+am meisten gespielt wurde; dann ein Name überall – in allen Spielen, in den
+Einträgen aller Turniere und im Endstand ihrer Multiplayer
+(`benenneUmUeberall`); dann je Spiel ein Eintrag wie bei einem Namen auf
+mehreren Geräten (`fuehreZusammen`). Danach steht nur noch der bleibende Name
+da, mit der besten Zahl, allen Runden und der ganzen Spielzeit beider. Geht es
+mit mehr als zwei Namen, geht es genauso. Nimmt die Datenbank keine Umzüge an
+(Regeln noch nicht veröffentlicht), bleibt es beim zweiten Schritt: Die Namen
+sind dann einer, die Einträge liegen noch je Gerät da («auf 2 Geräten») – das
+Fenster sagt es, und «Zusammenführen» holt es später nach.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
 leert «Bestenliste leeren» in der aufgeklappten Bestenliste des Spiels die
 ganze Liste auf einmal.
@@ -1267,20 +1290,49 @@ in denselben Einträgen statt in einem zweiten Satz je Gerät. Nur nicht
 mitten im Turnier, im Multiplayer oder beim Zuschauen: Dort hängen Versuche
 und Plätze an der Kennung, mit der die Seite begann.
 
-**Namen ändern gilt nur für die nächsten Runden.** «Du spielst als … ·
-Namen ändern» steht auf der Startseite, auf der Turnierseite und unter dem
-Ergebnis (`mini-games.js`, `namensZeile`). Was schon in einer Liste steht,
-bleibt unter dem bisherigen Namen stehen, in der Hall of Fame wie in jedem
-Turnier. Darum spielt das Gerät mit einem neuen Namen als neuer Mitspieler:
-mit eigener Kennung, ohne Bestwerte und ohne eigenen Lauf (`namenWechseln`).
-Mit der alten Kennung schriebe die nächste Runde den neuen Namen auch über
-die alten Punkte – je Spiel und Kennung gibt es ein Dokument. Im Turnier ist
-ein neuer Name ein neuer Mitspieler, mit eigenen Versuchen.
+**Namen ändern nimmt alles mit.** «Du spielst als … · Namen ändern» steht auf
+der Startseite, auf der Turnierseite und unter dem Ergebnis (`mini-games.js`,
+`namensZeile`). Wer dort einen neuen Namen eintippt, heisst ab sofort so – mit
+allem, was er unter dem alten gespielt hat: Bestwerte, Runden, Spielzeit,
+Plätze, in jedem Spiel und in den Turnieren, in denen das Gerät dabei war
+(`namenAendern`, `cloud.js` `benenneUm`). Umbenannt wird auf dem Server, unter
+der Kennung des Geräts **und** unter dem alten Namen – so kommen auch die
+Einträge von einem zweiten Gerät desselben Namens mit. Nur der Name ändert
+sich, keine Runde kommt dazu, und die Uhr (`updatedAtMs`, Reihenfolge bei
+Gleichstand) bleibt stehen. Geht das nicht (kein Netz), bleibt der alte Name,
+und die Zeile sagt warum. Steht der neue Name schon in einer Liste, fragt sie
+vorher: «Bist du das? Dann zählt ihr ab jetzt als ein Spieler.»
 
-Wer zu einem Namen zurückwechselt, den das Gerät schon kennt (gross oder
-klein geschrieben), ist wieder dieser Mitspieler: mit seiner Kennung, seinen
-Bestwerten und seinem Lauf (`mini.wer`, höchstens zwölf). So teilen sich
-Geschwister ein Handy. Umbenennen, was schon dasteht, kann nur der Admin.
+Die anderen Geräte desselben Spielers ziehen von selbst nach: **Was der Server
+über den Namen der eigenen Kennung sagt, gilt** (`uebernimmName`). Steht unter
+der Kennung des Geräts kein Eintrag mehr mit seinem Namen, übernimmt es den,
+unter dem zuletzt gespielt wurde – beim Öffnen eines Spiels (`gleicheAb`), auf
+der Startseite und nach jeder Runde (`melde`). Dafür ändert eine Runde den
+Namen eines Eintrags nie (`cloud.js`, `speichere`): Ein Gerät, das noch den
+alten Namen kennt, schreibt ihn nicht Spiel für Spiel zurück. Dasselbe gilt,
+wenn der Admin jemanden umbenennt.
+
+**Jemand anderes auf diesem Gerät.** Unter dem Feld steht «Jemand anderes
+spielt»: Das ist der Weg für Geschwister mit einem Handy. Wer dort einen Namen
+eintippt, spielt als neuer Mitspieler – mit eigener Kennung, ohne Bestwerte und
+ohne eigenen Lauf (`namenWechseln`); was der bisherige gespielt hat, bleibt
+bei ihm. Wer zu einem Namen zurückwechselt, den das Gerät schon kennt (gross
+oder klein geschrieben), ist wieder dieser Mitspieler: mit seiner Kennung,
+seinen Bestwerten und seinem Lauf (`mini.wer`, höchstens zwölf). Die Namen,
+die das Gerät kennt, stehen dort als Knöpfe. Im Turnier ist ein neuer
+Mitspieler ein neuer Mitspieler, mit eigenen Versuchen; wer sich nur
+umbenennt, behält seine.
+
+**Umzüge.** Führt der Admin zwei Namen oder einen Namen von mehreren Geräten
+zusammen, bleibt je Spiel ein Eintrag unter einer Kennung, die der anderen
+verschwinden. Für jede verschwundene Kennung bleibt ein Zettel, wohin es
+weitergeht (`miniUmzuege/<kennung>`: `nach`, `name`; `cloud.js` `umzug`,
+`setzeUmzuege`). Das Gerät fragt beim Öffnen nach seiner eigenen Kennung
+(`mini-games.js`, `folgeUmzug`) – ein Dokument, keine Abfrage – und spielt
+danach unter der neuen Kennung und dem Namen dort weiter, auch über mehrere
+Umzüge, aber nie im Kreis. Nicht mitten in einem Turnier, einem Multiplayer
+oder beim Zuschauen: Dort hängen Versuche und Plätze an der Kennung, mit der
+die Seite begann. Schreiben darf die Zettel nur der Admin (`firestore.rules`).
 
 ## Prüfen
 

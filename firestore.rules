@@ -225,6 +225,38 @@ service cloud.firestore {
       allow delete: if istAdmin();
     }
 
+    // --- Umzüge --------------------------------------------------------------
+    // Führt der Admin zwei Namen zusammen (admin.js, fuehreNamenZusammen)
+    // oder einen Namen von mehreren Geräten (fuehreZusammen), bleibt je Spiel
+    // ein Eintrag unter EINER Kennung; die Einträge der anderen werden
+    // gelöscht. Ein Gerät, das noch unter einer davon spielt, fände danach
+    // nichts mehr von sich und finge unter dem alten Namen neu an. Deshalb
+    // bleibt je verschwundener Kennung ein Zettel, wohin es weitergeht:
+    //
+    //   miniUmzuege/<kennung>   nach (die Kennung, die bleibt), name
+    //
+    // Das Gerät fragt beim Öffnen nach seiner eigenen Kennung (mini-games.js,
+    // folgeUmzug) – nach einem Dokument, nie nach einer Liste. Schreiben darf
+    // nur der Admin: Ein Zettel lenkt die Runden eines fremden Geräts um, und
+    // das soll kein Gast können.
+    function istUmzug(kennung) {
+      let d = request.resource.data;
+      return istMiniSpieler(kennung)
+        && d.keys().hasAll(["nach", "name", "updatedAtMs"])
+        && d.keys().hasOnly(["nach", "name", "updatedAtMs", "updatedAt"])
+        && istMiniSpieler(d.nach)
+        && d.nach != kennung
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 24
+        && d.updatedAtMs is int;
+    }
+
+    match /miniUmzuege/{kennung} {
+      allow get: if true;
+      allow list: if istAdmin();
+      allow create, update: if istAdmin() && istUmzug(kennung);
+      allow delete: if istAdmin();
+    }
+
     // --- Das Rundenprotokoll -------------------------------------------------
     // miniScores hält je Spiel und Spieler nur Summen – den Bestwert, wie oft,
     // wie lange. Wann gespielt wurde, steht dort nicht, und ohne das lässt

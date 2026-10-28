@@ -20,6 +20,20 @@ Lesen darf jeder, auch ohne Konto – die Liste ist der Sinn der Sache.
 Schreiben auch, aber nur in dieser Form (`firestore.rules`). Löschen darf nur
 der Admin.
 
+Führt der Admin zwei Namen oder einen Namen von mehreren Geräten zusammen,
+bleibt für jede Kennung, deren Einträge dabei verschwinden, ein Zettel:
+
+```
+miniUmzuege/<kennung>
+    nach        "mini_k2p9…"    unter dieser Kennung geht es weiter
+    name        "Efraim"         unter diesem Namen
+    updatedAtMs
+```
+
+Das Gerät fragt beim Öffnen nach seiner eigenen Kennung und zieht mit um
+(README, «Umzüge»). Lesen darf jeder ein einzelnes Dokument, auflisten und
+schreiben nur der Admin.
+
 Daneben `miniGeister` (Aufzeichnungen für Spiele mit festem Level – zur Zeit
 nutzt sie keines), `config/miniGames`
 (welche Spiele offen sind) und die Turniere:

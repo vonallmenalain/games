@@ -70,6 +70,13 @@
  * die Hall of Fame zu bauen. Lägen die Aufzeichnungen dort, lüde jeder Besuch
  * der Startseite ein paar Kilobyte je Spieler mit, die dort niemand ansieht.
  *
+ * Und wohin eine Kennung gezogen ist, die der Adminbereich zusammengeführt
+ * hat (umzug, setzeUmzuege – nur der Admin schreibt):
+ *
+ *   miniUmzuege/mini_a7f3…
+ *     nach       "mini_k2p9…"     unter dieser Kennung geht es weiter
+ *     name       "Efraim"         unter diesem Namen
+ *
  * Und die Turniere, jedes mit seiner eigenen kleinen Bestenliste:
  *
  *   miniTurniere/herbstcup-k3m9x2p7
@@ -416,13 +423,20 @@
       const vorher = await lauf.get(doc);
       const alt = vorher.exists ? lies(vorher) : null;
       const jetzt = Date.now();
+      // Der Name gehört dem Eintrag: Eine Runde ändert ihn nicht. Umbenannt
+      // wird nur ausdrücklich (benenneUm) – auf einem Gerät oder im
+      // Adminbereich. Spielte ein zweites Gerät noch unter dem alten Namen,
+      // schriebe es ihn sonst Runde für Runde, Spiel für Spiel zurück. So
+      // bleibt der neue stehen, und das Gerät übernimmt ihn (mini-games.js,
+      // melde).
+      const hiess = alt ? alt.name : wie;
 
       if (mitRunde && protokoll) {
         const nr = alt ? alt.versuche + 1 : 1;
         lauf.set(protokoll.doc(`${spielId}_${spielerId}_${nr}`), {
           game: spielId,
           spieler: spielerId,
-          name: wie,
+          name: hiess,
           nr,
           punkte: zahl,
           ms: dauer,
@@ -443,19 +457,18 @@
           updatedAtMs: jetzt,
           updatedAt: jetztAufDemServer(),
         });
-        return { rekord: true, punkte: zahl, versuche: 1 };
+        return { rekord: true, punkte: zahl, versuche: 1, name: wie };
       }
 
       const rekord = zahl > alt.punkte;
       lauf.set(doc, {
-        name: wie,
         punkte: rekord ? zahl : alt.punkte,
         versuche: alt.versuche + 1,
         spielMs: alt.spielMs + dauer,
         updatedAtMs: jetzt,
         updatedAt: jetztAufDemServer(),
       }, { merge: true });
-      return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1 };
+      return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1, name: hiess };
     });
 
     // Die Runde ist das Versprechen, das Protokoll die Zugabe. Weist die
@@ -509,47 +522,81 @@
   }
 
   /*
-   * Ein neuer Name, ohne dass eine Runde daraus wird.
+   * Ein neuer Name, ohne dass eine Runde daraus wird – und alles, was unter
+   * dem alten steht, kommt mit (mini-games.js, namenAendern).
    *
    * Ohne diesen Weg müsste sich ein Umbenennen als Runde verkleiden – und wer
    * nach einer Runde auf "Name ändern" tippt, hätte danach zwei Versuche für
    * ein Spiel. Die Regeln lassen deshalb eine Änderung zu, die nur den Namen
    * anfasst.
    *
-   * Umbenannt wird in ALLEN Spielen, nicht nur in dem, das gerade offen ist.
-   * Der Name gehört dem Gerät, und die Hall of Fame fasst nach Namen zusammen
-   * (mini-games.js, verdichte): Bliebe in Turmbau "Jonas" stehen, während im
-   * Fischteich schon "Jonas K." steht, stünde derselbe Mensch zweimal in der
-   * Tabelle – bis er jedes alte Spiel noch einmal spielt.
+   * Umbenannt wird in ALLEN Spielen, nicht nur in dem, das gerade offen ist,
+   * und nicht nur die Einträge dieses Geräts: Die Hall of Fame fasst nach
+   * Namen zusammen (mini-games.js, verdichte), und derselbe Name ist derselbe
+   * Spieler. Bliebe in Turmbau "Jonas" stehen – von diesem Gerät oder vom
+   * Tablet –, während im Fischteich schon "Jonas K." steht, stünde derselbe
+   * Mensch zweimal in der Tabelle. Gefragt wird deshalb zweimal, beide Male
+   * über ein einziges Feld: nach der Kennung (spieler) und nach dem alten
+   * Namen (alt), so wie er geschrieben ist.
    *
-   * Ein Gerät hat höchstens ein Dokument je Spiel, also eine Handvoll. Sie
-   * gehen in einem Zug hinaus: entweder alle oder keines.
+   * Dazu die Turniere, in denen dieses Gerät dabei war (turnier.js,
+   * turnierIds): Dort fasst die Gesamtwertung genauso nach Namen zusammen.
+   * Ein Turnier, das nicht antwortet, hält die anderen nicht auf – die
+   * Bestenliste ist dann schon umbenannt.
+   *
+   * Die Uhr (updatedAtMs) bleibt stehen: Sie sagt, wann zuletzt gespielt
+   * wurde, und ordnet Gleichstände. Wer sich umbenennt, hat nicht gespielt.
+   *
+   * Ein Spieler hat höchstens ein Dokument je Spiel und Gerät, also eine
+   * Handvoll. Die der Bestenliste gehen in einem Zug hinaus: alle oder keines.
    */
-  async function benenneUm({ spieler, name }) {
+  async function benenneUm({ spieler, name, alt = "", turniere = [] }) {
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
+    const vorher = sauber(alt);
     if (!spielerId || !wie) throw new Error("Für einen neuen Namen fehlt etwas.");
     const db = starte();
     const ref = sammlung();
     if (!db || !ref) throw new Error("Firestore ist nicht bereit.");
 
-    // Eine Abfrage über ein einziges Feld – kein zusammengesetzter Index.
-    const meine = await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get();
-    // Noch kein Eintrag: Dann gibt es auch nichts umzubenennen – der Name gilt
-    // ab der nächsten Runde.
-    if (meine.empty) return null;
+    const meine = await umzubenennen(ref, spielerId, vorher, wie);
+    const geaendert = await schreibeNamen(db, meine, wie);
+    let inTurnieren = 0;
+    for (const id of new Set((turniere || []).map((t) => String(t || "").trim()).filter(Boolean))) {
+      const liste = turnierEintraege(id);
+      if (!liste) continue;
+      try {
+        inTurnieren += await schreibeNamen(db, await umzubenennen(liste, spielerId, vorher, wie), wie);
+      } catch (fehler) {
+        console.warn(`Im Turnier ${id} heisst du noch wie vorher`, fehler);
+      }
+    }
+    return { spiele: meine.length, geaendert, turniere: inTurnieren };
+  }
 
-    const jetzt = Date.now();
-    const stapel = db.batch();
-    let geaendert = 0;
-    meine.forEach((doc) => {
-      const alt = lies(doc);
-      if (!alt || alt.name === wie) return;
-      stapel.set(doc.ref, { name: wie, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
-      geaendert += 1;
-    });
-    if (geaendert) await stapel.commit();
-    return { spiele: meine.size, geaendert };
+  // Die Dokumente einer Sammlung (miniScores oder die Einträge eines
+  // Turniers), die den neuen Namen bekommen: die der Kennung und die unter
+  // dem alten Namen – jedes einmal, und nur die, die noch anders heissen.
+  async function umzubenennen(ref, spielerId, vorher, wie) {
+    const fragen = [ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get()];
+    if (vorher) fragen.push(ref.where("name", "==", vorher).limit(MAX_JE_NAMEN).get());
+    const docs = new Map();
+    (await Promise.all(fragen)).forEach((stand) => stand.forEach((doc) => {
+      const e = lies(doc);
+      if (e && e.name !== wie) docs.set(doc.ref.path, doc.ref);
+    }));
+    return [...docs.values()];
+  }
+
+  // Nur der Name, sonst nichts (firestore.rules) – in Stapeln, die
+  // Firestore annimmt.
+  async function schreibeNamen(db, refs, wie) {
+    for (let i = 0; i < refs.length; i += 400) {
+      const stapel = db.batch();
+      refs.slice(i, i + 400).forEach((ref) => stapel.set(ref, { name: wie }, { merge: true }));
+      await stapel.commit();
+    }
+    return refs.length;
   }
 
   /*
@@ -1434,25 +1481,77 @@
   // Ein neuer Name, in allen Spielen dieses Turniers – aus demselben Grund
   // wie benenneUm(): Die Rangliste fasst nach Namen zusammen, und ein alter
   // Name in einem Spiel wäre ein zweiter Spieler.
-  async function turnierUmbenennen(id, { spieler, name }) {
+  async function turnierUmbenennen(id, { spieler, name, alt = "" }) {
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
     const db = starte();
     const ref = turnierEintraege(id);
     if (!spielerId || !wie || !db || !ref) return null;
-    const meine = await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get();
-    if (meine.empty) return null;
-    const jetzt = Date.now();
+    return { geaendert: await schreibeNamen(db, await umzubenennen(ref, spielerId, sauber(alt), wie), wie) };
+  }
+
+  // Nur diese Einträge eines Turniers bekommen einen neuen Namen (admin.js,
+  // fuehreNamenZusammen) – dieselbe Regel wie eben: nur der Name.
+  async function turnierEintraegeBenennen(id, ids, name) {
+    const db = starte();
+    const ref = turnierEintraege(id);
+    const wie = sauber(name);
+    if (!db || !ref || !wie) throw new Error("Firestore ist nicht bereit.");
+    const refs = [...new Set((ids || []).map((e) => String(e || "").trim()).filter(Boolean))].map((e) => ref.doc(e));
+    return schreibeNamen(db, refs, wie);
+  }
+
+  /*
+   * Umzüge: wohin eine Kennung gezogen ist, die es in den Listen nicht mehr
+   * gibt. Der Adminbereich führt zwei Namen zusammen (admin.js,
+   * fuehreNamenZusammen) oder einen Namen von mehreren Geräten
+   * (fuehreZusammen): Je Spiel bleibt ein Eintrag unter einer Kennung, die
+   * der anderen werden gelöscht. Ein Gerät, das noch unter einer davon
+   * spielt, fände danach nichts mehr von sich – und finge unter dem alten
+   * Namen neu an. Deshalb bleibt für jede verschwundene Kennung ein Zettel
+   * zurück:
+   *
+   *   miniUmzuege/mini_a7f3…
+   *     nach       "mini_k2p9…"   die Kennung, unter der es weitergeht
+   *     name       "Efraim"        der Name dort
+   *
+   * Das Gerät fragt beim Öffnen nach seiner eigenen Kennung (mini-games.js,
+   * folgeUmzug) – ein Dokument, keine Abfrage – und spielt danach unter der
+   * neuen weiter. Lesen darf das jeder, der die Kennung kennt; schreiben nur
+   * der Admin (firestore.rules).
+   */
+  const umzugSammlung = () => starte()?.collection("miniUmzuege") || null;
+
+  async function umzug(kennung) {
+    const von = String(kennung || "").trim();
+    const ref = umzugSammlung();
+    if (!ref || !SPIELER_ID.test(von)) return null;
+    const doc = await ref.doc(von).get();
+    if (!doc.exists) return null;
+    const d = doc.data() || {};
+    const nach = String(d.nach || "");
+    const name = sauber(d.name);
+    return SPIELER_ID.test(nach) && nach !== von && name ? { nach, name } : null;
+  }
+
+  // Nur der Admin: Die Kennungen in von ziehen nach nach. Wo nach selbst
+  // einmal weggezogen war, gilt das nicht mehr – sonst liefe ein Gerät im
+  // Kreis.
+  async function setzeUmzuege(von, { nach, name }) {
+    const db = starte();
+    const ref = umzugSammlung();
+    const ziel = String(nach || "").trim();
+    const wie = sauber(name);
+    if (!db || !ref || !SPIELER_ID.test(ziel) || !wie) throw new Error("Für den Umzug fehlt etwas.");
+    const kennungen = [...new Set((von || []).map((k) => String(k || "").trim()))]
+      .filter((k) => SPIELER_ID.test(k) && k !== ziel);
     const stapel = db.batch();
-    let geaendert = 0;
-    meine.forEach((doc) => {
-      const alt = lies(doc);
-      if (!alt || alt.name === wie) return;
-      stapel.set(doc.ref, { name: wie, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
-      geaendert += 1;
-    });
-    if (geaendert) await stapel.commit();
-    return { spiele: meine.size, geaendert };
+    kennungen.forEach((k) => stapel.set(ref.doc(k), {
+      nach: ziel, name: wie, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer(),
+    }));
+    stapel.delete(ref.doc(ziel));
+    await stapel.commit();
+    return kennungen.length;
   }
 
   // app und db für den Adminbereich: Er meldet jemanden an und liest und
@@ -1461,12 +1560,12 @@
     app,
     db: starte,
     projektId: firebaseConfig.projectId,
-    ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen,
+    ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen, umzug, setzeUmzuege,
     speichereGeist, geister,
     runden, ersteRunde, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
-    turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen,
+    turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,

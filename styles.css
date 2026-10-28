@@ -3783,6 +3783,11 @@ h2 {
   padding: 0 16px;
 }
 .mini-wer-oben .mini-name-steht { font-size: 0.92rem; }
+/* Darunter die Knöpfe – und für jemand anderen auf diesem Gerät die Namen,
+   die es schon kennt (namensZeile, wechsle). */
+.mini-wer-knoepfe,
+.mini-wer-andere { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.mini-wer-hinweis.ist-fehler { color: var(--ar-koralle); }
 
 .mini-marke {
   margin: 0;
@@ -4378,6 +4383,44 @@ select.adm-feld { background-color: var(--ar-flaeche); }
 .adm-kennung { display: block; font-weight: 400; font-size: 0.72rem; color: #8d889e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .adm-aktionen { text-align: right; white-space: nowrap; }
 .adm-aktionen .adm-knopf + .adm-knopf { margin-left: 6px; }
+.adm-knopf:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+/* Zwei Namen, ein Spieler: ein Haken je Zeile, und solange einer gesetzt ist,
+   darüber die Leiste mit «Zusammenführen …» (admin.js, baueSpieler). */
+.adm-merk-haken { width: 18px; height: 18px; margin: 0 10px 0 0; vertical-align: -3px; accent-color: var(--ar-koralle); cursor: pointer; }
+.adm-tabelle tr.ist-gemerkt td { background: rgba(254, 121, 113, 0.08); }
+.adm-merk-leiste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(254, 121, 113, 0.35);
+  background: rgba(254, 121, 113, 0.08);
+}
+.adm-merk-leiste[hidden] { display: none; }
+.adm-merk-text { flex: 1 1 16rem; color: var(--ar-text); font-weight: 700; font-size: 0.88rem; }
+.adm-merk-leiste .adm-knopf-voll { background: var(--ar-koralle); color: #fff; }
+/* Das Fenster dazu: welcher Name bleibt. */
+.adm-zusammen { width: min(560px, 100%); }
+.adm-zusammen-liste { display: flex; flex-direction: column; gap: 6px; }
+.adm-zusammen-wahl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+.adm-zusammen-wahl:has(input:checked) { border-color: var(--ar-koralle); background: var(--ar-flaeche); }
+.adm-zusammen-wahl input { width: 18px; height: 18px; margin: 0; accent-color: var(--ar-koralle); }
+.adm-zusammen-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-zusammen-text strong { color: var(--ar-text); font-size: 1rem; overflow-wrap: anywhere; }
+.adm-zusammen-text .adm-klein { margin: 0; }
 
 .adm-hinweis { margin: 0; color: var(--ar-leise); }
 .adm-hinweis.ist-fehler { color: #ff9a94; font-weight: 700; }
@@ -5898,6 +5941,9 @@ body.ar {
 }
 .ar-wer .mini-namensfeld .mini-knopf { background: var(--ar-koralle); color: #2a0f0b; }
 .ar-wer .mini-wer-hinweis { margin: 0; color: var(--ar-leise); font-size: 0.82rem; }
+.ar-wer .mini-wer-hinweis.ist-fehler { color: var(--ar-koralle); }
+.ar-wer .mini-wer-knoepfe,
+.ar-wer .mini-wer-andere { justify-content: flex-start; }
 
 /* --- Die Bühne: der Film und die Leiste ------------------------------------- */
 /* Der Film steht als Fenster in seiner eigenen Form – hochkant 9:16, quer
