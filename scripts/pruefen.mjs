@@ -318,6 +318,9 @@ pruefe("Die Regeln lassen eine Runde ohne Netz bis 30 Tage zurück zu",
 // bringen – und die Zahl der Runden steht nirgends.
 pruefe("Die Gesamtwertung zählt gewonnene Duelle, mit Ausgleich",
   /function gesamtwertung[\s\S]*?gewonnen: hinten \+ gleich \/ 2[\s\S]*?AUSGLEICH \/ 2/.test(miniJs));
+pruefe("Die Gesamtwertung zählt die Spiele der Startseite, ohne Tiers",
+  /function gesamtTafel\(alle, offen\) \{[\s\S]*?gesamtwertung\(alle, offen\)/.test(miniJs)
+  && !/function gesamtTafel[\s\S]*?function spielerKarte/.exec(miniJs)?.[0].includes("tierVon"));
 pruefe("Die Karte eines Spielers zeigt «am meisten gespielt» ohne Zahl",
   /function spielerKarte[\s\S]*?mini-profil-oft[\s\S]*?--wie-oft/.test(miniJs));
 pruefe("Der Adminbereich führt einen Namen von mehreren Geräten zusammen",

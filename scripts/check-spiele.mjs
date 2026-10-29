@@ -1308,6 +1308,9 @@ try {
       `${wo}: In der Gesamtwertung fehlen Wertung oder Platz im Schnitt (Spalten: ${kopfzeilen.join(", ")}).`);
     pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `${wo}: In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
     pruefe(await seite.locator(".ar-fenster .mini-gesamt-podest .tn-stufe").count() >= 1, `${wo}: Über der Gesamtwertung fehlt das Podest.`);
+    // Keine Wahl der Spiele: Es zählen die auf der Startseite – die Tiers
+    // kennt nur der Admin.
+    pruefe(!/Tier \d/.test(await seite.locator(".ar-fenster .mini-gesamt").innerText()), `${wo}: In der Gesamtwertung steht ein Tier zur Wahl.`);
     // Sortieren nach einer Spalte, und ein Tipp auf einen Namen zeigt seine
     // Karte – mit dem, was er am meisten spielt, aber ohne Zahl dazu.
     await seite.locator(".ar-fenster .mini-gesamt-sortier", { hasText: "Spiele" }).click();
