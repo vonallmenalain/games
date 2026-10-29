@@ -662,7 +662,7 @@
   function folgeUmzug() {
     if (umzugGeprueft) return umzugGeprueft;
     const start = kennungFallsDa();
-    if (!gueltigeKennung(start) || !cloud()?.umzug || inTurnierOderLive()) return Promise.resolve(null);
+    if (!gueltigeKennung(start) || !cloud()?.umzug || inTurnierOderLive() || !imNetz()) return Promise.resolve(null);
     umzugGeprueft = (async () => {
       const gesehen = new Set([start]);
       let ich = start;
@@ -685,6 +685,201 @@
       return null;
     });
     return umzugGeprueft;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ohne Netz
+  // ---------------------------------------------------------------------------
+  /*
+   * Gespielt wird auch ohne Netz – im Zug, im Flugzeug, im Keller. Die Seiten
+   * liegen im Service Worker (service-worker.js), nur die Bestenliste ist
+   * draussen. Eine Runde, die nicht hinauskommt, wartet deshalb auf dem
+   * Gerät (WARTET_KEY): mit ihrer Kennung, ihrem Namen, ihren Punkten, ihrer
+   * Dauer, der Uhrzeit, zu der sie zu Ende war, und woher sie kam. Der
+   * Bestwert auf dem Gerät gilt sofort – das Spiel sagt «Neuer Rekord!» auch
+   * im Keller.
+   *
+   * Sobald das Gerät wieder online ist (das Ereignis «online», die Seite
+   * kommt zurück in den Vordergrund, die nächste Seite lädt), gehen die
+   * wartenden Runden nacheinander hinaus (sendeWartende) – über denselben Weg
+   * wie jede Runde (cloud.js, speichere), mit ihrer eigenen Uhrzeit. Sie
+   * zählen dann in den Listen und im Protokoll wie gleich gespielt. Ist die
+   * Kennung inzwischen umgezogen (folgeUmzug), gehen sie dorthin.
+   *
+   * Die Listen zeigen ohne Netz, was das Gerät zuletzt gesehen hat
+   * (LISTEN_KEY), mit den eigenen wartenden Runden darin (mitWartenden).
+   *
+   * Turniere und Multiplayer brauchen das Netz: Ein Versuch zählt dort ab
+   * seinem Beginn, und das muss die Datenbank wissen, bevor gespielt wird.
+   */
+  const WARTET_KEY = "mini.wartet";
+  const WARTET_MAX = 300;
+  const LISTEN_KEY = "mini.listen";
+  const imNetz = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+  // Ein Fehler, der an der Verbindung liegt – nicht an den Regeln. Nur dann
+  // wartet die Runde; was die Datenbank abweist, käme auch später nicht an.
+  function istNetzfehler(fehler) {
+    if (!imNetz()) return true;
+    const code = String(fehler?.code || "");
+    if (["unavailable", "deadline-exceeded", "cancelled"].includes(code)) return true;
+    return /offline|network|failed to fetch|netzwerk|verbindung/i.test(String(fehler?.message || fehler || ""));
+  }
+
+  function wartende() {
+    const liste = liesJson(WARTET_KEY, []);
+    return Array.isArray(liste)
+      ? liste.filter((r) => r && r.id && NACH_ID.has(r.spiel) && gueltigeKennung(r.spieler) && sauberName(r.name) && Number.isFinite(Number(r.punkte)))
+      : [];
+  }
+
+  function meldeWartende() {
+    try { window.dispatchEvent(new CustomEvent("mini-wartet", { detail: { anzahl: wartende().length } })); } catch { /* alt */ }
+  }
+
+  function merkeWartend(runde) {
+    schreibe(WARTET_KEY, [...wartende(), runde].slice(-WARTET_MAX));
+    meldeWartende();
+  }
+
+  function streicheWartend(id) {
+    const rest = wartende().filter((r) => r.id !== id);
+    schreibe(WARTET_KEY, rest.length ? rest : null);
+    meldeWartende();
+  }
+
+  // Die Runde wartet; der Bestwert auf dem Gerät gilt gleich.
+  function ohneNetzMerken({ spiel, ich, wie, zahl, ms }) {
+    const vorher = bestwert(spiel);
+    merkeWartend({
+      id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+      spiel,
+      spieler: ich,
+      name: wie,
+      punkte: zahl,
+      ms,
+      zeitMs: Date.now(),
+      quelle: (() => { try { return window.LernappLiveSpiel?.aktiv?.() ? "live" : new URLSearchParams(window.location.search).has("turnier") ? "turnier" : ""; } catch { return ""; } })(),
+    });
+    zwischenspeicher = null;
+    if (zahl > vorher) setzeBestwert(spiel, zahl, ich);
+    return { offline: true, rekord: zahl > vorher, punkte: Math.max(vorher, zahl), versuche: null, name: wie };
+  }
+
+  let sendetGerade = null;
+  function sendeWartende() {
+    if (sendetGerade) return sendetGerade;
+    if (!imNetz() || !cloud()?.speichere || !wartende().length) return Promise.resolve(0);
+    sendetGerade = (async () => {
+      const ziele = new Map();
+      // Wohin eine Kennung inzwischen gezogen ist (cloud.js, umzug).
+      const zielVon = async (wer) => {
+        if (!ziele.has(wer)) {
+          let ziel = wer;
+          const gesehen = new Set([wer]);
+          for (let schritt = 0; schritt < 5 && cloud()?.umzug; schritt += 1) {
+            const weiter = await cloud().umzug(ziel).catch(() => null);
+            if (!weiter || gesehen.has(weiter.nach)) break;
+            gesehen.add(weiter.nach);
+            ziel = weiter.nach;
+          }
+          ziele.set(wer, ziel);
+        }
+        return ziele.get(wer);
+      };
+      let oben = 0;
+      for (const runde of wartende()) {
+        try {
+          await cloud().speichere({
+            game: runde.spiel,
+            spieler: await zielVon(runde.spieler),
+            name: runde.name,
+            punkte: runde.punkte,
+            ms: runde.ms,
+            zeitMs: runde.zeitMs,
+            offline: true,
+            quelle: runde.quelle || "",
+          });
+          streicheWartend(runde.id);
+          oben += 1;
+        } catch (fehler) {
+          // Wieder weg: Die übrigen warten weiter, in ihrer Reihenfolge.
+          if (istNetzfehler(fehler)) break;
+          // Abgewiesen – ein Spiel, das es nicht mehr gibt, eine Runde von
+          // vor zu langer Zeit. Sie käme nie an.
+          console.warn("Eine Runde ohne Netz kam nicht in die Liste", fehler);
+          streicheWartend(runde.id);
+        }
+      }
+      if (oben) {
+        zwischenspeicher = null;
+        abgleiche.clear();
+        nachreichen();
+        try { window.dispatchEvent(new CustomEvent("mini-hochgeladen", { detail: { anzahl: oben } })); } catch { /* alt */ }
+      }
+      return oben;
+    })().finally(() => { sendetGerade = null; });
+    return sendetGerade;
+  }
+
+  // Was das Gerät zuletzt von den Listen gesehen hat – je Spiel, das gefragt
+  // wurde, die Einträge von damals.
+  function merkeListen(spiele, daten) {
+    const welche = new Set(spiele);
+    const alt = liesJson(LISTEN_KEY, null);
+    const behalten = Array.isArray(alt?.eintraege) ? alt.eintraege.filter((e) => !welche.has(e.game)) : [];
+    schreibe(LISTEN_KEY, { ms: Date.now(), eintraege: [...behalten, ...daten] });
+  }
+
+  function gemerkteListen(spiele) {
+    const alt = liesJson(LISTEN_KEY, null);
+    if (!Array.isArray(alt?.eintraege)) return null;
+    const welche = new Set(spiele);
+    return alt.eintraege.filter((e) => e && welche.has(e.game));
+  }
+
+  // Die eigenen Runden, die noch warten, in einer Liste: So steht ohne Netz
+  // schon da, was gespielt wurde – mit der besten Zahl und allen Runden.
+  function mitWartenden(daten, spiele) {
+    const runden = wartende().filter((r) => spiele.includes(r.spiel));
+    if (!runden.length) return daten;
+    const liste = daten.map((e) => ({ ...e }));
+    const nachId = new Map(liste.map((e) => [e.id, e]));
+    runden.forEach((r) => {
+      const id = `${r.spiel}_${r.spieler}`;
+      const da = nachId.get(id);
+      if (da) {
+        da.punkte = Math.max(Number(da.punkte) || 0, r.punkte);
+        da.versuche = (Number(da.versuche) || 0) + 1;
+        da.updatedAtMs = Math.max(Number(da.updatedAtMs) || 0, r.zeitMs);
+        return;
+      }
+      const neu = { id, game: r.spiel, spieler: r.spieler, name: r.name, punkte: r.punkte, versuche: 1, erstesMs: r.zeitMs, spielMs: r.ms, updatedAtMs: r.zeitMs };
+      liste.push(neu);
+      nachId.set(id, neu);
+    });
+    return liste;
+  }
+
+  // Das Zeichen oben rechts: «Offline», solange das Netz fehlt, und danach,
+  // solange Runden hinausgehen.
+  function offlineZeichen(signal) {
+    const zeichen = el("span", "ar-offline");
+    zeichen.setAttribute("role", "status");
+    const zeige = () => {
+      const anzahl = wartende().length;
+      const weg = !imNetz();
+      zeichen.hidden = !weg && !anzahl;
+      zeichen.classList.toggle("ist-weg", weg);
+      zeichen.textContent = weg ? "Offline" : "Wird hochgeladen";
+      const runden = anzahl === 1 ? "Eine Runde wartet" : `${anzahl} Runden warten`;
+      zeichen.title = weg
+        ? `Ohne Netz – du kannst trotzdem spielen.${anzahl ? ` ${runden} darauf, in die Liste zu kommen.` : ""} Sobald du wieder online bist, kommt alles hinein.`
+        : `${runden} darauf, in die Liste zu kommen.`;
+    };
+    ["online", "offline", "mini-wartet", "mini-hochgeladen"].forEach((typ) => window.addEventListener(typ, zeige, { signal }));
+    zeige();
+    return zeichen;
   }
 
   // ---------------------------------------------------------------------------
@@ -734,7 +929,7 @@
   const stammGeprueft = new Map();   // Name → Promise
 
   function stammKennung(spiel = spielId()) {
-    if (!name() || !cloud()?.unterNamen || inTurnierOderLive()) return Promise.resolve(null);
+    if (!name() || !cloud()?.unterNamen || inTurnierOderLive() || !imNetz()) return Promise.resolve(null);
     // Zuerst, ob die eigene Kennung umgezogen ist, und wie sie heute heisst:
     // Danach kann der Name ein anderer sein. Erst dann wird nach dem Namen
     // gesucht – mit dem alten fände das Gerät sonst Einträge, die es nicht
@@ -978,8 +1173,23 @@
     // wäre eine Antwort von vorhin eine falsche.
     if (!neu && zwischenspeicher && zwischenspeicherFuer === schluessel
       && Date.now() - zwischenspeicherMs < FRISCH_MS) return zwischenspeicher;
-    const daten = await (cloud()?.ergebnisse?.(spiele) || Promise.resolve([]));
-    zwischenspeicher = Array.isArray(daten) ? daten : [];
+    // Ohne Netz, oder wenn der Server nicht antwortet: was das Gerät zuletzt
+    // gesehen hat (Ohne Netz, gemerkteListen). Hat es noch nie etwas
+    // gesehen, gilt der Fehler – ausser ohne Netz, dann stehen wenigstens die
+    // eigenen Runden da.
+    let daten;
+    if (!imNetz()) {
+      daten = gemerkteListen(spiele) || [];
+    } else {
+      try {
+        daten = await (cloud()?.ergebnisse?.(spiele) || Promise.resolve([]));
+        if (Array.isArray(daten)) merkeListen(spiele, daten);
+      } catch (fehler) {
+        daten = gemerkteListen(spiele);
+        if (!daten) throw fehler;
+      }
+    }
+    zwischenspeicher = mitWartenden(Array.isArray(daten) ? daten : [], spiele);
     zwischenspeicherMs = Date.now();
     zwischenspeicherFuer = schluessel;
     return zwischenspeicher;
@@ -1078,7 +1288,8 @@
     if (!wie) return null;
     // Erst die Kennung, die zu diesem Namen gehört: Wer ihn eben zum ersten
     // Mal eingetippt hat, hat vielleicht auf einem anderen Gerät schon
-    // gespielt – dann gehört die Runde zu dessen Einträgen.
+    // gespielt – dann gehört die Runde zu dessen Einträgen. Ohne Netz gilt
+    // die, die das Gerät hat.
     await stammKennung(spiel);
     const zahl = Math.max(0, Math.round(Number(punkte) || 0));
     const ich = kennung();
@@ -1092,7 +1303,18 @@
     // Zeit mehr dazu.
     const ms = rundeMs;
     rundeMs = 0;
-    const ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl, ms });
+    // Ohne Netz wartet die Runde auf dem Gerät (Ohne Netz) – auch wenn das
+    // Netz erst beim Eintragen wegbricht. Was zuerst wartet, geht zuerst:
+    // Warten noch Runden von vorher, gehen erst sie hinaus.
+    if (imNetz() && wartende().length) await sendeWartende();
+    if (!imNetz() || wartende().length) return ohneNetzMerken({ spiel, ich, wie, zahl, ms });
+    let ergebnis;
+    try {
+      ergebnis = await cloud()?.speichere?.({ game: spiel, spieler: ich, name: wie, punkte: zahl, ms });
+    } catch (fehler) {
+      if (!istNetzfehler(fehler)) throw fehler;
+      return ohneNetzMerken({ spiel, ich, wie, zahl, ms });
+    }
     zwischenspeicher = null;
     if (!ergebnis) return null;
     // Der Eintrag behält seinen Namen (cloud.js, speichere). Heisst er anders
@@ -1614,6 +1836,13 @@
       meldung.textContent = "Wird eingetragen...";
       melde(spiel, punkte, geist)
         .then((stand) => {
+          if (stand?.offline) {
+            meldung.textContent = stand.rekord
+              ? "Neue Bestzahl! Ohne Netz gemerkt – sie kommt in die Liste, sobald du wieder online bist."
+              : "Ohne Netz gemerkt – die Runde kommt in die Liste, sobald du wieder online bist.";
+            zeigeListe(false);
+            return;
+          }
           if (stand?.rekord) meldung.textContent = "Neue Bestzahl – eingetragen!";
           else meldung.textContent = "Eingetragen.";
           zeigeListe(true);
@@ -2105,6 +2334,7 @@
       kopf.append(marke(), el("h1", "ar-unsichtbar", "arcade"));
     }
     const rechts = el("div", "ar-kopf-rechts");
+    rechts.append(offlineZeichen(signal));
     const zumAdmin = adminKnopf();
     if (zumAdmin) rechts.append(zumAdmin);
     let pokal = null;
@@ -2885,7 +3115,7 @@
     // Daneben, ob die eigene Kennung umgezogen ist (folgeUmzug): Dann
     // spielt das Gerät ab jetzt unter einer anderen, und die Listen unten
     // sollen das schon wissen.
-    const [offen] = await Promise.all([offeneSpiele(), folgeUmzug()]);
+    const [offen] = await Promise.all([offeneSpiele(), folgeUmzug().then(() => sendeWartende())]);
     if (signal.aborted) return;
     if (!offen.length) {
       pokal.remove();
@@ -3092,6 +3322,8 @@
     rundeEndet,
     namenWechseln,
     namenAendern,
+    wartende,
+    sendeWartende,
     namensZeile,
     folgeUmzug,
     startStand,
@@ -3121,4 +3353,17 @@
   }, NACHREICHEN_MS);
   if (document.readyState === "complete") nachDemLaden();
   else window.addEventListener("load", nachDemLaden, { once: true });
+
+  // Runden ohne Netz: hinaus, sobald es wieder geht (Ohne Netz) – nach dem
+  // Laden, wenn das Netz zurückkommt und wenn die Seite wieder vorne ist.
+  // Nicht im Multiplayer, aus demselben Grund wie eben.
+  const hinaus = () => {
+    try { if (new URLSearchParams(window.location.search).has("live")) return; } catch { return; }
+    if (document.visibilityState === "hidden") return;
+    sendeWartende();
+  };
+  window.addEventListener("online", hinaus);
+  document.addEventListener("visibilitychange", hinaus);
+  if (document.readyState === "complete") window.setTimeout(hinaus, 800);
+  else window.addEventListener("load", () => window.setTimeout(hinaus, 800), { once: true });
 })();

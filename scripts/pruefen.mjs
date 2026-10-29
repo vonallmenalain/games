@@ -303,6 +303,17 @@ pruefe("Ein Gerät spielt unter der Kennung seines Namens – nur nicht mitten i
   /async function melde[\s\S]*?await stammKennung\(spiel\);/.test(miniJs)
   && /function stammKennung[\s\S]*?inTurnierOderLive\(\)/.test(miniJs)
   && /p\.has\("turnier"\) \|\| p\.has\("live"\)/.test(miniJs));
+// Ohne Netz: Eine Runde wartet auf dem Gerät und geht hinaus, sobald das Netz
+// zurück ist – mit ihrer Uhrzeit, und die Regeln lassen das zu.
+pruefe("Eine Runde ohne Netz wartet auf dem Gerät (melde, ohneNetzMerken)",
+  /async function melde[\s\S]*?ohneNetzMerken\(/.test(miniJs) && /function istNetzfehler/.test(miniJs));
+pruefe("Wartende Runden gehen hinaus, sobald das Netz zurück ist",
+  /window\.addEventListener\("online", hinaus\)/.test(miniJs) && /function sendeWartende[\s\S]*?offline: true/.test(miniJs));
+pruefe("Die Listen ohne Netz zeigen, was das Gerät zuletzt gesehen hat",
+  /async function alleErgebnisse[\s\S]*?gemerkteListen\([\s\S]*?mitWartenden\(/.test(miniJs)
+  && /metadata\?\.fromCache/.test(lies("cloud.js")));
+pruefe("Die Regeln lassen eine Runde ohne Netz bis 30 Tage zurück zu",
+  /function ohneNetzGespielt[\s\S]*?2592000000/.test(lies("firestore.rules")) && /"quelle", "offline"\]/.test(lies("firestore.rules")));
 pruefe("Der Adminbereich führt einen Namen von mehreren Geräten zusammen",
   /async function fuehreZusammen[\s\S]*?mini\(\)\?\.stammVon\?\.\(/.test(lies("admin.js")));
 // Bevor ein Eintrag verschwindet, steht fest, wohin es für sein Gerät geht.

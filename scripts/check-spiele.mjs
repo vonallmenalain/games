@@ -164,6 +164,8 @@ const ATTRAPPE = `
     tiers: async () => window.__miniTiers ?? null,
     setzeTiers: async (einteilung) => { window.__miniTiers = { ...einteilung }; return window.__miniTiers; },
     ergebnisse: async (spiele) => {
+      // Wie cloud.js ohne Netz: Es wirft, statt eine leere Liste zu geben.
+      if (!navigator.onLine) throw fehler("offline", "unavailable");
       const gefragt = Array.isArray(spiele) ? spiele : [];
       window.__miniGefragt = gefragt;
       return [...eintraege.values()].filter((e) => gefragt.includes(e.game)).map((e) => ({ ...e }));
@@ -208,7 +210,7 @@ const ATTRAPPE = `
       return ks.length;
     },
     meinErgebnis: async (game, spieler) => {
-      if (window.__miniOhneNetz) throw new Error("kein Netz");
+      if (window.__miniOhneNetz || !navigator.onLine) throw new Error("kein Netz");
       const e = eintraege.get(game + "_" + spieler);
       return e ? { ...e } : null;
     },
@@ -217,7 +219,11 @@ const ATTRAPPE = `
       if (window.__miniOhneNetz) throw new Error("kein Netz");
       return [...eintraege.values()].filter((e) => e.name === name).map((e) => ({ ...e }));
     },
-    speichere: async ({ game, spieler, name, punkte, ms = 0 }) => {
+    speichere: async ({ game, spieler, name, punkte, ms = 0, zeitMs = 0, offline = false, quelle = null }) => {
+      // Ohne Netz kommt keine Runde hinaus – so wie Firestore, das dann mit
+      // «unavailable» abbricht. Was später kommt, bleibt stehen.
+      if (!navigator.onLine) throw fehler("Failed to get document because the client is offline.", "unavailable");
+      if (offline) (window.__miniSpaeter = window.__miniSpaeter || []).push({ game, spieler, name, punkte, ms, zeitMs, quelle });
       const id = game + "_" + spieler;
       const alt = eintraege.get(id);
       if (!alt) {
@@ -976,6 +982,69 @@ try {
     await seite.waitForFunction(() => localStorage.getItem("mini.id") === "mini_umgezogenumgezogen", null, { timeout: 6000 }).catch(() => {});
     const umgezogen = await seite.evaluate(() => ({ id: localStorage.getItem("mini.id"), name: localStorage.getItem("mini.name") }));
     pruefe(umgezogen.id === "mini_umgezogenumgezogen" && umgezogen.name === "Umgezogen", `Das Gerät folgt dem Umzug nicht: ${JSON.stringify(umgezogen)}`);
+    await kontext.close();
+  }
+
+  // --- 2a. Ohne Netz ---------------------------------------------------------
+  // Eine Runde ohne Netz wartet auf dem Gerät, der Bestwert gilt gleich, und
+  // die Liste zeigt, was das Gerät zuletzt gesehen hat – mit der eigenen
+  // Runde darin. Kommt das Netz zurück, geht sie hinaus, mit ihrer Uhrzeit.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__ohneNetz")) return;
+      sessionStorage.setItem("__ohneNetz", "1");
+      localStorage.setItem("mini.id", "mini_ohnenetzohnenetz");
+      localStorage.setItem("mini.name", "Funkloch");
+    });
+    await seite.goto(`${BASIS}/turmbau`, { waitUntil: "load" });
+    await seite.waitForSelector(".cm-bar", { timeout: 8000 });
+    pruefe(await spieleTurmbauZuEnde(seite), "Ohne Netz: Die erste Runde (noch online) kam zu keinem Ergebnis.");
+    await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 });
+    const online = await seite.evaluate(() => window.__miniEintraege.get("towerStack_mini_ohnenetzohnenetz")?.versuche || 0);
+
+    await kontext.setOffline(true);
+    await seite.click(".cm-actions .cm-icon-again");
+    pruefe(await spieleTurmbauZuEnde(seite), "Ohne Netz kam die Runde zu keinem Ergebnis.");
+    await seite.waitForFunction(() => /Ohne Netz gemerkt/.test(document.querySelector(".mini-ergebnis .mini-meldung")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
+    await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 }).catch(() => {});
+    const weg = await seite.evaluate(() => ({
+      meldung: document.querySelector(".mini-ergebnis .mini-meldung")?.textContent || "",
+      zeilen: [...document.querySelectorAll(".mini-ergebnis .mini-zeile")].map((z) => z.textContent.replace(/\s+/g, " ").trim()),
+      wartet: JSON.parse(localStorage.getItem("mini.wartet") || "[]"),
+      versuche: window.__miniEintraege.get("towerStack_mini_ohnenetzohnenetz")?.versuche || 0,
+    }));
+    pruefe(/Ohne Netz gemerkt/.test(weg.meldung), `Ohne Netz steht unter dem Ergebnis: ${weg.meldung}`);
+    pruefe(weg.wartet.length === 1 && weg.wartet[0].spiel === "towerStack" && weg.wartet[0].name === "Funkloch" && weg.wartet[0].zeitMs > 0,
+      `Die Runde ohne Netz wartet nicht auf dem Gerät: ${JSON.stringify(weg.wartet)}`);
+    pruefe(weg.versuche === online, `Ohne Netz kam die Runde trotzdem hinaus: ${weg.versuche} statt ${online}`);
+    pruefe(weg.zeilen.some((z) => /Funkloch/.test(z)) && weg.zeilen.some((z) => /Grosi/.test(z)),
+      `Ohne Netz zeigt die Liste nicht, was das Gerät zuletzt gesehen hat: ${weg.zeilen.join(" | ")}`);
+
+    // Zurück im Netz: Die Runde geht hinaus, von selbst.
+    await kontext.setOffline(false);
+    await seite.waitForFunction(() => !(JSON.parse(localStorage.getItem("mini.wartet") || "[]")).length, null, { timeout: 6000 }).catch(() => {});
+    const zurueck = await seite.evaluate(() => ({
+      wartet: JSON.parse(localStorage.getItem("mini.wartet") || "[]").length,
+      versuche: window.__miniEintraege.get("towerStack_mini_ohnenetzohnenetz")?.versuche || 0,
+      spaeter: window.__miniSpaeter || [],
+    }));
+    pruefe(zurueck.wartet === 0 && zurueck.versuche === online + 1, `Zurück im Netz ist die Runde nicht hinausgegangen: ${JSON.stringify(zurueck)}`);
+    pruefe(zurueck.spaeter.length === 1 && zurueck.spaeter[0].zeitMs === weg.wartet[0].zeitMs && zurueck.spaeter[0].quelle === "",
+      `Die Runde ging nicht mit ihrer Uhrzeit hinaus: ${JSON.stringify(zurueck.spaeter)}`);
+
+    // Die Startseite ohne Netz: das Zeichen oben rechts, und die Listen von
+    // vorhin.
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.waitForFunction(() => /Grosi|Funkloch/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+    pruefe(await seite.locator(".ar-offline").isHidden(), "Mit Netz steht oben «Offline».");
+    await kontext.setOffline(true);
+    await seite.waitForFunction(() => !document.querySelector(".ar-offline")?.hidden, null, { timeout: 3000 }).catch(() => {});
+    pruefe(/Offline/.test(await seite.locator(".ar-offline").innerText().catch(() => "")), "Ohne Netz steht oben nicht «Offline».");
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `Ohne Netz – Klassen ohne Regel: ${ohne.join(", ")}`);
+    await kontext.setOffline(false);
     await kontext.close();
   }
 

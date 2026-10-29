@@ -5891,6 +5891,25 @@ body.ar {
   animation: ar-auf 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .ar-name-feld[hidden] { display: none; }
+/* Ohne Netz: ein kleines Zeichen oben rechts – und danach, solange Runden
+   hinausgehen (mini-games.js, offlineZeichen). */
+.ar-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ar-offline::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ar-gold); }
+.ar-offline.ist-weg::before { background: var(--ar-koralle); }
+.ar-offline[hidden] { display: none; }
 .ar-wer { display: flex; flex-direction: column; gap: 10px; }
 /* Darunter, auf der Startseite: die Turniere, in denen auf diesem Gerät
    gespielt wurde (turnier.js, meineTurniere). */

@@ -970,6 +970,44 @@ spielen» kennt keine Versuche: Die Spiele stehen da, aber gespielt wird nur
 in seinen Multiplayern (die Regeln lassen keinen Versuch beginnen), und die
 Gesamtwertung zählt nur sie.
 
+## Ohne Netz
+
+Gespielt wird auch ohne Netz – in der installierten App und im Browser, sobald
+die Seite einmal mit Netz offen war: Dann liegen alle Seiten und Skripte im
+Service Worker (`service-worker.js`), auch das Firebase-SDK. Bilder und Klänge
+kommen dazu, sobald sie einmal geladen wurden.
+
+**Eine Runde ohne Netz wartet auf dem Gerät** (`mini-games.js`, «Ohne Netz»):
+`mini.wartet` hält Kennung, Name, Punkte, Dauer, die Uhrzeit, zu der sie zu
+Ende war, und woher sie kam – auch wenn das Netz erst beim Eintragen wegbricht
+(ein Fehler wie `unavailable`, nicht eine Absage der Regeln). Der Bestwert auf
+dem Gerät gilt sofort, und unter dem Ergebnis steht «Ohne Netz gemerkt – die
+Runde kommt in die Liste, sobald du wieder online bist.» Oben rechts auf der
+Start- und der Turnierseite steht dann «Offline» (`offlineZeichen`).
+
+**Zurück im Netz geht sie hinaus** (`sendeWartende`): wenn das Ereignis
+«online» kommt, wenn die Seite wieder vorne ist und beim nächsten Laden – die
+Startseite wartet darauf, bevor sie die Listen liest. Die Runden gehen
+nacheinander über denselben Weg wie jede andere (`cloud.js`, `speichere`), mit
+`offline: true`, ihrer eigenen Uhrzeit und ihrer Quelle: In `miniScores` zählen
+sie wie gleich gespielt, die Uhr des Eintrags geht dabei nie zurück, und im
+Rundenprotokoll stehen sie zu ihrer Zeit. Die Regeln lassen dafür bis zu 30
+Tage zurück zu (`ohneNetzGespielt`); was älter ist, zählt in der Liste, nur
+ohne Protokoll. Ist die Kennung inzwischen umgezogen (Umzüge), geht die Runde
+dorthin. Was wartet, geht vor einer neuen Runde hinaus – die Reihenfolge
+bleibt. Weist die Datenbank eine Runde ab (ein Spiel, das es nicht mehr gibt),
+fällt sie weg, statt ewig zu warten.
+
+**Die Listen ohne Netz** zeigen, was das Gerät zuletzt gesehen hat
+(`mini.listen`, bei jedem Lesen nachgeführt), mit den eigenen wartenden Runden
+darin (`mitWartenden`). Firestore antwortet ohne Netz aus seinem leeren
+Zwischenspeicher; `cloud.js` (`ergebnisse`) zählt eine solche Antwort nicht
+und wirft, wenn kein Spiel vom Server antwortet – sonst sähe die Liste aus wie
+«noch niemand gespielt».
+
+Turniere und Multiplayer brauchen das Netz: Ein Versuch zählt dort ab seinem
+Beginn, und das muss die Datenbank wissen, bevor gespielt wird.
+
 ## Vollbild
 
 Jedes Spiel füllt das Bild: Die Spielfläche reicht bis an den linken, rechten

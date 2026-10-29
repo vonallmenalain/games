@@ -761,6 +761,42 @@ await darf("cloud.js: Admin benennt einzelne Einträge eines Turniers um", async
   erwarte(n === 1 && e?.name === "Efi", JSON.stringify(e));
 });
 
+// Ohne Netz gespielt: Die Runde kommt später, mit der Uhrzeit, zu der sie zu
+// Ende war – im Protokoll zu ihrer Zeit. Bis 30 Tage zurück; was älter ist,
+// zählt in der Liste, nur ohne Protokoll.
+const TAG = 24 * STUNDE;
+const OFF = { game: "towerStack", spieler: "mini_cloudjsoffline", name: "Funkloch" };
+const VOR = Date.now() - 2 * TAG;
+await darf("cloud.js: Eine Runde ohne Netz kommt mit ihrer Uhrzeit", async () => {
+  const stand = await gastCloud.speichere({ ...OFF, punkte: 7, ms: 3000, zeitMs: VOR, offline: true, quelle: "" });
+  erwarte(stand.versuche === 1 && stand.rekord === true, JSON.stringify(stand));
+  const runde = (await adminCloud.runden({ vonMs: VOR - 1000, bisMs: VOR + 1000 })).find((r) => r.spieler === OFF.spieler);
+  erwarte(runde?.zeitMs === VOR && runde.nr === 1 && runde.ms === 3000, JSON.stringify(runde));
+  const eintrag = await gastCloud.meinErgebnis(OFF.game, OFF.spieler);
+  erwarte(eintrag?.updatedAtMs === VOR && eintrag.erstesMs === VOR, JSON.stringify(eintrag));
+});
+await darf("cloud.js: Eine Runde ohne Netz von vor 40 Tagen zählt, nur ohne Protokoll", async () => {
+  const stand = await gastCloud.speichere({ ...OFF, punkte: 9, ms: 1000, zeitMs: Date.now() - 40 * TAG, offline: true });
+  erwarte(stand.versuche === 2 && stand.punkte === 9, JSON.stringify(stand));
+  const runden = (await adminCloud.runden({ vonMs: 0, bisMs: Date.now() + STUNDE })).filter((r) => r.spieler === OFF.spieler);
+  erwarte(runden.length === 1, JSON.stringify(runden));
+  const eintrag = await gastCloud.meinErgebnis(OFF.game, OFF.spieler);
+  erwarte(eintrag.updatedAtMs === VOR, `Die Uhr ging zurück: ${eintrag.updatedAtMs}`);
+});
+const offlineRunde = (offline) => {
+  const db = gast();
+  const b = db.batch();
+  b.set(db.doc(`miniScores/towerStack_${OFF.spieler}`), { name: "Funkloch", punkte: 9, versuche: 3, spielMs: 4000, updatedAtMs: 5 }, { merge: true });
+  b.set(db.doc(`miniRunden/towerStack_${OFF.spieler}_3`), {
+    game: "towerStack", spieler: OFF.spieler, name: "Funkloch", nr: 3, punkte: 1, ms: 0, zeitMs: Date.now() - 3 * TAG,
+    ...(offline === undefined ? {} : { offline }),
+  });
+  return b.commit();
+};
+await darfNicht("Gast trägt eine Runde von vor drei Tagen ein, ohne dass sie ohne Netz war", () => offlineRunde(undefined));
+await darfNicht("Gast trägt eine Runde mit offline: false ein", () => offlineRunde(false));
+await darf("Gast trägt eine Runde von vor drei Tagen ohne Netz ein", () => offlineRunde(true));
+
 // Wer vorne liegt, wartet: cloud.js schreibt das Feld nur, wo es gilt –
 // mit fester Zahl von Versuchen liesse es weg, statt abgewiesen zu werden.
 const SPITZE = "spitze-cloudjs2345";

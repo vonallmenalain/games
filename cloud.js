@@ -42,6 +42,9 @@
  *     punkte     38               was diese Runde brachte
  *     ms         52000            wie lange sie dauerte (höchstens 30 min)
  *     zeitMs     1761473400000    wann sie zu Ende war
+ *     offline    true             ohne Netz gespielt und später hochgeladen
+ *                                 (mini-games.js, sendeWartende); zeitMs ist
+ *                                 dann die Zeit der Runde. Fehlt sonst.
  *     quelle     "turnier"        oder "live" (Multiplayer); fehlt bei einer
  *                                 Runde auf der Spielseite selbst
  *
@@ -237,14 +240,21 @@
       .filter(Boolean))];
     if (!ref || !ids.length) return [];
 
+    // Ohne Netz antwortet Firestore aus seinem Zwischenspeicher – und der ist
+    // hier leer: Eine leere Liste sähe aus wie «noch niemand gespielt». Eine
+    // Antwort von dort zählt deshalb nicht; antwortet kein Spiel vom Server,
+    // wirft es, und mini-games.js nimmt, was es zuletzt gesehen hat
+    // (alleErgebnisse).
     const antworten = await Promise.all(ids.map((id) => ref
       .where("game", "==", id)
       .limit(MAX_JE_SPIEL)
       .get()
+      .then((schnappschuss) => (schnappschuss?.metadata?.fromCache ? null : schnappschuss))
       .catch((fehler) => {
         console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, fehler);
         return null;
       })));
+    if (!antworten.some(Boolean)) throw Object.assign(new Error("Die Bestenliste ist gerade nicht zu haben."), { code: "unavailable" });
 
     const liste = [];
     antworten.forEach((schnappschuss) => {
@@ -387,6 +397,11 @@
    * ihrer Nummer, dem Zähler nach dieser Runde. Die Regeln lassen sie nur
    * zu, wenn der Eintrag daneben genau um diese Runde wächst – so steht dort
    * jede Runde, die in miniScores zählt, und keine andere.
+   *
+   * Eine Runde ohne Netz (mini-games.js, sendeWartende) kommt später: mit
+   * offline und der Uhrzeit, zu der sie zu Ende war (zeitMs), und woher sie
+   * kam (quelle). Sie steht dann im Protokoll zu ihrer Zeit, nicht zu der
+   * des Hochladens – die Regeln lassen dafür bis zu 30 Tage zurück zu.
    */
   // Die Dauer einer Runde zählt zur Spielzeit des Eintrags (spielMs) – nie
   // mehr als eine halbe Stunde: So viel lassen die Regeln je Runde zu.
@@ -405,7 +420,7 @@
     return "";
   }
 
-  async function speichere({ game, spieler, name, punkte, ms = 0 }) {
+  async function speichere({ game, spieler, name, punkte, ms = 0, zeitMs = 0, offline = false, quelle: von = null }) {
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
@@ -418,11 +433,13 @@
 
     const doc = ref.doc(`${spielId}_${spielerId}`);
     const protokoll = rundenSammlung();
-    const quelle = woher();
+    const spaeter = Boolean(offline);
+    const quelle = von === null ? woher() : (von === "turnier" || von === "live" ? von : "");
     const eintragen = (mitRunde) => db.runTransaction(async (lauf) => {
       const vorher = await lauf.get(doc);
       const alt = vorher.exists ? lies(vorher) : null;
-      const jetzt = Date.now();
+      // Ohne Netz gespielt: zur Zeit der Runde, nie in der Zukunft.
+      const jetzt = spaeter && zeitMs > 0 ? Math.min(Date.now(), Math.round(Number(zeitMs))) : Date.now();
       // Der Name gehört dem Eintrag: Eine Runde ändert ihn nicht. Umbenannt
       // wird nur ausdrücklich (benenneUm) – auf einem Gerät oder im
       // Adminbereich. Spielte ein zweites Gerät noch unter dem alten Namen,
@@ -442,6 +459,7 @@
           ms: dauer,
           zeitMs: jetzt,
           ...(quelle ? { quelle } : {}),
+          ...(spaeter ? { offline: true } : {}),
         });
       }
 
@@ -465,7 +483,8 @@
         punkte: rekord ? zahl : alt.punkte,
         versuche: alt.versuche + 1,
         spielMs: alt.spielMs + dauer,
-        updatedAtMs: jetzt,
+        // Eine Runde von früher (ohne Netz) stellt die Uhr nicht zurück.
+        updatedAtMs: Math.max(alt.updatedAtMs, jetzt),
         updatedAt: jetztAufDemServer(),
       }, { merge: true });
       return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1, name: hiess };
