@@ -314,6 +314,12 @@ pruefe("Die Listen ohne Netz zeigen, was das Gerät zuletzt gesehen hat",
   && /metadata\?\.fromCache/.test(lies("cloud.js")));
 pruefe("Die Regeln lassen eine Runde ohne Netz bis 30 Tage zurück zu",
   /function ohneNetzGespielt[\s\S]*?2592000000/.test(lies("firestore.rules")) && /"quelle", "offline"\]/.test(lies("firestore.rules")));
+// Die Gesamtwertung: Duelle statt Siege, damit mehr Spiele keinen Vorteil
+// bringen – und die Zahl der Runden steht nirgends.
+pruefe("Die Gesamtwertung zählt gewonnene Duelle, mit Ausgleich",
+  /function gesamtwertung[\s\S]*?gewonnen: hinten \+ gleich \/ 2[\s\S]*?AUSGLEICH \/ 2/.test(miniJs));
+pruefe("Die Karte eines Spielers zeigt «am meisten gespielt» ohne Zahl",
+  /function spielerKarte[\s\S]*?mini-profil-oft[\s\S]*?--wie-oft/.test(miniJs));
 pruefe("Der Adminbereich führt einen Namen von mehreren Geräten zusammen",
   /async function fuehreZusammen[\s\S]*?mini\(\)\?\.stammVon\?\.\(/.test(lies("admin.js")));
 // Bevor ein Eintrag verschwindet, steht fest, wohin es für sein Gerät geht.

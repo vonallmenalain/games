@@ -1304,8 +1304,30 @@ try {
     await seite.waitForSelector(".ar-fenster .mini-tabelle", { timeout: 4000 }).catch(() => {});
     pruefe(await seite.locator(".ar-fenster .mini-tabelle tbody tr").count() >= 1, `${wo}: Hinter dem Pokal steht keine Gesamtwertung.`);
     const kopfzeilen = await seite.locator(".ar-fenster .mini-tabelle th").allTextContents();
-    pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `${wo}: In der Gesamtwertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
+    pruefe(kopfzeilen.some((z) => /wertung/i.test(z)) && kopfzeilen.some((z) => /platz/i.test(z)),
+      `${wo}: In der Gesamtwertung fehlen Wertung oder Platz im Schnitt (Spalten: ${kopfzeilen.join(", ")}).`);
     pruefe(!kopfzeilen.some((z) => /runde/i.test(z)), `${wo}: In der Auswertung stehen die Runden je Spieler (Spalten: ${kopfzeilen.join(", ")}).`);
+    pruefe(await seite.locator(".ar-fenster .mini-gesamt-podest .tn-stufe").count() >= 1, `${wo}: Über der Gesamtwertung fehlt das Podest.`);
+    // Sortieren nach einer Spalte, und ein Tipp auf einen Namen zeigt seine
+    // Karte – mit dem, was er am meisten spielt, aber ohne Zahl dazu.
+    await seite.locator(".ar-fenster .mini-gesamt-sortier", { hasText: "Spiele" }).click();
+    pruefe(await seite.locator('.ar-fenster .mini-gesamt-tabelle th[aria-sort="descending"]', { hasText: "Spiele" }).count() === 1,
+      `${wo}: Ein Tipp auf «Spiele» sortiert die Gesamtwertung nicht danach.`);
+    await seite.locator(".ar-fenster .mini-gesamt-sortier", { hasText: "Wertung" }).click();
+    await seite.locator(".ar-fenster .mini-gesamt-person", { hasText: "Grosi" }).first().click();
+    await seite.waitForSelector(".ar-fenster .mini-profil", { timeout: 3000 }).catch(() => {});
+    const profil = await seite.evaluate(() => ({
+      name: document.querySelector(".ar-fenster .mini-profil-name")?.textContent || "",
+      teile: [...document.querySelectorAll(".ar-fenster .mini-profil-titel")].map((t) => t.textContent),
+      oft: [...document.querySelectorAll(".ar-fenster .mini-profil-teil")].find((t) => /meisten/.test(t.textContent))?.innerText || "",
+    }));
+    pruefe(profil.name === "Grosi" && profil.teile.some((t) => /beste/i.test(t)) && profil.teile.some((t) => /meisten gespielt/i.test(t)),
+      `${wo}: Die Karte eines Spielers zeigt nicht, was sie soll: ${JSON.stringify(profil)}`);
+    pruefe(profil.oft && !/\d/.test(profil.oft), `${wo}: Bei «Am meisten gespielt» steht eine Zahl: ${profil.oft}`);
+    await seite.locator(".ar-fenster .mini-profil-zurueck").click();
+    pruefe(await seite.locator(".ar-fenster .mini-gesamt-tabelle").count() === 1, `${wo}: «Zur Gesamtwertung» führt nicht zurück.`);
+    const ohneRegelGesamt = await klassenOhneRegel(seite);
+    pruefe(ohneRegelGesamt.length === 0, `${wo}: Gesamtwertung – Klassen ohne Regel: ${ohneRegelGesamt.join(", ")}`);
     // Ein Tipp neben das Fenster schliesst es.
     await seite.mouse.click(5, hoch - 5);
     await seite.waitForFunction(() => !document.querySelector(".ar-fenster"), null, { timeout: 2000 }).catch(() => {});

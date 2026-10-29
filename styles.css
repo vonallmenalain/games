@@ -7149,6 +7149,131 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 .ar-fenster .mini-tabelle th { background: transparent; color: #a39fb2; border-color: rgba(255, 255, 255, 0.09); }
 .ar-fenster .mini-tabelle td { border-color: rgba(255, 255, 255, 0.09); color: #f4f2f8; }
 .ar-fenster .mini-tabelle tbody tr.ist-erster { background: rgba(255, 212, 94, 0.1); }
+
+/* --- Die Gesamtwertung der Startseite (mini-games.js, gesamtTafel) ---------- */
+/* Oben die Wahl, was zählt, dann das Podest wie im Turnier, die Tabelle zum
+   Sortieren und darunter, wie gerechnet wird. Ein Tipp auf einen Namen
+   zeigt seine Karte im selben Fenster. */
+.mini-gesamt { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.mini-gesamt-filter { display: flex; flex-direction: column; gap: 8px; }
+.mini-gesamt-reihe { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mini-gesamt-wort { flex: 0 0 4.6rem; color: #a39fb2; font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.mini-gesamt-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.mini-gesamt-chip {
+  appearance: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 4px 11px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #d4d0e2;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mini-gesamt-chip[aria-pressed="true"] { border-color: #ffd45e; background: rgba(255, 212, 94, 0.14); color: #ffd45e; }
+.mini-gesamt-chip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.mini-gesamt-podest { margin-top: 2px; }
+.mini-gesamt-podest .tn-stufe-wer { padding-bottom: 10px; }
+.mini-gesamt-rollt { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.mini-gesamt-tabelle th { padding: 0; }
+.mini-gesamt-sortier {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  padding: 10px 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mini-gesamt-tabelle th[aria-sort] { color: #ffd45e; }
+.mini-gesamt-tabelle th[aria-sort="descending"] .mini-gesamt-sortier::after { content: " ↓"; }
+.mini-gesamt-tabelle th[aria-sort="ascending"] .mini-gesamt-sortier::after { content: " ↑"; }
+.mini-gesamt-tabelle th:first-child { padding: 10px 12px; }
+.mini-gesamt-person {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.mini-gesamt-person:hover span:last-child,
+.mini-gesamt-person:focus-visible span:last-child { text-decoration: underline; text-underline-offset: 3px; }
+.mini-gesamt-person:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 6px; }
+.mini-gesamt-tabelle tr.ist-ich td { background: rgba(255, 255, 255, 0.06); }
+.mini-gesamt-tabelle tr.ist-ich .mini-rangzahl { box-shadow: 0 0 0 2px #ffd45e; }
+/* Die Wertung mit einem Balken dahinter: wie weit bis 100. */
+.mini-gesamt-wert { position: relative; font-weight: 900; }
+.mini-gesamt-wert::before {
+  content: "";
+  position: absolute;
+  inset: auto 8px 6px auto;
+  width: calc((100% - 16px) * var(--wert, 0));
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 212, 94, 0.35), #ffd45e);
+}
+.mini-gesamt-wie { color: #a39fb2; font-size: 0.82rem; }
+.mini-gesamt-wie summary { cursor: pointer; font-weight: 800; color: #d4d0e2; }
+.mini-gesamt-wie p { margin: 8px 0 0; line-height: 1.45; }
+
+/* Die Karte eines Spielers */
+.mini-profil { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.mini-profil-kopf { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.mini-profil-zurueck::before { content: "← "; }
+.mini-profil-wer { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.mini-profil-wer .tn-avatar-gross { --tn-medaille: #ffd45e; }
+.mini-profil-texte { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.mini-profil-name { margin: 0; color: #fff; font-size: 1.4rem; font-weight: 900; overflow-wrap: anywhere; }
+.mini-profil-platz { margin: 0; color: #a39fb2; font-size: 0.86rem; font-weight: 800; }
+.mini-profil-kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; }
+.mini-profil-kachel { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); }
+.mini-profil-kachel strong { color: #fff; font-size: 1.15rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.mini-profil-kachel span { color: #a39fb2; font-size: 0.72rem; font-weight: 800; }
+.mini-profil-teil { display: flex; flex-direction: column; gap: 8px; }
+.mini-profil-titel { margin: 0; color: #ffd45e; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.mini-profil-liste { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.mini-profil-zeile { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mini-profil-spiel { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px; border-radius: 10px; color: #f4f2f8; text-decoration: none; }
+.mini-profil-spiel:hover,
+.mini-profil-spiel:focus-visible { background: rgba(255, 255, 255, 0.07); outline: none; }
+.mini-profil-bild { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 9px; object-fit: cover; background: rgba(255, 255, 255, 0.08); }
+.mini-profil-bild.ist-leer { visibility: hidden; }
+.mini-profil-spielname { min-width: 0; overflow: hidden; font-size: 0.9rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.mini-profil-rang {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4d0e2;
+  font-size: 0.76rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mini-profil-rang.ist-platz-1 { background: linear-gradient(145deg, #ffe58a, #f5b416); color: #4a2f00; }
+.mini-profil-rang.ist-platz-2 { background: linear-gradient(145deg, #f7f8fb, #c3c9d6); color: #303744; }
+.mini-profil-rang.ist-platz-3 { background: linear-gradient(145deg, #f8d8b8, #cf8650); color: #43240c; }
+/* Wie oft – ohne Zahl: ein Balken, so lang wie im Vergleich zum Liebsten. */
+.mini-profil-oft { flex: 0 0 34%; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.mini-profil-oft::before { content: ""; display: block; width: var(--wie-oft, 0%); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #00a5b5, #5ee0c0); }
+.mini-profil-nie { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini-profil-chip { padding: 5px 11px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: #d4d0e2; font-size: 0.78rem; font-weight: 800; text-decoration: none; }
+.mini-profil-chip:hover,
+.mini-profil-chip:focus-visible { background: rgba(255, 255, 255, 0.12); color: #fff; outline: none; }
 .ar-fenster .mini-install { margin: 0; border: 0; padding: 0; background: transparent; box-shadow: none; }
 .ar-fenster .mini-install-text strong { display: none; }
 .ar-fenster .mini-install-text p,
