@@ -2185,10 +2185,9 @@
   const anteilText = (teil, von) => (von ? `${Math.round((teil / von) * 100)} %` : "–");
 
   // Was die Gesamtwertung sich merkt, solange man auf diesem Gerät ist:
-  // welche Spiele zählen, ab wie vielen, wonach sortiert. Nur eine
-  // Bequemlichkeit – fehlt der Speicher, gilt die Vorgabe.
+  // wonach sortiert wird. Nur eine Bequemlichkeit – fehlt der Speicher, gilt
+  // die Vorgabe.
   const GESAMT_KEY = "mini.gesamt";
-  const MINDESTENS = [1, 3, 5, 10];
   // Die Spalten der Tabelle, in ihrer Reihenfolge – jede lässt sich sortieren.
   const SORTIERUNG = {
     wert: { wort: "Wertung", wert: (p) => p.wert, ab: true, zelle: (p) => wertText(p.wert) },
@@ -2200,66 +2199,34 @@
 
   function gesamtEinstellung() {
     const roh = liesJson(GESAMT_KEY, {});
-    return {
-      tier: [0, 1, 2, 3].includes(Number(roh.tier)) ? Number(roh.tier) : 0,
-      mindestens: MINDESTENS.includes(Number(roh.mindestens)) ? Number(roh.mindestens) : 1,
-      sortiert: SORTIERUNG[roh.sortiert] ? roh.sortiert : "wert",
-    };
+    return { sortiert: SORTIERUNG[roh.sortiert] ? roh.sortiert : "wert" };
   }
 
   /*
-   * Das Fenster hinter dem Pokal: oben, was zählt (Tier, ab wie vielen
-   * Spielen, wonach sortiert), dann das Podest und die Tabelle. Ein Tipp auf
+   * Das Fenster hinter dem Pokal: das Podest und die Tabelle, über genau die
+   * Spiele, die auf der Startseite stehen (offen – was der Adminbereich
+   * angehakt hat). Ein Tipp auf einen Spaltenkopf sortiert, ein Tipp auf
    * einen Namen öffnet seine Karte (spielerKarte) – im selben Fenster, mit
-   * dem Weg zurück. Neu gerechnet wird bei jeder Wahl, gelesen nichts.
+   * dem Weg zurück. Neu gerechnet wird dabei, gelesen nichts.
    */
-  function gesamtTafel(alle, offen, einteilung = null) {
+  function gesamtTafel(alle, offen) {
     const wirt = el("div", "mini-gesamt");
     const stand = gesamtEinstellung();
     let karteVon = "";
 
-    const merke = () => schreibe(GESAMT_KEY, { tier: stand.tier, mindestens: stand.mindestens, sortiert: stand.sortiert });
-    const spiele = () => (stand.tier ? offen.filter((s) => tierVon(s, einteilung) === stand.tier) : offen);
-
-    function chips(wort, werte, jetzt, text, waehle) {
-      const reihe = el("div", "mini-gesamt-reihe");
-      reihe.append(el("span", "mini-gesamt-wort", wort));
-      const gruppe = el("div", "mini-gesamt-chips");
-      gruppe.setAttribute("role", "group");
-      gruppe.setAttribute("aria-label", wort);
-      werte.forEach((w) => {
-        const b = el("button", "mini-gesamt-chip", text(w));
-        b.type = "button";
-        b.addEventListener("click", () => { waehle(w); merke(); zeichne(); });
-        b.setAttribute("aria-pressed", w === jetzt ? "true" : "false");
-        gruppe.append(b);
-      });
-      reihe.append(gruppe);
-      return reihe;
-    }
+    const merke = () => schreibe(GESAMT_KEY, { sortiert: stand.sortiert });
 
     function zeichne() {
       wirt.replaceChildren();
-      const welche = spiele();
-      const alleLeute = gesamtwertung(alle, welche);
+      const leute = gesamtwertung(alle, offen);
       if (karteVon) {
-        const person = alleLeute.find((p) => p.schluessel === karteVon);
-        if (person) { wirt.append(spielerKarte(person, alleLeute, welche, () => { karteVon = ""; zeichne(); })); return; }
+        const person = leute.find((p) => p.schluessel === karteVon);
+        if (person) { wirt.append(spielerKarte(person, leute, offen, () => { karteVon = ""; zeichne(); })); return; }
         karteVon = "";
       }
 
-      const filter = el("div", "mini-gesamt-filter");
-      filter.append(
-        chips("Spiele", [0, ...TIERS], stand.tier, (t) => (t ? `Tier ${t}` : "Alle"), (t) => { stand.tier = t; }),
-        chips("Gespielt", MINDESTENS, stand.mindestens, (n) => (n === 1 ? "Alle" : `ab ${n}`), (n) => { stand.mindestens = n; }),
-      );
-      wirt.append(filter);
-
-      const leute = alleLeute.filter((p) => p.spiele >= stand.mindestens);
       if (!leute.length) {
-        wirt.append(el("p", "mini-hinweis", alleLeute.length
-          ? `Mit ${stand.mindestens} oder mehr gespielten Spielen steht hier noch niemand.`
-          : "Noch hat niemand gespielt. Der erste Name, der hier steht, könnte deiner sein."));
+        wirt.append(el("p", "mini-hinweis", "Noch hat niemand gespielt. Der erste Name, der hier steht, könnte deiner sein."));
         return;
       }
 
@@ -3483,7 +3450,7 @@
         wirtTabelle.innerHTML = "";
         if (ladefehler) wirtTabelle.append(el("p", "mini-hinweis", "Die Ergebnisse sind gerade nicht zu haben."));
         else if (!alle) wirtTabelle.append(el("p", "mini-hinweis", "Wird geladen..."));
-        else wirtTabelle.append(gesamtTafel(alle, offen, einteilung));
+        else wirtTabelle.append(gesamtTafel(alle, offen));
       };
       zeichne();
       gesamtZeichnen = zeichne;

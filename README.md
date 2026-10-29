@@ -355,11 +355,12 @@ Mitte, auch wenn er alle gewonnen hat. Mehr Spiele heben niemanden, der nicht
 besser spielt – ein Anteil bleibt ein Anteil. Siege und Podest stehen als
 Anteil an den eigenen Spielen da.
 
-Oben im Fenster wird gewählt, was zählt: «Spiele» (alle oder ein Tier) und
-«Gespielt» (alle, ab 3, ab 5, ab 10 Spielen). Darunter das Podest wie im
-Turnier und die Tabelle – Wertung, Spiele, Ø Platz, Siege, Podest, jede
-Spalte mit einem Tipp sortierbar. Die Wahl merkt sich das Gerät
-(`mini.gesamt`). «So wird gerechnet» klappt die Erklärung auf.
+Gezählt werden genau die Spiele, die auf der Startseite stehen (was der
+Adminbereich angehakt hat) – die Tiers kennt nur der Admin, sie spielen hier
+keine Rolle. Im Fenster stehen das Podest wie im Turnier und die Tabelle:
+Wertung, Spiele, Ø Platz, Siege, Podest, jede Spalte mit einem Tipp
+sortierbar. Wonach sortiert ist, merkt sich das Gerät (`mini.gesamt`). «So
+wird gerechnet» klappt die Erklärung auf.
 
 **Ein Tipp auf einen Namen** (in der Tabelle oder auf dem Podest) zeigt im
 selben Fenster seine Karte (`spielerKarte`): Platz und Wertung, wie viele
