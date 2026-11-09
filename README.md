@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        dreissig Spielseiten, erzeugt
+    turmbau.html …        einunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -243,6 +243,73 @@ aus, ist es ein Blackout: Das Netz ist weg und die Runde vorbei. Wer zu
 lange an der Oberfläche liegt, lässt den Platz aus. Gezählt werden die
 Perlen.
 
+### Schwarm (November 2026): das erste Spiel in 3D
+
+**Schwarm** (`schwarm.js`, `flockFlight`) – Ein Starenschwarm zieht im
+Abendlicht über das Meer, der Sonne entgegen; die Kamera fliegt dicht
+dahinter. Wer links aufs Bild hält, lenkt nach links, wer rechts hält, nach
+rechts (am Rechner Pfeiltasten oder A/D; liegen zwei Finger auf, gilt der
+letzte) – flink, mit schnellen Richtungswechseln, denn die Strecke verlangt
+es. Im Weg stehen Felsnadeln in Reihen, **grosse Felsen genau auf der
+Fluglinie** (drum herum, später zwei, drei im Wechsel), Felsbögen,
+**Felswände mit einem Spalt**, Windräder und Stromleitungen. Jeder Vogel
+fliegt für sich: Was knapp neben einem Felsen liegt, fliesst darum herum, was
+mitten darauf zuhält, ist weg – ein Flügel eines Windrads oder ein Seil
+trifft nur, wer gerade dort ist. Durch einen Felsbogen zwängt sich der
+Schwarm; durch den Spalt einer Wand kommt nur, was hineinpasst. Bei einer
+Stromleitung ist der Weg zwischen den zwei hohen Masten frei.
+
+Ringe aus Licht sind Trupps, und es gibt zwei Sorten: **kleine goldene** nah
+am Weg (ihre Vögel und ein Zehntel des eigenen Schwarms kommen dazu) und
+**grosse helle** an heiklen Stellen – ganz am Rand, hinter einem zweiten,
+engeren Spalt, im Durchlass neben einem grossen Felsen (viele Vögel und drei
+Zehntel des Schwarms, `ANSCHLUSS`). Ein grosser Schwarm wächst also schneller.
+
+Der Schwarm ist Leben und Punktzahl zugleich: Hundert Vögel bringen alle
+dreissig Meter einen Punkt (`PUNKTE_JE_100M`); ein guter Lauf liegt bei 300.
+Ein grosser Schwarm zählt schneller und passt schlechter durch die Lücken.
+Unter einem Dutzend Vögeln (`MINDEST`) zerstreut er sich, und die Runde ist
+vorbei. Sonst endet sie nach 3600 m am Schlafplatz, gut eine Minute nach dem
+Start – hinter drei letzten Felswänden, deren Spalten nur noch die Mitte des
+Schwarms durchlassen (`SCHLUSS_SPALTEN`). Jeder Vogel, der ankommt, zählt
+noch einen Punkt. Unterwegs wird es Abend – Goldene Stunde, Sonnenuntergang,
+Abendrot, Blaue Stunde, Nacht –, schneller (von 38 auf gut 70 m/s) und enger.
+Gemessen mit Autopiloten: Wer nicht lenkt, ist nach einer Viertelminute
+zerstreut; wer ungenau lenkt, nach einer halben; wer genau fliegt, erreicht
+das Ziel etwa jedes zweite Mal mit ein paar Dutzend Vögeln; der Pilot der
+Prüfung, der den freien Weg kennt, bringt um die hundert heim.
+
+Wie die anderen würfelt es seine Welt aus `zufall.js`. Durch jede Reihe
+Hindernisse führt ein freier Weg (`wegBei`), so breit wie `breiteBei(z)` und
+von Punkt zu Punkt nie weiter zur Seite, als der Schwarm lenken kann; der
+Autopilot in `npm run pruefen:browser` (Abschnitt 4g25) folgt ihm bis zum
+Schlafplatz und rechnet nach, dass dort wirklich nichts steht. Wo ein Vogel
+im Schwarm fliegt, folgt aus seiner Nummer, und die Windräder drehen nach
+der Flugzeit – wer gleich fliegt, verliert dieselben Vögel. Aufgezeichnet
+werden Strecke, Seite und Schwarmgrösse (`a`, `b`, `c`); beim Anschauen
+fliegt der Schwarm denselben Weg durch denselben Abend und ist so gross wie
+damals. Die Gegner fliegen als kleiner Schwarm aus Licht mit.
+
+**Gezeichnet wird mit WebGL 2**, ohne Bibliothek – das Repository bleibt ohne
+Abhängigkeiten. Sechs kleine Programme stehen in `schwarm.js`: der Himmel
+(Verlauf, Sonne, Wolken, Berge, Mond und Sterne aus der Blickrichtung), das
+Wasser, alles Feste (ein Netz je Form, viele Male gezeichnet), die Vögel (je
+eine Scheibe, die zur Kamera schaut; Rumpf und schlagende Flügel entstehen
+im Programm), die Seile und alles, was leuchtet. Die Spiegelung im Wasser
+ist die Welt, auf den Kopf gestellt und noch einmal gezeichnet; das Wasser
+legt sich darüber und lässt davon stehen, was es spiegelt – kein zweites
+Bild im Speicher. Zahlen und Namen liegen auf einer zweiten Leinwand (2D)
+darüber. Kommen die Bilder zu langsam, zeichnet das Spiel die Welt mit
+weniger Bildpunkten (`gueteTakt`), die Zahlen bleiben scharf. Ohne WebGL 2
+steht ein Satz da statt einer Welt.
+
+Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`, `QUER0`
+und `LENK_ZEIT` (wie flink er lenkt), `START_VOEGEL`, `MINDEST`,
+`BREIT0`/`BREIT_MIN` (die Breite des freien Wegs), `SPALT0`/`SPALT_MIN` und
+`SCHLUSS_SPALTEN` (die Spalten der Felswände), `ANSCHLUSS`,
+`PUNKTE_JE_100M`, die Masse der Hindernisse – und `ABEND`, die fünf Lichter
+mit Sonnenstand und Farben.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -275,7 +342,8 @@ Wind mit der Schicht, der Brenner nur solange gedrückt, der Fahrtwind des
 Turmspringers im Fall, der Herzschlag des Ninjas mit der Weltzeit, das Meer
 des Freitauchers mit der Tiefe und sein Herz, sobald die Luft knapp wird.
 Ein sauberes Eintauchen klingt nach einem leisen Plopp, ein Klatscher nach
-Platsch. Eine Kulisse startet mit der
+Platsch. Der Schwarm hat seinen Fahrtwind, ein Flattern, wenn Vögel
+getroffen werden, und ein Zwitschern für jeden Trupp. Eine Kulisse startet mit der
 Runde und endet mit ihr; die Tafel hält alle an (`stille()`).
 
 **Woher:** 47 kurze Aufnahmen aus freien Sammlungen (Kenney, OpenGameArt –
@@ -582,7 +650,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle dreissig
+    Spiele            welche dazugehören, eines bis alle einunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
