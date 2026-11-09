@@ -11,14 +11,14 @@ export default {
     const pilot = () => {
       let ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.3);
       const trupp = st.welt.trupps.find((t) => t.zustand === "offen" && t.z > st.z + 4 && t.z < st.z + 70);
-      if (trupp && Math.abs(trupp.x - S.wegBei(trupp.z)) < 16) ziel = trupp.x;
+      if (trupp && trupp.art !== "gross" && Math.abs(trupp.x - S.wegBei(trupp.z)) < 12) ziel = trupp.x;
       const d = ziel - st.x - st.vx * 0.12;
       S.lenke(d > 0.7 ? 1 : d < -0.7 ? -1 : 0);
     };
     // Ein Felsbogen ein Stück voraus?
     const bogenVoraus = () => st.welt.dinge.some((d) => d.art === "bogen" && d.z > st.z + 120 && d.z < st.z + 170);
     S.losGehts();
-    for (let n = 0; n < 300000 && st.phase === "spiel" && st.z < 2400 && !(st.z > 700 && S.vg.n > 220 && bogenVoraus()); n += 1) {
+    for (let n = 0; n < 300000 && st.phase === "spiel" && st.z < 2400 && !(st.z > 600 && S.vg.n > 170 && bogenVoraus()); n += 1) {
       pilot();
       S.takt(1 / 120);
     }

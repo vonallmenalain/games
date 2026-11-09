@@ -3,18 +3,22 @@
  * ---------------------------------------------------------------------------
  * Ein Starenschwarm zieht im Abendlicht über das Meer, der Sonne entgegen.
  * Wer links aufs Bild hält, lenkt ihn nach links, wer rechts hält, nach
- * rechts – mehr gibt es nicht zu tun. Im Weg stehen Felsnadeln, Felsbögen,
- * Windräder und Stromleitungen: Jeder Vogel, der dagegenfliegt, ist weg.
- * Unterwegs warten kleine Trupps im goldenen Licht; wer sie mitnimmt, dessen
- * Schwarm wächst.
+ * rechts – flink, denn die Strecke verlangt es. Im Weg stehen Felsnadeln,
+ * grosse Felsen mitten auf der Fluglinie, Felsbögen, Felswände mit einem
+ * Spalt, Windräder und Stromleitungen: Jeder Vogel, der dagegenfliegt, ist
+ * weg. Unterwegs warten Trupps in Ringen aus Licht: kleine goldene nah am
+ * Weg, grosse helle an heiklen Stellen – am Rand, hinter einem engen Spalt.
+ * Wer sie mitnimmt, dessen Schwarm wächst.
  *
- * Der Schwarm ist das Leben und die Punktzahl zugleich: Jeder Vogel bringt je
- * hundert Meter einen Punkt. Ein grosser Schwarm zählt schneller, ihm
- * schliessen sich mit jedem Trupp mehr an – und er passt schlechter durch die
- * Lücken. Die Runde endet, wenn weniger als ein Dutzend übrig sind (dann
- * zerstreut sich der Schwarm), oder am Schlafplatz: Dort, nach 3600 Metern,
- * ist es Nacht geworden, und jeder Vogel, der ankommt, zählt noch einmal zehn
- * Punkte.
+ * Der Schwarm ist das Leben und die Punktzahl zugleich: Hundert Vögel
+ * bringen alle dreissig Meter einen Punkt (PUNKTE_JE_100M). Ein grosser
+ * Schwarm zählt schneller, ihm schliessen sich mit jedem Trupp mehr an – und
+ * er passt schlechter durch die Lücken. Die Runde endet, wenn weniger als
+ * ein Dutzend übrig sind (dann zerstreut sich der Schwarm), oder am
+ * Schlafplatz: Dort, nach 3600 Metern und drei letzten Felswänden mit immer
+ * schmalerem Spalt, ist es Nacht geworden, und jeder Vogel, der ankommt,
+ * zählt noch einen Punkt. Dorthin zu kommen ist schwer; mit vielen Vögeln
+ * dorthin zu kommen, ist die Kunst.
  *
  * Gebaut wird der Abend aus dem Zufall (zufall.js): ohne Turnier jedes Mal
  * ein anderer, im Turnier für alle im selben Versuch derselbe. Durch jede
@@ -67,17 +71,20 @@
   // ---------------------------------------------------------------------------
   const TAKT = 1 / 120;            // gelenkt wird in festen kleinen Schritten
   const Z_ENDE = 3600;             // so weit ist es bis zum Schlafplatz
-  const X_MAX = 44;                // so weit weicht die Mitte des Schwarms zur Seite
-  const WEG_MAX = 31;              // und so weit der freie Weg
+  const X_MAX = 46;                // so weit weicht die Mitte des Schwarms zur Seite
+  const WEG_MAX = 32;              // und so weit der freie Weg
   const FLUG_Y = 13;               // die Flughöhe der Mitte
   const HOCH_MAX = 8;              // höher und tiefer reicht der Schwarm nie
 
-  // Das Tempo, nach der Strecke: am Anfang gemächlich, am Schluss fast doppelt
-  // so schnell. Die ersten Meter nimmt der Schwarm Anlauf.
-  const V0 = 34;
-  const V_MAX = 62;
-  const V_WEG = 1600;
-  const QUER0 = 17;                // so schnell geht es zur Seite, in m/s
+  // Das Tempo, nach der Strecke: am Anfang zügig, am Schluss fast doppelt so
+  // schnell. Die ersten Meter nimmt der Schwarm Anlauf. Zur Seite geht es
+  // flink – die Strecke verlangt es.
+  const V0 = 38;
+  const V_MAX = 74;
+  const V_WEG = 1500;
+  const QUER0 = 26;                // so schnell geht es zur Seite, in m/s
+  const LENK_ZEIT = 0.07;          // so träge folgt der Schwarm dem Finger (Sekunden)
+  const LOS_ZEIT = 0.12;           // und so träge läuft er aus, wenn er loslässt
 
   // Der Schwarm: so viele Vögel zu Beginn, so viele höchstens. Jeder bringt
   // je hundert Meter einen Punkt und am Schlafplatz BONUS dazu.
@@ -85,12 +92,22 @@
   const VOEGEL_MAX = 1200;
   const KAPAZITAET = VOEGEL_MAX + 80;
   const MINDEST = 12;              // mit weniger hält kein Schwarm zusammen
-  const BONUS = 10;
-  const ANSCHLUSS = 0.125;         // so viel vom Schwarm kommt mit jedem Trupp noch dazu
+  // Die Punkte: Hundert Vögel bringen alle 100 / PUNKTE_JE_100M Meter einen
+  // Punkt; am Schlafplatz zählt jeder Vogel BONUS dazu.
+  const PUNKTE_JE_100M = 3.4;
+  const BONUS = 1;
+  // Wie viel vom eigenen Schwarm sich mit einem Trupp noch anschliesst: bei
+  // einem kleinen (goldener Ring) wenig, bei einem grossen (heller Ring an
+  // einer heiklen Stelle) viel.
+  const ANSCHLUSS = { klein: 0.1, gross: 0.3 };
 
   // Der freie Weg: am Anfang breit, am Schluss gerade noch ein kleiner Schwarm.
-  const BREIT0 = 26;
-  const BREIT_MIN = 11;
+  const BREIT0 = 20;
+  const BREIT_MIN = 7.5;
+  // Die Spalten in den Felswänden: am Schluss kommt nur noch die Mitte durch.
+  const SPALT0 = 13.5;
+  const SPALT_MIN = 4.8;
+  const SCHLUSS_SPALTEN = [5.6, 4.8, 4.2]; // die drei letzten Wände vor dem Schlafplatz
   const ERSTES_DING = 150;         // bis hier ist das Meer leer
 
   // Die Hindernisse. Was davon trifft, steht bei den Treffern weiter unten.
@@ -107,6 +124,8 @@
   const BOGEN_AUSSEN = [1.85, 1.38]; // der Fels um das Tor, mal dessen halbe Breite und Höhe
   const BOGEN_FORM = 2.5;          // wie eckig das Tor ist (2 wäre eine Ellipse)
   const BOGEN_TIEF = 6;
+  const WAND_TIEF = 7;             // so dick ist eine Felswand
+  const WAND_SOG = 1.1;            // so weit neben dem Spalt zwängt sich noch hinein
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -126,8 +145,14 @@
   const weich = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const schwereBei = (z) => clamp(z / Z_ENDE, 0, 1);
   const tempoBei = (z) => (V0 + (V_MAX - V0) * (1 - Math.exp(-Math.max(0, z) / V_WEG))) * clamp(0.35 + z / 40, 0.35, 1);
-  const querBei = (z) => QUER0 + 0.12 * (tempoBei(Math.max(40, z)) - V0);
+  const querBei = (z) => QUER0 + 0.2 * (tempoBei(Math.max(40, z)) - V0);
   const breiteBei = (z) => lerp(BREIT0, BREIT_MIN, Math.pow(schwereBei(z), 0.8));
+  const spaltBei = (z) => lerp(SPALT0, SPALT_MIN, schwereBei(z));
+  // Wie viele Meter zur Seite je Meter voraus der freie Weg höchstens geht:
+  // ein Teil dessen, was der Schwarm lenken kann – am Schluss fast alles. Die
+  // Kurve zwischen zwei Punkten ist in ihrer Mitte π/2-mal steiler als im
+  // Schnitt; das ist eingerechnet.
+  const lenkbarBei = (z) => (querBei(z) / tempoBei(z)) * lerp(0.5, 0.78, schwereBei(z)) / (Math.PI / 2);
   // Wie breit ein Schwarm aus n Vögeln ist (halbe Breite).
   const radiusBei = (n) => 2.5 + 0.5 * Math.sqrt(Math.max(0, n));
 
@@ -288,16 +313,12 @@
   }
 
   // Der nächste Punkt des freien Wegs: so weit zur Seite, wie es bis dorthin
-  // bequem zu lenken ist. Die Kurve dazwischen ist in ihrer Mitte π/2-mal
-  // steiler als im Schnitt – das ist eingerechnet.
+  // zu lenken ist – nie fast geradeaus, mindestens ein gutes Drittel davon,
+  // nach links oder rechts, und vom Rand weg zurück zur Mitte.
   function wegPunkt(z, weit = 1) {
     const w = state.welt.weg;
     const letzter = w[w.length - 1];
-    const dz = Math.max(1, z - letzter.z);
-    const k = schwereBei(z);
-    const reich = (querBei(z) / tempoBei(z)) * lerp(0.5, 0.78, k) * dz / (Math.PI / 2);
-    // Nie fast geradeaus: mindestens ein gutes Drittel davon, nach links oder
-    // rechts – und vom Rand weg zurück zur Mitte.
+    const reich = lenkbarBei(z) * Math.max(1, z - letzter.z);
     const wurf = zufall.zahl() * 2 - 1;
     let schritt = (wurf < 0 ? -1 : 1) * (0.35 + 0.65 * Math.abs(wurf)) * reich * weit;
     if (Math.abs(letzter.x + schritt) > WEG_MAX) schritt = -schritt;
@@ -306,18 +327,25 @@
     return x;
   }
 
-  function truppDazu(z, x, k) {
-    const n = 10 + Math.floor(zufall.zahl() * 12) + Math.round(k * 8);
-    state.welt.trupps.push({ z, x: clamp(x, -X_MAX + 4, X_MAX - 4), n, zustand: "offen", seit: 0, nr: state.welt.trupps.length });
+  // Ein Trupp, den man mitnehmen kann. «klein»: ein goldener Ring, meist nah
+  // am Weg. «gross»: ein grosser heller Ring an einer heiklen Stelle – am
+  // Rand, hinter einem engen Spalt, neben einem Felsen –, und er bringt viel
+  // mehr.
+  function truppDazu(z, x, k, art = "klein") {
+    const n = art === "gross"
+      ? 28 + Math.floor(zufall.zahl() * 18) + Math.round(k * 18)
+      : 8 + Math.floor(zufall.zahl() * 8) + Math.round(k * 6);
+    state.welt.trupps.push({ z, x: clamp(x, -X_MAX + 3, X_MAX - 3), n, art, zustand: "offen", seit: 0, nr: state.welt.trupps.length });
   }
 
   // Liegt x an der Stelle z frei – mit Abstand zu allem, was dort steht?
   function frei(z, x, abstand) {
     return state.welt.dinge.every((d) => {
+      if (d.art === "nadel") return Math.abs(d.z - z) > d.r + 12 || Math.abs(d.x - x) > d.r + abstand;
       if (Math.abs(d.z - z) > 16) return true;
-      if (d.art === "nadel") return Math.abs(d.x - x) > d.r + abstand;
       if (d.art === "windrad") return Math.abs(d.x - x) > ROTOR + abstand;
       if (d.art === "bogen") return Math.abs(d.x - x) < d.a - abstand || Math.abs(d.x - x) > d.a * BOGEN_AUSSEN[0] + abstand;
+      if (d.art === "wand") return d.spalten.some((sp) => Math.abs(sp.x - x) < sp.g / 2 - 1);
       return true;
     });
   }
@@ -333,23 +361,23 @@
 
   // Ein Feld Felsnadeln: Reihe um Reihe ein Kamm aus Nadeln quer übers Meer.
   // Am freien Weg bleibt die Lücke so breit, wie sie sein muss – auf einer
-  // Seite steht eine Nadel dicht daran, später auf beiden. Die anderen
-  // Lücken sind, wie sie fallen: manche breit, manche zu eng für den ganzen
-  // Schwarm.
+  // Seite steht eine Nadel dicht daran, bald auf beiden. Die anderen Lücken
+  // sind, wie sie fallen: manche breit, manche zu eng für den ganzen Schwarm.
+  // In einer davon wartet ab und zu ein grosser Trupp.
   function nadelfeld(z0, k) {
     const W = state.welt;
     const reihen = 3 + Math.floor(zufall.zahl() * 3);
-    const abstand = lerp(56, 36, k) * (0.9 + 0.25 * zufall.zahl());
+    const abstand = lerp(52, 34, k) * (0.9 + 0.25 * zufall.zahl());
     for (let i = 0; i < reihen; i += 1) {
       const z = z0 + i * abstand;
       const xf = wegPunkt(z);
       const breit = breiteBei(z);
       const eng = zufall.zahl() < 0.5 ? -1 : 1;
-      const beide = zufall.zahl() < lerp(0.3, 0.85, k);
+      const beide = zufall.zahl() < lerp(0.4, 0.95, k);
       for (const s of [-1, 1]) {
         // Die Kante der Lücke am Weg, dann nach aussen Nadel um Nadel.
         const nahe = beide || s === eng;
-        let kante = breit / 2 + (nahe ? zufall.zahl() * lerp(6, 0.8, k) : lerp(9, 24, zufall.zahl()));
+        let kante = breit / 2 + (nahe ? zufall.zahl() * lerp(4, 0.5, k) : lerp(9, 22, zufall.zahl()));
         let erste = true;
         while (kante < 78 + s * xf) {
           // Die Nadel an der Lücke steht genau in der Reihe – dort gilt der
@@ -359,31 +387,76 @@
           erste = false;
           n.x = xf + s * (kante + n.r);
           W.dinge.push(n);
-          kante += 2 * n.r + lerp(lerp(13, 8, k), lerp(34, 22, k), zufall.zahl());
+          kante += 2 * n.r + lerp(lerp(13, 8, k), lerp(32, 20, k), zufall.zahl());
         }
       }
     }
-    // Ein Trupp zwischen zwei Reihen, ein Stück neben dem Weg – wo dort ein
-    // Fels steht, auf dem Weg.
+    // Ein kleiner Trupp zwischen zwei Reihen nah am Weg; und ab und zu ein
+    // grosser weit daneben – wo dort ein Fels steht, gibt es ihn nicht.
     const wo = zufall.zahl();
-    const neben = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(4, 11, zufall.zahl());
-    if (zufall.zahl() < 0.45) {
-      const z = z0 + (Math.floor(wo * (reihen - 1)) + 0.5) * abstand;
-      const x = wegBei(z) + neben;
-      truppDazu(z, frei(z, x, 6) ? x : wegBei(z), k);
-    }
+    const neben = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(3, 9, zufall.zahl());
+    const zKlein = z0 + (Math.floor(wo * (reihen - 1)) + 0.5) * abstand;
+    if (zufall.zahl() < 0.4) truppDazu(zKlein, frei(zKlein, wegBei(zKlein) + neben, 6) ? wegBei(zKlein) + neben : wegBei(zKlein), k);
+    const weit = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(20, 34, zufall.zahl());
+    const zGross = z0 + (Math.floor(zufall.zahl() * (reihen - 1)) + 0.5) * abstand;
+    const xGross = clamp(wegBei(zGross) + weit, -X_MAX + 3, X_MAX - 3);
+    if (zufall.zahl() < 0.4 && frei(zGross, xGross, 5)) truppDazu(zGross, xGross, k, "gross");
     return (reihen - 1) * abstand;
   }
 
-  // Ein Felsbogen quer über dem Weg, das Tor genau dort. Später stehen links
-  // und rechts Nadeln: Dann führt nur das Tor hindurch.
+  // Ein grosser Fels mitten im Weg: Er steht genau dort, wo es geradeaus
+  // hinginge – also drum herum. Später zwei, drei hintereinander, einmal
+  // links, einmal rechts vorbei. Auf der anderen Seite bleibt manchmal ein
+  // enger Durchlass, und dahinter wartet ein grosser Trupp.
+  function massiv(z0, k) {
+    const W = state.welt;
+    const zahl = 1 + (k > 0.25 && zufall.zahl() < 0.6 ? 1 : 0) + (k > 0.6 && zufall.zahl() < 0.6 ? 1 : 0);
+    let seite = zufall.zahl() < 0.5 ? -1 : 1;
+    let z = z0;
+    for (let i = 0; i < zahl; i += 1) {
+      const vorher = W.weg[W.weg.length - 1];
+      const r = lerp(11, 17, zufall.zahl());
+      const breit = breiteBei(z + 80);
+      const neben = r + breit / 2 + lerp(4, 1, k);
+      if (Math.abs(vorher.x + seite * neben) > WEG_MAX) seite = -seite;
+      const ziel = vorher.x + seite * neben;
+      // So weit voraus, dass sich der Bogen um den Fels lenken lässt.
+      let weit = 60;
+      for (let n = 0; n < 4; n += 1) weit = Math.max(60, 1.04 * neben / lenkbarBei(Math.max(z, vorher.z) + weit));
+      z = Math.max(z, vorher.z) + weit;
+      W.weg.push({ z, x: ziel });
+      const fels = nadel(z, vorher.x);
+      fels.r = r;
+      fels.h = lerp(48, 74, zufall.zahl());
+      W.dinge.push(fels);
+      // Der enge Durchlass auf der anderen Seite, mit dem grossen Trupp.
+      const eng = Math.max(6.5, breit * 0.6);
+      const zweite = nadel(z, 0);
+      zweite.x = vorher.x - seite * (r + eng + zweite.r);
+      if (zufall.zahl() < 0.55 && Math.abs(vorher.x - seite * (r + eng / 2)) < X_MAX - 4) {
+        W.dinge.push(zweite);
+        truppDazu(z + 24, vorher.x - seite * (r + eng / 2), k, "gross");
+      }
+      // Auf der freien Seite begrenzt später eine Nadel den Weg.
+      const dritte = nadel(z, 0);
+      dritte.x = ziel + seite * (breit / 2 + dritte.r + zufall.zahl() * lerp(10, 1.5, k));
+      if (zufall.zahl() < lerp(0.3, 0.95, k)) W.dinge.push(dritte);
+      seite = -seite;
+    }
+    if (zufall.zahl() < 0.35) truppDazu(z + 40, W.weg[W.weg.length - 1].x + (zufall.zahl() * 2 - 1) * 5, k);
+    return z - z0 + 20;
+  }
+
+  // Ein Felsbogen quer über dem Weg, das Tor genau dort – der Schwarm zwängt
+  // sich hindurch, später immer weniger gern. Links und rechts stehen bald
+  // Nadeln: Dann führt nur das Tor hindurch.
   function felsbogen(z0, k) {
     const W = state.welt;
     const z = z0 + 30;
-    const xf = wegPunkt(z, 0.8);
-    const a = breiteBei(z) / 2 * lerp(1.3, 1.04, k) + 1;
-    W.dinge.push({ art: "bogen", z, x: xf, a, h: lerp(29, 35, zufall.zahl()), form: Math.floor(zufall.zahl() * 3) });
-    const flanken = zufall.zahl() < lerp(0.15, 0.85, k);
+    const xf = wegPunkt(z, 0.85);
+    const a = breiteBei(z) / 2 * lerp(1.2, 1.0, k) + 0.5;
+    W.dinge.push({ art: "bogen", z, x: xf, a, h: lerp(29, 35, zufall.zahl()), form: Math.floor(zufall.zahl() * 3), sog: lerp(1, 0.4, k) });
+    const flanken = zufall.zahl() < lerp(0.3, 0.95, k);
     for (const s of [-1, 1]) {
       const n = nadel(z + (zufall.zahl() - 0.5) * 10, 0);
       n.x = xf + s * (a * BOGEN_AUSSEN[0] + n.r + 2 + zufall.zahl() * 8);
@@ -393,14 +466,37 @@
     return 80;
   }
 
+  // Eine Felswand quer übers Meer, mit einem Spalt am freien Weg – erst
+  // breit, am Schluss so schmal, dass nur die Mitte des Schwarms durchkommt.
+  // Manchmal gibt es weiter weg einen zweiten, engeren Spalt: Dahinter wartet
+  // ein grosser Trupp.
+  function felswand(z0, k, spalt = 0) {
+    const W = state.welt;
+    const z = z0 + 44;
+    const xf = wegPunkt(z, 0.9);
+    const g = spalt || spaltBei(z);
+    const spalten = [{ x: xf, g }];
+    const seite = xf > 0 ? -1 : 1;
+    const x2 = clamp(xf + seite * lerp(22, 40, zufall.zahl()), -X_MAX + 6, X_MAX - 6);
+    const zweiter = zufall.zahl() < 0.55;
+    if (!spalt && zweiter && Math.abs(x2 - xf) > g + 12) {
+      spalten.push({ x: x2, g: Math.max(4.5, g * 0.7) });
+      truppDazu(z + 26, x2, k, "gross");
+    }
+    spalten.sort((p, q) => p.x - q.x);
+    W.dinge.push({ art: "wand", z, x: xf, spalten, h: lerp(34, 48, zufall.zahl()), form: Math.floor(zufall.zahl() * 2) });
+    if (zufall.zahl() < 0.45) truppDazu(z + 46, xf + (zufall.zahl() * 2 - 1) * 4, k);
+    return 74;
+  }
+
   // Ein Windpark: Reihen von Windrädern im Raster. Wo der Weg hindurchführt,
   // fehlt eines.
   function windpark(z0, k) {
     const W = state.welt;
     const reihen = 2 + Math.floor(zufall.zahl() * 2);
-    const raster = lerp(29, 25, k);
+    const raster = lerp(28, 23, k);
     for (let i = 0; i < reihen; i += 1) {
-      const z = z0 + i * 64;
+      const z = z0 + i * 60;
       const xf = wegPunkt(z);
       const breit = breiteBei(z);
       const versatz = (zufall.zahl() - 0.5) * raster;
@@ -413,10 +509,10 @@
       }
     }
     if (zufall.zahl() < 0.4) {
-      const z = z0 + 32;
+      const z = z0 + 30;
       truppDazu(z, wegBei(z) + (zufall.zahl() * 2 - 1) * 5, k);
     }
-    return (reihen - 1) * 64;
+    return (reihen - 1) * 60;
   }
 
   // Eine Stromleitung quer übers Meer. Zwischen den zwei hohen Masten hängen
@@ -424,8 +520,8 @@
   function leitung(z0, k) {
     const W = state.welt;
     const z = z0 + 30;
-    const xf = wegPunkt(z, 0.8);
-    const spanne = Math.max(44, breiteBei(z) + 2 * MAST_R + 6);
+    const xf = wegPunkt(z, 0.85);
+    const spanne = Math.max(40, breiteBei(z) + 2 * MAST_R + 6);
     const masten = [];
     for (let i = -3; i <= 2; i += 1) masten.push({ x: xf + (i + 0.5) * spanne, h: i === -1 || i === 0 ? MAST_HOCH : MAST });
     W.dinge.push({ art: "leitung", z, x: xf, masten });
@@ -433,32 +529,46 @@
     return 70;
   }
 
-  // Offenes Meer: nichts im Weg, zwei Trupps irgendwo – Zeit zum Sammeln.
+  // Offenes Meer: nichts im Weg. Ein kleiner Trupp liegt nah – und ganz am
+  // Rand ein grosser: Wer ihn holt, muss rechtzeitig zurück sein.
   function offen(z0, k) {
-    const mitte = wegPunkt(z0 + 75);
-    for (const dz of [40, 115]) truppDazu(z0 + dz, mitte + (zufall.zahl() * 2 - 1) * 24, k);
-    return 150;
+    const mitte = wegPunkt(z0 + 70);
+    truppDazu(z0 + 36, mitte + (zufall.zahl() * 2 - 1) * 10, k);
+    truppDazu(z0 + 72, (zufall.zahl() < 0.5 ? -1 : 1) * (X_MAX - 3), k, "gross");
+    return 132;
   }
 
-  const ABSCHNITTE = { nadeln: nadelfeld, bogen: felsbogen, windpark, leitung, offen };
+  const ABSCHNITTE = { nadeln: nadelfeld, massiv, bogen: felsbogen, wand: felswand, windpark, leitung, offen };
 
   function abschnitt() {
     const W = state.welt;
     const z0 = W.bis;
-    // Kurz vor dem Schlafplatz ist Schluss: Der Weg führt geradeaus weiter,
-    // und dahinter liegt die Insel mit ihren Bäumen.
-    if (z0 > Z_ENDE - 170) {
+    // Vor dem Schlafplatz die letzte Prüfung: drei Felswände hintereinander,
+    // jede mit einem schmaleren Spalt. Dann führt der Weg geradeaus zur Insel
+    // mit ihren Bäumen.
+    if (z0 > Z_ENDE - 640) {
+      const rest = Z_ENDE - 110 - z0;
+      const abstand = clamp((rest - 50) / 2, 80, 130);
+      SCHLUSS_SPALTEN.forEach((spalt, i) => {
+        const z = z0 + 6 + i * abstand;
+        felswand(z, 1, spalt);
+        if (i < 2) truppDazu(z + 44 + abstand * 0.45, W.weg[W.weg.length - 1].x + (zufall.zahl() * 2 - 1) * 5, 1);
+      });
       W.weg.push({ z: Z_ENDE, x: W.weg[W.weg.length - 1].x });
       W.dinge.push({ art: "insel", z: Z_ENDE + 95, x: 0 });
+      W.dinge.sort((a, b) => a.z - b.z);
+      W.trupps.sort((a, b) => a.z - b.z);
       W.fertig = true;
       return;
     }
     const k = schwereBei(z0);
-    const wahl = [["nadeln", 3]];
-    if (z0 > 200) wahl.push(["bogen", 1.7]);
-    if (z0 > 450) wahl.push(["windpark", 1.5]);
-    if (z0 > 800) wahl.push(["leitung", 1.2]);
-    if (z0 > 200) wahl.push(["offen", 0.9]);
+    // Zuerst ein Feld Nadeln, dann ein grosser Fels – danach, wie es fällt.
+    const wahl = [["nadeln", 2.4], ["massiv", 1.7]];
+    if (z0 > 300) wahl.push(["bogen", 1.3]);
+    if (z0 > 500) wahl.push(["windpark", 1.2]);
+    if (z0 > 800) wahl.push(["leitung", 1.0]);
+    if (z0 > 700) wahl.push(["wand", 1.2 + 1.6 * k]);
+    if (z0 > 250) wahl.push(["offen", 0.7]);
     const moeglich = wahl.filter(([art]) => art === "nadeln" || art !== W.vorher);
     let los = zufall.zahl() * moeglich.reduce((summe, [, gewicht]) => summe + gewicht, 0);
     let art = moeglich[0][0];
@@ -467,10 +577,12 @@
       los -= gewicht;
       if (los <= 0) break;
     }
+    if (W.nr === 0) art = "nadeln";
+    if (W.nr === 1) art = "massiv";
     const lang = ABSCHNITTE[art](z0, k);
     W.vorher = art;
     W.nr += 1;
-    W.bis = z0 + lang + lerp(64, 38, k);
+    W.bis = z0 + lang + lerp(60, 34, k);
     W.dinge.sort((a, b) => a.z - b.z);
     W.trupps.sort((a, b) => a.z - b.z);
   }
@@ -485,8 +597,8 @@
   function weltText() {
     weltBis(1600);
     const W = state.welt;
-    return W.dinge.slice(0, 40).map((d) => `${d.art[0]}${d.z.toFixed(1)}/${d.x.toFixed(1)}`).join(" ")
-      + " | " + W.trupps.slice(0, 10).map((t) => `${t.z.toFixed(1)}/${t.x.toFixed(1)}:${t.n}`).join(" ")
+    return W.dinge.slice(0, 40).map((d) => `${d.art.slice(0, 2)}${d.z.toFixed(1)}/${d.x.toFixed(1)}`).join(" ")
+      + " | " + W.trupps.slice(0, 10).map((t) => `${t.art[0]}${t.z.toFixed(1)}/${t.x.toFixed(1)}:${t.n}`).join(" ")
       + " | " + W.weg.slice(0, 16).map((p) => p.x.toFixed(1)).join(",");
   }
 
@@ -652,7 +764,7 @@
     const s = dx < 0 ? -1 : 1;
     let ab = dx * s;
     const nah = 1 - weich(4, 26, adz);
-    const sog = clamp(0.75 * innen, 2.2, 7);
+    const sog = clamp(0.75 * innen, 2.2, 7) * (d.sog ?? 1);
     if (ab < innen + sog) {
       const ziel = Math.max(0, innen - 1.2);
       if (ab > ziel) ab -= (1 - weich(innen + 0.7 * sog, innen + sog, ab)) * 0.92 * (ab - ziel) * nah;
@@ -661,6 +773,28 @@
     }
     if (adz < BOGEN_TIEF / 2 && ab > innen && ab < aussen) treffer = true;
     return d.x + s * ab;
+  }
+
+  // Durch eine Felswand: nur durch den Spalt. Was knapp daneben liegt, zwängt
+  // sich noch hinein; alles andere bleibt am Stein.
+  function durchWand(x, y, dz, d) {
+    const adz = dz < 0 ? -dz : dz;
+    if (adz >= 22 || y >= d.h) return x;
+    let spalt = d.spalten[0];
+    for (let i = 1; i < d.spalten.length; i += 1) {
+      if (Math.abs(x - d.spalten[i].x) < Math.abs(x - spalt.x)) spalt = d.spalten[i];
+    }
+    const dx = x - spalt.x;
+    const s = dx < 0 ? -1 : 1;
+    let ab = dx * s;
+    const halb = spalt.g / 2;
+    const innen = Math.max(0, halb - 0.7);
+    if (ab > innen && ab < halb + WAND_SOG) {
+      const nah = 1 - weich(WAND_TIEF / 2 + 1, 22, adz);
+      ab -= (1 - weich(halb + 0.5 * WAND_SOG, halb + WAND_SOG, ab)) * 0.92 * (ab - innen) * nah;
+    }
+    if (adz < WAND_TIEF / 2 && ab > halb) treffer = true;
+    return spalt.x + s * ab;
   }
 
   // Durch die Ebene eines Rotors: getroffen ist, wer gerade dort ist, wo ein
@@ -743,6 +877,8 @@
           if (rr > 0) x = umRundes(x, dz, d.x, rr, 16);
         } else if (d.art === "bogen") {
           x = durchBogen(x, y, dz, d);
+        } else if (d.art === "wand") {
+          x = durchWand(x, y, dz, d);
         } else if (d.art === "windrad") {
           if (y < NABE) x = umRundes(x, dz, d.x, 1.4, 8);
           const ebene = d.z - ROTOR_VOR;
@@ -773,8 +909,8 @@
   }
 
   // Wie viele ein Trupp mitbringt: seine eigenen – und einem grossen Schwarm
-  // schliessen sich mehr an, ein Achtel von dem, was schon fliegt.
-  const truppGroesse = (trupp) => trupp.n + Math.round(vg.n * ANSCHLUSS);
+  // schliessen sich mehr an, ein Teil von dem, was schon fliegt.
+  const truppGroesse = (trupp) => trupp.n + Math.round(vg.n * ANSCHLUSS[trupp.art]);
 
   // Ein Trupp kommt dazu: Seine Vögel fliegen von dort, wo er kreiste, an
   // ihre Plätze.
@@ -795,9 +931,10 @@
     state.geholt += dazu;
     state.groesster = Math.max(state.groesster, vg.n);
     if (state.phase !== "bereit") {
-      schrift(dazu ? `+${dazu}` : "voll", trupp.x, FLUG_Y + 6, trupp.z, "#ffd76a", 26);
-      funken(trupp.x, FLUG_Y, trupp.z, 16);
-      ton("schwarm.trupp", { laut: 0.9 }, 120);
+      const gross = trupp.art === "gross";
+      schrift(dazu ? `+${dazu}` : "voll", trupp.x, FLUG_Y + 6, trupp.z, gross ? "#ffe3f3" : "#ffd76a", gross ? 34 : 26);
+      funken(trupp.x, FLUG_Y, trupp.z, gross ? 34 : 16);
+      ton("schwarm.trupp", { laut: gross ? 1.2 : 0.9, hoehe: gross ? 1.15 : 1 }, 120);
       kids()?.vibrate?.(10);
     }
   }
@@ -897,7 +1034,7 @@
     const weitZiel = 15 + m.z * 1.15;
     const k = 1 - Math.exp(-dt / 0.6);
     kam.weit += (weitZiel - kam.weit) * k;
-    kam.x += (state.x * 0.9 - kam.x) * (1 - Math.exp(-dt / 0.22));
+    kam.x += (state.x * 0.9 - kam.x) * (1 - Math.exp(-dt / 0.16));
     kam.z = state.z - kam.weit;
     kam.y += (FLUG_Y + 1.6 + m.x * 0.2 - kam.y) * k;
     const rollZiel = ruhig() ? 0 : clamp(state.vx / QUER0, -1, 1) * 0.09;
@@ -1431,6 +1568,42 @@
     return new Float32Array(b.v);
   }
 
+  // Eine Felswand: eine Platte, 1 breit (von 0 bis 1), 1 hoch, 1 tief – mit
+  // zerklüfteter Vorder- und Rückseite und gezacktem Grat. Bei x = 0 ist der
+  // Spalt: dort steht sie in voller Höhe und mit klarer Kante.
+  function wandNetz(form) {
+    const b = netzBauer();
+    const S = 9;
+    const HOEHEN = [-0.03, 0.26, 0.58, 1];
+    const rauh = (i, j, n) => hash01(form * 53.7 + i * 9.1 + j * 4.3 + n * 1.7);
+    const spalte = (i) => {
+      const x = i === 0 ? 0 : i === S ? 1 : (i + (rauh(i, 0, 1) - 0.5) * 0.5) / S;
+      const grat = i === 0 ? 1 : 0.8 + 0.2 * rauh(i, 0, 2);
+      return HOEHEN.map((h, j) => {
+        const y = j === HOEHEN.length - 1 ? grat : h * grat;
+        const tief = 0.5 * (j === HOEHEN.length - 1 ? 0.55 : 0.8 + 0.5 * rauh(i, j, 3)) * (i === 0 ? 0.8 : 1);
+        return { v: [x, y, tief * (0.9 + 0.2 * rauh(i, j, 4))], h: [x, y, -tief * (0.9 + 0.2 * rauh(i, j, 5))] };
+      });
+    };
+    const spalten = Array.from({ length: S + 1 }, (_, i) => spalte(i));
+    for (let i = 0; i < S; i += 1) {
+      const p = spalten[i];
+      const q = spalten[i + 1];
+      const innen = [(p[0].v[0] + q[0].v[0]) / 2, 0.4, 0];
+      for (let j = 0; j < HOEHEN.length - 1; j += 1) {
+        b.viereck(p[j].v, q[j].v, q[j + 1].v, p[j + 1].v, innen);
+        b.viereck(p[j].h, q[j].h, q[j + 1].h, p[j + 1].h, innen);
+      }
+      const o = HOEHEN.length - 1;
+      b.viereck(p[o].v, q[o].v, q[o].h, p[o].h, innen);
+    }
+    for (const ende of [spalten[0], spalten[S]]) {
+      const innen = [0.5, 0.4, 0];
+      for (let j = 0; j < HOEHEN.length - 1; j += 1) b.viereck(ende[j].v, ende[j].h, ende[j + 1].h, ende[j + 1].v, innen);
+    }
+    return new Float32Array(b.v);
+  }
+
   // Ein runder Turm, unten breiter (Windrad).
   function turmNetz() {
     const b = netzBauer();
@@ -1598,6 +1771,8 @@
 
   const FORMEN_NADEL = 5;
   const FORMEN_BOGEN = 3;
+  const FORMEN_WAND = 2;
+  const WAND_WEIT = 110;           // so weit reicht eine Felswand nach links und rechts
 
   function grafikBauen() {
     const P = bild.prog;
@@ -1611,6 +1786,7 @@
     const N = bild.netz;
     for (let i = 0; i < FORMEN_NADEL; i += 1) N[`nadel${i}`] = abzug(nadelNetz(i), [3, 3], 12, 96);
     for (let i = 0; i < FORMEN_BOGEN; i += 1) N[`bogen${i}`] = abzug(bogenNetz(i), [3, 3], 12, 24);
+    for (let i = 0; i < FORMEN_WAND; i += 1) N[`wand${i}`] = abzug(wandNetz(i), [3, 3], 12, 48);
     N.turm = abzug(turmNetz(), [3, 3], 12, 160);
     N.rotor = abzug(rotorNetz(), [3, 3], 12, 128);
     N.mast = abzug(mastNetz(), [3, 3], 12, 64);
@@ -1744,6 +1920,21 @@
         ding(N[`nadel${d.form}`], d.x, 0, d.z, d.dreh, d.r, d.h, d.r, 0, FELS, hell);
       } else if (d.art === "bogen") {
         ding(N[`bogen${d.form}`], d.x, 0, d.z, 0, d.a, d.h, BOGEN_TIEF, 0, FELS, hell);
+      } else if (d.art === "wand") {
+        // Von jedem Spalt aus eine Platte nach links und eine nach rechts –
+        // bis zum Rand oder bis zur Mitte zum nächsten Spalt.
+        const platte = N[`wand${d.form}`];
+        for (let j = 0; j < d.spalten.length; j += 1) {
+          const sp = d.spalten[j];
+          const l = sp.x - sp.g / 2;
+          const r = sp.x + sp.g / 2;
+          const vor = d.spalten[j - 1];
+          const nach = d.spalten[j + 1];
+          const bisL = vor ? (vor.x + vor.g / 2 + l) / 2 : -WAND_WEIT;
+          const bisR = nach ? (r + nach.x - nach.g / 2) / 2 : WAND_WEIT;
+          ding(platte, l, 0, d.z, 0, bisL - l, d.h, WAND_TIEF, 0, FELS, hell);
+          ding(platte, r, 0, d.z, 0, bisR - r, d.h, WAND_TIEF, 0, FELS, hell * 0.94);
+        }
       } else if (d.art === "windrad") {
         ding(N.turm, d.x, 0, d.z, 0, 1.4, NABE, 1.4, 0, STAHL);
         ding(N.kasten, d.x, NABE + 0.3, d.z - 0.4, 0, 1.05, 1.05, 2.6, 0, STAHL);
@@ -1789,16 +1980,24 @@
       if (t.z > kam.z + 1100) break;
       if (t.z < kam.z || t.zustand === "geholt") continue;
       const fort = t.zustand === "verpasst" ? clamp(t.seit / 0.8, 0, 1) : 0;
-      // Ein goldener Ring, der atmet – von weitem zu sehen, auch vor der Sonne.
+      // Ein Ring, der atmet – von weitem zu sehen, auch vor der Sonne. Golden
+      // der kleine; der grosse hell und doppelt.
+      const gross = t.art === "gross";
       const puls = 1 + 0.07 * Math.sin(state.zeit * 3.4 + t.nr);
       const hell = (1 - fort) * (1.15 + 0.25 * Math.sin(state.zeit * 3.4 + t.nr));
-      schein(t.x, FLUG_Y, t.z, 6.2 * puls * (1 + fort), 1.0 * hell, 0.8 * hell, 0.34 * hell, -1);
-      schein(t.x, FLUG_Y, t.z, 11, 0.5 * (1 - fort), 0.34 * (1 - fort), 0.1 * (1 - fort), 1.6);
-      const anzahl = clamp(Math.round(truppGroesse(t) / 2.5), 8, 22);
+      if (gross) {
+        schein(t.x, FLUG_Y, t.z, 9.6 * puls * (1 + fort), 1.0 * hell, 0.78 * hell, 0.92 * hell, -1);
+        schein(t.x, FLUG_Y, t.z, 6.4 * (2 - puls) * (1 + fort), 0.9 * hell, 0.9 * hell, 1.0 * hell, -1);
+        schein(t.x, FLUG_Y, t.z, 17, 0.5 * (1 - fort), 0.3 * (1 - fort), 0.42 * (1 - fort), 1.6);
+      } else {
+        schein(t.x, FLUG_Y, t.z, 6.2 * puls * (1 + fort), 1.0 * hell, 0.8 * hell, 0.34 * hell, -1);
+        schein(t.x, FLUG_Y, t.z, 11, 0.5 * (1 - fort), 0.34 * (1 - fort), 0.1 * (1 - fort), 1.6);
+      }
+      const anzahl = clamp(Math.round(truppGroesse(t) / 2.5), gross ? 16 : 8, gross ? 34 : 18);
       for (let j = 0; j < anzahl; j += 1) {
         const richtung = j % 2 ? 1 : -1;
         const w = state.zeit * (1.5 + 0.5 * hash01(j * 3.3 + t.nr)) * richtung + j * 2.4;
-        const r = 1.6 + 2.2 * hash01(j * 5.1 + t.nr);
+        const r = (gross ? 2.2 : 1.6) + (gross ? 4.4 : 2.2) * hash01(j * 5.1 + t.nr);
         vogel(N.vogel, t.x + Math.cos(w) * r, FLUG_Y + Math.sin(w * 0.7 + j) * 1.6 + fort * 8, t.z + Math.sin(w) * r,
           hash01(j + t.nr * 9), richtung * 0.45, VOGEL_GROSS, 1, GEFIEDER);
       }
@@ -2263,12 +2462,12 @@
   function physik(dt) {
     const v = tempoBei(state.z);
     const ziel = state.lenk * querBei(state.z);
-    state.vx += (ziel - state.vx) * (1 - Math.exp(-dt / (state.lenk ? 0.11 : 0.17)));
+    state.vx += (ziel - state.vx) * (1 - Math.exp(-dt / (state.lenk ? LENK_ZEIT : LOS_ZEIT)));
     state.x += state.vx * dt;
     if (state.x > X_MAX) { state.x = X_MAX; state.vx = Math.min(0, state.vx); }
     if (state.x < -X_MAX) { state.x = -X_MAX; state.vx = Math.max(0, state.vx); }
     state.z += v * dt;
-    state.roh += vg.n * v * dt / 100;
+    state.roh += vg.n * v * dt * PUNKTE_JE_100M / 10000;
   }
 
   // Zu wenige sind übrig: Der Schwarm zerstreut sich.
@@ -2289,7 +2488,7 @@
     state.angekommen = true;
     state.lenk = 0;
     if (state.phase !== "spiel") return;
-    state.bonus = vg.n * BONUS;
+    state.bonus = Math.round(vg.n * BONUS);
     state.roh += state.bonus;
     state.punkte = Math.floor(state.roh);
     shell.setCount(state.punkte);
@@ -2639,8 +2838,8 @@
   // Für die Prüfskripte und die Vorführung. lenke(-1 | 0 | 1) hält links oder
   // rechts oder lässt los; guete(1) hält die Schärfe fest.
   window.LernappSchwarm = {
-    TAKT, Z_ENDE, X_MAX, START_VOEGEL, VOEGEL_MAX, MINDEST, BONUS, FLUG_Y, ROTOR, MAST_R, MAST, BOGEN_AUSSEN, ANSCHLUSS,
-    state, view, kam, vg, bild, takt, zeichnen, weltText, weltBis, wegBei, tempoBei, querBei, breiteBei, radiusBei,
+    TAKT, Z_ENDE, X_MAX, START_VOEGEL, VOEGEL_MAX, MINDEST, BONUS, PUNKTE_JE_100M, FLUG_Y, ROTOR, MAST_R, MAST, BOGEN_AUSSEN, ANSCHLUSS,
+    state, view, kam, vg, bild, takt, zeichnen, weltText, weltBis, wegBei, tempoBei, querBei, breiteBei, spaltBei, lenkbarBei, radiusBei,
     losGehts, lenke, masse,
     guete(wert) {
       view.fest = wert !== null && wert !== undefined;

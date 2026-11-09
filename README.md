@@ -249,22 +249,35 @@ Perlen.
 Abendlicht über das Meer, der Sonne entgegen; die Kamera fliegt dicht
 dahinter. Wer links aufs Bild hält, lenkt nach links, wer rechts hält, nach
 rechts (am Rechner Pfeiltasten oder A/D; liegen zwei Finger auf, gilt der
-letzte). Im Weg stehen Felsnadeln, Felsbögen, Windräder und Stromleitungen.
-Jeder Vogel fliegt für sich: Was knapp neben einem Felsen liegt, fliesst
-darum herum, was mitten darauf zuhält, ist weg – ein Flügel eines Windrads
-oder ein Seil trifft nur, wer gerade dort ist. Durch einen Felsbogen zwängt
-sich der Schwarm und öffnet sich dahinter wieder; bei einer Stromleitung ist
-der Weg zwischen den zwei hohen Masten frei. Goldene Ringe sind Trupps: Wer
-hindurchfliegt, bekommt ihre Vögel dazu – und ein Achtel des eigenen
-Schwarms obendrauf (`ANSCHLUSS`), ein grosser Schwarm wächst also schneller.
+letzte) – flink, mit schnellen Richtungswechseln, denn die Strecke verlangt
+es. Im Weg stehen Felsnadeln in Reihen, **grosse Felsen genau auf der
+Fluglinie** (drum herum, später zwei, drei im Wechsel), Felsbögen,
+**Felswände mit einem Spalt**, Windräder und Stromleitungen. Jeder Vogel
+fliegt für sich: Was knapp neben einem Felsen liegt, fliesst darum herum, was
+mitten darauf zuhält, ist weg – ein Flügel eines Windrads oder ein Seil
+trifft nur, wer gerade dort ist. Durch einen Felsbogen zwängt sich der
+Schwarm; durch den Spalt einer Wand kommt nur, was hineinpasst. Bei einer
+Stromleitung ist der Weg zwischen den zwei hohen Masten frei.
 
-Der Schwarm ist Leben und Punktzahl zugleich: Jeder Vogel bringt je 100 m
-einen Punkt. Ein grosser Schwarm zählt schneller und passt schlechter durch
-die Lücken. Unter einem Dutzend Vögeln (`MINDEST`) zerstreut er sich, und
-die Runde ist vorbei. Sonst endet sie nach 3600 m am Schlafplatz, gut 70
-Sekunden nach dem Start: Jeder Vogel, der ankommt, zählt noch einmal zehn
-Punkte. Unterwegs wird es Abend – Goldene Stunde, Sonnenuntergang, Abendrot,
-Blaue Stunde, Nacht –, schneller (von 34 auf knapp 60 m/s) und enger.
+Ringe aus Licht sind Trupps, und es gibt zwei Sorten: **kleine goldene** nah
+am Weg (ihre Vögel und ein Zehntel des eigenen Schwarms kommen dazu) und
+**grosse helle** an heiklen Stellen – ganz am Rand, hinter einem zweiten,
+engeren Spalt, im Durchlass neben einem grossen Felsen (viele Vögel und drei
+Zehntel des Schwarms, `ANSCHLUSS`). Ein grosser Schwarm wächst also schneller.
+
+Der Schwarm ist Leben und Punktzahl zugleich: Hundert Vögel bringen alle
+dreissig Meter einen Punkt (`PUNKTE_JE_100M`); ein guter Lauf liegt bei 300.
+Ein grosser Schwarm zählt schneller und passt schlechter durch die Lücken.
+Unter einem Dutzend Vögeln (`MINDEST`) zerstreut er sich, und die Runde ist
+vorbei. Sonst endet sie nach 3600 m am Schlafplatz, gut eine Minute nach dem
+Start – hinter drei letzten Felswänden, deren Spalten nur noch die Mitte des
+Schwarms durchlassen (`SCHLUSS_SPALTEN`). Jeder Vogel, der ankommt, zählt
+noch einen Punkt. Unterwegs wird es Abend – Goldene Stunde, Sonnenuntergang,
+Abendrot, Blaue Stunde, Nacht –, schneller (von 38 auf gut 70 m/s) und enger.
+Gemessen mit Autopiloten: Wer nicht lenkt, ist nach einer Viertelminute
+zerstreut; wer ungenau lenkt, nach einer halben; wer genau fliegt, erreicht
+das Ziel etwa jedes zweite Mal mit ein paar Dutzend Vögeln; der Pilot der
+Prüfung, der den freien Weg kennt, bringt um die hundert heim.
 
 Wie die anderen würfelt es seine Welt aus `zufall.js`. Durch jede Reihe
 Hindernisse führt ein freier Weg (`wegBei`), so breit wie `breiteBei(z)` und
@@ -290,10 +303,12 @@ darüber. Kommen die Bilder zu langsam, zeichnet das Spiel die Welt mit
 weniger Bildpunkten (`gueteTakt`), die Zahlen bleiben scharf. Ohne WebGL 2
 steht ein Satz da statt einer Welt.
 
-Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`,
-`START_VOEGEL`, `MINDEST`, `BREIT0`/`BREIT_MIN` (die Breite des freien
-Wegs), `ANSCHLUSS`, die Masse der Hindernisse – und `ABEND`, die fünf
-Lichter mit Sonnenstand und Farben.
+Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`, `QUER0`
+und `LENK_ZEIT` (wie flink er lenkt), `START_VOEGEL`, `MINDEST`,
+`BREIT0`/`BREIT_MIN` (die Breite des freien Wegs), `SPALT0`/`SPALT_MIN` und
+`SCHLUSS_SPALTEN` (die Spalten der Felswände), `ANSCHLUSS`,
+`PUNKTE_JE_100M`, die Masse der Hindernisse – und `ABEND`, die fünf Lichter
+mit Sonnenstand und Farben.
 
 ### Die Klänge
 

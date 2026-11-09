@@ -5615,10 +5615,11 @@ try {
   // --- 4g25. Schwarm: schaffbar, und wer nichts tut, verliert seinen Schwarm ----------
   // Das erste Spiel mit WebGL: Die Welt steht da, ohne dass sich der Browser
   // beschwert. Durch jede Reihe Hindernisse führt der freie Weg – breit wie
-  // versprochen, an Nadeln, Bögen, Rotoren und Masten vorbei, und nie weiter
-  // zur Seite, als der Schwarm lenken kann. Ein Autopilot, der ihm folgt,
-  // erreicht in mehreren gewürfelten Runden den Schlafplatz, mit grossem
-  // Schwarm. Wer nach dem Start nichts tut, verliert Vögel; unter einem
+  // versprochen, an Nadeln und grossen Felsen vorbei, durch Bögen und die
+  // Spalten der Felswände, zwischen Rotoren und Masten durch, und nie weiter
+  // zur Seite, als der Schwarm lenken kann. Ein Autopilot, der ihm genau
+  // folgt, erreicht in mehreren gewürfelten Runden den Schlafplatz – mit dem,
+  // was durch die letzten Spalten passt. Wer nach dem Start nichts tut, verliert Vögel; unter einem
   // Dutzend zerstreut sich der Schwarm, und die Runde endet von selbst. Ein
   // Trupp bringt seine Vögel und einen Teil des Schwarms dazu. Die
   // Pfeiltasten lenken, und die letzte gilt. Und ein Lauf, angeschaut, durch
@@ -5657,6 +5658,7 @@ try {
           if (d.art === "nadel" && neben - d.r < halb - 0.01) befunde.push(`Nadel bei ${d.z.toFixed(0)} m steht ${(halb - neben + d.r).toFixed(1)} m im Weg`);
           if (d.art === "windrad" && neben - S.ROTOR < halb - 0.01) befunde.push(`Windrad bei ${d.z.toFixed(0)} m steht im Weg`);
           if (d.art === "bogen" && (neben > 0.01 || d.a < halb)) befunde.push(`Bogen bei ${d.z.toFixed(0)} m: Tor ${d.a.toFixed(1)} m, Weg ${halb.toFixed(1)} m, daneben ${neben.toFixed(1)} m`);
+          if (d.art === "wand" && !d.spalten.some((sp) => Math.abs(sp.x - S.wegBei(d.z)) < 0.01 && sp.g >= 4)) befunde.push(`Felswand bei ${d.z.toFixed(0)} m: kein Spalt am freien Weg`);
           if (d.art === "leitung") {
             const hohe = d.masten.filter((m) => m.h > S.MAST);
             const frei = hohe.length === 2 && hohe.every((m) => Math.abs(m.x - S.wegBei(d.z)) - S.MAST_R >= halb - 0.01);
@@ -5674,7 +5676,7 @@ try {
       }
       return { befunde: befunde.slice(0, 6), dinge, arten: [...arten].sort().join(",") };
     });
-    pruefe(weg.befunde.length === 0 && weg.dinge > 300 && weg.arten === "bogen,leitung,nadel,windrad",
+    pruefe(weg.befunde.length === 0 && weg.dinge > 300 && weg.arten === "bogen,leitung,nadel,wand,windrad",
       `Schwarm: Der freie Weg ist nicht frei – ${JSON.stringify(weg)}`);
 
     // Der Autopilot: dem freien Weg nach, bis zum Schlafplatz.
@@ -5700,8 +5702,8 @@ try {
       }
       return raus;
     }, PILOT);
-    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.voegel >= 100 && r.bonus === r.voegel * 10 && r.punkte > 4000 && r.zahl),
-      `Schwarm: Der Autopilot bringt auf dem freien Weg keinen grossen Schwarm zum Schlafplatz – ${JSON.stringify(runden)}`);
+    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.voegel >= 30 && r.bonus === r.voegel && r.punkte > 200 && r.punkte < 900 && r.zahl),
+      `Schwarm: Der Autopilot bringt auf dem freien Weg keinen Schwarm zum Schlafplatz – ${JSON.stringify(runden)}`);
 
     // Wer nichts tut: Der Schwarm fliegt geradeaus in die Felsen. Mindestens
     // zwei von drei Runden enden lange vor dem Schlafplatz, zerstreut.
@@ -5759,7 +5761,7 @@ try {
           }
           S.takt(1 / 120);
         }
-        return { zustand: t.zustand, geholt: st.geholt, n: t.n, soll: t.n + Math.round(150 * S.ANSCHLUSS) };
+        return { zustand: t.zustand, geholt: st.geholt, n: t.n, soll: t.n + Math.round(150 * S.ANSCHLUSS[t.art]) };
       };
       return { mitten: eine(false), daneben: eine(true) };
     });
@@ -5833,7 +5835,7 @@ try {
       const st = window.LernappSchwarm.state;
       return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 300 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 420 && !gespielt.an,
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 10 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 420 && !gespielt.an,
       `Schwarm: Der Lauf wird nicht mit Saat, Ort und Schwarmgrösse hinterlegt: ${JSON.stringify(gespielt)}`);
     await seite.goto(`${BASIS}/schwarm?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappSchwarm?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
