@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -606,7 +606,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2921,7 +2921,7 @@ try {
         + ` | ${p.voegel.slice(0, 5).map((v) => `${v.ab}:${v.dir}:${v.y.toFixed(2)}`).join(" ")}`
         + ` | ${p.balken.slice(0, 4).map((s) => `${s.ab}:${s.seite}:${s.y.toFixed(2)}/${s.lang.toFixed(2)}`).join(" ")}`;
     }],
-    // Die sechs mit neuen Mechaniken: Jedes beschreibt seine gewürfelte Welt
+    // Die mit neuen Mechaniken: Jedes beschreibt seine gewürfelte Welt
     // selbst (weltText) – dieselbe Saat, derselbe Text.
     ["/jongleur", "Jongleur", () => window.LernappJongleur.weltText()],
     ["/turmspringen", "Turmspringen", () => window.LernappTurmspringen.weltText()],
@@ -2930,6 +2930,7 @@ try {
     ["/fledermaus", "Fledermaus", () => window.LernappFledermaus.weltText()],
     ["/ninja", "Zeitlupen-Ninja", () => window.LernappNinja.weltText()],
     ["/freitaucher", "Freitaucher", () => window.LernappFreitaucher.weltText()],
+    ["/schwarm", "Schwarm", () => window.LernappSchwarm.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -5611,6 +5612,244 @@ try {
     await kontext.close();
   }
 
+  // --- 4g25. Schwarm: schaffbar, und wer nichts tut, verliert seinen Schwarm ----------
+  // Das erste Spiel mit WebGL: Die Welt steht da, ohne dass sich der Browser
+  // beschwert. Durch jede Reihe Hindernisse führt der freie Weg – breit wie
+  // versprochen, an Nadeln, Bögen, Rotoren und Masten vorbei, und nie weiter
+  // zur Seite, als der Schwarm lenken kann. Ein Autopilot, der ihm folgt,
+  // erreicht in mehreren gewürfelten Runden den Schlafplatz, mit grossem
+  // Schwarm. Wer nach dem Start nichts tut, verliert Vögel; unter einem
+  // Dutzend zerstreut sich der Schwarm, und die Runde endet von selbst. Ein
+  // Trupp bringt seine Vögel und einen Teil des Schwarms dazu. Die
+  // Pfeiltasten lenken, und die letzte gilt. Und ein Lauf, angeschaut, durch
+  // denselben Abend mit derselben Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/schwarm`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwarm?.state?.welt && window.LernappSchwarm.view.cssW > 0, null, { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const bild = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const leinwand = document.querySelector(".sw-canvas");
+      return { ok: S.bild.ok, programme: Object.keys(S.bild.prog).length, breit: leinwand?.width || 0, voegel: S.vg.n, ohne: Boolean(document.querySelector(".sw-ohne")) };
+    });
+    pruefe(bild.ok && bild.programme === 6 && bild.breit > 300 && bild.voegel === 150 && !bild.ohne,
+      `Schwarm: Die Welt (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Der freie Weg, in fünf gewürfelten Abenden.
+    const weg = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      const befunde = [];
+      let dinge = 0;
+      const arten = new Set();
+      for (let lauf = 0; lauf < 5; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.weltBis(S.Z_ENDE + 400);
+        const W = st.welt;
+        for (const d of W.dinge) {
+          if (d.art === "insel") continue;
+          dinge += 1;
+          arten.add(d.art);
+          const halb = S.breiteBei(d.z) / 2;
+          const neben = Math.abs(d.x - S.wegBei(d.z));
+          if (d.art === "nadel" && neben - d.r < halb - 0.01) befunde.push(`Nadel bei ${d.z.toFixed(0)} m steht ${(halb - neben + d.r).toFixed(1)} m im Weg`);
+          if (d.art === "windrad" && neben - S.ROTOR < halb - 0.01) befunde.push(`Windrad bei ${d.z.toFixed(0)} m steht im Weg`);
+          if (d.art === "bogen" && (neben > 0.01 || d.a < halb)) befunde.push(`Bogen bei ${d.z.toFixed(0)} m: Tor ${d.a.toFixed(1)} m, Weg ${halb.toFixed(1)} m, daneben ${neben.toFixed(1)} m`);
+          if (d.art === "leitung") {
+            const hohe = d.masten.filter((m) => m.h > S.MAST);
+            const frei = hohe.length === 2 && hohe.every((m) => Math.abs(m.x - S.wegBei(d.z)) - S.MAST_R >= halb - 0.01);
+            if (!frei) befunde.push(`Leitung bei ${d.z.toFixed(0)} m: Der Weg führt nicht zwischen den hohen Masten durch`);
+          }
+        }
+        // Von Punkt zu Punkt nie weiter zur Seite, als sich lenken lässt.
+        for (let i = 1; i < W.weg.length; i += 1) {
+          const a = W.weg[i - 1];
+          const b = W.weg[i];
+          const kann = (S.querBei(b.z) / S.tempoBei(b.z)) * (b.z - a.z) / (Math.PI / 2);
+          if (Math.abs(b.x - a.x) > kann * 0.8 + 0.01) befunde.push(`Weg bei ${b.z.toFixed(0)} m: ${Math.abs(b.x - a.x).toFixed(1)} m zur Seite, lenkbar ${kann.toFixed(1)}`);
+        }
+        if (!W.fertig || W.weg[W.weg.length - 1].z !== S.Z_ENDE) befunde.push("Die Welt endet nicht am Schlafplatz");
+      }
+      return { befunde: befunde.slice(0, 6), dinge, arten: [...arten].sort().join(",") };
+    });
+    pruefe(weg.befunde.length === 0 && weg.dinge > 300 && weg.arten === "bogen,leitung,nadel,windrad",
+      `Schwarm: Der freie Weg ist nicht frei – ${JSON.stringify(weg)}`);
+
+    // Der Autopilot: dem freien Weg nach, bis zum Schlafplatz.
+    const PILOT = `(S, st) => {
+      const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.3);
+      const d = ziel - st.x - st.vx * 0.12;
+      S.lenke(d > 0.7 ? 1 : d < -0.7 ? -1 : 0);
+    }`;
+    const runden = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) {
+          pilot(S, st);
+          S.takt(1 / 120);
+        }
+        S.lenke(0);
+        raus.push({ phase: st.phase, an: st.angekommen, voegel: S.vg.n, punkte: st.punkte, bonus: st.bonus, meter: st.meter, zahl: document.querySelector(".cm-result-score") !== null });
+      }
+      return raus;
+    }, PILOT);
+    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.voegel >= 100 && r.bonus === r.voegel * 10 && r.punkte > 4000 && r.zahl),
+      `Schwarm: Der Autopilot bringt auf dem freien Weg keinen grossen Schwarm zum Schlafplatz – ${JSON.stringify(runden)}`);
+
+    // Wer nichts tut: Der Schwarm fliegt geradeaus in die Felsen. Mindestens
+    // zwei von drei Runden enden lange vor dem Schlafplatz, zerstreut.
+    const nichts = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) S.takt(1 / 120);
+        raus.push({ phase: st.phase, an: st.angekommen, meter: st.meter, voegel: S.vg.n, verloren: st.verloren, text: document.querySelector(".cm-result-detail")?.textContent || "" });
+      }
+      return raus;
+    });
+    pruefe(nichts.every((r) => r.phase === "ende" && r.verloren > 0) && nichts.filter((r) => !r.an && r.voegel < 12 && r.meter < 3000).length >= 2,
+      `Schwarm: Wer nichts tut, verliert seinen Schwarm nicht: ${JSON.stringify(nichts)}`);
+
+    // Unter einem Dutzend ist Schluss – auch wenn noch Vögel fliegen.
+    const zerstreut = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.losGehts();
+      for (let n = 0; n < 120; n += 1) S.takt(1 / 120);
+      const vorher = { phase: st.phase, voegel: S.vg.n };
+      S.vg.n = S.MINDEST - 1;
+      let schritte = 0;
+      for (; st.phase !== "ende" && schritte < 2000; schritte += 1) S.takt(1 / 120);
+      return { vorher, phase: st.phase, sekunden: schritte / 120, an: st.angekommen, text: document.querySelector(".cm-result-detail")?.textContent || document.querySelector(".cm-result-score")?.textContent || "" };
+    });
+    pruefe(zerstreut.vorher.phase === "spiel" && zerstreut.vorher.voegel === 150 && zerstreut.phase === "ende" && !zerstreut.an && zerstreut.sekunden < 3,
+      `Schwarm: Mit elf Vögeln endet die Runde nicht: ${JSON.stringify(zerstreut)}`);
+
+    // Ein Trupp: Wer hindurchfliegt, bekommt seine Vögel und einen Teil des
+    // Schwarms dazu; wer daneben fliegt, nichts. Bis kurz davor dem freien
+    // Weg nach, dann steht die Mitte des Schwarms genau dort (oder dreissig
+    // Meter daneben).
+    const trupp = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      const eine = (daneben) => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        S.weltBis(1500);
+        const t = st.welt.trupps[0];
+        for (let n = 0; st.phase === "spiel" && st.z < t.z + 12 && n < 60000; n += 1) {
+          if (st.z < t.z - 8) {
+            const d = S.wegBei(st.z + 10) - st.x - st.vx * 0.12;
+            S.lenke(d > 0.5 ? 1 : d < -0.5 ? -1 : 0);
+          } else {
+            S.lenke(0);
+            st.x = t.x + (daneben ? (t.x > 0 ? -30 : 30) : 0);
+            st.vx = 0;
+          }
+          S.takt(1 / 120);
+        }
+        return { zustand: t.zustand, geholt: st.geholt, n: t.n, soll: t.n + Math.round(150 * S.ANSCHLUSS) };
+      };
+      return { mitten: eine(false), daneben: eine(true) };
+    });
+    pruefe(trupp.mitten.zustand === "geholt" && trupp.mitten.geholt >= trupp.mitten.n && trupp.mitten.geholt <= trupp.mitten.soll + 2
+      && trupp.daneben.zustand === "verpasst" && trupp.daneben.geholt === 0,
+    `Schwarm: Ein Trupp kommt nicht dazu (oder auch von weitem): ${JSON.stringify(trupp)}`);
+
+    // Die Pfeiltasten: links, dann rechts dazu (die letzte gilt), rechts los,
+    // links los. Der erste Druck startet die Runde.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappSchwarm.state.phase, lenk: window.LernappSchwarm.state.lenk }));
+    const schritte = [await lage()];
+    await seite.keyboard.down("ArrowLeft");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowLeft");
+    schritte.push(await lage());
+    const soll = [{ phase: "bereit", lenk: 0 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 1 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 0 }];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Schwarm: Die Pfeiltasten lenken nicht: ${JSON.stringify(schritte)}`);
+    // Und der Finger: rechts vom Bild lenkt nach rechts, über die Mitte gezogen nach links.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.mouse.move(700, 250);
+    await seite.mouse.down();
+    const rechts = await lage();
+    await seite.mouse.move(120, 250, { steps: 4 });
+    const links = await lage();
+    await seite.mouse.up();
+    const los = await lage();
+    pruefe(rechts.phase === "spiel" && rechts.lenk === 1 && links.lenk === -1 && los.lenk === 0,
+      `Schwarm: Der Finger lenkt nicht: ${JSON.stringify({ rechts, links, los })}`);
+    pruefe(fehlerAufSeite.length === vorher, `Schwarm: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – ein Stück dem freien Weg nach, dann
+    // zerstreut –, aufgezeichnet und angeschaut: derselbe Abend, am Schluss
+    // dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__schwarm")) return;
+      sessionStorage.setItem("__schwarm", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/schwarm`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwarm?.state?.welt && window.LernappSchwarm.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappSchwarm.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      S.losGehts();
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.z > 420 && st.schritt === "flug") S.vg.n = Math.min(S.vg.n, S.MINDEST - 2);
+        const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.3);
+        const d = ziel - st.x - st.vx * 0.12;
+        S.lenke(d > 0.7 ? 1 : d < -0.7 ? -1 : 0);
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("flockFlight_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`flockFlight_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappSchwarm.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 300 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 420 && !gespielt.an,
+      `Schwarm: Der Lauf wird nicht mit Saat, Ort und Schwarmgrösse hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/schwarm?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSchwarm?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappSchwarm.state.phase, welt: window.LernappSchwarm.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Schwarm: Beim Zuschauen entsteht ein anderer Abend:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappSchwarm.state.z > 170, null, { timeout: 15000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => ({ z: Math.round(window.LernappSchwarm.state.z), voegel: window.LernappSchwarm.vg.n, lenk: window.LernappSchwarm.state.lenk }));
+    pruefe(unterwegs.z > 150 && unterwegs.voegel >= 100 && unterwegs.lenk === 0, `Schwarm: Beim Zuschauen fliegt der Schwarm nicht mit: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappSchwarm.state.punkte, schritt: window.LernappSchwarm.state.schritt, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.schritt === "aus" && !schluss.ergebnis,
+      `Schwarm: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -5808,20 +6047,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 21 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 22 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 21 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 22 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /22/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /23/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -5838,7 +6077,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -7155,7 +7394,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 113, `klang.js kennt nicht alle 113 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 116, `klang.js kennt nicht alle 116 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -166,6 +166,9 @@
     "freitaucher.herz": { s: "a-herz", schleife: true },
     "freitaucher.atem": { s: "atem" },
     "freitaucher.qualle": { s: "stich" },
+    "schwarm.wind": { s: "a-fahrtwind", schleife: true },
+    "schwarm.trupp": { s: "zwitschern" },
+    "schwarm.treffer": { s: "flatter" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -178,7 +181,7 @@
     twinLanes: "spuren", keepyUppy: "ball", leafFlow: "blaetter", tileMemory: "kacheln",
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
-    timeNinja: "ninja", freeDive: "freitaucher",
+    timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm",
   };
 
   // ---------------------------------------------------------------------------
@@ -412,6 +415,9 @@
     perle: (t) => [88, 95, 100].forEach((n, i) => ton(note(n), t + i * 0.045, { r: 0.35, laut: 0.12 })),
     atem: (t) => rausch(t, { dauer: 0.55, f: 1300, f2: 700, q: 0.7, a: 0.12, r: 0.3, laut: 0.35 }),
     stich: (t) => { ton(900, t, { typ: "square", f2: 300, gleit: 0.12, r: 0.12, laut: 0.08, tief: 2500 }); rausch(t, { dauer: 0.1, typ: "highpass", f: 2500, r: 0.08, laut: 0.12 }); },
+    // Schwarm: Ein Trupp Stare stösst dazu – ein paar kurze, helle Rufe.
+    zwitschern: (t) => [[3100, 4300, 0], [3700, 2900, 0.07], [3300, 4700, 0.13], [4100, 3400, 0.21]]
+      .forEach(([f, f2, wann]) => ton(f, t + wann, { f2, gleit: 0.05, a: 0.006, r: 0.07, laut: 0.1 })),
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -422,6 +428,7 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
+    zwitschern: 9.3,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,

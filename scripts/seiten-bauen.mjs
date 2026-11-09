@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-10-29-2";
+export const FASSUNG = "2026-11-09-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -220,6 +220,12 @@ export const SPIELE = [
     titel: "Freitaucher", buehne: { id: "fd-stage", klasse: "cm-stage fd-stage" },
     text: "Freitaucher: Ein Atemzug, so tief du dich traust – halte, um zu schwimmen. Nur Perlen, die du nach oben bringst, zählen.",
     baut: "das Meer mit dem Taucher",
+  },
+  {
+    seite: "schwarm", spiel: "flockFlight", page: "flock", js: "schwarm.js",
+    titel: "Schwarm", buehne: { id: "sw-stage", klasse: "cm-stage sw-stage" },
+    text: "Schwarm: Links halten lenkt nach links, rechts nach rechts – führ den Starenschwarm im Abendlicht an Felsen und Windrädern vorbei. Jeder Vogel zählt.",
+    baut: "das Meer im Abendlicht mit dem Schwarm",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

@@ -78,6 +78,7 @@ service cloud.firestore {
         "balloonRide", "skiSlalom", "frogHop", "craneHarbor", "ropeWalk",
         "wireLoop", "twinLanes", "keepyUppy",
         "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive",
+        "flockFlight",
         "numberLine",
         "boilerRoom",
       ];

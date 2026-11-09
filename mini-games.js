@@ -89,6 +89,7 @@
     { id: "batEcho", seite: "fledermaus", page: "bat" },
     { id: "timeNinja", seite: "ninja", page: "ninja" },
     { id: "freeDive", seite: "freitaucher", page: "freedive" },
+    { id: "flockFlight", seite: "schwarm", page: "flock" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -108,6 +109,8 @@
     // Die mit neuen Mechaniken: zwei Hände, Turm, Fallschirm, Schnitt, Echo,
     // Zeitlupe und ein Atemzug.
     juggler: 1, highDive: 1, skyDive: 1, lumberCut: 1, batEcho: 1, timeNinja: 1, freeDive: 1,
+    // Das erste in 3D: ein Schwarm, zwei Richtungen.
+    flockFlight: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -142,6 +145,7 @@
     batEcho: { fassung: "t1", winkel: true },
     timeNinja: { fassung: "t1" },
     freeDive: { fassung: "t1", winkel: true },
+    flockFlight: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -3076,7 +3080,9 @@
       if (!laedt) ladeWeiter();
     }
     function ladeWeiter() {
-      const pfad = ladeReihe.shift();
+      // Ohne Netz nichts holen: Es käme nur ein Fehler. Weiter geht es mit
+      // dem nächsten Wechsel oben, sobald das Netz zurück ist.
+      const pfad = navigator.onLine === false ? "" : ladeReihe.shift();
       if (!pfad || signal.aborted) { laedt = false; return; }
       laedt = true;
       if (vorgeladen.has(pfad)) { ladeWeiter(); return; }
