@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-10-2";
+export const FASSUNG = "2026-11-10-3";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -238,6 +238,12 @@ export const SPIELE = [
     titel: "Steinhüpfer", buehne: { id: "sh-stage", klasse: "cm-stage sh-stage" },
     text: "Steinhüpfer: Tippe genau, wenn der Stein sein Spiegelbild trifft – so hüpft er über den stillen Bergsee, Hüpfer um Hüpfer schneller. Wie viele Meter schaffst du?",
     baut: "der Bergsee bei Tagesanbruch mit dem Stein",
+  },
+  {
+    seite: "eiskanal", spiel: "iceRun", page: "icerun", js: "eiskanal.js",
+    titel: "Eiskanal", buehne: { id: "ek-stage", klasse: "cm-stage ek-stage" },
+    text: "Eiskanal: Links halten lenkt nach links, rechts nach rechts – eine Bobfahrt bei Nacht durch Steilkurven im Flutlicht. Die ruhige Linie bringt Tempo, jede Bande bremst.",
+    baut: "die Eisbahn bei Nacht mit dem Bob",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

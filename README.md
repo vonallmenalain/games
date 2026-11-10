@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        dreiunddreissig Spielseiten, erzeugt
+    turmbau.html …        vierunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -448,6 +448,79 @@ Die Schrauben stehen oben in der Datei: `Z_UFER`, `S_WURF`/`S_WURF_MIN`,
 `BEHALT_KNAPP`, `SERIE_SCHUB`), `RING_SCHUB`, `BEHALT_SEEROSE`/
 `BEHALT_HOLZ`, `VERZUG` – und `MORGEN`, die fünf Lichter.
 
+### Eiskanal (November 2026)
+
+**Eiskanal** (`eiskanal.js`, `iceRun`) – Eine Bobfahrt bei Nacht, aus dem
+Schlitten gesehen: eine Rinne aus Eis im Flutlicht, 1400 m lang, 110 m
+Gefälle, vom Starthaus (40 km/h) bis ins Ziel (bei voller Fahrt gut
+130 km/h). Wer links aufs Bild hält, lenkt nach links, wer rechts hält, nach
+rechts (am Rechner Pfeiltasten oder A/D; liegen zwei Finger auf, gilt der
+letzte). Quer in der Rinne ist der Schlitten ein Pendel: In der Kurve drückt
+ihn die Fliehkraft die Aussenwand hinauf, die Schwerkraft zieht ihn zurück,
+und dazwischen schwingt er um die ruhige Linie (`linieBei`). Lenken schiebt
+ihn zur Seite – und kostet Tempo, in einer schnellen Kurve mehr als auf der
+Geraden. Auf den Geraden stehen niedrige Banden: Jede Berührung nimmt Tempo,
+und der dritte harte Schlag (`HART`, `SCHLAEGE`) kippt den Bob. In den Kurven
+wächst die Aussenwand zur Steilwand mit einer Lippe aus Licht und einem
+Sonnensegel darüber; wer über die Lippe hinausschiesst, ist draussen.
+
+Gezählt wird die Strecke – je 10 m ein Punkt, 140 im Ziel – und im Ziel die
+Zeit: Jede Zehntelsekunde unter der Richtzeit (`RICHTZEIT`, 61 s) bringt
+fünf Punkte dazu (`BONUS_JE_ZEHNTEL`). Eine Fahrt mit viel Lenken kommt so
+auf gut 200, eine gute auf 300, die beste auf über 450. An zwei Toren steht
+die Zwischenzeit gegen die eigene beste Fahrt auf diesem Gerät, grün oder
+rot (die Bahn ist jedes Mal eine andere, aber immer gleich lang und gleich
+steil). Oben links der Tacho, die Zeit, die Strecke und drei Kufen für die
+Schläge, die der Bob noch aushält; oben in der Mitte die Ansage der nächsten
+Kurve; unten auf der Haube der Querschnitt der Rinne mit dem Schlitten
+darin – das Ende ist weiss, wo eine Bande steht, und orange, wo es eine
+Lippe ist, ein grüner Strich zeigt die ruhige Linie.
+
+Wie die anderen würfelt es seine Welt aus `zufall.js`: Geraden, Kurven,
+S-Kurven, ein Kreisel (mit Gegenkurve, damit die Bahn sich nicht kreuzt) und
+ein Labyrinth aus schnellen Wechseln, nach unten enger (`RADIUS0`/`RADIUS1`,
+`UEBERGANG0`/`UEBERGANG1`) – immer genau 1400 m. Kreuzt sich ein Wurf, fehlt
+ihm Kreisel oder Labyrinth oder müsste eine Wand höher sein, als sie sein
+kann, wird neu gewürfelt, aus demselben Zufall. Wie hoch jede Wand ist,
+folgt aus der Bahn selbst: `bahnRechnen` fährt sie einmal bei vollem Tempo
+ab (`vf`, ohne Lenkkosten) mit einem Schlitten, der ruhig gegen sein Pendeln
+lenkt und nur einen Teil der Lenkung braucht (die Sollfahrt, `bahn.soll`,
+Schrauben `SOLL_…`). Die Wand reicht dort so hoch, wie er kommt, plus Luft:
+oben 30 Grad, unten 14 (`LUFT0`, `LUFT1`, `LUFT_FORM`) – das ist die
+Schraube für «schwer». Unter 16 Grad über der Bande (`STEIL`) bleibt es eine
+Bande, darüber ist es eine Lippe. So ist jede Bahn ohne Bande fahrbar; der
+Abschnitt 4g27 in `npm run pruefen:browser` rechnet die Sollfahrt nach, und
+ein Autopilot fährt ins Ziel. Wer nichts tut, schiesst nach einem Drittel
+der Bahn über eine Lippe. Aufgezeichnet werden Strecke, Lage von Rand zu
+Rand und Tempo (`a`, `b`, `c`); beim Anschauen liegt der Bob Bild für Bild
+dort, wo er damals lag. Die Gegner fahren als Bob aus Licht mit.
+
+**Gezeichnet wird mit WebGL 2** wie im Schwarm, in einem Durchgang und mit
+sechs Programmen: der Himmel (Nacht, Sterne, Mond mit Hof, Nordlicht, Berge
+– und unter dem Horizont das Tal mit den Lichtern der Dörfer), die Bahn,
+alles Feste daneben (Tannen, Masten, Tore), der Bob, der Schneefall und
+alles, was leuchtet. Die Bahn ist ein einziges Netz entlang ihrer Raumkurve,
+einmal je Runde gebaut (`bahnNetz`): Jede Ecke weiss, wo sie im Querschnitt
+liegt und woraus sie ist – Eis, Bande oder Lippe, Schnee, Sonnensegel,
+Tafel. Die Flutlichter hängen alle 24 m mitten über der Bahn; wo die
+nächsten drei sind, folgt darum aus der Strecke allein, und Licht und Glanz
+entstehen je Bildpunkt, ohne dass ein Licht übergeben wird. Auf dem Eis ist
+der Glanz in Fahrtrichtung gestreckt: Die Lichter ziehen als Streifen über
+die Wände, dazu Kufenrillen, Reif, Fugen, die vorbeifliegen, und zwei blanke
+Spuren entlang der Sollfahrt – sie zeigen die Linie. Die Kamera sitzt im
+Schlitten und rollt mit der Lage in der Rinne; unten im Bild die Haube, in
+deren Lack die Flutlichter wandern. Die Flocken des Schneefalls ziehen mit
+dem Tempo Striche. Kommen die Bilder zu langsam, zeichnet das Spiel die Welt
+mit weniger Bildpunkten (`gueteTakt`). Vier Klänge, alle aus vorhandenen:
+die Kufen auf dem Eis und der Fahrtwind als Kulissen, die mit dem Tempo
+gehen, ein dumpfer Schlag an der Bande und der Sturz.
+
+Die Schrauben stehen oben in der Datei: `LAENGE`, `GEFAELLE`, `ROHR`,
+`BANDE`, `STEIL`, `LUFT0`/`LUFT1`/`LUFT_FORM`, die Fahrt (`V_START`, `ROLL`,
+`LUFT_W`, `GRIFF`, `DAEMPFUNG`, `LENK_KOSTEN`), die Bande (`HART`, `SANFT`,
+`BANDE_FEST`, `BANDE_JE`, `SCHLAEGE`) und die Punkte (`RICHTZEIT`,
+`BONUS_JE_ZEHNTEL`).
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -788,7 +861,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle dreiunddreissig
+    Spiele            welche dazugehören, eines bis alle vierunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

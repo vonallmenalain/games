@@ -177,6 +177,10 @@
     "steinhuepfer.ring": { s: "perle" },
     "steinhuepfer.versinken": { s: "rip" },
     "steinhuepfer.see": { d: "voegel", schleife: true },
+    "eiskanal.kufen": { s: "a-eis", schleife: true },
+    "eiskanal.wind": { s: "a-fahrtwind", schleife: true },
+    "eiskanal.bande": { s: "whomp" },
+    "eiskanal.sturz": { s: "schnee-sturz" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -190,6 +194,7 @@
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
+    iceRun: "eiskanal",
   };
 
   // ---------------------------------------------------------------------------
