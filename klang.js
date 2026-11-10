@@ -172,6 +172,11 @@
     "welle.brandung": { s: "a-fahrtwind", schleife: true },
     "welle.roehre": { s: "roehre" },
     "welle.sturz": { s: "brecher" },
+    "steinhuepfer.wurf": { s: "woosh-kurz" },
+    "steinhuepfer.hupf": { s: "plitsch" },
+    "steinhuepfer.ring": { s: "perle" },
+    "steinhuepfer.versinken": { s: "rip" },
+    "steinhuepfer.see": { d: "voegel", schleife: true },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -184,7 +189,7 @@
     twinLanes: "spuren", keepyUppy: "ball", leafFlow: "blaetter", tileMemory: "kacheln",
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
-    timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle",
+    timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
   };
 
   // ---------------------------------------------------------------------------
@@ -432,6 +437,14 @@
       rausch(t + 0.04, { dauer: 0.5, f: 700, f2: 300, q: 0.8, a: 0.02, r: 0.4, laut: 0.25 });
       ton(95, t, { f2: 42, gleit: 0.35, r: 0.5, laut: 0.5 });
     },
+    // Steinhüpfer: Der Stein setzt auf und hüpft weiter – ein kurzes, helles
+    // Plitsch. hoehe (0.8 … 1.5) verschiebt den Ton: Mit wenig Schwung klingt
+    // es höher und schneller.
+    plitsch: (t, o) => {
+      const k = Math.max(0.5, Math.min(2, Number(o?.hoehe) || 1));
+      ton(520 * k, t, { f2: 1250 * k, gleit: 0.035, r: 0.07, laut: 0.22 });
+      ton(1900 * k, t + 0.012, { f2: 2700 * k, gleit: 0.03, r: 0.04, laut: 0.07 });
+    },
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -442,7 +455,7 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
-    zwitschern: 9.3, roehre: 3.4, brecher: -2.6,
+    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,

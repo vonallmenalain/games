@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        zweiunddreissig Spielseiten, erzeugt
+    turmbau.html …        dreiunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -372,6 +372,82 @@ Die Schrauben stehen oben in der Datei: `DAUER`, `ROEHRE`, `C0`/`C1`,
 (`P_RAND`, `P_TIEF`, `P_HOCH`, `SERIE_VOLL`), `RESERVE` – und `ABEND`, die
 drei Lichter, sowie `FORM`, der Querschnitt nach dem Abstand vor dem Schaum.
 
+### Steinhüpfer (November 2026)
+
+**Steinhüpfer** (`steinhuepfer.js`, `stoneSkip`) – Ein flacher Stein hüpft
+über einen spiegelglatten Bergsee, bei Tagesanbruch; die Kamera fliegt tief
+hinter ihm her. Halten holt aus – ein Zeiger pendelt zwischen «zu steil» und
+«zu flach», der Stein in der Hand kippt mit –, Loslassen wirft: je näher an
+der Mitte, desto mehr Schwung (`S_WURF_MIN` bis `S_WURF`, in m/s). Danach
+gibt es nur noch eines zu tun: tippen, genau wenn der Stein das Wasser
+berührt (Finger, Maus, Leertaste, Enter oder Pfeil nach oben). Das Zeichen
+dafür ist das Spiegelbild: Stein und Spiegelbild kommen einander entgegen,
+und wo sie sich treffen, ist der Moment. Ein Balken für das Fenster wird nie
+eingeblendet; nur im allerersten Wurf zieht sich ein Ring auf die Stelle
+zusammen.
+
+Wie genau der Tipp sitzt, entscheidet, wie viel Schwung bleibt (`werte`):
+«Perfekt» behält fast alles und zählt eine Serie hoch, die ein wenig Schwung
+zurückgibt (`SERIE_SCHUB`); «gut» kostet etwas, «knapp» viel – je weiter
+daneben, desto mehr –, und wer ganz daneben tippt oder gar nicht, dessen
+Stein versinkt. In den ersten drei Hüpfern verzeiht das Spiel das einmal
+(`GNADE_BIS`). Aus dem Schwung folgen die Bögen (`bogenDauer`,
+`bogenHoehe`): Wer ihn verliert, hüpft kürzer, flacher und schneller, und
+das Fenster wird mit jedem Hüpfer enger (`fenster`: von 48 auf 17 ms für
+«perfekt», jenseits von 260 m bis auf 10 ms am anderen Ufer) – am Schluss
+prasselt es, und unter `S_AUS` ist der Stein ausgehüpft. Gezählt werden die Meter. Nach 700 m (`Z_UFER`) liegt das
+andere Ufer; mit menschlichem Timing kommt dort kaum jemand an. Ein guter
+Wurf endet bei etwa 300 m nach knapp zwanzig Sekunden.
+
+Der Tipp zählt nach der **Spielzeit**, nicht nach dem Bild: Ein Bogen ist
+eine Formel (Anfang, Schwung, Dauer, Höhe – `neuerBogen`), das Aufsetzen ist
+ausgerechnet, jede Eingabe trägt den Zeitstempel ihres Ereignisses
+(`spielzeit`, abzüglich `VERZUG` für Bild und Finger), und `ablauf` arbeitet
+beides der Reihe nach ab. So ist ein genauer Tipp auch bei dreissig Bildern
+in der Sekunde «perfekt», und Prüfung und Autopilot rechnen eine Runde in
+Millisekunden durch (`tippe(zeit)`, `aufsetzZeit()`).
+
+Wie die anderen würfelt es seinen See aus `zufall.js`, gleich zu Beginn der
+Runde und ganz: Böen (ein Bogen, der in ihrem Kräuselband beginnt, wird
+länger oder kürzer), die Wellen eines Ruderboots (das Wasser steht höher,
+der Stein setzt früher auf – sein Spiegelbild zeigt es), Seerosen und
+Treibholz (wer darauf landet, verliert viel Schwung; ab zwei «Perfekt» in
+Folge trägt der Bogen darüber) und Libellenringe (ein perfekter Hüpfer
+fliegt hindurch und bekommt `RING_SCHUB`). Die ersten vierzig Meter sind
+frei, dann wird es dichter. Der Autopilot in `npm run pruefen:browser`
+(Abschnitt 4g29) erreicht mit genauen Tipps das andere Ufer – auch mit
+dreissig Schritten je Sekunde –, einer mit ±55 ms nie, und wer nicht tippt,
+versinkt beim zweiten Aufsetzen. Aufgezeichnet werden Strecke, Höhe und
+Hüpfer (`a` mal 10, `b` mal 100, `c`); beim Anschauen hüpft der Stein über
+denselben See und hinterlässt dieselben Ringe, die Gegner hüpfen als Steine
+aus Licht daneben.
+
+**Gezeichnet wird wie der Schwarm mit WebGL 2**, in einem Durchgang, mit
+sieben kleinen Programmen. Himmel, Wolken und die drei Bergketten entstehen
+aus der Blickrichtung (`HIMMEL_FS`: jede Kette ein Grat aus dem Rauschen,
+die Kante zwischen Licht und Schatten läuft vom Gipfel schräg hinab, oben
+liegt Schnee, auf dem das erste Licht liegt). Unter dem Horizont trifft der
+Blick das Wasser, und was es dort neigt – die Ringe des Steins (die jüngsten
+sechzehn als Wellen), die Wellen des Boots, eine Böe –, verbiegt das
+Spiegelbild. Ufer, Wald, Steg und Kiesel sind ein einziges grosses Netz,
+einmal gebaut (`landBauen`; der See ist immer derselbe Ort), gespiegelt
+darunter gezeichnet; das Wasser legt sich darüber und lässt stehen, was es
+spiegelt. Dazu Schilf (Halme im Programm), die Spur der Ringe und die
+Seerosenblätter als Scheiben auf dem Wasser, Tropfen, Funken und Ringe aus
+Licht. Mit der Strecke geht die Sonne auf (`MORGEN`: Morgengrauen,
+Alpenglühen, Sonnenaufgang bei gut 200 m, goldener Morgen), und versinkt
+der Stein, dreht sich die Kamera um und zeigt die Kette seiner Ringe. Zwei
+eigene Klänge: ein helles Plitsch bei jedem Hüpfer (`plitsch`, mit wenig
+Schwung höher) und die Vögel am Ufer; dazu Wurf, Ring und das Versinken aus
+vorhandenen.
+
+Die Schrauben stehen oben in der Datei: `Z_UFER`, `S_WURF`/`S_WURF_MIN`,
+`S_NORM`/`T_NORM`/`T_HOCH`/`H_NORM` (Dauer und Höhe eines Bogens),
+`S_AUS`, die Fenster (`FENSTER_WEIT`, `FENSTER_ENG`, `FENSTER_N`,
+`FENSTER_AB`/`FENSTER_UFER`, `GUT_MAL`, `KNAPP_MAL`), was bleibt (`BEHALT_PERFEKT`, `BEHALT_GUT`,
+`BEHALT_KNAPP`, `SERIE_SCHUB`), `RING_SCHUB`, `BEHALT_SEEROSE`/
+`BEHALT_HOLZ`, `VERZUG` – und `MORGEN`, die fünf Lichter.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -712,7 +788,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle zweiunddreissig
+    Spiele            welche dazugehören, eines bis alle dreiunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

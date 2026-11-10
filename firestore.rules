@@ -80,6 +80,7 @@ service cloud.firestore {
         "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive",
         "flockFlight",
         "waveRide",
+        "stoneSkip",
         "numberLine",
         "boilerRoom",
       ];

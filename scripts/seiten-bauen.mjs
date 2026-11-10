@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-10-1";
+export const FASSUNG = "2026-11-10-2";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -232,6 +232,12 @@ export const SPIELE = [
     titel: "Die Welle", buehne: { id: "wl-stage", klasse: "cm-stage wl-stage" },
     text: "Die Welle: Halten zieht die Wand hinauf, Loslassen lässt dich fallen – surf tief in der Röhre, nur dort gibt es Punkte. Hinter dir jagt der Schaum.",
     baut: "die Welle im Abendlicht mit dem Surfer",
+  },
+  {
+    seite: "steinhuepfer", spiel: "stoneSkip", page: "skip", js: "steinhuepfer.js",
+    titel: "Steinhüpfer", buehne: { id: "sh-stage", klasse: "cm-stage sh-stage" },
+    text: "Steinhüpfer: Tippe genau, wenn der Stein sein Spiegelbild trifft – so hüpft er über den stillen Bergsee, Hüpfer um Hüpfer schneller. Wie viele Meter schaffst du?",
+    baut: "der Bergsee bei Tagesanbruch mit dem Stein",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",
