@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-09-1";
+export const FASSUNG = "2026-11-10-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -226,6 +226,12 @@ export const SPIELE = [
     titel: "Schwarm", buehne: { id: "sw-stage", klasse: "cm-stage sw-stage" },
     text: "Schwarm: Links halten lenkt nach links, rechts nach rechts – führ den Starenschwarm im Abendlicht an Felsen und Windrädern vorbei. Jeder Vogel zählt.",
     baut: "das Meer im Abendlicht mit dem Schwarm",
+  },
+  {
+    seite: "welle", spiel: "waveRide", page: "wave", js: "welle.js",
+    titel: "Die Welle", buehne: { id: "wl-stage", klasse: "cm-stage wl-stage" },
+    text: "Die Welle: Halten zieht die Wand hinauf, Loslassen lässt dich fallen – surf tief in der Röhre, nur dort gibt es Punkte. Hinter dir jagt der Schaum.",
+    baut: "die Welle im Abendlicht mit dem Surfer",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

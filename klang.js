@@ -169,6 +169,9 @@
     "schwarm.wind": { s: "a-fahrtwind", schleife: true },
     "schwarm.trupp": { s: "zwitschern" },
     "schwarm.treffer": { s: "flatter" },
+    "welle.brandung": { s: "a-fahrtwind", schleife: true },
+    "welle.roehre": { s: "roehre" },
+    "welle.sturz": { s: "brecher" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -181,7 +184,7 @@
     twinLanes: "spuren", keepyUppy: "ball", leafFlow: "blaetter", tileMemory: "kacheln",
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
-    timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm",
+    timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle",
   };
 
   // ---------------------------------------------------------------------------
@@ -418,6 +421,17 @@
     // Schwarm: Ein Trupp Stare stösst dazu – ein paar kurze, helle Rufe.
     zwitschern: (t) => [[3100, 4300, 0], [3700, 2900, 0.07], [3300, 4700, 0.13], [4100, 3400, 0.21]]
       .forEach(([f, f2, wann]) => ton(f, t + wann, { f2, gleit: 0.05, a: 0.006, r: 0.07, laut: 0.1 })),
+    // Die Welle: Das Dach schliesst sich über dem Surfer – ein hohles
+    // Rauschen, das dunkler wird. Und der Brecher, der ihn verschluckt.
+    roehre: (t) => {
+      rausch(t, { dauer: 0.7, f: 1100, f2: 320, q: 1.8, a: 0.12, r: 0.45, laut: 0.3 });
+      ton(140, t + 0.05, { f2: 85, gleit: 0.4, a: 0.08, h: 0.15, r: 0.35, laut: 0.12 });
+    },
+    brecher: (t) => {
+      rausch(t, { dauer: 1.3, typ: "lowpass", f: 2400, f2: 260, a: 0.03, r: 1.1, laut: 0.4 });
+      rausch(t + 0.04, { dauer: 0.5, f: 700, f2: 300, q: 0.8, a: 0.02, r: 0.4, laut: 0.25 });
+      ton(95, t, { f2: 42, gleit: 0.35, r: 0.5, laut: 0.5 });
+    },
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -428,7 +442,7 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
-    zwitschern: 9.3,
+    zwitschern: 9.3, roehre: 3.4, brecher: -2.6,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,

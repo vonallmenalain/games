@@ -79,6 +79,7 @@ service cloud.firestore {
         "wireLoop", "twinLanes", "keepyUppy",
         "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive",
         "flockFlight",
+        "waveRide",
         "numberLine",
         "boilerRoom",
       ];

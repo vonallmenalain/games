@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        einunddreissig Spielseiten, erzeugt
+    turmbau.html …        zweiunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -309,6 +309,68 @@ und `LENK_ZEIT` (wie flink er lenkt), `START_VOEGEL`, `MINDEST`,
 `SCHLUSS_SPALTEN` (die Spalten der Felswände), `ANSCHLUSS`,
 `PUNKTE_JE_100M`, die Masse der Hindernisse – und `ABEND`, die fünf Lichter
 mit Sonnenstand und Farben.
+
+### Die Welle (November 2026)
+
+**Die Welle** (`welle.js`, `waveRide`) – Eine riesige, durchscheinende Welle
+bei Sonnenuntergang, und ein Surfer, der sie entlangfährt; die Kamera sitzt
+dicht hinter ihm, wie eine Helmkamera in der Röhre. Hinter ihm bricht die
+Welle – der Schaum jagt ihn. Ein Finger genügt: Halten zieht die Wand
+hinauf, Loslassen lässt ihn hinunterschiessen (am Rechner die Leertaste,
+der Pfeil nach oben oder W). Zwei Grössen entscheiden: `h`, wie hoch er an
+der Wand steht (0 das Tal, 1 die Lippe), und `d`, wie viele Meter er vor dem
+Schaum ist. Hoch an der Wand ist er langsam, der Schaum kommt näher; im
+unteren Drittel liegt die schnellste Linie; ganz unten im Flachen verhungert
+er. Hinauf kostet Tempo, hinunter gibt Tempo, und unter der Lippe ist die
+Wand so steil, dass er fast stehen bleibt.
+
+Punkte gibt es nur in der Röhre, dort, wo das Dach über ihm zu ist (`d`
+unter 9 m, `ROEHRE`): je Sekunde umso mehr, je tiefer er darin steckt
+(`punkteBei`), mal die Serie – sie wächst in 30 Sekunden ohne Unterbruch von
+×1 auf ×4 und beginnt neu, sobald er die Röhre verlässt. Ganz dicht am
+Schaum reisst der Sog zurück (`SOG`): Wer zu gierig ist, kommt nur auf der
+schnellsten Linie wieder heraus. Verschluckt ihn der Schaum (`d` unter
+null) oder trägt es ihn über die Lippe (`h` über 1), ist die Runde vorbei.
+Sonst läuft die Welle nach 80 Sekunden am Strand aus, mit einem kleinen
+Bonus – und unterwegs sinkt die Sonne von der goldenen Stunde ins Abendrot.
+
+Wie die anderen würfelt es seine Welt aus `zufall.js`: die Abschnitte der
+Welle. In einem schnellen zieht der Schaum für zwei bis vier Sekunden an, in
+einem langsamen lässt er nach, später kommen kurze Doppelschläge; mit der
+Zeit werden die Pausen kürzer, die Welle schneller (`C0` bis `C1`) und die
+Schulter kleiner (`TASCHE_FERN`). Wo ein schneller Abschnitt kommt, läuft
+voraus weisse Gischt die Lippe entlang, und oben links wandert ein roter
+Strich über dem Balken auf den Schaum zu. Der Schaum hängt nur an der Zeit
+(`schaumBei`), nie daran, wie jemand fährt. Schaffbar bleibt jede Welle: Wer
+immer die schnellste Linie fährt, behält nachgerechnet `RESERVE` Meter Luft
+(`ideallinie` – wo nicht, zieht der Abschnitt weniger stark an, für alle
+gleich). Der Autopilot in `npm run pruefen:browser` (Abschnitt 4g26) fährt
+sie bis an den Strand, ein zweiter holt in der Röhre ein Vielfaches der
+Punkte. Aufgezeichnet werden Strecke, Höhe an der Wand und Abstand zum
+Schaum (`a`, `b`, `c`, je mal 100); beim Anschauen fährt der Surfer auf
+derselben Welle, und die Gegner fahren als Surfer aus Licht mit – so tief
+in der Röhre, wie sie damals waren.
+
+**Gezeichnet wird wie der Schwarm mit WebGL 2**, in einem Durchgang. Die
+Welle ist ein Netz, von dem jede Ecke nur weiss, in welcher Reihe und wo im
+Querschnitt sie liegt; die Form entsteht im Programm aus zwei Zahlen je
+Reihe (`formBei`): wie weit die Lippe überwirft und wie eng der Bogen ist –
+voraus eine runde Dünung, zum Schaum hin die Röhre mit dem fallenden
+Vorhang. Die Farbe des Wassers ist, was durchscheint (dünn golden, dicker
+smaragdgrün, ganz dick fast nichts mehr), was sich spiegelt (der Himmel,
+unter dem Dach die Röhre selbst) und der Schaum, der in Streifen die Wand
+hinaufzieht. Dazu Himmel und offenes Meer in einem Programm, der Surfer
+(ein Netz in zwei Haltungen), die Spur seines Bretts, Gischt, Tropfen und
+Sprühnebel als weiche Scheiben – und auf der zweiten Leinwand die Zahlen
+und, wenn es knapp war, Tropfen auf der Linse. Drei Klänge: die Brandung
+(der Fahrtwind, in der Röhre lauter), ein hohles Rauschen, wenn sich das
+Dach schliesst, und der Brecher am Schluss.
+
+Die Schrauben stehen oben in der Datei: `DAUER`, `ROEHRE`, `C0`/`C1`,
+`LINIE` (wie schnell die Welle in welcher Höhe trägt), `TASCHE_NAH`/
+`TASCHE_FERN`, `SOG`, `HANG_NAH`/`HANG_FERN`, `STEIL_OBEN`, die Punkte
+(`P_RAND`, `P_TIEF`, `P_HOCH`, `SERIE_VOLL`), `RESERVE` – und `ABEND`, die
+drei Lichter, sowie `FORM`, der Querschnitt nach dem Abstand vor dem Schaum.
 
 ### Die Klänge
 
@@ -650,7 +712,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle einunddreissig
+    Spiele            welche dazugehören, eines bis alle zweiunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
