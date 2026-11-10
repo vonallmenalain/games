@@ -91,6 +91,7 @@
     { id: "freeDive", seite: "freitaucher", page: "freedive" },
     { id: "flockFlight", seite: "schwarm", page: "flock" },
     { id: "waveRide", seite: "welle", page: "wave" },
+    { id: "stoneSkip", seite: "steinhuepfer", page: "skip" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -114,6 +115,8 @@
     flockFlight: 1,
     // Die Welle: ein Finger, eine Wand aus Wasser.
     waveRide: 1,
+    // Ein Stein, ein Tipp: genau im Moment des Aufsetzens.
+    stoneSkip: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -152,6 +155,7 @@
     // Hier ist c kein Winkel, sondern der Abstand zum Schaum (mal 100) – er
     // soll genauso mitgleiten.
     waveRide: { fassung: "t1", winkel: true },
+    stoneSkip: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

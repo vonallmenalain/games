@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -606,7 +606,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2932,6 +2932,7 @@ try {
     ["/freitaucher", "Freitaucher", () => window.LernappFreitaucher.weltText()],
     ["/schwarm", "Schwarm", () => window.LernappSchwarm.weltText()],
     ["/welle", "Die Welle", () => window.LernappWelle.weltText()],
+    ["/steinhuepfer", "Steinhüpfer", () => window.LernappSteinhuepfer.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -6103,6 +6104,245 @@ try {
     await kontext.close();
   }
 
+  // --- 4g29. Steinhüpfer: schaffbar, und wer nicht tippt, dessen Stein versinkt -------
+  // Der See steht da (WebGL 2), ohne dass sich der Browser beschwert. Was auf
+  // der Bahn liegt, ist gewürfelt und geordnet: die ersten vierzig Meter
+  // frei, nichts übereinander, Böen, Wellen und Hindernisse in ihren Grenzen;
+  // die Fenster werden mit den Hüpfern und mit der Strecke enger.
+  // Ein Autopilot, der genau im Moment des Aufsetzens tippt, erreicht in
+  // mehreren gewürfelten Runden das andere Ufer – auch wenn das Spiel nur
+  // dreissig Schritte in der Sekunde rechnet: Gewertet wird nach der
+  // Spielzeit des Tipps, nicht nach dem Bild. Wer ungenau tippt, kommt nicht
+  // an; wer gar nicht tippt, dem wird einmal verziehen, beim zweiten
+  // Aufsetzen versinkt der Stein. Leertaste und Finger holen aus, werfen und
+  // tippen. Und ein Wurf, angeschaut: derselbe See, am Schluss dieselbe Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/steinhuepfer`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSteinhuepfer?.state?.welt && window.LernappSteinhuepfer.view.cssW > 0, null, { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const bild = await seite.evaluate(() => {
+      const S = window.LernappSteinhuepfer;
+      const leinwand = document.querySelector(".sh-canvas");
+      return { ok: S.bild.ok, programme: Object.keys(S.bild.prog).length, breit: leinwand?.width || 0, land: S.bild.land?.ecken || 0, ohne: Boolean(document.querySelector(".sh-ohne")), phase: S.state.phase, schritt: S.state.schritt };
+    });
+    pruefe(bild.ok && bild.programme === 7 && bild.breit > 300 && bild.land > 20000 && !bild.ohne && bild.phase === "bereit" && bild.schritt === "start",
+      `Steinhüpfer: Der See (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Der gewürfelte See, in sechs Runden nachgerechnet.
+    const see = await seite.evaluate(() => {
+      const S = window.LernappSteinhuepfer;
+      const st = S.state;
+      const befunde = [];
+      const arten = new Set();
+      let dinge = 0;
+      for (let lauf = 0; lauf < 6; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const liste = st.welt.dinge;
+        dinge += liste.length;
+        if (!liste.length || liste[0].z0 < 40) befunde.push(`Die ersten vierzig Meter sind nicht frei: ${liste[0]?.z0}`);
+        liste.forEach((d, i) => {
+          arten.add(d.art);
+          if (i && d.z0 < liste[i - 1].z1 + 5) befunde.push(`${d.art} bei ${d.z0.toFixed(0)} m liegt auf ${liste[i - 1].art}`);
+          if (i && d.art === liste[i - 1].art) befunde.push(`zweimal ${d.art} hintereinander bei ${d.z0.toFixed(0)} m`);
+          if (d.z1 > S.Z_UFER - 20) befunde.push(`${d.art} bei ${d.z0.toFixed(0)} m liegt am Ufer`);
+          if (d.art === "boe" && !(Math.abs(d.staerke) >= 0.17 && d.staerke <= 0.43 && d.staerke >= -0.35 && d.z1 - d.z0 >= 20 && d.z1 - d.z0 <= 38)) befunde.push(`Böe bei ${d.z0.toFixed(0)} m: ${d.staerke.toFixed(2)}, ${(d.z1 - d.z0).toFixed(0)} m`);
+          if (d.art === "wellen" && !(d.hoch >= 0.2 && d.hoch <= 0.4 && S.pegelBei((d.z0 + d.z1) / 2) === d.hoch && S.pegelBei(d.z0 - 1) === 0)) befunde.push(`Wellen bei ${d.z0.toFixed(0)} m: ${d.hoch}`);
+          if ((d.art === "seerosen" || d.art === "holz") && !(d.z1 - d.z0 <= 8 && d.behalt > 0.5 && d.behalt < 0.8 && S.hindernisBei((d.z0 + d.z1) / 2) === d)) befunde.push(`${d.art} bei ${d.z0.toFixed(0)} m: ${(d.z1 - d.z0).toFixed(1)} m, ${d.behalt}`);
+        });
+        if (liste.filter((d) => d.art === "ring").length < 3) befunde.push("weniger als drei Libellenringe");
+      }
+      // Die Fenster werden mit jedem Hüpfer enger, und die Wertung folgt ihnen.
+      const f1 = S.fenster(1);
+      const f40 = S.fenster(40);
+      const wertung = [S.werte(0, 1).klasse, S.werte(f1.P * 0.9, 1).klasse, S.werte(-f1.P * 1.5, 1).klasse, S.werte(f1.G * 1.2, 1).klasse, S.werte(f1.K * 1.1, 1).klasse, S.werte(f40.P * 1.5, 40).klasse,
+        S.werte(f1.P * 0.9, 40).klasse === "perfekt" ? "gleich weit" : "enger"].join(",");
+      return { befunde: befunde.slice(0, 6), dinge, arten: [...arten].sort().join(","), eng: f1.P > f40.P * 2 && f40.P >= 0.015 && f1.K > f1.G && f1.G > f1.P && S.fenster(40, S.Z_UFER).P < f40.P && S.fenster(40, S.Z_UFER).P >= 0.01, wertung, behalt: [S.werte(0, 1).behalt, S.werte(f1.G, 1).behalt, S.werte(f1.K, 1).behalt] };
+    });
+    pruefe(see.befunde.length === 0 && see.dinge > 60 && see.arten === "boe,holz,ring,seerosen,wellen" && see.eng
+      && see.wertung === "perfekt,perfekt,gut,knapp,daneben,gut,enger" && see.behalt[0] > see.behalt[1] && see.behalt[1] > see.behalt[2] && see.behalt[2] > 0.5,
+    `Steinhüpfer: Der gewürfelte See stimmt nicht – ${JSON.stringify(see)}`);
+
+    // Die Autopiloten. Geworfen wird genau in der Mitte; getippt wird zur
+    // Zeit des Aufsetzens, die der Bogen selbst nennt (aufsetzZeit) – genau,
+    // oder mit einem Fehler aus einem festen Würfel.
+    const PILOT = `(S, st, streuung, schritt) => {
+      let saat = 20261109;
+      const zufall = () => { saat = (saat * 1664525 + 1013904223) >>> 0; return saat / 4294967296; };
+      const gauss = () => Math.sqrt(-2 * Math.log(1 - zufall())) * Math.cos(2 * Math.PI * zufall());
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.halte(true);
+      S.takt(schritt);
+      S.halte(false, S.mitteZeit());
+      let letzter = null;
+      for (let n = 0; st.phase === "spiel" && n < 200000; n += 1) {
+        if (streuung !== null && st.schritt === "flug" && st.bogen !== letzter) {
+          letzter = st.bogen;
+          S.tippe(S.aufsetzZeit() + gauss() * streuung);
+        }
+        S.takt(schritt);
+      }
+      return { phase: st.phase, grund: st.grund, punkte: st.punkte, meter: st.meter, huepfer: st.huepfer, perfekte: st.perfekte, wurf: st.wurf?.perfekt || false,
+        sekunden: st.schrittZeit, zahl: document.querySelector(".cm-result-score") !== null, text: document.querySelector(".cm-result-detail")?.textContent || "" };
+    }`;
+    const piloten = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const S = window.LernappSteinhuepfer;
+      const genau = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) genau.push(pilot(S, S.state, 0, 1 / 120));
+      // Dasselbe mit dreissig Schritten in der Sekunde: Der Tipp zählt nach
+      // seiner Spielzeit, nicht nach dem Schritt, in dem er ankommt.
+      const grob = pilot(S, S.state, 0, 1 / 30);
+      const ungenau = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) ungenau.push(pilot(S, S.state, 0.055, 1 / 120));
+      const nichts = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) nichts.push(pilot(S, S.state, null, 1 / 120));
+      return { genau, grob, ungenau, nichts };
+    }, PILOT);
+    pruefe(piloten.genau.every((r) => r.phase === "ende" && r.grund === "ufer" && r.punkte === 700 && r.wurf && r.perfekte === r.huepfer && r.sekunden < 36 && r.zahl),
+      `Steinhüpfer: Der Autopilot erreicht mit genauen Tipps das andere Ufer nicht – ${JSON.stringify(piloten.genau)}`);
+    pruefe(piloten.grob.grund === "ufer" && piloten.grob.punkte === 700 && piloten.grob.perfekte === piloten.grob.huepfer,
+      `Steinhüpfer: Mit dreissig Schritten in der Sekunde ist ein genauer Tipp nicht mehr perfekt – ${JSON.stringify(piloten.grob)}`);
+    pruefe(piloten.ungenau.every((r) => r.phase === "ende" && r.grund !== "ufer" && r.punkte < 560 && r.perfekte < r.huepfer)
+      && piloten.ungenau.reduce((summe, r) => summe + r.punkte, 0) / piloten.ungenau.length > 50,
+    `Steinhüpfer: Wer ungenau tippt (±55 ms), kommt zu weit oder gar nicht vom Fleck – ${JSON.stringify(piloten.ungenau)}`);
+    // Wer nichts tut: Das erste Aufsetzen verzeiht das Spiel, beim zweiten
+    // versinkt der Stein – nach wenigen Sekunden und ein paar Dutzend Metern.
+    pruefe(piloten.nichts.every((r) => r.phase === "ende" && r.grund === "kein Tipp" && r.huepfer === 1 && r.punkte > 12 && r.punkte < 50 && r.sekunden < 5 && /Versunken/.test(r.text)),
+      `Steinhüpfer: Wer nicht tippt, dessen Stein versinkt nicht beim zweiten Aufsetzen – ${JSON.stringify(piloten.nichts)}`);
+
+    // Der Wurf: Wer am Rand loslässt, wirft mit weniger Schwung. Und ein Tipp
+    // weit vor dem Aufsetzen ist daneben – nach dem einen, der verziehen wird.
+    const wurf = await seite.evaluate(() => {
+      const S = window.LernappSteinhuepfer;
+      const st = S.state;
+      const einer = (wann) => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.halte(true);
+        S.takt(1 / 120);
+        S.halte(false, wann(S));
+        for (let n = 0; n < 600 && st.schritt !== "flug"; n += 1) S.takt(1 / 120);
+        return { schwung: st.S, a: st.wurf?.a ?? null, perfekt: st.wurf?.perfekt ?? null };
+      };
+      const mitte = einer((s) => s.mitteZeit());
+      const steil = einer((s) => s.state.ausholSeit + 0.02);
+      // Nie losgelassen: Der Stein fliegt von selbst.
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.halte(true);
+      for (let n = 0; n < 120 * 6 && st.schritt !== "flug"; n += 1) S.takt(1 / 120);
+      const selbst = { schritt: st.schritt, zeit: st.zeit };
+      // Zweimal viel zu früh getippt: einmal verziehen, dann versunken.
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.halte(true);
+      S.takt(1 / 120);
+      S.halte(false, S.mitteZeit());
+      let letzter = null;
+      for (let n = 0; st.phase === "spiel" && n < 5000; n += 1) {
+        if (st.schritt === "flug" && st.bogen !== letzter) { letzter = st.bogen; S.tippe(S.aufsetzZeit() - 0.3); }
+        S.takt(1 / 120);
+      }
+      return { mitte, steil, selbst, frueh: { grund: st.grund, huepfer: st.huepfer, verziehen: st.verziehen } };
+    });
+    pruefe(wurf.mitte.perfekt === true && Math.abs(wurf.mitte.a) < 0.02 && wurf.mitte.schwung === 22 && wurf.steil.perfekt === false && wurf.steil.a < -0.9 && wurf.steil.schwung < 17
+      && wurf.selbst.schritt === "flug" && wurf.selbst.zeit < 5 && wurf.frueh.grund === "zu früh" && wurf.frueh.huepfer === 1 && wurf.frueh.verziehen,
+    `Steinhüpfer: Der Wurf oder das Verzeihen stimmt nicht – ${JSON.stringify(wurf)}`);
+
+    // Die Leertaste: drücken holt aus, loslassen wirft, drücken im Flug tippt.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => { const st = window.LernappSteinhuepfer.state; return { phase: st.phase, schritt: st.schritt }; });
+    const imFlug = () => seite.waitForFunction(() => {
+      const st = window.LernappSteinhuepfer.state;
+      return st.schritt === "flug" && st.bogen && st.zeit - st.bogen.t0 > st.bogen.T * 0.4;
+    }, null, { timeout: 15000 }).catch(() => {});
+    const getippt = () => seite.waitForFunction(() => {
+      const st = window.LernappSteinhuepfer.state;
+      return st.tipp !== null || st.huepfer > 0 || st.schritt === "sinkt";
+    }, null, { timeout: 5000 }).then(() => true).catch(() => false);
+    const tasten = [await lage()];
+    await seite.keyboard.down("Space");
+    await seite.waitForFunction(() => window.LernappSteinhuepfer.state.schritt === "ausholen", null, { timeout: 5000 }).catch(() => {});
+    tasten.push(await lage());
+    await seite.keyboard.up("Space");
+    await seite.waitForFunction(() => window.LernappSteinhuepfer.state.schritt === "flug", null, { timeout: 5000 }).catch(() => {});
+    tasten.push(await lage());
+    await imFlug();
+    await seite.keyboard.down("Space");
+    await seite.keyboard.up("Space");
+    const tasteTippt = await getippt();
+    pruefe(JSON.stringify(tasten) === JSON.stringify([{ phase: "bereit", schritt: "start" }, { phase: "spiel", schritt: "ausholen" }, { phase: "spiel", schritt: "flug" }]) && tasteTippt,
+      `Steinhüpfer: Die Leertaste holt nicht aus, wirft nicht oder tippt nicht: ${JSON.stringify({ tasten, tasteTippt })}`);
+    // Und der Finger, irgendwo im Bild.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.mouse.move(420, 250);
+    await seite.mouse.down();
+    await seite.waitForFunction(() => window.LernappSteinhuepfer.state.schritt === "ausholen", null, { timeout: 5000 }).catch(() => {});
+    const finger = [await lage()];
+    await seite.mouse.up();
+    await seite.waitForFunction(() => window.LernappSteinhuepfer.state.schritt === "flug", null, { timeout: 5000 }).catch(() => {});
+    finger.push(await lage());
+    await imFlug();
+    await seite.mouse.down();
+    await seite.mouse.up();
+    const fingerTippt = await getippt();
+    pruefe(JSON.stringify(finger) === JSON.stringify([{ phase: "spiel", schritt: "ausholen" }, { phase: "spiel", schritt: "flug" }]) && fingerTippt,
+      `Steinhüpfer: Der Finger holt nicht aus, wirft nicht oder tippt nicht: ${JSON.stringify({ finger, fingerTippt })}`);
+    pruefe(fehlerAufSeite.length === vorher, `Steinhüpfer: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Ein Wurf in echter Zeit – ein paar genaue Hüpfer, dann keiner mehr –,
+    // aufgezeichnet und angeschaut: derselbe See, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__steinhuepfer")) return;
+      sessionStorage.setItem("__steinhuepfer", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/steinhuepfer`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSteinhuepfer?.state?.welt && window.LernappSteinhuepfer.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappSteinhuepfer.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const S = window.LernappSteinhuepfer;
+      const st = S.state;
+      S.halte(true);
+      let geworfen = false;
+      let letzter = null;
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (!geworfen && st.schritt === "ausholen") { geworfen = true; S.halte(false, S.mitteZeit()); }
+        if (st.schritt === "flug" && st.bogen !== letzter && st.z < 60) { letzter = st.bogen; S.tippe(S.aufsetzZeit()); }
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("stoneSkip_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`stoneSkip_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappSteinhuepfer.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, huepfer: st.huepfer, grund: st.grund };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 60 && gespielt.punkte < 200 && gespielt.punkte === gespielt.gezaehlt && gespielt.huepfer >= 3 && gespielt.grund === "kein Tipp",
+      `Steinhüpfer: Der Wurf wird nicht mit Saat, Ort und Hüpfern hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/steinhuepfer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSteinhuepfer?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappSteinhuepfer.state.phase, welt: window.LernappSteinhuepfer.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Steinhüpfer: Beim Zuschauen entsteht ein anderer See:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappSteinhuepfer.state.z > 30 && window.LernappSteinhuepfer.state.huepfer >= 2, null, { timeout: 20000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => { const st = window.LernappSteinhuepfer.state; return { z: Math.round(st.z), huepfer: st.huepfer, ringe: st.ringe.length, schritt: st.schritt }; });
+    pruefe(unterwegs.z > 30 && unterwegs.huepfer >= 2 && unterwegs.ringe >= 2, `Steinhüpfer: Beim Zuschauen hüpft der Stein nicht mit: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappSteinhuepfer.state.punkte, huepfer: window.LernappSteinhuepfer.state.huepfer, schritt: window.LernappSteinhuepfer.state.schritt, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.huepfer === gespielt.huepfer && schluss.schritt === "sinkt" && !schluss.ergebnis,
+      `Steinhüpfer: Am Ende des angeschauten Wurfs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -6300,20 +6540,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 23 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 24 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 23 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 24 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /24/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /25/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -6330,7 +6570,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -7647,7 +7887,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 119, `klang.js kennt nicht alle 119 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 124, `klang.js kennt nicht alle 124 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

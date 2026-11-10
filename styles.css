@@ -880,7 +880,7 @@ h2 {
 /* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
-.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld {
+.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -894,7 +894,7 @@ h2 {
 .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
-.jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt {
+.jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1422,6 +1422,49 @@ h2 {
   font-weight: 900;
 }
 /* === Die Welle – Ende ============================================================ */
+
+/* === Steinhüpfer (steinhuepfer.js) – Anfang ====================================== */
+.sh-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sh-stage:not([data-phase="intro"]) .sh-prompt { opacity: 0; }
+.sh-feld { width: 100%; background: #16203a; }
+/* Zwei Leinwände übereinander: der See (WebGL), darüber Zahlen und Namen. */
+.sh-canvas, .sh-hud { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.sh-hud { pointer-events: none; }
+/* Ein weicher, dunkler Rand ums Bild, wie durch ein Objektiv. */
+.sh-feld::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 48%, rgba(0, 0, 0, 0) 56%, rgba(6, 10, 22, 0.36) 100%);
+}
+.sh-ohne {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--ar-text);
+  font-weight: 800;
+  text-align: center;
+}
+.sh-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b8f3f7, #00a5b5);
+  color: #00323a;
+  font-weight: 900;
+}
+/* === Steinhüpfer – Ende ========================================================== */
 
 
 
@@ -3658,7 +3701,7 @@ h2 {
   .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
-  .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt {
+  .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }
