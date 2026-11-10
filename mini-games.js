@@ -93,6 +93,7 @@
     { id: "waveRide", seite: "welle", page: "wave" },
     { id: "stoneSkip", seite: "steinhuepfer", page: "skip" },
     { id: "iceRun", seite: "eiskanal", page: "icerun" },
+    { id: "cliffFlight", seite: "felsflug", page: "cliff" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -120,6 +121,8 @@
     stoneSkip: 1,
     // Eine Bobfahrt bei Nacht, aus dem Schlitten gesehen.
     iceRun: 1,
+    // Im Wingsuit durch die Schlucht: nah am Fels zählt.
+    cliffFlight: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -160,6 +163,7 @@
     waveRide: { fassung: "t1", winkel: true },
     stoneSkip: { fassung: "t1" },
     iceRun: { fassung: "t1" },
+    cliffFlight: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -606,7 +606,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2934,6 +2934,7 @@ try {
     ["/welle", "Die Welle", () => window.LernappWelle.weltText()],
     ["/steinhuepfer", "Steinhüpfer", () => window.LernappSteinhuepfer.weltText()],
     ["/eiskanal", "Eiskanal", () => window.LernappEiskanal.weltText()],
+    ["/felsflug", "Felsflug", () => window.LernappFelsflug.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -6611,6 +6612,244 @@ try {
     await kontext.close();
   }
 
+  // --- 4g28. Felsflug: schaffbar, und der erste Kontakt beendet die Runde -------------
+  // Die Schlucht steht da (WebGL), ohne dass sich der Browser beschwert. Am
+  // freien Weg steht auf seiner ganzen Breite nichts – keine Wand, kein
+  // Massiv, kein Turm, keine Tanne, kein Pfeiler –, und er biegt nie
+  // schärfer, als sich lenken lässt. Ein Autopilot, der ihm folgt, landet in
+  // mehreren gewürfelten Schluchten im Tal. Wer nichts tut, prallt bald an –
+  // aber nicht in den ersten fünf Sekunden. Nah am Fels zählt ein
+  // Mehrfaches, die Serie steigt dort und fällt in der Mitte. Der erste
+  // Kontakt beendet die Runde. Die Pfeiltasten lenken, und die letzte gilt.
+  // Und ein Lauf, angeschaut, durch dieselbe Schlucht mit derselben Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/felsflug`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFelsflug?.state?.welt && window.LernappFelsflug.view.cssW > 0, null, { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const bild = await seite.evaluate(() => {
+      const S = window.LernappFelsflug;
+      const leinwand = document.querySelector(".ff-canvas");
+      return { ok: S.bild.ok, programme: Object.keys(S.bild.prog).length, breit: leinwand?.width || 0, phase: S.state.phase, schritt: S.state.schritt, ohne: Boolean(document.querySelector(".ff-ohne")) };
+    });
+    pruefe(bild.ok && bild.programme === 7 && bild.breit > 300 && bild.phase === "bereit" && bild.schritt === "start" && !bild.ohne,
+      `Felsflug: Die Schlucht (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Der freie Weg, in fünf gewürfelten Schluchten: Meter für Meter liegt
+    // links und rechts von ihm die halbe Breite frei, und er verlangt nie
+    // mehr als vier Fünftel dessen, was der Flieger zur Seite kann.
+    const weg = await seite.evaluate(() => {
+      const S = window.LernappFelsflug;
+      const st = S.state;
+      const befunde = [];
+      const arten = new Set();
+      let dinge = 0;
+      for (let lauf = 0; lauf < 5; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.weltBis(S.Z_ENDE + 300);
+        const W = st.welt;
+        dinge += W.dinge.length + W.buckel.length;
+        for (const d of W.dinge) arten.add(d.art);
+        for (const b of W.buckel) arten.add(b.art);
+        if (W.massive.length) arten.add("massiv");
+        if (W.zier.some((d) => d.art === "sturz")) arten.add("bogen");
+        let eng = 99;
+        for (let z = 130; z <= S.Z_ENDE; z += 1) {
+          const x = S.wegBei(z);
+          const halb = S.breiteBei(z) / 2;
+          const frei = S.freiBei(z);
+          const luft = Math.min(x - frei.l, frei.r - x);
+          eng = Math.min(eng, luft - halb);
+          if (luft < halb - 0.02 && befunde.length < 6) befunde.push(`bei ${z} m sind nur ${luft.toFixed(2)} m frei, versprochen ${halb.toFixed(2)}`);
+          const steil = Math.abs(S.wegBei(z + 1) - S.wegBei(z - 1)) / 2;
+          if (steil > S.kannBei(z) * 0.8 + 0.005 && befunde.length < 6) befunde.push(`bei ${z} m biegt der Weg mit ${steil.toFixed(2)}, lenkbar ${S.kannBei(z).toFixed(2)}`);
+        }
+        if (!W.fertig) befunde.push("Die Schlucht endet nicht im Tal");
+        // Ein Spalt neben einem Massiv ist eng, aber zu fliegen.
+        for (const m of W.massive) {
+          for (let z = m.zA + 4; z < m.zB - 4; z += 2) {
+            const k = Math.round((z - S.Z_MIN) / S.DZ);
+            if (!(W.inselR[k] > W.inselL[k])) continue;
+            const spalt = m.q > 0 ? W.inselL[k] - W.wandL[k] : W.wandR[k] - W.inselR[k];
+            if (spalt < 4 && befunde.length < 6) befunde.push(`Spalt bei ${z} m nur ${spalt.toFixed(1)} m breit`);
+          }
+        }
+      }
+      return { befunde, dinge, arten: [...arten].sort().join(",") };
+    });
+    pruefe(weg.befunde.length === 0 && weg.dinge > 150 && weg.arten === "bogen,bruecke,klamm,massiv,nase,tanne,turm",
+      `Felsflug: Der freie Weg ist nicht frei (oder es fehlt eine Art Hindernis) – ${JSON.stringify(weg)}`);
+
+    // Der Autopilot: dem freien Weg nach, bis ins Tal.
+    const PILOT = `(S, st) => {
+      const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.25);
+      const d = ziel - st.x - st.vx * 0.1;
+      S.lenke(d > 0.5 ? 1 : d < -0.5 ? -1 : 0);
+    }`;
+    const runden = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const S = window.LernappFelsflug;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) {
+          if (st.schritt === "flug") pilot(S, st);
+          S.takt(1 / 120);
+        }
+        S.lenke(0);
+        raus.push({ phase: st.phase, an: st.angekommen, gelandet: st.gelandet, punkte: st.punkte, meter: st.meter, sekunden: Math.round(st.flugzeit), zahl: document.querySelector(".cm-result-score") !== null });
+      }
+      return raus;
+    }, PILOT);
+    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.gelandet && r.punkte >= 90 && r.punkte < 400 && r.sekunden > 70 && r.sekunden < 100 && r.zahl),
+      `Felsflug: Der Autopilot kommt auf dem freien Weg nicht ins Tal – ${JSON.stringify(runden)}`);
+
+    // Wer nichts tut: Die Schlucht biegt, er nicht. Jede Runde endet an der
+    // Wand – nach den ersten fünf Sekunden, aber lange vor dem Tal.
+    const nichts = await seite.evaluate(() => {
+      const S = window.LernappFelsflug;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) S.takt(1 / 120);
+        raus.push({ phase: st.phase, an: st.angekommen, schritt: st.schritt, meter: st.meter, sekunden: Math.round(st.flugzeit * 10) / 10, text: document.querySelector(".cm-result-detail")?.textContent || "" });
+      }
+      return raus;
+    });
+    pruefe(nichts.every((r) => r.phase === "ende" && !r.an && r.schritt === "aus" && r.sekunden > 5 && r.meter < 1500),
+      `Felsflug: Wer nichts tut, prallt nicht an (oder schon in den ersten Sekunden): ${JSON.stringify(nichts)}`);
+
+    // Die Nähe zählt: Eine Sekunde zwei Meter neben der Wand bringt ein
+    // Mehrfaches einer Sekunde in der Mitte, und die Serie steigt – in der
+    // Mitte fällt sie wieder. Und wer die Wand berührt, ist draussen.
+    const naehe = await seite.evaluate(() => {
+      const S = window.LernappFelsflug;
+      const st = S.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.losGehts();
+      const W = st.welt;
+      const wand = (z) => { const k = (z - S.Z_MIN) / S.DZ; const i = Math.floor(k); return W.wandL[i] + (W.wandL[i + 1] - W.wandL[i]) * (k - i); };
+      const mitte = (z) => { const f = S.freiBei(z); return (f.l + f.r) / 2; };
+      const flieg = (sekunden, wo) => {
+        const vor = st.roh;
+        for (let n = 0; n < sekunden * 120 && st.phase === "spiel"; n += 1) {
+          st.x = wo(st.z + S.tempoBei(st.z) / 120);
+          st.vx = 0;
+          S.takt(1 / 120);
+        }
+        return st.roh - vor;
+      };
+      flieg(2.5, mitte);
+      const inDerMitte = flieg(1, mitte);
+      const serieMitte = st.serie;
+      const amFels = flieg(1, (z) => wand(z) + 2.2);
+      const serieFels = st.serie;
+      const abstand = st.ab;
+      flieg(4, mitte);
+      const serieDanach = st.serie;
+      const phaseVorher = st.phase;
+      // Jetzt in die Wand.
+      st.x = wand(st.z) + 0.2;
+      let schritte = 0;
+      for (; st.phase !== "ende" && schritte < 2000; schritte += 1) S.takt(1 / 120);
+      return { inDerMitte, amFels, serieMitte, serieFels, serieDanach, abstand, phaseVorher, phase: st.phase, schritt: st.schritt, an: st.angekommen, sekunden: schritte / 120, text: document.querySelector(".cm-result-detail")?.textContent || "" };
+    });
+    pruefe(naehe.inDerMitte > 0.8 && naehe.inDerMitte < 1.3 && naehe.amFels > naehe.inDerMitte * 4 && naehe.abstand < 3
+      && naehe.serieMitte === 1 && naehe.serieFels > 1.05 && naehe.serieDanach < naehe.serieFels,
+    `Felsflug: Nah am Fels zählt nicht mehr (oder die Serie steigt und fällt nicht): ${JSON.stringify(naehe)}`);
+    pruefe(naehe.phaseVorher === "spiel" && naehe.phase === "ende" && naehe.schritt === "aus" && !naehe.an && naehe.sekunden < 2.5,
+      `Felsflug: Der erste Kontakt beendet die Runde nicht: ${JSON.stringify(naehe)}`);
+
+    // Die Pfeiltasten: links, dann rechts dazu (die letzte gilt), rechts los,
+    // links los. Der erste Druck startet die Runde.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappFelsflug.state.phase, lenk: window.LernappFelsflug.state.lenk }));
+    const schritte = [await lage()];
+    await seite.keyboard.down("ArrowLeft");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowLeft");
+    schritte.push(await lage());
+    const soll = [{ phase: "bereit", lenk: 0 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 1 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 0 }];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Felsflug: Die Pfeiltasten lenken nicht: ${JSON.stringify(schritte)}`);
+    // Und der Finger: rechts vom Bild lenkt nach rechts, über die Mitte gezogen nach links.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.mouse.move(700, 250);
+    await seite.mouse.down();
+    const rechts = await lage();
+    await seite.mouse.move(120, 250, { steps: 4 });
+    const links = await lage();
+    await seite.mouse.up();
+    const los = await lage();
+    pruefe(rechts.phase === "spiel" && rechts.lenk === 1 && links.lenk === -1 && los.lenk === 0,
+      `Felsflug: Der Finger lenkt nicht: ${JSON.stringify({ rechts, links, los })}`);
+    pruefe(fehlerAufSeite.length === vorher, `Felsflug: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – ein Stück dem freien Weg nach, dann an die
+    // Wand –, aufgezeichnet und angeschaut: dieselbe Schlucht, am Schluss
+    // dieselbe Zahl, und der Flieger prallt wieder an.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__felsflug")) return;
+      sessionStorage.setItem("__felsflug", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/felsflug`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFelsflug?.state?.welt && window.LernappFelsflug.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappFelsflug.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const S = window.LernappFelsflug;
+      const st = S.state;
+      S.losGehts();
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.schritt === "flug") {
+          // Bis 230 m dem Weg nach, dann nach links, bis die Wand kommt.
+          const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.25);
+          const d = ziel - st.x - st.vx * 0.1;
+          S.lenke(st.z > 230 ? -1 : d > 0.5 ? 1 : d < -0.5 ? -1 : 0);
+        }
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("cliffFlight_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`cliffFlight_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappFelsflug.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen, schritt: st.schritt };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 3 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 230 && !gespielt.an && gespielt.schritt === "aus",
+      `Felsflug: Der Lauf wird nicht mit Saat, Ort und Schräglage hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/felsflug?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFelsflug?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappFelsflug.state.phase, welt: window.LernappFelsflug.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Felsflug: Beim Zuschauen entsteht eine andere Schlucht:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappFelsflug.state.z > 120, null, { timeout: 30000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => ({ z: Math.round(window.LernappFelsflug.state.z), schritt: window.LernappFelsflug.state.schritt, lenk: window.LernappFelsflug.state.lenk }));
+    pruefe(unterwegs.z > 100 && unterwegs.lenk === 0, `Felsflug: Beim Zuschauen fliegt der Flieger nicht mit: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappFelsflug.state.punkte, schritt: window.LernappFelsflug.state.schritt, meter: window.LernappFelsflug.state.meter, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.schritt === "aus" && Math.abs(schluss.meter - gespielt.meter) < 25 && !schluss.ergebnis,
+      `Felsflug: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte, meterGespielt: gespielt.meter })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -6815,13 +7054,13 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 25 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 26 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /26/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /27/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -6838,7 +7077,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -8155,7 +8394,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 128, `klang.js kennt nicht alle 128 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 133, `klang.js kennt nicht alle 133 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

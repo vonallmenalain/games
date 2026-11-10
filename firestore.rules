@@ -82,6 +82,7 @@ service cloud.firestore {
         "waveRide",
         "stoneSkip",
         "iceRun",
+        "cliffFlight",
         "numberLine",
         "boilerRoom",
       ];

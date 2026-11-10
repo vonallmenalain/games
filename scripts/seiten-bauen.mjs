@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-10-3";
+export const FASSUNG = "2026-11-10-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -244,6 +244,12 @@ export const SPIELE = [
     titel: "Eiskanal", buehne: { id: "ek-stage", klasse: "cm-stage ek-stage" },
     text: "Eiskanal: Links halten lenkt nach links, rechts nach rechts – eine Bobfahrt bei Nacht durch Steilkurven im Flutlicht. Die ruhige Linie bringt Tempo, jede Bande bremst.",
     baut: "die Eisbahn bei Nacht mit dem Bob",
+  },
+  {
+    seite: "felsflug", spiel: "cliffFlight", page: "cliff", js: "felsflug.js",
+    titel: "Felsflug", buehne: { id: "ff-stage", klasse: "cm-stage ff-stage" },
+    text: "Felsflug: Im Wingsuit durch die Schlucht, links oder rechts halten – je näher am Fels, desto mehr Punkte. Der erste Kontakt beendet die Runde.",
+    baut: "die Schlucht im Morgenlicht mit dem Flieger",
   },
   {
     seite: "zahlengleis", spiel: "numberLine", page: "numberline", js: "zahlengleis.js",

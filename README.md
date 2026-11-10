@@ -25,7 +25,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        vierunddreissig Spielseiten, erzeugt
+    turmbau.html …        fünfunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -521,6 +521,90 @@ Die Schrauben stehen oben in der Datei: `LAENGE`, `GEFAELLE`, `ROHR`,
 `BANDE_FEST`, `BANDE_JE`, `SCHLAEGE`) und die Punkte (`RICHTZEIT`,
 `BONUS_JE_ZEHNTEL`).
 
+### Felsflug (November 2026)
+
+**Felsflug** (`felsflug.js`, `cliffFlight`) – Im Wingsuit durch eine
+Alpenschlucht, im Morgenlicht; die Kamera fliegt dicht hinter und über dem
+Flieger und legt sich mit ihm in die Kurve. Wer links aufs Bild hält, zieht
+nach links, wer rechts hält, nach rechts (am Rechner Pfeiltasten oder A/D;
+liegen zwei Finger auf, gilt der letzte); die Höhe hält der Flieger von
+selbst. Er steht auf einer Felsnadel, und der erste Druck ist der Absprung.
+Die Schlucht windet sich talwärts, und es wird immer schneller: von 130 auf
+250 km/h (`V0`, `V_MAX`). Im Weg stehen Felsnasen, die aus der Wand ragen,
+Felstürme mitten in der Schlucht (links oder rechts vorbei, später zwischen
+zweien hindurch), eine Klamm, in der beide Wände an den Weg heranrücken,
+Felsbögen, eine Steinbrücke mit Pfeilern, Tannen auf Felsbändern – und ein
+Massiv, das die Schlucht teilt: auf einer Seite breit, auf der anderen ein
+Spalt. **Der erste Kontakt beendet die Runde**; es zählt der Körper
+(`KOERPER`), nicht die Flügelspitze.
+
+Gezählt wird die Nähe zum Fels. Fliegen allein bringt einen Punkt je Sekunde
+(`GRUND`). Wer näher als sieben Meter an Wand, Turm, Pfeiler oder Tanne
+vorbeizieht (`NAH`), bekommt mehr – je näher, desto steiler mehr, bis
+sechsmal so viel unter zwei Metern (`GANZ_NAH`, `NAH_MAL`, `NAH_HOCH`). Dazu
+die Serie, die als Zahl am Flieger steht: Sie steigt, solange der Fels nah
+ist, bis ×1,6 (`SERIE_MAX`), und fällt, wenn man in der Mitte fliegt. Wer an
+einer Nase, einem Turm, einem Pfeiler, einer Tanne oder durch einen Bogen
+näher als drei Meter vorbeikommt, fliegt «haarscharf» und bekommt 3 bis 8
+Punkte mal die Serie (`HAAR`, `HAAR_PUNKTE`) – ein Ruck, und die Zeit hält
+für einen Wimpernschlag den Atem an. Wer statt der breiten Seite den Spalt
+neben einem Massiv nimmt, bekommt 12 mal die Serie (`SPALT_PUNKTE`). So
+streut die Zahl: Wer in der Mitte fliegt, kommt in einer ganzen Runde auf
+gut 100, wer die Wände sucht, auf 300, und mehr als 600 sind möglich. Nach
+4300 m (`Z_ENDE`, 85 Sekunden) öffnet sich das Tal: Schirm auf, Landung auf
+der Wiese, 30 Punkte dazu (`LANDE_PUNKTE`). Dorthin kommt, wer sehr gut ist.
+Den Fels sieht und hört man kommen: Auf seiner Seite glüht der Rand des
+Bilds, Windstreifen ziehen dort vorbei, Staub und Steinchen lösen sich von
+der Wand, und ein Rauschen wird lauter.
+
+Wie die anderen würfelt es seine Welt aus `zufall.js`. Zuerst entsteht der
+freie Weg (`wegBei`): Punkt für Punkt nie weiter zur Seite, als sich in der
+Zeit lenken lässt – die Biegung der Schlucht selbst ist eingerechnet
+(`reichBis`), verlangt wird am Anfang die Hälfte dessen, was der Flieger
+zur Seite kann, am Schluss knapp drei Viertel (`anteilBei`). Darum herum
+stellen die Abschnitte ihre Hindernisse, und auf der Breite `breiteBei(z)`
+(von 15 m auf 6,6 m, `BREIT0`/`BREIT_MIN`) steht am Weg nichts: Die Wände
+weichen dort zurück (`backe`), ein Turm wird schlanker (`raeumeWeg`). Die
+Wände sind zwei Reihen von Knoten, alle vier Meter einer (`wandL`, `wandR`):
+Dort steht der Fels auf Flughöhe, und genau diese Knoten sind auch Ecken
+des gezeichneten Netzes – was man sieht, ist, woran man anstösst. Der
+Abschnitt 4g28 in `npm run pruefen:browser` geht den Weg Meter für Meter ab
+(frei auf seiner Breite, nie zu steil), ein Autopilot folgt ihm bis ins
+Tal, und wer nichts tut, prallt nach rund zehn Sekunden an. Aufgezeichnet
+werden Strecke, Seite und Schräglage (`a`, `b`, `c`; nach dem Aufprall
+steht in `c` die Zahl 314); beim Anschauen fliegt der Flieger denselben Weg
+durch dieselbe Schlucht. Die Gegner fliegen als Flieger aus Licht mit.
+
+**Gezeichnet wird mit WebGL 2** wie im Schwarm, in einem Durchgang und mit
+sieben Programmen: die Wände, der Bach, alles Feste (ein Netz je Form, viele
+Male gezeichnet: Türme, Brocken, Tannen, Pfeiler, der Flieger, sein Schirm),
+der Himmel (danach – nur dort, wo noch nichts steht), die Bänder (Rauchfahne,
+Windstreifen, Seile, Wasserfälle, Sonnenstrahlen), die Scheiben (Staub,
+Lichter) und die Dohlen. Die Schlucht entsteht laufend in Kacheln von 64 m
+(`kachelBauen`): je Seite ein Gitter vom Bachbett über das Ufer und die Wand
+bis hinauf auf die Schulter des Bergs, dazu die Flanken eines Massivs und
+das Band des Bachs; 22 Kacheln liegen im Speicher und werden mit einem
+Aufruf gezeichnet. Wohin eine Fläche schaut, rechnet das Programm aus ihren
+Ecken (kantig, wie gebrochener Fels); die Schichten, das Gras auf den
+Bändern und der Schnee weiter oben folgen aus Höhe und Neigung. Wie viel
+Sonne eine Ecke bekommt, wird beim Bauen der Kachel ausgerechnet
+(`sonneBei`: ein Strahl zur Sonne, Stück um Stück über das Gelände) – so
+liegt die eine Wand im warmen Licht und die andere im blauen Schatten, und
+wo die Schlucht zur Sonne hin biegt, fällt das Licht bis auf den Bach.
+Dunst macht Fernes hell, zur Sonne hin golden. Hochkant gehört die Höhe
+den Wänden. Kommen die Bilder zu langsam, zeichnet das Spiel die Welt mit
+weniger Bildpunkten (`gueteTakt`). Fünf Klänge, alle aus vorhandenen: der
+Fahrtwind und das Rauschen des Felsens als Kulissen (die eine geht mit dem
+Tempo, die andere mit der Nähe), ein Zischen bei «haarscharf», der Aufprall
+und der Schirm.
+
+Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`,
+`QUER0`/`QUER_ZU` und `TRAEG_AN`/`TRAEG_AB` (wie flink er zur Seite zieht),
+`BREIT0`/`BREIT_MIN` (die Breite des freien Wegs – die Schraube für
+«schwer»), die Punkte (`GRUND`, `NAH`, `GANZ_NAH`, `NAH_MAL`, `NAH_HOCH`,
+`SERIE_…`, `HAAR`, `HAAR_PUNKTE`, `SPALT_PUNKTE`, `LANDE_PUNKTE`) und in
+`abschnitt()`, ab wann welches Hindernis vorkommt.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -861,7 +945,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle vierunddreissig
+    Spiele            welche dazugehören, eines bis alle fünfunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
