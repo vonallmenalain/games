@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -606,7 +606,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2933,6 +2933,7 @@ try {
     ["/schwarm", "Schwarm", () => window.LernappSchwarm.weltText()],
     ["/welle", "Die Welle", () => window.LernappWelle.weltText()],
     ["/steinhuepfer", "Steinhüpfer", () => window.LernappSteinhuepfer.weltText()],
+    ["/eiskanal", "Eiskanal", () => window.LernappEiskanal.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -6343,6 +6344,273 @@ try {
     await kontext.close();
   }
 
+  // --- 4g27. Eiskanal: fahrbar, und wer nichts tut, schiesst über die Lippe -----------
+  // Die Welt steht da (WebGL 2), ohne dass sich der Browser beschwert. Jede
+  // gewürfelte Bahn ist 1400 m lang und fällt 110 m, kreuzt sich nicht, hat
+  // ihren Kreisel und ihr Labyrinth – und ist bei vollem Tempo fahrbar: Die
+  // Sollfahrt, hier noch einmal nachgerechnet, bleibt überall um die
+  // versprochene Luft unter dem Rand. Ein Autopilot, der zur ruhigen Linie
+  // lenkt, kommt in mehreren gewürfelten Runden ins Ziel und bekommt dort den
+  // Zeitbonus. Wer nichts tut, schiesst über eine Lippe, aber nicht in den
+  // ersten Sekunden. Eine Bande bremst, der dritte harte Schlag kippt den Bob.
+  // Die Pfeiltasten lenken, und die letzte gilt. Und eine Fahrt, angeschaut,
+  // durch dieselbe Bahn mit derselben Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/eiskanal`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEiskanal?.state?.bahn?.zier && window.LernappEiskanal.view.cssW > 0, null, { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const bild = await seite.evaluate(() => {
+      const S = window.LernappEiskanal;
+      const leinwand = document.querySelector(".ek-canvas");
+      return { ok: S.bild.ok, programme: Object.keys(S.bild.prog).length, breit: leinwand?.width || 0, ohne: Boolean(document.querySelector(".ek-ohne")) };
+    });
+    pruefe(bild.ok && bild.programme === 6 && bild.breit > 300 && !bild.ohne,
+      `Eiskanal: Die Welt (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Fünf gewürfelte Bahnen, nachgerechnet.
+    const bahnen = await seite.evaluate(() => {
+      const S = window.LernappEiskanal;
+      const B = S.bahn;
+      const befunde = [];
+      const arten = new Set();
+      let kleinsteLuft = 9;
+      const stelle = (s) => Math.round((s + S.S_VOR) / S.DS);
+      for (let lauf = 0; lauf < 5; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        B.teile.forEach((t) => arten.add(t.art));
+        const i0 = stelle(0);
+        const i1 = stelle(S.LAENGE);
+        const letzter = B.teile[B.teile.length - 1];
+        if (B.teile[0].von !== 0 || letzter.bis !== S.LAENGE || letzter.art !== "gerade") befunde.push("Die Bahn reicht nicht von 0 bis ins Ziel");
+        if (Math.abs(B.y[i0] - B.y[i1] - S.GEFAELLE) > 0.5) befunde.push(`Gefälle ${(B.y[i0] - B.y[i1]).toFixed(1)} m`);
+        if (!B.frei) befunde.push("Die Bahn kreuzt sich");
+        if (!B.teile.some((t) => t.art === "kreisel") || !B.teile.some((t) => t.art === "labyrinth")) befunde.push("Kreisel oder Labyrinth fehlt");
+        // Die Sollfahrt noch einmal, Schritt um Schritt wie in bahnRechnen.
+        let phi = 0;
+        let w = 0;
+        let e = 0;
+        for (let i = i0; i < i1; i += 1) {
+          const s = i * S.DS - S.S_VOR;
+          if (Math.abs(phi - B.soll[i]) > 0.02) { befunde.push(`Sollfahrt bei ${s} m: ${phi.toFixed(3)} statt ${B.soll[i].toFixed(3)}`); break; }
+          // Links und rechts bleibt die versprochene Luft – oder mehr.
+          const luft = Math.min(B.wl[i] + B.soll[i], B.wr[i] - B.soll[i]);
+          kleinsteLuft = Math.min(kleinsteLuft, luft);
+          if (luft < S.luftBei(s) - 0.01) { befunde.push(`Bei ${s} m bleiben nur ${(luft / S.GRAD).toFixed(1)}° Luft, versprochen sind ${(S.luftBei(s) / S.GRAD).toFixed(1)}°`); break; }
+          for (let j = 0; j < 4; j += 1) {
+            const u = j / 4;
+            const v = B.vf[i] + (B.vf[i + 1] - B.vf[i]) * u;
+            const dt = S.DS / 4 / v;
+            const pv = Math.min(S.NP - 1.001, i + u + v * S.SOLL_VORAUS / S.DS);
+            const iv = Math.floor(pv);
+            const voraus = B.kr[iv] + (B.kr[iv + 1] - B.kr[iv]) * (pv - iv);
+            const lenk = Math.max(-1, Math.min(1, (S.linieBei(v, voraus) * S.SOLL_LINIE - phi - S.SOLL_GEGEN * w) / S.SOLL_BREIT)) * S.SOLL_KRAFT;
+            e += (lenk - e) * (1 - Math.exp(-dt / S.LENK_ZEIT));
+            const ac = v * v * (B.kr[i] + (B.kr[i + 1] - B.kr[i]) * u);
+            const geff = Math.hypot(S.G, ac);
+            const om = Math.sqrt(geff / S.ROHR);
+            w += (om * om * (S.GRIFF * e - Math.sin(phi - Math.atan2(-ac, S.G))) - 2 * S.DAEMPFUNG * om * w) * dt;
+            phi += w * dt;
+          }
+        }
+        // Unten ist es schnell: bei vollem Tempo zwischen 120 und 145 km/h.
+        if (B.vf[i1] * 3.6 < 120 || B.vf[i1] * 3.6 > 145) befunde.push(`Unten ${(B.vf[i1] * 3.6).toFixed(0)} km/h`);
+      }
+      return { befunde: befunde.slice(0, 6), arten: [...arten].sort().join(","), kleinsteLuft: kleinsteLuft / S.GRAD };
+    });
+    pruefe(bahnen.befunde.length === 0 && bahnen.arten === "gerade,kreisel,kurve,labyrinth,s" && bahnen.kleinsteLuft > 10,
+      `Eiskanal: Die gewürfelte Bahn ist nicht fahrbar gebaut – ${JSON.stringify(bahnen)}`);
+
+    // Der Autopilot: zur ruhigen Linie hin, vor allem gegen den Schwung.
+    const PILOT = `(S, st) => {
+      const k = S.bahnBei(st.s + st.v * 0.25).k;
+      const f = S.linieBei(st.v, k) * 0.95 - st.phi - st.w * 1.2;
+      S.lenke(f > 0.25 ? 1 : f < -0.25 ? -1 : 0);
+    }`;
+    const runden = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const S = window.LernappEiskanal;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) {
+          if (st.schritt === "fahrt") pilot(S, st);
+          S.takt(1 / 120);
+        }
+        S.lenke(0);
+        raus.push({ phase: st.phase, an: st.angekommen, zeit: st.zielzeit, punkte: st.punkte, bonus: st.bonus, soll: S.bonusFuer(st.zielzeit), schlaege: st.schlaege, tore: st.tore.every((t) => t > 5), zahl: document.querySelector(".cm-result-score") !== null });
+      }
+      return raus;
+    }, PILOT);
+    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.zeit > 45 && r.zeit < 61 && r.bonus === r.soll && r.bonus > 0 && r.punkte === 140 + r.bonus && r.schlaege < 3 && r.tore && r.zahl),
+      `Eiskanal: Der Autopilot kommt nicht mit Zeitbonus ins Ziel – ${JSON.stringify(runden)}`);
+
+    // Wer nichts tut: Der Bob schiesst in einer Steilwand über die Lippe (oder
+    // kippt an der Bande) – lange vor dem Ziel, aber nicht in den ersten Sekunden.
+    const nichts = await seite.evaluate(() => {
+      const S = window.LernappEiskanal;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 4; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) S.takt(1 / 120);
+        raus.push({ phase: st.phase, an: st.angekommen, meter: st.meter, zeit: st.fahrzeit, ursache: st.ursache, punkte: st.punkte });
+      }
+      return raus;
+    });
+    pruefe(nichts.every((r) => r.phase === "ende" && !r.an && r.meter < 1000 && r.zeit > 8 && (r.ursache === "lippe" || r.ursache === "bande") && r.punkte === Math.floor(r.meter / 10)),
+      `Eiskanal: Wer nichts tut, stürzt nicht (oder gleich am Anfang): ${JSON.stringify(nichts)}`);
+
+    // Die Bande: Ein sanftes Anlehnen bremst ein wenig, ein harter Schlag viel –
+    // und der dritte kippt den Bob. Über eine Lippe hinaus ist sofort Schluss.
+    const rand = await seite.evaluate(() => {
+      const S = window.LernappEiskanal;
+      const st = S.state;
+      const los = () => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.losGehts();
+        for (let n = 0; n < 4000 && st.s < 30; n += 1) S.takt(1 / 120);
+      };
+      // Mit so vielen m/s zur Seite an die rechte Bande.
+      const anDieBande = (quer) => {
+        st.phi = S.bahnBei(st.s).wr - 0.001;
+        st.w = quer / S.ROHR;
+        const v = st.v;
+        S.takt(1 / 120);
+        return { verlust: 1 - st.v / v, schlaege: st.schlaege, schritt: st.schritt };
+      };
+      los();
+      const sanft = anDieBande(1.2);
+      const hart = [anDieBande(4), anDieBande(4), anDieBande(4)];
+      let schritte = 0;
+      for (; st.phase !== "ende" && schritte < 1200; schritte += 1) S.takt(1 / 120);
+      const gekippt = { phase: st.phase, ursache: st.ursache, sekunden: schritte / 120, an: st.angekommen };
+      // Die erste Steilwand links: einen Hauch über ihre Lippe hinaus.
+      los();
+      const B = S.bahn;
+      let i = Math.round((60 + S.S_VOR) / S.DS);
+      while (i < S.NP - 1 && B.wl[i] < S.BANDE + S.STEIL + 0.05) i += 1;
+      st.s = i * S.DS - S.S_VOR;
+      st.phi = -(B.wl[i] + 0.01);
+      st.w = 0;
+      S.takt(1 / 120);
+      return { sanft, hart, gekippt, lippe: { schritt: st.schritt, ursache: st.ursache, wand: B.wl[i] / S.GRAD } };
+    });
+    pruefe(rand.sanft.schlaege === 0 && rand.sanft.verlust > 0.05 && rand.sanft.verlust < 0.15
+      && rand.hart[0].schlaege === 1 && rand.hart[0].verlust > rand.sanft.verlust && rand.hart[1].schlaege === 2 && rand.hart[1].schritt === "fahrt"
+      && rand.hart[2].schlaege === 3 && rand.hart[2].schritt === "sturz" && rand.gekippt.phase === "ende" && rand.gekippt.ursache === "bande" && !rand.gekippt.an && rand.gekippt.sekunden < 3
+      && rand.lippe.schritt === "sturz" && rand.lippe.ursache === "lippe",
+    `Eiskanal: Bande und Lippe wirken nicht wie versprochen: ${JSON.stringify(rand)}`);
+
+    // Die Pfeiltasten: links, dann rechts dazu (die letzte gilt), rechts los,
+    // links los. Der erste Druck startet die Runde.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappEiskanal.state.phase, lenk: window.LernappEiskanal.state.lenk }));
+    const schritte = [await lage()];
+    await seite.keyboard.down("ArrowLeft");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowRight");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowLeft");
+    schritte.push(await lage());
+    const soll = [{ phase: "bereit", lenk: 0 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 1 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 0 }];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Eiskanal: Die Pfeiltasten lenken nicht: ${JSON.stringify(schritte)}`);
+    // Und der Finger: rechts vom Bild lenkt nach rechts, über die Mitte gezogen nach links.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.mouse.move(700, 250);
+    await seite.mouse.down();
+    const rechts = await lage();
+    await seite.mouse.move(120, 250, { steps: 4 });
+    const links = await lage();
+    await seite.mouse.up();
+    const losgelassen = await lage();
+    pruefe(rechts.phase === "spiel" && rechts.lenk === 1 && links.lenk === -1 && losgelassen.lenk === 0,
+      `Eiskanal: Der Finger lenkt nicht: ${JSON.stringify({ rechts, links, losgelassen })}`);
+    // Lenken wirkt: Wer rechts hält, wandert nach rechts.
+    const wandert = await seite.evaluate(() => {
+      const S = window.LernappEiskanal;
+      const st = S.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.losGehts();
+      for (let n = 0; n < 240; n += 1) S.takt(1 / 120);
+      S.lenke(1);
+      for (let n = 0; n < 60; n += 1) S.takt(1 / 120);
+      const rechtsHin = st.phi;
+      S.lenke(0);
+      return { rechtsHin, q: st.q };
+    });
+    pruefe(wandert.rechtsHin > 0.05 && wandert.q > 0, `Eiskanal: Rechts halten schiebt den Bob nicht nach rechts: ${JSON.stringify(wandert)}`);
+    pruefe(fehlerAufSeite.length === vorher, `Eiskanal: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Eine Fahrt in echter Zeit – ein Stück mit dem Autopiloten, dann an die
+    // Bande, bis der Bob kippt –, aufgezeichnet und angeschaut: dieselbe
+    // Bahn, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__eiskanal")) return;
+      sessionStorage.setItem("__eiskanal", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/eiskanal`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEiskanal?.state?.bahn?.zier && window.LernappEiskanal.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappEiskanal.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const S = window.LernappEiskanal;
+      const st = S.state;
+      S.losGehts();
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.schritt === "fahrt") {
+          if (st.s > 130) {
+            // Hart an die rechte Bande, bis der Bob kippt (oder gleich über eine Lippe).
+            st.phi = S.bahnBei(st.s).wr - 0.004;
+            st.w = 4 / S.ROHR;
+            S.lenke(0);
+          } else {
+            const k = S.bahnBei(st.s + st.v * 0.25).k;
+            const f = S.linieBei(st.v, k) * 0.95 - st.phi - st.w * 1.2;
+            S.lenke(f > 0.25 ? 1 : f < -0.25 ? -1 : 0);
+          }
+        }
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 90000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("iceRun_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`iceRun_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappEiskanal.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen, ursache: st.ursache };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte >= 13 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 130 && !gespielt.an,
+      `Eiskanal: Die Fahrt wird nicht mit Saat, Strecke, Lage und Tempo hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/eiskanal?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEiskanal?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappEiskanal.state.phase, welt: window.LernappEiskanal.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Eiskanal: Beim Zuschauen entsteht eine andere Bahn:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappEiskanal.state.s > 40, null, { timeout: 20000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => ({ s: Math.round(window.LernappEiskanal.state.s), kmh: Math.round(window.LernappEiskanal.state.v * 3.6), lenk: window.LernappEiskanal.state.lenk }));
+    pruefe(unterwegs.s > 30 && unterwegs.kmh > 30 && unterwegs.lenk === 0, `Eiskanal: Beim Zuschauen fährt der Bob nicht mit: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappEiskanal.state.punkte, schritt: window.LernappEiskanal.state.schritt, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.schritt === "sturz" && !schluss.ergebnis,
+      `Eiskanal: Am Ende der angeschauten Fahrt steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -6547,13 +6815,13 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 24 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 25 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /25/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /26/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -6570,7 +6838,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -7887,7 +8155,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 124, `klang.js kennt nicht alle 124 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 128, `klang.js kennt nicht alle 128 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
