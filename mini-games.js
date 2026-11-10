@@ -90,6 +90,7 @@
     { id: "timeNinja", seite: "ninja", page: "ninja" },
     { id: "freeDive", seite: "freitaucher", page: "freedive" },
     { id: "flockFlight", seite: "schwarm", page: "flock" },
+    { id: "waveRide", seite: "welle", page: "wave" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
   ];
@@ -111,6 +112,8 @@
     juggler: 1, highDive: 1, skyDive: 1, lumberCut: 1, batEcho: 1, timeNinja: 1, freeDive: 1,
     // Das erste in 3D: ein Schwarm, zwei Richtungen.
     flockFlight: 1,
+    // Die Welle: ein Finger, eine Wand aus Wasser.
+    waveRide: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -146,6 +149,9 @@
     timeNinja: { fassung: "t1" },
     freeDive: { fassung: "t1", winkel: true },
     flockFlight: { fassung: "t1" },
+    // Hier ist c kein Winkel, sondern der Abstand zum Schaum (mal 100) – er
+    // soll genauso mitgleiten.
+    waveRide: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

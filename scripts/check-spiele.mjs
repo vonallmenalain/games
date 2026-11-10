@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -606,7 +606,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -2931,6 +2931,7 @@ try {
     ["/ninja", "Zeitlupen-Ninja", () => window.LernappNinja.weltText()],
     ["/freitaucher", "Freitaucher", () => window.LernappFreitaucher.weltText()],
     ["/schwarm", "Schwarm", () => window.LernappSchwarm.weltText()],
+    ["/welle", "Die Welle", () => window.LernappWelle.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -5852,6 +5853,256 @@ try {
     await kontext.close();
   }
 
+  // --- 4g26. Die Welle: schaffbar, und wer nichts tut, wird verschluckt ----------------
+  // Das zweite Spiel mit WebGL: Die Welt steht da, ohne dass sich der Browser
+  // beschwert. Die Abschnitte der Welle kommen aus dem Zufall – schnelle,
+  // langsame, Doppelschläge, keiner in den ersten Sekunden –, und über jedem
+  // schnellen läuft die Gischt voraus. Nachgerechnet bleibt auf der
+  // schnellsten Linie immer Luft zum Schaum (ideallinie); ein Autopilot, der
+  // sie fährt, kommt in mehreren gewürfelten Runden bis an den Strand, und
+  // einer, der sich in die Röhre zurückfallen lässt, holt dort ein Vielfaches
+  // der Punkte. Wer nichts tut, verhungert im Flachen und wird verschluckt;
+  // wer immer hält, fliegt über die Lippe. Punkte gibt es nur in der Röhre,
+  // tiefer mehr, mit der Serie mehr. Leertaste und Finger halten. Und ein
+  // Lauf, angeschaut, auf derselben Welle mit derselben Zahl.
+  {
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    const vorher = fehlerAufSeite.length;
+    await seite.goto(`${BASIS}/welle`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappWelle?.state?.welt && window.LernappWelle.view.cssW > 0, null, { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const bild = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const leinwand = document.querySelector(".wl-canvas");
+      return { ok: W.bild.ok, programme: Object.keys(W.bild.prog).length, breit: leinwand?.width || 0, reihen: W.REIHEN, phase: W.state.phase, ohne: Boolean(document.querySelector(".wl-ohne")) };
+    });
+    pruefe(bild.ok && bild.programme === 6 && bild.breit > 300 && bild.reihen > 50 && bild.phase === "bereit" && !bild.ohne,
+      `Die Welle: Die Welt (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Die Abschnitte, in sechs gewürfelten Runden – und die schnellste Linie
+    // nachgerechnet.
+    const welt = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const st = W.state;
+      const befunde = [];
+      let abschnitte = 0;
+      let engste = Infinity;
+      const arten = new Set();
+      for (let lauf = 0; lauf < 6; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const ab = st.welt.ab;
+        abschnitte += ab.length;
+        ab.forEach((a, i) => {
+          arten.add(a.art);
+          if (a.t0 < 6) befunde.push(`Ein Abschnitt beginnt schon nach ${a.t0.toFixed(1)} s`);
+          if (i && a.t0 < ab[i - 1].t1) befunde.push(`Zwei Abschnitte überlappen bei ${a.t0.toFixed(1)} s`);
+          if ((a.art === "langsam") !== (a.f < 1) || a.f < 0.7 || a.f > 1.75) befunde.push(`${a.art} bei ${a.t0.toFixed(1)} s: Faktor ${a.f.toFixed(2)}`);
+          if (!(a.z1 > a.z0)) befunde.push(`Abschnitt bei ${a.t0.toFixed(1)} s hat keinen Ort längs der Welle`);
+          // Die Gischt: über einem schnellen Abschnitt, und schon ein Stück davor.
+          const mitten = W.gischtBei(st.z0 + (a.z0 + a.z1) / 2);
+          const davor = W.gischtBei(st.z0 + a.z0 - 4);
+          if (a.f > 1 && !(mitten > 0.4 && davor > 0.1)) befunde.push(`Keine Gischt über dem schnellen Abschnitt bei ${a.t0.toFixed(1)} s (${mitten.toFixed(2)}, davor ${davor.toFixed(2)})`);
+          if (a.f < 1 && mitten > 0 && !ab.some((b) => b.f > 1 && b.z0 - 10 < (a.z0 + a.z1) / 2 && b.z1 + 2 > (a.z0 + a.z1) / 2)) befunde.push(`Gischt über dem langsamen Abschnitt bei ${a.t0.toFixed(1)} s`);
+        });
+        // Der Schaum läuft immer voran, in den ersten Sekunden gemächlich.
+        for (let t = 0.5; t < W.DAUER; t += 0.5) {
+          if (!(W.schaumBei(t) > W.schaumBei(t - 0.5))) befunde.push(`Der Schaum steht bei ${t} s`);
+        }
+        if (!(W.faktorBei(1) < 0.9 && W.faktorBei(7) >= 0.99)) befunde.push(`Die ersten Sekunden sind nicht sanft: ${W.faktorBei(1).toFixed(2)}`);
+        // Wer immer die schnellste Linie fährt, behält Luft.
+        const eng = W.ideallinie(st.welt);
+        engste = Math.min(engste, eng.d);
+        if (!(eng.d >= W.RESERVE - 0.01)) befunde.push(`Auf der schnellsten Linie bleiben nur ${eng.d.toFixed(1)} m (bei ${eng.t.toFixed(1)} s)`);
+      }
+      return { befunde: befunde.slice(0, 6), abschnitte, engste, arten: [...arten].sort().join(",") };
+    });
+    pruefe(welt.befunde.length === 0 && welt.abschnitte > 60 && welt.arten === "doppel,langsam,schnell",
+      `Die Welle: Die gewürfelten Abschnitte stimmen nicht – ${JSON.stringify(welt)}`);
+
+    // Zwei Autopiloten. Beide regeln die Höhe an der Wand über Halten und
+    // Loslassen: der eine bleibt auf der schnellsten Linie (weit vor dem
+    // Schaum, kaum Punkte), der andere lässt sich in die Röhre zurückfallen
+    // und hält dort seinen Abstand.
+    const PILOT = `(W, st, soll) => {
+      const d = st.zp - st.zs;
+      const t = st.spielzeit;
+      let ziel = 0.29;
+      if (soll) {
+        const naht = Math.max(W.faktorBei(t), W.faktorBei(t + 0.6), W.faktorBei(t + 1.2));
+        const reserve = naht > 1.12 ? 3.5 * (naht - 1) / 0.4 : 0;
+        const vd = st.v * Math.cos(st.psi) - W.tempoBei(t) * W.faktorBei(t);
+        ziel = Math.max(0.2, Math.min(0.88, 0.62 + 0.07 * (d - soll - reserve) + 0.03 * vd - (naht > 1.12 ? 0.1 * (naht - 1) / 0.4 : 0)));
+      }
+      const bald = st.h + (st.v * Math.sin(st.psi) / W.WAND) * 0.12;
+      W.halte(bald < ziel);
+    }`;
+    const fahre = (soll, laeufe) => seite.evaluate(([quelle, soll, laeufe]) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const W = window.LernappWelle;
+      const st = W.state;
+      const raus = [];
+      for (let lauf = 0; lauf < laeufe; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        W.losGehts();
+        for (let n = 0; st.phase !== "ende" && n < 30000; n += 1) {
+          if (st.schritt === "fahrt") pilot(W, st, soll);
+          W.takt(1 / 120);
+        }
+        W.halte(false);
+        raus.push({ phase: st.phase, schluss: st.schluss, t: Math.round(st.spielzeit), punkte: st.punkte, roehre: Math.round(st.roehrenzeit), zahl: document.querySelector(".cm-result-score") !== null });
+      }
+      return raus;
+    }, [PILOT, soll, laeufe]);
+    const strand = await fahre(0, 4);
+    pruefe(strand.every((r) => r.phase === "ende" && r.schluss === "strand" && r.punkte >= 25 && r.punkte < 120 && r.zahl),
+      `Die Welle: Auf der schnellsten Linie kommt der Autopilot nicht bis an den Strand – ${JSON.stringify(strand)}`);
+    const roehre = await fahre(5, 4);
+    pruefe(roehre.every((r) => r.phase === "ende" && r.roehre >= 15 && r.punkte >= 100 && r.zahl)
+      && Math.min(...roehre.map((r) => r.punkte)) > Math.max(...strand.map((r) => r.punkte)),
+    `Die Welle: In der Röhre holt der Autopilot nicht deutlich mehr Punkte als draussen – ${JSON.stringify({ roehre, strand })}`);
+
+    // Wer nichts tut, sinkt ins Flache und wird nach wenigen Sekunden
+    // verschluckt; wer immer hält, fliegt über die Lippe.
+    const faul = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const st = W.state;
+      const eine = (halten) => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        W.losGehts();
+        W.halte(halten);
+        let tief = 1;
+        for (let n = 0; st.phase !== "ende" && n < 30000; n += 1) {
+          W.takt(1 / 120);
+          if (st.schritt === "fahrt") tief = Math.min(tief, st.h);
+        }
+        W.halte(false);
+        return { phase: st.phase, schluss: st.schluss, t: +st.spielzeit.toFixed(1), punkte: st.punkte, tief, text: document.querySelector(".cm-result-detail")?.textContent || "" };
+      };
+      return { nichts: eine(false), immer: eine(true) };
+    });
+    pruefe(faul.nichts.phase === "ende" && faul.nichts.schluss === "schaum" && faul.nichts.tief === 0 && faul.nichts.t > 5 && faul.nichts.t < 14 && faul.nichts.punkte < 25,
+      `Die Welle: Wer nichts tut, wird nicht nach wenigen Sekunden verschluckt: ${JSON.stringify(faul.nichts)}`);
+    pruefe(faul.immer.phase === "ende" && faul.immer.schluss === "lippe" && faul.immer.t > 1.8 && faul.immer.t < 9 && faul.immer.punkte === 0,
+      `Die Welle: Wer immer hält, fliegt nicht über die Lippe: ${JSON.stringify(faul.immer)}`);
+
+    // Die Punkte: draussen keine, in der Röhre je tiefer, desto mehr – und
+    // die Serie vervielfacht bis ×4. Gefahren: zwei Sekunden vor der Röhre,
+    // dann zwei Sekunden tief darin.
+    const punkte = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const st = W.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      W.losGehts();
+      const halteAb = (d, sekunden) => {
+        for (let n = 0; n < sekunden * 120; n += 1) {
+          st.zp = st.zs + d;
+          st.h = 0.5;
+          st.psi = 0;
+          W.takt(1 / 120);
+        }
+        return st.roh;
+      };
+      const draussen = halteAb(W.ROEHRE + 3, 2);
+      const rand = halteAb(W.ROEHRE - 1, 2) - draussen;
+      const tief = halteAb(2, 2) - rand - draussen;
+      return {
+        draussen, rand, tief, serie: st.serie, phase: st.phase,
+        tabelle: [W.punkteBei(W.ROEHRE + 1), W.punkteBei(W.ROEHRE - 1), W.punkteBei(4), W.punkteBei(1)],
+        mal: [W.malBei(0), W.malBei(W.SERIE_VOLL / 2), W.malBei(W.SERIE_VOLL), W.malBei(W.SERIE_VOLL * 3)],
+      };
+    });
+    pruefe(punkte.phase === "spiel" && punkte.draussen === 0 && punkte.rand > 0 && punkte.tief > 6 * punkte.rand && punkte.serie > 3.9
+      && punkte.tabelle[0] === 0 && punkte.tabelle[1] > 0 && punkte.tabelle[2] > 3 * punkte.tabelle[1] && punkte.tabelle[3] > 2 * punkte.tabelle[2]
+      && punkte.mal[0] === 1 && punkte.mal[1] > 2 && punkte.mal[2] === 4 && punkte.mal[3] === 4,
+    `Die Welle: Punkte gibt es nicht nur in der Röhre, tiefer mehr, mit der Serie bis ×4: ${JSON.stringify(punkte)}`);
+
+    // Die Leertaste: Der erste Druck startet die Runde und hält; loslassen
+    // lässt los. Ebenso der Pfeil nach oben.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappWelle.state.phase, halten: window.LernappWelle.state.halten }));
+    const schritte = [await lage()];
+    await seite.keyboard.down("Space");
+    schritte.push(await lage());
+    await seite.keyboard.up("Space");
+    schritte.push(await lage());
+    await seite.keyboard.down("ArrowUp");
+    schritte.push(await lage());
+    await seite.keyboard.up("ArrowUp");
+    schritte.push(await lage());
+    const soll = [{ phase: "bereit", halten: false }, { phase: "spiel", halten: true }, { phase: "spiel", halten: false }, { phase: "spiel", halten: true }, { phase: "spiel", halten: false }];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Die Welle: Die Leertaste hält nicht: ${JSON.stringify(schritte)}`);
+    // Und der Finger, irgendwo im Bild.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.mouse.move(600, 250);
+    await seite.mouse.down();
+    const gedrueckt = await lage();
+    await seite.mouse.up();
+    const los = await lage();
+    pruefe(gedrueckt.phase === "spiel" && gedrueckt.halten === true && los.halten === false,
+      `Die Welle: Der Finger hält nicht: ${JSON.stringify({ gedrueckt, los })}`);
+    pruefe(fehlerAufSeite.length === vorher, `Die Welle: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – in die Röhre zurückfallen lassen, dort ein
+    // paar Sekunden fahren, dann zu hoch hinaus –, aufgezeichnet und
+    // angeschaut: dieselbe Welle, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__welle")) return;
+      sessionStorage.setItem("__welle", "1");
+      localStorage.setItem("mini.name", "Zora");
+    });
+    await seite.goto(`${BASIS}/welle`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappWelle?.state?.welt && window.LernappWelle.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappWelle.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const W = window.LernappWelle;
+      const st = W.state;
+      W.losGehts();
+      const lauf = () => {
+        if (st.phase !== "spiel") { W.halte(false); fertig(); return; }
+        const d = st.zp - st.zs;
+        // Erst hoch an die Wand (langsam: der Schaum kommt näher), in der
+        // Röhre den Abstand halten – und nach ein paar Sekunden darin immer
+        // halten, bis es ihn über die Lippe trägt.
+        const ziel = st.roehrenzeit > 3 ? 2 : d > 7 ? 0.78 : 0.62 + 0.07 * (d - 4.5);
+        W.halte(st.h < Math.min(ziel, st.roehrenzeit > 3 ? 2 : 0.86));
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 90000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("waveRide_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`waveRide_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      const st = window.LernappWelle.state;
+      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, roehre: +st.roehrenzeit.toFixed(1), schluss: st.schluss };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte >= 3 && gespielt.punkte === gespielt.gezaehlt && gespielt.roehre >= 3 && gespielt.schluss !== "strand",
+      `Die Welle: Der Lauf wird nicht mit Saat, Höhe und Abstand hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/welle?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappWelle?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappWelle.state.phase, welt: window.LernappWelle.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt,
+      `Die Welle: Beim Zuschauen entsteht eine andere Welle:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForFunction(() => window.LernappWelle.state.spielzeit > 1.5, null, { timeout: 20000 }).catch(() => {});
+    const unterwegs = await seite.evaluate(() => {
+      const st = window.LernappWelle.state;
+      return { strecke: Math.round(st.zp - st.z0), d: +(st.zp - st.zs).toFixed(1), h: +st.h.toFixed(2), halten: st.halten, phase: st.phase };
+    });
+    pruefe(unterwegs.phase === "zuschauen" && unterwegs.strecke > 20 && unterwegs.d > 0 && unterwegs.d < 30 && unterwegs.h > 0 && unterwegs.halten === false,
+      `Die Welle: Beim Zuschauen fährt der Surfer nicht mit: ${JSON.stringify(unterwegs)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 90000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => ({ punkte: window.LernappWelle.state.punkte, schritt: window.LernappWelle.state.schritt, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.schritt === "aus" && !schluss.ergebnis,
+      `Die Welle: Am Ende des angeschauten Laufs steht nicht dieselbe Zahl (oder keine Tafel): ${JSON.stringify({ ...schluss, gespielt: gespielt.punkte })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -6049,20 +6300,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 22 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 23 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 22 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 23 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /23/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /24/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -6079,7 +6330,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -7396,7 +7647,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 116, `klang.js kennt nicht alle 116 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 119, `klang.js kennt nicht alle 119 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

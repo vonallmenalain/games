@@ -87,6 +87,7 @@
     { id: "timeNinja", titel: "Zeitlupen-Ninja", bereich: "problemloesen", art: "punkte", key: "lernapp.ninja", einheit: "Punkte" },
     { id: "freeDive", titel: "Freitaucher", bereich: "konzentration", art: "punkte", key: "lernapp.freitaucher", einheit: "Perlen" },
     { id: "flockFlight", titel: "Schwarm", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.schwarm", einheit: "Punkte" },
+    { id: "waveRide", titel: "Die Welle", bereich: "konzentration", art: "punkte", key: "lernapp.welle", einheit: "Punkte" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
