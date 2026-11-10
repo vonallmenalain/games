@@ -181,6 +181,11 @@
     "eiskanal.wind": { s: "a-fahrtwind", schleife: true },
     "eiskanal.bande": { s: "whomp" },
     "eiskanal.sturz": { s: "schnee-sturz" },
+    "felsflug.wind": { s: "a-fahrtwind", schleife: true },
+    "felsflug.fels": { s: "a-spur", schleife: true },
+    "felsflug.haarscharf": { s: "woosh-kurz" },
+    "felsflug.aufprall": { s: "whomp" },
+    "felsflug.schirm": { s: "schirm" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -194,7 +199,7 @@
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
-    iceRun: "eiskanal",
+    iceRun: "eiskanal", cliffFlight: "felsflug",
   };
 
   // ---------------------------------------------------------------------------

@@ -90,6 +90,7 @@
     { id: "waveRide", titel: "Die Welle", bereich: "konzentration", art: "punkte", key: "lernapp.welle", einheit: "Punkte" },
     { id: "stoneSkip", titel: "Steinhüpfer", bereich: "konzentration", art: "punkte", key: "lernapp.steinhuepfer", einheit: "Meter" },
     { id: "iceRun", titel: "Eiskanal", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.eiskanal", einheit: "Punkte" },
+    { id: "cliffFlight", titel: "Felsflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.felsflug", einheit: "Punkte" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
