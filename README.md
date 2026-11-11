@@ -778,13 +778,15 @@ Text wie möglich:
   jedes Spiel mit seiner ganzen Rangliste, mit dem ▶ zum Anschauen, dazu die
   Multiplayer, die schon gezählt haben (`spieleAnsicht`). Verdeckt steht
   dort nur, wie viele dabei sind.
-- **Wer gerade spielt**, steht live da – zuerst in der **Live-Leiste**
-  zwischen Kopf und Bild: je eine Karte «Joshua spielt Turmbau», mit den
-  Punkten, die er gerade hat, und «Zuschauen». Dazu ein grüner Punkt an
-  seiner Medaille in der Gesamtwertung, unter dem Namen des Spiels («Joshua
-  spielt gerade · 12 Blöcke»), auf der Kachel des Spiels, im Fenster am
-  Kreis der Person und in der Liste des Spiels. Siehe «Wer gerade spielt»
-  unter Turniere.
+- **Wer gerade spielt**, steht neben der Gesamtwertung als ein Knopf
+  **«● 3 live»** – er steht, solange jemand spielt, und ändert nur seine
+  Zahl. Ein Tipp öffnet die Liste: je eine Karte «Joshua spielt Turmbau»,
+  mit den Punkten, die er gerade hat, und «Zuschauen». Im Fenster der
+  Gesamtwertung trägt sein Kreis einen grünen Punkt, und in der Liste des
+  Spiels steht er markiert. Siehe «Wer gerade spielt» unter Turniere. Bis
+  Oktober 2026 stand hier eine Leiste mit einer Karte je Spieler, dazu ein
+  Satz unter dem Spiel, Namen auf den Kacheln und Punkte am Podest – bei
+  sechs Spielern am selben Abend kam und ging dort dauernd etwas.
 - **Läuft gerade ein Multiplayer** zum Turnier, steht daneben «Multiplayer
   läuft» mit dem Weg hinein – und kommt er neu dazu, geht einmal ein Fenster
   auf («Mitspielen» oder «Später»; je Multiplayer einmal, `sessionStorage`).
@@ -1000,17 +1002,20 @@ Runde im Bild ist. Die Turnierseite hört die Zettel ihres Turniers als Strom
 (`amSpielenHoeren`, EventSource): Wer beginnt, steht eine Sekunde später da,
 ohne Neuladen – auch auf dem Handy; kommt die Seite aus dem Hintergrund
 zurück und ist der Strom eingeschlafen, verbindet sie neu. Wer seit 25
-Sekunden nichts gesagt hat oder fertig ist, spielt nicht mehr
-(`mini-games.js`, `zettelLeser`; gezählt wird, wann dieses Gerät eine
-Änderung sah, nicht die Uhr des Spielers). Wird einer fertig, liest die
-Seite auch die Liste neu: Sein Ergebnis steht da, ohne dass jemand neu lädt.
+Sekunden nichts gesagt hat, spielt nicht mehr (`mini-games.js`,
+`zettelLeser`; gezählt wird, wann dieses Gerät eine Änderung sah, nicht die
+Uhr des Spielers). Wer eine Runde beendet hat, bleibt noch eine Minute
+«zwischen zwei Runden» dabei – sonst käme und ginge er mit jeder Runde. Wer
+die Seite mitten in der Runde verlässt, nimmt seinen Zettel mit und ist
+sofort weg. Der Zettel geht beim Beginn, am Ende, alle 15 Sekunden und mit
+neuen Punkten höchstens alle 5 Sekunden hinaus (`geist.js`). Die Ergebnisse kommen über einen eigenen Strom
+(`cloud.js`, `turnierHoeren`, siehe «Ohne Netz»).
 Solange die Rangliste verdeckt ist, stehen keine Punkte auf dem Zettel. Die
 Zettel gibt es in jedem Turnier, auch wo sich nicht zuschauen lässt – dann
 nur ohne «Zuschauen».
 
 **Live zuschauen.** Wer gerade spielt, ist auf der Turnierseite ein Weg zum
-Zuschauen: «Zuschauen» in der Live-Leiste oben, der Name unter dem Spiel
-(«Joshua spielt gerade», daneben «Zuschauen»), im Reiter «Spiele» – und im Fenster der
+Zuschauen: «Zuschauen» in der Liste hinter «live», im Reiter «Spiele» – und im Fenster der
 Gesamtwertung steht bei jedem Rang «Live zuschauen» (oder, spielt er gerade
 nicht, «Zuschauen»). Das öffnet sein Spiel im **Beobachtungsmodus**
 (`/<spiel>?mitschauen=<kennung>&aus=<turnier>`, `geist.js`, `mitschauer`):
@@ -1026,7 +1031,12 @@ Geschrieben wird das von der laufenden Runde selbst (`geist.js`, «Live
 mitschauen: senden»), aus denselben Stellen, die auch den Lauf fürs Replay
 aufzeichnen (`fuer` und `zuege`): der Ort der Figur dreissigmal
 je Sekunde, in den Spielen ohne Figur jeder Zug – alle halbe Sekunde ein
-Stück in die Realtime Database (`turnierMitschauen/<turnier>/<kennung>`:
+Stück in die Realtime Database, **aber nur, wenn jemand zuschaut**: Bis
+dahin bleiben die Proben auf dem Gerät; meldet sich der erste Zuschauer an
+(`zuschauer/<spieler>`, siehe «Wer mir zuschaut»), geht die Runde von Anfang
+an hinaus und danach im Takt (`mitschauenWecken`). Bis Oktober 2026 schickte
+jedes spielende Gerät zweimal je Sekunde, ob jemand zusah oder nicht
+(`turnierMitschauen/<turnier>/<kennung>`:
 `name`, `runde` mit Spiel und Saat, `teile`, `ende`, `lebt`; über die
 REST-Schnittstelle ohne SDK, `cloud.js`, `mitschauenSchreiben`). Wer
 zuschaut, hört per Streaming mit (`mitschauenHoeren`, EventSource). Die
@@ -1036,14 +1046,18 @@ Turnier steht nur die letzte Runde da; die nächste überschreibt sie.
 
 Wie das Anschauen der besten Läufe gibt es das nur, wo das Turnier Replays
 zulässt (`ohneReplay`), und nicht, solange die Rangliste verdeckt ist –
-geschrieben wird dann gar nicht erst (`mitschauenErlaubt`). Die Regeln
+geschrieben wird dann gar nicht erst (`mitschauenErlaubt`). Und gar kein
+Live gibt es, wo der Adminbereich «Live und Zuschauen» abgeschaltet hat
+(`ohneLive`, `turnier.js` `liveErlaubt`): Dann gehen auch keine Zettel
+hinaus, der Knopf «live» fehlt, und während einer Runde schickt das Gerät
+nichts ausser dem Ergebnis – das Ruhigste für viele Geräte in einem
+schwachen WLAN. Die Regeln
 (`database.rules.json`) lassen nur genau diese Form zu, unter einer Kennung,
 wie bei den Spielern eines Multiplayers.
 
 **Zuschauen in der App.** Dasselbe gibt es ausserhalb der Turniere: Wer mit
-Namen spielt, steht auf der Startseite – in der Live-Leiste oben («Alain
-spielt Turmbau», Punkte, «Zuschauen»), mit grünem Punkt auf der Kachel,
-«Alain spielt gerade · 3 Blöcke» unter dem Namen des Spiels und in der
+Namen spielt, steht auf der Startseite – oben im Knopf «live» und in der
+Liste dahinter («Alain spielt Turmbau», Punkte, «Zuschauen») und in der
 Rangliste bei seinem Namen. Jeder dieser Wege öffnet den Beobachtungsmodus
 ohne Turnier (`/<spiel>?mitschauen=<kennung>&wer=<name>`); er folgt dem
 Spieler durch alle Spiele der App, bis «Beenden» zurück zur Startseite führt.
@@ -1065,15 +1079,14 @@ bekommt eine für dieses Fenster. Die Spielseite hört das als Strom
 hat, schaut nicht mehr zu. Wie der Zettel nur mit Namen und nie im
 Multiplayer.
 
-Die Live-Leiste der Startseite zeigt dazu, wer in einem **öffentlichen**
+«live» auf der Startseite zeigt dazu, wer in einem **öffentlichen**
 Turnier spielt, das gerade läuft – «Joshua spielt Fischteich, im Turnier
 Herbstcup» –: Sie hört auch die Zettel dieser Turniere (`turnier.js`,
 `oeffentlichLaufend`; die Liste frisch alle fünf Minuten). Ein Turnier «nur
 mit Link» kennt die Startseite gar nicht, es bleibt für sich. Umgekehrt
-zeigt die Turnierseite nur, wer in diesem Turnier spielt, nie die App. Die
-Leiste erscheint nur, wenn jemand spielt; dann nimmt sie sich eine Zeile
-über dem Bild, und das Bild wird um so viel kleiner (`mit-live`). Spielt
-niemand, ist die Seite wie immer.
+zeigt die Turnierseite nur, wer in diesem Turnier spielt, nie die App. Der
+Knopf steht nur, wenn jemand spielt, und nimmt der Seite keinen Platz weg:
+Das Bild bleibt gleich gross.
 
 **Ein Versuch zählt, sobald er beginnt.** Sonst hätte ein Turnier mit drei
 Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
@@ -1398,8 +1411,52 @@ Zwischenspeicher; `cloud.js` (`ergebnisse`) zählt eine solche Antwort nicht
 und wirft, wenn kein Spiel vom Server antwortet – sonst sähe die Liste aus wie
 «noch niemand gespielt».
 
-Turniere und Multiplayer brauchen das Netz: Ein Versuch zählt dort ab seinem
-Beginn, und das muss die Datenbank wissen, bevor gespielt wird.
+**Turniere ohne Netz.** Auch im Turnier wartet niemand auf die Datenbank
+(`turnier.js`). Bis Oktober 2026 schon: Vor jeder Runde las die Spielseite
+das Turnier frisch, meldete den Versuch per Transaktion an, und ohne Antwort
+hiess es «Das Turnier ist gerade nicht zu haben» oder «zählt nicht fürs
+Turnier» – an einem Abend mit sechs Geräten in einem Keller mit schwachem
+WLAN konnte so kaum jemand spielen. Jetzt:
+
+- **Das Turnier steht auf dem Gerät** (`mini.turnier.stand`, `gemerkterStand`):
+  das Turnier, seine Einträge und seine Multiplayer. Turnierseite und
+  Spielseite zeichnen sofort daraus; der Server frischt im Hintergrund auf.
+  Nur wer das Turnier noch nie gesehen hat, braucht das Netz – die Seite
+  versucht es dann von selbst weiter (3, 6, 12 … Sekunden).
+- **Der Postausgang** (`mini.turnier.post`): Ein Versuch steht dort, bevor
+  die Runde beginnt, ihr Ergebnis, sobald sie fertig ist. Hinaus geht es der
+  Reihe nach, je Eintrag streng in der Reihenfolge der Runden (Beginn,
+  Ergebnis, nächster Beginn) – sobald eine Runde beginnt oder endet, beim
+  Laden jeder Seite, wenn das Netz zurückkommt, wenn die Seite wieder vorne
+  ist und alle halbe Minute, solange etwas wartet. Mehrere Fenster teilen
+  sich eine Sperre (`navigator.locks`). Unter dem Ergebnis steht sofort die
+  Liste, wie das Gerät sie kennt – mit dieser Runde (`mitPost`); dauert es,
+  dazu «Gespeichert – kommt ins Turnier, sobald die Verbindung steht». Oben
+  rechts steht «Wird hochgeladen» (schmal: ein Pfeil). Neu laden hilft nicht
+  gegen einen verbrauchten Versuch: Er steht schon im Postausgang.
+- **Später heisst nicht zu spät:** Die Regeln nehmen einen Versuch, der laut
+  seiner Uhr im Turnier gespielt wurde, bis zwei Stunden nach dem Schluss
+  noch an (`firestore.rules`, `darfBeginnen`; `cloud.js` schickt die Zeit der
+  Runde mit).
+- **Die Turnierseite hört zu, statt zu fragen** (`cloud.js`, `turnierHoeren`,
+  Firestores onSnapshot): Der ganze Stand kommt einmal, danach nur, was sich
+  ändert. Bis Oktober 2026 las jedes Gerät das ganze Turnier neu, sobald
+  irgendwer eine Runde beendete.
+- **Die ewige Liste nebenher:** Eine Turnierrunde geht über `mini.wartet` im
+  Hintergrund in die Hall of Fame, ohne danach die ganze Liste neu zu lesen;
+  den eigenen Bestwert gleicht eine Spielseite im Turnier höchstens alle
+  halbe Stunde ab (`gleicheAb`), und die Läufe der Gegner holt sie nur neu,
+  wenn sich deren Zahl geändert hat (`geist.js`, `turnierGeistFuer`).
+- **«Offline bereit»:** Die Turnierseite fragt den Service Worker, ob alles
+  da ist, um die Spiele des Turniers ohne Netz zu spielen (`STAND`), und lässt
+  holen, was fehlt (`VORBEREITEN`). Solange das läuft, steht oben «Offline
+  60 %», danach kurz «Offline bereit». Wer den Link vor dem Abend einmal mit
+  gutem Netz öffnet, sieht so, dass sein Gerät vorbereitet ist. Der Service
+  Worker holt dabei höchstens vier Dateien zugleich, zuerst den Rahmen, dann
+  die Spiele des Turniers (`GLEICHZEITIG`, `SPIEL_DATEIEN`) – bis Oktober 2026
+  holte er alle gut hundert auf einmal.
+
+Ein Multiplayer braucht das Netz: Er ist ein gemeinsamer Moment.
 
 ## Vollbild
 
@@ -1730,9 +1787,15 @@ Plätze, in jedem Spiel und in den Turnieren, in denen das Gerät dabei war
 der Kennung des Geräts **und** unter dem alten Namen – so kommen auch die
 Einträge von einem zweiten Gerät desselben Namens mit. Nur der Name ändert
 sich, keine Runde kommt dazu, und die Uhr (`updatedAtMs`, Reihenfolge bei
-Gleichstand) bleibt stehen. Geht das nicht (kein Netz), bleibt der alte Name,
-und die Zeile sagt warum. Steht der neue Name schon in einer Liste, fragt sie
-vorher: «Bist du das? Dann zählt ihr ab jetzt als ein Spieler.»
+Gleichstand) bleibt stehen. Der neue Name gilt auf dem Gerät sofort; das
+Umbenennen in den Listen ist ein Auftrag (`mini.umbenennen`), der wie eine
+Runde ohne Netz wartet, bis er draussen ist (`sendeUmbenennen`) – bis dahin
+holt der Abgleich den alten Namen nicht zurück (`uebernimmName`). Klappt es
+nicht in ein paar Sekunden, sagt die Zeile: «Deine Punkte und Runden kommen
+mit, sobald die Verbindung steht.» Bis Oktober 2026 ging ohne Netz gar
+nichts. Steht der neue Name schon in einer Liste, fragt sie vorher: «Bist du
+das? Dann zählt ihr ab jetzt als ein Spieler.» (Ohne Antwort aus dem Netz
+fragt sie nach dem, was das Gerät zuletzt gesehen hat.)
 
 Die anderen Geräte desselben Spielers ziehen von selbst nach: **Was der Server
 über den Namen der eigenen Kennung sagt, gilt** (`uebernimmName`). Steht unter

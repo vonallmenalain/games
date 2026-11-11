@@ -234,6 +234,14 @@
    * derselben Runde (Blätter im Strom zeichnet beide auf) kommt dazu. Fertig
    * ist sie, wenn jeder Strom, der begann, sein ende() hatte. Geschrieben
    * wird nur, solange die Seite im Bild ist.
+   *
+   * Und nur, wenn jemand zuschaut. Wer zuschaut, meldet sich beim Spieler an
+   * (zuschauer/<kennung>, zuschauerHinweis) – bis dahin bleiben die Proben
+   * auf dem Gerät. Kommt der erste Zuschauer, geht die Runde von Anfang an
+   * hinaus (mitschauenWecken), danach im Takt, bis sie zu Ende ist. Bis
+   * Oktober 2026 schickte jedes spielende Gerät zweimal je Sekunde, ob nun
+   * jemand zusah oder nicht – sechs Spieler in einem WLAN, und alles andere
+   * stand im Stau.
    */
   // Alle halbe Sekunde ein Stück; der Ort darin dreissigmal je Sekunde – so
   // oft wie im Replay (TAKT_MS): Die Realtime Database rechnet nach
@@ -242,8 +250,10 @@
   const MITSCHAUEN_MS = 500;
   const MITSCHAUEN_ORT_MS = 30;
   // Der Zettel: so oft «läuft noch» – und mit neuen Punkten so oft höchstens.
-  const AM_SPIELEN_MS = 10000;
-  const AM_SPIELEN_PUNKTE_MS = 2000;
+  // Wer liest, zählt einen Spieler bis SPIELT_MS ohne Zettel noch als
+  // spielend (mini-games.js, zettelLeser).
+  const AM_SPIELEN_MS = 15000;
+  const AM_SPIELEN_PUNKTE_MS = 5000;
   const spielHier = () => document.body?.dataset?.spiel || "";
 
   function mitschauZiel() {
@@ -261,7 +271,10 @@
     return { turnier: "", kennung, name, schauen: true, punkte: true };
   }
 
-  const mitschauen = { runde: null, ziel: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null, zettel: 0, punkte: 0, gemeldet: -1 };
+  // wach: Die Runde geht hinaus – es schaut jemand zu (oder hat zugeschaut,
+  // seit sie begann).
+  const mitschauen = { runde: null, ziel: null, teil: 0, puffer: { o: [], z: [] }, uhr: { o: null, z: null }, ortZuletzt: -Infinity, laeuft: new Set(), fertig: new Set(), timer: null, ende: null, zettel: 0, punkte: 0, gemeldet: -1, wach: false };
+  let zuschauerJetzt = () => 0;
 
   // Der Zettel: wer was spielt, mit wie vielen Punkten, und ob noch.
   function zettel(daten, ganz = false) {
@@ -276,7 +289,7 @@
     Promise.resolve(cloud()?.amSpielenSchreiben?.(turnier, kennung, mit, { ganz })).catch(() => {});
   }
 
-  function mitschauenFlush({ zuletzt = false } = {}) {
+  function mitschauenFlush({ zuletzt = false, alles = false } = {}) {
     const r = mitschauen.runde;
     if (!r || !mitschauen.ziel) return;
     const jetzt = performance.now();
@@ -284,6 +297,13 @@
     if (zuletzt) zettel({ lebt: Date.now(), fertig: true });
     else if (jetzt - mitschauen.zettel > AM_SPIELEN_MS || (neuePunkte && jetzt - mitschauen.zettel > AM_SPIELEN_PUNKTE_MS)) zettel({ lebt: Date.now() });
     if (!mitschauen.ziel.schauen) return;
+    // Niemand schaut zu: Die Proben bleiben auf dem Gerät. Kommt jemand,
+    // geht alles von Anfang an hinaus (mitschauenWecken).
+    if (!mitschauen.wach) {
+      if (zuletzt || zuschauerJetzt() === 0) return;
+      mitschauenWecken();
+      return;
+    }
     const { o, z } = mitschauen.puffer;
     const uhr = (art) => {
       const u = mitschauen.uhr[art];
@@ -299,14 +319,18 @@
         aenderung["runde/saat"] = saat;
       }
     }
-    if (o.length || z.length || zuletzt) {
+    // Höchstens 120 Proben je Stück (die Regeln nehmen eines nur bis 8000
+    // Zeichen). Im Takt reicht eines; nach dem Wecken geht alles auf einmal,
+    // in so vielen Stücken, wie es braucht.
+    let erstes = true;
+    while (o.length || z.length || (zuletzt && erstes)) {
       const stueck = { jo: uhr("o"), jz: uhr("z") };
-      // Höchstens so viele je Stück – was darüber ist, kommt mit dem nächsten
-      // (die Regeln nehmen ein Stück nur bis 8000 Zeichen).
       if (o.length) stueck.o = o.splice(0, 120);
       if (z.length) stueck.z = z.splice(0, 120);
       aenderung[`teile/${mitschauen.teil}`] = JSON.stringify(stueck);
       mitschauen.teil += 1;
+      erstes = false;
+      if (!alles) break;
     }
     if (zuletzt && mitschauen.ende) aenderung.ende = mitschauen.ende;
     const { turnier, kennung } = mitschauen.ziel;
@@ -318,10 +342,37 @@
     mitschauenFlush();
   }
 
+  // Der erste Zuschauer ist da: die Runde von Anfang an – erst der Knoten
+  // (wer, welche Runde, welche Welt), dann alle Proben bis jetzt. Danach
+  // geht es im Takt weiter (mitschauenFlush). Ist die Runde schon zu Ende,
+  // wartet die Seite des Zuschauers auf die nächste.
+  function mitschauenWecken() {
+    const r = mitschauen.runde;
+    const ziel = mitschauen.ziel;
+    if (!r || !ziel?.schauen || mitschauen.wach || mitschauen.ende) return;
+    mitschauen.wach = true;
+    if (r.saat === null && r.saatFn) {
+      const saat = r.saatFn();
+      if (saat !== null) {
+        r.saat = saat;
+        r.saatFn = null;
+      }
+    }
+    const runde = { id: r.id, spiel: r.spiel, start: r.start };
+    if (r.saat !== null) runde.saat = r.saat;
+    Promise.resolve(cloud()?.mitschauenSchreiben?.(ziel.turnier, ziel.kennung, { name: ziel.name.slice(0, 24), runde, lebt: Date.now() }, { ganz: true }))
+      .catch(() => {})
+      .then(() => { if (mitschauen.runde === r) mitschauenFlush({ alles: true }); });
+  }
+
   // Wer mitten in der Runde weggeht, spielt nicht mehr – auf der Startseite
-  // sofort, nicht erst, wenn sein Zettel alt ist.
+  // sofort, nicht erst, wenn sein Zettel alt ist: Der Zettel geht mit. (Wer
+  // eine Runde zu Ende spielt, bleibt dort noch eine Weile «zwischen zwei
+  // Runden», mini-games.js, zettelLeser.)
   window.addEventListener("pagehide", () => {
-    if (mitschauen.runde && !mitschauen.ende) zettel({ lebt: Date.now(), fertig: true });
+    if (!mitschauen.runde || mitschauen.ende) return;
+    const { turnier, kennung } = mitschauen.ziel || {};
+    if (kennung) Promise.resolve(cloud()?.amSpielenSchreiben?.(turnier, kennung, null, { ganz: true })).catch(() => {});
   });
 
   /*
@@ -351,6 +402,8 @@
     buehne.append(box);
     const gesehen = new Map();
     let knoten = null;
+    let zahl = 0;
+    zuschauerJetzt = () => zahl;
     const zeige = () => {
       const jetzt = Date.now();
       const namen = new Set();
@@ -372,6 +425,9 @@
       const satz = wieViele ? `${mini()?.namenListe?.(teile) || teile.join(", ")} ${wieViele === 1 ? "schaut" : "schauen"} gerade zu` : "";
       if (text.textContent !== satz) text.textContent = satz;
       box.hidden = !satz;
+      // Der erste Zuschauer weckt die Runde, die gerade läuft.
+      zahl = wieViele;
+      if (zahl > 0) mitschauenWecken();
     };
     cloud().zuschauerHoeren(kennung, (neu) => { knoten = neu; zeige(); });
     window.setInterval(zeige, 5000);
@@ -419,10 +475,11 @@
       mitschauen.fertig = new Set();
       mitschauen.ende = null;
       mitschauen.punkte = 0;
-      const runde = { id: neu.id, spiel: neu.spiel, start: neu.start };
-      if (neu.saat !== null) runde.saat = neu.saat;
       const name = ziel.name.slice(0, 24);
-      if (ziel.schauen) Promise.resolve(cloud().mitschauenSchreiben(ziel.turnier, ziel.kennung, { name, runde, lebt: Date.now() }, { ganz: true })).catch(() => {});
+      // Hinaus geht die Runde erst, wenn jemand zuschaut (mitschauenWecken) –
+      // jetzt schon, wenn schon jemand da ist.
+      mitschauen.wach = false;
+      if (ziel.schauen && zuschauerJetzt() > 0) mitschauenWecken();
       zettel({ name, spiel: neu.spiel, lebt: Date.now() }, true);
       mitschauen.timer = window.setInterval(mitschauenTakt, MITSCHAUEN_MS);
     },
@@ -907,6 +964,23 @@
   //   grund   warum es keinen ersten gibt: "verdeckt", "frei"
   //
   // mitAllen: das Spiel zeigt die Gegner als Geist im Bild und will alle.
+  // Die Läufe der Gegner im Turnier, je Seite gemerkt: Ein Lauf ändert sich
+  // nur, wenn sein Spieler besser wird – dann steht in der Liste eine andere
+  // Zahl. Bis dahin wird er nicht bei jeder Runde neu geholt (bis zu zwanzig
+  // Läufe zu je einigen Kilobyte).
+  const turnierGeister = new Map();
+  function turnierGeistFuer(id, spiel, eintrag) {
+    const schluessel = `${id}|${spiel}|${eintrag.spieler}`;
+    const da = turnierGeister.get(schluessel);
+    if (da && da.punkte === eintrag.punkte) return da.geist;
+    const geist = vielleicht(() => cloud()?.turnierGeist?.(id, spiel, eintrag.spieler)).then((g) => {
+      if (!g) turnierGeister.delete(schluessel);
+      return g;
+    });
+    turnierGeister.set(schluessel, { punkte: eintrag.punkte, geist });
+    return geist;
+  }
+
   async function ladeStand(spiel, art, lage, fassung, mitAllen = false) {
     const stand = { aus: false, erster: null, eigen: null, alle: [], grund: "frei" };
     const t = lage?.t || null;
@@ -933,12 +1007,14 @@
     if (t) {
       // Verdeckt heisst verdeckt: Wer vorne liegt, steht erst am Schluss da.
       if (t.verdeckt && turnier()?.lage?.(t) !== "beendet") { stand.grund = "verdeckt"; return stand; }
-      const alle = await vielleicht(() => cloud()?.turnierErgebnisse?.(lage.id, { game: spiel }));
+      // Die Liste des Spiels, wie die Seite sie kennt (turnier.js,
+      // listeFuer) – nicht bei jeder Runde neu vom Server.
+      const alle = await vielleicht(() => turnier()?.listeFuer?.(spiel) ?? cloud()?.turnierErgebnisse?.(lage.id, { game: spiel }));
       const liste = mini()?.rangliste?.((alle || []).filter((e) => e.game === spiel)) || [];
       // Alle, die in diesem Turnier mitspielen – mit ihrem besten Lauf hier.
       if (mitAllen) {
         const andere = liste.filter((e) => e.spieler && !e.eigen && e.punkte > 0).slice(0, ALLE_MAX);
-        const laeufe = await Promise.all(andere.map((e) => vielleicht(() => cloud()?.turnierGeist?.(lage.id, spiel, e.spieler))));
+        const laeufe = await Promise.all(andere.map((e) => turnierGeistFuer(lage.id, spiel, e)));
         andere.forEach((e, i) => {
           const geist = laeufe[i];
           const lauf = geist?.bahn && geist.level === fassung ? abspieler(geist.bahn, { winkel: cIstWinkel(spiel) }) : null;
@@ -948,7 +1024,7 @@
       const vorne = liste[0];
       if (!vorne || !(vorne.punkte > 0)) return stand;
       const geist = art === "tempo" && vorne.spieler
-        ? await vielleicht(() => cloud()?.turnierGeist?.(lage.id, spiel, vorne.spieler))
+        ? await turnierGeistFuer(lage.id, spiel, vorne)
         : null;
       const passt = geist?.bahn && geist.level === fassung;
       // Zählen alle Versuche zusammen, ist die Zahl in der Liste eine Summe –

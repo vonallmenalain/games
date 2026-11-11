@@ -402,6 +402,10 @@ await darfNicht("Admin schreibt «ohne Gegner» als Text", () => admin().doc("mi
 await darf("Admin legt ein Turnier ohne Replays an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: true })));
 await darf("Admin lässt die Replays ausdrücklich zu", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: false })));
 await darfNicht("Admin schreibt «ohne Replays» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneReplay: "ja" })));
+// Ohne Live (wer gerade spielt, Zuschauen): ebenso ein Ja oder Nein.
+await darf("Admin legt ein Turnier ohne Live an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: true })));
+await darf("Admin lässt Live ausdrücklich zu", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: false })));
+await darfNicht("Admin schreibt «ohne Live» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: "ja" })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
 // Nur live: ein Ja oder Nein. Dann gibt es keine Versuche dazwischen.
 await darf("Admin legt ein Turnier an, das nur live gespielt wird", () => admin().doc("miniTurniere/livecup-r5t7z9u1").set(turnierDaten({ nurLive: true, versuche: 0 })));
@@ -455,8 +459,14 @@ await env.withSecurityRulesDisabled(async (kontext) => {
   await db.doc("miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
     game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 0, versuche: 1, offen: true, erstesMs: 1, updatedAtMs: 1,
   });
+  // Vor drei Stunden zu Ende: Auch was ohne Netz gespielt wurde, kommt jetzt
+  // zu spät.
+  await db.doc("miniTurniere/laengst-a1b2c3d4").set(turnierDaten({ startMs: JETZT - 5 * STUNDE, endeMs: JETZT - 3 * STUNDE }));
   // Längst vorbei, und einer hat damals gespielt: Sein Lauf kommt zu spät.
   await db.doc("miniTurniere/vorbei-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
+    game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 12, versuche: 1, offen: false, erstesMs: 1, updatedAtMs: 1,
+  });
+  await db.doc("miniTurniere/laengst-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl").set({
     game: "towerStack", spieler: "mini_abcdefghijkl", name: "Alain", punkte: 12, versuche: 1, offen: false, erstesMs: 1, updatedAtMs: 1,
   });
   // Angehalten, während einer spielt: sein Versuch begann vorher.
@@ -516,6 +526,13 @@ await darfNicht("Gast beginnt im angehaltenen Turnier einen weiteren Versuch", (
 const EBEN = "miniTurniere/eben-a1b2c3d4/eintraege/towerStack_mini_abcdefghijkl";
 await darf("Gast trägt nach dem Schluss das Ergebnis eines vorher begonnenen Versuchs ein", () => gast().doc(EBEN).set({ name: "Alain", punkte: 30, offen: false, updatedAtMs: 2 }, { merge: true }));
 await darfNicht("Gast beginnt nach dem Schluss noch einen Versuch", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: 3 }, { merge: true }));
+// Ohne Netz gespielt (turnier.js, Postausgang): Die Runde kommt nach dem
+// Schluss – mit der Uhrzeit, zu der sie gespielt wurde.
+await darfNicht("Gast meldet nach dem Schluss eine Runde, die erst danach gespielt wurde", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: JETZT }, { merge: true }));
+await darfNicht("Gast meldet eine Runde mit einer Uhrzeit vor dem Turnier", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: JETZT - 2 * STUNDE }, { merge: true }));
+await darf("Gast meldet nach dem Schluss eine Runde, die ohne Netz im Turnier gespielt wurde", () => gast().doc(EBEN).set({ name: "Alain", versuche: 2, offen: true, updatedAtMs: JETZT - 30 * 60 * 1000 }, { merge: true }));
+await darf("Gast trägt danach ihr Ergebnis ein", () => gast().doc(EBEN).set({ name: "Alain", punkte: 35, offen: false, updatedAtMs: JETZT - 29 * 60 * 1000 }, { merge: true }));
+await darfNicht("Gast meldet drei Stunden nach dem Schluss eine Runde von damals", () => gast().doc("miniTurniere/laengst-a1b2c3d4/eintraege/towerStack_mini_spaeterspieler").set(versuch({ spieler: "mini_spaeterspieler", erstesMs: JETZT - 4 * STUNDE, updatedAtMs: JETZT - 4 * STUNDE })));
 
 // --- Läufe im Turnier (geist.js) ----------------------------------------------
 // Der beste Lauf eines Spielers, für die, die im Turnier gegen ihn spielen.
@@ -528,7 +545,7 @@ await darfNicht("Gast hinterlegt einen Lauf, ohne im Turnier gespielt zu haben",
 await darfNicht("Gast hinterlegt einen Lauf für ein Spiel, das nicht zum Turnier gehört",
   () => gast().doc(`${OEFFENTLICH}/geister/leafFlow_mini_abcdefghijkl`).set(geist({ game: "leafFlow" })));
 await darfNicht("Gast hinterlegt einen Lauf in einem Turnier, das längst vorbei ist",
-  () => gast().doc("miniTurniere/vorbei-a1b2c3d4/geister/towerStack_mini_abcdefghijkl").set(geist()));
+  () => gast().doc("miniTurniere/laengst-a1b2c3d4/geister/towerStack_mini_abcdefghijkl").set(geist()));
 await darfNicht("Gast schmuggelt ein Feld in seinen Lauf", () => gast().doc(TGEIST).set(geist({ heimlich: true })));
 await darfNicht("Gast hinterlegt einen Lauf mit endloser Aufzeichnung", () => gast().doc(TGEIST).set(geist({ bahn: "A".repeat(12001) })));
 await darf("Gast hinterlegt seinen Lauf im Turnier", () => gast().doc(TGEIST).set(geist()));

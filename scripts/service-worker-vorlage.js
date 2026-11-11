@@ -17,19 +17,85 @@ const FIREBASE_SDK = __SDK__;
 
 const CORE_ASSETS = __DATEIEN__;
 
+// Je Spielseite, was nur sie braucht: die Seite selbst und ihr Skript. Alles
+// andere in CORE_ASSETS ist der Rahmen, den alle Seiten teilen.
+const SPIEL_DATEIEN = __SPIELE__;
+
+// So viele Dateien auf einmal. Bis Oktober 2026 holte der Service Worker
+// alle gleichzeitig – gut hundert Anfragen, rund 5 MB. Kamen sechs Geräte
+// zugleich in ein schwaches WLAN, stand dort alles andere still.
+const GLEICHZEITIG = 4;
+
 async function addOpaque(cache, url) {
   const response = await fetch(url, { mode: "no-cors" });
   await cache.put(url, response);
 }
 
+// Die Reihenfolge: zuerst der Rahmen (Startseite, Turnierseite, die
+// gemeinsamen Skripte, Firebase), dann die genannten Spiele (die eines
+// Turniers), dann der Rest.
+function reihenfolge(zuerst = []) {
+  const spielDateien = new Set(Object.values(SPIEL_DATEIEN).flat());
+  const vorne = zuerst.flatMap((seite) => SPIEL_DATEIEN[seite] || []);
+  return [
+    ...CORE_ASSETS.filter((datei) => !spielDateien.has(datei)),
+    ...FIREBASE_SDK,
+    ...vorne,
+    ...CORE_ASSETS.filter((datei) => spielDateien.has(datei) && !vorne.includes(datei)),
+  ];
+}
+
+// Was eine Seite braucht, um ohne Netz zu laufen: der Rahmen und die
+// genannten Spiele.
+function noetig(seiten) {
+  const spielDateien = new Set(Object.values(SPIEL_DATEIEN).flat());
+  return [
+    ...CORE_ASSETS.filter((datei) => !spielDateien.has(datei)),
+    ...FIREBASE_SDK,
+    ...seiten.flatMap((seite) => SPIEL_DATEIEN[seite] || []),
+  ];
+}
+
 // Jede Datei einzeln: Ein Aussetzer am Mobilnetz darf nicht die ganze
-// Installation umwerfen – sonst entstünde gar kein Cache.
+// Installation umwerfen – sonst entstünde gar kein Cache. Was fehlt, holt
+// die nächste Seite nach (VORBEREITEN).
+async function fuelle(cache, liste) {
+  const offen = [...liste];
+  const arbeiter = Array.from({ length: GLEICHZEITIG }, async () => {
+    while (offen.length) {
+      const datei = offen.shift();
+      try {
+        if (await cache.match(datei)) continue;
+        if (FIREBASE_SDK.includes(datei)) await addOpaque(cache, datei);
+        else await cache.add(datei);
+      } catch { /* später noch einmal */ }
+    }
+  });
+  await Promise.all(arbeiter);
+}
+
 async function precache() {
   const cache = await caches.open(CACHE_NAME);
-  await Promise.allSettled([
-    ...CORE_ASSETS.map((asset) => cache.add(asset)),
-    ...FIREBASE_SDK.map((url) => addOpaque(cache, url)),
-  ]);
+  await fuelle(cache, reihenfolge());
+}
+
+// Wie viel von dem, was die Seiten brauchen, schon da ist.
+async function stand(seiten) {
+  const cache = await caches.open(CACHE_NAME);
+  const liste = noetig(seiten);
+  let da = 0;
+  for (const datei of liste) if (await cache.match(datei)) da += 1;
+  return { da, gesamt: liste.length };
+}
+
+// Die Turnierseite fragt (turnier.js, offlineBereit): «Ist alles da, was es
+// für diese Spiele braucht?» – und lässt holen, was fehlt.
+let fuellt = null;
+async function vorbereiten(seiten) {
+  const cache = await caches.open(CACHE_NAME);
+  if (!fuellt) fuellt = fuelle(cache, reihenfolge(seiten)).finally(() => { fuellt = null; });
+  await fuellt;
+  return stand(seiten);
 }
 
 self.addEventListener("install", (event) => {
@@ -117,6 +183,14 @@ async function documentFirstFromCache(event) {
 
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+  const antwort = event.ports && event.ports[0];
+  const seiten = Array.isArray(event.data?.seiten) ? event.data.seiten.map(String) : [];
+  if (event.data?.type === "STAND" && antwort) {
+    event.waitUntil(stand(seiten).then((s) => antwort.postMessage(s), () => antwort.postMessage(null)));
+  }
+  if (event.data?.type === "VORBEREITEN" && antwort) {
+    event.waitUntil(vorbereiten(seiten).then((s) => antwort.postMessage(s), () => antwort.postMessage(null)));
+  }
 });
 
 self.addEventListener("fetch", (event) => {

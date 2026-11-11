@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-10-4";
+const APP_VERSION = "2026-11-12-1";
 const CACHE_PREFIX = "mini-games-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const FALLBACK_DOCUMENT = "./index.html";
@@ -58,59 +58,59 @@ const CORE_ASSETS = [
   "./heizer.html",
   "./turnier.html",
   "./live.html",
-  "./vollbild.js?v=2026-11-10-4",
-  "./highscore.js?v=2026-11-10-4",
-  "./cloud.js?v=2026-11-10-4",
-  "./klang.js?v=2026-11-10-4",
-  "./mini-games.js?v=2026-11-10-4",
-  "./turnier.js?v=2026-11-10-4",
-  "./pwa.js?v=2026-11-10-4",
-  "./live.js?v=2026-11-10-4",
-  "./zufall.js?v=2026-11-10-4",
-  "./kids.js?v=2026-11-10-4",
-  "./train-art.js?v=2026-11-10-4",
-  "./train-scenes.js?v=2026-11-10-4",
-  "./game-cloud.js?v=2026-11-10-4",
-  "./live-spiel.js?v=2026-11-10-4",
-  "./game-shell.js?v=2026-11-10-4",
-  "./geist.js?v=2026-11-10-4",
-  "./kacheln.js?v=2026-11-10-4",
-  "./fischteich.js?v=2026-11-10-4",
-  "./blaetter.js?v=2026-11-10-4",
-  "./turmbau.js?v=2026-11-10-4",
-  "./bruecke.js?v=2026-11-10-4",
-  "./drehscheibe.js?v=2026-11-10-4",
-  "./liane.js?v=2026-11-10-4",
-  "./tunnelflug.js?v=2026-11-10-4",
-  "./drift.js?v=2026-11-10-4",
-  "./planeten.js?v=2026-11-10-4",
-  "./mondlandung.js?v=2026-11-10-4",
-  "./schwerkraft.js?v=2026-11-10-4",
-  "./huegel.js?v=2026-11-10-4",
-  "./ballon.js?v=2026-11-10-4",
-  "./slalom.js?v=2026-11-10-4",
-  "./frosch.js?v=2026-11-10-4",
-  "./kranhafen.js?v=2026-11-10-4",
-  "./seiltaenzer.js?v=2026-11-10-4",
-  "./draht.js?v=2026-11-10-4",
-  "./spuren.js?v=2026-11-10-4",
-  "./ball.js?v=2026-11-10-4",
-  "./jongleur.js?v=2026-11-10-4",
-  "./turmspringen.js?v=2026-11-10-4",
-  "./fallschirm.js?v=2026-11-10-4",
-  "./holzfaeller.js?v=2026-11-10-4",
-  "./fledermaus.js?v=2026-11-10-4",
-  "./ninja.js?v=2026-11-10-4",
-  "./freitaucher.js?v=2026-11-10-4",
-  "./schwarm.js?v=2026-11-10-4",
-  "./welle.js?v=2026-11-10-4",
-  "./steinhuepfer.js?v=2026-11-10-4",
-  "./eiskanal.js?v=2026-11-10-4",
-  "./felsflug.js?v=2026-11-10-4",
-  "./zahlengleis.js?v=2026-11-10-4",
-  "./heizer.js?v=2026-11-10-4",
-  "./styles.css?v=2026-11-10-4",
-  "./app.webmanifest?v=2026-11-10-4",
+  "./vollbild.js?v=2026-11-12-1",
+  "./highscore.js?v=2026-11-12-1",
+  "./cloud.js?v=2026-11-12-1",
+  "./klang.js?v=2026-11-12-1",
+  "./mini-games.js?v=2026-11-12-1",
+  "./turnier.js?v=2026-11-12-1",
+  "./pwa.js?v=2026-11-12-1",
+  "./live.js?v=2026-11-12-1",
+  "./zufall.js?v=2026-11-12-1",
+  "./kids.js?v=2026-11-12-1",
+  "./train-art.js?v=2026-11-12-1",
+  "./train-scenes.js?v=2026-11-12-1",
+  "./game-cloud.js?v=2026-11-12-1",
+  "./live-spiel.js?v=2026-11-12-1",
+  "./game-shell.js?v=2026-11-12-1",
+  "./geist.js?v=2026-11-12-1",
+  "./kacheln.js?v=2026-11-12-1",
+  "./fischteich.js?v=2026-11-12-1",
+  "./blaetter.js?v=2026-11-12-1",
+  "./turmbau.js?v=2026-11-12-1",
+  "./bruecke.js?v=2026-11-12-1",
+  "./drehscheibe.js?v=2026-11-12-1",
+  "./liane.js?v=2026-11-12-1",
+  "./tunnelflug.js?v=2026-11-12-1",
+  "./drift.js?v=2026-11-12-1",
+  "./planeten.js?v=2026-11-12-1",
+  "./mondlandung.js?v=2026-11-12-1",
+  "./schwerkraft.js?v=2026-11-12-1",
+  "./huegel.js?v=2026-11-12-1",
+  "./ballon.js?v=2026-11-12-1",
+  "./slalom.js?v=2026-11-12-1",
+  "./frosch.js?v=2026-11-12-1",
+  "./kranhafen.js?v=2026-11-12-1",
+  "./seiltaenzer.js?v=2026-11-12-1",
+  "./draht.js?v=2026-11-12-1",
+  "./spuren.js?v=2026-11-12-1",
+  "./ball.js?v=2026-11-12-1",
+  "./jongleur.js?v=2026-11-12-1",
+  "./turmspringen.js?v=2026-11-12-1",
+  "./fallschirm.js?v=2026-11-12-1",
+  "./holzfaeller.js?v=2026-11-12-1",
+  "./fledermaus.js?v=2026-11-12-1",
+  "./ninja.js?v=2026-11-12-1",
+  "./freitaucher.js?v=2026-11-12-1",
+  "./schwarm.js?v=2026-11-12-1",
+  "./welle.js?v=2026-11-12-1",
+  "./steinhuepfer.js?v=2026-11-12-1",
+  "./eiskanal.js?v=2026-11-12-1",
+  "./felsflug.js?v=2026-11-12-1",
+  "./zahlengleis.js?v=2026-11-12-1",
+  "./heizer.js?v=2026-11-12-1",
+  "./styles.css?v=2026-11-12-1",
+  "./app.webmanifest?v=2026-11-12-1",
   "./icons/icon-32.png",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
@@ -119,19 +119,226 @@ const CORE_ASSETS = [
   "./icons/icon-maskable-512.png"
 ];
 
+// Je Spielseite, was nur sie braucht: die Seite selbst und ihr Skript. Alles
+// andere in CORE_ASSETS ist der Rahmen, den alle Seiten teilen.
+const SPIEL_DATEIEN = {
+  "kacheln": [
+    "./kacheln.html",
+    "./kacheln.js?v=2026-11-12-1"
+  ],
+  "fischteich": [
+    "./fischteich.html",
+    "./fischteich.js?v=2026-11-12-1"
+  ],
+  "blaetter": [
+    "./blaetter.html",
+    "./blaetter.js?v=2026-11-12-1"
+  ],
+  "turmbau": [
+    "./turmbau.html",
+    "./turmbau.js?v=2026-11-12-1"
+  ],
+  "bruecke": [
+    "./bruecke.html",
+    "./bruecke.js?v=2026-11-12-1"
+  ],
+  "drehscheibe": [
+    "./drehscheibe.html",
+    "./drehscheibe.js?v=2026-11-12-1"
+  ],
+  "liane": [
+    "./liane.html",
+    "./liane.js?v=2026-11-12-1"
+  ],
+  "tunnelflug": [
+    "./tunnelflug.html",
+    "./tunnelflug.js?v=2026-11-12-1"
+  ],
+  "drift": [
+    "./drift.html",
+    "./drift.js?v=2026-11-12-1"
+  ],
+  "planeten": [
+    "./planeten.html",
+    "./planeten.js?v=2026-11-12-1"
+  ],
+  "mondlandung": [
+    "./mondlandung.html",
+    "./mondlandung.js?v=2026-11-12-1"
+  ],
+  "schwerkraft": [
+    "./schwerkraft.html",
+    "./schwerkraft.js?v=2026-11-12-1"
+  ],
+  "huegel": [
+    "./huegel.html",
+    "./huegel.js?v=2026-11-12-1"
+  ],
+  "ballon": [
+    "./ballon.html",
+    "./ballon.js?v=2026-11-12-1"
+  ],
+  "slalom": [
+    "./slalom.html",
+    "./slalom.js?v=2026-11-12-1"
+  ],
+  "frosch": [
+    "./frosch.html",
+    "./frosch.js?v=2026-11-12-1"
+  ],
+  "kranhafen": [
+    "./kranhafen.html",
+    "./kranhafen.js?v=2026-11-12-1"
+  ],
+  "seiltaenzer": [
+    "./seiltaenzer.html",
+    "./seiltaenzer.js?v=2026-11-12-1"
+  ],
+  "draht": [
+    "./draht.html",
+    "./draht.js?v=2026-11-12-1"
+  ],
+  "spuren": [
+    "./spuren.html",
+    "./spuren.js?v=2026-11-12-1"
+  ],
+  "ball": [
+    "./ball.html",
+    "./ball.js?v=2026-11-12-1"
+  ],
+  "jongleur": [
+    "./jongleur.html",
+    "./jongleur.js?v=2026-11-12-1"
+  ],
+  "turmspringen": [
+    "./turmspringen.html",
+    "./turmspringen.js?v=2026-11-12-1"
+  ],
+  "fallschirm": [
+    "./fallschirm.html",
+    "./fallschirm.js?v=2026-11-12-1"
+  ],
+  "holzfaeller": [
+    "./holzfaeller.html",
+    "./holzfaeller.js?v=2026-11-12-1"
+  ],
+  "fledermaus": [
+    "./fledermaus.html",
+    "./fledermaus.js?v=2026-11-12-1"
+  ],
+  "ninja": [
+    "./ninja.html",
+    "./ninja.js?v=2026-11-12-1"
+  ],
+  "freitaucher": [
+    "./freitaucher.html",
+    "./freitaucher.js?v=2026-11-12-1"
+  ],
+  "schwarm": [
+    "./schwarm.html",
+    "./schwarm.js?v=2026-11-12-1"
+  ],
+  "welle": [
+    "./welle.html",
+    "./welle.js?v=2026-11-12-1"
+  ],
+  "steinhuepfer": [
+    "./steinhuepfer.html",
+    "./steinhuepfer.js?v=2026-11-12-1"
+  ],
+  "eiskanal": [
+    "./eiskanal.html",
+    "./eiskanal.js?v=2026-11-12-1"
+  ],
+  "felsflug": [
+    "./felsflug.html",
+    "./felsflug.js?v=2026-11-12-1"
+  ],
+  "zahlengleis": [
+    "./zahlengleis.html",
+    "./zahlengleis.js?v=2026-11-12-1"
+  ],
+  "heizer": [
+    "./heizer.html",
+    "./heizer.js?v=2026-11-12-1"
+  ]
+};
+
+// So viele Dateien auf einmal. Bis Oktober 2026 holte der Service Worker
+// alle gleichzeitig – gut hundert Anfragen, rund 5 MB. Kamen sechs Geräte
+// zugleich in ein schwaches WLAN, stand dort alles andere still.
+const GLEICHZEITIG = 4;
+
 async function addOpaque(cache, url) {
   const response = await fetch(url, { mode: "no-cors" });
   await cache.put(url, response);
 }
 
+// Die Reihenfolge: zuerst der Rahmen (Startseite, Turnierseite, die
+// gemeinsamen Skripte, Firebase), dann die genannten Spiele (die eines
+// Turniers), dann der Rest.
+function reihenfolge(zuerst = []) {
+  const spielDateien = new Set(Object.values(SPIEL_DATEIEN).flat());
+  const vorne = zuerst.flatMap((seite) => SPIEL_DATEIEN[seite] || []);
+  return [
+    ...CORE_ASSETS.filter((datei) => !spielDateien.has(datei)),
+    ...FIREBASE_SDK,
+    ...vorne,
+    ...CORE_ASSETS.filter((datei) => spielDateien.has(datei) && !vorne.includes(datei)),
+  ];
+}
+
+// Was eine Seite braucht, um ohne Netz zu laufen: der Rahmen und die
+// genannten Spiele.
+function noetig(seiten) {
+  const spielDateien = new Set(Object.values(SPIEL_DATEIEN).flat());
+  return [
+    ...CORE_ASSETS.filter((datei) => !spielDateien.has(datei)),
+    ...FIREBASE_SDK,
+    ...seiten.flatMap((seite) => SPIEL_DATEIEN[seite] || []),
+  ];
+}
+
 // Jede Datei einzeln: Ein Aussetzer am Mobilnetz darf nicht die ganze
-// Installation umwerfen – sonst entstünde gar kein Cache.
+// Installation umwerfen – sonst entstünde gar kein Cache. Was fehlt, holt
+// die nächste Seite nach (VORBEREITEN).
+async function fuelle(cache, liste) {
+  const offen = [...liste];
+  const arbeiter = Array.from({ length: GLEICHZEITIG }, async () => {
+    while (offen.length) {
+      const datei = offen.shift();
+      try {
+        if (await cache.match(datei)) continue;
+        if (FIREBASE_SDK.includes(datei)) await addOpaque(cache, datei);
+        else await cache.add(datei);
+      } catch { /* später noch einmal */ }
+    }
+  });
+  await Promise.all(arbeiter);
+}
+
 async function precache() {
   const cache = await caches.open(CACHE_NAME);
-  await Promise.allSettled([
-    ...CORE_ASSETS.map((asset) => cache.add(asset)),
-    ...FIREBASE_SDK.map((url) => addOpaque(cache, url)),
-  ]);
+  await fuelle(cache, reihenfolge());
+}
+
+// Wie viel von dem, was die Seiten brauchen, schon da ist.
+async function stand(seiten) {
+  const cache = await caches.open(CACHE_NAME);
+  const liste = noetig(seiten);
+  let da = 0;
+  for (const datei of liste) if (await cache.match(datei)) da += 1;
+  return { da, gesamt: liste.length };
+}
+
+// Die Turnierseite fragt (turnier.js, offlineBereit): «Ist alles da, was es
+// für diese Spiele braucht?» – und lässt holen, was fehlt.
+let fuellt = null;
+async function vorbereiten(seiten) {
+  const cache = await caches.open(CACHE_NAME);
+  if (!fuellt) fuellt = fuelle(cache, reihenfolge(seiten)).finally(() => { fuellt = null; });
+  await fuellt;
+  return stand(seiten);
 }
 
 self.addEventListener("install", (event) => {
@@ -219,6 +426,14 @@ async function documentFirstFromCache(event) {
 
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+  const antwort = event.ports && event.ports[0];
+  const seiten = Array.isArray(event.data?.seiten) ? event.data.seiten.map(String) : [];
+  if (event.data?.type === "STAND" && antwort) {
+    event.waitUntil(stand(seiten).then((s) => antwort.postMessage(s), () => antwort.postMessage(null)));
+  }
+  if (event.data?.type === "VORBEREITEN" && antwort) {
+    event.waitUntil(vorbereiten(seiten).then((s) => antwort.postMessage(s), () => antwort.postMessage(null)));
+  }
 });
 
 self.addEventListener("fetch", (event) => {

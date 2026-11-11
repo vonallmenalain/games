@@ -276,10 +276,14 @@ pruefe("cloud.js trägt eine Runde in einer Transaktion ein",
 pruefe("cloud.js benennt alle Spiele dieses Geräts um",
   /where\("spieler", "==", spielerId\)/.test(lies("cloud.js")));
 // Namen ändern nimmt alles mit: Umbenannt wird auf dem Server, unter der
-// Kennung und unter dem alten Namen, dazu in den Turnieren des Geräts – erst
-// danach gilt der neue Name auf dem Gerät.
-pruefe("Namen ändern benennt alles unter dem alten Namen um, auch in den Turnieren",
-  /async function namenAendern[\s\S]*?await cloud\(\)\.benenneUm\(\{[\s\S]*?alt,[\s\S]*?turnierIds[\s\S]*?setzeName\(neu\)/.test(miniJs)
+// Kennung und unter dem alten Namen, dazu in den Turnieren des Geräts. Der
+// neue Name gilt auf dem Gerät sofort; das Umbenennen wartet als Auftrag,
+// bis das Netz es zulässt – und bis dahin holt der Abgleich den alten Namen
+// nicht zurück.
+pruefe("Namen ändern gilt sofort und benennt danach alles um, auch in den Turnieren",
+  /async function namenAendern[\s\S]*?merkeUmbenennen\(auftrag\)[\s\S]*?setzeName\(neu\)/.test(miniJs)
+  && /function sendeUmbenennen[\s\S]*?cloud\(\)\.benenneUm\(\{[\s\S]*?alt:[\s\S]*?turnierIds/.test(miniJs)
+  && /function uebernimmName[\s\S]*?umbenennenWartet\(\)\.some/.test(miniJs)
   && /function umzubenennen[\s\S]*?where\("name", "==", vorher\)/.test(lies("cloud.js")));
 // Jemand anderes auf demselben Gerät ist ein neuer Mitspieler.
 pruefe("Jemand anderes auf dem Gerät ist ein neuer Mitspieler (eigene Kennung)",
@@ -308,7 +312,20 @@ pruefe("Ein Gerät spielt unter der Kennung seines Namens – nur nicht mitten i
 pruefe("Eine Runde ohne Netz wartet auf dem Gerät (melde, ohneNetzMerken)",
   /async function melde[\s\S]*?ohneNetzMerken\(/.test(miniJs) && /function istNetzfehler/.test(miniJs));
 pruefe("Wartende Runden gehen hinaus, sobald das Netz zurück ist",
-  /window\.addEventListener\("online", hinaus\)/.test(miniJs) && /function sendeWartende[\s\S]*?offline: true/.test(miniJs));
+  /window\.addEventListener\("online", hinaus\)/.test(miniJs) && /function sendeWartende[\s\S]*?offline: !runde\.sofort/.test(miniJs));
+// Im Turnier wartet das Spiel auf keine Datenbank: Der Versuch steht zuerst
+// im Postausgang auf dem Gerät (turnier.js), und Turnier- und Spielseite
+// zeichnen sofort aus dem, was das Gerät gemerkt hat.
+pruefe("Ein Versuch im Turnier steht zuerst im Postausgang (turnier.js, rundeBeginnt)",
+  /function rundeBeginnt[\s\S]*?postBeginne\(/.test(lies("turnier.js")) && /async function postRunde[\s\S]*?turnierVersuch[\s\S]*?turnierErgebnis/.test(lies("turnier.js")));
+pruefe("Turnier- und Spielseite zeichnen aus dem Gedächtnis (gemerkterStand)",
+  /function turnierSeite[\s\S]*?gemerkterStand\(id\)/.test(lies("turnier.js")) && /function ladeSpielseite[\s\S]*?gemerkterStand\(hier\.id\)/.test(lies("turnier.js")));
+pruefe("Die Turnierseite hört dem Turnier zu, statt es bei jeder Runde neu zu lesen (cloud.js, turnierHoeren)",
+  /function turnierHoeren[\s\S]*?onSnapshot/.test(lies("cloud.js")) && /wolke\.turnierHoeren\(id/.test(lies("turnier.js")));
+pruefe("Live-Proben gehen nur hinaus, wenn jemand zuschaut (geist.js, mitschauenWecken)",
+  /function mitschauenWecken/.test(lies("geist.js")) && /if \(!mitschauen\.wach\)/.test(lies("geist.js")));
+pruefe("Der Service Worker holt höchstens ein paar Dateien auf einmal",
+  /const GLEICHZEITIG = \d+;/.test(lies("service-worker.js")) && !/Promise\.allSettled\(\[\s*\.\.\.CORE_ASSETS/.test(lies("service-worker.js")));
 pruefe("Die Listen ohne Netz zeigen, was das Gerät zuletzt gesehen hat",
   /async function alleErgebnisse[\s\S]*?gemerkteListen\([\s\S]*?mitWartenden\(/.test(miniJs)
   && /metadata\?\.fromCache/.test(lies("cloud.js")));
@@ -394,8 +411,10 @@ pruefe("cloud.js meldet einen Versuch in einer Transaktion an",
 pruefe("Wer vorne liegt, wartet – das gibt es nur ohne feste Zahl von Versuchen (firestore.rules, istTurnier)",
   regeln.includes('d.get("spitzeWartet", false) is bool')
   && regeln.includes('!(d.get("spitzeWartet", false) == true && d.versuche != 0)'));
-pruefe("Vor jeder Runde fragt die Spielseite noch einmal, ob vorne liegt, wer beginnt (turnier.js, rundeBeginnt)",
-  /const anmelden = async \(\) => \{\s*if \(t\.spitzeWartet && await liegtVorne\(\)\)/.test(lies("turnier.js")));
+pruefe("Ob vorne liegt, wer spielen will, rechnet die Spielseite mit den eigenen wartenden Runden (turnier.js, rechne)",
+  /function rechne\(\)[\s\S]*?mitPost\(hier\.id, hier\.liste\)[\s\S]*?alleinVorne\(rangliste\(alle, spiel\)\)/.test(lies("turnier.js")));
+pruefe("Ohne Live (ohneLive) ist ein Ja oder Nein im Turnier",
+  regeln.includes('d.get("ohneLive", false) is bool') && /"ohneLive"/.test(regeln.match(/hasOnly\(\["name", "beschreibung"[\s\S]*?\]\)/)?.[0] || ""));
 // Ohne Zeitlimite: ein Ende, das nie kommt. turnier.js legt es fest, admin.js
 // fällt im Notfall auf dasselbe zurück – und es muss als ganze Zahl in der
 // Datenbank ankommen, sonst wiesen die Regeln es ab (d.endeMs is int).

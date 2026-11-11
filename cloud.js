@@ -101,6 +101,10 @@
  *     ohneReplay true             die besten Läufe lassen sich nicht
  *                                 anschauen (der ▶ in den Listen). Fehlt,
  *                                 wo sie sich anschauen lassen.
+ *     ohneLive   true             kein Live: niemand sieht, wer gerade
+ *                                 spielt, und niemand schaut zu
+ *                                 (turnier.js, liveErlaubt). Fehlt, wo es
+ *                                 Live gibt.
  *     nurLive    true             gespielt wird nur im Multiplayer
  *                                 (live.js), keine Versuche dazwischen.
  *                                 Fehlt bei allen anderen.
@@ -1192,6 +1196,7 @@
       verdeckt: d.verdeckt === true,
       ohneGeist: d.ohneGeist === true,
       ohneReplay: d.ohneReplay === true,
+      ohneLive: d.ohneLive === true,
       nurLive: d.nurLive === true,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
@@ -1284,6 +1289,8 @@
     if (daten.ohneGeist === true) doc.ohneGeist = true;
     // Ebenso die Replays.
     if (daten.ohneReplay === true) doc.ohneReplay = true;
+    // Und Live (wer gerade spielt, Zuschauen).
+    if (daten.ohneLive === true) doc.ohneLive = true;
     // Und nur, wer nur live spielen lässt.
     if (daten.nurLive === true) doc.nurLive = true;
     await ref.doc(kennung).set(doc);
@@ -1418,6 +1425,47 @@
     return stand.exists ? liesTurnierEintrag(stand) : null;
   }
 
+  /*
+   * Das Turnier und seine Liste als Strom (onSnapshot): Die Turnierseite
+   * bekommt den ganzen Stand einmal und danach nur, was sich ändert – ein
+   * neues Ergebnis ist ein Dokument, nicht die ganze Liste. Bricht die
+   * Verbindung ab, verbindet Firestore sich selbst neu und holt nach, was
+   * dazwischen geschah.
+   *
+   * Ohne Netz meldet Firestore einen Stand aus seinem Speicher – und der ist
+   * hier leer, solange der Server noch nie geantwortet hat. Ein solcher
+   * Stand zählt nicht: Die Seite zeigt dann, was sie selbst gemerkt hat
+   * (turnier.js, gemerkterStand). Erst nach der ersten Antwort vom Server
+   * gilt auch der Speicher.
+   *
+   *   beiTurnier(t)        das Turnier – null heisst: gibt es nicht (mehr)
+   *   beiEintraegen(liste) alle Einträge
+   *   beiFehler(fehler)    der Strom ist abgewiesen worden (Regeln)
+   *
+   * Gibt das Abmelden zurück.
+   */
+  function turnierHoeren(id, { beiTurnier = () => {}, beiEintraegen = () => {}, beiFehler = () => {} } = {}) {
+    const ref = turnierSammlung();
+    const eintraege = turnierEintraege(id);
+    const kennung = String(id || "").trim();
+    if (!ref || !eintraege || !kennung) throw new Error("Firestore ist nicht bereit.");
+    let turnierDa = false;
+    let listeDa = false;
+    const aus = [
+      ref.doc(kennung).onSnapshot((stand) => {
+        if (stand.metadata?.fromCache && !turnierDa) return;
+        turnierDa = true;
+        beiTurnier(stand.exists ? liesTurnier(stand) : null);
+      }, beiFehler),
+      eintraege.onSnapshot((stand) => {
+        if (stand.metadata?.fromCache && !listeDa) return;
+        listeDa = true;
+        beiEintraegen(sammle(stand, liesTurnierEintrag));
+      }, beiFehler),
+    ];
+    return () => aus.forEach((weg) => { try { weg(); } catch { /* schon weg */ } });
+  }
+
   function turnierFehler(text, code) {
     const fehler = new Error(text);
     fehler.code = code;
@@ -1436,7 +1484,13 @@
    * gleichzeitig beginnen, zählten sonst beide von derselben Zahl aus hoch,
    * und einer der beiden Versuche ginge verloren.
    */
-  async function turnierVersuch(id, { game, spieler, name, grenze = 0 }) {
+  //
+  // zeitMs: wann die Runde begann – für eine Runde, die auf dem Gerät
+  // gewartet hat (turnier.js, Postausgang) und erst jetzt hinausgeht. Sie
+  // steht dann zu ihrer Zeit da, und die Regeln nehmen sie auch kurz nach
+  // dem Ende noch an, wenn sie vorher gespielt wurde (firestore.rules,
+  // darfBeginnen). Nie in der Zukunft.
+  async function turnierVersuch(id, { game, spieler, name, grenze = 0, zeitMs = 0 }) {
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
@@ -1451,7 +1505,7 @@
       const alt = vorher.exists ? liesTurnierEintrag(vorher) : null;
       const versuche = (alt?.versuche || 0) + 1;
       if (grenze > 0 && versuche > grenze) throw turnierFehler("Alle Versuche sind gespielt.", "turnier/keine-versuche");
-      const jetzt = Date.now();
+      const jetzt = zeitMs > 0 ? Math.min(Date.now(), Math.round(Number(zeitMs))) : Date.now();
       if (!alt) {
         lauf.set(doc, {
           game: spielId,
@@ -1480,7 +1534,7 @@
    * Ohne offenen Versuch gibt es nichts einzutragen – dann wurde er nie
    * angemeldet, oder sein Ergebnis steht schon da.
    */
-  async function turnierErgebnis(id, { game, spieler, name, punkte, zaehlt = "bester" }) {
+  async function turnierErgebnis(id, { game, spieler, name, punkte, zaehlt = "bester", zeitMs = 0 }) {
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     const wie = sauber(name);
@@ -1497,7 +1551,10 @@
       if (!alt?.offen) throw turnierFehler("Zu dieser Runde gibt es keinen angemeldeten Versuch.", "turnier/kein-versuch");
       const summe = zaehlt === "summe";
       const neu = summe ? Math.min(TURNIER_PUNKTE_MAX, alt.punkte + zahl) : Math.max(alt.punkte, zahl);
-      lauf.set(doc, { name: wie, punkte: neu, offen: false, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() }, { merge: true });
+      // Die Uhr der Runde, wenn sie gewartet hat – nie früher als die
+      // Anmeldung, nie in der Zukunft.
+      const jetzt = zeitMs > 0 ? Math.max(alt.updatedAtMs, Math.min(Date.now(), Math.round(Number(zeitMs)))) : Date.now();
+      lauf.set(doc, { name: wie, punkte: neu, offen: false, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() }, { merge: true });
       return {
         punkte: neu,
         runde: zahl,
@@ -1596,7 +1653,7 @@
     runden, ersteRunde, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
-    turnierErgebnisse, meinTurnierEintrag, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
+    turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
