@@ -7885,10 +7885,12 @@ try {
     await kontext.close();
   }
   {
-    // Leo spielt sich nach vorne. Ein sofortiges «Noch einmal» wartet, bis
-    // feststeht, dass er jetzt vorne liegt – und führt dann zurück zum
-    // Turnier statt in eine Runde, die nicht zählen dürfte. Den Weg dorthin
-    // fängt die Prüfung ab (weg), sonst verliesse sie die Seite.
+    // Leo spielt sich nach vorne. Das Gerät rechnet es gleich selbst aus
+    // (turnier.js, rechne – mit der Runde im Postausgang): Ein sofortiges
+    // «Noch einmal» führt sofort zurück zum Turnier statt in eine Runde, die
+    // nicht zählen dürfte – auch bei langsamer Verbindung, ohne auf den
+    // Server zu warten. Den Weg dorthin fängt die Prüfung ab (weg), sonst
+    // verliesse sie die Seite.
     const { kontext, seite } = await mitTurnieren(`/turmbau?turnier=${KOENIG}`, { vorher: () => { localStorage.setItem("mini.id", "mini_leoleoleoleo"); localStorage.setItem("mini.name", "Leo"); window.__miniLangsam = 400; } });
     await turnierLos(seite, "Leo");
     const befund = await seite.evaluate(async (id) => {
@@ -7898,7 +7900,7 @@ try {
       const block = tn.ergebnis({ punkte: 50 });
       let neu = false;
       tn.neuStart({ los: () => { neu = true; } });
-      const sofort = { neu, tor: Boolean(document.querySelector(".tn-tor")) };
+      const sofort = { neu, tor: Boolean(document.querySelector(".tn-tor")), weg: window.__weg || "", vorne: tn.stand().vorne };
       await new Promise((weiter) => setTimeout(weiter, 2500));
       return {
         sofort,
@@ -7911,7 +7913,8 @@ try {
     }, KOENIG);
     pruefe(befund.eintrag?.punkte === 50 && befund.eintrag?.versuche === 2 && befund.eintrag?.offen === false,
       `Leos Runde kam nicht an: ${JSON.stringify(befund.eintrag)}`);
-    pruefe(!befund.sofort.neu, "«Noch einmal» wartet nicht, bis feststeht, ob die Runde nach vorne geführt hat.");
+    pruefe(befund.sofort.vorne && befund.sofort.weg === `/turnier?t=${KOENIG}`,
+      `«Noch einmal» weiss nicht gleich, dass die Runde nach vorne geführt hat: ${JSON.stringify(befund.sofort)}`);
     pruefe(befund.vorne, "Nach der Runde, die nach vorne führte, weiss die Seite nicht, dass Leo vorne liegt.");
     pruefe(befund.rekord === "Neuer Rekord!", `Wer sich auf Platz 1 spielt, liest nicht «Neuer Rekord!»: ${befund.rekord || "nichts"}`);
     pruefe(befund.neu && befund.weg === `/turnier?t=${KOENIG}`, `Wer nach vorne gespielt hat, kommt beim Neustart nicht zurück zum Turnier: ${befund.weg || "nirgends hin"}`);
