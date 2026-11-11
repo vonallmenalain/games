@@ -6125,6 +6125,35 @@ body.ar {
 .ar-offline::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ar-gold); }
 .ar-offline.ist-weg::before { background: var(--ar-koralle); }
 .ar-offline[hidden] { display: none; }
+/* Schmal: Was hochgeladen wird, sagt ein Pfeil – der Platz gehört dem Namen
+   daneben. «Offline» bleibt ausgeschrieben. */
+@media (max-width: 480px) {
+  .ar-offline:not(.ist-weg) { gap: 5px; padding: 0 10px; font-size: 0; }
+  .ar-offline:not(.ist-weg)::after { content: "↑"; font-size: 0.8rem; }
+}
+/* Auf der Turnierseite daneben: ob dieses Gerät die Spiele des Turniers ohne
+   Netz spielen kann (turnier.js, offlineBereit). */
+.tn-bereit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.tn-bereit::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ar-gold); }
+.tn-bereit.ist-bereit { background: rgba(90, 216, 147, 0.14); color: var(--ar-gruen); }
+.tn-bereit.ist-bereit::before { content: "✓"; width: auto; height: auto; border-radius: 0; background: none; }
+.tn-bereit[hidden] { display: none; }
+@media (max-width: 420px) {
+  .tn-bereit { padding: 0 9px; }
+}
 .ar-wer { display: flex; flex-direction: column; gap: 10px; }
 /* Darunter, auf der Startseite: die Turniere, in denen auf diesem Gerät
    gespielt wurde (turnier.js, meineTurniere). */
@@ -6703,84 +6732,55 @@ body.ar {
   50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(90, 216, 147, 0); }
 }
 .ar-titel-wirt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.ar-spielen {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--ar-gruen);
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-.ar-spielen[hidden] { display: none; }
-.ar-spielen-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Wer spielt, ist ein Weg zum Zuschauen (geist.js, mitschauer). */
-.ar-zuschauen,
 .tn-zuschauen { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: rgba(90, 216, 147, 0.55); }
-.ar-zuschauen:hover,
 .tn-zuschauen:hover { text-decoration-color: currentColor; }
-.ar-zuschau-knopf {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 11px 0 8px;
-  border-radius: 999px;
-  background: rgba(90, 216, 147, 0.16);
-  color: var(--ar-gruen);
-  font-size: 0.76rem;
-  font-weight: 850;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.ar-zuschau-knopf .gk-icon { width: 12px; height: 12px; }
-
-/* --- Live: wer gerade spielt, oben zwischen Kopf und Bild --------------------- */
-/* Nur wenn jemand spielt (mini-games.js, liveZeigen). Dann nimmt sich die
-   Leiste eine eigene Zeile im Raster, und die Bühne darunter wird um so viel
-   niedriger – das Bild (Seitenverhältnis fest) entsprechend kleiner. Spielt
-   niemand, ist die Leiste nicht da und die Seite wie immer. */
-.mini-seite.ar-seite.mit-live { grid-template-rows: auto auto minmax(0, 1fr) auto; }
-.ar-live {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 var(--ar-rand) 12px;
-}
-.ar-live[hidden] { display: none; }
-.ar-live-marke {
+/* --- Live: wer gerade spielt – ein Knopf oben, die Liste im Fenster --------------- */
+/* Oben im Kopf (mini-games.js, liveZeigen): «● 3 live». Er steht nur, solange
+   jemand spielt, und ändert dann nur seine Zahl. Bis Oktober 2026 stand hier
+   eine Leiste mit einer Karte je Spieler, die kam und ging. */
+.ar-live-knopf {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  height: 26px;
-  padding: 0 11px 0 9px;
+  height: var(--ar-rund);
+  padding: 0 14px 0 13px;
+  border: 1px solid rgba(90, 216, 147, 0.4);
   border-radius: 999px;
-  background: rgba(90, 216, 147, 0.16);
-  color: var(--ar-gruen);
-  font-size: 0.7rem;
+  background: rgba(90, 216, 147, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
-.ar-live-spur {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
+.ar-live-knopf[hidden] { display: none; }
+.ar-live-knopf:hover,
+.ar-live-knopf:focus-visible { background-color: rgba(90, 216, 147, 0.24); outline: none; }
+.ar-live-knopf:focus-visible { box-shadow: 0 0 0 3px rgba(90, 216, 147, 0.45); }
+.ar-live-knopf:active { transform: scale(0.97); }
+.ar-live-zahl { font-variant-numeric: tabular-nums; }
+.ar-live-wort { color: var(--ar-gruen); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+/* Auf der Turnierseite steht er neben der Gesamtwertung, so hoch wie sie –
+   schmal nur mit Punkt und Zahl, damit die Namen daneben Platz haben. */
+.tn-oben > .ar-live-knopf { height: 48px; padding: 0 16px 0 15px; }
+@media (max-width: 520px) {
+  .tn-oben > .ar-live-knopf { padding: 0 14px 0 13px; }
+  .tn-oben > .ar-live-knopf .ar-live-wort { display: none; }
 }
-.ar-live-spur::-webkit-scrollbar { display: none; }
+@media (max-width: 360px) {
+  .ar-live-knopf { padding: 0 11px 0 10px; gap: 6px; }
+  .ar-live-wort { display: none; }
+}
+
+/* Die Liste im Fenster: je Spieler eine Karte. */
+.ar-live-liste { display: flex; flex-direction: column; gap: 8px; }
+.ar-live-liste .mini-hinweis[hidden] { display: none; }
 .ar-live-karte {
-  flex: 0 0 auto;
-  max-width: min(440px, 84vw);
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -6788,9 +6788,14 @@ body.ar {
   border: 1px solid rgba(90, 216, 147, 0.34);
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(90, 216, 147, 0.17), rgba(90, 216, 147, 0.05));
-  scroll-snap-align: start;
   animation: ar-live-rein 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+/* Zwischen zwei Runden: dieselbe Karte, leiser. */
+.ar-live-karte.ist-pause { border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); }
+.ar-live-karte.ist-pause .ar-live-kreis { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+.ar-live-karte.ist-pause .ar-live-kreis::after { display: none; }
+.ar-live-pause { overflow: hidden; text-overflow: ellipsis; }
+.ar-live-pause[hidden] { display: none; }
 @keyframes ar-live-rein {
   from { opacity: 0; transform: translateY(-6px) scale(0.97); }
   to { opacity: 1; transform: none; }
@@ -6880,71 +6885,13 @@ body.ar {
 .ar-live-zuschauen:hover,
 .ar-live-zuschauen:focus-visible { transform: scale(1.04); box-shadow: 0 0 0 3px rgba(90, 216, 147, 0.35); outline: none; }
 .ar-live-zuschauen:active { transform: scale(0.97); }
-.ar-spielen-wert { color: #fff; font-variant-numeric: tabular-nums; }
-/* Schmal: ohne «Live» davor (der Punkt am Kreis sagt es), eine Karte allein
-   über die ganze Breite; spielen mehrere, schaut die nächste am Rand
-   herein – wischen. */
 @media (max-width: 600px) {
-  .ar-live { gap: 8px; padding-bottom: 10px; }
-  .ar-live-marke { display: none; }
-  .ar-live-karte { gap: 8px; max-width: calc(100vw - 2 * var(--ar-rand) - 56px); }
-  .ar-live-karte:only-child { flex: 1 1 auto; max-width: 100%; }
+  .ar-live-karte { gap: 8px; }
   .ar-live-kreis { width: 30px; height: 30px; font-size: 0.68rem; }
   .ar-live-zeile { font-size: 0.82rem; }
   .ar-live-zuschauen { height: 34px; padding: 0 11px 0 9px; font-size: 0.78rem; }
 }
-@media (max-height: 520px) {
-  .ar-live { padding-bottom: 6px; }
-  .ar-live-karte { padding: 3px 3px 3px 4px; }
-  .ar-live-kreis { width: 28px; height: 28px; font-size: 0.66rem; }
-  .ar-live-zuschauen { height: 30px; }
-}
-/* Quer, neben dem Bild: die Zeile unter dem Namen darf umbrechen statt den
-   Namen abzuschneiden. */
-@media (orientation: landscape) {
-  .ar-spielen { flex-wrap: wrap; }
-  .ar-spielen-text { white-space: normal; }
-}
-.ar-zuschau-knopf:hover,
-.ar-zuschau-knopf:focus-visible { background: rgba(90, 216, 147, 0.28); outline: none; }
 .tn-zuschau-namen { min-width: 0; }
-.ar-kachel-live {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  max-width: calc(100% - 12px);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px 3px 6px;
-  border-radius: 999px;
-  background: rgba(10, 9, 14, 0.72);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  box-shadow: inset 0 0 0 1px rgba(90, 216, 147, 0.55);
-  color: #fff;
-  font-size: 0.68rem;
-  font-weight: 850;
-  line-height: 1.1;
-}
-.ar-kachel-live[hidden] { display: none; }
-.ar-kachel-live > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ar-kachel-live .ar-live-punkt { width: 7px; height: 7px; }
-/* In der Gesamtwertung oben: ein grüner Punkt an der Medaille – er braucht
-   keinen Platz, den die Namen bräuchten. */
-.tn-podest .tn-medaille { position: relative; }
-.tn-podest .ist-am-spielen .tn-medaille::after {
-  content: "";
-  position: absolute;
-  top: -3px;
-  right: -4px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--ar-gruen);
-  box-shadow: 0 0 0 2px #1d1a14;
-  animation: ar-live-atmen 1.6s ease-in-out infinite;
-}
 /* Oben auf der Turnierseite: wer gerade spielt – gebaut wie «Multiplayer
    läuft» daneben, oben klein, was ist, darunter die Namen. */
 .tn-spielen {
@@ -7307,7 +7254,6 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
   .ar-live-karte,
   .ar-live-kreis::after,
   .tn-avatar.ist-am-spielen::after,
-  .tn-podest .ist-am-spielen .tn-medaille::after,
   .tn-detail,
   .ar-gesamt.ist-neu .tn-sockel,
   .ar-gesamt.ist-neu .tn-sockel::after,

@@ -224,7 +224,11 @@
   // Darf man in diesem Turnier zuschauen – live (mitschauen) wie beim
   // Replay? Nicht ohne Replays und nicht, solange die Rangliste verdeckt ist:
   // Zuschauen hiesse sonst, die Punkte doch zu sehen.
-  const mitschauenErlaubt = (t) => Boolean(t) && !t.ohneReplay && !(t.verdeckt && lage(t) !== "beendet");
+  const mitschauenErlaubt = (t) => liveErlaubt(t) && !t.ohneReplay && !(t.verdeckt && lage(t) !== "beendet");
+  // Ob es in diesem Turnier überhaupt Live gibt – wer gerade spielt, mit
+  // Punkten, und das Zuschauen. Im Adminbereich abschaltbar (ohneLive): Dann
+  // geht während einer Runde gar nichts hinaus ausser dem Ergebnis.
+  function liveErlaubt(t) { return Boolean(t) && !t.ohneLive; }
   // Der Weg in den Beobachtungsmodus (geist.js, mitschauer): das Spiel, das
   // er gerade spielt – oder, spielt er nicht, das erste des Turniers. Von
   // dort folgt die Seite ihm von selbst.
@@ -556,6 +560,411 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Das Turnier auf dem Gerät
+  // ---------------------------------------------------------------------------
+  /*
+   * Was das Gerät zuletzt vom Turnier gesehen hat – das Turnier selbst, seine
+   * Einträge und seine Multiplayer –, steht in localStorage. Die Turnierseite
+   * und die Spielseite zeichnen sofort daraus und fragen den Server im
+   * Hintergrund; was er sagt, ersetzt den gemerkten Stand.
+   *
+   * Bis Oktober 2026 wartete jede Seite zuerst auf den Server. Mit sechs
+   * Geräten in einem Keller mit schwachem WLAN hiess das: «Das Turnier wird
+   * geladen…» und dann «gerade nicht zu haben» – und niemand konnte spielen.
+   * Seither braucht nur der allererste Besuch das Netz.
+   *
+   *   eintraegeDa   ob die ganze Liste da ist – die Spielseite kennt oft nur
+   *                 die Liste ihres eigenen Spiels
+   */
+  const STAND_KEY = "mini.turnier.stand";
+  const STAND_MAX = 6;
+
+  function alleStaende() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(STAND_KEY) || "{}");
+      return roh && typeof roh === "object" && !Array.isArray(roh) ? roh : {};
+    } catch { return {}; }
+  }
+
+  function schreibeStaende(alle) {
+    try { localStorage.setItem(STAND_KEY, JSON.stringify(alle)); } catch { /* voll oder privat – dann eben ohne */ }
+  }
+
+  function gemerkterStand(id) {
+    const s = alleStaende()[id];
+    if (!s?.t || s.t.id !== id || !Array.isArray(s.t.spiele)) return null;
+    return {
+      t: s.t,
+      eintraege: Array.isArray(s.eintraege) ? s.eintraege : [],
+      abende: Array.isArray(s.abende) ? s.abende : [],
+      eintraegeDa: Boolean(s.eintraegeDa),
+      ms: Number(s.ms) || 0,
+    };
+  }
+
+  // teil: { t, eintraege, abende } – was davon da ist. eintraege ist die
+  // ganze Liste; nur die eines Spiels setzt merkeSpielListe.
+  function merkeStand(id, teil) {
+    if (!id || !teil) return;
+    const alle = alleStaende();
+    const neu = { ...(alle[id] || {}), ...teil, ms: Date.now() };
+    if (teil.eintraege) neu.eintraegeDa = true;
+    if (!neu.t) return;
+    alle[id] = neu;
+    Object.keys(alle)
+      .sort((a, b) => (Number(alle[b]?.ms) || 0) - (Number(alle[a]?.ms) || 0))
+      .slice(STAND_MAX)
+      .forEach((weg) => { delete alle[weg]; });
+    schreibeStaende(alle);
+  }
+
+  function vergissStand(id) {
+    const alle = alleStaende();
+    if (!alle[id]) return;
+    delete alle[id];
+    schreibeStaende(alle);
+  }
+
+  // Die Liste eines Spiels, frisch vom Server: Sie ersetzt die Einträge
+  // dieses Spiels im gemerkten Stand, die anderen bleiben.
+  function merkeSpielListe(id, spiel, liste) {
+    const alle = alleStaende();
+    const alt = alle[id];
+    if (!alt?.t) return;
+    const andere = (Array.isArray(alt.eintraege) ? alt.eintraege : []).filter((e) => e.game !== spiel);
+    alle[id] = { ...alt, eintraege: [...andere, ...liste], ms: Date.now() };
+    schreibeStaende(alle);
+  }
+
+  // Ein einzelner Eintrag, wie ihn der Server nach einer eigenen Runde
+  // zurückgibt.
+  function merkeEintrag(id, eintrag) {
+    const alle = alleStaende();
+    const alt = alle[id];
+    if (!alt?.t) return;
+    const liste = (Array.isArray(alt.eintraege) ? alt.eintraege : [])
+      .filter((e) => !(e.game === eintrag.game && e.spieler === eintrag.spieler));
+    alle[id] = { ...alt, eintraege: [...liste, eintrag], ms: Date.now() };
+    schreibeStaende(alle);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Postausgang
+  // ---------------------------------------------------------------------------
+  /*
+   * Was eine Runde ins Turnier schreibt, steht zuerst hier, auf dem Gerät –
+   * und geht von hier hinaus, sobald das Netz es zulässt. Je Runde ein
+   * Auftrag:
+   *
+   *   beginnMs     wann sie begann – ab da ist der Versuch gebraucht
+   *   angemeldet   der Server hat den Versuch gezählt (cloud.js,
+   *                turnierVersuch)
+   *   punkte       das Ergebnis, sobald die Runde fertig ist (null: läuft
+   *                noch, oder wurde abgebrochen)
+   *   ohneErgebnis die Runde wurde abgebrochen (Neu anfangen, Seite zu): Der
+   *                Versuch zählt, ein Ergebnis kommt nicht
+   *   geist        der Lauf, für die, die gegen ihn spielen
+   *   seite        welche Seite die Runde spielt
+   *
+   * Der Versuch steht hier, bevor die Runde beginnt. Neu laden hilft also
+   * auch ohne Netz nicht gegen einen verbrauchten Versuch: Der Auftrag
+   * bleibt, und die nächste Seite schickt ihn.
+   *
+   * Hinaus geht es der Reihe nach, je Eintrag (Spiel und Spieler) streng in
+   * der Reihenfolge der Runden: Beginn, Ergebnis, nächster Beginn. Was der
+   * Server abweist – das Turnier ist vorbei, alle Versuche sind gespielt –,
+   * fällt weg; was am Netz scheitert, wartet. Gesendet wird, sobald eine
+   * Runde beginnt oder endet, beim Laden jeder Seite, wenn das Netz
+   * zurückkommt und wenn die Seite wieder vorne ist.
+   *
+   * Bis Oktober 2026 zählte eine Runde ohne Netz nicht fürs Turnier.
+   */
+  const POST_KEY = "mini.turnier.post";
+  const POST_MAX = 300;
+  // Länger dauert keine Runde: Ein Auftrag ohne Ergebnis, der älter ist, ist
+  // verlassen worden.
+  const RUNDE_MAX_MS = 35 * MINUTE;
+  const SEITE_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  // Ohne localStorage (privates Fenster) lebt der Postausgang so lange wie
+  // die Seite.
+  let postNotfall = null;
+
+  function postLesen() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(POST_KEY) || "[]");
+      return Array.isArray(roh) ? roh.filter((a) => a && a.id && a.turnier && a.game && a.spieler) : [];
+    } catch { return postNotfall ? [...postNotfall] : []; }
+  }
+
+  function postSchreiben(liste) {
+    const rest = liste.slice(-POST_MAX);
+    try {
+      if (rest.length) localStorage.setItem(POST_KEY, JSON.stringify(rest));
+      else localStorage.removeItem(POST_KEY);
+    } catch { postNotfall = rest; }
+    try { window.dispatchEvent(new CustomEvent("mini-wartet", { detail: { turnier: rest.length } })); } catch { /* alt */ }
+  }
+
+  function postAendern(id, aendern) {
+    const liste = postLesen();
+    const i = liste.findIndex((a) => a.id === id);
+    if (i < 0) return null;
+    const neu = aendern({ ...liste[i] });
+    if (neu) liste[i] = neu;
+    else liste.splice(i, 1);
+    postSchreiben(liste);
+    return neu;
+  }
+
+  // Wie viele Runden noch hinaus müssen – für das Zeichen oben rechts
+  // (mini-games.js, offlineZeichen).
+  const wartend = () => postLesen().length;
+
+  // Heisst das Gerät inzwischen anders (mini-games.js, namenAendern), gilt
+  // der neue Name – sonst schriebe eine wartende Runde den alten zurück.
+  function nameFuer(auftrag) {
+    const kennung = mini()?.kennungFallsDa?.() || "";
+    return (auftrag.spieler === kennung && mini()?.name?.()) || auftrag.name;
+  }
+
+  function postBeginne({ turnier, game, spieler, name, grenze = 0, zaehlt = "bester" }) {
+    const auftrag = {
+      id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+      turnier, game, spieler, name, grenze: Number(grenze) || 0, zaehlt,
+      beginnMs: Date.now(), angemeldet: false, punkte: null, seite: SEITE_ID,
+    };
+    postSchreiben([...postLesen(), auftrag]);
+    return auftrag;
+  }
+
+  // Das Ergebnis einer Runde. Ist ihr Auftrag schon weg – ein zweites
+  // Fenster hat den Beginn geschickt und ihn für verlassen gehalten –, kommt
+  // das Ergebnis allein: Der Versuch auf dem Server ist dann noch offen.
+  function postErgebnis(id, { punkte, geist = null }, vorlage) {
+    const zahl = Math.max(0, Math.round(Number(punkte) || 0));
+    const da = postAendern(id, (a) => ({ ...a, punkte: zahl, endeMs: Date.now(), geist, ohneErgebnis: false }));
+    if (da) return da;
+    const allein = { ...vorlage, id: `${id}e`, angemeldet: true, punkte: zahl, endeMs: Date.now(), geist, seite: SEITE_ID };
+    postSchreiben([...postLesen(), allein]);
+    return allein;
+  }
+
+  const postAbbrechen = (id) => postAendern(id, (a) => (a.punkte === null ? { ...a, ohneErgebnis: true } : a));
+
+  // Wer auf einen Auftrag wartet (die Tafel nach der Runde): id → Rückrufe.
+  const postWarter = new Map();
+  function postWarteAuf(id) {
+    return new Promise((ja, nein) => {
+      const liste = postWarter.get(id) || [];
+      liste.push({ ja, nein });
+      postWarter.set(id, liste);
+    });
+  }
+  function postMelde(auftrag, { stand = null, fehler = null } = {}) {
+    (postWarter.get(auftrag.id) || []).forEach(({ ja, nein }) => (fehler ? nein(fehler) : ja(stand)));
+    postWarter.delete(auftrag.id);
+    try { window.dispatchEvent(new CustomEvent("mini-turnier-post", { detail: { turnier: auftrag.turnier, game: auftrag.game, fehler: fehler?.code || "" } })); } catch { /* alt */ }
+  }
+
+  // Was am Netz scheitert, wartet. Was der Server abweist, käme nie an.
+  function amNetz(fehler) {
+    const code = String(fehler?.code || "");
+    if (code.startsWith("turnier/") || code === "permission-denied" || code === "invalid-argument" || code === "not-found") return false;
+    if (["aborted", "resource-exhausted", "internal", "unknown"].includes(code)) return true;
+    return mini()?.istNetzfehler ? mini().istNetzfehler(fehler) : true;
+  }
+
+  // Den Eintrag im Gedächtnis nachführen, wie ihn der Server jetzt hat.
+  function eintragNachfuehren(auftrag, werte) {
+    const alt = gemerkterStand(auftrag.turnier)?.eintraege
+      .find((e) => e.game === auftrag.game && e.spieler === auftrag.spieler) || null;
+    merkeEintrag(auftrag.turnier, {
+      erstesMs: auftrag.beginnMs,
+      spielMs: 0,
+      ...(alt || {}),
+      id: `${auftrag.game}_${auftrag.spieler}`,
+      game: auftrag.game,
+      spieler: auftrag.spieler,
+      name: nameFuer(auftrag),
+      ...werte,
+    });
+  }
+
+  let postLaeuft = null;
+  let postNochmal = false;
+  function postSenden() {
+    if (!cloud()?.turnierVersuch || !postLesen().length) return Promise.resolve();
+    if (postLaeuft) { postNochmal = true; return postLaeuft; }
+    // Zwei Fenster desselben Geräts sollen denselben Versuch nicht zweimal
+    // anmelden: Gesendet wird unter einer Sperre, die alle Fenster teilen.
+    const mitSperre = (arbeit) => (navigator.locks?.request ? navigator.locks.request("mini-turnier-post", arbeit) : arbeit());
+    postLaeuft = (async () => {
+      do {
+        postNochmal = false;
+        await mitSperre(postRunde);
+      } while (postNochmal);
+    })().catch((fehler) => console.warn("Der Postausgang des Turniers", fehler))
+      .finally(() => { postLaeuft = null; });
+    return postLaeuft;
+  }
+
+  async function postRunde() {
+    const wolke = cloud();
+    const gesperrt = new Set();
+    for (const { id } of postLesen()) {
+      if (mini()?.imNetz && !mini().imNetz()) return;
+      let auftrag = postLesen().find((a) => a.id === id);
+      if (!auftrag) continue;
+      const schluessel = `${auftrag.turnier}/${auftrag.game}_${auftrag.spieler}`;
+      if (gesperrt.has(schluessel)) continue;
+
+      if (!auftrag.angemeldet) {
+        try {
+          const stand = await wolke.turnierVersuch(auftrag.turnier, {
+            game: auftrag.game, spieler: auftrag.spieler, name: nameFuer(auftrag), grenze: auftrag.grenze, zeitMs: auftrag.beginnMs,
+          });
+          eintragNachfuehren(auftrag, { versuche: stand.versuche, punkte: stand.punkte, offen: true, updatedAtMs: auftrag.beginnMs });
+          auftrag = postAendern(id, (a) => ({ ...a, angemeldet: true }));
+        } catch (fehler) {
+          if (amNetz(fehler)) return;
+          console.warn("Ein Versuch im Turnier wurde abgewiesen", fehler);
+          postAendern(id, () => null);
+          postMelde(auftrag, { fehler });
+          gesperrt.add(schluessel);
+          continue;
+        }
+        if (!auftrag) continue;
+      }
+
+      if (auftrag.punkte === null || auftrag.punkte === undefined) {
+        // Die Runde läuft noch – hier oder in einem anderen Fenster. Oder sie
+        // ist verlassen: abgebrochen, zu alt, oder danach begann schon eine
+        // neue. Dann zählt der Versuch, und ein Ergebnis kommt nie.
+        const spaeter = postLesen().some((a) => a.id !== id && a.turnier === auftrag.turnier
+          && a.game === auftrag.game && a.spieler === auftrag.spieler && a.beginnMs > auftrag.beginnMs);
+        const verlassen = auftrag.ohneErgebnis || spaeter
+          || (auftrag.seite !== SEITE_ID && Date.now() - auftrag.beginnMs > RUNDE_MAX_MS);
+        if (verlassen) {
+          postAendern(id, () => null);
+          postMelde(auftrag, { stand: null });
+        } else {
+          gesperrt.add(schluessel);
+        }
+        continue;
+      }
+
+      try {
+        const stand = await wolke.turnierErgebnis(auftrag.turnier, {
+          game: auftrag.game, spieler: auftrag.spieler, name: nameFuer(auftrag), punkte: auftrag.punkte, zaehlt: auftrag.zaehlt, zeitMs: auftrag.endeMs,
+        });
+        eintragNachfuehren(auftrag, { punkte: stand.punkte, versuche: stand.versuche, offen: false, updatedAtMs: auftrag.endeMs || Date.now() });
+        postAendern(id, () => null);
+        postMelde(auftrag, { stand });
+        // Der Lauf, für die, die gegen ihn spielen – er darf scheitern, ohne
+        // die Runde mitzunehmen.
+        if (auftrag.geist?.bahn && wolke.speichereTurnierGeist) {
+          Promise.resolve(wolke.speichereTurnierGeist(auftrag.turnier, {
+            game: auftrag.game, spieler: auftrag.spieler, name: nameFuer(auftrag), punkte: auftrag.punkte, level: auftrag.geist.level, bahn: auftrag.geist.bahn,
+          })).catch((fehler) => console.warn("Der Lauf kam nicht ins Turnier", fehler));
+        }
+      } catch (fehler) {
+        if (amNetz(fehler)) return;
+        console.warn("Ein Ergebnis im Turnier wurde abgewiesen", fehler);
+        postAendern(id, () => null);
+        postMelde(auftrag, { fehler });
+        gesperrt.add(schluessel);
+      }
+    }
+  }
+
+  // Die Einträge eines Turniers, wie sie sein werden, wenn alles hinaus ist:
+  // dazu die Versuche und Ergebnisse, die noch im Postausgang warten.
+  function mitPost(id, eintraege) {
+    const auftraege = postLesen().filter((a) => a.turnier === id);
+    if (!auftraege.length) return eintraege;
+    const liste = (eintraege || []).map((e) => ({ ...e }));
+    const nach = new Map(liste.map((e) => [`${e.game}_${e.spieler}`, e]));
+    auftraege.forEach((a) => {
+      const schluessel = `${a.game}_${a.spieler}`;
+      let e = nach.get(schluessel);
+      if (!e) {
+        e = { id: schluessel, game: a.game, spieler: a.spieler, name: nameFuer(a), punkte: 0, versuche: 0, offen: false, erstesMs: a.beginnMs, spielMs: 0, updatedAtMs: a.beginnMs };
+        liste.push(e);
+        nach.set(schluessel, e);
+      }
+      e.name = nameFuer(a);
+      if (!a.angemeldet) e.versuche = (Number(e.versuche) || 0) + 1;
+      if (Number.isFinite(a.punkte) && a.punkte !== null) {
+        const vorher = Number(e.punkte) || 0;
+        e.punkte = a.zaehlt === "summe" ? vorher + a.punkte : Math.max(vorher, a.punkte);
+        if (e.punkte !== vorher) e.updatedAtMs = Math.max(Number(e.updatedAtMs) || 0, Number(a.endeMs) || 0);
+      }
+    });
+    return liste;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Offline bereit?
+  // ---------------------------------------------------------------------------
+  /*
+   * Oben rechts auf der Turnierseite, klein: ob dieses Gerät alles hat, um
+   * die Spiele des Turniers ohne Netz zu spielen – die Seiten und Skripte im
+   * Service Worker (service-worker.js, STAND und VORBEREITEN). Fehlt etwas,
+   * steht «Offline wird vorbereitet», und der Service Worker holt es, vier
+   * Dateien auf einmal. Ist alles da, steht kurz «Offline bereit» – einmal
+   * je Sitzung, oder wenn es eben fertig wurde. Wer den Link vor dem Abend
+   * einmal mit gutem Netz öffnet, sieht so, dass er bereit ist.
+   *
+   * Ohne Service Worker (privates Fenster, alter Browser) steht nichts da.
+   */
+  const BEREIT_KEY = "mini.turnier.bereit";
+  function offlineBereit(platz, t) {
+    if (!platz || !t || !("serviceWorker" in navigator) || !window.MessageChannel) return;
+    const seiten = t.spiele.map((spiel) => mini()?.SPIELE?.find((s) => s.id === spiel)?.seite).filter(Boolean);
+    const chip = el("span", "tn-bereit");
+    chip.hidden = true;
+    chip.setAttribute("role", "status");
+    const neben = platz.querySelector(".ar-offline");
+    if (neben) neben.after(chip);
+    else platz.prepend(chip);
+    const frage = (art) => navigator.serviceWorker.ready.then((anmeldung) => new Promise((ja) => {
+      const ziel = anmeldung.active;
+      if (!ziel) { ja(null); return; }
+      const kanal = new MessageChannel();
+      const uhr = window.setTimeout(() => ja(null), 5 * MINUTE);
+      kanal.port1.onmessage = (e) => { window.clearTimeout(uhr); ja(e.data || null); };
+      ziel.postMessage({ type: art, seiten }, [kanal.port2]);
+    }));
+    const fertig = (s) => Boolean(s && s.gesamt > 0 && s.da >= s.gesamt);
+    let gezeigt = false;
+    try { gezeigt = sessionStorage.getItem(BEREIT_KEY) === t.id; } catch { gezeigt = false; }
+    const bereit = (kurz) => {
+      chip.className = "tn-bereit ist-bereit";
+      chip.textContent = "Offline bereit";
+      chip.title = "Die Spiele dieses Turniers laufen auf diesem Gerät auch ohne Netz.";
+      chip.hidden = false;
+      try { sessionStorage.setItem(BEREIT_KEY, t.id); } catch { /* egal */ }
+      if (kurz) window.setTimeout(() => { chip.hidden = true; }, 5000);
+    };
+    const vorbereiten = (s) => {
+      chip.className = "tn-bereit";
+      chip.textContent = s?.gesamt ? `Offline ${Math.floor((100 * s.da) / s.gesamt)} %` : "Offline wird vorbereitet";
+      chip.title = "Die Spiele dieses Turniers werden auf dieses Gerät geladen, damit sie auch ohne Netz laufen.";
+      chip.hidden = false;
+      frage("VORBEREITEN").then((danach) => {
+        if (fertig(danach)) { bereit(true); return; }
+        // Das Netz hat nicht gereicht: später noch einmal.
+        window.setTimeout(() => vorbereiten(danach), 30000);
+      });
+    };
+    frage("STAND").then((s) => {
+      if (!s) return;
+      if (fertig(s)) { if (!gezeigt) bereit(true); return; }
+      vorbereiten(s);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Turnierseite
   // ---------------------------------------------------------------------------
   /*
@@ -626,64 +1035,189 @@
       return;
     }
 
-    async function laden() {
-      if (!stand.t) hinweis("Das Turnier wird geladen...");
-      try {
-        const [t, eintraege, abende] = await Promise.all([
-          cloud().turnier(id),
-          cloud().turnierErgebnisse(id),
-          // Die Multiplayer dürfen fehlen – das Turnier steht auch ohne sie.
-          Promise.resolve(cloud().turnierLive?.(id)).catch(() => []),
-        ]);
-        stand.t = t || null;
-        stand.eintraege = Array.isArray(eintraege) ? eintraege : [];
-        stand.abende = Array.isArray(abende) ? abende : [];
-        stand.geladenMs = Date.now();
-      } catch (fehler) {
-        console.warn("Das Turnier war nicht zu lesen", fehler);
-        if (!stand.t) hinweis("Das Turnier ist gerade nicht zu haben. Probier es später noch einmal.");
-        return;
-      }
-      if (!stand.t) {
-        vergiss(id);
-        vergissDabei(id);
-        ueberschrift.textContent = "Kein Turnier";
-        hinweis("Dieses Turnier gibt es nicht (mehr). Vielleicht wurde es gelöscht – frag, wer dir den Link geschickt hat.");
-        return;
-      }
+    /*
+     * Laden heisst hier: sofort zeichnen, was das Gerät gemerkt hat
+     * (gemerkterStand), und dann dem Server zuhören (cloud.js,
+     * turnierHoeren) – er schickt den ganzen Stand einmal und danach nur,
+     * was sich ändert: ein neues Ergebnis, ein angehaltenes Turnier. Ohne
+     * Netz bleibt der gemerkte Stand stehen, und Firestore holt nach, sobald
+     * es wieder geht.
+     *
+     * Hat das Gerät das Turnier noch nie gesehen, steht «wird geladen» da,
+     * bis der Server antwortet – Firestore versucht es von selbst weiter.
+     */
+    const gemerkt = gemerkterStand(id);
+    if (gemerkt) {
+      stand.t = gemerkt.t;
+      stand.eintraege = gemerkt.eintraege;
+      stand.abende = gemerkt.abende;
+    }
+
+    // Was der Server sagt, ist angekommen: merken und zeichnen – mehrere
+    // Antworten kurz hintereinander nur einmal.
+    let zeichnetBald = false;
+    function zeichneBald() {
+      if (zeichnetBald) return;
+      zeichnetBald = true;
+      window.requestAnimationFrame(() => {
+        zeichnetBald = false;
+        if (stand.t) zeichne();
+      });
+    }
+    let erstesMal = true;
+    let bereitGefragt = false;
+    function angekommen() {
+      if (!stand.t) return;
+      stand.geladenMs = Date.now();
       merke(id);
       alsApp(stand.t);
-      zeichne();
-      schauLive();
-      schauSpielen();
+      zeichneBald();
+      bereitFragen();
+      if (erstesMal) {
+        erstesMal = false;
+        schauLive();
+        schauSpielen();
+      }
     }
+    function bereitFragen() {
+      if (bereitGefragt || !stand.t) return;
+      bereitGefragt = true;
+      offlineBereit(rechts, stand.t);
+    }
+
+    function verschwunden() {
+      stand.t = null;
+      vergiss(id);
+      vergissDabei(id);
+      vergissStand(id);
+      hoerenAus?.();
+      hoerenAus = null;
+      buehneEnde?.abort();
+      wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
+      buehne = null;
+      buehneFuer = "";
+      oben.innerHTML = "";
+      ueberschrift.textContent = "Kein Turnier";
+      status.textContent = "";
+      hinweis("Dieses Turnier gibt es nicht (mehr). Vielleicht wurde es gelöscht – frag, wer dir den Link geschickt hat.");
+    }
+
+    // Noch nie gesehen und noch keine Antwort: Nach ein paar Sekunden sagt
+    // die Seite, dass es dauert – und versucht es weiter.
+    function warteHinweis() {
+      if (stand.t) return;
+      hinweis("Das Turnier wird geladen...");
+      window.setTimeout(() => {
+        if (!stand.t && hinweisZeile.isConnected) hinweis("Das Turnier wird geladen … die Verbindung ist langsam, es geht gleich weiter. Wer es einmal geöffnet hat, kann danach auch ohne Netz spielen.");
+      }, 6000);
+    }
+
+    let hoerenAus = null;
+    function verbinden() {
+      const wolke = cloud();
+      postSenden();
+      abendeLaden();
+      if (!wolke?.turnierHoeren) { laden(); return; }
+      try {
+        hoerenAus = wolke.turnierHoeren(id, {
+          beiTurnier: (t) => {
+            if (!t) { verschwunden(); return; }
+            stand.t = t;
+            merkeStand(id, { t });
+            angekommen();
+          },
+          beiEintraegen: (liste) => {
+            stand.eintraege = liste;
+            if (stand.t) merkeStand(id, { eintraege: liste });
+            angekommen();
+          },
+          // Abgewiesen (Regeln): dann eben fragen statt zuhören.
+          beiFehler: (fehler) => {
+            console.warn("Dem Turnier liess sich nicht zuhören", fehler);
+            hoerenAus?.();
+            hoerenAus = null;
+            laden();
+          },
+        });
+      } catch (fehler) {
+        console.warn("Dem Turnier liess sich nicht zuhören", fehler);
+        laden();
+      }
+    }
+
+    // Ohne Strom: fragen – und ohne Antwort mit wachsendem Abstand noch
+    // einmal (3, 6, 12, … höchstens 30 Sekunden).
+    let ladenAbstand = 3000;
+    let ladenUhr = null;
+    async function laden() {
+      window.clearTimeout(ladenUhr);
+      try {
+        const [t, eintraege] = await Promise.all([
+          cloud().turnier(id),
+          cloud().turnierErgebnisse(id),
+        ]);
+        ladenAbstand = 3000;
+        if (!t) { verschwunden(); return; }
+        stand.t = t;
+        stand.eintraege = Array.isArray(eintraege) ? eintraege : [];
+        merkeStand(id, { t, eintraege: stand.eintraege });
+        angekommen();
+      } catch (fehler) {
+        console.warn("Das Turnier war nicht zu lesen", fehler);
+        if (!stand.t) {
+          ladenUhr = window.setTimeout(laden, ladenAbstand);
+          ladenAbstand = Math.min(30000, ladenAbstand * 2);
+        }
+      }
+    }
+
+    // Die Multiplayer des Turniers: beim Laden, alle fünf Minuten und wenn
+    // einer zu Ende geht (schauLive). Sie dürfen fehlen – das Turnier steht
+    // auch ohne sie.
+    async function abendeLaden() {
+      try {
+        const abende = await cloud()?.turnierLive?.(id);
+        if (!Array.isArray(abende)) return;
+        if (JSON.stringify(abende) === JSON.stringify(stand.abende)) return;
+        stand.abende = abende;
+        if (stand.t) {
+          merkeStand(id, { abende });
+          zeichneBald();
+        }
+      } catch { /* dann ohne */ }
+    }
+    window.setInterval(() => { if (document.visibilityState === "visible") abendeLaden(); }, 5 * MINUTE);
 
     /*
      * Wer gerade spielt: die Zettel dieses Turniers (cloud.js, amSpielen;
      * geist.js legt sie hin), als Strom – wer eine Runde beginnt, steht eine
      * Sekunde später da, mit seinen Punkten, solange die Rangliste nicht
-     * verdeckt ist. Wird einer fertig, liest die Seite auch die Liste neu:
-     * So steht sein Ergebnis da, ohne dass jemand neu lädt.
+     * verdeckt ist. Die Ergebnisse kommen über den Strom des Turniers
+     * (verbinden); nur ohne ihn liest die Seite die Liste neu, wenn jemand
+     * fertig wird – höchstens alle 15 Sekunden.
      */
     const zettelLesen = m.zettelLeser?.() || null;
     let zettel = null;
     let hoertZu = false;
     let nachlesen = null;
+    let gelesenMs = 0;
     function spielenNeu() {
       if (!stand.t || !zettelLesen) return;
       const verdeckt = stand.t.verdeckt && lage(stand.t) !== "beendet";
       const { spielen, fertig } = zettelLesen(zettel);
-      const neu = spielen.map((s) => ({ name: s.name, game: s.spiel, spieler: s.kennung, punkte: verdeckt ? null : s.punkte }));
+      const neu = spielen
+        .map((s) => ({ name: s.name, game: s.spiel, spieler: s.kennung, pause: Boolean(s.pause), punkte: verdeckt ? null : s.punkte }));
       const anders = JSON.stringify(neu) !== JSON.stringify(stand.spielen);
       stand.spielen = neu;
-      if (fertig) {
+      if (fertig && !hoerenAus) {
         window.clearTimeout(nachlesen);
-        nachlesen = window.setTimeout(laden, 2500);
+        const warten = Math.max(2500, 15000 - (Date.now() - gelesenMs));
+        nachlesen = window.setTimeout(() => { gelesenMs = Date.now(); laden(); }, warten);
       }
       if (anders) zeichneSpielen();
     }
     function schauSpielen() {
-      if (hoertZu || !cloud()?.amSpielenHoeren) return;
+      if (hoertZu || !cloud()?.amSpielenHoeren || !liveErlaubt(stand.t)) return;
       hoertZu = true;
       cloud().amSpielenHoeren((neu) => { zettel = neu; spielenNeu(); }, id);
       window.setInterval(spielenNeu, 5000);
@@ -697,7 +1231,9 @@
       let zeiger = null;
       try { zeiger = await cloud().liveZeiger?.(id); } catch { zeiger = null; }
       const vorher = JSON.stringify(stand.zeiger);
+      const warDa = Boolean(stand.zeiger);
       stand.zeiger = zeiger || null;
+      if (warDa && !stand.zeiger) abendeLaden();
       if (stand.t && JSON.stringify(stand.zeiger) !== vorher) zeichne();
       if (stand.t && stand.zeiger && document.visibilityState === "visible") liveFenster(stand.zeiger);
     }
@@ -718,7 +1254,7 @@
       const t = stand.t;
       const liste = wertung?.listen.get(spiel) || [];
       const kennung = m.kennungFallsDa?.() || "";
-      const meiner = kennung ? stand.eintraege.find((e) => e.game === spiel && e.spieler === kennung) : null;
+      const meiner = kennung ? mitPost(t.id, stand.eintraege).find((e) => e.game === spiel && e.spieler === kennung) : null;
       const uebrig = t.versuche ? Math.max(0, t.versuche - (meiner?.versuche || 0)) : Infinity;
       const vorne = Boolean(t.spitzeWartet) && alleinVorne(liste);
       const l = lage(t);
@@ -737,7 +1273,9 @@
       stand.lage = lage(t, jetzt);
       const vorbei = stand.lage === "beendet";
       const verdeckt = t.verdeckt && !vorbei;
-      wertung = gesamtwertung(t, stand.eintraege, stand.abende);
+      // Mit dem, was noch im Postausgang wartet: Wer eben ohne Netz gespielt
+      // hat, sieht seine Runde schon.
+      wertung = gesamtwertung(t, mitPost(t.id, stand.eintraege), stand.abende);
       if (wertung.personen.some((p) => p.eigen)) merkeDabei(t.id);
 
       document.title = `${t.name} · Turnier · arcade`;
@@ -770,43 +1308,54 @@
           weg: wegFuer,
           aus: t.id,
           ansehbar: !t.ohneReplay,
+          liveWirt: oben,
+          liveVorne: false,
           ...m.arcadeStart(spiele),
         });
       }
       buehne.daten({ listen: wertung.listen, verdeckt });
       buehne.neu();
       buehne.spielen(jeSpiel());
+      spielenWer = JSON.stringify(stand.spielen.map((s) => [s.name, s.game]));
     }
 
     // Oben zwischen Name und Knöpfen: ein Multiplayer, der gerade läuft, und
     // die Gesamtwertung. Wer gerade spielt, steht darunter in der Live-Leiste
     // der Bühne (mini-games.js, liveZeigen).
+    //
+    // Daneben, von der Bühne (mini-games.js, liveZeigen): der Knopf «live» –
+    // er bleibt stehen, wenn die Wertung sich neu zeichnet.
     function zeichneOben() {
       const t = stand.t;
       const verdeckt = t.verdeckt && lage(t) !== "beendet";
-      oben.innerHTML = "";
-      if (stand.zeiger) oben.append(liveHinweis(stand.zeiger));
-      oben.append(wertungsKnopf(t, wertung.personen, verdeckt));
+      const live = oben.querySelector(":scope > .ar-live-knopf");
+      [...oben.children].forEach((teil) => { if (teil !== live) teil.remove(); });
+      if (stand.zeiger) oben.insertBefore(liveHinweis(stand.zeiger), live);
+      oben.insertBefore(wertungsKnopf(t, wertung.personen, verdeckt), live);
     }
 
-    // Wer gerade spielt, je Spiel: für die Bühne (die Live-Leiste, unter dem
-    // Namen des Spiels und auf den Kacheln) – mit Punkten und dem Weg zum
-    // Zuschauen, wo das geht.
+    // Wer gerade spielt, je Spiel: für die Bühne (der Knopf «live» oben und
+    // die Rangliste) – mit Punkten und dem Weg zum Zuschauen, wo das geht.
     function jeSpiel() {
       const karte = new Map();
       const darf = mitschauenErlaubt(stand.t);
-      stand.spielen.forEach(({ name, game, spieler, punkte }) => karte.set(game, [...(karte.get(game) || []), {
-        name, punkte, link: darf && spieler ? mitschauLink(stand.t, spieler, name, game) : "",
+      stand.spielen.forEach(({ name, game, spieler, punkte, pause }) => karte.set(game, [...(karte.get(game) || []), {
+        name, punkte, pause, link: darf && spieler ? mitschauLink(stand.t, spieler, name, game) : "",
       }]));
       return karte;
     }
 
-    // Nur wer spielt, hat sich geändert: Kopf, Bühne und ein offenes Fenster
-    // bekommen es mit, sonst bleibt alles stehen.
+    // Nur wer spielt, hat sich geändert: Die Bühne bekommt es mit (sie zeigt
+    // es oben im Knopf), ein offenes Fenster nur, wenn sich ändert, WER
+    // spielt – nicht bei jedem Punkt. Der Kopf mit dem Podest bleibt stehen:
+    // Er ändert sich nur, wenn sich die Wertung ändert (zeichne).
+    let spielenWer = "";
     function zeichneSpielen() {
       if (!stand.t || !wertung) return;
-      zeichneOben();
       buehne?.spielen(jeSpiel());
+      const wer = JSON.stringify(stand.spielen.map((s) => [s.name, s.game]));
+      if (wer === spielenWer) return;
+      spielenWer = wer;
       gesamtZeichnen?.();
     }
 
@@ -922,14 +1471,12 @@
         satz = "Noch hat niemand gespielt";
         knopfWertung.append(el("span", "tn-wertung-text", satz));
       } else {
+        // Ohne grünen Punkt für wer gerade spielt: Der käme und ginge mit
+        // jeder Runde. Wer spielt, steht im Knopf «live».
         const podest = el("ol", "tn-podest");
-        const spielend = new Set(stand.spielen.map((s) => namensSchluessel(s.name)));
         vorne.forEach((p) => {
-          // Wer davon gerade spielt: ein grüner Punkt an seiner Medaille.
-          const spielt = spielend.has(namensSchluessel(p.name));
-          const zeile = el("li", `ist-platz-${p.platz}${p.eigen ? " ist-ich" : ""}${spielt ? " ist-am-spielen" : ""}`);
+          const zeile = el("li", `ist-platz-${p.platz}${p.eigen ? " ist-ich" : ""}`);
           zeile.append(el("span", "tn-medaille", String(p.platz)), el("span", "tn-podest-name", p.name));
-          if (spielt) zeile.title = `${p.name} spielt gerade`;
           podest.append(zeile);
         });
         knopfWertung.append(podest);
@@ -956,13 +1503,38 @@
       if (lage(stand.t, jetzt) !== stand.lage) { zeichne(); return; }
       zeigeStatus(jetzt);
     }, 15000);
+    // Zurück auf die Seite: Ohne Strom wird neu gefragt; aus dem
+    // Zwischenspeicher des Browsers zurück (bfcache) wird neu zugehört – die
+    // alte Verbindung ist dann womöglich weg.
     const auffrischen = () => {
-      if (document.visibilityState === "visible" && Date.now() - stand.geladenMs > 20000) laden();
+      if (document.visibilityState !== "visible") return;
+      postSenden();
+      if (!hoerenAus && Date.now() - stand.geladenMs > 20000) laden();
     };
     document.addEventListener("visibilitychange", auffrischen);
-    window.addEventListener("pageshow", (ereignis) => { if (ereignis.persisted) laden(); });
+    window.addEventListener("pageshow", (ereignis) => {
+      if (!ereignis.persisted) return;
+      hoerenAus?.();
+      hoerenAus = null;
+      verbinden();
+    });
+    // Eine eigene Runde ist draussen (oder abgewiesen): neu zeichnen.
+    window.addEventListener("mini-turnier-post", (ereignis) => { if (ereignis.detail?.turnier === id) zeichneBald(); });
 
-    laden();
+    if (stand.t) {
+      merke(id);
+      alsApp(stand.t);
+      zeichne();
+      bereitFragen();
+      // Aus dem Gedächtnis: Wer spielt, kommt trotzdem gleich – nicht erst,
+      // wenn der Server geantwortet hat.
+      schauLive();
+      schauSpielen();
+      erstesMal = false;
+    } else {
+      warteHinweis();
+    }
+    verbinden();
   }
 
   // ---------------------------------------------------------------------------
@@ -1445,62 +2017,99 @@
     t: null,
     geladen: false,
     fehler: false,
+    liste: [],            // die Einträge dieses Spiels, zuletzt vom Server
     gespielt: 0,          // begonnene Versuche dieses Geräts in diesem Spiel
     punkte: 0,            // was davon im Turnier steht
     vorne: false,         // allein auf Platz 1 – zählt nur mit spitzeWartet
-    warten: null,         // ob die letzte Runde nach vorne führte, steht noch aus
     freigegeben: false,   // die Tafel wurde mit "Los geht's" verlassen
-    laeuft: false,        // eine angemeldete Runde läuft gerade
-    anmeldung: null,      // die Anmeldung dieser Runde (ein Promise)
-    kette: Promise.resolve(), // was diese Seite ins Turnier schreibt, der Reihe nach
+    laeuft: false,        // eine Runde läuft gerade
+    auftrag: null,        // ihr Auftrag im Postausgang (die id)
+    vorlage: null,        // was der Auftrag weiss – falls er schon weg ist
+    nochmal: null,        // der Knopf "Noch einmal" unter dem Ergebnis
     buehne: null,         // { host, los } von game-shell.js
     tor: null,            // die Tafel vor dem Spiel
   };
 
-  /*
-   * Was diese Seite ins Turnier schreibt, geht in der Reihenfolge hinaus, in
-   * der es geschah: Anmeldung, Ergebnis, nächste Anmeldung. Sonst überholt
-   * bei langsamer Verbindung die Anmeldung des nächsten Versuchs das Ergebnis
-   * des letzten – wer gleich nach der Runde "Noch einmal" drückt, meldet den
-   * neuen Versuch an, bevor das alte Ergebnis draussen ist. Das alte Ergebnis
-   * schlösse dann den neuen Versuch (offen → false), und dessen eigenes käme
-   * nie mehr an.
-   *
-   * Die Runde wartet darauf nicht; nur die Schreibvorgänge warten
-   * aufeinander. Ein Fehlschlag hält die Reihe nicht auf.
-   */
-  function nacheinander(schritt) {
-    const lauf = hier.kette.then(schritt);
-    hier.kette = lauf.catch(() => {});
-    return lauf;
-  }
-
-  function ladeSpielseite() {
-    hier.id = ausDerAdresse("turnier");
-    hier.geladen = false;
-    hier.fehler = false;
+  // Versuche, Punkte und ob dieses Gerät vorne liegt – aus der Liste des
+  // Spiels und dem, was im Postausgang noch wartet. Gerechnet wird auf dem
+  // Gerät, ohne zu fragen: Wer gerade eine Runde ohne Netz gespielt hat,
+  // hat sie gespielt.
+  function rechne() {
     const spiel = spielHier();
     const kennung = mini()?.kennungFallsDa?.() || "";
+    const alle = mitPost(hier.id, hier.liste).filter((e) => e.game === spiel);
+    const meiner = kennung ? alle.find((e) => e.spieler === kennung) : null;
+    hier.gespielt = Number(meiner?.versuche) || 0;
+    hier.punkte = Number(meiner?.punkte) || 0;
+    hier.vorne = Boolean(hier.t?.spitzeWartet) && alleinVorne(rangliste(alle, spiel));
+    if (hier.nochmal?.isConnected) hier.nochmal.hidden = !spielbar();
+    return alle;
+  }
+
+  /*
+   * Das Turnier auf der Spielseite: sofort aus dem Gedächtnis (gemerkterStand)
+   * – dann ist das Spiel gleich spielbar –, und im Hintergrund frisch vom
+   * Server: das Turnier und die Liste dieses Spiels. Hat das Gerät das
+   * Turnier noch nie gesehen, wartet die Tafel auf den Server und versucht
+   * es von selbst weiter (3, 6, 12, … Sekunden).
+   */
+  let frischNr = 0;
+  let frischAbstand = 3000;
+  let frischUhr = null;
+  function ladeSpielseite() {
+    hier.id = ausDerAdresse("turnier");
+    const spiel = spielHier();
+    const gemerkt = gemerkterStand(hier.id);
+    if (gemerkt) {
+      hier.t = gemerkt.t;
+      hier.liste = gemerkt.eintraege.filter((e) => e.game === spiel);
+      hier.geladen = true;
+      hier.fehler = false;
+      rechne();
+    } else {
+      hier.geladen = false;
+      hier.fehler = false;
+    }
+    frischLaden();
+  }
+
+  function frischLaden() {
+    window.clearTimeout(frischUhr);
+    const nr = ++frischNr;
+    const spiel = spielHier();
     const wolke = cloud();
     const fragen = wolke?.turnier
-      ? Promise.all([
-        wolke.turnier(hier.id),
-        kennung ? wolke.meinTurnierEintrag(hier.id, { game: spiel, spieler: kennung }) : null,
-      ])
+      ? Promise.all([wolke.turnier(hier.id), wolke.turnierErgebnisse(hier.id, { game: spiel })])
       : Promise.reject(new Error("Firestore ist nicht geladen."));
-    return fragen.then(async ([t, eintrag]) => {
+    fragen.then(([t, liste]) => {
+      if (nr !== frischNr) return;
+      frischAbstand = 3000;
       hier.t = t || null;
-      if (t) { merke(hier.id); alsApp(t); } else vergiss(hier.id);
-      hier.gespielt = Math.max(hier.gespielt, eintrag?.versuche || 0);
-      hier.punkte = eintrag?.punkte || 0;
-      // Ob dieses Gerät vorne liegt, sagt erst die ganze Liste des Spiels –
-      // gelesen wird sie nur, wo es darauf ankommt.
-      hier.vorne = t?.spitzeWartet ? alleinVorne(rangliste(await wolke.turnierErgebnisse(hier.id, { game: spiel }), spiel)) : false;
-    }).catch((fehler) => {
-      console.warn("Das Turnier war nicht zu lesen", fehler);
-      hier.fehler = true;
-    }).finally(() => {
+      if (t) {
+        merke(hier.id);
+        alsApp(t);
+        merkeStand(hier.id, { t });
+        hier.liste = (liste || []).filter((e) => e.game === spiel);
+        merkeSpielListe(hier.id, spiel, hier.liste);
+      } else {
+        vergiss(hier.id);
+        vergissStand(hier.id);
+      }
+      hier.fehler = false;
       hier.geladen = true;
+      rechne();
+    }).catch((fehler) => {
+      if (nr !== frischNr) return;
+      console.warn("Das Turnier war nicht zu lesen", fehler);
+      // Mit gemerktem Stand ist das kein Fehler: Es wird gespielt, und der
+      // Postausgang schickt nach, was anfällt.
+      if (hier.t) return;
+      hier.fehler = true;
+      hier.geladen = true;
+      frischUhr = window.setTimeout(frischLaden, frischAbstand);
+      frischAbstand = Math.min(30000, frischAbstand * 2);
+    }).finally(() => {
+      if (nr !== frischNr) return;
       if (hier.tor) zeigeTor();
     });
   }
@@ -1526,15 +2135,6 @@
     if (t.nurLive) return false;
     if (t.spitzeWartet && hier.vorne) return false;
     return !t.versuche || hier.gespielt < t.versuche;
-  }
-
-  // Liegt dieses Gerät gerade allein vorne? Frisch gelesen, nicht gemerkt:
-  // Gefragt wird vor einer Runde und nach ihrem Ergebnis, und dazwischen
-  // spielen die anderen.
-  async function liegtVorne() {
-    const spiel = spielHier();
-    hier.vorne = alleinVorne(rangliste(await cloud().turnierErgebnisse(hier.id, { game: spiel }), spiel));
-    return hier.vorne;
   }
 
   /*
@@ -1625,9 +2225,12 @@
       return;
     }
     if (hier.fehler) {
-      box.append(el("p", "tn-tafel-text", "Das Turnier ist gerade nicht zu haben – vielleicht fehlt die Verbindung."));
+      // Nur, wenn das Gerät das Turnier noch nie gesehen hat: Ohne zu wissen,
+      // wie es geht, lässt sich keine Runde dafür spielen. Die Seite
+      // versucht es weiter (frischLaden); der Knopf ist für die Ungeduldigen.
+      box.append(el("p", "tn-tafel-text", "Das Turnier wird geladen … die Verbindung ist langsam. Es geht weiter, sobald sie steht."));
       const zeile = el("div", "tn-tafel-knoepfe");
-      zeile.append(knopf("Noch einmal laden", "mini-knopf-voll", () => { ladeSpielseite(); zeigeTor(); }));
+      zeile.append(knopf("Jetzt noch einmal versuchen", "mini-knopf-voll", () => { frischAbstand = 3000; frischLaden(); }));
       box.append(zeile);
       return;
     }
@@ -1675,7 +2278,7 @@
 
     hier.freigegeben = true;
     hier.laeuft = false;
-    hier.anmeldung = null;
+    hier.auftrag = null;
     schliesseTor();
     stelleZufall();
     hier.buehne?.los?.();
@@ -1691,43 +2294,29 @@
   /*
    * Eine Runde beginnt (game-shell.js, setPhase("play")).
    *
-   * Hier – und nicht am Ende – wird der Versuch angemeldet. Die Runde wartet
-   * nicht darauf: Ein Kind, das "Starten" drückt, soll nicht zuerst einer
-   * Datenbank beim Nachdenken zusehen. Ob es geklappt hat, sagt das Ergebnis.
+   * Hier – und nicht am Ende – zählt der Versuch: Er kommt in den
+   * Postausgang, bevor gespielt wird, und geht von dort hinaus (postSenden).
+   * Die Runde wartet nicht darauf: Ein Kind, das "Starten" drückt, soll
+   * nicht zuerst einer Datenbank beim Nachdenken zusehen – und ohne Netz
+   * soll es trotzdem spielen.
    */
   function rundeBeginnt() {
     if (!aufSpielseite() || !hier.freigegeben || hier.laeuft || !spielbar()) return;
     const t = hier.t;
     hier.laeuft = true;
-    hier.gespielt += 1;
-    const wer = { game: spielHier(), spieler: mini().kennung(), name: mini().name(), grenze: t.versuche };
-    // Wer vorne liegt, wartet – auch wenn diese Seite es noch nicht wusste:
-    // ein zweiter Tab, in dem die Runde gespielt wurde, die nach vorne
-    // führte. Gefragt wird deshalb vor der Anmeldung noch einmal.
-    const anmelden = async () => {
-      if (t.spitzeWartet && await liegtVorne()) {
-        const vorne = new Error("Allein vorne – du wartest, bis dich jemand einholt.");
-        vorne.code = "turnier/vorne";
-        throw vorne;
-      }
-      return cloud().turnierVersuch(hier.id, wer);
-    };
-    const anmeldung = nacheinander(anmelden).then((stand) => {
-      hier.gespielt = Math.max(hier.gespielt, stand.versuche);
-      merkeDabei(hier.id);
-      return stand;
-    }, (fehler) => {
-      // Nicht angemeldet heisst nicht gezählt – ausser, das Gerät hatte schon
-      // alle, nur wusste diese Seite es nicht (ein zweiter Tab, ein zweites
-      // Gerät mit derselben Kennung).
-      hier.gespielt = fehler?.code === "turnier/keine-versuche" ? t.versuche : Math.max(0, hier.gespielt - 1);
-      throw fehler;
-    });
-    hier.anmeldung = anmeldung;
-    // Ob die Anmeldung geklappt hat, sagt erst das Ergebnis. Bis dahin soll
-    // ein Fehlschlag nicht als unbehandelter Fehler in der Konsole stehen.
-    hier.anmeldung.catch(() => {});
+    hier.vorlage = { turnier: hier.id, game: spielHier(), spieler: mini().kennung(), name: mini().name(), grenze: t.versuche, zaehlt: t.zaehlt, beginnMs: Date.now() };
+    hier.auftrag = postBeginne(hier.vorlage).id;
+    rechne();
+    merkeDabei(hier.id);
+    postSenden();
   }
+
+  // Wer die Seite mitten in der Runde verlässt, hat den Versuch gebraucht –
+  // ein Ergebnis kommt nicht mehr. Der Postausgang schickt den Beginn und
+  // vergisst den Rest.
+  window.addEventListener("pagehide", () => {
+    if (hier.laeuft && hier.auftrag) postAbbrechen(hier.auftrag);
+  });
 
   // Was eine Runde in diesem Turnier hinausschickt (geist.js, Live
   // mitschauen): nur auf einer Spielseite, die freigegeben ist, und dann
@@ -1735,7 +2324,7 @@
   // werden darf (schauen), die Punkte nicht, solange die Rangliste verdeckt
   // ist. Sonst null: Dann geht nichts hinaus, auch nicht in die App.
   function mitschauenZiel() {
-    if (!aufSpielseite() || !hier.freigegeben || !hier.t) return null;
+    if (!aufSpielseite() || !hier.freigegeben || !hier.t || !liveErlaubt(hier.t)) return null;
     return { id: hier.id, schauen: mitschauenErlaubt(hier.t), verdeckt: Boolean(hier.t.verdeckt) && lage(hier.t) !== "beendet" };
   }
 
@@ -1747,15 +2336,13 @@
    */
   function neuStart({ mitten = false, los }) {
     if (!hier.freigegeben) { los(); return; }
-    // Steht noch aus, ob die letzte Runde nach vorne geführt hat (ergebnis,
-    // spitzeWartet), wird das erst abgewartet: einen Augenblick – statt einer
-    // ganzen Runde, die am Ende nicht zählen darf.
-    if (hier.warten) { hier.warten.then(() => neuStart({ mitten, los })); return; }
     if (mitten && hier.laeuft && hier.t?.versuche) {
       if (!window.confirm("Neu anfangen? Der angefangene Versuch zählt trotzdem als gespielt.")) return;
     }
+    // Eine angefangene Runde ohne Ergebnis: Ihr Versuch zählt, sonst nichts.
+    if (hier.laeuft && hier.auftrag) postAbbrechen(hier.auftrag);
     hier.laeuft = false;
-    hier.anmeldung = null;
+    hier.auftrag = null;
     if (!spielbar()) {
       los();
       zeigeTor();
@@ -1768,22 +2355,21 @@
   /*
    * Der Knopf "Noch einmal" unter dem Ergebnis (game-shell.js). Er steht nur,
    * wenn es noch einmal geht – sonst bleibt der Pokal, der zum Turnier
-   * zurückführt. Ob jemand jetzt allein vorne liegt, sagt erst die frische
-   * Liste (hier.warten); bis dahin steht er nicht da, statt kurz zu
-   * erscheinen und wieder zu verschwinden.
+   * zurückführt. Ob es noch einmal geht, rechnet das Gerät selbst (rechne) –
+   * mit der eben gespielten Runde; sagt der Server später etwas anderes,
+   * richtet sich der Knopf danach.
    */
   function nochmalKnopf(knopf) {
     if (!aufSpielseite() || !hier.freigegeben || !knopf) return;
-    knopf.hidden = true;
-    const stelle = () => { knopf.hidden = !spielbar(); };
-    (hier.warten || Promise.resolve()).then(stelle, stelle);
+    hier.nochmal = knopf;
+    knopf.hidden = !spielbar();
   }
 
   function fehlerBeimAnmelden(fehler) {
     if (fehler?.code === "turnier/keine-versuche") return "Alle Versuche waren schon gespielt – vielleicht auf einem anderen Gerät. Diese Runde zählt nicht.";
-    if (fehler?.code === "turnier/vorne") return "Du lagst in diesem Spiel schon allein vorne – diese Runde zählt nicht.";
+    if (fehler?.code === "turnier/kein-versuch") return "Zu dieser Runde gibt es keinen angemeldeten Versuch – sie zählt nicht.";
     if (fehler?.code === "permission-denied") return "Das Turnier hat diese Runde nicht angenommen – es ist vorbei oder angehalten.";
-    return "Der Versuch liess sich nicht anmelden – ohne Verbindung zählt er nicht fürs Turnier.";
+    return "Diese Runde kam nicht ins Turnier.";
   }
 
   /*
@@ -1791,13 +2377,18 @@
    * Liste nur die Liste dieses Spiels im Turnier – kein Name des Turniers,
    * kein Satz, was eingetragen wurde, kein Platz in Worten: Die Liste sagt
    * das alles. Darüber «Neuer Rekord!», wenn diese Runde auf Platz 1 führt.
-   * Worte gibt es nur, wenn etwas schiefging: wenn die Runde nicht zählt
-   * oder nicht ankam.
+   * Worte gibt es nur, wenn etwas aussteht oder schiefging: wenn die Runde
+   * noch auf dem Gerät wartet, oder wenn das Turnier sie abgewiesen hat.
    *
-   * In die ewige Liste geht die Runde trotzdem (mini-games.js, melde) – eine
-   * Runde ist eine Runde, und ein Rekord im Turnier ist auch einer in der
-   * Hall of Fame.
+   * Die Liste steht sofort da – so, wie das Gerät sie kennt, mit dieser
+   * Runde darin (mitPost). Ist die Runde draussen, kommt die frische vom
+   * Server.
+   *
+   * In die ewige Liste geht die Runde trotzdem (mini-games.js, melde) – im
+   * Hintergrund: Eine Runde ist eine Runde, und ein Rekord im Turnier ist
+   * auch einer in der Hall of Fame.
    */
+  const AUSSTEHEND_HINWEIS_MS = 2500;
   function ergebnis({ punkte, geist = null }) {
     const spiel = spielHier();
     const t = hier.t;
@@ -1807,51 +2398,8 @@
     const listenWirt = el("div", "mini-listen-wirt");
     block.append(rekord, meldung, listenWirt);
 
-    mini()?.melde?.(spiel, punkte, geist)?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
-
-    // Und der Lauf selbst, für die, die im Turnier gegen ihn spielen
-    // (geist.js), und für die, die ihn anschauen (der ▶): als bester
-    // einzelner Lauf dieses Spielers. Erst nach dem Ergebnis – ein Lauf ohne
-    // Zeile im Turnier gehörte zu niemandem. Er darf scheitern, ohne die
-    // Runde mitzunehmen. Ein Turnier ohne Gegner und ohne Replays braucht ihn
-    // nicht.
-    const laufHinterlegen = () => {
-      if (!geist?.bahn || !t || (t.ohneGeist && t.ohneReplay)) return;
-      cloud()?.speichereTurnierGeist?.(hier.id, {
-        game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, level: geist.level, bahn: geist.bahn,
-      })?.catch?.((fehler) => console.warn("Der Lauf kam nicht ins Turnier", fehler));
-    };
-
-    // Die Liste dieses Spiels im Turnier, frisch nach dem Ergebnis. Mit
-    // spitzeWartet sagt sie auch, ob dieses Gerät jetzt vorne liegt – dafür
-    // wird sie selbst dann gelesen, wenn sie verdeckt bleibt.
-    const verdeckt = () => t.verdeckt && lage(t) !== "beendet";
-    const ladeListe = () => cloud().turnierErgebnisse(hier.id, { game: spiel }).then((alle) => {
-      const liste = rangliste(alle, spiel);
-      if (t.spitzeWartet) hier.vorne = alleinVorne(liste);
-      return liste;
-    });
-
-    // "Neuer Rekord!" heisst hier: Diese Runde hat dich auf Platz 1 gebracht –
-    // sie steht jetzt für dich in der Liste (beim Zusammenzählen: sie hat
-    // dazugezählt), und vor dir ist niemand.
-    function zeigeListe(geladen, stand) {
-      if (verdeckt()) {
-        listenWirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
-        return;
-      }
-      geladen.then((liste) => {
-        listenWirt.innerHTML = "";
-        listenWirt.append(mini().listeBauen(liste, spiel, { max: 5 }));
-        const eigen = liste.find((e) => e.eigen);
-        const zaehlt = t.zaehlt === "summe" || stand.punkte === punkte;
-        if (eigen?.platz === 1 && zaehlt && punkte > 0) rekord.textContent = "Neuer Rekord!";
-      }).catch(() => {
-        listenWirt.textContent = "Die Rangliste des Turniers ist gerade nicht zu haben.";
-      });
-    }
-
-    if (!t || !hier.laeuft || !hier.anmeldung) {
+    if (!t || !hier.laeuft || !hier.auftrag) {
+      mini()?.melde?.(spiel, punkte, geist, { hintergrund: true })?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
       meldung.textContent = t && lage(t) === "beendet"
         ? "Das Turnier ist vorbei – diese Runde zählt nicht mehr."
         : "Diese Runde zählt nicht fürs Turnier.";
@@ -1859,56 +2407,79 @@
     }
 
     hier.laeuft = false;
-    const anmeldung = hier.anmeldung;
-    hier.anmeldung = null;
-    const eintrag = { game: spiel, spieler: mini().kennung(), name: mini().name(), punkte, zaehlt: t.zaehlt };
-    const eintragen = () => cloud().turnierErgebnis(hier.id, eintrag);
+    const id = hier.auftrag;
+    hier.auftrag = null;
+    // Der Lauf, für die, die im Turnier gegen ihn spielen (geist.js), und für
+    // die, die ihn anschauen (der ▶). Ein Turnier ohne Gegner und ohne
+    // Replays braucht ihn nicht.
+    const lauf = geist?.bahn && !(t.ohneGeist && t.ohneReplay) ? { bahn: geist.bahn, level: geist.level } : null;
+    postErgebnis(id, { punkte, geist: lauf }, hier.vorlage);
+    rechne();
+    mini()?.melde?.(spiel, punkte, geist, { hintergrund: true })?.catch?.((fehler) => console.warn("Die Runde kam nicht in die ewige Liste", fehler));
 
-    function zeige(weg) {
-      meldung.textContent = "";
-      block.querySelector(".tn-nochmal")?.remove();
-      const fertig = weg.then((stand) => {
-        hier.punkte = stand.punkte;
-        laufHinterlegen();
-        const geladen = t.spitzeWartet || !verdeckt() ? ladeListe() : null;
-        zeigeListe(geladen, stand);
-        // Das Turnier noch einmal lesen, für den nächsten Neustart: Wurde es
-        // inzwischen angehalten oder beendet, soll die Tafel das sagen, statt
-        // eine Runde anzubieten, die nicht mehr zählt.
-        cloud().turnier(hier.id).then((frisch) => { if (frisch) hier.t = frisch; }, () => {});
-        return t.spitzeWartet ? geladen : null;
-      }, (fehler) => {
-        if (fehler?.code === "turnier/nicht-angemeldet") {
-          meldung.textContent = fehlerBeimAnmelden(fehler.ursache);
-        } else if (fehler?.code === "turnier/kein-versuch") {
-          meldung.textContent = "Zu dieser Runde gibt es keinen angemeldeten Versuch – sie zählt nicht.";
-        } else if (fehler?.code === "permission-denied") {
-          meldung.textContent = "Zu spät: Das Turnier nimmt keine Ergebnisse mehr an.";
-        } else {
-          // Angemeldet war der Versuch – sein Ergebnis darf also noch kommen.
-          meldung.textContent = "Das Eintragen hat nicht geklappt.";
-          const nochmal = knopf("Noch einmal eintragen", "mini-knopf-klein tn-nochmal", () => zeige(nacheinander(eintragen)));
-          meldung.after(nochmal);
-        }
-      });
-      // Wer vorne liegt, wartet: Bis die frische Liste sagt, ob das jetzt so
-      // ist, wartet auch ein schnelles "Noch einmal" (neuStart).
-      if (t.spitzeWartet) {
-        const warten = fertig.catch(() => {}).finally(() => { if (hier.warten === warten) hier.warten = null; });
-        hier.warten = warten;
+    // "Neuer Rekord!" heisst hier: Diese Runde hat dich auf Platz 1 gebracht –
+    // sie steht jetzt für dich in der Liste (beim Zusammenzählen: sie hat
+    // dazugezählt), und vor dir ist niemand.
+    const verdeckt = () => t.verdeckt && lage(t) !== "beendet";
+    function zeigeListe(alle) {
+      listenWirt.innerHTML = "";
+      if (verdeckt()) {
+        listenWirt.append(el("p", "tn-verdeckt", "Die Rangliste bleibt bis zum Schluss verdeckt."));
+        return;
       }
+      const liste = rangliste(alle, spiel);
+      listenWirt.append(mini().listeBauen(liste, spiel, { max: 5 }));
+      const eigen = liste.find((e) => e.eigen);
+      const zaehlt = t.zaehlt === "summe" || Number(eigen?.punkte) === Number(punkte);
+      rekord.textContent = eigen?.platz === 1 && zaehlt && punkte > 0 ? "Neuer Rekord!" : "";
     }
+    zeigeListe(rechne());
 
-    // Gleich jetzt in die Reihe, nicht erst, wenn die Anmeldung zurück ist:
-    // Drückt jemand sofort "Noch einmal", geht die Anmeldung des nächsten
-    // Versuchs so erst nach diesem Ergebnis hinaus (nacheinander).
-    zeige(nacheinander(() => anmeldung.then(eintragen, (fehler) => {
-      const nicht = new Error("Der Versuch wurde nicht angemeldet.");
-      nicht.code = "turnier/nicht-angemeldet";
-      nicht.ursache = fehler;
-      throw nicht;
-    })));
+    let draussen = false;
+    const hinweisUhr = window.setTimeout(() => {
+      if (draussen) return;
+      meldung.textContent = "Gespeichert – kommt ins Turnier, sobald die Verbindung steht.";
+    }, AUSSTEHEND_HINWEIS_MS);
+    postWarteAuf(id).then(() => {
+      draussen = true;
+      window.clearTimeout(hinweisUhr);
+      meldung.textContent = "";
+      // Frisch vom Server: die Liste dieses Spiels – wer inzwischen sonst
+      // gespielt hat – und das Turnier, falls es angehalten oder beendet
+      // wurde. Antwortet er nicht, bleibt, was dasteht.
+      const wolke = cloud();
+      const frist = mini()?.mitFrist || ((x) => x);
+      frist(wolke.turnierErgebnisse(hier.id, { game: spiel }), 8000).then((liste) => {
+        hier.liste = (liste || []).filter((e) => e.game === spiel);
+        merkeSpielListe(hier.id, spiel, hier.liste);
+        zeigeListe(rechne());
+      }, () => {});
+      frist(wolke.turnier(hier.id), 8000).then((frisch) => {
+        if (!frisch) return;
+        hier.t = frisch;
+        merkeStand(hier.id, { t: frisch });
+        rechne();
+      }, () => {});
+    }, (fehler) => {
+      draussen = true;
+      window.clearTimeout(hinweisUhr);
+      meldung.textContent = fehlerBeimAnmelden(fehler);
+      rekord.textContent = "";
+      zeigeListe(rechne());
+    });
+    postSenden();
     return block;
+  }
+
+  // Für geist.js: die Liste dieses Spiels im Turnier, für die Gegner – so,
+  // wie das Gerät sie kennt (frisch gelesen beim Laden und nach jeder Runde),
+  // ohne bei jeder Runde neu zu fragen. Nur wo die Seite noch nichts hat,
+  // fragt sie den Server.
+  function listeFuer(spiel) {
+    if (hier.geladen && !hier.fehler && hier.t && spiel === spielHier()) {
+      return Promise.resolve(mitPost(hier.id, hier.liste).filter((e) => e.game === spiel));
+    }
+    return Promise.resolve(cloud()?.turnierErgebnisse?.(hier.id, { game: spiel }) || []);
   }
 
   // Für geist.js: ob das Turnier gelesen ist, und welches. Erst dann steht
@@ -1935,8 +2506,10 @@
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere, turnierIds,
     OHNE_ENDE, ohneEnde,
     seitenLink, spielLink, volleAdresse,
-    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel,
-    oeffentlichLaufend, mitschauenErlaubt, mitschauLink,
+    aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel, listeFuer,
+    oeffentlichLaufend, mitschauenErlaubt, liveErlaubt, mitschauLink,
+    // Der Postausgang (mini-games.js, offlineZeichen; die Prüfung im Browser).
+    wartend, postSenden, postLesen,
     // Das Turnier, in dem diese App lebt – leer, wenn sie keines hat.
     heim: () => heim,
     hinweis,
@@ -1947,13 +2520,23 @@
       ? window.LernappVollbild.weiter(adresse, { ersetzen: true })
       : window.location.replace(adresse)),
     // Nur für die Prüfung im Browser: wie der Stand auf dieser Seite ist.
-    stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor) }),
+    stand: () => ({ ...hier, t: hier.t ? { ...hier.t } : null, buehne: Boolean(hier.buehne), tor: Boolean(hier.tor), nochmal: Boolean(hier.nochmal) }),
   };
 
   if (aufSpielseite()) {
     ladeSpielseite();
     liveBand();
   }
+  // Was im Postausgang wartet, geht hinaus – von jeder Seite aus, sobald sie
+  // geladen ist, wenn das Netz zurückkommt und wenn sie wieder vorne ist.
+  const hinaus = () => { if (document.visibilityState !== "hidden" && postLesen().length) postSenden(); };
+  window.addEventListener("online", hinaus);
+  document.addEventListener("visibilitychange", hinaus);
+  if (document.readyState === "complete") window.setTimeout(hinaus, 500);
+  else window.addEventListener("load", () => window.setTimeout(hinaus, 500), { once: true });
+  // Und alle halbe Minute, solange etwas wartet: «online» meldet der Browser
+  // nicht, wenn das WLAN nur schlecht war und wieder gut ist.
+  window.setInterval(hinaus, 30000);
   if (aufTurnierseite()) {
     const wirt = document.querySelector("[data-turnier]");
     if (wirt) turnierSeite(wirt);

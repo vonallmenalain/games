@@ -446,11 +446,13 @@
   }
 
   /*
-   * Ich heisse jetzt anders – und nehme alles mit. Erst auf dem Server, dann
-   * auf dem Gerät: Geht das Umbenennen nicht (kein Netz), wirft es, und der
-   * Name bleibt, wie er war. Sonst stünde auf dem Gerät ein Name, unter dem
-   * in den Listen nichts steht – und der nächste Abgleich holte den alten
-   * zurück (uebernimmName).
+   * Ich heisse jetzt anders – und nehme alles mit. Der neue Name gilt auf dem
+   * Gerät sofort; das Umbenennen in den Listen ist ein Auftrag, der auf dem
+   * Gerät wartet, bis er draussen ist (Umbenennen, das wartet). Bis Oktober
+   * 2026 ging es andersherum – erst der Server, dann das Gerät –, und in
+   * einem Keller mit schwachem WLAN hiess das: Der Name liess sich gar nicht
+   * ändern. Solange der Auftrag wartet, holt der Abgleich den alten Namen
+   * nicht zurück (uebernimmName).
    *
    * Ist der neue Name einer, unter dem auf diesem Gerät schon jemand anderes
    * spielt, ist das dieser Mitspieler (namenWechseln) – kein neuer Name für
@@ -466,27 +468,99 @@
     if (neu === alt) return { name: neu, wie: "gleich" };
     if (nameSchluessel(neu) !== nameSchluessel(alt) && spieltHierSchon(neu)) return namenWechseln(neu);
     const ich = kennungFallsDa();
-    if (gueltigeKennung(ich)) {
-      if (!cloud()?.benenneUm) throw new Error("Die Bestenliste ist gerade nicht zu haben.");
-      await cloud().benenneUm({
-        spieler: ich,
-        alt,
-        name: neu,
-        turniere: window.LernappTurnier?.turnierIds?.() || [],
-      });
-    }
+    const auftrag = gueltigeKennung(ich)
+      ? { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, spieler: ich, alt, name: neu, ms: Date.now() }
+      : null;
+    if (auftrag) merkeUmbenennen(auftrag);
     setzeName(neu);
     nameGeaendert();
-    return { name: neu, wie: "umbenannt" };
+    if (!auftrag) return { name: neu, wie: "umbenannt" };
+    // Einen Augenblick warten, ob es gleich klappt – nur für den Satz, der
+    // es sagt. Der Name gilt so oder so.
+    const draussen = await mitFrist(sendeUmbenennen(), UMBENENNEN_WARTEN_MS)
+      .then(() => !umbenennenWartet().some((a) => a.id === auftrag.id), () => false);
+    return { name: neu, wie: draussen ? "umbenannt" : "umbenannt-spaeter" };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Umbenennen, das wartet
+  // ---------------------------------------------------------------------------
+  /*
+   * Je Namenswechsel ein Auftrag: Kennung, alter und neuer Name. Er geht
+   * hinaus wie eine Runde ohne Netz (sendeWartende) – sobald das Netz da ist,
+   * beim Laden jeder Seite, wenn sie wieder vorne ist –, der Reihe nach. Ein
+   * Auftrag lässt sich beliebig oft wiederholen: Was schon den neuen Namen
+   * trägt, fasst cloud.js nicht mehr an (umzubenennen). Bricht die Seite
+   * mitten darin ab, macht die nächste ihn eben noch einmal.
+   */
+  const UMBENENNEN_KEY = "mini.umbenennen";
+  const UMBENENNEN_WARTEN_MS = 4000;
+
+  function umbenennenWartet() {
+    const liste = liesJson(UMBENENNEN_KEY, []);
+    return Array.isArray(liste) ? liste.filter((a) => a && a.id && gueltigeKennung(a.spieler) && sauberName(a.name)) : [];
+  }
+
+  function merkeUmbenennen(auftrag) {
+    schreibe(UMBENENNEN_KEY, [...umbenennenWartet(), auftrag].slice(-20));
+    meldeWartende();
+  }
+
+  function streicheUmbenennen(id) {
+    const rest = umbenennenWartet().filter((a) => a.id !== id);
+    schreibe(UMBENENNEN_KEY, rest.length ? rest : null);
+    meldeWartende();
+  }
+
+  let benenntGerade = null;
+  function sendeUmbenennen() {
+    if (benenntGerade) return benenntGerade;
+    if (!imNetz() || !cloud()?.benenneUm || !umbenennenWartet().length) return Promise.resolve(0);
+    benenntGerade = (async () => {
+      let draussen = 0;
+      for (const auftrag of umbenennenWartet()) {
+        try {
+          await cloud().benenneUm({
+            spieler: auftrag.spieler,
+            alt: auftrag.alt || "",
+            name: auftrag.name,
+            turniere: window.LernappTurnier?.turnierIds?.() || [],
+          });
+          streicheUmbenennen(auftrag.id);
+          draussen += 1;
+        } catch (fehler) {
+          // Wieder weg: Die übrigen warten weiter, in ihrer Reihenfolge.
+          if (istNetzfehler(fehler)) break;
+          console.warn("Ein neuer Name kam nicht in die Listen", fehler);
+          streicheUmbenennen(auftrag.id);
+        }
+      }
+      if (draussen) {
+        zwischenspeicher = null;
+        abgleiche.clear();
+        eigenerNameGeprueft = null;
+        try { window.dispatchEvent(new CustomEvent("mini-hochgeladen", { detail: { anzahl: draussen } })); } catch { /* alt */ }
+      }
+      return draussen;
+    })().finally(() => { benenntGerade = null; });
+    return benenntGerade;
   }
 
   // Steht der Name schon in einer Liste, unter einer anderen Kennung als
   // dieser? Gefragt wird nach genau dieser Schreibweise (cloud.js,
-  // unterNamen) – eine Abfrage, nicht die ganzen Listen.
+  // unterNamen) – eine Abfrage, nicht die ganzen Listen. Antwortet das Netz
+  // nicht gleich, gilt, was das Gerät zuletzt gesehen hat (gemerkteListen).
   async function gibtEsSchon(wert) {
     const ich = kennungFallsDa();
-    const da = await (cloud()?.unterNamen?.(sauberName(wert)) || Promise.resolve([]));
-    return (da || []).some((e) => e.spieler !== ich);
+    const wie = sauberName(wert);
+    const lokal = () => (gemerkteListen(alleSpiele()) || []).some((e) => e.spieler !== ich && sauberName(e.name) === wie);
+    if (!imNetz() || !cloud()?.unterNamen) return lokal();
+    try {
+      const da = await mitFrist(cloud().unterNamen(wie), UMBENENNEN_WARTEN_MS);
+      return (da || []).some((e) => e.spieler !== ich);
+    } catch {
+      return lokal();
+    }
   }
 
   /*
@@ -537,6 +611,7 @@
       const satz = {
         zurueck: `Willkommen zurück, ${wechsel.name}!`,
         umbenannt: `Du heisst jetzt ${wechsel.name} – deine Punkte und Runden sind mitgekommen.`,
+        "umbenannt-spaeter": `Du heisst jetzt ${wechsel.name}. Deine Punkte und Runden kommen mit, sobald die Verbindung steht.`,
         neu: `Ab der nächsten Runde spielst du als ${wechsel.name}.`,
         erster: `Ab der nächsten Runde spielst du als ${wechsel.name}.`,
       }[wechsel.wie] || "";
@@ -658,6 +733,9 @@
     const ich = kennungFallsDa();
     const wie = name();
     if (!gueltigeKennung(ich) || !wie) return false;
+    // Wartet ein neuer Name noch darauf, in die Listen zu kommen, steht dort
+    // natürlich noch der alte – und der gilt dann nicht.
+    if (umbenennenWartet().some((a) => a.spieler === ich)) return false;
     const meine = (eintraege || []).filter((e) => e?.spieler === ich && sauberName(e.name));
     if (!meine.length || meine.some((e) => nameSchluessel(e.name) === nameSchluessel(wie))) return false;
     const zuletzt = meine.reduce((a, b) => ((Number(b.updatedAtMs) || 0) > (Number(a.updatedAtMs) || 0) ? b : a));
@@ -739,6 +817,21 @@
   const LISTEN_KEY = "mini.listen";
   const imNetz = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
+  // Höchstens so lange auf das Netz warten, dann gilt, was auf dem Gerät
+  // ist. Was dahinter läuft, läuft weiter – nur wartet niemand mehr darauf.
+  function mitFrist(versprechen, ms) {
+    let uhr = null;
+    const frist = new Promise((_, nein) => {
+      uhr = window.setTimeout(() => nein(Object.assign(new Error("Das Netz antwortet gerade nicht."), { code: "deadline-exceeded" })), ms);
+    });
+    return Promise.race([Promise.resolve(versprechen), frist]).finally(() => window.clearTimeout(uhr));
+  }
+
+  // Eine Runde, die nur kurz wartet, weil sie im Hintergrund hinausgeht
+  // (melde im Turnier), heisst im Protokoll nur dann «ohne Netz», wenn sie
+  // länger als so lange gewartet hat.
+  const SPAETER_MS = 2 * 60 * 1000;
+
   // Ein Fehler, der an der Verbindung liegt – nicht an den Regeln. Nur dann
   // wartet die Runde; was die Datenbank abweist, käme auch später nicht an.
   function istNetzfehler(fehler) {
@@ -770,8 +863,10 @@
     meldeWartende();
   }
 
-  // Die Runde wartet; der Bestwert auf dem Gerät gilt gleich.
-  function ohneNetzMerken({ spiel, ich, wie, zahl, ms }) {
+  // Die Runde wartet; der Bestwert auf dem Gerät gilt gleich. sofort: Sie
+  // wartet nicht auf das Netz, sondern geht gleich im Hintergrund hinaus
+  // (melde, hintergrund).
+  function ohneNetzMerken({ spiel, ich, wie, zahl, ms, sofort = false }) {
     const vorher = bestwert(spiel);
     merkeWartend({
       id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
@@ -782,18 +877,23 @@
       ms,
       zeitMs: Date.now(),
       quelle: (() => { try { return window.LernappLiveSpiel?.aktiv?.() ? "live" : new URLSearchParams(window.location.search).has("turnier") ? "turnier" : ""; } catch { return ""; } })(),
+      ...(sofort ? { sofort: true } : {}),
     });
     zwischenspeicher = null;
     if (zahl > vorher) setzeBestwert(spiel, zahl, ich);
-    return { offline: true, rekord: zahl > vorher, punkte: Math.max(vorher, zahl), versuche: null, name: wie };
+    return { offline: !sofort, gemerkt: true, rekord: zahl > vorher, punkte: Math.max(vorher, zahl), versuche: null, name: wie };
   }
+
+  // Wohin eine Kennung inzwischen gezogen ist (cloud.js, umzug) – einmal je
+  // Seite gefragt, nicht bei jeder Runde.
+  const umzugZiele = new Map();
 
   let sendetGerade = null;
   function sendeWartende() {
     if (sendetGerade) return sendetGerade;
     if (!imNetz() || !cloud()?.speichere || !wartende().length) return Promise.resolve(0);
     sendetGerade = (async () => {
-      const ziele = new Map();
+      const ziele = umzugZiele;
       // Wohin eine Kennung inzwischen gezogen ist (cloud.js, umzug).
       const zielVon = async (wer) => {
         if (!ziele.has(wer)) {
@@ -812,14 +912,19 @@
       let oben = 0;
       for (const runde of wartende()) {
         try {
+          // Heisst das Gerät inzwischen anders (namenAendern), gilt der neue
+          // Name – eine wartende Runde soll keinen neuen Eintrag unter dem
+          // alten anlegen.
+          const ich = kennungFallsDa();
+          const wie = runde.spieler === ich && name() ? name() : runde.name;
           await cloud().speichere({
             game: runde.spiel,
             spieler: await zielVon(runde.spieler),
-            name: runde.name,
+            name: wie,
             punkte: runde.punkte,
             ms: runde.ms,
             zeitMs: runde.zeitMs,
-            offline: true,
+            offline: !runde.sofort || Date.now() - (Number(runde.zeitMs) || 0) > SPAETER_MS,
             quelle: runde.quelle || "",
           });
           streicheWartend(runde.id);
@@ -889,15 +994,18 @@
     const zeichen = el("span", "ar-offline");
     zeichen.setAttribute("role", "status");
     const zeige = () => {
-      const anzahl = wartende().length;
+      const runden = wartende().length + (Number(window.LernappTurnier?.wartend?.()) || 0);
+      const anzahl = runden + umbenennenWartet().length;
       const weg = !imNetz();
       zeichen.hidden = !weg && !anzahl;
       zeichen.classList.toggle("ist-weg", weg);
       zeichen.textContent = weg ? "Offline" : "Wird hochgeladen";
-      const runden = anzahl === 1 ? "Eine Runde wartet" : `${anzahl} Runden warten`;
+      const satz = runden
+        ? `${runden === 1 ? "Eine Runde wartet" : `${runden} Runden warten`} darauf, in die Liste zu kommen.`
+        : "Dein neuer Name wartet darauf, in die Listen zu kommen.";
       zeichen.title = weg
-        ? `Ohne Netz – du kannst trotzdem spielen.${anzahl ? ` ${runden} darauf, in die Liste zu kommen.` : ""} Sobald du wieder online bist, kommt alles hinein.`
-        : `${runden} darauf, in die Liste zu kommen.`;
+        ? `Ohne Netz – du kannst trotzdem spielen.${anzahl ? ` ${satz}` : ""} Sobald du wieder online bist, kommt alles hinein.`
+        : satz;
     };
     ["online", "offline", "mini-wartet", "mini-hochgeladen"].forEach((typ) => window.addEventListener(typ, zeige, { signal }));
     zeige();
@@ -1064,8 +1172,23 @@
     try { window.dispatchEvent(new CustomEvent("mini-bestwert", { detail: { spiel, punkte: zahl } })); } catch { /* alt */ }
   }
 
+  // Im Turnier und im Multiplayer zeigt die Seite die ewige Liste gar nicht –
+  // der Abgleich ist dort nur für den eigenen Bestwert da. Dafür liest er die
+  // ganze Liste des Spiels; einmal in einer halben Stunde genügt.
+  const ABGLEICH_KEY = "mini.abgleich";
+  const ABGLEICH_TURNIER_MS = 30 * 60 * 1000;
+  function kuerzlichAbgeglichen(spiel) {
+    const wann = Number(liesJson(ABGLEICH_KEY, {})?.[spiel]) || 0;
+    return Date.now() - wann < ABGLEICH_TURNIER_MS;
+  }
+  function merkeAbgleich(spiel) {
+    const alle = liesJson(ABGLEICH_KEY, {});
+    schreibe(ABGLEICH_KEY, { ...alle, [spiel]: Date.now() });
+  }
+
   function gleicheAb(spiel = spielId()) {
     if (!spiel || !name() || !cloud()?.meinErgebnis) return Promise.resolve(null);
+    if (!abgleiche.has(spiel) && inTurnierOderLive() && kuerzlichAbgeglichen(spiel)) return Promise.resolve(bestwert(spiel) || null);
     if (!abgleiche.has(spiel)) {
       abgleiche.set(spiel, stammKennung(spiel)
         .then(async () => {
@@ -1082,6 +1205,7 @@
           const fremd = bestesUnterNamen(liste, name(), ich);
           if (fremd && fremd.punkte > eigen) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
           else setzeBestwert(spiel, eigen, ich);
+          merkeAbgleich(spiel);
           return abgeglichen.get(spiel).punkte;
         })
         .catch(() => {
@@ -1305,7 +1429,13 @@
   // sie besser ist als die bisherige, und ein Versuch mehr. Ohne Namen wird
   // noch nichts geschrieben – dann steht erst das Feld da, und der Eintrag
   // entsteht, wenn jemand ihn haben will.
-  async function melde(spiel, punkte, geist = null) {
+  //
+  // hintergrund: Die Runde wartet auf nichts – sie kommt in die Reihe der
+  // wartenden Runden und geht von dort hinaus (sendeWartende). So im Turnier:
+  // Dort steht die ewige Liste gar nicht da, und das Spiel soll nicht auf
+  // eine Datenbank warten, die im Keller gerade nicht antwortet. Ohne die
+  // ganze Liste danach noch einmal zu lesen.
+  async function melde(spiel, punkte, geist = null, { hintergrund = false } = {}) {
     const wie = name();
     if (!wie) return null;
     // Erst die Kennung, die zu diesem Namen gehört: Wer ihn eben zum ersten
@@ -1325,6 +1455,11 @@
     // Zeit mehr dazu.
     const ms = rundeMs;
     rundeMs = 0;
+    if (hintergrund) {
+      const gemerkt = ohneNetzMerken({ spiel, ich, wie, zahl, ms, sofort: true });
+      sendeWartende();
+      return gemerkt;
+    }
     // Ohne Netz wartet die Runde auf dem Gerät (Ohne Netz) – auch wenn das
     // Netz erst beim Eintragen wegbricht. Was zuerst wartet, geht zuerst:
     // Warten noch Runden von vorher, gehen erst sie hinaus.
@@ -2687,6 +2822,9 @@
    *                 { sperre }: warum es gerade nicht geht (Turnier)
    *   aus           die Turnier-Kennung für den ▶ in der Rangliste
    *   ansehbar      ob es den ▶ überhaupt gibt
+   *   liveWirt      wo der Knopf «● 3 live» hinkommt (oben im Kopf) – wer
+   *                 gerade spielt (spielen); ohne ihn gibt es keinen
+   *   liveVorne     ob er dort vorne steht (sonst hinten)
    *
    * Die Ergebnisse reicht die Seite nach, sobald sie da sind – und jedes Mal,
    * wenn sie sich ändern: daten({ listen, fehler, verdeckt }). neu() zeichnet
@@ -2702,6 +2840,8 @@
     weg = (spiel) => ({ link: spielLink(spiel) }),
     aus = "",
     ansehbar = true,
+    liveWirt = null,
+    liveVorne = true,
   }) {
     // --- Oben das Bild, darunter die Leiste ----------------------------------
     const buehne = el("section", "ar-buehne");
@@ -2712,11 +2852,8 @@
     filme.append(...ebenen);
     const leiste = el("div", "ar-leiste");
     const titelZeile = el("h2", "ar-titel");
-    // Unter dem Namen, im Turnier: wer dieses Spiel gerade spielt (spielen).
     const titelWirt = el("div", "ar-titel-wirt");
-    const amSpielen = el("p", "ar-spielen");
-    amSpielen.hidden = true;
-    titelWirt.append(titelZeile, amSpielen);
+    titelWirt.append(titelZeile);
     const aktionen = el("div", "ar-aktionen");
     const rang = el("button", "ar-rang");
     rang.type = "button";
@@ -2732,16 +2869,18 @@
     aktionen.append(rang, play);
     leiste.append(titelWirt, aktionen);
     buehne.append(filme, leiste);
-    // Darüber, zwischen Kopf und Bild: wer gerade spielt (liveZeigen) – nur
-    // dann, sonst ist die Leiste gar nicht da.
-    const live = el("section", "ar-live");
-    live.hidden = true;
-    live.setAttribute("aria-label", "Spielt gerade");
-    wirt.append(live, buehne);
-    signal?.addEventListener("abort", () => {
-      live.remove();
-      wirt.classList.remove("mit-live");
-    }, { once: true });
+    wirt.append(buehne);
+    // Oben im Kopf: wer gerade spielt, als ein Knopf (liveZeigen). Er steht
+    // nur, solange jemand spielt, und ändert dann nur seine Zahl.
+    const liveKnopf = el("button", "ar-live-knopf");
+    liveKnopf.type = "button";
+    liveKnopf.hidden = true;
+    liveKnopf.setAttribute("aria-haspopup", "dialog");
+    const liveZahl = el("span", "ar-live-zahl");
+    liveKnopf.append(el("span", "ar-live-punkt"), liveZahl, el("span", "ar-live-wort", "live"));
+    if (liveWirt && liveVorne) liveWirt.prepend(liveKnopf);
+    else if (liveWirt) liveWirt.append(liveKnopf);
+    signal?.addEventListener("abort", () => liveKnopf.remove(), { once: true });
 
     // --- Unten: die Spiele in einer Zeile --------------------------------------
     const kacheln = new Map();
@@ -2798,10 +2937,7 @@
       bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
       const name = el("span", "ar-kachel-titel", titel(spiel));
       const zeit = el("span", "ar-zeit");
-      // Im Turnier: wer dieses Spiel gerade spielt (spielen).
-      const live = el("span", "ar-kachel-live");
-      live.hidden = true;
-      k.append(bild, name, zeit, live);
+      k.append(bild, name, zeit);
       k.setAttribute("aria-label", titel(spiel));
       k.addEventListener("click", () => waehle(spiel, { von: k, selbst: true }));
       // Am Computer: der Film läuft schon in der Kachel, solange die Maus
@@ -2824,98 +2960,96 @@
     }
 
     // Wer gerade spielt, je Spiel (im Turnier turnier.js amSpielen, sonst
-    // spielendeHoeren): unter dem Namen des Spiels oben ein Satz, auf den
-    // Kacheln ein grüner Punkt mit dem Namen – oder, sind es mehrere, wie
-    // viele –, und in der Rangliste bei seinem Namen. Je Spiel eine Liste von
-    // { name, link }: Wo es einen Weg zum Zuschauen gibt, ist der Name einer.
+    // spielendeHoeren): oben im Kopf ein Knopf «● 3 live», und ein Tipp
+    // darauf zeigt sie alle (liveListeZeigen) – mit Spiel, Punkten und dem Weg
+    // zum Zuschauen. In der Rangliste steht der grüne Punkt bei seinem Namen.
+    // Je Spiel eine Liste von { name, link, punkte, pause }.
+    //
+    // Bis Oktober 2026 stand hier mehr: eine Leiste mit einer Karte je
+    // Spieler zwischen Kopf und Bild, ein Satz unter dem Namen des Spiels und
+    // ein Name auf jeder Kachel – und alles kam und ging, sobald jemand eine
+    // Runde begann oder beendete. Bei sechs Spielern am selben Abend war das
+    // Unruhe ohne Ende. Jetzt ändert sich auf der Seite selbst nur eine Zahl.
     let spielend = new Map();
     const spieltIn = (spiel) => new Map((spielend.get(spiel) || []).filter((s) => !s.fremd).map((s) => [String(s.name).toLocaleLowerCase("de"), s.link || ""]));
+
     function spielenZeigen() {
-      const hier = spielend.get(aktuell) || [];
-      amSpielen.hidden = !hier.length;
-      amSpielen.replaceChildren();
-      if (hier.length) {
-        const text = el("span", "ar-spielen-text");
-        const zeigen = hier.length > 3 ? hier.slice(0, 2) : hier;
-        zeigen.forEach((s, i) => {
-          if (i > 0) text.append(i === zeigen.length - 1 && hier.length <= 3 ? " und " : ", ");
-          if (s.link) {
-            const link = el("a", "ar-zuschauen", s.name);
-            link.href = s.link;
-            link.title = `${s.name} zuschauen`;
-            text.append(link);
-          } else {
-            text.append(s.name);
-          }
-        });
-        if (hier.length > 3) text.append(` und ${hier.length - 2} weitere`);
-        text.append(` ${hier.length === 1 ? "spielt" : "spielen"} gerade`);
-        if (hier.length === 1 && Number.isFinite(hier[0].punkte)) text.append(" · ", el("span", "ar-spielen-wert", `${hier[0].punkte} ${einheit(aktuell)}`));
-        amSpielen.append(el("span", "ar-live-punkt"), text);
-        // Einer allein: daneben gleich der Knopf dazu.
-        if (hier.length === 1 && hier[0].link) {
-          const knopf = mitIcon("a", "ar-zuschau-knopf", "play", "Zuschauen");
-          knopf.href = hier[0].link;
-          amSpielen.append(knopf);
-        }
-      }
-      kacheln.forEach((k, spiel) => {
-        const namen = (spielend.get(spiel) || []).map((s) => s.name);
-        const live = k.querySelector(".ar-kachel-live");
-        if (!live) return;
-        live.hidden = !namen.length;
-        live.replaceChildren();
-        if (!namen.length) return;
-        live.append(el("span", "ar-live-punkt"), el("span", "", namen.length === 1 ? namen[0] : String(namen.length)));
-        live.title = spielenSatz(namen);
-      });
       liveZeigen();
     }
 
-    // Oben, zwischen Kopf und Bild: alle, die gerade spielen – je eine Karte
-    // mit Spiel, Punkten und dem Weg zum Zuschauen (im Turnier auf der
-    // Startseite: in welchem). Nur wenn jemand spielt; dann nimmt sich die
-    // Leiste eine Zeile im Raster (mit-live), und das Bild darunter wird so
-    // viel kleiner. Die Karten bleiben stehen, nur ihre Zahlen ändern sich.
-    const liveKarten = new Map();
-    function liveZeigen() {
+    function alleSpielenden() {
       const alle = [];
       spielend.forEach((liste, spiel) => liste.forEach((s) => alle.push({ ...s, spiel })));
-      alle.sort((a, b) => a.name.localeCompare(b.name, "de") || a.spiel.localeCompare(b.spiel));
-      live.hidden = !alle.length;
-      wirt.classList.toggle("mit-live", alle.length > 0);
-      if (!alle.length) {
-        live.replaceChildren();
-        liveKarten.clear();
-        return;
-      }
-      if (!live.firstChild) {
-        const marke = el("span", "ar-live-marke");
-        marke.append(el("span", "ar-live-punkt"), el("span", "", "Live"));
-        live.append(marke, el("div", "ar-live-spur"));
-      }
-      const spur = live.querySelector(".ar-live-spur");
-      const da = new Set();
-      alle.forEach((s) => {
-        const schluessel = `${s.name}|${s.spiel}|${s.turnier || ""}`;
-        da.add(schluessel);
-        let k = liveKarten.get(schluessel);
-        if (!k) {
-          k = liveKarte(s);
-          liveKarten.set(schluessel, k);
-        }
-        k.wert.textContent = Number.isFinite(s.punkte) ? `${s.punkte} ${einheit(s.spiel)}` : "";
-        k.wert.hidden = !Number.isFinite(s.punkte);
-        k.zuschauen.hidden = !s.link;
-        if (s.link) k.zuschauen.href = s.link;
-        spur.append(k.karte);
-      });
-      liveKarten.forEach((k, schluessel) => {
-        if (da.has(schluessel)) return;
-        k.karte.remove();
-        liveKarten.delete(schluessel);
+      // Wer spielt, vor dem, der gerade Pause macht; sonst nach Namen.
+      alle.sort((a, b) => Number(Boolean(a.pause)) - Number(Boolean(b.pause))
+        || a.name.localeCompare(b.name, "de") || a.spiel.localeCompare(b.spiel));
+      return alle;
+    }
+
+    function liveZeigen() {
+      const alle = alleSpielenden();
+      const namen = [...new Set(alle.map((s) => s.name))];
+      liveKnopf.hidden = !alle.length;
+      liveZahl.textContent = String(namen.length);
+      const satz = alle.length ? `${spielenSatz(namen)} – antippen, um zuzuschauen` : "";
+      liveKnopf.title = satz;
+      liveKnopf.setAttribute("aria-label", satz || "Gerade spielt niemand");
+      liveListeNeu?.();
+    }
+
+    // Die Liste dazu, im Fenster: je Spieler eine Karte. Die Karten bleiben
+    // stehen, nur ihre Zahlen ändern sich – höchstens einmal je Sekunde.
+    let liveListeNeu = null;
+    function liveListeZeigen() {
+      const inhalt = el("div", "ar-live-liste");
+      const karten = new Map();
+      const leer = el("p", "mini-hinweis", "Gerade spielt niemand.");
+      let zuletzt = 0;
+      let spaeter = null;
+      const zeichne = () => {
+        zuletzt = performance.now();
+        const alle = alleSpielenden();
+        leer.hidden = alle.length > 0;
+        if (!leer.isConnected) inhalt.append(leer);
+        const da = new Set();
+        alle.forEach((s) => {
+          const schluessel = `${s.name}|${s.spiel}|${s.turnier || ""}`;
+          da.add(schluessel);
+          let k = karten.get(schluessel);
+          if (!k) {
+            k = liveKarte(s);
+            karten.set(schluessel, k);
+          }
+          const wert = Number.isFinite(s.punkte) ? `${s.punkte} ${einheit(s.spiel)}` : "";
+          if (k.wert.textContent !== wert) k.wert.textContent = wert;
+          k.wert.hidden = !wert;
+          k.pause.hidden = !s.pause;
+          k.karte.classList.toggle("ist-pause", Boolean(s.pause));
+          k.zuschauen.hidden = !s.link;
+          if (s.link) k.zuschauen.href = s.link;
+          inhalt.append(k.karte);
+        });
+        karten.forEach((k, schluessel) => {
+          if (da.has(schluessel)) return;
+          k.karte.remove();
+          karten.delete(schluessel);
+        });
+      };
+      const neu = () => {
+        window.clearTimeout(spaeter);
+        const warten = 1000 - (performance.now() - zuletzt);
+        if (warten <= 0) zeichne();
+        else spaeter = window.setTimeout(zeichne, warten);
+      };
+      zeichne();
+      liveListeNeu = neu;
+      const dlg = fenster("Live", inhalt, { ueber: "Wer gerade spielt", klasse: "ist-live" });
+      dlg.addEventListener("close", () => {
+        window.clearTimeout(spaeter);
+        if (liveListeNeu === neu) liveListeNeu = null;
       });
     }
+    liveKnopf.addEventListener("click", liveListeZeigen);
 
     function liveKarte(s) {
       const karte = el("div", "ar-live-karte");
@@ -2923,11 +3057,15 @@
       const text = el("span", "ar-live-text");
       const zeile = el("span", "ar-live-zeile");
       zeile.append(el("strong", "", s.name), " spielt ");
-      // Das Spiel: ein Tipp holt es nach oben, wo es eine Kachel hat.
+      // Das Spiel: ein Tipp schliesst das Fenster und holt es nach oben, wo
+      // es eine Kachel hat.
       if (kacheln.has(s.spiel)) {
         const wahl = el("button", "ar-live-spiel", titel(s.spiel));
         wahl.type = "button";
-        wahl.addEventListener("click", () => waehle(s.spiel, { selbst: true }));
+        wahl.addEventListener("click", () => {
+          wahl.closest("dialog")?.close?.();
+          waehle(s.spiel, { selbst: true });
+        });
         zeile.append(wahl);
       } else {
         zeile.append(el("strong", "", titel(s.spiel)));
@@ -2935,12 +3073,14 @@
       const neben = el("span", "ar-live-neben");
       if (s.turnier) neben.append(el("span", "ar-live-wo", `im Turnier ${s.turnier}`));
       const wert = el("span", "ar-live-wert");
-      neben.append(wert);
+      const pause = el("span", "ar-live-pause", "zwischen zwei Runden");
+      pause.hidden = true;
+      neben.append(wert, pause);
       text.append(zeile, neben);
       const zuschauen = mitIcon("a", "ar-live-zuschauen", "play", "Zuschauen");
       zuschauen.title = `${s.name} zuschauen`;
       karte.append(text, zuschauen);
-      return { karte, wert, zuschauen };
+      return { karte, wert, pause, zuschauen };
     }
 
     // Der Knopf zur Rangliste: die Krone und wer vorne liegt.
@@ -3277,14 +3417,18 @@
         wegZeigen();
         rangKnopf();
       },
-      // Wer gerade spielt: Map Spiel → [{ name, link }].
+      // Wer gerade spielt: Map Spiel → [{ name, link, punkte, pause }]. Die
+      // offenen Ranglisten zeichnen sich nur neu, wenn sich ändert, WER
+      // spielt – nicht bei jedem Punkt.
       spielen(neu) {
         if (signal.aborted) return;
+        const wer = (karte) => JSON.stringify([...karte].map(([spiel, liste]) => [spiel, liste.map((s) => [s.name, s.link || ""])]));
         const vorher = JSON.stringify([...spielend]);
+        const vorherWer = wer(spielend);
         spielend = neu instanceof Map ? neu : new Map();
         if (JSON.stringify([...spielend]) === vorher) return;
         spielenZeigen();
-        offeneFenster.forEach((z) => z());
+        if (wer(spielend) !== vorherWer) offeneFenster.forEach((z) => z());
       },
       aktuell: () => aktuell,
     };
@@ -3315,10 +3459,18 @@
    * Ob einer noch spielt, sagt die Uhr seines Geräts (lebt), und die geht
    * nicht überall gleich. Darum zählt, wann dieses Gerät die Änderung
    * gesehen hat – nur beim ersten Blick gilt seine Uhr. Wer seit SPIELT_MS
-   * nichts gesagt hat (alle zehn Sekunden, solange die Runde läuft, mit
-   * neuen Punkten öfter), spielt nicht mehr; wer fertig ist, auch nicht.
+   * nichts gesagt hat (alle 15 Sekunden, solange die Runde läuft, mit
+   * neuen Punkten öfter – geist.js, AM_SPIELEN_MS), spielt nicht mehr.
+   *
+   * Wer eine Runde eben beendet hat, bleibt noch NACHLAUF_MS dabei, mit
+   * pause: true – zwischen zwei Runden liegen ein Ergebnis und ein Tipp auf
+   * «Noch einmal». Bis Oktober 2026 fiel er sofort heraus und kam mit der
+   * nächsten Runde wieder: Bei sechs Spielern am selben Abend kam und ging
+   * oben dauernd etwas. Wer die Seite mitten in der Runde verlässt, nimmt
+   * seinen Zettel mit (geist.js) und ist gleich weg.
    */
-  const SPIELT_MS = 25000;
+  const SPIELT_MS = 45000;
+  const NACHLAUF_MS = 60000;
   function zettelLeser() {
     const gesehen = new Map();
     return (knoten, jetzt = Date.now()) => {
@@ -3334,10 +3486,17 @@
         if (alt && !alt.fertig && z.fertig) fertig += 1;
         const spiel = String(z.spiel || "");
         const wer = sauberName(z.name);
-        if (z.fertig || !wer || !NACH_ID.has(spiel) || jetzt - gesehen.get(kennung).seit > SPIELT_MS) return;
-        spielen.push({ kennung, name: wer, spiel, punkte: Number.isFinite(Number(z.p)) && z.p !== null && z.p !== undefined ? Math.max(0, Math.round(Number(z.p))) : null });
+        const her = jetzt - gesehen.get(kennung).seit;
+        if (!wer || !NACH_ID.has(spiel) || her > (z.fertig ? NACHLAUF_MS : SPIELT_MS)) return;
+        spielen.push({ kennung, name: wer, spiel, pause: Boolean(z.fertig), punkte: Number.isFinite(Number(z.p)) && z.p !== null && z.p !== undefined ? Math.max(0, Math.round(Number(z.p))) : null });
       });
-      [...gesehen.keys()].forEach((k) => { if (!da.has(k)) gesehen.delete(k); });
+      // Ein Zettel, der verschwindet, gehört zu einer Runde, die mitten drin
+      // verlassen wurde: Auch die ist zu Ende.
+      [...gesehen.keys()].forEach((k) => {
+        if (da.has(k)) return;
+        if (!gesehen.get(k).fertig) fertig += 1;
+        gesehen.delete(k);
+      });
       spielen.sort((a, b) => a.name.localeCompare(b.name, "de") || a.spiel.localeCompare(b.spiel));
       return { spielen, fertig };
     };
@@ -3363,13 +3522,13 @@
       const karte = new Map();
       quellen.forEach((q) => {
         const T = window.LernappTurnier;
-        q.lesen(q.knoten, jetzt).spielen.forEach(({ kennung, name: wer, spiel, punkte }) => {
+        q.lesen(q.knoten, jetzt).spielen.forEach(({ kennung, name: wer, spiel, punkte, pause }) => {
           const t = q.t;
           if (!t && !spiele.includes(spiel)) return;
           let link = "";
           if (!t) link = `${spielLink(spiel)}?mitschauen=${encodeURIComponent(kennung)}&wer=${encodeURIComponent(wer)}`;
           else if (T?.mitschauenErlaubt?.(t)) link = T.mitschauLink(t, kennung, wer, spiel);
-          karte.set(spiel, [...(karte.get(spiel) || []), { name: wer, link, punkte, turnier: t ? t.name : "", fremd: Boolean(t) }]);
+          karte.set(spiel, [...(karte.get(spiel) || []), { name: wer, link, punkte, pause, turnier: t ? t.name : "", fremd: Boolean(t) }]);
         });
       });
       karte.forEach((liste) => liste.sort((a, b) => a.name.localeCompare(b.name, "de") || a.turnier.localeCompare(b.turnier, "de")));
@@ -3387,9 +3546,12 @@
       let liste = [];
       try { liste = await Promise.resolve(window.LernappTurnier?.oeffentlichLaufend?.() || []); } catch { liste = []; }
       if (signal.aborted) return;
-      const ids = new Set(liste.slice(0, 6).map((t) => `t:${t.id}`));
+      // Ein Turnier ohne Live (ohneLive) schickt keine Zettel – ihm muss
+      // niemand zuhören.
+      const mitLive = liste.filter((t) => window.LernappTurnier?.liveErlaubt?.(t) !== false).slice(0, 6);
+      const ids = new Set(mitLive.map((t) => `t:${t.id}`));
       quellen.forEach((q, k) => { if (k && !ids.has(k)) { q.aus?.(); quellen.delete(k); } });
-      liste.slice(0, 6).forEach((t) => {
+      mitLive.forEach((t) => {
         const k = `t:${t.id}`;
         if (quellen.has(k)) quellen.get(k).t = t;
         else hoeren(k, t);
@@ -3458,7 +3620,7 @@
     // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, ...arcadeStart(reihenfolge, gewuenscht) });
+    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
     // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
     // seiner Rangliste – ein Tipp darauf, und man schaut zu.
@@ -3648,6 +3810,11 @@
     namenAendern,
     wartende,
     sendeWartende,
+    umbenennenWartet,
+    sendeUmbenennen,
+    imNetz,
+    istNetzfehler,
+    mitFrist,
     namensZeile,
     folgeUmzug,
     startStand,
@@ -3684,7 +3851,7 @@
   const hinaus = () => {
     try { if (new URLSearchParams(window.location.search).has("live")) return; } catch { return; }
     if (document.visibilityState === "hidden") return;
-    sendeWartende();
+    sendeUmbenennen().finally(() => sendeWartende());
   };
   window.addEventListener("online", hinaus);
   document.addEventListener("visibilitychange", hinaus);
