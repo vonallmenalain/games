@@ -1646,6 +1646,7 @@
       verdeckt: false,
       ohneGeist: false,
       ohneReplay: false,
+      ohneLive: false,
       aktiv: true,
       spitzeWartet: false,
     };
@@ -1923,6 +1924,17 @@
     const replayText = el("span", "adm-option-text");
     replayText.append(el("strong", "", "Replays anschauen lassen"), el("small", "", "Neben jedem Spieler steht ein ▶: Damit lässt sich sein bester Lauf in diesem Turnier ganz anschauen. Ohne Haken lässt sich kein Lauf anschauen. Bei einer verdeckten Rangliste erst am Schluss."));
     replayZeile.append(replay, replayText);
+    // Live (geist.js, turnier.js): wer gerade spielt, mit seinen Punkten,
+    // oben im Knopf «live», und das Zuschauen. Ohne Haken geht während einer
+    // Runde nichts hinaus ausser dem Ergebnis – das Ruhigste für einen Abend
+    // mit vielen Geräten in einem schwachen WLAN.
+    const live = el("input");
+    live.type = "checkbox";
+    live.checked = !t.ohneLive;
+    const liveZeile = el("label", "adm-option");
+    const liveText = el("span", "adm-option-text");
+    liveText.append(el("strong", "", "Live und Zuschauen"), el("small", "", "Oben steht, wer gerade spielt, mit seinen Punkten – ein Tipp darauf, und man schaut zu. Ohne Haken gibt es das nicht, und die Geräte schicken während einer Runde nichts ausser dem Ergebnis. Das schont ein schwaches WLAN, wenn viele zugleich spielen."));
+    liveZeile.append(live, liveText);
     // Nur im Multiplayer (live.js): keine Versuche dazwischen, gezählt werden
     // nur die Multiplayer, die zum Turnier gehören.
     const nurLive = el("input");
@@ -1939,7 +1951,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, gegnerZeile, replayZeile, nurLiveZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, replayZeile, liveZeile, nurLiveZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -1973,6 +1985,7 @@
       verdeckt: verdeckt.checked,
       ohneGeist: !gegner.checked,
       ohneReplay: !replay.checked,
+      ohneLive: !live.checked,
       nurLive: nurLive.checked,
       aktiv: aktiv.checked,
       spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
@@ -2015,6 +2028,7 @@
       verdeckt.checked = Boolean(w.verdeckt);
       gegner.checked = !w.ohneGeist;
       replay.checked = !w.ohneReplay;
+      live.checked = !w.ohneLive;
       nurLive.checked = Boolean(w.nurLive);
       aktiv.checked = w.aktiv !== false;
       sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
@@ -2145,6 +2159,7 @@
       { gleich: "gleiche Aufgaben", wieErster: "Level wie Platz 1" }[t.aufgaben] || "gewürfelt",
       t.ohneGeist ? "ohne Gegner" : "",
       t.ohneReplay ? "ohne Replays" : "",
+      t.ohneLive ? "ohne Live" : "",
       t.nurLive ? "nur Multiplayer" : "",
       aktion.abende?.length ? `${aktion.abende.length} Multiplayer` : "",
     ].filter(Boolean);

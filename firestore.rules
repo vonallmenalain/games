@@ -389,7 +389,7 @@ service cloud.firestore {
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
                              "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
-                             "ohneGeist", "ohneReplay", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
+                             "ohneGeist", "ohneReplay", "ohneLive", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
         && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
@@ -425,6 +425,10 @@ service cloud.firestore {
         // Ohne Replays: Die besten Läufe dieses Turniers lassen sich nicht
         // anschauen (turnier.js, geist.js). Fehlt das Feld, lassen sie sich.
         && d.get("ohneReplay", false) is bool
+        // Ohne Live: Niemand sieht, wer gerade spielt, und niemand schaut zu
+        // (turnier.js, liveErlaubt) – während einer Runde geht nichts hinaus
+        // ausser dem Ergebnis. Fehlt das Feld, gibt es Live.
+        && d.get("ohneLive", false) is bool
         // Nur live (live.js): Gespielt wird nur an Live-Abenden, die zum
         // Turnier gehören – keine Versuche dazwischen (darfBeginnen). Fehlt
         // das Feld, ist es ein Turnier wie jedes von vorher.
@@ -489,10 +493,21 @@ service cloud.firestore {
     // gehen darf einer, der vorher begonnen hat, auch danach: Das Anhalten
     // hält neue Versuche auf, es nimmt keinem die Runde weg, die er gerade
     // spielt.
+    //
+    // Und ein Versuch, der ohne Netz gespielt wurde (turnier.js, der
+    // Postausgang), kommt eben später: Er darf bis zwei Stunden nach dem
+    // Schluss noch beginnen, wenn er laut seiner Uhr (updatedAtMs, die Zeit
+    // der Runde) im Turnier gespielt wurde. Die Uhr kommt vom Gerät – wer die
+    // Datenbank von Hand beschreibt, kann sie stellen. Wie «verdeckt» und
+    // «wer vorne liegt, wartet» ist das für das Spiel unter Freunden: Wer im
+    // Keller ohne Netz spielt, soll seine Runde nicht verlieren.
     function darfBeginnen(turnierId) {
-      return turnierDaten(turnierId).aktiv == true
-        && turnierDaten(turnierId).get("nurLive", false) == false
-        && imZeitraum(turnierId, 0);
+      let t = turnierDaten(turnierId);
+      let wann = request.resource.data.updatedAtMs;
+      return t.aktiv == true
+        && t.get("nurLive", false) == false
+        && (imZeitraum(turnierId, 0)
+            || (imZeitraum(turnierId, 7200000) && wann >= t.startMs && wann <= t.endeMs));
     }
 
     // Der Endstand eines Live-Abends, der zu einem Turnier gehört (live.js,
@@ -545,11 +560,13 @@ service cloud.firestore {
           && request.resource.data.offen == true
           && request.resource.data.punkte == resource.data.punkte;
         // Der Versuch ist zu Ende: sein Ergebnis, genau einmal – auch wenn das
-        // Turnier inzwischen angehalten wurde. Zehn Minuten Nachspiel nach dem
-        // Schluss; keine Runde hier dauert länger.
+        // Turnier inzwischen angehalten wurde. Nachspiel nach dem Schluss:
+        // zehn Minuten (keine Runde hier dauert länger), dazu die zwei
+        // Stunden, die ein Versuch ohne Netz später beginnen darf
+        // (darfBeginnen).
         allow update: if istTurnierEintrag(eintragId)
           && istDerselbeEintrag()
-          && imZeitraum(turnierId, 600000)
+          && imZeitraum(turnierId, 7800000)
           && resource.data.offen == true
           && request.resource.data.offen == false
           && request.resource.data.versuche == resource.data.versuche
@@ -577,11 +594,11 @@ service cloud.firestore {
       match /geister/{eintragId} {
         allow read: if true;
         allow create: if istGeist(eintragId)
-          && imZeitraum(turnierId, 600000)
+          && imZeitraum(turnierId, 7800000)
           && exists(/databases/$(database)/documents/miniTurniere/$(turnierId)/eintraege/$(eintragId));
         allow update: if istGeist(eintragId)
           && istDerselbeEintrag()
-          && imZeitraum(turnierId, 600000)
+          && imZeitraum(turnierId, 7800000)
           && request.resource.data.punkte >= resource.data.punkte;
         allow delete: if istAdmin();
       }
