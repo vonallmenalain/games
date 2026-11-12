@@ -3015,6 +3015,13 @@
 
     // Die Liste dazu, im Fenster: je Spieler eine Karte. Die Karten bleiben
     // stehen, nur ihre Zahlen ändern sich – höchstens einmal je Sekunde.
+    //
+    // Stehen bleiben heisst: im Dokument bleiben. Bis November 2026 hängte
+    // jede neue Zahl alle Karten noch einmal hinten an (append verschiebt
+    // auch eine Karte, die schon dort steht) – und eine verschobene Karte
+    // spielt ihren Auftritt von vorn. Bei jedem Punkt blinkte die ganze
+    // Liste. Jetzt rückt eine Karte nur, wenn sich die Reihenfolge wirklich
+    // ändert, und nur eine neue Karte tritt auf (ist-neu).
     let liveListeNeu = null;
     function liveListeZeigen() {
       const inhalt = el("div", "ar-live-liste");
@@ -3026,8 +3033,9 @@
         zuletzt = performance.now();
         const alle = alleSpielenden();
         leer.hidden = alle.length > 0;
-        if (!leer.isConnected) inhalt.append(leer);
+        if (inhalt.firstChild !== leer) inhalt.prepend(leer);
         const da = new Set();
+        let davor = leer;
         alle.forEach((s) => {
           const schluessel = `${s.name}|${s.spiel}|${s.turnier || ""}`;
           da.add(schluessel);
@@ -3042,8 +3050,9 @@
           k.pause.hidden = !s.pause;
           k.karte.classList.toggle("ist-pause", Boolean(s.pause));
           k.zuschauen.hidden = !s.link;
-          if (s.link) k.zuschauen.href = s.link;
-          inhalt.append(k.karte);
+          if (s.link && k.zuschauen.getAttribute("href") !== s.link) k.zuschauen.href = s.link;
+          if (davor.nextSibling !== k.karte) davor.after(k.karte);
+          davor = k.karte;
         });
         karten.forEach((k, schluessel) => {
           if (da.has(schluessel)) return;
@@ -3068,7 +3077,10 @@
     liveKnopf.addEventListener("click", liveListeZeigen);
 
     function liveKarte(s) {
-      const karte = el("div", "ar-live-karte");
+      const karte = el("div", "ar-live-karte ist-neu");
+      karte.addEventListener("animationend", (ereignis) => {
+        if (ereignis.target === karte && ereignis.animationName === "ar-live-rein") karte.classList.remove("ist-neu");
+      });
       karte.append(el("span", "ar-live-kreis", kuerzel(s.name)));
       const text = el("span", "ar-live-text");
       const zeile = el("span", "ar-live-zeile");

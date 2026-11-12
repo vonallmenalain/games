@@ -34,7 +34,9 @@
  * Lautstärke: Alles ist auf dieselbe Lautheit gebracht (Einmal-Klänge
  * -20 dB RMS, Kulissen -27 dB, gemessen) und läuft über einen leisen
  * Hauptregler und einen Begrenzer. Die Klänge sollen die Spiele begleiten,
- * nicht übertönen. Der Ton-Schalter oben rechts (kids.js) gilt auch hier.
+ * nicht übertönen. Der Ton oben rechts (kids.js) gilt auch hier: stumm
+ * schaltet alles ab, und die Lautstärke ist ein letzter Regler hinter dem
+ * Begrenzer (ausgangFuer).
  */
 (() => {
   "use strict";
@@ -42,6 +44,7 @@
   const HAUPT = 0.5;       // alles zusammen
   const KULISSE = 0.7;     // Kulissen unter den Einmal-Klängen
   const AUDIO_KEY = "lernapp.audioFeedback";
+  const LAUT_KEY = "lernapp.lautstaerke";
 
   const kids = () => window.LernappKids || null;
 
@@ -237,6 +240,37 @@
     return wert !== "0" && wert !== "false" && wert !== "off";
   }
 
+  // Die Lautstärke (0 … 1) aus dem Regler oben rechts (kids.js). Auf einer
+  // Seite ohne kids.js steht sie trotzdem im Speicher: Verstellt wird sie in
+  // den Spielen, und sie gilt überall.
+  function lautstaerke() {
+    const k = kids();
+    if (k?.lautstaerke) return k.lautstaerke();
+    let roh = null;
+    try { roh = localStorage.getItem(LAUT_KEY); } catch { /* privat */ }
+    if (roh === null || roh === "") return 1;
+    const wert = Number(roh);
+    return Number.isFinite(wert) ? Math.max(0, Math.min(1, wert)) : 1;
+  }
+
+  // Wohin es am Schluss geht: durch den Regler von kids.js, wo der Kontext
+  // derselbe ist – sonst durch einen eigenen, im Quadrat wie dort.
+  let eigenerRegler = null;
+  function ausgangFuer(c) {
+    const dort = kids()?.ausgang?.();
+    if (dort && dort.context === c) return dort;
+    eigenerRegler = c.createGain();
+    eigenerRegler.gain.value = lautstaerke() ** 2;
+    eigenerRegler.connect(c.destination);
+    return eigenerRegler;
+  }
+  // Im Multiplayer steckt das Spiel in einem Rahmen: Wird dort verstellt,
+  // zieht die Seite drumherum nach.
+  window.addEventListener("storage", (ereignis) => {
+    if (ereignis.key !== LAUT_KEY || !eigenerRegler) return;
+    try { eigenerRegler.gain.setTargetAtTime(lautstaerke() ** 2, eigenerRegler.context.currentTime, 0.03); } catch { /* egal */ }
+  });
+
   function kontext() {
     if (!tonErlaubt()) return null;
     let c = kids()?.audioKontext?.() || null;
@@ -259,7 +293,7 @@
       begrenzer.ratio.value = 8;
       begrenzer.attack.value = 0.003;
       begrenzer.release.value = 0.2;
-      haupt.connect(begrenzer).connect(ctx.destination);
+      haupt.connect(begrenzer).connect(ausgangFuer(ctx));
       effekte = ctx.createGain();
       effekte.connect(haupt);
       kulissen = ctx.createGain();

@@ -2220,9 +2220,12 @@
 
   // Und eine Taste, die gar nicht auf der Tafel gedrückt wird – weil noch
   // nichts den Fokus hat –, geht auch nicht ans Spiel, solange die Tafel
-  // steht. Hinter ihr soll keine Runde anlaufen, die niemand sieht.
+  // steht. Hinter ihr soll keine Runde anlaufen, die niemand sieht. Der Ton
+  // oben rechts (kids.js) bleibt bedienbar – auch mit Esc und den Pfeilen.
   ["keydown", "keyup"].forEach((typ) => document.addEventListener(typ, (ereignis) => {
-    if (hier.tor?.isConnected && !hier.tor.contains(ereignis.target)) ereignis.stopPropagation();
+    if (!hier.tor?.isConnected || hier.tor.contains(ereignis.target)) return;
+    if (ereignis.target?.closest?.(".sound-toggle, .ton-regler")) return;
+    ereignis.stopPropagation();
   }, { capture: true }));
 
   function schliesseTor() {
