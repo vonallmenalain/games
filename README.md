@@ -659,8 +659,8 @@ folgt ihm in jede Kurve; darüber öffnet sich die Schlucht. Vorne ist der Gang
 gut 20 m breit und biegt in weiten Bögen, ab `ENG_AB` (220 m) wird er
 enger und kurviger, und ab `ENG_VOLL` (2600 m) ist er Wand an Wand kaum
 mehr acht Meter breit und schlägt Haken: Serpentinen (`kurven`), dichtere
-Hindernisse, kurze Pausen, und der Weg verlangt fast alles, was der Flieger
-zur Seite kann (`engeBei`, `anteilBei`). Der Flieger ist ein Mensch im
+Hindernisse, kurze Pausen, und der Weg verlangt gut zwei Drittel dessen, was
+der Flieger zur Seite kann (`engeBei`, `anteilBei`). Der Flieger ist ein Mensch im
 Wingsuit (`fliegerNetz`): Helm mit Visier, Gurtzeug, Handschuhe und Schuhe,
 die Flügel Zelle an Zelle; sein Netz entsteht in jedem Bild neu aus seiner
 Haltung (`fliegerPose`) – er steht auf der Kanzel, breitet im Absprung Arme
@@ -681,7 +681,10 @@ neben einem Massiv nimmt, bekommt 12 mal die Serie (`SPALT_PUNKTE`). Nach
 4300 m (`Z_ENDE`, 85 Sekunden) öffnet sich das Tal: Schirm auf, Landung auf
 der Wiese, 30 Punkte dazu (`LANDE_PUNKTE`). Dorthin kommt nur, wer die Haken
 am Schluss vorausahnt – ein Pilot mit gut einer Zehntelsekunde Reaktionszeit
-schafft im Mittel rund 2400 m, mit einer Fünftelsekunde rund 2000 m.
+schafft im Mittel rund 2600 m, mit einer Fünftelsekunde rund 2000 m (vorher
+landeten beide meist im Tal). Um ein Massiv herum geht der Gang über gut
+hundert Meter in die offene Seite über – rückte die Wand auf einmal heran,
+stünde sie quer im Weg.
 Den Fels sieht und hört man kommen: Auf seiner Seite glüht der Rand des
 Bilds, Windstreifen ziehen dort vorbei, Staub und Steinchen lösen sich von
 der Wand, und ein Rauschen wird lauter.
@@ -692,7 +695,7 @@ Zeit lenken lässt – die Biegung der Schlucht selbst ist eingerechnet
 (`reichBis`), verlangt wird am Anfang die Hälfte dessen, was der Flieger
 zur Seite kann, am Schluss knapp drei Viertel (`anteilBei`). Darum herum
 stellen die Abschnitte ihre Hindernisse, und auf der Breite `breiteBei(z)`
-(von 9,5 m auf 4,6 m, `BREIT0`/`BREIT_MIN`) steht am Weg nichts: Die Wände
+(von 9,5 m auf 5 m, `BREIT0`/`BREIT_MIN`) steht am Weg nichts: Die Wände
 weichen dort zurück (`backe`), ein Turm wird schlanker (`raeumeWeg`). Die
 Wände sind zwei Reihen von Knoten, alle vier Meter einer (`wandL`, `wandR`):
 Dort steht der Fels auf Flughöhe, und genau diese Knoten sind auch Ecken

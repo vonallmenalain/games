@@ -6894,7 +6894,8 @@ try {
   // freien Weg steht auf seiner ganzen Breite nichts – keine Wand, kein
   // Massiv, kein Turm, keine Tanne, kein Pfeiler –, und er biegt nie
   // schärfer, als sich lenken lässt. Hinten ist der Gang eng: Wand an Wand
-  // kaum zehn Meter, und er schlägt Haken – viel öfter als vorne. Ein
+  // kaum zehn Meter, und er schlägt Haken – je Sekunde mehr als doppelt so
+  // oft wie vorne, gut einmal in der Sekunde. Ein
   // Autopilot, der die Kurven vorausnimmt, landet in mehreren gewürfelten
   // Schluchten im Tal. Wer nichts tut, prallt bald an – aber nicht in den
   // ersten fünf Sekunden. Nah am Fels zählt ein Mehrfaches, die Serie
@@ -6925,8 +6926,8 @@ try {
       const arten = new Set();
       let dinge = 0;
       // Wie breit der Gang vorne und hinten ist, und wie oft er die Richtung
-      // wechselt (je Kilometer).
-      const gang = { vorne: [], hinten: [], hakenVorne: 0, hakenHinten: 0 };
+      // wechselt – je Sekunde Flug, denn darauf kommt es beim Lenken an.
+      const gang = { vorne: [], hinten: [], hakenVorne: 0, hakenHinten: 0, sekVorne: 0, sekHinten: 0 };
       for (let lauf = 0; lauf < 5; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         S.weltBis(S.Z_ENDE + 300);
@@ -6941,8 +6942,8 @@ try {
         for (let z = 130; z <= S.Z_ENDE; z += 1) {
           const x = S.wegBei(z);
           const f0 = S.freiBei(z);
-          if (z > 400 && z < 1100) gang.vorne.push(f0.r - f0.l);
-          if (z > 3000 && z < S.Z_ENDE - 250) gang.hinten.push(f0.r - f0.l);
+          if (z > 400 && z < 1100) { gang.vorne.push(f0.r - f0.l); gang.sekVorne += 1 / S.tempoBei(z); }
+          if (z > 3000 && z < S.Z_ENDE - 250) { gang.hinten.push(f0.r - f0.l); gang.sekHinten += 1 / S.tempoBei(z); }
           const neigung = S.wegBei(z + 4) - S.wegBei(z - 4);
           if (Math.abs(neigung) > 0.4 && Math.sign(neigung) !== vorzeichen) {
             if (vorzeichen && z > 400 && z < 1100) gang.hakenVorne += 1;
@@ -6956,6 +6957,10 @@ try {
           if (luft < halb - 0.02 && befunde.length < 6) befunde.push(`bei ${z} m sind nur ${luft.toFixed(2)} m frei, versprochen ${halb.toFixed(2)}`);
           const steil = Math.abs(S.wegBei(z + 1) - S.wegBei(z - 1)) / 2;
           if (steil > S.kannBei(z) * 0.8 + 0.005 && befunde.length < 6) befunde.push(`bei ${z} m biegt der Weg mit ${steil.toFixed(2)}, lenkbar ${S.kannBei(z).toFixed(2)}`);
+          // Auch quer: Keine Wand steht so schräg in den Weg, dass sie
+          // seiner Mitte näher kommt als gut anderthalb Meter.
+          const quer = S.abstandBei(x, z);
+          if (quer < 1.6 && befunde.length < 6) befunde.push(`bei ${z} m steht der Fels nur ${quer.toFixed(2)} m neben der Mitte des Wegs`);
         }
         if (!W.fertig) befunde.push("Die Schlucht endet nicht im Tal");
         // Ein Spalt neben einem Massiv ist eng, aber zu fliegen.
@@ -6972,13 +6977,13 @@ try {
       return {
         befunde, dinge, arten: [...arten].sort().join(","),
         vorne: median(gang.vorne), hinten: median(gang.hinten),
-        // Haken je Kilometer, vorne auf 700 m, hinten auf gut 1000 m, in fünf Schluchten.
-        hakenVorne: gang.hakenVorne / 5 / 0.7, hakenHinten: gang.hakenHinten / 5 / ((S.Z_ENDE - 250 - 3000) / 1000),
+        // Haken je Sekunde Flug, vorne auf 700 m, hinten auf gut 1000 m, in fünf Schluchten.
+        hakenVorne: gang.hakenVorne / gang.sekVorne, hakenHinten: gang.hakenHinten / gang.sekHinten,
       };
     });
     pruefe(weg.befunde.length === 0 && weg.dinge > 150 && weg.arten === "bogen,bruecke,klamm,massiv,nase,tanne,turm",
       `Felsflug: Der freie Weg ist nicht frei (oder es fehlt eine Art Hindernis) – ${JSON.stringify(weg)}`);
-    pruefe(weg.vorne > 14 && weg.hinten < 10 && weg.hakenHinten > weg.hakenVorne * 2,
+    pruefe(weg.vorne > 14 && weg.hinten < 10 && weg.hakenVorne < 0.5 && weg.hakenHinten > 0.6 && weg.hakenHinten > weg.hakenVorne * 2,
       `Felsflug: Der Gang wird nach hinten nicht eng und kurvig – ${JSON.stringify(weg)}`);
 
     // Der Autopilot: dem freien Weg nach, bis ins Tal. Er nimmt die Kurve

@@ -111,7 +111,7 @@
 
   // Der freie Weg: am Anfang gut vier Flieger breit, am Schluss knapp zwei.
   const BREIT0 = 9.5;
-  const BREIT_MIN = 4.6;
+  const BREIT_MIN = 5;
   const ERSTES_DING = 260;         // bis hier ist die Schlucht leer und weit
   // Der Gang: Auf Flughöhe steht die Wand so viel neben dem freien Weg –
   // erst ein paar Meter, zum Schluss kaum einer. Und so schnell wird es eng
@@ -336,8 +336,9 @@
   const wegBei = (z) => mitteBei(z) + versatzBei(z);
 
   // Wie viel vom Lenken der Weg verlangen darf: am Anfang gut ein Drittel,
-  // am Schluss fast alles, was er zur Seite kann (ein Fünftel bleibt Luft).
-  const anteilBei = (z) => lerp(0.36, 0.74, Math.pow(engeBei(z), 0.8));
+  // am Schluss gut zwei Drittel dessen, was er zur Seite kann – der Rest
+  // bleibt, um eine Kurve zu spät erwischt wieder einzuholen.
+  const anteilBei = (z) => lerp(0.36, 0.68, Math.pow(engeBei(z), 0.8));
   const kannBei = (z) => querBei(z) / tempoBei(Math.max(60, z));
 
   // Wie weit der Weg bis zur Stelle z zur Seite gehen darf, vom letzten
@@ -713,12 +714,19 @@
         }
       }
       // Der Gang: Auf Flughöhe rückt die Wand an den Weg heran – nur nicht
-      // auf der Seite eines Massivs, dort bleibt der Spalt.
+      // auf der Seite eines Massivs, dort bleibt der Spalt. Vor und hinter
+      // dem Massiv geht das über gut hundert Meter ineinander über: Rückte
+      // die Wand auf einmal heran, stünde sie quer im Weg.
       const gang = gangBei(z);
-      let spaltSeite = 0;
-      for (const m of W.massive) if (z > m.zA - 30 && z < m.zB + 30) spaltSeite = -m.q;
-      if (spaltSeite !== -1) l = Math.max(l, weg - gang);
-      if (spaltSeite !== 1) r = Math.min(r, weg + gang);
+      let offenL = 0;
+      let offenR = 0;
+      for (const m of W.massive) {
+        const w = weich(m.zA - 110, m.zA - 10, z) * (1 - weich(m.zB + 10, m.zB + 110, z));
+        if (m.q > 0) offenL = Math.max(offenL, w);
+        else offenR = Math.max(offenR, w);
+      }
+      l = lerp(Math.max(l, weg - gang), l, offenL);
+      r = lerp(Math.min(r, weg + gang), r, offenR);
       const rauh = lerp(2.2, 1.4, engeBei(z)) * (1 - tal);
       l += (hashGanz(k * 2) - 0.5) * rauh;
       r += (hashGanz(k * 2 + 1) - 0.5) * rauh;
