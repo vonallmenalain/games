@@ -7697,15 +7697,18 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 28 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
-    // umteilt, speichert es – und das nächste Turnier sieht es so.
+    // Die Tiers: Vorgabe 28 / 4 / 5, Tier 4 und 5 noch leer, neben jedem
+    // Spiel T1 bis T5. Wer eines umteilt, speichert es – und das nächste
+    // Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 28 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
-      && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 28 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+      && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
+      && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
+      && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});

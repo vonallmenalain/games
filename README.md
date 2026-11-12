@@ -1894,8 +1894,8 @@ Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
 leert «Bestenliste leeren» in der aufgeklappten Bestenliste des Spiels die
 ganze Liste auf einmal.
 
-**Tiers.** Im Block «Welche Spiele gespielt werden» stehen die Spiele in drei
-Gruppen, Tier 1 bis 3, und neben jedem ein kleines T1/T2/T3. Wer ein Spiel
+**Tiers.** Im Block «Welche Spiele gespielt werden» stehen die Spiele in fünf
+Gruppen, Tier 1 bis 5, und neben jedem ein kleines T1 bis T5 zum Umteilen. Wer ein Spiel
 umteilt, speichert die Einteilung sofort (`config/miniGames`, Feld `tiers`,
 `cloud.js` `setzeTiers`). Im Formular eines Turniers stehen die Spiele genauso
 gruppiert, mit einem Knopf je Tier: Er nimmt das ganze Tier dazu – oder, wenn
@@ -1905,7 +1905,10 @@ Lianenschwung, Tunnelflug, Drift-Rennen, Hügelflieger und die danach
 gebauten (Windschichten, Slalom, Froschsprung, Kranhafen, Seiltänzer, Heisser
 Draht, Zwei Spuren, Ball hochhalten, Jongleur, Turmspringen, Fallschirm,
 Holzfäller, Fledermaus, Zeitlupen-Ninja, Freitaucher), Tier 2 Blätter im Strom, Drehscheibe,
-Planetenhüpfer und Der Heizer, Tier 3 der Rest. Ein Spiel, das es nicht mehr
+Planetenhüpfer und Der Heizer, Tier 3 der Rest; Tier 4 und 5 sind in der
+Vorgabe leer (seit dem 12. November 2026) – dorthin teilt nur der Admin ein.
+Ein leeres Tier zeigt «Noch kein Spiel in diesem Tier.» und bekommt im
+Turnierformular keinen Knopf. Ein Spiel, das es nicht mehr
 gibt (wie der Wellenreiter), fällt beim nächsten Speichern aus den Tiers
 (`cloud.js`, `ohneAlteSpiele`): Die Regeln lassen dort nur Spiele zu, die es
 gibt, und ohne das scheiterte jedes Speichern an seinem alten Eintrag.

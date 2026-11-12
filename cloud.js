@@ -56,7 +56,7 @@
  *
  *   config/miniGames
  *     spiele     ["towerStack", …]   was auf der Startseite steht
- *     tiers      { towerStack: 1 }    Tier 1, 2 oder 3 je Spiel (admin.js).
+ *     tiers      { towerStack: 1 }    Tier 1 bis 5 je Spiel (admin.js).
  *                                     Fehlt, wo nie eingeteilt wurde.
  *
  * Und die Aufzeichnung des besten Laufs, für die, die gegen ihn spielen
@@ -329,10 +329,12 @@
   }
 
   /*
-   * Die Tiers: wie der Admin die Spiele einteilt (admin.js) – je Spiel 1, 2
-   * oder 3, im selben Dokument wie die offenen Spiele. null heisst: nie
+   * Die Tiers: wie der Admin die Spiele einteilt (admin.js) – je Spiel 1
+   * bis 5, im selben Dokument wie die offenen Spiele. null heisst: nie
    * eingeteilt, es gilt die Vorgabe (mini-games.js, TIERS_VORGABE).
    */
+  // Die Tiers, die es gibt – wie in mini-games.js (TIERS) und den Regeln.
+  const TIER_ZAHLEN = [1, 2, 3, 4, 5];
   async function tiers() {
     const doc = listenDoc();
     if (!doc) return null;
@@ -341,7 +343,7 @@
     if (!roh || typeof roh !== "object") return null;
     const raus = {};
     Object.entries(roh).forEach(([spiel, tier]) => {
-      if ([1, 2, 3].includes(Number(tier))) raus[String(spiel)] = Number(tier);
+      if (TIER_ZAHLEN.includes(Number(tier))) raus[String(spiel)] = Number(tier);
     });
     return raus;
   }
@@ -355,7 +357,7 @@
     const sauber = {};
     Object.entries(einteilung || {}).forEach(([spiel, tier]) => {
       const id = String(spiel || "").trim();
-      if (id && [1, 2, 3].includes(Number(tier))) sauber[id] = Number(tier);
+      if (id && TIER_ZAHLEN.includes(Number(tier))) sauber[id] = Number(tier);
     });
     const daten = { tiers: sauber, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
     const stand = await doc.get();

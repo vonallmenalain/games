@@ -5132,9 +5132,9 @@ body.adm-dash-offen { overflow: hidden; }
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Die Tiers: drei Gruppen, je mit Titel, und neben jedem Spiel T1/T2/T3. */
+/* Die Tiers: fünf Gruppen, je mit Titel, und neben jedem Spiel T1 bis T5. */
 .adm-tiers { display: flex; flex-direction: column; gap: 4px; }
-/* Mit T1/T2/T3 in der Zeile braucht ein Spiel mehr Breite, sonst steht von
+/* Mit T1 bis T5 in der Zeile braucht ein Spiel mehr Breite, sonst steht von
    «Brückenbauer» nur noch «Brücken…» da. */
 .adm-tiers .adm-auswahl { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
 .adm-tier-titel {
