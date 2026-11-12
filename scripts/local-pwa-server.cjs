@@ -18,7 +18,7 @@ const contentTypes = {
   ".webmanifest": "application/manifest+json; charset=utf-8"
 };
 
-function sendFile(res, filePath, method) {
+function sendFile(res, filePath, method, status = 200) {
   fs.readFile(filePath, (error, data) => {
     if (error) {
       res.writeHead(error.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
@@ -27,7 +27,7 @@ function sendFile(res, filePath, method) {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, {
+    res.writeHead(status, {
       "Cache-Control": "no-cache",
       "Content-Type": contentTypes[ext] || "application/octet-stream"
     });
@@ -72,9 +72,12 @@ http.createServer((req, res) => {
     // je bemerken.
     if (error && !path.extname(filePath)) {
       const mitEndung = `${filePath}.html`;
+      // Und wie Netlify: Liegt auch dort nichts, kommt 404.html – mit 404,
+      // aber als Seite. Durch sie führt der eigene Link eines Turniers
+      // (/hotdog → /turnier?t=hotdog, scripts/seiten-bauen.mjs, weiterSeite).
       fs.stat(mitEndung, (fehlt) => {
         if (!fehlt) sendFile(res, mitEndung, req.method);
-        else sendFile(res, filePath, req.method);
+        else sendFile(res, path.join(root, "404.html"), req.method, 404);
       });
       return;
     }

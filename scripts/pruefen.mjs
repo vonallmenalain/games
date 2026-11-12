@@ -196,6 +196,8 @@ pruefe("styles.css kennt den Adminbereich", /\.adm-seite(?![\w-])/.test(css));
 // die andere – und niemand merkt es, bis ein Schreibvorgang abgewiesen wird.
 const PROJEKT = "games-a0cd4";
 pruefe(`cloud.js zeigt auf ${PROJEKT}`, lies("cloud.js").includes(`projectId: "${PROJEKT}"`));
+pruefe(`netlify/edge-functions/turnier-vorschau.js liest aus ${PROJEKT}`,
+  lies("netlify/edge-functions/turnier-vorschau.js").includes(`const PROJEKT = "${PROJEKT}";`));
 pruefe(`.firebaserc zeigt auf ${PROJEKT}`, JSON.parse(lies(".firebaserc")).projects.default === PROJEKT);
 const workflow = lies(".github/workflows/firestore-rules.yml");
 pruefe(`Der Workflow zeigt auf ${PROJEKT}`, workflow.includes(`FIREBASE_PROJEKT: ${PROJEKT}`));
@@ -686,6 +688,80 @@ for (const s of SPIELE) {
 const shellJs = lies("game-shell.js");
 pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum Start",
   !/ton\?\.\("start"\)/.test(shellJs) && /"rekord" : "tafel"/.test(shellJs) && /stille\?\.\(\)/.test(shellJs));
+
+// --- 20. Der eigene Link und die Vorschau eines Turnierlinks -----------------
+// 404.html leitet einen eigenen Link (/hotdog) im Browser weiter; die Edge
+// Function schreibt den Namen des Turniers in die Vorschau (WhatsApp & Co.)
+// und leitet den eigenen Link schon auf dem Server weiter. Netlify gibt es
+// hier nicht – also läuft die Function gegen ein nachgemachtes Firestore und
+// ein nachgemachtes context.next().
+{
+  const weiter = lies("404.html");
+  pruefe("404.html leitet einen eigenen Link auf die Turnierseite weiter",
+    weiter.includes('ziel = "/turnier?t=" + weg') && weiter.includes('<base href="/" />'));
+  pruefe("404.html ist nicht im Zwischenspeicher des Service Workers", !sw.includes("404.html"));
+  pruefe("Die Vorschau eines Turniers wirbt nicht mehr mit «Dieselben Spiele»",
+    !/Dieselben Spiele/.test(turnierHtml) && !/Dieselben Spiele/.test(weiter));
+
+  const vorschau = await import(new URL("../netlify/edge-functions/turnier-vorschau.js", import.meta.url));
+  const TURNIERE_HIER = {
+    "hotdog-party-3cuwrdn6": { name: "HotDog <Party> & \"Co\"" },
+    hotdog: { name: "HotDog Party", beschreibung: "Wer am meisten Würste isst, gewinnt – und zwar nicht nur einen Preis, sondern den ewigen Ruhm im ganzen Quartier und darüber hinaus, bis nächstes Jahr." },
+  };
+  const echtesFetch = globalThis.fetch;
+  globalThis.fetch = async (adresse) => {
+    const id = decodeURIComponent(String(adresse).split("/miniTurniere/")[1]?.split("?")[0] || "");
+    if (id === "kaputt-123456") return new Response("{}", { status: 500 });
+    const t = TURNIERE_HIER[id];
+    if (!t) return new Response("{}", { status: 404 });
+    const fields = { name: { stringValue: t.name } };
+    if (t.beschreibung) fields.beschreibung = { stringValue: t.beschreibung };
+    return new Response(JSON.stringify({ fields }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const ausgeliefert = (pfad) => {
+    if (pfad === "/turnier") return new Response(turnierHtml, { status: 200, headers: { "content-type": "text/html; charset=UTF-8", etag: "x" } });
+    if (pfad === "/turmbau") return new Response("Turmbau", { status: 200, headers: { "content-type": "text/html" } });
+    return new Response(weiter, { status: 404, headers: { "content-type": "text/html" } });
+  };
+  const frage = async (adresse) => {
+    const url = new URL(adresse, "https://games.alae.app");
+    let weiterGefragt = 0;
+    const antwort = await vorschau.default(new Request(url), { next: async () => { weiterGefragt += 1; return ausgeliefert(url.pathname); } });
+    return { antwort, weiterGefragt, text: antwort ? await antwort.clone().text() : "" };
+  };
+  const meta = (html, art) => (html.match(new RegExp(`<meta (?:property|name)="${art}" content="([^"]*)" />`)) || [])[1];
+  try {
+    let r = await frage("/turnier?t=hotdog-party-3cuwrdn6");
+    pruefe("Vorschau: Der Titel ist der Name des Turniers (sicher maskiert)",
+      meta(r.text, "og:title") === "HotDog &lt;Party&gt; &amp; &quot;Co&quot;" && meta(r.text, "og:description") === "Turnier · arcade"
+      && /<title>HotDog &lt;Party&gt; &amp; &quot;Co&quot; · Turnier · arcade<\/title>/.test(r.text)
+      && r.antwort.status === 200 && !r.antwort.headers.has("etag"));
+    r = await frage("/turnier?t=hotdog");
+    const satz = meta(r.text, "og:description") || "";
+    pruefe("Vorschau: Mit Beschreibung steht sie darunter, gekürzt",
+      meta(r.text, "og:title") === "HotDog Party" && satz.startsWith("Turnier · arcade – Wer am meisten Würste isst") && satz.endsWith(" …") && satz.length < 170
+      && meta(r.text, "description") === satz);
+    r = await frage("/turnier?t=gibtsnicht-123456");
+    pruefe("Vorschau: Ein Turnier, das es nicht gibt, lässt die Seite, wie sie ist", r.text === turnierHtml);
+    r = await frage("/turnier?t=kaputt-123456");
+    pruefe("Vorschau: Antwortet Firestore nicht, kommt die Seite unverändert", r.text === turnierHtml && r.antwort.status === 200);
+    r = await frage("/turnier?t=Nicht%20so");
+    pruefe("Vorschau: Eine Kennung, die keine ist, fragt Firestore gar nicht", r.text === turnierHtml);
+    r = await frage("/HotDog/");
+    pruefe("Eigener Link: /HotDog/ geht auf dem Server weiter zum Turnier",
+      r.antwort?.status === 302 && r.antwort.headers.get("location") === "https://games.alae.app/turnier?t=hotdog");
+    r = await frage("/turmbau");
+    pruefe("Eigener Link: Eine Seite, die es gibt, bleibt die Seite", r.antwort?.status === 200 && r.text === "Turmbau");
+    r = await frage("/gibtsnicht-123456");
+    pruefe("Eigener Link: Ohne Turnier bleibt es bei 404.html", r.antwort?.status === 404 && r.text === weiter);
+    r = await frage("/a/b");
+    pruefe("Eigener Link: Was keine Kennung sein kann, geht unberührt weiter", r.antwort === undefined && r.weiterGefragt === 0);
+  } finally {
+    globalThis.fetch = echtesFetch;
+  }
+  pruefe("Die Edge Function läuft nicht für Skripte, Stylesheets und Bilder",
+    ["/*.js", "/*.css", "/icons/*", "/bilder/*"].every((p) => vorschau.config.excludedPath.includes(p)) && vorschau.config.path === "/*");
+}
 
 if (fehler.length) {
   console.error(`✗ ${fehler.length} von ${geprueft} Prüfungen fehlgeschlagen:\n`);

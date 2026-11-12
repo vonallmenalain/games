@@ -585,6 +585,33 @@ await darfNicht("Gast löscht einen Umzug", () => gast().doc(UMZUG).delete());
 await darf("Admin listet die Umzüge auf", () => admin().collection("miniUmzuege").get());
 await darf("Admin löscht einen Umzug", () => admin().doc(UMZUG).delete());
 
+// --- Presets des Adminbereichs -----------------------------------------------
+// Nur der Admin – auch lesen. Was im Preset steht, ist sein Formular; die
+// Regeln prüfen nur die Hülle.
+const PRESET = "miniPresets/herbst-cup-0a1b2c3d";
+const presetDaten = (aenderung = {}) => ({
+  name: "Herbst-Cup",
+  turnier: { name: "Herbstcup", spiele: ["towerStack"], dauer: "86400000", versuchsart: "zahl", anzahl: "3", verdeckt: false },
+  gespeichertMs: 1,
+  ...aenderung,
+});
+await darfNicht("Gast legt ein Preset an", () => gast().doc(PRESET).set(presetDaten()));
+await darfNicht("Ein angemeldeter Fremder legt ein Preset an", () => fremder().doc(PRESET).set(presetDaten()));
+await darfNicht("Der Admin mit unbestätigter Adresse legt ein Preset an", () => adminOhneVerifikation().doc(PRESET).set(presetDaten()));
+await darfNicht("Admin legt ein Preset ohne Namen an", () => admin().doc(PRESET).set(presetDaten({ name: "" })));
+await darfNicht("Admin legt ein Preset mit überlangem Namen an", () => admin().doc(PRESET).set(presetDaten({ name: "x".repeat(61) })));
+await darfNicht("Admin legt ein Preset ohne Einstellungen an", () => admin().doc(PRESET).set(presetDaten({ turnier: "alles" })));
+await darfNicht("Admin schmuggelt ein Feld ins Preset", () => admin().doc(PRESET).set(presetDaten({ heimlich: true })));
+await darfNicht("Admin legt ein Preset unter einer Kennung mit Grossbuchstaben an", () => admin().doc("miniPresets/Herbst").set(presetDaten()));
+await darf("Admin legt ein Preset an", () => admin().doc(PRESET).set(presetDaten()));
+await darf("Admin überschreibt ein Preset", () => admin().doc(PRESET).set(presetDaten({ gespeichertMs: 2 })));
+await darfNicht("Gast liest ein Preset", () => gast().doc(PRESET).get());
+await darfNicht("Gast listet die Presets auf", () => gast().collection("miniPresets").get());
+await darfNicht("Ein angemeldeter Fremder listet die Presets auf", () => fremder().collection("miniPresets").get());
+await darfNicht("Gast löscht ein Preset", () => gast().doc(PRESET).delete());
+await darf("Admin listet die Presets auf", () => admin().collection("miniPresets").get());
+await darf("Admin löscht ein Preset", () => admin().doc(PRESET).delete());
+
 // --- cloud.js gegen die Regeln ------------------------------------------------
 // Die Prüfung im Browser ersetzt cloud.js durch eine Attrappe – sie sieht also
 // nie, ob das, was cloud.js wirklich schreibt, an diesen Regeln vorbeikommt.
@@ -947,6 +974,22 @@ await darf("cloud.js: Admin löscht auch ein grosses Turnier ganz", async () => 
   erwarte((await frisch.turnierErgebnisse(GROSS)).length === 0, "Einträge sind liegen geblieben");
   erwarte(await frisch.turnier(GROSS) === null, "das Turnier ist noch da");
 });
+
+// Die Presets über cloud.js: speichern, lesen, überschreiben, löschen – als
+// Admin. Ein Gast kommt nicht einmal ans Lesen.
+await darf("cloud.js: Admin speichert, liest und löscht Presets", async () => {
+  await adminCloud.speicherePreset({ name: "Über  cloud.js ", turnier: { name: "Cup", spiele: ["towerStack"], weg: undefined, dauerMs: 86400000 }, gespeichertMs: 5 });
+  await adminCloud.speicherePreset({ name: "Cup!", turnier: { name: "Cup!" }, gespeichertMs: 6 });
+  await adminCloud.speicherePreset({ name: "Cup?", turnier: { name: "Cup?" }, gespeichertMs: 7 });
+  await adminCloud.speicherePreset({ name: "Cup!", turnier: { name: "Cup! neu" }, gespeichertMs: 8 });
+  let liste = await adminCloud.presets();
+  erwarte(JSON.stringify(liste.map((p) => p.name)) === JSON.stringify(["Cup!", "Cup?", "Über cloud.js"]), JSON.stringify(liste));
+  erwarte(liste[0].turnier.name === "Cup! neu" && liste[2].turnier.dauerMs === 86400000 && !("weg" in liste[2].turnier), JSON.stringify(liste));
+  for (const p of liste) await adminCloud.loeschePreset(p.name);
+  liste = await adminCloud.presets();
+  erwarte(liste.length === 0, JSON.stringify(liste));
+});
+await wirft("cloud.js: Gast liest die Presets", "permission-denied", () => gastCloud.presets());
 
 // --- Sonst gibt es nichts ----------------------------------------------------
 // Eine Sammlung, die jemand morgen anlegt, steht nicht offen da, weil niemand

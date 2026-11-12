@@ -14,13 +14,18 @@
 
   Nicht für Suchmaschinen: Ein Turnier "nur mit Link" soll auch dort nicht
   auftauchen.
+
+  Die Vorschau eines geteilten Links (Titel, Satz) gilt hier für jedes
+  Turnier. Den Namen des einen setzt beim Ausliefern
+  netlify/edge-functions/turnier-vorschau.js ein; was hier steht, sieht nur,
+  wer ein Turnier teilt, das es nicht (mehr) gibt.
 -->
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="arcade" />
-    <meta name="description" content="Ein Turnier in der arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung." />
+    <meta name="description" content="Ein Turnier in der arcade: mitspielen mit einem Tipp auf den Link – ohne Konto, ohne Anmeldung." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -29,7 +34,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="arcade" />
     <meta property="og:title" content="Turnier · arcade" />
-    <meta property="og:description" content="Dieselben Spiele, eine eigene Rangliste." />
+    <meta property="og:description" content="Mitspielen mit einem Tipp – ohne Anmeldung." />
     <meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
@@ -37,8 +42,8 @@
     <meta property="og:image:alt" content="arcade" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>Turnier · arcade</title>
-    <link rel="stylesheet" href="styles.css?v=2026-11-12-1" />
-    <link rel="manifest" href="app.webmanifest?v=2026-11-12-1" />
+    <link rel="stylesheet" href="styles.css?v=2026-11-12-2" />
+    <link rel="manifest" href="app.webmanifest?v=2026-11-12-2" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
     <meta name="robots" content="noindex, nofollow" />
@@ -50,12 +55,12 @@
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script defer src="vollbild.js?v=2026-11-12-1"></script>
-    <script defer src="highscore.js?v=2026-11-12-1"></script>
-    <script defer src="cloud.js?v=2026-11-12-1"></script>
-    <script defer src="klang.js?v=2026-11-12-1"></script>
-    <script defer src="mini-games.js?v=2026-11-12-1"></script>
-    <script defer src="turnier.js?v=2026-11-12-1"></script>
-    <script defer src="pwa.js?v=2026-11-12-1"></script>
+    <script defer src="vollbild.js?v=2026-11-12-2"></script>
+    <script defer src="highscore.js?v=2026-11-12-2"></script>
+    <script defer src="cloud.js?v=2026-11-12-2"></script>
+    <script defer src="klang.js?v=2026-11-12-2"></script>
+    <script defer src="mini-games.js?v=2026-11-12-2"></script>
+    <script defer src="turnier.js?v=2026-11-12-2"></script>
+    <script defer src="pwa.js?v=2026-11-12-2"></script>
   </body>
 </html>

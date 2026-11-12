@@ -55,6 +55,19 @@ miniTurniere/<id>/live/<code>-<zeit>  schreiben: nur der Admin
     runden, spiele, erstelltMs   der Endstand eines Multiplayers (live.js)
 ```
 
+Der Name eines Turniers ist zugleich sein Link: automatisch ein Stück vom
+Namen und acht Zeichen Zufall, oder ein eigener, den der Admin wählt
+(`hotdog` → games.alae.app/hotdog). Beide müssen `[a-z0-9-]{6,48}` sein.
+
+Daneben die Presets des Adminbereichs – nur für den Admin, auch das Lesen:
+
+```
+miniPresets/<kennung>                anlegen, ändern, lesen, löschen: nur der Admin
+    name                             unter diesem Namen steht es in der Auswahl
+    turnier                          die Einstellungen des Formulars (eine Map)
+    gespeichertMs
+```
+
 Ein einzelnes Turnier lesen darf jeder, der seinen Namen kennt; auflisten
 lassen sich nur die öffentlichen (`sichtbar == "alle"`). Ein Versuch darf nur
 beginnen, solange das Turnier läuft und nicht angehalten ist, nur in seinen

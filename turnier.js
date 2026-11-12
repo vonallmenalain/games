@@ -114,7 +114,21 @@
     if (!frei) window.location.replace(seitenLink(heim));
   }
   const spielLink = (id, spiel) => `${mini()?.spielLink?.(spiel) || "/"}?turnier=${encodeURIComponent(id)}`;
-  const volleAdresse = (id) => `${window.location.origin}${seitenLink(id)}`;
+  /*
+   * Die Adresse, die man weitergibt. Meist /turnier?t=herbstcup-x7k2m9pq –
+   * ein Stück vom Namen und acht Zeichen Zufall (admin.js, neueTurnierId:
+   * ein Bindestrich, dann acht Zeichen ohne l, o, 0 und 1).
+   *
+   * Fehlt dieser Zufall hinten, hat der Admin den Link selbst gewählt
+   * (admin.js, «Eigener Link»), und weitergegeben wird die kurze Adresse:
+   * games.alae.app/hotdog. Unter /hotdog findet Netlify keine Datei und
+   * zeigt 404.html – und die leitet auf /turnier?t=hotdog weiter
+   * (scripts/seiten-bauen.mjs, weiterSeite). Darum bleibt seitenLink, der
+   * Weg innerhalb der arcade, der lange: ohne den Umweg.
+   */
+  const ZUFALL_HINTEN = /-[a-km-np-z2-9]{8}$/;
+  const eigenerLink = (id) => /^[a-z0-9-]{6,48}$/.test(String(id || "")) && !ZUFALL_HINTEN.test(id);
+  const volleAdresse = (id) => `${window.location.origin}${eigenerLink(id) ? `/${id}` : seitenLink(id)}`;
 
   // ---------------------------------------------------------------------------
   // Die Uhr des Turniers
@@ -2505,7 +2519,7 @@
   window.LernappTurnier = {
     lage, dauer, datum, zeitraum, statusText, gesamtwertung, alleinVorne, meineTurniere, turnierIds,
     OHNE_ENDE, ohneEnde,
-    seitenLink, spielLink, volleAdresse,
+    seitenLink, spielLink, volleAdresse, eigenerLink,
     aufSpielseite, anBuehne, rundeBeginnt, neuStart, ergebnis, nochmalKnopf, ziel, geistLage, mitschauenZiel, listeFuer,
     oeffentlichLaufend, mitschauenErlaubt, liveErlaubt, mitschauLink,
     // Der Postausgang (mini-games.js, offlineZeichen; die Prüfung im Browser).
