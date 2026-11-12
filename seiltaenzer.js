@@ -8,16 +8,29 @@
  * Pfeil links und rechts, A und D). Kippt er zu weit, fällt er ins Netz, und
  * die Runde ist vorbei.
  *
- * Das eigentliche Spiel sind die Böen. Man sieht sie kommen: Blätter, Staub,
- * Papier oder Schnee ziehen vorher von ihrer Seite her durchs Bild, die
- * Wimpel drehen sich, ein Pfeil steht am Rand. Ohne Gegenhalten wirft jede
- * ihn um – wer zu lange gegenhält, kippt nach der anderen Seite. Es zählt
- * also, wann man drückt, auf welcher Seite und wie lange. Dazu schwingt das
- * Seil fern der Masten, und ein wenig stört der eigene Schritt. Die ersten
- * Meter sind sanft, danach wird es stetig schneller, die Böen kommen dichter
- * und später paarweise, erst von der einen, dann gleich von der anderen
- * Seite – aber nie unfair: Keine Böe drückt stärker, als die Stange
- * gegenhalten kann.
+ * Das eigentliche Spiel sind die Störungen (Ereignisse), und man sieht jede
+ * kommen:
+ *
+ *   Böe     Blätter, Staub, Papier oder Schnee ziehen vorher von ihrer
+ *           Seite her durchs Bild, die Wimpel drehen sich, ein Pfeil steht
+ *           am Rand – dann drückt sie ihn zur Seite.
+ *   Vogel   Ein Vogel fliegt heran und landet auf einem Ende der Stange:
+ *           Solange er sitzt, zieht er diese Seite hinunter. Wenn er
+ *           auffliegt, ist das Gewicht auf einmal weg. Später kommen sie zu
+ *           zweit – erst links, dann rechts, und einer fliegt zuerst.
+ *   Ramme   Ein Vogel fliegt geradewegs auf ihn zu und prallt gegen ihn:
+ *           ein Ruck zur anderen Seite, Federn fliegen.
+ *   Welle   Eine Welle läuft das Seil entlang auf ihn zu; unter ihm wirft
+ *           sie ihn im Takt hin und her.
+ *
+ * Ohne Gegenhalten wirft jede ihn um – wer zu lange gegenhält, kippt nach
+ * der anderen Seite. Es zählt also, wann man drückt, auf welcher Seite und
+ * wie lange. Dazu schwingt das Seil fern der Masten, und ein wenig stört der
+ * eigene Schritt. Die erste Böe kommt nach gut zwei Sekunden, der erste
+ * Vogel nach gut fünf; danach folgt eine Störung dicht auf die andere, es
+ * wird schneller, und hinten kommen Böen paarweise, erst von der einen, dann
+ * gleich von der anderen Seite – aber nie unfair: Nichts drückt stärker, als
+ * die Stange gegenhalten kann.
  *
  * Bis November 2026 kippte er von allein wie ein Stab auf der Fingerspitze,
  * und Halten und Loslassen wirkten immer, nach rechts oder nach links. Das
@@ -29,7 +42,7 @@
  * dem Polarlicht, und wieder von vorn.
  *
  * Gebaut wird die Strecke aus dem Zufall (zufall.js): Spannweiten, Schwingen
- * und Böen – ohne Turnier jedes Mal anders, im Turnier für alle im selben
+ * und Störungen – ohne Turnier jedes Mal anders, im Turnier für alle im selben
  * Versuch gleich. Gewürfelt wird Spanne um Spanne in fester Reihenfolge, so
  * hängt die Strecke nicht davon ab, wie breit das Bild ist. Tempo und Schwere
  * hängen an der Strecke, nicht an der Uhr: Wer gleich weit kommt, hatte es
@@ -105,8 +118,8 @@
   const KIPP_MAX = 0.62;           // weiter geneigt, und er fällt (gut 35°)
   const V0 = 26;
   const V_MAX = 58;
-  const V_WEG = 320;               // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
-  const SCHWER_WEG = 300;
+  const V_WEG = 180;               // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
+  const SCHWER_WEG = 90;           // Meter, nach denen es gut sechs Zehntel so schwer ist wie ganz hinten
   const AUFRICHT = 1.6;
   const STANGE = 3;
   const DAEMPF = [2.2, 1.2];
@@ -115,24 +128,59 @@
   const SCHWING = [0.1, 0.5];
   const SCHWING_HZ = 0.6;
 
-  // Die Böen: die erste bald nach dem Start, dann in Abständen, die nach
-  // hinten kürzer werden; später folgt einer Böe oft gleich eine von der
-  // anderen Seite (DOPPEL). Ihre Kraft wirft jeden um, der nicht gegenhält
-  // (über AUFRICHT · sin KIPP_MAX), und ist gedeckelt: Die Stange behält
-  // gegen sie immer BOE_RESERVE übrig.
-  const BOE_AB = 80;
-  const BOE_ERSTE = 120;
-  const BOE_ABSTAND = [300, 140];
+  /*
+   * Die Störungen liegen auf der Strecke wie die Masten: jede von x0 bis x1.
+   * Zwischen zweien liegt eine Pause (ABSTAND, in Sekunden – nach hinten
+   * kürzer). Gezählt wird für die Schwere nach Metern, für Längen und
+   * Pausen nach Sekunden des Gehens: Wird er schneller, wird eine Böe nicht
+   * länger.
+   *
+   * Böe: Ihre Kraft wirft jeden um, der nicht gegenhält (über AUFRICHT ·
+   * sin KIPP_MAX), und ist gedeckelt: Die Stange behält gegen sie immer
+   * BOE_RESERVE übrig. Später folgt einer Böe oft gleich eine von der
+   * anderen Seite (DOPPEL).
+   *
+   * Vogel: Sein Gewicht am Ende der Stange (VOGEL_LAST) ist so gross wie
+   * eine sanfte Böe – wer nicht gegenhält, kippt zu ihm hin; beim Landen und
+   * beim Auffliegen gibt es einen kleinen Ruck. Ab PAAR_AB kommt manchmal
+   * ein zweiter auf die andere Seite.
+   *
+   * Ramme: ein Ruck (RAMME_STOSS, in der Drehung um die Füsse) – so stark,
+   * dass ihn ohne Gegenhalten wirft, wer nicht reagiert; wer ihn kommen
+   * sieht, lehnt sich vorher hinein.
+   *
+   * Welle: hin, her, hin (WELLE_HALB halbe Schwünge), so stark wie eine Böe.
+   */
+  const STOER_AB = 55;             // so weit geht er ruhig (Einheiten): die erste Böe nach gut zwei Sekunden
+  const ABSTAND = [1.2, 0.6];      // Sekunden Pause zwischen zwei Störungen: anfangs, hinten
   const BOE_KRAFT = [2, 2.6];
   const BOE_RESERVE = 0.4;
-  const BOE_LANG = [[80, 140], [45, 90]]; // so lang ist eine Böe: anfangs, hinten
-  const DOPPEL_AB = 120;           // Meter, ab denen Doppelböen kommen …
-  const DOPPEL = 0.55;             // … und wie oft höchstens
+  const BOE_DAUER = [[2.3, 3], [1.5, 2.3]]; // so lang ist eine Böe (s): anfangs, hinten
+  const DOPPEL_AB = 45;            // Meter, ab denen Doppelböen kommen …
+  const DOPPEL = 0.5;              // … und wie oft höchstens
+  const VOGEL_AB = 12;             // Meter: so früh landet der erste Vogel
+  const VOGEL_LAST = [1.3, 1.8];
+  const VOGEL_SITZT = [[2.4, 3.2], [1.5, 2.4]]; // so lange sitzt er (s)
+  const VOGEL_LANDEN = 0.4;        // der Ruck beim Landen …
+  const VOGEL_AUF = 0.25;          // … und beim Auffliegen
+  const PAAR_AB = 55;              // Meter, ab denen manchmal zwei kommen
+  const RAMME_AB = 26;             // Meter, ab denen ein Vogel ihn rammt
+  const RAMME_STOSS = [1.5, 1.9];
+  const RAMME_NACH = 1.3;          // so lange nach dem Aufprall zählt er noch (s)
+  const WELLE_AB = 36;             // Meter, ab denen Wellen das Seil entlanglaufen
+  const WELLE_KRAFT = [1.9, 2.4];
+  const WELLE_TAKT = [2.7, 2.1];   // so lang ist ein ganzer Schwung hin und her (s)
+  const WELLE_HALB = 3;            // so viele halbe Schwünge
   const VORWARNUNG = 1.3;          // Sekunden, die man eine Böe kommen sieht
+  const ANFLUG = 1.4;              // so lange sieht man einen Vogel heranfliegen (s)
+  const ZAHLEN_JE = 9;             // so viele Zahlen zieht jede Störung aus dem Zufall
 
   // Rückmeldung
   const KNAPP = 0.47;              // so schief – und doch gerettet: «knapp!»
-  const PARIERT = 0.2;             // so wenig schief durch eine Böe: «Böe pariert ×n»
+  const PARIERT = 0.2;             // so wenig schief durch eine Störung: «pariert», die Reihe wächst
+  // Ein Vogel, der landet, ruckt ein wenig; einen, der rammt, pariert nur,
+  // wer sich vorher hineinlehnt.
+  const PARIERT_JE = { vogel: 0.26, ramme: 0.42 };
   const LUPE = 0.35;               // so lange läuft die Zeit nach «knapp!» langsamer
   const LUPE_TEMPO = 0.5;
   const LUFT_MAX = 120;
@@ -243,8 +291,8 @@
     gang: 0,              // gegangene Schritte
     geht: 0,              // 0 steht, 1 geht – fürs Bild
     schwing: 0,           // die Phase, in der die Seile schwingen
-    welt: { masten: [], boeen: [], naechsteBoe: 0, doppel: 0 },
-    boe: 0,               // die laufende oder nächste Böe
+    welt: { masten: [], ereignisse: [], naechstes: 0, doppel: 0, vorher: "" },
+    ereignis: 0,          // die laufende oder nächste Störung
     spanne: null,         // die Spanne unter dem Seiltänzer
     wind: { warn: 0, wirkt: 0, dir: 0, rel: 0 },
     fahne: -0.3,          // so wehen die Wimpel (−1 nach links … +1 nach rechts)
@@ -264,13 +312,15 @@
     zeit: 0,
     echt: 0,
     sturzZeit: 0,
-    sturzGrund: "",       // woran es lag: "gehalten", "boe" oder ""
+    sturzGrund: "",       // woran es lag: "gehalten", die Art der Störung oder ""
     lupe: 0,
     knapp: false,
     knappZeit: -9,
-    ruheN: 0,             // Böen hintereinander pariert
-    boeMax: 0,            // wie schief er in der laufenden Böe schon stand
-    boeIn: -1,            // in welcher Böe er zuletzt stand
+    ruheN: 0,             // Störungen hintereinander pariert
+    ereignisMax: 0,       // wie schief er in der laufenden Störung schon stand
+    ereignisIn: -1,       // in welcher Störung er zuletzt stand
+    gesehen: -1,          // bis zu welcher Stelle Federn, Ruck und Klang schon kamen
+    wellen: [],           // die Wellen, die gerade im Seil laufen (wellenTakt)
     glanz: 0,
     gefahr: 0,
     gekippt: 0,
@@ -333,12 +383,12 @@
   // kommen sieht. Je mehr sie der Stange abverlangt, desto lauter.
   function boeKlang() {
     const w = state.wind;
-    if (boeGehoert === state.boe || !w.dir || (w.warn < 0.45 && w.wirkt <= 0)) return;
-    boeGehoert = state.boe;
+    if (boeGehoert === state.ereignis || !w.dir || (w.warn < 0.45 && w.wirkt <= 0)) return;
+    boeGehoert = state.ereignis;
     klang()?.ton("seiltaenzer.boee", { laut: 0.6 + 0.6 * w.rel });
   }
 
-  // «Böe pariert ×n»: die Harfe – nur das erste Mal in Folge.
+  // «Pariert ×n»: die Harfe – nur das erste Mal in Folge.
   function ruheKlang(n) {
     if (n === 1) klang()?.ton("perfekt", { laut: 0.8 });
   }
@@ -348,12 +398,11 @@
   // ---------------------------------------------------------------------------
   /*
    * Masten im Abstand einer Spanne; jede Spanne hat ihre eigene Phase, in
-   * der sie schwingt. Die Böen liegen auf der Strecke wie die Masten: von
-   * x0 bis x1, mit Richtung (+1 drückt nach rechts) und Kraft. Gewürfelt
-   * wird Spanne um Spanne – erst die Spanne, dann die Böen, die in ihr
-   * beginnen –, immer in derselben Reihenfolge und je Böe immer fünf Zahlen.
-   * Eine Doppelböe ist eine, die gleich auf die vorige folgt, von der
-   * anderen Seite.
+   * der sie schwingt. Die Störungen liegen auf der Strecke wie die Masten:
+   * von x0 bis x1, mit Richtung (dir: +1 drückt nach rechts) und Kraft (G).
+   * Gewürfelt wird Spanne um Spanne – erst die Spanne, dann die Störungen,
+   * die in ihr beginnen –, immer in derselben Reihenfolge und je Störung
+   * immer ZAHLEN_JE Zahlen.
    */
   function neueSpanne() {
     const w = state.welt;
@@ -363,20 +412,104 @@
     a.phase = zufall.zahl() * Math.PI * 2;
     const b = { x: a.x + a.L, L: 0, phase: 0, i: w.masten.length };
     w.masten.push(b);
-    while (w.naechsteBoe < b.x) {
-      const x0 = w.naechsteBoe;
-      const kk = schwereBei(x0);
-      const z = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
-      const L = lerp(lerp(BOE_LANG[0][0], BOE_LANG[1][0], kk), lerp(BOE_LANG[0][1], BOE_LANG[1][1], kk), z[0]);
-      const G = Math.min(STANGE - BOE_RESERVE, lerp(BOE_KRAFT[0], BOE_KRAFT[1], kk) * (0.88 + 0.12 * z[1]));
-      const doppelt = w.doppel !== 0;
-      const dir = doppelt ? -w.doppel : (z[2] < 0.5 ? -1 : 1);
-      w.boeen.push({ x0, x1: x0 + L, G, dir, doppelt });
-      // Folgt gleich eine zweite, von der anderen Seite? Nie eine dritte.
-      const pDoppel = meterBei(x0) < DOPPEL_AB ? 0 : DOPPEL * schwereBei(x0);
-      w.doppel = !doppelt && z[4] < pDoppel ? dir : 0;
-      w.naechsteBoe = x0 + L + (w.doppel ? lerp(8, 24, z[3]) : lerp(BOE_ABSTAND[0], BOE_ABSTAND[1], kk) * (0.7 + 0.6 * z[3]));
+    while (w.naechstes < b.x) neuesEreignis();
+  }
+
+  // Wirft eine Böe (Kraft G, so viele Sekunden, Dämpfung c) einen um, der
+  // nicht gegenhält? Nachgerechnet wie in physik, ohne Seil und Schritt.
+  function boeWirft(G, dauer, c) {
+    let th = 0;
+    let w = 0;
+    const h = 1 / 240;
+    for (let t = 0; t < dauer + 1; t += h) {
+      const s = t < dauer ? Math.sin((Math.PI * t) / dauer) : 0;
+      w += (-AUFRICHT * Math.sin(th) - c * w + G * s * s) * h;
+      th += w * h;
+      if (th > KIPP_MAX) return true;
     }
+    return false;
+  }
+
+  // Sekunden des Gehens ab der Stelle x in Einheiten (über die kurze Strecke
+  // ändert sich das Tempo kaum).
+  const strecke = (x, sekunden) => sekunden * tempoBei(x);
+
+  // Was als Nächstes kommt: eine Böe – die erste immer –, ein Vogel, der
+  // landet – der zweite immer –, ein Vogel, der rammt, oder eine Welle.
+  function neuesEreignis() {
+    const w = state.welt;
+    const x0 = w.naechstes;
+    const m = meterBei(x0);
+    const k = schwereBei(x0);
+    const z = [];
+    for (let i = 0; i < ZAHLEN_JE; i += 1) z.push(zufall.zahl());
+    const nr = w.ereignisse.length;
+    let art = "boe";
+    if (w.doppel) art = "boe";
+    else if (nr === 1 && m >= VOGEL_AB - 8) art = "vogel";
+    else if (nr > 1) {
+      const wahl = [["boe", 3]];
+      if (m >= VOGEL_AB) wahl.push(["vogel", 2.4]);
+      if (m >= RAMME_AB) wahl.push(["ramme", 1.6]);
+      if (m >= WELLE_AB) wahl.push(["welle", 1.6]);
+      // Nicht zweimal dasselbe (ausser Böen).
+      for (const e of wahl) if (e[0] === w.vorher && e[0] !== "boe") e[1] *= 0.25;
+      let los = z[5] * wahl.reduce((summe, e) => summe + e[1], 0);
+      for (const [name, gewicht] of wahl) {
+        art = name;
+        los -= gewicht;
+        if (los <= 0) break;
+      }
+    }
+    const e = { art, x0, x1: x0, dir: z[2] < 0.5 ? -1 : 1, G: 0, doppelt: false };
+    if (art === "boe") {
+      let dauer = lerp(lerp(BOE_DAUER[0][0], BOE_DAUER[1][0], k), lerp(BOE_DAUER[0][1], BOE_DAUER[1][1], k), z[0]);
+      e.G = Math.min(STANGE - BOE_RESERVE, lerp(BOE_KRAFT[0], BOE_KRAFT[1], k) * (0.88 + 0.12 * z[1]));
+      // Lang genug, dass sie umwirft, wer nicht gegenhält – nachgerechnet.
+      while (!boeWirft(e.G, dauer, daempf(k)) && dauer < 4) dauer += 0.1;
+      e.x1 = x0 + strecke(x0, dauer);
+      e.doppelt = w.doppel !== 0;
+      if (e.doppelt) e.dir = -w.doppel;
+    } else if (art === "vogel") {
+      // Einer landet auf dem Ende der Stange (dir: auf welchem) – manchmal
+      // ein zweiter auf dem anderen. Wer zuerst kam, fliegt zuerst.
+      e.G = Math.min(STANGE - BOE_RESERVE, lerp(VOGEL_LAST[0], VOGEL_LAST[1], k) * (0.92 + 0.16 * z[1]));
+      const sitzt = lerp(lerp(VOGEL_SITZT[0][0], VOGEL_SITZT[1][0], k), lerp(VOGEL_SITZT[0][1], VOGEL_SITZT[1][1], k), z[0]);
+      e.voegel = [{ an: x0, ab: x0 + strecke(x0, sitzt), seite: e.dir, nr: Math.floor(z[6] * 1000) }];
+      if (m >= PAAR_AB && z[7] < 0.55 * k) {
+        const an = x0 + strecke(x0, lerp(0.8, 1.3, z[8]));
+        const ab = e.voegel[0].ab + strecke(x0, lerp(0.9, 1.4, z[3]));
+        e.voegel.push({ an, ab: Math.max(ab, an + strecke(x0, 1.4)), seite: -e.dir, nr: Math.floor(z[6] * 1000) + 7 });
+      }
+      e.x1 = Math.max(...e.voegel.map((v) => v.ab));
+      e.stoesse = [];
+      for (const v of e.voegel) {
+        e.stoesse.push(
+          { x: v.an - strecke(v.an, 0.8), w: 0, art: "anflug", seite: v.seite },
+          { x: v.an, w: v.seite * VOGEL_LANDEN, art: "landen", seite: v.seite },
+          { x: v.ab, w: v.seite * VOGEL_AUF, art: "auf", seite: v.seite },
+        );
+      }
+      e.stoesse.sort((p, q) => p.x - q.x);
+    } else if (art === "ramme") {
+      // dir: wohin der Ruck ihn wirft – der Vogel kommt von der anderen Seite.
+      e.G = lerp(RAMME_STOSS[0], RAMME_STOSS[1], k) * (0.96 + 0.08 * z[1]);
+      e.x1 = x0 + strecke(x0, RAMME_NACH);
+      e.hoehe = lerp(-0.4, 0.4, z[0]);
+      e.stoesse = [{ x: x0 - strecke(x0, 0.9), w: 0, art: "anflug", seite: -e.dir }, { x: x0, w: e.dir * e.G, art: "ramme", seite: -e.dir }];
+    } else {
+      const takt = lerp(WELLE_TAKT[0], WELLE_TAKT[1], k) * (0.92 + 0.16 * z[0]);
+      e.x1 = x0 + strecke(x0, (takt * WELLE_HALB) / 2);
+      e.G = Math.min(STANGE - BOE_RESERVE, lerp(WELLE_KRAFT[0], WELLE_KRAFT[1], k) * (0.9 + 0.1 * z[1]));
+      e.stoesse = [{ x: x0 - strecke(x0, 1), w: 0, art: "welle", seite: e.dir }];
+    }
+    w.ereignisse.push(e);
+    w.vorher = art;
+    // Folgt gleich eine zweite Böe, von der anderen Seite? Nie eine dritte.
+    const pDoppel = art !== "boe" || m < DOPPEL_AB ? 0 : DOPPEL * k;
+    w.doppel = !e.doppelt && z[4] < pDoppel ? e.dir : 0;
+    const pause = w.doppel ? lerp(0.25, 0.7, z[3]) : lerp(ABSTAND[0], ABSTAND[1], k) * (0.75 + 0.5 * z[3]);
+    w.naechstes = e.x1 + strecke(e.x1, pause);
   }
 
   function weltBis(x) {
@@ -404,6 +537,10 @@
   function seilYIn(sp, x) {
     const u = clamp((x - sp.x) / sp.L, 0, 1);
     let y = -DURCHHANG * sp.L * 4 * u * (1 - u);
+    for (const w of state.wellen) {
+      const d = (x - w.xp) / w.b;
+      if (d > -3 && d < 3) y += w.a * Math.exp(-d * d) * (w.still ? 1 : Math.cos((x - w.xp) / 11)) * Math.sin(Math.PI * u);
+    }
     y -= SCHWING_BILD * schwing(schwereBei(sp.x)) * Math.sin(state.schwing + sp.phase) * Math.sin(Math.PI * u);
     if (sp === state.spanne && state.delle !== 0) {
       const uw = clamp((state.l.x - sp.x) / sp.L, 0, 1);
@@ -414,6 +551,33 @@
   }
 
   const seilY = (x) => seilYIn(spanneBei(x), x);
+
+  /*
+   * Eine Welle im Seil: Sie läuft von voraus auf ihn zu (dreimal so schnell,
+   * wie er geht), unter ihm wirft sie das Seil im Takt auf und ab, und
+   * danach läuft sie hinter ihm davon. Aus der Stelle gerechnet, an der er
+   * ist – beim Zuschauen wie im Spiel. Für jedes Bild einmal (wellenTakt).
+   */
+  function wellenTakt() {
+    state.wellen.length = 0;
+    if (state.schritt !== "lauf") return;
+    const x = state.l.x;
+    const alle = state.welt.ereignisse;
+    for (let i = Math.max(0, state.ereignis - 1); i < alle.length && alle[i].x0 - 700 < x; i += 1) {
+      const e = alle[i];
+      if (e.art !== "welle") continue;
+      if (x < e.x0) {
+        const xp = e.x0 + (e.x0 - x) * 3;
+        state.wellen.push({ xp, a: 11 * clamp(1 - (xp - x) / 800, 0, 1), b: 40, kommt: true });
+      } else if (x <= e.x1) {
+        const u = (x - e.x0) / (e.x1 - e.x0);
+        state.wellen.push({ xp: x, a: 9 * Math.sin(Math.PI * WELLE_HALB * u) * Math.pow(Math.sin(Math.PI * u), 0.35), b: 90, still: true });
+      } else if (x < e.x1 + 600) {
+        const xp = e.x0 - (x - e.x1) * 3;
+        state.wellen.push({ xp, a: 9 * clamp(1 - (x - xp) / 700, 0, 1), b: 40 });
+      }
+    }
+  }
 
   // Das Netz: tiefer, weicher durchgehängt, und wo der Seiltänzer hineinfällt,
   // federt es nach.
@@ -430,15 +594,29 @@
     return y;
   }
 
-  // Was den Seiltänzer gerade stört: die Böe, das Schwingen seiner Spanne
-  // und sein Schritt – abwechselnd ein wenig nach links und nach rechts.
-  function stoerung(x, k) {
-    let d = 0;
-    const b = state.welt.boeen[state.boe];
-    if (b && x >= b.x0 && x <= b.x1) {
-      const s = Math.sin(Math.PI * (x - b.x0) / (b.x1 - b.x0));
-      d += b.dir * b.G * s * s;
+  // Wie stark eine Störung an der Stelle x drückt (plus: nach rechts). Der
+  // Ruck einer Ramme und beim Landen kommt nicht hier, sondern auf einmal
+  // (stoesse, in physik).
+  function kraftVon(e, x) {
+    if (!e || x < e.x0 || x > e.x1) return 0;
+    const u = (x - e.x0) / (e.x1 - e.x0 || 1);
+    if (e.art === "boe") {
+      const s = Math.sin(Math.PI * u);
+      return e.dir * e.G * s * s;
     }
+    if (e.art === "welle") return e.dir * e.G * Math.sin(Math.PI * WELLE_HALB * u) * Math.pow(Math.sin(Math.PI * u), 0.35);
+    if (e.art === "vogel") {
+      let d = 0;
+      for (const v of e.voegel) if (x >= v.an && x < v.ab) d += v.seite * e.G;
+      return d;
+    }
+    return 0;
+  }
+
+  // Was den Seiltänzer gerade stört: die Störung, das Schwingen seiner
+  // Spanne und sein Schritt – abwechselnd ein wenig nach links und rechts.
+  function stoerung(x, k) {
+    let d = kraftVon(state.welt.ereignisse[state.ereignis], x);
     const sp = state.spanne;
     if (sp && sp.L) {
       const u = clamp((x - sp.x) / sp.L, 0, 1);
@@ -2119,8 +2297,263 @@
       g.globalCompositeOperation = "source-over";
     }
     zeichneFigur(px, py, {
-      dreh: l.th, stange: l.p * 0.2, phase: state.gang / 2, geht: state.geht, arme: null, gefahr: state.gefahr, sturz: false, blick: state.blick,
+      dreh: l.th, stange: stangeNeigung(), phase: state.gang / 2, geht: state.geht, arme: null, gefahr: state.gefahr, sturz: false, blick: state.blick,
     }, null);
+  }
+
+  // Wie die Stange gegen den Körper steht: wohin er drückt – und wo ein
+  // Vogel sitzt, biegt sie sich hinunter.
+  function stangeNeigung() {
+    let n = state.l.p * 0.2;
+    const e = state.welt.ereignisse[state.ereignis];
+    if (e?.art === "vogel") for (const v of e.voegel) if (state.l.x >= v.an && state.l.x < v.ab) n += v.seite * 0.07;
+    return n;
+  }
+
+  // Ein Punkt der Figur (fx, fy wie in zeichneFigur: von den Füssen aus, y
+  // nach unten) im Bild – so, wie sie gerade steht und geht.
+  function figurPunkt(fx, fy) {
+    const l = state.l;
+    const c = Math.cos(l.th);
+    const sn = Math.sin(l.th);
+    return { x: bildX(l.x) + (fx * c - fy * sn) * view.s, y: bildY(l.y) + (fx * sn + fy * c) * view.s };
+  }
+
+  // Wo ein Vogel auf dem Ende der Stange steht (seite −1 links, +1 rechts):
+  // oben auf dem Gewicht – wie zeichneFigur die Stange zeichnet.
+  function stangenEnde(seite) {
+    const ph = (((state.gang / 2) % 1) + 1) % 1;
+    const u = ph < 0.5 ? ph * 2 : ph * 2 - 1;
+    const wipp = -Math.abs(Math.sin(Math.PI * u)) * 1.2 * state.geht;
+    const durch = 3.2 + Math.abs(Math.sin(Math.PI * u)) * 1.2 * state.geht;
+    const st = stangeNeigung();
+    const ca = Math.cos(st);
+    const sa = Math.sin(st);
+    return figurPunkt(seite * ca * 58 - sa * durch, -31 + wipp + seite * sa * 58 + ca * durch - 3.2);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Zeichnen: die Vögel
+  // ---------------------------------------------------------------------------
+  // Je Landschaft ein Vogel: in der Schlucht eine Dohle, in der Stadt eine
+  // Taube, bei den Gipfeln eine Möwe.
+  const VOGELARTEN = [
+    { koerper: "#2b2932", fluegel: "#1a1920", bauch: "#3b3944", kopf: "#2b2932", nacken: "#8f939f", schnabel: "#17161b", auge: "#e9eef4", ring: true, gross: 1.5 },
+    { koerper: "#8f97a9", fluegel: "#6a7285", bauch: "#a8afc0", kopf: "#7c849a", nacken: "#3ea48f", schnabel: "#3a3330", auge: "#ff8a3d", ring: false, gross: 1.5 },
+    { koerper: "#f2f5f8", fluegel: "#aab5c1", bauch: "#ffffff", kopf: "#ffffff", nacken: "#ffffff", schnabel: "#f2b632", auge: "#1a1a1a", ring: false, gross: 1.65 },
+  ];
+  const vogelArt = (x) => VOGELARTEN[zoneVon(x)];
+  const vogelFarben = (x) => { const a = vogelArt(x); return [a.koerper, a.fluegel, a.bauch]; };
+
+  /*
+   * Ein Vogel von der Seite, die Füsse bei (x, y). blick: +1 schaut nach
+   * rechts. schlag: die Phase des Flügelschlags (Bogenmass), offen: wie weit
+   * die Flügel gehen (0 angelegt). sitzt: Beine sichtbar. dreh: geneigt.
+   */
+  function zeichneVogel(x, y, art, { blick = 1, schlag = 0, offen = 0, sitzt = true, dreh = 0, alpha = 1 } = {}) {
+    const k = view.s * art.gross;
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(x, y);
+    g.rotate(dreh);
+    g.scale(k * blick, k);
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    const fluegel = (vorn) => {
+      const a = Math.sin(schlag) * offen;
+      g.fillStyle = vorn ? art.fluegel : art.bauch;
+      g.beginPath();
+      if (offen < 0.05) {
+        g.ellipse(-1.6, -5, 4.4, 2, -0.15, 0, Math.PI * 2);
+      } else {
+        const hub = vorn ? 1 : 0.75;
+        g.moveTo(1.2, -5.6);
+        g.quadraticCurveTo(0.5, -5.6 - 6 * a * hub, -2.5 + 2 * Math.abs(a), -5.6 - 10.5 * a * hub);
+        g.lineTo(-6, -5.4 - 7.5 * a * hub);
+        g.quadraticCurveTo(-3, -5.2 - 2 * a, -3.5, -4.8);
+        g.closePath();
+      }
+      g.fill();
+    };
+    if (sitzt) {
+      g.strokeStyle = art.schnabel;
+      g.lineWidth = 0.7;
+      g.beginPath();
+      g.moveTo(-0.8, -2);
+      g.lineTo(-0.6, 0);
+      g.moveTo(0.6, -2);
+      g.lineTo(0.9, 0);
+      g.stroke();
+    }
+    if (offen >= 0.05) fluegel(false);
+    // Schwanz, Körper, Bauch.
+    g.fillStyle = art.fluegel;
+    g.beginPath();
+    g.moveTo(-4.4, -4.4);
+    g.lineTo(-9.6, -3.3);
+    g.lineTo(-9.3, -5.5);
+    g.lineTo(-4, -6.2);
+    g.closePath();
+    g.fill();
+    g.fillStyle = art.koerper;
+    g.beginPath();
+    g.ellipse(-0.5, -4.6, 5.3, 3.3, -0.18, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = art.bauch;
+    g.beginPath();
+    g.ellipse(0.4, -3.5, 3.7, 1.9, -0.1, 0, Math.PI * 2);
+    g.fill();
+    // Kopf mit Nacken, Schnabel und Auge.
+    g.fillStyle = art.nacken;
+    g.beginPath();
+    g.ellipse(2.6, -6.9, 2.3, 1.9, -0.6, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = art.kopf;
+    g.beginPath();
+    g.arc(4.1, -7.8, 2.5, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = art.schnabel;
+    g.beginPath();
+    g.moveTo(6.2, -8.3);
+    g.lineTo(9, -7.5);
+    g.lineTo(6.2, -6.9);
+    g.closePath();
+    g.fill();
+    g.fillStyle = art.auge;
+    g.beginPath();
+    g.arc(4.8, -8.4, art.ring ? 0.75 : 0.55, 0, Math.PI * 2);
+    g.fill();
+    if (art.ring) {
+      g.fillStyle = "#111014";
+      g.beginPath();
+      g.arc(4.9, -8.4, 0.38, 0, Math.PI * 2);
+      g.fill();
+    }
+    fluegel(true);
+    g.restore();
+  }
+
+  /*
+   * Die Vögel der Störungen, Bild für Bild aus der Stelle, an der er gerade
+   * ist – darum stimmen sie auch beim Zuschauen. Ein Vogel, der landet,
+   * fliegt in den letzten ANFLUG Sekunden von oben heran, sitzt auf dem Ende
+   * der Stange, plustert sich vor dem Abflug und fliegt nach aussen davon.
+   * Einer, der rammt, kommt flach von der Seite, prallt ab und trudelt.
+   */
+  const fortgeflogen = [];
+  function zeichneStoerVoegel() {
+    const l = state.l;
+    const t = state.echt;
+    const W = view.cssW;
+    const s = view.s;
+    const sturz = state.schritt === "sturz";
+    // Wer auf der Stange sass, als er fiel, fliegt erschrocken davon.
+    if (sturz) {
+      const seit = state.zeit - state.sturzZeit;
+      fortgeflogen.forEach((v) => {
+        const q = seit / 1.2;
+        if (q > 1) return;
+        zeichneVogel(v.x + v.seite * 160 * q * s, v.y - 130 * q * s, v.art, { blick: v.seite, schlag: t * 24, offen: 1, sitzt: false, dreh: -0.3 * v.seite, alpha: 1 - q * q });
+      });
+      return;
+    }
+    fortgeflogen.length = 0;
+    if (state.schritt !== "lauf") return;
+    for (const w of state.wellen) {
+      if (!w.kommt || w.a < 2) continue;
+      const wx = bildX(w.xp);
+      if (wx < 20 || wx > W - 20) continue;
+      const gross = Math.round(clamp(11 * s, 11, 15));
+      g.globalAlpha = clamp(w.a / 6, 0, 1);
+      g.font = `800 ${gross}px system-ui, sans-serif`;
+      g.textAlign = "center";
+      g.textBaseline = "bottom";
+      g.lineWidth = 3;
+      g.strokeStyle = "rgba(7, 11, 36, 0.6)";
+      const wy = bildY(seilY(w.xp)) - 14 * s;
+      g.strokeText("Welle", wx, wy);
+      g.fillStyle = "#ffffff";
+      g.fillText("Welle", wx, wy);
+      g.globalAlpha = 1;
+    }
+    const v = Math.max(5, l.v || tempoBei(l.x));
+    const alle = state.welt.ereignisse;
+    for (let i = Math.max(0, state.ereignis - 2); i < alle.length; i += 1) {
+      const e = alle[i];
+      if ((e.x0 - l.x) / v > ANFLUG + 1.2) break;
+      if (e.art === "vogel") {
+        const art = vogelArt(e.x0);
+        e.voegel.forEach((b) => {
+          const vorAn = (b.an - l.x) / v;
+          const vorAb = (b.ab - l.x) / v;
+          if (vorAn > ANFLUG || vorAb < -1.3) return;
+          const ende = stangenEnde(b.seite);
+          const rand = b.seite > 0 ? W - ende.x + 40 : ende.x + 40;
+          if (vorAn > 0) {
+            // Der Anflug: von oben aussen, zuletzt gebremst.
+            const q = vorAn / ANFLUG;
+            const bremst = vorAn < 0.25;
+            zeichneVogel(ende.x + b.seite * (rand * q * q + 18 * s * Math.sin(Math.PI * q)), ende.y - (150 * q + 30 * Math.sin(Math.PI * q)) * s, art, {
+              blick: -b.seite, schlag: t * (bremst ? 12 : 24) + b.nr, offen: bremst ? 1.2 : 1, sitzt: bremst, dreh: b.seite * 0.25 * q,
+            });
+          } else if (vorAb > 0) {
+            // Er sitzt: wippt mit, schaut sich um – und plustert sich vor dem Abflug.
+            const geht = vorAb < 0.45;
+            const nicken = ruhig() ? 0 : Math.sin(t * 3 + b.nr) * 0.4;
+            fortgeflogen.push({ x: ende.x, y: ende.y, seite: b.seite, art });
+            zeichneVogel(ende.x, ende.y + nicken * s, art, {
+              blick: Math.sin(t * 0.9 + b.nr) > 0.6 ? b.seite : -b.seite, schlag: t * 18 + b.nr, offen: geht ? 0.6 : 0, sitzt: true, dreh: l.th * 0.5,
+            });
+          } else {
+            // Davon: nach oben aussen.
+            const q = -vorAb / 1.3;
+            zeichneVogel(ende.x + b.seite * (rand + 60) * q * q * 1.2 + b.seite * 40 * q * s, ende.y - (40 * q + 110 * q * q) * s, art, {
+              blick: b.seite, schlag: t * 24 + b.nr, offen: 1, sitzt: false, dreh: -0.35 * b.seite, alpha: 1 - Math.max(0, q - 0.8) * 5,
+            });
+          }
+        });
+      } else if (e.art === "ramme") {
+        const art = vogelArt(e.x0);
+        const vor = (e.x0 - l.x) / v;
+        const von = -e.dir;
+        const ziel = figurPunkt(von * 8, -34 + e.hoehe * 8);
+        if (vor > ANFLUG || vor < -1.3) continue;
+        if (vor > 0) {
+          // Flach heran, mit schnellem Flügelschlag – und Strichen dahinter.
+          const q = vor / ANFLUG;
+          const rand = von > 0 ? W - ziel.x + 50 : ziel.x + 50;
+          const x = ziel.x + von * (rand * q + 6 * s);
+          const y = ziel.y - 10 * s * Math.sin(Math.PI * q) + 6 * s;
+          g.strokeStyle = "rgba(255, 255, 255, 0.55)";
+          g.lineWidth = 1.2;
+          g.beginPath();
+          for (const dy of [-6, -2, 2]) {
+            g.moveTo(x + von * 12 * s, y + dy * s - 4 * s);
+            g.lineTo(x + von * (26 + 8 * Math.abs(dy) / 6) * s, y + dy * s - 4 * s);
+          }
+          g.stroke();
+          zeichneVogel(x, y, art, { blick: -von, schlag: t * 30, offen: 1, sitzt: false, dreh: -von * 0.12 });
+        } else {
+          // Abgeprallt: Er trudelt zurück und hinab.
+          const q = -vor / 1.3;
+          zeichneVogel(ziel.x + von * (14 + 70 * q) * s, ziel.y + (6 - 20 * q + 160 * q * q) * s, art, {
+            blick: -von, schlag: t * 9, offen: 0.5, sitzt: false, dreh: von * q * 7, alpha: 1 - Math.max(0, q - 0.7) / 0.3,
+          });
+          // Ein paar Sterne um den Kopf – kurz.
+          if (q < 0.5) {
+            g.fillStyle = "#ffe08a";
+            g.globalAlpha = 1 - q * 2;
+            for (let n = 0; n < 3; n += 1) {
+              const w = t * 6 + (n * Math.PI * 2) / 3;
+              g.beginPath();
+              g.arc(ziel.x + von * (14 + 70 * q) * s + Math.cos(w) * 8 * s, ziel.y + (-6 - 20 * q + 160 * q * q) * s + Math.sin(w) * 3 * s, 1.4 * s, 0, Math.PI * 2);
+              g.fill();
+            }
+            g.globalAlpha = 1;
+          }
+        }
+      }
+    }
   }
 
   // Die Waage über dem Kopf: ein Bogen von ganz links bis ganz rechts, grün
@@ -2212,6 +2645,14 @@
     state.teile.forEach((t) => {
       const k = clamp(t.leben / t.max, 0, 1);
       g.globalAlpha = k;
+      if (t.art === "feder") {
+        g.globalAlpha = Math.min(1, k * 2.5);
+        g.fillStyle = t.farbe;
+        g.beginPath();
+        g.ellipse(bildX(t.x), bildY(t.y), t.r * s * 1.6, t.r * s * 0.55, Math.sin(t.dreh) * 0.9, 0, Math.PI * 2);
+        g.fill();
+        return;
+      }
       if (t.art === "glanz") g.globalCompositeOperation = "lighter";
       g.fillStyle = t.farbe;
       g.beginPath();
@@ -2425,6 +2866,7 @@
     zeichneGeister();
     zeichneTeile();
     zeichneLaeufer();
+    zeichneStoerVoegel();
     zeichneWaage();
     bildTransform();
     zeichneLuft();
@@ -2447,6 +2889,20 @@
       state.teile.push({
         art, x, y, vx: Math.cos(w) * v, vy: Math.sin(w) * v + 20,
         r: 1.2 + Math.random() * 2, farbe: farben[i % farben.length], leben: 0.5 + Math.random() * 0.6, max: 1.1,
+      });
+    }
+    if (state.teile.length > 160) state.teile.splice(0, state.teile.length - 160);
+  }
+
+  // Federn: Sie trudeln langsam hinab.
+  function federn(x, y, anzahl, farben) {
+    if (ruhig()) anzahl = Math.ceil(anzahl / 3);
+    for (let i = 0; i < anzahl; i += 1) {
+      const w = Math.random() * Math.PI * 2;
+      const v = 20 + Math.random() * 60;
+      state.teile.push({
+        art: "feder", x, y, vx: Math.cos(w) * v, vy: Math.sin(w) * v + 25, r: 2.2 + Math.random() * 1.6,
+        dreh: Math.random() * 6, farbe: farben[i % farben.length], leben: 1.4 + Math.random() * 0.9, max: 2.3,
       });
     }
     if (state.teile.length > 160) state.teile.splice(0, state.teile.length - 160);
@@ -2522,11 +2978,16 @@
     const k = schwereBei(l.x);
     l.v = tempoBei(l.x);
     l.p += (lehne - l.p) * Math.min(1, STANGE_TEMPO * dt);
-    const boeen = state.welt.boeen;
-    while (boeen[state.boe] && boeen[state.boe].x1 < l.x) state.boe += 1;
+    const alle = state.welt.ereignisse;
+    while (alle[state.ereignis] && alle[state.ereignis].x1 < l.x) state.ereignis += 1;
     l.w += (-AUFRICHT * Math.sin(l.th) + STANGE * l.p - daempf(k) * l.w + stoerung(l.x, k)) * dt;
     l.th += l.w * dt;
+    // Ein Ruck auf einmal: ein Vogel landet, fliegt auf oder prallt gegen ihn.
+    const vorher = l.x;
     l.x += l.v * dt;
+    for (let i = state.ereignis; i < alle.length && alle[i].x0 <= l.x + 1; i += 1) {
+      for (const s of alle[i].stoesse || []) if (s.x > vorher && s.x <= l.x) l.w += s.w;
+    }
     state.gang += (l.v * dt) / SCHRITT;
     state.schwing += Math.PI * 2 * SCHWING_HZ * dt;
     if (state.spanne && state.spanne.L && l.x > state.spanne.x + state.spanne.L) state.spanne = spanneBei(l.x);
@@ -2544,10 +3005,11 @@
     state.sturzZeit = state.zeit;
     state.gekippt = dir;
     // Woran es lag: Hielt er zur selben Seite, hat er zu lange gehalten; kam
-    // die Böe von der anderen Seite, hat er zu wenig gegengehalten.
-    const b = state.welt.boeen[state.boe];
-    const boeWirkt = b && l.x >= b.x0 - 20 && l.x <= b.x1 + 40 && b.dir === dir;
-    state.sturzGrund = Math.sign(l.p) === dir && Math.abs(l.p) > 0.3 ? "gehalten" : boeWirkt ? "boe" : "";
+    // die Störung von der anderen Seite, hat er zu wenig gegengehalten.
+    const e = letzteStoerung(l.x);
+    const wirkt = e && Math.sign(e.wohin) === dir;
+    state.sturzGrund = Math.sign(l.p) === dir && Math.abs(l.p) > 0.3 ? "gehalten" : wirkt ? e.art : "";
+    state.sturzSeite = e?.wohin || 0;
     state.stoss = 1;
     state.lupe = 0;
     state.ruheN = 0;
@@ -2562,6 +3024,54 @@
     if (gefuehrt) return;
     kids()?.vibrate?.([30, 40, 60]);
     stepTimer = window.setTimeout(finish, 1250);
+  }
+
+  /*
+   * Was beim Anflug, Landen, Auffliegen und Aufprallen zu hören und zu sehen
+   * ist – im Spiel wie beim Zuschauen: einmal, wenn er an der Stelle
+   * vorbeikommt. (Den Ruck selbst gibt physik.)
+   */
+  function ereignisZeichen() {
+    const x = state.l.x;
+    if (state.schritt !== "lauf" || x <= state.gesehen) return;
+    const alle = state.welt.ereignisse;
+    const hoeren = state.phase === "spiel" || state.phase === "zuschauen";
+    for (let i = Math.max(0, state.ereignis - 1); i < alle.length && alle[i].x0 - 400 <= x; i += 1) {
+      for (const s of alle[i].stoesse || []) {
+        if (s.x <= state.gesehen || s.x > x) continue;
+        if (s.art === "ramme") {
+          // Federn fliegen, wo der Vogel ihn trifft.
+          const by = state.l.y + 36 + alle[i].hoehe * 8;
+          federn(x + s.seite * 6, by, 16, vogelFarben(x));
+          state.stoss = Math.max(state.stoss, 0.6);
+          if (hoeren) klang()?.ton("seiltaenzer.stoss", { laut: 0.9 });
+          if (state.phase === "spiel") kids()?.vibrate?.([18, 30, 18]);
+        } else if (s.art === "welle") {
+          if (hoeren) klang()?.ton("seiltaenzer.boee", { laut: 0.55 });
+        } else if (hoeren) {
+          klang()?.ton("seiltaenzer.flattern", { laut: s.art === "anflug" ? 0.45 : 0.6 });
+          if (s.art === "landen") federn(x + s.seite * 58, state.l.y + 38, 4, vogelFarben(x));
+        }
+      }
+    }
+    state.gesehen = x;
+  }
+
+  // Die Störung, die ihn eben noch bedrängte – und wohin sie ihn drückte
+  // (bei zwei Vögeln: wohin es zuletzt zog).
+  function letzteStoerung(x) {
+    const alle = state.welt.ereignisse;
+    for (let i = Math.min(state.ereignis, alle.length - 1); i >= Math.max(0, state.ereignis - 2); i -= 1) {
+      const e = alle[i];
+      if (!e || x < e.x0 - 20 || x > e.x1 + strecke(e.x1, 0.9)) continue;
+      let wohin = e.dir;
+      if (e.art === "vogel") {
+        const q = Math.min(x, e.x1 - 1);
+        wohin = kraftVon(e, q) || e.voegel[e.voegel.length - 1].seite;
+      } else if (e.art === "welle") wohin = kraftVon(e, Math.min(x, e.x1 - 1)) || e.dir;
+      return { art: e.art, wohin };
+    }
+    return null;
   }
 
   function netzTreffer(x, tempo) {
@@ -2617,30 +3127,32 @@
     state.delle = Math.cos(t * 11) * Math.exp(-t * 3.5);
   }
 
-  // Eine Böe ist vorbei: Stand er dabei kaum schief, hat er sie pariert, und
-  // die Reihe wächst – sonst beginnt sie von vorn. Beim Zuschauen ohne
-  // Schrift.
-  function boeBilanz(mitSchrift) {
+  // Eine Störung ist vorbei: Stand er dabei kaum schief, hat er sie
+  // pariert, und die Reihe wächst – sonst beginnt sie von vorn. Beim
+  // Zuschauen ohne Schrift.
+  const PARIERT_WORT = { boe: "Böe pariert!", vogel: "Vogel ausbalanciert!", ramme: "Zusammenstoss pariert!", welle: "Welle pariert!" };
+  function ereignisBilanz(mitSchrift) {
     const l = state.l;
-    // Erst die vorige Böe abschliessen – eine Doppelböe folgt ihr dicht.
-    if (state.boeIn >= 0 && state.boeIn !== state.boe) {
-      const sauber = state.boeMax < PARIERT;
-      state.boeIn = -1;
+    // Erst die vorige abschliessen – eine Doppelböe folgt ihr dicht.
+    if (state.ereignisIn >= 0 && state.ereignisIn !== state.ereignis) {
+      const art = state.welt.ereignisse[state.ereignisIn]?.art || "boe";
+      const sauber = state.ereignisMax < (PARIERT_JE[art] || PARIERT);
+      state.ereignisIn = -1;
       if (!sauber) state.ruheN = 0;
       else {
         state.ruheN += 1;
         state.glanz = 1;
         ruheKlang(state.ruheN);
         if (mitSchrift) {
-          schrift(state.ruheN >= 2 ? `Böe pariert ×${state.ruheN}` : "Böe pariert!", l.x, l.y + 82, "#ffe08a", 13);
+          schrift(state.ruheN >= 2 ? `Pariert ×${state.ruheN}` : PARIERT_WORT[art], l.x, l.y + 82, "#ffe08a", 13);
           funken(l.x, l.y + 30, 16, ["#fff4d6", "#ffd166", "#ffe08a"], "glanz");
         }
       }
     }
-    const b = state.welt.boeen[state.boe];
-    if (b && l.x >= b.x0 && l.x <= b.x1) {
-      if (state.boeIn !== state.boe) { state.boeIn = state.boe; state.boeMax = 0; }
-      state.boeMax = Math.max(state.boeMax, Math.abs(l.th));
+    const e = state.welt.ereignisse[state.ereignis];
+    if (e && l.x >= e.x0 && l.x <= e.x1) {
+      if (state.ereignisIn !== state.ereignis) { state.ereignisIn = state.ereignis; state.ereignisMax = 0; }
+      state.ereignisMax = Math.max(state.ereignisMax, Math.abs(l.th));
     }
   }
 
@@ -2660,7 +3172,7 @@
         kids()?.vibrate?.(12);
       }
     }
-    boeBilanz(true);
+    ereignisBilanz(true);
     state.glanz = Math.max(state.ruheN > 0 ? 0.35 : 0, state.glanz - dt * 0.6);
   }
 
@@ -2674,6 +3186,7 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.5);
     const l = state.l;
 
+    wellenTakt();
     if (state.phase === "zuschauen") {
       zuschauenTakt(dt);
     } else if (state.schritt === "lauf") {
@@ -2683,6 +3196,7 @@
       if (state.schritt === "lauf") {
         l.y = seilY(l.x);
         rueckmeldung(dt);
+        ereignisZeichen();
       }
       const meter = Math.floor(meterBei(l.x));
       if (meter !== state.meter && state.schritt === "lauf") {
@@ -2717,7 +3231,12 @@
 
     for (let i = state.teile.length - 1; i >= 0; i -= 1) {
       const t = state.teile[i];
-      t.vy -= (t.art === "glanz" ? 20 : 220) * dt;
+      if (t.art === "feder") {
+        // Eine Feder fällt langsam, und sie pendelt.
+        t.vy += (-28 - t.vy) * Math.min(1, dt * 2.5);
+        t.vx += (Math.sin(state.echt * 4 + t.dreh) * 26 - t.vx) * Math.min(1, dt * 2);
+        t.dreh += dt * 3;
+      } else t.vy -= (t.art === "glanz" ? 20 : 220) * dt;
       t.vx *= 1 - 1.4 * dt;
       t.x += t.vx * dt;
       t.y += t.vy * dt;
@@ -2765,10 +3284,10 @@
     w.wirkt = 0;
     if (state.schritt === "start") return;
     const x = state.schritt === "sturz" && state.sturz ? state.sturz.x : state.l.x;
-    const boeen = state.welt.boeen;
-    while (boeen[state.boe] && boeen[state.boe].x1 < x) state.boe += 1;
-    const b = boeen[state.boe];
-    if (!b) return;
+    const alle = state.welt.ereignisse;
+    while (alle[state.ereignis] && alle[state.ereignis].x1 < x) state.ereignis += 1;
+    const b = alle[state.ereignis];
+    if (!b || b.art !== "boe") return;
     w.dir = b.dir;
     w.rel = clamp(b.G / STANGE, 0, 1);
     if (x >= b.x0) {
@@ -2834,6 +3353,7 @@
       state.spanne = spanneBei(l.x);
       l.y = seilY(l.x);
       rueckmeldungZuschauen();
+      ereignisZeichen();
     }
     const meter = Math.max(0, Math.floor(s.punkte));
     if (meter !== state.meter) {
@@ -2846,7 +3366,7 @@
 
   // Beim Zuschauen nur das Leuchten und der Klang – ohne Schrift.
   function rueckmeldungZuschauen() {
-    boeBilanz(false);
+    ereignisBilanz(false);
     state.glanz = Math.max(state.ruheN > 0 ? 0.35 : 0, state.glanz - 0.01);
   }
 
@@ -2925,9 +3445,10 @@
     state.gang = 0;
     state.geht = 0;
     state.schwing = 0;
-    state.welt = { masten: [{ x: START.x, L: 0, phase: 0, i: 0 }], boeen: [], naechsteBoe: 0, doppel: 0 };
-    state.welt.naechsteBoe = BOE_AB + BOE_ERSTE * zufall.zahl();
-    state.boe = 0;
+    state.welt = { masten: [{ x: START.x, L: 0, phase: 0, i: 0 }], ereignisse: [], naechstes: 0, doppel: 0, vorher: "" };
+    state.welt.naechstes = STOER_AB + 15 * zufall.zahl();
+    state.ereignis = 0;
+    state.gesehen = START.x;
     state.wind = { warn: 0, wirkt: 0, dir: 0, rel: 0 };
     state.fahne = -0.3;
     state.camFall = 0;
@@ -2946,8 +3467,10 @@
     state.knapp = false;
     state.knappZeit = -9;
     state.ruheN = 0;
-    state.boeMax = 0;
-    state.boeIn = -1;
+    state.ereignisMax = 0;
+    state.ereignisIn = -1;
+    state.sturzSeite = 0;
+    state.wellen = [];
     state.glanz = 0;
     state.gefahr = 0;
     state.gekippt = 0;
@@ -2965,7 +3488,7 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt st-prompt", "Links halten – nach links lehnen, rechts – nach rechts. Halt gegen die Böen.");
+    const prompt = shell.el("p", "cm-prompt st-prompt", "Links halten – nach links lehnen, rechts – nach rechts. Halt gegen Böen und Vögel.");
     shell.play.append(prompt, buildPlatz());
     lehneNeu();
     view.cssW = 0;
@@ -3008,13 +3531,17 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    // Woran es lag: zu lange gehalten, oder eine Böe ohne Gegenhalten.
+    // Woran es lag: zu lange gehalten, oder eine Störung ohne Gegenhalten.
     const seite = state.gekippt > 0 ? "rechts" : "links";
     const gegen = state.gekippt > 0 ? "links" : "rechts";
-    const grund = !state.gekippt ? ""
-      : state.sturzGrund === "gehalten" ? `Zu lange ${seite} gehalten – früher loslassen`
-        : state.sturzGrund === "boe" ? `Die Böe von ${gegen} – rechtzeitig ${gegen} halten`
-          : `Nach ${seite} gekippt`;
+    const GRUND = {
+      gehalten: `Zu lange ${seite} gehalten – früher loslassen`,
+      boe: `Die Böe von ${gegen} – rechtzeitig ${gegen} halten`,
+      vogel: `Der Vogel ${seite} auf der Stange – ${gegen} gegenhalten`,
+      ramme: `Der Vogel von ${gegen} – vorher ${gegen} hineinlehnen`,
+      welle: `Die Welle im Seil – im Takt gegenhalten`,
+    };
+    const grund = !state.gekippt ? "" : GRUND[state.sturzGrund] || `Nach ${seite} gekippt`;
     const best = vorher ? `Bestwert ${vorher} m` : "";
     shell.showResult({
       label: "Deine Meter",
@@ -3040,10 +3567,11 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "ropeWalk", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "ropeWalk", fassung: "t3", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", fassung: "t2", alle: true, zufall, gleichschritt: true }) || null;
+    // Fassung t3: Vögel und Wellen. Die Läufe nur mit Böen gehören nicht dazu.
+    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", fassung: "t3", alle: true, zufall, gleichschritt: true }) || null;
   }
 
   startRun();
@@ -3089,7 +3617,7 @@
 
   // Für die Prüfskripte.
   window.LernappSeiltaenzer = {
-    METER, KIPP_MAX, TAKT, AUFRICHT, STANGE, BOE_RESERVE, state, view, takt, lehnen, losGehts,
-    weltBis, spanneBei, seilY, tempoBei, schwereBei, daempf,
+    METER, KIPP_MAX, TAKT, AUFRICHT, STANGE, BOE_RESERVE, state, view, takt, zeichnen, lehnen, losGehts,
+    weltBis, spanneBei, seilY, tempoBei, schwereBei, daempf, kraftVon,
   };
 })();

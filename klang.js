@@ -113,6 +113,8 @@
     "seiltaenzer.boee": { s: "boee" },
     "seiltaenzer.schritt": { d: "seiltaenzer-schritt" },
     "seiltaenzer.absturz": { s: "fall" },
+    "seiltaenzer.flattern": { s: "flatter" },
+    "seiltaenzer.stoss": { s: "whomp" },
     "draht.summen": { s: "a-summen", schleife: true },
     "draht.beruehrung": { d: "draht-beruehrung" },
     "spuren.kufen": { s: "a-eis", schleife: true },
