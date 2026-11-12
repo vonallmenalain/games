@@ -161,23 +161,21 @@ Kugeln und einen Apfel, und die Bälle fliegen immer schneller. Gezählt werden
 die Fänge. Die besten Runden lassen sich Zug um Zug anschauen.
 
 **Turmspringen** (`turmspringen.js`, `highDive`) – Ein Sprungturm aus Stahl
-in einem Bergsee, die Alpen dahinter, auf den Booten das Publikum. Sprung um
-Sprung geht es höher, von 10 bis 27 m. An der Kante wippt der Springer, und
-bei jedem Wippen zieht sich ein Ring auf seine Füsse zusammen (wie die Kante
-im Skispringen): Wer genau dann tippt, springt hoch und mit dem richtigen
-Drall; zu früh dreht er zu wenig, zu spät zu viel, und wer dreimal nicht
-tippt, kippt von der Kante. In der Luft heisst Halten Päckchen – er dreht
-sechsmal schneller –, Loslassen heisst strecken; der Drall bleibt, wie er
-beim Absprung war, aufhören kann die Drehung nie. Böen drehen ihn vor
-(orange) oder zurück (blau). Ins Wasser geht es senkrecht, Kopf oder Füsse
-voran; der Kompass um den Springer zeigt grün, wo seine Achse dafür stehen
-muss. Punkte gibt es: halbe Saltos mal Note (bis 10, nach dem Winkel und ob
-er ganz gestreckt ist), drei Richter zeigen sie. Jede Höhe hat ihre Pflicht
-an halben Saltos; mehr wagen bringt mehr. Ein Bauch- oder Rückenklatscher,
-eine Arschbombe oder eine verfehlte Pflicht beendet die Runde – und ab dem
-dreizehnten Sprung verlangt die Pflicht mehr Drehung, als bis zum Wasser
-geht. Dazu wird es Abend und unter Flutlicht Nacht. Im ersten Sprung sagt
-das Spiel, wann halten und wann loslassen.
+in einem Bergsee, die Alpen dahinter, auf den Booten das Publikum. Acht
+Sprünge, jeder von einer anderen Höhe – gewürfelt aus einem Band, das mit
+jedem Sprung steigt, von 8–11 m bis 24–27 m (`BAENDER`). Den Absprung macht
+der Springer selbst. In der Luft gibt es eine Regel: Halten heisst Päckchen,
+er dreht; Loslassen heisst strecken, die Drehung hört auf (aus vollem
+Päckchen dreht er beim Öffnen noch ein gutes Dutzend Grad nach). Ins Wasser
+geht es senkrecht, Kopf oder Füsse voran, und gestreckt. Jede halbe
+Drehung ist ein Punkt; fast genau senkrecht und ganz gestreckt ist
+«perfekt» und zählt doppelt, mehrere perfekte in Folge dreifach und
+vierfach. Ein Bauch- oder Rückenklatscher oder eine Arschbombe beendet die
+Runde, sonst endet sie nach dem achten Sprung. Mehr Drehung bringt mehr,
+lässt aber weniger Zeit zum Öffnen – ganz oben passen gut zweieinhalb
+Saltos hinein. Dazu wird es Abend und unter Flutlicht Nacht. Im ersten
+Sprung sagt das Spiel, wann halten und wann loslassen. (Umgebaut im
+November 2026, siehe unten.)
 
 **Fallschirm** (`fallschirm.js`, `skyDive`) – Sprung um Sprung aus dem
 Flugzeug über einem Tal mit See, Fluss, Dorf und Wäldern, von oben gesehen:
@@ -246,6 +244,48 @@ Perle aus dem Netz, nachts leuchten nur Perlen und Quallen. Geht die Luft
 aus, ist es ein Blackout: Das Netz ist weg und die Runde vorbei. Wer zu
 lange an der Oberfläche liegt, lässt den Platz aus. Gezählt werden die
 Perlen.
+
+### Drei Umbauten (November 2026): zurück zu einer Regel
+
+Die Spiele, die am meisten Freude machen (Tier 1: Turmbau, Brückenbauer,
+Lianenschwung, Tunnelflug, Drift-Rennen …), haben eines gemeinsam: eine
+Regel, die in einen Satz passt, das Können im *Wann* und *Wie viel*, der
+erste Fehler beendet die Runde, und über dem Überleben liegt eine
+«Perfekt»-Schicht. Drei Spiele wurden daraufhin umgebaut. Ihre Bestenlisten
+zählen nach den alten Regeln – der Admin leert sie beim Veröffentlichen
+(«Bestenliste leeren»); die Aufzeichnungen tragen eine neue Fassung, alte
+Läufe werden nicht mehr abgespielt.
+
+**Turmspringen** (`highDive`, Fassung `t2`) – Vorher sieben Regeln: Ring an
+der Kante, ein Drall, der nie aufhört, Böen, Kompass, Pflicht je Höhe, drei
+Richter. Jetzt: Halten dreht, Loslassen hält die Drehung an, senkrecht
+hinein; acht Sprünge von gewürfelten Höhen, halbe Drehungen als Punkte,
+perfekt ×2 bis ×4 (oben beschrieben). Die Schrauben: `W_PAECK`, `OEFFNEN`,
+`PERFEKT`, `KLATSCH`, `KETTE_MAX`, `BAENDER`. Prüfung 4g19: Ein Autopilot
+springt jede Welt perfekt durch, ein gieriger kommt nicht durch.
+
+**Seiltänzer** (`ropeWalk`, Fassung `t2`) – Vorher kippte er von allein
+wie ein Stab auf der Fingerspitze, und Halten (rechts) und Loslassen (links)
+wirkten immer: dauerndes Ausgleichen ohne lesbaren Moment. Jetzt zwei
+Knöpfe wie im Slalom: links halten lehnt nach links, rechts nach rechts,
+ohne Finger richtet er sich auf (`AUFRICHT`). Das Spiel sind die Böen, die
+man kommen sieht: Jede wirft um, wer nicht gegenhält, und wer zu lange
+hält, kippt nach der anderen Seite (`STANGE` ist stärker als das
+Aufrichten). Ab 120 m folgen Doppelböen, erst von der einen, dann gleich von
+der anderen Seite. Eine Böe, durch die er kaum schief kommt, ist
+«pariert», mehrere in Folge zählen hoch. Gezählt werden weiter die Meter.
+Prüfung 4g12: Ein genauer Autopilot geht bis 1500 m, einer, der eine
+Viertelsekunde zu spät reagiert, fällt lange vorher; ohne Eingabe wirft die
+erste Böe.
+
+**Planetenhüpfer** (`planetHop`, Fassung `p3`) – Vorher brachte ein Sprung
+10 bis 100 Punkte, je nachdem, wie viel Sauerstoff noch übrig war – man sah
+nie, warum es wie viel gab. Jetzt zählt jeder neue Planet einen Punkt, ein
+Volltreffer (auf die Mitte des Planeten, `VOLL`) eine Reihe dazu wie beim
+Froschsprung (bis `KETTE_MAX`), und goldene Ringe laufen über die
+Lufthülle. Der Sauerstoff ist nur noch die Uhr: knapp zwei Runden um den
+Planeten (`LUFT0`, `LUFT_MIN`), dann ist die Runde vorbei. Prüfung 4g6:
+Wer auf die Mitte wartet, holt deutlich mehr je Planet.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 

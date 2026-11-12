@@ -1,28 +1,22 @@
-// Turmspringen: Abendrot über den Alpen, der siebte Sprung vom 24-m-Turm.
-// Der Springer steckt im Päckchen mitten in seinem zweieinhalbfachen Salto,
-// um ihn der Kompass mit den grünen Feldern oben und unten, durch die
-// Fallstrecke ziehen die Schlieren einer Böe – unten warten der See und die
-// Boote mit dem Publikum. Sechs Sprünge sind schon gezählt.
+// Turmspringen: Abendrot über den Alpen, der sechste Sprung. Der Springer
+// steckt im Päckchen mitten in seinem Doppelsalto – unten warten der See
+// und die Boote mit dem Publikum. Fünf Sprünge sind schon gezählt, die
+// letzten perfekt.
 export default {
   bereit: () => Boolean(window.LernappTurmspringen?.state?.sp && window.LernappTurmspringen.view.cssW > 0),
   spiele: () => {
     const S = window.LernappTurmspringen;
     const st = S.state;
-    // Der Pilot: springt im Moment ab, hält das Päckchen, bis die Drehung
-    // eine halbe mehr als die Pflicht ergibt, und streckt sich dann.
+    // Der Pilot: hält das Päckchen, bis die Drehung beim Strecken sein Ziel
+    // ergibt – je höher, desto mehr halbe Drehungen –, und streckt sich dann.
+    const ZIEL = [2, 2, 3, 3, 4, 4, 4, 5];
     const pilot = () => {
       if (st.phase === "bereit") S.aktion();
-      if (st.schritt === "wippen" && !st.sprung.abgesprungen && Math.abs(S.ringRest()) < 1 / 200) S.aktion();
-      if (st.schritt === "flug" && !st.sprung.verpasst) {
-        const v = S.vorausWinkel(true).winkel;
-        const ziel = Math.max(S.pflichtBei(st.nr) + 1, Math.ceil((v - 10) / 180)) * 180;
-        S.halte(v < ziel - 0.5);
-      } else {
-        S.halte(false);
-      }
+      if (st.schritt === "flug") S.halte(S.vorausWinkel(true).winkel < ZIEL[st.nr] * 180 - 0.5);
+      else S.halte(false);
     };
-    // Die ersten sechs Sprünge im Zeitraffer – bis der siebte beginnt.
-    for (let n = 0; n < 600000 && st.phase !== "ende" && !(st.nr === 6 && st.schritt === "laufen"); n += 1) {
+    // Die ersten fünf Sprünge im Zeitraffer – bis der sechste beginnt.
+    for (let n = 0; n < 600000 && st.phase !== "ende" && !(st.nr === 5 && st.schritt === "laufen"); n += 1) {
       pilot();
       S.takt(1 / 120);
     }

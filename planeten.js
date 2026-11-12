@@ -10,14 +10,18 @@
  * Es geht nach oben, Planet um Planet. Die Sprünge werden schnell weiter,
  * die Planeten kleiner, ihre Lufthülle dünner; manche wandern hin und her, um
  * manche kreist ein Mond, an dem man sich den Helm anschlägt. Und der
- * Sauerstoff reicht auf jedem Planeten nur eine Weile – wer zu lange auf den
- * perfekten Moment wartet, wartet zu lange.
+ * Sauerstoff reicht auf jedem Planeten nur knapp zwei Runden um ihn herum –
+ * wer zu lange auf den perfekten Moment wartet, dem geht er aus, und die
+ * Runde ist vorbei. Der Ring um den Astronauten zeigt es, von Grün über
+ * Orange nach Rot. Mehr tut der Sauerstoff nicht: Er ist die Uhr, nicht die
+ * Wertung.
  *
- * Gezählt werden Punkte, und es zählt das Tempo: Jeder Sprung auf einen
- * neuen Planeten bringt zwischen 10 und 100, je nachdem, wie viel Sauerstoff
- * beim Absprung noch übrig war. Wer gleich springt, wenn der Weg frei ist,
- * holt fast alles; wer eine Runde mehr dreht, weniger. Der Ring um den
- * Astronauten zeigt es, von Grün über Orange nach Rot.
+ * Gezählt wird wie beim Froschsprung: Jeder neue Planet ist ein Punkt. Wer
+ * ihn mitten trifft – auf den Planeten selbst zu, nicht bloss durch den Rand
+ * seiner Lufthülle –, landet einen «Volltreffer», und mehrere hintereinander
+ * zählen immer mehr dazu (bis KETTE_MAX). Ein Sprung, der nur gerade so
+ * hineinreicht, bricht die Reihe. Überleben ist Pflicht, die Punkte holt die
+ * Genauigkeit.
  *
  * Gebaut wird der Weg aus dem Zufall (zufall.js): ohne Turnier jedes Mal ein
  * anderer, im Turnier für alle im selben Versuch derselbe. Er ist immer
@@ -72,10 +76,17 @@
   const DREH_MAX = 2.55;
   const SPRUNG0 = 270;
   const SPRUNG_MAX = 360;
-  const LUFT0 = 9.5;               // Sekunden Sauerstoff auf einem Planeten
-  const LUFT_MIN = 5.5;
-  const PUNKTE_MIN = 10;           // so viel bringt ein Sprung mindestens …
-  const PUNKTE_MAX = 100;          // … und so viel, wer sofort springt
+  // Sekunden Sauerstoff auf einem Planeten: anfangs wie später knapp zwei
+  // Runden um ihn herum (bei DREH0 und bei DREH_MAX gerechnet). Zeit, einen
+  // guten Moment abzuwarten – aber nicht für einen dritten Anlauf.
+  const LUFT0 = 7;
+  const LUFT_MIN = 4.5;
+  // Ein Volltreffer: Der Sprung zielt so dicht auf die Mitte des Planeten –
+  // gemessen an der ganzen Lufthülle, damit das Fenster auch auf den kleinen,
+  // fernen Planeten bei vollem Tempo noch gut zwei Hundertstel weit ist.
+  // Mehrere hintereinander zählen 1, 2, 3 … bis KETTE_MAX Punkte dazu.
+  const VOLL = 0.35;
+  const KETTE_MAX = 5;
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -129,7 +140,7 @@
     erreicht: 0,          // wie viele Planeten er erreicht hat
     volltreffer: 0,
     trefferFolge: 0,      // Volltreffer hintereinander
-    sprungLuft: 1,        // wie viel Sauerstoff beim letzten Absprung übrig war (0…1)
+    besteFolge: 0,
     planeten: [],
     auf: 0,               // auf welchem Planeten er steht
     theta: Math.PI / 2,   // wo, als Winkel um die Mitte
@@ -145,6 +156,7 @@
     spur: [],
     teile: [],
     schriften: [],
+    ringe: [],            // goldene Ringe nach einem Volltreffer
     camX: 0,
     camY: 0,
     stoss: 0,
@@ -988,14 +1000,13 @@
     if (g.roundRect) g.roundRect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 5, 2.5);
     else g.rect(x + 1.5, by + 1.5, Math.max(0, (bw - 3) * k), 5);
     g.fill();
-    // Daneben, was ein Sprung jetzt noch bringt.
-    if (state.schritt === "lauf") {
-      const jetzt = Math.round(PUNKTE_MIN + (PUNKTE_MAX - PUNKTE_MIN) * k);
-      g.font = `800 ${Math.round(gross * 0.6)}px system-ui, sans-serif`;
+    // Daneben die Reihe der Volltreffer – und was der nächste brächte.
+    if (state.trefferFolge >= 1) {
+      g.font = `900 ${Math.round(gross * 0.62)}px system-ui, sans-serif`;
       g.textAlign = "left";
       g.textBaseline = "middle";
-      g.fillStyle = luftFarbe(k, 0.95);
-      g.fillText(`+${jetzt}`, x + bw + 8, by + 4);
+      g.fillStyle = "#ffe08a";
+      g.fillText(`×${state.trefferFolge}`, x + w + 8, y + gross * 0.84);
     }
   }
 
@@ -1012,6 +1023,7 @@
       zeichnePlanet(state.planeten[i]);
     }
     zeichneSpur();
+    zeichneRinge();
     zeichneTeile();
     zeichneGeister();
     zeichneLuft();
@@ -1037,6 +1049,31 @@
 
   function schrift(text, x, y, farbe, gross) {
     state.schriften.push({ text, x, y, farbe, gross, leben: 1.15, max: 1.15 });
+  }
+
+  // Ein Volltreffer: goldene Ringe laufen von der Lufthülle hinaus – einer
+  // je Treffer in der Reihe, höchstens drei.
+  function glanz(m, r, folge) {
+    const n = Math.min(3, Math.max(1, folge));
+    for (let i = 0; i < n; i += 1) state.ringe.push({ x: m.x, y: m.y, r, leben: 0.9 + i * 0.18, max: 0.9 + i * 0.18, nach: i * 0.18 });
+    staub(m.x, m.y + r, "#ffe08a", 10);
+  }
+
+  function zeichneRinge() {
+    if (!state.ringe.length) return;
+    weltTransform();
+    state.ringe.forEach((ring) => {
+      const k = clamp(ring.leben / ring.max, 0, 1);
+      const lauf = clamp((ring.max - ring.leben - ring.nach) / Math.max(0.01, ring.max - ring.nach), 0, 1);
+      if (lauf <= 0) return;
+      g.globalAlpha = (1 - lauf) * 0.85 * Math.min(1, k * 3);
+      g.strokeStyle = "#ffe08a";
+      g.lineWidth = 2.6 / Math.max(0.6, view.s);
+      g.beginPath();
+      g.arc(ring.x, ring.y, ring.r + lauf * 46, 0, Math.PI * 2);
+      g.stroke();
+    });
+    g.globalAlpha = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -1067,7 +1104,6 @@
     state.astro.vx = t.x * v;
     state.astro.vy = t.y * v;
     state.verlassen = state.auf;
-    state.sprungLuft = clamp(state.luft / state.luftMax, 0, 1);
     state.flugZeit = 0;
     state.schritt = "flug";
     state.schrittZeit = state.zeit;
@@ -1101,19 +1137,23 @@
     if (!state.besucht.has(p.n)) {
       state.besucht.add(p.n);
       state.erreicht = state.besucht.size;
-      const plus = Math.round(PUNKTE_MIN + (PUNKTE_MAX - PUNKTE_MIN) * state.sprungLuft);
-      state.punkte += plus;
-      shell.setCount(state.punkte);
-      schrift(`+${plus}`, a.x, a.y + 62, luftFarbe(state.sprungLuft), 17);
-      if (vorbei < p.r * 0.35) {
+      // Ein Punkt je Planet, und für einen Volltreffer die Reihe dazu.
+      let plus = 1;
+      if (vorbei < (p.r + p.luft) * VOLL) {
         state.volltreffer += 1;
         state.trefferFolge += 1;
-        schrift("Volltreffer!", a.x, a.y + 26, "#ffe08a", 16);
+        state.besteFolge = Math.max(state.besteFolge, state.trefferFolge);
+        plus += Math.min(state.trefferFolge, KETTE_MAX);
+        schrift(state.trefferFolge >= 2 ? `Volltreffer ×${state.trefferFolge}` : "Volltreffer!", a.x, a.y + 26, "#ffe08a", 16);
+        glanz(m, p.r + p.luft, state.trefferFolge);
       } else {
         state.trefferFolge = 0;
       }
+      state.punkte += plus;
+      shell.setCount(state.punkte);
+      schrift(`+${plus}`, a.x, a.y + 50, plus > 1 ? "#ffe08a" : "#e9ecff", plus > 1 ? 18 : 15);
       // Zur Landung leise dazu: für den ersten Volltreffer in Folge die Harfe.
-      if (state.erreicht % 10 === 0) schrift(`${state.erreicht} Planeten!`, a.x, a.y + 44, "#9fe8ff", 18);
+      if (state.erreicht % 10 === 0) schrift(`${state.erreicht} Planeten!`, a.x, a.y + 70, "#9fe8ff", 18);
       if (state.trefferFolge === 1) klang()?.ton("perfekt", { laut: 0.7 });
     }
     planetenBis(state.auf + 6);
@@ -1235,6 +1275,10 @@
     for (let i = state.schriften.length - 1; i >= 0; i -= 1) {
       state.schriften[i].leben -= dt;
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
+    }
+    for (let i = state.ringe.length - 1; i >= 0; i -= 1) {
+      state.ringe[i].leben -= dt;
+      if (state.ringe[i].leben <= 0) state.ringe.splice(i, 1);
     }
 
     // Die Kamera: Sie zeigt den Planeten, auf dem er steht (oder ihn selbst
@@ -1393,9 +1437,10 @@
     state.schritt = "start";
     state.punkte = 0;
     state.erreicht = 0;
-    state.sprungLuft = 1;
     state.volltreffer = 0;
     state.trefferFolge = 0;
+    state.besteFolge = 0;
+    state.ringe = [];
     state.planeten = [];
     planetenBis(8);
     state.auf = 0;
@@ -1420,7 +1465,7 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt ph-prompt", "Tippen – springen. Triff die leuchtende Hülle.");
+    const prompt = shell.el("p", "cm-prompt ph-prompt", "Tippen – springen. Mitten auf den Planeten zählt mehr.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -1463,7 +1508,9 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     const planeten = state.erreicht === 1 ? "1 Planet" : `${state.erreicht} Planeten`;
-    const treffer = state.volltreffer ? ` · ${state.volltreffer} Volltreffer` : "";
+    const treffer = state.volltreffer
+      ? ` · ${state.volltreffer} Volltreffer${state.besteFolge >= 2 ? `, beste Reihe ×${state.besteFolge}` : ""}`
+      : "";
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
@@ -1488,11 +1535,11 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "planetHop", fassung: "p2", zufall, nochmal: zuschauenStarten,
+    host, spiel: "planetHop", fassung: "p3", zufall, nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
     gegner = window.LernappGeist?.fuer?.({
-      spiel: "planetHop", host, art: "tempo", fassung: "p2", alle: true, zufall, vorlauf: () => state.uhr * 1000,
+      spiel: "planetHop", host, art: "tempo", fassung: "p3", alle: true, zufall, vorlauf: () => state.uhr * 1000,
     }) || null;
   }
 
@@ -1520,5 +1567,6 @@
   // Für die Prüfskripte.
   window.LernappPlaneten = {
     state, view, takt, tippen, planetenBis, mitte, mondBei, absprung, drehBei, sprungBei, luftBei, weiteBei,
+    VOLL, KETTE_MAX,
   };
 })();

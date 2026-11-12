@@ -3,18 +3,26 @@
  * ---------------------------------------------------------------------------
  * Hoch über der Tiefe ist ein Seil gespannt, von Mast zu Mast. Darauf geht
  * ein Seiltänzer mit einer langen Stange nach rechts – das Gehen besorgt er
- * selbst, die Balance nicht: Er kippt von allein, wie ein Stab, der auf der
- * Fingerspitze steht. Wer den Finger aufs Bild legt, neigt ihn nach rechts;
- * wer loslässt, nach links. Eines wirkt immer – im Gleichgewicht bleibt nur,
- * wer im richtigen Takt drückt und loslässt. Kippt er zu weit, fällt er ins
- * Netz, und die Runde ist vorbei.
+ * selbst. Wer links aufs Bild hält, lehnt ihn nach links, wer rechts hält,
+ * nach rechts; ohne Finger richtet er sich von selbst wieder auf (am Rechner
+ * Pfeil links und rechts, A und D). Kippt er zu weit, fällt er ins Netz, und
+ * die Runde ist vorbei.
  *
- * Gestört wird er dreifach: von Böen, die man kommen sieht (Blätter, Staub,
+ * Das eigentliche Spiel sind die Böen. Man sieht sie kommen: Blätter, Staub,
  * Papier oder Schnee ziehen vorher von ihrer Seite her durchs Bild, die
- * Wimpel drehen sich), vom Seil, das fern der Masten schwingt, und ein wenig
- * vom eigenen Schritt. Die ersten Meter sind sanft, danach wird es stetig
- * schwerer und schneller – aber nie unfair: Keine Böe drückt stärker, als die
- * Stange gegenhalten kann, auch nicht, wenn er schon schief steht.
+ * Wimpel drehen sich, ein Pfeil steht am Rand. Ohne Gegenhalten wirft jede
+ * ihn um – wer zu lange gegenhält, kippt nach der anderen Seite. Es zählt
+ * also, wann man drückt, auf welcher Seite und wie lange. Dazu schwingt das
+ * Seil fern der Masten, und ein wenig stört der eigene Schritt. Die ersten
+ * Meter sind sanft, danach wird es stetig schneller, die Böen kommen dichter
+ * und später paarweise, erst von der einen, dann gleich von der anderen
+ * Seite – aber nie unfair: Keine Böe drückt stärker, als die Stange
+ * gegenhalten kann.
+ *
+ * Bis November 2026 kippte er von allein wie ein Stab auf der Fingerspitze,
+ * und Halten und Loslassen wirkten immer, nach rechts oder nach links. Das
+ * war ein dauerndes Ausgleichen ohne lesbaren Moment; jetzt steht er, bis
+ * etwas kommt.
  *
  * Gezählt wird nur eines: wie weit er kommt, in Metern. Unterwegs wechselt
  * die Welt – eine Schlucht im Abendrot, eine Stadt bei Nacht, Gipfel unter
@@ -84,39 +92,47 @@
   const SPANNE = [300, 400];       // Abstand der Masten, am Anfang und ganz hinten
   const SCHWING_BILD = 10;         // so weit schwingt das Seil im Bild, je Einheit Störung
 
-  // Die Balance: ein umgekehrtes Pendel. Die Neigung θ wächst von allein
-  // (KIPP · sin θ), die Stange schiebt mit STANGE · p – p folgt dem Finger in
-  // gut einer Achtelsekunde, von −1 (los) nach +1 (gedrückt) –, die Dämpfung
-  // bremst die Drehung, und Böen, Schwingen und Schritt stören. Alles drei
-  // wächst mit der Strecke von seinem ersten zu seinem letzten Wert.
+  // Die Balance: ein Pendel, das sich von selbst aufrichtet – aber nur
+  // schwach. Die Neigung θ (plus: nach rechts) folgt
+  //
+  //   θ'' = −AUFRICHT · sin θ + STANGE · p − DAEMPF · θ' + Störung,
+  //
+  // p folgt dem Finger in gut einer Achtelsekunde: −1 links, 0 ohne, +1
+  // rechts. Weil STANGE stärker ist als das Aufrichten (STANGE / AUFRICHT
+  // über sin KIPP_MAX), kippt auch, wer ohne Böe zu lange hält. Die Dämpfung
+  // wird nach hinten schwächer, das Schwingen des Seils stärker.
   const TAKT = 1 / 240;            // gerechnet wird in festen kleinen Schritten
   const KIPP_MAX = 0.62;           // weiter geneigt, und er fällt (gut 35°)
-  const V0 = 22;
+  const V0 = 26;
   const V_MAX = 58;
   const V_WEG = 320;               // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
   const SCHWER_WEG = 300;
-  const KIPP = [1.0, 4.2];
-  const STANGE = [2.0, 4.2];
-  const DAEMPF = [2.0, 1.1];
+  const AUFRICHT = 1.6;
+  const STANGE = 3;
+  const DAEMPF = [2.2, 1.2];
   const STANGE_TEMPO = 8;
   const SCHRITT_STOSS = 0.1;
-  const SCHWING = [0.15, 0.7];
+  const SCHWING = [0.1, 0.5];
   const SCHWING_HZ = 0.6;
 
-  // Die Böen: erst nach BOE_AB, dann in Abständen, die nach hinten kürzer
-  // werden. Ihre Kraft ist gedeckelt: Selbst bei 0.42 Neigung bleibt der
-  // Stange noch BOE_RESERVE übrig, um gegenzuhalten.
-  const BOE_AB = 200;
-  const BOE_ABSTAND = [380, 150];
-  const BOE_KRAFT = [0.35, 0.8];
-  const BOE_RESERVE = 0.55;
-  const BOE_LANG = [70, 150];
+  // Die Böen: die erste bald nach dem Start, dann in Abständen, die nach
+  // hinten kürzer werden; später folgt einer Böe oft gleich eine von der
+  // anderen Seite (DOPPEL). Ihre Kraft wirft jeden um, der nicht gegenhält
+  // (über AUFRICHT · sin KIPP_MAX), und ist gedeckelt: Die Stange behält
+  // gegen sie immer BOE_RESERVE übrig.
+  const BOE_AB = 80;
+  const BOE_ERSTE = 120;
+  const BOE_ABSTAND = [300, 140];
+  const BOE_KRAFT = [2, 2.6];
+  const BOE_RESERVE = 0.4;
+  const BOE_LANG = [[80, 140], [45, 90]]; // so lang ist eine Böe: anfangs, hinten
+  const DOPPEL_AB = 120;           // Meter, ab denen Doppelböen kommen …
+  const DOPPEL = 0.55;             // … und wie oft höchstens
   const VORWARNUNG = 1.3;          // Sekunden, die man eine Böe kommen sieht
 
   // Rückmeldung
   const KNAPP = 0.47;              // so schief – und doch gerettet: «knapp!»
-  const RUHIG_BIS = 0.12;          // so ruhig steht, wer im Gleichgewicht ist
-  const RUHE_DAUER = 3;            // Sekunden ruhig für ein «Gleichgewicht ×n»
+  const PARIERT = 0.2;             // so wenig schief durch eine Böe: «Böe pariert ×n»
   const LUPE = 0.35;               // so lange läuft die Zeit nach «knapp!» langsamer
   const LUPE_TEMPO = 0.5;
   const LUFT_MAX = 120;
@@ -143,8 +159,6 @@
   // Wie schwer es an dieser Stelle ist: anfangs fast nichts, nach hinten
   // immer mehr – nie ganz.
   const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / SCHWER_WEG);
-  const kipp = (k) => lerp(KIPP[0], KIPP[1], k);
-  const stange = (k) => lerp(STANGE[0], STANGE[1], k);
   const daempf = (k) => lerp(DAEMPF[0], DAEMPF[1], k);
   const schwing = (k) => lerp(SCHWING[0], SCHWING[1], k);
 
@@ -229,7 +243,7 @@
     gang: 0,              // gegangene Schritte
     geht: 0,              // 0 steht, 1 geht – fürs Bild
     schwing: 0,           // die Phase, in der die Seile schwingen
-    welt: { masten: [], boeen: [], naechsteBoe: 0 },
+    welt: { masten: [], boeen: [], naechsteBoe: 0, doppel: 0 },
     boe: 0,               // die laufende oder nächste Böe
     spanne: null,         // die Spanne unter dem Seiltänzer
     wind: { warn: 0, wirkt: 0, dir: 0, rel: 0 },
@@ -250,11 +264,13 @@
     zeit: 0,
     echt: 0,
     sturzZeit: 0,
+    sturzGrund: "",       // woran es lag: "gehalten", "boe" oder ""
     lupe: 0,
     knapp: false,
     knappZeit: -9,
-    ruhe: 0,
-    ruheN: 0,
+    ruheN: 0,             // Böen hintereinander pariert
+    boeMax: 0,            // wie schief er in der laufenden Böe schon stand
+    boeIn: -1,            // in welcher Böe er zuletzt stand
     glanz: 0,
     gefahr: 0,
     gekippt: 0,
@@ -270,7 +286,12 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
-  let gedrueckt = false;
+  // Wohin gelehnt wird: −1 links, 0 gar nicht, +1 rechts. Dazu die Finger
+  // (und Tasten), die gerade aufliegen – liegen zwei auf, gilt der zuletzt
+  // gekommene.
+  let lehne = 0;
+  const finger = [];
+  let knoepfe = null;
   // Die Gegner (geist.js): wer als Geist mitgeht und als Wimpel am Seil hängt.
   let gegner = null;
   // Wer einen Lauf anschaut statt zu gehen (geist.js, zuschauer).
@@ -317,7 +338,7 @@
     klang()?.ton("seiltaenzer.boee", { laut: 0.6 + 0.6 * w.rel });
   }
 
-  // «Gleichgewicht ×n»: die Harfe – nur das erste Mal in Folge.
+  // «Böe pariert ×n»: die Harfe – nur das erste Mal in Folge.
   function ruheKlang(n) {
     if (n === 1) klang()?.ton("perfekt", { laut: 0.8 });
   }
@@ -330,7 +351,9 @@
    * der sie schwingt. Die Böen liegen auf der Strecke wie die Masten: von
    * x0 bis x1, mit Richtung (+1 drückt nach rechts) und Kraft. Gewürfelt
    * wird Spanne um Spanne – erst die Spanne, dann die Böen, die in ihr
-   * beginnen –, immer in derselben Reihenfolge.
+   * beginnen –, immer in derselben Reihenfolge und je Böe immer fünf Zahlen.
+   * Eine Doppelböe ist eine, die gleich auf die vorige folgt, von der
+   * anderen Seite.
    */
   function neueSpanne() {
     const w = state.welt;
@@ -343,12 +366,16 @@
     while (w.naechsteBoe < b.x) {
       const x0 = w.naechsteBoe;
       const kk = schwereBei(x0);
-      const L = lerp(BOE_LANG[0], BOE_LANG[1], zufall.zahl());
-      const deckel = stange(kk) - kipp(kk) * Math.sin(0.42) - BOE_RESERVE;
-      const G = clamp(lerp(BOE_KRAFT[0], BOE_KRAFT[1], kk) * stange(kk) * (0.7 + 0.3 * zufall.zahl()), 0, deckel);
-      const dir = zufall.zahl() < 0.5 ? -1 : 1;
-      w.boeen.push({ x0, x1: x0 + L, G, dir });
-      w.naechsteBoe = x0 + L + lerp(BOE_ABSTAND[0], BOE_ABSTAND[1], kk) * (0.7 + 0.6 * zufall.zahl());
+      const z = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
+      const L = lerp(lerp(BOE_LANG[0][0], BOE_LANG[1][0], kk), lerp(BOE_LANG[0][1], BOE_LANG[1][1], kk), z[0]);
+      const G = Math.min(STANGE - BOE_RESERVE, lerp(BOE_KRAFT[0], BOE_KRAFT[1], kk) * (0.88 + 0.12 * z[1]));
+      const doppelt = w.doppel !== 0;
+      const dir = doppelt ? -w.doppel : (z[2] < 0.5 ? -1 : 1);
+      w.boeen.push({ x0, x1: x0 + L, G, dir, doppelt });
+      // Folgt gleich eine zweite, von der anderen Seite? Nie eine dritte.
+      const pDoppel = meterBei(x0) < DOPPEL_AB ? 0 : DOPPEL * schwereBei(x0);
+      w.doppel = !doppelt && z[4] < pDoppel ? dir : 0;
+      w.naechsteBoe = x0 + L + (w.doppel ? lerp(8, 24, z[3]) : lerp(BOE_ABSTAND[0], BOE_ABSTAND[1], kk) * (0.7 + 0.6 * z[3]));
     }
   }
 
@@ -433,38 +460,28 @@
     feld.append(canvas);
     g = canvas.getContext("2d");
 
-    // Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten,
-    // nicht tippen.
-    const tipp = shell.el("span", "st-tipp");
-    tipp.setAttribute("aria-hidden", "true");
+    // Die zwei Knöpfe unten links und rechts, wie im Slalom: Gedrückt wird
+    // die ganze Hälfte des Bildes, die Knöpfe zeigen nur, wo, und leuchten,
+    // solange ein Finger darauf liegt. Vor dem ersten Druck pulsieren sie.
+    knoepfe = shell.el("div", "st-knoepfe");
+    knoepfe.setAttribute("aria-hidden", "true");
     const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 64 64");
-    [
-      { r: 22, stroke: "rgba(255,255,255,0.45)", w: 5 },
-      { r: 22, stroke: "#ffffff", w: 5, klasse: "st-tipp-fuell" },
-    ].forEach((ring) => {
-      const kreis = document.createElementNS(ns, "circle");
-      kreis.setAttribute("cx", "32");
-      kreis.setAttribute("cy", "32");
-      kreis.setAttribute("r", String(ring.r));
-      kreis.setAttribute("fill", "none");
-      kreis.setAttribute("stroke", ring.stroke);
-      kreis.setAttribute("stroke-width", String(ring.w));
-      if (ring.klasse) {
-        kreis.setAttribute("class", ring.klasse);
-        kreis.setAttribute("stroke-linecap", "round");
-      }
-      svg.append(kreis);
+    [-1, 1].forEach((seite) => {
+      const knopf = shell.el("span", `st-knopf ${seite < 0 ? "st-knopf-l" : "st-knopf-r"}`);
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      const pfeil = document.createElementNS(ns, "path");
+      pfeil.setAttribute("d", seite < 0 ? "M14.5 5.5 8 12l6.5 6.5" : "M9.5 5.5 16 12l-6.5 6.5");
+      pfeil.setAttribute("fill", "none");
+      pfeil.setAttribute("stroke", "currentColor");
+      pfeil.setAttribute("stroke-width", "3");
+      pfeil.setAttribute("stroke-linecap", "round");
+      pfeil.setAttribute("stroke-linejoin", "round");
+      svg.append(pfeil);
+      knopf.append(svg);
+      knoepfe.append(knopf);
     });
-    const punkt = document.createElementNS(ns, "circle");
-    punkt.setAttribute("cx", "32");
-    punkt.setAttribute("cy", "32");
-    punkt.setAttribute("r", "9");
-    punkt.setAttribute("fill", "#ffffff");
-    svg.append(punkt);
-    tipp.append(svg);
-    feld.append(tipp);
+    feld.append(knoepfe);
     platz.append(feld);
     return platz;
   }
@@ -2504,10 +2521,10 @@
     const l = state.l;
     const k = schwereBei(l.x);
     l.v = tempoBei(l.x);
-    l.p += ((gedrueckt ? 1 : -1) - l.p) * Math.min(1, STANGE_TEMPO * dt);
+    l.p += (lehne - l.p) * Math.min(1, STANGE_TEMPO * dt);
     const boeen = state.welt.boeen;
     while (boeen[state.boe] && boeen[state.boe].x1 < l.x) state.boe += 1;
-    l.w += (kipp(k) * Math.sin(l.th) + stange(k) * l.p - daempf(k) * l.w + stoerung(l.x, k)) * dt;
+    l.w += (-AUFRICHT * Math.sin(l.th) + STANGE * l.p - daempf(k) * l.w + stoerung(l.x, k)) * dt;
     l.th += l.w * dt;
     l.x += l.v * dt;
     state.gang += (l.v * dt) / SCHRITT;
@@ -2526,6 +2543,11 @@
     state.schritt = "sturz";
     state.sturzZeit = state.zeit;
     state.gekippt = dir;
+    // Woran es lag: Hielt er zur selben Seite, hat er zu lange gehalten; kam
+    // die Böe von der anderen Seite, hat er zu wenig gegengehalten.
+    const b = state.welt.boeen[state.boe];
+    const boeWirkt = b && l.x >= b.x0 - 20 && l.x <= b.x1 + 40 && b.dir === dir;
+    state.sturzGrund = Math.sign(l.p) === dir && Math.abs(l.p) > 0.3 ? "gehalten" : boeWirkt ? "boe" : "";
     state.stoss = 1;
     state.lupe = 0;
     state.ruheN = 0;
@@ -2595,8 +2617,35 @@
     state.delle = Math.cos(t * 11) * Math.exp(-t * 3.5);
   }
 
-  // Beinahe gefallen und doch gehalten – und lange ruhig im Gleichgewicht:
-  // beides gibt es zu sehen und zu hören.
+  // Eine Böe ist vorbei: Stand er dabei kaum schief, hat er sie pariert, und
+  // die Reihe wächst – sonst beginnt sie von vorn. Beim Zuschauen ohne
+  // Schrift.
+  function boeBilanz(mitSchrift) {
+    const l = state.l;
+    // Erst die vorige Böe abschliessen – eine Doppelböe folgt ihr dicht.
+    if (state.boeIn >= 0 && state.boeIn !== state.boe) {
+      const sauber = state.boeMax < PARIERT;
+      state.boeIn = -1;
+      if (!sauber) state.ruheN = 0;
+      else {
+        state.ruheN += 1;
+        state.glanz = 1;
+        ruheKlang(state.ruheN);
+        if (mitSchrift) {
+          schrift(state.ruheN >= 2 ? `Böe pariert ×${state.ruheN}` : "Böe pariert!", l.x, l.y + 82, "#ffe08a", 13);
+          funken(l.x, l.y + 30, 16, ["#fff4d6", "#ffd166", "#ffe08a"], "glanz");
+        }
+      }
+    }
+    const b = state.welt.boeen[state.boe];
+    if (b && l.x >= b.x0 && l.x <= b.x1) {
+      if (state.boeIn !== state.boe) { state.boeIn = state.boe; state.boeMax = 0; }
+      state.boeMax = Math.max(state.boeMax, Math.abs(l.th));
+    }
+  }
+
+  // Beinahe gefallen und doch gehalten – und eine Böe sauber pariert: beides
+  // gibt es zu sehen und zu hören.
   function rueckmeldung(dt) {
     const l = state.l;
     const a = Math.abs(l.th);
@@ -2611,20 +2660,7 @@
         kids()?.vibrate?.(12);
       }
     }
-    if (a < RUHIG_BIS) {
-      state.ruhe += dt;
-      if (state.ruhe >= RUHE_DAUER) {
-        state.ruhe -= RUHE_DAUER;
-        state.ruheN += 1;
-        state.glanz = 1;
-        schrift(`Gleichgewicht ×${state.ruheN}`, l.x, l.y + 82, "#ffe08a", 13);
-        funken(l.x, l.y + 30, 16, ["#fff4d6", "#ffd166", "#ffe08a"], "glanz");
-        ruheKlang(state.ruheN);
-      }
-    } else if (a > 0.25) {
-      state.ruhe = 0;
-      state.ruheN = 0;
-    }
+    boeBilanz(true);
     state.glanz = Math.max(state.ruheN > 0 ? 0.35 : 0, state.glanz - dt * 0.6);
   }
 
@@ -2734,7 +2770,7 @@
     const b = boeen[state.boe];
     if (!b) return;
     w.dir = b.dir;
-    w.rel = clamp(b.G / stange(schwereBei(b.x0)), 0, 1);
+    w.rel = clamp(b.G / STANGE, 0, 1);
     if (x >= b.x0) {
       const s = Math.sin(Math.PI * (x - b.x0) / (b.x1 - b.x0));
       w.wirkt = s * s;
@@ -2810,14 +2846,7 @@
 
   // Beim Zuschauen nur das Leuchten und der Klang – ohne Schrift.
   function rueckmeldungZuschauen() {
-    const a = Math.abs(state.l.th);
-    if (a < RUHIG_BIS) {
-      state.ruhe += 1 / 60;
-      if (state.ruhe >= RUHE_DAUER) { state.ruhe = 0; state.ruheN += 1; state.glanz = 1; ruheKlang(state.ruheN); }
-    } else if (a > 0.25) {
-      state.ruhe = 0;
-      state.ruheN = 0;
-    }
+    boeBilanz(false);
     state.glanz = Math.max(state.ruheN > 0 ? 0.35 : 0, state.glanz - 0.01);
   }
 
@@ -2841,14 +2870,42 @@
     kids()?.vibrate?.(8);
   }
 
-  function druecken() {
+  function lehneNeu() {
+    lehne = finger.length ? finger[finger.length - 1].r : 0;
+    knoepfe?.querySelector(".st-knopf-l")?.classList.toggle("ist-an", lehne < 0);
+    knoepfe?.querySelector(".st-knopf-r")?.classList.toggle("ist-an", lehne > 0);
+  }
+
+  // Ein Finger (oder eine Taste) kommt: Er lehnt, bis er geht. Der erste
+  // startet die Runde.
+  function fingerAuf(id, r) {
     if (state.phase === "zuschauen") return;
-    gedrueckt = true;
+    const da = finger.findIndex((f) => f.id === id);
+    if (da >= 0) finger.splice(da, 1);
+    finger.push({ id, r });
+    lehneNeu();
     losGehts();
   }
 
-  function loslassen() {
-    gedrueckt = false;
+  function fingerWeg(id) {
+    const da = finger.findIndex((f) => f.id === id);
+    if (da < 0) return;
+    finger.splice(da, 1);
+    lehneNeu();
+  }
+
+  function alleWeg() {
+    finger.length = 0;
+    lehneNeu();
+  }
+
+  // Für die Prüfskripte und die Vorführung: lehnen wie mit einem Finger –
+  // −1 links, 1 rechts, 0 loslassen. Die erste Lehne startet die Runde.
+  function lehnen(r) {
+    finger.length = 0;
+    if (r) finger.push({ id: "auto", r: Math.sign(r) });
+    lehneNeu();
+    if (r) losGehts();
   }
 
   // ---------------------------------------------------------------------------
@@ -2868,8 +2925,8 @@
     state.gang = 0;
     state.geht = 0;
     state.schwing = 0;
-    state.welt = { masten: [{ x: START.x, L: 0, phase: 0, i: 0 }], boeen: [], naechsteBoe: 0 };
-    state.welt.naechsteBoe = BOE_AB + BOE_ABSTAND[0] * (0.7 + 0.6 * zufall.zahl());
+    state.welt = { masten: [{ x: START.x, L: 0, phase: 0, i: 0 }], boeen: [], naechsteBoe: 0, doppel: 0 };
+    state.welt.naechsteBoe = BOE_AB + BOE_ERSTE * zufall.zahl();
     state.boe = 0;
     state.wind = { warn: 0, wirkt: 0, dir: 0, rel: 0 };
     state.fahne = -0.3;
@@ -2888,15 +2945,18 @@
     state.lupe = 0;
     state.knapp = false;
     state.knappZeit = -9;
-    state.ruhe = 0;
     state.ruheN = 0;
+    state.boeMax = 0;
+    state.boeIn = -1;
     state.glanz = 0;
     state.gefahr = 0;
     state.gekippt = 0;
+    state.sturzGrund = "";
     state.etappe = 0;
     state.etappeZeit = -9;
     state.blick = 0;
-    gedrueckt = false;
+    finger.length = 0;
+    lehne = 0;
     schrittGezaehlt = 0;
     boeGehoert = -1;
     weltBis(START.x + 2000);
@@ -2905,8 +2965,9 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt st-prompt", "Halten – nach rechts lehnen. Loslassen – nach links.");
+    const prompt = shell.el("p", "cm-prompt st-prompt", "Links halten – nach links lehnen, rechts – nach rechts. Halt gegen die Böen.");
     shell.play.append(prompt, buildPlatz());
+    lehneNeu();
     view.cssW = 0;
     view.cssH = 0;
     messen();
@@ -2947,10 +3008,13 @@
       runs: (Number(old.runs) || 0) + 1,
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
-    // Woran es lag: Wer nach rechts kippt, hat zu lange gehalten.
-    const grund = state.gekippt > 0
-      ? "Nach rechts gekippt – früher loslassen"
-      : (state.gekippt < 0 ? "Nach links gekippt – früher drücken" : "");
+    // Woran es lag: zu lange gehalten, oder eine Böe ohne Gegenhalten.
+    const seite = state.gekippt > 0 ? "rechts" : "links";
+    const gegen = state.gekippt > 0 ? "links" : "rechts";
+    const grund = !state.gekippt ? ""
+      : state.sturzGrund === "gehalten" ? `Zu lange ${seite} gehalten – früher loslassen`
+        : state.sturzGrund === "boe" ? `Die Böe von ${gegen} – rechtzeitig ${gegen} halten`
+          : `Nach ${seite} gekippt`;
     const best = vorher ? `Bestwert ${vorher} m` : "";
     shell.showResult({
       label: "Deine Meter",
@@ -2976,35 +3040,47 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "ropeWalk", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "ropeWalk", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", alle: true, zufall, gleichschritt: true }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", fassung: "t2", alle: true, zufall, gleichschritt: true }) || null;
   }
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
+  // Ein Finger auf der linken Hälfte lehnt nach links, auf der rechten nach
+  // rechts. Nur Knöpfe bleiben Knöpfe.
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    druecken();
+    const rahmen = (feld || host).getBoundingClientRect();
+    fingerAuf(event.pointerId, event.clientX < rahmen.left + rahmen.width / 2 ? -1 : 1);
   });
-  window.addEventListener("pointerup", loslassen);
-  window.addEventListener("pointercancel", loslassen);
-  // Wer das Fenster verlässt, nimmt auch den Finger vom Bild.
-  window.addEventListener("blur", loslassen);
+  window.addEventListener("pointerup", (event) => fingerWeg(event.pointerId));
+  window.addEventListener("pointercancel", (event) => fingerWeg(event.pointerId));
+  // Wer das Fenster verlässt, nimmt auch die Finger vom Bild.
+  window.addEventListener("blur", alleWeg);
 
-  const TASTEN = new Set([" ", "Enter", "ArrowRight"]);
+  // Pfeil links oder A, Pfeil rechts oder D. Leertaste und Enter starten nur.
+  // Steht der Fokus auf einem Knopf, gilt die Taste dem Knopf.
+  const seiteDerTaste = (event) => {
+    if (event.key === "ArrowLeft" || event.code === "KeyA") return -1;
+    if (event.key === "ArrowRight" || event.code === "KeyD") return 1;
+    return 0;
+  };
   document.addEventListener("keydown", (event) => {
-    if (!TASTEN.has(event.key)) return;
+    const r = seiteDerTaste(event);
+    const start = event.key === " " || event.key === "Enter";
+    if (!r && !start) return;
     if (document.activeElement?.tagName === "BUTTON") return;
     event.preventDefault();
     if (event.repeat) return;
-    druecken();
+    if (r) fingerAuf(r < 0 ? "taste-l" : "taste-r", r);
+    else losGehts();
   });
   document.addEventListener("keyup", (event) => {
-    if (!TASTEN.has(event.key)) return;
-    loslassen();
+    const r = seiteDerTaste(event);
+    if (r) fingerWeg(r < 0 ? "taste-l" : "taste-r");
   });
 
   window.addEventListener("resize", messen);
@@ -3013,7 +3089,7 @@
 
   // Für die Prüfskripte.
   window.LernappSeiltaenzer = {
-    METER, KIPP_MAX, TAKT, state, view, takt, druecken, loslassen,
-    weltBis, spanneBei, seilY, tempoBei, schwereBei, kipp, stange, daempf,
+    METER, KIPP_MAX, TAKT, AUFRICHT, STANGE, BOE_RESERVE, state, view, takt, lehnen, losGehts,
+    weltBis, spanneBei, seilY, tempoBei, schwereBei, daempf,
   };
 })();
