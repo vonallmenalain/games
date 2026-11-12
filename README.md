@@ -1007,8 +1007,9 @@ Function ein, beim Ausliefern (`netlify/edge-functions/turnier-vorschau.js`):
 
     Bild      das Logo (icons/vorschau.jpg), wie bisher
     Titel     der Name des Turniers                    «HotDog Party»
-    Satz      «Turnier · arcade», mit Beschreibung      «Turnier · arcade – …»
-              dahinter (gekürzt)
+    Satz      die Beschreibung des Turniers (gekürzt) – hat es keine, steht
+              hier nichts. Kein «Turnier · arcade»: Wer den Link bekommt,
+              kennt die arcade meist gar nicht.
     Adresse   games.alae.app
 
 Den Namen liest sie über die REST-Schnittstelle von Firestore, so wie ihn

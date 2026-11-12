@@ -11,8 +11,10 @@
  *
  *   /turnier?t=<id>   holt den Namen (und die Beschreibung) des Turniers aus
  *                     Firestore und schreibt ihn in die Vorschau: Titel ist
- *                     der Name, darunter «Turnier · arcade» oder die
- *                     Beschreibung. Der Rest der Seite bleibt, wie er ist.
+ *                     der Name, darunter die Beschreibung – hat das Turnier
+ *                     keine, steht darunter nichts (kein «Turnier · arcade»:
+ *                     Wer den Link bekommt, kennt die arcade meist gar
+ *                     nicht). Der Rest der Seite bleibt, wie er ist.
  *   /<id>             der eigene Link (admin.js, «Eigener Link"): Liegt dort
  *                     keine Datei und gibt es das Turnier, geht es gleich
  *                     weiter auf /turnier?t=<id> – auch für den Messenger,
@@ -62,15 +64,17 @@ function gekuerzt(text, max) {
 }
 
 // Titel und Satz der Vorschau in die Seite schreiben – nur in die Stellen,
-// die es schon gibt.
+// die es schon gibt. Ohne Beschreibung fallen beide Sätze (og:description
+// und description) ganz weg: Fehlt nur der eine, nähme WhatsApp den anderen.
 export function mitVorschau(html, { name, beschreibung }) {
   const titel = sicher(name);
-  const satz = sicher(beschreibung ? `Turnier · arcade – ${gekuerzt(beschreibung, BESCHREIBUNG_MAX)}` : "Turnier · arcade");
+  const satz = beschreibung ? sicher(gekuerzt(beschreibung, BESCHREIBUNG_MAX)) : "";
   const setze = (text, muster, wert) => text.replace(muster, (_, vorne, hinten) => `${vorne}${wert}${hinten}`);
+  const satzZeile = (text, muster) => (satz ? setze(text, muster, satz) : text.replace(new RegExp(`[ \\t]*${muster.source}[ \\t]*\\r?\\n?`), ""));
   let raus = html;
   raus = setze(raus, /(<meta property="og:title" content=")[^"]*(" \/>)/, titel);
-  raus = setze(raus, /(<meta property="og:description" content=")[^"]*(" \/>)/, satz);
-  raus = setze(raus, /(<meta name="description" content=")[^"]*(" \/>)/, satz);
+  raus = satzZeile(raus, /(<meta property="og:description" content=")[^"]*(" \/>)/);
+  raus = satzZeile(raus, /(<meta name="description" content=")[^"]*(" \/>)/);
   raus = setze(raus, /(<title>)[^<]*(<\/title>)/, `${titel} · Turnier · arcade`);
   return raus;
 }
