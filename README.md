@@ -177,6 +177,22 @@ Saltos hinein. Dazu wird es Abend und unter Flutlicht Nacht. Im ersten
 Sprung sagt das Spiel, wann halten und wann loslassen. (Umgebaut im
 November 2026, siehe unten.)
 
+Das Bild dazu (seit dem 12. November 2026, die Rechnung ist dieselbe): Es
+springen abwechselnd eine Frau und ein Mann, Sprung um Sprung (`FIGUREN`) –
+Körper mit Gelenken, von der Seite gezeichnet (`maleFigur`), eine Haltung ist
+ein Satz Winkel (`POSEN`). Auf dem Brett wird von den Füssen her gerechnet
+(`bodenPose`, `zweiGlieder`): Der Anlauf ist ein Gang, bei dem kein Fuss
+rutscht (`GANG`), an der Kante geht es in die Knie, die Arme holen aus und
+schwingen hoch. In der Luft mischt sich die Haltung aus Päckchen und
+gestreckt (`flugPose`), im Wasser gleitet die Figur hinunter, schwimmt hoch
+und tritt Wasser (`schwimmPose`). Weil sie grösser gezeichnet ist, als sie
+gerechnet wird, liegt das Brett im Bild etwas tiefer und endet dort, wo ihre
+Zehen stehen (`deckHoehe`, `kanteVorn`). Beim Eintauchen schiesst Wasser
+hoch (`platsch`, `spritzer`): eine Krone aus Strahlen, die sich lösen und in
+Tropfen zerfallen, Schaum und Ringe auf dem See, ein Wellenberg, der davon
+läuft, und unter Wasser eine Schleppe aus Blasen – klein bei einem sauberen
+Sprung, breit beim Klatscher, mit einer Säule bei der Arschbombe.
+
 **Fallschirm** (`fallschirm.js`, `skyDive`) – Sprung um Sprung aus dem
 Flugzeug über einem Tal mit See, Fluss, Dorf und Wäldern, von oben gesehen:
 Der Boden kommt aus 900 m Höhe herauf. Wer links oder rechts aufs Bild hält,
