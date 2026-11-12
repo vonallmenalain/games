@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-12-7";
+export const FASSUNG = "2026-11-12-8";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -158,7 +158,7 @@ export const SPIELE = [
   {
     seite: "seiltaenzer", spiel: "ropeWalk", page: "rope", js: "seiltaenzer.js",
     titel: "Seiltänzer", buehne: { id: "st-stage", klasse: "cm-stage st-stage" },
-    text: "Seiltänzer: Links halten lehnt nach links, rechts nach rechts – halt gegen Böen, Vögel und Wellen, so weit du kommst.",
+    text: "Seiltänzer: Links halten lehnt nach links, rechts nach rechts – halt gegen Böen und Vögel, so weit du kommst.",
     baut: "das Seil über der Schlucht",
   },
   {

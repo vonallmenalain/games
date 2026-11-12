@@ -20,8 +20,6 @@
  *           zweit – erst links, dann rechts, und einer fliegt zuerst.
  *   Ramme   Ein Vogel fliegt geradewegs auf ihn zu und prallt gegen ihn:
  *           ein Ruck zur anderen Seite, Federn fliegen.
- *   Welle   Eine Welle läuft das Seil entlang auf ihn zu; unter ihm wirft
- *           sie ihn im Takt hin und her.
  *
  * Ohne Gegenhalten wirft jede ihn um – wer zu lange gegenhält, kippt nach
  * der anderen Seite. Es zählt also, wann man drückt, auf welcher Seite und
@@ -148,8 +146,6 @@
    * Ramme: ein Ruck (RAMME_STOSS, in der Drehung um die Füsse) – so stark,
    * dass ihn ohne Gegenhalten wirft, wer nicht reagiert; wer ihn kommen
    * sieht, lehnt sich vorher hinein.
-   *
-   * Welle: hin, her, hin (WELLE_HALB halbe Schwünge), so stark wie eine Böe.
    */
   const STOER_AB = 55;             // so weit geht er ruhig (Einheiten): die erste Böe nach gut zwei Sekunden
   const ABSTAND = [1.2, 0.6];      // Sekunden Pause zwischen zwei Störungen: anfangs, hinten
@@ -167,10 +163,6 @@
   const RAMME_AB = 26;             // Meter, ab denen ein Vogel ihn rammt
   const RAMME_STOSS = [1.5, 1.9];
   const RAMME_NACH = 1.3;          // so lange nach dem Aufprall zählt er noch (s)
-  const WELLE_AB = 36;             // Meter, ab denen Wellen das Seil entlanglaufen
-  const WELLE_KRAFT = [1.9, 2.4];
-  const WELLE_TAKT = [2.7, 2.1];   // so lang ist ein ganzer Schwung hin und her (s)
-  const WELLE_HALB = 3;            // so viele halbe Schwünge
   const VORWARNUNG = 1.3;          // Sekunden, die man eine Böe kommen sieht
   const ANFLUG = 1.4;              // so lange sieht man einen Vogel heranfliegen (s)
   const ZAHLEN_JE = 9;             // so viele Zahlen zieht jede Störung aus dem Zufall
@@ -320,7 +312,6 @@
     ereignisMax: 0,       // wie schief er in der laufenden Störung schon stand
     ereignisIn: -1,       // in welcher Störung er zuletzt stand
     gesehen: -1,          // bis zu welcher Stelle Federn, Ruck und Klang schon kamen
-    wellen: [],           // die Wellen, die gerade im Seil laufen (wellenTakt)
     glanz: 0,
     gefahr: 0,
     gekippt: 0,
@@ -435,7 +426,7 @@
   const strecke = (x, sekunden) => sekunden * tempoBei(x);
 
   // Was als Nächstes kommt: eine Böe – die erste immer –, ein Vogel, der
-  // landet – der zweite immer –, ein Vogel, der rammt, oder eine Welle.
+  // landet – der zweite immer – oder ein Vogel, der rammt.
   function neuesEreignis() {
     const w = state.welt;
     const x0 = w.naechstes;
@@ -451,7 +442,6 @@
       const wahl = [["boe", 3]];
       if (m >= VOGEL_AB) wahl.push(["vogel", 2.4]);
       if (m >= RAMME_AB) wahl.push(["ramme", 1.6]);
-      if (m >= WELLE_AB) wahl.push(["welle", 1.6]);
       // Nicht zweimal dasselbe (ausser Böen).
       for (const e of wahl) if (e[0] === w.vorher && e[0] !== "boe") e[1] *= 0.25;
       let los = z[5] * wahl.reduce((summe, e) => summe + e[1], 0);
@@ -491,17 +481,12 @@
         );
       }
       e.stoesse.sort((p, q) => p.x - q.x);
-    } else if (art === "ramme") {
-      // dir: wohin der Ruck ihn wirft – der Vogel kommt von der anderen Seite.
+    } else {
+      // Ramme. dir: wohin der Ruck ihn wirft – der Vogel kommt von der anderen Seite.
       e.G = lerp(RAMME_STOSS[0], RAMME_STOSS[1], k) * (0.96 + 0.08 * z[1]);
       e.x1 = x0 + strecke(x0, RAMME_NACH);
       e.hoehe = lerp(-0.4, 0.4, z[0]);
       e.stoesse = [{ x: x0 - strecke(x0, 0.9), w: 0, art: "anflug", seite: -e.dir }, { x: x0, w: e.dir * e.G, art: "ramme", seite: -e.dir }];
-    } else {
-      const takt = lerp(WELLE_TAKT[0], WELLE_TAKT[1], k) * (0.92 + 0.16 * z[0]);
-      e.x1 = x0 + strecke(x0, (takt * WELLE_HALB) / 2);
-      e.G = Math.min(STANGE - BOE_RESERVE, lerp(WELLE_KRAFT[0], WELLE_KRAFT[1], k) * (0.9 + 0.1 * z[1]));
-      e.stoesse = [{ x: x0 - strecke(x0, 1), w: 0, art: "welle", seite: e.dir }];
     }
     w.ereignisse.push(e);
     w.vorher = art;
@@ -537,10 +522,6 @@
   function seilYIn(sp, x) {
     const u = clamp((x - sp.x) / sp.L, 0, 1);
     let y = -DURCHHANG * sp.L * 4 * u * (1 - u);
-    for (const w of state.wellen) {
-      const d = (x - w.xp) / w.b;
-      if (d > -3 && d < 3) y += w.a * Math.exp(-d * d) * (w.still ? 1 : Math.cos((x - w.xp) / 11)) * Math.sin(Math.PI * u);
-    }
     y -= SCHWING_BILD * schwing(schwereBei(sp.x)) * Math.sin(state.schwing + sp.phase) * Math.sin(Math.PI * u);
     if (sp === state.spanne && state.delle !== 0) {
       const uw = clamp((state.l.x - sp.x) / sp.L, 0, 1);
@@ -551,33 +532,6 @@
   }
 
   const seilY = (x) => seilYIn(spanneBei(x), x);
-
-  /*
-   * Eine Welle im Seil: Sie läuft von voraus auf ihn zu (dreimal so schnell,
-   * wie er geht), unter ihm wirft sie das Seil im Takt auf und ab, und
-   * danach läuft sie hinter ihm davon. Aus der Stelle gerechnet, an der er
-   * ist – beim Zuschauen wie im Spiel. Für jedes Bild einmal (wellenTakt).
-   */
-  function wellenTakt() {
-    state.wellen.length = 0;
-    if (state.schritt !== "lauf") return;
-    const x = state.l.x;
-    const alle = state.welt.ereignisse;
-    for (let i = Math.max(0, state.ereignis - 1); i < alle.length && alle[i].x0 - 700 < x; i += 1) {
-      const e = alle[i];
-      if (e.art !== "welle") continue;
-      if (x < e.x0) {
-        const xp = e.x0 + (e.x0 - x) * 3;
-        state.wellen.push({ xp, a: 11 * clamp(1 - (xp - x) / 800, 0, 1), b: 40, kommt: true });
-      } else if (x <= e.x1) {
-        const u = (x - e.x0) / (e.x1 - e.x0);
-        state.wellen.push({ xp: x, a: 9 * Math.sin(Math.PI * WELLE_HALB * u) * Math.pow(Math.sin(Math.PI * u), 0.35), b: 90, still: true });
-      } else if (x < e.x1 + 600) {
-        const xp = e.x0 - (x - e.x1) * 3;
-        state.wellen.push({ xp, a: 9 * clamp(1 - (x - xp) / 700, 0, 1), b: 40 });
-      }
-    }
-  }
 
   // Das Netz: tiefer, weicher durchgehängt, und wo der Seiltänzer hineinfällt,
   // federt es nach.
@@ -604,7 +558,6 @@
       const s = Math.sin(Math.PI * u);
       return e.dir * e.G * s * s;
     }
-    if (e.art === "welle") return e.dir * e.G * Math.sin(Math.PI * WELLE_HALB * u) * Math.pow(Math.sin(Math.PI * u), 0.35);
     if (e.art === "vogel") {
       let d = 0;
       for (const v of e.voegel) if (x >= v.an && x < v.ab) d += v.seite * e.G;
@@ -2459,23 +2412,6 @@
     }
     fortgeflogen.length = 0;
     if (state.schritt !== "lauf") return;
-    for (const w of state.wellen) {
-      if (!w.kommt || w.a < 2) continue;
-      const wx = bildX(w.xp);
-      if (wx < 20 || wx > W - 20) continue;
-      const gross = Math.round(clamp(11 * s, 11, 15));
-      g.globalAlpha = clamp(w.a / 6, 0, 1);
-      g.font = `800 ${gross}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "bottom";
-      g.lineWidth = 3;
-      g.strokeStyle = "rgba(7, 11, 36, 0.6)";
-      const wy = bildY(seilY(w.xp)) - 14 * s;
-      g.strokeText("Welle", wx, wy);
-      g.fillStyle = "#ffffff";
-      g.fillText("Welle", wx, wy);
-      g.globalAlpha = 1;
-    }
     const v = Math.max(5, l.v || tempoBei(l.x));
     const alle = state.welt.ereignisse;
     for (let i = Math.max(0, state.ereignis - 2); i < alle.length; i += 1) {
@@ -3046,8 +2982,6 @@
           state.stoss = Math.max(state.stoss, 0.6);
           if (hoeren) klang()?.ton("seiltaenzer.stoss", { laut: 0.9 });
           if (state.phase === "spiel") kids()?.vibrate?.([18, 30, 18]);
-        } else if (s.art === "welle") {
-          if (hoeren) klang()?.ton("seiltaenzer.boee", { laut: 0.55 });
         } else if (hoeren) {
           klang()?.ton("seiltaenzer.flattern", { laut: s.art === "anflug" ? 0.45 : 0.6 });
           if (s.art === "landen") federn(x + s.seite * 58, state.l.y + 38, 4, vogelFarben(x));
@@ -3068,7 +3002,7 @@
       if (e.art === "vogel") {
         const q = Math.min(x, e.x1 - 1);
         wohin = kraftVon(e, q) || e.voegel[e.voegel.length - 1].seite;
-      } else if (e.art === "welle") wohin = kraftVon(e, Math.min(x, e.x1 - 1)) || e.dir;
+      }
       return { art: e.art, wohin };
     }
     return null;
@@ -3130,7 +3064,7 @@
   // Eine Störung ist vorbei: Stand er dabei kaum schief, hat er sie
   // pariert, und die Reihe wächst – sonst beginnt sie von vorn. Beim
   // Zuschauen ohne Schrift.
-  const PARIERT_WORT = { boe: "Böe pariert!", vogel: "Vogel ausbalanciert!", ramme: "Zusammenstoss pariert!", welle: "Welle pariert!" };
+  const PARIERT_WORT = { boe: "Böe pariert!", vogel: "Vogel ausbalanciert!", ramme: "Zusammenstoss pariert!" };
   function ereignisBilanz(mitSchrift) {
     const l = state.l;
     // Erst die vorige abschliessen – eine Doppelböe folgt ihr dicht.
@@ -3186,7 +3120,6 @@
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 2.5);
     const l = state.l;
 
-    wellenTakt();
     if (state.phase === "zuschauen") {
       zuschauenTakt(dt);
     } else if (state.schritt === "lauf") {
@@ -3470,7 +3403,6 @@
     state.ereignisMax = 0;
     state.ereignisIn = -1;
     state.sturzSeite = 0;
-    state.wellen = [];
     state.glanz = 0;
     state.gefahr = 0;
     state.gekippt = 0;
@@ -3539,7 +3471,6 @@
       boe: `Die Böe von ${gegen} – rechtzeitig ${gegen} halten`,
       vogel: `Der Vogel ${seite} auf der Stange – ${gegen} gegenhalten`,
       ramme: `Der Vogel von ${gegen} – vorher ${gegen} hineinlehnen`,
-      welle: `Die Welle im Seil – im Takt gegenhalten`,
     };
     const grund = !state.gekippt ? "" : GRUND[state.sturzGrund] || `Nach ${seite} gekippt`;
     const best = vorher ? `Bestwert ${vorher} m` : "";
@@ -3567,11 +3498,12 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "ropeWalk", fassung: "t3", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "ropeWalk", fassung: "t4", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    // Fassung t3: Vögel und Wellen. Die Läufe nur mit Böen gehören nicht dazu.
-    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", fassung: "t3", alle: true, zufall, gleichschritt: true }) || null;
+    // Fassung t4: Böen und Vögel (ohne die Wellen von t3). Ältere Läufe
+    // gehören nicht dazu – ihre Welt sah anders aus.
+    gegner = window.LernappGeist?.fuer?.({ spiel: "ropeWalk", host, art: "tempo", fassung: "t4", alle: true, zufall, gleichschritt: true }) || null;
   }
 
   startRun();

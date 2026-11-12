@@ -3987,9 +3987,9 @@ try {
   // nach rechts kippt, rechts, wenn nach links, sonst nichts) – und einen
   // Vogel, der ihn gleich rammt, so dass er sich kurz vorher hineinlehnt –,
   // geht auf mehreren gewürfelten Seilen bis 1500 m: Fällt er, hat eine
-  // Störung mehr verlangt, als die Stange kann. Unterwegs kommen alle vier
-  // Arten – Böen, Vögel auf der Stange, Vögel, die ihn rammen, Wellen im
-  // Seil –, keine drückt stärker als ihr Deckel, jede, die drückt, wirft
+  // Störung mehr verlangt, als die Stange kann. Unterwegs kommen alle drei
+  // Arten – Böen, Vögel auf der Stange, Vögel, die ihn rammen – und keine
+  // andere, keine drückt stärker als ihr Deckel, jede, die drückt, wirft
   // einen um, der nicht gegenhält (eine Böe auch lang genug: nachgerechnet),
   // und hinten kommen Doppelböen und Vogelpaare; wer so genau gegenhält,
   // pariert sie alle. Früh wird es ernst: die erste Böe nach
@@ -4052,7 +4052,7 @@ try {
       return raus;
     });
     pruefe(laeufe.every((l) => l.meter >= 1500 && l.schritt === "lauf" && l.zuStark === 0 && l.zuSchwach === 0 && l.kurz === 0 && l.ruckFalsch === 0
-      && l.arten === "boe,ramme,vogel,welle" && l.doppelt > 3 && l.paare > 2 && l.pariert > 20),
+      && l.arten === "boe,ramme,vogel" && l.doppelt > 3 && l.paare > 2 && l.pariert > 20),
       `Seiltänzer: Der Autopilot hält nicht auf jedem Seil das Gleichgewicht, oder die Störungen stimmen nicht – ${JSON.stringify(laeufe)}`);
     pruefe(laeufe.every((l) => l.frueh.ersteArt === "boe" && l.frueh.boe < 4 && l.frueh.vogel < 8 && l.frueh.dreissig >= 10),
       `Seiltänzer: Es wird nicht früh genug ernst – ${JSON.stringify(laeufe.map((l) => l.frueh))}`);

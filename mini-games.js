@@ -153,7 +153,7 @@
     balloonRide: { fassung: "t2" },
     skiSlalom: { fassung: "t1", winkel: true },
     frogHop: { fassung: "t1", winkel: true },
-    ropeWalk: { fassung: "t3", winkel: true },
+    ropeWalk: { fassung: "t4", winkel: true },
     wireLoop: { fassung: "t1" },
     keepyUppy: { fassung: "t1" },
     highDive: { fassung: "t2", winkel: true },
