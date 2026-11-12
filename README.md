@@ -294,7 +294,7 @@ Prüfung 4g12: Ein genauer Autopilot geht bis 1500 m, einer, der eine
 Viertelsekunde zu spät reagiert, fällt lange vorher; ohne Eingabe wirft die
 erste Böe.
 
-Seit dem 12. November 2026 (Fassung `t3`) kommt mehr als Wind, und es wird
+Seit dem 12. November 2026 (Fassung `t4`) kommt mehr als Wind, und es wird
 früh ernst. Die Steuerung ist dieselbe; neu sind die **Störungen**
 (`neuesEreignis`): Böen; ein **Vogel, der auf einem Ende der Stange
 landet** (`VOGEL_LAST`) – solange er sitzt, zieht er diese Seite hinunter,
@@ -302,11 +302,10 @@ und wenn er auffliegt, ist das Gewicht auf einmal weg; ab 55 m manchmal zwei,
 links und rechts, und wer zuerst kam, fliegt zuerst (`PAAR_AB`); ein
 **Vogel, der ihn rammt** (`RAMME_STOSS`) – ein Ruck zur anderen Seite, Federn
 fliegen, und pariert ist er nur, wenn man sich vorher hineinlehnt
-(`PARIERT_JE`); und eine **Welle**, die das Seil entlang auf ihn zuläuft und
-ihn im Takt hin und her wirft (`WELLE_KRAFT`, `WELLE_TAKT`). Man sieht jede
-kommen: Blätter und Pfeile vor der Böe, den Vogel im Anflug (dazu ein
-Flattern), den Rammvogel mit Strichen dahinter, die Welle mit ihrem Namen
-über dem Seil. Die Vögel sind je Landschaft andere: Dohlen in der Schlucht,
+(`PARIERT_JE`). Man sieht jede kommen: Blätter und Pfeile vor der Böe, den
+Vogel im Anflug (dazu ein Flattern), den Rammvogel mit Strichen dahinter.
+Eine Welle, die das Seil entlanglief (Fassung `t3`), gibt es nicht mehr –
+die Läufe mit ihr zählen bei Geist und Zuschauen nicht mehr mit. Die Vögel sind je Landschaft andere: Dohlen in der Schlucht,
 Tauben in der Stadt, Möwen bei den Gipfeln. Die erste Böe kommt nach gut
 zwei Sekunden (`STOER_AB`), der erste Vogel nach gut fünf (`VOGEL_AB`),
 danach folgt eine Störung dicht auf die andere (`ABSTAND`, in Sekunden), die
