@@ -4,7 +4,10 @@
  * Im Wingsuit durch eine Alpenschlucht, im Morgenlicht. Wer links aufs Bild
  * hält, zieht nach links, wer rechts hält, nach rechts – mehr gibt es nicht
  * zu tun. Die Höhe hält der Flieger von selbst. Die Schlucht windet sich
- * talwärts, und im Weg steht, was in einer Schlucht eben steht: Felsnasen,
+ * talwärts, und auf Flughöhe ist sie ein Gang, der dem freien Weg folgt:
+ * vorne gut zwanzig Meter breit und in weiten Bögen, hinten kaum acht, und
+ * er schlägt Haken (gangBei, engeBei). Im Weg steht, was in einer Schlucht
+ * eben steht: Felsnasen,
  * die aus der Wand ragen, Türme mitten im Weg, ein Massiv, das die Schlucht
  * teilt (links breit, rechts ein Spalt), Felsbögen, eine Steinbrücke, Tannen
  * auf Felsbändern. Der erste Kontakt beendet die Runde.
@@ -19,7 +22,10 @@
  *
  * Es wird immer schneller, von 130 auf 250 km/h, und nach 4300 Metern –
  * gut 85 Sekunden – öffnet sich das Tal: Schirm auf, Landung auf der Wiese.
- * Dorthin kommt, wer sehr gut ist.
+ * Dorthin kommt nur, wer die Haken am Schluss vorausahnt.
+ *
+ * Der Flieger ist ein Mensch im Wingsuit, und er bewegt sich: Sein Netz
+ * entsteht in jedem Bild neu aus seiner Haltung (fliegerNetz, fliegerPose).
  *
  * Gebaut wird die Schlucht aus dem Zufall (zufall.js): ohne Turnier jedes
  * Mal eine andere, im Turnier für alle im selben Versuch dieselbe. Zuerst
@@ -90,23 +96,30 @@
   // steigt das bis NAH_MAL-mal (bei GANZ_NAH und darunter), und alles mal
   // die Serie (1 bis SERIE_MAX).
   const GRUND = 1;
-  const NAH = 7;
-  const GANZ_NAH = 2;
+  const NAH = 4.5;
+  const GANZ_NAH = 1.5;
   const NAH_MAL = 6;
   const NAH_HOCH = 1.5;            // wie steil es zum Fels hin mehr wird (1 wäre gleichmässig)
   const SERIE_MAX = 1.6;
   const SERIE_AUF = 0.12;          // je Sekunde ganz nah
   const SERIE_AB = 0.3;            // je Sekunde in der Mitte
   const SERIE_GNADE = 1.3;         // so lange hält die Serie ohne Fels
-  const HAAR = 3;                  // näher an einem Hindernis vorbei ist «haarscharf»
+  const HAAR = 2.2;                // näher an einem Hindernis vorbei ist «haarscharf»
   const HAAR_PUNKTE = [3, 8];      // von knapp bis ganz knapp
   const SPALT_PUNKTE = 12;         // der Spalt neben einem Massiv
   const LANDE_PUNKTE = 30;         // die Landung im Tal
 
-  // Der freie Weg: am Anfang breit, am Schluss gut drei Flieger nebeneinander.
-  const BREIT0 = 15;
-  const BREIT_MIN = 6.6;
+  // Der freie Weg: am Anfang gut vier Flieger breit, am Schluss knapp zwei.
+  const BREIT0 = 9.5;
+  const BREIT_MIN = 4.6;
   const ERSTES_DING = 260;         // bis hier ist die Schlucht leer und weit
+  // Der Gang: Auf Flughöhe steht die Wand so viel neben dem freien Weg –
+  // erst ein paar Meter, zum Schluss kaum einer. Und so schnell wird es eng
+  // und kurvig: ab ENG_AB, ganz ab ENG_VOLL.
+  const LUFT0 = 5.5;
+  const LUFT_MIN = 1.7;
+  const ENG_AB = 220;
+  const ENG_VOLL = 2600;
 
   // Die Wände: alle DZ Meter ein Knoten, von vor dem Absprung bis hinter
   // die Wiese.
@@ -141,7 +154,9 @@
   const schwereBei = (z) => clamp(z / Z_ENDE, 0, 1);
   const tempoBei = (z) => (V0 + (V_MAX - V0) * clamp(z / Z_ENDE, 0, 1)) * clamp(0.3 + z / 50, 0.3, 1);
   const querBei = (z) => QUER0 + QUER_ZU * (tempoBei(Math.max(60, z)) - V0);
-  const breiteBei = (z) => lerp(BREIT0, BREIT_MIN, Math.pow(schwereBei(z), 0.7));
+  // Wie eng und wie kurvig es ist: 0 bis ENG_AB, 1 ab ENG_VOLL.
+  const engeBei = (z) => clamp((z - ENG_AB) / (ENG_VOLL - ENG_AB), 0, 1);
+  const breiteBei = (z) => lerp(BREIT0, BREIT_MIN, Math.pow(engeBei(z), 0.75));
   // Wie nah: 0 bei NAH und weiter weg, 1 bei GANZ_NAH und näher.
   const naeheBei = (ab) => clamp((NAH - ab) / (NAH - GANZ_NAH), 0, 1);
 
@@ -270,7 +285,7 @@
   // Die Mitte der Schlucht: am Absprung gerade, dann in Bögen – später, wenn
   // es schneller geht, etwas sanfter.
   function mitteBei(z) {
-    const h = weich(90, 420, z) * lerp(1, 0.66, schwereBei(z));
+    const h = weich(90, 420, z) * lerp(1, 0.45, engeBei(z));
     if (h <= 0) return 0;
     let x = 0;
     for (const w of W.wellen) x += w.a * (Math.sin(w.f * z + w.p) - Math.sin(w.f * 90 + w.p));
@@ -320,9 +335,9 @@
   }
   const wegBei = (z) => mitteBei(z) + versatzBei(z);
 
-  // Wie viel vom Lenken der Weg verlangen darf: am Anfang die Hälfte, am
-  // Schluss knapp drei Viertel.
-  const anteilBei = (z) => lerp(0.5, 0.72, schwereBei(z));
+  // Wie viel vom Lenken der Weg verlangen darf: am Anfang gut ein Drittel,
+  // am Schluss fast alles, was er zur Seite kann (ein Fünftel bleibt Luft).
+  const anteilBei = (z) => lerp(0.36, 0.74, Math.pow(engeBei(z), 0.8));
   const kannBei = (z) => querBei(z) / tempoBei(Math.max(60, z));
 
   // Wie weit der Weg bis zur Stelle z zur Seite gehen darf, vom letzten
@@ -336,6 +351,14 @@
     return Math.max(0, kannBei(z) * anteilBei(z) - steil) * dz / (Math.PI / 2);
   }
 
+  /*
+   * Der Gang: So weit steht die Wand auf Flughöhe vom Weg ab, zu jeder
+   * Seite. Am Absprung ist die Schlucht noch offen, dann wird sie Meter um
+   * Meter enger, und am Ausgang geht sie ins Tal auf.
+   */
+  const gangBei = (z) => breiteBei(z) / 2 + lerp(LUFT0, LUFT_MIN, Math.pow(engeBei(z), 0.8))
+    + 40 * (1 - weich(120, 260, z)) + 400 * talBei(z);
+
   // So weit neben der Mitte darf der Weg liegen.
   const grenzeBei = (z) => Math.max(2, Math.min(halbBei(-1, z), halbBei(1, z)) - breiteBei(z) / 2 - 4.5);
 
@@ -348,8 +371,11 @@
     const wurf = zufall.zahl() * 2 - 1;
     const r = richtung || (wurf < 0 ? -1 : 1);
     const grenze = grenzeBei(z);
-    let o = letzter.o + r * (0.35 + 0.65 * Math.abs(wurf)) * reich;
-    if (Math.abs(o) > grenze) o = letzter.o - r * (0.35 + 0.65 * Math.abs(wurf)) * reich * (richtung ? 0.3 : 1);
+    // Später geht es fast immer so weit zur Seite, wie es sich lenken lässt.
+    const min = lerp(0.35, 0.8, engeBei(z));
+    const weg = (min + (1 - min) * Math.abs(wurf)) * reich;
+    let o = letzter.o + r * weg;
+    if (Math.abs(o) > grenze) o = letzter.o - r * weg * (richtung ? 0.3 : 1);
     o = clamp(o, -grenze, grenze);
     return clamp(o, letzter.o - reich, letzter.o + reich);
   }
@@ -372,8 +398,8 @@
   }
 
   // Wie lange es zwischen zwei Hindernissen dauert: am Anfang gut anderthalb
-  // Sekunden, am Schluss eine.
-  const folgeBei = (z, k) => tempoBei(z) * lerp(1.6, 0.98, k) * (0.9 + 0.3 * zufall.zahl());
+  // Sekunden, am Schluss eine Dreiviertelsekunde.
+  const folgeBei = (z, k) => tempoBei(z) * lerp(1.6, 0.74, engeBei(z)) * (0.9 + 0.3 * zufall.zahl());
 
   // Felsnasen: abwechselnd von links und rechts ragt ein Stück Wand herein,
   // der Weg schlängelt sich dazwischen durch. Später drückt auch die Wand
@@ -485,7 +511,9 @@
   // eines Pfeilers die Wand.
   function bruecke(z0, k) {
     const z = z0 + 44;
-    const o = wegPunkt(z, schritt(z, 0, 0.8));
+    // Durch die Öffnung geht es gerade: Sonst stünde ein Pfeiler im Weg.
+    const o = wegPunkt(z - 9, schritt(z - 9, 0, 0.8));
+    wegPunkt(z + 9, o);
     const a = breiteBei(z) / 2 * lerp(1.5, 1.12, k) + 0.7;
     const xm = mitteBei(z) + o;
     const pfeiler = [];
@@ -540,13 +568,28 @@
     return 26 + (n - 1) * abstand + 14;
   }
 
+  // Serpentinen: Der Gang schlägt Haken, links, rechts, links – so weit, wie
+  // es sich gerade noch lenken lässt, und später immer dichter.
+  function kurven(z0) {
+    const e = engeBei(z0);
+    const n = 3 + Math.floor(zufall.zahl() * lerp(2, 5, e));
+    let s = zufall.zahl() < 0.5 ? -1 : 1;
+    let z = z0;
+    for (let i = 0; i < n; i += 1) {
+      z += tempoBei(z) * lerp(1.35, 0.72, e) * (0.9 + 0.25 * zufall.zahl());
+      wegPunkt(z, schritt(z, s, 1));
+      s = -s;
+    }
+    return z - z0 + 20;
+  }
+
   // Ein Stück ohne Hindernis: Luft holen, schauen.
   function offen(z0) {
     wegPunkt(z0 + 70, schritt(z0 + 70));
     return 130;
   }
 
-  const ABSCHNITTE = { nasen, tuerme, klamm, bogen: felsbogen, gabel, bruecke, tannen, offen };
+  const ABSCHNITTE = { nasen, tuerme, klamm, bogen: felsbogen, gabel, bruecke, tannen, kurven, offen };
 
   // Was nur schön ist, zwischen zwei Abschnitten: eine Hängebrücke hoch
   // oben, eine Seilbahn, ein Wasserfall, ein Trupp Dohlen.
@@ -582,11 +625,13 @@
     } else {
       const wahl = [["bogen", 1.7], ["bruecke", 1.5]];
       if (platz > 380) {
-        wahl.push(["nasen", 3], ["tuerme", 3]);
+        const e = engeBei(z0);
+        wahl.push(["nasen", 3], ["tuerme", lerp(3, 1.4, e)]);
+        if (z0 > 420) wahl.push(["kurven", lerp(2, 5, e)]);
         if (z0 > 520) wahl.push(["tannen", 2.3]);
         if (z0 > 680) wahl.push(["klamm", 2]);
         if (z0 > 1000) wahl.push(["gabel", 1.9]);
-        if (z0 > 600) wahl.push(["offen", 0.45]);
+        if (z0 > 600 && e < 0.7) wahl.push(["offen", 0.45]);
       }
       // Bögen erst nach den ersten 800 Metern, Brücken noch später – ausser
       // kurz vor dem Tal, wo nichts Längeres mehr passt.
@@ -603,8 +648,11 @@
     }
     W.vorher = art;
     W.nr += 1;
-    const pause = tempoBei(z0) * lerp(1.5, 0.72, k);
+    const e = engeBei(z0);
+    const pause = tempoBei(z0) * lerp(1.5, 0.4, e);
     zierDazu(z0 + lang + pause * 0.5);
+    // Auch zwischen zwei Abschnitten schlägt der Gang später einen Haken.
+    if (e > 0.25 && zufall.zahl() < e) wegPunkt(z0 + lang + pause * 0.6, schritt(z0 + lang + pause * 0.6));
     W.bis = z0 + lang + pause;
     W.dinge.sort((a, b) => a.z - b.z);
     W.marken.sort((a, b) => a.z0 - b.z0);
@@ -664,7 +712,14 @@
           if (b.nur !== -1) r = Math.min(r, lerp(r, weg + b.halb, f));
         }
       }
-      const rauh = 2.2 * (1 - tal);
+      // Der Gang: Auf Flughöhe rückt die Wand an den Weg heran – nur nicht
+      // auf der Seite eines Massivs, dort bleibt der Spalt.
+      const gang = gangBei(z);
+      let spaltSeite = 0;
+      for (const m of W.massive) if (z > m.zA - 30 && z < m.zB + 30) spaltSeite = -m.q;
+      if (spaltSeite !== -1) l = Math.max(l, weg - gang);
+      if (spaltSeite !== 1) r = Math.min(r, weg + gang);
+      const rauh = lerp(2.2, 1.4, engeBei(z)) * (1 - tal);
       l += (hashGanz(k * 2) - 0.5) * rauh;
       r += (hashGanz(k * 2 + 1) - 0.5) * rauh;
 
@@ -681,7 +736,13 @@
         // Am Weg weicht auch das Massiv zurück.
         if (m.q > 0) ir = Math.min(ir, weg - halb);
         else il = Math.max(il, weg + halb);
-        if (ir - il < 0.6) { il = cm; ir = cm; }
+        // Ist nichts mehr übrig, schrumpft es neben dem Weg auf null – nicht in
+        // seiner Mitte, sonst ragte zwischen zwei Knoten eine Spitze herein.
+        if (ir - il < 0.6) {
+          const c = m.q > 0 ? Math.min(cm, weg - halb) : Math.max(cm, weg + halb);
+          il = c;
+          ir = c;
+        }
         ih = ir > il ? 44 + (m.hoch - 44) * clamp((ir - il) / 9, 0, 1) : 0;
         // Der Spalt: in der Mitte des Massivs gleich breit, an den Enden
         // öffnet er sich zur Schlucht.
@@ -1135,9 +1196,9 @@
     const k = 1 - Math.exp(-dt / 0.7);
     kam.weit += (ziel.weit - kam.weit) * k;
     kam.ueber += (ziel.ueber - kam.ueber) * k;
-    // Der Blick geht ein Stück voraus zur Mitte der Schlucht.
-    const voraus = 85;
-    const zielX = lerp(state.x, mitteBei(state.z + voraus), 0.6);
+    // Der Blick geht ein Stück voraus, dorthin, wo der Gang hinführt.
+    const voraus = 70;
+    const zielX = lerp(state.x, wegBei(state.z + voraus), 0.6);
     const gierZiel = state.schritt === "start" || state.schritt === "landung" ? 0 : Math.atan2(zielX - state.x, voraus);
     kam.gier += (gierZiel - kam.gier) * (1 - Math.exp(-dt / 0.45));
     kam.glattX += (state.x - kam.glattX) * (1 - Math.exp(-dt / 0.13));
@@ -1722,12 +1783,20 @@
   // ---------------------------------------------------------------------------
   // Dreiecke mit Ort und Farbe. Wohin eine Fläche schaut, rechnet das
   // Programm selbst (flaeche) – darum braucht kein Netz seine Richtungen.
-  function netzBauer() {
+  // ziel: ein Feld, in das geschrieben wird (der Flieger, jedes Bild neu).
+  function netzBauer(ziel = null) {
     const v = [];
+    let n = 0;
     let f = [1, 1, 1];
+    const ecke = (e) => {
+      if (!ziel) { v.push(e[0], e[1], e[2], f[0], f[1], f[2]); return; }
+      ziel[n] = e[0]; ziel[n + 1] = e[1]; ziel[n + 2] = e[2];
+      ziel[n + 3] = f[0]; ziel[n + 4] = f[1]; ziel[n + 5] = f[2];
+      n += 6;
+    };
     const b = {
       farbe(r, gr, bl) { f = [r, gr, bl]; },
-      dreieck(p, q, r) { for (const e of [p, q, r]) v.push(e[0], e[1], e[2], f[0], f[1], f[2]); },
+      dreieck(p, q, r) { ecke(p); ecke(q); ecke(r); },
       viereck(p, q, r, s) { b.dreieck(p, q, r); b.dreieck(p, r, s); },
       kasten(mx, my, mz, hx, hy, hz, oben = 1) {
         const e = (sx, sy, sz) => [mx + sx * hx * (sy > 0 ? oben : 1), my + sy * hy, mz + sz * hz * (sy > 0 ? oben : 1)];
@@ -1750,7 +1819,7 @@
           for (let j = 0; j < ring.length; j += 1) b.dreieck(ring[j], ring[(j + 1) % ring.length], m);
         }
       },
-      feld: () => new Float32Array(v),
+      feld: () => ziel || new Float32Array(v),
     };
     return b;
   }
@@ -1773,81 +1842,214 @@
     return flaechen;
   }
 
+  const HELM_KUGEL = kugelFlaechen(2);
   const ROT = [0.92, 0.12, 0.09];
   const ROT_TIEF = [0.6, 0.06, 0.07];
   const HELM = [0.96, 0.96, 0.98];
   const DUNKEL = [0.1, 0.1, 0.13];
   const AKZENT = [0.98, 0.66, 0.14];
 
-  // Der Flieger im Wingsuit, von hinten oben gesehen: Rumpf, Helm, Arme und
-  // Beine, dazwischen die Flügel aus Stoff, auf dem Rücken der Schirm im
-  // Sack. Die Nase zeigt nach +z; gut zwei Meter breit und lang.
-  function fliegerNetz() {
-    const b = netzBauer();
-    const quer = (z, w, h, y = 0) => [[-w, y, z], [-w * 0.6, y + h, z], [w * 0.6, y + h, z], [w, y, z], [w * 0.6, y - h * 0.8, z], [-w * 0.6, y - h * 0.8, z]];
-    // Rumpf.
-    b.farbe(...ROT);
-    b.rohr([quer(0.66, 0.2, 0.09), quer(0.5, 0.25, 0.13), quer(0.1, 0.21, 0.14), quer(-0.32, 0.17, 0.11)]);
-    // Der Sack mit dem Schirm.
-    b.farbe(...DUNKEL);
-    b.kasten(0, 0.16, 0.2, 0.13, 0.05, 0.22, 0.8);
-    b.farbe(...AKZENT);
-    b.kasten(0, 0.215, 0.2, 0.03, 0.012, 0.2);
-    // Helm.
-    b.farbe(...HELM);
-    for (const [p, q, r] of kugelFlaechen(1)) {
-      const e = (k) => [k[0] * 0.125, 0.03 + k[1] * 0.12, 0.81 + k[2] * 0.14];
-      b.dreieck(e(p), e(q), e(r));
+  // Der Anzug: oben leuchtend, damit man ihn vor dem Fels sieht; Rumpf,
+  // Beine und Gurtzeug dunkel, der Helm weiss mit einem Streifen.
+  const ANZUG = [0.97, 0.3, 0.1];
+  const ANZUG_TIEF = [0.78, 0.17, 0.07];
+  const ANZUG_DUNKEL = [0.2, 0.22, 0.28];
+  const STREIF = [0.97, 0.95, 0.9];
+  const SCHUH = [0.92, 0.92, 0.94];
+
+  // Kleine Vektorrechnung für den Flieger.
+  const vPlus = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const vMal = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const vMisch = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const vKreuz = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const vNorm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+  /*
+   * Ein Ring um die Achse d am Punkt c: n Ecken, quer rx, zum Rücken hin ry.
+   * «Oben» ist der Rücken (+y) – liegt die Achse fast darauf, die Nase.
+   */
+  function ringUm(c, d, rx, ry, n = 6) {
+    const a = vNorm(d);
+    const hinweis = Math.abs(a[1]) > 0.9 ? [0, 0, 1] : [0, 1, 0];
+    const quer = vNorm(vKreuz(a, hinweis));
+    const oben = vKreuz(quer, a);
+    const ring = [];
+    for (let i = 0; i < n; i += 1) {
+      const w = (i / n) * Math.PI * 2;
+      ring.push(vPlus(c, vPlus(vMal(quer, Math.cos(w) * rx), vMal(oben, Math.sin(w) * ry))));
     }
-    b.farbe(...AKZENT);
-    b.kasten(0, 0.15, 0.8, 0.022, 0.012, 0.12);
+    return ring;
+  }
+
+  /*
+   * Die Haltung des Fliegers – woraus sein Netz in jedem Bild entsteht:
+   *
+   *   spann    0 bis 1: wie weit Arme und Beine gespreizt sind (0 am Körper)
+   *   hoch     0 bis 1: die Arme nach oben (am Schirm, an den Steuerleinen)
+   *   lenk     -1 bis 1: wohin er lenkt – der innere Arm sinkt und geht
+   *            zurück, der Kopf schaut in die Kurve
+   *   zeit, flattern: der Stoff an den Hinterkanten zittert im Fahrtwind
+   *   stehen   0 bis 1: die Füsse stehen (zeigen zum Bauch) statt gestreckt
+   *   knie     wie weit die Knie gebeugt sind (Bogenmass)
+   */
+  const POSE_FLUG = { spann: 1, hoch: 0, lenk: 0, zeit: 0, flattern: 0, stehen: 0, knie: 0.08 };
+
+  /*
+   * Der Flieger im Wingsuit, von hinten oben gesehen: ein Mensch, bäuchlings
+   * in der Luft, den Kopf voran (+z), den Rücken oben (+y). Helm mit Visier,
+   * auf dem Rücken das Gurtzeug mit dem Schirm, Handschuhe, Schuhe. Zwischen
+   * Arm und Rumpf und zwischen den Beinen der Stoff, Zelle an Zelle leicht
+   * aufgeblasen. Gut zwei Meter lang und knapp zwei breit.
+   *
+   * Gebaut wird in jedem Bild neu (in ziel), aus der Haltung p – die Zahl der
+   * Ecken bleibt dabei immer dieselbe.
+   */
+  function fliegerNetz(p = POSE_FLUG, ziel = null) {
+    const b = netzBauer(ziel);
+    const spann = p.spann;
+    const welle = (u, v, phase) => (p.flattern ? Math.sin(p.zeit * 23 + u * 7 + phase) * p.flattern * 0.022 * v * v : 0);
+
+    // Der Rumpf: Ringe vom Becken bis zum Hals, unten flacher als oben.
+    const ring = (z, w, oben, unten, y = 0) => {
+      const r = [];
+      for (let i = 0; i < 8; i += 1) {
+        const a = (i / 8) * Math.PI * 2;
+        const s = Math.sin(a);
+        r.push([Math.cos(a) * w, y + s * (s > 0 ? oben : unten), z]);
+      }
+      return r;
+    };
+    b.farbe(...ANZUG_DUNKEL);
+    b.rohr([ring(-0.12, 0.13, 0.06, 0.06), ring(0.0, 0.17, 0.085, 0.08), ring(0.18, 0.155, 0.08, 0.075), ring(0.36, 0.19, 0.09, 0.1), ring(0.5, 0.215, 0.08, 0.08), ring(0.58, 0.1, 0.06, 0.055)]);
+    // Der Hals.
+    b.rohr([ring(0.56, 0.055, 0.045, 0.045), ring(0.68, 0.05, 0.04, 0.04)]);
+
+    // Das Gurtzeug mit dem Schirm: ein flacher Packen auf dem Rücken, ein
+    // Streifen darüber, unten der Griff.
+    const pack = (z, w, h) => [[-w, 0.07, z], [-w * 0.85, 0.07 + h, z], [w * 0.85, 0.07 + h, z], [w, 0.07, z]];
+    b.farbe(0.1, 0.1, 0.12);
+    b.rohr([pack(0.02, 0.12, 0.06), pack(0.1, 0.15, 0.085), pack(0.4, 0.16, 0.085), pack(0.48, 0.13, 0.05)]);
+    b.farbe(...ANZUG);
+    b.kasten(0, 0.16, 0.26, 0.022, 0.008, 0.2);
+    b.farbe(0.98, 0.78, 0.18);
+    b.kasten(0.07, 0.11, 0.0, 0.025, 0.02, 0.025);
+
+    // Der Helm: weiss, ein Streifen über den Scheitel, vorne unten das
+    // dunkle Visier. Der Kopf schaut ein wenig in die Kurve.
+    const kopf = [0, 0.015, 0.79];
+    const gier = p.lenk * 0.3;
+    const cg = Math.cos(gier);
+    const sg = Math.sin(gier);
+    const amKopf = (k) => {
+      const x = k[0] * 0.118;
+      const z = k[2] * 0.132;
+      return [kopf[0] + x * cg + z * sg, kopf[1] + k[1] * 0.122, kopf[2] - x * sg + z * cg];
+    };
+    for (const [q, r, s] of HELM_KUGEL) {
+      const m = [(q[0] + r[0] + s[0]) / 3, (q[1] + r[1] + s[1]) / 3, (q[2] + r[2] + s[2]) / 3];
+      if (m[2] > 0.3 && m[1] < 0.28 && m[1] > -0.7) b.farbe(0.07, 0.08, 0.11);
+      else if (Math.abs(m[0]) < 0.17 && m[1] > -0.1 && m[2] < 0.5) b.farbe(...ANZUG);
+      else b.farbe(...HELM);
+      b.dreieck(amKopf(q), amKopf(r), amKopf(s));
+    }
+
     for (const s of [-1, 1]) {
-      // Arm und Hand.
-      b.farbe(...ROT_TIEF);
-      b.rohr([
-        [[s * 0.2, 0.06, 0.6], [s * 0.2, -0.04, 0.6], [s * 0.2, -0.04, 0.48], [s * 0.2, 0.06, 0.48]],
-        [[s * 0.66, 0.05, 0.42], [s * 0.66, -0.03, 0.42], [s * 0.66, -0.03, 0.31], [s * 0.66, 0.05, 0.31]],
-        [[s * 1.04, 0.03, 0.2], [s * 1.04, -0.02, 0.2], [s * 1.04, -0.02, 0.12], [s * 1.04, 0.03, 0.12]],
-      ]);
-      // Der Flügel zwischen Arm und Rumpf: oben gewölbt, wie aufgeblasen.
-      const schulter = [s * 0.2, 0.02, 0.52];
-      const hand = [s * 1.04, 0.01, 0.15];
-      const huefte = [s * 0.16, 0.0, -0.36];
-      const mitte = [s * 0.44, 0.085, 0.12];
-      const kante = [s * 0.62, 0.0, -0.1];
-      b.farbe(...ROT);
-      b.dreieck(schulter, hand, mitte);
-      b.dreieck(schulter, mitte, huefte);
-      b.farbe(0.8, 0.09, 0.08);
-      b.dreieck(hand, kante, mitte);
-      b.dreieck(kante, huefte, mitte);
-      b.farbe(...ROT_TIEF);
-      b.viereck(schulter, hand, kante, huefte);
-      // Bein und Schuh.
-      b.rohr([
-        [[s * 0.06, 0.05, -0.3], [s * 0.18, 0.05, -0.3], [s * 0.18, -0.05, -0.3], [s * 0.06, -0.05, -0.3]],
-        [[s * 0.26, 0.04, -1.16], [s * 0.36, 0.04, -1.16], [s * 0.36, -0.03, -1.16], [s * 0.26, -0.03, -1.16]],
-      ]);
-      b.farbe(...DUNKEL);
-      b.kasten(s * 0.31, 0.01, -1.22, 0.055, 0.05, 0.07);
+      // Lenkt er zu dieser Seite, ist das der innere Arm: zurück und tiefer.
+      const innen = Math.max(0, s * p.lenk);
+      const aussen = Math.max(0, -s * p.lenk);
+      // Der Arm: vom Rumpf weg (0 am Körper, 90° zur Seite), dazu hoch.
+      const alpha = (lerp(14, 60, spann) - 10 * innen + 4 * aussen) * (Math.PI / 180) + p.hoch * 2.05;
+      const senk = -0.05 * spann - 0.14 * innen + 0.04 * aussen;
+      const schulter = [s * 0.2, 0.01, 0.5];
+      const ellbogen = vPlus(schulter, vMal(vNorm([s * Math.sin(alpha), senk, -Math.cos(alpha)]), 0.3));
+      const beta = alpha + lerp(0.05, 0.2, spann);
+      const handgelenk = vPlus(ellbogen, vMal(vNorm([s * Math.sin(beta), senk * 1.4, -Math.cos(beta)]), 0.29));
+      const finger = vPlus(handgelenk, vMal(vNorm([s * Math.sin(beta + 0.1), senk, -Math.cos(beta + 0.1)]), 0.1));
+      b.farbe(...ANZUG_DUNKEL);
+      b.rohr([ringUm(schulter, vPlus(ellbogen, vMal(schulter, -1)), 0.062, 0.055), ringUm(ellbogen, vPlus(handgelenk, vMal(schulter, -1)), 0.05, 0.045), ringUm(handgelenk, vPlus(handgelenk, vMal(ellbogen, -1)), 0.04, 0.036)]);
+      // Der Handschuh.
+      b.farbe(0.08, 0.08, 0.1);
+      b.rohr([ringUm(handgelenk, vPlus(finger, vMal(handgelenk, -1)), 0.034, 0.022, 5), ringUm(vMisch(handgelenk, finger, 0.6), vPlus(finger, vMal(handgelenk, -1)), 0.038, 0.02, 5), ringUm(finger, vPlus(finger, vMal(handgelenk, -1)), 0.018, 0.012, 5)]);
+
+      // Das Bein: aus der Hüfte leicht gespreizt, das Knie wenig gebeugt.
+      const gamma = lerp(0.03, 0.2, spann) + 0.04 * innen;
+      const huefte = [s * 0.09, 0, -0.06];
+      const knie = vPlus(huefte, vMal(vNorm([s * Math.sin(gamma), 0, -Math.cos(gamma)]), 0.43));
+      const kb = p.knie + 0.1 * innen;
+      const knoechel = vPlus(knie, vMal(vNorm([s * Math.sin(gamma * 1.15), -Math.sin(kb), -Math.cos(gamma * 1.15) * Math.cos(kb)]), 0.42));
+      b.farbe(...ANZUG_DUNKEL);
+      b.rohr([ringUm(huefte, vPlus(knie, vMal(huefte, -1)), 0.085, 0.075), ringUm(knie, vPlus(knoechel, vMal(huefte, -1)), 0.062, 0.058), ringUm(knoechel, vPlus(knoechel, vMal(knie, -1)), 0.048, 0.044)]);
+      // Der Schuh: gestreckt nach hinten – oder, wenn er steht, zum Bauch.
+      const fuss = vNorm(vMisch([s * 0.05, -0.3, -1], [s * 0.1, -1, 0.15], p.stehen));
+      const spitze = vPlus(knoechel, vMal(fuss, 0.21));
+      b.farbe(...SCHUH);
+      b.rohr([ringUm(vPlus(knoechel, vMal(fuss, -0.04)), fuss, 0.045, 0.05, 5), ringUm(vPlus(knoechel, vMal(fuss, 0.1)), fuss, 0.045, 0.04, 5), ringUm(spitze, fuss, 0.03, 0.025, 5)]);
+
+      // Der Flügel zwischen Arm und Rumpf. Vorne der Arm, innen die Flanke
+      // des Rumpfs bis zum Oberschenkel, hinten eine Kante, die der Stoff
+      // nach innen zieht. Die Zellen sind ein wenig aufgeblasen.
+      const flanke = [[s * 0.2, 0.0, 0.42], [s * 0.18, 0.0, 0.2], [s * 0.17, 0.0, 0.0], vPlus(huefte, vMal(vPlus(knie, vMal(huefte, -1)), 0.62))];
+      const vorne = (u) => (u < 0.5 ? vMisch(schulter, ellbogen, u * 2) : vMisch(ellbogen, handgelenk, u * 2 - 1));
+      const wurzel = (v) => {
+        const i = Math.min(2, Math.floor(v * 3));
+        return vMisch(flanke[i], flanke[i + 1], v * 3 - i);
+      };
+      const hinten = (u) => {
+        const a = vMisch(flanke[3], handgelenk, u);
+        // Der Stoff spannt: Die Kante biegt sich zum Arm hin.
+        return [a[0] - s * 0.02 * Math.sin(Math.PI * u), a[1], a[2] + 0.07 * Math.sin(Math.PI * u) * (0.4 + 0.6 * spann)];
+      };
+      const U = 5;
+      const V = 3;
+      const armFlaeche = (u, v) => {
+        const a = vorne(u);
+        const h = hinten(u);
+        // Innen folgt er der Flanke (ein Coons-Fleck aus drei Rändern).
+        const korr = vPlus(wurzel(v), vMal(vMisch(schulter, flanke[3], v), -1));
+        const q = vPlus(vMisch(a, h, v), vMal(korr, 1 - u));
+        q[1] += 0.055 * Math.sin(Math.PI * u) * Math.sin(Math.PI * Math.min(1, v * 1.15)) * spann + welle(u, v, s);
+        return q;
+      };
+      for (let i = 0; i < U; i += 1) {
+        for (let j = 0; j < V; j += 1) {
+          if (j === 0) b.farbe(...(i === U - 2 ? STREIF : ANZUG));
+          else if (j === V - 1) b.farbe(...ANZUG_TIEF);
+          else b.farbe(...(i % 2 ? ANZUG_TIEF : ANZUG));
+          const p00 = armFlaeche(i / U, j / V);
+          const p10 = armFlaeche((i + 1) / U, j / V);
+          const p11 = armFlaeche((i + 1) / U, (j + 1) / V);
+          const p01 = armFlaeche(i / U, (j + 1) / V);
+          b.viereck(p00, p10, p11, p01);
+        }
+      }
     }
-    // Der Flügel zwischen den Beinen.
-    b.farbe(...ROT);
-    const lf = [-0.3, 0.0, -1.16];
-    const rf = [0.3, 0.0, -1.16];
-    const lh = [-0.1, 0.0, -0.32];
-    const rh = [0.1, 0.0, -0.32];
-    const bauch = [0, 0.07, -0.78];
-    const ende = [0, 0.0, -1.28];
-    b.dreieck(lh, rh, bauch);
-    b.dreieck(rh, rf, bauch);
-    b.dreieck(lf, lh, bauch);
-    b.farbe(0.8, 0.09, 0.08);
-    b.dreieck(rf, ende, bauch);
-    b.dreieck(ende, lf, bauch);
-    b.farbe(...ROT_TIEF);
-    b.viereck(lh, rh, rf, lf);
-    b.dreieck(lf, rf, ende);
+
+    // Der Flügel zwischen den Beinen: vom Schritt bis zu den Knöcheln, die
+    // Hinterkante nach vorn gezogen, in der Mitte ein weisser Winkel.
+    const bein = (s, v) => {
+      const gamma = lerp(0.03, 0.2, spann);
+      const kb = p.knie;
+      const h = [s * 0.06, -0.01, -0.12];
+      const kn = vPlus([s * 0.09, 0, -0.06], vMal(vNorm([s * Math.sin(gamma), 0, -Math.cos(gamma)]), 0.43));
+      const kc = vPlus(kn, vMal(vNorm([s * Math.sin(gamma * 1.15), -Math.sin(kb), -Math.cos(gamma * 1.15) * Math.cos(kb)]), 0.4));
+      return v < 0.5 ? vMisch(h, kn, v * 2) : vMisch(kn, kc, v * 2 - 1);
+    };
+    const UB = 4;
+    const VB = 4;
+    const beinFlaeche = (u, v) => {
+      const q = vMisch(bein(-1, v), bein(1, v), u);
+      q[2] += 0.1 * Math.sin(Math.PI * u) * v * v * spann;
+      q[1] += 0.035 * Math.sin(Math.PI * u) * Math.sin(Math.PI * v) * spann + welle(u, v, 2);
+      return q;
+    };
+    for (let i = 0; i < UB; i += 1) {
+      for (let j = 0; j < VB; j += 1) {
+        const mitte = Math.abs((i + 0.5) / UB - 0.5);
+        const winkel = Math.abs((j + 0.5) / VB - 0.42 - mitte * 0.9) < 0.14;
+        b.farbe(...(winkel ? STREIF : j === VB - 1 ? ANZUG_TIEF : ANZUG));
+        b.viereck(beinFlaeche(i / UB, j / VB), beinFlaeche((i + 1) / UB, j / VB), beinFlaeche((i + 1) / UB, (j + 1) / VB), beinFlaeche(i / UB, (j + 1) / VB));
+      }
+    }
     return b.feld();
   }
 
@@ -2056,12 +2258,12 @@
 
   // Ein Netz mit seinen Abzügen: die Ecken einmal, dazu ein Puffer, in den
   // jedes Bild schreibt, wo und wie es gezeichnet wird.
-  function abzug(ecken, teile, breite, anzahl) {
+  function abzug(ecken, teile, breite, anzahl, art = gl.STATIC_DRAW) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, ecken, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, ecken, art);
     const schritt = teile.reduce((summe, t) => summe + t, 0);
     let weit = 0;
     teile.forEach((t, i) => {
@@ -2080,7 +2282,7 @@
       gl.vertexAttribDivisor(ort, 1);
     }
     gl.bindVertexArray(null);
-    return { vao, ibo, daten, breite, max: anzahl, n: 0, ecken: ecken.length / schritt };
+    return { vao, vbo, ibo, daten, breite, max: anzahl, n: 0, ecken: ecken.length / schritt };
   }
 
   function hochladen(a) {
@@ -2400,8 +2602,11 @@
     P.vogel = programm("Vogel", VOGEL_VS, VOGEL_FS);
 
     const N = bild.netz;
+    // Der Flieger bekommt in jedem Bild ein neues Netz (seine Haltung), die
+    // Gegner fliegen in der Haltung des Flugs.
     const flieger = fliegerNetz();
-    N.flieger = abzug(flieger, [3, 3], 16, 2);
+    N.flieger = abzug(flieger, [3, 3], 16, 2, gl.DYNAMIC_DRAW);
+    N.flieger.netz = new Float32Array(flieger.length);
     N.geist = abzug(flieger, [3, 3], 16, 16);
     N.schirm = abzug(schirmNetz(), [3, 3], 16, 2);
     for (let i = 0; i < TURM_FORMEN; i += 1) N[`turm${i}`] = abzug(turmNetz(i), [3, 3], 16, 48);
@@ -2869,6 +3074,42 @@
     return farbenMerker.get(hex);
   }
 
+  /*
+   * Die Haltung des Fliegers in diesem Bild (fliegerNetz): Auf der Kanzel
+   * steht er, die Arme ein wenig gebreitet. Im Absprung gehen Arme und Beine
+   * auf, im Flug ist alles gespannt, und wer lenkt, nimmt den inneren Arm
+   * zurück. Am Schirm hängt er, die Hände oben an den Leinen.
+   */
+  const POSE = { spann: 1, hoch: 0, lenk: 0, zeit: 0, flattern: 0, stehen: 0, knie: 0.08 };
+  function fliegerPose() {
+    const P = POSE;
+    P.zeit = state.echt;
+    P.flattern = ruhig() ? 0 : clamp(tempoBei(state.z) / V_MAX, 0, 1);
+    P.lenk = clamp(state.roll / 0.86, -1, 1);
+    P.hoch = 0;
+    P.knie = 0.08;
+    if (state.schritt === "start") {
+      P.spann = 0.3;
+      P.stehen = 1;
+      P.knie = 0.03;
+      P.flattern = 0;
+      P.lenk = 0;
+    } else if (state.schritt === "landung") {
+      const k = weich(0, 0.9, state.zeit - state.schrittZeit);
+      P.spann = lerp(1, 0.14, k);
+      P.hoch = k * (state.gelandet ? 0.3 : 0.86);
+      P.stehen = k;
+      P.knie = lerp(0.08, state.gelandet ? 0.05 : 0.32, k);
+      P.flattern *= 1 - k;
+      P.lenk = 0;
+    } else {
+      P.spann = lerp(0.3, 1, weich(1, 46, state.z));
+      P.stehen = 1 - weich(0, 26, state.z);
+      if (state.schritt === "aus") { P.spann = 0.75; P.lenk = 0; }
+    }
+    return P;
+  }
+
   // Was im Bild steht, in die Abzüge und Bänder schreiben.
   function weltSammeln() {
     const N = bild.netz;
@@ -2952,7 +3193,7 @@
       }
     }
 
-    // Der Flieger.
+    // Der Flieger: erst seine Haltung, dann wo er ist.
     const v = Math.max(8, tempoBei(state.z));
     const gier = state.schritt === "flug" ? Math.atan2(state.vx, v) * 0.55 : 0;
     const deck = state.schritt === "aus" ? 1 - weich(0.9, 1.5, state.zeit - state.schrittZeit) : 1;
@@ -2961,6 +3202,9 @@
       let nick = state.nick;
       let dreh = gier;
       if (state.sturz) { roll = state.sturz.roll; nick = state.sturz.nick; dreh = state.sturz.gier; }
+      fliegerNetz(fliegerPose(), N.flieger.netz);
+      gl.bindBuffer(gl.ARRAY_BUFFER, N.flieger.vbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, N.flieger.netz);
       ding(N.flieger, state.x, state.y, state.z, dreh, 1.3 * deck, 1.3 * deck, 1.3 * deck, roll, WEISS, 1, OHNE_BODEN, 1e5, state.sonne, nick, 0.24);
     }
     if (state.schirm > 0.01) {
@@ -3824,10 +4068,11 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "cliffFlight", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "cliffFlight", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "cliffFlight", host, art: "tempo", alle: true, zufall }) || null;
+    // Fassung t2: der Gang. Die Läufe durch die weite Schlucht gehören nicht dazu.
+    gegner = window.LernappGeist?.fuer?.({ spiel: "cliffFlight", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   grafikStarten();
@@ -3883,7 +4128,7 @@
   // rechts oder lässt los; guete(1) hält die Schärfe fest.
   window.LernappFelsflug = {
     TAKT, Z_ENDE, FLUG_Y, KOERPER, NAH, GANZ_NAH, HAAR, SERIE_MAX, LANDE_PUNKTE, DZ, Z_MIN, TANNE_R,
-    state, view, kam, bild, takt, zeichnen, weltText, weltBis, wegBei, mitteBei, mitteAb, bodenBei, breiteBei, tempoBei, querBei, kannBei,
+    state, view, kam, bild, takt, zeichnen, weltText, weltBis, wegBei, mitteBei, mitteAb, bodenBei, breiteBei, gangBei, engeBei, tempoBei, querBei, kannBei,
     abstandBei, freiBei, sonneBei, hoeheBei, losGehts, lenke, geister: geisterOrte,
     guete(wert) {
       view.fest = wert !== null && wert !== undefined;

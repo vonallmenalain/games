@@ -167,7 +167,7 @@
     waveRide: { fassung: "t1", winkel: true },
     stoneSkip: { fassung: "t1" },
     iceRun: { fassung: "t1" },
-    cliffFlight: { fassung: "t1", winkel: true },
+    cliffFlight: { fassung: "t2", winkel: true },
     duckCrossing: { fassung: "t1" },
   };
 
