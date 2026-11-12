@@ -2,41 +2,46 @@
  * schwarm.js – Schwarm.
  * ---------------------------------------------------------------------------
  * Ein Starenschwarm zieht im Abendlicht über das Meer, der Sonne entgegen.
- * Wer links aufs Bild hält, lenkt ihn nach links, wer rechts hält, nach
- * rechts – flink, denn die Strecke verlangt es. Im Weg stehen Felsnadeln,
- * grosse Felsen mitten auf der Fluglinie, Felsbögen, Felswände mit einem
- * Spalt, Windräder und Stromleitungen: Jeder Vogel, der dagegenfliegt, ist
- * weg. Unterwegs warten Trupps in Ringen aus Licht: kleine goldene nah am
- * Weg, grosse helle an heiklen Stellen – am Rand, hinter einem engen Spalt.
- * Wer sie mitnimmt, dessen Schwarm wächst.
+ * Die Regel: Links lenkt nach links, rechts nach rechts, beide zusammen
+ * ballen den Schwarm. Aufgefächert zählt er, geballt kommt er durch.
+ *
+ * Jede Reihe Hindernisse – Felsnadeln, ein grosser Fels mitten im Weg, ein
+ * Felsbogen, eine Felswand mit Spalt, Windräder, eine Stromleitung – lässt
+ * am freien Weg eine Lücke, und in ihrer Mitte hängt ein goldener Ring. Wer
+ * die Mitte des Schwarms genau hindurchführt und keinen Vogel verliert,
+ * fliegt perfekt: Vögel schliessen sich an, in der Kette immer mehr. Was über
+ * den Fels hinausragt, bleibt hängen – genau dort, wo man es sieht; kein
+ * Vogel weicht von selbst aus. Trifft die Mitte den Fels, ist die Runde
+ * vorbei. Durch die engen Spalten kommt nur ein geballter Schwarm – aber
+ * geballt lenkt er nicht und zählt nicht: vorher ausrichten, spät ballen,
+ * gleich wieder lösen. Und auf offenen Stücken stösst ein Falke zu: Wer im
+ * letzten Moment ballt, pariert ihn; aufgefächert reisst er ein Sechstel
+ * heraus.
  *
  * Der Schwarm ist das Leben und die Punktzahl zugleich: Hundert Vögel
- * bringen alle dreissig Meter einen Punkt (PUNKTE_JE_100M). Ein grosser
- * Schwarm zählt schneller, ihm schliessen sich mit jedem Trupp mehr an – und
- * er passt schlechter durch die Lücken. Die Runde endet, wenn weniger als
- * ein Dutzend übrig sind (dann zerstreut sich der Schwarm), oder am
- * Schlafplatz: Dort, nach 3600 Metern und drei letzten Felswänden mit immer
- * schmalerem Spalt, ist es Nacht geworden, und jeder Vogel, der ankommt,
- * zählt noch einen Punkt. Dorthin zu kommen ist schwer; mit vielen Vögeln
- * dorthin zu kommen, ist die Kunst.
+ * bringen alle dreissig Meter einen Punkt (PUNKTE_JE_100M), aufgefächert.
+ * Ein grosser Schwarm zählt schneller und muss öfter ballen. Die Runde endet,
+ * wenn die Mitte am Fels zerschellt, wenn weniger als ein Dutzend übrig sind
+ * (dann zerstreut sich der Schwarm), oder am Schlafplatz: Dort, nach 3600
+ * Metern und drei letzten Felswänden, ist es Nacht geworden, und jeder
+ * Vogel, der ankommt, zählt noch einen Punkt.
  *
  * Gebaut wird der Abend aus dem Zufall (zufall.js): ohne Turnier jedes Mal
- * ein anderer, im Turnier für alle im selben Versuch derselbe. Durch jede
- * Reihe Hindernisse führt ein freier Weg, breit genug für die Mitte des
- * Schwarms und nie weiter zur Seite, als er lenken kann (wegBei) – wie breit
- * er ist und wie schnell es geht, hängt an der Strecke, nicht an der Uhr.
- * Auch die Windräder drehen nach der Flugzeit: Wer gleich fliegt, trifft
- * dieselben Flügel.
+ * ein anderer, im Turnier für alle im selben Versuch derselbe. Von Tor zu
+ * Tor geht der freie Weg nie weiter zur Seite, als sich in der Zeit lenken
+ * lässt (wegBei, reichBei) – wie breit die Lücken sind und wie schnell es
+ * geht, hängt an der Strecke, nicht an der Uhr. Auch die Windräder drehen
+ * nach der Flugzeit, und der Falke hängt an der Strecke: Wer gleich fliegt,
+ * trifft dieselben Flügel und denselben Falken.
  *
  * Die Vögel selbst würfeln nicht mit: Wo jeder im Schwarm fliegt, folgt aus
  * seiner Nummer. Hinten folgt der Schwarm dem Weg, den seine Mitte geflogen
  * ist, vorn zeigt er dorthin, wohin gelenkt wird – so biegt er sich wie ein
- * Band. Um einen Felsen fliesst, was knapp daneben liegt; was mitten darauf
- * zuhält, schafft es nicht.
+ * Band.
  *
  * Die Gegner (geist.js) fliegen als kleiner Schwarm aus Licht mit, und die
  * besten Flüge lassen sich anschauen (?zuschauen=): durch ihren eigenen
- * Abend, gewürfelt mit derselben Saat.
+ * Abend, gewürfelt mit derselben Saat, geballt an denselben Stellen.
  *
  * Gezeichnet wird mit WebGL 2, ohne Bibliothek: Himmel, Wasser, Felsen und
  * Vögel haben je ein kleines Programm weiter unten. Gerechnet wird in Metern;
@@ -78,37 +83,69 @@
 
   // Das Tempo, nach der Strecke: am Anfang zügig, am Schluss fast doppelt so
   // schnell. Die ersten Meter nimmt der Schwarm Anlauf. Zur Seite geht es
-  // flink – die Strecke verlangt es.
+  // schnell, aber nicht sofort: Ein Schwarm schwenkt wie ein Band, und wer
+  // zu spät umlenkt, kommt nicht mehr hinüber (wie die Kante im Slalom).
   const V0 = 38;
   const V_MAX = 74;
   const V_WEG = 1500;
-  const QUER0 = 26;                // so schnell geht es zur Seite, in m/s
-  const LENK_ZEIT = 0.07;          // so träge folgt der Schwarm dem Finger (Sekunden)
-  const LOS_ZEIT = 0.12;           // und so träge läuft er aus, wenn er loslässt
+  const QUER0 = 30;                // so schnell geht es zur Seite, in m/s
+  const LENK_ZEIT = 0.16;          // so träge folgt der Schwarm dem Finger (Sekunden)
+  const LOS_ZEIT = 0.16;           // und so träge läuft er aus, wenn er loslässt
 
-  // Der Schwarm: so viele Vögel zu Beginn, so viele höchstens. Jeder bringt
-  // je hundert Meter einen Punkt und am Schlafplatz BONUS dazu.
+  // Ballen: Liegen beide Seiten auf (ein Daumen links, einer rechts – am
+  // Rechner ↓, S oder die Leertaste), zieht sich der Schwarm zu einer
+  // dichten Kugel zusammen. Geballt passt er durch jeden Spalt, aber er
+  // lenkt nicht und zählt nicht. Loslassen fächert ihn wieder auf.
+  const BALL_VERZUG = 0.08;        // so lange müssen beide liegen – ein Daumenwechsel ballt nicht
+  const BALL_ZU = 0.07;            // so schnell zieht er sich zusammen (Zeitkonstante)
+  const BALL_AUF = 0.12;           // so schnell fächert er sich wieder auf
+  const BALL_LANG_ZU = 0.11;       // seine Länge folgt etwas langsamer
+  const BALL_LANG_AUF = 0.45;      // (und wächst langsam, damit keiner rückwärts fliegt)
+  const GEBALLT = 0.6;             // ab hier ist er geballt (Falke, Aufzeichnung)
+
+  // Der Schwarm: so viele Vögel zu Beginn, so viele höchstens. Hundert Vögel
+  // bringen alle 100 / PUNKTE_JE_100M Meter einen Punkt – aber nur
+  // aufgefächert. Am Schlafplatz zählt jeder Vogel BONUS dazu.
   const START_VOEGEL = 150;
   const VOEGEL_MAX = 1200;
   const KAPAZITAET = VOEGEL_MAX + 80;
   const MINDEST = 12;              // mit weniger hält kein Schwarm zusammen
-  // Die Punkte: Hundert Vögel bringen alle 100 / PUNKTE_JE_100M Meter einen
-  // Punkt; am Schlafplatz zählt jeder Vogel BONUS dazu.
   const PUNKTE_JE_100M = 3.4;
   const BONUS = 1;
-  // Wie viel vom eigenen Schwarm sich mit einem Trupp noch anschliesst: bei
-  // einem kleinen (goldener Ring) wenig, bei einem grossen (heller Ring an
-  // einer heiklen Stelle) viel.
-  const ANSCHLUSS = { klein: 0.1, gross: 0.3 };
+
+  // Perfekt ist, wer die Mitte des Schwarms genau durch die Mitte einer Lücke
+  // führt – dort hängt ein Licht – und dabei keinen Vogel verliert. Mehrere
+  // perfekte in Folge holen immer mehr Vögel dazu (KETTE); ein Tor, das nicht
+  // perfekt ist, bricht die Kette.
+  const PERFEKT0 = 1.0;            // so weit neben der Mitte ist es am Anfang noch perfekt (m)
+  const PERFEKT_MIN = 0.6;         // und am Schluss
+  const KETTE = [2, 4, 6, 8, 10];  // so viele Vögel bringt das 1., 2., … perfekte Tor in Folge
+  // Grosse Trupps an heiklen Stellen: so viele Vögel, wenn die Mitte durch den Ring geht.
+  const TRUPP = { n0: 22, n1: 40, fang: 2.6 };
 
   // Der freie Weg: am Anfang breit, am Schluss gerade noch ein kleiner Schwarm.
   const BREIT0 = 20;
   const BREIT_MIN = 7.5;
-  // Die Spalten in den Felswänden: am Schluss kommt nur noch die Mitte durch.
-  const SPALT0 = 13.5;
-  const SPALT_MIN = 4.8;
-  const SCHLUSS_SPALTEN = [5.6, 4.8, 4.2]; // die drei letzten Wände vor dem Schlafplatz
+  // Die Spalten in den Felswänden: am Schluss passt nur noch ein Ball durch.
+  const SPALT0 = 11;
+  const SPALT_MIN = 5.2;
+  const SCHLUSS_SPALTEN = [6.0, 5.4, 4.8]; // die drei letzten Wände vor dem Schlafplatz
   const ERSTES_DING = 150;         // bis hier ist das Meer leer
+  // Zwischen zwei Toren vergeht diese Zeit ohne Weg zur Seite: geballt durch
+  // das eine, Anfahren und Abbremsen. Der Rest ist zum Lenken (anteilBei).
+  const T_PAUSE = 0.95;
+  // So viele Sekunden liegen mindestens zwischen zwei Reihen eines Felds.
+  const REIHE_T0 = 1.5;
+  const REIHE_T_MIN = 0.95;
+
+  // Der Falke (ab FALKE_AB): Er kreist voraus, legt die Flügel an und stösst
+  // FALKE_STOSS Sekunden später zu. Geballt greift er ins Leere – wer erst in
+  // den letzten FALKE_SPAET Sekunden geballt hat, hat ihn «pariert» (die
+  // Kette wächst). Aufgefächert reisst er FALKE_RAUB des Schwarms heraus.
+  const FALKE_AB = 900;
+  const FALKE_STOSS = 0.7;
+  const FALKE_SPAET = 0.55;
+  const FALKE_RAUB = 0.16;
 
   // Die Hindernisse. Was davon trifft, steht bei den Treffern weiter unten.
   const NABE = 15;                 // Höhe der Nabe eines Windrads
@@ -125,7 +162,7 @@
   const BOGEN_FORM = 2.5;          // wie eckig das Tor ist (2 wäre eine Ellipse)
   const BOGEN_TIEF = 6;
   const WAND_TIEF = 7;             // so dick ist eine Felswand
-  const WAND_SOG = 1.1;            // so weit neben dem Spalt zwängt sich noch hinein
+  const TURM_R = 1.4;              // der Turm eines Windrads
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -148,13 +185,19 @@
   const querBei = (z) => QUER0 + 0.2 * (tempoBei(Math.max(40, z)) - V0);
   const breiteBei = (z) => lerp(BREIT0, BREIT_MIN, Math.pow(schwereBei(z), 0.8));
   const spaltBei = (z) => lerp(SPALT0, SPALT_MIN, schwereBei(z));
-  // Wie viele Meter zur Seite je Meter voraus der freie Weg höchstens geht:
-  // ein Teil dessen, was der Schwarm lenken kann – am Schluss fast alles. Die
-  // Kurve zwischen zwei Punkten ist in ihrer Mitte π/2-mal steiler als im
-  // Schnitt; das ist eingerechnet.
-  const lenkbarBei = (z) => (querBei(z) / tempoBei(z)) * lerp(0.5, 0.78, schwereBei(z)) / (Math.PI / 2);
-  // Wie breit ein Schwarm aus n Vögeln ist (halbe Breite).
+  const perfektBei = (z) => lerp(PERFEKT0, PERFEKT_MIN, schwereBei(z));
+  // Wie viel von dem, was der Schwarm zur Seite kann, der Weg verlangt: am
+  // Anfang gut die Hälfte, am Schluss fast alles.
+  const anteilBei = (z) => lerp(0.55, 0.85, schwereBei(z));
+  // Wie weit der Weg zwischen zwei Toren dz Meter auseinander zur Seite geht
+  // – höchstens. Abgezogen ist die Pause an jedem Tor (T_PAUSE).
+  const reichBei = (z, dz) => querBei(z) * Math.max(0, dz / tempoBei(z) - T_PAUSE) * anteilBei(z);
+  // Und umgekehrt: wie viel Strecke s Meter zur Seite brauchen.
+  const streckeFuer = (z, s) => tempoBei(z) * (s / (querBei(z) * anteilBei(z)) + T_PAUSE);
+  // Wie breit ein Schwarm aus n Vögeln ist (halbe Breite): aufgefächert …
   const radiusBei = (n) => 2.5 + 0.5 * Math.sqrt(Math.max(0, n));
+  // … und geballt.
+  const ballRadiusBei = (n) => 1.0 + 0.04 * Math.sqrt(Math.max(0, n));
 
   // Immer dieselbe Zahl zu derselben Eingabe.
   function hash01(n) {
@@ -234,6 +277,16 @@
     z: 0,
     vx: 0,
     lenk: 0,              // -1 links, 1 rechts
+    wunsch: false,        // liegen beide Seiten auf (oder die Taste zum Ballen)?
+    wunschSeit: 0,
+    ballen: false,        // … lange genug: Der Schwarm ballt sich.
+    ballenSeit: -1e9,
+    ball: 0,              // 0 aufgefächert, 1 geballt (Breite und Höhe)
+    ballLang: 0,          // dasselbe für die Länge
+    kette: 0,             // perfekte Tore in Folge
+    perfekte: 0,
+    tore: 0,
+    grund: "",            // warum die Runde endete
     R: radiusBei(START_VOEGEL),
     form: 0,              // 0 = Kugel am Start, 1 = im Flug gestreckt
     wirbel: 0,            // der Schwarm dreht sich um seine Flugrichtung
@@ -288,11 +341,27 @@
    * lenken kann – am Anfang mit viel Luft, am Schluss mit wenig.
    *
    *   dinge    alles, was trifft, nach z geordnet
-   *   trupps   die Vögel, die man mitnehmen kann: auf dem Weg oder daneben
+   *   tore     je Reihe die Lücke am freien Weg: ihre Mitte (dort hängt
+   *            ein Licht), ihre halbe Breite auf Flughöhe und was zu ihr
+   *            gehört – wer dort Vögel verliert, war nicht perfekt
+   *   trupps   grosse Trupps an heiklen Stellen
+   *   falken   wo ein Falke zustösst
    *   weg      die Punkte des freien Wegs; dazwischen eine weiche Kurve
    */
   function neueWelt() {
-    return { dinge: [], trupps: [], weg: [{ z: 0, x: 0 }], bis: ERSTES_DING, vorher: "", fertig: false, von: 0, truppVon: 0, nr: 0 };
+    return {
+      dinge: [], tore: [], trupps: [], falken: [], weg: [{ z: 0, x: 0 }], bis: ERSTES_DING, vorher: "", fertig: false,
+      von: 0, torVon: 0, truppVon: 0, falkeVon: 0, nr: 0, erstesBallen: 0,
+    };
+  }
+
+  // Ein Tor: die Lücke einer Reihe am freien Weg. Alles, was seit «vor» in
+  // die Welt kam, gehört dazu.
+  function torDazu(z, x, halb, art, vor) {
+    const W = state.welt;
+    const dinge = W.dinge.slice(vor);
+    W.tore.push({ z, x, halb, art, dinge, zustand: "offen", seit: 0, mitte: 0, nr: W.tore.length });
+    return dinge;
   }
 
   function wegBei(z) {
@@ -313,12 +382,12 @@
   }
 
   // Der nächste Punkt des freien Wegs: so weit zur Seite, wie es bis dorthin
-  // zu lenken ist – nie fast geradeaus, mindestens ein gutes Drittel davon,
-  // nach links oder rechts, und vom Rand weg zurück zur Mitte.
+  // zu lenken ist (reichBei) – nie fast geradeaus, mindestens ein gutes
+  // Drittel davon, nach links oder rechts, und vom Rand weg zurück zur Mitte.
   function wegPunkt(z, weit = 1) {
     const w = state.welt.weg;
     const letzter = w[w.length - 1];
-    const reich = lenkbarBei(z) * Math.max(1, z - letzter.z);
+    const reich = reichBei(z, Math.max(1, z - letzter.z));
     const wurf = zufall.zahl() * 2 - 1;
     let schritt = (wurf < 0 ? -1 : 1) * (0.35 + 0.65 * Math.abs(wurf)) * reich * weit;
     if (Math.abs(letzter.x + schritt) > WEG_MAX) schritt = -schritt;
@@ -327,15 +396,12 @@
     return x;
   }
 
-  // Ein Trupp, den man mitnehmen kann. «klein»: ein goldener Ring, meist nah
-  // am Weg. «gross»: ein grosser heller Ring an einer heiklen Stelle – am
-  // Rand, hinter einem engen Spalt, neben einem Felsen –, und er bringt viel
-  // mehr.
-  function truppDazu(z, x, k, art = "klein") {
-    const n = art === "gross"
-      ? 28 + Math.floor(zufall.zahl() * 18) + Math.round(k * 18)
-      : 8 + Math.floor(zufall.zahl() * 8) + Math.round(k * 6);
-    state.welt.trupps.push({ z, x: clamp(x, -X_MAX + 3, X_MAX - 3), n, art, zustand: "offen", seit: 0, nr: state.welt.trupps.length });
+  // Ein grosser Trupp an einer heiklen Stelle – am Rand, hinter einem engen
+  // Spalt, neben einem Felsen. Er kommt dazu, wenn die Mitte des Schwarms
+  // durch seinen Ring geht.
+  function truppDazu(z, x, k) {
+    const n = Math.round(lerp(TRUPP.n0, TRUPP.n1, zufall.zahl()) + k * 15);
+    state.welt.trupps.push({ z, x: clamp(x, -X_MAX + 3, X_MAX - 3), n, art: "gross", zustand: "offen", seit: 0, nr: state.welt.trupps.length });
   }
 
   // Liegt x an der Stelle z frei – mit Abstand zu allem, was dort steht?
@@ -350,8 +416,7 @@
     });
   }
 
-  // Eine Felsnadel. Die ersten sind schlank – wer die erste übersieht, soll
-  // nicht gleich den ganzen Schwarm verlieren.
+  // Eine Felsnadel. Die ersten sind schlank.
   function nadel(z, x) {
     const r = lerp(3.5, lerp(4.8, 8, clamp(z / 900, 0, 1)), zufall.zahl());
     return {
@@ -359,55 +424,58 @@
     };
   }
 
+  // Wie weit eine Nadel auf Flughöhe in die Lücke reicht – unten, wo ein
+  // geballter Schwarm noch fliegt, ist sie am dicksten.
+  const UNTEN = FLUG_Y - 2.5;
+  const OBEN = FLUG_Y + 2.5;
+  const nadelDick = (n) => nadelRadius(n, UNTEN);
+
   // Ein Feld Felsnadeln: Reihe um Reihe ein Kamm aus Nadeln quer übers Meer.
-  // Am freien Weg bleibt die Lücke so breit, wie sie sein muss – auf einer
-  // Seite steht eine Nadel dicht daran, bald auf beiden. Die anderen Lücken
-  // sind, wie sie fallen: manche breit, manche zu eng für den ganzen Schwarm.
-  // In einer davon wartet ab und zu ein grosser Trupp.
+  // Am freien Weg steht links und rechts gleich weit eine Nadel: die Lücke,
+  // in ihrer Mitte das Licht. Die Lücken weiter draussen sind, wie sie
+  // fallen. In einer davon wartet ab und zu ein grosser Trupp.
   function nadelfeld(z0, k) {
     const W = state.welt;
     const reihen = 3 + Math.floor(zufall.zahl() * 3);
-    const abstand = lerp(52, 34, k) * (0.9 + 0.25 * zufall.zahl());
+    let z = z0;
     for (let i = 0; i < reihen; i += 1) {
-      const z = z0 + i * abstand;
+      if (i > 0) z += tempoBei(z) * lerp(REIHE_T0, REIHE_T_MIN, k) * (1 + 0.25 * zufall.zahl());
+      const vor = W.dinge.length;
       const xf = wegPunkt(z);
-      const breit = breiteBei(z);
-      const eng = zufall.zahl() < 0.5 ? -1 : 1;
-      const beide = zufall.zahl() < lerp(0.4, 0.95, k);
+      const halb = breiteBei(z) / 2 + zufall.zahl() * lerp(3, 0.4, k);
       for (const s of [-1, 1]) {
-        // Die Kante der Lücke am Weg, dann nach aussen Nadel um Nadel.
-        const nahe = beide || s === eng;
-        let kante = breit / 2 + (nahe ? zufall.zahl() * lerp(4, 0.5, k) : lerp(9, 22, zufall.zahl()));
         let erste = true;
+        let kante = halb;
         while (kante < 78 + s * xf) {
-          // Die Nadel an der Lücke steht genau in der Reihe – dort gilt der
-          // freie Weg. Die weiter draussen stehen ein wenig davor oder dahinter.
-          const versatz = (zufall.zahl() - 0.5) * 12;
-          const n = nadel(z + (erste ? 0 : versatz), 0);
-          erste = false;
-          n.x = xf + s * (kante + n.r);
+          // Die Nadel an der Lücke steht genau in der Reihe. Die weiter
+          // draussen stehen ein wenig davor oder dahinter.
+          const versatz = erste ? 0 : (zufall.zahl() - 0.5) * 12;
+          const n = nadel(z + versatz, 0);
+          n.x = xf + s * (kante + (erste ? nadelDick(n) : n.r));
           W.dinge.push(n);
-          kante += 2 * n.r + lerp(lerp(13, 8, k), lerp(32, 20, k), zufall.zahl());
+          kante = Math.abs(n.x - xf) + n.r + lerp(lerp(13, 8, k), lerp(32, 20, k), zufall.zahl());
+          erste = false;
         }
       }
+      torDazu(z, xf, halb, "nadeln", vor);
     }
-    // Ein kleiner Trupp zwischen zwei Reihen nah am Weg; und ab und zu ein
-    // grosser weit daneben – wo dort ein Fels steht, gibt es ihn nicht.
-    const wo = zufall.zahl();
-    const neben = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(3, 9, zufall.zahl());
-    const zKlein = z0 + (Math.floor(wo * (reihen - 1)) + 0.5) * abstand;
-    if (zufall.zahl() < 0.4) truppDazu(zKlein, frei(zKlein, wegBei(zKlein) + neben, 6) ? wegBei(zKlein) + neben : wegBei(zKlein), k);
-    const weit = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(20, 34, zufall.zahl());
-    const zGross = z0 + (Math.floor(zufall.zahl() * (reihen - 1)) + 0.5) * abstand;
-    const xGross = clamp(wegBei(zGross) + weit, -X_MAX + 3, X_MAX - 3);
-    if (zufall.zahl() < 0.4 && frei(zGross, xGross, 5)) truppDazu(zGross, xGross, k, "gross");
-    return (reihen - 1) * abstand;
+    // Ab und zu ein grosser Trupp weit daneben – wo dort ein Fels steht,
+    // gibt es ihn nicht.
+    if (reihen > 1) {
+      const weit = (zufall.zahl() < 0.5 ? -1 : 1) * lerp(20, 34, zufall.zahl());
+      const zwischen = W.tore.length - reihen + Math.floor(zufall.zahl() * (reihen - 1));
+      const zGross = (W.tore[zwischen].z + W.tore[zwischen + 1].z) / 2;
+      const xGross = clamp(wegBei(zGross) + weit, -X_MAX + 3, X_MAX - 3);
+      if (zufall.zahl() < 0.4 && frei(zGross, xGross, 5)) truppDazu(zGross, xGross, k);
+    }
+    return z - z0;
   }
 
   // Ein grosser Fels mitten im Weg: Er steht genau dort, wo es geradeaus
-  // hinginge – also drum herum. Später zwei, drei hintereinander, einmal
-  // links, einmal rechts vorbei. Auf der anderen Seite bleibt manchmal ein
-  // enger Durchlass, und dahinter wartet ein grosser Trupp.
+  // hinginge – also drum herum, durch die Lücke zwischen ihm und einer Nadel.
+  // Später zwei, drei hintereinander, einmal links, einmal rechts vorbei. Auf
+  // der anderen Seite bleibt manchmal ein enger Durchlass, und dahinter
+  // wartet ein grosser Trupp.
   function massiv(z0, k) {
     const W = state.welt;
     const zahl = 1 + (k > 0.25 && zufall.zahl() < 0.6 ? 1 : 0) + (k > 0.6 && zufall.zahl() < 0.6 ? 1 : 0);
@@ -415,64 +483,68 @@
     let z = z0;
     for (let i = 0; i < zahl; i += 1) {
       const vorher = W.weg[W.weg.length - 1];
-      const r = lerp(11, 17, zufall.zahl());
-      const breit = breiteBei(z + 80);
-      const neben = r + breit / 2 + lerp(4, 1, k);
+      const vor = W.dinge.length;
+      const fels = nadel(z, vorher.x);
+      fels.r = lerp(11, 17, zufall.zahl());
+      fels.h = lerp(48, 74, zufall.zahl());
+      const halb = breiteBei(z + 80) / 2 + zufall.zahl() * lerp(3, 0.4, k);
+      const neben = nadelDick(fels) + halb;
       if (Math.abs(vorher.x + seite * neben) > WEG_MAX) seite = -seite;
       const ziel = vorher.x + seite * neben;
       // So weit voraus, dass sich der Bogen um den Fels lenken lässt.
       let weit = 60;
-      for (let n = 0; n < 4; n += 1) weit = Math.max(60, 1.04 * neben / lenkbarBei(Math.max(z, vorher.z) + weit));
+      for (let n = 0; n < 4; n += 1) weit = Math.max(60, streckeFuer(Math.max(z, vorher.z) + weit, neben));
       z = Math.max(z, vorher.z) + weit;
+      fels.z = z;
       W.weg.push({ z, x: ziel });
-      const fels = nadel(z, vorher.x);
-      fels.r = r;
-      fels.h = lerp(48, 74, zufall.zahl());
       W.dinge.push(fels);
-      // Der enge Durchlass auf der anderen Seite, mit dem grossen Trupp.
-      const eng = Math.max(6.5, breit * 0.6);
-      const zweite = nadel(z, 0);
-      zweite.x = vorher.x - seite * (r + eng + zweite.r);
-      if (zufall.zahl() < 0.55 && Math.abs(vorher.x - seite * (r + eng / 2)) < X_MAX - 4) {
-        W.dinge.push(zweite);
-        truppDazu(z + 24, vorher.x - seite * (r + eng / 2), k, "gross");
-      }
-      // Auf der freien Seite begrenzt später eine Nadel den Weg.
+      // Auf der freien Seite begrenzt eine Nadel die Lücke, gleich weit weg.
       const dritte = nadel(z, 0);
-      dritte.x = ziel + seite * (breit / 2 + dritte.r + zufall.zahl() * lerp(10, 1.5, k));
-      if (zufall.zahl() < lerp(0.3, 0.95, k)) W.dinge.push(dritte);
+      dritte.x = ziel + seite * (halb + nadelDick(dritte));
+      W.dinge.push(dritte);
+      // Der enge Durchlass auf der anderen Seite, mit dem grossen Trupp.
+      const eng = Math.max(6.5, breiteBei(z) * 0.6);
+      const zweite = nadel(z, 0);
+      zweite.x = vorher.x - seite * (fels.r + eng + zweite.r);
+      const durch = vorher.x - seite * (fels.r + eng / 2);
+      if (zufall.zahl() < 0.55 && Math.abs(durch) < X_MAX - 4) {
+        W.dinge.push(zweite);
+        truppDazu(z + 24, durch, k);
+      }
+      torDazu(z, ziel, halb, "massiv", vor);
       seite = -seite;
     }
-    if (zufall.zahl() < 0.35) truppDazu(z + 40, W.weg[W.weg.length - 1].x + (zufall.zahl() * 2 - 1) * 5, k);
     return z - z0 + 20;
   }
 
-  // Ein Felsbogen quer über dem Weg, das Tor genau dort – der Schwarm zwängt
-  // sich hindurch, später immer weniger gern. Links und rechts stehen bald
-  // Nadeln: Dann führt nur das Tor hindurch.
+  // Ein Felsbogen quer über dem Weg, das Tor genau dort. Links und rechts
+  // stehen bald Nadeln: Dann führt nur das Tor hindurch.
   function felsbogen(z0, k) {
     const W = state.welt;
     const z = z0 + 30;
+    const vor = W.dinge.length;
     const xf = wegPunkt(z, 0.85);
     const a = breiteBei(z) / 2 * lerp(1.2, 1.0, k) + 0.5;
-    W.dinge.push({ art: "bogen", z, x: xf, a, h: lerp(29, 35, zufall.zahl()), form: Math.floor(zufall.zahl() * 3), sog: lerp(1, 0.4, k) });
+    const d = { art: "bogen", z, x: xf, a, h: lerp(29, 35, zufall.zahl()), form: Math.floor(zufall.zahl() * 3) };
+    W.dinge.push(d);
     const flanken = zufall.zahl() < lerp(0.3, 0.95, k);
     for (const s of [-1, 1]) {
       const n = nadel(z + (zufall.zahl() - 0.5) * 10, 0);
       n.x = xf + s * (a * BOGEN_AUSSEN[0] + n.r + 2 + zufall.zahl() * 8);
       if (flanken) W.dinge.push(n);
     }
-    if (zufall.zahl() < 0.4) truppDazu(z + 42, xf + (zufall.zahl() * 2 - 1) * 4, k);
+    torDazu(z, xf, bogenBreite(a, d.h, OBEN), "bogen", vor);
     return 80;
   }
 
   // Eine Felswand quer übers Meer, mit einem Spalt am freien Weg – erst
-  // breit, am Schluss so schmal, dass nur die Mitte des Schwarms durchkommt.
+  // breit, später so schmal, dass nur ein geballter Schwarm hindurchpasst.
   // Manchmal gibt es weiter weg einen zweiten, engeren Spalt: Dahinter wartet
   // ein grosser Trupp.
   function felswand(z0, k, spalt = 0) {
     const W = state.welt;
     const z = z0 + 44;
+    const vor = W.dinge.length;
     const xf = wegPunkt(z, 0.9);
     const g = spalt || spaltBei(z);
     const spalten = [{ x: xf, g }];
@@ -480,61 +552,69 @@
     const x2 = clamp(xf + seite * lerp(22, 40, zufall.zahl()), -X_MAX + 6, X_MAX - 6);
     const zweiter = zufall.zahl() < 0.55;
     if (!spalt && zweiter && Math.abs(x2 - xf) > g + 12) {
-      spalten.push({ x: x2, g: Math.max(4.5, g * 0.7) });
-      truppDazu(z + 26, x2, k, "gross");
+      spalten.push({ x: x2, g: Math.max(4.6, g * 0.75) });
+      truppDazu(z + 26, x2, k);
     }
     spalten.sort((p, q) => p.x - q.x);
     W.dinge.push({ art: "wand", z, x: xf, spalten, h: lerp(34, 48, zufall.zahl()), form: Math.floor(zufall.zahl() * 2) });
-    if (zufall.zahl() < 0.45) truppDazu(z + 46, xf + (zufall.zahl() * 2 - 1) * 4, k);
+    torDazu(z, xf, g / 2, "wand", vor);
     return 74;
   }
 
-  // Ein Windpark: Reihen von Windrädern im Raster. Wo der Weg hindurchführt,
-  // fehlt eines.
+  // Ein Windpark: Reihen von Windrädern. Wo der Weg hindurchführt, stehen
+  // links und rechts zwei gleich weit weg.
   function windpark(z0, k) {
     const W = state.welt;
     const reihen = 2 + Math.floor(zufall.zahl() * 2);
     const raster = lerp(28, 23, k);
+    let z = z0;
     for (let i = 0; i < reihen; i += 1) {
-      const z = z0 + i * 60;
+      if (i > 0) z += tempoBei(z) * lerp(REIHE_T0 + 0.1, REIHE_T_MIN + 0.1, k);
+      const vor = W.dinge.length;
       const xf = wegPunkt(z);
-      const breit = breiteBei(z);
-      const versatz = (zufall.zahl() - 0.5) * raster;
-      for (let gx = -4; gx <= 4; gx += 1) {
-        const x = gx * raster + versatz;
-        const phase = zufall.zahl() * Math.PI * 2;
-        const tempo = lerp(1.0, 1.9, zufall.zahl()) * (zufall.zahl() < 0.5 ? -1 : 1);
-        if (Math.abs(x - xf) < breit / 2 + ROTOR + 1) continue;
-        W.dinge.push({ art: "windrad", z, x, phase, tempo });
+      const halb = breiteBei(z) / 2 + zufall.zahl() * lerp(3, 0.4, k);
+      for (const s of [-1, 1]) {
+        for (let x = xf + s * (halb + ROTOR); Math.abs(x) < 4.5 * raster; x += s * raster) {
+          const phase = zufall.zahl() * Math.PI * 2;
+          const tempo = lerp(1.0, 1.9, zufall.zahl()) * (zufall.zahl() < 0.5 ? -1 : 1);
+          W.dinge.push({ art: "windrad", z, x, phase, tempo });
+        }
       }
+      torDazu(z, xf, halb, "windpark", vor);
     }
-    if (zufall.zahl() < 0.4) {
-      const z = z0 + 30;
-      truppDazu(z, wegBei(z) + (zufall.zahl() * 2 - 1) * 5, k);
-    }
-    return (reihen - 1) * 60;
+    return z - z0;
   }
 
   // Eine Stromleitung quer übers Meer. Zwischen den zwei hohen Masten hängen
   // die Seile über dem Schwarm; überall sonst hängen sie mitten hindurch.
+  // Breit genug für jeden Schwarm – aber nur dort.
   function leitung(z0, k) {
     const W = state.welt;
     const z = z0 + 30;
+    const vor = W.dinge.length;
     const xf = wegPunkt(z, 0.85);
     const spanne = Math.max(40, breiteBei(z) + 2 * MAST_R + 6);
     const masten = [];
     for (let i = -3; i <= 2; i += 1) masten.push({ x: xf + (i + 0.5) * spanne, h: i === -1 || i === 0 ? MAST_HOCH : MAST });
     W.dinge.push({ art: "leitung", z, x: xf, masten });
-    if (zufall.zahl() < 0.35) truppDazu(z + 40, xf + (zufall.zahl() * 2 - 1) * 6, k);
+    torDazu(z, xf, spanne / 2 - MAST_R, "leitung", vor);
     return 70;
   }
 
-  // Offenes Meer: nichts im Weg. Ein kleiner Trupp liegt nah – und ganz am
-  // Rand ein grosser: Wer ihn holt, muss rechtzeitig zurück sein.
+  // Offenes Meer: nichts im Weg. Ganz am Rand wartet manchmal ein grosser
+  // Trupp – wer ihn holt, muss rechtzeitig zurück sein. Und ab FALKE_AB
+  // kreist hier ein Falke.
   function offen(z0, k) {
-    const mitte = wegPunkt(z0 + 70);
-    truppDazu(z0 + 36, mitte + (zufall.zahl() * 2 - 1) * 10, k);
-    truppDazu(z0 + 72, (zufall.zahl() < 0.5 ? -1 : 1) * (X_MAX - 3), k, "gross");
+    const W = state.welt;
+    wegPunkt(z0 + 70);
+    if (z0 < FALKE_AB || zufall.zahl() < 0.5) truppDazu(z0 + 72, (zufall.zahl() < 0.5 ? -1 : 1) * (X_MAX - 3), k);
+    if (z0 >= FALKE_AB) {
+      const seite = zufall.zahl() < 0.5 ? -1 : 1;
+      W.falken.push({ z: z0 + 64, seite, zustand: "offen", seit: 0, nr: W.falken.length });
+      // Später gleich ein zweiter hinterher.
+      if (k > 0.55 && zufall.zahl() < 0.6) W.falken.push({ z: z0 + 64 + tempoBei(z0) * 1.25, seite: -seite, zustand: "offen", seit: 0, nr: W.falken.length });
+      if (!W.ersterFalke) W.ersterFalke = z0 + 64;
+    }
     return 132;
   }
 
@@ -549,26 +629,24 @@
     if (z0 > Z_ENDE - 640) {
       const rest = Z_ENDE - 110 - z0;
       const abstand = clamp((rest - 50) / 2, 80, 130);
-      SCHLUSS_SPALTEN.forEach((spalt, i) => {
-        const z = z0 + 6 + i * abstand;
-        felswand(z, 1, spalt);
-        if (i < 2) truppDazu(z + 44 + abstand * 0.45, W.weg[W.weg.length - 1].x + (zufall.zahl() * 2 - 1) * 5, 1);
-      });
+      SCHLUSS_SPALTEN.forEach((spalt, i) => felswand(z0 + 6 + i * abstand, 1, spalt));
       W.weg.push({ z: Z_ENDE, x: W.weg[W.weg.length - 1].x });
       W.dinge.push({ art: "insel", z: Z_ENDE + 95, x: 0 });
       W.dinge.sort((a, b) => a.z - b.z);
+      W.tore.sort((a, b) => a.z - b.z);
       W.trupps.sort((a, b) => a.z - b.z);
       W.fertig = true;
       return;
     }
     const k = schwereBei(z0);
-    // Zuerst ein Feld Nadeln, dann ein grosser Fels – danach, wie es fällt.
+    // Zuerst ein Feld Nadeln, dann ein grosser Fels, dann die erste Wand –
+    // danach, wie es fällt.
     const wahl = [["nadeln", 2.4], ["massiv", 1.7]];
     if (z0 > 300) wahl.push(["bogen", 1.3]);
+    if (z0 > 300) wahl.push(["wand", 1.2 + 1.6 * k]);
     if (z0 > 500) wahl.push(["windpark", 1.2]);
     if (z0 > 800) wahl.push(["leitung", 1.0]);
-    if (z0 > 700) wahl.push(["wand", 1.2 + 1.6 * k]);
-    if (z0 > 250) wahl.push(["offen", 0.7]);
+    if (z0 > 250) wahl.push(["offen", z0 >= FALKE_AB ? 1.1 : 0.6]);
     const moeglich = wahl.filter(([art]) => art === "nadeln" || art !== W.vorher);
     let los = zufall.zahl() * moeglich.reduce((summe, [, gewicht]) => summe + gewicht, 0);
     let art = moeglich[0][0];
@@ -579,11 +657,14 @@
     }
     if (W.nr === 0) art = "nadeln";
     if (W.nr === 1) art = "massiv";
+    if (W.nr === 2) art = "wand";
     const lang = ABSCHNITTE[art](z0, k);
+    if (W.nr === 2) W.erstesBallen = W.tore[W.tore.length - 1].z;
     W.vorher = art;
     W.nr += 1;
     W.bis = z0 + lang + lerp(60, 34, k);
     W.dinge.sort((a, b) => a.z - b.z);
+    W.tore.sort((a, b) => a.z - b.z);
     W.trupps.sort((a, b) => a.z - b.z);
   }
 
@@ -598,7 +679,9 @@
     weltBis(1600);
     const W = state.welt;
     return W.dinge.slice(0, 40).map((d) => `${d.art.slice(0, 2)}${d.z.toFixed(1)}/${d.x.toFixed(1)}`).join(" ")
-      + " | " + W.trupps.slice(0, 10).map((t) => `${t.art[0]}${t.z.toFixed(1)}/${t.x.toFixed(1)}:${t.n}`).join(" ")
+      + " | " + W.tore.slice(0, 16).map((t) => `${t.art.slice(0, 2)}${t.z.toFixed(1)}/${t.x.toFixed(1)}:${t.halb.toFixed(1)}`).join(" ")
+      + " | " + W.trupps.slice(0, 10).map((t) => `${t.z.toFixed(1)}/${t.x.toFixed(1)}:${t.n}`).join(" ")
+      + " | " + W.falken.slice(0, 6).map((f) => `${f.z.toFixed(1)}${f.seite < 0 ? "l" : "r"}`).join(" ")
       + " | " + W.weg.slice(0, 16).map((p) => p.x.toFixed(1)).join(",");
   }
 
@@ -657,7 +740,7 @@
     vg.plaetze += 1;
     const winkel = hashGanz(nr * 4) * Math.PI * 2;
     const c = hashGanz(nr * 4 + 1) * 2 - 1;
-    const r = Math.pow(hashGanz(nr * 4 + 2), 0.55);
+    const r = Math.pow(hashGanz(nr * 4 + 2), 0.42);
     const s = Math.sqrt(1 - c * c);
     vg.tx[i] = r * s * Math.cos(winkel);
     vg.ty[i] = r * s * Math.sin(winkel);
@@ -679,7 +762,8 @@
     vg.jz[i] = 0;
     vg.x[i] = state.x;
     vg.y[i] = FLUG_Y;
-    vg.z[i] = state.z;
+    // Noch nirgends: Erst ab dem nächsten Bild fliegt er durch etwas hindurch.
+    vg.z[i] = Number.NaN;
     vg.roll[i] = 0;
     return i;
   }
@@ -691,10 +775,17 @@
     if (i !== l) for (const name of VG_FELDER) vg[name][i] = vg[name][l];
   }
 
-  // Die Masse des Schwarms: halbe Breite, Höhe und Länge.
+  // Die Masse des Schwarms: halbe Breite, Höhe und Länge – aufgefächert
+  // oder geballt. Kein Vogel fliegt je ausserhalb davon: Was man sieht, ist,
+  // was durch eine Lücke muss.
   function masse() {
     const R = state.R;
-    return { x: R, y: Math.min(R * lerp(0.95, 0.55, state.form), HOCH_MAX), z: R * lerp(1, 1.7, state.form) };
+    const r = ballRadiusBei(vg.n);
+    return {
+      x: lerp(R, r, state.ball),
+      y: lerp(Math.min(R * lerp(0.95, 0.55, state.form), HOCH_MAX), r * 0.9, state.ball),
+      z: lerp(R * lerp(1, 1.4, state.form), r * 1.3, state.ballLang),
+    };
   }
 
   function spurNeu() {
@@ -724,103 +815,93 @@
     return a + (b - a) * u;
   }
 
-  // Ob der Vogel, der gerade gerechnet wird, getroffen ist.
-  let treffer = false;
-
   /*
-   * Um etwas Rundes herum (Felsnadel, Turm, Mast): Was knapp daneben liegt,
-   * weicht aus und fliesst vorbei – was auf die Mitte zuhält, schafft es
-   * nicht. dz ist, wie weit der Vogel noch davor (oder schon dahinter) ist;
-   * zurück kommt sein x.
+   * Was trifft: ob, wer von zVor nach z fliegt, auf der Höhe y bei x an d
+   * hängen bleibt. Kein Ausweichen und kein Sog – was über den Fels
+   * hinausragt, ist weg, genau dort, wo man es sieht. Das gilt für jeden
+   * Vogel und für die Mitte des Schwarms: Die Mitte am Fels beendet die Runde.
+   * Gerechnet wird mit dem Ort im Bild davor und jetzt, damit auch ein
+   * langsames Bild nichts überspringt.
    */
-  function umRundes(x, dz, mitte, rr, weit) {
-    const adz = dz < 0 ? -dz : dz;
-    if (adz >= weit) return x;
-    const dx = x - mitte;
-    const s = dx < 0 ? -1 : 1;
-    let ab = dx * s;
-    const spalt = 2.5;
-    if (ab >= rr + spalt) return x;
-    const nah = 1 - adz / weit;
-    ab += weich(0.8 * rr, rr, ab) * 0.5 * (rr + spalt - ab) * nah * nah;
-    if (adz < rr) {
-      const q = rr * 0.92;
-      if (ab * ab + dz * dz < q * q) treffer = true;
-    }
-    return mitte + s * ab;
+  const DRITTEL = Math.PI * 2 / 3;
+  const quert = (zVor, z, ebene) => zVor < ebene && z >= ebene;
+  // Etwas Rundes (Felsnadel, Turm, Mast) mit Radius r: drin, oder eben durch
+  // seine Mitte hindurch.
+  function rund(x, zVor, z, mx, mz, r) {
+    const dx = x - mx;
+    if (dx >= r || dx <= -r) return false;
+    const dz = z - mz;
+    return dx * dx + dz * dz < r * r || quert(zVor, z, mz);
   }
-
-  // Durch einen Felsbogen: Der Schwarm zwängt sich durchs Tor – was nicht
-  // allzu weit daneben liegt, rückt nach innen, und dahinter öffnet er sich
-  // wieder. Am äusseren Rand des Felsens weicht man nach aussen. Dazwischen
-  // ist Stein.
-  function durchBogen(x, y, dz, d) {
-    const adz = dz < 0 ? -dz : dz;
-    if (adz >= 26) return x;
-    const aussen = bogenBreite(d.a * BOGEN_AUSSEN[0], d.h * BOGEN_AUSSEN[1], y);
-    if (aussen <= 0) return x;
-    const innen = bogenBreite(d.a, d.h, y);
-    const dx = x - d.x;
-    const s = dx < 0 ? -1 : 1;
-    let ab = dx * s;
-    const nah = 1 - weich(4, 26, adz);
-    const sog = clamp(0.75 * innen, 2.2, 7) * (d.sog ?? 1);
-    if (ab < innen + sog) {
-      const ziel = Math.max(0, innen - 1.2);
-      if (ab > ziel) ab -= (1 - weich(innen + 0.7 * sog, innen + sog, ab)) * 0.92 * (ab - ziel) * nah;
-    } else if (ab > aussen - 2.2 && ab < aussen + 1.2) {
-      ab += weich(aussen - 2.2, aussen - 0.4, ab) * 0.85 * (aussen + 1.2 - ab) * nah;
-    }
-    if (adz < BOGEN_TIEF / 2 && ab > innen && ab < aussen) treffer = true;
-    return d.x + s * ab;
-  }
-
-  // Durch eine Felswand: nur durch den Spalt. Was knapp daneben liegt, zwängt
-  // sich noch hinein; alles andere bleibt am Stein.
-  function durchWand(x, y, dz, d) {
-    const adz = dz < 0 ? -dz : dz;
-    if (adz >= 22 || y >= d.h) return x;
-    let spalt = d.spalten[0];
-    for (let i = 1; i < d.spalten.length; i += 1) {
-      if (Math.abs(x - d.spalten[i].x) < Math.abs(x - spalt.x)) spalt = d.spalten[i];
-    }
-    const dx = x - spalt.x;
-    const s = dx < 0 ? -1 : 1;
-    let ab = dx * s;
-    const halb = spalt.g / 2;
-    const innen = Math.max(0, halb - 0.7);
-    if (ab > innen && ab < halb + WAND_SOG) {
-      const nah = 1 - weich(WAND_TIEF / 2 + 1, 22, adz);
-      ab -= (1 - weich(halb + 0.5 * WAND_SOG, halb + WAND_SOG, ab)) * 0.92 * (ab - innen) * nah;
-    }
-    if (adz < WAND_TIEF / 2 && ab > halb) treffer = true;
-    return spalt.x + s * ab;
-  }
-
+  // Eine Platte der Dicke tief: durch ihre Vorderseite oder schon darin.
+  const inPlatte = (zVor, z, mz, tief) => quert(zVor, z, mz - tief / 2) || (z > mz - tief / 2 && z < mz + tief / 2);
   // Durch die Ebene eines Rotors: getroffen ist, wer gerade dort ist, wo ein
   // Flügel steht – oder die Nabe.
-  const DRITTEL = Math.PI * 2 / 3;
-  function durchRotor(x, y, d) {
+  function rotorTrifft(x, y, d) {
     const dx = x - d.x;
     const dy = y - NABE;
     const rad = Math.hypot(dx, dy);
-    if (rad >= ROTOR) return;
-    if (rad < 1.3) { treffer = true; return; }
+    if (rad >= ROTOR) return false;
+    if (rad < 1.3) return true;
     const w = ((Math.atan2(dy, dx) - rotorWinkel(d)) % DRITTEL + DRITTEL) % DRITTEL;
-    if (Math.min(w, DRITTEL - w) * rad < BLATT) treffer = true;
+    return Math.min(w, DRITTEL - w) * rad < BLATT;
+  }
+  function trifft(d, x, y, zVor, z) {
+    if (d.art === "nadel") {
+      const rr = nadelRadius(d, y);
+      return rr > 0 && rund(x, zVor, z, d.x, d.z, rr);
+    }
+    if (d.art === "bogen") {
+      if (!inPlatte(zVor, z, d.z, BOGEN_TIEF)) return false;
+      const ab = Math.abs(x - d.x);
+      return ab > bogenBreite(d.a, d.h, y) && ab < bogenBreite(d.a * BOGEN_AUSSEN[0], d.h * BOGEN_AUSSEN[1], y);
+    }
+    if (d.art === "wand") {
+      if (y >= d.h || !inPlatte(zVor, z, d.z, WAND_TIEF)) return false;
+      for (let j = 0; j < d.spalten.length; j += 1) {
+        if (Math.abs(x - d.spalten[j].x) < d.spalten[j].g / 2) return false;
+      }
+      return true;
+    }
+    if (d.art === "windrad") {
+      if (y < NABE && rund(x, zVor, z, d.x, d.z, TURM_R)) return true;
+      return quert(zVor, z, d.z - ROTOR_VOR) && rotorTrifft(x, y, d);
+    }
+    if (d.art === "leitung") {
+      for (let j = 0; j < d.masten.length; j += 1) {
+        if (y < d.masten[j].h && rund(x, zVor, z, d.masten[j].x, d.z, MAST_R)) return true;
+      }
+      if (!quert(zVor, z, d.z)) return false;
+      for (let nr = 0; nr < 3; nr += 1) {
+        if (Math.abs(y - seilHoehe(d, x, nr)) < SEIL_TRIFFT) return true;
+      }
+    }
+    return false;
   }
 
+  // Was gerade in Reichweite der Mitte steht (von, bis: Meter davor, dahinter).
   const nah = [];
+  function nahSammeln(hinten, vorn) {
+    const W = state.welt;
+    nah.length = 0;
+    while (W.von < W.dinge.length && W.dinge[W.von].z < state.z - hinten - 30) W.von += 1;
+    for (let i = W.von; i < W.dinge.length && W.dinge[i].z < state.z + vorn + 30; i += 1) {
+      if (W.dinge[i].art !== "insel") nah.push(W.dinge[i]);
+    }
+  }
 
   function schwarmTakt(dt) {
-    const W = state.welt;
     const start = state.schritt === "start";
     state.R += (radiusBei(vg.n) - state.R) * (1 - Math.exp(-dt / 0.8));
     state.form += ((start ? 0 : 1) - state.form) * (1 - Math.exp(-dt / 0.7));
-    state.wirbel += dt * lerp(0.9, 0.42, state.form);
+    // Ballen: Breite und Höhe folgen schnell, die Länge etwas langsamer.
+    const zu = state.ballen ? 1 : 0;
+    state.ball += (zu - state.ball) * (1 - Math.exp(-dt / (zu ? BALL_ZU : BALL_AUF)));
+    state.ballLang += (zu - state.ballLang) * (1 - Math.exp(-dt / (zu ? BALL_LANG_ZU : BALL_LANG_AUF)));
+    state.wirbel += dt * lerp(0.9, 0.42, state.form) * (1 + 1.6 * state.ball);
     // Am Schlafplatz sinkt der Schwarm auf die Insel und zieht sich zusammen.
     const lande = state.schritt === "landung" ? weich(0, 2.2, state.zeit - state.schrittZeit) : 0;
-    // Zu wenige: Die letzten fliegen auseinander und hinauf.
+    // Zerstreut oder zerschellt: Die letzten fliegen auseinander und hinauf.
     const streu = state.schritt === "aus" ? weich(0, 1.3, state.zeit - state.schrittZeit) : 0;
     const m = masse();
     const Rx = m.x * lerp(1, 0.8, lande) * (1 + 5 * streu);
@@ -835,17 +916,14 @@
     const kRoll = 1 - Math.exp(-dt / 0.2);
     const rollZiel = clamp(-state.vx / QUER0, -1, 1) * 0.7;
     const twist = 0.8 * Math.sin(t * 0.31);
+    // Geballt zittert nichts mehr: dicht und straff.
+    const lose = 1 - state.ball;
 
-    // Was gerade in Reichweite steht.
     nah.length = 0;
-    if (state.schritt === "flug") {
-      while (W.von < W.dinge.length && W.dinge[W.von].z < state.z - Rz - 30) W.von += 1;
-      for (let i = W.von; i < W.dinge.length && W.dinge[i].z < state.z + Rz + 30; i += 1) {
-        if (W.dinge[i].art !== "insel") nah.push(W.dinge[i]);
-      }
-    }
+    if (state.schritt === "flug") nahSammeln(Rz, Rz);
 
     let tote = 0;
+    let links = 0;
     for (let i = vg.n - 1; i >= 0; i -= 1) {
       vg.warte[i] -= dt;
       if (vg.warte[i] <= 0) platz(i);
@@ -855,47 +933,30 @@
       const w = state.wirbel + twist * oz;
       const cw = Math.cos(w);
       const sw = Math.sin(w);
-      const atem = 1 + 0.1 * Math.sin(t * 1.7 - oz * 2.6);
+      const atem = 1 + 0.1 * Math.sin(t * 1.7 - oz * 2.6) * lose;
       const ph = vg.ph[i];
       const jx = (vg.jx[i] *= kDazu);
       const jy = (vg.jy[i] *= kDazu);
       const jz = (vg.jz[i] *= kDazu);
-      const lz = oz * Rz + 0.5 * Math.sin(t * 1.3 + ph * 23);
+      const lz = oz * Rz + 0.5 * Math.sin(t * 1.3 + ph * 23) * lose;
       const zVor = vg.z[i];
       const z = state.z + lz + jz;
-      let x = (lz > 0 ? state.x + steig * lz : spurBei(state.z + lz))
-        + (ox * cw - oy * sw) * Rx * atem + 0.4 * Math.sin(t * 2.3 + ph * 40) + jx;
-      const y = hoehe + (ox * sw + oy * cw) * Ry * atem + 0.35 * Math.sin(t * 1.9 + ph * 71) + jy;
+      // Quer und hoch nie über den Rand des Schwarms hinaus.
+      const quer = clamp((ox * cw - oy * sw) * Rx * atem + 0.4 * Math.sin(t * 2.3 + ph * 40) * lose + jx, -Rx, Rx);
+      const x = (lz > 0 ? state.x + steig * lz : spurBei(state.z + lz)) + quer;
+      const y = hoehe + clamp((ox * sw + oy * cw) * Ry * atem + 0.35 * Math.sin(t * 1.9 + ph * 71) * lose + jy, -Ry, Ry);
 
-      treffer = false;
-      for (let k = 0; k < nah.length && !treffer; k += 1) {
+      let hier = null;
+      for (let k = 0; k < nah.length; k += 1) {
         const d = nah[k];
         const dz = z - d.z;
         if (dz > 26 || dz < -26) continue;
-        if (d.art === "nadel") {
-          const rr = nadelRadius(d, y);
-          if (rr > 0) x = umRundes(x, dz, d.x, rr, 16);
-        } else if (d.art === "bogen") {
-          x = durchBogen(x, y, dz, d);
-        } else if (d.art === "wand") {
-          x = durchWand(x, y, dz, d);
-        } else if (d.art === "windrad") {
-          if (y < NABE) x = umRundes(x, dz, d.x, 1.4, 8);
-          const ebene = d.z - ROTOR_VOR;
-          if (!treffer && zVor < ebene && z >= ebene) durchRotor(x, y, d);
-        } else if (d.art === "leitung") {
-          for (let j = 0; j < d.masten.length && !treffer; j += 1) {
-            if (y < d.masten[j].h) x = umRundes(x, dz, d.masten[j].x, MAST_R, 8);
-          }
-          if (!treffer && zVor < d.z && z >= d.z) {
-            for (let nr = 0; nr < 3; nr += 1) {
-              if (Math.abs(y - seilHoehe(d, x, nr)) < SEIL_TRIFFT) treffer = true;
-            }
-          }
-        }
+        if (trifft(d, x, y, zVor, z)) { hier = d; break; }
       }
-      if (treffer) {
+      if (hier) {
+        hier.tote = (hier.tote || 0) + 1;
         federn(x, y, z, tote);
+        if (quer < 0) links += 1;
         vogelWeg(i);
         tote += 1;
         continue;
@@ -905,57 +966,194 @@
       vg.y[i] = y;
       vg.z[i] = z;
     }
-    if (tote) verlust(tote);
+    if (tote) verlust(tote, links);
   }
 
-  // Wie viele ein Trupp mitbringt: seine eigenen – und einem grossen Schwarm
-  // schliessen sich mehr an, ein Teil von dem, was schon fliegt.
-  const truppGroesse = (trupp) => trupp.n + Math.round(vg.n * ANSCHLUSS[trupp.art]);
-
-  // Ein Trupp kommt dazu: Seine Vögel fliegen von dort, wo er kreiste, an
-  // ihre Plätze.
-  function nimm(trupp) {
+  // Neue Vögel: Sie fliegen von dort, wo sie warteten (x, z), an ihre Plätze.
+  function dazu(viele, x, z) {
     const m = masse();
-    const viele = truppGroesse(trupp);
-    let dazu = 0;
+    let n = 0;
     for (let k = 0; k < viele; k += 1) {
       const i = neuerVogel();
       if (i < 0) break;
-      vg.jx[i] = trupp.x - state.x + (Math.random() - 0.5) * 6 - vg.ox[i] * m.x;
-      vg.jy[i] = (Math.random() - 0.5) * 4 - vg.oy[i] * m.y;
-      vg.jz[i] = trupp.z - state.z + (Math.random() - 0.5) * 6 - vg.oz[i] * m.z;
-      vg.x[i] = trupp.x;
-      vg.z[i] = trupp.z;
-      dazu += 1;
+      vg.jx[i] = x - state.x + (Math.random() - 0.5) * 3 - vg.ox[i] * m.x;
+      vg.jy[i] = (Math.random() - 0.5) * 3 - vg.oy[i] * m.y;
+      vg.jz[i] = z - state.z + (Math.random() - 0.5) * 3 - vg.oz[i] * m.z;
+      n += 1;
     }
-    state.geholt += dazu;
+    state.geholt += n;
     state.groesster = Math.max(state.groesster, vg.n);
-    if (state.phase !== "bereit") {
-      const gross = trupp.art === "gross";
-      schrift(dazu ? `+${dazu}` : "voll", trupp.x, FLUG_Y + 6, trupp.z, gross ? "#ffe3f3" : "#ffd76a", gross ? 34 : 26);
-      funken(trupp.x, FLUG_Y, trupp.z, gross ? 34 : 16);
-      ton("schwarm.trupp", { laut: gross ? 1.2 : 0.9, hoehe: gross ? 1.15 : 1 }, 120);
-      kids()?.vibrate?.(10);
-    }
+    return n;
   }
 
-  function truppsTakt(dt) {
+  // Perfekt: Die Kette wächst, und Vögel schliessen sich an – je länger die
+  // Kette, desto mehr.
+  function perfekt(x, z, wort) {
+    state.kette += 1;
+    state.perfekte += 1;
+    const soll = KETTE[Math.min(state.kette, KETTE.length) - 1];
+    const n = state.phase === "spiel" ? dazu(soll, x, z) : soll;
+    schrift(`${wort} +${n}`, x, FLUG_Y + 5, z, "#ffe08a", 26 + 2 * Math.min(state.kette, 5));
+    funken(x, FLUG_Y, z, 14 + 3 * Math.min(state.kette, 5));
+    ton("schwarm.perfekt", { hoehe: 1 + 0.06 * Math.min(state.kette - 1, 6) }, 60);
+    kids()?.vibrate?.(8);
+  }
+
+  function ketteWeg() {
+    state.kette = 0;
+  }
+
+  // Die Tore: Wenn die Mitte durch ist, wird gemerkt, wie weit neben der
+  // Mitte der Lücke; wenn das Ende des Schwarms durch ist, wird gezählt –
+  // ein Vogel verloren, und es war nicht perfekt.
+  function toreTakt(zVor) {
     const W = state.welt;
-    const rz = masse().z;
+    const lang = masse().z;
+    for (let i = W.torVon; i < W.tore.length; i += 1) {
+      const tor = W.tore[i];
+      if (tor.z > state.z + 1) break;
+      if (tor.zustand === "offen") {
+        if (!quert(zVor, state.z, tor.z)) continue;
+        tor.zustand = "durch";
+        tor.mitte = state.x - tor.x;
+        state.tore += 1;
+      }
+      if (tor.zustand === "durch" && state.z > tor.z + lang + 1.5) {
+        let verloren = 0;
+        for (const d of tor.dinge) verloren += d.tote || 0;
+        tor.seit = state.zeit;
+        if (verloren > 0) {
+          tor.zustand = "verlust";
+          ketteWeg();
+        } else if (Math.abs(tor.mitte) <= perfektBei(tor.z)) {
+          tor.zustand = "perfekt";
+          perfekt(tor.x, tor.z + 4, "Perfekt");
+        } else {
+          tor.zustand = "sauber";
+          ketteWeg();
+          // Wie weit daneben – und auf welcher Seite.
+          const m = Math.abs(tor.mitte).toFixed(1).replace(".", ",");
+          schrift(tor.mitte < 0 ? `◂ ${m} m` : `${m} m ▸`, tor.x, FLUG_Y + 4, tor.z + 4, "rgba(255, 255, 255, 0.8)", 17);
+        }
+      }
+    }
+    while (W.torVon < W.tore.length && W.tore[W.torVon].zustand !== "offen" && W.tore[W.torVon].zustand !== "durch") W.torVon += 1;
+  }
+
+  // Ein grosser Trupp: Geht die Mitte durch seinen Ring, kommt er dazu.
+  function truppsTakt(zVor) {
+    const W = state.welt;
     while (W.truppVon < W.trupps.length && W.trupps[W.truppVon].z < state.z - 80) W.truppVon += 1;
     for (let i = W.truppVon; i < W.trupps.length; i += 1) {
       const trupp = W.trupps[i];
-      if (trupp.z > state.z + 60) break;
-      if (trupp.zustand !== "offen") { trupp.seit += dt; continue; }
-      if (state.z < trupp.z - rz * 0.4) continue;
-      const dort = state.x + (state.vx / Math.max(6, tempoBei(state.z))) * (trupp.z - state.z);
-      if (vg.n > 0 && Math.abs(trupp.x - dort) < state.R + 3) {
+      if (trupp.z > state.z + 1) break;
+      if (trupp.zustand !== "offen" || !quert(zVor, state.z, trupp.z)) continue;
+      trupp.seit = state.zeit;
+      if (Math.abs(trupp.x - state.x) < TRUPP.fang) {
         trupp.zustand = "geholt";
-        nimm(trupp);
-      } else if (state.z > trupp.z + 4) {
+        const n = state.phase === "spiel" ? dazu(trupp.n, trupp.x, trupp.z) : trupp.n;
+        if (state.phase !== "bereit") {
+          schrift(`+${n}`, trupp.x, FLUG_Y + 6, trupp.z, "#ffe3f3", 34);
+          funken(trupp.x, FLUG_Y, trupp.z, 34);
+          ton("schwarm.trupp", { laut: 1.2, hoehe: 1.15 }, 120);
+          kids()?.vibrate?.(10);
+        }
+      } else {
         trupp.zustand = "verpasst";
       }
     }
+  }
+
+  /*
+   * Der Falke. Bis FALKE_STOSS Sekunden vor seinem Ort kreist er voraus und
+   * schreit; dann legt er die Flügel an und stösst auf die Mitte des
+   * Schwarms. Ist der geballt, greift er ins Leere – wer erst in den letzten
+   * FALKE_SPAET Sekunden geballt hat, hat ihn pariert (die Kette wächst),
+   * wer früher ballte, war zu früh (die Kette bricht). Aufgefächert reisst er
+   * FALKE_RAUB des Schwarms heraus. Alles hängt an der Strecke, nicht an der
+   * Uhr: Wer gleich fliegt, trifft denselben Falken.
+   */
+  const restBei = (f) => (f.z - state.z) / Math.max(6, tempoBei(state.z));
+  function falkenTakt(zVor) {
+    const W = state.welt;
+    while (W.falkeVon < W.falken.length && W.falken[W.falkeVon].z < state.z - 200) W.falkeVon += 1;
+    for (let i = W.falkeVon; i < W.falken.length; i += 1) {
+      const f = W.falken[i];
+      if (f.z > state.z + 600) break;
+      const rest = restBei(f);
+      if (f.zustand === "offen") {
+        // Vor dem ersten sagt das Spiel einmal, was zu tun ist – früh genug,
+        // dass die Tafel weg ist, wenn er zustösst.
+        if (!f.gesagt && rest < 3.6) {
+          f.gesagt = true;
+          if (W.ersterFalke === f.z && state.phase === "spiel") karte("Ein Falke!", "Ballen, wenn er zustösst – nicht vorher", "#ffd0b0", 2.1);
+        }
+        if (!f.gerufen && rest < 2.2) {
+          f.gerufen = true;
+          if (state.phase === "spiel") ton("schwarm.falke", { laut: 0.7 }, 200);
+        }
+        if (rest <= FALKE_STOSS) {
+          f.anlegen = falkeOrt(f, FALKE_STOSS + 1e-6).slice();
+          f.zustand = "stoss";
+          if (state.phase === "spiel") ton("schwarm.falke", { laut: 1.1, hoehe: 1.12 }, 200);
+        }
+      }
+      if (f.zustand === "stoss" && quert(zVor, state.z, f.z)) {
+        f.seit = state.zeit;
+        f.x = state.x;
+        if (state.ball >= GEBALLT) {
+          if (state.zeit - state.ballenSeit <= FALKE_SPAET) {
+            f.zustand = "pariert";
+            perfekt(state.x, f.z + 4, "Pariert");
+          } else {
+            f.zustand = "leer";
+            ketteWeg();
+            schrift("zu früh", state.x, FLUG_Y + 5, f.z + 4, "rgba(255, 255, 255, 0.85)", 20);
+          }
+          ton("schwarm.ballen", { laut: 0.8 }, 60);
+        } else {
+          f.zustand = "raub";
+          ketteWeg();
+          if (state.phase === "spiel") {
+            const raub = Math.min(vg.n, Math.max(4, Math.round(vg.n * FALKE_RAUB)));
+            for (let k = 0; k < raub; k += 1) {
+              const j = Math.floor(Math.random() * vg.n);
+              federn(vg.x[j], vg.y[j], vg.z[j], k);
+              vogelWeg(j);
+            }
+            f.raub = raub;
+            verlust(raub, 0, "Falke");
+          }
+        }
+      }
+    }
+  }
+
+  // Wo der Falke gerade ist: kreisend voraus, im Stoss auf dem Weg zur Mitte
+  // des Schwarms, danach wieder hinauf.
+  const falkeHier = [0, 0, 0];
+  function falkeOrt(f, rest) {
+    const t = state.zeit;
+    if (f.zustand === "offen" || rest > FALKE_STOSS) {
+      falkeHier[0] = state.x * 0.6 + f.seite * (17 + 5 * Math.sin(t * 1.25 + f.nr));
+      falkeHier[1] = 33 + 3 * Math.sin(t * 0.9 + f.nr);
+      falkeHier[2] = f.z + 30 + 7 * Math.cos(t * 1.25 + f.nr);
+      return falkeHier;
+    }
+    if (f.zustand === "stoss") {
+      const u = 1 - clamp(rest / FALKE_STOSS, 0, 1);
+      const a = f.anlegen || falkeHier;
+      const k = u * u;
+      falkeHier[0] = lerp(a[0], state.x, k);
+      falkeHier[1] = lerp(a[1], FLUG_Y + 0.4, k);
+      falkeHier[2] = lerp(a[2], f.z, k);
+      return falkeHier;
+    }
+    const s = state.zeit - f.seit;
+    falkeHier[0] = (f.x ?? state.x) + f.seite * 10 * s;
+    falkeHier[1] = FLUG_Y + 2 + 16 * s;
+    falkeHier[2] = f.z + tempoBei(f.z) * 0.8 * s + 6;
+    return falkeHier;
   }
 
   // Beim Zuschauen zählt die Aufzeichnung: Der Schwarm ist so gross, wie er
@@ -1002,16 +1200,21 @@
     state.schriften.push({ text, x, y, z, farbe, gross, leben: 1.3, max: 1.3 });
   }
 
-  // Vögel verloren: ein Ruck, ein Flattern – und nach einem Augenblick steht
-  // da, wie viele es auf einmal waren.
-  function verlust(tote) {
+  // Vögel verloren: ein Ruck, ein Flattern, der Rand des Bilds glüht auf der
+  // Seite, die am Fels hing – und nach einem Augenblick steht da, wie viele es
+  // auf einmal waren. links: wie viele davon links der Mitte flogen.
+  function verlust(tote, links = 0, wer = "") {
     state.verloren += tote;
     if (state.phase === "zuschauen") return;
     const merker = state.verlustMerker;
     merker.zahl += tote;
+    merker.links += links;
     merker.seit = state.zeit;
+    if (wer) merker.wer = wer;
     state.stoss = Math.min(1, state.stoss + 0.25 + tote * 0.03);
     state.blitz = Math.min(1, state.blitz + 0.2 + tote * 0.03);
+    // -1: links, 1: rechts, 0: rundum (der Falke)
+    state.blitzSeite = wer ? 0 : links * 2 > tote ? -1 : links * 2 < tote ? 1 : 0;
     ton("schwarm.treffer", { laut: clamp(0.5 + tote * 0.06, 0.5, 1.2) }, 260);
     kids()?.vibrate?.(tote > 6 ? [20, 30, 30] : 14);
   }
@@ -1870,6 +2073,7 @@
   const EISEN = [0.2, 0.2, 0.24];
   const BOJE = [1.0, 0.4, 0.1];
   const GEFIEDER = [0.03, 0.03, 0.055];
+  const FALKE = [0.07, 0.045, 0.03];
   const VOGEL_GROSS = 0.8;         // halbe Breite der Scheibe eines Vogels, in Metern
   const SICHT_WEIT = 1500;
 
@@ -1974,33 +2178,72 @@
       }
     }
 
-    // Die Trupps: ein paar Vögel, die im goldenen Schein kreisen.
+    // Die Tore: In der Mitte jeder Lücke hängt ein goldener Ring, so gross
+    // wie das, was dort noch perfekt ist – von weitem ein Schein. Perfekt
+    // durchflogen, blüht er auf; sonst verlischt er.
+    for (let i = Math.max(0, W.torVon - 3); i < W.tore.length; i += 1) {
+      const t = W.tore[i];
+      if (t.z > kam.z + 1100) break;
+      if (t.z < kam.z) continue;
+      const tol = perfektBei(t.z);
+      const offen = t.zustand === "offen" || t.zustand === "durch";
+      const alter = offen ? 0 : state.zeit - t.seit;
+      if (!offen && alter > 0.8) continue;
+      const puls = 1 + 0.06 * Math.sin(state.zeit * 4 + t.nr);
+      if (t.zustand === "perfekt") {
+        const k = clamp(alter / 0.8, 0, 1);
+        schein(t.x, FLUG_Y, t.z, (tol / 0.84) * (1 + 5 * k), 1.0 * (1 - k), 0.85 * (1 - k), 0.45 * (1 - k), -1);
+        schein(t.x, FLUG_Y, t.z, 7 + 6 * k, 0.9 * (1 - k), 0.6 * (1 - k), 0.2 * (1 - k), 1.6);
+        continue;
+      }
+      const hell = offen ? 1 : 1 - clamp(alter / 0.4, 0, 1);
+      const fern = clamp((t.z - kam.z - 60) / 500, 0, 1);
+      schein(t.x, FLUG_Y, t.z, (tol / 0.84) * puls, 1.0 * hell, 0.82 * hell, 0.42 * hell, -1);
+      schein(t.x, FLUG_Y, t.z, 0.28, 1.0 * hell, 0.9 * hell, 0.6 * hell, 1.2);
+      schein(t.x, FLUG_Y, t.z, 3.2 + 4 * fern, (0.34 + 0.3 * fern) * hell, (0.22 + 0.2 * fern) * hell, 0.06 * hell, 1.8);
+    }
+
+    // Die grossen Trupps: ein paar Vögel, die in einem hellen Doppelring
+    // kreisen – von weitem zu sehen, auch vor der Sonne.
     for (let i = Math.max(0, W.truppVon - 2); i < W.trupps.length; i += 1) {
       const t = W.trupps[i];
       if (t.z > kam.z + 1100) break;
       if (t.z < kam.z || t.zustand === "geholt") continue;
-      const fort = t.zustand === "verpasst" ? clamp(t.seit / 0.8, 0, 1) : 0;
-      // Ein Ring, der atmet – von weitem zu sehen, auch vor der Sonne. Golden
-      // der kleine; der grosse hell und doppelt.
-      const gross = t.art === "gross";
+      const fort = t.zustand === "verpasst" ? clamp((state.zeit - t.seit) / 0.8, 0, 1) : 0;
       const puls = 1 + 0.07 * Math.sin(state.zeit * 3.4 + t.nr);
       const hell = (1 - fort) * (1.15 + 0.25 * Math.sin(state.zeit * 3.4 + t.nr));
-      if (gross) {
-        schein(t.x, FLUG_Y, t.z, 9.6 * puls * (1 + fort), 1.0 * hell, 0.78 * hell, 0.92 * hell, -1);
-        schein(t.x, FLUG_Y, t.z, 6.4 * (2 - puls) * (1 + fort), 0.9 * hell, 0.9 * hell, 1.0 * hell, -1);
-        schein(t.x, FLUG_Y, t.z, 17, 0.5 * (1 - fort), 0.3 * (1 - fort), 0.42 * (1 - fort), 1.6);
-      } else {
-        schein(t.x, FLUG_Y, t.z, 6.2 * puls * (1 + fort), 1.0 * hell, 0.8 * hell, 0.34 * hell, -1);
-        schein(t.x, FLUG_Y, t.z, 11, 0.5 * (1 - fort), 0.34 * (1 - fort), 0.1 * (1 - fort), 1.6);
-      }
-      const anzahl = clamp(Math.round(truppGroesse(t) / 2.5), gross ? 16 : 8, gross ? 34 : 18);
+      schein(t.x, FLUG_Y, t.z, (TRUPP.fang / 0.84) * puls * (1 + fort), 1.0 * hell, 0.78 * hell, 0.92 * hell, -1);
+      schein(t.x, FLUG_Y, t.z, (TRUPP.fang / 0.84) * 1.6 * (2 - puls) * (1 + fort), 0.9 * hell, 0.9 * hell, 1.0 * hell, -1);
+      schein(t.x, FLUG_Y, t.z, 15, 0.5 * (1 - fort), 0.3 * (1 - fort), 0.42 * (1 - fort), 1.6);
+      const anzahl = clamp(Math.round(t.n / 2.5), 16, 34);
       for (let j = 0; j < anzahl; j += 1) {
         const richtung = j % 2 ? 1 : -1;
         const w = state.zeit * (1.5 + 0.5 * hash01(j * 3.3 + t.nr)) * richtung + j * 2.4;
-        const r = (gross ? 2.2 : 1.6) + (gross ? 4.4 : 2.2) * hash01(j * 5.1 + t.nr);
+        const r = 2.6 + 4 * hash01(j * 5.1 + t.nr);
         vogel(N.vogel, t.x + Math.cos(w) * r, FLUG_Y + Math.sin(w * 0.7 + j) * 1.6 + fort * 8, t.z + Math.sin(w) * r,
           hash01(j + t.nr * 9), richtung * 0.45, VOGEL_GROSS, 1, GEFIEDER);
       }
+    }
+
+    // Die Falken: dunkel und gross, kreisend voraus, dann im Stoss. Sie
+    // stehen wie die Gegner fast ohne Dunst im Bild (N.geist) – sonst
+    // verschwänden sie vor dem Abendhimmel.
+    for (let i = Math.max(0, W.falkeVon - 1); i < W.falken.length; i += 1) {
+      const f = W.falken[i];
+      if (f.z > state.z + 700) break;
+      const fertig = f.zustand !== "offen" && f.zustand !== "stoss";
+      if (fertig && state.zeit - f.seit > 2.2) continue;
+      const o = falkeOrt(f, restBei(f));
+      const stoss = f.zustand === "stoss";
+      const deckF = fertig ? 1 - clamp((state.zeit - f.seit - 1.4) / 0.8, 0, 1) : 1;
+      vogel(N.geist, o[0], o[1], o[2], 0.37 + f.nr * 0.11, stoss ? f.seite * 0.5 : f.seite * 0.35 * Math.sin(state.zeit * 1.25 + f.nr), VOGEL_GROSS * (stoss ? 4 : 4.6), deckF, FALKE);
+    }
+
+    // Die Mitte des Schwarms: ein warmer Schein, den man durch das Licht der
+    // Lücke führt.
+    if (state.schritt === "flug" && vg.n) {
+      const hell = 0.55 + 0.15 * Math.sin(state.zeit * 5);
+      schein(state.x, FLUG_Y, state.z, 1.5, 0.9 * hell, 0.6 * hell, 0.22 * hell, 1.4);
     }
 
     // Der Schwarm.
@@ -2024,10 +2267,11 @@
         // Ein Hauch Licht in seiner Farbe, darin ein paar helle Vögel – mehr,
         // wenn sein Schwarm gross war.
         schein(gx, FLUG_Y, gz, 9, farbe[0] * 0.3 * o.blass, farbe[1] * 0.3 * o.blass, farbe[2] * 0.3 * o.blass, 1.8);
-        const viele = clamp(Math.round(6 + Math.sqrt(Math.max(0, o.c)) * 0.9), 6, 30);
+        const viele = clamp(Math.round(6 + Math.sqrt(voegelAus(o.c)) * 0.9), 6, 30);
+        const eng = geballtAus(o.c) ? 0.3 : 1;
         for (let j = 0; j < viele; j += 1) {
           const w = state.zeit * 0.6 + j * 2.4;
-          const r = 1 + 4.5 * hash01(j * 3.7);
+          const r = (1 + 4.5 * hash01(j * 3.7)) * eng;
           vogel(N.geist, gx + Math.cos(w) * r, FLUG_Y + Math.sin(w * 1.3 + j) * 2.4, gz + Math.sin(w) * r * 1.6,
             hash01(j * 1.7), 0, VOGEL_GROSS, 0.85 * o.blass, farbe);
         }
@@ -2276,18 +2520,28 @@
     g.fillStyle = "rgba(13, 12, 17, 0.5)";
     runde(x, y, breit, gross * 1.7, gross * 0.85);
     g.fill();
-    // Ein kleiner Vogel als Zeichen.
+    // Ein kleiner Vogel als Zeichen – geballt ein Punkt: Dann zählt er nicht.
     g.save();
     g.translate(x + gross * 0.95, y + gross * 0.9);
     g.strokeStyle = "#ffd76a";
+    g.fillStyle = "#ffd76a";
     g.lineWidth = Math.max(2, gross * 0.13);
     g.lineCap = "round";
     g.lineJoin = "round";
-    g.beginPath();
-    g.moveTo(-gross * 0.45, -gross * 0.12);
-    g.quadraticCurveTo(-gross * 0.2, -gross * 0.36, 0, gross * 0.12);
-    g.quadraticCurveTo(gross * 0.2, -gross * 0.36, gross * 0.45, -gross * 0.12);
-    g.stroke();
+    const ball = clamp(state.ball, 0, 1);
+    if (ball > 0.5) {
+      g.globalAlpha = 0.85;
+      g.beginPath();
+      g.arc(0, 0, gross * 0.24, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+    } else {
+      g.beginPath();
+      g.moveTo(-gross * 0.45, -gross * 0.12);
+      g.quadraticCurveTo(-gross * 0.2, -gross * 0.36, 0, gross * 0.12);
+      g.quadraticCurveTo(gross * 0.2, -gross * 0.36, gross * 0.45, -gross * 0.12);
+      g.stroke();
+    }
     g.restore();
     g.textAlign = "left";
     g.textBaseline = "middle";
@@ -2298,6 +2552,43 @@
     g.font = `800 ${Math.round(gross * 0.62)}px system-ui, sans-serif`;
     g.fillStyle = "rgba(255, 255, 255, 0.72)";
     g.fillText(meter, x + gross * 1.75 + zw + gross * 0.7, y + gross * 0.94);
+    // Darunter die Kette: so viele perfekte in Folge.
+    if (state.kette > 0 && state.phase !== "bereit") {
+      const text = `Perfekt ×${state.kette}`;
+      g.font = `900 ${Math.round(gross * 0.66)}px system-ui, sans-serif`;
+      const kw = g.measureText(text).width + gross * 1.1;
+      const ky = y + gross * 1.95;
+      g.fillStyle = "rgba(13, 12, 17, 0.5)";
+      runde(x, ky, kw, gross * 1.25, gross * 0.62);
+      g.fill();
+      g.fillStyle = "#ffe08a";
+      g.fillText(text, x + gross * 0.55, ky + gross * 0.66);
+    }
+  }
+
+  // Ein Falke ist nah: ein Ring um ihn, damit man ihn auch vor dem dunklen
+  // Himmel sieht – im Stoss heller und enger.
+  function zeichneFalken() {
+    const W = state.welt;
+    if (!W) return;
+    for (let i = W.falkeVon; i < W.falken.length; i += 1) {
+      const f = W.falken[i];
+      if (f.z > state.z + 600) break;
+      if (f.zustand !== "offen" && f.zustand !== "stoss") continue;
+      const rest = restBei(f);
+      if (rest > 2.6) continue;
+      const o = falkeOrt(f, rest);
+      const p = imBild(o[0], o[1], o[2]);
+      if (!p) continue;
+      const stoss = f.zustand === "stoss";
+      const puls = 0.5 + 0.5 * Math.sin(state.zeit * (stoss ? 22 : 7));
+      const r = clamp(view.cssH * 0.045, 14, 30) * (stoss ? 1.15 : 1);
+      g.strokeStyle = stoss ? `rgba(255, 110, 70, ${0.7 + 0.3 * puls})` : `rgba(255, 190, 140, ${0.45 + 0.3 * puls})`;
+      g.lineWidth = stoss ? 3.5 : 2.5;
+      g.beginPath();
+      g.arc(p.x, p.y, r, 0, Math.PI * 2);
+      g.stroke();
+    }
   }
 
   // Vor dem ersten Druck: links und rechts ein Pfeil – dort wird gehalten.
@@ -2331,8 +2622,12 @@
     const alter = state.zeit - k.seit;
     const deck = Math.min(1, alter / 0.4) * clamp((k.dauer - alter) / 0.6, 0, 1);
     if (deck <= 0) return;
-    const gross = clamp(view.cssW * 0.06, 22, 46);
-    const y = Math.max(view.cssH * 0.2, view.frei + gross * 1.6);
+    const gross = clamp(view.cssW * 0.055, 22, 42);
+    // Breit steht sie neben der Anzeige oben links, schmal darunter.
+    const anzeigeUnten = 12 + view.frei + clamp(view.cssH * 0.05, 15, 24) * 3.3;
+    const y = view.cssW > 640
+      ? Math.max(view.cssH * 0.18, view.frei + gross * 1.35)
+      : Math.max(view.cssH * 0.2, anzeigeUnten + gross * 0.75);
     g.globalAlpha = deck;
     g.textAlign = "center";
     g.textBaseline = "middle";
@@ -2379,7 +2674,7 @@
     if (!geisterOrte.length || !window.LernappGeist?.namen) return;
     const liste = geisterOrte.map((o) => {
       const p = o.ziel ? imBild(state.x, FLUG_Y + masse().y + 3, state.z) : imBild(o.b / 10, FLUG_Y + 5, o.a / 10);
-      return { ...o, sx: p ? p.x : view.cssW / 2, sy: p ? p.y : view.cssH + 40, weit: `${Math.round(o.c)} Vögel` };
+      return { ...o, sx: p ? p.x : view.cssW / 2, sy: p ? p.y : view.cssH + 40, weit: `${voegelAus(o.c)} Vögel` };
     });
     window.LernappGeist.namen(g, liste, { breit: view.cssW, hoch: view.cssH });
   }
@@ -2388,15 +2683,28 @@
     if (!g) return;
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     g.clearRect(0, 0, view.cssW, view.cssH);
-    // Vögel verloren: Der Rand des Bilds glüht kurz rot.
+    // Vögel verloren: Der Rand des Bilds glüht kurz rot – auf der Seite, die
+    // am Fels hing, oder rundum.
     if (state.blitz > 0.01 && !ruhig()) {
-      const r = Math.hypot(view.cssW, view.cssH) / 2;
-      const rand = g.createRadialGradient(view.cssW / 2, view.cssH / 2, r * 0.55, view.cssW / 2, view.cssH / 2, r);
-      rand.addColorStop(0, "rgba(255, 70, 40, 0)");
-      rand.addColorStop(1, `rgba(255, 70, 40, ${0.38 * state.blitz})`);
-      g.fillStyle = rand;
-      g.fillRect(0, 0, view.cssW, view.cssH);
+      if (state.blitzSeite) {
+        const links = state.blitzSeite < 0;
+        const breit = view.cssW * 0.3;
+        const x0 = links ? 0 : view.cssW;
+        const rand = g.createLinearGradient(x0, 0, links ? breit : view.cssW - breit, 0);
+        rand.addColorStop(0, `rgba(255, 70, 40, ${0.5 * state.blitz})`);
+        rand.addColorStop(1, "rgba(255, 70, 40, 0)");
+        g.fillStyle = rand;
+        g.fillRect(links ? 0 : view.cssW - breit, 0, breit, view.cssH);
+      } else {
+        const r = Math.hypot(view.cssW, view.cssH) / 2;
+        const rand = g.createRadialGradient(view.cssW / 2, view.cssH / 2, r * 0.55, view.cssW / 2, view.cssH / 2, r);
+        rand.addColorStop(0, "rgba(255, 70, 40, 0)");
+        rand.addColorStop(1, `rgba(255, 70, 40, ${0.38 * state.blitz})`);
+        g.fillStyle = rand;
+        g.fillRect(0, 0, view.cssW, view.cssH);
+      }
     }
+    zeichneFalken();
     zeichneNamen();
     zeichneSchriften();
     zeichneKarte();
@@ -2448,6 +2756,13 @@
   // ---------------------------------------------------------------------------
   // Der Lauf
   // ---------------------------------------------------------------------------
+  // Was die Aufzeichnung als c trägt: die Zahl der Vögel – GEBALLT_C dazu,
+  // solange der Schwarm geballt ist, und 0, wenn er am Fels zerschellt ist.
+  const GEBALLT_C = 2000;
+  const ortC = () => (state.grund === "fels" ? 0 : vg.n + (state.ballen ? GEBALLT_C : 0));
+  const voegelAus = (c) => Math.max(0, Math.round(Number(c) || 0)) % GEBALLT_C;
+  const geballtAus = (c) => (Number(c) || 0) >= GEBALLT_C;
+
   function karte(gross, klein, farbe = "#ffe9b8", dauer = 2.8) {
     state.karte = { gross, klein, farbe, dauer, seit: state.zeit };
   }
@@ -2459,6 +2774,7 @@
     return nr;
   };
 
+  // Aufgefächert zählt der Schwarm, geballt nicht.
   function physik(dt) {
     const v = tempoBei(state.z);
     const ziel = state.lenk * querBei(state.z);
@@ -2467,17 +2783,55 @@
     if (state.x > X_MAX) { state.x = X_MAX; state.vx = Math.min(0, state.vx); }
     if (state.x < -X_MAX) { state.x = -X_MAX; state.vx = Math.max(0, state.vx); }
     state.z += v * dt;
-    state.roh += vg.n * v * dt * PUNKTE_JE_100M / 10000;
+    state.roh += vg.n * v * dt * PUNKTE_JE_100M / 10000 * (1 - state.ball);
   }
 
-  // Zu wenige sind übrig: Der Schwarm zerstreut sich.
-  function aus() {
+  // Ballen: Liegen beide Seiten lange genug auf (BALL_VERZUG), ballt sich
+  // der Schwarm – dann lenkt er nicht.
+  function ballenTakt() {
+    const wunsch = state.phase === "spiel" && state.schritt === "flug" && beideAuf();
+    if (wunsch && !state.wunsch) state.wunschSeit = state.zeit;
+    state.wunsch = wunsch;
+    const ballen = wunsch && state.zeit - state.wunschSeit >= BALL_VERZUG - 1e-9;
+    if (ballen && !state.ballen) {
+      state.ballenSeit = state.zeit;
+      ton("schwarm.ballen", { laut: 0.55 }, 90);
+    }
+    state.ballen = ballen;
+    lenkNeu();
+  }
+
+  // Die Mitte des Schwarms am Fels: Die Runde ist vorbei.
+  function mitteTakt(zVor) {
+    for (let k = 0; k < nah.length; k += 1) {
+      if (trifft(nah[k], state.x, FLUG_Y, zVor, state.z)) {
+        aus("fels");
+        return;
+      }
+    }
+  }
+
+  // Die Runde ist vorbei: Zu wenige sind übrig (der Schwarm zerstreut sich),
+  // oder die Mitte ist am Fels zerschellt.
+  function aus(grund = "zerstreut") {
     state.schritt = "aus";
     state.schrittZeit = state.zeit;
+    state.grund = grund;
     state.lenk = 0;
+    state.ballen = false;
     windAus();
     if (state.phase !== "spiel") return;
-    karte("Zerstreut", `Unter ${MINDEST} Vögeln hält kein Schwarm zusammen`, "#ff9a7a", 2.2);
+    if (grund === "fels") {
+      state.stoss = 1;
+      state.blitz = 1;
+      state.blitzSeite = 0;
+      for (let k = 0; k < 10; k += 1) federn(state.x, FLUG_Y, state.z, 0);
+      karte("Am Fels zerschellt", "Die Mitte des Schwarms darf nie an den Fels", "#ff9a7a", 2.2);
+      ton("schwarm.fels", { laut: 1.1 }, 0);
+      kids()?.vibrate?.([30, 40, 60]);
+    } else {
+      karte("Zerstreut", `Unter ${MINDEST} Vögeln hält kein Schwarm zusammen`, "#ff9a7a", 2.2);
+    }
     klang()?.ton?.("fehler");
   }
 
@@ -2487,6 +2841,7 @@
     state.schrittZeit = state.zeit;
     state.angekommen = true;
     state.lenk = 0;
+    state.ballen = false;
     if (state.phase !== "spiel") return;
     state.bonus = Math.round(vg.n * BONUS);
     state.roh += state.bonus;
@@ -2507,6 +2862,7 @@
     if (state.phase === "zuschauen") {
       zuschauenTakt();
     } else if (state.phase === "spiel" && state.schritt === "flug") {
+      ballenTakt();
       const n = Math.max(1, Math.ceil(dt / TAKT - 1e-9));
       for (let i = 0; i < n; i += 1) physik(dt / n);
       state.flugzeit += dt;
@@ -2523,8 +2879,21 @@
     }
     if (state.z !== zVor) spurSchreiben(xVor, zVor);
     weltBis(state.z + SICHT_WEIT + 100);
-    if (state.schritt === "flug") truppsTakt(dt);
     schwarmTakt(dt);
+    if (state.schritt === "flug") {
+      if (state.phase === "spiel") mitteTakt(zVor);
+      if (state.schritt === "flug") {
+        toreTakt(zVor);
+        truppsTakt(zVor);
+        falkenTakt(zVor);
+      }
+    }
+    // Vor der ersten Wand sagt das Spiel einmal, was zu tun ist.
+    const W = state.welt;
+    if (state.phase === "spiel" && W.erstesBallen && !state.gesagt && state.z > W.erstesBallen - tempoBei(state.z) * 3.6) {
+      state.gesagt = true;
+      karte("Beide halten", "Kurz vor dem Spalt – dann ballt sich der Schwarm und passt hindurch", "#ffe9b8", 2.5);
+    }
 
     for (let i = state.teile.length - 1; i >= 0; i -= 1) {
       const t = state.teile[i];
@@ -2540,9 +2909,14 @@
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
     const merker = state.verlustMerker;
-    if (merker.zahl && state.zeit - merker.seit > 0.4) {
-      schrift(`−${merker.zahl}`, state.x, FLUG_Y + 4, state.z + 4, "#ff9a7a", 22);
+    if (merker.zahl && state.zeit - merker.seit > 0.25) {
+      // Die Zahl steht auf der Seite, die am Fels hing.
+      const seite = merker.wer ? 0 : merker.links * 2 > merker.zahl ? -1 : merker.links * 2 < merker.zahl ? 1 : 0;
+      const breit = masse().x;
+      schrift(merker.wer ? `−${merker.zahl} ${merker.wer}` : `−${merker.zahl}`, state.x + seite * breit * 0.8, FLUG_Y + 4, state.z + 4, "#ff9a7a", 24);
       merker.zahl = 0;
+      merker.links = 0;
+      merker.wer = "";
     }
     kameraTakt(dt);
     windStellen();
@@ -2564,7 +2938,7 @@
         if (vg.n < MINDEST) aus();
         else if (state.z >= Z_ENDE) landung();
       }
-      gegner?.takt(state.punkte, { a: Math.round(state.z * 10), b: Math.round(state.x * 10), c: vg.n });
+      gegner?.takt(state.punkte, { a: Math.round(state.z * 10), b: Math.round(state.x * 10), c: ortC() });
       // Erst ausfliegen lassen: das Zerstreuen, die Landung. (Neu gerechnet –
       // der Schritt kann eben erst begonnen haben.)
       const dauer = state.zeit - state.schrittZeit;
@@ -2609,7 +2983,10 @@
       state.x = clamp(s.b / 10, -X_MAX, X_MAX);
       state.vx = (s.vb || 0) / 10;
       state.flugzeit = (s.t || 0) / 1000;
-      gleicheAn(s.c || 0);
+      gleicheAn(voegelAus(s.c));
+      const ballen = geballtAus(s.c);
+      if (ballen && !state.ballen) state.ballenSeit = state.zeit;
+      state.ballen = ballen;
       state.meter = Math.floor(state.z);
       if (state.z >= Z_ENDE - 0.5) landung();
       else if (vg.n < MINDEST && state.z > 5) aus();
@@ -2636,18 +3013,31 @@
     shell.setPhase("play");
     gegner?.los();
     windAn();
-    karte(ABEND[0].name, "Nimm die goldenen Trupps mit – weich allem anderen aus");
+    karte(ABEND[0].name, "Führ die Mitte des Schwarms durch das Licht in jeder Lücke");
     kids()?.vibrate?.(8);
     lenkNeu();
   }
 
   // Wer hält, lenkt: links vom Bild nach links, rechts nach rechts. Liegen
-  // zwei Finger auf, zählt der, der zuletzt kam.
+  // zwei Finger auf einer Seite, zählt der, der zuletzt kam; liegen sie auf
+  // beiden Seiten (oder die Taste zum Ballen, Seite 0), ballt sich der
+  // Schwarm (ballenTakt) – und lenkt nicht.
   const finger = new Map();
   function lenkNeu() {
     let richtung = 0;
-    for (const seite of finger.values()) richtung = seite;
-    state.lenk = state.phase === "zuschauen" || state.phase === "ende" || state.schritt !== "flug" ? 0 : richtung;
+    for (const seite of finger.values()) if (seite) richtung = seite;
+    state.lenk = state.phase === "zuschauen" || state.phase === "ende" || state.schritt !== "flug" || state.ballen ? 0 : richtung;
+  }
+
+  function beideAuf() {
+    let links = false;
+    let rechts = false;
+    for (const seite of finger.values()) {
+      if (!seite) return true;
+      if (seite < 0) links = true;
+      else rechts = true;
+    }
+    return links && rechts;
   }
 
   function fingerAuf(id, seite) {
@@ -2675,10 +3065,15 @@
     return event.clientX < r.left + r.width / 2 ? -1 : 1;
   }
 
-  // Für die Prüfskripte und die Vorführung: -1, 0 oder 1.
+  // Für die Prüfskripte und die Vorführung: -1, 0 oder 1 – und ballen
+  // (true oder false), wie mit der Taste.
   function lenke(richtung) {
     if (richtung) fingerAuf("pilot", richtung < 0 ? -1 : 1);
     else fingerWeg("pilot");
+  }
+  function ballen(an) {
+    if (an) { if (!finger.has("pilotBall")) fingerAuf("pilotBall", 0); }
+    else fingerWeg("pilotBall");
   }
 
   // ---------------------------------------------------------------------------
@@ -2692,10 +3087,12 @@
     shell.setPhase("intro");
     Object.assign(state, {
       phase: "bereit", schritt: "start", punkte: 0, roh: 0, x: 0, z: 0, vx: 0, lenk: 0,
+      wunsch: false, wunschSeit: 0, ballen: false, ballenSeit: -1e9, ball: 0, ballLang: 0,
+      kette: 0, perfekte: 0, tore: 0, grund: "", gesagt: false,
       R: radiusBei(START_VOEGEL), form: 0, wirbel: 0, zeit: 0, flugzeit: 0, meter: 0,
       groesster: START_VOEGEL, verloren: 0, geholt: 0, bonus: 0, angekommen: false, licht: 0,
-      teile: [], schriften: [], karte: null, stoss: 0, blitz: 0, schrittZeit: 0,
-      verlustMerker: { zahl: 0, seit: 0 },
+      teile: [], schriften: [], karte: null, stoss: 0, blitz: 0, blitzSeite: 0, schrittZeit: 0,
+      verlustMerker: { zahl: 0, links: 0, wer: "", seit: 0 },
     });
     state.welt = neueWelt();
     vg.n = 0;
@@ -2707,7 +3104,7 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt sw-prompt", "Links halten – nach links. Rechts halten – nach rechts.");
+    const prompt = shell.el("p", "cm-prompt sw-prompt", "Links halten – nach links. Rechts halten – nach rechts. Beide – ballen.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     messen();
@@ -2755,11 +3152,14 @@
     }));
     const wie = state.angekommen
       ? `Am Schlafplatz mit ${vg.n} Vögeln`
-      : `Zerstreut nach ${state.meter} m (${ABEND[lichtNr(state.z)].name})`;
+      : state.grund === "fels"
+        ? `Am Fels zerschellt nach ${state.meter} m`
+        : `Zerstreut nach ${state.meter} m`;
+    const genau = state.tore ? `${state.perfekte} von ${state.tore} Toren perfekt` : "";
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : [wie, `grösster Schwarm ${state.groesster}`, vorher ? `Bestwert ${vorher}` : ""].filter(Boolean).join(" · "),
+      detail: rekord ? "Neuer Rekord!" : [wie, genau, vorher ? `Bestwert ${vorher}` : ""].filter(Boolean).join(" · "),
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("sw-rekord");
@@ -2779,11 +3179,13 @@
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
+  // Fassung t2: seit dem Ballen (c trägt, ob er geballt ist). Läufe aus t1
+  // werden nicht mehr abgespielt.
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "flockFlight", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "flockFlight", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "flockFlight", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "flockFlight", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   grafikStarten();
@@ -2808,12 +3210,13 @@
   // Wer das Fenster verlässt, lässt auch los.
   window.addEventListener("blur", alleWeg);
 
-  // Pfeiltasten oder A und D lenken; Leertaste und Enter starten nur.
-  const TASTEN = { ArrowLeft: -1, ArrowRight: 1, KeyA: -1, KeyD: 1 };
-  const tasteVon = (event) => (TASTEN[event.key] ? event.key : TASTEN[event.code] ? event.code : null);
+  // Pfeiltasten oder A und D lenken; ↓, S und die Leertaste ballen (Seite
+  // 0), links und rechts zugleich auch. Enter startet nur.
+  const TASTEN = { ArrowLeft: -1, ArrowRight: 1, KeyA: -1, KeyD: 1, ArrowDown: 0, KeyS: 0, " ": 0, Space: 0 };
+  const tasteVon = (event) => (event.key in TASTEN ? event.key : event.code in TASTEN ? event.code : null);
   document.addEventListener("keydown", (event) => {
     const taste = tasteVon(event);
-    const start = event.key === " " || event.key === "Enter";
+    const start = event.key === "Enter";
     if (!taste && !start) return;
     if (document.activeElement?.tagName === "BUTTON") return;
     event.preventDefault();
@@ -2838,9 +3241,11 @@
   // Für die Prüfskripte und die Vorführung. lenke(-1 | 0 | 1) hält links oder
   // rechts oder lässt los; guete(1) hält die Schärfe fest.
   window.LernappSchwarm = {
-    TAKT, Z_ENDE, X_MAX, START_VOEGEL, VOEGEL_MAX, MINDEST, BONUS, PUNKTE_JE_100M, FLUG_Y, ROTOR, MAST_R, MAST, BOGEN_AUSSEN, ANSCHLUSS,
-    state, view, kam, vg, bild, takt, zeichnen, weltText, weltBis, wegBei, tempoBei, querBei, breiteBei, spaltBei, lenkbarBei, radiusBei,
-    losGehts, lenke, masse,
+    TAKT, Z_ENDE, X_MAX, START_VOEGEL, VOEGEL_MAX, MINDEST, BONUS, PUNKTE_JE_100M, FLUG_Y, ROTOR, MAST_R, MAST, BOGEN_AUSSEN,
+    BALL_VERZUG, GEBALLT, KETTE, TRUPP, FALKE_STOSS, FALKE_SPAET, FALKE_RAUB, T_PAUSE, GEBALLT_C,
+    state, view, kam, vg, bild, takt, zeichnen, weltText, weltBis, wegBei, tempoBei, querBei, breiteBei, spaltBei, radiusBei, ballRadiusBei,
+    perfektBei, anteilBei, reichBei, trifft, nadelRadius, bogenBreite, seilHoehe,
+    losGehts, lenke, ballen, masse,
     guete(wert) {
       view.fest = wert !== null && wert !== undefined;
       if (view.fest) view.guete = clamp(Number(wert) || 1, 0.3, 1);

@@ -171,6 +171,10 @@
     "schwarm.wind": { s: "a-fahrtwind", schleife: true },
     "schwarm.trupp": { s: "zwitschern" },
     "schwarm.treffer": { s: "flatter" },
+    "schwarm.ballen": { s: "woosh-kurz" },
+    "schwarm.perfekt": { s: "perle" },
+    "schwarm.falke": { s: "schrei" },
+    "schwarm.fels": { s: "whomp" },
     "welle.brandung": { s: "a-fahrtwind", schleife: true },
     "welle.roehre": { s: "roehre" },
     "welle.sturz": { s: "brecher" },
@@ -434,6 +438,8 @@
       ton(90, t + 0.2, { f2: 55, gleit: 0.15, r: 0.2, laut: 0.35 });
     },
     sonar: (t) => ton(2200, t, { r: 0.22, laut: 0.12, ziel: echo(0.16, 0.45) }),
+    // Der Schrei eines Falken: zwei hohe, rauhe Rufe, die abfallen.
+    schrei: (t) => [0, 0.19].forEach((d, i) => ton(2900 - i * 250, t + d, { typ: "sawtooth", f2: 2000 - i * 200, gleit: 0.24, a: 0.008, h: 0.1, r: 0.12, laut: 0.06, vib: 24, tief: 4200 })),
     pling: (t) => { ton(note(91), t, { r: 0.4, laut: 0.16 }); ton(note(98), t, { r: 0.18, laut: 0.05 }); },
     // Turmspringen: sauber eingetaucht – kein Platsch, nur ein tiefes Plopp.
     rip: (t) => { ton(190, t, { f2: 70, gleit: 0.18, r: 0.22, laut: 0.38 }); rausch(t, { dauer: 0.12, typ: "lowpass", f: 900, f2: 300, r: 0.1, laut: 0.12 }); },
