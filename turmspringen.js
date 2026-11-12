@@ -1261,7 +1261,7 @@
           g.fill();
         }
         if (p.alter < p.kronZeit) {
-          g.globalAlpha = clamp(1.7 - (p.alter / p.kronZeit) * 1.7, 0, 1) * (lage ? 0.5 : 0.62);
+          g.globalAlpha = clamp(1.5 - (p.alter / p.kronZeit) * 1.5, 0, 1) * (lage ? 0.5 : 0.62);
           kronePfad(p, lage ? 0.86 : 1);
           g.fill();
         }
@@ -2619,7 +2619,7 @@
     // Von links nach rechts geordnet: Zwischen ihren Spitzen steht die Krone.
     finger.sort((a, b) => a.w - b.w);
     const krone = finger.length;
-    const kronZeit = (finger.reduce((summe, f) => summe + f.gipfel, 0) / krone) * 1.7;
+    const kronZeit = (finger.reduce((summe, f) => summe + f.gipfel, 0) / krone) * 1.35;
     if (kraft > 1.5) neuerFinger({ x, w: (Math.random() - 0.5) * 0.1, v: 10.5, dick: 0.8, dauer: 0.3, ab: 0.14 });
     // Dazu wölbt sich das Wasser um die Stelle kurz auf.
     state.platscher.push({
