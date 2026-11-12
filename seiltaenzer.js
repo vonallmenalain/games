@@ -415,6 +415,21 @@
     while (w.naechstes < b.x) neuesEreignis();
   }
 
+  // Wirft eine Böe (Kraft G, so viele Sekunden, Dämpfung c) einen um, der
+  // nicht gegenhält? Nachgerechnet wie in physik, ohne Seil und Schritt.
+  function boeWirft(G, dauer, c) {
+    let th = 0;
+    let w = 0;
+    const h = 1 / 240;
+    for (let t = 0; t < dauer + 1; t += h) {
+      const s = t < dauer ? Math.sin((Math.PI * t) / dauer) : 0;
+      w += (-AUFRICHT * Math.sin(th) - c * w + G * s * s) * h;
+      th += w * h;
+      if (th > KIPP_MAX) return true;
+    }
+    return false;
+  }
+
   // Sekunden des Gehens ab der Stelle x in Einheiten (über die kurze Strecke
   // ändert sich das Tempo kaum).
   const strecke = (x, sekunden) => sekunden * tempoBei(x);
@@ -448,9 +463,11 @@
     }
     const e = { art, x0, x1: x0, dir: z[2] < 0.5 ? -1 : 1, G: 0, doppelt: false };
     if (art === "boe") {
-      const dauer = lerp(lerp(BOE_DAUER[0][0], BOE_DAUER[1][0], k), lerp(BOE_DAUER[0][1], BOE_DAUER[1][1], k), z[0]);
-      e.x1 = x0 + strecke(x0, dauer);
+      let dauer = lerp(lerp(BOE_DAUER[0][0], BOE_DAUER[1][0], k), lerp(BOE_DAUER[0][1], BOE_DAUER[1][1], k), z[0]);
       e.G = Math.min(STANGE - BOE_RESERVE, lerp(BOE_KRAFT[0], BOE_KRAFT[1], k) * (0.88 + 0.12 * z[1]));
+      // Lang genug, dass sie umwirft, wer nicht gegenhält – nachgerechnet.
+      while (!boeWirft(e.G, dauer, daempf(k)) && dauer < 4) dauer += 0.1;
+      e.x1 = x0 + strecke(x0, dauer);
       e.doppelt = w.doppel !== 0;
       if (e.doppelt) e.dir = -w.doppel;
     } else if (art === "vogel") {
