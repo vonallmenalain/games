@@ -2706,6 +2706,9 @@ try {
   // Server), und die leitet zum Turnier weiter. Eine Seite, die es gibt, nur
   // gross geschrieben, führt zu ihr; alles andere bleibt «nicht gefunden».
   {
+    // Eine Adresse ohne Datei antwortet mit 404 – das meldet der Browser in
+    // der Konsole, und hier ist es Absicht. Alles andere zählt weiter.
+    const vorher404 = fehlerAufSeite.length;
     const { kontext, seite } = await mitTurnieren(`/${HERBST.toUpperCase()}/`);
     await seite.waitForFunction(() => /Herbstcup/.test(document.querySelector("[data-turnier]")?.textContent || ""), null, { timeout: 8000 })
       .catch(() => {});
@@ -2734,6 +2737,8 @@ try {
     const ohne = await klassenOhneRegel(seite);
     pruefe(ohne.length === 0, `Die Seite «nicht gefunden» – Klassen ohne Regel: ${ohne.join(", ")}`);
     await kontext.close();
+    const hier = fehlerAufSeite.splice(vorher404);
+    fehlerAufSeite.push(...hier.filter((text) => !/status of 404/.test(text)));
   }
 
   // --- 4f. Ein Turnier, von vorne bis hinten --------------------------------------
