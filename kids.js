@@ -156,10 +156,55 @@
   // überall gleich anhören. Der globale Ton-Schalter (Lautsprecher oben rechts)
   // liegt unter demselben Schlüssel wie in app.js.
   const AUDIO_KEY = "lernapp.audioFeedback";
+  // Wie laut (0 … 1), neben dem Schalter: Stumm und leise sind zweierlei.
+  // Wer stummschaltet und wieder einschaltet, hört es so laut wie vorher.
+  // Ohne Eintrag ganz laut – so klang es, bevor es den Regler gab.
+  const LAUT_KEY = "lernapp.lautstaerke";
   let audioContext = null;
   function audioEnabled() {
     const setting = readRaw(AUDIO_KEY);
     return setting !== "0" && setting !== "false" && setting !== "off";
+  }
+  function lautstaerke() {
+    const roh = readRaw(LAUT_KEY);
+    if (roh === null || roh === "") return 1;
+    const wert = Number(roh);
+    return Number.isFinite(wert) ? Math.max(0, Math.min(1, wert)) : 1;
+  }
+  // Das Ohr hört nicht gerade: Der halbe Regler soll nach halb so laut
+  // klingen, nicht nach fast ganz laut. Darum im Quadrat.
+  const pegelVon = (wert) => wert * wert;
+
+  // Der Ausgang der Seite: Alles, was hier klingt, geht durch diesen einen
+  // Regler – die Töne dieser Datei und die von klang.js (das ihn über
+  // ausgang() holt). So gilt die Lautstärke für alles auf einmal.
+  let ausgangsRegler = null;
+  function ausgang() {
+    const ctx = audioContext;
+    if (!ctx) return null;
+    if (!ausgangsRegler || ausgangsRegler.context !== ctx) {
+      try {
+        ausgangsRegler = ctx.createGain();
+        ausgangsRegler.gain.value = pegelVon(lautstaerke());
+        ausgangsRegler.connect(ctx.destination);
+      } catch {
+        ausgangsRegler = null;
+        return ctx.destination;
+      }
+    }
+    return ausgangsRegler;
+  }
+  function reglerNachziehen() {
+    if (!ausgangsRegler) return;
+    const ziel = pegelVon(lautstaerke());
+    try { ausgangsRegler.gain.setTargetAtTime(ziel, ausgangsRegler.context.currentTime, 0.03); }
+    catch { try { ausgangsRegler.gain.value = ziel; } catch { /* egal */ } }
+  }
+  function setLautstaerke(wert) {
+    const neu = Math.max(0, Math.min(1, Number(wert) || 0));
+    writeRaw(LAUT_KEY, String(Math.round(neu * 100) / 100));
+    reglerNachziehen();
+    updateAudioToggle();
   }
   function setAudioEnabled(enabled) {
     writeRaw(AUDIO_KEY, enabled ? "1" : "0");
@@ -208,7 +253,7 @@
       gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       osc.connect(gain);
-      gain.connect(destination || ctx.destination);
+      gain.connect(destination || ausgang() || ctx.destination);
       osc.start(start);
       osc.stop(start + duration + 0.03);
     } catch { /* ignore */ }
@@ -307,34 +352,216 @@
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
-  // Ton-Schalter (oben rechts)
+  // Der Ton (oben rechts): ein Knopf und darunter sein Regler
   // ---------------------------------------------------------------------------
   // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Tier-Sprung)
-  // einen Schalter haben – sie machen ja ebenfalls Geräusche.
-  let audioToggle = null;
-  function updateAudioToggle() {
-    if (!audioToggle) return;
-    const muted = !audioEnabled();
-    audioToggle.classList.toggle("muted", muted);
-    audioToggle.setAttribute("aria-pressed", muted ? "true" : "false");
-    audioToggle.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton ausschalten");
-    audioToggle.title = muted ? "Ton einschalten" : "Ton ausschalten";
-  }
-  function mountAudioToggle() {
-    if (audioToggle || document.querySelector(".sound-toggle")) return null;
-    audioToggle = document.createElement("button");
-    audioToggle.type = "button";
-    audioToggle.className = "sound-toggle";
-    audioToggle.dataset.audioToggle = "true";
-    audioToggle.innerHTML = `
+  // einen Knopf haben – sie machen ja ebenfalls Geräusche.
+  //
+  // Bis November 2026 schaltete der Knopf den Ton nur ein und aus. Jetzt
+  // öffnet ein Tipp darauf einen kleinen Regler mit beidem: der Lautstärke
+  // (ein Schieber) und Stumm (ein Schalter). Er schliesst sich mit einem
+  // Tipp daneben, mit Esc oder mit einem zweiten Tipp auf den Knopf. Am
+  // Knopf selbst sieht man, wie es steht: durchgestrichen bei stumm (oder
+  // ganz leise), eine Welle weniger unter der Hälfte.
+  //
+  // Beim Zuschauen sind alle Eingaben gesperrt (geist.js, live-spiel.js) –
+  // Knopf und Regler sind davon ausgenommen (.sound-toggle, .ton-regler).
+  // Was im Regler gedrückt wird, bleibt im Regler: Die Spiele hören auf dem
+  // ganzen Dokument auf Pfeile und Leertaste, und ein Pfeil, der den Schieber
+  // bewegt, soll nicht auch den Jongleur werfen lassen.
+  const SVG_TON = `
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path class="sound-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
         <path class="sound-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
         <path class="sound-wave sound-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
         <path class="sound-off-line" d="M4 4l16 16"/>
       </svg>`;
-    audioToggle.addEventListener("click", () => { setAudioEnabled(!audioEnabled()); updateAudioToggle(); });
-    document.body.append(audioToggle);
+  let audioToggle = null;
+  let regler = null;
+  let reglerOffen = false;
+
+  function tonLage() {
+    const aus = !audioEnabled();
+    const laut = lautstaerke();
+    return { aus, laut, still: aus || laut <= 0, prozent: Math.round(laut * 100) };
+  }
+
+  function updateAudioToggle() {
+    if (!audioToggle) return;
+    const { aus, laut, still, prozent } = tonLage();
+    audioToggle.classList.toggle("muted", still);
+    audioToggle.classList.toggle("ist-leise", !still && laut < 0.5);
+    audioToggle.setAttribute("aria-label", aus ? "Ton: stumm" : `Ton: ${prozent} %`);
+    audioToggle.title = aus ? "Ton – stumm" : "Ton";
+    if (!regler) return;
+    regler.root.classList.toggle("ist-stumm", aus);
+    if (Number(regler.schieber.value) !== prozent) regler.schieber.value = String(prozent);
+    regler.schieber.style.setProperty("--ton-anteil", String(prozent / 100));
+    regler.schieber.setAttribute("aria-valuetext", aus ? `${prozent} %, stumm` : `${prozent} %`);
+    regler.wert.textContent = aus ? "stumm" : `${prozent} %`;
+    regler.stumm.setAttribute("aria-checked", aus ? "true" : "false");
+  }
+
+  // Die Tonausgabe wecken – nur aus einem Tipp heraus erlaubt der Browser
+  // das, und beim Zuschauen kommt der Tipp aufs Spiel nie bei kids.js an.
+  function wecken() {
+    if (audioEnabled()) ensureAudio();
+  }
+
+  function stummSetzen(stumm) {
+    if (stumm) {
+      setAudioEnabled(false);
+    } else {
+      // Ganz unten und dann eingeschaltet: Stumm aus heisst, man will etwas
+      // hören.
+      if (lautstaerke() <= 0) writeRaw(LAUT_KEY, "0.5");
+      setAudioEnabled(true);
+      reglerNachziehen();
+      wecken();
+    }
+    updateAudioToggle();
+  }
+
+  function reglerOeffnen() {
+    if (!regler || reglerOffen) return;
+    reglerOffen = true;
+    updateAudioToggle();
+    regler.root.hidden = false;
+    audioToggle.setAttribute("aria-expanded", "true");
+    audioToggle.classList.add("ist-offen");
+    // Mit der Tastatur geöffnet: gleich auf den Schieber.
+    if (wurzel?.dataset?.eingabe === "tastatur") regler.schieber.focus({ preventScroll: true });
+  }
+
+  // fokusZurueck: mit Esc geschlossen – der Fokus geht auf den Knopf. Sonst
+  // gehört er niemandem: Die Spiele überhören Leertaste und Enter, solange
+  // ein Knopf ihn hat.
+  function reglerSchliessen({ fokusZurueck = false } = {}) {
+    if (!regler || !reglerOffen) return;
+    reglerOffen = false;
+    const hatteFokus = regler.root.contains(document.activeElement) || document.activeElement === audioToggle;
+    regler.root.hidden = true;
+    audioToggle.setAttribute("aria-expanded", "false");
+    audioToggle.classList.remove("ist-offen");
+    if (fokusZurueck) audioToggle.focus({ preventScroll: true });
+    else if (hatteFokus) document.activeElement?.blur?.();
+  }
+
+  function reglerBauen() {
+    const root = document.createElement("div");
+    root.className = "ton-regler";
+    root.id = "ton-regler";
+    root.hidden = true;
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-label", "Ton");
+
+    const kopf = document.createElement("div");
+    kopf.className = "ton-regler-kopf";
+    const titel = document.createElement("span");
+    titel.className = "ton-regler-titel";
+    titel.id = "ton-regler-titel";
+    titel.textContent = "Lautstärke";
+    const wert = document.createElement("span");
+    wert.className = "ton-regler-wert";
+    wert.setAttribute("aria-hidden", "true");
+    kopf.append(titel, wert);
+
+    const schieber = document.createElement("input");
+    schieber.type = "range";
+    schieber.className = "ton-regler-schieber";
+    schieber.min = "0";
+    schieber.max = "100";
+    schieber.step = "5";
+    schieber.setAttribute("aria-labelledby", "ton-regler-titel");
+
+    // Stumm: ein Schalter über die ganze Breite, mit Wort und Bild.
+    const stumm = document.createElement("button");
+    stumm.type = "button";
+    stumm.className = "ton-regler-stumm";
+    stumm.setAttribute("role", "switch");
+    stumm.innerHTML = `${SVG_TON}<span class="ton-regler-stumm-wort">Stumm</span><span class="ton-regler-schalter" aria-hidden="true"></span>`;
+    stumm.querySelector("svg").classList.add("ton-regler-stumm-bild");
+
+    root.append(kopf, schieber, stumm);
+
+    // Wer schiebt, will hören: Aus stumm wird laut, sobald der Schieber
+    // über null steht.
+    schieber.addEventListener("input", () => {
+      const neu = Number(schieber.value) / 100;
+      writeRaw(LAUT_KEY, String(Math.round(neu * 100) / 100));
+      if (neu > 0 && !audioEnabled()) {
+        setAudioEnabled(true);
+        wecken();
+      }
+      reglerNachziehen();
+      updateAudioToggle();
+    });
+    // Losgelassen: ein kurzer Ton in der neuen Lautstärke.
+    schieber.addEventListener("change", () => {
+      if (!audioEnabled() || lautstaerke() <= 0) return;
+      wecken();
+      try { window.ArcadeKlang?.ton?.("punkt"); } catch { /* egal */ }
+    });
+    stumm.addEventListener("click", () => stummSetzen(audioEnabled()));
+
+    root.addEventListener("pointerdown", wecken);
+    ["pointerdown", "pointermove", "pointerup", "keyup"].forEach((typ) => root.addEventListener(typ, (ereignis) => ereignis.stopPropagation()));
+    root.addEventListener("keydown", (ereignis) => {
+      ereignis.stopPropagation();
+      if (ereignis.key === "Escape") {
+        ereignis.preventDefault();
+        reglerSchliessen({ fokusZurueck: true });
+      }
+    });
+
+    return { root, schieber, wert, stumm };
+  }
+
+  function mountAudioToggle() {
+    if (audioToggle || document.querySelector(".sound-toggle")) return null;
+    audioToggle = document.createElement("button");
+    audioToggle.type = "button";
+    audioToggle.className = "sound-toggle";
+    audioToggle.dataset.audioToggle = "true";
+    audioToggle.setAttribute("aria-haspopup", "dialog");
+    audioToggle.setAttribute("aria-expanded", "false");
+    audioToggle.setAttribute("aria-controls", "ton-regler");
+    audioToggle.innerHTML = SVG_TON;
+    regler = reglerBauen();
+    audioToggle.addEventListener("click", () => {
+      if (reglerOffen) reglerSchliessen();
+      else reglerOeffnen();
+    });
+    audioToggle.addEventListener("pointerdown", wecken);
+    audioToggle.addEventListener("keydown", (ereignis) => {
+      if (ereignis.key === "Escape" && reglerOffen) {
+        ereignis.preventDefault();
+        reglerSchliessen({ fokusZurueck: true });
+      }
+    });
+    // Ein Tipp neben den Regler schliesst ihn. Im Einfangen auf dem Fenster:
+    // Dort kommt der Tipp auch beim Zuschauen an, wo alles andere gesperrt
+    // ist. Der Tipp selbst geht weiter, wohin er wollte.
+    window.addEventListener("pointerdown", (ereignis) => {
+      if (!reglerOffen) return;
+      const ziel = ereignis.target;
+      if (regler.root.contains(ziel) || audioToggle.contains(ziel)) return;
+      reglerSchliessen();
+    }, { capture: true, passive: true });
+    window.addEventListener("keydown", (ereignis) => {
+      if (!reglerOffen || ereignis.key !== "Escape") return;
+      if (regler.root.contains(ereignis.target) || ereignis.target === audioToggle) return;
+      reglerSchliessen();
+    }, { capture: true });
+    window.addEventListener("pagehide", () => reglerSchliessen());
+    // Auf einer anderen Seite verstellt (im Multiplayer steckt das Spiel in
+    // einem Rahmen): hier nachziehen.
+    window.addEventListener("storage", (ereignis) => {
+      if (ereignis.key !== LAUT_KEY && ereignis.key !== AUDIO_KEY) return;
+      reglerNachziehen();
+      updateAudioToggle();
+    });
+    document.body.append(audioToggle, regler.root);
     updateAudioToggle();
     return audioToggle;
   }
@@ -418,7 +645,7 @@
     if (!musicGain || musicGain.context !== ctx) {
       musicGain = ctx.createGain();
       musicGain.gain.value = 0;
-      musicGain.connect(ctx.destination);
+      musicGain.connect(ausgang() || ctx.destination);
     }
     return ctx;
   }
@@ -571,7 +798,7 @@
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       source.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(ausgang() || ctx.destination);
       source.start(start);
       source.stop(start + duration + 0.05);
     } catch { /* ignore */ }
@@ -605,7 +832,7 @@
           gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(ausgang() || ctx.destination);
           osc.start(start);
           osc.stop(start + duration + 0.05);
         } catch { /* ignore */ }
@@ -717,11 +944,14 @@
 
     // Maskottchen + Effekte
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
-    // Ton-Schalter
-    audioEnabled, setAudioEnabled, updateAudioToggle,
+    // Ton-Schalter und Lautstärke (0 … 1)
+    audioEnabled, setAudioEnabled, updateAudioToggle, lautstaerke, setLautstaerke,
     // Die Tonausgabe selbst – klang.js spielt über denselben AudioContext,
     // damit der Ton-Schalter beide schaltet. null, wenn der Ton aus ist.
     audioKontext: ensureAudio,
+    // Der Regler, durch den alles geht (die Lautstärke) – klang.js hängt
+    // sich dahinter.
+    ausgang,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
     // Dampfhorn, Auspuffschläge und das Rattern der Zahnradstrecke

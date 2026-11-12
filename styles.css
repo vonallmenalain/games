@@ -267,6 +267,180 @@ h2 {
   }
 }
 
+/* Unter der Hälfte: eine Welle weniger. Offen: hell umrandet, solange der
+   Regler darunter steht. */
+.sound-toggle.ist-leise .sound-wave-wide { opacity: 0; }
+.sound-toggle.ist-offen { border-color: rgba(255, 255, 255, 0.55); background: rgba(40, 38, 50, 0.9); }
+.sound-toggle:active { transform: scale(0.93); }
+
+/* --- Der Regler unter dem Ton-Knopf (kids.js) --------------------------------
+   Lautstärke und Stumm in einem kleinen Fenster, gleich unter dem Knopf und
+   bündig mit ihm. Dunkles Glas wie die Knöpfe, damit es über jedem Spiel
+   lesbar bleibt. */
+.ton-regler {
+  position: fixed;
+  top: calc(var(--safe-top) + 14px + 52px + 10px);
+  right: calc(var(--safe-right) + 14px);
+  z-index: 92;
+  width: min(264px, calc(100vw - 28px - var(--safe-left) - var(--safe-right)));
+  box-sizing: border-box;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 20px;
+  background: rgba(22, 21, 29, 0.92);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--ar-text);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  transform-origin: calc(100% - 26px) -10px;
+  animation: ton-regler-auf 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ton-regler[hidden] { display: none; }
+@keyframes ton-regler-auf {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.ton-regler-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ton-regler-titel {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ar-gold);
+}
+.ton-regler-wert { font-size: 0.95rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ton-regler.ist-stumm .ton-regler-wert { color: var(--ar-koralle); }
+
+/* Der Schieber: eine Spur, links von ihm grün gefüllt (--ton-anteil), und ein
+   runder Griff, gross genug für einen Finger. Stumm wird die Spur grau – die
+   Stellung bleibt, sie gilt wieder, sobald der Ton an ist. */
+.ton-regler-schieber {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  --ton-spur: var(--ar-gruen);
+  /* Bis zur Mitte des Griffs (24 px breit), nicht bis zum Wert am Rand. */
+  --ton-stand: calc(12px + (100% - 24px) * var(--ton-anteil, 1));
+}
+.ton-regler.ist-stumm .ton-regler-schieber { --ton-spur: rgba(255, 255, 255, 0.32); }
+.ton-regler-schieber:focus { outline: none; }
+.ton-regler-schieber::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ton-spur) 0 var(--ton-stand), rgba(255, 255, 255, 0.14) var(--ton-stand) 100%);
+}
+.ton-regler-schieber::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.ton-regler-schieber::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ton-spur);
+}
+.ton-regler-schieber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+.ton-regler-schieber::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+[data-eingabe="tastatur"] .ton-regler-schieber:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--ar-gold), 0 2px 8px rgba(0, 0, 0, 0.45); }
+[data-eingabe="tastatur"] .ton-regler-schieber:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--ar-gold), 0 2px 8px rgba(0, 0, 0, 0.45); }
+
+/* Stumm: eine Zeile mit Lautsprecher, Wort und einem Schalter rechts. An,
+   heisst stumm – dann koralle wie der durchgestrichene Knopf darüber. */
+.ton-regler-stumm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 10px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.ton-regler-stumm:hover { background: rgba(255, 255, 255, 0.1); }
+.ton-regler-stumm:focus { outline: none; }
+[data-eingabe="tastatur"] .ton-regler-stumm:focus-visible { outline: 3px solid var(--ar-gold); outline-offset: 2px; }
+.ton-regler-stumm-bild {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ton-regler-stumm-bild .sound-wave { opacity: 0.22; }
+.ton-regler-stumm-wort { flex: 1 1 auto; }
+.ton-regler-schalter {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.18s ease;
+}
+.ton-regler-schalter::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ton-regler-stumm[aria-checked="true"] { border-color: rgba(254, 121, 113, 0.55); background: rgba(254, 121, 113, 0.14); color: var(--ar-koralle); }
+.ton-regler-stumm[aria-checked="true"] .ton-regler-schalter { background: var(--ar-koralle); }
+.ton-regler-stumm[aria-checked="true"] .ton-regler-schalter::after { transform: translateX(18px); }
+.ton-regler-stumm[aria-checked="false"] .ton-regler-stumm-bild .sound-off-line { opacity: 0.6; }
+@media (max-width: 640px) {
+  .ton-regler { top: calc(var(--safe-top) + 10px + 46px + 8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ton-regler { animation: none; }
+  .ton-regler-schalter,
+  .ton-regler-schalter::after { transition: none; }
+}
+
 /* --- Konfetti --- */
 .confetti-layer { position: absolute; inset: 0; overflow: visible; pointer-events: none; z-index: 5; }
 .confetti-piece {
@@ -6954,8 +7128,10 @@ body.ar {
   border: 1px solid rgba(90, 216, 147, 0.34);
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(90, 216, 147, 0.17), rgba(90, 216, 147, 0.05));
-  animation: ar-live-rein 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+/* Der Auftritt gehört nur einer neuen Karte (mini-games.js, liveKarte): Eine
+   Karte, die schon dasteht, bekommt neue Punkte, aber keinen neuen Auftritt. */
+.ar-live-karte.ist-neu { animation: ar-live-rein 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 /* Zwischen zwei Runden: dieselbe Karte, leiser. */
 .ar-live-karte.ist-pause { border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); }
 .ar-live-karte.ist-pause .ar-live-kreis { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
@@ -7417,7 +7593,7 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ar-live-punkt,
-  .ar-live-karte,
+  .ar-live-karte.ist-neu,
   .ar-live-kreis::after,
   .tn-avatar.ist-am-spielen::after,
   .tn-detail,

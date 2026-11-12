@@ -1568,9 +1568,11 @@
   // Beim Zuschauen gehört kein Tipp und keine Taste dem Spiel – auch nicht in
   // dem Augenblick, bevor der Lauf geladen ist (sonst begänne dort eine
   // Runde, die in die Hall of Fame käme). Frei bleiben die Knöpfe oben und
-  // die Tafel am Schluss.
+  // die Tafel am Schluss – auch der Ton mit seinem Regler (kids.js): Er hängt
+  // nicht in der Leiste, sondern am Dokument, und war bis November 2026
+  // beim Zuschauen nicht zu bedienen.
   const GESPERRT = ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "keydown", "keyup"];
-  const FREI = ".gz-leiste, .gz-tafel, .cm-bar, .cm-vollbild";
+  const FREI = ".gz-leiste, .gz-tafel, .cm-bar, .cm-vollbild, .sound-toggle, .ton-regler";
   function sperreEingaben() {
     const sperrt = (ereignis) => {
       if (ereignis.target?.closest?.(FREI)) return;

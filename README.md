@@ -68,7 +68,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     zufall.js             der Zufall. Ohne Turnier in der Adresse würfelt
                           jede Runde ihre eigene Saat; mit einem bekommt
                           jeder im selben Versuch denselben Lauf.
-    kids.js               Ton, Konfetti
+    kids.js               Ton, Konfetti – und der Ton-Knopf oben rechts:
+                          ein Tipp öffnet den Regler mit Lautstärke und
+                          Stumm (gilt für alles, auch klang.js)
     vollbild.js           der Knopf fürs Vollbild und der Rahmen, in dem es
                           über Seitenwechsel bestehen bleibt
     train-art.js          die Lok und die zwei Handgriffe, mit denen hier

@@ -183,13 +183,15 @@
   // --- Eingaben sperren -------------------------------------------------------
   // Vor dem Start und nach dem eigenen Ende gehört kein Tipp dem Spiel. Die
   // Spiele hören auf der Bühne und auf dem ganzen Dokument; davor steht nur
-  // das Fenster selbst. Was im Kopf der Bühne steht (Ton, Vollbild) und was
-  // diese Datei als frei markiert, bleibt bedienbar.
+  // das Fenster selbst. Was im Kopf der Bühne steht (Vollbild, und der Ton
+  // mit seinem Regler aus kids.js – er hängt am Dokument, nicht in der
+  // Leiste) und was diese Datei als frei markiert, bleibt bedienbar.
   const GESPERRT = ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "keydown", "keyup"];
+  const FREI = "[data-live-frei], .cm-bar, .cm-vollbild, .sound-toggle, .ton-regler";
   function sperrt(ereignis) {
     if (!z.sperre) return;
     const ziel = ereignis.target;
-    if (ziel?.closest?.("[data-live-frei], .cm-bar, .cm-vollbild")) return;
+    if (ziel?.closest?.(FREI)) return;
     if (ereignis.type.startsWith("key") && ereignis.key === "Tab") return;
     ereignis.stopPropagation();
     if (ereignis.cancelable && ereignis.type !== "touchstart" && ereignis.type !== "touchend") ereignis.preventDefault();
