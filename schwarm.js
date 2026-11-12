@@ -98,7 +98,7 @@
   // lenkt nicht und zählt nicht. Loslassen fächert ihn wieder auf.
   const BALL_VERZUG = 0.08;        // so lange müssen beide liegen – ein Daumenwechsel ballt nicht
   const BALL_ZU = 0.07;            // so schnell zieht er sich zusammen (Zeitkonstante)
-  const BALL_AUF = 0.12;           // so schnell fächert er sich wieder auf
+  const BALL_AUF = 0.16;           // so schnell fächert er sich wieder auf
   const BALL_LANG_ZU = 0.11;       // seine Länge folgt etwas langsamer
   const BALL_LANG_AUF = 0.45;      // (und wächst langsam, damit keiner rückwärts fliegt)
   const GEBALLT = 0.6;             // ab hier ist er geballt (Falke, Aufzeichnung)
@@ -197,7 +197,7 @@
   // Wie breit ein Schwarm aus n Vögeln ist (halbe Breite): aufgefächert …
   const radiusBei = (n) => 2.5 + 0.5 * Math.sqrt(Math.max(0, n));
   // … und geballt.
-  const ballRadiusBei = (n) => 1.0 + 0.04 * Math.sqrt(Math.max(0, n));
+  const ballRadiusBei = (n) => 0.9 + 0.035 * Math.sqrt(Math.max(0, n));
 
   // Immer dieselbe Zahl zu derselben Eingabe.
   function hash01(n) {
@@ -897,7 +897,14 @@
     // Ballen: Breite und Höhe folgen schnell, die Länge etwas langsamer.
     const zu = state.ballen ? 1 : 0;
     state.ball += (zu - state.ball) * (1 - Math.exp(-dt / (zu ? BALL_ZU : BALL_AUF)));
+    const langVor = state.ballLang;
     state.ballLang += (zu - state.ballLang) * (1 - Math.exp(-dt / (zu ? BALL_LANG_ZU : BALL_LANG_AUF)));
+    // Länger wird er nie so schnell, dass hinten einer rückwärts flöge – wer
+    // durch einen Spalt ist, bleibt durch.
+    if (!zu) {
+      const spanne = Math.max(0.5, state.R * lerp(1, 1.4, state.form) - ballRadiusBei(vg.n) * 1.3);
+      state.ballLang = Math.max(state.ballLang, langVor - dt * 0.6 * Math.max(6, tempoBei(state.z)) / spanne);
+    }
     state.wirbel += dt * lerp(0.9, 0.42, state.form) * (1 + 1.6 * state.ball);
     // Am Schlafplatz sinkt der Schwarm auf die Insel und zieht sich zusammen.
     const lande = state.schritt === "landung" ? weich(0, 2.2, state.zeit - state.schrittZeit) : 0;
@@ -924,6 +931,7 @@
 
     let tote = 0;
     let links = 0;
+    let hinten = Infinity;
     for (let i = vg.n - 1; i >= 0; i -= 1) {
       vg.warte[i] -= dt;
       if (vg.warte[i] <= 0) platz(i);
@@ -965,7 +973,10 @@
       vg.x[i] = x;
       vg.y[i] = y;
       vg.z[i] = z;
+      if (z < hinten) hinten = z;
     }
+    // Wo der letzte Vogel fliegt: Erst wenn er durch ist, zählt ein Tor.
+    state.hinten = Number.isFinite(hinten) ? hinten : state.z;
     if (tote) verlust(tote, links);
   }
 
@@ -1004,11 +1015,11 @@
   }
 
   // Die Tore: Wenn die Mitte durch ist, wird gemerkt, wie weit neben der
-  // Mitte der Lücke; wenn das Ende des Schwarms durch ist, wird gezählt –
-  // ein Vogel verloren, und es war nicht perfekt.
+  // Mitte der Lücke; wenn der letzte Vogel durch ist (auch durch die Dicke
+  // einer Wand), wird gezählt – ein Vogel verloren, und es war nicht perfekt.
+  const DURCH = WAND_TIEF / 2 + 0.6;
   function toreTakt(zVor) {
     const W = state.welt;
-    const lang = masse().z;
     for (let i = W.torVon; i < W.tore.length; i += 1) {
       const tor = W.tore[i];
       if (tor.z > state.z + 1) break;
@@ -1018,7 +1029,7 @@
         tor.mitte = state.x - tor.x;
         state.tore += 1;
       }
-      if (tor.zustand === "durch" && state.z > tor.z + lang + 1.5) {
+      if (tor.zustand === "durch" && state.hinten > tor.z + DURCH) {
         let verloren = 0;
         for (const d of tor.dinge) verloren += d.tote || 0;
         tor.seit = state.zeit;
@@ -3088,7 +3099,7 @@
     Object.assign(state, {
       phase: "bereit", schritt: "start", punkte: 0, roh: 0, x: 0, z: 0, vx: 0, lenk: 0,
       wunsch: false, wunschSeit: 0, ballen: false, ballenSeit: -1e9, ball: 0, ballLang: 0,
-      kette: 0, perfekte: 0, tore: 0, grund: "", gesagt: false,
+      kette: 0, perfekte: 0, tore: 0, grund: "", gesagt: false, hinten: 0,
       R: radiusBei(START_VOEGEL), form: 0, wirbel: 0, zeit: 0, flugzeit: 0, meter: 0,
       groesster: START_VOEGEL, verloren: 0, geholt: 0, bonus: 0, angekommen: false, licht: 0,
       teile: [], schriften: [], karte: null, stoss: 0, blitz: 0, blitzSeite: 0, schrittZeit: 0,
@@ -3242,7 +3253,7 @@
   // rechts oder lässt los; guete(1) hält die Schärfe fest.
   window.LernappSchwarm = {
     TAKT, Z_ENDE, X_MAX, START_VOEGEL, VOEGEL_MAX, MINDEST, BONUS, PUNKTE_JE_100M, FLUG_Y, ROTOR, MAST_R, MAST, BOGEN_AUSSEN,
-    BALL_VERZUG, GEBALLT, KETTE, TRUPP, FALKE_STOSS, FALKE_SPAET, FALKE_RAUB, T_PAUSE, GEBALLT_C,
+    BALL_VERZUG, GEBALLT, KETTE, TRUPP, FALKE_STOSS, FALKE_SPAET, FALKE_RAUB, T_PAUSE, GEBALLT_C, DURCH,
     state, view, kam, vg, bild, takt, zeichnen, weltText, weltBis, wegBei, tempoBei, querBei, breiteBei, spaltBei, radiusBei, ballRadiusBei,
     perfektBei, anteilBei, reichBei, trifft, nadelRadius, bogenBreite, seilHoehe,
     losGehts, lenke, ballen, masse,

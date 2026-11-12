@@ -413,7 +413,8 @@ hindurchführt (am Anfang auf 1 m, am Schluss auf 0,6 m, `PERFEKT0`/
 blüht auf, und Vögel schliessen sich an – das erste perfekte Tor in Folge
 bringt 2, dann 4, 6, 8, 10 (`KETTE`). Oben links steht «Perfekt ×n». Ein Tor,
 das nicht perfekt ist, bricht die Kette; daneben steht, wie weit und auf
-welcher Seite («◂ 1,3 m»). Vögel wachsen also nur aus Genauigkeit – und
+welcher Seite («◂ 1,3 m»). Gewertet wird, wenn der letzte Vogel durch ist,
+auch durch die Dicke einer Wand (`DURCH`). Vögel wachsen also nur aus Genauigkeit – und
 grosse Trupps an heiklen Stellen (am Rand, hinter einem zweiten, engeren
 Spalt, im Durchlass neben einem grossen Fels; `TRUPP`) kommen nur, wenn die
 Mitte durch ihren Ring geht. Wer einen holt, verlässt das Tor: Die Kette
@@ -434,7 +435,8 @@ Vögeln (`MINDEST`) zerstreut sich der Schwarm.
 dichten Kugel zusammen (`ballRadiusBei`: 150 Vögel gut 3 m; `BALL_ZU`,
 `BALL_LANG_ZU`), passt durch jeden Spalt – lenkt aber nicht und zählt
 nicht. Loslassen fächert ihn wieder auf (`BALL_AUF`; die Länge wächst
-langsamer, `BALL_LANG_AUF`, damit hinten keiner rückwärts fliegt). Das
+langsamer, `BALL_LANG_AUF`, und nie so schnell, dass hinten einer
+rückwärts flöge – wer durch ist, bleibt durch). Das
 Können liegt im Wann und Wie lange: vorher genau ausrichten, so spät wie
 möglich ballen, sofort wieder lösen und weiterlenken – wer zu früh ballt,
 kommt nicht mehr zur Mitte, wer zu früh löst, lässt das Ende am Fels. Ein
@@ -477,15 +479,15 @@ Schwarm aus Licht mit.
 
 Gemessen mit Autopiloten, die die Welt kennen (je sechs Welten): Wer jedes
 Tor in der Mitte trifft und kurz davor ballt, kommt immer an, verliert
-keinen Vogel, ist an jedem Tor perfekt und holt rund 720 Punkte – in jeder
+keinen Vogel, ist an jedem Tor perfekt und holt gut 700 Punkte – in jeder
 Welt fast gleich viel (vorher schwankte derselbe Pilot zwischen 294 und 474).
-Wer an jedem Tor im Mittel einen halben Meter danebenliegt, holt rund
-80 %, mit knapp einem Meter gut die Hälfte, mit anderthalb Metern ein
-Drittel; wer immer 2 m danebenfliegt, gut ein Viertel, wer nie ballt, ein
-Viertel. Ein Pilot mit einer Zehntelsekunde Reaktionszeit kommt meist an,
-mit 0,15 s im Mittel bis gut 3000 m, mit einer Viertelsekunde bis gut
-1500 m. Wer eine knappe Sekunde zu früh ballt, kommt nicht mehr zur Mitte
-und zerschellt nach rund 900 m; wer nichts tut, nach gut 400 m.
+Wer an jedem Tor im Mittel einen halben Meter danebenliegt, holt gut
+80 %, mit knapp einem Meter gut die Hälfte, mit anderthalb Metern gut ein
+Drittel; wer immer 2 m danebenfliegt, ein Viertel, wer nie ballt, ebenso.
+Ein Pilot mit einer Zehntelsekunde Reaktionszeit kommt an, mit 0,15 s im
+Mittel bis gut 2800 m, mit einer Viertelsekunde bis knapp 1400 m. Wer eine
+knappe Sekunde zu früh ballt, kommt nicht mehr zur Mitte und zerschellt
+nach rund 900 m; wer nichts tut, nach gut 400 m.
 Abschnitt 4g25 in `npm run pruefen:browser` rechnet nach, dass jedes Tor
 auf seiner ganzen Breite frei und der Weg lenkbar ist, und lässt diese
 Piloten fliegen.

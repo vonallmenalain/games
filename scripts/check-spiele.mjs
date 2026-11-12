@@ -6083,7 +6083,7 @@ try {
           if (t.z > st.z + v * 3) break;
           if (R + 0.6 + Math.abs(daneben) < t.halb) continue;
           const bis = (t.z - st.z) / v;
-          if (bis < S.BALL_VERZUG + 0.24 + R * 1.4 / v * 0.75 && !(st.z - m.z - 4.5 > t.z)) ball = true;
+          if (bis < S.BALL_VERZUG + 0.24 + R * 1.4 / v * 0.75 && !(st.hinten > t.z + S.DURCH + 0.3)) ball = true;
         }
         for (let i = W.falkeVon; i < W.falken.length; i += 1) {
           const f = W.falken[i];
@@ -9291,7 +9291,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 143, `klang.js kennt nicht alle 143 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 147, `klang.js kennt nicht alle 147 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -25,7 +25,7 @@ export default {
         if (t.z > st.z + v * 3) break;
         if (R + 0.6 < t.halb) continue;
         const bis = (t.z - st.z) / v;
-        if (bis < S.BALL_VERZUG + 0.24 + R * 1.4 / v * 0.75 && !(st.z - m.z - 4.5 > t.z)) ball = true;
+        if (bis < S.BALL_VERZUG + 0.24 + R * 1.4 / v * 0.75 && !(st.hinten > t.z + S.DURCH + 0.3)) ball = true;
       }
       for (let i = W.falkeVon; i < W.falken.length; i += 1) {
         const f = W.falken[i];
