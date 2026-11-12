@@ -3111,7 +3111,7 @@ try {
       T.weltBis(3000);
       const w = T.state.welt;
       return w.masten.slice(0, 8).map((m) => Math.round(m.x)).join(",")
-        + " | " + w.boeen.slice(0, 5).map((b) => `${Math.round(b.x0)}-${Math.round(b.x1)}:${b.dir}:${Math.round(b.G * 100)}`).join(" ");
+        + " | " + w.ereignisse.slice(0, 8).map((b) => `${b.art}${Math.round(b.x0)}-${Math.round(b.x1)}:${b.dir}:${Math.round(b.G * 100)}`).join(" ");
     }],
     ["/kranhafen", "Kranhafen", () => {
       const p = window.LernappKranhafen.plan();
@@ -3947,15 +3947,22 @@ try {
     await kontext.close();
   }
 
-  // --- 4g12. Seiltänzer: immer zu halten, und jede Böe wirft, wer nichts tut ---------
+  // --- 4g12. Seiltänzer: immer zu halten, und jede Störung wirft, wer nichts tut ------
   // Ein Autopilot, der nur Neigung und Drehung sieht (links halten, wenn er
-  // nach rechts kippt, rechts, wenn nach links, sonst nichts), geht auf
-  // mehreren gewürfelten Seilen bis 1500 m: Fällt er, hat eine Böe mehr
-  // verlangt, als die Stange kann. Keine Böe ist stärker als ihr Deckel,
-  // jede stark genug, um einen umzuwerfen, der nicht gegenhält, und hinten
-  // kommen Doppelböen; wer so genau gegenhält, pariert sie alle. Wer nach
-  // dem Start nichts mehr tut, wirft die erste Böe ins Netz – das ist das
-  // Ende, mit Ergebnis. Und wer zu lange auf einer Seite hält, kippt dorthin.
+  // nach rechts kippt, rechts, wenn nach links, sonst nichts) – und einen
+  // Vogel, der ihn gleich rammt, so dass er sich kurz vorher hineinlehnt –,
+  // geht auf mehreren gewürfelten Seilen bis 1500 m: Fällt er, hat eine
+  // Störung mehr verlangt, als die Stange kann. Unterwegs kommen alle vier
+  // Arten – Böen, Vögel auf der Stange, Vögel, die ihn rammen, Wellen im
+  // Seil –, keine drückt stärker als ihr Deckel, jede, die drückt, wirft
+  // einen um, der nicht gegenhält (eine Böe auch lang genug: nachgerechnet),
+  // und hinten kommen Doppelböen und Vogelpaare; wer so genau gegenhält,
+  // pariert sie alle. Früh wird es ernst: die erste Böe nach
+  // wenigen Sekunden, der erste Vogel vor der achten, und in der ersten
+  // halben Minute ein Dutzend Störungen. Wer nach dem Start nichts mehr tut,
+  // wirft die erste Böe ins Netz – das ist das Ende, mit Ergebnis. Wer einen
+  // Vogel auf der Stange nicht ausgleicht, kippt zu ihm hin. Und wer zu lange
+  // auf einer Seite hält, kippt dorthin.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
     await seite.goto(`${BASIS}/seiltaenzer`, { waitUntil: "load" });
@@ -3971,24 +3978,51 @@ try {
         let schiefst = 0;
         for (let n = 0; st.schritt === "lauf" && st.meter < 1500 && n < 400000; n += 1) {
           const kippt = st.l.th + 0.35 * st.l.w;
-          T.lehnen(kippt > 0.03 ? -1 : kippt < -0.03 ? 1 : 0);
+          let r = kippt > 0.03 ? -1 : kippt < -0.03 ? 1 : 0;
+          const kommt = st.welt.ereignisse.find((e) => e.art === "ramme" && e.x0 > st.l.x && (e.x0 - st.l.x) / st.l.v < 0.2);
+          if (kommt) r = -kommt.dir;
+          T.lehnen(r);
           T.takt(1 / 120);
           schiefst = Math.max(schiefst, Math.abs(st.l.th));
         }
         T.lehnen(0);
         T.weltBis(20000);
-        const boeen = st.welt.boeen;
-        const zuStark = boeen.filter((b) => b.G > T.STANGE - T.BOE_RESERVE + 1e-9).length;
-        const zuSchwach = boeen.filter((b) => b.G <= T.AUFRICHT * Math.sin(T.KIPP_MAX)).length;
-        const doppelt = boeen.filter((b) => b.doppelt).length;
-        raus.push({ meter: st.meter, schritt: st.schritt, schiefst: Math.round(schiefst * 100), zuStark, zuSchwach, doppelt, boeen: boeen.length, pariert: st.ruheN });
+        const alle = st.welt.ereignisse;
+        const druecken = alle.filter((e) => e.art !== "ramme");
+        const zuStark = druecken.filter((e) => e.G > T.STANGE - T.BOE_RESERVE + 1e-9).length;
+        const zuSchwach = druecken.filter((e) => e.G <= T.AUFRICHT * Math.sin(T.KIPP_MAX)).length;
+        // Eine Böe, nachgerechnet: Wer nicht gegenhält, fällt.
+        const kurz = alle.filter((e) => e.art === "boe").filter((e) => {
+          const dauer = (e.x1 - e.x0) / T.tempoBei(e.x0);
+          const c = T.daempf(T.schwereBei(e.x0));
+          let th = 0;
+          let w = 0;
+          for (let t = 0; t < dauer + 1; t += 1 / 240) {
+            const s = t < dauer ? Math.sin(Math.PI * t / dauer) : 0;
+            w += (-T.AUFRICHT * Math.sin(th) - c * w + e.G * s * s) / 240;
+            th += w / 240;
+            if (th > T.KIPP_MAX) return false;
+          }
+          return true;
+        }).length;
+        const rammen = alle.filter((e) => e.art === "ramme");
+        const ruckFalsch = rammen.filter((e) => e.G < 1.4 || e.G > 2).length;
+        const arten = [...new Set(alle.map((e) => e.art))].sort().join(",");
+        const doppelt = alle.filter((e) => e.doppelt).length;
+        const paare = alle.filter((e) => e.art === "vogel" && e.voegel.length === 2).length;
+        const sekunde = (e) => e.x0 / T.tempoBei(e.x0);
+        const frueh = { boe: sekunde(alle[0]), vogel: sekunde(alle.find((e) => e.art === "vogel")), dreissig: alle.filter((e) => sekunde(e) < 30).length, ersteArt: alle[0].art };
+        raus.push({ meter: st.meter, schritt: st.schritt, schiefst: Math.round(schiefst * 100), zuStark, zuSchwach, kurz, ruckFalsch, arten, doppelt, paare, pariert: st.ruheN, frueh });
       }
       return raus;
     });
-    pruefe(laeufe.every((l) => l.meter >= 1500 && l.schritt === "lauf" && l.zuStark === 0 && l.zuSchwach === 0 && l.doppelt > 3 && l.pariert > 20),
-      `Seiltänzer: Der Autopilot hält nicht auf jedem Seil das Gleichgewicht, oder die Böen stimmen nicht – ${JSON.stringify(laeufe)}`);
+    pruefe(laeufe.every((l) => l.meter >= 1500 && l.schritt === "lauf" && l.zuStark === 0 && l.zuSchwach === 0 && l.kurz === 0 && l.ruckFalsch === 0
+      && l.arten === "boe,ramme,vogel,welle" && l.doppelt > 3 && l.paare > 2 && l.pariert > 20),
+      `Seiltänzer: Der Autopilot hält nicht auf jedem Seil das Gleichgewicht, oder die Störungen stimmen nicht – ${JSON.stringify(laeufe)}`);
+    pruefe(laeufe.every((l) => l.frueh.ersteArt === "boe" && l.frueh.boe < 4 && l.frueh.vogel < 8 && l.frueh.dreissig >= 10),
+      `Seiltänzer: Es wird nicht früh genug ernst – ${JSON.stringify(laeufe.map((l) => l.frueh))}`);
     // Schwer wird es trotzdem: Derselbe Pilot, der erst nach gut einer
-    // Viertelsekunde reagiert, fällt auf jedem Seil lange vor 1500 m.
+    // Viertelsekunde reagiert, fällt auf jedem Seil früh – vor 300 m.
     const traege = await seite.evaluate(() => {
       const T = window.LernappSeiltaenzer;
       const st = T.state;
@@ -4009,22 +4043,43 @@ try {
       }
       return raus;
     });
-    pruefe(traege.every((l) => l.schritt === "sturz" && l.meter < 1000),
-      `Seiltänzer: Wer träge gegenhält, kommt trotzdem fast beliebig weit – ${JSON.stringify(traege)}`);
+    pruefe(traege.every((l) => l.schritt === "sturz" && l.meter < 300),
+      `Seiltänzer: Wer träge gegenhält, kommt trotzdem weit – ${JSON.stringify(traege)}`);
     const ohne = await seite.evaluate(() => {
       const T = window.LernappSeiltaenzer;
       const st = T.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       T.lehnen(1);
       T.lehnen(0);
-      const erste = st.welt.boeen[0];
+      const erste = st.welt.ereignisse[0];
       for (let n = 0; st.schritt === "lauf" && n < 120 * 60; n += 1) T.takt(1 / 120);
-      return { schritt: st.schritt, gekippt: st.gekippt, grund: st.sturzGrund, dir: erste.dir, vorErsterBoe: st.l.x < erste.x0, meter: st.meter };
+      return { schritt: st.schritt, gekippt: st.gekippt, grund: st.sturzGrund, art: erste.art, dir: erste.dir, vorErsterBoe: st.l.x < erste.x0, meter: st.meter };
     });
-    pruefe(ohne.schritt === "sturz" && ohne.gekippt === ohne.dir && ohne.grund === "boe" && !ohne.vorErsterBoe && ohne.meter < 40,
+    pruefe(ohne.schritt === "sturz" && ohne.art === "boe" && ohne.gekippt === ohne.dir && ohne.grund === "boe" && !ohne.vorErsterBoe && ohne.meter < 20,
       `Seiltänzer: Ohne Eingabe wirft ihn nicht die erste Böe: ${JSON.stringify(ohne)}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
     pruefe(await seite.locator(".cm-result-score").count() === 1, "Seiltänzer: Nach dem Sturz kommt kein Ergebnis.");
+    // Ein Vogel auf der Stange: Wer ihn nicht ausgleicht, kippt zu ihm hin.
+    const vogel = await seite.evaluate(() => {
+      const T = window.LernappSeiltaenzer;
+      const st = T.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      T.lehnen(1);
+      T.lehnen(0);
+      T.weltBis(4000);
+      const e = st.welt.ereignisse.find((q) => q.art === "vogel");
+      for (let n = 0; st.schritt === "lauf" && st.l.x < e.x0 - 2 && n < 120 * 60; n += 1) {
+        const kippt = st.l.th + 0.35 * st.l.w;
+        T.lehnen(kippt > 0.03 ? -1 : kippt < -0.03 ? 1 : 0);
+        T.takt(1 / 120);
+      }
+      T.lehnen(0);
+      const vorher = st.schritt;
+      for (let n = 0; st.schritt === "lauf" && st.l.x < e.x1 && n < 120 * 30; n += 1) T.takt(1 / 120);
+      return { vorher, schritt: st.schritt, gekippt: st.gekippt, seite: e.voegel[0].seite, grund: st.sturzGrund, vorAbflug: st.l.x < e.voegel[0].ab };
+    });
+    pruefe(vogel.vorher === "lauf" && vogel.schritt === "sturz" && vogel.gekippt === vogel.seite && vogel.grund === "vogel" && vogel.vorAbflug,
+      `Seiltänzer: Wer den Vogel auf der Stange nicht ausgleicht, kippt nicht zu ihm hin: ${JSON.stringify(vogel)}`);
     const zuLange = await seite.evaluate(() => {
       const T = window.LernappSeiltaenzer;
       const st = T.state;
@@ -9069,7 +9124,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 141, `klang.js kennt nicht alle 141 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 143, `klang.js kennt nicht alle 143 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

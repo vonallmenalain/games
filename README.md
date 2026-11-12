@@ -294,6 +294,32 @@ Prüfung 4g12: Ein genauer Autopilot geht bis 1500 m, einer, der eine
 Viertelsekunde zu spät reagiert, fällt lange vorher; ohne Eingabe wirft die
 erste Böe.
 
+Seit dem 12. November 2026 (Fassung `t3`) kommt mehr als Wind, und es wird
+früh ernst. Die Steuerung ist dieselbe; neu sind die **Störungen**
+(`neuesEreignis`): Böen; ein **Vogel, der auf einem Ende der Stange
+landet** (`VOGEL_LAST`) – solange er sitzt, zieht er diese Seite hinunter,
+und wenn er auffliegt, ist das Gewicht auf einmal weg; ab 55 m manchmal zwei,
+links und rechts, und wer zuerst kam, fliegt zuerst (`PAAR_AB`); ein
+**Vogel, der ihn rammt** (`RAMME_STOSS`) – ein Ruck zur anderen Seite, Federn
+fliegen, und pariert ist er nur, wenn man sich vorher hineinlehnt
+(`PARIERT_JE`); und eine **Welle**, die das Seil entlang auf ihn zuläuft und
+ihn im Takt hin und her wirft (`WELLE_KRAFT`, `WELLE_TAKT`). Man sieht jede
+kommen: Blätter und Pfeile vor der Böe, den Vogel im Anflug (dazu ein
+Flattern), den Rammvogel mit Strichen dahinter, die Welle mit ihrem Namen
+über dem Seil. Die Vögel sind je Landschaft andere: Dohlen in der Schlucht,
+Tauben in der Stadt, Möwen bei den Gipfeln. Die erste Böe kommt nach gut
+zwei Sekunden (`STOER_AB`), der erste Vogel nach gut fünf (`VOGEL_AB`),
+danach folgt eine Störung dicht auf die andere (`ABSTAND`, in Sekunden), die
+Schwere wächst über rund 90 m statt 300 m (`SCHWER_WEG`), und Doppelböen
+kommen ab 45 m statt ab 120 m (`DOPPEL_AB`). Simulierte
+Spieler fallen im Mittel nach 10 bis 60 Sekunden statt nach 30 bis 190.
+Prüfung 4g12: Der genaue Autopilot (der sich vor einem Rammvogel kurz
+hineinlehnt) geht weiter bis 1500 m und pariert alles; eine Böe ist
+nachgerechnet lang genug, um einen Untätigen umzuwerfen; die erste Böe kommt
+vor der vierten Sekunde, der erste Vogel vor der achten, in der ersten
+halben Minute mindestens zehn Störungen; wer einen Vogel auf der Stange
+nicht ausgleicht, kippt zu ihm hin.
+
 **Planetenhüpfer** (`planetHop`, Fassung `p3`) – Vorher brachte ein Sprung
 10 bis 100 Punkte, je nachdem, wie viel Sauerstoff noch übrig war – man sah
 nie, warum es wie viel gab. Jetzt zählt jeder neue Planet einen Punkt, ein
