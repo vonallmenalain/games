@@ -1170,7 +1170,11 @@ Sekunden nichts gesagt hat, spielt nicht mehr (`mini-games.js`,
 Uhr des Spielers). Wer eine Runde beendet hat, bleibt noch eine Minute
 «zwischen zwei Runden» dabei – sonst käme und ginge er mit jeder Runde. Wer
 die Seite mitten in der Runde verlässt, nimmt seinen Zettel mit und ist
-sofort weg. Der Zettel geht beim Beginn, am Ende, alle 15 Sekunden und mit
+sofort weg. Sich selbst sieht niemand unter «live»: Der eigene Zettel zählt
+nicht zu denen, die spielen – weder der dieses Geräts noch einer unter
+demselben Namen von einem anderen (`mini-games.js`, `werIch`; so wie die
+Rangliste «Du» erkennt). «Live» zeigt die anderen, auf der Startseite wie
+auf der Turnierseite. Der Zettel geht beim Beginn, am Ende, alle 15 Sekunden und mit
 neuen Punkten höchstens alle 5 Sekunden hinaus (`geist.js`). Die Ergebnisse kommen über einen eigenen Strom
 (`cloud.js`, `turnierHoeren`, siehe «Ohne Netz»).
 Solange die Rangliste verdeckt ist, stehen keine Punkte auf dem Zettel. Die
