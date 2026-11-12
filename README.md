@@ -653,21 +653,38 @@ Massiv, das die Schlucht teilt: auf einer Seite breit, auf der anderen ein
 Spalt. **Der erste Kontakt beendet die Runde**; es zählt der Körper
 (`KOERPER`), nicht die Flügelspitze.
 
+Seit November 2026 ist die Schlucht auf Flughöhe ein **Gang**: Die Wand steht
+nur wenige Meter neben dem freien Weg (`gangBei`, `LUFT0`, `LUFT_MIN`) und
+folgt ihm in jede Kurve; darüber öffnet sich die Schlucht. Vorne ist der Gang
+gut 20 m breit und biegt in weiten Bögen, ab `ENG_AB` (220 m) wird er
+enger und kurviger, und ab `ENG_VOLL` (2600 m) ist er Wand an Wand kaum
+mehr acht Meter breit und schlägt Haken: Serpentinen (`kurven`), dichtere
+Hindernisse, kurze Pausen, und der Weg verlangt gut zwei Drittel dessen, was
+der Flieger zur Seite kann (`engeBei`, `anteilBei`). Der Flieger ist ein Mensch im
+Wingsuit (`fliegerNetz`): Helm mit Visier, Gurtzeug, Handschuhe und Schuhe,
+die Flügel Zelle an Zelle; sein Netz entsteht in jedem Bild neu aus seiner
+Haltung (`fliegerPose`) – er steht auf der Kanzel, breitet im Absprung Arme
+und Beine aus, nimmt in der Kurve den inneren Arm zurück, der Stoff zittert
+im Fahrtwind, und am Schirm greift er nach den Leinen.
+
 Gezählt wird die Nähe zum Fels. Fliegen allein bringt einen Punkt je Sekunde
-(`GRUND`). Wer näher als sieben Meter an Wand, Turm, Pfeiler oder Tanne
+(`GRUND`). Wer näher als viereinhalb Meter an Wand, Turm, Pfeiler oder Tanne
 vorbeizieht (`NAH`), bekommt mehr – je näher, desto steiler mehr, bis
-sechsmal so viel unter zwei Metern (`GANZ_NAH`, `NAH_MAL`, `NAH_HOCH`). Dazu
+sechsmal so viel unter anderthalb Metern (`GANZ_NAH`, `NAH_MAL`, `NAH_HOCH`). Dazu
 die Serie, die als Zahl am Flieger steht: Sie steigt, solange der Fels nah
 ist, bis ×1,6 (`SERIE_MAX`), und fällt, wenn man in der Mitte fliegt. Wer an
 einer Nase, einem Turm, einem Pfeiler, einer Tanne oder durch einen Bogen
-näher als drei Meter vorbeikommt, fliegt «haarscharf» und bekommt 3 bis 8
+näher als 2,2 m vorbeikommt, fliegt «haarscharf» und bekommt 3 bis 8
 Punkte mal die Serie (`HAAR`, `HAAR_PUNKTE`) – ein Ruck, und die Zeit hält
 für einen Wimpernschlag den Atem an. Wer statt der breiten Seite den Spalt
-neben einem Massiv nimmt, bekommt 12 mal die Serie (`SPALT_PUNKTE`). So
-streut die Zahl: Wer in der Mitte fliegt, kommt in einer ganzen Runde auf
-gut 100, wer die Wände sucht, auf 300, und mehr als 600 sind möglich. Nach
+neben einem Massiv nimmt, bekommt 12 mal die Serie (`SPALT_PUNKTE`). Nach
 4300 m (`Z_ENDE`, 85 Sekunden) öffnet sich das Tal: Schirm auf, Landung auf
-der Wiese, 30 Punkte dazu (`LANDE_PUNKTE`). Dorthin kommt, wer sehr gut ist.
+der Wiese, 30 Punkte dazu (`LANDE_PUNKTE`). Dorthin kommt nur, wer die Haken
+am Schluss vorausahnt – ein Pilot mit gut einer Zehntelsekunde Reaktionszeit
+schafft im Mittel rund 2600 m, mit einer Fünftelsekunde rund 2000 m (vorher
+landeten beide meist im Tal). Um ein Massiv herum geht der Gang über gut
+hundert Meter in die offene Seite über – rückte die Wand auf einmal heran,
+stünde sie quer im Weg.
 Den Fels sieht und hört man kommen: Auf seiner Seite glüht der Rand des
 Bilds, Windstreifen ziehen dort vorbei, Staub und Steinchen lösen sich von
 der Wand, und ein Rauschen wird lauter.
@@ -678,17 +695,19 @@ Zeit lenken lässt – die Biegung der Schlucht selbst ist eingerechnet
 (`reichBis`), verlangt wird am Anfang die Hälfte dessen, was der Flieger
 zur Seite kann, am Schluss knapp drei Viertel (`anteilBei`). Darum herum
 stellen die Abschnitte ihre Hindernisse, und auf der Breite `breiteBei(z)`
-(von 15 m auf 6,6 m, `BREIT0`/`BREIT_MIN`) steht am Weg nichts: Die Wände
+(von 9,5 m auf 5 m, `BREIT0`/`BREIT_MIN`) steht am Weg nichts: Die Wände
 weichen dort zurück (`backe`), ein Turm wird schlanker (`raeumeWeg`). Die
 Wände sind zwei Reihen von Knoten, alle vier Meter einer (`wandL`, `wandR`):
 Dort steht der Fels auf Flughöhe, und genau diese Knoten sind auch Ecken
 des gezeichneten Netzes – was man sieht, ist, woran man anstösst. Der
 Abschnitt 4g28 in `npm run pruefen:browser` geht den Weg Meter für Meter ab
-(frei auf seiner Breite, nie zu steil), ein Autopilot folgt ihm bis ins
-Tal, und wer nichts tut, prallt nach rund zehn Sekunden an. Aufgezeichnet
+(frei auf seiner Breite, nie zu steil, hinten eng und hakig), ein Autopilot,
+der die Kurven vorausnimmt, folgt ihm bis ins Tal, und wer nichts tut,
+prallt nach rund zehn Sekunden an. Aufgezeichnet
 werden Strecke, Seite und Schräglage (`a`, `b`, `c`; nach dem Aufprall
-steht in `c` die Zahl 314); beim Anschauen fliegt der Flieger denselben Weg
-durch dieselbe Schlucht. Die Gegner fliegen als Flieger aus Licht mit.
+steht in `c` die Zahl 314; Fassung `t2` seit dem Gang); beim Anschauen
+fliegt der Flieger denselben Weg durch dieselbe Schlucht. Die Gegner fliegen
+als Flieger aus Licht mit.
 
 **Gezeichnet wird mit WebGL 2** wie im Schwarm, in einem Durchgang und mit
 sieben Programmen: die Wände, der Bach, alles Feste (ein Netz je Form, viele

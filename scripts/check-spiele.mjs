@@ -6893,12 +6893,15 @@ try {
   // Die Schlucht steht da (WebGL), ohne dass sich der Browser beschwert. Am
   // freien Weg steht auf seiner ganzen Breite nichts – keine Wand, kein
   // Massiv, kein Turm, keine Tanne, kein Pfeiler –, und er biegt nie
-  // schärfer, als sich lenken lässt. Ein Autopilot, der ihm folgt, landet in
-  // mehreren gewürfelten Schluchten im Tal. Wer nichts tut, prallt bald an –
-  // aber nicht in den ersten fünf Sekunden. Nah am Fels zählt ein
-  // Mehrfaches, die Serie steigt dort und fällt in der Mitte. Der erste
-  // Kontakt beendet die Runde. Die Pfeiltasten lenken, und die letzte gilt.
-  // Und ein Lauf, angeschaut, durch dieselbe Schlucht mit derselben Zahl.
+  // schärfer, als sich lenken lässt. Hinten ist der Gang eng: Wand an Wand
+  // kaum zehn Meter, und er schlägt Haken – je Sekunde mehr als doppelt so
+  // oft wie vorne, gut einmal in der Sekunde. Ein
+  // Autopilot, der die Kurven vorausnimmt, landet in mehreren gewürfelten
+  // Schluchten im Tal. Wer nichts tut, prallt bald an – aber nicht in den
+  // ersten fünf Sekunden. Nah am Fels zählt ein Mehrfaches, die Serie
+  // steigt dort und fällt in der Mitte. Der erste Kontakt beendet die Runde.
+  // Die Pfeiltasten lenken, und die letzte gilt. Und ein Lauf, angeschaut,
+  // durch dieselbe Schlucht mit derselben Zahl.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     const vorher = fehlerAufSeite.length;
@@ -6922,6 +6925,9 @@ try {
       const befunde = [];
       const arten = new Set();
       let dinge = 0;
+      // Wie breit der Gang vorne und hinten ist, und wie oft er die Richtung
+      // wechselt – je Sekunde Flug, denn darauf kommt es beim Lenken an.
+      const gang = { vorne: [], hinten: [], hakenVorne: 0, hakenHinten: 0, sekVorne: 0, sekHinten: 0 };
       for (let lauf = 0; lauf < 5; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         S.weltBis(S.Z_ENDE + 300);
@@ -6932,8 +6938,18 @@ try {
         if (W.massive.length) arten.add("massiv");
         if (W.zier.some((d) => d.art === "sturz")) arten.add("bogen");
         let eng = 99;
+        let vorzeichen = 0;
         for (let z = 130; z <= S.Z_ENDE; z += 1) {
           const x = S.wegBei(z);
+          const f0 = S.freiBei(z);
+          if (z > 400 && z < 1100) { gang.vorne.push(f0.r - f0.l); gang.sekVorne += 1 / S.tempoBei(z); }
+          if (z > 3000 && z < S.Z_ENDE - 250) { gang.hinten.push(f0.r - f0.l); gang.sekHinten += 1 / S.tempoBei(z); }
+          const neigung = S.wegBei(z + 4) - S.wegBei(z - 4);
+          if (Math.abs(neigung) > 0.4 && Math.sign(neigung) !== vorzeichen) {
+            if (vorzeichen && z > 400 && z < 1100) gang.hakenVorne += 1;
+            if (vorzeichen && z > 3000 && z < S.Z_ENDE - 250) gang.hakenHinten += 1;
+            vorzeichen = Math.sign(neigung);
+          }
           const halb = S.breiteBei(z) / 2;
           const frei = S.freiBei(z);
           const luft = Math.min(x - frei.l, frei.r - x);
@@ -6941,6 +6957,10 @@ try {
           if (luft < halb - 0.02 && befunde.length < 6) befunde.push(`bei ${z} m sind nur ${luft.toFixed(2)} m frei, versprochen ${halb.toFixed(2)}`);
           const steil = Math.abs(S.wegBei(z + 1) - S.wegBei(z - 1)) / 2;
           if (steil > S.kannBei(z) * 0.8 + 0.005 && befunde.length < 6) befunde.push(`bei ${z} m biegt der Weg mit ${steil.toFixed(2)}, lenkbar ${S.kannBei(z).toFixed(2)}`);
+          // Auch quer: Keine Wand steht so schräg in den Weg, dass sie
+          // seiner Mitte näher kommt als gut anderthalb Meter.
+          const quer = S.abstandBei(x, z);
+          if (quer < 1.6 && befunde.length < 6) befunde.push(`bei ${z} m steht der Fels nur ${quer.toFixed(2)} m neben der Mitte des Wegs`);
         }
         if (!W.fertig) befunde.push("Die Schlucht endet nicht im Tal");
         // Ein Spalt neben einem Massiv ist eng, aber zu fliegen.
@@ -6953,16 +6973,29 @@ try {
           }
         }
       }
-      return { befunde, dinge, arten: [...arten].sort().join(",") };
+      const median = (liste) => liste.sort((a, b) => a - b)[Math.floor(liste.length / 2)];
+      return {
+        befunde, dinge, arten: [...arten].sort().join(","),
+        vorne: median(gang.vorne), hinten: median(gang.hinten),
+        // Haken je Sekunde Flug, vorne auf 700 m, hinten auf gut 1000 m, in fünf Schluchten.
+        hakenVorne: gang.hakenVorne / gang.sekVorne, hakenHinten: gang.hakenHinten / gang.sekHinten,
+      };
     });
     pruefe(weg.befunde.length === 0 && weg.dinge > 150 && weg.arten === "bogen,bruecke,klamm,massiv,nase,tanne,turm",
       `Felsflug: Der freie Weg ist nicht frei (oder es fehlt eine Art Hindernis) – ${JSON.stringify(weg)}`);
+    pruefe(weg.vorne > 14 && weg.hinten < 10 && weg.hakenVorne < 0.5 && weg.hakenHinten > 0.6 && weg.hakenHinten > weg.hakenVorne * 2,
+      `Felsflug: Der Gang wird nach hinten nicht eng und kurvig – ${JSON.stringify(weg)}`);
 
-    // Der Autopilot: dem freien Weg nach, bis ins Tal.
+    // Der Autopilot: dem freien Weg nach, bis ins Tal. Er nimmt die Kurve
+    // voraus – wie schnell der Weg gleich zur Seite zieht – und gleicht aus,
+    // wo er danebenliegt.
     const PILOT = `(S, st) => {
-      const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.25);
-      const d = ziel - st.x - st.vx * 0.1;
-      S.lenke(d > 0.5 ? 1 : d < -0.5 ? -1 : 0);
+      const v = S.tempoBei(st.z);
+      const zz = st.z + v * 0.12;
+      const steig = (S.wegBei(zz + 2) - S.wegBei(zz - 2)) / 4;
+      const soll = steig * v + (S.wegBei(zz) - st.x - st.vx * 0.12) * 5;
+      const d = soll - st.vx;
+      S.lenke(d > 3 ? 1 : d < -3 ? -1 : 0);
     }`;
     const runden = await seite.evaluate((quelle) => {
       const pilot = new Function(`return (${quelle})`)();
