@@ -91,6 +91,8 @@
     { id: "stoneSkip", titel: "Steinhüpfer", bereich: "konzentration", art: "punkte", key: "lernapp.steinhuepfer", einheit: "Meter" },
     { id: "iceRun", titel: "Eiskanal", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.eiskanal", einheit: "Punkte" },
     { id: "cliffFlight", titel: "Felsflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.felsflug", einheit: "Punkte" },
+    { id: "hammerThrow", titel: "Hammerwurf", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.hammerwurf", einheit: "Meter" },
+    { id: "duckCrossing", titel: "Entenfamilie", bereich: "konzentration", art: "punkte", key: "lernapp.entenfamilie", einheit: "Punkte" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },

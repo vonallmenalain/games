@@ -96,6 +96,8 @@
     { id: "cliffFlight", seite: "felsflug", page: "cliff" },
     { id: "numberLine", seite: "zahlengleis", page: "numberline" },
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
+    { id: "hammerThrow", seite: "hammerwurf", page: "hammer" },
+    { id: "duckCrossing", seite: "entenfamilie", page: "ducks" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -123,6 +125,8 @@
     iceRun: 1,
     // Im Wingsuit durch die Schlucht: nah am Fels zählt.
     cliffFlight: 1,
+    // Gebaut nach dem Muster von Tier 1: ein Tipp, eine Regel.
+    hammerThrow: 1, duckCrossing: 1,
   };
   const TIERS = [1, 2, 3];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -164,6 +168,7 @@
     stoneSkip: { fassung: "t1" },
     iceRun: { fassung: "t1" },
     cliffFlight: { fassung: "t1", winkel: true },
+    duckCrossing: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -183,6 +188,7 @@
     twinLanes: { fassung: "t1" },
     juggler: { fassung: "z1" },
     lumberCut: { fassung: "z1" },
+    hammerThrow: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -208,6 +214,7 @@
     twinLanes: { zug: true },
     juggler: { zug: true },
     lumberCut: { zug: true },
+    hammerThrow: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,

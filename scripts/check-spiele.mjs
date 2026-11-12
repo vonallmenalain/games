@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -664,7 +664,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3160,6 +3160,8 @@ try {
     ["/steinhuepfer", "Steinhüpfer", () => window.LernappSteinhuepfer.weltText()],
     ["/eiskanal", "Eiskanal", () => window.LernappEiskanal.weltText()],
     ["/felsflug", "Felsflug", () => window.LernappFelsflug.weltText()],
+    ["/hammerwurf", "Hammerwurf", () => window.LernappHammerwurf.weltText()],
+    ["/entenfamilie", "Entenfamilie", () => window.LernappEntenfamilie.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -7125,6 +7127,256 @@ try {
     await kontext.close();
   }
 
+  // --- 4g30. Hammerwurf: schaffbar, und jede Runde endet von selbst ----------------
+  // Ein Autopilot lässt los, sobald der Hammer in die innere Hälfte des
+  // Sektors zeigt und die Weite (mit Wind) die Qualifikation um einen Meter
+  // übertrifft. Er kommt auf mehreren gewürfelten Welten auf neun gültige
+  // Würfe und mehr (wie viele, hängt am Wind der letzten); danach reicht
+  // keine Drehung mehr, und er tritt über – jede Runde endet von selbst. Einer, der nur auf die Mittellinie wirft, holt mit dem
+  // Bonus mehr. Wer immer beim ersten Mal loslässt, ist bald zu kurz; wer
+  // nie loslässt, tritt über; wer nach hinten loslässt, trifft das Netz,
+  // wer knapp neben den Sektor, wirft ungültig – jedes Mal mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/hammerwurf`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHammerwurf?.state && window.LernappHammerwurf.view.cssW > 0, null, { timeout: 8000 });
+    // Der Pilot als Text: faktor – wie weit in den Sektor (1 = ganz),
+    // reserve – wie viel über die Qualifikation, art – "erst" (beim ersten
+    // Mal im Sektor), "netz", "daneben" oder "nie".
+    const PILOT = `(H, st, { faktor = 0.5, reserve = 1, art = "" } = {}) => {
+      if (st.schritt !== "drehen") return;
+      const abw = Math.abs(H.normGrad(st.th * 180 / Math.PI + 90 - 90));
+      const s = H.sektorBei(st.wurf);
+      if (art === "nie") return;
+      if (art === "netz") { if (abw > s + H.NETZ_RAND + 8 && abw < 150) H.tippen(); return; }
+      if (art === "daneben") { if (abw > s + 1.5 && abw < s + H.NETZ_RAND - 1.5) H.tippen(); return; }
+      if (art === "erst") { if (abw <= s * 0.5) H.tippen(); return; }
+      const weite = H.weiteAus(st.w) * (1 + 0.035 * H.windBei(st.wurf));
+      if (abw <= s * faktor && weite >= H.quali(st.wurf) + reserve) H.tippen();
+    }`;
+    const runde = (quelle, opt, laeufe) => seite.evaluate(({ quelle, opt, laeufe }) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const H = window.LernappHammerwurf;
+      const st = H.state;
+      const raus = [];
+      for (let lauf = 0; lauf < laeufe; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        H.tippen();
+        for (let n = 0; st.phase === "spiel" && n < 120 * 400; n += 1) {
+          pilot(H, st, opt);
+          H.takt(1 / 120);
+          if (st.aus && st.schritt !== "drehen" && st.schritt !== "flug") break;
+        }
+        const gueltig = st.marken.filter((m) => !m.aus).length;
+        raus.push({ gueltig, aus: st.aus, punkte: st.punkte, mitten: st.mitten, welt: H.weltText() });
+      }
+      return raus;
+    }, { quelle, opt, laeufe });
+    const normal = await runde(PILOT, {}, 3);
+    pruefe(normal.every((r) => r.gueltig >= 9 && r.gueltig <= 14 && r.aus === "uebertreten" && r.punkte >= 400),
+      `Hammerwurf: Der Autopilot kommt nicht auf neun Würfe, oder die Runde endet nicht von selbst – ${JSON.stringify(normal)}`);
+    pruefe(new Set(normal.map((r) => r.welt)).size > 1, `Hammerwurf: Der Wind ist in jeder Runde derselbe – ${JSON.stringify(normal.map((r) => r.welt))}`);
+    const mitte = await runde(PILOT, { faktor: 0.25 }, 3);
+    const schnitt = (l) => l.reduce((a, r) => a + r.punkte, 0) / l.length;
+    pruefe(mitte.every((r) => r.mitten >= 6) && schnitt(mitte) > schnitt(normal) + 40,
+      `Hammerwurf: Wer auf die Mittellinie wirft, holt nicht mehr – ${JSON.stringify({ mitte, normal: schnitt(normal) })}`);
+    for (const [art, aus] of [["erst", "kurz"], ["nie", "uebertreten"], ["netz", "netz"], ["daneben", "ungueltig"]]) {
+      const [r] = await runde(PILOT, { art }, 1);
+      await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+      const tafel = await seite.locator(".cm-result-score").count();
+      pruefe(r.aus === aus && tafel === 1, `Hammerwurf: «${art}» endet nicht mit «${aus}» und einer Tafel: ${JSON.stringify({ ...r, tafel })}`);
+    }
+    // Losgelassen fliegt er tangential: Steht der Hammer rechts vom Werfer,
+    // fliegt er genau die Mittellinie hinauf.
+    const richtung = await seite.evaluate(() => {
+      const H = window.LernappHammerwurf;
+      return [0, 30, -30].map((d) => Math.round(H.ergebnis(d + 90, H.W0, 0).abw));
+    });
+    pruefe(JSON.stringify(richtung) === "[0,30,30]", `Hammerwurf: Die Richtung beim Loslassen stimmt nicht: ${JSON.stringify(richtung)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – zwei gute Würfe, dann ins Netz –, aufgezeichnet
+    // und angeschaut: derselbe Wind, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__hammer")) return;
+      sessionStorage.setItem("__hammer", "1");
+      localStorage.setItem("mini.name", "Hanna");
+    });
+    await seite.goto(`${BASIS}/hammerwurf`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHammerwurf?.state && window.LernappHammerwurf.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappHammerwurf.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const H = window.LernappHammerwurf;
+      const st = H.state;
+      H.tippen();
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.schritt === "drehen") {
+          const abw = Math.abs(H.normGrad(st.th * 180 / Math.PI));
+          const s = H.sektorBei(st.wurf);
+          const weite = H.weiteAus(st.w) * (1 + 0.035 * H.windBei(st.wurf));
+          if (st.wurf < 2 ? abw <= s * 0.6 && weite >= H.quali(st.wurf) + 2 : abw > s + H.NETZ_RAND + 10 && abw < 150) H.tippen();
+        }
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("hammerThrow_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`hammerThrow_${kennung}`) || null;
+      const st = window.LernappHammerwurf.state;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, gueltig: st.marken.filter((m) => !m.aus).length, aus: st.aus };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.gueltig === 2 && gespielt.aus === "netz",
+      `Hammerwurf: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/hammerwurf?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappHammerwurf?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappHammerwurf.state.phase, welt: window.LernappHammerwurf.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Hammerwurf: Beim Zuschauen weht ein anderer Wind:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.mouse.click(200, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappHammerwurf.state;
+      return { punkte: st.punkte, gueltig: st.marken.filter((m) => !m.aus).length, aus: st.aus, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.gueltig === 2 && schluss.aus === "netz",
+      `Hammerwurf: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
+  // --- 4g31. Entenfamilie: jeder Fluss hat seine Welle, und ein Boot beendet die Runde --
+  // Ein Autopilot wartet am Ufer, bis die Familie ohne Halt hinüberkommt
+  // (querungOk – dieselbe Rechnung wie das Spiel), und schwimmt dann los. Er
+  // findet auf jeder Welt für jeden Fluss eine Welle in höchstens einem Takt
+  // und quert in neunzig Sekunden mindestens sechs Flüsse, jeden in einem
+  // Zug. Jede Bahn wiederholt sich im Takt ihres Flusses. Wer einfach
+  // losschwimmt und nie loslässt, wird bald erwischt; wer gar nicht
+  // schwimmt, sieht die Sonne untergehen – beides mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/entenfamilie`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEntenfamilie?.state && window.LernappEntenfamilie.view.cssW > 0, null, { timeout: 8000 });
+    const laeufe = await seite.evaluate(() => {
+      const E = window.LernappEntenfamilie;
+      const st = E.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        E.druecken();
+        E.loslassen();
+        let start = null;
+        let fluss = -1;
+        let langsamste = 0;
+        for (let n = 0; st.phase === "spiel" && st.schritt === "unterwegs" && n < 240 * 120; n += 1) {
+          if (st.fluss !== fluss) {
+            fluss = st.fluss;
+            const w = E.wartenBisWelle(st.fluesse[st.fluss].takt + 0.5);
+            langsamste = Math.max(langsamste, w ?? 99);
+            start = w === null ? null : st.uhr + w;
+          }
+          if (start !== null && st.uhr >= start - 1e-9) E.druecken(); else E.loslassen();
+          E.takt(1 / 240);
+        }
+        E.loslassen();
+        // Jede Bahn wiederholt sich im Takt ihres Flusses (wdh Mal je Takt),
+        // und kein Takt ist länger als nötig.
+        const takte = st.fluesse.every((f) => f.takt < 11 && f.reihen.every((r) => r.art !== "bahn" || Math.abs(r.P * r.wdh - r.v * f.takt) < 1e-6));
+        raus.push({ geschafft: st.geschafft, zuege: st.zuege, schritt: st.schritt, punkte: st.punkte, langsamste: Math.round(langsamste * 10) / 10, takte, welt: E.weltText() });
+      }
+      return raus;
+    });
+    pruefe(laeufe.every((l) => l.geschafft >= 6 && l.zuege === l.geschafft && l.schritt === "unterwegs" && l.langsamste < 99 && l.takte),
+      `Entenfamilie: Der Autopilot findet nicht für jeden Fluss eine Welle – ${JSON.stringify(laeufe)}`);
+    pruefe(new Set(laeufe.map((l) => l.welt)).size > 1, `Entenfamilie: Die Boote sind in jeder Runde dieselben – ${JSON.stringify(laeufe.map((l) => l.welt))}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
+    const blind = await seite.evaluate(() => {
+      const E = window.LernappEntenfamilie;
+      const st = E.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        E.druecken();
+        for (let n = 0; st.phase === "spiel" && st.schritt === "unterwegs" && n < 240 * 90; n += 1) E.takt(1 / 240);
+        E.loslassen();
+        raus.push({ schritt: st.schritt, geschafft: st.geschafft, getroffen: st.getroffen });
+      }
+      return raus;
+    });
+    pruefe(blind.every((l) => l.schritt === "erwischt" && l.geschafft < 3 && l.getroffen >= 0),
+      `Entenfamilie: Wer blind losschwimmt, kommt trotzdem durch – ${JSON.stringify(blind)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Entenfamilie: Nach dem Treffer kommt kein Ergebnis.");
+    // Halten und loslassen: Die Küken rücken auf, wenn die Mutter wartet, und
+    // ziehen sich wieder auseinander, wenn sie schwimmt.
+    const kette = await seite.evaluate(() => {
+      const E = window.LernappEntenfamilie;
+      const st = E.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      E.druecken();
+      for (let n = 0; n < 240 * 0.6; n += 1) E.takt(1 / 240);
+      const lang = st.enten[0].y - st.enten[st.enten.length - 1].y;
+      E.loslassen();
+      for (let n = 0; n < 240 * 1; n += 1) E.takt(1 / 240);
+      const eng = st.enten[0].y - st.enten[st.enten.length - 1].y;
+      return { lang, eng, schritt: st.schritt };
+    });
+    pruefe(kette.lang > kette.eng + 0.3, `Entenfamilie: Die Küken rücken nicht auf, wenn die Mutter wartet: ${JSON.stringify(kette)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – ein Fluss mit der Welle, dann blind in die
+    // Boote –, aufgezeichnet und angeschaut: dieselben Boote, dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__enten")) return;
+      sessionStorage.setItem("__enten", "1");
+      localStorage.setItem("mini.name", "Emil");
+    });
+    await seite.goto(`${BASIS}/entenfamilie`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEntenfamilie?.state && window.LernappEntenfamilie.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappEntenfamilie.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const E = window.LernappEntenfamilie;
+      const st = E.state;
+      E.druecken();
+      E.loslassen();
+      let start = null;
+      const lauf = () => {
+        if (st.phase !== "spiel") { fertig(); return; }
+        if (st.fluss === 0 && start === null) start = st.uhr + (E.wartenBisWelle(st.fluesse[0].takt + 0.5) ?? 0);
+        if (st.fluss > 0 || st.uhr >= start) E.druecken(); else E.loslassen();
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("duckCrossing_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`duckCrossing_${kennung}`) || null;
+      const st = window.LernappEntenfamilie.state;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, geschafft: st.geschafft, schritt: st.schritt };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte > 0 && gespielt.punkte === gespielt.gezaehlt && gespielt.geschafft >= 1 && gespielt.schritt === "erwischt",
+      `Entenfamilie: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/entenfamilie?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEntenfamilie?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappEntenfamilie.state.phase, welt: window.LernappEntenfamilie.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Entenfamilie: Beim Zuschauen fahren andere Boote:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappEntenfamilie.state;
+      return { punkte: st.punkte, geschafft: st.geschafft, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.geschafft === gespielt.geschafft,
+      `Entenfamilie: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -7322,20 +7574,20 @@ try {
       };
     });
 
-    // Die Tiers: Vorgabe 24 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
+    // Die Tiers: Vorgabe 28 / 4 / 5, neben jedem Spiel T1/T2/T3. Wer eines
     // umteilt, speichert es – und das nächste Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
     const auswahlText = await seite.locator("#adm-auswahl").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 26 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 28 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length,
       `Die Spiele stehen nicht nach Tier eingeteilt: ${JSON.stringify(await tierZahlen())}`);
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /27/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /29/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -7352,7 +7604,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "fishPond", "flockFlight", "freeDive", "frogHop", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -8784,7 +9036,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 133, `klang.js kennt nicht alle 133 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 141, `klang.js kennt nicht alle 141 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        fünfunddreissig Spielseiten, erzeugt
+    turmbau.html …        siebenunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -286,6 +286,61 @@ Froschsprung (bis `KETTE_MAX`), und goldene Ringe laufen über die
 Lufthülle. Der Sauerstoff ist nur noch die Uhr: knapp zwei Runden um den
 Planeten (`LUFT0`, `LUFT_MIN`), dann ist die Runde vorbei. Prüfung 4g6:
 Wer auf die Mitte wartet, holt deutlich mehr je Planet.
+
+### Hammerwurf und Entenfamilie (November 2026)
+
+Zwei neue Spiele nach dem Muster von Tier 1: eine Regel, das Können im
+*Wann*, der erste Fehler beendet die Runde, und eine «Perfekt»-Schicht
+darüber. Beide in 2D, von oben gesehen.
+
+**Hammerwurf** (`hammerwurf.js`, `hammerThrow`) – Ein Stadion am Abend:
+Wurfkreis im Käfig, davor der Sektor im Rasen. Der Werfer dreht sich mit
+dem Hammer, Drehung um Drehung schneller (`W0`, `W_PLUS`). Ein Tipp lässt
+los, und der Hammer fliegt tangential weiter – genau die Mittellinie
+hinauf, wenn er rechts vom Werfer steht. Je länger er dreht, desto weiter
+fliegt er (`WEITE0` bis `WEITE_MAX`), aber desto kürzer ist der
+Augenblick, in dem er in den Sektor zeigt. Nach `DREH_MAX` Drehungen tritt
+er über. Jeder Wurf muss über die Qualifikationslinie (`Q0` + `Q_PLUS` je
+Wurf); die rückt hinaus, bis keine Drehung mehr reicht – nach gut einem
+Dutzend Würfen endet jede Runde von selbst. Gezählt werden die Meter;
+«Mitte!» (ein Drittel des Sektors, `MITTE`) gibt +5 m, in Folge +10, +15,
++20. Netz, ungültig, zu kurz oder übergetreten beendet die Runde. Der
+Sektor wird schmaler (`SEKTOR`). Gewürfelt wird nur der Wind, Wurf um Wurf
+(±`WIND_MAX` m/s, Rücken- oder Gegenwind auf die Weite); die Fahne neben
+dem Käfig und die Anzeige zeigen ihn. Unter dem Ring steht, die wievielte
+Drehung es ist und wie weit der Hammer jetzt flöge. Jeder Wurf ist ein Zug
+(Richtung, Tempo, Ausgang) – so lässt sich ein Lauf anschauen und im
+Multiplayer zuschauen. Prüfung 4g30: Ein Autopilot kommt auf neun Würfe
+und mehr und tritt dann über, einer auf die Mittellinie holt mehr; erst, nie, Netz,
+daneben enden je mit ihrem Grund.
+
+**Entenfamilie** (`entenfamilie.js`, `duckCrossing`) – Eine Entenmutter
+zieht mit ihren Küken zum See, Fluss um Fluss, und auf den Flüssen kreuzen
+Ruderboote, Kanus, Flösse, Motorboote und Dampfer in Bahnen. Halten heisst
+schwimmen, Loslassen warten. Die Küken folgen in einer Kette; wartet die
+Mutter, rücken sie auf (`ABSTAND_ENG`), schwimmt sie, ziehen sie sich
+wieder auseinander (`ABSTAND`). Ein Boot trifft – Ende. Sicher sind nur
+die Ufer und die Seerosenfelder. Jedes Ufer bringt ein Küken mehr
+(`KUEKEN_START` bis `KUEKEN_MAX`): Die Kette wird länger, und dieselbe
+Lücke reicht nicht mehr. Dazu mehr Bahnen, schnellere Boote, seltener
+Seerosen. Je Fluss so viele Punkte, wie Küken ankommen; in einem Zug (ohne
+anzuhalten, solange eine Ente im Wasser ist) doppelt. Die Runde dauert
+90 Sekunden (`DAUER`), die Sonne geht dabei unter.
+
+Schaffbar ist jeder Fluss durch eine *grüne Welle*: Alle Bahnen eines
+Flusses wiederholen sich im selben Takt (`takt`, schnelle Bahnen mehrmals
+darin), und einmal je Takt liegt in jeder Bahn genau dann eine Lücke vor
+der Familie, wenn sie bei vollem Tempo dort ankommt – mit `SPIEL` Metern
+Luft. Die übrigen Lücken sind zufällig, manche reichen nur für die halbe
+Familie. Wie die Flüsse liegen, hängt nur an ihrer Nummer; die Boote
+kommen aus `zufall.js`. Die Ufer sind so breit, dass die ganze Familie
+darauf wartet (`ufer`). Weiter weg als `VORAUS` verschwinden die Boote im
+Dunst – auf jedem Bildschirm sieht man gleich weit. Aufgezeichnet werden
+Höhe der Mutter und Zahl der Küken; beim Anschauen fahren dieselben Boote,
+und die Küken folgen nach derselben Regel. Prüfung 4g31: Ein Autopilot, der
+am Ufer auf die Welle wartet (`querungOk`, `wartenBisWelle`), quert auf
+jeder Welt in 90 s mindestens sechs Flüsse, jeden in einem Zug; wer blind
+losschwimmt, wird bald erwischt.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -991,7 +1046,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle fünfunddreissig
+    Spiele            welche dazugehören, eines bis alle siebenunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
