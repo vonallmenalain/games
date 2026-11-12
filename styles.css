@@ -5367,6 +5367,27 @@ p.tn-verdeckt:not(.mini-hinweis) {
 /* Eine Wahl mit einem Feld dahinter: "Eine feste Zahl [ 3 ]". */
 .adm-option-reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .adm-feld-zahl { flex: 0 0 auto; width: 5.5rem; padding-top: 6px; padding-bottom: 6px; font-variant-numeric: tabular-nums; }
+/* Der Link eines neuen Turniers: "Eigener Link games.alae.app/[ hotdog ]".
+   Die Adresse davor und das Feld sehen aus wie ein Feld, damit klar ist,
+   welcher Teil getippt wird. Die Adresse unter "Automatisch" darf umbrechen –
+   sie ist lang und am Handy breiter als die Zeile. */
+.adm-link .adm-option-text { flex: 1 1 auto; min-width: 0; }
+.adm-link .adm-option-text small { overflow-wrap: anywhere; }
+.adm-link-eingabe {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+.adm-link-eingabe:focus-within { border-color: var(--ar-koralle); }
+.adm-link-vorne { flex: 0 1 auto; min-width: 0; padding-left: 12px; color: var(--ar-leise); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-link-eingabe .adm-link-feld { flex: 1 1 6rem; min-width: 5rem; border: 0; background: none; padding: 6px 12px 6px 1px; }
+.adm-link-stand { margin: 0; overflow-wrap: anywhere; }
+.adm-link-stand.ist-fehler { color: #ff9a94; font-weight: 700; }
+.adm-link-stand.ist-gut { color: var(--ar-gruen); font-weight: 700; }
 @media (max-width: 560px) {
   .adm-zeile-wort { flex-basis: 100%; }
 }
@@ -7501,3 +7522,23 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
   .ar-kachel:focus-visible { transform: none; }
   .ar-kachel.ist-uhr .ar-zeit { animation: none; }
 }
+
+/* --- Nicht gefunden (404.html) -------------------------------------------------
+   Meist nur einen Augenblick zu sehen: Ein eigener Link eines Turniers
+   (games.alae.app/hotdog) leitet sofort weiter – solange bleibt die Seite
+   leer, statt kurz «Hier ist nichts» zu zeigen. */
+.ar-weiter {
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: 24px max(16px, var(--safe-left, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+.ar-weiter-titel { margin: 0; font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 900; color: var(--ar-text); }
+.ar-weiter-text { margin: 0 0 6px; max-width: 30rem; color: var(--ar-leise); }
+.ar-weiter-geht .ar-weiter { visibility: hidden; }

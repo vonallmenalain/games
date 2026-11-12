@@ -17,6 +17,10 @@ alle auf der Startseite oder nur für die, denen man den Link schickt.
 
     https://games.alae.app/turnier?t=herbstcup-k3m9x2p7
 
+Oder, wenn der Admin den Link selbst gewählt hat, kurz:
+
+    https://games.alae.app/hotdog
+
 ## Wie das hier gebaut ist
 
 Kein Build-Werkzeug, kein Framework, keine Abhängigkeiten im Browser ausser
@@ -970,6 +974,53 @@ was es ausmacht:
     Aktiv             angehalten, bis es gebraucht wird – "Jetzt starten",
                       "Anhalten", "Jetzt beenden" gehen mit einem Klick
 
+**Der Link.** Von selbst ist er ein Stück vom Namen und acht Zeichen Zufall:
+`/turnier?t=herbstcup-k3m9x2p7` – bei einem Turnier «nur mit Link» ist der
+Zufall der Schlüssel. Wer will, wählt beim Anlegen einen eigenen, kurzen:
+«Eigener Link» und `hotdog` ergibt `games.alae.app/hotdog`. Er ist zugleich
+die Kennung des Turniers, also 6 bis 48 Zeichen aus a–z, 0–9 und dem
+Bindestrich (`firestore.rules`, `istTurnier`); was getippt wird, wird dazu
+(«Hot Dög!» → `hot-doeg`). Das Formular sagt gleich, ob er frei ist. Nicht
+gehen: ein Name, den schon ein Turnier hat (es würde überschrieben), und einer,
+unter dem schon eine Seite liegt (`/turmbau`, `/live`, …) – dort käme Netlify
+gar nicht erst zur Weiterleitung. Ändern lässt sich der Link danach nicht mehr:
+Er ist verschickt, und die Einträge hängen an ihm. Und kurz heisst auch leicht
+zu erraten – für ein Turnier «nur mit Link» ist der automatische sicherer.
+
+Wie `/hotdog` zum Turnier findet: Unter dieser Adresse liegt keine Datei, also
+liefert Netlify `404.html` aus (ohne eine Zeile in `netlify.toml`). Die sieht
+nach: Sieht die Adresse aus wie die Kennung eines Turniers, geht es sofort
+weiter auf `/turnier?t=hotdog`; gibt es das Turnier nicht, sagt das die
+Turnierseite. Eine Seite, die es gibt, nur gross geschrieben (`/Turmbau`),
+führt zu ihr, alles andere bleibt «nicht gefunden» (`scripts/seiten-bauen.mjs`,
+`weiterSeite`). «Link kopieren» im Adminbereich gibt den kurzen Link weiter
+(`turnier.js`, `volleAdresse`, `eigenerLink`: ein Link ohne den Zufall hinten
+ist ein eigener); innerhalb der arcade führen alle Wege weiter direkt auf
+`/turnier?t=…`, ohne den Umweg.
+
+**Die Vorschau eines Turnierlinks.** Wer einen Link in WhatsApp, Signal oder
+iMessage schickt, bekommt darunter ein Kärtchen: das Bild, einen Titel, einen
+Satz, die Adresse. Das liest der Messenger aus dem HTML (`og:title`,
+`og:description`), ohne ein Skript laufen zu lassen – und `turnier.html` ist
+für alle Turniere dieselbe Datei. Den Namen setzt deshalb eine Netlify Edge
+Function ein, beim Ausliefern (`netlify/edge-functions/turnier-vorschau.js`):
+
+    Bild      das Logo (icons/vorschau.jpg), wie bisher
+    Titel     der Name des Turniers                    «HotDog Party»
+    Satz      «Turnier · arcade», mit Beschreibung      «Turnier · arcade – …»
+              dahinter (gekürzt)
+    Adresse   games.alae.app
+
+Den Namen liest sie über die REST-Schnittstelle von Firestore, so wie ihn
+jeder lesen darf, der den Link hat. Ein eigener Link (`/hotdog`) geht dort
+schon auf dem Server weiter (302 auf `/turnier?t=hotdog`), so bekommt auch er
+die Vorschau mit Namen. Klappt etwas nicht (kein Turnier, Firestore zu
+langsam), kommt die Seite, wie sie ist, mit dem allgemeinen Satz
+«Mitspielen mit einem Tipp – ohne Anmeldung.» WhatsApp merkt sich eine
+Vorschau eine Weile – ein Link, der schon einmal verschickt wurde, zeigt
+vielleicht noch eine Zeit lang die alte. Geprüft wird die Function ohne
+Netlify in `scripts/pruefen.mjs`.
+
 Gespielt wird es auf der Turnierseite (`/turnier?t=<id>`): Von dort führt
 jedes Spiel mit `?turnier=<id>` in der Adresse ins Spiel, und das Spiel steht
 sofort da – keine Tafel davor. Nur wer noch keinen Namen hat, wird einmal
@@ -1740,11 +1791,21 @@ merkt sich alles, was im Formular eingestellt ist – Name, Beschreibung,
 Spiele, Dauer, Versuche, Wertung, Aufgaben, wer es sieht, alle Haken –
 unter einem eigenen Namen, ohne ein Turnier anzulegen. Beim nächsten neuen
 Turnier steht es oben neben «Zurück zur Übersicht» in der Auswahl; ein Tipp
-stellt alles wieder so ein, nur der Beginn ist jetzt. «Preset löschen»
-daneben nimmt es wieder weg. Gemerkt wird auf dem Gerät (`localStorage`,
-`mini.admin.presets`, `admin.js`, `liesPresets`) wie die Vorlagen des
-Multiplayers – in der Datenbank brauchte es dafür einen eigenen Ort und eine
-Regel dazu.
+stellt alles wieder so ein, nur der Beginn ist jetzt (und der Link ist
+wieder der automatische – den hat jedes Turnier für sich). «Preset löschen»
+daneben nimmt es wieder weg. Gespeichert wird in der Datenbank
+(`miniPresets`, `cloud.js`, `presets`/`speicherePreset`/`loeschePreset`): Am
+Handy stehen dieselben Presets wie am Laptop, lesen und schreiben darf sie nur
+der Admin. Bis November 2026 lagen sie im Browser (`localStorage`,
+`mini.admin.presets`); was dort noch liegt, zieht beim nächsten Besuch des
+Adminbereichs auf diesem Gerät von selbst in die Datenbank um
+(`admin.js`, `zieheAltePresetsUm`) – ein Preset gleichen Namens, das dort
+schon neuer ist, bleibt.
+
+Alle Knöpfe im Adminbereich haben dieselbe Form, auch die, die eigentlich
+Links sind («Zu den Spielen», «Neuer Multiplayer», «Öffnen», «Multiplayer»):
+Sie tragen die Grundklasse `adm-knopf` (`admin.js`, `knopfLink`), nicht nur
+eine Farbe davon.
 
 Die Turniere stehen nach ihrem Stand gruppiert da: zuerst die laufenden, dann
 geplante, angehaltene und beendete. Ein Tipp auf ein Turnier wählt es aus und

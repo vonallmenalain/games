@@ -262,6 +262,35 @@ service cloud.firestore {
       allow delete: if istAdmin();
     }
 
+    // --- Die Presets des Adminbereichs ----------------------------------------
+    // Ein Turnier, wie es eingestellt war, unter einem eigenen Namen
+    // (admin.js, Presets): beim nächsten neuen Turnier ein Tipp, und alles
+    // steht wieder so da. Bis November 2026 lagen sie im Browser des Geräts,
+    // auf dem sie gespeichert wurden – am Handy fehlten die vom Laptop. Jetzt
+    // hier, für jedes Gerät, auf dem der Admin angemeldet ist:
+    //
+    //   miniPresets/<kennung>   name, turnier (die Einstellungen), gespeichertMs
+    //
+    // Nur für den Admin, auch das Lesen: Ein Preset ist ein Turnier, das es
+    // noch nicht gibt, und geht niemanden etwas an. Was in turnier steht,
+    // prüft keine Regel Feld für Feld – es ist das Formular, wie der Admin es
+    // ausgefüllt hat, und wird erst zum Turnier, wenn er es anlegt; dann
+    // prüft istTurnier jedes Feld.
+    function istPreset(kennung) {
+      let d = request.resource.data;
+      return kennung.matches('[a-z0-9-]{1,64}')
+        && d.keys().hasAll(["name", "turnier", "gespeichertMs"])
+        && d.keys().hasOnly(["name", "turnier", "gespeichertMs", "updatedAt"])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.turnier is map && d.turnier.size() <= 40
+        && d.gespeichertMs is int;
+    }
+
+    match /miniPresets/{kennung} {
+      allow read, delete: if istAdmin();
+      allow create, update: if istAdmin() && istPreset(kennung);
+    }
+
     // --- Das Rundenprotokoll -------------------------------------------------
     // miniScores hält je Spiel und Spieler nur Summen – den Bestwert, wie oft,
     // wie lange. Wann gespielt wurde, steht dort nicht, und ohne das lässt

@@ -67,6 +67,16 @@
     return node;
   }
 
+  // Ein Link, der wie ein Knopf aussieht – «Öffnen», «Zu den Spielen». Er
+  // braucht dieselbe Grundklasse adm-knopf wie jeder Knopf: Mit der Farbe
+  // allein (adm-knopf-klein, -hell, -voll) stand er als unterstrichener Text
+  // auf einem Farbfleck da.
+  function knopfLink(text, klasse, href) {
+    const node = el("a", `adm-knopf ${klasse || ""}`.trim(), text);
+    node.href = href;
+    return node;
+  }
+
   function feld(art, platzhalter, autocomplete) {
     const node = el("input", "adm-feld");
     node.type = art;
@@ -383,9 +393,9 @@
     mailFeld.value = gemerkteMail();
     mailFeld.required = true;
     const pwFeld = feld("password", "Passwort", "current-password");
-    const pwKnopf = el("button", "adm-knopf-hell", "Anmelden");
+    const pwKnopf = el("button", "adm-knopf adm-knopf-hell", "Anmelden");
     pwKnopf.type = "submit";
-    const mailKnopf = el("button", "adm-knopf-hell", "Link per E-Mail");
+    const mailKnopf = el("button", "adm-knopf adm-knopf-hell", "Link per E-Mail");
     mailKnopf.type = "button";
     const mailKnoepfe = el("div", "adm-form-knoepfe");
     mailKnoepfe.append(pwKnopf, mailKnopf);
@@ -1571,24 +1581,62 @@
     return Number.isFinite(ms) ? ms : NaN;
   }
 
-  // Der Name eines Turniers ist zugleich sein Link. Vorne ein Stück vom
-  // Namen, damit man ihn wiedererkennt; hinten acht Zeichen Zufall – bei
-  // einem Turnier "nur mit Link" ist genau dieser Teil der Schlüssel. Ohne l,
-  // o, 0 und 1: Wer einen Link abtippt, verwechselt sie.
-  function neueTurnierId(name) {
-    const stamm = String(name || "").toLocaleLowerCase("de")
+  // Ein Stück Text als Teil eines Links: klein, ohne Umlaute und Akzente,
+  // alles andere als ein Bindestrich, keiner vorne oder hinten.
+  function alsLinkTeil(text, max) {
+    return String(text || "").toLocaleLowerCase("de")
       .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
       .normalize("NFD").replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+/, "")
-      .slice(0, 24)
+      .slice(0, max)
       .replace(/-+$/, "");
+  }
+
+  // Der Name eines Turniers ist zugleich sein Link. Vorne ein Stück vom
+  // Namen, damit man ihn wiedererkennt; hinten acht Zeichen Zufall – bei
+  // einem Turnier "nur mit Link" ist genau dieser Teil der Schlüssel. Ohne l,
+  // o, 0 und 1: Wer einen Link abtippt, verwechselt sie. An genau diesem
+  // Schwanz erkennt turnier.js (eigenerLink) einen automatischen Link.
+  function zufallsSchwanz() {
     const zeichen = "abcdefghijkmnpqrstuvwxyz23456789";
     const zufall = new Uint8Array(8);
     window.crypto.getRandomValues(zufall);
-    const schwanz = [...zufall].map((n) => zeichen[n % zeichen.length]).join("");
-    return `${stamm || "turnier"}-${schwanz}`;
+    return [...zufall].map((n) => zeichen[n % zeichen.length]).join("");
   }
+  function neueTurnierId(name, schwanz = zufallsSchwanz()) {
+    return `${alsLinkTeil(name, 24) || "turnier"}-${schwanz}`;
+  }
+
+  /*
+   * Ein eigener Link: games.alae.app/hotdog statt
+   * games.alae.app/turnier?t=hotdog-party-3cuwrdn6. Er ist zugleich die
+   * Kennung des Turniers, also gilt, was die Regeln von jeder verlangen
+   * (firestore.rules, istTurnier): 6 bis 48 Zeichen aus a–z, 0–9 und dem
+   * Bindestrich. Unter dieser kurzen Adresse findet Netlify keine Datei und
+   * zeigt 404.html, die zum Turnier weiterleitet (scripts/seiten-bauen.mjs,
+   * weiterSeite).
+   *
+   * Deshalb darf er nicht heissen wie etwas, das es schon gibt: Unter
+   * /turmbau liefert Netlify das Spiel aus, die Weiterleitung käme nie dran.
+   */
+  const EIGENER_LINK_MIN = 6;
+  const EIGENER_LINK_MAX = 48;
+  const belegteLinks = () => new Set([
+    "index", "admin", "turnier", "live", "404",
+    "icons", "bilder", "filme", "klang",
+    ...(mini()?.SPIELE || []).map((s) => s.seite),
+  ]);
+  // Was mit dem getippten Link nicht stimmt – leer, wenn er taugt.
+  function linkProblem(link) {
+    if (!link) return "Wie soll der Link heissen? Zum Beispiel «hotdog».";
+    if (link.length < EIGENER_LINK_MIN) return `«${link}» ist zu kurz – ein eigener Link braucht mindestens ${EIGENER_LINK_MIN} Zeichen.`;
+    if (belegteLinks().has(link)) return `${window.location.host}/${link} ist schon eine Seite der arcade.`;
+    return "";
+  }
+  // Wie die Adresse aussieht, ohne https:// davor.
+  const ohneProtokoll = (adresse) => String(adresse || "").replace(/^https?:\/\//, "");
+  const turnierAdresse = (id) => tn()?.volleAdresse?.(id) || `${window.location.origin}/turnier?t=${id}`;
 
   async function kopiere(text) {
     try { await navigator.clipboard.writeText(text); return true; }
@@ -1602,22 +1650,54 @@
    * Spiele, Dauer, Versuche, Wertung und alle Haken –, unter einem eigenen
    * Namen gespeichert. Beim nächsten neuen Turnier steht es oben in der
    * Auswahl, und ein Tipp stellt alles wieder so ein. Nur der Beginn kommt
-   * nicht mit: Er ist jedes Mal jetzt.
+   * nicht mit: Er ist jedes Mal jetzt – und der Link auch nicht: Den hat
+   * jedes Turnier für sich.
    *
-   * Auf diesem Gerät, wie die Vorlagen des Multiplayers (live.js,
-   * VORLAGEN_KEY). In der Datenbank brauchte es dafür einen eigenen Ort und
-   * eine Regel dazu.
+   * In der Datenbank (cloud.js, miniPresets), damit sie auf jedem Gerät
+   * dastehen, auf dem der Admin angemeldet ist – am Handy dieselben wie am
+   * Laptop. Bis November 2026 lagen sie im Browser (PRESETS_KEY): Was dort
+   * noch liegt, zieht beim nächsten Besuch des Adminbereichs in die
+   * Datenbank um (zieheAltePresetsUm) und ist danach überall.
+   *
+   * presetStand hält die zuletzt geladene Liste: Das Formular zeigt sie
+   * sofort und fragt im Hintergrund nach, ob sich seither etwas geändert hat.
    */
   const PRESETS_KEY = "mini.admin.presets";
   const PRESETS_MAX = 50;
-  function liesPresets() {
+  let presetStand = null;
+  let presetsUnterwegs = null;
+  const gueltigesPreset = (p) => Boolean(p && typeof p.name === "string" && p.name && p.turnier && typeof p.turnier === "object");
+  function liesAltePresets() {
     try {
       const liste = JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]");
-      return Array.isArray(liste) ? liste.filter((p) => p && typeof p.name === "string" && p.name && p.turnier && typeof p.turnier === "object") : [];
+      return Array.isArray(liste) ? liste.filter(gueltigesPreset) : [];
     } catch { return []; }
   }
-  function schreibePresets(liste) {
-    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(liste.slice(0, PRESETS_MAX))); return true; } catch { return false; }
+  // Was noch im Browser liegt, kommt in die Datenbank – ausser, dort steht
+  // unter demselben Namen schon ein neueres. Erst wenn alle oben sind,
+  // verschwinden sie hier; geht etwas schief, versucht es der nächste Besuch.
+  async function zieheAltePresetsUm(dort) {
+    const alte = liesAltePresets();
+    if (!alte.length) return false;
+    for (const p of alte) {
+      const da = dort.find((x) => x.name === p.name);
+      if (!da || (Number(p.gespeichertMs) || 0) > da.gespeichertMs) await cloud().speicherePreset(p);
+    }
+    try { localStorage.removeItem(PRESETS_KEY); } catch { /* bleibt eben, schadet nicht */ }
+    return true;
+  }
+  // Die Presets aus der Datenbank, nach einem Umzug der alten. Wer zugleich
+  // fragt, bekommt dieselbe Antwort.
+  function ladePresets() {
+    if (presetsUnterwegs) return presetsUnterwegs;
+    presetsUnterwegs = (async () => {
+      if (!cloud()?.presets) throw new Error("Die Datenbank ist nicht bereit.");
+      let liste = await cloud().presets();
+      if (await zieheAltePresetsUm(liste)) liste = await cloud().presets();
+      presetStand = liste.filter(gueltigesPreset).slice(0, PRESETS_MAX);
+      return presetStand;
+    })().finally(() => { presetsUnterwegs = null; });
+    return presetsUnterwegs;
   }
 
   /*
@@ -1691,6 +1771,92 @@
     const beschreibungZeile = el("label", "adm-zeile");
     beschreibungZeile.append(el("span", "adm-zeile-wort", "Beschreibung"), beschreibung);
     form.append(beschreibungZeile);
+
+    // --- Link --------------------------------------------------------------------
+    // Bei einem neuen Turnier: automatisch – ein Stück vom Namen und acht
+    // Zeichen Zufall, der Schwanz einmal je Formular gewürfelt, damit der
+    // Link, der hier steht, auch der ist, der angelegt wird – oder ein
+    // eigener, kurzer (linkProblem, oben). Wer ins Feld tippt, meint den
+    // eigenen; der Punkt davor springt von selbst mit, wie bei den Versuchen.
+    //
+    // Beim Ändern bleibt der Link, wie er ist: Er ist schon verschickt, und
+    // die Einträge hängen an dieser Kennung.
+    const schwanz = zufallsSchwanz();
+    const linkGruppe = el("fieldset", "adm-gruppe adm-link");
+    linkGruppe.append(el("legend", "", "Link"));
+    const linkFeld = feld("text", "hotdog");
+    linkFeld.className = "adm-feld adm-link-feld";
+    linkFeld.maxLength = EIGENER_LINK_MAX + 12;
+    linkFeld.autocapitalize = "none";
+    linkFeld.spellcheck = false;
+    linkFeld.setAttribute("autocorrect", "off");
+    linkFeld.setAttribute("aria-label", "Eigener Link");
+    const linkText = el("p", "adm-klein adm-link-stand");
+    const linkRadio = (wert) => linkGruppe.querySelector(`input[value="${wert}"]`);
+    const eigenerLinkGewaehlt = () => Boolean(linkRadio("eigen")?.checked);
+    const getippterLink = () => alsLinkTeil(linkFeld.value, EIGENER_LINK_MAX);
+    // Die Kennung, unter der das Turnier angelegt wird.
+    const neueId = () => (eigenerLinkGewaehlt() ? getippterLink() : neueTurnierId(nameFeld.value, schwanz));
+    let linkPruefung = 0;
+    let linkUhr = 0;
+    function zeigeLink() {
+      if (vorlage) return;
+      const autoZeile = linkRadio("auto")?.closest(".adm-option")?.querySelector("small");
+      if (autoZeile) autoZeile.textContent = ohneProtokoll(turnierAdresse(neueTurnierId(nameFeld.value, schwanz)));
+      window.clearTimeout(linkUhr);
+      linkPruefung += 1;
+      linkText.className = "adm-klein adm-link-stand";
+      if (!eigenerLinkGewaehlt()) { linkText.textContent = ""; return; }
+      const link = getippterLink();
+      const problem = linkFeld.value.trim() ? linkProblem(link) : "";
+      if (!linkFeld.value.trim()) { linkText.textContent = "Tippe den Teil nach dem Schrägstrich, zum Beispiel «hotdog»."; return; }
+      if (problem) { linkText.textContent = problem; linkText.classList.add("ist-fehler"); return; }
+      const adresse = ohneProtokoll(turnierAdresse(link));
+      linkText.textContent = `${adresse} – wird nachgesehen …`;
+      // Ob es den Link schon gibt, fragt erst nach einer kleinen Pause: nicht
+      // bei jedem Buchstaben die Datenbank.
+      const nummer = linkPruefung;
+      linkUhr = window.setTimeout(async () => {
+        let da;
+        try { da = await cloud()?.turnier?.(link); } catch { da = undefined; }
+        if (nummer !== linkPruefung) return;
+        if (da) {
+          linkText.textContent = `${adresse} gibt es schon: «${da.name}».`;
+          linkText.classList.add("ist-fehler");
+        } else {
+          linkText.textContent = da === null ? `${adresse} ist frei.` : adresse;
+          if (da === null) linkText.classList.add("ist-gut");
+        }
+      }, 350);
+    }
+    if (vorlage) {
+      linkGruppe.append(el("p", "adm-klein", `${ohneProtokoll(turnierAdresse(vorlage.id))} – der Link bleibt, wie er ist.`));
+    } else {
+      wahl("Link", "link", [
+        // Die Adresse darunter schreibt zeigeLink, sobald es einen Namen gibt.
+        ["auto", "Automatisch", "…"],
+        ["eigen", "Eigener Link", "Kurz und zum Weitersagen: 6 bis 48 Zeichen aus Kleinbuchstaben, Ziffern und Bindestrichen. Aber auch leicht zu erraten – bei einem Turnier «nur mit Link» heisst das: Wer den Namen errät, ist dabei."],
+      ], "auto").querySelectorAll(".adm-option").forEach((o) => linkGruppe.append(o));
+      // Das Feld steht in der Zeile seiner Wahl, gleich hinter dem Wort – mit
+      // der Adresse davor, damit klar ist, welcher Teil getippt wird.
+      const eigenTitel = linkRadio("eigen").closest(".adm-option").querySelector("strong");
+      const linkReihe = el("span", "adm-option-reihe");
+      eigenTitel.replaceWith(linkReihe);
+      const vorne = el("span", "adm-link-vorne", `${window.location.host}/`);
+      const linkEingabe = el("span", "adm-link-eingabe");
+      linkEingabe.append(vorne, linkFeld);
+      linkReihe.append(eigenTitel, linkEingabe);
+      const waehleEigen = () => { if (!eigenerLinkGewaehlt()) linkRadio("eigen").checked = true; };
+      linkFeld.addEventListener("focus", waehleEigen);
+      linkFeld.addEventListener("input", () => { waehleEigen(); zeigeLink(); });
+      // Beim Verlassen steht im Feld, was daraus wird: «Hot Dog!» → hot-dog.
+      linkFeld.addEventListener("blur", () => { if (linkFeld.value.trim()) linkFeld.value = getippterLink(); zeigeLink(); });
+      linkGruppe.addEventListener("change", zeigeLink);
+      nameFeld.addEventListener("input", zeigeLink);
+      linkGruppe.append(linkText);
+      zeigeLink();
+    }
+    form.append(linkGruppe);
 
     // --- Spiele ----------------------------------------------------------------
     const spieleGruppe = el("fieldset", "adm-gruppe");
@@ -1957,7 +2123,7 @@
     // --- Speichern ---------------------------------------------------------------
     const meldung = el("p", "adm-meldung");
     const knoepfe = el("div", "adm-kopf-aktionen");
-    const speichern = el("button", "adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
+    const speichern = el("button", "adm-knopf adm-knopf-voll", vorlage ? "Speichern" : "Turnier anlegen");
     speichern.type = "submit";
     // Statt anzulegen: alles, wie es jetzt eingestellt ist, als Preset
     // merken (presetSpeichern).
@@ -2033,10 +2199,15 @@
       aktiv.checked = w.aktiv !== false;
       sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
     }
-    function presetListe(gewaehlt = "") {
-      const presets = liesPresets();
+    // Die Auswahl, aus presetStand. Noch nichts geladen: «werden geladen»;
+    // nicht zu haben: das sagt sie, und gewählt wird nichts.
+    function presetListe(gewaehlt = presetWahl.value, { fehler = false } = {}) {
+      const presets = presetStand || [];
       presetWahl.innerHTML = "";
-      const leer = el("option", "", presets.length ? "Preset laden …" : "Keine Presets gespeichert");
+      const wort = presetStand === null
+        ? (fehler ? "Presets nicht erreichbar" : "Presets werden geladen …")
+        : presets.length ? "Preset laden …" : "Keine Presets gespeichert";
+      const leer = el("option", "", wort);
       leer.value = "";
       presetWahl.append(leer, ...presets.map((p) => {
         const option = el("option", "", p.name);
@@ -2048,35 +2219,54 @@
       presetWeg.hidden = !presetWahl.value;
     }
     presetWahl.addEventListener("change", () => {
-      const p = liesPresets().find((x) => x.name === presetWahl.value);
+      const p = (presetStand || []).find((x) => x.name === presetWahl.value);
       presetWeg.hidden = !p;
       if (p) presetLaden(p);
     });
-    function presetSpeichern() {
+    async function presetSpeichern() {
       const vorschlag = presetWahl.value || nameFeld.value.replace(/\s+/g, " ").trim();
       const eingabe = window.prompt("Unter welchem Namen soll das Preset gespeichert werden?", vorschlag);
       if (eingabe === null) return;
-      const name = eingabe.replace(/\s+/g, " ").trim().slice(0, 60);
+      const name = eingabe.replace(/\s+/g, " ").trim().slice(0, cloud()?.PRESET_NAME_MAX || 60);
       if (!name) { sage("Ein Preset braucht einen Namen.", "ist-fehler"); return; }
-      const presets = liesPresets();
+      const presets = presetStand || [];
       const da = presets.some((p) => p.name === name);
       if (da && !window.confirm(`Das Preset «${name}» gibt es schon. Überschreiben?`)) return;
-      const neu = { name, turnier: presetAusDemFormular(), gespeichertMs: Date.now() };
-      if (!schreibePresets([neu, ...presets.filter((p) => p.name !== name)])) {
-        sage("Das Preset liess sich auf diesem Gerät nicht speichern.", "ist-fehler");
+      if (!da && presets.length >= PRESETS_MAX) {
+        sage(`Es sind schon ${PRESETS_MAX} Presets gespeichert. Lösche zuerst eines, das du nicht mehr brauchst.`, "ist-fehler");
+        return;
+      }
+      sage("Das Preset wird gespeichert...");
+      try {
+        const neu = await cloud().speicherePreset({ name, turnier: presetAusDemFormular(), gespeichertMs: Date.now() });
+        presetStand = [neu, ...(presetStand || []).filter((p) => p.name !== name)];
+      } catch (fehler) {
+        sage(`Das Preset liess sich nicht speichern: ${fehlerText(fehler)}`, "ist-fehler");
         return;
       }
       presetListe(name);
-      sage(`Preset «${name}» ${da ? "überschrieben" : "gespeichert"}. Beim nächsten neuen Turnier steht es oben in der Auswahl.`, "ist-gut");
+      sage(`Preset «${name}» ${da ? "überschrieben" : "gespeichert"}. Beim nächsten neuen Turnier steht es oben in der Auswahl – auf jedem Gerät.`, "ist-gut");
     }
-    function presetLoeschen() {
+    async function presetLoeschen() {
       const name = presetWahl.value;
-      if (!name || !window.confirm(`Das Preset «${name}» löschen?`)) return;
-      schreibePresets(liesPresets().filter((p) => p.name !== name));
-      presetListe();
+      if (!name || !window.confirm(`Das Preset «${name}» löschen? Es verschwindet auf allen Geräten.`)) return;
+      sage("Das Preset wird gelöscht...");
+      try {
+        await cloud().loeschePreset(name);
+      } catch (fehler) {
+        sage(`Das Preset liess sich nicht löschen: ${fehlerText(fehler)}`, "ist-fehler");
+        return;
+      }
+      presetStand = (presetStand || []).filter((p) => p.name !== name);
+      presetListe("");
       sage(`Preset «${name}» gelöscht.`, "ist-gut");
     }
-    presetListe();
+    // Sofort, was zuletzt geladen war – und dann, was jetzt in der Datenbank
+    // steht (ein Preset von einem anderen Gerät kommt so dazu).
+    if (!vorlage) {
+      presetListe("");
+      ladePresets().then(() => presetListe(), () => presetListe(undefined, { fehler: true }));
+    }
 
     form.addEventListener("submit", async (ereignis) => {
       ereignis.preventDefault();
@@ -2092,10 +2282,30 @@
         return;
       }
       if (daten.zaehlt === "summe" && !daten.versuche) { sage("Alle Versuche zusammenzählen geht nur mit einer festen Zahl von Versuchen.", "ist-fehler"); return; }
+      const id = vorlage ? vorlage.id : neueId();
+      const eigen = !vorlage && eigenerLinkGewaehlt();
+      if (eigen && linkProblem(id)) {
+        sage(linkProblem(id), "ist-fehler");
+        linkFeld.focus();
+        return;
+      }
       speichern.disabled = true;
-      sage("Wird gespeichert...");
       try {
-        await sichern(daten);
+        // Ein Turnier wird mit set geschrieben – ganz, auch über ein anderes
+        // mit derselben Kennung. Beim eigenen Link sieht deshalb vorher nach,
+        // ob es ihn schon gibt; beim automatischen macht das der Zufall.
+        if (eigen) {
+          sage("Der Link wird nachgesehen...");
+          const da = await cloud().turnier(id);
+          if (da) {
+            sage(`${ohneProtokoll(turnierAdresse(id))} gibt es schon: «${da.name}». Wähle einen anderen Link.`, "ist-fehler");
+            speichern.disabled = false;
+            linkFeld.focus();
+            return;
+          }
+        }
+        sage("Wird gespeichert...");
+        await sichern(daten, id);
       } catch (fehler) {
         sage(fehlerText(fehler), "ist-fehler");
         speichern.disabled = false;
@@ -2165,10 +2375,9 @@
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
 
-    const adresse = tn()?.volleAdresse?.(t.id) || `${window.location.origin}/turnier?t=${t.id}`;
+    const adresse = turnierAdresse(t.id);
     const aktionen = el("div", "adm-kopf-aktionen");
-    const oeffnen = el("a", "adm-knopf-klein", "Öffnen");
-    oeffnen.href = tn()?.seitenLink?.(t.id) || `/turnier?t=${t.id}`;
+    const oeffnen = knopfLink("Öffnen", "adm-knopf-klein", tn()?.seitenLink?.(t.id) || `/turnier?t=${t.id}`);
     aktionen.append(oeffnen);
     const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
       if (await kopiere(adresse)) {
@@ -2191,8 +2400,7 @@
     aktionen.append(knopf("Bearbeiten", "adm-knopf-klein", () => aktion.bearbeiten(t)));
     // Einen Multiplayer zu diesem Turnier anlegen (live.js): Er zählt dann in
     // der Gesamtwertung mit.
-    const live = el("a", "adm-knopf-klein", "Multiplayer");
-    live.href = `/live?neu&turnier=${encodeURIComponent(t.id)}`;
+    const live = knopfLink("Multiplayer", "adm-knopf-klein", `/live?neu&turnier=${encodeURIComponent(t.id)}`);
     aktionen.append(live);
 
     // Bei Bedarf aktivieren: Ein vorbereitetes Turnier startet mit einem Klick,
@@ -2287,8 +2495,7 @@
         const text = el("div", "adm-multiplayer-text");
         text.append(el("strong", "", m.name), el("small", "", `${PHASE[m.phase] || m.phase} · ${m.sichtbar === "alle" ? "für alle offen" : "nur mit Link"}`));
         const aktionen = el("div", "adm-kopf-aktionen");
-        const oeffnen = el("a", "adm-knopf-klein", "Öffnen");
-        oeffnen.href = `/live?code=${encodeURIComponent(m.code)}`;
+        const oeffnen = knopfLink("Öffnen", "adm-knopf-klein", `/live?code=${encodeURIComponent(m.code)}`);
         const adresse = `${window.location.origin}/live?code=${m.code}`;
         const kopieren = knopf("Link kopieren", "adm-knopf-klein", async () => {
           if (await kopiere(adresse)) {
@@ -2311,8 +2518,7 @@
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
     // Daneben einen Multiplayer: alle spielen zur selben Zeit, angelegt und
     // geleitet auf /live (live.js) – die Anmeldung hier gilt dort auch.
-    const neuerMultiplayer = el("a", "adm-knopf-voll", "Neuer Multiplayer");
-    neuerMultiplayer.href = "/live?neu";
+    const neuerMultiplayer = knopfLink("Neuer Multiplayer", "adm-knopf-voll", "/live?neu");
     const neuKnoepfe = el("div", "adm-kopf-aktionen adm-werkzeug");
     neuKnoepfe.append(neuKnopf, neuerMultiplayer);
     inhalt.append(neuKnoepfe);
@@ -2357,12 +2563,12 @@
         offen: [...stand.offen],
         einteilung: stand.einteilung,
         abbrechen: () => schliesse(),
-        sichern: async (daten) => {
-          const id = vorlage?.id || neueTurnierId(daten.name);
+        sichern: async (daten, neueId) => {
+          const id = vorlage?.id || neueId || neueTurnierId(daten.name);
           await cloud().setzeTurnier(id, daten);
           gewaehlt = id;
           schliesse({ gespeichert: true });
-          const adresse = tn()?.volleAdresse?.(id) || `${window.location.origin}/turnier?t=${id}`;
+          const adresse = turnierAdresse(id);
           sage(vorlage ? `«${daten.name}» ist gespeichert.` : `«${daten.name}» ist angelegt. Der Link: ${adresse}`, "ist-gut");
           await laden();
         },
@@ -3280,8 +3486,7 @@
     kopf.append(links);
     const rechts = el("div", "adm-kopf-aktionen");
     const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer));
-    const zuDenSpielen = el("a", "adm-knopf-hell", "Zu den Spielen");
-    zuDenSpielen.href = "/";
+    const zuDenSpielen = knopfLink("Zu den Spielen", "adm-knopf-hell", "/");
     rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
     const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");
     if (voll) rechts.append(voll);
@@ -3290,6 +3495,9 @@
 
     const laedt = el("p", "adm-hinweis", "Die Einträge werden geladen...");
     wirt.append(laedt);
+    // Die Presets schon jetzt: Das Formular für ein neues Turnier hat sie
+    // dann gleich – und was noch im Browser lag, ist schon in der Datenbank.
+    ladePresets().catch(() => {});
 
     const bekannte = (mini()?.SPIELE || []).map((s) => s.id);
 

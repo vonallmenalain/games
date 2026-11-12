@@ -109,6 +109,16 @@ const ATTRAPPE = `
   window.__miniTurniere = turniere;
   window.__miniTurnierEintraege = tEintraege;
 
+  // Die Presets des Adminbereichs (cloud.js, miniPresets): in der Datenbank,
+  // also hier im Speicher der Attrappe – auf jedem «Gerät» dieselben. Was ein
+  // anderes Gerät gespeichert hat, legt die Pruefung in window.__miniPresets.
+  const PLAGER = "__mini_presets_attrappe";
+  let pGemerkt = null;
+  try { pGemerkt = JSON.parse(localStorage.getItem(PLAGER) || "null"); } catch { pGemerkt = null; }
+  const presetLager = new Map(Array.isArray(pGemerkt) ? pGemerkt : (window.__miniPresetsAnfang || []).map((p) => [p.name, p]));
+  const pSichern = () => { try { localStorage.setItem(PLAGER, JSON.stringify([...presetLager])); } catch {} };
+  window.__miniPresets = presetLager;
+
   const ULAGER = "__mini_umzuege_attrappe";
   let uGemerkt = null;
   try { uGemerkt = JSON.parse(localStorage.getItem(ULAGER) || "null"); } catch { uGemerkt = null; }
@@ -359,6 +369,23 @@ const ATTRAPPE = `
     // Der Multiplayer zu einem Turnier (live.js, turnierLive/<turnier>): Die
     // Prüfung legt ihn in window.__miniLiveZeiger hin.
     liveZeiger: async (id) => (window.__miniLiveZeiger || {})[id] || null,
+    PRESETS_MAX: 50,
+    PRESET_NAME_MAX: 60,
+    presets: async () => {
+      if (window.__miniPresetsGesperrt) throw fehler("Missing or insufficient permissions.", "permission-denied");
+      return [...presetLager.values()].map((p) => JSON.parse(JSON.stringify(p))).sort((a, b) => b.gespeichertMs - a.gespeichertMs);
+    },
+    speicherePreset: async ({ name, turnier, gespeichertMs }) => {
+      if (window.__miniPresetsGesperrt) throw fehler("Missing or insufficient permissions.", "permission-denied");
+      const p = { name: String(name).replace(/\\s+/g, " ").trim(), turnier: JSON.parse(JSON.stringify(turnier || {})), gespeichertMs: Number(gespeichertMs) || Date.now() };
+      presetLager.set(p.name, p);
+      pSichern();
+      return JSON.parse(JSON.stringify(p));
+    },
+    loeschePreset: async (name) => {
+      presetLager.delete(String(name).replace(/\\s+/g, " ").trim());
+      pSichern();
+    },
     setzeTurnier: async (id, daten) => {
       const t = { ...daten, id, spiele: [...new Set(daten.spiele)] };
       turniere.set(id, t);
@@ -2671,6 +2698,41 @@ try {
       .catch(() => {});
     const text = await seite.locator("[data-turnier]").innerText();
     pruefe(/gibt es nicht/.test(text), `Für ein unbekanntes Turnier steht da: ${text.replace(/\n/g, " | ")}`);
+    await kontext.close();
+  }
+
+  // --- 4e2. Der eigene Link: games.alae.app/<kennung> -----------------------------
+  // Unter /hotdog liegt keine Datei: Netlify zeigt 404.html (hier der lokale
+  // Server), und die leitet zum Turnier weiter. Eine Seite, die es gibt, nur
+  // gross geschrieben, führt zu ihr; alles andere bleibt «nicht gefunden».
+  {
+    const { kontext, seite } = await mitTurnieren(`/${HERBST.toUpperCase()}/`);
+    await seite.waitForFunction(() => /Herbstcup/.test(document.querySelector("[data-turnier]")?.textContent || ""), null, { timeout: 8000 })
+      .catch(() => {});
+    const wo = new URL(seite.url());
+    pruefe(wo.pathname === "/turnier" && wo.searchParams.get("t") === HERBST,
+      `Der eigene Link /${HERBST.toUpperCase()}/ führt nach ${seite.url()} statt zum Turnier.`);
+    pruefe(/Herbstcup/.test(await seite.locator("[data-turnier]").innerText()), "Über den eigenen Link steht das Turnier nicht da.");
+    pruefe(await seite.evaluate((id) => window.LernappTurnier.volleAdresse(id), HERBST) === `${BASIS}/turnier?t=${HERBST}`
+      && await seite.evaluate(() => window.LernappTurnier.volleAdresse("hotdog")) === `${BASIS}/hotdog`
+      && await seite.evaluate(() => window.LernappTurnier.seitenLink("hotdog")) === "/turnier?t=hotdog",
+      "Der Link zum Weitergeben ist für einen automatischen Link nicht der lange oder für einen eigenen nicht der kurze.");
+
+    await seite.goto(`${BASIS}/Turmbau`, { waitUntil: "load" });
+    await seite.waitForURL((u) => u.pathname === "/turmbau", { timeout: 5000 }).catch(() => {});
+    pruefe(new URL(seite.url()).pathname === "/turmbau", `/Turmbau führt nach ${seite.url()} statt zum Spiel.`);
+
+    const antwort = await seite.goto(`${BASIS}/gibt/es/nicht`, { waitUntil: "load" });
+    pruefe(antwort?.status() === 404, `Eine Adresse, die es nicht gibt, antwortet mit ${antwort?.status()} statt 404.`);
+    const nichts = await seite.evaluate(() => ({
+      titel: document.querySelector(".ar-weiter-titel")?.textContent || "",
+      sichtbar: getComputedStyle(document.querySelector(".ar-weiter")).visibility,
+      weg: document.querySelector(".ar-weiter a.mini-knopf")?.getAttribute("href"),
+    }));
+    pruefe(/nichts/.test(nichts.titel) && nichts.sichtbar === "visible" && nichts.weg === "/",
+      `Wo es nichts gibt, steht nicht «nicht gefunden» mit dem Weg zu den Spielen: ${JSON.stringify(nichts)}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `Die Seite «nicht gefunden» – Klassen ohne Regel: ${ohne.join(", ")}`);
     await kontext.close();
   }
 
@@ -7271,11 +7333,15 @@ try {
     pruefe(await replayHaken.isChecked(), "Ein neues Turnier lässt die Replays nicht von selbst anschauen.");
     await replayHaken.uncheck();
     // Bevor es angelegt wird: alles so, wie es jetzt steht, als Preset
-    // merken. Es kommt auf dieses Gerät, mit allem ausser dem Beginn.
+    // merken. Es kommt in die Datenbank (für jedes Gerät), mit allem ausser
+    // dem Beginn – und nicht mehr in den Browser.
+    await seite.waitForFunction(() => /Keine Presets/.test(document.querySelector("select.adm-preset-wahl")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
     pruefe(await form.locator("select.adm-preset-wahl").isDisabled(), "Ohne gespeicherte Presets lässt sich trotzdem eines wählen.");
     antwort = "Mein Preset";
     await form.locator("button", { hasText: "Als Preset speichern" }).click();
-    const preset = await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.admin.presets") || "[]"));
+    await seite.waitForFunction(() => window.__miniPresets.size === 1, null, { timeout: 3000 }).catch(() => {});
+    const preset = await seite.evaluate(() => [...window.__miniPresets.values()]);
+    pruefe(await seite.evaluate(() => localStorage.getItem("mini.admin.presets")) === null, "Das Preset liegt noch im Browser statt nur in der Datenbank.");
     const p0 = preset[0]?.turnier || {};
     pruefe(preset.length === 1 && preset[0].name === "Mein Preset" && p0.name === "Test-Cup Ä"
       && JSON.stringify([...(p0.spiele || [])].sort()) === JSON.stringify(["fishPond", "towerStack"])
@@ -7342,10 +7408,46 @@ try {
       && JSON.stringify(ausPreset.haken) === JSON.stringify([true, false, false]),
       `Das Preset stellt das Formular nicht wieder her: ${JSON.stringify(ausPreset)}`);
     await seite.locator(".adm-turnier-form button", { hasText: "Preset löschen" }).click();
-    pruefe(await seite.evaluate(() => JSON.parse(localStorage.getItem("mini.admin.presets") || "[]").length === 0)
+    await seite.waitForFunction(() => window.__miniPresets.size === 0, null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.__miniPresets.size === 0)
       && await seite.locator(".adm-turnier-form select.adm-preset-wahl").isDisabled(),
       "«Preset löschen» lässt das Preset stehen.");
     await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
+
+    // Ein Preset, das ein anderes Gerät gespeichert hat (das Handy, hier
+    // direkt in die Datenbank gelegt), steht beim nächsten neuen Turnier
+    // ebenso in der Auswahl.
+    await seite.evaluate(() => window.__miniPresets.set("Vom Handy", {
+      name: "Vom Handy", gespeichertMs: Date.now(),
+      turnier: { name: "Handy-Cup", spiele: ["fishPond"], dauer: String(24 * 3600 * 1000), versuchsart: "frei", anzahl: "3", zaehlt: "bester", wertung: "platz", aufgaben: "gleich", sichtbar: "alle" },
+    }));
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
+    await seite.waitForFunction(() => [...(document.querySelector(".adm-turnier-form select.adm-preset-wahl")?.options || [])].some((o) => o.value === "Vom Handy"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.locator('.adm-turnier-form select.adm-preset-wahl option[value="Vom Handy"]').count() === 1,
+      "Ein Preset, das ein anderes Gerät gespeichert hat, steht nicht in der Auswahl.");
+    await seite.locator(".adm-turnier-form select.adm-preset-wahl").selectOption("Vom Handy");
+    pruefe(await seite.locator(".adm-turnier-form input[type=\"text\"]").first().inputValue() === "Handy-Cup",
+      "Das Preset vom anderen Gerät stellt das Formular nicht ein.");
+    await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
+
+    // Was von früher noch im Browser liegt, zieht beim nächsten Besuch in die
+    // Datenbank um – danach steht es auf jedem Gerät, und hier nicht mehr.
+    await seite.evaluate(() => localStorage.setItem("mini.admin.presets", JSON.stringify([
+      { name: "Vom Laptop", gespeichertMs: 5, turnier: { name: "Laptop-Cup", spiele: ["towerStack"], versuchsart: "zahl", anzahl: "2" } },
+      { name: "Vom Handy", gespeichertMs: 4, turnier: { name: "Älter als das in der Datenbank" } },
+    ])));
+    await seite.locator(".adm-kopf button", { hasText: "Neu laden" }).click();
+    await seite.waitForFunction(() => window.__miniPresets.has("Vom Laptop") && localStorage.getItem("mini.admin.presets") === null, null, { timeout: 4000 }).catch(() => {});
+    const umgezogen = await seite.evaluate(() => ({
+      namen: [...window.__miniPresets.keys()].sort(),
+      handy: window.__miniPresets.get("Vom Handy")?.turnier?.name,
+      lokal: localStorage.getItem("mini.admin.presets"),
+    }));
+    pruefe(JSON.stringify(umgezogen.namen) === JSON.stringify(["Vom Handy", "Vom Laptop"]) && umgezogen.handy === "Handy-Cup" && umgezogen.lokal === null,
+      `Die Presets aus dem Browser sind nicht (oder falsch) in die Datenbank umgezogen: ${JSON.stringify(umgezogen)}`);
+    await seite.evaluate(() => { window.__miniPresets.clear(); localStorage.removeItem("__mini_presets_attrappe"); });
+    // Neu geladen bleibt offen, was offen war (ansicht.offen).
+    await seite.waitForSelector(".adm-turniere .adm-turnier", { timeout: 8000 });
     pruefe(await seite.locator(".adm-turnier-form").count() === 0, "«Zurück zur Übersicht» schliesst das Formular nicht.");
     pruefe(!(await seite.evaluate(() => document.querySelector(".adm-seite").classList.contains("ist-formular"))), "Nach «Zurück zur Übersicht» bleibt der Adminbereich ausgeblendet.");
 
@@ -7735,6 +7837,78 @@ try {
 
     const ohne = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ohne <= 1, `Der Adminbereich steht mit den Turnieren ${ohne} px über den Rand.`);
+
+    // Jeder Knopf sieht aus wie ein Knopf – auch einer, der ein Link ist («Zu
+    // den Spielen», «Neuer Multiplayer», «Öffnen», «Multiplayer»). Wer eine
+    // Farbe von adm-knopf trägt, trägt auch adm-knopf selbst; ohne stand er
+    // als unterstrichener Text auf einem Farbfleck da.
+    if (await seite.evaluate(() => Boolean(document.querySelector(".adm-turniere .adm-klapp-inhalt")?.hidden))) {
+      await seite.locator(".adm-turniere .adm-klapp-knopf").click();
+    }
+    if (!(await seite.locator(".adm-turnier.ist-offen").count())) await seite.locator(".adm-turnier-wahl").first().click();
+    const knoepfe = await seite.evaluate(() => ({
+      ohneForm: [...document.querySelectorAll('.adm-seite [class*="adm-knopf-"]')].filter((k) => !k.classList.contains("adm-knopf"))
+        .map((k) => `${k.tagName.toLowerCase()} «${k.textContent.trim()}»`),
+      links: [...document.querySelectorAll(".adm-seite a.adm-knopf")].filter((a) => a.getClientRects().length)
+        .map((a) => ({ text: a.textContent.trim(), strich: getComputedStyle(a).textDecorationLine, rund: parseFloat(getComputedStyle(a).borderRadius) })),
+    }));
+    pruefe(knoepfe.ohneForm.length === 0, `Diese Knöpfe haben eine Farbe, aber nicht die Form eines Knopfs: ${knoepfe.ohneForm.join(", ")}`);
+    pruefe(["Zu den Spielen", "Neuer Multiplayer", "Öffnen", "Multiplayer"].every((t) => knoepfe.links.some((k) => k.text === t))
+      && knoepfe.links.every((k) => k.strich === "none" && k.rund >= 20),
+      `Die Links im Adminbereich sehen nicht aus wie die Knöpfe daneben: ${JSON.stringify(knoepfe.links)}`);
+
+    // Ein eigener Link: games.alae.app/hotdog statt …/turnier?t=hotdog-party-x7k2m9pq.
+    // Er ist die Kennung des Turniers – also kein Name, den eine Seite schon
+    // hat, und keiner, den ein Turnier schon hat (das würde überschrieben).
+    await seite.click('.adm-turniere button:text-is("Neues Turnier")');
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    const lform = seite.locator(".adm-turnier-form");
+    const linkFeld = lform.locator(".adm-link-feld");
+    const linkStand = () => lform.locator(".adm-link-stand").innerText();
+    await lform.locator('input[type="text"]').first().fill("Hotdog Party");
+    const autoLink = await lform.locator(".adm-link .adm-option", { hasText: "Automatisch" }).locator("small").innerText();
+    pruefe(/^127\.0\.0\.1:\d+\/turnier\?t=hotdog-party-[a-km-np-z2-9]{8}$/.test(autoLink), `Unter «Automatisch» steht nicht der Link, der angelegt würde: ${autoLink}`);
+    pruefe(await lform.locator('.adm-link input[value="auto"]').isChecked(), "Ein neues Turnier hat nicht von selbst den automatischen Link.");
+    await linkFeld.fill("Turmbau");
+    pruefe(await lform.locator('.adm-link input[value="eigen"]').isChecked(), "Wer einen eigenen Link tippt, bleibt bei «Automatisch».");
+    pruefe(/turmbau ist schon eine Seite/.test(await linkStand()), `Ein Link, unter dem schon ein Spiel liegt, ist nicht als belegt gemeldet: ${await linkStand()}`);
+    await linkFeld.fill("cup");
+    pruefe(/zu kurz/.test(await linkStand()), `Ein Link mit drei Zeichen ist nicht als zu kurz gemeldet: ${await linkStand()}`);
+    const herbstName = await seite.evaluate((id) => window.__miniTurniere.get(id)?.name || "", HERBST);
+    if (herbstName) {
+      await linkFeld.fill(HERBST);
+      await seite.waitForFunction(() => /gibt es schon/.test(document.querySelector(".adm-link-stand")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
+      pruefe((await linkStand()).includes(`gibt es schon: «${herbstName}»`), `Ein Link, den ein Turnier schon hat, ist nicht als vergeben gemeldet: ${await linkStand()}`);
+      await lform.locator('button[type="submit"]').click();
+      await seite.waitForFunction(() => /gibt es schon/.test(document.querySelector(".adm-turnier-form > .adm-meldung")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
+      pruefe(/gibt es schon/.test(await lform.locator(":scope > .adm-meldung").innerText())
+        && await seite.evaluate((id) => window.__miniTurniere.get(id)?.name, HERBST) === herbstName,
+        "Ein neues Turnier mit dem Link eines bestehenden hat das bestehende überschrieben – oder nicht gesagt, warum es nicht geht.");
+    }
+    await linkFeld.fill("Hot Dög!");
+    await linkFeld.blur();
+    pruefe(await linkFeld.inputValue() === "hot-doeg", `Aus «Hot Dög!» wird nicht der Link hot-doeg: ${await linkFeld.inputValue()}`);
+    await linkFeld.fill("hotdog");
+    await seite.waitForFunction(() => /ist frei/.test(document.querySelector(".adm-link-stand")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
+    pruefe(/^127\.0\.0\.1:\d+\/hotdog ist frei\.$/.test(await linkStand()), `Der freie eigene Link steht nicht da: ${await linkStand()}`);
+    await lform.locator("button", { hasText: "Alle abwählen" }).click();
+    await lform.locator('input[value="towerStack"]').check();
+    await lform.locator('button[type="submit"]').click();
+    await seite.waitForFunction(() => window.__miniTurniere.has("hotdog"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.evaluate(() => window.__miniTurniere.get("hotdog")?.name) === "Hotdog Party", "Das Turnier mit eigenem Link kam nicht unter «hotdog» an.");
+    const hotdogMeldung = await seite.locator(".adm-turniere .adm-klapp-inhalt > .adm-meldung").innerText();
+    pruefe(hotdogMeldung.includes(`Der Link: ${BASIS}/hotdog`) && !hotdogMeldung.includes("turnier?t="),
+      `Nach dem Anlegen steht nicht der kurze Link da: ${hotdogMeldung}`);
+    const hotdogKarte = seite.locator(".adm-turnier.ist-offen");
+    pruefe(await hotdogKarte.locator("a", { hasText: "Öffnen" }).getAttribute("href") === "/turnier?t=hotdog",
+      "«Öffnen» führt beim eigenen Link nicht direkt auf die Turnierseite.");
+    // Beim Ändern steht der Link da – zum Ändern ist er nicht mehr.
+    await hotdogKarte.locator("button", { hasText: "Bearbeiten" }).click();
+    await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
+    pruefe(await seite.locator(".adm-turnier-form .adm-link-feld").count() === 0
+      && /\/hotdog – der Link bleibt/.test(await seite.locator(".adm-turnier-form .adm-link").innerText()),
+      "Beim Ändern lässt sich der Link ändern, oder er steht nicht da.");
+    await seite.locator(".adm-turnier-form-kopf button", { hasText: "Zurück" }).click();
 
     // Abmelden: Der Knopf auf der Startseite verschwindet mit.
     await seite.locator(".adm-kopf button", { hasText: "Abmelden" }).click();

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-12-1";
+export const FASSUNG = "2026-11-12-2";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -439,13 +439,18 @@ export function turnierSeite() {
 
   Nicht für Suchmaschinen: Ein Turnier "nur mit Link" soll auch dort nicht
   auftauchen.
+
+  Die Vorschau eines geteilten Links (Titel, Satz) gilt hier für jedes
+  Turnier. Den Namen des einen setzt beim Ausliefern
+  netlify/edge-functions/turnier-vorschau.js ein; was hier steht, sieht nur,
+  wer ein Turnier teilt, das es nicht (mehr) gibt.
 -->
 <html lang="de">
   <head>
 ${kopf({
     titel: "Turnier · arcade",
-    text: "Ein Turnier in der arcade: dieselben Spiele, eine eigene Rangliste, ein Ende. Ohne Konto, ohne Anmeldung.",
-    kurz: "Dieselben Spiele, eine eigene Rangliste.",
+    text: "Ein Turnier in der arcade: mitspielen mit einem Tipp auf den Link – ohne Konto, ohne Anmeldung.",
+    kurz: "Mitspielen mit einem Tipp – ohne Anmeldung.",
     viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
     farbe: DUNKEL,
   })}
@@ -525,6 +530,75 @@ ${skripte(adminSkripte())}
 `;
 }
 
+/*
+ * Die Seite für alles, was es nicht gibt – und der Weg zum eigenen Link eines
+ * Turniers.
+ *
+ * Netlify liefert sie aus, wenn unter einer Adresse keine Datei liegt
+ * (404.html im veröffentlichten Ordner, ohne eine Zeile in netlify.toml).
+ * Genau dort landet der eigene Link, den der Adminbereich vergibt
+ * (admin.js, «Eigener Link»): games.alae.app/hotdog. Sieht die Adresse aus
+ * wie die Kennung eines Turniers (6 bis 48 Zeichen aus a–z, 0–9 und dem
+ * Bindestrich, wie firestore.rules sie verlangt), geht es sofort weiter auf
+ * /turnier?t=hotdog. Gibt es das Turnier nicht, sagt das die Turnierseite.
+ *
+ * Eine Seite, die es gibt, nur anders geschrieben (/Turmbau), führt zu
+ * ihr. Alles andere sieht diese Seite: nicht gefunden, und der Weg zu den
+ * Spielen.
+ *
+ * Kein Skript von aussen und nicht im Zwischenspeicher des Service Workers:
+ * Sie soll schnell weiterleiten und sonst nichts. Ihre Vorschau ist die eines
+ * Turniers – geteilt wird diese Seite fast nur als eigener Link.
+ */
+export function weiterSeite() {
+  const seiten = ["turnier", "live", "admin", ...SPIELE.map((s) => s.seite)];
+  return `<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Nicht gefunden – oder der eigene Link eines Turniers: /hotdog führt
+  weiter auf /turnier?t=hotdog (siehe weiterSeite dort).
+-->
+<html lang="de">
+  <head>
+    <!-- Sie antwortet unter jeder Adresse, auch /gibt/es/nicht: Ohne base
+         suchte sie ihr Stylesheet unter /gibt/es/styles.css. -->
+    <base href="/" />
+${kopf({
+    titel: "arcade",
+    text: "Ein Turnier in der arcade: mitspielen mit einem Tipp auf den Link – ohne Konto, ohne Anmeldung.",
+    kurz: "Mitspielen mit einem Tipp – ohne Anmeldung.",
+    viewport: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    manifest: false,
+  })}
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      (function () {
+        var seiten = ${JSON.stringify(seiten)};
+        var weg = "";
+        try { weg = decodeURIComponent(window.location.pathname); } catch (e) { weg = window.location.pathname; }
+        weg = weg.replace(/^[/]+|[/]+$/g, "").toLowerCase();
+        var ziel = "";
+        if (weg === "index") ziel = "/";
+        else if (seiten.indexOf(weg) >= 0) ziel = "/" + weg + window.location.search;
+        else if (/^[a-z0-9-]{6,48}$/.test(weg)) ziel = "/turnier?t=" + weg;
+        if (!ziel) return;
+        document.documentElement.className = "ar-weiter-geht";
+        window.location.replace(ziel);
+      })();
+    </script>
+  </head>
+  <body data-page="nichtda" class="ar">
+    <main class="ar-weiter">
+      <h1 class="ar-weiter-titel">Hier ist nichts.</h1>
+      <p class="ar-weiter-text">Diese Seite gibt es nicht – vielleicht ist der Link nicht ganz vollständig.</p>
+      <a class="mini-knopf mini-knopf-voll" href="/">Zu den Spielen</a>
+    </main>
+  </body>
+</html>
+`;
+}
+
 export function manifest() {
   return JSON.stringify({
     id: "/",
@@ -594,6 +668,7 @@ export function alleDateien() {
   raus.set("turnier.html", turnierSeite());
   raus.set("live.html", liveSeite());
   raus.set("admin.html", adminSeite());
+  raus.set("404.html", weiterSeite());
   raus.set("app.webmanifest", manifest());
   raus.set("service-worker.js", serviceWorker());
   return raus;

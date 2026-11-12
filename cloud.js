@@ -1642,6 +1642,64 @@
     return kennungen.length;
   }
 
+  // ---------------------------------------------------------------------------
+  // Die Presets des Adminbereichs (admin.js): ein Turnier, wie es eingestellt
+  // war, unter einem eigenen Namen. In der Datenbank, damit jedes Gerät des
+  // Admins dieselben sieht – nur er darf sie lesen und schreiben
+  // (firestore.rules, miniPresets).
+  //
+  // Ein Dokument je Name. Die Kennung kommt aus dem Namen: lesbar vorne, und
+  // hinten eine Prüfsumme, damit «Cup!» und «Cup?» zwei bleiben. Wer unter
+  // demselben Namen noch einmal speichert, überschreibt – genau so ist es
+  // gemeint.
+  // ---------------------------------------------------------------------------
+  const PRESET_NAME_MAX = 60;
+  const PRESETS_MAX = 50;
+  const presetSammlung = () => starte()?.collection("miniPresets") || null;
+  function presetKennung(name) {
+    const text = String(name || "");
+    let summe = 0x811c9dc5;
+    for (let i = 0; i < text.length; i += 1) {
+      summe ^= text.charCodeAt(i);
+      summe = Math.imul(summe, 0x01000193) >>> 0;
+    }
+    const lesbar = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+    return `${lesbar ? `${lesbar}-` : ""}${summe.toString(16).padStart(8, "0")}`;
+  }
+  function liesPreset(doc) {
+    const d = typeof doc?.data === "function" ? doc.data() : null;
+    if (!d || typeof d.name !== "string" || !d.name || !d.turnier || typeof d.turnier !== "object") return null;
+    return { name: d.name, turnier: d.turnier, gespeichertMs: Number(d.gespeichertMs) || 0 };
+  }
+  // Alle, das zuletzt gespeicherte zuerst.
+  async function presets() {
+    const ref = presetSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    return sammle(await ref.limit(PRESETS_MAX).get(), liesPreset).sort((a, b) => b.gespeichertMs - a.gespeichertMs);
+  }
+  async function speicherePreset({ name, turnier, gespeichertMs = Date.now() }) {
+    const ref = presetSammlung();
+    const sauber = String(name || "").replace(/\s+/g, " ").trim().slice(0, PRESET_NAME_MAX);
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    if (!sauber) throw new Error("Ein Preset braucht einen Namen.");
+    // Nur, was Firestore nimmt: kein undefined, keine Funktion, kein NaN.
+    const einstellungen = JSON.parse(JSON.stringify(turnier && typeof turnier === "object" ? turnier : {}));
+    const doc = {
+      name: sauber,
+      turnier: einstellungen,
+      gespeichertMs: Math.round(Number(gespeichertMs) || Date.now()),
+    };
+    const zeit = jetztAufDemServer();
+    if (zeit) doc.updatedAt = zeit;
+    await ref.doc(presetKennung(sauber)).set(doc);
+    return { name: doc.name, turnier: doc.turnier, gespeichertMs: doc.gespeichertMs };
+  }
+  async function loeschePreset(name) {
+    const ref = presetSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    await ref.doc(presetKennung(String(name || "").replace(/\s+/g, " ").trim())).delete();
+  }
+
   // app und db für den Adminbereich: Er meldet jemanden an und liest und
   // löscht dieselben Einträge, braucht dafür aber keinen zweiten Client.
   window.MiniCloud = {
@@ -1657,6 +1715,7 @@
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
+    presets, speicherePreset, loeschePreset, PRESETS_MAX, PRESET_NAME_MAX,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };
