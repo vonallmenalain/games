@@ -733,13 +733,18 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   try {
     let r = await frage("/turnier?t=hotdog-party-3cuwrdn6");
     pruefe("Vorschau: Der Titel ist der Name des Turniers (sicher maskiert)",
-      meta(r.text, "og:title") === "HotDog &lt;Party&gt; &amp; &quot;Co&quot;" && meta(r.text, "og:description") === "Turnier · arcade"
+      meta(r.text, "og:title") === "HotDog &lt;Party&gt; &amp; &quot;Co&quot;"
       && /<title>HotDog &lt;Party&gt; &amp; &quot;Co&quot; · Turnier · arcade<\/title>/.test(r.text)
       && r.antwort.status === 200 && !r.antwort.headers.has("etag"));
+    // Ohne Beschreibung steht unter dem Namen nichts – auch kein
+    // «Turnier · arcade»: Wer den Link bekommt, kennt die arcade meist nicht.
+    pruefe("Vorschau: Ohne Beschreibung steht unter dem Namen nichts",
+      meta(r.text, "og:description") === undefined && meta(r.text, "description") === undefined && !/Turnier · arcade"/.test(r.text)
+      && r.text.split("\n").length === turnierHtml.split("\n").length - 2);
     r = await frage("/turnier?t=hotdog");
     const satz = meta(r.text, "og:description") || "";
-    pruefe("Vorschau: Mit Beschreibung steht sie darunter, gekürzt",
-      meta(r.text, "og:title") === "HotDog Party" && satz.startsWith("Turnier · arcade – Wer am meisten Würste isst") && satz.endsWith(" …") && satz.length < 170
+    pruefe("Vorschau: Mit Beschreibung steht nur sie darunter, gekürzt",
+      meta(r.text, "og:title") === "HotDog Party" && satz.startsWith("Wer am meisten Würste isst") && satz.endsWith(" …") && satz.length <= 141
       && meta(r.text, "description") === satz);
     r = await frage("/turnier?t=gibtsnicht-123456");
     pruefe("Vorschau: Ein Turnier, das es nicht gibt, lässt die Seite, wie sie ist", r.text === turnierHtml);
