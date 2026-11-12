@@ -224,7 +224,7 @@ export const SPIELE = [
   {
     seite: "schwarm", spiel: "flockFlight", page: "flock", js: "schwarm.js",
     titel: "Schwarm", buehne: { id: "sw-stage", klasse: "cm-stage sw-stage" },
-    text: "Schwarm: Links halten lenkt nach links, rechts nach rechts – führ den Starenschwarm im Abendlicht an Felsen und Windrädern vorbei. Jeder Vogel zählt.",
+    text: "Schwarm: Links lenkt nach links, rechts nach rechts, beide ballen den Schwarm – führ ihn genau durch die Mitte jeder Lücke. Perfekt bringt Vögel.",
     baut: "das Meer im Abendlicht mit dem Schwarm",
   },
   {

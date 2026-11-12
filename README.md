@@ -385,50 +385,112 @@ losschwimmt, wird bald erwischt.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
-**Schwarm** (`schwarm.js`, `flockFlight`) – Ein Starenschwarm zieht im
-Abendlicht über das Meer, der Sonne entgegen; die Kamera fliegt dicht
-dahinter. Wer links aufs Bild hält, lenkt nach links, wer rechts hält, nach
-rechts (am Rechner Pfeiltasten oder A/D; liegen zwei Finger auf, gilt der
-letzte) – flink, mit schnellen Richtungswechseln, denn die Strecke verlangt
-es. Im Weg stehen Felsnadeln in Reihen, **grosse Felsen genau auf der
-Fluglinie** (drum herum, später zwei, drei im Wechsel), Felsbögen,
-**Felswände mit einem Spalt**, Windräder und Stromleitungen. Jeder Vogel
-fliegt für sich: Was knapp neben einem Felsen liegt, fliesst darum herum, was
-mitten darauf zuhält, ist weg – ein Flügel eines Windrads oder ein Seil
-trifft nur, wer gerade dort ist. Durch einen Felsbogen zwängt sich der
-Schwarm; durch den Spalt einer Wand kommt nur, was hineinpasst. Bei einer
-Stromleitung ist der Weg zwischen den zwei hohen Masten frei.
+**Schwarm** (`schwarm.js`, `flockFlight`, Fassung `t2`) – Ein Starenschwarm
+zieht im Abendlicht über das Meer, der Sonne entgegen; die Kamera fliegt
+dicht dahinter. Die Regel: **Links lenkt nach links, rechts nach rechts,
+beide zusammen ballen den Schwarm. Aufgefächert zählt er, geballt kommt er
+durch.** Am Rechner lenken die Pfeiltasten oder A/D; ↓, S und die
+Leertaste ballen (links und rechts zugleich auch).
 
-Ringe aus Licht sind Trupps, und es gibt zwei Sorten: **kleine goldene** nah
-am Weg (ihre Vögel und ein Zehntel des eigenen Schwarms kommen dazu) und
-**grosse helle** an heiklen Stellen – ganz am Rand, hinter einem zweiten,
-engeren Spalt, im Durchlass neben einem grossen Felsen (viele Vögel und drei
-Zehntel des Schwarms, `ANSCHLUSS`). Ein grosser Schwarm wächst also schneller.
+Umgebaut am 12. November 2026 nach dem Muster von Tier 1 und 2. Vorher
+verlor auch ein perfekter Autopilot je Lauf rund 370 Vögel und gewann
+ebenso viele dazu: Der Schwarm war breiter als die Lücken, Vögel wichen von
+selbst um Felsen aus, kleine Trupps kamen beim blossen Folgen des Wegs dazu
+– und wer immer 2 m neben der Linie flog, machte nur 16 % weniger Punkte.
+Die Bestenliste zählt nach den alten Regeln; der Admin leert sie beim
+Veröffentlichen («Bestenliste leeren»). Läufe aus `t1` werden nicht mehr
+abgespielt.
 
-Der Schwarm ist Leben und Punktzahl zugleich: Hundert Vögel bringen alle
-dreissig Meter einen Punkt (`PUNKTE_JE_100M`); ein guter Lauf liegt bei 300.
-Ein grosser Schwarm zählt schneller und passt schlechter durch die Lücken.
-Unter einem Dutzend Vögeln (`MINDEST`) zerstreut er sich, und die Runde ist
-vorbei. Sonst endet sie nach 3600 m am Schlafplatz, gut eine Minute nach dem
-Start – hinter drei letzten Felswänden, deren Spalten nur noch die Mitte des
-Schwarms durchlassen (`SCHLUSS_SPALTEN`). Jeder Vogel, der ankommt, zählt
-noch einen Punkt. Unterwegs wird es Abend – Goldene Stunde, Sonnenuntergang,
-Abendrot, Blaue Stunde, Nacht –, schneller (von 38 auf gut 70 m/s) und enger.
-Gemessen mit Autopiloten: Wer nicht lenkt, ist nach einer Viertelminute
-zerstreut; wer ungenau lenkt, nach einer halben; wer genau fliegt, erreicht
-das Ziel etwa jedes zweite Mal mit ein paar Dutzend Vögeln; der Pilot der
-Prüfung, der den freien Weg kennt, bringt um die hundert heim.
+**Jede Reihe ist ein Tor.** Ob Felsnadeln, ein grosser Fels mitten im Weg
+(drum herum, durch die Lücke zwischen ihm und einer Nadel), ein Felsbogen,
+eine Felswand mit Spalt, ein Windpark oder eine Stromleitung (nur zwischen
+den zwei hohen Masten ist es frei): Am freien Weg lässt jede Reihe eine
+Lücke, links und rechts gleich weit (`torDazu`), und in ihrer Mitte hängt
+ein goldener Ring, so gross wie das, was dort noch perfekt ist. Wer die
+**Mitte des Schwarms** – ein warmer Schein zwischen den Vögeln – genau
+hindurchführt (am Anfang auf 1 m, am Schluss auf 0,6 m, `PERFEKT0`/
+`PERFEKT_MIN`) und dabei keinen Vogel verliert, fliegt «perfekt»: Der Ring
+blüht auf, und Vögel schliessen sich an – das erste perfekte Tor in Folge
+bringt 2, dann 4, 6, 8, 10 (`KETTE`). Oben links steht «Perfekt ×n». Ein Tor,
+das nicht perfekt ist, bricht die Kette; daneben steht, wie weit und auf
+welcher Seite («◂ 1,3 m»). Gewertet wird, wenn der letzte Vogel durch ist,
+auch durch die Dicke einer Wand (`DURCH`). Vögel wachsen also nur aus Genauigkeit – und
+grosse Trupps an heiklen Stellen (am Rand, hinter einem zweiten, engeren
+Spalt, im Durchlass neben einem grossen Fels; `TRUPP`) kommen nur, wenn die
+Mitte durch ihren Ring geht. Wer einen holt, verlässt das Tor: Die Kette
+bricht.
 
-Wie die anderen würfelt es seine Welt aus `zufall.js`. Durch jede Reihe
-Hindernisse führt ein freier Weg (`wegBei`), so breit wie `breiteBei(z)` und
-von Punkt zu Punkt nie weiter zur Seite, als der Schwarm lenken kann; der
-Autopilot in `npm run pruefen:browser` (Abschnitt 4g25) folgt ihm bis zum
-Schlafplatz und rechnet nach, dass dort wirklich nichts steht. Wo ein Vogel
-im Schwarm fliegt, folgt aus seiner Nummer, und die Windräder drehen nach
-der Flugzeit – wer gleich fliegt, verliert dieselben Vögel. Aufgezeichnet
-werden Strecke, Seite und Schwarmgrösse (`a`, `b`, `c`); beim Anschauen
-fliegt der Schwarm denselben Weg durch denselben Abend und ist so gross wie
-damals. Die Gegner fliegen als kleiner Schwarm aus Licht mit.
+**Was trifft, ist, was man sieht** (`trifft`). Kein Vogel weicht von selbst
+aus, und keiner fliegt je über den Rand des Schwarms hinaus (`masse`): Was
+beim Durchflug über den Fels hinausragt, bleibt hängen – genau dort, wo es
+den Fels berührt; der Rand des Bilds glüht auf dieser Seite, und dort steht
+«−23». **Trifft die Mitte des Schwarms den Fels, ist die Runde vorbei**
+(«Am Fels zerschellt», wie der Körper im Felsflug). Unter einem Dutzend
+Vögeln (`MINDEST`) zerstreut sich der Schwarm.
+
+**Ballen.** Aufgefächert ist der Schwarm breit (`radiusBei`: 150 Vögel gut
+17 m) und zählt: Hundert Vögel bringen alle dreissig Meter einen Punkt
+(`PUNKTE_JE_100M`). Liegen beide Seiten gut eine Zehntelsekunde auf
+(`BALL_VERZUG` – ein Daumenwechsel ballt nicht), zieht er sich zu einer
+dichten Kugel zusammen (`ballRadiusBei`: 150 Vögel gut 3 m; `BALL_ZU`,
+`BALL_LANG_ZU`), passt durch jeden Spalt – lenkt aber nicht und zählt
+nicht. Loslassen fächert ihn wieder auf (`BALL_AUF`; die Länge wächst
+langsamer, `BALL_LANG_AUF`, und nie so schnell, dass hinten einer
+rückwärts flöge – wer durch ist, bleibt durch). Das
+Können liegt im Wann und Wie lange: vorher genau ausrichten, so spät wie
+möglich ballen, sofort wieder lösen und weiterlenken – wer zu früh ballt,
+kommt nicht mehr zur Mitte, wer zu früh löst, lässt das Ende am Fels. Ein
+grosser Schwarm zählt schneller, muss aber öfter ballen. Gelenkt wird
+nicht sofort, sondern wie ein Band (`LENK_ZEIT`): Wer zu spät umlenkt,
+kommt nicht mehr hinüber.
+
+**Der Falke** (ab `FALKE_AB`, auf offenen Stücken; später zwei kurz
+hintereinander). Man sieht ihn voraus kreisen, ein Ring hält ihn auch vor
+dem dunklen Himmel fest, er schreit – dann legt er die Flügel an und stösst
+`FALKE_STOSS` Sekunden später auf die Mitte des Schwarms. Ist der geballt,
+greift er ins Leere; wer erst in den letzten `FALKE_SPAET` Sekunden geballt
+hat, hat ihn «pariert» (die Kette wächst wie bei einem perfekten Tor), wer
+früher ballte, war zu früh (die Kette bricht). Aufgefächert reisst er ein
+Sechstel heraus (`FALKE_RAUB`). Vor der ersten Wand und vor dem ersten
+Falken sagt eine Tafel einmal, was zu tun ist.
+
+Die Runde endet nach 3600 m am Schlafplatz – hinter drei letzten
+Felswänden, deren Spalten nur noch einen Ball durchlassen
+(`SCHLUSS_SPALTEN`); jeder Vogel, der ankommt, zählt noch einen Punkt.
+Unterwegs wird es Abend – Goldene Stunde, Sonnenuntergang, Abendrot, Blaue
+Stunde, Nacht –, schneller (von 38 auf gut 70 m/s) und enger.
+
+Wie die anderen würfelt es seine Welt aus `zufall.js`. Zuerst kommt ein
+Feld Nadeln, dann ein grosser Fels, dann die erste Wand (`erstesBallen`),
+danach, wie es fällt. Die Reihen eines Felds liegen in der Zeit
+auseinander (`REIHE_T0`/`REIHE_T_MIN`), und von Tor zu Tor geht der freie
+Weg (`wegBei`) nie weiter zur Seite, als sich in der Zeit lenken lässt –
+abzüglich der Pause, in der man an einem Tor geballt ist und anfährt
+(`T_PAUSE`); verlangt wird am Anfang gut die Hälfte dessen, was der
+Schwarm zur Seite kann, am Schluss gut vier Fünftel (`anteilBei`,
+`reichBei`). Wo ein Vogel im Schwarm fliegt, folgt aus seiner Nummer, die
+Windräder drehen nach der Flugzeit, und der Falke hängt an der Strecke –
+wer gleich fliegt, verliert dieselben Vögel. Aufgezeichnet werden Strecke,
+Seite und Schwarmgrösse (`a`, `b`, `c`); in `c` stehen 2000 dazu, solange er
+geballt ist (`GEBALLT_C`), und 0 nach dem Zerschellen. Beim Anschauen
+fliegt der Schwarm denselben Weg durch denselben Abend, ballt an denselben
+Stellen und ist so gross wie damals. Die Gegner fliegen als kleiner
+Schwarm aus Licht mit.
+
+Gemessen mit Autopiloten, die die Welt kennen (je sechs Welten): Wer jedes
+Tor in der Mitte trifft und kurz davor ballt, kommt immer an, verliert
+keinen Vogel, ist an jedem Tor perfekt und holt gut 700 Punkte – in jeder
+Welt fast gleich viel (vorher schwankte derselbe Pilot zwischen 294 und 474).
+Wer an jedem Tor im Mittel einen halben Meter danebenliegt, holt gut
+80 %, mit knapp einem Meter gut die Hälfte, mit anderthalb Metern gut ein
+Drittel; wer immer 2 m danebenfliegt, ein Viertel, wer nie ballt, ebenso.
+Ein Pilot mit einer Zehntelsekunde Reaktionszeit kommt an, mit 0,15 s im
+Mittel bis gut 2800 m, mit einer Viertelsekunde bis knapp 1400 m. Wer eine
+knappe Sekunde zu früh ballt, kommt nicht mehr zur Mitte und zerschellt
+nach rund 900 m; wer nichts tut, nach gut 400 m.
+Abschnitt 4g25 in `npm run pruefen:browser` rechnet nach, dass jedes Tor
+auf seiner ganzen Breite frei und der Weg lenkbar ist, und lässt diese
+Piloten fliegen.
 
 **Gezeichnet wird mit WebGL 2**, ohne Bibliothek – das Repository bleibt ohne
 Abhängigkeiten. Sechs kleine Programme stehen in `schwarm.js`: der Himmel
@@ -438,17 +500,20 @@ eine Scheibe, die zur Kamera schaut; Rumpf und schlagende Flügel entstehen
 im Programm), die Seile und alles, was leuchtet. Die Spiegelung im Wasser
 ist die Welt, auf den Kopf gestellt und noch einmal gezeichnet; das Wasser
 legt sich darüber und lässt davon stehen, was es spiegelt – kein zweites
-Bild im Speicher. Zahlen und Namen liegen auf einer zweiten Leinwand (2D)
-darüber. Kommen die Bilder zu langsam, zeichnet das Spiel die Welt mit
-weniger Bildpunkten (`gueteTakt`), die Zahlen bleiben scharf. Ohne WebGL 2
-steht ein Satz da statt einer Welt.
+Bild im Speicher. Der Falke und die Gegner stehen fast ohne Dunst im Bild,
+sonst verschwänden sie vor dem Abendhimmel. Zahlen und Namen liegen auf
+einer zweiten Leinwand (2D) darüber. Kommen die Bilder zu langsam, zeichnet
+das Spiel die Welt mit weniger Bildpunkten (`gueteTakt`), die Zahlen
+bleiben scharf. Ohne WebGL 2 steht ein Satz da statt einer Welt.
 
-Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`, `QUER0`
-und `LENK_ZEIT` (wie flink er lenkt), `START_VOEGEL`, `MINDEST`,
-`BREIT0`/`BREIT_MIN` (die Breite des freien Wegs), `SPALT0`/`SPALT_MIN` und
-`SCHLUSS_SPALTEN` (die Spalten der Felswände), `ANSCHLUSS`,
-`PUNKTE_JE_100M`, die Masse der Hindernisse – und `ABEND`, die fünf Lichter
-mit Sonnenstand und Farben.
+Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`, `QUER0`,
+`LENK_ZEIT`/`LOS_ZEIT` (wie flink er lenkt), die des Ballens (`BALL_…`,
+`GEBALLT`), `START_VOEGEL`, `MINDEST`, `PUNKTE_JE_100M`, `PERFEKT0`/
+`PERFEKT_MIN` und `KETTE`, `TRUPP`, `BREIT0`/`BREIT_MIN` (die Breite der
+Lücken), `SPALT0`/`SPALT_MIN` und `SCHLUSS_SPALTEN` (die Spalten der
+Felswände), `T_PAUSE` und `REIHE_T0`/`REIHE_T_MIN` (wie dicht die Tore
+kommen), die des Falken (`FALKE_…`), die Masse der Hindernisse – und
+`ABEND`, die fünf Lichter mit Sonnenstand und Farben.
 
 ### Die Welle (November 2026)
 
@@ -797,7 +862,10 @@ Turmspringers im Fall, der Herzschlag des Ninjas mit der Weltzeit, das Meer
 des Freitauchers mit der Tiefe und sein Herz, sobald die Luft knapp wird.
 Ein sauberes Eintauchen klingt nach einem leisen Plopp, ein Klatscher nach
 Platsch. Der Schwarm hat seinen Fahrtwind, ein Flattern, wenn Vögel
-getroffen werden, und ein Zwitschern für jeden Trupp. Eine Kulisse startet mit der
+am Fels hängen bleiben, ein kurzes Rauschen beim Ballen, eine Perle für
+jedes perfekte Tor, ein Zwitschern für jeden Trupp, den Schrei des Falken
+(im Browser erzeugt: `schrei`) und einen dumpfen Schlag, wenn die Mitte am
+Fels zerschellt. Eine Kulisse startet mit der
 Runde und endet mit ihr; die Tafel hält alle an (`stille()`).
 
 **Woher:** 47 kurze Aufnahmen aus freien Sammlungen (Kenney, OpenGameArt –

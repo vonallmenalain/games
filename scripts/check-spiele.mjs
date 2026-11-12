@@ -5983,18 +5983,25 @@ try {
     await kontext.close();
   }
 
-  // --- 4g25. Schwarm: schaffbar, und wer nichts tut, verliert seinen Schwarm ----------
+  // --- 4g25. Schwarm: perfekt heisst genau durch die Mitte, ballen heisst durchkommen --
   // Das erste Spiel mit WebGL: Die Welt steht da, ohne dass sich der Browser
-  // beschwert. Durch jede Reihe Hindernisse führt der freie Weg – breit wie
-  // versprochen, an Nadeln und grossen Felsen vorbei, durch Bögen und die
-  // Spalten der Felswände, zwischen Rotoren und Masten durch, und nie weiter
-  // zur Seite, als der Schwarm lenken kann. Ein Autopilot, der ihm genau
-  // folgt, erreicht in mehreren gewürfelten Runden den Schlafplatz – mit dem,
-  // was durch die letzten Spalten passt. Wer nach dem Start nichts tut, verliert Vögel; unter einem
-  // Dutzend zerstreut sich der Schwarm, und die Runde endet von selbst. Ein
-  // Trupp bringt seine Vögel und einen Teil des Schwarms dazu. Die
-  // Pfeiltasten lenken, und die letzte gilt. Und ein Lauf, angeschaut, durch
-  // denselben Abend mit derselben Zahl.
+  // beschwert. Jede Reihe Hindernisse hat ein Tor: eine Lücke am freien Weg,
+  // links und rechts gleich weit, und auf ihrer ganzen Breite trifft nichts –
+  // nachgerechnet mit derselben Rechnung, mit der das Spiel trifft. Von Tor zu
+  // Tor geht der Weg nie weiter zur Seite, als sich in der Zeit lenken lässt
+  // (abzüglich der Pause, in der man geballt ist).
+  //
+  // Die Piloten (Fassung t2, gemessen in der Planung): Wer die Mitte jedes
+  // Tors trifft und kurz davor ballt, kommt immer an, verliert keinen Vogel
+  // und ist fast immer perfekt – in jeder Welt ähnlich viele Punkte. Wer
+  // immer 2 m daneben fliegt, holt keine Kette und nicht einmal die Hälfte.
+  // Wer nie ballt, verliert an jedem Spalt. Wer nichts tut, zerschellt an der
+  // ersten Nadel. Die Mitte am Fels beendet die Runde sofort; unter einem
+  // Dutzend zerstreut sich der Schwarm. Ein perfektes Tor bringt Vögel, die
+  // Kette mehr; ein grosser Trupp kommt nur, wenn die Mitte durch seinen Ring
+  // geht. Der Falke: geballt im letzten Moment – pariert; zu früh – die
+  // Kette bricht; aufgefächert – er reisst ein Sechstel heraus. Die Tasten
+  // und zwei Finger ballen; ein Lauf, angeschaut, ballt an denselben Stellen.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     const vorher = fehlerAufSeite.length;
@@ -6009,170 +6016,285 @@ try {
     pruefe(bild.ok && bild.programme === 6 && bild.breit > 300 && bild.voegel === 150 && !bild.ohne,
       `Schwarm: Die Welt (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
 
-    // Der freie Weg, in fünf gewürfelten Abenden.
+    // Die Tore, in fünf gewürfelten Abenden: auf ihrer Breite frei, in jeder
+    // Höhe, in der ein geballter Schwarm fliegt – und der Weg dazwischen
+    // lenkbar.
     const weg = await seite.evaluate(() => {
       const S = window.LernappSchwarm;
       const st = S.state;
       const befunde = [];
-      let dinge = 0;
+      let tore = 0;
+      let wande = 0;
+      let falken = 0;
       const arten = new Set();
       for (let lauf = 0; lauf < 5; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         S.weltBis(S.Z_ENDE + 400);
         const W = st.welt;
-        for (const d of W.dinge) {
-          if (d.art === "insel") continue;
-          dinge += 1;
-          arten.add(d.art);
-          const halb = S.breiteBei(d.z) / 2;
-          const neben = Math.abs(d.x - S.wegBei(d.z));
-          if (d.art === "nadel" && neben - d.r < halb - 0.01) befunde.push(`Nadel bei ${d.z.toFixed(0)} m steht ${(halb - neben + d.r).toFixed(1)} m im Weg`);
-          if (d.art === "windrad" && neben - S.ROTOR < halb - 0.01) befunde.push(`Windrad bei ${d.z.toFixed(0)} m steht im Weg`);
-          if (d.art === "bogen" && (neben > 0.01 || d.a < halb)) befunde.push(`Bogen bei ${d.z.toFixed(0)} m: Tor ${d.a.toFixed(1)} m, Weg ${halb.toFixed(1)} m, daneben ${neben.toFixed(1)} m`);
-          if (d.art === "wand" && !d.spalten.some((sp) => Math.abs(sp.x - S.wegBei(d.z)) < 0.01 && sp.g >= 4)) befunde.push(`Felswand bei ${d.z.toFixed(0)} m: kein Spalt am freien Weg`);
-          if (d.art === "leitung") {
-            const hohe = d.masten.filter((m) => m.h > S.MAST);
-            const frei = hohe.length === 2 && hohe.every((m) => Math.abs(m.x - S.wegBei(d.z)) - S.MAST_R >= halb - 0.01);
-            if (!frei) befunde.push(`Leitung bei ${d.z.toFixed(0)} m: Der Weg führt nicht zwischen den hohen Masten durch`);
+        falken += W.falken.length;
+        for (const d of W.dinge) if (d.art !== "insel") arten.add(d.art);
+        for (const t of W.tore) {
+          tore += 1;
+          if (t.art === "wand") wande += 1;
+          const neben = Math.abs(t.x - S.wegBei(t.z));
+          if (neben > 0.01) befunde.push(`Tor (${t.art}) bei ${t.z.toFixed(0)} m liegt ${neben.toFixed(1)} m neben dem Weg`);
+          // Quer durch die Lücke, in drei Höhen: Was dort fliegt, darf nichts treffen.
+          for (const y of [S.FLUG_Y - 2.5, S.FLUG_Y, S.FLUG_Y + 2.5]) {
+            for (let u = -0.98; u <= 0.98; u += 0.07) {
+              const x = t.x + u * t.halb;
+              const hier = W.dinge.find((d) => d.art !== "insel" && Math.abs(d.z - t.z) < 26 && S.trifft(d, x, y, t.z - 30, t.z + 30));
+              if (hier) { befunde.push(`Tor (${t.art}) bei ${t.z.toFixed(0)} m: ${hier.art} bei x ${x.toFixed(1)}, Höhe ${y.toFixed(1)}`); break; }
+            }
           }
+          if (t.halb < S.ballRadiusBei(400) + 0.4) befunde.push(`Tor (${t.art}) bei ${t.z.toFixed(0)} m ist zu eng für einen Ball (${t.halb.toFixed(2)} m)`);
         }
-        // Von Punkt zu Punkt nie weiter zur Seite, als sich lenken lässt.
+        // Von Tor zu Tor nie weiter zur Seite, als sich lenken lässt.
         for (let i = 1; i < W.weg.length; i += 1) {
           const a = W.weg[i - 1];
           const b = W.weg[i];
-          const kann = (S.querBei(b.z) / S.tempoBei(b.z)) * (b.z - a.z) / (Math.PI / 2);
-          if (Math.abs(b.x - a.x) > kann * 0.8 + 0.01) befunde.push(`Weg bei ${b.z.toFixed(0)} m: ${Math.abs(b.x - a.x).toFixed(1)} m zur Seite, lenkbar ${kann.toFixed(1)}`);
+          const kann = S.reichBei(b.z, b.z - a.z);
+          if (Math.abs(b.x - a.x) > kann * 1.05 + 0.01 && b.z - a.z > 1) befunde.push(`Weg bei ${b.z.toFixed(0)} m: ${Math.abs(b.x - a.x).toFixed(1)} m zur Seite, lenkbar ${kann.toFixed(1)}`);
         }
         if (!W.fertig || W.weg[W.weg.length - 1].z !== S.Z_ENDE) befunde.push("Die Welt endet nicht am Schlafplatz");
+        if (!W.erstesBallen || W.erstesBallen > 900) befunde.push(`Die erste Wand kommt zu spät (${W.erstesBallen})`);
       }
-      return { befunde: befunde.slice(0, 6), dinge, arten: [...arten].sort().join(",") };
+      return { befunde: befunde.slice(0, 6), tore, wande, falken, arten: [...arten].sort().join(",") };
     });
-    pruefe(weg.befunde.length === 0 && weg.dinge > 300 && weg.arten === "bogen,leitung,nadel,wand,windrad",
-      `Schwarm: Der freie Weg ist nicht frei – ${JSON.stringify(weg)}`);
+    pruefe(weg.befunde.length === 0 && weg.tore > 120 && weg.wande >= 20 && weg.falken >= 3 && weg.arten === "bogen,leitung,nadel,wand,windrad",
+      `Schwarm: Die Tore sind nicht frei (oder der Weg nicht lenkbar) – ${JSON.stringify(weg)}`);
 
-    // Der Autopilot: dem freien Weg nach, bis zum Schlafplatz.
-    const PILOT = `(S, st) => {
-      const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.3);
-      const d = ziel - st.x - st.vx * 0.12;
-      S.lenke(d > 0.7 ? 1 : d < -0.7 ? -1 : 0);
+    // Der Pilot: kennt die Welt. Er zielt nah am Tor auf dessen Mitte (dazu
+    // daneben: so weit daneben), ballt kurz davor, wenn der aufgefächerte
+    // Schwarm nicht hindurchpasst, und löst, wenn das Ende durch ist. Den
+    // Falken pariert er im letzten Moment. nie: ballt nie.
+    const PILOT = `(S, st, { daneben = 0, nie = false } = {}) => {
+      const W = st.welt;
+      const v = S.tempoBei(st.z);
+      const m = S.masse();
+      let tor = null;
+      for (let i = W.torVon; i < W.tore.length; i += 1) if (W.tore[i].zustand === "offen") { tor = W.tore[i]; break; }
+      const ziel = (tor && (tor.z - st.z) / v < 0.9 ? tor.x : S.wegBei(st.z + v * 0.3)) + daneben;
+      const d = ziel - st.x - st.vx * 0.2;
+      let ball = false;
+      const R = S.radiusBei(S.vg.n);
+      if (!nie) {
+        for (let i = W.torVon; i < W.tore.length; i += 1) {
+          const t = W.tore[i];
+          if (t.z > st.z + v * 3) break;
+          if (R + 0.6 + Math.abs(daneben) < t.halb) continue;
+          const bis = (t.z - st.z) / v;
+          if (bis < S.BALL_VERZUG + 0.24 + R * 1.4 / v * 0.75 && !(st.hinten > t.z + S.DURCH + 0.3)) ball = true;
+        }
+        for (let i = W.falkeVon; i < W.falken.length; i += 1) {
+          const f = W.falken[i];
+          if (f.zustand !== "offen" && f.zustand !== "stoss") continue;
+          const bis = (f.z - st.z) / v;
+          if (bis < 0.3 + S.BALL_VERZUG && bis > -0.15) ball = true;
+        }
+      }
+      S.ballen(ball);
+      S.lenke(ball ? 0 : d > 0.08 ? 1 : d < -0.08 ? -1 : 0);
     }`;
-    const runden = await seite.evaluate((quelle) => {
-      const pilot = new Function(`return (${quelle})`)();
+    const fliegen = (art, n, wie = {}) => seite.evaluate(({ quelle, n, wie }) => {
+      const pilot = quelle ? new Function(`return (${quelle})`)() : null;
       const S = window.LernappSchwarm;
       const st = S.state;
       const raus = [];
-      for (let lauf = 0; lauf < 4; lauf += 1) {
+      for (let lauf = 0; lauf < n; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         S.losGehts();
-        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) {
-          pilot(S, st);
+        for (let k = 0; st.phase !== "ende" && k < 200000; k += 1) {
+          if (pilot) pilot(S, st, wie);
           S.takt(1 / 120);
         }
         S.lenke(0);
-        raus.push({ phase: st.phase, an: st.angekommen, voegel: S.vg.n, punkte: st.punkte, bonus: st.bonus, meter: st.meter, zahl: document.querySelector(".cm-result-score") !== null });
+        S.ballen(false);
+        raus.push({
+          an: st.angekommen, grund: st.grund, meter: st.meter, voegel: S.vg.n, punkte: st.punkte, verloren: st.verloren,
+          perfekte: st.perfekte, tore: st.tore, perfektTore: st.welt.tore.filter((t) => t.zustand === "perfekt").length, bonus: st.bonus, zahl: document.querySelector(".cm-result-score") !== null,
+          falken: st.welt.falken.filter((f) => f.z < st.z).map((f) => f.zustand[0]).join(""),
+        });
       }
       return raus;
-    }, PILOT);
-    pruefe(runden.every((r) => r.phase === "ende" && r.an && r.voegel >= 30 && r.bonus === r.voegel && r.punkte > 200 && r.punkte < 900 && r.zahl),
-      `Schwarm: Der Autopilot bringt auf dem freien Weg keinen Schwarm zum Schlafplatz – ${JSON.stringify(runden)}`);
+    }, { quelle: art === "nichts" ? null : PILOT, n, wie });
+    const genau = await fliegen("pilot", 4);
+    const mittel = (liste) => liste.reduce((summe, r) => summe + r.punkte, 0) / Math.max(1, liste.length);
+    const bester = mittel(genau);
+    pruefe(genau.every((r) => r.an && r.verloren <= 3 && r.bonus === r.voegel && r.perfekte >= 0.8 * r.tore && r.zahl && !/[rl]/.test(r.falken))
+      && Math.min(...genau.map((r) => r.punkte)) > 0.85 * Math.max(...genau.map((r) => r.punkte)),
+    `Schwarm: Der Pilot, der genau durch die Mitte fliegt und rechtzeitig ballt, kommt nicht sauber und perfekt an (oder die Welten sind sehr ungleich) – ${JSON.stringify(genau)}`);
+    const daneben = await fliegen("pilot", 3, { daneben: 2 });
+    pruefe(daneben.every((r) => r.perfektTore < 0.1 * r.tore) && mittel(daneben) < 0.5 * bester,
+      `Schwarm: Wer 2 m neben der Mitte fliegt, ist zu gut dran – ${JSON.stringify({ bester, daneben })}`);
+    const nie = await fliegen("pilot", 3, { nie: true });
+    pruefe(nie.every((r) => r.verloren > 60) && mittel(nie) < 0.4 * bester,
+      `Schwarm: Wer nie ballt, kommt zu gut durch die Spalten – ${JSON.stringify({ bester, nie })}`);
+    const nichts = await fliegen("nichts", 3);
+    pruefe(nichts.every((r) => !r.an && r.grund === "fels" && r.meter < 1500),
+      `Schwarm: Wer nichts tut, zerschellt nicht an den ersten Felsen: ${JSON.stringify(nichts)}`);
 
-    // Wer nichts tut: Der Schwarm fliegt geradeaus in die Felsen. Mindestens
-    // zwei von drei Runden enden lange vor dem Schlafplatz, zerstreut.
-    const nichts = await seite.evaluate(() => {
-      const S = window.LernappSchwarm;
-      const st = S.state;
-      const raus = [];
-      for (let lauf = 0; lauf < 3; lauf += 1) {
-        document.querySelector(".cm-bar-left .cm-icon-again").click();
-        S.losGehts();
-        for (let n = 0; st.phase !== "ende" && n < 200000; n += 1) S.takt(1 / 120);
-        raus.push({ phase: st.phase, an: st.angekommen, meter: st.meter, voegel: S.vg.n, verloren: st.verloren, text: document.querySelector(".cm-result-detail")?.textContent || "" });
-      }
-      return raus;
-    });
-    pruefe(nichts.every((r) => r.phase === "ende" && r.verloren > 0) && nichts.filter((r) => !r.an && r.voegel < 12 && r.meter < 3000).length >= 2,
-      `Schwarm: Wer nichts tut, verliert seinen Schwarm nicht: ${JSON.stringify(nichts)}`);
-
-    // Unter einem Dutzend ist Schluss – auch wenn noch Vögel fliegen.
-    const zerstreut = await seite.evaluate(() => {
+    // Die Mitte am Fels: sofort vorbei. Unter einem Dutzend: zerstreut.
+    const enden = await seite.evaluate(() => {
       const S = window.LernappSchwarm;
       const st = S.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       S.losGehts();
-      for (let n = 0; n < 120; n += 1) S.takt(1 / 120);
+      S.weltBis(1500);
+      // Die Nadel, die das erste Tor einfasst.
+      const tor0 = st.welt.tore[0];
+      const nadel = tor0.dinge.filter((d) => d.art === "nadel" && Math.abs(d.z - tor0.z) < 0.01).sort((a, b) => Math.abs(a.x - tor0.x) - Math.abs(b.x - tor0.x))[0];
+      for (let k = 0; st.z < nadel.z - 20 && k < 60000; k += 1) { st.x = nadel.x; st.vx = 0; S.takt(1 / 120); }
+      for (let k = 0; st.schritt === "flug" && st.z < nadel.z + 5 && k < 6000; k += 1) { st.x = nadel.x; st.vx = 0; S.takt(1 / 120); }
+      const fels = { schritt: st.schritt, grund: st.grund, z: st.z - nadel.z, r: nadel.r };
+      for (let k = 0; st.phase !== "ende" && k < 2000; k += 1) S.takt(1 / 120);
+      const felsText = document.querySelector(".cm-result-detail")?.textContent || "";
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.losGehts();
+      for (let k = 0; k < 120; k += 1) S.takt(1 / 120);
       const vorher = { phase: st.phase, voegel: S.vg.n };
       S.vg.n = S.MINDEST - 1;
       let schritte = 0;
       for (; st.phase !== "ende" && schritte < 2000; schritte += 1) S.takt(1 / 120);
-      return { vorher, phase: st.phase, sekunden: schritte / 120, an: st.angekommen, text: document.querySelector(".cm-result-detail")?.textContent || document.querySelector(".cm-result-score")?.textContent || "" };
+      return { fels, felsText, vorher, phase: st.phase, grund: st.grund, sekunden: schritte / 120, text: document.querySelector(".cm-result-detail")?.textContent || "" };
     });
-    pruefe(zerstreut.vorher.phase === "spiel" && zerstreut.vorher.voegel === 150 && zerstreut.phase === "ende" && !zerstreut.an && zerstreut.sekunden < 3,
-      `Schwarm: Mit elf Vögeln endet die Runde nicht: ${JSON.stringify(zerstreut)}`);
+    pruefe(enden.fels.schritt === "aus" && enden.fels.grund === "fels" && enden.fels.z > -enden.fels.r - 1 && enden.fels.z < 1 && /zerschellt/.test(enden.felsText)
+      && enden.vorher.phase === "spiel" && enden.vorher.voegel === 150 && enden.phase === "ende" && enden.grund === "zerstreut" && enden.sekunden < 3 && /Zerstreut/.test(enden.text),
+    `Schwarm: Die Mitte am Fels oder elf Vögel beenden die Runde nicht: ${JSON.stringify(enden)}`);
 
-    // Ein Trupp: Wer hindurchfliegt, bekommt seine Vögel und einen Teil des
-    // Schwarms dazu; wer daneben fliegt, nichts. Bis kurz davor dem freien
-    // Weg nach, dann steht die Mitte des Schwarms genau dort (oder dreissig
-    // Meter daneben).
-    const trupp = await seite.evaluate(() => {
+    // Perfekt: genau durch die Mitte – Vögel dazu, in der Kette mehr. Knapp
+    // daneben: nichts, und die Kette bricht. Ein grosser Trupp: nur durch
+    // seinen Ring.
+    const perfekt = await seite.evaluate(() => {
       const S = window.LernappSchwarm;
       const st = S.state;
-      const eine = (daneben) => {
-        document.querySelector(".cm-bar-left .cm-icon-again").click();
-        S.losGehts();
-        S.weltBis(1500);
-        const t = st.welt.trupps[0];
-        for (let n = 0; st.phase === "spiel" && st.z < t.z + 12 && n < 60000; n += 1) {
-          if (st.z < t.z - 8) {
-            const d = S.wegBei(st.z + 10) - st.x - st.vx * 0.12;
-            S.lenke(d > 0.5 ? 1 : d < -0.5 ? -1 : 0);
-          } else {
-            S.lenke(0);
-            st.x = t.x + (daneben ? (t.x > 0 ? -30 : 30) : 0);
-            st.vx = 0;
-          }
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      S.losGehts();
+      S.weltBis(1500);
+      const raus = [];
+      // Durch die ersten drei Tore genau, durch das vierte 1,2 m daneben –
+      // geballt, damit sicher kein Vogel am Fels hängt.
+      for (let i = 0; i < 4; i += 1) {
+        const tor = st.welt.tore[i];
+        const n0 = S.vg.n;
+        for (let k = 0; st.z < tor.z + 16 && st.phase === "spiel" && k < 60000; k += 1) {
+          st.x = tor.x + (i === 3 ? 1.2 : 0);
+          st.vx = 0;
+          S.ballen(st.z > tor.z - 25 && st.z < tor.z + 8);
           S.takt(1 / 120);
         }
-        return { zustand: t.zustand, geholt: st.geholt, n: t.n, soll: t.n + Math.round(150 * S.ANSCHLUSS[t.art]) };
-      };
-      return { mitten: eine(false), daneben: eine(true) };
+        raus.push({ zustand: tor.zustand, dazu: S.vg.n - n0, kette: st.kette });
+      }
+      S.ballen(false);
+      // Ein Trupp: mitten durch den Ring – und einer drei Meter daneben.
+      const trupps = [];
+      for (const weit of [0, 3.2]) {
+        for (let v = 0; v < 20 && (v === 0 || !st.welt.trupps.length); v += 1) {
+          document.querySelector(".cm-bar-left .cm-icon-again").click();
+          S.losGehts();
+          S.weltBis(3000);
+        }
+        const t = st.welt.trupps[0];
+        st.welt.dinge.length = 0;
+        st.welt.tore.length = 0;
+        for (let k = 0; st.z < t.z + 10 && st.phase === "spiel" && k < 90000; k += 1) { st.x = t.x + weit; st.vx = 0; S.takt(1 / 120); }
+        trupps.push({ zustand: t.zustand, geholt: st.geholt, n: t.n });
+      }
+      return { tore: raus, trupps };
     });
-    pruefe(trupp.mitten.zustand === "geholt" && trupp.mitten.geholt >= trupp.mitten.n && trupp.mitten.geholt <= trupp.mitten.soll + 2
-      && trupp.daneben.zustand === "verpasst" && trupp.daneben.geholt === 0,
-    `Schwarm: Ein Trupp kommt nicht dazu (oder auch von weitem): ${JSON.stringify(trupp)}`);
+    pruefe(JSON.stringify(perfekt.tore.map((t) => [t.zustand, t.dazu, t.kette])) === JSON.stringify([["perfekt", 2, 1], ["perfekt", 4, 2], ["perfekt", 6, 3], ["sauber", 0, 0]])
+      && perfekt.trupps[0].zustand === "geholt" && perfekt.trupps[0].geholt === perfekt.trupps[0].n && perfekt.trupps[1].zustand === "verpasst" && perfekt.trupps[1].geholt === 0,
+    `Schwarm: Perfekt, Kette oder Trupp stimmen nicht: ${JSON.stringify(perfekt)}`);
 
-    // Die Pfeiltasten: links, dann rechts dazu (die letzte gilt), rechts los,
-    // links los. Der erste Druck startet die Runde.
+    // Der Falke: geballt im letzten Moment, zu früh, aufgefächert.
+    const falke = await seite.evaluate(() => {
+      const S = window.LernappSchwarm;
+      const st = S.state;
+      const raus = {};
+      for (const [wie, ballVor] of [["spaet", 0.3], ["frueh", 1.4], ["offen", -1]]) {
+        let f = null;
+        for (let v = 0; v < 30 && !f; v += 1) {
+          document.querySelector(".cm-bar-left .cm-icon-again").click();
+          S.losGehts();
+          S.weltBis(3600);
+          f = st.welt.falken[0];
+        }
+        st.welt.dinge.length = 0;
+        st.welt.tore.length = 0;
+        st.welt.falken.splice(1);
+        const kette = 3;
+        for (let k = 0; st.z < f.z + 20 && st.phase === "spiel" && k < 200000; k += 1) {
+          if (k === 0) st.kette = kette;
+          const bis = (f.z - st.z) / S.tempoBei(st.z);
+          S.ballen(ballVor > 0 && bis < ballVor + S.BALL_VERZUG && bis > -0.2);
+          S.takt(1 / 120);
+        }
+        S.ballen(false);
+        raus[wie] = { zustand: f.zustand, kette: st.kette, voegel: S.vg.n, raub: f.raub || 0 };
+      }
+      return raus;
+    });
+    pruefe(falke.spaet.zustand === "pariert" && falke.spaet.kette === 4 && falke.frueh.zustand === "leer" && falke.frueh.kette === 0
+      && falke.offen.zustand === "raub" && falke.offen.kette === 0 && falke.offen.raub >= 20 && falke.offen.raub <= 30,
+    `Schwarm: Der Falke wird nicht pariert, nicht verfehlt oder raubt nicht: ${JSON.stringify(falke)}`);
+
+    // Die Tasten: links, dann rechts dazu – erst lenkt die letzte, nach
+    // einem Augenblick ballt er (und lenkt nicht). ↓ ballt allein.
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    const lage = () => seite.evaluate(() => ({ phase: window.LernappSchwarm.state.phase, lenk: window.LernappSchwarm.state.lenk }));
+    const lage = () => seite.evaluate(() => ({ phase: window.LernappSchwarm.state.phase, lenk: window.LernappSchwarm.state.lenk, ballen: window.LernappSchwarm.state.ballen }));
+    const warte = (sekunden) => seite.evaluate((s) => { for (let k = 0; k < s * 120; k += 1) window.LernappSchwarm.takt(1 / 120); }, sekunden);
     const schritte = [await lage()];
     await seite.keyboard.down("ArrowLeft");
+    await warte(0.02);
     schritte.push(await lage());
     await seite.keyboard.down("ArrowRight");
+    await warte(0.02);
+    schritte.push(await lage());
+    await warte(0.15);
     schritte.push(await lage());
     await seite.keyboard.up("ArrowRight");
+    await warte(0.02);
     schritte.push(await lage());
     await seite.keyboard.up("ArrowLeft");
+    await seite.keyboard.down("ArrowDown");
+    await warte(0.15);
     schritte.push(await lage());
-    const soll = [{ phase: "bereit", lenk: 0 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 1 }, { phase: "spiel", lenk: -1 }, { phase: "spiel", lenk: 0 }];
-    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Schwarm: Die Pfeiltasten lenken nicht: ${JSON.stringify(schritte)}`);
-    // Und der Finger: rechts vom Bild lenkt nach rechts, über die Mitte gezogen nach links.
+    await seite.keyboard.up("ArrowDown");
+    await warte(0.02);
+    schritte.push(await lage());
+    const soll = [
+      { phase: "bereit", lenk: 0, ballen: false }, { phase: "spiel", lenk: -1, ballen: false }, { phase: "spiel", lenk: 1, ballen: false },
+      { phase: "spiel", lenk: 0, ballen: true }, { phase: "spiel", lenk: -1, ballen: false }, { phase: "spiel", lenk: 0, ballen: true },
+      { phase: "spiel", lenk: 0, ballen: false },
+    ];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Schwarm: Die Tasten lenken oder ballen nicht: ${JSON.stringify(schritte)}`);
+    // Und die Finger: rechts vom Bild lenkt nach rechts, über die Mitte
+    // gezogen nach links; ein zweiter Finger auf der anderen Seite ballt.
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    await seite.mouse.move(700, 250);
-    await seite.mouse.down();
+    const finger = (art, id, x) => seite.evaluate(({ art, id, x }) => {
+      const ziel = art === "pointerdown" ? document.querySelector("#sw-stage .sw-feld") : window;
+      ziel.dispatchEvent(new PointerEvent(art, { pointerId: id, clientX: x, clientY: 250, bubbles: true }));
+    }, { art, id, x });
+    await finger("pointerdown", 1, 700);
     const rechts = await lage();
-    await seite.mouse.move(120, 250, { steps: 4 });
+    await finger("pointermove", 1, 120);
     const links = await lage();
-    await seite.mouse.up();
+    await finger("pointerdown", 2, 700);
+    await warte(0.15);
+    const beide = await lage();
+    await finger("pointerup", 2, 700);
+    await warte(0.02);
+    const einer = await lage();
+    await finger("pointerup", 1, 120);
     const los = await lage();
-    pruefe(rechts.phase === "spiel" && rechts.lenk === 1 && links.lenk === -1 && los.lenk === 0,
-      `Schwarm: Der Finger lenkt nicht: ${JSON.stringify({ rechts, links, los })}`);
+    pruefe(rechts.phase === "spiel" && rechts.lenk === 1 && links.lenk === -1 && beide.ballen && beide.lenk === 0 && !einer.ballen && einer.lenk === -1 && los.lenk === 0,
+      `Schwarm: Die Finger lenken oder ballen nicht: ${JSON.stringify({ rechts, links, beide, einer, los })}`);
     pruefe(fehlerAufSeite.length === vorher, `Schwarm: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
   {
-    // Ein Lauf in echter Zeit – ein Stück dem freien Weg nach, dann
-    // zerstreut –, aufgezeichnet und angeschaut: derselbe Abend, am Schluss
-    // dieselbe Zahl.
+    // Ein Lauf in echter Zeit – ein Stück dem Weg nach, einmal geballt, dann
+    // zerstreut –, aufgezeichnet und angeschaut: derselbe Abend, an derselben
+    // Stelle geballt, am Schluss dieselbe Zahl.
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     await seite.addInitScript(() => {
       if (sessionStorage.getItem("__schwarm")) return;
@@ -6185,13 +6307,17 @@ try {
     await seite.evaluate(() => new Promise((fertig) => {
       const S = window.LernappSchwarm;
       const st = S.state;
+      // Nichts im Weg: Hier geht es um die Aufzeichnung, nicht ums Fliegen.
       S.losGehts();
+      st.welt.dinge.length = 0;
       const lauf = () => {
         if (st.phase !== "spiel") { fertig(); return; }
+        st.welt.dinge.length = 0;
         if (st.z > 420 && st.schritt === "flug") S.vg.n = Math.min(S.vg.n, S.MINDEST - 2);
+        S.ballen(st.z > 200 && st.z < 300);
         const ziel = S.wegBei(st.z + S.tempoBei(st.z) * 0.3);
-        const d = ziel - st.x - st.vx * 0.12;
-        S.lenke(d > 0.7 ? 1 : d < -0.7 ? -1 : 0);
+        const d = ziel - st.x - st.vx * 0.2;
+        S.lenke(d > 0.4 ? 1 : d < -0.4 ? -1 : 0);
         requestAnimationFrame(lauf);
       };
       requestAnimationFrame(lauf);
@@ -6204,10 +6330,11 @@ try {
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       const st = window.LernappSchwarm.state;
-      return { kennung, saat: d?.s ?? null, mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen };
+      const c = window.LernappGeist.entpacke(geist?.bahn)?.c || [];
+      return { kennung, level: geist?.level, saat: d?.s ?? null, geballt: c.some((x) => x >= window.LernappSchwarm.GEBALLT_C), punkte: geist?.punkte || 0, gezaehlt: st.punkte, meter: st.meter, an: st.angekommen };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.mitOrt && gespielt.punkte > 10 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 420 && !gespielt.an,
-      `Schwarm: Der Lauf wird nicht mit Saat, Ort und Schwarmgrösse hinterlegt: ${JSON.stringify(gespielt)}`);
+    pruefe(gespielt.kennung && gespielt.level === "t2" && Number.isInteger(gespielt.saat) && gespielt.geballt && gespielt.punkte > 10 && gespielt.punkte === gespielt.gezaehlt && gespielt.meter > 420 && !gespielt.an,
+      `Schwarm: Der Lauf wird nicht mit Saat, Ort, Schwarmgrösse und Ballen hinterlegt (Fassung t2): ${JSON.stringify(gespielt)}`);
     await seite.goto(`${BASIS}/schwarm?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappSchwarm?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const zu = await seite.evaluate(() => ({ phase: window.LernappSchwarm.state.phase, welt: window.LernappSchwarm.weltText() }));
@@ -6216,6 +6343,8 @@ try {
     await seite.waitForFunction(() => window.LernappSchwarm.state.z > 170, null, { timeout: 15000 }).catch(() => {});
     const unterwegs = await seite.evaluate(() => ({ z: Math.round(window.LernappSchwarm.state.z), voegel: window.LernappSchwarm.vg.n, lenk: window.LernappSchwarm.state.lenk }));
     pruefe(unterwegs.z > 150 && unterwegs.voegel >= 100 && unterwegs.lenk === 0, `Schwarm: Beim Zuschauen fliegt der Schwarm nicht mit: ${JSON.stringify(unterwegs)}`);
+    const geballt = await seite.waitForFunction(() => window.LernappSchwarm.state.ball > 0.5, null, { timeout: 15000 }).then(() => seite.evaluate(() => Math.round(window.LernappSchwarm.state.z))).catch(() => null);
+    pruefe(geballt !== null && geballt > 190 && geballt < 320, `Schwarm: Beim Zuschauen ballt sich der Schwarm nicht dort, wo er es damals tat: ${geballt}`);
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
     const schluss = await seite.evaluate(() => ({ punkte: window.LernappSchwarm.state.punkte, schritt: window.LernappSchwarm.state.schritt, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")), ergebnis: Boolean(document.querySelector(".cm-result-score")) }));
     pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.schritt === "aus" && !schluss.ergebnis,
@@ -9162,7 +9291,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 143, `klang.js kennt nicht alle 143 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 147, `klang.js kennt nicht alle 147 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

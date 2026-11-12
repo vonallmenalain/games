@@ -162,7 +162,7 @@
     batEcho: { fassung: "t1", winkel: true },
     timeNinja: { fassung: "t1" },
     freeDive: { fassung: "t1", winkel: true },
-    flockFlight: { fassung: "t1" },
+    flockFlight: { fassung: "t2" },
     // Hier ist c kein Winkel, sondern der Abstand zum Schaum (mal 100) – er
     // soll genauso mitgleiten.
     waveRide: { fassung: "t1", winkel: true },
