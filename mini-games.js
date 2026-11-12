@@ -104,7 +104,8 @@
   // Anlegen eines Turniers stehen sie danach gruppiert (admin.js). Was hier
   // steht, ist die Vorgabe; der Admin teilt im Adminbereich selbst ein, und
   // das steht dann in config/miniGames (cloud.js, tiers). Ein Spiel, das in
-  // keiner der beiden Listen steht, ist Tier 3.
+  // keiner der beiden Listen steht, ist Tier 3. Tier 4 und 5 sind in der
+  // Vorgabe leer – dorthin teilt nur der Admin ein.
   const TIERS_VORGABE = {
     towerStack: 1, bridgeBuilder: 1, vineSwing: 1, tunnelFlight: 1, driftRace: 1, hillGlide: 1,
     leafFlow: 2, dartWheel: 2, planetHop: 2, boilerRoom: 2,
@@ -128,7 +129,7 @@
     // Gebaut nach dem Muster von Tier 1: ein Tipp, eine Regel.
     hammerThrow: 1, duckCrossing: 1,
   };
-  const TIERS = [1, 2, 3];
+  const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
   function tierVon(spiel, einteilung = null) {
     const tier = Number(einteilung?.[spiel] ?? TIERS_VORGABE[spiel] ?? 3);

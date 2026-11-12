@@ -841,12 +841,12 @@
   // ---------------------------------------------------------------------------
   // Die Tiers
   // ---------------------------------------------------------------------------
-  // Drei Gruppen, in die der Admin die Spiele einteilt – im Block «Welche
-  // Spiele gespielt werden» mit T1/T2/T3 neben jedem Spiel. Gespeichert in
+  // Fünf Gruppen, in die der Admin die Spiele einteilt – im Block «Welche
+  // Spiele gespielt werden» mit T1 bis T5 neben jedem Spiel. Gespeichert in
   // config/miniGames (cloud.js, setzeTiers); beim Anlegen eines Turniers
   // stehen die Spiele danach gruppiert, mit einem Knopf je Tier. Nie
   // eingeteilt: die Vorgabe (mini-games.js, TIERS_VORGABE).
-  const TIER_LISTE = () => mini()?.TIERS || [1, 2, 3];
+  const TIER_LISTE = () => mini()?.TIERS || [1, 2, 3, 4, 5];
 
   // Für jedes Spiel sein Tier – aus dem Gespeicherten, sonst aus der Vorgabe.
   function vollstaendig(gespeichert) {

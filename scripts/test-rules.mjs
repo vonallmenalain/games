@@ -200,10 +200,12 @@ await darfNicht("Admin schmuggelt ein Feld in die Liste", () => admin().doc(LIST
 await darfNicht("Admin setzt etwas, das keine Liste ist", () => admin().doc(LISTE).set(spieleListe({ spiele: "alle" })));
 await darf("Admin setzt die Liste", () => admin().doc(LISTE).set(spieleListe()));
 await darf("Admin macht die Liste leer", () => admin().doc(LISTE).set(spieleListe({ spiele: [] })));
-// Die Tiers: je Spiel, das es gibt, 1, 2 oder 3.
+// Die Tiers: je Spiel, das es gibt, 1 bis 5.
 await darf("Admin teilt die Spiele in Tiers ein", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1, fishPond: 3, leafFlow: 2 } })));
+await darf("Admin teilt Spiele in Tier 4 und 5 ein", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 4, fishPond: 5, leafFlow: 2 } })));
 await darfNicht("Admin teilt ein erfundenes Spiel ein", () => admin().doc(LISTE).set(spieleListe({ tiers: { schachweltmeister: 1 } })));
-await darfNicht("Admin setzt ein Tier 4", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 4 } })));
+await darfNicht("Admin setzt ein Tier 6", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 6 } })));
+await darfNicht("Admin setzt ein Tier 0", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 0 } })));
 await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
 await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
 // Ein Spiel, das es nicht mehr gibt, in den gespeicherten Tiers (wie der

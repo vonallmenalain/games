@@ -108,12 +108,12 @@ service cloud.firestore {
         && d.spiele is list
         && d.spiele.size() <= 50
         && d.spiele.hasOnly(miniSpiele())
-        // Die Tiers (admin.js): je Spiel, das es gibt, 1, 2 oder 3. Fehlt das
+        // Die Tiers (admin.js): je Spiel, das es gibt, 1 bis 5. Fehlt das
         // Feld, gilt die Vorgabe aus mini-games.js.
         && (!("tiers" in d) || (d.tiers is map
           && d.tiers.size() <= 50
           && d.tiers.keys().hasOnly(miniSpiele())
-          && d.tiers.values().hasOnly([1, 2, 3])))
+          && d.tiers.values().hasOnly([1, 2, 3, 4, 5])))
         && d.updatedAtMs is int;
     }
 

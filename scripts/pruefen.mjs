@@ -519,7 +519,8 @@ pruefe("Turniere ohne Replays: Regel, Formular, Turnierseite und Spiel kennen oh
 // Adminbereich.
 pruefe("Tiers: Vorgabe, Speicher, Regel und Adminbereich passen zusammen",
   /const TIERS_VORGABE = \{/.test(miniJs) && /async function setzeTiers\(/.test(lies("cloud.js"))
-  && /d\.tiers\.values\(\)\.hasOnly\(\[1, 2, 3\]\)/.test(regeln)
+  && /d\.tiers\.values\(\)\.hasOnly\(\[1, 2, 3, 4, 5\]\)/.test(regeln)
+  && /const TIERS = \[1, 2, 3, 4, 5\];/.test(miniJs) && /const TIER_ZAHLEN = \[1, 2, 3, 4, 5\];/.test(lies("cloud.js"))
   && /function nachTier\(/.test(lies("admin.js")) && /tierKnopf/.test(lies("admin.js")));
 // In einer Netlify-Vorschau meldet Google über die Live-Adresse an – und das
 // Token geht nur an eigene Vorschauen: die eines Pull Requests aus diesem
