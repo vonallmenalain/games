@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-12-4";
+export const FASSUNG = "2026-11-12-5";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -262,6 +262,18 @@ export const SPIELE = [
     titel: "Der Heizer", buehne: { id: "hz-stage", klasse: "cm-stage hz-stage" },
     text: "Der Heizer: Jeder Kessel fällt – leg Kohle nach, aber nie im roten Feld.",
     baut: "die Reihe der Kessel",
+  },
+  {
+    seite: "hammerwurf", spiel: "hammerThrow", page: "hammer", js: "hammerwurf.js",
+    titel: "Hammerwurf", buehne: { id: "hw-stage", klasse: "cm-stage hw-stage" },
+    text: "Hammerwurf: Er dreht sich immer schneller – tippe, und er lässt los. Triff den Sektor und wirf über die Linie, die mit jedem Wurf weiter wandert.",
+    baut: "das Stadion mit dem Werfer",
+  },
+  {
+    seite: "entenfamilie", spiel: "duckCrossing", page: "ducks", js: "entenfamilie.js",
+    titel: "Entenfamilie", buehne: { id: "ef-stage", klasse: "cm-stage ef-stage" },
+    text: "Entenfamilie: Halten heisst schwimmen, Loslassen warten – bring die Küken zwischen den Booten über den Fluss. Jedes Ufer bringt ein Küken mehr.",
+    baut: "der Fluss mit den Booten",
   },
 ];
 

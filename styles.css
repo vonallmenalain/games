@@ -861,12 +861,12 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz {
   position: absolute;
   inset: 0;
 }
 .tb-feld, .br-feld, .dr-feld, .li-feld, .tf-feld, .dt-feld, .ph-feld, .ml-feld, .sl-feld, .hf-feld,
-.bl-feld, .sk-feld, .fr-feld, .kh-feld, .st-feld {
+.bl-feld, .sk-feld, .fr-feld, .kh-feld, .st-feld, .hw-feld, .ef-feld {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -894,7 +894,8 @@ h2 {
 .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
-.jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt {
+.jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
+.hw-prompt, .ef-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -2892,6 +2893,130 @@ h2 {
 }
 
 /* ===========================================================================
+   Hammerwurf
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Das Stadion von oben: Ring,
+   Käfig, Sektor – gezeichnet von hammerwurf.js. Getippt wird auf der ganzen
+   Bühne.
+   =========================================================================== */
+
+.hw-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hw-stage:not([data-phase="intro"]) .hw-prompt { opacity: 0; }
+
+.hw-feld { width: 100%; background: #2f6b2e; }
+
+.hw-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Tipp: ein Ring, der sich zusammenzieht – tippen,
+   nicht halten. */
+.hw-tipp {
+  position: absolute;
+  top: 74%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.hw-stage[data-phase="intro"] .hw-tipp { opacity: 0.95; }
+.hw-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hw-tipp-ring {
+  transform-origin: 32px 32px;
+  animation: ph-tipp 1.3s ease-out infinite;
+}
+
+.hw-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd23f, #ff9f1c);
+  color: #3a2400;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hw-tipp-ring { animation: none; }
+}
+
+/* ===========================================================================
+   Entenfamilie
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Konzentration. Flüsse voller Boote, von oben –
+   gezeichnet von entenfamilie.js. Gehalten wird auf der ganzen Bühne.
+   =========================================================================== */
+
+.ef-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ef-stage:not([data-phase="intro"]) .ef-prompt { opacity: 0; }
+
+.ef-feld { width: 100%; background: #4f8a3a; }
+
+.ef-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten,
+   nicht tippen. */
+.ef-tipp {
+  position: absolute;
+  top: 70%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.ef-stage[data-phase="intro"] .ef-tipp { opacity: 0.95; }
+.ef-tipp svg { width: 100%; height: auto; display: block; }
+.ef-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.ef-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b8f4ff, #00A5B5);
+  color: #00363c;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 165, 181, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ef-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
    Mondlandung
    ---------------------------------------------------------------------------
    In der Farbe des Bereichs Problemlösen. Der Mond mit seinen Plattformen,
@@ -3806,7 +3931,8 @@ h2 {
   .tb-prompt, .br-prompt, .dr-prompt, .li-prompt, .tf-prompt, .dt-prompt, .ph-prompt, .ml-prompt, .sl-prompt, .hf-prompt,
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
-  .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt {
+  .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
+.hw-prompt, .ef-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

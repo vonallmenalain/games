@@ -186,6 +186,14 @@
     "felsflug.haarscharf": { s: "woosh-kurz" },
     "felsflug.aufprall": { s: "whomp" },
     "felsflug.schirm": { s: "schirm" },
+    "hammerwurf.sausen": { s: "a-wind", schleife: true },
+    "hammerwurf.abwurf": { s: "woosh-kurz" },
+    "hammerwurf.aufschlag": { s: "whomp" },
+    "hammerwurf.netz": { s: "whomp-weich" },
+    "hammerwurf.publikum": { d: "turmspringen-publikum" },
+    "entenfamilie.ambient": { d: "voegel", schleife: true },
+    "entenfamilie.piep": { s: "zwitschern" },
+    "entenfamilie.platsch": { d: "platsch" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -199,7 +207,7 @@
     fishPond: "fischteich", numberLine: "zahlengleis", boilerRoom: "heizer", juggler: "jongleur",
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
-    iceRun: "eiskanal", cliffFlight: "felsflug",
+    iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
   };
 
   // ---------------------------------------------------------------------------
