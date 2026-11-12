@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-12-2";
+export const FASSUNG = "2026-11-12-3";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -110,7 +110,7 @@ export const SPIELE = [
   {
     seite: "planeten", spiel: "planetHop", page: "planets", js: "planeten.js",
     titel: "Planetenhüpfer", buehne: { id: "ph-stage", klasse: "cm-stage ph-stage" },
-    text: "Planetenhüpfer: Der Astronaut läuft um den Planeten – tippe im richtigen Moment, und er springt zum nächsten. Je schneller du springst, desto mehr Punkte.",
+    text: "Planetenhüpfer: Der Astronaut läuft um den Planeten – tippe im richtigen Moment, und er springt zum nächsten. Mitten auf den Planeten gibt es Bonus, mehrere hintereinander immer mehr.",
     baut: "das All mit den Planeten",
   },
   {
@@ -158,7 +158,7 @@ export const SPIELE = [
   {
     seite: "seiltaenzer", spiel: "ropeWalk", page: "rope", js: "seiltaenzer.js",
     titel: "Seiltänzer", buehne: { id: "st-stage", klasse: "cm-stage st-stage" },
-    text: "Seiltänzer: Halten lehnt nach rechts, Loslassen nach links – halt das Gleichgewicht auf dem Seil, so weit du kommst.",
+    text: "Seiltänzer: Links halten lehnt nach links, rechts nach rechts – halt gegen die Böen, so weit du kommst.",
     baut: "das Seil über der Schlucht",
   },
   {
@@ -188,7 +188,7 @@ export const SPIELE = [
   {
     seite: "turmspringen", spiel: "highDive", page: "highdive", js: "turmspringen.js",
     titel: "Turmspringen", buehne: { id: "ts-stage", klasse: "cm-stage ts-stage" },
-    text: "Turmspringen: Tippe genau an der Kante, halte für das Päckchen, lass los zum Strecken – und tauch senkrecht ein.",
+    text: "Turmspringen: Halten dreht, Loslassen streckt – acht Sprünge, und jeder muss senkrecht ins Wasser. Perfekt zählt doppelt.",
     baut: "der Sprungturm im Bergsee",
   },
   {

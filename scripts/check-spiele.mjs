@@ -3311,7 +3311,9 @@ try {
   // Ein vorsichtiger Autopilot rechnet den Sprung voraus und springt nur,
   // wenn er auf dem nächsten Planeten landet, ohne einen Mond zu treffen. Er
   // kommt auf mehreren gewürfelten Wegen über den 30. Planeten, ohne dass der
-  // Sauerstoff ausgeht. Wer gar nicht springt, dem geht er aus.
+  // Sauerstoff ausgeht. Ein genauer, der auf die Mitte wartet, holt mit den
+  // Volltreffern deutlich mehr je Planet. Wer gar nicht springt, dem geht
+  // der Sauerstoff aus.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
     await seite.goto(`${BASIS}/planeten`, { waitUntil: "load" });
@@ -3354,14 +3356,16 @@ try {
     });
     pruefe(wege.every((w) => w.erreicht >= 30 && w.schritt !== "verloren"),
       `Planetenhüpfer: Der Autopilot kommt nicht auf jedem Weg weiter – ${JSON.stringify(wege)}`);
-    pruefe(wege.every((w) => w.punkte >= w.erreicht * 10 && w.punkte <= w.erreicht * 100),
-      `Planetenhüpfer: Ein Sprung bringt nicht zwischen 10 und 100 Punkten – ${JSON.stringify(wege)}`);
-    // Wer trödelt, bekommt weniger: derselbe Autopilot, der erst springt,
-    // wenn der Sauerstoff unter die Hälfte gesunken ist.
-    const troedel = await seite.evaluate(() => {
+    const kette = await seite.evaluate(() => window.LernappPlaneten.KETTE_MAX);
+    pruefe(wege.every((w) => w.punkte >= w.erreicht && w.punkte <= w.erreicht * (1 + kette)),
+      `Planetenhüpfer: Ein Planet bringt nicht zwischen 1 und ${1 + kette} Punkten – ${JSON.stringify(wege)}`);
+    // Wer mitten trifft, holt mehr: derselbe Autopilot, der nur springt, wenn
+    // der Sprung auf die Mitte des nächsten Planeten zielt (und erst knapp
+    // vor dem Ende des Sauerstoffs jeden Sprung nimmt, der trägt).
+    const genau = await seite.evaluate(() => {
       const P = window.LernappPlaneten;
       const st = P.state;
-      const trifft = () => {
+      const voraus = () => {
         const a = st.astro;
         const tg = P.absprung();
         const v = P.sprungBei(st.erreicht);
@@ -3374,25 +3378,37 @@ try {
           for (let i = Math.max(0, st.auf - 1); i <= st.auf + 3; i += 1) {
             const p = st.planeten[i];
             const mond = P.mondBei(p, uhr);
-            if (mond && Math.hypot(x - mond.x, y - mond.y) < mond.r + 5) return false;
+            if (mond && Math.hypot(x - mond.x, y - mond.y) < mond.r + 5) return null;
             if (i === st.auf && t < 0.45) continue;
             const m = P.mitte(p, uhr);
-            if (Math.hypot(x - m.x, y - m.y) < p.r + p.luft * 0.6) return i === st.auf + 1;
+            if (Math.hypot(x - m.x, y - m.y) < p.r + p.luft) {
+              if (i !== st.auf + 1) return null;
+              const vorbei = Math.abs((x - m.x) * tg.y - (y - m.y) * tg.x);
+              return { tief: Math.hypot(x - m.x, y - m.y) < p.r + p.luft * 0.6 || vorbei < p.r * 0.5, voll: vorbei < (p.r + p.luft) * P.VOLL * 0.7 };
+            }
           }
         }
-        return false;
+        return null;
       };
-      document.querySelector(".cm-bar-left .cm-icon-again").click();
-      P.tippen();
-      for (let n = 0; st.schritt !== "verloren" && st.erreicht < 12 && n < 200000; n += 1) {
-        if (st.schritt === "lauf" && st.luft / st.luftMax < 0.5 && trifft()) P.tippen();
-        P.takt(1 / 240);
+      const raus = [];
+      for (let lauf = 0; lauf < 2; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        P.tippen();
+        for (let n = 0; st.schritt !== "verloren" && st.erreicht < 20 && n < 200000; n += 1) {
+          if (st.schritt === "lauf" && st.zeit - st.schrittZeit > 0.2) {
+            const b = voraus();
+            if (b && (b.voll || (b.tief && st.luft / st.luftMax < 0.2))) P.tippen();
+          }
+          P.takt(1 / 240);
+        }
+        raus.push({ erreicht: st.erreicht, punkte: st.punkte, volltreffer: st.volltreffer, beste: st.besteFolge, schritt: st.schritt });
       }
-      return { erreicht: st.erreicht, punkte: st.punkte };
+      return raus;
     });
-    const schnell = wege.reduce((summe, w) => summe + w.punkte / w.erreicht, 0) / wege.length;
-    pruefe(troedel.erreicht > 0 && troedel.punkte / troedel.erreicht < schnell - 15,
-      `Planetenhüpfer: Wer trödelt, bekommt nicht weniger Punkte je Sprung (${(troedel.punkte / troedel.erreicht).toFixed(1)} gegen ${schnell.toFixed(1)}).`);
+    const vorsichtig = wege.reduce((summe, w) => summe + w.punkte / w.erreicht, 0) / wege.length;
+    const mitte = genau.reduce((summe, w) => summe + w.punkte / Math.max(1, w.erreicht), 0) / genau.length;
+    pruefe(genau.every((w) => w.erreicht >= 20 && w.volltreffer >= 10 && w.beste >= 3) && mitte > vorsichtig + 1,
+      `Planetenhüpfer: Wer mitten trifft, holt nicht deutlich mehr (${mitte.toFixed(2)} gegen ${vorsichtig.toFixed(2)} je Planet) – ${JSON.stringify(genau)}`);
     const sprung = await seite.evaluate(() => {
       const P = window.LernappPlaneten;
       const st = P.state;
@@ -3929,13 +3945,15 @@ try {
     await kontext.close();
   }
 
-  // --- 4g12. Seiltänzer: immer zu halten, und ohne Eingabe kippt er -----------------
-  // Ein Autopilot, der nur Neigung und Drehung sieht (halten, wenn er nach
-  // links kippt, sonst loslassen), geht auf mehreren gewürfelten Seilen bis
-  // 1500 m: Fällt er, hat eine Böe mehr verlangt, als die Stange kann. Dazu
-  // ist keine Böe stärker als ihr Deckel (die Stange behält bei 0.42 Neigung
-  // noch 0.55 übrig). Und wer nach dem ersten Druck nichts mehr tut, kippt
-  // nach links ins Netz – das ist das Ende, mit Ergebnis.
+  // --- 4g12. Seiltänzer: immer zu halten, und jede Böe wirft, wer nichts tut ---------
+  // Ein Autopilot, der nur Neigung und Drehung sieht (links halten, wenn er
+  // nach rechts kippt, rechts, wenn nach links, sonst nichts), geht auf
+  // mehreren gewürfelten Seilen bis 1500 m: Fällt er, hat eine Böe mehr
+  // verlangt, als die Stange kann. Keine Böe ist stärker als ihr Deckel,
+  // jede stark genug, um einen umzuwerfen, der nicht gegenhält, und hinten
+  // kommen Doppelböen; wer so genau gegenhält, pariert sie alle. Wer nach
+  // dem Start nichts mehr tut, wirft die erste Böe ins Netz – das ist das
+  // Ende, mit Ergebnis. Und wer zu lange auf einer Seite hält, kippt dorthin.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 800 });
     await seite.goto(`${BASIS}/seiltaenzer`, { waitUntil: "load" });
@@ -3946,36 +3964,76 @@ try {
       for (let lauf = 0; lauf < 4; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         const st = T.state;
-        T.druecken();
-        T.loslassen();
+        T.lehnen(1);
+        T.lehnen(0);
         let schiefst = 0;
         for (let n = 0; st.schritt === "lauf" && st.meter < 1500 && n < 400000; n += 1) {
-          if (st.l.th + 0.4 * st.l.w < 0) T.druecken(); else T.loslassen();
+          const kippt = st.l.th + 0.35 * st.l.w;
+          T.lehnen(kippt > 0.03 ? -1 : kippt < -0.03 ? 1 : 0);
           T.takt(1 / 120);
           schiefst = Math.max(schiefst, Math.abs(st.l.th));
         }
-        T.loslassen();
+        T.lehnen(0);
         T.weltBis(20000);
-        const zuStark = st.welt.boeen.filter((b) => {
-          const k = T.schwereBei(b.x0);
-          return b.G > T.stange(k) - T.kipp(k) * Math.sin(0.42) - 0.55 + 1e-9;
-        }).length;
-        raus.push({ meter: st.meter, schritt: st.schritt, schiefst: Math.round(schiefst * 100), zuStark });
+        const boeen = st.welt.boeen;
+        const zuStark = boeen.filter((b) => b.G > T.STANGE - T.BOE_RESERVE + 1e-9).length;
+        const zuSchwach = boeen.filter((b) => b.G <= T.AUFRICHT * Math.sin(T.KIPP_MAX)).length;
+        const doppelt = boeen.filter((b) => b.doppelt).length;
+        raus.push({ meter: st.meter, schritt: st.schritt, schiefst: Math.round(schiefst * 100), zuStark, zuSchwach, doppelt, boeen: boeen.length, pariert: st.ruheN });
       }
       return raus;
     });
-    pruefe(laeufe.every((l) => l.meter >= 1500 && l.schritt === "lauf" && l.zuStark === 0),
-      `Seiltänzer: Der Autopilot hält nicht auf jedem Seil das Gleichgewicht – ${JSON.stringify(laeufe)}`);
-    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    await seite.evaluate(() => { window.LernappSeiltaenzer.druecken(); window.LernappSeiltaenzer.loslassen(); });
+    pruefe(laeufe.every((l) => l.meter >= 1500 && l.schritt === "lauf" && l.zuStark === 0 && l.zuSchwach === 0 && l.doppelt > 3 && l.pariert > 20),
+      `Seiltänzer: Der Autopilot hält nicht auf jedem Seil das Gleichgewicht, oder die Böen stimmen nicht – ${JSON.stringify(laeufe)}`);
+    // Schwer wird es trotzdem: Derselbe Pilot, der erst nach gut einer
+    // Viertelsekunde reagiert, fällt auf jedem Seil lange vor 1500 m.
+    const traege = await seite.evaluate(() => {
+      const T = window.LernappSeiltaenzer;
+      const st = T.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        T.lehnen(1);
+        T.lehnen(0);
+        const gesehen = [];
+        for (let n = 0; st.schritt === "lauf" && st.meter < 1500 && n < 400000; n += 1) {
+          gesehen.push(st.l.th + 0.35 * st.l.w);
+          const kippt = gesehen.length > 34 ? gesehen[gesehen.length - 35] : 0;
+          T.lehnen(kippt > 0.05 ? -1 : kippt < -0.05 ? 1 : 0);
+          T.takt(1 / 120);
+        }
+        T.lehnen(0);
+        raus.push({ meter: st.meter, schritt: st.schritt });
+      }
+      return raus;
+    });
+    pruefe(traege.every((l) => l.schritt === "sturz" && l.meter < 1000),
+      `Seiltänzer: Wer träge gegenhält, kommt trotzdem fast beliebig weit – ${JSON.stringify(traege)}`);
+    const ohne = await seite.evaluate(() => {
+      const T = window.LernappSeiltaenzer;
+      const st = T.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      T.lehnen(1);
+      T.lehnen(0);
+      const erste = st.welt.boeen[0];
+      for (let n = 0; st.schritt === "lauf" && n < 120 * 60; n += 1) T.takt(1 / 120);
+      return { schritt: st.schritt, gekippt: st.gekippt, grund: st.sturzGrund, dir: erste.dir, vorErsterBoe: st.l.x < erste.x0, meter: st.meter };
+    });
+    pruefe(ohne.schritt === "sturz" && ohne.gekippt === ohne.dir && ohne.grund === "boe" && !ohne.vorErsterBoe && ohne.meter < 40,
+      `Seiltänzer: Ohne Eingabe wirft ihn nicht die erste Böe: ${JSON.stringify(ohne)}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
-    const ende = await seite.evaluate(() => ({
-      zahl: document.querySelector(".cm-result-score")?.textContent,
-      schritt: window.LernappSeiltaenzer.state.schritt,
-      gekippt: window.LernappSeiltaenzer.state.gekippt,
-    }));
-    pruefe(ende.schritt === "sturz" && ende.gekippt === -1 && ende.zahl !== undefined,
-      `Seiltänzer: Ohne Eingabe endet die Runde nicht mit einem Sturz nach links: ${JSON.stringify(ende)}`);
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Seiltänzer: Nach dem Sturz kommt kein Ergebnis.");
+    const zuLange = await seite.evaluate(() => {
+      const T = window.LernappSeiltaenzer;
+      const st = T.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      T.lehnen(1);
+      for (let n = 0; st.schritt === "lauf" && n < 120 * 10; n += 1) T.takt(1 / 120);
+      T.lehnen(0);
+      return { schritt: st.schritt, gekippt: st.gekippt, grund: st.sturzGrund, meter: st.meter };
+    });
+    pruefe(zuLange.schritt === "sturz" && zuLange.gekippt === 1 && zuLange.grund === "gehalten",
+      `Seiltänzer: Wer rechts hält und nicht loslässt, kippt nicht nach rechts: ${JSON.stringify(zuLange)}`);
     await kontext.close();
   }
 
@@ -4439,31 +4497,28 @@ try {
   }
 
   // --- 4g19. Turmspringen: schaffbar, und jede Runde endet von selbst ---------------
-  // Ein Autopilot springt mehrere gewürfelte Serien: Er tippt, wenn an der
-  // Kante der Moment in diesem Bild kommt, hält das Päckchen, bis die
-  // Drehung beim Strecken genau die Pflicht ergibt, und streckt sich dann.
-  // Er kommt auf jeder Welt durch mindestens zehn Sprünge – bis 27 m und zur
-  // Pflicht von zweieinhalb Saltos; Wind und Böen machen nichts unmöglich.
-  // Und jede Runde endet von selbst: Ab dem dreizehnten Sprung verlangt die
-  // Pflicht mehr, als bis zum Wasser geht. Wer nach dem Start nichts tut,
-  // kippt von der Kante und klatscht; wer nur gestreckt springt, klatscht
-  // auch; wer im Päckchen bleibt, macht eine Arschbombe – jedes Mal mit
-  // Ergebnis. Ein Tipp weit vor dem Moment springt nicht ab. Und ein Lauf,
-  // angeschaut, in derselben Welt mit derselben Zahl am Schluss.
+  // Ein Autopilot springt mehrere gewürfelte Serien: Er hält das Päckchen,
+  // bis die Drehung beim Strecken genau sein Ziel ergibt – je höher, desto
+  // mehr halbe Drehungen, zuletzt zweieinhalb Saltos –, und streckt sich. Er
+  // kommt auf jeder Welt durch alle acht Sprünge, jeden perfekt, und die
+  // Runde endet nach dem achten von selbst. Ein gieriger, der jedes Mal zwei
+  // halbe Drehungen mehr will, kommt nicht durch. Wer nach dem Start nichts
+  // tut, taucht achtmal ohne Drehung ein: keine Punkte, aber ein Ende. Wer
+  // im Päckchen bleibt, macht eine Arschbombe; wer quer eintaucht, klatscht.
+  // Halten dreht, Loslassen hält die Drehung an. Und ein Lauf, angeschaut,
+  // in derselben Welt mit derselben Zahl am Schluss.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     await seite.goto(`${BASIS}/turmspringen`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappTurmspringen?.state?.sp && window.LernappTurmspringen.view.cssW > 0, null, { timeout: 8000 });
-    // Der Pilot als Text: Er läuft in mehreren evaluate. halten: im Flug
-    // immer (true) oder nie (false) das Päckchen statt zu rechnen.
-    const PILOT = `(S, st, halten = null) => {
-      if (st.schritt === "wippen" && !st.sprung.abgesprungen && Math.abs(S.ringRest()) < 1 / 200) S.aktion();
-      if (st.schritt === "flug" && !st.sprung.verpasst) {
-        if (halten !== null) { S.halte(halten); return; }
-        const v = S.vorausWinkel(true).winkel;
-        const ziel = Math.max(S.pflichtBei(st.nr), Math.ceil((v - 10) / 180)) * 180;
-        S.halte(v < ziel - 0.5);
-      } else S.halte(false);
+    // Der Pilot als Text: Er läuft in mehreren evaluate. ziel: halbe
+    // Drehungen je Sprung (eine Liste) oder halten: im Flug immer (true)
+    // oder nie (false) das Päckchen.
+    const PILOT = `(S, st, { ziel = [2, 2, 3, 3, 4, 4, 4, 5], dazu = 0, halten = null } = {}) => {
+      if (st.schritt !== "flug") { S.halte(false); return; }
+      if (halten !== null) { S.halte(halten); return; }
+      const soll = (ziel[Math.min(st.nr, ziel.length - 1)] + dazu) * 180;
+      S.halte(S.vorausWinkel(true).winkel < soll - 0.5);
     }`;
     const serien = await seite.evaluate((quelle) => {
       const pilot = new Function(`return (${quelle})`)();
@@ -4478,88 +4533,87 @@ try {
           S.takt(1 / 120);
         }
         S.halte(false);
-        raus.push({ nr: st.nr, phase: st.phase, aus: st.aus, punkte: st.punkte, sprunge: st.sprunge.join(" ") });
+        raus.push({ nr: st.nr, phase: st.phase, aus: st.aus, punkte: st.punkte, perfekte: st.perfekte, sprunge: st.sprunge.join(" "), welt: S.weltText() });
       }
       return raus;
     }, PILOT);
-    pruefe(serien.every((s) => s.nr >= 10 && s.phase === "ende" && s.aus && s.punkte >= 300),
-      `Turmspringen: Der Autopilot kommt nicht durch zehn Sprünge, oder die Runde endet nicht von selbst – ${JSON.stringify(serien)}`);
-
-    // Wer nichts tut, ausser zu starten: Er kippt von der Kante und klatscht.
-    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    await seite.keyboard.press("Space");
-    await seite.waitForSelector(".cm-result-score", { timeout: 20000 }).catch(() => {});
-    const nichts = await seite.evaluate(() => {
-      const st = window.LernappTurmspringen.state;
-      return { zahl: document.querySelector(".cm-result-score")?.textContent, phase: st.phase, aus: st.aus, nr: st.nr, art: st.sprung.art };
+    pruefe(serien.every((s) => s.nr === 7 && s.phase === "ende" && s.aus === "fertig" && s.perfekte === 8 && s.punkte >= 90),
+      `Turmspringen: Der Autopilot kommt nicht perfekt durch alle acht Sprünge, oder die Runde endet nicht danach – ${JSON.stringify(serien)}`);
+    pruefe(new Set(serien.map((s) => s.welt)).size > 1, `Turmspringen: Die Höhen sind in jeder Runde dieselben – ${JSON.stringify(serien.map((s) => s.welt))}`);
+    const baender = await seite.evaluate(() => {
+      const S = window.LernappTurmspringen;
+      return S.state.plan.slice(0, S.SPRUENGE).every((p, i) => p.H >= S.BAENDER[i][0] && p.H <= S.BAENDER[i][1] && Number.isInteger(p.H));
     });
-    pruefe(nichts.phase === "ende" && nichts.aus === "klatscher" && nichts.nr === 0 && nichts.art === "verpasst" && nichts.zahl !== undefined,
-      `Turmspringen: Ohne Eingabe endet die Runde nicht mit einem Klatscher: ${JSON.stringify(nichts)}`);
+    pruefe(baender, "Turmspringen: Eine Höhe liegt ausserhalb ihres Bandes.");
 
-    // Nur gestreckt: zu wenig Drehung – Klatscher. Nur im Päckchen:
-    // Arschbombe.
-    const halb = await seite.evaluate((quelle) => {
+    const gierig = await seite.evaluate((quelle) => {
+      const pilot = new Function(`return (${quelle})`)();
+      const S = window.LernappTurmspringen;
+      const st = S.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.aktion();
+        for (let n = 0; st.phase === "spiel" && n < 900000; n += 1) {
+          pilot(S, st, { dazu: 2 });
+          S.takt(1 / 120);
+        }
+        S.halte(false);
+        raus.push({ nr: st.nr, aus: st.aus });
+      }
+      return raus;
+    }, PILOT);
+    pruefe(gierig.every((r) => r.aus === "bombe" || r.aus === "klatscher"),
+      `Turmspringen: Wer immer zwei halbe Drehungen mehr will, kommt trotzdem durch – ${JSON.stringify(gierig)}`);
+
+    // Nichts tun, nur im Päckchen, quer hinein.
+    const arten = await seite.evaluate((quelle) => {
       const pilot = new Function(`return (${quelle})`)();
       const S = window.LernappTurmspringen;
       const st = S.state;
       const raus = {};
-      for (const [art, halten] of [["gestreckt", false], ["paeckchen", true]]) {
-        const liste = [];
-        for (let lauf = 0; lauf < 3; lauf += 1) {
-          document.querySelector(".cm-bar-left .cm-icon-again").click();
-          S.aktion();
-          for (let n = 0; st.phase === "spiel" && n < 200000; n += 1) {
-            pilot(S, st, halten);
-            S.takt(1 / 120);
-          }
-          S.halte(false);
-          liste.push({ nr: st.nr, aus: st.aus, grund: st.grund, ergebnis: Boolean(document.querySelector(".cm-result-score")) });
+      for (const [art, opt] of [["nichts", { halten: false }], ["paeckchen", { halten: true }], ["quer", { ziel: [1.5] }]]) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        S.aktion();
+        for (let n = 0; st.phase === "spiel" && n < 900000; n += 1) {
+          pilot(S, st, opt);
+          S.takt(1 / 120);
         }
-        raus[art] = liste;
+        S.halte(false);
+        raus[art] = { nr: st.nr, aus: st.aus, grund: st.grund, punkte: st.punkte, ergebnis: Boolean(document.querySelector(".cm-result-score")) };
       }
       return raus;
     }, PILOT);
-    pruefe(halb.gestreckt.every((r) => r.aus === "klatscher" && r.nr === 0 && r.ergebnis),
-      `Turmspringen: Wer sich nie zusammenzieht, klatscht nicht: ${JSON.stringify(halb.gestreckt)}`);
-    pruefe(halb.paeckchen.every((r) => r.aus === "bombe" && r.nr === 0 && r.grund === "Arschbombe" && r.ergebnis),
-      `Turmspringen: Wer im Päckchen bleibt, macht keine Arschbombe: ${JSON.stringify(halb.paeckchen)}`);
+    pruefe(arten.nichts.aus === "fertig" && arten.nichts.nr === 7 && arten.nichts.punkte === 0 && arten.nichts.ergebnis,
+      `Turmspringen: Wer nichts tut, springt nicht acht Mal ohne Punkte bis zum Ende: ${JSON.stringify(arten.nichts)}`);
+    pruefe(arten.paeckchen.aus === "bombe" && arten.paeckchen.nr === 0 && arten.paeckchen.grund === "Arschbombe" && arten.paeckchen.ergebnis,
+      `Turmspringen: Wer im Päckchen bleibt, macht keine Arschbombe: ${JSON.stringify(arten.paeckchen)}`);
+    pruefe(arten.quer.aus === "klatscher" && arten.quer.nr === 0 && arten.quer.ergebnis,
+      `Turmspringen: Wer quer eintaucht, klatscht nicht: ${JSON.stringify(arten.quer)}`);
 
-    // Ein Tipp gleich nach dem Ankommen an der Kante – lange vor dem Moment –
-    // springt nicht ab.
-    const frueh = await seite.evaluate(() => {
-      const S = window.LernappTurmspringen;
-      const st = S.state;
-      document.querySelector(".cm-bar-left .cm-icon-again").click();
-      S.aktion();
-      for (let n = 0; n < 4000 && st.schritt !== "wippen"; n += 1) S.takt(1 / 120);
-      const rest = S.ringRest();
-      S.aktion();
-      return { rest, schritt: st.schritt, ab: st.sprung.abgesprungen };
-    });
-    pruefe(frueh.rest > 0.5 && frueh.schritt === "wippen" && !frueh.ab, `Turmspringen: Ein Tipp lange vor dem Moment springt ab: ${JSON.stringify(frueh)}`);
-
-    // Halten heisst Päckchen: Wer hält, dreht sich schneller.
+    // Halten dreht, Loslassen hält an.
     const dreh = await seite.evaluate(() => {
       const S = window.LernappTurmspringen;
       const st = S.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       S.aktion();
-      for (let n = 0; n < 8000 && !(st.schritt === "wippen" && Math.abs(S.ringRest()) < 1 / 200); n += 1) S.takt(1 / 120);
-      S.aktion();
-      // Nach einem perfekten Absprung läuft kurz die Zeitlupe – gemessen
-      // wird danach.
-      for (let n = 0; n < 240 && st.zeitlupe > 0; n += 1) S.takt(1 / 120);
+      for (let n = 0; n < 8000 && st.schritt !== "flug"; n += 1) S.takt(1 / 120);
       const w0 = st.sp.winkel;
-      for (let n = 0; n < 48; n += 1) S.takt(1 / 120);
+      for (let n = 0; n < 24; n += 1) S.takt(1 / 120);
       const offen = st.sp.winkel - w0;
       S.halte(true);
       const w1 = st.sp.winkel;
-      for (let n = 0; n < 48; n += 1) S.takt(1 / 120);
+      for (let n = 0; n < 36; n += 1) S.takt(1 / 120);
       const zu = st.sp.winkel - w1;
       S.halte(false);
-      return { offen, zu, schritt: st.schritt };
+      for (let n = 0; n < 36; n += 1) S.takt(1 / 120);
+      const w2 = st.sp.winkel;
+      for (let n = 0; n < 24; n += 1) S.takt(1 / 120);
+      const danach = st.sp.winkel - w2;
+      return { offen, zu, danach, schritt: st.schritt };
     });
-    pruefe(dreh.schritt === "flug" && dreh.zu > dreh.offen * 2.5, `Turmspringen: Im Päckchen dreht er nicht schneller: ${JSON.stringify(dreh)}`);
+    pruefe(dreh.schritt === "flug" && dreh.offen === 0 && dreh.zu > 30 && Math.abs(dreh.danach) < 0.5,
+      `Turmspringen: Halten dreht nicht, oder Loslassen hält die Drehung nicht an: ${JSON.stringify(dreh)}`);
 
     await kontext.close();
   }
@@ -4575,13 +4629,9 @@ try {
     await seite.goto(`${BASIS}/turmspringen`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappTurmspringen?.state?.sp && window.LernappTurmspringen.view.cssW > 0, null, { timeout: 8000 });
     const PILOT = `(S, st, halten = null) => {
-      if (st.schritt === "wippen" && !st.sprung.abgesprungen && Math.abs(S.ringRest()) < 1 / 60) S.aktion();
-      if (st.schritt === "flug" && !st.sprung.verpasst) {
-        if (halten !== null) { S.halte(halten); return; }
-        const v = S.vorausWinkel(true).winkel;
-        const ziel = Math.max(S.pflichtBei(st.nr), Math.ceil((v - 10) / 180)) * 180;
-        S.halte(v < ziel - 0.5);
-      } else S.halte(false);
+      if (st.schritt !== "flug") { S.halte(false); return; }
+      if (halten !== null) { S.halte(halten); return; }
+      S.halte(S.vorausWinkel(true).winkel < 360 - 0.5);
     }`;
     const welt = await seite.evaluate(() => window.LernappTurmspringen.weltText());
     await seite.evaluate((quelle) => new Promise((fertig) => {

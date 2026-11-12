@@ -2,61 +2,50 @@
  * turmspringen.js – Turmspringen.
  * ---------------------------------------------------------------------------
  * Ein Sprungturm aus Stahl steht in einem Bergsee, die Alpen dahinter. Eine
- * Runde ist eine Serie von Sprüngen von immer höheren Plattformen: 10, 12,
- * 15, 17, 20, 22, 24 und schliesslich 27 Meter, wo es dann bleibt. Gezählt
- * werden die Punkte aller Sprünge. Die Runde endet bei einem Klatscher, einer
- * Arschbombe – oder wenn ein Sprung seine Pflicht nicht schafft.
+ * Runde sind acht Sprünge, jeder von einer anderen Plattform: erst 8 bis
+ * 11 Meter, zuletzt 24 bis 27. Gezählt werden die Punkte aller Sprünge. Die
+ * Runde endet nach dem achten – oder beim ersten Klatscher oder der ersten
+ * Arschbombe.
  *
- * Jeder Sprung hat drei Momente:
+ * Es gibt genau eine Regel:
  *
- *   Absprung   Der Springer läuft an die Kante und wippt. Bei jedem Wippen
- *              zieht sich ein Ring auf seine Füsse zusammen; wer tippt, wenn
- *              er sie trifft, springt mit voller Kraft («Perfekt», einen
- *              Wimpernschlag lang Zeitlupe): hoch, und mit dem richtigen
- *              Drall. Zu früh springt er flach und dreht zu wenig, zu spät
- *              kippt er schon und dreht zu viel. Dreimal wippt er – wer dann
- *              noch nicht getippt hat, verliert das Gleichgewicht.
- *   Flug       Halten heisst Päckchen: Er zieht die Knie an die Brust und
- *              dreht sich sechsmal schneller. Loslassen heisst strecken: Er
- *              öffnet sich, und die Drehung wird langsam – aufhören kann sie
- *              nie. Der Drehimpuls bleibt, wie er beim Absprung war; nur wie
- *              eng er sich macht, entscheidet, wie schnell er dreht. Böen
- *              drehen ihn unterwegs vor oder zurück. Sie sind als Schlieren
- *              zu sehen: orange dreht vor, blau zurück.
- *   Eintauchen Ins Wasser geht es senkrecht: Kopf voran nach einem halben,
- *              anderthalb, zweieinhalb Salto, Füsse voran nach einem ganzen,
- *              zwei, drei. Wie genau, gibt die Note (bis 10), und gestreckt
- *              muss er sein. Punkte gibt es: halbe Saltos mal Note. Liegt er
- *              mehr als KLATSCH Grad daneben, ist es ein Bauch- oder
- *              Rückenklatscher; im Päckchen eine Arschbombe.
+ *   Halten     heisst Päckchen: Er zieht die Knie an die Brust und dreht.
+ *   Loslassen  heisst strecken: Er öffnet sich, und die Drehung hört auf –
+ *              nicht schlagartig, sondern so, wie er aufgeht: Wer aus vollem
+ *              Päckchen loslässt, dreht noch ein gutes Dutzend Grad nach.
  *
- * Jede Höhe hat ihre Pflicht: so viele halbe Saltos mindestens. Mehr ist
- * erlaubt und bringt mehr – das Risiko wählt jeder selbst. Schwerer wird es
- * mit jedem Sprung: höher, mehr Pflicht, ein engeres Fenster an der Kante,
- * mehr und stärkere Böen. Ab dem dreizehnten Sprung verlangt die Pflicht mehr
- * Drehung, als in der Zeit bis zum Wasser geht – dort endet jede Runde.
- * Dazu wird es Abend, und die letzten Sprünge gehen unter Flutlicht in die
- * Nacht.
+ * Ins Wasser geht es senkrecht, Kopf oder Füsse voran, und gestreckt. Den
+ * Absprung macht er selbst, immer gleich: anlaufen, einmal wippen, ab.
  *
- * Wind und Böen jedes Sprungs kommen aus dem Zufall (zufall.js), Sprung um
- * Sprung, jeder zieht immer gleich viele Zahlen: ohne Turnier jedes Mal
- * anders, im Turnier für alle im selben Versuch dieselben. Der Turm ist
- * immer derselbe.
+ * Jede halbe Drehung ist ein Punkt. Wer fast genau senkrecht und ganz
+ * gestreckt eintaucht (PERFEKT), springt «perfekt»: Seine Punkte zählen
+ * doppelt, und mehrere perfekte hintereinander dreifach, vierfach (bis
+ * KETTE_MAX). Liegt er mehr als KLATSCH Grad daneben, ist es ein Bauch- oder
+ * Rückenklatscher; ist er noch im Päckchen, eine Arschbombe. Beides beendet
+ * die Runde. Wie viel er sich zutraut, entscheidet jeder selbst – mehr
+ * Drehung bringt mehr, lässt aber weniger Zeit zum Öffnen.
+ *
+ * Wie hoch die Plattform ist, kommt aus dem Zufall (zufall.js), Sprung um
+ * Sprung in einem Band, das mit jedem Sprung höher liegt: ohne Turnier jedes
+ * Mal anders, im Turnier für alle im selben Versuch dieselben. Die Höhe
+ * steht gross auf der Tafel und am Turm – sie sagt, wie viel Zeit zum Drehen
+ * bleibt. Dazu wird es Abend, und die letzten Sprünge gehen unter Flutlicht
+ * in die Nacht.
  *
  * Gerechnet wird in Metern: x nach vorne (rechts), y nach oben, die
  * Wasserfläche bei 0, die Kante der Plattform bei x = 0. Der Fall läuft um
  * TEMPO langsamer als in echt – sonst bliebe zum Öffnen keine Zeit.
  *
- * Mechanik aus dem Skispringen: der Ring an der Kante, die Böen als
- * Schlieren, die Tageszeiten über den Alpen und das Flutlicht, die Anzeige
- * wie im Fernsehen und das Gerippe des Springers.
+ * Bis November 2026 hatte dieses Spiel sieben Regeln: einen Ring an der
+ * Kante, einen Drall, der nie aufhört, Böen, einen Kompass, eine Pflicht je
+ * Höhe und drei Richter. Geblieben ist die eine, um die es ging.
  *
  * Die Gegner (geist.js) springen als halb durchsichtige Springer mit – so,
  * wie sie in ihrer besten Runde gesprungen sind (a, b: Ort in Dezimetern,
  * die Sprünge hintereinander, ABSTAND Meter auseinander; c: die Drehung mal
  * 100). Zu sehen ist, wer gerade von derselben Plattform springt. Und die
  * besten Runden lassen sich anschauen (?zuschauen=, geist.js): mit derselben
- * Saat, also mit demselben Wind und denselben Böen.
+ * Saat, also mit denselben Höhen.
  */
 (() => {
   "use strict";
@@ -86,39 +75,32 @@
   const ABSTAND = 100;             // so weit liegen die Sprünge in der Aufzeichnung auseinander (m)
   const G = 9.81;
   const TEMPO = 0.8;               // der Fall läuft so viel langsamer als echt
-  const HOEHEN = [10, 12, 15, 17, 20, 22, 24, 27];
-  // Die Pflicht: so viele halbe Saltos mindestens, Sprung für Sprung. Danach
-  // jede dritte Höhe eine halbe Drehung mehr – ab 7 schafft es niemand.
-  const PFLICHT = [1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6];
+  const SPRUENGE = 8;              // so viele Sprünge hat eine Runde
+  // Aus welchem Band die Höhe jedes Sprungs gewürfelt wird (ganze Meter).
+  const BAENDER = [[8, 11], [10, 13], [12, 15], [14, 17], [16, 19], [18, 21], [21, 24], [24, 27]];
 
   // Der Körper. Stehend liegt der Schwerpunkt so hoch über den Füssen.
   const SCHWERPUNKT = 1.0;
   const KANTE_X = -0.3;            // dort steht der Schwerpunkt an der Kante
 
-  // Die Drehung (Grad/s): gestreckt nach einem perfekten Absprung. Im
-  // Päckchen VERHAELTNIS mal schneller – der Drehimpuls bleibt.
-  const W_STRECK = 75;
-  const VERHAELTNIS = 6;
+  // Die Drehung (Grad/s) ganz im Päckchen. Wie schnell er dreht, folgt aus
+  // dem Quadrat dessen, wie weit er zu ist: gestreckt gar nicht, halb offen
+  // ein Viertel. Darum dreht er nach dem Loslassen nur noch ein wenig nach.
+  const W_PAECK = 400;
   const SCHLIESSEN = 11;           // so schnell zieht er sich zusammen (1/s)
-  const OEFFNEN = 9;               // so schnell streckt er sich (1/s)
+  const OEFFNEN = 14;              // so schnell streckt er sich (1/s)
 
-  // Der Absprung: so schnell nach oben und nach vorne (m/s), perfekt.
+  // Der Absprung: so schnell nach oben und nach vorne (m/s). Immer gleich.
   const V_AB = 4.2;
   const V_VOR = 1.3;
-
-  // Das Wippen an der Kante (s, in der Zeit des Spiels).
-  const WIPP = 1.15;               // so lange dauert ein Wippen
-  const WIPP_START = 0.95;         // so lange nach dem Ankommen kommt der erste Moment
-  const WIPP_ANZAHL = 3;           // so oft wippt er, dann kippt er
-  const RING_VOR = 0.8;            // so lange vor dem Moment zieht sich der Ring zusammen
-  const FRUEH_MAX = 0.32;          // früher getippt zählt nicht
-  const SPAET_MAX = 0.16;          // so lange danach zählt ein Tipp noch
+  const ABSPRUNG_NACH = 0.6;       // so lange wippt er an der Kante (s)
 
   // Das Eintauchen (Grad neben der Senkrechten).
-  const RIP = 3;                   // so genau gibt es die 10
+  const PERFEKT = 10;              // so genau ist es «perfekt» …
+  const OFFEN_GUT = 0.92;          // … wenn er dazu so weit gestreckt ist
   const KLATSCH = 30;              // weiter daneben ist es ein Klatscher
   const BOMBE = 0.35;              // weniger offen ist es eine Arschbombe
-  const OFFEN_GUT = 0.92;          // so offen zählt als gestreckt
+  const KETTE_MAX = 3;             // perfekt zählt ×2, in Folge bis ×(1 + KETTE_MAX)
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -160,51 +142,47 @@
   }
   const saltos = (n) => `${halbe(n)} ${n <= 2 ? "Salto" : "Saltos"}`;
 
-  // Wie es mit jedem Sprung schwerer wird (n zählt ab 0).
-  const hoeheBei = (n) => HOEHEN[Math.min(n, HOEHEN.length - 1)];
-  const pflichtBei = (n) => (n < PFLICHT.length ? PFLICHT[n] : 7 + Math.floor((n - PFLICHT.length) / 3));
-  const schwer = (n, tau) => 1 - Math.exp(-n / tau);
-  const perfektBei = (n) => lerp(0.06, 0.03, schwer(n, 5));        // ± so genau ist «perfekt» an der Kante
-  const gutBei = (n) => lerp(0.14, 0.08, schwer(n, 5));            // ± so genau ist «gut»
-  const boeenBei = (n) => (n < 1 ? 0 : Math.min(4, 1 + Math.floor((n - 1) * 0.5))); // so viele Böen je Sprung
-  const boeStaerkeBei = (n) => Math.min(240, 70 + 22 * n);         // so stark drehen sie (Grad/s)
   // Die Tageszeit: Morgen, Mittag, Nachmittag, Abendrot, Dämmerung (mit
-  // Flutlicht), Nacht – je zwei Sprünge.
-  const tagBei = (n) => Math.min(5, Math.floor(n / 2));
+  // Flutlicht), Nacht – über die acht Sprünge verteilt.
+  const tagBei = (n) => Math.min(5, Math.floor((n * 6) / SPRUENGE));
   const flutlichtBei = (n) => tagBei(n) >= 4;
+  // Wie schnell er dreht: aus dem, wie weit er zu ist.
+  const drehBei = (offen) => W_PAECK * (1 - offen) * (1 - offen);
+  // Was ein Sprung bringt: halbe Drehungen, perfekt mal die Reihe.
+  const malBei = (perfekt, kette) => (perfekt ? 1 + Math.min(kette, KETTE_MAX) : 1);
 
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
   // phase:   "bereit" (noch nichts getippt), "spiel", "zuschauen", "ende"
   // schritt: "start" (hinten auf der Plattform), "laufen" (an die Kante),
-  //          "wippen", "flug", "wasser", "wechsel" (zum nächsten Sprung)
+  //          "wippen" (der Absprung), "flug", "wasser", "wechsel" (zum
+  //          nächsten Sprung)
   const state = {
     phase: "bereit",
     schritt: "start",
     punkte: 0,               // die Punkte aller Sprünge – die Zahl der Runde
     nr: 0,                   // der wievielte Sprung (ab 0)
     H: 10,                   // die Höhe dieses Sprungs (m)
-    plan: [],                // Wind und Böen je Sprung
-    boeen: [],               // die Böen dieses Sprungs
+    plan: [],                // Höhe und Wind je Sprung
     sprung: null,            // was bei diesem Sprung geschah
     sprunge: [],             // die Punkte der Sprünge bisher
     sp: null,                // der Springer
     halten: false,           // gedrückt: Päckchen
+    kette: 0,                // perfekte Sprünge hintereinander
+    besteKette: 0,
+    perfekte: 0,
     startRest: 0,
     weiterIn: 0,
-    aus: "",                 // warum die Runde endet: "klatscher", "bombe", "pflicht"
+    aus: "",                 // warum die Runde endet: "klatscher", "bombe", "fertig"
     grund: "",
     blende: 0,               // schwarz zwischen zwei Sprüngen
     blendeZiel: 0,
     tv: null,                // die Anzeige unten
-    ring: null,              // der Ring an der Kante nach dem Tipp
     wellen: [],              // Ringe auf dem Wasser
     teile: [],
     schriften: [],
     hilfe: "",               // im ersten Sprung: was jetzt zu tun ist
-    kompass: 0,              // wie deutlich der Kompass steht (0 bis 1)
-    nahWasser: 0,            // wie nah das Wasser ist (0 bis 1)
     jubel: 0,
     stoss: 0,
     blitz: 0,
@@ -241,53 +219,30 @@
    * nicht alle braucht – so hängt er nur an der Saat, nicht daran, wie weit
    * jemand kommt.
    *
-   *   wind    der Wind in m/s: plus treibt nach vorne, minus zurück. Die
-   *           Fahnen zeigen ihn; er versetzt den Springer nur ein wenig.
-   *   boeen   Schichten in der Luft (yc: Mitte, halb: halbe Dicke in m), in
-   *           denen er gedreht wird: dreh > 0 nach vorne, dreh < 0 zurück
-   *           (Grad/s). Gleichmässig über die Höhe verteilt, nie übereinander.
+   *   H       die Höhe der Plattform in ganzen Metern, aus dem Band des
+   *           Sprungs (BAENDER)
+   *   wind    nur für die Fahne: plus weht nach vorne, minus zurück
    */
-  const ZAHLEN_JE_SPRUNG = 20;
+  const ZAHLEN_JE_SPRUNG = 4;
 
   function neuerSprung(n) {
     const z = [];
     for (let i = 0; i < ZAHLEN_JE_SPRUNG; i += 1) z.push(zufall.zahl());
-    const H = hoeheBei(n);
-    const wind = lerp(-1.2, 1.2, z[0]);
-    const boeen = [];
-    const anzahl = boeenBei(n);
-    for (let i = 0; i < anzahl; i += 1) {
-      const q = z.slice(1 + i * 4, 5 + i * 4);
-      const yc = lerp(2.5, H - 1.5, (i + 0.2 + q[0] * 0.6) / anzahl);
-      const halb = lerp(1.6, 3, q[1]);
-      const dir = q[2] < 0.5 ? -1 : 1;
-      boeen.push({ yc, halb, dreh: dir * boeStaerkeBei(n) * lerp(0.7, 1, q[3]) });
-    }
-    return { n, H, wind, boeen };
+    const [von, bis] = BAENDER[Math.min(n, BAENDER.length - 1)];
+    const H = Math.min(bis, von + Math.floor(z[0] * (bis - von + 1)));
+    const wind = lerp(-1.2, 1.2, z[1]);
+    return { n, H, wind };
   }
 
   function planBis(n) {
     while (state.plan.length <= n) state.plan.push(neuerSprung(state.plan.length));
   }
 
-  // Was die Böen in der Höhe y tun: drehen (Grad/s), an- und abschwellend
-  // über ihre Dicke.
-  function boeBei(y, liste = state.boeen) {
-    for (const b of liste || []) {
-      const u = (y - (b.yc - b.halb)) / (2 * b.halb);
-      if (u <= 0 || u >= 1) continue;
-      const s = Math.sin(Math.PI * u);
-      return { dreh: b.dreh * s * s, k: s * s, b };
-    }
-    return { dreh: 0, k: 0, b: null };
-  }
-
-  // Die gewürfelte Welt in Worten: Wind und Böen der ersten fünf Sprünge.
-  // Im Turnier bekommen alle denselben Text.
+  // Die gewürfelte Welt in Worten: die Höhen aller Sprünge. Im Turnier
+  // bekommen alle denselben Text.
   function weltText() {
-    planBis(4);
-    return state.plan.slice(0, 5).map((p) => `${p.H}m w${p.wind.toFixed(2)} `
-      + p.boeen.map((b) => `${b.yc.toFixed(1)}±${b.halb.toFixed(1)}:${b.dreh.toFixed(1)}`).join(",")).join(" | ");
+    planBis(SPRUENGE - 1);
+    return state.plan.slice(0, SPRUENGE).map((p) => `${p.H}m w${p.wind.toFixed(2)}`).join(" | ");
   }
 
   // ---------------------------------------------------------------------------
@@ -1149,54 +1104,6 @@
     }
   }
 
-  // Die Böen als Schlieren quer durch die Fallstrecke: orange ziehen sie
-  // nach vorne (sie drehen ihn vor), blau zurück. Wer vorbei ist, sieht sie
-  // verblassen.
-  function zeichneBoeen() {
-    if (!state.boeen?.length) return;
-    const z = kam.z;
-    const zeit = state.echt;
-    const sp = state.sp;
-    g.lineCap = "round";
-    for (const b of state.boeen) {
-      const unten = b.yc - b.halb;
-      const obenY = b.yc + b.halb;
-      if (bildY(unten) < -20 || bildY(obenY) > view.cssH + 20) continue;
-      const vorbei = sp && state.schritt !== "start" && state.schritt !== "laufen" && state.schritt !== "wippen"
-        ? clamp(1 - (unten - sp.y) / 4, 0, 1) : 1;
-      if (vorbei <= 0) continue;
-      const vor = b.dreh > 0;
-      const farbe = vor ? "255, 176, 92" : "130, 210, 255";
-      const stark = clamp(Math.abs(b.dreh) / 240, 0.25, 1);
-      for (let n = 0; n < 14; n += 1) {
-        const h = (k) => hash01(n * 3.17 + k * 7.1 + b.yc * 1.3);
-        const v = h(1);
-        const y = lerp(unten, obenY, 0.1 + 0.8 * v);
-        const lauf = (zeit * (0.5 + h(2) * 0.5) + h(3)) % 1;
-        const x = vor ? lerp(-3, 9, lauf) : lerp(9, -3, lauf);
-        const lang = (1.2 + h(4) * 1.4) * (vor ? 1 : -1);
-        const a = Math.sin(Math.PI * lauf) * Math.sin(Math.PI * (0.1 + 0.8 * v)) * (0.35 + stark * 0.5) * vorbei;
-        if (a < 0.03) continue;
-        const X = bildX(x);
-        const Y = bildY(y);
-        const d = lang * z;
-        g.strokeStyle = `rgba(${farbe}, ${a})`;
-        g.lineWidth = Math.max(1.2, 0.09 * z);
-        g.beginPath();
-        g.moveTo(X - d, Y);
-        g.quadraticCurveTo(X - d / 2, Y + Math.sin(zeit * 3 + n) * 0.25 * z * (vor ? 1 : -1), X, Y);
-        g.stroke();
-        const p = Math.max(2, 0.18 * z) * Math.sign(d);
-        g.beginPath();
-        g.moveTo(X - p, Y - Math.abs(p));
-        g.lineTo(X, Y);
-        g.lineTo(X - p, Y + Math.abs(p));
-        g.stroke();
-      }
-    }
-    g.lineCap = "butt";
-  }
-
   // Das Flutlicht: zwei Scheinwerfer auf Masten im Wasser, ihr Kegel auf die
   // Fallstrecke, zusammengezählt («lighter»). Es fällt auch auf den Springer.
   function zeichneFlutlicht() {
@@ -1254,7 +1161,6 @@
     gestreckt: { rumpf: 90, hueft: -90, knie: -90, armV: 91, armH: 89, kopf: -4 },
     fuesse: { rumpf: 90, hueft: -90, knie: -90, armV: -92, armH: -88, kopf: 0 },
     paeckchen: { rumpf: 50, hueft: 30, knie: -100, armV: -70, armH: -78, kopf: -25 },
-    fallen: { rumpf: 110, hueft: -60, knie: -125, armV: 150, armH: 40, kopf: 20 },
     klatsch: { rumpf: 90, hueft: -80, knie: -110, armV: 10, armH: 170, kopf: 15 },
     schwimmen: { rumpf: 90, hueft: -105, knie: -135, armV: 18, armH: 160, kopf: 0 },
     jubel: { rumpf: 92, hueft: -100, knie: -130, armV: 128, armH: 58, kopf: -12 },
@@ -1372,7 +1278,7 @@
       const bald = o.lauf?.ort?.(ms + 100);
       // Grad je Sekunde echter Zeit – im Spiel lief der Fall um TEMPO langsamer.
       const w = bald ? (Math.abs(grad((bald.c - o.c) / 100)) * 10) / TEMPO : 0;
-      const offen = clamp(1 - (w - W_STRECK * 1.4) / (W_STRECK * (VERHAELTNIS - 1.4)), 0, 1);
+      const offen = clamp(1 - Math.sqrt(w / W_PAECK), 0, 1);
       const pose = y > state.H - 0.3 && x < 0.3 ? POSEN.stehen : y < 0.4 ? POSEN.schwimmen : poseMisch(POSEN.paeckchen, POSEN.gestreckt, offen);
       zeichneSpringer(x, y, y < 0.4 ? 0 : winkel, pose, { farbe: o.farbe, alpha: 0.45 * o.blass });
       da.push({ ...o, sx: bildX(x), sy: bildY(y) - figurMass() * 1.3, weit: "" });
@@ -1383,120 +1289,6 @@
   // ---------------------------------------------------------------------------
   // Zeichnen: Anzeigen
   // ---------------------------------------------------------------------------
-  /*
-   * Der Kompass um den Springer: oben und unten grün – dort muss seine Achse
-   * stehen, wenn er ins Wasser geht (oben: Kopf voran, unten: Füsse voran).
-   * Hellgrün ist die 10, gelb kostet Note, rot ist der Klatscher. Der weisse
-   * Zeiger ist seine Achse, der Punkt sein Kopf. Je näher das Wasser, desto
-   * deutlicher.
-   */
-  function zeichneKompass() {
-    const sp = state.sp;
-    if (!sp || state.kompass <= 0.01) return;
-    const fs = figurMass();
-    const cx = bildX(sp.x);
-    const cy = bildY(sp.y);
-    const r = clamp(fs * 1.55, 34, 70);
-    g.save();
-    g.globalAlpha = state.kompass * (0.55 + 0.45 * state.nahWasser);
-    g.lineCap = "butt";
-    g.strokeStyle = "rgba(10, 14, 30, 0.5)";
-    g.lineWidth = 10;
-    g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2);
-    g.stroke();
-    // Die Felder: um oben (-90°) und um unten (90°).
-    const feld = (mitte, von, bis, farbe, breit = 6) => {
-      g.strokeStyle = farbe;
-      g.lineWidth = breit;
-      g.beginPath();
-      g.arc(cx, cy, r, rad(mitte + von), rad(mitte + bis));
-      g.stroke();
-    };
-    for (const mitte of [-90, 90]) {
-      feld(mitte, -KLATSCH, KLATSCH, "#ff9f1c");
-      feld(mitte, -18, 18, "#ffd23f");
-      feld(mitte, -9, 9, "#9be86a");
-      feld(mitte, -RIP, RIP, "#3dff8c", 8);
-    }
-    feld(-90 + KLATSCH, 0, 180 - 2 * KLATSCH, "rgba(255, 59, 48, 0.55)");
-    feld(90 + KLATSCH, 0, 180 - 2 * KLATSCH, "rgba(255, 59, 48, 0.55)");
-    // Der Zeiger: seine Achse, der Kopf als Punkt.
-    const w = rad(sp.winkel - 90);
-    const dx = Math.cos(w);
-    const dy = Math.sin(w);
-    g.strokeStyle = "#ffffff";
-    g.lineWidth = 2.5;
-    g.lineCap = "round";
-    g.beginPath();
-    g.moveTo(cx - dx * (r + 7), cy - dy * (r + 7));
-    g.lineTo(cx - dx * (r - 7), cy - dy * (r - 7));
-    g.moveTo(cx + dx * (r - 9), cy + dy * (r - 9));
-    g.lineTo(cx + dx * (r + 9), cy + dy * (r + 9));
-    g.stroke();
-    const fehl = Math.abs(((sp.winkel % 180) + 180) % 180 - 90);
-    const err = 90 - fehl;
-    g.fillStyle = err <= RIP ? "#3dff8c" : err <= 18 ? "#ffd23f" : err <= KLATSCH ? "#ff9f1c" : "#ff3b30";
-    g.beginPath();
-    g.arc(cx + dx * (r + 9), cy + dy * (r + 9), 5, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = "rgba(10, 14, 30, 0.7)";
-    g.lineWidth = 1.5;
-    g.stroke();
-    g.restore();
-  }
-
-  // Der Ring an der Kante: zieht sich auf die Füsse zusammen; wenn er den
-  // festen Ring trifft, ist der Moment. Nach dem Tipp geht er in der Farbe
-  // des Absprungs auf.
-  function zeichneRinge() {
-    const sp = state.sp;
-    if (!sp) return;
-    if (state.schritt === "wippen" && state.phase === "spiel" && !state.sprung.abgesprungen) {
-      const rest = ringRest();
-      if (rest < RING_VOR && rest > -SPAET_MAX) {
-        const X = bildX(KANTE_X + 0.15);
-        const Y = bildY(state.H + 0.05);
-        const r0 = 13;
-        const r = r0 + Math.max(0, rest / RING_VOR) * 64;
-        const a = clamp(1.25 - rest / RING_VOR, 0, 1);
-        g.lineWidth = 3;
-        g.strokeStyle = "rgba(255, 255, 255, 0.9)";
-        g.beginPath();
-        g.arc(X, Y, r0, 0, Math.PI * 2);
-        g.stroke();
-        g.strokeStyle = `rgba(255, 210, 63, ${a})`;
-        g.lineWidth = 4;
-        g.beginPath();
-        g.arc(X, Y, r, 0, Math.PI * 2);
-        g.stroke();
-        if (state.nr === 0) {
-          g.font = "900 14px system-ui, sans-serif";
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          g.lineWidth = 4;
-          g.strokeStyle = "rgba(10, 14, 30, 0.7)";
-          g.globalAlpha = a;
-          g.strokeText("Tippen!", X, Y + r0 + 20);
-          g.fillStyle = "#ffffff";
-          g.fillText("Tippen!", X, Y + r0 + 20);
-          g.globalAlpha = 1;
-        }
-      }
-    }
-    const r = state.ring;
-    if (r) {
-      const u = clamp((state.echt - r.t) / 0.5, 0, 1);
-      g.globalAlpha = 1 - u;
-      g.strokeStyle = r.farbe;
-      g.lineWidth = 4 * (1 - u) + 1;
-      g.beginPath();
-      g.arc(bildX(r.x), bildY(r.y), 13 + u * 40, 0, Math.PI * 2);
-      g.stroke();
-      g.globalAlpha = 1;
-    }
-  }
-
   function zeichneTeile() {
     if (!state.teile.length) return;
     const z = kam.z;
@@ -1594,8 +1386,9 @@
     return h;
   }
 
-  // Oben links, unter den Knöpfen: die Punkte, darunter Sprung, Höhe und
-  // Pflicht – im Flug, wie weit es noch bis zum Wasser ist.
+  // Oben links, unter den Knöpfen: die Punkte, darunter Sprung und Höhe,
+  // die Reihe der perfekten Sprünge – im Flug, wie weit es noch bis zum
+  // Wasser ist.
   function zeichneAnzeige() {
     if (state.phase === "bereit") return;
     flach();
@@ -1636,8 +1429,10 @@
     g.fillText(text, x + gross * 1.6, by + 1);
     y += hoch + 6;
     const klein = Math.round(gross * 0.6);
-    y += pille(`Sprung ${state.nr + 1} · ${state.H} m`, x, y, klein, "rgba(12, 16, 34, 0.55)", "#ffffff") + 5;
-    y += pille(`Pflicht ${saltos(pflichtBei(state.nr))}`, x, y, klein, "rgba(47, 211, 107, 0.9)", "#0b2a17") + 5;
+    y += pille(`Sprung ${state.nr + 1}/${SPRUENGE} · ${state.H} m`, x, y, klein, "rgba(12, 16, 34, 0.55)", "#ffffff") + 5;
+    if (state.kette > 0) {
+      y += pille(`Nächster perfekt: ×${malBei(true, state.kette + 1)}`, x, y, klein, "rgba(255, 210, 63, 0.92)", "#2a1d00") + 5;
+    }
     const sp = state.sp;
     if (sp && state.schritt === "flug") {
       pille(`↓ ${Math.max(0, sp.y - 1).toFixed(1)} m`, x, y, klein, "rgba(12, 16, 34, 0.55)", "#8fd3ff");
@@ -1726,7 +1521,6 @@
     flach();
     zeichneTurm();
     zeichneBoote();
-    zeichneBoeen();
     zeichneGeister();
     const sp = state.sp;
     if (sp) zeichneSpringer(sp.x, sp.y, sp.winkel, sp.pose);
@@ -1734,8 +1528,6 @@
     zeichneWasserlinie();
     zeichneTeile();
     zeichneFlutlicht();
-    zeichneRinge();
-    zeichneKompass();
     zeichneSchriften();
     zeichneHilfe();
     if (state.blitz > 0.01 && !ruhig()) {
@@ -1815,18 +1607,17 @@
     state.tv = { ...inhalt, alter: 0, dauer };
   }
 
-  // Die Karte vor dem Sprung: Höhe, Pflicht, Wind und Böen.
+  // Die Karte vor dem Sprung: welcher, wie hoch – und was perfekt brächte.
   function karteZeigen(dauer) {
     const plan = state.plan[state.nr];
     if (!plan) return;
-    const vor = plan.wind >= 0;
-    const b = plan.boeen.length;
+    const letzter = state.nr === SPRUENGE - 1;
     tvZeigen({
-      oben: `SPRUNG ${state.nr + 1}${state.H >= 27 ? " · KLIPPE" : ""}`,
+      oben: `SPRUNG ${state.nr + 1} VON ${SPRUENGE}${letzter ? " · DER LETZTE" : ""}`,
       gross: `${state.H} m`,
-      rechts: `Pflicht ${saltos(pflichtBei(state.nr))}`,
-      rechtsFarbe: "#3dff8c",
-      unten: `Wind ${vor ? "→" : "←"} ${Math.abs(plan.wind).toFixed(1)} m/s · ${b ? (b === 1 ? "1 Böe" : `${b} Böen`) : "keine Böen"}`,
+      rechts: state.kette > 0 ? `Perfekt ×${malBei(true, state.kette + 1)}` : "",
+      rechtsFarbe: "#ffd23f",
+      unten: state.nr === 0 ? "Halten dreht · Loslassen streckt · senkrecht rein" : "Kopf oder Füsse voran, gestreckt",
       farbe: "#F5A623",
       karte: true,
     }, dauer);
@@ -1870,8 +1661,7 @@
     fahrtwind.aus();
   }
 
-  // Perfekt – an der Kante und beim Eintauchen: die Harfe, nur die erste in
-  // Folge.
+  // Perfekt beim Eintauchen: die Harfe, nur die erste in Folge.
   let perfektFolge = 0;
   function perfektTon(perfekt, laut = 1, verzoegerung = 0) {
     if (!perfekt) { perfektFolge = 0; return; }
@@ -1892,15 +1682,15 @@
   // ---------------------------------------------------------------------------
   function neuerSpringer(H) {
     return {
-      x: DECK_L + 1, y: H + SCHWERPUNKT, vx: 0, vy: 0, winkel: 0, offen: 1, wS: 0, tf: 0,
+      x: DECK_L + 1, y: H + SCHWERPUNKT, vx: 0, vy: 0, winkel: 0, offen: 1, tf: 0,
       armeOben: 1, pose: { ...POSEN.stehen },
     };
   }
 
   function neuerSprungZustand() {
     return {
-      abgesprungen: false, verpasst: false, art: "", ankunft: -1, e: 0,
-      eingetaucht: false, halbe: 0, err: 0, note: 0, punkte: 0, ergebnis: "", seitHalb: 0,
+      abgesprungen: false, ankunft: -1,
+      eingetaucht: false, halbe: 0, err: 0, perfekt: false, mal: 1, punkte: 0, ergebnis: "", seitHalb: 0,
       eintauchZeit: -1, auftauchen: false,
     };
   }
@@ -1910,33 +1700,14 @@
   function sprungAufbauen(nr) {
     planBis(nr + 1);
     state.nr = nr;
-    state.H = hoeheBei(nr);
-    state.boeen = state.plan[nr].boeen;
+    state.H = state.plan[nr].H;
     state.sp = neuerSpringer(state.H);
     state.sprung = neuerSprungZustand();
     state.teile = [];
     state.wellen = [];
-    state.ring = null;
     state.hilfe = "";
-    state.kompass = 0;
-    state.nahWasser = 0;
     kam.bereit = false;
     kam.wasserY = undefined;
-  }
-
-  // Die Momente an der Kante: WIPP_ANZAHL, je WIPP auseinander.
-  const momentBei = (k) => state.sprung.ankunft + WIPP_START + k * WIPP;
-
-  // Wie lange noch bis zum nächsten Moment (negativ: kurz danach) – für den
-  // Ring und den Autopiloten der Tests.
-  function ringRest() {
-    const sprung = state.sprung;
-    if (!sprung || state.schritt !== "wippen" || sprung.ankunft < 0) return 9;
-    for (let k = 0; k < WIPP_ANZAHL; k += 1) {
-      const rest = momentBei(k) - state.zeit;
-      if (rest > -SPAET_MAX) return rest;
-    }
-    return -9;
   }
 
   function laufenSchritt(h) {
@@ -1949,12 +1720,10 @@
     }
   }
 
-  // An der Kante: Er wippt – tief in die Knie mit den Armen hinten, dann auf
-  // die Zehen mit den Armen oben. Oben ist der Moment.
+  // An der Kante: Er wippt einmal – tief in die Knie mit den Armen hinten,
+  // dann auf die Zehen mit den Armen oben – und springt.
   function wippAnteil() {
-    const seit = state.zeit - state.sprung.ankunft;
-    if (seit < WIPP_START - WIPP / 2) return clamp(seit / (WIPP_START - WIPP / 2), 0, 1) * 0.5;
-    const u = (((seit - WIPP_START) / WIPP) % 1 + 1) % 1;
+    const u = clamp((state.zeit - state.sprung.ankunft) / ABSPRUNG_NACH, 0, 1);
     return 0.5 + 0.5 * Math.cos(u * Math.PI * 2);
   }
 
@@ -1962,91 +1731,24 @@
     const sp = state.sp;
     const tief = 1 - wippAnteil();
     sp.y = state.H + SCHWERPUNKT - 0.14 * tief;
-    if (state.zeit > momentBei(WIPP_ANZAHL - 1) + SPAET_MAX && !state.sprung.abgesprungen) verpasst();
+    if (state.zeit - state.sprung.ankunft >= ABSPRUNG_NACH && !state.sprung.abgesprungen) abspringen();
   }
 
-  // Ein Tipp an der Kante: der Moment, in dessen Fenster er fällt – oder
-  // keiner (dann zählt er nicht).
-  function tippFenster() {
-    for (let k = 0; k < WIPP_ANZAHL; k += 1) {
-      const e = state.zeit - momentBei(k);
-      if (e >= -FRUEH_MAX && e <= SPAET_MAX) return e;
-    }
-    return null;
-  }
-
-  /*
-   * Der Absprung, e Sekunden nach dem Moment (negativ: davor). Wie genau,
-   * entscheidet, wie hoch er springt und wie viel Drall er mitnimmt: Zu
-   * früh springt er flach und dreht zu wenig, zu spät kippt er schon über
-   * die Kante und dreht zu viel.
-   */
-  function abspringen(e) {
+  // Der Absprung: immer gleich hoch, gleich weit, ohne Drehung. Drehen tut
+  // er erst, wenn jemand hält.
+  function abspringen() {
     const sp = state.sp;
-    const sprung = state.sprung;
-    const n = state.nr;
-    const perf = perfektBei(n);
-    const gut = gutBei(n);
-    const a = Math.abs(e);
-    let q;
-    let art;
-    if (a <= perf) { q = 1; art = "perfekt"; }
-    else if (a <= gut) { q = 1 - 0.12 * ((a - perf) / (gut - perf)); art = "gut"; }
-    else if (e < 0) { q = Math.max(0.45, 0.88 - ((a - gut) / (FRUEH_MAX - gut)) * 0.43); art = "frueh"; }
-    else { q = Math.max(0.45, 0.88 - ((a - gut) / Math.max(0.01, SPAET_MAX - gut)) * 0.43); art = "spaet"; }
-    const plan = state.plan[n];
-    sprung.abgesprungen = true;
-    sprung.art = art;
-    sprung.e = e;
-    sp.vy = V_AB * q;
-    sp.vx = V_VOR * (0.8 + 0.2 * q) + plan.wind * 0.15;
-    sp.wS = W_STRECK * clamp(1 + e * 2.2, 0.6, 1.5);
+    state.sprung.abgesprungen = true;
+    sp.vy = V_AB;
+    sp.vx = V_VOR;
     sp.x = KANTE_X;
     sp.y = state.H + SCHWERPUNKT;
     sp.tf = 0;
     state.schritt = "flug";
     if (state.phase !== "spiel") return;
-    const farbe = { perfekt: "#3dff8c", gut: "#ffffff", frueh: "#ffb347", spaet: "#ffb347" }[art];
-    state.ring = { x: KANTE_X + 0.15, y: state.H + 0.05, t: state.echt, farbe };
-    ton("turmspringen.absprung", { laut: art === "perfekt" ? 1 : art === "gut" ? 0.9 : 0.7 });
-    perfektTon(art === "perfekt", 0.9);
-    if (art === "perfekt") {
-      schrift("Perfekt!", "#ffd23f", 24, 1.1);
-      funken(KANTE_X + 0.2, state.H + 0.2, 14, ["#fff4c2", "#ffd23f", "#ffb02e"]);
-      if (!ruhig()) state.zeitlupe = 0.45;
-      state.blitz = 0.6;
-      kids()?.vibrate?.(16);
-    } else if (art === "gut") {
-      schrift("Gut", "#ffffff", 20, 0.9);
-      kids()?.vibrate?.(10);
-    } else {
-      schrift(art === "frueh" ? "Zu früh" : "Zu spät", "#ffb347", 20, 1);
-      kids()?.vibrate?.(8);
-    }
+    ton("turmspringen.absprung", { laut: 0.9 });
+    kids()?.vibrate?.(8);
   }
-
-  // Dreimal gewippt, nie getippt: Er verliert das Gleichgewicht und kippt
-  // vornüber – mit den Armen in der Luft, ohne dass jemand ihn lenkt.
-  function verpasst() {
-    const sp = state.sp;
-    const sprung = state.sprung;
-    sprung.verpasst = true;
-    sprung.abgesprungen = true;
-    sprung.art = "verpasst";
-    sp.vy = 0.8;
-    sp.vx = 0.9;
-    sp.wS = W_STRECK * 0.7;
-    sp.tf = 0;
-    state.schritt = "flug";
-    if (state.phase !== "spiel") return;
-    perfektTon(false);
-    schrift("Verpasst!", "#ff7a6b", 22, 1.1);
-    kids()?.vibrate?.([20, 30]);
-  }
-
-  // Wie schnell er dreht (Grad/s): sein Drall, geteilt durch wie weit er
-  // offen ist – im Päckchen VERHAELTNIS mal schneller.
-  const drehBei = (wS, offen) => wS / lerp(1 / VERHAELTNIS, 1, offen);
 
   // Wie weit sein tiefster Punkt unter dem Schwerpunkt liegt: gestreckt die
   // Hände (kopfüber) oder die Füsse, im Päckchen ein Knäuel.
@@ -2058,11 +1760,10 @@
     return Math.max(lerp(0.55, 0.15, offen), strecke + quer);
   }
 
-  // Ein Schritt im Fall: Schwerkraft, die Drehung aus Drall und Haltung, die
-  // Böe in dieser Höhe.
+  // Ein Schritt im Fall: Schwerkraft, und gedreht wird, so weit er zu ist.
   function fallSchritt(p, hp, ziel) {
     p.offen = naeher(p.offen, ziel, ziel < p.offen ? SCHLIESSEN : OEFFNEN, hp);
-    p.winkel += (drehBei(p.wS, p.offen) + boeBei(p.y).dreh) * hp;
+    p.winkel += drehBei(p.offen) * hp;
     p.vy -= G * hp;
     p.x += p.vx * hp;
     p.y += p.vy * hp;
@@ -2073,8 +1774,7 @@
     const sprung = state.sprung;
     const hp = h * TEMPO;
     sp.tf += hp;
-    const ziel = state.halten && !sprung.verpasst ? 0 : 1;
-    fallSchritt(sp, hp, ziel);
+    fallSchritt(sp, hp, state.halten ? 0 : 1);
     // Jede halbe Drehung ein kleines Zeichen am Springer.
     const halb = Math.floor(sp.winkel / 180 + 0.5);
     if (halb > sprung.seitHalb) {
@@ -2085,12 +1785,12 @@
   }
 
   // Bis zum Wasser vorausrechnen: Wo steht seine Achse, wenn er jetzt
-  // öffnet (oder im Päckchen bleibt)? Für den Kompass im ersten Sprung und
+  // öffnet (oder im Päckchen bleibt)? Für die Hilfe im ersten Sprung und
   // den Autopiloten der Tests.
   function vorausWinkel(oeffnen = true) {
     const sp = state.sp;
     if (!sp || state.schritt !== "flug") return { winkel: sp?.winkel || 0, tau: 9, offen: 1 };
-    const p = { x: sp.x, y: sp.y, vx: sp.vx, vy: sp.vy, winkel: sp.winkel, offen: sp.offen, wS: sp.wS };
+    const p = { x: sp.x, y: sp.y, vx: sp.vx, vy: sp.vy, winkel: sp.winkel, offen: sp.offen };
     const ziel = oeffnen ? 1 : 0;
     const hp = 1 / 120;
     for (let t = 0; t < 6; t += hp) {
@@ -2101,10 +1801,10 @@
   }
 
   /*
-   * Er taucht ein. Wie viele halbe Saltos es waren, sagt die Senkrechte, der
-   * seine Achse am nächsten ist; wie weit er daneben liegt, die Note. Offen
-   * muss er sein: Wer zu spät streckt, verliert Note, wer im Päckchen bleibt,
-   * macht eine Arschbombe. Liegt er quer, ist es ein Klatscher.
+   * Er taucht ein. Wie viele halbe Drehungen es waren, sagt die Senkrechte,
+   * der seine Achse am nächsten ist; wie weit er daneben liegt, ob es
+   * perfekt war. Offen muss er sein: Wer im Päckchen bleibt, macht eine
+   * Arschbombe. Liegt er quer, ist es ein Klatscher.
    */
   function eintauchen() {
     const sp = state.sp;
@@ -2113,24 +1813,28 @@
     const halb = Math.max(0, Math.round(sp.winkel / 180));
     const err = Math.abs(sp.winkel - halb * 180);
     const offen = sp.offen;
-    const pflicht = pflichtBei(n);
     let ergebnis;
-    let note = 0;
     if (offen < BOMBE) ergebnis = "bombe";
     else if (err > KLATSCH) {
       const lage = ((sp.winkel % 360) + 360) % 360;
       ergebnis = lage < 180 ? "bauch" : "ruecken";
+    } else if (halb === 0) ergebnis = "kerze";
+    else ergebnis = "gut";
+    const perfekt = ergebnis === "gut" && err <= PERFEKT && offen >= OFFEN_GUT;
+    if (perfekt) {
+      state.kette += 1;
+      state.perfekte += 1;
+      state.besteKette = Math.max(state.besteKette, state.kette);
     } else {
-      let roh = err <= RIP ? 10 : 10 - (err - RIP) / 2.7;
-      roh -= Math.max(0, OFFEN_GUT - offen) * 15;
-      note = clamp(Math.round(roh * 2) / 2, 0.5, 10);
-      ergebnis = halb >= pflicht ? "gut" : "pflicht";
+      state.kette = 0;
     }
-    const punkte = ergebnis === "gut" || ergebnis === "pflicht" ? Math.round(halb * note) : 0;
+    const mal = malBei(perfekt, state.kette);
+    const punkte = ergebnis === "gut" ? halb * mal : 0;
     sprung.eingetaucht = true;
     sprung.halbe = halb;
     sprung.err = err;
-    sprung.note = note;
+    sprung.perfekt = perfekt;
+    sprung.mal = mal;
     sprung.punkte = punkte;
     sprung.ergebnis = ergebnis;
     sprung.eintauchZeit = state.zeit;
@@ -2138,65 +1842,61 @@
     state.sprunge.push(punkte);
     shell.setCount(state.punkte);
     state.schritt = "wasser";
-    state.weiterIn = 3.1;
+    state.weiterIn = 2.2;
     state.hilfe = "";
     sp.y = Math.min(sp.y, unterkante(sp.winkel, sp.offen));
     sp.vy *= 0.35;
     sp.vx *= 0.3;
     const fehl = ergebnis === "bombe" || ergebnis === "bauch" || ergebnis === "ruecken";
-    const kraft = fehl ? (ergebnis === "bombe" ? 1.7 : 1.25) : 0.08 + (10 - note) * 0.09;
+    const kraft = fehl ? (ergebnis === "bombe" ? 1.7 : 1.25) : 0.08 + err * 0.03;
     spritzer(sp.x, kraft, ergebnis === "bombe" ? 0.6 : fehl ? 1.6 : 0.5);
     state.wellen.push({ x: sp.x, alter: 0, dauer: 2.4, weit: 2.5 + kraft * 3 });
     blasen(sp.x, -0.6, fehl ? 10 : 18);
-    kids()?.vibrate?.(fehl ? [30, 40, 60] : note >= 9.5 ? [10, 30, 14] : 14);
+    kids()?.vibrate?.(fehl ? [30, 40, 60] : perfekt ? [10, 30, 14] : 14);
     fahrtwind.aus();
     // Der Platsch: leise beim sauberen Eintauchen, laut beim Klatscher.
     ton("turmspringen.eintauchen", { laut: clamp(0.35 + kraft * 0.6, 0.35, 1.3) });
-    perfektTon(note >= 9.5, 0.8, 0.05);
-    if (note >= 9.5) ton("turmspringen.rip", { laut: 0.9 });
+    perfektTon(perfekt, 0.8, 0.05);
+    if (perfekt) ton("turmspringen.rip", { laut: 0.9 });
 
-    const oben = `SPRUNG ${n + 1} · ${state.H} m`;
+    const oben = `SPRUNG ${n + 1} VON ${SPRUENGE} · ${state.H} m`;
     if (fehl) {
       state.aus = ergebnis === "bombe" ? "bombe" : "klatscher";
       const wort = { bombe: "Arschbombe", bauch: "Bauchklatscher", ruecken: "Rückenklatscher" }[ergebnis];
       state.grund = wort;
       state.stoss = 1;
+      state.weiterIn = 2.8;
       if (!ruhig()) state.zeitlupe = 0.4;
       schrift(`${wort}!`, "#ff7a6b", 24, 1.8);
-      tvZeigen({ oben, gross: wort, rechts: "0 Punkte", rechtsFarbe: "#ff7a6b", unten: `Pflicht ${saltos(pflicht)}`, untenFarbe: "#ffb0a8", farbe: "#ff3b30" }, state.weiterIn);
+      tvZeigen({ oben, gross: wort, rechts: "0 Punkte", rechtsFarbe: "#ff7a6b", unten: "Die Runde ist vorbei", untenFarbe: "#ffb0a8", farbe: "#ff3b30" }, state.weiterIn);
       ton("fehler", { verzoegerung: 0.25 }, 300);
       return;
     }
-    const geschafft = ergebnis === "gut";
-    if (!geschafft) state.aus = "pflicht";
+    if (n >= SPRUENGE - 1) state.aus = "fertig";
     state.stoss = 0.25;
-    const noten = [note, note, note].map((x, i) => (i === 1 ? x : clamp(x + (Math.random() < 0.5 ? -0.5 : 0.5) * (Math.random() < 0.6 ? 1 : 0), 0, 10)));
+    const sauber = err <= 18;
     tvZeigen({
       oben,
-      gross: saltos(halb),
-      rechts: `Note ${note.toFixed(1)}`,
-      rechtsFarbe: note >= 9 ? "#ffd23f" : note >= 7 ? "#ffffff" : "#ffb347",
-      unten: geschafft ? `+${punkte} Punkte · Pflicht ${halbe(pflicht)} ✓` : `+${punkte} Punkte · Pflicht ${halbe(pflicht)} – nicht geschafft`,
-      untenFarbe: geschafft ? "#9ff5bd" : "#ffb0a8",
-      farbe: geschafft ? "#3dff8c" : "#ff3b30",
-      noten,
+      gross: ergebnis === "kerze" ? "Ohne Drehung" : saltos(halb),
+      rechts: perfekt ? (mal > 2 ? `Perfekt ×${mal}` : "Perfekt") : sauber ? "Sauber" : "Spritzer",
+      rechtsFarbe: perfekt ? "#ffd23f" : sauber ? "#ffffff" : "#ffb347",
+      unten: ergebnis === "kerze" ? "Keine halbe Drehung, keine Punkte" : `+${punkte} ${punkte === 1 ? "Punkt" : "Punkte"}${mal > 1 ? ` (${halb} × ${mal})` : ""}`,
+      untenFarbe: perfekt ? "#ffe9a0" : "rgba(255, 255, 255, 0.85)",
+      farbe: perfekt ? "#ffd23f" : "#3dff8c",
     }, state.weiterIn);
-    if (note >= 9.5) {
-      schrift(err <= RIP ? "Rip!" : "Perfekt!", "#ffd23f", 24, 1.3);
+    if (perfekt) {
+      schrift(mal > 2 ? `Perfekt ×${mal}!` : "Perfekt!", "#ffd23f", 24, 1.3);
       if (flutlichtBei(n)) {
         for (let k = 0; k < 3; k += 1) funken(lerp(-4, 16, Math.random()), state.H + 6 + Math.random() * 8, 22, ["#ffd23f", "#ff7ab6", "#7ae0ff", "#ffffff"], 1.3);
       }
-    } else if (note < 6) {
+    } else if (!sauber && ergebnis === "gut") {
       schrift("Spritzer", "#ffb347", 20, 1.1);
     }
-    if (!geschafft) {
-      schrift("Pflicht verfehlt", "#ff7a6b", 20, 1.6, { folgt: false, x: sp.x, y: 3 });
-      ton("fehler", { verzoegerung: 0.3 }, 300);
-    } else if (note >= 8) {
-      // Das Publikum jubelt einen Augenblick später – am lautesten bei einer
-      // hohen Note mit vielen Drehungen.
+    if (perfekt || (sauber && halb >= 4)) {
+      // Das Publikum jubelt einen Augenblick später – am lautesten bei einem
+      // perfekten Sprung mit vielen Drehungen.
       state.jubel = 1;
-      const laut = 0.6 + (note >= 9.5 ? 0.3 : 0) + Math.min(0.3, halb * 0.05);
+      const laut = 0.6 + (perfekt ? 0.3 : 0) + Math.min(0.3, halb * 0.05);
       ton("turmspringen.publikum", { laut, verzoegerung: 0.45 }, 500);
     }
   }
@@ -2290,10 +1990,6 @@
     if (s === "wippen") {
       poseMisch(POSEN.ausholen, POSEN.arme, wippAnteil(), sp.pose);
     } else if (s === "flug") {
-      if (state.sprung.verpasst) {
-        poseZu(sp.pose, POSEN.fallen, 8, dt);
-        return;
-      }
       sp.armeOben = naeher(sp.armeOben, armeZiel(sp.winkel), 7, dt);
       const offen = poseMisch(POSEN.fuesse, POSEN.gestreckt, sp.armeOben);
       poseMisch(POSEN.paeckchen, offen, glatt(sp.offen), sp.pose);
@@ -2301,7 +1997,7 @@
       const sprung = state.sprung;
       const fehl = state.aus === "klatscher" || state.aus === "bombe";
       const ziel = fehl ? POSEN.klatsch : !sprung.auftauchen ? POSEN.gestreckt
-        : sprung.note >= 8 && sprung.ergebnis === "gut" ? POSEN.jubel : POSEN.schwimmen;
+        : sprung.perfekt || (sprung.ergebnis === "gut" && sprung.err <= 18 && sprung.halbe >= 4) ? POSEN.jubel : POSEN.schwimmen;
       poseZu(sp.pose, ziel, 5, dt);
     } else {
       poseZu(sp.pose, POSEN.stehen, 6, dt);
@@ -2333,11 +2029,6 @@
     klangTakt();
     const sp = state.sp;
     if (sp && state.phase !== "zuschauen") poseWaehlen(dt);
-    // Der Kompass erscheint nach dem Absprung und geht beim Eintauchen;
-    // deutlicher, je näher das Wasser.
-    const fliegt = state.schritt === "flug" && sp && !state.sprung?.verpasst;
-    state.kompass = clamp((state.kompass || 0) + (fliegt ? dt * 5 : -dt * 4), 0, 1);
-    state.nahWasser = fliegt ? clamp(1 - (sp.y - 1) / Math.max(4, state.H * 0.35), 0, 1) : 0;
     state.blende = clamp(state.blende + Math.sign(state.blendeZiel - state.blende) * dtEcht * 3.2, 0, 1);
     if (Math.abs(state.blende - state.blendeZiel) < 0.02) state.blende = state.blendeZiel;
     nebenbei(dt);
@@ -2352,11 +2043,12 @@
     }
   }
 
-  // Im ersten Sprung sagt das Spiel, was zu tun ist: halten, bis die
-  // Drehung reicht – loslassen, wenn sie aufgeht.
+  // Im ersten Sprung sagt das Spiel, was zu tun ist: halten, bis ein ganzer
+  // Salto reicht – loslassen, wenn er aufgeht. Wer zu früh losgelassen hat,
+  // hört wieder «Halten!»: Gestreckt dreht er ja nicht weiter.
   function hilfeTakt() {
-    if (state.nr !== 0 || state.schritt !== "flug" || state.sprung.verpasst) { state.hilfe = ""; return; }
-    const ziel = pflichtBei(0) * 180;
+    if (state.nr !== 0 || state.schritt !== "flug") { state.hilfe = ""; return; }
+    const ziel = 360;
     const v = vorausWinkel(true);
     if (v.tau < 0.15) { state.hilfe = ""; return; }
     if (state.halten) state.hilfe = v.winkel >= ziel - 6 ? "Loslassen!" : "";
@@ -2396,7 +2088,6 @@
       state.wellen[i].alter += dt;
       if (state.wellen[i].alter > state.wellen[i].dauer) state.wellen.splice(i, 1);
     }
-    if (state.ring && state.echt - state.ring.t > 0.6) state.ring = null;
   }
 
   function loop(now) {
@@ -2414,9 +2105,8 @@
   // Zuschauen
   // ---------------------------------------------------------------------------
   // Eine aufgezeichnete Runde mit ihrem eigenen Plan: Der Zufall hält die
-  // Saat (geist.js, zuschauer), startRun würfelt damit denselben Wind und
-  // dieselben Böen, und der Springer steht Bild für Bild dort, wo er damals
-  // war. Aus a folgt der Sprung, aus der Drehung je Sekunde, wie eng er sich
+  // Saat (geist.js, zuschauer), startRun würfelt damit dieselben Höhen, und
+  // der Springer steht Bild für Bild dort, wo er damals war. Aus a folgt der Sprung, aus der Drehung je Sekunde, wie eng er sich
   // machte; wo er eintaucht, zeigt die Anzeige seine Saltos und Punkte.
   function zuschauenStarten() {
     if (!zuschauer?.lauf) return;
@@ -2446,7 +2136,7 @@
     // er sich machte.
     if (sp.zw !== undefined && dt > 0) {
       const w = Math.abs(winkel - sp.zw) / dt / TEMPO;
-      const offen = clamp(1 - (w - W_STRECK * 1.4) / (W_STRECK * (VERHAELTNIS - 1.4)), 0, 1);
+      const offen = clamp(1 - Math.sqrt(w / W_PAECK), 0, 1);
       sp.offen = naeher(sp.offen, offen, 14, dt);
     }
     sp.zw = winkel;
@@ -2488,9 +2178,9 @@
         ton("turmspringen.eintauchen", { laut: clamp(0.35 + kraft * 0.6, 0.35, 1.3) });
         const wort = sp.offen < BOMBE ? "Arschbombe" : (((winkel % 360) + 360) % 360) < 180 ? "Bauchklatscher" : "Rückenklatscher";
         tvZeigen({
-          oben: `SPRUNG ${nr + 1} · ${state.H} m`, gross: fehl ? wort : saltos(halb), rechts: "",
-          unten: `Pflicht ${saltos(pflichtBei(nr))}`, farbe: fehl ? "#ff3b30" : "#3dff8c",
-        }, 3);
+          oben: `SPRUNG ${nr + 1} VON ${SPRUENGE} · ${state.H} m`, gross: fehl ? wort : halb ? saltos(halb) : "Ohne Drehung", rechts: "",
+          unten: fehl ? "Die Runde ist vorbei" : "", farbe: fehl ? "#ff3b30" : "#3dff8c",
+        }, 2.6);
       }
       state.schritt = "wasser";
       sprung.auftauchen = y > -0.6 && state.zeit - sprung.eintauchZeit > 0.6;
@@ -2502,11 +2192,12 @@
     if (punkte !== state.punkte) {
       const dazu = punkte - (sprung.punkteVor ?? state.punkte);
       if (state.tv && sprung.eingetaucht && sprung.halbe > 0) {
-        const note = Math.round((dazu / sprung.halbe) * 2) / 2;
-        state.tv.rechts = `Note ${note.toFixed(1)}`;
-        state.tv.rechtsFarbe = note >= 9 ? "#ffd23f" : "#ffffff";
-        state.tv.unten = `+${dazu} Punkte · Pflicht ${halbe(pflichtBei(nr))}`;
-        if (note >= 8) {
+        // Mehr als eine halbe Drehung je Punkt: Es war perfekt.
+        const mal = Math.round(dazu / sprung.halbe);
+        state.tv.rechts = mal > 1 ? (mal > 2 ? `Perfekt ×${mal}` : "Perfekt") : "";
+        state.tv.rechtsFarbe = "#ffd23f";
+        state.tv.unten = `+${dazu} ${dazu === 1 ? "Punkt" : "Punkte"}${mal > 1 ? ` (${sprung.halbe} × ${mal})` : ""}`;
+        if (mal > 1) {
           state.jubel = 1;
           ton("turmspringen.publikum", { laut: 0.9 }, 500);
         }
@@ -2532,21 +2223,11 @@
     karteZeigen(1.8);
   }
 
-  // Ein Tipp an der Kante: Absprung – aber nur im Fenster eines Moments.
-  function tippen() {
-    if (state.schritt !== "wippen" || state.sprung.abgesprungen) return;
-    const e = tippFenster();
-    if (e !== null) abspringen(e);
-  }
-
-  // Ein neuer Druck (Finger oder Taste).
+  // Ein neuer Druck (Finger oder Taste): Vor der Runde startet er sie. Sonst
+  // zählt nur, dass gehalten wird (state.halten).
   function druck() {
-    if (state.phase === "zuschauen" || state.phase === "ende") return;
-    if (state.phase === "bereit") {
-      if (!shell.live) losGehts();
-      return;
-    }
-    tippen();
+    if (state.phase !== "bereit") return;
+    if (!shell.live) losGehts();
   }
 
   const finger = new Set();
@@ -2569,8 +2250,8 @@
     haltenNeu();
   }
 
-  // Für die Prüfskripte und die Vorführung: aktion() ist ein Tipp (Start,
-  // Absprung), halte(true/false) hält wie ein Finger.
+  // Für die Prüfskripte und die Vorführung: aktion() ist ein Tipp (der
+  // Start), halte(true/false) hält wie ein Finger.
   function aktion() {
     druck();
   }
@@ -2595,6 +2276,9 @@
     state.punkte = 0;
     state.plan = [];
     state.sprunge = [];
+    state.kette = 0;
+    state.besteKette = 0;
+    state.perfekte = 0;
     state.aus = "";
     state.grund = "";
     state.blende = 0;
@@ -2608,13 +2292,13 @@
     state.zeit = 0;
     state.echt = 0;
     state.startRest = 0;
-    planBis(4);
+    planBis(SPRUENGE - 1);
     sprungAufbauen(0);
     shell.setCount(0);
     gegner?.runde();
 
     shell.clear();
-    promptKnoten = shell.el("p", "cm-prompt ts-prompt", "Kante: tippen · Halten: Päckchen · Loslassen: strecken");
+    promptKnoten = shell.el("p", "cm-prompt ts-prompt", "Halten: drehen · Loslassen: strecken · senkrecht eintauchen");
     shell.play.append(promptKnoten, buildPlatz());
     alleWeg();
     view.cssW = 0;
@@ -2658,12 +2342,13 @@
     }));
     const anzahl = state.sprunge.length;
     const bester = anzahl ? Math.max(...state.sprunge) : 0;
-    const grund = state.aus === "pflicht" ? "Pflicht verfehlt" : state.grund;
-    const sprunge = anzahl === 1 ? "1 Sprung" : `${anzahl} Sprünge`;
+    const grund = state.aus === "fertig" ? "" : state.grund;
+    const sprunge = state.aus === "fertig" ? `Alle ${SPRUENGE} Sprünge` : anzahl === 1 ? "1 Sprung" : `${anzahl} Sprünge`;
+    const perfekte = state.perfekte ? `${state.perfekte} perfekt${state.besteKette >= 2 ? `, ${state.besteKette} in Folge` : ""}` : "";
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : [`${sprunge}, bester ${bester} Punkte`, grund, vorher ? `Bestwert ${vorher}` : ""].filter(Boolean).join(" · "),
+      detail: rekord ? `Neuer Rekord! ${sprunge}` : [`${sprunge}, bester ${bester} Punkte`, perfekte, grund, vorher ? `Bestwert ${vorher}` : ""].filter(Boolean).join(" · "),
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("ts-rekord");
@@ -2684,17 +2369,17 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "highDive", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "highDive", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "highDive", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "highDive", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // Ein Finger irgendwo im Bild: Start, Absprung – und solange er liegt,
-  // das Päckchen. Nur Knöpfe bleiben Knöpfe.
+  // Ein Finger irgendwo im Bild: der Start – und solange er liegt, das
+  // Päckchen. Nur Knöpfe bleiben Knöpfe.
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
     fingerAuf(event.pointerId);
@@ -2723,12 +2408,12 @@
   window.addEventListener("orientationchange", messen);
   window.addEventListener("pagehide", stopLoop);
 
-  // Für die Prüfskripte und die Vorführung. aktion() tippt (Start,
-  // Absprung), halte(an) hält. ringRest() sagt, wann an der Kante der
-  // Moment kommt, vorausWinkel(), wo die Achse beim Eintauchen stünde.
+  // Für die Prüfskripte und die Vorführung. aktion() tippt (der Start),
+  // halte(an) hält. vorausWinkel() sagt, wo die Achse beim Eintauchen
+  // stünde.
   window.LernappTurmspringen = {
-    TAKT, ABSTAND, TEMPO, RIP, KLATSCH, W_STRECK, VERHAELTNIS,
-    state, view, kam, takt, zeichnen, weltText, losGehts, aktion, halte, tippen,
-    ringRest, vorausWinkel, planBis, hoeheBei, pflichtBei, perfektBei, gutBei, boeBei, unterkante, bildX, bildY,
+    TAKT, ABSTAND, TEMPO, PERFEKT, KLATSCH, W_PAECK, SPRUENGE, BAENDER, KETTE_MAX, OFFEN_GUT,
+    state, view, kam, takt, zeichnen, weltText, losGehts, aktion, halte,
+    vorausWinkel, planBis, malBei, unterkante, bildX, bildY,
   };
 })();
