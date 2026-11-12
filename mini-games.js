@@ -345,6 +345,17 @@
     try { localStorage.setItem(ID_KEY, id); } catch { /* privates Fenster */ }
   }
 
+  // Wer bin ich? Die Kennung dieses Geräts, und sonst der Name, der hier
+  // eingetragen wurde – wer denselben Namen auf dem Handy und am Tablet
+  // nimmt, soll sich auf beiden wiederfinden. Gibt eine Funktion, die zu
+  // Kennung und Name sagt, ob das dieses Gerät (dieser Spieler) ist.
+  function werIch() {
+    const meineKennung = kennungFallsDa();
+    const meinName = name().toLocaleLowerCase("de");
+    return (wessen, wer) => Boolean((meineKennung && wessen === meineKennung)
+      || (meinName && sauberName(wer).toLocaleLowerCase("de") === meinName));
+  }
+
   // ---------------------------------------------------------------------------
   // Namen ändern
   // ---------------------------------------------------------------------------
@@ -1357,17 +1368,14 @@
   // Lauf, der zu dieser Zahl gehört (geister, ansehbareLaeufe, geist.js).
   function verdichte(eintraege) {
     const nachName = new Map();
-    // Wer bin ich in dieser Liste? Die Kennung dieses Geräts, und sonst der
-    // Name, der hier eingetragen wurde – wer denselben Namen auf dem Handy
-    // und am Tablet nimmt, soll sich auf beiden wiederfinden.
-    const meineKennung = kennungFallsDa();
-    const meinName = name().toLocaleLowerCase("de");
+    // Wer bin ich in dieser Liste? (werIch)
+    const ich = werIch();
     eintraege.forEach((roh) => {
       const schluessel = sauberName(roh.name).toLocaleLowerCase("de");
       if (!schluessel) return;
       const eintrag = {
         ...roh,
-        eigen: Boolean((meineKennung && roh.spieler === meineKennung) || (meinName && schluessel === meinName)),
+        eigen: ich(roh.spieler, roh.name),
       };
       const bisher = nachName.get(schluessel);
       if (!bisher) {
@@ -3475,12 +3483,19 @@
    * nächsten Runde wieder: Bei sechs Spielern am selben Abend kam und ging
    * oben dauernd etwas. Wer die Seite mitten in der Runde verlässt, nimmt
    * seinen Zettel mit (geist.js) und ist gleich weg.
+   *
+   * Der eigene Zettel zählt nie zu denen, die spielen (werIch: die Kennung
+   * dieses Geräts oder der Name, der hier eingetragen ist): «Live» zeigt die
+   * anderen. Sonst stünde man nach jeder Runde eine Minute lang selbst da,
+   * «zwischen zwei Runden» – mit einem Knopf, sich selbst zuzuschauen. Ob
+   * seine Runde fertig wurde, wird trotzdem gemeldet (fertig).
    */
   const SPIELT_MS = 45000;
   const NACHLAUF_MS = 60000;
   function zettelLeser() {
     const gesehen = new Map();
     return (knoten, jetzt = Date.now()) => {
+      const ich = werIch();
       const spielen = [];
       let fertig = 0;
       const da = new Set();
@@ -3495,6 +3510,7 @@
         const wer = sauberName(z.name);
         const her = jetzt - gesehen.get(kennung).seit;
         if (!wer || !NACH_ID.has(spiel) || her > (z.fertig ? NACHLAUF_MS : SPIELT_MS)) return;
+        if (ich(kennung, wer)) return;
         spielen.push({ kennung, name: wer, spiel, pause: Boolean(z.fertig), punkte: Number.isFinite(Number(z.p)) && z.p !== null && z.p !== undefined ? Math.max(0, Math.round(Number(z.p))) : null });
       });
       // Ein Zettel, der verschwindet, gehört zu einer Runde, die mitten drin

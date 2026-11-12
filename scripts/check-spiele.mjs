@@ -2301,8 +2301,10 @@ try {
   {
     // Wer gerade spielt: die Zettel des Turniers (Realtime Database, hier in
     // localStorage) – Zoe im Fischteich, mit Punkten. Nicht dabei sind ein
-    // Zettel, der seit Minuten schweigt (liegen gelassen), und wer in der App
-    // spielt: Die Turnierseite zeigt nur das Turnier.
+    // Zettel, der seit Minuten schweigt (liegen gelassen), wer in der App
+    // spielt (die Turnierseite zeigt nur das Turnier) – und man selbst: der
+    // Zettel dieses Geräts, eben fertig gespielt, und einer unter demselben
+    // Namen von einem anderen Gerät. «Live» zeigt die anderen.
     const { kontext, seite } = await mitTurnieren(`/turnier?t=${HERBST}`, { viewport: { width: 1500, height: 900 }, vorher: () => {
       localStorage.setItem("mini.id", "mini_ichichichichich");
       localStorage.setItem("mini.name", "Ich");
@@ -2312,6 +2314,8 @@ try {
       localStorage.setItem(`__amSpielen/${t}`, JSON.stringify({
         mini_zoezoezoezoe: { name: "Zoe", spiel: "fishPond", p: 120, lebt: Date.now() },
         mini_altaltaltalt: { name: "Alt", spiel: "numberLine", p: 3, lebt: Date.now() - 10 * 60000 },
+        mini_ichichichichich: { name: "Ich", spiel: "towerStack", p: 34, lebt: Date.now(), fertig: true },
+        mini_ichamhandyhandy: { name: "ich", spiel: "fishPond", p: 5, lebt: Date.now() },
       }));
       localStorage.setItem("__amSpielen", JSON.stringify({ mini_maxmaxmaxmax: { name: "Max", spiel: "towerStack", p: 7, lebt: Date.now() } }));
     } });
@@ -2483,11 +2487,22 @@ try {
     const vorher = fehlerAufSeite.length;
     const { breit, hoch } = await seite.evaluate(() => ({ breit: window.innerWidth, hoch: window.innerHeight }));
     const tipp = () => seite.mouse.click(Math.round(breit / 2), Math.round(hoch * 0.75));
-    const nochEine = async (adresse) => {
+    // Eine zweite Seite im selben Browser. Sie teilt sich localStorage mit
+    // der ersten – und wäre damit derselbe Spieler, der sich unter «live»
+    // nicht selbst sieht. «als» macht sie zu einem anderen Gerät: Name und
+    // Kennung gelten dann nur in ihr.
+    const nochEine = async (adresse, als = null) => {
       const neu = await kontext.newPage();
       await neu.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
       await neu.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" }));
       await neu.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
+      if (als) await neu.addInitScript(({ id, name }) => {
+        const eigen = new Map([["mini.id", id], ["mini.name", name]]);
+        const lesen = Storage.prototype.getItem;
+        const schreiben = Storage.prototype.setItem;
+        Storage.prototype.getItem = function getItem(k) { return this === window.localStorage && eigen.has(k) ? eigen.get(k) : lesen.call(this, k); };
+        Storage.prototype.setItem = function setItem(k, w) { if (this === window.localStorage && eigen.has(k)) eigen.set(k, String(w)); else schreiben.call(this, k, w); };
+      }, als);
       neu.on("pageerror", (fehler) => fehlerAufSeite.push(String(fehler.message || fehler)));
       await neu.goto(`${BASIS}${adresse}`, { waitUntil: "load" });
       return neu;
@@ -2500,9 +2515,18 @@ try {
     pruefe(zettel[kennung]?.name === "Herz" && zettel[kennung]?.spiel === "towerStack" && !zettel[kennung]?.fertig,
       `Wer in der App spielt, legt keinen Zettel hin: ${JSON.stringify(zettel)}`);
     const zuHerz = `/turmbau?mitschauen=${kennung}&wer=Herz`;
-    const start = await nochEine("/");
-    // Auf der Startseite: oben «live», dahinter Herz mit Turmbau und dem Weg
-    // zum Zuschauen.
+    // Herz selbst sieht sich auf der Startseite nicht unter «live» – auch
+    // nicht in einem zweiten Fenster: «Live» zeigt die anderen.
+    const selber = await nochEine("/");
+    await selber.waitForSelector(".ar-kachel", { timeout: 8000 }).catch(() => {});
+    await selber.waitForTimeout(1200);
+    pruefe(await selber.locator(".ar-live-knopf:not([hidden])").count() === 0 && await selber.locator(".ar-live-knopf").count() === 1,
+      "Wer spielt, sieht sich auf der Startseite selbst unter «live».");
+    await selber.close();
+    const MOND = { id: "mini_mondmondmondmond", name: "Mond" };
+    const start = await nochEine("/", MOND);
+    // Auf der Startseite eines anderen Geräts: oben «live», dahinter Herz mit
+    // Turmbau und dem Weg zum Zuschauen.
     await start.waitForSelector(".ar-live-knopf:not([hidden])", { timeout: 6000 }).catch(() => {});
     await start.click(".ar-live-knopf").catch(() => {});
     await start.waitForSelector("dialog.ist-live .ar-live-karte", { timeout: 3000 }).catch(() => {});
@@ -2534,8 +2558,7 @@ try {
     pruefe(zu.live && zu.phase === "zuschauen" && /^Herz/.test(zu.titel) && !zu.tafel && selbst > 1 && zu.bloecke === selbst,
       `Wer in der App zuschaut, sieht den Turm nicht mitwachsen: Spieler ${selbst} Blöcke, Zuschauer ${JSON.stringify(zu)}`);
     // Wer zuschaut, steht beim Spieler unten links – klein, mit grünem
-    // Punkt, und nicht anklickbar. (Hier schaut Herz sich selbst zu, aus
-    // einem zweiten Fenster.)
+    // Punkt, und nicht anklickbar.
     await seite.waitForFunction(() => /schaut gerade zu/.test(document.querySelector(".gz-zuschauer:not([hidden])")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
     const hinweis = await seite.evaluate(() => {
       const p = document.querySelector(".gz-zuschauer:not([hidden])");
@@ -2543,7 +2566,7 @@ try {
       const r = p.getBoundingClientRect();
       return { text: p.textContent.trim(), punkt: Boolean(p.querySelector(".ar-live-punkt")), zeiger: getComputedStyle(p).pointerEvents, links: Math.round(r.left), unten: Math.round(window.innerHeight - r.bottom), breit: Math.round(r.width) };
     });
-    pruefe(hinweis?.text === "Herz schaut gerade zu" && hinweis.punkt && hinweis.zeiger === "none" && hinweis.links >= 0 && hinweis.links < 40 && hinweis.unten >= 0 && hinweis.unten < 60 && hinweis.breit < breit / 2,
+    pruefe(hinweis?.text === "Mond schaut gerade zu" && hinweis.punkt && hinweis.zeiger === "none" && hinweis.links >= 0 && hinweis.links < 40 && hinweis.unten >= 0 && hinweis.unten < 60 && hinweis.breit < breit / 2,
       `Beim Spieler steht nicht unten links, dass jemand zuschaut: ${JSON.stringify(hinweis)}`);
     pruefe(await spieleZuEnde(seite), "Die Runde in der App, der zugeschaut wurde, kam zu keinem Ergebnis.");
     await start.waitForFunction(() => /spielt gerade nicht/.test(document.querySelector(".gz-tafel:not([hidden])")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
@@ -2568,7 +2591,7 @@ try {
     pruefe(weiter?.neu && weiter.live && weiter.phase === "zuschauen" && !weiter.tafel, `Bei der nächsten Runde schaut der Zuschauer nicht von selbst wieder zu: ${JSON.stringify(weiter)}`);
     // Herz steht jetzt in der Rangliste: Dort trägt der Name den grünen
     // Punkt, und «spielt gerade» ist ein Weg zum Zuschauen.
-    const liste = await nochEine("/");
+    const liste = await nochEine("/", MOND);
     await liste.click('.ar-kachel[data-spiel="towerStack"]').catch(() => {});
     await liste.waitForSelector(".ar-live-knopf:not([hidden])", { timeout: 4000 }).catch(() => {});
     await liste.click(".ar-rang");
@@ -2643,14 +2666,25 @@ try {
   {
     // Live auf der Startseite: wer in der App spielt und wer in einem
     // öffentlichen Turnier (mit dessen Namen) – nicht, wer in einem Turnier
-    // nur mit Link spielt. Oben ein Knopf mit der Zahl, dahinter die Liste mit
-    // Punkten und Zuschauen. Spielt niemand, ist der Knopf weg; das Bild
-    // bleibt dabei immer gleich gross.
+    // nur mit Link spielt, und nie man selbst: weder der Zettel dieses Geräts
+    // (eben eine Runde gespielt, «zwischen zwei Runden») noch einer unter
+    // demselben Namen von einem anderen Gerät. Oben ein Knopf mit der Zahl,
+    // dahinter die Liste mit Punkten und Zuschauen. Spielt niemand, ist der
+    // Knopf weg; das Bild bleibt dabei immer gleich gross.
     const { kontext, seite } = await mitTurnieren("/", { viewport: { width: 1280, height: 800 }, vorher: () => {
       if (sessionStorage.getItem("__zettel")) return;
       sessionStorage.setItem("__zettel", "1");
-      localStorage.setItem("__amSpielen", JSON.stringify({ mini_maxmaxmaxmax: { name: "Max", spiel: "towerStack", p: 7, lebt: Date.now() } }));
-      localStorage.setItem("__amSpielen/herbstcup-test2345", JSON.stringify({ mini_zoezoezoezoe: { name: "Zoe", spiel: "fishPond", p: 120, lebt: Date.now() } }));
+      localStorage.setItem("mini.id", "mini_ichichichichich");
+      localStorage.setItem("mini.name", "Ich");
+      localStorage.setItem("__amSpielen", JSON.stringify({
+        mini_maxmaxmaxmax: { name: "Max", spiel: "towerStack", p: 7, lebt: Date.now() },
+        mini_ichichichichich: { name: "Ich", spiel: "towerStack", p: 34, lebt: Date.now(), fertig: true },
+        mini_ichamhandyhandy: { name: "ich", spiel: "fishPond", p: 5, lebt: Date.now() },
+      }));
+      localStorage.setItem("__amSpielen/herbstcup-test2345", JSON.stringify({
+        mini_zoezoezoezoe: { name: "Zoe", spiel: "fishPond", p: 120, lebt: Date.now() },
+        mini_ichichichichich: { name: "Ich", spiel: "fishPond", p: 9, lebt: Date.now() },
+      }));
       localStorage.setItem("__amSpielen/familie-geheim2345", JSON.stringify({ mini_geheimgeheim: { name: "Geheim", spiel: "numberLine", p: 3, lebt: Date.now() } }));
     } });
     const vorher = fehlerAufSeite.length;
@@ -2668,6 +2702,7 @@ try {
       reihe: getComputedStyle(document.querySelector(".ar-seite")).gridTemplateRows.split(" ").length,
     }));
     const [max, zoe] = mit.karten;
+    pruefe(!mit.karten.some((k) => /^ich /i.test(k.text)), `Unter «live» steht man auf der Startseite selbst: ${JSON.stringify(mit.karten)}`);
     pruefe(mit.karten.length === 2 && mit.reihe === 3
       && /^Max spielt Turmbau 7 /.test(max?.text || "") && max.link === "/turmbau?mitschauen=mini_maxmaxmaxmax&wer=Max"
       && /^Zoe spielt Fischteich im Turnier Herbstcup 120 /.test(zoe?.text || "") && zoe.link === `/fischteich?mitschauen=mini_zoezoezoezoe&aus=${HERBST}&wer=Zoe`,
