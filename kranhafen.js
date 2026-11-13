@@ -615,6 +615,11 @@
     let best = null;
     for (const a of liste) {
       if (f.y > a.y) continue;
+      // Ganz darunter? Ein Container reicht eine Höhe hinunter, eine Luke
+      // nur ihr Süll. Wer tiefer ist, ist an ihm vorbei – sonst prallte ein
+      // Container, der an einem Stapel entlangrutscht, noch unter Wasser an
+      // ihm ab und fiel ewig weiter.
+      if (f.y + KISTE_H <= a.y - (a.luke ? 6 : KISTE_H)) continue;
       const ax = sx + a.off * c - a.y * s;
       const abstand = Math.abs(f.x - ax);
       if (abstand >= KISTE_W / 2 + a.halb) continue;
@@ -677,6 +682,7 @@
       vy: 0,
       aw: windA(state.schiff),
       uhr,
+      los: uhr,
       neig: kisteNeig(kiste, uhr),
       wartet: false,
     };
@@ -741,6 +747,8 @@
     const liste = auflagen();
     for (let n = 0; n < 4000 && f.uhr + TAKT <= bis + 1e-9; n += 1) {
       fallSchritt(f, TAKT);
+      // Unter Wasser ist er auf jeden Fall vorbei.
+      if (f.y < -KISTE_H * 2) return { a: null, x: f.x, boden: true };
       const kon = kontakt(f, liste);
       if (!kon) continue;
       const abrutschen = kon.a && !kon.seitlich && mehrere(state.schiff) && Math.abs(f.x - kon.x) > KISTE_W / 2;
@@ -3355,6 +3363,7 @@
       vy: 0,
       aw: windA(sch),
       uhr: uhrR,
+      los: uhrR,
       neig: kisteNeig(k, uhrR),
       wartet: false,
     };
@@ -3478,6 +3487,7 @@
     // Die Eilfracht legt ab, wenn ihre Zeit um ist – und es zählt runter.
     if (fristPruefen(state.uhr)) meldeZug(3);
     eilfrachtZaehlen();
+    waechter();
 
     // Laufkatze und Spreader
     if (state.kiste) state.katze = katzeBei(state.kiste, state.uhr);
@@ -3597,16 +3607,60 @@
     state.camX += (zielX - state.camX) * (1 - Math.exp(-1.5 * dt));
   }
 
+  // Ein Fehler in einem Bild darf das Spiel nicht anhalten: Er wird einmal
+  // gemeldet, und das nächste Bild kommt trotzdem. Bis November 2026 blieb
+  // sonst das letzte Bild stehen – ohne Container, ohne Tafel.
+  const schonGemeldet = new Set();
+  function melden(fehler, nurWarnung = false) {
+    const text = String(fehler?.stack || fehler);
+    if (schonGemeldet.has(text)) return;
+    schonGemeldet.add(text);
+    if (nurWarnung) console.warn("Kranhafen:", String(fehler?.message || fehler));
+    else console.error("Kranhafen:", fehler);
+  }
+
   function loop(now) {
     frame = window.requestAnimationFrame(loop);
     const dt = clamp((now - last) / 1000, 0, 0.05);
     last = now;
-    messen();
-    if (state.phase === "zuschauen") zuschauenTakt();
-    let dtUhr = dt;
-    if (state.phase === "spiel") dtUhr = clamp(state.uhrVersatz + (now - state.losMs) / 1000 - state.uhr, 0, 1);
-    schritt(dt, dtUhr);
-    zeichnen(dt);
+    try {
+      messen();
+      if (state.phase === "zuschauen") zuschauenTakt();
+      let dtUhr = dt;
+      if (state.phase === "spiel") dtUhr = clamp(state.uhrVersatz + (now - state.losMs) / 1000 - state.uhr, 0, 1);
+      schritt(dt, dtUhr);
+    } catch (fehler) {
+      melden(fehler);
+    }
+    try {
+      zeichnen(dt);
+    } catch (fehler) {
+      melden(fehler);
+      // Was halb gezeichnet war, soll das nächste Bild nicht erben.
+      if (g?.reset) g.reset();
+      else g?.setTransform(1, 0, 0, 1, 0, 0);
+    }
+  }
+
+  /*
+   * Der Wächter: Im Spiel hängt immer ein Container am Seil oder fällt, und
+   * keiner fällt länger als ein paar Sekunden. Fehlt er doch, hängt sofort
+   * ein neuer da; fällt einer zu lange, ist er daneben. Das darf nie nötig
+   * sein – geschieht es, steht eine Warnung in der Konsole.
+   */
+  const FALL_WACHE = 5;
+  function waechter() {
+    if (state.phase !== "spiel") return;
+    const k = state.kiste;
+    if (!k) {
+      melden(new Error(`kein Container (Schiff ${state.schiffNr}, ${state.schiff?.plan.art})`), true);
+      neueKiste(state.uhr, null);
+      return;
+    }
+    if (k.fallend && k.f && state.uhr - (k.f.los ?? k.f.uhr) > FALL_WACHE) {
+      melden(new Error(`Container fällt zu lange (Schiff ${state.schiffNr}, ${state.schiff?.plan.art})`), true);
+      landen(k, { a: null, x: k.f.x, boden: true });
+    }
   }
 
   // Für die Prüfskripte: ein Schritt ohne requestAnimationFrame. Die Uhr der
@@ -3795,6 +3849,19 @@
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); hafenAus(); });
+  // Zurück aus dem Zwischenspeicher des Browsers (Zurück-Geste) oder aus
+  // dem Hintergrund: Die Schleife läuft wieder – und wartete die Tafel
+  // gerade, kommt sie jetzt. Steht die Tafel schon, bleibt alles, wie es ist.
+  function weiterLaufen() {
+    if (frame || !g || document.hidden) return;
+    if (host.querySelector(".cm-result-score")) return;
+    if (state.phase === "ende" && !stepTimer) stepTimer = window.setTimeout(finish, 300);
+    last = performance.now();
+    frame = window.requestAnimationFrame(loop);
+    if (state.phase === "spiel" || state.phase === "zuschauen") hafenAn();
+  }
+  window.addEventListener("pageshow", weiterLaufen);
+  document.addEventListener("visibilitychange", weiterLaufen);
 
   // Nach aussen sichtbar für die Prüfskripte: der Zustand, ein Schritt ohne
   // Bild (takt), Tippen, und wo der Container landen würde (vorhersage).

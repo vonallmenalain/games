@@ -4336,6 +4336,47 @@ try {
     const lassen = await spielen("lassen", 2);
     pruefe(lassen.every((l) => l.phase === "spiel" && l.schiffe >= 14 && l.auftraege.filter((a) => a.art === "eilfracht").every((a) => a.verpatzt && a.kisten === 0)),
       `Kranhafen: Eine Eilfracht, die man verstreichen lässt, legt nicht leer ab: ${JSON.stringify(lassen.map((l) => l.auftraege.filter((a) => a.art === "eilfracht")))}`);
+    // Nichts darf hängen bleiben. Ein Container, der neben einem Stapel
+    // tiefer fällt als dessen Unterkante – auch wenn ihn Wind gegen den
+    // Stapel drückt –, ist daneben: Bis November 2026 prallte er dort noch
+    // an den Containern darüber ab und fiel unsichtbar ewig weiter, und es
+    // kam kein neuer. Fehlt der Container doch einmal, hängt sofort ein
+    // neuer da (der Wächter); fällt einer zu lange, ist er daneben.
+    const wache = await seite.evaluate(() => {
+      const K = window.LernappKranhafen;
+      const st = K.state;
+      const raus = {};
+      const bisZweiStehen = () => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        for (let n = 0; n < 200000 && !(st.stapel.length >= 2 && st.kiste && !st.kiste.fallend && st.uhr - st.kiste.spawn > 0.5); n += 1) {
+          const v = K.vorhersage();
+          if (v && v.passt && v.perfekt) K.druecken();
+          K.takt(1 / 120);
+        }
+      };
+      for (const seite of [-1, 1]) {
+        bisZweiStehen();
+        const ob = st.stapel[st.stapel.length - 1];
+        const x = K.schiffX(st.schiff, st.uhr) + ob.off + seite * 47;
+        st.kiste.fallend = true;
+        st.kiste.f = { x, y: K.spalteY(ob.spalte) - 3 * 20 - 10, vx: 0, vy: -100, aw: -seite * 1e5, uhr: st.uhr, los: st.uhr, neig: 0, wartet: false };
+        for (let n = 0; n < 120 && st.phase !== "ende"; n += 1) K.takt(1 / 120);
+        raus[`unter${seite}`] = st.phase;
+      }
+      bisZweiStehen();
+      st.kiste = null;
+      K.takt(1 / 120);
+      raus.fehlt = Boolean(st.kiste) && !st.kiste.fallend && st.phase === "spiel";
+      if (!st.kiste) return raus;
+      st.kiste.spawn = st.uhr - 1;
+      st.kiste.fallend = true;
+      st.kiste.f = { x: 0, y: 1e7, vx: 0, vy: 0, aw: 0, uhr: st.uhr, los: st.uhr, neig: 0, wartet: false };
+      for (let n = 0; n < 120 * 7 && st.phase !== "ende"; n += 1) K.takt(1 / 120);
+      raus.ewig = st.phase;
+      return raus;
+    });
+    pruefe(wache.unter1 === "ende" && wache["unter-1"] === "ende" && wache.fehlt && wache.ewig === "ende",
+      `Kranhafen: Ein Container kann ewig fallen oder fehlen: ${JSON.stringify(wache)}`);
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
     const ende = await seite.evaluate(() => {
       const K = window.LernappKranhafen;
