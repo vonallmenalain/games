@@ -404,10 +404,11 @@ const BOTS = {
       if (window.LernappLiveSpiel.istFertig() || st.phase === "ende" || st.phase === "zuschauen") return;
       requestAnimationFrame(tick);
       if (st.phase !== "spiel") return;
-      // Wo der Container landen würde, liesse man ihn jetzt los.
+      // Wo der Container landen würde, liesse man ihn jetzt los – auf einen
+      // Platz, auf den er gehört.
       const v = K.vorhersage();
       if (!v) return;
-      const tippen = st.punkte >= raus ? v.daneben : !v.daneben && Math.abs(v.ende - ziel) < 1.2;
+      const tippen = st.kisten >= raus ? v.daneben : !v.daneben && v.passt && Math.abs(v.ende - ziel) < 1.2;
       if (!tippen) return;
       ziel = neu();
       host.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
@@ -475,10 +476,10 @@ const BILD = {
     return { zahl: Math.min(9, st.index), punkte: st.punkte, antwort, ...(antwort ? { p: Math.round(st.p * 1000) } : {}) };
   },
   craneHarbor: () => {
-    // Die Container auf dem Schiff unter dem Kran, in Hundertstel – so genau,
-    // wie der Zug sie trägt.
+    // Die Container auf dem Schiff unter dem Kran, je Stellplatz, in
+    // Hundertstel – so genau, wie der Zug sie trägt.
     const st = window.LernappKranhafen.state;
-    return { punkte: st.punkte, schiff: st.schiffNr, stapel: st.stapel.map((k) => Math.round(k.off * 100)) };
+    return { punkte: st.punkte, kisten: st.kisten, schiff: st.schiffNr, verpatzt: st.schiff.verpatzt, stapel: st.stapel.map((k) => `${k.spalte}:${Math.round(k.off * 100)}`) };
   },  twinLanes: () => {
     const st = window.LernappSpuren.state;
     return { punkte: st.punkte, ziele: `${st.schlitten[0].ziel}${st.schlitten[1].ziel}`, fehler: st.fehler ? `${st.fehler.art}#${st.fehler.ding.id}` : "" };
@@ -528,7 +529,7 @@ try {
     await Promise.all(frames.map((f) => f.evaluate(() => new Promise((ok) => { const t = setInterval(() => { if (window.LernappLiveSpiel.gestartet()) { clearInterval(t); ok(); } }, 20); }))));
     const kennungen = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().ich.kennung)));
     // Alain scheidet zuerst aus, Mia später, Jonas zuletzt.
-    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [2, 6, 11], twinLanes: [6, 16, 30] };
+    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [3, 12, 24], twinLanes: [6, 16, 30] };
     const raus = RAUS[spiel] || [2, 6, 10];
     // Jeder merkt sich, was er zuletzt im Bild hatte – je nachdem, wem er
     // gerade zuschaut (oder sich selbst).

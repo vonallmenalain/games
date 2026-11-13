@@ -3151,7 +3151,8 @@ try {
     ["/kranhafen", "Kranhafen", () => {
       const p = window.LernappKranhafen.plan();
       return JSON.stringify({
-        schiffe: p.schiffe.slice(0, 4).map((s) => [s.platz, Math.round(s.weite * 100), Math.round(s.periode * 1000), Math.round(s.wind * 1000)]),
+        schiffe: p.schiffe.slice(0, 8).map((s) => [s.art, s.platz, Math.round(s.weite * 100), Math.round(s.periode * 1000), Math.round(s.wind * 1000),
+          s.spalten.map((sp) => `${sp.x}/${sp.soll}/${sp.farbe}`).join(","), (s.farben || []).join(""), s.zeit || 0]),
         kisten: p.kisten.slice(0, 8).map((k) => [k.farbe, Math.round(k.weite * 100), Math.round(k.periode * 1000), k.seite, Math.round(k.kMitte * 100)]),
       });
     }],
@@ -4248,39 +4249,93 @@ try {
     await kontext.close();
   }
 
-  // --- 4g15. Kranhafen: immer stapelbar, und ein Fehlwurf beendet die Runde --------
-  // Ein Autopilot stapelt auf mehreren gewürfelten Häfen 40 Container, jeden
-  // genau in die Mitte (vorhersage: wo er landen würde, liesse man jetzt los).
-  // Findet er für einen Container acht Sekunden lang keinen Augenblick dafür,
-  // verlangt der Hafen mehr, als ein Kind kann. Und wer danebenwirft, sieht den
-  // Container ins Wasser gehen – das ist das Ende, mit Ergebnis.
+  // --- 4g15. Kranhafen: jeder Auftrag schaffbar, und ein Fehlwurf beendet die Runde --
+  // Jedes Schiff bringt einen Auftrag: die ersten zwei stapeln nur, danach
+  // kommt jeder der fünf einmal (Hochhaus, Treppe, Sortieren, Eilfracht,
+  // Gefahrgut), ein Schiff zum Durchatmen, wieder alle. Ein Autopilot spielt
+  // mehrere gewürfelte Häfen über vierzehn Schiffe: Er lässt los, wenn der
+  // Container perfekt auf einem Platz landen würde, auf den er gehört
+  // (vorhersage). Findet er acht Sekunden lang keinen Augenblick dafür,
+  // verlangt der Hafen mehr, als ein Kind kann. Er erfüllt jeden Auftrag
+  // makellos – die Eilfracht in ihrer Zeit – und bekommt jedes Mal den
+  // Bonus. Ein ungenauer, der nach einer Sekunde nimmt, was nicht knapp ist,
+  // erfüllt ebenso jeden Auftrag, nur nicht jeden makellos – auch beim
+  // Sortieren, wo die Zellführungen die Stapel gerade halten. Wer beim Sortieren
+  // einen Container auf die falsche Farbe stellt, verpatzt den Auftrag
+  // (kein Bonus), spielt aber weiter; eine Eilfracht, die man verstreichen
+  // lässt, legt halbvoll ab. Perfekt zählt doppelt bis vierfach. Und wer
+  // danebenwirft, sieht den Container ins Wasser gehen – das Ende, mit
+  // Ergebnis.
   {
     const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
     await seite.goto(`${BASIS}/kranhafen`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappKranhafen?.state, null, { timeout: 8000 });
-    const laeufe = await seite.evaluate(() => {
+    const spielen = (modus, laeufe) => seite.evaluate(({ modus, laeufe }) => {
       const K = window.LernappKranhafen;
       const raus = [];
-      for (let lauf = 0; lauf < 4; lauf += 1) {
+      for (let lauf = 0; lauf < laeufe; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         const st = K.state;
+        const auftraege = [];
+        let sch = null;
+        let punkteVorher = 0;
         let warten = 0;
         let laengste = 0;
-        for (let n = 0; n < 400000 && st.phase !== "ende" && st.punkte < 40; n += 1) {
+        let falsch = false;
+        for (let n = 0; n < 2000000 && st.phase !== "ende" && st.schiffNr < 14; n += 1) {
+          if (st.schiff !== sch) {
+            if (sch) auftraege.push({ art: sch.plan.art, kisten: sch.kisten, platz: sch.plan.platz, verpatzt: sch.verpatzt, makellos: sch.makellos, bonus: st.punkte - punkteVorher });
+            sch = st.schiff;
+          }
+          const art = st.schiff.plan.art;
           const v = K.vorhersage();
+          if (modus === "lassen" && art === "eilfracht") { K.takt(1 / 120); continue; }
           if (v) {
             warten += 1 / 120;
-            if (v.perfekt) { laengste = Math.max(laengste, warten); warten = 0; K.druecken(); }
+            let gut = v.passt && !v.daneben && (v.perfekt || (modus !== "genau" && warten > 1 && !v.knapp));
+            // Beim Sortieren gibt es immer einen falschen Platz.
+            const mehr = art === "sortieren";
+            if (modus === "falsch" && mehr && !falsch) gut = !v.daneben && !v.passt && !v.knapp;
+            if (gut) {
+              if (modus === "falsch" && mehr && !falsch) falsch = true;
+              laengste = Math.max(laengste, warten);
+              warten = 0;
+              punkteVorher = st.punkte;
+              K.druecken();
+            }
           }
           if (warten > 8) break;
           K.takt(1 / 120);
         }
-        raus.push({ punkte: st.punkte, phase: st.phase, schiffe: st.schiffNr, warten: Math.round(Math.max(laengste, warten) * 10) / 10 });
+        raus.push({ phase: st.phase, schiffe: st.schiffNr, kisten: st.kisten, punkte: st.punkte, laengste: Math.round(Math.max(laengste, warten) * 10) / 10, auftraege });
       }
       return raus;
-    });
-    pruefe(laeufe.every((l) => l.punkte >= 40 && l.phase === "spiel" && l.warten <= 8),
-      `Kranhafen: Der Autopilot stapelt nicht auf jedem Hafen 40 Container – ${JSON.stringify(laeufe)}`);
+    }, { modus, laeufe });
+    // Der Bonus kommt mit dem letzten Container eines Schiffs: Was dieser
+    // Tipp brachte, ist sein Wert (1 bis 4) und der Bonus (5 oder 10).
+    const bonusVon = (a) => (a.bonus >= 5 ? a.bonus : 0);
+    const genau = await spielen("genau", 4);
+    const folgeOk = genau.every((l) => l.auftraege.slice(0, 2).every((a) => a.art === "stapeln")
+      && new Set(l.auftraege.slice(2, 7).map((a) => a.art)).size === 5 && !l.auftraege.slice(2, 7).some((a) => a.art === "stapeln"));
+    pruefe(folgeOk, `Kranhafen: Die Aufträge kommen nicht in der Folge zwei Mal stapeln, dann jeder einmal – ${JSON.stringify(genau.map((l) => l.auftraege.map((a) => a.art)))}`);
+    pruefe(genau.every((l) => l.phase === "spiel" && l.schiffe >= 14 && l.laengste <= 8),
+      `Kranhafen: Der Autopilot kommt nicht auf jedem Hafen durch vierzehn Schiffe – ${JSON.stringify(genau.map((l) => ({ ...l, auftraege: undefined })))}`);
+    const auftragGenau = genau.flatMap((l) => l.auftraege.filter((a) => a.art !== "stapeln"));
+    pruefe(auftragGenau.length >= 40 && auftragGenau.every((a) => !a.verpatzt && a.makellos && a.kisten === a.platz && a.bonus >= 10),
+      `Kranhafen: Ein genauer Autopilot erfüllt nicht jeden Auftrag makellos, mit Bonus: ${JSON.stringify(auftragGenau.filter((a) => a.verpatzt || !a.makellos || a.bonus < 10).slice(0, 4))}`);
+    pruefe(genau.every((l) => l.punkte >= l.kisten * 3), `Kranhafen: Perfekt zählt nicht mehrfach: ${JSON.stringify(genau.map((l) => [l.kisten, l.punkte]))}`);
+    const ungenau = await spielen("ungenau", 3);
+    const auftragUngenau = ungenau.flatMap((l) => l.auftraege.filter((a) => a.art !== "stapeln"));
+    pruefe(ungenau.every((l) => l.phase === "spiel" && l.schiffe >= 14) && auftragUngenau.every((a) => !a.verpatzt && a.kisten === a.platz)
+      && auftragUngenau.some((a) => !a.makellos),
+      `Kranhafen: Ein ungenauer Autopilot erfüllt nicht jeden Auftrag (oder alle makellos): ${JSON.stringify(ungenau.map((l) => ({ ...l, auftraege: l.auftraege.map((a) => `${a.art}${a.verpatzt ? "✗" : a.makellos ? "★" : "✓"}`).join(" ") })))}`);
+    const falsch = await spielen("falsch", 2);
+    pruefe(falsch.every((l) => l.phase === "spiel" && l.schiffe >= 14 && l.auftraege.filter((a) => a.verpatzt).length === 1
+      && l.auftraege.filter((a) => a.verpatzt).every((a) => a.art === "sortieren" && bonusVon(a) === 0 && a.kisten === a.platz)),
+      `Kranhafen: Ein falsch gestellter Container verpatzt nicht genau den einen Auftrag, oder die Runde endet: ${JSON.stringify(falsch.map((l) => l.auftraege.map((a) => `${a.art}${a.verpatzt ? "✗" : "✓"}${a.bonus}`).join(" ")))}`);
+    const lassen = await spielen("lassen", 2);
+    pruefe(lassen.every((l) => l.phase === "spiel" && l.schiffe >= 14 && l.auftraege.filter((a) => a.art === "eilfracht").every((a) => a.verpatzt && a.kisten === 0)),
+      `Kranhafen: Eine Eilfracht, die man verstreichen lässt, legt nicht leer ab: ${JSON.stringify(lassen.map((l) => l.auftraege.filter((a) => a.art === "eilfracht")))}`);
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
     const ende = await seite.evaluate(() => {
       const K = window.LernappKranhafen;

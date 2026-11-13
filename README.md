@@ -831,6 +831,66 @@ Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`,
 `SERIE_…`, `HAAR`, `HAAR_PUNKTE`, `SPALT_PUNKTE`, `LANDE_PUNKTE`) und in
 `abschnitt()`, ab wann welches Hindernis vorkommt.
 
+### Kranhafen: jedes Schiff ein Auftrag (November 2026)
+
+**Kranhafen** (`kranhafen.js`, `craneHarbor`, Fassung `z2`) – Das Spiel
+bleibt ein Tipp: Der Container pendelt, die Laufkatze fährt, das Schiff
+schaukelt, ein Tipp lässt los, und ein Container im Wasser beendet die
+Runde. Neu ist, was die Schiffe wollen. Die ersten zwei wollen nur
+gestapelt werden; danach bringt jedes einen **Auftrag**, jeder der fünf
+einmal in gewürfelter Reihenfolge, dann ein Schiff zum Durchatmen, dann
+wieder alle (`auftragsFolge`, aus `zufall.js` – im Turnier für alle
+dieselben):
+
+| Auftrag | Was er verlangt |
+|---|---|
+| Hochhaus | neun, später zehn Container auf einen Stapel (bisher höchstens acht); hängt der Stapel hoch, hängt der Container tiefer (`FALL_MIN`, `SEIL_MIN`) |
+| Treppe | drei Stellplätze, Umrisse für 1 – 2 – 3 (später 2 – 3 – 4), auf- oder abwärts |
+| Sortieren | zwei, später drei Stellplätze mit Farbflagge (rot, blau, grün, gelb, lila – `SORTIER_FARBEN`); jeder Container auf den Platz seiner Farbe |
+| Eilfracht | fünf oder sechs Container, bevor die Uhr abläuft (gut zwei Sekunden je Container) – sonst legt das Schiff halbvoll ab |
+| Gefahrgut | Container mit Warnraute: Eine knappe Landung an der Kante ist hier schon daneben |
+
+Beim Einlaufen springt unten auf dem Wasser ein **Frachtbrief** auf
+(Schiff, Auftrag, ein Satz, was er bringt) und ist wieder weg, bevor der
+erste Container frei ist; am Vormast weht ein Wimpel mit dem Zeichen des
+Auftrags, oben links steht er neben dem Schiff, mit dem Bonus, der noch zu
+holen ist, und bei der Eilfracht mit der Uhr (die letzten drei Sekunden
+zählen hörbar herunter).
+
+**Gezählt werden Punkte**, nicht mehr Container: Jeder Container zählt 1,
+perfekt 2, perfekt in Folge 3 und 4 (`PERFEKT_MAX`). Ein erfüllter Auftrag
+gibt beim Ablegen 5 dazu (`BONUS`), makellos – jeder Container perfekt –
+10 (`BONUS_MAKELLOS`). Wer einen Container falsch hinstellt, verpatzt den
+Auftrag: Er bleibt stehen, das Schiff legt trotzdem ab, nur ohne Bonus. Die
+Bestenliste zählte bis dahin Container – der Admin leert sie beim
+Veröffentlichen («Bestenliste leeren»); alte Läufe (Fassung `z1`) werden
+nicht mehr abgespielt.
+
+**Mehrere Stellplätze.** Die Schiffe für Treppe und Sortieren sind länger
+(eine Luke je Platz, `SPALTE_P` auseinander, `schiffMalen`) und schaukeln
+weniger weit; die Laufkatze fährt langsam über alle hinweg, welcher Platz
+es wird, entscheidet der Augenblick des Loslassens. Wo ein Container
+aufschlägt, rechnet `kontakt()`: auf dem Höchsten, was unter ihm liegt und
+sich mit ihm überschneidet – Luke oder Container (`auflagen()`). Wie auf
+einem echten Containerschiff halten Zellführungen die Stapel gerade: Ein
+Container steht höchstens `FUEHRUNG` neben der Mitte seines Platzes; wer
+seitlich an einen Stapel stösst oder auf dessen Kante keinen Halt findet,
+rutscht daran entlang in den Schacht daneben (`fallBisKontakt`). Ins
+Wasser geht dort nur, wer ganz aussen am Schiff vorbeifällt. Ohne die
+Führungen lehnten ungenaue Stapel in den Platz daneben und sperrten ihn.
+
+Zuschauen und Anschauen: Jeder Zug sagt den ganzen Stand – Schiff,
+Container, Stellplatz, wo er steht, die Punkte danach (siehe `meldeZug`).
+Legt die Eilfracht ab, weil ihre Zeit um ist, sagt es ein eigener Zug
+(`c` endet auf 3) – oder, wenn es nach einer Landung geschieht, derselbe.
+
+Die Prüfung 4g15 spielt mehrere Häfen über vierzehn Schiffe: Ein genauer
+Autopilot erfüllt jeden Auftrag makellos (die Eilfracht in ihrer Zeit) und
+findet für jeden Container in höchstens acht Sekunden einen Augenblick; ein
+ungenauer erfüllt ebenso jeden; ein falsch sortierter Container verpatzt
+genau seinen Auftrag; eine Eilfracht, die man verstreichen lässt, legt
+leer ab; und ein Fehlwurf beendet die Runde.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,

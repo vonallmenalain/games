@@ -74,7 +74,7 @@
     { id: "balloonRide", titel: "Windschichten", bereich: "problemloesen", art: "punkte", key: "lernapp.wind", einheit: "Meter" },
     { id: "skiSlalom", titel: "Slalom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.slalom", einheit: "Punkte" },
     { id: "frogHop", titel: "Froschsprung", bereich: "konzentration", art: "punkte", key: "lernapp.frosch", einheit: "Punkte" },
-    { id: "craneHarbor", titel: "Kranhafen", bereich: "problemloesen", art: "punkte", key: "lernapp.kranhafen", einheit: "Container" },
+    { id: "craneHarbor", titel: "Kranhafen", bereich: "problemloesen", art: "punkte", key: "lernapp.kranhafen", einheit: "Punkte" },
     { id: "ropeWalk", titel: "Seiltänzer", bereich: "konzentration", art: "punkte", key: "lernapp.seiltaenzer", einheit: "Meter" },
     { id: "wireLoop", titel: "Heisser Draht", bereich: "konzentration", art: "punkte", key: "lernapp.draht", einheit: "Meter" },
     { id: "twinLanes", titel: "Zwei Spuren", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.spuren", einheit: "Punkte" },
