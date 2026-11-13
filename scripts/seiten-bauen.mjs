@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-13-3";
+export const FASSUNG = "2026-11-13-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -655,7 +655,8 @@ export function dateien() {
 }
 
 // Je Spielseite, was nur sie braucht – für die Reihenfolge, in der der
-// Service Worker füllt, und für «Offline bereit» auf der Turnierseite.
+// Service Worker füllt, und fürs Vorbereiten der Turnierspiele (turnier.js,
+// offlineVorbereiten).
 export function spielDateien() {
   const raus = {};
   for (const s of SPIELE) raus[s.seite] = [`./${s.seite}.html`, ...[s.js, ...(s.kunst || [])].map((d) => `./${v(d)}`)];

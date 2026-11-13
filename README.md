@@ -1800,11 +1800,14 @@ WLAN konnte so kaum jemand spielen. Jetzt:
   den eigenen Bestwert gleicht eine Spielseite im Turnier höchstens alle
   halbe Stunde ab (`gleicheAb`), und die Läufe der Gegner holt sie nur neu,
   wenn sich deren Zahl geändert hat (`geist.js`, `turnierGeistFuer`).
-- **«Offline bereit»:** Die Turnierseite fragt den Service Worker, ob alles
-  da ist, um die Spiele des Turniers ohne Netz zu spielen (`STAND`), und lässt
-  holen, was fehlt (`VORBEREITEN`). Solange das läuft, steht oben «Offline
-  60 %», danach kurz «Offline bereit». Wer den Link vor dem Abend einmal mit
-  gutem Netz öffnet, sieht so, dass sein Gerät vorbereitet ist. Der Service
+- **Offline vorbereiten:** Die Turnierseite fragt den Service Worker, ob
+  alles da ist, um die Spiele des Turniers ohne Netz zu spielen (`STAND`),
+  und lässt holen, was fehlt (`VORBEREITEN`). Wer den Link vor dem Abend
+  einmal mit gutem Netz öffnet, hat danach alles auf dem Gerät. Zu sehen ist
+  davon nichts – bis November 2026 stand oben ein Abzeichen («Offline 60 %»,
+  «Offline bereit»), eine Auskunft für Entwickler, nicht für Spieler. Den
+  Stand verrät `data-offline` am Dokument («bereit» oder der Anteil in
+  Prozent) und einmal die Konsole. Der Service
   Worker holt dabei höchstens vier Dateien zugleich, zuerst den Rahmen, dann
   die Spiele des Turniers (`GLEICHZEITIG`, `SPIEL_DATEIEN`) – bis Oktober 2026
   holte er alle gut hundert auf einmal.
