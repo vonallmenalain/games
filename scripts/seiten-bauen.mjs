@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-12-10";
+export const FASSUNG = "2026-11-13-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -152,7 +152,7 @@ export const SPIELE = [
   {
     seite: "kranhafen", spiel: "craneHarbor", page: "harbor", js: "kranhafen.js",
     titel: "Kranhafen", buehne: { id: "kh-stage", klasse: "cm-stage kh-stage" },
-    text: "Kranhafen: Der Container pendelt am Kran – tippe im richtigen Moment und stapel ihn auf das fahrende Schiff.",
+    text: "Kranhafen: Der Container pendelt am Kran – tippe im richtigen Moment und stapel ihn auf das fahrende Schiff. Jedes Schiff bringt einen Auftrag: Hochhaus, Treppe, Sortieren, Eilfracht, Gefahrgut.",
     baut: "der Hafen mit dem Kran",
   },
   {

@@ -137,6 +137,9 @@
   const SPALTE_P = 64;             // so weit liegen zwei Stellplätze auseinander (Platz für einen Schacht)
   const LUKE_HALB = 28;            // die Luke eines Schiffs mit einem Stellplatz
   const LUKE_HALB_SCHMAL = 26;     // je Luke, wo mehrere nebeneinanderliegen
+  // Wo mehrere Stellplätze sind, halten Zellführungen jeden Container fast
+  // genau über der Mitte seines Platzes: so weit darf er daneben stehen.
+  const FUEHRUNG = 6;
   // Hängt ein hoher Stapel unter dem Kran, hängt der Container tiefer: so viel
   // Seil bleibt mindestens, und so tief fällt er mindestens.
   const SEIL_MIN = 12;
@@ -729,7 +732,10 @@
    * hinunter, wie in den Zellführungen eines echten Containerschiffs: Er
    * wird so weit weggeschoben, dass er ihn nur noch berührt, und hat
    * gegenüber dem Schiff keine Fahrt mehr. Ohne das passte zwischen zwei
-   * Stapel fast nie einer hinein. f.schramm sagt, dass es geschah.
+   * Stapel fast nie einer hinein. Wo mehrere Stellplätze sind, gilt das auch
+   * für die Kante oben: Wer auf ihr keinen Halt findet, rutscht von ihr ab
+   * in den Schacht daneben (oder, ganz aussen, ins Wasser). f.schramm sagt,
+   * dass es geschah.
    */
   function fallBisKontakt(f, bis = Infinity) {
     const liste = auflagen();
@@ -737,7 +743,8 @@
       fallSchritt(f, TAKT);
       const kon = kontakt(f, liste);
       if (!kon) continue;
-      if (kon.a && kon.seitlich && !kon.a.luke) {
+      const abrutschen = kon.a && !kon.seitlich && mehrere(state.schiff) && Math.abs(f.x - kon.x) > KISTE_W / 2;
+      if (kon.a && ((kon.seitlich && !kon.a.luke) || abrutschen)) {
         const seite = f.x < kon.x ? -1 : 1;
         f.x = kon.x + seite * (KISTE_W / 2 + kon.a.halb + 0.01);
         f.vx = schiffV(state.schiff, f.uhr);
@@ -2886,7 +2893,14 @@
       stepTimer = window.setTimeout(finish, ENDE_MS);
       return;
     }
-    const off = Math.round((e.auflage.off + e.ende) * 100) / 100;
+    // Wo mehrere Stellplätze sind, zieht ihn die Führung zur Mitte seines
+    // Platzes – so bleibt zwischen den Stapeln ein Schacht frei.
+    let off = e.auflage.off + e.ende;
+    if (mehrere(state.schiff)) {
+      const mitte = state.schiff.plan.spalten[e.spalte].x;
+      off = mitte + clamp(off - mitte, -FUEHRUNG, FUEHRUNG);
+    }
+    off = Math.round(off * 100) / 100;
     kisteLandet({ off, einschlag: e.d, combo: e.perfekt ? state.combo + 1 : 0, spalte: e.spalte, sofort: false, uhr: k.f.uhr });
     // Ist die Zeit der Eilfracht inzwischen um, legt sie gleich ab – im
     // selben Zug, damit niemand, der zuschaut, die Landung verpasst.
@@ -2914,8 +2928,10 @@
     const unten = unter ? unter.off : sch.plan.spalten[c].x;
     const ebene = state.hoehen[c] || 0;
     const ende = off - unten;
-    const perfekt = Math.abs(ende) < 0.005;
-    const knapp = KISTE_W / 2 - Math.abs(ende) < KNAPP;
+    // Perfekt sagt die Reihe (combo), nicht wo er steht: Die Führung kann
+    // auch einen ungenauen genau auf den darunter ziehen.
+    const perfekt = combo > 0;
+    const knapp = !perfekt && KISTE_W / 2 - Math.abs(mehrere(sch) ? einschlag : ende) < KNAPP;
     const neu = {
       off,
       spalte: c,
