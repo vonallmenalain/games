@@ -6471,29 +6471,6 @@ body.ar {
   .ar-offline:not(.ist-weg) { gap: 5px; padding: 0 10px; font-size: 0; }
   .ar-offline:not(.ist-weg)::after { content: "↑"; font-size: 0.8rem; }
 }
-/* Auf der Turnierseite daneben: ob dieses Gerät die Spiele des Turniers ohne
-   Netz spielen kann (turnier.js, offlineBereit). */
-.tn-bereit {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--ar-text);
-  font-size: 0.74rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-.tn-bereit::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ar-gold); }
-.tn-bereit.ist-bereit { background: rgba(90, 216, 147, 0.14); color: var(--ar-gruen); }
-.tn-bereit.ist-bereit::before { content: "✓"; width: auto; height: auto; border-radius: 0; background: none; }
-.tn-bereit[hidden] { display: none; }
-@media (max-width: 420px) {
-  .tn-bereit { padding: 0 9px; }
-}
 .ar-wer { display: flex; flex-direction: column; gap: 10px; }
 /* Darunter, auf der Startseite: die Turniere, in denen auf diesem Gerät
    gespielt wurde (turnier.js, meineTurniere). */

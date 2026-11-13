@@ -9494,6 +9494,30 @@ try {
     await kontext.close();
   }
 
+  // --- 6b. Offline vorbereiten, ohne Abzeichen ---------------------------------
+  // Die Turnierseite lässt den Service Worker holen, was die Spiele des
+  // Turniers ohne Netz brauchen – und zeigt davon nichts: Ob das Gerät
+  // bereit ist, ist eine Auskunft für Entwickler (data-offline am Dokument),
+  // nicht für Spieler. Bis November 2026 stand dafür oben ein Abzeichen
+  // («Offline 60 %», «Offline bereit»).
+  {
+    const kontext = await browser.newContext({ viewport: { width: 1000, height: 640 } });
+    await kontext.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await kontext.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "" }));
+    const seite = await kontext.newPage();
+    await seite.addInitScript((daten) => { window.__miniTurniereAnfang = daten; }, TURNIERE);
+    await seite.goto(`${BASIS}/turnier?t=${HERBST}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => document.documentElement.dataset.offline === "bereit", null, { timeout: 60000 }).catch(() => {});
+    const still = await seite.evaluate(() => ({
+      offline: document.documentElement.dataset.offline || "",
+      abzeichen: document.querySelectorAll(".tn-bereit").length,
+      text: /Offline (bereit|wird|\d)/.test(document.body.innerText),
+    }));
+    pruefe(still.offline === "bereit" && !still.abzeichen && !still.text,
+      `Turnierseite: Die Spiele werden nicht still für offline vorbereitet: ${JSON.stringify(still)}`);
+    await kontext.close();
+  }
+
   // --- 7. Läufe nachreichen ----------------------------------------------------
   // Zu jeder Bestmarke ihr Lauf, auch wenn die Seite weg war, bevor er oben
   // war (mini-games.js, nachreichen). Ninja: Die Runde im Turnier kam an, der

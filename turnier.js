@@ -918,29 +918,27 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Offline bereit?
+  // Offline vorbereiten
   // ---------------------------------------------------------------------------
   /*
-   * Oben rechts auf der Turnierseite, klein: ob dieses Gerät alles hat, um
-   * die Spiele des Turniers ohne Netz zu spielen – die Seiten und Skripte im
-   * Service Worker (service-worker.js, STAND und VORBEREITEN). Fehlt etwas,
-   * steht «Offline wird vorbereitet», und der Service Worker holt es, vier
-   * Dateien auf einmal. Ist alles da, steht kurz «Offline bereit» – einmal
-   * je Sitzung, oder wenn es eben fertig wurde. Wer den Link vor dem Abend
-   * einmal mit gutem Netz öffnet, sieht so, dass er bereit ist.
+   * Die Turnierseite sorgt dafür, dass dieses Gerät die Spiele des Turniers
+   * auch ohne Netz spielen kann: Sie fragt den Service Worker, ob die Seiten
+   * und Skripte da sind (service-worker.js, STAND), und lässt holen, was
+   * fehlt (VORBEREITEN, vier Dateien auf einmal); reicht das Netz nicht,
+   * versucht sie es eine halbe Minute später noch einmal.
    *
-   * Ohne Service Worker (privates Fenster, alter Browser) steht nichts da.
+   * Zu sehen ist davon nichts. Bis November 2026 stand oben rechts ein
+   * Abzeichen («Offline 60 %», «Offline bereit») – das ist eine Auskunft für
+   * Entwickler, nicht für Spieler. Wer es wissen will: Am Dokument steht
+   * data-offline ("bereit" oder der Anteil in Prozent), und die Konsole sagt
+   * einmal «Offline bereit». Das Zeichen «Offline» bzw. «Wird hochgeladen»,
+   * wenn das Netz fehlt, bleibt (mini-games.js, offlineZeichen).
+   *
+   * Ohne Service Worker (privates Fenster, alter Browser) geschieht nichts.
    */
-  const BEREIT_KEY = "mini.turnier.bereit";
-  function offlineBereit(platz, t) {
-    if (!platz || !t || !("serviceWorker" in navigator) || !window.MessageChannel) return;
+  function offlineVorbereiten(t) {
+    if (!t || !("serviceWorker" in navigator) || !window.MessageChannel) return;
     const seiten = t.spiele.map((spiel) => mini()?.SPIELE?.find((s) => s.id === spiel)?.seite).filter(Boolean);
-    const chip = el("span", "tn-bereit");
-    chip.hidden = true;
-    chip.setAttribute("role", "status");
-    const neben = platz.querySelector(".ar-offline");
-    if (neben) neben.after(chip);
-    else platz.prepend(chip);
     const frage = (art) => navigator.serviceWorker.ready.then((anmeldung) => new Promise((ja) => {
       const ziel = anmeldung.active;
       if (!ziel) { ja(null); return; }
@@ -950,30 +948,22 @@
       ziel.postMessage({ type: art, seiten }, [kanal.port2]);
     }));
     const fertig = (s) => Boolean(s && s.gesamt > 0 && s.da >= s.gesamt);
-    let gezeigt = false;
-    try { gezeigt = sessionStorage.getItem(BEREIT_KEY) === t.id; } catch { gezeigt = false; }
-    const bereit = (kurz) => {
-      chip.className = "tn-bereit ist-bereit";
-      chip.textContent = "Offline bereit";
-      chip.title = "Die Spiele dieses Turniers laufen auf diesem Gerät auch ohne Netz.";
-      chip.hidden = false;
-      try { sessionStorage.setItem(BEREIT_KEY, t.id); } catch { /* egal */ }
-      if (kurz) window.setTimeout(() => { chip.hidden = true; }, 5000);
+    const merke = (wert) => { try { document.documentElement.dataset.offline = wert; } catch { /* egal */ } };
+    const bereit = () => {
+      merke("bereit");
+      console.info(`Offline bereit: ${seiten.length} Spiele des Turniers laufen auf diesem Gerät auch ohne Netz.`);
     };
     const vorbereiten = (s) => {
-      chip.className = "tn-bereit";
-      chip.textContent = s?.gesamt ? `Offline ${Math.floor((100 * s.da) / s.gesamt)} %` : "Offline wird vorbereitet";
-      chip.title = "Die Spiele dieses Turniers werden auf dieses Gerät geladen, damit sie auch ohne Netz laufen.";
-      chip.hidden = false;
+      merke(s?.gesamt ? String(Math.floor((100 * s.da) / s.gesamt)) : "0");
       frage("VORBEREITEN").then((danach) => {
-        if (fertig(danach)) { bereit(true); return; }
+        if (fertig(danach)) { bereit(); return; }
         // Das Netz hat nicht gereicht: später noch einmal.
         window.setTimeout(() => vorbereiten(danach), 30000);
       });
     };
     frage("STAND").then((s) => {
       if (!s) return;
-      if (fertig(s)) { if (!gezeigt) bereit(true); return; }
+      if (fertig(s)) { bereit(); return; }
       vorbereiten(s);
     });
   }
@@ -1096,7 +1086,7 @@
     function bereitFragen() {
       if (bereitGefragt || !stand.t) return;
       bereitGefragt = true;
-      offlineBereit(rechts, stand.t);
+      offlineVorbereiten(stand.t);
     }
 
     function verschwunden() {
