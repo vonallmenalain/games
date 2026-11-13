@@ -529,7 +529,7 @@ try {
     await Promise.all(frames.map((f) => f.evaluate(() => new Promise((ok) => { const t = setInterval(() => { if (window.LernappLiveSpiel.gestartet()) { clearInterval(t); ok(); } }, 20); }))));
     const kennungen = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().ich.kennung)));
     // Alain scheidet zuerst aus, Mia später, Jonas zuletzt.
-    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [2, 6, 11], twinLanes: [6, 16, 30] };
+    const RAUS = { towerStack: [2, 8, 16], bridgeBuilder: [2, 6, 12], dartWheel: [2, 8, 18], tileMemory: [2, 9, 18], fishPond: [2, 9, 16], boilerRoom: [4, 31, 60], numberLine: [3, 9, 16], craneHarbor: [3, 12, 24], twinLanes: [6, 16, 30] };
     const raus = RAUS[spiel] || [2, 6, 10];
     // Jeder merkt sich, was er zuletzt im Bild hatte – je nachdem, wem er
     // gerade zuschaut (oder sich selbst).
