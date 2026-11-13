@@ -16,8 +16,9 @@
  * nächste läuft ein.
  *
  * Seit November 2026 bringt jedes Schiff einen Auftrag mit (AUFTRAEGE, aus
- * der Saat). Die ersten zwei wollen nur gestapelt werden, danach kommt jeder
- * einmal, mit einem Frachtbrief beim Einlaufen und einer Flagge am Mast:
+ * der Saat) – schon das erste: Jeder kommt einmal, dann ein Schiff zum
+ * Durchatmen, das nur gestapelt werden will, dann wieder alle. Mit einem
+ * Frachtbrief beim Einlaufen und einer Flagge am Mast:
  *
  *   Hochhaus    neun, später zehn Container auf einen Stapel
  *   Treppe      drei Stellplätze, Umrisse für 1 – 2 – 3 (oder umgekehrt)
@@ -203,7 +204,7 @@
       // Wo mehrere Stellplätze sind, schaukelt das Schiff weniger weit: Alle
       // sollen im Bild und unter dem Kran bleiben.
       const breit = art === "treppe" || art === "sortieren";
-      let platz = 5 + Math.floor(r() * 4);
+      const platz = 5 + Math.floor(r() * 4);
       const weite = Math.min(breit ? 34 : 68, 6 + k * 12) * (0.8 + 0.4 * r());
       const periode = Math.max(5.4, 11 - k * 0.85) * (0.88 + 0.24 * r());
       const phase = r() * Math.PI * 2;
@@ -217,8 +218,6 @@
       const wind = windAn ? windSeite * (0.05 + Math.min(0.08, (k - 2) * 0.016)) * (0.7 + 0.3 * windMass) : 0;
       const stil = Math.floor(r() * SCHIFF_STILE.length);
       const name = Math.floor(r() * SCHIFF_NAMEN.length);
-      // Das erste Schiff hat immer fünf Plätze: der erste Erfolg kommt bald.
-      if (k === 0) platz = 5;
       const auftrag = auftragBauen(art, k, r, platz);
       schiffe.push({ platz: auftrag.platz, weite, periode, phase, roll, rollPeriode, rollPhase, wind, stil, name, ...auftrag });
     }
@@ -242,11 +241,12 @@
     return { schiffe, kisten };
   }
 
-  // Welches Schiff welchen Auftrag bringt: zwei zum Ankommen, dann jeder
-  // Auftrag einmal in gewürfelter Reihenfolge, ein Schiff zum Durchatmen,
-  // wieder alle – nie zweimal derselbe hintereinander.
+  // Welches Schiff welchen Auftrag bringt: von Anfang an jeder Auftrag
+  // einmal in gewürfelter Reihenfolge, ein Schiff zum Durchatmen, wieder
+  // alle – nie zweimal derselbe hintereinander. (Bis zum 13. November 2026
+  // wollten die ersten zwei Schiffe nur gestapelt werden.)
   function auftragsFolge(r, n) {
-    const folge = ["stapeln", "stapeln"];
+    const folge = [];
     while (folge.length < n) {
       const stapel = [...AUFTRAEGE];
       for (let i = stapel.length - 1; i > 0; i -= 1) {
@@ -2481,7 +2481,15 @@
     const sch = state.schiff;
     if (!sch) return;
     bildTransform();
-    g.translate(0, shell?.frei?.(canvas) || 0);
+    let oben = shell?.frei?.(canvas) || 0;
+    // Vor dem ersten Tipp steht oben der Hinweis «Tippe zum Loslassen» – auf
+    // einem schmalen Bild über der Anzeige. Dann rückt sie darunter.
+    if (state.phase === "bereit" && prompt?.isConnected) {
+      const r = prompt.getBoundingClientRect();
+      const c = canvas.getBoundingClientRect();
+      if (r.height && r.left < c.left + 150) oben = Math.max(oben, r.bottom - c.top - 2);
+    }
+    g.translate(0, oben);
     const x0 = 12;
     let y = 10;
     const art = sch.plan.art;
@@ -2854,6 +2862,7 @@
     shell.setPhase("play");
     state.uhrVersatz = state.uhr;
     state.losMs = performance.now();
+    fristAb(state.uhr);
     gegner?.los();
     aufnahme?.los();
     meldeZug(0);
@@ -3095,6 +3104,16 @@
       state.kiste = null;
       neueKiste(uhr + NEUES_SCHIFF, vorige);
     }
+  }
+
+  // Ist das erste Schiff eine Eilfracht, beginnt ihre Uhr erst mit der
+  // Runde (dem ersten Tipp, im Multiplayer dem gemeinsamen Start) – beim
+  // Zuschauen mit dem ersten Zug, der sagt, wann das war.
+  function fristAb(uhr) {
+    const sch = state.schiff;
+    if (!sch || sch.nr !== 0 || !Number.isFinite(sch.frist)) return;
+    sch.bereit = uhr;
+    sch.frist = uhr + sch.plan.zeit;
   }
 
   // Die Eilfracht wartet nicht: Ist ihre Zeit um, legt sie ab – nur nicht,
@@ -3379,6 +3398,7 @@
     const schiff = Math.floor(rest / ZUG_SCHIFF);
     if (was === 0 && n === 0 && schiff === 0) {
       state.uhrVersatz = probe.b / 1000;
+      fristAb(state.uhrVersatz);
       return;
     }
     const uhr = probe.t / 1000 + state.uhrVersatz;
@@ -3485,6 +3505,8 @@
       }
     }
     // Die Eilfracht legt ab, wenn ihre Zeit um ist – und es zählt runter.
+    // Vor dem ersten Tipp läuft ihre Uhr noch nicht.
+    if (state.phase === "bereit") fristAb(state.uhr);
     if (fristPruefen(state.uhr)) meldeZug(3);
     eilfrachtZaehlen();
     waechter();
@@ -3726,6 +3748,8 @@
     // Das erste Schiff liegt schon unter dem Kran, der erste Container
     // senkt sich gerade herab.
     state.schiff = neuesSchiff(0, -ANKUNFT - 0.01);
+    // Schon das erste Schiff bringt einen Auftrag: sein Frachtbrief.
+    if (state.schiff.plan.art !== "stapeln") state.brief = { schiff: state.schiff, t0: state.zeit };
     neueKiste(0, null);
     state.katze = katzeBei(state.kiste, 0);
     state.haken = { x: state.katze, y: KATZE_Y - SPREADER_H - 4, vx: 0, vy: 0, zu: true, neig: 0 };

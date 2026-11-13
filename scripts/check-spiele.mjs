@@ -4250,9 +4250,11 @@ try {
   }
 
   // --- 4g15. Kranhafen: jeder Auftrag schaffbar, und ein Fehlwurf beendet die Runde --
-  // Jedes Schiff bringt einen Auftrag: die ersten zwei stapeln nur, danach
-  // kommt jeder der fünf einmal (Hochhaus, Treppe, Sortieren, Eilfracht,
-  // Gefahrgut), ein Schiff zum Durchatmen, wieder alle. Ein Autopilot spielt
+  // Jedes Schiff bringt einen Auftrag, schon das erste: Jeder der fünf
+  // kommt einmal (Hochhaus, Treppe, Sortieren, Eilfracht, Gefahrgut), dann
+  // ein Schiff zum Durchatmen, das nur gestapelt werden will, wieder alle.
+  // Ist das erste Schiff eine Eilfracht, läuft ihre Uhr erst ab dem ersten
+  // Tipp. Ein Autopilot spielt
   // mehrere gewürfelte Häfen über vierzehn Schiffe: Er lässt los, wenn der
   // Container perfekt auf einem Platz landen würde, auf den er gehört
   // (vorhersage). Findet er acht Sekunden lang keinen Augenblick dafür,
@@ -4315,9 +4317,25 @@ try {
     // Tipp brachte, ist sein Wert (1 bis 4) und der Bonus (5 oder 10).
     const bonusVon = (a) => (a.bonus >= 5 ? a.bonus : 0);
     const genau = await spielen("genau", 4);
-    const folgeOk = genau.every((l) => l.auftraege.slice(0, 2).every((a) => a.art === "stapeln")
-      && new Set(l.auftraege.slice(2, 7).map((a) => a.art)).size === 5 && !l.auftraege.slice(2, 7).some((a) => a.art === "stapeln"));
-    pruefe(folgeOk, `Kranhafen: Die Aufträge kommen nicht in der Folge zwei Mal stapeln, dann jeder einmal – ${JSON.stringify(genau.map((l) => l.auftraege.map((a) => a.art)))}`);
+    const folgeOk = genau.every((l) => {
+      const arten = l.auftraege.map((a) => a.art);
+      const runde = (von) => new Set(arten.slice(von, von + 5)).size === 5 && !arten.slice(von, von + 5).includes("stapeln");
+      return runde(0) && arten[5] === "stapeln" && runde(6);
+    });
+    pruefe(folgeOk, `Kranhafen: Die Aufträge kommen nicht von Anfang an jeder einmal, dann ein Schiff zum Stapeln – ${JSON.stringify(genau.map((l) => l.auftraege.map((a) => a.art)))}`);
+    // Die Eilfracht als erstes Schiff: Vor dem ersten Tipp steht ihre Uhr.
+    const ersteEil = await seite.evaluate(() => {
+      const K = window.LernappKranhafen;
+      const st = K.state;
+      for (let n = 0; n < 200 && st.schiff.plan.art !== "eilfracht"; n += 1) document.querySelector(".cm-bar-left .cm-icon-again").click();
+      if (st.schiff.plan.art !== "eilfracht") return null;
+      for (let n = 0; n < 120 * 30; n += 1) K.takt(1 / 120);
+      const vorher = { phase: st.phase, rest: st.schiff.frist - st.uhr };
+      K.druecken();
+      return { vorher, nachher: Math.round((st.schiff.frist - st.uhr) * 100) / 100, zeit: st.schiff.plan.zeit, phase: st.phase };
+    });
+    pruefe(ersteEil && ersteEil.vorher.phase === "bereit" && ersteEil.phase === "spiel" && Math.abs(ersteEil.nachher - ersteEil.zeit) < 0.05,
+      `Kranhafen: Die Uhr einer Eilfracht als erstes Schiff läuft schon vor dem ersten Tipp: ${JSON.stringify(ersteEil)}`);
     pruefe(genau.every((l) => l.phase === "spiel" && l.schiffe >= 14 && l.laengste <= 8),
       `Kranhafen: Der Autopilot kommt nicht auf jedem Hafen durch vierzehn Schiffe – ${JSON.stringify(genau.map((l) => ({ ...l, auftraege: undefined })))}`);
     const auftragGenau = genau.flatMap((l) => l.auftraege.filter((a) => a.art !== "stapeln"));

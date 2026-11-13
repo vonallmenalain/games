@@ -836,11 +836,13 @@ Die Schrauben stehen oben in der Datei: `Z_ENDE`, `V0`/`V_MAX`,
 **Kranhafen** (`kranhafen.js`, `craneHarbor`, Fassung `z2`) – Das Spiel
 bleibt ein Tipp: Der Container pendelt, die Laufkatze fährt, das Schiff
 schaukelt, ein Tipp lässt los, und ein Container im Wasser beendet die
-Runde. Neu ist, was die Schiffe wollen. Die ersten zwei wollen nur
-gestapelt werden; danach bringt jedes einen **Auftrag**, jeder der fünf
-einmal in gewürfelter Reihenfolge, dann ein Schiff zum Durchatmen, dann
-wieder alle (`auftragsFolge`, aus `zufall.js` – im Turnier für alle
-dieselben):
+Runde. Neu ist, was die Schiffe wollen: Jedes bringt einen **Auftrag**,
+schon das erste – jeder der fünf einmal in gewürfelter Reihenfolge, dann
+ein Schiff zum Durchatmen, das nur gestapelt werden will, dann wieder alle
+(`auftragsFolge`, aus `zufall.js` – im Turnier für alle dieselben; bis zum
+13. November wollten die ersten zwei Schiffe nur gestapelt werden). Ist das
+erste Schiff eine Eilfracht, läuft ihre Uhr erst ab dem ersten Tipp
+(`fristAb`):
 
 | Auftrag | Was er verlangt |
 |---|---|
@@ -891,7 +893,8 @@ Container, Stellplatz, wo er steht, die Punkte danach (siehe `meldeZug`).
 Legt die Eilfracht ab, weil ihre Zeit um ist, sagt es ein eigener Zug
 (`c` endet auf 3) – oder, wenn es nach einer Landung geschieht, derselbe.
 
-Die Prüfung 4g15 spielt mehrere Häfen über vierzehn Schiffe: Ein genauer
+Die Prüfung 4g15 spielt mehrere Häfen über vierzehn Schiffe (die Folge:
+fünf Aufträge, ein Schiff zum Stapeln, wieder fünf): Ein genauer
 Autopilot erfüllt jeden Auftrag makellos (die Eilfracht in ihrer Zeit) und
 findet für jeden Container in höchstens acht Sekunden einen Augenblick; ein
 ungenauer erfüllt ebenso jeden; ein falsch sortierter Container verpatzt
