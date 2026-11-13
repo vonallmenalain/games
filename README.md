@@ -878,6 +878,13 @@ seitlich an einen Stapel stösst oder auf dessen Kante keinen Halt findet,
 rutscht daran entlang in den Schacht daneben (`fallBisKontakt`). Ins
 Wasser geht dort nur, wer ganz aussen am Schiff vorbeifällt. Ohne die
 Führungen lehnten ungenaue Stapel in den Platz daneben und sperrten ihn.
+Berührt wird nur, was auch auf seiner Höhe ist: Wer tiefer fällt als die
+Unterkante eines Stapels, ist an ihm vorbei (bis zum 13. November prallte
+ein Container dort noch ab und fiel unsichtbar ewig weiter – es kam kein
+neuer). Dazu wacht `waechter()`: Fehlt im Spiel der Container, hängt sofort
+ein neuer da; fällt einer länger als fünf Sekunden, ist er daneben. Ein
+Fehler in einem Bild hält die Schleife nicht mehr an, und nach der
+Zurück-Geste oder aus dem Hintergrund läuft sie wieder (`weiterLaufen`).
 
 Zuschauen und Anschauen: Jeder Zug sagt den ganzen Stand – Schiff,
 Container, Stellplatz, wo er steht, die Punkte danach (siehe `meldeZug`).
@@ -889,7 +896,9 @@ Autopilot erfüllt jeden Auftrag makellos (die Eilfracht in ihrer Zeit) und
 findet für jeden Container in höchstens acht Sekunden einen Augenblick; ein
 ungenauer erfüllt ebenso jeden; ein falsch sortierter Container verpatzt
 genau seinen Auftrag; eine Eilfracht, die man verstreichen lässt, legt
-leer ab; und ein Fehlwurf beendet die Runde.
+leer ab; ein Container neben einem Stapel unter dessen Unterkante ist
+daneben, auch mit Wind gegen den Stapel; ein fehlender wird ersetzt; und ein
+Fehlwurf beendet die Runde.
 
 ### Die Klänge
 
