@@ -11,9 +11,31 @@
  * Liegt der Schwerpunkt über dem Container darunter (beim ersten über der
  * Luke), bleibt er stehen, rutscht noch ein Stück, und der Stapel wackelt.
  * Sonst kippt er über die Kante ins Wasser, und die Runde ist vorbei. Genau
- * in der Mitte ist "perfekt", mehrere hintereinander sind eine Reihe. Ist ein
- * Schiff voll (fünf bis acht Plätze, aus der Saat), tutet es und legt ab, und
- * das nächste läuft ein. Gezählt werden die gestapelten Container.
+ * in der Mitte ist "perfekt": Er zählt doppelt, mehrere hintereinander
+ * dreifach und vierfach. Ist ein Schiff voll, tutet es und legt ab, und das
+ * nächste läuft ein.
+ *
+ * Seit November 2026 bringt jedes Schiff einen Auftrag mit (AUFTRAEGE, aus
+ * der Saat). Die ersten zwei wollen nur gestapelt werden, danach kommt jeder
+ * einmal, mit einem Frachtbrief beim Einlaufen und einer Flagge am Mast:
+ *
+ *   Hochhaus    neun, später zehn Container auf einen Stapel
+ *   Treppe      drei Stellplätze, Umrisse für 1 – 2 – 3 (oder umgekehrt)
+ *   Sortieren   zwei oder drei Stellplätze mit Farbflagge; jeder Container
+ *               auf den Platz seiner Farbe
+ *   Eilfracht   fünf oder sechs Container, bevor die Uhr abläuft – sonst
+ *               legt das Schiff halbvoll ab
+ *   Gefahrgut   nur sichere Landungen: knapp an der Kante ist hier daneben
+ *
+ * Ein erfüllter Auftrag gibt beim Ablegen 5 Punkte dazu, makellos (jeder
+ * Container perfekt) 10. Ein verpatzter Auftrag kostet nur den Bonus; die
+ * Runde endet weiter nur, wenn ein Container ins Wasser geht. Gezählt werden
+ * Punkte, nicht mehr Container (Fassung z2).
+ *
+ * Auf den Schiffen mit mehreren Stellplätzen fährt die Laufkatze über alle
+ * hinweg; welcher es wird, entscheidet der Augenblick des Loslassens. Wo ein
+ * Container aufschlägt, rechnet kontakt(): auf dem Höchsten, was unter ihm
+ * liegt – Luke oder Container. Zwischen zwei Stapel passt keiner.
  *
  * Schwerer wird es mit jedem Container: Das Pendel schwingt weiter und
  * schneller, die Laufkatze fährt weiter, jedes neue Schiff schaukelt stärker,
@@ -105,6 +127,38 @@
   const RUTSCH_MAX = 6;
   const PERFEKT = 2.6;             // so nah an der Mitte ist "perfekt"
   const KNAPP = 6;                 // so nah an der Kante ist "knapp"
+  // Wer schon unter der Oberkante von etwas ist, wenn er es seitlich
+  // berührt, prallt dagegen – das ist keine Landung, das ist daneben.
+  const SEITLICH = 5;
+
+  // ---------------------------------------------------------------------------
+  // Stellplätze und Aufträge
+  // ---------------------------------------------------------------------------
+  const SPALTE_P = 64;             // so weit liegen zwei Stellplätze auseinander (Platz für einen Schacht)
+  const LUKE_HALB = 28;            // die Luke eines Schiffs mit einem Stellplatz
+  const LUKE_HALB_SCHMAL = 26;     // je Luke, wo mehrere nebeneinanderliegen
+  // Hängt ein hoher Stapel unter dem Kran, hängt der Container tiefer: so viel
+  // Seil bleibt mindestens, und so tief fällt er mindestens.
+  const SEIL_MIN = 12;
+  const FALL_MIN = 36;
+  const BONUS = 5;                 // für einen erfüllten Auftrag
+  const BONUS_MAKELLOS = 10;       // ... und wenn jeder Container perfekt stand
+  const PERFEKT_MAX = 4;           // Perfekt zählt doppelt, in Folge bis vierfach
+  const BRIEF_DAUER = 2.4;         // so lange steht der Frachtbrief im Bild (bis der Container frei ist)
+  // Die Aufträge. Nach den ersten zwei Schiffen kommt jeder einmal (in einer
+  // gewürfelten Reihenfolge), dann ein Schiff zum Durchatmen, dann wieder alle.
+  const AUFTRAEGE = ["hochhaus", "treppe", "sortieren", "eilfracht", "gefahrgut"];
+  const AUFTRAG = {
+    stapeln: { titel: "Stapeln", farbe: "#9fb3d1" },
+    hochhaus: { titel: "Hochhaus", farbe: "#ffd23f" },
+    treppe: { titel: "Treppe", farbe: "#7dd3fc" },
+    sortieren: { titel: "Sortieren", farbe: "#c4a7ff" },
+    eilfracht: { titel: "Eilfracht", farbe: "#ff8a5b" },
+    gefahrgut: { titel: "Gefahrgut", farbe: "#ff5a4a" },
+  };
+  // Zum Sortieren nur Farben, die sich nicht verwechseln lassen: rot, blau,
+  // grün, gelb, lila (Indizes in FARBEN).
+  const SORTIER_FARBEN = [0, 1, 2, 4, 6];
 
   // ---------------------------------------------------------------------------
   // Der Ablauf
@@ -139,10 +193,15 @@
    */
   function planBauen() {
     const r = () => zufall.zahl();
+    const folge = auftragsFolge(r, SCHIFF_VORRAT);
     const schiffe = [];
     for (let k = 0; k < SCHIFF_VORRAT; k += 1) {
-      const platz = 5 + Math.floor(r() * 4);
-      const weite = Math.min(68, 6 + k * 12) * (0.8 + 0.4 * r());
+      const art = folge[k];
+      // Wo mehrere Stellplätze sind, schaukelt das Schiff weniger weit: Alle
+      // sollen im Bild und unter dem Kran bleiben.
+      const breit = art === "treppe" || art === "sortieren";
+      let platz = 5 + Math.floor(r() * 4);
+      const weite = Math.min(breit ? 34 : 68, 6 + k * 12) * (0.8 + 0.4 * r());
       const periode = Math.max(5.4, 11 - k * 0.85) * (0.88 + 0.24 * r());
       const phase = r() * Math.PI * 2;
       const roll = Math.min(0.024, 0.005 + k * 0.0035) * (0.8 + 0.4 * r());
@@ -156,7 +215,9 @@
       const stil = Math.floor(r() * SCHIFF_STILE.length);
       const name = Math.floor(r() * SCHIFF_NAMEN.length);
       // Das erste Schiff hat immer fünf Plätze: der erste Erfolg kommt bald.
-      schiffe.push({ platz: k === 0 ? 5 : platz, weite, periode, phase, roll, rollPeriode, rollPhase, wind, stil, name });
+      if (k === 0) platz = 5;
+      const auftrag = auftragBauen(art, k, r, platz);
+      schiffe.push({ platz: auftrag.platz, weite, periode, phase, roll, rollPeriode, rollPhase, wind, stil, name, ...auftrag });
     }
     const kisten = [];
     let farbe = 0;
@@ -176,6 +237,79 @@
       kisten.push({ farbe, weite, periode, seite, kWeite, kPeriode, kPhase, kMitte, nummer });
     }
     return { schiffe, kisten };
+  }
+
+  // Welches Schiff welchen Auftrag bringt: zwei zum Ankommen, dann jeder
+  // Auftrag einmal in gewürfelter Reihenfolge, ein Schiff zum Durchatmen,
+  // wieder alle – nie zweimal derselbe hintereinander.
+  function auftragsFolge(r, n) {
+    const folge = ["stapeln", "stapeln"];
+    while (folge.length < n) {
+      const stapel = [...AUFTRAEGE];
+      for (let i = stapel.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(r() * (i + 1));
+        [stapel[i], stapel[j]] = [stapel[j], stapel[i]];
+      }
+      folge.push(...stapel, "stapeln");
+    }
+    return folge.slice(0, n);
+  }
+
+  /*
+   * Was ein Auftrag verlangt. spalten: die Stellplätze, je mit ihrer Mitte
+   * (gegenüber der Schiffsmitte), wie hoch dort gestapelt werden soll und
+   * – beim Sortieren – ihrer Farbe. platz: wie viele Container das Schiff
+   * nimmt. farben: beim Sortieren die Farbe jedes Containers, der kommt.
+   */
+  function auftragBauen(art, k, r, platz) {
+    const spalte = (x, soll, farbe = null) => ({ x, soll, farbe });
+    const mitten = (n) => [...Array(n).keys()].map((i) => (i - (n - 1) / 2) * SPALTE_P);
+    if (art === "hochhaus") {
+      const hoch = k < 8 ? 9 : 10;
+      return { art, platz: hoch, spalten: [spalte(0, hoch)] };
+    }
+    if (art === "treppe") {
+      // 1 – 2 – 3, später 2 – 3 – 4, mal aufwärts, mal abwärts.
+      const stufen = k < 9 ? [1, 2, 3] : [2, 3, 4];
+      if (r() < 0.5) stufen.reverse();
+      const x = mitten(3);
+      return { art, platz: stufen.reduce((a, b) => a + b, 0), spalten: stufen.map((soll, i) => spalte(x[i], soll)) };
+    }
+    if (art === "sortieren") {
+      const n = k < 8 ? 2 : 3;
+      const je = n === 2 ? 3 : 2;
+      const wahl = [...SORTIER_FARBEN];
+      for (let i = wahl.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(r() * (i + 1));
+        [wahl[i], wahl[j]] = [wahl[j], wahl[i]];
+      }
+      const x = mitten(n);
+      const spalten = x.map((mitte, i) => spalte(mitte, je, wahl[i]));
+      // Jede Farbe gleich oft, in gewürfelter Reihenfolge – aber nie
+      // dreimal dieselbe hintereinander.
+      let farben = [];
+      for (let versuch = 0; versuch < 20; versuch += 1) {
+        farben = spalten.flatMap((s) => Array(je).fill(s.farbe));
+        for (let i = farben.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(r() * (i + 1));
+          [farben[i], farben[j]] = [farben[j], farben[i]];
+        }
+        if (!farben.some((f, i) => i >= 2 && f === farben[i - 1] && f === farben[i - 2])) break;
+      }
+      return { art, platz: farben.length, spalten, farben };
+    }
+    if (art === "eilfracht") {
+      const anzahl = 5 + Math.floor(r() * 2);
+      // Ein genauer Autopilot braucht für sechs Container 6 bis 8 Sekunden;
+      // ein Kind etwa doppelt so lange – mehr Zeit gibt es nicht.
+      const zeit = Math.round((anzahl * Math.max(2.0, 2.6 - (k - 2) * 0.04) + 1.5) * 10) / 10;
+      return { art, platz: anzahl, spalten: [spalte(0, anzahl)], zeit };
+    }
+    if (art === "gefahrgut") {
+      const anzahl = 5 + Math.floor(r() * 3);
+      return { art, platz: anzahl, spalten: [spalte(0, anzahl)] };
+    }
+    return { art: "stapeln", platz, spalten: [spalte(0, platz)] };
   }
 
   // ---------------------------------------------------------------------------
@@ -314,7 +448,8 @@
   //        "zuschauen" der Lauf eines anderen, Zug um Zug
   const state = {
     phase: "bereit",
-    punkte: 0,
+    punkte: 0,           // die Punkte: je Container 1, perfekt mehr, dazu die Boni
+    kisten: 0,           // wie viele Container schon stehen (über alle Schiffe)
     combo: 0,
     plan: { schiffe: [], kisten: [] },
     uhr: 0,               // die Uhr der Runde, in Sekunden
@@ -323,7 +458,9 @@
     zeit: 0,              // die Uhr der Zierde (läuft in der Zeitlupe langsamer)
     schiffNr: 0,
     schiff: null,
-    stapel: [],           // was auf dem Schiff unter dem Kran steht
+    stapel: [],           // was auf dem Schiff unter dem Kran steht (mit spalte, ebene)
+    hoehen: [],           // wie hoch jeder Stellplatz dort schon ist
+    brief: null,          // der Frachtbrief, solange er im Bild steht
     abfahrt: [],          // volle Schiffe auf dem Weg hinaus
     kiste: null,          // der Container am Seil (oder im Fall)
     letzte: { off: 0, einschlag: 0 },
@@ -408,15 +545,81 @@
   }
 
   const deckY = (sch, anzahl) => LUKE_Y - (SINK * anzahl) / sch.plan.platz;
-  const spitzeY = () => deckY(state.schiff, state.stapel.length) + state.stapel.length * KISTE_H;
-  const spitzeOff = () => (state.stapel.length ? state.stapel[state.stapel.length - 1].off : 0);
+  const mehrere = (sch) => sch.plan.spalten.length > 1;
+  const lukeHalb = (sch) => (mehrere(sch) ? LUKE_HALB_SCHMAL : LUKE_HALB);
+  // So viel länger ist ein Schiff mit mehreren Stellplätzen – links vor der
+  // ersten Luke und rechts hinter der letzten je die Hälfte.
+  const schiffRand = (sch) => ((sch.plan.spalten.length - 1) / 2) * SPALTE_P;
 
-  // Die Mitte dessen, worauf der Container landen muss, in der Welt – mit
-  // dem Rollen des Schiffs.
-  function stuetzeX(uhr) {
-    const sch = state.schiff;
+  // Der oberste Container eines Stellplatzes – oder null.
+  function oberster(c, stapel = state.stapel) {
+    let o = null;
+    for (const k of stapel) if (k.spalte === c && (!o || k.ebene > o.ebene)) o = k;
+    return o;
+  }
+  // Wo auf einem Stellplatz der nächste Container stünde: die Mitte des
+  // obersten (oder der Luke) und wie hoch seine Oberkante liegt – gegenüber
+  // dem Schiff, ohne Rollen.
+  const spalteOff = (c) => oberster(c)?.off ?? state.schiff.plan.spalten[c].x;
+  const spalteY = (c) => deckY(state.schiff, state.stapel.length) + (state.hoehen[c] || 0) * KISTE_H;
+  // Die höchste Oberkante auf dem Schiff unter dem Kran.
+  function spitzeY() {
+    let hoch = -Infinity;
+    for (let c = 0; c < state.schiff.plan.spalten.length; c += 1) hoch = Math.max(hoch, spalteY(c));
+    return hoch;
+  }
+
+  // Ein Punkt auf dem Schiff (off gegenüber seiner Mitte, y über dem Wasser)
+  // in der Welt – mit dem Rollen des Schiffs.
+  function weltX(off, y, uhr, sch = state.schiff) {
     const r = schiffRoll(sch, uhr);
-    return schiffX(sch, uhr) + spitzeOff() * Math.cos(r) - spitzeY() * Math.sin(r);
+    return schiffX(sch, uhr) + off * Math.cos(r) - y * Math.sin(r);
+  }
+
+  /*
+   * Alles, worauf ein Container aufsetzen kann: die Luken und die Oberkante
+   * jedes Containers, je mit Mitte (off), Höhe (y), halber Breite, dem
+   * Stellplatz und der Ebene, auf der ein Container dort stünde. Ändert sich
+   * nur, wenn einer dazukommt – während des Falls einmal gerechnet.
+   */
+  function auflagen() {
+    const sch = state.schiff;
+    const deck = deckY(sch, state.stapel.length);
+    const halb = lukeHalb(sch);
+    const liste = sch.plan.spalten.map((s, c) => ({ off: s.x, y: deck, halb, spalte: c, ebene: 0, luke: true }));
+    state.stapel.forEach((k) => liste.push({
+      off: k.off, y: deck + (k.ebene + 1) * KISTE_H, halb: KISTE_W / 2, spalte: k.spalte, ebene: k.ebene + 1, luke: false,
+    }));
+    liste.oben = Math.max(...liste.map((a) => a.y));
+    liste.deck = deck;
+    return liste;
+  }
+
+  /*
+   * Ob der fallende Container f gerade etwas berührt: das Höchste unter
+   * ihm, das sich mit ihm überschneidet. seitlich: Er war schon tiefer als
+   * dessen Oberkante, als er es erreichte – er prallt dagegen, statt zu
+   * landen. boden: Er ist an allem vorbei bis auf Lukenhöhe gefallen.
+   * null: Er fällt noch.
+   */
+  function kontakt(f, liste = auflagen()) {
+    if (f.y > liste.oben) return null;
+    const sch = state.schiff;
+    const r = schiffRoll(sch, f.uhr);
+    const sx = schiffX(sch, f.uhr);
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    let best = null;
+    for (const a of liste) {
+      if (f.y > a.y) continue;
+      const ax = sx + a.off * c - a.y * s;
+      const abstand = Math.abs(f.x - ax);
+      if (abstand >= KISTE_W / 2 + a.halb) continue;
+      if (!best || a.y > best.a.y + 1e-6 || (Math.abs(a.y - best.a.y) <= 1e-6 && abstand < Math.abs(f.x - best.x))) best = { a, x: ax };
+    }
+    if (best) return { ...best, seitlich: best.a.y - f.y > SEITLICH };
+    if (f.y <= liste.deck - 2) return { a: null, x: f.x, boden: true };
+    return null;
   }
 
   // Die Laufkatze: Mit jedem neuen Container bekommt sie eine neue Bahn und
@@ -486,24 +689,66 @@
   }
 
   /*
-   * Wie eine Landung ausgeht. d: wie weit die Mitte des Containers neben der
-   * Mitte darunter aufschlägt. Mit der Restfahrt gegenüber dem Schiff rutscht
-   * er noch ein Stück (ende). Steht danach der Schwerpunkt nicht mehr über
-   * dem Container darunter, kippt er.
+   * Wie eine Landung ausgeht (kon: was er berührt, siehe kontakt). d: wie
+   * weit die Mitte des Containers neben der Mitte darunter aufschlägt. Mit
+   * der Restfahrt gegenüber dem Schiff rutscht er noch ein Stück (ende).
+   * Steht danach der Schwerpunkt nicht mehr über dem, worauf er steht,
+   * kippt er. Beim Gefahrgut ist schon "knapp" zu viel.
+   *
+   * spalte: wohin er kommt (oder woher er kippt); -1, wo er nichts traf –
+   * dann ist d sein Abstand zur Schiffsmitte.
    */
-  function ergebnis(f) {
-    const d = f.x - stuetzeX(f.uhr);
-    const vRel = f.vx - schiffV(state.schiff, f.uhr);
+  function ergebnis(f, kon) {
+    const sch = state.schiff;
+    const vRel = f.vx - schiffV(sch, f.uhr);
     const halb = KISTE_W / 2;
-    if (Math.abs(d) > halb) return { d, vRel, daneben: true, ende: d };
+    if (!kon || !kon.a) {
+      const d = f.x - schiffX(sch, f.uhr);
+      return { d, vRel, daneben: true, ende: d, spalte: -1, frei: true };
+    }
+    const { a } = kon;
+    const d = f.x - kon.x;
+    const grenze = sch.plan.art === "gefahrgut" ? halb - KNAPP : halb;
+    const raus = { d, vRel, daneben: true, ende: d, spalte: a.spalte, auflage: a, frei: Boolean(kon.seitlich) };
+    if (kon.seitlich || Math.abs(d) > grenze) return raus;
     let ende = d + clamp(vRel * RUTSCH_K, -RUTSCH_MAX, RUTSCH_MAX);
-    if (Math.abs(ende) > halb) return { d, vRel, daneben: true, ende };
+    if (Math.abs(ende) > grenze) return { ...raus, ende };
     const perfekt = Math.abs(ende) <= PERFEKT;
     if (perfekt) ende = 0;
     // So genau, wie der Zug es trägt – dann steht beim Zuschauen derselbe
     // Stapel da.
     ende = Math.round(ende * 100) / 100;
-    return { d, vRel, daneben: false, ende, perfekt, knapp: halb - Math.abs(ende) < KNAPP };
+    return { d, vRel, daneben: false, ende, perfekt, knapp: halb - Math.abs(ende) < KNAPP, spalte: a.spalte, auflage: a };
+  }
+
+  /*
+   * Der Fall bis zur ersten Berührung, in den Schritten, in denen er auch im
+   * Spiel fällt. Gibt zurück, was er berührt (kontakt) – f steht danach dort.
+   *
+   * Stösst er seitlich an einen Stapel, rutscht er an ihm entlang weiter
+   * hinunter, wie in den Zellführungen eines echten Containerschiffs: Er
+   * wird so weit weggeschoben, dass er ihn nur noch berührt, und hat
+   * gegenüber dem Schiff keine Fahrt mehr. Ohne das passte zwischen zwei
+   * Stapel fast nie einer hinein. f.schramm sagt, dass es geschah.
+   */
+  function fallBisKontakt(f, bis = Infinity) {
+    const liste = auflagen();
+    for (let n = 0; n < 4000 && f.uhr + TAKT <= bis + 1e-9; n += 1) {
+      fallSchritt(f, TAKT);
+      const kon = kontakt(f, liste);
+      if (!kon) continue;
+      if (kon.a && kon.seitlich && !kon.a.luke) {
+        const seite = f.x < kon.x ? -1 : 1;
+        f.x = kon.x + seite * (KISTE_W / 2 + kon.a.halb + 0.01);
+        f.vx = schiffV(state.schiff, f.uhr);
+        f.neig *= 0.5;
+        f.schramm = { x: kon.x + seite * kon.a.halb, y: f.y + KISTE_H / 2 };
+        continue;
+      }
+      if (kon.a && !kon.seitlich) f.y = kon.a.y;
+      return kon;
+    }
+    return null;
   }
 
   // Wo der Container landen würde, liesse man ihn jetzt los – für die
@@ -512,9 +757,8 @@
     const k = state.kiste;
     if (!k || k.fallend || state.uhr - k.spawn < EINZUG || !state.schiff) return null;
     const f = loslassDaten(k, state.uhr);
-    const ziel = spitzeY();
-    for (let n = 0; n < 4000 && f.y > ziel; n += 1) fallSchritt(f, TAKT);
-    return ergebnis(f);
+    const e = ergebnis(f, fallBisKontakt(f));
+    return { ...e, passt: e.daneben ? false : passtHin(e.spalte, k) };
   }
 
   // ---------------------------------------------------------------------------
@@ -879,27 +1123,34 @@
   const SCHIFF_B = 224;
   const SCHIFF_H = 118;
 
-  function schiffMalen(stilNr, nameNr) {
+  // Ein Schiff mit mehreren Stellplätzen ist länger: vor der ersten Luke
+  // und hinter der letzten je um rand – alles links davon (Bug, Vormast)
+  // rückt nach links, alles rechts (Aufbau, Schornstein) nach rechts.
+  function schiffMalen(stilNr, nameNr, spalten = [0]) {
     const f = spriteF();
     const stil = SCHIFF_STILE[stilNr];
-    const basis = leinwand(SCHIFF_B * f, SCHIFF_H * f);
-    const licht = leinwand(SCHIFF_B * f, SCHIFF_H * f);
+    const rand = ((spalten.length - 1) / 2) * SPALTE_P;
+    const L = -rand;
+    const R = rand;
+    const B = SCHIFF_B + 2 * rand;
+    const basis = leinwand(B * f, SCHIFF_H * f);
+    const licht = leinwand(B * f, SCHIFF_H * f);
     const cx = basis.getContext("2d");
     const lx = licht.getContext("2d");
-    [cx, lx].forEach((k) => { k.scale(f, f); k.translate(-SCHIFF_LINKS, -SCHIFF_OBEN); });
+    [cx, lx].forEach((k) => { k.scale(f, f); k.translate(-(SCHIFF_LINKS + L), -SCHIFF_OBEN); });
 
     // Der Rumpf
     cx.fillStyle = stil.rumpf;
     cx.beginPath();
-    cx.moveTo(-106, -29);
-    cx.lineTo(-76, -29);
-    cx.lineTo(-74, -19);
-    cx.lineTo(96, -19);
-    cx.lineTo(101, -22);
-    cx.lineTo(102, -6);
-    cx.quadraticCurveTo(101, 3, 92, 4);
-    cx.lineTo(-86, 4);
-    cx.quadraticCurveTo(-97, 2, -100, -8);
+    cx.moveTo(-106 + L, -29);
+    cx.lineTo(-76 + L, -29);
+    cx.lineTo(-74 + L, -19);
+    cx.lineTo(96 + R, -19);
+    cx.lineTo(101 + R, -22);
+    cx.lineTo(102 + R, -6);
+    cx.quadraticCurveTo(101 + R, 3, 92 + R, 4);
+    cx.lineTo(-86 + L, 4);
+    cx.quadraticCurveTo(-97 + L, 2, -100 + L, -8);
     cx.closePath();
     cx.fill();
     // Licht von oben auf dem Rumpf, unten Schatten
@@ -911,16 +1162,16 @@
     cx.fill();
     // Wasserpass: rot, knapp über der Linie
     cx.fillStyle = "#a3322a";
-    cx.fillRect(-98, -2.6, 199, 6.6);
+    cx.fillRect(-98 + L, -2.6, 199 + 2 * rand, 6.6);
     cx.fillStyle = "rgba(255,255,255,0.55)";
-    cx.fillRect(-98, -3.4, 199, 0.8);
+    cx.fillRect(-98 + L, -3.4, 199 + 2 * rand, 0.8);
     // Schanzkleid oben und Reling
     cx.fillStyle = "#f1f4f8";
-    cx.fillRect(-74, -19.6, 170, 1.2);
-    cx.fillRect(-106, -29.6, 30, 1.2);
+    cx.fillRect(-74 + L, -19.6, 170 + 2 * rand, 1.2);
+    cx.fillRect(-106 + L, -29.6, 30, 1.2);
     cx.fillStyle = "rgba(240,244,248,0.8)";
-    cx.fillRect(-74, -23, 124, 0.5);
-    for (let x = -74; x < 50; x += 4) cx.fillRect(x, -23, 0.5, 3.6);
+    cx.fillRect(-74 + L, -23, 124 + 2 * rand, 0.5);
+    for (let x = -74 + L; x < 50 + R; x += 4) cx.fillRect(x, -23, 0.5, 3.6);
     // Der Name der Reederei gross auf der Bordwand, Bullaugen nur hinten
     cx.fillStyle = "rgba(255, 255, 255, 0.92)";
     cx.font = "900 8px system-ui, sans-serif";
@@ -928,28 +1179,36 @@
     cx.textBaseline = "middle";
     cx.fillText(stil.firma, -14, -10.5);
     cx.fillStyle = "#0f1724";
-    for (let x = 56; x < 92; x += 7) { cx.beginPath(); cx.arc(x, -11, 1.1, 0, Math.PI * 2); cx.fill(); }
+    for (let x = 56; x < 92; x += 7) { cx.beginPath(); cx.arc(x + R, -11, 1.1, 0, Math.PI * 2); cx.fill(); }
     // Anker
     cx.strokeStyle = "#cfd5dd";
     cx.lineWidth = 0.9;
-    cx.beginPath(); cx.moveTo(-95, -24); cx.lineTo(-95, -18); cx.moveTo(-97.5, -19.5); cx.quadraticCurveTo(-95, -16.5, -92.5, -19.5); cx.stroke();
+    cx.beginPath(); cx.moveTo(-95 + L, -24); cx.lineTo(-95 + L, -18); cx.moveTo(-97.5 + L, -19.5); cx.quadraticCurveTo(-95 + L, -16.5, -92.5 + L, -19.5); cx.stroke();
     // Name am Bug
     cx.fillStyle = "#f4f6fb";
     cx.font = "800 4.6px system-ui, sans-serif";
     cx.textAlign = "left";
     cx.textBaseline = "middle";
-    cx.fillText(SCHIFF_NAMEN[nameNr], -86, -24.6);
-    // Die Luke: Süll und Deckel, mit den gelben Ecken als Ziel
-    cx.fillStyle = "#56606c";
-    cx.fillRect(-28, -22, 56, 6);
-    cx.fillStyle = "#7c8794";
-    cx.fillRect(-28, -22, 56, 1.2);
-    cx.fillStyle = "#3b434d";
-    for (let x = -24; x <= 24; x += 8) cx.fillRect(x - 0.3, -20.8, 0.6, 4.8);
+    cx.fillText(SCHIFF_NAMEN[nameNr], -86 + L, -24.6);
+    // Die Luken: Süll und Deckel – je Stellplatz eine
+    const lh = spalten.length > 1 ? LUKE_HALB_SCHMAL : LUKE_HALB;
+    spalten.forEach((mitte) => {
+      cx.fillStyle = "#56606c";
+      cx.fillRect(mitte - lh, -22, lh * 2, 6);
+      cx.fillStyle = "#7c8794";
+      cx.fillRect(mitte - lh, -22, lh * 2, 1.2);
+      cx.fillStyle = "#3b434d";
+      for (let x = -lh + 4; x <= lh - 4; x += 8) cx.fillRect(mitte + x - 0.3, -20.8, 0.6, 4.8);
+    });
     // Vormast mit Saling
     cx.fillStyle = "#e9edf2";
-    cx.fillRect(-84.6, -64, 1.2, 35);
-    cx.fillRect(-89, -56, 10, 0.9);
+    cx.fillRect(-84.6 + L, -64, 1.2, 35);
+    cx.fillRect(-89 + L, -56, 10, 0.9);
+    // Ab hier der Aufbau hinten – alles um R nach rechts.
+    cx.save();
+    cx.translate(R, 0);
+    lx.save();
+    lx.translate(R, 0);
     // Aufbau hinten: drei Stockwerke, Brücke mit Nocken, Dach
     const weiss = "#e7ebf0";
     const grau = "#b9c1cc";
@@ -993,8 +1252,10 @@
     cx.fillRect(56, -101, 12, 0.9);
     cx.fillStyle = "#2b3442";
     cx.fillRect(57, -106, 10, 1.4);
+    cx.restore();
+    lx.restore();
     // Der Umriss in Nachtblau: darübergelegt, wird das Schiff dunkler.
-    const schatten = leinwand(SCHIFF_B * f, SCHIFF_H * f);
+    const schatten = leinwand(B * f, SCHIFF_H * f);
     const sx = schatten.getContext("2d");
     sx.drawImage(basis, 0, 0);
     sx.globalCompositeOperation = "source-in";
@@ -1013,10 +1274,10 @@
 
   function schiffBild(plan) {
     const stufe = Math.round(clamp(state.himmel, 0, 1) * SCHIFF_STUFEN);
-    const schluessel = `${plan.stil}-${plan.name}-${stufe}`;
+    const schluessel = `${plan.stil}-${plan.name}-${plan.spalten.length}-${stufe}`;
     let bild = bilder.schiffe.get(schluessel);
     if (!bild) {
-      const teile = schiffMalen(plan.stil, plan.name);
+      const teile = schiffMalen(plan.stil, plan.name, plan.spalten.map((sp) => sp.x));
       const nacht = stufe / SCHIFF_STUFEN;
       const c = leinwand(teile.basis.width, teile.basis.height);
       const cx = c.getContext("2d");
@@ -1478,7 +1739,7 @@
 
   // Ein Container, mit seiner Unterkante im Ursprung. Stauchen beim Aufprall,
   // Strecken im Fall, Leuchten nach einem genauen Treffer.
-  function kistenBild(farbe, stauch, streck, glanz) {
+  function kistenBild(farbe, stauch, streck, glanz, gefahr = false) {
     const sx = 1 + stauch * 0.07 - streck * 0.04;
     const sy = 1 - stauch * 0.14 + streck * 0.08;
     if (sx !== 1 || sy !== 1) g.scale(sx, sy);
@@ -1488,6 +1749,7 @@
       g.fillStyle = nachtTon;
       g.fillRect(-KISTE_W / 2, -KISTE_H, KISTE_W, KISTE_H);
     }
+    if (gefahr) gefahrZeichen(GEFAHR_X, -KISTE_H / 2, 4.4);
     if (glanz > 0.01) {
       g.globalCompositeOperation = "lighter";
       g.globalAlpha = deck * glanz;
@@ -1498,6 +1760,26 @@
       g.globalCompositeOperation = "source-over";
     }
   }
+  // Die Raute auf dem Gefahrgut: orange, mit Ausrufezeichen – links auf
+  // der Längsseite, wo sonst nichts steht.
+  const GEFAHR_X = -15;
+  function gefahrZeichen(cx, cy, r) {
+    g.fillStyle = "#ff8a1f";
+    g.beginPath();
+    g.moveTo(cx, cy - r);
+    g.lineTo(cx + r, cy);
+    g.lineTo(cx, cy + r);
+    g.lineTo(cx - r, cy);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = "#1b1d22";
+    g.lineWidth = 0.6;
+    g.stroke();
+    g.fillStyle = "#1b1d22";
+    g.fillRect(cx - 0.45, cy - r * 0.55, 0.9, r * 0.68);
+    g.fillRect(cx - 0.45, cy + r * 0.28, 0.9, 0.9);
+  }
+
   // Wie deckend gezeichnet wird: 1, im Spiegelbild auf dem Wasser weniger.
   let deck = 1;
   // Wie dunkel die Nacht die Dinge im Vordergrund macht (je Bild gesetzt).
@@ -1531,7 +1813,7 @@
     const neig = Math.sin(roll) - wob * 0.6;
     for (let i = 0; i < stapel.length; i += 1) {
       const k = stapel[i];
-      const v = LUKE_Y + i * KISTE_H;
+      const v = LUKE_Y + k.ebene * KISTE_H;
       let u = k.off;
       if (k.rutsch > 0) u += (k.vonOff - k.off) * k.rutsch * k.rutsch;
       const xm = x + u - v * neig;
@@ -1543,17 +1825,20 @@
       if (k.stauch > 0 || k.kippW) {
         ort(xm, yb);
         if (k.kippW) {
-          const unten = i > 0 ? stapel[i - 1].off : 0;
-          const kante = unten - u + k.kippSeite * (KISTE_W / 2);
+          const kante = k.unterOff - u + k.kippSeite * (KISTE_W / 2);
           g.translate(kante, 0);
           g.rotate(k.kippSeite * k.kippW);
           g.translate(-kante, 0);
         }
-        kistenBild(k.farbe, k.stauch, 0, k.glanz);
+        kistenBild(k.farbe, k.stauch, 0, k.glanz, k.gefahr);
         continue;
       }
       const bild = bilder.kisten[k.farbe];
       stempel(bild, xm - KISTE_W / 2, yb + KISTE_H);
+      if (k.gefahr) {
+        ort(xm, yb);
+        gefahrZeichen(GEFAHR_X, -KISTE_H / 2, 4.4);
+      }
       if (nachtTon || k.glanz > 0.01) {
         const px = Math.round(view.ox + (xm - KISTE_W / 2) * view.f);
         const py = Math.round(view.oy - (yb + KISTE_H) * view.f);
@@ -1597,8 +1882,9 @@
     const nacht = state.himmel;
     const f = view.f;
     const breite = bild.bild.width;
+    const rand = schiffRand(sch);
     const ueber = Math.max(1, Math.min(bild.bild.height, Math.round((-SCHIFF_OBEN - sink) * f)));
-    const dx = Math.round(view.ox + (x + SCHIFF_LINKS) * f);
+    const dx = Math.round(view.ox + (x + SCHIFF_LINKS - rand) * f);
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = deck;
     if (spiegel) {
@@ -1606,22 +1892,8 @@
     } else {
       g.drawImage(bild.bild, 0, 0, breite, ueber, dx, Math.round(view.oy) - ueber, breite, ueber);
     }
-    // Die Ecken der Luke leuchten, solange dort noch nichts steht.
-    if (aktiv && !stapel.length && !spiegel) {
-      ort(x, -sink);
-      g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.55 + 0.35 * Math.sin(state.zeit * 5);
-      g.strokeStyle = "#ffd23f";
-      g.lineWidth = 1.4;
-      g.beginPath();
-      [-1, 1].forEach((s) => {
-        g.moveTo(s * 24, -LUKE_Y - 7);
-        g.lineTo(s * 24, -LUKE_Y);
-        g.lineTo(s * 17, -LUKE_Y);
-      });
-      g.stroke();
-      g.globalCompositeOperation = "source-over";
-    }
+    // Was der Auftrag verlangt: Umrisse, Farben, die Zielhöhe.
+    if (aktiv && !spiegel) markenZeichnen(sch, stapel, x, sink, roll);
     g.globalAlpha = deck;
     stapelZeichnen(stapel, x, -sink, roll, aktiv, spiegel);
     // Die Lichter (auch im Spiegel)
@@ -1632,28 +1904,185 @@
       if (l.blink && Math.sin(state.zeit * 3.1) < 0.3) return;
       g.globalAlpha = deck * ((l.glut === "warm" ? 0.25 : 0.55) + 0.45 * nacht);
       const r = l.r;
-      g.drawImage(bilder.glut[l.glut], l.x - r, l.y - r, r * 2, r * 2);
+      const lxx = l.x + (l.x < 0 ? -rand : rand);
+      g.drawImage(bilder.glut[l.glut], lxx - r, l.y - r, r * 2, r * 2);
     });
     view.spiegel = false;
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
+    // Die Flagge des Auftrags am Vormast.
+    if (!spiegel && plan.art !== "stapeln") flaggeZeichnen(sch, x, sink);
+  }
+
+  /*
+   * Die Zeichen auf dem Deck. Wo noch nichts steht, leuchten die Ecken der
+   * Luke. Die Treppe zeigt gestrichelt, wo ihre Stufen noch fehlen; beim
+   * Sortieren trägt jede Luke ihre Farbe, und die Umrisse darüber auch; das
+   * Hochhaus hat eine Linie in der Höhe, die es erreichen soll. Ist der
+   * Auftrag verpatzt, verblassen die Umrisse.
+   */
+  function markenZeichnen(sch, stapel, x, sink, roll) {
+    const plan = sch.plan;
+    const neig = Math.sin(roll);
+    const hoehe = (c) => stapel.reduce((n, k) => n + (k.spalte === c ? 1 : 0), 0);
+    const puls = 0.55 + 0.35 * Math.sin(state.zeit * 5);
+    const lh = lukeHalb(sch);
+    plan.spalten.forEach((sp, c) => {
+      const h = hoehe(c);
+      const farbe = sp.farbe !== null ? FARBEN[sp.farbe].grund : "#ffd23f";
+      ort(x, -sink);
+      // Beim Sortieren: die Luke in ihrer Farbe.
+      if (sp.farbe !== null) {
+        g.globalAlpha = 0.9;
+        g.fillStyle = farbe;
+        g.fillRect(sp.x - lh, -LUKE_Y, lh * 2, 2.6);
+        g.fillStyle = "rgba(255,255,255,0.35)";
+        g.fillRect(sp.x - lh, -LUKE_Y, lh * 2, 0.6);
+      }
+      if (!h) {
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = puls;
+        g.strokeStyle = farbe;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        [-1, 1].forEach((s) => {
+          g.moveTo(sp.x + s * 24, -LUKE_Y - 7);
+          g.lineTo(sp.x + s * 24, -LUKE_Y);
+          g.lineTo(sp.x + s * 17, -LUKE_Y);
+        });
+        g.stroke();
+        g.globalCompositeOperation = "source-over";
+      }
+      // Die Umrisse der fehlenden Container.
+      if (plan.art === "treppe" || plan.art === "sortieren") {
+        g.globalAlpha = sch.verpatzt ? 0.22 : 0.5 + 0.25 * Math.sin(state.zeit * 3 + c);
+        g.strokeStyle = sch.verpatzt ? "#ff9f43" : plan.art === "treppe" ? "#bfe9ff" : farbe;
+        g.lineWidth = 1.1;
+        g.setLineDash([3.5, 2.5]);
+        for (let e = h; e < sp.soll; e += 1) {
+          const v = LUKE_Y + e * KISTE_H;
+          g.strokeRect(sp.x - v * neig - KISTE_W / 2 + 1.2, -v - KISTE_H + 1.2, KISTE_W - 2.4, KISTE_H - 2.4);
+        }
+        g.setLineDash([]);
+      }
+    });
+    // Das Hochhaus: wie hoch.
+    if (plan.art === "hochhaus") {
+      const v = LUKE_Y + plan.spalten[0].soll * KISTE_H;
+      const erreicht = stapel.length >= plan.spalten[0].soll;
+      ort(x, -sink);
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = erreicht ? 0.2 : 0.35 + 0.15 * Math.sin(state.zeit * 4);
+      g.drawImage(bilder.glut.warm, -v * neig - 62, -v - 6, 124, 12);
+      g.globalCompositeOperation = "source-over";
+      g.globalAlpha = 0.95;
+      g.strokeStyle = "#ffd23f";
+      g.lineWidth = 1.5;
+      g.setLineDash([5, 3.5]);
+      g.beginPath();
+      g.moveTo(-v * neig - 40, -v);
+      g.lineTo(-v * neig + 40, -v);
+      g.stroke();
+      g.setLineDash([]);
+    }
+    g.globalAlpha = 1;
+  }
+
+  // Ein Wimpel am Vormast in der Farbe des Auftrags, mit seinem Zeichen.
+  function flaggeZeichnen(sch, x, sink) {
+    const art = sch.plan.art;
+    const mx = -84 - schiffRand(sch);
+    ort(x + mx, -sink);
+    const w = Math.sin(state.zeit * 6 + sch.nr) * 1.2;
+    g.globalAlpha = 1;
+    g.fillStyle = AUFTRAG[art].farbe;
+    g.beginPath();
+    g.moveTo(0, -63.5);
+    g.quadraticCurveTo(9, -64 + w, 19, -59 + w * 0.6);
+    g.quadraticCurveTo(9, -54 + w, 0, -54.5);
+    g.closePath();
+    g.fill();
+    if (nachtTon) {
+      g.fillStyle = nachtTon;
+      g.fill();
+    }
+    g.save();
+    g.translate(6.4, -59 + w * 0.5);
+    symbolZeichnen(art, 6.4, "#1b1d22");
+    g.restore();
+  }
+
+  /*
+   * Das Zeichen eines Auftrags, um den Ursprung, so gross wie gross (in
+   * dem, was gerade gilt – Welteinheiten oder Bildpunkte). y nach unten.
+   */
+  function symbolZeichnen(art, gross, farbe) {
+    const s = gross / 2;
+    g.fillStyle = farbe;
+    g.strokeStyle = farbe;
+    g.lineJoin = "round";
+    if (art === "hochhaus") {
+      for (let i = 0; i < 3; i += 1) g.fillRect(-s * 0.4, s - (i + 1) * s * 0.62, s * 0.8, s * 0.5);
+    } else if (art === "treppe") {
+      g.beginPath();
+      g.moveTo(-s, s);
+      g.lineTo(-s, s * 0.35);
+      g.lineTo(-s * 0.33, s * 0.35);
+      g.lineTo(-s * 0.33, -s * 0.3);
+      g.lineTo(s * 0.33, -s * 0.3);
+      g.lineTo(s * 0.33, -s);
+      g.lineTo(s, -s);
+      g.lineTo(s, s);
+      g.closePath();
+      g.fill();
+    } else if (art === "sortieren") {
+      [[-0.62, "#d8432f"], [0, "#2f6fd1"], [0.62, "#2e9b58"]].forEach(([dx, f]) => {
+        g.fillStyle = f;
+        g.fillRect(dx * s - s * 0.26, -s * 0.7, s * 0.52, s * 1.4);
+      });
+      g.fillStyle = farbe;
+    } else if (art === "eilfracht") {
+      g.beginPath();
+      g.moveTo(s * 0.25, -s);
+      g.lineTo(-s * 0.6, s * 0.12);
+      g.lineTo(-s * 0.02, s * 0.12);
+      g.lineTo(-s * 0.3, s);
+      g.lineTo(s * 0.62, -s * 0.18);
+      g.lineTo(s * 0.04, -s * 0.18);
+      g.closePath();
+      g.fill();
+    } else if (art === "gefahrgut") {
+      g.beginPath();
+      g.moveTo(0, -s);
+      g.lineTo(s, 0);
+      g.lineTo(0, s);
+      g.lineTo(-s, 0);
+      g.closePath();
+      g.lineWidth = Math.max(0.6, s * 0.18);
+      g.stroke();
+      g.fillRect(-s * 0.09, -s * 0.5, s * 0.18, s * 0.6);
+      g.fillRect(-s * 0.09, s * 0.25, s * 0.18, s * 0.18);
+    } else {
+      g.fillRect(-s * 0.7, 0.05 * s, s * 1.4, s * 0.8);
+      g.fillRect(-s * 0.7, -s * 0.85, s * 1.4, s * 0.8);
+    }
   }
 
   // Bugwelle und Kielwasser: weisse Schaumflecken an der Wasserlinie, je
   // schneller das Schiff, desto mehr.
-  function zeichneSchaum(x, v) {
+  function zeichneSchaum(x, v, rand = 0) {
     const k = clamp(Math.abs(v) / 120, 0.08, 1);
     ort(0, 0);
     g.fillStyle = "#e8f1ff";
     for (let i = 0; i < 7; i += 1) {
       const h = hash01(i * 4.3);
       const vorn = v < 0 ? -1 : 1;
-      const px = x + vorn * (98 - i * 3) + Math.sin(state.zeit * 3 + i) * 2;
+      const px = x + vorn * (98 + rand - i * 3) + Math.sin(state.zeit * 3 + i) * 2;
       g.globalAlpha = k * (0.5 - i * 0.05);
       g.beginPath();
       g.ellipse(px, 0.3, 4 + h * 6 * k + i, 1 + k, 0, 0, Math.PI * 2);
       g.fill();
-      const hx = x - vorn * (100 + i * 6 * k * 3);
+      const hx = x - vorn * (100 + rand + i * 6 * k * 3);
       g.globalAlpha = k * (0.35 - i * 0.04);
       g.beginPath();
       g.ellipse(hx, 0.2, 6 + i * 3 * k, 0.9, 0, 0, Math.PI * 2);
@@ -1662,19 +2091,21 @@
     g.globalAlpha = 1;
   }
 
-  // Die Zielmarken der Gegner: Liegt ihre Zahl auf diesem Schiff, leuchtet
-  // in der Höhe, die man dafür erreichen muss, ein Strich neben dem Stapel.
+  // Die Zielmarken der Gegner: Fehlen bis zu ihrer Zahl nur noch so viele
+  // Punkte, wie auf diesem Schiff noch Container Platz haben, leuchtet in
+  // der Höhe, die man dafür (mindestens) erreichen muss, ein Strich neben
+  // dem Stapel. Nur, wo es einen Stapel gibt – nicht bei mehreren.
   function zeichneZielmarken() {
     // Wem gerade zugeschaut wird, dessen Lauf steht ja im Bild.
     const ziele = (gegner?.gegner?.() || []).filter((ziel) => !ziel.ziel && ziel.punkte > 0);
-    if (!ziele.length || !state.schiff) return;
+    if (!ziele.length || !state.schiff || mehrere(state.schiff)) return;
     const vorher = state.punkte - state.stapel.length;
     const platz = state.schiff.plan.platz;
     const sch = state.schiff;
     const x = schiffX(sch, state.uhr);
     const roll = schiffRoll(sch, state.uhr);
     const sink = (SINK * state.stapel.length) / platz + state.bob;
-    const sichtbar = ziele.filter((ziel) => ziel.punkte - vorher >= 1 && ziel.punkte - vorher <= platz);
+    const sichtbar = ziele.filter((ziel) => ziel.punkte > state.punkte && ziel.punkte - vorher <= platz);
     if (!sichtbar.length) return;
     sichtbar.forEach((ziel) => {
       const v = LUKE_Y + (ziel.punkte - vorher) * KISTE_H;
@@ -1718,7 +2149,14 @@
   function zeichneSchatten() {
     const k = state.kiste;
     if (!k?.fallend || !k.f || !state.schiff) return;
-    const oben = spitzeY();
+    // Auf das Höchste unter ihm, das sich mit ihm überschneidet.
+    let oben = null;
+    auflagen().forEach((a) => {
+      if (a.y > k.f.y + 0.5) return;
+      if (Math.abs(k.f.x - weltX(a.off, a.y, state.uhr)) >= KISTE_W / 2 + a.halb) return;
+      if (oben === null || a.y > oben) oben = a.y;
+    });
+    if (oben === null) return;
     const nah = clamp(1 - (k.f.y - oben) / FALL_H, 0, 1);
     ort(0, 0);
     g.fillStyle = "#000000";
@@ -1759,7 +2197,7 @@
       ort(w.x, w.y, w.ang);
       deck = w.alpha;
       g.translate(0, KISTE_H / 2);
-      kistenBild(w.farbe, 0, 0, 0);
+      kistenBild(w.farbe, 0, 0, 0, w.gefahr);
       deck = 1;
     });
     g.globalAlpha = 1;
@@ -1787,7 +2225,7 @@
     }
     ort(x, y, neig);
     deck = k.fallend ? 1 : clamp(t / (EINZUG * 0.45), 0, 1);
-    kistenBild(k.plan.farbe, 0, streck, 0);
+    kistenBild(k.plan.farbe, 0, streck, 0, k.gefahr);
     deck = 1;
     g.globalAlpha = 1;
   }
@@ -1976,8 +2414,9 @@
     const sch = state.schiff;
     const roll = schiffRoll(sch, state.uhr);
     const sink = (SINK * state.stapel.length) / sch.plan.platz;
+    const c = clamp(fe.spalte || 0, 0, sch.plan.spalten.length - 1);
     ort(schiffX(sch, state.uhr), -sink, roll);
-    g.translate(spitzeOff(), -(LUKE_Y + state.stapel.length * KISTE_H));
+    g.translate(spalteOff(c), -(LUKE_Y + (state.hoehen[c] || 0) * KISTE_H));
     const a = clamp(fe.zeit / 0.3, 0, 1) * (0.6 + 0.4 * Math.sin(state.zeit * 9));
     g.globalCompositeOperation = "lighter";
     g.globalAlpha = a * 0.5;
@@ -2020,19 +2459,24 @@
     g.globalAlpha = 1;
   }
 
-  // Oben links, unter den Knöpfen: welches Schiff, seine Plätze, der Wind
-  // und die Zielmarken der Gegner.
+  // Oben links, unter den Knöpfen: welches Schiff und sein Auftrag, seine
+  // Plätze, was der Auftrag noch bringt (bei der Eilfracht: die Uhr), der
+  // Wind und die Zielmarken der Gegner.
   function zeichneAnzeige() {
-    if (!state.schiff) return;
+    const sch = state.schiff;
+    if (!sch) return;
     bildTransform();
     g.translate(0, shell?.frei?.(canvas) || 0);
     const x0 = 12;
     let y = 10;
+    const art = sch.plan.art;
+    const auftrag = art !== "stapeln";
     // Ein dunkles Schild dahinter, damit es auch vor der gelben Brücke lesbar
     // bleibt.
     const ziele = (gegner?.gegner?.() || []).filter((ziel) => !ziel.ziel && ziel.punkte > 0).slice(-3);
-    const zeilen = 2 + (state.schiff.plan.wind ? 1 : 0) + ziele.length;
-    const breite = Math.max(92, state.schiff.plan.platz * 14 + 12);
+    const zeilen = 2 + (auftrag ? 1 : 0) + (sch.plan.wind ? 1 : 0) + ziele.length;
+    const platz = sch.plan.platz;
+    const breite = Math.max(auftrag ? 128 : 92, platz * 14 + 12);
     g.fillStyle = "rgba(8, 12, 30, 0.38)";
     g.beginPath();
     if (g.roundRect) g.roundRect(x0 - 7, y - 5, breite, zeilen * 15 + 10, 8);
@@ -2048,10 +2492,18 @@
       g.strokeText(text, x, yy);
       g.fillStyle = farbe;
       g.fillText(text, x, yy);
+      return g.measureText(text).width;
     };
-    schreibe(`Schiff ${state.schiffNr + 1}`, x0, y, "#ffffff");
+    const vorn = schreibe(`Schiff ${state.schiffNr + 1}`, x0, y, "#ffffff");
+    if (auftrag) {
+      g.save();
+      g.translate(x0 + vorn + 13, y + 6.5);
+      symbolZeichnen(art, 11, AUFTRAG[art].farbe);
+      g.restore();
+      schreibe(AUFTRAG[art].titel, x0 + vorn + 22, y, AUFTRAG[art].farbe);
+    }
     y += 17;
-    const platz = state.schiff.plan.platz;
+    // Die Plätze, in der Reihenfolge, in der sie gefüllt werden.
     for (let i = 0; i < platz; i += 1) {
       const k = state.stapel[i];
       const x = x0 + i * 14;
@@ -2069,7 +2521,21 @@
       }
     }
     y += 12;
-    const wind = state.schiff.plan.wind;
+    // Was der Auftrag noch bringt – und bei der Eilfracht, wie lange noch.
+    if (auftrag) {
+      let x = x0;
+      if (Number.isFinite(sch.frist)) {
+        const rest = Math.max(0, Math.min(sch.plan.zeit, sch.frist - state.uhr));
+        const knapp = rest <= 5;
+        g.globalAlpha = knapp && rest > 0 ? 0.65 + 0.35 * Math.sin(state.zeit * 10) : 1;
+        x += schreibe(`${Math.ceil(rest)} s`, x, y, knapp ? "#ff6b5a" : "#ffffff", 12) + 8;
+        g.globalAlpha = 1;
+      }
+      if (sch.verpatzt) schreibe("kein Bonus", x, y, "#ff9f43", 11);
+      else schreibe(sch.makellos ? `Bonus +${BONUS_MAKELLOS}` : `Bonus +${BONUS}`, x, y, sch.makellos ? "#ffd23f" : "#7dffa8", 11);
+      y += 15;
+    }
+    const wind = sch.plan.wind;
     if (wind) {
       const st = Math.min(3, Math.ceil(Math.abs(wind) / 0.045));
       const pfeil = wind < 0 ? "‹" : "›";
@@ -2083,6 +2549,86 @@
       g.globalAlpha = 1;
       y += 15;
     });
+  }
+
+  // Der Satz auf dem Frachtbrief.
+  function briefSatz(plan) {
+    if (plan.art === "hochhaus") return `${plan.platz} Container auf einen Stapel.`;
+    if (plan.art === "treppe") return `Baue die Treppe: ${plan.spalten.map((s) => s.soll).join(" – ")}.`;
+    if (plan.art === "sortieren") return "Jeder Container auf seine Farbe.";
+    if (plan.art === "eilfracht") return `${plan.platz} Container in ${Math.round(plan.zeit)} Sekunden!`;
+    if (plan.art === "gefahrgut") return "Nur sichere Landungen – knapp ist zu knapp!";
+    return "";
+  }
+
+  /*
+   * Der Frachtbrief: Läuft ein Schiff mit Auftrag ein, springt in der Mitte
+   * ein Zettel auf – Schiff, Auftrag, ein Satz, was er bringt – und ist
+   * wieder weg, bevor der erste Container losgelassen werden kann.
+   */
+  function zeichneFrachtbrief() {
+    const b = state.brief;
+    if (!b) return;
+    const t = state.zeit - b.t0;
+    if (t > BRIEF_DAUER) { state.brief = null; return; }
+    const plan = b.schiff.plan;
+    const art = plan.art;
+    const ein = sanft(0, 0.22, t);
+    const aus = 1 - sanft(BRIEF_DAUER - 0.35, BRIEF_DAUER, t);
+    const alpha = ein * aus;
+    if (alpha <= 0.01) return;
+    bildTransform();
+    const w = Math.min(300, view.cssW - 32);
+    const h = 104;
+    const cx = view.cssW / 2;
+    // Unten auf dem Wasser, wo nur Spiegelbilder sind – oben im Himmel
+    // stehen gerade "Auftrag erfüllt!" und die Punkte des Schiffs, das
+    // ablegt. Ist unten kein Platz (flaches Bild), dann oben.
+    const frei = shell?.frei?.(canvas) || 0;
+    const unten = bildY(SICHT_U + 4);
+    const cy = view.cssH - unten >= h + 16
+      ? unten + (view.cssH - unten) / 2
+      : clamp(view.cssH * 0.36, frei + h / 2 + 70, view.cssH - h);
+    const pop = ruhig() ? 1 : 0.88 + 0.12 * ein + (t < 0.3 ? Math.sin((t / 0.3) * Math.PI) * 0.04 : 0);
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(cx, cy);
+    g.scale(pop, pop);
+    g.translate(-w / 2, -h / 2);
+    // Der Zettel: Papier, links ein Streifen in der Farbe des Auftrags.
+    g.fillStyle = "rgba(0, 0, 0, 0.35)";
+    g.beginPath();
+    if (g.roundRect) g.roundRect(3, 5, w, h, 12); else g.rect(3, 5, w, h);
+    g.fill();
+    g.fillStyle = "#f7f1e1";
+    g.beginPath();
+    if (g.roundRect) g.roundRect(0, 0, w, h, 12); else g.rect(0, 0, w, h);
+    g.fill();
+    g.save();
+    g.clip();
+    g.fillStyle = AUFTRAG[art].farbe;
+    g.fillRect(0, 0, 9, h);
+    g.restore();
+    g.textAlign = "left";
+    g.textBaseline = "top";
+    g.fillStyle = "#6a6250";
+    g.font = "800 10px system-ui, sans-serif";
+    g.fillText(`FRACHTBRIEF · ${SCHIFF_NAMEN[plan.name]}`, 22, 12);
+    g.save();
+    g.translate(36, 45);
+    symbolZeichnen(art, 24, "#2a2620");
+    g.restore();
+    g.fillStyle = "#1d1a14";
+    g.font = "900 24px system-ui, sans-serif";
+    g.fillText(AUFTRAG[art].titel, 56, 31);
+    g.font = "700 13px system-ui, sans-serif";
+    g.fillStyle = "#3b3528";
+    g.fillText(briefSatz(plan), 22, 64, w - 34);
+    g.font = "800 11px system-ui, sans-serif";
+    g.fillStyle = "#2c7a45";
+    g.fillText(`Erfüllt +${BONUS} · makellos +${BONUS_MAKELLOS}`, 22, 83);
+    g.restore();
+    g.globalAlpha = 1;
   }
 
   function zeichnen(dt = 0) {
@@ -2107,11 +2653,11 @@
     state.abfahrt.forEach((a) => {
       const x = abfahrtX(a, state.uhr);
       zeichneSchiff(a.schiff, a.stapel, x, schiffRoll(a.schiff, state.uhr), false);
-      zeichneSchaum(x, a.v0 - ABFAHRT_A * (state.uhr - a.t0));
+      zeichneSchaum(x, a.v0 - ABFAHRT_A * (state.uhr - a.t0), schiffRand(a.schiff));
     });
     const sx = schiffX(state.schiff, state.uhr);
     zeichneSchiff(state.schiff, state.stapel, sx, schiffRoll(state.schiff, state.uhr), true);
-    zeichneSchaum(sx, schiffV(state.schiff, state.uhr));
+    zeichneSchaum(sx, schiffV(state.schiff, state.uhr), schiffRand(state.schiff));
     zeichneZielmarken();
     zeichneSchatten();
     zeichneKegel();
@@ -2123,6 +2669,7 @@
     zeichneFehler();
     zeichneTexte();
     zeichneAnzeige();
+    zeichneFrachtbrief();
   }
 
   // ---------------------------------------------------------------------------
@@ -2207,24 +2754,68 @@
   // ---------------------------------------------------------------------------
   // Schiffe und Container kommen
   // ---------------------------------------------------------------------------
+  // Ein Schiff läuft ein. Was es von seinem Auftrag schon hat, steht an
+  // ihm: wie viele Container, ob einer falsch steht (verpatzt), ob alle
+  // perfekt standen (makellos), und bei der Eilfracht, wann es ablegt (frist –
+  // gezählt ab da, wo es ganz da ist).
   function neuesSchiff(nr, uhr) {
     const plan = state.plan.schiffe[Math.min(nr, state.plan.schiffe.length - 1)];
-    return { nr, plan, spawn: uhr, einX: Math.max(640, view.w / 2 + 160) };
+    const bereit = uhr + ANKUNFT;
+    return {
+      nr, plan, spawn: uhr, einX: Math.max(640, view.w / 2 + 160),
+      kisten: 0, verpatzt: false, makellos: true,
+      bereit, frist: plan.zeit ? bereit + plan.zeit : Infinity,
+    };
+  }
+
+  // Ob ein Container auf diesem Stellplatz richtig steht: auf der Treppe,
+  // solange die Stufe noch nicht hoch genug ist; beim Sortieren, wenn die
+  // Farbe stimmt. Sonst ist jeder Platz recht.
+  function passtHin(spalte, kiste = state.kiste) {
+    const sch = state.schiff;
+    const s = sch?.plan.spalten[spalte];
+    if (!s) return false;
+    if (sch.plan.art === "treppe") return (state.hoehen[spalte] || 0) < s.soll;
+    if (sch.plan.art === "sortieren") return Boolean(kiste) && kiste.plan.farbe === s.farbe;
+    return true;
+  }
+
+  // Wohin der nächste Container gehört (für das Auffüllen beim Zuschauen
+  // und für die Prüfskripte): die Plätze, auf denen er richtig stünde.
+  function richtigeSpalten(kiste = state.kiste) {
+    const n = state.schiff?.plan.spalten.length || 0;
+    return [...Array(n).keys()].filter((c) => passtHin(c, kiste));
   }
 
   // Ein neuer Container für die Laufkatze, ab spawn. Die Katze gleitet aus
-  // der Bahn des vorigen in ihre neue; der Container hängt FALL_H über dem
-  // Stapel, das Seil ist entsprechend lang, und bei Wind hängt es schräg.
+  // der Bahn des vorigen in ihre neue; der Container hängt über dem höchsten
+  // Stapel (FALL_H, bei einem Hochhaus weniger – die Laufkatze hängt fest),
+  // das Seil ist entsprechend lang, und bei Wind hängt es schräg.
+  //
+  // Wo mehrere Stellplätze sind, fährt die Laufkatze langsam über alle
+  // hinweg. Beim Sortieren hat der Container die Farbe, die als nächste
+  // dran ist.
   function neueKiste(spawn, vorige) {
-    const n = state.punkte;
-    const plan = state.plan.kisten[Math.min(n, state.plan.kisten.length - 1)];
+    const n = state.kisten;
+    const sch = state.schiff;
+    const basis = state.plan.kisten[Math.min(n, state.plan.kisten.length - 1)];
+    const plan = { ...basis };
+    if (sch.plan.farben) plan.farbe = sch.plan.farben[Math.min(sch.kisten, sch.plan.farben.length - 1)];
+    if (mehrere(sch)) {
+      plan.kMitte = 0;
+      plan.kWeite = schiffRand(sch) + 18 + 4 * basis.kWeite / 36;
+      plan.kPeriode = Math.max(5.2, 7.6 - n * 0.05) * (0.9 + 0.2 * (basis.kPeriode / 9));
+    }
     const alt = vorige ? { plan: vorige.plan, spawn: vorige.spawn, von: vorige.von, alt: null } : null;
     const von = alt ? katzeBei(alt, spawn) : plan.kMitte + plan.kWeite * Math.sin(plan.kPhase);
-    const hangY = spitzeY() + FALL_H;
+    const oben = spitzeY();
+    const hoch = clamp(KATZE_Y - SPREADER_H - KISTE_H - SEIL_MIN - oben, FALL_MIN, FALL_H);
+    const hangY = oben + hoch;
     const seil = KATZE_Y - SPREADER_H - (hangY + KISTE_H);
     state.kiste = {
       n, plan, spawn, von, alt, hangY, seil,
-      windVersatz: seil * Math.tan(state.schiff.plan.wind),
+      gefahr: sch.plan.art === "gefahrgut",
+      windVersatz: seil * Math.tan(sch.plan.wind),
       fallend: false, f: null,
     };
   }
@@ -2283,39 +2874,55 @@
   // Loslassen des Fingers bedeutet hier nichts – getippt ist getippt.
   function loslassen() {}
 
-  // Der Container ist aufgeschlagen (nur beim Spielen; wer zuschaut, nimmt,
-  // was der Zug sagt).
-  function landen(k) {
-    const e = ergebnis(k.f);
+  // Der Container hat etwas berührt (nur beim Spielen; wer zuschaut, nimmt,
+  // was der Zug sagt). kon: was (kontakt).
+  function landen(k, kon) {
+    const e = ergebnis(k.f, kon);
     if (e.daneben) {
-      kisteDaneben({ d: e.ende, vRel: e.vRel, uhr: k.f.uhr }, false);
+      kisteDaneben({ d: e.ende, vRel: e.vRel, spalte: e.spalte, frei: e.frei, uhr: k.f.uhr }, false);
       meldeZug(2, e);
       state.phase = "ende";
       kids()?.vibrate?.([30, 50, 80]);
       stepTimer = window.setTimeout(finish, ENDE_MS);
       return;
     }
-    const off = Math.round((spitzeOff() + e.ende) * 100) / 100;
-    kisteLandet({ off, einschlag: e.d, combo: e.perfekt ? state.combo + 1 : 0, sofort: false, uhr: k.f.uhr });
+    const off = Math.round((e.auflage.off + e.ende) * 100) / 100;
+    kisteLandet({ off, einschlag: e.d, combo: e.perfekt ? state.combo + 1 : 0, spalte: e.spalte, sofort: false, uhr: k.f.uhr });
+    // Ist die Zeit der Eilfracht inzwischen um, legt sie gleich ab – im
+    // selben Zug, damit niemand, der zuschaut, die Landung verpasst.
+    fristPruefen(state.uhr);
     meldeZug(0);
   }
 
+  // Was ein Container zählt: 1, perfekt 2, perfekt in Folge 3 und 4.
+  const wertVon = (perfekt, combo) => (perfekt ? Math.min(PERFEKT_MAX, 1 + Math.max(1, combo)) : 1);
+
   /*
    * Ein Container steht – beim Spielen und beim Zuschauen derselbe Weg.
-   * off: wo er auf dem Schiff steht (Mitte, gegenüber der Lukenmitte),
-   * einschlag: wo er aufschlug, gegenüber dem darunter (von dort rutscht er).
+   * off: wo er auf dem Schiff steht (Mitte, gegenüber der Schiffsmitte),
+   * einschlag: wo er aufschlug, gegenüber dem darunter (von dort rutscht er),
+   * spalte: auf welchem Stellplatz.
    * sofort: ohne Zierde (beim Zuschauen etwas, das längst geschehen ist).
    */
-  function kisteLandet({ off, einschlag, combo, sofort, uhr }) {
+  function kisteLandet({ off, einschlag, combo, spalte = 0, sofort, uhr }) {
     const k = state.kiste;
-    const plan = k ? k.plan : state.plan.kisten[Math.min(state.punkte, state.plan.kisten.length - 1)];
-    const unten = spitzeOff();
+    const sch = state.schiff;
+    const plan = k ? k.plan : state.plan.kisten[Math.min(state.kisten, state.plan.kisten.length - 1)];
+    const c = clamp(Math.round(Number(spalte)) || 0, 0, sch.plan.spalten.length - 1);
+    const richtig = passtHin(c, k || { plan });
+    const unter = oberster(c);
+    const unten = unter ? unter.off : sch.plan.spalten[c].x;
+    const ebene = state.hoehen[c] || 0;
     const ende = off - unten;
     const perfekt = Math.abs(ende) < 0.005;
     const knapp = KISTE_W / 2 - Math.abs(ende) < KNAPP;
     const neu = {
       off,
+      spalte: c,
+      ebene,
+      unterOff: unten,
       farbe: plan.farbe,
+      gefahr: sch.plan.art === "gefahrgut",
       stauch: sofort ? 0 : 1,
       glanz: perfekt && !sofort ? 1 : 0,
       rutsch: sofort ? 0 : 1,
@@ -2326,24 +2933,31 @@
       kippSeite: ende < 0 ? -1 : 1,
     };
     state.stapel.push(neu);
-    state.punkte += 1;
+    state.hoehen[c] = ebene + 1;
+    state.kisten += 1;
+    sch.kisten += 1;
     state.combo = combo;
-    state.letzte = { off, einschlag };
+    const wert = wertVon(perfekt, combo);
+    state.punkte += wert;
+    state.letzte = { off, einschlag, spalte: c };
+    if (!perfekt) sch.makellos = false;
+    const falsch = !richtig && !sch.verpatzt;
+    if (!richtig) sch.verpatzt = true;
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
-    if (!sofort) wirkung(neu, ende, perfekt, knapp, uhr);
-    const voll = state.stapel.length >= state.schiff.plan.platz;
-    if (voll) schiffVoll(uhr, sofort);
+    if (!sofort) wirkung(neu, ende, perfekt, knapp, uhr, wert, falsch);
+    const voll = sch.kisten >= sch.plan.platz;
+    if (voll) schiffAbfahren(uhr, sofort, "voll");
     state.kiste = null;
     neueKiste(uhr + (voll ? NEUES_SCHIFF : 0), k);
   }
 
   // Was man sieht und hört, wenn ein Container steht.
-  function wirkung(neu, ende, perfekt, knapp, uhr) {
+  function wirkung(neu, ende, perfekt, knapp, uhr, wert, falsch) {
     const sch = state.schiff;
-    const x = schiffX(sch, uhr) + neu.off;
-    const y = spitzeY() - KISTE_H;
-    const unter = state.stapel[state.stapel.length - 2];
+    const x = weltX(neu.off, 0, uhr);
+    const y = spalteY(neu.spalte) - KISTE_H;
+    const unter = state.stapel.find((s) => s.spalte === neu.spalte && s.ebene === neu.ebene - 1);
     if (unter) unter.stauch = Math.max(unter.stauch, 0.45);
     state.wackelV += (ende / (KISTE_W / 2)) * 0.12 + (perfekt ? 0 : 0.04 * Math.sign(ende || 1));
     state.bobV += 5 + state.stapel.length * 0.4;
@@ -2355,7 +2969,7 @@
       funken(x - KISTE_W / 2, y, 7);
       funken(x + KISTE_W / 2, y, 7);
       funken(x, y + KISTE_H, 6, "warm");
-      schrift(state.combo >= 2 ? `Perfekt ×${state.combo}` : "Perfekt!", x, y + KISTE_H + 18, state.combo >= 3 ? "#7dffa8" : "#ffd23f", 22 + Math.min(10, state.combo * 2));
+      schrift(wert >= 3 ? `Perfekt ×${wert}` : "Perfekt! ×2", x, y + KISTE_H + 18, wert >= 4 ? "#7dffa8" : "#ffd23f", 22 + Math.min(10, (wert - 1) * 3));
       // Zum Aufsetzen die Harfe – nur das erste Mal in Folge.
       if (state.combo < 2) klang()?.ton("perfekt", { laut: 0.75 });
       brumm(24);
@@ -2369,86 +2983,197 @@
       state.stoss = Math.max(state.stoss, 0.3);
       brumm(12);
     }
+    // Falsch hingestellt: Er bleibt stehen, nur der Auftrag ist verpatzt.
+    if (falsch) {
+      const wort = sch.plan.art === "sortieren" ? "Falsche Farbe!" : "Falscher Platz!";
+      schrift(wort, x, y + KISTE_H + (perfekt || knapp ? 40 : 18), "#ff9f43", 19, 1.5, 12, 0.15);
+      schrift("Auftrag verpatzt", x, y + KISTE_H + (perfekt || knapp ? 22 : 0), "#ffffff", 13, 1.5, 12, 0.15);
+      klang()?.ton("fehler", { laut: 0.8, verzoegerung: 0.12 });
+      brumm([10, 30, 10]);
+    }
   }
 
-  // Das Schiff ist voll: Es tutet, legt ab, und das nächste läuft ein.
-  function schiffVoll(uhr, sofort) {
+  /*
+   * Das Schiff legt ab: voll – oder, bei der Eilfracht, weil die Zeit um
+   * ist (grund "frist", dann halbvoll und ohne Bonus). Ein erfüllter Auftrag
+   * gibt jetzt seinen Bonus. Dann läuft das nächste ein.
+   */
+  function schiffAbfahren(uhr, sofort, grund = "voll") {
     const alt = state.schiff;
+    const auftrag = alt.plan.art !== "stapeln";
+    if (grund === "frist") alt.verpatzt = true;
+    const bonus = auftrag && !alt.verpatzt ? (alt.makellos ? BONUS_MAKELLOS : BONUS) : 0;
+    if (bonus) {
+      state.punkte += bonus;
+      shell.setCount(state.punkte);
+      gegner?.takt(state.punkte);
+    }
     if (!sofort) {
-      state.abfahrt.push({ schiff: alt, stapel: state.stapel, t0: uhr, x0: schiffX(alt, uhr), v0: schiffV(alt, uhr) });
       const x = schiffX(alt, uhr);
+      const rand = schiffRand(alt);
+      state.abfahrt.push({ schiff: alt, stapel: state.stapel, t0: uhr, x0: x, v0: schiffV(alt, uhr) });
       for (let i = 0; i < viele(14); i += 1) {
-        teil({ art: "dampf", x: x + 80, y: 98 + Math.random() * 4, vx: (Math.random() - 0.3) * 30, vy: 30 + Math.random() * 30, r: 3 + Math.random() * 3, leben: 1 + Math.random() * 0.6, max: 1.6, farbe: "#f4f8ff" });
+        teil({ art: "dampf", x: x + 80 + rand, y: 98 + Math.random() * 4, vx: (Math.random() - 0.3) * 30, vy: 30 + Math.random() * 30, r: 3 + Math.random() * 3, leben: 1 + Math.random() * 0.6, max: 1.6, farbe: "#f4f8ff" });
       }
-      for (let i = 0; i < viele(40); i += 1) {
-        teil({
-          art: "konfetti", x: x + (Math.random() - 0.5) * 60, y: 190 + Math.random() * 40,
-          vx: (Math.random() - 0.5) * 120, vy: 40 + Math.random() * 90, r: 1, dreh: Math.random() * 6,
-          leben: 1.6 + Math.random() * 0.8, max: 2.4, farbe: FARBEN[i % FARBEN.length].grund,
-        });
+      const name = SCHIFF_NAMEN[alt.plan.name];
+      if (grund === "frist") {
+        schrift("Zu spät!", 0, 250, "#ff9f43", 28, 1.7, 10, 0.1);
+        schrift(`Die ${name} legt ab`, 0, 228, "#ffffff", 15, 1.7, 10, 0.2);
+        klang()?.ton("fehler", { laut: 0.9 });
+        brumm([20, 60, 20]);
+      } else {
+        if (!alt.verpatzt) {
+          for (let i = 0; i < viele(bonus ? 60 : 40); i += 1) {
+            teil({
+              art: "konfetti", x: x + (Math.random() - 0.5) * (60 + rand * 2), y: 190 + Math.random() * 40,
+              vx: (Math.random() - 0.5) * 120, vy: 40 + Math.random() * 90, r: 1, dreh: Math.random() * 6,
+              leben: 1.6 + Math.random() * 0.8, max: 2.4, farbe: FARBEN[i % FARBEN.length].grund,
+            });
+          }
+        }
+        if (bonus) {
+          schrift(alt.makellos ? `Makellos! +${bonus}` : `Auftrag erfüllt! +${bonus}`, 0, 250, alt.makellos ? "#ffd23f" : "#7dffa8", 27, 1.8, 10, 0.45);
+        } else if (auftrag) {
+          schrift("Schiff voll", 0, 250, "#ffffff", 26, 1.7, 10, 0.45);
+          schrift("Auftrag verpatzt – kein Bonus", 0, 230, "#ff9f43", 14, 1.7, 10, 0.55);
+        } else {
+          schrift("Schiff voll!", 0, 250, "#7dffa8", 28, 1.7, 10, 0.45);
+        }
+        if (!auftrag || bonus) schrift(`Gute Fahrt, ${name}!`, 0, 228, "#ffffff", 15, 1.7, 10, 0.55);
+        // Mit der Schrift, nach dem Aufsetzen – nicht darüber.
+        klang()?.ton(alt.makellos && bonus ? "rekord" : "meilenstein", { verzoegerung: 0.45 });
+        brumm([20, 60, 40]);
       }
-      schrift("Schiff voll!", 0, 250, "#7dffa8", 28, 1.7, 10, 0.45);
-      schrift(`Gute Fahrt, ${SCHIFF_NAMEN[alt.plan.name]}!`, 0, 228, "#ffffff", 15, 1.7, 10, 0.55);
-      // Mit der Schrift, nach dem Aufsetzen – nicht darüber.
-      klang()?.ton("meilenstein", { verzoegerung: 0.45 });
-      brumm([20, 60, 40]);
     }
     state.schiffNr += 1;
     state.schiff = neuesSchiff(state.schiffNr, uhr);
     state.stapel = [];
+    state.hoehen = [];
     state.wackel = 0;
     state.wackelV = 0;
     state.bob = 0;
     state.bobV = 0;
+    state.eilSekunde = null;
     hafenStellen();
+    // Der Frachtbrief des nächsten – wenn es einen Auftrag bringt.
+    state.brief = !sofort && state.schiff.plan.art !== "stapeln" ? { schiff: state.schiff, t0: state.zeit } : null;
+    if (state.brief) klang()?.ton("fenster", { laut: 0.7, verzoegerung: 0.9 });
+    // Hing schon der nächste Container (die Eilfracht legt ab, bevor er
+    // fiel), hängt er jetzt über dem neuen Schiff.
+    if (grund === "frist" && state.kiste && !state.kiste.fallend) {
+      const vorige = state.kiste;
+      state.kiste = null;
+      neueKiste(uhr + NEUES_SCHIFF, vorige);
+    }
+  }
+
+  // Die Eilfracht wartet nicht: Ist ihre Zeit um, legt sie ab – nur nicht,
+  // solange gerade ein Container fällt (der darf noch landen). Nur beim
+  // Spielen; wer zuschaut, erfährt es aus dem Zug.
+  function fristPruefen(uhr) {
+    const sch = state.schiff;
+    if (state.phase !== "spiel" || !sch || uhr < sch.frist) return false;
+    if (state.kiste?.fallend) return false;
+    schiffAbfahren(uhr, false, "frist");
+    return true;
+  }
+
+  // Der Stellplatz, der x (gegenüber der Schiffsmitte) am nächsten liegt.
+  function naechsteSpalte(x) {
+    const spalten = state.schiff.plan.spalten;
+    let beste = 0;
+    spalten.forEach((s, c) => { if (Math.abs(s.x - x) < Math.abs(spalten[beste].x - x)) beste = c; });
+    return beste;
   }
 
   /*
-   * Daneben: Der Container kippt über die Kante (oder fällt ganz vorbei),
-   * schlägt vielleicht noch aufs Deck und geht ins Wasser. d: wo er aufschlug
-   * (nach dem Rutschen), gegenüber der Mitte darunter.
+   * Daneben: Der Container kippt über die Kante dessen, was er traf (oder
+   * prallt seitlich ab, oder trifft gar nichts), schlägt vielleicht noch
+   * aufs Deck und geht ins Wasser. d: wo er aufschlug (nach dem Rutschen),
+   * gegenüber der Mitte darunter – oder, wo er nichts traf (spalte -1),
+   * gegenüber der Schiffsmitte. frei: Er kippt nicht, er fällt.
    */
-  function kisteDaneben({ d, vRel, uhr }, sofort) {
+  function kisteDaneben({ d, vRel, spalte = -1, frei = false, uhr }, sofort) {
     const k = state.kiste;
-    const plan = k ? k.plan : state.plan.kisten[Math.min(state.punkte, state.plan.kisten.length - 1)];
+    const plan = k ? k.plan : state.plan.kisten[Math.min(state.kisten, state.plan.kisten.length - 1)];
+    const fall = k?.f || null;
+    const gefahr = Boolean(k?.gefahr);
     state.kiste = null;
     state.combo = 0;
     hafenAus();
     if (sofort) return;
+    const sch = state.schiff;
     const halb = KISTE_W / 2;
     const seite = d < 0 ? -1 : 1;
-    const oben = spitzeY();
-    const sch = state.schiff;
-    const w = {
-      x: stuetzeX(uhr) + d, y: oben + KISTE_H / 2, vx: schiffV(sch, uhr) + vRel, vy: -220,
-      ang: 0, va: 0, farbe: plan.farbe, alpha: 1, modus: "frei", nass: false, seite,
-      kante: spitzeOff() + seite * halb, rel: d - seite * halb, kippW: 0, kippV: 0, stoesse: 0,
-    };
-    if (Math.abs(d) < KISTE_W) {
-      w.modus = "kippen";
-      w.kippV = 1.2 + clamp(Math.abs(w.rel) / halb, 0, 1) * 2.5;
-      // Er schlägt noch auf der Kante auf, bevor er kippt.
-      aufsetzen(0.7);
+    const ziel = spalte >= 0 ? spalte : naechsteSpalte(d);
+    let w;
+    let tx;
+    let ty;
+    if (spalte >= 0) {
+      const auf = { off: spalteOff(spalte), y: spalteY(spalte), halb: oberster(spalte) ? halb : lukeHalb(sch) };
+      const ax = weltX(auf.off, auf.y, uhr);
+      tx = ax;
+      ty = auf.y;
+      w = {
+        x: ax + d, y: auf.y + KISTE_H / 2, vx: schiffV(sch, uhr) + vRel, vy: -220,
+        ang: 0, va: 0, farbe: plan.farbe, gefahr, alpha: 1, modus: "frei", nass: false, seite,
+        kante: auf.off + seite * auf.halb, py: auf.y, rel: d - seite * auf.halb, kippW: 0, kippV: 0, stoesse: 0,
+      };
+      if (!frei && Math.abs(d) < halb + auf.halb - 4) {
+        w.modus = "kippen";
+        w.kippV = 1.2 + clamp(Math.abs(w.rel) / halb, 0, 1) * 2.5;
+        // Er schlägt noch auf der Kante auf, bevor er kippt.
+        aufsetzen(0.7);
+      } else if (fall) {
+        // Seitlich abgeprallt: von dort, wo er war, ein Stück zurück.
+        w.y = fall.y + KISTE_H / 2;
+        w.vx = -seite * 40 + schiffV(sch, uhr);
+        w.vy = Math.min(-60, fall.vy * 0.5);
+        aufsetzen(0.6);
+      }
+    } else {
+      tx = schiffX(sch, uhr) + d;
+      ty = fall ? fall.y : deckY(sch, state.stapel.length);
+      w = {
+        x: tx, y: ty + KISTE_H / 2, vx: schiffV(sch, uhr) + vRel, vy: fall ? fall.vy : -220,
+        ang: 0, va: 0, farbe: plan.farbe, gefahr, alpha: 1, modus: "frei", nass: false, seite,
+        kante: 0, py: ty, rel: 0, kippW: 0, kippV: 0, stoesse: 0,
+      };
     }
     state.wracks.push(w);
-    state.fehler = { zeit: 0 };
+    state.fehler = { zeit: 0, spalte: ziel };
     state.stoss = Math.max(state.stoss, 0.6);
     state.wackelV += seite * 0.25;
     state.lupe = LUPE_ZEIT;
-    staub(w.x - seite * halb * 0.5, oben, 8, seite);
-    schrift("Daneben!", stuetzeX(uhr), oben + KISTE_H + 40, "#ff6b5a", 26, 1.6, 8);
-    schrift(seite > 0 ? "zu weit rechts" : "zu weit links", stuetzeX(uhr), oben + KISTE_H + 20, "#ffffff", 14, 1.6, 8);
+    staub(w.x - seite * halb * 0.5, ty, 8, seite);
+    schrift("Daneben!", tx, ty + KISTE_H + 40, "#ff6b5a", 26, 1.6, 8);
+    const grund = gefahr && spalte >= 0 && !frei && Math.abs(d) <= halb ? "zu knapp für Gefahrgut"
+      : seite > 0 ? "zu weit rechts" : "zu weit links";
+    schrift(grund, tx, ty + KISTE_H + 20, "#ffffff", 14, 1.6, 8);
+  }
+
+  // Die letzten drei Sekunden der Eilfracht: ein Ton je Sekunde (beim
+  // Zuschauen auch – die Uhr ist dieselbe).
+  function eilfrachtZaehlen() {
+    const sch = state.schiff;
+    if (!sch || !Number.isFinite(sch.frist) || (state.phase !== "spiel" && state.phase !== "zuschauen")) return;
+    const rest = sch.frist - state.uhr;
+    const sek = Math.ceil(rest);
+    if (rest <= 0 || sek > 3 || sek === state.eilSekunde) return;
+    state.eilSekunde = sek;
+    klang()?.ton("countdown", { stufe: sek, laut: 0.55 });
+    brumm(8);
   }
 
   // Ein Container auf dem Weg ins Wasser.
   function wrackSchritt(w, h) {
     const sch = state.schiff;
     if (w.modus === "kippen") {
-      // Er dreht sich um die Kante des Containers darunter, immer schneller.
+      // Er dreht sich um die Kante dessen, was er traf, immer schneller.
       w.kippV += (5 + w.kippW * 14) * h;
       w.kippW += w.kippV * h;
       const px = schiffX(sch, state.uhr) + w.kante;
-      const py = spitzeY();
+      const py = w.py;
       const a = -w.seite * w.kippW;
       const c = Math.cos(a);
       const s = Math.sin(a);
@@ -2474,14 +3199,15 @@
       w.ang += w.va * h;
       // Aufs Deck? Dann prallt es ab und rutscht zur nächsten Bordwand.
       const rel = w.x - schiffX(sch, state.uhr);
-      if (Math.abs(rel) < 100 && w.vy < 0 && w.stoesse < 3) {
+      const rand = schiffRand(sch);
+      if (Math.abs(rel) < 100 + rand && w.vy < 0 && w.stoesse < 3) {
         const sink = (SINK * state.stapel.length) / sch.plan.platz;
         let boden = DECK_Y - sink;
-        if (rel > 50 && rel < 98) boden = 78 - sink;
-        else if (rel < -76) boden = 29 - sink;
+        if (rel > 50 + rand && rel < 98 + rand) boden = 78 - sink;
+        else if (rel < -76 - rand) boden = 29 - sink;
         const halbH = (Math.abs(Math.cos(w.ang)) * KISTE_H + Math.abs(Math.sin(w.ang)) * KISTE_W) / 2;
         if (w.y - halbH < boden && w.y - halbH > boden - 14) {
-          const weg = rel > 50 ? 1 : Math.sign(rel) || w.seite;
+          const weg = rel > 50 + rand ? 1 : Math.sign(rel) || w.seite;
           w.y = boden + halbH;
           w.vy = Math.abs(w.vy) * 0.32;
           w.vx = w.vx * 0.5 + weg * 110;
@@ -2518,17 +3244,27 @@
   // ---------------------------------------------------------------------------
   /*
    * Ein Zug (geist.js, zuege; live-spiel.js, zug) – sofort, wenn etwas
-   * geschieht. Jeder sagt den ganzen Stand, nicht nur, was dazukam:
+   * geschieht. Jeder sagt den ganzen Stand, nicht nur, was dazukam: Im
+   * Multiplayer gehen zwei Züge kurz hintereinander als einer hinaus.
    *
-   *   c   Container × 4 + was gerade ist: 0 der nächste hängt am Seil,
-   *       1 er fällt, 2 er geht daneben
-   *   a   bei 0: wo der oberste steht (gegenüber der Lukenmitte), darüber ab
-   *       10⁷ die Reihe genauer Treffer; vor dem ersten Container nichts
+   *   c   (Schiff × ZUG_SCHIFF + Container) × 4 + was gerade ist: 0 der
+   *       nächste hängt am Seil, 1 er fällt, 2 er geht daneben, 3 die
+   *       Eilfracht legt ab, weil ihre Zeit um ist. Das Schiff ist das, unter
+   *       dem der Kran danach steht – legt eines nach einer Landung ab, sagt
+   *       es derselbe Zug.
+   *   a   bei 0: wo der zuletzt gestellte steht (gegenüber der Schiffsmitte),
+   *       darüber ab 10⁷ die Reihe genauer Treffer; vor dem ersten
+   *       Container nichts
    *       bei 1: wo er losgelassen wurde, gegenüber dem Schiff
-   *       bei 2: wo er aufschlug, gegenüber dem darunter
-   *   b   bei 0: wo der oberste aufschlug (von dort rutschte er hin); vor
-   *       dem ersten Container: wie lange die Uhr schon lief, in ms
-   *       bei 1 und 2: seine Fahrt gegenüber dem Schiff
+   *       bei 2: wo er aufschlug, gegenüber der Mitte dessen, was er traf
+   *       (traf er nichts: gegenüber der Schiffsmitte)
+   *   b   bei 0: wo er aufschlug (von dort rutschte er hin), darüber ab 10⁷
+   *       sein Stellplatz; vor dem ersten Container: wie lange die Uhr schon
+   *       lief, in ms
+   *       bei 1: seine Fahrt gegenüber dem Schiff
+   *       bei 2: dieselbe, darüber ab 10⁷ der Stellplatz, den er traf, und
+   *       eins (0: nichts), dazu 8, wenn er seitlich abprallte
+   *   p   die Punkte danach
    *
    * Alles quer in Hundertstel-Einheiten, wie im Turmbau verschoben um ZUG_X,
    * damit es nie unter null geht. Wer zuschaut, hat dieselben Schiffe und
@@ -2536,20 +3272,30 @@
    * los, wo der andere es tat, und stellt ihn dorthin, wo er bei ihm stand.
    */
   const ZUG_X = 5e6;
+  const ZUG_STELLE = 1e7;
+  const ZUG_SCHIFF = 4096;
   const kodiere = (x) => Math.round(x * 100);
   const welt100 = (n) => n / 100;
+  const zugC = (was) => (state.schiffNr * ZUG_SCHIFF + state.kisten) * 4 + was;
 
   function meldeZug(was, e = null) {
     if (state.phase === "zuschauen") return;
     let ort = null;
     if (was === 0) {
-      ort = state.punkte === 0
+      ort = state.kisten === 0 && state.schiffNr === 0
         ? { a: ZUG_X, b: Math.max(0, Math.round(state.uhrVersatz * 1000)), c: 0 }
-        : { a: state.combo * 1e7 + kodiere(state.letzte.off) + ZUG_X, b: kodiere(state.letzte.einschlag) + ZUG_X, c: state.punkte * 4 };
+        : {
+          a: state.combo * ZUG_STELLE + kodiere(state.letzte.off) + ZUG_X,
+          b: (state.letzte.spalte || 0) * ZUG_STELLE + kodiere(state.letzte.einschlag) + ZUG_X,
+          c: zugC(0),
+        };
     } else if (was === 1 && e) {
-      ort = { a: kodiere(e.xRel) + ZUG_X, b: kodiere(e.vRel) + ZUG_X, c: state.punkte * 4 + 1 };
+      ort = { a: kodiere(e.xRel) + ZUG_X, b: kodiere(e.vRel) + ZUG_X, c: zugC(1) };
     } else if (was === 2 && e) {
-      ort = { a: kodiere(e.ende) + ZUG_X, b: kodiere(e.vRel) + ZUG_X, c: state.punkte * 4 + 2 };
+      const stelle = (e.spalte >= 0 ? e.spalte + 1 : 0) + (e.frei && e.spalte >= 0 ? 8 : 0);
+      ort = { a: kodiere(e.ende) + ZUG_X, b: stelle * ZUG_STELLE + kodiere(e.vRel) + ZUG_X, c: zugC(2) };
+    } else if (was === 3) {
+      ort = { a: ZUG_X, b: ZUG_X, c: zugC(3) };
     }
     if (!ort) return;
     aufnahme?.zug(state.punkte, ort);
@@ -2558,12 +3304,19 @@
   }
 
   // Container, die nicht zu sehen waren (ein Zug kam nicht an): Sie stehen
-  // gleich da, genau auf dem obersten.
+  // gleich da, genau auf dem obersten eines Platzes, auf den sie gehören.
   function auffuellen(bis, uhr) {
-    while (state.punkte < bis) {
+    for (let n = 0; n < 400 && state.kisten < bis; n += 1) {
       if (!state.kiste) neueKiste(uhr, null);
-      kisteLandet({ off: spitzeOff(), einschlag: 0, combo: 0, sofort: true, uhr });
+      const c = richtigeSpalten()[0] ?? 0;
+      kisteLandet({ off: spalteOff(c), einschlag: 0, combo: 0, spalte: c, sofort: true, uhr });
     }
+  }
+
+  // Liegt der andere schon unter einem späteren Schiff (die Eilfracht ist
+  // abgefahren), fährt es hier auch ab.
+  function schiffBis(nr, uhr, sofort) {
+    for (let n = 0; n < 20 && state.schiffNr < nr; n += 1) schiffAbfahren(uhr, sofort, "frist");
   }
 
   // Er hat losgelassen: an derselben Stelle gegenüber dem Schiff, mit
@@ -2589,24 +3342,48 @@
   // Ein Zug des anderen, im Bild. sofort: Er liegt schon zurück (beim
   // Einsteigen) – dann ohne Fallen und ohne Zierde, gleich das Ergebnis.
   function zugAnwenden(probe, sofort) {
-    const n = Math.floor(probe.c / 4);
-    const was = probe.c - n * 4;
-    if (was === 0 && n === 0) {
+    const was = probe.c % 4;
+    const rest = Math.floor(probe.c / 4);
+    const n = rest % ZUG_SCHIFF;
+    const schiff = Math.floor(rest / ZUG_SCHIFF);
+    if (was === 0 && n === 0 && schiff === 0) {
       state.uhrVersatz = probe.b / 1000;
       return;
     }
     const uhr = probe.t / 1000 + state.uhrVersatz;
     if (was === 0) {
-      if (state.punkte < n - 1) auffuellen(n - 1, uhr);
-      if (state.punkte !== n - 1) return;
-      const kombi = Math.floor(probe.a / 1e7);
-      kisteLandet({ off: welt100(probe.a - kombi * 1e7 - ZUG_X), einschlag: welt100(probe.b - ZUG_X), combo: kombi, sofort, uhr });
+      if (state.kisten < n - 1) auffuellen(n - 1, uhr);
+      if (state.kisten === n - 1) {
+        const kombi = Math.floor(probe.a / ZUG_STELLE);
+        const spalte = Math.floor(probe.b / ZUG_STELLE);
+        kisteLandet({
+          off: welt100(probe.a - kombi * ZUG_STELLE - ZUG_X),
+          einschlag: welt100(probe.b - spalte * ZUG_STELLE - ZUG_X),
+          combo: kombi, spalte, sofort, uhr,
+        });
+      }
+      schiffBis(schiff, uhr, sofort);
+      punkteAngleichen(probe);
       return;
     }
-    if (state.punkte < n) auffuellen(n, uhr);
-    if (state.punkte !== n) return;
+    if (state.kisten < n) auffuellen(n, uhr);
+    if (state.kisten !== n) return;
+    schiffBis(schiff, uhr, sofort);
     if (was === 1) loslassenNach(probe, uhr, sofort);
-    else if (was === 2 && state.kiste) kisteDaneben({ d: welt100(probe.a - ZUG_X), vRel: welt100(probe.b - ZUG_X), uhr }, sofort);
+    else if (was === 2 && state.kiste) {
+      const stelle = Math.floor(probe.b / ZUG_STELLE);
+      const spalte = (stelle % 8) - 1;
+      kisteDaneben({ d: welt100(probe.a - ZUG_X), vRel: welt100(probe.b - stelle * ZUG_STELLE - ZUG_X), spalte, frei: stelle >= 8, uhr }, sofort);
+    }
+    punkteAngleichen(probe);
+  }
+
+  // Die Punkte so, wie der andere sie hat – fehlte ein Zug, stimmt es so
+  // trotzdem.
+  function punkteAngleichen(probe) {
+    if (!Number.isFinite(probe.p) || probe.p === state.punkte) return;
+    state.punkte = Math.max(0, Math.round(probe.p));
+    shell.setCount(state.punkte);
   }
 
   // Jedes Bild: die Züge, die inzwischen dran sind, und die Uhr des anderen.
@@ -2657,24 +3434,28 @@
     if (state.phase === "ende") state.uhr += dtE;
     else if (state.phase !== "zuschauen") state.uhr += dtUhr;
     if (state.stoss > 0) state.stoss = Math.max(0, state.stoss - dt * 3);
-    const nacht = clamp(state.punkte / NACHT_KISTEN, 0, 1);
+    const nacht = clamp(state.kisten / NACHT_KISTEN, 0, 1);
     state.himmel += (nacht - state.himmel) * (1 - Math.exp(-1.2 * dt));
 
     // Der fallende Container, in festen Schritten bis zur Uhr
     const k = state.kiste;
     if (k?.fallend && k.f && !k.f.wartet) {
-      for (let n = 0; n < 2400 && k.f.uhr + TAKT <= state.uhr + 1e-9; n += 1) {
-        fallSchritt(k.f, TAKT);
-        const oben = spitzeY();
-        if (k.f.y <= oben) {
-          k.f.y = oben;
-          // Wer zuschaut, wartet auf den Zug, der sagt, wie es ausging.
-          if (state.phase === "zuschauen") k.f.wartet = true;
-          else landen(k);
-          break;
-        }
+      const kon = fallBisKontakt(k.f, state.uhr);
+      // An einem Stapel entlanggerutscht: Funken und ein Schleifen.
+      if (k.f.schramm) {
+        funken(k.f.schramm.x, k.f.schramm.y, 4);
+        aufsetzen(0.35);
+        k.f.schramm = null;
+      }
+      if (kon) {
+        // Wer zuschaut, wartet auf den Zug, der sagt, wie es ausging.
+        if (state.phase === "zuschauen") k.f.wartet = true;
+        else landen(k, kon);
       }
     }
+    // Die Eilfracht legt ab, wenn ihre Zeit um ist – und es zählt runter.
+    if (fristPruefen(state.uhr)) meldeZug(3);
+    eilfrachtZaehlen();
 
     // Laufkatze und Spreader
     if (state.kiste) state.katze = katzeBei(state.kiste, state.uhr);
@@ -2773,8 +3554,8 @@
         art: "rauch", x: x + 80 + (Math.random() - 0.5) * 3, y: 98 - sink, vx: 4, vy: 16 + Math.random() * 8,
         r: 2 + Math.random() * 1.4, leben: 2.4, max: 2.4, farbe,
       });
-      if (state.schiff) qualm(schiffX(state.schiff, state.uhr), (SINK * state.stapel.length) / state.schiff.plan.platz);
-      state.abfahrt.forEach((a) => qualm(abfahrtX(a, state.uhr), SINK));
+      if (state.schiff) qualm(schiffX(state.schiff, state.uhr) + schiffRand(state.schiff), (SINK * state.stapel.length) / state.schiff.plan.platz);
+      state.abfahrt.forEach((a) => qualm(abfahrtX(a, state.uhr) + schiffRand(a.schiff), SINK));
     }
 
     // Möwen ziehen durchs Bild
@@ -2829,12 +3610,16 @@
     shell.setPhase("intro");
     state.phase = "bereit";
     state.punkte = 0;
+    state.kisten = 0;
     state.combo = 0;
     state.uhr = 0;
     state.uhrVersatz = 0;
     state.losMs = 0;
     state.schiffNr = 0;
     state.stapel = [];
+    state.hoehen = [];
+    state.brief = null;
+    state.eilSekunde = null;
     state.abfahrt = [];
     state.wracks = [];
     state.teile = [];
@@ -2842,7 +3627,7 @@
     state.texte = [];
     state.fehler = null;
     state.kiste = null;
-    state.letzte = { off: 0, einschlag: 0 };
+    state.letzte = { off: 0, einschlag: 0, spalte: 0 };
     state.wackel = 0;
     state.wackelV = 0;
     state.bob = 0;
@@ -2912,7 +3697,7 @@
     const rekord = punkte > vorher;
     const next = recordRun(punkte);
     shell.showResult({
-      label: "Deine Container",
+      label: "Deine Punkte",
       points: punkte,
       detail: rekord ? "Neuer Rekord!" : (vorher ? `Bester Hafen: ${vorher}` : null),
       scores: next.scores,
@@ -2954,11 +3739,11 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "craneHarbor", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+    host, spiel: "craneHarbor", fassung: "z2", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
     gegner = window.LernappGeist?.fuer?.({ spiel: "craneHarbor", host, art: "ziel" }) || null;
-    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+    aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
   }
 
   startRun();
@@ -2995,6 +3780,6 @@
     WELT_W, KISTE_W, KISTE_H, PERFEKT, EINZUG, RUNS_FOR_DONE,
     state, view, takt, druecken, loslassen, vorhersage,
     plan: () => state.plan,
-    schiffX, kisteX, spitzeY, spitzeOff,
+    schiffX, kisteX, spitzeY, spalteOff, spalteY, richtigeSpalten, passtHin, AUFTRAEGE,
   };
 })();

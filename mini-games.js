@@ -185,7 +185,7 @@
     fishPond: { fassung: "z1" },
     numberLine: { fassung: "z1" },
     boilerRoom: { fassung: "z1" },
-    craneHarbor: { fassung: "z1" },
+    craneHarbor: { fassung: "z2" },
     twinLanes: { fassung: "t1" },
     juggler: { fassung: "z1" },
     lumberCut: { fassung: "z1" },
