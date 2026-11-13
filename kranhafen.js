@@ -2588,18 +2588,24 @@
     const w = Math.min(300, view.cssW - 32);
     const h = 104;
     const cx = view.cssW / 2;
-    // Unten auf dem Wasser, wo nur Spiegelbilder sind – oben im Himmel
-    // stehen gerade "Auftrag erfüllt!" und die Punkte des Schiffs, das
-    // ablegt. Ist unten kein Platz (flaches Bild), dann oben.
+    // Unten auf dem Wasser, wo nur Spiegelbilder sind – in der Mitte des
+    // Himmels stehen gerade "Auftrag erfüllt!" und die Punkte des Schiffs,
+    // das ablegt. Ist unten kein Platz (flaches Bild), dann rechts daneben,
+    // und nur wo auch das nicht geht, oben in der Mitte.
     const frei = shell?.frei?.(canvas) || 0;
     const unten = bildY(SICHT_U + 4);
-    const cy = view.cssH - unten >= h + 16
-      ? unten + (view.cssH - unten) / 2
-      : clamp(view.cssH * 0.36, frei + h / 2 + 70, view.cssH - h);
+    let x = cx;
+    let cy;
+    if (view.cssH - unten >= h + 16) {
+      cy = unten + (view.cssH - unten) / 2;
+    } else {
+      cy = clamp(view.cssH * 0.4, frei + h / 2 + 70, view.cssH - h);
+      if (view.cssW >= 2 * w + 120) x = view.cssW - w / 2 - 24;
+    }
     const pop = ruhig() ? 1 : 0.88 + 0.12 * ein + (t < 0.3 ? Math.sin((t / 0.3) * Math.PI) * 0.04 : 0);
     g.save();
     g.globalAlpha = alpha;
-    g.translate(cx, cy);
+    g.translate(x, cy);
     g.scale(pop, pop);
     g.translate(-w / 2, -h / 2);
     // Der Zettel: Papier, links ein Streifen in der Farbe des Auftrags.
