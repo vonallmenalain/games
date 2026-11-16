@@ -8309,7 +8309,8 @@ try {
     await seite.waitForFunction(() => /Herbstcup/.test(document.querySelector(".adm-dash-turniere")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
     const auswertung = await seite.evaluate(() => ({
       titel: document.querySelector(".adm-dash-titel")?.textContent || "",
-      spiele: [...document.querySelectorAll(".adm-dash tbody tr")].map((z) => z.innerText.replace(/\s+/g, " ").trim()),
+      // Die Tabelle «Je Spiel» – nicht der Spielverlauf darunter.
+      spiele: [...document.querySelectorAll(".adm-dash .adm-sortierbar tbody tr")].map((z) => z.innerText.replace(/\s+/g, " ").trim()),
       turniere: document.querySelector(".adm-dash-turniere")?.textContent.replace(/\s+/g, " ") || "",
     }));
     pruefe(auswertung.titel === "Grosi" && auswertung.spiele.length === 1 && /^Turmbau T\d 1\. von \d+ 99 /.test(auswertung.spiele[0]),
@@ -8324,7 +8325,7 @@ try {
     pruefe(await seite.evaluate(() => window.__miniEintraege.get("towerStack_mini_vorherdagewesen")?.name) === "Grossmami"
       && await seite.locator(".adm-dash-titel").innerText().catch(() => "") === "Grossmami",
       "Nach «Namen ändern» heisst der Eintrag nicht anders, oder die Auswertung ist zu.");
-    await seite.locator(".adm-dash tbody tr", { hasText: "Turmbau" }).locator("button", { hasText: "Löschen" }).click();
+    await seite.locator(".adm-dash .adm-sortierbar tbody tr", { hasText: "Turmbau" }).locator("button", { hasText: "Löschen" }).click();
     await seite.waitForFunction(() => !window.__miniEintraege.has("towerStack_mini_vorherdagewesen"), null, { timeout: 4000 }).catch(() => {});
     pruefe(!(await seite.evaluate(() => window.__miniEintraege.has("towerStack_mini_vorherdagewesen"))), "«Löschen» in der Auswertung hat das Ergebnis stehen lassen.");
     await seite.waitForFunction(() => !document.querySelector(".adm-dash"), null, { timeout: 4000 }).catch(() => {});
@@ -8507,7 +8508,7 @@ try {
     // Wer einen Eintrag löscht, löscht seine Runden mit: Yaras Fischteich.
     await seite.locator(`${liste} .adm-person`, { hasText: "Yara" }).click();
     await seite.waitForSelector(".adm-dash", { timeout: 4000 });
-    await seite.locator(`${dash} tbody tr`, { hasText: "Fischteich" }).locator("button", { hasText: "Löschen" }).click();
+    await seite.locator(`${dash} .adm-sortierbar tbody tr`, { hasText: "Fischteich" }).locator("button", { hasText: "Löschen" }).click();
     await seite.waitForFunction(() => !window.__miniEintraege.has("fishPond_mini_yarayarayara")
       && ![...window.__miniRunden.keys()].some((k) => k.startsWith("fishPond_mini_yarayarayara_")), null, { timeout: 4000 }).catch(() => {});
     const nachLoeschen = await seite.evaluate(() => [...window.__miniRunden.keys()].sort());
