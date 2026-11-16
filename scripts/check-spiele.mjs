@@ -263,6 +263,23 @@ const ATTRAPPE = `
       const zeiten = [...rundenLager.values()].map((r) => r.zeitMs).filter((ms) => ms > 0);
       return zeiten.length ? Math.min(...zeiten) : 0;
     },
+    // Der Spielverlauf eines Spielers: alle Runden seiner Geräte. Wonach
+    // gefragt wurde, bleibt in window.__miniRundenGeraete stehen.
+    rundenVonGeraeten: async (kennungen) => {
+      const wer = new Set(kennungen || []);
+      window.__miniRundenGeraete = [...(window.__miniRundenGeraete || []), ...wer];
+      return [...rundenLager.values()]
+        .filter((r) => wer.has(r.spieler))
+        .sort((a, b) => a.zeitMs - b.zeitMs)
+        .map((r) => ({ quelle: "", offline: false, ...r }));
+    },
+    // Die Multiplayer eines Turniers (Endstand): Die Pruefung legt sie in
+    // window.__miniTurnierLive hin, je Turnier eine Liste. Ohne bleibt es
+    // wie vorher, als die Attrappe sie gar nicht kannte.
+    turnierLive: async (id) => {
+      const liste = (window.__miniTurnierLive || {})[id];
+      return Array.isArray(liste) ? liste.map((a) => ({ ...a })) : undefined;
+    },
     loescheRunden: async (liste) => {
       const weg = new Set((liste || []).map((e) => e.game + "_" + e.spieler));
       let n = 0;
@@ -8497,6 +8514,157 @@ try {
     pruefe(!nachLoeschen.some((k) => k.startsWith("fishPond_mini_yarayarayara_")) && nachLoeschen.includes("towerStack_mini_yarayarayara_1")
       && nachLoeschen.filter((k) => k.startsWith("towerStack_mini_zenozenozeno_")).length === 3,
       `Nach dem Löschen von Yaras Fischteich stehen diese Runden da: ${nachLoeschen.join(", ")}`);
+    await seite.keyboard.press("Escape");
+
+    // Der Spielverlauf: jede Runde für sich. In der Auswertung eines
+    // Spielers stehen alle (App, Turniere, Multiplayer), im Fenster eines
+    // Spielers im Turnier nur die darin. Zeno spielt heute noch Turmbau im
+    // Stillcup und in der App (ohne Netz), und Fischteich im Multiplayer des
+    // Herbstcups. Zusammen 10 Runden, 6 davon mit Uhrzeit.
+    await seite.evaluate(({ still, herbst }) => {
+      const jetzt = Date.now();
+      const zeno = "mini_zenozenozeno";
+      [
+        { game: "towerStack", spieler: zeno, name: "Zeno", nr: 8, punkte: 60, ms: 50000, zeitMs: jetzt - 2 * 60000, quelle: "turnier" },
+        { game: "towerStack", spieler: zeno, name: "Zeno", nr: 9, punkte: 20, ms: 10000, zeitMs: jetzt - 60000, offline: true },
+        { game: "fishPond", spieler: zeno, name: "Zeno", nr: 1, punkte: 40, ms: 65000, zeitMs: jetzt - 25 * 60000, quelle: "live" },
+      ].forEach((r) => { const id = `${r.game}_${r.spieler}_${r.nr}`; window.__miniRunden.set(id, { ...r, id }); });
+      const turm = window.__miniEintraege.get(`towerStack_${zeno}`);
+      window.__miniEintraege.set(`towerStack_${zeno}`, { ...turm, punkte: 60, versuche: 9, updatedAtMs: jetzt - 60000 });
+      window.__miniEintraege.set(`fishPond_${zeno}`, { id: `fishPond_${zeno}`, game: "fishPond", spieler: zeno, name: "Zeno", punkte: 40, versuche: 1, spielMs: 65000, erstesMs: jetzt - 25 * 60000, updatedAtMs: jetzt - 25 * 60000 });
+      window.__miniTurnierEintraege.set(`${still}/towerStack_${zeno}`, { turnier: still, id: `towerStack_${zeno}`, game: "towerStack", spieler: zeno, name: "Zeno", punkte: 60, versuche: 1, offen: false, updatedAtMs: jetzt - 2 * 60000 });
+      window.__miniTurnierLive = { [herbst]: [{
+        id: "ABCD-1", name: "Znachtrunde", gewicht: 1, runden: 1, spiele: ["fishPond"], erstelltMs: jetzt - 30 * 60000, updatedAtMs: jetzt - 20 * 60000,
+        endstand: [{ spieler: zeno, name: "Zeno", punkte: 40, platz: 1 }, { spieler: "mini_leoleoleoleo", name: "Leo", punkte: 30, platz: 2 }],
+      }] };
+    }, { still: OHNE_GEGNER, herbst: HERBST });
+    await seite.locator(".adm-kopf button", { hasText: "Neu laden" }).click();
+    await seite.waitForSelector(".adm-seite > .adm-klapp", { timeout: 4000 });
+    if (await seite.evaluate(() => Boolean(document.querySelector("#adm-spieler .adm-klapp-inhalt")?.hidden))) {
+      await seite.locator("#adm-spieler .adm-klapp-knopf").click();
+    }
+    const vbox = ".adm-dash .adm-verlauf";
+    const verlaufStand = () => seite.evaluate(() => {
+      const box = document.querySelector(".adm-dash .adm-verlauf");
+      if (!box) return null;
+      const text = (k) => k.innerText.replace(/\s+/g, " ").trim();
+      const zeilen = [...box.querySelectorAll("tbody tr")];
+      const hinweis = box.querySelector(".adm-verlauf-hinweis");
+      return {
+        titel: document.querySelector(".adm-dash .adm-dash-kopf")?.innerText.replace(/\s+/g, " ").trim() || "",
+        zahl: box.querySelector(".adm-verlauf-kopf .adm-block-zahl")?.textContent || "",
+        hinweis: hinweis && !hinweis.hidden ? hinweis.textContent : "",
+        tage: zeilen.filter((z) => z.classList.contains("adm-verlauf-tag")).map(text),
+        runden: zeilen.filter((z) => !z.classList.contains("adm-verlauf-tag") && !z.classList.contains("adm-leer"))
+          .map((z) => [...z.cells].map(text)),
+        leer: zeilen.filter((z) => z.classList.contains("adm-leer")).map(text).join(""),
+        woher: getComputedStyle(box.querySelector("thead .adm-verlauf-woher")).display !== "none",
+        jeSpiel: [...document.querySelectorAll(".adm-dash .adm-sortierbar:not(.adm-verlauf-tabelle) tbody tr")].map(text),
+        kacheln: [...document.querySelectorAll(".adm-dash-zahlen > div")].map(text),
+      };
+    });
+    const geladenImVerlauf = () => seite.waitForFunction(() => {
+      const box = document.querySelector(".adm-dash .adm-verlauf");
+      return box && !/geladen/.test(box.querySelector("tbody")?.textContent || "geladen");
+    }, null, { timeout: 4000 }).catch(() => {});
+
+    await seite.locator(`${liste} .adm-person`, { hasText: "Zeno" }).click();
+    await seite.waitForSelector(vbox, { timeout: 4000 });
+    await geladenImVerlauf();
+    let v = await verlaufStand();
+    pruefe(v?.runden.length === 6 && v.zahl === "6 Runden",
+      `Zenos Spielverlauf zeigt nicht seine 6 festgehaltenen Runden: ${JSON.stringify(v)}`);
+    pruefe(/6 der 10 Runden/.test(v?.hinweis || ""), `Der Spielverlauf sagt nicht, dass 4 Runden nur in den Summen stehen: ${v?.hinweis}`);
+    // Nach Tagen, die neuesten zuerst: heute 3 Runden, vor drei Tagen 2,
+    // vor vier Tagen 1.
+    pruefe(v?.tage.length === 3 && /3 Runden/.test(v.tage[0]) && /2 Runden/.test(v.tage[1]) && /1 Runde\b/.test(v.tage[2]),
+      `Der Spielverlauf ist nicht nach Tagen gruppiert, die neuesten zuerst: ${JSON.stringify(v?.tage)}`);
+    // Spalten: Uhrzeit, Spiel, Punkte, Dauer, Woher.
+    const [letzte, imTurnier, imMultiplayer] = v?.runden || [];
+    pruefe(/^\d\d:\d\d:\d\d$/.test(letzte?.[0] || "") && letzte?.[1] === "Turmbau" && /^20 /.test(letzte?.[2] || "") && letzte?.[3] === "10 s"
+      && /^App/.test(letzte?.[4] || "") && /ohne Netz/.test(letzte?.[4] || ""),
+      `Die letzte Runde steht nicht mit Uhrzeit, Spiel, Punkten, Dauer und «App · ohne Netz» da: ${JSON.stringify(letzte)}`);
+    pruefe(/^60 .*★$/.test(imTurnier?.[2] || "") && /Turnier · Stillcup/.test(imTurnier?.[4] || ""),
+      `Die Runde im Stillcup steht nicht als bester Turmbau aus dem Turnier da: ${JSON.stringify(imTurnier)}`);
+    pruefe(/^40 .*★$/.test(imMultiplayer?.[2] || "") && imMultiplayer?.[3] === "1:05 min" && /Multiplayer · Herbstcup/.test(imMultiplayer?.[4] || ""),
+      `Die Runde im Multiplayer des Herbstcups ist nicht als solche erkannt: ${JSON.stringify(imMultiplayer)}`);
+    // Filtern: ein Turnier, nur die App, ein Spiel; dann die ältesten zuerst.
+    await seite.locator(`${vbox} select[aria-label="Woher"]`).selectOption(`t:${OHNE_GEGNER}`);
+    v = await verlaufStand();
+    pruefe(v.runden.length === 1 && /Stillcup/.test(v.runden[0][4]) && v.zahl === "1 von 6 Runden",
+      `Nur der Stillcup zeigt: ${JSON.stringify(v.runden)} (${v.zahl})`);
+    await seite.locator(`${vbox} select[aria-label="Woher"]`).selectOption("app");
+    v = await verlaufStand();
+    pruefe(v.runden.length === 4 && v.runden.every((z) => /^App/.test(z[4])), `Nur die App zeigt: ${JSON.stringify(v.runden)}`);
+    await seite.locator(`${vbox} select[aria-label="Woher"]`).selectOption("");
+    await seite.locator(`${vbox} select[aria-label="Welches Spiel"]`).selectOption("fishPond");
+    v = await verlaufStand();
+    pruefe(v.runden.length === 1 && v.runden[0][1] === "Fischteich", `Nur Fischteich zeigt: ${JSON.stringify(v.runden)}`);
+    await seite.locator(`${vbox} select[aria-label="Welches Spiel"]`).selectOption("");
+    await seite.locator(`${vbox} .adm-chip`, { hasText: "Älteste zuerst" }).click();
+    v = await verlaufStand();
+    pruefe(/1 Runde\b/.test(v.tage[0] || "") && /^50 /.test(v.runden[0]?.[2] || ""), `«Älteste zuerst» beginnt nicht mit der ältesten Runde: ${JSON.stringify(v.runden[0])}`);
+    // Der Zeitraum oben gilt auch hier: «Heute» sind die drei von heute.
+    await seite.locator(".adm-dash .adm-zeit .adm-chip", { hasText: "Heute" }).click();
+    await geladenImVerlauf();
+    v = await verlaufStand();
+    pruefe(v.runden.length === 3 && v.tage.length === 1 && !v.hinweis, `Mit «Heute» zeigt der Spielverlauf: ${JSON.stringify(v)}`);
+    await seite.locator(".adm-dash .adm-zeit-weg").click();
+
+    // In seiner Auswertung führt ein Tipp auf ein Turnier zu dem, was er
+    // darin gespielt hat – nur dazu.
+    await seite.locator(".adm-dash .adm-dash-turnier button", { hasText: "Stillcup" }).click();
+    await seite.waitForFunction(() => /Stillcup/.test(document.querySelector(".adm-dash .adm-dash-kopf")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    await geladenImVerlauf();
+    v = await verlaufStand();
+    pruefe(/im Turnier «Stillcup»/.test(v?.titel || "") && v?.runden.length === 1 && /^60 /.test(v.runden[0][2]) && !v.woher,
+      `Zeno im Stillcup zeigt nicht genau seine Runde dort (ohne Spalte «Woher»): ${JSON.stringify(v)}`);
+    pruefe(v?.jeSpiel.length === 1 && /^Turmbau 1\. von 1 60 /.test(v.jeSpiel[0]) && v.kacheln.includes("1 Runden") && v.kacheln.includes("1. Platz von 1"),
+      `Je Spiel im Stillcup: ${JSON.stringify(v?.jeSpiel)} ${JSON.stringify(v?.kacheln)}`);
+    await seite.keyboard.press("Escape");
+    pruefe(await seite.locator(".adm-dash").count() === 0, "Esc schliesst das Fenster eines Spielers im Turnier nicht.");
+
+    // Im Stand eines Turniers ist jeder Name ein Knopf. Zeno im Herbstcup:
+    // nur der Multiplayer – nicht der Stillcup, nicht die App.
+    if (await seite.evaluate(() => Boolean(document.querySelector(".adm-turniere .adm-klapp-inhalt")?.hidden))) {
+      await seite.locator(".adm-turniere .adm-klapp-knopf").click();
+    }
+    const herbstKarte = await waehle("Herbstcup");
+    pruefe(await herbstKarte.locator(".adm-turnier-tabelle tr", { hasText: "Zeno" }).locator("button", { hasText: "Auswertung" }).count() === 1,
+      "Im Stand des Turniers fehlt neben dem Namen der Knopf «Auswertung».");
+    await herbstKarte.locator(".adm-turnier-tabelle .adm-person", { hasText: "Zeno" }).click();
+    await seite.waitForSelector(vbox, { timeout: 4000 });
+    await geladenImVerlauf();
+    v = await verlaufStand();
+    pruefe(/im Turnier «Herbstcup»/.test(v?.titel || "") && v?.runden.length === 1 && v.woher && /Multiplayer · Znachtrunde/.test(v.runden[0][4]),
+      `Zeno im Herbstcup zeigt nicht genau die Runde im Multiplayer: ${JSON.stringify(v)}`);
+    pruefe(v?.jeSpiel.some((z) => /^Multiplayer · Znachtrunde 1\. von 2 40 /.test(z)),
+      `Je Spiel im Herbstcup fehlt der Multiplayer: ${JSON.stringify(v?.jeSpiel)}`);
+    // Und von dort zu allem, was er gespielt hat.
+    await seite.locator(".adm-dash button", { hasText: "Alle Spiele von Zeno" }).click();
+    await seite.waitForFunction(() => !/im Turnier/.test(document.querySelector(".adm-dash .adm-dash-kopf")?.textContent || "x"), null, { timeout: 4000 }).catch(() => {});
+    await geladenImVerlauf();
+    v = await verlaufStand();
+    pruefe(v?.runden.length === 6, `«Alle Spiele von Zeno» zeigt nicht wieder alle seine Runden: ${JSON.stringify(v?.runden)}`);
+
+    // Am Handy: nichts steht über den Rand – woher steht unter dem Spiel,
+    // statt in einer Spalte, die aus dem Bild rollte.
+    await seite.setViewportSize({ width: 390, height: 844 });
+    const handyVerlauf = await seite.evaluate(() => {
+      const dash = document.querySelector(".adm-dash");
+      const wirt = dash.querySelector(".adm-verlauf .adm-tabelle-wirt");
+      return {
+        seite: document.documentElement.scrollWidth - window.innerWidth,
+        fenster: dash.scrollWidth - dash.clientWidth,
+        tabelle: wirt.scrollWidth - wirt.clientWidth,
+        woher: [...dash.querySelectorAll(".adm-verlauf-woher-klein")].filter((m) => m.getClientRects().length).map((m) => m.textContent),
+      };
+    });
+    pruefe(handyVerlauf.seite <= 1 && handyVerlauf.fenster <= 1 && handyVerlauf.tabelle <= 1,
+      `Am Handy steht der Spielverlauf über den Rand: ${JSON.stringify(handyVerlauf)}`);
+    pruefe(handyVerlauf.woher.length === 6 && handyVerlauf.woher.some((w) => /Stillcup/.test(w)),
+      `Am Handy steht nicht bei jeder Runde, woher sie kam: ${JSON.stringify(handyVerlauf.woher)}`);
+    await seite.setViewportSize({ width: 1100, height: 1000 });
     await seite.keyboard.press("Escape");
 
     // Am Handy: der Zeitraum mit seinen Feldern ohne Rollen zur Seite.

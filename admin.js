@@ -7,7 +7,9 @@
  * wegräumen. Dazu zeigt er, was in der Bestenliste steckt: je Spiel, je
  * Spieler (mit einer eigenen Auswertung), nach Tier, Startseite oder
  * Turnier gefiltert – und bei den Spielern nach Zeitraum, aus den einzelnen
- * Runden (miniRunden).
+ * Runden (miniRunden). Dieselben Runden zeigt der Spielverlauf eines
+ * Spielers einzeln, mit Uhrzeit und woher – in seiner Auswertung alle, im
+ * Turnier nur die darin.
  *
  * Wozu das gut ist: Eine Liste, in die jeder ohne Konto schreiben darf, ist
  * irgendwann eine Liste, in der ein Name steht, den man dort nicht haben will.
@@ -2439,12 +2441,23 @@
       const body = el("tbody");
       personen.forEach((person) => {
         const zeile = el("tr");
-        zeile.append(el("td", "adm-name", `${person.platz}. ${person.name}`));
+        // Der Name ist ein Knopf: Er öffnet, was er in diesem Turnier
+        // gespielt hat (zeigeTurnierSpieler) – nur das, nichts aus der App.
+        const nameZelle = el("td", "adm-name");
+        nameZelle.append(`${person.platz}. `);
+        const wer = el("button", "adm-person", person.name);
+        wer.type = "button";
+        wer.title = `Was ${person.name} in «${t.name}» gespielt hat`;
+        wer.addEventListener("click", () => aktion.zeigeSpieler?.(person.name));
+        nameZelle.append(wer);
+        zeile.append(nameZelle);
         // Gezählt wird, was zählt: die Spiele und die Live-Abende des Turniers.
         zeile.append(el("td", "zahl", `${person.gespielt}/${wertung?.teile ?? t.spiele.length}`));
         zeile.append(el("td", "zahl", person.wertText ?? String(person.wert)));
         const zelle = el("td", "adm-aktionen");
         const seine = eintraege.filter((e) => namensSchluessel(e.name) === namensSchluessel(person.name));
+        // Wie bei den Spielern: Am Handy reicht der Name.
+        zelle.append(knopf("Auswertung", "adm-knopf-klein adm-breit", () => aktion.zeigeSpieler?.(person.name)));
         zelle.append(knopf("Entfernen", "adm-knopf-weg", () => {
           if (!window.confirm(`«${person.name}» aus «${t.name}» entfernen – mit ${zahlWort(seine.length, "Eintrag", "Einträgen")}? Das lässt sich nicht rückgängig machen.`)) return;
           aktion.entferne(t, person.name, seine.map((e) => e.id));
@@ -2512,7 +2525,7 @@
     return box;
   }
 
-  function baueTurniere(stand) {
+  function baueTurniere(stand, neuLaden) {
     const bereich = klappBlock("turniere", "Turniere", "adm-turniere");
     const { block, inhalt } = bereich;
     const neuKnopf = knopf("Neues Turnier", "adm-knopf-voll", () => oeffne(null));
@@ -2636,8 +2649,11 @@
         const gruppe = el("section", `adm-turnier-gruppe ist-${art}`);
         gruppe.append(el("h3", "adm-turnier-gruppe-titel", darin.length ? `${ueberschrift} (${darin.length})` : ueberschrift));
         if (!darin.length) gruppe.append(el("p", "adm-hinweis", "Gerade läuft kein Turnier."));
-        darin.forEach(({ t, eintraege, abende }) => gruppe.append(turnierZeile(t, eintraege, {
-          offen: t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne, abende,
+        darin.forEach((s) => gruppe.append(turnierZeile(s.t, s.eintraege, {
+          offen: s.t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne, abende: s.abende,
+          // Ein Tipp auf einen Namen im Stand: was er in diesem Turnier
+          // gespielt hat, Runde für Runde.
+          zeigeSpieler: (name) => zeigeTurnierSpieler(stand, s, name, neuLaden),
         })));
         liste.append(gruppe);
       });
@@ -2663,6 +2679,9 @@
         cloud().turnierErgebnisse(t.id),
         Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
       ]).then(([eintraege, abende]) => ({ t, eintraege, abende: abende || [] }), () => ({ t, eintraege: null, abende: [] }))));
+      // Dieselben Stände braucht die Auswertung eines Spielers: für seine
+      // Plätze in den Turnieren und um jeder Runde ihr Turnier zu geben.
+      stand.turnierStaende = geladen;
       zeichne();
       geladenMelden(turniere);
     }
@@ -3233,6 +3252,395 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Spielverlauf: jede Runde für sich
+  // ---------------------------------------------------------------------------
+  /*
+   * Die Auswertung zählt zusammen – Bestwert, Runden, Spielzeit je Spiel.
+   * Der Spielverlauf zeigt, was dahintersteht: jede Runde aus dem
+   * Rundenprotokoll (miniRunden, cloud.js rundenVonGeraeten), mit Tag und
+   * Uhrzeit auf die Sekunde (wann sie zu Ende war), Spiel, Punkten, Dauer
+   * und woher sie kam – aus der App, einem Turnier oder einem Multiplayer.
+   *
+   * Er steht zweimal: in der Auswertung eines Spielers (alles, was er je
+   * gespielt hat, App und Turniere zusammen) und im Fenster eines Spielers
+   * im Turnier (nur die Runden dieses Turniers, zeigeTurnierSpieler).
+   */
+  const VERLAUF_SEITE = 100;
+  // Ein Ergebnis im Turnier darf bis zehn Minuten nach dem Ende kommen
+  // (firestore.rules) – und eine Uhr, die etwas danebenliegt, gibt es auch.
+  const VORLAUF_MS = 10 * MINUTE;
+  const NACHLAUF_MS = 15 * MINUTE;
+  // Ein Multiplayer ohne Zeit für seinen Endstand (von früher): so lange
+  // nach seinem Beginn gehört eine Runde noch zu ihm.
+  const ABEND_MS = 12 * STUNDE;
+
+  const uhrGenau = (ms) => {
+    const d = new Date(ms);
+    return `${zwei(d.getHours())}:${zwei(d.getMinutes())}:${zwei(d.getSeconds())}`;
+  };
+
+  // Die Dauer einer Runde, genauer als dauerText: 52 s, 3:05 min.
+  function rundenDauer(ms) {
+    const sekunden = Math.round((Number(ms) || 0) / 1000);
+    if (!sekunden) return "–";
+    if (sekunden < 60) return `${sekunden} s`;
+    return `${Math.floor(sekunden / 60)}:${zwei(sekunden % 60)} min`;
+  }
+
+  /*
+   * Die Runden einzelner Geräte, je Gerät einmal gelesen: Wer die
+   * Auswertung zweimal öffnet oder vom Turnier zum Spieler wechselt, liest
+   * sie nicht noch einmal. Nach «Neu laden» und nach jeder Änderung gibt es
+   * einen neuen Stand – und mit ihm frische Runden.
+   */
+  function rundenDerGeraete(stand, kennungen) {
+    const gelesen = stand.rundenJeGeraet;
+    const welche = [...new Set(kennungen)].filter(Boolean);
+    return Promise.all(welche.map((kennung) => {
+      if (!gelesen.has(kennung)) {
+        const frage = Promise.resolve(cloud()?.rundenVonGeraeten?.([kennung]))
+          .then((liste) => (Array.isArray(liste) ? liste : []));
+        // Ging es schief, fragt das nächste Mal noch einmal.
+        frage.catch(() => gelesen.delete(kennung));
+        gelesen.set(kennung, frage);
+      }
+      return gelesen.get(kennung);
+    })).then((listen) => {
+      const schon = new Set();
+      return listen.flat()
+        .filter((r) => !schon.has(r.id) && schon.add(r.id))
+        .sort((a, b) => a.zeitMs - b.zeitMs);
+    });
+  }
+
+  /*
+   * Aus welchem Turnier eine Runde kam. Das Protokoll sagt nur «turnier»
+   * oder «live» (Multiplayer), nicht welches – mehr lassen die Regeln dort
+   * nicht zu. Welches, ergibt sich aus dem, was die Turniere selbst wissen
+   * (stand.turnierStaende: jedes Turnier mit seinen Einträgen und seinen
+   * Multiplayern):
+   *
+   *   turnier   das Spiel gehört zum Turnier, die Runde endete, während es
+   *             lief (bis NACHLAUF_MS danach), und der Spieler hat dort in
+   *             diesem Spiel einen Eintrag – unter derselben Kennung oder
+   *             demselben Namen
+   *   live      ein Multiplayer des Turniers mit diesem Spiel, zwischen
+   *             seinem Beginn und seinem Endstand, und der Spieler steht im
+   *             Endstand
+   *
+   * Eine Runde aus der App gehört nie zu einem Turnier, eine aus einem
+   * Multiplayer ohne Turnier auch nicht. Passen zwei (zwei Turniere zur
+   * selben Zeit mit demselben Spiel, und er spielt in beiden), gilt das, in
+   * dessen eigentliche Zeit sie fällt, dann das mit seiner Kennung, dann
+   * das jüngere.
+   */
+  function turnierZuordnung(staende) {
+    // Wer in welchem Spiel einen Eintrag hat – je Turnier einmal
+    // nachgeschlagen, nicht für jede Runde neu. Sind die Einträge nicht zu
+    // haben (null), genügen Spiel und Zeit.
+    const wer = (liste) => ({
+      kennungen: new Set(liste.map((e) => e.spieler)),
+      namen: new Set(liste.map((e) => namensSchluessel(e.name))),
+    });
+    const liste = (staende || []).filter((s) => s?.t).map(({ t, eintraege, abende }) => ({
+      t,
+      jeSpiel: Array.isArray(eintraege)
+        ? new Map(t.spiele.map((spiel) => [spiel, wer(eintraege.filter((e) => e.game === spiel))]))
+        : null,
+      abende: (abende || []).map((a) => ({ a, ende: a.updatedAtMs || a.erstelltMs + ABEND_MS, ...wer(a.endstand) })),
+    }));
+    return (r, name) => {
+      if (r.quelle !== "turnier" && r.quelle !== "live") return null;
+      const schluessel = namensSchluessel(name);
+      const treffer = [];
+      liste.forEach(({ t, jeSpiel, abende }) => {
+        if (r.quelle === "turnier") {
+          if (!t.spiele.includes(r.game)) return;
+          if (r.zeitMs < t.startMs - VORLAUF_MS || r.zeitMs > t.endeMs + NACHLAUF_MS) return;
+          const hier = jeSpiel?.get(r.game);
+          const kennung = Boolean(hier?.kennungen.has(r.spieler));
+          if (hier && !kennung && !hier.namen.has(schluessel)) return;
+          treffer.push({ t, abend: null, drin: r.zeitMs >= t.startMs && r.zeitMs <= t.endeMs, kennung, ab: t.startMs });
+          return;
+        }
+        abende.forEach(({ a, ende, kennungen, namen }) => {
+          if (a.spiele.length && !a.spiele.includes(r.game)) return;
+          if (r.zeitMs < a.erstelltMs - VORLAUF_MS || r.zeitMs > ende + NACHLAUF_MS) return;
+          const kennung = kennungen.has(r.spieler);
+          if (!kennung && !namen.has(schluessel)) return;
+          treffer.push({ t, abend: a, drin: r.zeitMs >= a.erstelltMs && r.zeitMs <= ende, kennung, ab: a.erstelltMs });
+        });
+      });
+      treffer.sort((a, b) => Number(b.drin) - Number(a.drin) || Number(b.kennung) - Number(a.kennung) || b.ab - a.ab);
+      return treffer[0] ? { t: treffer[0].t, abend: treffer[0].abend } : null;
+    };
+  }
+
+  // Woher eine Runde kam, als Marke. Im Fenster eines Turniers (imTurnier)
+  // steht das Turnier nicht bei jeder Runde noch einmal.
+  function woherMarke(r, imTurnier) {
+    const zu = r.zu;
+    let text = "App";
+    let erklaert = "In der App gespielt";
+    if (r.quelle === "turnier") {
+      text = imTurnier ? "Versuch" : `Turnier · ${zu ? zu.t.name : "?"}`;
+      erklaert = zu ? `Im Turnier «${zu.t.name}» gespielt` : "In einem Turnier gespielt, das hier nicht (mehr) zu finden ist";
+      if (!zu && !imTurnier) text = "Turnier";
+    }
+    if (r.quelle === "live") {
+      text = zu ? `Multiplayer · ${imTurnier ? zu.abend.name : zu.t.name}` : "Multiplayer";
+      erklaert = zu ? `Im Multiplayer «${zu.abend.name}» des Turniers «${zu.t.name}» gespielt` : "In einem Multiplayer gespielt";
+    }
+    const marke = el("span", `adm-marke adm-woher ist-${r.quelle || "app"}`, text);
+    marke.title = erklaert;
+    return marke;
+  }
+
+  /*
+   * Die Liste selbst. Nach Tagen gruppiert, je Tag die Zahl der Runden und
+   * ihre Dauer zusammen; die neuesten zuerst oder die ältesten; je
+   * VERLAUF_SEITE auf einmal, «Weitere zeigen» holt die nächsten. ★ steht
+   * bei der besten Runde je Spiel (der ersten, die diesen Wert erreichte).
+   *
+   * Filtern lässt sich hier nach Spiel, nach woher (App, Turniere,
+   * Multiplayer, ein einzelnes Turnier) und nach Tag. Was darüber gilt
+   * (Tier, Zeitraum, das Turnier), filtert schon, wer die Runden hereingibt
+   * (setze). In jeder Auswahl steht nur, was in den Runden vorkommt, mit der
+   * Zahl der Runden, die mit den übrigen Filtern dazu passen.
+   *
+   *   tage       die Auswahl eines Tags zeigen (im Turnier; die Auswertung
+   *              hat dafür oben den Zeitraum)
+   *   imTurnier  im Fenster eines Turniers: «Versuche» statt «Turniere»,
+   *              keine Auswahl eines einzelnen Turniers, und die Spalte
+   *              «Woher» nur, wenn es Multiplayer-Runden gibt
+   *   bekannt    ob es das Spiel noch gibt
+   */
+  function spielverlauf({ tage: mitTagen = false, imTurnier = false, bekannt = () => true } = {}) {
+    const box = el("section", "adm-dash-teil adm-verlauf");
+    const kopf = el("div", "adm-verlauf-kopf");
+    const zahl = el("span", "adm-block-zahl");
+    kopf.append(el("h3", "", "Spielverlauf"), zahl);
+
+    const auswahl = (wort) => {
+      const s = el("select", "adm-feld adm-filter-wahl");
+      s.setAttribute("aria-label", wort);
+      return s;
+    };
+    const spielWahl = auswahl("Welches Spiel");
+    const woherWahl = auswahl("Woher");
+    const tagWahl = auswahl("Welcher Tag");
+    const reihe = el("div", "adm-filter-tiers");
+    reihe.setAttribute("role", "group");
+    reihe.setAttribute("aria-label", "Reihenfolge");
+    const neueZuerst = knopf("Neueste zuerst", "adm-chip", () => { wahl.neu = true; zeichne(); });
+    const alteZuerst = knopf("Älteste zuerst", "adm-chip", () => { wahl.neu = false; zeichne(); });
+    reihe.append(neueZuerst, alteZuerst);
+    const leiste = el("div", "adm-filter adm-verlauf-filter");
+    leiste.append(spielWahl, woherWahl, tagWahl, reihe);
+
+    const hinweis = el("p", "adm-hinweis adm-verlauf-hinweis");
+    const tabelle = el("table", "adm-tabelle adm-verlauf-tabelle");
+    const kopfZeile = el("tr");
+    const spalten = [["Uhrzeit", ""], ["Spiel", ""], ["Punkte", "zahl"], ["Dauer", "zahl adm-breit"], ["Woher", "adm-verlauf-woher"]]
+      .map(([wort, klasse]) => el("th", klasse, wort));
+    kopfZeile.append(...spalten);
+    const thead = el("thead");
+    thead.append(kopfZeile);
+    const body = el("tbody");
+    tabelle.append(thead, body);
+    const tabellenWirt = el("div", "adm-tabelle-wirt");
+    tabellenWirt.append(tabelle);
+    const weiter = el("div", "adm-kopf-aktionen adm-verlauf-weiter");
+    const mehr = knopf("", "adm-knopf-klein", () => { wieViele += VERLAUF_SEITE; zeichne(); });
+    const alle = knopf("", "adm-knopf-klein", () => { wieViele = Infinity; zeichne(); });
+    weiter.append(mehr, alle);
+    box.append(kopf, leiste, hinweis, tabellenWirt, weiter);
+
+    const wahl = { spiel: "", woher: "", tag: "", neu: true };
+    let wieViele = VERLAUF_SEITE;
+    let lage = { runden: [], laedt: true, fehler: "", hinweis: "", leer: "Noch keine Runde." };
+
+    [[spielWahl, "spiel"], [woherWahl, "woher"], [tagWahl, "tag"]].forEach(([s, schluessel]) => {
+      s.addEventListener("change", () => {
+        wahl[schluessel] = s.value;
+        wieViele = VERLAUF_SEITE;
+        zeichne();
+      });
+    });
+
+    const woherVon = (r) => r.quelle || "app";
+    const tagVon = (r) => String(tagesAnfang(r.zeitMs));
+    // Ob eine Runde zur Auswahl passt – ohne den Filter «ohne», wenn eine
+    // Auswahl ihre eigenen Zahlen zählt.
+    const passtHier = (r, ohne = "") => (ohne === "spiel" || !wahl.spiel || r.game === wahl.spiel)
+      && (ohne === "woher" || !wahl.woher
+        || (wahl.woher.startsWith("t:") ? r.zu?.t.id === wahl.woher.slice(2) : woherVon(r) === wahl.woher))
+      && (ohne === "tag" || !wahl.tag || tagVon(r) === wahl.tag);
+
+    // Eine Auswahl neu füllen: «alle» und je Möglichkeit, wie viele Runden
+    // mit den anderen Filtern dazu passen. Was gewählt war und gar nicht
+    // mehr vorkommt, fällt auf «alle» zurück. Gibt es nur eine Möglichkeit,
+    // steht die Auswahl gar nicht da.
+    function fuelle(s, schluessel, alleText, gruppen) {
+      const option = (wert, text) => {
+        const o = el("option", "", text);
+        o.value = wert;
+        return o;
+      };
+      const knoten = [option("", alleText)];
+      const da = new Set([""]);
+      gruppen.forEach(({ ueber, optionen }) => {
+        if (!optionen.length) return;
+        const gruppe = ueber ? el("optgroup") : null;
+        if (gruppe) gruppe.label = ueber;
+        optionen.forEach(([wert, text, anzahl]) => {
+          da.add(wert);
+          const o = option(wert, `${text} (${anzahl})`);
+          if (gruppe) gruppe.append(o);
+          else knoten.push(o);
+        });
+        if (gruppe) knoten.push(gruppe);
+      });
+      if (!da.has(wahl[schluessel])) wahl[schluessel] = "";
+      s.replaceChildren(...knoten);
+      s.value = wahl[schluessel];
+      s.hidden = da.size <= 2 && !wahl[schluessel];
+    }
+
+    function zeichne() {
+      const runden = lage.runden.slice().sort((a, b) => a.zeitMs - b.zeitMs);
+      neueZuerst.setAttribute("aria-pressed", String(wahl.neu));
+      alteZuerst.setAttribute("aria-pressed", String(!wahl.neu));
+
+      const zaehle = (ohne, test) => runden.reduce((n, r) => n + (test(r) && passtHier(r, ohne) ? 1 : 0), 0);
+      const spiele = [...new Set(runden.map((r) => r.game))]
+        .map((id) => [id, bekannt(id) ? titel(id) : `${id} (kein Spiel mehr)`])
+        .sort((a, b) => a[1].localeCompare(b[1], "de"));
+      fuelle(spielWahl, "spiel", "Alle Spiele", [
+        { optionen: spiele.map(([id, text]) => [id, text, zaehle("spiel", (r) => r.game === id)]) },
+      ]);
+      const arten = [["app", "App"], ["turnier", imTurnier ? "Versuche" : "Turniere"], ["live", "Multiplayer"]]
+        .filter(([art]) => runden.some((r) => woherVon(r) === art));
+      const turniere = new Map();
+      if (!imTurnier) runden.forEach((r) => { if (r.zu) turniere.set(r.zu.t.id, r.zu.t); });
+      fuelle(woherWahl, "woher", imTurnier ? "Versuche und Multiplayer" : "Überall", [
+        { optionen: arten.map(([art, text]) => [art, text, zaehle("woher", (r) => woherVon(r) === art)]) },
+        {
+          ueber: "Ein Turnier",
+          optionen: [...turniere.values()].sort((a, b) => b.startMs - a.startMs)
+            .map((t) => [`t:${t.id}`, t.name, zaehle("woher", (r) => r.zu?.t.id === t.id)]),
+        },
+      ]);
+      const tage = mitTagen ? [...new Set(runden.map(tagVon))].sort((a, b) => Number(b) - Number(a)) : [];
+      fuelle(tagWahl, "tag", "Alle Tage", [
+        { optionen: tage.map((tag) => [tag, datumText(Number(tag)), zaehle("tag", (r) => tagVon(r) === tag)]) },
+      ]);
+      if (!mitTagen) tagWahl.hidden = true;
+
+      const gefiltert = runden.filter((r) => passtHier(r));
+      if (wahl.neu) gefiltert.reverse();
+      zahl.textContent = lage.laedt ? "" : gefiltert.length === runden.length
+        ? zahlWort(runden.length, "Runde", "Runden")
+        : `${gefiltert.length} von ${zahlWort(runden.length, "Runde", "Runden")}`;
+      leiste.hidden = lage.laedt || Boolean(lage.fehler) || !runden.length;
+      hinweis.textContent = lage.hinweis || "";
+      hinweis.hidden = !lage.hinweis;
+      // Im Turnier ohne Multiplayer wäre «Woher» bei jeder Runde dasselbe.
+      const mitWoher = !imTurnier || runden.some((r) => r.quelle === "live");
+      tabelle.classList.toggle("ohne-woher", !mitWoher);
+
+      // Die beste Runde je Spiel: die erste mit dem höchsten Wert.
+      const beste = new Map();
+      runden.forEach((r) => { if (!beste.has(r.game) || r.punkte > beste.get(r.game).punkte) beste.set(r.game, r); });
+
+      body.replaceChildren();
+      const ganzeZeile = (klasse, inhalt) => {
+        const tr = el("tr", klasse);
+        const td = el("td");
+        td.colSpan = spalten.length;
+        td.append(...(Array.isArray(inhalt) ? inhalt : [inhalt]));
+        tr.append(td);
+        body.append(tr);
+      };
+      if (lage.laedt) ganzeZeile("adm-leer", "Die Runden werden geladen …");
+      else if (lage.fehler) ganzeZeile("adm-leer", `Die Runden sind nicht zu haben: ${lage.fehler}`);
+      else if (!gefiltert.length) ganzeZeile("adm-leer", runden.length ? "Keine Runde passt zu dieser Auswahl." : lage.leer);
+
+      // Je Tag: wie viele Runden und wie lange – alle, die passen, nicht nur
+      // die gezeigten.
+      const jeTag = new Map();
+      gefiltert.forEach((r) => {
+        const summe = jeTag.get(tagVon(r)) || { runden: 0, ms: 0 };
+        summe.runden += 1;
+        summe.ms += r.ms;
+        jeTag.set(tagVon(r), summe);
+      });
+      let tagDavor = "";
+      if (!lage.laedt && !lage.fehler) gefiltert.slice(0, wieViele).forEach((r) => {
+        const tag = tagVon(r);
+        if (tag !== tagDavor) {
+          tagDavor = tag;
+          const summe = jeTag.get(tag);
+          ganzeZeile("adm-verlauf-tag", [
+            el("strong", "", datumText(r.zeitMs)),
+            el("span", "", ` · ${zahlWort(summe.runden, "Runde", "Runden")}${summe.ms ? ` · ${dauerText(summe.ms)}` : ""}`),
+          ]);
+        }
+        const tr = el("tr");
+        const uhr = el("td", "adm-verlauf-uhr", uhrGenau(r.zeitMs));
+        uhr.title = r.ms
+          ? `Begonnen ${uhrGenau(r.zeitMs - r.ms)}, zu Ende ${uhrGenau(r.zeitMs)}`
+          : `Zu Ende ${uhrGenau(r.zeitMs)}`;
+        const spiel = el("td", "adm-verlauf-spiel");
+        // Am Handy steht «woher» unter dem Spiel, nicht in einer eigenen
+        // Spalte, die aus dem Bild rollte.
+        const kleinWoher = woherMarke(r, imTurnier);
+        kleinWoher.classList.add("adm-verlauf-woher-klein");
+        spiel.append(spielName(r.game, bekannt(r.game)), kleinWoher);
+        const punkte = el("td", "zahl adm-verlauf-punkte", `${r.punkte} ${einheit(r.game)}`);
+        if (beste.get(r.game) === r && r.punkte > 0) {
+          const stern = el("span", "adm-verlauf-best", "★");
+          stern.title = "Die beste dieser Runden in diesem Spiel";
+          punkte.append(stern);
+        }
+        const dauer = el("td", "zahl adm-breit", rundenDauer(r.ms));
+        const woher = el("td", "adm-verlauf-woher");
+        woher.append(woherMarke(r, imTurnier));
+        if (r.offline) {
+          const ohneNetz = el("small", "adm-von adm-verlauf-offline", "ohne Netz");
+          ohneNetz.title = "Ohne Netz gespielt und später hochgeladen – die Uhrzeit ist die der Runde";
+          woher.append(ohneNetz);
+        }
+        tr.append(uhr, spiel, punkte, dauer, woher);
+        body.append(tr);
+      });
+
+      const rest = Math.max(0, gefiltert.length - wieViele);
+      weiter.hidden = lage.laedt || Boolean(lage.fehler) || !rest;
+      mehr.textContent = `Weitere ${Math.min(VERLAUF_SEITE, rest)} zeigen`;
+      alle.textContent = `Alle ${gefiltert.length} zeigen`;
+      alle.hidden = rest <= VERLAUF_SEITE;
+    }
+
+    // Neue Runden (oder ein anderer Filter darüber): wieder von vorn, die
+    // ersten VERLAUF_SEITE.
+    function setze(neu) {
+      lage = { ...lage, ...neu };
+      wieViele = VERLAUF_SEITE;
+      zeichne();
+    }
+    zeichne();
+    return { box, setze };
+  }
+
+  // Eine Zahl oben im Fenster (Auswertung, Spieler im Turnier).
+  function dashKachel(wert, wort) {
+    const box = el("div");
+    box.append(el("strong", "", String(wert)), el("span", "", wort));
+    return box;
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Auswertung eines Spielers
   // ---------------------------------------------------------------------------
   /*
@@ -3251,6 +3659,59 @@
    */
   let dashboard = null;
 
+  /*
+   * Das Fenster über dem Adminbereich – für die Auswertung eines Spielers
+   * und für einen Spieler im Turnier. Esc, ein Tipp daneben oder
+   * «Schliessen» machen es zu, und der Fokus geht dorthin zurück, wo er
+   * vorher war. Offen ist immer nur eines (dashboard): Wer ein zweites
+   * öffnet, schliesst das erste. schluessel ist der Name, dessen Auswertung
+   * nach «Neu laden» wieder aufgehen soll (neuLaden) – ein Turnier hat
+   * keinen.
+   */
+  function dashFenster({ titelText, unter, schluessel = null, beimSchliessen = () => {} }) {
+    dashboard?.zu({ still: true });
+    const huelle = el("div", "adm-dash-huelle");
+    const karte = el("article", "adm-dash");
+    karte.setAttribute("role", "dialog");
+    karte.setAttribute("aria-modal", "true");
+    karte.setAttribute("aria-labelledby", "adm-dash-titel");
+    karte.tabIndex = -1;
+
+    const kopf = el("header", "adm-dash-kopf");
+    const links = el("div");
+    const ueberschrift = el("h2", "adm-dash-titel", titelText);
+    ueberschrift.id = "adm-dash-titel";
+    links.append(ueberschrift, el("p", "adm-klein", unter));
+    kopf.append(links, knopf("Schliessen", "adm-knopf-hell adm-dash-zu", () => schliessen()));
+    karte.append(kopf);
+    huelle.append(karte);
+
+    const vorher = document.activeElement;
+    const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
+    huelle.addEventListener("click", (ereignis) => { if (ereignis.target === huelle) schliessen(); });
+    const fenster = { schluessel, zu: schliessen };
+    function schliessen({ still = false } = {}) {
+      document.removeEventListener("keydown", taste);
+      beimSchliessen();
+      huelle.remove();
+      document.body.classList.remove("adm-dash-offen");
+      if (dashboard === fenster) dashboard = null;
+      if (!still) vorher?.focus?.({ preventScroll: true });
+    }
+    return {
+      karte,
+      links,
+      offen: () => huelle.isConnected,
+      zeige() {
+        document.addEventListener("keydown", taste);
+        document.body.classList.add("adm-dash-offen");
+        document.body.append(huelle);
+        karte.focus({ preventScroll: true });
+        dashboard = fenster;
+      },
+    };
+  }
+
   function zeigeAuswertung(stand, schluessel, neuLaden) {
     dashboard?.zu({ still: true });
     // Seine Einträge in miniScores. Hat er nur noch Runden (der Eintrag ist
@@ -3262,27 +3723,26 @@
     if (!seine.length) return;
     const name = seine[0].name;
     const geraete = new Set(seine.map((e) => e.spieler)).size;
-
-    const huelle = el("div", "adm-dash-huelle");
-    const karte = el("article", "adm-dash");
-    karte.setAttribute("role", "dialog");
-    karte.setAttribute("aria-modal", "true");
-    karte.setAttribute("aria-labelledby", "adm-dash-titel");
-    karte.tabIndex = -1;
-
-    const kopf = el("header", "adm-dash-kopf");
-    const links = el("div");
-    const ueberschrift = el("h2", "adm-dash-titel", name);
-    ueberschrift.id = "adm-dash-titel";
     const seit = zuerstVon(seine);
-    links.append(ueberschrift, el("p", "adm-klein", [
-      geraete > 1 ? `auf ${geraete} Geräten` : "auf einem Gerät",
-      seit ? `zum ersten Mal ${wann(seit)}` : "",
-      `zuletzt ${wann(zuletztVon(seine))}`,
-    ].filter(Boolean).join(" · ")));
-    kopf.append(links, knopf("Schliessen", "adm-knopf-hell adm-dash-zu", () => schliessen()));
 
     const filter = filterLeiste(stand);
+    const zeit = zeitLeiste(stand);
+    const fenster = dashFenster({
+      titelText: name,
+      unter: [
+        geraete > 1 ? `auf ${geraete} Geräten` : "auf einem Gerät",
+        seit ? `zum ersten Mal ${wann(seit)}` : "",
+        `zuletzt ${wann(zuletztVon(seine))}`,
+      ].filter(Boolean).join(" · "),
+      schluessel,
+      beimSchliessen: () => {
+        stand.hoerer.delete(zeichne);
+        filter.weg();
+        zeit.weg();
+      },
+    });
+    const { karte } = fenster;
+
     const zahlen = el("div", "adm-streifen adm-dash-zahlen");
 
     const teil = (ueber) => {
@@ -3333,6 +3793,10 @@
     const turnierListe = el("div", "adm-dash-turniere");
     turniere.append(turnierListe);
 
+    // Jede Runde für sich (spielverlauf): alle seine Geräte, App und
+    // Turniere zusammen – mit dem Filter und dem Zeitraum oben.
+    const verlauf = spielverlauf({ bekannt: (id) => stand.bekannte.includes(id) });
+
     const aufraeumen = teil("Aufräumen");
     const aktionen = el("div", "adm-kopf-aktionen");
     aktionen.append(knopf("Namen ändern", "adm-knopf-klein", async () => {
@@ -3358,9 +3822,7 @@
     }));
     aufraeumen.append(aktionen);
 
-    const zeit = zeitLeiste(stand);
-    karte.append(kopf, filter.leiste, zeit.leiste, zahlen, jeSpiel, turniere, aufraeumen);
-    huelle.append(karte);
+    karte.append(filter.leiste, zeit.leiste, zahlen, jeSpiel, turniere, verlauf.box, aufraeumen);
 
     // Je Spiel eine Zeile, aus dem, woraus gerade gerechnet wird: den
     // Einträgen in miniScores oder den Runden des Zeitraums. Der Platz ist
@@ -3396,80 +3858,277 @@
       });
     }
 
+    // Seine Runden, sobald sie gelesen sind (ladeVerlauf): alle seiner
+    // Geräte, und jede mit dem Turnier, aus dem sie kam (zu).
+    let alleRunden = null;
+    let verlaufFehler = "";
+
     function zeichne() {
       const daten = zeilen();
       const moeglich = alleSpiele(stand).filter((spiel) => passt(stand, spiel)).length;
       const schnitt = daten.length ? daten.reduce((summe, z) => summe + z.platz, 0) / daten.length : 0;
-      const kachel = (wert, wort) => {
-        const box = el("div");
-        box.append(el("strong", "", String(wert)), el("span", "", wort));
-        return box;
-      };
+      const gezaehlt = daten.reduce((summe, z) => summe + z.runden, 0);
       zahlen.replaceChildren(
-        kachel(daten.length, `von ${zahlWort(moeglich, "Spiel", "Spielen")} gespielt`),
-        kachel(daten.reduce((summe, z) => summe + z.runden, 0), "Runden"),
-        kachel(dauerText(daten.reduce((summe, z) => summe + z.zeit, 0)), "Spielzeit"),
-        kachel(daten.length ? schnitt.toFixed(1) : "–", "Platz im Schnitt"),
-        kachel(daten.filter((z) => z.platz === 1).length, "1. Plätze"),
-        kachel(daten.filter((z) => z.platz <= 3).length, "Podestplätze"),
+        dashKachel(daten.length, `von ${zahlWort(moeglich, "Spiel", "Spielen")} gespielt`),
+        dashKachel(gezaehlt, "Runden"),
+        dashKachel(dauerText(daten.reduce((summe, z) => summe + z.zeit, 0)), "Spielzeit"),
+        dashKachel(daten.length ? schnitt.toFixed(1) : "–", "Platz im Schnitt"),
+        dashKachel(daten.filter((z) => z.platz === 1).length, "1. Plätze"),
+        dashKachel(daten.filter((z) => z.platz <= 3).length, "Podestplätze"),
       );
       tabelle.zeige(daten);
+      zeichneVerlauf(gezaehlt);
     }
 
-    // In welchen Turnieren er mitspielt und auf welchem Platz: gelesen erst
-    // hier, wenn das Fenster aufgeht – für die Liste oben braucht es das nicht.
+    // Seine Runden – die zu seinen Einträgen und, wo ein Eintrag fehlt, die
+    // unter seinem Namen –, mit dem Filter und dem Zeitraum oben.
+    function zeichneVerlauf(gezaehlt) {
+      if (!alleRunden) {
+        verlauf.setze({ laedt: true });
+        return;
+      }
+      const ids = new Set([...seine, ...vonIhm(stand.zeit.eintraege || [])].map((e) => e.id));
+      const eintragDa = new Set(stand.alle.map((e) => e.id));
+      const raum = stand.zeit.raum;
+      const runden = alleRunden
+        .filter((r) => {
+          const id = `${r.game}_${r.spieler}`;
+          return ids.has(id) || (!eintragDa.has(id) && schluesselVon(r.name) === schluessel);
+        })
+        .filter((r) => passt(stand, r.game) && (!raum || (r.zeitMs >= raum.vonMs && r.zeitMs <= raum.bisMs)));
+      // Bei allen Zeit zählen die Summen auch, was vor dem Rundenprotokoll
+      // gespielt wurde – das steht hier nicht einzeln.
+      let hinweis = "";
+      const fehlt = gezaehlt - runden.length;
+      if (!raum && !verlaufFehler && fehlt > 0) {
+        hinweis = `Einzeln festgehalten sind ${runden.length} der ${gezaehlt} Runden. `
+          + `${fehlt === 1 ? "Die übrige wurde" : `Die übrigen ${fehlt} wurden`} gespielt, bevor jede Runde mit ihrer Uhrzeit gespeichert wurde, `
+          + `und ${fehlt === 1 ? "zählt" : "zählen"} nur in den Zahlen oben.`;
+      }
+      verlauf.setze({
+        runden,
+        laedt: false,
+        fehler: verlaufFehler,
+        hinweis,
+        leer: raum ? "In diesem Zeitraum hat er oder sie nicht gespielt." : "Noch keine Runde mit Uhrzeit festgehalten.",
+      });
+    }
+
+    async function ladeVerlauf() {
+      const kennungen = [...seine, ...vonIhm(stand.zeit.eintraege || [])].map((e) => e.spieler);
+      try {
+        const [runden] = await Promise.all([rundenDerGeraete(stand, kennungen), stand.turniereBereit]);
+        const zuordnung = turnierZuordnung(stand.turnierStaende);
+        alleRunden = runden.map((r) => ({ ...r, zu: zuordnung(r, name) }));
+      } catch (fehler) {
+        alleRunden = [];
+        verlaufFehler = fehlerText(fehler);
+      }
+      if (fenster.offen()) zeichne();
+    }
+
+    // In welchen Turnieren er mitspielt und auf welchem Platz – aus dem, was
+    // der Bereich «Turniere» gelesen hat (stand.turnierStaende). Ein Tipp
+    // auf ein Turnier zeigt, was er darin gespielt hat (zeigeTurnierSpieler).
     async function ladeTurniere() {
       turnierListe.replaceChildren(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
       await stand.turniereBereit;
-      const funde = await Promise.all(stand.turniere.map(async (t) => {
-        try {
-          const [eintraege, abende] = await Promise.all([
-            cloud().turnierErgebnisse(t.id),
-            Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
-          ]);
-          const wertung = tn()?.gesamtwertung?.(t, eintraege || [], abende || []);
-          const p = wertung?.personen?.find((x) => schluesselVon(x.name) === schluessel);
-          return p ? { t, platz: p.platz, von: wertung.personen.length, gespielt: p.gespielt, teile: wertung.teile } : null;
-        } catch { return null; }
-      }));
-      if (!huelle.isConnected) return;
-      const dabei = funde.filter(Boolean).sort((a, b) => (b.t.startMs || 0) - (a.t.startMs || 0));
+      if (!fenster.offen()) return;
+      const dabei = (stand.turnierStaende || []).map((s) => {
+        if (!Array.isArray(s.eintraege)) return null;
+        const wertung = tn()?.gesamtwertung?.(s.t, s.eintraege, s.abende || []);
+        const p = wertung?.personen?.find((x) => schluesselVon(x.name) === schluessel);
+        return p ? { s, p, von: wertung.personen.length, teile: wertung.teile } : null;
+      }).filter(Boolean).sort((a, b) => (b.s.t.startMs || 0) - (a.s.t.startMs || 0));
       turnierListe.replaceChildren();
       if (!dabei.length) {
         turnierListe.append(el("p", "adm-hinweis", "In keinem Turnier dabei."));
         return;
       }
-      dabei.forEach(({ t, platz, von, gespielt, teile }) => {
+      dabei.forEach(({ s, p, von, teile }) => {
+        const { t } = s;
         const lage = tn()?.lage?.(t) || "laeuft";
         const zeile = el("div", "adm-dash-turnier");
-        zeile.append(platzMarke(platz, von), el("strong", "", t.name), el("span", `adm-marke ist-${lage}`, tn()?.statusText?.(t) || LAGE_WORT[lage]));
-        zeile.append(el("span", "adm-klein", `${gespielt} von ${zahlWort(teile, "Teil", "Teilen")} gespielt`));
+        const oeffnen = el("button", "adm-person", t.name);
+        oeffnen.type = "button";
+        oeffnen.title = `Was ${p.name} in «${t.name}» gespielt hat`;
+        oeffnen.addEventListener("click", () => zeigeTurnierSpieler(stand, s, p.name, neuLaden));
+        zeile.append(platzMarke(p.platz, von), oeffnen, el("span", `adm-marke ist-${lage}`, tn()?.statusText?.(t) || LAGE_WORT[lage]));
+        zeile.append(el("span", "adm-klein", `${p.gespielt} von ${zahlWort(teile, "Teil", "Teilen")} gespielt`));
         turnierListe.append(zeile);
       });
-    }
-
-    const vorher = document.activeElement;
-    const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
-    huelle.addEventListener("click", (ereignis) => { if (ereignis.target === huelle) schliessen(); });
-    function schliessen({ still = false } = {}) {
-      document.removeEventListener("keydown", taste);
-      stand.hoerer.delete(zeichne);
-      filter.weg();
-      zeit.weg();
-      huelle.remove();
-      document.body.classList.remove("adm-dash-offen");
-      if (dashboard?.zu === schliessen) dashboard = null;
-      if (!still) vorher?.focus?.({ preventScroll: true });
     }
 
     stand.hoerer.add(zeichne);
     zeichne();
     ladeTurniere();
-    document.addEventListener("keydown", taste);
-    document.body.classList.add("adm-dash-offen");
-    document.body.append(huelle);
-    karte.focus({ preventScroll: true });
-    dashboard = { schluessel, zu: schliessen };
+    ladeVerlauf();
+    fenster.zeige();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ein Spieler im Turnier
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Tipp auf einen Namen im Stand eines Turniers (oder auf das Turnier
+   * in der Auswertung eines Spielers): dasselbe Fenster wie die Auswertung,
+   * aber nur mit dem, was in diesem Turnier geschah – sein Platz, je Spiel
+   * und Multiplayer sein Stand dort, und jede Runde, die er darin spielte
+   * (turnierZuordnung). Runden aus der App und aus anderen Turnieren stehen
+   * hier nicht; die zeigt «Alle Spiele von …», seine ganze Auswertung.
+   *
+   *   s   { t, eintraege, abende } – das Turnier, wie der Bereich
+   *       «Turniere» es gelesen hat
+   */
+  function zeigeTurnierSpieler(stand, s, personName, neuLaden) {
+    const { t } = s;
+    const eintraege = Array.isArray(s.eintraege) ? s.eintraege : [];
+    const abende = s.abende || [];
+    const wer = namensSchluessel(personName);
+    const wertung = tn()?.gesamtwertung?.(t, eintraege, abende) || { personen: [], listen: new Map(), abende: [], teile: t.spiele.length };
+    const person = wertung.personen.find((p) => namensSchluessel(p.name) === wer) || null;
+    const name = person?.name || personName;
+    const seine = eintraege.filter((e) => namensSchluessel(e.name) === wer);
+    const seineAbende = abende
+      .map((a) => ({ a, e: a.endstand.find((x) => namensSchluessel(x.name) === wer) }))
+      .filter(({ e }) => e);
+    // Unter diesen Kennungen spielte er im Turnier – und unter denen seiner
+    // Einträge in der App liegen seine Runden, falls sie beim
+    // Zusammenführen umgezogen sind.
+    const imTurnier = new Set([...seine.map((e) => e.spieler), ...seineAbende.map(({ e }) => e.spieler)].filter(Boolean));
+    const inDerApp = stand.alle.filter((e) => namensSchluessel(e.name) === wer);
+
+    const fenster = dashFenster({
+      titelText: name,
+      unter: [`im Turnier «${t.name}»`, tn()?.zeitraum?.(t) || "", tn()?.statusText?.(t) || ""].filter(Boolean).join(" · "),
+    });
+    const { karte, links } = fenster;
+    if (inDerApp.length) {
+      const ganz = knopf(`Alle Spiele von ${name}`, "adm-knopf-klein adm-dash-weiter", () => zeigeAuswertung(stand, schluesselVon(name), neuLaden));
+      ganz.title = "Seine ganze Auswertung: App und alle Turniere";
+      links.append(ganz);
+    }
+
+    const zahlen = el("div", "adm-streifen adm-dash-zahlen");
+    const jeSpiel = el("section", "adm-dash-teil");
+    jeSpiel.append(el("h3", "", "Je Spiel im Turnier"));
+    const spiele = t.nurLive ? [] : t.spiele;
+    const summe = t.zaehlt === "summe";
+    const tabelle = sortierTabelle("turnierspieler", [
+      {
+        key: "spiel", titel: "Spiel", wert: (z) => z.titel,
+        zelle: (z) => {
+          if (!z.abend) return spielName(z.id, stand.bekannte.includes(z.id));
+          const wort = el("span", "adm-spielname");
+          wort.append(el("span", "adm-punkt adm-punkt-live"), el("span", "", `Multiplayer · ${z.abend.name}`));
+          return wort;
+        },
+      },
+      { key: "platz", titel: "Platz", zahl: true, wert: (z) => z.platz || 9999, zelle: (z) => (z.platz ? platzMarke(z.platz, z.von) : "–") },
+      { key: "punkte", titel: summe ? "Punkte" : "Bestwert", zahl: true, ab: true, wert: (z) => z.punkte, zelle: (z) => (z.punkte === null ? "–" : `${z.punkte} ${z.abend ? "Punkte" : einheit(z.id)}`) },
+      { key: "versuche", titel: "Versuche", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.versuche, zelle: (z) => (z.abend ? "–" : String(z.versuche)) },
+      { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden ?? -1, zelle: (z) => (z.runden === null ? "…" : String(z.runden)) },
+      { key: "zeit", titel: "Spielzeit", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zeit, zelle: (z) => (z.runden === null ? "…" : dauerText(z.zeit)) },
+      { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, klasse: "adm-breit", wert: (z) => z.zuletzt, zelle: (z) => wannKurz(z.zuletzt) },
+    ], {
+      standard: { key: "platz", ab: false },
+      leer: "In diesem Turnier hat er oder sie noch nichts gespielt.",
+    });
+    jeSpiel.append(tabelle.wirt);
+    const verlauf = spielverlauf({ tage: true, imTurnier: true, bekannt: (id) => stand.bekannte.includes(id) });
+    karte.append(zahlen, jeSpiel, verlauf.box);
+
+    // Seine Runden in diesem Turnier, sobald sie gelesen sind.
+    let runden = null;
+    let fehler = "";
+
+    function zeichne() {
+      const rundenIn = (test) => (runden ? runden.filter(test) : null);
+      const zahlenVon = (liste, zuletzt = 0) => ({
+        runden: liste ? liste.length : null,
+        zeit: liste ? liste.reduce((n, r) => n + r.ms, 0) : 0,
+        zuletzt: Math.max(zuletzt, ...(liste || []).map((r) => r.zeitMs)),
+      });
+      const daten = [
+        ...spiele.filter((spiel) => person?.je?.[spiel] || seine.some((e) => e.game === spiel) || runden?.some((r) => r.game === spiel && r.quelle === "turnier"))
+          .map((spiel) => {
+            const je = person?.je?.[spiel];
+            const hier = seine.filter((e) => e.game === spiel);
+            return {
+              id: spiel,
+              titel: titel(spiel),
+              abend: null,
+              platz: je?.platz || 0,
+              von: wertung.listen.get(spiel)?.length || 0,
+              punkte: je ? je.punkte : hier.length ? Math.max(...hier.map((e) => e.punkte)) : null,
+              versuche: hier.reduce((n, e) => n + (Number(e.versuche) || 0), 0),
+              ...zahlenVon(rundenIn((r) => r.game === spiel && r.quelle === "turnier"), Math.max(0, ...hier.map((e) => Number(e.updatedAtMs) || 0))),
+            };
+          }),
+        ...seineAbende.map(({ a, e }) => ({
+          id: a.id,
+          titel: `Multiplayer ${a.name}`,
+          abend: a,
+          platz: e.platz,
+          von: a.endstand.length,
+          punkte: e.punkte,
+          versuche: 0,
+          ...zahlenVon(rundenIn((r) => r.zu?.abend?.id === a.id), a.updatedAtMs || a.erstelltMs),
+        })),
+      ];
+      const alleRunden = runden || [];
+      zahlen.replaceChildren(
+        dashKachel(person ? `${person.platz}.` : "–", `Platz von ${wertung.personen.length}`),
+        dashKachel(`${person?.gespielt || 0}/${wertung.teile}`, wertung.abende.length ? "Spiele und Multiplayer" : "Spiele gespielt"),
+        dashKachel(person ? person.wertText : "–", t.wertung === "prozent" ? "Ø von 100" : "Platz im Schnitt"),
+        dashKachel(runden ? alleRunden.length : "…", "Runden"),
+        dashKachel(runden ? dauerText(alleRunden.reduce((n, r) => n + r.ms, 0)) : "…", "Spielzeit"),
+      );
+      tabelle.zeige(daten);
+      if (!runden) {
+        verlauf.setze({ laedt: true });
+        return;
+      }
+      const versuche = seine.reduce((n, e) => n + (Number(e.versuche) || 0), 0);
+      const versuchRunden = alleRunden.filter((r) => r.quelle === "turnier").length;
+      const fehlt = versuche - versuchRunden;
+      verlauf.setze({
+        runden: alleRunden,
+        laedt: false,
+        fehler,
+        // Ein Versuch zählt im Turnier, sobald er beginnt – eine Runde steht
+        // erst da, wenn sie zu Ende ist (oder wurde gespielt, bevor es das
+        // Rundenprotokoll gab).
+        hinweis: !fehler && fehlt > 0
+          ? `${zahlWort(versuche, "Versuch", "Versuche")} begonnen, ${zahlWort(versuchRunden, "Runde", "Runden")} davon mit Uhrzeit festgehalten. `
+            + "Was fehlt, läuft noch, wurde abgebrochen oder gespielt, bevor jede Runde gespeichert wurde."
+          : "",
+        leer: "In diesem Turnier ist von ihm oder ihr noch keine Runde festgehalten.",
+      });
+    }
+
+    async function ladeRunden() {
+      try {
+        const alle = await rundenDerGeraete(stand, [...imTurnier, ...inDerApp.map((e) => e.spieler)]);
+        // Wem eine Runde gehört: dem Namen ihres Eintrags in der App – oder
+        // ihm, wenn sie unter einer Kennung liegt, mit der er im Turnier
+        // spielte.
+        const eintragName = new Map(stand.alle.map((e) => [e.id, e.name]));
+        const zuordnung = turnierZuordnung(stand.turnierStaende?.length ? stand.turnierStaende : [s]);
+        runden = alle
+          .filter((r) => r.quelle && (imTurnier.has(r.spieler) || namensSchluessel(eintragName.get(`${r.game}_${r.spieler}`) ?? r.name) === wer))
+          .map((r) => ({ ...r, zu: zuordnung(r, name) }))
+          .filter((r) => r.zu?.t.id === t.id);
+      } catch (f) {
+        runden = [];
+        fehler = fehlerText(f);
+      }
+      if (fenster.offen()) zeichne();
+    }
+
+    zeichne();
+    ladeRunden();
+    fenster.zeige();
   }
 
   // ---------------------------------------------------------------------------
@@ -3549,6 +4208,10 @@
       turniere: [],
       turniereGeladen: false,
       zeit: neueZeit(),
+      // Die Runden je Gerät für den Spielverlauf (rundenDerGeraete) und die
+      // Turniere mit ihren Einträgen und Multiplayern (baueTurniere).
+      rundenJeGeraet: new Map(),
+      turnierStaende: [],
       hoerer: new Set(),
       melde() {
         merkeAnsicht();
@@ -3569,7 +4232,7 @@
     };
 
     wirt.append(kacheln(stand));
-    wirt.append(baueTurniere(stand).block);
+    wirt.append(baueTurniere(stand, neuLaden).block);
     wirt.append(baueAuswahl(stand).block);
     wirt.append(baueSpieler(stand, neuLaden).block);
     wirt.append(baueSpiele(stand, neuLaden).block);

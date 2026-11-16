@@ -49,7 +49,8 @@
  *                                 Runde auf der Spielseite selbst
  *
  * Lesen darf sie nur der Admin: Er fragt damit, wer in einem Zeitraum was
- * gespielt hat (admin.js, Zeitraum). Was vor dieser Sammlung gespielt wurde,
+ * gespielt hat (admin.js, Zeitraum), und sieht je Spieler jede Runde für
+ * sich (admin.js, Spielverlauf). Was vor dieser Sammlung gespielt wurde,
  * steht nur in den Summen.
  *
  * Und welche Spiele offen sind und wie der Admin sie einteilt:
@@ -742,6 +743,7 @@
       ms: Math.max(0, Math.min(RUNDE_MS, Math.round(Number(d.ms) || 0))),
       zeitMs,
       quelle: d.quelle === "turnier" || d.quelle === "live" ? d.quelle : "",
+      offline: d.offline === true,
     };
   }
 
@@ -774,6 +776,30 @@
     let ms = 0;
     stand.forEach((doc) => { ms = liesRunde(doc)?.zeitMs || 0; });
     return ms;
+  }
+
+  /*
+   * Alle Runden der genannten Geräte, in allen Spielen, nach der Zeit – für
+   * den Spielverlauf eines Spielers im Adminbereich (admin.js,
+   * spielverlauf): jede Runde für sich, mit Uhrzeit, Punkten und woher.
+   * Gefragt wird je Gerät nach dem Gerät allein (ein Feld, kein Index), Seite
+   * für Seite, höchstens MAX_RUNDEN je Gerät.
+   */
+  async function rundenVonGeraeten(kennungen) {
+    const ref = rundenSammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const welche = [...new Set((kennungen || []).map((k) => String(k || "").trim()).filter(Boolean))];
+    const listen = await Promise.all(welche.map(async (wer) => {
+      let frage = ref.where("spieler", "==", wer).limit(RUNDEN_SEITE);
+      const liste = [];
+      for (;;) {
+        const seite = await frage.get();
+        liste.push(...sammle(seite, liesRunde));
+        if (seite.size < RUNDEN_SEITE || liste.length >= MAX_RUNDEN) return liste.slice(0, MAX_RUNDEN);
+        frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+      }
+    }));
+    return listen.flat().sort((a, b) => a.zeitMs - b.zeitMs);
   }
 
   // Die Runden eines Geräts in den genannten Spielen. Gefragt wird nach dem
@@ -937,6 +963,9 @@
       runden: Math.max(0, Math.round(Number(d.runden) || 0)),
       spiele: Array.isArray(d.spiele) ? d.spiele.map(String) : [],
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
+      // Wann der Endstand kam, also wann der Multiplayer zu Ende war – der
+      // Adminbereich ordnet damit die Runden darin dem Turnier zu.
+      updatedAtMs: Math.round(Number(d.updatedAtMs) || 0),
     };
   }
 
@@ -1710,7 +1739,7 @@
     projektId: firebaseConfig.projectId,
     ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen, vonKennung, umzug, setzeUmzuege,
     speichereGeist, geister,
-    runden, ersteRunde, loescheRunden, zieheRundenUm,
+    runden, ersteRunde, rundenVonGeraeten, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,

@@ -5253,8 +5253,58 @@ body.adm-dash-offen { overflow: hidden; }
 .adm-dash-turniere { display: flex; flex-direction: column; gap: 6px; }
 .adm-dash-turnier { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .adm-dash-turnier .adm-klein { margin: 0; }
+/* «Alle Spiele von …» im Fenster eines Spielers im Turnier, unter dem Satz
+   im Kopf. */
+.adm-dash-weiter { margin-top: 8px; }
 @media (max-width: 620px) {
   .adm-dash { border-radius: 0; min-height: 100%; margin: 0; }
+}
+
+/* --- Der Spielverlauf (admin.js, spielverlauf) ----------------------------- */
+/* Jede Runde für sich, nach Tagen gruppiert: Uhrzeit, Spiel, Punkte, Dauer,
+   woher. Die Zeile eines Tags trennt, ohne selbst eine Runde zu sein. */
+.adm-verlauf-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.adm-verlauf-filter .adm-filter-wahl { flex: 0 1 230px; }
+.adm-verlauf-hinweis { margin: 0; font-size: 0.85rem; max-width: 70ch; }
+.adm-verlauf-tabelle tr.adm-verlauf-tag td {
+  padding: 16px 10px 6px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.09);
+  color: #8d889e;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.adm-verlauf-tabelle tbody tr.adm-verlauf-tag:first-child td { padding-top: 8px; }
+.adm-verlauf-tag strong { color: var(--ar-text); font-weight: 900; font-size: 0.9rem; }
+.adm-verlauf-uhr { font-variant-numeric: tabular-nums; white-space: nowrap; color: #d4d0e2; font-weight: 700; }
+.adm-verlauf-tabelle td.zahl { white-space: nowrap; }
+.adm-verlauf-best { margin-left: 5px; color: #ffd45e; }
+.adm-verlauf-woher { white-space: nowrap; }
+.adm-verlauf-woher .adm-marke { max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+.adm-verlauf-offline { display: block; margin-top: 2px; }
+.adm-verlauf-tabelle.ohne-woher .adm-verlauf-woher,
+.adm-verlauf-tabelle .adm-verlauf-woher-klein { display: none; }
+.adm-marke.ist-app { background: rgba(255, 255, 255, 0.08); color: #d4d0e2; }
+.adm-marke.ist-turnier { background: rgba(255, 212, 94, 0.16); color: #ffd45e; }
+.adm-marke.ist-live { background: rgba(254, 121, 113, 0.16); color: #ff9a94; }
+.adm-punkt-live { background: var(--ar-koralle); }
+.adm-verlauf-weiter { justify-content: center; }
+@media (max-width: 620px) {
+  .adm-verlauf-filter .adm-filter-wahl { flex: 1 1 100%; }
+  .adm-verlauf-tabelle th, .adm-verlauf-tabelle td { padding-left: 6px; padding-right: 6px; }
+  /* Woher unter dem Spiel statt in einer Spalte (admin.js, spielverlauf). */
+  .adm-verlauf-tabelle .adm-verlauf-woher { display: none; }
+  .adm-verlauf-tabelle .adm-verlauf-woher-klein {
+    display: block;
+    width: max-content;
+    max-width: 10em;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .adm-verlauf-tabelle.ohne-woher .adm-verlauf-woher-klein { display: none; }
 }
 
 /* --- Die Spielauswahl im Adminbereich -------------------------------------- */
