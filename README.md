@@ -1941,6 +1941,48 @@ Ergebnis löschen, alle löschen, den Namen in allen Spielen und Turnieren
 zusammenführen. Ein Name ist dabei, was er überall ist:
 gross oder klein geschrieben derselbe, auf allen Geräten zusammen.
 
+**Der Spielverlauf.** In der Auswertung steht unter den Turnieren jede
+einzelne Runde: Tag und Uhrzeit auf die Sekunde (wann sie zu Ende war; beim
+Darüberfahren auch, wann sie begann), Spiel, Punkte, Dauer und woher –
+«App», «Turnier · Herbstcup» oder «Multiplayer · Herbstcup», dazu «ohne
+Netz», wenn sie später hochgeladen wurde. Nach Tagen gruppiert, je Tag mit
+der Zahl der Runden und ihrer Dauer, die neuesten zuerst («Älteste zuerst»
+dreht um), je 100 auf einmal («Weitere 100 zeigen», «Alle zeigen»). ★ steht
+bei der besten Runde je Spiel. Filtern lässt sich nach Spiel und nach woher
+(App, Turniere, Multiplayer oder ein einzelnes Turnier), jede Auswahl mit der
+Zahl der Runden dazu; Tier, Spiele-Auswahl und Zeitraum oben gelten auch
+hier. Am Handy steht «woher» unter dem Spiel. Gelesen werden dafür alle
+Runden seiner Geräte (`cloud.js`, `rundenVonGeraeten`: eine Abfrage je Gerät
+nach `spieler`, kein Index), einmal je Stand – nach «Neu laden» frisch. Was
+vor dem Rundenprotokoll gespielt wurde, steht nur in den Summen; der Verlauf
+sagt, wie viele Runden das sind.
+
+**Woher eine Runde kam.** Das Protokoll kennt nur `quelle` – «turnier» oder
+«live» –, nicht welches Turnier; die Regeln lassen dort kein weiteres Feld
+zu. Der Adminbereich ordnet die Runde zu (`admin.js`, `turnierZuordnung`),
+aus dem, was die Turniere selbst wissen: Eine Turnierrunde gehört zu dem
+Turnier, das dieses Spiel hat, das lief, als sie endete (bis 15 Minuten
+danach: ein Ergebnis darf bis zehn Minuten nach dem Ende kommen), und in dem
+der Spieler in diesem Spiel einen Eintrag hat – unter derselben Kennung oder
+demselben Namen. Eine Multiplayer-Runde gehört zu einem Multiplayer des
+Turniers mit diesem Spiel, zwischen seinem Beginn (`erstelltMs`) und seinem
+Endstand (`updatedAtMs`), in dessen Endstand der Spieler steht. Passen zwei
+(zwei Turniere zur selben Zeit mit demselben Spiel, und er spielt in
+beiden), gilt das, in dessen eigentliche Zeit sie fällt, dann das mit seiner
+Kennung, dann das jüngere. Eine Runde aus der App gehört nie zu einem
+Turnier, eine aus einem Multiplayer ohne Turnier auch nicht.
+
+**Ein Spieler im Turnier.** Im Stand eines aufgeklappten Turniers ist jeder
+Name ein Knopf (daneben «Auswertung»), ebenso jedes Turnier in der
+Auswertung eines Spielers (`zeigeTurnierSpieler`). Er öffnet dasselbe
+Fenster, aber nur mit dem, was in diesem Turnier geschah: Platz, Teile
+gespielt, Schnitt, Runden und Spielzeit darin; je Spiel und Multiplayer der
+Platz, der Bestwert (oder die Summe), die Versuche und die Runden; und der
+Spielverlauf nur mit den Runden dieses Turniers – keine aus der App, keine
+aus anderen Turnieren –, hier mit einer Auswahl je Tag. Die Spalte «Woher»
+steht dort nur, wenn es Runden aus einem Multiplayer gibt. «Alle Spiele von
+…» führt zu seiner ganzen Auswertung, App und alle Turniere.
+
 **Spielzeit.** Jede Runde misst ihre Dauer – vom Start (`game-shell.js`,
 `setPhase("play")`) bis zum Ergebnis (`showResult`), in `mini-games.js`
 (`rundeBeginnt`, `rundeEndet`) – und meldet sie mit der Runde. `cloud.js`
@@ -2119,9 +2161,10 @@ Die Turniere stehen nach ihrem Stand gruppiert da: zuerst die laufenden, dann
 geplante, angehaltene und beendete. Ein Tipp auf ein Turnier wählt es aus und
 klappt auf, was sich damit tun lässt – öffnen, Link kopieren, umbenennen (der
 Link bleibt derselbe), bearbeiten, starten, anhalten, fortsetzen, beenden,
-löschen – und den ganzen Stand. Daraus lässt sich ein einzelner Spieler
-entfernen, mit allen seinen Einträgen in diesem Turnier, ohne das Turnier
-selbst anzurühren.
+löschen – und den ganzen Stand. Ein Tipp auf einen Namen darin zeigt, was er
+in diesem Turnier gespielt hat, Runde für Runde (siehe **Ein Spieler im
+Turnier**). Und ein einzelner Spieler lässt sich entfernen, mit allen seinen
+Einträgen in diesem Turnier, ohne das Turnier selbst anzurühren.
 
 Er gehört bewusst nicht zur installierten App: kein Manifest, kein Service
 Worker, nicht im Zwischenspeicher. Wer hierherkommt, will die aktuellen Zahlen
