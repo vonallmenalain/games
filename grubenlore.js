@@ -1,5 +1,6 @@
 /*
- * grubenlore.js – Grubenlore.
+ * grubenlore.js – Höhlenfahrt (bis November 2026 «Grubenlore»; Datei,
+ * Adresse und Speicher heissen weiter so).
  * ---------------------------------------------------------------------------
  * Eine Lore jagt durch ein altes Bergwerk, immer bergab. Sie rollt von
  * allein – wer spielt, hat nur die Bremse: Halten bremst (die Räder sprühen
@@ -19,11 +20,12 @@
  *   Looping    Braucht Schwung, und zwar viel.
  *
  * Vor jeder Stelle steht ein Signal: rot heisst langsam, grün heisst laufen
- * lassen, gelb heisst im Takt. Über der Lore zeigt das Tempo-Fenster, womit
- * sie dort ankäme, wenn man jetzt losliesse – und in welchem Band sie
- * ankommen muss. Wer genau im goldenen Rand des Bandes durchfährt (so
- * schnell, wie es gerade noch geht, oder butterweich gelandet), fährt
- * «haarscharf»: Das bringt Vorsprung, mehrere hintereinander immer mehr.
+ * lassen, gelb heisst im Takt. Wie schnell genau, sagt einem niemand – das
+ * ist Gefühl. (Bis November 2026 zeigte ein Tempo-Fenster über der Lore,
+ * womit sie ankäme und in welchem Band sie ankommen muss.) Wer genau im
+ * gefährlichen Rand des Bandes durchfährt (so schnell, wie es gerade noch
+ * geht, oder butterweich gelandet), fährt «haarscharf»: Das bringt
+ * Vorsprung, mehrere hintereinander immer mehr.
  *
  * Vorsprung worauf? Hinter der Lore stürzt der Stollen ein. Der Einsturz
  * folgt nach der Uhr und wird immer schneller; wer zu vorsichtig bremst,
@@ -945,49 +947,6 @@
   // Wie schnell der Einsturz zur Zeit t ist.
   const einsturzTempo = (t) => EINSTURZ_V0 + (EINSTURZ_V1 - EINSTURZ_V0) * (1 - Math.exp(-Math.max(0, t) / EINSTURZ_ZEIT));
 
-  // Womit die Lore am Messpunkt der Stelle ankäme, wenn ab jetzt niemand
-  // mehr bremste: Tempo und Zeit – oder null, wenn sie vorher scheitert.
-  function vorhersage(W, z0, sZiel) {
-    const z = { ...z0 };
-    for (let n = 0; n < 60 * 12 && !z.aus; n += 1) {
-      if (z.s >= sZiel) return { v: z.modus === AM_GLEIS ? z.v : Math.hypot(z.vx, z.vy), t: z.t };
-      schritt(W, z, false, 1 / 60);
-    }
-    return null;
-  }
-
-  // Ob ein Stampfer offen ist, wenn die Lore zur Zeit t mit Tempo v bei ihm
-  // ankommt – so lange, bis sie ganz hindurch ist.
-  function stampferOffen(st, t, v) {
-    const dauer = (2 * S_BREIT + 2) / Math.max(1, v);
-    for (let i = 0; i <= 8; i += 1) if (stampfHoehe(st, t + (dauer * i) / 8) < S_FREI) return false;
-    return true;
-  }
-
-  // Wann und wie schnell die Lore bei jedem Stampfer eines Pochwerks ankäme
-  // (ab dem mit der Nummer ab), wenn ab jetzt niemand mehr bremste – so, als
-  // stünden die Stampfer nicht im Weg. null: Sie kommt gar nicht hin.
-  function pochwerkZeiten(W, z0, h, ab) {
-    const z = { ...z0, st: W.stampfer.length };
-    const raus = [];
-    let i = ab;
-    for (let n = 0; n < 60 * 14 && !z.aus && i < h.stampfer.length; n += 1) {
-      if (z.s >= h.stampfer[i].s - S_BREIT - 1) {
-        raus.push({ t: z.t, v: z.modus === AM_GLEIS ? z.v : Math.hypot(z.vx, z.vy) });
-        i += 1;
-      } else schritt(W, z, false, 1 / 60);
-    }
-    return i >= h.stampfer.length ? raus : null;
-  }
-
-  // Ob sie dabei durch alle käme – wenn sie um spaeter Sekunden später dran wäre.
-  function pochwerkOffen(h, ab, zeiten, spaeter = 0) {
-    for (let i = 0; i < zeiten.length; i += 1) {
-      if (!stampferOffen(h.stampfer[ab + i], zeiten[i].t + spaeter, zeiten[i].v)) return false;
-    }
-    return true;
-  }
-
   // Kommt die Lore heil durch die Stelle h, wenn sie nach plan bremst? Heil
   // ist auch, wer davor steht und stehen bleiben kann. Gerechnet wird in
   // denselben kleinen Schritten wie die Fahrt selbst: Am Scheitel einer
@@ -1044,8 +1003,6 @@
     zeit: 0,               // die Bildzeit – läuft immer
     bremst: false,         // ob gerade gebremst wird (fürs Bild und den Klang)
     bremsZeit: 0,
-    vor: null,             // womit die Lore an der nächsten Stelle ankäme (vorhersage)
-    vorStampfer: null,
     kam: { x: 0, y: 0, zoom: 1 },
     stoss: 0,
     funken: [], staub: [], brocken: [], schriften: [], schweben: [],
@@ -1344,27 +1301,6 @@
     }
   }
 
-  // Womit die Lore an der nächsten Stelle ankäme – für das Tempo-Fenster.
-  function vorhersageTakt() {
-    const W = state.welt;
-    const z = state.z;
-    state.vor = null;
-    state.vorStampfer = null;
-    if (state.endet || state.phase === "ende") return;
-    const h = W.stellen[state.stelleNr];
-    if (!h || h.sFrei > z.s + 6) return;
-    if (h.art === "stampfer") {
-      const nr = h.stampfer.findIndex((x) => !x.ein);
-      if (nr < 0) return;
-      const zeiten = pochwerkZeiten(W, z, h, nr);
-      if (zeiten) state.vorStampfer = { st: h.stampfer[nr], nr, zeiten, v: zeiten[0].v, t: zeiten[0].t, h };
-      return;
-    }
-    if (z.s >= h.mass) return;
-    const v = vorhersage(W, z, h.mass);
-    state.vor = { h, v: v ? v.v : 0, scheitert: !v };
-  }
-
   // Funken an den Rädern, Staub, was fliegt und fällt.
   function nebenbei(dt) {
     const W = state.welt;
@@ -1511,7 +1447,6 @@
     // Bild darauf warten muss.
     if (sEnde(W) < state.z.s + 420) naechstesStueck(W);
     stampferTakt();
-    vorhersageTakt();
     nebenbei(dt);
     kameraTakt(dt);
     kulissenStellen();
@@ -3142,92 +3077,11 @@
     g.fill();
   }
 
-  /*
-   * Das Tempo-Fenster über der Lore: ein Balken von null bis zum höchsten
-   * Tempo, darauf das Band der nächsten Stelle (grün, sein gefährlicher
-   * Rand golden) und ein Zeiger: womit die Lore dort ankäme, wenn jetzt
-   * niemand mehr bremste. Vor dem Pochwerk ist der Balken ein Takt des
-   * Stampfers und der Zeiger der Moment, in dem die Lore bei ihm wäre.
-   */
-  function zeichneFenster(u) {
-    const vor = state.vor;
-    const vs = state.vorStampfer;
-    if (!vor && !vs) return;
-    const z = state.z;
-    const B = 136 * u;
-    const hoch = 12 * u;
-    const px = clamp(sx(z.x) - B * 0.3, 10 + 22 * u, view.cssW - B - 10);
-    const py = Math.max(view.frei + 70 * u, sy(z.y) - 96 * u - view.z * 1.2);
-    const h = vor ? vor.h : vs.h;
-    const farbe = SIGNAL_FARBE[h.signal];
-    let zeiger = 0;
-    let gut = false;
-    let gold = false;
-
-    pille(px - 26 * u, py - 6 * u, B + 34 * u, hoch + 12 * u, "rgba(12, 9, 8, 0.72)");
-    g.save();
-    g.beginPath();
-    if (g.roundRect) g.roundRect(px, py, B, hoch, hoch / 2); else g.rect(px, py, B, hoch);
-    g.clip();
-    g.fillStyle = "rgba(226, 59, 46, 0.55)";
-    g.fillRect(px, py, B, hoch);
-    if (vor) {
-      const lo = h.lo / V_DECKEL;
-      const hi = Math.min(1, h.hi / V_DECKEL);
-      g.fillStyle = "#35c46a";
-      g.fillRect(px + B * lo, py, B * (hi - lo), hoch);
-      if (h.gold) {
-        g.fillStyle = "#ffd23f";
-        g.fillRect(px + B * h.gold[0] / V_DECKEL, py, B * (Math.min(V_DECKEL, h.gold[1]) - h.gold[0]) / V_DECKEL, hoch);
-      }
-      zeiger = vor.scheitert ? 1 : clamp(vor.v / V_DECKEL, 0, 1);
-      gut = !vor.scheitert && vor.v >= h.lo && vor.v <= h.hi;
-      gold = gut && Boolean(h.gold) && vor.v >= h.gold[0] && vor.v <= h.gold[1];
-    } else {
-      // Ein Takt des Pochwerks: grün, wo die Lore heil durch diesen Stampfer
-      // und alle nach ihm rollte; blassgelb, wo es nur für diesen reicht –
-      // dann heisst es dahinter wieder bremsen.
-      const st = vs.st;
-      const n = 46;
-      const durch = (2 * S_BREIT + 2) / Math.max(1, vs.v);
-      const knappBei = (tA) => stampfHoehe(st, tA - 0.22) < S_FREI || stampfHoehe(st, tA + durch + 0.28) < S_FREI;
-      for (let i = 0; i < n; i += 1) {
-        const tA = ((i + 0.5) / n) * st.T - st.aus;
-        if (!stampferOffen(st, tA, vs.v)) continue;
-        const alle = pochwerkOffen(h, vs.nr, vs.zeiten, tA - vs.t);
-        g.fillStyle = !alle ? "#c9b458" : knappBei(tA) ? "#ffd23f" : "#35c46a";
-        g.fillRect(px + (B * i) / n, py, B / n + 0.6, hoch);
-      }
-      zeiger = ((((vs.t + st.aus) % st.T) + st.T) % st.T) / st.T;
-      gut = stampferOffen(st, vs.t, vs.v);
-      gold = gut && pochwerkOffen(h, vs.nr, vs.zeiten) && knappBei(vs.t);
-    }
-    g.restore();
-    // Der Zeiger.
-    const zx = px + B * zeiger;
-    const blinkt = !gut && Math.sin(state.zeit * 16) > 0;
-    g.fillStyle = gold ? "#fff3c4" : gut ? "#ffffff" : blinkt ? "#ffffff" : "#ffb3a8";
-    g.fillRect(zx - 1.5 * u, py - 5 * u, 3 * u, hoch + 10 * u);
-    g.beginPath();
-    g.moveTo(zx, py - 4 * u);
-    g.lineTo(zx - 6 * u, py - 12 * u);
-    g.lineTo(zx + 6 * u, py - 12 * u);
-    g.closePath();
-    g.fill();
-    if (gold) licht(zx, py + hoch / 2, 26 * u, "gold", 0.8);
-    // Links das Signal.
-    g.fillStyle = farbe;
-    g.beginPath();
-    g.arc(px - 13 * u, py + hoch / 2, 6.5 * u, 0, TAU);
-    g.fill();
-  }
-
   function zeichneAnzeige() {
     const W = view.cssW;
     const H = view.cssH;
     const z = state.z;
     const u = clamp(Math.min(W, H) / 420, 0.85, 1.35);
-    if (state.phase !== "bereit" && state.phase !== "ende" && !state.endet) zeichneFenster(u);
 
     // Die Schriften über der Lore.
     g.textAlign = "center";
@@ -3518,8 +3372,6 @@
     state.zeit = 0;
     state.bremst = false;
     state.bremsZeit = 0;
-    state.vor = null;
-    state.vorStampfer = null;
     state.stoss = 0;
     state.funken = [];
     state.staub = [];
@@ -3603,7 +3455,7 @@
   // ---------------------------------------------------------------------------
   shell = shellApi.mount({
     host,
-    title: "Grubenlore",
+    title: "Höhlenfahrt",
     area: "geschwindigkeit",
     accent: "#F5A623",
     accentDark: "#b9741a",
@@ -3651,7 +3503,7 @@
   window.LernappGrubenlore = {
     TAKT, DS, START_S, V_DECKEL, V_PUMPE, VORSPRUNG_MAX, S_OFFEN_MIN, S_FREI,
     state, view, takt, zeichnen, druecken, loslassen, losGehts, weltText, weltBis, BIOME, ARTEN,
-    neueLore, schritt, vorhersage, pilot, naechste, stampfHoehe, stampferOffen, pochwerkZeiten, pochwerkOffen, einsturzTempo, meterBei,
+    neueLore, schritt, pilot, naechste, stampfHoehe, einsturzTempo, meterBei,
     gedrueckt: () => gedrueckt,
   };
 })();

@@ -1,4 +1,4 @@
-// Grubenlore: Der Pilot bremst so spät wie möglich – Funken an den Rädern,
+// Höhlenfahrt: Der Pilot bremst so spät wie möglich – Funken an den Rädern,
 // vorn die nächste Stelle, hinten der Einsturz.
 export default {
   bereit: () => Boolean(window.LernappGrubenlore?.state?.welt && window.LernappGrubenlore.view.cssW > 0),
