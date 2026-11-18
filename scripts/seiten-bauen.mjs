@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-3";
+export const FASSUNG = "2026-11-18-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -286,6 +286,12 @@ export const SPIELE = [
     titel: "Zwei Rotoren", buehne: { id: "zr-stage", klasse: "cm-stage zr-stage" },
     text: "Zwei Rotoren: Links hält den linken Rotor, rechts den rechten – flieg die Drohne durch die Lichttore über den Dächern, am besten mitten hindurch. Jedes Tor lädt den Akku nach.",
     baut: "die Nacht über den Dächern mit der Drohne",
+  },
+  {
+    seite: "augenmass", spiel: "eyeMeasure", page: "eye", js: "augenmass.js",
+    titel: "Augenmass", buehne: { id: "am-stage", klasse: "cm-stage am-stage" },
+    text: "Augenmass: Zehn Blätter, kein Lineal – tippe die Mitte, den Mittelpunkt, die vierte Ecke, so genau du kannst. Danach wird auf den Zehntelmillimeter nachgemessen.",
+    baut: "die Blaupause mit dem Fadenkreuz",
   },
 ];
 

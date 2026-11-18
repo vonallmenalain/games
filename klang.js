@@ -216,6 +216,11 @@
     "rotoren.akku": { s: "stich" },
     "rotoren.leer": { s: "ab" },
     "rotoren.crash": { s: "krach" },
+    "augenmass.blatt": { s: "stift" },
+    "augenmass.setzen": { s: "klick" },
+    "augenmass.mass": { s: "klack" },
+    "augenmass.tick": { s: "klick" },
+    "augenmass.tunnel": { s: "woosh-kurz" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -230,7 +235,7 @@
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
-    mineCart: "grubenlore", twinRotor: "rotoren",
+    mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
   };
 
   // ---------------------------------------------------------------------------
@@ -525,6 +530,8 @@
       rausch(t, { dauer: 0.5, typ: "lowpass", f: 2200, f2: 300, a: 0.005, r: 0.4, laut: 0.4 });
       [520, 790, 1180].forEach((f, n) => ton(f, t + 0.02 * n, { typ: "square", f2: f * 0.7, gleit: 0.3, r: 0.25, laut: 0.05, tief: 2600 }));
     },
+    // Der Stift auf dem Papier: drei kurze Striche, jeder etwas länger.
+    stift: (t) => [0, 0.09, 0.2].forEach((d, i) => rausch(t + d, { dauer: 0.07 + i * 0.03, f: 3400 - i * 500, f2: 4600, q: 0.8, a: 0.012, r: 0.05, laut: 0.16 })),
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -535,7 +542,7 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
-    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9, krach: -3.0,
+    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9, krach: -3.0, stift: 12.0,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,

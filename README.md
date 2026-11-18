@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        neununddreissig Spielseiten, erzeugt
+    turmbau.html …        vierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -516,6 +516,74 @@ jedem Ort fliegen möchte, `wunsch`, und probiert alle Folgen aus zwei kurzen
 Griffen durch) fliegt auf jeder Welt durch mindestens achtzehn Tore, die
 meisten mittig. Wer nichts drückt, landet auf einem Dach; wer beide hält,
 steigt, bis der Akku leer ist.
+
+### Augenmass (November 2026)
+
+**Augenmass** (`augenmass.js`, `eyeMeasure`) – Das Geschwister von «Wo hält
+der Zug?», nur ohne Zahlen: Auf dem Zeichentisch liegt eine Blaupause, und
+auf jedem Blatt steht eine Aufgabe, die mit einem Massstab in zehn Sekunden
+gelöst wäre. Es liegt keiner da. **Finger aufs Blatt, das Fadenkreuz an die
+Stelle schieben, loslassen** – das Loslassen ist die Antwort (am Rechner
+schwebt das Fadenkreuz mit der Maus, ein Klick antwortet; Pfeile schieben
+um einen Viertelmillimeter, Enter antwortet).
+
+Zehn Blätter je Runde, drei leichte, vier mittlere, drei schwere, jede Art
+höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`):
+
+    leicht   die Mitte einer Strecke · der Mittelpunkt eines Kreises · die
+             Mitte eines Rechtecks · einen Winkel halbieren
+    mittel   ein Drittel oder Viertel einer Strecke · eine Linie bis zur
+             Wand verlängern · eine Länge abtragen · das Lot von einem
+             Punkt auf eine Linie · einen Punkt spiegeln
+    schwer   der Mittelpunkt eines Bogens · die Bande (wo trifft die Kugel
+             nach dem Abprall die Wand?) · die vierte Ecke eines Rechtecks ·
+             der Tunnel (tippen, wenn die verschwundene Kugel beim Pfeil
+             sein muss)
+
+Das Blatt ist ein Quadrat von 100 × 100 Millimetern, so gross, wie der
+Bildschirm es hergibt, und gerechnet wird überall in diesen Millimetern –
+ein Millimeter daneben ist auf jedem Gerät gleich viel. Bis zu zehn Punkte
+je Blatt, und die zehn sind schwer: Sie gelten bis 0,6 mm, auf einem Handy
+zwei Bildpunkte. Danach fällt es steil (`GRENZEN`, `punkteFuer`); die
+schweren Aufgaben messen etwas nachsichtiger (`mass`). **Ein Raster hat das
+Blatt absichtlich nicht**, und keine Figur liegt gerade im Bild (`schief`):
+Was sich abzählen oder an den Rändern ablesen liesse, wäre kein Augenmass.
+Wo eine Antwort nur auf einer Linie liegen kann (die Mitte einer Strecke,
+die Stelle an der Wand), läuft das Fadenkreuz auf dieser Bahn (`aufBahn`).
+
+Jedes Blatt hat acht Sekunden (`ZEIT`, der Strich über dem Blatt). Ist die
+Zeit um, zählt die Stelle, an der das Fadenkreuz steht; wer noch gar nicht
+getippt hat, bekommt nichts. Im Tunnel ist die Kugel die Uhr: Gemessen wird,
+wo sie im Augenblick des Tipps war (nach der Zeit des Tipps, nicht des
+nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt nicht.
+
+Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
+**Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
+doppelt so gross zeigt. Sie hilft beim Setzen, nicht beim Schätzen.
+
+Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
+(die Durchmesser, die Diagonalen, der Zirkelschlag, das Lot mit seinem
+rechten Winkel), an Strecken legt sich ein Massstab an, ein Stempel nennt
+Punkte und Millimeter, und der **Messschieber** unter dem Blatt fährt so
+weit auf, wie es daneben war. Die zehn Kästchen füllen sich Blatt für Blatt;
+quer steht links die Stückliste mit allen Abweichungen und rechts das
+Schriftfeld des Plans.
+
+Das Bild: Das Papier (Blau, Lampenlicht, Korn, Fasern, Rahmen) wird einmal
+gemalt und danach nur noch hingelegt; jedes Blatt entsteht Strich für Strich
+wie von einem Plotter (`zeichneTeile`, mit einem hellen Punkt an der
+Stiftspitze). Die Lupe liest aus dem Bild, das schon gemalt ist. Stockt ein
+Gerät, wird das Bild gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden die Züge (`meldeZug`: jedes neue Blatt, das Fadenkreuz
+unterwegs, die Antwort) – damit lassen sich die besten Runden anschauen, und
+im Multiplayer sehen die anderen dasselbe. Die Blätter kommen aus
+`zufall.js`: In einem Turnier bekommen alle dieselben zehn. Prüfung 4g34:
+Jede Runde hat ihre drei, vier und drei Blätter, alles liegt auf dem Blatt,
+zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
+was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
+was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
+Blätter und dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1347,9 +1415,9 @@ gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
 nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
 Strecke ist fest).
 
-Die elf Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
-Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom,
-Kranhafen, Jongleur, Holzfäller)
+Die zwölf Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
+Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Augenmass, Der Heizer,
+Blätter im Strom, Kranhafen, Jongleur, Holzfäller)
 zeichnen statt eines Weges ihre Züge auf (`geist.js`, `zuege`): dieselben,
 die sie im Multiplayer melden, mit der Zeit seit dem Start, der Saat und dem
 Ende der Runde. Beim Anschauen baut das Spiel sie nach – genau so, wie es im
@@ -1427,7 +1495,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle neununddreissig
+    Spiele            welche dazugehören, eines bis alle vierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

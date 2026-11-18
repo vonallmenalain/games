@@ -89,6 +89,7 @@ service cloud.firestore {
         "duckCrossing",
         "mineCart",
         "twinRotor",
+        "eyeMeasure",
       ];
     }
 

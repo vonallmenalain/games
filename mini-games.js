@@ -100,6 +100,7 @@
     { id: "duckCrossing", seite: "entenfamilie", page: "ducks" },
     { id: "mineCart", seite: "grubenlore", page: "minecart" },
     { id: "twinRotor", seite: "rotoren", page: "rotors" },
+    { id: "eyeMeasure", seite: "augenmass", page: "eye" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -134,6 +135,8 @@
     mineCart: 1,
     // Die Drohne bei Nacht: zwei Daumen, zwei Rotoren.
     twinRotor: 1,
+    // Zehn Blätter, kein Lineal: schätzen auf den halben Millimeter.
+    eyeMeasure: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -194,6 +197,7 @@
     tileMemory: { fassung: "z1" },
     fishPond: { fassung: "z1" },
     numberLine: { fassung: "z1" },
+    eyeMeasure: { fassung: "z1" },
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z2" },
     twinLanes: { fassung: "t1" },
@@ -221,6 +225,7 @@
     fishPond: { zug: true },
     boilerRoom: { zug: true },
     numberLine: { zug: true },
+    eyeMeasure: { zug: true },
     craneHarbor: { zug: true },
     twinLanes: { zug: true },
     juggler: { zug: true },
