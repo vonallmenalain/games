@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        vierzig Spielseiten, erzeugt
+    turmbau.html …        einundvierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -590,6 +590,75 @@ zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
 was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
 Blätter und dieselben Punkte.
+
+### Feuerseil (November 2026)
+
+Das erste von drei Spielen nach alten Partyspielen – hier das brennende
+Springseil, bei dem man reihum ausschied, bis nur noch einer stand.
+
+**Feuerseil** (`feuerseil.js`, `fireRope`) – Ein Dorfplatz bei Nacht:
+Lichterketten, Giebel, ein Kirchturm, dahinter die Berge, davor das Publikum.
+Zwei Feuerkünstler schwingen ein brennendes Seil, in der Mitte steht ein
+Mädchen mit Zopf. **Tippen heisst hüpfen, Halten springt höher** – geht das
+Seil unten durch, muss sie über den Flammen sein. Die erste Berührung
+beendet die Runde. Der erste Tipp startet nur; gesprungen wird ab dem
+zweiten.
+
+Der Sprung springt sofort ab (`absprung`), und solange der Finger liegt,
+trägt er weiter (`G`, `V0`, `SCHNITT`): kurz getippt gut 30 cm hoch und 0,28 s
+lang, ganz gehalten 67 cm und eine halbe Sekunde (`sprungProfil`). Hoch ist
+sicher, aber lang in der Luft; flach ist schnell wieder unten, aber knapp.
+Ein Tipp kurz vor der Landung springt gleich wieder ab (`PUFFER`).
+
+Das Seil wird Strophe um Strophe schneller – sechs Durchgänge sind eine
+Strophe (`STROPHE`), die Umlaufzeit fällt von 1,15 s je Strophe auf 92,5 %
+(`P0`, `P_FAKTOR`) –, und die Flammen schlagen höher (`FLAMME0` bis
+`FLAMME_MAX`: 14 bis 38 cm). Ab der dritten Strophe hat jede ihre Figur
+(`stropheBauen`, nie zweimal dieselbe hintereinander):
+
+    gleich      gleichmässig, im Tempo der Strophe
+    wechsel     ein Durchgang langsam, einer schnell
+    zeitlupe    zwei Durchgänge fast doppelt so lang – wer im Takt
+                weiterhüpft, landet zu früh
+    zoegern     das Seil hängt oben einen Augenblick (0,2 bis 0,4 s)
+    doppel      ein zweites Seil, blau, gegenläufig; halb versetzt oder
+                (ab Strophe 9) «kurz–lang»
+    kehre       oben kehrt das Seil um und kommt von der anderen Seite
+    schnapper   ab dem höchsten Punkt schnappt es schneller herunter
+    wild        ab Strophe 11: jeder Durchgang etwas anderes
+
+Das Seil misst in Umdrehungen (`seilSchritt`: 0 ist unten, 0,5 oben; es
+kommt vorn herunter und geht hinten hinauf), und sein Tempo folgt dem Ziel
+des Durchgangs mit etwas Nachzug (`NACHZUG`) – jeden Tempowechsel sieht man
+kommen, wenn man hinschaut statt mitzuzählen. Das zweite Seil hängt fest am
+ersten (`versatz − u`). Wo das Seil schneller dreht, als ein Hüpfer dauert,
+hilft nur noch ein hoher Sprung über zwei Durchgänge.
+
+Jedes Seil, das unten durchgeht, ist ein Punkt. Geht es höchstens `PERFEKT`
+Schritte (ein Dreissigstel einer Sekunde) vor oder nach dem höchsten Punkt
+des Sprungs durch, ist das «Perfekt» und gibt einen Punkt dazu, in Folge
+zwei, drei und vier (`KETTE_MAX`, `wertung`). Und jede Runde endet: Ab
+Strophe 17 (`ENDE_AB`) wachsen die Flammen Strophe um Strophe um 6 cm, bis
+über jede Sprunghöhe – die besten Runden dauern gut 70 Sekunden.
+
+Gerechnet wird in 240 Schritten je Sekunde und nur mit Plus, Minus, Mal und
+Geteilt (`periodeBei` nimmt mal statt `Math.pow`): So ist eine Runde auf
+jedem Gerät dieselbe. Aufgezeichnet werden die Züge – jedes Drücken und
+Loslassen mit seinem Schritt (`meldeZug`) –, und wer zuschaut, rechnet
+dieselbe Runde mit denselben Zügen nach (`zuschauenTakt`, wie beim
+Jongleur). Gewürfelt wird nur die Folge der Figuren, je Strophe sieben
+Zahlen; im Turnier bekommen alle dieselbe.
+
+Das Bild: Der Hintergrund ist einmal gemalt (`hintergrundBauen`), das Seil
+ein Bogen aus 26 Punkten mit vierzig Flammenzungen (`zeichneSeil`), im
+Mittel etwas höher gemalt als gerechnet – wer über die gemalten kommt, ist
+sicher drüber. Die Füsse stehen genau auf der gerechneten Höhe. Hinten ist
+das Seil blasser, vorn heller und vor der Figur. Prüfung 4g35: Ein Autopilot,
+der das Seil vorausrechnet (`vorschau`), kommt auf jeder Welt über achtzig
+Seile und endet doch von selbst; wer nie, zu früh oder zu flach springt,
+sieht die Tafel mit dem Grund; Halten springt höher und länger; und ein
+aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit derselben
+Zahl.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1501,7 +1570,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle vierzig
+    Spiele            welche dazugehören, eines bis alle einundvierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

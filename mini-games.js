@@ -101,6 +101,7 @@
     { id: "mineCart", seite: "grubenlore", page: "minecart" },
     { id: "twinRotor", seite: "rotoren", page: "rotors" },
     { id: "eyeMeasure", seite: "augenmass", page: "eye" },
+    { id: "fireRope", seite: "feuerseil", page: "firerope" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -137,6 +138,8 @@
     twinRotor: 1,
     // Zehn Blätter, kein Lineal: schätzen auf den halben Millimeter.
     eyeMeasure: 1,
+    // Das brennende Seil: tippen heisst hüpfen, halten springt höher.
+    fireRope: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -204,6 +207,7 @@
     juggler: { fassung: "z1" },
     lumberCut: { fassung: "z1" },
     hammerThrow: { fassung: "z1" },
+    fireRope: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -231,6 +235,7 @@
     juggler: { zug: true },
     lumberCut: { zug: true },
     hammerThrow: { zug: true },
+    fireRope: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-5";
+export const FASSUNG = "2026-11-18-6";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -292,6 +292,12 @@ export const SPIELE = [
     titel: "Augenmass", buehne: { id: "am-stage", klasse: "cm-stage am-stage" },
     text: "Augenmass: Zehn Blätter, kein Lineal – tippe die Mitte, den Mittelpunkt, die vierte Ecke, so genau du kannst. Danach wird auf den Zehntelmillimeter nachgemessen.",
     baut: "die Blaupause mit dem Fadenkreuz",
+  },
+  {
+    seite: "feuerseil", spiel: "fireRope", page: "firerope", js: "feuerseil.js",
+    titel: "Feuerseil", buehne: { id: "fe-stage", klasse: "cm-stage fe-stage" },
+    text: "Feuerseil: Tippen heisst hüpfen, halten springt höher – bleib über dem brennenden Seil. Es dreht immer schneller, zögert, kehrt um und bekommt ein zweites.",
+    baut: "der Dorfplatz bei Nacht mit dem Feuerseil",
   },
 ];
 

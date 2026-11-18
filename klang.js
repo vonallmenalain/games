@@ -221,6 +221,11 @@
     "augenmass.mass": { s: "klack" },
     "augenmass.tick": { s: "klick" },
     "augenmass.tunnel": { s: "woosh-kurz" },
+    "feuerseil.feuer": { s: "a-kessel", schleife: true },
+    "feuerseil.sprung": { s: "blubb" },
+    "feuerseil.seil": { s: "woosh-kurz" },
+    "feuerseil.treffer": { s: "zisch" },
+    "feuerseil.zuenden": { s: "schirm" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -236,6 +241,7 @@
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
+    fireRope: "feuerseil",
   };
 
   // ---------------------------------------------------------------------------
