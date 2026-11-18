@@ -523,34 +523,45 @@ steigt, bis der Akku leer ist.
 
 **Augenmass** (`augenmass.js`, `eyeMeasure`) – Das Geschwister von «Wo hält
 der Zug?», nur ohne Zahlen: Auf dem Zeichentisch liegt eine Blaupause, und
-auf jedem Blatt steht eine Aufgabe. **Finger aufs Blatt, das Fadenkreuz an
-die Stelle schieben, loslassen** – das Loslassen ist die Antwort (am Rechner
-schwebt das Fadenkreuz mit der Maus, ein Klick antwortet; Pfeile schieben
-um einen Viertelmillimeter, Enter antwortet).
+auf jedem Blatt steht eine Aufgabe. **Das Fadenkreuz an die Stelle
+schieben und bestätigen** (mit dem Finger: irgendwo ziehen, dann der Knopf;
+am Rechner schwebt das Fadenkreuz mit der Maus, ein Klick antwortet; Pfeile
+schieben um einen Viertelmillimeter, Enter antwortet).
 
-Zehn Blätter je Runde aus 21 Arten: zwei leichte, vier mittlere, vier
+Zehn Blätter je Runde aus 18 Arten: zwei leichte, vier mittlere, vier
 schwere, jede Art höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`, `PLAN`):
 
     leicht   der Mittelpunkt eines Kreises · die Mitte eines Rechtecks ·
              einen Winkel halbieren · das Lot von einem Punkt auf eine Linie
-    mittel   einen Punkt spiegeln · die vierte Ecke eines Rechtecks · der
-             Schwerpunkt eines Dreiecks (wo balanciert es?) · die dritte
-             Ecke des gleichseitigen Dreiecks · eine Vierteldrehung um
-             einen Punkt · der Treffpunkt zweier Kugeln (die Pfeile zeigen
-             ihr Tempo) · ein Bogen, der bis zur Wand weiterläuft · die
+    mittel   einen Punkt spiegeln · die vierte Ecke eines Rechtecks · die
+             dritte Ecke des gleichseitigen Dreiecks · eine Vierteldrehung
+             um einen Punkt · ein Bogen, der bis zur Wand weiterläuft · die
              Bande
     schwer   der Mittelpunkt eines Bogens · der Kreis durch drei Punkte ·
              der Inkreis · zwei Banden · über die Bande ins Loch · der Wurf
-             (wo landet der Ball?) · die halbe Fläche (ein Schnitt parallel
-             zur Grundseite) · das Rad, das eine Umdrehung rollt · der
+             (wo landet der Ball?) · das Rad, das eine Umdrehung rollt · der
              Tunnel
+
+(Bis zum 18. November 2026 waren es 21: Der Schwerpunkt des Dreiecks, der
+Treffpunkt zweier Kugeln und die halbe Fläche sind wieder entfernt.)
+
+**Das Rad ist jedes Mal anders** (`BAU.rad`): mal winzig, mal mehr als
+doppelt so gross (`RAD_KLEIN` bis `RAD_GROSS`), der Boden mal kürzer, mal
+länger, und die Stelle liegt irgendwo zwischen seinem ersten Drittel und
+kurz vor dem Ende. Davor war das Rad fast immer gleich gross und der Boden
+gleich lang – die Stelle lag stets dort, wo sie in der Vorschau gelegen
+hatte, und wer sie sich merkte, bekam zehn Punkte. Darum ist jetzt auch
+das **Beispiel der Vorschau** sichtlich eine andere Aufgabe
+(`beispielFuer`): Seine Lösung liegt, wenn es sich würfeln lässt, nirgends
+dort, wo die des Blattes liegt – weder auf dem Blatt gedacht noch im
+kleinen Kasten der Vorschau –, und ein Rad ist deutlich grösser oder
+kleiner als das des Blattes.
 
 **Mit einem Lineal ist keine davon getan.** Was sich bloss abmessen liess
 (die Mitte einer Strecke, ein Drittel, eine Länge abtragen, eine Linie bis
 zur Wand verlängern), gibt es nicht mehr: Überall muss etwas in Gedanken
 gebaut oder vorhergesagt werden – ein Spiegelbild, ein Abprall, eine
-Flugbahn, ein krummer Bogen, ein Verhältnis aus zwei Pfeilen, die Wurzel
-aus zwei beim Halbieren der Fläche, das Pi beim Rad.
+Flugbahn, ein krummer Bogen, das Pi beim Rad.
 
 **Vor jedem Blatt steht die Vorschau** (seit dem 18. November 2026): der Name
 der Aufgabe, ein Satz, was zu tun ist (`TUN`), und ein Beispiel, das sich
@@ -615,6 +626,21 @@ nur, wenn es bewegt wurde (`gesetzt`). Und weil die Fingerkuppe beim Abheben
 abrollt, bleibt es nach einem ruhigen Halt dort, wo es kurz davor lag
 (`ruhigeStelle`) – auch wenn der Finger davor lange ganz still lag.
 
+**Das Fadenkreuz ist überall frei** (seit dem 18. November 2026). Davor lief
+es bei Aufgaben mit einer Wand, einer Bande, einem Boden oder einem Bogen
+(`bahn`) nur auf dieser Bahn. Jetzt lässt es sich überallhin schieben, und
+gemessen wird wie immer der Abstand zur richtigen Stelle – wer neben der
+Wand bestätigt, liegt eben daneben. An der Bahn **haftet** es aber: Näher
+als `HAFT` Millimeter liegt es auf ihr, als Reiter quer zur Bahn gemalt
+statt als Fadenkreuz; weiter weg steht es um `HAFT` näher an ihr als die
+freie Stelle, die der Zeiger führt (`haften`, `state.frei`). So springt
+nichts: Es kommt an der Wand an, bleibt ein Stück weit kleben und löst sich
+stetig wieder. Mit dem Finger (und den Pfeiltasten) klebt es fester
+(`schiebe`): Solange es haftet, zählt quer zur Bahn nur, was über die
+Hälfte des Wegs längs hinausgeht – wer schräg an der Wand entlangfährt,
+bleibt auf ihr, und erst ein Zug von ihr weg löst es. Am Anfang liegt es
+auf der Bahn.
+
 Maus und Stift zeigen genau dorthin, wo sie stehen: Mit der Maus schwebt
 das Fadenkreuz mit, der Klick ist die Antwort, und einen Knopf gibt es
 nicht. Womit gespielt wird, sagt der letzte Tipp (`mitFinger`). (Zwei
@@ -642,9 +668,9 @@ Aufgezeichnet werden die Züge (`meldeZug`: jede Vorschau, jedes neue Blatt,
 das Fadenkreuz unterwegs, die Antwort) – damit lassen sich die besten Runden
 anschauen, und im Multiplayer sehen die anderen dasselbe, auch die Vorschau. Die Blätter kommen aus
 `zufall.js`: In einem Turnier bekommen alle dieselben zehn. Mit den neuen
-Blättern tragen die Aufzeichnungen die Fassung z2. Prüfung 4g34: Jede Runde
+Blättern tragen die Aufzeichnungen die Fassung z3 (z2 bis zu den 21 Arten). Prüfung 4g34: Jede Runde
 hat ihre zwei, vier und vier Blätter mit ihrer Zeit, alles liegt auf dem
-Blatt, jede der 21 Arten hat ihren Satz und ihr Beispiel und lässt sich
+Blatt, jede der 18 Arten hat ihren Satz und ihr Beispiel und lässt sich
 zeichnen, beantworten und nachmessen; die Vorschau wartet auf den Tipp und
 lässt die Uhr stehen,
 zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
@@ -655,8 +681,13 @@ nicht und bleibt am Rand stehen; ein Tipp verrückt nichts, Loslassen ist
 keine Antwort, der Knopf «Bestätigen» schon (auch während ein Finger das
 Fadenkreuz hält, nicht aber, wenn man von ihm wegzieht); die Maus zeigt
 genau hin und hat keinen Knopf; der Knopf hat hoch, quer und auf dem
-Tablet seinen Platz neben dem Blatt –, und eine aufgezeichnete Runde zeigt
-beim Anschauen dieselben Blätter und dieselben Punkte.
+Tablet seinen Platz neben dem Blatt; an einer Bande bleibt das Fadenkreuz
+kleben, wenn man schräg an ihr entlangzieht, löst sich quer dazu ohne
+Sprung, ist dann frei und klebt wieder, wenn es zurückkommt, und eine
+Antwort neben der Bande wird nach ihrem Abstand gemessen; das Rad streut in
+Grösse und Lage, und sein Beispiel ist ein anderes –, und eine
+aufgezeichnete Runde zeigt beim Anschauen dieselben Blätter und dieselben
+Punkte.
 
 ### Feuerseil (November 2026)
 

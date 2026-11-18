@@ -19,13 +19,14 @@
  * nicht mehr; überall muss etwas in Gedanken gebaut oder vorhergesagt
  * werden. Zwei leichte Blätter zum Einsehen (der Mittelpunkt eines Kreises
  * oder Rechtecks, ein halber Winkel, das Lot), dann vier mittlere
- * (spiegeln, die vierte Ecke, der Schwerpunkt, das gleichseitige Dreieck,
- * eine Vierteldrehung, der Treffpunkt zweier Kugeln, ein Bogen bis zur
- * Wand, die Bande), am Schluss vier schwere: der Mittelpunkt eines Bogens
- * oder dreier Punkte, der Inkreis, zwei Banden, über die Bande ins Loch,
- * die Flugbahn eines Balls, die halbe Fläche, das Rad, das eine Umdrehung
- * rollt – und der Tunnel, in dem eine Kugel verschwindet und man tippt,
- * wenn sie beim Pfeil sein müsste. Welche Aufgaben kommen und wie sie
+ * (spiegeln, die vierte Ecke, das gleichseitige Dreieck, eine
+ * Vierteldrehung, ein Bogen bis zur Wand, die Bande), am Schluss vier
+ * schwere: der Mittelpunkt eines Bogens oder dreier Punkte, der Inkreis,
+ * zwei Banden, über die Bande ins Loch, die Flugbahn eines Balls, das Rad,
+ * das eine Umdrehung rollt – und der Tunnel, in dem eine Kugel
+ * verschwindet und man tippt, wenn sie beim Pfeil sein müsste. (Der
+ * Schwerpunkt, der Treffpunkt zweier Kugeln und die halbe Fläche waren
+ * einmal dabei.) Welche Aufgaben kommen und wie sie
  * liegen, würfelt der Zufall; in einem Turnier bekommen alle dieselben
  * zehn Blätter (zufall.js).
  *
@@ -48,6 +49,12 @@
  * so oft man will. Die Antwort ist erst der Knopf «Bestätigen». Zu sehen
  * ist nur das Fadenkreuz. Maus und Stift zeigen wie eh und je genau
  * dorthin, wo sie stehen, und ihr Loslassen ist die Antwort.
+ *
+ * Frei ist das Fadenkreuz überall – auch dort, wo die Lösung auf einer
+ * Wand, einer Bande, dem Boden oder einem Bogen liegt (bahn). An so einer
+ * Bahn haftet es nur: Nah daran liegt es auf ihr, und wer wegzieht, löst
+ * es wieder (haften, schiebe). Gemessen wird der Abstand zur richtigen
+ * Stelle, wo immer es liegt.
  *
  * Aufgezeichnet werden die Züge (geist.js, zuege): jede Vorschau, jedes
  * neue Blatt, das Fadenkreuz unterwegs und die Antwort. Damit lassen sich die besten Läufe
@@ -98,8 +105,8 @@
   // Lineal getan: Überall muss etwas in Gedanken gebaut werden – ein Lot,
   // ein Spiegelbild, ein Abprall, eine Flugbahn.
   const LEICHT = ["kreis", "rechteck", "winkel", "lot"];
-  const MITTEL = ["spiegel", "eck", "schwerpunkt", "dreieck", "drehen", "treffpunkt", "kurve", "bande"];
-  const SCHWER = ["bogen", "doppelbande", "zielbande", "tunnel", "wurf", "umkreis", "inkreis", "halbieren", "rad"];
+  const MITTEL = ["spiegel", "eck", "dreieck", "drehen", "kurve", "bande"];
+  const SCHWER = ["bogen", "doppelbande", "zielbande", "tunnel", "wurf", "umkreis", "inkreis", "rad"];
   const PLAN = [2, 4, 4];
   const BLAETTER = PLAN[0] + PLAN[1] + PLAN[2];
 
@@ -126,6 +133,13 @@
   // Erst nach SCHLUPF Bildpunkten (CSS) gilt eine Berührung als Ziehen: Ein
   // aufgesetzter Finger zittert, und ein blosser Tipp soll nichts verrücken.
   const SCHLUPF = 4;
+  // Das Fadenkreuz ist überall frei. An einer Bahn – Wand, Bande, Boden,
+  // Bogen – bleibt es aber kleben: So viele Millimeter nach jeder Seite
+  // haftet es an ihr, ehe es sich wieder löst (haften, schiebe).
+  const HAFT = 3;
+  // Das Rad: so klein und so gross darf es sein (Halbmesser in Millimetern).
+  const RAD_KLEIN = 3.2;
+  const RAD_GROSS = 8.6;
   // So lange steht nach einem blossen Tipp der Hinweis da, dass Ziehen gemeint ist.
   const WINK_MS = 2600;
   const TOP_COUNT = 5;
@@ -250,8 +264,8 @@
    *
    *   figur     was auf dem Blatt steht (Strecken, Bögen, Punkte …)
    *   ziel      die richtige Stelle
-   *   bahn      worauf das Fadenkreuz läuft: eine Strecke { a, b }, ein Bogen
-   *             { m, r, von, bis } – oder nichts, dann ist das Blatt frei
+   *   bahn      woran das Fadenkreuz haftet: eine Strecke { a, b }, ein Bogen
+   *             { m, r, von, bis } – oder nichts. Frei ist es überall.
    *   loesung   was sich beim Nachmessen einzeichnet
    *   mass      wie streng gemessen wird: 1 heisst Millimeter für
    *             Millimeter, kleiner ist nachsichtiger (bei den schweren)
@@ -423,32 +437,6 @@
       });
     },
 
-    // Wo balanciert das Dreieck? Im Schwerpunkt – dort kreuzen sich die
-    // Linien von jeder Ecke zur Mitte der Seite gegenüber.
-    schwerpunkt() {
-      return wuerfle(() => {
-        const ecken = dreieckRoh();
-        if (!ecken) return null;
-        const [a, b, c] = ecken;
-        const g = P((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3);
-        const ma = zwischen(b, c);
-        const mb = zwischen(a, c);
-        const mc = zwischen(a, b);
-        return {
-          art: "schwerpunkt", kurz: "Schwerpunkt", frage: "Wo balanciert das Dreieck auf einer Nadelspitze?",
-          punkte: [a, b, c, g, ma, mb, mc],
-          figur: [{ t: "poly", pkte: [a, b, c], zu: true }],
-          bahn: null, ziel: g,
-          loesung: [
-            { t: "s", a, b: ma, stil: "strich" }, { t: "s", a: b, b: mb, stil: "strich" }, { t: "s", a: c, b: mc, stil: "strich" },
-            { t: "gleich", a: b, b: ma }, { t: "gleich", a: ma, b: c }, { t: "gleich", a, b: mb }, { t: "gleich", a: mb, b: c },
-            { t: "gleich", a, b: mc }, { t: "gleich", a: mc, b }, { t: "p", p: g },
-          ],
-          mass: 0.85,
-        };
-      });
-    },
-
     // Ein gleichseitiges Dreieck über einer Strecke: Wo ist die dritte Ecke?
     // Es gibt zwei – beide gelten (auch).
     dreieck() {
@@ -501,34 +489,6 @@
             { t: "eck", p: z, zu1: p, zu2: ziel }, { t: "gleich", a: z, b: p }, { t: "gleich", a: z, b: ziel }, { t: "p", p: ziel },
           ],
           mass: 0.85,
-        };
-      });
-    },
-
-    // Zwei Kugeln rollen aufeinander zu, verschieden schnell: Wo treffen sie sich?
-    treffpunkt() {
-      return wuerfle(() => {
-        const lang = zz(56, 80);
-        // Nie die Mitte: Eine der beiden ist deutlich schneller.
-        const q = zufall.zahl() < 0.5 ? zz(0.24, 0.42) : zz(0.58, 0.76);
-        const a = P(-lang / 2, 0);
-        const b = P(lang / 2, 0);
-        const ziel = P(-lang / 2 + q * lang, 0);
-        const tempo = 26;
-        const a1 = P(a.x, -6.5);
-        const a2 = P(a.x + q * tempo, -6.5);
-        const b1 = P(b.x, -6.5);
-        const b2 = P(b.x - (1 - q) * tempo, -6.5);
-        const w = schief(0, TAU);
-        const alle = [a, b, ziel, a1, a2, b1, b2];
-        alle.forEach((p) => Object.assign(p, dreh(p, w)));
-        return {
-          art: "treffpunkt", kurz: "Treffpunkt", frage: "Die Pfeile zeigen das Tempo der Kugeln. Wo treffen sie sich?",
-          punkte: alle,
-          figur: [{ t: "s", a, b, stil: "duenn" }, { t: "pfeil", a: a1, b: a2 }, { t: "pfeil", a: b1, b: b2 }, { t: "kugel", p: a }, { t: "kugel", p: b }],
-          bahn: { a, b }, ziel, rollen: [[a, ziel], [b, ziel]],
-          loesung: [{ t: "tick", p: ziel, w, l: 3.4 }],
-          mass: 0.8,
         };
       });
     },
@@ -774,48 +734,40 @@
       });
     },
 
-    // Die Fläche halbieren: ein Schnitt parallel zur Grundseite. Auf halber
-    // Höhe liegt er nicht – oben ist das Dreieck schmal.
-    halbieren() {
-      return wuerfle(() => {
-        const ecken = dreieckRoh();
-        if (!ecken) return null;
-        const [a, b, c] = ecken;
-        const m = zwischen(a, b);
-        const teil = Math.SQRT1_2;
-        const ziel = zwischen(c, m, teil);
-        const s1 = zwischen(c, a, teil);
-        const s2 = zwischen(c, b, teil);
-        const oben = zwischen(c, ziel, 0.62);
-        const unten = zwischen(ziel, m, 0.5);
-        return {
-          art: "halbieren", kurz: "Fläche halbieren", frage: "Schneide parallel zu g so, dass beide Teile gleich viel Fläche haben.",
-          punkte: [a, b, c, m, ziel, s1, s2, oben, unten],
-          figur: [{ t: "poly", pkte: [a, b, c], zu: true }, { t: "s", a: c, b: m, stil: "achse" }, { t: "text", p: m, text: "g", weg: P(m.x - c.x, m.y - c.y) }],
-          bahn: { a: c, b: m }, ziel, schnitt: { a, b, c },
-          loesung: [
-            { t: "flaeche", pkte: [c, s1, s2] }, { t: "s", a: s1, b: s2 },
-            { t: "text", p: oben, text: "½", weg: P(0, 0) }, { t: "text", p: unten, text: "½", weg: P(0, 0) },
-          ],
-          mass: 0.8,
-        };
-      });
-    },
-
-    // Das Rad rollt eine Umdrehung weit: gut dreimal sein Durchmesser.
+    // Das Rad rollt eine Umdrehung weit: gut dreimal sein Durchmesser. Jedes
+    // Mal ist es anders – das Rad mal winzig, mal mehr als doppelt so gross,
+    // der Boden mal kürzer, mal länger, und die Stelle irgendwo zwischen
+    // seinem ersten Drittel und kurz vor dem Ende. Gewürfelt wird auf zwei
+    // Arten, damit beides breit streut: mal erst die Stelle und dazu ein Rad,
+    // das davor Platz hat und einmal herumkommt; mal erst das Rad und dazu
+    // eine Stelle, die es erreichen kann. (Früher war das Rad fast immer
+    // gleich gross und der Boden gleich lang: Die Stelle lag stets da, wo
+    // sie in der Vorschau gelegen hatte.)
     rad() {
       return wuerfle(() => {
-        const r = zz(6.5, 9.6);
+        let lang = zz(62, 84);
+        let teil = 0;
+        let r = 0;
+        if (zufall.zahl() < 0.5) {
+          teil = zz(0.3, 0.88);
+          const hoechstens = Math.min(RAD_GROSS, (teil * lang - 2) / (TAU + 1), (1 - teil) * lang - 6);
+          if (hoechstens < RAD_KLEIN) return null;
+          r = Math.max(RAD_KLEIN, hoechstens * zz(0.6, 1));
+        } else {
+          r = zz(RAD_KLEIN, RAD_GROSS);
+          lang = Math.max(lang, TAU * r + 2 * r + 8);
+          teil = zz((TAU * r + r + 2) / lang, 1 - (r + 6) / lang);
+        }
         const umfang = TAU * r;
         const seite = zufall.zahl() < 0.5 ? 1 : -1;
-        const kipp = zz(-0.22, 0.22);
-        const x0 = r + 2;
+        const kipp = zz(-0.3, 0.3);
+        const x0 = teil * lang - umfang;
         const p0 = P(seite * x0, 0);
-        const ziel = P(seite * (x0 + umfang), 0);
+        const ziel = P(seite * teil * lang, 0);
         const m0 = P(seite * x0, -r);
         const m1 = P(seite * (x0 + umfang), -r);
         const g1 = P(0, 0);
-        const g2 = P(seite * (x0 + umfang + r + 2), 0);
+        const g2 = P(seite * lang, 0);
         const oben = P(seite * x0, -3 * r);
         const unten = P(seite * x0, 12);
         const pf1 = P(seite * (x0 + r + 3), -r * 1.9);
@@ -878,10 +830,8 @@
     lot: "Der kürzeste Weg von P zur Linie trifft sie im rechten Winkel. Schieb das Fadenkreuz auf die Stelle der Linie, an der er ankommt.",
     spiegel: "Die Linie ist ein Spiegel. Setz das Fadenkreuz dorthin, wo das Spiegelbild von P liegt: genau gegenüber, gleich weit hinter der Linie.",
     eck: "Drei Ecken eines Rechtecks sind da. Setz das Fadenkreuz dorthin, wo die vierte liegen muss.",
-    schwerpunkt: "Setz das Fadenkreuz auf den Schwerpunkt des Dreiecks – die Stelle, auf der es im Gleichgewicht läge.",
     dreieck: "Die Strecke ist eine Seite eines Dreiecks mit drei gleich langen Seiten. Setz das Fadenkreuz auf die dritte Ecke – links oder rechts davon, beides gilt.",
     drehen: "P dreht sich um Z: eine Vierteldrehung in Pfeilrichtung, immer gleich weit von Z weg. Setz das Fadenkreuz dorthin, wo P landet.",
-    treffpunkt: "Zwei Kugeln rollen aufeinander zu. Der längere Pfeil gehört der schnelleren. Schieb das Fadenkreuz dorthin, wo sie sich treffen.",
     kurve: "Der Bogen läuft mit derselben Krümmung weiter. Schieb das Fadenkreuz auf die Stelle der Wand, an der er ankommt.",
     bande: "Die Kugel prallt an der Bande ab wie Licht an einem Spiegel. Schieb das Fadenkreuz auf die Stelle der gelben Wand, die sie danach trifft.",
     bogen: "Der Bogen ist ein Stück eines Kreises. Setz das Fadenkreuz auf den Mittelpunkt dieses Kreises.",
@@ -890,7 +840,6 @@
     wurf: "Der Ball fliegt im Bogen weiter, so wie er begonnen hat. Schieb das Fadenkreuz auf die Stelle, an der er landet.",
     umkreis: "Durch die drei Punkte geht genau ein Kreis. Setz das Fadenkreuz auf seinen Mittelpunkt – er ist von allen dreien gleich weit weg.",
     inkreis: "Ins Dreieck passt ein grösster Kreis, der alle drei Seiten berührt. Setz das Fadenkreuz auf seinen Mittelpunkt.",
-    halbieren: "Ein Schnitt parallel zur Seite g teilt das Dreieck in zwei Teile. Schieb ihn so, dass beide gleich viel Fläche haben.",
     rad: "Das Rad rollt genau eine Umdrehung weit. Schieb das Fadenkreuz auf die Stelle am Boden, die es dann berührt.",
     tunnel: "Die Kugel rollt gleichmässig in den Tunnel, dann sieht man sie nicht mehr. Tippe in dem Augenblick, in dem sie beim Pfeil sein muss.",
   };
@@ -912,8 +861,34 @@
   function aufgabenFuer() {
     const reihe = [LEICHT, MITTEL, SCHWER].flatMap((arten, stufe) => mische(arten).slice(0, PLAN[stufe]).map((art) => ({ art, zeit: ZEITEN[stufe] })));
     const blaetter = reihe.map(({ art, zeit }, nr) => ({ ...BAU[art](), nr, zeit }));
-    blaetter.forEach((a) => { a.beispiel = BAU[a.art](); });
+    blaetter.forEach((a) => { a.beispiel = beispielFuer(a); });
     return blaetter;
+  }
+
+  /*
+   * Das Beispiel der Vorschau ist eine andere Aufgabe derselben Art – und
+   * eine sichtlich andere. Seine Lösung liegt nirgends dort, wo die des
+   * Blattes liegt: nicht auf dem Blatt gedacht und nicht dort, wo sie im
+   * kleinen Kasten der Vorschau zu sehen ist (hoch wie quer). Sonst genügte
+   * es, sich die Stelle aus der Vorschau zu merken. Ein Rad ist ausserdem
+   * deutlich grösser oder kleiner als das des Blattes.
+   */
+  const BEISPIEL_KASTEN = { hoch: 0.56, flach: 0.72, oben: 0.045 };
+  const BEISPIEL_FERN = 14;
+  function beispielFuer(a) {
+    const ziele = [a.ziel, a.auch?.ziel].filter(Boolean);
+    let b = null;
+    for (let i = 0; i < 24; i += 1) {
+      b = BAU[a.art]();
+      const orte = [b.ziel, b.auch?.ziel].filter(Boolean).flatMap((z) => [
+        z,
+        ...[BEISPIEL_KASTEN.hoch, BEISPIEL_KASTEN.flach].map((k) => P(BLATT * (0.5 - k / 2) + z.x * k, BLATT * BEISPIEL_KASTEN.oben + z.y * k)),
+      ]);
+      const fern = orte.every((o) => ziele.every((z) => abstand(o, z) >= BEISPIEL_FERN));
+      const anders = !a.rad || Math.max(a.rad.r / b.rad.r, b.rad.r / a.rad.r) >= 1.3;
+      if (fern && anders) break;
+    }
+    return b;
   }
 
   // Die Runde als Text – für die Prüfung, dass in einem Turnier alle
@@ -935,7 +910,7 @@
   // Aus einem Weg auf der Schiene wird ein Ort auf dem Blatt.
   const tunnelOrt = (a, s) => zwischen(a.a, a.b, s / a.lang);
 
-  // Das Fadenkreuz läuft auf der Bahn der Aufgabe – oder frei über das Blatt.
+  // Der nächste Punkt auf der Bahn der Aufgabe – ohne Bahn die Stelle selbst.
   function aufBahn(a, p) {
     const bahn = a.bahn;
     if (!bahn) return P(clamp(p.x, 0, BLATT), clamp(p.y, 0, BLATT));
@@ -948,6 +923,55 @@
       return plus(bahn.m, richt(clamp(w, bahn.von, bahn.bis)), bahn.r);
     }
     return aufStrecke(p, bahn.a, bahn.b);
+  }
+
+  /*
+   * Das Fadenkreuz ist frei – und haftet an der Bahn. Aus der freien Stelle
+   * p (wo der Zeiger hinführt) wird die des Fadenkreuzes: Näher als HAFT an
+   * der Bahn liegt es auf ihr; weiter weg steht es um HAFT näher an ihr als
+   * p. So springt nichts: Es kommt an der Wand an, bleibt ein Stück weit
+   * kleben und löst sich dann stetig wieder.
+   */
+  function haften(a, p) {
+    const q = P(clamp(p.x, 0, BLATT), clamp(p.y, 0, BLATT));
+    if (!a.bahn) return q;
+    const fuss = aufBahn(a, q);
+    const weit = abstand(q, fuss);
+    if (weit <= HAFT) return fuss;
+    return zwischen(fuss, q, (weit - HAFT) / weit);
+  }
+
+  // Ob eine Stelle auf der Bahn der Aufgabe liegt (dort ist das Fadenkreuz eingerastet).
+  const eingerastet = (a, p) => Boolean(a.bahn) && abstand(p, aufBahn(a, p)) < 0.25;
+
+  /*
+   * Der Finger (oder eine Pfeiltaste) schiebt die freie Stelle um d weiter.
+   * Solange sie an der Bahn haftet, zählt quer zur Bahn nur, was über die
+   * Hälfte des Wegs längs hinausgeht: Wer an der Wand entlangfährt, bleibt
+   * auf ihr, auch wenn der Finger nicht genau ihrer Richtung folgt – erst
+   * ein Zug von ihr weg löst das Fadenkreuz. Kommt sie neu an der Bahn an,
+   * rückt sie mitten in die Haftzone: Dann sitzt es nach beiden Seiten
+   * gleich fest.
+   */
+  function schiebe(a, von, d) {
+    let nach = P(von.x + d.x, von.y + d.y);
+    if (a.bahn) {
+      const fuss = aufBahn(a, von);
+      if (abstand(von, fuss) <= HAFT) {
+        const t = a.bahn.r
+          ? (() => { const e = einheit(a.bahn.m, fuss); return P(-e.y, e.x); })()
+          : einheit(a.bahn.a, a.bahn.b);
+        const laengs = d.x * t.x + d.y * t.y;
+        const quer = P(d.x - t.x * laengs, d.y - t.y * laengs);
+        const q = Math.hypot(quer.x, quer.y);
+        const bleibt = q ? Math.max(0, q - Math.abs(laengs) * 0.5) / q : 0;
+        nach = P(von.x + t.x * laengs + quer.x * bleibt, von.y + t.y * laengs + quer.y * bleibt);
+      } else {
+        const neu = aufBahn(a, nach);
+        if (abstand(nach, neu) <= HAFT) nach = neu;
+      }
+    }
+    return P(clamp(nach.x, 0, BLATT), clamp(nach.y, 0, BLATT));
   }
 
   // Wie viele Millimeter die Antwort neben der Lösung liegt. Im Tunnel ist
@@ -991,6 +1015,7 @@
     vorSeit: 0,            // wann seine Vorschau begann
     tZeig: 0,              // wann die Lösung begann
     zeiger: null,          // das Fadenkreuz { x, y } in Millimetern
+    frei: null,            // die freie Stelle, die der Zeiger führt – an einer Bahn haftet das Fadenkreuz, sie nicht
     gesetzt: false,        // ob das Fadenkreuz auf diesem Blatt schon bewegt wurde
     startGemeldet: false,  // ob die anderen schon wissen, wo es am Anfang liegt
     griff: null,           // der Zeiger, der es führt { id, art, finger, zieht, px, py, frei }
@@ -1141,6 +1166,7 @@
     state.vorSeit = performance.now();
     state.t0 = state.vorSeit;
     state.zeiger = null;
+    state.frei = null;
     state.gesetzt = false;
     state.startGemeldet = false;
     state.griff = null;
@@ -1169,12 +1195,19 @@
     meldeZug(0);
     // Mit dem Finger liegt das Fadenkreuz schon da und wartet aufs Ziehen.
     // (Wer zuschaut, erfährt es, sobald das Blatt gezeichnet ist: uhrTakt.)
-    if (mitFinger() && a.art !== "tunnel") state.zeiger = startOrt(a);
+    if (mitFinger() && a.art !== "tunnel") legeHin(a);
+  }
+
+  // Das Fadenkreuz an seinen Anfang legen.
+  function legeHin(a) {
+    state.frei = startOrt(a);
+    state.zeiger = haften(a, state.frei);
   }
 
   // Wo das Fadenkreuz liegt, bevor es jemand bewegt hat: mitten auf dem
-  // Blatt – oder am Anfang der Bahn. Beides verrät nichts über die Lösung
-  // (die Mitte einer Bahn täte es: Beim Winkel ist sie die Antwort).
+  // Blatt – oder am Anfang der Bahn, wenn die Aufgabe eine hat (dort haftet
+  // es, bis man es wegzieht). Beides verrät nichts über die Lösung (die
+  // Mitte einer Bahn täte es: Beim Winkel ist sie die Antwort).
   function startOrt(a) {
     const bahn = a.bahn;
     if (!bahn) return P(BLATT / 2, BLATT / 2);
@@ -1251,17 +1284,18 @@
     antworte(tunnelOrt(a, weg));
   }
 
-  // Das Fadenkreuz setzen – auf die Bahn der Aufgabe, wenn sie eine hat.
+  // Das Fadenkreuz setzen: ort ist die freie Stelle – an einer Bahn haftet es (haften).
   function setzeZeiger(ort) {
     const a = blatt();
     if (!a) return;
-    state.zeiger = aufBahn(a, ort);
+    state.frei = P(clamp(ort.x, 0, BLATT), clamp(ort.y, 0, BLATT));
+    state.zeiger = haften(a, state.frei);
     state.gesetzt = true;
     // Die letzten Stellen des Fingers, für das Abheben (ruhigeStelle): das
     // letzte Viertel einer Sekunde – und die eine Stelle davor. Wer das
     // Fadenkreuz hält und hinschaut, bewegt den Finger oft lange nicht.
     const nun = performance.now();
-    spur.push({ t: nun, x: state.zeiger.x, y: state.zeiger.y });
+    spur.push({ t: nun, x: state.zeiger.x, y: state.zeiger.y, frei: state.frei });
     while (spur.length > 2 && nun - spur[1].t > 250) spur.shift();
     meldeLage();
   }
@@ -1281,7 +1315,8 @@
     }
     if (!frueher) return zuletzt;
     const still = spur.every((p) => p.t < frueher.t || Math.hypot(p.x - frueher.x, p.y - frueher.y) < 1.2);
-    return still && Math.hypot(zuletzt.x - frueher.x, zuletzt.y - frueher.y) < 1.2 ? P(frueher.x, frueher.y) : zuletzt;
+    if (!still || Math.hypot(zuletzt.x - frueher.x, zuletzt.y - frueher.y) >= 1.2) return zuletzt;
+    return { x: frueher.x, y: frueher.y, frei: frueher.frei };
   }
 
   // Was die Uhr tut, Bild für Bild: Die Vorschau wartet auf den Tipp (aber
@@ -1834,19 +1869,6 @@
         g.strokeStyle = farbe;
         break;
       }
-      case "flaeche": {
-        // Eine Fläche, zart gefüllt.
-        if (!fein) break;
-        g.save();
-        g.globalAlpha *= 0.2 * k;
-        g.fillStyle = farbe;
-        g.beginPath();
-        t.pkte.forEach((q, i) => (i ? g.lineTo(X(q.x), Y(q.y)) : g.moveTo(X(q.x), Y(q.y))));
-        g.closePath();
-        g.fill();
-        g.restore();
-        break;
-      }
       case "loch": {
         // Das Loch, in das die Kugel soll: dunkel, mit hellem Rand.
         const r = 3.1 * s * clamp(k * 2, 0, 1);
@@ -2136,23 +2158,8 @@
     g.save();
     g.setLineDash([]);
     g.lineCap = "butt";
-    if (a.schnitt) {
-      // Beim Halbieren der Fläche: der Schnitt, wie er jetzt läge – parallel
-      // zur Grundseite durchs Fadenkreuz.
-      const d = a.schnitt;
-      const teil = clamp(abstand(d.c, z) / (abstand(d.c, zwischen(d.a, d.b)) || 1), 0, 1);
-      const p1 = zwischen(d.c, d.a, teil);
-      const p2 = zwischen(d.c, d.b, teil);
-      [["rgba(4, 16, 48, 0.55)", 4.5], [GELB, 2]].forEach(([farbe, breite]) => {
-        g.strokeStyle = farbe;
-        g.lineWidth = breite;
-        g.beginPath();
-        g.moveTo(X(p1.x), Y(p1.y));
-        g.lineTo(X(p2.x), Y(p2.y));
-        g.stroke();
-      });
-    } else if (a.bahn) {
-      // Auf einer Bahn: ein Reiter quer zu ihr.
+    if (eingerastet(a, z)) {
+      // Eingerastet auf der Bahn: ein Reiter quer zu ihr.
       const quer = a.bahn.r ? einheit(a.bahn.m, z) : (() => { const e = einheit(a.bahn.a, a.bahn.b); return P(-e.y, e.x); })();
       const lang = 15 * view.u;
       [["rgba(4, 16, 48, 0.55)", 4.5], [GELB, 2]].forEach(([farbe, breite]) => {
@@ -2489,9 +2496,9 @@
     // flachen Bild (Handy quer) steht er links neben dem Blatt, unter dem
     // Namen der Aufgabe – und das Beispiel bekommt das Blatt für sich.
     const flach = Boolean(view.flach);
-    const kante = Math.round(S * (flach ? 0.72 : 0.56));
+    const kante = Math.round(S * (flach ? BEISPIEL_KASTEN.flach : BEISPIEL_KASTEN.hoch));
     const kx = Math.round(mitte - kante / 2);
-    const ky = y0 + Math.round(S * 0.045);
+    const ky = y0 + Math.round(S * BEISPIEL_KASTEN.oben);
     const satz = TUN[a.art] || a.frage;
     const oben = flach ? y0 + S * 0.42 + Math.round(26 * u) : ky + kante + Math.round(10 * u);
     const unten = flach ? y0 + S : rufY;
@@ -3102,9 +3109,9 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "eyeMeasure", fassung: "z2", zufall, zuege: true, nochmal: zuschauenStarten,
+    host, spiel: "eyeMeasure", fassung: "z3", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z3", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -3139,17 +3146,14 @@
     // Ein zweiter Finger nimmt dem ersten das Fadenkreuz nicht weg.
     if (state.griff) return;
     const finger = state.eingabe === "touch";
-    state.griff = { id: event.pointerId, art: state.eingabe, finger, zieht: false, frei: null, ...fingerOrt(event) };
+    state.griff = { id: event.pointerId, art: state.eingabe, finger, zieht: false, ...fingerOrt(event) };
     state.wink = 0;
     // Ein neuer Griff: Wo das Fadenkreuz davor stand, zählt beim Abheben nicht mit.
     spur.length = 0;
     try { host.setPointerCapture(event.pointerId); } catch { /* egal */ }
     if (finger) {
-      // Der Finger schiebt nur: Das Fadenkreuz bleibt, wo es ist. Mit ihm
-      // wandert eine freie Stelle (frei) – auf einer Bahn ist das
-      // Fadenkreuz ihr nächster Punkt.
-      if (!state.zeiger) state.zeiger = startOrt(blatt());
-      state.griff.frei = P(state.zeiger.x, state.zeiger.y);
+      // Der Finger schiebt nur: Das Fadenkreuz bleibt, wo es ist.
+      if (!state.zeiger || !state.frei) legeHin(blatt());
       return;
     }
     setzeZeiger(blattOrt(event));
@@ -3180,13 +3184,10 @@
       return;
     }
     // Am Rand des Blattes bleibt die freie Stelle stehen, wie ein Mauszeiger
-    // am Bildschirmrand: Zurück geht es sofort.
-    griff.frei = P(
-      clamp(griff.frei.x + (ort.px - griff.px) / view.s, 0, BLATT),
-      clamp(griff.frei.y + (ort.py - griff.py) / view.s, 0, BLATT),
-    );
+    // am Bildschirmrand: Zurück geht es sofort. An einer Bahn klebt sie (schiebe).
+    const weg = P((ort.px - griff.px) / view.s, (ort.py - griff.py) / view.s);
     Object.assign(griff, ort);
-    setzeZeiger(griff.frei);
+    setzeZeiger(schiebe(blatt(), state.frei, weg));
   });
 
   host.addEventListener("pointerup", (event) => {
@@ -3200,13 +3201,14 @@
       // Beim Abheben rollt die Fingerkuppe ab – das Fadenkreuz bleibt, wo es
       // geruht hat. Mehr geschieht nicht: Die Antwort ist der Knopf.
       const ruhe = ruhigeStelle(state.zeiger);
-      if (ruhe.x !== state.zeiger.x || ruhe.y !== state.zeiger.y) {
-        state.zeiger = ruhe;
+      if (ruhe !== state.zeiger) {
+        state.zeiger = P(ruhe.x, ruhe.y);
+        state.frei = P(ruhe.frei.x, ruhe.frei.y);
         meldeLage();
       }
       return;
     }
-    const zuletzt = aufBahn(blatt(), blattOrt(event));
+    const zuletzt = haften(blatt(), blattOrt(event));
     antworte(griff.art === "mouse" ? zuletzt : ruhigeStelle(zuletzt));
   });
 
@@ -3241,9 +3243,8 @@
     }
     if (pfeil) {
       const weit = SCHRITT * (event.shiftKey ? 8 : 1);
-      const von = state.zeiger || (a.bahn ? aufBahn(a, P(BLATT / 2, BLATT / 2)) : P(BLATT / 2, BLATT / 2));
       state.wink = 0;
-      setzeZeiger(P(von.x + pfeil[0] * weit, von.y + pfeil[1] * weit));
+      setzeZeiger(schiebe(a, state.frei || startOrt(a), P(pfeil[0] * weit, pfeil[1] * weit)));
       return;
     }
     if (!event.repeat) bestaetige();
@@ -3256,7 +3257,7 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappAugenmass = {
     BLATT, RAND, GRENZEN, WIE, PLAN, LEICHT, MITTEL, SCHWER, BLAETTER, ZEIT, ZEITEN, EINZUG, SPERRE, ZEIGEN_MS, PUNKTE_JE_BLATT,
-    VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN, SCHLUPF, startOrt, bestaetige,
+    VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN, SCHLUPF, HAFT, BEISPIEL_KASTEN, BEISPIEL_FERN, startOrt, bestaetige, haften, schiebe, eingerastet,
     state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelZeit, tunnelOrt, tunnelEnde,
     losGehts, blattLos, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
     // Wo eine Stelle des Blattes auf dem Bildschirm liegt.
