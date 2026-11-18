@@ -932,6 +932,85 @@ Stempelkarte liegt auf fünf Bildgrössen neben oder unter der Uhr, ganz im
 Bild und nie auf ihr; und eine aufgezeichnete Runde zeigt beim Anschauen
 dieselben Aufgaben und dieselben Punkte.
 
+### Kletterwand (November 2026)
+
+**Kletterwand** (`kletterwand.js`, `speedClimb`) – Speedklettern an einem
+Turm, der nicht aufhört. Die Kamera steht schräg hinter der Kletterin; wer
+spielt, tippt den nächsten Griff an, und sie greift hin – abwechselnd mit
+der linken und der rechten Hand, immer vom zuletzt gepackten Griff aus
+(`tippe`, `greife`). Gezählt werden die Meter.
+
+**Genau.** Jeder Griff hat in der Mitte seinen Bolzen. Je näher der Tipp
+daran sitzt (gemessen am Halbmesser des Griffs: `PERFEKT`, `GUT`, `KNAPP`),
+desto besser der Halt: «perfekt» gibt viel Kraft zurück und Schwung, «gut»
+etwas, «knapp» fast nichts. Wer knapp daneben tippt (bis `DANEBEN`), ist
+abgerutscht – die Runde ist vorbei. Ein Tipp weit weg von allen Griffen tut
+nichts, einer auf einen Griff ausser Reichweite auch nicht («zu weit»).
+
+**Schnell.** Der Ring neben ihrer Hüfte ist die Kraft: Sie läuft ab, solange
+sie hängt (`KRAFT_AB`), weiter oben schneller und über achtzig Metern mit
+jedem Meter noch etwas mehr (`KRAFT_AB_JE_METER`) – so endet jede Runde.
+Jeder Griff gibt ein Stück zurück (`KRAFT_PLUS`). Ist sie leer, gehen die
+Hände auf; unter einem guten Viertel zittern die Arme.
+
+**Weit.** Perfekte Griffe hintereinander geben Schwung (`SCHWUNG_PLUS`, der
+blaue Bogen am Ring). Mit Schwung reicht sie weiter (`reichweite`, von
+`R_STAND` bis `R_SPRUNG`): Dann lässt sich ein Griff überspringen – ein
+Sprung, bei dem beide Hände loslassen, und der den halben Schwung kostet.
+Goldene Griffe liegen weit und sind klein; sie geben die halbe Kraft zurück.
+
+**Es wird von selbst schwerer** (`schwere`): Die Griffe werden kleiner
+(`radius`) und liegen weiter auseinander, ab 18 Metern bröckeln manche
+(`AB_BRUCH`: wer zu lange daran hängt, fällt mit ihnen – `BRUCH_ZEIT`), ab
+40 Metern gleiten manche auf einer Schiene hin und her (`AB_PENDEL`), bis
+sie gepackt sind. Alle 25 Meter wechselt die Farbe der Zone. Der Turm ist
+immer kletterbar: Der nächste Griff der Hauptlinie liegt nie weiter weg, als
+sie ohne Schwung reicht (`R_HAUPT`), auch wenn er oder sein Vorgänger auf
+der Schiene ganz am Rand steht (`naechsterGriff`).
+
+**Das Bild** ist WebGL 2 ohne Bibliothek, wie Schwarm und Welle. Die
+Kletterin ist ein Netz, das in jedem Bild aus ihrer Haltung neu entsteht
+(`haltungBei`, `kletterinBauen`): Fest sind nur die vier Enden – zwei Hände
+an ihren Griffen, zwei Füsse auf ihren Tritten. Brust und Becken hängen an
+Federn darunter (`ruheZiel`), Ellbogen und Knie ergeben sich aus den Längen
+der Glieder (`gelenk`), die Füsse steigen von selbst nach, sobald ein Bein
+zu gestreckt oder zu gestaucht ist – auf einen Griff, wenn einer passt
+(`trittFuer`) –, der Kopf schaut dem Griff nach, zu dem die Hand unterwegs
+ist, Zopf und Kreidebeutel schwingen als kleine Ketten hinterher
+(`kettenTakt`). Gezählt wird beim Tipp, bewegt wird danach: Jeder Griff
+kommt in eine Warteschlange (`fig.warte`), und wer schneller tippt, als sie
+greift, lässt sie schneller greifen. Fällt sie, reisst es die Arme hoch,
+das Seil fängt sie, und sie sitzt im Gurt, eine Hand am Seil, die Füsse an
+der Wand (`fallBeginnen`, `fallTakt`); nahe am Boden fällt sie weniger tief.
+Ihr Schatten und der der Griffe liegt als weiche Maske auf der Wand
+(`SCHATTEN`). Drumherum der Turm mit Platten, Bohrungen, Meterstrichen und
+gemalten Zahlen, das Tal mit See und Bergen in drei Staffeln, über 62
+Metern das Wolkenmeer (`WOLKEN_HOCH`). Kommen die Bilder zu langsam, wird
+die Welt mit weniger Bildpunkten gezeichnet (`gueteTakt`).
+
+Drei Stimmungen derselben Welt stehen bereit (`STIMMUNG`: der Abend über dem
+Tal, die Arena bei Nacht, der Morgen am Fels) und drei Aufzüge (`KLEID`) –
+zum Ausprobieren über die Adresse: `/kletterwand?stil=nacht&kleid=1`. Ohne
+Angabe gilt der Abend.
+
+Aufgezeichnet werden die Züge (`meldeZug`: jeder Griff mit seiner Nummer und
+Güte, und das Ende mit seinem Grund) – damit lassen sich die besten Läufe
+anschauen, und im Multiplayer sehen die anderen dasselbe. Im Turnier
+bekommen alle dieselbe Wand.
+Prüfung 4g38: Die Hauptlinie ist auf jeder gewürfelten Wand ohne Schwung zu
+klettern, goldene Griffe nur mit; Bröckelgriffe und Schienen kommen erst ab
+ihrer Höhe, und die Griffe werden kleiner; die Güte zählt nach dem Abstand
+vom Bolzen, die Hände wechseln sich ab, ein weiter Griff geht nur mit
+Schwung und ist dann ein Sprung; die Kraft ist nach gut fünf Sekunden leer;
+wer an einem bröckelnden Griff hängen bleibt, fällt mit ihm, wer weitergeht,
+nicht; ein genauer Pilot kommt weit über zweihundert Meter und fällt doch,
+ein langsamer kommt keine sechzig weit; ein Tipp auf den Bolzen im Bild
+packt den Griff perfekt, und sind die Züge abgearbeitet, liegen die Hände
+an den Griffen, die gezählt wurden; wer daneben tippt, fällt ins Seil (ganz
+unten nicht in den Boden), und die Tafel nennt den Grund; ein Lauf in
+echter Zeit wird hinterlegt und angeschaut – dieselbe Wand, am Schluss
+dieselbe Zahl.
+
 ### Schwarm (November 2026): das erste Spiel in 3D
 
 **Schwarm** (`schwarm.js`, `flockFlight`, Fassung `t2`) – Ein Starenschwarm

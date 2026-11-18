@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3221,6 +3221,7 @@ try {
     ["/feuerseil", "Feuerseil", () => window.LernappFeuerseil.weltText()],
     ["/flaggen", "Flaggenkommando", () => window.LernappFlaggen.weltText()],
     ["/zeitgefuehl", "Zeitgefühl", () => window.LernappZeitgefuehl.weltText()],
+    ["/kletterwand", "Kletterwand", () => window.LernappKletterwand.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -9462,6 +9463,377 @@ try {
     }
   }
 
+  // --- 4g38. Kletterwand: immer kletterbar, und jede Runde endet von selbst -----------
+  // Die Wand entsteht Griff um Griff aus dem Zufall – und ist doch immer zu
+  // klettern: Der nächste Griff der Hauptlinie liegt nie weiter weg, als sie
+  // ohne Schwung reicht, auch wenn er oder sein Vorgänger auf der Schiene am
+  // Rand steht. Ein Pilot, der alle 0,4 Sekunden genau auf den Bolzen tippt,
+  // kommt weit über zweihundert Meter – und fällt doch: Die Kraft läuft mit
+  // jedem Meter schneller ab. Wer zögert, wer daneben tippt und wer an einem
+  // bröckelnden Griff hängen bleibt, fällt ins Seil.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/kletterwand`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKletterwand?.state?.wand && window.LernappKletterwand.view.cssW > 0, null, { timeout: 8000 });
+    const bau = await seite.evaluate(() => {
+      const K = window.LernappKletterwand;
+      const raus = { weitester: 0, gold: 0, goldNah: 0, goldWeiter: 0, zuFrueh: 0, arten: {}, aussen: 0, fallend: 0, rMin: 1, unten: [0, 0], oben: [0, 0], welten: 0 };
+      const welten = new Set();
+      for (let runde = 0; runde < 4; runde += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        welten.add(K.weltText());
+        const W = K.neueWand();
+        K.wandBis(W, K.START_Y + 300);
+        const haupt = W.griffe.filter((g) => g.haupt);
+        const enden = (g) => [g.x - g.weit, g.x + g.weit];
+        for (let i = 1; i < haupt.length; i += 1) {
+          const a = haupt[i - 1];
+          const b = haupt[i];
+          for (const ax of enden(a)) for (const bx of enden(b)) raus.weitester = Math.max(raus.weitester, Math.hypot(ax - bx, a.y - b.y));
+          if (b.y <= a.y) raus.fallend += 1;
+        }
+        W.griffe.forEach((g, i) => {
+          const meter = g.y - K.START_Y;
+          raus.arten[g.art] = (raus.arten[g.art] || 0) + 1;
+          if ((g.art === "bruch" && meter < K.AB_BRUCH) || (g.art === "pendel" && meter < K.AB_PENDEL)) raus.zuFrueh += 1;
+          if (Math.abs(g.x) + g.weit > K.BAHN + 1e-9) raus.aussen += 1;
+          raus.rMin = Math.min(raus.rMin, g.r);
+          if (g.haupt && meter > 2 && meter < 20) { raus.unten[0] += g.r; raus.unten[1] += 1; }
+          if (g.haupt && meter > 200) { raus.oben[0] += g.r; raus.oben[1] += 1; }
+          if (!g.gold) return;
+          raus.gold += 1;
+          const davor = W.griffe.slice(0, i).filter((h) => h.haupt);
+          const vorher = davor[davor.length - 2];
+          const danach = W.griffe.slice(i + 1).find((h) => h.haupt);
+          // Vom Griff davor ist ein goldener nur mit Schwung zu holen – und von
+          // ihm aus geht es auf der Hauptlinie weiter.
+          if (vorher && Math.hypot(g.x - vorher.x, g.y - vorher.y) <= K.R_STAND) raus.goldNah += 1;
+          if (danach) for (const dx of enden(danach)) raus.goldWeiter = Math.max(raus.goldWeiter, Math.hypot(g.x - dx, g.y - danach.y));
+        });
+      }
+      raus.welten = welten.size;
+      raus.unten = raus.unten[0] / raus.unten[1];
+      raus.oben = raus.oben[0] / raus.oben[1];
+      return raus;
+    });
+    pruefe(bau.weitester <= 0.94 + 1e-9 && bau.fallend === 0 && bau.aussen === 0,
+      `Kletterwand: Die Hauptlinie ist nicht überall ohne Schwung zu klettern, oder ein Griff liegt neben der Bahn: ${JSON.stringify(bau)}`);
+    pruefe(bau.gold > 20 && bau.goldNah === 0 && bau.goldWeiter <= 0.94 + 1e-9,
+      `Kletterwand: Ein goldener Griff ist ohne Schwung zu holen, oder von ihm aus geht es nicht weiter: ${JSON.stringify(bau)}`);
+    pruefe(bau.zuFrueh === 0 && bau.arten.bruch > 40 && bau.arten.pendel > 40 && bau.arten.fest > bau.arten.bruch + bau.arten.pendel,
+      `Kletterwand: Bröckelgriffe und Schienen kommen nicht, wann sie sollen: ${JSON.stringify(bau)}`);
+    pruefe(bau.unten > 0.098 && bau.oben < 0.064 && bau.rMin >= 0.042 && bau.welten > 1,
+      `Kletterwand: Die Griffe werden nicht kleiner, oder jede Runde hat dieselbe Wand: ${JSON.stringify(bau)}`);
+
+    // Die Regeln, an einer frischen Wand gerechnet (ohne Bild).
+    const regeln = await seite.evaluate(() => {
+      const K = window.LernappKletterwand;
+      const runden = (z) => Math.round(z * 1000) / 1000;
+      const frisch = (kraft = 1) => { const W = K.neueWand(); const k = K.neueKletterin(); k.kraft = kraft; return { W, k }; };
+      const naechster = (W, k) => W.griffe.find((g) => g.haupt && K.inReichweite(W, k, g, K.R_STAND));
+      const raus = {};
+      // Die Güte nach dem Abstand vom Bolzen, in Halbmessern.
+      raus.guete = [0.2, 0.6, 1.0, 1.8].map((f) => {
+        const { W, k } = frisch(0.3);
+        const g = naechster(W, k);
+        const e = K.tippe(W, k, g.x, g.y + g.r * f);
+        return { art: e.art, guete: e.guete ?? null, aus: k.aus, zuege: k.zuege, kraft: runden(k.kraft), schwung: runden(k.schwung), los: k.los };
+      });
+      {
+        const { W, k } = frisch();
+        raus.leer = { art: K.tippe(W, k, 1.2, K.START_Y + 0.5).art, zuege: k.zuege, los: k.los };
+      }
+      // Die Hände wechseln sich ab, und der gepackte Griff ist der Anker.
+      {
+        const { W, k } = frisch();
+        raus.haende = [];
+        for (let i = 0; i < 4; i += 1) {
+          const g = naechster(W, k);
+          const e = K.tippe(W, k, g.x, g.y);
+          raus.haende.push({ hand: e.hand, anker: k.anker === g.nr, halt: k.halt[e.hand] === g.nr, sprung: e.sprung });
+        }
+        raus.hoch = { hoch: runden(k.hoch), soll: runden(W.griffe[k.anker].y - K.START_Y) };
+      }
+      // Weiter als der Arm: nur mit Schwung – und dann ist es ein Sprung.
+      for (let versuch = 0; versuch < 40 && !raus.sprung; versuch += 1) {
+        const { W, k } = frisch();
+        const a = W.griffe[k.anker];
+        const fern = W.griffe.find((g) => g.y > a.y && Math.hypot(g.x - a.x, g.y - a.y) > K.R_STAND + 0.03 && Math.hypot(g.x - a.x, g.y - a.y) < K.R_SPRUNG - 0.03);
+        if (!fern) continue;
+        const ohne = K.tippe(W, k, fern.x, fern.y);
+        const davor = { art: ohne.art, zuege: k.zuege, aus: k.aus };
+        k.schwung = 1;
+        const mit = K.tippe(W, k, fern.x, fern.y);
+        raus.sprung = { davor, art: mit.art, sprung: mit.sprung, schwung: runden(k.schwung), spruenge: k.spruenge };
+      }
+      // Die Kraft: Vor dem ersten Griff läuft nichts, danach ist sie nach
+      // gut fünf Sekunden leer.
+      {
+        const { W, k } = frisch();
+        for (let i = 0; i < 600; i += 1) K.schritt(W, k, 1 / 60);
+        const vorher = k.kraft;
+        const g = naechster(W, k);
+        K.tippe(W, k, g.x, g.y);
+        let n = 0;
+        while (!k.aus && n < 60 * 20) { K.schritt(W, k, 1 / 60); n += 1; }
+        raus.kraft = { vorher, aus: k.aus, sekunden: runden(n / 60) };
+      }
+      // Ein Griff, der bröckelt: Wer daran hängen bleibt, fällt mit ihm – wer
+      // weitergeht, nicht. Ein Griff auf der Schiene steht still, sobald er
+      // gepackt ist.
+      const hin = (W, haupt, i) => {
+        const k = K.neueKletterin();
+        k.los = true;
+        k.halt = [haupt[i - 2].nr, haupt[i - 1].nr];
+        k.anker = haupt[i - 1].nr;
+        k.hoch = haupt[i - 1].y - K.START_Y;
+        return k;
+      };
+      for (let versuch = 0; versuch < 40 && !(raus.bruch && raus.pendel); versuch += 1) {
+        const W = K.neueWand();
+        K.wandBis(W, K.START_Y + 90);
+        const haupt = W.griffe.filter((g) => g.haupt);
+        const b = haupt.findIndex((g, i) => i > 2 && g.art === "bruch" && haupt[i + 1]?.art === "fest" && haupt[i + 2]?.art === "fest");
+        const p = haupt.findIndex((g, i) => i > 2 && g.art === "pendel");
+        if (b < 0 || p < 0) continue;
+        {
+          const k = hin(W, haupt, b);
+          K.greife(W, k, haupt[b].nr, 2);
+          const frist = haupt[b].bricht - k.t;
+          let n = 0;
+          while (!k.aus && n < 600) { k.kraft = 1; K.schritt(W, k, 1 / 60); n += 1; }
+          raus.bruch = { aus: k.aus, frist: runden(frist), sekunden: runden(n / 60), weg: haupt[b].weg };
+        }
+        {
+          // Dieselbe Stelle noch einmal, an einer zweiten Wand mit einem solchen Griff.
+          const W2 = K.neueWand();
+          K.wandBis(W2, K.START_Y + 90);
+          const h2 = W2.griffe.filter((g) => g.haupt);
+          const b2 = h2.findIndex((g, i) => i > 2 && g.art === "bruch" && h2[i + 1]?.art === "fest" && h2[i + 2]?.art === "fest");
+          if (b2 < 0) { raus.bruch = null; continue; }
+          const k = hin(W2, h2, b2);
+          K.greife(W2, k, h2[b2].nr, 2);
+          K.greife(W2, k, h2[b2 + 1].nr, 2);
+          K.greife(W2, k, h2[b2 + 2].nr, 2);
+          let gebrochen = 0;
+          for (let n = 0; n < 300 && !k.aus; n += 1) { k.kraft = 1; K.schritt(W2, k, 1 / 60); gebrochen += K.bruchTakt(W2, k).length; }
+          raus.weiter = { aus: k.aus, gebrochen, weg: h2[b2].weg };
+        }
+        {
+          const g = haupt[p];
+          const orte = [];
+          for (let t = 0; t < 12; t += 0.1) orte.push(K.griffOrt(g, t).x);
+          const k = hin(W, haupt, p);
+          k.t = 1.7;
+          const da = K.griffOrt(g, k.t).x;
+          K.greife(W, k, g.nr, 1);
+          raus.pendel = {
+            drin: orte.every((x) => x >= g.x - g.weit - 1e-9 && x <= g.x + g.weit + 1e-9), weg: runden(Math.max(...orte) - Math.min(...orte)), weit: runden(g.weit),
+            steht: [2, 3.3, 9].every((t) => Math.abs(K.griffOrt(g, t).x - da) < 1e-9),
+          };
+        }
+      }
+      // Der Pilot: genau auf den Bolzen, in festem Takt.
+      const lauf = (tau) => {
+        const { W, k } = frisch();
+        let warte = 0;
+        let t = 0;
+        for (; t < 900 && !k.aus; t += 1 / 60) {
+          warte -= 1 / 60;
+          if (warte <= 0) {
+            const g = K.pilot(W, k);
+            if (g) { const o = K.griffOrt(g, k.t); K.tippe(W, k, o.x, o.y); }
+            warte = tau;
+          }
+          K.schritt(W, k, 1 / 60);
+          K.bruchTakt(W, k);
+        }
+        return { hoch: Math.round(k.hoch), aus: k.aus, sekunden: Math.round(t), zuege: k.zuege, perfekt: k.perfekt, spruenge: k.spruenge };
+      };
+      raus.schnell = [lauf(0.4), lauf(0.4)];
+      raus.langsam = [lauf(1.3), lauf(1.3)];
+      return raus;
+    });
+    pruefe(JSON.stringify(regeln.guete.map((e) => [e.art, e.guete])) === JSON.stringify([["griff", 2], ["griff", 1], ["griff", 0], ["daneben", null]])
+      && regeln.guete[0].kraft === 0.62 && regeln.guete[1].kraft === 0.49 && regeln.guete[2].kraft === 0.35
+      && regeln.guete[0].schwung === 0.3 && regeln.guete[1].schwung === 0.08 && regeln.guete[2].schwung === 0
+      && regeln.guete[3].aus === "daneben" && regeln.guete[3].zuege === 0 && regeln.guete.slice(0, 3).every((e) => e.los && e.zuege === 1 && !e.aus),
+      `Kletterwand: Die Güte eines Griffs zählt nicht, wie sie soll (perfekt, gut, knapp, daneben): ${JSON.stringify(regeln.guete)}`);
+    pruefe(regeln.leer.art === "nichts" && regeln.leer.zuege === 0 && !regeln.leer.los, `Kletterwand: Ein Tipp neben alle Griffe tut etwas: ${JSON.stringify(regeln.leer)}`);
+    pruefe(JSON.stringify(regeln.haende.map((e) => e.hand)) === "[0,1,0,1]" && regeln.haende.every((e) => e.anker && e.halt && !e.sprung) && regeln.hoch.hoch === regeln.hoch.soll,
+      `Kletterwand: Die Hände wechseln sich nicht ab, oder die Meter stimmen nicht: ${JSON.stringify({ haende: regeln.haende, hoch: regeln.hoch })}`);
+    pruefe(regeln.sprung && regeln.sprung.davor.art === "weit" && regeln.sprung.davor.zuege === 0 && !regeln.sprung.davor.aus
+      && regeln.sprung.art === "griff" && regeln.sprung.sprung === true && regeln.sprung.schwung === 0.5 && regeln.sprung.spruenge === 1,
+      `Kletterwand: Ein weiter Griff geht ohne Schwung, oder mit Schwung ist es kein Sprung: ${JSON.stringify(regeln.sprung)}`);
+    pruefe(regeln.kraft.vorher === 1 && regeln.kraft.aus === "kraft" && regeln.kraft.sekunden > 4.6 && regeln.kraft.sekunden < 5.6,
+      `Kletterwand: Die Kraft läuft nicht ab, wie sie soll: ${JSON.stringify(regeln.kraft)}`);
+    pruefe(regeln.bruch && regeln.bruch.aus === "bruch" && regeln.bruch.weg && regeln.bruch.frist >= 1.25 && regeln.bruch.frist <= 3.2 && Math.abs(regeln.bruch.sekunden - regeln.bruch.frist) < 0.03,
+      `Kletterwand: Wer an einem bröckelnden Griff hängen bleibt, fällt nicht mit ihm: ${JSON.stringify(regeln.bruch)}`);
+    pruefe(regeln.weiter && regeln.weiter.aus === "" && regeln.weiter.gebrochen === 1 && regeln.weiter.weg,
+      `Kletterwand: Wer von einem bröckelnden Griff weitergeht, fällt trotzdem – oder er bricht nicht hinter ihr: ${JSON.stringify(regeln.weiter)}`);
+    pruefe(regeln.pendel && regeln.pendel.drin && regeln.pendel.weg > regeln.pendel.weit * 1.5 && regeln.pendel.steht,
+      `Kletterwand: Der Griff auf der Schiene gleitet nicht, oder er steht nicht still, sobald er gepackt ist: ${JSON.stringify(regeln.pendel)}`);
+    pruefe(regeln.schnell.every((r) => r.hoch >= 225 && r.hoch <= 330 && r.aus === "kraft" && r.sekunden <= 150 && r.perfekt === r.zuege && r.spruenge > 20),
+      `Kletterwand: Der genaue Pilot kommt nicht weit über zweihundert Meter, oder die Runde endet nicht von selbst: ${JSON.stringify(regeln.schnell)}`);
+    pruefe(regeln.langsam.every((r) => r.hoch >= 15 && r.hoch <= 60 && r.aus && r.sekunden <= 80),
+      `Kletterwand: Wer zögert, kommt trotzdem weit – oder gar nicht vom Fleck: ${JSON.stringify(regeln.langsam)}`);
+
+    // Das Spiel selbst, Bild für Bild gerechnet: Jeder Tipp auf die Stelle
+    // des Bildes, an der ein Griff zu sehen ist, packt ihn – und das Bild
+    // kommt nach: Sind die Züge abgearbeitet, liegen die Hände an den Griffen,
+    // die gezählt wurden.
+    const klettern = await seite.evaluate(() => {
+      const K = window.LernappKletterwand;
+      const st = K.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      K.halte(true);
+      const auf = (g, f = 0) => { const o = K.griffOrt(g, st.k.t); const p = K.imBild([o.x, o.y + g.r * f, 0.042]); K.tipp(p.x, p.y); };
+      const raus = { vorher: st.phase, krumm: 0, schief: 0, zuege: 0, gueten: [] };
+      // Zuerst ein Tipp ins Leere: Die Runde beginnt erst mit dem ersten Griff.
+      K.tipp(5, K.view.cssH - 5);
+      raus.leer = st.phase;
+      for (let n = 0; n < 400 && st.k.hoch < 45 && !st.endet; n += 1) {
+        const davor = st.k.perfekt;
+        auf(K.pilot(st.wand, st.k));
+        if (st.k.perfekt === davor) raus.gueten.push(n);
+        for (let i = 0; i < 30; i += 1) {
+          K.takt(1 / 60);
+          for (const q of [...K.fig.hand, ...K.fig.fuss]) if (!q.ort.every(Number.isFinite)) raus.krumm += 1;
+          if (![...K.fig.brust, ...K.fig.becken].every(Number.isFinite)) raus.krumm += 1;
+        }
+        if (!K.fig.zug && !K.fig.warte.length) {
+          for (let h = 0; h < 2; h += 1) {
+            const soll = K.fassPunkt(st.wand.griffe[st.k.halt[h]], st.k.t);
+            const ist = K.fig.hand[h].ort;
+            if (Math.hypot(soll[0] - ist[0], soll[1] - ist[1], soll[2] - ist[2]) > 0.03 || K.fig.hand[h].nr !== st.k.halt[h]) raus.schief += 1;
+          }
+        }
+      }
+      K.zeichnen();
+      raus.zuege = st.k.zuege;
+      raus.stand = { phase: st.phase, hoch: st.k.hoch, punkte: st.punkte, perfekt: st.k.perfekt, endet: st.endet, becken: K.fig.becken[1], anker: st.wand.griffe[st.k.anker].y };
+      // Daneben: Die Hand greift ins Leere, dann fällt sie ins Seil – und kein
+      // Tipp zählt mehr.
+      const g = K.pilot(st.wand, st.k);
+      auf(g, 1.8);
+      raus.daneben = { aus: st.k.aus, endet: st.endet > 0 };
+      let tief = Infinity;
+      for (let i = 0; i < 200; i += 1) { K.takt(1 / 60); tief = Math.min(tief, K.fig.becken[1]); }
+      auf(K.pilot(st.wand, st.k) || g);
+      raus.fall = { fang: Boolean(K.fig.fall?.fang), tief, start: K.fig.fall?.start?.[1], zuege: st.k.zuege, endlich: [...K.fig.brust, ...K.fig.becken, ...K.fig.hand[0].ort, ...K.fig.fuss[1].ort].every(Number.isFinite) };
+      K.halte(false);
+      return raus;
+    });
+    pruefe(klettern.vorher === "bereit" && klettern.leer === "bereit" && klettern.stand.phase === "spiel" && klettern.stand.hoch >= 45 && !klettern.stand.endet
+      && klettern.stand.punkte === Math.floor(klettern.stand.hoch) && klettern.gueten.length === 0 && klettern.stand.perfekt === klettern.zuege,
+      `Kletterwand: Ein Tipp auf den Bolzen im Bild packt den Griff nicht perfekt, oder die Meter zählen falsch: ${JSON.stringify(klettern)}`);
+    pruefe(klettern.krumm === 0 && klettern.schief === 0 && klettern.stand.becken < klettern.stand.anker - 0.5 && klettern.stand.becken > klettern.stand.anker - 1.8,
+      `Kletterwand: Das Bild kommt dem Zählen nicht nach – die Hände liegen nicht an ihren Griffen: ${JSON.stringify(klettern)}`);
+    pruefe(klettern.daneben.aus === "daneben" && klettern.daneben.endet && klettern.fall.fang && klettern.fall.endlich && klettern.fall.zuege === klettern.zuege
+      && klettern.fall.tief < klettern.fall.start - 2.5 && klettern.fall.tief > klettern.fall.start - 3.6,
+      `Kletterwand: Wer daneben tippt, fällt nicht ins Seil – oder danach zählt noch ein Tipp: ${JSON.stringify({ daneben: klettern.daneben, fall: klettern.fall })}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const tafel = await seite.evaluate(() => ({
+      phase: window.LernappKletterwand.state.phase,
+      zahl: document.querySelectorAll(".cm-result-score").length,
+      text: document.querySelector(".cm-result-detail")?.textContent || "",
+    }));
+    pruefe(tafel.phase === "ende" && tafel.zahl === 1 && /Neuer Rekord!/.test(tafel.text) && new RegExp(`${klettern.zuege} von ${klettern.zuege} Griffen perfekt`).test(tafel.text) && /Sprünge/.test(tafel.text),
+      `Kletterwand: Nach dem Sturz kommt nicht die Tafel mit dem, was war: ${JSON.stringify(tafel)}`);
+
+    // Ganz unten fällt sie nicht in den Boden, und wer nach dem ersten Griff
+    // nichts mehr tut, dem geht die Kraft aus: Die Tafel nennt den Grund.
+    const enden = await seite.evaluate(() => {
+      const K = window.LernappKletterwand;
+      const st = K.state;
+      const auf = (g, f = 0) => { const o = K.griffOrt(g, st.k.t); const p = K.imBild([o.x, o.y + g.r * f, 0.042]); K.tipp(p.x, p.y); };
+      const raus = {};
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      K.halte(true);
+      auf(K.pilot(st.wand, st.k), 1.8);
+      let tief = Infinity;
+      for (let i = 0; i < 240; i += 1) { K.takt(1 / 60); tief = Math.min(tief, K.fig.becken[1], K.fig.fuss[0].ort[1] + 0.5, K.fig.fuss[1].ort[1] + 0.5); }
+      raus.unten = { aus: st.k.aus, fang: Boolean(K.fig.fall?.fang), tief, punkte: st.punkte };
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      auf(K.pilot(st.wand, st.k));
+      let n = 0;
+      while (!st.endet && n < 60 * 12) { K.takt(1 / 60); n += 1; }
+      raus.kraft = { aus: st.k.aus, sekunden: n / 60, fall: Boolean(K.fig.fall), zuege: st.k.zuege };
+      K.halte(false);
+      return raus;
+    });
+    pruefe(enden.unten.aus === "daneben" && enden.unten.fang && enden.unten.tief > 0.55 && enden.unten.punkte === 0,
+      `Kletterwand: Wer ganz unten fällt, landet im Boden: ${JSON.stringify(enden.unten)}`);
+    pruefe(enden.kraft.aus === "kraft" && enden.kraft.fall && enden.kraft.zuege === 1 && enden.kraft.sekunden > 4.6 && enden.kraft.sekunden < 5.6,
+      `Kletterwand: Wer nichts mehr tut, dem geht die Kraft nicht aus: ${JSON.stringify(enden.kraft)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    const grund = await seite.locator(".cm-result-detail").innerText().catch(() => "");
+    pruefe(/Die Kraft war am Ende/.test(grund) && /Bestwert \d+ m/.test(grund), `Kletterwand: Die Tafel nennt den Grund nicht: ${grund}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – acht Griffe mit dem Finger, mal genau, mal
+    // knapp, dann einer daneben –, aufgezeichnet und angeschaut: dieselbe
+    // Wand, dieselben Griffe, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__kletter")) return;
+      sessionStorage.setItem("__kletter", "1");
+      localStorage.setItem("mini.name", "Klara");
+    });
+    await seite.goto(`${BASIS}/kletterwand`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKletterwand?.state?.wand && window.LernappKletterwand.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappKletterwand.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const K = window.LernappKletterwand;
+      const st = K.state;
+      const flaeche = document.querySelector("#kw-stage canvas");
+      let naechster = 0;
+      let n = 0;
+      const lauf = () => {
+        if (st.phase === "ende" || st.endet) { fertig(); return; }
+        requestAnimationFrame(lauf);
+        if (st.zeit < naechster) return;
+        // Ohne Schwung den nächsten Griff der Hauptlinie – der ist immer da.
+        const g = st.wand.griffe.find((q) => q.haupt && K.inReichweite(st.wand, st.k, q, K.R_STAND));
+        if (!g) return;
+        const o = K.griffOrt(g, st.k.t);
+        const f = n >= 8 ? -1.8 : [0.1, 0.6, 1.0][n % 3];
+        const p = K.imBild([o.x, o.y + g.r * f, 0.042]);
+        const r = flaeche.getBoundingClientRect();
+        flaeche.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: r.left + p.x, clientY: r.top + p.y }));
+        n += 1;
+        naechster = st.zeit + 0.4;
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("speedClimb_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`speedClimb_${kennung}`) || null;
+      const st = window.LernappKletterwand.state;
+      return { kennung, punkte: geist?.punkte ?? -1, gezaehlt: st.punkte, zuege: st.k.zuege, perfekt: st.k.perfekt, aus: st.k.aus, anker: st.k.anker };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte === gespielt.gezaehlt && gespielt.punkte >= 3 && gespielt.zuege === 8 && gespielt.perfekt === 3 && gespielt.aus === "daneben",
+      `Kletterwand: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/kletterwand?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKletterwand?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappKletterwand.state.phase, welt: window.LernappKletterwand.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Kletterwand: Beim Zuschauen steht eine andere Wand da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen greift niemand mit.
+    await seite.mouse.click(210, 420);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const K = window.LernappKletterwand;
+      const st = K.state;
+      return { punkte: st.punkte, zuege: st.k.zuege, perfekt: st.k.perfekt, anker: st.k.anker, endet: st.endet > 0, fall: Boolean(K.fig.fall), tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.zuege === 8 && schluss.perfekt === 3 && schluss.anker === gespielt.anker && schluss.endet && schluss.fall,
+      `Kletterwand: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -9668,7 +10040,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 34 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 35 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -9676,7 +10048,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /35/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /36/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -9693,7 +10065,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -11330,7 +11702,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 179, `klang.js kennt nicht alle 179 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 187, `klang.js kennt nicht alle 187 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -235,6 +235,14 @@
     "zeitgefuehl.tick": { s: "klick" },
     "zeitgefuehl.stopp": { s: "klack" },
     "zeitgefuehl.lampe": { s: "pling" },
+    "kletterwand.wind": { s: "a-wind", schleife: true },
+    "kletterwand.griff": { s: "klack" },
+    "kletterwand.perfekt": { s: "pling" },
+    "kletterwand.sprung": { s: "woosh-kurz" },
+    "kletterwand.kraft": { s: "stich" },
+    "kletterwand.bruch": { s: "krach" },
+    "kletterwand.fall": { s: "ab" },
+    "kletterwand.seil": { s: "whomp-weich" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -250,7 +258,7 @@
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
-    fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl",
+    fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
   };
 
   // ---------------------------------------------------------------------------

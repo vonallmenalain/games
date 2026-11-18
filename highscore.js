@@ -99,6 +99,7 @@
     { id: "flagCommand", titel: "Flaggenkommando", bereich: "konzentration", art: "punkte", key: "lernapp.flaggen", einheit: "Punkte" },
     { id: "timeSense", titel: "Zeitgefühl", bereich: "konzentration", art: "punkte", key: "lernapp.zeitgefuehl", einheit: "Punkte" },
     { id: "fireRope", titel: "Feuerseil", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.feuerseil", einheit: "Punkte" },
+    { id: "speedClimb", titel: "Kletterwand", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kletterwand", einheit: "Meter" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },
