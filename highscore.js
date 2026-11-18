@@ -93,7 +93,7 @@
     { id: "cliffFlight", titel: "Felsflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.felsflug", einheit: "Punkte" },
     { id: "hammerThrow", titel: "Hammerwurf", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.hammerwurf", einheit: "Meter" },
     { id: "duckCrossing", titel: "Entenfamilie", bereich: "konzentration", art: "punkte", key: "lernapp.entenfamilie", einheit: "Punkte" },
-    { id: "mineCart", titel: "Grubenlore", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.grubenlore", einheit: "Meter" },
+    { id: "mineCart", titel: "Höhlenfahrt", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.grubenlore", einheit: "Meter" },
     { id: "twinRotor", titel: "Zwei Rotoren", bereich: "konzentration", art: "punkte", key: "lernapp.rotoren", einheit: "Punkte" },
     { id: "eyeMeasure", titel: "Augenmass", bereich: "konzentration", art: "punkte", key: "lernapp.augenmass", einheit: "Punkte" },
     { id: "flagCommand", titel: "Flaggenkommando", bereich: "konzentration", art: "punkte", key: "lernapp.flaggen", einheit: "Punkte" },

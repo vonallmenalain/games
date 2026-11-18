@@ -385,12 +385,15 @@ am Ufer auf die Welle wartet (`querungOk`, `wartenBisWelle`), quert auf
 jeder Welt in 90 s mindestens sechs Flüsse, jeden in einem Zug; wer blind
 losschwimmt, wird bald erwischt.
 
-### Grubenlore (November 2026)
+### Höhlenfahrt (November 2026)
 
 Drei neue Spiele nach dem Muster der beliebtesten: kurze Runden, schnell
 schwer, viel Können. Das erste ist ein Spiel mit einer einzigen Bremse.
 
-**Grubenlore** (`grubenlore.js`, `mineCart`) – Eine Lore jagt durch ein
+**Höhlenfahrt** (`grubenlore.js`, `mineCart`; bis zum 18. November 2026
+«Grubenlore» – Datei, Adresse `/grubenlore` und die Schlüssel im
+Speicher behalten den alten Namen, damit verschickte Links, Rekorde und
+Läufe weiter gelten) – Eine Lore jagt durch ein
 altes Bergwerk, immer bergab, von der Seite gesehen. Sie rollt von allein;
 wer spielt, hat nur die Bremse: **Halten bremst, Loslassen rollt** (am
 Rechner Leertaste, Pfeil nach unten oder S). Jede Stelle im Stollen verträgt
@@ -409,16 +412,14 @@ ein anderes Tempo:
     Looping    Braucht Schwung – sonst fällt die Lore oben heraus.
 
 Vor jeder Stelle steht ein Signal (rot: langsam, grün: laufen lassen, gelb:
-im Takt), und über der Lore schwebt das **Tempo-Fenster**: ein Balken mit
-dem Band der nächsten Stelle und einem Zeiger – womit die Lore dort ankäme,
-wenn jetzt niemand mehr bremste (`vorhersage`). Bremsen schiebt den Zeiger
-nach links, vor dem Pochwerk durch den Takt des Stampfers (grün: Die Lore
-rollte durch alle, `pochwerkOffen`; blassgelb: nur durch den nächsten). Der
-gefährliche Rand des Bandes ist golden: so schnell, wie es unter dem Dach
-und durch die Senke gerade noch geht, so langsam, wie es über den Schacht
-und durch den Looping gerade noch reicht, oder knapp unter einem Stampfer
-durch. Wer dort durchfährt, fährt **«haarscharf»** und bekommt Vorsprung
-(`BONUS`: 5, 7, 9 m – in Folge immer mehr).
+im Takt). Wie schnell genau, zeigt nichts an – das ist Gefühl. (Bis zum
+18. November 2026 schwebte über der Lore ein Tempo-Fenster: ein Balken mit
+dem Band der nächsten Stelle und einem Zeiger, womit die Lore dort ankäme.
+Es ist weg.) Jede Stelle hat ihren gefährlichen Rand: so schnell, wie es
+unter dem Dach und durch die Senke gerade noch geht, so langsam, wie es über
+den Schacht und durch den Looping gerade noch reicht, oder knapp unter einem
+Stampfer durch. Wer dort durchfährt, fährt **«haarscharf»** und bekommt
+Vorsprung (`BONUS`: 5, 7, 9 m – in Folge immer mehr).
 
 Vorsprung worauf? **Hinter der Lore stürzt der Stollen ein.** Der Einsturz
 folgt nach der Uhr und wird immer schneller (`EINSTURZ_V0` bis
@@ -1694,7 +1695,7 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
                     Seiltänzer, Heisser Draht, Ball hochhalten,
                     Turmspringen, Fallschirm, Fledermaus,
-                    Zeitlupen-Ninja, Freitaucher, Grubenlore, Zwei
+                    Zeitlupen-Ninja, Freitaucher, Höhlenfahrt, Zwei
                     Rotoren.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,

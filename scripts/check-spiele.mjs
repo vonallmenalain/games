@@ -3215,7 +3215,7 @@ try {
     ["/felsflug", "Felsflug", () => window.LernappFelsflug.weltText()],
     ["/hammerwurf", "Hammerwurf", () => window.LernappHammerwurf.weltText()],
     ["/entenfamilie", "Entenfamilie", () => window.LernappEntenfamilie.weltText()],
-    ["/grubenlore", "Grubenlore", () => window.LernappGrubenlore.weltText()],
+    ["/grubenlore", "Höhlenfahrt", () => window.LernappGrubenlore.weltText()],
     ["/rotoren", "Zwei Rotoren", () => window.LernappRotoren.weltText()],
     ["/augenmass", "Augenmass", () => window.LernappAugenmass.weltText()],
     ["/feuerseil", "Feuerseil", () => window.LernappFeuerseil.weltText()],
@@ -7847,7 +7847,7 @@ try {
     await kontext.close();
   }
 
-  // --- 4g32. Grubenlore: jede Stelle hat ihr Band, und wer nie bremst, hängt im Fels ---
+  // --- 4g32. Höhlenfahrt: jede Stelle hat ihr Band, und wer nie bremst, hängt im Fels -
   // Ein Pilot (grubenlore.js, pilot – er rechnet mit derselben Fahrt voraus)
   // bremst so spät wie möglich. Er stösst auf keiner Welt je an: Am Ende holt
   // ihn der Einsturz ein, nach mindestens 450 m und einem Dutzend Stellen.
@@ -7886,10 +7886,10 @@ try {
       return raus;
     });
     pruefe(laeufe.every((l) => l.grund === "einsturz" && l.meter >= 450 && l.stellen >= 10 && l.baender && l.offen),
-      `Grubenlore: Der Pilot kommt nicht durch jedes Bergwerk – ${JSON.stringify(laeufe.map(({ welt, ...rest }) => rest))}`);
+      `Höhlenfahrt: Der Pilot kommt nicht durch jedes Bergwerk – ${JSON.stringify(laeufe.map(({ welt, ...rest }) => rest))}`);
     pruefe(laeufe.some((l) => l.arten.includes("kuppe") && l.arten.includes("schacht")) && laeufe.some((l) => l.knappe > 0),
-      `Grubenlore: Unterwegs fehlen Kuppe, Schacht oder ein «haarscharf» – ${JSON.stringify(laeufe.map((l) => [l.arten, l.knappe]))}`);
-    pruefe(new Set(laeufe.map((l) => l.welt)).size > 1, `Grubenlore: Das Bergwerk ist in jeder Runde dasselbe – ${JSON.stringify(laeufe.map((l) => l.welt))}`);
+      `Höhlenfahrt: Unterwegs fehlen Kuppe, Schacht oder ein «haarscharf» – ${JSON.stringify(laeufe.map((l) => [l.arten, l.knappe]))}`);
+    pruefe(new Set(laeufe.map((l) => l.welt)).size > 1, `Höhlenfahrt: Das Bergwerk ist in jeder Runde dasselbe – ${JSON.stringify(laeufe.map((l) => l.welt))}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
     const blind = await seite.evaluate(() => {
       const L = window.LernappGrubenlore;
@@ -7910,9 +7910,9 @@ try {
       return raus;
     });
     pruefe(blind.every((l) => (l.immer ? l.grund === "einsturz" : l.grund === "decke" && l.stelle === "kuppe") && l.meter < 160),
-      `Grubenlore: Wer nie oder immer bremst, kommt trotzdem weit – ${JSON.stringify(blind)}`);
+      `Höhlenfahrt: Wer nie oder immer bremst, kommt trotzdem weit – ${JSON.stringify(blind)}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
-    pruefe(await seite.locator(".cm-result-score").count() === 1, "Grubenlore: Nach dem Einsturz kommt kein Ergebnis.");
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Höhlenfahrt: Nach dem Einsturz kommt kein Ergebnis.");
     // Die Bremse hält am Hang, und wer loslässt, pumpt wieder auf Schritttempo.
     const bremse = await seite.evaluate(() => {
       const L = window.LernappGrubenlore;
@@ -7930,7 +7930,7 @@ try {
       return { rollt, steht, pumpt: st.z.v, schritt: L.V_PUMPE };
     });
     pruefe(bremse.rollt > 4 && bremse.steht === 0 && bremse.pumpt >= bremse.schritt - 0.01,
-      `Grubenlore: Die Bremse hält nicht, oder die Lore kommt nicht wieder los: ${JSON.stringify(bremse)}`);
+      `Höhlenfahrt: Die Bremse hält nicht, oder die Lore kommt nicht wieder los: ${JSON.stringify(bremse)}`);
     await kontext.close();
   }
   {
@@ -7967,18 +7967,18 @@ try {
       return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, stellen: st.stelleNr, grund: st.grund };
     });
     pruefe(gespielt.kennung && gespielt.punkte > 100 && gespielt.punkte === gespielt.gezaehlt && gespielt.stellen >= 3 && gespielt.grund !== "einsturz",
-      `Grubenlore: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+      `Höhlenfahrt: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
     await seite.goto(`${BASIS}/grubenlore?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappGrubenlore?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const zu = await seite.evaluate(() => ({ phase: window.LernappGrubenlore.state.phase, welt: window.LernappGrubenlore.weltText() }));
-    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Grubenlore: Beim Zuschauen steht ein anderes Bergwerk da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Höhlenfahrt: Beim Zuschauen steht ein anderes Bergwerk da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
     const schluss = await seite.evaluate(() => {
       const st = window.LernappGrubenlore.state;
       return { punkte: st.punkte, stellen: st.stelleNr, endet: st.endet > 0, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
     });
     pruefe(schluss.tafel && schluss.endet && Math.abs(schluss.punkte - gespielt.punkte) <= 1 && schluss.stellen === gespielt.stellen,
-      `Grubenlore: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+      `Höhlenfahrt: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
     await kontext.close();
   }
 

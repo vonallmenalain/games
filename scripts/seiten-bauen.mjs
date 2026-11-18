@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-17";
+export const FASSUNG = "2026-11-18-18";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -277,8 +277,8 @@ export const SPIELE = [
   },
   {
     seite: "grubenlore", spiel: "mineCart", page: "minecart", js: "grubenlore.js",
-    titel: "Grubenlore", buehne: { id: "gl-stage", klasse: "cm-stage gl-stage" },
-    text: "Grubenlore: Halten heisst bremsen, Loslassen rollen – jag die Lore durchs Bergwerk: langsam unters Felsdach, mit Schwung über den Schacht. Hinter dir stürzt der Stollen ein.",
+    titel: "Höhlenfahrt", buehne: { id: "gl-stage", klasse: "cm-stage gl-stage" },
+    text: "Höhlenfahrt: Halten heisst bremsen, Loslassen rollen – jag die Lore durchs Bergwerk: langsam unters Felsdach, mit Schwung über den Schacht. Hinter dir stürzt der Stollen ein.",
     baut: "das Bergwerk mit der Lore",
   },
   {
