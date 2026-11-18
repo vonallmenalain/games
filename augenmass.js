@@ -19,13 +19,14 @@
  * nicht mehr; überall muss etwas in Gedanken gebaut oder vorhergesagt
  * werden. Zwei leichte Blätter zum Einsehen (der Mittelpunkt eines Kreises
  * oder Rechtecks, ein halber Winkel, das Lot), dann vier mittlere
- * (spiegeln, die vierte Ecke, der Schwerpunkt, das gleichseitige Dreieck,
- * eine Vierteldrehung, der Treffpunkt zweier Kugeln, ein Bogen bis zur
- * Wand, die Bande), am Schluss vier schwere: der Mittelpunkt eines Bogens
- * oder dreier Punkte, der Inkreis, zwei Banden, über die Bande ins Loch,
- * die Flugbahn eines Balls, die halbe Fläche, das Rad, das eine Umdrehung
- * rollt – und der Tunnel, in dem eine Kugel verschwindet und man tippt,
- * wenn sie beim Pfeil sein müsste. Welche Aufgaben kommen und wie sie
+ * (spiegeln, die vierte Ecke, das gleichseitige Dreieck, eine
+ * Vierteldrehung, ein Bogen bis zur Wand, die Bande), am Schluss vier
+ * schwere: der Mittelpunkt eines Bogens oder dreier Punkte, der Inkreis,
+ * zwei Banden, über die Bande ins Loch, die Flugbahn eines Balls, das Rad,
+ * das eine Umdrehung rollt – und der Tunnel, in dem eine Kugel
+ * verschwindet und man tippt, wenn sie beim Pfeil sein müsste. (Der
+ * Schwerpunkt, der Treffpunkt zweier Kugeln und die halbe Fläche waren
+ * einmal dabei.) Welche Aufgaben kommen und wie sie
  * liegen, würfelt der Zufall; in einem Turnier bekommen alle dieselben
  * zehn Blätter (zufall.js).
  *
@@ -48,6 +49,12 @@
  * so oft man will. Die Antwort ist erst der Knopf «Bestätigen». Zu sehen
  * ist nur das Fadenkreuz. Maus und Stift zeigen wie eh und je genau
  * dorthin, wo sie stehen, und ihr Loslassen ist die Antwort.
+ *
+ * Frei ist das Fadenkreuz überall – auch dort, wo die Lösung auf einer
+ * Wand, einer Bande, dem Boden oder einem Bogen liegt (bahn). An so einer
+ * Bahn haftet es nur: Nah daran liegt es auf ihr, und wer wegzieht, löst
+ * es wieder (haften, schiebe). Gemessen wird der Abstand zur richtigen
+ * Stelle, wo immer es liegt.
  *
  * Aufgezeichnet werden die Züge (geist.js, zuege): jede Vorschau, jedes
  * neue Blatt, das Fadenkreuz unterwegs und die Antwort. Damit lassen sich die besten Läufe
