@@ -8882,6 +8882,11 @@ try {
       stelle(a.ziel + 70);
       Z.druck();
       raus.tipp = { phase: st.phase, wert: Math.round(st.wertung?.wert - a.ziel), punkte: st.wertung?.punkte };
+      // Gerechnet wird mit ganzen Millisekunden: 45,4 daneben zählt wie 45 –
+      // 96 Punkte, nicht 95 –, denn so steht es in der Aufzeichnung.
+      a = zu("stoppuhr");
+      Z.antworte(a.ziel + 45.4);
+      raus.krumm = { wert: st.wertung?.wert - a.ziel, punkte: st.wertung?.punkte };
       // Halten: vom Drücken bis zum Loslassen.
       a = zu("blind");
       stelle(a.ab + 50);
@@ -8912,6 +8917,8 @@ try {
     pruefe(eingabe.frueh.phase === "aufgabe" && !eingabe.frueh.wertung, `Zeitgefühl: Ein Tipp, solange die Uhr zu sehen ist, zählt schon: ${JSON.stringify(eingabe.frueh)}`);
     pruefe(eingabe.tipp.phase === "zeigen" && Math.abs(eingabe.tipp.wert - 70) <= 8 && eingabe.tipp.punkte >= 92 && eingabe.tipp.punkte <= 94,
       `Zeitgefühl: Der Tipp zählt nicht im richtigen Augenblick: ${JSON.stringify(eingabe.tipp)}`);
+    pruefe(eingabe.krumm.wert === 45 && eingabe.krumm.punkte === 96,
+      `Zeitgefühl: Gerechnet wird nicht mit ganzen Millisekunden – Runde und Wiedergabe kämen auf verschiedene Punkte: ${JSON.stringify(eingabe.krumm)}`);
     pruefe(eingabe.halten.haelt && eingabe.halten.phase === "zeigen" && eingabe.halten.wert >= 290 && eingabe.halten.wert <= 380 && eingabe.halten.ms === eingabe.halten.wert,
       `Zeitgefühl: Gehalten wird nicht vom Drücken bis zum Loslassen gemessen: ${JSON.stringify(eingabe.halten)}`);
     pruefe(eingabe.nie.phase === "zeigen" && eingabe.nie.wert === null && eingabe.nie.punkte === 0,
@@ -8937,7 +8944,11 @@ try {
       const st = Z.state;
       const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
       // Wie weit daneben, Aufgabe für Aufgabe – damit nicht alles hundert ist.
-      const neben = [0, 140, -30, 400, 0, 200, -80, 600, 20, -100];
+      // Krumme Zahlen: Ein Finger trifft keine ganze Millisekunde, und die
+      // Zeitlupe hat krumme Ziele – beides muss beim Anschauen gleich zählen.
+      // 45,4 ms (leicht) und 118,7 ms (mittel) liegen genau so, dass ungerundet
+      // ein anderer Punkt herauskäme als mit der aufgezeichneten Millisekunde.
+      const neben = [45.4, 140.5, -30.5, 118.7, 0, 200, -79.5, 600.51, 20.3, -100.5];
       Z.losGehts();
       for (let i = 0; i < Z.AUFGABEN; i += 1) {
         const a = Z.aufgabe();

@@ -37,7 +37,7 @@
  *                       rote Zahlen im falschen Tempo. Sie lügen.
  *
  * Gemessen wird die Zeit des Tipps selbst (der Zeitstempel des Fingers),
- * nicht die des nächsten Bildes. Ein Tipp, solange die Vorgabe noch zu sehen
+ * nicht die des nächsten Bildes – auf ganze Millisekunden. Ein Tipp, solange die Vorgabe noch zu sehen
  * ist, gilt nicht – der war ein Versehen. Wer gar nicht tippt, bekommt
  * nichts: Zweieinhalb Sekunden nach dem Augenblick geht es weiter.
  *
@@ -336,12 +336,15 @@
     meldeZug(0);
   }
 
-  // Die Antwort – wert ist der Augenblick des Tipps oder die gehaltene
-  // Dauer in ms, oder null, wenn niemand geantwortet hat.
-  function antworte(wert) {
+  // Die Antwort – der Augenblick des Tipps oder die gehaltene Dauer in ms,
+  // oder null, wenn niemand geantwortet hat. Gerechnet wird mit ganzen
+  // Millisekunden: So steht sie auch in der Aufzeichnung, und wer zuschaut,
+  // kommt auf dieselben Punkte.
+  function antworte(roh) {
     if (state.phase !== "aufgabe") return;
     clearStep();
     const a = aufgabe();
+    const wert = roh === null || roh === undefined ? null : Math.round(roh);
     state.phase = "zeigen";
     state.tZeig = performance.now();
     state.haltAb = null;

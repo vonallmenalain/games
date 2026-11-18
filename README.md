@@ -783,7 +783,8 @@ dem Ziel sind 93 Punkte, eine Sekunde ist null. Tausend sind das Dach. Bis
 drei Hundertstel ist eine Antwort «haargenau» (`GENAU`: goldene Schrift,
 Funken), unter einem halben Hundertstel steht «Auf die Hundertstel!» da.
 
-Gemessen wird der Zeitstempel des Fingers, nicht das nächste Bild (`zeitVon`).
+Gemessen wird der Zeitstempel des Fingers, nicht das nächste Bild (`zeitVon`),
+auf ganze Millisekunden – mit derselben Zahl rechnet, wer später zuschaut.
 Ein Tipp, solange die Vorgabe noch zu sehen ist, gilt nicht – «Noch nicht»
 (`ab`). Wer gar nicht tippt, bekommt nichts: Zweieinhalb Sekunden nach dem
 Augenblick geht es weiter (`NACHLAUF`); eine Halte-Aufgabe wartet sechs
