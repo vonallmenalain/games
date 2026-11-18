@@ -1,14 +1,12 @@
 /*
  * augenmass.js – Augenmass. Zehn Blätter, ein Stift, kein Lineal.
  *
- * Auf dem Zeichentisch liegt eine Blaupause. Auf jedem Blatt steht eine
- * Aufgabe, die jede Schreinerin mit dem Massstab in zehn Sekunden löst –
- * nur liegt hier kein Massstab: Wo ist die Mitte der Strecke? Wo der
- * Mittelpunkt des Kreises? Wo trifft die Linie die Wand, wo die Kugel nach
- * der Bande? Wer spielt, setzt den Finger auf das Blatt, schiebt das
- * Fadenkreuz an die Stelle und lässt los. Danach wird nachgemessen: Die
- * Lösung zeichnet sich ein, dazwischen steht, wie viele Millimeter es
- * daneben war.
+ * Auf dem Zeichentisch liegt eine Blaupause, und auf jedem Blatt steht eine
+ * Aufgabe: Wo ist der Mittelpunkt des Kreises? Wo trifft die Kugel nach der
+ * Bande die Wand? Wo landet der Ball? Wer spielt, setzt den Finger auf das
+ * Blatt, schiebt das Fadenkreuz an die Stelle und lässt los. Danach wird
+ * nachgemessen: Die Lösung zeichnet sich ein, dazwischen steht, wie viele
+ * Millimeter es daneben war.
  *
  * Zehn Aufgaben je Runde, bis zu zehn Punkte je Aufgabe – und die zehn sind
  * schwer: Sie gelten für gut einen halben Millimeter auf einem Blatt von
@@ -17,18 +15,26 @@
  * Aufgabe liegt gerade im Bild: Was sich abzählen liesse, wäre kein
  * Augenmass mehr.
  *
- * Die Runde wird von selbst schwerer. Die ersten drei Blätter sind die
- * einfachen (die Mitte einer Strecke, eines Kreises, eines Rechtecks, ein
- * halber Winkel), dann vier mittlere (ein Drittel, verlängern, eine Länge
- * abtragen, das Lot, spiegeln), am Schluss drei schwere: der Mittelpunkt
- * eines Bogens, die Bande, die vierte Ecke – und der Tunnel, in dem eine
- * Kugel verschwindet und man tippt, wenn sie beim Pfeil sein müsste. Welche Aufgaben kommen und wie sie liegen,
- * würfelt der Zufall; in einem Turnier bekommen alle dieselben zehn
- * Blätter (zufall.js).
+ * Mit einem Lineal ist keine Aufgabe getan. Was sich bloss abmessen liesse
+ * (die Mitte einer Strecke, ein Drittel, eine Linie verlängern), gibt es
+ * nicht mehr; überall muss etwas in Gedanken gebaut oder vorhergesagt
+ * werden. Zwei leichte Blätter zum Einsehen (der Mittelpunkt eines Kreises
+ * oder Rechtecks, ein halber Winkel, das Lot), dann vier mittlere
+ * (spiegeln, die vierte Ecke, der Schwerpunkt, das gleichseitige Dreieck,
+ * eine Vierteldrehung, der Treffpunkt zweier Kugeln, ein Bogen bis zur
+ * Wand, die Bande), am Schluss vier schwere: der Mittelpunkt eines Bogens
+ * oder dreier Punkte, der Inkreis, zwei Banden, über die Bande ins Loch,
+ * die Flugbahn eines Balls, die halbe Fläche, das Rad, das eine Umdrehung
+ * rollt – und der Tunnel, in dem eine Kugel verschwindet und man tippt,
+ * wenn sie beim Pfeil sein müsste. Welche Aufgaben kommen und wie sie
+ * liegen, würfelt der Zufall; in einem Turnier bekommen alle dieselben
+ * zehn Blätter (zufall.js).
  *
- * Jedes Blatt hat acht Sekunden. Ist die Zeit um, zählt die Stelle, an der
+ * Die Zeit ist knapp: sechs Sekunden für ein leichtes Blatt, sieben für ein
+ * mittleres, acht für ein schweres. Ist sie um, zählt die Stelle, an der
  * das Fadenkreuz gerade steht – wer noch gar nicht getippt hat, bekommt
- * nichts. Die Kugel im Tunnel wartet auf niemanden.
+ * nichts. Im Tunnel lässt der erste Tipp die Kugel los, damit niemand sie
+ * verpasst, der noch liest; danach wartet sie auf niemanden.
  *
  * Unter dem Finger sieht man nichts: Wer auf einem Handy tippt, bekommt
  * darum eine Lupe über den Finger, die zeigt, wo das Fadenkreuz steht. Sie
@@ -79,16 +85,21 @@
   // Wie eine Antwort heisst – für Farbe und Zählung.
   const WIE = ["daneben", "weit", "weit", "weit", "nah", "nah", "knapp", "knapp", "fast", "fast", "genau"];
 
-  // Die Aufgaben nach Schwere. Jede Runde zieht drei leichte, vier mittlere
-  // und drei schwere – jede Art höchstens einmal.
-  const LEICHT = ["mitte", "kreis", "rechteck", "winkel"];
-  const MITTEL = ["drittel", "verlaengern", "gleichlang", "lot", "spiegel"];
-  const SCHWER = ["bogen", "bande", "eck", "tunnel"];
-  const PLAN = [3, 4, 3];
+  // Die Aufgaben nach Schwere. Jede Runde zieht zwei leichte, vier mittlere
+  // und vier schwere – jede Art höchstens einmal. Keine davon ist mit einem
+  // Lineal getan: Überall muss etwas in Gedanken gebaut werden – ein Lot,
+  // ein Spiegelbild, ein Abprall, eine Flugbahn.
+  const LEICHT = ["kreis", "rechteck", "winkel", "lot"];
+  const MITTEL = ["spiegel", "eck", "schwerpunkt", "dreieck", "drehen", "treffpunkt", "kurve", "bande"];
+  const SCHWER = ["bogen", "doppelbande", "zielbande", "tunnel", "wurf", "umkreis", "inkreis", "halbieren", "rad"];
+  const PLAN = [2, 4, 4];
   const BLAETTER = PLAN[0] + PLAN[1] + PLAN[2];
 
-  // So lange hat jedes Blatt (der Tunnel hat seine eigene Uhr: die Kugel).
-  const ZEIT = 8;
+  // So lange hat ein Blatt: die leichten sechs Sekunden, die mittleren
+  // sieben, die schweren acht. Je einfacher die Aufgabe, desto weniger Zeit
+  // bleibt, ein Werkzeug anzulegen. (Im Tunnel ist die Kugel die Uhr.)
+  const ZEITEN = [6, 7, 8];
+  const ZEIT = Math.max(...ZEITEN);
   // So lange zeichnet sich ein neues Blatt ein; erst danach läuft die Zeit.
   const EINZUG = 0.55;
   // Ab wann ein Blatt einen Tipp annimmt – nicht den, der noch dem letzten galt.
@@ -112,6 +123,11 @@
   const zwischen = (a, b, k = 0.5) => P(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k);
   const abstand = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const dreh = (p, w) => P(p.x * Math.cos(w) - p.y * Math.sin(w), p.x * Math.sin(w) + p.y * Math.cos(w));
+
+  const einheit = (a, b) => {
+    const l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return P((b.x - a.x) / l, (b.y - a.y) / l);
+  };
 
   const zz = (a, b) => a + (b - a) * zufall.zahl();
   // Ein Winkel, der nicht gerade im Bild liegt: Waagrecht und senkrecht
@@ -145,6 +161,32 @@
     return klein;
   }
 
+  // Kreuzen sich die Strecken p1–p2 und q1–q2 (mitten, nicht bloss an einem Ende)?
+  function kreuzen(p1, p2, q1, q2) {
+    const seite = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    const d1 = seite(q1, q2, p1);
+    const d2 = seite(q1, q2, p2);
+    const d3 = seite(p1, p2, q1);
+    const d4 = seite(p1, p2, q2);
+    return d1 * d2 < 0 && d3 * d4 < 0;
+  }
+
+  // Ein Dreieck, wie es sich gut ansehen lässt: kein Winkel unter 28 Grad,
+  // keine Seite über 80 mm, schief im Blatt. Die Seite a–b ist die untere,
+  // c die Spitze. Taugt der Wurf nichts, kommt null zurück.
+  function dreieckRoh() {
+    const breit = zz(50, 76);
+    const a = P(0, 0);
+    const b = P(breit, 0);
+    const c = P(zz(0.18, 0.82) * breit, -zz(32, 60));
+    if (Math.max(abstand(a, c), abstand(b, c)) > 80) return null;
+    const winkel = (p, q, r) => Math.acos(((q.x - p.x) * (r.x - p.x) + (q.y - p.y) * (r.y - p.y)) / (abstand(p, q) * abstand(p, r)));
+    if (Math.min(winkel(a, b, c), winkel(b, a, c), winkel(c, a, b)) < 28 * GRAD) return null;
+    const w = schief(0, TAU);
+    [a, b, c].forEach((p) => Object.assign(p, dreh(p, w)));
+    return [a, b, c];
+  }
+
   // Wo die Figur Platz hat: Alle Punkte (und Kreise) zusammen ergeben einen
   // Kasten; der wird an eine zufällige Stelle des Blattes geschoben. Passt
   // er nicht, kommt falsch zurück – dann würfelt die Aufgabe neu.
@@ -164,12 +206,12 @@
     return passt;
   }
 
-  // Bis zu vierzigmal würfeln, bis eine Figur aufs Blatt passt und nichts
+  // Bis zu achtzigmal würfeln, bis eine Figur aufs Blatt passt und nichts
   // sich kreuzt, was sich nicht kreuzen soll. `roh` gibt die Aufgabe mit
   // ihren Punkten zurück – oder null, wenn der Wurf nichts taugt.
   function wuerfle(roh) {
     let letzte = null;
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 80; i += 1) {
       const a = roh();
       if (!a) continue;
       letzte = a;
@@ -200,25 +242,6 @@
    *   gleich Zeichen «gleich lang» mitten auf a–b
    */
   const BAU = {
-    // Die Mitte einer Strecke.
-    mitte() {
-      return wuerfle(() => {
-        const lang = zz(52, 84);
-        const w = schief(0, Math.PI);
-        const m = P(0, 0);
-        const a = plus(m, richt(w), -lang / 2);
-        const b = plus(m, richt(w), lang / 2);
-        return {
-          art: "mitte", kurz: "Mitte", frage: "Wo ist die Mitte der Strecke?",
-          punkte: [a, b, m],
-          figur: [{ t: "s", a, b }, { t: "tick", p: a, w, l: 2.2 }, { t: "tick", p: b, w, l: 2.2 }],
-          bahn: { a, b }, ziel: m, lineal: { a, b },
-          loesung: [{ t: "tick", p: m, w, l: 3.4 }, { t: "gleich", a, b: m }, { t: "gleich", a: m, b }],
-          mass: 1,
-        };
-      });
-    },
-
     // Der Mittelpunkt eines Kreises.
     kreis() {
       return wuerfle(() => {
@@ -282,89 +305,6 @@
             { t: "k", m: v, r: r * 0.3, von: w0, bis: w0 + al / 2, stil: "duenn" },
             { t: "k", m: v, r: r * 0.36, von: w0 + al / 2, bis: w0 + al, stil: "duenn" },
           ],
-          mass: 1,
-        };
-      });
-    },
-
-    // Ein Drittel oder ein Viertel einer Strecke, von A aus.
-    drittel() {
-      return wuerfle(() => {
-        const teile = zufall.zahl() < 0.5 ? 3 : 4;
-        const lang = zz(56, 84);
-        const w = schief(0, TAU);
-        const a = P(0, 0);
-        const b = plus(a, richt(w), lang);
-        const ziel = zwischen(a, b, 1 / teile);
-        const marken = [];
-        for (let i = 1; i < teile; i += 1) marken.push({ t: "tick", p: zwischen(a, b, i / teile), w, l: i === 1 ? 3.4 : 2 });
-        const gleiche = [];
-        for (let i = 0; i < teile; i += 1) gleiche.push({ t: "gleich", a: zwischen(a, b, i / teile), b: zwischen(a, b, (i + 1) / teile) });
-        return {
-          art: "drittel", kurz: teile === 3 ? "Drittel" : "Viertel",
-          frage: `Wo ist ein ${teile === 3 ? "Drittel" : "Viertel"} der Strecke – von A aus?`,
-          punkte: [a, b, ziel, ...marken.map((m) => m.p), ...gleiche.flatMap((g) => [g.a, g.b])],
-          figur: [{ t: "s", a, b }, { t: "p", p: a, name: "A", weg: richt(w + Math.PI) }, { t: "tick", p: b, w, l: 2.2 }],
-          bahn: { a, b }, ziel, lineal: { a, b },
-          loesung: [...marken, ...gleiche],
-          mass: 1,
-        };
-      });
-    },
-
-    // Eine Linie in Gedanken verlängern: Wo trifft sie die Wand?
-    verlaengern() {
-      return wuerfle(() => {
-        const kurz = zz(16, 24);
-        const weit = zz(34, 50);
-        const s = P(0, 0);
-        const e = P(kurz, 0);
-        const h = P(kurz + weit, 0);
-        const quer = richt(zz(52, 128) * GRAD);
-        const lang = zz(44, 60);
-        const teil = zz(0.28, 0.72);
-        const a = plus(h, quer, -lang * teil);
-        const b = plus(h, quer, lang * (1 - teil));
-        const w = schief(0, TAU);
-        const alle = [s, e, h, a, b];
-        alle.forEach((p) => Object.assign(p, dreh(p, w)));
-        return {
-          art: "verlaengern", kurz: "Verlängern", frage: "Wo trifft die Linie die Wand?",
-          punkte: alle,
-          figur: [{ t: "pfeil", a: s, b: e }, { t: "wand", a, b, von: s }],
-          bahn: { a, b }, ziel: h,
-          loesung: [{ t: "s", a: e, b: h, stil: "strich" }],
-          mass: 0.8,
-        };
-      });
-    },
-
-    // Eine Länge abtragen: Wo ist b gleich lang wie a?
-    gleichlang() {
-      return wuerfle(() => {
-        const lang = zz(24, 42);
-        const w1 = schief(0, Math.PI);
-        const a1 = plus(P(0, 0), richt(w1), -lang / 2);
-        const a2 = plus(P(0, 0), richt(w1), lang / 2);
-        const w2 = w1 + zz(40, 140) * GRAD + (zufall.zahl() < 0.5 ? Math.PI : 0);
-        const strahl = lang + zz(14, 24);
-        const p = dreh(P(zz(26, 44), 0), zz(0, TAU));
-        const ende = plus(p, richt(w2), strahl);
-        if (streckenAbstand(a1, a2, p, ende) < 9) return null;
-        const ziel = plus(p, richt(w2), lang);
-        const bogen = [plus(p, richt(w2 - 0.45), lang), plus(p, richt(w2 + 0.45), lang)];
-        const mitteA = zwischen(a1, a2);
-        return {
-          art: "gleichlang", kurz: "Gleich lang", frage: "Wo ist b so lang wie a? Gemessen ab dem Punkt.",
-          punkte: [a1, a2, p, ende, ziel, mitteA, ...bogen],
-          figur: [
-            { t: "s", a: a1, b: a2 }, { t: "tick", p: a1, w: w1, l: 2.2 }, { t: "tick", p: a2, w: w1, l: 2.2 },
-            { t: "text", p: mitteA, text: "a", weg: richt(w1 + Math.PI / 2) },
-            { t: "s", a: p, b: ende }, { t: "p", p },
-            { t: "text", p: ende, text: "b", weg: richt(w2) },
-          ],
-          bahn: { a: p, b: ende }, ziel, lineal: { a: p, b: ende },
-          loesung: [{ t: "k", m: p, r: lang, von: w2 - 0.45, bis: w2 + 0.45, stil: "strich" }, { t: "tick", p: ziel, w: w2, l: 3.4 }],
           mass: 1,
         };
       });
@@ -440,36 +380,6 @@
       });
     },
 
-    // Die Bande: Die Kugel prallt ab – wo trifft sie die Wand?
-    bande() {
-      return wuerfle(() => {
-        const th = zz(20, 55) * GRAD;
-        const hoch = zz(22, 36);
-        const b = P(0, 0);
-        const s = P(-hoch * Math.tan(th), -hoch);
-        const hin = richt(-Math.PI / 2 + th);        // nach dem Abprall: nach rechts oben
-        const z = plus(b, hin, zz(30, 46));
-        const quer = dreh(hin, zz(55, 125) * GRAD);
-        const w1 = plus(z, quer, -zz(12, 30));
-        const w2 = plus(z, quer, zz(12, 30));
-        // Die Wand steht über der Bande und rechts vom Weg der Kugel.
-        if (Math.max(w1.y, w2.y) > -6 || Math.min(w1.x, w2.x) < 5) return null;
-        const b1 = P(s.x - zz(4, 10), 0);
-        const b2 = P(zz(14, 26), 0);
-        const w = zz(0, TAU);
-        const alle = [b, s, z, w1, w2, b1, b2];
-        alle.forEach((q) => Object.assign(q, dreh(q, w)));
-        return {
-          art: "bande", kurz: "Bande", frage: "Die Kugel prallt an der Bande ab. Wo trifft sie die Wand?",
-          punkte: alle,
-          figur: [{ t: "wand", a: b1, b: b2, von: s }, { t: "wand", a: w1, b: w2, von: b }, { t: "pfeil", a: s, b }, { t: "kugel", p: s }],
-          bahn: { a: w1, b: w2 }, ziel: z, weg: [s, b, z],
-          loesung: [{ t: "s", a: b, b: z, stil: "strich" }, { t: "winkel", p: b, zu1: b1, zu2: s }, { t: "winkel", p: b, zu1: z, zu2: b2 }],
-          mass: 0.7,
-        };
-      });
-    },
-
     // Die vierte Ecke eines Rechtecks.
     eck() {
       return wuerfle(() => {
@@ -491,7 +401,419 @@
       });
     },
 
-    // Der Tunnel: Die Kugel rollt hinein – tippen, wenn sie beim Pfeil ist.
+    // Wo balanciert das Dreieck? Im Schwerpunkt – dort kreuzen sich die
+    // Linien von jeder Ecke zur Mitte der Seite gegenüber.
+    schwerpunkt() {
+      return wuerfle(() => {
+        const ecken = dreieckRoh();
+        if (!ecken) return null;
+        const [a, b, c] = ecken;
+        const g = P((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3);
+        const ma = zwischen(b, c);
+        const mb = zwischen(a, c);
+        const mc = zwischen(a, b);
+        return {
+          art: "schwerpunkt", kurz: "Schwerpunkt", frage: "Wo balanciert das Dreieck auf einer Nadelspitze?",
+          punkte: [a, b, c, g, ma, mb, mc],
+          figur: [{ t: "poly", pkte: [a, b, c], zu: true }],
+          bahn: null, ziel: g,
+          loesung: [
+            { t: "s", a, b: ma, stil: "strich" }, { t: "s", a: b, b: mb, stil: "strich" }, { t: "s", a: c, b: mc, stil: "strich" },
+            { t: "gleich", a: b, b: ma }, { t: "gleich", a: ma, b: c }, { t: "gleich", a, b: mb }, { t: "gleich", a: mb, b: c },
+            { t: "gleich", a, b: mc }, { t: "gleich", a: mc, b }, { t: "p", p: g },
+          ],
+          mass: 0.85,
+        };
+      });
+    },
+
+    // Ein gleichseitiges Dreieck über einer Strecke: Wo ist die dritte Ecke?
+    // Es gibt zwei – beide gelten (auch).
+    dreieck() {
+      return wuerfle(() => {
+        const lang = zz(32, 46);
+        const w = schief(0, Math.PI);
+        const m = P(0, 0);
+        const a = plus(m, richt(w), -lang / 2);
+        const b = plus(m, richt(w), lang / 2);
+        const hoch = (lang * Math.sqrt(3)) / 2;
+        const c1 = plus(m, richt(w + Math.PI / 2), hoch);
+        const c2 = plus(m, richt(w + Math.PI / 2), -hoch);
+        const loesung = (c) => [
+          { t: "s", a, b: c, stil: "strich" }, { t: "s", a: b, b: c, stil: "strich" },
+          { t: "gleich", a, b }, { t: "gleich", a, b: c }, { t: "gleich", a: b, b: c }, { t: "p", p: c },
+        ];
+        return {
+          art: "dreieck", kurz: "Gleichseitig", frage: "Gleichseitiges Dreieck: Wo ist die dritte Ecke? Beide Seiten gelten.",
+          punkte: [a, b, c1, c2],
+          figur: [{ t: "s", a, b }, { t: "p", p: a }, { t: "p", p: b }],
+          bahn: null, ziel: c1, loesung: loesung(c1),
+          auch: { ziel: c2, loesung: loesung(c2) },
+          mass: 0.85,
+        };
+      });
+    },
+
+    // Einen Punkt um einen anderen drehen: eine Vierteldrehung.
+    drehen() {
+      return wuerfle(() => {
+        const r = zz(22, 40);
+        const w0 = zz(0, TAU);
+        const sinn = zufall.zahl() < 0.5 ? 1 : -1;
+        const z = P(0, 0);
+        const p = plus(z, richt(w0), r);
+        const ziel = plus(z, richt(w0 + (sinn * Math.PI) / 2), r);
+        const bauch = plus(z, richt(w0 + (sinn * Math.PI) / 4), r);
+        return {
+          art: "drehen", kurz: "Drehen", frage: "Dreh P um Z: eine Vierteldrehung in Pfeilrichtung. Wo landet P?",
+          punkte: [z, p, ziel, bauch],
+          figur: [
+            { t: "s", a: z, b: p, stil: "duenn" },
+            { t: "p", p: z, name: "Z", weg: richt(w0 + Math.PI + (sinn * Math.PI) / 4) },
+            { t: "p", p, name: "P", weg: richt(w0) },
+            { t: "kpfeil", m: z, r: 10.5, von: w0 + sinn * 0.28, bis: w0 + sinn * 1.28 },
+          ],
+          bahn: null, ziel,
+          loesung: [
+            { t: "k", m: z, r, von: w0, bis: w0 + (sinn * Math.PI) / 2, stil: "strich" }, { t: "s", a: z, b: ziel },
+            { t: "eck", p: z, zu1: p, zu2: ziel }, { t: "gleich", a: z, b: p }, { t: "gleich", a: z, b: ziel }, { t: "p", p: ziel },
+          ],
+          mass: 0.85,
+        };
+      });
+    },
+
+    // Zwei Kugeln rollen aufeinander zu, verschieden schnell: Wo treffen sie sich?
+    treffpunkt() {
+      return wuerfle(() => {
+        const lang = zz(56, 80);
+        // Nie die Mitte: Eine der beiden ist deutlich schneller.
+        const q = zufall.zahl() < 0.5 ? zz(0.24, 0.42) : zz(0.58, 0.76);
+        const a = P(-lang / 2, 0);
+        const b = P(lang / 2, 0);
+        const ziel = P(-lang / 2 + q * lang, 0);
+        const tempo = 26;
+        const a1 = P(a.x, -6.5);
+        const a2 = P(a.x + q * tempo, -6.5);
+        const b1 = P(b.x, -6.5);
+        const b2 = P(b.x - (1 - q) * tempo, -6.5);
+        const w = schief(0, TAU);
+        const alle = [a, b, ziel, a1, a2, b1, b2];
+        alle.forEach((p) => Object.assign(p, dreh(p, w)));
+        return {
+          art: "treffpunkt", kurz: "Treffpunkt", frage: "Die Pfeile zeigen das Tempo der Kugeln. Wo treffen sie sich?",
+          punkte: alle,
+          figur: [{ t: "s", a, b, stil: "duenn" }, { t: "pfeil", a: a1, b: a2 }, { t: "pfeil", a: b1, b: b2 }, { t: "kugel", p: a }, { t: "kugel", p: b }],
+          bahn: { a, b }, ziel, rollen: [[a, ziel], [b, ziel]],
+          loesung: [{ t: "tick", p: ziel, w, l: 3.4 }],
+          mass: 0.8,
+        };
+      });
+    },
+
+    // Einen Bogen in Gedanken weiterführen: Wo trifft er die Wand? Ein
+    // Lineal hilft hier nicht – der Bogen ist krumm.
+    kurve() {
+      return wuerfle(() => {
+        const r = zz(30, 46);
+        const sinn = zufall.zahl() < 0.5 ? 1 : -1;
+        const w0 = zz(0, TAU);
+        const sicht = zz(45, 70) * GRAD;
+        const fort = zz(35, 60) * GRAD;
+        const m = P(0, 0);
+        const w1 = w0 + sinn * sicht;
+        const w2 = w1 + sinn * fort;
+        const h = plus(m, richt(w2), r);
+        const quer = dreh(richt(w2 + (sinn * Math.PI) / 2), zz(55, 125) * GRAD);
+        const lang = zz(42, 54);
+        const teil = zz(0.3, 0.7);
+        const a = plus(h, quer, -lang * teil);
+        const b = plus(h, quer, lang * (1 - teil));
+        const rund = [0, 0.33, 0.66, 1].map((k) => plus(m, richt(w0 + sinn * sicht * k), r));
+        const versteckt = [0.25, 0.5, 0.75].map((k) => plus(m, richt(w1 + sinn * fort * k), r));
+        // Die Wand steht frei vom Bogen, den man sieht – und der Bogen trifft
+        // sie nicht schon vorher.
+        if (rund.some((p) => abstand(p, aufStrecke(p, a, b)) < 9)) return null;
+        const seite = (p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+        if (versteckt.some((p) => seite(p) * seite(rund[3]) <= 0)) return null;
+        return {
+          art: "kurve", kurz: "Bogen weiter", frage: "Der Bogen läuft gleichmässig weiter. Wo trifft er die Wand?",
+          punkte: [m, ...rund, ...versteckt, h, a, b],
+          figur: [{ t: "kpfeil", m, r, von: w0, bis: w1 }, { t: "wand", a, b, von: rund[3], ziel: true }],
+          bahn: { a, b }, ziel: h,
+          loesung: [{ t: "k", m, r, von: w1, bis: w2, stil: "strich" }],
+          mass: 0.7,
+        };
+      });
+    },
+
+    // Die Bande: Die Kugel prallt ab – wo trifft sie die Wand?
+    bande() {
+      return wuerfle(() => {
+        const th = zz(20, 55) * GRAD;
+        const hoch = zz(22, 36);
+        const b = P(0, 0);
+        const s = P(-hoch * Math.tan(th), -hoch);
+        const hin = richt(-Math.PI / 2 + th);        // nach dem Abprall: nach rechts oben
+        const z = plus(b, hin, zz(30, 46));
+        const quer = dreh(hin, zz(55, 125) * GRAD);
+        const w1 = plus(z, quer, -zz(12, 30));
+        const w2 = plus(z, quer, zz(12, 30));
+        // Die Wand steht über der Bande und rechts vom Weg der Kugel.
+        if (Math.max(w1.y, w2.y) > -6 || Math.min(w1.x, w2.x) < 5) return null;
+        const b1 = P(s.x - zz(4, 10), 0);
+        const b2 = P(zz(14, 26), 0);
+        const w = zz(0, TAU);
+        const alle = [b, s, z, w1, w2, b1, b2];
+        alle.forEach((q) => Object.assign(q, dreh(q, w)));
+        return {
+          art: "bande", kurz: "Bande", frage: "Die Kugel prallt an der Bande ab. Wo trifft sie die gelbe Wand?",
+          punkte: alle,
+          figur: [{ t: "wand", a: b1, b: b2, von: s }, { t: "wand", a: w1, b: w2, von: b, ziel: true }, { t: "pfeil", a: s, b }, { t: "kugel", p: s }],
+          bahn: { a: w1, b: w2 }, ziel: z, rollen: [[s, b, z]],
+          loesung: [{ t: "s", a: b, b: z, stil: "strich" }, { t: "winkel", p: b, zu1: b1, zu2: s }, { t: "winkel", p: b, zu1: z, zu2: b2 }],
+          mass: 0.7,
+        };
+      });
+    },
+
+    // Zwei Banden hintereinander.
+    doppelbande() {
+      return wuerfle(() => {
+        const th = zz(24, 48) * GRAD;
+        const hoch = zz(18, 28);
+        const b1 = P(0, 0);
+        const s = P(-hoch * Math.tan(th), -hoch);
+        const d1 = richt(-Math.PI / 2 + th);         // nach der ersten Bande: nach rechts oben
+        const b2 = plus(b1, d1, zz(26, 38));
+        // Die zweite Bande: Die Kugel trifft sie unter diesem Winkel und
+        // läuft danach nach links oben weiter.
+        const ein = zz(26, 54) * GRAD;
+        const t2 = dreh(d1, -ein);
+        const d2 = dreh(d1, -2 * ein);
+        const z = plus(b2, d2, zz(24, 36));
+        const quer = dreh(d2, zz(55, 125) * GRAD);
+        const w1 = plus(z, quer, -zz(10, 22));
+        const w2 = plus(z, quer, zz(10, 22));
+        const c1 = P(s.x - zz(3, 8), 0);
+        const c2 = P(zz(9, 16), 0);
+        const k1 = plus(b2, t2, -zz(9, 15));
+        const k2 = plus(b2, t2, zz(9, 15));
+        // Alles steht über der ersten Bande, nichts kreuzt sich, was sich
+        // nicht kreuzen soll, und die Wand steht frei.
+        if (Math.max(w1.y, w2.y, k1.y, k2.y) > -5) return null;
+        if (kreuzen(s, b1, w1, w2) || kreuzen(b1, b2, w1, w2) || kreuzen(s, b1, k1, k2) || kreuzen(w1, w2, k1, k2)) return null;
+        if (streckenAbstand(w1, w2, k1, k2) < 5 || streckenAbstand(w1, w2, s, b1) < 5 || streckenAbstand(w1, w2, b1, b2) < 4) return null;
+        if (abstand(s, aufStrecke(s, k1, k2)) < 6 || abstand(s, aufStrecke(s, b2, z)) < 4) return null;
+        const zuB1 = (k1.x - b2.x) * (b1.x - b2.x) + (k1.y - b2.y) * (b1.y - b2.y) > 0 ? k1 : k2;
+        const zuZ = zuB1 === k1 ? k2 : k1;
+        const w = zz(0, TAU);
+        const alle = [b1, b2, s, z, w1, w2, c1, c2, k1, k2];
+        alle.forEach((q) => Object.assign(q, dreh(q, w)));
+        return {
+          art: "doppelbande", kurz: "Zwei Banden", frage: "Die Kugel prallt an beiden Banden ab. Wo trifft sie die gelbe Wand?",
+          punkte: alle,
+          figur: [
+            { t: "wand", a: c1, b: c2, von: s }, { t: "wand", a: k1, b: k2, von: b1 }, { t: "wand", a: w1, b: w2, von: b2, ziel: true },
+            { t: "pfeil", a: s, b: b1 }, { t: "kugel", p: s },
+          ],
+          bahn: { a: w1, b: w2 }, ziel: z, rollen: [[s, b1, b2, z]],
+          loesung: [
+            { t: "s", a: b1, b: b2, stil: "strich" }, { t: "s", a: b2, b: z, stil: "strich" },
+            { t: "winkel", p: b1, zu1: c1, zu2: s }, { t: "winkel", p: b1, zu1: b2, zu2: c2 },
+            { t: "winkel", p: b2, zu1: zuB1, zu2: b1 }, { t: "winkel", p: b2, zu1: z, zu2: zuZ },
+          ],
+          mass: 0.55,
+        };
+      });
+    },
+
+    // Über die Bande ins Loch: Wo muss die Kugel die Bande treffen?
+    zielbande() {
+      return wuerfle(() => {
+        const ha = zz(16, 34);
+        let hb = zz(16, 34);
+        // Nie gleich weit von der Bande: Sonst wäre es bloss die Mitte.
+        if (Math.abs(ha - hb) < 6) hb = ha > 25 ? ha - zz(7, 9) : ha + zz(7, 9);
+        const weit = zz(34, 58);
+        const a = P(0, -ha);
+        const b = P(weit, -hb);
+        const x = P((weit * ha) / (ha + hb), 0);
+        const c1 = P(-zz(5, 9), 0);
+        const c2 = P(weit + zz(5, 9), 0);
+        const w = zz(0, TAU);
+        const alle = [a, b, x, c1, c2];
+        alle.forEach((q) => Object.assign(q, dreh(q, w)));
+        return {
+          art: "zielbande", kurz: "Über Bande", frage: "Die Kugel soll über die Bande ins Loch. Wo muss sie die Bande treffen?",
+          punkte: alle,
+          figur: [{ t: "wand", a: c1, b: c2, von: a, ziel: true }, { t: "loch", p: b }, { t: "kugel", p: a }],
+          bahn: { a: c1, b: c2 }, ziel: x, rollen: [[a, x, b]],
+          loesung: [
+            { t: "s", a, b: x, stil: "strich" }, { t: "s", a: x, b, stil: "strich" },
+            { t: "winkel", p: x, zu1: c1, zu2: a }, { t: "winkel", p: x, zu1: b, zu2: c2 },
+          ],
+          mass: 0.75,
+        };
+      });
+    },
+
+    // Der Wurf: Der Ball ist ein Stück geflogen – wo landet er?
+    wurf() {
+      return wuerfle(() => {
+        const hoch = zz(22, 36);
+        const xa = zz(18, 28);
+        const k = hoch / (xa * xa);
+        const steil = (2 * hoch) / xa;
+        // So viel tiefer als der Abwurf liegt der Boden (höher: negativ).
+        const tiefer = zz(-9, 14);
+        const xd = xa * (1 + zz(0.12, 0.3));
+        const wurzel = Math.sqrt(steil * steil + 4 * k * tiefer);
+        const xl = (steil + wurzel) / (2 * k);
+        if (xl - xd < 9 || xl > 74) return null;
+        const seite = zufall.zahl() < 0.5 ? 1 : -1;
+        const ort = (x) => P(seite * x, -(x * steil - k * x * x));
+        const flug = [];
+        for (let i = 0; i <= 14; i += 1) flug.push(ort((xd * i) / 14));
+        const rest = [];
+        for (let i = 0; i <= 12; i += 1) rest.push(ort(xd + ((xl - xd) * i) / 12));
+        const ziel = rest[rest.length - 1];
+        // Liegt der Boden höher als der Abwurf, beginnt er erst hinter der
+        // Stelle, an der der Ball auf dem Weg nach oben seine Höhe kreuzt.
+        const ab = tiefer < 0 ? (steil - wurzel) / (2 * k) + 4 : -Infinity;
+        const g1 = P(seite * Math.max(xl - zz(11, 20), ab), tiefer);
+        const g2 = P(seite * (xl + zz(7, 12)), tiefer);
+        const r1 = P(seite * -7, 0);
+        const r2 = P(seite * 3.5, 0);
+        const oben1 = P(0, -10);
+        const oben2 = P(ziel.x, tiefer - 10);
+        return {
+          art: "wurf", kurz: "Wurf", frage: "Der Ball fliegt weiter, wie er begonnen hat. Wo landet er?",
+          punkte: [...flug, ...rest, g1, g2, r1, r2, oben1, oben2],
+          figur: [
+            { t: "wand", a: r1, b: r2, von: oben1 }, { t: "wand", a: g1, b: g2, von: oben2, ziel: true },
+            { t: "poly", pkte: flug, stil: "punkt" }, { t: "kugel", p: flug[flug.length - 1] },
+          ],
+          bahn: { a: g1, b: g2 }, ziel, rollen: [rest],
+          loesung: [{ t: "poly", pkte: rest, stil: "punkt" }],
+          mass: 0.6,
+        };
+      });
+    },
+
+    // Der Kreis durch drei Punkte: Wo ist sein Mittelpunkt?
+    umkreis() {
+      return wuerfle(() => {
+        const r = zz(24, 36);
+        const m = P(0, 0);
+        const w1 = zz(0, TAU);
+        const g1 = zz(50, 150) * GRAD;
+        const g2 = zz(50, 150) * GRAD;
+        // Nie alle drei eng beisammen auf einem kurzen Bogen.
+        if (TAU - g1 - g2 > 230 * GRAD) return null;
+        const pkte = [w1, w1 + g1, w1 + g1 + g2].map((w) => plus(m, richt(w), r));
+        return {
+          art: "umkreis", kurz: "Drei Punkte", frage: "Ein Kreis geht durch alle drei Punkte. Wo ist sein Mittelpunkt?",
+          punkte: [m, ...pkte], kreise: [{ m, r }],
+          figur: pkte.map((p) => ({ t: "p", p, gross: true })),
+          bahn: null, ziel: m,
+          loesung: [{ t: "k", m, r, von: w1, bis: w1 + TAU, stil: "strich" }, ...pkte.map((p) => ({ t: "s", a: m, b: p, stil: "strich" })), { t: "p", p: m }],
+          mass: 0.7,
+        };
+      });
+    },
+
+    // Der grösste Kreis, der ins Dreieck passt: Wo ist seine Mitte?
+    inkreis() {
+      return wuerfle(() => {
+        const ecken = dreieckRoh();
+        if (!ecken) return null;
+        const [a, b, c] = ecken;
+        const la = abstand(b, c);
+        const lb = abstand(a, c);
+        const lc = abstand(a, b);
+        const umfang = la + lb + lc;
+        const m = P((la * a.x + lb * b.x + lc * c.x) / umfang, (la * a.y + lb * b.y + lc * c.y) / umfang);
+        const r = Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) / umfang;
+        // Wo der Kreis die Seiten berührt.
+        const fuss = (p, q) => {
+          const e = einheit(p, q);
+          return plus(p, e, (m.x - p.x) * e.x + (m.y - p.y) * e.y);
+        };
+        const f = [fuss(a, b), fuss(b, c), fuss(a, c)];
+        return {
+          art: "inkreis", kurz: "Inkreis", frage: "Wo ist die Mitte des grössten Kreises, der ins Dreieck passt?",
+          punkte: [a, b, c, m, ...f],
+          figur: [{ t: "poly", pkte: [a, b, c], zu: true }],
+          bahn: null, ziel: m,
+          loesung: [{ t: "k", m, r, von: 0, bis: TAU }, ...f.map((p) => ({ t: "s", a: m, b: p, stil: "strich" })), { t: "p", p: m }],
+          mass: 0.8,
+        };
+      });
+    },
+
+    // Die Fläche halbieren: ein Schnitt parallel zur Grundseite. Auf halber
+    // Höhe liegt er nicht – oben ist das Dreieck schmal.
+    halbieren() {
+      return wuerfle(() => {
+        const ecken = dreieckRoh();
+        if (!ecken) return null;
+        const [a, b, c] = ecken;
+        const m = zwischen(a, b);
+        const teil = Math.SQRT1_2;
+        const ziel = zwischen(c, m, teil);
+        const s1 = zwischen(c, a, teil);
+        const s2 = zwischen(c, b, teil);
+        const oben = zwischen(c, ziel, 0.62);
+        const unten = zwischen(ziel, m, 0.5);
+        return {
+          art: "halbieren", kurz: "Fläche halbieren", frage: "Schneide parallel zu g so, dass beide Teile gleich viel Fläche haben.",
+          punkte: [a, b, c, m, ziel, s1, s2, oben, unten],
+          figur: [{ t: "poly", pkte: [a, b, c], zu: true }, { t: "s", a: c, b: m, stil: "achse" }, { t: "text", p: m, text: "g", weg: P(m.x - c.x, m.y - c.y) }],
+          bahn: { a: c, b: m }, ziel, schnitt: { a, b, c },
+          loesung: [
+            { t: "flaeche", pkte: [c, s1, s2] }, { t: "s", a: s1, b: s2 },
+            { t: "text", p: oben, text: "½", weg: P(0, 0) }, { t: "text", p: unten, text: "½", weg: P(0, 0) },
+          ],
+          mass: 0.8,
+        };
+      });
+    },
+
+    // Das Rad rollt eine Umdrehung weit: gut dreimal sein Durchmesser.
+    rad() {
+      return wuerfle(() => {
+        const r = zz(6.5, 9.6);
+        const umfang = TAU * r;
+        const seite = zufall.zahl() < 0.5 ? 1 : -1;
+        const kipp = zz(-0.22, 0.22);
+        const x0 = r + 2;
+        const p0 = P(seite * x0, 0);
+        const ziel = P(seite * (x0 + umfang), 0);
+        const m0 = P(seite * x0, -r);
+        const m1 = P(seite * (x0 + umfang), -r);
+        const g1 = P(0, 0);
+        const g2 = P(seite * (x0 + umfang + r + 2), 0);
+        const oben = P(seite * x0, -3 * r);
+        const unten = P(seite * x0, 12);
+        const pf1 = P(seite * (x0 + r + 3), -r * 1.9);
+        const pf2 = P(seite * (x0 + r + 13), -r * 1.9);
+        const merk = P(seite * (x0 + umfang / 2), 15.5);
+        const alle = [p0, ziel, m0, m1, g1, g2, oben, unten, pf1, pf2, merk];
+        alle.forEach((q) => Object.assign(q, dreh(q, kipp)));
+        return {
+          art: "rad", kurz: "Rad", frage: "Das Rad rollt genau eine Umdrehung weit. Wo berührt es dann den Boden?",
+          punkte: alle, kreise: [{ m: m0, r }, { m: m1, r }],
+          figur: [{ t: "wand", a: g1, b: g2, von: oben, ziel: true }, { t: "rad", m: m0, r, zu: p0 }, { t: "pfeil", a: pf1, b: pf2 }],
+          bahn: { a: g1, b: g2 }, ziel, rad: { m0, m1, r, p0, sinn: seite }, lineal: { a: p0, b: ziel, zu: unten },
+          loesung: [{ t: "text", p: merk, text: "3,14 × Durchmesser", weg: P(0, 0) }],
+          mass: 0.7,
+        };
+      });
+    },
+
+    // Der Tunnel: Ein Tipp lässt die Kugel los, sie rollt hinein – und der
+    // zweite Tipp sagt, wann sie beim Pfeil sein muss.
     tunnel() {
       return wuerfle(() => {
         const lang = 84;
@@ -511,10 +833,10 @@
         const alle = [a, b, ziel, spitze, fuss, ...kasten];
         alle.forEach((q) => Object.assign(q, dreh(q, w)));
         return {
-          art: "tunnel", kurz: "Tunnel", frage: "Tippe, wenn die Kugel beim Pfeil ist.",
+          art: "tunnel", kurz: "Tunnel", frage: "Tippe: Die Kugel rollt los. Tippe wieder, wenn sie beim Pfeil ist.",
           punkte: alle,
           figur: [],
-          bahn: null, ziel, a, b, kasten, spitze, fuss, s1, sm, v, lang, start: 0.7,
+          bahn: null, ziel, a, b, kasten, spitze, fuss, s1, sm, v, lang, start: 0.3,
           loesung: [],
           mass: 0.7,
         };
@@ -535,12 +857,8 @@
   // Die zehn Blätter einer Runde – alle auf einmal gewürfelt, damit beim
   // Zuschauen dieselben entstehen, egal wie lange jemand für eines braucht.
   function aufgabenFuer() {
-    const reihe = [
-      ...mische(LEICHT).slice(0, PLAN[0]),
-      ...mische(MITTEL).slice(0, PLAN[1]),
-      ...mische(SCHWER).slice(0, PLAN[2]),
-    ];
-    return reihe.map((art, nr) => ({ ...BAU[art](), nr }));
+    const reihe = [LEICHT, MITTEL, SCHWER].flatMap((arten, stufe) => mische(arten).slice(0, PLAN[stufe]).map((art) => ({ art, zeit: ZEITEN[stufe] })));
+    return reihe.map(({ art, zeit }, nr) => ({ ...BAU[art](), nr, zeit }));
   }
 
   // Die Runde als Text – für die Prüfung, dass in einem Turnier alle
@@ -549,12 +867,14 @@
     return (blaetter || []).map((a) => `${a.art}:${a.ziel.x.toFixed(2)}/${a.ziel.y.toFixed(2)}`).join(" ");
   }
 
-  // Wo die Kugel im Tunnel nach t Sekunden ist (als Weg auf der Schiene).
+  // Wo die Kugel im Tunnel t Sekunden nach dem Loslassen ist (als Weg auf
+  // der Schiene). Vor dem Loslassen (t < 0) steht sie am Anfang.
   function kugelWeg(a, t) {
     return clamp((t - a.start) * a.v, 0, a.lang);
   }
 
-  // Wann die Kugel am Ende der Schiene ist – dann ist die Aufgabe vorbei.
+  // Wie lange nach dem Loslassen die Kugel am Ende der Schiene ist – dann
+  // ist die Aufgabe vorbei.
   const tunnelEnde = (a) => a.start + a.lang / a.v;
 
   // Aus einem Weg auf der Schiene wird ein Ort auf dem Blatt.
@@ -580,6 +900,17 @@
   function daneben(a, antwort) {
     if (!antwort) return Infinity;
     return abstand(antwort, a.ziel);
+  }
+
+  // Manche Aufgaben haben zwei richtige Stellen (die dritte Ecke liegt
+  // links oder rechts der Strecke). Es gilt die, die der Antwort näher ist.
+  function richte(a, antwort) {
+    if (!a.auch || !antwort || abstand(antwort, a.auch.ziel) >= abstand(antwort, a.ziel)) return;
+    const andere = { ziel: a.ziel, loesung: a.loesung };
+    a.ziel = a.auch.ziel;
+    a.loesung = a.auch.loesung;
+    a.auch = andere;
+    a.stempel = null;
   }
 
   function punkteFuer(mm, mass = 1) {
@@ -611,6 +942,7 @@
     tickBei: 0,            // für welche Sekunde es zuletzt getickt hat
     schieber: 0,           // was der Messschieber gerade zeigt, in Millimetern
     imTunnel: false,
+    los: 0,                // wann die Kugel im Tunnel losgelassen wurde (performance.now), 0: noch nicht
   };
 
   let shell = null;
@@ -632,6 +964,8 @@
   const blatt = () => state.blaetter?.[state.index] || null;
   // Wie lange das Blatt schon daliegt, in Sekunden.
   const seit = (jetzt = performance.now()) => (jetzt - state.t0) / 1000;
+  // Wie lange die Kugel im Tunnel schon rollt – negativ, solange sie wartet.
+  const tunnelZeit = (jetzt = performance.now()) => (state.los ? (jetzt - state.los) / 1000 : -1);
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -746,6 +1080,7 @@
     spur.length = 0;
     state.tickBei = 0;
     state.imTunnel = false;
+    state.los = 0;
     const a = blatt();
     if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${a.frage}`;
     ton("augenmass.blatt");
@@ -761,8 +1096,13 @@
     state.phase = "zeigen";
     state.tZeig = performance.now();
     state.griff = null;
-    state.antwort = ort ? P(ort.x, ort.y) : null;
-    state.zeiger = ort ? P(ort.x, ort.y) : null;
+    // Gerechnet wird mit der Stelle, wie sie aufgezeichnet wird (auf ein
+    // Tausendstel Millimeter): So misst die Wiedergabe genau dasselbe, auch
+    // wenn eine Antwort haarscharf auf einer Punktgrenze liegt.
+    const rund = (wert) => Math.round(wert * ZUG_MM) / ZUG_MM;
+    state.antwort = ort ? P(rund(ort.x), rund(ort.y)) : null;
+    state.zeiger = ort ? P(rund(ort.x), rund(ort.y)) : null;
+    richte(a, state.antwort);
     const mm = daneben(a, state.antwort);
     const punkte = state.antwort ? punkteFuer(mm, a.mass) : 0;
     state.wertung = { mm, punkte };
@@ -786,13 +1126,24 @@
     else blattAuf(state.index + 1);
   }
 
-  // Im Tunnel ist die Antwort ein Augenblick: wo die Kugel gerade ist. Ein
-  // Tipp, solange sie noch zu sehen ist, gilt nicht – der war ein Versehen.
+  // Die Kugel im Tunnel rollt los – beim ersten Tipp, damit niemand sie
+  // verpasst, der die Aufgabe noch liest.
+  function kugelLos(ms) {
+    if (state.los) return;
+    state.los = ms;
+    ton("augenmass.setzen");
+    meldeZug(2);
+  }
+
+  // Im Tunnel lässt der erste Tipp die Kugel los. Der zweite ist die
+  // Antwort, ein Augenblick: wo die Kugel gerade ist. Ein Tipp, solange sie
+  // noch zu sehen ist, gilt nicht – der war ein Versehen.
   function tippTunnel(zeitstempel) {
     const a = blatt();
     const nun = performance.now();
     const ms = zeitstempel > 0 && Math.abs(zeitstempel - nun) < 400 ? zeitstempel : nun;
-    const weg = kugelWeg(a, seit(ms));
+    if (!state.los) { kugelLos(ms); return; }
+    const weg = kugelWeg(a, tunnelZeit(ms));
     if (weg < a.s1) return;
     antworte(tunnelOrt(a, weg));
   }
@@ -827,20 +1178,26 @@
     return still && Math.hypot(zuletzt.x - frueher.x, zuletzt.y - frueher.y) < 1.2 ? P(frueher.x, frueher.y) : zuletzt;
   }
 
-  // Was die Uhr tut, Bild für Bild: Im Tunnel rollt die Kugel bis ans Ende,
-  // sonst läuft die Zeit des Blattes ab.
+  // Was die Uhr tut, Bild für Bild: Im Tunnel rollt die Kugel nach dem
+  // ersten Tipp bis ans Ende, sonst läuft die Zeit des Blattes ab.
   function uhrTakt() {
     if (state.phase !== "aufgabe") return;
     const a = blatt();
     const t = seit();
     if (a.art === "tunnel") {
-      const drin = kugelWeg(a, t) >= a.s1;
+      // Die Kugel wartet auf den ersten Tipp – aber nicht ewig.
+      if (!state.los) {
+        if (t >= EINZUG + a.zeit) kugelLos(performance.now());
+        return;
+      }
+      const rollt = tunnelZeit();
+      const drin = kugelWeg(a, rollt) >= a.s1;
       if (drin && !state.imTunnel) { state.imTunnel = true; ton("augenmass.tunnel"); }
       // Die Kugel ist am Ende der Schiene, und niemand hat getippt.
-      if (t >= tunnelEnde(a)) antworte(null);
+      if (rollt >= tunnelEnde(a)) antworte(null);
       return;
     }
-    const rest = EINZUG + ZEIT - t;
+    const rest = EINZUG + a.zeit - t;
     // Die letzten drei Sekunden ticken.
     const sekunde = Math.ceil(rest);
     if (rest > 0 && sekunde <= 3 && sekunde !== state.tickBei) { state.tickBei = sekunde; ton("augenmass.tick"); }
@@ -1088,19 +1445,19 @@
   const GRUEN = "#5ef2b0";
   const GRUEN_GLANZ = "rgba(94, 242, 176, 0.2)";
   const GELB = "#ffd84d";
+  const ZIELWAND = "#ffe08a";
+  const ZIELWAND_GLANZ = "rgba(255, 216, 77, 0.2)";
   const FARBE = { genau: "#ffd84d", fast: "#5ef2b0", knapp: "#b9f06c", nah: "#ffb84d", weit: "#ff8a5c", daneben: "#ff6480" };
   const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
   const SERIF = 'Georgia, "Times New Roman", serif';
-
-  const einheit = (a, b) => {
-    const l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    return P((b.x - a.x) / l, (b.y - a.y) / l);
-  };
 
   function strichelung(stil) {
     const s = view.s;
     if (stil === "strich") g.setLineDash([s * 1.7, s * 1.3]);
     else if (stil === "achse") g.setLineDash([s * 3.2, s * 1.1, s * 0.5, s * 1.1]);
+    // Gepunktet: die Spur eines Balls. Die runden Enden machen aus jedem
+    // Strichlein einen Punkt.
+    else if (stil === "punkt") g.setLineDash([0.01, s * 2]);
     else g.setLineDash([]);
   }
 
@@ -1133,10 +1490,26 @@
         }
         break;
       }
-      case "k": {
+      case "k":
+      case "kpfeil": {
+        // Ein Bogen – in die Richtung, in die seine Winkel laufen. Als
+        // «kpfeil» mit einer Spitze am Ende.
+        const bis = lerp(t.von, t.bis, k);
         g.beginPath();
-        g.arc(X(t.m.x), Y(t.m.y), t.r * s, t.von, lerp(t.von, t.bis, k));
+        g.arc(X(t.m.x), Y(t.m.y), t.r * s, t.von, bis, t.bis < t.von);
         g.stroke();
+        if (t.t === "kpfeil" && k > 0.7) {
+          const sinn = t.bis < t.von ? -1 : 1;
+          const e = P(-Math.sin(bis) * sinn, Math.cos(bis) * sinn);
+          const ex = X(t.m.x + Math.cos(bis) * t.r);
+          const ey = Y(t.m.y + Math.sin(bis) * t.r);
+          const lang = Math.min(3.2, t.r * 0.42) * s * clamp((k - 0.7) / 0.3, 0, 1);
+          g.beginPath();
+          g.moveTo(ex - (e.x - e.y * 0.42) * lang, ey - (e.y + e.x * 0.42) * lang);
+          g.lineTo(ex, ey);
+          g.lineTo(ex - (e.x + e.y * 0.42) * lang, ey - (e.y - e.x * 0.42) * lang);
+          g.stroke();
+        }
         break;
       }
       case "poly": {
@@ -1200,7 +1573,9 @@
         break;
       }
       case "wand": {
-        // Eine Wand: ein kräftiger Strich, dahinter die Schraffur.
+        // Eine Wand: ein kräftiger Strich, dahinter die Schraffur. Die Wand,
+        // auf der die Antwort liegt, ist gelb wie das Fadenkreuz.
+        if (t.ziel) g.strokeStyle = fein ? ZIELWAND : ZIELWAND_GLANZ;
         g.lineWidth = breite * 1.5;
         const ex = lerp(t.a.x, t.b.x, k);
         const ey = lerp(t.a.y, t.b.y, k);
@@ -1208,7 +1583,7 @@
         g.moveTo(X(t.a.x), Y(t.a.y));
         g.lineTo(X(ex), Y(ey));
         g.stroke();
-        if (!fein) break;
+        if (!fein) { g.strokeStyle = farbe; break; }
         const e = einheit(t.a, t.b);
         let n = P(-e.y, e.x);
         // Die Schraffur liegt auf der Seite, die von der Figur wegzeigt.
@@ -1222,11 +1597,40 @@
           g.lineTo(X(q.x + n.x * 2.6 - e.x * 1.8), Y(q.y + n.y * 2.6 - e.y * 1.8));
         }
         g.stroke();
+        g.strokeStyle = farbe;
+        break;
+      }
+      case "flaeche": {
+        // Eine Fläche, zart gefüllt.
+        if (!fein) break;
+        g.save();
+        g.globalAlpha *= 0.2 * k;
+        g.fillStyle = farbe;
+        g.beginPath();
+        t.pkte.forEach((q, i) => (i ? g.lineTo(X(q.x), Y(q.y)) : g.moveTo(X(q.x), Y(q.y))));
+        g.closePath();
+        g.fill();
+        g.restore();
+        break;
+      }
+      case "loch": {
+        // Das Loch, in das die Kugel soll: dunkel, mit hellem Rand.
+        const r = 3.1 * s * clamp(k * 2, 0, 1);
+        g.setLineDash([]);
+        g.beginPath();
+        g.arc(X(t.p.x), Y(t.p.y), r, 0, TAU);
+        if (fein) { g.fillStyle = "#061a3d"; g.fill(); }
+        g.stroke();
+        break;
+      }
+      case "rad": {
+        // Beim Nachmessen rollt es los (zeichneLoesung).
+        if (fein && !state.wertung) zeichneRad(t.m, t.r, Math.atan2(t.zu.y - t.m.y, t.zu.x - t.m.x), clamp(k * 1.6, 0, 1));
         break;
       }
       case "p": {
         if (!fein) break;
-        const r = 1.15 * s * clamp(k * 2, 0, 1);
+        const r = (t.gross ? 1.7 : 1.15) * s * clamp(k * 2, 0, 1);
         g.fillStyle = farbe;
         g.beginPath();
         g.arc(X(t.p.x), Y(t.p.y), r, 0, TAU);
@@ -1251,7 +1655,9 @@
   function schrift(text, p, weg, k, farbe) {
     if (k < 0.5) return;
     const l = Math.hypot(weg?.x || 0, weg?.y || 0);
-    const e = l ? P(weg.x / l, weg.y / l) : P(0.7, -0.7);
+    // Ohne Richtung: schräg nach oben. Mit einer Richtung der Länge null:
+    // genau auf dem Punkt.
+    const e = l ? P(weg.x / l, weg.y / l) : weg ? P(0, 0) : P(0.7, -0.7);
     g.save();
     g.globalAlpha *= clamp((k - 0.5) * 2, 0, 1);
     g.fillStyle = farbe;
@@ -1283,6 +1689,62 @@
     g.arc(x, y, r, 0, TAU);
     g.fill();
     g.restore();
+  }
+
+  // Das Rad: Felge, Nabe, sechs Speichen – und ein Ventil, an dem man sieht,
+  // wie weit es sich gedreht hat.
+  function zeichneRad(m, r, winkel, k = 1) {
+    const s = view.s;
+    const x = X(m.x);
+    const y = Y(m.y);
+    g.save();
+    g.globalAlpha *= k;
+    g.setLineDash([]);
+    g.lineCap = "round";
+    [[WEISS_GLANZ, view.lw * 3.4], [WEISS, view.lw]].forEach(([farbe, breite]) => {
+      g.strokeStyle = farbe;
+      g.lineWidth = breite;
+      g.beginPath();
+      g.arc(x, y, r * s, 0, TAU);
+      g.stroke();
+    });
+    g.strokeStyle = "rgba(241, 247, 255, 0.55)";
+    g.lineWidth = view.lw * 0.6;
+    g.beginPath();
+    for (let i = 1; i < 6; i += 1) {
+      const w = winkel + (i * TAU) / 6;
+      g.moveTo(x, y);
+      g.lineTo(x + Math.cos(w) * r * s, y + Math.sin(w) * r * s);
+    }
+    g.stroke();
+    g.strokeStyle = "#ff9d6c";
+    g.lineWidth = view.lw * 1.1;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.cos(winkel) * r * s, y + Math.sin(winkel) * r * s);
+    g.stroke();
+    g.fillStyle = "#ff9d6c";
+    g.beginPath();
+    g.arc(x + Math.cos(winkel) * r * s * 0.86, y + Math.sin(winkel) * r * s * 0.86, Math.max(2, 0.8 * s), 0, TAU);
+    g.fill();
+    g.fillStyle = WEISS;
+    g.beginPath();
+    g.arc(x, y, Math.max(2, 0.9 * s), 0, TAU);
+    g.fill();
+    g.restore();
+  }
+
+  // Wo eine Kugel auf ihrem Weg ist, wenn sie den Anteil k davon hinter sich hat.
+  function aufWeg(pkte, k) {
+    let ganz = 0;
+    for (let i = 1; i < pkte.length; i += 1) ganz += abstand(pkte[i - 1], pkte[i]);
+    let weit = k * ganz;
+    for (let i = 1; i < pkte.length; i += 1) {
+      const stueck = abstand(pkte[i - 1], pkte[i]);
+      if (weit <= stueck || i === pkte.length - 1) return zwischen(pkte[i - 1], pkte[i], stueck ? clamp(weit / stueck, 0, 1) : 0);
+      weit -= stueck;
+    }
+    return pkte[pkte.length - 1];
   }
 
   // Eine Liste von Zeichen, nacheinander eingezeichnet: K ist der Fortschritt
@@ -1322,7 +1784,7 @@
   // Wo der Stift bei einem Zeichen gerade ist.
   function stiftOrt(t, k) {
     if (t.t === "s" || t.t === "pfeil" || t.t === "wand") return zwischen(t.a, t.b, k);
-    if (t.t === "k") return plus(t.m, richt(lerp(t.von, t.bis, k)), t.r);
+    if (t.t === "k" || t.t === "kpfeil") return plus(t.m, richt(lerp(t.von, t.bis, k)), t.r);
     if (t.t === "poly") {
       const pkte = t.zu ? [...t.pkte, t.pkte[0]] : t.pkte;
       const weit = k * (pkte.length - 1);
@@ -1363,8 +1825,19 @@
     });
     // Die Kugel: unterwegs nach der Uhr, beim Nachmessen dort, wo sie beim
     // Tipp war.
-    const kugel = zeigt ? state.antwort || tunnelOrt(a, a.lang) : tunnelOrt(a, kugelWeg(a, seit()));
+    const kugel = zeigt ? state.antwort || tunnelOrt(a, a.lang) : tunnelOrt(a, kugelWeg(a, tunnelZeit()));
     if (kugel && K > 0.3) zeichneKugel(kugel, clamp((K - 0.3) * 3, 0, 1), zeigt && state.antwort ? GELB : "#e8f1ff");
+    // Solange sie wartet, ruft ein Ring: Tipp mich an.
+    if (!zeigt && !state.los && K >= 1 && !ruhig()) {
+      const puls = (performance.now() / 900) % 1;
+      g.strokeStyle = GELB;
+      g.lineWidth = 1.6;
+      g.globalAlpha = 0.85 * (1 - puls);
+      g.beginPath();
+      g.arc(X(kugel.x), Y(kugel.y), (3 + puls * 4.5) * s, 0, TAU);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
     // Der Tunnel.
     const decke = zeigt ? lerp(1, 0.22, clamp(tz / 0.35, 0, 1)) : 1;
     const auf = clamp((K - 0.25) / 0.6, 0, 1);
@@ -1438,7 +1911,22 @@
     g.save();
     g.setLineDash([]);
     g.lineCap = "butt";
-    if (a.bahn) {
+    if (a.schnitt) {
+      // Beim Halbieren der Fläche: der Schnitt, wie er jetzt läge – parallel
+      // zur Grundseite durchs Fadenkreuz.
+      const d = a.schnitt;
+      const teil = clamp(abstand(d.c, z) / (abstand(d.c, zwischen(d.a, d.b)) || 1), 0, 1);
+      const p1 = zwischen(d.c, d.a, teil);
+      const p2 = zwischen(d.c, d.b, teil);
+      [["rgba(4, 16, 48, 0.55)", 4.5], [GELB, 2]].forEach(([farbe, breite]) => {
+        g.strokeStyle = farbe;
+        g.lineWidth = breite;
+        g.beginPath();
+        g.moveTo(X(p1.x), Y(p1.y));
+        g.lineTo(X(p2.x), Y(p2.y));
+        g.stroke();
+      });
+    } else if (a.bahn) {
       // Auf einer Bahn: ein Reiter quer zu ihr.
       const quer = a.bahn.r ? einheit(a.bahn.m, z) : (() => { const e = einheit(a.bahn.a, a.bahn.b); return P(-e.y, e.x); })();
       const lang = 15 * view.u;
@@ -1538,8 +2026,10 @@
     const e = einheit(lineal.a, lineal.b);
     let n = P(-e.y, e.x);
     // Er liegt auf der Seite der Strecke, auf der mehr Blatt ist.
+    // Oder dort, wo die Aufgabe ihn haben will (zu).
     const mitte = zwischen(lineal.a, lineal.b);
-    if ((BLATT / 2 - mitte.x) * n.x + (BLATT / 2 - mitte.y) * n.y < 0) n = P(-n.x, -n.y);
+    const hin = lineal.zu || P(BLATT / 2, BLATT / 2);
+    if ((hin.x - mitte.x) * n.x + (hin.y - mitte.y) * n.y < 0) n = P(-n.x, -n.y);
     const lang = abstand(lineal.a, lineal.b);
     const breit = 8.5;
     const ab = 1 + (1 - k) * 5;
@@ -1611,13 +2101,13 @@
     const K = ruhig() ? 1 : weich(clamp(tz / 0.6, 0, 1));
     if (a.lineal) zeichneLineal(a.lineal, ruhig() ? 1 : weich(clamp(tz / 0.4, 0, 1)));
     zeichneTeile(a.loesung, K, GRUEN, GRUEN_GLANZ);
-    // Die Bande: Die Kugel rollt den ganzen Weg nach.
-    if (a.weg) {
-      const k = ruhig() ? 1 : clamp((tz - 0.1) / 0.9, 0, 1);
-      const l1 = abstand(a.weg[0], a.weg[1]);
-      const l2 = abstand(a.weg[1], a.weg[2]);
-      const weit = k * (l1 + l2);
-      zeichneKugel(weit < l1 ? zwischen(a.weg[0], a.weg[1], weit / l1) : zwischen(a.weg[1], a.weg[2], (weit - l1) / l2));
+    // Was rollt, rollt jetzt: die Kugel über die Bande, der Ball durch die
+    // Luft, zwei Kugeln aufeinander zu – jede ihren ganzen Weg.
+    const rollt = ruhig() ? 1 : clamp((tz - 0.1) / 0.95, 0, 1);
+    if (a.rollen) a.rollen.forEach((weg) => zeichneKugel(aufWeg(weg, rollt)));
+    if (a.rad) {
+      const k = weich(rollt);
+      zeichneRad(zwischen(a.rad.m0, a.rad.m1, k), a.rad.r, Math.atan2(a.rad.p0.y - a.rad.m0.y, a.rad.p0.x - a.rad.m0.x) + a.rad.sinn * TAU * k);
     }
     // Die richtige Stelle: ein Ring, der sich zuzieht, und ein Punkt.
     const kz = ruhig() ? 1 : clamp((tz - 0.2) / 0.35, 0, 1);
@@ -1790,7 +2280,11 @@
       const fx = view.flach ? links / 2 : links + breit / 2;
       const gross = Math.round((view.flach ? 19 : 17) * u);
       g.font = `800 ${gross}px system-ui, sans-serif`;
-      const zeilen = view.flach ? umbrechen(a.frage, links - 56) : zeilenFuer(a.frage, Math.min(view.cssW - 24, breit + 8));
+      const platz = Math.min(view.cssW - 24, breit + 8);
+      const zeilen = view.flach ? umbrechen(a.frage, links - 56) : zeilenFuer(a.frage, platz);
+      // Passt sie auch in zwei Zeilen nicht, wird die Schrift kleiner.
+      const weit = Math.max(...zeilen.map((zeile) => g.measureText(zeile).width));
+      if (!view.flach && weit > platz) g.font = `800 ${Math.floor((gross * platz) / weit)}px system-ui, sans-serif`;
       const abstand = Math.round(gross * 1.2);
       const mitte = (view.flach ? view.y0 + view.seite * 0.42 : view.y0 - 36 * u) + (1 - da) * 5;
       g.textAlign = "center";
@@ -1803,16 +2297,18 @@
       g.fillText(`BLATT ${String(state.index + 1).padStart(2, "0")} / ${BLAETTER}`, fx, view.flach ? mitte - (zeilen.length / 2) * abstand - 16 * u : view.y0 - 63 * u);
       g.globalAlpha = 1;
 
-      // Die Uhr des Blattes: ein Strich, der kürzer wird. Im Tunnel ist die
-      // Kugel die Uhr.
-      if (a.art !== "tunnel") {
-        const rest = zeigt ? clamp((EINZUG + ZEIT - (state.tZeig - state.t0) / 1000) / ZEIT, 0, 1) : clamp((EINZUG + ZEIT - t) / ZEIT, 0, 1);
+      // Die Uhr des Blattes: ein Strich, der kürzer wird. Im Tunnel läuft
+      // sie nur, solange die Kugel auf den ersten Tipp wartet – danach ist
+      // die Kugel die Uhr.
+      const dauer = a.zeit || ZEIT;
+      if (a.art !== "tunnel" || (!state.los && !zeigt)) {
+        const rest = zeigt ? clamp((EINZUG + dauer - (state.tZeig - state.t0) / 1000) / dauer, 0, 1) : clamp((EINZUG + dauer - t) / dauer, 0, 1);
         const y = view.y0 - 10 * u;
         const hoch = Math.max(2.5, 3 * u);
         rundesFeld(links, y - hoch / 2, breit, hoch, hoch / 2);
         g.fillStyle = "rgba(200, 225, 255, 0.14)";
         g.fill();
-        const knapp = !zeigt && rest * ZEIT <= 3;
+        const knapp = !zeigt && rest * dauer <= 3 && a.art !== "tunnel";
         g.fillStyle = zeigt ? "rgba(200, 225, 255, 0.4)" : knapp ? (Math.floor(t * 4) % 2 ? "#ff8a5c" : "#ffb84d") : "#e6f1ff";
         if (rest > 0.004) {
           rundesFeld(links, y - hoch / 2, breit * rest, hoch, hoch / 2);
@@ -2062,6 +2558,7 @@
       // Wann das Blatt begann: beim Zug «neues Blatt» genau, sonst etwa.
       state.t0 = nun - (jetzt - (was === 0 ? probe.t : probe.t - 1000 * EINZUG));
       state.imTunnel = false;
+      state.los = 0;
       if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${blatt().frage}`;
       if (frisch) ton("augenmass.blatt");
     }
@@ -2071,6 +2568,7 @@
         zuschau.was = was;
         state.antwort = was === 1 ? P(probe.a / ZUG_MM, probe.b / ZUG_MM) : null;
         state.zeiger = state.antwort ? P(state.antwort.x, state.antwort.y) : null;
+        richte(a, state.antwort);
         const mm = daneben(a, state.antwort);
         const punkte = state.antwort ? punkteFuer(mm, a.mass) : 0;
         state.wertung = { mm, punkte };
@@ -2085,7 +2583,11 @@
       zuschau.was = was;
       state.wertung = null;
       state.antwort = null;
-      if (was === 2) {
+      if (a.art === "tunnel") {
+        // Im Tunnel heisst der Zug: Die Kugel ist losgelassen.
+        state.zeiger = null;
+        if (was === 2 && !state.los) state.los = nun - (jetzt - probe.t);
+      } else if (was === 2) {
         // Zwischen zwei Lagen gleitet das Fadenkreuz.
         let x = probe.a / ZUG_MM;
         let y = probe.b / ZUG_MM;
@@ -2099,7 +2601,7 @@
       } else {
         state.zeiger = null;
       }
-      if (a.art === "tunnel" && frisch && !state.imTunnel && kugelWeg(a, seit()) >= a.s1) { state.imTunnel = true; ton("augenmass.tunnel"); }
+      if (a.art === "tunnel" && frisch && !state.imTunnel && kugelWeg(a, tunnelZeit()) >= a.s1) { state.imTunnel = true; ton("augenmass.tunnel"); }
     }
     if (probe.p !== state.punkte) {
       state.punkte = probe.p;
@@ -2232,9 +2734,9 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "eyeMeasure", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+    host, spiel: "eyeMeasure", fassung: "z2", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -2324,9 +2826,9 @@
 
   // Für die Prüfskripte und die Vorführung.
   window.LernappAugenmass = {
-    BLATT, RAND, GRENZEN, WIE, PLAN, LEICHT, MITTEL, SCHWER, BLAETTER, ZEIT, EINZUG, SPERRE, ZEIGEN_MS, PUNKTE_JE_BLATT,
-    state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelOrt, tunnelEnde,
-    losGehts, antworte, weiter, setzeZeiger, tippTunnel, zeichnen,
+    BLATT, RAND, GRENZEN, WIE, PLAN, LEICHT, MITTEL, SCHWER, BLAETTER, ZEIT, ZEITEN, EINZUG, SPERRE, ZEIGEN_MS, PUNKTE_JE_BLATT,
+    state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelZeit, tunnelOrt, tunnelEnde,
+    losGehts, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
     // Wo eine Stelle des Blattes auf dem Bildschirm liegt.
     imBild: (ort) => {
       const r = canvas.getBoundingClientRect();

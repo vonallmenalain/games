@@ -35,8 +35,10 @@ export default {
       }
       if (!zug) return;
       if (zug.tunnel) {
-        // Im Tunnel: tippen, wenn die Kugel beim Pfeil sein muss.
-        if (A.kugelWeg(a, A.seit()) >= a.sm - 0.5) { druck("pointerdown", a.ziel); zug = null; }
+        // Im Tunnel: Der erste Tipp lässt die Kugel los, der zweite kommt,
+        // wenn sie beim Pfeil sein muss.
+        if (!st.los) { if (A.seit() > 1.4) druck("pointerdown", a.ziel); return; }
+        if (A.kugelWeg(a, A.tunnelZeit()) >= a.sm - 0.5) { druck("pointerdown", a.ziel); zug = null; }
         return;
       }
       if (jetzt < zug.start) return;

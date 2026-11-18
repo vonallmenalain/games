@@ -206,7 +206,7 @@
     tileMemory: { fassung: "z1" },
     fishPond: { fassung: "z1" },
     numberLine: { fassung: "z1" },
-    eyeMeasure: { fassung: "z1" },
+    eyeMeasure: { fassung: "z2" },
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z2" },
     twinLanes: { fassung: "t1" },
