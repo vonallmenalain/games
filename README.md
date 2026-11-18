@@ -550,11 +550,25 @@ schwere, jede Art höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`, `PLAN`):
 zur Wand verlängern), gibt es nicht mehr: Überall muss etwas in Gedanken
 gebaut oder vorhergesagt werden – ein Spiegelbild, ein Abprall, eine
 Flugbahn, ein krummer Bogen, ein Verhältnis aus zwei Pfeilen, die Wurzel
-aus zwei beim Halbieren der Fläche, das Pi beim Rad. Dazu ist die Zeit
-knapp, und je einfacher das Blatt, desto knapper: sechs Sekunden für ein
-leichtes, sieben für ein mittleres, acht für ein schweres (`ZEITEN`, der
-Strich über dem Blatt). Ist die Zeit um, zählt die Stelle, an der das
-Fadenkreuz steht; wer noch gar nicht getippt hat, bekommt nichts.
+aus zwei beim Halbieren der Fläche, das Pi beim Rad.
+
+**Vor jedem Blatt steht die Vorschau** (seit dem 18. November 2026): der Name
+der Aufgabe, ein Satz, was zu tun ist (`TUN`), und ein Beispiel, das sich
+selbst löst – eine zweite Aufgabe derselben Art, klein in einem Kasten: erst
+die Figur, dann zeichnen sich die Hilfslinien ein, was rollt, rollt, und die
+richtige Stelle leuchtet auf (`zeichneBeispiel`, mit denselben Handgriffen
+wie das Blatt). Die Uhr läuft dabei nicht. Erst ein Tipp (oder Enter) legt
+das Blatt hin (`blattLos`). Davor war die Zeit schon am Laufen, während man
+noch las, worum es geht. Wer gar nicht tippt, bekommt das Blatt nach
+30 Sekunden (`VORSCHAU`; die letzten fünf zählen sichtbar herunter) – eine
+Runde soll von selbst zu Ende gehen. Die Beispiele werden nach den zehn
+Blättern gewürfelt: Die Blätter einer Saat sind dieselben wie zuvor.
+
+Liegt das Blatt da, ist die Zeit knapp, und je einfacher das Blatt, desto
+knapper: sechs Sekunden für ein leichtes, sieben für ein mittleres, acht für
+ein schweres (`ZEITEN`, der Strich über dem Blatt). Ist die Zeit um, zählt
+die Stelle, an der das Fadenkreuz steht; wer noch gar nicht getippt hat,
+bekommt nichts.
 
 Das Blatt ist ein Quadrat von 100 × 100 Millimetern, so gross, wie der
 Bildschirm es hergibt, und gerechnet wird überall in diesen Millimetern –
@@ -570,13 +584,13 @@ Antwort liegt, ist gelb wie das Fadenkreuz. Beim gleichseitigen Dreieck
 gibt es zwei richtige Ecken – es gilt die, die der Antwort näher liegt
 (`auch`, `richte`).
 
-**Im Tunnel** wartet die Kugel: Der erste Tipp lässt sie los (ein Ring um
-sie ruft danach), damit niemand sie verpasst, der die Aufgabe noch liest.
-Sie rollt in den Tunnel, und der zweite Tipp sagt, wann sie beim Pfeil sein
-muss – gemessen wird, wo sie im Augenblick des Tipps war (nach der Zeit des
-Tipps, nicht des nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist,
-gilt nicht; wer gar nicht tippt, dem rollt sie nach der Zeit des Blattes
-von selbst los, und am Ende der Schiene gibt es nichts.
+**Im Tunnel** rollt die Kugel von selbst los, eine halbe Sekunde nachdem
+das Blatt daliegt (`TUNNEL_START`) – was zu tun ist, stand in der Vorschau.
+Sie rollt in den Tunnel, und der Tipp sagt, wann sie beim Pfeil sein muss –
+gemessen wird, wo sie im Augenblick des Tipps war (nach der Zeit des Tipps,
+nicht des nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt
+nicht; wer gar nicht tippt, bekommt am Ende der Schiene nichts. (Bis zur
+Vorschau liess erst ein Tipp die Kugel los.)
 
 Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
 **Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
@@ -601,13 +615,15 @@ wie von einem Plotter (`zeichneTeile`, mit einem hellen Punkt an der
 Stiftspitze). Die Lupe liest aus dem Bild, das schon gemalt ist. Stockt ein
 Gerät, wird das Bild gröber statt langsamer (`gueteTakt`).
 
-Aufgezeichnet werden die Züge (`meldeZug`: jedes neue Blatt, das Fadenkreuz
-unterwegs, die Antwort) – damit lassen sich die besten Runden anschauen, und
-im Multiplayer sehen die anderen dasselbe. Die Blätter kommen aus
+Aufgezeichnet werden die Züge (`meldeZug`: jede Vorschau, jedes neue Blatt,
+das Fadenkreuz unterwegs, die Antwort) – damit lassen sich die besten Runden
+anschauen, und im Multiplayer sehen die anderen dasselbe, auch die Vorschau. Die Blätter kommen aus
 `zufall.js`: In einem Turnier bekommen alle dieselben zehn. Mit den neuen
 Blättern tragen die Aufzeichnungen die Fassung z2. Prüfung 4g34: Jede Runde
 hat ihre zwei, vier und vier Blätter mit ihrer Zeit, alles liegt auf dem
-Blatt, jede der 21 Arten lässt sich zeichnen, beantworten und nachmessen,
+Blatt, jede der 21 Arten hat ihren Satz und ihr Beispiel und lässt sich
+zeichnen, beantworten und nachmessen; die Vorschau wartet auf den Tipp und
+lässt die Uhr stehen,
 zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
 was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben

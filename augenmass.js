@@ -30,19 +30,25 @@
  * liegen, würfelt der Zufall; in einem Turnier bekommen alle dieselben
  * zehn Blätter (zufall.js).
  *
- * Die Zeit ist knapp: sechs Sekunden für ein leichtes Blatt, sieben für ein
- * mittleres, acht für ein schweres. Ist sie um, zählt die Stelle, an der
- * das Fadenkreuz gerade steht – wer noch gar nicht getippt hat, bekommt
- * nichts. Im Tunnel lässt der erste Tipp die Kugel los, damit niemand sie
- * verpasst, der noch liest; danach wartet sie auf niemanden.
+ * Vor jedem Blatt steht, was zu tun ist (die Vorschau): der Name der
+ * Aufgabe, ein Satz dazu und ein Beispiel, das sich selbst löst – eine
+ * andere Aufgabe derselben Art, mit ihren Hilfslinien und der richtigen
+ * Stelle. Die Uhr läuft dabei nicht. Erst ein Tipp legt das Blatt hin
+ * (blattLos); wer gar nicht tippt, bekommt es nach VORSCHAU Sekunden.
+ *
+ * Dann ist die Zeit knapp: sechs Sekunden für ein leichtes Blatt, sieben
+ * für ein mittleres, acht für ein schweres. Ist sie um, zählt die Stelle,
+ * an der das Fadenkreuz gerade steht – wer noch gar nicht getippt hat,
+ * bekommt nichts. Im Tunnel rollt die Kugel von selbst los, sobald das
+ * Blatt daliegt, und wartet auf niemanden.
  *
  * Unter dem Finger sieht man nichts: Wer auf einem Handy tippt, bekommt
  * darum eine Lupe über den Finger, die zeigt, wo das Fadenkreuz steht. Sie
  * hilft beim Setzen, nicht beim Schätzen – in ihr ist nur ein kleines Stück
  * des Blattes.
  *
- * Aufgezeichnet werden die Züge (geist.js, zuege): jedes neue Blatt, das
- * Fadenkreuz unterwegs und die Antwort. Damit lassen sich die besten Läufe
+ * Aufgezeichnet werden die Züge (geist.js, zuege): jede Vorschau, jedes
+ * neue Blatt, das Fadenkreuz unterwegs und die Antwort. Damit lassen sich die besten Läufe
  * anschauen, und im Multiplayer sehen die anderen dasselbe (live-spiel.js).
  *
  * Bühne, Knöpfe und Bestenliste kommen aus game-shell.js.
@@ -106,6 +112,14 @@
   const SPERRE = 0.3;
   // So lange steht die Lösung da.
   const ZEIGEN_MS = 1900;
+  // So lange steht die Vorschau eines Blattes höchstens da (Sekunden) – eine
+  // Runde soll von selbst zu Ende gehen. In den letzten VOR_ZAEHLT Sekunden
+  // zählt sie sichtbar herunter; ein Tipp gilt erst nach VOR_SPERRE.
+  const VORSCHAU = 30;
+  const VOR_ZAEHLT = 5;
+  const VOR_SPERRE = 0.35;
+  // So lange nach dem Hinlegen wartet die Kugel im Tunnel, bis sie losrollt.
+  const TUNNEL_START = 0.5;
   const TOP_COUNT = 5;
 
   // ---------------------------------------------------------------------------
@@ -812,8 +826,8 @@
       });
     },
 
-    // Der Tunnel: Ein Tipp lässt die Kugel los, sie rollt hinein – und der
-    // zweite Tipp sagt, wann sie beim Pfeil sein muss.
+    // Der Tunnel: Die Kugel rollt hinein – und der Tipp sagt, wann sie beim
+    // Pfeil sein muss.
     tunnel() {
       return wuerfle(() => {
         const lang = 84;
@@ -833,7 +847,7 @@
         const alle = [a, b, ziel, spitze, fuss, ...kasten];
         alle.forEach((q) => Object.assign(q, dreh(q, w)));
         return {
-          art: "tunnel", kurz: "Tunnel", frage: "Tippe: Die Kugel rollt los. Tippe wieder, wenn sie beim Pfeil ist.",
+          art: "tunnel", kurz: "Tunnel", frage: "Tippe, wenn die Kugel beim Pfeil sein muss.",
           punkte: alle,
           figur: [],
           bahn: null, ziel, a, b, kasten, spitze, fuss, s1, sm, v, lang, start: 0.3,
@@ -845,6 +859,34 @@
   };
 
   // Die Reihe mischen, ohne die Liste selbst zu ändern.
+  /*
+   * Was zu tun ist, Art für Art – der Satz der Vorschau. Die Frage über dem
+   * Blatt ist kurz, weil die Uhr läuft; hier läuft sie nicht.
+   */
+  const TUN = {
+    kreis: "Tippe dorthin, wo der Mittelpunkt des Kreises liegt.",
+    rechteck: "Tippe auf die Mitte des Rechtecks – dort, wo sich die Diagonalen kreuzen.",
+    winkel: "Teile den Winkel in zwei gleiche Hälften: Schieb das Fadenkreuz auf die Stelle des Bogens, die genau in der Mitte liegt.",
+    lot: "Der kürzeste Weg von P zur Linie trifft sie im rechten Winkel. Schieb das Fadenkreuz auf die Stelle der Linie, an der er ankommt.",
+    spiegel: "Die Linie ist ein Spiegel. Tippe dorthin, wo das Spiegelbild von P liegt: genau gegenüber, gleich weit hinter der Linie.",
+    eck: "Drei Ecken eines Rechtecks sind da. Tippe dorthin, wo die vierte liegen muss.",
+    schwerpunkt: "Tippe auf den Schwerpunkt des Dreiecks – die Stelle, auf der es im Gleichgewicht läge.",
+    dreieck: "Die Strecke ist eine Seite eines Dreiecks mit drei gleich langen Seiten. Tippe auf die dritte Ecke – links oder rechts davon, beides gilt.",
+    drehen: "P dreht sich um Z: eine Vierteldrehung in Pfeilrichtung, immer gleich weit von Z weg. Tippe dorthin, wo P landet.",
+    treffpunkt: "Zwei Kugeln rollen aufeinander zu. Der längere Pfeil gehört der schnelleren. Schieb das Fadenkreuz dorthin, wo sie sich treffen.",
+    kurve: "Der Bogen läuft mit derselben Krümmung weiter. Schieb das Fadenkreuz auf die Stelle der Wand, an der er ankommt.",
+    bande: "Die Kugel prallt an der Bande ab wie Licht an einem Spiegel. Schieb das Fadenkreuz auf die Stelle der gelben Wand, die sie danach trifft.",
+    bogen: "Der Bogen ist ein Stück eines Kreises. Tippe auf den Mittelpunkt dieses Kreises.",
+    doppelbande: "Die Kugel prallt nacheinander an zwei Banden ab. Schieb das Fadenkreuz auf die Stelle der gelben Wand, die sie am Schluss trifft.",
+    zielbande: "Die Kugel soll über die Bande ins Loch. Schieb das Fadenkreuz auf die Stelle der Bande, an der sie abprallen muss.",
+    wurf: "Der Ball fliegt im Bogen weiter, so wie er begonnen hat. Schieb das Fadenkreuz auf die Stelle, an der er landet.",
+    umkreis: "Durch die drei Punkte geht genau ein Kreis. Tippe auf seinen Mittelpunkt – er ist von allen dreien gleich weit weg.",
+    inkreis: "Ins Dreieck passt ein grösster Kreis, der alle drei Seiten berührt. Tippe auf seinen Mittelpunkt.",
+    halbieren: "Ein Schnitt parallel zur Seite g teilt das Dreieck in zwei Teile. Schieb ihn so, dass beide gleich viel Fläche haben.",
+    rad: "Das Rad rollt genau eine Umdrehung weit. Schieb das Fadenkreuz auf die Stelle am Boden, die es dann berührt.",
+    tunnel: "Die Kugel rollt gleichmässig in den Tunnel, dann sieht man sie nicht mehr. Tippe in dem Augenblick, in dem sie beim Pfeil sein muss.",
+  };
+
   function mische(liste) {
     const kopie = [...liste];
     for (let i = kopie.length - 1; i > 0; i -= 1) {
@@ -856,9 +898,14 @@
 
   // Die zehn Blätter einer Runde – alle auf einmal gewürfelt, damit beim
   // Zuschauen dieselben entstehen, egal wie lange jemand für eines braucht.
+  // Zu jedem Blatt gehört ein Beispiel für die Vorschau: eine zweite Aufgabe
+  // derselben Art. Die Beispiele werden erst nach den zehn Blättern
+  // gewürfelt – so bleiben die Blätter einer Saat dieselben wie zuvor.
   function aufgabenFuer() {
     const reihe = [LEICHT, MITTEL, SCHWER].flatMap((arten, stufe) => mische(arten).slice(0, PLAN[stufe]).map((art) => ({ art, zeit: ZEITEN[stufe] })));
-    return reihe.map(({ art, zeit }, nr) => ({ ...BAU[art](), nr, zeit }));
+    const blaetter = reihe.map(({ art, zeit }, nr) => ({ ...BAU[art](), nr, zeit }));
+    blaetter.forEach((a) => { a.beispiel = BAU[a.art](); });
+    return blaetter;
   }
 
   // Die Runde als Text – für die Prüfung, dass in einem Turnier alle
@@ -923,8 +970,9 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  // phase: "bereit" (vor dem ersten Tipp), "aufgabe", "zeigen" (die Lösung
-  // steht da), "zuschauen", "ende"
+  // phase: "bereit" (vor dem ersten Tipp), "vorschau" (was zu tun ist – die
+  // Uhr läuft noch nicht), "aufgabe", "zeigen" (die Lösung steht da),
+  // "zuschauen", "ende"
   const state = {
     phase: "bereit",
     blaetter: null,        // die zehn Aufgaben der Runde
@@ -932,6 +980,7 @@
     punkte: 0,
     liste: [],             // je Blatt { punkte, mm } – null, solange es offen ist
     t0: 0,                 // wann das Blatt begann (performance.now)
+    vorSeit: 0,            // wann seine Vorschau begann
     tZeig: 0,              // wann die Lösung begann
     zeiger: null,          // das Fadenkreuz { x, y } in Millimetern
     griff: null,           // der Finger darauf { id, art, px, py }
@@ -1033,10 +1082,14 @@
    * jeder Antwort, dazwischen die Lage des Fadenkreuzes (zehnmal je Sekunde):
    *
    *   c   das wievielte Blatt × 4 + was gerade ist: 0 es liegt da, 2 das
-   *       Fadenkreuz ist unterwegs, 1 die Antwort steht, 3 die Zeit war um
-   *       und niemand hatte getippt
+   *       Fadenkreuz ist unterwegs (im Tunnel: die Kugel rollt), 1 die
+   *       Antwort steht, 3 die Zeit war um und niemand hatte getippt
    *   a   wo das Fadenkreuz steht, quer – in Tausendsteln eines Millimeters
    *   b   dasselbe von oben
+   *
+   * Die Vorschau eines Blattes ist der Zug 0 mit a = 1: Noch liegt es nicht
+   * da, zu sehen ist, was zu tun sein wird. (Aufzeichnungen von vor der
+   * Vorschau haben diesen Zug nicht – dort liegt das Blatt gleich da.)
    *
    * Die Blätter kommen aus derselben Saat. Wer zuschaut, würfelt sie in
    * derselben Reihe, lässt das Fadenkreuz zwischen zwei Lagen gleiten und
@@ -1049,9 +1102,9 @@
     return { a: z ? Math.round(z.x * ZUG_MM) : 0, b: z ? Math.round(z.y * ZUG_MM) : 0, c: state.index * 4 + was };
   }
 
-  function meldeZug(was) {
+  function meldeZug(was, vorschau = false) {
     if (zuschauer) return;
-    const ort = ortJetzt(was);
+    const ort = vorschau ? { a: 1, b: 0, c: state.index * 4 } : ortJetzt(was);
     aufnahme?.zug(state.punkte, ort);
     const live = window.LernappLiveSpiel;
     if (shell?.live && live?.zug && live.gestartet?.()) live.zug(state.punkte, ort);
@@ -1067,12 +1120,14 @@
   // ---------------------------------------------------------------------------
   // Ablauf
   // ---------------------------------------------------------------------------
-  // Ein neues Blatt liegt auf dem Tisch.
+  // Das nächste Blatt kündigt sich an: erst die Vorschau – was zu tun ist,
+  // mit einem Beispiel. Die Uhr läuft noch nicht.
   function blattAuf(index) {
     clearStep();
     state.index = index;
-    state.phase = "aufgabe";
-    state.t0 = performance.now();
+    state.phase = "vorschau";
+    state.vorSeit = performance.now();
+    state.t0 = state.vorSeit;
     state.zeiger = null;
     state.griff = null;
     state.antwort = null;
@@ -1082,8 +1137,20 @@
     state.imTunnel = false;
     state.los = 0;
     const a = blatt();
-    if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${a.frage}`;
+    if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${a.kurz}. ${TUN[a.art] || a.frage} Tippe, wenn du bereit bist.`;
     ton("augenmass.blatt");
+    meldeZug(0, true);
+  }
+
+  // Der Tipp nach der Vorschau: Jetzt liegt das Blatt auf dem Tisch, und
+  // seine Uhr läuft.
+  function blattLos() {
+    if (state.phase !== "vorschau") return;
+    state.phase = "aufgabe";
+    state.t0 = performance.now();
+    const a = blatt();
+    if (status) status.textContent = `Blatt ${state.index + 1} von ${BLAETTER}: ${a.frage}`;
+    ton("augenmass.setzen");
     meldeZug(0);
   }
 
@@ -1126,23 +1193,22 @@
     else blattAuf(state.index + 1);
   }
 
-  // Die Kugel im Tunnel rollt los – beim ersten Tipp, damit niemand sie
-  // verpasst, der die Aufgabe noch liest.
+  // Die Kugel im Tunnel rollt los – von selbst, kurz nachdem das Blatt
+  // daliegt: Was zu tun ist, stand in der Vorschau.
   function kugelLos(ms) {
     if (state.los) return;
     state.los = ms;
-    ton("augenmass.setzen");
     meldeZug(2);
   }
 
-  // Im Tunnel lässt der erste Tipp die Kugel los. Der zweite ist die
-  // Antwort, ein Augenblick: wo die Kugel gerade ist. Ein Tipp, solange sie
-  // noch zu sehen ist, gilt nicht – der war ein Versehen.
+  // Im Tunnel ist der Tipp die Antwort, ein Augenblick: wo die Kugel gerade
+  // ist. Ein Tipp, solange sie noch zu sehen ist (oder noch gar nicht
+  // rollt), gilt nicht – der war ein Versehen.
   function tippTunnel(zeitstempel) {
     const a = blatt();
     const nun = performance.now();
     const ms = zeitstempel > 0 && Math.abs(zeitstempel - nun) < 400 ? zeitstempel : nun;
-    if (!state.los) { kugelLos(ms); return; }
+    if (!state.los) return;
     const weg = kugelWeg(a, tunnelZeit(ms));
     if (weg < a.s1) return;
     antworte(tunnelOrt(a, weg));
@@ -1178,16 +1244,21 @@
     return still && Math.hypot(zuletzt.x - frueher.x, zuletzt.y - frueher.y) < 1.2 ? P(frueher.x, frueher.y) : zuletzt;
   }
 
-  // Was die Uhr tut, Bild für Bild: Im Tunnel rollt die Kugel nach dem
-  // ersten Tipp bis ans Ende, sonst läuft die Zeit des Blattes ab.
+  // Was die Uhr tut, Bild für Bild: Die Vorschau wartet auf den Tipp (aber
+  // nicht ewig). Danach läuft die Zeit des Blattes ab – im Tunnel rollt
+  // stattdessen die Kugel bis ans Ende.
   function uhrTakt() {
+    if (state.phase === "vorschau") {
+      if (performance.now() - state.vorSeit >= VORSCHAU * 1000) blattLos();
+      return;
+    }
     if (state.phase !== "aufgabe") return;
     const a = blatt();
     const t = seit();
     if (a.art === "tunnel") {
-      // Die Kugel wartet auf den ersten Tipp – aber nicht ewig.
+      // Die Kugel rollt los, sobald das Blatt daliegt.
       if (!state.los) {
-        if (t >= EINZUG + a.zeit) kugelLos(performance.now());
+        if (t >= EINZUG + TUNNEL_START) kugelLos(performance.now());
         return;
       }
       const rollt = tunnelZeit();
@@ -1798,8 +1869,9 @@
   // Der Tunnel
   // ---------------------------------------------------------------------------
   // Die Schiene, die Kugel darauf, darüber der Tunnel mit seiner Schraffur
-  // und der Pfeil. Beim Nachmessen wird der Tunnel durchsichtig.
-  function zeichneTunnel(a, K, zeigt, tz) {
+  // und der Pfeil. Beim Nachmessen wird der Tunnel durchsichtig. Im Beispiel
+  // der Vorschau sagt `bsp`, wo die Kugel ist – dort gibt es keine Antwort.
+  function zeichneTunnel(a, K, zeigt, tz, bsp = null) {
     const s = view.s;
     const e = einheit(a.a, a.b);
     const n = P(-e.y, e.x);
@@ -1825,19 +1897,9 @@
     });
     // Die Kugel: unterwegs nach der Uhr, beim Nachmessen dort, wo sie beim
     // Tipp war.
-    const kugel = zeigt ? state.antwort || tunnelOrt(a, a.lang) : tunnelOrt(a, kugelWeg(a, tunnelZeit()));
-    if (kugel && K > 0.3) zeichneKugel(kugel, clamp((K - 0.3) * 3, 0, 1), zeigt && state.antwort ? GELB : "#e8f1ff");
-    // Solange sie wartet, ruft ein Ring: Tipp mich an.
-    if (!zeigt && !state.los && K >= 1 && !ruhig()) {
-      const puls = (performance.now() / 900) % 1;
-      g.strokeStyle = GELB;
-      g.lineWidth = 1.6;
-      g.globalAlpha = 0.85 * (1 - puls);
-      g.beginPath();
-      g.arc(X(kugel.x), Y(kugel.y), (3 + puls * 4.5) * s, 0, TAU);
-      g.stroke();
-      g.globalAlpha = 1;
-    }
+    let kugel = bsp ? bsp.kugel : null;
+    if (!bsp) kugel = zeigt ? state.antwort || tunnelOrt(a, a.lang) : tunnelOrt(a, kugelWeg(a, tunnelZeit()));
+    if (kugel && K > 0.3) zeichneKugel(kugel, clamp((K - 0.3) * 3, 0, 1), zeigt && (bsp || state.antwort) ? GELB : "#e8f1ff");
     // Der Tunnel.
     const decke = zeigt ? lerp(1, 0.22, clamp(tz / 0.35, 0, 1)) : 1;
     const auf = clamp((K - 0.25) / 0.6, 0, 1);
@@ -2093,10 +2155,10 @@
     return [X(bester.x), Y(bester.y)];
   }
 
-  function zeichneLoesung(a, tz) {
-    const w = state.wertung;
-    const wie = WIE[w.punkte];
-    const farbe = FARBE[wie];
+  // Der Weg zur Lösung, ohne die eigene Antwort: die Hilfslinien, was rollt,
+  // und die richtige Stelle. So steht er beim Nachmessen da – und im
+  // Beispiel der Vorschau.
+  function zeichneLoesungsweg(a, tz) {
     const s = view.s;
     const K = ruhig() ? 1 : weich(clamp(tz / 0.6, 0, 1));
     if (a.lineal) zeichneLineal(a.lineal, ruhig() ? 1 : weich(clamp(tz / 0.4, 0, 1)));
@@ -2124,6 +2186,13 @@
       g.fill();
       g.globalAlpha = 1;
     }
+  }
+
+  function zeichneLoesung(a, tz) {
+    const w = state.wertung;
+    const wie = WIE[w.punkte];
+    const farbe = FARBE[wie];
+    zeichneLoesungsweg(a, tz);
     // Die eigene Stelle: ein kleines Kreuz – und der Strich zur richtigen.
     const an = state.antwort;
     if (an) {
@@ -2202,6 +2271,123 @@
     if (!zeigt) zeichneZeiger(a);
   }
 
+  // ---------------------------------------------------------------------------
+  // Die Vorschau
+  // ---------------------------------------------------------------------------
+  // Ob gerade die Vorschau eines Blattes dasteht – beim Spielen oder bei
+  // dem, dem zugeschaut wird.
+  const inVorschau = () => state.phase === "vorschau" || (state.phase === "zuschauen" && zuschau.vor);
+
+  /*
+   * Das Beispiel: eine zweite Aufgabe derselben Art, klein in einem Kasten,
+   * und sie löst sich selbst – erst steht die Figur da, dann zeichnen sich
+   * die Hilfslinien ein, was rollt, rollt, und die richtige Stelle leuchtet
+   * auf. Danach von vorn. Gemalt wird mit denselben Handgriffen wie das
+   * Blatt, nur verkleinert in den Kasten gelegt.
+   */
+  function zeichneBeispiel(b, x, y, kante, t) {
+    if (!b) return;
+    const k = kante / view.seite;
+    g.save();
+    rundesFeld(x, y, kante, kante, 10 * view.u);
+    g.clip();
+    g.translate(x, y);
+    g.scale(k, k);
+    g.translate(-view.x0, -view.y0);
+    if (b.art === "tunnel") {
+      // Die Kugel rollt hinein; ist sie beim Pfeil, wird der Tunnel
+      // durchsichtig – dort war der Tipp fällig.
+      const bis = b.start + b.sm / b.v;
+      const tt = ruhig() ? bis + 1 : t % (bis + 1.9);
+      const zeigt = tt >= bis;
+      zeichneTunnel(b, 1, zeigt, tt - bis, { kugel: tunnelOrt(b, kugelWeg(b, Math.min(tt, bis))) });
+      if (zeigt) zeichneLoesungsweg(b, tt - bis);
+    } else {
+      const tt = ruhig() ? 9 : t % 3.8;
+      zeichneTeile(b.figur, 1, WEISS, WEISS_GLANZ);
+      if (tt >= 0.9) zeichneLoesungsweg(b, tt - 0.9);
+    }
+    g.restore();
+  }
+
+  // Die Vorschau füllt das Blatt: oben das Beispiel, darunter der Satz, was
+  // zu tun ist, ganz unten der Ruf zum Tippen.
+  function zeichneVorschau() {
+    const a = blatt();
+    if (!a) return;
+    const u = view.u;
+    const S = view.seite;
+    const x0 = view.x0;
+    const y0 = view.y0;
+    const t = (performance.now() - state.vorSeit) / 1000;
+    const da = ruhig() ? 1 : weich(clamp(t / 0.3, 0, 1));
+    const mitte = x0 + S / 2;
+    g.save();
+    g.setLineDash([]);
+    g.textBaseline = "middle";
+    // Der Ruf unten: ein Feld, das atmet. In den letzten Sekunden zählt es.
+    const rest = VORSCHAU - t;
+    const zaehlt = state.phase === "vorschau" && rest <= VOR_ZAEHLT;
+    const ruf = zaehlt ? `Los geht's in ${Math.max(1, Math.ceil(rest))} …` : "Tippe, wenn du bereit bist";
+    const rufGross = Math.round(clamp(S * 0.043, 13, 18));
+    const rufHoch = Math.round(rufGross * 2.1);
+    const rufY = y0 + S - rufHoch - Math.round(8 * u);
+    // Der Satz: so gross, wie zwischen Beispiel und Ruf Platz ist. Auf einem
+    // flachen Bild (Handy quer) steht er links neben dem Blatt, unter dem
+    // Namen der Aufgabe – und das Beispiel bekommt das Blatt für sich.
+    const flach = Boolean(view.flach);
+    const kante = Math.round(S * (flach ? 0.72 : 0.56));
+    const kx = Math.round(mitte - kante / 2);
+    const ky = y0 + Math.round(S * 0.045);
+    const satz = TUN[a.art] || a.frage;
+    const oben = flach ? y0 + S * 0.42 + Math.round(26 * u) : ky + kante + Math.round(10 * u);
+    const unten = flach ? y0 + S : rufY;
+    const satzBreit = flach ? x0 - Math.round(44 * u) : S - Math.round(26 * u);
+    const satzX = flach ? x0 / 2 : mitte;
+    let gross = Math.round(flach ? clamp(15 * u, 12, 16) : clamp(S * 0.043, 12.5, 19));
+    let zeilen = [];
+    for (; gross >= 10; gross -= 1) {
+      g.font = `700 ${gross}px system-ui, sans-serif`;
+      zeilen = umbrechen(satz, satzBreit);
+      if (zeilen.length * gross * 1.28 <= unten - oben - 6 * u) break;
+    }
+    // Der Kasten des Beispiels.
+    g.globalAlpha = da;
+    rundesFeld(kx, ky, kante, kante, 10 * u);
+    g.fillStyle = "rgba(4, 16, 48, 0.3)";
+    g.fill();
+    g.strokeStyle = "rgba(200, 225, 255, 0.4)";
+    g.lineWidth = 1.2;
+    g.stroke();
+    zeichneBeispiel(a.beispiel, kx, ky, kante, t);
+    g.globalAlpha = 0.75 * da;
+    g.fillStyle = "#cfe3ff";
+    g.textAlign = "left";
+    g.font = `700 ${Math.round(10 * u)}px ${MONO}`;
+    g.fillText("BEISPIEL", kx + 10 * u, ky + 13 * u);
+    // Der Satz.
+    g.globalAlpha = da;
+    g.fillStyle = "#ffffff";
+    g.textAlign = "center";
+    g.font = `700 ${gross}px system-ui, sans-serif`;
+    // Unter dem Beispiel in der Mitte des freien Platzes, links neben dem
+    // Blatt gleich unter dem Namen.
+    const satzMitte = flach ? oben + (zeilen.length * gross * 1.28) / 2 : (oben + rufY) / 2;
+    zeilen.forEach((zeile, i) => g.fillText(zeile, satzX, satzMitte + (i - (zeilen.length - 1) / 2) * gross * 1.28));
+    // Der Ruf – nur für den, der spielt.
+    if (state.phase === "vorschau") {
+      g.font = `800 ${rufGross}px system-ui, sans-serif`;
+      const breit = g.measureText(ruf).width + rufGross * 2.2;
+      const puls = ruhig() ? 0 : 0.5 + 0.5 * Math.sin(t * 3.4);
+      rundesFeld(mitte - breit / 2, rufY, breit, rufHoch, rufHoch / 2);
+      g.fillStyle = zaehlt ? "rgba(255, 184, 77, 0.95)" : `rgba(94, 242, 176, ${0.82 + 0.16 * puls})`;
+      g.fill();
+      g.fillStyle = "#04162e";
+      g.fillText(ruf, mitte, rufY + rufHoch / 2 + 1);
+    }
+    g.restore();
+  }
+
   // Vor dem ersten Tipp: ein Kreis mit Fadenkreuz, das langsam ins Ziel
   // findet – das ganze Spiel in einem Bild.
   function zeichneTitel() {
@@ -2273,7 +2459,10 @@
     g.textBaseline = "middle";
 
     if (laeuft && a) {
-      const t = seit();
+      // In der Vorschau steht oben der Name der Aufgabe, und die Uhr ist
+      // voll: Sie läuft erst, wenn das Blatt daliegt.
+      const vor = inVorschau();
+      const t = vor ? (performance.now() - state.vorSeit) / 1000 : seit();
       const da = ruhig() ? 1 : clamp(t / 0.3, 0, 1);
       // «Blatt 3 / 10» klein darüber, dann die Frage. Auf einem flachen
       // Bild steht beides links neben dem Blatt.
@@ -2281,7 +2470,8 @@
       const gross = Math.round((view.flach ? 19 : 17) * u);
       g.font = `800 ${gross}px system-ui, sans-serif`;
       const platz = Math.min(view.cssW - 24, breit + 8);
-      const zeilen = view.flach ? umbrechen(a.frage, links - 56) : zeilenFuer(a.frage, platz);
+      const frage = vor ? a.kurz : a.frage;
+      const zeilen = view.flach ? umbrechen(frage, links - 56) : zeilenFuer(frage, platz);
       // Passt sie auch in zwei Zeilen nicht, wird die Schrift kleiner.
       const weit = Math.max(...zeilen.map((zeile) => g.measureText(zeile).width));
       if (!view.flach && weit > platz) g.font = `800 ${Math.floor((gross * platz) / weit)}px system-ui, sans-serif`;
@@ -2294,22 +2484,21 @@
       g.globalAlpha = 0.55 * da;
       g.fillStyle = "#cfe3ff";
       g.font = `700 ${Math.round(10.5 * u)}px ${MONO}`;
-      g.fillText(`BLATT ${String(state.index + 1).padStart(2, "0")} / ${BLAETTER}`, fx, view.flach ? mitte - (zeilen.length / 2) * abstand - 16 * u : view.y0 - 63 * u);
+      g.fillText(`BLATT ${String(state.index + 1).padStart(2, "0")} / ${BLAETTER}${vor && a.art !== "tunnel" ? ` · ${a.zeit} SEKUNDEN` : ""}`, fx, view.flach ? mitte - (zeilen.length / 2) * abstand - 16 * u : view.y0 - 63 * u);
       g.globalAlpha = 1;
 
-      // Die Uhr des Blattes: ein Strich, der kürzer wird. Im Tunnel läuft
-      // sie nur, solange die Kugel auf den ersten Tipp wartet – danach ist
-      // die Kugel die Uhr.
+      // Die Uhr des Blattes: ein Strich, der kürzer wird. Im Tunnel gibt es
+      // keinen – dort ist die Kugel die Uhr.
       const dauer = a.zeit || ZEIT;
-      if (a.art !== "tunnel" || (!state.los && !zeigt)) {
-        const rest = zeigt ? clamp((EINZUG + dauer - (state.tZeig - state.t0) / 1000) / dauer, 0, 1) : clamp((EINZUG + dauer - t) / dauer, 0, 1);
+      if (a.art !== "tunnel") {
+        const rest = vor ? 1 : zeigt ? clamp((EINZUG + dauer - (state.tZeig - state.t0) / 1000) / dauer, 0, 1) : clamp((EINZUG + dauer - t) / dauer, 0, 1);
         const y = view.y0 - 10 * u;
         const hoch = Math.max(2.5, 3 * u);
         rundesFeld(links, y - hoch / 2, breit, hoch, hoch / 2);
         g.fillStyle = "rgba(200, 225, 255, 0.14)";
         g.fill();
-        const knapp = !zeigt && rest * dauer <= 3 && a.art !== "tunnel";
-        g.fillStyle = zeigt ? "rgba(200, 225, 255, 0.4)" : knapp ? (Math.floor(t * 4) % 2 ? "#ff8a5c" : "#ffb84d") : "#e6f1ff";
+        const knapp = !zeigt && !vor && rest * dauer <= 3;
+        g.fillStyle = zeigt || vor ? "rgba(200, 225, 255, 0.4)" : knapp ? (Math.floor(t * 4) % 2 ? "#ff8a5c" : "#ffb84d") : "#e6f1ff";
         if (rest > 0.004) {
           rundesFeld(links, y - hoch / 2, breit * rest, hoch, hoch / 2);
           g.fill();
@@ -2523,6 +2712,7 @@
     g.drawImage(papierBild(), 0, 0);
     g.setTransform(d, 0, 0, d, 0, 0);
     if (state.phase === "bereit") zeichneTitel();
+    else if (inVorschau()) zeichneVorschau();
     else zeichneBlatt();
     zeichneFunken();
     zeichneLupe();
@@ -2535,7 +2725,7 @@
   // Dieselben zehn Blätter (die Saat hält geist.js oder der Abend), und Zug
   // um Zug, was der andere tut: Das Fadenkreuz gleitet zwischen zwei Lagen,
   // die Antwort wird hier noch einmal nachgemessen.
-  const zuschau = { index: -1, was: -1 };
+  const zuschau = { index: -1, was: -1, vor: false };
 
   function zuschauenTakt() {
     zuschauer?.weiter?.();
@@ -2548,19 +2738,28 @@
     // Zu hören ist, was beim anderen gerade geschieht – nicht, was beim
     // Einsteigen schon zurückliegt.
     const frisch = jetzt - probe.t < 1500;
+    // Die Vorschau: der Zug «es liegt da» mit a = 1.
+    const vor = was === 0 && probe.a === 1;
     if (index !== zuschau.index) {
       zuschau.index = index;
       zuschau.was = -1;
+      zuschau.vor = vor;
       state.index = index;
       state.zeiger = null;
       state.antwort = null;
       state.wertung = null;
       // Wann das Blatt begann: beim Zug «neues Blatt» genau, sonst etwa.
       state.t0 = nun - (jetzt - (was === 0 ? probe.t : probe.t - 1000 * EINZUG));
+      state.vorSeit = state.t0;
       state.imTunnel = false;
       state.los = 0;
       if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${blatt().frage}`;
       if (frisch) ton("augenmass.blatt");
+    } else if (zuschau.vor && !vor) {
+      // Der andere hat getippt: Jetzt liegt das Blatt da.
+      zuschau.vor = false;
+      state.t0 = nun - (jetzt - (was === 0 ? probe.t : probe.t - 1000 * EINZUG));
+      if (frisch && was === 0) ton("augenmass.setzen");
     }
     const a = blatt();
     if (was === 1 || was === 3) {
@@ -2742,10 +2941,14 @@
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
   // --- Tippen, Schieben, Loslassen ---------------------------------------------
-  // Der Finger setzt das Fadenkreuz, schiebt es, und das Loslassen ist die
-  // Antwort. Mit der Maus schwebt es schon vor dem Klick mit. Im Tunnel ist
-  // der Tipp selbst die Antwort.
+  // Der erste Tipp auf ein Blatt beendet seine Vorschau. Danach setzt der
+  // Finger das Fadenkreuz, schiebt es, und das Loslassen ist die Antwort. Mit
+  // der Maus schwebt es schon vor dem Klick mit. Im Tunnel ist der Tipp
+  // selbst die Antwort.
   const offen = () => state.phase === "aufgabe" && seit() >= SPERRE;
+  // Ob die Vorschau schon einen Tipp annimmt – nicht den, der noch dem
+  // letzten Blatt galt.
+  const bereitZumLos = () => state.phase === "vorschau" && performance.now() - state.vorSeit >= VOR_SPERRE * 1000;
 
   function fingerOrt(event) {
     const r = canvas.getBoundingClientRect();
@@ -2756,6 +2959,11 @@
     if (event.target.closest("button, a, input")) return;
     if (state.phase === "bereit") {
       if (!shell.live && !zuschauer) losGehts();
+      return;
+    }
+    // Der Tipp nach der Vorschau legt das Blatt hin.
+    if (state.phase === "vorschau") {
+      if (bereitZumLos()) blattLos();
       return;
     }
     if (!offen() || !canvas) return;
@@ -2793,7 +3001,8 @@
 
   // --- Tastatur ------------------------------------------------------------------
   // Pfeile schieben das Fadenkreuz (mit Umschalt in Sprüngen), Enter oder
-  // die Leertaste antworten. Im Tunnel ist die Taste der Tipp.
+  // die Leertaste antworten – und beenden davor die Vorschau. Im Tunnel ist
+  // die Taste der Tipp.
   const SCHRITT = 0.25;
   document.addEventListener("keydown", (event) => {
     const pfeil = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
@@ -2802,6 +3011,10 @@
     if (document.activeElement?.tagName === "BUTTON") return;
     if (state.phase === "bereit") {
       if (los && !shell.live && !zuschauer) { event.preventDefault(); losGehts(); }
+      return;
+    }
+    if (state.phase === "vorschau") {
+      if (los && !event.repeat && bereitZumLos()) { event.preventDefault(); blattLos(); }
       return;
     }
     if (!offen()) return;
@@ -2827,8 +3040,9 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappAugenmass = {
     BLATT, RAND, GRENZEN, WIE, PLAN, LEICHT, MITTEL, SCHWER, BLAETTER, ZEIT, ZEITEN, EINZUG, SPERRE, ZEIGEN_MS, PUNKTE_JE_BLATT,
+    VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN,
     state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelZeit, tunnelOrt, tunnelEnde,
-    losGehts, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
+    losGehts, blattLos, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
     // Wo eine Stelle des Blattes auf dem Bildschirm liegt.
     imBild: (ort) => {
       const r = canvas.getBoundingClientRect();
