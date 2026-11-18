@@ -1035,7 +1035,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz {
   position: absolute;
   inset: 0;
 }
@@ -1054,7 +1054,8 @@ h2 {
 /* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
-.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld, .ek-feld, .ff-feld {
+.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld, .ek-feld, .ff-feld,
+.gl-feld, .zr-feld, .am-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1069,7 +1070,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -3191,6 +3192,221 @@ h2 {
 }
 
 /* ===========================================================================
+   Grubenlore
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Ein Bergwerk von der Seite,
+   darin die Lore – gezeichnet von grubenlore.js. Gebremst wird auf der
+   ganzen Bühne.
+   =========================================================================== */
+
+.gl-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.gl-stage:not([data-phase="intro"]) .gl-prompt { opacity: 0; }
+
+.gl-feld { width: 100%; background: #140d08; }
+
+.gl-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten,
+   nicht tippen. */
+.gl-tipp {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.gl-stage[data-phase="intro"] .gl-tipp { opacity: 0.95; }
+/* Beim Anschauen eines Laufs bremst niemand. */
+.gl-stage[data-zuschauen] .gl-tipp,
+.gl-stage[data-live="zuschauen"] .gl-tipp { display: none; }
+.gl-tipp svg { width: 100%; height: auto; display: block; }
+.gl-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.gl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd98a, #F5A623);
+  color: #3a2400;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
+   Zwei Rotoren
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Konzentration. Eine Drohne bei Nacht über den
+   Dächern, vor ihr die Lichttore – gezeichnet von rotoren.js. Jede Hälfte
+   der Bühne ist ein Rotor.
+   =========================================================================== */
+
+.zr-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.zr-stage:not([data-phase="intro"]) .zr-prompt { opacity: 0; }
+
+.zr-feld { width: 100%; background: #04061a; }
+
+.zr-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Die zwei Knöpfe: unten links der linke Rotor (rot wie sein Licht), unten
+   rechts der rechte (grün). Gedrückt wird die ganze Hälfte des Bildes; die
+   Knöpfe zeigen nur, wo, und leuchten, solange ein Finger darauf liegt. Vor
+   dem ersten Tipp pulsieren sie. */
+.zr-tipp {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(16px + var(--safe-bottom, 0px));
+  display: flex;
+  justify-content: space-between;
+  padding: 0 clamp(14px, 4%, 30px);
+  pointer-events: none;
+}
+.zr-knopf {
+  display: grid;
+  place-items: center;
+  width: clamp(54px, 14vmin, 76px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(8, 10, 30, 0.4);
+  border: 1.5px solid currentColor;
+  opacity: 0.3;
+  transition: opacity 0.14s ease, transform 0.1s ease, box-shadow 0.14s ease;
+}
+.zr-knopf-links { color: #ff7a6b; }
+.zr-knopf-rechts { color: #5dffa0; }
+.zr-knopf svg { width: 56%; height: 56%; display: block; }
+.zr-knopf.ist-an {
+  opacity: 0.95;
+  transform: scale(0.92);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 0 24px currentColor;
+}
+.zr-knopf.ist-an svg { animation: zr-dreh 0.25s linear infinite; }
+.zr-stage[data-phase="intro"] .zr-knopf {
+  opacity: 0.95;
+  background: rgba(8, 10, 30, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: zr-puls 1.4s ease-in-out infinite;
+}
+.zr-stage[data-phase="intro"] .zr-knopf-rechts { animation-delay: 0.7s; }
+/* Beim Anschauen eines Laufs fliegt niemand. */
+.zr-stage[data-zuschauen] .zr-tipp,
+.zr-stage[data-live="zuschauen"] .zr-tipp { display: none; }
+@keyframes zr-puls {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3); }
+  50% { transform: scale(1.07); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+}
+@keyframes zr-dreh {
+  to { transform: rotate(360deg); }
+}
+
+.zr-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #b8f4ff, #00A5B5);
+  color: #00363c;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 165, 181, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zr-stage[data-phase="intro"] .zr-knopf { animation: none; }
+  .zr-knopf.ist-an svg { animation: none; }
+}
+
+/* ===========================================================================
+   Augenmass
+   ---------------------------------------------------------------------------
+   Im Blau einer Blaupause. Zehn Blätter mit je einer Aufgabe, ein Fadenkreuz
+   und kein Lineal – gezeichnet von augenmass.js. Getippt und geschoben wird
+   auf der ganzen Bühne.
+   =========================================================================== */
+
+.am-stage {
+  --cm-accent: #3F8CFF;
+  --cm-accent-dark: #1f5fd0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.am-stage:not([data-phase="intro"]) .am-prompt { opacity: 0; }
+
+.am-feld { width: 100%; background: #0f3a7c; }
+
+.am-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+/* Im Spiel zeichnet das Blatt sein eigenes Fadenkreuz – der Zeiger der Maus
+   läge nur darüber. */
+.am-stage[data-phase="play"] .am-canvas { cursor: none; }
+
+/* Die Frage steht im Bild. Für Vorlesegeräte steht sie hier noch einmal –
+   und danach, wie weit die Antwort daneben lag. */
+.am-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.am-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d6e8ff, #3F8CFF);
+  color: #06224f;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(63, 140, 255, 0.45);
+}
+
+/* ===========================================================================
    Mondlandung
    ---------------------------------------------------------------------------
    In der Farbe des Bereichs Problemlösen. Der Mond mit seinen Plattformen,
@@ -4106,7 +4322,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

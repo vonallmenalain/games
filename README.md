@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        siebenunddreissig Spielseiten, erzeugt
+    turmbau.html …        vierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -384,6 +384,210 @@ und die Küken folgen nach derselben Regel. Prüfung 4g31: Ein Autopilot, der
 am Ufer auf die Welle wartet (`querungOk`, `wartenBisWelle`), quert auf
 jeder Welt in 90 s mindestens sechs Flüsse, jeden in einem Zug; wer blind
 losschwimmt, wird bald erwischt.
+
+### Grubenlore (November 2026)
+
+Drei neue Spiele nach dem Muster der beliebtesten: kurze Runden, schnell
+schwer, viel Können. Das erste ist ein Spiel mit einer einzigen Bremse.
+
+**Grubenlore** (`grubenlore.js`, `mineCart`) – Eine Lore jagt durch ein
+altes Bergwerk, immer bergab, von der Seite gesehen. Sie rollt von allein;
+wer spielt, hat nur die Bremse: **Halten bremst, Loslassen rollt** (am
+Rechner Leertaste, Pfeil nach unten oder S). Jede Stelle im Stollen verträgt
+ein anderes Tempo:
+
+    Felsdach   Eine Kuppe, dahinter ein niedriges, rot-weiss gestreiftes
+               Dach. Wer zu schnell über den Scheitel kommt, hebt ab und
+               hängt im Fels.
+    Schacht    Das Gleis bricht ab und geht drüben tiefer weiter. Wer zu
+               langsam ist, stürzt hinein.
+    Pochwerk   Stampfer schlagen im Takt auf das Gleis (`stampfHoehe`) –
+               mehrere versetzt wie eine grüne Welle. Durch muss man,
+               wenn sie oben sind.
+    Senke      Ein scharfer Knick mit roten Schwellen: Wer hineinrauscht,
+               dem bricht die Achse (`G_KNICK`).
+    Looping    Braucht Schwung – sonst fällt die Lore oben heraus.
+
+Vor jeder Stelle steht ein Signal (rot: langsam, grün: laufen lassen, gelb:
+im Takt), und über der Lore schwebt das **Tempo-Fenster**: ein Balken mit
+dem Band der nächsten Stelle und einem Zeiger – womit die Lore dort ankäme,
+wenn jetzt niemand mehr bremste (`vorhersage`). Bremsen schiebt den Zeiger
+nach links, vor dem Pochwerk durch den Takt des Stampfers (grün: Die Lore
+rollte durch alle, `pochwerkOffen`; blassgelb: nur durch den nächsten). Der
+gefährliche Rand des Bandes ist golden: so schnell, wie es unter dem Dach
+und durch die Senke gerade noch geht, so langsam, wie es über den Schacht
+und durch den Looping gerade noch reicht, oder knapp unter einem Stampfer
+durch. Wer dort durchfährt, fährt **«haarscharf»** und bekommt Vorsprung
+(`BONUS`: 5, 7, 9 m – in Folge immer mehr).
+
+Vorsprung worauf? **Hinter der Lore stürzt der Stollen ein.** Der Einsturz
+folgt nach der Uhr und wird immer schneller (`EINSTURZ_V0` bis
+`EINSTURZ_V1`); weiter als `VORSPRUNG_MAX` hängt ihn niemand ab. Wer zu
+vorsichtig bremst, wird eingeholt, jede Berührung mit Fels, Stampfer oder
+Schacht beendet die Runde sofort. Gezählt wird nur, wie weit die Lore
+kommt, in Metern. Mit der Tiefe wird das Gleis steiler, die Bänder schmaler,
+die Stellen dichter – und das Bergwerk wechselt sein Gesicht: Alter Stollen,
+Kristallgrotte, Smaragdsee, Glutkammer, Goldader (`BIOME`, nur das Bild).
+
+Gerechnet wird in Metern auf einem Gleis aus Punkten im Abstand `DS`; wo die
+Lore ist, sagt ihr Weg darauf. Trägt das Gleis sie nicht mehr (Fliehkraft
+und Gewicht zusammen unter null), hebt sie ab, fliegt frei und setzt wieder
+auf – härter als `V_HART` quer zum Gleis ist das Ende. Unter Schritttempo
+fällt sie nie, solange niemand bremst (`V_PUMPE`: der Hauer pumpt); sie
+bleibt also nirgends liegen.
+
+**Immer schaffbar, von jedem Tempo aus.** Jede Stelle wird erst für sich
+allein gebaut und von ihrem Messpunkt aus – dem Scheitel der Kuppe, der
+Kante des Schachts, dem Knick, dem Fuss des Loopings – mit jedem Tempo
+einmal abgefahren (`fenster`): Daraus entsteht ihr Band. Dann legt
+`naechstesStueck` davor so viel Gleis, dass man aus vollem Tempo
+(`V_DECKEL`) auf das Band herunterbremsen und aus dem Stand dorthin Schwung
+holen kann (ein steiler Anlauf, wenn nötig) – und rechnet beides nach, bis
+es stimmt. Wo das Signal grün zeigt, kommt man mit jedem Tempo ohne Bremse
+heil durch (`rolltHeil`): Der Anlauf folgt der Wurfbahn der schnellsten
+Lore, damit dort keine abhebt (`sturz`). Jeder Stampfer ist mindestens
+`S_OFFEN_MIN` Sekunden offen: genug, um aus dem Stand davor
+hindurchzukommen. Das Gleis kommt aus `zufall.js`;
+die ersten drei Stellen stehen fest (Kuppe, Schacht, Kuppe), damit man
+beides lernt.
+
+Das Bild: Im Stollen schaut man wie in einen Schnitt hinein – Fels unten und
+oben, dazwischen die Rückwand mit Ausbau aus Holz, im Fels alte Gänge mit
+Laternen und Erznester. Im Saal fehlt die Rückwand; das Gleis liegt auf einem
+Sims, auf einem Gerüst oder über dem Abgrund. Licht ist ein fertiges Bild je
+Farbe, das hell über die Szene gelegt wird (`schein`), der Grund des Bildes
+wird klein gemalt und gestreckt (`himmelBild`). Stockt das Bild trotzdem,
+wird es gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden der Weg auf dem Gleis, die Höhe darüber und die
+Neigung: Gegner fahren als Lore aus Licht auf dem Gleis mit, das im Bild
+ist, und ein angeschauter Lauf baut mit seiner Saat dasselbe Bergwerk.
+Prüfung 4g32: Ein Pilot (`pilot` – er rollt, solange Rollen heil durch die
+nächste Stelle führt oder er danach noch anhalten könnte) stösst auf keiner
+Welt je an; ihn holt nach mindestens 450 m der Einsturz. Wer nie bremst,
+hängt an der ersten Kuppe im Felsdach, wer immer bremst, wird eingeholt.
+
+### Zwei Rotoren (November 2026)
+
+**Zwei Rotoren** (`rotoren.js`, `twinRotor`) – Eine Renndrohne bei Nacht
+über den Dächern der Stadt, von der Seite gesehen. Sie hat zwei Rotoren, und
+jeder hat seinen Daumen: **Links hält den linken Rotor, rechts den rechten**
+(am Rechner A oder Pfeil links, L oder Pfeil rechts; Leertaste beide).
+
+    beide    Die Drohne richtet sich auf und steigt.
+    einer    Sie kippt von ihm weg (`KIPP`) und zieht zur Seite – der linke
+             Rotor schiebt nach rechts, der rechte nach links – und hält
+             dabei knapp nicht die Höhe.
+    keiner   Sie fällt.
+
+Die Drohne leuchtet links rot und rechts grün, die beiden Knöpfe unten
+ebenso: So sieht man, welcher Daumen welcher Rotor ist. Geflogen wird durch
+einen Parcours aus Lichttoren, eines nach dem andern; das nächste leuchtet,
+und liegt es ausserhalb des Bildes, zeigt ein Pfeil am Rand hin. Die Tore
+stehen quer zum Weg, der sich nach rechts durch die Nacht schlängelt – mal
+aufrecht, mal liegend (dann geht es von unten oder von oben hindurch); ab
+dem zwölften schieben sich manche längs ihrer Öffnung hin und her, ab dem
+vierundzwanzigsten wiegen sich manche um ihre Mitte (`torLage`). Wer einen
+Pfosten berührt oder ein Dach, ist draussen.
+
+**Die Uhr ist der Akku** (`AKKU_MAX` Sekunden, ein Ring um die Drohne): Jedes
+Tor lädt ihn nach, mit jedem Tor etwas weniger (`akkuLaden`), am Ende zu
+wenig – so endet jede Runde von selbst. Vor dem ersten Tor läuft er halb so
+schnell ab. Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
+Stück der Öffnung, `MITTIG`), fliegt **«mittig»**: Das zählt mehr, in Folge
+immer mehr (bis `KETTE_MAX` dazu), und lädt den Akku ein Stück weiter.
+
+Gerechnet wird in Metern: Die Drohne ist ein Körper mit Lage, Fahrt und
+Neigung; die Neigung folgt den Daumen wie an einer straffen Feder
+(`KIPP_FEDER`, `KIPP_DAEMPF`), der Schub zeigt immer nach «oben» aus Sicht
+der Drohne, die Luft bremst (`LUFT_X`, `LUFT_Y`). Die Tore kommen aus
+`zufall.js`, die Dächer hängen an festen Zahlen und bleiben unter den Toren.
+Was sich bewegt, hängt allein an der Uhr der Runde.
+
+Das Bild: Himmel und Stadt werden einmal gemalt (der Himmel klein und
+gestreckt, die Stadt als zwei breite Bilder, die sich wiederholen) und
+danach nur noch verschoben; Licht ist ein fertiges Bild je Farbe (`licht`).
+Stockt das Bild, wird es gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden Ort und Neigung: Gegner fliegen als Drohne aus Licht
+mit, durch ihren eigenen Parcours, und ein angeschauter Flug baut mit seiner
+Saat dieselben Tore. Prüfung 4g33: Ein Pilot (`pilot` – er weiss, wie er an
+jedem Ort fliegen möchte, `wunsch`, und probiert alle Folgen aus zwei kurzen
+Griffen durch) fliegt auf jeder Welt durch mindestens achtzehn Tore, die
+meisten mittig. Wer nichts drückt, landet auf einem Dach; wer beide hält,
+steigt, bis der Akku leer ist.
+
+### Augenmass (November 2026)
+
+**Augenmass** (`augenmass.js`, `eyeMeasure`) – Das Geschwister von «Wo hält
+der Zug?», nur ohne Zahlen: Auf dem Zeichentisch liegt eine Blaupause, und
+auf jedem Blatt steht eine Aufgabe, die mit einem Massstab in zehn Sekunden
+gelöst wäre. Es liegt keiner da. **Finger aufs Blatt, das Fadenkreuz an die
+Stelle schieben, loslassen** – das Loslassen ist die Antwort (am Rechner
+schwebt das Fadenkreuz mit der Maus, ein Klick antwortet; Pfeile schieben
+um einen Viertelmillimeter, Enter antwortet).
+
+Zehn Blätter je Runde, drei leichte, vier mittlere, drei schwere, jede Art
+höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`):
+
+    leicht   die Mitte einer Strecke · der Mittelpunkt eines Kreises · die
+             Mitte eines Rechtecks · einen Winkel halbieren
+    mittel   ein Drittel oder Viertel einer Strecke · eine Linie bis zur
+             Wand verlängern · eine Länge abtragen · das Lot von einem
+             Punkt auf eine Linie · einen Punkt spiegeln
+    schwer   der Mittelpunkt eines Bogens · die Bande (wo trifft die Kugel
+             nach dem Abprall die Wand?) · die vierte Ecke eines Rechtecks ·
+             der Tunnel (tippen, wenn die verschwundene Kugel beim Pfeil
+             sein muss)
+
+Das Blatt ist ein Quadrat von 100 × 100 Millimetern, so gross, wie der
+Bildschirm es hergibt, und gerechnet wird überall in diesen Millimetern –
+ein Millimeter daneben ist auf jedem Gerät gleich viel. Bis zu zehn Punkte
+je Blatt, und die zehn sind schwer: Sie gelten bis 0,6 mm, auf einem Handy
+zwei Bildpunkte. Danach fällt es steil (`GRENZEN`, `punkteFuer`); die
+schweren Aufgaben messen etwas nachsichtiger (`mass`). **Ein Raster hat das
+Blatt absichtlich nicht**, und keine Figur liegt gerade im Bild (`schief`):
+Was sich abzählen oder an den Rändern ablesen liesse, wäre kein Augenmass.
+Wo eine Antwort nur auf einer Linie liegen kann (die Mitte einer Strecke,
+die Stelle an der Wand), läuft das Fadenkreuz auf dieser Bahn (`aufBahn`).
+
+Jedes Blatt hat acht Sekunden (`ZEIT`, der Strich über dem Blatt). Ist die
+Zeit um, zählt die Stelle, an der das Fadenkreuz steht; wer noch gar nicht
+getippt hat, bekommt nichts. Im Tunnel ist die Kugel die Uhr: Gemessen wird,
+wo sie im Augenblick des Tipps war (nach der Zeit des Tipps, nicht des
+nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt nicht; wer
+gar nicht tippt, bekommt nichts.
+
+Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
+**Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
+doppelt so gross zeigt. Sie hilft beim Setzen, nicht beim Schätzen. Und weil
+die Fingerkuppe beim Abheben abrollt, zählt nach einem ruhigen Halt die
+Stelle von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der
+Finger die Scheibe verlassen hat.
+
+Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
+(die Durchmesser, die Diagonalen, der Zirkelschlag, das Lot mit seinem
+rechten Winkel), an Strecken legt sich ein Massstab an, ein Stempel nennt
+Punkte und Millimeter, und der **Messschieber** unter dem Blatt fährt so
+weit auf, wie es daneben war. Die zehn Kästchen füllen sich Blatt für Blatt;
+quer steht links die Stückliste mit allen Abweichungen und rechts das
+Schriftfeld des Plans.
+
+Das Bild: Das Papier (Blau, Lampenlicht, Korn, Fasern, Rahmen) wird einmal
+gemalt und danach nur noch hingelegt; jedes Blatt entsteht Strich für Strich
+wie von einem Plotter (`zeichneTeile`, mit einem hellen Punkt an der
+Stiftspitze). Die Lupe liest aus dem Bild, das schon gemalt ist. Stockt ein
+Gerät, wird das Bild gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden die Züge (`meldeZug`: jedes neue Blatt, das Fadenkreuz
+unterwegs, die Antwort) – damit lassen sich die besten Runden anschauen, und
+im Multiplayer sehen die anderen dasselbe. Die Blätter kommen aus
+`zufall.js`: In einem Turnier bekommen alle dieselben zehn. Prüfung 4g34:
+Jede Runde hat ihre drei, vier und drei Blätter, alles liegt auf dem Blatt,
+zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
+was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
+was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
+Blätter und dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1160,7 +1364,8 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
                     Seiltänzer, Heisser Draht, Ball hochhalten,
                     Turmspringen, Fallschirm, Fledermaus,
-                    Zeitlupen-Ninja, Freitaucher.
+                    Zeitlupen-Ninja, Freitaucher, Grubenlore, Zwei
+                    Rotoren.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
@@ -1214,9 +1419,9 @@ gleich. Läufe von vor dieser Fassung haben keine Saat – sie lassen sich erst
 nach dem nächsten Rekord anschauen (der Lianenschwung braucht keine, seine
 Strecke ist fest).
 
-Die elf Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
-Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Der Heizer, Blätter im Strom,
-Kranhafen, Jongleur, Holzfäller)
+Die zwölf Spiele ohne Figur im Bild (Turmbau, Brückenbauer, Drehscheibe,
+Fischteich, Kacheln-Knobeln, Wo hält der Zug?, Augenmass, Der Heizer,
+Blätter im Strom, Kranhafen, Jongleur, Holzfäller)
 zeichnen statt eines Weges ihre Züge auf (`geist.js`, `zuege`): dieselben,
 die sie im Multiplayer melden, mit der Zeit seit dem Start, der Saat und dem
 Ende der Runde. Beim Anschauen baut das Spiel sie nach – genau so, wie es im
@@ -1294,7 +1499,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle siebenunddreissig
+    Spiele            welche dazugehören, eines bis alle vierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

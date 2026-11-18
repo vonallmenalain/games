@@ -98,6 +98,9 @@
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
     { id: "hammerThrow", seite: "hammerwurf", page: "hammer" },
     { id: "duckCrossing", seite: "entenfamilie", page: "ducks" },
+    { id: "mineCart", seite: "grubenlore", page: "minecart" },
+    { id: "twinRotor", seite: "rotoren", page: "rotors" },
+    { id: "eyeMeasure", seite: "augenmass", page: "eye" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -128,6 +131,12 @@
     cliffFlight: 1,
     // Gebaut nach dem Muster von Tier 1: ein Tipp, eine Regel.
     hammerThrow: 1, duckCrossing: 1,
+    // Die Lore im Bergwerk: eine Bremse, sonst nichts.
+    mineCart: 1,
+    // Die Drohne bei Nacht: zwei Daumen, zwei Rotoren.
+    twinRotor: 1,
+    // Zehn Blätter, kein Lineal: schätzen auf den halben Millimeter.
+    eyeMeasure: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -170,6 +179,10 @@
     iceRun: { fassung: "t1" },
     cliffFlight: { fassung: "t2", winkel: true },
     duckCrossing: { fassung: "t1" },
+    // Hier ist a der Weg auf dem Gleis und b die Höhe darüber (beides in
+    // Dezimetern): Die Lore fährt auf dem Gleis, das im Bild ist.
+    mineCart: { fassung: "t1", winkel: true },
+    twinRotor: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
@@ -184,6 +197,7 @@
     tileMemory: { fassung: "z1" },
     fishPond: { fassung: "z1" },
     numberLine: { fassung: "z1" },
+    eyeMeasure: { fassung: "z1" },
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z2" },
     twinLanes: { fassung: "t1" },
@@ -211,6 +225,7 @@
     fishPond: { zug: true },
     boilerRoom: { zug: true },
     numberLine: { zug: true },
+    eyeMeasure: { zug: true },
     craneHarbor: { zug: true },
     twinLanes: { zug: true },
     juggler: { zug: true },
