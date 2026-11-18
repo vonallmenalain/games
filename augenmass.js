@@ -3,10 +3,9 @@
  *
  * Auf dem Zeichentisch liegt eine Blaupause, und auf jedem Blatt steht eine
  * Aufgabe: Wo ist der Mittelpunkt des Kreises? Wo trifft die Kugel nach der
- * Bande die Wand? Wo landet der Ball? Wer spielt, setzt den Finger auf das
- * Blatt, schiebt das Fadenkreuz an die Stelle und lässt los. Danach wird
- * nachgemessen: Die Lösung zeichnet sich ein, dazwischen steht, wie viele
- * Millimeter es daneben war.
+ * Bande die Wand? Wo landet der Ball? Wer spielt, schiebt das Fadenkreuz
+ * an die Stelle und setzt es. Danach wird nachgemessen: Die Lösung zeichnet
+ * sich ein, dazwischen steht, wie viele Millimeter es daneben war.
  *
  * Zehn Aufgaben je Runde, bis zu zehn Punkte je Aufgabe – und die zehn sind
  * schwer: Sie gelten für gut einen halben Millimeter auf einem Blatt von
@@ -38,16 +37,17 @@
  *
  * Dann ist die Zeit knapp: sechs Sekunden für ein leichtes Blatt, sieben
  * für ein mittleres, acht für ein schweres. Ist sie um, zählt die Stelle,
- * an der das Fadenkreuz gerade steht – wer noch gar nicht getippt hat,
+ * an der das Fadenkreuz gerade steht – wer es noch gar nicht bewegt hat,
  * bekommt nichts. Im Tunnel rollt die Kugel von selbst los, sobald das
  * Blatt daliegt, und wartet auf niemanden.
  *
- * Unter dem Finger sieht man nichts: Auf einem Handy steht das Fadenkreuz
- * darum nicht unter dem Finger, sondern VERSATZ Bildpunkte darüber, an
- * einem Stiel. Der Finger hält den Griff, zieht – und das Fadenkreuz geht
- * frei sichtbar mit, einen Bildpunkt für jeden des Fingers. Loslassen ist
- * die Antwort; wer nur kurz antippt, setzt das Fadenkreuz bloss hin. Maus
- * und Stift zeigen wie eh und je genau dorthin, wo sie stehen.
+ * Unter dem Finger sieht man nichts: Auf einem Handy wird das Fadenkreuz
+ * darum geschoben wie der Zeiger auf einem Tastfeld. Es liegt schon auf dem
+ * Blatt, und wo immer der Finger zieht – auf dem Blatt, daneben, darunter –,
+ * geht es denselben Weg mit. Loslassen ändert nichts: Man kann nachgreifen,
+ * so oft man will. Die Antwort ist erst der Knopf «Bestätigen». Zu sehen
+ * ist nur das Fadenkreuz. Maus und Stift zeigen wie eh und je genau
+ * dorthin, wo sie stehen, und ihr Loslassen ist die Antwort.
  *
  * Aufgezeichnet werden die Züge (geist.js, zuege): jede Vorschau, jedes
  * neue Blatt, das Fadenkreuz unterwegs und die Antwort. Damit lassen sich die besten Läufe
@@ -122,21 +122,12 @@
   const VOR_SPERRE = 0.35;
   // So lange nach dem Hinlegen wartet die Kugel im Tunnel, bis sie losrollt.
   const TUNNEL_START = 0.5;
-  // Der Finger auf dem Handy: So viele Bildpunkte (CSS) steht das Fadenkreuz
-  // über ihm – gut ein Zentimeter, genug, dass die Fingerkuppe es nicht
-  // verdeckt. Tiefer als VERSATZ_RAND über dem unteren Bildrand kommt kein
-  // Finger; reicht der Platz unter dem Blatt nicht für den ganzen Versatz
-  // (Handy quer), schrumpft er auf den letzten Fingerbreiten (versatzBei).
-  const VERSATZ = 80;
-  const VERSATZ_RAND = 12;
-  // Der Griff unter dem Finger, als Ring gemalt (Halbmesser in Bildpunkten).
-  const GRIFF_R = 30;
-  // Ein Antippen ist keine Antwort: kürzer als TIPP_MS und weniger als
-  // TIPP_WEG Bildpunkte weit. Es setzt das Fadenkreuz nur hin.
-  const TIPP_MS = 400;
-  const TIPP_WEG = 10;
-  // So lange steht nach einem Antippen der Hinweis «Halten und ziehen» da.
-  const WINK_MS = 3200;
+  // Der Finger auf dem Handy schiebt das Fadenkreuz, wie auf einem Tastfeld.
+  // Erst nach SCHLUPF Bildpunkten (CSS) gilt eine Berührung als Ziehen: Ein
+  // aufgesetzter Finger zittert, und ein blosser Tipp soll nichts verrücken.
+  const SCHLUPF = 4;
+  // So lange steht nach einem blossen Tipp der Hinweis da, dass Ziehen gemeint ist.
+  const WINK_MS = 2600;
   const TOP_COUNT = 5;
 
   // ---------------------------------------------------------------------------
@@ -1000,8 +991,10 @@
     vorSeit: 0,            // wann seine Vorschau begann
     tZeig: 0,              // wann die Lösung begann
     zeiger: null,          // das Fadenkreuz { x, y } in Millimetern
-    griff: null,           // der Finger darauf { id, art, versetzt, px, py, px0, py0, weit, seit }
-    wink: null,            // nach einem blossen Antippen: wo der Griff liegt { px, py, seit }
+    gesetzt: false,        // ob das Fadenkreuz auf diesem Blatt schon bewegt wurde
+    startGemeldet: false,  // ob die anderen schon wissen, wo es am Anfang liegt
+    griff: null,           // der Zeiger, der es führt { id, art, finger, zieht, px, py, frei }
+    wink: 0,               // wann zuletzt bloss getippt statt gezogen wurde (performance.now), 0: nie
     eingabe: "",           // womit zuletzt getippt wurde: "touch", "mouse", "pen"
     antwort: null,         // die Antwort { x, y } – null: keine
     wertung: null,         // { mm, punkte }, sobald die Lösung dasteht
@@ -1027,7 +1020,7 @@
   // Die Aufzeichnung der Züge (geist.js, zuege).
   let aufnahme = null;
 
-  const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, s: 3, x0: 0, y0: 0, seite: 300, hoch: false, guete: 1, u: 1 };
+  const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, s: 3, x0: 0, y0: 0, seite: 300, hoch: false, guete: 1, u: 1, mitKnopf: false, knopf: null, knopfOrt: "" };
 
   const blatt = () => state.blaetter?.[state.index] || null;
   // Wie lange das Blatt schon daliegt, in Sekunden.
@@ -1148,8 +1141,10 @@
     state.vorSeit = performance.now();
     state.t0 = state.vorSeit;
     state.zeiger = null;
+    state.gesetzt = false;
+    state.startGemeldet = false;
     state.griff = null;
-    state.wink = null;
+    state.wink = 0;
     state.antwort = null;
     state.wertung = null;
     spur.length = 0;
@@ -1172,6 +1167,27 @@
     if (status) status.textContent = `Blatt ${state.index + 1} von ${BLAETTER}: ${a.frage}`;
     ton("augenmass.setzen");
     meldeZug(0);
+    // Mit dem Finger liegt das Fadenkreuz schon da und wartet aufs Ziehen.
+    // (Wer zuschaut, erfährt es, sobald das Blatt gezeichnet ist: uhrTakt.)
+    if (mitFinger() && a.art !== "tunnel") state.zeiger = startOrt(a);
+  }
+
+  // Wo das Fadenkreuz liegt, bevor es jemand bewegt hat: mitten auf dem
+  // Blatt – oder am Anfang der Bahn. Beides verrät nichts über die Lösung
+  // (die Mitte einer Bahn täte es: Beim Winkel ist sie die Antwort).
+  function startOrt(a) {
+    const bahn = a.bahn;
+    if (!bahn) return P(BLATT / 2, BLATT / 2);
+    return bahn.r ? plus(bahn.m, richt(bahn.von), bahn.r) : P(bahn.a.x, bahn.a.y);
+  }
+
+  // Der Knopf «Bestätigen»: Wo das Fadenkreuz jetzt liegt, ist die Antwort.
+  // Er gilt erst, wenn es bewegt wurde – wo es am Anfang liegt, ist nie die
+  // Lösung, und ein zweiter Tipp nach dem, der das Blatt hinlegte, soll es
+  // nicht gleich wieder wegnehmen.
+  function bestaetige() {
+    if (!offen() || blatt().art === "tunnel" || !state.zeiger || !state.gesetzt) return;
+    antworte(state.zeiger);
   }
 
   // Die Antwort – ort ist die Stelle auf dem Blatt, oder null, wenn die Zeit
@@ -1183,7 +1199,7 @@
     state.phase = "zeigen";
     state.tZeig = performance.now();
     state.griff = null;
-    state.wink = null;
+    state.wink = 0;
     // Gerechnet wird mit der Stelle, wie sie aufgezeichnet wird (auf ein
     // Tausendstel Millimeter): So misst die Wiedergabe genau dasselbe, auch
     // wenn eine Antwort haarscharf auf einer Punktgrenze liegt.
@@ -1240,6 +1256,7 @@
     const a = blatt();
     if (!a) return;
     state.zeiger = aufBahn(a, ort);
+    state.gesetzt = true;
     // Die letzten Stellen des Fingers, für das Abheben (ruhigeStelle): das
     // letzte Viertel einer Sekunde – und die eine Stelle davor. Wer das
     // Fadenkreuz hält und hinschaut, bewegt den Finger oft lange nicht.
@@ -1291,11 +1308,19 @@
       if (rollt >= tunnelEnde(a)) antworte(null);
       return;
     }
+    // Wer zuschaut, sieht das Fadenkreuz, sobald das Blatt gezeichnet ist –
+    // auch wenn es noch niemand bewegt hat. (Nicht früher: Der Zug «es liegt
+    // da» soll bei den anderen erst ankommen und ihre Uhr stellen.)
+    if (!state.startGemeldet && t >= EINZUG) {
+      state.startGemeldet = true;
+      if (state.zeiger && !state.gesetzt) meldeLage();
+    }
     const rest = EINZUG + a.zeit - t;
     // Die letzten drei Sekunden ticken.
     const sekunde = Math.ceil(rest);
     if (rest > 0 && sekunde <= 3 && sekunde !== state.tickBei) { state.tickBei = sekunde; ton("augenmass.tick"); }
-    if (rest <= 0) antworte(state.zeiger);
+    // Ist die Zeit um, zählt das Fadenkreuz – wenn es jemand bewegt hat.
+    if (rest <= 0) antworte(state.gesetzt ? state.zeiger : null);
   }
 
   function takt(dt) {
@@ -1341,6 +1366,7 @@
     last = now;
     messen();
     takt(dt);
+    knopfTakt();
     zeichnen();
   }
 
@@ -1355,8 +1381,75 @@
     canvas.setAttribute("aria-hidden", "true");
     feld.append(canvas);
     g = canvas.getContext("2d");
+    // Der Knopf zum Bestätigen – für die, die mit dem Finger spielen. Er
+    // liegt über dem Bild; wo, bestimmt messen().
+    knopf = shell.el("button", "am-setzen", "Bestätigen");
+    knopf.type = "button";
+    knopfDa = false;
+    knopfBereit = false;
+    knopfZeiger = null;
+    knopf.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      if (!knopfSoll() || !offen() || knopfZeiger !== null) return;
+      // Noch nichts zu bestätigen: Dann steht kurz da, wie es geht.
+      if (!state.gesetzt) { state.wink = performance.now(); return; }
+      knopfZeiger = event.pointerId;
+      knopf.classList.add("ist-gedrueckt");
+      try { knopf.setPointerCapture(event.pointerId); } catch { /* egal */ }
+    });
+    // Gilt beim Loslassen, wenn der Finger noch auf dem Knopf liegt – wer
+    // sich vertippt hat, zieht ihn weg. Das geht auch, während ein anderer
+    // Finger das Fadenkreuz noch hält (ein «click» käme dann nicht).
+    knopf.addEventListener("pointerup", (event) => {
+      if (event.pointerId !== knopfZeiger) return;
+      knopfZeiger = null;
+      knopf.classList.remove("ist-gedrueckt");
+      const r = knopf.getBoundingClientRect();
+      const rand = 10;
+      if (event.clientX >= r.left - rand && event.clientX <= r.right + rand && event.clientY >= r.top - rand && event.clientY <= r.bottom + rand) bestaetige();
+    });
+    knopf.addEventListener("pointercancel", (event) => {
+      if (event.pointerId !== knopfZeiger) return;
+      knopfZeiger = null;
+      knopf.classList.remove("ist-gedrueckt");
+    });
+    // Mit der Tastatur oder einem Vorlesegerät ausgelöst (dann ohne Zeiger).
+    knopf.addEventListener("click", (event) => { if (event.detail === 0) bestaetige(); });
+    feld.append(knopf);
     platz.append(feld);
     return platz;
+  }
+
+  // Der Knopf ist nur da, solange es etwas zu bestätigen gibt: ein Blatt
+  // liegt da, und es ist nicht der Tunnel.
+  let knopf = null;
+  let knopfDa = false;
+  let knopfBereit = false;
+  let knopfZeiger = null;
+  const knopfSoll = () => Boolean(view.knopf) && state.phase === "aufgabe" && blatt()?.art !== "tunnel";
+  function knopfTakt() {
+    if (!knopf) return;
+    const da = knopfSoll();
+    // Blass, solange das Fadenkreuz noch nicht bewegt wurde.
+    const bereit = da && state.gesetzt;
+    if (bereit !== knopfBereit) {
+      knopfBereit = bereit;
+      knopf.classList.toggle("ist-bereit", bereit);
+    }
+    if (da === knopfDa) return;
+    knopfDa = da;
+    knopf.classList.toggle("ist-da", da);
+    if (!da) { knopfZeiger = null; knopf.classList.remove("ist-gedrueckt"); }
+  }
+
+  // Wie viel am unteren Bildrand frei bleiben muss (die Geste des Handys).
+  function sicherUnten() {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
+    document.body.append(probe);
+    const hoch = probe.offsetHeight || 0;
+    probe.remove();
+    return hoch;
   }
 
   let papierAlt = null;
@@ -1369,7 +1462,11 @@
     // viel mehr als gut drei Millionen.
     const dpr = clamp(Math.min(window.devicePixelRatio || 1, Math.sqrt(3.4e6 / (cssW * cssH))), 1, 3) * view.guete;
     const frei = Math.min(cssH * 0.3, shell?.frei?.(canvas) || 0);
-    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
+    // Wer mit dem Finger spielt, bekommt den Knopf zum Bestätigen – und der
+    // braucht seinen Platz.
+    const mitKnopf = mitFinger() && !zuschauer;
+    if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei && mitKnopf === view.mitKnopf) return;
+    view.mitKnopf = mitKnopf;
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
@@ -1384,14 +1481,24 @@
     const hoehe = cssH - frei - fuss - Math.round(24 * u);
     view.flach = !view.hoch && cssH - frei < 520 && (cssW - hoehe) / 2 >= 200;
     const kopf = Math.round((view.flach ? 24 : 82) * u);
-    const seite = Math.max(120, Math.min(cssW - 28, cssH - frei - kopf - fuss));
+    let seite = Math.max(120, Math.min(cssW - 28, cssH - frei - kopf - fuss));
+    // Der Knopf liegt unter dem Blatt, ganz unten im Bild – dafür rückt
+    // alles ein Stück hinauf, und das Blatt wird kleiner, wo es sonst die
+    // ganze Höhe hätte. Wo neben dem Blatt Platz ist, liegt er dort: auf
+    // einem flachen Bild links unter der Frage, auf einem breiten rechts
+    // unter dem Messschieber.
+    const knopfHoch = Math.round(clamp(58 * u, 52, 66));
+    const knopfOrt = !mitKnopf ? "" : view.flach ? "links" : (cssW - seite) / 2 >= 250 ? "rechts" : "unten";
+    const knopfRand = knopfOrt === "unten" ? 14 + sicherUnten() : 0;
+    const knopfPlatz = knopfOrt === "unten" ? knopfHoch + knopfRand + Math.round(10 * u) : 0;
+    if (knopfPlatz) seite = Math.max(120, Math.min(cssW - 28, cssH - frei - kopf - fuss - knopfPlatz));
     view.u = u;
     view.seite = seite;
     view.s = seite / BLATT;
     view.x0 = Math.round((cssW - seite) / 2);
     // Der Messschieber: hoch unter den Kästchen, quer rechts neben dem
     // Blatt – wo dafür Platz ist.
-    const rest = Math.max(0, cssH - frei - kopf - fuss - seite);
+    const rest = Math.max(0, cssH - frei - kopf - fuss - seite - knopfPlatz);
     const rechts = cssW - view.x0 - seite;
     view.schieber = null;
     let unten = 0;
@@ -1407,6 +1514,32 @@
     }
     view.y0 = Math.round(frei + kopf + (rest - unten) * 0.5);
     if (view.schieber) view.schieber.y = unten ? view.y0 + seite + fuss + 4 * u : view.y0 + seite * 0.16;
+    view.knopf = null;
+    if (knopfOrt === "unten") {
+      const w = Math.round(Math.min(seite, 340 * u));
+      view.knopf = { x: Math.round((cssW - w) / 2), y: cssH - knopfRand - knopfHoch, w, h: knopfHoch };
+    } else if (knopfOrt === "links") {
+      const w = Math.round(Math.min(view.x0 - 48, 230));
+      view.knopf = { x: Math.round((view.x0 - w) / 2), y: view.y0 + seite - knopfHoch, w, h: knopfHoch };
+    } else if (knopfOrt === "rechts") {
+      // Zwischen dem Messschieber und dem Schriftfeld.
+      const schieberBreit = view.schieber && !unten ? view.schieber.w : Math.min(300, rechts - 44);
+      const w = Math.round(Math.min(schieberBreit, 260));
+      const oben = view.y0 + seite * 0.16 + schieberBreit * 0.36;
+      const unter = view.y0 + seite - 102;
+      view.knopf = { x: Math.round(view.x0 + seite + (rechts - w) / 2), y: Math.round((oben + unter - knopfHoch) / 2), w, h: knopfHoch };
+    }
+    if (knopf) {
+      const k = view.knopf || { x: 0, y: 0, w: 0, h: 0 };
+      knopf.style.left = `${k.x}px`;
+      knopf.style.top = `${k.y}px`;
+      knopf.style.width = `${k.w}px`;
+      knopf.style.height = `${k.h}px`;
+      knopf.style.fontSize = `${Math.round(clamp(k.h * 0.34, 17, 21))}px`;
+    }
+    // Der Hinweis «schaut zu» (geist.js) steht über einem Knopf am unteren Rand.
+    view.knopfOrt = knopfOrt;
+    host.dataset.knopf = knopfOrt;
     view.lw = clamp(view.s * 0.5, 1.5, 2.6);
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
@@ -1425,38 +1558,10 @@
     return { px: event.clientX - r.left, py: event.clientY - r.top };
   }
 
-  /*
-   * Der Versatz: Das Fadenkreuz steht VERSATZ Bildpunkte über dem Finger.
-   * Ist unter dem Blatt weniger Platz als das (Handy quer), käme es nie an
-   * dessen unteren Rand. Dann schrumpft der Versatz auf dem letzten Stück
-   * gleichmässig – über einen Weg dreimal so lang wie das, was fehlt, sodass
-   * das Fadenkreuz dort nur um ein Drittel schneller läuft als der Finger.
-   */
-  function versatzMass() {
-    const grund = view.cssH - VERSATZ_RAND;
-    const unten = Math.max(0, grund - (view.y0 + view.seite) - 2);
-    const fehlt = Math.max(0, VERSATZ - unten);
-    return { grund, fehlt, ab: grund - fehlt * 3 };
-  }
-
-  // Wie weit das Fadenkreuz über einem Finger auf der Höhe py steht.
-  function versatzBei(py) {
-    const { fehlt, ab } = versatzMass();
-    return fehlt ? VERSATZ - fehlt * clamp((py - ab) / (fehlt * 3), 0, 1) : VERSATZ;
-  }
-
-  // Umgekehrt: auf welcher Höhe der Finger liegt, wenn das Fadenkreuz auf zy steht.
-  function fingerBei(zy) {
-    const { grund, fehlt, ab } = versatzMass();
-    if (!fehlt || zy + VERSATZ <= ab) return zy + VERSATZ;
-    const py = (zy + VERSATZ + ab / 3) / (1 + 1 / 3);
-    return py <= grund ? py : zy + VERSATZ - fehlt;
-  }
-
-  // Die Stelle des Blattes, auf die ein Zeiger zeigt – versetzt: die über dem Finger.
-  function blattOrt(event, versetzt = false) {
+  // Die Stelle des Blattes, auf die ein Zeiger zeigt.
+  function blattOrt(event) {
     const { px, py } = fingerOrt(event);
-    return P((px - view.x0) / view.s, (py - (versetzt ? versatzBei(py) : 0) - view.y0) / view.s);
+    return P((px - view.x0) / view.s, (py - view.y0) / view.s);
   }
 
   // ---------------------------------------------------------------------------
@@ -2021,7 +2126,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Das Fadenkreuz und sein Griff
+  // Das Fadenkreuz
   // ---------------------------------------------------------------------------
   function zeichneZeiger(a) {
     const z = state.zeiger;
@@ -2094,60 +2199,11 @@
     g.restore();
   }
 
-  /*
-   * Der Griff: ein Ring unter dem Finger und ein Stiel hinauf zum
-   * Fadenkreuz. So sieht man, dass es am Finger hängt, auch wenn es nicht
-   * dort steht. Vom Ring bleibt um die Fingerkuppe ein Rand zu sehen.
-   */
-  function zeichneGriffBei(px, py, stark = 1) {
-    const z = state.zeiger;
-    if (!z) return;
-    const zx = X(z.x);
-    const zy = Y(z.y);
-    const weit = Math.hypot(px - zx, py - zy);
-    const frei = 20 * view.u;
-    g.save();
-    g.lineCap = "round";
-    if (weit > GRIFF_R + frei + 6) {
-      const ex = (px - zx) / weit;
-      const ey = (py - zy) / weit;
-      [["rgba(4, 16, 48, 0.55)", 5, []], [GELB, 2.2, [2, 6]]].forEach(([farbe, breite, strich]) => {
-        g.strokeStyle = farbe;
-        g.lineWidth = breite;
-        g.setLineDash(strich);
-        g.globalAlpha = stark * (strich.length ? 0.95 : 0.8);
-        g.beginPath();
-        g.moveTo(zx + ex * frei, zy + ey * frei);
-        g.lineTo(px - ex * GRIFF_R, py - ey * GRIFF_R);
-        g.stroke();
-      });
-    }
-    g.setLineDash([]);
-    g.globalAlpha = stark;
-    g.fillStyle = "rgba(255, 216, 77, 0.14)";
-    g.beginPath();
-    g.arc(px, py, GRIFF_R, 0, TAU);
-    g.fill();
-    [["rgba(4, 16, 48, 0.5)", 5], [GELB, 2.2]].forEach(([farbe, breite]) => {
-      g.strokeStyle = farbe;
-      g.lineWidth = breite;
-      g.beginPath();
-      g.arc(px, py, GRIFF_R, 0, TAU);
-      g.stroke();
-    });
-    g.restore();
-  }
-
-  // Der Griff unter dem Finger – oder, nach einem blossen Antippen, dort, wo
-  // er liegen blieb: mit dem Hinweis, was zu tun ist.
-  function zeichneGriff() {
-    const griff = state.griff;
-    if (griff?.versetzt) { zeichneGriffBei(griff.px, griff.py); return; }
-    const wink = state.wink;
-    if (!wink || !state.zeiger || state.phase !== "aufgabe") return;
-    const t = performance.now() - wink.seit;
-    const puls = ruhig() ? 0 : 0.5 + 0.5 * Math.sin(t / 170);
-    zeichneGriffBei(wink.px, wink.py, 0.6 + 0.4 * puls);
+  // Wer mit dem Finger bloss tippt statt zu ziehen, bekommt kurz gesagt, wie
+  // es geht: unten auf dem Blatt, wo es am wenigsten verdeckt.
+  function zeichneWink() {
+    if (!state.wink || state.phase !== "aufgabe") return;
+    const t = performance.now() - state.wink;
     if (t > WINK_MS) return;
     const u = view.u;
     const da = clamp(t / 140, 0, 1) * clamp((WINK_MS - t) / 400, 0, 1);
@@ -2157,13 +2213,11 @@
     g.font = `800 ${gross}px system-ui, sans-serif`;
     g.textAlign = "center";
     g.textBaseline = "middle";
-    const text = "Halten und ziehen";
+    const text = "Ziehen bewegt das Fadenkreuz";
     const breit = g.measureText(text).width + gross * 1.8;
     const hoch = Math.round(gross * 2);
-    const x = clamp(wink.px, breit / 2 + 6, view.cssW - breit / 2 - 6);
-    // Unter dem Griff, wo der Finger war – ist dort kein Platz, über dem Fadenkreuz.
-    let y = wink.py + GRIFF_R + 10 + hoch / 2;
-    if (y + hoch / 2 > view.cssH - 6) y = Y(state.zeiger.y) - 30 * u - hoch / 2;
+    const x = view.x0 + view.seite / 2;
+    const y = view.y0 + view.seite - hoch / 2 - Math.round(10 * u);
     g.globalAlpha = da;
     rundesFeld(x - breit / 2, y - hoch / 2, breit, hoch, hoch / 2);
     g.fillStyle = "rgba(4, 16, 48, 0.88)";
@@ -2367,7 +2421,7 @@
     else zeichneTeile(a.figur, K, WEISS, WEISS_GLANZ);
     if (zeigt) zeichneLoesung(a, tz);
     g.restore();
-    if (!zeigt) { zeichneZeiger(a); zeichneGriff(); }
+    if (!zeigt) { zeichneZeiger(a); zeichneWink(); }
   }
 
   // ---------------------------------------------------------------------------
@@ -2507,16 +2561,15 @@
     g.globalAlpha = K;
     zeichneZeiger({ bahn: null });
     g.globalAlpha = 1;
-    // Auf einem Handy hängt es am Griff: So wird nachher gezogen.
+    // Auf einem Handy steht darunter, wie es geht.
     if (mitFinger()) {
-      zeichneGriffBei(X(state.zeiger.x), Y(state.zeiger.y) + VERSATZ, K);
       g.save();
       g.globalAlpha = 0.7 * K;
       g.fillStyle = "#cfe3ff";
       g.textAlign = "center";
       g.textBaseline = "middle";
       g.font = `700 ${Math.round(10.5 * view.u)}px ${MONO}`;
-      g.fillText("HALTEN · ZIEHEN · LOSLASSEN", X(50), Y(91));
+      g.fillText("IRGENDWO ZIEHEN · DANN BESTÄTIGEN", X(50), Y(91));
       g.restore();
     }
     state.zeiger = null;
@@ -2693,7 +2746,7 @@
       g.fillText("1 : 1", x + w * 0.5 + 10, y + 55);
       g.fillText(String(state.punkte).padStart(3, "0"), x + 10, y + 91);
       g.fillText(`± ${GRENZEN[0].toFixed(1).replace(".", ",")} mm`, x + w * 0.5 + 10, y + 91);
-    } else if (view.cssH - (view.schieber ? view.schieber.y + view.schieber.w * 0.36 : ky + kante) > 30 * u) {
+    } else if (view.knopfOrt !== "unten" && view.cssH - (view.schieber ? view.schieber.y + view.schieber.w * 0.36 : ky + kante) > 30 * u) {
       g.textAlign = "center";
       g.font = `600 ${Math.round(9.5 * u)}px ${MONO}`;
       g.globalAlpha = 0.8;
@@ -2957,7 +3010,7 @@
     state.liste = new Array(BLAETTER).fill(null);
     state.zeiger = null;
     state.griff = null;
-    state.wink = null;
+    state.wink = 0;
     state.antwort = null;
     state.wertung = null;
     state.serie = 0;
@@ -3006,7 +3059,8 @@
     // was bis dahin gemessen ist.
     state.phase = "ende";
     state.griff = null;
-    state.wink = null;
+    state.wink = 0;
+    knopfTakt();
     zeichnen();
     const punkte = state.punkte;
     const geist = aufnahme?.ende() || null;
@@ -3055,12 +3109,13 @@
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // --- Tippen, Halten, Ziehen, Loslassen -----------------------------------------
-  // Der erste Tipp auf ein Blatt beendet seine Vorschau. Danach hält der
-  // Finger das Fadenkreuz am Griff: Es steht über ihm (blattOrt, versetzt),
-  // geht beim Ziehen mit, und das Loslassen ist die Antwort. Ein blosses
-  // Antippen setzt es nur hin. Mit der Maus schwebt es schon vor dem Klick
-  // mit, genau unter dem Zeiger. Im Tunnel ist der Tipp selbst die Antwort.
+  // --- Tippen, Ziehen, Bestätigen -----------------------------------------------
+  // Der erste Tipp auf ein Blatt beendet seine Vorschau. Danach schiebt der
+  // Finger das Fadenkreuz wie auf einem Tastfeld: Wo er aufsetzt, ist gleich
+  // – es geht den Weg mit, den er zieht. Loslassen und Nachgreifen ändern
+  // nichts; die Antwort ist der Knopf (bestaetige). Mit der Maus schwebt es
+  // schon vor dem Klick mit, genau unter dem Zeiger, und der Klick ist die
+  // Antwort. Im Tunnel ist der Tipp selbst die Antwort.
   const offen = () => state.phase === "aufgabe" && seit() >= SPERRE;
   // Ob die Vorschau schon einen Tipp annimmt – nicht den, der noch dem
   // letzten Blatt galt.
@@ -3083,45 +3138,75 @@
     if (blatt().art === "tunnel") { tippTunnel(event.timeStamp); return; }
     // Ein zweiter Finger nimmt dem ersten das Fadenkreuz nicht weg.
     if (state.griff) return;
-    const ort = fingerOrt(event);
-    state.griff = {
-      id: event.pointerId, art: state.eingabe, versetzt: state.eingabe === "touch",
-      ...ort, px0: ort.px, py0: ort.py, weit: 0, seit: performance.now(),
-    };
-    state.wink = null;
+    const finger = state.eingabe === "touch";
+    state.griff = { id: event.pointerId, art: state.eingabe, finger, zieht: false, frei: null, ...fingerOrt(event) };
+    state.wink = 0;
     // Ein neuer Griff: Wo das Fadenkreuz davor stand, zählt beim Abheben nicht mit.
     spur.length = 0;
     try { host.setPointerCapture(event.pointerId); } catch { /* egal */ }
-    setzeZeiger(blattOrt(event, state.griff.versetzt));
+    if (finger) {
+      // Der Finger schiebt nur: Das Fadenkreuz bleibt, wo es ist. Mit ihm
+      // wandert eine freie Stelle (frei) – auf einer Bahn ist das
+      // Fadenkreuz ihr nächster Punkt.
+      if (!state.zeiger) state.zeiger = startOrt(blatt());
+      state.griff.frei = P(state.zeiger.x, state.zeiger.y);
+      return;
+    }
+    setzeZeiger(blattOrt(event));
     ton("augenmass.setzen");
   });
 
   host.addEventListener("pointermove", (event) => {
     if (state.phase !== "aufgabe" || !canvas || blatt().art === "tunnel") return;
     const griff = state.griff;
-    if (griff) {
-      if (event.pointerId !== griff.id) return;
-      Object.assign(griff, fingerOrt(event));
-      griff.weit = Math.max(griff.weit, Math.hypot(griff.px - griff.px0, griff.py - griff.py0));
-      setzeZeiger(blattOrt(event, griff.versetzt));
-    } else if (event.pointerType === "mouse" && offen()) {
-      state.wink = null;
-      setzeZeiger(blattOrt(event));
+    if (!griff) {
+      // Die Maus schwebt mit – solange nicht gerade mit dem Finger gespielt wird.
+      if (event.pointerType === "mouse" && !mitFinger() && offen()) setzeZeiger(blattOrt(event));
+      return;
     }
+    if (event.pointerId !== griff.id) return;
+    const ort = fingerOrt(event);
+    if (!griff.finger) {
+      Object.assign(griff, ort);
+      setzeZeiger(blattOrt(event));
+      return;
+    }
+    if (!griff.zieht) {
+      // Erst nach SCHLUPF Bildpunkten ist es ein Ziehen – von dort an zählt der Weg.
+      if (Math.hypot(ort.px - griff.px, ort.py - griff.py) < SCHLUPF) return;
+      griff.zieht = true;
+      Object.assign(griff, ort);
+      ton("augenmass.setzen");
+      return;
+    }
+    // Am Rand des Blattes bleibt die freie Stelle stehen, wie ein Mauszeiger
+    // am Bildschirmrand: Zurück geht es sofort.
+    griff.frei = P(
+      clamp(griff.frei.x + (ort.px - griff.px) / view.s, 0, BLATT),
+      clamp(griff.frei.y + (ort.py - griff.py) / view.s, 0, BLATT),
+    );
+    Object.assign(griff, ort);
+    setzeZeiger(griff.frei);
   });
 
   host.addEventListener("pointerup", (event) => {
     const griff = state.griff;
     if (!griff || event.pointerId !== griff.id) return;
     if (state.phase !== "aufgabe") { state.griff = null; return; }
-    // Nur angetippt: Das Fadenkreuz bleibt stehen, wo es ist – die Antwort
-    // ist das noch nicht. Der Griff bleibt liegen und sagt, was zu tun ist.
-    if (griff.versetzt && griff.weit < TIPP_WEG && performance.now() - griff.seit < TIPP_MS) {
+    if (griff.finger) {
       state.griff = null;
-      state.wink = { px: griff.px0, py: griff.py0, seit: performance.now() };
+      // Nur getippt: Dann steht kurz da, dass Ziehen gemeint ist.
+      if (!griff.zieht) { state.wink = performance.now(); return; }
+      // Beim Abheben rollt die Fingerkuppe ab – das Fadenkreuz bleibt, wo es
+      // geruht hat. Mehr geschieht nicht: Die Antwort ist der Knopf.
+      const ruhe = ruhigeStelle(state.zeiger);
+      if (ruhe.x !== state.zeiger.x || ruhe.y !== state.zeiger.y) {
+        state.zeiger = ruhe;
+        meldeLage();
+      }
       return;
     }
-    const zuletzt = aufBahn(blatt(), blattOrt(event, griff.versetzt));
+    const zuletzt = aufBahn(blatt(), blattOrt(event));
     antworte(griff.art === "mouse" ? zuletzt : ruhigeStelle(zuletzt));
   });
 
@@ -3157,11 +3242,11 @@
     if (pfeil) {
       const weit = SCHRITT * (event.shiftKey ? 8 : 1);
       const von = state.zeiger || (a.bahn ? aufBahn(a, P(BLATT / 2, BLATT / 2)) : P(BLATT / 2, BLATT / 2));
-      state.wink = null;
+      state.wink = 0;
       setzeZeiger(P(von.x + pfeil[0] * weit, von.y + pfeil[1] * weit));
       return;
     }
-    if (state.zeiger && !event.repeat) antworte(state.zeiger);
+    if (!event.repeat) bestaetige();
   });
 
   window.addEventListener("resize", messen);
@@ -3171,7 +3256,7 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappAugenmass = {
     BLATT, RAND, GRENZEN, WIE, PLAN, LEICHT, MITTEL, SCHWER, BLAETTER, ZEIT, ZEITEN, EINZUG, SPERRE, ZEIGEN_MS, PUNKTE_JE_BLATT,
-    VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN, VERSATZ, VERSATZ_RAND, GRIFF_R, TIPP_MS, TIPP_WEG, versatzBei, fingerBei,
+    VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN, SCHLUPF, startOrt, bestaetige,
     state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelZeit, tunnelOrt, tunnelEnde,
     losGehts, blattLos, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
     // Wo eine Stelle des Blattes auf dem Bildschirm liegt.
@@ -3179,10 +3264,8 @@
       const r = canvas.getBoundingClientRect();
       return { x: r.left + X(ort.x), y: r.top + Y(ort.y) };
     },
-    // Wo der Finger liegen muss, damit das Fadenkreuz auf dieser Stelle steht.
-    imGriff: (ort) => {
-      const r = canvas.getBoundingClientRect();
-      return { x: r.left + X(ort.x), y: r.top + fingerBei(Y(ort.y)) };
-    },
+    // Der Knopf «Bestätigen» – und ob er gerade zu sehen ist.
+    knopf: () => knopf,
+    knopfDa: () => knopfSoll(),
   };
 })();
