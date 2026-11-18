@@ -484,19 +484,27 @@ jeder hat seinen Daumen: **Links hält den linken Rotor, rechts den rechten**
 Die Drohne leuchtet links rot und rechts grün, die beiden Knöpfe unten
 ebenso: So sieht man, welcher Daumen welcher Rotor ist. Geflogen wird durch
 einen Parcours aus Lichttoren, eines nach dem andern; das nächste leuchtet,
-und liegt es ausserhalb des Bildes, zeigt ein Pfeil am Rand hin. Die Tore
-stehen quer zum Weg, der sich nach rechts durch die Nacht schlängelt – mal
-aufrecht, mal liegend (dann geht es von unten oder von oben hindurch); ab
-dem zwölften schieben sich manche längs ihrer Öffnung hin und her, ab dem
-vierundzwanzigsten wiegen sich manche um ihre Mitte (`torLage`). Wer einen
-Pfosten berührt oder ein Dach, ist draussen.
+und liegt es ausserhalb des Bildes, zeigt ein Pfeil am Rand hin. Der Weg
+führt nach rechts durch die Nacht und dabei **auf und ab**: meist im
+Zickzack, manchmal zweimal in dieselbe Richtung – und je weiter man kommt,
+desto höher hinauf und tiefer hinunter liegt das nächste Tor (`HUB`, `hub`:
+erst rund 5 m, ab dem zehnten Tor rund 10 m, ab dem fünfundzwanzigsten rund
+13 m, bis fast über die ganze Höhe zwischen `HOCH_MIN` und `HOCH_MAX`). Die
+Tore stehen quer zum Weg – am Scheitel eines Zickzacks aufrecht, auf einer
+langen Steigung fast liegend (dann geht es von unten oder von oben
+hindurch) – und **stehen still**. (Bis zum 18. November 2026 schoben sich ab
+dem zwölften Tor manche hin und her und wiegten sich ab dem
+vierundzwanzigsten um ihre Mitte; schwer wird es jetzt durch den Weg.) Wer
+einen Pfosten berührt oder ein Dach, ist draussen.
 
 **Die Uhr ist der Akku** (`AKKU_MAX` Sekunden, ein Ring um die Drohne): Jedes
 Tor lädt ihn nach, mit jedem Tor etwas weniger (`akkuLaden`), am Ende zu
 wenig – so endet jede Runde von selbst. Vor dem ersten Tor läuft er halb so
-schnell ab. Wie knapp das Ganze ist, sagt eine Zahl: `AKKU_TEMPO` (1,2 – der
-Akku ist 1,2-mal so schnell leer wie mit zehn Sekunden und drei je Tor; der
-Testpilot kommt damit im Schnitt 32 statt 38 Tore weit). Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
+schnell ab. Wie knapp das Ganze ist, sagt eine Zahl: `AKKU_TEMPO` (1,56 – der
+Akku ist 1,56-mal so schnell leer wie mit zehn Sekunden und drei je Tor;
+bis zum 18. November 2026 war es 1,2, dann noch einmal 1,3-mal schneller).
+Der Testpilot kam mit 1,2 und dem alten Weg im Schnitt 32 Tore weit, mit
+1,56 und dem Auf und Ab rund 14. Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
 Stück der Öffnung, `MITTIG`), fliegt **«mittig»**: Das zählt mehr, in Folge
 immer mehr (bis `KETTE_MAX` dazu), und lädt den Akku ein Stück weiter.
 
@@ -505,7 +513,8 @@ Neigung; die Neigung folgt den Daumen wie an einer straffen Feder
 (`KIPP_FEDER`, `KIPP_DAEMPF`), der Schub zeigt immer nach «oben» aus Sicht
 der Drohne, die Luft bremst (`LUFT_X`, `LUFT_Y`). Die Tore kommen aus
 `zufall.js`, die Dächer hängen an festen Zahlen und bleiben unter den Toren.
-Was sich bewegt, hängt allein an der Uhr der Runde.
+Die Tore stehen still; Aufzeichnungen tragen seit dem neuen Weg die Fassung
+`t2`.
 
 Das Bild: Himmel und Stadt werden einmal gemalt (der Himmel klein und
 gestreckt, die Stadt als zwei breite Bilder, die sich wiederholen) und
@@ -516,9 +525,11 @@ Aufgezeichnet werden Ort und Neigung: Gegner fliegen als Drohne aus Licht
 mit, durch ihren eigenen Parcours, und ein angeschauter Flug baut mit seiner
 Saat dieselben Tore. Prüfung 4g33: Ein Pilot (`pilot` – er weiss, wie er an
 jedem Ort fliegen möchte, `wunsch`, und probiert alle Folgen aus zwei kurzen
-Griffen durch) fliegt auf jeder Welt durch mindestens achtzehn Tore, die
-meisten mittig. Wer nichts drückt, landet auf einem Dach; wer beide hält,
-steigt, bis der Akku leer ist.
+Griffen durch) fliegt auf jeder Welt durch mindestens elf Tore, die meisten
+mittig; kein Tor bewegt sich, und ab dem fünfundzwanzigsten geht es im
+Schnitt mindestens 9 m und fast doppelt so weit hinauf oder hinunter wie am
+Anfang. Wer nichts drückt, landet auf einem Dach; wer beide hält, steigt,
+bis der Akku leer ist.
 
 ### Augenmass (November 2026)
 

@@ -7984,9 +7984,10 @@ try {
 
   // --- 4g33. Zwei Rotoren: jeder Parcours fliegbar, und ohne Daumen endet der Flug ----
   // Ein Pilot (rotoren.js, pilot – er rechnet mit demselben Flug voraus) fliegt
-  // auf jeder Welt durch mindestens achtzehn Tore, die meisten mittig; am
-  // Ende ist der Akku leer oder ein Pfosten im Weg. Jedes Tor ist breit genug
-  // und liegt in seinem Band. Wer nichts drückt, landet auf einem Dach; wer
+  // auf jeder Welt durch mindestens elf Tore, die meisten mittig; am Ende ist
+  // der Akku leer oder ein Pfosten im Weg. Jedes Tor ist breit genug, liegt
+  // in seinem Band und steht still – und je weiter, desto höher hinauf und
+  // tiefer hinunter liegt das nächste. Wer nichts drückt, landet auf einem Dach; wer
   // beide hält, steigt, bis der Akku leer ist – beides mit Ergebnis. Der
   // linke Rotor schiebt nach rechts, der rechte nach links.
   {
@@ -8013,17 +8014,27 @@ try {
         R.toreBis(st.welt, 60);
         const tore = st.welt.tore.slice(0, 60);
         const gebaut = tore.every((t, i) => t.halb >= 1.2 && t.y >= R.HOCH_MIN - 1e-6 && t.y <= R.HOCH_MAX + 1e-6 && (!i || t.x - tore[i - 1].x >= 4.4));
+        // Still: zu jeder Zeit an derselben Stelle.
+        const a = {};
+        const b = {};
+        const still = tore.every((t) => {
+          R.torLage(t, 0, a);
+          R.torLage(t, 7.3, b);
+          return a.x === b.x && a.y === b.y && a.w === b.w;
+        });
+        // Wie weit es im Schnitt hinauf oder hinunter geht: am Anfang und später.
+        const hub = (von, bis) => tore.slice(von, bis).reduce((summe, t, i, liste) => summe + (i ? Math.abs(t.y - liste[i - 1].y) : 0), 0) / (bis - von - 1);
         raus.push({
-          tore: st.d.tor, punkte: st.punkte, mittige: st.d.mittige, grund: st.grund, gebaut,
-          geschoben: tore.filter((t) => t.amp > 0).length, gewiegt: tore.filter((t) => t.dreh > 0).length, welt: R.weltText(),
+          tore: st.d.tor, punkte: st.punkte, mittige: st.d.mittige, grund: st.grund, gebaut, still,
+          hubAnfang: Math.round(hub(2, 9) * 10) / 10, hubSpaeter: Math.round(hub(25, 36) * 10) / 10, welt: R.weltText(),
         });
       }
       return raus;
     });
-    pruefe(fluege.every((f) => f.tore >= 18 && f.mittige >= 10 && f.punkte > f.tore && f.gebaut && ["akku", "pfosten"].includes(f.grund)),
+    pruefe(fluege.every((f) => f.tore >= 11 && f.mittige >= 8 && f.punkte > f.tore && f.gebaut && ["akku", "pfosten"].includes(f.grund)),
       `Zwei Rotoren: Der Pilot kommt nicht durch jeden Parcours – ${JSON.stringify(fluege.map(({ welt, ...rest }) => rest))}`);
-    pruefe(fluege.some((f) => f.geschoben > 0) && fluege.some((f) => f.gewiegt > 0),
-      `Zwei Rotoren: Kein Tor schiebt oder wiegt sich – ${JSON.stringify(fluege.map((f) => [f.geschoben, f.gewiegt]))}`);
+    pruefe(fluege.every((f) => f.still && f.hubSpaeter >= 9 && f.hubSpaeter >= 1.7 * f.hubAnfang),
+      `Zwei Rotoren: Ein Tor bewegt sich, oder später geht es nicht weiter hinauf und hinunter als am Anfang – ${JSON.stringify(fluege.map((f) => [f.still, f.hubAnfang, f.hubSpaeter]))}`);
     pruefe(new Set(fluege.map((f) => f.welt)).size > 1, `Zwei Rotoren: Der Parcours ist in jeder Runde derselbe – ${JSON.stringify(fluege.map((f) => f.welt.slice(0, 60)))}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
     const blind = await seite.evaluate(() => {
