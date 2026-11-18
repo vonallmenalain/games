@@ -853,6 +853,20 @@ vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
                          an ihrer Stelle laufen rote Zahlen im falschen
                          Tempo (×1,4 oder ×0,7). Sie lügen.
 
+**Vor jeder Aufgabe steht die Uhr** (seit dem 18. November 2026). Die
+Aufgabe liegt da – ihr Name, ihr Satz, die Uhr auf ihrem Anfang –, und
+darunter ruft ein Feld «Tippe, wenn du bereit bist». Erst der Tipp (oder
+Leertaste, Enter) lässt die Uhr anlaufen (`aufgabeLos`, `ANLAUF` ms
+später); er ist nicht schon die Antwort. So liest man in Ruhe, was verlangt
+ist – vorher lief die Uhr 0,7 Sekunden, nachdem die Aufgabe erschienen war,
+und wer noch las, hatte den Anfang verpasst. Das gilt auch für die erste
+Aufgabe: Der Tipp auf dem Titelbild legt sie hin, der nächste startet sie.
+Ein Tipp gleich nach dem Hinlegen zählt noch nicht (`WARTE_SPERRE` – er galt
+der letzten Aufgabe). Ewig wartet die Uhr nicht, eine Runde soll von selbst
+zu Ende gehen: Nach `WARTE` Sekunden (30) läuft sie von allein, und in den
+letzten fünf zählt das Feld sichtbar herunter. Die Aufgaben selbst sind
+unverändert.
+
 **Jede Hundertstelsekunde daneben kostet einen Punkt** (`punkteFuer`), bei
 den mittleren 0,8, bei den schweren 0,6 (`KOSTEN`): Sieben Hundertstel neben
 dem Ziel sind 93 Punkte, eine Sekunde ist null. Tausend sind das Dach. Bis
@@ -870,16 +884,22 @@ Uhr sieht, tickt sie – jede Sekunde, jeder sichtbare Schlag.
 
 Unten stehen zehn Felder, eines je Aufgabe: vorher ein Punkt in der Farbe
 der Stufe, danach die Punkte. Aufgezeichnet werden die Züge (`meldeZug`:
-jede neue Aufgabe, der Beginn eines Haltens, die Antwort) – damit lassen
-sich die besten Runden anschauen, und im Multiplayer sehen die anderen
-dasselbe; wer zuschaut, lässt die Uhr selbst laufen und rechnet die Antwort
-nach (`zuschauenTakt`). Im Turnier bekommen alle dieselben zehn Aufgaben.
+jede neue Aufgabe, der Tipp, der ihre Uhr startet, der Beginn eines
+Haltens, die Antwort) – damit lassen sich die besten Runden anschauen, und
+im Multiplayer sehen die anderen dasselbe, auch das Warten; wer zuschaut,
+lässt die Uhr selbst laufen und rechnet die Antwort nach (`zuschauenTakt`).
+Das Warten ist ein eigener Zug (4), der Start trägt eine 1 – ältere
+Aufzeichnungen ohne beides laufen wie bisher, die Fassung bleibt z1. Im
+Turnier bekommen alle dieselben zehn Aufgaben.
 Prüfung 4g37: Jede Runde hat ihre drei, vier und drei Aufgaben mit Zeiten
 aus ihrem Band; die Punkte fallen nach der Regel, zehn genaue Antworten geben
 tausend; ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird sein
 Augenblick (oder wie lange gehalten wurde), und wer nicht antwortet, bekommt
-nichts; und eine aufgezeichnete Runde zeigt beim Anschauen dieselben Aufgaben
-und dieselben Punkte.
+nichts; jede Aufgabe wartet zuerst (die Uhr steht, ein Tipp gleich nach dem
+Hinlegen zählt nicht, der nächste oder die Leertaste lässt sie anlaufen und
+ist noch keine Antwort, und nach `WARTE` Sekunden läuft sie von selbst); und
+eine aufgezeichnete Runde zeigt beim Anschauen dieselben Aufgaben und
+dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
