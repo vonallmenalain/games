@@ -1,4 +1,4 @@
-// Die Welle: Der Surfer steckt in der Röhre, das Dach ist über ihm zu – und
+// Die Welle: Die Surferin steckt in der Röhre, das Dach ist über ihr zu – und
 // voraus, in der Öffnung, steht die Abendsonne über dem Meer.
 export default {
   bereit: () => Boolean(window.LernappWelle?.state?.welt && window.LernappWelle.view.cssW > 0),
@@ -7,20 +7,28 @@ export default {
     const st = W.state;
     // Scharf bleiben, auch wenn der Rechner für die Aufnahme langsam zeichnet.
     W.guete(1);
-    // Der Pilot: hält gut fünf Meter Abstand zum Schaum – über die Höhe an
-    // der Wand. Kommt ein schneller Abschnitt, nimmt er vorher Reserve.
+    // Die Pilotin: Mit der Höhe an der Wand stellt sie ein, wie tief sie in
+    // der Röhre steckt (hoch ist langsam) – gut fünf Meter vor dem Schaum.
+    // Zieht er an oder kommt er zu nahe, pumpt sie rauf und runter.
+    const merk = { auf: true, pumpt: false };
     const pilot = () => {
       const d = st.zp - st.zs;
       const t = st.spielzeit;
-      const naht = Math.max(W.faktorBei(t), W.faktorBei(t + 0.6), W.faktorBei(t + 1.2));
-      const reserve = naht > 1.12 ? 3.5 * (naht - 1) / 0.4 : 0;
-      const vd = st.v * Math.cos(st.psi) - W.tempoBei(t) * W.faktorBei(t);
-      const ziel = Math.max(0.2, Math.min(0.88, 0.62 + 0.07 * (d - 5.2 - reserve) + 0.03 * vd - (naht > 1.12 ? 0.1 * (naht - 1) / 0.4 : 0)));
-      W.halte(st.h + (st.v * Math.sin(st.psi) / W.WAND) * 0.12 < ziel);
+      const naht = Math.max(W.faktorBei(t + 0.6), W.faktorBei(t + 1.4), W.faktorBei(t + 2.2));
+      if (d < 3.6 || (naht > 1.12 && d < 9.5)) merk.pumpt = true;
+      else if (d > 5.4) merk.pumpt = false;
+      if (merk.pumpt) {
+        if (merk.auf && st.h > 0.72) merk.auf = false;
+        if (!merk.auf && st.h < 0.4) merk.auf = true;
+        W.lenke(merk.auf ? 1 : -1);
+        return;
+      }
+      const ziel = Math.max(0.4, Math.min(0.8, 0.62 + 0.05 * (d - 5.2)));
+      W.lenke(st.h < ziel - 0.05 ? 1 : st.h > ziel + 0.05 ? -1 : 0);
     };
     // Der schöne Moment: mitten in der Röhre, keine Schrift im Bild, und der
     // Schaum zieht nicht gerade an.
-    // (streng beim Vorspulen; fürs Bild danach reicht es, wenn er noch in der
+    // (streng beim Vorspulen; fürs Bild danach reicht es, wenn sie noch in der
     // Röhre steckt – ein langsamer Rechner zeichnet in der Zwischenzeit kaum
     // ein Bild.)
     window.__welleMoment = (streng = false) => {

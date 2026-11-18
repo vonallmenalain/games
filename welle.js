@@ -1,20 +1,24 @@
 /*
  * welle.js – Die Welle.
  * ---------------------------------------------------------------------------
- * Eine riesige Welle bei Sonnenuntergang, und ein Surfer, der sie entlangfährt
- * – immer in dieselbe Richtung, die Kamera dicht hinter ihm. Hinter ihm bricht
- * die Welle: Der Schaum jagt ihn. Gesteuert wird mit einem Finger: Halten
- * zieht die Wand hinauf, Loslassen lässt ihn hinunterschiessen.
+ * Eine riesige Welle bei Sonnenuntergang, und eine Surferin, die sie
+ * entlangfährt – immer in dieselbe Richtung, die Kamera dicht hinter ihr.
+ * Hinter ihr bricht die Welle: Der Schaum jagt sie. Gesteuert wird mit dem
+ * Finger: links halten fährt die Wand hinauf, rechts halten hinunter, und
+ * wer loslässt, fährt geradeaus (am Rechner die Pfeiltasten).
  *
- * Zwei Grössen entscheiden: h, wie hoch er an der Wand steht (0 das Tal, 1
- * die Lippe), und d, wie viele Meter er vor dem Schaum ist. Hoch an der Wand
- * ist er langsam, der Schaum kommt näher; tief unten ist er schnell und zieht
- * davon – nur ganz unten im Flachen verhungert er. Punkte gibt es allein in
- * der Röhre, dort, wo das Dach über ihm zu ist (d unter 9 m), und umso mehr,
- * je tiefer er darin steckt. Wer ohne Unterbruch in der Röhre bleibt,
- * vervielfacht sie (bis ×4). Verschluckt ihn der Schaum (d unter null) oder
- * trägt es ihn über die Lippe (h über 1), ist die Runde vorbei. Sonst läuft
- * die Welle nach 80 Sekunden am Strand aus.
+ * Zwei Grössen entscheiden: h, wie hoch sie an der Wand steht (0 das Tal, 1
+ * die Lippe), und d, wie viele Meter sie vor dem Schaum ist. Ihr Tempo ist
+ * Schwung, der bleibt: Hinunter gibt Tempo, hinauf kostet nur einen Teil
+ * davon (die Welle hebt mit) – darum gibt jedes Auf und Ab Schwung, und wer
+ * rhythmisch pumpt oder von hoch oben hinunterschiesst, fährt dem Schaum
+ * davon. Hoch an der Wand bremst es, dort fällt sie tiefer in die Röhre;
+ * ganz unten im Flachen verhungert sie. Punkte gibt es allein in der Röhre,
+ * dort, wo das Dach über ihr zu ist (d unter 9 m), und umso mehr, je tiefer
+ * sie darin steckt. Wer ohne Unterbruch in der Röhre bleibt, vervielfacht
+ * sie (bis ×4). Verschluckt sie der Schaum (d unter null) oder trägt es sie
+ * über die Lippe (h über 1), ist die Runde vorbei. Sonst läuft die Welle
+ * nach 80 Sekunden am Strand aus.
  *
  * Die Welle bricht nicht gleichmässig: Schnelle Abschnitte (der Schaum zieht
  * für ein paar Sekunden an), langsame und später kurze Doppelschläge kommen
@@ -25,12 +29,13 @@
  *
  * Die Gegner (geist.js) fahren als Surfer aus Licht mit, so tief in der
  * Röhre, wie sie damals waren, und die besten Läufe lassen sich anschauen
- * (?zuschauen=).
+ * (?zuschauen=). Aufgezeichnet wird in Fassung t2 (mit der neuen Steuerung).
  *
  * Gezeichnet wird mit WebGL 2, ohne Bibliothek, in einem Durchgang: die Welle
  * als ein Netz, dessen Querschnitt im Programm entsteht (ein Formwert je
- * Reihe: wie weit die Lippe schon überwirft), dazu Himmel und Meer, der
- * Surfer, die Spur seines Bretts, Gischt und Sprühnebel. Gerechnet wird in
+ * Reihe: wie weit die Lippe schon überwirft), dazu Himmel und Meer, die
+ * Surferin (ein Netz, das in jedem Bild aus ihrer Haltung neu entsteht), die
+ * Spur ihres Bretts, Gischt und Sprühnebel. Gerechnet wird in
  * Metern: x zeigt zum Strand (im Bild nach rechts), y nach oben, z die Welle
  * entlang. Die Zahlen liegen auf einer zweiten Leinwand darüber.
  */
@@ -64,7 +69,7 @@
   const ROEHRE = 9;                // näher am Schaum ist das Dach zu: Dort gibt es Punkte
   const WAND = 10.5;               // vom Tal bis zur Lippe, in Metern (gerechnet, nicht gezeichnet)
   const START_D = 17;              // so weit vor dem Schaum beginnt die Runde
-  const START_H = 0.36;
+  const START_H = 0.42;
 
   // Das Tempo der Welle: so schnell läuft der Schaum, am Anfang und am
   // Schluss. Die ersten Sekunden sind sanft.
@@ -73,31 +78,49 @@
   const SANFT = 6;
   const SANFT_FAKTOR = 0.82;
 
-  // Der Surfer. Seine Richtung auf der Wand dreht nach oben (Halten) oder
-  // nach unten (Loslassen); hinauf kostet Tempo, hinunter gibt Tempo.
-  const PSI_AUF = 0.52;            // so steil geht es hinauf, im Bogenmass
-  const PSI_AB = 0.56;             // und hinunter
-  const DREH = 0.14;               // so träge dreht er
-  const TRAEG = 0.9;               // so träge findet er das Tempo seiner Linie
+  // Die Surferin. Gelenkt wird in drei Richtungen: hinauf (links halten),
+  // hinunter (rechts halten) – und lässt man los, fährt sie geradeaus und
+  // sinkt dabei nur ganz langsam. Ihre Richtung auf der Wand dreht dorthin.
+  const PSI_AUF = 0.62;            // so steil geht es hinauf, im Bogenmass
+  const PSI_AB = 0.66;             // und hinunter
+  const PSI_FREI = -0.035;         // und so sacht sinkt sie, wenn niemand lenkt
+  const DREH = 0.12;               // so träge dreht sie
+  // Der Schwung: Was sie über das Tempo ihrer Linie hinaus hat, verliert sie
+  // nur langsam – hoch an der Wand aber rasch (dort bremst es). Was ihr
+  // fehlt, schiebt die Welle schnell nach.
+  const TRAEG_SCHWUNG = 3.2;
+  const TRAEG_HOCH = 1.2;
+  const BREMS_AB = 0.58;           // ab dieser Höhe bremst es
+  const TRAEG_SCHUB = 1.3;
   const V_MIN = 2;
+  const V_MAX = 1.9;               // mal das Tempo der Welle
   // Die Linie: wie schnell die Welle in welcher Höhe trägt (mal ihr eigenes
-  // Tempo). Ganz unten im Flachen wenig, im unteren Drittel am meisten, zur
-  // Lippe hin immer weniger.
-  const LINIE = [[0, 0.5], [0.1, 0.82], [0.28, 1.2], [0.5, 1.02], [0.7, 0.86], [0.85, 0.74], [1, 0.6]];
+  // Tempo). Ganz unten im Flachen wenig, in der Mitte der Wand am meisten,
+  // zur Lippe hin weniger – hoch oben fährt man langsam und fällt tiefer in
+  // die Röhre.
+  const LINIE = [[0, 0.5], [0.12, 0.8], [0.3, 1.0], [0.45, 1.05], [0.6, 0.98], [0.75, 0.85], [0.9, 0.73], [1, 0.64]];
   // Die Tasche: Nahe am Schaum schiebt die Welle stärker, weit vorn auf der
-  // Schulter schwächer – und gegen Ende der Runde immer schwächer.
-  const TASCHE_NAH = 1.32;
-  const TASCHE_FERN = [0.84, 0.64];
-  const TASCHE_WEIT = 13;
+  // Schulter schwächer – und gegen Ende der Runde immer schwächer. Wer
+  // davonfährt, dem fehlt bald die Kraft der Welle.
+  const TASCHE_NAH = 1.2;
+  const TASCHE_FERN = [0.86, 0.7];
+  const TASCHE_WEIT = 10;
   // Der Sog: Ganz dicht am Schaum reisst das Wasser zurück – wer zu gierig
-  // ist, kommt dort nur auf der schnellsten Linie wieder heraus.
-  const SOG = 0.25;
+  // ist, kommt dort nur mit Pumpen wieder heraus.
+  const SOG = 0.22;
   const SOG_WEIT = 1.2;
-  // Der Hang: wie stark Höhe und Tempo sich tauschen (m/s²) – nahe am Schaum
-  // ist die Wand steil.
-  const HANG_NAH = 8.5;
-  const HANG_FERN = 4.5;
-  const STEIL_OBEN = 1.6;          // um so viel steiler ist die Wand unter der Lippe
+  // Der Hang: wie stark Höhe und Tempo sich tauschen (m/s²). Hinunter gibt
+  // es den vollen Hang, hinauf kostet es nur einen Teil davon – die Welle
+  // hebt mit. Darum gibt jedes Auf und Ab Schwung: Pumpen.
+  const HANG = 12;
+  const HEBT = 0.45;
+  const STEIL_OBEN = 1.4;          // um so viel steiler ist die Wand unter der Lippe
+  const ZAEH = 0.6;                // unter der Lippe geht es zäh hinauf …
+  const ZAEH_AB = 0.7;             // … ab dieser Höhe
+  // Was ein guter Pumper im Mittel schafft (mal die Linie in der Tasche):
+  // Damit wird nachgerechnet, ob jede Welle schaffbar bleibt.
+  const PUMP_IDEAL = 1.14;
+  const SCHWUNG_ZEIGEN = 0.2;      // so viel Tempo (mal die Welle) muss ein Abstieg bringen, damit «Schwung» erscheint
 
   // Die Punkte: je Sekunde in der Röhre, am Rand wenig, in der Tiefe viel –
   // mal die Serie, die mit der Zeit ohne Unterbruch wächst.
@@ -167,10 +190,9 @@
     const nah = Math.max(0, d);
     return fern + (TASCHE_NAH - fern) * Math.exp(-nah / TASCHE_WEIT) - SOG * Math.exp(-nah / SOG_WEIT);
   };
-  const hangBei = (d) => lerp(HANG_NAH, HANG_FERN, weich(4, 30, d));
   // Wie steil die Wand in der Höhe h ist: im Tal flach, zur Lippe hin senkrecht
-  // – dort oben kostet jeder Meter viel Tempo.
-  const steilBei = (h) => 0.25 + 0.75 * weich(0, 0.35, h) + STEIL_OBEN * weich(0.72, 1, h);
+  // – dort oben kostet jeder Meter Tempo, und hinunter gibt er viel.
+  const steilBei = (h) => 0.3 + 0.7 * weich(0, 0.35, h) + STEIL_OBEN * weich(0.72, 1, h);
   // Die Serie: ×1 beim Eintauchen, ×4 nach SERIE_VOLL Sekunden.
   const malBei = (serie) => 1 + (SERIE_MAX - 1) * clamp(serie / SERIE_VOLL, 0, 1);
   // Punkte je Sekunde in der Tiefe d (ohne Serie).
@@ -240,7 +262,9 @@
     h: START_H,           // wie hoch an der Wand
     psi: 0,               // seine Richtung auf der Wand
     v: C0,
-    halten: false,
+    halten: false,        // lenkt sie hinauf (für ältere Prüfungen)
+    lenk: 0,              // 1 hinauf, -1 hinunter, 0 geradeaus
+    schwungZahl: 0,       // wie oft ein Abstieg sichtbar Schwung gab
     zeit: 0,              // seit dem Aufbau der Runde
     spielzeit: 0,         // seit dem Start – danach läuft der Schaum
     serie: 0,             // Sekunden in der Röhre ohne Unterbruch
@@ -356,15 +380,14 @@
   }
 
   // Die schnellste Linie, nachgerechnet: Wie nah kommt der Schaum dem, der
-  // immer dort fährt, wo die Welle am stärksten trägt? Zurück kommen der
-  // kleinste Abstand und der Abschnitt, in dem es so eng wurde.
-  const LINIE_MAX = Math.max(...LINIE.map((p) => p[1]));
+  // immer in der Tasche pumpt, so gut wie ein geübter Mensch? Zurück kommen
+  // der kleinste Abstand und der Abschnitt, in dem es so eng wurde.
   function ideallinie(welt) {
     let d = START_D;
     const eng = { d: Infinity, t: 0, ab: null };
     const dt = 0.05;
     for (let t = 0; t < DAUER; t += dt) {
-      d += tempoBei(t) * (LINIE_MAX * tasche(d, t) - faktorIn(welt, t)) * dt;
+      d += tempoBei(t) * (PUMP_IDEAL * tasche(d, t) - faktorIn(welt, t)) * dt;
       if (d < eng.d) {
         eng.d = d;
         eng.t = t;
@@ -612,7 +635,9 @@
   // ---------------------------------------------------------------------------
   // Wo er steht und wie: der Punkt auf der Wand, die Richtung die Wand hinauf
   // (sx, sy), die Richtung von der Wand weg (auf) und seine Fahrtrichtung.
-  const surfer = { x: 0, y: 0, p: 0, R: 3, lip: 3, sx: -1, sy: 0, auf: [0, 1, 0], tx: 0, ty: 0, tz: 1, pose: 0, lehn: 0 };
+  // haltung: wie sie gerade steht (haltungBei), unten: wohin die Schwerkraft
+  // in ihrem Raum zieht, psi: ihre Richtung im letzten Bild (fürs Haar).
+  const surfer = { x: 0, y: 0, p: 0, R: 3, lip: 3, sx: -1, sy: 0, auf: [0, 1, 0], tx: 0, ty: 0, tz: 1, lehn: 0, haltung: null, unten: [0, -1, 0], psi: 0 };
 
   function surferStellen(h, z, psi, ziel = surfer) {
     const f = formBei(z - state.zs, z);
@@ -1034,6 +1059,7 @@
     in float vGischt;
     out vec4 aus;
     uniform vec3 uStreu, uDurch, uRoehre;
+    uniform vec4 uSchatten;        // wo das Brett liegt (x, y, z vor der Kamera) und wie stark sein Schatten ist
     ${LICHT}
     ${MEER}
     void main() {
@@ -1123,21 +1149,28 @@
       weiss = mix(weiss, uHimmelLicht * 0.95 + uLicht * 0.7, vGischt * rand);
       c = mix(c, weiss, schaum * 0.9);
 
+      // Unter dem Brett: ein weicher Schatten, länglich wie das Brett.
+      vec3 zumBrett = vOrt - uSchatten.xyz;
+      c *= 1.0 - uSchatten.w * exp(-dot(zumBrett.xy, zumBrett.xy) / 0.16 - zumBrett.z * zumBrett.z / 0.85) * step(0.5, k) * step(k, 1.5);
+
       // Vorland und Rücken gehen ins offene Meer über.
       if (k < 0.5) c = mix(meer(vOrt, v, weit), c, smoothstep(0.0, 0.5, s));
       else if (k > 2.5) c = mix(c, meer(vOrt, v, weit), smoothstep(0.45, 1.0, s));
       aus = vec4(dunst(c, vOrt), 1.0);
     }`;
 
-  // Der Surfer: ein Netz in zwei Haltungen (aufrecht, geduckt), dazwischen
-  // gleitet er. uBasis stellt ihn auf die Wand: quer, hoch, voraus. Für die
-  // Gegner dasselbe Netz, als Licht.
+  // Die Surferin: ein Netz, das in jedem Bild neu entsteht (für die Gegner
+  // zwei feste Haltungen, aufrecht und geduckt, dazwischen gleiten sie).
+  // uBasis stellt sie auf die Wand: quer, hoch, voraus. Jede Ecke weiss ihre
+  // Farbe und ihren Stoff (Haut, Anzug, Deck, Boden, Haar, Finne, Band) –
+  // dazu zwei Zahlen für sein Muster.
   const FIGUR_VS = `#version 300 es
     layout(location = 0) in vec3 aOrt0;
     layout(location = 1) in vec3 aNorm0;
     layout(location = 2) in vec3 aOrt1;
     layout(location = 3) in vec3 aNorm1;
     layout(location = 4) in vec3 aFarbe;
+    layout(location = 5) in vec3 aStoff;
     uniform mat4 uPV;
     uniform mat3 uBasis;
     uniform vec3 uOrt;
@@ -1145,6 +1178,7 @@
     out vec3 vOrt;
     out vec3 vNorm;
     out vec3 vFarbe;
+    out vec3 vStoff;
     void main() {
       vec3 p = mix(aOrt0, aOrt1, uPose);
       vec3 n = mix(aNorm0, aNorm1, uPose);
@@ -1152,6 +1186,7 @@
       vOrt = w;
       vNorm = uBasis * n;
       vFarbe = aFarbe;
+      vStoff = aStoff;
       gl_Position = uPV * vec4(w, 1.0);
     }`;
   const FIGUR_FS = `#version 300 es
@@ -1159,26 +1194,82 @@
     in vec3 vOrt;
     in vec3 vNorm;
     in vec3 vFarbe;
+    in vec3 vStoff;
     out vec4 aus;
-    uniform vec4 uGeist;           // Farbe und Deckkraft eines Gegners (0: der Surfer selbst)
+    uniform vec4 uGeist;           // Farbe und Deckkraft eines Gegners (0: die Surferin selbst)
     uniform vec3 uRoehre;
     uniform float uDach;
     ${LICHT}
+    const vec3 KORALLE = vec3(0.98, 0.42, 0.32);
+    const vec3 TUERKIS = vec3(0.03, 0.6, 0.64);
+    const vec3 DECK = vec3(0.94, 0.91, 0.85);
+    const vec3 HOLZ = vec3(0.42, 0.26, 0.13);
     void main() {
       vec3 n = normalize(vNorm);
       vec3 v = normalize(uAuge - vOrt);
-      float rand = pow(1.0 - abs(dot(n, v)), 2.6);
+      float nv = abs(dot(n, v));
+      float rand = pow(1.0 - nv, 2.6);
       if (uGeist.a > 0.0) {
         float a = uGeist.a * (0.22 + 0.78 * rand);
         aus = vec4(uGeist.rgb * a, a);
         return;
       }
+      float art = floor(vStoff.x + 0.5);
+      vec3 farbe = vFarbe;
+      float glanz = 0.12;          // wie stark die Sonne darauf glänzt
+      float haerte = 16.0;         // und wie eng
+      float weich = 0.3;           // wie weit das Licht um die Kante greift
+      if (art == 1.0) {
+        // Neopren: matt mit einem weichen Schimmer, an der Seite ein Streifen.
+        glanz = 0.2; haerte = 18.0; weich = 0.15;
+        farbe = mix(farbe, KORALLE, smoothstep(0.935, 0.965, vStoff.y) * vStoff.z);
+      } else if (art == 2.0 || art == 3.0) {
+        float u = vStoff.y;
+        float s = vStoff.z;
+        if (art == 2.0) {
+          // Das Deck: hell, die Kanten türkis, ein Streifen Holz in der
+          // Mitte, vorn zwei Zierstreifen – und hinten das gerillte Pad.
+          farbe = mix(DECK, TUERKIS, smoothstep(0.82, 0.9, abs(u)));
+          float zier = max(1.0 - smoothstep(0.006, 0.01, abs(s - 0.8)), 1.0 - smoothstep(0.002, 0.005, abs(s - 0.825)));
+          farbe = mix(farbe, KORALLE, zier);
+          farbe = mix(farbe, HOLZ, 1.0 - smoothstep(0.014, 0.024, abs(u)));
+          float pad = (1.0 - smoothstep(0.2, 0.21, s)) * smoothstep(0.012, 0.02, s) * (1.0 - smoothstep(0.7, 0.75, abs(u)));
+          float rille = smoothstep(0.2, 0.8, sin(s * 280.0)) * 0.5;
+          farbe = mix(farbe, vec3(0.06, 0.065, 0.075) * (1.0 + rille), pad);
+          glanz = mix(0.6, 0.04, pad);
+          haerte = mix(90.0, 8.0, pad);
+        } else {
+          // Der Boden: türkis, mit dem Streifen Holz.
+          farbe = mix(TUERKIS * 0.85, HOLZ, 1.0 - smoothstep(0.014, 0.024, abs(u)));
+          glanz = 0.45; haerte = 60.0;
+        }
+        weich = 0.1;
+      } else if (art == 4.0) {
+        // Haar: Strähnen, von der Sonne aufgehellt.
+        float w = atan(vStoff.z, vStoff.y);
+        float straehne = 0.5 + 0.5 * sin(w * 23.0 + sin(w * 7.0) * 1.5) * sin(w * 41.0 + 1.3);
+        farbe *= 0.78 + 0.42 * straehne;
+        glanz = 0.32; haerte = 26.0; weich = 0.35;
+      } else if (art == 5.0) {
+        glanz = 0.5; haerte = 70.0; weich = 0.05;
+      } else if (art == 0.0) {
+        // Nasse Haut.
+        glanz = 0.16; haerte = 22.0; weich = 0.4;
+      }
       float oben = n.y * 0.5 + 0.5;
       // Draussen leuchtet der Himmel, in der Röhre das Wasser ringsum.
       vec3 umgebung = mix(uHimmelLicht, uRoehre * 1.4 + uHimmelLicht * 0.25, uDach);
-      vec3 c = vFarbe * (umgebung * mix(0.35, 1.0, oben) + uLicht * max(dot(n, uSonne), 0.0) * 0.9);
+      float nl = dot(n, uSonne);
+      float sonne = max((nl + weich) / (1.0 + weich), 0.0) * (1.0 - 0.55 * uDach);
+      vec3 c = farbe * (umgebung * mix(0.36, 1.0, oben) + uLicht * sonne * 0.95);
+      // Der Glanz der Sonne – und was glänzt, spiegelt auch den Himmel.
+      vec3 hv = normalize(uSonne + v);
+      c += uLicht * pow(max(dot(n, hv), 0.0), haerte) * glanz * (haerte + 2.0) / 10.0 * step(0.0, nl) * (1.0 - 0.6 * uDach);
+      vec3 r = reflect(-v, n);
+      vec3 spiegel = mix(himmelGrund(normalize(vec3(r.x, abs(r.y) + 0.02, r.z))), umgebung, uDach);
+      c += spiegel * pow(1.0 - nv, 3.0) * glanz * 0.7;
       // Gegenlicht: An den Rändern glüht der Abend.
-      c += (uGlut * 0.5 + uLicht * 0.35) * rand * (0.4 + 0.6 * oben);
+      c += (uGlut * 0.5 + uLicht * 0.35) * rand * (0.4 + 0.6 * oben) * (art == 2.0 || art == 3.0 ? 0.55 : 1.0);
       aus = vec4(dunst(c, vOrt), 1.0);
     }`;
 
@@ -1344,163 +1435,480 @@
     return { ecken: new Float32Array(ecken), index: new Uint16Array(index) };
   }
 
-  // Flächen mit je einer eigenen Richtung (kantig). innen ist ein Punkt im
-  // Inneren des Körpers: Die Fläche schaut von ihm weg.
-  function netzBauer() {
-    const v = [];
-    function dreieck(a, b, c, innen, farbe) {
-      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-      const wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
-      let nx = uy * wz - uz * wy;
-      let ny = uz * wx - ux * wz;
-      let nz = ux * wy - uy * wx;
-      const l = Math.hypot(nx, ny, nz) || 1;
-      nx /= l; ny /= l; nz /= l;
-      const mx = (a[0] + b[0] + c[0]) / 3 - innen[0];
-      const my = (a[1] + b[1] + c[1]) / 3 - innen[1];
-      const mz = (a[2] + b[2] + c[2]) / 3 - innen[2];
-      if (nx * mx + ny * my + nz * mz < 0) { nx = -nx; ny = -ny; nz = -nz; }
-      for (const p of [a, b, c]) v.push(p[0], p[1], p[2], nx, ny, nz, farbe[0], farbe[1], farbe[2]);
-    }
-    function viereck(a, b, c, d, innen, farbe) {
-      dreieck(a, b, c, innen, farbe);
-      dreieck(a, c, d, innen, farbe);
-    }
-    // Eine Ecke mit eigener Richtung – für alles Runde.
-    function ecke(p, n, farbe) {
-      const l = Math.hypot(n[0], n[1], n[2]) || 1;
-      v.push(p[0], p[1], p[2], n[0] / l, n[1] / l, n[2] / l, farbe[0], farbe[1], farbe[2]);
-    }
-    // Ein Glied: von a nach b, an den Enden ra und rb dick, mit Kappen –
-    // rund beleuchtet, damit der Rand im Gegenlicht glüht.
-    function glied(a, b, ra, rb, farbe, quer = [1, 0, 0]) {
-      const S = 7;
-      const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-      const dl = Math.hypot(d[0], d[1], d[2]) || 1;
-      d[0] /= dl; d[1] /= dl; d[2] /= dl;
-      let u = [d[1] * quer[2] - d[2] * quer[1], d[2] * quer[0] - d[0] * quer[2], d[0] * quer[1] - d[1] * quer[0]];
-      const ul = Math.hypot(u[0], u[1], u[2]) || 1;
-      u = [u[0] / ul, u[1] / ul, u[2] / ul];
-      const w = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]];
-      const strahl = (j) => {
-        const c = Math.cos(j / S * Math.PI * 2);
-        const s = Math.sin(j / S * Math.PI * 2);
-        return [u[0] * c + w[0] * s, u[1] * c + w[1] * s, u[2] * c + w[2] * s];
-      };
-      const an = (m, r, n) => [m[0] + n[0] * r, m[1] + n[1] * r, m[2] + n[2] * r];
-      const spitzeA = [a[0] - d[0] * ra * 0.8, a[1] - d[1] * ra * 0.8, a[2] - d[2] * ra * 0.8];
-      const spitzeB = [b[0] + d[0] * rb * 0.8, b[1] + d[1] * rb * 0.8, b[2] + d[2] * rb * 0.8];
-      const zurueck = [-d[0], -d[1], -d[2]];
-      for (let j = 0; j < S; j += 1) {
-        const n0 = strahl(j);
-        const n1 = strahl(j + 1);
-        const u0 = an(a, ra, n0), u1 = an(a, ra, n1), o0 = an(b, rb, n0), o1 = an(b, rb, n1);
-        ecke(u0, n0, farbe); ecke(u1, n1, farbe); ecke(o1, n1, farbe);
-        ecke(u0, n0, farbe); ecke(o1, n1, farbe); ecke(o0, n0, farbe);
-        ecke(u0, n0, farbe); ecke(u1, n1, farbe); ecke(spitzeA, zurueck, farbe);
-        ecke(o0, n0, farbe); ecke(o1, n1, farbe); ecke(spitzeB, d, farbe);
-      }
-    }
-    // Eine Kugel aus 32 Flächen, rund beleuchtet.
-    function kugel(m, r, farbe) {
-      const norm = (p) => { const l = Math.hypot(p[0], p[1], p[2]); return [p[0] / l, p[1] / l, p[2] / l]; };
-      const halb = (p, q) => norm([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]);
-      const X = [1, 0, 0], Y = [0, 1, 0], Z = [0, 0, 1], x = [-1, 0, 0], y = [0, -1, 0], z = [0, 0, -1];
-      const flaechen = [];
-      for (const o of [Y, y]) for (const [p, q] of [[X, Z], [Z, x], [x, z], [z, X]]) {
-        const pq = halb(p, q), qo = halb(q, o), op = halb(o, p);
-        flaechen.push([p, pq, op], [pq, q, qo], [op, qo, o], [pq, qo, op]);
-      }
-      const an = (p) => [m[0] + p[0] * r, m[1] + p[1] * r, m[2] + p[2] * r];
-      for (const fl of flaechen) for (const p of fl) ecke(an(p), p, farbe);
-    }
-    return { v, dreieck, viereck, glied, kugel };
+  // ---------------------------------------------------------------------------
+  // Die Surferin
+  // ---------------------------------------------------------------------------
+  /*
+   * Ein Mensch auf einem Shortboard, gebaut aus glatten Flächen: der Rumpf
+   * Ring um Ring vom Becken bis zum Hals, Arme und Beine als Röhren, die sich
+   * an Knie und Ellbogen rund biegen, Hände, Füsse, ein Kopf mit Haar und
+   * einem Pferdeschwanz, der im Fahrtwind flattert. Sie trägt einen
+   * Neoprenanzug mit langen Ärmeln und kurzen Beinen, an den Seiten ein
+   * Streifen in Koralle. Das Brett: 1,86 m, mit Rocker, runden Kanten,
+   * türkisem Boden, drei Finnen, einem Pad am Heck und einer Leash zum
+   * hinteren Knöchel.
+   *
+   * Gerechnet wird in ihrem eigenen Raum: x zur Wand hin (dorthin schaut
+   * sie, frontside), y hinauf, z nach vorn zur Nase des Bretts. Ihr Netz
+   * entsteht in jedem Bild neu aus ihrer Haltung (haltungBei) – die Zahl der
+   * Ecken, die Dreiecke, Farben und Stoffe bleiben dabei immer dieselben.
+   */
+  const vPlus = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const vMinus = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const vMal = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const vMisch = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const vKreuz = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const vPunkt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const vLang = (a) => Math.hypot(a[0], a[1], a[2]);
+  const vNorm = (a) => { const l = vLang(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+  // Die Stoffe – das Programm der Figur gibt jedem sein Licht und sein Muster.
+  const STOFF = { haut: 0, anzug: 1, deck: 2, boden: 3, haar: 4, finne: 5, band: 6 };
+  const HAUT = [0.6, 0.37, 0.26];
+  const ANZUG = [0.034, 0.038, 0.048];
+  const SCHULTER = [0.02, 0.36, 0.4];
+  const HAAR = [0.46, 0.3, 0.15];
+  const HAAR_SPITZE = [0.78, 0.6, 0.38];
+  const FINNE = [0.07, 0.08, 0.09];
+  const KORALLE = [0.98, 0.42, 0.32];
+
+  // Ein Netz aus glatten Flächen, das in jedem Bild neu entstehen kann. Jede
+  // Fläche ist ein Gitter aus Zeilen und Spalten. Beim ersten Bauen wird der
+  // Plan festgehalten (Dreiecke, Farben, Stoffe, wohin jede Fläche schaut);
+  // danach schreibt jedes Bauen nur Orte und Richtungen neu, in derselben
+  // Reihenfolge. Die Richtung einer Ecke kommt aus ihren Nachbarn.
+  const FIGUR_MAX = 5000;
+  function netzSchreiber() {
+    const plan = { fertig: false, index: [], wie: [], seite: [] };
+    const orte = new Float32Array(FIGUR_MAX * 3);
+    const spitz = new Uint8Array(FIGUR_MAX);
+    let n = 0;
+    let nr = 0;
+    let aus = null;
+    return {
+      plan,
+      anfang(ziel) { n = 0; nr = 0; aus = ziel; },
+      ende() { plan.fertig = true; return n; },
+      // ort(i, j): wo die Ecke liegt. wie(i, j): [r, g, b, Stoff, u, v] –
+      // nur beim ersten Bauen gefragt. rund: die Spalten schliessen sich.
+      gitter(zeilen, spalten, ort, wie, rund = true) {
+        const start = n;
+        for (let i = 0; i < zeilen; i += 1) {
+          for (let j = 0; j < spalten; j += 1) {
+            const p = ort(i, j);
+            orte[n * 3] = p[0]; orte[n * 3 + 1] = p[1]; orte[n * 3 + 2] = p[2];
+            n += 1;
+          }
+        }
+        const k = (i, j) => start + i * spalten + (rund ? (j + spalten) % spalten : clamp(j, 0, spalten - 1));
+        if (!plan.fertig) {
+          for (let i = 0; i < zeilen; i += 1) for (let j = 0; j < spalten; j += 1) plan.wie.push(...wie(i, j));
+          for (let i = 0; i < zeilen - 1; i += 1) {
+            for (let j = 0; j < (rund ? spalten : spalten - 1); j += 1) {
+              plan.index.push(k(i, j), k(i, j + 1), k(i + 1, j + 1), k(i, j), k(i + 1, j + 1), k(i + 1, j));
+            }
+          }
+        }
+        let mx = 0, my = 0, mz = 0;
+        for (let q = start; q < n; q += 1) { mx += orte[q * 3]; my += orte[q * 3 + 1]; mz += orte[q * 3 + 2]; }
+        mx /= n - start; my /= n - start; mz /= n - start;
+        let summe = 0;
+        for (let i = 0; i < zeilen; i += 1) {
+          for (let j = 0; j < spalten; j += 1) {
+            const q = k(i, j);
+            const a = k(Math.min(i + 1, zeilen - 1), j) * 3, c = k(Math.max(i - 1, 0), j) * 3;
+            const e = k(i, j + 1) * 3, f = k(i, j - 1) * 3;
+            const ix = orte[a] - orte[c], iy = orte[a + 1] - orte[c + 1], iz = orte[a + 2] - orte[c + 2];
+            const jx = orte[e] - orte[f], jy = orte[e + 1] - orte[f + 1], jz = orte[e + 2] - orte[f + 2];
+            let nx = jy * iz - jz * iy, ny = jz * ix - jx * iz, nz = jx * iy - jy * ix;
+            spitz[q] = 0;
+            if (Math.hypot(nx, ny, nz) < 1e-12) {
+              // Eine Spitze (alle Ecken der Zeile an einem Ort): Sie schaut
+              // von der Mitte der Nachbarzeile weg.
+              const z = i === 0 ? 1 : i === zeilen - 1 ? zeilen - 2 : i - 1;
+              let sx = 0, sy = 0, sz = 0;
+              for (let jj = 0; jj < spalten; jj += 1) { const r = k(z, jj) * 3; sx += orte[r]; sy += orte[r + 1]; sz += orte[r + 2]; }
+              nx = orte[q * 3] - sx / spalten; ny = orte[q * 3 + 1] - sy / spalten; nz = orte[q * 3 + 2] - sz / spalten;
+              spitz[q] = 1;
+            } else {
+              summe += nx * (orte[q * 3] - mx) + ny * (orte[q * 3 + 1] - my) + nz * (orte[q * 3 + 2] - mz);
+            }
+            aus[q * 6 + 3] = nx; aus[q * 6 + 4] = ny; aus[q * 6 + 5] = nz;
+          }
+        }
+        if (plan.seite.length <= nr) plan.seite.push(summe >= 0 ? 1 : -1);
+        const seite = plan.seite[nr];
+        for (let q = start; q < n; q += 1) {
+          const s = (spitz[q] ? 1 : seite) / (Math.hypot(aus[q * 6 + 3], aus[q * 6 + 4], aus[q * 6 + 5]) || 1);
+          aus[q * 6] = orte[q * 3]; aus[q * 6 + 1] = orte[q * 3 + 1]; aus[q * 6 + 2] = orte[q * 3 + 2];
+          aus[q * 6 + 3] *= s; aus[q * 6 + 4] *= s; aus[q * 6 + 5] *= s;
+        }
+        nr += 1;
+      },
+    };
   }
 
-  // Der Surfer in einer Haltung: k = 0 aufrecht (draussen auf der Schulter),
-  // k = 1 geduckt (in der Röhre). Er steht mit dem Gesicht zur Wand (x), das
-  // Brett zeigt nach vorn (z). Beide Haltungen haben dieselben Ecken in
-  // derselben Reihenfolge – das Programm gleitet dazwischen.
-  function figurNetz(k) {
-    const b = netzBauer();
-    const L = (a, c) => a.map((w, i) => lerp(w, c[i], k));
-    const plus = (p, q) => [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
-    const NEOPREN = [0.045, 0.055, 0.085];
-    const HAUT = [0.34, 0.22, 0.16];
-    const HAAR = [0.10, 0.07, 0.05];
-    const BRETT = [0.93, 0.89, 0.80];
-    const STREIF = [0.95, 0.42, 0.16];
-
-    // Das Brett: 1,9 m lang, vorn spitz und leicht aufgebogen.
-    const UMRISS = [[-0.93, 0.10], [-0.86, 0.19], [-0.55, 0.245], [-0.1, 0.26], [0.35, 0.235], [0.7, 0.16], [0.9, 0.07], [0.97, 0]];
-    const bug = (z) => 0.045 + 0.11 * Math.pow(clamp((z - 0.3) / 0.67, 0, 1), 2) + 0.03 * Math.pow(clamp((-z - 0.5) / 0.43, 0, 1), 2);
-    const innenBrett = [0, 0.045, 0];
-    for (let i = 0; i < UMRISS.length - 1; i += 1) {
-      const [z0, w0] = UMRISS[i];
-      const [z1, w1] = UMRISS[i + 1];
-      const y0 = bug(z0);
-      const y1 = bug(z1);
-      const farbe = z0 > -0.2 && z0 < 0.3 ? STREIF : BRETT;
-      b.viereck([-w0, y0 + 0.03, z0], [w0, y0 + 0.03, z0], [w1, y1 + 0.03, z1], [-w1, y1 + 0.03, z1], [0, y0 - 0.2, (z0 + z1) / 2], farbe);
-      b.viereck([-w0, y0 - 0.03, z0], [w0, y0 - 0.03, z0], [w1, y1 - 0.03, z1], [-w1, y1 - 0.03, z1], [0, y0 + 0.2, (z0 + z1) / 2], BRETT);
-      for (const s of [-1, 1]) {
-        b.viereck([s * w0, y0 - 0.03, z0], [s * w0, y0 + 0.03, z0], [s * w1, y1 + 0.03, z1], [s * w1, y1 - 0.03, z1], innenBrett, BRETT);
-      }
+  /*
+   * Eine Röhre längs der Punkte mitte, mit den Halbachsen r[k] ([quer,
+   * tief] oder eine Zahl) und runden Kappen an beiden Enden. hinweis: wohin
+   * «quer» am Anfang ungefähr zeigt – der Rahmen wird die Linie entlang
+   * mitgeführt, damit sich nichts verdreht. wie(t, w): t längs (0 bis 1), w
+   * der Winkel rundum (0: quer).
+   */
+  function roehre(b, mitte, r, hinweis, spalten, wie, kappen = 3) {
+    const m = mitte.length;
+    const achse = [];
+    const quer = [];
+    const tief = [];
+    for (let k = 0; k < m; k += 1) {
+      const a = vNorm(vMinus(mitte[Math.min(k + 1, m - 1)], mitte[Math.max(k - 1, 0)]));
+      const vor = k ? quer[k - 1] : hinweis;
+      let q = vMinus(vor, vMal(a, vPunkt(vor, a)));
+      if (vLang(q) < 1e-6) q = vKreuz(a, Math.abs(a[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]);
+      q = vNorm(q);
+      achse.push(a);
+      quer.push(q);
+      tief.push(vKreuz(a, q));
     }
-    b.viereck([-0.10, bug(-0.93) - 0.03, -0.93], [0.10, bug(-0.93) - 0.03, -0.93], [0.10, bug(-0.93) + 0.03, -0.93], [-0.10, bug(-0.93) + 0.03, -0.93], innenBrett, BRETT);
-
-    // Der Körper: Füsse auf dem Brett, Knie gebeugt, der Oberkörper zur Wand
-    // und nach vorn geneigt, ein Arm voraus, einer hinten zur Wand.
-    const fussH = [0.0, 0.085, -0.45];
-    const fussV = [0.02, 0.10, 0.37];
-    const knieH = L([0.14, 0.47, -0.34], [0.25, 0.37, -0.24]);
-    const knieV = L([0.17, 0.49, 0.36], [0.29, 0.41, 0.47]);
-    const huefte = L([0.02, 0.82, -0.04], [0.0, 0.5, -0.1]);
-    const hals = L([0.14, 1.3, 0.14], [0.24, 0.87, 0.22]);
-    const kopf = L([0.18, 1.48, 0.2], [0.3, 1.02, 0.34]);
-    const ellV = L([0.2, 1.08, 0.5], [0.3, 0.75, 0.6]);
-    const handV = L([0.25, 0.98, 0.74], [0.36, 0.73, 0.88]);
-    const ellH = L([0.27, 1.05, -0.33], [0.48, 0.65, -0.28]);
-    const handH = L([0.42, 0.9, -0.54], [0.8, 0.5, -0.4]);
-    const hueftH = plus(huefte, [0, 0, -0.10]);
-    const hueftV = plus(huefte, [0, 0, 0.10]);
-    const schulterH = plus(hals, [0, -0.05, -0.20]);
-    const schulterV = plus(hals, [0, -0.05, 0.20]);
-    const Z = [0, 0, 1];
-    b.glied(fussH, plus(fussH, [0.2, -0.01, 0.03]), 0.05, 0.045, HAUT, [0, 1, 0]);
-    b.glied(fussV, plus(fussV, [0.2, -0.01, 0.05]), 0.05, 0.045, HAUT, [0, 1, 0]);
-    b.glied(fussH, knieH, 0.06, 0.085, NEOPREN, Z);
-    b.glied(fussV, knieV, 0.06, 0.085, NEOPREN, Z);
-    b.glied(knieH, hueftH, 0.085, 0.11, NEOPREN, Z);
-    b.glied(knieV, hueftV, 0.085, 0.11, NEOPREN, Z);
-    b.glied(plus(huefte, [0, 0.02, 0]), plus(hals, [0, -0.08, 0]), 0.17, 0.2, NEOPREN, Z);
-    b.glied(schulterH, schulterV, 0.085, 0.085, NEOPREN, [0, 1, 0]);
-    b.glied(schulterV, ellV, 0.065, 0.055, NEOPREN, [0, 1, 0]);
-    b.glied(ellV, handV, 0.052, 0.042, NEOPREN, [0, 1, 0]);
-    b.glied(schulterH, ellH, 0.065, 0.055, NEOPREN, [0, 1, 0]);
-    b.glied(ellH, handH, 0.052, 0.042, NEOPREN, [0, 1, 0]);
-    b.kugel(handV, 0.055, HAUT);
-    b.kugel(handH, 0.055, HAUT);
-    b.glied(plus(hals, [0, -0.02, 0]), kopf, 0.06, 0.06, HAUT, Z);
-    b.kugel(kopf, 0.115, HAUT);
-    b.kugel(plus(kopf, [-0.035, 0.035, -0.02]), 0.112, HAAR);
-    return b.v;
+    const halb = (k) => (Array.isArray(r[k]) ? r[k] : [r[k], r[k]]);
+    const zeilen = m + 2 * kappen;
+    const lage = (i) => {
+      if (i < kappen) return { k: 0, s: Math.sin((i / kappen) * Math.PI / 2), v: -Math.cos((i / kappen) * Math.PI / 2), t: 0 };
+      if (i >= kappen + m) {
+        const phi = ((zeilen - 1 - i) / kappen) * Math.PI / 2;
+        return { k: m - 1, s: Math.sin(phi), v: Math.cos(phi), t: 1 };
+      }
+      return { k: i - kappen, s: 1, v: 0, t: m > 1 ? (i - kappen) / (m - 1) : 0 };
+    };
+    b.gitter(zeilen, spalten, (i, j) => {
+      const w = (j / spalten) * Math.PI * 2;
+      const { k, s, v } = lage(i);
+      const [rq, rt] = halb(k);
+      const c = vPlus(mitte[k], vMal(achse[k], v * Math.min(rq, rt) * 0.9));
+      return vPlus(c, vPlus(vMal(quer[k], Math.cos(w) * rq * s), vMal(tief[k], Math.sin(w) * rt * s)));
+    }, (i, j) => wie(lage(i).t, (j / spalten) * Math.PI * 2));
   }
 
-  // Beide Haltungen in einem Puffer: Ort und Richtung zweimal, dann die Farbe.
-  function figurPuffer() {
-    const a = figurNetz(0);
-    const c = figurNetz(1);
-    const n = a.length / 9;
-    const raus = new Float32Array(n * 15);
-    for (let i = 0; i < n; i += 1) {
-      for (let j = 0; j < 6; j += 1) {
-        raus[i * 15 + j] = a[i * 9 + j];
-        raus[i * 15 + 6 + j] = c[i * 9 + j];
-      }
-      for (let j = 0; j < 3; j += 1) raus[i * 15 + 12 + j] = a[i * 9 + 6 + j];
+  // Punkte längs zweier Glieder (a–b–c), an den Anteilen anteile der ganzen
+  // Länge – das Gelenk bei b rund gebogen.
+  function gelenkLinie(a, b, c, anteile, rund = 0.06) {
+    const l1 = vLang(vMinus(b, a));
+    const l2 = vLang(vMinus(c, b));
+    const r = Math.min(rund, l1 * 0.45, l2 * 0.45);
+    const p1 = vMisch(a, b, (l1 - r) / l1);
+    const p2 = vMisch(b, c, r / l2);
+    return anteile.map((f) => {
+      const s = f * (l1 + l2);
+      if (s <= l1 - r) return vMisch(a, b, s / l1);
+      if (s >= l1 + r) return vMisch(b, c, (s - l1) / l2);
+      const u = (s - (l1 - r)) / (2 * r);
+      return vPlus(vPlus(vMal(p1, (1 - u) * (1 - u)), vMal(b, 2 * u * (1 - u))), vMal(p2, u * u));
+    });
+  }
+
+  // Zwei Glieder der Längen l1 und l2 von a nach z: wo das Gelenk liegt.
+  // pol: wohin es zeigt (das Knie nach vorn, der Ellbogen nach unten).
+  function gelenk(a, z, l1, l2, pol) {
+    const hin = vMinus(z, a);
+    const d = clamp(vLang(hin), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+    const dir = vNorm(hin);
+    const x = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
+    let p = vMinus(pol, vMal(dir, vPunkt(pol, dir)));
+    p = vLang(p) < 1e-6 ? vKreuz(dir, [0, 0, 1]) : vNorm(p);
+    return vPlus(vPlus(a, vMal(dir, x)), vMal(p, h));
+  }
+
+  // Das Brett: Umriss (halbe Breite), Dicke und Rocker längs (0 Heck, 1 Nase).
+  const BRETT_LANG = 1.86;
+  const BRETT_UMRISS = [[0, 0.135], [0.02, 0.15], [0.1, 0.18], [0.25, 0.222], [0.45, 0.245], [0.6, 0.24], [0.75, 0.212], [0.86, 0.165], [0.94, 0.098], [0.98, 0.045], [1, 0]];
+  const BRETT_DICKE = [[0, 0.02], [0.15, 0.038], [0.4, 0.058], [0.55, 0.058], [0.8, 0.04], [1, 0.016]];
+  const BRETT_ROCKER = [[0, 0.04], [0.15, 0.012], [0.35, 0], [0.6, 0.004], [0.8, 0.034], [0.92, 0.072], [1, 0.11]];
+  const BRETT_UNTEN = 0.025;       // so hoch liegt sein Boden über dem Wasser
+  const BRETT_STATIONEN = [0, 0.03, 0.07, 0.12, 0.18, 0.25, 0.33, 0.41, 0.5, 0.58, 0.66, 0.73, 0.8, 0.86, 0.91, 0.95, 0.975, 0.99, 1];
+  const brettBei = (s) => ({ w: Math.max(0, kurve(BRETT_UMRISS, s)), t: kurve(BRETT_DICKE, s), y: BRETT_UNTEN + kurve(BRETT_ROCKER, s) });
+  // Wie hoch das Deck an der Stelle z steht (in der Mitte).
+  const deckBei = (z) => { const q = brettBei(clamp(z / BRETT_LANG + 0.5, 0, 1)); return q.y + q.t * 1.12; };
+  const hochUndTief = (c, e) => Math.sign(c) * Math.pow(Math.abs(c), e);
+
+  /*
+   * Ihre Haltung. Zwei Stellungen, zwischen denen sie gleitet – locker
+   * stehend (draussen auf der Schulter) und tief geduckt (in der Röhre) –,
+   * und was dazukommt:
+   *
+   *   duck    0 bis 1: wie tief sie geduckt ist
+   *   druck   -1 bis 1: in die Knie (Pumpen, hinauf) oder gestreckt (hinunter)
+   *   lehn    wie weit sie sich zur Wand lehnt (Bogenmass) – in die Kurve
+   *   roll    wie weit sich der Körper gegenüber dem Brett aufrichtet
+   *   wand    0 bis 1: die hintere Hand streift die Wand
+   *   arm     -1 bis 1: die Arme halten das Gleichgewicht
+   *   haar    die Richtungen der Glieder des Pferdeschwanzes
+   */
+  const STELLUNG = [
+    { becken: [-0.03, 0.87, -0.02], hals: [0.17, 1.33, 0.03], dreh: [0.28, 0.5], handV: [0.34, 0.98, 0.58], handH: [0.16, 0.92, -0.58] },
+    { becken: [-0.09, 0.58, -0.04], hals: [0.27, 0.97, 0.05], dreh: [0.16, 0.36], handV: [0.5, 0.74, 0.62], handH: [0.44, 0.6, -0.5] },
+  ];
+  const HAAR_N = 6;
+  const HAAR_GLIED = 0.055;
+  const KNOECHEL_H = [0.0, 0, -0.37];
+  const KNOECHEL_V = [0.03, 0, 0.3];
+  const FUSS_H = vNorm([0.94, 0, 0.3]);
+  const FUSS_V = vNorm([0.8, 0, 0.6]);
+  const OBERSCHENKEL = 0.44;
+  const SCHIENBEIN = 0.42;
+  const OBERARM = 0.29;
+  const UNTERARM = 0.26;
+
+  function haltungNeu() {
+    const haar = [];
+    for (let i = 0; i < HAAR_N; i += 1) haar.push(vNorm([-0.25, -0.75 + i * 0.05, -0.6]));
+    return { duck: 0.3, druck: 0, lehn: 0, roll: 0, wand: 0, arm: 0, zeit: 0, haar };
+  }
+
+  function haltungBei(p) {
+    const k = clamp(p.duck, 0, 1);
+    const A = STELLUNG[0];
+    const B = STELLUNG[1];
+    const L = (a, b) => vMisch(a, b, k);
+    let becken = L(A.becken, B.becken);
+    let hals = L(A.hals, B.hals);
+    // Pumpen: in die Knie und wieder hinaus.
+    becken = vPlus(becken, [-0.02 * p.druck, -0.085 * p.druck, 0]);
+    hals = vPlus(hals, [0.04 * p.druck, -0.075 * p.druck, 0]);
+    // Atmen, ausbalancieren: ganz wenig, immer.
+    const wipp = Math.sin(p.zeit * 2.3) * 0.008;
+    becken[1] += wipp;
+    hals[1] += wipp * 1.4;
+    let handV = L(A.handV, B.handV);
+    let handH = L(A.handH, B.handH);
+    handV = vPlus(handV, [0.03 * p.arm, 0.1 * p.arm + Math.sin(p.zeit * 1.7) * 0.02, -0.02 * p.arm]);
+    handH = vPlus(handH, [-0.02 * p.arm, -0.08 * p.arm + Math.sin(p.zeit * 1.3 + 1) * 0.02, -0.04 * Math.abs(p.arm)]);
+    // Die hintere Hand an der Wand: tief zur Seite, die Finger im Wasser.
+    handH = vMisch(handH, [0.62, 0.16, -0.42], p.wand);
+    const dreh = [lerp(A.dreh[0], B.dreh[0], k), lerp(A.dreh[1], B.dreh[1], k)];
+
+    // Der Körper richtet sich auf und lehnt in die Kurve – um eine Achse
+    // längs des Bretts, durch die Füsse.
+    const w = p.roll + p.lehn;
+    const cw = Math.cos(w);
+    const sw = Math.sin(w);
+    const deckH = deckBei(KNOECHEL_H[2]);
+    const deckV = deckBei(KNOECHEL_V[2]);
+    const drehe = (q) => {
+      const x = q[0] - 0.015;
+      const y = q[1] - (deckH + deckV) / 2;
+      return [0.015 + x * cw + y * sw, (deckH + deckV) / 2 - x * sw + y * cw, q[2]];
+    };
+    const drehR = (q) => [q[0] * cw + q[1] * sw, -q[0] * sw + q[1] * cw, q[2]];
+    becken = drehe(becken);
+    hals = drehe(hals);
+    handV = drehe(handV);
+    handH = drehe(handH);
+
+    // Becken und Schultern: offen zur Nase hin.
+    const breiteB = drehR([-Math.sin(dreh[0]), 0, Math.cos(dreh[0])]);
+    const breiteS = drehR([-Math.sin(dreh[1]), 0, Math.cos(dreh[1])]);
+    // Die Wirbelsäule: unten folgt sie dem Becken (aufrechter), oben der Brust.
+    const hoch = vNorm(vMinus(hals, becken));
+    const beckenHoch = vNorm(vMisch(hoch, drehR([0, 1, 0]), 0.45));
+    const schritt = vMinus(becken, vMal(beckenHoch, 0.1));
+    const steuer = vPlus(becken, vMal(beckenHoch, 0.26));
+    const ruecken = (t) => vPlus(vPlus(vMal(schritt, (1 - t) * (1 - t)), vMal(steuer, 2 * t * (1 - t))), vMal(hals, t * t));
+    const schulter = ruecken(0.9);
+    const schulterH = vMinus(schulter, vMal(breiteS, 0.168));
+    const schulterV = vPlus(schulter, vMal(breiteS, 0.168));
+    const huefte = ruecken(0.15);
+    const hueftH = vMinus(huefte, vMal(breiteB, 0.088));
+    const hueftV = vPlus(huefte, vMal(breiteB, 0.088));
+
+    // Die Beine: die Füsse fest auf dem Deck, die Knie nach vorn.
+    const knoechelH = [KNOECHEL_H[0], deckH + 0.085, KNOECHEL_H[2]];
+    const knoechelV = [KNOECHEL_V[0], deckV + 0.085, KNOECHEL_V[2]];
+    const knieH = gelenk(hueftH, knoechelH, OBERSCHENKEL, SCHIENBEIN, [1, 0.1, 0.55]);
+    const knieV = gelenk(hueftV, knoechelV, OBERSCHENKEL, SCHIENBEIN, [1, 0.1, -0.12]);
+    // Die Arme: die Ellbogen nach unten und ein wenig nach aussen.
+    const zuHand = (s, h) => { const d = vMinus(h, s); const l = vLang(d); return l > OBERARM + UNTERARM - 0.01 ? vPlus(s, vMal(d, (OBERARM + UNTERARM - 0.01) / l)) : h; };
+    handV = zuHand(schulterV, handV);
+    handH = zuHand(schulterH, handH);
+    const ellV = gelenk(schulterV, handV, OBERARM, UNTERARM, vPlus([0.1, -1, 0.2], vMal(breiteS, 0.4)));
+    const ellH = gelenk(schulterH, handH, OBERARM, UNTERARM, vPlus([-0.1, -1, -0.1], vMal(breiteS, -0.5)));
+
+    // Der Kopf: über dem Hals, der Blick die Welle entlang, ein wenig zur Wand.
+    const nacken = vNorm(vMisch(hoch, [0, 1, 0], 0.55));
+    const kopf = vPlus(hals, vMal(nacken, 0.15));
+    const blick = vNorm([0.45, -0.12, 1]);
+    const kopfVor = vNorm(vMinus(blick, vMal(nacken, vPunkt(blick, nacken))));
+    const kopfSeite = vKreuz(nacken, kopfVor);
+
+    // Der Pferdeschwanz: hinten oben am Kopf, Glied um Glied.
+    const wurzel = vPlus(vPlus(kopf, vMal(nacken, 0.055)), vMal(kopfVor, -0.085));
+    const haar = [wurzel];
+    for (let i = 0; i < HAAR_N; i += 1) haar.push(vPlus(haar[i], vMal(p.haar[i], HAAR_GLIED)));
+
+    return {
+      becken, hals, ruecken, breiteB, breiteS, schulterH, schulterV, hueftH, hueftV, knieH, knieV, knoechelH, knoechelV,
+      ellH, ellV, handH, handV, kopf, nacken, kopfVor, kopfSeite, haar,
+    };
+  }
+
+  // Der Rumpf: halbe Breite, Tiefe nach vorn und nach hinten – vom Schritt
+  // (0) bis zum Hals (1). Breit in den Hüften, schmal in der Taille.
+  const RUMPF = [
+    [0.0, 0.07, 0.05, 0.05], [0.06, 0.13, 0.08, 0.095], [0.14, 0.158, 0.085, 0.11], [0.24, 0.156, 0.082, 0.1],
+    [0.34, 0.138, 0.078, 0.082], [0.44, 0.12, 0.075, 0.07], [0.54, 0.128, 0.082, 0.072], [0.64, 0.143, 0.1, 0.077],
+    [0.72, 0.15, 0.106, 0.079], [0.8, 0.158, 0.088, 0.081], [0.87, 0.175, 0.074, 0.08], [0.93, 0.148, 0.06, 0.068],
+    [0.97, 0.095, 0.05, 0.055], [1.0, 0.055, 0.045, 0.045],
+  ];
+
+  // Das Netz aus der Haltung j, geschrieben mit dem Schreiber b.
+  function surferinBauen(b, j) {
+    const ring = 18;
+    // Der Rumpf, im Anzug, an beiden Seiten ein Streifen.
+    b.gitter(RUMPF.length + 1, ring, (i, s) => {
+      const z = Math.max(0, i - 1);
+      const [t, hw, hv, hh] = RUMPF[z];
+      const mitte = j.ruecken(i ? t : -0.03);
+      const hoch = vNorm(vMinus(j.ruecken(Math.min(1, t + 0.03)), j.ruecken(Math.max(0, t - 0.03))));
+      let q = vNorm(vMisch(j.breiteB, j.breiteS, weich(0.25, 0.85, t)));
+      q = vNorm(vMinus(q, vMal(hoch, vPunkt(q, hoch))));
+      const vorn = vKreuz(hoch, q);
+      if (!i) return mitte;
+      const w = (s / ring) * Math.PI * 2;
+      const c = Math.cos(w);
+      const sn = Math.sin(w);
+      return vPlus(mitte, vPlus(vMal(q, hochUndTief(c, 0.8) * hw), vMal(vorn, hochUndTief(sn, 0.85) * (sn > 0 ? hv : hh))));
+    }, (i, s) => [...(RUMPF[Math.max(0, i - 1)][0] >= 0.8 && Math.sin((s / ring) * Math.PI * 2) < 0.3 ? SCHULTER : ANZUG), STOFF.anzug, Math.abs(Math.cos((s / ring) * Math.PI * 2)), 1]);
+
+    // Der Hals.
+    roehre(b, [vMinus(j.hals, vMal(j.nacken, 0.04)), vPlus(j.hals, vMal(j.nacken, 0.07))], [0.043, 0.04], j.kopfSeite, 10,
+      (t) => (t < 0.3 ? [...ANZUG, STOFF.anzug, 0, 0] : [...HAUT, STOFF.haut, 0, 0]), 1);
+
+    // Der Kopf: ein wenig länger als breit, hinten voller.
+    const kopfPunkt = (breit, hoch, vor, hinten, lat, w) => {
+      const c = Math.cos(lat);
+      const vz = Math.sin(w);
+      return vPlus(j.kopf, vPlus(vPlus(vMal(j.kopfSeite, Math.cos(w) * c * breit), vMal(j.kopfVor, vz * c * (vz > 0 ? vor : hinten))), vMal(j.nacken, Math.sin(lat) * hoch)));
+    };
+    b.gitter(12, 14, (i, s) => kopfPunkt(0.074, 0.105, 0.092, 0.098, -Math.PI / 2 + (Math.PI * i) / 11, (s / 14) * Math.PI * 2),
+      () => [...HAUT, STOFF.haut, 0, 0]);
+    // Das Haar: eine Kappe, hinten bis in den Nacken, vorn bis zur Stirn.
+    b.gitter(8, 16, (i, s) => {
+      const w = (s / 16) * Math.PI * 2;
+      const vorn = (1 + Math.sin(w)) / 2;
+      const ende = -0.5 + 1.0 * Math.pow(vorn, 1.6);
+      const lat = Math.PI / 2 - (Math.PI / 2 - ende) * (i / 7);
+      const voll = lerp(1.09, 1.015, Math.pow(i / 7, 2));
+      return kopfPunkt(0.074 * voll, 0.105 * voll, 0.092 * voll, 0.098 * voll * 1.03, lat, w);
+    }, (i, s) => [...HAAR, STOFF.haar, Math.cos((s / 16) * Math.PI * 2), Math.sin((s / 16) * Math.PI * 2)], true);
+    // Das Haarband und der Pferdeschwanz.
+    const haar = j.haar;
+    roehre(b, [vMinus(haar[0], vMal(vNorm(vMinus(haar[1], haar[0])), 0.01)), vPlus(haar[0], vMal(vNorm(vMinus(haar[1], haar[0])), 0.018))],
+      [0.026, 0.026], j.kopfSeite, 8, () => [...KORALLE, STOFF.band, 0, 0], 1);
+    roehre(b, haar, [0.022, 0.034, 0.036, 0.032, 0.026, 0.017, 0.007], j.kopfSeite, 9,
+      (t, w) => [...vMisch(HAAR, HAAR_SPITZE, t * t), STOFF.haar, Math.cos(w), Math.sin(w)], 2);
+
+    // Die Arme im Anzug, an der Aussenseite ein Streifen – und die Hände.
+    const ARM = [0, 0.12, 0.3, 0.46, 0.53, 0.6, 0.75, 0.9, 1];
+    const ARM_R = [0.049, 0.047, 0.04, 0.035, 0.034, 0.036, 0.033, 0.027, 0.024];
+    for (const [schulter, ell, hand, s] of [[j.schulterH, j.ellH, j.handH, -1], [j.schulterV, j.ellV, j.handV, 1]]) {
+      const aussen = vNorm(vPlus(vMal(j.breiteS, s), [0, 0.6, 0]));
+      roehre(b, gelenkLinie(schulter, ell, hand, ARM, 0.05), ARM_R, aussen, 10,
+        (t, w) => [...ANZUG, STOFF.anzug, Math.cos(w), 1], 2);
+      const dir = vNorm(vMinus(hand, ell));
+      const flach = vNorm(vKreuz(dir, vNorm(vPlus([0, 1, 0], vMal(j.breiteS, 0.3 * s)))));
+      const finger = vMinus(vMal(dir, 0.92), [0, 0.35, 0]);
+      roehre(b, [vMinus(hand, vMal(dir, 0.012)), vPlus(hand, vMal(dir, 0.05)), vPlus(vPlus(hand, vMal(dir, 0.1)), vMal(finger, 0.012)), vPlus(hand, vMal(vNorm(finger), 0.15))],
+        [[0.025, 0.017], [0.04, 0.019], [0.037, 0.015], [0.018, 0.01]], flach, 8, () => [...HAUT, STOFF.haut, 0, 0], 2);
     }
-    return raus;
+
+    // Die Beine: oben im Anzug (er endet mitten am Oberschenkel), darunter
+    // Haut – und die Füsse flach auf dem Deck.
+    const BEIN = [0, 0.1, 0.2, 0.29, 0.3, 0.4, 0.47, 0.51, 0.56, 0.64, 0.73, 0.83, 0.93, 1];
+    const BEIN_R = [[0.082, 0.085], [0.076, 0.08], [0.07, 0.074], [0.064, 0.068], [0.062, 0.066], [0.058, 0.06], [0.052, 0.054], [0.05, 0.052],
+      [0.052, 0.056], [0.054, 0.06], [0.05, 0.056], [0.04, 0.042], [0.034, 0.034], [0.033, 0.032]];
+    for (const [hueft, knie, knoechel, fuss, s] of [[j.hueftH, j.knieH, j.knoechelH, FUSS_H, -1], [j.hueftV, j.knieV, j.knoechelV, FUSS_V, 1]]) {
+      roehre(b, gelenkLinie(hueft, knie, knoechel, BEIN, 0.07), BEIN_R, [0, 0, 1], 12,
+        (t) => (t < 0.27 ? [...ANZUG, STOFF.anzug, 0, 0] : [...HAUT, STOFF.haut, 0, 0]), 2);
+      const sohle = deckBei(knoechel[2]);
+      const quer = vNorm(vKreuz(fuss, [0, 1, 0]));
+      const ferse = [knoechel[0] - fuss[0] * 0.055, sohle + 0.032, knoechel[2] - fuss[2] * 0.055];
+      roehre(b, [ferse, [knoechel[0] + fuss[0] * 0.04, sohle + 0.036, knoechel[2] + fuss[2] * 0.04],
+        [knoechel[0] + fuss[0] * 0.12, sohle + 0.026, knoechel[2] + fuss[2] * 0.12], [knoechel[0] + fuss[0] * 0.18, sohle + 0.016, knoechel[2] + fuss[2] * 0.18]],
+      [[0.03, 0.03], [0.04, 0.035], [0.045, 0.026], [0.03, 0.015]], quer, 8, () => [...HAUT, STOFF.haut, 0, 0], 2);
+    }
+    // Die Manschette der Leash am hinteren Knöchel.
+    const bein = vNorm(vMinus(j.knieH, j.knoechelH));
+    roehre(b, [vMinus(j.knoechelH, vMal(bein, 0.02)), vPlus(j.knoechelH, vMal(bein, 0.035))], [0.042, 0.042], [0, 0, 1], 10,
+      () => [...FINNE, STOFF.finne, 0, 0], 1);
+
+    // Das Brett: Station um Station vom Heck zur Nase; das Heck rund
+    // geschlossen.
+    const stationen = [-2, -1, ...BRETT_STATIONEN];
+    const SP = 20;
+    b.gitter(stationen.length, SP, (i, s) => {
+      const st = stationen[i];
+      const q = brettBei(Math.max(0, st));
+      const mass = st === -2 ? 0 : st === -1 ? 0.72 : 1;
+      const z = (Math.max(0, st) - 0.5) * BRETT_LANG - (st < 0 ? (st === -2 ? 0.009 : 0.005) : 0);
+      const w = (s / SP) * Math.PI * 2;
+      const c = Math.cos(w);
+      const sn = Math.sin(w);
+      const x = q.w * hochUndTief(c, 0.5) * mass;
+      const quer = q.w > 1e-4 ? 1 - (x / q.w) * (x / q.w) : 0;
+      const y = q.y + q.t / 2 + (q.t / 2) * hochUndTief(sn, 0.75) * mass + (sn > 0 ? q.t * 0.25 * quer : -q.t * 0.05 * quer) * mass;
+      return [x, y, z];
+    }, (i, s) => {
+      const w = (s / SP) * Math.PI * 2;
+      const st = Math.max(0, stationen[i]);
+      return [0.93, 0.9, 0.84, Math.sin(w) > -1e-6 ? STOFF.deck : STOFF.boden, hochUndTief(Math.cos(w), 0.5), st];
+    });
+
+    // Drei Finnen unter dem Heck: zwei an den Seiten, leicht nach aussen
+    // gekippt, eine in der Mitte.
+    for (const [xs, s0, gross] of [[-0.13, 0.135, 1], [0.13, 0.135, 1], [0, 0.05, 0.9]]) {
+      const z0 = (s0 - 0.5) * BRETT_LANG;
+      const unten = brettBei(s0).y;
+      const mitte = [0, 0.33, 0.66, 1].map((u) => [xs * (1 + 0.5 * u * Math.abs(xs)), unten + 0.008 - u * 0.11 * gross, z0 - 0.055 * gross * Math.pow(u, 1.4)]);
+      roehre(b, mitte, [[0.05 * gross, 0.0055], [0.043 * gross, 0.005], [0.031 * gross, 0.004], [0.014 * gross, 0.003]], [0, 0, 1], 8,
+        () => [...FINNE, STOFF.finne, 0, 0], 2);
+    }
+
+    // Die Leash: vom Knöchel aufs Deck und zum Stöpsel am Heck.
+    const deckHeck = deckBei(-0.84);
+    const zuHeck = [vPlus(j.knoechelH, [-0.035, -0.02, -0.01]), [-0.08, deckBei(-0.5) + 0.012, -0.5], [-0.07, deckBei(-0.68) + 0.01, -0.68], [0, deckHeck + 0.012, -0.84]];
+    roehre(b, zuHeck, [0.0065, 0.0065, 0.0065, 0.0065], [0, 1, 0], 5, () => [...FINNE, STOFF.finne, 0, 0], 1);
+  }
+
+  // Der Schreiber der Surferin, ihr Netz in diesem Bild, und für die Gegner
+  // zwei feste Haltungen (aufrecht, geduckt).
+  const figur = { schreiber: null, ecken: 0, jetzt: null, stand: null, hocke: null, statisch: null, index: null };
+  function figurPlan() {
+    const b = netzSchreiber();
+    figur.schreiber = b;
+    const leer = new Float32Array(FIGUR_MAX * 6);
+    b.anfang(leer);
+    surferinBauen(b, haltungBei(haltungNeu()));
+    figur.ecken = b.ende();
+    figur.jetzt = new Float32Array(figur.ecken * 6);
+    figur.index = new Uint16Array(b.plan.index);
+    figur.statisch = new Float32Array(b.plan.wie);
+    const fest = (duck) => {
+      const p = haltungNeu();
+      p.duck = duck;
+      const raus = new Float32Array(figur.ecken * 6);
+      b.anfang(raus);
+      surferinBauen(b, haltungBei(p));
+      return raus;
+    };
+    figur.stand = fest(0.25);
+    figur.hocke = fest(0.95);
+  }
+
+  // Ihr Netz für dieses Bild.
+  function figurJetzt(p) {
+    figur.schreiber.anfang(figur.jetzt);
+    surferinBauen(figur.schreiber, haltungBei(p));
+    return figur.jetzt;
   }
 
   // Immer dieselbe Zahl zu derselben ganzen Zahl – auf jedem Gerät.
@@ -1588,16 +1996,38 @@
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, welle.index, gl.STATIC_DRAW);
 
-    // Der Surfer.
-    const figur = figurPuffer();
-    N.figur = { vao: gl.createVertexArray(), anzahl: figur.length / 15 };
-    gl.bindVertexArray(N.figur.vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, figur, gl.STATIC_DRAW);
-    for (let i = 0; i < 5; i += 1) {
-      gl.enableVertexAttribArray(i);
-      gl.vertexAttribPointer(i, 3, gl.FLOAT, false, 60, i * 12);
-    }
+    // Die Surferin: ihr Netz kommt in jedem Bild neu (ich); die Gegner
+    // fahren in zwei festen Haltungen (geist). Dreiecke, Farben und Stoffe
+    // teilen sie.
+    if (!figur.schreiber) figurPlan();
+    const index = gl.createBuffer();
+    const stoff = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, stoff);
+    gl.bufferData(gl.ARRAY_BUFFER, figur.statisch, gl.STATIC_DRAW);
+    const verbinde = (vao, a, c) => {
+      gl.bindVertexArray(vao);
+      for (const [puffer, ab] of [[a, 0], [c, 2], [stoff, 4]]) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, puffer);
+        gl.enableVertexAttribArray(ab);
+        gl.vertexAttribPointer(ab, 3, gl.FLOAT, false, 24, 0);
+        gl.enableVertexAttribArray(ab + 1);
+        gl.vertexAttribPointer(ab + 1, 3, gl.FLOAT, false, 24, 12);
+      }
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
+    };
+    const ich = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ich);
+    gl.bufferData(gl.ARRAY_BUFFER, figur.jetzt.byteLength, gl.DYNAMIC_DRAW);
+    const stand = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, stand);
+    gl.bufferData(gl.ARRAY_BUFFER, figur.stand, gl.STATIC_DRAW);
+    const hocke = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, hocke);
+    gl.bufferData(gl.ARRAY_BUFFER, figur.hocke, gl.STATIC_DRAW);
+    N.figur = { anzahl: figur.index.length, ich: gl.createVertexArray(), puffer: ich, geist: gl.createVertexArray() };
+    verbinde(N.figur.ich, ich, ich);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, figur.index, gl.STATIC_DRAW);
+    verbinde(N.figur.geist, stand, hocke);
 
     // Die Teilchen: eine Scheibe, viele Male.
     const ecken = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]);
@@ -1750,7 +2180,10 @@
 
   // Die Figur auf die Wand stellen: das Brett liegt auf dem Wasser, der
   // Körper lehnt sich zur Senkrechten und in die Kurve.
-  function figurStellen(s, lehn, purzel = 0) {
+  // Wo die Senkrechte der Welt im Raum der Figur liegt (vor dem Purzeln):
+  // Danach richtet sich ihr Körper auf, und danach hängt ihr Haar.
+  const figurLot = [0, 1, 0];
+  function figurStellen(s, lehn, purzel = 0, kipp = 0.55) {
     const P = bild.prog.figur;
     // voraus (z des Netzes): die Fahrtrichtung.
     const zx = s.tx, zy = s.ty, zz = s.tz;
@@ -1758,16 +2191,19 @@
     const xx = zy * s.auf[2] - zz * s.auf[1];
     const xy = zz * s.auf[0] - zx * s.auf[2];
     const xz = zx * s.auf[1] - zy * s.auf[0];
-    // hoch: von der Wand weg, zur Senkrechten hin geneigt – aber nie in die
-    // Wand hinein gekippt (an einer steilen Wand zeigt «die Wand hinauf» fast
-    // senkrecht nach oben; dann bliebe von der Figur nur ein Strich).
-    let yx = lerp(s.auf[0], 0, 0.55) + s.sx * lehn;
-    let yy = lerp(s.auf[1], 1, 0.55) + s.sy * lehn;
+    // hoch: von der Wand weg, zur Senkrechten hin geneigt (kipp) – aber nie
+    // in die Wand hinein gekippt (an einer steilen Wand zeigt «die Wand
+    // hinauf» fast senkrecht nach oben; dann bliebe von der Figur nur ein
+    // Strich). Das Brett der Surferin liegt flacher auf der Wand als die
+    // Gegner; aufrichten tut sich ihr Körper selbst (haltungBei).
+    let yx = lerp(s.auf[0], 0, kipp) + s.sx * lehn;
+    let yy = lerp(s.auf[1], 1, kipp) + s.sy * lehn;
     let yz = -zy * 0.3;
     const schief = (yx * xx + yy * xy + yz * xz) * 0.65;
     yx -= xx * schief; yy -= xy * schief; yz -= xz * schief;
     const yl = Math.hypot(yx, yy, yz) || 1;
     yx /= yl; yy /= yl; yz /= yl;
+    figurLot[0] = xy; figurLot[1] = yy; figurLot[2] = zy;
     // Wer stürzt, überschlägt sich um seine Fahrtrichtung.
     const pc = Math.cos(purzel);
     const ps = Math.sin(purzel);
@@ -1776,6 +2212,7 @@
     basis[6] = zx; basis[7] = zy; basis[8] = zz;
     gl.uniformMatrix3fv(P.ort("uBasis"), false, basis);
   }
+
 
   const geisterOrte = [];
   const farbenMerker = new Map();
@@ -1849,6 +2286,8 @@
     gl.uniform1f(P.welle.ort("uVorSchaum"), kam.z - state.zs);
     gl.uniform3fv(P.welle.ort("uStreu"), abend.streu);
     gl.uniform3fv(P.welle.ort("uDurch"), bild.durch);
+    const schatten = state.schritt === "fahrt" || state.schritt === "start" || state.schritt === "strand" ? 0.38 : 0;
+    gl.uniform4f(P.welle.ort("uSchatten"), surfer.x, surfer.y, state.zp - kam.z - 0.1, schatten);
     gl.bindVertexArray(N.welle.vao);
     gl.drawElements(gl.TRIANGLES, N.welle.anzahl, gl.UNSIGNED_SHORT, 0);
 
@@ -1859,13 +2298,21 @@
     const wurf = state.schluss === "lippe" ? sturz : 0;
     const sichtbar = state.schritt !== "aus" || sturz < (state.schluss === "lippe" ? 1.2 : 0.5);
     gl.useProgram(P.figur.p);
-    gl.bindVertexArray(N.figur.vao);
     if (sichtbar) {
-      figurStellen(surfer, surfer.lehn, wurf * 4.2);
+      figurStellen(surfer, surfer.lehn * 0.5, wurf * 4.2, 0.3);
+      // Ihr Körper richtet sich gegenüber dem Brett zur Senkrechten auf, ihr
+      // Haar hängt nach unten.
+      const hal = surfer.haltung;
+      hal.roll = Math.atan2(figurLot[0], Math.max(0.05, figurLot[1])) * 0.6;
+      hal.lehn = surfer.lehn * 0.7;
+      surfer.unten[0] = -figurLot[0]; surfer.unten[1] = -figurLot[1]; surfer.unten[2] = -figurLot[2];
+      gl.bindVertexArray(N.figur.ich);
+      gl.bindBuffer(gl.ARRAY_BUFFER, N.figur.puffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, figurJetzt(hal));
       gl.uniform3f(P.figur.ort("uOrt"), surfer.x + 3 * wurf, Math.max(0.3, surfer.y + 3.6 * wurf - 6.5 * wurf * wurf), state.zp - kam.z);
-      gl.uniform1f(P.figur.ort("uPose"), surfer.pose);
+      gl.uniform1f(P.figur.ort("uPose"), 0);
       gl.uniform4f(P.figur.ort("uGeist"), 0, 0, 0, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, N.figur.anzahl);
+      gl.drawElements(gl.TRIANGLES, N.figur.anzahl, gl.UNSIGNED_SHORT, 0);
     }
 
     // 3. Himmel und Meer dahinter, wo noch nichts steht.
@@ -1902,7 +2349,7 @@
     geisterOrte.length = 0;
     if (gegner && state.phase !== "bereit") {
       gl.useProgram(P.figur.p);
-      gl.bindVertexArray(N.figur.vao);
+      gl.bindVertexArray(N.figur.geist);
       (window.LernappGeist?.orte?.(gegner) || []).forEach((o) => {
         geisterOrte.push(o);
         // Wem im Live-Modus zugeschaut wird, der ist der Surfer selbst – kein
@@ -1916,7 +2363,7 @@
         gl.uniform3f(P.figur.ort("uOrt"), geistSurfer.x, geistSurfer.y, gz - kam.z);
         gl.uniform1f(P.figur.ort("uPose"), o.c / 100 < ROEHRE ? 1 : 0.3);
         gl.uniform4f(P.figur.ort("uGeist"), farbe[0], farbe[1], farbe[2], 0.8 * o.blass);
-        gl.drawArrays(gl.TRIANGLES, 0, N.figur.anzahl);
+        gl.drawElements(gl.TRIANGLES, N.figur.anzahl, gl.UNSIGNED_SHORT, 0);
         o.wx = geistSurfer.x;
         o.wy = geistSurfer.y;
         o.wz = gz;
@@ -2008,10 +2455,13 @@
 
   const komma = (zahl, stellen = 1) => zahl.toFixed(stellen).replace(".", ",");
 
-  // Oben links: wie viel Luft bis zum Schaum ist, die Serie – und darunter
-  // ein schmaler Balken: links der Schaum, die Marke das Ende der Röhre.
+  // Oben links: wie viel Luft bis zum Schaum ist, die Serie – darunter ein
+  // schmaler Balken (links der Schaum, die Marke das Ende der Röhre) und ihr
+  // Tempo: grün mit Pfeilen nach rechts, wenn sie dem Schaum davonfährt,
+  // rot mit Pfeilen nach links, wenn er aufholt.
+  const ANZEIGE_HOCH = 2.95;       // so hoch ist das Kästchen, mal die Schrift
   function zeichneAnzeige() {
-    // Vor dem ersten Druck steht dort der Satz, wie es geht.
+    // Vor dem ersten Druck stehen dort die Sätze, wie es geht.
     if (state.phase === "bereit") return;
     const gross = clamp(view.cssH * 0.05, 15, 24);
     const x = 12;
@@ -2027,7 +2477,7 @@
     g.font = `900 ${Math.round(gross * 0.8)}px system-ui, sans-serif`;
     const sw = g.measureText("×0,0").width;
     const breit = gross * 1.9 + zw + gross * 0.5 + sw + gross * 0.7;
-    const hoch = gross * 2.15;
+    const hoch = gross * ANZEIGE_HOCH;
     g.fillStyle = "rgba(8, 14, 20, 0.5)";
     runde(x, y, breit, hoch, gross * 0.8);
     g.fill();
@@ -2088,39 +2538,109 @@
     g.beginPath();
     g.arc(wo(d), by + bh / 2, bh * 1.25, 0, Math.PI * 2);
     g.fill();
+
+    // Ihr Tempo – und ob sie schneller ist als der Schaum.
+    const schaum = state.schritt === "fahrt" ? tempoBei(state.spielzeit) * faktorBei(state.spielzeit) : state.v;
+    const vor = state.v - schaum;
+    const ty = y + gross * 2.4;
+    const farbe = vor > 0.4 ? "#9ff7d2" : vor < -0.4 ? "#ff9a7a" : "rgba(255, 255, 255, 0.85)";
+    g.font = `900 ${Math.round(gross * 0.72)}px system-ui, sans-serif`;
+    g.fillStyle = farbe;
+    const tempo = `${Math.round(state.v * 3.6)} km/h`;
+    g.fillText(tempo, bx, ty);
+    const pfeile = Math.min(3, Math.ceil(Math.max(0, Math.abs(vor) - 0.4) / 1.6));
+    let px = bx + g.measureText("000 km/h").width + gross * 0.35;
+    const ph = gross * 0.26;
+    for (let i = 0; i < pfeile; i += 1) {
+      g.globalAlpha = 1 - i * 0.22;
+      g.beginPath();
+      if (vor > 0) { g.moveTo(px, ty - ph); g.lineTo(px + ph * 1.1, ty); g.lineTo(px, ty + ph); }
+      else { g.moveTo(px + ph * 1.1, ty - ph); g.lineTo(px, ty); g.lineTo(px + ph * 1.1, ty + ph); }
+      g.closePath();
+      g.fill();
+      px += ph * 1.5;
+    }
+    g.globalAlpha = 1;
   }
 
-  // Vor dem ersten Druck: ein Finger-Kreis mit zwei Pfeilen – halten hinauf,
-  // loslassen hinunter.
-  function zeichneHinweis() {
-    if (state.phase !== "bereit" || shell.live) return;
-    const puls = ruhig() ? 0.75 : 0.6 + 0.3 * Math.sin(state.zeit * 3.2);
-    const gross = clamp(Math.min(view.cssW, view.cssH) * 0.075, 22, 44);
-    // Quer rechts neben dem Surfer, hochkant unter ihm.
-    const x = view.cssW > view.cssH * 1.1 ? view.cssW * 0.72 : view.cssW / 2;
-    const y = view.cssH * 0.87;
-    g.fillStyle = `rgba(8, 14, 20, ${0.42 * puls + 0.1})`;
-    g.beginPath();
-    g.arc(x, y, gross, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = `rgba(255, 255, 255, ${puls})`;
-    g.lineWidth = Math.max(3, gross * 0.13);
-    g.lineCap = "round";
-    g.lineJoin = "round";
-    g.beginPath();
-    g.arc(x, y, gross * 0.36, 0, Math.PI * 2);
-    g.stroke();
-    g.font = `800 ${Math.round(clamp(gross * 0.42, 12, 17))}px system-ui, sans-serif`;
-    g.textBaseline = "middle";
-    g.lineWidth = 3;
-    g.strokeStyle = "rgba(8, 14, 20, 0.6)";
-    for (const [s, text] of [[-1, "Halten: hinauf"], [1, "Loslassen: hinunter"]]) {
-      g.textAlign = s < 0 ? "right" : "left";
-      const tx = x + s * gross * 1.5;
-      g.strokeText(text, tx, y);
-      g.fillStyle = "#ffffff";
-      g.fillText(text, tx, y);
+  // Wohin ein Finger lenkt: zwei Felder unten links und rechts. Vor dem
+  // ersten Druck gross, mit den Sätzen dazu; während der Fahrt (auf einem
+  // Gerät mit Fingern – sonst nur am Anfang) als leise Pfeile, die
+  // aufleuchten, solange sie gedrückt sind.
+  const fingerGeraet = Boolean(window.matchMedia?.("(pointer: coarse)")?.matches);
+  function zeichneFelder(gross, deck, aktiv, texte) {
+    const quer = view.cssW > view.cssH * 1.1;
+    const y = view.cssH * (texte ? (quer ? 0.8 : 0.85) : 0.88);
+    const rand = Math.max(gross * 1.3 + 8, view.cssW * 0.08);
+    g.font = `800 ${Math.round(clamp(gross * 0.4, 12, 17))}px system-ui, sans-serif`;
+    for (const [s, richtung, text] of [[-1, 1, "Halten: hinauf"], [1, -1, "Halten: hinunter"]]) {
+      const x = s < 0 ? rand : view.cssW - rand;
+      const an = aktiv === richtung;
+      g.fillStyle = `rgba(8, 14, 20, ${(an ? 0.55 : 0.4) * deck})`;
+      g.beginPath();
+      g.arc(x, y, gross, 0, Math.PI * 2);
+      g.fill();
+      // Der Pfeil: hinauf zur Wand (links oben), hinunter ins Tal (rechts unten).
+      g.save();
+      g.translate(x, y);
+      g.rotate(s < 0 ? -Math.PI * 0.25 : Math.PI * 0.75);
+      g.strokeStyle = an ? `rgba(159, 247, 210, ${deck})` : `rgba(255, 255, 255, ${0.9 * deck})`;
+      g.lineWidth = Math.max(3, gross * 0.15);
+      g.lineCap = "round";
+      g.lineJoin = "round";
+      g.beginPath();
+      g.moveTo(0, gross * 0.45);
+      g.lineTo(0, -gross * 0.42);
+      g.moveTo(-gross * 0.32, -gross * 0.12);
+      g.lineTo(0, -gross * 0.45);
+      g.lineTo(gross * 0.32, -gross * 0.12);
+      g.stroke();
+      g.restore();
+      if (!texte) continue;
+      // Der Satz darunter – nie über den Rand hinaus.
+      const halb = g.measureText(text).width / 2;
+      const tx = clamp(x, halb + 8, view.cssW - halb - 8);
+      g.textAlign = "center";
+      g.textBaseline = "top";
+      g.lineWidth = 3;
+      g.lineJoin = "round";
+      g.strokeStyle = `rgba(8, 14, 20, ${0.7 * deck})`;
+      g.strokeText(text, tx, y + gross * 1.18);
+      g.fillStyle = `rgba(255, 255, 255, ${deck})`;
+      g.fillText(text, tx, y + gross * 1.18);
     }
+    if (!texte) return;
+    // Was geschieht, wenn niemand lenkt – und wie es schnell wird: quer
+    // rechts neben der Surferin, hochkant über ihr, auf einem dunklen Grund.
+    const zeile = gross * 0.62;
+    g.font = `800 ${Math.round(clamp(gross * 0.4, 12, 17))}px system-ui, sans-serif`;
+    const breit = Math.max(...texte.map((t) => g.measureText(t).width)) + gross * 0.9;
+    const hoch = zeile * texte.length + gross * 0.45;
+    const mx = quer ? view.cssW * 0.66 : view.cssW / 2;
+    const my = quer ? view.cssH * 0.56 : view.cssH * 0.4;
+    g.fillStyle = `rgba(8, 14, 20, ${0.5 * deck})`;
+    runde(mx - breit / 2, my - hoch / 2, breit, hoch, gross * 0.35);
+    g.fill();
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    texte.forEach((text, i) => {
+      g.fillStyle = i ? `rgba(159, 247, 210, ${deck})` : `rgba(255, 255, 255, ${deck})`;
+      g.fillText(text, mx, my + (i - (texte.length - 1) / 2) * zeile);
+    });
+  }
+
+  function zeichneHinweis() {
+    if (shell.live) return;
+    const gross = clamp(Math.min(view.cssW, view.cssH) * 0.075, 22, 44);
+    if (state.phase === "bereit") {
+      const puls = ruhig() ? 0.9 : 0.75 + 0.25 * Math.sin(state.zeit * 3.2);
+      zeichneFelder(gross, puls, 0, ["Loslassen: geradeaus", "Rauf und runter pumpen gibt Schwung"]);
+      return;
+    }
+    if (state.phase !== "spiel" || state.schritt !== "fahrt") return;
+    const deck = fingerGeraet ? 1 : 1 - weich(8, 12, state.spielzeit);
+    if (deck <= 0) return;
+    zeichneFelder(gross * 0.7, deck * (state.lenk ? 0.9 : 0.45), state.lenk, null);
   }
 
   // Ein Satz gross im Bild: zum Start, am Schluss.
@@ -2132,7 +2652,7 @@
     if (deck <= 0) return;
     const gross = clamp(view.cssW * 0.06, 22, 46);
     // Unter der Anzeige oben links – auf dem Handy rückt beides tiefer.
-    const y = Math.max(view.cssH * 0.2, view.frei + clamp(view.cssH * 0.05, 15, 24) * 2.15 + 14 + gross * 0.9);
+    const y = Math.max(view.cssH * 0.2, view.frei + clamp(view.cssH * 0.05, 15, 24) * ANZEIGE_HOCH + 14 + gross * 0.9);
     g.globalAlpha = deck;
     g.textAlign = "center";
     g.textBaseline = "middle";
@@ -2297,20 +2817,47 @@
     state.spielzeit += dt;
     const t = state.spielzeit;
     state.zs = state.z0 + schaumBei(t);
-    const ziel = state.halten ? PSI_AUF : -PSI_AB;
+    const ziel = state.lenk > 0 ? PSI_AUF : state.lenk < 0 ? -PSI_AB : PSI_FREI;
     state.psi += (ziel - state.psi) * (1 - Math.exp(-dt / DREH));
     const d = state.zp - state.zs;
-    const linieTempo = tempoBei(t) * linie(state.h) * tasche(d, t);
-    const sinus = Math.sin(state.psi);
-    state.v += (-hangBei(d) * steilBei(state.h) * sinus + (linieTempo - state.v) / TRAEG) * dt;
-    if (state.v < V_MIN) state.v = V_MIN;
+    const c = tempoBei(t);
+    const linieTempo = c * linie(state.h) * tasche(d, t);
+    let sinus = Math.sin(state.psi);
+    // Unter der Lippe wird die Wand senkrecht: Hinauf geht es dort zäh.
+    if (sinus > 0) sinus *= 1 - ZAEH * weich(ZAEH_AB, 1, state.h);
+    // Hinunter gibt der Hang ganz, hinauf kostet er nur zum Teil.
+    const hang = -HANG * steilBei(state.h) * sinus * (sinus > 0 ? HEBT : 1);
+    // Schwung hält lange – nur hoch an der Wand bremst es.
+    const traeg = state.v > linieTempo ? lerp(TRAEG_SCHWUNG, TRAEG_HOCH, weich(BREMS_AB, 0.9, state.h)) : TRAEG_SCHUB;
+    state.v += (hang + (linieTempo - state.v) / traeg) * dt;
+    state.v = clamp(state.v, V_MIN, c * V_MAX);
     state.h += state.v * sinus / WAND * dt;
     if (state.h < 0) {
       // Im Flachen geht es nicht tiefer – und kaum noch voran.
       state.h = 0;
-      if (state.psi < -0.12) state.psi = -0.12;
+      if (state.psi < -0.1) state.psi = -0.1;
     }
-    state.zp += state.v * Math.cos(state.psi) * dt;
+    state.zp += state.v * dt;
+    schwungTakt(c);
+  }
+
+  // Schwung sichtbar machen: Bringt ein Abstieg deutlich Tempo, steht kurz
+  // «Schwung!» an der Surferin – je mehr, desto grösser.
+  const schwung = { ab: false, v0: 0, zuletzt: -9 };
+  function schwungTakt(c) {
+    const runter = state.psi < -0.25;
+    if (runter && !schwung.ab) {
+      schwung.ab = true;
+      schwung.v0 = state.v;
+    } else if (!runter && schwung.ab) {
+      schwung.ab = false;
+      const plus = (state.v - schwung.v0) / c;
+      if (plus > SCHWUNG_ZEIGEN && state.phase === "spiel" && state.spielzeit - schwung.zuletzt > 2.4) {
+        schwung.zuletzt = state.spielzeit;
+        state.schwungZahl += 1;
+        schrift(plus > 0.34 ? "Voller Schwung!" : "Schwung!", plus > 0.34 ? "#9ff7d2" : "#d6fff0", plus > 0.34 ? 26 : 22);
+      }
+    }
   }
 
   // Punkte gibt es nur in der Röhre: je tiefer, desto mehr, mal die Serie.
@@ -2356,6 +2903,7 @@
     state.schluss = wie;
     state.schrittZeit = state.zeit;
     state.halten = false;
+    state.lenk = 0;
     state.stoss = 1;
     // Ein Schwall Schaum von hinten durchs Bild.
     for (let i = 0; i < (ruhig() || wie !== "schaum" ? 8 : 30); i += 1) {
@@ -2378,6 +2926,7 @@
     state.schluss = "strand";
     state.schrittZeit = state.zeit;
     state.halten = false;
+    state.lenk = 0;
     if (state.phase !== "spiel") return;
     state.roh += BONUS;
     state.punkte = Math.floor(state.roh);
@@ -2397,6 +2946,37 @@
     state.h = START_H + 0.1 * Math.sin(state.zeit * 1.15);
     state.psi = 0.16 * Math.cos(state.zeit * 1.15);
     state.v = v;
+  }
+
+  // Ihre Haltung folgt dem, was sie tut: geduckt in der Röhre, beim Hinauf
+  // in den Knien, beim Hinunter gestreckt, die Arme im Gleichgewicht, tief
+  // in der Röhre die hintere Hand an der Wand – und das Haar im Fahrtwind.
+  function haltungTakt(dt, duck, d) {
+    const hal = surfer.haltung;
+    const glatt = (zeit) => 1 - Math.exp(-dt / zeit);
+    hal.zeit = state.zeit;
+    hal.duck += (duck - hal.duck) * glatt(0.25);
+    const druck = state.psi > 0 ? 0.65 * state.psi / PSI_AUF : -0.5 * Math.min(1, -state.psi / PSI_AB);
+    hal.druck += (druck - hal.druck) * glatt(0.12);
+    hal.arm += (clamp(state.psi / 0.5, -1, 1) - hal.arm) * glatt(0.3);
+    const wand = state.schritt === "fahrt" && d < ROEHRE - 1.5 && state.h > 0.3 ? 1 : 0;
+    hal.wand += (wand - hal.wand) * glatt(0.35);
+    // Das Haar: Der Fahrtwind weht es nach hinten, es flattert, die
+    // Schwerkraft zieht es hinab, und dreht sie, schwingt es nach.
+    const wind = clamp(state.v / 14, 0.25, 1.3);
+    const dreh = clamp((state.psi - surfer.psi) / Math.max(dt, 1e-4), -3, 3);
+    surfer.psi = state.psi;
+    const u = surfer.unten;
+    const t = state.zeit;
+    for (let i = 0; i < HAAR_N; i += 1) {
+      const flattern = wind * (0.22 + 0.06 * i) * (ruhig() ? 0.3 : 1);
+      const ziel = vNorm([
+        -0.12 + u[0] * 0.55 + flattern * (0.5 * Math.sin(t * 8.3 - i * 0.9) + 0.25 * Math.sin(t * 13.7 - i * 1.5)) - dreh * 0.12,
+        0.1 * wind + u[1] * 0.55 + flattern * 0.35 * Math.sin(t * 6.1 - i * 0.7),
+        -wind * (0.9 + 0.05 * i) + u[2] * 0.55,
+      ]);
+      hal.haar[i] = vNorm(vMisch(hal.haar[i], ziel, glatt(0.05 + 0.025 * i)));
+    }
   }
 
   function takt(dt) {
@@ -2441,8 +3021,8 @@
     surferStellen(state.h, state.zp, state.psi);
     const d = state.zp - state.zs;
     const duck = state.schritt === "strand" ? 0 : weich(ROEHRE + 5, ROEHRE - 2, d) * 0.85 + 0.15 * weich(0.1, -0.4, state.psi);
-    surfer.pose += (duck - surfer.pose) * (1 - Math.exp(-dt / 0.25));
     surfer.lehn += (state.psi * 0.45 - surfer.lehn) * (1 - Math.exp(-dt / 0.18));
+    haltungTakt(dt, duck, d);
     if (state.schritt === "fahrt" || state.schritt === "start") spurTakt();
 
     // Schaum vor der Linse: je näher er ist, desto mehr – und ganz, wenn er
@@ -2557,41 +3137,64 @@
     shell.setPhase("play");
     gegner?.los();
     brandungAn();
-    karte("Ab in die Röhre", "Punkte gibt es nur unter dem Dach – je tiefer, desto mehr");
+    karte("Ab in die Röhre", "Rauf und runter pumpen gibt Schwung · Punkte nur unter dem Dach");
     kids()?.vibrate?.(8);
-    haltenNeu();
+    lenkNeu();
   }
 
-  // Wer hält, zieht hinauf – egal wo im Bild und mit wie vielen Fingern.
-  const finger = new Set();
-  function haltenNeu() {
-    state.halten = state.phase === "spiel" && state.schritt === "fahrt" && finger.size > 0;
+  // Wer links hält, fährt hinauf (dort ist die Wand), wer rechts hält,
+  // hinunter – und wer loslässt, fährt geradeaus. Liegen mehrere Finger,
+  // gilt der zuletzt gesetzte. Ein Finger, der über die Mitte gleitet,
+  // nimmt die Richtung mit.
+  const finger = new Map();
+  function lenkNeu() {
+    let r = 0;
+    for (const richtung of finger.values()) r = richtung;
+    state.lenk = state.phase === "spiel" && state.schritt === "fahrt" ? r : 0;
+    state.halten = state.lenk > 0;
   }
 
-  function fingerAuf(id) {
+  function fingerAuf(id, richtung = 1) {
     if (state.phase === "zuschauen" || state.phase === "ende") return;
     // Ohne Bild keine Runde (ein Browser ohne WebGL 2).
     if (!bild.ok && !bild.verloren) return;
-    finger.add(id);
+    finger.delete(id);
+    finger.set(id, richtung >= 0 ? 1 : -1);
     if (state.phase === "bereit" && !shell.live) losGehts();
-    haltenNeu();
+    lenkNeu();
+  }
+
+  function fingerZieht(id, richtung) {
+    if (!finger.has(id) || finger.get(id) === richtung) return;
+    finger.set(id, richtung);
+    lenkNeu();
   }
 
   function fingerWeg(id) {
     if (!finger.delete(id)) return;
-    haltenNeu();
+    lenkNeu();
   }
 
   function alleWeg() {
     finger.clear();
-    haltenNeu();
+    lenkNeu();
   }
 
-  // Für die Prüfskripte und die Vorführung: halten oder loslassen.
-  function halte(an) {
-    if (an) fingerAuf("pilot");
+  // Wohin ein Finger an der Stelle x (im Fenster) lenkt: links hinauf,
+  // rechts hinunter.
+  function richtungBei(x) {
+    const r = (feld || host).getBoundingClientRect();
+    return x < r.left + r.width / 2 ? 1 : -1;
+  }
+
+  // Für die Prüfskripte und die Vorführung: lenke(1) hinauf, lenke(-1)
+  // hinunter, lenke(0) geradeaus. halte(an) ist lenke(1) oder lenke(0).
+  function lenke(r) {
+    if (r > 0) fingerAuf("pilot", 1);
+    else if (r < 0) fingerAuf("pilot", -1);
     else fingerWeg("pilot");
   }
+  const halte = (an) => lenke(an ? 1 : 0);
 
   // ---------------------------------------------------------------------------
   // Ablauf
@@ -2604,10 +3207,12 @@
     shell.setPhase("intro");
     Object.assign(state, {
       phase: "bereit", schritt: "start", schluss: "", punkte: 0, roh: 0, z0: 0, zp: START_D, zs: 0, h: START_H, psi: 0,
-      v: C0 * SANFT_FAKTOR, halten: false, zeit: 0, spielzeit: 0, serie: 0, draussen: 0, drin: false, roehrenzeit: 0,
+      v: C0 * SANFT_FAKTOR, halten: false, lenk: 0, schwungZahl: 0, zeit: 0, spielzeit: 0, serie: 0, draussen: 0, drin: false, roehrenzeit: 0,
       tiefste: ROEHRE, besteSerie: 1, stufe: 1, kraft: 1, karte: null, stoss: 0, weiss: 0, knapp: 0, schrittZeit: 0, zuletztT: 0,
     });
     state.welt = neueWelt();
+    schwung.ab = false;
+    schwung.zuletzt = -9;
     teile.n = 0;
     schriften.length = 0;
     tropfen.length = 0;
@@ -2617,13 +3222,14 @@
     gegner?.runde();
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt wl-prompt", "Halten – die Wand hinauf. Loslassen – hinunter. Punkte gibt es nur in der Röhre.");
+    const prompt = shell.el("p", "cm-prompt wl-prompt", "Links halten – hinauf, rechts halten – hinunter. Pumpen gibt Schwung, Punkte gibt es nur in der Röhre.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     messen();
     surferStellen(state.h, state.zp, state.psi);
-    surfer.pose = 0.3;
+    surfer.haltung = haltungNeu();
     surfer.lehn = 0;
+    surfer.psi = 0;
     kam.weit = KAM_WEIT;
     kameraTakt(0, true);
 
@@ -2692,36 +3298,44 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "waveRide", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "waveRide", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "waveRide", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "waveRide", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   grafikStarten();
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // Ein Finger irgendwo im Bild: Start – und solange er liegt, geht es die
-  // Wand hinauf. Nur Knöpfe bleiben Knöpfe.
+  // Ein Finger im Bild: Start – und solange er liegt, lenkt er: in der
+  // linken Hälfte die Wand hinauf, in der rechten hinunter. Nur Knöpfe
+  // bleiben Knöpfe.
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    fingerAuf(event.pointerId);
+    fingerAuf(event.pointerId, richtungBei(event.clientX));
+  });
+  window.addEventListener("pointermove", (event) => {
+    if (finger.has(event.pointerId)) fingerZieht(event.pointerId, richtungBei(event.clientX));
   });
   window.addEventListener("pointerup", (event) => fingerWeg(event.pointerId));
   window.addEventListener("pointercancel", (event) => fingerWeg(event.pointerId));
   // Wer das Fenster verlässt, lässt auch los.
   window.addEventListener("blur", alleWeg);
 
-  // Leertaste, Pfeil nach oben oder W: halten. Enter startet nur.
-  const TASTEN = new Set([" ", "ArrowUp", "w", "W"]);
+  // Hinauf: Pfeil nach oben oder links, W, A, Leertaste. Hinunter: Pfeil
+  // nach unten oder rechts, S, D. Enter startet nur.
+  const TASTEN = new Map([
+    [" ", 1], ["ArrowUp", 1], ["ArrowLeft", 1], ["w", 1], ["W", 1], ["a", 1], ["A", 1],
+    ["ArrowDown", -1], ["ArrowRight", -1], ["s", -1], ["S", -1], ["d", -1], ["D", -1],
+  ]);
   document.addEventListener("keydown", (event) => {
-    const taste = TASTEN.has(event.key);
-    if (!taste && event.key !== "Enter") return;
+    const richtung = TASTEN.get(event.key);
+    if (!richtung && event.key !== "Enter") return;
     if (document.activeElement?.tagName === "BUTTON") return;
     event.preventDefault();
     if (event.repeat) return;
-    if (taste) fingerAuf(`taste${event.key.toLowerCase()}`);
+    if (richtung) fingerAuf(`taste${event.key.toLowerCase()}`, richtung);
     else if (state.phase === "bereit" && !shell.live) losGehts();
   });
   document.addEventListener("keyup", (event) => {
@@ -2737,12 +3351,13 @@
   window.addEventListener("orientationchange", neuMessen);
   window.addEventListener("pagehide", () => { stopLoop(); brandungAus(); });
 
-  // Für die Prüfskripte und die Vorführung. halte(true | false) hält oder
-  // lässt los; guete(1) hält die Schärfe fest.
+  // Für die Prüfskripte und die Vorführung. lenke(1 | 0 | -1) lenkt hinauf,
+  // geradeaus oder hinunter (halte(true | false) ist lenke(1) oder lenke(0));
+  // guete(1) hält die Schärfe fest.
   window.LernappWelle = {
-    TAKT, DAUER, ROEHRE, WAND, START_D, START_H, BONUS, SERIE_MAX, SERIE_VOLL, LINIE, TASCHE_NAH, REIHEN,
+    TAKT, DAUER, ROEHRE, WAND, START_D, START_H, BONUS, SERIE_MAX, SERIE_VOLL, LINIE, TASCHE_NAH, REIHEN, PUMP_IDEAL,
     state, view, kam, bild, surfer, teile, schriften, takt, zeichnen, weltText, tempoBei, faktorBei, schaumBei, gischtBei,
-    linie, tasche, punkteBei, malBei, formBei, ideallinie, RESERVE, losGehts, halte,
+    linie, tasche, punkteBei, malBei, formBei, ideallinie, RESERVE, losGehts, halte, lenke, haltungNeu, figurJetzt,
     guete(wert) {
       view.fest = wert !== null && wert !== undefined;
       if (view.fest) view.guete = clamp(Number(wert) || 1, 0.3, 1);
