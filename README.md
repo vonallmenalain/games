@@ -555,11 +555,15 @@ Jedes Blatt hat acht Sekunden (`ZEIT`, der Strich über dem Blatt). Ist die
 Zeit um, zählt die Stelle, an der das Fadenkreuz steht; wer noch gar nicht
 getippt hat, bekommt nichts. Im Tunnel ist die Kugel die Uhr: Gemessen wird,
 wo sie im Augenblick des Tipps war (nach der Zeit des Tipps, nicht des
-nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt nicht.
+nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt nicht; wer
+gar nicht tippt, bekommt nichts.
 
 Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
 **Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
-doppelt so gross zeigt. Sie hilft beim Setzen, nicht beim Schätzen.
+doppelt so gross zeigt. Sie hilft beim Setzen, nicht beim Schätzen. Und weil
+die Fingerkuppe beim Abheben abrollt, zählt nach einem ruhigen Halt die
+Stelle von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der
+Finger die Scheibe verlassen hat.
 
 Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
 (die Durchmesser, die Diagonalen, der Zirkelschlag, das Lot mit seinem

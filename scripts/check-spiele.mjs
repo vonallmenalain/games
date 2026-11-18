@@ -8120,7 +8120,8 @@ try {
   // der Bahn des Fadenkreuzes. Wer überall genau trifft, hat hundert Punkte;
   // wer drei Millimeter danebenliegt, bekommt, was die Tabelle sagt. Ist die
   // Zeit um, zählt das Fadenkreuz – oder nichts. Im Tunnel zählt der
-  // Augenblick des Tipps.
+  // Augenblick des Tipps. Wer den Finger ruhig hält und abhebt, bekommt die
+  // Stelle, auf der er geruht hat, nicht die, über die er abgerollt ist.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 700 });
     await seite.goto(`${BASIS}/augenmass`, { waitUntil: "load" });
@@ -8241,6 +8242,36 @@ try {
       raus.pfeile = Math.hypot(st.zeiger.x - vor.x, st.zeiger.y - vor.y);
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       raus.taste = { phase: st.phase, punkte: st.wertung?.punkte };
+      A.weiter();
+      // Das Abheben: Der Finger ruht auf der Stelle und rollt beim Loslassen
+      // einen halben Millimeter ab – es zählt, wo er geruht hat. Wer dagegen
+      // noch schiebt, bekommt die letzte Stelle.
+      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
+      // Eine Stelle so viele Millimeter neben der Lösung – auf der Bahn, wenn das Blatt eine hat.
+      const neben = (a, mm) => {
+        for (let w = 0; w < 6.3; w += 0.05) {
+          const q = A.aufBahn(a, { x: a.ziel.x + Math.cos(w) * mm, y: a.ziel.y + Math.sin(w) * mm });
+          if (Math.abs(A.daneben(a, q) - mm) < 0.06) return q;
+        }
+        return a.ziel;
+      };
+      const d = A.blatt();
+      st.t0 -= 1000;
+      druck("pointerdown", d.ziel);
+      await warte(120);
+      const gerollt = neben(d, 0.5);
+      druck("pointermove", gerollt);
+      druck("pointerup", gerollt);
+      raus.abheben = { mm: st.wertung?.mm, gerollt: A.daneben(d, gerollt) };
+      A.weiter();
+      const e = A.blatt();
+      st.t0 -= 1000;
+      druck("pointerdown", neben(e, 6));
+      await warte(120);
+      const weit = neben(e, 3);
+      druck("pointermove", weit);
+      druck("pointerup", weit);
+      raus.schieben = { mm: st.wertung?.mm, soll: A.daneben(e, weit) };
       return raus;
     });
     pruefe(uhr.sperre.da === false && uhr.sperre.phase === "aufgabe", `Augenmass: Ein Tipp gleich nach dem Umblättern zählt schon: ${JSON.stringify(uhr.sperre)}`);
@@ -8250,6 +8281,8 @@ try {
       `Augenmass: Ist die Zeit um, zählt das Fadenkreuz nicht, wo es steht: ${JSON.stringify(uhr)}`);
     pruefe(uhr.finger.phase === "zeigen" && uhr.finger.punkte === 10 && uhr.finger.mm < 0.3, `Augenmass: Loslassen ist nicht die Antwort: ${JSON.stringify(uhr.finger)}`);
     pruefe(uhr.pfeile < 1e-9 && uhr.taste.phase === "zeigen" && uhr.taste.punkte === 10, `Augenmass: Pfeile und Enter tun nicht, was sie sollen: ${JSON.stringify(uhr)}`);
+    pruefe(uhr.abheben.gerollt > 0.4 && uhr.abheben.mm < 0.05 && Math.abs(uhr.schieben.mm - uhr.schieben.soll) < 0.05 && uhr.schieben.soll > 2.5,
+      `Augenmass: Beim Abheben zählt nicht die Stelle, auf der der Finger geruht hat: ${JSON.stringify({ abheben: uhr.abheben, schieben: uhr.schieben })}`);
 
     // Der Tunnel: Ein Tipp, solange die Kugel zu sehen ist, gilt nicht; im
     // richtigen Augenblick gibt er zehn; wer gar nicht tippt, bekommt die
@@ -8284,13 +8317,13 @@ try {
       a = A.blatt();
       st.t0 = performance.now() - (A.tunnelEnde(a) + 0.05) * 1000;
       await bild();
-      raus.nie = { phase: st.phase, mm: st.wertung?.mm, soll: a.lang - a.sm, punkte: st.wertung?.punkte };
+      raus.nie = { phase: st.phase, antwort: st.antwort, punkte: st.wertung?.punkte };
       return raus;
     });
     pruefe(tunnel.gefunden && tunnel.frueh === "aufgabe" && tunnel.genau.phase === "zeigen" && tunnel.genau.punkte === 10 && tunnel.genau.mm < 0.4,
       `Augenmass: Der Tipp im Tunnel zählt nicht im richtigen Augenblick: ${JSON.stringify(tunnel)}`);
-    pruefe(tunnel.nie?.phase === "zeigen" && Math.abs(tunnel.nie.mm - tunnel.nie.soll) < 0.01 && tunnel.nie.punkte <= 4,
-      `Augenmass: Wer im Tunnel nie tippt, bekommt die Kugel nicht am Ende der Schiene: ${JSON.stringify(tunnel.nie)}`);
+    pruefe(tunnel.nie?.phase === "zeigen" && tunnel.nie.antwort === null && tunnel.nie.punkte === 0,
+      `Augenmass: Wer im Tunnel nie tippt, bekommt trotzdem Punkte: ${JSON.stringify(tunnel.nie)}`);
     await kontext.close();
   }
   {

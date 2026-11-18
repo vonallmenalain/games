@@ -743,6 +743,7 @@
     state.griff = null;
     state.antwort = null;
     state.wertung = null;
+    spur.length = 0;
     state.tickBei = 0;
     state.imTunnel = false;
     const a = blatt();
@@ -801,7 +802,29 @@
     const a = blatt();
     if (!a) return;
     state.zeiger = aufBahn(a, ort);
+    // Die letzten Stellen des Fingers, für das Abheben (ruhigeStelle).
+    const nun = performance.now();
+    spur.push({ t: nun, x: state.zeiger.x, y: state.zeiger.y });
+    while (spur.length > 1 && nun - spur[0].t > 250) spur.shift();
     meldeLage();
+  }
+
+  // Beim Abheben rollt die Fingerkuppe ab, und die letzte gemeldete Stelle
+  // liegt oft einen Bildpunkt neben der, auf der der Finger geruht hat – bei
+  // einem halben Millimeter für die zehn Punkte ist das zu viel. Hat der
+  // Finger zuletzt stillgehalten (weniger als ein guter Millimeter in den
+  // letzten Augenblicken), zählt darum die Stelle von kurz vor dem Abheben.
+  const spur = [];
+  const ABHEBEN_MS = 70;
+  function ruhigeStelle(zuletzt) {
+    const nun = performance.now();
+    let frueher = null;
+    for (let i = spur.length - 1; i >= 0; i -= 1) {
+      if (nun - spur[i].t >= ABHEBEN_MS) { frueher = spur[i]; break; }
+    }
+    if (!frueher) return zuletzt;
+    const still = spur.every((p) => p.t < frueher.t || Math.hypot(p.x - frueher.x, p.y - frueher.y) < 1.2);
+    return still && Math.hypot(zuletzt.x - frueher.x, zuletzt.y - frueher.y) < 1.2 ? P(frueher.x, frueher.y) : zuletzt;
   }
 
   // Was die Uhr tut, Bild für Bild: Im Tunnel rollt die Kugel bis ans Ende,
@@ -813,7 +836,8 @@
     if (a.art === "tunnel") {
       const drin = kugelWeg(a, t) >= a.s1;
       if (drin && !state.imTunnel) { state.imTunnel = true; ton("augenmass.tunnel"); }
-      if (t >= tunnelEnde(a)) antworte(tunnelOrt(a, a.lang));
+      // Die Kugel ist am Ende der Schiene, und niemand hat getippt.
+      if (t >= tunnelEnde(a)) antworte(null);
       return;
     }
     const rest = EINZUG + ZEIT - t;
@@ -1339,8 +1363,8 @@
     });
     // Die Kugel: unterwegs nach der Uhr, beim Nachmessen dort, wo sie beim
     // Tipp war.
-    const kugel = zeigt ? state.antwort : tunnelOrt(a, kugelWeg(a, seit()));
-    if (kugel && K > 0.3) zeichneKugel(kugel, clamp((K - 0.3) * 3, 0, 1), zeigt ? GELB : "#e8f1ff");
+    const kugel = zeigt ? state.antwort || tunnelOrt(a, a.lang) : tunnelOrt(a, kugelWeg(a, seit()));
+    if (kugel && K > 0.3) zeichneKugel(kugel, clamp((K - 0.3) * 3, 0, 1), zeigt && state.antwort ? GELB : "#e8f1ff");
     // Der Tunnel.
     const decke = zeigt ? lerp(1, 0.22, clamp(tz / 0.35, 0, 1)) : 1;
     const auf = clamp((K - 0.25) / 0.6, 0, 1);
@@ -2257,7 +2281,8 @@
   host.addEventListener("pointerup", (event) => {
     if (!state.griff || event.pointerId !== state.griff.id) return;
     if (state.phase !== "aufgabe") { state.griff = null; return; }
-    antworte(aufBahn(blatt(), blattOrt(event)));
+    const zuletzt = aufBahn(blatt(), blattOrt(event));
+    antworte(state.griff.art === "mouse" ? zuletzt : ruhigeStelle(zuletzt));
   });
 
   host.addEventListener("pointercancel", (event) => {
