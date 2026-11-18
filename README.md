@@ -493,7 +493,9 @@ Pfosten berührt oder ein Dach, ist draussen.
 **Die Uhr ist der Akku** (`AKKU_MAX` Sekunden, ein Ring um die Drohne): Jedes
 Tor lädt ihn nach, mit jedem Tor etwas weniger (`akkuLaden`), am Ende zu
 wenig – so endet jede Runde von selbst. Vor dem ersten Tor läuft er halb so
-schnell ab. Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
+schnell ab. Wie knapp das Ganze ist, sagt eine Zahl: `AKKU_TEMPO` (1,2 – der
+Akku ist 1,2-mal so schnell leer wie mit zehn Sekunden und drei je Tor; der
+Testpilot kommt damit im Schnitt 32 statt 38 Tore weit). Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
 Stück der Öffnung, `MITTIG`), fliegt **«mittig»**: Das zählt mehr, in Folge
 immer mehr (bis `KETTE_MAX` dazu), und lädt den Akku ein Stück weiter.
 
