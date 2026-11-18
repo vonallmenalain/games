@@ -523,24 +523,38 @@ steigt, bis der Akku leer ist.
 
 **Augenmass** (`augenmass.js`, `eyeMeasure`) – Das Geschwister von «Wo hält
 der Zug?», nur ohne Zahlen: Auf dem Zeichentisch liegt eine Blaupause, und
-auf jedem Blatt steht eine Aufgabe, die mit einem Massstab in zehn Sekunden
-gelöst wäre. Es liegt keiner da. **Finger aufs Blatt, das Fadenkreuz an die
-Stelle schieben, loslassen** – das Loslassen ist die Antwort (am Rechner
+auf jedem Blatt steht eine Aufgabe. **Finger aufs Blatt, das Fadenkreuz an
+die Stelle schieben, loslassen** – das Loslassen ist die Antwort (am Rechner
 schwebt das Fadenkreuz mit der Maus, ein Klick antwortet; Pfeile schieben
 um einen Viertelmillimeter, Enter antwortet).
 
-Zehn Blätter je Runde, drei leichte, vier mittlere, drei schwere, jede Art
-höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`):
+Zehn Blätter je Runde aus 21 Arten: zwei leichte, vier mittlere, vier
+schwere, jede Art höchstens einmal (`LEICHT`, `MITTEL`, `SCHWER`, `PLAN`):
 
-    leicht   die Mitte einer Strecke · der Mittelpunkt eines Kreises · die
-             Mitte eines Rechtecks · einen Winkel halbieren
-    mittel   ein Drittel oder Viertel einer Strecke · eine Linie bis zur
-             Wand verlängern · eine Länge abtragen · das Lot von einem
-             Punkt auf eine Linie · einen Punkt spiegeln
-    schwer   der Mittelpunkt eines Bogens · die Bande (wo trifft die Kugel
-             nach dem Abprall die Wand?) · die vierte Ecke eines Rechtecks ·
-             der Tunnel (tippen, wenn die verschwundene Kugel beim Pfeil
-             sein muss)
+    leicht   der Mittelpunkt eines Kreises · die Mitte eines Rechtecks ·
+             einen Winkel halbieren · das Lot von einem Punkt auf eine Linie
+    mittel   einen Punkt spiegeln · die vierte Ecke eines Rechtecks · der
+             Schwerpunkt eines Dreiecks (wo balanciert es?) · die dritte
+             Ecke des gleichseitigen Dreiecks · eine Vierteldrehung um
+             einen Punkt · der Treffpunkt zweier Kugeln (die Pfeile zeigen
+             ihr Tempo) · ein Bogen, der bis zur Wand weiterläuft · die
+             Bande
+    schwer   der Mittelpunkt eines Bogens · der Kreis durch drei Punkte ·
+             der Inkreis · zwei Banden · über die Bande ins Loch · der Wurf
+             (wo landet der Ball?) · die halbe Fläche (ein Schnitt parallel
+             zur Grundseite) · das Rad, das eine Umdrehung rollt · der
+             Tunnel
+
+**Mit einem Lineal ist keine davon getan.** Was sich bloss abmessen liess
+(die Mitte einer Strecke, ein Drittel, eine Länge abtragen, eine Linie bis
+zur Wand verlängern), gibt es nicht mehr: Überall muss etwas in Gedanken
+gebaut oder vorhergesagt werden – ein Spiegelbild, ein Abprall, eine
+Flugbahn, ein krummer Bogen, ein Verhältnis aus zwei Pfeilen, die Wurzel
+aus zwei beim Halbieren der Fläche, das Pi beim Rad. Dazu ist die Zeit
+knapp, und je einfacher das Blatt, desto knapper: sechs Sekunden für ein
+leichtes, sieben für ein mittleres, acht für ein schweres (`ZEITEN`, der
+Strich über dem Blatt). Ist die Zeit um, zählt die Stelle, an der das
+Fadenkreuz steht; wer noch gar nicht getippt hat, bekommt nichts.
 
 Das Blatt ist ein Quadrat von 100 × 100 Millimetern, so gross, wie der
 Bildschirm es hergibt, und gerechnet wird überall in diesen Millimetern –
@@ -548,17 +562,21 @@ ein Millimeter daneben ist auf jedem Gerät gleich viel. Bis zu zehn Punkte
 je Blatt, und die zehn sind schwer: Sie gelten bis 0,6 mm, auf einem Handy
 zwei Bildpunkte. Danach fällt es steil (`GRENZEN`, `punkteFuer`); die
 schweren Aufgaben messen etwas nachsichtiger (`mass`). **Ein Raster hat das
-Blatt absichtlich nicht**, und keine Figur liegt gerade im Bild (`schief`):
-Was sich abzählen oder an den Rändern ablesen liesse, wäre kein Augenmass.
-Wo eine Antwort nur auf einer Linie liegen kann (die Mitte einer Strecke,
-die Stelle an der Wand), läuft das Fadenkreuz auf dieser Bahn (`aufBahn`).
+Blatt absichtlich nicht**, und keine Figur liegt gerade im Bild (`schief`;
+nur der Wurf und das Rad brauchen ihr Unten). Wo eine Antwort nur auf einer
+Linie liegen kann (die Stelle an der Wand, der Schnitt durchs Dreieck),
+läuft das Fadenkreuz auf dieser Bahn (`aufBahn`); die Wand, auf der die
+Antwort liegt, ist gelb wie das Fadenkreuz. Beim gleichseitigen Dreieck
+gibt es zwei richtige Ecken – es gilt die, die der Antwort näher liegt
+(`auch`, `richte`).
 
-Jedes Blatt hat acht Sekunden (`ZEIT`, der Strich über dem Blatt). Ist die
-Zeit um, zählt die Stelle, an der das Fadenkreuz steht; wer noch gar nicht
-getippt hat, bekommt nichts. Im Tunnel ist die Kugel die Uhr: Gemessen wird,
-wo sie im Augenblick des Tipps war (nach der Zeit des Tipps, nicht des
-nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt nicht; wer
-gar nicht tippt, bekommt nichts.
+**Im Tunnel** wartet die Kugel: Der erste Tipp lässt sie los (ein Ring um
+sie ruft danach), damit niemand sie verpasst, der die Aufgabe noch liest.
+Sie rollt in den Tunnel, und der zweite Tipp sagt, wann sie beim Pfeil sein
+muss – gemessen wird, wo sie im Augenblick des Tipps war (nach der Zeit des
+Tipps, nicht des nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist,
+gilt nicht; wer gar nicht tippt, dem rollt sie nach der Zeit des Blattes
+von selbst los, und am Ende der Schiene gibt es nichts.
 
 Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
 **Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
@@ -568,8 +586,10 @@ Stelle von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der
 Finger die Scheibe verlassen hat.
 
 Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
-(die Durchmesser, die Diagonalen, der Zirkelschlag, das Lot mit seinem
-rechten Winkel), an Strecken legt sich ein Massstab an, ein Stempel nennt
+(die Durchmesser, die Diagonalen, das Lot mit seinem rechten Winkel, die
+gleichen Winkel an der Bande), was rollt, rollt jetzt wirklich (die Kugel
+über die Banden ins Loch, der Ball durch die Luft, das Rad mit seinem
+Ventil eine Umdrehung weit, daneben ein Massstab), ein Stempel nennt
 Punkte und Millimeter, und der **Messschieber** unter dem Blatt fährt so
 weit auf, wie es daneben war. Die zehn Kästchen füllen sich Blatt für Blatt;
 quer steht links die Stückliste mit allen Abweichungen und rechts das
@@ -584,8 +604,10 @@ Gerät, wird das Bild gröber statt langsamer (`gueteTakt`).
 Aufgezeichnet werden die Züge (`meldeZug`: jedes neue Blatt, das Fadenkreuz
 unterwegs, die Antwort) – damit lassen sich die besten Runden anschauen, und
 im Multiplayer sehen die anderen dasselbe. Die Blätter kommen aus
-`zufall.js`: In einem Turnier bekommen alle dieselben zehn. Prüfung 4g34:
-Jede Runde hat ihre drei, vier und drei Blätter, alles liegt auf dem Blatt,
+`zufall.js`: In einem Turnier bekommen alle dieselben zehn. Mit den neuen
+Blättern tragen die Aufzeichnungen die Fassung z2. Prüfung 4g34: Jede Runde
+hat ihre zwei, vier und vier Blätter mit ihrer Zeit, alles liegt auf dem
+Blatt, jede der 21 Arten lässt sich zeichnen, beantworten und nachmessen,
 zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
 was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
