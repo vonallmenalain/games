@@ -8123,10 +8123,13 @@ try {
   // auf dem Blatt, und die Lösung liegt auf der Bahn des Fadenkreuzes. Jede
   // der 21 Arten lässt sich zeichnen, beantworten und nachmessen; wo zwei
   // Stellen richtig sind, gelten beide. Wer überall genau trifft, hat hundert Punkte;
-  // wer drei Millimeter danebenliegt, bekommt, was die Tabelle sagt. Ist die
-  // Zeit um, zählt das Fadenkreuz – oder nichts. Im Tunnel zählt der
-  // Augenblick des Tipps. Wer den Finger ruhig hält und abhebt, bekommt die
-  // Stelle, auf der er geruht hat, nicht die, über die er abgerollt ist.
+  // wer drei Millimeter danebenliegt, bekommt, was die Tabelle sagt. Vor jedem
+  // Blatt steht die Vorschau – ein Satz und ein Beispiel derselben Art –,
+  // und die Uhr läuft erst nach dem Tipp. Ist die Zeit um, zählt das
+  // Fadenkreuz – oder nichts. Im Tunnel rollt die Kugel von selbst los, und
+  // es zählt der Augenblick des Tipps. Wer den Finger ruhig hält und abhebt,
+  // bekommt die Stelle, auf der er geruht hat, nicht die, über die er
+  // abgerollt ist.
   {
     const { kontext, seite } = await neueSeite({ width: 900, height: 700 });
     await seite.goto(`${BASIS}/augenmass`, { waitUntil: "load" });
@@ -8151,6 +8154,10 @@ try {
           const auf = A.aufBahn(a, a.ziel);
           if (Math.hypot(auf.x - a.ziel.x, auf.y - a.ziel.y) > 1e-6) raus.falsch.push(`${a.art}: Die Lösung liegt nicht auf der Bahn`);
           if (A.daneben(a, a.ziel) !== 0 || !a.frage || !(a.mass > 0 && a.mass <= 1)) raus.falsch.push(`${a.art}: Ziel, Frage oder Mass fehlen`);
+          // Die Vorschau: ein Satz, was zu tun ist, und ein Beispiel derselben Art – eine andere Aufgabe, die auch aufs Blatt passt.
+          const b = a.beispiel;
+          if (!(A.TUN[a.art]?.length > 20) || !b || b.art !== a.art || b === a) raus.falsch.push(`${a.art}: Satz oder Beispiel fehlen`);
+          else if (Math.max(...b.punkte.map((q) => Math.max(A.RAND - q.x, q.x - (A.BLATT - A.RAND), A.RAND - q.y, q.y - (A.BLATT - A.RAND)))) > 1e-6) raus.falsch.push(`${a.art}: Das Beispiel ragt über den Rand`);
           if (a.art === "tunnel" && !(a.sm - a.s1 >= 18 && a.sm <= a.lang - 6 && a.s1 / a.v > 0.6)) raus.falsch.push(`Tunnel: ${a.s1.toFixed(1)}/${a.sm.toFixed(1)}/${a.v.toFixed(1)}`);
         });
       }
@@ -8174,6 +8181,7 @@ try {
         A.losGehts();
         let soll = 0;
         for (let i = 0; i < A.BLAETTER; i += 1) {
+          A.blattLos();
           const a = A.blatt();
           // Daneben, aber auf der Bahn: von der Lösung aus in die Richtung, in der Platz ist.
           let ort = a.ziel;
@@ -8198,8 +8206,9 @@ try {
     await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
     pruefe(await seite.locator(".cm-result-score").count() === 1, "Augenmass: Nach dem zehnten Blatt kommt kein Ergebnis.");
 
-    // Jede Art für sich: aufs Blatt legen, das Fadenkreuz setzen, antworten,
-    // nachmessen – und nichts davon wirft einen Fehler. Beim gleichseitigen
+    // Jede Art für sich: die Vorschau mit dem Beispiel, dann aufs Blatt legen,
+    // das Fadenkreuz setzen, antworten, nachmessen – und nichts davon wirft
+    // einen Fehler. Beim gleichseitigen
     // Dreieck gilt auch die Ecke auf der anderen Seite.
     const jede = await seite.evaluate(() => {
       const A = window.LernappAugenmass;
@@ -8208,7 +8217,10 @@ try {
       const lege = (art) => {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         A.losGehts();
-        st.blaetter[0] = { ...A.BAU[art](), nr: 0, zeit: 8 };
+        st.blaetter[0] = { ...A.BAU[art](), nr: 0, zeit: 8, beispiel: A.BAU[art]() };
+        // Die Vorschau mit ihrem Beispiel: am Anfang, mitten in der Lösung und an ihrem Ende.
+        for (const frueher of [0, 1200, 2600, 3700]) { st.vorSeit = performance.now() - frueher; A.zeichnen(); }
+        A.blattLos();
         return A.blatt();
       };
       for (const art of [...A.LEICHT, ...A.MITTEL, ...A.SCHWER]) {
@@ -8233,6 +8245,9 @@ try {
     pruefe(jede.arten === 21 && jede.falsch.length === 0, `Augenmass: Nicht jede Art lässt sich zeichnen und beantworten – ${JSON.stringify(jede.falsch)}`);
     pruefe(jede.auch?.punkte === 10 && jede.auch.mm < 0.002 && jede.auch.gewechselt, `Augenmass: Die dritte Ecke auf der anderen Seite gilt nicht: ${JSON.stringify(jede.auch)}`);
 
+    // Die Vorschau: Die Uhr steht, ein Tipp gleich nach dem Umblättern zählt
+    // noch nicht, der nächste legt das Blatt hin – und wer nie tippt, bekommt
+    // es nach VORSCHAU Sekunden.
     // Die Uhr: Ohne Tipp gibt es nichts, mit Fadenkreuz zählt seine Stelle.
     // Der Finger: setzen, schieben, loslassen – und ein zweiter Finger stört nicht.
     const uhr = await seite.evaluate(async () => {
@@ -8248,11 +8263,30 @@ try {
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       A.losGehts();
       await bild();
+      const tipp = () => { druck("pointerdown", { x: 50, y: 50 }); druck("pointerup", { x: 50, y: 50 }); };
+      raus.vor = { phase: st.phase };
+      // Gleich nach dem Umblättern gilt der Tipp noch dem letzten Blatt.
+      tipp();
+      raus.vor.gleich = st.phase;
+      // Zwanzig Sekunden später steht die Vorschau immer noch da.
+      st.vorSeit -= 20000;
+      await bild();
+      raus.vor.wartet = st.phase;
+      // Der Tipp legt das Blatt hin, und seine Uhr beginnt jetzt.
+      tipp();
+      raus.vor.los = { phase: st.phase, seit: A.seit() };
       raus.sperre = (() => { druck("pointerdown", A.blatt().ziel); const da = Boolean(st.zeiger); druck("pointerup", A.blatt().ziel); return { da, phase: st.phase }; })();
       st.t0 -= (A.ZEIT + A.EINZUG) * 1000 + 50;
       await bild();
       raus.ohne = { phase: st.phase, antwort: st.antwort, punkte: st.wertung?.punkte, gesamt: st.punkte };
       A.weiter();
+      // Wer die Vorschau nie beendet, bekommt das Blatt von selbst.
+      st.vorSeit -= A.VORSCHAU * 1000 - 400;
+      await bild();
+      raus.vor.fast = st.phase;
+      st.vorSeit -= 500;
+      await bild();
+      raus.vor.selbst = st.phase;
       const a = A.blatt();
       st.t0 -= 1000;
       druck("pointerdown", { x: a.ziel.x + 9, y: a.ziel.y + 6 });
@@ -8266,6 +8300,7 @@ try {
       druck("pointerup", { x: 50, y: 50 });
       raus.danach = st.punkte;
       A.weiter();
+      A.blattLos();
       // Loslassen ist die Antwort.
       const b = A.blatt();
       st.t0 -= 1000;
@@ -8274,6 +8309,10 @@ try {
       druck("pointerup", b.ziel);
       raus.finger = { phase: st.phase, punkte: st.wertung?.punkte, mm: st.wertung?.mm };
       A.weiter();
+      // Die Vorschau endet auch mit der Leertaste.
+      st.vorSeit -= 1000;
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      raus.vor.taste = st.phase;
       // Die Tasten: Pfeile schieben um einen Viertelmillimeter, Enter antwortet.
       const c = A.blatt();
       st.t0 -= 1000;
@@ -8285,6 +8324,7 @@ try {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       raus.taste = { phase: st.phase, punkte: st.wertung?.punkte };
       A.weiter();
+      A.blattLos();
       // Das Abheben: Der Finger ruht auf der Stelle und rollt beim Loslassen
       // einen halben Millimeter ab – es zählt, wo er geruht hat. Wer dagegen
       // noch schiebt, bekommt die letzte Stelle.
@@ -8306,6 +8346,7 @@ try {
       druck("pointerup", gerollt);
       raus.abheben = { mm: st.wertung?.mm, gerollt: A.daneben(d, gerollt) };
       A.weiter();
+      A.blattLos();
       const e = A.blatt();
       st.t0 -= 1000;
       druck("pointerdown", neben(e, 6));
@@ -8316,6 +8357,10 @@ try {
       raus.schieben = { mm: st.wertung?.mm, soll: A.daneben(e, weit) };
       return raus;
     });
+    pruefe(uhr.vor.phase === "vorschau" && uhr.vor.gleich === "vorschau" && uhr.vor.wartet === "vorschau" && uhr.vor.los.phase === "aufgabe" && uhr.vor.los.seit < 0.2,
+      `Augenmass: Die Vorschau wartet nicht auf den Tipp, oder die Uhr des Blattes läuft schon vorher: ${JSON.stringify(uhr.vor)}`);
+    pruefe(uhr.vor.fast === "vorschau" && uhr.vor.selbst === "aufgabe" && uhr.vor.taste === "aufgabe",
+      `Augenmass: Die Vorschau endet nicht von selbst nach ihrer Zeit, oder nicht mit der Leertaste: ${JSON.stringify(uhr.vor)}`);
     pruefe(uhr.sperre.da === false && uhr.sperre.phase === "aufgabe", `Augenmass: Ein Tipp gleich nach dem Umblättern zählt schon: ${JSON.stringify(uhr.sperre)}`);
     pruefe(uhr.ohne.phase === "zeigen" && uhr.ohne.antwort === null && uhr.ohne.punkte === 0 && uhr.ohne.gesamt === 0,
       `Augenmass: Ohne Tipp endet das Blatt nicht mit null Punkten: ${JSON.stringify(uhr.ohne)}`);
@@ -8326,10 +8371,10 @@ try {
     pruefe(uhr.abheben.gerollt > 0.4 && uhr.abheben.mm < 0.05 && Math.abs(uhr.schieben.mm - uhr.schieben.soll) < 0.05 && uhr.schieben.soll > 2.5,
       `Augenmass: Beim Abheben zählt nicht die Stelle, auf der der Finger geruht hat: ${JSON.stringify({ abheben: uhr.abheben, schieben: uhr.schieben })}`);
 
-    // Der Tunnel: Die Kugel wartet, der erste Tipp lässt sie los. Ein Tipp,
-    // solange sie zu sehen ist, gilt nicht; im richtigen Augenblick gibt er
-    // zehn. Wer gar nicht tippt: Die Kugel rollt nach der Zeit des Blattes
-    // von selbst los, und am Ende der Schiene gibt es nichts.
+    // Der Tunnel: Die Kugel rollt von selbst los, kurz nachdem das Blatt
+    // daliegt. Ein Tipp davor oder solange sie zu sehen ist, gilt nicht; im
+    // richtigen Augenblick gibt er zehn. Wer gar nicht tippt, bekommt am Ende
+    // der Schiene nichts.
     const tunnel = await seite.evaluate(async () => {
       const A = window.LernappAugenmass;
       const st = A.state;
@@ -8340,7 +8385,8 @@ try {
           const wo = st.blaetter.findIndex((a) => a.art === "tunnel");
           if (wo < 0) continue;
           A.losGehts();
-          for (let i = 0; i < wo; i += 1) { A.antworte(A.blatt().ziel); A.weiter(); }
+          for (let i = 0; i < wo; i += 1) { A.blattLos(); A.antworte(A.blatt().ziel); A.weiter(); }
+          A.blattLos();
           return true;
         }
         return false;
@@ -8348,12 +8394,13 @@ try {
       const raus = { gefunden: zumTunnel() };
       if (!raus.gefunden) return raus;
       let a = A.blatt();
-      // Ohne Tipp wartet die Kugel am Anfang der Schiene.
-      st.t0 -= 2000;
+      // Eben hingelegt: Die Kugel steht am Anfang der Schiene, und ein Tipp tut nichts.
       await bild();
-      raus.wartet = { los: st.los, weg: A.kugelWeg(a, A.tunnelZeit()), phase: st.phase };
-      // Der erste Tipp lässt sie los – er ist noch keine Antwort.
       A.tippTunnel(performance.now());
+      raus.steht = { los: st.los, weg: A.kugelWeg(a, A.tunnelZeit()), phase: st.phase };
+      // Kurz darauf rollt sie von selbst los.
+      st.t0 -= (A.EINZUG + A.TUNNEL_START) * 1000 + 50;
+      await bild();
       raus.los = { phase: st.phase, rollt: st.los > 0 };
       // Die Kugel ist noch vor dem Tunnel.
       st.los = performance.now() - (a.start + (a.s1 * 0.5) / a.v) * 1000;
@@ -8365,8 +8412,8 @@ try {
       raus.genau = { phase: st.phase, punkte: st.wertung?.punkte, mm: st.wertung?.mm };
       raus.gefunden = zumTunnel();
       a = A.blatt();
-      // Niemand tippt: Nach der Zeit des Blattes rollt sie von selbst los …
-      st.t0 -= (A.ZEIT + A.EINZUG) * 1000 + 50;
+      // Niemand tippt: Sie rollt los …
+      st.t0 -= (A.EINZUG + A.TUNNEL_START) * 1000 + 50;
       await bild();
       raus.selbst = { phase: st.phase, rollt: st.los > 0 };
       // … und am Ende der Schiene ist das Blatt vorbei.
@@ -8375,13 +8422,12 @@ try {
       raus.nie = { phase: st.phase, antwort: st.antwort, punkte: st.wertung?.punkte };
       return raus;
     });
-    pruefe(tunnel.gefunden && tunnel.wartet.los === 0 && tunnel.wartet.weg === 0 && tunnel.wartet.phase === "aufgabe" && tunnel.los.phase === "aufgabe" && tunnel.los.rollt,
-      `Augenmass: Die Kugel im Tunnel wartet nicht auf den ersten Tipp: ${JSON.stringify(tunnel)}`);
+    pruefe(tunnel.gefunden && tunnel.steht.los === 0 && tunnel.steht.weg === 0 && tunnel.steht.phase === "aufgabe" && tunnel.los.phase === "aufgabe" && tunnel.los.rollt,
+      `Augenmass: Die Kugel im Tunnel rollt nicht von selbst los, oder ein Tipp davor zählt: ${JSON.stringify(tunnel)}`);
     pruefe(tunnel.gefunden && tunnel.frueh === "aufgabe" && tunnel.genau.phase === "zeigen" && tunnel.genau.punkte === 10 && tunnel.genau.mm < 0.4,
       `Augenmass: Der Tipp im Tunnel zählt nicht im richtigen Augenblick: ${JSON.stringify(tunnel)}`);
-    pruefe(tunnel.selbst?.phase === "aufgabe" && tunnel.selbst.rollt, `Augenmass: Ohne Tipp rollt die Kugel nach der Zeit des Blattes nicht von selbst los: ${JSON.stringify(tunnel.selbst)}`);
-    pruefe(tunnel.nie?.phase === "zeigen" && tunnel.nie.antwort === null && tunnel.nie.punkte === 0,
-      `Augenmass: Wer im Tunnel nie tippt, bekommt trotzdem Punkte: ${JSON.stringify(tunnel.nie)}`);
+    pruefe(tunnel.selbst?.phase === "aufgabe" && tunnel.selbst.rollt && tunnel.nie?.phase === "zeigen" && tunnel.nie.antwort === null && tunnel.nie.punkte === 0,
+      `Augenmass: Wer im Tunnel nie tippt, bekommt trotzdem Punkte – oder das Blatt endet nicht: ${JSON.stringify({ selbst: tunnel.selbst, nie: tunnel.nie })}`);
     await kontext.close();
   }
   {
@@ -8404,6 +8450,9 @@ try {
       const neben = [0, 1.4, 0.3, 4, 0, 2, 0.8, 6, 0.2, 1];
       A.losGehts();
       for (let i = 0; i < A.BLAETTER; i += 1) {
+        // Erst die Vorschau, dann der Tipp, der das Blatt hinlegt.
+        await warte(140);
+        A.blattLos();
         const a = A.blatt();
         await warte(160);
         A.setzeZeiger({ x: a.ziel.x + 6, y: a.ziel.y + 5 });

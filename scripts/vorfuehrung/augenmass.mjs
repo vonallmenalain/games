@@ -1,6 +1,7 @@
-// Augenmass: Der Finger setzt das Fadenkreuz neben die Stelle, schiebt es
-// unter der Lupe hin und lässt los – meist auf den halben Millimeter, ab und
-// zu ein, zwei daneben. Danach zeichnet sich die Lösung ein.
+// Augenmass: Ein Tipp beendet die Vorschau jedes Blattes. Dann setzt der
+// Finger das Fadenkreuz neben die Stelle, schiebt es unter der Lupe hin und
+// lässt los – meist auf den halben Millimeter, ab und zu ein, zwei daneben.
+// Danach zeichnet sich die Lösung ein.
 export default {
   bereit: () => Boolean(window.LernappAugenmass?.state?.blaetter && window.LernappAugenmass.view.cssW > 0),
   spiele: () => {
@@ -21,6 +22,12 @@ export default {
     druck("pointerdown", { x: 50, y: 50 });
     const tick = (jetzt) => {
       requestAnimationFrame(tick);
+      // Die Vorschau: kurz hinschauen, dann tippen – das Blatt liegt da.
+      if (st.phase === "vorschau") {
+        zug = null;
+        if (jetzt - st.vorSeit > 700) { druck("pointerdown", { x: 50, y: 50 }); druck("pointerup", { x: 50, y: 50 }); }
+        return;
+      }
       if (st.phase !== "aufgabe") { zug = null; return; }
       const a = A.blatt();
       if (st.index !== index) {
@@ -35,9 +42,9 @@ export default {
       }
       if (!zug) return;
       if (zug.tunnel) {
-        // Im Tunnel: Der erste Tipp lässt die Kugel los, der zweite kommt,
-        // wenn sie beim Pfeil sein muss.
-        if (!st.los) { if (A.seit() > 1.4) druck("pointerdown", a.ziel); return; }
+        // Im Tunnel: Die Kugel rollt von selbst los; der Tipp kommt, wenn
+        // sie beim Pfeil sein muss.
+        if (!st.los) return;
         if (A.kugelWeg(a, A.tunnelZeit()) >= a.sm - 0.5) { druck("pointerdown", a.ziel); zug = null; }
         return;
       }
