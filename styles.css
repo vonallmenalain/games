@@ -3384,6 +3384,50 @@ h2 {
    läge nur darüber. */
 .am-stage[data-phase="play"] .am-canvas { cursor: none; }
 
+/* Der Knopf «Bestätigen» – für die, die mit dem Finger spielen: Das
+   Fadenkreuz wird irgendwo gezogen, hier wird es gesetzt. Wo er liegt und
+   wie gross er ist, rechnet augenmass.js (messen). Solange es nichts zu
+   bestätigen gibt, ist er nicht da und lässt Tipps durch. */
+.am-setzen {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #5ef2b0;
+  color: #04162e;
+  font: 800 19px/1 system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 18px rgba(2, 10, 34, 0.45), inset 0 -3px 0 rgba(4, 22, 46, 0.18);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.08s ease, visibility 0s linear 0.18s;
+}
+.am-setzen.ist-da {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.18s ease, transform 0.08s ease;
+}
+/* Solange das Fadenkreuz noch nicht bewegt wurde, gibt es nichts zu
+   bestätigen: Der Knopf ist blass. */
+.am-setzen.ist-da:not(.ist-bereit) { opacity: 0.4; box-shadow: none; }
+.am-setzen.ist-gedrueckt {
+  transform: scale(0.97);
+  background: #3fd795;
+  box-shadow: 0 2px 8px rgba(2, 10, 34, 0.45), inset 0 2px 0 rgba(4, 22, 46, 0.2);
+}
+.am-setzen:focus-visible { outline: 3px solid #ffffff; outline-offset: 3px; }
+.am-stage[data-knopf="unten"] { --gz-unten: 76px; }
+@media (prefers-reduced-motion: reduce) {
+  .am-setzen, .am-setzen.ist-da { transition: none; }
+}
+
 /* Die Frage steht im Bild. Für Vorlesegeräte steht sie hier noch einmal –
    und danach, wie weit die Antwort daneben lag. */
 .am-status {

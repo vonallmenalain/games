@@ -567,7 +567,7 @@ Blättern gewürfelt: Die Blätter einer Saat sind dieselben wie zuvor.
 Liegt das Blatt da, ist die Zeit knapp, und je einfacher das Blatt, desto
 knapper: sechs Sekunden für ein leichtes, sieben für ein mittleres, acht für
 ein schweres (`ZEITEN`, der Strich über dem Blatt). Ist die Zeit um, zählt
-die Stelle, an der das Fadenkreuz steht; wer noch gar nicht getippt hat,
+die Stelle, an der das Fadenkreuz steht; wer es noch gar nicht bewegt hat,
 bekommt nichts.
 
 Das Blatt ist ein Quadrat von 100 × 100 Millimetern, so gross, wie der
@@ -592,24 +592,35 @@ nicht des nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt
 nicht; wer gar nicht tippt, bekommt am Ende der Schiene nichts. (Bis zur
 Vorschau liess erst ein Tipp die Kugel los.)
 
-Unter dem Finger sieht man nichts – auf einem Handy steht das Fadenkreuz
-darum nicht unter dem Finger, sondern **versetzt** darüber (`VERSATZ`, 80
-Bildpunkte, gut ein Zentimeter): Der Finger hält einen Griff, einen Ring
-mit einem Stiel hinauf zum Fadenkreuz, zieht, und das Fadenkreuz geht frei
-sichtbar mit – Bildpunkt für Bildpunkt. Loslassen ist die Antwort. Ein
-blosses Antippen (kürzer als `TIPP_MS`, weniger als `TIPP_WEG` weit) setzt
-das Fadenkreuz nur hin: Der Griff bleibt liegen, und daneben steht «Halten
-und ziehen». Wo unter dem Blatt weniger Platz ist als der Versatz (Handy
-quer), schrumpft er auf den letzten Fingerbreiten (`versatzBei`), sodass
-auch der untere Rand erreichbar bleibt; das Fadenkreuz läuft dort höchstens
-ein Drittel schneller als der Finger. Maus und Stift zeigen genau dorthin,
-wo sie stehen. Das Titelbild zeigt auf einem Handy den Griff und «Halten ·
-Ziehen · Loslassen». (Davor sass das Fadenkreuz unter dem Finger, und eine
-Lupe zeigte, was er verdeckte – das war verwirrend.) Und weil die
-Fingerkuppe beim Abheben abrollt, zählt nach einem ruhigen Halt die Stelle
-von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der Finger
-die Scheibe verlassen hat; das gilt auch, wenn der Finger davor lange ganz
-still lag.
+Unter dem Finger sieht man nichts – auf einem Handy wird das Fadenkreuz
+darum geschoben wie der Zeiger auf einem **Tastfeld**. Es liegt schon auf
+dem Blatt, wenn dieses hingelegt wird (`startOrt`: mitten auf dem Blatt,
+bei einer Bahn an deren Anfang – beides verrät nichts über die Lösung). Wo
+der Finger aufsetzt, ist gleich: auf dem Blatt, daneben, darunter. Zieht
+er, geht das Fadenkreuz denselben Weg mit, Bildpunkt für Bildpunkt; die
+ersten `SCHLUPF` Bildpunkte gelten noch nicht als Ziehen, damit ein
+aufgesetzter Finger oder ein Tipp nichts verrückt. Loslassen ändert nichts –
+man greift nach, so oft man will, und es geht von dort weiter, wo es liegt.
+Am Rand des Blattes bleibt es stehen wie ein Mauszeiger am Bildschirmrand.
+Zu sehen ist nur das Fadenkreuz. Die Antwort ist der Knopf
+**«Bestätigen»** (`bestaetige`): unter dem Blatt (Handy hoch), links unter
+der Frage (Handy quer) oder rechts neben dem Blatt (Tablet quer) – `messen`
+gibt ihm seinen Platz, und das Blatt rückt dafür ein Stück hinauf. Er gilt
+beim Loslassen auf dem Knopf (wer sich vertippt, zieht den Finger weg), auch
+während ein anderer Finger das Fadenkreuz noch hält, und er ist nur da,
+solange ein Blatt daliegt. Wer bloss tippt statt zu ziehen, liest kurz
+«Ziehen bewegt das Fadenkreuz»; das Titelbild sagt auf einem Handy
+«Irgendwo ziehen · dann bestätigen». Ist die Zeit um, zählt das Fadenkreuz
+nur, wenn es bewegt wurde (`gesetzt`). Und weil die Fingerkuppe beim Abheben
+abrollt, bleibt es nach einem ruhigen Halt dort, wo es kurz davor lag
+(`ruhigeStelle`) – auch wenn der Finger davor lange ganz still lag.
+
+Maus und Stift zeigen genau dorthin, wo sie stehen: Mit der Maus schwebt
+das Fadenkreuz mit, der Klick ist die Antwort, und einen Knopf gibt es
+nicht. Womit gespielt wird, sagt der letzte Tipp (`mitFinger`). (Zwei
+Anläufe davor: erst sass das Fadenkreuz unter dem Finger, mit einer Lupe
+daneben; dann stand es fest versetzt über ihm, an einem Griff, und
+Loslassen war die Antwort. Beides war mit dem Finger verwirrend.)
 
 Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
 (die Durchmesser, die Diagonalen, das Lot mit seinem rechten Winkel, die
@@ -638,11 +649,14 @@ zeichnen, beantworten und nachmessen; die Vorschau wartet auf den Tipp und
 lässt die Uhr stehen,
 zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
-was sie sollen – das Fadenkreuz steht um den Versatz über dem Finger, ein
-blosses Antippen ist keine Antwort, Halten und Loslassen schon, die Maus
-zeigt genau hin, und quer erreicht es ohne Sprung auch den unteren Rand –,
-und eine aufgezeichnete Runde zeigt beim Anschauen dieselben Blätter und
-dieselben Punkte.
+was sie sollen – mit dem Finger liegt das Fadenkreuz von Anfang an da, es
+geht den Weg des Fingers mit, wo immer er zieht, springt beim Nachgreifen
+nicht und bleibt am Rand stehen; ein Tipp verrückt nichts, Loslassen ist
+keine Antwort, der Knopf «Bestätigen» schon (auch während ein Finger das
+Fadenkreuz hält, nicht aber, wenn man von ihm wegzieht); die Maus zeigt
+genau hin und hat keinen Knopf; der Knopf hat hoch, quer und auf dem
+Tablet seinen Platz neben dem Blatt –, und eine aufgezeichnete Runde zeigt
+beim Anschauen dieselben Blätter und dieselben Punkte.
 
 ### Feuerseil (November 2026)
 

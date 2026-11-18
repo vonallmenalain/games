@@ -8252,24 +8252,53 @@ try {
     // Die Vorschau: Die Uhr steht, ein Tipp gleich nach dem Umblättern zählt
     // noch nicht, der nächste legt das Blatt hin – und wer nie tippt, bekommt
     // es nach VORSCHAU Sekunden.
-    // Die Uhr: Ohne Tipp gibt es nichts, mit Fadenkreuz zählt seine Stelle.
-    // Der Finger: am Griff halten, ziehen, loslassen – und ein zweiter Finger stört nicht.
+    // Die Uhr: Wer das Fadenkreuz nie bewegt, bekommt nichts; sonst zählt seine Stelle.
+    // Der Finger: irgendwo ziehen, loslassen, nachgreifen – die Antwort ist
+    // erst der Knopf. Ein zweiter Finger stört nicht.
     const uhr = await seite.evaluate(async () => {
       const A = window.LernappAugenmass;
       const st = A.state;
       const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
-      // Der Finger liegt nicht auf der Stelle, sondern am Griff darunter
-      // (imGriff) – das Fadenkreuz steht dann auf ihr. Die Maus zeigt selbst hin.
-      const druck = (art, ort, id = 1, womit = "touch") => {
-        const b = womit === "touch" ? A.imGriff(ort) : A.imBild(ort);
-        document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: id, isPrimary: id === 1, pointerType: womit, clientX: b.x, clientY: b.y }));
+      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
+      // Die Leinwand – jede neue Runde baut eine neue.
+      const flaeche = () => document.querySelector("#am-stage canvas");
+      const zeiger = (art, x, y, id = 1, womit = "touch", ziel = flaeche()) => ziel.dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: id, isPrimary: id === 1, pointerType: womit, clientX: x, clientY: y }));
+      // Der Finger greift irgendwo – hier unten rechts auf dem Blatt –, zieht
+      // erst über den Schlupf und dann so weit, dass das Fadenkreuz auf die
+      // gewünschte Stelle kommt.
+      let finger = null;
+      const greif = (wx = 0.8, wy = 0.9) => {
+        const r = flaeche().getBoundingClientRect();
+        finger = { x: r.left + A.view.x0 + A.view.seite * wx, y: r.top + A.view.y0 + A.view.seite * wy };
+        zeiger("pointerdown", finger.x, finger.y);
+        finger.x += A.SCHLUPF + 1;
+        zeiger("pointermove", finger.x, finger.y);
+      };
+      const zieh = (nach) => {
+        const z = st.zeiger;
+        finger = { x: finger.x + (nach.x - z.x) * A.view.s, y: finger.y + (nach.y - z.y) * A.view.s };
+        zeiger("pointermove", finger.x, finger.y);
+      };
+      const lass = () => zeiger("pointerup", finger.x, finger.y);
+      // Der Knopf «Bestätigen», mit einem eigenen Finger gedrückt.
+      const knopfMitte = () => { const r = A.knopf().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+      const bestaetige = () => { const m = knopfMitte(); zeiger("pointerdown", m.x, m.y, 3, "touch", A.knopf()); zeiger("pointerup", m.x, m.y, 3, "touch", A.knopf()); };
+      // Die Maus zeigt selbst auf die Stelle.
+      const maus = (art, ort) => { const b = A.imBild(ort); zeiger(art, b.x, b.y, 1, "mouse"); };
+      // Eine Stelle so viele Millimeter neben der Lösung – auf der Bahn, wenn das Blatt eine hat.
+      const neben = (a, mm) => {
+        for (let w = 0; w < 6.3; w += 0.05) {
+          const q = A.aufBahn(a, { x: a.ziel.x + Math.cos(w) * mm, y: a.ziel.y + Math.sin(w) * mm });
+          if (Math.abs(A.daneben(a, q) - mm) < 0.06) return q;
+        }
+        return a.ziel;
       };
       const raus = {};
       // Eine Runde, deren erste zwei Blätter kein Tunnel sind (das sind sie nie: der Tunnel ist schwer).
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       A.losGehts();
       await bild();
-      const tipp = () => { druck("pointerdown", { x: 50, y: 50 }); druck("pointerup", { x: 50, y: 50 }); };
+      const tipp = () => { const b = A.imBild({ x: 50, y: 50 }); zeiger("pointerdown", b.x, b.y); zeiger("pointerup", b.x, b.y); };
       raus.vor = { phase: st.phase };
       // Gleich nach dem Umblättern gilt der Tipp noch dem letzten Blatt.
       tipp();
@@ -8278,10 +8307,22 @@ try {
       st.vorSeit -= 20000;
       await bild();
       raus.vor.wartet = st.phase;
-      // Der Tipp legt das Blatt hin, und seine Uhr beginnt jetzt.
+      // Der Tipp legt das Blatt hin, und seine Uhr beginnt jetzt. Mit dem
+      // Finger liegt das Fadenkreuz schon da: am Anfang, wo es nichts verrät.
       tipp();
       raus.vor.los = { phase: st.phase, seit: A.seit() };
-      raus.sperre = (() => { druck("pointerdown", A.blatt().ziel); const da = Boolean(st.zeiger); druck("pointerup", A.blatt().ziel); return { da, phase: st.phase }; })();
+      const anfang = A.startOrt(A.blatt());
+      raus.start = { da: Boolean(st.zeiger), weg: st.zeiger ? Math.hypot(st.zeiger.x - anfang.x, st.zeiger.y - anfang.y) : -1, gesetzt: st.gesetzt };
+      // Gleich danach gilt noch nichts: kein Ziehen, kein Knopf.
+      raus.sperre = (() => {
+        const vor = { ...st.zeiger };
+        greif();
+        zieh(A.blatt().ziel);
+        lass();
+        bestaetige();
+        return { weg: Math.hypot(st.zeiger.x - vor.x, st.zeiger.y - vor.y), gesetzt: st.gesetzt, phase: st.phase };
+      })();
+      // Niemand bewegt das Fadenkreuz: Es liegt zwar da, aber es zählt nicht.
       st.t0 -= (A.ZEIT + A.EINZUG) * 1000 + 50;
       await bild();
       raus.ohne = { phase: st.phase, antwort: st.antwort, punkte: st.wertung?.punkte, gesamt: st.punkte };
@@ -8295,24 +8336,34 @@ try {
       raus.vor.selbst = st.phase;
       const a = A.blatt();
       st.t0 -= 1000;
-      druck("pointerdown", { x: a.ziel.x + 9, y: a.ziel.y + 6 });
-      raus.gesetzt = Boolean(st.zeiger) && Boolean(st.griff);
-      druck("pointerdown", { x: 20, y: 20 }, 2);
-      druck("pointermove", a.ziel);
+      greif();
+      zieh(A.aufBahn(a, { x: a.ziel.x + 9, y: a.ziel.y + 6 }));
+      raus.gesetzt = st.gesetzt && Boolean(st.griff);
+      // Ein zweiter Finger nimmt dem ersten das Fadenkreuz nicht weg.
+      zeiger("pointerdown", finger.x - 120, finger.y - 150, 2);
+      zeiger("pointermove", finger.x - 60, finger.y - 150, 2);
+      zieh(a.ziel);
       raus.geschoben = A.daneben(a, st.zeiger);
       st.t0 -= (A.ZEIT + A.EINZUG) * 1000;
       await bild();
       raus.mit = { phase: st.phase, punkte: st.wertung?.punkte, mm: st.wertung?.mm };
-      druck("pointerup", { x: 50, y: 50 });
+      lass();
       raus.danach = st.punkte;
       A.weiter();
       A.blattLos();
-      // Loslassen ist die Antwort.
+      // Loslassen ist keine Antwort: Man greift nach, so oft man will – erst
+      // der Knopf setzt das Fadenkreuz.
       const b = A.blatt();
       st.t0 -= 1000;
-      druck("pointerdown", { x: b.ziel.x + 5, y: b.ziel.y - 4 });
-      druck("pointermove", b.ziel);
-      druck("pointerup", b.ziel);
+      greif();
+      zieh(neben(b, 5));
+      lass();
+      const nachEins = { phase: st.phase, mm: A.daneben(b, st.zeiger) };
+      greif(0.3, 0.2);
+      zieh(b.ziel);
+      lass();
+      raus.nachgreifen = { eins: nachEins, zwei: { phase: st.phase, mm: A.daneben(b, st.zeiger) } };
+      bestaetige();
       raus.finger = { phase: st.phase, punkte: st.wertung?.punkte, mm: st.wertung?.mm };
       A.weiter();
       // Die Vorschau endet auch mit der Leertaste.
@@ -8331,97 +8382,144 @@ try {
       raus.taste = { phase: st.phase, punkte: st.wertung?.punkte };
       A.weiter();
       A.blattLos();
-      // Das Abheben: Der Finger ruht auf der Stelle und rollt beim Loslassen
-      // einen halben Millimeter ab – es zählt, wo er geruht hat. Wer dagegen
-      // noch schiebt, bekommt die letzte Stelle.
-      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
-      // Eine Stelle so viele Millimeter neben der Lösung – auf der Bahn, wenn das Blatt eine hat.
-      const neben = (a, mm) => {
-        for (let w = 0; w < 6.3; w += 0.05) {
-          const q = A.aufBahn(a, { x: a.ziel.x + Math.cos(w) * mm, y: a.ziel.y + Math.sin(w) * mm });
-          if (Math.abs(A.daneben(a, q) - mm) < 0.06) return q;
-        }
-        return a.ziel;
-      };
+      // Das Abheben: Der Finger ruht, und beim Loslassen rollt die Kuppe
+      // einen halben Millimeter ab – das Fadenkreuz bleibt, wo es geruht hat.
+      // Wer dagegen noch schiebt, behält die letzte Stelle.
       const d = A.blatt();
       st.t0 -= 1000;
-      druck("pointerdown", d.ziel);
-      await warte(A.TIPP_MS + 80);
+      greif();
+      zieh(d.ziel);
+      await warte(120);
       const gerollt = neben(d, 0.5);
-      druck("pointermove", gerollt);
-      druck("pointerup", gerollt);
-      raus.abheben = { mm: st.wertung?.mm, gerollt: A.daneben(d, gerollt) };
+      zieh(gerollt);
+      const beimRollen = A.daneben(d, st.zeiger);
+      lass();
+      raus.abheben = { gerollt: beimRollen, ruht: A.daneben(d, st.zeiger), phase: st.phase };
+      bestaetige();
+      raus.abheben.mm = st.wertung?.mm;
       A.weiter();
       A.blattLos();
       const e = A.blatt();
       st.t0 -= 1000;
-      druck("pointerdown", neben(e, 6));
+      greif();
+      zieh(neben(e, 6));
       await warte(120);
       const weit = neben(e, 3);
-      druck("pointermove", weit);
-      druck("pointerup", weit);
+      zieh(weit);
+      lass();
+      bestaetige();
       raus.schieben = { mm: st.wertung?.mm, soll: A.daneben(e, weit) };
       A.weiter();
       // Ab hier kämen die schweren Blätter, vielleicht der Tunnel: Für den
-      // Finger und die Maus liegen zwei bestimmte da.
+      // Finger und die Maus liegen bestimmte da.
       const lege = (art) => { st.blaetter[st.index] = { ...A.BAU[art](), nr: st.index, zeit: A.ZEIT, beispiel: A.BAU[art]() }; A.blattLos(); };
       lege("kreis");
-      // Der Versatz: Das Fadenkreuz steht nicht unter dem Finger, sondern
-      // VERSATZ Bildpunkte darüber. Ein blosses Antippen setzt es hin und
-      // ist noch keine Antwort – erst Halten und Loslassen.
-      const f = A.blatt();
+      // Das Tastfeld: Wo der Finger aufsetzt, ist gleich – das Fadenkreuz
+      // geht den Weg mit, den er zieht, Bildpunkt für Bildpunkt.
       st.t0 -= 1000;
-      const kante = document.querySelector("#am-stage canvas").getBoundingClientRect();
-      const finger = (art, x, y) => document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: x, clientY: y }));
-      const fx = kante.left + A.view.x0 + A.view.seite * 0.5;
-      const fy = kante.top + A.view.y0 + A.view.seite * 0.5;
-      finger("pointerdown", fx, fy);
-      const steht = st.zeiger && A.imBild(st.zeiger);
-      const frei = A.imBild(A.aufBahn(f, { x: 50, y: 50 - A.VERSATZ / A.view.s }));
-      raus.versatz = { hoch: A.versatzBei(fy - kante.top), versetzt: st.griff?.versetzt, dx: steht && Math.abs(steht.x - frei.x), dy: steht && Math.abs(steht.y - frei.y) };
-      finger("pointerup", fx, fy);
-      raus.antippen = { phase: st.phase, zeiger: Boolean(st.zeiger), griff: st.griff, wink: Boolean(st.wink) };
-      // Wieder greifen, halten, loslassen: Jetzt gilt es.
-      druck("pointerdown", f.ziel);
-      raus.gegriffen = { wink: Boolean(st.wink), mm: A.daneben(f, st.zeiger) };
-      await warte(A.TIPP_MS + 80);
-      druck("pointerup", f.ziel);
-      raus.gehalten = { phase: st.phase, punkte: st.wertung?.punkte };
+      await bild();
+      const kante = flaeche().getBoundingClientRect();
+      const mitte = { ...st.zeiger };
+      raus.feld = { mitte, knopf: A.knopfDa(), blass: !A.knopf().classList.contains("ist-bereit") };
+      // Solange das Fadenkreuz nicht bewegt wurde, gibt es nichts zu bestätigen.
+      bestaetige();
+      raus.feld.zuFrueh = { phase: st.phase, wink: st.wink > 0, gedrueckt: A.knopf().classList.contains("ist-gedrueckt") };
+      // Ein Tipp verrückt nichts und sagt, was gemeint ist.
+      tipp();
+      raus.feld.tipp = { weg: Math.hypot(st.zeiger.x - mitte.x, st.zeiger.y - mitte.y), wink: st.wink > 0, gesetzt: st.gesetzt, phase: st.phase };
+      // Unter dem Blatt aufgesetzt, weit weg vom Fadenkreuz: weniger als der Schlupf tut nichts …
+      const fx = kante.left + A.view.x0 + A.view.seite * 0.15;
+      const fy = kante.top + A.view.y0 + A.view.seite + 30;
+      zeiger("pointerdown", fx, fy);
+      zeiger("pointermove", fx + A.SCHLUPF - 1.5, fy);
+      raus.feld.schlupf = Math.hypot(st.zeiger.x - mitte.x, st.zeiger.y - mitte.y);
+      // … danach zählt jeder Bildpunkt.
+      zeiger("pointermove", fx + A.SCHLUPF + 1, fy);
+      zeiger("pointermove", fx + A.SCHLUPF + 1 + 43, fy - 27);
+      raus.feld.gezogen = { dx: (st.zeiger.x - mitte.x) * A.view.s, dy: (st.zeiger.y - mitte.y) * A.view.s, wink: st.wink > 0 };
+      await bild();
+      raus.feld.bereit = A.knopf().classList.contains("ist-bereit");
+      zeiger("pointerup", fx + A.SCHLUPF + 1 + 43, fy - 27);
+      // Nachgreifen an ganz anderer Stelle: Das Fadenkreuz springt nicht, es geht von dort weiter, wo es liegt.
+      const gx = kante.left + A.view.x0 + A.view.seite * 0.9;
+      const gy = kante.top + A.view.y0 + A.view.seite * 0.1;
+      zeiger("pointerdown", gx, gy);
+      raus.feld.sprung = Math.hypot((st.zeiger.x - mitte.x) * A.view.s - 43, (st.zeiger.y - mitte.y) * A.view.s + 27);
+      zeiger("pointermove", gx, gy + A.SCHLUPF + 1);
+      zeiger("pointermove", gx - 43, gy + A.SCHLUPF + 1 + 27);
+      raus.feld.zurueck = Math.hypot(st.zeiger.x - mitte.x, st.zeiger.y - mitte.y);
+      // Am Rand des Blattes bleibt es stehen – und kommt sofort zurück.
+      zeiger("pointermove", gx - 43 + 3000, gy + A.SCHLUPF + 1 + 27);
+      const amRand = { ...st.zeiger };
+      zeiger("pointermove", gx - 43 + 3000 - 20, gy + A.SCHLUPF + 1 + 27);
+      raus.feld.rand = { x: amRand.x, y: amRand.y - mitte.y, zurueck: (amRand.x - st.zeiger.x) * A.view.s };
+      zeiger("pointerup", gx - 43 + 3000 - 20, gy + A.SCHLUPF + 1 + 27);
+      raus.feld.phase = st.phase;
+      // Der Knopf gilt beim Loslassen – wer den Finger wegzieht, hat nichts bestätigt.
+      const km = knopfMitte();
+      zeiger("pointerdown", km.x, km.y, 3, "touch", A.knopf());
+      const gedrueckt = A.knopf().classList.contains("ist-gedrueckt");
+      zeiger("pointerup", km.x, km.y - 200, 3, "touch", A.knopf());
+      raus.feld.weggezogen = { gedrueckt, phase: st.phase };
+      // Und er gilt auch, während ein Finger das Fadenkreuz noch hält.
+      greif();
+      zieh(A.blatt().ziel);
+      bestaetige();
+      raus.feld.gesetzt = { phase: st.phase, punkte: st.wertung?.punkte, griff: st.griff };
+      lass();
       A.weiter();
       lege("eck");
       // Die Maus zeigt genau dorthin, wo sie steht – und ihr Klick ist die Antwort.
       const m = A.blatt();
       st.t0 -= 1000;
-      druck("pointermove", { x: m.ziel.x + 4, y: m.ziel.y + 4 }, 1, "mouse");
-      const schwebt = st.zeiger ? A.daneben(m, st.zeiger) : -1;
-      druck("pointerdown", m.ziel, 1, "mouse");
-      raus.maus = { schwebt, versetzt: st.griff?.versetzt, mm: A.daneben(m, st.zeiger) };
-      druck("pointerup", m.ziel, 1, "mouse");
+      maus("pointerdown", m.ziel);
+      raus.maus = { finger: st.griff?.finger, mm: A.daneben(m, st.zeiger) };
+      maus("pointerup", m.ziel);
       raus.maus.phase = st.phase;
       raus.maus.punkte = st.wertung?.punkte;
+      A.weiter();
+      lege("kreis");
+      // Wer mit der Maus spielt, hat kein Fadenkreuz, bevor sie sich bewegt,
+      // und keinen Knopf: Sie schwebt mit.
+      const n = A.blatt();
+      st.t0 -= 1000;
+      await bild();
+      raus.maus.leer = { zeiger: st.zeiger, knopf: A.knopfDa(), ort: A.view.knopfOrt };
+      maus("pointermove", { x: n.ziel.x + 4, y: n.ziel.y + 4 });
+      raus.maus.schwebt = st.zeiger ? A.daneben(n, st.zeiger) : -1;
       return raus;
     });
     pruefe(uhr.vor.phase === "vorschau" && uhr.vor.gleich === "vorschau" && uhr.vor.wartet === "vorschau" && uhr.vor.los.phase === "aufgabe" && uhr.vor.los.seit < 0.2,
       `Augenmass: Die Vorschau wartet nicht auf den Tipp, oder die Uhr des Blattes läuft schon vorher: ${JSON.stringify(uhr.vor)}`);
     pruefe(uhr.vor.fast === "vorschau" && uhr.vor.selbst === "aufgabe" && uhr.vor.taste === "aufgabe",
       `Augenmass: Die Vorschau endet nicht von selbst nach ihrer Zeit, oder nicht mit der Leertaste: ${JSON.stringify(uhr.vor)}`);
-    pruefe(uhr.sperre.da === false && uhr.sperre.phase === "aufgabe", `Augenmass: Ein Tipp gleich nach dem Umblättern zählt schon: ${JSON.stringify(uhr.sperre)}`);
+    pruefe(uhr.start.da && uhr.start.weg < 1e-9 && uhr.start.gesetzt === false,
+      `Augenmass: Mit dem Finger liegt das Fadenkreuz nicht von Anfang an da: ${JSON.stringify(uhr.start)}`);
+    pruefe(uhr.sperre.weg < 1e-9 && uhr.sperre.gesetzt === false && uhr.sperre.phase === "aufgabe", `Augenmass: Ziehen oder Bestätigen gleich nach dem Umblättern zählt schon: ${JSON.stringify(uhr.sperre)}`);
     pruefe(uhr.ohne.phase === "zeigen" && uhr.ohne.antwort === null && uhr.ohne.punkte === 0 && uhr.ohne.gesamt === 0,
-      `Augenmass: Ohne Tipp endet das Blatt nicht mit null Punkten: ${JSON.stringify(uhr.ohne)}`);
-    pruefe(uhr.gesetzt && uhr.geschoben < 0.3 && uhr.mit.phase === "zeigen" && uhr.mit.punkte === 10 && uhr.danach === 10,
-      `Augenmass: Ist die Zeit um, zählt das Fadenkreuz nicht, wo es steht: ${JSON.stringify(uhr)}`);
-    pruefe(uhr.finger.phase === "zeigen" && uhr.finger.punkte === 10 && uhr.finger.mm < 0.3, `Augenmass: Loslassen ist nicht die Antwort: ${JSON.stringify(uhr.finger)}`);
+      `Augenmass: Wer das Fadenkreuz nie bewegt, bekommt am Ende der Zeit trotzdem etwas: ${JSON.stringify(uhr.ohne)}`);
+    pruefe(uhr.gesetzt && uhr.geschoben < 0.01 && uhr.mit.phase === "zeigen" && uhr.mit.punkte === 10 && uhr.danach === 10,
+      `Augenmass: Ist die Zeit um, zählt das Fadenkreuz nicht, wo es steht – oder ein zweiter Finger hat es verrückt: ${JSON.stringify(uhr)}`);
+    pruefe(uhr.nachgreifen.eins.phase === "aufgabe" && uhr.nachgreifen.eins.mm > 3 && uhr.nachgreifen.zwei.phase === "aufgabe" && uhr.nachgreifen.zwei.mm < 0.01,
+      `Augenmass: Loslassen ist schon die Antwort, oder Nachgreifen geht nicht: ${JSON.stringify(uhr.nachgreifen)}`);
+    pruefe(uhr.finger.phase === "zeigen" && uhr.finger.punkte === 10 && uhr.finger.mm < 0.01, `Augenmass: Der Knopf «Bestätigen» ist nicht die Antwort: ${JSON.stringify(uhr.finger)}`);
     pruefe(uhr.pfeile < 1e-9 && uhr.taste.phase === "zeigen" && uhr.taste.punkte === 10, `Augenmass: Pfeile und Enter tun nicht, was sie sollen: ${JSON.stringify(uhr)}`);
-    pruefe(uhr.abheben.gerollt > 0.4 && uhr.abheben.mm < 0.05 && Math.abs(uhr.schieben.mm - uhr.schieben.soll) < 0.05 && uhr.schieben.soll > 2.5,
-      `Augenmass: Beim Abheben zählt nicht die Stelle, auf der der Finger geruht hat: ${JSON.stringify({ abheben: uhr.abheben, schieben: uhr.schieben })}`);
-    pruefe(uhr.versatz.hoch === 80 && uhr.versatz.versetzt === true && uhr.versatz.dx < 0.01 && uhr.versatz.dy < 0.01,
-      `Augenmass: Das Fadenkreuz steht nicht um den Versatz über dem Finger: ${JSON.stringify(uhr.versatz)}`);
-    pruefe(uhr.antippen.phase === "aufgabe" && uhr.antippen.zeiger && uhr.antippen.griff === null && uhr.antippen.wink,
-      `Augenmass: Ein blosses Antippen ist schon die Antwort, oder das Fadenkreuz bleibt nicht stehen: ${JSON.stringify(uhr.antippen)}`);
-    pruefe(uhr.gegriffen.wink === false && uhr.gegriffen.mm < 0.3 && uhr.gehalten.phase === "zeigen" && uhr.gehalten.punkte === 10,
-      `Augenmass: Halten und Loslassen ohne Ziehen ist nicht die Antwort: ${JSON.stringify({ gegriffen: uhr.gegriffen, gehalten: uhr.gehalten })}`);
-    pruefe(uhr.maus.schwebt > 2 && uhr.maus.versetzt === false && uhr.maus.mm < 0.3 && uhr.maus.phase === "zeigen" && uhr.maus.punkte === 10,
-      `Augenmass: Die Maus zeigt nicht genau dorthin, wo sie steht, oder ihr Klick ist nicht die Antwort: ${JSON.stringify(uhr.maus)}`);
+    pruefe(uhr.abheben.gerollt > 0.4 && uhr.abheben.ruht < 0.01 && uhr.abheben.phase === "aufgabe" && uhr.abheben.mm < 0.05 && Math.abs(uhr.schieben.mm - uhr.schieben.soll) < 0.05 && uhr.schieben.soll > 2.5,
+      `Augenmass: Beim Abheben bleibt das Fadenkreuz nicht, wo der Finger geruht hat: ${JSON.stringify({ abheben: uhr.abheben, schieben: uhr.schieben })}`);
+    pruefe(uhr.feld.knopf && Math.abs(uhr.feld.mitte.x - 50) < 1e-9 && Math.abs(uhr.feld.mitte.y - 50) < 1e-9
+      && uhr.feld.tipp.weg < 1e-9 && uhr.feld.tipp.wink && uhr.feld.tipp.gesetzt === false && uhr.feld.tipp.phase === "aufgabe" && uhr.feld.schlupf < 1e-9,
+      `Augenmass: Ein blosser Tipp verrückt das Fadenkreuz, oder es liegt nicht mitten auf dem Blatt: ${JSON.stringify(uhr.feld)}`);
+    pruefe(Math.abs(uhr.feld.gezogen.dx - 43) < 0.01 && Math.abs(uhr.feld.gezogen.dy + 27) < 0.01 && uhr.feld.gezogen.wink === false && uhr.feld.sprung < 0.01 && uhr.feld.zurueck < 0.01 && uhr.feld.phase === "aufgabe",
+      `Augenmass: Das Fadenkreuz geht nicht den Weg des Fingers mit, oder es springt beim Nachgreifen: ${JSON.stringify(uhr.feld)}`);
+    pruefe(uhr.feld.rand.x === 100 && Math.abs(uhr.feld.rand.y) < 0.01 && Math.abs(uhr.feld.rand.zurueck - 20) < 0.01,
+      `Augenmass: Am Rand des Blattes bleibt das Fadenkreuz nicht stehen, oder es kommt nicht sofort zurück: ${JSON.stringify(uhr.feld.rand)}`);
+    pruefe(uhr.feld.weggezogen.gedrueckt && uhr.feld.weggezogen.phase === "aufgabe" && uhr.feld.gesetzt.phase === "zeigen" && uhr.feld.gesetzt.punkte === 10 && uhr.feld.gesetzt.griff === null,
+      `Augenmass: Der Knopf gilt nicht beim Loslassen auf ihm, oder nicht, während ein Finger das Fadenkreuz hält: ${JSON.stringify(uhr.feld)}`);
+    pruefe(uhr.feld.blass && uhr.feld.zuFrueh.phase === "aufgabe" && uhr.feld.zuFrueh.wink && uhr.feld.zuFrueh.gedrueckt === false && uhr.feld.bereit,
+      `Augenmass: Der Knopf gilt schon, bevor das Fadenkreuz bewegt wurde – oder er wird danach nicht bereit: ${JSON.stringify(uhr.feld)}`);
+    pruefe(uhr.maus.finger === false && uhr.maus.mm < 0.3 && uhr.maus.phase === "zeigen" && uhr.maus.punkte === 10
+      && uhr.maus.leer.zeiger === null && uhr.maus.leer.knopf === false && uhr.maus.leer.ort === "" && uhr.maus.schwebt > 2,
+      `Augenmass: Die Maus zeigt nicht genau dorthin, wo sie steht, ihr Klick ist nicht die Antwort – oder sie hat einen Knopf: ${JSON.stringify(uhr.maus)}`);
 
     // Der Tunnel: Die Kugel rollt von selbst los, kurz nachdem das Blatt
     // daliegt. Ein Tipp davor oder solange sie zu sehen ist, gilt nicht; im
@@ -8544,48 +8642,59 @@ try {
   }
 
   {
-    // Handy quer: Unter dem Blatt ist kaum Platz für den Finger. Dort schrumpft
-    // der Versatz, sodass das Fadenkreuz auch den unteren Rand erreicht – der
-    // Finger bleibt im Bild, und nirgends springt es.
-    const { kontext, seite } = await neueSeite({ width: 780, height: 380 });
-    await seite.goto(`${BASIS}/augenmass`, { waitUntil: "load" });
-    await seite.waitForFunction(() => window.LernappAugenmass?.state?.blaetter && window.LernappAugenmass.view.cssW > 0, null, { timeout: 8000 });
-    const quer = await seite.evaluate(() => {
-      const A = window.LernappAugenmass;
-      const st = A.state;
-      const flaeche = document.querySelector("#am-stage canvas");
-      A.losGehts();
-      st.blaetter[0] = { ...A.BAU.kreis(), nr: 0, zeit: A.ZEIT, beispiel: A.BAU.kreis() };
-      A.blattLos();
-      st.t0 -= 1000;
-      const kante = flaeche.getBoundingClientRect();
-      const finger = (art, ort) => {
-        const b = A.imGriff(ort);
-        flaeche.dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: b.x, clientY: b.y }));
-        return b.y - kante.top;
-      };
-      const raus = { flach: A.view.flach, unterBlatt: A.view.cssH - A.view.y0 - A.view.seite, hoehe: A.view.cssH, rand: A.VERSATZ_RAND };
-      // Von ganz oben nach ganz unten gezogen, in halben Millimetern.
-      let letzter = finger("pointerdown", { x: 50, y: 0 });
-      raus.oben = { y: st.zeiger.y, versatz: A.versatzBei(letzter) };
-      raus.daneben = 0;
-      raus.schritt = [Infinity, 0];
-      for (let y = 0.5; y <= 100; y += 0.5) {
-        const py = finger("pointermove", { x: 50, y });
-        raus.daneben = Math.max(raus.daneben, Math.abs(st.zeiger.y - y));
-        const schritt = (py - letzter) / (0.5 * A.view.s);
-        raus.schritt = [Math.min(raus.schritt[0], schritt), Math.max(raus.schritt[1], schritt)];
-        letzter = py;
-      }
-      raus.unten = { y: st.zeiger.y, finger: letzter, versatz: A.versatzBei(letzter) };
-      return raus;
-    });
-    pruefe(quer.flach && quer.unterBlatt < 80 && quer.oben.y < 0.01 && quer.oben.versatz === 80
-      && quer.unten.y > 99.99 && quer.unten.finger <= quer.hoehe - quer.rand + 0.01 && quer.unten.versatz > 20 && quer.unten.versatz < 80,
-      `Augenmass: Quer erreicht das Fadenkreuz den Rand des Blattes nicht, oder der Finger müsste aus dem Bild: ${JSON.stringify(quer)}`);
-    pruefe(quer.daneben < 0.01 && quer.schritt[0] > 0.74 && quer.schritt[1] < 1.01,
-      `Augenmass: Wo der Versatz schrumpft, springt das Fadenkreuz oder läuft dem Finger davon: ${JSON.stringify(quer)}`);
-    await kontext.close();
+    // Der Knopf «Bestätigen» hat überall seinen Platz: unter dem Blatt (Handy
+    // hoch), links unter der Frage (Handy quer), rechts neben dem Blatt
+    // (Tablet quer). Er liegt ganz im Bild, nie auf dem Blatt, ist nur da,
+    // solange ein Blatt daliegt, und ist gross genug für einen Daumen.
+    for (const [breit, hoch, wo] of [[390, 844, "unten"], [360, 640, "unten"], [780, 380, "links"], [1024, 768, "rechts"]]) {
+      const { kontext, seite } = await neueSeite({ width: breit, height: hoch });
+      await seite.goto(`${BASIS}/augenmass`, { waitUntil: "load" });
+      await seite.waitForFunction(() => window.LernappAugenmass?.state?.blaetter && window.LernappAugenmass.view.cssW > 0, null, { timeout: 8000 });
+      const lage = await seite.evaluate(async () => {
+        const A = window.LernappAugenmass;
+        const st = A.state;
+        const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
+        const flaeche = document.querySelector("#am-stage canvas");
+        const tipp = () => ["pointerdown", "pointerup"].forEach((art) => flaeche.dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: 60, clientY: 200 })));
+        const raus = { vorher: A.view.knopfOrt };
+        // Der erste Tipp eines Fingers: Jetzt ist klar, womit gespielt wird.
+        tipp();
+        await bild();
+        raus.vorschau = { phase: st.phase, da: A.knopfDa() };
+        st.blaetter[0] = { ...A.BAU.kreis(), nr: 0, zeit: A.ZEIT, beispiel: A.BAU.kreis() };
+        A.blattLos();
+        await bild();
+        const kante = flaeche.getBoundingClientRect();
+        const k = A.knopf().getBoundingClientRect();
+        const stil = getComputedStyle(A.knopf());
+        raus.ort = A.view.knopfOrt;
+        raus.da = A.knopfDa();
+        raus.sichtbar = stil.visibility === "visible" && stil.pointerEvents === "auto";
+        raus.knopf = { x: k.left - kante.left, y: k.top - kante.top, w: k.width, h: k.height };
+        raus.bild = { w: A.view.cssW, h: A.view.cssH };
+        raus.blatt = { x: A.view.x0, y: A.view.y0, seite: A.view.seite };
+        raus.text = A.knopf().textContent;
+        // Das Blatt ist bestätigt: Der Knopf geht, und Tipps fallen wieder durch.
+        st.t0 -= 1000;
+        A.setzeZeiger(A.blatt().ziel);
+        A.bestaetige();
+        await bild();
+        const danach = getComputedStyle(A.knopf());
+        raus.danach = { phase: st.phase, da: A.knopfDa(), zeiger: danach.pointerEvents };
+        return raus;
+      });
+      const k = lage.knopf;
+      const b = lage.blatt;
+      const imBild = k.x >= 8 && k.y >= 0 && k.x + k.w <= lage.bild.w - 8 && k.y + k.h <= lage.bild.h - 8;
+      const nebenBlatt = k.x + k.w <= b.x || k.x >= b.x + b.seite || k.y >= b.y + b.seite || k.y + k.h <= b.y;
+      pruefe(lage.vorher === "" && lage.vorschau.phase === "vorschau" && lage.vorschau.da === false && lage.ort === wo && lage.da && lage.sichtbar && lage.text === "Bestätigen",
+        `Augenmass (${breit}×${hoch}): Der Knopf «Bestätigen» ist nicht da, wenn ein Blatt daliegt – oder schon vorher: ${JSON.stringify(lage)}`);
+      pruefe(imBild && nebenBlatt && k.w >= 150 && k.h >= 48 && b.seite >= 200,
+        `Augenmass (${breit}×${hoch}): Der Knopf liegt nicht frei im Bild, ist zu klein, oder das Blatt hat keinen Platz mehr: ${JSON.stringify(lage)}`);
+      pruefe(lage.danach.phase === "zeigen" && lage.danach.da === false && lage.danach.zeiger === "none",
+        `Augenmass (${breit}×${hoch}): Nach dem Bestätigen bleibt der Knopf stehen: ${JSON.stringify(lage.danach)}`);
+      await kontext.close();
+    }
   }
 
   // --- 4g35. Feuerseil: schaffbar bis weit hinauf, und jede Runde endet von selbst ----
