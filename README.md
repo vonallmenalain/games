@@ -882,8 +882,25 @@ Sekunden auf den Finger (`WARTEN`), und wer hält und nicht mehr loslässt,
 wird drei Sekunden über dem Soll abgelöst (`HALT_MEHR`). Solange man die
 Uhr sieht, tickt sie – jede Sekunde, jeder sichtbare Schlag.
 
+**Die Stempelkarte** (seit dem 18. November 2026, `zeichneStempelkarte`) –
+wie die Stückliste bei «Augenmass», nur passend zur Zeit: eine Stechkarte,
+wie sie neben der Stempeluhr einer Fabrik steckt. Cremefarbenes Papier, rot
+der Kopf, je Aufgabe eine Zeile mit Nummer, Stufe (der farbige Punkt) und
+Name; was noch kommt, ist verdeckt (· · ·), die Aufgabe, die gerade dran
+ist, steht türkis im Schlitz. Jede Antwort wird gestempelt: die Abweichung
+in Tinte (+0,04, −0,11, ohne Antwort ein Strich) und die Punkte in einem
+violetten Stempel, ein wenig schief, der beim Antworten mit einem kleinen
+Ruck aufs Papier kommt (`STEMPEL_MS`; unter 50 Punkten rot). Unten die
+Summe von tausend. Wo links neben der Uhr Platz ist (Computer, Tablet quer,
+Handy quer), liegt sie dort, leicht schräg; sonst unter der Uhr – gross, wo
+es Platz hat (Tablet hoch), am Handy hoch in zwei Spalten ohne die
+Abweichung (die steht dort ohnehin gross unter der Uhr), mit der Summe im
+Kopf. Dafür rückt die Uhr hinauf und wird, wenn es sein muss, etwas
+kleiner (`messen`).
+
 Unten stehen zehn Felder, eines je Aufgabe: vorher ein Punkt in der Farbe
-der Stufe, danach die Punkte. Aufgezeichnet werden die Züge (`meldeZug`:
+der Stufe, danach die Punkte – ausser am Handy hoch, wo die Stempelkarte
+ihren Platz hat. Aufgezeichnet werden die Züge (`meldeZug`:
 jede neue Aufgabe, der Tipp, der ihre Uhr startet, der Beginn eines
 Haltens, die Antwort) – damit lassen sich die besten Runden anschauen, und
 im Multiplayer sehen die anderen dasselbe, auch das Warten; wer zuschaut,
@@ -897,9 +914,10 @@ tausend; ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird sein
 Augenblick (oder wie lange gehalten wurde), und wer nicht antwortet, bekommt
 nichts; jede Aufgabe wartet zuerst (die Uhr steht, ein Tipp gleich nach dem
 Hinlegen zählt nicht, der nächste oder die Leertaste lässt sie anlaufen und
-ist noch keine Antwort, und nach `WARTE` Sekunden läuft sie von selbst); und
-eine aufgezeichnete Runde zeigt beim Anschauen dieselben Aufgaben und
-dieselben Punkte.
+ist noch keine Antwort, und nach `WARTE` Sekunden läuft sie von selbst); die
+Stempelkarte liegt auf fünf Bildgrössen neben oder unter der Uhr, ganz im
+Bild und nie auf ihr; und eine aufgezeichnete Runde zeigt beim Anschauen
+dieselben Aufgaben und dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 

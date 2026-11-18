@@ -9153,7 +9153,8 @@ try {
   // Stufe sagt. Ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird
   // der Augenblick des Tipps (oder wie lange gehalten wurde), und wer gar
   // nicht antwortet, bekommt nichts. Vor jeder Aufgabe steht die Uhr: Sie
-  // läuft erst nach einem Tipp – oder nach WARTE Sekunden von selbst.
+  // läuft erst nach einem Tipp – oder nach WARTE Sekunden von selbst. Die
+  // Stempelkarte liegt neben oder unter der Uhr, nie auf ihr.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
     await seite.goto(`${BASIS}/zeitgefuehl`, { waitUntil: "load" });
@@ -9406,6 +9407,48 @@ try {
     pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespieltListe),
       `Zeitgefühl: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespieltListe, gespielt })}`);
     await kontext.close();
+  }
+
+  {
+    // Die Stempelkarte: neben der Uhr, wo dort Platz ist; sonst darunter –
+    // gross, wo es Platz hat, sonst in zwei Spalten. Sie liegt ganz im Bild,
+    // nie auf der Uhr, ihrer Auflösung oder dem Satz der Aufgabe, und sie
+    // ist gezeichnet (Papier, wo sie liegt).
+    for (const [breit, hoch, art, klein] of [[1280, 800, "seite", false], [844, 390, "seite", false], [768, 1024, "unten", false], [390, 844, "unten", true], [360, 640, "unten", true]]) {
+      const { kontext, seite } = await neueSeite({ width: breit, height: hoch });
+      await seite.goto(`${BASIS}/zeitgefuehl`, { waitUntil: "load" });
+      await seite.waitForFunction(() => window.LernappZeitgefuehl?.state?.aufgaben && window.LernappZeitgefuehl.view.cssW > 0, null, { timeout: 8000 });
+      const lage = await seite.evaluate(async () => {
+        const Z = window.LernappZeitgefuehl;
+        const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
+        Z.losGehts();
+        Z.aufgabeLos();
+        Z.antworte(Z.aufgabe().ziel + 40);
+        await bild();
+        const v = Z.view;
+        const k = v.karte;
+        if (!k) return { k: null };
+        // Das Papier: oben in der Mitte der Karte, wo kein Text steht.
+        const fl = document.querySelector("#zf-stage canvas");
+        const px = fl.getContext("2d").getImageData(Math.round((k.x + k.w / 2) * v.dpr), Math.round((k.y + 5) * v.dpr), 1, 1).data;
+        return {
+          k: { art: k.art, klein: k.klein, x: k.x, y: k.y, w: k.w, h: k.h },
+          bild: { w: v.cssW, h: v.cssH, frei: v.frei },
+          uhr: { cx: v.cx, cy: v.cy, r: v.r },
+          papier: [px[0], px[1], px[2]],
+        };
+      });
+      const k = lage.k;
+      const imBild = k && k.x >= 0 && k.y >= lage.bild.frei && k.x + k.w <= lage.bild.w && k.y + k.h <= lage.bild.h;
+      const frei = !k ? false : k.art === "seite"
+        ? k.x + k.w <= lage.uhr.cx - lage.uhr.r * 1.15 && k.y + k.h <= lage.bild.h - 40
+        : k.y >= lage.uhr.cy + lage.uhr.r * 1.6 && lage.uhr.cy - lage.uhr.r * 1.38 - lage.bild.frei >= 90 && lage.uhr.r >= 80;
+      pruefe(k && k.art === art && k.klein === klein && imBild && frei,
+        `Zeitgefühl (${breit}×${hoch}): Die Stempelkarte liegt nicht, wo sie soll, oder über der Uhr: ${JSON.stringify(lage)}`);
+      pruefe(lage.papier && lage.papier[0] > 200 && lage.papier[1] > 190 && lage.papier[2] > 150,
+        `Zeitgefühl (${breit}×${hoch}): Die Stempelkarte ist nicht gezeichnet: ${JSON.stringify(lage.papier)}`);
+      await kontext.close();
+    }
   }
 
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------

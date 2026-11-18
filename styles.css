@@ -3571,6 +3571,9 @@ h2 {
 .zf-stage:not([data-phase="intro"]) .zf-prompt { opacity: 0; }
 
 .zf-feld { width: 100%; background: #10171a; }
+/* Liegt die Stempelkarte unten (Handy hoch), steht der Hinweis «schaut zu»
+   (geist.js) über ihr. */
+.zf-stage[data-karte="unten"] { --gz-unten: 140px; }
 
 .zf-canvas {
   display: block;
