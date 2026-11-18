@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        vierzig Spielseiten, erzeugt
+    turmbau.html …        dreiundvierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -612,6 +612,197 @@ zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
 was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
 Blätter und dieselben Punkte.
+
+### Feuerseil (November 2026)
+
+Das erste von drei Spielen nach alten Partyspielen – hier das brennende
+Springseil, bei dem man reihum ausschied, bis nur noch einer stand.
+
+**Feuerseil** (`feuerseil.js`, `fireRope`) – Ein Dorfplatz bei Nacht:
+Lichterketten, Giebel, ein Kirchturm, dahinter die Berge, davor das Publikum.
+Zwei Feuerkünstler schwingen ein brennendes Seil, in der Mitte steht ein
+Mädchen mit Zopf. **Tippen heisst hüpfen, Halten springt höher** – geht das
+Seil unten durch, muss sie über den Flammen sein. Die erste Berührung
+beendet die Runde. Der erste Tipp startet nur; gesprungen wird ab dem
+zweiten.
+
+Der Sprung springt sofort ab (`absprung`), und solange der Finger liegt,
+trägt er weiter (`G`, `V0`, `SCHNITT`): kurz getippt gut 30 cm hoch und 0,28 s
+lang, ganz gehalten 67 cm und eine halbe Sekunde (`sprungProfil`). Hoch ist
+sicher, aber lang in der Luft; flach ist schnell wieder unten, aber knapp.
+Ein Tipp kurz vor der Landung springt gleich wieder ab (`PUFFER`).
+
+Das Seil wird Strophe um Strophe schneller – sechs Durchgänge sind eine
+Strophe (`STROPHE`), die Umlaufzeit fällt von 1,15 s je Strophe auf 92,5 %
+(`P0`, `P_FAKTOR`) –, und die Flammen schlagen höher (`FLAMME0` bis
+`FLAMME_MAX`: 14 bis 38 cm). Ab der dritten Strophe hat jede ihre Figur
+(`stropheBauen`, nie zweimal dieselbe hintereinander):
+
+    gleich      gleichmässig, im Tempo der Strophe
+    wechsel     ein Durchgang langsam, einer schnell
+    zeitlupe    zwei Durchgänge fast doppelt so lang – wer im Takt
+                weiterhüpft, landet zu früh
+    zoegern     das Seil hängt oben einen Augenblick (0,2 bis 0,4 s)
+    doppel      ein zweites Seil, blau, gegenläufig; halb versetzt oder
+                (ab Strophe 9) «kurz–lang»
+    kehre       oben kehrt das Seil um und kommt von der anderen Seite
+    schnapper   ab dem höchsten Punkt schnappt es schneller herunter
+    wild        ab Strophe 11: jeder Durchgang etwas anderes
+
+Das Seil misst in Umdrehungen (`seilSchritt`: 0 ist unten, 0,5 oben; es
+kommt vorn herunter und geht hinten hinauf), und sein Tempo folgt dem Ziel
+des Durchgangs mit etwas Nachzug (`NACHZUG`) – jeden Tempowechsel sieht man
+kommen, wenn man hinschaut statt mitzuzählen. Das zweite Seil hängt fest am
+ersten (`versatz − u`). Wo das Seil schneller dreht, als ein Hüpfer dauert,
+hilft nur noch ein hoher Sprung über zwei Durchgänge.
+
+Jedes Seil, das unten durchgeht, ist ein Punkt. Geht es höchstens `PERFEKT`
+Schritte (ein Dreissigstel einer Sekunde) vor oder nach dem höchsten Punkt
+des Sprungs durch, ist das «Perfekt» und gibt einen Punkt dazu, in Folge
+zwei, drei und vier (`KETTE_MAX`, `wertung`). Und jede Runde endet: Ab
+Strophe 17 (`ENDE_AB`) wachsen die Flammen Strophe um Strophe um 6 cm, bis
+über jede Sprunghöhe – die besten Runden dauern gut 70 Sekunden.
+
+Gerechnet wird in 240 Schritten je Sekunde und nur mit Plus, Minus, Mal und
+Geteilt (`periodeBei` nimmt mal statt `Math.pow`): So ist eine Runde auf
+jedem Gerät dieselbe. Aufgezeichnet werden die Züge – jedes Drücken und
+Loslassen mit seinem Schritt (`meldeZug`) –, und wer zuschaut, rechnet
+dieselbe Runde mit denselben Zügen nach (`zuschauenTakt`, wie beim
+Jongleur). Gewürfelt wird nur die Folge der Figuren, je Strophe sieben
+Zahlen; im Turnier bekommen alle dieselbe.
+
+Das Bild: Der Hintergrund ist einmal gemalt (`hintergrundBauen`), das Seil
+ein Bogen aus 26 Punkten mit vierzig Flammenzungen (`zeichneSeil`), im
+Mittel etwas höher gemalt als gerechnet – wer über die gemalten kommt, ist
+sicher drüber. Die Füsse stehen genau auf der gerechneten Höhe. Hinten ist
+das Seil blasser, vorn heller und vor der Figur. Prüfung 4g35: Ein Autopilot,
+der das Seil vorausrechnet (`vorschau`), kommt auf jeder Welt über achtzig
+Seile und endet doch von selbst; wer nie, zu früh oder zu flach springt,
+sieht die Tafel mit dem Grund; Halten springt höher und länger; und ein
+aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit derselben
+Zahl.
+
+### Flaggenkommando (November 2026)
+
+Das zweite nach einem alten Partyspiel: der Kapitän, der Flaggen hebt, und
+alle heben mit – bis einer die falsche erwischt.
+
+**Flaggenkommando** (`flaggen.js`, `flagCommand`) – Auf der Brücke eines
+Segelschiffs steht der Kapitän mit einem roten Wimpel und einer gelben Fahne,
+unten auf dem Deck ein Matrose mit denselben zwei. Eine Regel: **Zeig immer,
+was der Kapitän zeigt.** Links halten hebt den roten Wimpel, rechts halten
+die gelbe Fahne – gehalten, nicht getippt: Oben bleibt eine Flagge nur,
+solange der Daumen liegt (am Rechner A oder ← und L, D oder →). Die zwei
+Knöpfe unten zeigen, wo; gedrückt wird die ganze Hälfte.
+
+Der Kapitän gibt Kommando um Kommando (`kommandoGeben`): rot, gelb, beide,
+keine – nie zweimal dasselbe. Mit jedem läuft eine Frist (der Balken an der
+Brücke), und sobald unten steht, was oben steht, zählt es (`bestaetigen`):
+ein Punkt. In den ersten 55 % der Frist (`BLITZ`, der goldene Teil) ist es
+ein «Blitz» und gibt einen Punkt dazu, in Folge zwei und drei (`KETTE_MAX`).
+Wer schnell ist, bekommt das nächste Kommando früher.
+
+Drei Fehler gibt es, und jeder beendet die Runde (`patzer`):
+
+    falsch    eine Flagge heben, die der Kapitän nicht oben hat
+    gesenkt   eine Flagge senken, die er oben hat (ausser in der Frist)
+    langsam   die Frist ist um, und unten steht nicht, was oben steht
+
+Sechs Kommandos sind eine Welle (`WELLE`), und mit jeder fällt die Frist –
+von einer Sekunde auf 90,5 % je Welle (`FRIST0`, `FRIST_FAKTOR`), ab Welle 15
+um feste Schritte, ab Welle 25 ist sie null (`ENDE_AB`): Jede Runde endet.
+Dazu kommen die Einfälle des Kapitäns:
+
+    beide     ab Welle 3 auch beide Flaggen auf einmal
+    Finten    ab Welle 4 zuckt ein Arm, als käme ein Kommando: Er steigt wie
+              ein echtes, bleibt knapp unter der Hälfte hängen und fällt
+              zurück (`finteGeben`, `armKapitaen`). Der Pfiff kommt auch dann.
+              Wer auf die erste Bewegung reagiert, hebt falsch – oder senkt,
+              was oben bleiben sollte.
+    Kehrt     ab Welle 6 dreht er sich manchmal um. Den Wimpel hält er in
+              derselben Hand; im Bild ist er jetzt rechts. Es gilt die Farbe,
+              nicht die Seite – und die Form: Wimpel ist dreieckig, die Fahne
+              viereckig mit Punkt.
+
+Dazu zieht ein Sturm auf (`wetter`): Der Himmel wird dunkel, das Schiff
+rollt, es regnet. Gerechnet wird in 240 ganzen Schritten je Sekunde; eine
+Pose ist eine Zahl aus zwei Bits. Gewürfelt werden die Kommandos, die Pausen,
+die Finten und die Kehren (`welleBauen`, je Welle 31 Zahlen) – im Turnier für
+alle dieselben. Aufgezeichnet werden die Züge wie beim Feuerseil: jedes
+Drücken und Loslassen mit seinem Schritt, und wer zuschaut, rechnet die Runde
+damit nach. Prüfung 4g36: Ein Autopilot mit einer Viertelsekunde Reaktion
+kommt auf jeder Welt genau bis in die sechzehnte Welle (90 Kommandos, 48
+davon Blitz); auch der schnellste endet mit Welle 25; wer nie hebt, falsch
+hebt, tippt statt hält oder einer Finte folgt, sieht die Tafel mit dem Grund;
+und ein aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit
+derselben Zahl.
+
+### Zeitgefühl (November 2026)
+
+Das dritte nach einem alten Partyspiel – dort lief eine Uhr verdeckt, und wer
+dem Augenblick am nächsten kam, gewann. Hier ist es das Geschwister von
+«Augenmass»: zehn Aufgaben, bis zu hundert Punkte je Aufgabe, nur wird nicht
+Länge geschätzt, sondern Zeit.
+
+**Zeitgefühl** (`zeitgefuehl.js`, `timeSense`) – Auf der Werkbank eines
+Uhrmachers liegt eine Stoppuhr aus Messing. Sie läuft an – und verschwindet.
+Wer spielt, zählt im Kopf weiter und **tippt im richtigen Augenblick**, oder
+**hält so lange, wie es verlangt ist** (ein Finger irgendwo im Bild, am
+Rechner Leertaste oder Enter). Danach zeigt die Uhr, was sie beim Tipp
+wirklich zeigte, und darunter steht, wie weit es daneben war.
+
+Zehn Aufgaben je Runde, jede Art einmal: erst die drei leichten, dann die
+vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
+`MITTEL`, `SCHWER`, `aufgabenFuer`). Die Zeiten sind gewürfelt (`wuerfle`):
+
+    leicht   Stoppuhr    «Stoppe bei 3,50.» Die Ziffern laufen bis zur
+                         Hälfte, dann stehen Striche da (2,5 bis 4 s).
+             Countdown   Zwei Zahlen sieht man, den Rest zählt man selbst:
+                         tippen bei null (4 oder 5 s).
+             Zeiger      Der Zeiger läuft einmal ums Blatt (3 bis 4,5 s) und
+                         verschwindet nach 40 %: tippen, wenn er oben ist.
+    mittel   Takt        Vier Schläge leuchten (alle 0,45 bis 0,75 s), vier
+                         bleiben stumm: tippen auf den achten.
+             Nachhalten  Eine Lampe brennt 1,5 bis 3 s. Danach genauso lange
+                         halten.
+             Blind       «Halte genau 2,5 Sekunden.» Ohne jede Vorgabe.
+             Lange Uhr   Stoppen bei 5,5 bis 7 s – zu sehen sind nur die
+                         ersten anderthalb.
+    schwer   Zeitlupe    Die Uhr geht halb, drei viertel, anderthalb oder
+                         doppelt so schnell wie die Zeit. Gestoppt und
+                         gemessen wird nach dem, was sie zeigt (`faktor`).
+             Doppelt     Die Lampe brennt – halten soll man doppelt oder
+                         halb so lange.
+             Störung     Die Uhr verschwindet nach einem guten Drittel, und
+                         an ihrer Stelle laufen rote Zahlen im falschen
+                         Tempo (×1,4 oder ×0,7). Sie lügen.
+
+**Jede Hundertstelsekunde daneben kostet einen Punkt** (`punkteFuer`), bei
+den mittleren 0,8, bei den schweren 0,6 (`KOSTEN`): Sieben Hundertstel neben
+dem Ziel sind 93 Punkte, eine Sekunde ist null. Tausend sind das Dach. Bis
+drei Hundertstel ist eine Antwort «haargenau» (`GENAU`: goldene Schrift,
+Funken), unter einem halben Hundertstel steht «Auf die Hundertstel!» da.
+
+Gemessen wird der Zeitstempel des Fingers, nicht das nächste Bild (`zeitVon`).
+Ein Tipp, solange die Vorgabe noch zu sehen ist, gilt nicht – «Noch nicht»
+(`ab`). Wer gar nicht tippt, bekommt nichts: Zweieinhalb Sekunden nach dem
+Augenblick geht es weiter (`NACHLAUF`); eine Halte-Aufgabe wartet sechs
+Sekunden auf den Finger (`WARTEN`), und wer hält und nicht mehr loslässt,
+wird drei Sekunden über dem Soll abgelöst (`HALT_MEHR`). Solange man die
+Uhr sieht, tickt sie – jede Sekunde, jeder sichtbare Schlag.
+
+Unten stehen zehn Felder, eines je Aufgabe: vorher ein Punkt in der Farbe
+der Stufe, danach die Punkte. Aufgezeichnet werden die Züge (`meldeZug`:
+jede neue Aufgabe, der Beginn eines Haltens, die Antwort) – damit lassen
+sich die besten Runden anschauen, und im Multiplayer sehen die anderen
+dasselbe; wer zuschaut, lässt die Uhr selbst laufen und rechnet die Antwort
+nach (`zuschauenTakt`). Im Turnier bekommen alle dieselben zehn Aufgaben.
+Prüfung 4g37: Jede Runde hat ihre drei, vier und drei Aufgaben mit Zeiten
+aus ihrem Band; die Punkte fallen nach der Regel, zehn genaue Antworten geben
+tausend; ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird sein
+Augenblick (oder wie lange gehalten wurde), und wer nicht antwortet, bekommt
+nichts; und eine aufgezeichnete Runde zeigt beim Anschauen dieselben Aufgaben
+und dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1523,7 +1714,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle vierzig
+    Spiele            welche dazugehören, eines bis alle dreiundvierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

@@ -90,6 +90,9 @@ service cloud.firestore {
         "mineCart",
         "twinRotor",
         "eyeMeasure",
+        "fireRope",
+        "flagCommand",
+        "timeSense",
       ];
     }
 
