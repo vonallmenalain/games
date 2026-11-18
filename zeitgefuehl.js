@@ -49,6 +49,11 @@
  * Welche Zeiten gefragt sind, würfelt der Zufall; in einem Turnier bekommen
  * alle dieselben zehn Aufgaben (zufall.js).
  *
+ * Neben der Uhr liegt die Stempelkarte, wie an der Stechuhr einer Fabrik:
+ * je Aufgabe eine Zeile, und jede Antwort wird darauf gestempelt – wie weit
+ * daneben, wie viele Punkte. Wo neben der Uhr kein Platz ist (Handy hoch),
+ * liegt sie kleiner darunter (zeichneStempelkarte).
+ *
  * Aufgezeichnet werden die Züge (geist.js, zuege): jede neue Aufgabe, der
  * Tipp, der ihre Uhr startet, der Beginn eines Haltens und die Antwort. Damit lassen sich die besten Läufe
  * anschauen, und im Multiplayer sehen die anderen dasselbe (live-spiel.js).
@@ -94,6 +99,18 @@
   const WARTEN = 6000;       // so lange wartet eine Halte-Aufgabe auf den Finger
   const HALT_MEHR = 3000;    // so viel länger als verlangt lässt sich halten
   const AUSBLENDEN = 300;    // so lange verblasst, was verschwindet
+  // Die Stempelkarte (zeichneStempelkarte): neben der Uhr, wenn links davon
+  // so viel Platz ist (CSS-Pixel), sonst klein darunter. Kopf und Fuss der
+  // grossen, Kopf und Zeile der kleinen; FELDER_H ist, was die zehn Felder
+  // ganz unten brauchen, TEXT_H der Satz der Aufgabe über der Uhr.
+  const KARTE_SEITE_MIN = 234;
+  const KARTE_KOPF = 38;
+  const KARTE_FUSS = 34;
+  const KARTE_KLEIN_KOPF = 26;
+  const KARTE_KLEIN_ZEILE = 21;
+  const FELDER_H = 46;
+  const TEXT_H = 96;
+  const STEMPEL_MS = 260;
   // Vor jeder Aufgabe steht die Uhr, bis jemand tippt – aber nicht ewig:
   // Nach WARTE Sekunden läuft sie von selbst, in den letzten WARTE_ZAEHLT
   // zählt sie sichtbar herunter. Ein Tipp gilt erst nach WARTE_SPERRE (nicht
@@ -261,7 +278,7 @@
   // Die Aufzeichnung der Züge (geist.js, zuege).
   let aufnahme = null;
 
-  const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, cx: 0, cy: 0, r: 120 };
+  const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, cx: 0, cy: 0, r: 120, karte: null };
 
   const aufgabe = () => state.aufgaben?.[state.index] || null;
   // Die Zeit der Aufgabe in ms: null ist, wenn sie fertig hingelegt ist.
@@ -517,11 +534,53 @@
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
     // Die Uhr in der Mitte: oben der Satz der Aufgabe, darunter die
-    // Auflösung, ganz unten die zehn Felder.
+    // Auflösung, ganz unten die zehn Felder. Links neben der Uhr die
+    // Stempelkarte – oder, wo dort kein Platz ist, unter ihr, statt der
+    // Felder (sie sagt mehr als sie).
     const nutzH = cssH - frei;
-    view.r = Math.min(cssW * 0.36, nutzH * 0.225);
-    view.cx = cssW / 2;
-    view.cy = frei + nutzH * 0.5;
+    let R = Math.min(cssW * 0.36, nutzH * 0.225);
+    let cy = frei + nutzH * 0.5;
+    const cx = cssW / 2;
+    view.karte = null;
+    const links = cx - R * 1.25 - 12;
+    if (links >= KARTE_SEITE_MIN) {
+      const w = Math.min(290, links - 24);
+      const platz = cssH - frei - 16 - FELDER_H;
+      const zeile = clamp((platz - KARTE_KOPF - KARTE_FUSS) / AUFGABEN, 17, 26);
+      const h = KARTE_KOPF + KARTE_FUSS + zeile * AUFGABEN;
+      view.karte = {
+        art: "seite", klein: false, w, h, zeile,
+        x: Math.round((cx - R * 1.25) / 2 - w / 2),
+        y: Math.round(clamp(cy - h / 2, frei + 8, Math.max(frei + 8, cssH - FELDER_H - 8 - h))),
+      };
+    } else {
+      // Unter der Uhr. Darüber muss Platz bleiben für den Satz der Aufgabe
+      // (TEXT_H), die Uhr und ihre Auflösung. Wo viel Platz ist (Tablet
+      // hoch), liegt dort die ganze Karte, wenn die Uhr dafür nicht viel
+      // kleiner werden muss; sonst die kleine, in zwei Spalten – und für sie
+      // wird die Uhr kleiner, wenn es sein muss, aber nie zu klein.
+      const zeileGross = 22;
+      const hGross = KARTE_KOPF + KARTE_FUSS + zeileGross * AUFGABEN;
+      const hKlein = KARTE_KLEIN_KOPF + KARTE_KLEIN_ZEILE * (AUFGABEN / 2) + 10;
+      const rGross = (cssH - frei - TEXT_H - 20 - hGross) / 3.03;
+      const rKlein = (cssH - frei - TEXT_H - 20 - hKlein) / 3.03;
+      const gross = rGross >= Math.max(150, R * 0.8);
+      if (gross || rKlein >= 80) {
+        const h = gross ? hGross : hKlein;
+        R = Math.min(R, gross ? rGross : rKlein);
+        const w = gross ? Math.min(cssW - 24, 400) : Math.min(cssW - 24, 520);
+        const y = cssH - 12 - h;
+        const oben = frei + TEXT_H + R * 1.38;
+        const unten = y - 8 - R * 1.65;
+        cy = Math.max(oben, Math.min(cy, (oben + unten) / 2));
+        view.karte = { art: "unten", klein: !gross, w, h, zeile: gross ? zeileGross : KARTE_KLEIN_ZEILE, x: Math.round(cx - w / 2), y };
+      }
+    }
+    view.r = R;
+    view.cx = cx;
+    view.cy = cy;
+    // Der Hinweis «schaut zu» (geist.js) steht über einer Karte am unteren Rand.
+    host.dataset.karte = view.karte?.art || "";
   }
 
   // ---------------------------------------------------------------------------
@@ -927,12 +986,15 @@
     const unten = cy - R * 1.38;
     const hoch = Math.max(40, unten - oben);
     const gross = clamp(Math.min(view.cssW * 0.055, hoch * 0.26), 14, 30);
-    const zeilen = zeilenFuer(a.frage, view.cssW - 36, gross);
+    // Neben der Stempelkarte reicht der Satz nicht über sie hinaus.
+    const karte = view.karte?.art === "seite" ? view.karte : null;
+    const breit = karte ? Math.min(view.cssW - 36, 2 * (cx - karte.x - karte.w - 16)) : view.cssW - 36;
+    const zeilen = zeilenFuer(a.frage, breit, gross);
     const mitte = oben + hoch * 0.5 + (1 - k) * -14;
     const farbe = ["#9ff5bd", GOLD, ROT][a.stufe];
     schrift(`AUFGABE ${state.index + 1} VON ${AUFGABEN} · ${a.name.toUpperCase()}`, cx, mitte - gross * (zeilen.length > 1 ? 1.45 : 0.95), gross * 0.5, farbe, { fett: 900, alpha: k });
     zeilen.forEach((zeile, i) => {
-      schrift(zeile, cx, mitte + gross * (zeilen.length > 1 ? i * 1.15 - 0.25 : 0.25), gross, "#ffffff", { fett: 800, alpha: k, breit: view.cssW - 24 });
+      schrift(zeile, cx, mitte + gross * (zeilen.length > 1 ? i * 1.15 - 0.25 : 0.25), gross, "#ffffff", { fett: 800, alpha: k, breit: breit + 12 });
     });
   }
 
@@ -992,6 +1054,7 @@
 
   // Ganz unten: zehn Felder, eines je Aufgabe, mit den Punkten.
   function zeichneFelder() {
+    if (view.karte?.art === "unten") return;
     const W = view.cssW;
     const b = clamp((W - 24) / AUFGABEN - 4, 18, 44);
     const h = clamp(b * 0.7, 18, 28);
@@ -1021,6 +1084,169 @@
         g.arc(x + b / 2, y + h / 2, 3, 0, TAU);
         g.fill();
       }
+    }
+    g.restore();
+  }
+
+  /*
+   * Die Stempelkarte: eine Stechkarte, wie sie neben der Stempeluhr einer
+   * Fabrik steckt – cremefarbenes Papier, rot der Kopf, je Aufgabe eine
+   * Zeile. Jede Antwort wird darauf gestempelt: die Abweichung in Tinte,
+   * die Punkte in einem violetten Stempel, der beim Antworten mit einem
+   * kleinen Ruck aufs Papier kommt (STEMPEL_MS). Die Aufgabe, die gerade
+   * dran ist, steht im Schlitz – türkis hinterlegt; was noch kommt, ist
+   * verdeckt wie bei Augenmass (· · ·). Unten die Summe.
+   *
+   * Neben der Uhr (art "seite") mit allem, unter der Uhr (art "unten") auch –
+   * oder, wo es eng ist (Handy hoch, klein), in zwei Spalten, ohne die
+   * Abweichung: Die steht dort ohnehin gross unter der Uhr.
+   */
+  const PAPIER = "#f2e9d0";
+  const TINTE = "#3b3226";
+  const STEMPEL = "#5a3fa0";
+  const KOPF_ROT = "#b8452f";
+
+  // Text auf der Karte, links, rechts oder mittig gesetzt.
+  function kartenText(text, x, y, gross, farbe, { ausrichtung = "left", fett = 700, mono = false, alpha = 1, breit = 0 } = {}) {
+    g.save();
+    g.globalAlpha *= alpha;
+    g.font = `${fett} ${Math.round(gross)}px ${mono ? "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" : "system-ui, sans-serif"}`;
+    g.textAlign = ausrichtung;
+    g.textBaseline = "middle";
+    g.fillStyle = farbe;
+    g.fillText(text, x, y, breit || undefined);
+    g.restore();
+  }
+
+  // Wie weit daneben, so kurz wie möglich: +0,07 oder −1,20 – ohne Antwort ein Strich.
+  const abweichung = (e) => (e.ms === null ? "–" : `${e.ms >= 0 ? "+" : "−"}${sek(Math.abs(e.ms))}`);
+
+  // Ein Stempel mit den Punkten: Rahmen und Zahl in violetter Tinte, ein wenig
+  // schief – jede Zeile ein bisschen anders, aber immer gleich (nach i).
+  function stempel(punkte, x, y, gross, i, nun) {
+    const neu = i === state.index && state.wertung && nun - state.tZeig < STEMPEL_MS && !ruhig();
+    const k = neu ? clamp((nun - state.tZeig) / STEMPEL_MS, 0, 1) : 1;
+    const text = punkte === null ? "0" : String(punkte);
+    g.save();
+    g.translate(x, y);
+    g.rotate(((i * 37) % 7 - 3) * 0.035);
+    g.scale(1 + 0.7 * (1 - k), 1 + 0.7 * (1 - k));
+    g.globalAlpha *= 0.25 + 0.65 * k;
+    g.font = `900 ${Math.round(gross)}px ui-monospace, 'SF Mono', Menlo, Consolas, monospace`;
+    const w = Math.max(gross * 1.9, g.measureText(text).width + gross * 0.7);
+    const h = gross * 1.35;
+    const farbe = punkte === null || punkte < 50 ? KOPF_ROT : STEMPEL;
+    g.strokeStyle = farbe;
+    g.lineWidth = Math.max(1.4, gross * 0.1);
+    g.beginPath();
+    if (g.roundRect) g.roundRect(-w / 2, -h / 2, w, h, gross * 0.22);
+    else g.rect(-w / 2, -h / 2, w, h);
+    g.stroke();
+    g.fillStyle = farbe;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(text, 0, gross * 0.04);
+    g.restore();
+  }
+
+  function zeichneStempelkarte() {
+    const karte = view.karte;
+    const liste = state.aufgaben;
+    if (!karte || !liste) return;
+    const nun = performance.now();
+    const { klein } = karte;
+    const { w, h, zeile } = karte;
+    const kopf = klein ? KARTE_KLEIN_KOPF : KARTE_KOPF;
+    const laeuft = state.phase !== "bereit";
+    g.save();
+    g.translate(karte.x + w / 2, karte.y + h / 2);
+    // Neben der Uhr liegt sie ein wenig schief, wie hingelegt.
+    if (karte.art === "seite") g.rotate(-0.022);
+    g.translate(-w / 2, -h / 2);
+    const rund = (x, y, bw, bh, r) => {
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, bw, bh, r);
+      else g.rect(x, y, bw, bh);
+    };
+    // Schatten und Papier.
+    g.fillStyle = "rgba(0, 0, 0, 0.4)";
+    rund(3, 5, w, h, 6);
+    g.fill();
+    const papier = g.createLinearGradient(0, 0, 0, h);
+    papier.addColorStop(0, PAPIER);
+    papier.addColorStop(1, "#e3d6b4");
+    g.fillStyle = papier;
+    rund(0, 0, w, h, 6);
+    g.fill();
+    // Der Kopf: rot, wie auf einer Stechkarte.
+    const rand = klein ? 10 : 12;
+    g.fillStyle = KOPF_ROT;
+    g.fillRect(0, kopf - 3, w, 2);
+    kartenText("STEMPELKARTE", rand, kopf / 2, klein ? 11 : 13, KOPF_ROT, { fett: 900, mono: true });
+    const summe = laeuft ? String(state.punkte) : "–";
+    if (klein) {
+      kartenText(`TOTAL ${summe}`, w - rand, kopf / 2, 11, TINTE, { ausrichtung: "right", fett: 900, mono: true });
+    } else {
+      kartenText("ZEITGEFÜHL", w - rand, kopf / 2, 10, TINTE, { ausrichtung: "right", fett: 800, mono: true, alpha: 0.6 });
+    }
+
+    // Die Zeilen. Klein in zwei Spalten zu fünf, gross untereinander.
+    const spalten = klein ? 2 : 1;
+    const proSpalte = Math.ceil(AUFGABEN / spalten);
+    const spalteB = (w - rand * (spalten + 1)) / spalten;
+    const gross = clamp(zeile * 0.52, 10, 14);
+    for (let i = 0; i < AUFGABEN; i += 1) {
+      const a = liste[i];
+      const e = state.liste[i];
+      const sp = Math.floor(i / proSpalte);
+      const x = rand + sp * (spalteB + rand);
+      const y = kopf + 4 + (i % proSpalte) * zeile;
+      const mitte = y + zeile / 2;
+      const dran = laeuft && i === state.index && !e && state.phase !== "ende";
+      if (dran) {
+        // Der Schlitz: die Aufgabe, die gerade dran ist.
+        g.fillStyle = "rgba(53, 214, 198, 0.28)";
+        rund(x - 4, y + 1, spalteB + 8, zeile - 2, 4);
+        g.fill();
+      }
+      // Linien wie auf einer Karte – unter jeder Zeile eine.
+      g.strokeStyle = "rgba(90, 70, 40, 0.18)";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x, y + zeile - 0.5);
+      g.lineTo(x + spalteB, y + zeile - 0.5);
+      g.stroke();
+      const sichtbar = e || dran || state.phase === "ende";
+      kartenText(String(i + 1).padStart(2, "0"), x, mitte, gross * 0.9, TINTE, { fett: 800, mono: true, alpha: 0.55 });
+      // Die Stufe als kleiner Punkt vor dem Namen.
+      g.fillStyle = ["#3f9d67", "#c99a1a", "#c4513f"][a.stufe];
+      g.beginPath();
+      g.arc(x + gross * 1.75, mitte, 2.6, 0, TAU);
+      g.fill();
+      const nameX = x + gross * 2.3;
+      // Der Stempel ist für «100» gut zweieinhalb Zeichen breit – Platz
+      // dafür, und links davon die Abweichung.
+      const punkteX = x + spalteB - gross * 1.3;
+      const nameBreit = (klein ? punkteX - gross * 1.5 : x + spalteB - gross * 6.8) - nameX;
+      kartenText(sichtbar ? a.name : "· · ·", nameX, mitte, gross, TINTE, { fett: sichtbar ? 800 : 700, alpha: sichtbar ? 1 : 0.4, breit: nameBreit });
+      if (!e) continue;
+      if (!klein) {
+        kartenText(abweichung(e), x + spalteB - gross * 3.05, mitte, gross * 0.92, e.ms === null ? KOPF_ROT : TINTE, { ausrichtung: "right", fett: 700, mono: true, alpha: 0.85 });
+      }
+      stempel(e.ms === null ? null : e.punkte, punkteX, mitte, gross * 0.95, i, nun);
+    }
+
+    // Unten die Summe – gross nur neben der Uhr; klein steht sie im Kopf.
+    if (!klein) {
+      const y = h - KARTE_FUSS / 2;
+      g.strokeStyle = "rgba(90, 70, 40, 0.45)";
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(rand, h - KARTE_FUSS + 2);
+      g.lineTo(w - rand, h - KARTE_FUSS + 2);
+      g.stroke();
+      kartenText("TOTAL", rand, y, 12, TINTE, { fett: 900, mono: true });
+      kartenText(`${summe} / ${AUFGABEN * PUNKTE_JE}`, w - rand, y, 15, STEMPEL, { ausrichtung: "right", fett: 900, mono: true });
     }
     g.restore();
   }
@@ -1075,6 +1301,7 @@
       if (!zeigt && seitFrueh < 700) schrift("Noch nicht", cx, cy + R * 1.25, clamp(R * 0.16, 13, 22), "#cfdde0", { fett: 800, alpha: clamp(1 - seitFrueh / 700, 0, 1), rand: 3 });
     }
     zeichneFelder();
+    zeichneStempelkarte();
     zeichneFunken();
   }
 
