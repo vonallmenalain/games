@@ -15,9 +15,10 @@
  * Mehr gibt es nicht, aber es reicht: Geflogen wird durch einen Parcours aus
  * Lichttoren, eines nach dem andern, und das nächste leuchtet. Die Tore
  * stehen quer zum Weg – mal aufrecht, mal liegend (dann geht es von unten
- * oder von oben hindurch), und später schieben sie sich hin und her oder
- * wiegen sich um ihre Mitte. Wer einen Pfosten berührt oder ein Dach, ist
- * draussen.
+ * oder von oben hindurch). Sie stehen still; schwer wird es durch den Weg:
+ * Er geht auf und ab, und je weiter man kommt, desto höher hinauf und tiefer
+ * hinunter liegt das nächste Tor (HUB). Wer einen Pfosten berührt oder ein
+ * Dach, ist draussen.
  *
  * Die Uhr ist der Akku: Er reicht für ein paar Sekunden, und jedes Tor lädt
  * ihn nach – mit jedem Tor etwas weniger. Wer trödelt, dem gehen die
@@ -26,9 +27,7 @@
  * dazu lädt es den Akku ein Stück weiter.
  *
  * Gebaut wird der Parcours aus dem Zufall (zufall.js): ohne Turnier jedes
- * Mal ein anderer, im Turnier für alle im selben Versuch derselbe. Was sich
- * bewegt, hängt allein an der Uhr der Runde – so steht beim Zuschauen jedes
- * Tor dort, wo es damals stand.
+ * Mal ein anderer, im Turnier für alle im selben Versuch derselbe.
  *
  * Gerechnet wird in Metern, y nach oben. Die Drohne ist ein Körper mit Lage
  * (x, y), Fahrt und Neigung w; die Neigung folgt den Daumen wie an einer
@@ -91,16 +90,22 @@
   // Der Akku: so viele Sekunden fasst er, und so viel lädt das n-te Tor nach –
   // am Anfang reichlich, mit jedem Tor weniger, am Ende zu wenig.
   // AKKU_TEMPO sagt, wie schnell er abläuft: Bei 1 fasst er zehn Sekunden und
-  // das erste Tor lädt drei nach; bei 1,2 ist alles um diesen Teil knapper –
-  // der Akku ist 1,2-mal so schnell leer. Gerechnet und angezeigt wird immer
-  // in echten Sekunden.
-  const AKKU_TEMPO = 1.2;
+  // das erste Tor lädt drei nach; bei 1,56 ist alles um diesen Teil knapper –
+  // der Akku ist 1,56-mal so schnell leer (bis November 2026 1,2; dann noch
+  // einmal 1,3-mal schneller). Gerechnet und angezeigt wird immer in echten
+  // Sekunden.
+  const AKKU_TEMPO = 1.56;
   const AKKU_MAX = 10 / AKKU_TEMPO;
   const AKKU_MITTIG = 0.5 / AKKU_TEMPO;
   const akkuLaden = (n) => Math.max(0.9, 3 - 0.055 * n) / AKKU_TEMPO;
 
   // Wie schwer es beim n-ten Tor ist (0 … gegen 1).
   const schwere = (n) => 1 - Math.exp(-Math.max(0, n) / 24);
+
+  // Wie weit es zum n-ten Tor hinauf oder hinunter geht (m): am Anfang ein
+  // paar Meter, mit jedem Tor mehr – bis fast über die ganze Höhe.
+  const HUB = [3.5, 17];
+  const hub = (n) => lerp(HUB[0], HUB[1], 1 - Math.exp(-Math.max(0, n - 2) / 14));
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -131,39 +136,47 @@
   // Der Parcours
   // ---------------------------------------------------------------------------
   /*
-   * Die Tore liegen an einem Weg, der sich nach rechts durch die Nacht
-   * schlängelt: Von Tor zu Tor ändert er seine Richtung ein Stück (später
-   * mehr) und bleibt zwischen HOCH_MIN und HOCH_MAX. Jedes Tor steht quer zu
-   * ihm – seine Öffnung ist die Strecke zwischen zwei Pfosten, halb Meter
-   * nach jeder Seite der Mitte. Liegt ein Tor flach (der Weg führt steil
-   * hinauf oder hinab), ist es etwas breiter: Die Drohne ist quer breiter
-   * als hoch.
+   * Die Tore liegen an einem Weg nach rechts durch die Nacht, der auf und ab
+   * führt: meist im Zickzack – hinauf, dann wieder hinunter –, manchmal
+   * zweimal in dieselbe Richtung. Wie weit, sagt hub: erst ein paar Meter,
+   * mit jedem Tor mehr, bis es zwischen HOCH_MIN und HOCH_MAX fast über die
+   * ganze Höhe geht. Reicht der Platz nach der einen Seite nicht, geht es
+   * zur andern. Jedes Tor steht quer zum Weg – seine Öffnung ist die
+   * Strecke zwischen zwei Pfosten, halb Meter nach jeder Seite der Mitte. Am
+   * Scheitel eines Zickzacks steht es aufrecht, auf einer langen Steigung
+   * liegt es fast flach (dann geht es von unten oder oben hindurch) und ist
+   * etwas breiter: Die Drohne ist quer breiter als hoch.
    *
-   * Später schieben sich Tore längs ihrer Öffnung hin und her (amp, T), und
-   * noch später wiegen sich manche um ihre Mitte (dreh).
+   * Die Tore stehen still. (Bis November 2026 schoben sich manche hin und
+   * her oder wiegten sich um ihre Mitte – schwer wird es jetzt durch den Weg.)
    */
   function neueWelt() {
-    return { tore: [], daecher: [], richtung: 0, dachBis: -60, dachNr: 0 };
+    return { tore: [], daecher: [], richtung: 0, sinn: 1, dachBis: -60, dachNr: 0 };
   }
 
   function naechstesTor(W) {
     const n = W.tore.length;
     const k = schwere(n - 2);
     const vor = W.tore[n - 1];
-    // Die Richtung zum nächsten Tor: ein Stück gedreht, zurück zur Mitte der
-    // Höhe gelenkt, wenn es oben oder unten eng wird.
-    const dreh = lerp(26, 60, k) * GRAD;
-    let richtung = n < 2 ? 0 : W.richtung + (zufall.zahl() * 2 - 1) * dreh;
-    const weit = n === 0 ? 13 : lerp(11.5, 9.5, k) * lerp(0.9, 1.45, zufall.zahl());
-    const grenze = lerp(40, 62, k) * GRAD;
-    richtung = clamp(richtung, -grenze, grenze);
     const vx = vor ? vor.x : START.x;
     const vy = vor ? vor.y : START.y;
-    let y = vy + Math.sin(richtung) * weit;
-    if (y > HOCH_MAX || y < HOCH_MIN) { richtung = -richtung; y = vy + Math.sin(richtung) * weit; }
+    const wurf = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
+    let y = vy;
+    if (n === 1) {
+      // Das zweite Tor: noch fast auf derselben Höhe.
+      y = vy + (wurf[0] * 2 - 1) * 2;
+    } else if (n >= 2) {
+      // Meist die andere Richtung als zuletzt, mit der Zeit immer öfter.
+      let sinn = wurf[0] < lerp(0.6, 0.85, k) ? -W.sinn : W.sinn;
+      const weit = hub(n) * lerp(0.75, 1, wurf[1]);
+      const platz = sinn > 0 ? HOCH_MAX - vy : vy - HOCH_MIN;
+      if (platz < weit * 0.6) sinn = -sinn;
+      y = vy + sinn * weit;
+      W.sinn = sinn;
+    }
     y = clamp(y, HOCH_MIN, HOCH_MAX);
-    const x = vx + Math.max(4.5, Math.cos(richtung) * weit);
-    const wahr = Math.atan2(y - vy, x - vx);       // die Richtung, wie sie nach dem Klemmen ist
+    const x = vx + (n === 0 ? 13 : Math.max(4.5, lerp(11.5, 9.5, k) * lerp(0.9, 1.3, wurf[2])));
+    const wahr = Math.atan2(y - vy, x - vx);       // die Richtung des Wegs hinein
     // Das Tor steht quer zum Weg – zur Mitte aus dem Weg hinein und dem
     // hinaus. Der Weg hinaus steht noch nicht fest: Das vorige Tor wird
     // deshalb jetzt gerichtet, dieses vorerst nach dem Weg hinein.
@@ -172,25 +185,13 @@
       vor.w = mitte + Math.PI / 2;
       vor.halb = vor.grund + 0.5 * Math.abs(Math.sin(mitte));
     }
-    const wurf = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
     const tor = {
       nr: n, x, y, hinein: wahr, w: wahr + Math.PI / 2,
-      grund: lerp(2.35, 1.3, k) * lerp(0.94, 1.08, wurf[0]),
-      halb: 2.3, amp: 0, dreh: 0, T: 1, aus: 0,
+      grund: lerp(2.35, 1.3, k) * lerp(0.94, 1.08, wurf[3]),
+      halb: 2.3,
       durch: false, mittig: false, zeit: 0,
     };
     tor.halb = tor.grund + 0.5 * Math.abs(Math.sin(wahr));
-    // Ab dem zwölften Tor schiebt sich manches hin und her, ab dem
-    // vierundzwanzigsten wiegt sich manches um seine Mitte.
-    if (n >= 24 && wurf[1] > 1 - lerp(0, 0.3, k)) {
-      tor.dreh = lerp(18, 34, wurf[2]) * GRAD;
-      tor.T = lerp(5, 3.4, k) * lerp(0.9, 1.2, wurf[3]);
-      tor.aus = wurf[4] * 10;
-    } else if (n >= 12 && wurf[1] < lerp(0, 0.5, k)) {
-      tor.amp = lerp(1.1, 2.4, wurf[2]);
-      tor.T = lerp(4.2, 2.8, k) * lerp(0.9, 1.2, wurf[3]);
-      tor.aus = wurf[4] * 10;
-    }
     W.tore.push(tor);
     W.richtung = wahr;
   }
@@ -199,14 +200,13 @@
     while (W.tore.length <= n + 1) naechstesTor(W);
   }
 
-  // Wo und wie ein Tor zur Zeit t steht: seine Mitte und die Richtung seiner
-  // Öffnung (in o.x, o.y, o.w). Ein geschobenes wandert längs seiner Öffnung,
-  // ein wiegendes dreht sich um seine Mitte hin und her.
+  // Wo ein Tor steht: seine Mitte und die Richtung seiner Öffnung (in o.x,
+  // o.y, o.w). Die Tore stehen still – t bleibt, damit es nicht darauf
+  // ankommt, wer fragt.
   function torLage(tor, t, o) {
-    const schwung = tor.amp || tor.dreh ? Math.sin(((t + tor.aus) / tor.T) * TAU) : 0;
-    o.w = tor.w + tor.dreh * schwung;
-    o.x = tor.x + Math.cos(tor.w) * tor.amp * schwung;
-    o.y = tor.y + Math.sin(tor.w) * tor.amp * schwung;
+    o.w = tor.w;
+    o.x = tor.x;
+    o.y = tor.y;
     return o;
   }
 
@@ -238,7 +238,7 @@
   // Die gewürfelte Welt in Worten (für die Prüfung): die ersten Tore.
   function weltText(W = state.welt) {
     toreBis(W, 24);
-    return W.tore.slice(0, 22).map((t) => `${t.x.toFixed(1)}/${t.y.toFixed(1)}/${t.halb.toFixed(2)}/${t.amp.toFixed(1)}/${t.dreh.toFixed(2)}`).join(" ");
+    return W.tore.slice(0, 22).map((t) => `${t.x.toFixed(1)}/${t.y.toFixed(1)}/${t.halb.toFixed(2)}`).join(" ");
   }
 
   // ---------------------------------------------------------------------------
@@ -1049,27 +1049,6 @@
       else if (i === d.tor + 1) hell = 0.4;
       const c = SCHEIN_FARBEN[farbe];
       const rgbText = `${c[0]}, ${c[1]}, ${c[2]}`;
-      // Die Schiene eines geschobenen Tors, die Nabe eines wiegenden.
-      if (tor.amp && !tor.durch) {
-        const wx = Math.cos(tor.w) * s;
-        const wy = -Math.sin(tor.w) * s;
-        const lang = tor.amp + tor.halb + 0.6;
-        g.strokeStyle = `rgba(${rgbText}, ${0.16 + 0.1 * hell})`;
-        g.lineWidth = Math.max(1, s * 0.05);
-        g.setLineDash([s * 0.3, s * 0.3]);
-        g.beginPath();
-        g.moveTo(sx(tor.x) - wx * lang, sy(tor.y) - wy * lang);
-        g.lineTo(sx(tor.x) + wx * lang, sy(tor.y) + wy * lang);
-        g.stroke();
-        g.setLineDash([]);
-      }
-      if (tor.dreh && !tor.durch) {
-        g.strokeStyle = `rgba(${rgbText}, ${0.25 + 0.2 * hell})`;
-        g.lineWidth = Math.max(1, s * 0.05);
-        g.beginPath();
-        g.arc(mx, my, tor.halb * s + s * 0.5, 0, TAU);
-        g.stroke();
-      }
       // Der Schleier zwischen den Pfosten.
       const h = tor.halb;
       g.lineCap = "round";
@@ -1649,10 +1628,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "twinRotor", fassung: "t1", zufall, nochmal: zuschauenStarten,
+    host, spiel: "twinRotor", fassung: "t2", zufall, nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "twinRotor", host, art: "tempo", fassung: "t1", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "twinRotor", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();

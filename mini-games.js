@@ -191,7 +191,7 @@
     // Hier ist a der Weg auf dem Gleis und b die Höhe darüber (beides in
     // Dezimetern): Die Lore fährt auf dem Gleis, das im Bild ist.
     mineCart: { fassung: "t1", winkel: true },
-    twinRotor: { fassung: "t1", winkel: true },
+    twinRotor: { fassung: "t2", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
