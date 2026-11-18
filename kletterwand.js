@@ -62,7 +62,7 @@
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
-  const BAHN = 0.82;                // so weit links und rechts der Mitte liegen Griffe höchstens (m)
+  const BAHN = 0.7;                 // so weit links und rechts der Mitte liegen Griffe höchstens (m)
   const START_Y = 2.3;             // so hoch über dem Boden hängt der obere Startgriff
   const R_STAND = 1.05;            // so weit reicht sie ohne Schwung, vom oberen Griff aus
   const R_SPRUNG = 1.62;           // und mit vollem Schwung
@@ -71,17 +71,22 @@
   // Wie gut ein Tipp sitzt, gemessen am Halbmesser des Griffs: bis hierher
   // perfekt, gut, knapp. Weiter draussen (bis DANEBEN) ist es ein Fehlgriff –
   // noch weiter weg galt der Tipp keinem Griff.
-  const PERFEKT = 0.4;
+  const PERFEKT = 0.45;
   const PERFEKT_MIN = 0.036;       // perfekt ist nie enger als so viele Meter
   const GUT = 0.85;
-  const KNAPP = 1.2;
+  const KNAPP = 1.35;
   const DANEBEN = 2.5;
+  // Ein Finger trifft nicht auf den Millimeter: Auf dem Bildschirm ist keine
+  // Grenze enger als so viele Punkte (perfekt, gut, knapp) – und der Ring
+  // des Fehlgriffs darum ist mindestens so breit. So bleibt es auch auf
+  // einem kleinen Handy im Querformat eine Sache des Könnens, nicht des Glücks.
+  const FINGER = [8, 15, 22, 14];
   const GUETE = ["knapp", "gut", "perfekt"];
 
   // Die Kraft (0 … 1): so viel läuft je Sekunde ab (unten … weit oben, und
   // über 80 Metern mit jedem Meter noch etwas mehr – so endet jede Runde),
   // so viel gibt ein Griff zurück.
-  const KRAFT_AB = [0.19, 0.4];
+  const KRAFT_AB = [0.16, 0.4];
   const KRAFT_AB_JE_METER = 0.0026;
   const KRAFT_PLUS = [0.05, 0.19, 0.32];
   const KRAFT_GOLD = 0.5;
@@ -135,8 +140,8 @@
    */
   function neueWand() {
     const W = { griffe: [], seite: 1, mitte: 0, letzter: null, gold: null };
-    hinzu(W, { x: -0.24, y: START_Y - 0.42, r: 0.112, art: "fest", haupt: true });
-    W.letzter = hinzu(W, { x: 0.2, y: START_Y, r: 0.112, art: "fest", haupt: true });
+    hinzu(W, { x: -0.24, y: START_Y - 0.42, r: 0.145, art: "fest", haupt: true });
+    W.letzter = hinzu(W, { x: 0.2, y: START_Y, r: 0.145, art: "fest", haupt: true });
     wandBis(W, START_Y + 16);
     return W;
   }
@@ -150,10 +155,11 @@
     return griff;
   }
 
-  // Der Halbmesser eines Griffs in dieser Höhe: unten gut elf Zentimeter,
-  // weit oben sechs – und über 120 Metern schrumpft er langsam weiter.
+  // Der Halbmesser eines Griffs in dieser Höhe: unten vierzehn Zentimeter
+  // (ein Henkel für die ganze Hand), weit oben acht – und über 120 Metern
+  // schrumpft er langsam weiter.
   function radius(meter) {
-    return Math.max(0.046, lerp(0.108, 0.062, schwere(meter)) - 0.00009 * Math.max(0, meter - 120)) * zz(0.93, 1.07);
+    return Math.max(0.06, lerp(0.14, 0.08, schwere(meter)) - 0.00011 * Math.max(0, meter - 120)) * zz(0.93, 1.07);
   }
 
   function naechsterGriff(W) {
@@ -202,7 +208,7 @@
       const gx = clamp(g.x + (g.x > v.x ? 1 : -1) * zz(0.1, 0.32), -BAHN, BAHN);
       const gy = g.y + zz(0.32, 0.4);
       if (Math.hypot(gx - v.x, gy - v.y) > R_STAND + 0.06) {
-        W.gold = hinzu(W, { x: gx, y: gy, r: lerp(0.07, 0.052, s), art: "fest", gold: true });
+        W.gold = hinzu(W, { x: gx, y: gy, r: lerp(0.09, 0.068, s), art: "fest", gold: true });
       }
     }
     return g;
@@ -265,12 +271,14 @@
   }
 
   // Wie gut ein Tipp sitzt: 2 perfekt, 1 gut, 0 knapp, -1 daneben, -2 er galt
-  // diesem Griff nicht.
-  function gueteVon(g, abstand) {
-    if (abstand <= Math.max(g.r * PERFEKT, PERFEKT_MIN)) return 2;
-    if (abstand <= g.r * GUT) return 1;
-    if (abstand <= g.r * KNAPP) return 0;
-    return abstand <= g.r * DANEBEN ? -1 : -2;
+  // diesem Griff nicht. fein: wie viele Meter ein Punkt des Bildschirms an
+  // der Wand misst (für die Mindestmasse des Fingers; 0: nur die Wand zählt).
+  function gueteVon(g, abstand, fein = 0) {
+    const knapp = Math.max(g.r * KNAPP, FINGER[2] * fein);
+    if (abstand <= Math.max(g.r * PERFEKT, PERFEKT_MIN, FINGER[0] * fein)) return 2;
+    if (abstand <= Math.max(g.r * GUT, FINGER[1] * fein)) return 1;
+    if (abstand <= knapp) return 0;
+    return abstand <= Math.max(g.r * DANEBEN, knapp + FINGER[3] * fein) ? -1 : -2;
   }
 
   /*
@@ -283,7 +291,7 @@
    *   weit      der Griff ist zu weit weg – nichts geschieht
    *   nichts    der Tipp galt keinem Griff
    */
-  function tippe(W, K, x, y) {
+  function tippe(W, K, x, y, fein = 0) {
     if (K.aus) return { art: "nichts" };
     wandBis(W, y + 6);
     const anker = griffOrt(W.griffe[K.anker], K.t);
@@ -298,7 +306,7 @@
       if (d / g.r < mass) { mass = d / g.r; bester = { g, d }; }
     }
     if (!bester) return { art: "nichts" };
-    const guete = gueteVon(bester.g, bester.d);
+    const guete = gueteVon(bester.g, bester.d, fein);
     if (guete === -2) return { art: "nichts" };
     if (!inReichweite(W, K, bester.g)) return { art: "weit", nr: bester.g.nr };
     if (guete === -1) {
@@ -1316,7 +1324,7 @@
   // Sie steht schräg rechts hinter der Kletterin, ein wenig unter ihr, und
   // schaut an ihr vorbei die Wand hinauf – so sieht man den Turm als Körper
   // und rechts daneben das Tal.
-  const WAND_HALB = 1.25;          // halbe Breite des Turms (m)
+  const WAND_HALB = 0.95;          // halbe Breite des Turms (m)
   const WAND_TIEF = 2.6;           // so tief ist er
   const kam = {
     x: 0, y: 0, auge: [0, 0, 5], ziel: [0, 0, 0], pv: new Float32Array(16), inv: new Float32Array(16),
@@ -1375,8 +1383,8 @@
 
   // Die Kamera folgt ihr weich; im Sturz bleibt sie ein Stück zurück.
   function kameraTakt(dt, sofort = false) {
-    const zx = fig.brust[0] * 0.55;
-    const zy = fig.becken[1] + 1.2;
+    const zx = fig.brust[0] * 0.35;
+    const zy = fig.becken[1] + 1.0;
     const k = sofort ? 1 : 1 - Math.exp(-dt * (fig.fall ? 2.2 : 5.5));
     kam.x = lerp(kam.x, zx, k);
     kam.y = lerp(kam.y, zy, k);
@@ -1387,11 +1395,14 @@
     const wackel = state.stoss > 0 ? [Math.sin(state.zeit * 61) * state.stoss * 0.03, Math.cos(state.zeit * 53) * state.stoss * 0.03] : [0, 0];
     // Sie atmet mit: ein Hauch Bewegung, auch wenn nichts geschieht.
     const schweb = ruhig() ? 0 : Math.sin(state.zeit * 0.5) * 0.06;
-    kam.ziel = [kam.x + 0.42 + wackel[0], kam.y + wackel[1], 0.1];
+    // Hochkant füllt die Wand das Bild fast ganz: Dort rückt sie in die Mitte.
+    const zurSeite = lerp(0.2, 0.42, weich(0.7, 1.3, seiten));
+    kam.ziel = [kam.x + zurSeite + wackel[0], kam.y + wackel[1], 0.1];
     kam.auge = [kam.x + 1.95 + schweb, kam.y - 1.05, 6.9];
     const weit = vWeit(kam.auge, kam.ziel);
-    // Quer mindestens gut drei Meter Wand, hoch mindestens viereinhalb.
-    const fovy = 2 * Math.atan(Math.max(1.56 / seiten, 2.3) / weit);
+    // Quer mindestens 2,6 Meter Wand, hoch mindestens gut vier – so nah, dass
+    // ein Finger die Griffe trifft.
+    const fovy = 2 * Math.atan(Math.max(1.3 / seiten, 2.05) / weit);
     perspektive(kam.proj, fovy, seiten, 0.3, 900);
     blickAuf(kam.sicht, kam.auge, kam.ziel, [0, 1, 0]);
     mal4(kam.pv, kam.proj, kam.sicht);
@@ -1435,7 +1446,7 @@
       wand: [0.74, 0.73, 0.71], flanke: [0.2, 0.22, 0.28], wandArt: 0, berg: [0.2, 0.2, 0.42], bergLicht: [1.0, 0.62, 0.52], tal: [0.2, 0.3, 0.22], wolke: [1.0, 0.66, 0.5], sterne: 0.0, nacht: 0,
     },
     nacht: {
-      sonne: [0.5, 0.52, 0.69], sonnenBild: [0.2, 0.5, -0.8], licht: [1.25, 1.3, 1.5], himmelLicht: [0.1, 0.13, 0.26], gegen: [1.0, 0.25, 0.75],
+      sonne: [0.5, 0.52, 0.69], sonnenBild: [0.06, 0.25, -1], licht: [1.25, 1.3, 1.5], himmelLicht: [0.1, 0.13, 0.26], gegen: [1.0, 0.25, 0.75],
       zenit: [0.012, 0.016, 0.05], horizont: [0.09, 0.07, 0.2], glut: [0.4, 0.14, 0.42], dichte: 0.03,
       wand: [0.34, 0.36, 0.42], flanke: [0.08, 0.09, 0.12], wandArt: 0, berg: [0.03, 0.035, 0.08], bergLicht: [0.1, 0.12, 0.24], tal: [0.025, 0.03, 0.06], wolke: [0.2, 0.2, 0.36], sterne: 1.0, nacht: 1,
     },
@@ -1465,6 +1476,7 @@
     // steht – tief hinter dem Turm, rechts neben seiner Kante.
     uniform vec3 uSonne, uSonnenBild, uLicht, uHimmelLicht, uGegen, uAuge, uZenit, uHorizont, uGlut;
     uniform float uDichte, uZeit, uNebel, uNacht;
+    uniform vec4 uSpot;            // der Scheinwerfer: Mitte (x, y), Halbmesser, Stärke
     vec3 himmelGrund(vec3 d) {
       float h = max(d.y, 0.0);
       float zurSonne = max(dot(d, uSonnenBild), 0.0);
@@ -1484,6 +1496,13 @@
       return mix(c, nebelFarbe(), uNebel * (1.0 - exp(-weit * 0.22)));
     }
     float hell(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }
+    // Der Scheinwerfer der Nacht: ein heller Kreis um die Kletterin – darum
+    // herum versinkt die Wand im Dunkeln.
+    vec3 scheinwerfer(vec3 c, vec3 ort) {
+      vec2 d = (ort.xy - uSpot.xy) / uSpot.z;
+      float kreis = exp(-dot(d, d));
+      return c * mix(1.0, 0.26 + 1.3 * kreis, uSpot.w);
+    }
   `;
 
   // Der Schatten der Kletterin und der Griffe auf der Wand: eine Maske in
@@ -1564,10 +1583,22 @@
       // Die Sonne selbst: eine Scheibe mit Hof.
       float scheibe = max(dot(d, uSonnenBild), 0.0);
       c += uLicht * (smoothstep(0.99955, 0.99985, scheibe) * 3.0 + pow(scheibe, 900.0) * 0.9) * (1.0 - uNacht);
+      // Bei Nacht steht dort der Mond: gross, mit seinen Meeren und einem Hof.
+      if (uNacht > 0.5) {
+        float mond = smoothstep(0.99925, 0.99945, scheibe);
+        float meere = texture(uRausch, d.xy * 7.0 + 0.2).r;
+        c = mix(c, vec3(0.93, 0.95, 1.0) * (0.78 + 0.22 * smoothstep(0.35, 0.6, meere)), mond);
+        c += vec3(0.5, 0.6, 0.9) * (pow(scheibe, 260.0) * 0.3 + pow(scheibe, 30.0) * 0.07) * (1.0 - mond);
+      }
       // Die Berge: drei Staffeln, jede dunkler und schärfer als die dahinter,
       // an ihrem Fuss der Dunst des Tals. Die fernste trägt Schnee im letzten
       // Licht. Je höher sie klettert, desto tiefer sinken die nahen.
-      float hoch = uAuge.y;
+      // Das Tal sinkt schneller weg, als sie steigt: Ab ein paar Metern zählt
+      // jeder Meter fürs Auge bis zu sechsfach – nach hundert Metern liegen
+      // die Hügel unter ihr, nach dreihundert die halben Berge.
+      float echt = uAuge.y;
+      float hoch = echt * (1.0 + 5.0 * smoothstep(5.0, 60.0, echt));
+      float wolken = uWolkenHoch * (1.0 + 5.0 * smoothstep(5.0, 60.0, uWolkenHoch));
       vec3 fernFarbe = himmelGrund(vec3(d.x, 0.03, d.z));
       for (int i = 0; i < 3; i += 1) {
         float fi = float(i);
@@ -1625,23 +1656,38 @@
         float laengs = dot(s, hin);
         float quer = abs(dot(s, vec2(-hin.y, hin.x)));
         boden *= 1.0 - 0.5 * smoothstep(1.9, 1.2, quer) * step(0.0, laengs) * smoothstep(220.0, 0.0, laengs);
-        vec3 tal = mix(himmelGrund(vec3(d.x, 0.03, d.z)), boden, exp(-t * uDichte * 0.07));
+        // Bei Nacht liegen Dörfer im Tal: warme Lichter, in Haufen. Gerechnet
+        // wird in Richtung und Entfernung – so bleibt jedes Licht ein Punkt,
+        // auch flach gesehen.
+        vec3 lichter = vec3(0.0);
+        if (uNacht > 0.5) {
+          vec2 lq = vec2(az * 64.0, log(t) * 10.0);
+          vec2 zelle = floor(lq);
+          float z = fract(sin(dot(zelle, vec2(127.1, 311.7))) * 43758.5453);
+          float dorf = smoothstep(0.42, 0.66, texture(uRausch, xz * 0.0012 + 0.37).r) * (1.0 - see) * (1.0 - platz);
+          vec2 mitte = zelle + 0.5 + (vec2(fract(z * 17.3), fract(z * 91.7)) - 0.5) * 0.6;
+          float punkt = smoothstep(0.3, 0.04, length(lq - mitte)) * step(1.0 - 0.6 * dorf, z) * smoothstep(12000.0, 2500.0, t) * smoothstep(30.0, 90.0, t);
+          lichter = mix(vec3(1.0, 0.7, 0.34), vec3(0.75, 0.88, 1.0), step(0.88, fract(z * 7.7))) * punkt * 2.2 * (0.7 + 0.3 * sin(uZeit * 1.7 + z * 40.0));
+        }
+        vec3 tal = mix(himmelGrund(vec3(d.x, 0.03, d.z)), boden, exp(-t * uDichte * 0.07 * mix(1.0, echt / max(hoch, 1.0), 0.6)));
+        // Lichter dringen weiter durch den Dunst als die Wiesen.
+        tal += lichter * exp(-t * uDichte * 0.012);
         c = mix(c, tal, smoothstep(kante, -kante, d.y));
-        if (hoch > uWolkenHoch) {
-          float tw = (hoch - uWolkenHoch) / -d.y;
+        if (echt > uWolkenHoch) {
+          float tw = (hoch - wolken) / -d.y;
           vec2 q = uAuge.xz + d.xz * tw;
           float w = texture(uRausch, q * 0.0035 + vec2(uZeit * 0.002, 0.0)).r * 0.6 + texture(uRausch, q * 0.012 + 0.2).a * 0.4;
           float decke = smoothstep(0.36, 0.6, w);
           vec3 wolke = uWolke * (0.45 + 0.75 * smoothstep(0.4, 0.8, w)) * (0.5 + 0.6 * hell(uLicht) * 0.5) + uHimmelLicht * 0.4;
           wolke = mix(himmelGrund(vec3(d.x, 0.03, d.z)), wolke, exp(-tw * uDichte * 0.02));
-          c = mix(c, wolke, decke * smoothstep(0.0, 8.0, hoch - uWolkenHoch));
+          c = mix(c, wolke, decke * smoothstep(0.0, 8.0, echt - uWolkenHoch));
         }
-      } else if (hoch < uWolkenHoch) {
+      } else if (echt < uWolkenHoch) {
         // Unter den Wolken: ihre Unterseite zieht als Schleier vorüber.
-        float tw = (uWolkenHoch - hoch) / (d.y + 0.02);
+        float tw = (wolken - hoch) / (d.y + 0.02);
         vec2 q = uAuge.xz + d.xz * tw;
         float w = texture(uRausch, q * 0.0035 + vec2(uZeit * 0.002, 0.0)).r * 0.6 + texture(uRausch, q * 0.012 + 0.2).a * 0.4;
-        float decke = smoothstep(0.44, 0.7, w) * smoothstep(0.0, 0.25, d.y) * 0.55 * smoothstep(40.0, 4.0, uWolkenHoch - hoch);
+        float decke = smoothstep(0.44, 0.7, w) * smoothstep(0.0, 0.25, d.y) * 0.55 * smoothstep(40.0, 4.0, uWolkenHoch - echt);
         c = mix(c, uWolke * 0.7 + uHimmelLicht * 0.3, decke);
       }
       c = mix(c, nebelFarbe(), uNebel);
@@ -1699,13 +1745,14 @@
         vec4 r1 = texture(uRausch, p * 0.9);
         vec4 r2 = texture(uRausch, p * 3.7 + 0.31);
         if (uWandArt < 0.5) {
-          // Platten von 1,25 auf 1,25 Meter, jede einen Hauch anders getönt.
-          vec2 pl = vec2(p.x + 0.625, p.y) / 1.25;
+          // Platten in drei Bahnen, 1,25 Meter hoch, jede einen Hauch anders getönt.
+          vec2 mass = vec2(uHalb * 2.0 / 3.0, 1.25);
+          vec2 pl = vec2(p.x + uHalb, p.y) / mass;
           vec2 nr = floor(pl);
           vec2 in1 = fract(pl);
           float ton = fract(sin(dot(nr, vec2(12.9898, 78.233))) * 43758.5453);
           farbe *= 0.9 + 0.16 * ton;
-          float fuge = min(min(in1.x, 1.0 - in1.x), min(in1.y, 1.0 - in1.y)) * 1.25;
+          float fuge = min(min(in1.x, 1.0 - in1.x) * mass.x, min(in1.y, 1.0 - in1.y) * mass.y);
           float breit = fwidth(p.x) * 1.2 + 0.004;
           farbe *= mix(0.45, 1.0, smoothstep(0.0, breit, fuge));
           farbe *= 1.0 + 0.1 * smoothstep(breit * 3.0, breit, fuge) * step(in1.y, 0.5);
@@ -1730,18 +1777,18 @@
         // Die Streifen links und rechts der Bahn, in der Farbe der Zone.
         float zone = floor(max(meter, 0.0) / uZoneHoch);
         vec3 zf = uZone[int(mod(zone, 8.0))];
-        float streif = smoothstep(0.03, 0.022, abs(abs(p.x) - (uHalb - 0.13)));
+        float streif = smoothstep(0.026, 0.018, abs(abs(p.x) - (uHalb - 0.055)));
         // Jeden Meter ein Strich am Rand, alle fünf einer quer – mit seiner Zahl.
         float rest1 = abs(fract(meter + 0.5) - 0.5);
         float rest5 = abs(fract(meter / 5.0 + 0.5) - 0.5) * 5.0;
-        float strich = smoothstep(0.012, 0.006, rest1) * step(uHalb - 0.26, abs(p.x)) * step(abs(p.x), uHalb - 0.13);
-        float quer = smoothstep(0.014, 0.008, rest5) * step(abs(p.x), uHalb - 0.13) * step(0.5, meter);
+        float strich = smoothstep(0.012, 0.006, rest1) * step(uHalb - 0.15, abs(p.x)) * step(abs(p.x), uHalb - 0.055);
+        float quer = smoothstep(0.014, 0.008, rest5) * step(abs(p.x), uHalb - 0.055) * step(0.5, meter);
         float m5 = floor(meter / 5.0 + 0.5) * 5.0;
-        float ziff = zahl(vec2((p.x + uHalb - 0.36) / 0.17, (p.y - uStart - m5 - 0.05) / 0.3), m5) * step(4.5, m5);
+        float ziff = zahl(vec2((p.x + uHalb - 0.2) / 0.15, (p.y - uStart - m5 - 0.05) / 0.27), m5) * step(4.5, m5);
         // Zwei schräge Bänder je Zone, zart in ihrer Farbe – an ihnen sieht
         // man, wie schnell es hinaufgeht.
         float schraeg = fract((meter + p.x * 0.8) / (uZoneHoch * 0.5));
-        float band = smoothstep(0.0, 0.004, schraeg) * smoothstep(0.075, 0.071, schraeg) * step(abs(p.x), uHalb - 0.13) * step(0.0, meter);
+        float band = smoothstep(0.0, 0.004, schraeg) * smoothstep(0.075, 0.071, schraeg) * step(abs(p.x), uHalb - 0.055) * step(0.0, meter);
         farbe = mix(farbe, zf, band * 0.15);
         float farbig = max(max(streif, strich), max(quer * 0.6, ziff));
         farbe = mix(farbe, zf * (0.85 + 0.2 * r2.r), farbig * 0.86);
@@ -1763,7 +1810,7 @@
       vec3 c = farbe * (uHimmelLicht * (0.72 - 0.2 * sch) + uLicht * sonne + uGegen * 0.1 * max(dot(nn, vec3(0.8, 0.1, 0.5)), 0.0));
       vec3 hv = normalize(uSonne + v);
       c += uLicht * pow(max(dot(nn, hv), 0.0), 24.0) * glanz * (1.0 - sch);
-      aus = vec4(dunst(c, vOrt), 1.0);
+      aus = vec4(dunst(scheinwerfer(c, vOrt), vOrt), 1.0);
     }`;
 
   // Ein Griff: eine Kuppe, viele Male – jede von ihrer Zahl anders verformt.
@@ -1885,7 +1932,7 @@
       c += glueh;
       // Der Fuss des Griffs liegt im eigenen Schatten.
       c *= 0.62 + 0.38 * smoothstep(0.0, 0.3, vLokal.z);
-      aus = vec4(dunst(c, vOrt), 1.0);
+      aus = vec4(dunst(scheinwerfer(c, vOrt), vOrt), 1.0);
     }`;
 
   // Die Kletterin.
@@ -2011,7 +2058,7 @@
       float rand = pow(1.0 - nv, 2.4);
       float gegenSeite = max(dot(n, normalize(vec3(-uSonne.x, 0.25, 0.4))), 0.0);
       c += uGegen * rand * (0.25 + 0.75 * gegenSeite) * 0.85;
-      aus = vec4(dunst(c, vOrt), 1.0);
+      aus = vec4(dunst(scheinwerfer(c, vOrt), vOrt), 1.0);
     }`;
 
   // Kreide, Staub, Splitter, Funken: Scheiben, die zur Kamera schauen.
@@ -2429,7 +2476,7 @@
   // ---------------------------------------------------------------------------
   // Was über das Licht gilt – und wie es sich mit der Höhe ändert: In den
   // Wolken wird es neblig, weit oben dunkel, und die Sterne kommen heraus.
-  const luft = { nebel: 0, sterne: 0, zenit: [0, 0, 0] };
+  const luft = { nebel: 0, sterne: 0, zenit: [0, 0, 0], spot: [0, 0, 1.6, 0] };
   function luftStellen() {
     const hoch = kam.auge[1];
     const s = stimmung;
@@ -2438,6 +2485,10 @@
     const weitOben = weich(140, 320, hoch);
     luft.sterne = Math.max(s.sterne, weitOben);
     for (let i = 0; i < 3; i += 1) luft.zenit[i] = lerp(s.zenit[i], [0.01, 0.015, 0.06][i], weitOben * 0.85);
+    // Bei Nacht folgt ihr der Scheinwerfer.
+    luft.spot[0] = fig.brust[0] * 0.8;
+    luft.spot[1] = fig.brust[1] + 0.4;
+    luft.spot[3] = s.nacht;
   }
 
   function lichtSetzen(p) {
@@ -2455,6 +2506,7 @@
     gl.uniform1f(p.ort("uZeit"), state.zeit);
     gl.uniform1f(p.ort("uNebel"), luft.nebel);
     gl.uniform1f(p.ort("uNacht"), s.nacht);
+    gl.uniform4fv(p.ort("uSpot"), luft.spot);
   }
 
   // Die Griffe im Bild – und zu jedem auf einer Schiene die Schiene.
@@ -2918,7 +2970,9 @@
     if (state.phase === "bereit" && shell.live) return;
     const K = state.k;
     const wo = aufWand(px, py);
-    const e = tippe(state.wand, K, wo.x, wo.y);
+    // Wie viel Wand ein Punkt des Bildschirms dort zeigt.
+    const neben = aufWand(px + 1, py);
+    const e = tippe(state.wand, K, wo.x, wo.y, Math.hypot(neben.x - wo.x, neben.y - wo.y));
     if (e.art === "nichts") return;
     if (e.art === "weit") {
       const q = state.wand.griffe[e.nr];

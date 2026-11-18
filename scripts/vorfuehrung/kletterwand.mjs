@@ -1,6 +1,7 @@
 // Kletterwand: gut zwanzig Meter über dem Platz, die Abendsonne über dem Tal.
 // Der Pilot tippt Griff um Griff an – meist genau auf den Bolzen, ab und zu
-// knapp daneben –, und die Kletterin steigt den Turm hinauf.
+// knapp daneben –, und die Kletterin steigt den Turm hinauf: mal greift sie
+// zum nächsten Griff, mal springt sie zu einem weiten.
 export default {
   bereit: () => Boolean(window.LernappKletterwand?.state?.wand && window.LernappKletterwand.view.cssW > 0),
   spiele: () => {
@@ -12,7 +13,10 @@ export default {
     const neben = [0.1, 0.25, 0.05, 0.6, 0.15, 0.3, 0.1, 0.2, 0.7, 0.1, 0.15, 0.35];
     let n = 0;
     const tippe = () => {
-      const q = K.pilot(st.wand, st.k);
+      // Abwechselnd der nächste Griff der Hauptlinie und der weiteste, den
+      // sie erreicht (mit Schwung ein Sprung).
+      const nah = st.wand.griffe.find((g) => g.haupt && K.inReichweite(st.wand, st.k, g, K.R_STAND));
+      const q = (n % 2 === 0 && nah) || K.pilot(st.wand, st.k);
       if (!q) return;
       const ort = K.griffOrt(q, st.k.t);
       const weg = neben[n % neben.length] * q.r;

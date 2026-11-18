@@ -946,6 +946,11 @@ desto besser der Halt: «perfekt» gibt viel Kraft zurück und Schwung, «gut»
 etwas, «knapp» fast nichts. Wer knapp daneben tippt (bis `DANEBEN`), ist
 abgerutscht – die Runde ist vorbei. Ein Tipp weit weg von allen Griffen tut
 nichts, einer auf einen Griff ausser Reichweite auch nicht («zu weit»).
+Weil ein Finger nicht auf den Millimeter trifft, ist auf dem Bildschirm
+keine Grenze enger als ein paar Punkte (`FINGER`: 8, 15 und 22 für perfekt,
+gut und knapp) – das zählt, wo die Griffe klein sind: weit oben und auf
+einem Handy im Querformat. Hochkant rückt die Kamera so nah, dass die Wand
+das Bild fast füllt (`kameraStellen`).
 
 **Schnell.** Der Ring neben ihrer Hüfte ist die Kraft: Sie läuft ab, solange
 sie hängt (`KRAFT_AB`), weiter oben schneller und über achtzig Metern mit
@@ -985,13 +990,17 @@ der Wand (`fallBeginnen`, `fallTakt`); nahe am Boden fällt sie weniger tief.
 Ihr Schatten und der der Griffe liegt als weiche Maske auf der Wand
 (`SCHATTEN`). Drumherum der Turm mit Platten, Bohrungen, Meterstrichen und
 gemalten Zahlen, das Tal mit See und Bergen in drei Staffeln, über 62
-Metern das Wolkenmeer (`WOLKEN_HOCH`). Kommen die Bilder zu langsam, wird
-die Welt mit weniger Bildpunkten gezeichnet (`gueteTakt`).
+Metern das Wolkenmeer (`WOLKEN_HOCH`). Das Tal sinkt schneller weg, als sie
+steigt (im Programm des Himmels zählt jeder Meter fürs Auge bis zu
+sechsfach): Nach hundert Metern liegen die Hügel unter ihr, nach dreihundert
+die halben Berge – so sieht man, wie hoch man ist. Kommen die Bilder zu
+langsam, wird die Welt mit weniger Bildpunkten gezeichnet (`gueteTakt`).
 
 Drei Stimmungen derselben Welt stehen bereit (`STIMMUNG`: der Abend über dem
-Tal, die Arena bei Nacht, der Morgen am Fels) und drei Aufzüge (`KLEID`) –
-zum Ausprobieren über die Adresse: `/kletterwand?stil=nacht&kleid=1`. Ohne
-Angabe gilt der Abend.
+Tal; die Nacht mit Mond, den Lichtern der Dörfer im Tal und einem
+Scheinwerfer, der ihr folgt – `scheinwerfer`; der Morgen am Fels) und drei
+Aufzüge (`KLEID`) – zum Ausprobieren über die Adresse:
+`/kletterwand?stil=nacht&kleid=1`. Ohne Angabe gilt der Abend.
 
 Aufgezeichnet werden die Züge (`meldeZug`: jeder Griff mit seiner Nummer und
 Güte, und das Ende mit seinem Grund) – damit lassen sich die besten Läufe
@@ -1000,8 +1009,9 @@ bekommen alle dieselbe Wand.
 Prüfung 4g38: Die Hauptlinie ist auf jeder gewürfelten Wand ohne Schwung zu
 klettern, goldene Griffe nur mit; Bröckelgriffe und Schienen kommen erst ab
 ihrer Höhe, und die Griffe werden kleiner; die Güte zählt nach dem Abstand
-vom Bolzen, die Hände wechseln sich ab, ein weiter Griff geht nur mit
-Schwung und ist dann ein Sprung; die Kraft ist nach gut fünf Sekunden leer;
+vom Bolzen (mit den Mindestmassen für den Finger), die Hände wechseln sich
+ab, ein weiter Griff geht nur mit Schwung und ist dann ein Sprung; die Kraft
+ist nach gut sechs Sekunden leer;
 wer an einem bröckelnden Griff hängen bleibt, fällt mit ihm, wer weitergeht,
 nicht; ein genauer Pilot kommt weit über zweihundert Meter und fällt doch,
 ein langsamer kommt keine sechzig weit; ein Tipp auf den Bolzen im Bild

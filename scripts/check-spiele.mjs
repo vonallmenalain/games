@@ -9522,7 +9522,7 @@ try {
       `Kletterwand: Ein goldener Griff ist ohne Schwung zu holen, oder von ihm aus geht es nicht weiter: ${JSON.stringify(bau)}`);
     pruefe(bau.zuFrueh === 0 && bau.arten.bruch > 40 && bau.arten.pendel > 40 && bau.arten.fest > bau.arten.bruch + bau.arten.pendel,
       `Kletterwand: Bröckelgriffe und Schienen kommen nicht, wann sie sollen: ${JSON.stringify(bau)}`);
-    pruefe(bau.unten > 0.098 && bau.oben < 0.064 && bau.rMin >= 0.042 && bau.welten > 1,
+    pruefe(bau.unten > 0.125 && bau.oben < 0.078 && bau.rMin >= 0.055 && bau.welten > 1,
       `Kletterwand: Die Griffe werden nicht kleiner, oder jede Runde hat dieselbe Wand: ${JSON.stringify(bau)}`);
 
     // Die Regeln, an einer frischen Wand gerechnet (ohne Bild).
@@ -9542,6 +9542,13 @@ try {
       {
         const { W, k } = frisch();
         raus.leer = { art: K.tippe(W, k, 1.2, K.START_Y + 0.5).art, zuege: k.zuege, los: k.los };
+      }
+      // Der Finger: Auf dem Bildschirm ist keine Grenze enger als ihre
+      // Mindestpunkte – ein kleiner Griff, aus der Ferne gesehen (ein Punkt
+      // des Bildschirms misst einen Zentimeter).
+      {
+        const g = { r: 0.06 };
+        raus.finger = { ohne: [0.02, 0.05, 0.08, 0.1, 0.16].map((d) => K.gueteVon(g, d)), mit: [0.07, 0.14, 0.21, 0.35, 0.37].map((d) => K.gueteVon(g, d, 0.01)) };
       }
       // Die Hände wechseln sich ab, und der gepackte Griff ist der Anker.
       {
@@ -9567,7 +9574,7 @@ try {
         raus.sprung = { davor, art: mit.art, sprung: mit.sprung, schwung: runden(k.schwung), spruenge: k.spruenge };
       }
       // Die Kraft: Vor dem ersten Griff läuft nichts, danach ist sie nach
-      // gut fünf Sekunden leer.
+      // gut sechs Sekunden leer.
       {
         const { W, k } = frisch();
         for (let i = 0; i < 600; i += 1) K.schritt(W, k, 1 / 60);
@@ -9659,13 +9666,15 @@ try {
       && regeln.guete[0].schwung === 0.3 && regeln.guete[1].schwung === 0.08 && regeln.guete[2].schwung === 0
       && regeln.guete[3].aus === "daneben" && regeln.guete[3].zuege === 0 && regeln.guete.slice(0, 3).every((e) => e.los && e.zuege === 1 && !e.aus),
       `Kletterwand: Die Güte eines Griffs zählt nicht, wie sie soll (perfekt, gut, knapp, daneben): ${JSON.stringify(regeln.guete)}`);
+    pruefe(JSON.stringify(regeln.finger) === JSON.stringify({ ohne: [2, 1, 0, -1, -2], mit: [2, 1, 0, -1, -2] }),
+      `Kletterwand: Die Mindestmasse für den Finger gelten nicht: ${JSON.stringify(regeln.finger)}`);
     pruefe(regeln.leer.art === "nichts" && regeln.leer.zuege === 0 && !regeln.leer.los, `Kletterwand: Ein Tipp neben alle Griffe tut etwas: ${JSON.stringify(regeln.leer)}`);
     pruefe(JSON.stringify(regeln.haende.map((e) => e.hand)) === "[0,1,0,1]" && regeln.haende.every((e) => e.anker && e.halt && !e.sprung) && regeln.hoch.hoch === regeln.hoch.soll,
       `Kletterwand: Die Hände wechseln sich nicht ab, oder die Meter stimmen nicht: ${JSON.stringify({ haende: regeln.haende, hoch: regeln.hoch })}`);
     pruefe(regeln.sprung && regeln.sprung.davor.art === "weit" && regeln.sprung.davor.zuege === 0 && !regeln.sprung.davor.aus
       && regeln.sprung.art === "griff" && regeln.sprung.sprung === true && regeln.sprung.schwung === 0.5 && regeln.sprung.spruenge === 1,
       `Kletterwand: Ein weiter Griff geht ohne Schwung, oder mit Schwung ist es kein Sprung: ${JSON.stringify(regeln.sprung)}`);
-    pruefe(regeln.kraft.vorher === 1 && regeln.kraft.aus === "kraft" && regeln.kraft.sekunden > 4.6 && regeln.kraft.sekunden < 5.6,
+    pruefe(regeln.kraft.vorher === 1 && regeln.kraft.aus === "kraft" && regeln.kraft.sekunden > 5.5 && regeln.kraft.sekunden < 6.6,
       `Kletterwand: Die Kraft läuft nicht ab, wie sie soll: ${JSON.stringify(regeln.kraft)}`);
     pruefe(regeln.bruch && regeln.bruch.aus === "bruch" && regeln.bruch.weg && regeln.bruch.frist >= 1.25 && regeln.bruch.frist <= 3.2 && Math.abs(regeln.bruch.sekunden - regeln.bruch.frist) < 0.03,
       `Kletterwand: Wer an einem bröckelnden Griff hängen bleibt, fällt nicht mit ihm: ${JSON.stringify(regeln.bruch)}`);
@@ -9675,7 +9684,7 @@ try {
       `Kletterwand: Der Griff auf der Schiene gleitet nicht, oder er steht nicht still, sobald er gepackt ist: ${JSON.stringify(regeln.pendel)}`);
     pruefe(regeln.schnell.every((r) => r.hoch >= 225 && r.hoch <= 330 && r.aus === "kraft" && r.sekunden <= 150 && r.perfekt === r.zuege && r.spruenge > 20),
       `Kletterwand: Der genaue Pilot kommt nicht weit über zweihundert Meter, oder die Runde endet nicht von selbst: ${JSON.stringify(regeln.schnell)}`);
-    pruefe(regeln.langsam.every((r) => r.hoch >= 15 && r.hoch <= 60 && r.aus && r.sekunden <= 80),
+    pruefe(regeln.langsam.every((r) => r.hoch >= 15 && r.hoch <= 75 && r.aus && r.sekunden <= 100),
       `Kletterwand: Wer zögert, kommt trotzdem weit – oder gar nicht vom Fleck: ${JSON.stringify(regeln.langsam)}`);
 
     // Das Spiel selbst, Bild für Bild gerechnet: Jeder Tipp auf die Stelle
@@ -9764,7 +9773,7 @@ try {
     });
     pruefe(enden.unten.aus === "daneben" && enden.unten.fang && enden.unten.tief > 0.55 && enden.unten.punkte === 0,
       `Kletterwand: Wer ganz unten fällt, landet im Boden: ${JSON.stringify(enden.unten)}`);
-    pruefe(enden.kraft.aus === "kraft" && enden.kraft.fall && enden.kraft.zuege === 1 && enden.kraft.sekunden > 4.6 && enden.kraft.sekunden < 5.6,
+    pruefe(enden.kraft.aus === "kraft" && enden.kraft.fall && enden.kraft.zuege === 1 && enden.kraft.sekunden > 5.5 && enden.kraft.sekunden < 6.6,
       `Kletterwand: Wer nichts mehr tut, dem geht die Kraft nicht aus: ${JSON.stringify(enden.kraft)}`);
     await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
     const grund = await seite.locator(".cm-result-detail").innerText().catch(() => "");
