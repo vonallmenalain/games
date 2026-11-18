@@ -5247,6 +5247,8 @@ select.adm-feld { background-color: var(--ar-flaeche); }
 .adm-form > .adm-knopf { flex: 0 0 auto; }
 
 .adm-meldung { margin: 0; min-height: 1.2em; font-size: 0.92rem; color: var(--ar-leise); }
+/* Im Bereich «Spiele» nimmt die Meldung erst Platz, wenn sie etwas sagt. */
+#adm-spiele .adm-meldung:empty { display: none; }
 .adm-meldung.ist-fehler { color: #ff9a94; font-weight: 700; }
 .adm-meldung.ist-gut { color: var(--ar-gruen); font-weight: 700; }
 
@@ -5454,6 +5456,7 @@ select.adm-feld { background-color: var(--ar-flaeche); }
 .adm-chip:hover { background: rgba(255, 255, 255, 0.14); }
 .adm-chip[aria-pressed="true"] { background: var(--ar-text); color: var(--ar-grund); }
 .adm-filter-wahl { flex: 0 1 260px; padding: 7px 12px; font-size: 0.9rem; }
+.adm-ordnung { flex-basis: 200px; }
 .adm-suche { flex: 1 1 180px; max-width: 280px; padding: 7px 12px; font-size: 0.9rem; }
 .adm-filter-weg { font-size: 0.85rem; }
 .adm-summe { margin: 0; }
@@ -5519,7 +5522,7 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
 /* Spiele, Spieler, Plätze. */
 .adm-spielname { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; color: var(--ar-text); }
 .adm-punkt { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--adm-farbe, var(--ar-koralle)); }
-.adm-spiel-schalter, .adm-person {
+.adm-person {
   appearance: none;
   padding: 0;
   border: 0;
@@ -5529,42 +5532,12 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
   text-align: left;
   cursor: pointer;
 }
-.adm-spiel-schalter { display: inline-flex; align-items: center; gap: 8px; }
-.adm-spiel-schalter::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-right: 2px solid #8d889e;
-  border-bottom: 2px solid #8d889e;
-  transform: rotate(-45deg);
-  transition: transform 0.15s ease;
-}
-.adm-spiel-schalter[aria-expanded="true"]::after { transform: rotate(45deg); }
-.adm-spiel-schalter:hover .adm-spielname span:last-child,
 .adm-person:hover { text-decoration: underline; text-underline-offset: 3px; }
-.adm-spiel-schalter:focus-visible, .adm-person:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
+.adm-person:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
 .adm-person { font-weight: 800; color: var(--ar-text); }
-.adm-spieltabelle tr.ist-offen td { background: rgba(255, 255, 255, 0.03); border-bottom-color: transparent; }
 .adm-an { color: var(--ar-gruen); font-weight: 800; white-space: nowrap; }
 .adm-aus { color: #8d889e; }
 .adm-tabelle .adm-tier-marke { font-size: 0.72rem; }
-.adm-tabelle tr.adm-detail > td { padding: 0 8px 14px; background: rgba(255, 255, 255, 0.03); }
-/* Breite 0, mindestens die ganze Zeile: So macht die Bestenliste darin die
-   Tabelle der Spiele nicht breiter – sie rollt für sich. */
-.adm-spiel-detail {
-  box-sizing: border-box;
-  width: 0;
-  min-width: 100%;
-  padding: 10px 12px;
-  border-left: 4px solid var(--adm-farbe, var(--ar-koralle));
-  border-radius: 0 12px 12px 0;
-  background: var(--ar-flaeche);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.adm-detail-kopf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-.adm-detail-kopf .adm-klein { margin: 0; }
 .adm-platz-wrap { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
 .adm-platz {
   display: inline-block;
@@ -5599,8 +5572,6 @@ th[aria-sort="descending"] .adm-sortier::after { content: "↓"; opacity: 1; }
   .adm-sortierbar th, .adm-sortierbar td,
   .adm-bestenliste th, .adm-bestenliste td { padding-left: 6px; padding-right: 6px; }
   .adm-sortierbar th, .adm-bestenliste th { letter-spacing: 0.02em; }
-  .adm-tabelle tr.adm-detail > td { padding: 0 0 10px; }
-  .adm-spiel-detail { padding: 8px 6px; }
   .adm-platz-wrap { flex-direction: column; align-items: flex-end; gap: 0; }
   /* Die Pfeile nur, wo gerade sortiert ist; die Knöpfe nebeneinander – die
      Tabelle rollt, statt dass jede Zeile hoch wird. */
@@ -5655,11 +5626,17 @@ body.adm-dash-offen { overflow: hidden; }
 .adm-dash-teil h3 { margin: 0; font-size: 0.95rem; font-weight: 900; color: var(--ar-text); }
 /* Sechs Zahlen auf einer Zeile, solange Platz ist. */
 .adm-dash-zahlen { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.adm-dash-zahlen > div.ist-datum strong { font-size: clamp(1.05rem, 2.6vw, 1.3rem); line-height: 1.5; }
 /* Das erste Mal je Spiel erst auf einem breiten Bildschirm – sonst rollte die
    Tabelle der Auswertung schon am Laptop. */
 @media (max-width: 1320px) {
   .adm-sehr-breit { display: none; }
 }
+/* Das Fenster eines Spiels (admin.js, zeigeSpielFenster): oben in seiner
+   Farbe, unter dem Titel Tier, Startseite und ▶. */
+.adm-dash-spiel { border-top: 5px solid var(--adm-farbe, var(--ar-koralle)); }
+.adm-dash-marken { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: -4px; }
+.adm-dash-marken .adm-klein { margin: 0; }
 .adm-dash-turniere { display: flex; flex-direction: column; gap: 6px; }
 .adm-dash-turnier { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .adm-dash-turnier .adm-klein { margin: 0; }
@@ -5765,6 +5742,46 @@ body.adm-dash-offen { overflow: hidden; }
   cursor: pointer;
 }
 .adm-wahl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Im Bereich «Spiele» ist nur das Kästchen der Haken – mit etwas Rand, damit
+   es sich gut treffen lässt. Das übrige Feld öffnet das Fenster des Spiels. */
+.adm-wahl-haken.nur-haken {
+  flex: 0 0 auto;
+  padding: 10px 4px 10px 12px;
+  align-self: stretch;
+}
+.adm-wahl:has(.adm-wahl-feld) { cursor: pointer; }
+.adm-wahl-feld {
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 4px 7px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.adm-wahl-feld .adm-wahl-name { max-width: 100%; }
+.adm-wahl-feld:hover .adm-wahl-name { text-decoration: underline; text-underline-offset: 3px; }
+.adm-wahl-feld:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 8px; }
+.adm-wahl-zahl {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #8d889e;
+}
+/* Ein Spiel, das es nicht mehr gibt: nur noch seine Bestenliste. */
+.adm-wahl.ist-verwaist { border-style: dashed; }
+.adm-wahl.ist-verwaist .adm-wahl-feld { padding-left: 12px; }
 
 /* Die Tiers: fünf Gruppen, je mit Titel, und neben jedem Spiel T1 bis T5. */
 .adm-tiers { display: flex; flex-direction: column; gap: 4px; }

@@ -9534,7 +9534,8 @@ try {
       titel: b.querySelector(".adm-klapp-name")?.textContent || "",
       offen: b.classList.contains("ist-offen") || !b.querySelector(".adm-klapp-inhalt").hidden,
     })));
-    pruefe(zu.length === 4 && zu.every((b) => !b.offen), `Der Adminbereich steht nicht zugeklappt da: ${JSON.stringify(zu)}`);
+    pruefe(zu.length === 3 && zu.every((b) => !b.offen) && JSON.stringify(zu.map((b) => b.titel)) === JSON.stringify(["Turniere", "Spiele", "Spieler"]),
+      `Der Adminbereich steht nicht zugeklappt da, oder nicht mit den Bereichen Turniere, Spiele, Spieler: ${JSON.stringify(zu)}`);
     pruefe(await seite.locator(".adm-streifen button.adm-kachel").count() === 5, "Oben stehen nicht fünf Kacheln zum Antippen.");
     await seite.locator(".adm-kachel", { hasText: "Turnier" }).click();
     await seite.waitForSelector(".adm-turniere .adm-turnier", { timeout: 8000 });
@@ -9609,7 +9610,7 @@ try {
     // Spiel T1 bis T5. Wer eines umteilt, speichert es – und das nächste
     // Turnier sieht es so.
     await seite.locator(".adm-kachel", { hasText: "Spielen offen" }).click();
-    const auswahlText = await seite.locator("#adm-auswahl").innerText();
+    const auswahlText = await seite.locator("#adm-spiele").innerText();
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
@@ -9795,7 +9796,7 @@ try {
     // Ein Spiel spielen: über dem ganzen Adminbereich, ohne dass der
     // Haken daneben sich bewegt – auf der Startseite wäre das sofort
     // gespeichert.
-    const auswahl = seite.locator(".adm-seite > .adm-block:not(.adm-turniere)").first();
+    const auswahl = seite.locator("#adm-spiele");
     pruefe(await auswahl.locator(".adm-wahl .adm-spielen-knopf").count() === SPIELE.length,
       `In der Spielauswahl hat nicht jedes Spiel einen Knopf zum Spielen (${await auswahl.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
     const turmZeile = auswahl.locator(".adm-wahl", { hasText: "Turmbau" });
@@ -9911,32 +9912,81 @@ try {
     await seite.evaluate(() => {
       window.__miniGeister.set("fishPond_mini_vorherdagewesen", { game: "fishPond", spieler: "mini_vorherdagewesen", name: "Grosi", punkte: 12, level: "t1", bahn: "" });
     });
-    // Die Spiele: eine Zeile je Spiel, nach Tier zu filtern, nach dem, was
-    // auf der Startseite steht, oder nach einem Turnier – und nach jeder
-    // Spalte zu sortieren. Der Filter gilt überall.
+    // Die Spiele: ein Feld je Spiel, nach Tier gruppiert, nach Tier, nach
+    // dem, was auf der Startseite steht, oder nach einem Turnier zu filtern –
+    // und anders zu ordnen. Der Filter gilt überall.
     await seite.locator(".adm-kachel", { hasText: "Einträge" }).click();
-    const spielZeilen = "#adm-spiele .adm-spieltabelle > tbody > tr:not(.adm-detail)";
-    pruefe(await seite.locator(spielZeilen).count() === SPIELE.length, `In den Spielen stehen ${await seite.locator(spielZeilen).count()} Zeilen statt ${SPIELE.length}.`);
+    const felder = "#adm-spiele .adm-wahl";
+    const feldNamen = () => seite.$$eval(`${felder} .adm-wahl-name`, (z) => z.map((s) => s.textContent.trim()));
+    pruefe(await seite.locator(felder).count() === SPIELE.length, `In den Spielen stehen ${await seite.locator(felder).count()} Felder statt ${SPIELE.length}.`);
     await seite.locator('#adm-spiele .adm-chip[data-tier="2"]').click();
-    const nurZwei = await seite.$$eval(`${spielZeilen} td:nth-child(2)`, (z) => z.map((t) => t.textContent));
-    pruefe(nurZwei.length > 0 && nurZwei.every((t) => t === "T2"), `Der Filter «Tier 2» zeigt: ${nurZwei.join(", ")}`);
+    const nurZwei = await seite.$$eval(`${felder} .adm-tier-wahl`, (z) => z.map((w) => w.value));
+    pruefe(nurZwei.length > 0 && nurZwei.every((t) => t === "2") && await seite.locator("#adm-spiele .adm-tier-titel").count() === 1,
+      `Der Filter «Tier 2» zeigt: ${nurZwei.join(", ")}`);
     pruefe(await seite.locator('#adm-spieler .adm-chip[data-tier="2"][aria-pressed="true"]').count() === 1, "Der Filter gilt bei den Spielern nicht mit.");
+    pruefe(/gezeigten anhaken/.test(await seite.locator("#adm-spiele .adm-kopf-aktionen").innerText()), "Mit Filter sagt «Alle anhaken» nicht, dass es nur die gezeigten sind.");
     await seite.locator("#adm-spiele .adm-chip", { hasText: "Alle Tiers" }).click();
-    await seite.locator("#adm-spiele .adm-filter-wahl").selectOption(`t:${HERBST}`);
-    const imHerbst = await seite.$$eval("#adm-spiele .adm-spiel-schalter", (z) => z.map((s) => s.textContent.trim()));
+    await seite.locator("#adm-spiele .adm-filter-wahl:not(.adm-ordnung)").selectOption(`t:${HERBST}`);
+    const imHerbst = await feldNamen();
     pruefe(imHerbst.length === 3 && ["Turmbau", "Fischteich", "Wo hält der Zug?"].every((t) => imHerbst.includes(t)),
       `Der Filter «Im Turnier: Herbstcup» zeigt: ${imHerbst.join(", ")}`);
     await seite.locator("#adm-spiele .adm-filter-weg").click();
-    pruefe(await seite.locator(spielZeilen).count() === SPIELE.length, "«Filter aufheben» zeigt nicht wieder alle Spiele.");
-    await seite.locator("#adm-spiele th button", { hasText: "Spieler" }).click();
-    const nachSpielern = await seite.$$eval(`${spielZeilen} td:nth-child(4)`, (z) => z.map((t) => Number(t.textContent)));
-    pruefe(nachSpielern[0] >= 1 && nachSpielern.every((n, i) => i === 0 || nachSpielern[i - 1] >= n), `Nach Spielern sortiert steht: ${nachSpielern.join(", ")}`);
+    pruefe(await seite.locator(felder).count() === SPIELE.length, "«Filter aufheben» zeigt nicht wieder alle Spiele.");
+    // Ordnen: nach Spielern – die meisten zuerst, ohne Gruppen der Tiers.
+    await seite.locator("#adm-spiele .adm-ordnung").selectOption("spieler");
+    const nachSpielern = await seite.$$eval(`${felder} .adm-wahl-zahl`, (z) => z.map((t) => Number((/(\d+) Spieler/.exec(t.textContent) || [0, 0])[1])));
+    pruefe(nachSpielern[0] >= 1 && nachSpielern.every((n, i) => i === 0 || nachSpielern[i - 1] >= n) && await seite.locator("#adm-spiele .adm-tier-titel").count() === 0,
+      `Nach Spielern geordnet steht: ${nachSpielern.join(", ")}`);
     await seite.locator(".adm-kachel", { hasText: "Runden" }).click();
-    pruefe(/Runden/i.test(await seite.locator('#adm-spiele th[aria-sort="descending"]').innerText().catch(() => "")),
-      "Die Kachel «Runden» sortiert die Spiele nicht nach Runden.");
+    pruefe(await seite.locator("#adm-spiele .adm-ordnung").inputValue() === "runden" && /^\d+ Runden?/.test(await seite.locator(`${felder} .adm-wahl-zahl`).first().innerText()),
+      "Die Kachel «Runden» ordnet die Spiele nicht nach Runden.");
+    await seite.locator("#adm-spiele .adm-ordnung").selectOption("tier");
 
-    await seite.locator(".adm-spiel-schalter", { hasText: "Fischteich" }).click();
-    const teich = seite.locator(".adm-spiel-detail");
+    // Nur das Kästchen ist der Haken: Ein Tipp auf das Feld legt nichts um,
+    // sondern öffnet das Fenster des Spiels.
+    const teichFeld = seite.locator(felder, { hasText: "Fischteich" });
+    const teichVorher = await teichFeld.locator('input[type="checkbox"]').isChecked();
+    const offenVorher = await seite.evaluate(() => JSON.stringify(window.__miniOffen ?? null));
+    await teichFeld.locator(".adm-wahl-feld").click();
+    await seite.waitForSelector(".adm-dash.adm-dash-spiel", { timeout: 4000 });
+    pruefe(await teichFeld.locator('input[type="checkbox"]').isChecked() === teichVorher && await seite.evaluate(() => JSON.stringify(window.__miniOffen ?? null)) === offenVorher,
+      "Ein Tipp auf das Feld des Spiels hat den Haken umgelegt.");
+    const teich = seite.locator(".adm-dash.adm-dash-spiel");
+    const fenster = await teich.evaluate((k) => ({
+      titel: k.querySelector(".adm-dash-titel")?.textContent || "",
+      zahlen: k.querySelectorAll(".adm-dash-zahlen > div").length,
+      kopf: [...k.querySelectorAll(".adm-bestenliste thead th")].map((th) => th.textContent.trim()),
+      sortierbar: k.querySelectorAll(".adm-bestenliste thead .adm-sortier").length,
+      zeilen: k.querySelectorAll(".adm-bestenliste tbody tr:not(.adm-leer)").length,
+      knoepfe: [...k.querySelectorAll("button")].map((b) => b.textContent.trim()),
+    }));
+    pruefe(fenster.titel === "Fischteich" && fenster.zahlen === 5 && fenster.zeilen >= 1
+      && ["Platz", "Name", "Runden", "Spielzeit", "Zuletzt"].every((t) => fenster.kopf.includes(t)) && fenster.sortierbar === 6
+      && ["Namen ändern", "Löschen", "Bestenliste leeren", "▶ Spielen", "Schliessen"].every((t) => fenster.knoepfe.includes(t)),
+      `Das Fenster des Fischteichs zeigt nicht Zahlen, sortierbare Bestenliste und alle Knöpfe: ${JSON.stringify(fenster)}`);
+    // Nach jeder Spalte zu sortieren: ein Tipp auf die Überschrift, ein zweiter dreht um.
+    await teich.locator(".adm-bestenliste th button", { hasText: "Runden" }).click();
+    const runden = () => teich.locator(".adm-bestenliste tbody tr td:nth-child(4)").allInnerTexts();
+    const rundenAb = (await runden()).map(Number);
+    await teich.locator(".adm-bestenliste th button", { hasText: "Runden" }).click();
+    const rundenAuf = (await runden()).map(Number);
+    pruefe(rundenAb.every((n, i) => i === 0 || rundenAb[i - 1] >= n) && rundenAuf.every((n, i) => i === 0 || rundenAuf[i - 1] <= n)
+      && await teich.locator('.adm-bestenliste th[aria-sort="ascending"]').count() === 1,
+      `Die Bestenliste sortiert nicht nach Runden, ab- und aufsteigend: ${rundenAb.join(",")} / ${rundenAuf.join(",")}`);
+    // Esc schliesst, der Haken ist geblieben; das Kästchen selbst legt um.
+    await seite.keyboard.press("Escape");
+    pruefe(await seite.locator(".adm-dash").count() === 0, "Esc schliesst das Fenster des Spiels nicht.");
+    await teichFeld.locator('input[type="checkbox"]').click();
+    await seite.waitForFunction((war) => (window.__miniOffen || []).includes("fishPond") !== war, teichVorher, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-dash").count() === 0 && (await seite.evaluate(() => window.__miniOffen || [])).includes("fishPond") !== teichVorher,
+      "Das Kästchen legt den Haken nicht um, oder es öffnet auch das Fenster.");
+    await teichFeld.locator('input[type="checkbox"]').click();
+    await seite.waitForFunction((war) => (window.__miniOffen || []).includes("fishPond") === war, teichVorher, { timeout: 4000 }).catch(() => {});
+
+    // Eine ganze Bestenliste leeren – im Fenster des Spiels. Danach steht
+    // es wieder da, leer.
+    await teichFeld.locator(".adm-wahl-feld").click();
+    await seite.waitForSelector(".adm-dash.adm-dash-spiel", { timeout: 4000 });
     pruefe(await teich.locator("button", { hasText: "Bestenliste leeren" }).count() === 1, "Beim Fischteich fehlt «Bestenliste leeren».");
     await teich.locator("button", { hasText: "Bestenliste leeren" }).click();
     await seite.waitForFunction(() => ![...window.__miniEintraege.values()].some((e) => e.game === "fishPond"), null, { timeout: 4000 }).catch(() => {});
@@ -9948,6 +9998,10 @@ try {
     pruefe(geleert.teich === 0, `«Bestenliste leeren» hat ${geleert.teich} Einträge im Fischteich stehen lassen.`);
     pruefe(!geleert.geist, "«Bestenliste leeren» hat den Geist stehen lassen.");
     pruefe(geleert.turm > 0, "«Bestenliste leeren» hat auch den Turmbau geleert.");
+    await seite.waitForFunction(() => /Noch hat niemand gespielt/.test(document.querySelector(".adm-dash.adm-dash-spiel")?.textContent || ""), null, { timeout: 4000 }).catch(() => {});
+    pruefe(/Noch hat niemand gespielt/.test(await seite.locator(".adm-dash.adm-dash-spiel").innerText().catch(() => "")),
+      "Nach «Bestenliste leeren» steht das Fenster des Spiels nicht wieder da, leer.");
+    await seite.keyboard.press("Escape");
 
     // Die Auswertung eines Spielers: ein Tipp auf den Namen. Je Spiel der
     // Platz, dazu die Turniere – und alles, was sich mit ihm machen lässt.
