@@ -8121,7 +8121,7 @@ try {
   // Jede Runde hat zwei leichte, vier mittlere und vier schwere Blätter (mit
   // sechs, sieben und acht Sekunden), jede Art höchstens einmal, alles liegt
   // auf dem Blatt, und die Lösung liegt auf der Bahn des Fadenkreuzes. Jede
-  // der 21 Arten lässt sich zeichnen, beantworten und nachmessen; wo zwei
+  // der 18 Arten lässt sich zeichnen, beantworten und nachmessen; wo zwei
   // Stellen richtig sind, gelten beide. Wer überall genau trifft, hat hundert Punkte;
   // wer drei Millimeter danebenliegt, bekommt, was die Tabelle sagt. Vor jedem
   // Blatt steht die Vorschau – ein Satz und ein Beispiel derselben Art –,
@@ -8159,13 +8159,36 @@ try {
           if (!(A.TUN[a.art]?.length > 20) || !b || b.art !== a.art || b === a) raus.falsch.push(`${a.art}: Satz oder Beispiel fehlen`);
           else if (Math.max(...b.punkte.map((q) => Math.max(A.RAND - q.x, q.x - (A.BLATT - A.RAND), A.RAND - q.y, q.y - (A.BLATT - A.RAND)))) > 1e-6) raus.falsch.push(`${a.art}: Das Beispiel ragt über den Rand`);
           if (a.art === "tunnel" && !(a.sm - a.s1 >= 18 && a.sm <= a.lang - 6 && a.s1 / a.v > 0.6)) raus.falsch.push(`Tunnel: ${a.s1.toFixed(1)}/${a.sm.toFixed(1)}/${a.v.toFixed(1)}`);
+          // Das Rad: Das Beispiel ist sichtlich ein anderes – anders gross, und seine Stelle
+          // liegt nirgends dort, wo die des Blattes liegt (auch nicht im Kasten der Vorschau).
+          if (a.art === "rad" && b?.rad) {
+            if (Math.max(a.rad.r / b.rad.r, b.rad.r / a.rad.r) < 1.3) raus.falsch.push(`Rad: Das Beispiel ist so gross wie das Rad des Blattes (${a.rad.r.toFixed(1)}/${b.rad.r.toFixed(1)})`);
+            const orte = [b.ziel, ...[A.BEISPIEL_KASTEN.hoch, A.BEISPIEL_KASTEN.flach].map((k) => ({ x: A.BLATT * (0.5 - k / 2) + b.ziel.x * k, y: A.BLATT * A.BEISPIEL_KASTEN.oben + b.ziel.y * k }))];
+            if (orte.some((o) => Math.hypot(o.x - a.ziel.x, o.y - a.ziel.y) < A.BEISPIEL_FERN - 1e-9)) raus.falsch.push("Rad: Die Stelle des Beispiels liegt dort, wo die des Blattes liegt");
+          }
         });
       }
       const tabelle = [0, 0.3, 0.6, 0.61, 1.1, 1.7, 2.4, 3.2, 4.2, 5.5, 7.2, 9.5, 12.5, 12.6, 40].map((mm) => A.punkteFuer(mm));
-      return { runden: raus.runden, falsch: raus.falsch.slice(0, 6), arten: raus.arten.size, welten: raus.welten.size, tabelle, nachsicht: A.punkteFuer(1, 0.6) };
+      // Das Rad, sechshundertmal gewürfelt: mal klein, mal gross, und die
+      // Stelle liegt mal vorn, mal hinten auf dem Boden – nie immer gleich.
+      const rad = { r: [Infinity, 0], teil: [Infinity, 0], x: [Infinity, 0], zehntel: new Array(10).fill(0), aus: 0 };
+      for (let i = 0; i < 600; i += 1) {
+        const a = A.BAU.rad();
+        const lang = Math.hypot(a.bahn.b.x - a.bahn.a.x, a.bahn.b.y - a.bahn.a.y);
+        const teil = Math.hypot(a.ziel.x - a.bahn.a.x, a.ziel.y - a.bahn.a.y) / lang;
+        rad.r = [Math.min(rad.r[0], a.rad.r), Math.max(rad.r[1], a.rad.r)];
+        rad.teil = [Math.min(rad.teil[0], teil), Math.max(rad.teil[1], teil)];
+        rad.x = [Math.min(rad.x[0], a.ziel.x), Math.max(rad.x[1], a.ziel.x)];
+        rad.zehntel[Math.min(9, Math.floor(teil * 10))] += 1;
+        if (a.punkte.some((q) => q.x < A.RAND - 1e-6 || q.x > A.BLATT - A.RAND + 1e-6 || q.y < A.RAND - 1e-6 || q.y > A.BLATT - A.RAND + 1e-6)) rad.aus += 1;
+      }
+      rad.dichtestes = Math.max(...rad.zehntel) / 600;
+      return { runden: raus.runden, falsch: raus.falsch.slice(0, 6), arten: raus.arten.size, welten: raus.welten.size, tabelle, nachsicht: A.punkteFuer(1, 0.6), rad };
     });
-    pruefe(bau.falsch.length === 0 && bau.arten === 21 && bau.welten === bau.runden,
+    pruefe(bau.falsch.length === 0 && bau.arten === 18 && bau.welten === bau.runden,
       `Augenmass: Die Blätter sind nicht, wie sie sein sollen – ${JSON.stringify(bau)}`);
+    pruefe(bau.rad.r[0] < 3.8 && bau.rad.r[1] > 7.8 && bau.rad.teil[0] < 0.4 && bau.rad.teil[1] > 0.82 && bau.rad.dichtestes < 0.4 && bau.rad.x[0] < 30 && bau.rad.x[1] > 70 && bau.rad.aus === 0,
+      `Augenmass: Das Rad ist nicht jedes Mal anders – Grösse, Stelle auf dem Boden oder Lage streuen zu wenig: ${JSON.stringify(bau.rad)}`);
     pruefe(JSON.stringify(bau.tabelle) === JSON.stringify([10, 10, 10, 9, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0]) && bau.nachsicht === 10,
       `Augenmass: Die Punkte fallen nicht nach der Tabelle: ${JSON.stringify(bau.tabelle)} / ${bau.nachsicht}`);
 
@@ -8246,7 +8269,7 @@ try {
       raus.auch = { punkte: st.wertung.punkte, mm: st.wertung.mm, gewechselt: Math.hypot(a.ziel.x - andere.x, a.ziel.y - andere.y) < 1e-9 };
       return raus;
     });
-    pruefe(jede.arten === 21 && jede.falsch.length === 0, `Augenmass: Nicht jede Art lässt sich zeichnen und beantworten – ${JSON.stringify(jede.falsch)}`);
+    pruefe(jede.arten === 18 && jede.falsch.length === 0, `Augenmass: Nicht jede Art lässt sich zeichnen und beantworten – ${JSON.stringify(jede.falsch)}`);
     pruefe(jede.auch?.punkte === 10 && jede.auch.mm < 0.002 && jede.auch.gewechselt, `Augenmass: Die dritte Ecke auf der anderen Seite gilt nicht: ${JSON.stringify(jede.auch)}`);
 
     // Die Vorschau: Die Uhr steht, ein Tipp gleich nach dem Umblättern zählt
@@ -8274,10 +8297,15 @@ try {
         finger.x += A.SCHLUPF + 1;
         zeiger("pointermove", finger.x, finger.y);
       };
+      // Auf einer Sehne quer über einen Bogen klebt das Fadenkreuz ein wenig
+      // an ihm – darum in ein paar Schritten, bis es dort ist.
       const zieh = (nach) => {
-        const z = st.zeiger;
-        finger = { x: finger.x + (nach.x - z.x) * A.view.s, y: finger.y + (nach.y - z.y) * A.view.s };
-        zeiger("pointermove", finger.x, finger.y);
+        for (let schritt = 0; schritt < 8; schritt += 1) {
+          const z = st.zeiger;
+          if (Math.hypot(nach.x - z.x, nach.y - z.y) < 1e-9) break;
+          finger = { x: finger.x + (nach.x - z.x) * A.view.s, y: finger.y + (nach.y - z.y) * A.view.s };
+          zeiger("pointermove", finger.x, finger.y);
+        }
       };
       const lass = () => zeiger("pointerup", finger.x, finger.y);
       // Der Knopf «Bestätigen», mit einem eigenen Finger gedrückt.
@@ -8468,6 +8496,53 @@ try {
       raus.feld.gesetzt = { phase: st.phase, punkte: st.wertung?.punkte, griff: st.griff };
       lass();
       A.weiter();
+      lege("bande");
+      // Frei, und doch haftend: An einer Bande liegt das Fadenkreuz am Anfang
+      // auf ihr. Wer schräg an ihr entlangzieht, bleibt darauf; wer quer
+      // wegzieht, löst es nach HAFT Millimetern, und von da an ist es frei.
+      // Zurück an der Bande, klebt es wieder.
+      st.t0 -= 1000;
+      await bild();
+      const frBlatt = A.blatt();
+      const frWeit = 2 * A.HAFT;
+      const frAb = (q) => Math.hypot(q.x - A.aufBahn(frBlatt, q).x, q.y - A.aufBahn(frBlatt, q).y);
+      const frLang = Math.hypot(frBlatt.bahn.b.x - frBlatt.bahn.a.x, frBlatt.bahn.b.y - frBlatt.bahn.a.y);
+      const frE = { x: (frBlatt.bahn.b.x - frBlatt.bahn.a.x) / frLang, y: (frBlatt.bahn.b.y - frBlatt.bahn.a.y) / frLang };
+      // Quer zur Bande, zur Seite mit mehr Blatt.
+      const frMitte = { x: (frBlatt.bahn.a.x + frBlatt.bahn.b.x) / 2, y: (frBlatt.bahn.a.y + frBlatt.bahn.b.y) / 2 };
+      const frSeite = (50 - frMitte.x) * -frE.y + (50 - frMitte.y) * frE.x > 0 ? 1 : -1;
+      const frN = { x: -frE.y * frSeite, y: frE.x * frSeite };
+      const um = (dx, dy, schritte = 10) => { for (let i = 0; i < schritte; i += 1) { finger = { x: finger.x + (dx * A.view.s) / schritte, y: finger.y + (dy * A.view.s) / schritte }; zeiger("pointermove", finger.x, finger.y); } };
+      raus.haft = { start: frAb(st.zeiger), ein: A.eingerastet(frBlatt, st.zeiger) };
+      greif();
+      const frVor = { ...st.zeiger };
+      const frWeg = Math.min(14, frLang * 0.5);
+      const frSchraeg = (22 * Math.PI) / 180;
+      um((frE.x * Math.cos(frSchraeg) + frN.x * Math.sin(frSchraeg)) * frWeg, (frE.y * Math.cos(frSchraeg) + frN.y * Math.sin(frSchraeg)) * frWeg);
+      raus.haft.entlang = { ab: frAb(st.zeiger), weg: Math.hypot(st.zeiger.x - frVor.x, st.zeiger.y - frVor.y), soll: frWeg * Math.cos(frSchraeg) };
+      um(frN.x * (A.HAFT - 0.5), frN.y * (A.HAFT - 0.5));
+      raus.haft.klebt = frAb(st.zeiger);
+      um(frN.x * (0.5 + frWeit), frN.y * (0.5 + frWeit));
+      raus.haft.frei = { ab: frAb(st.zeiger), ein: A.eingerastet(frBlatt, st.zeiger) };
+      // Frei geht es jeden Bildpunkt mit, auch längs.
+      const frFreiVor = { ...st.zeiger };
+      um(frE.x * -3 + frN.x * 2, frE.y * -3 + frN.y * 2);
+      raus.haft.freiWeg = Math.hypot(st.zeiger.x - frFreiVor.x - (frE.x * -3 + frN.x * 2), st.zeiger.y - frFreiVor.y - (frE.y * -3 + frN.y * 2));
+      // Wieder hin: Es kommt an, ohne zu springen, und bleibt dann kleben.
+      const frHin = frAb(st.zeiger);
+      let frSprung = 0;
+      let frDavor = frHin;
+      for (let i = 0; i < 40; i += 1) { um(-frN.x * (frHin + 2) / 40, -frN.y * (frHin + 2) / 40, 1); frSprung = Math.max(frSprung, Math.abs(frDavor - frAb(st.zeiger))); frDavor = frAb(st.zeiger); }
+      raus.haft.wieder = { ab: frAb(st.zeiger), sprung: frSprung, schritt: (frHin + 2) / 40 };
+      // Neben der Bande bestätigt: Es zählt, wie frWeg die Stelle von der Lösung weg ist.
+      // (Die freie Stelle liegt jetzt irgendwo in der Haftzone – von dort aus gerechnet.)
+      const frTief = (st.frei.x - A.aufBahn(frBlatt, st.frei).x) * frN.x + (st.frei.y - A.aufBahn(frBlatt, st.frei).y) * frN.y;
+      um(frN.x * (A.HAFT + frWeit - frTief), frN.y * (A.HAFT + frWeit - frTief));
+      const frStelle = { ...st.zeiger };
+      lass();
+      bestaetige();
+      raus.haft.daneben = { phase: st.phase, ab: frAb(frStelle), mm: st.wertung?.mm, soll: Math.hypot(frStelle.x - frBlatt.ziel.x, frStelle.y - frBlatt.ziel.y), punkte: st.wertung?.punkte };
+      A.weiter();
       lege("eck");
       // Die Maus zeigt genau dorthin, wo sie steht – und ihr Klick ist die Antwort.
       const m = A.blatt();
@@ -8478,15 +8553,23 @@ try {
       raus.maus.phase = st.phase;
       raus.maus.punkte = st.wertung?.punkte;
       A.weiter();
-      lege("kreis");
+      lege("lot");
       // Wer mit der Maus spielt, hat kein Fadenkreuz, bevor sie sich bewegt,
-      // und keinen Knopf: Sie schwebt mit.
-      const n = A.blatt();
+      // und keinen Knopf: Sie schwebt mit. An einer Linie haftet auch sie –
+      // nah daran liegt das Fadenkreuz auf ihr, weiter weg steht es um HAFT
+      // näher an ihr als die Maus.
+      const l = A.blatt();
       st.t0 -= 1000;
       await bild();
       raus.maus.leer = { zeiger: st.zeiger, knopf: A.knopfDa(), ort: A.view.knopfOrt };
-      maus("pointermove", { x: n.ziel.x + 4, y: n.ziel.y + 4 });
-      raus.maus.schwebt = st.zeiger ? A.daneben(n, st.zeiger) : -1;
+      const ll = Math.hypot(l.bahn.b.x - l.bahn.a.x, l.bahn.b.y - l.bahn.a.y);
+      const ln = { x: -(l.bahn.b.y - l.bahn.a.y) / ll, y: (l.bahn.b.x - l.bahn.a.x) / ll };
+      const lm = { x: (l.bahn.a.x + l.bahn.b.x) / 2, y: (l.bahn.a.y + l.bahn.b.y) / 2 };
+      const lb = (q) => (q ? Math.hypot(q.x - A.aufBahn(l, q).x, q.y - A.aufBahn(l, q).y) : -1);
+      maus("pointermove", { x: lm.x + ln.x * (A.HAFT - 1), y: lm.y + ln.y * (A.HAFT - 1) });
+      const nah = lb(st.zeiger);
+      maus("pointermove", { x: lm.x + ln.x * (A.HAFT + 4), y: lm.y + ln.y * (A.HAFT + 4) });
+      raus.maus.haft = { nah, fern: lb(st.zeiger) };
       return raus;
     });
     pruefe(uhr.vor.phase === "vorschau" && uhr.vor.gleich === "vorschau" && uhr.vor.wartet === "vorschau" && uhr.vor.los.phase === "aufgabe" && uhr.vor.los.seit < 0.2,
@@ -8517,8 +8600,17 @@ try {
       `Augenmass: Der Knopf gilt nicht beim Loslassen auf ihm, oder nicht, während ein Finger das Fadenkreuz hält: ${JSON.stringify(uhr.feld)}`);
     pruefe(uhr.feld.blass && uhr.feld.zuFrueh.phase === "aufgabe" && uhr.feld.zuFrueh.wink && uhr.feld.zuFrueh.gedrueckt === false && uhr.feld.bereit,
       `Augenmass: Der Knopf gilt schon, bevor das Fadenkreuz bewegt wurde – oder er wird danach nicht bereit: ${JSON.stringify(uhr.feld)}`);
+    pruefe(uhr.haft.start < 1e-9 && uhr.haft.ein && uhr.haft.entlang.ab < 1e-9 && Math.abs(uhr.haft.entlang.weg - uhr.haft.entlang.soll) < 0.01 && uhr.haft.klebt < 1e-9,
+      `Augenmass: An der Bande bleibt das Fadenkreuz nicht kleben, wenn man an ihr entlangzieht: ${JSON.stringify(uhr.haft)}`);
+    pruefe(Math.abs(uhr.haft.frei.ab - 6) < 0.01 && uhr.haft.frei.ein === false && uhr.haft.freiWeg < 0.01
+      && uhr.haft.wieder.ab < 1e-9 && uhr.haft.wieder.sprung <= uhr.haft.wieder.schritt + 1e-6,
+      `Augenmass: Von der Bande weggezogen, ist das Fadenkreuz nicht frei – oder es springt, wenn es wieder ankommt: ${JSON.stringify(uhr.haft)}`);
+    pruefe(uhr.haft.daneben.phase === "zeigen" && Math.abs(uhr.haft.daneben.ab - 6) < 0.01 && Math.abs(uhr.haft.daneben.mm - uhr.haft.daneben.soll) < 0.01 && uhr.haft.daneben.mm >= 5.9 && uhr.haft.daneben.punkte <= 6,
+      `Augenmass: Eine Antwort neben der Bande wird nicht nach ihrem Abstand gemessen: ${JSON.stringify(uhr.haft.daneben)}`);
+    pruefe(uhr.maus.haft.nah < 1e-9 && Math.abs(uhr.maus.haft.fern - 4) < 0.01,
+      `Augenmass: Mit der Maus haftet das Fadenkreuz nicht an der Linie, oder es ist daneben nicht frei: ${JSON.stringify(uhr.maus.haft)}`);
     pruefe(uhr.maus.finger === false && uhr.maus.mm < 0.3 && uhr.maus.phase === "zeigen" && uhr.maus.punkte === 10
-      && uhr.maus.leer.zeiger === null && uhr.maus.leer.knopf === false && uhr.maus.leer.ort === "" && uhr.maus.schwebt > 2,
+      && uhr.maus.leer.zeiger === null && uhr.maus.leer.knopf === false && uhr.maus.leer.ort === "",
       `Augenmass: Die Maus zeigt nicht genau dorthin, wo sie steht, ihr Klick ist nicht die Antwort – oder sie hat einen Knopf: ${JSON.stringify(uhr.maus)}`);
 
     // Der Tunnel: Die Kugel rollt von selbst los, kurz nachdem das Blatt
@@ -8625,7 +8717,7 @@ try {
       const geist = window.__miniGeister?.get(`eyeMeasure_${kennung}`) || null;
       return { kennung, punkte: geist?.punkte || 0, gezaehlt: window.LernappAugenmass.state.punkte, level: geist?.level || "" };
     });
-    pruefe(gespielt.kennung && gespielt.punkte > 30 && gespielt.punkte === gespielt.gezaehlt && gespielt.level === "z2" && gespieltListe[5] === 0,
+    pruefe(gespielt.kennung && gespielt.punkte > 30 && gespielt.punkte === gespielt.gezaehlt && gespielt.level === "z3" && gespieltListe[5] === 0,
       `Augenmass: Die Runde wird nicht hinterlegt: ${JSON.stringify({ ...gespielt, gespieltListe })}`);
     await seite.goto(`${BASIS}/augenmass?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappAugenmass?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
