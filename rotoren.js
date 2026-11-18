@@ -90,9 +90,14 @@
 
   // Der Akku: so viele Sekunden fasst er, und so viel lädt das n-te Tor nach –
   // am Anfang reichlich, mit jedem Tor weniger, am Ende zu wenig.
-  const AKKU_MAX = 10;
-  const AKKU_MITTIG = 0.5;
-  const akkuLaden = (n) => Math.max(0.9, 3 - 0.055 * n);
+  // AKKU_TEMPO sagt, wie schnell er abläuft: Bei 1 fasst er zehn Sekunden und
+  // das erste Tor lädt drei nach; bei 1,2 ist alles um diesen Teil knapper –
+  // der Akku ist 1,2-mal so schnell leer. Gerechnet und angezeigt wird immer
+  // in echten Sekunden.
+  const AKKU_TEMPO = 1.2;
+  const AKKU_MAX = 10 / AKKU_TEMPO;
+  const AKKU_MITTIG = 0.5 / AKKU_TEMPO;
+  const akkuLaden = (n) => Math.max(0.9, 3 - 0.055 * n) / AKKU_TEMPO;
 
   // Wie schwer es beim n-ten Tor ist (0 … gegen 1).
   const schwere = (n) => 1 - Math.exp(-Math.max(0, n) / 24);
@@ -1280,7 +1285,7 @@
       g.arc(px, py, r, 0, TAU);
       g.stroke();
       if (anteil > 0 && !(eng && Math.sin(state.zeit * 18) > 0.4)) {
-        g.strokeStyle = eng ? "#ff5a48" : d.akku < 5.5 ? "#ffd23f" : "#52e08a";
+        g.strokeStyle = eng ? "#ff5a48" : d.akku < AKKU_MAX * 0.55 ? "#ffd23f" : "#52e08a";
         g.beginPath();
         g.arc(px, py, r, -Math.PI / 2, -Math.PI / 2 + TAU * anteil);
         g.stroke();
@@ -1409,7 +1414,7 @@
       const eng = d.akku < 3;
       const bw = Math.max(96, gross * 5.4);
       pille(12, y2, bw, klein * 1.8, eng && Math.sin(state.zeit * 14) > 0 ? "rgba(120, 20, 14, 0.85)" : "rgba(4, 6, 22, 0.6)");
-      g.fillStyle = eng ? "#ff5a48" : d.akku < 5.5 ? "#ffd23f" : "#52e08a";
+      g.fillStyle = eng ? "#ff5a48" : d.akku < AKKU_MAX * 0.55 ? "#ffd23f" : "#52e08a";
       const innen = bw - 8;
       g.beginPath();
       const voll = Math.max(3, innen * clamp(d.akku / AKKU_MAX, 0, 1));
@@ -1687,7 +1692,7 @@
 
   // Für die Prüfskripte und die Vorführung.
   window.LernappRotoren = {
-    TAKT, AKKU_MAX, KIPP, MITTIG, PFOSTEN, HOCH_MIN, HOCH_MAX,
+    TAKT, AKKU_MAX, AKKU_TEMPO, KIPP, MITTIG, PFOSTEN, HOCH_MIN, HOCH_MAX,
     state, view, takt, zeichnen, druecken, loslassen, allesLos, losGehts, weltText, toreBis,
     neueDrohne, schritt, pilot, wunsch, torLage, dachBei, akkuLaden,
     haelt: () => [haeltLinks(), haeltRechts()],
