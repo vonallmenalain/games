@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3216,6 +3216,7 @@ try {
     ["/hammerwurf", "Hammerwurf", () => window.LernappHammerwurf.weltText()],
     ["/entenfamilie", "Entenfamilie", () => window.LernappEntenfamilie.weltText()],
     ["/grubenlore", "Grubenlore", () => window.LernappGrubenlore.weltText()],
+    ["/rotoren", "Zwei Rotoren", () => window.LernappRotoren.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -7896,6 +7897,141 @@ try {
     await kontext.close();
   }
 
+  // --- 4g33. Zwei Rotoren: jeder Parcours fliegbar, und ohne Daumen endet der Flug ----
+  // Ein Pilot (rotoren.js, pilot – er rechnet mit demselben Flug voraus) fliegt
+  // auf jeder Welt durch mindestens achtzehn Tore, die meisten mittig; am
+  // Ende ist der Akku leer oder ein Pfosten im Weg. Jedes Tor ist breit genug
+  // und liegt in seinem Band. Wer nichts drückt, landet auf einem Dach; wer
+  // beide hält, steigt, bis der Akku leer ist – beides mit Ergebnis. Der
+  // linke Rotor schiebt nach rechts, der rechte nach links.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/rotoren`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappRotoren?.state?.welt && window.LernappRotoren.view.cssW > 0, null, { timeout: 8000 });
+    const fluege = await seite.evaluate(() => {
+      const R = window.LernappRotoren;
+      const st = R.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        R.druecken("links");
+        R.druecken("rechts");
+        for (let n = 0; st.phase === "spiel" && !st.endet && n < 240 * 240; n += 1) {
+          if (n % 8 === 0) {
+            const [links, rechts] = R.pilot(st.welt, st.d);
+            if (links) R.druecken("links"); else R.loslassen("links");
+            if (rechts) R.druecken("rechts"); else R.loslassen("rechts");
+          }
+          R.takt(1 / 240);
+        }
+        R.allesLos();
+        R.toreBis(st.welt, 60);
+        const tore = st.welt.tore.slice(0, 60);
+        const gebaut = tore.every((t, i) => t.halb >= 1.2 && t.y >= R.HOCH_MIN - 1e-6 && t.y <= R.HOCH_MAX + 1e-6 && (!i || t.x - tore[i - 1].x >= 4.4));
+        raus.push({
+          tore: st.d.tor, punkte: st.punkte, mittige: st.d.mittige, grund: st.grund, gebaut,
+          geschoben: tore.filter((t) => t.amp > 0).length, gewiegt: tore.filter((t) => t.dreh > 0).length, welt: R.weltText(),
+        });
+      }
+      return raus;
+    });
+    pruefe(fluege.every((f) => f.tore >= 18 && f.mittige >= 10 && f.punkte > f.tore && f.gebaut && ["akku", "pfosten"].includes(f.grund)),
+      `Zwei Rotoren: Der Pilot kommt nicht durch jeden Parcours – ${JSON.stringify(fluege.map(({ welt, ...rest }) => rest))}`);
+    pruefe(fluege.some((f) => f.geschoben > 0) && fluege.some((f) => f.gewiegt > 0),
+      `Zwei Rotoren: Kein Tor schiebt oder wiegt sich – ${JSON.stringify(fluege.map((f) => [f.geschoben, f.gewiegt]))}`);
+    pruefe(new Set(fluege.map((f) => f.welt)).size > 1, `Zwei Rotoren: Der Parcours ist in jeder Runde derselbe – ${JSON.stringify(fluege.map((f) => f.welt.slice(0, 60)))}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
+    const blind = await seite.evaluate(() => {
+      const R = window.LernappRotoren;
+      const st = R.state;
+      const raus = [];
+      // Nichts gedrückt (nach dem Start) – und beide gehalten.
+      for (const beide of [false, true]) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        R.druecken("links");
+        R.druecken("rechts");
+        if (!beide) R.allesLos();
+        for (let n = 0; st.phase === "spiel" && !st.endet && n < 240 * 40; n += 1) R.takt(1 / 240);
+        R.allesLos();
+        raus.push({ beide, grund: st.grund, zeit: Math.round(st.d.t * 10) / 10, hoch: Math.round(st.d.y) });
+      }
+      return raus;
+    });
+    pruefe(blind[0].grund === "dach" && blind[0].zeit < 4 && blind[1].grund === "akku" && blind[1].zeit < 24 && blind[1].hoch > 40,
+      `Zwei Rotoren: Ohne Daumen oder mit beiden endet der Flug nicht, wie er soll – ${JSON.stringify(blind)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Zwei Rotoren: Nach dem leeren Akku kommt kein Ergebnis.");
+    // Ein Rotor allein: Die Drohne kippt von ihm weg und zieht zur Seite.
+    const seiten = await seite.evaluate(() => {
+      const R = window.LernappRotoren;
+      const st = R.state;
+      const raus = {};
+      for (const welche of ["links", "rechts"]) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        R.druecken(welche);
+        for (let n = 0; n < 240 * 0.7; n += 1) R.takt(1 / 240);
+        raus[welche] = { vx: st.d.vx, w: st.d.w, laeuft: R.haelt() };
+        R.allesLos();
+      }
+      return { ...raus, kipp: R.KIPP };
+    });
+    pruefe(seiten.links.vx > 1.5 && seiten.links.w < -seiten.kipp * 0.8 && seiten.rechts.vx < -1.5 && seiten.rechts.w > seiten.kipp * 0.8,
+      `Zwei Rotoren: Ein Rotor allein zieht nicht zur anderen Seite: ${JSON.stringify(seiten)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Flug in echter Zeit – mit dem Piloten durch die ersten Tore, dann
+    // Daumen weg –, aufgezeichnet und angeschaut: derselbe Parcours,
+    // dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 900, height: 600 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__rotor")) return;
+      sessionStorage.setItem("__rotor", "1");
+      localStorage.setItem("mini.name", "Rotor");
+    });
+    await seite.goto(`${BASIS}/rotoren`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappRotoren?.state?.welt && window.LernappRotoren.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappRotoren.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const R = window.LernappRotoren;
+      const st = R.state;
+      R.druecken("links");
+      R.druecken("rechts");
+      const lauf = () => {
+        if (st.phase !== "spiel" || st.endet) { R.allesLos(); fertig(); return; }
+        if (st.d.tor < 4) {
+          const [links, rechts] = R.pilot(st.welt, st.d);
+          if (links) R.druecken("links"); else R.loslassen("links");
+          if (rechts) R.druecken("rechts"); else R.loslassen("rechts");
+        } else R.allesLos();
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("twinRotor_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`twinRotor_${kennung}`) || null;
+      const st = window.LernappRotoren.state;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, tore: st.d.tor, grund: st.grund };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte >= 4 && gespielt.punkte === gespielt.gezaehlt && gespielt.tore >= 4,
+      `Zwei Rotoren: Der Flug wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/rotoren?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappRotoren?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappRotoren.state.phase, welt: window.LernappRotoren.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Zwei Rotoren: Beim Zuschauen steht ein anderer Parcours da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappRotoren.state;
+      return { punkte: st.punkte, tore: st.d.tor, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.tore === gespielt.tore,
+      `Zwei Rotoren: Am Ende des angeschauten Flugs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -8101,7 +8237,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 29 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 30 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -8126,7 +8262,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();

@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        achtunddreissig Spielseiten, erzeugt
+    turmbau.html …        neununddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -466,6 +466,56 @@ Prüfung 4g32: Ein Pilot (`pilot` – er rollt, solange Rollen heil durch die
 nächste Stelle führt oder er danach noch anhalten könnte) stösst auf keiner
 Welt je an; ihn holt nach mindestens 450 m der Einsturz. Wer nie bremst,
 hängt an der ersten Kuppe im Felsdach, wer immer bremst, wird eingeholt.
+
+### Zwei Rotoren (November 2026)
+
+**Zwei Rotoren** (`rotoren.js`, `twinRotor`) – Eine Renndrohne bei Nacht
+über den Dächern der Stadt, von der Seite gesehen. Sie hat zwei Rotoren, und
+jeder hat seinen Daumen: **Links hält den linken Rotor, rechts den rechten**
+(am Rechner A oder Pfeil links, L oder Pfeil rechts; Leertaste beide).
+
+    beide    Die Drohne richtet sich auf und steigt.
+    einer    Sie kippt von ihm weg (`KIPP`) und zieht zur Seite – der linke
+             Rotor schiebt nach rechts, der rechte nach links – und hält
+             dabei knapp nicht die Höhe.
+    keiner   Sie fällt.
+
+Die Drohne leuchtet links rot und rechts grün, die beiden Knöpfe unten
+ebenso: So sieht man, welcher Daumen welcher Rotor ist. Geflogen wird durch
+einen Parcours aus Lichttoren, eines nach dem andern; das nächste leuchtet,
+und liegt es ausserhalb des Bildes, zeigt ein Pfeil am Rand hin. Die Tore
+stehen quer zum Weg, der sich nach rechts durch die Nacht schlängelt – mal
+aufrecht, mal liegend (dann geht es von unten oder von oben hindurch); ab
+dem zwölften schieben sich manche längs ihrer Öffnung hin und her, ab dem
+vierundzwanzigsten wiegen sich manche um ihre Mitte (`torLage`). Wer einen
+Pfosten berührt oder ein Dach, ist draussen.
+
+**Die Uhr ist der Akku** (`AKKU_MAX` Sekunden, ein Ring um die Drohne): Jedes
+Tor lädt ihn nach, mit jedem Tor etwas weniger (`akkuLaden`), am Ende zu
+wenig – so endet jede Runde von selbst. Vor dem ersten Tor läuft er halb so
+schnell ab. Gezählt werden die Tore; wer mitten hindurchfliegt (das goldene
+Stück der Öffnung, `MITTIG`), fliegt **«mittig»**: Das zählt mehr, in Folge
+immer mehr (bis `KETTE_MAX` dazu), und lädt den Akku ein Stück weiter.
+
+Gerechnet wird in Metern: Die Drohne ist ein Körper mit Lage, Fahrt und
+Neigung; die Neigung folgt den Daumen wie an einer straffen Feder
+(`KIPP_FEDER`, `KIPP_DAEMPF`), der Schub zeigt immer nach «oben» aus Sicht
+der Drohne, die Luft bremst (`LUFT_X`, `LUFT_Y`). Die Tore kommen aus
+`zufall.js`, die Dächer hängen an festen Zahlen und bleiben unter den Toren.
+Was sich bewegt, hängt allein an der Uhr der Runde.
+
+Das Bild: Himmel und Stadt werden einmal gemalt (der Himmel klein und
+gestreckt, die Stadt als zwei breite Bilder, die sich wiederholen) und
+danach nur noch verschoben; Licht ist ein fertiges Bild je Farbe (`licht`).
+Stockt das Bild, wird es gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden Ort und Neigung: Gegner fliegen als Drohne aus Licht
+mit, durch ihren eigenen Parcours, und ein angeschauter Flug baut mit seiner
+Saat dieselben Tore. Prüfung 4g33: Ein Pilot (`pilot` – er weiss, wie er an
+jedem Ort fliegen möchte, `wunsch`, und probiert alle Folgen aus zwei kurzen
+Griffen durch) fliegt auf jeder Welt durch mindestens achtzehn Tore, die
+meisten mittig. Wer nichts drückt, landet auf einem Dach; wer beide hält,
+steigt, bis der Akku leer ist.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1196,7 +1246,8 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
                     Seiltänzer, Heisser Draht, Ball hochhalten,
                     Turmspringen, Fallschirm, Fledermaus,
-                    Zeitlupen-Ninja, Freitaucher, Grubenlore.
+                    Zeitlupen-Ninja, Freitaucher, Grubenlore, Zwei
+                    Rotoren.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
@@ -1330,7 +1381,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle achtunddreissig
+    Spiele            welche dazugehören, eines bis alle neununddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

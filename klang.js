@@ -211,6 +211,11 @@
     "grubenlore.stampfer": { s: "whomp" },
     "grubenlore.crash": { s: "krach" },
     "grubenlore.signal": { s: "pling" },
+    "rotoren.rotor": { s: "a-propeller", schleife: true },
+    "rotoren.tor": { s: "pling" },
+    "rotoren.akku": { s: "stich" },
+    "rotoren.leer": { s: "ab" },
+    "rotoren.crash": { s: "krach" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -225,7 +230,7 @@
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
-    mineCart: "grubenlore",
+    mineCart: "grubenlore", twinRotor: "rotoren",
   };
 
   // ---------------------------------------------------------------------------
