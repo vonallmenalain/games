@@ -231,6 +231,10 @@
     "flaggen.kehrt": { s: "absprung" },
     "flaggen.platsch": { d: "platsch" },
     "flaggen.wind": { s: "a-wind", schleife: true },
+    "zeitgefuehl.blatt": { s: "woosh-kurz" },
+    "zeitgefuehl.tick": { s: "klick" },
+    "zeitgefuehl.stopp": { s: "klack" },
+    "zeitgefuehl.lampe": { s: "pling" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -246,7 +250,7 @@
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
-    fireRope: "feuerseil", flagCommand: "flaggen",
+    fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl",
   };
 
   // ---------------------------------------------------------------------------

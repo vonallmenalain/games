@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-7";
+export const FASSUNG = "2026-11-18-8";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -304,6 +304,12 @@ export const SPIELE = [
     titel: "Flaggenkommando", buehne: { id: "fk-stage", klasse: "cm-stage fk-stage" },
     text: "Flaggenkommando: Zeig, was der Kapitän zeigt – links halten hebt den roten Wimpel, rechts die gelbe Fahne. Die Frist wird kürzer, er täuscht an und dreht sich um.",
     baut: "die Brücke des Schiffs mit dem Kapitän",
+  },
+  {
+    seite: "zeitgefuehl", spiel: "timeSense", page: "timesense", js: "zeitgefuehl.js",
+    titel: "Zeitgefühl", buehne: { id: "zf-stage", klasse: "cm-stage zf-stage" },
+    text: "Zeitgefühl: Die Stoppuhr läuft an und verschwindet – tippe im richtigen Augenblick. Zehn Aufgaben, und jede Hundertstelsekunde daneben kostet einen Punkt.",
+    baut: "die Werkbank mit der Stoppuhr",
   },
 ];
 

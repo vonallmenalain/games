@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3220,6 +3220,7 @@ try {
     ["/augenmass", "Augenmass", () => window.LernappAugenmass.weltText()],
     ["/feuerseil", "Feuerseil", () => window.LernappFeuerseil.weltText()],
     ["/flaggen", "Flaggenkommando", () => window.LernappFlaggen.weltText()],
+    ["/zeitgefuehl", "Zeitgefühl", () => window.LernappZeitgefuehl.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -8743,6 +8744,187 @@ try {
     await kontext.close();
   }
 
+  // --- 4g37. Zeitgefühl: zehn Aufgaben, gemessen auf die Hundertstelsekunde -----------
+  // Jede Runde hat ihre drei leichten, vier mittleren und drei schweren
+  // Aufgaben, jede Art einmal, mit Zeiten aus ihrem Band. Zehn genaue
+  // Antworten geben tausend Punkte; jede Hundertstel daneben kostet, was die
+  // Stufe sagt. Ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird
+  // der Augenblick des Tipps (oder wie lange gehalten wurde), und wer gar
+  // nicht antwortet, bekommt nichts.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/zeitgefuehl`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappZeitgefuehl?.state?.aufgaben && window.LernappZeitgefuehl.view.cssW > 0, null, { timeout: 8000 });
+    const bau = await seite.evaluate(() => {
+      const Z = window.LernappZeitgefuehl;
+      const befunde = [];
+      const welten = new Set();
+      for (let runde = 0; runde < 30; runde += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const liste = Z.state.aufgaben;
+        welten.add(Z.weltText());
+        if (liste.length !== 10) befunde.push(`nicht zehn: ${liste.length}`);
+        if (liste.map((a) => a.stufe).join("") !== "0001111222") befunde.push(`Stufen: ${liste.map((a) => a.stufe).join("")}`);
+        const arten = liste.map((a) => a.art);
+        if (new Set(arten).size !== 10) befunde.push(`doppelt: ${arten.join(" ")}`);
+        if (![...Z.LEICHT, ...Z.MITTEL, ...Z.SCHWER].every((art) => arten.includes(art))) befunde.push(`es fehlt eine Art: ${arten.join(" ")}`);
+        for (const a of liste) {
+          if (!(a.ziel >= 1500 && a.ziel <= 7000)) befunde.push(`${a.art}: Ziel ${a.ziel}`);
+          if (a.eingabe === "tipp" && !(a.ab >= 1000 && a.ab <= a.ziel - 1000)) befunde.push(`${a.art}: zu wenig Zeit zwischen Verschwinden (${a.ab}) und Ziel (${a.ziel})`);
+          if (a.eingabe === "halten" && a.art !== "blind" && !(a.ab > a.an + a.dauer)) befunde.push(`${a.art}: Halten gilt, bevor die Lampe aus ist`);
+          if (!a.frage || !a.name) befunde.push(`${a.art}: ohne Satz`);
+        }
+      }
+      const tabelle = [[0, 0], [70, 0], [-70, 0], [70, 1], [70, 2], [1000, 0], [1250, 1], [2000, 2], [null, 0]].map(([ms, stufe]) => Z.punkteFuer(ms, stufe));
+      // Die Zeitlupe misst, was ihre Uhr zeigt.
+      const lupe = Z.state.aufgaben.find((a) => a.art === "zeitlupe");
+      return { befunde: [...new Set(befunde)].slice(0, 6), welten: welten.size, tabelle, lupe: Math.round(Z.daneben(lupe, lupe.ziel + 100) / lupe.faktor) };
+    });
+    pruefe(bau.befunde.length === 0 && bau.welten >= 25,
+      `Zeitgefühl: Die Aufgaben sind nicht, wie sie sein sollen – ${JSON.stringify(bau)}`);
+    pruefe(JSON.stringify(bau.tabelle) === JSON.stringify([100, 93, 93, 94, 96, 0, 0, 0, 0]) && bau.lupe === 100,
+      `Zeitgefühl: Die Punkte fallen nicht nach der Regel: ${JSON.stringify(bau.tabelle)} / ${bau.lupe}`);
+    // Zehn genaue Antworten: tausend Punkte und die Tafel.
+    const genau = await seite.evaluate(async () => {
+      const Z = window.LernappZeitgefuehl;
+      const st = Z.state;
+      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      Z.losGehts();
+      for (let i = 0; i < Z.AUFGABEN; i += 1) {
+        await warte(60);
+        Z.antworte(Z.aufgabe().ziel);
+        await warte(60);
+        Z.weiter();
+      }
+      return { punkte: st.punkte, liste: st.liste.map((e) => e.punkte), phase: st.phase };
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(genau.punkte === 1000 && genau.liste.every((p) => p === 100) && genau.phase === "ende" && await seite.locator(".cm-result-score").count() === 1,
+      `Zeitgefühl: Zehn genaue Antworten geben nicht tausend Punkte und die Tafel: ${JSON.stringify(genau)}`);
+    // Tippen und Halten in echter Zeit. Die Uhr der Aufgabe wird dafür
+    // vorgestellt (t0), statt Sekunden zu warten.
+    const eingabe = await seite.evaluate(async () => {
+      const Z = window.LernappZeitgefuehl;
+      const st = Z.state;
+      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
+      const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
+      const stelle = (ms) => { st.t0 = performance.now() - Z.EINZUG - ms; };
+      // Die Aufgabe der gesuchten Art hinlegen, wo immer sie in der Runde steht.
+      const zu = (art) => {
+        Z.aufgabeAuf(st.aufgaben.findIndex((x) => x.art === art));
+        return Z.aufgabe();
+      };
+      const raus = {};
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      Z.losGehts();
+      // Zu früh: Solange die Uhr zu sehen ist, gilt der Tipp nicht.
+      let a = zu("stoppuhr");
+      stelle(a.ab - 300);
+      Z.druck();
+      raus.frueh = { phase: st.phase, wertung: st.wertung };
+      // Der Tipp ist die Antwort, gemessen an seinem Augenblick.
+      stelle(a.ziel + 70);
+      Z.druck();
+      raus.tipp = { phase: st.phase, wert: Math.round(st.wertung?.wert - a.ziel), punkte: st.wertung?.punkte };
+      // Halten: vom Drücken bis zum Loslassen.
+      a = zu("blind");
+      stelle(a.ab + 50);
+      Z.druck();
+      const haelt = st.haltAb !== null;
+      await warte(300);
+      Z.los();
+      raus.halten = { haelt, phase: st.phase, wert: Math.round(st.wertung?.wert), ms: Math.round(st.wertung?.ms + a.ziel) };
+      // Niemand antwortet: nichts.
+      a = zu("lang");
+      stelle(a.ziel + Z.NACHLAUF + 50);
+      await bild();
+      raus.nie = { phase: st.phase, wert: st.wertung?.wert ?? null, punkte: st.wertung?.punkte };
+      // Wer hält und nicht mehr loslässt, wird nach HALT_MEHR abgelöst.
+      a = zu("nachhalten");
+      stelle(a.ab + 20);
+      Z.druck();
+      stelle(a.ab + 20 + a.ziel + Z.HALT_MEHR + 30);
+      await bild();
+      raus.ewig = { phase: st.phase, zuLang: Math.round(st.wertung?.ms || 0) >= Z.HALT_MEHR, punkte: st.wertung?.punkte };
+      // Vor dem Ende der Lampe gilt das Halten nicht.
+      a = zu("doppelt");
+      stelle(a.an + a.dauer - 200);
+      Z.druck();
+      raus.lampe = { haltAb: st.haltAb, phase: st.phase };
+      return raus;
+    });
+    pruefe(eingabe.frueh.phase === "aufgabe" && !eingabe.frueh.wertung, `Zeitgefühl: Ein Tipp, solange die Uhr zu sehen ist, zählt schon: ${JSON.stringify(eingabe.frueh)}`);
+    pruefe(eingabe.tipp.phase === "zeigen" && Math.abs(eingabe.tipp.wert - 70) <= 8 && eingabe.tipp.punkte >= 92 && eingabe.tipp.punkte <= 94,
+      `Zeitgefühl: Der Tipp zählt nicht im richtigen Augenblick: ${JSON.stringify(eingabe.tipp)}`);
+    pruefe(eingabe.halten.haelt && eingabe.halten.phase === "zeigen" && eingabe.halten.wert >= 290 && eingabe.halten.wert <= 380 && eingabe.halten.ms === eingabe.halten.wert,
+      `Zeitgefühl: Gehalten wird nicht vom Drücken bis zum Loslassen gemessen: ${JSON.stringify(eingabe.halten)}`);
+    pruefe(eingabe.nie.phase === "zeigen" && eingabe.nie.wert === null && eingabe.nie.punkte === 0,
+      `Zeitgefühl: Wer nicht antwortet, bekommt trotzdem etwas – oder es geht nicht weiter: ${JSON.stringify(eingabe.nie)}`);
+    pruefe(eingabe.ewig.phase === "zeigen" && eingabe.ewig.zuLang && eingabe.ewig.punkte === 0 && eingabe.lampe.haltAb === null && eingabe.lampe.phase === "aufgabe",
+      `Zeitgefühl: Halten ohne Ende oder vor dem Ende der Lampe tut nicht, was es soll: ${JSON.stringify({ ewig: eingabe.ewig, lampe: eingabe.lampe })}`);
+    await kontext.close();
+  }
+  {
+    // Eine Runde, aufgezeichnet und angeschaut: dieselben zehn Aufgaben,
+    // dieselben Punkte.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__zeit")) return;
+      sessionStorage.setItem("__zeit", "1");
+      localStorage.setItem("mini.name", "Uhr");
+    });
+    await seite.goto(`${BASIS}/zeitgefuehl`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappZeitgefuehl?.state?.aufgaben && window.LernappZeitgefuehl.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappZeitgefuehl.weltText());
+    const gespieltListe = await seite.evaluate(async () => {
+      const Z = window.LernappZeitgefuehl;
+      const st = Z.state;
+      const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
+      // Wie weit daneben, Aufgabe für Aufgabe – damit nicht alles hundert ist.
+      const neben = [0, 140, -30, 400, 0, 200, -80, 600, 20, -100];
+      Z.losGehts();
+      for (let i = 0; i < Z.AUFGABEN; i += 1) {
+        const a = Z.aufgabe();
+        await warte(150);
+        if (i === 5) Z.antworte(null);
+        else if (a.eingabe === "halten") {
+          // Ein echtes Halten: drücken, sobald es gilt, und loslassen.
+          st.t0 = performance.now() - Z.EINZUG - a.ab - 30;
+          Z.druck();
+          await warte(200);
+          Z.antworte(a.ziel + neben[i]);
+        } else Z.antworte(a.ziel + neben[i]);
+        await warte(260);
+        Z.weiter();
+      }
+      return st.liste.map((e) => e.punkte);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 8000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("timeSense_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`timeSense_${kennung}`) || null;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: window.LernappZeitgefuehl.state.punkte, level: geist?.level || "" };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte > 500 && gespielt.punkte < 1000 && gespielt.punkte === gespielt.gezaehlt && gespielt.level === "z1" && gespieltListe[5] === 0,
+      `Zeitgefühl: Die Runde wird nicht hinterlegt: ${JSON.stringify({ ...gespielt, gespieltListe })}`);
+    await seite.goto(`${BASIS}/zeitgefuehl?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappZeitgefuehl?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappZeitgefuehl.state.phase, welt: window.LernappZeitgefuehl.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Zeitgefühl: Beim Zuschauen liegen andere Aufgaben da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen tippt niemand mit.
+    await seite.mouse.click(200, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappZeitgefuehl.state;
+      return { punkte: st.punkte, liste: st.liste.map((e) => (e ? e.punkte : null)), tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespieltListe),
+      `Zeitgefühl: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespieltListe, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -8948,7 +9130,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 33 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 34 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -8956,7 +9138,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /34/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /35/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -8973,7 +9155,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -10557,7 +10739,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 175, `klang.js kennt nicht alle 175 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 179, `klang.js kennt nicht alle 179 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

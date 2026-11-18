@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        zweiundvierzig Spielseiten, erzeugt
+    turmbau.html …        dreiundvierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -714,6 +714,73 @@ davon Blitz); auch der schnellste endet mit Welle 25; wer nie hebt, falsch
 hebt, tippt statt hält oder einer Finte folgt, sieht die Tafel mit dem Grund;
 und ein aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit
 derselben Zahl.
+
+### Zeitgefühl (November 2026)
+
+Das dritte nach einem alten Partyspiel – dort lief eine Uhr verdeckt, und wer
+dem Augenblick am nächsten kam, gewann. Hier ist es das Geschwister von
+«Augenmass»: zehn Aufgaben, bis zu hundert Punkte je Aufgabe, nur wird nicht
+Länge geschätzt, sondern Zeit.
+
+**Zeitgefühl** (`zeitgefuehl.js`, `timeSense`) – Auf der Werkbank eines
+Uhrmachers liegt eine Stoppuhr aus Messing. Sie läuft an – und verschwindet.
+Wer spielt, zählt im Kopf weiter und **tippt im richtigen Augenblick**, oder
+**hält so lange, wie es verlangt ist** (ein Finger irgendwo im Bild, am
+Rechner Leertaste oder Enter). Danach zeigt die Uhr, was sie beim Tipp
+wirklich zeigte, und darunter steht, wie weit es daneben war.
+
+Zehn Aufgaben je Runde, jede Art einmal: erst die drei leichten, dann die
+vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
+`MITTEL`, `SCHWER`, `aufgabenFuer`). Die Zeiten sind gewürfelt (`wuerfle`):
+
+    leicht   Stoppuhr    «Stoppe bei 3,50.» Die Ziffern laufen bis zur
+                         Hälfte, dann stehen Striche da (2,5 bis 4 s).
+             Countdown   Zwei Zahlen sieht man, den Rest zählt man selbst:
+                         tippen bei null (4 oder 5 s).
+             Zeiger      Der Zeiger läuft einmal ums Blatt (3 bis 4,5 s) und
+                         verschwindet nach 40 %: tippen, wenn er oben ist.
+    mittel   Takt        Vier Schläge leuchten (alle 0,45 bis 0,75 s), vier
+                         bleiben stumm: tippen auf den achten.
+             Nachhalten  Eine Lampe brennt 1,5 bis 3 s. Danach genauso lange
+                         halten.
+             Blind       «Halte genau 2,5 Sekunden.» Ohne jede Vorgabe.
+             Lange Uhr   Stoppen bei 5,5 bis 7 s – zu sehen sind nur die
+                         ersten anderthalb.
+    schwer   Zeitlupe    Die Uhr geht halb, drei viertel, anderthalb oder
+                         doppelt so schnell wie die Zeit. Gestoppt und
+                         gemessen wird nach dem, was sie zeigt (`faktor`).
+             Doppelt     Die Lampe brennt – halten soll man doppelt oder
+                         halb so lange.
+             Störung     Die Uhr verschwindet nach einem guten Drittel, und
+                         an ihrer Stelle laufen rote Zahlen im falschen
+                         Tempo (×1,4 oder ×0,7). Sie lügen.
+
+**Jede Hundertstelsekunde daneben kostet einen Punkt** (`punkteFuer`), bei
+den mittleren 0,8, bei den schweren 0,6 (`KOSTEN`): Sieben Hundertstel neben
+dem Ziel sind 93 Punkte, eine Sekunde ist null. Tausend sind das Dach. Bis
+drei Hundertstel ist eine Antwort «haargenau» (`GENAU`: goldene Schrift,
+Funken), unter einem halben Hundertstel steht «Auf die Hundertstel!» da.
+
+Gemessen wird der Zeitstempel des Fingers, nicht das nächste Bild (`zeitVon`).
+Ein Tipp, solange die Vorgabe noch zu sehen ist, gilt nicht – «Noch nicht»
+(`ab`). Wer gar nicht tippt, bekommt nichts: Zweieinhalb Sekunden nach dem
+Augenblick geht es weiter (`NACHLAUF`); eine Halte-Aufgabe wartet sechs
+Sekunden auf den Finger (`WARTEN`), und wer hält und nicht mehr loslässt,
+wird drei Sekunden über dem Soll abgelöst (`HALT_MEHR`). Solange man die
+Uhr sieht, tickt sie – jede Sekunde, jeder sichtbare Schlag.
+
+Unten stehen zehn Felder, eines je Aufgabe: vorher ein Punkt in der Farbe
+der Stufe, danach die Punkte. Aufgezeichnet werden die Züge (`meldeZug`:
+jede neue Aufgabe, der Beginn eines Haltens, die Antwort) – damit lassen
+sich die besten Runden anschauen, und im Multiplayer sehen die anderen
+dasselbe; wer zuschaut, lässt die Uhr selbst laufen und rechnet die Antwort
+nach (`zuschauenTakt`). Im Turnier bekommen alle dieselben zehn Aufgaben.
+Prüfung 4g37: Jede Runde hat ihre drei, vier und drei Aufgaben mit Zeiten
+aus ihrem Band; die Punkte fallen nach der Regel, zehn genaue Antworten geben
+tausend; ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird sein
+Augenblick (oder wie lange gehalten wurde), und wer nicht antwortet, bekommt
+nichts; und eine aufgezeichnete Runde zeigt beim Anschauen dieselben Aufgaben
+und dieselben Punkte.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1625,7 +1692,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle zweiundvierzig
+    Spiele            welche dazugehören, eines bis alle dreiundvierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt
