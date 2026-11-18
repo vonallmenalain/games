@@ -8191,7 +8191,11 @@ try {
               if (Math.abs(A.daneben(a, q) - neben) < 0.06) { ort = q; break; }
             }
           }
-          soll += A.punkteFuer(A.daneben(a, ort), a.mass);
+          // Gerechnet wird wie im Spiel: mit der Stelle auf ein Tausendstel
+          // Millimeter – drei Millimeter liegen bei manchem Blatt genau auf
+          // einer Punktgrenze.
+          const rund = (wert) => Math.round(wert * 1000) / 1000;
+          soll += A.punkteFuer(A.daneben(a, { x: rund(ort.x), y: rund(ort.y) }), a.mass);
           A.antworte(ort);
           A.weiter();
         }
@@ -8249,14 +8253,16 @@ try {
     // noch nicht, der nächste legt das Blatt hin – und wer nie tippt, bekommt
     // es nach VORSCHAU Sekunden.
     // Die Uhr: Ohne Tipp gibt es nichts, mit Fadenkreuz zählt seine Stelle.
-    // Der Finger: setzen, schieben, loslassen – und ein zweiter Finger stört nicht.
+    // Der Finger: am Griff halten, ziehen, loslassen – und ein zweiter Finger stört nicht.
     const uhr = await seite.evaluate(async () => {
       const A = window.LernappAugenmass;
       const st = A.state;
       const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
-      const druck = (art, ort, id = 1) => {
-        const b = A.imBild(ort);
-        document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: id, isPrimary: id === 1, pointerType: "touch", clientX: b.x, clientY: b.y }));
+      // Der Finger liegt nicht auf der Stelle, sondern am Griff darunter
+      // (imGriff) – das Fadenkreuz steht dann auf ihr. Die Maus zeigt selbst hin.
+      const druck = (art, ort, id = 1, womit = "touch") => {
+        const b = womit === "touch" ? A.imGriff(ort) : A.imBild(ort);
+        document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: id, isPrimary: id === 1, pointerType: womit, clientX: b.x, clientY: b.y }));
       };
       const raus = {};
       // Eine Runde, deren erste zwei Blätter kein Tunnel sind (das sind sie nie: der Tunnel ist schwer).
@@ -8340,7 +8346,7 @@ try {
       const d = A.blatt();
       st.t0 -= 1000;
       druck("pointerdown", d.ziel);
-      await warte(120);
+      await warte(A.TIPP_MS + 80);
       const gerollt = neben(d, 0.5);
       druck("pointermove", gerollt);
       druck("pointerup", gerollt);
@@ -8355,6 +8361,44 @@ try {
       druck("pointermove", weit);
       druck("pointerup", weit);
       raus.schieben = { mm: st.wertung?.mm, soll: A.daneben(e, weit) };
+      A.weiter();
+      // Ab hier kämen die schweren Blätter, vielleicht der Tunnel: Für den
+      // Finger und die Maus liegen zwei bestimmte da.
+      const lege = (art) => { st.blaetter[st.index] = { ...A.BAU[art](), nr: st.index, zeit: A.ZEIT, beispiel: A.BAU[art]() }; A.blattLos(); };
+      lege("kreis");
+      // Der Versatz: Das Fadenkreuz steht nicht unter dem Finger, sondern
+      // VERSATZ Bildpunkte darüber. Ein blosses Antippen setzt es hin und
+      // ist noch keine Antwort – erst Halten und Loslassen.
+      const f = A.blatt();
+      st.t0 -= 1000;
+      const kante = document.querySelector("#am-stage canvas").getBoundingClientRect();
+      const finger = (art, x, y) => document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: x, clientY: y }));
+      const fx = kante.left + A.view.x0 + A.view.seite * 0.5;
+      const fy = kante.top + A.view.y0 + A.view.seite * 0.5;
+      finger("pointerdown", fx, fy);
+      const steht = st.zeiger && A.imBild(st.zeiger);
+      const frei = A.imBild(A.aufBahn(f, { x: 50, y: 50 - A.VERSATZ / A.view.s }));
+      raus.versatz = { hoch: A.versatzBei(fy - kante.top), versetzt: st.griff?.versetzt, dx: steht && Math.abs(steht.x - frei.x), dy: steht && Math.abs(steht.y - frei.y) };
+      finger("pointerup", fx, fy);
+      raus.antippen = { phase: st.phase, zeiger: Boolean(st.zeiger), griff: st.griff, wink: Boolean(st.wink) };
+      // Wieder greifen, halten, loslassen: Jetzt gilt es.
+      druck("pointerdown", f.ziel);
+      raus.gegriffen = { wink: Boolean(st.wink), mm: A.daneben(f, st.zeiger) };
+      await warte(A.TIPP_MS + 80);
+      druck("pointerup", f.ziel);
+      raus.gehalten = { phase: st.phase, punkte: st.wertung?.punkte };
+      A.weiter();
+      lege("eck");
+      // Die Maus zeigt genau dorthin, wo sie steht – und ihr Klick ist die Antwort.
+      const m = A.blatt();
+      st.t0 -= 1000;
+      druck("pointermove", { x: m.ziel.x + 4, y: m.ziel.y + 4 }, 1, "mouse");
+      const schwebt = st.zeiger ? A.daneben(m, st.zeiger) : -1;
+      druck("pointerdown", m.ziel, 1, "mouse");
+      raus.maus = { schwebt, versetzt: st.griff?.versetzt, mm: A.daneben(m, st.zeiger) };
+      druck("pointerup", m.ziel, 1, "mouse");
+      raus.maus.phase = st.phase;
+      raus.maus.punkte = st.wertung?.punkte;
       return raus;
     });
     pruefe(uhr.vor.phase === "vorschau" && uhr.vor.gleich === "vorschau" && uhr.vor.wartet === "vorschau" && uhr.vor.los.phase === "aufgabe" && uhr.vor.los.seit < 0.2,
@@ -8370,6 +8414,14 @@ try {
     pruefe(uhr.pfeile < 1e-9 && uhr.taste.phase === "zeigen" && uhr.taste.punkte === 10, `Augenmass: Pfeile und Enter tun nicht, was sie sollen: ${JSON.stringify(uhr)}`);
     pruefe(uhr.abheben.gerollt > 0.4 && uhr.abheben.mm < 0.05 && Math.abs(uhr.schieben.mm - uhr.schieben.soll) < 0.05 && uhr.schieben.soll > 2.5,
       `Augenmass: Beim Abheben zählt nicht die Stelle, auf der der Finger geruht hat: ${JSON.stringify({ abheben: uhr.abheben, schieben: uhr.schieben })}`);
+    pruefe(uhr.versatz.hoch === 80 && uhr.versatz.versetzt === true && uhr.versatz.dx < 0.01 && uhr.versatz.dy < 0.01,
+      `Augenmass: Das Fadenkreuz steht nicht um den Versatz über dem Finger: ${JSON.stringify(uhr.versatz)}`);
+    pruefe(uhr.antippen.phase === "aufgabe" && uhr.antippen.zeiger && uhr.antippen.griff === null && uhr.antippen.wink,
+      `Augenmass: Ein blosses Antippen ist schon die Antwort, oder das Fadenkreuz bleibt nicht stehen: ${JSON.stringify(uhr.antippen)}`);
+    pruefe(uhr.gegriffen.wink === false && uhr.gegriffen.mm < 0.3 && uhr.gehalten.phase === "zeigen" && uhr.gehalten.punkte === 10,
+      `Augenmass: Halten und Loslassen ohne Ziehen ist nicht die Antwort: ${JSON.stringify({ gegriffen: uhr.gegriffen, gehalten: uhr.gehalten })}`);
+    pruefe(uhr.maus.schwebt > 2 && uhr.maus.versetzt === false && uhr.maus.mm < 0.3 && uhr.maus.phase === "zeigen" && uhr.maus.punkte === 10,
+      `Augenmass: Die Maus zeigt nicht genau dorthin, wo sie steht, oder ihr Klick ist nicht die Antwort: ${JSON.stringify(uhr.maus)}`);
 
     // Der Tunnel: Die Kugel rollt von selbst los, kurz nachdem das Blatt
     // daliegt. Ein Tipp davor oder solange sie zu sehen ist, gilt nicht; im
@@ -8488,6 +8540,51 @@ try {
     });
     pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespieltListe),
       `Augenmass: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespieltListe, gespielt })}`);
+    await kontext.close();
+  }
+
+  {
+    // Handy quer: Unter dem Blatt ist kaum Platz für den Finger. Dort schrumpft
+    // der Versatz, sodass das Fadenkreuz auch den unteren Rand erreicht – der
+    // Finger bleibt im Bild, und nirgends springt es.
+    const { kontext, seite } = await neueSeite({ width: 780, height: 380 });
+    await seite.goto(`${BASIS}/augenmass`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappAugenmass?.state?.blaetter && window.LernappAugenmass.view.cssW > 0, null, { timeout: 8000 });
+    const quer = await seite.evaluate(() => {
+      const A = window.LernappAugenmass;
+      const st = A.state;
+      const flaeche = document.querySelector("#am-stage canvas");
+      A.losGehts();
+      st.blaetter[0] = { ...A.BAU.kreis(), nr: 0, zeit: A.ZEIT, beispiel: A.BAU.kreis() };
+      A.blattLos();
+      st.t0 -= 1000;
+      const kante = flaeche.getBoundingClientRect();
+      const finger = (art, ort) => {
+        const b = A.imGriff(ort);
+        flaeche.dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: b.x, clientY: b.y }));
+        return b.y - kante.top;
+      };
+      const raus = { flach: A.view.flach, unterBlatt: A.view.cssH - A.view.y0 - A.view.seite, hoehe: A.view.cssH, rand: A.VERSATZ_RAND };
+      // Von ganz oben nach ganz unten gezogen, in halben Millimetern.
+      let letzter = finger("pointerdown", { x: 50, y: 0 });
+      raus.oben = { y: st.zeiger.y, versatz: A.versatzBei(letzter) };
+      raus.daneben = 0;
+      raus.schritt = [Infinity, 0];
+      for (let y = 0.5; y <= 100; y += 0.5) {
+        const py = finger("pointermove", { x: 50, y });
+        raus.daneben = Math.max(raus.daneben, Math.abs(st.zeiger.y - y));
+        const schritt = (py - letzter) / (0.5 * A.view.s);
+        raus.schritt = [Math.min(raus.schritt[0], schritt), Math.max(raus.schritt[1], schritt)];
+        letzter = py;
+      }
+      raus.unten = { y: st.zeiger.y, finger: letzter, versatz: A.versatzBei(letzter) };
+      return raus;
+    });
+    pruefe(quer.flach && quer.unterBlatt < 80 && quer.oben.y < 0.01 && quer.oben.versatz === 80
+      && quer.unten.y > 99.99 && quer.unten.finger <= quer.hoehe - quer.rand + 0.01 && quer.unten.versatz > 20 && quer.unten.versatz < 80,
+      `Augenmass: Quer erreicht das Fadenkreuz den Rand des Blattes nicht, oder der Finger müsste aus dem Bild: ${JSON.stringify(quer)}`);
+    pruefe(quer.daneben < 0.01 && quer.schritt[0] > 0.74 && quer.schritt[1] < 1.01,
+      `Augenmass: Wo der Versatz schrumpft, springt das Fadenkreuz oder läuft dem Finger davon: ${JSON.stringify(quer)}`);
     await kontext.close();
   }
 

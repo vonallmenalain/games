@@ -592,12 +592,24 @@ nicht des nächsten Bildes). Ein Tipp, solange sie noch zu sehen ist, gilt
 nicht; wer gar nicht tippt, bekommt am Ende der Schiene nichts. (Bis zur
 Vorschau liess erst ein Tipp die Kugel los.)
 
-Unter dem Finger sieht man nichts – wer auf einem Handy tippt, bekommt eine
-**Lupe** über den Finger, die das Stück Blatt unter dem Fadenkreuz gut
-doppelt so gross zeigt. Sie hilft beim Setzen, nicht beim Schätzen. Und weil
-die Fingerkuppe beim Abheben abrollt, zählt nach einem ruhigen Halt die
-Stelle von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der
-Finger die Scheibe verlassen hat.
+Unter dem Finger sieht man nichts – auf einem Handy steht das Fadenkreuz
+darum nicht unter dem Finger, sondern **versetzt** darüber (`VERSATZ`, 80
+Bildpunkte, gut ein Zentimeter): Der Finger hält einen Griff, einen Ring
+mit einem Stiel hinauf zum Fadenkreuz, zieht, und das Fadenkreuz geht frei
+sichtbar mit – Bildpunkt für Bildpunkt. Loslassen ist die Antwort. Ein
+blosses Antippen (kürzer als `TIPP_MS`, weniger als `TIPP_WEG` weit) setzt
+das Fadenkreuz nur hin: Der Griff bleibt liegen, und daneben steht «Halten
+und ziehen». Wo unter dem Blatt weniger Platz ist als der Versatz (Handy
+quer), schrumpft er auf den letzten Fingerbreiten (`versatzBei`), sodass
+auch der untere Rand erreichbar bleibt; das Fadenkreuz läuft dort höchstens
+ein Drittel schneller als der Finger. Maus und Stift zeigen genau dorthin,
+wo sie stehen. Das Titelbild zeigt auf einem Handy den Griff und «Halten ·
+Ziehen · Loslassen». (Davor sass das Fadenkreuz unter dem Finger, und eine
+Lupe zeigte, was er verdeckte – das war verwirrend.) Und weil die
+Fingerkuppe beim Abheben abrollt, zählt nach einem ruhigen Halt die Stelle
+von kurz davor (`ruhigeStelle`) – nicht der Bildpunkt, über den der Finger
+die Scheibe verlassen hat; das gilt auch, wenn der Finger davor lange ganz
+still lag.
 
 Nach jeder Antwort wird nachgemessen: Die Lösung zeichnet sich in Grün ein
 (die Durchmesser, die Diagonalen, das Lot mit seinem rechten Winkel, die
@@ -612,8 +624,8 @@ Schriftfeld des Plans.
 Das Bild: Das Papier (Blau, Lampenlicht, Korn, Fasern, Rahmen) wird einmal
 gemalt und danach nur noch hingelegt; jedes Blatt entsteht Strich für Strich
 wie von einem Plotter (`zeichneTeile`, mit einem hellen Punkt an der
-Stiftspitze). Die Lupe liest aus dem Bild, das schon gemalt ist. Stockt ein
-Gerät, wird das Bild gröber statt langsamer (`gueteTakt`).
+Stiftspitze). Stockt ein Gerät, wird das Bild gröber statt langsamer
+(`gueteTakt`).
 
 Aufgezeichnet werden die Züge (`meldeZug`: jede Vorschau, jedes neue Blatt,
 das Fadenkreuz unterwegs, die Antwort) – damit lassen sich die besten Runden
@@ -626,8 +638,11 @@ zeichnen, beantworten und nachmessen; die Vorschau wartet auf den Tipp und
 lässt die Uhr stehen,
 zehn genaue Antworten geben hundert Punkte, drei Millimeter daneben geben,
 was die Tabelle sagt; die Uhr, der Finger, die Tasten und der Tunnel tun,
-was sie sollen, und eine aufgezeichnete Runde zeigt beim Anschauen dieselben
-Blätter und dieselben Punkte.
+was sie sollen – das Fadenkreuz steht um den Versatz über dem Finger, ein
+blosses Antippen ist keine Antwort, Halten und Loslassen schon, die Maus
+zeigt genau hin, und quer erreicht es ohne Sprung auch den unteren Rand –,
+und eine aufgezeichnete Runde zeigt beim Anschauen dieselben Blätter und
+dieselben Punkte.
 
 ### Feuerseil (November 2026)
 
