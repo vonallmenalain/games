@@ -9152,7 +9152,8 @@ try {
   // Antworten geben tausend Punkte; jede Hundertstel daneben kostet, was die
   // Stufe sagt. Ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird
   // der Augenblick des Tipps (oder wie lange gehalten wurde), und wer gar
-  // nicht antwortet, bekommt nichts.
+  // nicht antwortet, bekommt nichts. Vor jeder Aufgabe steht die Uhr: Sie
+  // läuft erst nach einem Tipp – oder nach WARTE Sekunden von selbst.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
     await seite.goto(`${BASIS}/zeitgefuehl`, { waitUntil: "load" });
@@ -9193,17 +9194,82 @@ try {
       const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       Z.losGehts();
+      const wartend = [];
       for (let i = 0; i < Z.AUFGABEN; i += 1) {
         await warte(60);
+        // Jede Aufgabe liegt erst da und wartet; ihre Uhr läuft nach dem Tipp.
+        wartend.push(st.phase);
+        Z.aufgabeLos();
         Z.antworte(Z.aufgabe().ziel);
         await warte(60);
         Z.weiter();
       }
-      return { punkte: st.punkte, liste: st.liste.map((e) => e.punkte), phase: st.phase };
+      return { punkte: st.punkte, liste: st.liste.map((e) => e.punkte), phase: st.phase, wartend };
     });
     await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
     pruefe(genau.punkte === 1000 && genau.liste.every((p) => p === 100) && genau.phase === "ende" && await seite.locator(".cm-result-score").count() === 1,
       `Zeitgefühl: Zehn genaue Antworten geben nicht tausend Punkte und die Tafel: ${JSON.stringify(genau)}`);
+    pruefe(genau.wartend.length === 10 && genau.wartend.every((p) => p === "warten"),
+      `Zeitgefühl: Nicht jede Aufgabe wartet zuerst auf den Tipp: ${JSON.stringify(genau.wartend)}`);
+    // Die Uhr steht, bis jemand tippt: Die Aufgabe liegt da, ein Tipp gleich
+    // nach dem Hinlegen zählt noch nicht, der nächste lässt die Uhr anlaufen –
+    // und er ist nicht schon die Antwort. Auch die Leertaste startet sie. Wer
+    // nie tippt, bekommt die Aufgabe nach WARTE Sekunden.
+    const warten = await seite.evaluate(async () => {
+      const Z = window.LernappZeitgefuehl;
+      const st = Z.state;
+      const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
+      const flaeche = () => document.querySelector("#zf-stage canvas");
+      const tipp = (art) => { const r = flaeche().getBoundingClientRect(); (art === "pointerup" ? window : flaeche()).dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
+      const raus = {};
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      await bild();
+      // Der erste Tipp beginnt die Runde: Die erste Aufgabe liegt da, ihre Uhr steht.
+      tipp("pointerdown");
+      tipp("pointerup");
+      raus.erste = { phase: st.phase, index: st.index };
+      // Gleich danach zählt ein Tipp noch nicht.
+      tipp("pointerdown");
+      tipp("pointerup");
+      raus.gleich = st.phase;
+      // Zwanzig Sekunden später steht sie immer noch.
+      st.wartSeit -= 20000;
+      await bild();
+      raus.spaeter = { phase: st.phase, wertung: st.wertung };
+      // Der Tipp: Die Uhr läuft an – ANLAUF später steht sie auf null.
+      tipp("pointerdown");
+      raus.los = { phase: st.phase, uhr: Math.round(Z.seit()), wertung: st.wertung, haltAb: st.haltAb };
+      tipp("pointerup");
+      raus.losgelassen = { phase: st.phase, wertung: st.wertung };
+      // Die Antwort, dann die nächste Aufgabe: Auch sie wartet.
+      Z.antworte(Z.aufgabe().ziel);
+      Z.weiter();
+      raus.zweite = { phase: st.phase, index: st.index };
+      // Die Leertaste startet sie auch.
+      st.wartSeit -= 1000;
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+      raus.taste = { phase: st.phase, wertung: st.wertung };
+      Z.antworte(Z.aufgabe().ziel);
+      Z.weiter();
+      // Wer nie tippt: kurz vor WARTE steht sie noch, danach läuft sie von selbst.
+      st.wartSeit -= Z.WARTE * 1000 - 400;
+      await bild();
+      raus.fast = st.phase;
+      st.wartSeit -= 500;
+      await bild();
+      raus.selbst = st.phase;
+      return raus;
+    });
+    pruefe(warten.erste.phase === "warten" && warten.erste.index === 0 && warten.gleich === "warten" && warten.spaeter.phase === "warten" && !warten.spaeter.wertung,
+      `Zeitgefühl: Die Uhr läuft schon, bevor jemand tippt: ${JSON.stringify(warten)}`);
+    pruefe(warten.los.phase === "aufgabe" && warten.los.uhr <= 0 && warten.los.uhr >= -250 && !warten.los.wertung && warten.los.haltAb === null
+      && warten.losgelassen.phase === "aufgabe" && !warten.losgelassen.wertung,
+      `Zeitgefühl: Der Tipp lässt die Uhr nicht anlaufen, oder er zählt schon als Antwort: ${JSON.stringify(warten)}`);
+    pruefe(warten.zweite.phase === "warten" && warten.zweite.index === 1 && warten.taste.phase === "aufgabe" && !warten.taste.wertung,
+      `Zeitgefühl: Die nächste Aufgabe wartet nicht, oder die Leertaste startet sie nicht: ${JSON.stringify(warten)}`);
+    pruefe(warten.fast === "warten" && warten.selbst === "aufgabe",
+      `Zeitgefühl: Wer nie tippt, bekommt die Aufgabe nicht nach ihrer Wartezeit: ${JSON.stringify(warten)}`);
     // Tippen und Halten in echter Zeit. Die Uhr der Aufgabe wird dafür
     // vorgestellt (t0), statt Sekunden zu warten.
     const eingabe = await seite.evaluate(async () => {
@@ -9215,6 +9281,7 @@ try {
       // Die Aufgabe der gesuchten Art hinlegen, wo immer sie in der Runde steht.
       const zu = (art) => {
         Z.aufgabeAuf(st.aufgaben.findIndex((x) => x.art === art));
+        Z.aufgabeLos();
         return Z.aufgabe();
       };
       const raus = {};
@@ -9299,6 +9366,9 @@ try {
       Z.losGehts();
       for (let i = 0; i < Z.AUFGABEN; i += 1) {
         const a = Z.aufgabe();
+        // Erst liegt sie da und wartet, dann der Tipp.
+        await warte(120);
+        Z.aufgabeLos();
         await warte(150);
         if (i === 5) Z.antworte(null);
         else if (a.eingabe === "halten") {

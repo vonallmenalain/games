@@ -36,6 +36,11 @@
  *            Störung    Die Uhr verschwindet, und an ihrer Stelle laufen
  *                       rote Zahlen im falschen Tempo. Sie lügen.
  *
+ * Vor jeder Aufgabe steht die Uhr. Die Aufgabe liegt da, man liest sie in
+ * Ruhe, und erst ein Tipp lässt die Uhr laufen (aufgabeLos) – wie vor der
+ * ersten. Wer gar nicht tippt, bekommt sie nach WARTE Sekunden von selbst:
+ * Eine Runde soll zu Ende gehen.
+ *
  * Gemessen wird die Zeit des Tipps selbst (der Zeitstempel des Fingers),
  * nicht die des nächsten Bildes – auf ganze Millisekunden. Ein Tipp, solange die Vorgabe noch zu sehen
  * ist, gilt nicht – der war ein Versehen. Wer gar nicht tippt, bekommt
@@ -45,7 +50,7 @@
  * alle dieselben zehn Aufgaben (zufall.js).
  *
  * Aufgezeichnet werden die Züge (geist.js, zuege): jede neue Aufgabe, der
- * Beginn eines Haltens und die Antwort. Damit lassen sich die besten Läufe
+ * Tipp, der ihre Uhr startet, der Beginn eines Haltens und die Antwort. Damit lassen sich die besten Läufe
  * anschauen, und im Multiplayer sehen die anderen dasselbe (live-spiel.js).
  */
 (() => {
@@ -89,6 +94,15 @@
   const WARTEN = 6000;       // so lange wartet eine Halte-Aufgabe auf den Finger
   const HALT_MEHR = 3000;    // so viel länger als verlangt lässt sich halten
   const AUSBLENDEN = 300;    // so lange verblasst, was verschwindet
+  // Vor jeder Aufgabe steht die Uhr, bis jemand tippt – aber nicht ewig:
+  // Nach WARTE Sekunden läuft sie von selbst, in den letzten WARTE_ZAEHLT
+  // zählt sie sichtbar herunter. Ein Tipp gilt erst nach WARTE_SPERRE (nicht
+  // der, der noch der letzten Aufgabe galt), und die Uhr läuft ANLAUF ms
+  // nach ihm an.
+  const WARTE = 30;
+  const WARTE_ZAEHLT = 5;
+  const WARTE_SPERRE = 0.35;
+  const ANLAUF = 200;
   const TOP_COUNT = 5;
 
   // ---------------------------------------------------------------------------
@@ -211,7 +225,8 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  // phase: "bereit" (noch kein Tipp), "aufgabe", "zeigen" (die Auflösung),
+  // phase: "bereit" (noch kein Tipp), "warten" (die Aufgabe liegt da, die
+  //        Uhr steht), "aufgabe" (sie läuft), "zeigen" (die Auflösung),
   //        "zuschauen", "ende"
   const state = {
     phase: "bereit",
@@ -220,6 +235,7 @@
     punkte: 0,
     liste: [],             // je Aufgabe { ms, punkte, wert } – null, solange sie offen ist
     t0: 0,                 // wann die Aufgabe hingelegt wurde (performance.now)
+    wartSeit: 0,           // seit wann sie daliegt und auf den Tipp wartet
     tZeig: 0,              // wann die Auflösung begann
     haltAb: null,          // seit wann gehalten wird (ms der Aufgabe) – null: nicht
     wertung: null,         // { wert, ms, punkte }, sobald die Auflösung dasteht
@@ -300,11 +316,14 @@
   /*
    * Ein Zug (geist.js, zuege; live-spiel.js, zug):
    *
-   *   c   die wievielte Aufgabe × 8 + was gerade ist: 0 sie liegt da, 2 der
-   *       Finger liegt (gehalten wird), 1 die Antwort steht, 3 niemand hat
-   *       geantwortet
+   *   c   die wievielte Aufgabe × 8 + was gerade ist: 4 sie liegt da und
+   *       wartet auf den Tipp, 0 ihre Uhr läuft an, 2 der Finger liegt
+   *       (gehalten wird), 1 die Antwort steht, 3 niemand hat geantwortet
    *   a   bei 1 die Antwort in ms (der Augenblick des Tipps oder wie lange
-   *       gehalten wurde), bei 2 seit wann gehalten wird
+   *       gehalten wurde), bei 2 seit wann gehalten wird, bei 0 eine 1, wenn
+   *       die Uhr nach einem Tipp anläuft (ANLAUF) – ältere Aufzeichnungen
+   *       kennen das Warten nicht: Dort heisst 0 «sie liegt da», und die Uhr
+   *       läuft EINZUG später
    *
    * Die Aufgaben kommen aus derselben Saat. Wer zuschaut, legt sie in
    * derselben Reihe hin, lässt die Uhr von da an selbst laufen und rechnet
@@ -321,20 +340,37 @@
   // ---------------------------------------------------------------------------
   // Ablauf
   // ---------------------------------------------------------------------------
-  // Eine neue Aufgabe liegt auf der Werkbank.
+  // Eine neue Aufgabe liegt auf der Werkbank. Die Uhr steht noch: Erst ein
+  // Tipp lässt sie laufen (aufgabeLos).
   function aufgabeAuf(index) {
     clearStep();
     state.index = index;
-    state.phase = "aufgabe";
+    state.phase = "warten";
     state.t0 = performance.now();
+    state.wartSeit = state.t0;
     state.haltAb = null;
     state.wertung = null;
     state.tickBei = -1;
     const a = aufgabe();
-    if (status) status.textContent = `Aufgabe ${index + 1} von ${AUFGABEN}: ${a.frage}`;
+    if (status) status.textContent = `Aufgabe ${index + 1} von ${AUFGABEN}: ${a.frage} Tippe, wenn du bereit bist.`;
     ton("zeitgefuehl.blatt");
-    meldeZug(0);
+    meldeZug(4);
   }
+
+  // Der Tipp: Jetzt läuft die Uhr an.
+  function aufgabeLos() {
+    if (state.phase !== "warten") return;
+    state.phase = "aufgabe";
+    // Hingelegt ist sie schon: Die Uhr beginnt ANLAUF ms nach dem Tipp.
+    state.t0 = performance.now() - EINZUG + ANLAUF;
+    state.tickBei = -1;
+    const a = aufgabe();
+    if (status) status.textContent = `Aufgabe ${state.index + 1} von ${AUFGABEN}: ${a.frage}`;
+    ton("zeitgefuehl.tick");
+    meldeZug(0, 1);
+  }
+  // Ob die wartende Aufgabe schon einen Tipp annimmt.
+  const bereitZumLos = () => state.phase === "warten" && performance.now() - state.wartSeit >= WARTE_SPERRE * 1000;
 
   // Die Antwort – der Augenblick des Tipps oder die gehaltene Dauer in ms,
   // oder null, wenn niemand geantwortet hat. Gerechnet wird mit ganzen
@@ -400,6 +436,11 @@
   // Was die Uhr tut, Bild für Bild: ticken, solange man sie sieht, und
   // weitergehen, wenn niemand antwortet.
   function uhrTakt() {
+    // Die Aufgabe wartet auf den Tipp – aber nicht ewig.
+    if (state.phase === "warten") {
+      if (performance.now() - state.wartSeit >= WARTE * 1000) aufgabeLos();
+      return;
+    }
     if (state.phase !== "aufgabe") return;
     const a = aufgabe();
     const t = seit();
@@ -895,6 +936,43 @@
     });
   }
 
+  // Die Aufgabe wartet: ein Ring um die Uhr, der ruft, und darunter, was zu
+  // tun ist. In den letzten Sekunden zählt der Ruf herunter. (Wer zuschaut,
+  // sieht nur den Ring – tippen kann er nicht.)
+  function zeichneRuf(nun, k) {
+    const { cx, cy, r: R } = view;
+    if (!ruhig()) {
+      const p = (state.zeit * 0.7) % 1;
+      g.strokeStyle = `rgba(53, 214, 198, ${0.6 * (1 - p) * k})`;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(cx, cy, R * (1.02 + 0.22 * p), 0, TAU);
+      g.stroke();
+    }
+    if (state.phase !== "warten") return;
+    const rest = WARTE - (nun - state.wartSeit) / 1000;
+    const zaehlt = rest <= WARTE_ZAEHLT;
+    const ruf = zaehlt ? `Los geht's in ${Math.max(1, Math.ceil(rest))} …` : "Tippe, wenn du bereit bist";
+    const gross = clamp(R * 0.15, 14, 20);
+    g.save();
+    g.font = `800 ${gross}px system-ui, sans-serif`;
+    const breit = g.measureText(ruf).width + gross * 2.2;
+    const hoch = Math.round(gross * 2.1);
+    // Knapp unter dem Gehäuse – auch dort, wo die Uhr klein ist.
+    const y = cy + R * 1.14 + hoch / 2 + 4;
+    const puls = ruhig() ? 0 : 0.5 + 0.5 * Math.sin(state.zeit * 3.4);
+    g.globalAlpha = k;
+    g.beginPath();
+    if (g.roundRect) g.roundRect(cx - breit / 2, y - hoch / 2, breit, hoch, hoch / 2); else g.rect(cx - breit / 2, y - hoch / 2, breit, hoch);
+    g.fillStyle = zaehlt ? "rgba(255, 184, 77, 0.95)" : `rgba(53, 214, 198, ${0.82 + 0.16 * puls})`;
+    g.fill();
+    g.fillStyle = "#06201f";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(ruf, cx, y + 1);
+    g.restore();
+  }
+
   // Unter der Uhr: wie weit daneben und wie viele Punkte.
   function zeichneAufloesung(a, w, k) {
     const { cx, cy, r: R } = view;
@@ -984,10 +1062,13 @@
       }
     } else {
       const zeigt = state.phase === "zeigen" || state.phase === "ende" || (state.phase === "zuschauen" && state.wertung);
-      const t = seit(nun);
+      // Solange die Aufgabe wartet, steht die Uhr auf ihrem Anfang.
+      const wartet = !zeigt && (state.phase === "warten" || (state.phase === "zuschauen" && zuschau.wartet));
+      const t = wartet ? -1 : seit(nun);
       const kEin = clamp((nun - state.t0) / (EINZUG * 0.7), 0, 1);
       zeichneKarte(a, kEin);
       zeichneInhalt(a, t, zeigt ? state.wertung : null, state.haltAb);
+      if (wartet) zeichneRuf(nun, kEin);
       if (zeigt && state.wertung) zeichneAufloesung(a, state.wertung, clamp((nun - state.tZeig) / 220, 0, 1));
       // Zu früh getippt: ein kurzes «Noch nicht».
       const seitFrueh = nun - state.zuFrueh;
@@ -1003,7 +1084,7 @@
   // Im Multiplayer nach der eigenen Runde, oder ein Lauf aus der Hall of
   // Fame: dieselben zehn Aufgaben, die Uhr läuft hier selbst, und die Antwort
   // wird hier noch einmal nachgerechnet.
-  const zuschau = { index: -1, was: -1 };
+  const zuschau = { index: -1, was: -1, wartet: false };
 
   function zuschauenTakt() {
     zuschauer?.weiter?.();
@@ -1016,22 +1097,33 @@
     // Zu hören ist, was beim anderen gerade geschieht – nicht, was beim
     // Einsteigen schon zurückliegt.
     const frisch = jetzt - probe.t < 1500;
+    // Wann die Aufgabe hingelegt wurde: beim Zug «sie liegt da» genau, nach
+    // einem Tipp so, dass die Uhr ANLAUF später läuft, sonst aus dem, was
+    // der Zug sagt.
+    const hingelegt = (a) => {
+      let her = jetzt - probe.t;
+      if (was === 0 && probe.a === 1) her += EINZUG - ANLAUF;
+      else if (was === 2) her += EINZUG + probe.a;
+      else if (was === 1) her += EINZUG + (a.eingabe === "tipp" ? probe.a : a.ab + 400 + probe.a);
+      else if (was === 3) her += EINZUG + a.ziel + NACHLAUF;
+      return nun - her;
+    };
     if (index !== zuschau.index) {
       zuschau.index = index;
       zuschau.was = -1;
+      zuschau.wartet = was === 4;
       state.index = index;
       state.wertung = null;
       state.haltAb = null;
       const a = aufgabe();
-      // Wann die Aufgabe hingelegt wurde: beim Zug «neue Aufgabe» genau,
-      // sonst aus dem, was der Zug sagt.
-      let her = jetzt - probe.t;
-      if (was === 2) her += EINZUG + probe.a;
-      else if (was === 1) her += EINZUG + (a.eingabe === "tipp" ? probe.a : a.ab + 400 + probe.a);
-      else if (was === 3) her += EINZUG + a.ziel + NACHLAUF;
-      state.t0 = nun - her;
+      state.t0 = hingelegt(a);
       if (status) status.textContent = `Aufgabe ${index + 1} von ${AUFGABEN}: ${a.frage}`;
-      if (frisch && was === 0) ton("zeitgefuehl.blatt");
+      if (frisch && (was === 0 || was === 4)) ton("zeitgefuehl.blatt");
+    } else if (zuschau.wartet && was !== 4) {
+      // Der andere hat getippt: Jetzt läuft die Uhr.
+      zuschau.wartet = false;
+      state.t0 = hingelegt(aufgabe());
+      if (frisch && was === 0) ton("zeitgefuehl.tick");
     }
     const a = aufgabe();
     if (was === 1 || was === 3) {
@@ -1070,6 +1162,7 @@
     shell.setPhase("play");
     zuschau.index = -1;
     zuschau.was = -1;
+    zuschau.wartet = false;
     zuschauer.los?.();
   }
 
@@ -1103,6 +1196,7 @@
     state.unten = false;
     state.zuFrueh = -9e9;
     state.t0 = performance.now();
+    state.wartSeit = state.t0;
     shell.setCount(0);
 
     shell.clear();
@@ -1214,6 +1308,11 @@
       if (!shell.live && !zuschauer) losGehts();
       return;
     }
+    // Der Tipp, der die Uhr der wartenden Aufgabe startet.
+    if (state.phase === "warten") {
+      if (!zuschauer && bereitZumLos()) aufgabeLos();
+      return;
+    }
     if (zuschauer || finger !== null || tasteUnten) return;
     finger = event.pointerId;
     state.unten = true;
@@ -1237,6 +1336,10 @@
     if (event.repeat) return;
     if (state.phase === "bereit") {
       if (!shell.live && !zuschauer) losGehts();
+      return;
+    }
+    if (state.phase === "warten") {
+      if (!zuschauer && bereitZumLos()) aufgabeLos();
       return;
     }
     if (zuschauer || finger !== null || tasteUnten) return;
@@ -1269,7 +1372,8 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappZeitgefuehl = {
     LEICHT, MITTEL, SCHWER, AUFGABEN, PUNKTE_JE, KOSTEN, GENAU, HUNDERTSTEL, EINZUG, ZEIGEN_MS, NACHLAUF, WARTEN, HALT_MEHR,
+    WARTE, WARTE_ZAEHLT, WARTE_SPERRE, ANLAUF,
     state, view, aufgabe, seit, aufgabenFuer, weltText, punkteFuer, daneben,
-    losGehts, aufgabeAuf, antworte, weiter, druck, los, zeichnen,
+    losGehts, aufgabeAuf, aufgabeLos, antworte, weiter, druck, los, zeichnen,
   };
 })();

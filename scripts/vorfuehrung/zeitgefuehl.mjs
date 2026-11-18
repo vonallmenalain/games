@@ -14,6 +14,8 @@ export default {
       Z.losGehts();
       for (let i = 0; i < Z.AUFGABEN && st.phase !== "ende"; i += 1) {
         const a = Z.aufgabe();
+        // Die Aufgabe liegt da und wartet – ein Tipp, und ihre Uhr läuft.
+        Z.aufgabeLos();
         if (a.art === "lang") {
           // Die Aufgabe des Bildes: Sie liegt einen Augenblick da, dann die
           // Antwort – und die Auflösung bleibt stehen, solange sie will.
