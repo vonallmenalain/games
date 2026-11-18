@@ -90,11 +90,11 @@
   // Der Akku: so viele Sekunden fasst er, und so viel lädt das n-te Tor nach –
   // am Anfang reichlich, mit jedem Tor weniger, am Ende zu wenig.
   // AKKU_TEMPO sagt, wie schnell er abläuft: Bei 1 fasst er zehn Sekunden und
-  // das erste Tor lädt drei nach; bei 1,56 ist alles um diesen Teil knapper –
-  // der Akku ist 1,56-mal so schnell leer (bis November 2026 1,2; dann noch
-  // einmal 1,3-mal schneller). Gerechnet und angezeigt wird immer in echten
-  // Sekunden.
-  const AKKU_TEMPO = 1.56;
+  // das erste Tor lädt drei nach; bei 1,36 ist alles um diesen Teil knapper –
+  // der Akku ist 1,36-mal so schnell leer (bis November 2026 1,2; dann kurz
+  // 1,56, das war zu knapp – jetzt hält er wieder rund 1,15-mal so lang).
+  // Gerechnet und angezeigt wird immer in echten Sekunden.
+  const AKKU_TEMPO = 1.36;
   const AKKU_MAX = 10 / AKKU_TEMPO;
   const AKKU_MITTIG = 0.5 / AKKU_TEMPO;
   const akkuLaden = (n) => Math.max(0.9, 3 - 0.055 * n) / AKKU_TEMPO;
