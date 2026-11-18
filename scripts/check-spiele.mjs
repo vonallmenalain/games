@@ -6487,16 +6487,20 @@ try {
 
   // --- 4g26. Die Welle: schaffbar, und wer nichts tut, wird verschluckt ----------------
   // Das zweite Spiel mit WebGL: Die Welt steht da, ohne dass sich der Browser
-  // beschwert. Die Abschnitte der Welle kommen aus dem Zufall – schnelle,
-  // langsame, Doppelschläge, keiner in den ersten Sekunden –, und über jedem
-  // schnellen läuft die Gischt voraus. Nachgerechnet bleibt auf der
-  // schnellsten Linie immer Luft zum Schaum (ideallinie); ein Autopilot, der
-  // sie fährt, kommt in mehreren gewürfelten Runden bis an den Strand, und
-  // einer, der sich in die Röhre zurückfallen lässt, holt dort ein Vielfaches
-  // der Punkte. Wer nichts tut, verhungert im Flachen und wird verschluckt;
-  // wer immer hält, fliegt über die Lippe. Punkte gibt es nur in der Röhre,
-  // tiefer mehr, mit der Serie mehr. Leertaste und Finger halten. Und ein
-  // Lauf, angeschaut, auf derselben Welle mit derselben Zahl.
+  // beschwert – mit der Surferin, deren Netz in jedem Bild neu entsteht. Die
+  // Abschnitte der Welle kommen aus dem Zufall – schnelle, langsame,
+  // Doppelschläge, keiner in den ersten Sekunden –, und über jedem schnellen
+  // läuft die Gischt voraus. Nachgerechnet bleibt dem, der gut pumpt, immer
+  // Luft zum Schaum (ideallinie); ein Autopilot, der immer pumpt, kommt in
+  // mehreren gewürfelten Runden bis an den Strand, und einer, der mit der
+  // Höhe an der Wand seine Tiefe in der Röhre einstellt (und pumpt, wenn der
+  // Schaum anzieht), holt dort ein Vielfaches der Punkte. Pumpen gibt
+  // Schwung: Wer rauf und runter fährt, wird schneller als auf der Linie.
+  // Wer nichts tut, sinkt ins Flache und wird verschluckt; wer immer hinauf
+  // lenkt, fliegt über die Lippe. Punkte gibt es nur in der Röhre, tiefer
+  // mehr, mit der Serie mehr. Tasten und Finger lenken: links (und Pfeil
+  // nach oben, Leertaste) hinauf, rechts hinunter. Und ein Lauf, angeschaut,
+  // auf derselben Welle mit derselben Zahl.
   {
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     const vorher = fehlerAufSeite.length;
@@ -6510,6 +6514,29 @@ try {
     });
     pruefe(bild.ok && bild.programme === 6 && bild.breit > 300 && bild.reihen > 50 && bild.phase === "bereit" && !bild.ohne,
       `Die Welle: Die Welt (WebGL 2) steht nicht da: ${JSON.stringify(bild)}`);
+
+    // Die Surferin: ein Netz aus glatten Flächen, jedes Bild neu – immer
+    // gleich viele Ecken, alle Richtungen der Länge eins, nichts ausserhalb
+    // von Brett und Körper.
+    const figur = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const raus = { ecken: 0, schlecht: 0, aussen: 0, gleich: true };
+      for (const [duck, druck, wand] of [[0.2, 0, 0], [1, 0.6, 1], [0.6, -0.5, 0.4]]) {
+        const p = W.haltungNeu();
+        Object.assign(p, { duck, druck, wand, roll: 0.3, lehn: 0.2 });
+        const netz = W.figurJetzt(p);
+        if (raus.ecken && raus.ecken !== netz.length / 6) raus.gleich = false;
+        raus.ecken = netz.length / 6;
+        for (let i = 0; i < netz.length; i += 6) {
+          const l = Math.hypot(netz[i + 3], netz[i + 4], netz[i + 5]);
+          if (!(Math.abs(l - 1) < 1e-3)) raus.schlecht += 1;
+          if (!(Math.abs(netz[i]) < 1.2 && netz[i + 1] > -0.2 && netz[i + 1] < 1.9 && Math.abs(netz[i + 2]) < 1.1)) raus.aussen += 1;
+        }
+      }
+      return raus;
+    });
+    pruefe(figur.ecken > 1500 && figur.ecken < 5000 && figur.gleich && figur.schlecht === 0 && figur.aussen === 0,
+      `Die Welle: Das Netz der Surferin stimmt nicht: ${JSON.stringify(figur)}`);
 
     // Die Abschnitte, in sechs gewürfelten Runden – und die schnellste Linie
     // nachgerechnet.
@@ -6551,22 +6578,26 @@ try {
     pruefe(welt.befunde.length === 0 && welt.abschnitte > 60 && welt.arten === "doppel,langsam,schnell",
       `Die Welle: Die gewürfelten Abschnitte stimmen nicht – ${JSON.stringify(welt)}`);
 
-    // Zwei Autopiloten. Beide regeln die Höhe an der Wand über Halten und
-    // Loslassen: der eine bleibt auf der schnellsten Linie (weit vor dem
-    // Schaum, kaum Punkte), der andere lässt sich in die Röhre zurückfallen
-    // und hält dort seinen Abstand.
-    const PILOT = `(W, st, soll) => {
+    // Zwei Autopiloten. Beide lenken hinauf, hinunter oder geradeaus, so
+    // grob wie ein Mensch: der eine pumpt immer rauf und runter (er fährt
+    // dem Schaum davon, kaum Punkte), der andere stellt mit der Höhe an der
+    // Wand ein, wie tief er in der Röhre steckt – hoch ist langsam –, und
+    // pumpt, wenn der Schaum anzieht oder zu nahe kommt.
+    const PILOT = `(W, st, soll, merk) => {
       const d = st.zp - st.zs;
       const t = st.spielzeit;
-      let ziel = 0.29;
-      if (soll) {
-        const naht = Math.max(W.faktorBei(t), W.faktorBei(t + 0.6), W.faktorBei(t + 1.2));
-        const reserve = naht > 1.12 ? 3.5 * (naht - 1) / 0.4 : 0;
-        const vd = st.v * Math.cos(st.psi) - W.tempoBei(t) * W.faktorBei(t);
-        ziel = Math.max(0.2, Math.min(0.88, 0.62 + 0.07 * (d - soll - reserve) + 0.03 * vd - (naht > 1.12 ? 0.1 * (naht - 1) / 0.4 : 0)));
-      }
-      const bald = st.h + (st.v * Math.sin(st.psi) / W.WAND) * 0.12;
-      W.halte(bald < ziel);
+      const pumpe = () => {
+        if (merk.auf && st.h > 0.72) merk.auf = false;
+        if (!merk.auf && st.h < 0.4) merk.auf = true;
+        return merk.auf ? 1 : -1;
+      };
+      if (!soll) { W.lenke(pumpe()); return; }
+      const naht = Math.max(W.faktorBei(t + 0.6), W.faktorBei(t + 1.4), W.faktorBei(t + 2.2));
+      if (d < soll - 1.6 || (naht > 1.12 && d < soll + 4)) merk.pumpt = true;
+      else if (d > soll) merk.pumpt = false;
+      if (merk.pumpt) { W.lenke(pumpe()); return; }
+      const ziel = Math.max(0.4, Math.min(0.8, 0.62 + 0.05 * (d - soll)));
+      W.lenke(st.h < ziel - 0.05 ? 1 : st.h > ziel + 0.05 ? -1 : 0);
     }`;
     const fahre = (soll, laeufe) => seite.evaluate(([quelle, soll, laeufe]) => {
       const pilot = new Function(`return (${quelle})`)();
@@ -6576,25 +6607,67 @@ try {
       for (let lauf = 0; lauf < laeufe; lauf += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         W.losGehts();
+        const merk = { auf: true, pumpt: false };
+        let schnellste = 0;
         for (let n = 0; st.phase !== "ende" && n < 30000; n += 1) {
-          if (st.schritt === "fahrt") pilot(W, st, soll);
+          if (st.schritt === "fahrt") {
+            pilot(W, st, soll, merk);
+            schnellste = Math.max(schnellste, st.v / W.tempoBei(st.spielzeit));
+          }
           W.takt(1 / 120);
         }
-        W.halte(false);
-        raus.push({ phase: st.phase, schluss: st.schluss, t: Math.round(st.spielzeit), punkte: st.punkte, roehre: Math.round(st.roehrenzeit), zahl: document.querySelector(".cm-result-score") !== null });
+        W.lenke(0);
+        raus.push({
+          phase: st.phase, schluss: st.schluss, t: Math.round(st.spielzeit), punkte: st.punkte, roehre: Math.round(st.roehrenzeit),
+          schwung: st.schwungZahl, schnellste: +schnellste.toFixed(2), zahl: document.querySelector(".cm-result-score") !== null,
+        });
       }
       return raus;
     }, [PILOT, soll, laeufe]);
     const strand = await fahre(0, 4);
-    pruefe(strand.every((r) => r.phase === "ende" && r.schluss === "strand" && r.punkte >= 25 && r.punkte < 120 && r.zahl),
-      `Die Welle: Auf der schnellsten Linie kommt der Autopilot nicht bis an den Strand – ${JSON.stringify(strand)}`);
-    const roehre = await fahre(5, 4);
-    pruefe(roehre.every((r) => r.phase === "ende" && r.roehre >= 15 && r.punkte >= 100 && r.zahl)
+    pruefe(strand.every((r) => r.phase === "ende" && r.schluss === "strand" && r.punkte >= 25 && r.punkte < 120 && r.zahl && r.schwung >= 5 && r.schnellste > 1.3),
+      `Die Welle: Wer immer pumpt, kommt nicht schneller als die Welle bis an den Strand – ${JSON.stringify(strand)}`);
+    const roehre = await fahre(4.5, 4);
+    pruefe(roehre.every((r) => r.phase === "ende" && r.roehre >= 15 && r.punkte >= 35 && r.zahl)
       && Math.min(...roehre.map((r) => r.punkte)) > Math.max(...strand.map((r) => r.punkte)),
     `Die Welle: In der Röhre holt der Autopilot nicht deutlich mehr Punkte als draussen – ${JSON.stringify({ roehre, strand })}`);
 
-    // Wer nichts tut, sinkt ins Flache und wird nach wenigen Sekunden
-    // verschluckt; wer immer hält, fliegt über die Lippe.
+    // Pumpen gibt Schwung: Auf derselben Höhe ist, wer rauf und runter
+    // fährt, nach ein paar Sekunden schneller als wer geradeaus fährt – und
+    // ein Sprung von oben hinunter gibt mehr Tempo, als der Weg hinauf
+    // gekostet hat.
+    const schwung = await seite.evaluate(() => {
+      const W = window.LernappWelle;
+      const st = W.state;
+      const versuch = (lenk) => {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        W.losGehts();
+        st.spielzeit = 30;
+        st.zs = st.z0 + W.schaumBei(30);
+        st.h = 0.5;
+        st.v = W.tempoBei(30);
+        let summe = 0;
+        let auf = true;
+        for (let n = 0; n < 120 * 8; n += 1) {
+          st.zp = st.zs + 6;
+          if (lenk === "pumpen") {
+            if (auf && st.h > 0.7) auf = false;
+            if (!auf && st.h < 0.4) auf = true;
+            W.lenke(auf ? 1 : -1);
+          } else W.lenke(st.h < 0.46 ? 1 : st.h > 0.54 ? -1 : 0);
+          W.takt(1 / 120);
+          if (n > 120 * 3) summe += st.v;
+        }
+        W.lenke(0);
+        return +(summe / (120 * 5) / W.tempoBei(st.spielzeit)).toFixed(3);
+      };
+      return { linie: versuch("linie"), pumpen: versuch("pumpen") };
+    });
+    pruefe(schwung.pumpen > schwung.linie * 1.12,
+      `Die Welle: Pumpen gibt keinen Schwung: ${JSON.stringify(schwung)}`);
+
+    // Wer nichts tut, sinkt langsam ins Flache und wird verschluckt; wer
+    // immer hinauf lenkt, fliegt über die Lippe.
     const faul = await seite.evaluate(() => {
       const W = window.LernappWelle;
       const st = W.state;
@@ -6612,8 +6685,8 @@ try {
       };
       return { nichts: eine(false), immer: eine(true) };
     });
-    pruefe(faul.nichts.phase === "ende" && faul.nichts.schluss === "schaum" && faul.nichts.tief === 0 && faul.nichts.t > 5 && faul.nichts.t < 14 && faul.nichts.punkte < 25,
-      `Die Welle: Wer nichts tut, wird nicht nach wenigen Sekunden verschluckt: ${JSON.stringify(faul.nichts)}`);
+    pruefe(faul.nichts.phase === "ende" && faul.nichts.schluss === "schaum" && faul.nichts.tief === 0 && faul.nichts.t > 8 && faul.nichts.t < 25 && faul.nichts.punkte < 25,
+      `Die Welle: Wer nichts tut, wird nicht nach einer Weile verschluckt: ${JSON.stringify(faul.nichts)}`);
     pruefe(faul.immer.phase === "ende" && faul.immer.schluss === "lippe" && faul.immer.t > 1.8 && faul.immer.t < 9 && faul.immer.punkte === 0,
       `Die Welle: Wer immer hält, fliegt nicht über die Lippe: ${JSON.stringify(faul.immer)}`);
 
@@ -6648,37 +6721,45 @@ try {
       && punkte.mal[0] === 1 && punkte.mal[1] > 2 && punkte.mal[2] === 4 && punkte.mal[3] === 4,
     `Die Welle: Punkte gibt es nicht nur in der Röhre, tiefer mehr, mit der Serie bis ×4: ${JSON.stringify(punkte)}`);
 
-    // Die Leertaste: Der erste Druck startet die Runde und hält; loslassen
-    // lässt los. Ebenso der Pfeil nach oben.
+    // Die Tasten: Der erste Druck startet die Runde und lenkt; loslassen
+    // fährt geradeaus. Leertaste, Pfeil nach oben und nach links: hinauf –
+    // Pfeil nach unten und nach rechts: hinunter.
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    const lage = () => seite.evaluate(() => ({ phase: window.LernappWelle.state.phase, halten: window.LernappWelle.state.halten }));
+    const lage = () => seite.evaluate(() => `${window.LernappWelle.state.phase} ${window.LernappWelle.state.lenk}`);
     const schritte = [await lage()];
-    await seite.keyboard.down("Space");
-    schritte.push(await lage());
-    await seite.keyboard.up("Space");
-    schritte.push(await lage());
-    await seite.keyboard.down("ArrowUp");
-    schritte.push(await lage());
-    await seite.keyboard.up("ArrowUp");
-    schritte.push(await lage());
-    const soll = [{ phase: "bereit", halten: false }, { phase: "spiel", halten: true }, { phase: "spiel", halten: false }, { phase: "spiel", halten: true }, { phase: "spiel", halten: false }];
-    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Die Welle: Die Leertaste hält nicht: ${JSON.stringify(schritte)}`);
-    // Und der Finger, irgendwo im Bild.
+    for (const taste of ["Space", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"]) {
+      await seite.keyboard.down(taste);
+      schritte.push(await lage());
+      await seite.keyboard.up(taste);
+      schritte.push(await lage());
+    }
+    const soll = ["bereit 0", "spiel 1", "spiel 0", "spiel 1", "spiel 0", "spiel 1", "spiel 0", "spiel -1", "spiel 0", "spiel -1", "spiel 0"];
+    pruefe(JSON.stringify(schritte) === JSON.stringify(soll), `Die Welle: Die Tasten lenken nicht: ${JSON.stringify(schritte)}`);
+    // Und der Finger: links hinauf, rechts hinunter – gleitet er über die
+    // Mitte, nimmt er die Richtung mit.
     await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
-    await seite.mouse.move(600, 250);
+    const finger = [];
+    await seite.mouse.move(200, 250);
     await seite.mouse.down();
-    const gedrueckt = await lage();
+    finger.push(await lage());
     await seite.mouse.up();
-    const los = await lage();
-    pruefe(gedrueckt.phase === "spiel" && gedrueckt.halten === true && los.halten === false,
-      `Die Welle: Der Finger hält nicht: ${JSON.stringify({ gedrueckt, los })}`);
+    finger.push(await lage());
+    await seite.mouse.move(650, 250);
+    await seite.mouse.down();
+    finger.push(await lage());
+    await seite.mouse.move(200, 250);
+    finger.push(await lage());
+    await seite.mouse.up();
+    finger.push(await lage());
+    pruefe(JSON.stringify(finger) === JSON.stringify(["spiel 1", "spiel 0", "spiel -1", "spiel 1", "spiel 0"]),
+      `Die Welle: Der Finger lenkt nicht: ${JSON.stringify(finger)}`);
     pruefe(fehlerAufSeite.length === vorher, `Die Welle: Der Browser hat sich beschwert – ${fehlerAufSeite.slice(vorher).join(" / ")}`);
     await kontext.close();
   }
   {
-    // Ein Lauf in echter Zeit – in die Röhre zurückfallen lassen, dort ein
-    // paar Sekunden fahren, dann zu hoch hinaus –, aufgezeichnet und
-    // angeschaut: dieselbe Welle, am Schluss dieselbe Zahl.
+    // Ein Lauf in echter Zeit – hoch an der Wand in die Röhre zurückfallen
+    // lassen, dort ein paar Sekunden fahren, dann zu hoch hinaus –,
+    // aufgezeichnet und angeschaut: dieselbe Welle, am Schluss dieselbe Zahl.
     const { kontext, seite } = await neueSeite({ width: 844, height: 390 });
     await seite.addInitScript(() => {
       if (sessionStorage.getItem("__welle")) return;
@@ -6697,9 +6778,9 @@ try {
         const d = st.zp - st.zs;
         // Erst hoch an die Wand (langsam: der Schaum kommt näher), in der
         // Röhre den Abstand halten – und nach ein paar Sekunden darin immer
-        // halten, bis es ihn über die Lippe trägt.
-        const ziel = st.roehrenzeit > 3 ? 2 : d > 7 ? 0.78 : 0.62 + 0.07 * (d - 4.5);
-        W.halte(st.h < Math.min(ziel, st.roehrenzeit > 3 ? 2 : 0.86));
+        // hinauf, bis es ihn über die Lippe trägt.
+        const ziel = d > 7 ? 0.8 : Math.max(0.4, Math.min(0.8, 0.62 + 0.05 * (d - 4.5)));
+        W.lenke(st.roehrenzeit > 3 || st.h < ziel - 0.04 ? 1 : st.h > ziel + 0.04 ? -1 : 0);
         requestAnimationFrame(lauf);
       };
       requestAnimationFrame(lauf);

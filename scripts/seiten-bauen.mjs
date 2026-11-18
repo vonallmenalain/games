@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-2";
+export const FASSUNG = "2026-11-18-3";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -230,8 +230,8 @@ export const SPIELE = [
   {
     seite: "welle", spiel: "waveRide", page: "wave", js: "welle.js",
     titel: "Die Welle", buehne: { id: "wl-stage", klasse: "cm-stage wl-stage" },
-    text: "Die Welle: Halten zieht die Wand hinauf, Loslassen lässt dich fallen – surf tief in der Röhre, nur dort gibt es Punkte. Hinter dir jagt der Schaum.",
-    baut: "die Welle im Abendlicht mit dem Surfer",
+    text: "Die Welle: Links halten fährt die Wand hinauf, rechts hinunter – pump dir Schwung und surf tief in der Röhre, nur dort gibt es Punkte. Hinter dir jagt der Schaum.",
+    baut: "die Welle im Abendlicht mit der Surferin",
   },
   {
     seite: "steinhuepfer", spiel: "stoneSkip", page: "skip", js: "steinhuepfer.js",

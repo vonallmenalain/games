@@ -171,7 +171,7 @@
     flockFlight: { fassung: "t2" },
     // Hier ist c kein Winkel, sondern der Abstand zum Schaum (mal 100) – er
     // soll genauso mitgleiten.
-    waveRide: { fassung: "t1", winkel: true },
+    waveRide: { fassung: "t2", winkel: true },
     stoneSkip: { fassung: "t1" },
     iceRun: { fassung: "t1" },
     cliffFlight: { fassung: "t2", winkel: true },

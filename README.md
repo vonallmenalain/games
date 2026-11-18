@@ -652,26 +652,45 @@ kommen), die des Falken (`FALKE_…`), die Masse der Hindernisse – und
 ### Die Welle (November 2026)
 
 **Die Welle** (`welle.js`, `waveRide`) – Eine riesige, durchscheinende Welle
-bei Sonnenuntergang, und ein Surfer, der sie entlangfährt; die Kamera sitzt
-dicht hinter ihm, wie eine Helmkamera in der Röhre. Hinter ihm bricht die
-Welle – der Schaum jagt ihn. Ein Finger genügt: Halten zieht die Wand
-hinauf, Loslassen lässt ihn hinunterschiessen (am Rechner die Leertaste,
-der Pfeil nach oben oder W). Zwei Grössen entscheiden: `h`, wie hoch er an
-der Wand steht (0 das Tal, 1 die Lippe), und `d`, wie viele Meter er vor dem
-Schaum ist. Hoch an der Wand ist er langsam, der Schaum kommt näher; im
-unteren Drittel liegt die schnellste Linie; ganz unten im Flachen verhungert
-er. Hinauf kostet Tempo, hinunter gibt Tempo, und unter der Lippe ist die
-Wand so steil, dass er fast stehen bleibt.
+bei Sonnenuntergang, und eine Surferin, die sie entlangfährt; die Kamera
+sitzt dicht hinter ihr, wie eine Helmkamera in der Röhre. Hinter ihr bricht
+die Welle – der Schaum jagt sie. Gelenkt wird in drei Richtungen: links
+halten fährt die Wand hinauf (dort ist sie), rechts halten hinunter, und
+wer loslässt, fährt geradeaus und sinkt dabei nur ganz langsam. Ein Finger,
+der über die Mitte gleitet, nimmt die Richtung mit; liegen zwei, gilt der
+zuletzt gesetzte. Am Rechner: Pfeil nach oben oder links, W, A und die
+Leertaste hinauf – Pfeil nach unten oder rechts, S und D hinunter. Vor dem
+ersten Druck stehen unten links und rechts die zwei Felder mit ihren
+Sätzen; während der Fahrt leuchten sie leise auf, solange sie gedrückt
+sind (auf einem Gerät mit Fingern immer, am Rechner nur am Anfang).
 
-Punkte gibt es nur in der Röhre, dort, wo das Dach über ihm zu ist (`d`
-unter 9 m, `ROEHRE`): je Sekunde umso mehr, je tiefer er darin steckt
+Zwei Grössen entscheiden: `h`, wie hoch sie an der Wand steht (0 das Tal, 1
+die Lippe), und `d`, wie viele Meter sie vor dem Schaum ist. **Ihr Tempo ist
+Schwung, der bleibt** (`physik`): Hinunter gibt der Hang das volle Tempo
+(`HANG`), hinauf kostet er nur einen Teil davon (`HEBT` – die Welle hebt
+mit). Darum gibt jedes Auf und Ab Schwung: Wer rhythmisch rauf und runter
+pumpt, wird schneller als auf jeder Linie (gemessen gut 15 %), und wer von
+hoch oben hinunterschiesst, holt sich einen Stoss Tempo. Was sie über das
+Tempo ihrer Linie hinaus hat, verliert sie nur langsam (`TRAEG_SCHWUNG`) –
+hoch an der Wand aber rasch (`TRAEG_HOCH`, ab `BREMS_AB`): Dort bremst es,
+und dort fällt sie tiefer in die Röhre. Die Höhe stellt also die Tiefe ein,
+Pumpen holt sie wieder heraus. Ganz unten im Flachen verhungert sie, unter
+der Lippe geht es zäh hinauf (`ZAEH`), und wer davonfährt, dem fehlt bald
+die Kraft der Welle (die Tasche: nahe am Schaum schiebt sie am stärksten).
+Bringt ein Abstieg deutlich Tempo, steht kurz «Schwung!» an der Surferin;
+oben links stehen unter dem Abstand ihr Tempo in km/h und Pfeile – grün
+nach rechts, wenn sie dem Schaum davonfährt, rot nach links, wenn er
+aufholt.
+
+Punkte gibt es nur in der Röhre, dort, wo das Dach über ihr zu ist (`d`
+unter 9 m, `ROEHRE`): je Sekunde umso mehr, je tiefer sie darin steckt
 (`punkteBei`), mal die Serie – sie wächst in 30 Sekunden ohne Unterbruch von
-×1 auf ×4 und beginnt neu, sobald er die Röhre verlässt. Ganz dicht am
-Schaum reisst der Sog zurück (`SOG`): Wer zu gierig ist, kommt nur auf der
-schnellsten Linie wieder heraus. Verschluckt ihn der Schaum (`d` unter
-null) oder trägt es ihn über die Lippe (`h` über 1), ist die Runde vorbei.
-Sonst läuft die Welle nach 80 Sekunden am Strand aus, mit einem kleinen
-Bonus – und unterwegs sinkt die Sonne von der goldenen Stunde ins Abendrot.
+×1 auf ×4 und beginnt neu, sobald sie die Röhre verlässt. Ganz dicht am
+Schaum reisst der Sog zurück (`SOG`): Wer zu gierig ist, kommt nur mit
+Pumpen wieder heraus. Verschluckt sie der Schaum (`d` unter null) oder
+trägt es sie über die Lippe (`h` über 1), ist die Runde vorbei. Sonst läuft
+die Welle nach 80 Sekunden am Strand aus, mit einem kleinen Bonus – und
+unterwegs sinkt die Sonne von der goldenen Stunde ins Abendrot.
 
 Wie die anderen würfelt es seine Welt aus `zufall.js`: die Abschnitte der
 Welle. In einem schnellen zieht der Schaum für zwei bis vier Sekunden an, in
@@ -681,14 +700,16 @@ Schulter kleiner (`TASCHE_FERN`). Wo ein schneller Abschnitt kommt, läuft
 voraus weisse Gischt die Lippe entlang, und oben links wandert ein roter
 Strich über dem Balken auf den Schaum zu. Der Schaum hängt nur an der Zeit
 (`schaumBei`), nie daran, wie jemand fährt. Schaffbar bleibt jede Welle: Wer
-immer die schnellste Linie fährt, behält nachgerechnet `RESERVE` Meter Luft
-(`ideallinie` – wo nicht, zieht der Abschnitt weniger stark an, für alle
-gleich). Der Autopilot in `npm run pruefen:browser` (Abschnitt 4g26) fährt
-sie bis an den Strand, ein zweiter holt in der Röhre ein Vielfaches der
-Punkte. Aufgezeichnet werden Strecke, Höhe an der Wand und Abstand zum
-Schaum (`a`, `b`, `c`, je mal 100); beim Anschauen fährt der Surfer auf
-derselben Welle, und die Gegner fahren als Surfer aus Licht mit – so tief
-in der Röhre, wie sie damals waren.
+so gut pumpt wie ein geübter Mensch (`PUMP_IDEAL`), behält nachgerechnet
+`RESERVE` Meter Luft (`ideallinie` – wo nicht, zieht der Abschnitt weniger
+stark an, für alle gleich). Der Autopilot in `npm run pruefen:browser`
+(Abschnitt 4g26) pumpt bis an den Strand, ein zweiter stellt mit der Höhe
+seine Tiefe in der Röhre ein und holt dort ein Vielfaches der Punkte; wer
+nichts tut, sinkt ins Flache und wird verschluckt. Aufgezeichnet werden
+Strecke, Höhe an der Wand und Abstand zum Schaum (`a`, `b`, `c`, je mal
+100), seit der neuen Steuerung in Fassung `t2`; beim Anschauen fährt die
+Surferin auf derselben Welle, und die Gegner fahren als Surfer aus Licht
+mit – so tief in der Röhre, wie sie damals waren.
 
 **Gezeichnet wird wie der Schwarm mit WebGL 2**, in einem Durchgang. Die
 Welle ist ein Netz, von dem jede Ecke nur weiss, in welcher Reihe und wo im
@@ -698,18 +719,43 @@ voraus eine runde Dünung, zum Schaum hin die Röhre mit dem fallenden
 Vorhang. Die Farbe des Wassers ist, was durchscheint (dünn golden, dicker
 smaragdgrün, ganz dick fast nichts mehr), was sich spiegelt (der Himmel,
 unter dem Dach die Röhre selbst) und der Schaum, der in Streifen die Wand
-hinaufzieht. Dazu Himmel und offenes Meer in einem Programm, der Surfer
-(ein Netz in zwei Haltungen), die Spur seines Bretts, Gischt, Tropfen und
-Sprühnebel als weiche Scheiben – und auf der zweiten Leinwand die Zahlen
-und, wenn es knapp war, Tropfen auf der Linse. Drei Klänge: die Brandung
-(der Fahrtwind, in der Röhre lauter), ein hohles Rauschen, wenn sich das
-Dach schliesst, und der Brecher am Schluss.
+hinaufzieht. Dazu Himmel und offenes Meer in einem Programm, die Surferin,
+die Spur ihres Bretts mit einem weichen Schatten darunter, Gischt, Tropfen
+und Sprühnebel als weiche Scheiben – und auf der zweiten Leinwand die
+Zahlen und, wenn es knapp war, Tropfen auf der Linse. Drei Klänge: die
+Brandung (der Fahrtwind, in der Röhre lauter), ein hohles Rauschen, wenn
+sich das Dach schliesst, und der Brecher am Schluss.
+
+**Die Surferin** (`surferinBauen`) ist aus glatten Flächen gebaut, jede ein
+Gitter aus Ringen (`netzSchreiber`, `roehre`): der Rumpf Ring um Ring vom
+Becken bis zum Hals (`RUMPF` – breit in den Hüften, schmal in der Taille),
+Arme und Beine als Röhren, die sich an Knie und Ellbogen rund biegen
+(`gelenkLinie`; wo die Gelenke liegen, rechnet `gelenk` aus den Längen der
+Glieder), Hände, Füsse flach auf dem Deck, ein Kopf mit Haar und einem
+Pferdeschwanz mit Haarband. Sie trägt einen Neoprenanzug mit langen Ärmeln
+und kurzen Beinen, türkis über den Schultern, an den Seiten ein Streifen in
+Koralle. Das Brett: ein Shortboard von 1,86 m mit Rocker, runden Kanten,
+hellem Deck mit Holzstreifen, türkisem Boden, drei Finnen, einem gerillten
+Pad am Heck und einer Leash zum hinteren Knöchel (`BRETT_UMRISS`,
+`BRETT_DICKE`, `BRETT_ROCKER`). Ihr Netz entsteht in jedem Bild neu aus
+ihrer Haltung (`haltungBei`) – geduckt in der Röhre, beim Hinauf in den
+Knien, beim Hinunter gestreckt, die Arme im Gleichgewicht, tief in der
+Röhre die hintere Hand an der Wand; der Körper richtet sich gegenüber dem
+Brett zur Senkrechten auf, und der Pferdeschwanz flattert im Fahrtwind und
+schwingt in den Kurven nach (`haltungTakt`). Die Zahl der Ecken, die
+Dreiecke, Farben und Stoffe bleiben dabei dieselben; das Programm der Figur
+gibt jedem Stoff (Haut, Anzug, Deck, Boden, Haar, Finne) sein Licht und sein
+Muster. Die Gegner fahren mit zwei festen Haltungen (aufrecht, geduckt) als
+Licht.
 
 Die Schrauben stehen oben in der Datei: `DAUER`, `ROEHRE`, `C0`/`C1`,
-`LINIE` (wie schnell die Welle in welcher Höhe trägt), `TASCHE_NAH`/
-`TASCHE_FERN`, `SOG`, `HANG_NAH`/`HANG_FERN`, `STEIL_OBEN`, die Punkte
-(`P_RAND`, `P_TIEF`, `P_HOCH`, `SERIE_VOLL`), `RESERVE` – und `ABEND`, die
-drei Lichter, sowie `FORM`, der Querschnitt nach dem Abstand vor dem Schaum.
+`PSI_AUF`/`PSI_AB`/`PSI_FREI` (wie steil hinauf, hinunter und wie sacht sie
+ohne Lenken sinkt), `LINIE` (wie schnell die Welle in welcher Höhe trägt),
+`HANG`/`HEBT` (wie viel Schwung ein Auf und Ab gibt), `TRAEG_SCHWUNG`/
+`TRAEG_HOCH`/`TRAEG_SCHUB`, `ZAEH`, `TASCHE_NAH`/`TASCHE_FERN`, `SOG`,
+`STEIL_OBEN`, die Punkte (`P_RAND`, `P_TIEF`, `P_HOCH`, `SERIE_VOLL`),
+`PUMP_IDEAL` und `RESERVE` – und `ABEND`, die drei Lichter, sowie `FORM`,
+der Querschnitt nach dem Abstand vor dem Schaum.
 
 ### Steinhüpfer (November 2026)
 
