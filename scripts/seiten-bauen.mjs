@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-11";
+export const FASSUNG = "2026-11-18-12";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -290,7 +290,7 @@ export const SPIELE = [
   {
     seite: "augenmass", spiel: "eyeMeasure", page: "eye", js: "augenmass.js",
     titel: "Augenmass", buehne: { id: "am-stage", klasse: "cm-stage am-stage" },
-    text: "Augenmass: Zehn Blätter, kein Lineal – wo trifft die Kugel nach der Bande die Wand, wo landet der Ball, wo ist der Mittelpunkt? Tippe so genau du kannst, danach wird auf den Zehntelmillimeter nachgemessen.",
+    text: "Augenmass: Zehn Blätter, kein Lineal – wo trifft die Kugel nach der Bande die Wand, wo landet der Ball, wo ist der Mittelpunkt? Setz das Fadenkreuz so genau du kannst, danach wird auf den Zehntelmillimeter nachgemessen.",
     baut: "die Blaupause mit dem Fadenkreuz",
   },
   {

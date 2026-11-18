@@ -1,14 +1,15 @@
-// Augenmass: Ein Tipp beendet die Vorschau jedes Blattes. Dann setzt der
-// Finger das Fadenkreuz neben die Stelle, schiebt es unter der Lupe hin und
-// lässt los – meist auf den halben Millimeter, ab und zu ein, zwei daneben.
-// Danach zeichnet sich die Lösung ein.
+// Augenmass: Ein Tipp beendet die Vorschau jedes Blattes. Dann greift der
+// Finger unter der Stelle zu – das Fadenkreuz steht über ihm –, zieht es hin
+// und lässt los: meist auf den halben Millimeter, ab und zu ein, zwei
+// daneben. Danach zeichnet sich die Lösung ein.
 export default {
   bereit: () => Boolean(window.LernappAugenmass?.state?.blaetter && window.LernappAugenmass.view.cssW > 0),
   spiele: () => {
     const A = window.LernappAugenmass;
     const st = A.state;
+    // Der Finger liegt am Griff unter der Stelle (imGriff), das Fadenkreuz auf ihr.
     const druck = (art, ort) => {
-      const b = A.imBild(ort);
+      const b = A.imGriff(ort);
       document.querySelector("#am-stage canvas").dispatchEvent(new PointerEvent(art, {
         bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, pointerType: "touch", clientX: b.x, clientY: b.y,
       }));
