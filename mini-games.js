@@ -98,6 +98,7 @@
     { id: "boilerRoom", seite: "heizer", page: "boiler" },
     { id: "hammerThrow", seite: "hammerwurf", page: "hammer" },
     { id: "duckCrossing", seite: "entenfamilie", page: "ducks" },
+    { id: "mineCart", seite: "grubenlore", page: "minecart" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -128,6 +129,8 @@
     cliffFlight: 1,
     // Gebaut nach dem Muster von Tier 1: ein Tipp, eine Regel.
     hammerThrow: 1, duckCrossing: 1,
+    // Die Lore im Bergwerk: eine Bremse, sonst nichts.
+    mineCart: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -170,6 +173,9 @@
     iceRun: { fassung: "t1" },
     cliffFlight: { fassung: "t2", winkel: true },
     duckCrossing: { fassung: "t1" },
+    // Hier ist a der Weg auf dem Gleis und b die Höhe darüber (beides in
+    // Dezimetern): Die Lore fährt auf dem Gleis, das im Bild ist.
+    mineCart: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

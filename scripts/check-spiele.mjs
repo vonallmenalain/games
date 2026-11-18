@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3215,6 +3215,7 @@ try {
     ["/felsflug", "Felsflug", () => window.LernappFelsflug.weltText()],
     ["/hammerwurf", "Hammerwurf", () => window.LernappHammerwurf.weltText()],
     ["/entenfamilie", "Entenfamilie", () => window.LernappEntenfamilie.weltText()],
+    ["/grubenlore", "Grubenlore", () => window.LernappGrubenlore.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -7760,6 +7761,141 @@ try {
     await kontext.close();
   }
 
+  // --- 4g32. Grubenlore: jede Stelle hat ihr Band, und wer nie bremst, hängt im Fels ---
+  // Ein Pilot (grubenlore.js, pilot – er rechnet mit derselben Fahrt voraus)
+  // bremst so spät wie möglich. Er stösst auf keiner Welt je an: Am Ende holt
+  // ihn der Einsturz ein, nach mindestens 450 m und einem Dutzend Stellen.
+  // Jede Stelle hat ein Band, in dem man heil hindurchkommt, und davor Gleis
+  // genug, um es zu treffen. Wer nie bremst, hängt an der ersten Kuppe im
+  // Felsdach; wer immer bremst, den holt der Einsturz – beides mit Ergebnis.
+  {
+    const { kontext, seite } = await neueSeite({ width: 1000, height: 640 });
+    await seite.goto(`${BASIS}/grubenlore`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGrubenlore?.state?.welt && window.LernappGrubenlore.view.cssW > 0, null, { timeout: 8000 });
+    const laeufe = await seite.evaluate(() => {
+      const L = window.LernappGrubenlore;
+      const st = L.state;
+      const raus = [];
+      for (let lauf = 0; lauf < 3; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        L.druecken();
+        L.loslassen();
+        for (let n = 0; st.phase === "spiel" && !st.endet && n < 240 * 240; n += 1) {
+          if (n % 4 === 0) { if (L.pilot(st.welt, st.z)) L.druecken(); else L.loslassen(); }
+          L.takt(1 / 240);
+        }
+        L.loslassen();
+        const durch = st.welt.stellen.filter((h) => h.durch);
+        // Jede Stelle: ein Band mit Platz, der rechte Rand zur rechten Art,
+        // und Gleis davor.
+        const baender = st.welt.stellen.every((h) => h.s0 - h.sFrei >= 6 && h.s1 > h.s0 && (h.art === "stampfer"
+          || ((h.art === "kuppe" || h.art === "knick") && h.lo <= 3 && h.hi >= 4.5 && h.hi < L.V_DECKEL && h.gold)
+          || ((h.art === "schacht" || h.art === "looping") && h.lo >= 4 && h.lo < L.V_DECKEL && h.hi === Infinity && h.gold)));
+        const offen = st.welt.stampfer.every((s) => s.T - s.unten - 0.32 >= L.S_OFFEN_MIN - 1e-9);
+        raus.push({
+          meter: st.meter, grund: st.grund, stellen: durch.length, arten: [...new Set(durch.map((h) => h.art))].sort().join(","),
+          knappe: st.knappe, baender, offen, welt: L.weltText(),
+        });
+      }
+      return raus;
+    });
+    pruefe(laeufe.every((l) => l.grund === "einsturz" && l.meter >= 450 && l.stellen >= 10 && l.baender && l.offen),
+      `Grubenlore: Der Pilot kommt nicht durch jedes Bergwerk – ${JSON.stringify(laeufe.map(({ welt, ...rest }) => rest))}`);
+    pruefe(laeufe.some((l) => l.arten.includes("kuppe") && l.arten.includes("schacht")) && laeufe.some((l) => l.knappe > 0),
+      `Grubenlore: Unterwegs fehlen Kuppe, Schacht oder ein «haarscharf» – ${JSON.stringify(laeufe.map((l) => [l.arten, l.knappe]))}`);
+    pruefe(new Set(laeufe.map((l) => l.welt)).size > 1, `Grubenlore: Das Bergwerk ist in jeder Runde dasselbe – ${JSON.stringify(laeufe.map((l) => l.welt))}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 4000 }).catch(() => {});
+    const blind = await seite.evaluate(() => {
+      const L = window.LernappGrubenlore;
+      const st = L.state;
+      const raus = [];
+      // Nie gebremst – und immer gebremst, sobald sie rollt.
+      for (const immer of [false, false, true]) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        L.druecken();
+        L.loslassen();
+        for (let n = 0; st.phase === "spiel" && !st.endet && n < 240 * 90; n += 1) {
+          if (immer) { if (st.z.v > 4) L.druecken(); else L.loslassen(); }
+          L.takt(1 / 240);
+        }
+        L.loslassen();
+        raus.push({ immer, grund: st.grund, meter: st.meter, stelle: st.welt.stellen[st.stelleNr]?.art });
+      }
+      return raus;
+    });
+    pruefe(blind.every((l) => (l.immer ? l.grund === "einsturz" : l.grund === "decke" && l.stelle === "kuppe") && l.meter < 160),
+      `Grubenlore: Wer nie oder immer bremst, kommt trotzdem weit – ${JSON.stringify(blind)}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    pruefe(await seite.locator(".cm-result-score").count() === 1, "Grubenlore: Nach dem Einsturz kommt kein Ergebnis.");
+    // Die Bremse hält am Hang, und wer loslässt, pumpt wieder auf Schritttempo.
+    const bremse = await seite.evaluate(() => {
+      const L = window.LernappGrubenlore;
+      const st = L.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      L.druecken();
+      L.loslassen();
+      for (let n = 0; n < 240 * 2.5; n += 1) L.takt(1 / 240);
+      const rollt = st.z.v;
+      L.druecken();
+      for (let n = 0; n < 240 * 3; n += 1) L.takt(1 / 240);
+      const steht = st.z.v;
+      L.loslassen();
+      for (let n = 0; n < 240 * 1; n += 1) L.takt(1 / 240);
+      return { rollt, steht, pumpt: st.z.v, schritt: L.V_PUMPE };
+    });
+    pruefe(bremse.rollt > 4 && bremse.steht === 0 && bremse.pumpt >= bremse.schritt - 0.01,
+      `Grubenlore: Die Bremse hält nicht, oder die Lore kommt nicht wieder los: ${JSON.stringify(bremse)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – mit dem Piloten über die ersten Stellen, dann
+    // ohne Bremse in die nächste Kuppe –, aufgezeichnet und angeschaut:
+    // dasselbe Bergwerk, dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 900, height: 600 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__lore")) return;
+      sessionStorage.setItem("__lore", "1");
+      localStorage.setItem("mini.name", "Lore");
+    });
+    await seite.goto(`${BASIS}/grubenlore`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGrubenlore?.state?.welt && window.LernappGrubenlore.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappGrubenlore.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const L = window.LernappGrubenlore;
+      const st = L.state;
+      L.druecken();
+      L.loslassen();
+      const lauf = () => {
+        if (st.phase !== "spiel" || st.endet) { L.loslassen(); fertig(); return; }
+        if (st.stelleNr < 3 && L.pilot(st.welt, st.z)) L.druecken(); else L.loslassen();
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("mineCart_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`mineCart_${kennung}`) || null;
+      const st = window.LernappGrubenlore.state;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, stellen: st.stelleNr, grund: st.grund };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte > 100 && gespielt.punkte === gespielt.gezaehlt && gespielt.stellen >= 3 && gespielt.grund !== "einsturz",
+      `Grubenlore: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/grubenlore?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGrubenlore?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappGrubenlore.state.phase, welt: window.LernappGrubenlore.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Grubenlore: Beim Zuschauen steht ein anderes Bergwerk da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappGrubenlore.state;
+      return { punkte: st.punkte, stellen: st.stelleNr, endet: st.endet > 0, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.endet && Math.abs(schluss.punkte - gespielt.punkte) <= 1 && schluss.stellen === gespielt.stellen,
+      `Grubenlore: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -7965,7 +8101,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 28 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 29 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -7990,7 +8126,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();

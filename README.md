@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        siebenunddreissig Spielseiten, erzeugt
+    turmbau.html …        achtunddreissig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -384,6 +384,88 @@ und die Küken folgen nach derselben Regel. Prüfung 4g31: Ein Autopilot, der
 am Ufer auf die Welle wartet (`querungOk`, `wartenBisWelle`), quert auf
 jeder Welt in 90 s mindestens sechs Flüsse, jeden in einem Zug; wer blind
 losschwimmt, wird bald erwischt.
+
+### Grubenlore (November 2026)
+
+Drei neue Spiele nach dem Muster der beliebtesten: kurze Runden, schnell
+schwer, viel Können. Das erste ist ein Spiel mit einer einzigen Bremse.
+
+**Grubenlore** (`grubenlore.js`, `mineCart`) – Eine Lore jagt durch ein
+altes Bergwerk, immer bergab, von der Seite gesehen. Sie rollt von allein;
+wer spielt, hat nur die Bremse: **Halten bremst, Loslassen rollt** (am
+Rechner Leertaste, Pfeil nach unten oder S). Jede Stelle im Stollen verträgt
+ein anderes Tempo:
+
+    Felsdach   Eine Kuppe, dahinter ein niedriges, rot-weiss gestreiftes
+               Dach. Wer zu schnell über den Scheitel kommt, hebt ab und
+               hängt im Fels.
+    Schacht    Das Gleis bricht ab und geht drüben tiefer weiter. Wer zu
+               langsam ist, stürzt hinein.
+    Pochwerk   Stampfer schlagen im Takt auf das Gleis (`stampfHoehe`) –
+               mehrere versetzt wie eine grüne Welle. Durch muss man,
+               wenn sie oben sind.
+    Senke      Ein scharfer Knick mit roten Schwellen: Wer hineinrauscht,
+               dem bricht die Achse (`G_KNICK`).
+    Looping    Braucht Schwung – sonst fällt die Lore oben heraus.
+
+Vor jeder Stelle steht ein Signal (rot: langsam, grün: laufen lassen, gelb:
+im Takt), und über der Lore schwebt das **Tempo-Fenster**: ein Balken mit
+dem Band der nächsten Stelle und einem Zeiger – womit die Lore dort ankäme,
+wenn jetzt niemand mehr bremste (`vorhersage`). Bremsen schiebt den Zeiger
+nach links, vor dem Pochwerk durch den Takt des Stampfers (grün: Die Lore
+rollte durch alle, `pochwerkOffen`; blassgelb: nur durch den nächsten). Der
+gefährliche Rand des Bandes ist golden: so schnell, wie es unter dem Dach
+und durch die Senke gerade noch geht, so langsam, wie es über den Schacht
+und durch den Looping gerade noch reicht, oder knapp unter einem Stampfer
+durch. Wer dort durchfährt, fährt **«haarscharf»** und bekommt Vorsprung
+(`BONUS`: 5, 7, 9 m – in Folge immer mehr).
+
+Vorsprung worauf? **Hinter der Lore stürzt der Stollen ein.** Der Einsturz
+folgt nach der Uhr und wird immer schneller (`EINSTURZ_V0` bis
+`EINSTURZ_V1`); weiter als `VORSPRUNG_MAX` hängt ihn niemand ab. Wer zu
+vorsichtig bremst, wird eingeholt, jede Berührung mit Fels, Stampfer oder
+Schacht beendet die Runde sofort. Gezählt wird nur, wie weit die Lore
+kommt, in Metern. Mit der Tiefe wird das Gleis steiler, die Bänder schmaler,
+die Stellen dichter – und das Bergwerk wechselt sein Gesicht: Alter Stollen,
+Kristallgrotte, Smaragdsee, Glutkammer, Goldader (`BIOME`, nur das Bild).
+
+Gerechnet wird in Metern auf einem Gleis aus Punkten im Abstand `DS`; wo die
+Lore ist, sagt ihr Weg darauf. Trägt das Gleis sie nicht mehr (Fliehkraft
+und Gewicht zusammen unter null), hebt sie ab, fliegt frei und setzt wieder
+auf – härter als `V_HART` quer zum Gleis ist das Ende. Unter Schritttempo
+fällt sie nie, solange niemand bremst (`V_PUMPE`: der Hauer pumpt); sie
+bleibt also nirgends liegen.
+
+**Immer schaffbar, von jedem Tempo aus.** Jede Stelle wird erst für sich
+allein gebaut und von ihrem Messpunkt aus – dem Scheitel der Kuppe, der
+Kante des Schachts, dem Knick, dem Fuss des Loopings – mit jedem Tempo
+einmal abgefahren (`fenster`): Daraus entsteht ihr Band. Dann legt
+`naechstesStueck` davor so viel Gleis, dass man aus vollem Tempo
+(`V_DECKEL`) auf das Band herunterbremsen und aus dem Stand dorthin Schwung
+holen kann (ein steiler Anlauf, wenn nötig) – und rechnet beides nach, bis
+es stimmt. Wo das Signal grün zeigt, kommt man mit jedem Tempo ohne Bremse
+heil durch (`rolltHeil`): Der Anlauf folgt der Wurfbahn der schnellsten
+Lore, damit dort keine abhebt (`sturz`). Jeder Stampfer ist mindestens
+`S_OFFEN_MIN` Sekunden offen: genug, um aus dem Stand davor
+hindurchzukommen. Das Gleis kommt aus `zufall.js`;
+die ersten drei Stellen stehen fest (Kuppe, Schacht, Kuppe), damit man
+beides lernt.
+
+Das Bild: Im Stollen schaut man wie in einen Schnitt hinein – Fels unten und
+oben, dazwischen die Rückwand mit Ausbau aus Holz, im Fels alte Gänge mit
+Laternen und Erznester. Im Saal fehlt die Rückwand; das Gleis liegt auf einem
+Sims, auf einem Gerüst oder über dem Abgrund. Licht ist ein fertiges Bild je
+Farbe, das hell über die Szene gelegt wird (`schein`), der Grund des Bildes
+wird klein gemalt und gestreckt (`himmelBild`). Stockt das Bild trotzdem,
+wird es gröber statt langsamer (`gueteTakt`).
+
+Aufgezeichnet werden der Weg auf dem Gleis, die Höhe darüber und die
+Neigung: Gegner fahren als Lore aus Licht auf dem Gleis mit, das im Bild
+ist, und ein angeschauter Lauf baut mit seiner Saat dasselbe Bergwerk.
+Prüfung 4g32: Ein Pilot (`pilot` – er rollt, solange Rollen heil durch die
+nächste Stelle führt oder er danach noch anhalten könnte) stösst auf keiner
+Welt je an; ihn holt nach mindestens 450 m der Einsturz. Wer nie bremst,
+hängt an der ersten Kuppe im Felsdach, wer immer bremst, wird eingeholt.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1114,7 +1196,7 @@ schlägt. «Alle» zeigt, auf welchem Platz man unter allen gerade liegt.
                     Hügelflieger, Windschichten, Slalom, Froschsprung,
                     Seiltänzer, Heisser Draht, Ball hochhalten,
                     Turmspringen, Fallschirm, Fledermaus,
-                    Zeitlupen-Ninja, Freitaucher.
+                    Zeitlupen-Ninja, Freitaucher, Grubenlore.
                     Aufgezeichnet wird der Weg
                     (wo, wann, in welcher Lage), und der Gegner fliegt,
                     fährt oder läuft als Figur aus Licht mit – genau so wie
@@ -1248,7 +1330,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle siebenunddreissig
+    Spiele            welche dazugehören, eines bis alle achtunddreissig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

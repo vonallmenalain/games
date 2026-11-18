@@ -93,6 +93,7 @@
     { id: "cliffFlight", titel: "Felsflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.felsflug", einheit: "Punkte" },
     { id: "hammerThrow", titel: "Hammerwurf", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.hammerwurf", einheit: "Meter" },
     { id: "duckCrossing", titel: "Entenfamilie", bereich: "konzentration", art: "punkte", key: "lernapp.entenfamilie", einheit: "Punkte" },
+    { id: "mineCart", titel: "Grubenlore", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.grubenlore", einheit: "Meter" },
 
     // Problemlösen
     { id: "bridgeBuilder", titel: "Brückenbauer", bereich: "problemloesen", art: "punkte", key: "lernapp.bruecke", einheit: "Punkte" },

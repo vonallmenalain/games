@@ -1035,7 +1035,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz {
   position: absolute;
   inset: 0;
 }
@@ -1054,7 +1054,8 @@ h2 {
 /* Heisser Draht, Zwei Spuren und Ball hochhalten rechnen ihre Welt aus jeder
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
-.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld, .ek-feld, .ff-feld {
+.jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld, .ek-feld, .ff-feld,
+.gl-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1069,7 +1070,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -3191,6 +3192,73 @@ h2 {
 }
 
 /* ===========================================================================
+   Grubenlore
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Ein Bergwerk von der Seite,
+   darin die Lore – gezeichnet von grubenlore.js. Gebremst wird auf der
+   ganzen Bühne.
+   =========================================================================== */
+
+.gl-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.gl-stage:not([data-phase="intro"]) .gl-prompt { opacity: 0; }
+
+.gl-feld { width: 100%; background: #140d08; }
+
+.gl-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten,
+   nicht tippen. */
+.gl-tipp {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: clamp(44px, 12vmin, 68px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.gl-stage[data-phase="intro"] .gl-tipp { opacity: 0.95; }
+/* Beim Anschauen eines Laufs bremst niemand. */
+.gl-stage[data-zuschauen] .gl-tipp,
+.gl-stage[data-live="zuschauen"] .gl-tipp { display: none; }
+.gl-tipp svg { width: 100%; height: auto; display: block; }
+.gl-tipp-fuell {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.gl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd98a, #F5A623);
+  color: #3a2400;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-tipp-fuell { animation: none; stroke-dashoffset: 40; }
+}
+
+/* ===========================================================================
    Mondlandung
    ---------------------------------------------------------------------------
    In der Farbe des Bereichs Problemlösen. Der Mond mit seinen Plattformen,
@@ -4106,7 +4174,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

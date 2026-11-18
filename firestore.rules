@@ -87,6 +87,7 @@ service cloud.firestore {
         "boilerRoom",
         "hammerThrow",
         "duckCrossing",
+        "mineCart",
       ];
     }
 

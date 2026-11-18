@@ -203,6 +203,14 @@
     "entenfamilie.ambient": { d: "voegel", schleife: true },
     "entenfamilie.piep": { s: "zwitschern" },
     "entenfamilie.platsch": { d: "platsch" },
+    "grubenlore.rollen": { s: "a-zug", schleife: true },
+    "grubenlore.bremse": { s: "a-bremse", schleife: true },
+    "grubenlore.einsturz": { s: "a-grollen", schleife: true },
+    "grubenlore.sprung": { s: "woosh-kurz" },
+    "grubenlore.landung": { s: "whomp-weich" },
+    "grubenlore.stampfer": { s: "whomp" },
+    "grubenlore.crash": { s: "krach" },
+    "grubenlore.signal": { s: "pling" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -217,6 +225,7 @@
     highDive: "turmspringen", skyDive: "fallschirm", lumberCut: "holzfaeller", batEcho: "fledermaus",
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
+    mineCart: "grubenlore",
   };
 
   // ---------------------------------------------------------------------------
@@ -505,6 +514,12 @@
       ton(520 * k, t, { f2: 1250 * k, gleit: 0.035, r: 0.07, laut: 0.22 });
       ton(1900 * k, t + 0.012, { f2: 2700 * k, gleit: 0.03, r: 0.04, laut: 0.07 });
     },
+    // Die Lore zerschellt: ein dumpfer Schlag, Geröll und klirrendes Eisen.
+    krach: (t) => {
+      ton(140, t, { f2: 38, gleit: 0.3, r: 0.4, laut: 0.6 });
+      rausch(t, { dauer: 0.5, typ: "lowpass", f: 2200, f2: 300, a: 0.005, r: 0.4, laut: 0.4 });
+      [520, 790, 1180].forEach((f, n) => ton(f, t + 0.02 * n, { typ: "square", f2: f * 0.7, gleit: 0.3, r: 0.25, laut: 0.05, tief: 2600 }));
+    },
   };
 
   // Korrektur in dB je Klang, gemessen: Einmal-Klänge auf -20 dB aktives RMS,
@@ -515,12 +530,13 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
-    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9,
+    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9, krach: -3.0,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,
     "a-propeller": 3.9, "a-schnee": 3.6, "a-schritte": 10.2, "a-spur": 6.6, "a-summen": 9.9, "a-weltraum": 0.6,
     "a-wind": 1.8, "a-zug": 2.0, aufladen: -0.6, ratsche: 13.5, "a-unterwasser": 6.0,
+    "a-bremse": 4.0, "a-grollen": -2.0,
   };
   const db = (x) => Math.pow(10, (x || 0) / 20);
 
@@ -736,6 +752,34 @@
       let f = 600;
       takt(() => { f = f > 1400 ? 600 : f * 1.03; ton(f + 400 * k, ctx.currentTime + 0.01, { typ: "square", r: 0.015, laut: 0.04, tief: 3000, ziel: aus }); }, 70);
       return { setze: (w) => { k = w; } };
+    }),
+    // Die Bremse der Lore: Eisen auf Eisen – ein Kreischen, das mit dem
+    // Tempo k höher und lauter wird.
+    "a-bremse": () => schleifeBauen(({ aus, merke, takt }) => {
+      const s = merke(rauschQuelle());
+      const bp = filter("bandpass", 2600, 9);
+      const g = verst(0.2);
+      s.connect(bp).connect(g).connect(aus);
+      const hp = filter("highpass", 4200, 0.7);
+      const hg = verst(0.05);
+      s.connect(hp).connect(hg).connect(aus);
+      let k = 0.5;
+      takt(() => glatt(bp.frequency, (1900 + 1700 * k) * (0.94 + Math.random() * 0.12), 0.03), 60);
+      return { setze: (w) => { k = w; glatt(g.gain, 0.1 + 0.2 * k); glatt(hg.gain, 0.02 + 0.06 * k); } };
+    }),
+    // Der Einsturz hinter der Lore: ein tiefes Grollen, dazu fallende
+    // Brocken – mit k näher.
+    "a-grollen": () => schleifeBauen(({ aus, merke, takt }) => {
+      const s = merke(rauschQuelle());
+      const lp = filter("lowpass", 120, 0.8);
+      const g = verst(0.5);
+      s.connect(lp).connect(g).connect(aus);
+      let k = 0.3;
+      takt(() => {
+        glatt(g.gain, (0.25 + 0.6 * k) * (0.7 + Math.random() * 0.6), 0.12);
+        if (Math.random() < 0.15 + 0.5 * k) ton(70 + Math.random() * 60, ctx.currentTime + 0.01, { f2: 36, gleit: 0.18, r: 0.22, laut: 0.12 + 0.25 * k, ziel: aus });
+      }, 180);
+      return { setze: (w) => { k = w; glatt(lp.frequency, 90 + 180 * w); } };
     }),
     // Der Frosch lädt: ein Ton, der mit der Ladung k steigt.
     aufladen: () => schleifeBauen(({ aus, merke }) => {
