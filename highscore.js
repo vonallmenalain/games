@@ -96,6 +96,7 @@
     { id: "mineCart", titel: "Grubenlore", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.grubenlore", einheit: "Meter" },
     { id: "twinRotor", titel: "Zwei Rotoren", bereich: "konzentration", art: "punkte", key: "lernapp.rotoren", einheit: "Punkte" },
     { id: "eyeMeasure", titel: "Augenmass", bereich: "konzentration", art: "punkte", key: "lernapp.augenmass", einheit: "Punkte" },
+    { id: "flagCommand", titel: "Flaggenkommando", bereich: "konzentration", art: "punkte", key: "lernapp.flaggen", einheit: "Punkte" },
     { id: "fireRope", titel: "Feuerseil", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.feuerseil", einheit: "Punkte" },
 
     // Problemlösen

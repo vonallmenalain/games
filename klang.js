@@ -226,6 +226,11 @@
     "feuerseil.seil": { s: "woosh-kurz" },
     "feuerseil.treffer": { s: "zisch" },
     "feuerseil.zuenden": { s: "schirm" },
+    "flaggen.pfiff": { s: "pfiff" },
+    "flaggen.flagge": { s: "woosh-kurz" },
+    "flaggen.kehrt": { s: "absprung" },
+    "flaggen.platsch": { d: "platsch" },
+    "flaggen.wind": { s: "a-wind", schleife: true },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -241,7 +246,7 @@
     timeNinja: "ninja", freeDive: "freitaucher", flockFlight: "schwarm", waveRide: "welle", stoneSkip: "steinhuepfer",
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
-    fireRope: "feuerseil",
+    fireRope: "feuerseil", flagCommand: "flaggen",
   };
 
   // ---------------------------------------------------------------------------
@@ -536,6 +541,12 @@
       rausch(t, { dauer: 0.5, typ: "lowpass", f: 2200, f2: 300, a: 0.005, r: 0.4, laut: 0.4 });
       [520, 790, 1180].forEach((f, n) => ton(f, t + 0.02 * n, { typ: "square", f2: f * 0.7, gleit: 0.3, r: 0.25, laut: 0.05, tief: 2600 }));
     },
+    // Die Trillerpfeife des Kapitäns: kurz, hoch, mit dem Triller der Kugel.
+    pfiff: (t) => {
+      ton(2550, t, { f2: 2750, gleit: 0.03, a: 0.006, h: 0.07, r: 0.06, laut: 0.14, vib: 38 });
+      ton(5100, t, { f2: 5500, gleit: 0.03, a: 0.006, h: 0.06, r: 0.05, laut: 0.03, vib: 38 });
+      rausch(t, { dauer: 0.12, typ: "bandpass", f: 2700, q: 6, a: 0.005, r: 0.08, laut: 0.06 });
+    },
     // Der Stift auf dem Papier: drei kurze Striche, jeder etwas länger.
     stift: (t) => [0, 0.09, 0.2].forEach((d, i) => rausch(t + d, { dauer: 0.07 + i * 0.03, f: 3400 - i * 500, f2: 4600, q: 0.8, a: 0.012, r: 0.05, laut: 0.16 })),
   };
@@ -548,7 +559,7 @@
     whomp: -3.9, tanken: 3.7, klack: 7.6, "schnee-sturz": 1.0, boee: 13.7, fall: 4.3, kick: -2.8, flatter: 20.8,
     marimba: 3.4, blubb: 5.9, kohle: 17.4, zisch: 2.1, absprung: 11.9, "schnee-landung": 0.2, trommelwirbel: 0.4,
     schirm: 2.3, sonar: 10.1, pling: 6.3, rip: -0.5, flosse: 4.0, perle: 5.0, atem: 9.0, stich: 8.0,
-    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9, krach: -3.0, stift: 12.0,
+    zwitschern: 9.3, roehre: 3.4, brecher: -2.6, plitsch: 2.9, krach: -3.0, stift: 12.0, pfiff: 8.0,
   };
   const PEGEL_SCHLEIFE = {
     "a-eis": 0.5, "a-fahrtwind": -1.2, "a-grillen": 18.1, "a-herz": -7.1, "a-kessel": 5.7, "a-kies": 5.3,

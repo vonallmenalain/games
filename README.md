@@ -29,7 +29,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
 
     index.html            die Startseite «arcade»: alle Spiele als Bilder,
                           ihre Bestenlisten
-    turmbau.html …        einundvierzig Spielseiten, erzeugt
+    turmbau.html …        zweiundvierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     admin.html            der Adminbereich, erzeugt
@@ -659,6 +659,61 @@ Seile und endet doch von selbst; wer nie, zu früh oder zu flach springt,
 sieht die Tafel mit dem Grund; Halten springt höher und länger; und ein
 aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit derselben
 Zahl.
+
+### Flaggenkommando (November 2026)
+
+Das zweite nach einem alten Partyspiel: der Kapitän, der Flaggen hebt, und
+alle heben mit – bis einer die falsche erwischt.
+
+**Flaggenkommando** (`flaggen.js`, `flagCommand`) – Auf der Brücke eines
+Segelschiffs steht der Kapitän mit einem roten Wimpel und einer gelben Fahne,
+unten auf dem Deck ein Matrose mit denselben zwei. Eine Regel: **Zeig immer,
+was der Kapitän zeigt.** Links halten hebt den roten Wimpel, rechts halten
+die gelbe Fahne – gehalten, nicht getippt: Oben bleibt eine Flagge nur,
+solange der Daumen liegt (am Rechner A oder ← und L, D oder →). Die zwei
+Knöpfe unten zeigen, wo; gedrückt wird die ganze Hälfte.
+
+Der Kapitän gibt Kommando um Kommando (`kommandoGeben`): rot, gelb, beide,
+keine – nie zweimal dasselbe. Mit jedem läuft eine Frist (der Balken an der
+Brücke), und sobald unten steht, was oben steht, zählt es (`bestaetigen`):
+ein Punkt. In den ersten 55 % der Frist (`BLITZ`, der goldene Teil) ist es
+ein «Blitz» und gibt einen Punkt dazu, in Folge zwei und drei (`KETTE_MAX`).
+Wer schnell ist, bekommt das nächste Kommando früher.
+
+Drei Fehler gibt es, und jeder beendet die Runde (`patzer`):
+
+    falsch    eine Flagge heben, die der Kapitän nicht oben hat
+    gesenkt   eine Flagge senken, die er oben hat (ausser in der Frist)
+    langsam   die Frist ist um, und unten steht nicht, was oben steht
+
+Sechs Kommandos sind eine Welle (`WELLE`), und mit jeder fällt die Frist –
+von einer Sekunde auf 90,5 % je Welle (`FRIST0`, `FRIST_FAKTOR`), ab Welle 15
+um feste Schritte, ab Welle 25 ist sie null (`ENDE_AB`): Jede Runde endet.
+Dazu kommen die Einfälle des Kapitäns:
+
+    beide     ab Welle 3 auch beide Flaggen auf einmal
+    Finten    ab Welle 4 zuckt ein Arm, als käme ein Kommando: Er steigt wie
+              ein echtes, bleibt knapp unter der Hälfte hängen und fällt
+              zurück (`finteGeben`, `armKapitaen`). Der Pfiff kommt auch dann.
+              Wer auf die erste Bewegung reagiert, hebt falsch – oder senkt,
+              was oben bleiben sollte.
+    Kehrt     ab Welle 6 dreht er sich manchmal um. Den Wimpel hält er in
+              derselben Hand; im Bild ist er jetzt rechts. Es gilt die Farbe,
+              nicht die Seite – und die Form: Wimpel ist dreieckig, die Fahne
+              viereckig mit Punkt.
+
+Dazu zieht ein Sturm auf (`wetter`): Der Himmel wird dunkel, das Schiff
+rollt, es regnet. Gerechnet wird in 240 ganzen Schritten je Sekunde; eine
+Pose ist eine Zahl aus zwei Bits. Gewürfelt werden die Kommandos, die Pausen,
+die Finten und die Kehren (`welleBauen`, je Welle 31 Zahlen) – im Turnier für
+alle dieselben. Aufgezeichnet werden die Züge wie beim Feuerseil: jedes
+Drücken und Loslassen mit seinem Schritt, und wer zuschaut, rechnet die Runde
+damit nach. Prüfung 4g36: Ein Autopilot mit einer Viertelsekunde Reaktion
+kommt auf jeder Welt genau bis in die sechzehnte Welle (90 Kommandos, 48
+davon Blitz); auch der schnellste endet mit Welle 25; wer nie hebt, falsch
+hebt, tippt statt hält oder einer Finte folgt, sieht die Tafel mit dem Grund;
+und ein aufgezeichneter Lauf endet beim Anschauen im selben Schritt mit
+derselben Zahl.
 
 ### Schwarm (November 2026): das erste Spiel in 3D
 
@@ -1570,7 +1625,7 @@ die Aufzeichnung – eine Bestzahl von früher –, steht er als Zielmarke da.
 Ein Turnier legt der Admin an (`/admin`, «Neues Turnier») – und stellt ein,
 was es ausmacht:
 
-    Spiele            welche dazugehören, eines bis alle einundvierzig
+    Spiele            welche dazugehören, eines bis alle zweiundvierzig
     Wann              Beginn und Dauer (30 Minuten bis ein Monat), ein
                       eigenes Ende – oder ohne Zeitlimite
     Versuche          je Spiel unbegrenzt, eine feste Zahl, getippt

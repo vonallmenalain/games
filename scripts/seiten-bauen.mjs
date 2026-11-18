@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-6";
+export const FASSUNG = "2026-11-18-7";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -298,6 +298,12 @@ export const SPIELE = [
     titel: "Feuerseil", buehne: { id: "fe-stage", klasse: "cm-stage fe-stage" },
     text: "Feuerseil: Tippen heisst hüpfen, halten springt höher – bleib über dem brennenden Seil. Es dreht immer schneller, zögert, kehrt um und bekommt ein zweites.",
     baut: "der Dorfplatz bei Nacht mit dem Feuerseil",
+  },
+  {
+    seite: "flaggen", spiel: "flagCommand", page: "flags", js: "flaggen.js",
+    titel: "Flaggenkommando", buehne: { id: "fk-stage", klasse: "cm-stage fk-stage" },
+    text: "Flaggenkommando: Zeig, was der Kapitän zeigt – links halten hebt den roten Wimpel, rechts die gelbe Fahne. Die Frist wird kürzer, er täuscht an und dreht sich um.",
+    baut: "die Brücke des Schiffs mit dem Kapitän",
   },
 ];
 

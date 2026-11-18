@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3219,6 +3219,7 @@ try {
     ["/rotoren", "Zwei Rotoren", () => window.LernappRotoren.weltText()],
     ["/augenmass", "Augenmass", () => window.LernappAugenmass.weltText()],
     ["/feuerseil", "Feuerseil", () => window.LernappFeuerseil.weltText()],
+    ["/flaggen", "Flaggenkommando", () => window.LernappFlaggen.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -8572,6 +8573,176 @@ try {
     await kontext.close();
   }
 
+  // --- 4g36. Flaggenkommando: zeigen, was er zeigt – und jede Runde endet von selbst --
+  // Ein Autopilot liest, was der Kapitän zeigt (state.ziel), und stellt es
+  // nach einer festen Reaktionszeit ein: erst senken, was zu viel ist, dann
+  // heben, was fehlt. Mit einer Viertelsekunde kommt er auf jeder gewürfelten
+  // Welt in die fünfzehnte Welle – dann ist die Frist kürzer als er. Auch der
+  // schnellste endet: Ab Welle 25 ist die Frist null. Wer auf eine Finte
+  // hereinfällt, wer tippt statt hält, wer die falsche Flagge hebt und wer
+  // gar nichts tut, sieht die Tafel mit dem Grund.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/flaggen`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFlaggen?.state?.bild && window.LernappFlaggen.view.cssW > 0, null, { timeout: 8000 });
+    // Der Pilot als Text: reaktion – so viele Schritte nach dem Kommando
+    // stellt er die Pose ein; art – "finte" (er folgt jedem Zucken), "tippen"
+    // (hebt und senkt sofort wieder), "falsch" (hebt beim ersten Kommando die
+    // andere Flagge), "nie".
+    const PILOT = `(F, { reaktion = 60, art = "" } = {}) => {
+      const st = F.state;
+      const stelle = (ziel) => {
+        for (const h of [0, 1]) { const f = h ? F.GELB : F.ROT; if ((st.pose & f) && !(ziel & f)) F.loslassen(h); }
+        for (const h of [0, 1]) { const f = h ? F.GELB : F.ROT; if (!(st.pose & f) && (ziel & f)) F.druecke(h); }
+      };
+      let gefolgt = null;
+      return () => {
+        if (st.phase !== "spiel" || st.fehler || art === "nie") return;
+        if (art === "finte" && st.finte && st.finte !== gefolgt && st.tick >= st.finte.tick + 8) {
+          gefolgt = st.finte;
+          const h = st.finte.flag === F.GELB ? 1 : 0;
+          if (st.finte.runter) F.loslassen(h); else F.druecke(h);
+          return;
+        }
+        if (!st.offen || st.tick - st.kommandoTick < reaktion) return;
+        if (art === "falsch") { F.druecke(st.ziel & F.ROT ? 1 : 0); return; }
+        stelle(st.ziel);
+        if (art === "tippen") stelle(0);
+      };
+    }`;
+    const runde = (opt, laeufe) => seite.evaluate(({ quelle, opt, laeufe }) => {
+      const bauen = new Function(`return (${quelle})`)();
+      const F = window.LernappFlaggen;
+      const st = F.state;
+      const raus = [];
+      for (let lauf = 0; lauf < laeufe; lauf += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        F.druecke(0);
+        F.loslassen(0);
+        const nachStart = { phase: st.phase, pose: st.pose, ziel: st.ziel };
+        const pilot = bauen(F, opt);
+        let gekehrt = 0;
+        let war = false;
+        for (let n = 0; st.phase === "spiel" && !st.fehler && n < 240 * 400; n += 1) {
+          pilot();
+          F.takt(1 / 240);
+          if (st.umgedreht !== war) { war = st.umgedreht; gekehrt += 1; }
+        }
+        raus.push({
+          punkte: st.punkte, kommandos: st.kommandos, blitze: st.blitze, kette: st.besteKette, grund: st.fehler?.grund || "",
+          welle: F.kommandoBei(st.nr).welle, sekunden: Math.round(st.tick / 240), gekehrt, welt: F.weltText(), nachStart,
+        });
+      }
+      return raus;
+    }, { quelle: PILOT, opt, laeufe });
+    const ohneWelt = (liste) => liste.map(({ welt, ...r }) => r);
+    const viertel = await runde({ reaktion: 60 }, 3);
+    pruefe(viertel.every((r) => r.grund === "langsam" && r.welle === 15 && r.kommandos === 90 && r.sekunden <= 150),
+      `Flaggenkommando: Mit einer Viertelsekunde Reaktion endet die Runde nicht in der sechzehnten Welle – ${JSON.stringify(ohneWelt(viertel))}`);
+    // Die ersten acht Wellen sind bei ihm alle «Blitz» (die Frist ist lang
+    // genug), danach keine mehr: 48 in Folge, und die Punkte folgen daraus.
+    pruefe(viertel.every((r) => r.blitze === 48 && r.kette === 48 && r.punkte === 90 + 1 + 2 + 3 * 46),
+      `Flaggenkommando: «Blitz» zählt nicht, wie es soll (ein Punkt je Kommando, bis drei dazu) – ${JSON.stringify(ohneWelt(viertel))}`);
+    pruefe(new Set(viertel.map((r) => r.welt)).size > 1 && viertel.some((r) => r.gekehrt > 0),
+      `Flaggenkommando: Die Kommandos sind in jeder Runde dieselben, oder er dreht sich nie um – ${JSON.stringify(viertel.map((r) => [r.gekehrt, r.welt]))}`);
+    pruefe(viertel.every((r) => r.nachStart.phase === "spiel" && r.nachStart.pose === 0 && r.nachStart.ziel === 0),
+      `Flaggenkommando: Der erste Tipp startet nicht nur, er hebt auch eine Flagge: ${JSON.stringify(viertel[0].nachStart)}`);
+    const [schnellster] = await runde({ reaktion: 0 }, 1);
+    pruefe(schnellster.grund === "langsam" && schnellster.kommandos === 144 && schnellster.welle === 24,
+      `Flaggenkommando: Auch der Schnellste endet nicht mit Welle 25: ${JSON.stringify({ ...schnellster, welt: "" })}`);
+    for (const [art, gruende, mindestens] of [["nie", ["langsam"], 0], ["falsch", ["falsch"], 0], ["tippen", ["gesenkt", "langsam"], 0], ["finte", ["falsch", "gesenkt"], 18]]) {
+      const [r] = await runde({ art }, 1);
+      await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+      const tafel = await seite.locator(".cm-result-score").count();
+      pruefe(gruende.includes(r.grund) && tafel === 1 && r.kommandos >= mindestens && (art === "finte" || r.kommandos <= 1),
+        `Flaggenkommando: «${art}» endet nicht mit ${gruende.join(" oder ")} und einer Tafel: ${JSON.stringify({ ...r, welt: "", tafel })}`);
+    }
+    // Der Plan: nie zweimal dieselbe Pose, beide Flaggen erst ab der dritten
+    // Welle, Finten ab der vierten, Kehren ab der sechsten – und die Frist
+    // fällt von Welle zu Welle.
+    const plan = await seite.evaluate(() => {
+      const F = window.LernappFlaggen;
+      F.planBis(F.ENDE_AB * F.WELLE);
+      const liste = Array.from({ length: F.ENDE_AB * F.WELLE }, (_, i) => F.kommandoBei(i));
+      let doppelt = 0;
+      liste.forEach((c, i) => { if (c.pose === (i ? liste[i - 1].pose : 0)) doppelt += 1; });
+      const fristen = Array.from({ length: F.ENDE_AB + 1 }, (_, k) => F.fristBei(k));
+      return {
+        doppelt,
+        beideFrueh: liste.filter((c) => c.pose === 3 && c.welle < F.BEIDE_AB).length,
+        finteFrueh: liste.filter((c) => c.finte && c.welle < F.FINTE_AB).length,
+        kehrtFrueh: liste.filter((c) => c.kehrt && c.welle < F.KEHRT_AB).length,
+        finten: liste.filter((c) => c.finte).length,
+        // Eine Finte zugleich mit dem Kommando trifft nur einen Arm, der bleibt.
+        finteFalsch: liste.filter((c, i) => c.finte && c.finte.versatz === 0 && (((i ? liste[i - 1].pose : 0) ^ c.pose) & c.finte.flag)).length,
+        fristen,
+        faellt: fristen.every((f, k) => k === 0 || f < fristen[k - 1]),
+      };
+    });
+    pruefe(plan.doppelt === 0 && plan.beideFrueh === 0 && plan.finteFrueh === 0 && plan.kehrtFrueh === 0 && plan.finten >= 10 && plan.finteFalsch === 0
+      && plan.faellt && plan.fristen[0] === 240 && plan.fristen[24] === 0,
+      `Flaggenkommando: Der Plan ist nicht, wie er sein soll – ${JSON.stringify(plan)}`);
+    await kontext.close();
+  }
+  {
+    // Ein Lauf in echter Zeit – acht Kommandos, dann die falsche Flagge –,
+    // aufgezeichnet und angeschaut: dieselben Kommandos, am Schluss dieselbe Zahl.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__flaggen")) return;
+      sessionStorage.setItem("__flaggen", "1");
+      localStorage.setItem("mini.name", "Kapitänin");
+    });
+    await seite.goto(`${BASIS}/flaggen`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFlaggen?.state?.bild && window.LernappFlaggen.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappFlaggen.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const F = window.LernappFlaggen;
+      const st = F.state;
+      F.druecke(1);
+      F.loslassen(1);
+      const lauf = () => {
+        if (st.phase !== "spiel" || st.fehler) { fertig(); return; }
+        if (st.offen && st.tick - st.kommandoTick >= 40) {
+          if (st.kommandos >= 8) {
+            // Die falsche: eine, die er nicht zeigt (bei «beide» senkt sie zu früh).
+            if (st.ziel === 3) { if (st.pose) F.loslassen(st.pose & F.ROT ? 0 : 1); }
+            else F.druecke(st.ziel & F.ROT ? 1 : 0);
+          } else {
+            for (const h of [0, 1]) { const f = h ? F.GELB : F.ROT; if ((st.pose & f) && !(st.ziel & f)) F.loslassen(h); }
+            for (const h of [0, 1]) { const f = h ? F.GELB : F.ROT; if (!(st.pose & f) && (st.ziel & f)) F.druecke(h); }
+          }
+        }
+        requestAnimationFrame(lauf);
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("flagCommand_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`flagCommand_${kennung}`) || null;
+      const st = window.LernappFlaggen.state;
+      return { kennung, punkte: geist?.punkte || 0, gezaehlt: st.punkte, kommandos: st.kommandos, grund: st.fehler?.grund || "", tick: st.fehler?.tick || 0, zuege: window.LernappFlaggen.zugProtokoll().length };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte >= 8 && gespielt.punkte === gespielt.gezaehlt && gespielt.kommandos === 8 && ["falsch", "langsam"].includes(gespielt.grund) && gespielt.zuege >= 10,
+      `Flaggenkommando: Der Lauf wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/flaggen?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFlaggen?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappFlaggen.state.phase, welt: window.LernappFlaggen.weltText() }));
+    pruefe(zu.phase === "zuschauen" && zu.welt === welt, `Flaggenkommando: Beim Zuschauen kommandiert ein anderer:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen hebt niemand mit.
+    await seite.mouse.click(100, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappFlaggen.state;
+      return { punkte: st.punkte, kommandos: st.kommandos, grund: st.fehler?.grund || "", tick: st.fehler?.tick || 0, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && schluss.kommandos === 8 && schluss.grund === gespielt.grund && schluss.tick === gespielt.tick,
+      `Flaggenkommando: Am Ende des angeschauten Laufs steht nicht dasselbe: ${JSON.stringify({ ...schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -8777,7 +8948,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 32 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 33 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -8785,7 +8956,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /33/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /34/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -8802,7 +8973,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "stoneSkip", "timeNinja", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -10386,7 +10557,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 170, `klang.js kennt nicht alle 170 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 175, `klang.js kennt nicht alle 175 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -91,6 +91,7 @@ service cloud.firestore {
         "twinRotor",
         "eyeMeasure",
         "fireRope",
+        "flagCommand",
       ];
     }
 

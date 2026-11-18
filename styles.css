@@ -1035,7 +1035,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz {
   position: absolute;
   inset: 0;
 }
@@ -1055,7 +1055,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1070,7 +1070,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -3470,6 +3470,44 @@ h2 {
 }
 
 /* ===========================================================================
+   Flaggenkommando
+   ---------------------------------------------------------------------------
+   In der Farbe des Bereichs Konzentration. Die Brücke eines Segelschiffs,
+   der Kapitän mit zwei Flaggen – gezeichnet von flaggen.js. Gehalten wird
+   links (der rote Wimpel) und rechts (die gelbe Fahne); die zwei Knöpfe
+   unten malt das Spiel selbst.
+   =========================================================================== */
+
+.fk-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.fk-stage:not([data-phase="intro"]) .fk-prompt { opacity: 0; }
+
+.fk-feld { width: 100%; background: #16203f; }
+
+.fk-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fk-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe680, #ffb300);
+  color: #2a1d00;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(255, 190, 40, 0.45);
+}
+
+/* ===========================================================================
    Mondlandung
    ---------------------------------------------------------------------------
    In der Farbe des Bereichs Problemlösen. Der Mond mit seinen Plattformen,
@@ -4385,7 +4423,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }
