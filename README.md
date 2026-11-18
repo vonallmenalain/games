@@ -2471,23 +2471,45 @@ nicht haben will.
 
 **Aufbau.** Oben fünf Kacheln – Turniere, offene Spiele, Spieler, Einträge,
 Runden. Jede ist ein Knopf: Sie klappt den Bereich auf, in dem steht, was
-hinter der Zahl steckt («Runden» zeigt die Spiele gleich nach Runden
-sortiert). Darunter vier Bereiche, zuerst alle zugeklappt – nur Titel und
-Zahl:
+hinter der Zahl steckt («Runden» ordnet die Spiele gleich nach Runden).
+Darunter drei Bereiche, zuerst alle zugeklappt – nur Titel und Zahl:
 
-    Turniere                       anlegen, ändern, anhalten, Multiplayer
-    Welche Spiele gespielt werden  Haken für die Startseite, Tiers, ▶
-    Spieler                        eine Zeile je Name; ein Tipp auf den Namen
-                                   öffnet seine Auswertung, der Haken davor
-                                   wählt ihn zum Zusammenführen
-    Spiele und Bestenlisten        eine Zeile je Spiel; ein Tipp auf das Spiel
-                                   klappt seine Bestenliste auf
+    Turniere   anlegen, ändern, anhalten, Multiplayer
+    Spiele     ein Feld je Spiel: das Kästchen für die Startseite, das Tier,
+               ▶; ein Tipp auf das übrige Feld öffnet das Fenster des Spiels
+               mit seinen Zahlen und der Bestenliste
+    Spieler    eine Zeile je Name; ein Tipp auf den Namen öffnet seine
+               Auswertung, der Haken davor wählt ihn zum Zusammenführen
 
-Was aufgeklappt ist, wonach sortiert und wie gefiltert wird, merkt sich der
-Tab (`sessionStorage`, `mini.admin.ansicht`): Nach «Neu laden» oder einem
-Löschen steht alles wieder so da. Die Tabellen der Spieler und Spiele lassen
-sich nach jeder Spalte sortieren (ein Tipp auf die Überschrift, ein zweiter
-dreht um). Ein Filter gilt für den ganzen Adminbereich: nach Tier, nach dem,
+(Bis zum 18. November 2026 waren «Spiele» zwei Bereiche: «Welche Spiele
+gespielt werden» mit den Haken und den Tiers, und «Spiele und Bestenlisten»
+mit einer Zeile je Spiel, die ihre Bestenliste aufklappte.)
+
+**Spiele** (`admin.js`, `baueSpiele`). Die Felder stehen nach Tier gruppiert
+– oder in einer Reihe nach Name, Spielern, Runden, Spielzeit oder dem
+letzten Mal (`ORDNUNG`, die Auswahl neben dem Filter). Nur das Kästchen ist
+der Haken: Ein Tipp daneben legt nichts um – auf der Startseite wäre es
+sofort gespeichert. Unter dem Namen steht, wie viele spielen und wie oft
+(«noch nie gespielt»), zuerst das, wonach geordnet ist. «Alle anhaken» und
+«Alle abwählen» speichern in einem Mal; mit einem Filter gelten sie nur für
+die gezeigten Spiele und sagen das. Was von Spielen übrig ist, die es nicht
+mehr gibt, steht am Schluss («Kein Spiel mehr»), ohne Kästchen – aber mit
+Fenster, damit es sich wegräumen lässt.
+
+**Das Fenster eines Spiels** (`zeigeSpielFenster`), über dem Adminbereich wie
+die Auswertung eines Spielers: oben das Tier, ob es auf der Startseite
+steht, und «▶ Spielen»; dann Spieler, Runden, Spielzeit, der Rekord mit
+seinem Namen und wann zuletzt gespielt wurde. Darunter die Bestenliste, ein
+Eintrag je Gerät: Platz, Name (ein Tipp öffnet seine Auswertung), Punkte,
+Runden, Spielzeit, Zuletzt – nach jeder Spalte zu sortieren –, und je
+Eintrag «Namen ändern» und «Löschen». Ganz unten «Bestenliste leeren». Nach
+jeder Änderung wird neu gelesen, und das Fenster steht wieder da.
+
+Was aufgeklappt ist, wonach sortiert und geordnet und wie gefiltert wird,
+merkt sich der Tab (`sessionStorage`, `mini.admin.ansicht`): Nach «Neu
+laden» oder einem Löschen steht alles wieder so da. Die Tabellen der
+Spieler, der Auswertung und der Bestenliste lassen sich nach jeder Spalte
+sortieren (ein Tipp auf die Überschrift, ein zweiter dreht um). Ein Filter gilt für den ganzen Adminbereich: nach Tier, nach dem,
 was auf der Startseite steht (oder nicht), oder nach den Spielen eines
 Turniers – «Tier 1» heisst dann bei den Spielern auch: Platz im Schnitt in
 Tier 1. Bei den Spielern sucht ein Feld nach dem Namen, und ein Zeitraum
@@ -2597,8 +2619,8 @@ seit wann es einzelne Runden gibt. Die Spiele und ihre Bestenlisten, die
 Kacheln oben, die Turniere und das Aufräumen bleiben bei allen Zeit – und
 gelöscht wird immer der ganze Eintrag, nie nur ein Zeitraum.
 
-Neben jedem Spiel – in der Auswahl für die Startseite wie im Formular eines
-Turniers – steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
+Neben jedem Spiel – im Bereich «Spiele» wie im Formular eines Turniers –
+steht ein kleines ▶. Es startet das Spiel in einem Fenster, das
 das ganze Browserfenster füllt, über dem Adminbereich (ein halb ausgefülltes
 Turnier darunter bleibt, wie es war), mit `?von=admin` in der Adresse. Ins
 Vollbild geht es nicht von selbst: Dafür steht im Spiel oben rechts der
@@ -2641,10 +2663,9 @@ mit mehr als zwei Namen, geht es genauso. Nimmt die Datenbank keine Umzüge an
 sind dann einer, die Einträge liegen noch je Gerät da («auf 2 Geräten») – das
 Fenster sagt es, und «Zusammenführen» holt es später nach.
 Und wurde ein Spiel so umgebaut, dass die alten Zahlen nichts mehr bedeuten,
-leert «Bestenliste leeren» in der aufgeklappten Bestenliste des Spiels die
-ganze Liste auf einmal.
+leert «Bestenliste leeren» im Fenster des Spiels die ganze Liste auf einmal.
 
-**Tiers.** Im Block «Welche Spiele gespielt werden» stehen die Spiele in fünf
+**Tiers.** Im Bereich «Spiele» stehen die Spiele in fünf
 Gruppen, Tier 1 bis 5, und neben jedem ein kleines T1 bis T5 zum Umteilen. Wer ein Spiel
 umteilt, speichert die Einteilung sofort (`config/miniGames`, Feld `tiers`,
 `cloud.js` `setzeTiers`). Im Formular eines Turniers stehen die Spiele genauso
