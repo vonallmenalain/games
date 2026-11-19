@@ -47,6 +47,19 @@ if (tabelle) {
       z && z.spiel === s.spiel && z.seite === s.seite && z.page === s.page);
   });
 }
+// Seit wann es jedes Spiel gibt (SEIT): Davon hängt «Neu» im Regal der
+// Startseite ab. Ein Spiel ohne Tag wäre nie neu – auch nicht am ersten Tag.
+const seitTabelle = miniJs.match(/const SEIT = \{([\s\S]*?)\};/);
+pruefe("mini-games.js hat eine Tabelle SEIT", Boolean(seitTabelle));
+if (seitTabelle) {
+  const seit = new Map([...seitTabelle[1].matchAll(/(\w+):\s*"([^"]*)"/g)].map((m) => [m[1], m[2]]));
+  for (const s of SPIELE) {
+    const tag = seit.get(s.spiel) || "";
+    pruefe(`SEIT nennt den Tag, an dem ${s.spiel} dazukam (gefunden: "${tag}")`,
+      /^\d{4}-\d{2}-\d{2}$/.test(tag) && !Number.isNaN(Date.parse(`${tag}T00:00:00Z`)));
+  }
+  for (const id of seit.keys()) pruefe(`SEIT kennt kein erfundenes Spiel (${id})`, SPIELE.some((s) => s.spiel === id));
+}
 
 // --- 3. Jedes Spiel hat sein Skript, und das Skript kennt seine Seite -------
 for (const s of SPIELE) {

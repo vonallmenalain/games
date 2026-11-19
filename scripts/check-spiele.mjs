@@ -1504,6 +1504,188 @@ try {
     pruefe(new URL(seite.url()).pathname === "/fischteich", `${bewegung}: Ein Tipp aufs Bild startet das Spiel nicht: ${seite.url()}`);
     await kontext.close();
   }
+
+  // --- 3c. Das Regal: alle Spiele auf einen Blick -------------------------------
+  // Links vor der Zeile «Alle»: Ein Tipp darauf oder ein Wisch über die Zeile
+  // nach oben zieht alle Spiele als Raster hoch – grosse Bilder (hochkant zwei
+  // nebeneinander), der Rekord darunter, der eigene Platz darauf. Die Filter
+  // mit einem Tipp: Neu, Nie gespielt, Hier bin ich vorne, Knapp dran. Ein
+  // Tipp auf ein Spiel holt es auf die Bühne, ohne es zu starten. Mia steht im
+  // Turmbau knapp hinter Grosi (95 zu 99), im Fischteich vor ihr, in Blätter
+  // im Strom weit hinter Leo – alles andere hat sie nie gespielt.
+  for (const bewegung of ["no-preference", "reduce"]) {
+    const wo = `Regal (${bewegung})`;
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { bewegung });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__regal_vorbereitet")) return;
+      sessionStorage.setItem("__regal_vorbereitet", "1");
+      const e = (game, spieler, name, punkte) => [`${game}_${spieler}`, { id: `${game}_${spieler}`, game, spieler, name, punkte, versuche: 2, updatedAtMs: 1000 }];
+      localStorage.setItem("__mini_attrappe", JSON.stringify([
+        e("towerStack", "mini_vorherdagewesen", "Grosi", 99),
+        e("towerStack", "mini_miamiamiamia", "Mia", 95),
+        e("fishPond", "mini_vorherdagewesen", "Grosi", 12),
+        e("fishPond", "mini_miamiamiamia", "Mia", 20),
+        e("leafFlow", "mini_leoleoleoleo", "Leo", 50),
+        e("leafFlow", "mini_miamiamiamia", "Mia", 10),
+      ]));
+      localStorage.setItem("mini.name", "Mia");
+      localStorage.setItem("mini.id", "mini_miamiamiamia");
+    });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".ar-kachel", { timeout: 8000 });
+    await seite.waitForFunction(() => /Grosi/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+    await seite.waitForTimeout(500);
+    const knopf = await seite.evaluate(() => {
+      const k = document.querySelector(".ar-auswahl .ar-regal-knopf");
+      const r = k?.getBoundingClientRect();
+      const erste = document.querySelector(".ar-kachel")?.getBoundingClientRect();
+      return { da: Boolean(k), text: k?.textContent || "", links: r ? r.right <= (erste?.left ?? 0) + 1 : false, unten: r?.bottom ?? 9999 };
+    });
+    pruefe(knopf.da && knopf.text.includes("Alle") && knopf.text.includes(String(SPIELE.length)) && knopf.links && knopf.unten <= 820,
+      `${wo}: Links vor der Zeile fehlt der Knopf «Alle ${SPIELE.length}»: ${JSON.stringify(knopf)}`);
+    const offen = () => seite.evaluate(() => Boolean(document.querySelector("dialog.ar-regal")?.open));
+    const gezeigt = () => seite.evaluate(() => [...document.querySelectorAll(".ar-regal-kachel")].filter((k) => !k.hidden).map((k) => k.dataset.spiel));
+    const kachel = (spiel) => seite.evaluate((id) => {
+      const k = document.querySelector(`.ar-regal-kachel[data-spiel="${id}"]`);
+      const platz = k?.querySelector(".ar-regal-platz");
+      return {
+        bild: k ? new URL(k.querySelector("img").getAttribute("src"), location.href).pathname : "",
+        name: k?.querySelector(".ar-regal-name")?.textContent || "",
+        rekord: k?.querySelector(".ar-regal-rekord")?.textContent || "",
+        platz: platz && !platz.hidden ? platz.textContent : "",
+        gold: Boolean(platz?.classList.contains("ist-platz-1")),
+        ziel: k?.querySelector(".ar-regal-ziel:not([hidden])")?.textContent || "",
+      };
+    }, spiel);
+    const filtere = async (filter) => {
+      await seite.click(`.ar-regal-chip[data-filter="${filter}"]`);
+      await seite.waitForTimeout(450);
+      return seite.evaluate((f) => {
+        const chip = document.querySelector(`.ar-regal-chip[data-filter="${f}"]`);
+        const leer = document.querySelector(".ar-regal-leer");
+        return { an: chip?.getAttribute("aria-pressed") === "true", zahl: chip?.querySelector(".ar-regal-chip-zahl")?.textContent || "", leer: leer && !leer.hidden ? leer.textContent : "" };
+      }, filter);
+    };
+
+    // Auf mit dem Knopf: alle Spiele, je mit Bild, Name und Rekord.
+    await seite.click(".ar-regal-knopf");
+    await seite.waitForTimeout(500);
+    pruefe(await offen(), `${wo}: Ein Tipp auf «Alle» öffnet das Regal nicht.`);
+    const alle = await gezeigt();
+    pruefe(alle.length === SPIELE.length && SPIELE.every((s) => alle.includes(s.spiel)), `${wo}: Im Regal stehen ${alle.length} Spiele statt ${SPIELE.length}.`);
+    const turm = await kachel("towerStack");
+    pruefe(turm.bild === "/bilder/turmbau-klein.webp" && turm.name === "Turmbau" && /Grosi/.test(turm.rekord) && /99/.test(turm.rekord) && turm.platz === "Du 2." && !turm.ziel,
+      `${wo}: Die Kachel des Turmbaus zeigt nicht Bild, Name, Rekord und Platz: ${JSON.stringify(turm)}`);
+    const teich = await kachel("fishPond");
+    pruefe(teich.platz === "Du 1." && teich.gold && /Mia/.test(teich.rekord), `${wo}: Wo Mia vorne ist, steht das nicht golden auf dem Bild: ${JSON.stringify(teich)}`);
+    pruefe(!(await kachel("moonLander")).platz && /Rekord frei/.test((await kachel("moonLander")).rekord),
+      `${wo}: Ein Spiel ohne Einträge zeigt nicht «Rekord frei»: ${JSON.stringify(await kachel("moonLander"))}`);
+    // Grosse Bilder: hochkant zwei nebeneinander, jedes mindestens 150 px breit,
+    // und das Regal reicht fast bis oben.
+    const raster = await seite.evaluate(() => {
+      const b = [...document.querySelectorAll(".ar-regal-kachel:not([hidden]) .ar-regal-bild")].slice(0, 3).map((x) => x.getBoundingClientRect());
+      const blatt = document.querySelector(".ar-regal").getBoundingClientRect();
+      return { breite: b[0].width, nebeneinander: Math.abs(b[0].top - b[1].top) < 1, dritteDarunter: b[2].top > b[0].bottom, oben: blatt.top, unten: blatt.bottom };
+    });
+    pruefe(raster.breite >= 150 && raster.nebeneinander && raster.dritteDarunter && raster.oben < 60 && raster.unten >= 819,
+      `${wo}: Das Raster hat hochkant nicht zwei grosse Bilder nebeneinander: ${JSON.stringify(raster)}`);
+    pruefe(await seite.locator(".ar-regal-chip").count() === 5, `${wo}: Es sind nicht die fünf Filter.`);
+    const chips = await seite.evaluate(() => [...document.querySelectorAll(".ar-regal-chip")].map((c) => c.getBoundingClientRect().right));
+    pruefe(chips.every((r) => r <= 420), `${wo}: Ein Filter steht über den Rand hinaus: ${chips.join(", ")}`);
+    const ohne = await klassenOhneRegel(seite);
+    pruefe(ohne.length === 0, `${wo}: Regal – Klassen ohne Regel: ${ohne.join(", ")}`);
+
+    // Die Filter.
+    const vorne = await filtere("vorne");
+    pruefe(vorne.an && vorne.zahl === "1" && JSON.stringify(await gezeigt()) === JSON.stringify(["fishPond"]),
+      `${wo}: «Hier bin ich vorne» zeigt nicht nur den Fischteich: ${JSON.stringify({ ...vorne, spiele: await gezeigt() })}`);
+    const knapp = await filtere("knapp");
+    const turmKnapp = await kachel("towerStack");
+    pruefe(knapp.an && knapp.zahl === "1" && JSON.stringify(await gezeigt()) === JSON.stringify(["towerStack"]) && turmKnapp.ziel === "Noch 4 Blöcke bis Platz 1",
+      `${wo}: «Knapp dran» zeigt nicht den Turmbau mit dem, was fehlt: ${JSON.stringify({ ...knapp, spiele: await gezeigt(), ziel: turmKnapp.ziel })}`);
+    const nie = await filtere("nie");
+    const nieSpiele = await gezeigt();
+    pruefe(nie.an && nieSpiele.length === SPIELE.length - 3 && !nieSpiele.some((s) => ["towerStack", "fishPond", "leafFlow"].includes(s)) && nie.zahl === String(SPIELE.length - 3),
+      `${wo}: «Nie gespielt» zeigt nicht die Spiele ohne Mia: ${nieSpiele.length} (${nie.zahl})`);
+    // Neu: was seit höchstens zwei Wochen dabei ist (SEIT in mini-games.js),
+    // das neueste zuerst – oder, wenn es keines gibt, ein Satz.
+    const seitTabelle = readFileSync(path.join(WURZEL, "mini-games.js"), "utf8").match(/const SEIT = \{([\s\S]*?)\};/)[1];
+    const seit = [...seitTabelle.matchAll(/(\w+):\s*"([^"]*)"/g)].map((m) => ({ spiel: m[1], tag: m[2] }));
+    const jetzt = await seite.evaluate(() => Date.now());
+    const neuSoll = seit.filter((s) => jetzt - new Date(`${s.tag}T00:00:00`).getTime() < 14 * TAG).map((s) => s.tag);
+    const neu = await filtere("neu");
+    const neuSpiele = await gezeigt();
+    const neuTage = neuSpiele.map((s) => seit.find((x) => x.spiel === s)?.tag || "");
+    pruefe(neu.an && neuSpiele.length === neuSoll.length && neuTage.every((t, i) => i === 0 || t <= neuTage[i - 1]) && (neuSoll.length > 0 || /kein Spiel neu/.test(neu.leer)),
+      `${wo}: «Neu» zeigt nicht die Spiele der letzten zwei Wochen, das neueste zuerst: ${neuSpiele.join(", ")} (erwartet ${neuSoll.length})`);
+    if (neuSpiele.length) {
+      pruefe(await seite.locator(`.ar-regal-kachel[data-spiel="${neuSpiele[0]}"] .ar-regal-neu:not([hidden])`).count() === 1,
+        `${wo}: Auf dem Bild eines neuen Spiels steht nicht «Neu».`);
+    }
+
+    // Ein Tipp auf ein Spiel: das Regal geht zu, das Spiel steht auf der
+    // Bühne – gestartet wird es nicht.
+    await filtere("alle");
+    await seite.click('.ar-regal-kachel[data-spiel="leafFlow"]');
+    await seite.waitForTimeout(800);
+    const oben = await seite.evaluate(() => ({
+      titel: document.querySelector(".ar-titel")?.textContent,
+      aktiv: document.querySelector(".ar-kachel.ist-aktiv")?.dataset.spiel,
+      play: document.querySelector(".ar-play")?.getAttribute("href"),
+    }));
+    pruefe(!(await offen()) && oben.titel === "Blätter im Strom" && oben.aktiv === "leafFlow" && oben.play === "/blaetter" && new URL(seite.url()).pathname === "/",
+      `${wo}: Ein Tipp auf ein Spiel im Regal holt es nicht auf die Bühne: ${JSON.stringify({ ...oben, offen: await offen(), url: seite.url() })}`);
+
+    // Wieder auf: Das Spiel auf der Bühne ist im Regal markiert. Escape
+    // schliesst.
+    await seite.click(".ar-regal-knopf");
+    await seite.waitForTimeout(500);
+    pruefe(await seite.locator(".ar-regal-kachel.ist-aktiv").getAttribute("data-spiel") === "leafFlow",
+      `${wo}: Im Regal ist nicht markiert, welches Spiel auf der Bühne steht.`);
+    await filtere("vorne");
+    await seite.keyboard.press("Escape");
+    await seite.waitForTimeout(500);
+    pruefe(!(await offen()), `${wo}: Escape schliesst das Regal nicht.`);
+
+    // Ein Wisch über die Zeile nach oben öffnet es – ohne die Kachel zu
+    // wählen, auf der er begann, und mit dem Filter von vorhin (er gilt, bis
+    // die Sitzung endet). Ein Tipp daneben schliesst es wieder.
+    const zeile = await seite.locator('.ar-kachel[data-spiel="towerStack"]').boundingBox();
+    await seite.mouse.move(zeile.x + zeile.width / 2, zeile.y + zeile.height / 2);
+    await seite.mouse.down();
+    await seite.mouse.move(zeile.x + zeile.width / 2, zeile.y - 120, { steps: 6 });
+    await seite.mouse.up();
+    await seite.waitForTimeout(500);
+    pruefe(await offen(), `${wo}: Ein Wisch über die Zeile nach oben öffnet das Regal nicht.`);
+    pruefe(await seite.evaluate(() => document.querySelector(".ar-titel")?.textContent) === "Blätter im Strom",
+      `${wo}: Der Wisch nach oben hat auch die Kachel gewählt, auf der er begann.`);
+    pruefe(await seite.locator('.ar-regal-chip.ist-an[data-filter="vorne"]').count() === 1 && JSON.stringify(await gezeigt()) === JSON.stringify(["fishPond"]),
+      `${wo}: Wieder geöffnet, gilt nicht mehr der Filter von vorhin.`);
+    await seite.mouse.click(210, 6);
+    await seite.waitForTimeout(600);
+    pruefe(!(await offen()), `${wo}: Ein Tipp neben das Regal schliesst es nicht.`);
+    pruefe(await seite.evaluate(() => document.documentElement.scrollHeight) <= 821, `${wo}: Mit dem Regal passt die Startseite nicht mehr auf einen Bildschirm.`);
+    await kontext.close();
+  }
+
+  // Ohne Namen: Die eigenen Filter sagen, wozu es einen Namen braucht.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/`, { waitUntil: "load" });
+    await seite.waitForSelector(".ar-regal-knopf", { timeout: 8000 });
+    await seite.waitForFunction(() => /Grosi/.test(document.querySelector(".ar-rang")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+    await seite.click(".ar-regal-knopf");
+    await seite.waitForTimeout(400);
+    await seite.click('.ar-regal-chip[data-filter="vorne"]');
+    await seite.waitForTimeout(300);
+    const leer = await seite.evaluate(() => ({
+      text: document.querySelector(".ar-regal-leer:not([hidden])")?.textContent || "",
+      kacheln: [...document.querySelectorAll(".ar-regal-kachel")].filter((k) => !k.hidden).length,
+    }));
+    pruefe(leer.kacheln === 0 && /mit deinem Namen/.test(leer.text), `Regal ohne Namen: «Hier bin ich vorne» sagt nicht, wozu es den Namen braucht: ${JSON.stringify(leer)}`);
+    await kontext.close();
+  }
+
   // Quer auf dem Handy: das Bild quer aufgenommen, die Leiste daneben, die
   // Zeile darunter – alles auf einem Bildschirm.
   {
@@ -1558,6 +1740,7 @@ try {
     pruefe(/^\/bilder\/turmbau-(hoch|quer)\.webp$/.test(tn.film) && tn.play === `/turmbau?turnier=${HERBST}` && tn.link === tn.play,
       `${wo}: Oben steht nicht das Bild des Turmbaus, das ins Turnier führt: ${JSON.stringify(tn)}`);
     pruefe(JSON.stringify(tn.spiele) === JSON.stringify(["towerStack", "fishPond", "numberLine"]), `${wo}: In der Zeile stehen nicht die Spiele des Turniers: ${tn.spiele.join(", ")}`);
+    pruefe(await seite.locator(".ar-regal-knopf").count() === 0, `${wo}: Im Turnier steht das Regal mit allen Spielen.`);
     pruefe(tn.wertungUnten <= tn.filmOben + 1 && tn.kachelUnten <= tn.fenster && tn.blatt <= tn.fenster + 1,
       `${wo}: Gesamtwertung, Bild und Zeile stehen nicht übereinander in einem Bild: ${JSON.stringify(tn)}`);
     await kontext.close();

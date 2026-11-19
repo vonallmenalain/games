@@ -37,8 +37,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     service-worker.js     erzeugt
 
     mini-games.js         die Liste der Spiele, die Knöpfe, die Bestenliste,
-                          die Bühne der Start- und der Turnierseite, die
-                          Auswertung der Startseite
+                          die Bühne der Start- und der Turnierseite, das
+                          Regal mit allen Spielen, die Auswertung der
+                          Startseite
     bilder/               die Bilder der Startseite: echte Runden, im richtigen
                           Moment aufgenommen (quer, hoch, klein)
     filme/                die Filme von früher (ausgeschaltet, mini-games.js,
@@ -110,6 +111,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
    `LernappZufall` und `LernappHighscore`; alles davon gibt es hier.
 2. Eine Zeile in `SPIELE` in `scripts/seiten-bauen.mjs`, eine in
    `mini-games.js` und eine in `highscore.js` (Titel, Bereich, Einheit).
+   Dazu in `mini-games.js` unter `SEIT` der Tag, an dem es dazukommt – zwei
+   Wochen lang steht es dann im Regal der Startseite unter «Neu».
 3. `npm run bauen && npm run pruefen`
 
 Ein Spiel, das würfelt, nimmt seine Zahlen aus `LernappZufall.fuer(<spiel>)`
@@ -2071,6 +2074,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
+  Links davor steht fest das **Regal** («Alle 47», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
@@ -2078,6 +2082,44 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
   Fenster, siehe unten), wo es geht «Als App installieren», der Name (ein
   Tipp ändert ihn) und das Vollbild. Links das Logo: die Pixel-Winkel und
   «arcade».
+
+**Das Regal** (seit November 2026, `mini-games.js`, `arcadeBuehne` mit
+`regal: true` – nur auf der Startseite, ein Turnier hat seine paar Spiele in
+der Zeile). Bei bald fünfzig Spielen findet man in einer einzigen Zeile nichts
+mehr. Darum steht links vor der Zeile ein Knopf «Alle» mit der Zahl der
+Spiele, darüber ein kleiner Griff: Ein Tipp auf den Knopf oder ein Wisch über
+die Zeile nach oben zieht ein Blatt von unten hoch, fast so hoch wie der
+Bildschirm (ein `<dialog>`: Escape, ein Tipp daneben, × oder am Griff nach
+unten ziehen schliesst es). Darin:
+
+- **Alle Spiele als Raster** – mit grossen Bildern, denn auf dem Bild soll man
+  sehen, was man im Spiel tut, auch wenn man es nicht kennt. Auf dem Handy
+  hochkant stehen deshalb zwei nebeneinander, nicht drei oder vier; breiter
+  mehr, je mindestens 190 bis 210 px (`--ar-regal-min`). Unter jedem Bild der
+  Name und der Allzeit-Rekord: Krone, wer ihn hält, die Zahl – oder «Rekord
+  frei». Auf dem Bild oben rechts der eigene Platz («Du 2.», die ersten drei
+  golden, silbern, bronzen), oben links «Neu». Das Spiel, das gerade auf der
+  Bühne steht, hat einen Rahmen in seiner Farbe.
+- **Filter mit einem Tipp**, jeder mit der Zahl seiner Spiele, alle zu sehen
+  (auf dem Handy in zwei Zeilen):
+  - *Alle* – in der Reihenfolge der Zeile.
+  - *Neu* – seit höchstens zwei Wochen dabei (`NEU_TAGE`), das neueste
+    zuerst. Wann ein Spiel dazukam, steht in `SEIT` in mini-games.js;
+    `npm run pruefen` besteht darauf, dass jedes Spiel dort einen Tag hat.
+  - *Nie gespielt* – wo noch keine Runde unter dem eigenen Namen in der
+    Rangliste steht.
+  - *Hier bin ich vorne* – wo man den Rekord hält (auch geteilt).
+  - *Knapp dran* – wo man höchstens 15 % hinter dem Platz davor liegt
+    (`KNAPP_ANTEIL`, mindestens aber einen Punkt), das knappste zuerst; unter
+    dem Rekord steht, was fehlt: «Noch 4 Blöcke bis Platz 1».
+  Welcher Filter gilt, merkt sich die Sitzung (`arcade.regal`): Wer aus einem
+  Spiel zurückkommt, findet ihn wieder. Ohne Namen sagen die eigenen Filter,
+  wozu es einen braucht.
+- **Ein Tipp auf ein Spiel** schliesst das Regal, und sein Bild fliegt auf die
+  Bühne – gestartet wird es dort, mit Play oder einem Tipp aufs grosse Bild.
+
+Die Zahlen kommen aus denselben Listen wie die Rangliste der Bühne: Das Regal
+fragt nichts zusätzlich, es zeichnet sich neu, wenn sie kommen.
 
 **Die Gesamtwertung** (`mini-games.js`, `gesamtwertung`, `gesamtTafel`). Der
 Platz im Schnitt allein ist nicht fair: Platz 2 von zwei zählte wie Platz 2

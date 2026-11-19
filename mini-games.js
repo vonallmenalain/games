@@ -110,6 +110,27 @@
     { id: "iceStock", seite: "eisstock", page: "icestock" },
   ];
 
+  // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
+  // (arcadeBuehne, regal). Ein neues Spiel bekommt hier seinen Tag, sonst ist
+  // es nie neu; scripts/pruefen.mjs besteht darauf. Die Tage stammen aus der
+  // Geschichte des Repositorys: der Merge, mit dem die Datei des Spiels
+  // (zuletzt) dazukam.
+  const SEIT = {
+    tileMemory: "2026-09-20", fishPond: "2026-09-20", leafFlow: "2026-09-20", towerStack: "2026-09-20",
+    numberLine: "2026-09-20", boilerRoom: "2026-09-21",
+    bridgeBuilder: "2026-10-12", dartWheel: "2026-10-12", vineSwing: "2026-10-12", tunnelFlight: "2026-10-12",
+    driftRace: "2026-10-13", planetHop: "2026-10-13", moonLander: "2026-10-13", gravityRun: "2026-10-13", hillGlide: "2026-10-13",
+    balloonRide: "2026-10-24", skiSlalom: "2026-10-24", frogHop: "2026-10-24", craneHarbor: "2026-10-24", ropeWalk: "2026-10-24",
+    wireLoop: "2026-10-25", twinLanes: "2026-10-25", keepyUppy: "2026-10-25",
+    juggler: "2026-10-26", skyDive: "2026-10-26", lumberCut: "2026-10-26", batEcho: "2026-10-26", timeNinja: "2026-10-26",
+    highDive: "2026-10-28", freeDive: "2026-10-28",
+    flockFlight: "2026-11-10", waveRide: "2026-11-10", stoneSkip: "2026-11-10", iceRun: "2026-11-10", cliffFlight: "2026-11-10",
+    hammerThrow: "2026-11-12", duckCrossing: "2026-11-12",
+    mineCart: "2026-11-18", twinRotor: "2026-11-18", eyeMeasure: "2026-11-18", fireRope: "2026-11-18", flagCommand: "2026-11-18",
+    timeSense: "2026-11-18",
+    speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
+  };
+
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
   // Anlegen eines Turniers stehen sie danach gruppiert (admin.js). Was hier
   // steht, ist die Vorgabe; der Admin teilt im Adminbereich selbst ein, und
@@ -2254,6 +2275,8 @@
     pokal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11M12 13v4m-3.5 3h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     zu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
     app: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v10m-4.5-4.5 4.5 4.5 4.5-4.5M5.5 19.5h13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    // Das Regal: vier Bilder im Raster.
+    regal: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="7.6" height="6.2" rx="1.6"/><rect x="12.9" y="4.5" width="7.6" height="6.2" rx="1.6"/><rect x="3.5" y="13.3" width="7.6" height="6.2" rx="1.6"/><rect x="12.9" y="13.3" width="7.6" height="6.2" rx="1.6"/></svg>',
   };
 
   function mitIcon(tag, klasse, icon, text) {
@@ -2719,11 +2742,39 @@
    * Solange niemand selbst wählt, kommt alle paar Sekunden der nächste
    * Favorit.
    *
+   * Links vor der Zeile das Regal («Alle»): ein Tipp darauf, oder ein Wisch
+   * über die Zeile nach oben, zieht alle Spiele als Raster hoch – grosse
+   * Bilder, der Rekord darunter, der eigene Platz darauf, und oben Filter
+   * mit einem Tipp: Neu, Nie gespielt, Hier bin ich vorne, Knapp dran. Ein
+   * Tipp auf ein Bild holt das Spiel auf die Bühne. Nur auf der Startseite;
+   * ein Turnier hat seine paar Spiele in der Zeile.
+   *
    * Oben rechts: die Gesamtwertung über alle Spiele (der Pokal), der Name,
    * das Vollbild – und, wo es geht, «Als App installieren».
    */
   const WECHSEL_MS = 9000;
   const ZULETZT_KEY = "arcade.zuletzt";
+  // Das Regal: welcher Filter gilt (bis die Sitzung endet – wer aus einem
+  // Spiel zurückkommt, findet ihn wieder), wie lange ein Spiel «neu» ist und
+  // was «knapp dran» heisst: höchstens so viel hinter dem Platz davor (ein
+  // Anteil von dessen Punkten – mindestens aber ein Punkt).
+  const REGAL_KEY = "arcade.regal";
+  const NEU_TAGE = 14;
+  const KNAPP_ANTEIL = 0.15;
+  const REGAL_FILTER = [
+    { id: "alle", wort: "Alle" },
+    { id: "neu", wort: "Neu", wie: "Seit höchstens zwei Wochen dabei – das neueste zuerst." },
+    { id: "nie", wort: "Nie gespielt", wie: "Hier steht noch keine Runde von dir in der Rangliste." },
+    { id: "vorne", wort: "Hier bin ich vorne", wie: "Hier hältst du den Rekord." },
+    { id: "knapp", wort: "Knapp dran", wie: "Höchstens 15 % hinter dem Platz vor dir – das nächste zuerst." },
+  ];
+  // Eine Zahl mit ihrer Einheit – «1 Block», «3 Blöcke». highscore.js kennt
+  // nur die Mehrzahl.
+  const EINZAHL = { Blätter: "Blatt", Blöcke: "Block", Fische: "Fisch", Fänge: "Fang", Kacheln: "Kachel", Kontakte: "Kontakt", Perlen: "Perle", Punkte: "Punkt", Sterne: "Stern" };
+  function mitEinheit(wert, spiel) {
+    const viele = einheit(spiel);
+    return `${wert} ${wert === 1 ? EINZAHL[viele] || viele : viele}`;
+  }
   // Oben ein Bild (false) oder ein laufender Film (true).
   const FILME = false;
   // Breite durch Höhe der beiden Formate.
@@ -2919,6 +2970,8 @@
    *   liveWirt      wo der Knopf «● 3 live» hinkommt (oben im Kopf) – wer
    *                 gerade spielt (spielen); ohne ihn gibt es keinen
    *   liveVorne     ob er dort vorne steht (sonst hinten)
+   *   regal         links vor der Zeile das Regal mit allen Spielen und den
+   *                 Filtern (nur die Startseite)
    *
    * Die Ergebnisse reicht die Seite nach, sobald sie da sind – und jedes Mal,
    * wenn sie sich ändern: daten({ listen, fehler, verdeckt }). neu() zeichnet
@@ -2936,6 +2989,7 @@
     ansehbar = true,
     liveWirt = null,
     liveVorne = true,
+    regal = false,
   }) {
     // --- Oben das Bild, darunter die Leiste ----------------------------------
     const buehne = el("section", "ar-buehne");
@@ -3002,6 +3056,22 @@
       vor.disabled = spur.scrollLeft + spur.clientWidth > spur.scrollWidth - 8;
     };
     spur.addEventListener("scroll", knoepfe, { passive: true });
+    // Das Regal: links vor der Zeile ein Knopf «Alle», darüber ein Griff –
+    // ein Tipp auf den Knopf oder ein Wisch über die Zeile nach oben zieht es
+    // hoch (regalAuf, weiter unten).
+    let regalKnopf = null;
+    if (regal) {
+      regalKnopf = mitIcon("button", "ar-regal-knopf", "regal");
+      regalKnopf.type = "button";
+      regalKnopf.setAttribute("aria-haspopup", "dialog");
+      regalKnopf.setAttribute("aria-label", `Alle ${reihenfolge.length} Spiele zeigen`);
+      regalKnopf.title = "Alle Spiele – auch mit einem Wisch nach oben";
+      regalKnopf.append(el("span", "ar-regal-knopf-wort", "Alle"), el("span", "ar-regal-knopf-zahl", String(reihenfolge.length)));
+      const griff = el("span", "ar-griff");
+      griff.setAttribute("aria-hidden", "true");
+      auswahl.classList.add("mit-regal");
+      auswahl.append(griff, regalKnopf);
+    }
     auswahl.append(spur, zurueck, vor);
     wirt.append(auswahl);
     window.requestAnimationFrame(knoepfe);
@@ -3257,7 +3327,7 @@
     let format = "";
     let selbstGewaehlt = ruhig;
 
-    function waehle(spiel, { von = null, selbst = false, sofort = false, richtung = 0 } = {}) {
+    function waehle(spiel, { von = null, ab = null, selbst = false, sofort = false, richtung = 0 } = {}) {
       if (selbst) {
         selbstGewaehlt = true;
         uhr.stopp();
@@ -3287,7 +3357,7 @@
       }
 
       zeigeKachel(kacheln.get(spiel), Boolean(vorher));
-      if (selbst && von) flug(von);
+      if (selbst && von) flug(von, ab);
       if (!selbstGewaehlt) uhr.weiter();
     }
 
@@ -3375,13 +3445,15 @@
       spur.scrollTo({ left: Math.max(0, links - (spur.clientWidth - k.offsetWidth) / 2), behavior: sanft && !ruhigHier() ? "smooth" : "auto" });
     }
 
-    // Die Kachel fliegt nach oben: ihr Bild, vom Platz in der Zeile bis über
-    // die ganze Fläche des Bildes.
-    function flug(von) {
+    // Die Kachel fliegt nach oben: ihr Bild, vom Platz in der Zeile (oder im
+    // Regal) bis über die ganze Fläche des Bildes. ab: wo es losfliegt, wenn
+    // es dort schon nicht mehr steht – das Regal ist zu, bevor es fliegt.
+    function flug(von, ab = null) {
       if (ruhigHier() || !von.animate) return;
-      const bild = von.querySelector(".ar-kachel-bild");
-      const a = von.getBoundingClientRect();
+      const bild = von.matches?.("img") ? von : von.querySelector("img");
+      const a = ab || von.getBoundingClientRect();
       const b = filme.getBoundingClientRect();
+      if (!a.width || !a.height) return;
       if (!bild || !b.width || !b.height) return;
       const klon = bild.cloneNode();
       klon.className = "ar-flug";
@@ -3480,6 +3552,364 @@
     });
     play.addEventListener("click", merken);
     buehne.addEventListener("pointercancel", () => { wisch = null; });
+
+    // --- Das Regal: alle Spiele auf einen Blick --------------------------------
+    /*
+     * Ein Blatt, das von unten hochkommt – ein <dialog>: Er hält den Fokus,
+     * Escape schliesst ihn, ein Tipp daneben auch, und wer oben am Griff nach
+     * unten zieht, schiebt ihn weg. Darin oben «Alle Spiele» und die Filter,
+     * darunter die Spiele als Raster: das Bild so gross, dass man sieht, was
+     * man darin tut, der Name, wer den Rekord hält – und, wo man selbst in der
+     * Liste steht, der eigene Platz auf dem Bild. Ein Tipp auf ein Spiel
+     * schliesst das Regal, und sein Bild fliegt auf die Bühne.
+     *
+     * Gebaut wird es beim ersten Öffnen und bleibt dann stehen. Die Zahlen
+     * kommen aus denselben Listen wie die Rangliste (daten) – kommen sie
+     * neu, zeichnet es sich neu.
+     */
+    let regalFenster = null;
+    let regalFilter = "alle";
+    try { regalFilter = sessionStorage.getItem(REGAL_KEY) || "alle"; } catch { regalFilter = "alle"; }
+    if (!REGAL_FILTER.some((f) => f.id === regalFilter)) regalFilter = "alle";
+    const regalKacheln = new Map();
+    const regalChips = new Map();
+    let regalInhalt = null;
+    let regalRaster = null;
+    let regalWie = null;
+    let regalLeer = null;
+    let regalSchliesst = false;
+
+    const zahl = (wert) => Number(wert) || 0;
+    function istNeu(spiel, jetzt = Date.now()) {
+      const seit = SEIT[spiel] ? new Date(`${SEIT[spiel]}T00:00:00`).getTime() : NaN;
+      return Number.isFinite(seit) && jetzt - seit < NEU_TAGE * 24 * 60 * 60 * 1000;
+    }
+
+    // Wo ich in einem Spiel stehe: mein Eintrag, wer vorne liegt, wer direkt
+    // vor mir steht (der Nächste mit mehr Punkten – wer gleich viel hat,
+    // teilt meinen Platz) und wie viel bis dorthin fehlt.
+    function regalStand(spiel) {
+      const liste = listen.get(spiel) || [];
+      const ich = liste.find((e) => e.eigen) || null;
+      let vor = null;
+      if (ich && ich.platz > 1) {
+        for (let i = liste.indexOf(ich) - 1; i >= 0; i -= 1) {
+          if (zahl(liste[i].punkte) > zahl(ich.punkte)) { vor = liste[i]; break; }
+        }
+      }
+      const fehlt = vor ? zahl(vor.punkte) - zahl(ich.punkte) : 0;
+      return {
+        oben: liste[0] || null,
+        ich,
+        vor,
+        fehlt,
+        knapp: Boolean(vor) && fehlt <= Math.max(1, zahl(vor.punkte) * KNAPP_ANTEIL),
+      };
+    }
+
+    // Die Spiele eines Filters, in der Reihenfolge, in der sie dastehen. Die
+    // Filter, die nach den eigenen Plätzen fragen, brauchen die Listen: null,
+    // solange sie nicht da sind.
+    function regalAuswahl(filter) {
+      const vorher = (a, b) => reihenfolge.indexOf(a) - reihenfolge.indexOf(b);
+      if (filter === "neu") {
+        const jetzt = Date.now();
+        return reihenfolge.filter((s) => istNeu(s, jetzt))
+          .sort((a, b) => String(SEIT[b]).localeCompare(String(SEIT[a])) || vorher(a, b));
+      }
+      if (filter === "alle") return reihenfolge;
+      if (!geladen) return null;
+      const stand = new Map(reihenfolge.map((s) => [s, regalStand(s)]));
+      if (filter === "nie") return reihenfolge.filter((s) => !stand.get(s).ich);
+      if (filter === "vorne") return reihenfolge.filter((s) => stand.get(s).ich?.platz === 1);
+      if (filter === "knapp") {
+        const anteil = (s) => stand.get(s).fehlt / Math.max(1, zahl(stand.get(s).vor.punkte));
+        return reihenfolge.filter((s) => stand.get(s).knapp).sort((a, b) => anteil(a) - anteil(b) || vorher(a, b));
+      }
+      return reihenfolge;
+    }
+
+    // Was dasteht, wenn ein Filter nichts findet.
+    function regalLeerSatz(filter) {
+      const mitName = Boolean(name());
+      if (filter === "neu") return "Gerade ist kein Spiel neu.";
+      if (filter === "nie") return "Du hast schon jedes Spiel gespielt. Stark!";
+      if (filter === "vorne") {
+        return mitName ? "Noch nirgends vorne. Such dir ein Spiel aus und hol dir den Rekord."
+          : "Spiel eine Runde mit deinem Namen – dann steht hier, wo du vorne bist.";
+      }
+      if (filter === "knapp") {
+        return mitName ? "Gerade bist du nirgends knapp hinter jemandem."
+          : "Spiel eine Runde mit deinem Namen – dann steht hier, wo du knapp dran bist.";
+      }
+      return "";
+    }
+
+    // Eine Kachel im Regal: oben das Bild – darauf «Neu» und der eigene
+    // Platz –, darunter der Name und wer den Rekord hält.
+    function regalKachel(spiel) {
+      const k = el("button", "ar-regal-kachel");
+      k.type = "button";
+      k.dataset.spiel = spiel;
+      const f = farbe(spiel);
+      k.style.setProperty("--mini-farbe", f.hell);
+      k.style.setProperty("--mini-farbe-dunkel", f.dunkel);
+      const rahmen = el("span", "ar-regal-bild");
+      const bild = el("img", "ar-regal-foto");
+      bild.alt = "";
+      bild.loading = "lazy";
+      bild.decoding = "async";
+      bild.draggable = false;
+      bild.src = bildPfad(spiel, "klein");
+      bild.addEventListener("error", () => k.classList.add("ohne-bild"), { once: true });
+      const neu = el("span", "ar-regal-neu", "Neu");
+      const platz = el("span", "ar-regal-platz");
+      rahmen.append(bild, neu, platz);
+      const text = el("span", "ar-regal-text");
+      const rekord = el("span", "ar-regal-rekord");
+      const ziel = el("span", "ar-regal-ziel");
+      text.append(el("span", "ar-regal-name", titel(spiel)), rekord, ziel);
+      k.append(rahmen, text);
+      // Wo das Bild stand, bevor das Regal zugeht – von dort fliegt es.
+      k.addEventListener("click", () => {
+        const ab = bild.getBoundingClientRect();
+        regalZu({ sofort: true });
+        waehle(spiel, { von: bild, ab, selbst: true });
+      });
+      return { k, neu, platz, rekord, ziel };
+    }
+
+    function regalKachelZeigen(t, spiel, { oben, ich, vor, fehlt }) {
+      t.k.classList.toggle("ist-aktiv", spiel === aktuell);
+      t.k.setAttribute("aria-current", spiel === aktuell ? "true" : "false");
+      const neu = istNeu(spiel);
+      t.neu.hidden = !neu;
+      // Der Rekord: die Krone, wer ihn hält, und die Zahl.
+      t.rekord.innerHTML = "";
+      t.rekord.hidden = ladefehler;
+      t.rekord.classList.toggle("ist-frei", geladen && !oben);
+      t.rekord.append(mitIcon("span", "ar-regal-krone", "krone"));
+      if (!geladen) t.rekord.append(el("span", "ar-regal-wer", "…"));
+      else if (!oben) t.rekord.append(el("span", "ar-regal-wer", "Rekord frei"));
+      else t.rekord.append(el("span", "ar-regal-wer", oben.name), el("span", "ar-regal-wert", String(oben.punkte)));
+      // Der eigene Platz, oben rechts auf dem Bild – die ersten drei golden,
+      // silbern, bronzen.
+      t.platz.hidden = !ich;
+      t.platz.textContent = ich ? `Du ${ich.platz}.` : "";
+      t.platz.classList.remove("ist-platz-1", "ist-platz-2", "ist-platz-3");
+      if (ich && [1, 2, 3].includes(ich.platz)) t.platz.classList.add(`ist-platz-${ich.platz}`);
+      // Nur unter «Knapp dran»: wie viel bis zum Platz davor fehlt.
+      const ziel = regalFilter === "knapp" && vor ? `Noch ${mitEinheit(fehlt, spiel)} bis Platz ${vor.platz}` : "";
+      t.ziel.textContent = ziel;
+      t.ziel.hidden = !ziel;
+      const teile = [titel(spiel)];
+      if (neu) teile.push("neu");
+      if (geladen && oben) teile.push(`Rekord: ${oben.name} mit ${mitEinheit(zahl(oben.punkte), spiel)}`);
+      else if (geladen) teile.push("Rekord frei");
+      if (ich) teile.push(`du bist auf Platz ${ich.platz}`);
+      if (ziel) teile.push(ziel);
+      t.k.setAttribute("aria-label", teile.join(" – "));
+    }
+
+    // Das Regal neu zeichnen: die Filter mit ihrer Zahl, die Spiele, die
+    // dazugehören, in ihrer Reihenfolge. oben: wieder an den Anfang; neu: die
+    // Kacheln treten auf (nach einem Wechsel des Filters).
+    function regalZeichnen({ oben = false, neu = false } = {}) {
+      if (!regalFenster || signal.aborted) return;
+      REGAL_FILTER.forEach((f) => {
+        const { chip, anzahl } = regalChips.get(f.id);
+        const an = f.id === regalFilter;
+        chip.classList.toggle("ist-an", an);
+        chip.setAttribute("aria-pressed", String(an));
+        const liste = regalAuswahl(f.id);
+        anzahl.textContent = liste ? String(liste.length) : "";
+        anzahl.hidden = !liste;
+      });
+      const filter = REGAL_FILTER.find((f) => f.id === regalFilter);
+      regalWie.textContent = filter?.wie || "";
+      regalWie.hidden = !filter?.wie;
+
+      const gezeigt = regalAuswahl(regalFilter) || [];
+      const da = new Set(gezeigt);
+      // Nur umstellen, wenn sich die Reihenfolge ändert: Eine Kachel, die
+      // verschoben wird, verliert den Fokus.
+      const steht = [...regalRaster.children].map((k) => k.dataset.spiel).filter((s) => da.has(s));
+      if (steht.join() !== gezeigt.join()) gezeigt.forEach((s) => regalRaster.append(regalKacheln.get(s).k));
+      gezeigt.forEach((s, i) => regalKacheln.get(s).k.style.setProperty("--ar-i", String(i)));
+      regalKacheln.forEach((t, s) => {
+        t.k.hidden = !da.has(s);
+        regalKachelZeigen(t, s, regalStand(s));
+      });
+
+      let leer = "";
+      if (!regalAuswahl(regalFilter)) {
+        leer = ladefehler ? "Die Ranglisten sind gerade nicht zu haben. Probier es später noch einmal." : "Wird geladen...";
+      } else if (!gezeigt.length) {
+        leer = regalLeerSatz(regalFilter);
+      }
+      regalLeer.textContent = leer;
+      regalLeer.hidden = !leer;
+      if (neu && !ruhigHier()) {
+        regalRaster.classList.remove("ist-neu");
+        void regalRaster.offsetWidth;
+        regalRaster.classList.add("ist-neu");
+      }
+      if (oben) regalInhalt.scrollTop = 0;
+    }
+
+    function regalFiltern(filter) {
+      regalFilter = filter;
+      try { sessionStorage.setItem(REGAL_KEY, filter); } catch { /* privates Fenster */ }
+      regalZeichnen({ oben: true, neu: true });
+    }
+
+    function regalBauen() {
+      if (regalFenster) return regalFenster;
+      const dlg = el("dialog", "ar-regal");
+      dlg.setAttribute("aria-label", "Alle Spiele");
+      const blatt = el("div", "ar-regal-blatt");
+      const kopf = el("div", "ar-regal-kopf");
+      // Oben der Griff, der Titel und Schliessen – hier lässt sich das Blatt
+      // nach unten wegziehen.
+      const oben = el("div", "ar-regal-oben");
+      const griff = el("span", "ar-regal-griff");
+      griff.setAttribute("aria-hidden", "true");
+      const ueberschrift = el("h2", "ar-regal-titel", "Alle Spiele ");
+      ueberschrift.append(el("span", "ar-regal-zahl", String(reihenfolge.length)));
+      const zu = rundKnopf("ar-regal-zu", "zu", "Schliessen");
+      zu.addEventListener("click", () => regalZu());
+      oben.append(griff, ueberschrift, zu);
+      // Die Filter: je ein Tipp, und daneben, wie viele Spiele es sind.
+      const filter = el("div", "ar-regal-filter");
+      filter.setAttribute("role", "group");
+      filter.setAttribute("aria-label", "Filter");
+      REGAL_FILTER.forEach((f) => {
+        const chip = el("button", "ar-regal-chip");
+        chip.type = "button";
+        chip.dataset.filter = f.id;
+        const anzahl = el("span", "ar-regal-chip-zahl");
+        chip.append(el("span", "ar-regal-chip-wort", f.wort), anzahl);
+        chip.addEventListener("click", () => regalFiltern(f.id));
+        regalChips.set(f.id, { chip, anzahl });
+        filter.append(chip);
+      });
+      regalWie = el("p", "ar-regal-wie");
+      kopf.append(oben, filter, regalWie);
+      regalInhalt = el("div", "ar-regal-inhalt");
+      regalLeer = el("p", "ar-regal-leer");
+      regalRaster = el("div", "ar-regal-raster");
+      reihenfolge.forEach((spiel) => {
+        const t = regalKachel(spiel);
+        regalKacheln.set(spiel, t);
+        regalRaster.append(t.k);
+      });
+      regalInhalt.append(regalLeer, regalRaster);
+      blatt.append(kopf, regalInhalt);
+      dlg.append(blatt);
+
+      // Ein Tipp daneben (auf den Schleier) und Escape schliessen – mit dem
+      // Blatt, das hinuntergleitet.
+      dlg.addEventListener("click", (e) => { if (e.target === dlg) regalZu(); });
+      dlg.addEventListener("cancel", (e) => { e.preventDefault(); regalZu(); });
+      dlg.addEventListener("close", () => {
+        regalSchliesst = false;
+        dlg.getAnimations?.().forEach((a) => a.cancel());
+        dlg.style.transform = "";
+        window.ArcadeKlang?.ton?.("fenster", { laut: 0.7 });
+      });
+      // Am Griff nach unten ziehen: Das Blatt folgt dem Finger; weit genug
+      // oder schnell genug, und es geht zu – sonst gleitet es zurück.
+      let zug = null;
+      oben.addEventListener("pointerdown", (e) => {
+        if ((e.pointerType === "mouse" && e.button !== 0) || e.target.closest?.("button")) return;
+        zug = { y: e.clientY, id: e.pointerId, zeit: performance.now() };
+        try { oben.setPointerCapture(e.pointerId); } catch { /* egal */ }
+      });
+      oben.addEventListener("pointermove", (e) => {
+        if (!zug || e.pointerId !== zug.id) return;
+        const dy = Math.max(0, e.clientY - zug.y);
+        dlg.style.transform = dy ? `translateY(${dy}px)` : "";
+      });
+      const loslassen = (e, abgebrochen) => {
+        if (!zug || e.pointerId !== zug.id) return;
+        const dy = Math.max(0, e.clientY - zug.y);
+        const tempo = dy / Math.max(1, performance.now() - zug.zeit);
+        zug = null;
+        if (!abgebrochen && (dy > 90 || (dy > 24 && tempo > 0.6))) { regalZu(); return; }
+        if (dy && dlg.animate && !ruhigHier()) {
+          dlg.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+        }
+        dlg.style.transform = "";
+      };
+      oben.addEventListener("pointerup", (e) => loslassen(e, false));
+      oben.addEventListener("pointercancel", (e) => loslassen(e, true));
+
+      if (!dlg.showModal) {
+        // Ohne <dialog>: offen hinlegen, Escape schliesst.
+        dlg.showModal = () => dlg.setAttribute("open", "");
+        dlg.close = () => { dlg.removeAttribute("open"); dlg.dispatchEvent(new Event("close")); };
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && dlg.hasAttribute("open")) regalZu(); }, { signal });
+      }
+      document.body.append(dlg);
+      regalFenster = dlg;
+      return dlg;
+    }
+
+    // Auf: Wer ins Regal schaut, sucht selbst – die Uhr steht still.
+    function regalAuf() {
+      if (signal.aborted) return;
+      selbstGewaehlt = true;
+      uhr.stopp();
+      const dlg = regalBauen();
+      if (dlg.open || dlg.hasAttribute("open")) return;
+      regalSchliesst = false;
+      dlg.style.transform = "";
+      regalZeichnen({ oben: true });
+      dlg.showModal();
+      window.ArcadeKlang?.ton?.("fenster");
+    }
+
+    // Zu: das Blatt gleitet hinunter – oder, wenn ein Spiel gewählt ist,
+    // sofort, damit sein Bild über der Seite fliegen kann.
+    function regalZu({ sofort = false } = {}) {
+      const dlg = regalFenster;
+      if (!dlg || !(dlg.open || dlg.hasAttribute("open"))) return;
+      if (sofort || ruhigHier() || !dlg.animate) { dlg.close(); return; }
+      if (regalSchliesst) return;
+      regalSchliesst = true;
+      const von = dlg.style.transform || "translateY(0)";
+      const zu = () => { if (dlg.open || dlg.hasAttribute("open")) dlg.close(); };
+      dlg.animate([{ transform: von }, { transform: "translateY(100%)" }], { duration: 240, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" })
+        .finished.then(zu, zu);
+    }
+
+    if (regalKnopf) {
+      regalKnopf.addEventListener("click", regalAuf);
+      // Ein Wisch über die Zeile nach oben zieht das Regal hoch. Danach kein
+      // Tipp auf die Kachel, auf der er begann. Losgelassen wird oft schon
+      // über der Bühne – darum hört das Dokument zu, nicht die Zeile.
+      let hoch = null;
+      let hochBis = 0;
+      auswahl.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        hoch = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      });
+      document.addEventListener("pointerup", (e) => {
+        if (!hoch || e.pointerId !== hoch.id) return;
+        const dx = e.clientX - hoch.x;
+        const dy = e.clientY - hoch.y;
+        hoch = null;
+        if (dy > -40 || Math.abs(dy) < Math.abs(dx) * 1.3) return;
+        hochBis = performance.now() + 400;
+        regalAuf();
+      }, { signal });
+      document.addEventListener("pointercancel", () => { hoch = null; }, { signal });
+      auswahl.addEventListener("click", (e) => {
+        if (performance.now() >= hochBis) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+    }
     // Am Computer: die Pfeiltasten – solange kein Fenster offen ist und
     // niemand in ein Feld schreibt.
     document.addEventListener("keydown", (e) => {
@@ -3502,6 +3932,7 @@
     signal.addEventListener("abort", () => {
       uhr.stopp();
       groesse?.disconnect();
+      regalFenster?.remove();
       if (FILME) ebenen.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
     });
 
@@ -3517,6 +3948,7 @@
         if (neu) listen = neu;
         rangKnopf();
         offeneFenster.forEach((z) => z());
+        regalZeichnen();
       },
       neu() {
         if (signal.aborted) return;
@@ -3734,7 +4166,7 @@
     // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, ...arcadeStart(reihenfolge, gewuenscht) });
+    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
     // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
     // seiner Rangliste – ein Tipp darauf, und man schaut zu.
