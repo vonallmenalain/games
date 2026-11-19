@@ -1650,10 +1650,19 @@ try {
     // Ein Wisch über die Zeile nach oben öffnet es – ohne die Kachel zu
     // wählen, auf der er begann, und mit dem Filter von vorhin (er gilt, bis
     // die Sitzung endet). Ein Tipp daneben schliesst es wieder.
-    const zeile = await seite.locator('.ar-kachel[data-spiel="towerStack"]').boundingBox();
-    await seite.mouse.move(zeile.x + zeile.width / 2, zeile.y + zeile.height / 2);
+    // Gewischt wird auf einer Kachel, deren Mitte zu sehen ist und die nicht
+    // oben steht – die Zeile ist zum Spiel auf der Bühne gerollt.
+    const zeile = await seite.evaluate(() => {
+      const knopf = document.querySelector(".ar-regal-knopf").getBoundingClientRect();
+      const k = [...document.querySelectorAll(".ar-kachel:not(.ist-aktiv)")]
+        .map((x) => x.getBoundingClientRect())
+        .find((r) => r.left + r.width / 2 > knopf.right + 20 && r.left + r.width / 2 < window.innerWidth - 20);
+      return k ? { x: k.left + k.width / 2, y: k.top + k.height / 2 } : null;
+    });
+    pruefe(Boolean(zeile), `${wo}: In der Zeile ist keine Kachel neben der auf der Bühne zu sehen.`);
+    await seite.mouse.move(zeile?.x ?? 210, zeile?.y ?? 780);
     await seite.mouse.down();
-    await seite.mouse.move(zeile.x + zeile.width / 2, zeile.y - 120, { steps: 6 });
+    await seite.mouse.move(zeile?.x ?? 210, (zeile?.y ?? 780) - 140, { steps: 6 });
     await seite.mouse.up();
     await seite.waitForTimeout(500);
     pruefe(await offen(), `${wo}: Ein Wisch über die Zeile nach oben öffnet das Regal nicht.`);
