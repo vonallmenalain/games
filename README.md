@@ -893,12 +893,12 @@ also ist jede Runde etwas anders. Die Zeiten sind gewürfelt (`wuerfle`):
              Sanduhr     Der Sand rinnt gleichmässig (3,5 bis 5,5 s), aber
                          die Hälften sind Kegel mit engem Hals (`HALS`): Der
                          Pegel fällt zum Schluss immer schneller
-                         (`sandBei`). Nach 55 % kommt der Deckel: tippen,
+                         (`sandBei`). Nach 70 % kommt der Deckel: tippen,
                          wenn sie leer ist.
              Glas füllen Wasser läuft gleichmässig in einen Kelch, eine Vase
                          oder eine Flasche (`GLAESER`, rund gerechnet): Wo das
                          Glas breit ist, steigt es langsam (`glasBei`). Nach
-                         der halben Zeit kommt der Deckel: tippen, wenn es
+                         65 % der Zeit kommt der Deckel: tippen, wenn es
                          voll ist (3,2 bis 5 s).
              Zwei Blinker Zwei Lampen blinken im Verhältnis 2 : 3, 3 : 4,
                          2 : 5 oder 3 : 5, beide zuerst bei null: tippen, wenn
@@ -906,7 +906,7 @@ also ist jede Runde etwas anders. Die Zeiten sind gewürfelt (`wuerfle`):
                          sieht jede mindestens einmal blinken.
              Bremszeiger Der Zeiger bremst gleichmässig, bis er nach knapp
                          einer bis anderthalb Runden steht (3 bis 4,5 s); er
-                         verschwindet nach 45 %: tippen, wenn er stehen
+                         verschwindet nach 60 %: tippen, wenn er stehen
                          bleibt.
 
 Was man bei Kerze, Pendel, Ball, Sanduhr, Glas und Blinkern zuerst sieht,
