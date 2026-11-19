@@ -1101,10 +1101,11 @@ dieselben Punkte je Blatt.
 
 **Kopfkino** (`kopfkino.js`, `mindsEye`) – Das vierte Geschwister nach
 Augenmass, Zeitgefühl und Freihand, diesmal fürs Vorstellungsvermögen: zehn
-Aufgaben auf einer Leinwand, der Film dazu läuft im Kopf. Erst nach der
+Aufgaben aus fünfzehn Arten auf einer Leinwand, der Film dazu läuft im Kopf. Erst nach der
 Antwort läuft er wirklich – als Auflösung, die man sieht.
 
-**Die sieben Arten** (`BAU`), jede in drei Stufen:
+**Die fünfzehn Arten** (`BAU`), jede in drei Stufen – zuerst die sieben der
+ersten Fassung:
 
 - **Falten und lochen** (`faltenBau`): Ein Blatt aus 4 × 4 Feldern wird ein-
   bis dreimal gefaltet und dann gelocht. Anzutippen sind alle Felder, die
@@ -1132,8 +1133,54 @@ Antwort läuft er wirklich – als Auflösung, die man sieht.
   Punkte schneidet den Würfel – wie viele Ecken hat die Schnittfläche?
   Auflösung: Die Fläche erscheint, die Kamera schwenkt um den Würfel.
 
+Dazu die acht der zweiten Fassung (November 2026):
+
+- **Würfel anmalen** (`farbeBau`): Ein Block aus kleinen Würfeln (leicht
+  3 × 3 × 3, schwer bis 4 × 4 × 5) wird rundum angemalt und zerlegt – wie
+  viele kleine Würfel haben genau keine, eine, zwei oder drei farbige
+  Seiten? Auf der schweren Stufe stand er auf dem Boden: Unten bleibt er
+  roh. Die Zahl wird eingetippt. Auflösung: Der Block zieht sich
+  auseinander, die gesuchten bleiben leuchtend stehen.
+- **Welcher Würfel?** (`musterBau`): ein Netz mit sechs Zeichen und drei
+  oder vier Würfel, von denen genau einer daraus entsteht. Die falschen
+  zeigen zwei Zeichen nebeneinander, die sich gegenüberliegen, oder
+  dieselben drei verkehrt herum um die Ecke; schwer haben die Zeichen eine
+  Richtung (Pfeil, Keil, Ecke), und eines ist verdreht. Was es wirklich
+  gibt, rechnet `musterAnsicht` über alle 24 Lagen. Auflösung: Das Netz
+  faltet sich und dreht sich in die Lage des richtigen Bildes.
+- **Lücke füllen** (`lueckeBau`): Einem Würfel aus 3 × 3 × 3 fehlt ein Stück
+  aus vier bis sechs Würfeln – jeder fehlende ist von einer der drei Seiten
+  her zu sehen. Welches Teil passt? Die anderen haben einen Würfel
+  woanders, schwer ist das Spiegelbild dabei. Auflösung: Das Teil dreht
+  sich in seine Lage und fährt in die Lücke.
+- **Drei Schatten** (`schattenBau`): die Ecke eines Zimmers mit den Schatten
+  eines Stapels an beiden Wänden und auf dem Boden. Welcher Stapel wirft
+  sie? Schwer verrät nur einer der drei Schatten den Unterschied.
+  Auflösung: Der Stapel senkt sich ins Zimmer; unter den falschen steht,
+  welcher Schatten anders wäre.
+- **Drehkörper** (`drehkoerperBau`): Eine flache Form dreht sich um eine
+  Achse – welcher Körper entsteht? Leicht die Grundkörper (Zylinder, Kegel,
+  Kugel …), mittel Rohr, Ring, Sanduhr und ihre Verwandten, schwer drei
+  Abschnitte aus dem Zufall gegen Körper, die auf dem Kopf stehen, eine
+  Stufe statt einer Schräge oder eine Bohrung haben. Auflösung: Die Form
+  dreht sich und zieht den Körper nach (`drehFlaechen`).
+- **Laser und Spiegel** (`laserBau`): ein Feld aus 4 × 4 bis 6 × 6 Zellen
+  mit schrägen Spiegeln, darunter solche, die nur da stehen. Anzutippen ist
+  die Stelle am Rand, an der der Strahl das Feld verlässt. Auflösung: Der
+  Strahl läuft durch.
+- **Zahnräder** (`zahnradBau`): vier bis neun Räder – leicht eine Kette,
+  dann verzweigt, schwer mit einem geraden und einem gekreuzten Riemen. Das
+  goldene dreht im Uhrzeigersinn; anzutippen sind alle, die es auch tun.
+  Die Zähne greifen wirklich ineinander (die Phase jedes Rades folgt aus
+  der seines Antriebs). Auflösung: Das Getriebe läuft an.
+- **Kugelbahn** (`kugelbahnBau`): drei bis fünf Ebenen mit schrägen Rampen;
+  die Kugel rollt jede hinunter und fällt an ihrem Ende senkrecht weiter.
+  In welchem Fach landet sie? Auflösung: Sie rollt.
+
 Jede Runde zieht drei leichte, vier mittlere und drei schwere Aufgaben
-(`PLAN`), keine Art öfter als zweimal (`aufgabenFuer`).
+(`PLAN`). Zuerst kommen die Arten dran, die in der Runde noch fehlen
+(`aufgabenFuer`) – bei fünfzehn Arten sind es also zehn verschiedene, und
+fünf setzen aus.
 
 **Gewertet wird richtig mal schnell** (`punkteFuer`): bis zu hundert Punkte
 je Aufgabe, tausend im Ganzen. Eine Aufgabe hat 14, 18 oder 24 Sekunden
@@ -1162,11 +1209,17 @@ trägt ein, was sich antippen lässt (`bietet`).
 Aufgezeichnet werden die Züge (`meldeZug`: Vorschau, Aufgabe, jede Eingabe,
 die Antwort mit ihrer Zeit) – im Turnier bekommen alle dieselben zehn
 Aufgaben.
-Prüfung 4g40: Jede Runde hat ihre drei, vier und drei Aufgaben; was als
-richtig gilt, wird auf einem zweiten Weg nachgerechnet (das Blatt Feld für
-Feld nachgefaltet, das Netz zum Würfel geschlossen, der Würfel Kante um
-Kante gerollt, die Ansicht aus der Blickrichtung der Kamera vermessen, die
-Figur gegen ihr Spiegelbild, die Schnittfläche in ihrer Ebene); die Punkte
+Prüfung 4g40: Jede Runde hat ihre drei, vier und drei Aufgaben aus zehn
+verschiedenen Arten; was als richtig gilt, wird auf einem zweiten Weg
+nachgerechnet (das Blatt Feld für Feld nachgefaltet, das Netz zum Würfel
+geschlossen, der Würfel Kante um Kante gerollt, die Ansicht aus der
+Blickrichtung der Kamera vermessen, die Figur gegen ihr Spiegelbild, die
+Schnittfläche in ihrer Ebene; der angemalte Block Würfel um Würfel gezählt,
+jeder Würfel in allen 24 Lagen gegen das Netz gehalten, die Lücke gegen
+die Gestalt jedes Teils, die Schatten neu geworfen, der Laser Zelle um
+Zelle verfolgt, das Getriebe Rad um Rad gedreht samt Zahn auf Lücke, die
+Kugel Ebene um Ebene gerollt); die acht neuen Arten lassen sich mit dem
+Finger lösen; die Punkte
 fallen nach richtig mal schnell, «fast» zählt für Teile; in der Vorschau
 zählt kein Tipp, ist die Zeit um, zählt die Eingabe, wie sie dasteht; was
 das Bild anbietet, lässt sich mit dem Finger antippen; eine Runde in echter
