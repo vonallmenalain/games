@@ -322,7 +322,7 @@
         // Der Sand rinnt gleichmässig – aber der Trichter ist unten eng: Der
         // Pegel fällt zum Schluss immer schneller (sandBei).
         const ziel = zz(3500, 5500, 250);
-        const sicht = auf(ziel * 0.55, 50);
+        const sicht = auf(ziel * 0.7, 50);
         const voll = zz(0.8, 0.95, 0.01);
         return { art, stufe: 2, name: "Sanduhr", frage: "Tippe, wenn die Sanduhr leer ist.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, voll };
       }
@@ -331,7 +331,7 @@
         // breit ist, steigt der Pegel langsam.
         const form = aus(Object.keys(GLAESER));
         const ziel = zz(3200, 5000, 200);
-        const sicht = auf(ziel * 0.5, 50);
+        const sicht = auf(ziel * 0.65, 50);
         return { art, stufe: 2, name: "Glas füllen", frage: "Das Wasser läuft gleichmässig. Tippe, wenn das Glas voll ist.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, form };
       }
       case "blinker": {
@@ -346,7 +346,7 @@
       case "bremse": {
         // Der Zeiger bremst gleichmässig und steht bei ziel – nach runden Umläufen.
         const ziel = zz(3000, 4500, 100);
-        const sicht = auf(ziel * 0.45, 50);
+        const sicht = auf(ziel * 0.6, 50);
         const runden = zz(0.9, 1.6, 0.05);
         return { art, stufe: 2, name: "Bremszeiger", frage: "Der Zeiger wird langsamer. Tippe, wenn er stehen bleibt.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, runden };
       }
