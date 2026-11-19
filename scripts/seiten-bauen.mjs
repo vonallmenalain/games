@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-20";
+export const FASSUNG = "2026-11-18-21";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -310,6 +310,12 @@ export const SPIELE = [
     titel: "Zeitgefühl", buehne: { id: "zf-stage", klasse: "cm-stage zf-stage" },
     text: "Zeitgefühl: Die Stoppuhr läuft an und verschwindet – tippe im richtigen Augenblick. Zehn Aufgaben, und jede Hundertstelsekunde daneben kostet einen Punkt.",
     baut: "die Werkbank mit der Stoppuhr",
+  },
+  {
+    seite: "kletterwand", spiel: "speedClimb", page: "climb", js: "kletterwand.js",
+    titel: "Kletterwand", buehne: { id: "kw-stage", klasse: "cm-stage kw-stage" },
+    text: "Kletterwand: Tippe den nächsten Griff an, genau in die Mitte – je genauer, desto besser der Halt. Die Kraft läuft, die Griffe werden kleiner, bröckeln und gleiten davon.",
+    baut: "der Kletterturm im Abendlicht mit der Kletterin",
   },
 ];
 

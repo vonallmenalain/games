@@ -93,6 +93,7 @@ service cloud.firestore {
         "fireRope",
         "flagCommand",
         "timeSense",
+        "speedClimb",
       ];
     }
 
