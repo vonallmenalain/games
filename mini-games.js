@@ -107,6 +107,7 @@
     { id: "speedClimb", seite: "kletterwand", page: "climb" },
     { id: "freeHand", seite: "freihand", page: "sketch" },
     { id: "mindsEye", seite: "kopfkino", page: "mindseye" },
+    { id: "iceStock", seite: "eisstock", page: "icestock" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -155,6 +156,8 @@
     freeHand: 1,
     // Vorstellungsvermögen: falten, Netze, Würfel – der Film läuft im Kopf.
     mindsEye: 1,
+    // Eisstock: ein Schub je Bahn, auf den Zentimeter gemessen.
+    iceStock: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -228,6 +231,7 @@
     speedClimb: { fassung: "z1" },
     freeHand: { fassung: "z1" },
     mindsEye: { fassung: "z1" },
+    iceStock: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -261,6 +265,7 @@
     speedClimb: { zug: true },
     freeHand: { zug: true },
     mindsEye: { zug: true },
+    iceStock: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
