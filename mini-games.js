@@ -1730,6 +1730,24 @@
   }
 
   /*
+   * Die Läufe aus der Hall of Fame, die sich abspielen lassen – zu den
+   * genannten Kennungen, je Kennung höchstens einer (der beste, den es von
+   * ihr gibt): { spieler, name, punkte, level, bahn }. Wer keinen hat, fehlt.
+   * Der Adminbereich braucht dazu die Punkte des Laufs (admin.js,
+   * ansehenKnopf); die Listen hier nur, ob es ihn gibt (ansehbareLaeufe).
+   */
+  async function abspielbareLaeufe(spiel, kennungen) {
+    const art = ansehArt(spiel);
+    const wer = [...new Set((kennungen || []).filter(Boolean))];
+    if (!art || !wer.length || !cloud()?.geister) return [];
+    // cloud.js liest höchstens 25 auf einmal.
+    const pakete = [];
+    for (let i = 0; i < wer.length; i += 25) pakete.push(wer.slice(i, i + 25));
+    const gefunden = await Promise.all(pakete.map((paket) => Promise.resolve(cloud().geister(spiel, paket, art.fassung)).catch(() => [])));
+    return gefunden.flat().filter((g) => g && abspielbar(g.bahn, art));
+  }
+
+  /*
    * Welche Einträge einer Liste einen Lauf hinterlegt haben, den man
    * anschauen kann – aus der Hall of Fame oder, mit aus, aus einem Turnier.
    * Gefragt wird nach denen, die übergeben werden (die Listen fragen nach
@@ -1748,11 +1766,7 @@
         gefunden = (await Promise.all(wer.map((spieler) => Promise.resolve(cloud().turnierGeist?.(aus, spiel, spieler)).catch(() => null))))
           .filter((g) => g && g.level === art.fassung);
       } else {
-        // cloud.js liest höchstens 25 auf einmal.
-        const pakete = [];
-        for (let i = 0; i < wer.length; i += 25) pakete.push(wer.slice(i, i + 25));
-        gefunden = (await Promise.all(pakete.map((paket) => Promise.resolve(cloud().geister?.(spiel, paket, art.fassung)).catch(() => []))))
-          .flat().filter(Boolean);
+        gefunden = await abspielbareLaeufe(spiel, wer);
       }
     } catch { return raus; }
     gefunden.forEach((g) => {
@@ -1971,12 +1985,26 @@
   // schliesst der Weg zurück dieses Fenster – statt den Adminbereich ein
   // zweites Mal hineinzuladen. Der Rahmen des Vollbilds (vollbild.js) ist
   // kein solches Fenster: Dort geht der Weg wie sonst.
-  if (ausAdmin() && window.parent !== window && !window.LernappVollbild?.imRahmen?.()) {
+  //
+  // Wahr, wenn das Fenster zugeht. Sonst (nicht aus dem Adminbereich, oder
+  // nicht in seinem Fenster) geht der Weg wie sonst – auch beim Anschauen
+  // eines Laufs («Beenden», «Zurück», geist.js zuschauer).
+  function imAdminFenster() {
+    return ausAdmin() && window.parent !== window && !window.LernappVollbild?.imRahmen?.();
+  }
+  function schliesseAdminFenster() {
+    if (!imAdminFenster()) return false;
+    try {
+      window.parent.postMessage({ miniAdmin: "zu" }, window.location.origin);
+      return true;
+    } catch { return false; }
+  }
+  if (imAdminFenster()) {
     document.addEventListener("click", (ereignis) => {
       const weg = ereignis.target?.closest?.("a[href]");
       if (!weg || weg.getAttribute("href") !== ziel().link) return;
       ereignis.preventDefault();
-      try { window.parent.postMessage({ miniAdmin: "zu" }, window.location.origin); } catch { /* dann bleibt es offen */ }
+      schliesseAdminFenster();
     }, true);
   }
 
@@ -3871,6 +3899,7 @@
     spielLink,
     uebersichtLink,
     ausAdmin,
+    schliesseAdminFenster,
     ziel,
     alleSpiele,
     offeneSpiele,
@@ -3884,7 +3913,7 @@
     farbe,
     listeFuer,
     TIERS, TIERS_VORGABE, tierVon,
-    listeBauen, gezeigteEintraege, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
+    listeBauen, gezeigteEintraege, abspielbareLaeufe, ansehbareLaeufe, ansehenFuer, ansehArt, ANSEHBAR, ANSEHBAR_ZUEGE, ZUSCHAUBAR,
     geister,
     rangliste,
     marke,

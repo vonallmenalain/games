@@ -5774,6 +5774,11 @@ body.adm-dash-offen { overflow: hidden; }
 @media (max-width: 1320px) {
   .adm-sehr-breit { display: none; }
 }
+/* Darüber steht «Zuerst» da, und neben dem Bestwert das ▶ zu seinem Lauf –
+   dafür darf das Fenster etwas breiter sein, sonst rollte die Tabelle. */
+@media (min-width: 1321px) {
+  .adm-dash { width: min(1060px, 100%); }
+}
 /* Das Fenster eines Spiels (admin.js, zeigeSpielFenster): oben in seiner
    Farbe, unter dem Titel Tier, Startseite und ▶. */
 .adm-dash-spiel { border-top: 5px solid var(--adm-farbe, var(--ar-koralle)); }
@@ -5976,6 +5981,30 @@ body.adm-dash-offen { overflow: hidden; }
 }
 .adm-spielen-knopf svg { width: 16px; height: 16px; margin-left: 2px; }
 .adm-spielen-knopf:hover { background: var(--adm-farbe, var(--ar-koralle)); color: #fff; }
+
+/* ▶ neben einem Bestwert – seinen Lauf ansehen (admin.js, ansehenKnopf).
+   Eine eigene schmale Spalte gleich rechts der Zahl, ohne Überschrift; ein
+   Knopf mit Wort passte neben «Namen ändern» und «Löschen» nicht mehr ins
+   Fenster. Von einem früheren, schwächeren Lauf nur gestrichelt. */
+.adm-tabelle td.adm-lauf { width: 1%; padding-left: 2px; padding-right: 4px; }
+.adm-ansehen-rund {
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4d0e2;
+  vertical-align: middle;
+}
+.adm-ansehen-rund svg { width: 14px; height: 14px; margin-left: 2px; }
+.adm-ansehen-rund:hover { background: var(--adm-farbe, var(--ar-koralle)); color: #fff; }
+.adm-ansehen-rund.ist-frueher { background: none; border: 2px dashed rgba(255, 255, 255, 0.28); color: #8d889e; }
+.adm-ansehen-rund.ist-frueher:hover { border-style: solid; border-color: var(--adm-farbe, var(--ar-koralle)); color: #fff; }
+/* Am Handy etwas grösser – dort trifft ein Finger, kein Zeiger. */
+@media (max-width: 620px) {
+  .adm-ansehen-rund { width: 36px; height: 36px; }
+}
 
 /* Das Spiel aus dem Adminbereich: über das ganze Browserfenster – ohne
    Rahmen, wie auf seiner eigenen Seite. Ins Vollbild geht es mit dem Knopf

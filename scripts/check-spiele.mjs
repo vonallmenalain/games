@@ -11415,7 +11415,7 @@ try {
       `Das Fenster des Fischteichs zeigt nicht Zahlen, sortierbare Bestenliste und alle Knöpfe: ${JSON.stringify(fenster)}`);
     // Nach jeder Spalte zu sortieren: ein Tipp auf die Überschrift, ein zweiter dreht um.
     await teich.locator(".adm-bestenliste th button", { hasText: "Runden" }).click();
-    const runden = () => teich.locator(".adm-bestenliste tbody tr td:nth-child(4)").allInnerTexts();
+    const runden = () => teich.locator(".adm-bestenliste tbody tr td:nth-child(5)").allInnerTexts();
     const rundenAb = (await runden()).map(Number);
     await teich.locator(".adm-bestenliste th button", { hasText: "Runden" }).click();
     const rundenAuf = (await runden()).map(Number);
@@ -11942,6 +11942,124 @@ try {
     pruefe(spur.ewig[0]?.spielMs > 0 && spur.ewig[0].spielMs < 30 * 60 * 1000,
       `Die Runde kam ohne ihre Dauer in die ewige Liste: ${JSON.stringify(spur.ewig)}`);
     pruefe(Boolean(spur.best), "Die Runde aus dem Adminbereich hat keinen Bestwert auf dem Gerät hinterlassen.");
+    await kontext.close();
+  }
+
+  // --- 4k2. Den besten Lauf aus dem Adminbereich ansehen ----------------------------
+  // Im Fenster eines Spiels steht neben jeder Zahl der Bestenliste ein ▶,
+  // wo es ihren Lauf gibt (admin.js, ansehenKnopf), oben «▶ Rekord ansehen»,
+  // und in der Auswertung eines Spielers dasselbe ▶ je Spiel. Es öffnet den
+  // Lauf über dem Adminbereich; «Beenden», «Zurück» und der Weg oben links
+  // machen das Fenster wieder zu. Gezählt wird dabei nichts.
+  {
+    const kontext = await browser.newContext({ viewport: { width: 1280, height: 1000 }, serviceWorkers: "block" });
+    const seite = await kontext.newPage();
+    const fehlerHier = [];
+    seite.on("pageerror", (fehler) => fehlerHier.push(String(fehler.message || fehler)));
+    seite.on("console", (n) => { if (n.type() === "error") fehlerHier.push(n.text()); });
+    await seite.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await seite.route("https://www.gstatic.com/firebasejs/**", (route) => {
+      if (route.request().url().includes("auth-compat")) {
+        return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `
+          window.firebase = window.firebase || {};
+          window.firebase.auth = function () {
+            return {
+              getRedirectResult: async () => null,
+              isSignInWithEmailLink: () => false,
+              onAuthStateChanged: (fn) => fn({ email: "alain.sc2@gmail.com", emailVerified: true }),
+              signOut: async () => {},
+            };
+          };
+          window.firebase.auth.GoogleAuthProvider = function () {};
+        ` });
+      }
+      return route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "/* in der Prüfung nicht gebraucht */" });
+    });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__ansehen")) return;
+      sessionStorage.setItem("__ansehen", "1");
+      const eintrag = (spiel, id, name, punkte) => [`${spiel}_${id}`, { id: `${spiel}_${id}`, game: spiel, spieler: id, name, punkte, versuche: 3, spielMs: 60000, updatedAtMs: 1000 }];
+      localStorage.setItem("__mini_attrappe", JSON.stringify([
+        eintrag("towerStack", "mini_leoleoleoleo", "Leo", 90),
+        eintrag("towerStack", "mini_idaidaidaida", "Ida", 60),
+        eintrag("towerStack", "mini_noranoranora", "Nora", 50),
+        eintrag("fishPond", "mini_leoleoleoleo", "Leo", 12),
+      ]));
+      // Leo hat den Lauf zu seinem Rekord, Ida nur einen früheren (40 statt
+      // 60), Nora keinen.
+      const bahn = JSON.stringify({ v: 3, s: 7, e: 900, z: { t: [0, 400], c: [0, 1], p: [0, 0] } });
+      localStorage.setItem("__mini_geister_attrappe", JSON.stringify([
+        ["towerStack_mini_leoleoleoleo", { game: "towerStack", spieler: "mini_leoleoleoleo", name: "Leo", punkte: 90, level: "z1", bahn }],
+        ["towerStack_mini_idaidaidaida", { game: "towerStack", spieler: "mini_idaidaidaida", name: "Ida", punkte: 40, level: "z1", bahn }],
+      ]));
+    });
+    await seite.goto(`${BASIS}/admin`, { waitUntil: "load" });
+    await seite.waitForSelector(".adm-seite > .adm-klapp", { timeout: 8000 });
+    await seite.locator(".adm-kachel", { hasText: "Spiele" }).first().click();
+    await seite.locator("#adm-spiele .adm-wahl", { hasText: "Turmbau" }).locator(".adm-wahl-feld").click();
+    const turm = seite.locator(".adm-dash.adm-dash-spiel");
+    await turm.locator(".adm-ansehen").first().waitFor({ timeout: 4000 }).catch(() => {});
+    const liste = await turm.evaluate((k) => ({
+      oben: [...k.querySelectorAll(".adm-dash-marken button")].map((b) => b.textContent.trim()),
+      zeilen: Object.fromEntries([...k.querySelectorAll(".adm-bestenliste tbody tr")].map((tr) => {
+        const knopf = tr.querySelector(".adm-ansehen");
+        return [tr.querySelector(".adm-person")?.textContent, knopf ? { frueher: knopf.classList.contains("ist-frueher"), sagt: knopf.getAttribute("aria-label") } : null];
+      })),
+      hinweis: !k.querySelector(".adm-lauf-hinweis")?.hidden,
+      ueber: (() => { const w = k.querySelector(".adm-bestenliste").closest(".adm-tabelle-wirt"); return w.scrollWidth - w.clientWidth; })(),
+    }));
+    pruefe(liste.oben.includes("▶ Spielen") && liste.oben.includes("▶ Rekord ansehen"), `Oben im Fenster des Turmbaus fehlt «▶ Rekord ansehen»: ${JSON.stringify(liste.oben)}`);
+    pruefe(liste.zeilen.Leo && !liste.zeilen.Leo.frueher && /Leo.*90 Blöcke/.test(liste.zeilen.Leo.sagt), `Bei Leo fehlt das ▶ zu seinem Rekord: ${JSON.stringify(liste.zeilen.Leo)}`);
+    pruefe(liste.zeilen.Ida?.frueher && /früheren Lauf.*40 Blöcke/.test(liste.zeilen.Ida.sagt), `Bei Ida sagt das ▶ nicht, dass es nur ein früherer Lauf ist: ${JSON.stringify(liste.zeilen.Ida)}`);
+    pruefe(liste.zeilen.Nora === null, "Bei Nora steht ein ▶, obwohl es von ihr keinen Lauf gibt.");
+    pruefe(liste.hinweis, "Unter der Bestenliste steht nicht, dass nur der beste Lauf aufgezeichnet wird.");
+    pruefe(liste.ueber <= 0, `Mit dem ▶ ist die Bestenliste ${liste.ueber} px breiter als das Fenster.`);
+
+    // ▶ öffnet den Lauf über dem Adminbereich; «Beenden» macht nur dieses Fenster zu.
+    await turm.locator("tr", { hasText: "Leo" }).locator(".adm-ansehen").click();
+    await seite.waitForSelector(".adm-spiel iframe", { timeout: 4000 });
+    const adresse = await seite.getAttribute(".adm-spiel iframe", "src");
+    pruefe(adresse === "/turmbau?zuschauen=mini_leoleoleoleo&von=admin", `Das ▶ öffnet ${adresse} statt /turmbau?zuschauen=mini_leoleoleoleo&von=admin.`);
+    const imSpiel = seite.frameLocator(".adm-spiel iframe");
+    await imSpiel.locator(".gz-titel", { hasText: "Leo" }).waitFor({ timeout: 8000 }).catch(() => {});
+    pruefe(/Leo · 90/.test(await imSpiel.locator(".gz-titel").textContent().catch(() => "")), "Im Fenster läuft nicht der Lauf von Leo.");
+    await imSpiel.locator(".gz-zu").click();
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0 && await turm.count() === 1,
+      "«Beenden» macht beim Anschauen aus dem Adminbereich nicht (nur) das Fenster des Laufs zu.");
+    // Bis zum Schluss: «Zurück» auf der Tafel macht ebenso zu.
+    await turm.locator(".adm-dash-marken .adm-ansehen").click();
+    const imSpiel2 = seite.frameLocator(".adm-spiel iframe");
+    await imSpiel2.locator(".gz-zurueck").waitFor({ timeout: 12000 }).catch(() => {});
+    if (await imSpiel2.locator(".gz-zurueck").count()) await imSpiel2.locator(".gz-zurueck").click();
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0, "«Zurück» am Schluss des Laufs macht das Fenster nicht zu.");
+    // Und der Weg oben links im Spiel.
+    await turm.locator(".adm-dash-marken .adm-ansehen").click();
+    const imSpiel3 = seite.frameLocator(".adm-spiel iframe");
+    await imSpiel3.locator(".cm-bar-left a").first().click({ timeout: 8000 }).catch(() => {});
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0 && seite.url().endsWith("/admin"),
+      "Der Weg oben links macht beim Anschauen aus dem Adminbereich das Fenster nicht zu.");
+    const lager = await seite.evaluate(() => ({ eintraege: window.__miniEintraege.size, laeufe: window.__miniGeister.size, runden: window.__miniRunden?.size || 0 }));
+    pruefe(lager.eintraege === 4 && lager.laeufe === 2 && lager.runden === 0, `Beim Anschauen ist etwas gezählt oder gespeichert worden: ${JSON.stringify(lager)}`);
+
+    // Die Auswertung von Leo: «Je Spiel» mit ▶ beim Turmbau, nicht beim Fischteich.
+    await turm.locator(".adm-person", { hasText: "Leo" }).click();
+    const dash = seite.locator(".adm-dash");
+    await dash.locator(".adm-ansehen").first().waitFor({ timeout: 4000 }).catch(() => {});
+    const jeSpiel = await dash.evaluate((k) => {
+      const teil = [...k.querySelectorAll("section")].find((s) => s.querySelector("h3")?.textContent === "Je Spiel");
+      return Object.fromEntries([...(teil?.querySelectorAll("tbody tr") || [])].map((tr) => [tr.querySelector("td")?.innerText.trim(), tr.querySelectorAll(".adm-ansehen").length]));
+    });
+    pruefe(jeSpiel.Turmbau === 1 && jeSpiel.Fischteich === 0, `In «Je Spiel» steht das ▶ nicht genau beim Turmbau: ${JSON.stringify(jeSpiel)}`);
+    await dash.locator(".adm-ansehen").first().click();
+    await seite.waitForSelector(".adm-spiel iframe", { timeout: 4000 });
+    pruefe(await seite.getAttribute(".adm-spiel iframe", "src") === "/turmbau?zuschauen=mini_leoleoleoleo&von=admin", "Das ▶ in «Je Spiel» öffnet nicht den Lauf von Leo.");
+    await seite.frameLocator(".adm-spiel iframe").locator(".gz-zu").click();
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 3000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0 && await dash.count() === 1, "Nach «Beenden» steht die Auswertung nicht mehr da.");
+    pruefe(fehlerHier.length === 0, `Beim Anschauen aus dem Adminbereich hat sich der Browser beschwert – ${fehlerHier.join(" / ")}`);
     await kontext.close();
   }
 

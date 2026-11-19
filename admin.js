@@ -760,7 +760,14 @@
   //
   // Mit ?von=admin in der Adresse führt der Weg oben links im Spiel hierher
   // zurück (mini-games.js, ausAdmin).
-  const spielAdresse = (spiel) => `${mini()?.spielLink?.(spiel) || "/"}?von=admin`;
+  //
+  // Mit zuschauen läuft im selben Fenster kein neues Spiel, sondern der
+  // beste Lauf dieser Kennung (geist.js, zuschauer) – «Beenden» und «Zurück»
+  // machen das Fenster wieder zu. Das ist keine Runde: Es zählt nichts.
+  const spielAdresse = (spiel, zuschauen = "") => {
+    const weg = mini()?.spielLink?.(spiel) || "/";
+    return zuschauen ? `${weg}?zuschauen=${encodeURIComponent(zuschauen)}&von=admin` : `${weg}?von=admin`;
+  };
   let spielZu = null;
 
   // Im Fenster meldet das Spiel den Weg zurück, statt den Adminbereich ein
@@ -769,15 +776,16 @@
     if (ereignis.origin === window.location.origin && ereignis.data?.miniAdmin === "zu") spielZu?.();
   });
 
-  function zeigeSpiel(spiel) {
+  function zeigeSpiel(spiel, { zuschauen = "", wer = "" } = {}) {
     spielZu?.();
+    const was = zuschauen ? `${titel(spiel)}: der Lauf von ${wer || zuschauen}` : titel(spiel);
     const huelle = el("div", "adm-spiel");
     huelle.setAttribute("role", "dialog");
     huelle.setAttribute("aria-modal", "true");
-    huelle.setAttribute("aria-label", titel(spiel));
+    huelle.setAttribute("aria-label", was);
     const fenster = el("iframe", "adm-spiel-fenster");
-    fenster.src = spielAdresse(spiel);
-    fenster.title = titel(spiel);
+    fenster.src = spielAdresse(spiel, zuschauen);
+    fenster.title = was;
     fenster.allow = "autoplay; fullscreen";
     fenster.setAttribute("allowfullscreen", "");
     // Die Spiele hören auf Tasten. Ohne Fokus im Fenster gingen die an den
@@ -800,19 +808,58 @@
     spielZu = schliessen;
   }
 
-  function spielenKnopf(spiel) {
-    const node = knopf("", "adm-spielen-knopf", () => zeigeSpiel(spiel));
-    node.title = `${titel(spiel)} spielen`;
-    node.setAttribute("aria-label", `${titel(spiel)} spielen`);
+  // Das Dreieck in ▶ Spielen und ▶ beim Bestwert. Als SVG und nicht als
+  // Zeichen: Ein "▶" sitzt je nach Schrift anders im Kreis.
+  function dreieck() {
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
-    const dreieck = document.createElementNS(NS, "path");
-    dreieck.setAttribute("d", "M8 5.5v13l10.5-6.5z");
-    dreieck.setAttribute("fill", "currentColor");
-    svg.append(dreieck);
-    node.append(svg);
+    const pfad = document.createElementNS(NS, "path");
+    pfad.setAttribute("d", "M8 5.5v13l10.5-6.5z");
+    pfad.setAttribute("fill", "currentColor");
+    svg.append(pfad);
+    return svg;
+  }
+
+  /*
+   * ▶ beim Bestwert – den besten Lauf eines Eintrags abspielen, im selben
+   * Fenster wie ▶ Spielen. Aufgezeichnet ist je Eintrag (Spiel und Gerät)
+   * nur ein Lauf, der beste (miniGeister, geist.js) – die übrigen Runden
+   * stehen im Spielverlauf nur als Zahl. lauf ist, was mini-games.js darüber
+   * weiss (abspielbareLaeufe: spieler, name, punkte); bestwert die Zahl
+   * daneben.
+   *
+   * In den Tabellen rund und klein, in einer eigenen schmalen Spalte neben
+   * der Zahl: Für einen Knopf mit Wort neben «Namen ändern» und «Löschen»
+   * reicht die Breite des Fensters nicht. Mit text ein Knopf mit Wort (oben
+   * im Fenster eines Spiels, «▶ Rekord ansehen»).
+   *
+   * Liegt dort nur ein früherer, schwächerer Lauf – der Rekord ist nie
+   * hinaufgekommen –, ist der Kreis nur gestrichelt, und er sagt es, statt
+   * so zu tun, als wäre es der Rekord.
+   */
+  function ansehenKnopf(spiel, lauf, { bestwert = 0, text = "" } = {}) {
+    const frueher = (Number(bestwert) || 0) > lauf.punkte;
+    const zahl = `${lauf.punkte} ${einheit(spiel)}`;
+    const oeffne = () => zeigeSpiel(spiel, { zuschauen: lauf.spieler, wer: lauf.name });
+    const node = text
+      ? knopf(text, "adm-knopf-klein adm-ansehen", oeffne)
+      : knopf("", `adm-ansehen adm-ansehen-rund${frueher ? " ist-frueher" : ""}`, oeffne);
+    if (!text) node.append(dreieck());
+    const sagt = frueher
+      ? `Den früheren Lauf von ${lauf.name} ansehen: ${zahl} – vom Bestwert gibt es keine Aufzeichnung`
+      : `Den Lauf von ${lauf.name} ansehen: ${zahl}`;
+    node.title = sagt;
+    node.setAttribute("aria-label", sagt);
+    return node;
+  }
+
+  function spielenKnopf(spiel) {
+    const node = knopf("", "adm-spielen-knopf", () => zeigeSpiel(spiel));
+    node.title = `${titel(spiel)} spielen`;
+    node.setAttribute("aria-label", `${titel(spiel)} spielen`);
+    node.append(dreieck());
     return node;
   }
 
@@ -3288,9 +3335,11 @@
     karte.style.setProperty("--adm-farbe", farbe(spiel).hell);
 
     // Unter dem Kopf, über die ganze Breite: Tier, ob es auf der Startseite
-    // steht, und ▶.
+    // steht, ▶ Spielen – und, sobald gelesen ist, ob es seinen Lauf gibt,
+    // ▶ Rekord ansehen.
+    const rekord = z.liste[0];
+    const marken = el("div", "adm-dash-marken");
     if (z.bekannt) {
-      const marken = el("div", "adm-dash-marken");
       marken.append(
         tierMarke(z.tier),
         el("span", z.an ? "adm-an" : "adm-aus", z.an ? "✓ auf der Startseite" : "nicht auf der Startseite"),
@@ -3299,8 +3348,11 @@
       karte.append(marken);
     }
 
+    // Die besten Läufe der Einträge (abspielbareLaeufe): Kennung → Lauf. Sie
+    // kommen nach, die Liste steht schon vorher da.
+    const laeufe = new Map();
+
     const zahlen = el("div", "adm-streifen adm-dash-zahlen");
-    const rekord = z.liste[0];
     zahlen.append(
       dashKachel(z.spieler, z.spieler === 1 ? "Spieler" : "Spieler"),
       dashKachel(z.runden, z.runden === 1 ? "Runde" : "Runden"),
@@ -3346,6 +3398,14 @@
         },
       },
       { key: "punkte", titel: einheit(spiel), zahl: true, ab: true, wert: (r) => r.eintrag.punkte },
+      // ▶ – der beste Lauf dieses Eintrags, sobald gelesen ist, dass es ihn gibt.
+      {
+        key: "lauf", titel: "", klasse: "adm-lauf",
+        zelle: (r) => {
+          const lauf = laeufe.get(r.eintrag.spieler);
+          return lauf ? ansehenKnopf(spiel, lauf, { bestwert: r.eintrag.punkte }) : "";
+        },
+      },
       { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (r) => r.eintrag.versuche },
       { key: "zeit", titel: "Spielzeit", zahl: true, ab: true, klasse: "adm-breit", wert: (r) => Number(r.eintrag.spielMs) || 0, zelle: (r) => dauerText(r.eintrag.spielMs) },
       { key: "zuletzt", titel: "Zuletzt", zahl: true, ab: true, wert: (r) => Number(r.eintrag.updatedAtMs) || 0, zelle: (r) => wannKurz(r.eintrag.updatedAtMs) },
@@ -3373,8 +3433,30 @@
     bestenliste.zeige(zeilen);
     const liste = teil("Bestenliste");
     liste.append(bestenliste.wirt);
+    // Was das ▶ zeigt – und warum es nicht überall steht.
+    const laufHinweis = el("p", "adm-klein adm-lauf-hinweis",
+      "Aufgezeichnet wird je Spieler und Gerät nur der beste Lauf – das ▶ neben der Zahl spielt ihn ab. Fehlt es, gibt es vom Bestwert keine Aufzeichnung (er stammt aus der Zeit davor).");
+    laufHinweis.hidden = true;
+    liste.append(laufHinweis);
 
     karte.append(zahlen, liste);
+
+    // Die Läufe lesen: je Eintrag einer, nur für dieses Spiel. Was ankommt,
+    // zeichnet die Liste neu – und setzt ▶ Rekord ansehen oben dazu.
+    if (z.bekannt && mini()?.ansehArt?.(spiel)) {
+      Promise.resolve(mini()?.abspielbareLaeufe?.(spiel, z.eintraege.filter((e) => e.punkte > 0).map((e) => e.spieler)))
+        .then((gefunden) => {
+          (gefunden || []).forEach((g) => laeufe.set(g.spieler, g));
+          if (!fenster.offen()) return;
+          laufHinweis.hidden = !z.eintraege.length;
+          if (!laeufe.size) return;
+          bestenliste.zeichne();
+          // Oben nur der Lauf, der wirklich der Rekord ist.
+          const vomRekord = rekord ? laeufe.get(rekord.spieler) : null;
+          if (vomRekord && vomRekord.punkte >= rekord.punkte) marken.append(ansehenKnopf(spiel, vomRekord, { bestwert: rekord.punkte, text: "▶ Rekord ansehen" }));
+        })
+        .catch((fehler) => console.warn("Die Läufe liessen sich nicht lesen", fehler));
+    }
 
     if (z.eintraege.length) {
       const aufraeumen = teil("Aufräumen");
@@ -3890,6 +3972,9 @@
       return box;
     };
 
+    // Sein bester aufgezeichneter Lauf je Spiel (ladeLaeufe): Spiel → Lauf.
+    const laeufe = new Map();
+
     const tabelle = sortierTabelle("auswertung", [
       { key: "spiel", titel: "Spiel", wert: (z) => (z.bekannt ? titel(z.id) : z.id), zelle: (z) => spielName(z.id, z.bekannt) },
       { key: "tier", titel: "Tier", klasse: "adm-breit", wert: (z) => z.tier || 9, zelle: (z) => tierMarke(z.tier) },
@@ -3900,6 +3985,16 @@
           const wert = el("span", "adm-bestwert", `${z.punkte} ${einheit(z.id)}`);
           if (z.eintraege.length > 1) wert.append(el("small", "adm-von", `${z.eintraege.length} Geräte`));
           return wert;
+        },
+      },
+      // ▶ – sein bester aufgezeichneter Lauf in diesem Spiel (über alle seine
+      // Geräte, ladeLaeufe): der zu allen Zeiten, auch wenn oben ein
+      // Zeitraum gilt.
+      {
+        key: "lauf", titel: "", klasse: "adm-lauf",
+        zelle: (z) => {
+          const lauf = laeufe.get(z.id);
+          return lauf ? ansehenKnopf(z.id, lauf, { bestwert: z.bestwert }) : "";
         },
       },
       { key: "runden", titel: "Runden", zahl: true, ab: true, wert: (z) => z.runden },
@@ -3989,6 +4084,9 @@
           platz: liste.find((e) => schluesselVon(e.name) === schluessel)?.platz || liste.length,
           von: liste.length,
           punkte: Math.max(0, ...eintraege.map((e) => Number(e.punkte) || 0)),
+          // Der Bestwert zu allen Zeiten – an ihm misst sich der Lauf
+          // (ansehenKnopf), auch wenn oben ein Zeitraum gilt.
+          bestwert: Math.max(0, ...hier.map((e) => Number(e.punkte) || 0)),
           runden: rundenVon(eintraege),
           zeit: zeitVon(eintraege),
           zuerst: zuerstVon(eintraege),
@@ -4053,6 +4151,25 @@
       });
     }
 
+    // Seine besten Läufe: je Spiel, in dem er einen Eintrag hat, die
+    // Aufzeichnungen aller seiner Geräte dort – es bleibt die beste. Nur
+    // gelesen, nichts dazu gespeichert: Mehr als den besten Lauf gibt es
+    // nicht (miniGeister).
+    async function ladeLaeufe() {
+      const jeSpiel = new Map();
+      echte.forEach((e) => {
+        if (!(Number(e.punkte) > 0) || !mini()?.ansehArt?.(e.game)) return;
+        if (!jeSpiel.has(e.game)) jeSpiel.set(e.game, new Set());
+        jeSpiel.get(e.game).add(e.spieler);
+      });
+      await Promise.all([...jeSpiel].map(async ([spiel, kennungen]) => {
+        const gefunden = await Promise.resolve(mini()?.abspielbareLaeufe?.(spiel, [...kennungen])).catch(() => []);
+        const bester = (gefunden || []).slice().sort((a, b) => b.punkte - a.punkte)[0];
+        if (bester) laeufe.set(spiel, bester);
+      }));
+      if (fenster.offen() && laeufe.size) tabelle.zeichne();
+    }
+
     async function ladeVerlauf() {
       const kennungen = [...seine, ...vonIhm(stand.zeit.eintraege || [])].map((e) => e.spieler);
       try {
@@ -4102,6 +4219,7 @@
     zeichne();
     ladeTurniere();
     ladeVerlauf();
+    ladeLaeufe().catch((fehler) => console.warn("Die Läufe liessen sich nicht lesen", fehler));
     fenster.zeige();
   }
 
