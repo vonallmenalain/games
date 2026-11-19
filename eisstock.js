@@ -63,14 +63,27 @@
 
   // Wie stark das Eis bremst (m/s²) – überall gleich: ein Eis, an das man
   // sich gewöhnen kann.
-  const BREMSE = 1.25;
-  // So weit käme der Stock mit voller Kraft (Meter) – gut zweimal die Bahn,
-  // genug für zwei Banden und eine Kurve. Die Kraft (0 … 1) ist sein Tempo:
-  // halbe Kraft ist ein Viertel des Wegs.
-  const WEIT = 21;
+  const BREMSE = 2.5;
+  // So weit käme der Stock mit voller Kraft (Meter) – fast fünfmal die Bahn:
+  // Voll aufgezogen schiesst er mit gut 14 m/s los und kracht von Bande zu
+  // Bande. Die Kraft (0 … 1) ist sein Tempo: halbe Kraft ist ein Viertel des
+  // Wegs.
+  const WEIT = 42;
   const TEMPO = Math.sqrt(2 * BREMSE * WEIT);
   // Unter so viel Kraft ist ein Zug kein Schub: Er wird zurückgenommen.
   const KRAFT_MIN = 0.06;
+  // Der Zug des Fingers (Teil von view.zug) wird so zur Kraft: Bis KNIE_ZUG
+  // wächst sie gleichmässig bis KNIE_KRAFT – das reicht für jede Bahn –, auf
+  // dem letzten Stück schnell bis zur vollen (kraftAus).
+  const KNIE_ZUG = 0.8;
+  const KNIE_KRAFT = 0.7;
+  // Feinzug: Wer den Finger langsam bewegt (unter FEIN_LANGSAM Bildpunkten je
+  // Sekunde), spannt nur mit FEIN – so lässt sich die Kraft fein stellen,
+  // obwohl ein kurzer Zug schon die volle ist. Ab FEIN_SCHNELL zählt jeder
+  // Bildpunkt ganz.
+  const FEIN = 0.3;
+  const FEIN_LANGSAM = 60;
+  const FEIN_SCHNELL = 350;
   // Was vom Tempo bleibt: an der Bande, am Balken, zwischen zwei Stöcken.
   const PRALL_BANDE = 0.8;
   const PRALL_STOCK = 0.92;
@@ -290,6 +303,11 @@
   // Ein Zug, wie er aufgezeichnet wird: Winkel und Kraft als ganze Zahlen.
   const zugVon = (winkel, kraft) => ({ a: Math.round(winkel * ZUG_TEIL), b: Math.round(clamp(kraft, 0, 1) * ZUG_TEIL) });
   const zugZu = (zug) => ({ winkel: zug.a / ZUG_TEIL, kraft: zug.b / ZUG_TEIL });
+  // Die Kraft aus dem Zug des Fingers (Teil von view.zug) – und umgekehrt.
+  const kraftAus = (u) => (u <= KNIE_ZUG ? (KNIE_KRAFT * Math.max(0, u)) / KNIE_ZUG : Math.min(1, KNIE_KRAFT + ((1 - KNIE_KRAFT) * (u - KNIE_ZUG)) / (1 - KNIE_ZUG)));
+  const zugAus = (kraft) => (kraft <= KNIE_KRAFT ? (KNIE_ZUG * kraft) / KNIE_KRAFT : KNIE_ZUG + ((1 - KNIE_ZUG) * (kraft - KNIE_KRAFT)) / (1 - KNIE_KRAFT));
+  // Wie viel Kraft ein Weg braucht, auf leerem Eis.
+  const kraftFuer = (meter) => Math.sqrt(meter / WEIT);
 
   // Eine Bahn zu Ende gerechnet: Wo liegt der Stock, der zählt?
   function simuliere(bahn, winkel, kraft) {
@@ -338,11 +356,11 @@
     } else {
       const z = bahn.stoecke.find((s) => s.gold) || bahn.ziel;
       const gerade = Math.atan2(z.x - bahn.start.x, z.y - bahn.start.y);
-      for (let w = -24; w <= 24; w += 2) for (let k = 0.3; k <= 1.0001; k += 0.025) if (probiere(gerade + w * GRAD, k)) yield such;
+      for (let w = -24; w <= 24; w += 2) for (let k = 0.15; k <= 1.0001; k += 0.02) if (probiere(gerade + w * GRAD, k)) yield such;
     }
     yield* feiner();
     if (such.best.meter > KNOTEN[0][0]) {
-      for (let w = -72; w <= 72; w += 3) for (let k = 0.3; k <= 1.0001; k += 0.025) { probiere(w * GRAD, k); yield such; }
+      for (let w = -72; w <= 72; w += 3) for (let k = 0.15; k <= 1.0001; k += 0.02) { probiere(w * GRAD, k); yield such; }
       yield* feiner();
     }
     such.fertig = true;
@@ -459,7 +477,8 @@
    * kommt von form(r), der Schub von schuss(r) – { winkel, kraft }. Passt, was
    * der Probeschuss erlebt hat (gut(bahn, probe)), wird, wo der Stock, der
    * zählt, liegen bleibt, zum Ziel. Ist die gerade Linie dorthin frei, legt
-   * sperre einen Balken quer darüber. Ohne Erfolg: null.
+   * sperre einen Balken quer darüber (sperren: true) – oder die Bahn gilt
+   * nicht (false), oder das ist recht so (null). Ohne Erfolg: null.
    */
   function ausProbe(r, form, schuss, gut, sperren = true) {
     for (let versuch = 0; versuch < 60; versuch += 1) {
@@ -476,7 +495,7 @@
         // ein Balken quer darüber – und noch einmal nachgerechnet.
         const nach = bahn.stoecke.find((s) => s.gold) || ziel;
         const fertig = { ...bahn, ziel, tipp: zug };
-        if (freieLinie(bahn, bahn.start, nach)) {
+        if (sperren !== null && freieLinie(bahn, bahn.start, nach)) {
           if (!sperren) continue;
           const b = sperre(r, bahn, probe, nach, ziel);
           if (!b) continue;
@@ -576,7 +595,7 @@
       const cy = LANG - zw(r, 0.45, 0.9) - R;
       return { start: { x: clamp(cx + R - zw(r, 0.45, 0.9), 2.2, BREIT - 0.6), y: START_Y }, kurven: [{ x: cx, y: cy, r: R, von: -8 * GRAD, bis: zw(r, 115, 150) * GRAD }] };
     }),
-    schuss: (r, b) => ({ winkel: b.seite * zw(r, -6, 8) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, -6, 8) * GRAD, kraft: kraftFuer(zw(r, 7.5, 19)) }),
     // Eine Bahn mittlerer Schwere: Das Ziel liegt nicht weit hinter der Kurve.
     gut: (b, p, ziel) => {
       const raus = p.was.filter((e) => e.art === "kurve" && e.wer === 0).pop();
@@ -597,7 +616,7 @@
         kurven: [{ x: 3, y: yc, r: R, von: -6 * GRAD, bis: 186 * GRAD }],
       };
     }),
-    schuss: (r, b) => ({ winkel: b.seite * zw(r, -5, 5) * GRAD, kraft: zw(r, 0.7, 0.95) }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, -5, 5) * GRAD, kraft: kraftFuer(zw(r, 10.3, 19)) }),
     gut: (b, p, ziel) => geglitten(b, p.was) >= 150 * GRAD && zahlVon(p.was, "balken") === 0 && (ziel.x - 3) * (b.start.x - 3) < 0,
   };
 
@@ -612,7 +631,7 @@
         balken: [{ x0: 0, x1: zw(r, 3.4, 4.2), y0: ya - QUER, y1: ya + QUER }, { x0: zw(r, 1.8, 2.6), x1: BREIT, y0: yb - QUER, y1: yb + QUER }],
       };
     }),
-    schuss: (r, b) => ({ winkel: b.seite * zw(r, 40, 80) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, 40, 80) * GRAD, kraft: kraftFuer(zw(r, 7.5, 19)) }),
     gut: (b, p, ziel) => zahlVon(p.was, "bande") >= 2 && zahlVon(p.was, "balken") === 0 && ziel.y > b.balken[1].y1 + 0.7,
   };
 
@@ -623,11 +642,30 @@
       const yb = zw(r, 3.8, 4.8);
       return { start: { x: zw(r, 1.2, 4.2), y: START_Y }, balken: [{ x0: 0, x1: BREIT - zw(r, 1.15, 1.5), y0: yb - QUER, y1: yb + QUER }] };
     }),
-    schuss: (r, b) => ({ winkel: b.seite * zw(r, 5, 45) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, 5, 45) * GRAD, kraft: kraftFuer(zw(r, 7.5, 19)) }),
     gut: (b, p, ziel) => {
       const k = b.balken[0];
       const hinter = b.seite > 0 ? ziel.x < k.x1 - 0.6 : ziel.x > k.x0 + 0.6;
       return zahlVon(p.was, "bande") >= 2 && zahlVon(p.was, "balken") === 0 && ziel.y > k.y1 + 0.7 && hinter;
+    },
+  };
+
+  // Anstossen: der goldene Stock gerade vor dem eigenen, ein wenig daneben
+  // getroffen – er soll ein gutes Stück weit rutschen, ohne Bande.
+  const ANSTOSS = {
+    form: (r) => {
+      const x = zw(r, 1.9, 4.1);
+      return { start: { x, y: START_Y }, stoecke: [{ x: clamp(x + zw(r, -0.7, 0.7), 1.2, BREIT - 1.2), y: zw(r, 3.4, 5.2), gold: true }] };
+    },
+    schuss: (r, b) => {
+      const gold = b.stoecke[0];
+      return { winkel: Math.atan2(gold.x - b.start.x, gold.y - b.start.y) + zw(r, -4, 4) * GRAD, kraft: kraftFuer(zw(r, 5, 12)) };
+    },
+    gut: (b, p, ziel) => {
+      const gold = b.stoecke[0];
+      const treffer = erstesMal(p.was, "stock");
+      return Number.isFinite(treffer) && !p.was.some((e) => e.schritt < treffer && e.art !== "stock") && zahlVon(p.was, "bande", 1) === 0
+        && Math.hypot(ziel.x - gold.x, ziel.y - gold.y) > 1.2;
     },
   };
 
@@ -642,7 +680,7 @@
       const { x: sx, y: sy } = b.start;
       const w = mal1(r) > 0 ? BREIT - RADIUS : RADIUS;
       const yw = ((gx - w) * sy - PRALL_BANDE * (w - sx) * gy) / ((gx - w) - PRALL_BANDE * (w - sx));
-      return { winkel: Math.atan2(w - sx, yw - sy) + zw(r, -2.5, 2.5) * GRAD, kraft: zw(r, 0.55, 0.95) };
+      return { winkel: Math.atan2(w - sx, yw - sy) + zw(r, -2.5, 2.5) * GRAD, kraft: kraftFuer(zw(r, 6.3, 19)) };
     },
     gut: (b, p, ziel) => {
       const treffer = erstesMal(p.was, "stock");
@@ -653,14 +691,17 @@
     },
   };
 
+  // Auf leerem Eis: Der gerade Schub ist der Tipp.
+  const geradeHin = (teil) => ({ ...teil, tipp: { winkel: Math.atan2(teil.ziel.x - teil.start.x, teil.ziel.y - teil.start.y), kraft: kraftFuer(Math.hypot(teil.ziel.x - teil.start.x, teil.ziel.y - teil.start.y)) } });
+
   const BAU = {
     gerade(r) {
       const x = zw(r, 1.6, 4.4);
-      return { start: { x, y: START_Y }, ziel: { x: clamp(x + zw(r, -0.3, 0.3), 1.2, 4.8), y: zw(r, 3.2, 7.9) } };
+      return geradeHin({ start: { x, y: START_Y }, ziel: { x: clamp(x + zw(r, -0.3, 0.3), 1.2, 4.8), y: zw(r, 3.2, 7.9) } });
     },
     schraeg(r) {
       const seite = mal1(r);
-      return { start: { x: 3 - seite * zw(r, 0.8, 1.9), y: START_Y }, ziel: { x: 3 + seite * zw(r, 0.9, 2), y: zw(r, 4.4, 7.9) } };
+      return geradeHin({ start: { x: 3 - seite * zw(r, 0.8, 1.9), y: START_Y }, ziel: { x: 3 + seite * zw(r, 0.9, 2), y: zw(r, 4.4, 7.9) } });
     },
     // Ein Balken quer über der geraden Linie – der Weg führt über die Bande.
     bande: (r) => ueberBande(r) || BAU.schraeg(r),
@@ -676,16 +717,13 @@
       const qy = -(ziel.x - x) / lang;
       const halb = RADIUS + zw(r, 0.34, 0.42);
       // Der gerade Schub geht mitten durch die Gasse: Er ist der Tipp.
-      const tipp = { winkel: Math.atan2(ziel.x - x, ziel.y - START_Y), kraft: Math.sqrt(lang / WEIT) };
+      const tipp = { winkel: Math.atan2(ziel.x - x, ziel.y - START_Y), kraft: kraftFuer(lang) };
       return { start: { x, y: START_Y }, ziel, tipp, stoecke: [{ x: mx + qx * halb, y: my + qy * halb }, { x: mx - qx * halb, y: my - qy * halb }] };
     },
-    stoss(r) {
-      const x = zw(r, 1.9, 4.1);
-      const ziel = { x: clamp(x + zw(r, -1, 1), 1.4, 4.6), y: zw(r, 6, 7.8) };
-      // Der goldene Stock liegt auf dem Weg, ein gutes Stück vor dem Ziel.
-      const t = zw(r, 0.5, 0.68);
-      return { start: { x, y: START_Y }, ziel, stoecke: [{ x: lerp(x, ziel.x, t) + zw(r, -0.12, 0.12), y: lerp(START_Y, ziel.y, t), gold: true }] };
-    },
+    // Der goldene Stock liegt vorn auf dem Eis; der eigene stösst ihn an,
+    // und wo er liegen bleibt, ist das Ziel (ein Probeschuss, wie bei den
+    // schweren Bahnen – so gibt es immer einen Schub mitten hinein).
+    stoss: (r) => ausProbe(r, ANSTOSS.form, ANSTOSS.schuss, ANSTOSS.gut, null) || BAU.gerade(r),
     kurve: (r) => ausProbe(r, KURVE.form, KURVE.schuss, KURVE.gut) || BAU.bande(r),
     wende: (r) => ausProbe(r, WENDE.form, WENDE.schuss, WENDE.gut, false) || BAU.bande(r),
     doppelbande: (r) => ausProbe(r, DOPPELBANDE.form, DOPPELBANDE.schuss, DOPPELBANDE.gut, false) || BAU.bande(r),
@@ -739,7 +777,8 @@
     tZeig: 0,              // wann das Ergebnis begann
     gewendet: 0,           // wann zuletzt gewechselt wurde
     welt: null,            // die Stöcke dieser Bahn (weltFuer)
-    zielen: null,          // solange gezogen wird: { zeiger, x, y (wo aufgesetzt), winkel, kraft }
+    zielen: null,          // solange gezogen wird: { zeiger, x, y (wo aufgesetzt), winkel, kraft, abbruch }
+    abgebrochen: -1e9,     // wann zuletzt ein Zug abgebrochen wurde (performance.now)
     schub: null,           // der Schub, sobald er getan ist { winkel, kraft }
     rest: 0,               // Zeit, die noch nicht in Schritte der Welt umgesetzt ist
     spur: [],              // wo der eigene Stock entlangfuhr – fürs Bild
@@ -758,6 +797,8 @@
   let frame = null;
   let last = 0;
   let stepTimer = null;
+  // Der Finger, der gerade zieht (siehe «Eingabe»).
+  let finger = null;
   // Wem zugeschaut wird (live-spiel.js oder ein Lauf aus der Hall of Fame).
   let zuschauer = null;
   // Die Aufzeichnung der Züge (geist.js, zuege).
@@ -932,7 +973,7 @@
     const dy = z.y - y;
     const quer = view.quer ? dy : dx;
     const lang = view.quer ? dx : -dy;
-    const zug = zugVon(Math.atan2(quer, lang), Math.hypot(dx, dy) / view.zug);
+    const zug = zugVon(Math.atan2(quer, lang), kraftAus(Math.hypot(dx, dy) / view.zug));
     const neu = zugZu(zug);
     if (neu.winkel === z.winkel && neu.kraft === z.kraft) return;
     z.winkel = neu.winkel;
@@ -940,14 +981,26 @@
     meldeLage(zug.a, zug.b);
   }
 
-  // Loslassen: der Schub – ausser, es war kaum gezogen.
+  // Loslassen: der Schub – ausser, es war kaum gezogen oder der Finger ist
+  // zurück, wo er aufsetzte (abbruch).
   function zielEnde() {
     const z = state.zielen;
     if (!z) return;
     state.zielen = null;
     if (state.phase !== "aufgabe") return;
-    if (z.kraft < KRAFT_MIN) { meldeZug(6); return; }
+    if (z.abbruch || z.kraft < KRAFT_MIN) { meldeZug(6); if (z.abbruch) state.abgebrochen = performance.now(); return; }
     schiebeAb(z.winkel, z.kraft);
+  }
+
+  // Abbrechen: ein zweiter Finger, die rechte Maustaste, Escape. Nichts
+  // wird geschoben, und es lässt sich neu ziehen.
+  function zielAbbrechen() {
+    if (!state.zielen) return false;
+    state.zielen = null;
+    state.abgebrochen = performance.now();
+    meldeZug(6);
+    if (status && state.phase === "aufgabe") status.textContent = "Abgebrochen – zieh neu.";
+    return true;
   }
 
   function schiebeAb(winkel, kraft) {
@@ -1035,7 +1088,7 @@
     // Ist die Zeit um, gilt der Zug, wie er gerade gespannt ist – sonst nichts.
     if (rest <= 0) {
       const z = state.zielen;
-      if (z && z.kraft >= KRAFT_MIN) schiebeAb(z.winkel, z.kraft);
+      if (z && !z.abbruch && z.kraft >= KRAFT_MIN) schiebeAb(z.winkel, z.kraft);
       else werte(null);
     }
   }
@@ -1147,8 +1200,9 @@
       view.text = { x: Math.round((cssW - breit) / 2) + 2, y: y - kopf + Math.round(4 * u), w: breit - 4 };
       view.reihe = { x: Math.round((cssW - breit) / 2), y: y + h + Math.round(22 * u), w: breit, h: fuss - Math.round(28 * u), quer: true };
     }
-    // So weit muss der Finger für die volle Kraft zurück (Bildpunkte).
-    view.zug = clamp(Math.max(view.eis.w, view.eis.h) * 0.62, 170, 420);
+    // So weit muss der Finger für die volle Kraft zurück (Bildpunkte): ein
+    // kurzes Stück, am Handy gut zwei Zentimeter – so geht es überall auf.
+    view.zug = clamp(Math.min(cssW, cssH) * 0.36, 110, 220);
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
@@ -1459,7 +1513,7 @@
     mitT(T, () => {
       maleBoden(b);
       if (e.spur) maleSpur(e.spur, welt.ruht ? null : welt.stoecke[0]);
-      if (e.zielen) maleZielen(welt.stoecke[0], e.zielen.winkel, e.zielen.kraft);
+      if (e.zielen) maleZielen(welt.stoecke[0], e.zielen.winkel, e.zielen.abbruch ? 0 : e.zielen.kraft);
       for (const s of welt.stoecke) maleStock(s);
       if (e.staub) {
         for (const f of e.staub) {
@@ -1763,9 +1817,54 @@
       else g.fillText(text, e.x + e.w / 2, Math.min(p[1] + 40 * u, e.y + e.h - 12 * u));
       g.restore();
     }
+    zeichneAbbruch(jetzt, T);
     zeichneKopf();
     zeichneUhr();
     zeichneReihe();
+  }
+
+  // Abbrechen: Während gezogen wird, zeigt ein Ring, wo der Finger aufsetzte
+  // – dorthin zurück und loslassen bricht ab; ist er dort, wird er rot. Nach
+  // einem Abbruch steht kurz «Abgebrochen» beim Stock.
+  function zeichneAbbruch(jetzt, T) {
+    const u = view.u;
+    const z = state.zielen;
+    g.save();
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    if (finger && z && z.zeiger === finger.id && state.phase === "aufgabe") {
+      const r = abbruchRadius();
+      const drin = Boolean(z.abbruch);
+      g.globalAlpha = drin ? 0.95 : 0.55;
+      g.fillStyle = drin ? "rgba(194, 42, 26, 0.85)" : "rgba(14, 42, 74, 0.25)";
+      g.strokeStyle = drin ? "#ffffff" : "rgba(14, 42, 74, 0.7)";
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(finger.x0, finger.y0, r, 0, TAU); g.fill(); g.stroke();
+      const k = r * 0.35;
+      g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(finger.x0 - k, finger.y0 - k); g.lineTo(finger.x0 + k, finger.y0 + k); g.moveTo(finger.x0 + k, finger.y0 - k); g.lineTo(finger.x0 - k, finger.y0 + k); g.stroke();
+      if (drin) {
+        g.font = `800 ${Math.round(12.5 * u)}px ${SANS}`;
+        g.fillStyle = "#ffffff";
+        g.strokeStyle = "rgba(10, 20, 35, 0.8)";
+        g.lineWidth = 3;
+        g.strokeText("loslassen = abbrechen", finger.x0, finger.y0 - r - 12 * u);
+        g.fillText("loslassen = abbrechen", finger.x0, finger.y0 - r - 12 * u);
+      }
+    }
+    const seitAb = (jetzt - state.abgebrochen) / 1000;
+    if (seitAb < 1.1 && state.phase === "aufgabe" && state.welt && !state.zielen) {
+      const p = ortIn(T, state.welt.stoecke[0].x, state.welt.stoecke[0].y);
+      g.globalAlpha = clamp(1.1 - seitAb, 0, 1);
+      g.font = `800 ${Math.round(15 * u)}px ${SANS}`;
+      g.fillStyle = "#c22a1a";
+      g.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      g.lineWidth = 4;
+      const y = view.quer ? p[1] - 34 * u : p[1] - 42 * u;
+      g.strokeText("Abgebrochen", p[0], y);
+      g.fillText("Abgebrochen", p[0], y);
+    }
+    g.restore();
   }
 
   // ---------------------------------------------------------------------------
@@ -1949,9 +2048,9 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "iceStock", fassung: "z2", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "iceStock", fassung: "z3", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z3", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -1973,30 +2072,66 @@
     return true;
   }
 
+  /*
+   * Der Finger an der Schleuder. finger merkt sich, wo er aufsetzte (x0, y0),
+   * wo er ist (x, y), wie schnell er sich bewegt (tempo, Bildpunkte je
+   * Sekunde, geglättet) und wohin er die Schleuder gezogen hat (zx, zy): Ein
+   * schneller Zug zählt ganz, ein langsamer nur zu FEIN – der Feinzug. Ist
+   * der Finger zurück, wo er aufsetzte (abbruchRadius), bricht Loslassen ab.
+   */
+  const abbruchRadius = () => Math.max(18, view.zug * 0.15);
+
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    if (!canvas || (event.pointerType === "mouse" && event.button !== 0)) return;
+    if (!canvas) return;
+    // Ein zweiter Finger oder die rechte Maustaste: Der Zug ist abgebrochen.
+    if (state.zielen && state.zielen.zeiger !== event.pointerId && state.phase === "aufgabe" && !zuschauer) {
+      event.preventDefault();
+      finger = null;
+      zielAbbrechen();
+      return;
+    }
+    if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
     if (tippe() || zuschauer) return;
     const ort = bildOrt(event);
     if (zielBeginn(ort.x, ort.y, event.pointerId)) {
+      finger = { id: event.pointerId, x0: ort.x, y0: ort.y, x: ort.x, y: ort.y, zx: ort.x, zy: ort.y, t: event.timeStamp, tempo: null };
       try { canvas.setPointerCapture(event.pointerId); } catch { /* geht auch ohne */ }
     }
   });
+  host.addEventListener("contextmenu", (event) => { if (event.target === canvas) event.preventDefault(); });
   window.addEventListener("pointermove", (event) => {
-    if (!state.zielen || state.zielen.zeiger !== event.pointerId || !canvas) return;
+    if (!state.zielen || state.zielen.zeiger !== event.pointerId || !canvas || !finger || finger.id !== event.pointerId) return;
     const ort = bildOrt(event);
-    zielZu(ort.x, ort.y);
+    const dx = ort.x - finger.x;
+    const dy = ort.y - finger.y;
+    const dt = Math.max(1, event.timeStamp - finger.t);
+    const roh = (Math.hypot(dx, dy) / dt) * 1000;
+    finger.tempo = finger.tempo === null ? roh : lerp(finger.tempo, roh, 1 - Math.exp(-dt / 60));
+    const anteil = FEIN + (1 - FEIN) * clamp((finger.tempo - FEIN_LANGSAM) / (FEIN_SCHNELL - FEIN_LANGSAM), 0, 1);
+    finger.zx += dx * anteil;
+    finger.zy += dy * anteil;
+    finger.x = ort.x;
+    finger.y = ort.y;
+    finger.t = event.timeStamp;
+    // Zurück, wo er aufsetzte: Loslassen bricht ab – und die Schleuder steht
+    // wieder dort, wo der Finger ist.
+    const zurueck = Math.hypot(ort.x - finger.x0, ort.y - finger.y0) <= abbruchRadius();
+    if (zurueck) { finger.zx = ort.x; finger.zy = ort.y; }
+    state.zielen.abbruch = zurueck;
+    zielZu(finger.zx, finger.zy);
   });
+  // Loslassen: Es gilt, wie zuletzt gezogen war – nicht das Zucken beim Abheben.
   window.addEventListener("pointerup", (event) => {
     if (!state.zielen || state.zielen.zeiger !== event.pointerId || !canvas) return;
-    const ort = bildOrt(event);
-    zielZu(ort.x, ort.y);
+    finger = null;
     zielEnde();
   });
   // Bricht das Gerät den Zug ab (ein Anruf, eine Geste), gilt er nicht.
   window.addEventListener("pointercancel", (event) => {
     if (!state.zielen || state.zielen.zeiger !== event.pointerId) return;
+    finger = null;
     state.zielen = null;
     meldeZug(6);
   });
@@ -2022,9 +2157,9 @@
       if ((event.key === " " || event.key === "Enter") && !event.repeat && state.zielen?.zeiger === "taste") {
         event.preventDefault();
         zielEnde();
-      } else if (event.key === "Escape" && state.zielen?.zeiger === "taste") {
-        state.zielen = null;
-        meldeZug(6);
+      } else if (event.key === "Escape" && state.zielen) {
+        finger = null;
+        zielAbbrechen();
       }
       return;
     }
@@ -2038,7 +2173,10 @@
   // Für die Prüfung (scripts/check-spiele.mjs) und die Vorführung.
   window.LernappEisstock = {
     ARTEN: [...LEICHT, ...MITTEL, ...SCHWER], LEICHT, MITTEL, SCHWER, PLAN, BAHNEN, ZEITEN, KNOTEN, RINGE, GENAU,
-    BREIT, LANG, RADIUS, START_Y, WEIT, TEMPO, TAKT, KRAFT_MIN, EINZUG, SPERRE, VORSCHAU, ZEIGEN_MS, ZUG_TEIL,
+    BREIT, LANG, RADIUS, START_Y, WEIT, TEMPO, TAKT, KRAFT_MIN, EINZUG, SPERRE, VORSCHAU, ZEIGEN_MS, ZUG_TEIL, KNIE_ZUG, KNIE_KRAFT, FEIN,
+    kraftAus, zugAus, kraftFuer, zielAbbrechen,
+    // Wie lang (Bildpunkte) der Finger für diese Kraft zieht.
+    zugLaenge: (kraft) => zugAus(kraft) * view.zug,
     state, view, lege, bahnenFuer, weltText, weltFuer, schiebe, schritt, simuliere, suche, loese, punkteFuer, abstandVon, zugVon, zugZu,
     losGehts, bahnLos, zielBeginn, zielZu, zielEnde, schiebeAb, weiter, takt, zeichnen,
     // Die Bildschärfe festhalten (für Standbilder und Filme).
