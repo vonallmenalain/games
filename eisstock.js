@@ -61,19 +61,24 @@
   // Wo der Stock steht, bevor er geschoben wird.
   const START_Y = 1.15;
 
-  // Wie stark das Eis bremst (m/s²): blank, im Schnee, auf Glatteis.
+  // Wie stark das Eis bremst (m/s²) – überall gleich: ein Eis, an das man
+  // sich gewöhnen kann.
   const BREMSE = 1.25;
-  const BREMSE_SCHNEE = 3.4;
-  const BREMSE_GLATT = 0.5;
-  // So weit käme der Stock mit voller Kraft auf blankem Eis (Meter) – die
-  // Kraft (0 … 1) ist sein Tempo: halbe Kraft ist ein Viertel des Wegs.
-  const WEIT = 10.5;
+  // So weit käme der Stock mit voller Kraft (Meter) – gut zweimal die Bahn,
+  // genug für zwei Banden und eine Kurve. Die Kraft (0 … 1) ist sein Tempo:
+  // halbe Kraft ist ein Viertel des Wegs.
+  const WEIT = 21;
   const TEMPO = Math.sqrt(2 * BREMSE * WEIT);
   // Unter so viel Kraft ist ein Zug kein Schub: Er wird zurückgenommen.
   const KRAFT_MIN = 0.06;
   // Was vom Tempo bleibt: an der Bande, am Balken, zwischen zwei Stöcken.
   const PRALL_BANDE = 0.8;
   const PRALL_STOCK = 0.92;
+  // Eine gebogene Bande ist so dick (Meter). Sie federt kaum: Wer sie schräg
+  // trifft, schmiegt sich an und gleitet an ihr entlang.
+  const KURVE_DICK = 0.2;
+  const PRALL_KURVE = 0.25;
+  const BALKEN_DICK = 0.28;
   // Die festen Schritte der Rechnung, und wie lange sie höchstens läuft.
   const TAKT = 1 / 240;
   const SCHRITTE_MAX = 240 * 14;
@@ -87,17 +92,17 @@
   // Die Ringe des Ziels: ihre Halbmesser (Meter).
   const RINGE = [0.2, 0.4, 0.7, 1.1];
 
-  // Die Bahnen nach Schwere. Jede Runde: die beiden leichten, die vier
-  // mittleren, und vier schwere (eine Art davon zweimal).
+  // Die Bahnen nach Schwere. Jede Runde hat jede Art einmal: die beiden
+  // leichten, die vier mittleren, die vier schweren.
   const LEICHT = ["gerade", "schraeg"];
-  const MITTEL = ["schnee", "glatt", "bande", "gasse"];
-  const SCHWER = ["hang", "stoss", "zickzack"];
+  const MITTEL = ["bande", "gasse", "stoss", "kurve"];
+  const SCHWER = ["doppelbande", "rueckweg", "wende", "bandenstoss"];
   const PLAN = [2, 4, 4];
   const BAHNEN = PLAN[0] + PLAN[1] + PLAN[2];
   const STUFE = ["leicht", "mittel", "schwer"];
 
   // So lange hat eine Bahn (Sekunden), bis der Stock unterwegs sein muss.
-  const ZEITEN = [12, 14, 16];
+  const ZEITEN = [12, 15, 20];
   // So lange legt sich eine neue Bahn hin; erst danach läuft die Zeit.
   const EINZUG = 0.45;
   // Ab wann eine Bahn einen Zug annimmt – nicht den Tipp, der sie hinlegte.
@@ -137,8 +142,11 @@
    *   stoecke   was sonst auf dem Eis steht: { x, y, gold } – ein goldener
    *             ist der, der zählt (stoss)
    *   balken    Holzbalken, an denen alles abprallt: { x0, y0, x1, y1 }
-   *   zonen     Flecken im Eis: { art: "schnee" | "glatt", x, y, rx, ry }
-   *   hang      zieht jeden Stock, der gleitet: { x, y } in m/s² – oder null
+   *   kurven    gebogene Banden, Kreisbögen: { x, y, r, von, bis } – die
+   *             Mitte, der Halbmesser und von wo bis wo der Bogen geht
+   *             (Winkel gegen den Uhrzeigersinn, 0 nach rechts, von < bis)
+   *   tipp      bei Bahnen, die von der Lösung her gebaut sind: der Schub,
+   *             der mitten ins Ziel führt { winkel, kraft }
    *
    * Die Welt einer Bahn (weltFuer) sind ihre Stöcke mit Ort und Tempo; der
    * erste ist der eigene.
@@ -154,14 +162,14 @@
     };
   }
 
-  // Wie stark das Eis an dieser Stelle bremst.
-  function bremseBei(bahn, x, y) {
-    for (const z of bahn.zonen) {
-      const dx = (x - z.x) / z.rx;
-      const dy = (y - z.y) / z.ry;
-      if (dx * dx + dy * dy <= 1) return z.art === "schnee" ? BREMSE_SCHNEE : BREMSE_GLATT;
-    }
-    return BREMSE;
+  // Der Punkt einer gebogenen Bande, der (x, y) am nächsten liegt.
+  function aufKurve(k, x, y) {
+    const w = Math.atan2(y - k.y, x - k.x);
+    const d = (((w - k.von) % TAU) + TAU) % TAU;
+    if (d <= k.bis - k.von) return [k.x + Math.cos(w) * k.r, k.y + Math.sin(w) * k.r];
+    const ax = k.x + Math.cos(k.von) * k.r, ay = k.y + Math.sin(k.von) * k.r;
+    const bx = k.x + Math.cos(k.bis) * k.r, by = k.y + Math.sin(k.bis) * k.r;
+    return Math.hypot(x - ax, y - ay) <= Math.hypot(x - bx, y - by) ? [ax, ay] : [bx, by];
   }
 
   // Der Schub: Der eigene Stock bekommt sein Tempo. winkel: von der Bahn
@@ -174,55 +182,60 @@
     welt.ruht = false;
   }
 
-  // Ein Schritt der Welt: gleiten, bremsen, abprallen.
+  // Ein Stock prallt von (nx, ny) ab – dem nächsten Punkt eines Balkens oder
+  // einer Kurve –, wenn er ihm näher ist als grenze. art: was es war.
+  function prall(welt, s, i, nx, ny, grenze, art, prall = PRALL_BANDE) {
+    const dx = s.x - nx;
+    const dy = s.y - ny;
+    const d = Math.hypot(dx, dy);
+    if (d >= grenze || d === 0) return;
+    const ux = dx / d;
+    const uy = dy / d;
+    s.x = nx + ux * grenze;
+    s.y = ny + uy * grenze;
+    const hin = s.vx * ux + s.vy * uy;
+    if (hin < 0) {
+      s.vx -= (1 + prall) * hin * ux;
+      s.vy -= (1 + prall) * hin * uy;
+      welt.stoesse.push({ art, wer: i, x: nx, y: ny, wucht: -hin });
+    }
+  }
+
+  // Ein Schritt der Welt: gleiten, bremsen, abprallen. In welt.stoesse steht,
+  // was dabei geschah: { art: "bande" | "balken" | "kurve" | "stock", wer
+  // (welcher Stock), x, y, wucht }.
   function schritt(welt) {
     const bahn = welt.bahn;
     welt.stoesse.length = 0;
     let bewegt = false;
-    for (const s of welt.stoecke) {
+    const ab = BREMSE * TAKT;
+    welt.stoecke.forEach((s, i) => {
       const v = Math.hypot(s.vx, s.vy);
-      if (v <= 0) continue;
-      // Das Eis bremst gegen die Fahrt; der Hang zieht quer dazu mit.
-      const ab = bremseBei(bahn, s.x, s.y) * TAKT;
-      if (v <= ab && !bahn.hang) { s.vx = 0; s.vy = 0; continue; }
-      const k = Math.max(0, v - ab) / v;
+      if (v <= 0) return;
+      // Das Eis bremst gegen die Fahrt.
+      if (v <= ab) { s.vx = 0; s.vy = 0; return; }
+      const k = (v - ab) / v;
       s.vx *= k;
       s.vy *= k;
-      if (bahn.hang) {
-        // Am Hang bleibt ein Stock liegen, sobald er fast steht.
-        if (v <= ab * 1.5) { s.vx = 0; s.vy = 0; continue; }
-        s.vx += bahn.hang.x * TAKT;
-        s.vy += bahn.hang.y * TAKT;
-      }
       s.x += s.vx * TAKT;
       s.y += s.vy * TAKT;
       s.dreh += v * TAKT * 0.9;
       bewegt = true;
       // Die Banden rundum.
-      if (s.x < RADIUS && s.vx < 0) { s.x = RADIUS; s.vx = -s.vx * PRALL_BANDE; welt.stoesse.push({ art: "bande", x: 0, y: s.y, wucht: Math.abs(s.vx) }); }
-      if (s.x > BREIT - RADIUS && s.vx > 0) { s.x = BREIT - RADIUS; s.vx = -s.vx * PRALL_BANDE; welt.stoesse.push({ art: "bande", x: BREIT, y: s.y, wucht: Math.abs(s.vx) }); }
-      if (s.y < RADIUS && s.vy < 0) { s.y = RADIUS; s.vy = -s.vy * PRALL_BANDE; welt.stoesse.push({ art: "bande", x: s.x, y: 0, wucht: Math.abs(s.vy) }); }
-      if (s.y > LANG - RADIUS && s.vy > 0) { s.y = LANG - RADIUS; s.vy = -s.vy * PRALL_BANDE; welt.stoesse.push({ art: "bande", x: s.x, y: LANG, wucht: Math.abs(s.vy) }); }
+      if (s.x < RADIUS && s.vx < 0) { s.x = RADIUS; s.vx = -s.vx * PRALL_BANDE; welt.stoesse.push({ art: "bande", wer: i, x: 0, y: s.y, wucht: Math.abs(s.vx) }); }
+      if (s.x > BREIT - RADIUS && s.vx > 0) { s.x = BREIT - RADIUS; s.vx = -s.vx * PRALL_BANDE; welt.stoesse.push({ art: "bande", wer: i, x: BREIT, y: s.y, wucht: Math.abs(s.vx) }); }
+      if (s.y < RADIUS && s.vy < 0) { s.y = RADIUS; s.vy = -s.vy * PRALL_BANDE; welt.stoesse.push({ art: "bande", wer: i, x: s.x, y: 0, wucht: Math.abs(s.vy) }); }
+      if (s.y > LANG - RADIUS && s.vy > 0) { s.y = LANG - RADIUS; s.vy = -s.vy * PRALL_BANDE; welt.stoesse.push({ art: "bande", wer: i, x: s.x, y: LANG, wucht: Math.abs(s.vy) }); }
       // Die Balken: vom nächsten Punkt des Balkens weg.
-      for (const b of bahn.balken) {
-        const nx = clamp(s.x, b.x0, b.x1);
-        const ny = clamp(s.y, b.y0, b.y1);
-        const dx = s.x - nx;
-        const dy = s.y - ny;
-        const d = Math.hypot(dx, dy);
-        if (d >= RADIUS || d === 0) continue;
-        const ux = dx / d;
-        const uy = dy / d;
-        s.x = nx + ux * RADIUS;
-        s.y = ny + uy * RADIUS;
-        const hin = s.vx * ux + s.vy * uy;
-        if (hin < 0) {
-          s.vx -= (1 + PRALL_BANDE) * hin * ux;
-          s.vy -= (1 + PRALL_BANDE) * hin * uy;
-          welt.stoesse.push({ art: "bande", x: nx, y: ny, wucht: -hin });
-        }
+      for (const b of bahn.balken) prall(welt, s, i, clamp(s.x, b.x0, b.x1), clamp(s.y, b.y0, b.y1), RADIUS, "balken");
+      // Die Kurven: Wer schräg auf sie trifft, gleitet an ihnen entlang.
+      for (const kv of bahn.kurven) {
+        // Weit weg von jedem Bogen: nichts zu rechnen.
+        if (Math.abs(Math.hypot(s.x - kv.x, s.y - kv.y) - kv.r) > RADIUS + KURVE_DICK) continue;
+        const [nx, ny] = aufKurve(kv, s.x, s.y);
+        prall(welt, s, i, nx, ny, RADIUS + KURVE_DICK / 2, "kurve", PRALL_KURVE);
       }
-    }
+    });
     // Stock an Stock: Sie tauschen, was sie aufeinander zu haben.
     for (let i = 0; i < welt.stoecke.length; i += 1) {
       for (let j = i + 1; j < welt.stoecke.length; j += 1) {
@@ -243,7 +256,7 @@
         a.vx -= stoss * ux; a.vy -= stoss * uy;
         b.vx += stoss * ux; b.vy += stoss * uy;
         bewegt = true;
-        welt.stoesse.push({ art: "stock", x: a.x + ux * RADIUS, y: a.y + uy * RADIUS, wucht: hin });
+        welt.stoesse.push({ art: "stock", wer: i, mit: j, x: a.x + ux * RADIUS, y: a.y + uy * RADIUS, wucht: hin });
       }
     }
     welt.schritte += 1;
@@ -318,6 +331,9 @@
       }
     }
     if (bahn.tipp) {
+      // Ein Tipp aus einem Probeschuss führt genau ins Ziel: fertig.
+      probiere(bahn.tipp.winkel, bahn.tipp.kraft);
+      if (such.best.meter <= 0.005) { such.fertig = true; yield such; return; }
       for (let i = -3; i <= 3; i += 1) for (let j = -3; j <= 3; j += 1) if (probiere(bahn.tipp.winkel + i * 0.4 * GRAD, bahn.tipp.kraft + j * 0.008)) yield such;
     } else {
       const z = bahn.stoecke.find((s) => s.gold) || bahn.ziel;
@@ -343,31 +359,150 @@
   // Die Bahnen
   // ---------------------------------------------------------------------------
   const KURZ = {
-    gerade: "Geradeaus", schraeg: "Schräg", schnee: "Schnee", glatt: "Glatteis", bande: "Über die Bande", gasse: "Die Gasse",
-    hang: "Am Hang", stoss: "Anstossen", zickzack: "Zwei Balken",
+    gerade: "Geradeaus", schraeg: "Schräg", bande: "Über die Bande", gasse: "Die Gasse", stoss: "Anstossen",
+    kurve: "Die Kurve", doppelbande: "Zwei Banden", rueckweg: "Der Rückweg", wende: "Die Wende",
+    bandenstoss: "Über Bande anstossen",
   };
 
   // Was zu tun ist – ein Satz je Art.
   const TUN = {
     gerade: "Schieb den Stock so, dass er mitten im Ziel liegen bleibt.",
     schraeg: "Das Ziel liegt schräg. Schieb den Stock so, dass er mitten darin liegen bleibt.",
-    schnee: "Im Schnee bremst der Stock viel stärker. Schieb ihn so, dass er trotzdem bis mitten ins Ziel kommt.",
-    glatt: "Auf dem blanken Fleck bremst das Eis kaum. Schieb den Stock so, dass er mitten im Ziel liegen bleibt.",
     bande: "Der Balken versperrt den Weg. Spiel über die Bande – der Stock prallt ab wie ein Ball.",
     gasse: "Zwischen den beiden Stöcken ist eine Gasse. Schieb deinen hindurch und mitten ins Ziel.",
-    hang: "Das Eis fällt zur Seite ab: Der Hang zieht den Stock in Pfeilrichtung. Halte dagegen.",
     stoss: "Hier zählt der goldene Stock: Stoss ihn so an, dass er mitten im Ziel liegen bleibt.",
-    zickzack: "Zwei Balken stehen im Weg. Finde den Weg über die Bande, an beiden vorbei, bis mitten ins Ziel.",
+    kurve: "Triff die gebogene Bande so, dass der Stock an ihr entlanggleitet – sie lenkt ihn ums Eck ins Ziel.",
+    doppelbande: "Zwei Balken versperren den Weg. Spiel über zwei Banden im Zickzack bis mitten ins Ziel.",
+    rueckweg: "Das Ziel liegt hinter dem Balken. Spiel durch die Lücke und über zwei Banden zurück ins Ziel.",
+    wende: "Das Ziel liegt auf der anderen Seite der Wand. Lass den Stock durch die Kehre gleiten und zurück ins Ziel.",
+    bandenstoss: "Der goldene Stock zählt – doch ein Balken deckt ihn. Triff ihn über die Bande, sodass er mitten ins Ziel rutscht.",
   };
+
+  // Wie nah der Punkt (x, y) einem Balken kommt (0: darin).
+  const balkenAbstand = (b, x, y) => Math.hypot(x - clamp(x, b.x0, b.x1), y - clamp(y, b.y0, b.y1));
+  // Wie nah er einer gebogenen Bande kommt (ihrer Mittellinie).
+  const kurvenAbstand = (k, x, y) => { const [nx, ny] = aufKurve(k, x, y); return Math.hypot(x - nx, y - ny); };
+  // Wie viel Platz um (x, y) frei ist: bis zur Bande, zum nächsten Balken,
+  // zur nächsten Kurve.
+  function platzBei(bahn, x, y) {
+    let d = Math.min(x, BREIT - x, y, LANG - y);
+    for (const b of bahn.balken) d = Math.min(d, balkenAbstand(b, x, y));
+    for (const k of bahn.kurven) d = Math.min(d, kurvenAbstand(k, x, y) - KURVE_DICK / 2);
+    return d;
+  }
+  // Ob die gerade Linie von p nach q frei ist – für einen ganzen Stock.
+  function freieLinie(bahn, p, q) {
+    const n = Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 0.05);
+    for (let i = 0; i <= n; i += 1) {
+      if (platzBei(bahn, lerp(p.x, q.x, i / n), lerp(p.y, q.y, i / n)) < RADIUS) return false;
+    }
+    return true;
+  }
+
+  /*
+   * Ein Probeschuss mit voller Aufzeichnung: wo der eigene Stock und der, der
+   * zählt, unterwegs waren (je ein Punkt alle paar Schritte) und was ihnen
+   * geschah. Daraus werden die schweren Bahnen gebaut: Wo der Stock, der
+   * zählt, liegen bleibt, ist das Ziel – und der Schub ist der Tipp, der
+   * genau hinführt.
+   */
+  function probeschuss(bahn, winkel, kraft) {
+    const welt = weltFuer(bahn);
+    schiebe(welt, winkel, kraft);
+    const wer = Math.max(0, welt.stoecke.findIndex((s) => s.gold));
+    const weg = [];
+    const was = [];
+    while (welt.schritte < SCHRITTE_MAX && schritt(welt)) {
+      for (const e of welt.stoesse) was.push({ ...e, schritt: welt.schritte });
+      if (welt.schritte % 3 === 0) {
+        weg.push({ x: welt.stoecke[0].x, y: welt.stoecke[0].y });
+        if (wer) weg.push({ x: welt.stoecke[wer].x, y: welt.stoecke[wer].y });
+      }
+    }
+    return { welt, weg, was, stock: welt.stoecke[wer], ruht: welt.ruht };
+  }
+
+  // Wie weit (Bogenmass) der Stock an einer gebogenen Bande entlanggeglitten ist.
+  function geglitten(bahn, was, wer = 0) {
+    let best = 0;
+    bahn.kurven.forEach((k) => {
+      const w = was.filter((e) => e.art === "kurve" && e.wer === wer && Math.abs(Math.hypot(e.x - k.x, e.y - k.y) - k.r) < 1e-6).map((e) => Math.atan2(e.y - k.y, e.x - k.x));
+      if (!w.length) return;
+      const ab = w.map((x) => (((x - k.von) % TAU) + TAU) % TAU);
+      best = Math.max(best, Math.max(...ab) - Math.min(...ab));
+    });
+    return best;
+  }
+
+  /*
+   * Ein Balken quer über die gerade Linie vom Start nach (dorthin, wo der
+   * Stock, der zählt, anfangs liegt, oder ins Ziel) – so gelegt, dass er dem
+   * Weg des Probeschusses nicht in die Quere kommt. Ohne Platz: null.
+   */
+  function sperre(r, bahn, schuss, nach, ziel) {
+    for (let versuch = 0; versuch < 30; versuch += 1) {
+      const t = zw(r, 0.35, 0.7);
+      const mx = lerp(bahn.start.x, nach.x, t);
+      const my = lerp(bahn.start.y, nach.y, t);
+      const halb = zw(r, 0.7, 1.4);
+      const b = { x0: clamp(mx - halb, 0, BREIT), x1: clamp(mx + halb, 0, BREIT), y0: my - BALKEN_DICK / 2, y1: my + BALKEN_DICK / 2 };
+      if (schuss.weg.some((p) => balkenAbstand(b, p.x, p.y) < RADIUS + 0.12)) continue;
+      if (balkenAbstand(b, ziel.x, ziel.y) < 0.9 || balkenAbstand(b, nach.x, nach.y) < RADIUS + 0.25 || balkenAbstand(b, bahn.start.x, bahn.start.y) < 0.8) continue;
+      if (bahn.kurven.some((k) => kurvenAbstand(k, clamp(mx, b.x0, b.x1), my) < 0.4)) continue;
+      return b;
+    }
+    return null;
+  }
+
+  /*
+   * Eine Bahn aus Probeschüssen: Die Geometrie (start, balken, kurven, stoecke)
+   * kommt von form(r), der Schub von schuss(r) – { winkel, kraft }. Passt, was
+   * der Probeschuss erlebt hat (gut(bahn, probe)), wird, wo der Stock, der
+   * zählt, liegen bleibt, zum Ziel. Ist die gerade Linie dorthin frei, legt
+   * sperre einen Balken quer darüber. Ohne Erfolg: null.
+   */
+  function ausProbe(r, form, schuss, gut, sperren = true) {
+    for (let versuch = 0; versuch < 60; versuch += 1) {
+      const bahn = { stoecke: [], balken: [], kurven: [], ...form(r) };
+      for (let mal = 0; mal < 6; mal += 1) {
+        const s = schuss(r, bahn);
+        const zug = zugZu(zugVon(s.winkel, s.kraft));
+        const probe = probeschuss(bahn, zug.winkel, zug.kraft);
+        if (!probe.ruht) continue;
+        const ziel = { x: probe.stock.x, y: probe.stock.y };
+        // Das Ziel: frei, nicht zu nah an der Bande (seine Ringe sollen ganz zu sehen sein).
+        if (ziel.y < 2.6 || ziel.y > LANG - 0.9 || ziel.x < 0.9 || ziel.x > BREIT - 0.9 || platzBei(bahn, ziel.x, ziel.y) < 0.6 || !gut(bahn, probe, ziel)) continue;
+        // Darf der Stock gerade hin (zum goldenen Stock oder ins Ziel)? Dann
+        // ein Balken quer darüber – und noch einmal nachgerechnet.
+        const nach = bahn.stoecke.find((s) => s.gold) || ziel;
+        const fertig = { ...bahn, ziel, tipp: zug };
+        if (freieLinie(bahn, bahn.start, nach)) {
+          if (!sperren) continue;
+          const b = sperre(r, bahn, probe, nach, ziel);
+          if (!b) continue;
+          fertig.balken = [...bahn.balken, b];
+          const nochmal = probeschuss(fertig, zug.winkel, zug.kraft).stock;
+          if (Math.hypot(nochmal.x - ziel.x, nochmal.y - ziel.y) > 0.001) continue;
+        }
+        return fertig;
+      }
+    }
+    return null;
+  }
+
+  // Wie oft dem eigenen Stock (wer 0) etwas geschah: art "bande", "balken", "kurve", "stock".
+  const zahlVon = (was, art, wer = 0) => was.filter((e) => e.art === art && e.wer === wer && (art !== "bande" || e.wucht > 0.05)).length;
+  // Der Schritt, bei dem dem Stock zum ersten Mal so etwas geschah (oder Infinity).
+  const erstesMal = (was, art, wer = 0) => was.find((e) => e.art === art && (e.wer === wer || e.mit === wer))?.schritt ?? Infinity;
 
   /*
    * Eine Bahn über die Bande, von der Lösung her gebaut: erst der Weg über
-   * eine Seitenbande, dann das Ziel an sein Ende – und Balken (einer oder
-   * zwei) quer über die gerade Linie vom Start zum Ziel, die den Weg über die
-   * Bande frei lassen. Der Schub, der so entsteht, steht als tipp dabei: Mit
+   * eine Seitenbande, dann das Ziel an sein Ende – und ein Balken quer über
+   * die gerade Linie vom Start zum Ziel, der den Weg über die Bande frei
+   * lässt. Der Schub, der so entsteht, steht als tipp dabei: Mit
    * ihm findet die Suche (suche) den schmalen Weg sicher.
    */
-  function ueberBande(r, zahl) {
+  function ueberBande(r) {
     const fern = (p, a, b) => {
       const dx = b.x - a.x, dy = b.y - a.y;
       const t = clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy), 0, 1);
@@ -388,7 +523,7 @@
     };
     for (let versuch = 0; versuch < 80; versuch += 1) {
       const seite = mal1(r);
-      const start = { x: 3 - seite * (zahl > 1 ? zw(r, 0.3, 1.5) : zw(r, -0.5, 1.2)), y: START_Y };
+      const start = { x: 3 - seite * zw(r, -0.5, 1.2), y: START_Y };
       // Wo der Stock die Bande trifft (seine Mitte), und wohin er danach fährt.
       const an = { x: seite > 0 ? BREIT - RADIUS : RADIUS, y: zw(r, 3.4, 5.2) };
       const hin = { x: an.x - start.x, y: an.y - start.y };
@@ -401,11 +536,11 @@
       const noetig = vor + nach / (lang / vor) ** 2;
       if (ziel.x < 1.2 || ziel.x > BREIT - 1.2 || ziel.y > LANG - 1.15 || noetig > WEIT * 0.88) continue;
       // Die Balken: quer über der geraden Linie vom Start zum Ziel.
-      const wo = zahl > 1 ? [zw(r, 0.3, 0.4), zw(r, 0.62, 0.74)] : [zw(r, 0.42, 0.6)];
+      const wo = [zw(r, 0.42, 0.6)];
       const balken = wo.map((t) => {
         const mx = lerp(start.x, ziel.x, t);
         const my = lerp(start.y, ziel.y, t);
-        const halb = zahl > 1 ? zw(r, 0.75, 1.15) : zw(r, 1.2, 1.7);
+        const halb = zw(r, 1.2, 1.7);
         return { x0: clamp(mx - halb, 0, BREIT), x1: clamp(mx + halb, 0, BREIT), y0: my - 0.14, y1: my + 0.14 };
       });
       const platz = RADIUS + 0.2;
@@ -414,6 +549,109 @@
     }
     return null;
   }
+
+  // Eine Geometrie, links und rechts vertauscht.
+  function spiegel(teil) {
+    const sp = { ...teil, start: { ...teil.start, x: BREIT - teil.start.x } };
+    if (teil.balken) sp.balken = teil.balken.map((b) => ({ ...b, x0: BREIT - b.x1, x1: BREIT - b.x0 }));
+    if (teil.kurven) sp.kurven = teil.kurven.map((k) => ({ ...k, x: BREIT - k.x, von: Math.PI - k.bis, bis: Math.PI - k.von }));
+    if (teil.stoecke) sp.stoecke = teil.stoecke.map((st) => ({ ...st, x: BREIT - st.x }));
+    return sp;
+  }
+  // Eine Form für die rechte Seite, nach Zufall auch gespiegelt. Der Schub
+  // wird für die rechte Seite gedacht; seite dreht ihn mit.
+  const seitlich = (form) => (r) => {
+    const seite = mal1(r);
+    const teil = form(r);
+    return { ...(seite > 0 ? teil : spiegel(teil)), seite };
+  };
+  const QUER = BALKEN_DICK / 2;
+
+  // Die gebogene Bande oben in einer Ecke: Der Stock fährt hinein, gleitet
+  // ums Eck und kommt schräg zurück. Ein Balken sperrt den geraden Weg.
+  const KURVE = {
+    form: seitlich((r) => {
+      const R = zw(r, 1.6, 2.2);
+      const cx = BREIT - zw(r, 0.75, 1.3) - R;
+      const cy = LANG - zw(r, 0.45, 0.9) - R;
+      return { start: { x: clamp(cx + R - zw(r, 0.45, 0.9), 2.2, BREIT - 0.6), y: START_Y }, kurven: [{ x: cx, y: cy, r: R, von: -8 * GRAD, bis: zw(r, 115, 150) * GRAD }] };
+    }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, -6, 8) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    // Eine Bahn mittlerer Schwere: Das Ziel liegt nicht weit hinter der Kurve.
+    gut: (b, p, ziel) => {
+      const raus = p.was.filter((e) => e.art === "kurve" && e.wer === 0).pop();
+      return Boolean(raus) && Math.hypot(ziel.x - raus.x, ziel.y - raus.y) < 2.6 && geglitten(b, p.was) >= 70 * GRAD
+        && zahlVon(p.was, "balken") === 0 && zahlVon(p.was, "bande") === 0 && Math.abs(ziel.x - b.start.x) > 1.4;
+    },
+  };
+
+  // Die Wende: eine Wand mitten durchs Eis, oben eine Kehre. Der Stock fährt
+  // auf der einen Seite hinauf, durch die Kehre und auf der anderen hinunter.
+  const WENDE = {
+    form: seitlich((r) => {
+      const R = zw(r, 2.15, 2.55);
+      const yc = LANG - 0.4 - R - zw(r, 0, 0.35);
+      return {
+        start: { x: 3 + R - zw(r, 0.4, 0.75), y: START_Y },
+        balken: [{ x0: 3 - QUER, x1: 3 + QUER, y0: 0, y1: yc - zw(r, 0.2, 0.9) }],
+        kurven: [{ x: 3, y: yc, r: R, von: -6 * GRAD, bis: 186 * GRAD }],
+      };
+    }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, -5, 5) * GRAD, kraft: zw(r, 0.7, 0.95) }),
+    gut: (b, p, ziel) => geglitten(b, p.was) >= 150 * GRAD && zahlVon(p.was, "balken") === 0 && (ziel.x - 3) * (b.start.x - 3) < 0,
+  };
+
+  // Zwei Balken im Z: unten einer von links, weiter oben einer von rechts.
+  // Der Weg führt im Zickzack über zwei Banden.
+  const DOPPELBANDE = {
+    form: seitlich((r) => {
+      const ya = zw(r, 2.5, 3.2);
+      const yb = zw(r, 5, 5.8);
+      return {
+        start: { x: zw(r, 1, 2.4), y: START_Y },
+        balken: [{ x0: 0, x1: zw(r, 3.4, 4.2), y0: ya - QUER, y1: ya + QUER }, { x0: zw(r, 1.8, 2.6), x1: BREIT, y0: yb - QUER, y1: yb + QUER }],
+      };
+    }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, 40, 80) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    gut: (b, p, ziel) => zahlVon(p.was, "bande") >= 2 && zahlVon(p.was, "balken") === 0 && ziel.y > b.balken[1].y1 + 0.7,
+  };
+
+  // Ein langer Balken mit einer Lücke an der Seite; das Ziel liegt dahinter.
+  // Der Weg führt durch die Lücke und über zwei Banden zurück.
+  const RUECKWEG = {
+    form: seitlich((r) => {
+      const yb = zw(r, 3.8, 4.8);
+      return { start: { x: zw(r, 1.2, 4.2), y: START_Y }, balken: [{ x0: 0, x1: BREIT - zw(r, 1.15, 1.5), y0: yb - QUER, y1: yb + QUER }] };
+    }),
+    schuss: (r, b) => ({ winkel: b.seite * zw(r, 5, 45) * GRAD, kraft: zw(r, 0.6, 0.95) }),
+    gut: (b, p, ziel) => {
+      const k = b.balken[0];
+      const hinter = b.seite > 0 ? ziel.x < k.x1 - 0.6 : ziel.x > k.x0 + 0.6;
+      return zahlVon(p.was, "bande") >= 2 && zahlVon(p.was, "balken") === 0 && ziel.y > k.y1 + 0.7 && hinter;
+    },
+  };
+
+  // Der goldene Stock hinter einem Balken: Der eigene trifft ihn über die
+  // Bande, und er rutscht ins Ziel. Den Balken legt sperre.
+  const BANDENSTOSS = {
+    form: seitlich((r) => ({ start: { x: zw(r, 1.4, 4.6), y: START_Y }, stoecke: [{ x: zw(r, 1.4, 4.6), y: zw(r, 4.6, 6.8), gold: true }] })),
+    // Gezielt über eine Seitenbande auf den goldenen Stock: Wo der Stock die
+    // Bande treffen muss, folgt aus dem Abprall (quer bleibt PRALL_BANDE).
+    schuss: (r, b) => {
+      const { x: gx, y: gy } = b.stoecke[0];
+      const { x: sx, y: sy } = b.start;
+      const w = mal1(r) > 0 ? BREIT - RADIUS : RADIUS;
+      const yw = ((gx - w) * sy - PRALL_BANDE * (w - sx) * gy) / ((gx - w) - PRALL_BANDE * (w - sx));
+      return { winkel: Math.atan2(w - sx, yw - sy) + zw(r, -2.5, 2.5) * GRAD, kraft: zw(r, 0.55, 0.95) };
+    },
+    gut: (b, p, ziel) => {
+      const treffer = erstesMal(p.was, "stock");
+      if (!Number.isFinite(treffer)) return false;
+      const vorher = p.was.filter((e) => e.schritt < treffer && e.wer === 0);
+      const gold = b.stoecke[0];
+      return vorher.some((e) => e.art === "bande") && !vorher.some((e) => e.art === "balken") && Math.hypot(ziel.x - gold.x, ziel.y - gold.y) > 0.9;
+    },
+  };
 
   const BAU = {
     gerade(r) {
@@ -424,22 +662,8 @@
       const seite = mal1(r);
       return { start: { x: 3 - seite * zw(r, 0.8, 1.9), y: START_Y }, ziel: { x: 3 + seite * zw(r, 0.9, 2), y: zw(r, 4.4, 7.9) } };
     },
-    schnee(r) {
-      const x = zw(r, 1.8, 4.2);
-      const ziel = { x: clamp(x + zw(r, -0.9, 0.9), 1.2, 4.8), y: zw(r, 5.8, 7.3) };
-      // Der Schnee liegt quer über dem Weg – nie so breit, dass die volle
-      // Kraft nicht mehr reichte.
-      const y = zw(r, 3, 4.4);
-      return { start: { x, y: START_Y }, ziel, zonen: [{ art: "schnee", x: (x + ziel.x) / 2 + zw(r, -0.3, 0.3), y, rx: zw(r, 1.3, 2), ry: zw(r, 0.5, 0.8) }] };
-    },
-    glatt(r) {
-      const x = zw(r, 1.8, 4.2);
-      const ziel = { x: clamp(x + zw(r, -0.9, 0.9), 1.2, 4.8), y: zw(r, 6, 7.9) };
-      const y = zw(r, 2.8, 4.4);
-      return { start: { x, y: START_Y }, ziel, zonen: [{ art: "glatt", x: (x + ziel.x) / 2 + zw(r, -0.3, 0.3), y, rx: zw(r, 1.3, 2), ry: zw(r, 0.8, 1.4) }] };
-    },
     // Ein Balken quer über der geraden Linie – der Weg führt über die Bande.
-    bande: (r) => ueberBande(r, 1) || BAU.schraeg(r),
+    bande: (r) => ueberBande(r) || BAU.schraeg(r),
     gasse(r) {
       const x = zw(r, 1.8, 4.2);
       const ziel = { x: clamp(x + zw(r, -1.1, 1.1), 1.3, 4.7), y: zw(r, 6.4, 7.9) };
@@ -451,12 +675,9 @@
       const qx = (ziel.y - START_Y) / lang;
       const qy = -(ziel.x - x) / lang;
       const halb = RADIUS + zw(r, 0.34, 0.42);
-      return { start: { x, y: START_Y }, ziel, stoecke: [{ x: mx + qx * halb, y: my + qy * halb }, { x: mx - qx * halb, y: my - qy * halb }] };
-    },
-    hang(r) {
-      const seite = mal1(r);
-      const x = zw(r, 2, 4);
-      return { start: { x, y: START_Y }, ziel: { x: clamp(x + zw(r, -0.8, 0.8), 1.6, 4.4), y: zw(r, 5.6, 7.8) }, hang: { x: seite * zw(r, 0.22, 0.38), y: 0 } };
+      // Der gerade Schub geht mitten durch die Gasse: Er ist der Tipp.
+      const tipp = { winkel: Math.atan2(ziel.x - x, ziel.y - START_Y), kraft: Math.sqrt(lang / WEIT) };
+      return { start: { x, y: START_Y }, ziel, tipp, stoecke: [{ x: mx + qx * halb, y: my + qy * halb }, { x: mx - qx * halb, y: my - qy * halb }] };
     },
     stoss(r) {
       const x = zw(r, 1.9, 4.1);
@@ -465,15 +686,18 @@
       const t = zw(r, 0.5, 0.68);
       return { start: { x, y: START_Y }, ziel, stoecke: [{ x: lerp(x, ziel.x, t) + zw(r, -0.12, 0.12), y: lerp(START_Y, ziel.y, t), gold: true }] };
     },
-    // Zwei Balken quer über der geraden Linie.
-    zickzack: (r) => ueberBande(r, 2) || BAU.bande(r),
+    kurve: (r) => ausProbe(r, KURVE.form, KURVE.schuss, KURVE.gut) || BAU.bande(r),
+    wende: (r) => ausProbe(r, WENDE.form, WENDE.schuss, WENDE.gut, false) || BAU.bande(r),
+    doppelbande: (r) => ausProbe(r, DOPPELBANDE.form, DOPPELBANDE.schuss, DOPPELBANDE.gut, false) || BAU.bande(r),
+    rueckweg: (r) => ausProbe(r, RUECKWEG.form, RUECKWEG.schuss, RUECKWEG.gut, false) || BAU.bande(r),
+    bandenstoss: (r) => ausProbe(r, BANDENSTOSS.form, BANDENSTOSS.schuss, BANDENSTOSS.gut) || BAU.stoss(r),
   };
 
   // Eine Bahn dieser Art. Jede ist so gebaut, dass es einen Schub gibt, der
   // mitten ins Ziel führt (die Prüfung rechnet das nach: loese).
   function lege(art, r) {
     const stufe = LEICHT.includes(art) ? 0 : MITTEL.includes(art) ? 1 : 2;
-    return { art, stufe, kurz: KURZ[art], frage: TUN[art], zeit: ZEITEN[stufe], stoecke: [], balken: [], zonen: [], hang: null, ...BAU[art](r) };
+    return { art, stufe, kurz: KURZ[art], frage: TUN[art], zeit: ZEITEN[stufe], stoecke: [], balken: [], kurven: [], ...BAU[art](r) };
   }
 
   function mische(liste) {
@@ -488,8 +712,7 @@
   // Die zehn Bahnen einer Runde.
   function bahnenFuer() {
     const r = () => zufall.zahl();
-    const schwer = mische(SCHWER);
-    const arten = [...mische(LEICHT), ...mische(MITTEL), ...mische([...schwer, schwer[0]])];
+    const arten = [...mische(LEICHT), ...mische(MITTEL), ...mische(SCHWER)];
     return arten.map((art) => lege(art, r));
   }
 
@@ -925,7 +1148,7 @@
       view.reihe = { x: Math.round((cssW - breit) / 2), y: y + h + Math.round(22 * u), w: breit, h: fuss - Math.round(28 * u), quer: true };
     }
     // So weit muss der Finger für die volle Kraft zurück (Bildpunkte).
-    view.zug = clamp(Math.max(view.eis.w, view.eis.h) * 0.52, 150, 330);
+    view.zug = clamp(Math.max(view.eis.w, view.eis.h) * 0.62, 170, 420);
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
@@ -1100,75 +1323,34 @@
     g.restore();
   }
 
-  // Was auf der Bahn liegt: Flecken, Ziel, Hang, Balken. zeit: für das, was sich regt.
-  function maleBoden(b, zeit) {
-    for (const z of b.zonen) {
-      g.save();
-      g.beginPath();
-      g.ellipse(z.x, z.y, z.rx, z.ry, 0, 0, TAU);
-      if (z.art === "schnee") {
-        // Schnee: weiss und rau, mit einem weichen Rand.
-        g.fillStyle = "rgba(255, 255, 255, 0.5)";
-        g.fill();
-        g.beginPath();
-        g.ellipse(z.x, z.y, z.rx * 0.9, z.ry * 0.86, 0, 0, TAU);
-        g.fillStyle = "rgba(255, 255, 255, 0.92)";
-        g.fill();
-        g.clip();
-        g.fillStyle = "rgba(150, 185, 215, 0.5)";
-        for (let i = 0; i < 46; i += 1) {
-          const w = i * 2.4;
-          const rr = Math.sqrt((i + 0.5) / 46);
-          g.beginPath(); g.arc(z.x + Math.cos(w) * z.rx * rr * 0.86, z.y + Math.sin(w) * z.ry * rr * 0.82, 0.03 + (i % 3) * 0.012, 0, TAU); g.fill();
-        }
-      } else {
-        // Glatteis: dunkel und blank, mit Lichtstreifen.
-        g.fillStyle = "rgba(40, 110, 175, 0.42)";
-        g.fill();
-        g.strokeStyle = "rgba(255, 255, 255, 0.5)";
-        g.lineWidth = 0.03;
-        g.stroke();
-        g.clip();
-        g.strokeStyle = "rgba(255, 255, 255, 0.4)";
-        g.lineWidth = 0.09;
-        g.lineCap = "round";
-        for (const versatz of [-0.5, 0, 0.45]) {
-          g.beginPath();
-          g.moveTo(z.x + versatz * z.rx - 0.3, z.y - z.ry * 0.6);
-          g.lineTo(z.x + versatz * z.rx + 0.3, z.y + z.ry * 0.6);
-          g.stroke();
-        }
-      }
-      g.restore();
-    }
+  // Was auf der Bahn liegt: Ziel, Balken, gebogene Banden.
+  function maleBoden(b) {
     maleZiel(b.ziel);
-    if (b.hang) {
-      // Der Hang: Pfeile, die in seine Richtung wandern.
-      const sinn = Math.sign(b.hang.x) || 1;
-      const lauf = ruhig() ? 0 : ((zeit * 0.5) % 1) * 1.2;
+    for (const k of b.kurven) {
+      // Eine gebogene Bande: ein Bogen aus Holz, mit Schatten und Kanten.
       g.save();
-      g.strokeStyle = "rgba(30, 90, 160, 0.4)";
-      g.lineWidth = 0.06;
       g.lineCap = "round";
-      g.lineJoin = "round";
-      for (let y = 1.2; y < LANG - 0.5; y += 1.35) {
-        for (let x = -0.6; x < BREIT + 0.6; x += 1.2) {
-          const px = sinn > 0 ? x + lauf : x + 1.2 - lauf;
-          if (px < 0.3 || px > BREIT - 0.3) continue;
-          g.beginPath();
-          g.moveTo(px - sinn * 0.16, y + 0.2);
-          g.lineTo(px + sinn * 0.1, y);
-          g.lineTo(px - sinn * 0.16, y - 0.2);
-          g.stroke();
-        }
-      }
+      g.strokeStyle = "rgba(10, 30, 60, 0.3)";
+      g.lineWidth = KURVE_DICK;
+      g.beginPath(); g.arc(k.x + 0.05, k.y - 0.07, k.r, k.von, k.bis); g.stroke();
+      g.strokeStyle = "#8f6240";
+      g.beginPath(); g.arc(k.x, k.y, k.r, k.von, k.bis); g.stroke();
+      g.strokeStyle = "#c08a5a";
+      g.lineWidth = KURVE_DICK * 0.45;
+      g.beginPath(); g.arc(k.x, k.y, k.r + KURVE_DICK * 0.1, k.von, k.bis); g.stroke();
+      g.strokeStyle = "rgba(60, 35, 15, 0.5)";
+      g.lineWidth = 0.022;
+      g.lineCap = "butt";
+      for (const rr of [k.r - KURVE_DICK / 2, k.r + KURVE_DICK / 2]) { g.beginPath(); g.arc(k.x, k.y, rr, k.von, k.bis); g.stroke(); }
       g.restore();
     }
     for (const k of b.balken) {
       g.save();
       g.fillStyle = "rgba(10, 30, 60, 0.3)";
       g.fillRect(k.x0 + 0.05, k.y0 - 0.07, k.x1 - k.x0, k.y1 - k.y0);
-      const holz = g.createLinearGradient(0, k.y0, 0, k.y1);
+      // Das Holz glänzt quer zum Balken – auch bei einer Wand, die längs steht.
+      const laengs = k.y1 - k.y0 > k.x1 - k.x0;
+      const holz = laengs ? g.createLinearGradient(k.x1, 0, k.x0, 0) : g.createLinearGradient(0, k.y0, 0, k.y1);
       holz.addColorStop(0, "#7a5333");
       holz.addColorStop(0.5, "#a9764a");
       holz.addColorStop(1, "#c08a5a");
@@ -1178,7 +1360,11 @@
       g.lineWidth = 0.025;
       g.strokeRect(k.x0, k.y0, k.x1 - k.x0, k.y1 - k.y0);
       g.strokeStyle = "rgba(60, 35, 15, 0.25)";
-      for (let i = 1; i < 3; i += 1) { g.beginPath(); g.moveTo(k.x0 + 0.04, lerp(k.y0, k.y1, i / 3)); g.lineTo(k.x1 - 0.04, lerp(k.y0, k.y1, i / 3)); g.stroke(); }
+      for (let i = 1; i < 3; i += 1) {
+        g.beginPath();
+        if (laengs) { g.moveTo(lerp(k.x0, k.x1, i / 3), k.y0 + 0.04); g.lineTo(lerp(k.x0, k.x1, i / 3), k.y1 - 0.04); } else { g.moveTo(k.x0 + 0.04, lerp(k.y0, k.y1, i / 3)); g.lineTo(k.x1 - 0.04, lerp(k.y0, k.y1, i / 3)); }
+        g.stroke();
+      }
       g.restore();
     }
   }
@@ -1271,7 +1457,7 @@
   // Eine ganze Bahn mit ihrer Welt, im Rahmen T.
   function maleBahn(b, welt, T, e = {}) {
     mitT(T, () => {
-      maleBoden(b, performance.now() / 1000);
+      maleBoden(b);
       if (e.spur) maleSpur(e.spur, welt.ruht ? null : welt.stoecke[0]);
       if (e.zielen) maleZielen(welt.stoecke[0], e.zielen.winkel, e.zielen.kraft);
       for (const s of welt.stoecke) maleStock(s);
@@ -1445,7 +1631,10 @@
     g.fillStyle = STUFEN_FARBE[b.stufe];
     g.fillText(`BAHN ${state.index + 1}/${BAHNEN}  ·  ${STUFE[b.stufe].toUpperCase()}`, t.x, t.y);
     g.fillStyle = HELL;
+    // Der Name der Bahn: kleiner, wenn er sonst nicht in die Spalte passt.
     g.font = `italic 700 ${Math.round(22 * u)}px ${SERIF}`;
+    const breit = g.measureText(b.kurz).width;
+    if (breit > t.w) g.font = `italic 700 ${Math.max(11, Math.floor((22 * u * t.w) / breit))}px ${SERIF}`;
     g.fillText(b.kurz, t.x, t.y + 16 * u);
     if (state.phase !== "vorschau") {
       g.font = `500 ${Math.round(13.5 * u)}px ${SANS}`;
@@ -1760,9 +1949,9 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "iceStock", fassung: "z1", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "iceStock", fassung: "z2", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });

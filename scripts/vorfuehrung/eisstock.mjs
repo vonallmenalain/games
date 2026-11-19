@@ -1,6 +1,6 @@
 // Eisstock: Bahn um Bahn – der Pilot spannt die Schleuder auf den besten
-// Schub, lässt los, und der Stock gleitet ins Ziel: über die Bande, durch den
-// Schnee, an den Balken vorbei.
+// Schub, lässt los, und der Stock gleitet ins Ziel: durch die gebogene Bande,
+// über zwei Banden, an den Balken vorbei.
 export default {
   bereit: () => Boolean(window.LernappEisstock?.state?.bahnen && window.LernappEisstock.view.cssW > 0),
   spiele: () => {
@@ -8,7 +8,7 @@ export default {
     const st = E.state;
     // Die ersten Bahnen im Zeitraffer, damit die Reihe schon etwas zeigt –
     // bis eine kommt, die sich gut ansieht.
-    const schoen = ["bande", "zickzack", "stoss", "schnee", "gasse"];
+    const schoen = ["kurve", "wende", "doppelbande", "rueckweg", "bandenstoss"];
     E.losGehts();
     while (st.index < 6 && !(st.index >= 2 && schoen.includes(st.bahnen[st.index].art))) {
       E.bahnLos();
