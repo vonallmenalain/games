@@ -94,6 +94,7 @@ service cloud.firestore {
         "flagCommand",
         "timeSense",
         "speedClimb",
+        "freeHand",
       ];
     }
 

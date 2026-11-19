@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-18-21";
+export const FASSUNG = "2026-11-19-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -316,6 +316,12 @@ export const SPIELE = [
     titel: "Kletterwand", buehne: { id: "kw-stage", klasse: "cm-stage kw-stage" },
     text: "Kletterwand: Tippe den nächsten Griff an, genau in die Mitte – je genauer, desto besser der Halt. Die Kraft läuft, die Griffe werden kleiner, bröckeln und gleiten davon.",
     baut: "der Kletterturm im Abendlicht mit der Kletterin",
+  },
+  {
+    seite: "freihand", spiel: "freeHand", page: "sketch", js: "freihand.js",
+    titel: "Freihand", buehne: { id: "fh-stage", klasse: "cm-stage fh-stage" },
+    text: "Freihand: Zehn Blätter, ein Bleistift, kein Lineal und kein Zirkel – zieh den Kreis, das Lot, das Spiegelbild, das Fünfeck in einem Zug. Danach legt der Rotstift die ideale Form darüber und misst nach.",
+    baut: "der Zeichentisch mit dem Blatt und dem Bleistift",
   },
 ];
 

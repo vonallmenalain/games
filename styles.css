@@ -1035,7 +1035,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz {
   position: absolute;
   inset: 0;
 }
@@ -1055,7 +1055,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .kw-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1070,7 +1070,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1643,6 +1643,38 @@ h2 {
   font-weight: 800;
   text-align: center;
 }
+/* --- Freihand: der Zeichentisch ---------------------------------------- */
+.fh-stage {
+  --cm-accent: #E0533D;
+  --cm-accent-dark: #a9331f;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.fh-stage:not([data-phase="intro"]) .fh-prompt { opacity: 0; }
+
+.fh-feld { width: 100%; background: #12141c; }
+
+.fh-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+/* Im Spiel zeichnet das Blatt seinen eigenen Bleistift – der Zeiger der Maus
+   läge nur darüber. */
+.fh-stage[data-phase="play"] .fh-canvas { cursor: none; }
+
+.fh-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd9cf, #e0533d);
+  color: #3a0d05;
+  font-weight: 900;
+}
+
 .kw-rekord {
   padding: 4px 16px;
   border-radius: 999px;
@@ -4555,7 +4587,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

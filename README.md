@@ -1021,6 +1021,82 @@ unten nicht in den Boden), und die Tafel nennt den Grund; ein Lauf in
 echter Zeit wird hinterlegt und angeschaut – dieselbe Wand, am Schluss
 dieselbe Zahl.
 
+### Freihand (November 2026)
+
+**Freihand** (`freihand.js`, `freeHand`) – Das Geschwister von Augenmass und
+Zeitgefühl, nur wird nicht gezeigt oder getippt, sondern gezeichnet: zehn
+Blätter auf dem Zeichentisch, ein Bleistift, kein Lineal und kein Zirkel.
+Jedes Blatt verlangt eine Form – in einem Zug, mit dem Finger, der Maus oder
+dem Stift. Wer absetzt, ist fertig. Danach legt der Rotstift die ideale Form
+darüber, und gemessen wird, wie weit der Strich im Schnitt daneben liegt: in
+Millimetern des Blattes (100 × 100), auf den Hundertstel. Bis zu hundert
+Punkte je Blatt, tausend im Ganzen.
+
+**Die siebzehn Arten** (`BAU`), nach Schwere – jede Runde zieht zwei leichte,
+vier mittlere und vier schwere, jede höchstens einmal (`PLAN`):
+
+- leicht: Gerade von A nach B, Kreis um M durch P, Lot von P auf die Linie,
+  Parallele (gleich lang, von P aus)
+- mittel: Quadrat und gleichseitiges Dreieck über einer Strecke, Winkel
+  halbieren, Spiegelbild einer Figur, Kreisbogen um M von A nach B, freier
+  Kreis (irgendwo, mindestens doppelt so gross wie die Münze),
+  Mittelsenkrechte durch einen Ring
+- schwer: Kreis durch drei Punkte, eine Figur um Z drehen, ein Dreieck von Z
+  aus aufs Doppelte strecken, Tangente von P an den Kreis, eine Welle
+  fortsetzen, das regelmässige Fünfeck um M
+
+Jede Art baut ihr Blatt im Rohen und wird dann irgendwo hingelegt, wo es mit
+Rand passt (`lege`). Wo zwei Formen gelten (das Quadrat links oder rechts der
+Strecke, die eine oder die andere Tangente), zählt die, der der Strich näher
+kommt.
+
+**Gemessen wird in beide Richtungen** (`messe`): Strich und Form werden alle
+halben Millimeter abgetastet; gezählt wird, wie weit die Punkte des Strichs
+im Schnitt von der Form weg sind – und die Punkte der Form vom Strich. Die
+Abweichung ist das Mittel aus beidem. Wer nur die halbe Form zeichnet, liegt
+mit dem Strich richtig und verliert trotzdem; wer darüber hinauskritzelt,
+ebenso. Der freie Kreis wird an dem Kreis gemessen, der am besten durch den
+Strich geht (`kreisFit`); ist er kleiner als verlangt, zählt die Abweichung
+mehr, und jeder fehlende Millimeter einen halben dazu. Die Punkte fallen
+nach einer Tabelle (`KNOTEN`: bis 0,3 mm hundert, 1 mm achtzig, 2,2 mm
+fünfzig, ab 8,5 mm null), je Art strenger oder milder (`MASS`: die Gerade
+mal 1,5, das Fünfeck mal 0,85). Ab 92 Punkten ist ein Blatt «haargenau».
+
+**Der Strich, wie er gewertet wird** (`schreibe`), ist nicht jede Regung des
+Fingers, sondern ein Linienzug aus höchstens 48 Punkten, jeder auf ein
+Zwanzigstelmillimeter gerundet: Ein neuer Punkt entsteht, sobald die Gerade
+vom letzten Punkt zum Finger das dazwischen Gezeichnete um mehr als gut ein
+Zehntelmillimeter verfehlt (`TREUE`). So wird er Punkt um Punkt gemeldet,
+während er entsteht – im Multiplayer sehen die anderen den Strich wachsen,
+und wer eine Runde anschaut, misst denselben Linienzug. Ein Strich unter
+sechs Millimetern ist ein Tupfer: Er wird weggewischt und ist keine Antwort.
+
+**Der Ablauf**: Vor jedem Blatt steht, was zu tun ist, mit einem Beispiel,
+das sich selbst zeichnet (`zeichneVorschau`, ein zweites Blatt derselben
+Art). Erst ein Tipp legt das Blatt hin; dann läuft die Uhr – acht, neun oder
+zehn Sekunden fürs Überlegen und Zeichnen (`ZEITEN`), der Balken unter dem
+Blatt. Ist sie um, zählt der Strich, wie er dasteht; ohne Strich gibt es
+nichts. Die Lösung: Der Rotstift zieht die Form, feine rote Fransen zeigen,
+wo der Strich daneben lag, und der Stempel mit den Punkten fällt aufs
+Papier, dorthin, wo am meisten Platz ist (`stempelOrt`). Unten (quer: rechts)
+liegt die Mappe: zehn Blättchen mit dem, was gezeichnet wurde, ganz klein.
+
+Das Bild ist Canvas 2D: das Papier einmal gemalt (Korn, Schatten, Klebband),
+der Strich mit einem Muster aus Graphitkorn, der Bleistift in der Hand,
+solange gezeichnet wird; er kratzt hörbar übers Papier, so laut, wie er
+schnell ist. Aufgezeichnet werden die Züge (`meldeZug`: Vorschau, Blatt,
+jeder Punkt des Strichs, Absetzen, Zeit um) – im Turnier bekommen alle
+dieselben zehn Blätter.
+Prüfung 4g39: Jede Runde hat ihre zwei, vier und vier Blätter, jedes passt
+aufs Blatt, und die ideale Form gibt hundert Punkte; verschoben, halb
+gezeichnet oder zu klein wird gemessen, wie die Tabelle sagt; der Linienzug
+folgt dem Finger auf drei Zehntelmillimeter und hat nie mehr als 48 Punkte;
+in der Vorschau und gleich nach dem Hinlegen lässt sich nicht zeichnen, ein
+Tupfer ist keine Antwort, die Zeit um heisst null Punkte oder der Strich,
+wie er dasteht; mit der Maus entsteht der Strich unter dem Zeiger; eine
+Runde in echter Zeit wird hinterlegt und angeschaut – dieselben Blätter,
+dieselben Punkte je Blatt.
+
 ### Schwarm (November 2026): das erste Spiel in 3D
 
 **Schwarm** (`schwarm.js`, `flockFlight`, Fassung `t2`) – Ein Starenschwarm

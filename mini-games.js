@@ -105,6 +105,7 @@
     { id: "flagCommand", seite: "flaggen", page: "flags" },
     { id: "timeSense", seite: "zeitgefuehl", page: "timesense" },
     { id: "speedClimb", seite: "kletterwand", page: "climb" },
+    { id: "freeHand", seite: "freihand", page: "sketch" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -149,6 +150,8 @@
     timeSense: 1,
     // Speedklettern: jeden Griff antippen, genau in die Mitte.
     speedClimb: 1,
+    // Freihand zeichnen: zehn Formen in einem Zug, am Ideal gemessen.
+    freeHand: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -220,6 +223,7 @@
     flagCommand: { fassung: "z1" },
     timeSense: { fassung: "z1" },
     speedClimb: { fassung: "z1" },
+    freeHand: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -251,6 +255,7 @@
     flagCommand: { zug: true },
     timeSense: { zug: true },
     speedClimb: { zug: true },
+    freeHand: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,
