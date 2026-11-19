@@ -8,7 +8,7 @@ export default {
     const st = K.state;
     // Die ersten Aufgaben im Zeitraffer, damit der Filmstreifen schon etwas
     // zeigt – bis eine kommt, deren Film sich gut ansieht.
-    const schoen = ["netz", "rollen", "stapel", "drehen"];
+    const schoen = ["netz", "rollen", "stapel", "drehen", "farbe", "muster", "luecke", "drehkoerper", "zahnrad"];
     K.losGehts();
     while (st.index < 6 && !(st.index >= 2 && schoen.includes(st.aufgaben[st.index].art))) {
       K.aufgabeLos();

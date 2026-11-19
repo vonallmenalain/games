@@ -10177,13 +10177,17 @@ try {
     await kontext.close();
   }
 
-  // --- 4g40. Kopfkino: sieben Arten, jede Antwort nachgerechnet -------------------------
-  // Jede Runde hat drei leichte, vier mittlere und drei schwere Aufgaben,
-  // keine Art öfter als zweimal. Was als richtig gilt, wird hier auf einem
+  // --- 4g40. Kopfkino: fünfzehn Arten, jede Antwort nachgerechnet -----------------------
+  // Jede Runde hat drei leichte, vier mittlere und drei schwere Aufgaben –
+  // zehn verschiedene Arten. Was als richtig gilt, wird hier auf einem
   // zweiten Weg nachgerechnet: das Blatt Feld für Feld nachgefaltet, das Netz
   // zum Würfel geschlossen, der Spielwürfel Kante um Kante gerollt, der
-  // Stapel aus der Blickrichtung der Kamera vermessen. Gewertet wird richtig
-  // mal schnell; wo sich eine Antwort aus Teilen setzt, zählt auch «fast».
+  // Stapel aus der Blickrichtung der Kamera vermessen; der angemalte Block
+  // Würfel um Würfel gezählt, jeder Würfel in allen 24 Lagen gegen das Netz
+  // gehalten, die Schatten neu geworfen, der Laser Zelle um Zelle verfolgt,
+  // das Getriebe Rad um Rad gedreht, die Kugel Ebene um Ebene gerollt.
+  // Gewertet wird richtig mal schnell; wo sich eine Antwort aus Teilen setzt,
+  // zählt auch «fast».
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
     await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
@@ -10193,15 +10197,19 @@ try {
       const raus = { runden: [], welten: 0, fehler: {} };
       const merke = (was) => { raus.fehler[was] = (raus.fehler[was] || 0) + 1; };
       const welten = new Set();
+      const arten = new Set();
       for (let runde = 0; runde < 6; runde += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         const a = K.state.aufgaben;
         welten.add(K.weltText());
         const oft = {};
         a.forEach((x) => { oft[x.art] = (oft[x.art] || 0) + 1; });
+        for (const x of a) arten.add(x.art);
         raus.runden.push({ n: a.length, stufen: [0, 1, 2].map((s) => a.filter((x) => x.stufe === s).length).join("/"), meist: Math.max(...Object.values(oft)), zeiten: a.every((x) => x.zeit === K.ZEITEN[x.stufe]), schnittLeicht: a.some((x) => x.art === "schnitt" && x.stufe === 0), frage: a.every((x) => x.frage.length > 20) });
       }
       raus.welten = welten.size;
+      raus.arten = arten.size;
+      raus.alle = K.ARTEN.length;
       const bits = (x) => { let n = 0; for (let v = x >>> 0; v; v &= v - 1) n += 1; return n; };
       const kreuz = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
       const punkt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -10274,6 +10282,126 @@ try {
             const aufKante = (p) => p.filter((x) => Math.abs(x) < 1e-9 || Math.abs(x - 1) < 1e-9).length >= 2 && p.every((x) => x > -1e-9 && x < 1 + 1e-9);
             if (sc.flaeche.length - 3 !== sc.soll || sc.flaeche.length < 3 || sc.flaeche.length > 6 || !sc.flaeche.every(aufKante) || sc.flaeche.some((p) => Math.abs(punkt(nn, [0, 1, 2].map((k) => p[k] - sc.punkte[0][k]))) > 1e-9)) merke("schnitt");
           }
+          // --- Die acht Arten der zweiten Fassung ---
+          const mal = (m, v) => [0, 1, 2].map((k) => m[0][k] * v[0] + m[1][k] * v[1] + m[2][k] * v[2]);
+          // Würfel anmalen: jeder kleine Würfel einzeln gezählt – und, wo rundum
+          // Farbe ist, nach der Formel für Ecken, Kanten, Flächen und Inneres.
+          const fa = K.lege("farbe", stufe, Math.random);
+          const [fx, fy, fz] = fa.masse;
+          let gezaehlt = 0;
+          for (let x = 0; x < fx; x += 1) for (let y = 0; y < fy; y += 1) for (let z = 0; z < fz; z += 1) {
+            if ([x === 0, x === fx - 1, y === 0, y === fy - 1, z === fz - 1, z === 0 && fa.boden].filter(Boolean).length === fa.seiten) gezaehlt += 1;
+          }
+          if (gezaehlt !== fa.soll || fa.soll < 1 || fa.boden !== (stufe < 2) || (stufe === 0 && fa.masse.join() !== "3,3,3")) merke("farbe");
+          if (fa.boden && [(fx - 2) * (fy - 2) * (fz - 2), 2 * ((fx - 2) * (fy - 2) + (fx - 2) * (fz - 2) + (fy - 2) * (fz - 2)), 4 * (fx + fy + fz - 6), 8][fa.seiten] !== fa.soll) merke("farbe Formel");
+          // Welcher Würfel: Jedes Bild wird in allen 24 Lagen gegen das
+          // gefaltete Netz gehalten – nur das richtige gibt es wirklich.
+          const mu = K.lege("muster", stufe, Math.random);
+          const zuM = K.netzLage(mu.felder, mu.baum, Math.PI / 2);
+          const seiten = [[0, 0, 1], [-1, 0, 0], [0, -1, 0]];
+          const zeigt = (lage, belegung, dreh, richtung) => {
+            const i = zuM.findIndex((l) => mal(lage, kreuz(l.ex, l.ey)).map(Math.round).join() === richtung.join());
+            const q = ((dreh[i] % 4) + 4) % 4;
+            const lokal = [zuM[i].ex, zuM[i].ey, zuM[i].ex.map((v) => -v), zuM[i].ey.map((v) => -v)][q];
+            return { zeichen: belegung[i], hin: mal(lage, lokal).map(Math.round) };
+          };
+          const gleich = (a, b) => a.zeichen === b.zeichen && (mu.zeichen[a.zeichen].dreh === 1 || a.hin.join() === b.hin.join() || (mu.zeichen[a.zeichen].dreh === 2 && a.hin.join() === b.hin.map((v) => -v).join()));
+          const gibtEs = (b) => K.LAGEN.some((lage) => seiten.every((richtung) => gleich(zeigt(lage, [0, 1, 2, 3, 4, 5], mu.lagen, richtung), zeigt(b.m, b.belegung, b.dreh, richtung))));
+          if (mu.bilder.length !== (stufe === 0 ? 3 : 4) || mu.bilder.some((b, i) => gibtEs(b) !== (i === mu.soll)) || mu.zeichen.length !== 6 || new Set(mu.zeichen.map((z) => z.form)).size !== 6
+            || mu.zeichen.some((z) => z.dreh > 1) !== (stufe === 2)) merke("muster");
+          // Lücke: Nur das richtige Teil hat die Gestalt der Lücke, und jeder
+          // fehlende Würfel ist von einer der drei Seiten her zu sehen.
+          const lu = K.lege("luecke", stufe, Math.random);
+          const fehlt = new Set(lu.weg.map(String));
+          const zuSehen = lu.weg.every(([x, y, z]) => {
+            let a = true, b = true, c = true;
+            for (let i = 0; i < x; i += 1) if (!fehlt.has(`${i},${y},${z}`)) a = false;
+            for (let i = 0; i < y; i += 1) if (!fehlt.has(`${x},${i},${z}`)) b = false;
+            for (let i = z + 1; i < 3; i += 1) if (!fehlt.has(`${x},${y},${i}`)) c = false;
+            return a || b || c;
+          });
+          const formen = lu.bilder.map((b) => K.gestalt(b.wuerfel));
+          if (!zuSehen || fehlt.size !== lu.weg.length || lu.weg.some((p) => p.some((v) => v < 0 || v > 2)) || new Set(formen).size !== lu.bilder.length || lu.bilder.length !== (stufe === 0 ? 3 : 4)
+            || lu.bilder.some((b, i) => (formen[i] === K.gestalt(lu.weg)) !== (i === lu.soll) || b.wuerfel.length !== lu.weg.length || b.passt !== (i === lu.soll))) merke("luecke");
+          // Drei Schatten: von jedem Stapel die drei Schatten neu geworfen.
+          const sch = K.lege("schatten", stufe, Math.random);
+          const wurf = (h) => JSON.stringify([h.map((spalte) => Math.max(...spalte)), h[0].map((_, y) => Math.max(...h.map((spalte) => spalte[y]))), h.map((spalte) => spalte.map((v) => (v > 0 ? 1 : 0)))]);
+          const sollSchatten = JSON.stringify([sch.schatten.links, sch.schatten.rechts, sch.schatten.boden]);
+          if (sch.bilder.length !== (stufe === 0 ? 3 : 4) || sch.bilder.some((h, i) => (wurf(h) === sollSchatten) !== (i === sch.soll)) || new Set(sch.bilder.map((h) => JSON.stringify(h))).size !== sch.bilder.length
+            || sch.bilder.some((h) => Math.max(...h.flat()) > sch.hoch)) merke("schatten");
+          // Drehkörper: lauter verschiedene Formen, jede rechts der Achse und
+          // gegen den Uhrzeigersinn umlaufen (so schaut ihr Mantel nach aussen).
+          const dk = K.lege("drehkoerper", stufe, Math.random);
+          const umlauf = (p) => p.reduce((summe, q, i) => { const n = p[(i + 1) % p.length]; return summe + (q[0] * n[1] - n[0] * q[1]) / 2; }, 0);
+          if (dk.profile.length !== (stufe === 0 ? 3 : 4) || new Set(dk.profile.map((p) => p.map((q) => q.map((v) => v.toFixed(3)).join("/")).join(" "))).size !== dk.profile.length
+            || dk.profile.some((p) => p.length < 3 || umlauf(p) < 0.05 || p.some((q) => q[0] < -1e-9 || q[0] > 1.08 || q[1] < -1e-9 || q[1] > 1.9))) merke("drehkoerper");
+          // Laser: Zelle um Zelle verfolgt.
+          const la = K.lege("laser", stufe, Math.random);
+          {
+            const n2 = la.n;
+            const seite2 = Math.floor(la.ein / n2);
+            const i2 = la.ein % n2;
+            let x = seite2 === 0 || seite2 === 2 ? i2 : seite2 === 1 ? n2 - 1 : 0;
+            let y = seite2 === 1 || seite2 === 3 ? i2 : seite2 === 2 ? n2 - 1 : 0;
+            let dx = seite2 === 1 ? -1 : seite2 === 3 ? 1 : 0;
+            let dy = seite2 === 0 ? 1 : seite2 === 2 ? -1 : 0;
+            const getroffen = new Set();
+            for (let schritt = 0; schritt < 500 && x >= 0 && y >= 0 && x < n2 && y < n2; schritt += 1) {
+              const spiegel = la.spiegel[y * n2 + x];
+              if (spiegel) { getroffen.add(y * n2 + x); [dx, dy] = spiegel === 1 ? [-dy, -dx] : [dy, dx]; }
+              x += dx;
+              y += dy;
+            }
+            const aus = y < 0 ? x : x >= n2 ? n2 + y : y >= n2 ? 2 * n2 + x : 3 * n2 + y;
+            if (aus !== la.soll || la.soll === la.ein || n2 !== [4, 5, 6][stufe] || la.wahl !== 4 * n2 || getroffen.size < [2, 3, 5][stufe] || getroffen.size !== la.treffer) merke("laser");
+          }
+          // Zahnräder: die Richtung jedes Rades von seinem Antrieb her; kein Rad
+          // berührt ein fremdes; und wo zwei ineinandergreifen, trifft ein Zahn
+          // auf eine Lücke.
+          const za = K.lege("zahnrad", stufe, Math.random);
+          {
+            const sinn = [1];
+            let sollRaeder = 0;
+            let gut = za.raeder[0].von === -1;
+            za.raeder.forEach((o, i) => {
+              if (i === 0) return;
+              if (o.von < 0 || o.von >= i || !["zahn", "riemen", "kreuz"].includes(o.art)) { gut = false; return; }
+              sinn[i] = o.art === "riemen" ? sinn[o.von] : -sinn[o.von];
+              if (sinn[i] !== o.sinn) gut = false;
+              if (sinn[i] === 1) sollRaeder |= 1 << (i - 1);
+              za.raeder.slice(0, i).forEach((p, j) => {
+                const weit = Math.hypot(o.x - p.x, o.y - p.y);
+                const summe = (o.z + p.z) * 0.1;
+                if (j === o.von && o.art === "zahn" ? Math.abs(weit - summe) > 1e-6 : weit < summe + 0.4) gut = false;
+              });
+              if (o.art === "zahn") {
+                const e2 = za.raeder[o.von];
+                const w = Math.atan2(o.y - e2.y, o.x - e2.x);
+                const rest = ((w - e2.phase) * e2.z + (w + Math.PI - o.phase) * o.z - Math.PI) / (2 * Math.PI);
+                if (Math.abs(rest - Math.round(rest)) > 1e-6 || Math.abs(o.tempo * o.z - e2.tempo * e2.z) > 1e-9) gut = false;
+              }
+            });
+            const riemen = za.raeder.filter((o) => o.art === "riemen" || o.art === "kreuz").length;
+            if (!gut || sollRaeder !== za.soll || za.felder !== za.raeder.length - 1 || bits(za.soll) < 1 || bits(za.soll) >= za.felder || za.raeder.length < [4, 6, 8][stufe]
+              || (stufe === 0 && riemen !== 0) || (stufe === 2 && riemen !== 2)) merke("zahnrad");
+          }
+          // Kugelbahn: Ebene um Ebene gerollt.
+          const ku = K.lege("kugelbahn", stufe, Math.random);
+          {
+            let spalte = ku.start;
+            let treffer = 0;
+            let gut = true;
+            ku.rampen.forEach((ebene) => {
+              ebene.forEach((rampe, i) => {
+                // Das tiefe Ende zeigt nie zur Wand, und zwischen zwei Rampen bleibt eine Spalte frei.
+                if (rampe.a > rampe.b || rampe.a < 0 || rampe.b >= ku.breit || (rampe.sinn > 0 ? rampe.b + 1 >= ku.breit : rampe.a - 1 < 0)) gut = false;
+                ebene.forEach((andere, j) => { if (j > i && !(andere.a > rampe.b + 1 || andere.b < rampe.a - 1)) gut = false; });
+              });
+              const rampe = ebene.find((x) => x.a <= spalte && spalte <= x.b);
+              if (rampe) { treffer += 1; spalte = rampe.sinn > 0 ? rampe.b + 1 : rampe.a - 1; }
+            });
+            if (!gut || spalte !== ku.soll || ku.soll < 0 || ku.soll >= ku.breit || ku.wahl !== ku.breit || treffer !== ku.weg.length || treffer < ku.ebenen - 1 || ku.rampen.length !== [3, 4, 5][stufe]) merke("kugelbahn");
+          }
         }
       }
       // Die Wertung.
@@ -10287,8 +10415,8 @@ try {
       };
       return raus;
     });
-    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "3/4/3" && r.meist <= 2 && r.zeiten && !r.schnittLeicht && r.frage) && bau.welten === 6,
-      `Kopfkino: Die Runden haben nicht ihre drei, vier und drei Aufgaben, oder jede Runde ist dieselbe: ${JSON.stringify(bau.runden)}`);
+    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "3/4/3" && r.meist === 1 && r.zeiten && !r.schnittLeicht && r.frage) && bau.welten === 6 && bau.alle === 15 && bau.arten >= 13,
+      `Kopfkino: Die Runden haben nicht ihre drei, vier und drei Aufgaben aus zehn verschiedenen Arten, oder jede Runde ist dieselbe: ${JSON.stringify({ runden: bau.runden, arten: bau.arten, alle: bau.alle })}`);
     pruefe(Object.keys(bau.fehler).length === 0, `Kopfkino: Nachgerechnet stimmt die richtige Antwort nicht überall: ${JSON.stringify(bau.fehler)}`);
     pruefe(JSON.stringify(bau.wertung.zeit) === JSON.stringify([100, 100, 75, 50, 50]) && JSON.stringify(bau.wertung.falsch) === "[0,0]"
       && JSON.stringify(bau.wertung.zahl) === JSON.stringify([100, 40, 15, 0, 40]) && JSON.stringify(bau.wertung.felder) === JSON.stringify([100, 50, 50, 0, 0, 0])
@@ -10465,6 +10593,44 @@ try {
     pruefe(da0 && wuerfel.phase === "zeigen" && wuerfel.punkte === 100 && wuerfel.stellen === 0 && da1 && blatt.phase === "zeigen" && blatt.anteil === 1 && blatt.punkte === 100
       && da2 && netz.phase === "zeigen" && netz.punkte === 100,
       `Kopfkino: Was das Bild anbietet, lässt sich mit dem Finger nicht antippen: ${JSON.stringify({ da0, wuerfel, da1, blatt, da2, netz })}`);
+    await kontext.close();
+  }
+  {
+    // Die acht neuen Arten, eine nach der anderen mit dem Finger gelöst: die
+    // Zahl getippt, der Würfel, das Teil, der Stapel und der Körper gewählt,
+    // die Stelle am Rand, die Räder und «Fertig», das Fach.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { handy: true });
+    await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
+    const neue = [["farbe", 0], ["muster", 1], ["luecke", 1], ["schatten", 0], ["drehkoerper", 1], ["laser", 1], ["zahnrad", 1], ["kugelbahn", 2]];
+    await seite.evaluate((liste) => { const K = window.LernappKopfkino; liste.forEach(([art, stufe], i) => { K.state.aufgaben[i] = K.lege(art, stufe, Math.random); }); }, neue);
+    const tippeAuf = async (suche) => {
+      const ort = await seite.evaluate((s) => {
+        const K = window.LernappKopfkino;
+        const r = document.querySelector("#kn-stage canvas").getBoundingClientRect();
+        const stelle = K.stellen().find((x) => x.was === s.was && (s.wert === undefined || x.wert === s.wert));
+        if (!stelle) return null;
+        return stelle.r !== undefined ? { x: r.left + stelle.cx, y: r.top + stelle.cy } : { x: r.left + stelle.x + stelle.w / 2, y: r.top + stelle.y + stelle.h / 2 };
+      }, suche);
+      if (ort) await seite.touchscreen.tap(ort.x, ort.y);
+      return Boolean(ort);
+    };
+    const weiterZur = async (phase) => { await seite.touchscreen.tap(210, 400); await seite.waitForFunction((p) => window.LernappKopfkino.state.phase === p, phase, { timeout: 5000 }).catch(() => {}); };
+    const ergebnis = [];
+    for (let i = 0; i < neue.length; i += 1) {
+      await weiterZur("vorschau");
+      await seite.waitForTimeout(450);
+      await weiterZur("aufgabe");
+      await seite.waitForTimeout(900);
+      const schritte = await seite.evaluate((nr) => { const K = window.LernappKopfkino; return K.loesung(K.state.aufgaben[nr]); }, i);
+      let da = true;
+      for (const [was, wert] of schritte) da = (await tippeAuf(was === "fertig" ? { was } : { was, wert })) && da;
+      await seite.waitForTimeout(200);
+      ergebnis.push(await seite.evaluate(({ nr, da2 }) => { const st = window.LernappKopfkino.state; return { art: st.aufgaben[nr].art, da: da2, phase: st.phase, punkte: st.liste[nr]?.punkte ?? null, stellen: window.LernappKopfkino.stellen().length }; }, { nr: i, da2: da }));
+      await seite.waitForTimeout(1300);
+    }
+    pruefe(ergebnis.length === 8 && ergebnis.every((x) => x.da && x.phase === "zeigen" && x.punkte === 100 && x.stellen === 0),
+      `Kopfkino: Die neuen Arten lassen sich mit dem Finger nicht lösen: ${JSON.stringify(ergebnis)}`);
     await kontext.close();
   }
   {

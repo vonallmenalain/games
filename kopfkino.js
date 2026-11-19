@@ -7,13 +7,18 @@
  * gegenüber? Ein Spielwürfel rollt den Pfeilen nach – was liegt am Ende
  * oben? Wie viele Würfel hat der Stapel, wie sieht er von hinten aus,
  * welche Figur ist dieselbe, nur gedreht, und wie viele Ecken hat der
- * Schnitt durch den Würfel?
+ * Schnitt durch den Würfel? Dazu, seit der zweiten Fassung: der angemalte
+ * Block, der zerlegt wird; der Würfel, der aus dem Netz mit den Zeichen
+ * entsteht; das Teil, das die Lücke füllt; der Stapel zu drei Schatten; der
+ * Körper, den eine Fläche beim Drehen zieht; der Laser zwischen Spiegeln;
+ * das Getriebe; und die Kugelbahn.
  *
  * Erst nach der Antwort läuft der Film wirklich: Das Blatt faltet sich auf,
- * das Netz schliesst sich, der Würfel rollt, die Kamera schwenkt.
+ * das Netz schliesst sich, der Würfel rollt, die Kamera schwenkt, der Block
+ * zieht sich auseinander, das Getriebe läuft an, die Kugel rollt.
  *
- * Sieben Arten, jede in drei Stufen; jede Runde zieht drei leichte, vier
- * mittlere und drei schwere Aufgaben. Bis zu hundert Punkte je Aufgabe,
+ * Fünfzehn Arten, jede in drei Stufen; jede Runde zieht drei leichte, vier
+ * mittlere und drei schwere Aufgaben – zehn verschiedene Arten. Bis zu hundert Punkte je Aufgabe,
  * tausend im Ganzen: Richtig muss es sein – und wer im ersten Drittel der
  * Zeit antwortet, bekommt alles, danach fällt es bis auf die Hälfte. Wo sich
  * eine Antwort aus Teilen setzt (Felder, Spalten, eine Zahl), zählt auch
@@ -55,11 +60,13 @@
   // Regeln
   // ---------------------------------------------------------------------------
   const PUNKTE_JE_AUFGABE = 100;
-  // Die Arten. Der Schnitt kommt erst ab der mittleren Stufe.
-  const ARTEN = ["falten", "netz", "stapel", "ansicht", "drehen", "rollen", "schnitt"];
+  // Die Arten: die sieben der ersten Fassung, dann die acht neuen. Der
+  // Schnitt kommt erst ab der mittleren Stufe.
+  const ARTEN = ["falten", "netz", "stapel", "ansicht", "drehen", "rollen", "schnitt", "farbe", "muster", "luecke", "schatten", "drehkoerper", "laser", "zahnrad", "kugelbahn"];
   const OHNE_LEICHT = ["schnitt"];
-  // Jede Runde: drei leichte, vier mittlere, drei schwere – keine Art öfter
-  // als zweimal, und innerhalb einer Stufe jede höchstens einmal.
+  // Jede Runde: drei leichte, vier mittlere, drei schwere. Zuerst kommen die
+  // Arten dran, die in der Runde noch nicht vorkamen – bei fünfzehn Arten
+  // sind es also zehn verschiedene.
   const PLAN = [3, 4, 3];
   const AUFGABEN = PLAN[0] + PLAN[1] + PLAN[2];
   const STUFE = ["leicht", "mittel", "schwer"];
@@ -74,7 +81,10 @@
   // Ab wann eine Aufgabe einen Tipp annimmt – nicht den, der sie hinlegte.
   const SPERRE = 0.3;
   // So lange läuft die Auflösung, je Art (Millisekunden).
-  const ZEIGEN_MS = { falten: 3600, netz: 3600, stapel: 3400, ansicht: 3400, drehen: 3200, rollen: 3800, schnitt: 3200 };
+  const ZEIGEN_MS = {
+    falten: 3600, netz: 3600, stapel: 3400, ansicht: 3400, drehen: 3200, rollen: 3800, schnitt: 3200,
+    farbe: 3800, muster: 4000, luecke: 3400, schatten: 3400, drehkoerper: 3800, laser: 3400, zahnrad: 4000, kugelbahn: 3600,
+  };
   // Die Vorschau: wie in den Geschwistern (Augenmass, Zeitgefühl, Freihand).
   const VORSCHAU = 30;
   const VOR_ZAEHLT = 5;
@@ -532,9 +542,586 @@
     return { eingabe: "wahl", wahl: 4, soll: 0, punkte, flaeche: schnittFlaeche(...punkte) };
   }
 
-  const BAU = { falten: faltenBau, netz: netzBau, stapel: stapelBau, ansicht: ansichtBau, drehen: drehenBau, rollen: rollenBau, schnitt: schnittBau };
+  // --- Würfel anmalen ----------------------------------------------------------
+  // Ein Block aus kleinen Würfeln wird aussen angemalt und dann zerlegt. Wie
+  // viele kleine Würfel haben genau so viele farbige Seiten? Auf der schweren
+  // Stufe stand der Block beim Anmalen auf dem Boden: Unten bleibt er roh.
+  function farbeSeiten(masse, boden, x, y, z) {
+    let n = 0;
+    if (x === 0) n += 1;
+    if (x === masse[0] - 1) n += 1;
+    if (y === 0) n += 1;
+    if (y === masse[1] - 1) n += 1;
+    if (z === masse[2] - 1) n += 1;
+    if (z === 0 && boden) n += 1;
+    return n;
+  }
 
-  const KURZ = { falten: "Falten und lochen", netz: "Würfelnetz", stapel: "Würfel zählen", ansicht: "Ansicht", drehen: "Dieselbe Figur", rollen: "Würfel rollen", schnitt: "Schnitt" };
+  function farbeBau(r, stufe) {
+    const bloecke = [[[3, 3, 3]], [[3, 3, 4], [4, 4, 4], [2, 3, 4], [3, 4, 4], [2, 4, 4]], [[3, 4, 5], [4, 4, 5], [3, 3, 5], [4, 4, 4], [3, 4, 4]]][stufe];
+    for (let versuch = 0; versuch < 200; versuch += 1) {
+      const masse = gemischt(r, waehle(r, bloecke));
+      const boden = stufe < 2;
+      const seiten = stufe === 0 ? waehle(r, [3, 2, 1]) : ganz(r, 0, 3);
+      let soll = 0;
+      for (let x = 0; x < masse[0]; x += 1) for (let y = 0; y < masse[1]; y += 1) for (let z = 0; z < masse[2]; z += 1) if (farbeSeiten(masse, boden, x, y, z) === seiten) soll += 1;
+      // Null lässt sich nicht tippen – und wäre geraten.
+      if (soll < 1 || soll > 99) continue;
+      return { eingabe: "zahl", masse, boden, seiten, soll, farbe: ganz(r, 0, 5) };
+    }
+    return { eingabe: "zahl", masse: [3, 3, 3], boden: true, seiten: 2, soll: 12, farbe: 0 };
+  }
+
+  // --- Welcher Würfel? ---------------------------------------------------------
+  // Ein Netz mit sechs Zeichen, eines je Fläche – und Würfel, von denen genau
+  // einer aus dem Netz zu falten ist. Die falschen zeigen zwei Zeichen
+  // nebeneinander, die sich gegenüberliegen; oder dieselben drei, aber
+  // verkehrt herum um die Ecke; oder (schwer) ein Zeichen verdreht.
+  // dreh: wie viele Lagen ein Zeichen hat (1: sieht nach jeder Vierteldrehung
+  // gleich aus, 2: nach einer halben, 4: nie).
+  const ZEICHEN = [
+    { form: "punkt", dreh: 1 }, { form: "ring", dreh: 1 }, { form: "kreuz", dreh: 1 }, { form: "quadrat", dreh: 1 }, { form: "vier", dreh: 1 }, { form: "stern", dreh: 1 },
+    { form: "balken", dreh: 2 }, { form: "zwei", dreh: 2 }, { form: "pfeil", dreh: 4 }, { form: "halb", dreh: 4 }, { form: "ecke", dreh: 4 }, { form: "keil", dreh: 4 },
+  ];
+  // Die drei Seiten, die die Kamera sieht: oben, vorn links (-x), vorn rechts (-y).
+  const SICHTBAR = [[0, 0, 1], [-1, 0, 0], [0, -1, 0]];
+  const gleichV = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+
+  // Wie ein Würfel aussieht, wenn er in der Lage m liegt: je sichtbare Seite,
+  // welches Zeichen dort steht und wohin es zeigt. zu: die Flächen des
+  // gefalteten Netzes (netzLage), belegung[i]: das Zeichen auf Fläche i,
+  // dreh[i]: um wie viele Vierteldrehungen es dort gedreht ist.
+  function musterAnsicht(zu, zeichen, belegung, dreh, m) {
+    return SICHTBAR.map((d) => {
+      const i = zu.findIndex((l) => gleichV(rundV(mVec(m, vKreuz(l.ex, l.ey))), d));
+      const z = zeichen[belegung[i]];
+      const q = ((dreh[i] % 4) + 4) % 4;
+      const lokal = [zu[i].ex, zu[i].ey, vMal(zu[i].ex, -1), vMal(zu[i].ey, -1)][q];
+      let hin = rundV(mVec(m, lokal));
+      if (z.dreh === 1) hin = [0, 0, 0];
+      else if (z.dreh === 2 && (hin[0] < 0 || (hin[0] === 0 && (hin[1] < 0 || (hin[1] === 0 && hin[2] < 0))))) hin = vMal(hin, -1);
+      return `${belegung[i]}:${hin.join(",")}`;
+    }).join(" ");
+  }
+
+  function musterBau(r, stufe) {
+    const roh = NETZE[stufe === 0 ? waehle(r, NETZE_LEICHT) : ganz(r, 0, NETZE.length - 1)];
+    const dreh = ganz(r, 0, 3);
+    const spiegel = r() < 0.5;
+    let felder = roh.map(([x, y]) => {
+      let p = [spiegel ? -x : x, y];
+      for (let i = 0; i < dreh; i += 1) p = [-p[1], p[0]];
+      return p;
+    });
+    const minX = Math.min(...felder.map((p) => p[0]));
+    const minY = Math.min(...felder.map((p) => p[1]));
+    felder = felder.map(([x, y]) => [x - minX, y - minY]);
+    const baum = netzBaum(felder);
+    const zu = netzLage(felder, baum, Math.PI / 2);
+    const aussen = zu.map((l) => rundV(vKreuz(l.ex, l.ey)));
+    const gegen = aussen.map((n) => aussen.findIndex((o) => gleichV(o, vMal(n, -1))));
+    const wahl = stufe === 0 ? 3 : 4;
+    const basis = { felder, baum, breit: Math.max(...felder.map((p) => p[0])) + 1, hoch: Math.max(...felder.map((p) => p[1])) + 1 };
+    for (let versuch = 0; versuch < 300; versuch += 1) {
+      // Sechs Zeichen: leicht und mittel ohne Richtung, schwer mit.
+      const zeichen = (stufe < 2 ? gemischt(r, [0, 1, 2, 3, 4, 5]) : gemischt(r, [...gemischt(r, [8, 9, 10, 11]).slice(0, 3), ...gemischt(r, [6, 7]).slice(0, 1), ...gemischt(r, [0, 1, 2, 3, 4, 5]).slice(0, 2)]))
+        .map((nr) => ({ ...ZEICHEN[nr], nr }));
+      const farben = stufe < 2 ? gemischt(r, [0, 1, 2, 3, 4, 5]) : null;
+      const belegung = [0, 1, 2, 3, 4, 5];
+      const lagen = belegung.map(() => ganz(r, 0, 3));
+      const echt = new Set(LAGEN.map((m) => musterAnsicht(zu, zeichen, belegung, lagen, m)));
+      const arten = [["gegen", "gegen"], ["gegen", "spiegel", "spiegel"], ["spiegel", "dreh", "dreh"]][stufe];
+      const soll = ganz(r, 0, wahl - 1);
+      const bilder = [];
+      const gesehen = new Set();
+      let gut = true;
+      for (let i = 0; i < wahl && gut; i += 1) {
+        const art = i === soll ? "echt" : arten[i < soll ? i : i - 1];
+        let bild = null;
+        for (let k = 0; k < 60 && !bild; k += 1) {
+          const m = waehle(r, LAGEN);
+          const b = [...belegung];
+          const d = [...lagen];
+          const vorn = SICHTBAR.map((s) => aussen.findIndex((n) => gleichV(rundV(mVec(m, n)), s)));
+          const [j, l] = gemischt(r, [0, 1, 2]);
+          if (art === "gegen") { const o = gegen[vorn[l]]; [b[vorn[j]], b[o]] = [b[o], b[vorn[j]]]; [d[vorn[j]], d[o]] = [d[o], d[vorn[j]]]; }
+          else if (art === "spiegel") { [b[vorn[j]], b[vorn[l]]] = [b[vorn[l]], b[vorn[j]]]; [d[vorn[j]], d[vorn[l]]] = [d[vorn[l]], d[vorn[j]]]; }
+          else if (art === "dreh") {
+            const f = vorn.find((x) => zeichen[b[x]].dreh > 1);
+            if (f === undefined) continue;
+            d[f] += zeichen[b[f]].dreh === 2 ? 1 : ganz(r, 1, 3);
+          }
+          const sicht = musterAnsicht(zu, zeichen, b, d, m);
+          if ((art === "echt") !== echt.has(sicht) || gesehen.has(sicht)) continue;
+          gesehen.add(sicht);
+          bild = { m, belegung: b, dreh: d, art };
+        }
+        if (!bild) gut = false; else bilder.push(bild);
+      }
+      if (gut) return { ...basis, eingabe: "wahl", wahl, soll, zeichen, farben, lagen, bilder };
+    }
+    return musterBau(r, 0);
+  }
+
+  // --- Lücke füllen ------------------------------------------------------------
+  // Einem Würfel aus 3 × 3 × 3 kleinen fehlt ein Stück. Welches der Teile
+  // füllt die Lücke? Jeder fehlende Würfel ist von vorn links, von vorn
+  // rechts oder von oben zu sehen – nichts fehlt im Verborgenen.
+  const LUECKE_N = 3;
+  const nachbarn6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  const zusammen = (liste) => {
+    const da = new Set(liste.map((p) => p.join(",")));
+    const reihe = [liste[0]];
+    const besucht = new Set([liste[0].join(",")]);
+    for (let i = 0; i < reihe.length; i += 1) for (const d of nachbarn6) {
+      const q = vPlus(reihe[i], d);
+      const s = q.join(",");
+      if (da.has(s) && !besucht.has(s)) { besucht.add(s); reihe.push(q); }
+    }
+    return reihe.length === liste.length;
+  };
+
+  // Ein Stück aus zahl Würfeln, das aus dem Block herausgenommen ist – so,
+  // dass man jeden fehlenden Würfel sieht.
+  function lueckeStueck(r, zahl) {
+    const n = LUECKE_N;
+    const drin = (p) => p.every((x) => x >= 0 && x < n);
+    for (let versuch = 0; versuch < 200; versuch += 1) {
+      const weg = [];
+      const hat = (p) => weg.some((q) => gleichV(q, p));
+      // Zu sehen: vorn links (alles davor fehlt auch), vorn rechts oder oben.
+      const offen = (p) => {
+        let a = true, b = true, c = true;
+        for (let x = 0; x < p[0]; x += 1) if (!hat([x, p[1], p[2]])) a = false;
+        for (let y = 0; y < p[1]; y += 1) if (!hat([p[0], y, p[2]])) b = false;
+        for (let z = p[2] + 1; z < n; z += 1) if (!hat([p[0], p[1], z])) c = false;
+        return a || b || c;
+      };
+      // Der erste liegt an einer Seite, die man sieht.
+      const start = [ganz(r, 0, n - 1), ganz(r, 0, n - 1), ganz(r, 0, n - 1)];
+      const seite = ganz(r, 0, 2);
+      start[seite] = seite === 2 ? n - 1 : 0;
+      weg.push(start);
+      for (let schritt = 0; schritt < 80 && weg.length < zahl; schritt += 1) {
+        const q = vPlus(waehle(r, weg), waehle(r, nachbarn6));
+        if (drin(q) && !hat(q) && offen(q)) weg.push(q);
+      }
+      if (weg.length === zahl && weg.every(offen)) return weg;
+    }
+    return [[0, 0, 2], [1, 0, 2], [0, 1, 2]].slice(0, zahl);
+  }
+
+  // Ein anderes Stück mit gleich vielen Würfeln: ein Würfel sitzt woanders.
+  function lueckeAnders(r, stueck) {
+    for (let versuch = 0; versuch < 80; versuch += 1) {
+      const rest = gemischt(r, stueck).slice(1);
+      if (!zusammen(rest)) continue;
+      const neu = vPlus(waehle(r, rest), waehle(r, nachbarn6));
+      if (rest.some((q) => gleichV(q, neu))) continue;
+      const liste = [...rest, neu];
+      const spanne = [0, 1, 2].map((a) => Math.max(...liste.map((p) => p[a])) - Math.min(...liste.map((p) => p[a])));
+      if (Math.max(...spanne) <= 2) return liste;
+    }
+    return null;
+  }
+
+  function lueckeBau(r, stufe) {
+    const wahl = stufe === 0 ? 3 : 4;
+    for (let versuch = 0; versuch < 200; versuch += 1) {
+      const zahl = [4, 4, 5][stufe] + (stufe > 0 && r() < 0.4 ? 1 : 0);
+      const weg = lueckeStueck(r, zahl);
+      if (weg.length !== zahl) continue;
+      const form = gestalt(weg);
+      const spiegel = weg.map((p) => [-p[0], p[1], p[2]]);
+      // Mittel und schwer: ein Stück, das nicht flach liegt.
+      const spanne = [0, 1, 2].map((a) => Math.max(...weg.map((p) => p[a])) - Math.min(...weg.map((p) => p[a])));
+      if (stufe > 0 && Math.min(...spanne) < 1) continue;
+      const formen = new Set([form]);
+      const andere = [];
+      // Schwer: das Spiegelbild ist dabei, wenn es ein anderes Stück ist.
+      if (stufe === 2 && gestalt(spiegel) !== form) { andere.push(spiegel); formen.add(gestalt(spiegel)); }
+      for (let k = 0; k < 60 && andere.length < wahl - 1; k += 1) {
+        const a = lueckeAnders(r, weg);
+        if (!a || formen.has(gestalt(a))) continue;
+        formen.add(gestalt(a));
+        andere.push(a);
+      }
+      if (andere.length < wahl - 1) continue;
+      const soll = ganz(r, 0, wahl - 1);
+      const umZ = LAGEN.filter((m) => m[2][2] === 1 && !(m[0][0] === 1 && m[1][1] === 1));
+      const frei = LAGEN.filter((m) => !(m[0][0] === 1 && m[1][1] === 1 && m[2][2] === 1));
+      const falsche = gemischt(r, andere);
+      const bilder = [];
+      for (let i = 0; i < wahl; i += 1) {
+        const lage = waehle(r, stufe === 0 ? umZ : frei);
+        const stueck = i === soll ? weg : falsche.pop();
+        bilder.push({ lage, passt: i === soll, wuerfel: stueck.map((p) => rundV(mVec(lage, p))) });
+      }
+      return { eingabe: "wahl", wahl, soll, n: LUECKE_N, weg, bilder, farbe: ganz(r, 0, 5) };
+    }
+    const weg = [[0, 0, 2], [1, 0, 2], [0, 1, 2]];
+    return { eingabe: "wahl", wahl: 3, soll: 0, n: LUECKE_N, weg, bilder: [{ lage: EINS, passt: true, wuerfel: weg }, { lage: EINS, passt: false, wuerfel: [[0, 0, 0], [1, 0, 0], [2, 0, 0]] }, { lage: EINS, passt: false, wuerfel: [[0, 0, 0], [1, 0, 0], [1, 0, 1]] }], farbe: 0 };
+  }
+
+  // --- Drei Schatten -----------------------------------------------------------
+  // Ein Stapel in der Ecke eines Zimmers wirft drei Schatten: an die linke
+  // Wand (die Säulen von links nach rechts, entlang x), an die rechte Wand
+  // (entlang y) und auf den Boden. Welcher Stapel ist es?
+  const SCHATTEN_N = 3;
+  function schattenVon(hoehen) {
+    const n = hoehen.length;
+    return {
+      links: hoehen.map((spalte) => Math.max(...spalte)),
+      rechts: hoehen[0].map((_, y) => Math.max(...hoehen.map((spalte) => spalte[y]))),
+      boden: hoehen.map((spalte) => spalte.map((h) => (h > 0 ? 1 : 0))),
+      n,
+    };
+  }
+  const schattenText = (s) => `${s.links.join("")}|${s.rechts.join("")}|${s.boden.map((x) => x.join("")).join("")}`;
+  // Keine Säule steht ganz hinter einer höheren verborgen.
+  function stapelOffen(h) {
+    const n = h.length;
+    for (let x = 0; x < n; x += 1) for (let y = 0; y < n; y += 1) {
+      if (!h[x][y]) continue;
+      for (let k = 1; x - k >= 0 && y - k >= 0; k += 1) if (h[x - k][y - k] >= h[x][y] + k) return false;
+    }
+    return true;
+  }
+
+  function schattenBau(r, stufe) {
+    const n = SCHATTEN_N;
+    const hoch = [2, 3, 3][stufe];
+    const wahl = stufe === 0 ? 3 : 4;
+    for (let versuch = 0; versuch < 300; versuch += 1) {
+      const h = [];
+      for (let x = 0; x < n; x += 1) { h.push([]); for (let y = 0; y < n; y += 1) h[x].push(r() < [0.5, 0.42, 0.3][stufe] ? 0 : ganz(r, 1, hoch)); }
+      const summe = h.flat().reduce((s, x) => s + x, 0);
+      if (summe < [4, 6, 9][stufe] || summe > [7, 10, 14][stufe] || !stapelOffen(h) || !zusammen(h.flatMap((spalte, x) => spalte.map((v, y) => (v ? [x, y, 0] : null))).filter(Boolean))) continue;
+      const echt = schattenVon(h);
+      const text = schattenText(echt);
+      // Die falschen: ein Würfel sitzt woanders, einer fehlt oder ist zu viel.
+      const texte = new Set([JSON.stringify(h)]);
+      const andere = [];
+      for (let k = 0; k < 200 && andere.length < wahl - 1; k += 1) {
+        const g2 = h.map((spalte) => [...spalte]);
+        const von = [ganz(r, 0, n - 1), ganz(r, 0, n - 1)];
+        const nach = [ganz(r, 0, n - 1), ganz(r, 0, n - 1)];
+        const zug = r();
+        if (zug < 0.6) { if (!g2[von[0]][von[1]] || g2[nach[0]][nach[1]] >= hoch || (von[0] === nach[0] && von[1] === nach[1])) continue; g2[von[0]][von[1]] -= 1; g2[nach[0]][nach[1]] += 1; }
+        else if (zug < 0.8) { if (!g2[von[0]][von[1]]) continue; g2[von[0]][von[1]] -= 1; }
+        else { if (g2[nach[0]][nach[1]] >= hoch) continue; g2[nach[0]][nach[1]] += 1; }
+        const s = schattenVon(g2);
+        if (schattenText(s) === text || texte.has(JSON.stringify(g2)) || !stapelOffen(g2)) continue;
+        // Schwer: Nur einer der drei Schatten verrät den Unterschied.
+        const anders = (s.links.join("") !== echt.links.join("") ? 1 : 0) + (s.rechts.join("") !== echt.rechts.join("") ? 1 : 0) + (JSON.stringify(s.boden) !== JSON.stringify(echt.boden) ? 1 : 0);
+        if (stufe === 2 && anders !== 1 && k < 150) continue;
+        texte.add(JSON.stringify(g2));
+        andere.push(g2);
+      }
+      if (andere.length < wahl - 1) continue;
+      const soll = ganz(r, 0, wahl - 1);
+      const bilder = [];
+      for (let i = 0; i < wahl; i += 1) bilder.push(i === soll ? h : andere.pop());
+      return { eingabe: "wahl", wahl, soll, n, hoch: Math.max(2, ...bilder.flat(2)), schatten: echt, bilder, farbe: ganz(r, 0, 5) };
+    }
+    const h = [[1, 0, 0], [2, 1, 0], [0, 0, 0]];
+    return { eingabe: "wahl", wahl: 3, soll: 0, n, hoch: 2, schatten: schattenVon(h), bilder: [h, [[1, 1, 0], [2, 0, 0], [0, 0, 0]], [[2, 0, 0], [1, 1, 0], [0, 0, 0]]], farbe: 0 };
+  }
+
+  // --- Drehkörper --------------------------------------------------------------
+  // Eine flache Form dreht sich um eine Achse – welcher Körper entsteht? Die
+  // Form ist ein Vieleck aus Punkten [r, z]: r der Abstand von der Achse, z
+  // die Höhe; gegen den Uhrzeigersinn umlaufen.
+  const bogen = (mr, mz, rad, von, bis, teile) => { const p = []; for (let i = 0; i <= teile; i += 1) { const w = lerp(von, bis, i / teile); p.push([Math.max(0, mr + Math.cos(w) * rad), mz + Math.sin(w) * rad]); } return p; };
+  // Aus Abschnitten übereinander: je [r unten, r oben, Höhe]; loch: der
+  // Halbmesser einer Bohrung längs der Achse.
+  function profilAus(abschnitte, loch = 0) {
+    const p = [[loch, 0]];
+    let z = 0;
+    for (const [r0, r1, h] of abschnitte) {
+      p.push([Math.max(r0, loch), z]);
+      z += h;
+      p.push([Math.max(r1, loch), z]);
+    }
+    p.push([loch, z]);
+    // Doppelte Punkte fallen weg.
+    return p.filter((q, i) => { const v = p[(i + p.length - 1) % p.length]; return Math.abs(q[0] - v[0]) > 1e-9 || Math.abs(q[1] - v[1]) > 1e-9; });
+  }
+  const PROFILE = {
+    zylinder: () => profilAus([[0.8, 0.8, 1.6]]),
+    kegel: () => profilAus([[0.95, 0, 1.7]]),
+    spitze: () => profilAus([[0, 0.95, 1.7]]),
+    stumpf: () => profilAus([[1, 0.5, 1.5]]),
+    doppel: () => profilAus([[0, 0.95, 0.85], [0.95, 0, 0.85]]),
+    kugel: () => bogen(0, 0.9, 0.9, -Math.PI / 2, Math.PI / 2, 10),
+    kuppel: () => [[0, 0], ...bogen(0, 0, 1, 0, Math.PI / 2, 8)],
+    scheibe: () => profilAus([[1.05, 1.05, 0.45]]),
+    rohr: () => profilAus([[0.9, 0.9, 1.5]], 0.5),
+    ring: () => bogen(0.72, 0.36, 0.36, 0, TAU, 12).slice(0, -1),
+    stufe: () => profilAus([[1, 1, 0.6], [0.5, 0.5, 0.95]]),
+    sanduhr: () => profilAus([[0.9, 0.22, 0.85], [0.22, 0.9, 0.85]]),
+    rakete: () => profilAus([[0.6, 0.6, 1.05], [0.6, 0, 0.75]]),
+    pilz: () => [[0, 0], [0.3, 0], [0.3, 0.85], ...bogen(0, 0.85, 1, 0, Math.PI / 2, 8)],
+    trichter: () => profilAus([[1, 0.6, 1.5]], 0.45),
+    kreisel: () => profilAus([[0, 1, 0.7], [1, 1, 0.3], [0.3, 0.3, 0.7]]),
+    spule: () => profilAus([[1, 1, 0.35], [0.4, 0.4, 0.9], [1, 1, 0.35]]),
+    kelch: () => profilAus([[0.75, 0.2, 0.5], [0.2, 0.2, 0.45], [0.2, 0.95, 0.7]]),
+  };
+  const PROFIL_LEICHT = ["zylinder", "kegel", "spitze", "stumpf", "doppel", "kugel", "kuppel", "scheibe"];
+  // Die mittleren, und womit man sie verwechselt.
+  const PROFIL_MITTEL = {
+    rohr: ["zylinder", "ring", "trichter"], ring: ["rohr", "scheibe", "kugel"], stufe: ["rakete", "pilz", "spule"], sanduhr: ["doppel", "spule", "kelch"],
+    rakete: ["stufe", "kegel", "zylinder"], pilz: ["stufe", "kuppel", "kreisel"], trichter: ["stumpf", "rohr", "kegel"], kreisel: ["doppel", "pilz", "kelch"],
+    spule: ["sanduhr", "stufe", "zylinder"], kelch: ["sanduhr", "kreisel", "spitze"],
+  };
+  const profilText = (p) => p.map(([a, b]) => `${a.toFixed(2)}/${b.toFixed(2)}`).join(" ");
+
+  function drehkoerperBau(r, stufe) {
+    const wahl = stufe === 0 ? 3 : 4;
+    const soll = ganz(r, 0, wahl - 1);
+    let profile = null;
+    let namen = null;
+    if (stufe === 0) {
+      namen = gemischt(r, PROFIL_LEICHT).slice(0, wahl);
+      profile = namen.map((name) => PROFILE[name]());
+    } else if (stufe === 1) {
+      const name = waehle(r, Object.keys(PROFIL_MITTEL));
+      const andere = gemischt(r, PROFIL_MITTEL[name]);
+      namen = [];
+      for (let i = 0; i < wahl; i += 1) namen.push(i === soll ? name : andere.pop());
+      profile = namen.map((n) => PROFILE[n]());
+    } else {
+      // Schwer: drei Abschnitte aus dem Zufall – und Körper, die ihm ähneln:
+      // auf dem Kopf, mit einer Stufe statt einer Schräge, mit oder ohne Bohrung.
+      const stufen = [0.3, 0.55, 0.8, 1];
+      for (let versuch = 0; versuch < 400 && !profile; versuch += 1) {
+        const loch = r() < 0.35 ? 0.18 : 0;
+        const teile = [];
+        let unten = waehle(r, stufen);
+        for (let i = 0; i < 3; i += 1) {
+          const schraeg = r() < 0.55;
+          const oben = schraeg ? waehle(r, stufen.filter((x) => x !== unten)) : unten;
+          teile.push([unten, oben, waehle(r, [0.45, 0.6, 0.75])]);
+          // Der nächste Abschnitt setzt an oder springt.
+          unten = r() < 0.5 ? oben : waehle(r, stufen.filter((x) => x !== oben));
+        }
+        if (teile.filter((t) => t[0] !== t[1]).length < 1) continue;
+        // Nie höher als 1.8 – so passt jeder Körper in seinen Platz.
+        const ganzHoch = teile.reduce((summe, t) => summe + t[2], 0);
+        if (ganzHoch > 1.8) for (const t of teile) t[2] *= 1.8 / ganzHoch;
+        const kopf = teile.map(([a, b, h]) => [b, a, h]).reverse();
+        const eckig = teile.map(([a, b, h]) => (a !== b ? [Math.max(a, b), Math.max(a, b), h] : [a, b, h]));
+        const anders = teile.map(([a, b, h], i) => (i === 1 ? [b, a, h] : [a, b, h]));
+        const kandidaten = [profilAus(kopf, loch), profilAus(eckig, loch), profilAus(teile, loch ? 0 : 0.18), profilAus(anders, loch), profilAus(teile.map(([a, b, h], i) => (i === 2 ? [b, a, h] : [a, b, h])), loch)];
+        const echt = profilAus(teile, loch);
+        const texte = new Set([profilText(echt)]);
+        const falsch = [];
+        for (const k of gemischt(r, kandidaten)) { if (!texte.has(profilText(k))) { texte.add(profilText(k)); falsch.push(k); } }
+        if (falsch.length < wahl - 1) continue;
+        profile = [];
+        for (let i = 0; i < wahl; i += 1) profile.push(i === soll ? echt : falsch.pop());
+      }
+      if (!profile) return drehkoerperBau(r, 1);
+    }
+    return { eingabe: "wahl", wahl, soll, profile, namen, farbe: ganz(r, 0, 5) };
+  }
+
+  // --- Laser und Spiegel -------------------------------------------------------
+  // Ein Feld aus n × n Zellen (x nach rechts, y nach unten), in manchen ein
+  // schräger Spiegel: 1 «/», 2 «\». Der Strahl tritt an einer Stelle des
+  // Rands ein; die Stellen sind rundum gezählt – oben von links nach rechts
+  // (0 … n-1), dann rechts von oben nach unten, unten von links nach rechts,
+  // links von oben nach unten.
+  function laserRand(n, stelle) {
+    const seite = Math.floor(stelle / n);
+    const i = stelle % n;
+    if (seite === 0) return { x: i, y: 0, dx: 0, dy: 1, px: i + 0.5, py: 0 };
+    if (seite === 1) return { x: n - 1, y: i, dx: -1, dy: 0, px: n, py: i + 0.5 };
+    if (seite === 2) return { x: i, y: n - 1, dx: 0, dy: -1, px: i + 0.5, py: n };
+    return { x: 0, y: i, dx: 1, dy: 0, px: 0, py: i + 0.5 };
+  }
+
+  // Der Weg des Strahls: die Punkte, an denen er knickt, wo er austritt, und
+  // welche Zellen er berührt.
+  function laserWeg(n, spiegel, ein) {
+    const s = laserRand(n, ein);
+    let { x, y, dx, dy } = s;
+    const punkte = [[s.px, s.py]];
+    const treffer = [];
+    const zellen = new Set();
+    for (let schritt = 0; schritt < n * n * 4; schritt += 1) {
+      if (x < 0 || y < 0 || x >= n || y >= n) break;
+      zellen.add(y * n + x);
+      const art = spiegel[y * n + x];
+      if (art) {
+        punkte.push([x + 0.5, y + 0.5]);
+        treffer.push(y * n + x);
+        [dx, dy] = art === 1 ? [-dy, -dx] : [dy, dx];
+      }
+      x += dx;
+      y += dy;
+    }
+    const aus = y < 0 ? x : x >= n ? n + y : y >= n ? 2 * n + x : 3 * n + y;
+    const rand = laserRand(n, aus);
+    punkte.push([rand.px, rand.py]);
+    return { punkte, treffer, zellen, aus };
+  }
+
+  function laserBau(r, stufe) {
+    const n = [4, 5, 6][stufe];
+    const mind = [2, 3, 5][stufe];
+    const dazu = [1, 2, 4][stufe];
+    for (let versuch = 0; versuch < 3000; versuch += 1) {
+      const spiegel = new Array(n * n).fill(0);
+      for (let i = 0; i < n * n; i += 1) if (r() < [0.3, 0.3, 0.34][stufe]) spiegel[i] = r() < 0.5 ? 1 : 2;
+      const ein = ganz(r, 0, 4 * n - 1);
+      const weg = laserWeg(n, spiegel, ein);
+      const zahl = new Set(weg.treffer).size;
+      if (zahl < mind || zahl > mind + 2) continue;
+      // Was er nicht trifft, fällt weg – bis auf ein paar Spiegel, die nur da stehen.
+      const frei = gemischt(r, spiegel.map((_, i) => i).filter((i) => !weg.zellen.has(i)));
+      for (let i = 0; i < n * n; i += 1) if (!weg.treffer.includes(i)) spiegel[i] = 0;
+      for (const i of frei.slice(0, dazu)) spiegel[i] = r() < 0.5 ? 1 : 2;
+      return { eingabe: "wahl", wahl: 4 * n, soll: weg.aus, n, spiegel, ein, punkte: weg.punkte, treffer: zahl };
+    }
+    const spiegel = new Array(16).fill(0);
+    spiegel[5] = 2; spiegel[13] = 1;
+    const weg = laserWeg(4, spiegel, 13);
+    return { eingabe: "wahl", wahl: 16, soll: weg.aus, n: 4, spiegel, ein: 13, punkte: weg.punkte, treffer: 2 };
+  }
+
+  // --- Zahnräder ---------------------------------------------------------------
+  // Räder in einer Ebene: Jedes hängt an einem früheren – über die Zähne (dann
+  // dreht es andersherum), über einen geraden Riemen (gleich herum) oder einen
+  // gekreuzten (andersherum). Das erste treibt an, im Uhrzeigersinn.
+  // rad: { x, y, z (Zähne), von, art ("zahn" | "riemen" | "kreuz"), sinn (1: im Uhrzeigersinn) }
+  const ZAHN_MODUL = 0.1;
+  const radHalb = (z) => z * ZAHN_MODUL;
+  function zahnradBau(r, stufe) {
+    const zahl = [4, 6, 8][stufe] + (r() < 0.5 ? 1 : 0);
+    const zaehne = stufe === 0 ? [10, 12] : [8, 10, 12, 16];
+    for (let versuch = 0; versuch < 400; versuch += 1) {
+      const raeder = [{ x: 0, y: 0, z: waehle(r, zaehne), von: -1, art: "", sinn: 1 }];
+      let riemen = stufe === 2 ? 2 : stufe === 1 && r() < 0.5 ? 1 : 0;
+      let fehl = 0;
+      while (raeder.length < zahl && fehl < 200) {
+        // Leicht: eine Kette. Sonst verzweigt es sich.
+        const von = stufe === 0 || r() < 0.45 ? raeder.length - 1 : ganz(r, 0, raeder.length - 1);
+        const e = raeder[von];
+        const z = waehle(r, zaehne);
+        const art = riemen > 0 && raeder.length > 1 && r() < 0.4 ? (r() < 0.5 ? "riemen" : "kreuz") : "zahn";
+        const weit = radHalb(e.z) + radHalb(z) + (art === "zahn" ? 0 : 0.9 + r() * 0.8);
+        const w = r() * TAU;
+        const neu = { x: e.x + Math.cos(w) * weit, y: e.y + Math.sin(w) * weit, z, von, art, sinn: art === "riemen" ? e.sinn : -e.sinn };
+        // Kein Rad berührt ein anderes, an dem es nicht hängt.
+        let frei = raeder.every((o, i) => (i === von && art === "zahn") || Math.hypot(o.x - neu.x, o.y - neu.y) >= radHalb(o.z) + radHalb(z) + 0.42);
+        // Ein Riemen läuft an keinem anderen Rad vorbei.
+        if (frei && art !== "zahn") frei = raeder.every((o, i) => {
+          if (i === von) return true;
+          const t = clamp(((o.x - e.x) * (neu.x - e.x) + (o.y - e.y) * (neu.y - e.y)) / (weit * weit), 0, 1);
+          return Math.hypot(o.x - e.x - (neu.x - e.x) * t, o.y - e.y - (neu.y - e.y) * t) >= radHalb(o.z) + 0.55;
+        });
+        // Und kein Rad steht einem Riemen im Weg.
+        if (frei) frei = raeder.every((o) => {
+          if (o.von < 0 || o.art === "zahn") return true;
+          const p = raeder[o.von];
+          const lang = Math.hypot(o.x - p.x, o.y - p.y);
+          const t = clamp(((neu.x - p.x) * (o.x - p.x) + (neu.y - p.y) * (o.y - p.y)) / (lang * lang), 0, 1);
+          return Math.hypot(neu.x - p.x - (o.x - p.x) * t, neu.y - p.y - (o.y - p.y) * t) >= radHalb(z) + 0.55;
+        });
+        if (!frei) { fehl += 1; continue; }
+        if (art !== "zahn") riemen -= 1;
+        raeder.push(neu);
+      }
+      if (raeder.length < zahl || (stufe === 2 && riemen > 0)) continue;
+      const xs = raeder.flatMap((o) => [o.x - radHalb(o.z), o.x + radHalb(o.z)]);
+      const ys = raeder.flatMap((o) => [o.y - radHalb(o.z), o.y + radHalb(o.z)]);
+      const breit = Math.max(...xs) - Math.min(...xs);
+      const hoch = Math.max(...ys) - Math.min(...ys);
+      // Nicht zu lang gestreckt – sonst werden die Räder im Bild zu klein.
+      if (Math.max(breit, hoch) > Math.min(breit, hoch) * 1.9) continue;
+      let soll = 0;
+      raeder.forEach((o, i) => { if (i > 0 && o.sinn === 1) soll |= 1 << (i - 1); });
+      if (bits(soll) < 1 || bits(soll) >= zahl - 1) continue;
+      // Die Zähne greifen ineinander: Wo sich zwei Räder berühren, trifft ein Zahn auf eine Lücke.
+      // Ein kleines Rad dreht schneller als das grosse, an dem es hängt.
+      raeder[0].phase = r() * TAU;
+      raeder[0].tempo = 1;
+      raeder.forEach((o) => {
+        if (o.von < 0) return;
+        const e = raeder[o.von];
+        const w = Math.atan2(o.y - e.y, o.x - e.x);
+        o.phase = o.art === "zahn" ? w + Math.PI - (Math.PI - (w - e.phase) * e.z) / o.z : r() * TAU;
+        o.tempo = o.art === "zahn" ? (e.tempo * e.z) / o.z : e.tempo;
+      });
+      return { eingabe: "felder", felder: zahl - 1, soll, raeder, box: { x0: Math.min(...xs), y0: Math.min(...ys), breit, hoch } };
+    }
+    return zahnradBau(r, 0);
+  }
+
+  // --- Kugelbahn ---------------------------------------------------------------
+  // Von der Seite gesehen: Ebenen mit schrägen Rampen. rampe: { a, b (die
+  // Spalten, die sie überdeckt), sinn (1: fällt nach rechts ab, -1: nach
+  // links) }. Die Kugel rollt jede Rampe hinunter und fällt an ihrem tiefen
+  // Ende in der nächsten Spalte senkrecht weiter; wo keine Rampe ist, fällt
+  // sie durch. Unten stehen die Fächer.
+  function kugelWeg(rampen, start) {
+    let spalte = start;
+    const weg = [];
+    rampen.forEach((ebene, nr) => {
+      const rampe = ebene.find((s) => s.a <= spalte && spalte <= s.b);
+      if (!rampe) return;
+      const bis = rampe.sinn > 0 ? rampe.b + 1 : rampe.a - 1;
+      weg.push({ ebene: nr, von: spalte, bis, sinn: rampe.sinn });
+      spalte = bis;
+    });
+    return { weg, fach: spalte };
+  }
+
+  function kugelbahnBau(r, stufe) {
+    const breit = [5, 6, 7][stufe];
+    const ebenen = [3, 4, 5][stufe];
+    for (let versuch = 0; versuch < 2000; versuch += 1) {
+      const rampen = [];
+      for (let e = 0; e < ebenen; e += 1) {
+        const ebene = [];
+        const zwei = stufe > 0 && r() < 0.6;
+        let ab = ganz(r, 0, zwei ? 1 : breit - 3);
+        for (let k = 0; k < (zwei ? 2 : 1); k += 1) {
+          const lang = ganz(r, 1, zwei ? 2 : 3);
+          const a = ab;
+          const b = Math.min(breit - 1, a + lang - 1);
+          if (a > breit - 1) break;
+          // Das tiefe Ende zeigt nie zur Wand.
+          const sinn = a === 0 ? 1 : b === breit - 1 ? -1 : r() < 0.5 ? 1 : -1;
+          if ((sinn > 0 && b + 1 > breit - 1) || (sinn < 0 && a - 1 < 0)) break;
+          ebene.push({ a, b, sinn });
+          ab = b + 2 + ganz(r, 0, 1);
+        }
+        if (!ebene.length) break;
+        rampen.push(ebene);
+      }
+      if (rampen.length < ebenen) continue;
+      const start = ganz(r, 0, breit - 1);
+      const lauf = kugelWeg(rampen, start);
+      // Die Kugel trifft (fast) jede Ebene, und sie wechselt die Richtung.
+      const richtungen = new Set(lauf.weg.map((w) => w.sinn));
+      if (lauf.weg.length < ebenen - (stufe === 2 ? 1 : 0) || (stufe > 0 && richtungen.size < 2) || !rampen[0].some((s) => s.a <= start && start <= s.b)) continue;
+      return { eingabe: "wahl", wahl: breit, soll: lauf.fach, breit, ebenen, rampen, start, weg: lauf.weg };
+    }
+    const rampen = [[{ a: 0, b: 1, sinn: 1 }], [{ a: 2, b: 3, sinn: 1 }], [{ a: 3, b: 4, sinn: -1 }]];
+    return { eingabe: "wahl", wahl: 5, soll: kugelWeg(rampen, 0).fach, breit: 5, ebenen: 3, rampen, start: 0, weg: kugelWeg(rampen, 0).weg };
+  }
+
+  const BAU = {
+    falten: faltenBau, netz: netzBau, stapel: stapelBau, ansicht: ansichtBau, drehen: drehenBau, rollen: rollenBau, schnitt: schnittBau,
+    farbe: farbeBau, muster: musterBau, luecke: lueckeBau, schatten: schattenBau, drehkoerper: drehkoerperBau, laser: laserBau, zahnrad: zahnradBau, kugelbahn: kugelbahnBau,
+  };
+
+  const KURZ = {
+    falten: "Falten und lochen", netz: "Würfelnetz", stapel: "Würfel zählen", ansicht: "Ansicht", drehen: "Dieselbe Figur", rollen: "Würfel rollen", schnitt: "Schnitt",
+    farbe: "Würfel anmalen", muster: "Welcher Würfel?", luecke: "Lücke füllen", schatten: "Drei Schatten", drehkoerper: "Drehkörper", laser: "Laser und Spiegel", zahnrad: "Zahnräder", kugelbahn: "Kugelbahn",
+  };
   const RICHTUNG = ["von links vorn", "von rechts vorn", "von hinten rechts", "von hinten links"];
 
   // Was zu tun ist – ein Satz je Aufgabe.
@@ -547,6 +1134,16 @@
     if (a.art === "ansicht") return `Wie sieht der Stapel ${RICHTUNG[a.richtung]} aus – aus der Richtung des Pfeils? Tippe in jeder Spalte an, wie hoch sie ist.`;
     if (a.art === "drehen") return "Eine der Figuren unten ist die obere, nur gedreht – die anderen sind ihr Spiegelbild. Tippe die richtige an.";
     if (a.art === "rollen") return "Der Würfel rollt den Pfeilen nach. Welche Zahl liegt am Ende oben? Gegenüber liegen immer zwei, die zusammen 7 ergeben.";
+    if (a.art === "farbe") return `${a.boden ? "Der Block aus kleinen Würfeln wurde rundum angemalt" : "Der Block wurde auf dem Boden stehend angemalt – unten blieb er roh –"} und dann zerlegt. Wie viele kleine Würfel haben genau ${["keine farbige Seite", "eine farbige Seite", "zwei farbige Seiten", "drei farbige Seiten"][a.seiten]}?`;
+    if (a.art === "muster") return "Das Netz wird zum Würfel gefaltet, die Zeichen aussen. Nur einer der Würfel unten kann so entstehen – tippe ihn an.";
+    if (a.art === "luecke") return "Dem Würfel fehlt ein Stück. Welches der Teile füllt die Lücke genau? Es darf gedreht werden, aber nicht gespiegelt.";
+    if (a.art === "schatten") return "Ein Stapel aus Würfeln wirft diese Schatten an die beiden Wände und auf den Boden. Welcher Stapel ist es?";
+    if (a.art === "drehkoerper") return "Die Fläche dreht sich einmal um die gestrichelte Achse. Welcher Körper entsteht dabei?";
+    if (a.art === "laser") return "Der Laserstrahl knickt an jedem Spiegel um die Ecke. Tippe die Stelle am Rand an, an der er das Feld verlässt.";
+    if (a.art === "zahnrad") return a.raeder.some((o) => o.art && o.art !== "zahn")
+      ? "Das goldene Rad dreht im Uhrzeigersinn. Tippe alle an, die es auch tun. Gerader Riemen: gleich herum, gekreuzter: andersherum."
+      : "Das goldene Rad dreht im Uhrzeigersinn. Tippe alle Räder an, die sich ebenfalls im Uhrzeigersinn drehen.";
+    if (a.art === "kugelbahn") return "Die Kugel rollt jede Rampe hinunter und fällt an ihrem Ende senkrecht weiter. Tippe das Fach an, in dem sie landet.";
     return "Eine Ebene geht durch die drei roten Punkte und schneidet den Würfel. Wie viele Ecken hat die Schnittfläche?";
   }
 
@@ -1095,7 +1692,8 @@
         g.fillStyle = farbe(f.farbe, hell, f.deckt ?? 1);
         g.fill();
         g.lineWidth = Math.max(0.8, B.k * 0.022);
-        g.strokeStyle = f.rand || `rgba(20, 14, 40, ${0.5 * (f.deckt ?? 1)})`;
+        // rand "gleich": in der Farbe der Fläche – dann sieht man keine Naht (Drehkörper).
+        g.strokeStyle = f.rand === "gleich" ? g.fillStyle : f.rand || `rgba(20, 14, 40, ${0.5 * (f.deckt ?? 1)})`;
         g.stroke();
         if (f.deko && zu < 0) {
           // Auf der Seite zeichnen: Danach ist sie das Quadrat von 0 bis 1.
@@ -1195,7 +1793,7 @@
   const wiegen = (tz) => (ruhig() || tz >= 0 ? 0 : Math.sin(performance.now() / 1300) * 3.2 * GRAD);
 
   // ---------------------------------------------------------------------------
-  // Zeichnen: die sieben Arten
+  // Zeichnen: die Arten
   // ---------------------------------------------------------------------------
   /*
    * Jede Art malt ihre Aufgabe in ein Rechteck r:
@@ -1858,7 +2456,809 @@
     }
   }
 
-  const MALEN = { falten: maleFalten, netz: maleNetz, stapel: maleStapel, ansicht: maleAnsicht, drehen: maleDrehen, rollen: maleRollen, schnitt: maleSchnitt };
+  // --- Gemeinsames für die Arten mit einer Auswahl aus Bildern ------------------
+  // Ein Rechteck in das Bild (oben oder links) und die Auswahl (unten oder rechts).
+  function obenUnten(r, anteil = 0.44) {
+    if (r.w > r.h * 1.25) return { oben: { x: r.x, y: r.y, w: r.w * (anteil - 0.02), h: r.h }, unten: { x: r.x + r.w * anteil, y: r.y, w: r.w * (1 - anteil), h: r.h } };
+    return { oben: { x: r.x, y: r.y, w: r.w, h: r.h * anteil }, unten: { x: r.x, y: r.y + r.h * (anteil + 0.02), w: r.w, h: r.h * (1 - anteil - 0.02) } };
+  }
+
+  // Die Plätze einer Auswahl: so in Reihen verteilt, dass jeder möglichst gross ist.
+  function plaetze(r, zahl) {
+    const luft = Math.round(8 * view.u);
+    let best = null;
+    for (let spalten = 1; spalten <= zahl; spalten += 1) {
+      const zeilen = Math.ceil(zahl / spalten);
+      const w = (r.w - luft * (spalten - 1)) / spalten;
+      const h = (r.h - luft * (zeilen - 1)) / zeilen;
+      const mass = Math.min(w, h * 1.1);
+      if (!best || mass > best.mass + 0.5) best = { spalten, zeilen, w, h, mass };
+    }
+    return Array.from({ length: zahl }, (_, i) => {
+      const zeile = Math.floor(i / best.spalten);
+      // Eine letzte Reihe, die nicht voll ist, steht in der Mitte.
+      const inReihe = zeile === best.zeilen - 1 ? zahl - zeile * best.spalten : best.spalten;
+      const versatz = ((best.spalten - inReihe) * (best.w + luft)) / 2;
+      return { x: r.x + versatz + (i % best.spalten) * (best.w + luft), y: r.y + zeile * (best.h + luft), w: best.w, h: best.h };
+    });
+  }
+
+  // Eine kleine Zeile unten in einem Platz – was an einem falschen Bild nicht stimmt.
+  function fussnote(z, text, tz, ab = 0.6) {
+    if (tz < ab) return;
+    g.save();
+    g.globalAlpha = fort(tz, ab, ab + 0.5);
+    // Passt die Zeile nicht in den Platz, wird sie kleiner.
+    g.font = `600 ${Math.round(10.5 * view.u)}px ${SANS}`;
+    const gross = clamp((10.5 * view.u * (z.w - 8)) / Math.max(1, g.measureText(text).width), 7.5, 10.5 * view.u);
+    schrift(text, z.x + z.w / 2, z.y + z.h - 11 * view.u, gross, ZART, 600);
+    g.restore();
+  }
+
+  // Ein Vieleck in der Welt, flach gemalt.
+  function flaeche3(B, pkte, fuell, rand = null, dick = 1) {
+    const p = pkte.map((q) => imBild(B, q));
+    g.beginPath();
+    p.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])));
+    g.closePath();
+    if (fuell) { g.fillStyle = fuell; g.fill(); }
+    if (rand) { g.strokeStyle = rand; g.lineWidth = dick; g.lineJoin = "round"; g.stroke(); }
+  }
+
+  // --- Würfel anmalen ----------------------------------------------------------
+  const HOLZ = [226, 208, 172];
+  function maleFarbe(a, r, tz, e) {
+    const { bild, bedien } = e.klein ? { bild: r, bedien: null } : teile(r, 0.38);
+    const [nx, ny, nz] = a.masse;
+    // Die Auflösung: Der Block zieht sich auseinander, die gesuchten bleiben leuchtend stehen.
+    const auf = 0.8 * fort(tz, 0.3, 1.5);
+    const blass = fort(tz, 1.3, 1.9);
+    const c = PALETTE[a.farbe];
+    const ort = (x, y, z) => [(x + 0.5 - nx / 2) * (1 + auf) + nx / 2, (y + 0.5 - ny / 2) * (1 + auf) + ny / 2, (z + 0.5) * (1 + auf)];
+    const klein = ort(0, 0, 0);
+    const gross = ort(nx - 1, ny - 1, nz - 1);
+    const B = buehne(bild, ISO[0] + wiegen(tz), ISO[1], quader(klein[0] - 0.5, klein[1] - 0.5, klein[2] - 0.5, gross[0] + 0.5, gross[1] + 0.5, gross[2] + 0.5), 0.09);
+    const koerper = [];
+    for (let x = 0; x < nx; x += 1) for (let y = 0; y < ny; y += 1) for (let z = 0; z < nz; z += 1) {
+      // Welche Seiten Farbe haben – in der Reihenfolge von SEITEN.
+      const bunt = [z === nz - 1, z === 0 && a.boden, y === 0, y === ny - 1, x === 0, x === nx - 1];
+      const ohne = new Set();
+      if (auf < 0.01) {
+        if (z + 1 < nz) ohne.add(0);
+        if (z > 0) ohne.add(1);
+        if (y > 0) ohne.add(2);
+        if (y + 1 < ny) ohne.add(3);
+        if (x > 0) ohne.add(4);
+        if (x + 1 < nx) ohne.add(5);
+        if (ohne.size === 6) continue;
+      }
+      const trifft = bunt.filter(Boolean).length === a.seiten;
+      const k = wuerfel(ort(x, y, z), HOLZ, { ohne, farben: bunt.map((an) => (an ? c : HOLZ)), deckt: trifft ? 1 : lerp(1, 0.1, blass) });
+      if (trifft && blass > 0) for (const f of k.flaechen) f.rand = `rgba(255, 209, 102, ${blass})`;
+      koerper.push(k);
+    }
+    male3d(B, koerper);
+    if (tz >= 0) {
+      const da = fort(tz, 1.7, 2.2);
+      if (da > 0) {
+        g.save();
+        g.globalAlpha = da;
+        schrift(`= ${a.soll}`, bild.x + bild.w / 2, bild.y + bild.h - 14 * view.u, clamp(bild.h * 0.1, 15, 30), GOLD);
+        g.restore();
+      }
+    }
+    if (bedien) zahlenfeld(bedien, a, tz, e);
+  }
+
+  // --- Welcher Würfel? ---------------------------------------------------------
+  // Ein Zeichen, auf dem Quadrat von 0 bis 1 – es zeigt nach rechts.
+  function zeichneZeichen(form, c) {
+    g.fillStyle = c;
+    g.strokeStyle = c;
+    g.lineWidth = 0.1;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.beginPath();
+    if (form === "punkt") { g.arc(0.5, 0.5, 0.2, 0, TAU); g.fill(); }
+    else if (form === "ring") { g.arc(0.5, 0.5, 0.23, 0, TAU); g.stroke(); }
+    else if (form === "kreuz") { g.moveTo(0.27, 0.27); g.lineTo(0.73, 0.73); g.moveTo(0.73, 0.27); g.lineTo(0.27, 0.73); g.stroke(); }
+    else if (form === "quadrat") g.fillRect(0.29, 0.29, 0.42, 0.42);
+    else if (form === "vier") { for (const [x, y] of [[0.32, 0.32], [0.68, 0.32], [0.32, 0.68], [0.68, 0.68]]) { g.moveTo(x + 0.09, y); g.arc(x, y, 0.09, 0, TAU); } g.fill(); }
+    else if (form === "stern") { for (let i = 0; i < 8; i += 1) { const w = (i * Math.PI) / 4; const rad = i % 2 ? 0.11 : 0.33; g.lineTo(0.5 + Math.cos(w) * rad, 0.5 + Math.sin(w) * rad); } g.closePath(); g.fill(); }
+    else if (form === "balken") g.fillRect(0.2, 0.42, 0.6, 0.16);
+    else if (form === "zwei") { g.arc(0.3, 0.5, 0.1, 0, TAU); g.moveTo(0.8, 0.5); g.arc(0.7, 0.5, 0.1, 0, TAU); g.fill(); }
+    else if (form === "pfeil") { g.moveTo(0.2, 0.5); g.lineTo(0.7, 0.5); g.stroke(); g.beginPath(); g.moveTo(0.84, 0.5); g.lineTo(0.58, 0.33); g.lineTo(0.58, 0.67); g.closePath(); g.fill(); }
+    else if (form === "halb") { g.arc(0.42, 0.5, 0.27, -Math.PI / 2, Math.PI / 2); g.closePath(); g.fill(); }
+    else if (form === "ecke") { g.moveTo(0.74, 0.27); g.lineTo(0.27, 0.27); g.lineTo(0.27, 0.74); g.stroke(); }
+    else { g.moveTo(0.26, 0.26); g.lineTo(0.8, 0.5); g.lineTo(0.26, 0.74); g.closePath(); g.fill(); }
+  }
+
+  // Die sechs Flächen des Netzes in der Lage `lage`, um `mitte` mit m gedreht.
+  function musterKoerper(a, lage, mitte, m, belegung = null, dreh = null) {
+    return a.felder.map((_, i) => {
+      const l = lage[i];
+      const pkte = [l.o, vPlus(l.o, l.ex), vPlus(vPlus(l.o, l.ex), l.ey), vPlus(l.o, l.ey)].map((p) => vPlus(mitte, mVec(m, vMinus(p, mitte))));
+      const nr = belegung ? belegung[i] : i;
+      const q = dreh ? dreh[i] : a.lagen[i];
+      const zeichen = a.zeichen[nr];
+      return {
+        mitte: vMal(vPlus(pkte[0], pkte[2]), 0.5),
+        flaechen: [{
+          n: mVec(m, vKreuz(l.ex, l.ey)), pkte, farbe: a.farben ? PALETTE[a.farben[nr]] : WEISS, beid: true,
+          deko: () => { g.translate(0.5, 0.5); g.rotate((q * Math.PI) / 2); g.translate(-0.5, -0.5); zeichneZeichen(zeichen.form, a.farben ? "#ffffff" : "#1b1630"); },
+        }],
+      };
+    });
+  }
+
+  const MUSTER_FEHLER = { gegen: "liegen sich gegenüber", spiegel: "falsch herum", dreh: "ein Zeichen verdreht" };
+  function maleMuster(a, r, tz, e) {
+    const { oben, unten } = obenUnten(r, 0.44);
+    if (!a.zu) a.zu = netzLage(a.felder, a.baum, Math.PI / 2);
+    const [wx, wy] = a.felder[a.baum.wurzel];
+    const zentrum = [wx + 0.5, wy + 0.5, -0.5];
+    // Oben das Netz. Die Auflösung: Es faltet sich zum Würfel – und der dreht
+    // sich in die Lage des richtigen Bildes.
+    const f = fort(tz, 0.3, 1.7);
+    const lage = netzLage(a.felder, a.baum, (Math.PI / 2) * f);
+    const flach = buehne(oben, 0, Math.PI / 2, quader(0, 0, 0, a.breit, a.hoch, 0), 0.1);
+    const schwenk = fort(tz, 0.1, 1.2);
+    const s = sicht(lerp(0, ISO[0], schwenk), lerp(Math.PI / 2, ISO[1], schwenk));
+    const ziel = achseWinkel(a.bilder[a.soll].m);
+    const m = drehung(ziel.achse, ziel.winkel * fort(tz, 1.8, 3.3));
+    const blick = [lerp(a.breit / 2, wx + 0.5, f), lerp(a.hoch / 2, wy + 0.5, f), lerp(0, -0.5, f)];
+    const k = Math.min(flach.k, Math.min(oben.w, oben.h) / 3.6) * lerp(1, 1.3, f);
+    const B = { s, k, ox: oben.x + oben.w / 2 - vPunkt(blick, s.u) * k, oy: oben.y + oben.h / 2 - vPunkt(blick, s.v) * k };
+    male3d(B, musterKoerper(a, lage, zentrum, m));
+    // Unten die Würfel zur Wahl.
+    const gier = ISO[0] + wiegen(tz);
+    plaetze(unten, a.wahl).forEach((z, i) => {
+      const b = a.bilder[i];
+      knopf(z, "", wahlZustand(a, e, tz, i), tz < 0 && !e.klein ? { was: "wahl", wert: i } : null);
+      const kk = Math.min(z.w, z.h) / 2.45;
+      const T = { s: sicht(gier, ISO[1]), k: kk, ox: z.x + z.w / 2, oy: z.y + z.h / 2 - (tz >= 0.6 && i !== a.soll && !e.klein ? 5 * view.u : 0) };
+      // Der Würfel sitzt mit seiner Mitte im Nullpunkt.
+      male3d(T, musterKoerper(a, a.zu, zentrum, b.m, b.belegung, b.dreh).map((koerper) => ({ mitte: vMinus(koerper.mitte, zentrum), flaechen: koerper.flaechen.map((fl) => ({ ...fl, pkte: fl.pkte.map((p) => vMinus(p, zentrum)) })) })));
+      if (i !== a.soll && !e.klein) fussnote(z, MUSTER_FEHLER[b.art], tz);
+    });
+  }
+
+  // --- Lücke füllen ------------------------------------------------------------
+  function maleLuecke(a, r, tz, e) {
+    const { oben, unten } = obenUnten(r, 0.46);
+    const n = a.n;
+    const c = PALETTE[a.farbe];
+    const tief = [c[0] * 0.6, c[1] * 0.6, c[2] * 0.6];
+    const weg = new Set(a.weg.map((p) => p.join(",")));
+    const gier = ISO[0] + wiegen(tz);
+    const B = buehne(oben, gier, ISO[1], quader(0, 0, 0, n, n, n), 0.13);
+    const koerper = [];
+    for (let x = 0; x < n; x += 1) for (let y = 0; y < n; y += 1) for (let z = 0; z < n; z += 1) {
+      if (weg.has(`${x},${y},${z}`)) continue;
+      const ohne = new Set();
+      const farben = [];
+      SEITEN.forEach((seite, i) => {
+        const q = vPlus([x, y, z], seite.n);
+        const drin = q.every((v) => v >= 0 && v < n);
+        const fehlt = drin && weg.has(q.join(","));
+        if (drin && !fehlt) ohne.add(i);
+        // Die Wände der Lücke liegen im Schatten.
+        farben.push(fehlt ? tief : c);
+      });
+      if (ohne.size < 6) koerper.push(wuerfel([x + 0.5, y + 0.5, z + 0.5], c, { ohne, farben }));
+    }
+    // Die Auflösung: Das richtige Teil dreht sich in seine Lage und fährt in die Lücke.
+    if (tz >= 0) {
+      const f = fort(tz, 0.35, 2.1);
+      const ziel = achseWinkel(a.bilder[a.soll].lage);
+      const m = drehung(ziel.achse, ziel.winkel * (1 - f));
+      const mitte = vMal(a.weg.reduce((summe, p) => vPlus(summe, vPlus(p, [0.5, 0.5, 0.5])), [0, 0, 0]), 1 / a.weg.length);
+      const fern = vMal(vPlus(vMal(B.s.t, -2.4), [0, 0, 1.2]), 1 - f);
+      for (const p of a.weg) koerper.push(wuerfel(vPlus(vPlus(mitte, mVec(m, vMinus(vPlus(p, [0.5, 0.5, 0.5]), mitte))), fern), [255, 209, 102], { m, gross: 0.985 }));
+    }
+    male3d(B, koerper);
+    plaetze(unten, a.wahl).forEach((z, i) => {
+      const b = a.bilder[i];
+      knopf(z, "", wahlZustand(a, e, tz, i), tz < 0 && !e.klein ? { was: "wahl", wert: i } : null);
+      maleFigur(z, b.wuerfel, EINS, tz >= 0.4 && !b.passt ? [150, 146, 176] : tz >= 0.4 ? [255, 209, 102] : c, gier, Math.min(z.w, z.h) / 4.7);
+      if (!b.passt && !e.klein) fussnote(z, "passt nicht", tz);
+    });
+  }
+
+  // --- Drei Schatten -----------------------------------------------------------
+  // Das Zimmer: der Boden und zwei Wände, mit den Schatten darauf.
+  function maleZimmer(B, n, hoch, schatten, glanz) {
+    const dunkel = "rgba(8, 6, 26, 0.74)";
+    const gitter = "rgba(226, 222, 255, 0.16)";
+    g.save();
+    flaeche3(B, [[0, 0, 0], [n, 0, 0], [n, n, 0], [0, n, 0]], "rgba(255, 255, 255, 0.11)", "rgba(226, 222, 255, 0.3)");
+    flaeche3(B, [[0, n, 0], [n, n, 0], [n, n, hoch], [0, n, hoch]], "rgba(255, 255, 255, 0.17)", "rgba(226, 222, 255, 0.3)");
+    flaeche3(B, [[n, 0, 0], [n, n, 0], [n, n, hoch], [n, 0, hoch]], "rgba(255, 255, 255, 0.07)", "rgba(226, 222, 255, 0.3)");
+    for (let i = 0; i < n; i += 1) {
+      for (let z = 0; z < hoch; z += 1) {
+        flaeche3(B, [[i, n, z], [i + 1, n, z], [i + 1, n, z + 1], [i, n, z + 1]], z < schatten.links[i] ? dunkel : null, gitter);
+        flaeche3(B, [[n, i, z], [n, i + 1, z], [n, i + 1, z + 1], [n, i, z + 1]], z < schatten.rechts[i] ? dunkel : null, gitter);
+      }
+      for (let j = 0; j < n; j += 1) flaeche3(B, [[i, j, 0], [i + 1, j, 0], [i + 1, j + 1, 0], [i, j + 1, 0]], schatten.boden[i][j] ? dunkel : null, gitter);
+    }
+    // Die Schatten leuchten kurz auf, wenn der Stapel steht.
+    if (glanz > 0) {
+      g.globalAlpha = glanz;
+      for (let i = 0; i < n; i += 1) {
+        if (schatten.links[i]) flaeche3(B, [[i, n, 0], [i + 1, n, 0], [i + 1, n, schatten.links[i]], [i, n, schatten.links[i]]], null, GOLD, 2);
+        if (schatten.rechts[i]) flaeche3(B, [[n, i, 0], [n, i + 1, 0], [n, i + 1, schatten.rechts[i]], [n, i, schatten.rechts[i]]], null, GOLD, 2);
+      }
+    }
+    g.restore();
+  }
+
+  function maleSchatten(a, r, tz, e) {
+    const { oben, unten } = obenUnten(r, 0.44);
+    const n = a.n;
+    const c = PALETTE[a.farbe];
+    const gier = ISO[0] + wiegen(tz);
+    const B = buehne(oben, gier, ISO[1], quader(0, 0, 0, n, n, a.hoch), 0.08);
+    const steht = fort(tz, 0.3, 1.3);
+    maleZimmer(B, n, a.hoch, a.schatten, tz >= 0 ? Math.sin(fort(tz, 1.2, 2.4) * Math.PI) : 0);
+    // Die Auflösung: Der richtige Stapel senkt sich ins Zimmer.
+    if (tz >= 0) {
+      g.save();
+      g.globalAlpha = clamp(steht * 1.6, 0, 1);
+      male3d(B, stapelKoerper(a.bilder[a.soll], c, () => (1 - steht) * 3.2));
+      g.restore();
+    }
+    plaetze(unten, a.wahl).forEach((z, i) => {
+      knopf(z, "", wahlZustand(a, e, tz, i), tz < 0 && !e.klein ? { was: "wahl", wert: i } : null);
+      const falsch = tz >= 0.4 && i !== a.soll;
+      const kasten = { x: z.x + 3, y: z.y + 3, w: z.w - 6, h: z.h - 6 - (falsch && !e.klein ? 12 * view.u : 0) };
+      const T = buehne(kasten, gier, ISO[1], quader(0, 0, 0, n, n, a.hoch), 0.06);
+      boden(T, n);
+      male3d(T, stapelKoerper(a.bilder[i], falsch ? [150, 146, 176] : c));
+      if (i !== a.soll && !e.klein && tz >= 0) {
+        // Welcher Schatten ihn verrät.
+        const s = schattenVon(a.bilder[i]);
+        const wo = [s.links.join("") !== a.schatten.links.join("") ? "links" : "", s.rechts.join("") !== a.schatten.rechts.join("") ? "rechts" : "", JSON.stringify(s.boden) !== JSON.stringify(a.schatten.boden) ? "Boden" : ""].filter(Boolean);
+        fussnote(z, `anders: ${wo.join(", ")}`, tz);
+      }
+    });
+  }
+
+  // --- Drehkörper --------------------------------------------------------------
+  // Ein Vieleck ([r, z], gegen den Uhrzeigersinn) um die Hochachse gedreht:
+  // vom Winkel w0 über den Bogen `weit`. Jedes Stück Mantel ist ein Körper
+  // für male3d – so ordnen sie sich von hinten nach vorn.
+  function drehFlaechen(profil, c, w0 = 0, weit = TAU, teile = 24) {
+    const raus = [];
+    const n = Math.max(1, Math.ceil((weit / TAU) * teile - 1e-9));
+    const schritt = weit / n;
+    const P = (p, w) => [p[0] * Math.cos(w), p[0] * Math.sin(w), p[1]];
+    for (let i = 0; i < profil.length; i += 1) {
+      const p = profil[i];
+      const q = profil[(i + 1) % profil.length];
+      // Was auf der Achse liegt, hat keine Fläche.
+      if (p[0] < 1e-6 && q[0] < 1e-6) continue;
+      const nr = q[1] - p[1];
+      const nz = p[0] - q[0];
+      const lang = Math.hypot(nr, nz) || 1;
+      for (let k = 0; k < n; k += 1) {
+        const a0 = w0 + k * schritt;
+        const a1 = a0 + schritt;
+        const am = a0 + schritt / 2;
+        const pkte = [P(p, a0), P(p, a1), P(q, a1), P(q, a0)];
+        raus.push({
+          mitte: [((p[0] + q[0]) / 2) * Math.cos(am), ((p[0] + q[0]) / 2) * Math.sin(am), (p[1] + q[1]) / 2],
+          flaechen: [{ n: [(nr / lang) * Math.cos(am), (nr / lang) * Math.sin(am), nz / lang], pkte, farbe: c, rand: "gleich" }],
+        });
+      }
+    }
+    return raus;
+  }
+
+  // Die flache Form selbst, in der Ebene durch die Achse beim Winkel w.
+  function drehBlatt(profil, c, w) {
+    const pkte = profil.map((p) => [p[0] * Math.cos(w), p[0] * Math.sin(w), p[1]]);
+    const mitte = vMal(pkte.reduce((s, p) => vPlus(s, p), [0, 0, 0]), 1 / pkte.length);
+    return { mitte, flaechen: [{ n: [-Math.sin(w), Math.cos(w), 0], pkte, farbe: c, beid: true }] };
+  }
+
+  const KOERPER_NAME = {
+    zylinder: "Zylinder", kegel: "Kegel", spitze: "Kegel auf der Spitze", stumpf: "Kegelstumpf", doppel: "Doppelkegel", kugel: "Kugel", kuppel: "Halbkugel", scheibe: "Scheibe",
+    rohr: "Rohr", ring: "Ring", sanduhr: "Sanduhr", trichter: "Trichter", kreisel: "Kreisel", spule: "Spule", kelch: "Kelch", pilz: "Pilz", rakete: "Rakete", stufe: "Stufe",
+  };
+  const DREH_RAUM = quader(-1.08, -1.08, 0, 1.08, 1.08, 1.9);
+  // Die Körper der Auswahl ändern sich nicht: Jeder wird einmal gemalt und
+  // danach als Bild wiederverwendet – sonst wären es in jedem Bild Hunderte
+  // von Flächen.
+  const drehBilder = new Map();
+  function drehBild(profil, c, w, h) {
+    const name = `${profilText(profil)}|${c.join(",")}|${Math.round(w)}x${Math.round(h)}|${view.dpr.toFixed(2)}`;
+    let bild = drehBilder.get(name);
+    if (!bild) {
+      if (drehBilder.size > 28) drehBilder.clear();
+      bild = document.createElement("canvas");
+      bild.width = Math.max(1, Math.ceil(w * view.dpr));
+      bild.height = Math.max(1, Math.ceil(h * view.dpr));
+      const leinwand = g;
+      g = bild.getContext("2d");
+      g.scale(view.dpr, view.dpr);
+      male3d(buehne({ x: 0, y: 0, w, h }, 30 * GRAD, 27 * GRAD, DREH_RAUM, 0.13), drehFlaechen(profil, c, 0, TAU, 30));
+      g = leinwand;
+      drehBilder.set(name, bild);
+    }
+    return bild;
+  }
+  function maleDrehkoerper(a, r, tz, e) {
+    const { oben, unten } = obenUnten(r, 0.42);
+    const u = view.u;
+    const c = PALETTE[a.farbe];
+    const gier = 30 * GRAD + wiegen(tz);
+    const neig = 27 * GRAD;
+    const profil = a.profile[a.soll];
+    const weite = Math.max(...profil.map((p) => p[0]));
+    const hoehe = Math.max(...profil.map((p) => p[1]));
+    const B = buehne(oben, gier, neig, quader(-weite, -weite, -0.3, weite, weite, hoehe + 0.5), 0.07);
+    B.k = Math.min(B.k, Math.min(oben.w, oben.h) / 2.2);
+    // Die Achse steht in der Mitte.
+    B.ox = oben.x + oben.w / 2;
+    B.oy = oben.y + oben.h / 2 - vPunkt([0, 0, (hoehe + 0.2) / 2], B.s.v) * B.k;
+    // Das Blatt steht quer zum Blick: Es ragt von der Achse nach rechts.
+    const w0 = -30 * GRAD;
+    const weit = TAU * fort(tz, 0.45, 2.7);
+    const hoch = hoehe;
+    // Die Achse: gestrichelt, unten wie oben über die Form hinaus.
+    const achse = (von, bis) => {
+      const p = imBild(B, [0, 0, von]);
+      const q = imBild(B, [0, 0, bis]);
+      g.save();
+      g.strokeStyle = "rgba(242, 240, 255, 0.85)";
+      g.lineWidth = Math.max(1.4, 1.8 * u);
+      g.setLineDash([6, 5]);
+      g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+      g.restore();
+    };
+    achse(-0.28, hoch + 0.42);
+    // Im kleinen Beispiel der Vorschau reichen weniger Flächen.
+    const koerper = weit > 0.001 ? drehFlaechen(profil, c, w0, weit, e.klein ? 16 : 30) : [];
+    koerper.push(drehBlatt(profil, weit > 0.001 ? [c[0] * 0.8, c[1] * 0.8, c[2] * 0.8] : c, w0 + weit));
+    if (weit > 0.001 && weit < TAU - 0.001) koerper.push(drehBlatt(profil, [c[0] * 0.8, c[1] * 0.8, c[2] * 0.8], w0));
+    male3d(B, koerper);
+    // Vorn steht die Achse wieder heraus, und oben dreht der Pfeil.
+    achse(hoch, hoch + 0.42);
+    const kreis = (w) => imBild(B, [Math.cos(w) * 0.3, Math.sin(w) * 0.3, hoch + 0.26]);
+    g.save();
+    g.strokeStyle = GOLD;
+    g.fillStyle = GOLD;
+    g.lineWidth = Math.max(1.8, 2.2 * u);
+    g.lineCap = "round";
+    g.beginPath();
+    for (let i = 0; i <= 18; i += 1) { const p = kreis(w0 + 0.5 + (i / 18) * 4.6); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }
+    g.stroke();
+    const spitze = kreis(w0 + 5.35);
+    const hinten = kreis(w0 + 4.95);
+    const quer = [-(spitze[1] - hinten[1]), spitze[0] - hinten[0]];
+    g.beginPath();
+    g.moveTo(spitze[0], spitze[1]);
+    g.lineTo(hinten[0] + quer[0] * 0.75, hinten[1] + quer[1] * 0.75);
+    g.lineTo(hinten[0] - quer[0] * 0.75, hinten[1] - quer[1] * 0.75);
+    g.closePath();
+    g.fill();
+    g.restore();
+    if (tz >= 0 && a.namen && KOERPER_NAME[a.namen[a.soll]]) {
+      g.save();
+      g.globalAlpha = fort(tz, 2.5, 3.0);
+      schrift(KOERPER_NAME[a.namen[a.soll]], oben.x + oben.w / 2, oben.y + oben.h - 12 * u, clamp(oben.h * 0.085, 13, 22), GOLD);
+      g.restore();
+    }
+    plaetze(unten, a.wahl).forEach((z, i) => {
+      knopf(z, "", wahlZustand(a, e, tz, i), tz < 0 && !e.klein ? { was: "wahl", wert: i } : null);
+      g.drawImage(drehBild(a.profile[i], tz >= 0.4 && i !== a.soll ? [150, 146, 176] : c, z.w - 4, z.h - 4), z.x + 2, z.y + 2, z.w - 4, z.h - 4);
+    });
+  }
+
+  // --- Laser und Spiegel -------------------------------------------------------
+  function maleLaser(a, r, tz, e) {
+    const u = view.u;
+    const n = a.n;
+    const zelle = Math.min(r.w, r.h) / (n + 1.9);
+    const x0 = r.x + (r.w - zelle * n) / 2;
+    const y0 = r.y + (r.h - zelle * n) / 2;
+    const ort = ([x, y]) => [x0 + x * zelle, y0 + y * zelle];
+    // Das Feld.
+    g.save();
+    rundes(x0 - 3, y0 - 3, zelle * n + 6, zelle * n + 6, 8 * u);
+    g.fillStyle = "rgba(8, 6, 24, 0.72)";
+    g.fill();
+    g.strokeStyle = "rgba(200, 185, 255, 0.4)";
+    g.lineWidth = 1.4;
+    g.stroke();
+    g.strokeStyle = "rgba(226, 222, 255, 0.12)";
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 1; i < n; i += 1) { g.moveTo(x0 + i * zelle, y0); g.lineTo(x0 + i * zelle, y0 + n * zelle); g.moveTo(x0, y0 + i * zelle); g.lineTo(x0 + n * zelle, y0 + i * zelle); }
+    g.stroke();
+    g.restore();
+    // Der Strahl: vor der Antwort nur sein Anfang, in der Auflösung der ganze Weg.
+    const punkte = a.punkte.map(ort);
+    const laengen = punkte.slice(1).map((p, i) => Math.hypot(p[0] - punkte[i][0], p[1] - punkte[i][1]));
+    const ganzLang = laengen.reduce((s, x) => s + x, 0);
+    const dauer = Math.min(2.2, 0.5 + 0.26 * laengen.length);
+    const lauf = tz < 0 ? Math.min(zelle * 0.42, laengen[0]) : ruhig() ? ganzLang : Math.max(zelle * 0.42, ganzLang * clamp((tz - 0.3) / dauer, 0, 1));
+    const strahl = (dick, farbeStrahl) => {
+      g.save();
+      g.strokeStyle = farbeStrahl;
+      g.lineWidth = dick;
+      g.lineCap = "round";
+      g.lineJoin = "round";
+      g.beginPath();
+      g.moveTo(punkte[0][0], punkte[0][1]);
+      let rest = lauf;
+      for (let i = 0; i < laengen.length && rest > 0; i += 1) {
+        const k = Math.min(1, rest / laengen[i]);
+        g.lineTo(lerp(punkte[i][0], punkte[i + 1][0], k), lerp(punkte[i][1], punkte[i + 1][1], k));
+        rest -= laengen[i];
+      }
+      g.stroke();
+      g.restore();
+    };
+    strahl(zelle * 0.26, "rgba(255, 70, 70, 0.22)");
+    strahl(zelle * 0.1, "#ff5252");
+    strahl(Math.max(1, zelle * 0.035), "#ffe9e9");
+    // Die Spiegel: «/» und «\».
+    a.spiegel.forEach((art, i) => {
+      if (!art) return;
+      const x = i % n;
+      const y = Math.floor(i / n);
+      const p = art === 1 ? ort([x + 0.14, y + 0.86]) : ort([x + 0.14, y + 0.14]);
+      const q = art === 1 ? ort([x + 0.86, y + 0.14]) : ort([x + 0.86, y + 0.86]);
+      g.save();
+      g.lineCap = "round";
+      g.strokeStyle = "#5a6480";
+      g.lineWidth = zelle * 0.17;
+      g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+      g.strokeStyle = "#dfe7fb";
+      g.lineWidth = zelle * 0.09;
+      g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+      g.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      g.lineWidth = Math.max(1, zelle * 0.025);
+      g.beginPath(); g.moveTo(lerp(p[0], q[0], 0.2), lerp(p[1], q[1], 0.2)); g.lineTo(lerp(p[0], q[0], 0.5), lerp(p[1], q[1], 0.5)); g.stroke();
+      g.restore();
+    });
+    // Wo der Strahl schon um die Ecke ging, blitzt der Spiegel.
+    if (tz >= 0 && !ruhig()) {
+      let weit = 0;
+      for (let i = 0; i < laengen.length - 1; i += 1) {
+        weit += laengen[i];
+        const seit = (lauf - weit) / zelle;
+        if (seit <= 0 || seit > 1.4) continue;
+        g.save();
+        g.globalAlpha = 1 - seit / 1.4;
+        g.strokeStyle = "#fff2b0";
+        g.lineWidth = 2;
+        g.beginPath(); g.arc(punkte[i + 1][0], punkte[i + 1][1], zelle * (0.2 + 0.3 * seit), 0, TAU); g.stroke();
+        g.restore();
+      }
+    }
+    // Die Stellen am Rand – und die Quelle des Strahls.
+    const fertig = tz >= 0 && lauf >= ganzLang - 0.5;
+    for (let i = 0; i < 4 * n; i += 1) {
+      const rand = laserRand(n, i);
+      const p = ort([rand.px - rand.dx * 0.5, rand.py - rand.dy * 0.5]);
+      if (i === a.ein) {
+        // Die Quelle: ein kleiner Kasten, der ins Feld zeigt.
+        g.save();
+        g.translate(p[0], p[1]);
+        g.rotate(Math.atan2(rand.dy, rand.dx));
+        rundes(-zelle * 0.3, -zelle * 0.2, zelle * 0.52, zelle * 0.4, zelle * 0.08);
+        g.fillStyle = "#3a3560";
+        g.fill();
+        g.strokeStyle = "#cfc6ff";
+        g.lineWidth = 1.3;
+        g.stroke();
+        g.fillStyle = "#ff5252";
+        g.beginPath(); g.arc(zelle * 0.22, 0, zelle * 0.085, 0, TAU); g.fill();
+        g.restore();
+        continue;
+      }
+      const richtig = tz >= 0 && i === a.soll;
+      const falsch = tz >= 0 && i === e.antwort && i !== a.soll;
+      const rad = zelle * (e.klein ? 0.13 : 0.19);
+      g.save();
+      g.beginPath();
+      g.arc(p[0], p[1], richtig && fertig ? rad * 1.35 : rad, 0, TAU);
+      g.fillStyle = richtig && fertig ? GRUEN : falsch ? ROT : "rgba(14, 10, 34, 0.9)";
+      g.fill();
+      g.strokeStyle = richtig && fertig ? "#ffffff" : falsch ? "#ffffff" : tz < 0 ? HELL : "rgba(226, 222, 255, 0.4)";
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.restore();
+      if (tz < 0 && !e.klein) bietet({ cx: p[0], cy: p[1], r: Math.max(zelle * 0.5, Math.min(20 * u, zelle * 0.7)), was: "wahl", wert: i });
+    }
+  }
+
+  // --- Zahnräder ---------------------------------------------------------------
+  // Ein Zahnrad: z Zähne, Halbmesser rad (im Teilkreis), um winkel gedreht.
+  function maleRad(x, y, rad, z, winkel, c, k) {
+    const aussen = rad + 0.1 * k;
+    const fuss = rad - 0.12 * k;
+    const teil = TAU / z;
+    g.save();
+    g.translate(x, y);
+    g.rotate(winkel);
+    g.beginPath();
+    for (let i = 0; i < z; i += 1) {
+      const w = i * teil;
+      g.lineTo(Math.cos(w - teil * 0.27) * fuss, Math.sin(w - teil * 0.27) * fuss);
+      g.lineTo(Math.cos(w - teil * 0.13) * aussen, Math.sin(w - teil * 0.13) * aussen);
+      g.lineTo(Math.cos(w + teil * 0.13) * aussen, Math.sin(w + teil * 0.13) * aussen);
+      g.lineTo(Math.cos(w + teil * 0.27) * fuss, Math.sin(w + teil * 0.27) * fuss);
+    }
+    g.closePath();
+    const verlauf = g.createRadialGradient(-rad * 0.3, -rad * 0.3, rad * 0.1, 0, 0, aussen);
+    verlauf.addColorStop(0, farbe(c, 1.18));
+    verlauf.addColorStop(0.75, farbe(c, 0.92));
+    verlauf.addColorStop(1, farbe(c, 0.66));
+    g.fillStyle = verlauf;
+    g.fill();
+    g.strokeStyle = "rgba(14, 10, 34, 0.7)";
+    g.lineWidth = Math.max(1, k * 0.03);
+    g.lineJoin = "round";
+    g.stroke();
+    // Die Löcher in der Scheibe – an ihnen sieht man, dass es sich dreht.
+    const loecher = z >= 12 ? 5 : 4;
+    g.fillStyle = "rgba(14, 10, 34, 0.55)";
+    for (let i = 0; i < loecher; i += 1) {
+      const w = (i * TAU) / loecher;
+      g.beginPath(); g.arc(Math.cos(w) * fuss * 0.58, Math.sin(w) * fuss * 0.58, fuss * 0.17, 0, TAU); g.fill();
+    }
+    g.fillStyle = farbe(c, 0.6);
+    g.beginPath(); g.arc(0, 0, Math.max(2, k * 0.16), 0, TAU); g.fill();
+    g.restore();
+  }
+
+  // Ein gebogener Pfeil um (x, y): sinn 1 im Uhrzeigersinn.
+  function drehPfeil(x, y, rad, sinn, c, dick) {
+    const von = -Math.PI * 0.75;
+    const bis = von + sinn * Math.PI * 1.25;
+    g.save();
+    g.strokeStyle = c;
+    g.fillStyle = c;
+    g.lineWidth = dick;
+    g.lineCap = "round";
+    g.beginPath();
+    g.arc(x, y, rad, von, bis, sinn < 0);
+    g.stroke();
+    const spitze = bis + sinn * 0.5;
+    g.beginPath();
+    g.moveTo(x + Math.cos(spitze) * rad, y + Math.sin(spitze) * rad);
+    g.lineTo(x + Math.cos(bis) * (rad + dick * 1.8), y + Math.sin(bis) * (rad + dick * 1.8));
+    g.lineTo(x + Math.cos(bis) * (rad - dick * 1.8), y + Math.sin(bis) * (rad - dick * 1.8));
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  const STAHL = [150, 166, 196];
+  const RIEMEN_RAD = 0.3;
+  function maleZahnrad(a, r, tz, e) {
+    const u = view.u;
+    const knopfHoch = e.klein ? 0 : Math.round(Math.min(46 * u, r.h * 0.11));
+    const bild = { x: r.x, y: r.y, w: r.w, h: r.h - knopfHoch - (e.klein ? 0 : 8 * u) };
+    // Liegt das Getriebe quer und das Bild hochkant (oder umgekehrt), wird es
+    // um ein Viertel gedreht – die Drehrichtungen bleiben, wie sie sind.
+    const quer = (a.box.breit > a.box.hoch) !== (bild.w > bild.h);
+    const breit = quer ? a.box.hoch : a.box.breit;
+    const hoch = quer ? a.box.breit : a.box.hoch;
+    const k = Math.min(bild.w / (breit + 0.5), bild.h / (hoch + 0.5));
+    const mx = bild.x + bild.w / 2;
+    const my = bild.y + bild.h / 2;
+    const ort = (o) => {
+      const x = o.x - a.box.x0 - a.box.breit / 2;
+      const y = o.y - a.box.y0 - a.box.hoch / 2;
+      return quer ? [mx - y * k, my + x * k] : [mx + x * k, my + y * k];
+    };
+    const dazu = quer ? Math.PI / 2 : 0;
+    // Die Auflösung: Das Getriebe läuft an.
+    const zeit = tz < 0 || ruhig() ? 0 : Math.max(0, tz - 0.35);
+    const lauf = 1.5 * (zeit < 0.8 ? (zeit * zeit) / 1.6 : zeit - 0.4);
+    const winkel = (o) => o.phase + dazu + o.sinn * o.tempo * lauf;
+    // Zuerst die Räder, dann die Riemen darüber.
+    a.raeder.forEach((o, i) => {
+      const [x, y] = ort(o);
+      const an = i > 0 && (e.wert >> (i - 1)) & 1;
+      maleRad(x, y, radHalb(o.z) * k, o.z, winkel(o), i === 0 ? [240, 190, 80] : an && tz < 0 ? [176, 150, 250] : STAHL, k);
+    });
+    a.raeder.forEach((o) => {
+      if (o.von < 0 || o.art === "zahn") return;
+      const p = ort(a.raeder[o.von]);
+      const q = ort(o);
+      const lang = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const nx = (-(q[1] - p[1]) / lang) * RIEMEN_RAD * k;
+      const ny = ((q[0] - p[0]) / lang) * RIEMEN_RAD * k;
+      const kreuz = o.art === "kreuz" ? -1 : 1;
+      g.save();
+      g.lineCap = "round";
+      for (const rand of [1, -1]) {
+        g.strokeStyle = "#221d3d";
+        g.lineWidth = Math.max(2.5, k * 0.1);
+        g.setLineDash([]);
+        g.beginPath(); g.moveTo(p[0] + nx * rand, p[1] + ny * rand); g.lineTo(q[0] + nx * rand * kreuz, q[1] + ny * rand * kreuz); g.stroke();
+        // Die Rippen des Riemens wandern, wenn er läuft.
+        g.strokeStyle = "rgba(226, 222, 255, 0.55)";
+        g.lineWidth = Math.max(1, k * 0.035);
+        g.setLineDash([k * 0.1, k * 0.14]);
+        g.lineDashOffset = -rand * a.raeder[o.von].sinn * a.raeder[o.von].tempo * lauf * RIEMEN_RAD * k;
+        g.beginPath(); g.moveTo(p[0] + nx * rand, p[1] + ny * rand); g.lineTo(q[0] + nx * rand * kreuz, q[1] + ny * rand * kreuz); g.stroke();
+      }
+      g.setLineDash([]);
+      for (const m of [p, q]) {
+        g.fillStyle = "#221d3d";
+        g.beginPath(); g.arc(m[0], m[1], RIEMEN_RAD * k, 0, TAU); g.fill();
+        g.strokeStyle = "rgba(226, 222, 255, 0.5)";
+        g.lineWidth = 1.2;
+        g.stroke();
+      }
+      g.restore();
+    });
+    // Was man weiss, was gewählt ist – und in der Auflösung, wie jedes dreht.
+    a.raeder.forEach((o, i) => {
+      const [x, y] = ort(o);
+      const rad = radHalb(o.z) * k;
+      const an = i > 0 && (e.wert >> (i - 1)) & 1;
+      const soll = i > 0 && (a.soll >> (i - 1)) & 1;
+      const dick = Math.max(2, k * 0.07);
+      if (i === 0) drehPfeil(x, y, rad * 0.62, 1, "#3a2606", dick);
+      else if (tz >= 0) {
+        const da = fort(tz, 0.5, 1.1);
+        g.save();
+        g.globalAlpha = da;
+        drehPfeil(x, y, rad * 0.62, o.sinn, o.sinn === 1 ? "#0f3d22" : "rgba(20, 14, 40, 0.75)", dick);
+        if (an || soll) {
+          g.lineWidth = 3;
+          g.strokeStyle = an ? (soll ? GRUEN : ROT) : GOLD;
+          if (!an) g.setLineDash([5, 4]);
+          g.beginPath(); g.arc(x, y, rad + 0.16 * k, 0, TAU); g.stroke();
+        }
+        g.restore();
+      } else if (an) {
+        g.save();
+        g.lineWidth = 2.6;
+        g.strokeStyle = AKZENT;
+        g.beginPath(); g.arc(x, y, rad + 0.16 * k, 0, TAU); g.stroke();
+        g.restore();
+      }
+      if (i > 0 && tz < 0 && !e.klein) bietet({ cx: x, cy: y, r: Math.max(rad + 0.1 * k, 20 * u), was: "feld", wert: i - 1 });
+    });
+    if (!e.klein) {
+      const b = Math.min(r.w * 0.6, 200 * u);
+      knopf({ x: r.x + (r.w - b) / 2, y: r.y + r.h - knopfHoch, w: b, h: knopfHoch }, "Fertig", e.wert ? "an" : "aus", tz < 0 ? { was: "fertig" } : null, clamp(knopfHoch * 0.4, 13, 19));
+    }
+  }
+
+  // --- Kugelbahn ---------------------------------------------------------------
+  const KUGEL_RAD = 0.2;
+  const KUGEL_SCHRAEG = 0.13;
+  function maleKugelbahn(a, r, tz, e) {
+    const u = view.u;
+    const hoehe = a.ebenen + 2.25;
+    const k = Math.min(r.w / (a.breit + 0.5), r.h / hoehe);
+    const x0 = r.x + (r.w - a.breit * k) / 2;
+    const y0 = r.y + (r.h - hoehe * k) / 2;
+    const ebeneY = (nr) => 1.25 + nr;
+    const bodenY = a.ebenen + 1.95;
+    const X = (x) => x0 + x * k;
+    const Y = (y) => y0 + y * k;
+    // Wie hoch die Rampe an der Stelle x liegt.
+    const rampeY = (nr, rampe, x) => ebeneY(nr) + rampe.sinn * KUGEL_SCHRAEG * (x - (rampe.a + rampe.b + 1) / 2);
+    // Die Wand, an der alles hängt.
+    g.save();
+    rundes(X(0) - 5, Y(0), a.breit * k + 10, hoehe * k, 10 * u);
+    g.fillStyle = "rgba(8, 6, 24, 0.5)";
+    g.fill();
+    g.strokeStyle = "rgba(200, 185, 255, 0.3)";
+    g.lineWidth = 1.2;
+    g.stroke();
+    g.restore();
+    // Die Fächer.
+    for (let i = 0; i < a.breit; i += 1) {
+      const z = { x: X(i) + 2, y: Y(bodenY - 0.62), w: k - 4, h: k * 0.86 };
+      const zustand = wahlZustand(a, e, tz, i);
+      g.save();
+      rundes(z.x, z.y, z.w, z.h, 6 * u);
+      g.fillStyle = zustand === "gut" ? "rgba(74, 222, 128, 0.3)" : zustand === "schlecht" ? "rgba(255, 107, 107, 0.3)" : "rgba(255, 255, 255, 0.08)";
+      g.fill();
+      g.lineWidth = zustand ? 2.4 : 1.2;
+      g.strokeStyle = zustand === "gut" ? GRUEN : zustand === "schlecht" ? ROT : "rgba(226, 222, 255, 0.35)";
+      g.stroke();
+      g.fillStyle = zustand ? HELL : ZART;
+      g.font = `700 ${Math.round(clamp(k * 0.3, 10, 20))}px ${SANS}`;
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(String(i + 1), z.x + z.w / 2, z.y + z.h * 0.66);
+      g.restore();
+      if (tz < 0 && !e.klein) bietet({ ...z, was: "wahl", wert: i });
+    }
+    // Die Rampen: Bretter mit einer hellen Kante.
+    a.rampen.forEach((ebene, nr) => ebene.forEach((rampe) => {
+      const p = [X(rampe.a + 0.04), Y(rampeY(nr, rampe, rampe.a))];
+      const q = [X(rampe.b + 0.96), Y(rampeY(nr, rampe, rampe.b + 1))];
+      g.save();
+      g.lineCap = "round";
+      g.strokeStyle = "rgba(0, 0, 0, 0.35)";
+      g.lineWidth = k * 0.17;
+      g.beginPath(); g.moveTo(p[0], p[1] + k * 0.05); g.lineTo(q[0], q[1] + k * 0.05); g.stroke();
+      g.strokeStyle = "#a9764a";
+      g.lineWidth = k * 0.15;
+      g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+      g.strokeStyle = "#e3b987";
+      g.lineWidth = Math.max(1.2, k * 0.035);
+      g.beginPath(); g.moveTo(p[0], p[1] - k * 0.05); g.lineTo(q[0], q[1] - k * 0.05); g.stroke();
+      g.restore();
+    }));
+    // Der Weg der Kugel: fallen, rollen, fallen … – als Stücke mit ihrer Dauer.
+    const stuecke = [];
+    let ort = [a.start + 0.5, 0.48];
+    for (const w of a.weg) {
+      const rampe = a.rampen[w.ebene].find((s) => s.a <= w.von && w.von <= s.b);
+      const auf = [w.von + 0.5, rampeY(w.ebene, rampe, w.von + 0.5) - KUGEL_RAD - 0.075];
+      stuecke.push({ art: "fall", von: ort, bis: auf, dauer: 0.3 * Math.sqrt(Math.max(0.05, auf[1] - ort[1])) });
+      const kante = rampe.sinn > 0 ? rampe.b + 1 : rampe.a;
+      const ab = [kante, rampeY(w.ebene, rampe, kante) - KUGEL_RAD - 0.075];
+      stuecke.push({ art: "roll", von: auf, bis: ab, dauer: 0.16 + 0.2 * Math.abs(kante - auf[0]) });
+      ort = ab;
+    }
+    const ziel = [a.soll + 0.5, bodenY + 0.02];
+    stuecke.push({ art: "fall", von: ort, bis: ziel, dauer: 0.3 * Math.sqrt(Math.max(0.05, ziel[1] - ort[1])) });
+    const gesamt = stuecke.reduce((s, x) => s + x.dauer, 0);
+    const tempo = Math.max(1, gesamt / 2.5);
+    let zeit = tz < 0 ? 0 : ruhig() ? gesamt : Math.max(0, tz - 0.35) * tempo;
+    let kugel = stuecke[0].von;
+    let gerollt = 0;
+    for (const s of stuecke) {
+      const t = clamp(zeit / s.dauer, 0, 1);
+      if (s.art === "fall") kugel = [lerp(s.von[0], s.bis[0], 1 - (1 - t) ** 2.4), lerp(s.von[1], s.bis[1], t * t)];
+      else { const f = t * t * 0.6 + t * 0.4; kugel = [lerp(s.von[0], s.bis[0], f), lerp(s.von[1], s.bis[1], f)]; gerollt += (s.bis[0] - s.von[0]) * f; }
+      zeit -= s.dauer;
+      if (zeit <= 0) break;
+    }
+    // Vor der Antwort: der Pfeil, der zeigt, wo sie loslässt.
+    if (tz < 0) {
+      g.save();
+      g.strokeStyle = GOLD;
+      g.fillStyle = GOLD;
+      g.lineWidth = Math.max(1.6, k * 0.045);
+      g.lineCap = "round";
+      const px = X(kugel[0]);
+      const py = Y(kugel[1] + KUGEL_RAD + 0.08);
+      g.beginPath(); g.moveTo(px, py); g.lineTo(px, py + k * 0.2); g.stroke();
+      g.beginPath(); g.moveTo(px, py + k * 0.34); g.lineTo(px - k * 0.1, py + k * 0.18); g.lineTo(px + k * 0.1, py + k * 0.18); g.closePath(); g.fill();
+      g.restore();
+    }
+    // Die Kugel: Stahl mit einem Glanzpunkt, der mitrollt.
+    const kx = X(kugel[0]);
+    const ky = Y(kugel[1]);
+    const rad = KUGEL_RAD * k;
+    g.save();
+    g.fillStyle = "rgba(0, 0, 0, 0.3)";
+    g.beginPath(); g.ellipse(kx + rad * 0.15, ky + rad * 0.9, rad * 0.9, rad * 0.28, 0, 0, TAU); g.fill();
+    const glanz = g.createRadialGradient(kx - rad * 0.35, ky - rad * 0.4, rad * 0.1, kx, ky, rad);
+    glanz.addColorStop(0, "#ffffff");
+    glanz.addColorStop(0.35, "#ffd98a");
+    glanz.addColorStop(1, "#b9791c");
+    g.fillStyle = glanz;
+    g.beginPath(); g.arc(kx, ky, rad, 0, TAU); g.fill();
+    g.strokeStyle = "rgba(60, 30, 0, 0.6)";
+    g.lineWidth = 1;
+    g.stroke();
+    const dreh = gerollt / KUGEL_RAD;
+    g.fillStyle = "rgba(90, 50, 0, 0.55)";
+    g.beginPath(); g.arc(kx + Math.cos(dreh) * rad * 0.5, ky + Math.sin(dreh) * rad * 0.5, rad * 0.16, 0, TAU); g.fill();
+    g.restore();
+  }
+
+  const MALEN = {
+    falten: maleFalten, netz: maleNetz, stapel: maleStapel, ansicht: maleAnsicht, drehen: maleDrehen, rollen: maleRollen, schnitt: maleSchnitt,
+    farbe: maleFarbe, muster: maleMuster, luecke: maleLuecke, schatten: maleSchatten, drehkoerper: maleDrehkoerper, laser: maleLaser, zahnrad: maleZahnrad, kugelbahn: maleKugelbahn,
+  };
 
   // ---------------------------------------------------------------------------
   // Zeichnen: Leinwand, Vorschau, Kopf, Uhr und Filmstreifen
@@ -2343,10 +3743,12 @@
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
+  // Fassung z2: Seit es fünfzehn Arten gibt, zieht dieselbe Saat andere
+  // Aufgaben – Läufe der ersten Fassung (z1) passen nicht mehr dazu.
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "mindsEye", fassung: "z1", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "mindsEye", fassung: "z2", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -2399,7 +3801,8 @@
         else if (event.key === "Enter") eingabe("fertig");
         else return;
       } else if (a.eingabe === "wahl" && ziffer !== null) {
-        const platz = a.art === "schnitt" ? ziffer - 3 : a.art === "rollen" || a.art === "drehen" ? ziffer - 1 : -1;
+        // Der Schnitt: die Zahl der Ecken. Sonst der Platz – ausser dort, wo ins Bild getippt wird.
+        const platz = a.art === "schnitt" ? ziffer - 3 : a.art === "netz" || a.art === "laser" ? -1 : ziffer - 1;
         if (platz < 0 || platz >= a.wahl) return;
         eingabe("wahl", platz);
       } else if (event.key === "Enter") eingabe("fertig");
@@ -2431,6 +3834,7 @@
     ARTEN, PLAN, AUFGABEN, ZEITEN, VOLL, SPAET, EINZUG, SPERRE, VORSCHAU, FAST, ZEIGEN_MS, NETZE, LAGEN,
     state, view, lege, aufgabenFuer, weltText, anteilFuer, zeitFaktor, punkteFuer, loesung,
     netzBaum, netzLage, netzKanten, ansichtSpalten, gestalt, augeNach, rollLage, schnittFlaeche, sicht,
+    farbeSeiten, musterAnsicht, schattenVon, schattenText, profilText, laserRand, laserWeg, kugelWeg, radHalb,
     losGehts, aufgabeLos, eingabe, weiter, takt, zeichnen, stellen: () => treffer,
   };
 })();
