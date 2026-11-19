@@ -10779,13 +10779,15 @@ try {
     }
   }
 
-  // --- 4g41. Eisstock: neun Arten von Bahnen, jede mit einem Schub mitten ins Ziel ---------
-  // Jede Runde hat zwei leichte, vier mittlere und vier schwere Bahnen. Für
-  // jede Art wird nachgerechnet, dass es einen Schub gibt, der (fast) mitten
-  // im Ziel endet – und dass derselbe Schub immer am selben Ort endet. Dazu
-  // die Regeln des Eises: halbe Kraft ist ein Viertel des Wegs, Schnee bremst,
-  // Glatteis trägt, die Bande wirft zurück, der Hang zieht, und beim
-  // Anstossen zählt der goldene Stock.
+  // --- 4g41. Eisstock: zehn Arten von Bahnen, jede mit einem Schub mitten ins Ziel ---------
+  // Jede Runde hat jede Art einmal: zwei leichte, vier mittlere und vier
+  // schwere Bahnen. Für jede Art wird nachgerechnet, dass es einen Schub gibt,
+  // der (fast) mitten im Ziel endet – und dass derselbe Schub immer am selben
+  // Ort endet. Dazu die Regeln des Eises: ein Eis überall, halbe Kraft ist ein
+  // Viertel des Wegs, die Bande und der Balken werfen zurück, an der
+  // gebogenen Bande gleitet der Stock entlang, und beim Anstossen zählt der
+  // goldene Stock. Die schweren Bahnen führen wirklich über zwei Banden,
+  // durch die Kurve oder über die Bande zum goldenen Stock.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
     await seite.goto(`${BASIS}/eisstock`, { waitUntil: "load" });
@@ -10805,7 +10807,7 @@ try {
           zeiten: b.every((x) => x.zeit === E.ZEITEN[x.stufe]),
           arten: Object.keys(oft).length,
           max: Math.max(...Object.values(oft)),
-          drin: b.every((x) => x.ziel.x >= 1 && x.ziel.x <= E.BREIT - 1 && x.ziel.y >= 3 && x.ziel.y <= E.LANG - 1 && x.start.y === E.START_Y),
+          drin: b.every((x) => x.ziel.x >= 0.9 && x.ziel.x <= E.BREIT - 0.9 && x.ziel.y >= 2.5 && x.ziel.y <= E.LANG - 0.9 && x.start.y === E.START_Y),
         });
       }
       raus.welten = welten.size;
@@ -10821,38 +10823,82 @@ try {
           raus.dauer = Math.max(raus.dauer, eins.schritte * E.TAKT);
         }
       }
+      // Was den schweren Bahnen geschieht, wenn man ihren Tipp spielt – und wie
+      // gut der gerade Schub aufs Ziel (oder auf den goldenen Stock) wäre.
+      const erlebt = (bahn) => {
+        const welt = E.weltFuer(bahn);
+        E.schiebe(welt, bahn.tipp.winkel, bahn.tipp.kraft);
+        const was = [];
+        while (welt.schritte < 240 * 14 && E.schritt(welt)) for (const e of welt.stoesse) was.push({ art: e.art, wer: e.wer, mit: e.mit, wucht: e.wucht, x: e.x, y: e.y });
+        const vorStock = was.findIndex((e) => e.art === "stock");
+        const eigen = was.filter((e) => e.wer === 0);
+        const k = bahn.kurven[0];
+        const winkel = k ? eigen.filter((e) => e.art === "kurve").map((e) => (((Math.atan2(e.y - k.y, e.x - k.x) - k.von) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) : [];
+        return {
+          banden: eigen.filter((e) => e.art === "bande" && e.wucht > 0.05).length,
+          balken: eigen.filter((e) => e.art === "balken").length,
+          geglitten: winkel.length ? Math.round(((Math.max(...winkel) - Math.min(...winkel)) * 180) / Math.PI) : 0,
+          bandeVorStock: vorStock > 0 && was.slice(0, vorStock).some((e) => e.art === "bande" && e.wer === 0),
+          meter: E.abstandVon(welt),
+        };
+      };
+      const gerade = (bahn) => {
+        const z = bahn.stoecke.find((x) => x.gold) || bahn.ziel;
+        const w = Math.atan2(z.x - bahn.start.x, z.y - bahn.start.y);
+        let best = 0;
+        for (let k = 0.2; k <= 1; k += 0.01) best = Math.max(best, E.simuliere(bahn, w, k).punkte);
+        return best;
+      };
+      raus.schwer = {};
+      for (const art of ["kurve", "wende", "doppelbande", "rueckweg", "bandenstoss"]) {
+        raus.schwer[art] = [];
+        for (let i = 0; i < 4; i += 1) {
+          const bahn = E.lege(art, Math.random);
+          raus.schwer[art].push({ tipp: Boolean(bahn.tipp), kurven: bahn.kurven.length, ...(bahn.tipp ? erlebt(bahn) : {}), gerade: gerade(bahn) });
+        }
+      }
       // Die Regeln des Eises, auf einer leeren Bahn nachgemessen.
-      const leer = (extra = {}) => ({ art: "gerade", stufe: 0, kurz: "", frage: "", zeit: 12, start: { x: 3, y: E.START_Y }, ziel: { x: 3, y: 7 }, stoecke: [], balken: [], zonen: [], hang: null, ...extra });
+      const leer = (extra = {}) => ({ art: "gerade", stufe: 0, kurz: "", frage: "", zeit: 12, start: { x: 3, y: E.START_Y }, ziel: { x: 3, y: 7 }, stoecke: [], balken: [], kurven: [], ...extra });
       const ende = (bahn, winkel, kraft) => {
         const e = E.simuliere(bahn, winkel, kraft);
         const s = e.welt.stoecke;
         return { x: s[0].x, y: s[0].y, weit: Math.hypot(s[0].x - bahn.start.x, s[0].y - bahn.start.y), meter: e.meter, andere: s.slice(1).map((o) => ({ x: o.x, y: o.y })) };
       };
-      raus.weit = [0.3, 0.6, 0.8].map((k) => ende(leer(), 0, k).weit);
-      raus.soll = [0.3, 0.6, 0.8].map((k) => k * k * E.WEIT);
-      raus.blank = ende(leer(), 0, 0.7).weit;
-      raus.schnee = ende(leer({ zonen: [{ art: "schnee", x: 3, y: 4, rx: 2, ry: 1 }] }), 0, 0.7).weit;
-      raus.glatt = ende(leer({ zonen: [{ art: "glatt", x: 3, y: 4, rx: 2, ry: 1 }] }), 0, 0.7).weit;
-      raus.bande = ende(leer(), Math.PI / 4, 0.8);
-      raus.balken = ende(leer({ balken: [{ x0: 2, y0: 4, x1: 4, y1: 4.28 }] }), 0, 0.7);
-      raus.hang = ende(leer({ hang: { x: 0.3, y: 0 } }), 0, 0.7);
+      raus.weit = [0.25, 0.4, 0.55].map((k) => ende(leer(), 0, k).weit);
+      raus.soll = [0.25, 0.4, 0.55].map((k) => k * k * E.WEIT);
+      raus.bande = ende(leer(), Math.PI / 4, 0.6);
+      raus.balken = ende(leer({ balken: [{ x0: 2, y0: 4, x1: 4, y1: 4.28 }] }), 0, 0.5);
+      // Eine gebogene Bande oben: Hinauf an der rechten Seite, durch den Bogen,
+      // und auf der linken Seite wieder hinunter.
+      raus.kurve = ende(leer({ start: { x: 4.95, y: E.START_Y }, kurven: [{ x: 3, y: 6, r: 2.35, von: 0, bis: Math.PI }] }), 0, 0.85);
       const stoss = leer({ stoecke: [{ x: 3, y: 4, gold: true }] });
-      raus.stoss = ende(stoss, 0, 0.7);
+      raus.stoss = ende(stoss, 0, 0.5);
       raus.stossSoll = Math.round(Math.hypot(raus.stoss.andere[0].x - 3, raus.stoss.andere[0].y - 7) * 1000) / 1000;
       raus.punkte = [0, 0.03, 0.1, 0.4, 1.1, 2.3, 4].map((m) => E.punkteFuer(m));
       raus.faellt = true;
       for (let m = 0; m < 3; m += 0.01) if (E.punkteFuer(m + 0.01) > E.punkteFuer(m)) raus.faellt = false;
       raus.zug = E.zugZu(E.zugVon(0.123456, 0.654321));
+      raus.voll = E.WEIT;
       return raus;
     });
-    pruefe(bau.runden.length === 6 && bau.runden.every((r) => r.stufen === "0011112222" && r.zeiten && r.arten === 9 && r.max === 2 && r.drin) && bau.welten >= 5,
-      `Eisstock: Die Runden haben nicht ihre zwei, vier und vier Bahnen, oder jede Runde ist dieselbe: ${JSON.stringify({ runden: bau.runden, welten: bau.welten })}`);
+    pruefe(bau.runden.length === 6 && bau.runden.every((r) => r.stufen === "0011112222" && r.zeiten && r.arten === 10 && r.max === 1 && r.drin) && bau.welten >= 5,
+      `Eisstock: Die Runden haben nicht ihre zwei, vier und vier Bahnen, jede Art einmal, oder jede Runde ist dieselbe: ${JSON.stringify({ runden: bau.runden, welten: bau.welten })}`);
+    {
+      const s = bau.schwer;
+      const alle = Object.values(s).flat();
+      const schnitt = (liste) => liste.reduce((x, e) => x + e.gerade, 0) / liste.length;
+      pruefe(alle.every((e) => e.tipp && e.meter < 0.002 && e.balken === 0)
+        && s.kurve.every((e) => e.kurven === 1 && e.geglitten >= 70) && s.wende.every((e) => e.kurven === 1 && e.geglitten >= 150)
+        && s.doppelbande.every((e) => e.banden >= 2) && s.rueckweg.every((e) => e.banden >= 2) && s.bandenstoss.every((e) => e.bandeVorStock)
+        && Object.values(s).every((liste) => schnitt(liste) < 40),
+        `Eisstock: Die schweren Bahnen führen nicht über zwei Banden, durch die Kurve oder über die Bande zum goldenen Stock – oder der gerade Schub tut es auch: ${JSON.stringify(s)}`);
+    }
     pruefe(Object.keys(bau.schlecht).length === 0 && bau.ungleich === 0 && bau.dauer > 1.5 && bau.dauer < 8,
       `Eisstock: Nicht jede Bahn hat einen Schub mitten ins Ziel, oder derselbe Schub endet nicht am selben Ort: ${JSON.stringify({ schlecht: bau.schlecht, ungleich: bau.ungleich, dauer: bau.dauer })}`);
-    pruefe(bau.weit.every((w, i) => Math.abs(w - bau.soll[i]) < 0.04) && bau.schnee < bau.blank - 1.5 && bau.glatt > bau.blank + 0.8,
-      `Eisstock: Halbe Kraft ist nicht ein Viertel des Wegs, oder Schnee bremst nicht und Glatteis trägt nicht: ${JSON.stringify({ weit: bau.weit, soll: bau.soll, blank: bau.blank, schnee: bau.schnee, glatt: bau.glatt })}`);
-    pruefe(bau.bande.x < 5.2 && bau.bande.x > 0.3 && bau.bande.y > 4.3 && bau.balken.y < 3.71 && bau.hang.x > 3.4,
-      `Eisstock: Die Bande oder der Balken wirft den Stock nicht zurück, oder der Hang zieht nicht: ${JSON.stringify({ bande: bau.bande, balken: bau.balken, hang: bau.hang })}`);
+    pruefe(bau.weit.every((w, i) => Math.abs(w - bau.soll[i]) < 0.04) && bau.voll === 21,
+      `Eisstock: Halbe Kraft ist nicht ein Viertel des Wegs, oder volle Kraft trägt nicht 21 Meter weit: ${JSON.stringify({ weit: bau.weit, soll: bau.soll })}`);
+    pruefe(bau.bande.x < 5.2 && bau.bande.x > 0.3 && bau.bande.y > 4.3 && bau.balken.y < 3.71 && bau.kurve.x < 2 && bau.kurve.y < 6,
+      `Eisstock: Die Bande oder der Balken wirft den Stock nicht zurück, oder er gleitet nicht durch die gebogene Bande: ${JSON.stringify({ bande: bau.bande, balken: bau.balken, kurve: bau.kurve })}`);
     pruefe(bau.stoss.andere[0].y > 4.6 && bau.stoss.y < bau.stoss.andere[0].y - 0.6 && bau.stoss.y < 4 && bau.stoss.meter === bau.stossSoll,
       `Eisstock: Beim Anstossen fährt der goldene Stock nicht weiter, oder es zählt nicht er: ${JSON.stringify({ stoss: bau.stoss, soll: bau.stossSoll })}`);
     pruefe(JSON.stringify(bau.punkte) === JSON.stringify([100, 100, 92, 62, 24, 0, 0]) && bau.faellt && bau.zug.winkel === 0.1235 && bau.zug.kraft === 0.6543,
@@ -10864,7 +10910,7 @@ try {
       const E = window.LernappEisstock;
       const st = E.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
-      ["gerade", "gerade", "schraeg", "schnee", "bande"].forEach((art, i) => { st.bahnen[i] = E.lege(art, Math.random); });
+      ["gerade", "gerade", "schraeg", "kurve", "bande"].forEach((art, i) => { st.bahnen[i] = E.lege(art, Math.random); });
       const fahre = () => { for (let i = 0; i < 600 && st.phase === "fahrt"; i += 1) E.takt(0.2); };
       const los = (sekunden = 1) => { E.bahnLos(); st.t0 -= (E.EINZUG + sekunden) * 1000; };
       const mx = E.view.eis.x + E.view.eis.w / 2;

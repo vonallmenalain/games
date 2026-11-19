@@ -1256,8 +1256,8 @@ liegen bleiben; gemessen wird auf den Zentimeter.
 
 **Der Schub** ist eine Schleuder: irgendwo aufsetzen, zurückziehen,
 loslassen (`zielBeginn`, `zielZu`, `zielEnde`). Die Richtung des Zugs ist die
-Richtung des Schubs, seine Länge die Kraft – gut die halbe Bahn weit für die
-volle (`view.zug`). Um den Stock zeigt ein Bogen mit zehn Strichen die
+Richtung des Schubs, seine Länge die Kraft – gut drei Fünftel der Bahn
+weit für die volle (`view.zug`). Um den Stock zeigt ein Bogen mit zehn Strichen die
 Kraft, ein kurzer Pfeil die Richtung; den Weg zeigt nichts. Ein Zug unter
 `KRAFT_MIN` gilt nicht. Mit der Tastatur: Pfeile drehen und spannen, die
 Leertaste schiebt.
@@ -1265,33 +1265,45 @@ Leertaste schiebt.
 **Das Eis** (`schritt`) rechnet in festen Schritten, 240 je Sekunde, nur
 aus Winkel und Kraft (auf Zehntausendstel gerundet, `zugVon`): Derselbe
 Schub endet immer am selben Ort. Die Kraft ist das Tempo – halbe Kraft ist
-ein Viertel des Wegs, volle trägt auf blankem Eis `WEIT` = 10,5 Meter.
-Schnee bremst fast dreimal so stark, Glatteis kaum halb so stark
-(`bremseBei`); Bande und Balken werfen den Stock zurück und nehmen ihm ein
-Fünftel des Tempos, zwei Stöcke stossen sich wie Kugeln; am Hang zieht es
-den Stock zur Seite.
+ein Viertel des Wegs, volle trägt `WEIT` = 21 Meter, gut zweimal die Bahn
+(genug für zwei Banden und eine Kurve). Es gibt nur ein Eis, überall gleich
+glatt (`BREMSE`): Man soll sich an es gewöhnen können. Bande und Balken
+werfen den Stock zurück und nehmen ihm ein Fünftel des Tempos quer zur
+Bande; die gebogene Bande (`kurven`, ein Kreisbogen) federt kaum
+(`PRALL_KURVE`) – wer sie schräg trifft, schmiegt sich an und gleitet an ihr
+entlang. Zwei Stöcke stossen sich wie Kugeln.
 
-**Die neun Arten** (`BAU`):
+**Die zehn Arten** (`BAU`):
 
 - leicht – **Geradeaus** und **Schräg**: nur Richtung und Kraft.
-- mittel – **Schnee** (ein Fleck quer über dem Weg, der bremst),
-  **Glatteis** (ein Fleck, der trägt), **Über die Bande** (ein Balken quer
-  über der geraden Linie) und **Die Gasse** (zwischen zwei fremden Stöcken
-  hindurch).
-- schwer – **Am Hang** (das Eis fällt zur Seite ab, die Pfeile zeigen,
-  wohin), **Anstossen** (es zählt der goldene Stock, den der eigene trifft)
-  und **Zwei Balken** (über die Bande, an beiden vorbei).
+- mittel – **Über die Bande** (ein Balken quer über der geraden Linie),
+  **Die Gasse** (zwischen zwei fremden Stöcken hindurch), **Anstossen** (es
+  zählt der goldene Stock, den der eigene trifft) und **Die Kurve** (eine
+  gebogene Bande oben in einer Ecke lenkt den Stock ums Eck ins Ziel).
+- schwer – **Zwei Banden** (zwei Balken im Z, der Weg führt im Zickzack
+  über zwei Banden), **Der Rückweg** (das Ziel liegt hinter einem langen
+  Balken: durch die Lücke und über zwei Banden zurück), **Die Wende** (eine
+  Wand mitten durchs Eis, oben eine Kehre: auf der einen Seite hinauf, auf
+  der anderen hinunter) und **Über Bande anstossen** (der goldene Stock
+  liegt hinter einem Balken und will über die Bande getroffen sein).
 
-Jede Runde zieht zwei leichte, vier mittlere und vier schwere Bahnen
-(`PLAN`, `bahnenFuer`). Die Bahnen über die Bande sind von der Lösung her
-gebaut (`ueberBande`): erst der Weg über die Seitenbande, dann das Ziel an
-sein Ende, dann die Balken quer über die gerade Linie – so gibt es immer
-einen Schub mitten ins Ziel.
+Jede Runde hat jede Art einmal: die zwei leichten, die vier mittleren, die
+vier schweren (`PLAN`, `bahnenFuer`). Alle Bahnen ausser den leichten sind
+von der Lösung her gebaut, so gibt es immer einen Schub mitten ins Ziel (er
+steht als `tipp` dabei). **Über die Bande** rechnet den Weg über die
+Seitenbande vor (`ueberBande`). Die schweren und die Kurve kommen aus einem
+Probeschuss (`ausProbe`, `probeschuss`): erst die Geometrie (Balken,
+Kurven, Stöcke), dann ein Schub, der zu ihr passt – und wo der Stock, der
+zählt, liegen bleibt, ist das Ziel. Verlangt wird, was die Art ausmacht
+(zwei Banden, mindestens 70° bzw. 150° an der Kurve entlang, die Bande vor
+dem goldenen Stock), und ein freier Platz für das Ziel; führt die gerade
+Linie dorthin, legt `sperre` einen Balken quer darüber, der dem Weg des
+Probeschusses nicht in die Quere kommt.
 
 **Gewertet wird der Abstand** des Stocks, der zählt, zur Mitte des Ziels
 (`abstandVon`, `punkteFuer`): bis 3 cm hundert Punkte, bei 10 cm 92, bei
 20 cm 80, bei 40 cm 62, bei 70 cm 42, bei 1,1 m 24, ab 2,3 m nichts
-(`KNOTEN`). Eine Bahn hat 12, 14 oder 16 Sekunden (`ZEITEN`); ist die Zeit
+(`KNOTEN`). Eine Bahn hat 12, 15 oder 20 Sekunden (`ZEITEN`); ist die Zeit
 um, gilt der Zug, wie er gerade gespannt ist – ohne Zug gibt es nichts.
 
 **Der Ablauf** ist der der Geschwister: Vor jeder Bahn die Vorschau – was zu
@@ -1301,8 +1313,8 @@ Fahrt zieht sich das Massband von der Mitte zum Stock, mit dem Abstand und
 den Punkten. Unten (quer: rechts) zehn Scheiben, eine je Bahn.
 
 **Der Löser** (`suche`, `loese`) findet für jede Bahn den besten Schub:
-zuerst um die gerade Linie zum Stock, der zählt (oder um den Tipp einer
-Bahn, die von der Lösung her gebaut ist), dann immer feiner; nur wenn das
+Führt der Tipp genau ins Ziel, ist er es. Sonst sucht er zuerst um den Tipp
+(oder um die gerade Linie zum Stock, der zählt), dann immer feiner; nur wenn das
 nicht ins Ziel führt, das ganze Raster. Er ist eine Folge kleiner Schritte
 – das Beispiel der Vorschau verteilt sie über viele Bilder
 (`beispielTakt`), damit nichts ruckelt; die Prüfung und die Vorführung
