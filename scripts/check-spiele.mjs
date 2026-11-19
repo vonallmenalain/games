@@ -9163,7 +9163,11 @@ try {
 
   // --- 4g37. Zeitgefühl: zehn Aufgaben, gemessen auf die Hundertstelsekunde -----------
   // Jede Runde hat ihre drei leichten, vier mittleren und drei schweren
-  // Aufgaben, jede Art einmal, mit Zeiten aus ihrem Band. Zehn genaue
+  // Aufgaben, aus den achtzehn Arten gewürfelt, keine zweimal, mit Zeiten aus
+  // ihrem Band – und die neuen Arten rechnen richtig: Die Zeiger treffen sich
+  // bei ihrem Ziel und vorher nie, das Pendel ist dann links aussen, der
+  // Ball schlägt rechts an, die Sanduhr ist leer, das Glas voll, beide
+  // Blinker blinken zugleich (vorher nie), der Bremszeiger steht. Zehn genaue
   // Antworten geben tausend Punkte; jede Hundertstel daneben kostet, was die
   // Stufe sagt. Ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird
   // der Augenblick des Tipps (oder wie lange gehalten wurde), und wer gar
@@ -9178,6 +9182,8 @@ try {
       const Z = window.LernappZeitgefuehl;
       const befunde = [];
       const welten = new Set();
+      const gesehen = new Set();
+      const stufen = [Z.LEICHT, Z.MITTEL, Z.SCHWER];
       for (let runde = 0; runde < 30; runde += 1) {
         document.querySelector(".cm-bar-left .cm-icon-again").click();
         const liste = Z.state.aufgaben;
@@ -9186,7 +9192,7 @@ try {
         if (liste.map((a) => a.stufe).join("") !== "0001111222") befunde.push(`Stufen: ${liste.map((a) => a.stufe).join("")}`);
         const arten = liste.map((a) => a.art);
         if (new Set(arten).size !== 10) befunde.push(`doppelt: ${arten.join(" ")}`);
-        if (![...Z.LEICHT, ...Z.MITTEL, ...Z.SCHWER].every((art) => arten.includes(art))) befunde.push(`es fehlt eine Art: ${arten.join(" ")}`);
+        for (const a of liste) { gesehen.add(a.art); if (!stufen[a.stufe].includes(a.art)) befunde.push(`${a.art} in der falschen Stufe`); }
         for (const a of liste) {
           if (!(a.ziel >= 1500 && a.ziel <= 7000)) befunde.push(`${a.art}: Ziel ${a.ziel}`);
           if (a.eingabe === "tipp" && !(a.ab >= 1000 && a.ab <= a.ziel - 1000)) befunde.push(`${a.art}: zu wenig Zeit zwischen Verschwinden (${a.ab}) und Ziel (${a.ziel})`);
@@ -9194,9 +9200,45 @@ try {
           if (!a.frage || !a.name) befunde.push(`${a.art}: ohne Satz`);
         }
       }
+      const alle = [...Z.LEICHT, ...Z.MITTEL, ...Z.SCHWER];
+      if (alle.length !== 18 || !alle.every((art) => gesehen.has(art))) befunde.push(`nicht alle achtzehn Arten kamen dran: ${alle.filter((art) => !gesehen.has(art)).join(" ")}`);
+      // Die neuen Arten, je hundertmal gewürfelt: Im Augenblick des Ziels
+      // ist es so weit – und vorher nicht.
+      const nah = (x, y, d = 1e-6) => Math.abs(x - y) <= d;
+      const rund = (w) => ((w % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      for (let i = 0; i < 100; i += 1) {
+        for (const art of ["kerze", "zweizeiger", "pendel", "ball", "sanduhr", "glas", "blinker", "bremse"]) {
+          const a = Z.wuerfle(art);
+          if (!(a.ziel >= 1500 && a.ziel <= 7000) || !(a.ab >= 1000 && a.ab <= a.ziel - 1000)) befunde.push(`${art}: Ziel ${a.ziel}, sichtbar bis ${a.ab}`);
+          if (art === "kerze" && !nah(Z.kerzeBei(a, a.ziel), a.marke, 1e-9)) befunde.push("kerze: Die Flamme ist beim Ziel nicht an der Marke");
+          if (art === "zweizeiger") {
+            const abstand = (t) => Math.min(rund(Z.zweiWinkel(a, 0, t) - Z.zweiWinkel(a, 1, t)), 2 * Math.PI - rund(Z.zweiWinkel(a, 0, t) - Z.zweiWinkel(a, 1, t)));
+            if (abstand(a.ziel) > 1e-6) befunde.push("zweizeiger: Beim Ziel liegen sie nicht übereinander");
+            for (let t = 0; t < a.ziel - 60; t += 20) if (abstand(t) < 0.03) { befunde.push(`zweizeiger: Sie treffen sich schon bei ${t}`); break; }
+          }
+          if (art === "pendel" && !nah(Z.pendelWinkel(a, a.ziel), -Z.pendelWinkel(a, 0), 1e-9)) befunde.push("pendel: Beim Ziel ist es nicht links aussen");
+          if (art === "ball") {
+            const vor = Z.ballBei(a, a.ziel - 0.5);
+            const nach = Z.ballBei(a, a.ziel + 0.5);
+            if (!(vor.ort > 0.99 && vor.rechts === a.mal - 1 && nach.rechts === a.mal)) befunde.push(`ball: Beim Ziel schlägt er nicht zum ${a.mal}. Mal rechts an`);
+          }
+          if (art === "sanduhr") {
+            const h = (k) => Z.sandBei(a, a.ziel * k).oben;
+            if (!(h(1) === 0 && h(0.97) > 0 && h(0.75) - h(1) > h(0) - h(0.25))) befunde.push("sanduhr: Sie ist beim Ziel nicht leer, oder der Pegel fällt nicht zum Schluss schneller");
+          }
+          if (art === "glas" && !(Z.glasBei(a, a.ziel) === 1 && Z.glasBei(a, a.ziel - 100) < 1 && Z.glasBei(a, 0) === 0)) befunde.push(`glas (${a.form}): Es ist beim Ziel nicht voll`);
+          if (art === "blinker") {
+            const zugleich = (t) => a.takte.every((takt) => nah(t / takt, Math.round(t / takt), 1e-9));
+            if (!zugleich(a.ziel)) befunde.push("blinker: Beim Ziel blinken nicht beide");
+            for (const t of a.takte.flatMap((takt) => Array.from({ length: Math.floor(a.ziel / takt) }, (_, k) => k * takt))) if (t > 0 && t < a.ziel && zugleich(t)) befunde.push(`blinker: Sie blinken schon bei ${t} zugleich`);
+          }
+          if (art === "bremse" && !(nah(Z.bremsWinkel(a, a.ziel), a.runden * 2 * Math.PI) && Z.bremsWinkel(a, a.ziel + 500) === Z.bremsWinkel(a, a.ziel) && Z.bremsWinkel(a, a.ziel - 50) < Z.bremsWinkel(a, a.ziel))) befunde.push("bremse: Er steht nicht beim Ziel");
+        }
+      }
       const tabelle = [[0, 0], [70, 0], [-70, 0], [70, 1], [70, 2], [1000, 0], [1250, 1], [2000, 2], [null, 0]].map(([ms, stufe]) => Z.punkteFuer(ms, stufe));
       // Die Zeitlupe misst, was ihre Uhr zeigt.
-      const lupe = Z.state.aufgaben.find((a) => a.art === "zeitlupe");
+      let lupe = Z.wuerfle("zeitlupe");
+      while (lupe.faktor === 1) lupe = Z.wuerfle("zeitlupe");
       return { befunde: [...new Set(befunde)].slice(0, 6), welten: welten.size, tabelle, lupe: Math.round(Z.daneben(lupe, lupe.ziel + 100) / lupe.faktor) };
     });
     pruefe(bau.befunde.length === 0 && bau.welten >= 25,
@@ -9294,9 +9336,12 @@ try {
       const warte = (ms) => new Promise((fertig) => setTimeout(fertig, ms));
       const bild = () => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(fertig)));
       const stelle = (ms) => { st.t0 = performance.now() - Z.EINZUG - ms; };
-      // Die Aufgabe der gesuchten Art hinlegen, wo immer sie in der Runde steht.
+      // Die Aufgabe der gesuchten Art hinlegen, wo immer sie in der Runde
+      // steht – oder, wenn sie nicht darin ist, an ihrer Stelle die erste.
       const zu = (art) => {
-        Z.aufgabeAuf(st.aufgaben.findIndex((x) => x.art === art));
+        let i = st.aufgaben.findIndex((x) => x.art === art);
+        if (i < 0) { i = 0; st.aufgaben[0] = Z.wuerfle(art); }
+        Z.aufgabeAuf(i);
         Z.aufgabeLos();
         return Z.aufgabe();
       };
@@ -9406,7 +9451,7 @@ try {
       const geist = window.__miniGeister?.get(`timeSense_${kennung}`) || null;
       return { kennung, punkte: geist?.punkte || 0, gezaehlt: window.LernappZeitgefuehl.state.punkte, level: geist?.level || "" };
     });
-    pruefe(gespielt.kennung && gespielt.punkte > 500 && gespielt.punkte < 1000 && gespielt.punkte === gespielt.gezaehlt && gespielt.level === "z1" && gespieltListe[5] === 0,
+    pruefe(gespielt.kennung && gespielt.punkte > 500 && gespielt.punkte < 1000 && gespielt.punkte === gespielt.gezaehlt && gespielt.level === "z2" && gespieltListe[5] === 0,
       `Zeitgefühl: Die Runde wird nicht hinterlegt: ${JSON.stringify({ ...gespielt, gespieltListe })}`);
     await seite.goto(`${BASIS}/zeitgefuehl?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappZeitgefuehl?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
@@ -10724,7 +10769,7 @@ try {
     for (const [adresse, api, soll, schluessel] of [
       ["/kopfkino", "LernappKopfkino", 32, "lernapp.kopfkino"],
       ["/freihand", "LernappFreihand", 17, "lernapp.freihand"],
-      ["/zeitgefuehl", "LernappZeitgefuehl", 12, "lernapp.zeitgefuehl"],
+      ["/zeitgefuehl", "LernappZeitgefuehl", 24, "lernapp.zeitgefuehl"],
       ["/augenmass", "LernappAugenmass", 18, "lernapp.augenmass"],
     ]) {
       const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
@@ -10736,16 +10781,19 @@ try {
         const liste = A.state.aufgaben || A.state.blaetter;
         const arten = liste.map((x) => x.art);
         // Die Reihenfolge: leicht, mittel, schwer – in Zeitgefühl Zeitlupe und
-        // Zeitraffer, Doppelt und Halb je für sich; in Kopfkino jede Art in
-        // ihren drei Stufen.
+        // Zeitraffer, Doppelt und Halb, die zwei Zeiger gleich und
+        // gegenläufig, der Ball frisch und müde und die drei Gläser je für
+        // sich; in Kopfkino jede Art in ihren drei Stufen.
         let reihe = true;
         if (A.LEICHT) {
-          const erwartet = [...A.LEICHT, ...A.MITTEL, ...A.SCHWER].flatMap((art) => (a === "LernappZeitgefuehl" && (art === "zeitlupe" || art === "doppelt") ? [art, art] : [art]));
+          const mal = a === "LernappZeitgefuehl" ? { zeitlupe: 2, doppelt: 2, zweizeiger: 2, ball: 2, glas: 3 } : {};
+          const erwartet = [...A.LEICHT, ...A.MITTEL, ...A.SCHWER].flatMap((art) => Array(mal[art] || 1).fill(art));
           reihe = arten.join() === erwartet.join();
           if (a === "LernappZeitgefuehl") {
-            const lupe = liste.filter((x) => x.art === "zeitlupe");
-            const doppelt = liste.filter((x) => x.art === "doppelt");
-            reihe = reihe && lupe[0].faktor < 1 && lupe[1].faktor > 1 && doppelt[0].mal === 2 && doppelt[1].mal === 0.5;
+            const von = (art) => liste.filter((x) => x.art === art);
+            const [lupe, doppelt, zeiger, ball, glas] = ["zeitlupe", "doppelt", "zweizeiger", "ball", "glas"].map(von);
+            reihe = reihe && lupe[0].faktor < 1 && lupe[1].faktor > 1 && doppelt[0].mal === 2 && doppelt[1].mal === 0.5
+              && !zeiger[0].gegen && zeiger[1].gegen && !ball[0].muede && ball[1].muede && glas.map((x) => x.form).join() === "kelch,bauch,flasche";
           }
         }
         return { zahl: liste.length, reihe, test: Boolean(A.testrunde()) };
