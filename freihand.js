@@ -515,6 +515,24 @@
     return arten.map((art) => lege(art, r));
   }
 
+  /*
+   * Die Testrunde (?alle in der Adresse; im Adminbereich «▶ Alle Aufgaben»):
+   * jede Art einmal, die leichten zuerst, dann die mittleren, dann die
+   * schweren. Zum Ausprobieren: Sie geht in keine Bestenliste und wird nicht
+   * aufgezeichnet; oben steht der Knopf «Überspringen». ?alle=kreis,welle
+   * nimmt nur diese Arten. Im Turnier, im Live-Modus und beim Zuschauen gibt
+   * es sie nicht.
+   */
+  const TESTRUNDE = (() => {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has("alle") || p.has("turnier") || p.has("live") || p.has("zuschauen") || zufall.fest) return null;
+    const alle = [...LEICHT, ...MITTEL, ...SCHWER];
+    const wunsch = String(p.get("alle") || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+    const arten = alle.filter((art) => wunsch.includes(art));
+    return arten.length ? arten : alle;
+  })();
+  const testBlaetter = () => { const r = () => zufall.zahl(); return TESTRUNDE.map((art) => lege(art, r)); };
+
   // Die Runde als Text – für die Prüfung, dass in einem Turnier alle dieselbe bekommen.
   function weltText(blaetter = state.blaetter) {
     return (blaetter || []).map((a) => {
@@ -671,6 +689,8 @@
   const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, s: 3, x0: 0, y0: 0, seite: 300, u: 1, hoch: true, flach: false, text: null, mappe: null, guete: 1 };
 
   const blatt = () => state.blaetter?.[state.index] || null;
+  // Wie viele Blätter die Runde hat: zehn – in der Testrunde alle.
+  const anzahl = () => state.blaetter?.length || BLAETTER;
   // Wie lange das Blatt schon daliegt, in Sekunden.
   const seit = (jetzt = performance.now()) => (jetzt - state.t0) / 1000;
   const offen = () => state.phase === "aufgabe" && !zuschauer;
@@ -787,7 +807,7 @@
     state.verworfen = 0;
     const a = blatt();
     state.beispiel = beispielFuer(a);
-    if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${a.kurz}. ${a.frage} Tippe, wenn du bereit bist.`;
+    if (status) status.textContent = `Blatt ${index + 1} von ${anzahl()}: ${a.kurz}. ${a.frage} Tippe, wenn du bereit bist.`;
     ton("freihand.blatt");
     meldeZug(0);
   }
@@ -798,7 +818,7 @@
     state.phase = "aufgabe";
     state.t0 = performance.now();
     const a = blatt();
-    if (status) status.textContent = `Blatt ${state.index + 1} von ${BLAETTER}: ${a.frage}`;
+    if (status) status.textContent = `Blatt ${state.index + 1} von ${anzahl()}: ${a.frage}`;
     ton("freihand.tick");
     meldeZug(1);
   }
@@ -910,7 +930,21 @@
   function weiter() {
     if (state.phase !== "zeigen" || zuschauer) return;
     clearStep();
-    if (state.index + 1 >= BLAETTER) finish();
+    if (state.index + 1 >= anzahl()) finish();
+    else blattAuf(state.index + 1);
+  }
+
+  // Überspringen (nur in der Testrunde): zur Vorschau des nächsten Blattes,
+  // ohne das jetzige zu zeichnen – nach dem letzten zur Tafel.
+  function ueberspringe() {
+    if (!TESTRUNDE || zuschauer) return;
+    if (state.phase === "bereit") { losGehts(); return; }
+    if (state.phase !== "vorschau" && state.phase !== "aufgabe" && state.phase !== "zeigen") return;
+    clearStep();
+    strichWeg();
+    kratzenAus();
+    if (!state.liste[state.index]) state.liste[state.index] = { punkte: 0, mm: null, uebersprungen: true };
+    if (state.index + 1 >= anzahl()) finish();
     else blattAuf(state.index + 1);
   }
 
@@ -1381,7 +1415,7 @@
     g.textBaseline = "alphabetic";
     g.fillStyle = STUFEN_FARBE[a.stufe];
     g.font = `700 3.3px ${SANS}`;
-    g.fillText(`BLATT ${state.index + 1} VON ${BLAETTER}  ·  ${STUFE[a.stufe].toUpperCase()}`, 50, 10.5);
+    g.fillText(`${TESTRUNDE ? "TESTRUNDE" : "BLATT"} ${state.index + 1} VON ${anzahl()}  ·  ${STUFE[a.stufe].toUpperCase()}`, 50, 10.5);
     g.fillStyle = TINTE;
     g.font = `italic 700 8.4px ${SERIF}`;
     g.fillText(a.kurz, 50, 20.5);
@@ -1448,8 +1482,8 @@
     g.font = `italic 700 13px ${SERIF}`;
     g.fillText("Freihand", 50, 24);
     g.font = `500 4.1px ${SANS}`;
-    g.fillText("Zehn Blätter. Ein Strich je Blatt.", 50, 32.5);
-    g.fillText("Kein Lineal, kein Zirkel.", 50, 37.8);
+    g.fillText(TESTRUNDE ? `Testrunde: alle ${anzahl()} Blätter.` : "Zehn Blätter. Ein Strich je Blatt.", 50, 32.5);
+    g.fillText(TESTRUNDE ? "Es zählt nichts." : "Kein Lineal, kein Zirkel.", 50, 37.8);
     g.restore();
     // Der Kreis, der nie ganz rund wird.
     const lauf = ruhig() ? 1 : ((jetzt / 1000) % 4.2) / 2.6;
@@ -1525,8 +1559,10 @@
   }
 
   // Ein Blättchen der Mappe: der Strich und die Form, ganz klein.
-  function zeichneBlaettchen(i, x, y, kante, schrift) {
-    const e = state.liste[i];
+  function blaettchen(i, x, y, kante, schrift) {
+    // Übersprungen (Testrunde): wie offen, mit einem Strich statt der Zahl.
+    const weg = state.liste[i]?.uebersprungen;
+    const e = weg ? null : state.liste[i];
     const dran = i === state.index && state.phase !== "ende" && state.phase !== "bereit" && state.phase !== "warten";
     g.save();
     g.beginPath();
@@ -1556,7 +1592,7 @@
     g.textBaseline = "top";
     g.font = `700 ${schrift}px ${SANS}`;
     g.fillStyle = e ? (e.punkte >= GENAU ? "#ffd166" : "#e9edf6") : "rgba(233, 237, 246, 0.4)";
-    g.fillText(e ? String(e.punkte) : String(i + 1), x + kante / 2, y + kante + Math.max(2, schrift * 0.25));
+    g.fillText(e ? String(e.punkte) : weg ? "–" : String(i + 1), x + kante / 2, y + kante + Math.max(2, schrift * 0.25));
     g.restore();
   }
 
@@ -1564,6 +1600,10 @@
   function zeichneMappe() {
     const m = view.mappe;
     if (!m) return;
+    // Hat die Runde mehr als zehn Blätter (die Testrunde), zeigt die Mappe
+    // die zehn, zu denen das jetzige gehört.
+    const ab = Math.floor(Math.min(state.index, anzahl() - 1) / BLAETTER) * BLAETTER;
+    const zeichneBlaettchen = (i, ...rest) => { if (ab + i < anzahl()) blaettchen(ab + i, ...rest); };
     if (m.spalten === 10) {
       const luft = Math.max(3, m.w * 0.014);
       const schrift = clamp(m.w / 33, 9, 13);
@@ -1599,7 +1639,7 @@
     g.textBaseline = "top";
     g.font = `700 ${Math.round(11.5 * u)}px ${SANS}`;
     g.fillStyle = STUFEN_FARBE[a.stufe];
-    g.fillText(`BLATT ${state.index + 1}/${BLAETTER}  ·  ${STUFE[a.stufe].toUpperCase()}`, t.x, t.y);
+    g.fillText(`${TESTRUNDE ? "TEST" : "BLATT"} ${state.index + 1}/${anzahl()}  ·  ${STUFE[a.stufe].toUpperCase()}`, t.x, t.y);
     g.fillStyle = "#f4f1e8";
     g.font = `italic 700 ${Math.round(22 * u)}px ${SERIF}`;
     g.fillText(a.kurz, t.x, t.y + 16 * u);
@@ -1789,11 +1829,11 @@
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
-    state.blaetter = aufgabenFuer();
+    state.blaetter = TESTRUNDE ? testBlaetter() : aufgabenFuer();
     state.phase = "bereit";
     state.index = 0;
     state.punkte = 0;
-    state.liste = new Array(BLAETTER).fill(null);
+    state.liste = new Array(anzahl()).fill(null);
     state.wertung = null;
     state.genaue = 0;
     state.funken = [];
@@ -1804,7 +1844,9 @@
     shell.setCount(0);
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt fh-prompt", "Zeichne jede Form in einem Zug – so genau du kannst.");
+    const prompt = shell.el("p", "cm-prompt fh-prompt", TESTRUNDE
+      ? `Testrunde: alle ${anzahl()} Blätter nacheinander – nichts wird gespeichert.`
+      : "Zeichne jede Form in einem Zug – so genau du kannst.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -1840,6 +1882,7 @@
     state.zieht = null;
     kratzenAus();
     const punkte = state.punkte;
+    if (TESTRUNDE) { testEnde(punkte); return; }
     const geist = aufnahme?.ende() || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
@@ -1864,6 +1907,28 @@
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("fh-rekord");
+    zaehleHoch(punkte);
+  }
+
+  // Die Tafel der Testrunde: die Punkte, wie genau, was übersprungen wurde
+  // und welche Blätter schwach waren – ohne Bestenliste und Aufzeichnung.
+  function testEnde(punkte) {
+    const fertig = state.liste.map((e, i) => (e ? { ...e, kurz: state.blaetter[i].kurz } : null)).filter(Boolean);
+    const gezeichnet = fertig.filter((e) => e.strich);
+    const weg = fertig.filter((e) => e.uebersprungen).length;
+    const schwach = fertig.filter((e) => !e.uebersprungen && e.punkte < 50).map((e) => `${e.kurz} ${e.punkte}`);
+    shell.showResult({
+      label: "Testrunde",
+      points: punkte,
+      detail: [
+        gezeichnet.length ? `im Schnitt ${mittel(gezeichnet.map((e) => e.mm)).toFixed(1).replace(".", ",")} mm daneben` : "",
+        state.genaue ? `${state.genaue} haargenau` : "",
+        weg ? `${weg} übersprungen` : "",
+        schwach.length ? `unter 50: ${schwach.join(", ")}` : "",
+        "nichts gespeichert",
+      ].filter(Boolean).join(" · "),
+      eintragen: false,
+    });
     zaehleHoch(punkte);
   }
 
@@ -1895,7 +1960,9 @@
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "freeHand", fassung: "z1", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  // Die Testrunde wird nicht aufgezeichnet – und hat oben den Knopf «Überspringen».
+  if (TESTRUNDE) shell.ueberspringen(ueberspringe);
+  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -1958,5 +2025,6 @@
     BLATT, RAND, KNOTEN, GENAU, LEICHT, MITTEL, SCHWER, PLAN, BLAETTER, ZEITEN, EINZUG, SPERRE, VORSCHAU, STRICH_MIN, STRICH_PUNKTE, ZUG_MM, MASS, TUN,
     state, view, BAU, lege, aufgabenFuer, weltText, punkteFuer, messe, kreisFit, kreisWeg, abtasten, wegLaenge, naechster, teilPunkte,
     schreiberNeu, schreibe, schliesse, losGehts, blattLos, stiftAb, stiftZu, stiftAuf, weiter, takt, zeichnen,
+    testrunde: () => TESTRUNDE, ueberspringe,
   };
 })();

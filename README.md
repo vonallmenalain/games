@@ -702,6 +702,13 @@ Grösse und Lage, und sein Beispiel ist ein anderes –, und eine
 aufgezeichnete Runde zeigt beim Anschauen dieselben Blätter und dieselben
 Punkte.
 
+**Die Testrunde** (`/augenmass?alle`, im Adminbereich «▶ Alle Aufgaben»):
+alle 18 Arten nacheinander, die leichten zuerst – zum Ausprobieren, ohne
+Bestenliste und Aufzeichnung, mit dem Knopf «Überspringen». Die Kästchen und
+die Stückliste zeigen die zehn, zu denen das jetzige Blatt gehört; die
+Tafel nennt, welche Blätter unter fünf Punkten blieben. Wie sie gebaut ist,
+steht bei Kopfkino.
+
 ### Feuerseil (November 2026)
 
 Das erste von drei Spielen nach alten Partyspielen – hier das brennende
@@ -932,6 +939,11 @@ Stempelkarte liegt auf fünf Bildgrössen neben oder unter der Uhr, ganz im
 Bild und nie auf ihr; und eine aufgezeichnete Runde zeigt beim Anschauen
 dieselben Aufgaben und dieselben Punkte.
 
+**Die Testrunde** von Zeitgefühl (`/zeitgefuehl?alle`, im Adminbereich
+«▶ Alle Aufgaben»): jede Art einmal, Zeitlupe und Zeitraffer, Doppelt und
+Halb je für sich – zwölf Aufgaben, ohne Bestenliste und Aufzeichnung, mit
+dem Knopf «Überspringen». Wie sie gebaut ist, steht bei Kopfkino.
+
 ### Kletterwand (November 2026)
 
 **Kletterwand** (`kletterwand.js`, `speedClimb`) – Speedklettern an einem
@@ -1097,6 +1109,12 @@ wie er dasteht; mit der Maus entsteht der Strich unter dem Zeiger; eine
 Runde in echter Zeit wird hinterlegt und angeschaut – dieselben Blätter,
 dieselben Punkte je Blatt.
 
+**Die Testrunde** von Freihand (`/freihand?alle`, im Adminbereich
+«▶ Alle Aufgaben»): alle 17 Arten nacheinander, die leichten zuerst – ohne
+Bestenliste und Aufzeichnung, mit dem Knopf «Überspringen». Die Mappe zeigt
+die zehn, zu denen das jetzige Blatt gehört. Wie sie gebaut ist, steht bei
+Kopfkino.
+
 ### Kopfkino (November 2026)
 
 **Kopfkino** (`kopfkino.js`, `mindsEye`) – Das vierte Geschwister nach
@@ -1206,7 +1224,14 @@ nicht aufgezeichnet, und ihre Tafel nennt statt eines Rekords, welche
 Aufgaben daneben gingen (`testEnde`, `showResult` mit `eintragen: false`).
 `?alle=laser,zahnrad` nimmt nur diese Arten. Der Filmstreifen zeigt die
 zehn, zu denen die aktuelle Aufgabe gehört. Im Turnier, im Live-Modus und
-beim Zuschauen gibt es sie nicht.
+beim Zuschauen gibt es sie nicht. Oben links steht in der Testrunde der
+Knopf **«Überspringen»** (game-shell.js, `ueberspringen`; auch die Taste N):
+Er führt zur Vorschau der nächsten Aufgabe, ohne die jetzige zu lösen, und
+nach der letzten zur Tafel; im Streifen steht dann «–». Dieselbe Testrunde
+haben Freihand (17 Blätter), Zeitgefühl (12 Aufgaben – Zeitlupe und
+Zeitraffer, Doppelt und Halb je für sich) und Augenmass (18 Blätter), je
+mit `?alle` und dem Knopf «▶ Alle Aufgaben» im Adminbereich. Die Prüfung
+dazu (in 4g40) klickt sich in allen vier mit «Überspringen» bis zur Tafel.
 
 **Das Bild** ist Canvas 2D mit einer kleinen Welt in drei Richtungen
 (`sicht`, `buehne`, `male3d`): eine Kamera ohne Fluchtpunkt, die sich drehen

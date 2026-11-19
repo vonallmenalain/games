@@ -866,6 +866,29 @@
   }
 
   /*
+   * Die Testrunde (?alle in der Adresse; im Adminbereich «▶ Alle Aufgaben»):
+   * jede Art einmal, die leichten zuerst, dann die mittleren, dann die
+   * schweren – achtzehn Blätter. Zum Ausprobieren: Sie geht in keine
+   * Bestenliste und wird nicht aufgezeichnet; oben steht der Knopf
+   * «Überspringen». ?alle=tunnel,rad nimmt nur diese Arten. Im Turnier, im
+   * Live-Modus und beim Zuschauen gibt es sie nicht.
+   */
+  const TESTRUNDE = (() => {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has("alle") || p.has("turnier") || p.has("live") || p.has("zuschauen") || zufall.fest) return null;
+    const alle = [...LEICHT, ...MITTEL, ...SCHWER];
+    const wunsch = String(p.get("alle") || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+    const arten = alle.filter((art) => wunsch.includes(art));
+    return arten.length ? arten : alle;
+  })();
+  function testBlaetter() {
+    const stufe = (art) => (LEICHT.includes(art) ? 0 : MITTEL.includes(art) ? 1 : 2);
+    const blaetter = TESTRUNDE.map((art, nr) => ({ ...BAU[art](), nr, zeit: ZEITEN[stufe(art)] }));
+    blaetter.forEach((a) => { a.beispiel = beispielFuer(a); });
+    return blaetter;
+  }
+
+  /*
    * Das Beispiel der Vorschau ist eine andere Aufgabe derselben Art – und
    * eine sichtlich andere. Seine Lösung liegt nirgends dort, wo die des
    * Blattes liegt: nicht auf dem Blatt gedacht und nicht dort, wo sie im
@@ -1048,6 +1071,8 @@
   const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, s: 3, x0: 0, y0: 0, seite: 300, hoch: false, guete: 1, u: 1, mitKnopf: false, knopf: null, knopfOrt: "" };
 
   const blatt = () => state.blaetter?.[state.index] || null;
+  // Wie viele Blätter die Runde hat: zehn – in der Testrunde alle.
+  const anzahl = () => state.blaetter?.length || BLAETTER;
   // Wie lange das Blatt schon daliegt, in Sekunden.
   const seit = (jetzt = performance.now()) => (jetzt - state.t0) / 1000;
   // Wie lange die Kugel im Tunnel schon rollt – negativ, solange sie wartet.
@@ -1178,7 +1203,7 @@
     state.imTunnel = false;
     state.los = 0;
     const a = blatt();
-    if (status) status.textContent = `Blatt ${index + 1} von ${BLAETTER}: ${a.kurz}. ${TUN[a.art] || a.frage} Tippe, wenn du bereit bist.`;
+    if (status) status.textContent = `Blatt ${index + 1} von ${anzahl()}: ${a.kurz}. ${TUN[a.art] || a.frage} Tippe, wenn du bereit bist.`;
     ton("augenmass.blatt");
     meldeZug(0, true);
   }
@@ -1190,7 +1215,7 @@
     state.phase = "aufgabe";
     state.t0 = performance.now();
     const a = blatt();
-    if (status) status.textContent = `Blatt ${state.index + 1} von ${BLAETTER}: ${a.frage}`;
+    if (status) status.textContent = `Blatt ${state.index + 1} von ${anzahl()}: ${a.frage}`;
     ton("augenmass.setzen");
     meldeZug(0);
     // Mit dem Finger liegt das Fadenkreuz schon da und wartet aufs Ziehen.
@@ -1259,7 +1284,19 @@
   function weiter() {
     if (state.phase !== "zeigen") return;
     clearStep();
-    if (state.index + 1 >= BLAETTER) finish();
+    if (state.index + 1 >= anzahl()) finish();
+    else blattAuf(state.index + 1);
+  }
+
+  // Überspringen (nur in der Testrunde): zur Vorschau des nächsten Blattes,
+  // ohne das jetzige zu lösen – nach dem letzten zur Tafel.
+  function ueberspringe() {
+    if (!TESTRUNDE || zuschauer) return;
+    if (state.phase === "bereit") { losGehts(); return; }
+    if (state.phase !== "vorschau" && state.phase !== "aufgabe" && state.phase !== "zeigen") return;
+    clearStep();
+    if (!state.liste[state.index]) state.liste[state.index] = { mm: null, punkte: 0, uebersprungen: true };
+    if (state.index + 1 >= anzahl()) finish();
     else blattAuf(state.index + 1);
   }
 
@@ -2658,7 +2695,7 @@
       g.globalAlpha = 0.55 * da;
       g.fillStyle = "#cfe3ff";
       g.font = `700 ${Math.round(10.5 * u)}px ${MONO}`;
-      g.fillText(`BLATT ${String(state.index + 1).padStart(2, "0")} / ${BLAETTER}${vor && a.art !== "tunnel" ? ` · ${a.zeit} SEKUNDEN` : ""}`, fx, view.flach ? mitte - (zeilen.length / 2) * abstand - 16 * u : view.y0 - 63 * u);
+      g.fillText(`${TESTRUNDE ? "TEST" : "BLATT"} ${String(state.index + 1).padStart(2, "0")} / ${anzahl()}${vor && a.art !== "tunnel" ? ` · ${a.zeit} SEKUNDEN` : ""}`, fx, view.flach ? mitte - (zeilen.length / 2) * abstand - 16 * u : view.y0 - 63 * u);
       g.globalAlpha = 1;
 
       // Die Uhr des Blattes: ein Strich, der kürzer wird. Im Tunnel gibt es
@@ -2681,15 +2718,21 @@
     }
 
     // Die zehn Kästchen: was jedes Blatt gebracht hat.
+    // Hat die Runde mehr als zehn Blätter (die Testrunde), stehen hier – und
+    // in der Stückliste – die zehn, zu denen das jetzige gehört.
+    const ab = Math.floor(Math.min(state.index, anzahl() - 1) / BLAETTER) * BLAETTER;
     const luecke = Math.round(5 * u);
     const kante = Math.min(Math.round(31 * u), Math.floor((breit - 9 * luecke) / BLAETTER));
     const kx = links + (breit - (BLAETTER * kante + (BLAETTER - 1) * luecke)) / 2;
     const ky = view.y0 + view.seite + Math.round(13 * u);
     g.textAlign = "center";
     g.font = `800 ${Math.round(kante * 0.5)}px system-ui, sans-serif`;
-    for (let i = 0; i < BLAETTER; i += 1) {
-      const eintrag = state.liste[i];
-      const x = kx + i * (kante + luecke);
+    for (let k = 0; k < BLAETTER && ab + k < anzahl(); k += 1) {
+      const i = ab + k;
+      // Übersprungen (Testrunde): wie offen, mit einem Strich.
+      const weg = state.liste[i]?.uebersprungen;
+      const eintrag = weg ? null : state.liste[i];
+      const x = kx + k * (kante + luecke);
       const dran = laeuft && i === state.index;
       rundesFeld(x, ky, kante, kante, 5 * u);
       if (eintrag) {
@@ -2707,6 +2750,7 @@
         g.strokeStyle = dran ? "rgba(255, 255, 255, 0.9)" : "rgba(200, 225, 255, 0.28)";
         g.lineWidth = dran ? 1.8 : 1;
         g.stroke();
+        if (weg && !dran) { g.fillStyle = "rgba(200, 225, 255, 0.55)"; g.fillText("–", x + kante / 2, ky + kante / 2 + 0.5); }
         if (dran) {
           g.fillStyle = "rgba(255, 255, 255, 0.85)";
           g.beginPath();
@@ -2718,7 +2762,7 @@
 
     // Das Schriftfeld – wie unten rechts auf jedem Plan. Neben dem Blatt,
     // wo Platz ist, sonst als Zeile darunter.
-    const nr = String(Math.min(BLAETTER, state.index + 1)).padStart(2, "0");
+    const nr = String(Math.min(anzahl(), state.index + 1)).padStart(2, "0");
     const rechts = view.cssW - (links + breit);
     g.fillStyle = "rgba(205, 228, 255, 0.5)";
     g.strokeStyle = "rgba(190, 220, 255, 0.3)";
@@ -2749,7 +2793,7 @@
       g.fillText("TOLERANZ", x + w * 0.5 + 10, y + 77);
       g.font = `700 13px ${MONO}`;
       g.fillStyle = "rgba(225, 240, 255, 0.8)";
-      g.fillText(`${nr} / ${BLAETTER}`, x + 10, y + 55);
+      g.fillText(`${nr} / ${anzahl()}`, x + 10, y + 55);
       g.fillText("1 : 1", x + w * 0.5 + 10, y + 55);
       g.fillText(String(state.punkte).padStart(3, "0"), x + 10, y + 91);
       g.fillText(`± ${GRENZEN[0].toFixed(1).replace(".", ",")} mm`, x + w * 0.5 + 10, y + 91);
@@ -2757,7 +2801,7 @@
       g.textAlign = "center";
       g.font = `600 ${Math.round(9.5 * u)}px ${MONO}`;
       g.globalAlpha = 0.8;
-      g.fillText(`AUGENMASS · BLATT ${nr}/${BLAETTER} · M 1:1 · ± ${GRENZEN[0].toFixed(1).replace(".", ",")} MM`, links + breit / 2, view.cssH - 22 * u);
+      g.fillText(`AUGENMASS · ${TESTRUNDE ? "TEST" : "BLATT"} ${nr}/${anzahl()} · M 1:1 · ± ${GRENZEN[0].toFixed(1).replace(".", ",")} MM`, links + breit / 2, view.cssH - 22 * u);
       g.globalAlpha = 1;
     }
     zeichneSchieber();
@@ -2781,18 +2825,19 @@
       g.stroke();
       y += 9 + zeile * 0.7;
       g.font = `600 12px ${MONO}`;
-      for (let i = 0; i < BLAETTER; i += 1) {
+      for (let k = 0; k < BLAETTER && ab + k < anzahl(); k += 1) {
+        const i = ab + k;
         const eintrag = state.liste[i];
         const dran = i === state.index;
-        const farbe = eintrag ? FARBE[WIE[eintrag.punkte]] : dran ? "#ffffff" : "rgba(205, 228, 255, 0.35)";
+        const farbe = eintrag?.uebersprungen ? "rgba(205, 228, 255, 0.55)" : eintrag ? FARBE[WIE[eintrag.punkte]] : dran ? "#ffffff" : "rgba(205, 228, 255, 0.35)";
         g.fillStyle = farbe;
         g.textAlign = "left";
         const name = eintrag || dran ? state.blaetter[i].kurz : "· · ·";
-        g.fillText(`${String(i + 1).padStart(2, "0")}  ${name}`, x, y + i * zeile);
+        g.fillText(`${String(i + 1).padStart(2, "0")}  ${name}`, x, y + k * zeile);
         if (eintrag) {
           g.textAlign = "right";
           const mm = Number.isFinite(eintrag.mm) ? eintrag.mm.toFixed(1) : "–";
-          g.fillText(`${mm}   ${String(eintrag.punkte).padStart(2, " ")}`, x + w, y + i * zeile);
+          g.fillText(`${mm}   ${eintrag.uebersprungen ? " –" : String(eintrag.punkte).padStart(2, " ")}`, x + w, y + k * zeile);
         }
       }
     }
@@ -3010,11 +3055,11 @@
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
-    state.blaetter = aufgabenFuer();
+    state.blaetter = TESTRUNDE ? testBlaetter() : aufgabenFuer();
     state.phase = "bereit";
     state.index = 0;
     state.punkte = 0;
-    state.liste = new Array(BLAETTER).fill(null);
+    state.liste = new Array(anzahl()).fill(null);
     state.zeiger = null;
     state.griff = null;
     state.wink = 0;
@@ -3028,7 +3073,9 @@
     shell.setCount(0);
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt am-prompt", "Zehn Blätter, kein Lineal. Tippe, um zu beginnen.");
+    const prompt = shell.el("p", "cm-prompt am-prompt", TESTRUNDE
+      ? `Testrunde: alle ${anzahl()} Blätter nacheinander – nichts wird gespeichert.`
+      : "Zehn Blätter, kein Lineal. Tippe, um zu beginnen.");
     status = shell.el("p", "am-status");
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
@@ -3070,6 +3117,7 @@
     knopfTakt();
     zeichnen();
     const punkte = state.punkte;
+    if (TESTRUNDE) { testEnde(punkte); return; }
     const geist = aufnahme?.ende() || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
@@ -3095,6 +3143,30 @@
     zaehleHoch(punkte);
   }
 
+  // Die Tafel der Testrunde: die Punkte, wie genau, was übersprungen wurde
+  // und welche Blätter schwach waren – ohne Bestenliste und Aufzeichnung.
+  function testEnde(punkte) {
+    const fertig = state.liste.map((e, i) => (e ? { ...e, kurz: state.blaetter[i].kurz } : null)).filter(Boolean);
+    const gemessen = fertig.filter((e) => Number.isFinite(e.mm));
+    const schnitt = gemessen.length ? gemessen.reduce((summe, e) => summe + e.mm, 0) / gemessen.length : 0;
+    const genau = fertig.filter((e) => e.punkte === PUNKTE_JE_BLATT).length;
+    const weg = fertig.filter((e) => e.uebersprungen).length;
+    const schwach = fertig.filter((e) => !e.uebersprungen && e.punkte < PUNKTE_JE_BLATT / 2).map((e) => `${e.kurz} ${e.punkte}`);
+    shell.showResult({
+      label: "Testrunde",
+      points: punkte,
+      detail: [
+        genau ? `${genau}× genau` : "",
+        gemessen.length ? `im Schnitt ${schnitt.toFixed(1).replace(".", ",")} mm daneben` : "",
+        weg ? `${weg} übersprungen` : "",
+        schwach.length ? `unter ${PUNKTE_JE_BLATT / 2}: ${schwach.join(", ")}` : "",
+        "nichts gespeichert",
+      ].filter(Boolean).join(" · "),
+      eintragen: false,
+    });
+    zaehleHoch(punkte);
+  }
+
   // ---------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------
@@ -3111,7 +3183,9 @@
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "eyeMeasure", fassung: "z3", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z3", zufall }) || null;
+  // Die Testrunde wird nicht aufgezeichnet – und hat oben den Knopf «Überspringen».
+  if (TESTRUNDE) shell.ueberspringen(ueberspringe);
+  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z3", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -3260,6 +3334,7 @@
     VORSCHAU, VOR_ZAEHLT, VOR_SPERRE, TUNNEL_START, TUN, SCHLUPF, HAFT, BEISPIEL_KASTEN, BEISPIEL_FERN, startOrt, bestaetige, haften, schiebe, eingerastet,
     state, view, blatt, seit, aufgabenFuer, weltText, punkteFuer, daneben, aufBahn, kugelWeg, tunnelZeit, tunnelOrt, tunnelEnde,
     losGehts, blattLos, antworte, weiter, setzeZeiger, tippTunnel, zeichnen, BAU,
+    testrunde: () => TESTRUNDE, ueberspringe,
     // Wo eine Stelle des Blattes auf dem Bildschirm liegt.
     imBild: (ort) => {
       const r = canvas.getBoundingClientRect();
