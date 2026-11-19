@@ -231,7 +231,7 @@
     speedClimb: { fassung: "z1" },
     freeHand: { fassung: "z1" },
     mindsEye: { fassung: "z3" },
-    iceStock: { fassung: "z2" },
+    iceStock: { fassung: "z3" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.

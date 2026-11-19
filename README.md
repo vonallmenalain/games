@@ -1308,18 +1308,33 @@ liegen bleiben; gemessen wird auf den Zentimeter.
 
 **Der Schub** ist eine Schleuder: irgendwo aufsetzen, zurückziehen,
 loslassen (`zielBeginn`, `zielZu`, `zielEnde`). Die Richtung des Zugs ist die
-Richtung des Schubs, seine Länge die Kraft – gut drei Fünftel der Bahn
-weit für die volle (`view.zug`). Um den Stock zeigt ein Bogen mit zehn Strichen die
-Kraft, ein kurzer Pfeil die Richtung; den Weg zeigt nichts. Ein Zug unter
-`KRAFT_MIN` gilt nicht. Mit der Tastatur: Pfeile drehen und spannen, die
-Leertaste schiebt.
+Richtung des Schubs, seine Länge die Kraft. Für die volle reicht ein kurzes
+Stück (`view.zug`: gut ein Drittel der kürzeren Bildseite, 110 bis 220
+Bildpunkte – am Handy gut zwei Zentimeter), so geht es auch nahe am
+Bildrand ganz auf. Bis 80 % des Zugs wächst die Kraft gleichmässig bis 0,7
+– das reicht für jede Bahn –, auf dem letzten Stück schnell bis zur vollen
+(`kraftAus`, `KNIE_ZUG`, `KNIE_KRAFT`). Damit sich die Kraft trotz des
+kurzen Wegs fein stellen lässt, gibt es den **Feinzug**: Wer den Finger
+langsam bewegt, spannt nur zu 30 % (`FEIN`, unter `FEIN_LANGSAM` Bildpunkten
+je Sekunde; ab `FEIN_SCHNELL` zählt jeder ganz). Beim Loslassen gilt, wie
+zuletzt gezogen war, nicht das Zucken beim Abheben. Um den Stock zeigt ein
+Bogen mit zehn Strichen die Kraft, ein kurzer Pfeil die Richtung; den Weg
+zeigt nichts. Ein Zug unter `KRAFT_MIN` gilt nicht.
+
+**Abbrechen** (`zielAbbrechen`): Während gezogen wird, zeigt ein Ring mit
+einem ✕, wo der Finger aufsetzte. Zurück in den Ring, und er wird rot
+(«loslassen = abbrechen») – Loslassen schiebt dann nicht. Auch ein zweiter
+Finger, die rechte Maustaste oder Escape brechen ab. Kurz steht
+«Abgebrochen» beim Stock, und es lässt sich neu ziehen. Mit der Tastatur:
+Pfeile drehen und spannen, die Leertaste schiebt.
 
 **Das Eis** (`schritt`) rechnet in festen Schritten, 240 je Sekunde, nur
 aus Winkel und Kraft (auf Zehntausendstel gerundet, `zugVon`): Derselbe
 Schub endet immer am selben Ort. Die Kraft ist das Tempo – halbe Kraft ist
-ein Viertel des Wegs, volle trägt `WEIT` = 21 Meter, gut zweimal die Bahn
-(genug für zwei Banden und eine Kurve). Es gibt nur ein Eis, überall gleich
-glatt (`BREMSE`): Man soll sich an es gewöhnen können. Bande und Balken
+ein Viertel des Wegs, volle trägt `WEIT` = 42 Meter: Voll aufgezogen
+schiesst der Stock mit gut 14 m/s los (`TEMPO`) und kracht von Bande zu
+Bande. Es gibt nur ein Eis, überall gleich glatt (`BREMSE` = 2,5 m/s²): Man
+soll sich an es gewöhnen können. Bande und Balken
 werfen den Stock zurück und nehmen ihm ein Fünftel des Tempos quer zur
 Bande; die gebogene Bande (`kurven`, ein Kreisbogen) federt kaum
 (`PRALL_KURVE`) – wer sie schräg trifft, schmiegt sich an und gleitet an ihr
@@ -1340,10 +1355,10 @@ entlang. Zwei Stöcke stossen sich wie Kugeln.
   liegt hinter einem Balken und will über die Bande getroffen sein).
 
 Jede Runde hat jede Art einmal: die zwei leichten, die vier mittleren, die
-vier schweren (`PLAN`, `bahnenFuer`). Alle Bahnen ausser den leichten sind
-von der Lösung her gebaut, so gibt es immer einen Schub mitten ins Ziel (er
-steht als `tipp` dabei). **Über die Bande** rechnet den Weg über die
-Seitenbande vor (`ueberBande`). Die schweren und die Kurve kommen aus einem
+vier schweren (`PLAN`, `bahnenFuer`). Jede Bahn hat einen Schub mitten ins
+Ziel (er steht als `tipp` dabei): bei den leichten und der Gasse der gerade,
+bei **Über die Bande** der vorgerechnete Weg über die Seitenbande
+(`ueberBande`). Anstossen, die Kurve und die schweren kommen aus einem
 Probeschuss (`ausProbe`, `probeschuss`): erst die Geometrie (Balken,
 Kurven, Stöcke), dann ein Schub, der zu ihr passt – und wo der Stock, der
 zählt, liegen bleibt, ist das Ziel. Verlangt wird, was die Art ausmacht

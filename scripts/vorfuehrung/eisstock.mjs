@@ -29,7 +29,7 @@ export default {
       if (!plan) {
         // Der beste Schub – und wie der Finger dafür zieht (Bildpunkte).
         const best = E.loese(st.bahnen[st.index], 3);
-        const lang = best.kraft * E.view.zug;
+        const lang = E.zugLaenge(best.kraft);
         const hin = E.view.quer ? [Math.cos(best.winkel), Math.sin(best.winkel)] : [Math.sin(best.winkel), -Math.cos(best.winkel)];
         const eis = E.view.eis;
         const von = [eis.x + eis.w * 0.5, eis.y + eis.h * 0.5];

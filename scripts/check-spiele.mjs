@@ -10890,11 +10890,14 @@ try {
           meter: E.abstandVon(welt),
         };
       };
+      // Der gerade Schub mit der Kraft, die es dorthin bräuchte (ein wenig
+      // mehr oder weniger) – nicht mit voller, die über alle Banden kracht.
       const gerade = (bahn) => {
         const z = bahn.stoecke.find((x) => x.gold) || bahn.ziel;
         const w = Math.atan2(z.x - bahn.start.x, z.y - bahn.start.y);
+        const d = Math.hypot(z.x - bahn.start.x, z.y - bahn.start.y);
         let best = 0;
-        for (let k = 0.2; k <= 1; k += 0.01) best = Math.max(best, E.simuliere(bahn, w, k).punkte);
+        for (let k = E.kraftFuer(d * 0.6); k <= E.kraftFuer(d * 1.6); k += 0.005) best = Math.max(best, E.simuliere(bahn, w, k).punkte);
         return best;
       };
       raus.schwer = {};
@@ -10912,15 +10915,21 @@ try {
         const s = e.welt.stoecke;
         return { x: s[0].x, y: s[0].y, weit: Math.hypot(s[0].x - bahn.start.x, s[0].y - bahn.start.y), meter: e.meter, andere: s.slice(1).map((o) => ({ x: o.x, y: o.y })) };
       };
-      raus.weit = [0.25, 0.4, 0.55].map((k) => ende(leer(), 0, k).weit);
-      raus.soll = [0.25, 0.4, 0.55].map((k) => k * k * E.WEIT);
-      raus.bande = ende(leer(), Math.PI / 4, 0.6);
-      raus.balken = ende(leer({ balken: [{ x0: 2, y0: 4, x1: 4, y1: 4.28 }] }), 0, 0.5);
+      raus.weit = [0.18, 0.28, 0.4].map((k) => ende(leer(), 0, k).weit);
+      raus.soll = [0.18, 0.28, 0.4].map((k) => k * k * E.WEIT);
+      raus.bande = ende(leer(), Math.PI / 4, E.kraftFuer(7.56));
+      raus.balken = ende(leer({ balken: [{ x0: 2, y0: 4, x1: 4, y1: 4.28 }] }), 0, E.kraftFuer(5.25));
       // Eine gebogene Bande oben: Hinauf an der rechten Seite, durch den Bogen,
       // und auf der linken Seite wieder hinunter.
-      raus.kurve = ende(leer({ start: { x: 4.95, y: E.START_Y }, kurven: [{ x: 3, y: 6, r: 2.35, von: 0, bis: Math.PI }] }), 0, 0.85);
+      raus.kurve = ende(leer({ start: { x: 4.95, y: E.START_Y }, kurven: [{ x: 3, y: 6, r: 2.35, von: 0, bis: Math.PI }] }), 0, E.kraftFuer(15.2));
       const stoss = leer({ stoecke: [{ x: 3, y: 4, gold: true }] });
-      raus.stoss = ende(stoss, 0, 0.5);
+      raus.stoss = ende(stoss, 0, E.kraftFuer(5.25));
+      // Voll aufgezogen: gut 14 Meter je Sekunde – doppelt so schnell wie
+      // zuvor (7,25). Und der Zug des Fingers: bis 80 % gleichmässig bis zur
+      // Kraft 0,7, dann schnell bis zur vollen.
+      raus.tempo = E.TEMPO;
+      raus.kurveZug = [0, 0.4, 0.8, 0.9, 1, 1.5].map((u) => Math.round(E.kraftAus(u) * 1000) / 1000);
+      raus.zurueck = [0.1, 0.5, 0.7, 0.85, 1].every((k) => Math.abs(E.kraftAus(E.zugAus(k)) - k) < 1e-9);
       raus.stossSoll = Math.round(Math.hypot(raus.stoss.andere[0].x - 3, raus.stoss.andere[0].y - 7) * 1000) / 1000;
       raus.punkte = [0, 0.03, 0.1, 0.4, 1.1, 2.3, 4].map((m) => E.punkteFuer(m));
       raus.faellt = true;
@@ -10943,8 +10952,9 @@ try {
     }
     pruefe(Object.keys(bau.schlecht).length === 0 && bau.ungleich === 0 && bau.dauer > 1.5 && bau.dauer < 8,
       `Eisstock: Nicht jede Bahn hat einen Schub mitten ins Ziel, oder derselbe Schub endet nicht am selben Ort: ${JSON.stringify({ schlecht: bau.schlecht, ungleich: bau.ungleich, dauer: bau.dauer })}`);
-    pruefe(bau.weit.every((w, i) => Math.abs(w - bau.soll[i]) < 0.04) && bau.voll === 21,
-      `Eisstock: Halbe Kraft ist nicht ein Viertel des Wegs, oder volle Kraft trägt nicht 21 Meter weit: ${JSON.stringify({ weit: bau.weit, soll: bau.soll })}`);
+    pruefe(bau.weit.every((w, i) => Math.abs(w - bau.soll[i]) < 0.04) && bau.voll === 42 && bau.tempo > 14.4 && bau.tempo < 14.6
+      && JSON.stringify(bau.kurveZug) === JSON.stringify([0, 0.35, 0.7, 0.85, 1, 1]) && bau.zurueck,
+      `Eisstock: Halbe Kraft ist nicht ein Viertel des Wegs, volle Kraft nicht doppelt so schnell wie zuvor (42 Meter), oder der Zug des Fingers wird nicht so zur Kraft: ${JSON.stringify({ weit: bau.weit, soll: bau.soll, tempo: bau.tempo, kurveZug: bau.kurveZug, zurueck: bau.zurueck })}`);
     pruefe(bau.bande.x < 5.2 && bau.bande.x > 0.3 && bau.bande.y > 4.3 && bau.balken.y < 3.71 && bau.kurve.x < 2 && bau.kurve.y < 6,
       `Eisstock: Die Bande oder der Balken wirft den Stock nicht zurück, oder er gleitet nicht durch die gebogene Bande: ${JSON.stringify({ bande: bau.bande, balken: bau.balken, kurve: bau.kurve })}`);
     pruefe(bau.stoss.andere[0].y > 4.6 && bau.stoss.y < bau.stoss.andere[0].y - 0.6 && bau.stoss.y < 4 && bau.stoss.meter === bau.stossSoll,
@@ -10965,7 +10975,7 @@ try {
       const my = E.view.eis.y + E.view.eis.h / 2;
       // Ein Zug in Bildpunkten: vom Schub weg gezogen.
       const zieh = (winkel, kraft) => {
-        const lang = kraft * E.view.zug;
+        const lang = E.zugLaenge(kraft);
         const hin = E.view.quer ? [Math.cos(winkel), Math.sin(winkel)] : [Math.sin(winkel), -Math.cos(winkel)];
         E.zielZu(mx - hin[0] * lang, my - hin[1] * lang);
       };
@@ -10980,9 +10990,9 @@ try {
       // Gerade zurückgezogen heisst geradeaus, schräg heisst schräg – und die Länge ist die Kraft.
       raus.zielt = E.zielBeginn(mx, my, 1);
       E.zielZu(mx, my + E.view.zug * 0.5);
-      raus.gerade = { winkel: st.zielen.winkel, kraft: st.zielen.kraft };
+      raus.gerade = { winkel: st.zielen.winkel, kraft: st.zielen.kraft, soll: E.zugZu(E.zugVon(0, E.kraftAus(0.5))).kraft };
       E.zielZu(mx - 60, my + 60);
-      raus.schraeg = { winkel: st.zielen.winkel, kraft: st.zielen.kraft, soll: Math.round((Math.hypot(60, 60) / E.view.zug) * 10000) / 10000 };
+      raus.schraeg = { winkel: st.zielen.winkel, kraft: st.zielen.kraft, soll: E.zugZu(E.zugVon(0, E.kraftAus(Math.hypot(60, 60) / E.view.zug))).kraft };
       E.zielZu(mx, my + E.view.zug * 3);
       raus.voll = st.zielen.kraft;
       // Ein Zug, der kaum einer ist, gilt nicht.
@@ -11045,7 +11055,7 @@ try {
     });
     pruefe(runde.vorher === "bereit" && !runde.quer && runde.vorschau.phase === "vorschau" && runde.vorschau.zielt === false && runde.sperre.phase === "aufgabe" && runde.sperre.zielt === false && runde.zielt === true,
       `Eisstock: In der Vorschau oder gleich nach dem Hinlegen lässt sich schon zielen: ${JSON.stringify({ vorher: runde.vorher, vorschau: runde.vorschau, sperre: runde.sperre, zielt: runde.zielt })}`);
-    pruefe(runde.gerade.winkel === 0 && runde.gerade.kraft === 0.5 && Math.abs(runde.schraeg.winkel - Math.PI / 4) < 0.0001 && runde.schraeg.kraft === runde.schraeg.soll && runde.voll === 1,
+    pruefe(runde.gerade.winkel === 0 && runde.gerade.kraft === runde.gerade.soll && runde.gerade.soll === 0.4375 && Math.abs(runde.schraeg.winkel - Math.PI / 4) < 0.0001 && runde.schraeg.kraft === runde.schraeg.soll && runde.voll === 1,
       `Eisstock: Aus dem Zug des Fingers werden nicht Richtung und Kraft: ${JSON.stringify({ gerade: runde.gerade, schraeg: runde.schraeg, voll: runde.voll })}`);
     pruefe(runde.kaum.phase === "aufgabe" && runde.kaum.punkte === null && runde.kaum.zielen === null,
       `Eisstock: Ein Zug, der kaum einer ist, gilt als Schub: ${JSON.stringify(runde.kaum)}`);
@@ -11090,8 +11100,9 @@ try {
       await zur("aufgabe");
       await seite.waitForTimeout(900);
       const vorher = await seite.evaluate(() => { const E = window.LernappEisstock; const s = E.state.welt.stoecke[0]; return E.imBild(s.x, s.y); });
-      // Vom Schub weg gezogen: hochkant nach unten, quer nach links.
-      const lang = Math.round(ort.zug * 0.55);
+      // Vom Schub weg gezogen: hochkant nach unten, quer nach links – zügig,
+      // so zählt jeder Bildpunkt ganz.
+      const lang = Math.round(ort.zug * 0.4);
       const bis = ort.quer ? { x: ort.x - lang, y: ort.y } : { x: ort.x, y: ort.y + lang };
       await seite.mouse.move(ort.x, ort.y);
       await seite.mouse.down();
@@ -11104,13 +11115,90 @@ try {
         const s = E.state.welt.stoecke[0];
         return { phase: E.state.phase, schub: E.state.schub, ort: E.imBild(s.x, s.y), eintrag: E.state.liste[0] };
       });
-      const soll = Math.round((lang / ort.zug) * 10000) / 10000;
+      const soll = await seite.evaluate((u) => { const E = window.LernappEisstock; return E.zugZu(E.zugVon(0, E.kraftAus(u))).kraft; }, lang / ort.zug);
       const gefahren = ort.quer ? danach.ort[0] - vorher[0] : vorher[1] - danach.ort[1];
-      pruefe(ort.quer === (was === "quer") && gespannt && Math.abs(gespannt.winkel) < 0.0001 && gespannt.kraft === soll && danach.phase === "zeigen" && danach.schub?.kraft === soll
+      // (Ganz genau muss die Kraft nicht stimmen: Wo die Maus zwischen zwei
+      // Schritten zögert, zählt der Feinzug nur einen Teil.)
+      pruefe(ort.quer === (was === "quer") && gespannt && Math.abs(gespannt.winkel) < 0.0001 && Math.abs(gespannt.kraft - soll) < 0.01 && gespannt.kraft <= soll && danach.phase === "zeigen" && danach.schub?.kraft === gespannt.kraft
         && gefahren > 60 && danach.eintrag && danach.eintrag.meter !== null,
         `Eisstock (${was}): Der Stock lässt sich nicht mit dem Zeiger spannen und schieben: ${JSON.stringify({ ort, gespannt, danach, soll, gefahren })}`);
       await kontext.close();
     }
+  }
+  {
+    // Abbrechen und Feinzug. Zurück, wo der Finger aufsetzte, und loslassen:
+    // nichts geschieht, und der nächste Zug gilt. Escape bricht ab, ein
+    // zweiter Finger auch. Und wer langsam zieht, spannt nur zum Teil.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/eisstock`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEisstock?.state?.bahnen && window.LernappEisstock.view.cssW > 0, null, { timeout: 8000 });
+    const ort = await seite.evaluate(() => {
+      const E = window.LernappEisstock;
+      E.state.bahnen[0] = E.lege("gerade", Math.random);
+      const r = document.querySelector("#es-stage canvas").getBoundingClientRect();
+      const e = E.view.eis;
+      return { x: r.left + e.x + e.w / 2, y: r.top + e.y + e.h * 0.35, zug: E.view.zug };
+    });
+    const zur = async (phase) => { await seite.mouse.click(ort.x, ort.y); await seite.waitForFunction((p) => window.LernappEisstock.state.phase === p, phase, { timeout: 5000 }).catch(() => {}); };
+    await zur("vorschau");
+    await seite.waitForTimeout(450);
+    await zur("aufgabe");
+    await seite.waitForTimeout(900);
+    const lage = () => seite.evaluate(() => { const st = window.LernappEisstock.state; return { phase: st.phase, zielen: st.zielen ? { kraft: st.zielen.kraft, abbruch: Boolean(st.zielen.abbruch) } : null, schub: st.schub, ab: performance.now() - st.abgebrochen < 3000 }; });
+    // Hin und zurück, dann loslassen.
+    await seite.mouse.move(ort.x, ort.y);
+    await seite.mouse.down();
+    await seite.mouse.move(ort.x, ort.y + ort.zug * 0.6, { steps: 6 });
+    const gespannt = await lage();
+    await seite.mouse.move(ort.x, ort.y + 4, { steps: 6 });
+    const zurueck = await lage();
+    await seite.mouse.up();
+    await seite.waitForTimeout(150);
+    const losgelassen = await lage();
+    // Escape mitten im Zug.
+    await seite.mouse.down();
+    await seite.mouse.move(ort.x, ort.y + ort.zug * 0.5, { steps: 6 });
+    await seite.keyboard.press("Escape");
+    const escape = await lage();
+    await seite.mouse.up();
+    await seite.waitForTimeout(100);
+    const nachEscape = await lage();
+    // Ein zweiter Finger mitten im Zug.
+    await seite.mouse.down();
+    await seite.mouse.move(ort.x, ort.y + ort.zug * 0.5, { steps: 6 });
+    await seite.evaluate(({ x, y }) => {
+      const c = document.querySelector("#es-stage canvas");
+      c.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 77, isPrimary: false, pointerType: "touch", clientX: x + 40, clientY: y }));
+      window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 77, isPrimary: false, pointerType: "touch", clientX: x + 40, clientY: y }));
+    }, ort);
+    const zweiter = await lage();
+    await seite.mouse.up();
+    await seite.waitForTimeout(100);
+    const nachZweitem = await lage();
+    // Feinzug: erst ein schneller Ruck, dann langsam zehnmal zwei Bildpunkte.
+    const fein = await seite.evaluate(async ({ x, y }) => {
+      const E = window.LernappEisstock;
+      const c = document.querySelector("#es-stage canvas");
+      const warte = (ms) => new Promise((f) => setTimeout(f, ms));
+      const ev = (art, yy, ziel = window) => ziel.dispatchEvent(new PointerEvent(art, { bubbles: true, cancelable: true, pointerId: 88, isPrimary: true, pointerType: "touch", clientX: x, clientY: yy }));
+      ev("pointerdown", y, c);
+      await warte(10);
+      ev("pointermove", y + 40);
+      const schnell = E.state.zielen?.kraft ?? null;
+      let yy = y + 40;
+      for (let i = 0; i < 10; i += 1) { await warte(90); yy += 2; ev("pointermove", yy); }
+      const langsam = E.state.zielen?.kraft ?? null;
+      const roh = E.kraftAus(60 / E.view.zug) - E.kraftAus(40 / E.view.zug);
+      ev("pointerup", yy);
+      return { schnell, langsam, roh, soll: E.zugZu(E.zugVon(0, E.kraftAus(40 / E.view.zug))).kraft, phase: E.state.phase };
+    }, ort);
+    pruefe(gespannt.zielen && gespannt.zielen.kraft > 0.3 && !gespannt.zielen.abbruch && zurueck.zielen?.abbruch && losgelassen.phase === "aufgabe" && !losgelassen.zielen && !losgelassen.schub && losgelassen.ab,
+      `Eisstock: Zurück, wo der Finger aufsetzte, bricht Loslassen nicht ab: ${JSON.stringify({ gespannt, zurueck, losgelassen })}`);
+    pruefe(escape.phase === "aufgabe" && !escape.zielen && nachEscape.phase === "aufgabe" && !nachEscape.schub && zweiter.phase === "aufgabe" && !zweiter.zielen && nachZweitem.phase === "aufgabe" && !nachZweitem.schub,
+      `Eisstock: Escape oder ein zweiter Finger brechen den Zug nicht ab: ${JSON.stringify({ escape, nachEscape, zweiter, nachZweitem })}`);
+    pruefe(fein.schnell === fein.soll && fein.langsam > fein.schnell && fein.langsam - fein.schnell < fein.roh * 0.8 && fein.phase === "fahrt",
+      `Eisstock: Ein schneller Zug zählt nicht ganz, ein langsamer nicht nur zum Teil – oder danach wird nicht geschoben: ${JSON.stringify(fein)}`);
+    await kontext.close();
   }
   {
     // Eine Runde in echter Zeit – die meisten Bahnen mit dem besten Schub,
@@ -11132,7 +11220,7 @@ try {
       const mx = E.view.eis.x + E.view.eis.w / 2;
       const my = E.view.eis.y + E.view.eis.h / 2;
       const zieh = (winkel, kraft) => {
-        const lang = kraft * E.view.zug;
+        const lang = E.zugLaenge(kraft);
         const hin = E.view.quer ? [Math.cos(winkel), Math.sin(winkel)] : [Math.sin(winkel), -Math.cos(winkel)];
         E.zielZu(mx - hin[0] * lang, my - hin[1] * lang);
       };
