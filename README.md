@@ -1198,6 +1198,16 @@ was zu tun ist, mit einem Beispiel derselben Art, das sich selbst auflöst –,
 die Uhr läuft erst nach dem Tipp. Unten (quer: rechts) der Filmstreifen mit
 zehn Bildern, eines je Aufgabe.
 
+**Die Testrunde** (`/kopfkino?alle`, im Adminbereich der Knopf
+«▶ Alle Aufgaben» im Fenster des Spiels): jede Art in jeder Stufe
+nacheinander – leicht, mittel, schwer, dann die nächste Art, 44 Aufgaben
+(`testAufgaben`). Zum Ausprobieren: Sie geht in keine Bestenliste, wird
+nicht aufgezeichnet, und ihre Tafel nennt statt eines Rekords, welche
+Aufgaben daneben gingen (`testEnde`, `showResult` mit `eintragen: false`).
+`?alle=laser,zahnrad` nimmt nur diese Arten. Der Filmstreifen zeigt die
+zehn, zu denen die aktuelle Aufgabe gehört. Im Turnier, im Live-Modus und
+beim Zuschauen gibt es sie nicht.
+
 **Das Bild** ist Canvas 2D mit einer kleinen Welt in drei Richtungen
 (`sicht`, `buehne`, `male3d`): eine Kamera ohne Fluchtpunkt, die sich drehen
 und kippen lässt; Körper werden von hinten nach vorn gemalt, jede Seite in
@@ -1219,7 +1229,8 @@ jeder Würfel in allen 24 Lagen gegen das Netz gehalten, die Lücke gegen
 die Gestalt jedes Teils, die Schatten neu geworfen, der Laser Zelle um
 Zelle verfolgt, das Getriebe Rad um Rad gedreht samt Zahn auf Lücke, die
 Kugel Ebene um Ebene gerollt); die acht neuen Arten lassen sich mit dem
-Finger lösen; die Punkte
+Finger lösen; die Testrunde hat jede Art in jeder Stufe der Reihe nach und
+zählt nicht (Prüfung 4j: «▶ Alle Aufgaben» öffnet sie); die Punkte
 fallen nach richtig mal schnell, «fast» zählt für Teile; in der Vorschau
 zählt kein Tipp, ist die Zeit um, zählt die Eingabe, wie sie dasteht; was
 das Bild anbietet, lässt sich mit dem Finger antippen; eine Runde in echter
