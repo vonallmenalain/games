@@ -7486,6 +7486,309 @@ body.ar {
   pointer-events: none;
 }
 
+/* --- Das Regal: alle Spiele auf einen Blick (mini-games.js, regal) ------------ */
+/* Links vor der Zeile der Knopf «Alle», darüber ein Griff. Ein Wisch über die
+   Zeile nach oben zieht das Regal hoch – das Wischen nach oben gehört darum
+   der Seite, nur das Blättern zur Seite dem Browser. */
+.ar-auswahl.mit-regal { --ar-regal-b: 64px; display: flex; align-items: flex-start; }
+.ar-auswahl.mit-regal,
+.ar-auswahl.mit-regal .ar-spur { touch-action: pan-x pinch-zoom; }
+.ar-auswahl.mit-regal .ar-spur {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 10px;
+  /* Was nach links unter den Knopf rollt, verblasst, statt hart abzubrechen. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px);
+  mask-image: linear-gradient(to right, transparent 0, #000 10px);
+}
+.ar-auswahl.mit-regal .ar-blaettern.ist-zurueck { left: calc(var(--ar-rand) + var(--ar-regal-b)); }
+.ar-griff {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 38px;
+  height: 4px;
+  margin-left: -19px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+.ar-regal-knopf {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: var(--ar-regal-b);
+  height: calc(var(--ar-kachel-b) * 9 / 16);
+  margin: 4px 0 4px var(--ar-rand);
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ar-text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.ar-regal-knopf .gk-icon { width: 22px; height: 22px; }
+.ar-regal-knopf:hover,
+.ar-regal-knopf:focus-visible { background: rgba(255, 255, 255, 0.16); outline: none; }
+.ar-regal-knopf:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45); }
+.ar-regal-knopf:active { transform: scale(0.95); }
+.ar-regal-knopf-wort { font-size: 0.78rem; font-weight: 900; line-height: 1; }
+.ar-regal-knopf-zahl { color: var(--ar-leise); font-size: 0.66rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* Das Blatt: von unten hoch, fast so hoch wie der Bildschirm, oben rund. Breit
+   steht es mittig und wird nicht breiter als 1320 px. */
+.ar-regal {
+  --ar-regal-rand: max(16px, var(--safe-left), var(--safe-right));
+  --ar-regal-min: min(150px, 40vw);
+  position: fixed;
+  inset: auto 0 0;
+  width: min(100%, 1320px);
+  max-width: none;
+  height: calc(100vh - max(14px, var(--safe-top)) - 10px);
+  height: calc(100dvh - max(14px, var(--safe-top)) - 10px);
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: #17161d;
+  color: var(--ar-text);
+  box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+.ar-regal[open] { display: flex; animation: ar-regal-auf 0.36s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.ar-regal::backdrop { background: rgba(6, 5, 9, 0.62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+@keyframes ar-regal-auf {
+  from { transform: translateY(100%); }
+}
+.ar-regal-blatt { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.ar-regal-kopf { flex: 0 0 auto; padding-bottom: 10px; border-bottom: 1px solid var(--ar-linie); }
+/* Oben Griff, Titel und Schliessen: hier lässt sich das Blatt wegziehen. */
+.ar-regal-oben {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px var(--ar-regal-rand) 10px;
+  touch-action: none;
+  cursor: grab;
+}
+.ar-regal-griff {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.24);
+}
+.ar-regal-titel { margin: 0; color: #fff; font-size: 1.3rem; font-weight: 900; letter-spacing: -0.01em; line-height: 1.2; }
+.ar-regal-zahl { color: var(--ar-leise); font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ar-regal-zu { --ar-rund: 36px; }
+/* Die Filter: alle zu sehen, auf dem Handy hochkant in zwei Zeilen – einer,
+   der hinter dem Rand verschwindet, wird nie gefunden. */
+.ar-regal-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px var(--ar-regal-rand);
+}
+.ar-regal-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 8px 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.ar-regal-chip:hover,
+.ar-regal-chip:focus-visible { background: rgba(255, 255, 255, 0.14); outline: none; }
+.ar-regal-chip:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4); }
+.ar-regal-chip:active { transform: scale(0.96); }
+.ar-regal-chip.ist-an { border-color: #fff; background: #fff; color: #15141b; }
+.ar-regal-chip-wort { line-height: 1; }
+.ar-regal-chip-zahl {
+  min-width: 24px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ar-regal-chip.ist-an .ar-regal-chip-zahl { background: rgba(0, 0, 0, 0.1); }
+/* Ohne Zahl (die Listen sind noch nicht da) endet der Filter mit seinem Wort. */
+.ar-regal-chip:has(.ar-regal-chip-zahl[hidden]) { padding-right: 14px; }
+.ar-regal-chip-zahl[hidden] { display: none; }
+.ar-regal-wie { margin: 9px var(--ar-regal-rand) 0; color: var(--ar-leise); font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
+.ar-regal-wie[hidden] { display: none; }
+.ar-regal-inhalt {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px var(--ar-regal-rand) calc(24px + var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ar-regal-leer { margin: 10px 2px 18px; color: var(--ar-leise); font-weight: 700; line-height: 1.45; }
+.ar-regal-leer[hidden] { display: none; }
+/* Das Raster: so viele Spalten, wie Bilder von mindestens --ar-regal-min
+   nebeneinander passen – auf dem Handy hochkant zwei, damit man auf jedem
+   Bild sieht, was man darin tut. */
+.ar-regal-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--ar-regal-min), 1fr));
+  gap: 16px 12px;
+}
+.ar-regal-raster.ist-neu .ar-regal-kachel {
+  animation: ar-regal-rein 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(min(var(--ar-i, 0), 12) * 22ms);
+}
+@keyframes ar-regal-rein {
+  from { opacity: 0; transform: translateY(10px); }
+}
+/* Eine Kachel: das Bild, darauf «Neu» und der eigene Platz, darunter der Name
+   und der Rekord. */
+.ar-regal-kachel {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ar-regal-kachel[hidden] { display: none; }
+.ar-regal-kachel:focus-visible { outline: none; }
+.ar-regal-bild {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(145deg, var(--mini-farbe), var(--mini-farbe-dunkel));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+}
+.ar-regal-foto {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+.ar-regal-kachel.ohne-bild .ar-regal-foto { display: none; }
+.ar-regal-kachel:hover .ar-regal-bild,
+.ar-regal-kachel:focus-visible .ar-regal-bild { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(255, 255, 255, 0.55); }
+.ar-regal-kachel:active .ar-regal-bild { transform: scale(0.98); }
+/* Das Spiel, das gerade auf der Bühne steht: ein Rahmen in seiner Farbe. */
+.ar-regal-kachel.ist-aktiv .ar-regal-bild { box-shadow: 0 0 0 3px var(--mini-farbe), 0 8px 24px color-mix(in srgb, var(--mini-farbe) 45%, transparent); }
+.ar-regal-neu,
+.ar-regal-platz {
+  position: absolute;
+  top: 7px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.ar-regal-neu { left: 7px; background: var(--ar-koralle); color: #2a0f0b; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.ar-regal-platz {
+  right: 7px;
+  background: rgba(13, 12, 17, 0.8);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.ar-regal-platz.ist-platz-1 { background: linear-gradient(145deg, #ffe58a, #f5b416); color: #4a2f00; }
+.ar-regal-platz.ist-platz-2 { background: linear-gradient(145deg, #f7f8fb, #c3c9d6); color: #303744; }
+.ar-regal-platz.ist-platz-3 { background: linear-gradient(145deg, #f8d8b8, #cf8650); color: #43240c; }
+.ar-regal-neu[hidden],
+.ar-regal-platz[hidden] { display: none; }
+.ar-regal-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 0 2px; }
+.ar-regal-name {
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ar-regal-rekord {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ar-leise);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.ar-regal-rekord[hidden] { display: none; }
+.ar-regal-krone { flex: 0 0 auto; width: 15px; height: 15px; color: var(--ar-gold); }
+.ar-regal-krone .gk-icon { width: 100%; height: 100%; }
+.ar-regal-wer { min-width: 0; overflow: hidden; color: var(--ar-text); text-overflow: ellipsis; white-space: nowrap; }
+.ar-regal-wert { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.ar-regal-rekord.ist-frei .ar-regal-krone { opacity: 0.5; }
+.ar-regal-rekord.ist-frei .ar-regal-wer { color: var(--ar-leise); }
+.ar-regal-ziel { color: var(--ar-gruen); font-size: 0.76rem; font-weight: 850; line-height: 1.25; }
+.ar-regal-ziel[hidden] { display: none; }
+/* Breiter: grössere Bilder, dafür mehr nebeneinander. */
+@media (min-width: 700px) {
+  .ar-regal { --ar-regal-min: 190px; }
+}
+@media (min-width: 1100px) {
+  .ar-regal { --ar-regal-min: 210px; }
+}
+/* Flach (Handy quer): bis fast ganz oben, ein schmalerer Kopf. */
+@media (max-height: 520px) {
+  .ar-regal {
+    --ar-regal-min: 160px;
+    height: calc(100vh - 8px);
+    height: calc(100dvh - 8px);
+  }
+  .ar-regal-oben { padding-top: 16px; padding-bottom: 8px; }
+  .ar-regal-titel { font-size: 1.1rem; }
+  .ar-regal-chip { height: 34px; }
+  .ar-regal-wie { display: none; }
+  .ar-regal-inhalt { padding-top: 12px; }
+}
+
 .ar-leer { margin: 40px var(--ar-rand) 0; color: var(--ar-leise); }
 
 /* --- Gesperrt: im Turnier an der Stelle von Play ------------------------------ */
@@ -8463,9 +8766,17 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
   .ar-leiste.ist-neu > *,
   .ar-name-feld,
   .ar-kachel,
-  .ar-fenster[open] { animation: none; }
+  .ar-fenster[open],
+  .ar-regal[open],
+  .ar-regal-raster.ist-neu .ar-regal-kachel { animation: none; }
   .ar-kachel:hover,
-  .ar-kachel:focus-visible { transform: none; }
+  .ar-kachel:focus-visible,
+  .ar-regal-kachel:hover .ar-regal-bild,
+  .ar-regal-kachel:focus-visible .ar-regal-bild,
+  .ar-regal-kachel:active .ar-regal-bild { transform: none; }
+  .ar-regal-bild,
+  .ar-regal-chip,
+  .ar-regal-knopf { transition: none; }
   .ar-kachel.ist-uhr .ar-zeit { animation: none; }
 }
 
