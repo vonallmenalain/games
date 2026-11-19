@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-19-1";
+export const FASSUNG = "2026-11-19-2";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -322,6 +322,12 @@ export const SPIELE = [
     titel: "Freihand", buehne: { id: "fh-stage", klasse: "cm-stage fh-stage" },
     text: "Freihand: Zehn Blätter, ein Bleistift, kein Lineal und kein Zirkel – zieh den Kreis, das Lot, das Spiegelbild, das Fünfeck in einem Zug. Danach legt der Rotstift die ideale Form darüber und misst nach.",
     baut: "der Zeichentisch mit dem Blatt und dem Bleistift",
+  },
+  {
+    seite: "kopfkino", spiel: "mindsEye", page: "mindseye", js: "kopfkino.js",
+    titel: "Kopfkino", buehne: { id: "kn-stage", klasse: "cm-stage kn-stage" },
+    text: "Kopfkino: Zehn Aufgaben fürs Vorstellungsvermögen – ein Blatt falten und lochen, ein Würfelnetz schliessen, Würfel zählen, einen Spielwürfel im Kopf rollen. Nach der Antwort läuft der Film wirklich.",
+    baut: "die Leinwand mit dem Würfelnetz, das sich faltet",
   },
 ];
 

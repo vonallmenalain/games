@@ -106,6 +106,7 @@
     { id: "timeSense", seite: "zeitgefuehl", page: "timesense" },
     { id: "speedClimb", seite: "kletterwand", page: "climb" },
     { id: "freeHand", seite: "freihand", page: "sketch" },
+    { id: "mindsEye", seite: "kopfkino", page: "mindseye" },
   ];
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -152,6 +153,8 @@
     speedClimb: 1,
     // Freihand zeichnen: zehn Formen in einem Zug, am Ideal gemessen.
     freeHand: 1,
+    // Vorstellungsvermögen: falten, Netze, Würfel – der Film läuft im Kopf.
+    mindsEye: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -224,6 +227,7 @@
     timeSense: { fassung: "z1" },
     speedClimb: { fassung: "z1" },
     freeHand: { fassung: "z1" },
+    mindsEye: { fassung: "z1" },
   };
 
   // Wie sich der Lauf eines Spiels anschauen lässt – oder null.
@@ -256,6 +260,7 @@
     timeSense: { zug: true },
     speedClimb: { zug: true },
     freeHand: { zug: true },
+    mindsEye: { zug: true },
   };
 
   // Die Farbe des Bereichs, dieselbe wie in der App: Gedächtnis violett,

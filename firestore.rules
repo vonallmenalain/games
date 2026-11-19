@@ -95,6 +95,7 @@ service cloud.firestore {
         "timeSense",
         "speedClimb",
         "freeHand",
+        "mindsEye",
       ];
     }
 

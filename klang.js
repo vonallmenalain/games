@@ -250,6 +250,13 @@
     "freihand.gut": { s: "perle" },
     "freihand.genau": { s: "pling" },
     "freihand.daneben": { s: "ab-sanft" },
+    "kopfkino.neu": { s: "klack" },
+    "kopfkino.klick": { s: "klick" },
+    "kopfkino.tick": { s: "klick" },
+    "kopfkino.richtig": { s: "perle" },
+    "kopfkino.voll": { s: "pling" },
+    "kopfkino.falsch": { s: "ab-sanft" },
+    "kopfkino.film": { s: "woosh-kurz" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -266,7 +273,7 @@
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
-    freeHand: "freihand",
+    freeHand: "freihand", mindsEye: "kopfkino",
   };
 
   // ---------------------------------------------------------------------------

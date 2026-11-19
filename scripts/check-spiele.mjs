@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3223,6 +3223,7 @@ try {
     ["/zeitgefuehl", "Zeitgefühl", () => window.LernappZeitgefuehl.weltText()],
     ["/kletterwand", "Kletterwand", () => window.LernappKletterwand.weltText()],
     ["/freihand", "Freihand", () => window.LernappFreihand.weltText()],
+    ["/kopfkino", "Kopfkino", () => window.LernappKopfkino.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -10175,6 +10176,367 @@ try {
     await kontext.close();
   }
 
+  // --- 4g40. Kopfkino: sieben Arten, jede Antwort nachgerechnet -------------------------
+  // Jede Runde hat drei leichte, vier mittlere und drei schwere Aufgaben,
+  // keine Art öfter als zweimal. Was als richtig gilt, wird hier auf einem
+  // zweiten Weg nachgerechnet: das Blatt Feld für Feld nachgefaltet, das Netz
+  // zum Würfel geschlossen, der Spielwürfel Kante um Kante gerollt, der
+  // Stapel aus der Blickrichtung der Kamera vermessen. Gewertet wird richtig
+  // mal schnell; wo sich eine Antwort aus Teilen setzt, zählt auch «fast».
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
+    const bau = await seite.evaluate(() => {
+      const K = window.LernappKopfkino;
+      const raus = { runden: [], welten: 0, fehler: {} };
+      const merke = (was) => { raus.fehler[was] = (raus.fehler[was] || 0) + 1; };
+      const welten = new Set();
+      for (let runde = 0; runde < 6; runde += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const a = K.state.aufgaben;
+        welten.add(K.weltText());
+        const oft = {};
+        a.forEach((x) => { oft[x.art] = (oft[x.art] || 0) + 1; });
+        raus.runden.push({ n: a.length, stufen: [0, 1, 2].map((s) => a.filter((x) => x.stufe === s).length).join("/"), meist: Math.max(...Object.values(oft)), zeiten: a.every((x) => x.zeit === K.ZEITEN[x.stufe]), schnittLeicht: a.some((x) => x.art === "schnitt" && x.stufe === 0), frage: a.every((x) => x.frage.length > 20) });
+      }
+      raus.welten = welten.size;
+      const bits = (x) => { let n = 0; for (let v = x >>> 0; v; v &= v - 1) n += 1; return n; };
+      const kreuz = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      const punkt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const BLICK = [Math.PI / 2, 0, -Math.PI / 2, Math.PI];
+      for (let lauf = 0; lauf < 40; lauf += 1) {
+        for (const stufe of [0, 1, 2]) {
+          // Falten: jedes Feld nachgefaltet – landet es auf einem Loch?
+          const f = K.lege("falten", stufe, Math.random);
+          let nach = 0;
+          for (let x = 0; x < 4; x += 1) for (let y = 0; y < 4; y += 1) {
+            let p = [x, y];
+            for (const k of f.falten) {
+              const n = k.nachher;
+              if (k.achse === "x" && (p[0] < n.x0 || p[0] >= n.x1)) p = [2 * k.bei - 1 - p[0], p[1]];
+              if (k.achse === "y" && (p[1] < n.y0 || p[1] >= n.y1)) p = [p[0], 2 * k.bei - 1 - p[1]];
+            }
+            if (f.loecher.some((l) => l[0] === p[0] && l[1] === p[1])) nach |= 1 << (y * 4 + x);
+          }
+          if (nach !== f.soll || f.falten.length !== stufe + 1 || bits(f.soll) !== f.loecher.length * 2 ** f.falten.length) merke("falten");
+          // Netz: Es schliesst sich zum Würfel, jede Fläche schaut nach aussen.
+          const n = K.lege("netz", stufe, Math.random);
+          const zu = K.netzLage(n.felder, n.baum, Math.PI / 2);
+          const [wx, wy] = n.felder[n.baum.wurzel];
+          const aussen = zu.map((l) => kreuz(l.ex, l.ey).map(Math.round));
+          zu.forEach((l, i) => {
+            const m = [0, 1, 2].map((k) => l.o[k] + l.ex[k] / 2 + l.ey[k] / 2);
+            if (Math.abs(punkt(aussen[i], [m[0] - wx - 0.5, m[1] - wy - 0.5, m[2] + 0.5]) - 0.5) > 1e-6) merke("netz Würfel");
+          });
+          if (new Set(aussen.map(String)).size !== 6) merke("netz Flächen");
+          if (n.variante === "flaeche") {
+            if (stufe === 2 || n.soll === n.stern || aussen[n.soll].some((x, k) => x !== -aussen[n.stern][k])) merke("netz gegenüber");
+          } else {
+            const ecke = (k, e) => { const l = zu[k.feld]; const [x, y] = n.felder[k.feld]; return [0, 1, 2].map((i) => Math.round(l.o[i] + l.ex[i] * (e[0] - x) + l.ey[i] * (e[1] - y))).join(","); };
+            const name = (k) => [ecke(k, k.a), ecke(k, k.b)].sort().join("|");
+            if (stufe !== 2 || n.kanten.length !== 14 || n.soll === n.rot || name(n.kanten[n.soll]) !== name(n.kanten[n.rot])) merke("netz Kante");
+            if (n.kanten.filter((k) => name(k) === name(n.kanten[n.rot])).length !== 2) merke("netz Kantenpaar");
+          }
+          // Stapel: die Zahl ist die Summe der Säulen.
+          const s = K.lege("stapel", stufe, Math.random);
+          const summe = s.hoehen.flat().reduce((x, y) => x + y, 0);
+          if (s.soll !== summe || summe < [5, 11, 19][stufe] || summe > [9, 17, 30][stufe]) merke("stapel");
+          // Ansicht: die Spalten, aus der Blickrichtung der Kamera vermessen.
+          const an = K.lege("ansicht", stufe, Math.random);
+          const u = K.sicht(BLICK[an.richtung], 0).u;
+          const hoch = new Map();
+          an.hoehen.forEach((reihe, x) => reihe.forEach((h, y) => { const sx = Math.round((x + 0.5) * u[0] + (y + 0.5) * u[1] - 0.5 + 100); hoch.set(sx, Math.max(hoch.get(sx) || 0, h)); }));
+          const gesehen = [...hoch.keys()].sort((x, y) => x - y).map((k) => hoch.get(k));
+          let soll = 0;
+          gesehen.forEach((h, i) => { soll |= h << (3 * i); });
+          if (JSON.stringify(gesehen) !== JSON.stringify(an.spalten) || soll !== an.soll || new Set(an.spalten).size < 2 || (stufe === 2) !== (an.richtung >= 2)) merke("ansicht");
+          // Dieselbe Figur: nur die richtige hat die Gestalt der oberen.
+          const d = K.lege("drehen", stufe, Math.random);
+          const g = K.gestalt(d.figur);
+          if (d.bilder.length !== (stufe === 2 ? 4 : 3) || d.bilder.some((b, i) => (K.gestalt(b.wuerfel) === g) !== (i === d.soll)) || K.gestalt(d.figur.map((p) => [-p[0], p[1], p[2]])) === g) merke("drehen");
+          // Rollen: Kante um Kante – oben liegt, was zuvor von der Richtung wegschaute.
+          const ro = K.lege("rollen", stufe, Math.random);
+          let m = ro.lage;
+          let ort = [...ro.start];
+          for (const [dx, dy] of ro.weg) {
+            const erwartet = K.augeNach(m, [-dx, -dy, 0]);
+            m = K.rollLage(m, dx, dy);
+            ort = [ort[0] + dx, ort[1] + dy];
+            if (K.augeNach(m, [0, 0, 1]) !== erwartet || ort.some((x) => x < 0 || x >= ro.n)) merke("rollen Regel");
+          }
+          if (K.augeNach(m, [0, 0, 1]) - 1 !== ro.soll || ro.weg.length !== [3, 5, 7][stufe] || K.augeNach(m, [0, 0, 1]) + K.augeNach(m, [0, 0, -1]) !== 7) merke("rollen");
+          // Schnitt: die Ecken liegen auf Kanten des Würfels und in einer Ebene.
+          if (stufe > 0) {
+            const sc = K.lege("schnitt", stufe, Math.random);
+            const nn = kreuz([0, 1, 2].map((k) => sc.punkte[1][k] - sc.punkte[0][k]), [0, 1, 2].map((k) => sc.punkte[2][k] - sc.punkte[0][k]));
+            const aufKante = (p) => p.filter((x) => Math.abs(x) < 1e-9 || Math.abs(x - 1) < 1e-9).length >= 2 && p.every((x) => x > -1e-9 && x < 1 + 1e-9);
+            if (sc.flaeche.length - 3 !== sc.soll || sc.flaeche.length < 3 || sc.flaeche.length > 6 || !sc.flaeche.every(aufKante) || sc.flaeche.some((p) => Math.abs(punkt(nn, [0, 1, 2].map((k) => p[k] - sc.punkte[0][k]))) > 1e-9)) merke("schnitt");
+          }
+        }
+      }
+      // Die Wertung.
+      const wahl = { eingabe: "wahl", soll: 2, zeit: 14 };
+      raus.wertung = {
+        zeit: [1, 14 * K.VOLL, 9.45, 14, 99].map((t) => K.punkteFuer(wahl, 2, t)),
+        falsch: [K.punkteFuer(wahl, 1, 1), K.punkteFuer(wahl, null, 1)],
+        zahl: [0, 1, 2, 3, -1].map((d) => K.punkteFuer({ eingabe: "zahl", soll: 12, zeit: 14 }, 12 + d, 1)),
+        felder: [0b0011, 0b0001, 0b0111, 0b1111, 0b1100, 0].map((x) => K.punkteFuer({ eingabe: "felder", soll: 0b0011, zeit: 14 }, x, 1)),
+        spalten: [(2 << 0) | (1 << 3) | (3 << 6), (2 << 0) | (1 << 3) | (1 << 6), (1 << 0), 0].map((x) => K.punkteFuer({ eingabe: "spalten", n: 3, soll: (2 << 0) | (1 << 3) | (3 << 6), zeit: 14 }, x, 1)),
+      };
+      return raus;
+    });
+    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "3/4/3" && r.meist <= 2 && r.zeiten && !r.schnittLeicht && r.frage) && bau.welten === 6,
+      `Kopfkino: Die Runden haben nicht ihre drei, vier und drei Aufgaben, oder jede Runde ist dieselbe: ${JSON.stringify(bau.runden)}`);
+    pruefe(Object.keys(bau.fehler).length === 0, `Kopfkino: Nachgerechnet stimmt die richtige Antwort nicht überall: ${JSON.stringify(bau.fehler)}`);
+    pruefe(JSON.stringify(bau.wertung.zeit) === JSON.stringify([100, 100, 75, 50, 50]) && JSON.stringify(bau.wertung.falsch) === "[0,0]"
+      && JSON.stringify(bau.wertung.zahl) === JSON.stringify([100, 40, 15, 0, 40]) && JSON.stringify(bau.wertung.felder) === JSON.stringify([100, 50, 50, 0, 0, 0])
+      && JSON.stringify(bau.wertung.spalten) === JSON.stringify([100, 67, 0, 0]),
+      `Kopfkino: Die Punkte fallen nicht, wie sie sollen (richtig mal schnell, «fast» für Teile): ${JSON.stringify(bau.wertung)}`);
+
+    // Eine Runde, Aufgabe um Aufgabe, mit den Eingaben der Prüfung. Die Uhr
+    // wird vorgestellt, wo sonst gewartet würde.
+    const runde = await seite.evaluate(() => {
+      const K = window.LernappKopfkino;
+      const st = K.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      [["rollen", 0], ["stapel", 1], ["falten", 1], ["ansicht", 1], ["netz", 2], ["drehen", 1], ["schnitt", 1], ["stapel", 0]].forEach(([art, stufe], i) => { st.aufgaben[i] = K.lege(art, stufe, Math.random); });
+      const stand = (i) => ({ phase: st.phase, punkte: st.liste[i]?.punkte ?? null, anteil: st.liste[i]?.anteil ?? null, antwort: st.antwort, summe: st.punkte });
+      const los = (sekunden = 1) => { K.aufgabeLos(); st.t0 -= (K.EINZUG + sekunden) * 1000; };
+      const tue = (schritte) => { for (const [was, wert] of schritte) K.eingabe(was, wert); };
+      const raus = { vorher: st.phase };
+      K.losGehts();
+      K.eingabe("wahl", st.aufgaben[0].soll);
+      raus.vorschau = { phase: st.phase, index: st.index };
+      K.aufgabeLos();
+      K.eingabe("wahl", st.aufgaben[0].soll);
+      raus.sperre = st.phase;
+      // 1: der Würfel rollt – richtig, sofort.
+      st.t0 -= 1500;
+      tue(K.loesung(st.aufgaben[0]));
+      raus.richtig = stand(0);
+      K.weiter();
+      raus.naechste = { phase: st.phase, index: st.index };
+      // 2: Würfel zählen – erst vertippt und gelöscht, dann um eins daneben.
+      los();
+      K.eingabe("fertig");
+      const leer = st.phase;
+      K.eingabe("ziffer", 0);
+      K.eingabe("ziffer", 9);
+      K.eingabe("ziffer", 9);
+      K.eingabe("ziffer", 9);
+      const drei = st.getippt;
+      K.eingabe("weg");
+      K.eingabe("weg");
+      tue([...String(st.aufgaben[1].soll + 1)].map((z) => ["ziffer", Number(z)]));
+      const getippt = st.getippt;
+      K.eingabe("fertig");
+      raus.zahl = { ...stand(1), leer, drei, getippt, soll: st.aufgaben[1].soll };
+      K.weiter();
+      // 3: Falten – alle Löcher, und eines zu viel.
+      los();
+      const falt = st.aufgaben[2];
+      let zuviel = 0;
+      while ((falt.soll >> zuviel) & 1) zuviel += 1;
+      tue([...K.loesung(falt).slice(0, -1), ["feld", zuviel], ["fertig", 0]]);
+      raus.felder = { ...stand(2), soll: falt.soll, loecher: K.loesung(falt).length - 1 };
+      K.weiter();
+      // 4: Ansicht – richtig, aber spät.
+      los(st.aufgaben[3].zeit * 0.9);
+      const spaet = Math.round(100 * K.zeitFaktor(st.aufgaben[3], st.aufgaben[3].zeit * 0.9));
+      K.eingabe("spalte", 1 * 8 + 2);
+      K.eingabe("spalte", 1 * 8 + 2);
+      const eins = (st.wert >> 3) & 7;
+      st.wert = 0;
+      tue(K.loesung(st.aufgaben[3]));
+      raus.spaet = { ...stand(3), soll: spaet, eins };
+      K.weiter();
+      // 5: das Netz – die falsche Kante.
+      los();
+      K.eingabe("wahl", (st.aufgaben[4].soll + 1) % st.aufgaben[4].wahl === st.aufgaben[4].rot ? (st.aufgaben[4].soll + 2) % st.aufgaben[4].wahl : (st.aufgaben[4].soll + 1) % st.aufgaben[4].wahl);
+      raus.falsch = stand(4);
+      K.weiter();
+      // 6: Die Zeit läuft ab, und niemand antwortet.
+      los(st.aufgaben[5].zeit + 1);
+      K.takt(0.016);
+      raus.zeitUm = stand(5);
+      K.weiter();
+      // 7: der Schnitt – richtig.
+      los();
+      tue(K.loesung(st.aufgaben[6]));
+      raus.schnitt = stand(6);
+      K.weiter();
+      // 8: Die Zahl steht da, aber «Fertig» fehlt – die Zeit ist um: Sie zählt, spät.
+      K.aufgabeLos();
+      st.t0 -= 1000;
+      tue(K.loesung(st.aufgaben[7]).slice(0, -1));
+      st.t0 -= (st.aufgaben[7].zeit + 1) * 1000;
+      K.takt(0.016);
+      raus.ohneFertig = stand(7);
+      K.weiter();
+      // 9: Wer nicht tippt, bekommt die Aufgabe nach dreissig Sekunden.
+      const wartet = st.phase;
+      st.vorSeit -= (K.VORSCHAU + 0.5) * 1000;
+      K.takt(0.016);
+      raus.vonSelbst = { wartet, phase: st.phase, index: st.index };
+      st.t0 -= 1500;
+      tue(K.loesung(st.aufgaben[8]));
+      K.weiter();
+      los();
+      tue(K.loesung(st.aufgaben[9]));
+      raus.letzte = stand(9);
+      raus.liste = st.liste.map((e) => e?.punkte ?? null);
+      K.weiter();
+      raus.ende = { phase: st.phase, summe: st.punkte, volle: st.volle };
+      return raus;
+    });
+    pruefe(runde.vorher === "bereit" && runde.vorschau.phase === "vorschau" && runde.vorschau.index === 0 && runde.sperre === "aufgabe",
+      `Kopfkino: In der Vorschau oder gleich nach dem Hinlegen zählt schon ein Tipp: ${JSON.stringify({ vorher: runde.vorher, vorschau: runde.vorschau, sperre: runde.sperre })}`);
+    pruefe(runde.richtig.phase === "zeigen" && runde.richtig.punkte === 100 && runde.richtig.anteil === 1 && runde.naechste.phase === "vorschau" && runde.naechste.index === 1,
+      `Kopfkino: Die richtige Antwort gibt keine hundert Punkte, oder es geht nicht weiter: ${JSON.stringify({ richtig: runde.richtig, naechste: runde.naechste })}`);
+    pruefe(runde.zahl.leer === "aufgabe" && runde.zahl.drei === "99" && runde.zahl.getippt === String(runde.zahl.soll + 1) && runde.zahl.punkte === 40 && runde.zahl.antwort === runde.zahl.soll + 1,
+      `Kopfkino: Die Zahl lässt sich nicht tippen und löschen, oder «um eins daneben» zählt falsch: ${JSON.stringify(runde.zahl)}`);
+    pruefe(runde.felder.punkte === Math.round((100 * (runde.felder.loecher - 1)) / runde.felder.loecher) && runde.felder.antwort !== runde.felder.soll,
+      `Kopfkino: Ein Feld zu viel kostet nicht eines: ${JSON.stringify(runde.felder)}`);
+    pruefe(runde.spaet.eins === 1 && runde.spaet.anteil === 1 && runde.spaet.punkte === runde.spaet.soll && runde.spaet.punkte >= 50 && runde.spaet.punkte <= 60,
+      `Kopfkino: Eine späte richtige Antwort gibt nicht, was die Uhr sagt – oder die Spalten lassen sich nicht setzen: ${JSON.stringify(runde.spaet)}`);
+    pruefe(runde.falsch.punkte === 0 && runde.falsch.phase === "zeigen" && runde.zeitUm.punkte === 0 && runde.zeitUm.antwort === null && runde.zeitUm.phase === "zeigen" && runde.schnitt.punkte === 100,
+      `Kopfkino: Falsch oder Zeit um gibt nicht null Punkte: ${JSON.stringify({ falsch: runde.falsch, zeitUm: runde.zeitUm, schnitt: runde.schnitt })}`);
+    pruefe(runde.ohneFertig.phase === "zeigen" && runde.ohneFertig.punkte === 50 && runde.ohneFertig.anteil === 1,
+      `Kopfkino: Ist die Zeit um, zählt die Eingabe nicht, wie sie dasteht: ${JSON.stringify(runde.ohneFertig)}`);
+    pruefe(runde.vonSelbst.wartet === "vorschau" && runde.vonSelbst.phase === "aufgabe" && runde.vonSelbst.index === 8,
+      `Kopfkino: Die Vorschau endet nicht von selbst: ${JSON.stringify(runde.vonSelbst)}`);
+    const summe = runde.liste.reduce((s, p) => s + (p || 0), 0);
+    pruefe(runde.liste.every((p) => p !== null) && runde.letzte.punkte === 100 && runde.ende.phase === "ende" && runde.ende.summe === summe && runde.ende.volle === 4,
+      `Kopfkino: Nach der zehnten Aufgabe ist die Runde nicht zu Ende, oder die Summe stimmt nicht: ${JSON.stringify({ liste: runde.liste, ende: runde.ende })}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    const tafel = await seite.evaluate(() => ({ zahl: document.querySelectorAll(".cm-result-score").length, text: document.querySelector(".cm-result-detail")?.textContent || "" }));
+    pruefe(tafel.zahl === 1 && /Neuer Rekord!/.test(tafel.text) && /6 von 10 richtig/.test(tafel.text) && /4 mit vollen Punkten/.test(tafel.text),
+      `Kopfkino: Die Tafel zeigt nicht, was war: ${JSON.stringify(tafel)}`);
+    await kontext.close();
+  }
+  {
+    // Mit dem Finger: Was das Bild anbietet, lässt sich antippen – die Seite
+    // des Würfels, die Felder des Blattes und «Fertig», die Fläche des Netzes.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { handy: true });
+    await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
+    await seite.evaluate(() => { const K = window.LernappKopfkino; [["rollen", 1], ["falten", 0], ["netz", 1]].forEach(([art, stufe], i) => { K.state.aufgaben[i] = K.lege(art, stufe, Math.random); }); });
+    const tippeAuf = async (suche) => {
+      const ort = await seite.evaluate((s) => {
+        const K = window.LernappKopfkino;
+        const r = document.querySelector("#kn-stage canvas").getBoundingClientRect();
+        const stelle = K.stellen().find((x) => x.was === s.was && (s.wert === undefined || x.wert === s.wert));
+        if (!stelle) return null;
+        return stelle.r !== undefined ? { x: r.left + stelle.cx, y: r.top + stelle.cy } : { x: r.left + stelle.x + stelle.w / 2, y: r.top + stelle.y + stelle.h / 2 };
+      }, suche);
+      if (ort) await seite.touchscreen.tap(ort.x, ort.y);
+      return Boolean(ort);
+    };
+    const mitte = { x: 210, y: 400 };
+    const weiterZur = async (phase) => { await seite.touchscreen.tap(mitte.x, mitte.y); await seite.waitForFunction((p) => window.LernappKopfkino.state.phase === p, phase, { timeout: 5000 }).catch(() => {}); };
+    await weiterZur("vorschau");
+    await seite.waitForTimeout(450);
+    await weiterZur("aufgabe");
+    await seite.waitForTimeout(900);
+    const soll0 = await seite.evaluate(() => window.LernappKopfkino.state.aufgaben[0].soll);
+    const da0 = await tippeAuf({ was: "wahl", wert: soll0 });
+    // Ein Bild später bietet die Auflösung nichts mehr zum Antippen an.
+    await seite.waitForTimeout(200);
+    const wuerfel = await seite.evaluate(() => { const st = window.LernappKopfkino.state; return { phase: st.phase, punkte: st.liste[0]?.punkte ?? null, stellen: window.LernappKopfkino.stellen().length }; });
+    await seite.waitForTimeout(1300);
+    await weiterZur("vorschau");
+    await seite.waitForTimeout(450);
+    await weiterZur("aufgabe");
+    await seite.waitForTimeout(900);
+    const felder = await seite.evaluate(() => { const K = window.LernappKopfkino; return K.loesung(K.state.aufgaben[1]); });
+    let da1 = true;
+    for (const [was, wert] of felder) da1 = (await tippeAuf(was === "fertig" ? { was } : { was, wert })) && da1;
+    const blatt = await seite.evaluate(() => { const st = window.LernappKopfkino.state; return { phase: st.phase, punkte: st.liste[1]?.punkte ?? null, anteil: st.liste[1]?.anteil ?? null }; });
+    await seite.waitForTimeout(1300);
+    await weiterZur("vorschau");
+    await seite.waitForTimeout(450);
+    await weiterZur("aufgabe");
+    await seite.waitForTimeout(900);
+    const soll2 = await seite.evaluate(() => window.LernappKopfkino.state.aufgaben[2].soll);
+    const da2 = await tippeAuf({ was: "wahl", wert: soll2 });
+    const netz = await seite.evaluate(() => { const st = window.LernappKopfkino.state; return { phase: st.phase, punkte: st.liste[2]?.punkte ?? null }; });
+    pruefe(da0 && wuerfel.phase === "zeigen" && wuerfel.punkte === 100 && wuerfel.stellen === 0 && da1 && blatt.phase === "zeigen" && blatt.anteil === 1 && blatt.punkte === 100
+      && da2 && netz.phase === "zeigen" && netz.punkte === 100,
+      `Kopfkino: Was das Bild anbietet, lässt sich mit dem Finger nicht antippen: ${JSON.stringify({ da0, wuerfel, da1, blatt, da2, netz })}`);
+    await kontext.close();
+  }
+  {
+    // Eine Runde in echter Zeit – die meisten Aufgaben richtig, eine falsch,
+    // eine spät –, aufgezeichnet und angeschaut: dieselben Aufgaben, dieselben
+    // Punkte je Aufgabe.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__kopfkino")) return;
+      sessionStorage.setItem("__kopfkino", "1");
+      localStorage.setItem("mini.name", "Kira");
+    });
+    await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappKopfkino.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const K = window.LernappKopfkino;
+      const st = K.state;
+      let plan = null;
+      const lauf = (jetzt) => {
+        if (st.phase === "ende") { fertig(); return; }
+        requestAnimationFrame(lauf);
+        if (st.phase === "bereit") { K.losGehts(); return; }
+        if (st.phase === "vorschau") { if (jetzt - st.vorSeit > 420) { K.aufgabeLos(); plan = null; } return; }
+        if (st.phase === "zeigen") { if (jetzt - st.tZeig > 700) K.weiter(); plan = null; return; }
+        if (st.phase !== "aufgabe") return;
+        const a = st.aufgaben[st.index];
+        if (!plan) {
+          const schritte = K.loesung(a);
+          // Aufgabe 3 falsch (oder um eins daneben), Aufgabe 6 spät.
+          if (st.index === 2) {
+            if (a.eingabe === "wahl") schritte[0][1] = (a.soll + 1) % a.wahl === a.rot ? (a.soll + 2) % a.wahl : (a.soll + 1) % a.wahl;
+            else if (a.eingabe === "zahl") { schritte.length = 0; for (const z of String(a.soll + 1)) schritte.push(["ziffer", Number(z)]); schritte.push(["fertig", 0]); }
+            else schritte.shift();
+          }
+          if (st.index === 5) st.t0 -= a.zeit * 700;
+          plan = { schritte, i: 0, ab: jetzt + 520 };
+          return;
+        }
+        if (jetzt < plan.ab || plan.i >= plan.schritte.length) return;
+        K.eingabe(plan.schritte[plan.i][0], plan.schritte[plan.i][1]);
+        plan.i += 1;
+        plan.ab = jetzt + 90;
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("mindsEye_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`mindsEye_${kennung}`) || null;
+      const st = window.LernappKopfkino.state;
+      return { kennung, punkte: geist?.punkte ?? -1, gezaehlt: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null) };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte === gespielt.gezaehlt && gespielt.punkte >= 600 && gespielt.liste[2] < 100 && gespielt.liste[5] > 50 && gespielt.liste[5] < 100
+      && gespielt.liste.filter((p) => p === 100).length >= 7,
+      `Kopfkino: Die Runde wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/kopfkino?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => ["warten", "vorschau", "aufgabe", "zeigen"].includes(window.LernappKopfkino?.state?.phase) && document.querySelector("#kn-stage")?.dataset.phase === "play", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappKopfkino.state.phase, welt: window.LernappKopfkino.weltText() }));
+    pruefe(zu.welt === welt, `Kopfkino: Beim Zuschauen stehen andere Aufgaben da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen antwortet niemand mit.
+    await seite.mouse.click(210, 520);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappKopfkino.state;
+      return { punkte: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null), tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespielt.liste),
+      `Kopfkino: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -10381,7 +10743,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 36 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 37 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -10389,7 +10751,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /37/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /38/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -10406,7 +10768,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -12043,7 +12405,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 194, `klang.js kennt nicht alle 194 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 201, `klang.js kennt nicht alle 201 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
