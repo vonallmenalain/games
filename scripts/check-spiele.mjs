@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3222,6 +3222,7 @@ try {
     ["/flaggen", "Flaggenkommando", () => window.LernappFlaggen.weltText()],
     ["/zeitgefuehl", "Zeitgefühl", () => window.LernappZeitgefuehl.weltText()],
     ["/kletterwand", "Kletterwand", () => window.LernappKletterwand.weltText()],
+    ["/freihand", "Freihand", () => window.LernappFreihand.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -9843,6 +9844,337 @@ try {
     await kontext.close();
   }
 
+  // --- 4g39. Freihand: zehn Blätter, der Strich am Ideal gemessen ----------------------
+  // Jede Runde hat zwei leichte, vier mittlere und vier schwere Blätter, und
+  // jedes passt mit Rand aufs Blatt. Wer die ideale Form selbst zeichnet,
+  // bekommt hundert Punkte – wer sie verschiebt, nur die Hälfte zeichnet oder
+  // einen zu kleinen Kreis abliefert, verliert, wie es die Tabelle sagt. Der
+  // Strich wird als Linienzug aus höchstens 48 Punkten gewertet, der dem
+  // Finger auf ein paar Zehntelmillimeter folgt. Ein Tupfer ist keine
+  // Antwort, die Zeit läuft erst nach dem Tipp, und ist sie um, zählt der
+  // Strich, wie er dasteht.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/freihand`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreihand?.state?.blaetter && window.LernappFreihand.view.cssW > 0, null, { timeout: 8000 });
+    const bau = await seite.evaluate(() => {
+      const F = window.LernappFreihand;
+      const raus = { runden: [], aussen: 0, nichtHundert: [], zweite: 0, welten: 0, arten: 0 };
+      const welten = new Set();
+      const gesehen = new Set();
+      for (let runde = 0; runde < 6; runde += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const b = F.state.blaetter;
+        welten.add(F.weltText());
+        raus.runden.push({ n: b.length, stufen: [0, 1, 2].map((s) => b.filter((a) => a.stufe === s).length).join("/"), arten: new Set(b.map((a) => a.art)).size, zeiten: b.every((a) => a.zeit === F.ZEITEN[a.stufe]) });
+        b.forEach((a) => gesehen.add(a.art));
+      }
+      // Jede Art, zwanzigmal gewürfelt: alles liegt im Rand, und jede Form,
+      // die gilt, gibt hundert Punkte.
+      for (const art of [...F.LEICHT, ...F.MITTEL, ...F.SCHWER]) {
+        for (let i = 0; i < 20; i += 1) {
+          const a = F.lege(art, Math.random);
+          if (art !== "kreisfrei") {
+            const alle = [...a.teile.flatMap(F.teilPunkte), ...a.ziele[0]];
+            if (alle.some((p) => p.x < F.RAND - 0.01 || p.x > F.BLATT - F.RAND + 0.01 || p.y < F.RAND - 0.01 || p.y > F.BLATT - F.RAND + 0.01)) raus.aussen += 1;
+          }
+          if (a.ziele.length > 1) raus.zweite += 1;
+          for (const weg of a.ziele.length ? a.ziele : [F.kreisWeg({ x: 50, y: 52 }, 24, 1)]) {
+            const m = F.messe(a, weg);
+            if (m.punkte !== 100 || m.mm > 0.02) raus.nichtHundert.push(`${art}: ${m.mm}/${m.punkte}`);
+          }
+        }
+      }
+      raus.welten = welten.size;
+      raus.arten = gesehen.size;
+      return raus;
+    });
+    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "2/4/4" && r.arten === 10 && r.zeiten) && bau.welten === 6 && bau.arten >= 13,
+      `Freihand: Die Runden haben nicht ihre zwei, vier und vier Blätter, oder jede Runde ist dieselbe: ${JSON.stringify(bau)}`);
+    pruefe(bau.aussen === 0 && bau.nichtHundert.length === 0 && bau.zweite > 20,
+      `Freihand: Ein Blatt passt nicht, oder die ideale Form gibt keine hundert Punkte: ${JSON.stringify({ aussen: bau.aussen, zweite: bau.zweite, nichtHundert: bau.nichtHundert.slice(0, 6) })}`);
+
+    const regeln = await seite.evaluate(() => {
+      const F = window.LernappFreihand;
+      const runden = (z) => Math.round(z * 100) / 100;
+      const raus = {};
+      // Die Tabelle: an ihren Knoten, und nie mehr Punkte für mehr Abweichung.
+      raus.knoten = F.KNOTEN.map(([mm, p]) => F.punkteFuer(mm) === p);
+      let faellt = true;
+      for (let mm = 0.05; mm < 10; mm += 0.05) if (F.punkteFuer(mm) > F.punkteFuer(mm - 0.05)) faellt = false;
+      raus.faellt = faellt;
+      raus.mass = [F.punkteFuer(1), F.punkteFuer(1, 1.5), F.punkteFuer(1, 0.85), F.punkteFuer(Infinity), F.punkteFuer(NaN)];
+      // Eine Gerade, vier Millimeter daneben: vier Millimeter Abweichung. Die
+      // halbe Gerade: richtig gezeichnet und doch nur halb.
+      const gerade = { art: "gerade", mass: 1, ziele: [[{ x: 20, y: 50 }, { x: 80, y: 50 }]], frei: null };
+      raus.daneben = F.messe(gerade, [{ x: 20, y: 54 }, { x: 80, y: 54 }]);
+      raus.halb = F.messe(gerade, [{ x: 20, y: 50 }, { x: 50, y: 50 }]);
+      raus.zuviel = F.messe(gerade, [{ x: 20, y: 50 }, { x: 80, y: 50 }, { x: 80, y: 80 }]);
+      raus.nichts = F.messe(gerade, null).punkte;
+      // Zwei Formen gelten: Es zählt die, der der Strich näher ist.
+      const zwei = { art: "quadrat", mass: 1, ziele: [[{ x: 30, y: 30 }, { x: 60, y: 30 }], [{ x: 30, y: 70 }, { x: 60, y: 70 }]], frei: null };
+      raus.zwei = [F.messe(zwei, [{ x: 30, y: 70.5 }, { x: 60, y: 70.5 }]).mm, F.messe(zwei, [{ x: 30, y: 29 }, { x: 60, y: 29 }]).mm];
+      // Der freie Kreis: gross und rund hundert, ein Ei weniger, zu klein
+      // wenig – auch wenn er rund ist –, und ein halber fast nichts.
+      const frei = { art: "kreisfrei", mass: F.MASS.kreisfrei, ziele: [], frei: { rMin: 18 } };
+      const ei = F.kreisWeg({ x: 50, y: 50 }, 25, 0).map((p) => ({ x: 50 + (p.x - 50) * 1.12, y: p.y }));
+      raus.frei = {
+        rund: F.messe(frei, F.kreisWeg({ x: 40, y: 61 }, 25, 2)).punkte,
+        ei: F.messe(frei, ei).punkte,
+        klein: F.messe(frei, F.kreisWeg({ x: 50, y: 50 }, 9, 0)),
+        halb: F.messe(frei, F.kreisWeg({ x: 50, y: 50 }, 25, 0, Math.PI)).punkte,
+      };
+      // Der Linienzug: ein zittriger Kreis aus 700 Stellen des Fingers.
+      const roh = [];
+      for (let i = 0; i <= 700; i += 1) {
+        const w = (i / 700) * Math.PI * 2;
+        const r = 27 + Math.sin(w * 3) * 0.8 + Math.sin(w * 11) * 0.3;
+        roh.push({ x: 50 + Math.cos(w) * r, y: 50 + Math.sin(w) * r });
+      }
+      const s = F.schreiberNeu(roh[0]);
+      for (let i = 1; i < roh.length; i += 1) F.schreibe(s, roh[i]);
+      F.schliesse(s);
+      let weit = 0;
+      for (const p of roh) weit = Math.max(weit, F.naechster(p, s.punkte).weit);
+      const gitter = s.punkte.every((p) => Math.abs(p.x * F.ZUG_MM - Math.round(p.x * F.ZUG_MM)) < 1e-6 && Math.abs(p.y * F.ZUG_MM - Math.round(p.y * F.ZUG_MM)) < 1e-6);
+      raus.zug = { n: s.punkte.length, weit: runden(weit), gitter, zu: runden(Math.hypot(s.punkte[0].x - s.punkte[s.punkte.length - 1].x, s.punkte[0].y - s.punkte[s.punkte.length - 1].y)) };
+      const g = F.schreiberNeu({ x: 10, y: 10 });
+      for (let i = 1; i <= 300; i += 1) F.schreibe(g, { x: 10 + i * 0.25, y: 10 + i * 0.2 });
+      F.schliesse(g);
+      raus.strecke = g.punkte.length;
+      // Gekritzel: nie mehr Punkte, als die Aufzeichnung fasst.
+      const k = F.schreiberNeu({ x: 50, y: 50 });
+      for (let i = 1; i <= 4000; i += 1) F.schreibe(k, { x: 50 + Math.sin(i * 0.37) * 30 * Math.sin(i * 0.011), y: 50 + Math.cos(i * 0.29) * 30 });
+      F.schliesse(k);
+      raus.gekritzel = k.punkte.length;
+      for (const key of ["daneben", "halb", "zuviel"]) raus[key] = { mm: raus[key].mm, punkte: raus[key].punkte, hin: runden(raus[key].hin), her: runden(raus[key].her) };
+      raus.frei.klein = { mm: raus.frei.klein.mm, punkte: raus.frei.klein.punkte };
+      return raus;
+    });
+    pruefe(regeln.knoten.every(Boolean) && regeln.faellt && JSON.stringify(regeln.mass) === JSON.stringify([80, 66, 84, 0, 0]),
+      `Freihand: Die Punkte fallen nicht nach der Tabelle: ${JSON.stringify({ knoten: regeln.knoten, faellt: regeln.faellt, mass: regeln.mass })}`);
+    pruefe(Math.abs(regeln.daneben.mm - 4) < 0.02 && regeln.daneben.punkte === 24 && regeln.halb.hin < 0.01 && regeln.halb.her > 7 && regeln.halb.punkte < 40
+      && regeln.zuviel.her < 0.01 && regeln.zuviel.hin > 4 && regeln.zuviel.punkte < 60 && regeln.nichts === 0,
+      `Freihand: Verschoben, halb gezeichnet oder darüber hinaus – gemessen wird nicht in beide Richtungen: ${JSON.stringify({ daneben: regeln.daneben, halb: regeln.halb, zuviel: regeln.zuviel, nichts: regeln.nichts })}`);
+    pruefe(Math.abs(regeln.zwei[0] - 0.5) < 0.02 && Math.abs(regeln.zwei[1] - 1) < 0.02, `Freihand: Von zwei Formen zählt nicht die nähere: ${JSON.stringify(regeln.zwei)}`);
+    pruefe(regeln.frei.rund === 100 && regeln.frei.ei < 75 && regeln.frei.ei > 20 && regeln.frei.klein.mm >= 4.4 && regeln.frei.klein.punkte < 25 && regeln.frei.halb < 30,
+      `Freihand: Der freie Kreis wird nicht an seiner Rundung und Grösse gemessen: ${JSON.stringify(regeln.frei)}`);
+    pruefe(regeln.zug.n >= 12 && regeln.zug.n <= 48 && regeln.zug.weit <= 0.3 && regeln.zug.gitter && regeln.zug.zu < 0.1 && regeln.strecke === 2 && regeln.gekritzel <= 48,
+      `Freihand: Der Linienzug folgt dem Finger nicht eng genug, oder er hat zu viele Punkte: ${JSON.stringify({ zug: regeln.zug, strecke: regeln.strecke, gekritzel: regeln.gekritzel })}`);
+
+    // Eine Runde, Blatt um Blatt, mit dem Stift der Prüfung (stiftAb, stiftZu,
+    // stiftAuf zeichnen wie ein Finger). Die Uhr wird vorgestellt, wo sonst
+    // gewartet würde.
+    const runde = await seite.evaluate(() => {
+      const F = window.LernappFreihand;
+      const st = F.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      // Feste Arten, wo die Prüfung etwas Bestimmtes zeichnet.
+      ["gerade", "gerade", "kreis", "quadrat", "kreisfrei", "kreisfrei", "kreis"].forEach((art, i) => { st.blaetter[i] = F.lege(art, Math.random); });
+      const form = (a) => F.abtasten(a.ziele[0] || F.kreisWeg({ x: 54, y: 54 }, 24, 0.3), 0.5);
+      const zeichne = (pkte, absetzen = true) => {
+        st.t0 -= 600;
+        if (!F.stiftAb(pkte[0], 1, "pen")) return false;
+        for (let i = 1; i < pkte.length; i += 1) F.stiftZu(pkte[i]);
+        if (absetzen) F.stiftAuf();
+        return true;
+      };
+      const stand = (i) => ({ phase: st.phase, punkte: st.liste[i]?.punkte ?? null, mm: st.liste[i]?.mm ?? null, strich: st.liste[i]?.strich?.length ?? null, summe: st.punkte });
+      const raus = { vorher: st.phase };
+      F.losGehts();
+      raus.vorschau = { phase: st.phase, index: st.index, stift: F.stiftAb({ x: 50, y: 50 }, 1, "pen") };
+      F.blattLos();
+      raus.sperre = { phase: st.phase, stift: F.stiftAb({ x: 50, y: 50 }, 1, "pen") };
+      // Blatt 1: die Gerade, genau.
+      zeichne(form(st.blaetter[0]));
+      raus.genau = stand(0);
+      F.weiter();
+      raus.naechstes = { phase: st.phase, index: st.index };
+      // Blatt 2: erst ein Tupfer – dann die Gerade, vier Millimeter daneben.
+      F.blattLos();
+      const [a, b] = st.blaetter[1].ziele[0];
+      const lang = Math.hypot(b.x - a.x, b.y - a.y);
+      const n = { x: (-(b.y - a.y) / lang) * 4, y: ((b.x - a.x) / lang) * 4 };
+      const mitte = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const seite = Math.hypot(mitte.x + n.x - 50, mitte.y + n.y - 50) < Math.hypot(mitte.x - n.x - 50, mitte.y - n.y - 50) ? 1 : -1;
+      zeichne([a, { x: a.x + 2, y: a.y + 1 }]);
+      raus.tupfer = { ...stand(1), verworfen: st.verworfen > 0, roh: st.roh.length };
+      zeichne(F.abtasten([a, b], 0.5).map((p) => ({ x: p.x + n.x * seite, y: p.y + n.y * seite })));
+      raus.daneben = { ...stand(1), soll: F.punkteFuer(st.liste[1]?.mm, F.MASS.gerade) };
+      F.weiter();
+      // Blatt 3: Die Zeit läuft ab, und niemand zeichnet.
+      F.blattLos();
+      st.t0 -= (st.blaetter[2].zeit + F.EINZUG + 0.2) * 1000;
+      F.takt(0.016);
+      raus.zeitUm = stand(2);
+      F.weiter();
+      // Blatt 4: Die Zeit läuft ab, mitten im Strich – er zählt, wie er dasteht.
+      F.blattLos();
+      const quadrat = form(st.blaetter[3]);
+      zeichne(quadrat.slice(0, Math.floor(quadrat.length / 2)), false);
+      const mitten = { zieht: st.zieht !== null, vorher: st.phase };
+      st.t0 -= 30000;
+      F.takt(0.016);
+      raus.mitten = { ...stand(3), ...mitten };
+      F.weiter();
+      // Blatt 5 und 6: der freie Kreis – gross und rund, dann klein und rund.
+      F.blattLos();
+      zeichne(F.abtasten(F.kreisWeg({ x: 55, y: 56 }, 26, 1), 0.5));
+      raus.rund = stand(4);
+      F.weiter();
+      F.blattLos();
+      zeichne(F.abtasten(F.kreisWeg({ x: 55, y: 56 }, 9, 1), 0.5));
+      raus.klein = stand(5);
+      F.weiter();
+      // Blatt 7: der halbe Kreis.
+      F.blattLos();
+      const kreis = form(st.blaetter[6]);
+      zeichne(kreis.slice(0, Math.floor(kreis.length / 2)));
+      raus.halb = stand(6);
+      F.weiter();
+      // Blatt 8: Wer nicht tippt, bekommt das Blatt nach dreissig Sekunden.
+      const wartet = st.phase;
+      st.vorSeit -= (F.VORSCHAU + 0.5) * 1000;
+      F.takt(0.016);
+      raus.vonSelbst = { wartet, phase: st.phase, index: st.index };
+      zeichne(form(st.blaetter[7]));
+      F.weiter();
+      // Blatt 9 und 10: genau.
+      for (const i of [8, 9]) { F.blattLos(); zeichne(form(st.blaetter[i])); if (i === 8) F.weiter(); }
+      raus.letztes = stand(9);
+      raus.liste = st.liste.map((e) => e?.punkte ?? null);
+      F.weiter();
+      raus.ende = { phase: st.phase, summe: st.punkte, genaue: st.genaue };
+      return raus;
+    });
+    pruefe(runde.vorher === "bereit" && runde.vorschau.phase === "vorschau" && runde.vorschau.index === 0 && runde.vorschau.stift === false
+      && runde.sperre.phase === "aufgabe" && runde.sperre.stift === false,
+      `Freihand: In der Vorschau oder gleich nach dem Hinlegen lässt sich schon zeichnen: ${JSON.stringify({ vorher: runde.vorher, vorschau: runde.vorschau, sperre: runde.sperre })}`);
+    pruefe(runde.genau.phase === "zeigen" && runde.genau.punkte === 100 && runde.genau.mm <= 0.03 && runde.genau.strich === 2 && runde.genau.summe === 100
+      && runde.naechstes.phase === "vorschau" && runde.naechstes.index === 1,
+      `Freihand: Die genaue Gerade gibt keine hundert Punkte, oder es geht nicht weiter: ${JSON.stringify({ genau: runde.genau, naechstes: runde.naechstes })}`);
+    pruefe(runde.tupfer.phase === "aufgabe" && runde.tupfer.punkte === null && runde.tupfer.verworfen && runde.tupfer.roh === 0,
+      `Freihand: Ein Tupfer zählt als Antwort: ${JSON.stringify(runde.tupfer)}`);
+    pruefe(runde.daneben.phase === "zeigen" && Math.abs(runde.daneben.mm - 4) < 0.06 && runde.daneben.punkte === runde.daneben.soll && runde.daneben.punkte <= 12 && runde.daneben.summe === 100 + runde.daneben.punkte,
+      `Freihand: Vier Millimeter daneben geben nicht, was die Tabelle sagt: ${JSON.stringify(runde.daneben)}`);
+    pruefe(runde.zeitUm.phase === "zeigen" && runde.zeitUm.punkte === 0 && runde.zeitUm.strich === null,
+      `Freihand: Ist die Zeit um und nichts gezeichnet, endet das Blatt nicht mit null Punkten: ${JSON.stringify(runde.zeitUm)}`);
+    pruefe(runde.mitten.zieht && runde.mitten.vorher === "aufgabe" && runde.mitten.phase === "zeigen" && runde.mitten.strich >= 2 && runde.mitten.punkte < 70 && runde.mitten.mm > 1,
+      `Freihand: Ist die Zeit mitten im Strich um, zählt er nicht, wie er dasteht: ${JSON.stringify(runde.mitten)}`);
+    pruefe(runde.rund.punkte >= 99 && runde.klein.punkte < 25 && runde.halb.punkte < 30 && runde.halb.punkte >= 0,
+      `Freihand: Der grosse runde Kreis, der zu kleine und der halbe werden nicht richtig gewertet: ${JSON.stringify({ rund: runde.rund, klein: runde.klein, halb: runde.halb })}`);
+    pruefe(runde.vonSelbst.wartet === "vorschau" && runde.vonSelbst.phase === "aufgabe" && runde.vonSelbst.index === 7,
+      `Freihand: Die Vorschau endet nicht von selbst: ${JSON.stringify(runde.vonSelbst)}`);
+    const summe = runde.liste.reduce((s, p) => s + (p || 0), 0);
+    pruefe(runde.liste.every((p) => p !== null) && runde.letztes.punkte === 100 && runde.ende.phase === "ende" && runde.ende.summe === summe && summe >= 500 && runde.ende.genaue >= 5,
+      `Freihand: Nach dem zehnten Blatt ist die Runde nicht zu Ende, oder die Summe stimmt nicht: ${JSON.stringify({ liste: runde.liste, ende: runde.ende })}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    const tafel = await seite.evaluate(() => ({ zahl: document.querySelectorAll(".cm-result-score").length, text: document.querySelector(".cm-result-detail")?.textContent || "" }));
+    pruefe(tafel.zahl === 1 && /Neuer Rekord!/.test(tafel.text) && /Bestes Blatt: \S+.* 100/.test(tafel.text) && /mm daneben/.test(tafel.text) && /haargenau/.test(tafel.text),
+      `Freihand: Die Tafel zeigt nicht, was war: ${JSON.stringify(tafel)}`);
+    await kontext.close();
+  }
+  {
+    // Mit der Maus: klicken beginnt, klicken legt das Blatt hin – und der
+    // Strich entsteht unter dem Zeiger, bis die Taste losgelassen wird.
+    const { kontext, seite } = await neueSeite({ width: 900, height: 700 });
+    await seite.goto(`${BASIS}/freihand`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreihand?.state?.blaetter && window.LernappFreihand.view.cssW > 0, null, { timeout: 8000 });
+    const ort = await seite.evaluate(() => {
+      const F = window.LernappFreihand;
+      F.state.blaetter[0] = F.lege("gerade", Math.random);
+      const r = document.querySelector("#fh-stage canvas").getBoundingClientRect();
+      const [a, b] = F.state.blaetter[0].ziele[0];
+      const px = (p) => ({ x: r.left + F.view.x0 + p.x * F.view.s, y: r.top + F.view.y0 + p.y * F.view.s });
+      return { a: px(a), b: px(b), mitte: px({ x: 50, y: 50 }) };
+    });
+    await seite.mouse.click(ort.mitte.x, ort.mitte.y);
+    await seite.waitForFunction(() => window.LernappFreihand.state.phase === "vorschau", null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForTimeout(500);
+    await seite.mouse.click(ort.mitte.x, ort.mitte.y);
+    await seite.waitForFunction(() => window.LernappFreihand.state.phase === "aufgabe", null, { timeout: 4000 }).catch(() => {});
+    await seite.waitForTimeout(900);
+    // Ein blosser Klick ist keine Antwort.
+    await seite.mouse.click(ort.a.x, ort.a.y);
+    const nachKlick = await seite.evaluate(() => ({ phase: window.LernappFreihand.state.phase, offen: window.LernappFreihand.state.liste[0] === null }));
+    await seite.mouse.move(ort.a.x, ort.a.y);
+    await seite.mouse.down();
+    await seite.mouse.move(ort.b.x, ort.b.y, { steps: 30 });
+    const unterwegs = await seite.evaluate(() => ({ zieht: window.LernappFreihand.state.zieht !== null, roh: window.LernappFreihand.state.roh.length }));
+    await seite.mouse.up();
+    const maus = await seite.evaluate(() => { const st = window.LernappFreihand.state; return { phase: st.phase, punkte: st.liste[0]?.punkte ?? null, mm: st.liste[0]?.mm ?? null, eingabe: st.eingabe }; });
+    pruefe(nachKlick.phase === "aufgabe" && nachKlick.offen && unterwegs.zieht && unterwegs.roh >= 20 && maus.phase === "zeigen" && maus.punkte >= 95 && maus.eingabe === "mouse",
+      `Freihand: Mit der Maus entsteht der Strich nicht unter dem Zeiger, oder ein Klick ist schon die Antwort: ${JSON.stringify({ nachKlick, unterwegs, maus })}`);
+    await kontext.close();
+  }
+  {
+    // Eine Runde in echter Zeit – jedes Blatt zügig gezeichnet, mit einem
+    // Zittern –, aufgezeichnet und angeschaut: dieselben Blätter, derselbe
+    // Strich, dieselben Punkte je Blatt.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__freihand")) return;
+      sessionStorage.setItem("__freihand", "1");
+      localStorage.setItem("mini.name", "Frida");
+    });
+    await seite.goto(`${BASIS}/freihand`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappFreihand?.state?.blaetter && window.LernappFreihand.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappFreihand.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const F = window.LernappFreihand;
+      const st = F.state;
+      let plan = null;
+      const lauf = (jetzt) => {
+        if (st.phase === "ende") { fertig(); return; }
+        requestAnimationFrame(lauf);
+        if (st.phase === "bereit") { F.losGehts(); return; }
+        if (st.phase === "vorschau") { if (jetzt - st.vorSeit > 450) { F.blattLos(); plan = null; } return; }
+        if (st.phase === "zeigen") { if (jetzt - st.tZeig > 500) F.weiter(); plan = null; return; }
+        if (st.phase !== "aufgabe") return;
+        const a = st.blaetter[st.index];
+        if (!plan) {
+          const n = st.index;
+          // Blatt 4 bleibt leer: Dort läuft die Zeit ab.
+          const pkte = F.abtasten(a.ziele[0] || F.kreisWeg({ x: 52, y: 54 }, 24, 0.4), 0.7).map((p, i) => ({ x: p.x + Math.sin(n * 2.1) * 1.4 + Math.sin(i * 0.13 + n) * 0.6, y: p.y + Math.cos(n * 1.7) * 1.4 + Math.cos(i * 0.1) * 0.6 }));
+          plan = { pkte, ab: jetzt + 450, i: 0 };
+          if (n === 3) { plan.ab = Infinity; st.t0 -= (a.zeit - 0.4) * 1000; }
+          return;
+        }
+        if (jetzt < plan.ab) return;
+        const soll = Math.min(plan.pkte.length, Math.ceil(((jetzt - plan.ab) / 350) * plan.pkte.length));
+        if (plan.i === 0 && soll > 0) { if (!F.stiftAb(plan.pkte[0], 1, "pen")) return; plan.i = 1; }
+        while (plan.i < soll) { F.stiftZu(plan.pkte[plan.i]); plan.i += 1; }
+        if (plan.i >= plan.pkte.length) { F.stiftAuf(); plan = null; }
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("freeHand_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`freeHand_${kennung}`) || null;
+      const st = window.LernappFreihand.state;
+      return { kennung, punkte: geist?.punkte ?? -1, bahn: String(geist?.bahn || geist?.lauf?.bahn || "").length, gezaehlt: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null), ecken: st.liste.map((e) => e?.strich?.length ?? 0) };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte === gespielt.gezaehlt && gespielt.punkte >= 300 && gespielt.liste[3] === 0 && gespielt.ecken[3] === 0
+      && gespielt.liste.filter((p) => p > 0).length >= 8 && gespielt.ecken.every((n) => n <= 48),
+      `Freihand: Die Runde wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/freihand?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => ["warten", "vorschau", "aufgabe", "zeigen"].includes(window.LernappFreihand?.state?.phase) && document.querySelector("#fh-stage")?.dataset.phase === "play", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappFreihand.state.phase, welt: window.LernappFreihand.weltText() }));
+    pruefe(zu.welt === welt, `Freihand: Beim Zuschauen liegen andere Blätter da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen zeichnet niemand mit.
+    await seite.mouse.click(210, 420);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappFreihand.state;
+      return { punkte: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null), ecken: st.liste.map((e) => e?.strich?.length ?? 0), tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespielt.liste) && JSON.stringify(schluss.ecken) === JSON.stringify(gespielt.ecken),
+      `Freihand: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -10049,7 +10381,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 35 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 36 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -10057,7 +10389,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /36/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /37/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -10074,7 +10406,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -11711,7 +12043,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 187, `klang.js kennt nicht alle 187 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 194, `klang.js kennt nicht alle 194 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

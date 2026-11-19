@@ -243,6 +243,13 @@
     "kletterwand.bruch": { s: "krach" },
     "kletterwand.fall": { s: "ab" },
     "kletterwand.seil": { s: "whomp-weich" },
+    "freihand.blatt": { s: "stift" },
+    "freihand.stift": { s: "a-spur", schleife: true },
+    "freihand.tick": { s: "klick" },
+    "freihand.stempel": { s: "holzblock" },
+    "freihand.gut": { s: "perle" },
+    "freihand.genau": { s: "pling" },
+    "freihand.daneben": { s: "ab-sanft" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -259,6 +266,7 @@
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
+    freeHand: "freihand",
   };
 
   // ---------------------------------------------------------------------------
