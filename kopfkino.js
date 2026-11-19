@@ -1171,6 +1171,28 @@
     return raus;
   }
 
+  /*
+   * Die Testrunde (?alle in der Adresse; im Adminbereich «▶ Alle Aufgaben»):
+   * jede Art in jeder Stufe, eine nach der anderen – leicht, mittel, schwer,
+   * dann die nächste Art. Zum Ausprobieren: Sie geht in keine Bestenliste und
+   * wird nicht aufgezeichnet. ?alle=laser,zahnrad nimmt nur diese Arten. Im
+   * Turnier, im Live-Modus und beim Zuschauen gibt es sie nicht.
+   */
+  const TESTRUNDE = (() => {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has("alle") || p.has("turnier") || p.has("live") || p.has("zuschauen") || zufall.fest) return null;
+    const wunsch = String(p.get("alle") || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+    const arten = ARTEN.filter((art) => wunsch.includes(art));
+    return arten.length ? arten : [...ARTEN];
+  })();
+
+  function testAufgaben() {
+    const r = () => zufall.zahl();
+    const raus = [];
+    for (const art of TESTRUNDE) for (let stufe = 0; stufe < 3; stufe += 1) if (!(stufe === 0 && OHNE_LEICHT.includes(art))) raus.push(lege(art, stufe, r));
+    return raus;
+  }
+
   // Die Runde als Text – für die Prüfung, dass in einem Turnier alle dieselbe bekommen.
   function weltText(aufgaben = state.aufgaben) {
     return (aufgaben || []).map((a) => `${a.art}${a.stufe}:${a.soll}`).join(" ");
@@ -1252,6 +1274,8 @@
   const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, u: 1, hoch: true, flach: false, lw: null, text: null, film: null, guete: 1 };
 
   const aufgabe = () => state.aufgaben?.[state.index] || null;
+  // Wie viele Aufgaben die Runde hat: zehn – in der Testrunde alle.
+  const anzahl = () => state.aufgaben?.length || AUFGABEN;
   const seit = (jetzt = performance.now()) => (jetzt - state.t0) / 1000;
   const offen = () => state.phase === "aufgabe" && !zuschauer;
 
@@ -1328,7 +1352,7 @@
     state.tickBei = 0;
     const a = aufgabe();
     state.beispiel = beispielFuer(a);
-    if (status) status.textContent = `Aufgabe ${index + 1} von ${AUFGABEN}: ${a.kurz}. ${a.frage} Tippe, wenn du bereit bist.`;
+    if (status) status.textContent = `Aufgabe ${index + 1} von ${anzahl()}: ${a.kurz}. ${a.frage} Tippe, wenn du bereit bist.`;
     ton("kopfkino.neu");
     meldeZug(0);
   }
@@ -1340,7 +1364,7 @@
     state.t0 = performance.now();
     state.gewendet = state.t0;
     const a = aufgabe();
-    if (status) status.textContent = `Aufgabe ${state.index + 1} von ${AUFGABEN}: ${a.frage}`;
+    if (status) status.textContent = `Aufgabe ${state.index + 1} von ${anzahl()}: ${a.frage}`;
     ton("kopfkino.klick");
     meldeZug(1);
   }
@@ -1419,7 +1443,7 @@
   function weiter() {
     if (state.phase !== "zeigen" || zuschauer) return;
     clearStep();
-    if (state.index + 1 >= AUFGABEN) finish();
+    if (state.index + 1 >= anzahl()) finish();
     else aufgabeAuf(state.index + 1);
   }
 
@@ -3317,7 +3341,7 @@
     g.textBaseline = "top";
     g.fillStyle = STUFEN_FARBE[a.stufe];
     g.font = `700 ${Math.round(11.5 * u)}px ${SANS}`;
-    g.fillText(`AUFGABE ${state.index + 1} VON ${AUFGABEN}  ·  ${STUFE[a.stufe].toUpperCase()}`, r.x + r.w / 2, r.y + 2 * u);
+    g.fillText(`${TESTRUNDE ? "TESTRUNDE" : "AUFGABE"} ${state.index + 1} VON ${anzahl()}  ·  ${STUFE[a.stufe].toUpperCase()}`, r.x + r.w / 2, r.y + 2 * u);
     g.fillStyle = HELL;
     g.font = `italic 700 ${Math.round(27 * u)}px ${SERIF}`;
     g.fillText(a.kurz, r.x + r.w / 2, r.y + 19 * u);
@@ -3372,7 +3396,7 @@
     g.fillText("Kopfkino", r.x + r.w / 2, r.y + r.h * 0.05);
     g.font = `500 ${Math.round(14 * u)}px ${SANS}`;
     g.fillStyle = "rgba(233, 229, 255, 0.88)";
-    g.fillText("Zehn Aufgaben. Der Film läuft im Kopf.", r.x + r.w / 2, r.y + r.h * 0.05 + 54 * u);
+    g.fillText(TESTRUNDE ? `Testrunde: alle ${anzahl()} Aufgaben. Es zählt nichts.` : "Zehn Aufgaben. Der Film läuft im Kopf.", r.x + r.w / 2, r.y + r.h * 0.05 + 54 * u);
     g.restore();
     const platz = { x: r.x, y: r.y + r.h * 0.26, w: r.w, h: r.h * 0.56 };
     maleFigur(platz, TITEL_FIGUR, drehung([0, 0, 1], ruhig() ? 0.6 : jetzt / 2600), PALETTE[4], ISO[0], Math.min(platz.w, platz.h) / 6.4);
@@ -3397,7 +3421,7 @@
     g.textBaseline = "top";
     g.font = `700 ${Math.round(11.5 * u)}px ${SANS}`;
     g.fillStyle = STUFEN_FARBE[a.stufe];
-    g.fillText(`AUFGABE ${state.index + 1}/${AUFGABEN}  ·  ${STUFE[a.stufe].toUpperCase()}`, t.x, t.y);
+    g.fillText(`${TESTRUNDE ? "TEST" : "AUFGABE"} ${state.index + 1}/${anzahl()}  ·  ${STUFE[a.stufe].toUpperCase()}`, t.x, t.y);
     g.fillStyle = HELL;
     g.font = `italic 700 ${Math.round(22 * u)}px ${SERIF}`;
     g.fillText(a.kurz, t.x, t.y + 16 * u);
@@ -3466,6 +3490,10 @@
       g.restore();
     };
     const loch = (x, y, w, h) => { rundes(x, y, w, h, 1.5); g.fill(); };
+    // Hat die Runde mehr als zehn Aufgaben (die Testrunde), zeigt der
+    // Streifen die zehn, zu denen die aktuelle gehört.
+    const ab = Math.floor(Math.min(state.index, anzahl() - 1) / AUFGABEN) * AUFGABEN;
+    const platz = (i, x, y, w, h) => { if (ab + i < anzahl()) bild(ab + i, x, y, w, h); };
     g.save();
     rundes(f.x, f.y, f.w, f.h, 8 * u);
     g.fillStyle = "#0c0a1c";
@@ -3484,7 +3512,7 @@
         loch(x, f.y + f.h - rand * 0.72, 5 * u, rand * 0.44);
       }
       g.restore();
-      for (let i = 0; i < AUFGABEN; i += 1) bild(i, f.x + luft + i * (w + luft), f.y + rand, w, f.h - rand * 2);
+      for (let i = 0; i < AUFGABEN; i += 1) platz(i, f.x + luft + i * (w + luft), f.y + rand, w, f.h - rand * 2);
     } else {
       // Hochkant: die Löcher links und rechts, die Bilder in zwei Spalten.
       const rand = Math.round(Math.min(11 * u, f.w * 0.1));
@@ -3497,7 +3525,7 @@
         loch(f.x + f.w - rand * 0.72, y, rand * 0.44, 5 * u);
       }
       g.restore();
-      for (let i = 0; i < AUFGABEN; i += 1) bild(i, f.x + rand + (i % 2) * (w + luft), f.y + luft + Math.floor(i / 2) * (h + luft), w, h);
+      for (let i = 0; i < AUFGABEN; i += 1) platz(i, f.x + rand + (i % 2) * (w + luft), f.y + luft + Math.floor(i / 2) * (h + luft), w, h);
     }
   }
 
@@ -3644,11 +3672,11 @@
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
-    state.aufgaben = aufgabenFuer();
+    state.aufgaben = TESTRUNDE ? testAufgaben() : aufgabenFuer();
     state.phase = "bereit";
     state.index = 0;
     state.punkte = 0;
-    state.liste = new Array(AUFGABEN).fill(null);
+    state.liste = new Array(anzahl()).fill(null);
     state.wert = 0;
     state.getippt = "";
     state.antwort = null;
@@ -3660,7 +3688,9 @@
     shell.setCount(0);
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt kn-prompt", "Stell dir vor, was geschieht – richtig und schnell gibt am meisten.");
+    const prompt = shell.el("p", "cm-prompt kn-prompt", TESTRUNDE
+      ? `Testrunde: alle ${anzahl()} Aufgaben nacheinander – nichts wird gespeichert.`
+      : "Stell dir vor, was geschieht – richtig und schnell gibt am meisten.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -3694,6 +3724,7 @@
     // was bis dahin beantwortet ist.
     state.phase = "ende";
     const punkte = state.punkte;
+    if (TESTRUNDE) { testEnde(punkte); return; }
     const geist = aufnahme?.ende() || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
@@ -3708,13 +3739,35 @@
       points: punkte,
       detail: [
         rekord ? "Neuer Rekord!" : "",
-        `${richtig} von ${AUFGABEN} richtig`,
+        `${richtig} von ${anzahl()} richtig`,
         state.volle ? `${state.volle} mit vollen Punkten` : "",
         !rekord && vorher ? `Bestwert ${vorher}` : "",
       ].filter(Boolean).join(" · "),
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("kn-rekord");
+    zaehleHoch(punkte);
+  }
+
+  // Die Tafel der Testrunde: die Punkte, wie viele richtig waren und wo es
+  // daneben ging – ohne Bestenliste, ohne Rekord, ohne Aufzeichnung.
+  function testEnde(punkte) {
+    const fertig = state.liste.filter(Boolean);
+    const richtig = fertig.filter((e) => e.anteil >= 1).length;
+    const daneben = state.aufgaben
+      .map((a, i) => (state.liste[i] && state.liste[i].anteil < 1 ? `${KURZ[a.art]} (${STUFE[a.stufe]})` : ""))
+      .filter(Boolean);
+    shell.showResult({
+      label: "Testrunde",
+      points: punkte,
+      detail: [
+        `${richtig} von ${anzahl()} richtig`,
+        state.volle ? `${state.volle} mit vollen Punkten` : "",
+        daneben.length ? `daneben: ${daneben.join(", ")}` : "",
+        "nichts gespeichert",
+      ].filter(Boolean).join(" · "),
+      eintragen: false,
+    });
     zaehleHoch(punkte);
   }
 
@@ -3748,7 +3801,8 @@
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "mindsEye", fassung: "z2", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
+  // Die Testrunde wird nicht aufgezeichnet.
+  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -3835,6 +3889,6 @@
     state, view, lege, aufgabenFuer, weltText, anteilFuer, zeitFaktor, punkteFuer, loesung,
     netzBaum, netzLage, netzKanten, ansichtSpalten, gestalt, augeNach, rollLage, schnittFlaeche, sicht,
     farbeSeiten, musterAnsicht, schattenVon, schattenText, profilText, laserRand, laserWeg, kugelWeg, radHalb,
-    losGehts, aufgabeLos, eingabe, weiter, takt, zeichnen, stellen: () => treffer,
+    losGehts, aufgabeLos, eingabe, weiter, takt, zeichnen, stellen: () => treffer, testrunde: () => TESTRUNDE,
   };
 })();

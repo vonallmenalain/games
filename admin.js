@@ -764,10 +764,16 @@
   // Mit zuschauen läuft im selben Fenster kein neues Spiel, sondern der
   // beste Lauf dieser Kennung (geist.js, zuschauer) – «Beenden» und «Zurück»
   // machen das Fenster wieder zu. Das ist keine Runde: Es zählt nichts.
-  const spielAdresse = (spiel, zuschauen = "") => {
+  //
+  // Mit test läuft die Testrunde eines Spiels, das eine hat (TESTRUNDE):
+  // jede Aufgabe einmal, nacheinander – sie zählt nicht.
+  const spielAdresse = (spiel, zuschauen = "", test = false) => {
     const weg = mini()?.spielLink?.(spiel) || "/";
+    if (test) return `${weg}?alle&von=admin`;
     return zuschauen ? `${weg}?zuschauen=${encodeURIComponent(zuschauen)}&von=admin` : `${weg}?von=admin`;
   };
+  // Die Spiele mit einer Testrunde, und was auf ihrem Knopf steht.
+  const TESTRUNDE = { mindsEye: "▶ Alle Aufgaben" };
   let spielZu = null;
 
   // Im Fenster meldet das Spiel den Weg zurück, statt den Adminbereich ein
@@ -776,15 +782,15 @@
     if (ereignis.origin === window.location.origin && ereignis.data?.miniAdmin === "zu") spielZu?.();
   });
 
-  function zeigeSpiel(spiel, { zuschauen = "", wer = "" } = {}) {
+  function zeigeSpiel(spiel, { zuschauen = "", wer = "", test = false } = {}) {
     spielZu?.();
-    const was = zuschauen ? `${titel(spiel)}: der Lauf von ${wer || zuschauen}` : titel(spiel);
+    const was = zuschauen ? `${titel(spiel)}: der Lauf von ${wer || zuschauen}` : test ? `${titel(spiel)}: Testrunde` : titel(spiel);
     const huelle = el("div", "adm-spiel");
     huelle.setAttribute("role", "dialog");
     huelle.setAttribute("aria-modal", "true");
     huelle.setAttribute("aria-label", was);
     const fenster = el("iframe", "adm-spiel-fenster");
-    fenster.src = spielAdresse(spiel, zuschauen);
+    fenster.src = spielAdresse(spiel, zuschauen, test);
     fenster.title = was;
     fenster.allow = "autoplay; fullscreen";
     fenster.setAttribute("allowfullscreen", "");
@@ -3345,6 +3351,8 @@
         el("span", z.an ? "adm-an" : "adm-aus", z.an ? "✓ auf der Startseite" : "nicht auf der Startseite"),
         knopf("▶ Spielen", "adm-knopf-klein", () => zeigeSpiel(spiel)),
       );
+      // Eine Runde mit jeder Aufgabe einmal – zum Ausprobieren, sie zählt nicht.
+      if (TESTRUNDE[spiel]) marken.append(knopf(TESTRUNDE[spiel], "adm-knopf-klein", () => zeigeSpiel(spiel, { test: true })));
       karte.append(marken);
     }
 

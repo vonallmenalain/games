@@ -10704,6 +10704,65 @@ try {
     await kontext.close();
   }
 
+  {
+    // Die Testrunde (?alle): jede Art in jeder Stufe, nacheinander – leicht,
+    // mittel, schwer, dann die nächste Art. Sie zählt nicht: keine Tafel mit
+    // Bestenliste, kein Eintrag, keine Aufzeichnung. ?alle=laser,zahnrad nimmt
+    // nur diese Arten; im Turnier gibt es sie nicht.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => localStorage.setItem("mini.name", "Kira"));
+    await seite.goto(`${BASIS}/kopfkino?alle`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
+    const test = await seite.evaluate(() => {
+      const K = window.LernappKopfkino;
+      const st = K.state;
+      const soll = K.ARTEN.flatMap((art) => [0, 1, 2].filter((stufe) => !(stufe === 0 && art === "schnitt")).map((stufe) => `${art}${stufe}`));
+      const raus = { folge: st.aufgaben.map((a) => `${a.art}${a.stufe}`).join(" ") === soll.join(" "), zahl: st.aufgaben.length, liste: st.liste.length, speicher: localStorage.getItem("lernapp.kopfkino") };
+      K.losGehts();
+      // Jede Aufgabe richtig – bis auf die dritte und die zwanzigste.
+      for (let i = 0; i < st.aufgaben.length; i += 1) {
+        K.aufgabeLos();
+        st.t0 -= 2000;
+        const a = st.aufgaben[i];
+        if ((i === 2 || i === 19) && a.eingabe === "wahl") K.eingabe("wahl", (a.soll + 1) % a.wahl);
+        else if (i === 2 || i === 19) { K.eingabe(a.eingabe === "zahl" ? "ziffer" : a.eingabe === "felder" ? "feld" : "spalte", a.eingabe === "zahl" ? ((a.soll % 9) + 1 === a.soll ? 9 : (a.soll % 9) + 1) : a.eingabe === "spalten" ? 1 : [...Array(a.felder).keys()].find((f) => !((a.soll >> f) & 1))); K.eingabe("fertig"); }
+        else for (const [was, wert] of K.loesung(a)) K.eingabe(was, wert);
+        // Der Streifen zeigt die zehn, zu denen die Aufgabe gehört.
+        K.zeichnen();
+        K.weiter();
+      }
+      raus.ende = { phase: st.phase, punkte: st.punkte, richtig: st.liste.filter((e) => e && e.anteil >= 1).length, offen: st.liste.filter((e) => !e).length };
+      raus.nachher = localStorage.getItem("lernapp.kopfkino");
+      raus.geist = [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("mindsEye_"));
+      return raus;
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    const testTafel = await seite.evaluate(() => ({
+      label: document.querySelector(".cm-result-label")?.textContent || "",
+      detail: document.querySelector(".cm-result-detail")?.textContent || "",
+      liste: document.querySelectorAll(".mini-ergebnis, .mini-namensfeld").length,
+      nochmal: document.querySelectorAll(".cm-overlay .cm-actions button").length,
+    }));
+    pruefe(test.folge && test.zahl === 44 && test.liste === 44 && test.ende.phase === "ende" && test.ende.offen === 0 && test.ende.richtig === 42,
+      `Kopfkino: Die Testrunde hat nicht jede Art in jeder Stufe, der Reihe nach, oder sie endet nicht nach der letzten: ${JSON.stringify(test)}`);
+    pruefe(testTafel.label === "Testrunde" && /42 von 44 richtig/.test(testTafel.detail) && /daneben: /.test(testTafel.detail) && /nichts gespeichert/.test(testTafel.detail)
+      && testTafel.liste === 0 && testTafel.nochmal >= 1 && test.nachher === test.speicher && !test.geist,
+      `Kopfkino: Die Testrunde zählt doch, oder ihre Tafel sagt nicht, was war: ${JSON.stringify({ testTafel, speicher: [test.speicher, test.nachher], geist: test.geist })}`);
+    // Nur einzelne Arten – und eine, die es nicht gibt, ändert nichts.
+    await seite.goto(`${BASIS}/kopfkino?alle=laser,zahnrad`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben, null, { timeout: 8000 });
+    const auswahl = await seite.evaluate(() => window.LernappKopfkino.state.aufgaben.map((a) => `${a.art}${a.stufe}`).join(" "));
+    await seite.goto(`${BASIS}/kopfkino?alle=gibtsnicht`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben, null, { timeout: 8000 });
+    const unbekannt = await seite.evaluate(() => window.LernappKopfkino.state.aufgaben.length);
+    await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben, null, { timeout: 8000 });
+    const normal = await seite.evaluate(() => ({ zahl: window.LernappKopfkino.state.aufgaben.length, test: window.LernappKopfkino.testrunde() }));
+    pruefe(auswahl === "laser0 laser1 laser2 zahnrad0 zahnrad1 zahnrad2" && unbekannt === 44 && normal.zahl === 10 && normal.test === null,
+      `Kopfkino: ?alle=laser,zahnrad nimmt nicht nur diese Arten, oder die gewöhnliche Runde ist keine mehr: ${JSON.stringify({ auswahl, unbekannt, normal })}`);
+    await kontext.close();
+  }
+
   // --- 4g41. Eisstock: neun Arten von Bahnen, jede mit einem Schub mitten ins Ziel ---------
   // Jede Runde hat zwei leichte, vier mittlere und vier schwere Bahnen. Für
   // jede Art wird nachgerechnet, dass es einen Schub gibt, der (fast) mitten
@@ -11597,6 +11656,29 @@ try {
       "Das Kästchen legt den Haken nicht um, oder es öffnet auch das Fenster.");
     await teichFeld.locator('input[type="checkbox"]').click();
     await seite.waitForFunction((war) => (window.__miniOffen || []).includes("fishPond") === war, teichVorher, { timeout: 4000 }).catch(() => {});
+
+    // Kopfkino hat eine Testrunde: «▶ Alle Aufgaben» im Fenster des Spiels
+    // öffnet sie im selben Fenster wie ▶ Spielen – jede Aufgabe einmal.
+    await seite.locator(felder, { hasText: "Kopfkino" }).locator(".adm-wahl-feld").click();
+    await seite.waitForSelector(".adm-dash.adm-dash-spiel", { timeout: 4000 });
+    const alleKnopf = seite.locator(".adm-dash.adm-dash-spiel button", { hasText: "▶ Alle Aufgaben" });
+    const alleDa = await alleKnopf.count();
+    let alleStand = null;
+    if (alleDa === 1) {
+      await alleKnopf.click();
+      await seite.waitForSelector(".adm-spiel iframe", { timeout: 4000 });
+      const rahmen = seite.frameLocator(".adm-spiel iframe");
+      await rahmen.locator(".kn-canvas").waitFor({ timeout: 8000 }).catch(() => {});
+      const kopfkino = seite.frames().find((f) => f.url().includes("/kopfkino"));
+      await kopfkino?.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben, null, { timeout: 8000 }).catch(() => {});
+      alleStand = { src: await seite.getAttribute(".adm-spiel iframe", "src"), zahl: await kopfkino?.evaluate(() => window.LernappKopfkino?.state?.aufgaben?.length).catch(() => null) };
+      await rahmen.locator(".cm-bar-left a").first().click();
+      await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 4000 }).catch(() => {});
+    }
+    pruefe(alleDa === 1 && alleStand?.src === "/kopfkino?alle&von=admin" && alleStand?.zahl === 44 && await seite.locator(".adm-spiel").count() === 0 && !fenster.knoepfe.includes("▶ Alle Aufgaben"),
+      `«▶ Alle Aufgaben» öffnet die Testrunde von Kopfkino nicht – oder ein Spiel ohne Testrunde hat den Knopf: ${JSON.stringify({ alleDa, alleStand, fischteich: fenster.knoepfe })}`);
+    await seite.keyboard.press("Escape");
+    await seite.waitForFunction(() => !document.querySelector(".adm-dash"), null, { timeout: 3000 }).catch(() => {});
 
     // Eine ganze Bestenliste leeren – im Fenster des Spiels. Danach steht
     // es wieder da, leer.

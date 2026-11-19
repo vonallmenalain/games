@@ -313,7 +313,10 @@
      * die Liste, auf der die anderen stehen; zwei Bestenlisten übereinander
      * wären eine zu viel, und einen Wagen gibt es nicht.
      */
-    function showResult({ points, detail, label = "Deine Punkte", geist = null }) {
+    // eintragen: false – eine Runde zum Ausprobieren (Kopfkino, Testrunde):
+    // die Tafel mit Zahl und Satz, aber ohne Namensfeld und Bestenliste. Es
+    // wird nichts eingetragen, und ein Rekord ist es nie.
+    function showResult({ points, detail, label = "Deine Punkte", geist = null, eintragen = true }) {
       host.dataset.phase = "over";
       // Der Bestwert von vorher – bevor die Runde ihn ersetzt (mini-games.js,
       // ergebnis). Wer ihn schlägt, hört den Rekord statt der Tafel. Ohne
@@ -331,7 +334,7 @@
         return;
       }
 
-      klang()?.ton?.(vorher > 0 && points > vorher ? "rekord" : "tafel");
+      klang()?.ton?.(eintragen && vorher > 0 && points > vorher ? "rekord" : "tafel");
       const parts = [el("p", "cm-result-label", label)];
       parts.push(el("p", "cm-result-score", String(points)));
       // Im Turnier nur die Zahl und die Liste darunter: Was das Spiel sonst
@@ -340,7 +343,7 @@
       // Namensfeld, eigener Platz, die Liste aller. Bringt das Spiel eine
       // Aufzeichnung seines Laufs mit (geist.js, Spiele mit Uhr tun das), geht
       // sie denselben Weg wie die Punktzahl – ein Trichter, nicht zwei.
-      const block = mini()?.ergebnis?.({ punkte: points, geist });
+      const block = eintragen ? mini()?.ergebnis?.({ punkte: points, geist }) : null;
       if (block) parts.push(block);
 
       const actions = el("div", "cm-actions");
