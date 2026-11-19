@@ -392,8 +392,16 @@ for (const s of SPIELE) {
 
 // Entfernte Spiele bleiben entfernt: keine Seite, kein Skript, kein Eintrag in
 // den Listen. Was in der Bestenliste von ihnen steht, räumt der Admin weg.
-for (const weg of ["wasfehlt", "signal", "weichen", "bremsweg", "strecke", "schleuder", "eisstock", "takt"]) {
+for (const weg of ["wasfehlt", "signal", "weichen", "bremsweg", "strecke", "schleuder", "takt"]) {
   pruefe(`${weg} ist ganz weg (Seite und Skript)`, !existsSync(path.join(WURZEL, `${weg}.html`)) && !existsSync(path.join(WURZEL, `${weg}.js`)));
+}
+// Eisstock gibt es seit November 2026 wieder – als neues Spiel (iceStock: ein
+// Schub je Bahn, auf den Zentimeter gemessen). Das alte vom Oktober 2026
+// (iceStone, Seite «curling»: wischen, sechs Steine) bleibt entfernt: Seine
+// Kennung, seine Seite und sein Speicherplatz kommen nicht zurück – so mischt
+// sich nichts Altes unter die neuen Bestwerte.
+for (const datei of ["mini-games.js", "highscore.js", "firestore.rules", "scripts/seiten-bauen.mjs", "eisstock.js"]) {
+  pruefe(`${datei}: das alte Eisstock (iceStone) kommt nicht zurück`, !/iceStone|"curling"|lernapp\.eisstock"/.test(lies(datei)));
 }
 pruefe("strand-art.js ist mit «Was fehlt?» weg", !existsSync(path.join(WURZEL, "strand-art.js")));
 
@@ -671,7 +679,7 @@ pruefe("live.js führt in der Turnier-App zum Turnier statt zur Startseite", /Le
 // seine Plätze und keinen der alten Kinder-App-Klänge mehr.
 const klangJs = lies("klang.js");
 const plaetze = [...klangJs.matchAll(/^    "?([a-z]+(?:\.[a-z]+)?)"?: \{ ([sd]): "([a-z0-9-]+)"/gm)].map((m) => ({ id: m[1], art: m[2], name: m[3] }));
-pruefe(`klang.js nennt 201 Plätze (gefunden: ${plaetze.length})`, plaetze.length === 201);
+pruefe(`klang.js nennt 210 Plätze (gefunden: ${plaetze.length})`, plaetze.length === 210);
 const klangDateien = existsSync(path.join(WURZEL, "klang")) ? readdirSync(path.join(WURZEL, "klang")) : [];
 const genannt = new Set(plaetze.filter((p) => p.art === "d").map((p) => `${p.name}.mp3`));
 for (const d of genannt) pruefe(`klang/${d} liegt da`, klangDateien.includes(d));

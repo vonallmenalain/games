@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -681,7 +681,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3224,6 +3224,7 @@ try {
     ["/kletterwand", "Kletterwand", () => window.LernappKletterwand.weltText()],
     ["/freihand", "Freihand", () => window.LernappFreihand.weltText()],
     ["/kopfkino", "Kopfkino", () => window.LernappKopfkino.weltText()],
+    ["/eisstock", "Eisstock", () => window.LernappEisstock.weltText()],
   ]) {
     const befunde3 = [];
     for (const name of ["Anna", "Ben"]) {
@@ -10537,6 +10538,325 @@ try {
     await kontext.close();
   }
 
+  // --- 4g41. Eisstock: neun Arten von Bahnen, jede mit einem Schub mitten ins Ziel ---------
+  // Jede Runde hat zwei leichte, vier mittlere und vier schwere Bahnen. Für
+  // jede Art wird nachgerechnet, dass es einen Schub gibt, der (fast) mitten
+  // im Ziel endet – und dass derselbe Schub immer am selben Ort endet. Dazu
+  // die Regeln des Eises: halbe Kraft ist ein Viertel des Wegs, Schnee bremst,
+  // Glatteis trägt, die Bande wirft zurück, der Hang zieht, und beim
+  // Anstossen zählt der goldene Stock.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/eisstock`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEisstock?.state?.bahnen && window.LernappEisstock.view.cssW > 0, null, { timeout: 8000 });
+    const bau = await seite.evaluate(() => {
+      const E = window.LernappEisstock;
+      const raus = { runden: [], welten: 0, schlecht: {}, ungleich: 0, dauer: 0 };
+      const welten = new Set();
+      for (let runde = 0; runde < 6; runde += 1) {
+        document.querySelector(".cm-bar-left .cm-icon-again").click();
+        const b = E.state.bahnen;
+        welten.add(E.weltText());
+        const oft = {};
+        for (const x of b) oft[x.art] = (oft[x.art] || 0) + 1;
+        raus.runden.push({
+          stufen: b.map((x) => x.stufe).join(""),
+          zeiten: b.every((x) => x.zeit === E.ZEITEN[x.stufe]),
+          arten: Object.keys(oft).length,
+          max: Math.max(...Object.values(oft)),
+          drin: b.every((x) => x.ziel.x >= 1 && x.ziel.x <= E.BREIT - 1 && x.ziel.y >= 3 && x.ziel.y <= E.LANG - 1 && x.start.y === E.START_Y),
+        });
+      }
+      raus.welten = welten.size;
+      // Jede Art, je vier Bahnen: Es gibt einen Schub mitten ins Ziel.
+      for (const art of E.ARTEN) {
+        for (let i = 0; i < 4; i += 1) {
+          const bahn = E.lege(art, Math.random);
+          const best = E.loese(bahn, 3);
+          if (best.punkte < 95) raus.schlecht[art] = (raus.schlecht[art] || 0) + 1;
+          const eins = E.simuliere(bahn, best.winkel, best.kraft);
+          const zwei = E.simuliere(bahn, best.winkel, best.kraft);
+          if (eins.meter !== zwei.meter || eins.schritte !== zwei.schritte || eins.meter !== best.meter) raus.ungleich += 1;
+          raus.dauer = Math.max(raus.dauer, eins.schritte * E.TAKT);
+        }
+      }
+      // Die Regeln des Eises, auf einer leeren Bahn nachgemessen.
+      const leer = (extra = {}) => ({ art: "gerade", stufe: 0, kurz: "", frage: "", zeit: 12, start: { x: 3, y: E.START_Y }, ziel: { x: 3, y: 7 }, stoecke: [], balken: [], zonen: [], hang: null, ...extra });
+      const ende = (bahn, winkel, kraft) => {
+        const e = E.simuliere(bahn, winkel, kraft);
+        const s = e.welt.stoecke;
+        return { x: s[0].x, y: s[0].y, weit: Math.hypot(s[0].x - bahn.start.x, s[0].y - bahn.start.y), meter: e.meter, andere: s.slice(1).map((o) => ({ x: o.x, y: o.y })) };
+      };
+      raus.weit = [0.3, 0.6, 0.8].map((k) => ende(leer(), 0, k).weit);
+      raus.soll = [0.3, 0.6, 0.8].map((k) => k * k * E.WEIT);
+      raus.blank = ende(leer(), 0, 0.7).weit;
+      raus.schnee = ende(leer({ zonen: [{ art: "schnee", x: 3, y: 4, rx: 2, ry: 1 }] }), 0, 0.7).weit;
+      raus.glatt = ende(leer({ zonen: [{ art: "glatt", x: 3, y: 4, rx: 2, ry: 1 }] }), 0, 0.7).weit;
+      raus.bande = ende(leer(), Math.PI / 4, 0.8);
+      raus.balken = ende(leer({ balken: [{ x0: 2, y0: 4, x1: 4, y1: 4.28 }] }), 0, 0.7);
+      raus.hang = ende(leer({ hang: { x: 0.3, y: 0 } }), 0, 0.7);
+      const stoss = leer({ stoecke: [{ x: 3, y: 4, gold: true }] });
+      raus.stoss = ende(stoss, 0, 0.7);
+      raus.stossSoll = Math.round(Math.hypot(raus.stoss.andere[0].x - 3, raus.stoss.andere[0].y - 7) * 1000) / 1000;
+      raus.punkte = [0, 0.03, 0.1, 0.4, 1.1, 2.3, 4].map((m) => E.punkteFuer(m));
+      raus.faellt = true;
+      for (let m = 0; m < 3; m += 0.01) if (E.punkteFuer(m + 0.01) > E.punkteFuer(m)) raus.faellt = false;
+      raus.zug = E.zugZu(E.zugVon(0.123456, 0.654321));
+      return raus;
+    });
+    pruefe(bau.runden.length === 6 && bau.runden.every((r) => r.stufen === "0011112222" && r.zeiten && r.arten === 9 && r.max === 2 && r.drin) && bau.welten >= 5,
+      `Eisstock: Die Runden haben nicht ihre zwei, vier und vier Bahnen, oder jede Runde ist dieselbe: ${JSON.stringify({ runden: bau.runden, welten: bau.welten })}`);
+    pruefe(Object.keys(bau.schlecht).length === 0 && bau.ungleich === 0 && bau.dauer > 1.5 && bau.dauer < 8,
+      `Eisstock: Nicht jede Bahn hat einen Schub mitten ins Ziel, oder derselbe Schub endet nicht am selben Ort: ${JSON.stringify({ schlecht: bau.schlecht, ungleich: bau.ungleich, dauer: bau.dauer })}`);
+    pruefe(bau.weit.every((w, i) => Math.abs(w - bau.soll[i]) < 0.04) && bau.schnee < bau.blank - 1.5 && bau.glatt > bau.blank + 0.8,
+      `Eisstock: Halbe Kraft ist nicht ein Viertel des Wegs, oder Schnee bremst nicht und Glatteis trägt nicht: ${JSON.stringify({ weit: bau.weit, soll: bau.soll, blank: bau.blank, schnee: bau.schnee, glatt: bau.glatt })}`);
+    pruefe(bau.bande.x < 5.2 && bau.bande.x > 0.3 && bau.bande.y > 4.3 && bau.balken.y < 3.71 && bau.hang.x > 3.4,
+      `Eisstock: Die Bande oder der Balken wirft den Stock nicht zurück, oder der Hang zieht nicht: ${JSON.stringify({ bande: bau.bande, balken: bau.balken, hang: bau.hang })}`);
+    pruefe(bau.stoss.andere[0].y > 4.6 && bau.stoss.y < bau.stoss.andere[0].y - 0.6 && bau.stoss.y < 4 && bau.stoss.meter === bau.stossSoll,
+      `Eisstock: Beim Anstossen fährt der goldene Stock nicht weiter, oder es zählt nicht er: ${JSON.stringify({ stoss: bau.stoss, soll: bau.stossSoll })}`);
+    pruefe(JSON.stringify(bau.punkte) === JSON.stringify([100, 100, 92, 62, 24, 0, 0]) && bau.faellt && bau.zug.winkel === 0.1235 && bau.zug.kraft === 0.6543,
+      `Eisstock: Die Punkte fallen nicht mit dem Abstand, oder ein Zug wird nicht auf Zehntausendstel gerundet: ${JSON.stringify({ punkte: bau.punkte, faellt: bau.faellt, zug: bau.zug })}`);
+
+    // Eine Runde, Bahn um Bahn, mit den Zügen der Prüfung. Die Uhr wird
+    // vorgestellt, wo sonst gewartet würde; die Fahrt läuft im Zeitraffer.
+    const runde = await seite.evaluate(() => {
+      const E = window.LernappEisstock;
+      const st = E.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      ["gerade", "gerade", "schraeg", "schnee", "bande"].forEach((art, i) => { st.bahnen[i] = E.lege(art, Math.random); });
+      const fahre = () => { for (let i = 0; i < 600 && st.phase === "fahrt"; i += 1) E.takt(0.2); };
+      const los = (sekunden = 1) => { E.bahnLos(); st.t0 -= (E.EINZUG + sekunden) * 1000; };
+      const mx = E.view.eis.x + E.view.eis.w / 2;
+      const my = E.view.eis.y + E.view.eis.h / 2;
+      // Ein Zug in Bildpunkten: vom Schub weg gezogen.
+      const zieh = (winkel, kraft) => {
+        const lang = kraft * E.view.zug;
+        const hin = E.view.quer ? [Math.cos(winkel), Math.sin(winkel)] : [Math.sin(winkel), -Math.cos(winkel)];
+        E.zielZu(mx - hin[0] * lang, my - hin[1] * lang);
+      };
+      const stand = (i) => ({ phase: st.phase, index: st.index, punkte: st.liste[i]?.punkte ?? null, meter: st.liste[i]?.meter ?? null, summe: st.punkte });
+      const raus = { vorher: st.phase, quer: E.view.quer };
+      E.losGehts();
+      // In der Vorschau lässt sich nicht zielen – und gleich nach dem Hinlegen auch nicht.
+      raus.vorschau = { phase: st.phase, zielt: E.zielBeginn(mx, my, 1) };
+      E.bahnLos();
+      raus.sperre = { phase: st.phase, zielt: E.zielBeginn(mx, my, 1) };
+      st.t0 -= (E.EINZUG + 1) * 1000;
+      // Gerade zurückgezogen heisst geradeaus, schräg heisst schräg – und die Länge ist die Kraft.
+      raus.zielt = E.zielBeginn(mx, my, 1);
+      E.zielZu(mx, my + E.view.zug * 0.5);
+      raus.gerade = { winkel: st.zielen.winkel, kraft: st.zielen.kraft };
+      E.zielZu(mx - 60, my + 60);
+      raus.schraeg = { winkel: st.zielen.winkel, kraft: st.zielen.kraft, soll: Math.round((Math.hypot(60, 60) / E.view.zug) * 10000) / 10000 };
+      E.zielZu(mx, my + E.view.zug * 3);
+      raus.voll = st.zielen.kraft;
+      // Ein Zug, der kaum einer ist, gilt nicht.
+      E.zielZu(mx, my + E.view.zug * 0.03);
+      E.zielEnde();
+      raus.kaum = { ...stand(0), zielen: st.zielen };
+      // Der beste Schub: mitten ins Ziel.
+      const best = E.loese(st.bahnen[0], 3);
+      E.zielBeginn(mx, my, 1);
+      zieh(best.winkel, best.kraft);
+      E.zielEnde();
+      raus.schub = { phase: st.phase, gleich: st.schub?.winkel === best.winkel && st.schub?.kraft === best.kraft, unterwegs: E.zielBeginn(mx, my, 1) };
+      fahre();
+      raus.richtig = stand(0);
+      E.weiter();
+      raus.naechste = { phase: st.phase, index: st.index };
+      // Bahn 2: viel zu kurz – es gibt, was der Abstand hergibt.
+      los();
+      const b1 = st.bahnen[1];
+      E.schiebeAb(Math.atan2(b1.ziel.x - b1.start.x, b1.ziel.y - b1.start.y), Math.sqrt((Math.hypot(b1.ziel.x - b1.start.x, b1.ziel.y - b1.start.y) - 0.4) / E.WEIT));
+      fahre();
+      const s = st.welt.stoecke[0];
+      raus.zuKurz = { ...stand(1), soll: E.punkteFuer(Math.round(Math.hypot(s.x - b1.ziel.x, s.y - b1.ziel.y) * 1000) / 1000) };
+      E.weiter();
+      // Bahn 3: Die Zeit läuft ab, ohne Zug.
+      los();
+      st.t0 -= st.bahnen[2].zeit * 1000;
+      E.takt(0.016);
+      raus.zeitUm = stand(2);
+      E.weiter();
+      // Bahn 4: Die Zeit läuft ab, während gespannt ist – der Zug gilt, wie er dasteht.
+      los();
+      const b3 = E.loese(st.bahnen[3], 3);
+      E.zielBeginn(mx, my, 1);
+      zieh(b3.winkel, b3.kraft);
+      st.t0 -= st.bahnen[3].zeit * 1000;
+      E.takt(0.016);
+      raus.gespannt = { phase: st.phase, gleich: st.schub?.winkel === b3.winkel && st.schub?.kraft === b3.kraft };
+      fahre();
+      raus.gespanntEnde = stand(3);
+      E.weiter();
+      // Bahn 5: Die Vorschau endet von selbst.
+      raus.vonSelbst = { wartet: st.phase };
+      st.vorSeit -= E.VORSCHAU * 1000;
+      E.takt(0.016);
+      raus.vonSelbst.phase = st.phase;
+      raus.vonSelbst.index = st.index;
+      // Der Rest der Runde: je der beste Schub.
+      for (let i = 4; i < E.BAHNEN; i += 1) {
+        if (st.phase === "vorschau") E.bahnLos();
+        const b = E.loese(st.bahnen[i], 3);
+        E.schiebeAb(b.winkel, b.kraft);
+        fahre();
+        if (i === E.BAHNEN - 1) raus.letzte = stand(i);
+        E.weiter();
+      }
+      raus.liste = st.liste.map((e) => e?.punkte ?? null);
+      raus.ende = { phase: st.phase, summe: st.punkte, genaue: st.genaue };
+      return raus;
+    });
+    pruefe(runde.vorher === "bereit" && !runde.quer && runde.vorschau.phase === "vorschau" && runde.vorschau.zielt === false && runde.sperre.phase === "aufgabe" && runde.sperre.zielt === false && runde.zielt === true,
+      `Eisstock: In der Vorschau oder gleich nach dem Hinlegen lässt sich schon zielen: ${JSON.stringify({ vorher: runde.vorher, vorschau: runde.vorschau, sperre: runde.sperre, zielt: runde.zielt })}`);
+    pruefe(runde.gerade.winkel === 0 && runde.gerade.kraft === 0.5 && Math.abs(runde.schraeg.winkel - Math.PI / 4) < 0.0001 && runde.schraeg.kraft === runde.schraeg.soll && runde.voll === 1,
+      `Eisstock: Aus dem Zug des Fingers werden nicht Richtung und Kraft: ${JSON.stringify({ gerade: runde.gerade, schraeg: runde.schraeg, voll: runde.voll })}`);
+    pruefe(runde.kaum.phase === "aufgabe" && runde.kaum.punkte === null && runde.kaum.zielen === null,
+      `Eisstock: Ein Zug, der kaum einer ist, gilt als Schub: ${JSON.stringify(runde.kaum)}`);
+    pruefe(runde.schub.phase === "fahrt" && runde.schub.gleich && runde.schub.unterwegs === false && runde.richtig.phase === "zeigen" && runde.richtig.punkte >= 95 && runde.richtig.meter < 0.08
+      && runde.naechste.phase === "vorschau" && runde.naechste.index === 1,
+      `Eisstock: Der beste Schub endet nicht mitten im Ziel, oder es geht nicht weiter: ${JSON.stringify({ schub: runde.schub, richtig: runde.richtig, naechste: runde.naechste })}`);
+    pruefe(runde.zuKurz.phase === "zeigen" && runde.zuKurz.punkte === runde.zuKurz.soll && runde.zuKurz.punkte > 30 && runde.zuKurz.punkte < 80 && Math.abs(runde.zuKurz.meter - 0.4) < 0.03,
+      `Eisstock: Ein zu kurzer Schub gibt nicht, was der Abstand hergibt: ${JSON.stringify(runde.zuKurz)}`);
+    pruefe(runde.zeitUm.phase === "zeigen" && runde.zeitUm.punkte === 0 && runde.zeitUm.meter === null,
+      `Eisstock: Zeit um ohne Zug gibt nicht null Punkte: ${JSON.stringify(runde.zeitUm)}`);
+    pruefe(runde.gespannt.phase === "fahrt" && runde.gespannt.gleich && runde.gespanntEnde.phase === "zeigen" && runde.gespanntEnde.punkte >= 95,
+      `Eisstock: Ist die Zeit um, gilt der Zug nicht, wie er gespannt ist: ${JSON.stringify({ gespannt: runde.gespannt, ende: runde.gespanntEnde })}`);
+    pruefe(runde.vonSelbst.wartet === "vorschau" && runde.vonSelbst.phase === "aufgabe" && runde.vonSelbst.index === 4,
+      `Eisstock: Die Vorschau endet nicht von selbst: ${JSON.stringify(runde.vonSelbst)}`);
+    const summe = runde.liste.reduce((s, p) => s + (p || 0), 0);
+    pruefe(runde.liste.every((p) => p !== null) && runde.letzte.punkte >= 95 && runde.ende.phase === "ende" && runde.ende.summe === summe && runde.ende.genaue === 8,
+      `Eisstock: Nach der zehnten Bahn ist die Runde nicht zu Ende, oder die Summe stimmt nicht: ${JSON.stringify({ liste: runde.liste, ende: runde.ende })}`);
+    await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+    const tafel = await seite.evaluate(() => ({ zahl: document.querySelectorAll(".cm-result-score").length, text: document.querySelector(".cm-result-detail")?.textContent || "" }));
+    pruefe(tafel.zahl === 1 && /Neuer Rekord!/.test(tafel.text) && /im Schnitt \d+ cm daneben/.test(tafel.text) && /8 auf den Punkt/.test(tafel.text),
+      `Eisstock: Die Tafel zeigt nicht, was war: ${JSON.stringify(tafel)}`);
+    await kontext.close();
+  }
+  {
+    // Mit dem Zeiger: tippen, um zu beginnen und die Bahn hinzulegen – dann
+    // aufsetzen, zurückziehen, loslassen. Hochkant fährt der Stock nach oben,
+    // quer nach rechts.
+    for (const [viewport, was] of [[{ width: 420, height: 820 }, "hochkant"], [{ width: 1280, height: 720 }, "quer"]]) {
+      const { kontext, seite } = await neueSeite(viewport);
+      await seite.goto(`${BASIS}/eisstock`, { waitUntil: "load" });
+      await seite.waitForFunction(() => window.LernappEisstock?.state?.bahnen && window.LernappEisstock.view.cssW > 0, null, { timeout: 8000 });
+      await seite.evaluate(() => { const E = window.LernappEisstock; E.state.bahnen[0] = E.lege("gerade", Math.random); });
+      const ort = await seite.evaluate(() => {
+        const E = window.LernappEisstock;
+        const r = document.querySelector("#es-stage canvas").getBoundingClientRect();
+        const e = E.view.eis;
+        return { x: r.left + e.x + e.w / 2, y: r.top + e.y + e.h / 2, zug: E.view.zug, quer: E.view.quer };
+      });
+      const zur = async (phase) => { await seite.mouse.click(ort.x, ort.y); await seite.waitForFunction((p) => window.LernappEisstock.state.phase === p, phase, { timeout: 5000 }).catch(() => {}); };
+      await zur("vorschau");
+      await seite.waitForTimeout(450);
+      await zur("aufgabe");
+      await seite.waitForTimeout(900);
+      const vorher = await seite.evaluate(() => { const E = window.LernappEisstock; const s = E.state.welt.stoecke[0]; return E.imBild(s.x, s.y); });
+      // Vom Schub weg gezogen: hochkant nach unten, quer nach links.
+      const lang = Math.round(ort.zug * 0.55);
+      const bis = ort.quer ? { x: ort.x - lang, y: ort.y } : { x: ort.x, y: ort.y + lang };
+      await seite.mouse.move(ort.x, ort.y);
+      await seite.mouse.down();
+      await seite.mouse.move(bis.x, bis.y, { steps: 12 });
+      const gespannt = await seite.evaluate(() => { const z = window.LernappEisstock.state.zielen; return z ? { winkel: z.winkel, kraft: z.kraft } : null; });
+      await seite.mouse.up();
+      await seite.waitForFunction(() => window.LernappEisstock.state.phase === "zeigen", null, { timeout: 12000 }).catch(() => {});
+      const danach = await seite.evaluate(() => {
+        const E = window.LernappEisstock;
+        const s = E.state.welt.stoecke[0];
+        return { phase: E.state.phase, schub: E.state.schub, ort: E.imBild(s.x, s.y), eintrag: E.state.liste[0] };
+      });
+      const soll = Math.round((lang / ort.zug) * 10000) / 10000;
+      const gefahren = ort.quer ? danach.ort[0] - vorher[0] : vorher[1] - danach.ort[1];
+      pruefe(ort.quer === (was === "quer") && gespannt && Math.abs(gespannt.winkel) < 0.0001 && gespannt.kraft === soll && danach.phase === "zeigen" && danach.schub?.kraft === soll
+        && gefahren > 60 && danach.eintrag && danach.eintrag.meter !== null,
+        `Eisstock (${was}): Der Stock lässt sich nicht mit dem Zeiger spannen und schieben: ${JSON.stringify({ ort, gespannt, danach, soll, gefahren })}`);
+      await kontext.close();
+    }
+  }
+  {
+    // Eine Runde in echter Zeit – die meisten Bahnen mit dem besten Schub,
+    // eine mit halber Kraft, eine ohne Schub (Zeit um), eine mit einem Zug,
+    // der erst nicht gilt –, aufgezeichnet und angeschaut: dieselben Bahnen,
+    // dieselben Punkte je Bahn.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__eisstock")) return;
+      sessionStorage.setItem("__eisstock", "1");
+      localStorage.setItem("mini.name", "Kira");
+    });
+    await seite.goto(`${BASIS}/eisstock`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappEisstock?.state?.bahnen && window.LernappEisstock.view.cssW > 0, null, { timeout: 8000 });
+    const welt = await seite.evaluate(() => window.LernappEisstock.weltText());
+    await seite.evaluate(() => new Promise((fertig) => {
+      const E = window.LernappEisstock;
+      const st = E.state;
+      const mx = E.view.eis.x + E.view.eis.w / 2;
+      const my = E.view.eis.y + E.view.eis.h / 2;
+      const zieh = (winkel, kraft) => {
+        const lang = kraft * E.view.zug;
+        const hin = E.view.quer ? [Math.cos(winkel), Math.sin(winkel)] : [Math.sin(winkel), -Math.cos(winkel)];
+        E.zielZu(mx - hin[0] * lang, my - hin[1] * lang);
+      };
+      let plan = null;
+      const lauf = (jetzt) => {
+        if (st.phase === "ende") { fertig(); return; }
+        requestAnimationFrame(lauf);
+        if (st.phase === "bereit") { E.losGehts(); return; }
+        if (st.phase === "vorschau") { if (jetzt - st.vorSeit > 420) { E.bahnLos(); plan = null; } return; }
+        if (st.phase === "zeigen") { if (jetzt - st.tZeig > 500) E.weiter(); plan = null; return; }
+        if (st.phase !== "aufgabe") return;
+        if (!plan) {
+          const best = E.loese(st.bahnen[st.index], 2);
+          // Bahn 3 mit halber Kraft, Bahn 6 ohne Schub, Bahn 8 erst ein Zug, der nicht gilt.
+          if (st.index === 2) best.kraft = Math.round(best.kraft * 5000) / 10000;
+          plan = { best, schritt: 0, ab: performance.now() + 380, kaum: st.index === 7 };
+          if (st.index === 5) { st.t0 -= st.bahnen[5].zeit * 1000; plan.schritt = 9; }
+          return;
+        }
+        if (jetzt < plan.ab || plan.schritt === 9) return;
+        if (plan.schritt === 0) { if (E.zielBeginn(mx, my, 1)) plan.schritt = 1; plan.ab = jetzt + 60; return; }
+        if (plan.schritt === 1) { zieh(plan.best.winkel, plan.kaum ? 0.03 : plan.best.kraft * 0.6); plan.schritt = 2; plan.ab = jetzt + 230; return; }
+        if (plan.schritt === 2 && plan.kaum) { E.zielEnde(); plan.kaum = false; plan.schritt = 0; plan.ab = jetzt + 150; return; }
+        if (plan.schritt === 2) { zieh(plan.best.winkel, plan.best.kraft); plan.schritt = 3; plan.ab = jetzt + 120; return; }
+        E.zielEnde();
+        plan.schritt = 9;
+      };
+      requestAnimationFrame(lauf);
+    }));
+    await seite.waitForSelector(".cm-result-score", { timeout: 90000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("iceStock_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`iceStock_${kennung}`) || null;
+      const st = window.LernappEisstock.state;
+      return { kennung, punkte: geist?.punkte ?? -1, gezaehlt: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null), meter: st.liste.map((e) => e?.meter ?? null) };
+    });
+    pruefe(gespielt.kennung && gespielt.punkte === gespielt.gezaehlt && gespielt.punkte >= 700 && gespielt.liste[2] < 60 && gespielt.liste[5] === 0 && gespielt.meter[5] === null
+      && gespielt.liste.filter((p) => p >= 92).length >= 8,
+      `Eisstock: Die Runde wird nicht hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/eisstock?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => ["warten", "vorschau", "aufgabe", "fahrt", "zeigen"].includes(window.LernappEisstock?.state?.phase) && document.querySelector("#es-stage")?.dataset.phase === "play", null, { timeout: 8000 }).catch(() => {});
+    const zu = await seite.evaluate(() => ({ phase: window.LernappEisstock.state.phase, welt: window.LernappEisstock.weltText() }));
+    pruefe(zu.welt === welt, `Eisstock: Beim Zuschauen liegen andere Bahnen da:\n  gespielt ${welt}\n  angeschaut ${JSON.stringify(zu)}`);
+    // Beim Zuschauen schiebt niemand mit.
+    await seite.mouse.move(210, 420);
+    await seite.mouse.down();
+    await seite.mouse.move(210, 560, { steps: 4 });
+    await seite.mouse.up();
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 90000 }).catch(() => {});
+    const schluss = await seite.evaluate(() => {
+      const st = window.LernappEisstock.state;
+      return { punkte: st.punkte, liste: st.liste.map((e) => e?.punkte ?? null), meter: st.liste.map((e) => e?.meter ?? null), tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(schluss.tafel && schluss.punkte === gespielt.punkte && JSON.stringify(schluss.liste) === JSON.stringify(gespielt.liste) && JSON.stringify(schluss.meter) === JSON.stringify(gespielt.meter),
+      `Eisstock: Am Ende der angeschauten Runde steht nicht dasselbe: ${JSON.stringify({ schluss, gespielt })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -10743,7 +11063,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 37 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 38 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -10751,7 +11071,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /38/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /39/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
@@ -10768,7 +11088,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -12405,7 +12725,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 201, `klang.js kennt nicht alle 201 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 210, `klang.js kennt nicht alle 210 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

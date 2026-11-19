@@ -96,6 +96,7 @@ service cloud.firestore {
         "speedClimb",
         "freeHand",
         "mindsEye",
+        "iceStock",
       ];
     }
 
