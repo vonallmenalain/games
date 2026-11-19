@@ -1097,6 +1097,81 @@ wie er dasteht; mit der Maus entsteht der Strich unter dem Zeiger; eine
 Runde in echter Zeit wird hinterlegt und angeschaut – dieselben Blätter,
 dieselben Punkte je Blatt.
 
+### Kopfkino (November 2026)
+
+**Kopfkino** (`kopfkino.js`, `mindsEye`) – Das vierte Geschwister nach
+Augenmass, Zeitgefühl und Freihand, diesmal fürs Vorstellungsvermögen: zehn
+Aufgaben auf einer Leinwand, der Film dazu läuft im Kopf. Erst nach der
+Antwort läuft er wirklich – als Auflösung, die man sieht.
+
+**Die sieben Arten** (`BAU`), jede in drei Stufen:
+
+- **Falten und lochen** (`faltenBau`): Ein Blatt aus 4 × 4 Feldern wird ein-
+  bis dreimal gefaltet und dann gelocht. Anzutippen sind alle Felder, die
+  nach dem Auffalten ein Loch haben (zwei, vier oder acht). Auflösung: Das
+  Blatt klappt Faltung um Faltung wieder auf.
+- **Würfelnetz** (`netzBau`): eines der elf Netze, gedreht und gespiegelt.
+  Leicht und mittel: Welche Fläche liegt dem Stern gegenüber? Schwer: Welche
+  Kante trifft auf die rote? Auflösung: Das Netz faltet sich zum Würfel
+  (`netzLage` – jedes Feld dreht sich um die Kante zu seinem Nachbarn).
+- **Würfel zählen** (`stapelBau`): ein Stapel aus Säulen, auch mit
+  verdeckten Würfeln; die Zahl wird eingetippt. Auflösung: Der Stapel zieht
+  sich Ebene um Ebene auseinander, jede mit ihrer Zahl.
+- **Ansicht** (`ansichtBau`): Wie sieht der Stapel aus der Richtung des
+  Pfeils aus? In jeder Spalte wird angetippt, wie hoch sie ist – schwer von
+  hinten, also seitenverkehrt. Auflösung: Die Kamera schwenkt in die
+  Richtung und legt sich flach.
+- **Dieselbe Figur** (`drehenBau`): eine Kette aus Würfeln mit Knicken in
+  alle Richtungen; eine der drei (schwer: vier) Figuren darunter ist
+  dieselbe, nur gedreht, die anderen sind ihr Spiegelbild. Auflösung: Die
+  Figur dreht sich in die Lage der richtigen.
+- **Würfel rollen** (`rollenBau`): Ein Spielwürfel rollt drei, fünf oder
+  sieben Felder den Pfeilen nach – welche Zahl liegt am Ende oben?
+  Auflösung: Er rollt wirklich, Kante um Kante.
+- **Schnitt** (`schnittBau`, ab der mittleren Stufe): Eine Ebene durch drei
+  Punkte schneidet den Würfel – wie viele Ecken hat die Schnittfläche?
+  Auflösung: Die Fläche erscheint, die Kamera schwenkt um den Würfel.
+
+Jede Runde zieht drei leichte, vier mittlere und drei schwere Aufgaben
+(`PLAN`), keine Art öfter als zweimal (`aufgabenFuer`).
+
+**Gewertet wird richtig mal schnell** (`punkteFuer`): bis zu hundert Punkte
+je Aufgabe, tausend im Ganzen. Eine Aufgabe hat 14, 18 oder 24 Sekunden
+(`ZEITEN`); im ersten guten Drittel (`VOLL`) gibt eine richtige Antwort
+alles, danach fällt es bis zum Schluss auf die Hälfte (`SPAET`) – der Balken
+unter der Leinwand ist so lange golden, daneben steht, was eine richtige
+Antwort jetzt gäbe. Falsch gibt nichts. Wo sich eine Antwort aus Teilen
+setzt, zählt auch «fast» (`anteilFuer`): Bei den Feldern kostet jedes
+falsche eines der richtigen, bei den Spalten zählt jede für sich, bei der
+Zahl gibt «um eins daneben» 40 und «um zwei» 15 von hundert (`FAST`). Ist
+die Zeit um, zählt, was eingegeben ist.
+
+**Der Ablauf** ist der der Geschwister: Vor jeder Aufgabe die Vorschau –
+was zu tun ist, mit einem Beispiel derselben Art, das sich selbst auflöst –,
+die Uhr läuft erst nach dem Tipp. Unten (quer: rechts) der Filmstreifen mit
+zehn Bildern, eines je Aufgabe.
+
+**Das Bild** ist Canvas 2D mit einer kleinen Welt in drei Richtungen
+(`sicht`, `buehne`, `male3d`): eine Kamera ohne Fluchtpunkt, die sich drehen
+und kippen lässt; Körper werden von hinten nach vorn gemalt, jede Seite in
+ihrem Licht, das immer von links oben hinter der Kamera kommt. Auf eine
+Seite lässt sich zeichnen, als wäre sie flach (die Augen des Spielwürfels,
+der Stern). Jede Art malt Frage, Eingabe und Auflösung selbst (`MALEN`) und
+trägt ein, was sich antippen lässt (`bietet`).
+
+Aufgezeichnet werden die Züge (`meldeZug`: Vorschau, Aufgabe, jede Eingabe,
+die Antwort mit ihrer Zeit) – im Turnier bekommen alle dieselben zehn
+Aufgaben.
+Prüfung 4g40: Jede Runde hat ihre drei, vier und drei Aufgaben; was als
+richtig gilt, wird auf einem zweiten Weg nachgerechnet (das Blatt Feld für
+Feld nachgefaltet, das Netz zum Würfel geschlossen, der Würfel Kante um
+Kante gerollt, die Ansicht aus der Blickrichtung der Kamera vermessen, die
+Figur gegen ihr Spiegelbild, die Schnittfläche in ihrer Ebene); die Punkte
+fallen nach richtig mal schnell, «fast» zählt für Teile; in der Vorschau
+zählt kein Tipp, ist die Zeit um, zählt die Eingabe, wie sie dasteht; was
+das Bild anbietet, lässt sich mit dem Finger antippen; eine Runde in echter
+Zeit wird hinterlegt und angeschaut – dieselben Aufgaben, dieselben Punkte.
+
 ### Schwarm (November 2026): das erste Spiel in 3D
 
 **Schwarm** (`schwarm.js`, `flockFlight`, Fassung `t2`) – Ein Starenschwarm
