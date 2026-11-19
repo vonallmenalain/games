@@ -10763,6 +10763,70 @@ try {
     await kontext.close();
   }
 
+  {
+    // Die Testrunden von Kopfkino, Freihand, Zeitgefühl und Augenmass (?alle):
+    // jede Art einmal, der Reihe nach. Oben links der Knopf «Überspringen»
+    // (und die Taste N): Er beginnt die Runde, springt von Aufgabe zu Aufgabe
+    // und nach der letzten zur Tafel – die nichts einträgt. In einer
+    // gewöhnlichen Runde gibt es ihn nicht.
+    for (const [adresse, api, soll, schluessel] of [
+      ["/kopfkino", "LernappKopfkino", 44, "lernapp.kopfkino"],
+      ["/freihand", "LernappFreihand", 17, "lernapp.freihand"],
+      ["/zeitgefuehl", "LernappZeitgefuehl", 12, "lernapp.zeitgefuehl"],
+      ["/augenmass", "LernappAugenmass", 18, "lernapp.augenmass"],
+    ]) {
+      const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+      await seite.addInitScript(() => localStorage.setItem("mini.name", "Kira"));
+      await seite.goto(`${BASIS}${adresse}?alle`, { waitUntil: "load" });
+      await seite.waitForFunction((a) => window[a]?.state?.phase === "bereit", api, { timeout: 8000 }).catch(() => {});
+      const vorher = await seite.evaluate((a) => {
+        const A = window[a];
+        const liste = A.state.aufgaben || A.state.blaetter;
+        const arten = liste.map((x) => x.art);
+        // Die Reihenfolge: leicht, mittel, schwer – in Zeitgefühl Zeitlupe und
+        // Zeitraffer, Doppelt und Halb je für sich; in Kopfkino jede Art in
+        // ihren drei Stufen.
+        let reihe = true;
+        if (A.LEICHT) {
+          const erwartet = [...A.LEICHT, ...A.MITTEL, ...A.SCHWER].flatMap((art) => (a === "LernappZeitgefuehl" && (art === "zeitlupe" || art === "doppelt") ? [art, art] : [art]));
+          reihe = arten.join() === erwartet.join();
+          if (a === "LernappZeitgefuehl") {
+            const lupe = liste.filter((x) => x.art === "zeitlupe");
+            const doppelt = liste.filter((x) => x.art === "doppelt");
+            reihe = reihe && lupe[0].faktor < 1 && lupe[1].faktor > 1 && doppelt[0].mal === 2 && doppelt[1].mal === 0.5;
+          }
+        }
+        return { zahl: liste.length, reihe, test: Boolean(A.testrunde()) };
+      }, api);
+      const speicher = await seite.evaluate((k) => localStorage.getItem(k), schluessel);
+      const knopf = seite.locator(".cm-icon-weiter");
+      const knoepfe = await knopf.count();
+      if (knoepfe === 1) await knopf.click();
+      const erste = await seite.evaluate((a) => ({ phase: window[a].state.phase, index: window[a].state.index }), api);
+      if (knoepfe === 1) await knopf.click();
+      const zweite = await seite.evaluate((a) => ({ index: window[a].state.index, weg: Boolean(window[a].state.liste[0]?.uebersprungen) }), api);
+      for (let i = 1; i < soll; i += 1) await seite.keyboard.press("n");
+      await seite.waitForSelector(".cm-result-score", { timeout: 6000 }).catch(() => {});
+      const ende = await seite.evaluate(({ a, k }) => ({
+        phase: window[a].state.phase,
+        weg: window[a].state.liste.filter((e) => e?.uebersprungen).length,
+        label: document.querySelector(".cm-result-label")?.textContent || "",
+        detail: document.querySelector(".cm-result-detail")?.textContent || "",
+        liste: document.querySelectorAll(".mini-ergebnis, .mini-namensfeld").length,
+        speicher: localStorage.getItem(k),
+      }), { a: api, k: schluessel });
+      pruefe(vorher.zahl === soll && vorher.reihe && vorher.test && knoepfe === 1 && ["vorschau", "warten"].includes(erste.phase) && erste.index === 0 && zweite.index === 1 && zweite.weg
+        && ende.phase === "ende" && ende.weg === soll && ende.label === "Testrunde" && ende.detail.includes(`${soll} übersprungen`) && ende.liste === 0 && ende.speicher === speicher,
+        `${adresse}: Die Testrunde hat nicht jede Art der Reihe nach, oder «Überspringen» führt nicht bis zur Tafel, die nichts einträgt: ${JSON.stringify({ vorher, knoepfe, erste, zweite, ende })}`);
+      // Eine gewöhnliche Runde: kein Knopf, keine Testrunde.
+      await seite.goto(`${BASIS}${adresse}`, { waitUntil: "load" });
+      await seite.waitForFunction((a) => window[a]?.state?.phase === "bereit", api, { timeout: 8000 }).catch(() => {});
+      const normal = await seite.evaluate((a) => ({ test: window[a].testrunde(), knopf: document.querySelectorAll(".cm-icon-weiter").length }), api);
+      pruefe(normal.test === null && normal.knopf === 0, `${adresse}: In einer gewöhnlichen Runde steht der Knopf «Überspringen»: ${JSON.stringify(normal)}`);
+      await kontext.close();
+    }
+  }
+
   // --- 4g41. Eisstock: neun Arten von Bahnen, jede mit einem Schub mitten ins Ziel ---------
   // Jede Runde hat zwei leichte, vier mittlere und vier schwere Bahnen. Für
   // jede Art wird nachgerechnet, dass es einen Schub gibt, der (fast) mitten

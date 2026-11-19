@@ -773,7 +773,7 @@
     return zuschauen ? `${weg}?zuschauen=${encodeURIComponent(zuschauen)}&von=admin` : `${weg}?von=admin`;
   };
   // Die Spiele mit einer Testrunde, und was auf ihrem Knopf steht.
-  const TESTRUNDE = { mindsEye: "▶ Alle Aufgaben" };
+  const TESTRUNDE = { mindsEye: "▶ Alle Aufgaben", freeHand: "▶ Alle Aufgaben", timeSense: "▶ Alle Aufgaben", eyeMeasure: "▶ Alle Aufgaben" };
   let spielZu = null;
 
   // Im Fenster meldet das Spiel den Weg zurück, statt den Adminbereich ein

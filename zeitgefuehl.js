@@ -224,6 +224,39 @@
     return reihe.map((art) => wuerfle(art));
   }
 
+  /*
+   * Die Testrunde (?alle in der Adresse; im Adminbereich «▶ Alle Aufgaben»):
+   * jede Art einmal, die leichten zuerst – Zeitlupe und Zeitraffer, Doppelt
+   * und Halb je für sich, also zwölf. Zum Ausprobieren: Sie geht in keine
+   * Bestenliste und wird nicht aufgezeichnet; oben steht der Knopf
+   * «Überspringen». ?alle=takt,stoer nimmt nur diese Arten. Im Turnier, im
+   * Live-Modus und beim Zuschauen gibt es sie nicht.
+   */
+  const TESTRUNDE = (() => {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has("alle") || p.has("turnier") || p.has("live") || p.has("zuschauen") || zufall.fest) return null;
+    const alle = [...LEICHT, ...MITTEL, ...SCHWER];
+    const wunsch = String(p.get("alle") || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+    const arten = alle.filter((art) => wunsch.includes(art));
+    return arten.length ? arten : alle;
+  })();
+  // Die Spielarten einer Art, die in der Testrunde je einmal drankommen.
+  const SPIELARTEN = {
+    zeitlupe: [(a) => a.faktor < 1, (a) => a.faktor > 1],
+    doppelt: [(a) => a.mal === 2, (a) => a.mal !== 2],
+  };
+  function testAufgaben() {
+    const raus = [];
+    for (const art of TESTRUNDE) {
+      for (const passt of SPIELARTEN[art] || [() => true]) {
+        let a = wuerfle(art);
+        for (let i = 0; i < 80 && !passt(a); i += 1) a = wuerfle(art);
+        raus.push(a);
+      }
+    }
+    return raus;
+  }
+
   // Die gewürfelte Welt in Worten (für die Prüfung).
   function weltText(liste = state.aufgaben) {
     return (liste || []).map((a) => `${a.art}:${Math.round(a.ziel)}${a.faktor !== 1 ? `×${a.faktor}` : ""}${a.mal ? `·${a.mal}` : ""}${a.luege ? `~${a.luege}` : ""}`).join(" ");
@@ -281,6 +314,8 @@
   const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, cx: 0, cy: 0, r: 120, karte: null };
 
   const aufgabe = () => state.aufgaben?.[state.index] || null;
+  // Wie viele Aufgaben die Runde hat: zehn – in der Testrunde zwölf.
+  const anzahl = () => state.aufgaben?.length || AUFGABEN;
   // Die Zeit der Aufgabe in ms: null ist, wenn sie fertig hingelegt ist.
   const seit = (jetzt = performance.now()) => jetzt - state.t0 - EINZUG;
 
@@ -369,7 +404,7 @@
     state.wertung = null;
     state.tickBei = -1;
     const a = aufgabe();
-    if (status) status.textContent = `Aufgabe ${index + 1} von ${AUFGABEN}: ${a.frage} Tippe, wenn du bereit bist.`;
+    if (status) status.textContent = `Aufgabe ${index + 1} von ${anzahl()}: ${a.frage} Tippe, wenn du bereit bist.`;
     ton("zeitgefuehl.blatt");
     meldeZug(4);
   }
@@ -382,7 +417,7 @@
     state.t0 = performance.now() - EINZUG + ANLAUF;
     state.tickBei = -1;
     const a = aufgabe();
-    if (status) status.textContent = `Aufgabe ${state.index + 1} von ${AUFGABEN}: ${a.frage}`;
+    if (status) status.textContent = `Aufgabe ${state.index + 1} von ${anzahl()}: ${a.frage}`;
     ton("zeitgefuehl.tick");
     meldeZug(0, 1);
   }
@@ -419,7 +454,20 @@
   function weiter() {
     if (state.phase !== "zeigen") return;
     clearStep();
-    if (state.index + 1 >= AUFGABEN) finish();
+    if (state.index + 1 >= anzahl()) finish();
+    else aufgabeAuf(state.index + 1);
+  }
+
+  // Überspringen (nur in der Testrunde): die nächste Aufgabe legt sich hin,
+  // ohne dass die jetzige gemessen wird – nach der letzten die Tafel.
+  function ueberspringe() {
+    if (!TESTRUNDE || zuschauer) return;
+    if (state.phase === "bereit") { losGehts(); return; }
+    if (state.phase !== "warten" && state.phase !== "aufgabe" && state.phase !== "zeigen") return;
+    clearStep();
+    state.haltAb = null;
+    if (!state.liste[state.index]) state.liste[state.index] = { wert: null, ms: null, punkte: 0, uebersprungen: true };
+    if (state.index + 1 >= anzahl()) finish();
     else aufgabeAuf(state.index + 1);
   }
 
@@ -546,8 +594,8 @@
     if (links >= KARTE_SEITE_MIN) {
       const w = Math.min(290, links - 24);
       const platz = cssH - frei - 16 - FELDER_H;
-      const zeile = clamp((platz - KARTE_KOPF - KARTE_FUSS) / AUFGABEN, 17, 26);
-      const h = KARTE_KOPF + KARTE_FUSS + zeile * AUFGABEN;
+      const zeile = clamp((platz - KARTE_KOPF - KARTE_FUSS) / anzahl(), 17, 26);
+      const h = KARTE_KOPF + KARTE_FUSS + zeile * anzahl();
       view.karte = {
         art: "seite", klein: false, w, h, zeile,
         x: Math.round((cx - R * 1.25) / 2 - w / 2),
@@ -560,8 +608,8 @@
       // kleiner werden muss; sonst die kleine, in zwei Spalten – und für sie
       // wird die Uhr kleiner, wenn es sein muss, aber nie zu klein.
       const zeileGross = 22;
-      const hGross = KARTE_KOPF + KARTE_FUSS + zeileGross * AUFGABEN;
-      const hKlein = KARTE_KLEIN_KOPF + KARTE_KLEIN_ZEILE * (AUFGABEN / 2) + 10;
+      const hGross = KARTE_KOPF + KARTE_FUSS + zeileGross * anzahl();
+      const hKlein = KARTE_KLEIN_KOPF + KARTE_KLEIN_ZEILE * Math.ceil(anzahl() / 2) + 10;
       const rGross = (cssH - frei - TEXT_H - 20 - hGross) / 3.03;
       const rKlein = (cssH - frei - TEXT_H - 20 - hKlein) / 3.03;
       const gross = rGross >= Math.max(150, R * 0.8);
@@ -992,7 +1040,7 @@
     const zeilen = zeilenFuer(a.frage, breit, gross);
     const mitte = oben + hoch * 0.5 + (1 - k) * -14;
     const farbe = ["#9ff5bd", GOLD, ROT][a.stufe];
-    schrift(`AUFGABE ${state.index + 1} VON ${AUFGABEN} · ${a.name.toUpperCase()}`, cx, mitte - gross * (zeilen.length > 1 ? 1.45 : 0.95), gross * 0.5, farbe, { fett: 900, alpha: k });
+    schrift(`${TESTRUNDE ? "TEST" : "AUFGABE"} ${state.index + 1} VON ${anzahl()} · ${a.name.toUpperCase()}`, cx, mitte - gross * (zeilen.length > 1 ? 1.45 : 0.95), gross * 0.5, farbe, { fett: 900, alpha: k });
     zeilen.forEach((zeile, i) => {
       schrift(zeile, cx, mitte + gross * (zeilen.length > 1 ? i * 1.15 - 0.25 : 0.25), gross, "#ffffff", { fett: 800, alpha: k, breit: breit + 12 });
     });
@@ -1056,16 +1104,16 @@
   function zeichneFelder() {
     if (view.karte?.art === "unten") return;
     const W = view.cssW;
-    const b = clamp((W - 24) / AUFGABEN - 4, 18, 44);
+    const b = clamp((W - 24) / anzahl() - 4, 18, 44);
     const h = clamp(b * 0.7, 18, 28);
-    const x0 = view.cx - ((b + 4) * AUFGABEN - 4) / 2;
+    const x0 = view.cx - ((b + 4) * anzahl() - 4) / 2;
     const y = view.cssH - h - 12;
     g.save();
-    for (let i = 0; i < AUFGABEN; i += 1) {
+    for (let i = 0; i < anzahl(); i += 1) {
       const e = state.liste[i];
       const x = x0 + i * (b + 4);
       const dran = i === state.index && state.phase !== "bereit" && state.phase !== "ende";
-      g.fillStyle = e ? (e.punkte >= 90 ? "rgba(255, 210, 63, 0.9)" : e.punkte >= 50 ? "rgba(255, 255, 255, 0.85)" : "rgba(255, 107, 94, 0.85)") : "rgba(255, 255, 255, 0.07)";
+      g.fillStyle = e?.uebersprungen ? "rgba(255, 255, 255, 0.16)" : e ? (e.punkte >= 90 ? "rgba(255, 210, 63, 0.9)" : e.punkte >= 50 ? "rgba(255, 255, 255, 0.85)" : "rgba(255, 107, 94, 0.85)") : "rgba(255, 255, 255, 0.07)";
       g.beginPath();
       if (g.roundRect) g.roundRect(x, y, b, h, 6);
       else g.rect(x, y, b, h);
@@ -1075,7 +1123,7 @@
         g.strokeStyle = TUERKIS;
         g.stroke();
       }
-      if (e) schrift(String(e.punkte), x + b / 2, y + h / 2 + 1, Math.min(h * 0.58, b * 0.48), "#101a1d", { fett: 900 });
+      if (e) schrift(e.uebersprungen ? "–" : String(e.punkte), x + b / 2, y + h / 2 + 1, Math.min(h * 0.58, b * 0.48), e.uebersprungen ? "#e8f3f1" : "#101a1d", { fett: 900 });
       else {
         // Wie schwer sie wird: ein Punkt in der Farbe der Stufe.
         const a = state.aufgaben?.[i];
@@ -1192,10 +1240,10 @@
 
     // Die Zeilen. Klein in zwei Spalten zu fünf, gross untereinander.
     const spalten = klein ? 2 : 1;
-    const proSpalte = Math.ceil(AUFGABEN / spalten);
+    const proSpalte = Math.ceil(anzahl() / spalten);
     const spalteB = (w - rand * (spalten + 1)) / spalten;
     const gross = clamp(zeile * 0.52, 10, 14);
-    for (let i = 0; i < AUFGABEN; i += 1) {
+    for (let i = 0; i < anzahl(); i += 1) {
       const a = liste[i];
       const e = state.liste[i];
       const sp = Math.floor(i / proSpalte);
@@ -1233,7 +1281,9 @@
       if (!klein) {
         kartenText(abweichung(e), x + spalteB - gross * 3.05, mitte, gross * 0.92, e.ms === null ? KOPF_ROT : TINTE, { ausrichtung: "right", fett: 700, mono: true, alpha: 0.85 });
       }
-      stempel(e.ms === null ? null : e.punkte, punkteX, mitte, gross * 0.95, i, nun);
+      // Übersprungen (Testrunde): kein Stempel, nur ein Strich.
+      if (e.uebersprungen) kartenText("–", punkteX, mitte, gross, TINTE, { ausrichtung: "center", fett: 800, mono: true, alpha: 0.55 });
+      else stempel(e.ms === null ? null : e.punkte, punkteX, mitte, gross * 0.95, i, nun);
     }
 
     // Unten die Summe – gross nur neben der Uhr; klein steht sie im Kopf.
@@ -1246,7 +1296,7 @@
       g.lineTo(w - rand, h - KARTE_FUSS + 2);
       g.stroke();
       kartenText("TOTAL", rand, y, 12, TINTE, { fett: 900, mono: true });
-      kartenText(`${summe} / ${AUFGABEN * PUNKTE_JE}`, w - rand, y, 15, STEMPEL, { ausrichtung: "right", fett: 900, mono: true });
+      kartenText(`${summe} / ${anzahl() * PUNKTE_JE}`, w - rand, y, 15, STEMPEL, { ausrichtung: "right", fett: 900, mono: true });
     }
     g.restore();
   }
@@ -1411,11 +1461,11 @@
     shell.closeOverlay();
     zufall.neu();
     shell.setPhase("intro");
-    state.aufgaben = aufgabenFuer();
+    state.aufgaben = TESTRUNDE ? testAufgaben() : aufgabenFuer();
     state.phase = "bereit";
     state.index = 0;
     state.punkte = 0;
-    state.liste = new Array(AUFGABEN).fill(null);
+    state.liste = new Array(anzahl()).fill(null);
     state.haltAb = null;
     state.wertung = null;
     state.serie = 0;
@@ -1427,7 +1477,9 @@
     shell.setCount(0);
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt zf-prompt", "Zehn Aufgaben, kein Blick auf die Uhr. Jede Hundertstelsekunde daneben kostet einen Punkt.");
+    const prompt = shell.el("p", "cm-prompt zf-prompt", TESTRUNDE
+      ? `Testrunde: alle ${anzahl()} Aufgaben nacheinander – nichts wird gespeichert.`
+      : "Zehn Aufgaben, kein Blick auf die Uhr. Jede Hundertstelsekunde daneben kostet einen Punkt.");
     status = shell.el("p", "zf-status");
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
@@ -1468,6 +1520,7 @@
     state.unten = false;
     zeichnen();
     const punkte = state.punkte;
+    if (TESTRUNDE) { testEnde(punkte); return; }
     const geist = aufnahme?.ende() || null;
     const vorher = Number(store.read()?.scores?.[0]) || 0;
     const rekord = punkte > vorher;
@@ -1490,6 +1543,30 @@
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("zf-rekord");
+    zaehleHoch(punkte);
+  }
+
+  // Die Tafel der Testrunde: die Punkte, wie genau, was übersprungen wurde
+  // und welche Aufgaben schwach waren – ohne Bestenliste und Aufzeichnung.
+  function testEnde(punkte) {
+    const fertig = state.liste.map((e, i) => (e ? { ...e, name: state.aufgaben[i].name } : null)).filter(Boolean);
+    const gemessen = fertig.filter((e) => e.ms !== null);
+    const schnitt = gemessen.length ? gemessen.reduce((summe, e) => summe + Math.abs(e.ms), 0) / gemessen.length : 0;
+    const genau = gemessen.filter((e) => Math.abs(e.ms) <= GENAU).length;
+    const weg = fertig.filter((e) => e.uebersprungen).length;
+    const schwach = fertig.filter((e) => !e.uebersprungen && e.punkte < 50).map((e) => `${e.name} ${e.punkte}`);
+    shell.showResult({
+      label: "Testrunde",
+      points: punkte,
+      detail: [
+        genau ? `${genau}× haargenau` : "",
+        gemessen.length ? `im Schnitt ${sek(schnitt)} s daneben` : "",
+        weg ? `${weg} übersprungen` : "",
+        schwach.length ? `unter 50: ${schwach.join(", ")}` : "",
+        "nichts gespeichert",
+      ].filter(Boolean).join(" · "),
+      eintragen: false,
+    });
     zaehleHoch(punkte);
   }
 
@@ -1518,7 +1595,9 @@
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "timeSense", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  // Die Testrunde wird nicht aufgezeichnet – und hat oben den Knopf «Überspringen».
+  if (TESTRUNDE) shell.ueberspringen(ueberspringe);
+  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -1602,5 +1681,6 @@
     WARTE, WARTE_ZAEHLT, WARTE_SPERRE, ANLAUF,
     state, view, aufgabe, seit, aufgabenFuer, weltText, punkteFuer, daneben,
     losGehts, aufgabeAuf, aufgabeLos, antworte, weiter, druck, los, zeichnen,
+    testrunde: () => TESTRUNDE, ueberspringe,
   };
 })();

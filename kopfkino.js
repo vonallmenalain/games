@@ -1439,6 +1439,18 @@
     if (!zuschauer) stepTimer = window.setTimeout(weiter, ZEIGEN_MS[a.art]);
   }
 
+  // Überspringen (nur in der Testrunde): zur Vorschau der nächsten Aufgabe,
+  // ohne die jetzige zu lösen – nach der letzten zur Tafel.
+  function ueberspringe() {
+    if (!TESTRUNDE || zuschauer) return;
+    if (state.phase === "bereit") { losGehts(); return; }
+    if (state.phase !== "vorschau" && state.phase !== "aufgabe" && state.phase !== "zeigen") return;
+    clearStep();
+    if (!state.liste[state.index]) state.liste[state.index] = { punkte: 0, anteil: 0, sekunden: 0, uebersprungen: true };
+    if (state.index + 1 >= anzahl()) finish();
+    else aufgabeAuf(state.index + 1);
+  }
+
   // Die Auflösung ist gelaufen: die nächste Aufgabe – oder das Ergebnis.
   function weiter() {
     if (state.phase !== "zeigen" || zuschauer) return;
@@ -3473,7 +3485,9 @@
     if (!f) return;
     const u = view.u;
     const bild = (i, x, y, w, h) => {
-      const e = state.liste[i];
+      // Übersprungen (Testrunde): wie offen, mit einem Strich statt der Zahl.
+      const weg = state.liste[i]?.uebersprungen;
+      const e = weg ? null : state.liste[i];
       const dran = i === state.index && state.phase !== "ende" && state.phase !== "bereit" && state.phase !== "warten";
       g.save();
       rundes(x, y, w, h, 5 * u);
@@ -3486,7 +3500,7 @@
       g.textAlign = "center";
       g.textBaseline = "middle";
       g.fillStyle = e ? (e.punkte >= PUNKTE_JE_AUFGABE ? GOLD : HELL) : "rgba(226, 222, 255, 0.4)";
-      g.fillText(e ? String(e.punkte) : String(i + 1), x + w / 2, y + h / 2 + 1);
+      g.fillText(e ? String(e.punkte) : weg ? "–" : String(i + 1), x + w / 2, y + h / 2 + 1);
       g.restore();
     };
     const loch = (x, y, w, h) => { rundes(x, y, w, h, 1.5); g.fill(); };
@@ -3754,8 +3768,9 @@
   function testEnde(punkte) {
     const fertig = state.liste.filter(Boolean);
     const richtig = fertig.filter((e) => e.anteil >= 1).length;
+    const weg = fertig.filter((e) => e.uebersprungen).length;
     const daneben = state.aufgaben
-      .map((a, i) => (state.liste[i] && state.liste[i].anteil < 1 ? `${KURZ[a.art]} (${STUFE[a.stufe]})` : ""))
+      .map((a, i) => (state.liste[i] && !state.liste[i].uebersprungen && state.liste[i].anteil < 1 ? `${KURZ[a.art]} (${STUFE[a.stufe]})` : ""))
       .filter(Boolean);
     shell.showResult({
       label: "Testrunde",
@@ -3763,6 +3778,7 @@
       detail: [
         `${richtig} von ${anzahl()} richtig`,
         state.volle ? `${state.volle} mit vollen Punkten` : "",
+        weg ? `${weg} übersprungen` : "",
         daneben.length ? `daneben: ${daneben.join(", ")}` : "",
         "nichts gespeichert",
       ].filter(Boolean).join(" · "),
@@ -3801,7 +3817,8 @@
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "mindsEye", fassung: "z2", zufall, zuege: true, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
-  // Die Testrunde wird nicht aufgezeichnet.
+  // Die Testrunde wird nicht aufgezeichnet – und hat oben den Knopf «Überspringen».
+  if (TESTRUNDE) shell.ueberspringen(ueberspringe);
   if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
@@ -3889,6 +3906,6 @@
     state, view, lege, aufgabenFuer, weltText, anteilFuer, zeitFaktor, punkteFuer, loesung,
     netzBaum, netzLage, netzKanten, ansichtSpalten, gestalt, augeNach, rollLage, schnittFlaeche, sicht,
     farbeSeiten, musterAnsicht, schattenVon, schattenText, profilText, laserRand, laserWeg, kugelWeg, radHalb,
-    losGehts, aufgabeLos, eingabe, weiter, takt, zeichnen, stellen: () => treffer, testrunde: () => TESTRUNDE,
+    losGehts, aufgabeLos, eingabe, weiter, takt, zeichnen, stellen: () => treffer, testrunde: () => TESTRUNDE, ueberspringe,
   };
 })();

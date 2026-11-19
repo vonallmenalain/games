@@ -69,6 +69,11 @@
       d: "M5 13l4.5 4.5L19 7", fill: "none", stroke: "currentColor",
       "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round",
     })],
+    // Überspringen (Testrunde): zwei Dreiecke und ein Strich.
+    weiter: () => [
+      art().el("path", { d: "M4 6.5v11l7.2-5.5zM11.2 6.5v11l7.2-5.5z", fill: "currentColor" }),
+      art().el("path", { d: "M20.3 6.5v11", fill: "none", stroke: "currentColor", "stroke-width": 2.2, "stroke-linecap": "round" }),
+    ],
     // Der Pokal: der Weg in die Hall of Fame.
     cup: () => [
       art().el("path", { d: "M7 4h10v4a5 5 0 0 1-10 0z", fill: "currentColor" }),
@@ -381,9 +386,33 @@
       window.LernappLiveSpiel?.zeigeVerwaist?.(host);
     }
 
+    /*
+     * Der Knopf «Überspringen» oben links, neben «Neu starten» – nur in einer
+     * Testrunde (?alle: Kopfkino, Freihand, Zeitgefühl, Augenmass). Er führt
+     * zur nächsten Aufgabe, ohne die jetzige zu lösen; die Taste N tut
+     * dasselbe. Was er genau tut, sagt das Spiel (beiKlick).
+     */
+    function ueberspringen(beiKlick) {
+      const knopf = iconButton("weiter", "Überspringen (N)", ICONS.weiter(), () => {
+        // Der Fokus geht zurück: Sonst drückte die Leertaste den Knopf ein
+        // zweites Mal, statt im Spiel zu tippen.
+        knopf.blur();
+        beiKlick();
+      });
+      left.append(knopf);
+      window.addEventListener("keydown", (ereignis) => {
+        if (ereignis.repeat || ereignis.key.toLowerCase() !== "n" || ereignis.ctrlKey || ereignis.metaKey || ereignis.altKey) return;
+        if (ereignis.target.closest?.("input, textarea") || overlay) return;
+        ereignis.preventDefault();
+        beiKlick();
+      });
+      return knopf;
+    }
+
     return {
       play,
       el,
+      ueberspringen,
       // In der App steht hier der Auftrag der Reise, und ein Spiel startet
       // dann direkt im verlangten Level. Hier gibt es keine Reise – die Zeile
       // bleibt, damit ein Spiel, das danach fragt, unverändert läuft.
