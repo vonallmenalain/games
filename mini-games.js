@@ -227,7 +227,7 @@
     hammerThrow: { fassung: "z1" },
     fireRope: { fassung: "z1" },
     flagCommand: { fassung: "z1" },
-    timeSense: { fassung: "z1" },
+    timeSense: { fassung: "z2" },
     speedClimb: { fassung: "z1" },
     freeHand: { fassung: "z1" },
     mindsEye: { fassung: "z3" },

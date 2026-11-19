@@ -13,8 +13,9 @@
  * KOSTEN). Tausend sind das Dach; wer im Schnitt eine Zehntelsekunde trifft,
  * steht bei neunhundert.
  *
- * Die zehn Aufgaben einer Runde: drei leichte, vier mittlere, drei schwere,
- * jede Art einmal, in gewürfelter Reihe und mit gewürfelten Zeiten.
+ * Die zehn Aufgaben einer Runde: drei leichte, vier mittlere, drei schwere
+ * (PLAN), je aus den Arten ihrer Stufe gewürfelt, keine zweimal, in
+ * gewürfelter Reihe und mit gewürfelten Zeiten.
  *
  *   leicht   Stoppuhr   «Stoppe bei 3,50.» Die Ziffern laufen bis zur Hälfte,
  *                       dann stehen Striche da.
@@ -22,6 +23,8 @@
  *                       zählt man selbst.
  *            Zeiger     Der Zeiger läuft einmal um das Blatt und verschwindet
  *                       nach knapp der Hälfte: tippen, wenn er oben ist.
+ *            Kerze      Sie brennt gleichmässig herunter: tippen, wenn die
+ *                       Flamme die Marke am Massstab erreicht.
  *   mittel   Takt       Vier Schläge leuchten, vier bleiben stumm: tippen
  *                       auf den achten.
  *            Nachhalten Eine Lampe brennt. Danach den Finger genauso lange
@@ -29,12 +32,34 @@
  *            Blind      «Halte genau 2,5 Sekunden.» Ohne jede Vorgabe.
  *            Lange Uhr  Wie die Stoppuhr, aber sechs, sieben Sekunden – und
  *                       zu sehen sind nur die ersten anderthalb.
+ *            Zwei Zeiger  Zwei Zeiger drehen verschieden schnell (oder
+ *                       gegeneinander): tippen, wenn sie sich treffen.
+ *            Pendel     Es schwingt, dann liegt der Deckel darüber: tippen,
+ *                       wenn es zum dritten (vierten) Mal ganz links ist.
+ *            Ball       Er läuft zwischen zwei Wänden hin und her – der
+ *                       müde wird bei jedem Anprall langsamer: tippen, wenn
+ *                       er zum dritten (vierten) Mal rechts anschlägt.
  *   schwer   Zeitlupe   Die Uhr geht langsamer (oder schneller) als die
  *                       Zeit. Gestoppt wird nach dem, was sie zeigt.
  *            Doppelt    Die Lampe brennt – halten soll man doppelt (oder
  *                       halb) so lange.
  *            Störung    Die Uhr verschwindet, und an ihrer Stelle laufen
  *                       rote Zahlen im falschen Tempo. Sie lügen.
+ *            Sanduhr    Der Sand rinnt gleichmässig, doch der Trichter ist
+ *                       unten eng: Der Pegel fällt zum Schluss immer
+ *                       schneller. Tippen, wenn sie leer ist.
+ *            Glas füllen  Wasser läuft gleichmässig in einen Kelch, eine
+ *                       Vase oder eine Flasche: Wo das Glas breit ist,
+ *                       steigt es langsam. Tippen, wenn es voll ist.
+ *            Zwei Blinker Zwei Lampen blinken in verschiedenem Takt (2 : 3,
+ *                       3 : 4, 2 : 5 oder 3 : 5): tippen, wenn beide wieder
+ *                       zugleich aufleuchten.
+ *            Bremszeiger  Der Zeiger bremst gleichmässig: tippen, wenn er
+ *                       stehen bleibt.
+ *
+ * Was man zuerst sieht und dann nicht mehr, verschwindet bei den Zeigern
+ * und Ziffern; Kerze, Pendel, Ball, Sanduhr, Glas und Blinker deckt ein
+ * Deckel aus Messing zu (zeichneDeckel).
  *
  * Vor jeder Aufgabe steht die Uhr. Die Aufgabe liegt da, man liest sie in
  * Ruhe, und erst ein Tipp lässt die Uhr laufen (aufgabeLos) – wie vor der
@@ -80,10 +105,12 @@
   // ---------------------------------------------------------------------------
   // Die Schrauben
   // ---------------------------------------------------------------------------
-  const LEICHT = ["stoppuhr", "countdown", "zeiger"];
-  const MITTEL = ["takt", "nachhalten", "blind", "lang"];
-  const SCHWER = ["zeitlupe", "doppelt", "stoer"];
-  const AUFGABEN = LEICHT.length + MITTEL.length + SCHWER.length;
+  const LEICHT = ["stoppuhr", "countdown", "zeiger", "kerze"];
+  const MITTEL = ["takt", "nachhalten", "blind", "lang", "zweizeiger", "pendel", "ball"];
+  const SCHWER = ["zeitlupe", "doppelt", "stoer", "sanduhr", "glas", "blinker", "bremse"];
+  // So viele jeder Stufe kommen in eine Runde – gewürfelt aus ihren Arten.
+  const PLAN = [3, 4, 3];
+  const AUFGABEN = PLAN[0] + PLAN[1] + PLAN[2];
 
   const PUNKTE_JE = 100;
   // So viele Punkte kostet eine Hundertstelsekunde: leicht, mittel, schwer.
@@ -135,6 +162,33 @@
   // 3500 → «3,50», und 2500 → «2,5» für die Sätze.
   const sek = (ms) => (ms / 1000).toFixed(2).replace(".", ",");
   const sekKurz = (ms) => String(ms / 1000).replace(".", ",");
+
+  // Der müde Ball: Nach jedem Anprall bleibt so viel vom Tempo.
+  const MUEDE = 0.85;
+  // Die Sanduhr: Ihre Hälften sind Kegel; der Hals ist so weit (Teil der
+  // grössten Weite).
+  const HALS = 0.22;
+  // Wie weit das Pendel ausschlägt (Bogenmass).
+  const PENDEL_AUS = 0.6;
+  // Die Gläser: ihre Weite (0 … 1) über der Höhe (0 Boden … 1 Rand) – und,
+  // einmal ausgerechnet, wie viel Wasser bis zu jeder Höhe in ihnen steht
+  // (rund, also mit der Weite im Quadrat).
+  const GLAESER = (() => {
+    const glatt = (x) => x * x * (3 - 2 * x);
+    const formen = {
+      kelch: (y) => 0.22 + 0.78 * y,
+      bauch: (y) => 0.42 + 0.53 * Math.sin(Math.PI * y),
+      flasche: (y) => (y < 0.55 ? 0.92 : 0.92 - 0.66 * glatt((y - 0.55) / 0.45)),
+    };
+    const SCHRITTE = 200;
+    const raus = {};
+    for (const [name, weite] of Object.entries(formen)) {
+      const menge = new Float64Array(SCHRITTE + 1);
+      for (let i = 1; i <= SCHRITTE; i += 1) menge[i] = menge[i - 1] + weite((i - 0.5) / SCHRITTE) ** 2 / SCHRITTE;
+      raus[name] = { weite, menge, schritte: SCHRITTE };
+    }
+    return raus;
+  })();
 
   // ---------------------------------------------------------------------------
   // Die Aufgaben
@@ -208,6 +262,94 @@
           eingabe: "halten", ziel: dauer * mal, faktor: 1, sicht: an + dauer, ab: an + dauer + 150, an, dauer, mal,
         };
       }
+      case "kerze": {
+        // Die Kerze brennt gleichmässig herunter: vom Anfang (oben, Teil der
+        // ganzen Höhe) bis zur Marke dauert es ziel.
+        const ziel = zz(3000, 4500, 250);
+        const sicht = auf(ziel * 0.45, 50);
+        const oben = zz(0.82, 0.95, 0.01);
+        const marke = zz(0.22, 0.42, 0.01);
+        return { art, stufe: 0, name: "Kerze", frage: "Tippe, wenn die Flamme die Marke erreicht.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, oben, marke };
+      }
+      case "zweizeiger": {
+        // Zwei Zeiger, verschieden schnell (oder gegeneinander): Sie treffen
+        // sich zum ersten Mal bei ziel, über dem Winkel treffen. Bis dahin
+        // holt der eine den anderen um den Teil teil einer Runde ein.
+        const gegen = aus([false, true]);
+        const ziel = zz(2800, 4200, 100);
+        const teil = zz(0.6, 0.85, 0.05);
+        const zusammen = ziel / teil;
+        const s = zz(1.2, 2.2, 0.1);
+        const sicht = auf(ziel * 0.45, 50);
+        const treffen = zz(0, 345, 15);
+        // Gleich herum: der schnelle (rot) und der langsame (türkis) im
+        // Uhrzeigersinn. Gegeneinander: der rote im, der türkise gegen ihn.
+        const umlauf = gegen ? [zusammen * (1 + s), zusammen * (1 + 1 / s)] : [(zusammen * s) / (1 + s), zusammen * s];
+        return {
+          art, stufe: 1, name: gegen ? "Gegenläufig" : "Zwei Zeiger",
+          frage: gegen ? "Die Zeiger laufen gegeneinander. Tippe, wenn sie sich treffen." : "Tippe, wenn die beiden Zeiger übereinanderliegen.",
+          eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, gegen, umlauf, treffen,
+        };
+      }
+      case "pendel": {
+        // Das Pendel startet rechts aussen; ganz links ist es nach einer
+        // halben Schwingung, dann jede ganze: zum n-ten Mal bei (n − ½)·schwingung.
+        const schwingung = zz(1300, 1900, 50);
+        const mal = aus([3, 4]);
+        const sicht = auf(schwingung * 1.15, 50);
+        return {
+          art, stufe: 1, name: "Pendel", frage: `Tippe, wenn das Pendel zum ${mal === 3 ? "dritten" : "vierten"} Mal ganz links ist.`,
+          eingabe: "tipp", ziel: (mal - 0.5) * schwingung, faktor: 1, sicht, ab: sicht, schwingung, mal,
+        };
+      }
+      case "ball": {
+        // Der Ball läuft von der linken Wand los; eine Strecke dauert strecke
+        // ms – der müde Ball wird bei jedem Anprall langsamer (MUEDE).
+        const muede = aus([false, true]);
+        const strecke = zz(450, 750, 25);
+        const mal = muede ? 3 : aus([3, 4]);
+        const dauer = (i) => strecke / (muede ? MUEDE ** i : 1);
+        let ziel = 0;
+        for (let i = 0; i < 2 * mal - 1; i += 1) ziel += dauer(i);
+        const sicht = auf(dauer(0) + dauer(1) + 0.3 * dauer(2), 50);
+        return {
+          art, stufe: 1, name: muede ? "Müder Ball" : "Ball",
+          frage: `${muede ? "Der Ball wird bei jedem Anprall langsamer. Tippe, wenn er" : "Tippe, wenn der Ball"} zum ${mal === 3 ? "dritten" : "vierten"} Mal rechts anschlägt.`,
+          eingabe: "tipp", ziel: Math.round(ziel), faktor: 1, sicht, ab: sicht, strecke, muede, mal,
+        };
+      }
+      case "sanduhr": {
+        // Der Sand rinnt gleichmässig – aber der Trichter ist unten eng: Der
+        // Pegel fällt zum Schluss immer schneller (sandBei).
+        const ziel = zz(3500, 5500, 250);
+        const sicht = auf(ziel * 0.55, 50);
+        const voll = zz(0.8, 0.95, 0.01);
+        return { art, stufe: 2, name: "Sanduhr", frage: "Tippe, wenn die Sanduhr leer ist.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, voll };
+      }
+      case "glas": {
+        // Wasser läuft gleichmässig in ein Glas mit Form (GLAESER): Wo es
+        // breit ist, steigt der Pegel langsam.
+        const form = aus(Object.keys(GLAESER));
+        const ziel = zz(3200, 5000, 200);
+        const sicht = auf(ziel * 0.5, 50);
+        return { art, stufe: 2, name: "Glas füllen", frage: "Das Wasser läuft gleichmässig. Tippe, wenn das Glas voll ist.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, form };
+      }
+      case "blinker": {
+        // Zwei Lampen, beide blinken bei null. Ihre Takte stehen im Verhältnis
+        // m : n – gleichzeitig blinken sie wieder nach m·n Grundtakten (ziel).
+        const [m, n] = aus([[2, 3], [3, 4], [2, 5], [3, 5]]);
+        const ziel = zz(3000, 4200, 300);
+        const takte = [(ziel / (m * n)) * m, (ziel / (m * n)) * n];
+        const sicht = auf(Math.min(ziel - 1000, takte[1] + 0.6 * takte[0]), 50);
+        return { art, stufe: 2, name: "Zwei Blinker", frage: "Tippe, wenn beide Lampen wieder gleichzeitig aufleuchten.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, takte };
+      }
+      case "bremse": {
+        // Der Zeiger bremst gleichmässig und steht bei ziel – nach runden Umläufen.
+        const ziel = zz(3000, 4500, 100);
+        const sicht = auf(ziel * 0.45, 50);
+        const runden = zz(0.9, 1.6, 0.05);
+        return { art, stufe: 2, name: "Bremszeiger", frage: "Der Zeiger wird langsamer. Tippe, wenn er stehen bleibt.", eingabe: "tipp", ziel, faktor: 1, sicht, ab: sicht, runden };
+      }
       default: {
         const ziel = zz(3500, 5000, 250);
         const sicht = auf(ziel * 0.35, 50);
@@ -217,17 +359,69 @@
     }
   }
 
-  // Die zehn Aufgaben einer Runde: erst die leichten, dann die mittleren,
-  // dann die schweren – jede Gruppe gemischt.
+  // --- Wie es um eine Aufgabe steht, t ms nach ihrem Beginn ------------------
+  // Die Kerze: wie hoch sie noch ist (Teil der ganzen Höhe).
+  const kerzeBei = (a, t) => Math.max(0.03, a.oben - ((a.oben - a.marke) * Math.max(0, t)) / a.ziel);
+  // Die zwei Zeiger: der Winkel des Zeigers i (im Uhrzeigersinn von oben).
+  const zweiWinkel = (a, i, t) => (a.treffen / 180) * Math.PI + (i === 1 && a.gegen ? -1 : 1) * TAU * ((Math.max(0, t) - a.ziel) / a.umlauf[i]);
+  // Das Pendel: sein Winkel (rechts positiv); bei null rechts aussen.
+  const pendelWinkel = (a, t) => PENDEL_AUS * Math.cos((TAU * Math.max(0, t)) / a.schwingung);
+  // Der Ball: wo er ist (0 links, 1 rechts), auf der wievielten Strecke,
+  // seit wann (ms), und wie oft er rechts angeschlagen hat.
+  function ballBei(a, t) {
+    let anfang = 0;
+    for (let i = 0; i < 60; i += 1) {
+      const dauer = a.strecke / (a.muede ? MUEDE ** i : 1);
+      if (Math.max(0, t) < anfang + dauer || i === 59) {
+        const k = clamp((Math.max(0, t) - anfang) / dauer, 0, 1);
+        return { ort: i % 2 ? 1 - k : k, strecke: i, seit: Math.max(0, t) - anfang, rechts: Math.floor((i + 1) / 2) };
+      }
+      anfang += dauer;
+    }
+    return { ort: 0, strecke: 0, seit: 0, rechts: 0 };
+  }
+  // Die Sanduhr: wie hoch der Sand oben noch steht und unten schon liegt
+  // (je Teil der Höhe einer Hälfte). Oben fliesst gleich viel Sand je
+  // Millisekunde ab – im engen Trichter fällt der Pegel darum immer schneller.
+  function sandBei(a, t) {
+    const b = 1 - HALS;
+    const menge = (h) => ((HALS + b * h) ** 3 - HALS ** 3) / (3 * b);
+    const ganz = menge(a.voll);
+    const oben = ganz * clamp(1 - Math.max(0, t) / a.ziel, 0, 1);
+    const unten = ganz - oben;
+    return {
+      oben: oben <= 0 ? 0 : (Math.cbrt(3 * b * oben + HALS ** 3) - HALS) / b,
+      unten: (1 - Math.cbrt(Math.max(0, 1 - 3 * b * unten))) / b,
+    };
+  }
+  // Das Glas: wie hoch das Wasser steht (Teil der Höhe) – bei ziel am Rand.
+  function glasBei(a, t) {
+    const glas = GLAESER[a.form];
+    const soll = glas.menge[glas.schritte] * clamp(Math.max(0, t) / a.ziel, 0, 1);
+    let i = 0;
+    while (i < glas.schritte && glas.menge[i + 1] < soll) i += 1;
+    if (i >= glas.schritte) return 1;
+    const k = (soll - glas.menge[i]) / Math.max(1e-12, glas.menge[i + 1] - glas.menge[i]);
+    return (i + clamp(k, 0, 1)) / glas.schritte;
+  }
+  // Die Blinker: wie hell Lampe i gerade ist (1 im Augenblick des Blinkens).
+  const blinkHell = (a, i, t) => (t < 0 ? 0 : clamp(1 - (t - Math.floor(t / a.takte[i]) * a.takte[i]) / 260, 0, 1));
+  // Der bremsende Zeiger: sein Winkel – er bremst gleichmässig bis ziel.
+  const bremsWinkel = (a, t) => a.runden * TAU * (1 - (1 - clamp(t, 0, a.ziel) / a.ziel) ** 2);
+
+  // Die zehn Aufgaben einer Runde: erst drei leichte, dann vier mittlere,
+  // dann drei schwere – je aus den Arten ihrer Stufe gewürfelt, keine zweimal.
   function aufgabenFuer() {
-    const reihe = [...zufall.misch(LEICHT), ...zufall.misch(MITTEL), ...zufall.misch(SCHWER)];
+    const reihe = [...zufall.misch(LEICHT).slice(0, PLAN[0]), ...zufall.misch(MITTEL).slice(0, PLAN[1]), ...zufall.misch(SCHWER).slice(0, PLAN[2])];
     return reihe.map((art) => wuerfle(art));
   }
 
   /*
    * Die Testrunde (?alle in der Adresse; im Adminbereich «▶ Alle Aufgaben»):
    * jede Art einmal, die leichten zuerst – Zeitlupe und Zeitraffer, Doppelt
-   * und Halb je für sich, also zwölf. Zum Ausprobieren: Sie geht in keine
+   * und Halb, die zwei Zeiger gleich und gegenläufig, der Ball frisch und
+   * müde sowie Kelch, Vase und Flasche je für sich, also vierundzwanzig
+   * (SPIELARTEN). Zum Ausprobieren: Sie geht in keine
    * Bestenliste und wird nicht aufgezeichnet; oben steht der Knopf
    * «Überspringen». ?alle=takt,stoer nimmt nur diese Arten. Im Turnier, im
    * Live-Modus und beim Zuschauen gibt es sie nicht.
@@ -244,6 +438,9 @@
   const SPIELARTEN = {
     zeitlupe: [(a) => a.faktor < 1, (a) => a.faktor > 1],
     doppelt: [(a) => a.mal === 2, (a) => a.mal !== 2],
+    zweizeiger: [(a) => !a.gegen, (a) => a.gegen],
+    ball: [(a) => !a.muede, (a) => a.muede],
+    glas: [(a) => a.form === "kelch", (a) => a.form === "bauch", (a) => a.form === "flasche"],
   };
   function testAufgaben() {
     const raus = [];
@@ -259,7 +456,7 @@
 
   // Die gewürfelte Welt in Worten (für die Prüfung).
   function weltText(liste = state.aufgaben) {
-    return (liste || []).map((a) => `${a.art}:${Math.round(a.ziel)}${a.faktor !== 1 ? `×${a.faktor}` : ""}${a.mal ? `·${a.mal}` : ""}${a.luege ? `~${a.luege}` : ""}`).join(" ");
+    return (liste || []).map((a) => `${a.art}:${Math.round(a.ziel)}${a.faktor !== 1 ? `×${a.faktor}` : ""}${a.mal ? `·${a.mal}` : ""}${a.luege ? `~${a.luege}` : ""}${a.form ? `/${a.form}` : ""}${a.gegen || a.muede ? "!" : ""}${a.takte ? `/${a.takte.map(Math.round).join(":")}` : ""}`).join(" ");
   }
 
   // Wie weit daneben, in Millisekunden dieser Uhr: plus heisst zu spät (oder
@@ -314,7 +511,7 @@
   const view = { dpr: 1, cssW: 0, cssH: 0, frei: 0, cx: 0, cy: 0, r: 120, karte: null };
 
   const aufgabe = () => state.aufgaben?.[state.index] || null;
-  // Wie viele Aufgaben die Runde hat: zehn – in der Testrunde zwölf.
+  // Wie viele Aufgaben die Runde hat: zehn – in der Testrunde vierundzwanzig.
   const anzahl = () => state.aufgaben?.length || AUFGABEN;
   // Die Zeit der Aufgabe in ms: null ist, wenn sie fertig hingelegt ist.
   const seit = (jetzt = performance.now()) => jetzt - state.t0 - EINZUG;
@@ -515,6 +712,10 @@
     if (a.art === "takt") { if (t < a.sicht) tick = Math.floor((t - a.start) / a.schlag); } else if (a.art === "nachhalten" || a.art === "doppelt") {
       const lampe = t >= a.an && t < a.an + a.dauer ? 1 : t >= a.an + a.dauer ? 2 : 0;
       if (lampe !== state.tickBei && lampe > 0) { state.tickBei = lampe; ton("zeitgefuehl.lampe", { laut: lampe === 1 ? 1 : 0.6 }); }
+    } else if (a.art === "pendel") { if (t < a.sicht) tick = Math.floor(t / (a.schwingung / 2)); } else if (a.art === "ball") { if (t < a.sicht) tick = ballBei(a, t).strecke; } else if (a.art === "blinker") {
+      // Jedes Blinken klingt – solange man die Lampen sieht.
+      const blink = Math.floor(t / a.takte[0]) * 100 + Math.floor(t / a.takte[1]);
+      if (t < a.sicht && blink !== state.tickBei) { state.tickBei = blink; ton("zeitgefuehl.lampe", { laut: 0.55 }); }
     } else if (a.sicht && t < a.sicht) tick = Math.floor((t * a.faktor) / 1000);
     if (tick >= 0 && tick !== state.tickBei) { state.tickBei = tick; ton("zeitgefuehl.tick"); }
     // Niemand antwortet.
@@ -862,6 +1063,390 @@
     if (wert !== null && wert !== undefined) zeile(cy + R * 0.28, wert, "#ffffff", "Du");
   }
 
+  // --- Die neuen Bilder auf dem Blatt ------------------------------------------
+  // Der Deckel: Er legt sich über das Blatt, sobald die Vorgabe vorbei ist –
+  // Messing wie der Deckel einer Taschenuhr, mit einem Fragezeichen.
+  function zeichneDeckel(k) {
+    if (k <= 0) return;
+    const { cx, cy, r: R } = view;
+    g.save();
+    g.globalAlpha = k;
+    const deckel = g.createRadialGradient(cx - R * 0.3, cy - R * 0.35, R * 0.05, cx, cy, R * 0.88);
+    deckel.addColorStop(0, "#c99a45");
+    deckel.addColorStop(0.55, "#8d6526");
+    deckel.addColorStop(1, "#4f3810");
+    g.fillStyle = deckel;
+    g.beginPath();
+    g.arc(cx, cy, R * 0.865, 0, TAU);
+    g.fill();
+    g.strokeStyle = "rgba(255, 232, 170, 0.28)";
+    g.lineWidth = Math.max(1, R * 0.012);
+    for (const rr of [0.78, 0.6]) { g.beginPath(); g.arc(cx, cy, R * rr, 0, TAU); g.stroke(); }
+    g.restore();
+    schrift("?", cx, cy + R * 0.03, R * 0.62, "rgba(40, 26, 6, 0.55)", { fett: 900, alpha: k });
+  }
+
+  // Ein Zeiger aus der Mitte des Blatts, im Uhrzeigersinn von oben gedreht.
+  function zeigerStrich(winkel, farbe, alpha, dick, lang = 0.7) {
+    const { cx, cy, r: R } = view;
+    g.save();
+    g.globalAlpha *= alpha;
+    g.strokeStyle = farbe;
+    g.lineWidth = Math.max(2, R * dick);
+    g.lineCap = "round";
+    g.beginPath();
+    g.moveTo(cx - Math.sin(winkel) * R * 0.14, cy + Math.cos(winkel) * R * 0.14);
+    g.lineTo(cx + Math.sin(winkel) * R * lang, cy - Math.cos(winkel) * R * lang);
+    g.stroke();
+    g.restore();
+  }
+  function zeigerAchse() {
+    const { cx, cy, r: R } = view;
+    g.fillStyle = MESSING;
+    g.beginPath();
+    g.arc(cx, cy, R * 0.055, 0, TAU);
+    g.fill();
+  }
+
+  // Die Kerze: Sie brennt herunter, links ein Massstab mit der Marke.
+  function zeichneKerze(a, t, w) {
+    const { cx, cy, r: R } = view;
+    const fuss = cy + R * 0.56;
+    const hoch = R * 1.08;
+    const x = cx + R * 0.1;
+    const b = R * 0.2;
+    const hoehe = kerzeBei(a, w ? (w.wert ?? a.ziel) : t);
+    const kopf = fuss - hoch * hoehe;
+    const marke = fuss - hoch * a.marke;
+    g.save();
+    // Der Massstab und die Marke, quer bis über die Kerze.
+    const sx = cx - R * 0.3;
+    g.strokeStyle = "rgba(217, 164, 65, 0.45)";
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(sx, fuss); g.lineTo(sx, fuss - hoch); g.stroke();
+    for (let i = 0; i <= 10; i += 1) {
+      const y = fuss - (hoch * i) / 10;
+      g.beginPath(); g.moveTo(sx, y); g.lineTo(sx + R * (i % 5 ? 0.04 : 0.08), y); g.stroke();
+    }
+    g.strokeStyle = GOLD;
+    g.lineWidth = Math.max(2, R * 0.018);
+    g.setLineDash([R * 0.05, R * 0.035]);
+    g.beginPath(); g.moveTo(sx, marke); g.lineTo(x + b * 0.75, marke); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = GOLD;
+    g.beginPath(); g.moveTo(sx - R * 0.02, marke); g.lineTo(sx - R * 0.1, marke - R * 0.05); g.lineTo(sx - R * 0.1, marke + R * 0.05); g.closePath(); g.fill();
+    // Der Teller.
+    g.fillStyle = "#a57a2a";
+    g.beginPath(); g.ellipse(x, fuss + R * 0.03, b * 1.25, R * 0.05, 0, 0, TAU); g.fill();
+    // Das Wachs, mit einem Rand, wo es schmilzt.
+    const wachs = g.createLinearGradient(x - b / 2, 0, x + b / 2, 0);
+    wachs.addColorStop(0, "#d9cdb2");
+    wachs.addColorStop(0.45, "#fff6e2");
+    wachs.addColorStop(1, "#c7b894");
+    g.fillStyle = wachs;
+    g.fillRect(x - b / 2, kopf, b, fuss - kopf);
+    g.fillStyle = "#fffaf0";
+    g.beginPath(); g.ellipse(x, kopf, b / 2, R * 0.025, 0, 0, TAU); g.fill();
+    // Der Docht und die Flamme – sie flackert.
+    g.strokeStyle = "#2b2118";
+    g.lineWidth = Math.max(1.5, R * 0.014);
+    g.beginPath(); g.moveTo(x, kopf); g.lineTo(x, kopf - R * 0.05); g.stroke();
+    const flacker = ruhig() ? 1 : 1 + 0.07 * Math.sin(state.zeit * 17) + 0.04 * Math.sin(state.zeit * 31);
+    const fh = R * 0.2 * flacker;
+    const schein = g.createRadialGradient(x, kopf - fh * 0.5, 1, x, kopf - fh * 0.5, R * 0.36);
+    schein.addColorStop(0, "rgba(255, 200, 90, 0.45)");
+    schein.addColorStop(1, "rgba(255, 200, 90, 0)");
+    g.fillStyle = schein;
+    g.beginPath(); g.arc(x, kopf - fh * 0.5, R * 0.36, 0, TAU); g.fill();
+    const flamme = g.createLinearGradient(0, kopf, 0, kopf - fh);
+    flamme.addColorStop(0, "#ff8a2a");
+    flamme.addColorStop(0.45, "#ffd23f");
+    flamme.addColorStop(1, "#fff6c8");
+    g.fillStyle = flamme;
+    g.beginPath();
+    g.moveTo(x, kopf - fh);
+    g.quadraticCurveTo(x + R * 0.065, kopf - fh * 0.35, x, kopf - R * 0.02);
+    g.quadraticCurveTo(x - R * 0.065, kopf - fh * 0.35, x, kopf - fh);
+    g.fill();
+    g.restore();
+  }
+
+  // Zwei Zeiger: der rote und der türkise. In der Auflösung steht golden,
+  // wo sie sich trafen.
+  function zeichneZweiZeiger(a, t, w, blass, farbeW) {
+    if (w) {
+      zeigerStrich(zweiWinkel(a, 0, a.ziel), GOLD, 0.55, 0.025);
+      if (w.wert !== null) {
+        zeigerStrich(zweiWinkel(a, 0, w.wert), ROT, 1, 0.032);
+        zeigerStrich(zweiWinkel(a, 1, w.wert), TUERKIS, 1, 0.032, 0.58);
+      }
+    } else if (t < a.sicht + AUSBLENDEN) {
+      zeigerStrich(zweiWinkel(a, 0, t), ROT, blass, 0.035);
+      zeigerStrich(zweiWinkel(a, 1, t), TUERKIS, blass, 0.035, 0.58);
+    }
+    zeigerAchse();
+  }
+
+  // Der bremsende Zeiger. In der Auflösung steht golden, wo er stehen blieb.
+  function zeichneBremse(a, t, w, blass, farbeW) {
+    if (w) {
+      zeigerStrich(bremsWinkel(a, a.ziel), GOLD, 0.55, 0.025);
+      if (w.wert !== null) zeigerStrich(bremsWinkel(a, w.wert), farbeW, 1, 0.035);
+    } else if (t < a.sicht + AUSBLENDEN) {
+      zeigerStrich(bremsWinkel(a, t), ROT, blass, 0.035);
+    }
+    zeigerAchse();
+  }
+
+  // Das Pendel: an einer Achse oben, links aussen eine goldene Marke, an der
+  // mitgezählt wird, solange man es sieht.
+  function zeichnePendel(a, t, w, farbeW) {
+    const { cx, cy, r: R } = view;
+    const px = cx;
+    const py = cy - R * 0.62;
+    const lang = R * 1.02;
+    const ort = (w) => [px + Math.sin(w) * lang, py + Math.cos(w) * lang];
+    g.save();
+    // Der Bogen, auf dem es schwingt, und die Marke links.
+    g.strokeStyle = "rgba(191, 247, 230, 0.18)";
+    g.lineWidth = Math.max(1.5, R * 0.012);
+    g.setLineDash([R * 0.03, R * 0.04]);
+    g.beginPath(); g.arc(px, py, lang, Math.PI / 2 - PENDEL_AUS, Math.PI / 2 + PENDEL_AUS); g.stroke();
+    g.setLineDash([]);
+    const [lx, ly] = ort(-PENDEL_AUS);
+    g.strokeStyle = GOLD;
+    g.lineWidth = Math.max(2, R * 0.02);
+    g.beginPath(); g.moveTo(lx - R * 0.13, ly + R * 0.07); g.lineTo(lx - R * 0.05, ly + R * 0.02); g.stroke();
+    if (!w) {
+      const links = t >= a.schwingung / 2 ? Math.floor(t / a.schwingung + 0.5) : 0;
+      if (links > 0 && t < a.sicht) schrift(`${links}.`, lx - R * 0.16, ly - R * 0.08, R * 0.13, GOLD, { fett: 900 });
+    }
+    const pendel = (winkel, farbe, alpha) => {
+      const [bx, by] = ort(winkel);
+      g.globalAlpha = alpha;
+      g.strokeStyle = "#c8a25a";
+      g.lineWidth = Math.max(2, R * 0.016);
+      g.beginPath(); g.moveTo(px, py); g.lineTo(bx, by); g.stroke();
+      const kugel = g.createRadialGradient(bx - R * 0.03, by - R * 0.03, R * 0.01, bx, by, R * 0.1);
+      kugel.addColorStop(0, "#fff1c2");
+      kugel.addColorStop(1, farbe);
+      g.fillStyle = kugel;
+      g.beginPath(); g.arc(bx, by, R * 0.1, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    };
+    if (w) {
+      pendel(-PENDEL_AUS, GOLD, 0.45);
+      if (w.wert !== null) pendel(pendelWinkel(a, w.wert), farbeW === "#ffffff" ? "#cfdde0" : farbeW, 1);
+    } else pendel(pendelWinkel(a, t), MESSING, 1);
+    g.fillStyle = MESSING;
+    g.beginPath(); g.arc(px, py, R * 0.045, 0, TAU); g.fill();
+    g.restore();
+  }
+
+  // Der Ball zwischen zwei Wänden: Die rechte leuchtet auf, wenn er
+  // anschlägt, und zählt mit, solange man ihn sieht.
+  function zeichneBall(a, t, w, farbeW) {
+    const { cx, cy, r: R } = view;
+    const links = cx - R * 0.64;
+    const rechts = cx + R * 0.64;
+    const rb = R * 0.085;
+    const x = (ort) => links + R * 0.03 + rb + ort * (rechts - links - R * 0.06 - 2 * rb);
+    const b = ballBei(a, w ? (w.wert ?? a.ziel) : t);
+    g.save();
+    // Der Boden und die Wände; die rechte leuchtet kurz nach dem Anschlag.
+    g.fillStyle = "rgba(191, 247, 230, 0.12)";
+    g.fillRect(links, cy + rb, rechts - links, R * 0.03);
+    const hell = !w && b.strecke % 2 === 1 ? clamp(1 - b.seit / 250, 0, 1) : 0;
+    for (const [wx, glanz] of [[links, 0], [rechts, hell]]) {
+      g.fillStyle = glanz > 0 ? `rgba(255, 210, 63, ${0.5 + 0.5 * glanz})` : "#a57a2a";
+      g.fillRect(wx - (wx === links ? R * 0.03 : 0), cy - R * 0.26, R * 0.03, R * 0.26 + rb + R * 0.03);
+    }
+    if (!w && b.rechts > 0 && t < a.sicht) schrift(`${b.rechts}.`, rechts - R * 0.02, cy - R * 0.36, R * 0.13, GOLD, { fett: 900 });
+    const ball = (ort, farbe, alpha) => {
+      const bx = x(ort);
+      g.globalAlpha = alpha;
+      const kugel = g.createRadialGradient(bx - rb * 0.35, cy - rb * 0.35, rb * 0.1, bx, cy, rb);
+      kugel.addColorStop(0, "#ffffff");
+      kugel.addColorStop(1, farbe);
+      g.fillStyle = kugel;
+      g.beginPath(); g.arc(bx, cy, rb, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    };
+    if (w) {
+      ball(1, GOLD, 0.45);
+      if (w.wert !== null) ball(b.ort, farbeW === "#ffffff" ? "#cfdde0" : farbeW, 1);
+    } else ball(b.ort, ROT, 1);
+    g.restore();
+  }
+
+  // Die Sanduhr: zwei Kegel aus Glas, oben rinnt der Sand aus, unten
+  // häuft er sich.
+  function zeichneSanduhr(a, t, w) {
+    const { cx, cy, r: R } = view;
+    const H = R * 0.56;
+    const W = R * 0.4;
+    const sand = sandBei(a, w ? (w.wert ?? a.ziel) : t);
+    const oben = (y) => W * (HALS + (1 - HALS) * y);
+    const unten = (y) => W * (1 - (1 - HALS) * y);
+    g.save();
+    // Das Gestell: zwei Platten, zwei Stäbe.
+    g.fillStyle = "#8a6420";
+    g.fillRect(cx - W * 1.3, cy - H - R * 0.08, W * 2.6, R * 0.08);
+    g.fillRect(cx - W * 1.3, cy + H, W * 2.6, R * 0.08);
+    g.fillStyle = "#a57a2a";
+    g.fillRect(cx - W * 1.2, cy - H, R * 0.035, 2 * H);
+    g.fillRect(cx + W * 1.2 - R * 0.035, cy - H, R * 0.035, 2 * H);
+    // Der Sand oben – vom Hals bis zum Pegel.
+    const farbe = g.createLinearGradient(0, cy - H, 0, cy + H);
+    farbe.addColorStop(0, "#f1d295");
+    farbe.addColorStop(1, "#c99a4a");
+    g.fillStyle = farbe;
+    if (sand.oben > 0.001) {
+      g.beginPath();
+      g.moveTo(cx - oben(0), cy);
+      g.lineTo(cx - oben(sand.oben), cy - H * sand.oben);
+      g.lineTo(cx + oben(sand.oben), cy - H * sand.oben);
+      g.lineTo(cx + oben(0), cy);
+      g.closePath();
+      g.fill();
+      // Der Strahl hinunter.
+      g.fillRect(cx - R * 0.008, cy, R * 0.016, H * (1 - sand.unten));
+    }
+    // Der Sand unten – vom Boden bis zu seiner Höhe, mit einem kleinen Hügel.
+    if (sand.unten > 0.001) {
+      const yh = cy + H - H * sand.unten;
+      g.beginPath();
+      g.moveTo(cx - W, cy + H);
+      g.lineTo(cx - unten(sand.unten), yh);
+      g.lineTo(cx - R * 0.02, yh - Math.min(R * 0.07, H * sand.unten * 0.5));
+      g.lineTo(cx + R * 0.02, yh - Math.min(R * 0.07, H * sand.unten * 0.5));
+      g.lineTo(cx + unten(sand.unten), yh);
+      g.lineTo(cx + W, cy + H);
+      g.closePath();
+      g.fill();
+    }
+    // Das Glas.
+    g.strokeStyle = "rgba(200, 235, 245, 0.7)";
+    g.lineWidth = Math.max(1.5, R * 0.014);
+    g.fillStyle = "rgba(190, 230, 255, 0.07)";
+    g.beginPath();
+    g.moveTo(cx - W, cy - H);
+    g.lineTo(cx - oben(0), cy);
+    g.lineTo(cx - W, cy + H);
+    g.lineTo(cx + W, cy + H);
+    g.lineTo(cx + oben(0), cy);
+    g.lineTo(cx + W, cy - H);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.restore();
+  }
+
+  // Das Glas: Oben läuft Wasser aus einem Hahn, gleichmässig. Der Rand ist
+  // golden – dort ist es voll.
+  function zeichneGlas(a, t, w) {
+    const { cx, cy, r: R } = view;
+    const glas = GLAESER[a.form];
+    const boden = cy + R * 0.55;
+    const H = R * 0.92;
+    const W = R * 0.4;
+    const yAuf = (y) => boden - H * y;
+    const zeit = w ? (w.wert ?? a.ziel) : t;
+    const pegel = glasBei(a, zeit);
+    const laeuft = zeit >= 0 && zeit < a.ziel;
+    g.save();
+    // Der Hahn und, solange es läuft, der Strahl.
+    const hahnY = cy - R * 0.66;
+    g.fillStyle = "#a57a2a";
+    g.fillRect(cx, hahnY - R * 0.035, R * 0.5, R * 0.07);
+    g.fillRect(cx - R * 0.035, hahnY - R * 0.035, R * 0.07, R * 0.11);
+    if (laeuft) {
+      g.fillStyle = "rgba(120, 200, 255, 0.85)";
+      g.fillRect(cx - R * 0.012, hahnY + R * 0.07, R * 0.024, yAuf(pegel) - hahnY - R * 0.07);
+    }
+    // Das Wasser: vom Boden bis zum Pegel, so breit wie das Glas dort.
+    const N = 40;
+    if (pegel > 0.001) {
+      const wasser = g.createLinearGradient(0, boden, 0, yAuf(1));
+      wasser.addColorStop(0, "rgba(40, 130, 220, 0.85)");
+      wasser.addColorStop(1, "rgba(110, 200, 255, 0.75)");
+      g.fillStyle = wasser;
+      g.beginPath();
+      for (let i = 0; i <= N; i += 1) { const y = (pegel * i) / N; g.lineTo(cx - W * glas.weite(y), yAuf(y)); }
+      for (let i = N; i >= 0; i -= 1) { const y = (pegel * i) / N; g.lineTo(cx + W * glas.weite(y), yAuf(y)); }
+      g.closePath();
+      g.fill();
+      g.strokeStyle = "rgba(220, 245, 255, 0.8)";
+      g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(cx - W * glas.weite(pegel), yAuf(pegel)); g.lineTo(cx + W * glas.weite(pegel), yAuf(pegel)); g.stroke();
+    }
+    // Das Glas selbst, und der goldene Rand.
+    g.strokeStyle = "rgba(200, 235, 245, 0.75)";
+    g.lineWidth = Math.max(1.5, R * 0.016);
+    g.lineJoin = "round";
+    g.beginPath();
+    for (let i = N; i >= 0; i -= 1) g.lineTo(cx - W * glas.weite(i / N), yAuf(i / N));
+    for (let i = 0; i <= N; i += 1) g.lineTo(cx + W * glas.weite(i / N), yAuf(i / N));
+    g.stroke();
+    g.strokeStyle = GOLD;
+    g.lineWidth = Math.max(2, R * 0.022);
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * W * glas.weite(1) - s * R * 0.05, yAuf(1)); g.lineTo(cx + s * W * glas.weite(1) + s * R * 0.06, yAuf(1)); g.stroke(); }
+    g.restore();
+  }
+
+  // Eine kleine Lampe für die Blinker: hell zwischen 0 und 1.
+  function blinkLampe(x, y, rr, hell, farbe, licht) {
+    g.save();
+    if (hell > 0) {
+      const schein = g.createRadialGradient(x, y, rr * 0.3, x, y, rr * 2.6);
+      schein.addColorStop(0, licht.replace("A", String(0.75 * hell)));
+      schein.addColorStop(1, "rgba(0, 0, 0, 0)");
+      g.fillStyle = schein;
+      g.beginPath(); g.arc(x, y, rr * 2.6, 0, TAU); g.fill();
+    }
+    g.fillStyle = "#5f6a70";
+    g.fillRect(x - rr * 0.4, y + rr * 0.8, rr * 0.8, rr * 0.45);
+    g.fillStyle = hell > 0 ? farbe : "#27363b";
+    g.globalAlpha = hell > 0 ? 0.35 + 0.65 * hell : 1;
+    g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
+    g.globalAlpha = 1;
+    g.strokeStyle = "#51646b";
+    g.lineWidth = Math.max(1.5, rr * 0.08);
+    g.stroke();
+    g.restore();
+  }
+
+  // Zwei Blinker. In der Auflösung: wann jede blinkte, als zwei Reihen von
+  // Punkten – golden der Augenblick, an dem beide zugleich blinken.
+  function zeichneBlinker(a, t, w, farbeW) {
+    const { cx, cy, r: R } = view;
+    if (!w) {
+      blinkLampe(cx - R * 0.3, cy - R * 0.08, R * 0.16, blinkHell(a, 0, t), "#ffd27a", "rgba(255, 190, 80, A)");
+      blinkLampe(cx + R * 0.3, cy - R * 0.08, R * 0.16, blinkHell(a, 1, t), "#bff7f0", "rgba(53, 214, 198, A)");
+      return;
+    }
+    const bis = a.ziel * 1.25;
+    const x = (ms) => cx - R * 0.66 + (R * 1.32 * ms) / bis;
+    g.save();
+    a.takte.forEach((takt, i) => {
+      const y = cy + (i ? 0.16 : -0.16) * R;
+      g.fillStyle = i ? TUERKIS : "#ffbe50";
+      for (let ms = 0; ms <= bis; ms += takt) { g.beginPath(); g.arc(x(ms), y, R * 0.04, 0, TAU); g.fill(); }
+    });
+    g.strokeStyle = GOLD;
+    g.lineWidth = 3;
+    g.beginPath(); g.moveTo(x(a.ziel), cy - R * 0.3); g.lineTo(x(a.ziel), cy + R * 0.3); g.stroke();
+    if (w.wert !== null) {
+      const xi = clamp(x(w.wert), cx - R * 0.72, cx + R * 0.72);
+      g.strokeStyle = farbeW;
+      g.lineWidth = 2;
+      g.setLineDash([4, 3]);
+      g.beginPath(); g.moveTo(xi, cy - R * 0.36); g.lineTo(xi, cy + R * 0.36); g.stroke();
+      g.setLineDash([]);
+    }
+    g.restore();
+  }
+
   /*
    * Was auf dem Blatt der Uhr steht – je nach Aufgabe. t ist die Zeit der
    * Aufgabe in ms; w die Wertung, sobald die Auflösung dasteht (dann zeigt
@@ -953,6 +1538,28 @@
         g.restore();
         return;
       }
+      case "kerze":
+      case "pendel":
+      case "ball":
+      case "sanduhr":
+      case "glas":
+      case "blinker": {
+        // Erst sieht man es, dann legt sich der Deckel darüber.
+        if (a.art === "kerze") zeichneKerze(a, t, w);
+        else if (a.art === "pendel") zeichnePendel(a, t, w, farbeW);
+        else if (a.art === "ball") zeichneBall(a, t, w, farbeW);
+        else if (a.art === "sanduhr") zeichneSanduhr(a, t, w);
+        else if (a.art === "glas") zeichneGlas(a, t, w);
+        else zeichneBlinker(a, t, w, farbeW);
+        if (!w && t >= a.sicht) zeichneDeckel(clamp((t - a.sicht) / AUSBLENDEN, 0, 1));
+        return;
+      }
+      case "zweizeiger":
+        zeichneZweiZeiger(a, t, w, blass(a.sicht), farbeW);
+        return;
+      case "bremse":
+        zeichneBremse(a, t, w, blass(a.sicht), farbeW);
+        return;
       case "takt": {
         // Acht Punkte in einer Reihe: Vier leuchten im Takt, der achte ist
         // das Ziel.
@@ -1593,11 +2200,11 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "timeSense", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+    host, spiel: "timeSense", fassung: "z2", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
   // Die Testrunde wird nicht aufgezeichnet – und hat oben den Knopf «Überspringen».
   if (TESTRUNDE) shell.ueberspringen(ueberspringe);
-  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  if (!zuschauer && !TESTRUNDE) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
@@ -1677,9 +2284,10 @@
 
   // Für die Prüfskripte und die Vorführung.
   window.LernappZeitgefuehl = {
-    LEICHT, MITTEL, SCHWER, AUFGABEN, PUNKTE_JE, KOSTEN, GENAU, HUNDERTSTEL, EINZUG, ZEIGEN_MS, NACHLAUF, WARTEN, HALT_MEHR,
+    LEICHT, MITTEL, SCHWER, PLAN, AUFGABEN, PUNKTE_JE, KOSTEN, GENAU, HUNDERTSTEL, EINZUG, ZEIGEN_MS, NACHLAUF, WARTEN, HALT_MEHR,
     WARTE, WARTE_ZAEHLT, WARTE_SPERRE, ANLAUF,
-    state, view, aufgabe, seit, aufgabenFuer, weltText, punkteFuer, daneben,
+    state, view, aufgabe, seit, wuerfle, aufgabenFuer, weltText, punkteFuer, daneben,
+    kerzeBei, zweiWinkel, pendelWinkel, ballBei, sandBei, glasBei, bremsWinkel,
     losGehts, aufgabeAuf, aufgabeLos, antworte, weiter, druck, los, zeichnen,
     testrunde: () => TESTRUNDE, ueberspringe,
   };

@@ -847,9 +847,10 @@ Wer spielt, zählt im Kopf weiter und **tippt im richtigen Augenblick**, oder
 Rechner Leertaste oder Enter). Danach zeigt die Uhr, was sie beim Tipp
 wirklich zeigte, und darunter steht, wie weit es daneben war.
 
-Zehn Aufgaben je Runde, jede Art einmal: erst die drei leichten, dann die
-vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
-`MITTEL`, `SCHWER`, `aufgabenFuer`). Die Zeiten sind gewürfelt (`wuerfle`):
+Zehn Aufgaben je Runde: erst drei leichte, dann vier mittlere, dann drei
+schwere (`PLAN`), je aus den Arten ihrer Stufe gewürfelt, keine zweimal
+(`LEICHT`, `MITTEL`, `SCHWER`, `aufgabenFuer`) – achtzehn Arten gibt es,
+also ist jede Runde etwas anders. Die Zeiten sind gewürfelt (`wuerfle`):
 
     leicht   Stoppuhr    «Stoppe bei 3,50.» Die Ziffern laufen bis zur
                          Hälfte, dann stehen Striche da (2,5 bis 4 s).
@@ -857,6 +858,9 @@ vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
                          tippen bei null (4 oder 5 s).
              Zeiger      Der Zeiger läuft einmal ums Blatt (3 bis 4,5 s) und
                          verschwindet nach 40 %: tippen, wenn er oben ist.
+             Kerze       Sie brennt gleichmässig herunter (3 bis 4,5 s bis
+                         zur Marke am Massstab); nach 45 % kommt der Deckel:
+                         tippen, wenn die Flamme die Marke erreicht.
     mittel   Takt        Vier Schläge leuchten (alle 0,45 bis 0,75 s), vier
                          bleiben stumm: tippen auf den achten.
              Nachhalten  Eine Lampe brennt 1,5 bis 3 s. Danach genauso lange
@@ -864,6 +868,20 @@ vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
              Blind       «Halte genau 2,5 Sekunden.» Ohne jede Vorgabe.
              Lange Uhr   Stoppen bei 5,5 bis 7 s – zu sehen sind nur die
                          ersten anderthalb.
+             Zwei Zeiger Ein roter und ein türkiser Zeiger drehen
+                         verschieden schnell – oder gegeneinander
+                         («Gegenläufig»). Sie verschwinden nach 45 %:
+                         tippen, wenn sie sich treffen (2,8 bis 4,2 s; vorher
+                         treffen sie sich nie).
+             Pendel      Es schwingt von rechts aussen los (eine Schwingung
+                         1,3 bis 1,9 s), links zählt eine Marke mit; nach gut
+                         einer Schwingung kommt der Deckel: tippen, wenn es
+                         zum dritten (vierten) Mal ganz links ist.
+             Ball        Er läuft zwischen zwei Wänden hin und her (eine
+                         Strecke 0,45 bis 0,75 s); der «müde Ball» behält bei
+                         jedem Anprall nur 85 % seines Tempos (`MUEDE`).
+                         Nach gut zwei Strecken kommt der Deckel: tippen,
+                         wenn er zum dritten (vierten) Mal rechts anschlägt.
     schwer   Zeitlupe    Die Uhr geht halb, drei viertel, anderthalb oder
                          doppelt so schnell wie die Zeit. Gestoppt und
                          gemessen wird nach dem, was sie zeigt (`faktor`).
@@ -872,6 +890,33 @@ vier mittleren, dann die drei schweren, jede Gruppe gemischt (`LEICHT`,
              Störung     Die Uhr verschwindet nach einem guten Drittel, und
                          an ihrer Stelle laufen rote Zahlen im falschen
                          Tempo (×1,4 oder ×0,7). Sie lügen.
+             Sanduhr     Der Sand rinnt gleichmässig (3,5 bis 5,5 s), aber
+                         die Hälften sind Kegel mit engem Hals (`HALS`): Der
+                         Pegel fällt zum Schluss immer schneller
+                         (`sandBei`). Nach 55 % kommt der Deckel: tippen,
+                         wenn sie leer ist.
+             Glas füllen Wasser läuft gleichmässig in einen Kelch, eine Vase
+                         oder eine Flasche (`GLAESER`, rund gerechnet): Wo das
+                         Glas breit ist, steigt es langsam (`glasBei`). Nach
+                         der halben Zeit kommt der Deckel: tippen, wenn es
+                         voll ist (3,2 bis 5 s).
+             Zwei Blinker Zwei Lampen blinken im Verhältnis 2 : 3, 3 : 4,
+                         2 : 5 oder 3 : 5, beide zuerst bei null: tippen, wenn
+                         sie wieder zugleich aufleuchten (3 bis 4,2 s). Man
+                         sieht jede mindestens einmal blinken.
+             Bremszeiger Der Zeiger bremst gleichmässig, bis er nach knapp
+                         einer bis anderthalb Runden steht (3 bis 4,5 s); er
+                         verschwindet nach 45 %: tippen, wenn er stehen
+                         bleibt.
+
+Was man bei Kerze, Pendel, Ball, Sanduhr, Glas und Blinkern zuerst sieht,
+deckt danach ein Deckel aus Messing zu, wie bei einer Taschenuhr
+(`zeichneDeckel`). In der Auflösung ist er weg: Golden steht da, wie es im
+Augenblick des Ziels aussah (die Zeiger am Treffpunkt, das Pendel links
+aussen, der Ball an der rechten Wand, bei den Blinkern beide Takte als
+Punktreihen mit dem gemeinsamen Blinken), und daneben, wie es beim eigenen
+Tipp stand. Pendel, Ball und Blinker klingen bei jedem Ausschlag, Anprall
+und Blinken, solange man sie sieht.
 
 **Vor jeder Aufgabe steht die Uhr** (seit dem 18. November 2026). Die
 Aufgabe liegt da – ihr Name, ihr Satz, die Uhr auf ihrem Anfang –, und
@@ -926,10 +971,15 @@ Haltens, die Antwort) – damit lassen sich die besten Runden anschauen, und
 im Multiplayer sehen die anderen dasselbe, auch das Warten; wer zuschaut,
 lässt die Uhr selbst laufen und rechnet die Antwort nach (`zuschauenTakt`).
 Das Warten ist ein eigener Zug (4), der Start trägt eine 1 – ältere
-Aufzeichnungen ohne beides laufen wie bisher, die Fassung bleibt z1. Im
-Turnier bekommen alle dieselben zehn Aufgaben.
-Prüfung 4g37: Jede Runde hat ihre drei, vier und drei Aufgaben mit Zeiten
-aus ihrem Band; die Punkte fallen nach der Regel, zehn genaue Antworten geben
+Aufzeichnungen ohne beides laufen wie bisher. Mit den acht neuen Arten
+(19. November 2026) würfelt dieselbe Saat andere Aufgaben, darum ist die
+Fassung seither z2. Im Turnier bekommen alle dieselben zehn Aufgaben.
+Prüfung 4g37: Jede Runde hat ihre drei, vier und drei Aufgaben, keine Art
+zweimal, mit Zeiten aus ihrem Band, und über dreissig Runden kommt jede der
+achtzehn Arten dran; die neuen Arten rechnen richtig (die Zeiger treffen
+sich bei ihrem Ziel und vorher nie, das Pendel ist dann links aussen, der
+Ball rechts, die Sanduhr leer, das Glas voll, beide Blinker blinken, der
+Bremszeiger steht); die Punkte fallen nach der Regel, zehn genaue Antworten geben
 tausend; ein Tipp gilt erst, wenn die Vorgabe weg ist, gemessen wird sein
 Augenblick (oder wie lange gehalten wurde), und wer nicht antwortet, bekommt
 nichts; jede Aufgabe wartet zuerst (die Uhr steht, ein Tipp gleich nach dem
@@ -941,8 +991,9 @@ dieselben Aufgaben und dieselben Punkte.
 
 **Die Testrunde** von Zeitgefühl (`/zeitgefuehl?alle`, im Adminbereich
 «▶ Alle Aufgaben»): jede Art einmal, Zeitlupe und Zeitraffer, Doppelt und
-Halb je für sich – zwölf Aufgaben, ohne Bestenliste und Aufzeichnung, mit
-dem Knopf «Überspringen». Wie sie gebaut ist, steht bei Kopfkino.
+Halb, die zwei Zeiger gleich und gegenläufig, der Ball frisch und müde,
+Kelch, Vase und Flasche je für sich – vierundzwanzig Aufgaben, ohne
+Bestenliste und Aufzeichnung, mit dem Knopf «Überspringen». Wie sie gebaut ist, steht bei Kopfkino.
 
 ### Kletterwand (November 2026)
 
@@ -1216,8 +1267,9 @@ beim Zuschauen gibt es sie nicht. Oben links steht in der Testrunde der
 Knopf **«Überspringen»** (game-shell.js, `ueberspringen`; auch die Taste N):
 Er führt zur Vorschau der nächsten Aufgabe, ohne die jetzige zu lösen, und
 nach der letzten zur Tafel; im Streifen steht dann «–». Dieselbe Testrunde
-haben Freihand (17 Blätter), Zeitgefühl (12 Aufgaben – Zeitlupe und
-Zeitraffer, Doppelt und Halb je für sich) und Augenmass (18 Blätter), je
+haben Freihand (17 Blätter), Zeitgefühl (24 Aufgaben – Zeitlupe und
+Zeitraffer, Doppelt und Halb, die Zeiger gleich und gegenläufig, der Ball
+frisch und müde, die drei Gläser je für sich) und Augenmass (18 Blätter), je
 mit `?alle` und dem Knopf «▶ Alle Aufgaben» im Adminbereich. Die Prüfung
 dazu (in 4g40) klickt sich in allen vier mit «Überspringen» bis zur Tafel.
 
