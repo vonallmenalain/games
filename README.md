@@ -1172,6 +1172,93 @@ zählt kein Tipp, ist die Zeit um, zählt die Eingabe, wie sie dasteht; was
 das Bild anbietet, lässt sich mit dem Finger antippen; eine Runde in echter
 Zeit wird hinterlegt und angeschaut – dieselben Aufgaben, dieselben Punkte.
 
+### Eisstock (November 2026)
+
+**Eisstock** (`eisstock.js`, `iceStock`) – Das fünfte Geschwister nach
+Augenmass, Zeitgefühl, Freihand und Kopfkino, diesmal fürs Gefühl in der
+Hand: zehn Bahnen auf dem Eis, je ein Schub. Der Stock soll mitten im Ziel
+liegen bleiben; gemessen wird auf den Zentimeter.
+
+**Der Schub** ist eine Schleuder: irgendwo aufsetzen, zurückziehen,
+loslassen (`zielBeginn`, `zielZu`, `zielEnde`). Die Richtung des Zugs ist die
+Richtung des Schubs, seine Länge die Kraft – gut die halbe Bahn weit für die
+volle (`view.zug`). Um den Stock zeigt ein Bogen mit zehn Strichen die
+Kraft, ein kurzer Pfeil die Richtung; den Weg zeigt nichts. Ein Zug unter
+`KRAFT_MIN` gilt nicht. Mit der Tastatur: Pfeile drehen und spannen, die
+Leertaste schiebt.
+
+**Das Eis** (`schritt`) rechnet in festen Schritten, 240 je Sekunde, nur
+aus Winkel und Kraft (auf Zehntausendstel gerundet, `zugVon`): Derselbe
+Schub endet immer am selben Ort. Die Kraft ist das Tempo – halbe Kraft ist
+ein Viertel des Wegs, volle trägt auf blankem Eis `WEIT` = 10,5 Meter.
+Schnee bremst fast dreimal so stark, Glatteis kaum halb so stark
+(`bremseBei`); Bande und Balken werfen den Stock zurück und nehmen ihm ein
+Fünftel des Tempos, zwei Stöcke stossen sich wie Kugeln; am Hang zieht es
+den Stock zur Seite.
+
+**Die neun Arten** (`BAU`):
+
+- leicht – **Geradeaus** und **Schräg**: nur Richtung und Kraft.
+- mittel – **Schnee** (ein Fleck quer über dem Weg, der bremst),
+  **Glatteis** (ein Fleck, der trägt), **Über die Bande** (ein Balken quer
+  über der geraden Linie) und **Die Gasse** (zwischen zwei fremden Stöcken
+  hindurch).
+- schwer – **Am Hang** (das Eis fällt zur Seite ab, die Pfeile zeigen,
+  wohin), **Anstossen** (es zählt der goldene Stock, den der eigene trifft)
+  und **Zwei Balken** (über die Bande, an beiden vorbei).
+
+Jede Runde zieht zwei leichte, vier mittlere und vier schwere Bahnen
+(`PLAN`, `bahnenFuer`). Die Bahnen über die Bande sind von der Lösung her
+gebaut (`ueberBande`): erst der Weg über die Seitenbande, dann das Ziel an
+sein Ende, dann die Balken quer über die gerade Linie – so gibt es immer
+einen Schub mitten ins Ziel.
+
+**Gewertet wird der Abstand** des Stocks, der zählt, zur Mitte des Ziels
+(`abstandVon`, `punkteFuer`): bis 3 cm hundert Punkte, bei 10 cm 92, bei
+20 cm 80, bei 40 cm 62, bei 70 cm 42, bei 1,1 m 24, ab 2,3 m nichts
+(`KNOTEN`). Eine Bahn hat 12, 14 oder 16 Sekunden (`ZEITEN`); ist die Zeit
+um, gilt der Zug, wie er gerade gespannt ist – ohne Zug gibt es nichts.
+
+**Der Ablauf** ist der der Geschwister: Vor jeder Bahn die Vorschau – was zu
+tun ist, mit einem Beispiel derselben Art, das sich selbst spielt –, die
+Uhr läuft erst nach dem Tipp, und erst dann liegt die Bahn da. Nach der
+Fahrt zieht sich das Massband von der Mitte zum Stock, mit dem Abstand und
+den Punkten. Unten (quer: rechts) zehn Scheiben, eine je Bahn.
+
+**Der Löser** (`suche`, `loese`) findet für jede Bahn den besten Schub:
+zuerst um die gerade Linie zum Stock, der zählt (oder um den Tipp einer
+Bahn, die von der Lösung her gebaut ist), dann immer feiner; nur wenn das
+nicht ins Ziel führt, das ganze Raster. Er ist eine Folge kleiner Schritte
+– das Beispiel der Vorschau verteilt sie über viele Bilder
+(`beispielTakt`), damit nichts ruckelt; die Prüfung und die Vorführung
+rechnen ihn in einem Zug.
+
+**Das Bild** ist Canvas 2D von oben: die Eisfläche mit Kratzern und Glanz
+in einem Rahmen aus Holz (einmal gemalt, `eisMalen`), die Ringe des Ziels
+unter dem Eis, der Stock mit Stahlring und Knauf, seine Spur, Eisstaub beim
+Schub und bei jedem Stoss. Hochkant liegt das Ziel oben, quer rechts
+(`mitT`, `ortIn`) – gerechnet wird immer in Metern der Bahn.
+
+Ein früheres Eisstock (Oktober 2026, `iceStone`: wischen, sechs Steine) ist
+entfernt und bleibt es – `scripts/pruefen.mjs` hält fest, dass seine
+Kennung, seine Seite («curling») und sein Speicherplatz nicht zurückkommen.
+Dieses hier ist ein neues Spiel mit eigener Kennung (`iceStock`) und eigenem
+Speicherplatz (`lernapp.icestock`); nichts Altes mischt sich unter die
+neuen Bestwerte.
+
+Aufgezeichnet werden die Züge (`meldeZug`: Vorschau, Bahn, das Zielen, der
+Schub, das Ergebnis) – im Turnier bekommen alle dieselben zehn Bahnen, und
+wer zuschaut, rechnet denselben Schub mit denselben Schritten.
+Prüfung 4g41: Jede Runde hat ihre zwei, vier und vier Bahnen; für jede Art
+gibt es einen Schub mitten ins Ziel, und derselbe Schub endet am selben
+Ort; halbe Kraft ist ein Viertel des Wegs, Schnee bremst, Glatteis trägt,
+Bande und Balken werfen zurück, der Hang zieht, beim Anstossen zählt der
+goldene Stock; aus dem Zug des Fingers werden Richtung und Kraft; in der
+Vorschau und gleich nach dem Hinlegen lässt sich nicht zielen, ein Zug, der
+kaum einer ist, gilt nicht; ist die Zeit um, gilt der gespannte Zug; mit
+dem Zeiger lässt sich hochkant und quer schieben; eine Runde in echter Zeit
+wird hinterlegt und angeschaut – dieselben Bahnen, dieselben Punkte.
+
 ### Schwarm (November 2026): das erste Spiel in 3D
 
 **Schwarm** (`schwarm.js`, `flockFlight`, Fassung `t2`) – Ein Starenschwarm

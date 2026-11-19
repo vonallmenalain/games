@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-19-3";
+export const FASSUNG = "2026-11-19-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -328,6 +328,12 @@ export const SPIELE = [
     titel: "Kopfkino", buehne: { id: "kn-stage", klasse: "cm-stage kn-stage" },
     text: "Kopfkino: Zehn Aufgaben fürs Vorstellungsvermögen – ein Blatt falten und lochen, ein Würfelnetz schliessen, Würfel zählen, einen Spielwürfel im Kopf rollen. Nach der Antwort läuft der Film wirklich.",
     baut: "die Leinwand mit dem Würfelnetz, das sich faltet",
+  },
+  {
+    seite: "eisstock", spiel: "iceStock", page: "icestock", js: "eisstock.js",
+    titel: "Eisstock", buehne: { id: "es-stage", klasse: "cm-stage es-stage" },
+    text: "Eisstock: Zehn Bahnen, je ein Schub – spann den Stock wie eine Schleuder und lass ihn gleiten: durch Schnee, über die Bande, an Balken vorbei. Gemessen wird auf den Zentimeter, wie nah er an der Mitte liegen bleibt.",
+    baut: "die Eisbahn mit dem Stock und den Ringen des Ziels",
   },
 ];
 

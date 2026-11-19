@@ -257,6 +257,15 @@
     "kopfkino.voll": { s: "pling" },
     "kopfkino.falsch": { s: "ab-sanft" },
     "kopfkino.film": { s: "woosh-kurz" },
+    "eisstock.gleiten": { s: "a-eis", schleife: true },
+    "eisstock.los": { s: "woosh-kurz" },
+    "eisstock.stoss": { s: "klack" },
+    "eisstock.bande": { s: "holzblock" },
+    "eisstock.neu": { s: "klack" },
+    "eisstock.tick": { s: "klick" },
+    "eisstock.gut": { s: "perle" },
+    "eisstock.genau": { s: "pling" },
+    "eisstock.daneben": { s: "ab-sanft" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -273,7 +282,7 @@
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
-    freeHand: "freihand", mindsEye: "kopfkino",
+    freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock",
   };
 
   // ---------------------------------------------------------------------------
