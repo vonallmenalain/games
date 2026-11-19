@@ -1980,7 +1980,9 @@ Gegner gekommen sind, ohne «überholt!» und ohne Platz unter allen
 
 In der Hall of Fame und auf der Turnierseite steht in jedem Spiel bei jedem
 Spieler ein kleiner ▶ – sofern es von seinem besten Lauf eine Aufzeichnung
-gibt (`mini-games.js`, `ansehbareLaeufe`). Gefragt wird nach denen, die
+gibt (`mini-games.js`, `ansehbareLaeufe`); im Adminbereich ebenso, in jeder
+Bestenliste und in der Auswertung eines Spielers (siehe dort, «Den besten
+Lauf ansehen»). Gefragt wird nach denen, die
 gerade in der Liste stehen: erst die ersten drei und der eigene Eintrag, mit
 «Ganze Liste» die übrigen (`ansehenFuer`, je 25 Aufzeichnungen auf einmal).
 Er öffnet das Spiel
@@ -2899,6 +2901,29 @@ Knopf, und das Vollbild bleibt auch nach dem Spiel, bis man es beendet. Die
 Runde zählt wie jede andere: Sie geht unter dem Namen dieses Geräts in die
 Hall of Fame, der beste Versuch bleibt stehen. Der Weg oben links im Spiel
 schliesst das Fenster wieder.
+
+**Den besten Lauf ansehen.** In der Bestenliste im Fenster eines Spiels
+steht neben der Zahl ein kleines rundes ▶, wo es von diesem Eintrag einen
+Lauf gibt; oben neben «▶ Spielen» steht «▶ Rekord ansehen». Dasselbe ▶ steht
+in der Auswertung eines Spielers bei «Je Spiel», neben dem Bestwert – dort
+der beste Lauf über alle seine Geräte, zu allen Zeiten, auch wenn ein
+Zeitraum gilt. Es öffnet den Lauf im selben Fenster wie ▶ Spielen
+(`/<spiel>?zuschauen=<kennung>&von=admin`, `admin.js` `ansehenKnopf`):
+«Beenden», «Zurück» am Schluss und der Weg oben links machen das Fenster
+wieder zu (`mini-games.js` `schliesseAdminFenster`, `geist.js` `zuschauer`).
+Zuschauen ist keine Runde, es zählt und speichert nichts. Gelesen wird nur
+`miniGeister`, je Eintrag ein Dokument (`mini-games.js`,
+`abspielbareLaeufe`) – und erst, wenn das Fenster aufgeht.
+
+Aufgezeichnet ist **nur der beste Lauf** je Spiel und Gerät (siehe «Die
+besten Läufe anschauen»), keine anderen Runden. Im Spielverlauf gibt es
+deshalb kein ▶: Die Runden dort sind Zahlen mit Uhrzeit, ihr Lauf wurde nie
+gespeichert. Fehlt das ▶ bei einem Eintrag, stammt sein Bestwert aus der
+Zeit, bevor dieses Spiel aufzeichnete (oder aus einer älteren Fassung der
+Aufzeichnung). Liegt nur ein früherer, schwächerer Lauf da – der Rekord kam
+nie hinauf –, ist das ▶ gestrichelt und sagt, welche Zahl er hat. Damit
+«Zuerst» und das ▶ in «Je Spiel» nebeneinander Platz haben, ist das Fenster
+ab 1321 Pixel Breite 1060 statt 980 Pixel breit.
 
 Ein Eintrag geht beim Löschen mit seinem Geist (`miniGeister`, gleicher
 Name): Bliebe die Aufzeichnung stehen, könnte der Spieler sie nie ersetzen.

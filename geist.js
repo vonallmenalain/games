@@ -1616,8 +1616,12 @@
     if (wo.live) return mitschauer({ host, spiel, zufall, einheit, mitZuegen, wo });
     sperreEingaben();
     const z = { lauf: null, name: "", punkte: 0, t0: 0, fertig: false };
-    const ziel = wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
+    // Aus dem Adminbereich (?von=admin, admin.js ansehenKnopf) geht es dorthin
+    // zurück – im Fenster über ihm, indem das Fenster zugeht.
+    const ausAdmin = Boolean(mini()?.ausAdmin?.());
+    const ziel = ausAdmin ? "/admin" : wo.aus ? (window.LernappTurnier?.seitenLink?.(wo.aus) || "/") : "/";
     const zurueck = () => {
+      if (ausAdmin && mini()?.schliesseAdminFenster?.()) return;
       if (window.LernappVollbild?.weiter) window.LernappVollbild.weiter(ziel);
       else window.location.href = ziel;
     };
