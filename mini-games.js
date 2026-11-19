@@ -230,7 +230,7 @@
     timeSense: { fassung: "z1" },
     speedClimb: { fassung: "z1" },
     freeHand: { fassung: "z1" },
-    mindsEye: { fassung: "z2" },
+    mindsEye: { fassung: "z3" },
     iceStock: { fassung: "z1" },
   };
 

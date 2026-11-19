@@ -1119,10 +1119,10 @@ Kopfkino.
 
 **Kopfkino** (`kopfkino.js`, `mindsEye`) – Das vierte Geschwister nach
 Augenmass, Zeitgefühl und Freihand, diesmal fürs Vorstellungsvermögen: zehn
-Aufgaben aus fünfzehn Arten auf einer Leinwand, der Film dazu läuft im Kopf. Erst nach der
+Aufgaben aus elf Arten auf einer Leinwand, der Film dazu läuft im Kopf. Erst nach der
 Antwort läuft er wirklich – als Auflösung, die man sieht.
 
-**Die fünfzehn Arten** (`BAU`), jede in drei Stufen – zuerst die sieben der
+**Die elf Arten** (`BAU`), jede in drei Stufen – zuerst die sechs der
 ersten Fassung:
 
 - **Falten und lochen** (`faltenBau`): Ein Blatt aus 4 × 4 Feldern wird ein-
@@ -1133,9 +1133,6 @@ ersten Fassung:
   Leicht und mittel: Welche Fläche liegt dem Stern gegenüber? Schwer: Welche
   Kante trifft auf die rote? Auflösung: Das Netz faltet sich zum Würfel
   (`netzLage` – jedes Feld dreht sich um die Kante zu seinem Nachbarn).
-- **Würfel zählen** (`stapelBau`): ein Stapel aus Säulen, auch mit
-  verdeckten Würfeln; die Zahl wird eingetippt. Auflösung: Der Stapel zieht
-  sich Ebene um Ebene auseinander, jede mit ihrer Zahl.
 - **Ansicht** (`ansichtBau`): Wie sieht der Stapel aus der Richtung des
   Pfeils aus? In jeder Spalte wird angetippt, wie hoch sie ist – schwer von
   hinten, also seitenverkehrt. Auflösung: Die Kamera schwenkt in die
@@ -1151,14 +1148,8 @@ ersten Fassung:
   Punkte schneidet den Würfel – wie viele Ecken hat die Schnittfläche?
   Auflösung: Die Fläche erscheint, die Kamera schwenkt um den Würfel.
 
-Dazu die acht der zweiten Fassung (November 2026):
+Dazu die fünf der zweiten Fassung (November 2026):
 
-- **Würfel anmalen** (`farbeBau`): Ein Block aus kleinen Würfeln (leicht
-  3 × 3 × 3, schwer bis 4 × 4 × 5) wird rundum angemalt und zerlegt – wie
-  viele kleine Würfel haben genau keine, eine, zwei oder drei farbige
-  Seiten? Auf der schweren Stufe stand er auf dem Boden: Unten bleibt er
-  roh. Die Zahl wird eingetippt. Auflösung: Der Block zieht sich
-  auseinander, die gesuchten bleiben leuchtend stehen.
 - **Welcher Würfel?** (`musterBau`): ein Netz mit sechs Zeichen und drei
   oder vier Würfel, von denen genau einer daraus entsteht. Die falschen
   zeigen zwei Zeichen nebeneinander, die sich gegenüberliegen, oder
@@ -1171,11 +1162,6 @@ Dazu die acht der zweiten Fassung (November 2026):
   her zu sehen. Welches Teil passt? Die anderen haben einen Würfel
   woanders, schwer ist das Spiegelbild dabei. Auflösung: Das Teil dreht
   sich in seine Lage und fährt in die Lücke.
-- **Drei Schatten** (`schattenBau`): die Ecke eines Zimmers mit den Schatten
-  eines Stapels an beiden Wänden und auf dem Boden. Welcher Stapel wirft
-  sie? Schwer verrät nur einer der drei Schatten den Unterschied.
-  Auflösung: Der Stapel senkt sich ins Zimmer; unter den falschen steht,
-  welcher Schatten anders wäre.
 - **Drehkörper** (`drehkoerperBau`): Eine flache Form dreht sich um eine
   Achse – welcher Körper entsteht? Leicht die Grundkörper (Zylinder, Kegel,
   Kugel …), mittel Rohr, Ring, Sanduhr und ihre Verwandten, schwer drei
@@ -1191,14 +1177,17 @@ Dazu die acht der zweiten Fassung (November 2026):
   goldene dreht im Uhrzeigersinn; anzutippen sind alle, die es auch tun.
   Die Zähne greifen wirklich ineinander (die Phase jedes Rades folgt aus
   der seines Antriebs). Auflösung: Das Getriebe läuft an.
-- **Kugelbahn** (`kugelbahnBau`): drei bis fünf Ebenen mit schrägen Rampen;
-  die Kugel rollt jede hinunter und fällt an ihrem Ende senkrecht weiter.
-  In welchem Fach landet sie? Auflösung: Sie rollt.
+
+Nach dem Probespielen sind vier Arten wieder herausgefallen: Würfel zählen
+(aus der ersten Fassung), Würfel anmalen, Drei Schatten und Kugelbahn – und
+mit den beiden Zählaufgaben die Eingabe einer Zahl (das Ziffernfeld). Die
+Aufzeichnungen tragen seither die Fassung z3: Dieselbe Saat zieht andere
+Aufgaben als mit z1 (sieben Arten) und z2 (fünfzehn).
 
 Jede Runde zieht drei leichte, vier mittlere und drei schwere Aufgaben
 (`PLAN`). Zuerst kommen die Arten dran, die in der Runde noch fehlen
-(`aufgabenFuer`) – bei fünfzehn Arten sind es also zehn verschiedene, und
-fünf setzen aus.
+(`aufgabenFuer`) – bei elf Arten sind es also zehn verschiedene, und eine
+setzt aus.
 
 **Gewertet wird richtig mal schnell** (`punkteFuer`): bis zu hundert Punkte
 je Aufgabe, tausend im Ganzen. Eine Aufgabe hat 14, 18 oder 24 Sekunden
@@ -1207,9 +1196,8 @@ alles, danach fällt es bis zum Schluss auf die Hälfte (`SPAET`) – der Balken
 unter der Leinwand ist so lange golden, daneben steht, was eine richtige
 Antwort jetzt gäbe. Falsch gibt nichts. Wo sich eine Antwort aus Teilen
 setzt, zählt auch «fast» (`anteilFuer`): Bei den Feldern kostet jedes
-falsche eines der richtigen, bei den Spalten zählt jede für sich, bei der
-Zahl gibt «um eins daneben» 40 und «um zwei» 15 von hundert (`FAST`). Ist
-die Zeit um, zählt, was eingegeben ist.
+falsche eines der richtigen, bei den Spalten zählt jede für sich. Ist die
+Zeit um, zählt, was eingegeben ist.
 
 **Der Ablauf** ist der der Geschwister: Vor jeder Aufgabe die Vorschau –
 was zu tun ist, mit einem Beispiel derselben Art, das sich selbst auflöst –,
@@ -1218,7 +1206,7 @@ zehn Bildern, eines je Aufgabe.
 
 **Die Testrunde** (`/kopfkino?alle`, im Adminbereich der Knopf
 «▶ Alle Aufgaben» im Fenster des Spiels): jede Art in jeder Stufe
-nacheinander – leicht, mittel, schwer, dann die nächste Art, 44 Aufgaben
+nacheinander – leicht, mittel, schwer, dann die nächste Art, 32 Aufgaben
 (`testAufgaben`). Zum Ausprobieren: Sie geht in keine Bestenliste, wird
 nicht aufgezeichnet, und ihre Tafel nennt statt eines Rekords, welche
 Aufgaben daneben gingen (`testEnde`, `showResult` mit `eintragen: false`).
@@ -1249,12 +1237,10 @@ verschiedenen Arten; was als richtig gilt, wird auf einem zweiten Weg
 nachgerechnet (das Blatt Feld für Feld nachgefaltet, das Netz zum Würfel
 geschlossen, der Würfel Kante um Kante gerollt, die Ansicht aus der
 Blickrichtung der Kamera vermessen, die Figur gegen ihr Spiegelbild, die
-Schnittfläche in ihrer Ebene; der angemalte Block Würfel um Würfel gezählt,
-jeder Würfel in allen 24 Lagen gegen das Netz gehalten, die Lücke gegen
-die Gestalt jedes Teils, die Schatten neu geworfen, der Laser Zelle um
-Zelle verfolgt, das Getriebe Rad um Rad gedreht samt Zahn auf Lücke, die
-Kugel Ebene um Ebene gerollt); die acht neuen Arten lassen sich mit dem
-Finger lösen; die Testrunde hat jede Art in jeder Stufe der Reihe nach und
+Schnittfläche in ihrer Ebene; jeder Würfel in allen 24 Lagen gegen das
+Netz gehalten, die Lücke gegen die Gestalt jedes Teils, der Laser Zelle um
+Zelle verfolgt, das Getriebe Rad um Rad gedreht samt Zahn auf Lücke); die
+fünf Arten der zweiten Fassung lassen sich mit dem Finger lösen; die Testrunde hat jede Art in jeder Stufe der Reihe nach und
 zählt nicht (Prüfung 4j: «▶ Alle Aufgaben» öffnet sie); die Punkte
 fallen nach richtig mal schnell, «fast» zählt für Teile; in der Vorschau
 zählt kein Tipp, ist die Zeit um, zählt die Eingabe, wie sie dasteht; was

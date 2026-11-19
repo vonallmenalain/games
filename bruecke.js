@@ -645,9 +645,10 @@
     zeigeCombo();
     state.punkte += plus;
     state.bruecken += 1;
-    // Angekommen: die rote Mitte zum ersten Mal in Folge getroffen klingt die
-    // Harfe. Sonst genügt der Balken, der sich hinlegt.
-    if (state.genau && state.kette < 2) ton("perfekt");
+    // Angekommen: Jedes Mal, wenn die rote Mitte getroffen ist (+2, +3, +4),
+    // klingt die Harfe – auch mitten in einer Serie. Sonst genügt der Balken,
+    // der sich hinlegt.
+    if (state.genau) ton("perfekt");
     shell.setCount(state.punkte);
     gegner?.takt(state.punkte);
     state.alte.push(state.balken);

@@ -10177,17 +10177,15 @@ try {
     await kontext.close();
   }
 
-  // --- 4g40. Kopfkino: fünfzehn Arten, jede Antwort nachgerechnet -----------------------
+  // --- 4g40. Kopfkino: elf Arten, jede Antwort nachgerechnet -----------------------------
   // Jede Runde hat drei leichte, vier mittlere und drei schwere Aufgaben –
   // zehn verschiedene Arten. Was als richtig gilt, wird hier auf einem
   // zweiten Weg nachgerechnet: das Blatt Feld für Feld nachgefaltet, das Netz
   // zum Würfel geschlossen, der Spielwürfel Kante um Kante gerollt, der
-  // Stapel aus der Blickrichtung der Kamera vermessen; der angemalte Block
-  // Würfel um Würfel gezählt, jeder Würfel in allen 24 Lagen gegen das Netz
-  // gehalten, die Schatten neu geworfen, der Laser Zelle um Zelle verfolgt,
-  // das Getriebe Rad um Rad gedreht, die Kugel Ebene um Ebene gerollt.
-  // Gewertet wird richtig mal schnell; wo sich eine Antwort aus Teilen setzt,
-  // zählt auch «fast».
+  // Stapel aus der Blickrichtung der Kamera vermessen, jeder Würfel in allen
+  // 24 Lagen gegen das Netz gehalten, der Laser Zelle um Zelle verfolgt, das
+  // Getriebe Rad um Rad gedreht. Gewertet wird richtig mal schnell; wo sich
+  // eine Antwort aus Teilen setzt, zählt auch «fast».
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
     await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
@@ -10247,10 +10245,6 @@ try {
             if (stufe !== 2 || n.kanten.length !== 14 || n.soll === n.rot || name(n.kanten[n.soll]) !== name(n.kanten[n.rot])) merke("netz Kante");
             if (n.kanten.filter((k) => name(k) === name(n.kanten[n.rot])).length !== 2) merke("netz Kantenpaar");
           }
-          // Stapel: die Zahl ist die Summe der Säulen.
-          const s = K.lege("stapel", stufe, Math.random);
-          const summe = s.hoehen.flat().reduce((x, y) => x + y, 0);
-          if (s.soll !== summe || summe < [5, 11, 19][stufe] || summe > [9, 17, 30][stufe]) merke("stapel");
           // Ansicht: die Spalten, aus der Blickrichtung der Kamera vermessen.
           const an = K.lege("ansicht", stufe, Math.random);
           const u = K.sicht(BLICK[an.richtung], 0).u;
@@ -10282,18 +10276,8 @@ try {
             const aufKante = (p) => p.filter((x) => Math.abs(x) < 1e-9 || Math.abs(x - 1) < 1e-9).length >= 2 && p.every((x) => x > -1e-9 && x < 1 + 1e-9);
             if (sc.flaeche.length - 3 !== sc.soll || sc.flaeche.length < 3 || sc.flaeche.length > 6 || !sc.flaeche.every(aufKante) || sc.flaeche.some((p) => Math.abs(punkt(nn, [0, 1, 2].map((k) => p[k] - sc.punkte[0][k]))) > 1e-9)) merke("schnitt");
           }
-          // --- Die acht Arten der zweiten Fassung ---
+          // --- Die fünf Arten der zweiten Fassung ---
           const mal = (m, v) => [0, 1, 2].map((k) => m[0][k] * v[0] + m[1][k] * v[1] + m[2][k] * v[2]);
-          // Würfel anmalen: jeder kleine Würfel einzeln gezählt – und, wo rundum
-          // Farbe ist, nach der Formel für Ecken, Kanten, Flächen und Inneres.
-          const fa = K.lege("farbe", stufe, Math.random);
-          const [fx, fy, fz] = fa.masse;
-          let gezaehlt = 0;
-          for (let x = 0; x < fx; x += 1) for (let y = 0; y < fy; y += 1) for (let z = 0; z < fz; z += 1) {
-            if ([x === 0, x === fx - 1, y === 0, y === fy - 1, z === fz - 1, z === 0 && fa.boden].filter(Boolean).length === fa.seiten) gezaehlt += 1;
-          }
-          if (gezaehlt !== fa.soll || fa.soll < 1 || fa.boden !== (stufe < 2) || (stufe === 0 && fa.masse.join() !== "3,3,3")) merke("farbe");
-          if (fa.boden && [(fx - 2) * (fy - 2) * (fz - 2), 2 * ((fx - 2) * (fy - 2) + (fx - 2) * (fz - 2) + (fy - 2) * (fz - 2)), 4 * (fx + fy + fz - 6), 8][fa.seiten] !== fa.soll) merke("farbe Formel");
           // Welcher Würfel: Jedes Bild wird in allen 24 Lagen gegen das
           // gefaltete Netz gehalten – nur das richtige gibt es wirklich.
           const mu = K.lege("muster", stufe, Math.random);
@@ -10323,12 +10307,6 @@ try {
           const formen = lu.bilder.map((b) => K.gestalt(b.wuerfel));
           if (!zuSehen || fehlt.size !== lu.weg.length || lu.weg.some((p) => p.some((v) => v < 0 || v > 2)) || new Set(formen).size !== lu.bilder.length || lu.bilder.length !== (stufe === 0 ? 3 : 4)
             || lu.bilder.some((b, i) => (formen[i] === K.gestalt(lu.weg)) !== (i === lu.soll) || b.wuerfel.length !== lu.weg.length || b.passt !== (i === lu.soll))) merke("luecke");
-          // Drei Schatten: von jedem Stapel die drei Schatten neu geworfen.
-          const sch = K.lege("schatten", stufe, Math.random);
-          const wurf = (h) => JSON.stringify([h.map((spalte) => Math.max(...spalte)), h[0].map((_, y) => Math.max(...h.map((spalte) => spalte[y]))), h.map((spalte) => spalte.map((v) => (v > 0 ? 1 : 0)))]);
-          const sollSchatten = JSON.stringify([sch.schatten.links, sch.schatten.rechts, sch.schatten.boden]);
-          if (sch.bilder.length !== (stufe === 0 ? 3 : 4) || sch.bilder.some((h, i) => (wurf(h) === sollSchatten) !== (i === sch.soll)) || new Set(sch.bilder.map((h) => JSON.stringify(h))).size !== sch.bilder.length
-            || sch.bilder.some((h) => Math.max(...h.flat()) > sch.hoch)) merke("schatten");
           // Drehkörper: lauter verschiedene Formen, jede rechts der Achse und
           // gegen den Uhrzeigersinn umlaufen (so schaut ihr Mantel nach aussen).
           const dk = K.lege("drehkoerper", stufe, Math.random);
@@ -10385,23 +10363,6 @@ try {
             if (!gut || sollRaeder !== za.soll || za.felder !== za.raeder.length - 1 || bits(za.soll) < 1 || bits(za.soll) >= za.felder || za.raeder.length < [4, 6, 8][stufe]
               || (stufe === 0 && riemen !== 0) || (stufe === 2 && riemen !== 2)) merke("zahnrad");
           }
-          // Kugelbahn: Ebene um Ebene gerollt.
-          const ku = K.lege("kugelbahn", stufe, Math.random);
-          {
-            let spalte = ku.start;
-            let treffer = 0;
-            let gut = true;
-            ku.rampen.forEach((ebene) => {
-              ebene.forEach((rampe, i) => {
-                // Das tiefe Ende zeigt nie zur Wand, und zwischen zwei Rampen bleibt eine Spalte frei.
-                if (rampe.a > rampe.b || rampe.a < 0 || rampe.b >= ku.breit || (rampe.sinn > 0 ? rampe.b + 1 >= ku.breit : rampe.a - 1 < 0)) gut = false;
-                ebene.forEach((andere, j) => { if (j > i && !(andere.a > rampe.b + 1 || andere.b < rampe.a - 1)) gut = false; });
-              });
-              const rampe = ebene.find((x) => x.a <= spalte && spalte <= x.b);
-              if (rampe) { treffer += 1; spalte = rampe.sinn > 0 ? rampe.b + 1 : rampe.a - 1; }
-            });
-            if (!gut || spalte !== ku.soll || ku.soll < 0 || ku.soll >= ku.breit || ku.wahl !== ku.breit || treffer !== ku.weg.length || treffer < ku.ebenen - 1 || ku.rampen.length !== [3, 4, 5][stufe]) merke("kugelbahn");
-          }
         }
       }
       // Die Wertung.
@@ -10409,17 +10370,16 @@ try {
       raus.wertung = {
         zeit: [1, 14 * K.VOLL, 9.45, 14, 99].map((t) => K.punkteFuer(wahl, 2, t)),
         falsch: [K.punkteFuer(wahl, 1, 1), K.punkteFuer(wahl, null, 1)],
-        zahl: [0, 1, 2, 3, -1].map((d) => K.punkteFuer({ eingabe: "zahl", soll: 12, zeit: 14 }, 12 + d, 1)),
         felder: [0b0011, 0b0001, 0b0111, 0b1111, 0b1100, 0].map((x) => K.punkteFuer({ eingabe: "felder", soll: 0b0011, zeit: 14 }, x, 1)),
         spalten: [(2 << 0) | (1 << 3) | (3 << 6), (2 << 0) | (1 << 3) | (1 << 6), (1 << 0), 0].map((x) => K.punkteFuer({ eingabe: "spalten", n: 3, soll: (2 << 0) | (1 << 3) | (3 << 6), zeit: 14 }, x, 1)),
       };
       return raus;
     });
-    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "3/4/3" && r.meist === 1 && r.zeiten && !r.schnittLeicht && r.frage) && bau.welten === 6 && bau.alle === 15 && bau.arten >= 13,
+    pruefe(bau.runden.every((r) => r.n === 10 && r.stufen === "3/4/3" && r.meist === 1 && r.zeiten && !r.schnittLeicht && r.frage) && bau.welten === 6 && bau.alle === 11 && bau.arten >= 10,
       `Kopfkino: Die Runden haben nicht ihre drei, vier und drei Aufgaben aus zehn verschiedenen Arten, oder jede Runde ist dieselbe: ${JSON.stringify({ runden: bau.runden, arten: bau.arten, alle: bau.alle })}`);
     pruefe(Object.keys(bau.fehler).length === 0, `Kopfkino: Nachgerechnet stimmt die richtige Antwort nicht überall: ${JSON.stringify(bau.fehler)}`);
     pruefe(JSON.stringify(bau.wertung.zeit) === JSON.stringify([100, 100, 75, 50, 50]) && JSON.stringify(bau.wertung.falsch) === "[0,0]"
-      && JSON.stringify(bau.wertung.zahl) === JSON.stringify([100, 40, 15, 0, 40]) && JSON.stringify(bau.wertung.felder) === JSON.stringify([100, 50, 50, 0, 0, 0])
+      && JSON.stringify(bau.wertung.felder) === JSON.stringify([100, 50, 50, 0, 0, 0])
       && JSON.stringify(bau.wertung.spalten) === JSON.stringify([100, 67, 0, 0]),
       `Kopfkino: Die Punkte fallen nicht, wie sie sollen (richtig mal schnell, «fast» für Teile): ${JSON.stringify(bau.wertung)}`);
 
@@ -10429,7 +10389,9 @@ try {
       const K = window.LernappKopfkino;
       const st = K.state;
       document.querySelector(".cm-bar-left .cm-icon-again").click();
-      [["rollen", 0], ["stapel", 1], ["falten", 1], ["ansicht", 1], ["netz", 2], ["drehen", 1], ["schnitt", 1], ["stapel", 0]].forEach(([art, stufe], i) => { st.aufgaben[i] = K.lege(art, stufe, Math.random); });
+      [["rollen", 0], ["falten", 1], ["ansicht", 1], ["netz", 2], ["drehen", 1], ["schnitt", 1], ["ansicht", 0], ["zahnrad", 1]].forEach(([art, stufe], i) => { st.aufgaben[i] = K.lege(art, stufe, Math.random); });
+      // Beim Getriebe drehen mindestens zwei Räder mit – eines davon fehlt dann.
+      while (K.loesung(st.aufgaben[7]).length < 3) st.aufgaben[7] = K.lege("zahnrad", 1, Math.random);
       const stand = (i) => ({ phase: st.phase, punkte: st.liste[i]?.punkte ?? null, anteil: st.liste[i]?.anteil ?? null, antwort: st.antwort, summe: st.punkte });
       const los = (sekunden = 1) => { K.aufgabeLos(); st.t0 -= (K.EINZUG + sekunden) * 1000; };
       const tue = (schritte) => { for (const [was, wert] of schritte) K.eingabe(was, wert); };
@@ -10446,62 +10408,54 @@ try {
       raus.richtig = stand(0);
       K.weiter();
       raus.naechste = { phase: st.phase, index: st.index };
-      // 2: Würfel zählen – erst vertippt und gelöscht, dann um eins daneben.
+      // 2: Falten – «Fertig» ohne Eingabe zählt nicht; dann alle Löcher, und eines zu viel.
       los();
       K.eingabe("fertig");
       const leer = st.phase;
-      K.eingabe("ziffer", 0);
-      K.eingabe("ziffer", 9);
-      K.eingabe("ziffer", 9);
-      K.eingabe("ziffer", 9);
-      const drei = st.getippt;
-      K.eingabe("weg");
-      K.eingabe("weg");
-      tue([...String(st.aufgaben[1].soll + 1)].map((z) => ["ziffer", Number(z)]));
-      const getippt = st.getippt;
-      K.eingabe("fertig");
-      raus.zahl = { ...stand(1), leer, drei, getippt, soll: st.aufgaben[1].soll };
-      K.weiter();
-      // 3: Falten – alle Löcher, und eines zu viel.
-      los();
-      const falt = st.aufgaben[2];
+      const falt = st.aufgaben[1];
       let zuviel = 0;
       while ((falt.soll >> zuviel) & 1) zuviel += 1;
       tue([...K.loesung(falt).slice(0, -1), ["feld", zuviel], ["fertig", 0]]);
-      raus.felder = { ...stand(2), soll: falt.soll, loecher: K.loesung(falt).length - 1 };
+      raus.felder = { ...stand(1), soll: falt.soll, loecher: K.loesung(falt).length - 1, leer };
       K.weiter();
-      // 4: Ansicht – richtig, aber spät.
-      los(st.aufgaben[3].zeit * 0.9);
-      const spaet = Math.round(100 * K.zeitFaktor(st.aufgaben[3], st.aufgaben[3].zeit * 0.9));
+      // 3: Ansicht – richtig, aber spät.
+      los(st.aufgaben[2].zeit * 0.9);
+      const spaet = Math.round(100 * K.zeitFaktor(st.aufgaben[2], st.aufgaben[2].zeit * 0.9));
       K.eingabe("spalte", 1 * 8 + 2);
       K.eingabe("spalte", 1 * 8 + 2);
       const eins = (st.wert >> 3) & 7;
       st.wert = 0;
-      tue(K.loesung(st.aufgaben[3]));
-      raus.spaet = { ...stand(3), soll: spaet, eins };
+      tue(K.loesung(st.aufgaben[2]));
+      raus.spaet = { ...stand(2), soll: spaet, eins };
       K.weiter();
-      // 5: das Netz – die falsche Kante.
+      // 4: das Netz – die falsche Kante.
       los();
-      K.eingabe("wahl", (st.aufgaben[4].soll + 1) % st.aufgaben[4].wahl === st.aufgaben[4].rot ? (st.aufgaben[4].soll + 2) % st.aufgaben[4].wahl : (st.aufgaben[4].soll + 1) % st.aufgaben[4].wahl);
-      raus.falsch = stand(4);
+      K.eingabe("wahl", (st.aufgaben[3].soll + 1) % st.aufgaben[3].wahl === st.aufgaben[3].rot ? (st.aufgaben[3].soll + 2) % st.aufgaben[3].wahl : (st.aufgaben[3].soll + 1) % st.aufgaben[3].wahl);
+      raus.falsch = stand(3);
       K.weiter();
-      // 6: Die Zeit läuft ab, und niemand antwortet.
-      los(st.aufgaben[5].zeit + 1);
+      // 5: Die Zeit läuft ab, und niemand antwortet.
+      los(st.aufgaben[4].zeit + 1);
       K.takt(0.016);
-      raus.zeitUm = stand(5);
+      raus.zeitUm = stand(4);
       K.weiter();
-      // 7: der Schnitt – richtig.
+      // 6: der Schnitt – richtig.
       los();
-      tue(K.loesung(st.aufgaben[6]));
-      raus.schnitt = stand(6);
+      tue(K.loesung(st.aufgaben[5]));
+      raus.schnitt = stand(5);
       K.weiter();
-      // 8: Die Zahl steht da, aber «Fertig» fehlt – die Zeit ist um: Sie zählt, spät.
+      // 7: Die Spalten stehen da, aber «Fertig» fehlt – die Zeit ist um: Sie zählen, spät.
       K.aufgabeLos();
       st.t0 -= 1000;
-      tue(K.loesung(st.aufgaben[7]).slice(0, -1));
-      st.t0 -= (st.aufgaben[7].zeit + 1) * 1000;
+      tue(K.loesung(st.aufgaben[6]).slice(0, -1));
+      st.t0 -= (st.aufgaben[6].zeit + 1) * 1000;
       K.takt(0.016);
-      raus.ohneFertig = stand(7);
+      raus.ohneFertig = stand(6);
+      K.weiter();
+      // 8: das Getriebe – ein Rad, das mitdreht, fehlt: Es kostet seinen Anteil.
+      los();
+      const raeder = K.loesung(st.aufgaben[7]);
+      tue(raeder.slice(1));
+      raus.fehlt = { ...stand(7), k: raeder.length - 1 };
       K.weiter();
       // 9: Wer nicht tippt, bekommt die Aufgabe nach dreissig Sekunden.
       const wartet = st.phase;
@@ -10523,10 +10477,9 @@ try {
       `Kopfkino: In der Vorschau oder gleich nach dem Hinlegen zählt schon ein Tipp: ${JSON.stringify({ vorher: runde.vorher, vorschau: runde.vorschau, sperre: runde.sperre })}`);
     pruefe(runde.richtig.phase === "zeigen" && runde.richtig.punkte === 100 && runde.richtig.anteil === 1 && runde.naechste.phase === "vorschau" && runde.naechste.index === 1,
       `Kopfkino: Die richtige Antwort gibt keine hundert Punkte, oder es geht nicht weiter: ${JSON.stringify({ richtig: runde.richtig, naechste: runde.naechste })}`);
-    pruefe(runde.zahl.leer === "aufgabe" && runde.zahl.drei === "99" && runde.zahl.getippt === String(runde.zahl.soll + 1) && runde.zahl.punkte === 40 && runde.zahl.antwort === runde.zahl.soll + 1,
-      `Kopfkino: Die Zahl lässt sich nicht tippen und löschen, oder «um eins daneben» zählt falsch: ${JSON.stringify(runde.zahl)}`);
-    pruefe(runde.felder.punkte === Math.round((100 * (runde.felder.loecher - 1)) / runde.felder.loecher) && runde.felder.antwort !== runde.felder.soll,
-      `Kopfkino: Ein Feld zu viel kostet nicht eines: ${JSON.stringify(runde.felder)}`);
+    pruefe(runde.felder.leer === "aufgabe" && runde.felder.punkte === Math.round((100 * (runde.felder.loecher - 1)) / runde.felder.loecher) && runde.felder.antwort !== runde.felder.soll
+      && runde.fehlt.phase === "zeigen" && runde.fehlt.punkte === Math.round((100 * (runde.fehlt.k - 1)) / runde.fehlt.k),
+      `Kopfkino: «Fertig» ohne Eingabe zählt, oder ein Feld zu viel (ein Rad zu wenig) kostet nicht eines: ${JSON.stringify({ felder: runde.felder, fehlt: runde.fehlt })}`);
     pruefe(runde.spaet.eins === 1 && runde.spaet.anteil === 1 && runde.spaet.punkte === runde.spaet.soll && runde.spaet.punkte >= 50 && runde.spaet.punkte <= 60,
       `Kopfkino: Eine späte richtige Antwort gibt nicht, was die Uhr sagt – oder die Spalten lassen sich nicht setzen: ${JSON.stringify(runde.spaet)}`);
     pruefe(runde.falsch.punkte === 0 && runde.falsch.phase === "zeigen" && runde.zeitUm.punkte === 0 && runde.zeitUm.antwort === null && runde.zeitUm.phase === "zeigen" && runde.schnitt.punkte === 100,
@@ -10596,13 +10549,13 @@ try {
     await kontext.close();
   }
   {
-    // Die acht neuen Arten, eine nach der anderen mit dem Finger gelöst: die
-    // Zahl getippt, der Würfel, das Teil, der Stapel und der Körper gewählt,
-    // die Stelle am Rand, die Räder und «Fertig», das Fach.
+    // Die fünf Arten der zweiten Fassung, eine nach der anderen mit dem Finger
+    // gelöst: der Würfel, das Teil und der Körper gewählt, die Stelle am Rand,
+    // die Räder und «Fertig».
     const { kontext, seite } = await neueSeite({ width: 420, height: 820 }, { handy: true });
     await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben && window.LernappKopfkino.view.cssW > 0, null, { timeout: 8000 });
-    const neue = [["farbe", 0], ["muster", 1], ["luecke", 1], ["schatten", 0], ["drehkoerper", 1], ["laser", 1], ["zahnrad", 1], ["kugelbahn", 2]];
+    const neue = [["muster", 1], ["luecke", 1], ["drehkoerper", 1], ["laser", 1], ["zahnrad", 1]];
     await seite.evaluate((liste) => { const K = window.LernappKopfkino; liste.forEach(([art, stufe], i) => { K.state.aufgaben[i] = K.lege(art, stufe, Math.random); }); }, neue);
     const tippeAuf = async (suche) => {
       const ort = await seite.evaluate((s) => {
@@ -10629,7 +10582,7 @@ try {
       ergebnis.push(await seite.evaluate(({ nr, da2 }) => { const st = window.LernappKopfkino.state; return { art: st.aufgaben[nr].art, da: da2, phase: st.phase, punkte: st.liste[nr]?.punkte ?? null, stellen: window.LernappKopfkino.stellen().length }; }, { nr: i, da2: da }));
       await seite.waitForTimeout(1300);
     }
-    pruefe(ergebnis.length === 8 && ergebnis.every((x) => x.da && x.phase === "zeigen" && x.punkte === 100 && x.stellen === 0),
+    pruefe(ergebnis.length === 5 && ergebnis.every((x) => x.da && x.phase === "zeigen" && x.punkte === 100 && x.stellen === 0),
       `Kopfkino: Die neuen Arten lassen sich mit dem Finger nicht lösen: ${JSON.stringify(ergebnis)}`);
     await kontext.close();
   }
@@ -10660,10 +10613,9 @@ try {
         const a = st.aufgaben[st.index];
         if (!plan) {
           const schritte = K.loesung(a);
-          // Aufgabe 3 falsch (oder um eins daneben), Aufgabe 6 spät.
+          // Aufgabe 3 falsch (oder ein Teil fehlt), Aufgabe 6 spät.
           if (st.index === 2) {
             if (a.eingabe === "wahl") schritte[0][1] = (a.soll + 1) % a.wahl === a.rot ? (a.soll + 2) % a.wahl : (a.soll + 1) % a.wahl;
-            else if (a.eingabe === "zahl") { schritte.length = 0; for (const z of String(a.soll + 1)) schritte.push(["ziffer", Number(z)]); schritte.push(["fertig", 0]); }
             else schritte.shift();
           }
           if (st.index === 5) st.t0 -= a.zeit * 700;
@@ -10725,7 +10677,7 @@ try {
         st.t0 -= 2000;
         const a = st.aufgaben[i];
         if ((i === 2 || i === 19) && a.eingabe === "wahl") K.eingabe("wahl", (a.soll + 1) % a.wahl);
-        else if (i === 2 || i === 19) { K.eingabe(a.eingabe === "zahl" ? "ziffer" : a.eingabe === "felder" ? "feld" : "spalte", a.eingabe === "zahl" ? ((a.soll % 9) + 1 === a.soll ? 9 : (a.soll % 9) + 1) : a.eingabe === "spalten" ? 1 : [...Array(a.felder).keys()].find((f) => !((a.soll >> f) & 1))); K.eingabe("fertig"); }
+        else if (i === 2 || i === 19) { K.eingabe(a.eingabe === "felder" ? "feld" : "spalte", a.eingabe === "spalten" ? 1 : [...Array(a.felder).keys()].find((f) => !((a.soll >> f) & 1))); K.eingabe("fertig"); }
         else for (const [was, wert] of K.loesung(a)) K.eingabe(was, wert);
         // Der Streifen zeigt die zehn, zu denen die Aufgabe gehört.
         K.zeichnen();
@@ -10743,9 +10695,9 @@ try {
       liste: document.querySelectorAll(".mini-ergebnis, .mini-namensfeld").length,
       nochmal: document.querySelectorAll(".cm-overlay .cm-actions button").length,
     }));
-    pruefe(test.folge && test.zahl === 44 && test.liste === 44 && test.ende.phase === "ende" && test.ende.offen === 0 && test.ende.richtig === 42,
+    pruefe(test.folge && test.zahl === 32 && test.liste === 32 && test.ende.phase === "ende" && test.ende.offen === 0 && test.ende.richtig === 30,
       `Kopfkino: Die Testrunde hat nicht jede Art in jeder Stufe, der Reihe nach, oder sie endet nicht nach der letzten: ${JSON.stringify(test)}`);
-    pruefe(testTafel.label === "Testrunde" && /42 von 44 richtig/.test(testTafel.detail) && /daneben: /.test(testTafel.detail) && /nichts gespeichert/.test(testTafel.detail)
+    pruefe(testTafel.label === "Testrunde" && /30 von 32 richtig/.test(testTafel.detail) && /daneben: /.test(testTafel.detail) && /nichts gespeichert/.test(testTafel.detail)
       && testTafel.liste === 0 && testTafel.nochmal >= 1 && test.nachher === test.speicher && !test.geist,
       `Kopfkino: Die Testrunde zählt doch, oder ihre Tafel sagt nicht, was war: ${JSON.stringify({ testTafel, speicher: [test.speicher, test.nachher], geist: test.geist })}`);
     // Nur einzelne Arten – und eine, die es nicht gibt, ändert nichts.
@@ -10758,7 +10710,7 @@ try {
     await seite.goto(`${BASIS}/kopfkino`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappKopfkino?.state?.aufgaben, null, { timeout: 8000 });
     const normal = await seite.evaluate(() => ({ zahl: window.LernappKopfkino.state.aufgaben.length, test: window.LernappKopfkino.testrunde() }));
-    pruefe(auswahl === "laser0 laser1 laser2 zahnrad0 zahnrad1 zahnrad2" && unbekannt === 44 && normal.zahl === 10 && normal.test === null,
+    pruefe(auswahl === "laser0 laser1 laser2 zahnrad0 zahnrad1 zahnrad2" && unbekannt === 32 && normal.zahl === 10 && normal.test === null,
       `Kopfkino: ?alle=laser,zahnrad nimmt nicht nur diese Arten, oder die gewöhnliche Runde ist keine mehr: ${JSON.stringify({ auswahl, unbekannt, normal })}`);
     await kontext.close();
   }
@@ -10770,7 +10722,7 @@ try {
     // und nach der letzten zur Tafel – die nichts einträgt. In einer
     // gewöhnlichen Runde gibt es ihn nicht.
     for (const [adresse, api, soll, schluessel] of [
-      ["/kopfkino", "LernappKopfkino", 44, "lernapp.kopfkino"],
+      ["/kopfkino", "LernappKopfkino", 32, "lernapp.kopfkino"],
       ["/freihand", "LernappFreihand", 17, "lernapp.freihand"],
       ["/zeitgefuehl", "LernappZeitgefuehl", 12, "lernapp.zeitgefuehl"],
       ["/augenmass", "LernappAugenmass", 18, "lernapp.augenmass"],
@@ -11739,7 +11691,7 @@ try {
       await rahmen.locator(".cm-bar-left a").first().click();
       await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 4000 }).catch(() => {});
     }
-    pruefe(alleDa === 1 && alleStand?.src === "/kopfkino?alle&von=admin" && alleStand?.zahl === 44 && await seite.locator(".adm-spiel").count() === 0 && !fenster.knoepfe.includes("▶ Alle Aufgaben"),
+    pruefe(alleDa === 1 && alleStand?.src === "/kopfkino?alle&von=admin" && alleStand?.zahl === 32 && await seite.locator(".adm-spiel").count() === 0 && !fenster.knoepfe.includes("▶ Alle Aufgaben"),
       `«▶ Alle Aufgaben» öffnet die Testrunde von Kopfkino nicht – oder ein Spiel ohne Testrunde hat den Knopf: ${JSON.stringify({ alleDa, alleStand, fischteich: fenster.knoepfe })}`);
     await seite.keyboard.press("Escape");
     await seite.waitForFunction(() => !document.querySelector(".adm-dash"), null, { timeout: 3000 }).catch(() => {});
@@ -13117,6 +13069,35 @@ try {
   // Jeder Platz der Klangauswahl erzeugt Töne (die Grillen zirpen zufällig
   // und dürfen in der kurzen Probe schweigen), jede Aufnahme unter klang/
   // lädt, und nichts wirft. Ist der Ton aus, entsteht gar nichts.
+  {
+    // Brückenbauer: Jeder Treffer in die rote Mitte klingt (die Harfe,
+    // «perfekt») – auch der zweite und dritte einer Serie (+3, +4), nicht nur
+    // der erste.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 820 });
+    await seite.goto(`${BASIS}/bruecke`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappBruecke?.state && window.ArcadeKlang?.protokoll, null, { timeout: 8000 }).catch(() => {});
+    const harfe = [];
+    for (let i = 0; i < 3; i += 1) {
+      await seite.waitForFunction(() => { const st = window.LernappBruecke.state; return st.phase === "bereit" || (st.phase === "spiel" && st.schritt === "warten"); }, null, { timeout: 8000 }).catch(() => {});
+      await seite.evaluate(() => {
+        // Gedrückt, der Balken genau bis zur Mitte des nächsten Pfeilers, losgelassen.
+        const st = window.LernappBruecke.state;
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+        const p = st.pfeiler[st.hier + 1];
+        st.balken.len = p.x - st.balken.x;
+        document.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+      });
+      await seite.waitForFunction((n) => window.LernappBruecke.state.bruecken > n, i, { timeout: 8000 }).catch(() => {});
+      harfe.push(await seite.evaluate(() => ({
+        kette: window.LernappBruecke.state.kette,
+        punkte: window.LernappBruecke.state.punkte,
+        harfen: window.ArcadeKlang.protokoll.filter((x) => x.id === "perfekt").length,
+      })));
+    }
+    pruefe(JSON.stringify(harfe.map((h) => [h.kette, h.punkte, h.harfen])) === JSON.stringify([[1, 2, 1], [2, 5, 2], [3, 9, 3]]),
+      `Brückenbauer: Nicht jeder Treffer in die Mitte klingt (je Brücke Kette, Punkte, Harfen bis dahin): ${JSON.stringify(harfe)}`);
+    await kontext.close();
+  }
   {
     const zaehler = () => {
       window.__klangKnoten = 0;
