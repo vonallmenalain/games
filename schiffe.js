@@ -522,12 +522,13 @@
     });
   }
 
-  function brett({ zug, ton, knopf, ruhig }) {
+  function brett({ zug, ton, knopf, ruhig, vorlesen }) {
     const knoten = el("div", "zw-sv");
     const gegner = meerBauen("gegner", (f) => schiessen(f));
     const meins = meerBauen("meins", (f) => stellen(f));
     const werkzeug = el("div", "zw-sv-werkzeug");
     const tipp = el("p", "zw-sv-tipp", "Tippe ein Schiff an, dann ein freies Feld: Es fährt dorthin. Noch ein Tipp aufs Schiff dreht es.");
+    tipp.append(" ", vorlesen?.("Versteck deine Schiffe. Tippe ein Schiff an, dann ein freies Feld: Es fährt dorthin. Noch ein Tipp aufs Schiff dreht es. Oder tippe auf Neu verteilen. Wenn alles passt, tippe auf Fertig.") || "");
     const neuMischen = knopf("Neu verteilen", "mini-knopf mini-knopf-still zw-sv-mischen", () => {
       entwurf = zufallsFlotte();
       auswahl = -1;

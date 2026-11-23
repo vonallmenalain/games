@@ -69,6 +69,12 @@
  *                            fokus? }
  *                        zug(z) schickt einen Zug. namen: { a, b } – wie
  *                        die beiden heissen (gegen den Computer: «Computer»).
+ *                        Dazu bekommt das Brett: ton, el, knopf, steinZeichen,
+ *                        ruhig, vorlesen(text | () => text, { titel }) – ein
+ *                        Lautsprecher neben einem Text (vorlesen.js).
+ *   vorlesen(bild)       (wenn es eines gibt) was der Lautsprecher beim Satz
+ *                        über dem Brett nach dem Satz noch vorliest – etwa
+ *                        der Spielstand oder die Antworten zur Wahl.
  *   computer(lage, sitz, stufe, { zuege, roh, saat })
  *                        → zug, oder { zug, warte } (warte: wie lange der
  *                        Computer sich Zeit lässt, für Spiele, in denen
@@ -175,6 +181,18 @@
     k.type = "button";
     if (beiKlick) k.addEventListener("click", beiKlick);
     return k;
+  }
+
+  // Ein Lautsprecher neben einem Text (vorlesen.js): ein Tipp liest ihn vor.
+  // Ohne Sprachausgabe im Browser steht nichts da.
+  function vorlesen(text, { titel = "Vorlesen", klasse = "" } = {}) {
+    return window.LernappVorlesen?.knopf?.(text, { titel, klasse: `vr-vorlesen${klasse ? ` ${klasse}` : ""}` }) || document.createTextNode("");
+  }
+  // Ein Absatz mit Lautsprecher am Ende.
+  function absatz(klasse, text, vorzulesen = text) {
+    const p = el("p", klasse);
+    p.append(el("span", "vr-absatz-text", text), " ", vorlesen(vorzulesen));
+    return p;
   }
 
   function liesJson(schluessel, ersatz) {
@@ -358,7 +376,17 @@
     oben.append(a.k, mitte, b.k);
     const satz = el("p", "vr-satz");
     satz.setAttribute("aria-live", "polite");
-    const brett = S.spiel.brett({ zug: beiZug, ton, el, knopf, steinZeichen, ruhig });
+    // Der Lautsprecher beim Satz liest den Satz – und was das Spiel dazu
+    // sagen möchte (den Stand, die Antworten zur Wahl …).
+    let satzJetzt = "";
+    let bildJetzt = null;
+    const satzLaut = vorlesen(() => {
+      let dazu = "";
+      try { dazu = bildJetzt ? S.spiel.vorlesen?.(bildJetzt) || "" : ""; } catch { dazu = ""; }
+      if (!dazu) return satzJetzt;
+      return /[.!?…]$/.test(satzJetzt.trim()) ? `${satzJetzt} ${dazu}` : `${satzJetzt}. ${dazu}`;
+    }, { titel: "Vorlesen, was gerade los ist", klasse: "vr-satz-laut" });
+    const brett = S.spiel.brett({ zug: beiZug, ton, el, knopf, steinZeichen, ruhig, vorlesen });
     const unten = el("div", "vr-knoepfe");
     wirt.append(oben, satz, brett.knoten, unten);
 
@@ -377,6 +405,9 @@
       if (textSitz) satz.append(steinZeichen(textSitz));
       satz.append(el("span", "vr-satz-text", text));
       if (denkt) satz.append(el("span", "vr-denkt", "…"));
+      satzJetzt = text;
+      bildJetzt = bild;
+      satz.append(satzLaut);
       satz.classList.toggle("ist-ich", Boolean(dran && (dran === ich || (dran === "beide" && ich))));
       satz.classList.toggle("ist-ende", Boolean(ende));
       satz.classList.toggle("ist-sieg", Boolean(ende === "g" || (ende && !["u", "v"].includes(ende) && (ende === ich || !ich))));
@@ -468,7 +499,7 @@
 
   function fehlerZeigen(text) {
     const box = el("section", "vr-karte vr-fehler");
-    box.append(el("p", "vr-fehler-text", text), knopf("Zum Menü", "mini-knopf mini-knopf-voll vr-los", () => geh({})));
+    box.append(absatz("vr-fehler-text", text), knopf("Zum Menü", "mini-knopf mini-knopf-voll vr-los", () => geh({})));
     ansicht("fehler", box);
   }
 
@@ -537,7 +568,7 @@
   // Ohne Namen geht kein Duell: Das andere Gerät soll lesen, wer da spielt.
   function nameFeld({ text, wort, weiter }) {
     const form = el("form", "vr-namensfeld");
-    const satz = el("p", "vr-hinweis", text);
+    const satz = absatz("vr-hinweis", text);
     const zeile = el("div", "vr-zeile");
     const feld = el("input", "vr-eingabe");
     feld.type = "text";
@@ -571,7 +602,7 @@
     bild.classList.add("zw-held-bild");
     bild.setAttribute("aria-hidden", "true");
     const text = el("div", "vr-held-text");
-    text.append(el("h1", "vr-titel", titel()), el("p", "vr-unter", S.spiel.unter || ""));
+    text.append(el("h1", "vr-titel", titel()), absatz("vr-unter", S.spiel.unter || "", `${titel()}. ${S.spiel.unter || ""}`));
     kopf.append(bild, text);
 
     // Wer spielt: der Name dieses Geräts, zu ändern wie überall in der arcade.
@@ -581,7 +612,10 @@
     let pc = null;
     if (S.spiel.stufen) {
       pc = el("section", "vr-karte vr-karte-pc");
-      pc.append(el("h2", "vr-karte-titel", "Gegen den Computer"));
+      const pcTitel = el("h2", "vr-karte-titel", "Gegen den Computer");
+      const stufenText = Object.values(S.spiel.stufen).map((st) => `${st.name}: ${st.satz}`).join(". ");
+      pcTitel.append(" ", vorlesen(`Gegen den Computer. Such dir eine Stufe aus. ${stufenText}.`, { titel: "Die Stufen vorlesen" }));
+      pc.append(pcTitel);
       const stufen = el("div", "vr-stufen");
       const b = bilanzen();
       for (const [id, st] of Object.entries(S.spiel.stufen)) {
@@ -605,9 +639,10 @@
     const wartende = el("div", "vr-wartende");
     wartende.setAttribute("aria-live", "polite");
     if (TURNIER) live.append(wartende);
-    live.append(el("p", "vr-hinweis", TURNIER
+    const liveText = TURNIER
       ? "Jede auf dem eigenen Gerät. Wer ein Spiel eröffnet, steht hier bei allen im Turnier – ein Tipp, und es geht los."
-      : "Jede und jeder auf dem eigenen Gerät. Du eröffnest und schickst den Link – oder sagst den Code mit vier Ziffern."));
+      : "Jede und jeder auf dem eigenen Gerät. Du eröffnest und schickst den Link – oder sagst den Code mit vier Ziffern.";
+    live.append(absatz("vr-hinweis", liveText, `Zu zweit, live. ${liveText}${TURNIER ? "" : " Hast du einen Code bekommen? Dann tippe die vier Ziffern ein und danach auf Beitreten."}`));
     const platz = el("div", "vr-live-platz");
     const offen = knopf(TURNIER ? "Neues Spiel eröffnen" : "Neues Duell eröffnen", "mini-knopf mini-knopf-voll vr-los vr-eroeffnen", () => {
       if (!meinName()) {
@@ -1182,7 +1217,9 @@
     if (!S.sitz && !d.b && !meinName()) {
       if (S.ansicht === "name") return;
       const box = el("section", "vr-karte vr-lobby");
-      box.append(el("h2", "vr-karte-titel", `${d.a.name} fordert dich heraus`),
+      const fordert = el("h2", "vr-karte-titel", `${d.a.name} fordert dich heraus`);
+      fordert.append(" ", vorlesen(`${d.a.name} fordert dich heraus. Wie heisst du? Schreib deinen Namen und tippe auf Mitspielen.`));
+      box.append(fordert,
         nameFeld({ text: "Wie heisst du? Das sieht dein Gegenüber.", wort: "Mitspielen", weiter: () => { S.ansicht = ""; sitzFinden(); duellZeichnen(); } }));
       ansicht("name", box);
       return;
@@ -1312,7 +1349,9 @@
       const ziffern = el("p", "vr-grosscode");
       ziffern.setAttribute("aria-label", `Code ${[...String(d.code)].join(" ")}`);
       [...String(d.code)].forEach((z) => ziffern.append(el("span", "vr-ziffer", z)));
-      code.append(el("p", "vr-code-label", "Code"), ziffern);
+      const label = el("p", "vr-code-label", "Code");
+      label.append(" ", vorlesen(`Der Code ist: ${[...String(d.code)].join(", ")}.`, { titel: "Den Code vorlesen" }));
+      code.append(label, ziffern);
     }
     const link = el("p", "vr-link", duellLink());
     const punkte = el("p", "vr-wartet");
@@ -1324,7 +1363,7 @@
       box.append(punkte,
         el("h2", "vr-karte-titel", "Die anderen sehen jetzt:"),
         el("p", "vr-vorschau-knopf", `Mit ${name} spielen`),
-        el("p", "vr-hinweis", "Sobald jemand darauf tippt, geht es los – hier und dort."));
+        absatz("vr-hinweis", "Sobald jemand darauf tippt, geht es los – hier und dort.", `Die anderen sehen jetzt einen Knopf: Mit ${name} spielen. Sobald jemand darauf tippt, geht es los – hier und dort.`));
       const reihe = el("div", "vr-knoepfe");
       reihe.append(abbrechen);
       const mehr = el("details", "vr-mehr");
@@ -1336,7 +1375,7 @@
       box.append(reihe, mehr);
     } else {
       box.append(el("h2", "vr-karte-titel", "Wer spielt mit?"),
-        el("p", "vr-hinweis", "Schick den Link – oder sag den Code. Sobald jemand da ist, geht es los."), code);
+        absatz("vr-hinweis", "Schick den Link – oder sag den Code. Sobald jemand da ist, geht es los.", `Wer spielt mit? Schick den Link – oder sag den Code${d.code ? `: ${[...String(d.code)].join(", ")}` : ""}. Sobald jemand da ist, geht es los.`), code);
       const reihe = el("div", "vr-knoepfe");
       reihe.append(teilenKnopf, abbrechen);
       box.append(reihe, meldung, link, punkte);

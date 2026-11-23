@@ -348,6 +348,8 @@
     darf,
     brett,
     computer,
+    // Was der Lautsprecher beim Satz noch vorliest: wer was tut, und die Schritte.
+    vorlesen: (b) => [!b.ich ? "" : b.ich === b.lage.leser ? "Du hast die Karte" : "Du suchst den Schatz", b.lage.ende ? "" : `Noch ${b.lage.uebrig} ${b.lage.uebrig === 1 ? "Schritt" : "Schritte"}`].filter(Boolean).join(". "),
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
   });

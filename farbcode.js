@@ -295,7 +295,7 @@
     return bild;
   }
 
-  function brett({ zug, ton, knopf }) {
+  function brett({ zug, ton, knopf, vorlesen }) {
     const knoten = el("div", "zw-fc");
     // Oben: meine Versuche auf den Code des anderen. Unten: sein Raten auf
     // meinen Code (klein), mit meinem Code daneben.
@@ -322,6 +322,11 @@
     }
     const hinweis = el("div", "zw-fc-hinweis");
     hinweis.setAttribute("aria-live", "polite");
+    // Der Hinweis mit Lautsprecher: was als Nächstes zu tippen ist.
+    const hinweisZeile = el("div", "zw-fc-hinweis-zeile");
+    const hinweisLaut = vorlesen?.(() => hinweis.textContent, { titel: "Den Hinweis vorlesen" });
+    hinweisZeile.append(hinweis);
+    if (hinweisLaut) hinweisZeile.append(hinweisLaut);
     const palette = el("div", "zw-fc-palette");
     const farbKnoepfe = [];
     for (let f = 1; f <= FARBEN; f += 1) {
@@ -334,7 +339,7 @@
       palette.append(k);
     }
     const los = knopf("Raten", "mini-knopf mini-knopf-voll vr-los zw-fc-los", () => absenden());
-    eingabe.append(plaetze, hinweis, palette, los);
+    eingabe.append(plaetze, hinweisZeile, palette, los);
     const tafeln = el("div", "zw-fc-tafeln");
     tafeln.append(angriff, abwehr);
     knoten.append(tafeln, eingabe);
@@ -448,6 +453,7 @@
       });
       const voll = gueltig(wahlCode.join(""));
       hinweis.textContent = hand ? `${FARB_NAMEN[Number(hand) - 1]} – jetzt einen Platz antippen` : voll ? "" : "Tippe eine Farbe an, dann einen Platz";
+      if (hinweisLaut?.nodeType === 1 && window.LernappVorlesen?.kann) hinweisLaut.hidden = !hinweis.textContent;
       los.textContent = verstecken(b) ? "Fertig!" : "Raten";
       los.disabled = !voll;
 

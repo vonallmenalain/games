@@ -321,7 +321,7 @@
     return bild;
   }
 
-  function brett({ zug, ton, ruhig }) {
+  function brett({ zug, ton, ruhig, vorlesen }) {
     const knoten = el("div", "zw-mh");
     const vorrat = { a: el("div", "zw-mh-vorrat ist-a"), b: el("div", "zw-mh-vorrat ist-b") };
     const feld = el("div", "zw-mh-feld");
@@ -342,6 +342,8 @@
     const hinweis = el("p", "zw-mh-hinweis");
     hinweis.setAttribute("aria-live", "polite");
     hinweis.hidden = true;
+    const hinweisText = el("span", "zw-mh-hinweis-text");
+    hinweis.append(hinweisText, " ", vorlesen?.(() => hinweisText.textContent) || "");
     knoten.append(vorrat.b, feld, vorrat.a, hinweis);
 
     let jetzt = null;
@@ -499,7 +501,7 @@
       hinweis.hidden = !halb;
       if (halb) {
         const gegen = anderer(b.ich);
-        hinweis.textContent = `Mühle! Tippe einen Stein ${b.modus === "computer" ? "des Computers" : `von ${b.namen?.[gegen] || "deinem Gegenüber"}`} an – er kommt weg.`;
+        hinweisText.textContent = `Mühle! Tippe einen Stein ${b.modus === "computer" ? "des Computers" : `von ${b.namen?.[gegen] || "deinem Gegenüber"}`} an – er kommt weg.`;
       }
       knoten.dataset.ich = b.ich || "";
     }

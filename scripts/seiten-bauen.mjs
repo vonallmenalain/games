@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-17";
+export const FASSUNG = "2026-11-23-18";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -399,9 +399,10 @@ export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 // installierten App heraus spielen.
 export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
 // Ein Spiel zu zweit: das Fundament, die Realtime Database (für das Duell),
-// kids.js (Ton-Knopf, Konfetti, kein Zoom), der gemeinsame Rahmen (zwei.js)
-// und das Spiel selbst. Keine Anmeldung: Wer spielt, sagt nur seinen Namen.
-export const zweiSkripte = (spiel) => [...SDK, SDK_DATABASE, ...GEMEINSAM, "kids.js", "zwei.js", ...spiel.js, "pwa.js"];
+// kids.js (Ton-Knopf, Konfetti, kein Zoom), das Vorlesen (vorlesen.js: ein
+// Lautsprecher neben den Texten), der gemeinsame Rahmen (zwei.js) und das
+// Spiel selbst. Keine Anmeldung: Wer spielt, sagt nur seinen Namen.
+export const zweiSkripte = (spiel) => [...SDK, SDK_DATABASE, ...GEMEINSAM, "kids.js", "vorlesen.js", "zwei.js", ...spiel.js, "pwa.js"];
 
 /*
  * Der Kopf jeder Seite. Dazu die Vorschau, wenn jemand den Link teilt: Titel,

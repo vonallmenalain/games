@@ -263,6 +263,8 @@
     darf,
     brett,
     computer,
+    // Was der Lautsprecher beim Satz noch vorliest: wie hoch der Turm ist.
+    vorlesen: (b) => `${b.lage.kloetze.length} von ${b.lage.art.ziel} Klötzen`,
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
     // Für die Prüfung: ob ein Turm hält.
