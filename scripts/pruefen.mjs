@@ -1003,6 +1003,55 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Schiffe versenken: «Schwer» schlägt «Ganz leicht» fast immer (${siegeSchwer} von 20)`, siegeSchwer >= 15);
   }
 
+  // Käsekästchen: wer die vierte Seite zieht, bekommt das Kästchen und zieht
+  // nochmal; am Ende zählen die Kästchen. Und der Computer zieht auf jeder
+  // Stufe nur, was erlaubt ist.
+  const KK = angemeldet.kaesekaestchen;
+  if (KK) {
+    const lage = (zuege, beginnt = "a") => KK.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    // Kästchen 0: oben 0, unten 4, links 20, rechts 21.
+    const k1 = lage(["0", "20", "4"]);
+    const k2 = lage(["0", "20", "4", "21"]);
+    pruefe("Käsekästchen: Wer die vierte Seite zieht, bekommt das Kästchen und zieht nochmal",
+      k1.dran === "b" && k1.besitz[0] === "" && k2.besitz[0] === "b" && k2.punkte.b === 1 && k2.dran === "b" && k2.nochmal === true);
+    pruefe("Käsekästchen: Ein Strich zwischen zwei Kästchen kann beide schliessen",
+      (() => { const l = lage(["0", "20", "4", "1", "22", "5", "21"]); return l.besitz[0] === "a" && l.besitz[1] === "a" && l.punkte.a === 2 && l.dran === "a"; })());
+    pruefe("Käsekästchen: nur ein freier Strich, nur wer dran ist",
+      KK.darf(lage([]), "0", "a") && KK.darf(lage([]), "39", "a") && !KK.darf(lage([]), "40", "a") && !KK.darf(lage([]), "05", "a")
+      && !KK.darf(lage([]), "0", "b") && !KK.darf(lage(["0"]), "0", "b") && lage(["0", "0"]).dran === null);
+    // Ganze Partien: zufällig (mit Saat), bis ein Unentschieden dabei ist –
+    // und Computer gegen Computer auf jeder Stufe.
+    let zufall = 4242;
+    const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+    let remis = null;
+    let ausgang = true;
+    for (let p = 0; p < 400 && !remis; p += 1) {
+      const zuege = [...Array(40).keys()].map(String).sort(() => wuerfel() - 0.5);
+      const l = lage(zuege);
+      if (!l.ende || l.punkte.a + l.punkte.b !== 16 || l.ende !== (l.punkte.a > l.punkte.b ? "a" : l.punkte.b > l.punkte.a ? "b" : "u")) ausgang = false;
+      if (l.ende === "u") remis = l;
+    }
+    pruefe("Käsekästchen: Sind alle 40 Striche gezogen, ist die Partie aus – 16 Kästchen verteilt, wer mehr hat, gewinnt", ausgang);
+    pruefe("Käsekästchen: Acht zu acht ist unentschieden", remis?.punkte.a === 8 && remis?.punkte.b === 8);
+    let legal = true;
+    let schwerSiegt = 0;
+    const STUFEN_KK = Object.keys(KK.stufen || {});
+    for (let p = 0; p < 24 && legal; p += 1) {
+      const sa = p < 8 ? STUFEN_KK[p % 4] : "mittel";
+      const sb = p < 8 ? STUFEN_KK[3 - (p % 4)] : "schwer";
+      const zuege = [];
+      const beginnt = p % 2 ? "b" : "a";
+      for (let l = lage(zuege, beginnt); !l.ende; l = lage(zuege, beginnt)) {
+        const z = KK.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        if (!KK.darf(l, z, l.dran)) { legal = false; break; }
+        zuege.push(z);
+      }
+      if (p >= 8 && lage(zuege, beginnt).ende === "b") schwerSiegt += 1;
+    }
+    pruefe("Käsekästchen: Jede Stufe zieht nur freie Striche, bis die Partie aus ist", legal);
+    pruefe(`Käsekästchen: «Schwer» schlägt «Mittel» meistens (${schwerSiegt} von 16)`, schwerSiegt >= 10);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

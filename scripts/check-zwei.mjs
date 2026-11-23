@@ -64,6 +64,53 @@ if (!process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
   process.exit(lauf.status ?? 1);
 }
 
+const befundeVorab = [];
+
+// --- Käsekästchen: Zugfolgen, nach den Regeln ausgerechnet -----------------------
+// 4 × 4 Kästchen, Striche 0–19 waagrecht, 20–39 senkrecht (kaesekaestchen.js).
+// Wer ein Kästchen schliesst, zieht nochmal – darum stehen die Folgen nicht
+// einfach abwechselnd da, sondern mit dem, der jeweils dran ist.
+const KK_SEITEN = Array.from({ length: 16 }, (_, k) => {
+  const r = Math.floor(k / 4); const c = k % 4;
+  return [r * 4 + c, (r + 1) * 4 + c, 20 + r * 5 + c, 20 + r * 5 + c + 1];
+});
+function kkFolge(wahl, beginnt) {
+  const gez = new Array(40).fill(false);
+  const punkte = { a: 0, b: 0 };
+  const folge = [];
+  let dran = beginnt;
+  while (folge.length < 40) {
+    const zug = wahl(gez, dran);
+    gez[zug] = true;
+    const neu = KK_SEITEN.filter((s) => s.includes(zug) && s.every((x) => gez[x])).length;
+    punkte[dran] += neu;
+    folge.push({ sitz: dran, zug: String(zug) });
+    if (!neu) dran = dran === "a" ? "b" : "a";
+  }
+  return { folge, punkte };
+}
+const kkSeiten = (gez, k) => KK_SEITEN[k].filter((x) => gez[x]).length;
+const kkSchliesst = (gez, l) => KK_SEITEN.some((s, k) => s.includes(l) && kkSeiten(gez, k) === 3);
+const kkGibt = (gez, l) => KK_SEITEN.some((s, k) => s.includes(l) && kkSeiten(gez, k) === 2);
+// Papa (a) nimmt jedes Kästchen und gibt keines her, solange es geht; Lena
+// (b) nimmt keines und legt gern die dritte Seite hin.
+const KK_SIEG = kkFolge((gez, dran) => {
+  const frei = [...Array(40).keys()].filter((l) => !gez[l]);
+  if (dran === "a") return frei.find((l) => kkSchliesst(gez, l)) ?? frei.find((l) => !kkGibt(gez, l)) ?? frei[0];
+  return frei.find((l) => !kkSchliesst(gez, l) && kkGibt(gez, l)) ?? frei.find((l) => !kkSchliesst(gez, l)) ?? frei[0];
+}, "a");
+// Ein Unentschieden, das Lena beginnt: zufällig (mit Saat), bis es acht zu
+// acht steht.
+const KK_REMIS = (() => {
+  let zufall = 777;
+  const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+  for (let p = 0; p < 2000; p += 1) {
+    const r = kkFolge((gez) => { const frei = [...Array(40).keys()].filter((l) => !gez[l]); return frei[Math.floor(wuerfel() * frei.length)]; }, "b");
+    if (r.punkte.a === 8) return r;
+  }
+  return null;
+})();
+
 // --- Was jedes Spiel wissen muss --------------------------------------------------
 /*
  *   brett        woran man sieht, dass das Brett steht
@@ -165,7 +212,27 @@ const SPIELWEISE = {
     },
     schwerSpielen: false,
   },
+  kaesekaestchen: {
+    brett: ".zw-kk-feld",
+    tippe: (s, z) => s.locator(`.zw-kk-linie[data-linie="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-kk-linie[data-linie="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-kk-linie.ist-gezogen").count(),
+    // Gegen den Computer: ein Kästchen nehmen, sonst keine dritte Seite
+    // hinlegen, sonst irgendeinen Strich.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a") return null;
+      const gez = lage.gezogen.map(Boolean);
+      const frei = [...Array(40).keys()].filter((l) => !gez[l]);
+      return String(frei.find((l) => kkSchliesst(gez, l)) ?? frei.find((l) => !kkGibt(gez, l)) ?? frei[0]);
+    },
+    sieg: ({ papa, lena }) => KK_SIEG.folge.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })),
+    siegZeichen: [".zw-kk-box.ist-a", KK_SIEG.punkte.a],
+    remis: KK_REMIS ? ({ papa, lena }) => KK_REMIS.folge.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })) : null,
+    trenner: ".",
+  },
 };
+if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
+if (!KK_REMIS) befundeVorab.push("Käsekästchen: Kein Unentschieden gefunden");
 
 const GEWAEHLT = process.argv.slice(2);
 const ZU_PRUEFEN = ZWEI.filter((z) => z.seite !== "viererreihe" && (!GEWAEHLT.length || GEWAEHLT.includes(z.seite)));
@@ -177,7 +244,7 @@ const BASIS = `http://127.0.0.1:${PORT}`;
 const BILDER = process.env.BILDER || "";
 if (BILDER) mkdirSync(BILDER, { recursive: true });
 
-const befunde = [];
+const befunde = [...befundeVorab];
 let geprueft = 0;
 const pruefe = (bedingung, was) => { geprueft += 1; if (!bedingung) befunde.push(was); };
 
@@ -410,6 +477,7 @@ try {
         // Gleich nach dem Zug kann niemand weitertippen.
         if (i === 0) pruefe(await bis(async () => !(await w.kannTippen(g.seite, liste[1]?.zug ?? zug)), { ms: 4000 }), `${T}: Nach dem Zug wartet ${g.name}`);
       }
+      return liste;
     };
     await spiele(w.sieg, "a", 1);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Du hast gewonnen/.test(t))), `${T}: Papa hat gewonnen – bei Papa`);
@@ -427,11 +495,11 @@ try {
     pruefe(await bis(() => satz(papa.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Papa sieht, dass Lena beginnt`);
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 3000 }), `${T}: Das Brett ist leer`);
     if (w.remis) {
-      await spiele(w.remis, "b", 2);
+      const remisListe = await spiele(w.remis, "b", 2);
       pruefe(await bis(() => satz(papa.seite).then((t) => /Unentschieden/.test(t))), `${T}: Unentschieden – bei Papa`);
       pruefe(await bis(() => satz(lena.seite).then((t) => /Unentschieden/.test(t))), `${T}: Unentschieden – bei Lena`);
       const st = await (await db(`partie/${raum}/stand`)).json();
-      pruefe(st?.serie === "a" && st?.beginnt === "b" && st?.zuege === w.remis.join(w.trenner ?? "") && st?.nr === 1,
+      pruefe(st?.serie === "a" && st?.beginnt === "b" && st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "") && st?.nr === 1,
         `${T}: Der Stand in der Datenbank (${JSON.stringify(st)})`);
       await bild(papa.seite, fotos("4-duell-remis"));
     }

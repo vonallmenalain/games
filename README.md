@@ -35,6 +35,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     viererreihe.html      Viererreihe, erzeugt
     tictactoe.html        Tic Tac Toe, erzeugt
     schiffe.html          Schiffe versenken, erzeugt
+    kaesekaestchen.html   Käsekästchen, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -68,6 +69,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     tictactoe.js          Tic Tac Toe: neun Felder, Regeln und Computer
     schiffe.js            Schiffe versenken: zwei Meere, die versteckte
                           Flotte, Regeln und Computer
+    kaesekaestchen.js     Käsekästchen: Punkte, Striche, Kästchen, Regeln
+                          und Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2873,6 +2876,7 @@ Gerät:
 | Viererreihe | `/viererreihe` | `viererreihe.js`, `viererreihe-ki.js` |
 | Tic Tac Toe | `/tictactoe` | `tictactoe.js` |
 | Schiffe versenken | `/schiffe` | `schiffe.js` |
+| Käsekästchen | `/kaesekaestchen` | `kaesekaestchen.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -2988,6 +2992,27 @@ zehn, gegen «Mittel» drei; eines von neun (folgt Reihen, kennt das Wasser um
 versenkte Schiffe) gegen «Mittel» gut jede zweite, gegen «Schwer» jede
 siebte. Bilanz: `schiffe.bilanz`.
 
+**Käsekästchen** (`kaesekaestchen.js`): 5 × 5 weisse Punkte auf dunklem
+Violett, also 4 × 4 Kästchen und 40 Striche. Abwechselnd zieht jede einen
+Strich; wer die vierte Seite eines Kästchens zieht, bekommt es (es färbt
+sich und trägt ihren Stein) und zieht nochmal. Sind alle Striche gezogen,
+gewinnt, wer mehr Kästchen hat; acht zu acht ist unentschieden. Über dem
+Feld steht, wie viele Kästchen jede hat. Ein Zug ist die Nummer des
+Strichs (0–19 waagrecht, 20–39 senkrecht), durch Punkte getrennt.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | zieht irgendwo und lässt ein fertiges Kästchen meist liegen |
+| Einfach | nimmt ein Kästchen meist, passt manchmal auf, keine dritte Seite hinzulegen |
+| Mittel | nimmt fast jedes Kästchen, legt meist keine dritte Seite hin und gibt dann oft die kürzeste Kette her |
+| Schwer | nimmt jedes Kästchen, legt keine dritte Seite hin, solange es geht – und rechnet das Ende ganz durch, sobald noch 15 Striche frei sind (wer wann eine Kette hergeben muss; dauert höchstens ein paar Hundertstel) |
+
+Geeicht an nachgemachten Kindern: Eines von fünf Jahren gewinnt gegen «Ganz
+leicht» fast neun von zehn Partien, eines von sieben gegen «Einfach» jede
+zweite, gegen «Mittel» jede siebte (und spielt manchmal unentschieden);
+eines von neun gegen «Mittel» vier von zehn, gegen «Schwer» kaum eine.
+Bilanz: `kaesekaestchen.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3069,8 +3094,10 @@ Richtung, setzt nur in freie Spalten, nimmt auf «Schwer» jeden Sieg und hält
 jede Drohung auf; bei Tic Tac Toe verliert «Schwer» keine der fast tausend
 möglichen Partien; bei Schiffe versenken: eine kleine Partie Zug für Zug,
 was erlaubt ist, und 24 ganze Partien Computer gegen Computer, in denen
-das Gerät aus seiner Flotte antwortet), die Regeln in `npm run
-test:rules`, und im Browser in
+das Gerät aus seiner Flotte antwortet; bei Käsekästchen: wer ein Kästchen
+schliesst, zieht nochmal, ein Strich kann zwei schliessen, acht zu acht ist
+unentschieden, und «Schwer» schlägt «Mittel» meistens), die Regeln in `npm
+run test:rules`, und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
