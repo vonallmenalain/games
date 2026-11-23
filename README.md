@@ -42,6 +42,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     farbcode.html         Farbcode knacken, erzeugt
     blitzpaar.html        Blitzpaar, erzeugt
     schatzkarte.html      Schatzkarte & Kompass, erzeugt
+    malen.html            Malen und Raten, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -88,6 +89,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           mit Reaktionszeit
     schatzkarte.js        Schatzkarte & Kompass: die Insel, Karte und
                           Kompass, ein Computer als Partner
+    malen.js              Malen und Raten: das Blatt, die Striche live, die
+                          Bilder des Computers
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2900,6 +2903,7 @@ Gerät:
 | Farbcode knacken | `/farbcode` | `farbcode.js` |
 | Blitzpaar | `/blitzpaar` | `blitzpaar.js` |
 | Schatzkarte & Kompass | `/schatzkarte` | `schatzkarte.js` |
+| Malen und Raten | `/malen` | `malen.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3191,6 +3195,36 @@ kürzesten sicheren Weg. Wer als Sucherin jedem Hinweis folgt, findet den
 Schatz immer; wer öfter danebenläuft, auf der grossen Insel selten.
 Bilanz: `schatzkarte.bilanz`.
 
+**Malen und Raten** (`malen.js`, miteinander): sechs Runden, die Rollen
+wechseln jede Runde. Wer malt, sieht das Wort mit seinem Bild (Sonne, Haus,
+Baum, Katze, Fisch … zwanzig Wörter) und malt es mit dem Finger auf ein
+helles Blatt; «Alles löschen» fängt neu an. Wer rät, sieht die Striche,
+während sie entstehen, und tippt auf eine der Antworten – Bild und Wort,
+damit auch raten kann, wer noch nicht liest. Drei Versuche je Runde; falsche
+Antworten werden blass und durchgestrichen. Werden vier der sechs Wörter
+erraten, ist es geschafft. Wörter und Antworten kommen aus der Saat der
+Partie.
+
+Die Striche gehen nicht über die Züge, sondern über einen eigenen Ort:
+`partie/<raum>/live/<partie>-<runde>`, Punkte von 0 bis 1000 als Text
+(`x,y;x,y|x,y;…`), höchstens 40 000 Zeichen, erst wenn beide im Raum sind
+(`database.rules.json`). Der Rahmen bietet ihn jedem Spiel an
+(`LernappZwei.live(raum)`: `schreibe`, `hoere`). Wer malt, schreibt
+höchstens alle 180 ms; wer rät, hört zu. Ein Zug ist nur das Raten:
+`R2:3` – in Runde 2 die Antwort 3.
+
+Gegen den Computer malt er, und man rät: Für jedes Wort hat er ein Bild aus
+Kreisen, Bögen und Linien, das er Strich für Strich zeichnet.
+
+| Stufe | Zur Wahl | Der Computer malt |
+|---|---|---|
+| Ganz leicht | 3 Antworten | das ganze Bild |
+| Einfach | 4 Antworten | das ganze Bild |
+| Mittel | 6 Antworten | etwa vier Fünftel |
+| Schwer | 8 Antworten | gut die Hälfte |
+
+Bilanz: `malen.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3285,8 +3319,10 @@ gleich viele Runden, die Codes am Ende; bei Blitzpaar: dieselbe Saat,
 dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
 fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
 Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
-den Schatz auf jeder Insel), die Regeln in `npm run test:rules`, und im
-Browser in
+den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der Saat,
+wer malt, drei Versuche, vier von sechs, und der Live-Ort in den Regeln),
+die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
+nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein

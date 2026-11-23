@@ -318,6 +318,7 @@
     { id: "farbcode", seite: "farbcode", titel: "Farbcode knacken" },
     { id: "blitzpaar", seite: "blitzpaar", titel: "Blitzpaar" },
     { id: "schatzkarte", seite: "schatzkarte", titel: "Schatzkarte & Kompass" },
+    { id: "malen", seite: "malen", titel: "Malen und Raten" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4369,6 +4370,17 @@
       });
       insel.append(el("span", "ar-sk-kreuz", "\u2715"));
       bild.append(insel);
+    },
+    malen(bild) {
+      const papier = el("span", "ar-mr-papier");
+      papier.append(el("span", "ar-mr-sonne"));
+      for (let i = 0; i < 8; i += 1) {
+        const s = el("span", "ar-mr-strahl");
+        s.style.transform = `rotate(${i * 45}deg) translateY(calc(var(--z) * 1.55))`;
+        papier.append(s);
+      }
+      papier.append(el("span", "ar-mr-stift", "\u270F\uFE0F"));
+      bild.append(papier);
     },
   };
 

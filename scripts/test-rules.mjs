@@ -213,7 +213,7 @@ await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleL
 await darf("Admin stellt Viererreihe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
 await darf("Admin nimmt Viererreihe wieder weg", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: [] })));
 await darf("Admin hakt Viererreihe an, ohne die Liste neu zu schreiben", () => admin().doc(LISTE).set({ zweiSpieler: ["viererreihe"], updatedAtMs: 4 }, { merge: true }));
-await darf("Admin stellt alle Spiele zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte"] })));
+await darf("Admin stellt alle Spiele zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen"] })));
 await darfNicht("Admin stellt ein erfundenes Spiel zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["kreiselduell"] })));
 await darfNicht("Admin stellt Viererreihe als Spiel mit Bestenliste auf", () => admin().doc(LISTE).set(spieleListe({ spiele: ["viererreihe"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: "viererreihe" })));
@@ -430,7 +430,7 @@ await darfNicht("Admin nimmt Viererreihe als Spiel mit Bestenliste", () => admin
 await darf("Admin nimmt Spiele zu zweit als Liste ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["viererreihe"] })));
 await darf("Admin legt ein Turnier nur mit Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["viererreihe"] })));
 await darf("Admin legt ein Turnier nur mit Tic Tac Toe an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe"] })));
-await darf("Admin legt ein Turnier mit allen neuen Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte"] })));
+await darf("Admin legt ein Turnier mit allen neuen Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen"] })));
 await darfNicht("Admin legt ein Turnier mit leerer Liste zu zweit und ohne Spiel an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: [] })));
 await darfNicht("Admin nimmt ein erfundenes Spiel zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["schachboxen"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: "viererreihe" })));
@@ -1301,6 +1301,9 @@ const OFFEN_IM = "partieOffen/familie-k3m9x2p7";
 const WARTET = `${OFFEN_IM}/MNPQRSTUVW`;
 const mia = { name: "Mia", kennung: "mini_miamiamiamia", spiel: "tictactoe", seit: 1 };
 await darf("Mia eröffnet Tic Tac Toe im Turnier", () => eroeffne(live.gast(), RAUM3, { ...A, kennung: "mini_miamiamiamia", name: "Mia" }, { spiel: "tictactoe", erstellt: 1 }));
+// Malen und Raten: die Striche gehen über partie/<raum>/live – erst, wenn
+// beide da sind, nur Ziffern und Trenner, nicht zu viel.
+await darfNicht("Mia malt, bevor jemand da ist", () => live.gast().ref(`${RAUM3}/live/0-0`).set("10,20;30,40"));
 await darf("Mia wartet im Turnier", () => live.gast().ref(WARTET).set(mia));
 await darf("Gast liest, wer im Turnier wartet", () => live.gast().ref(OFFEN_IM).get());
 await darfNicht("Gast listet die Wartenden aller Turniere", () => live.gast().ref("partieOffen").get());
@@ -1311,6 +1314,16 @@ await darfNicht("Jemand wartet in einem Raum, den es nicht gibt", () => live.gas
 await darfNicht("Ein Wartender ohne Namen", () => live.gast().ref(WARTET).set({ ...mia, name: "" }));
 await darfNicht("Ein Wartender mit einem Feld zu viel", () => live.gast().ref(WARTET).set({ ...mia, raum: "X" }));
 await darf("Lena setzt sich zu Mia", () => live.gast().ref(`${RAUM3}/b`).set(B));
+await darf("Mia malt einen Strich (live)", () => live.gast().ref(`${RAUM3}/live/0-0`).set("10,20;30,40|500,500;510,520"));
+await darf("Lena sieht die Striche", () => live.gast().ref(`${RAUM3}/live/0-0`).get());
+await darf("Mia malt weiter, und löscht alles", async () => {
+  await live.gast().ref(`${RAUM3}/live/0-0`).set("10,20;30,40|500,500;510,520;600,600");
+  await live.gast().ref(`${RAUM3}/live/0-0`).set("");
+});
+await darfNicht("Ein Strich mit fremden Zeichen", () => live.gast().ref(`${RAUM3}/live/0-1`).set("10,20<b>"));
+await darfNicht("Ein Bild, das viel zu gross ist", () => live.gast().ref(`${RAUM3}/live/0-1`).set("1,".repeat(20001)));
+await darfNicht("Live an einem Ort, der kein Stück einer Partie ist", () => live.gast().ref(`${RAUM3}/live/abc`).set("10,20"));
+await darfNicht("Live als etwas anderes als Text", () => live.gast().ref(`${RAUM3}/live/0-2`).set({ x: 1 }));
 await darfNicht("Ist der Raum voll, wartet niemand mehr darin", () => live.gast().ref(WARTET).set({ ...mia, seit: 2 }));
 await darf("Der Eintrag darf weg", () => live.gast().ref(WARTET).remove());
 

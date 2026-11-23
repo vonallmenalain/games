@@ -10565,6 +10565,78 @@ body[data-page="schatzkarte"] { overscroll-behavior: none; }
   .zw-sk-pfeil.ist-empfohlen { animation: none; }
 }
 
+/* --- Malen und Raten (malen.js) ----------------------------------------------------
+   Ein Blatt Papier (Leinwand), darauf wird mit dem Finger gemalt – dunkel
+   auf Weiss. Wer malt, sieht oben das Wort mit Bild; wer rät, darunter die
+   Antworten als Bild und Wort (drei, vier, sechs oder acht). Falsche werden
+   blass und durchgestrichen. */
+body[data-page="malen"] { overscroll-behavior: none; }
+.vr-partie.zw-malen {
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc(100dvh - 480px - var(--safe-top) - var(--safe-bottom))));
+}
+.zw-mr { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; }
+.zw-mr .confetti-layer { z-index: 6; }
+.zw-mr-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; font-weight: 850; }
+.zw-mr-punkte { color: var(--ar-leise); font-variant-numeric: tabular-nums; }
+.zw-mr-auftrag { display: flex; align-items: center; gap: 10px; padding: 6px 16px; border-radius: 999px; background: rgba(255, 212, 94, 0.15); color: #fff6cf; font-size: 1.15rem; font-weight: 900; }
+.zw-mr-auftrag[hidden],
+.zw-mr-werkzeug[hidden],
+.zw-mr-antworten[hidden] { display: none; }
+.zw-mr-auftrag-bild { font-size: 1.8rem; line-height: 1; }
+.zw-mr-papier {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fffdf6;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.zw-mr-papier.ist-malen { cursor: crosshair; box-shadow: 0 0 0 4px #7c5ce6, 0 18px 44px rgba(0, 0, 0, 0.5); }
+.zw-mr-leinwand { display: block; width: 100%; height: 100%; touch-action: none; }
+.zw-mr-werkzeug { display: flex; justify-content: center; gap: 10px; }
+.zw-mr-antworten { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; width: 100%; }
+.zw-mr-antworten:empty { display: none; }
+.zw-mr-antwort {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 4px;
+  border-radius: 14px;
+  background: var(--ar-flaeche-hoch);
+  color: var(--ar-text);
+  transition: transform 0.12s ease, opacity 0.2s ease;
+}
+.zw-mr-antwort:disabled { opacity: 1; cursor: default; }
+.zw-mr-antworten.ist-aus .zw-mr-antwort { opacity: 0.6; }
+.zw-mr.ist-dran .zw-mr-antwort:not(:disabled):active { transform: scale(0.95); }
+.zw-mr-antwort-bild { font-size: 1.8rem; line-height: 1; }
+.zw-mr-antwort-wort { font-size: 0.82rem; font-weight: 800; }
+.zw-mr-antwort.ist-falsch { opacity: 0.32; background: #4a2a3a; text-decoration: line-through; }
+.zw-mr-antwort:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-malen { --vr-breite: max(180px, min(calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom)), 42vw)); }
+  .zw-mr { grid-area: feld; display: grid; grid-template-columns: var(--vr-breite) minmax(160px, 240px); grid-template-areas: "kopf kopf" "papier auftrag" "papier antworten" "papier werkzeug"; align-items: start; width: auto; }
+  .zw-mr-kopf { grid-area: kopf; }
+  .zw-mr-papier { grid-area: papier; }
+  .zw-mr-auftrag { grid-area: auftrag; }
+  .zw-mr-antworten { grid-area: antworten; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zw-mr-werkzeug { grid-area: werkzeug; }
+}
+
+/* Im Menü: ein Blatt mit einer gemalten Sonne, ein Stift. */
+.zw-mr-held { position: relative; flex: 0 0 auto; }
+.zw-mr-held-papier { display: block; width: clamp(90px, 26vw, 120px); aspect-ratio: 1; border-radius: 12px; background: #fffdf6; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+.zw-mr-held-papier svg { display: block; width: 100%; height: 100%; }
+.zw-mr-held-papier polyline { fill: none; stroke: #2a2150; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
+.zw-mr-held-stift { position: absolute; right: -12px; bottom: -10px; font-size: 2.2rem; line-height: 1; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-mr-antwort { transition: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10647,6 +10719,11 @@ body[data-page="schatzkarte"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Malen und Raten: ein Blatt, eine gemalte Sonne, ein Stift. */
+.ar-mr-papier { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); border-radius: calc(var(--z) * 0.4); background: #fffdf6; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.ar-mr-sonne { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border: calc(var(--z) * 0.22) solid #2a2150; border-radius: 50%; }
+.ar-mr-strahl { position: absolute; left: 50%; top: 50%; width: calc(var(--z) * 0.22); height: 16%; margin-left: calc(var(--z) * -0.11); border-radius: 999px; background: #2a2150; transform-origin: 50% 0; }
+.ar-mr-stift { position: absolute; right: -6%; bottom: -8%; font-size: calc(var(--z) * 2.2); line-height: 1; }
 /* Schatzkarte & Kompass: eine Insel im Meer, ein Weg aus Punkten, ein Kreuz. */
 .ar-sk-insel {
   position: absolute;

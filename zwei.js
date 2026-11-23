@@ -83,6 +83,9 @@
  *   texte                { start: "tippe auf eine Spalte",
  *                          remis: "Unentschieden – das Brett ist voll.",
  *                          geschafft, verpasst (miteinander) }
+ *   LernappZwei.live(raum)  (für das Brett, nur im Duell) ein Ort für das,
+ *                        was keine Züge sind – { schreibe(stück, text),
+ *                        hoere(stück, beiText) → abmelden }
  *   zeichen(sitz)        (wenn es eines gibt) das Zeichen eines Spielers
  *                        (sonst ein Stein in Koralle oder Gold)
  */
@@ -907,6 +910,27 @@
 
   const TIMESTAMP = () => window.firebase?.database?.ServerValue?.TIMESTAMP;
 
+  /*
+   * Für Spiele, die mehr brauchen als Züge – Malen und Raten: die Striche,
+   * während sie entstehen. Ein Ort je Raum (partie/<raum>/live/<stück>,
+   * stück wie «0-3»: Partie und Runde), nur Ziffern und Trenner, höchstens
+   * 40 000 Zeichen (database.rules.json). Nur im Duell; sonst null.
+   */
+  function live(raum) {
+    const db = S.db;
+    if (!db || !RAUM_MUSTER.test(String(raum || ""))) return null;
+    const ort = (stueck) => db.ref(`partie/${raum}/live/${stueck}`);
+    return {
+      schreibe: (stueck, wert) => ort(stueck).set(String(wert)).catch((fehler) => console.warn("Live ging nicht hinaus", fehler)),
+      hoere: (stueck, beiWert) => {
+        const r = ort(stueck);
+        const f = (schnappschuss) => beiWert(String(schnappschuss.val() || ""));
+        r.on("value", f);
+        return () => r.off("value", f);
+      },
+    };
+  }
+
   function ich() {
     return { kennung: mini()?.kennung?.() || "", name: meinName() };
   }
@@ -1386,6 +1410,7 @@
     el,
     knopf,
     anderer,
+    live,
     // Für die Prüfung im Browser: was gerade gilt, und ein Zug ohne Tippen.
     test: TEST ? {
       lage: () => (S.ansicht === "computer" ? computerLage() : duellStand().lage),

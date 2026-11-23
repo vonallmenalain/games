@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-12";
+export const FASSUNG = "2026-11-23-13";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -637,6 +637,11 @@ export const ZWEI = [
     seite: "schatzkarte", titel: "Schatzkarte & Kompass", js: ["schatzkarte.js"],
     text: "Schatzkarte & Kompass: Zusammen den Schatz finden – eine hat die Karte und zeigt den Weg, die andere sucht. Mit dem Computer als Partner oder live zu zweit.",
     kurz: "Zusammen den Schatz finden – eine hat die Karte, die andere sucht.",
+  },
+  {
+    seite: "malen", titel: "Malen und Raten", js: ["malen.js"],
+    text: "Malen und Raten: Eine malt mit dem Finger, die andere rät – zusammen sechs Runden. Mit dem Computer als Maler oder live zu zweit.",
+    kurz: "Eine malt, die andere rät – zusammen.",
   },
 ];
 
