@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-3";
+export const FASSUNG = "2026-11-23-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -592,6 +592,11 @@ export const ZWEI = [
     seite: "viererreihe", titel: "Viererreihe", js: ["viererreihe-ki.js", "viererreihe.js"],
     text: "Viererreihe: Lass die Steine fallen – wer zuerst vier in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
     kurz: "Vier in einer Reihe – gegen den Computer oder live zu zweit.",
+  },
+  {
+    seite: "tictactoe", titel: "Tic Tac Toe", js: ["tictactoe.js"],
+    text: "Tic Tac Toe: Kreuz oder Kreis, abwechselnd ein Feld – wer zuerst drei in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
+    kurz: "Drei in einer Reihe – gegen den Computer oder live zu zweit.",
   },
 ];
 

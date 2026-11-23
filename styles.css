@@ -9361,6 +9361,104 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
   .vr-denkt { animation: none; }
 }
 
+/* --- Tic Tac Toe (tictactoe.js) ------------------------------------------------
+   Im Rahmen der Spiele zu zweit (vr-…), mit eigenem Brett: neun dunkle
+   Felder in einer violetten Platte. Kreuz in Koralle (wer eröffnet), Kreis in
+   Gold – gezeichnet wie mit dem Stift. Rand und Fugen sind je 2 % der Breite;
+   darauf rechnet die Gewinnlinie (tictactoe.js, mitte). */
+body[data-page="tictactoe"] { overscroll-behavior: none; }
+.zw-ttt-gitter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--vr-breite) * 0.02);
+  padding: calc(var(--vr-breite) * 0.02);
+  border-radius: calc(var(--vr-breite) * 0.06);
+  background: linear-gradient(170deg, #8e72f2, var(--vr-brett) 55%, #4b30bd);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.zw-ttt-feld {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--vr-breite) * 0.04);
+  background: var(--vr-rueckwand);
+  box-shadow: inset 0 calc(var(--vr-breite) * 0.012) 0 rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Ein Feld ist ein Knopf – aber auch gesperrt (nicht dran, besetzt, vorbei)
+   bleibt es so dunkel wie die anderen, nicht halb durchsichtig wie ein
+   gesperrter Knopf sonst. */
+.zw-ttt-feld:disabled { cursor: default; opacity: 1; }
+.vr-feld.ist-dran .zw-ttt-feld:not(:disabled):hover { background: #221b3a; }
+.vr-feld.ist-dran .zw-ttt-feld:not(:disabled):active { background: #2a2147; }
+.zw-ttt-feld:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
+/* Wohin zuletzt gesetzt wurde: ein heller Rand – so sieht man den Zug des
+   Computers (oder des Gegenübers). */
+.zw-ttt-feld.ist-letzter { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.007) rgba(255, 255, 255, 0.3), inset 0 calc(var(--vr-breite) * 0.012) 0 rgba(0, 0, 0, 0.4); }
+.zw-ttt-feld .zw-ttt-zeichen { width: 72%; height: 72%; }
+.vr-feld.ist-aus .zw-ttt-feld:not(.ist-sieg) .zw-ttt-zeichen { opacity: 0.3; transition: opacity 0.4s ease; }
+.zw-ttt-feld.ist-sieg { background: #2a2147; }
+
+.zw-ttt-zeichen { display: block; overflow: visible; }
+.zw-ttt-zeichen path { fill: none; stroke-width: 13; stroke-linecap: round; }
+.zw-ttt-zeichen.ist-a path { stroke: var(--vr-a); }
+.zw-ttt-zeichen.ist-b path { stroke: var(--vr-b); }
+.zw-ttt-feld .zw-ttt-zeichen.ist-a { filter: drop-shadow(0 0 calc(var(--vr-breite) * 0.012) rgba(254, 121, 113, 0.55)); }
+.zw-ttt-feld .zw-ttt-zeichen.ist-b { filter: drop-shadow(0 0 calc(var(--vr-breite) * 0.012) rgba(255, 212, 94, 0.5)); }
+/* Klein im Text, in der Leiste, im Menü: so gross wie die Schrift. */
+.zw-ttt-zeichen.ist-mini { display: inline-block; flex: 0 0 auto; width: 1.1em; height: 1.1em; vertical-align: -0.18em; }
+.zw-ttt-zeichen.ist-mini path { stroke-width: 16; }
+/* Ein neues Zeichen wird gezogen: erst der eine Strich, dann der andere. */
+.zw-ttt-zeichen.ist-neu path { stroke-dasharray: 1 1.2; animation: zw-ttt-strich 0.26s ease-out both; }
+.zw-ttt-zeichen.ist-neu.ist-a path + path { animation-delay: 0.16s; }
+.zw-ttt-zeichen.ist-neu.ist-b path { animation-duration: 0.38s; }
+@keyframes zw-ttt-strich {
+  from { stroke-dashoffset: 1; opacity: 0; }
+  10% { opacity: 1; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+/* Die Gewinnlinie: weiss, mit dem Schein des Siegers. */
+.zw-ttt-linie { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.zw-ttt-linie path { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; stroke-dasharray: 1 1.2; stroke-dashoffset: 1; opacity: 0; }
+.zw-ttt-linie.ist-an path { animation: zw-ttt-strich 0.42s 0.2s ease-out forwards; }
+.zw-ttt-linie.ist-a path { filter: drop-shadow(0 0 6px var(--vr-a)); }
+.zw-ttt-linie.ist-b path { filter: drop-shadow(0 0 6px var(--vr-b)); }
+
+/* Im Menü: ein kleines Brett, schräg gewonnen. */
+.zw-ttt-held {
+  --h: clamp(30px, 8.5vw, 42px);
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, var(--h));
+  grid-auto-rows: var(--h);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: linear-gradient(170deg, #8e72f2, var(--vr-brett) 55%, #4b30bd);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+.zw-ttt-held-feld { display: grid; place-items: center; border-radius: 8px; background: var(--vr-rueckwand); }
+.zw-ttt-held-feld .zw-ttt-zeichen { width: 70%; height: 70%; }
+.zw-ttt-held-feld .zw-ttt-zeichen path { stroke-width: 15; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-ttt-zeichen.ist-neu path,
+  .zw-ttt-linie.ist-an path { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; opacity: 1; }
+  .zw-ttt-feld { transition: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -9443,6 +9541,42 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Tic Tac Toe: neun Felder, ein Kreuz schräg durch. */
+.ar-ttt-gitter {
+  position: absolute;
+  left: calc(50% - var(--z) * 3);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 6);
+  height: calc(var(--z) * 6);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--z) * 0.16);
+  padding: calc(var(--z) * 0.16);
+  border-radius: calc(var(--z) * 0.4);
+  background: linear-gradient(170deg, #a088f7, #5a3dd2);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-ttt-feld { position: relative; border-radius: calc(var(--z) * 0.22); background: rgba(12, 9, 24, 0.82); }
+.ar-ttt-feld.ist-a::before,
+.ar-ttt-feld.ist-a::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: calc(50% - var(--z) * 0.12);
+  height: calc(var(--z) * 0.24);
+  border-radius: 999px;
+  background: #fe7971;
+  transform: rotate(45deg);
+}
+.ar-ttt-feld.ist-a::after { transform: rotate(-45deg); }
+.ar-ttt-feld.ist-b::before {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  border: calc(var(--z) * 0.22) solid #ffd45e;
+}
 /* Auf der Turnierseite oben, solange jemand wartet: ein grosser Knopf, ein
    Tipp führt direkt ans Brett (turnier.js, rufeZeichnen). */
 .tn-vr-rufe { order: 4; flex: 1 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 10px; }

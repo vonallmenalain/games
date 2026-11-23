@@ -213,7 +213,8 @@ await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleL
 await darf("Admin stellt Viererreihe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
 await darf("Admin nimmt Viererreihe wieder weg", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: [] })));
 await darf("Admin hakt Viererreihe an, ohne die Liste neu zu schreiben", () => admin().doc(LISTE).set({ zweiSpieler: ["viererreihe"], updatedAtMs: 4 }, { merge: true }));
-await darfNicht("Admin stellt ein erfundenes Spiel zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["schach"] })));
+await darf("Admin stellt Viererreihe und Tic Tac Toe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe", "tictactoe"] })));
+await darfNicht("Admin stellt ein erfundenes Spiel zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["kreiselduell"] })));
 await darfNicht("Admin stellt Viererreihe als Spiel mit Bestenliste auf", () => admin().doc(LISTE).set(spieleListe({ spiele: ["viererreihe"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: "viererreihe" })));
 await darfNicht("Gast stellt Viererreihe auf die Startseite", () => gast().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
@@ -428,6 +429,7 @@ await darfNicht("Admin nimmt Viererreihe als Spiel mit Bestenliste", () => admin
 // Die Spiele zu zweit als Liste (zweiSpieler): nur solche, die es gibt.
 await darf("Admin nimmt Spiele zu zweit als Liste ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["viererreihe"] })));
 await darf("Admin legt ein Turnier nur mit Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["viererreihe"] })));
+await darf("Admin legt ein Turnier nur mit Tic Tac Toe an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe"] })));
 await darfNicht("Admin legt ein Turnier mit leerer Liste zu zweit und ohne Spiel an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: [] })));
 await darfNicht("Admin nimmt ein erfundenes Spiel zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["schachboxen"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: "viererreihe" })));

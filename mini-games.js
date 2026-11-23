@@ -303,12 +303,13 @@
 
   const NACH_ID = new Map(SPIELE.map((s) => [s.id, s]));
 
-  // Die Spiele zu zweit (viererreihe.js): ohne Bestenliste, auf einer eigenen
-  // Seite. Der Admin hakt sie für die Hall of Fame (config/miniGames,
-  // zweiSpieler) und für ein Turnier (miniTurniere, viererreihe) eigens an –
+  // Die Spiele zu zweit (zwei.js, je ein Skript): ohne Bestenliste, auf einer
+  // eigenen Seite. Der Admin hakt sie für die Hall of Fame (config/miniGames,
+  // zweiSpieler) und für ein Turnier (miniTurniere, zweiSpieler) eigens an –
   // im Bereich «2 Spieler» unter den Tiers.
   const ZWEI_SPIELER = [
     { id: "viererreihe", seite: "viererreihe", titel: "Viererreihe" },
+    { id: "tictactoe", seite: "tictactoe", titel: "Tic Tac Toe" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4296,6 +4297,11 @@
           bild.append(stein);
         });
       });
+    },
+    tictactoe(bild) {
+      const gitter = el("span", "ar-ttt-gitter");
+      ["a", "b", "", "", "a", "b", "", "", "a"].forEach((sitz) => gitter.append(el("span", `ar-ttt-feld${sitz ? ` ist-${sitz}` : ""}`)));
+      bild.append(gitter);
     },
   };
 

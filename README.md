@@ -33,6 +33,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
     viererreihe.html      Viererreihe, erzeugt
+    tictactoe.html        Tic Tac Toe, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -63,6 +64,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Lena spielen», Bilanz, Töne
     viererreihe.js        Viererreihe: das Brett mit den fallenden Steinen
     viererreihe-ki.js     das Brett von Viererreihe und der Computer, ohne Bild
+    tictactoe.js          Tic Tac Toe: neun Felder, Regeln und Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -102,6 +104,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                                scripts/vorfuehrung/<seite>.mjs
     scripts/check-viererreihe.mjs  spielt Viererreihe im Browser: gegen den
                                Computer und ein Duell mit drei Geräten
+    scripts/check-zwei.mjs     spielt jedes andere Spiel zu zweit im Browser:
+                               Computer, Duell, Startseite, Turnier
     scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
                                man ausscheidet, und vergleicht die Bilder
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
@@ -2858,11 +2862,22 @@ Gesamtwertung zählt nur sie.
 
 ## Die Spiele zu zweit
 
-Vier in einer Reihe, zum Spielen zu zweit: `/viererreihe`. Kein Spiel der
-Tabelle – es hat keine Bestenliste, weil es keine eine Zahl gibt, bei der
-grösser besser wäre, und es läuft nicht auf der gemeinsamen Bühne. Gleiche
-Regeln wie das bekannte Brettspiel, eigener Name, eigenes Aussehen: ein
-violettes Brett, Steine in Koralle und Gold.
+Spiele zum Spielen zu zweit – gegen den Computer oder live, jede auf ihrem
+Gerät:
+
+| Spiel | Seite | Skript |
+|---|---|---|
+| Viererreihe | `/viererreihe` | `viererreihe.js`, `viererreihe-ki.js` |
+| Tic Tac Toe | `/tictactoe` | `tictactoe.js` |
+
+Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
+Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
+gemeinsamen Bühne, sondern im Rahmen `zwei.js` (siehe unten). Was hier über
+Viererreihe steht – wo es steht, das Duell, das Turnier –, gilt für jedes
+Spiel zu zweit.
+
+Viererreihe: gleiche Regeln wie das bekannte Brettspiel, eigener Name,
+eigenes Aussehen: ein violettes Brett, Steine in Koralle und Gold.
 
 **Wo es steht.** Im Adminbereich steht es unter den fünf Tiers in einem
 eigenen Bereich «2 Spieler» – bei den Spielen und im Turnierformular, je mit
@@ -2913,6 +2928,25 @@ eigenen Vierer jedes zweite Mal, eine Gefahr selten) gewinnt gegen «Ganz
 leicht» acht von zehn, gegen «Einfach» nur jede zweite. Die erste Partie
 beginnst du, danach wechselt es. Die Bilanz je Stufe steht auf dem Gerät
 (`viererreihe.bilanz`). Ohne Netz geht das alles auch.
+
+**Tic Tac Toe** (`tictactoe.js`): neun Felder in derselben violetten Platte,
+Kreuz in Koralle für den, der eröffnet, Kreis in Gold – wie mit dem Stift
+gezogen. Wer zuerst drei in einer Reihe hat, gewinnt; eine Linie geht durch
+die drei. Ein Zug ist die Nummer des Feldes (0–8, zeilenweise), die Partie
+also ein Text wie «40812». Am Computer geht es mit den Pfeiltasten und 1–9.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | setzt irgendwohin und lässt eine fertige Reihe fast immer liegen |
+| Einfach | nimmt eine fertige Reihe meist, hält eine Drohung manchmal auf, sonst irgendwohin |
+| Mittel | gewinnt und hält auf, wann immer es geht; sonst die Mitte, dann Ecken, ab und zu irgendwohin – mit einer Zwickmühle zu schlagen |
+| Schwer | rechnet jede Partie zu Ende (Minimax) und verliert nie – ein Unentschieden ist schon ein Erfolg |
+
+Geeicht an denselben nachgemachten Kindern: Eines von fünf Jahren gewinnt
+gegen «Ganz leicht» sieben von zehn Partien, eines von sieben gegen
+«Einfach» jede zweite; gegen «Mittel» gewinnen auch Neunjährige nur jede
+siebte bis achte Partie, spielen aber oft unentschieden. Bilanz:
+`tictactoe.bilanz`.
 
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
@@ -2989,9 +3023,17 @@ Spiel unter Freunden genügt das. Räume räumt niemand weg; einer ist ein paar
 hundert Byte gross.
 
 Geprüft wird ohne Browser in `npm run pruefen` (Abschnitt 21: Seite, Turnier,
-Regeln, und der Computer erkennt jede Richtung, setzt nur in freie Spalten,
-nimmt auf «Schwer» jeden Sieg und hält jede Drohung auf), die Regeln in `npm
-run test:rules`, und im Browser in `npm run pruefen:viererreihe`.
+Regeln; jedes Spiel meldet sich mit allem an, was der Rahmen braucht, und
+hat ein Bild für die Kachel; bei Viererreihe erkennt der Computer jede
+Richtung, setzt nur in freie Spalten, nimmt auf «Schwer» jeden Sieg und hält
+jede Drohung auf; bei Tic Tac Toe verliert «Schwer» keine der fast tausend
+möglichen Partien), die Regeln in `npm run test:rules`, und im Browser in
+`npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
+pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
+Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
+Code, auf der Seite eines anderen Spiels eingegeben, führt ans richtige
+Brett). Ein neues Spiel bekommt dort in `SPIELWEISE` eine Zeile: wie man
+einen Zug tippt und eine Zugfolge, in der der Eröffnende gewinnt.
 
 ## Ohne Netz
 
@@ -3566,6 +3608,12 @@ die Seite begann. Schreiben darf die Zettel nur der Admin (`firestore.rules`).
                               zu –, und im Turnier: Lena wartet, Mia findet
                               sie mit einem Tipp. Gegen den Emulator der
                               Realtime Database, wie pruefen:live.
+    npm run pruefen:zwei      jedes andere Spiel zu zweit im Browser (oder nur
+                              die genannten: npm run pruefen:zwei --
+                              tictactoe): zwei Partien gegen den Computer,
+                              ein Duell bis zum Sieg und zum Unentschieden,
+                              drei Grössen, Startseite und Turnier. Wie
+                              pruefen:live.
     npm run pruefen:zuschauen in jedem Spiel, in dem man ausscheidet, eine
                               Runde mit drei Robotern: Wer draussen ist,
                               schaut zu, und am Schluss muss im Bild genau

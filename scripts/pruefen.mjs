@@ -875,6 +875,73 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     && /child\('b'\)\.exists\(\)/.test(offenRegel?.$raum?.[".write"] || "") && /child\('kennung'\)\.val\(\)/.test(offenRegel?.$raum?.[".validate"] || ""));
   pruefe("Die alten Pfade des Duells (duell, duellCode, duellOffen) sind weg", !liveRegeln?.duell && !liveRegeln?.duellCode && !liveRegeln?.duellOffen);
 
+  // Jedes Spiel zu zweit, ohne Browser: Sein Skript meldet sich beim Rahmen
+  // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
+  // Kachel auf der Startseite hat ein Bild.
+  const angemeldet = {};
+  const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
+  for (const z of ZWEI) {
+    const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
+    const kasten = { window: {}, document: { body: { dataset: { page: z.seite } } } };
+    kasten.window.LernappZwei = { starte: (spiel) => { angemeldet[z.seite] = spiel; }, el: () => ({}), anderer: (s) => (s === "a" ? "b" : "a") };
+    try { for (const d of z.js) vm.runInNewContext(lies(d), kasten); } catch { /* fehlt dann unten */ }
+    const sp = angemeldet[z.seite];
+    pruefe(`${z.seite}: meldet sich mit Id, Seite, Regeln (lage, darf), Brett und Bild an – und mit einem Computer, wenn es Stufen gibt`,
+      Boolean(sp) && sp.id === id && sp.seite === z.seite && sp.titel === z.titel
+      && ["lage", "darf", "brett", "held"].every((k) => typeof sp[k] === "function")
+      && (!sp.stufen || (typeof sp.computer === "function" && Object.keys(sp.stufen).length > 0)));
+    pruefe(`${z.seite}: die Kachel auf der Startseite hat ein Bild (mini-games.js, ZWEI_KUNST)`, new RegExp(`\\n    ${id}\\(bild\\) \\{`).test(`\n${kunst}`));
+  }
+
+  // Tic Tac Toe: die Regeln, und der Computer auf «schwer» verliert nie.
+  const T = angemeldet.tictactoe;
+  if (T) {
+    const lage = (roh, beginnt = "a") => T.lage([...roh], { roh, beginnt, saat: 1 });
+    pruefe("Tic Tac Toe: drei waagrecht, senkrecht und in beiden Schrägen gewinnen",
+      lage("03142").ende === "a" && lage("012437").ende === "b" && lage("01428").ende === "a" && lage("20416", "b").ende === "b");
+    pruefe("Tic Tac Toe: Die Siegerreihe steht in der Lage", JSON.stringify(lage("01428").reihe) === "[0,4,8]");
+    pruefe("Tic Tac Toe: Ein volles Brett ohne Reihe ist unentschieden, vorher ist jemand dran",
+      lage("012436758").ende === "u" && lage("0314").ende === null && lage("0314").dran === "a" && lage("031", "b").dran === "a");
+    pruefe("Tic Tac Toe: nur ein freies Feld, nur wer dran ist, nicht nach dem Ende",
+      T.darf(lage("0"), "1", "b") && !T.darf(lage("0"), "0", "b") && !T.darf(lage("0"), "1", "a")
+      && !T.darf(lage("03142"), "5", "b") && !T.darf(lage(""), "9", "a") && !T.darf(lage(""), "", "a"));
+    pruefe("Tic Tac Toe: Ein Zug auf ein besetztes Feld macht die Partie nicht weiter", lage("00").dran === null);
+    pruefe("Tic Tac Toe: Mittel und Schwer nehmen den Sieg vor dem Aufhalten",
+      T.computer(lage("03148"), "b", "mittel") === "5" && T.computer(lage("03148"), "b", "schwer") === "5");
+    pruefe("Tic Tac Toe: Mittel und Schwer halten eine Drohung auf",
+      T.computer(lage("041"), "b", "mittel") === "2" && T.computer(lage("041"), "b", "schwer") === "2");
+    let partien = 0;
+    let verloren = 0;
+    let falsch = 0;
+    const spiele = (roh, beginnt) => {
+      const l = lage(roh, beginnt);
+      if (l.ende) { partien += 1; if (l.ende === "a") verloren += 1; return; }
+      if (l.dran === "b") {
+        const zuege = roh === "" ? ["0", "2", "4", "6", "8"] : [T.computer(l, "b", "schwer")];
+        for (const z of zuege) { if (!T.darf(l, z, "b")) { falsch += 1; return; } spiele(roh + z, beginnt); }
+        return;
+      }
+      for (let f = 0; f < 9; f += 1) if (!l.brett[f]) spiele(roh + f, beginnt);
+    };
+    spiele("", "a");
+    spiele("", "b");
+    pruefe(`Tic Tac Toe: Schwer verliert keine einzige von ${partien} möglichen Partien, ob er beginnt oder nicht (${verloren} verloren, ${falsch} falsche Züge)`,
+      partien > 500 && verloren === 0 && falsch === 0);
+    let legal = true;
+    for (const stufe of Object.keys(T.stufen)) {
+      for (let p = 0; p < 40 && legal; p += 1) {
+        let roh = "";
+        const beginnt = p % 2 ? "a" : "b";
+        for (let l = lage(roh, beginnt); !l.ende; l = lage(roh, beginnt)) {
+          const z = l.dran === "b" ? T.computer(l, "b", stufe) : String(l.brett.findIndex((x) => !x));
+          if (!T.darf(l, z, l.dran)) { legal = false; break; }
+          roh += z;
+        }
+      }
+    }
+    pruefe("Tic Tac Toe: Jede Stufe setzt in 40 Partien nur auf freie Felder", legal);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };
