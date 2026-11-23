@@ -319,6 +319,7 @@
     { id: "blitzpaar", seite: "blitzpaar", titel: "Blitzpaar" },
     { id: "schatzkarte", seite: "schatzkarte", titel: "Schatzkarte & Kompass" },
     { id: "malen", seite: "malen", titel: "Malen und Raten" },
+    { id: "wackelturm", seite: "wackelturm", titel: "Wackelturm zu zweit" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4381,6 +4382,17 @@
       }
       papier.append(el("span", "ar-mr-stift", "\u270F\uFE0F"));
       bild.append(papier);
+    },
+    wackelturm(bild) {
+      const himmel = el("span", "ar-wt-himmel");
+      [[30, 40, "a"], [34, 32, "b"], [28, 36, "a"], [36, 26, "b"], [31, 30, "a"]].forEach(([links, breite, sitz], i) => {
+        const k = el("span", `ar-wt-klotz ist-${sitz}`);
+        k.style.left = `${links}%`;
+        k.style.width = `${breite}%`;
+        k.style.bottom = `${4 + i * 15}%`;
+        himmel.append(k);
+      });
+      bild.append(himmel);
     },
   };
 
