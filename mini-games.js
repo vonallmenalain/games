@@ -315,6 +315,7 @@
     { id: "muehle", seite: "muehle", titel: "Mühle" },
     { id: "schach", seite: "schach", titel: "Schach" },
     { id: "paare", seite: "paare", titel: "Paare finden" },
+    { id: "farbcode", seite: "farbcode", titel: "Farbcode knacken" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4339,6 +4340,16 @@
     paare(bild) {
       const feld = el("span", "ar-pa-feld");
       ["", "\u{1F436}", "", "", "", "", "\u{1F436}", ""].forEach((tier) => feld.append(el("span", `ar-pa-karte${tier ? " ist-offen" : ""}`, tier)));
+      bild.append(feld);
+    },
+    farbcode(bild) {
+      const feld = el("span", "ar-fc-feld");
+      [["1453", 1, 2], ["5143", 4, 0]].forEach(([code, platz, da]) => {
+        const zeile = el("span", "ar-fc-zeile");
+        [...code].forEach((f) => zeile.append(el("span", `ar-fc-stift ist-f${f}`)));
+        for (let i = 0; i < 4; i += 1) zeile.append(el("span", `ar-fc-punkt${i < platz ? " ist-platz" : i < platz + da ? " ist-da" : ""}`));
+        feld.append(zeile);
+      });
       bild.append(feld);
     },
   };

@@ -39,6 +39,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     muehle.html           Mühle, erzeugt
     schach.html           Schach, erzeugt
     paare.html            Paare finden, erzeugt
+    farbcode.html         Farbcode knacken, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -79,6 +80,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     schach.js             Schach: Brett, alle Regeln, Computer
     paare.js              Paare finden: Karten, Regeln, ein Computer, der
                           sich erinnert (oder vergisst)
+    farbcode.js           Farbcode knacken: Tafeln, der versteckte Code,
+                          Regeln und Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2888,6 +2891,7 @@ Gerät:
 | Mühle | `/muehle` | `muehle.js` |
 | Schach | `/schach` | `schach.js` |
 | Paare finden | `/paare` | `paare.js` |
+| Farbcode knacken | `/farbcode` | `farbcode.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3094,6 +3098,35 @@ fünf Jahren gewinnt gegen «Ganz leicht» fast neun von zehn Partien, eines
 von sieben gegen «Einfach» gut sechs, eines von neun gegen «Mittel» gut
 vier. Bilanz: `paare.bilanz`.
 
+**Farbcode knacken** (`farbcode.js`, die Art Mastermind): Jede versteckt
+einen Code aus vier verschiedenen Farben (von sechs: Rot, Orange, Gelb,
+Grün, Blau, Lila) – Farben antippen, «Fertig!». Dann rät jede abwechselnd
+den Code der anderen; auf jeden Versuch kommt die Antwort: grüne Punkte für
+richtige Farben am richtigen Platz, gelbe für richtige Farben anderswo. Zwei
+Tafeln nebeneinander: links das eigene Raten, rechts das Raten drüben auf
+den eigenen Code. Wer zuerst knackt, gewinnt – aber erst nach der ganzen
+Runde: Knackt die andere in derselben Runde auch, ist es unentschieden,
+ebenso nach acht Versuchen ohne Treffer. Am Ende zeigt jede den Code, den
+die andere nicht geknackt hat.
+
+Der Code bleibt auf dem Gerät (`farbcode.codes`), wie die Flotte bei
+Schiffe versenken: Das Gerät des Besitzers antwortet von selbst (`auto`);
+fehlt der Code, nimmt es einen, der zu allen bisherigen Antworten passt.
+Züge: `Ca`/`Cb` (versteckt), `R2516` (ein Versuch), `A21` (die Antwort: 2
+am Platz, 1 anderswo), `Z2516` (am Ende gezeigt).
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | rät oft drauflos, achtet manchmal auf die letzte Antwort |
+| Einfach | achtet auf die letzte Antwort, manchmal auf alle |
+| Mittel | rät meist nur Codes, die zu allen Antworten passen |
+| Schwer | wählt den Versuch, der im schlimmsten Fall am meisten verrät (wie Knuth) |
+
+Viel Glück dabei: Geeicht an nachgemachten Kindern gewinnt eines von sieben
+Jahren gegen «Einfach» knapp jede zweite Partie, eines von neun gegen
+«Mittel» jede dritte, dazu kommen viele Unentschieden. Bilanz:
+`farbcode.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3182,8 +3215,10 @@ schliessen und nehmen, nicht aus einer Mühle, ganze Partien mit Ziehen und
 Springen bis zum Ende; bei Schach: Perft, Schäfermatt, Patt in zehn
 Zügen, Rochade, en passant, Umwandlung, Wiederholung, zu wenig Material,
 und «Mittel» sieht ein Matt in einem Zug; bei Paare finden: dieselbe Saat
-mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden),
-die Regeln in `npm run test:rules`, und im Browser in
+mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden;
+bei Farbcode knacken: verstecken, raten, antworten, wer zuerst knackt,
+gleich viele Runden, die Codes am Ende), die Regeln in `npm run
+test:rules`, und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
