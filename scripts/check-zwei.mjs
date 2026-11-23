@@ -190,6 +190,8 @@ async function mrFolge(raum, papa, lena, beginnt, richtig) {
   }
   return liste;
 }
+// Zwillings-Labyrinth: die Regeln und der Weg aus zwillinge.js.
+const ZL = (() => { try { return spielAusDatei("zwillinge.js", "zwillinge"); } catch { return null; } })();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -582,6 +584,33 @@ const SPIELWEISE = {
     remisText: /umgekippt/,
     trenner: ".",
     gemeinsam: true,
+    schwerSpielen: false,
+  },
+  zwillinge: {
+    brett: ".zw-zl-feld",
+    tippe: (s, z) => s.locator(`.zw-zl-pfeil.ist-${z[1]}`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-zl-pfeil.ist-${z[1]}:not([disabled]):not(.ist-zu)`).count().then((n) => n === 1),
+    liegt: (s) => s.evaluate(() => window.LernappZwei?.test?.zuege?.().length ?? -1),
+    // Gegen den Computer: wie der Computer selbst – ein Schritt, der den
+    // gemeinsamen Weg verkürzt, sonst warten.
+    waehle: (lage) => (lage && !lage.ende && ZL ? ZL.computer(lage, "a")?.zug || null : null),
+    // Beide gehen den kürzesten gemeinsamen Weg (aus zwillinge.js).
+    sieg: async ({ papa, lena, raum }) => {
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      const l = ZL.lage([], { roh: "", beginnt: "a", saat, stufe: null });
+      return ZL.fuerPruefung.plan(l).map((zug) => ({ g: zug[0] === "a" ? papa : lena, zug }));
+    },
+    siegZeichen: [".zw-zl-figur.ist-am-ziel", 2],
+    // Papa läuft hin und her, bis die Schritte aus sind.
+    remis: async ({ papa, raum }) => {
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      const l = ZL.lage([], { roh: "", beginnt: "b", saat, stufe: null });
+      return Array.from({ length: l.schritte }, (_, i) => ({ g: papa, zug: i % 2 ? "aW" : "aO" }));
+    },
+    remisText: /Schritte sind aus/,
+    trenner: ".",
+    gemeinsam: true,
+    gleichzeitig: true,
     schwerSpielen: false,
   },
 };

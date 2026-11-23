@@ -320,6 +320,7 @@
     { id: "schatzkarte", seite: "schatzkarte", titel: "Schatzkarte & Kompass" },
     { id: "malen", seite: "malen", titel: "Malen und Raten" },
     { id: "wackelturm", seite: "wackelturm", titel: "Wackelturm zu zweit" },
+    { id: "zwillinge", seite: "zwillinge", titel: "Zwillings-Labyrinth" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4393,6 +4394,11 @@
         himmel.append(k);
       });
       bild.append(himmel);
+    },
+    zwillinge(bild) {
+      const feld = el("span", "ar-zl-feld");
+      ["#######", "#a.#..#", "#..!.b#", "#######"].join("").split("").forEach((ch) => feld.append(el("span", `ar-zl-zelle${{ "#": " ist-wand", "!": " ist-tuer", a: " ist-a", b: " ist-b" }[ch] || ""}`)));
+      bild.append(feld);
     },
   };
 
