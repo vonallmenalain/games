@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-6";
+export const FASSUNG = "2026-11-23-7";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -607,6 +607,11 @@ export const ZWEI = [
     seite: "kaesekaestchen", titel: "Käsekästchen", js: ["kaesekaestchen.js"],
     text: "Käsekästchen: Striche zwischen den Punkten ziehen – wer ein Kästchen schliesst, bekommt es und zieht nochmal. Gegen den Computer oder live zu zweit.",
     kurz: "Striche ziehen, Kästchen schliessen – gegen den Computer oder live zu zweit.",
+  },
+  {
+    seite: "muehle", titel: "Mühle", js: ["muehle.js"],
+    text: "Mühle: Steine setzen, ziehen, springen – drei in einer Reihe sind eine Mühle und kosten den anderen einen Stein. Gegen den Computer oder live zu zweit.",
+    kurz: "Steine setzen, Mühlen bauen – gegen den Computer oder live zu zweit.",
   },
 ];
 
