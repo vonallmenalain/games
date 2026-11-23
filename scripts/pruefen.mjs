@@ -1544,8 +1544,10 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // Labyrinth ist lösbar – und braucht beide.
   const ZL = angemeldet.zwillinge;
   if (ZL?.fuerPruefung) {
-    const { plan, LABYRINTHE, labyrinth } = ZL.fuerPruefung;
-    const lage = (zuege, stufe = "leicht", saat = 1) => ZL.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat, stufe });
+    const { plan, LABYRINTHE, labyrinth, lageAuf, welches, allein } = ZL.fuerPruefung;
+    // Die Regeln an den gezeichneten Labyrinthen (lageAuf), die Partien an
+    // erzeugten (lage mit Saat und Stufe).
+    const lage = (zuege, name = "leicht") => lageAuf(labyrinth(name), zuege);
     const l0 = lage([]);
     pruefe("Zwillings-Labyrinth: Beide sind zugleich dran, jede nur mit ihrer Figur",
       l0.dran === "beide" && ZL.darf(l0, "aO", "a") && !ZL.darf(l0, "aO", "b") && ZL.darf(l0, "bO", "b") && !ZL.darf(l0, "aN", "a"));
@@ -1554,34 +1556,64 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       !ZL.darf(lage(["aO", "aO"]), "aO", "a") && ZL.darf(lage(["aO", "aO", "bO", "bO"]), "aO", "a"));
     pruefe("Zwillings-Labyrinth: Wer in der Tür steht, hält sie offen",
       ZL.darf(lage(["aO", "aO", "bO", "bO", "aO", "bW"]), "aO", "a") && !ZL.darf(lage(["aO", "aO", "bO", "bO", "aO", "aO", "bW"]), "aW", "a"));
+    const viele = Array(labyrinth("leicht").schritte).fill(0).map((_, i) => (i % 2 ? "aW" : "aO"));
+    pruefe("Zwillings-Labyrinth: Sind die Schritte aus, ist es nicht geschafft", lage(viele).ende === "v" && lage(viele.slice(0, -1)).ende === null);
+
+    // Erzeugte Labyrinthe: aus jedem Grad zwölf. Jedes ist lösbar in den
+    // Schritten, die es gibt, keine kommt allein zur Fahne, und zwei Computer
+    // als Zwillinge kommen ans Ziel.
     let alleLoesbar = true;
     let brauchtBeide = true;
+    let partner = true;
+    const nichtGut = [];
+    for (let grad = 0; grad < 8; grad += 1) {
+      for (let k = 0; k < 12; k += 1) {
+        const name = `g${grad}-${(k * 2654435761 + grad * 97) % 0x10000000}`;
+        const lab = labyrinth(name);
+        if (lab.grad !== grad || !/^g/.test(lab.name)) { nichtGut.push(name); continue; }
+        const weg = plan({ lab: name, pos: { a: lab.a, b: lab.b } });
+        const z = [];
+        let l = lage(z, name);
+        for (const zug of weg) { if (!ZL.darf(l, zug, zug[0])) { alleLoesbar = false; break; } z.push(zug); l = lage(z, name); }
+        if (l.ende !== "g" || !weg.length || weg.length > lab.schritte) { alleLoesbar = false; nichtGut.push(name); }
+        if (allein(lab, "a") || allein(lab, "b") || new Set(weg.map((x) => x[0])).size < 2) { brauchtBeide = false; nichtGut.push(name); }
+        if (k < 4) {
+          const zz = [];
+          let ll = lage(zz, name);
+          for (let i = 0; i < 600 && !ll.ende; i += 1) {
+            const r = ZL.computer(ll, i % 2 ? "b" : "a") || ZL.computer(ll, i % 2 ? "a" : "b");
+            if (!r) break;
+            zz.push(r.zug);
+            ll = lage(zz, name);
+          }
+          if (ll.ende !== "g") { partner = false; nichtGut.push(name); }
+        }
+      }
+    }
+    // Die vier gezeichneten (Ersatz): lösbar, und der Weg braucht beide (in
+    // «einfach» braucht nur a Hilfe – das war schon immer so).
     for (const name of Object.keys(LABYRINTHE)) {
       const lab = labyrinth(name);
       const weg = plan({ lab: name, pos: { a: lab.a, b: lab.b } });
-      const z = [];
-      let l = lage(z, name);
-      for (const zug of weg) { if (!ZL.darf(l, zug, zug[0])) { alleLoesbar = false; break; } z.push(zug); l = lage(z, name); }
-      if (l.ende !== "g" || weg.length > lab.schritte) alleLoesbar = false;
-      if (new Set(weg.map((x) => x[0])).size < 2) brauchtBeide = false;
+      if (!weg.length || weg.length > lab.schritte || new Set(weg.map((x) => x[0])).size < 2) { alleLoesbar = false; nichtGut.push(name); }
     }
-    pruefe("Zwillings-Labyrinth: Jedes Labyrinth ist lösbar, in den Schritten, die es gibt", alleLoesbar);
-    pruefe("Zwillings-Labyrinth: Keines schafft eine allein", brauchtBeide);
-    const viele = Array(labyrinth("leicht").schritte).fill(0).map((_, i) => (i % 2 ? "aW" : "aO"));
-    pruefe("Zwillings-Labyrinth: Sind die Schritte aus, ist es nicht geschafft", lage(viele).ende === "v" && lage(viele.slice(0, -1)).ende === null);
-    let partner = true;
-    for (const name of Object.keys(LABYRINTHE)) {
-      const z = [];
-      let l = lage(z, name);
-      for (let i = 0; i < 400 && !l.ende; i += 1) {
-        const r = ZL.computer(l, i % 2 ? "b" : "a") || ZL.computer(l, i % 2 ? "a" : "b");
-        if (!r) { partner = false; break; }
-        z.push(r.zug);
-        l = lage(z, name);
-      }
-      if (l.ende !== "g") partner = false;
-    }
-    pruefe("Zwillings-Labyrinth: Zwei Computer als Zwillinge kommen in jedem Labyrinth ans Ziel", partner);
+    pruefe(`Zwillings-Labyrinth: Jedes erzeugte Labyrinth (8 Grade × 12) und jedes gezeichnete ist lösbar, in den Schritten, die es gibt${nichtGut.length ? ` (${[...new Set(nichtGut)].join(", ")})` : ""}`, alleLoesbar);
+    pruefe("Zwillings-Labyrinth: In keinem erzeugten kommt eine allein zu ihrer Fahne – beide brauchen Hilfe", brauchtBeide);
+    pruefe("Zwillings-Labyrinth: Zwei Computer als Zwillinge kommen in den erzeugten Labyrinthen ans Ziel", partner);
+    // Dieselbe Saat, dasselbe Labyrinth (im Duell sehen es beide gleich);
+    // jede neue Partie ein anderes; alle zwei Partien in Folge ein Grad mehr.
+    pruefe("Zwillings-Labyrinth: Dieselbe Saat gibt dasselbe Labyrinth",
+      labyrinth("g3-424242").karte.join() === ZL.fuerPruefung.erzeuge(424242, 3).join() && welches(0x20000123, "leicht") === "g2-291");
+    const karten = new Set();
+    for (let i = 0; i < 30; i += 1) karten.add(labyrinth(welches(ZL.neuePartie("leicht", { nr: 0 }).saat, "leicht")).karte.join("/"));
+    pruefe(`Zwillings-Labyrinth: Jede neue Partie bringt ein anderes Labyrinth (${karten.size} verschiedene in 30)`, karten.size >= 29);
+    const grade = [0, 1, 2, 3, 4, 8, 20].map((nr) => labyrinth(welches(ZL.neuePartie("leicht", { nr }).saat, "leicht")).grad);
+    const gradeDuell = [0, 2, 20].map((nr) => labyrinth(welches(ZL.neuePartie(null, { nr }).saat, null)).grad);
+    pruefe(`Zwillings-Labyrinth: Alle zwei Partien in Folge wird es schwerer, höchstens vier Grade (${grade.join(",")}; Duell ${gradeDuell.join(",")})`,
+      grade.join(",") === "0,0,1,1,2,4,4" && gradeDuell.join(",") === "1,2,5"
+      && labyrinth(welches(ZL.neuePartie("schwer", { nr: 30 }).saat, "schwer")).grad === 7);
+    const gross = [0, 3, 7].map((grad) => { const l = labyrinth(`g${grad}-777`); return l.w * l.h; });
+    pruefe(`Zwillings-Labyrinth: Höhere Grade sind grösser (${gross.join(" < ")} Felder)`, gross[0] < gross[1] && gross[1] < gross[2]);
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

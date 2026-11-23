@@ -82,7 +82,8 @@
  *   auto(lage, sitz, { raum, nr })   (wenn es eines gibt) ein Zug, den das
  *                        Gerät von selbst macht – etwa die Antwort auf einen
  *                        Schuss aus dem, was nur dieses Gerät weiss
- *   neuePartie(stufe)    (wenn es eines gibt) { saat } für eine neue Partie
+ *   neuePartie(stufe, { nr })  (wenn es eines gibt) { saat } für eine neue
+ *                        Partie; nr: die wievielte in Folge (0 die erste)
  *   satz(lage, { ich, name, modus })  (wenn es eines gibt) { text, sitz } –
  *                        was über dem Brett steht, wenn es mehr zu sagen gibt
  *                        als «Du bist dran»
@@ -779,8 +780,10 @@
     S.denkt = false;
   }
 
-  function neueSaat() {
-    return Number(S.spiel.neuePartie?.(stufeJetzt())?.saat) || zufallsSaat();
+  // Die Saat einer neuen Partie; nr ist die wievielte in Folge (0 die
+  // erste) – ein Spiel kann damit schwerer werden (Zwillings-Labyrinth).
+  function neueSaat(nr = 0) {
+    return Number(S.spiel.neuePartie?.(stufeJetzt(), { nr })?.saat) || zufallsSaat();
   }
 
   function computerStarten(stufe) {
@@ -796,7 +799,7 @@
 
   function computerNochmal() {
     computerHalt();
-    S.computer = { roh: "", beginnt: anderer(S.computer.beginnt), nr: S.computer.nr + 1, saat: neueSaat() };
+    S.computer = { roh: "", beginnt: anderer(S.computer.beginnt), nr: S.computer.nr + 1, saat: neueSaat(S.computer.nr + 1) };
     nachComputerStand({ start: true });
   }
 
@@ -1413,7 +1416,7 @@
     if (!db || !S.sitz || !S.raum) return;
     const st = duellStand();
     if (!st.ende) return;
-    const saat = neueSaat();
+    const saat = neueSaat(st.nr + 1);
     try {
       await db.ref(`partie/${S.raum}/stand`).transaction((alt) => {
         if (!alt || Number(alt.nr) !== st.nr) return undefined;
