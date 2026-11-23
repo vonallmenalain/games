@@ -1376,6 +1376,53 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       && lage([], "a", 5, "leicht").insel.grube.size < lage([], "a", 5, "schwer").insel.grube.size);
   }
 
+  // Malen und Raten: sechs Runden, die Rollen wechseln; richtig heisst
+  // nächste Runde, drei Fehler auch; vier erraten ist geschafft. Die Striche
+  // gehen über partie/<raum>/live – erst wenn beide da sind, nur Ziffern.
+  const liveRegel = liveRegeln?.partie?.$raum?.live?.$stueck;
+  pruefe("Die Regeln kennen den Live-Ort einer Partie: erst zu zweit, nur Ziffern und Trenner, höchstens 40 000 Zeichen",
+    /child\('b'\)\.exists\(\)/.test(liveRegel?.[".write"] || "") && /\$stueck\.matches/.test(liveRegel?.[".write"] || "")
+    && /length <= 40000/.test(liveRegel?.[".validate"] || "") && /\^\[0-9,;\|\]\*\$/.test(liveRegel?.[".validate"] || ""));
+  pruefe("zwei.js bietet den Spielen den Live-Ort an (LernappZwei.live), nur im Duell",
+    /function live\(raum\)[\s\S]*?partie\/\$\{raum\}\/live\//.test(zweiJs) && /\n    live,\n/.test(zweiJs));
+  const MR = angemeldet.malen;
+  if (MR) {
+    const lage = (zuege, beginnt = "a", saat = 5, stufe = null) => MR.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const m0 = lage([]);
+    const woerter = new Set(m0.runden.map((r) => r.wort));
+    pruefe("Malen und Raten: sechs verschiedene Wörter, je sechs Antworten mit der richtigen – dieselbe Saat, dieselben Runden",
+      m0.runden.length === 6 && woerter.size === 6 && m0.runden.every((r) => r.wahl.length === 6 && r.wahl[r.richtig] === r.wort && new Set(r.wahl).size === 6)
+      && JSON.stringify(lage([], "a", 5).runden) === JSON.stringify(m0.runden));
+    pruefe("Malen und Raten: Wer beginnt, malt zuerst – dann wechselt es jede Runde; gegen den Computer malt immer er",
+      m0.maler === "a" && m0.dran === "b" && lage([`R0:${m0.runden[0].richtig}`]).maler === "b" && lage([], "b").maler === "b"
+      && lage([], "a", 5, "leicht").maler === "b" && lage([`R0:${lage([], "a", 5, "leicht").runden[0].richtig}`], "a", 5, "leicht").maler === "b");
+    const falsch0 = [0, 1, 2, 3, 4, 5].filter((i) => i !== m0.runden[0].richtig);
+    const m1 = lage([`R0:${falsch0[0]}`]);
+    const m2 = lage(falsch0.slice(0, 3).map((i) => `R0:${i}`));
+    pruefe("Malen und Raten: Ein Fehler kostet einen Versuch, drei beenden die Runde",
+      m1.runde === 0 && m1.falsch.length === 1 && !MR.darf(m1, `R0:${falsch0[0]}`, "b") && MR.darf(m1, `R0:${m0.runden[0].richtig}`, "b")
+      && m2.runde === 1 && m2.erraten === 0);
+    pruefe("Malen und Raten: Raten darf nur, wer nicht malt, und nur in der laufenden Runde",
+      !MR.darf(m0, "R0:0", "a") && MR.darf(m0, "R0:0", "b") && !MR.darf(m0, "R1:0", "b") && !MR.darf(m0, "R0:6", "b") && lage(["R1:0"]).dran === null);
+    const alle = [];
+    for (let r = 0; r < 6; r += 1) alle.push(`R${r}:${lage(alle).runden[r].richtig}`);
+    const vier = [];
+    for (let r = 0; r < 6; r += 1) {
+      const l = lage(vier);
+      if (r < 4) vier.push(`R${r}:${l.runden[r].richtig}`);
+      else [0, 1, 2, 3, 4, 5].filter((i) => i !== l.runden[r].richtig).slice(0, 3).forEach((i) => vier.push(`R${r}:${i}`));
+    }
+    const drei = [];
+    for (let r = 0; r < 6; r += 1) {
+      const l = lage(drei);
+      if (r < 3) drei.push(`R${r}:${l.runden[r].richtig}`);
+      else [0, 1, 2, 3, 4, 5].filter((i) => i !== l.runden[r].richtig).slice(0, 3).forEach((i) => drei.push(`R${r}:${i}`));
+    }
+    pruefe("Malen und Raten: Vier von sechs erraten ist geschafft, drei nicht", lage(alle).ende === "g" && lage(vier).ende === "g" && lage(drei).ende === "v");
+    pruefe("Malen und Raten: Die Stufen: drei, vier, sechs, acht Antworten",
+      ["leicht", "einfach", "mittel", "schwer"].map((st) => lage([], "a", 9, st).runden[0].wahl.length).join() === "3,4,6,8");
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

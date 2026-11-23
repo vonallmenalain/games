@@ -174,6 +174,22 @@ async function skFolge(raum, papa, lena, beginnt, folgen) {
   }
   return liste;
 }
+// Malen und Raten: die Runden aus malen.js; alles richtig – oder alles falsch.
+const MR = (() => { try { return spielAusDatei("malen.js", "malen"); } catch { return null; } })();
+async function mrFolge(raum, papa, lena, beginnt, richtig) {
+  const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+  const zuege = [];
+  const liste = [];
+  let l = MR.lage(zuege, { roh: "", beginnt, saat, stufe: null });
+  while (!l.ende && zuege.length < 40) {
+    const r = l.runden[l.runde];
+    const zug = richtig ? `R${l.runde}:${r.richtig}` : `R${l.runde}:${r.wahl.findIndex((_, i) => i !== r.richtig && !l.falsch.includes(i))}`;
+    liste.push({ g: l.rater === "a" ? papa : lena, zug });
+    zuege.push(zug);
+    l = MR.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe: null });
+  }
+  return liste;
+}
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -203,6 +219,9 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *                    (Antworten des Geräts, «bereit») – dort nicht vergleichen
  *   gleichzeitig     true: beide sind zugleich dran (Blitzpaar) – niemand
  *                    «beginnt», der Computer «setzt» nicht als Erster
+ *   computerMaltImmer true: gegen den Computer beginnt immer er und macht
+ *                    selbst keinen Zug (Malen und Raten: er malt, man rät)
+ *   vorDemSieg({ papa, lena, raum, pruefe })  was vor dem Duell zu prüfen ist
  *   gemeinsam        true: ein Spiel miteinander – statt «Papa hat gewonnen»
  *                    heisst es bei beiden «geschafft»; remis ist dann eine
  *                    Partie, die nicht geschafft wird (remisText)
@@ -502,6 +521,40 @@ const SPIELWEISE = {
     gemeinsam: true,
     schwerSpielen: false,
   },
+  malen: {
+    brett: ".zw-mr-papier",
+    tippe: (s, z) => s.locator(`.zw-mr-antwort[data-antwort="${z.split(":")[1]}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-mr-antwort[data-antwort="${z.split(":")[1]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.evaluate(() => window.LernappZwei?.test?.zuege?.().length ?? -1),
+    // Gegen den Computer: Er malt, man rät – die Prüfung weiss die Antwort.
+    waehle: (lage) => (lage && lage.dran === "a" ? `R${lage.runde}:${lage.runden[lage.runde].richtig}` : null),
+    // Bevor geraten wird: Papa malt einen Strich, und Lena sieht ihn.
+    vorDemSieg: async ({ papa, lena, raum, pruefe }) => {
+      const box = await papa.seite.locator(".zw-mr-leinwand").boundingBox();
+      await papa.seite.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+      await papa.seite.mouse.down();
+      for (let i = 1; i <= 10; i += 1) await papa.seite.mouse.move(box.x + box.width * (0.2 + i * 0.06), box.y + box.height * (0.2 + i * 0.05));
+      await papa.seite.mouse.up();
+      pruefe(await bis(async () => /^[0-9,;|]+$/.test((await (await db(`partie/${raum}/live/0-0`)).json()) || "")), "Malen und Raten: Der Strich steht im Live-Ort der Datenbank");
+      const sieht = await bis(() => lena.seite.evaluate(() => {
+        const c = document.querySelector(".zw-mr-leinwand");
+        const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+        let dunkel = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 200) dunkel += 1;
+        return dunkel > 50;
+      }));
+      pruefe(sieht, "Malen und Raten: Lena sieht Papas Strich auf ihrem Papier");
+      pruefe(await papa.seite.locator(".zw-mr-auftrag").isVisible() && !(await lena.seite.locator(".zw-mr-auftrag").isVisible()), "Malen und Raten: Nur wer malt, sieht das Wort");
+    },
+    sieg: async ({ papa, lena, raum }) => mrFolge(raum, papa, lena, "a", true),
+    siegZeichen: [".vr-satz.ist-sieg", 1],
+    remis: async ({ papa, lena, raum }) => mrFolge(raum, papa, lena, "b", false),
+    remisText: /zu wenig erraten/,
+    trenner: ".",
+    gemeinsam: true,
+    computerMaltImmer: true,
+    schwerSpielen: false,
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
@@ -694,7 +747,7 @@ try {
     await papa.seite.locator(`.vr-stufe[data-stufe="${leicht}"]`).click();
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Gegen den Computer steht das Brett`);
     await w.vorbereiten?.(papa.seite);
-    if (!w.gleichzeitig) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
+    if (!w.gleichzeitig && !w.computerMaltImmer) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
     if (w.computerZuege) {
       // Nur ein paar Züge – dann neu anfangen.
@@ -715,7 +768,7 @@ try {
     await w.vorbereiten?.(papa.seite);
     if (!w.gleichzeitig) {
       pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
-      pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
+      if (!w.computerMaltImmer) pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
     } else pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 4000 }), `${T}: Die zweite Partie beginnt frisch`);
     await papa.seite.locator(".vr-menue-knopf").click();
     pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Zurück im Menü`);
@@ -767,6 +820,7 @@ try {
       }
       return liste;
     };
+    await w.vorDemSieg?.({ papa, lena, raum, pruefe });
     await spiele(w.sieg, "a", 1);
     if (w.gemeinsam) {
       pruefe(await bis(() => satz(papa.seite).then((t) => /geschafft/i.test(t))), `${T}: Geschafft – bei Papa`);

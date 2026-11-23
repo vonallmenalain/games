@@ -103,6 +103,12 @@
           "saat": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4294967295" },
           "$anderes": { ".validate": false }
         },
+        "live": {
+          "$stueck": {
+            ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && $stueck.matches(/^[0-9]{1,4}-[0-9]{1,2}$/) && root.child('partie').child($raum).child('b').exists()",
+            ".validate": "newData.isString() && newData.val().length <= 40000 && newData.val().matches(/^[0-9,;|]*$/)"
+          }
+        },
         "$anderes": { ".validate": false }
       }
     },
