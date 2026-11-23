@@ -4197,7 +4197,7 @@
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
     const vorne = el("div", "ar-vorne");
-    if ((await zweiVersprechen).includes("viererreihe")) vorne.append(viererreiheKachel());
+    (await zweiVersprechen).forEach((id) => { const k = zweiKachel(id); if (k) vorne.append(k); });
     if (signal.aborted) return;
     vorne.append(turniere);
     const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
@@ -4271,38 +4271,49 @@
   }
 
   /*
-   * Viererreihe in einem Turnier (turnier.js), wenn der Admin sie dazugenommen
-   * hat: vorne in der Zeile – oder, hat das Turnier sonst kein Spiel, als
-   * grosse Karte (gross). Kein Spiel der Tabelle SPIELE – keine Bestenliste,
-   * keine Bühne, kein Bild aus einer Runde –, sondern eines zu zweit (oder
-   * gegen den Computer) auf seiner eigenen Seite (viererreihe.js). Das Bild
-   * ist ein kleines Brett mit einer Reihe, schräg hinauf, gezeichnet statt
-   * aufgenommen. Auf der Startseite steht sie nur, wenn der Admin sie für die
-   * Hall of Fame angehakt hat (zweiSpielerOffen).
+   * Ein Spiel zu zweit (ZWEI_SPIELER) als Kachel: in einem Turnier
+   * (turnier.js), wenn der Admin es dazugenommen hat, vorne in der Zeile –
+   * oder, hat das Turnier sonst kein Spiel, als grosse Karte (gross). Auf der
+   * Startseite steht es nur, wenn der Admin es für die Hall of Fame angehakt
+   * hat (zweiSpielerOffen). Keine Bestenliste, keine Bühne, kein Bild aus
+   * einer Runde: Das Spiel läuft auf seiner eigenen Seite (zwei.js).
    *
    * kachel.wartende(namen) sagt darauf, wer im Turnier gerade auf jemanden
    * wartet: «Lena wartet!» – damit auch ein Kind, das noch nicht liest, den
    * Weg zum Duell der grossen Schwester findet.
+   *
+   * Das Bild ist gezeichnet, nicht aufgenommen (ZWEI_KUNST). Ein neues Spiel
+   * bringt hier sein Bild mit; ohne steht nur der Grund in Violett da.
    */
-  function viererreiheKachel(turnierId = "", { gross = false } = {}) {
+  const ZWEI_KUNST = {
+    viererreihe(bild) {
+      bild.classList.add("ist-brett");
+      ["", "b", "ab", "bab", "abba", "a", "b"].forEach((spalte, c) => {
+        [...spalte].forEach((sitz, r) => {
+          const stein = el("span", `ar-vr-stein ist-${sitz}`);
+          stein.style.setProperty("--c", String(c));
+          stein.style.setProperty("--r", String(r));
+          bild.append(stein);
+        });
+      });
+    },
+  };
+
+  function zweiKachel(id, turnierId = "", { gross = false } = {}) {
+    const spiel = ZWEI_NACH_ID.get(id);
+    if (!spiel) return null;
     // Eine eigene Klasse, keine ar-kachel: Die Zeile zählt ihre Spiele an
     // ar-kachel (und scripts/check-spiele.mjs auch).
-    const k = el("a", `ar-vr-kachel${gross ? " ist-gross" : ""}`);
-    k.href = turnierId ? `/viererreihe?turnier=${encodeURIComponent(turnierId)}` : "/viererreihe";
-    k.title = "Viererreihe – gegen den Computer oder live zu zweit";
+    const k = el("a", `ar-vr-kachel zw-kachel-${id}${gross ? " ist-gross" : ""}`);
+    k.dataset.zwei = id;
+    k.href = turnierId ? `/${spiel.seite}?turnier=${encodeURIComponent(turnierId)}` : `/${spiel.seite}`;
+    k.title = `${spiel.titel} – ${spiel.stufen === false ? "zu zweit" : "gegen den Computer oder live zu zweit"}`;
     k.setAttribute("aria-label", k.title);
     const bild = el("span", "ar-vr-bild");
     bild.setAttribute("aria-hidden", "true");
-    ["", "b", "ab", "bab", "abba", "a", "b"].forEach((spalte, c) => {
-      [...spalte].forEach((sitz, r) => {
-        const stein = el("span", `ar-vr-stein ist-${sitz}`);
-        stein.style.setProperty("--c", String(c));
-        stein.style.setProperty("--r", String(r));
-        bild.append(stein);
-      });
-    });
+    ZWEI_KUNST[id]?.(bild);
     const marke = el("span", "ar-vr-neu", "zu zweit");
-    k.append(bild, el("span", "ar-vr-titel", "Viererreihe"), marke);
+    k.append(bild, el("span", "ar-vr-titel", spiel.titel), marke);
     if (gross) k.append(el("span", "mini-knopf mini-knopf-voll ar-vr-los", "Spielen"));
     k.wartende = (namen = []) => {
       const liste = [...new Set(namen.filter(Boolean))];
@@ -4310,10 +4321,12 @@
       marke.textContent = !liste.length ? "zu zweit"
         : liste.length === 1 ? `${liste[0]} wartet!`
           : `${liste.slice(0, -1).join(", ")} und ${liste[liste.length - 1]} warten!`;
-      k.setAttribute("aria-label", liste.length ? `Viererreihe – ${marke.textContent}` : k.title);
+      k.setAttribute("aria-label", liste.length ? `${spiel.titel} – ${marke.textContent}` : k.title);
     };
     return k;
   }
+  const viererreiheKachel = (turnierId = "", optionen = {}) => zweiKachel("viererreihe", turnierId, optionen);
+
 
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
   // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile); was danach
@@ -4452,7 +4465,7 @@
     adminKnopf,
     leiste,
     ergebnis,
-    arcadeKopf, arcadeBuehne, arcadeStart, viererreiheKachel, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
+    arcadeKopf, arcadeBuehne, arcadeStart, zweiKachel, viererreiheKachel, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

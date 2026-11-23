@@ -58,8 +58,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           firebase-auth gar nicht erst.
     live.js               der Multiplayer: Sichtbarkeit, Lobby, Leitung, Runden,
                           Wertung, Podest – über die Realtime Database
-    viererreihe.js        Viererreihe: vier in einer Reihe, gegen den Computer
-                          oder live zu zweit – Menü, Brett, Duell
+    zwei.js               der Rahmen der Spiele zu zweit: Menü, Computer als
+                          Gegner, Duell, Warteraum, Code, im Turnier «Mit
+                          Lena spielen», Bilanz, Töne
+    viererreihe.js        Viererreihe: das Brett mit den fallenden Steinen
     viererreihe-ki.js     das Brett von Viererreihe und der Computer, ohne Bild
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
@@ -2854,7 +2856,7 @@ spielen» kennt keine Versuche: Die Spiele stehen da, aber gespielt wird nur
 in seinen Multiplayern (die Regeln lassen keinen Versuch beginnen), und die
 Gesamtwertung zählt nur sie.
 
-## Viererreihe
+## Die Spiele zu zweit
 
 Vier in einer Reihe, zum Spielen zu zweit: `/viererreihe`. Kein Spiel der
 Tabelle – es hat keine Bestenliste, weil es keine eine Zahl gibt, bei der
@@ -2867,10 +2869,11 @@ eigenen Bereich «2 Spieler» – bei den Spielen und im Turnierformular, je mit
 Haken und ▶ zum Ausprobieren (`admin.js`, `zweiZeile`; die Liste der Spiele
 zu zweit: `mini-games.js`, `ZWEI_SPIELER`).
 
-- **Im Turnier**: angehakt im Turnierformular (das Feld `viererreihe` in
-  `miniTurniere`), steht es vorne in der Zeile des Turniers
-  (`mini-games.js`, `viererreiheKachel`). Hat das Turnier sonst kein Spiel
-  – mit Viererreihe darf es das –, steht statt der Bühne eine grosse Karte.
+- **Im Turnier**: angehakt im Turnierformular (die Liste `zweiSpieler` in
+  `miniTurniere`; ein Turnier von vorher trägt `viererreihe: true`, das gilt
+  weiter), steht es vorne in der Zeile des Turniers (`mini-games.js`,
+  `zweiKachel`). Hat das Turnier sonst kein Spiel – mit einem Spiel zu zweit
+  darf es das –, stehen statt der Bühne grosse Karten.
   Gedacht für ein Turnier nur mit Link, etwa für Geschwister, jede auf ihrem
   Tablet: Die Turnier-App lässt Viererreihe aus dem Turnier zu (`turnier.js`,
   `heim`), jede Adresse der Seite behält `?turnier=`, und der Weg zurück
@@ -2935,30 +2938,50 @@ und wer jetzt noch mit dem Link kommt, schaut zu. Wer eröffnet, beginnt;
 nach jeder Partie («Nochmal», auf beiden Geräten) beginnt der andere. Oben
 steht die Bilanz der beiden, über alle Partien im Raum. Wer weggeht, steht
 beim anderen grau («gerade nicht verbunden»), und das Menü bietet das Duell
-drei Tage lang unter «Weiterspielen» an (`viererreihe.duelle`, je Turnier).
+drei Tage lang unter «Weiterspielen» an (`<spiel>.duelle`, je Turnier).
 Ist man dran, steht es im Titel des Tabs, und ein leiser Ton sagt es.
 
-In der Realtime Database (`database.rules.json`), ohne Konto wie der
-Multiplayer:
+**Der Rahmen.** Alles ausser dem Brett ist für jedes Spiel zu zweit
+dasselbe und steht in `zwei.js`: das Menü, der Computer als Gegner, das
+Duell, der Warteraum, Code und Link, im Turnier «Mit Lena spielen», die
+Bilanz, die Töne. Ein Spiel meldet sich mit `LernappZwei.starte({ … })` an
+und bringt nur mit, was es ausmacht – sein Brett (`brett`), seine Regeln
+(`lage`, `darf`) und seinen Computer (`computer`); was es sonst noch kann
+(gleichzeitige Züge, Antworten aus einem Geheimnis, das nur auf dem eigenen
+Gerät liegt, eine Saat je Partie), steht oben in `zwei.js`. Eine Seite je
+Spiel baut `scripts/seiten-bauen.mjs` aus der Tabelle `ZWEI`; die Liste der
+Spiele steht ausserdem in `mini-games.js` (`ZWEI_SPIELER`, mit dem Bild der
+Kachel in `ZWEI_KUNST`) und in `firestore.rules` (`zweiSpielerSpiele`) –
+`npm run pruefen` hält die drei zusammen. Viererreihe war das erste Spiel;
+ihre Klassen (`vr-…`) und ihr Aussehen sind die aller Spiele zu zweit.
 
-    duell/<raum>
-      erstellt          wann                                 einmal
+In der Realtime Database (`database.rules.json`), ohne Konto wie der
+Multiplayer, für alle Spiele zu zweit am selben Ort:
+
+    partie/<raum>
+      info              spiel, erstellt                       einmal
       code              die vier Ziffern                      einmal
       a, b              kennung, name, online, seit – wer dort sitzt;
                         b ist besetzt, sobald jemand dazukommt
-      stand             zuege («3342…», die Spalten der Partie),
-                        beginnt (a/b), serie (a, b, u je fertige Partie), nr
-    duellCode/<code>    raum, bis – höchstens drei Stunden, nur zu einem Raum,
-                        den es gibt
-    duellOffen/<turnier>/<raum>
-                        name, kennung, seit – wer im Turnier wartet; nur der,
-                        der den Raum eröffnet hat, solange er allein ist
+      stand             zuege (die Züge der Partie als Text: bei Viererreihe
+                        «3342…»), beginnt (a/b), serie (a, b, u … je fertige
+                        Partie), nr, saat (für Spiele, die würfeln)
+    partieCode/<code>   raum, spiel, bis – höchstens drei Stunden, nur zu
+                        einem Raum, den es gibt
+    partieOffen/<turnier>/<raum>
+                        name, kennung, spiel, seit – wer im Turnier wartet;
+                        nur der, der den Raum eröffnet hat, solange er
+                        allein ist
+
+Bis November 2026 stand Viererreihe unter `duell/`, `duellCode/` und
+`duellOffen/`; diese Pfade gibt es nicht mehr. Ein Duell von damals unter
+«Weiterspielen» sagt beim Öffnen, dass es es nicht mehr gibt.
 
 Gerechnet wird nichts in der Datenbank. Ein Zug ist eine Transaktion, die an
-`zuege` genau eine Ziffer anhängt – nur wenn der Stand noch der ist, den das
-Gerät gesehen hat, die Partie läuft und dieses Gerät dran ist. Die Regeln
-lassen am Stand nichts anderes zu als eine Ziffer mehr oder eine neue Partie
-(leer, der andere beginnt, ein Ergebnis mehr in der Serie). Lesen darf, wer
+`zuege` etwas anhängt – nur wenn das Spiel ihn auf dem Stand erlaubt, den die
+Datenbank gerade hat (`darf`). Die Regeln lassen am Stand nichts anderes zu
+als mehr Züge oder eine neue Partie (leer, eine Partie mehr in der Serie,
+eine neue Saat). Lesen darf, wer
 den Raum (oder das Turnier) kennt; auflisten lässt sich nichts. Wie bei der
 Bestenliste prüfen die Regeln, *was* geschrieben wird, nicht *wer*: Wer den
 Link hat und die Kennung eines Spielers kennt, könnte für ihn ziehen. Für ein

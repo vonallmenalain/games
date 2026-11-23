@@ -15,7 +15,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, turnierSkripte, adminSkripte, viererreiheSkripte } from "./seiten-bauen.mjs";
+import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, turnierSkripte, adminSkripte, ZWEI, zweiSkripte } from "./seiten-bauen.mjs";
 import vm from "node:vm";
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,7 +72,7 @@ for (const s of SPIELE) {
 }
 
 // --- 4. Was eine Seite lädt, liegt auch da ----------------------------------
-const alleSkripte = new Set([...hubSkripte(), ...adminSkripte(), ...viererreiheSkripte()]);
+const alleSkripte = new Set([...hubSkripte(), ...adminSkripte(), ...ZWEI.flatMap(zweiSkripte)]);
 for (const s of SPIELE) for (const d of seitenSkripte(s)) alleSkripte.add(d);
 for (const datei of alleSkripte) {
   if (datei.startsWith("http")) continue;
@@ -142,7 +142,7 @@ for (const name of ["icon-32.png", "icon-180.png", "vorschau.jpg"]) {
 pruefe("Die App heisst «arcade»", manifest.name === "arcade" && manifest.short_name === "arcade");
 // Ein geteilter Link (WhatsApp & Co.) zeigt Titel, einen kurzen Satz und das
 // Logo – das Bild nur über eine volle Adresse.
-for (const datei of ["index.html", "turnier.html", "live.html", "viererreihe.html", ...SPIELE.map((sp) => `${sp.seite}.html`)]) {
+for (const datei of ["index.html", "turnier.html", "live.html", ...ZWEI.map((z) => `${z.seite}.html`), ...SPIELE.map((sp) => `${sp.seite}.html`)]) {
   const html = lies(datei);
   pruefe(`${datei}: Vorschau mit Bild`, html.includes('<meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />'));
   pruefe(`${datei}: Vorschau mit Titel und Satz`, /<meta property="og:title" content="(?:[^"]+ · )?arcade" \/>/.test(html) && /<meta property="og:description" content="[^"]{10,80}" \/>/.test(html));
@@ -795,74 +795,85 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     ["/*.js", "/*.css", "/icons/*", "/bilder/*"].every((p) => vorschau.config.excludedPath.includes(p)) && vorschau.config.path === "/*");
 }
 
-// --- 21. Viererreihe ----------------------------------------------------------
-// Eine eigene Seite wie der Multiplayer, kein Spiel der Tabelle: keine
-// Bestenliste, keine Bühne. Gegen den Computer geht es ohne Netz, das Duell
-// zu zweit läuft über die Realtime Database (duell, duellCode).
+// --- 21. Die Spiele zu zweit (zwei.js) -----------------------------------------
+// Eigene Seiten wie der Multiplayer, keine Spiele der Tabelle: keine
+// Bestenliste, keine Bühne. Alle im selben Rahmen (zwei.js); gegen den
+// Computer geht es ohne Netz, das Duell läuft über die Realtime Database
+// (partie, partieCode, partieOffen).
 {
-  const html = lies("viererreihe.html");
-  pruefe("viererreihe.html trägt data-page=\"viererreihe\" und den Platz [data-viererreihe]",
-    html.includes('data-page="viererreihe"') && html.includes("data-viererreihe"));
-  pruefe("viererreihe.html lädt das Brett, die Seite und die Realtime Database",
-    html.includes(`viererreihe-ki.js?v=${FASSUNG}`) && html.includes(`viererreihe.js?v=${FASSUNG}`)
-    && html.includes("firebase-database-compat.js") && html.indexOf("viererreihe-ki.js") < html.indexOf("viererreihe.js?"));
-  pruefe("viererreihe.html lädt kein firebase-auth – wer spielt, meldet sich nicht an", !html.includes("firebase-auth"));
-  pruefe("SW kennt viererreihe.html", sw.includes('"./viererreihe.html"'));
-  pruefe("Viererreihe ist kein Spiel mit Bestenliste (nicht in SPIELE, nicht in firestore.rules)",
-    !SPIELE.some((x) => x.seite === "viererreihe") && !inRegeln.some((id) => /vierer|connectFour/i.test(id)));
-  const vrJs = lies("viererreihe.js");
-  pruefe("viererreihe.js baut nur auf seiner Seite", /dataset\?\.page !== "viererreihe"/.test(vrJs));
-  pruefe("viererreihe.js zieht mit einer Transaktion (duellZug, duellNochmal)",
-    /async function duellZug[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs) && /async function duellNochmal[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs));
-  pruefe("viererreihe.js: ein Raum hat zehn Zeichen, der Code vier Ziffern",
-    /const RAUM_LAENGE = 10;/.test(vrJs) && /const CODE_MUSTER = \/\^\[0-9\]\{4\}\$\/;/.test(vrJs));
-  // Auf der Startseite nur, wenn der Admin sie für die Hall of Fame angehakt
-  // hat (config/miniGames, zweiSpieler) – im Turnier, wenn er sie dazunimmt.
+  const zweiJs = lies("zwei.js");
+  const ZWEI_IN_MINI = [...(miniJs.match(/const ZWEI_SPIELER = \[([\s\S]*?)\];/)?.[1] || "").matchAll(/\{ id: "([a-z]+)", seite: "([a-z]+)"/g)].map((m) => ({ id: m[1], seite: m[2] }));
+  const ZWEI_IN_REGELN = [...(regeln.match(/function zweiSpielerSpiele\(\) \{\s*return \[([^\]]*)\];/)?.[1] || "").matchAll(/"([a-z]+)"/g)].map((m) => m[1]);
+  pruefe(`Die Spiele zu zweit sind überall dieselben: seiten-bauen.mjs (${ZWEI.length}), mini-games.js (${ZWEI_IN_MINI.length}), firestore.rules (${ZWEI_IN_REGELN.length})`,
+    ZWEI.length > 0 && ZWEI.length === ZWEI_IN_MINI.length && ZWEI.length === ZWEI_IN_REGELN.length
+    && ZWEI.every((z, i) => ZWEI_IN_MINI[i]?.seite === z.seite && ZWEI_IN_REGELN.includes(ZWEI_IN_MINI[i]?.id)));
+  for (const z of ZWEI) {
+    const html = lies(`${z.seite}.html`);
+    pruefe(`${z.seite}.html trägt data-page="${z.seite}" und den Platz [data-zwei]`, html.includes(`data-page="${z.seite}"`) && html.includes("data-zwei"));
+    pruefe(`${z.seite}.html lädt den Rahmen vor dem Spiel, und die Realtime Database`,
+      html.includes(`zwei.js?v=${FASSUNG}`) && z.js.every((d) => html.includes(`${d}?v=${FASSUNG}`))
+      && html.indexOf("zwei.js?") < html.indexOf(`${z.js[0]}?`) && html.includes("firebase-database-compat.js"));
+    pruefe(`${z.seite}.html lädt kein firebase-auth – wer spielt, meldet sich nicht an`, !html.includes("firebase-auth"));
+    pruefe(`SW kennt ${z.seite}.html`, sw.includes(`"./${z.seite}.html"`));
+    pruefe(`${z.seite} ist kein Spiel mit Bestenliste (nicht in SPIELE, nicht in miniSpiele)`,
+      !SPIELE.some((x) => x.seite === z.seite) && !inRegeln.includes(ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id));
+    const quelle = lies(z.js[z.js.length - 1]);
+    pruefe(`${z.js[z.js.length - 1]} meldet sich beim Rahmen an (LernappZwei.starte) und baut nur auf seiner Seite`,
+      /\.starte\(\{/.test(quelle) && new RegExp(`dataset\\?\\.page !== "${z.seite}"`).test(quelle));
+  }
+  pruefe("zwei.js zieht mit einer Transaktion (duellZug, duellNochmal)",
+    /async function duellZug[\s\S]*?\/stand`\)\.transaction\(/.test(zweiJs) && /async function duellNochmal[\s\S]*?\/stand`\)\.transaction\(/.test(zweiJs));
+  pruefe("zwei.js: ein Raum hat zehn Zeichen, der Code vier Ziffern",
+    /const RAUM_LAENGE = 10;/.test(zweiJs) && /const CODE_MUSTER = \/\^\[0-9\]\{4\}\$\/;/.test(zweiJs));
+  pruefe("zwei.js behält Turnier und «von=admin» in jeder Adresse",
+    /if \(TURNIER\) p\.set\("turnier", TURNIER\);/.test(zweiJs) && /if \(VON_ADMIN\) p\.set\("von", "admin"\);/.test(zweiJs));
+  pruefe("Im Turnier meldet sich, wer wartet – und die Datenbank nimmt es weg, wenn die Verbindung abreisst",
+    /function offenMelden[\s\S]*?onDisconnect\(\)\.remove\(\)/.test(zweiJs) && /function offenWeg/.test(zweiJs));
+  // Auf der Startseite nur, was der Admin für die Hall of Fame angehakt hat
+  // (config/miniGames, zweiSpieler) – im Turnier, was er dazunimmt.
   const baueStart = miniJs.match(/async function baueUebersicht[\s\S]*?\n  \}\n/)?.[0] || "";
-  pruefe("Die Startseite zeigt Viererreihe nur, wenn sie für die Hall of Fame angehakt ist (zweiSpieler)",
-    /const zweiVersprechen = zweiSpielerOffen\(\);/.test(baueStart) && /if \(\(await zweiVersprechen\)\.includes\("viererreihe"\)\) vorne\.append\(viererreiheKachel\(\)\);/.test(baueStart)
+  pruefe("Die Startseite zeigt die Spiele zu zweit nur, wenn sie für die Hall of Fame angehakt sind (zweiSpieler)",
+    /const zweiVersprechen = zweiSpielerOffen\(\);/.test(baueStart) && /\(await zweiVersprechen\)\.forEach\(\(id\) => \{ const k = zweiKachel\(id\);/.test(baueStart)
     && /async function offeneZweiSpieler/.test(lies("cloud.js")) && /async function setzeZweiSpieler/.test(lies("cloud.js")));
   pruefe("Die Regeln kennen die Spiele zu zweit auf der Startseite (zweiSpieler, nicht in miniSpiele)",
     /"zweiSpieler"/.test(regeln.match(/function istSpieleListe[\s\S]*?hasOnly\(\[[^\]]*\]\)/)?.[0] || "")
-    && /d\.zweiSpieler\.hasOnly\(zweiSpielerSpiele\(\)\)/.test(regeln)
-    && /function zweiSpielerSpiele\(\) \{\s*return \["viererreihe"\];/.test(regeln));
+    && /d\.zweiSpieler\.hasOnly\(zweiSpielerSpiele\(\)\)/.test(regeln));
   const adminVr = lies("admin.js");
-  pruefe("Der Adminbereich hat unter den Tiers «2 Spieler» – bei den Spielen (Startseite) und im Turnierformular",
+  pruefe("Der Adminbereich hat unter den Tiers «2 Spieler» – bei den Spielen (Startseite) und im Turnierformular, für jedes Spiel zu zweit",
     /function zweiZeile\(/.test(adminVr) && /bereich\.inhalt\.append\(filter\.leiste, summe, meldung, gitter, knoepfe, zwei\);/.test(adminVr)
-    && /spieleGruppe\.append\(zweiTitel\(/.test(adminVr) && !/Viererreihe dazu/.test(adminVr)
-    && /setzeZweiSpieler\(\[\.\.\.stand\.zweiOffen\]/.test(adminVr));
-  pruefe("Die Liste der Spiele zu zweit ist überall dieselbe (mini-games.js, cloud.js, firestore.rules)",
-    /const ZWEI_SPIELER = \[\s*\{ id: "viererreihe"/.test(miniJs) && /const ZWEI_SPIELER_IDS = \["viererreihe"\];/.test(lies("cloud.js")));
-  pruefe("Viererreihe behält «von=admin» in jeder Adresse (der Weg zurück in den Adminbereich)", /if \(VON_ADMIN\) p\.set\("von", "admin"\);/.test(vrJs));
+    && /spieleGruppe\.append\(zweiTitel\(/.test(adminVr) && /zweiSpieler\(\)\.forEach\(\(id\) => \{\s*const \{ zeile, box \} = zweiZeile\(/.test(adminVr)
+    && /setzeZweiSpieler\(\[\.\.\.stand\.zweiOffen\]/.test(adminVr) && /zweiSpieler: zweiGewaehlt\(\),/.test(adminVr));
+  pruefe("cloud.js nimmt die Spiele zu zweit aus mini-games.js (zweiSpielerIds)",
+    /function zweiSpielerIds\(\)[\s\S]*?LernappMini\?\.ZWEI_SPIELER/.test(lies("cloud.js")) && !/ZWEI_SPIELER_IDS/.test(lies("cloud.js")));
   const turnierJsVr = lies("turnier.js");
-  pruefe("Die Turnierseite stellt Viererreihe hin, wenn das Turnier sie hat (vorne in der Zeile oder als Karte)",
-    /`\/viererreihe\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
-    && /vorne: viererKachel/.test(turnierJsVr) && /viererreiheKachel\?\.\(t\.id, \{ gross: true \}\)/.test(turnierJsVr));
-  pruefe("Die Turnierseite fragt, wer wartet (cloud.js, offeneDuelle)",
-    /async function offeneDuelle\(turnierId\)[\s\S]*?duellOffen\//.test(lies("cloud.js")) && /offeneDuelle\?\.\(t\.id\)/.test(turnierJsVr));
-  pruefe("Die Turnier-App lässt Viererreihe aus dem Turnier zu, und der Weg zurück führt ins Turnier",
-    /hier === "viererreihe" && p\.has\("turnier"\)/.test(turnierJsVr) && /if \(!spielHier\(\) && seite\(\) !== "viererreihe"\) return null;/.test(turnierJsVr));
-  pruefe("Viererreihe behält das Turnier in jeder Adresse", /if \(TURNIER\) p\.set\("turnier", TURNIER\);/.test(vrJs));
-  pruefe("Im Turnier meldet sich, wer wartet – und die Datenbank nimmt es weg, wenn die Verbindung abreisst",
-    /function offenMelden[\s\S]*?onDisconnect\(\)\.remove\(\)/.test(vrJs) && /function offenWeg/.test(vrJs));
-  pruefe("Turniere mit Viererreihe: Regel, Formular und cloud.js kennen viererreihe",
-    /d\.get\("viererreihe", false\) is bool/.test(regeln) && /"viererreihe"/.test(regeln.match(/hasOnly\(\["name", "beschreibung"[\s\S]*?\]\)/)?.[0] || "")
-    && /\(d\.spiele\.size\(\) > 0 \|\| d\.get\("viererreihe", false\) == true\)/.test(regeln)
-    && /viererreihe: vierer\.checked/.test(lies("admin.js")) && /viererreihe: d\.viererreihe === true/.test(lies("cloud.js"))
-    && /if \(daten\.viererreihe === true\) doc\.viererreihe = true;/.test(lies("cloud.js")));
-  const offenRegel = liveRegeln?.duellOffen?.$turnier;
-  pruefe("Die Regeln der Wartenden: lesen je Turnier, eintragen nur für den eigenen Raum, solange er nicht voll ist",
-    /\{6,48\}/.test(offenRegel?.[".read"] || "") && liveRegeln?.duellOffen?.[".read"] === undefined
-    && /child\('b'\)\.exists\(\)/.test(offenRegel?.$raum?.[".write"] || "") && /child\('kennung'\)\.val\(\)/.test(offenRegel?.$raum?.[".validate"] || ""));
-  const duell = liveRegeln?.duell?.$raum;
-  pruefe("Die Regeln kennen das Duell: lesen mit dem Raum, kein Auflisten, nichts Fremdes",
-    Boolean(duell) && /\{10\}/.test(duell[".read"] || "") && liveRegeln?.duell?.[".read"] === undefined && duell.$anderes?.[".validate"] === false);
-  pruefe("Die Regeln lassen am Stand nur einen Zug mehr oder eine neue Partie zu",
-    /beginsWith\(data\.child\('zuege'\)\.val\(\)\)/.test(duell?.stand?.[".validate"] || "") && /newData\.exists\(\)/.test(duell?.stand?.[".write"] || ""));
+  pruefe("Die Turnierseite stellt die Spiele zu zweit hin (vorne in der Zeile oder als Karten)",
+    /href = turnierId \? `\/\$\{spiel\.seite\}\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
+    && /vorne,\n/.test(turnierJsVr) && /zweiBauen\(t, \{ gross: true \}\)/.test(turnierJsVr));
+  pruefe("Die Turnierseite fragt, wer wartet – bei welchem Spiel (cloud.js, offeneDuelle, partieOffen)",
+    /async function offeneDuelle\(turnierId\)[\s\S]*?partieOffen\//.test(lies("cloud.js")) && /offeneDuelle\?\.\(t\.id\)/.test(turnierJsVr)
+    && /wartet bei \$\{spiel\.titel\}/.test(turnierJsVr));
+  pruefe("Die Turnier-App lässt ein Spiel zu zweit aus dem Turnier zu, und der Weg zurück führt ins Turnier",
+    /\(zweiHier\(\) && p\.has\("turnier"\)\)/.test(turnierJsVr) && /if \(!spielHier\(\) && !zweiHier\(\)\) return null;/.test(turnierJsVr));
+  pruefe("Turniere mit Spielen zu zweit: Regel, Formular und cloud.js kennen zweiSpieler (und viererreihe von vorher)",
+    /d\.get\("viererreihe", false\) is bool/.test(regeln) && /d\.get\("zweiSpieler", \[\]\)\.hasOnly\(zweiSpielerSpiele\(\)\)/.test(regeln)
+    && /"zweiSpieler"/.test(regeln.match(/hasOnly\(\["name", "beschreibung"[\s\S]*?\]\)/)?.[0] || "")
+    && /\(d\.spiele\.size\(\) > 0 \|\| d\.get\("viererreihe", false\) == true \|\| d\.get\("zweiSpieler", \[\]\)\.size\(\) > 0\)/.test(regeln)
+    && /if \(zwei\.length\) doc\.zweiSpieler = zwei;/.test(lies("cloud.js")));
+  const partie = liveRegeln?.partie?.$raum;
+  pruefe("Die Regeln kennen die Partie: lesen mit dem Raum, kein Auflisten, nichts Fremdes",
+    Boolean(partie) && /\{10\}/.test(partie[".read"] || "") && liveRegeln?.partie?.[".read"] === undefined && partie.$anderes?.[".validate"] === false);
+  pruefe("Die Regeln lassen am Stand nur mehr Züge oder eine neue Partie zu",
+    /beginsWith\(data\.child\('zuege'\)\.val\(\)\)/.test(partie?.stand?.[".validate"] || "") && /newData\.exists\(\)/.test(partie?.stand?.[".write"] || ""));
   pruefe("Die Regeln: Ist b besetzt, kommt niemand mehr dazu",
-    /data\.child\('kennung'\)\.val\(\) == newData\.child\('kennung'\)\.val\(\)/.test(duell?.b?.[".write"] || ""));
-  pruefe("Die Regeln: Ein Code gilt höchstens drei Stunden und führt zu einem Raum, den es gibt",
-    /now \+ 10800000/.test(liveRegeln?.duellCode?.$code?.bis?.[".validate"] || "") && /child\('a'\)\.exists\(\)/.test(liveRegeln?.duellCode?.$code?.raum?.[".validate"] || ""));
+    /data\.child\('kennung'\)\.val\(\) == newData\.child\('kennung'\)\.val\(\)/.test(partie?.b?.[".write"] || ""));
+  pruefe("Die Regeln: Ein Code gilt höchstens drei Stunden und führt zu einem Raum, den es gibt, mit seinem Spiel",
+    /now \+ 10800000/.test(liveRegeln?.partieCode?.$code?.bis?.[".validate"] || "") && /child\('a'\)\.exists\(\)/.test(liveRegeln?.partieCode?.$code?.raum?.[".validate"] || "")
+    && /child\('info'\)\.child\('spiel'\)/.test(liveRegeln?.partieCode?.$code?.spiel?.[".validate"] || ""));
+  const offenRegel = liveRegeln?.partieOffen?.$turnier;
+  pruefe("Die Regeln der Wartenden: lesen je Turnier, eintragen nur für den eigenen Raum, solange er nicht voll ist",
+    /\{6,48\}/.test(offenRegel?.[".read"] || "") && liveRegeln?.partieOffen?.[".read"] === undefined
+    && /child\('b'\)\.exists\(\)/.test(offenRegel?.$raum?.[".write"] || "") && /child\('kennung'\)\.val\(\)/.test(offenRegel?.$raum?.[".validate"] || ""));
+  pruefe("Die alten Pfade des Duells (duell, duellCode, duellOffen) sind weg", !liveRegeln?.duell && !liveRegeln?.duellCode && !liveRegeln?.duellOffen);
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.

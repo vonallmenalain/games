@@ -113,9 +113,11 @@
  *     nurLive    true             gespielt wird nur im Multiplayer
  *                                 (live.js), keine Versuche dazwischen.
  *                                 Fehlt bei allen anderen.
- *     viererreihe true            Viererreihe steht im Turnier, zum
- *                                 Spielen zu zweit (viererreihe.js). Dann
- *                                 darf spiele auch leer sein.
+ *     zweiSpieler ["viererreihe"] die Spiele zu zweit im Turnier (zwei.js),
+ *                                 ohne Wertung. Dann darf spiele auch leer
+ *                                 sein. viererreihe: true ist das Feld von
+ *                                 vorher und heisst dasselbe wie
+ *                                 ["viererreihe"].
  *     aktiv      true             angehalten, wenn false
  *
  *   miniTurniere/<id>/eintraege/towerStack_mini_a7f3…
@@ -379,22 +381,22 @@
   // Die Spiele zu zweit, die auf der Startseite stehen (zweiSpieler) – im
   // selben Dokument. Fehlt das Feld, steht keines dort. Wie bei den Tiers:
   // Gibt es das Dokument noch nicht, kommen die offenen Spiele mit (offen),
-  // denn die Regeln verlangen sie.
-  const ZWEI_SPIELER_IDS = ["viererreihe"];
+  // denn die Regeln verlangen sie. Welche es gibt, sagt mini-games.js
+  // (ZWEI_SPIELER).
   async function offeneZweiSpieler() {
     const doc = listenDoc();
     if (!doc) return null;
     const stand = await doc.get();
     const liste = stand.exists ? stand.data()?.zweiSpieler : null;
     if (!Array.isArray(liste)) return [];
-    return liste.map((id) => String(id || "").trim()).filter((id) => ZWEI_SPIELER_IDS.includes(id));
+    return liste.map((id) => String(id || "").trim()).filter((id) => zweiSpielerIds().includes(id));
   }
 
   async function setzeZweiSpieler(spiele, offen = []) {
     const doc = listenDoc();
     if (!doc) throw new Error("Firestore ist nicht bereit.");
     const liste = [...new Set((Array.isArray(spiele) ? spiele : []).map((id) => String(id || "").trim()))]
-      .filter((id) => ZWEI_SPIELER_IDS.includes(id));
+      .filter((id) => zweiSpielerIds().includes(id));
     const daten = { zweiSpieler: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
     const stand = await doc.get();
     if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
@@ -1068,23 +1070,29 @@
   // Die Multiplayer, die gerade für alle offen sind (liveOffen, live.js) –
   // für den Knopf auf der Startseite, auf demselben Weg ohne SDK. Was älter
   // ist als einen halben Tag, hat jemand zu schliessen vergessen.
-  // Wer in einem Turnier gerade bei Viererreihe auf jemanden wartet
-  // (duellOffen/<turnier>, viererreihe.js) – für die Kachel auf der
-  // Turnierseite: «Lena wartet». Auf demselben Weg ohne SDK. Gemeldet wird
-  // nur, wer noch verbunden ist (die Datenbank räumt ab, wenn nicht), und
-  // nichts, was älter ist als drei Stunden.
+  // Die Spiele zu zweit, die es gibt (mini-games.js, ZWEI_SPIELER).
+  function zweiSpielerIds() {
+    const liste = window.LernappMini?.ZWEI_SPIELER;
+    return Array.isArray(liste) && liste.length ? liste.map((s) => s.id) : ["viererreihe"];
+  }
+
+  // Wer in einem Turnier gerade bei einem Spiel zu zweit auf jemanden wartet
+  // (partieOffen/<turnier>, zwei.js) – für die Turnierseite: «Lena wartet».
+  // Auf demselben Weg ohne SDK. Gemeldet wird nur, wer noch verbunden ist
+  // (die Datenbank räumt ab, wenn nicht), und nichts, was älter ist als drei
+  // Stunden.
   async function offeneDuelle(turnierId) {
     const id = String(turnierId || "");
     if (!TURNIER_ID.test(id)) return [];
-    const antwort = await fetch(`${firebaseConfig.databaseURL}/duellOffen/${id}.json`, { cache: "no-store" });
+    const antwort = await fetch(`${firebaseConfig.databaseURL}/partieOffen/${id}.json`, { cache: "no-store" });
     if (!antwort.ok) return [];
     const d = await antwort.json();
     if (!d || typeof d !== "object") return [];
     const jetzt = Date.now();
     return Object.entries(d)
       .filter(([raum, o]) => /^[A-Z2-9]{10}$/.test(raum) && o && typeof o === "object")
-      .map(([raum, o]) => ({ raum, name: String(o.name || "").slice(0, NAME_MAX), kennung: String(o.kennung || ""), seit: Number(o.seit) || 0 }))
-      .filter((o) => o.name && jetzt - o.seit < 3 * 3600 * 1000)
+      .map(([raum, o]) => ({ raum, name: String(o.name || "").slice(0, NAME_MAX), kennung: String(o.kennung || ""), spiel: String(o.spiel || ""), seit: Number(o.seit) || 0 }))
+      .filter((o) => o.name && zweiSpielerIds().includes(o.spiel) && jetzt - o.seit < 3 * 3600 * 1000)
       .sort((a, b) => a.seit - b.seit);
   }
 
@@ -1266,8 +1274,13 @@
       .filter(Boolean))]
       .filter((id) => !bekannt || bekannt.includes(id));
     const endeMs = Math.round(Number(d.endeMs) || 0);
-    // Ohne Spiel mit Bestenliste geht es nur, wenn Viererreihe dabei ist.
-    if (!name || (!spiele.length && d.viererreihe !== true) || !endeMs) return null;
+    // Die Spiele zu zweit (das alte Feld viererreihe zählt mit) – nur die, die
+    // es gibt.
+    const zweiBekannt = zweiSpielerIds();
+    const zweiSpieler = [...new Set([...(Array.isArray(d.zweiSpieler) ? d.zweiSpieler : []), ...(d.viererreihe === true ? ["viererreihe"] : [])]
+      .map((id) => String(id || "").trim()))].filter((id) => zweiBekannt.includes(id));
+    // Ohne Spiel mit Bestenliste geht es nur mit einem Spiel zu zweit.
+    if (!name || (!spiele.length && !zweiSpieler.length) || !endeMs) return null;
     return {
       id: doc.id,
       name,
@@ -1285,7 +1298,8 @@
       ohneReplay: d.ohneReplay === true,
       ohneLive: d.ohneLive === true,
       nurLive: d.nurLive === true,
-      viererreihe: d.viererreihe === true,
+      viererreihe: zweiSpieler.includes("viererreihe"),
+      zweiSpieler,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
@@ -1381,8 +1395,12 @@
     if (daten.ohneLive === true) doc.ohneLive = true;
     // Und nur, wer nur live spielen lässt.
     if (daten.nurLive === true) doc.nurLive = true;
-    // Und Viererreihe, wenn sie dabei ist.
-    if (daten.viererreihe === true) doc.viererreihe = true;
+    // Und die Spiele zu zweit, wenn welche dabei sind. viererreihe steht
+    // daneben weiter, für ein Gerät, das noch die Fassung von vorher hat.
+    const zwei = [...new Set([...(Array.isArray(daten.zweiSpieler) ? daten.zweiSpieler : []), ...(daten.viererreihe === true ? ["viererreihe"] : [])]
+      .map((id) => String(id || "").trim()))].filter((id) => zweiSpielerIds().includes(id));
+    if (zwei.length) doc.zweiSpieler = zwei;
+    if (zwei.includes("viererreihe")) doc.viererreihe = true;
     await ref.doc(kennung).set(doc);
     return liesTurnier({ id: kennung, data: () => doc });
   }

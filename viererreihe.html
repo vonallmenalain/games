@@ -3,9 +3,8 @@
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
   Viererreihe: /viererreihe (das Menü), /viererreihe?gegen=mittel (gegen den
-  Computer), /viererreihe?raum=K7QMX2PA9Z (ein Duell zu zweit). Was darauf
-  steht, baut viererreihe.js; das Brett und den Computer rechnet
-  viererreihe-ki.js.
+  Computer), /viererreihe?raum=K7QMX2PA9Z (ein Duell zu zweit). Den Rahmen baut
+  zwei.js, das Spiel viererreihe-ki.js, viererreihe.js.
 -->
 <html lang="de">
   <head>
@@ -29,28 +28,29 @@
     <meta property="og:image:alt" content="arcade" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>Viererreihe · arcade</title>
-    <link rel="stylesheet" href="styles.css?v=2026-11-23-2" />
-    <link rel="manifest" href="app.webmanifest?v=2026-11-23-2" />
+    <link rel="stylesheet" href="styles.css?v=2026-11-23-3" />
+    <link rel="manifest" href="app.webmanifest?v=2026-11-23-3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
   </head>
   <body data-page="viererreihe">
-    <main class="vr-seite" data-viererreihe>
+    <main class="vr-seite" data-zwei>
       <p class="mini-hinweis">Viererreihe wird geladen...</p>
     </main>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-    <script defer src="vollbild.js?v=2026-11-23-2"></script>
-    <script defer src="highscore.js?v=2026-11-23-2"></script>
-    <script defer src="cloud.js?v=2026-11-23-2"></script>
-    <script defer src="klang.js?v=2026-11-23-2"></script>
-    <script defer src="mini-games.js?v=2026-11-23-2"></script>
-    <script defer src="turnier.js?v=2026-11-23-2"></script>
-    <script defer src="kids.js?v=2026-11-23-2"></script>
-    <script defer src="viererreihe-ki.js?v=2026-11-23-2"></script>
-    <script defer src="viererreihe.js?v=2026-11-23-2"></script>
-    <script defer src="pwa.js?v=2026-11-23-2"></script>
+    <script defer src="vollbild.js?v=2026-11-23-3"></script>
+    <script defer src="highscore.js?v=2026-11-23-3"></script>
+    <script defer src="cloud.js?v=2026-11-23-3"></script>
+    <script defer src="klang.js?v=2026-11-23-3"></script>
+    <script defer src="mini-games.js?v=2026-11-23-3"></script>
+    <script defer src="turnier.js?v=2026-11-23-3"></script>
+    <script defer src="kids.js?v=2026-11-23-3"></script>
+    <script defer src="zwei.js?v=2026-11-23-3"></script>
+    <script defer src="viererreihe-ki.js?v=2026-11-23-3"></script>
+    <script defer src="viererreihe.js?v=2026-11-23-3"></script>
+    <script defer src="pwa.js?v=2026-11-23-3"></script>
   </body>
 </html>
