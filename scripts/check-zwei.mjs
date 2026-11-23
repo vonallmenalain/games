@@ -300,8 +300,9 @@ const SPIELWEISE = {
       return f === undefined ? null : `S${f}`;
     },
     vorbereiten: async (s) => {
-      // Erst wenn die Seite weiss, wo sie sitzt.
-      const muss = await bis(() => s.evaluate(() => Boolean(window.LernappZwei?.test?.lage?.()?.phase && window.LernappZwei?.test?.sitz?.())), { ms: 6000 });
+      // Erst wenn die Seite weiss, wo sie sitzt – und die neue Partie da ist
+      // (nach «Nochmal» steht kurz noch die alte, fertige auf dem Brett).
+      const muss = await bis(() => s.evaluate(() => { const l = window.LernappZwei?.test?.lage?.(); return Boolean(l?.phase && l.phase !== "ende" && window.LernappZwei?.test?.sitz?.()); }));
       if (!muss) return;
       const offen = await s.evaluate(() => {
         const l = window.LernappZwei.test.lage();
