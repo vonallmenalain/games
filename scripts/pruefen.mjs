@@ -1105,6 +1105,72 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Mühle: «Einfach» schlägt «Ganz leicht» meistens (${siegeEinfach} von 8)`, siegeEinfach >= 6);
   }
 
+  // Schach: der Zuggenerator gegen die bekannten Zahlen (Perft), und die
+  // Regeln an kurzen Partien – Matt, Patt, Rochade, en passant,
+  // Umwandlung, Wiederholung, zu wenig Material.
+  const SC = angemeldet.schach;
+  if (SC?.fuerPruefung) {
+    const I = SC.fuerPruefung;
+    const perft = (st, d) => {
+      if (d === 0) return 1;
+      let n = 0;
+      for (const z of I.legaleZuege(st)) { const v = I.ziehe(st, z); n += perft(st, d - 1); I.zurueck(st, z, v); }
+      return n;
+    };
+    pruefe("Schach: Perft – vom Start 20, 400, 8902 Stellungen",
+      perft(I.neueStellung(), 1) === 20 && perft(I.neueStellung(), 2) === 400 && perft(I.neueStellung(), 3) === 8902);
+    pruefe("Schach: Perft – «Kiwipete» (Rochaden, en passant, Umwandlungen) 48 und 2039",
+      perft(I.ausFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"), 1) === 48
+      && perft(I.ausFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"), 2) === 2039);
+    pruefe("Schach: Perft – Stellung 3 (en passant mit Fesselung) 14, 191, 2812",
+      perft(I.ausFen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"), 3) === 2812);
+    const lage = (zuege, beginnt = "a") => SC.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const schaefer = ["e2e4", "e7e5", "d1h5", "b8c6", "f1c4", "g8f6", "h5f7"];
+    const matt = lage(schaefer);
+    pruefe("Schach: Schäfermatt – Weiss (wer beginnt) gewinnt, der König steht im Schach",
+      matt.ende === "a" && matt.grund === "matt" && matt.schach === true && lage(schaefer, "b").ende === "b");
+    const loyd = ["e2e3", "a7a5", "d1h5", "a8a6", "h5a5", "h7h5", "h2h4", "a6h6", "a5c7", "f7f6", "c7d7", "e8f7", "d7b7", "d8d3", "b7b8", "d3h7", "b8c8", "f7g6", "c8e6"];
+    const patt = lage(loyd);
+    pruefe("Schach: Patt nach zehn Zügen (Sam Loyd) – unentschieden", patt.ende === "u" && patt.grund === "patt");
+    const roch = lage(["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6"]);
+    const nachRoch = lage(["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "e1g1"]);
+    pruefe("Schach: Rochade – König zwei Felder, der Turm springt über",
+      roch.legal.includes("e1g1") && nachRoch.brett[62] === 6 && nachRoch.brett[61] === 4 && nachRoch.brett[63] === 0 && nachRoch.brett[60] === 0);
+    pruefe("Schach: Keine Rochade durch ein angegriffenes Feld",
+      !lage(["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "d2d3", "c5g1"]).legal.includes("e1g1"));
+    const ep = lage(["e2e4", "a7a6", "e4e5", "d7d5"]);
+    const nachEp = lage(["e2e4", "a7a6", "e4e5", "d7d5", "e5d6"]);
+    pruefe("Schach: en passant – nur gleich danach, und der Bauer ist weg",
+      ep.legal.includes("e5d6") && nachEp.brett[27] === 0 && nachEp.brett[19] === 1
+      && !lage(["e2e4", "a7a6", "e4e5", "d7d5", "a2a3", "h7h6"]).legal.includes("e5d6"));
+    const um = lage(["a2a4", "b7b5", "a4b5", "a7a6", "b5a6", "c8b7", "a6b7", "b8c6"]);
+    pruefe("Schach: Umwandlung – in Dame, Turm, Läufer oder Springer",
+      ["b7a8q", "b7a8r", "b7a8b", "b7a8n", "b7b8q"].every((z) => um.legal.includes(z)) && !um.legal.includes("b7a8")
+      && lage(["a2a4", "b7b5", "a4b5", "a7a6", "b5a6", "c8b7", "a6b7", "b8c6", "b7a8n"]).brett[0] === 2);
+    const wieder = lage(["g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8"]);
+    pruefe("Schach: Dreimal dieselbe Stellung – unentschieden", wieder.ende === "u" && wieder.grund === "wiederholung"
+      && !lage(["g1f3", "g8f6", "f3g1", "f6g8"]).ende);
+    pruefe("Schach: Zu wenig Material für ein Matt",
+      I.zuWenig(I.ausFen("8/8/8/4k3/8/8/8/4K3 w - - 0 1").b) && I.zuWenig(I.ausFen("8/8/8/4k3/8/8/8/4KN2 w - - 0 1").b)
+      && !I.zuWenig(I.ausFen("8/8/8/4k3/8/8/8/4KR2 w - - 0 1").b) && !I.zuWenig(I.ausFen("8/8/8/4k3/8/8/4P3/4K3 w - - 0 1").b));
+    pruefe("Schach: Nur wer am Zug ist, nur erlaubte Züge",
+      SC.darf(lage([]), "e2e4", "a") && !SC.darf(lage([]), "e2e4", "b") && !SC.darf(lage([]), "e2e5", "a")
+      && !SC.darf(lage(["e2e4"]), "e7e5", "a") && SC.darf(lage(["e2e4"]), "e7e5", "b") && lage(["e2e5"]).dran === null);
+    const vorMatt = lage(schaefer.slice(0, 6));
+    pruefe("Schach: «Mittel» und «Schwer» sehen ein Matt in einem Zug",
+      SC.computer(vorMatt, "a", "mittel") === "h5f7" && SC.computer(vorMatt, "a", "schwer") === "h5f7");
+    let legal = true;
+    for (const stufe of ["leicht", "einfach"]) {
+      const zuege = [];
+      for (let l = lage(zuege); !l.ende && zuege.length < 40; l = lage(zuege)) {
+        const z = SC.computer(l, l.dran, stufe);
+        if (!SC.darf(l, z, l.dran)) { legal = false; break; }
+        zuege.push(z);
+      }
+    }
+    pruefe("Schach: «Ganz leicht» und «Einfach» ziehen nur Erlaubtes", legal);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

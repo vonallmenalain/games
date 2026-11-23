@@ -9957,6 +9957,154 @@ body[data-page="muehle"] { overscroll-behavior: none; }
   .zw-mh-stein.ist-nehmbar { animation: none; }
 }
 
+/* --- Schach (schach.js) -----------------------------------------------------------
+   Ein Brett in zwei Violetts, die Figuren als Schriftzeichen (♚♛♜♝♞♟, immer
+   die gefüllten), gefärbt in Koralle und Gold, mit dunklem Rand. Wer am Zug
+   ist und eine Figur antippt, sieht Punkte, wohin sie darf (Ringe, wo sie
+   schlägt). Die Ziffern und Buchstaben am Rand helfen beim Lernen. Ein
+   Feld ist ein Achtel der Brettbreite (--q). */
+body[data-page="schach"] { overscroll-behavior: none; }
+.vr-partie.zw-schach {
+  --vr-breite: max(240px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 560px, calc(100dvh - 318px - var(--safe-top) - var(--safe-bottom))));
+}
+.zw-sc {
+  --q: calc(var(--vr-breite) / 8);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: var(--vr-breite);
+  max-width: 100%;
+  touch-action: manipulation;
+}
+.zw-sc .confetti-layer { z-index: 6; }
+.zw-sc-geschlagen { display: flex; flex-wrap: wrap; align-items: center; width: 100%; min-height: calc(var(--q) * 0.5); font-size: calc(var(--q) * 0.42); line-height: 1; }
+.zw-sc-feld {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: calc(var(--q) * 0.2);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.zw-sc-zelle {
+  --grund: #403574;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--grund);
+  color: inherit;
+  font-size: calc(var(--q) * 0.8);
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zw-sc-zelle.ist-dunkel { --grund: #2a2150; }
+.zw-sc-zelle:disabled { opacity: 1; cursor: default; }
+.zw-sc-zelle:focus-visible { z-index: 2; outline: 3px solid #fff; outline-offset: -3px; }
+.zw-sc-zelle.ist-letzter { --grund: #5d4ba3; }
+.zw-sc-zelle.ist-dunkel.ist-letzter { --grund: #4b3c8a; }
+.zw-sc-zelle.ist-gewaehlt,
+.zw-sc-zelle.ist-dunkel.ist-gewaehlt { --grund: #7a62dc; }
+/* Wohin die gewählte Figur darf: ein Punkt – oder ein Ring, wo sie schlägt. */
+.zw-sc-zelle.ist-ziel { background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 13%, transparent 14.5%), var(--grund); }
+.zw-sc-zelle.ist-ziel.ist-schlag { background: radial-gradient(circle, transparent 0 58%, rgba(255, 255, 255, 0.6) 60% 68%, transparent 70%), var(--grund); }
+.zw-sc.ist-dran .zw-sc-zelle.ist-ziel:hover { --grund: #6a57bd; }
+/* Der König im Schach: rot glühend. */
+.zw-sc-zelle.ist-schach { background: radial-gradient(circle, rgba(255, 77, 94, 0.9) 0 30%, rgba(255, 77, 94, 0) 72%), var(--grund); }
+/* Ziffern links, Buchstaben unten. */
+.zw-sc-zelle[data-reihe]::before,
+.zw-sc-zelle[data-linie]::after {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.42);
+  font-family: inherit;
+  font-size: calc(var(--q) * 0.19);
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+.zw-sc-zelle[data-reihe]::before { content: attr(data-reihe); left: 5%; top: 5%; }
+.zw-sc-zelle[data-linie]::after { content: attr(data-linie); right: 6%; bottom: 5%; }
+.zw-sc-figur {
+  position: relative;
+  z-index: 1;
+  font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans", "Apple Symbols", "Arial Unicode MS", sans-serif;
+  font-weight: 400;
+  line-height: 1;
+  pointer-events: none;
+  -webkit-text-stroke: calc(var(--q, 40px) * 0.025) rgba(20, 10, 30, 0.7);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.zw-sc-figur.ist-a { color: var(--vr-a); }
+.zw-sc-figur.ist-b { color: var(--vr-b); }
+.zw-sc-figur.ist-neu { animation: zw-sc-setzen 0.26s ease-out both; }
+@keyframes zw-sc-setzen { from { transform: scale(1.25); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+/* Umwandlung: Welche Figur soll der Bauer werden? */
+.zw-sc-umwandlung {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: calc(var(--q) * 0.2);
+  background: rgba(12, 9, 24, 0.86);
+}
+.zw-sc-umwandlung[hidden] { display: none; }
+.zw-sc-umwandlung-text { margin: 0; font-weight: 850; text-align: center; }
+.zw-sc-umwandlung-reihe { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.zw-sc-umwandlung-knopf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+  min-height: 0;
+  padding: 10px 8px 8px;
+  border-radius: 16px;
+  background: #403574;
+  font-size: 2.6rem;
+  line-height: 1;
+}
+.zw-sc-umwandlung-name { font-size: 0.78rem; font-weight: 800; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-schach { --vr-breite: max(180px, min(calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom)), 58vw)); }
+  .zw-sc { grid-area: feld; }
+}
+
+/* Im Menü: ein Stück Brett, zwei Könige, eine Dame. */
+.zw-sc-held {
+  --h: clamp(26px, 7.5vw, 34px);
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, var(--h));
+  grid-auto-rows: var(--h);
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.zw-sc-held-feld { --q: var(--h); display: grid; place-items: center; background: #403574; font-size: calc(var(--h) * 0.8); line-height: 1; }
+.zw-sc-held-feld.ist-dunkel { background: #2a2150; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-sc-figur.ist-neu { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10039,6 +10187,28 @@ body[data-page="muehle"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Schach: ein Stück Brett, ein König in Koralle, eine Dame in Gold. */
+.ar-sc-brett {
+  position: absolute;
+  left: calc(50% - var(--z) * 3);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 6);
+  height: calc(var(--z) * 6);
+  overflow: hidden;
+  border-radius: calc(var(--z) * 0.4);
+  background: repeating-conic-gradient(#2a2150 0 25%, #403574 0 50%) 0 0 / calc(var(--z) * 3) calc(var(--z) * 3);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-sc-figur {
+  position: absolute;
+  font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans", "Apple Symbols", sans-serif;
+  font-size: calc(var(--z) * 2.4);
+  line-height: 1;
+  -webkit-text-stroke: 1px rgba(20, 10, 30, 0.7);
+  paint-order: stroke fill;
+}
+.ar-sc-figur.ist-a { left: calc(var(--z) * 0.35); top: calc(var(--z) * 0.25); color: #fe7971; }
+.ar-sc-figur.ist-b { left: calc(var(--z) * 3.3); top: calc(var(--z) * 3.15); color: #ffd45e; }
 /* Mühle: drei Quadrate, eine Mühle in Koralle, Gold daneben. */
 .ar-mh-brett {
   position: absolute;
