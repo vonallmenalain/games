@@ -299,6 +299,9 @@ try {
   pruefe(await bis(() => lena.seite.locator(".vr-stein.ist-sieg").count().then((n) => n === 4)), "Bei Lena leuchten die vier");
   const ring = await lena.seite.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".vr-stein.ist-sieg"), "::after").borderTopWidth) || 0);
   pruefe(ring >= 2, `Um die vier liegt ein Ring (${ring}px)`);
+  // Gegen den Emulator ist die Partie in einer Sekunde gespielt – gemessen
+  // wird, wenn alle Steine gefallen sind.
+  await bis(() => lena.seite.evaluate(() => [...document.querySelectorAll(".vr-steine .vr-stein")].every((s) => !s.getAnimations().length)), { ms: 4000 });
   const masz = await lena.seite.evaluate(() => {
     const brett = document.querySelector(".vr-brett").getBoundingClientRect();
     const stein = document.querySelector(".vr-steine .vr-stein").getBoundingClientRect();
