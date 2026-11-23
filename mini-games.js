@@ -4236,6 +4236,50 @@
     gesamtZeichnen?.();
   }
 
+  /*
+   * Viererreihe in einem Turnier (turnier.js), wenn der Admin sie dazugenommen
+   * hat: vorne in der Zeile – oder, hat das Turnier sonst kein Spiel, als
+   * grosse Karte (gross). Kein Spiel der Tabelle SPIELE – keine Bestenliste,
+   * keine Bühne, kein Bild aus einer Runde –, sondern eines zu zweit (oder
+   * gegen den Computer) auf seiner eigenen Seite (viererreihe.js). Das Bild
+   * ist ein kleines Brett mit einer Reihe, schräg hinauf, gezeichnet statt
+   * aufgenommen. Auf der Startseite steht sie nicht.
+   *
+   * kachel.wartende(namen) sagt darauf, wer im Turnier gerade auf jemanden
+   * wartet: «Lena wartet!» – damit auch ein Kind, das noch nicht liest, den
+   * Weg zum Duell der grossen Schwester findet.
+   */
+  function viererreiheKachel(turnierId, { gross = false } = {}) {
+    // Eine eigene Klasse, keine ar-kachel: Die Zeile zählt ihre Spiele an
+    // ar-kachel (und scripts/check-spiele.mjs auch).
+    const k = el("a", `ar-vr-kachel${gross ? " ist-gross" : ""}`);
+    k.href = `/viererreihe?turnier=${encodeURIComponent(turnierId)}`;
+    k.title = "Viererreihe – gegen den Computer oder live zu zweit";
+    k.setAttribute("aria-label", k.title);
+    const bild = el("span", "ar-vr-bild");
+    bild.setAttribute("aria-hidden", "true");
+    ["", "b", "ab", "bab", "abba", "a", "b"].forEach((spalte, c) => {
+      [...spalte].forEach((sitz, r) => {
+        const stein = el("span", `ar-vr-stein ist-${sitz}`);
+        stein.style.setProperty("--c", String(c));
+        stein.style.setProperty("--r", String(r));
+        bild.append(stein);
+      });
+    });
+    const marke = el("span", "ar-vr-neu", "zu zweit");
+    k.append(bild, el("span", "ar-vr-titel", "Viererreihe"), marke);
+    if (gross) k.append(el("span", "mini-knopf mini-knopf-voll ar-vr-los", "Spielen"));
+    k.wartende = (namen = []) => {
+      const liste = [...new Set(namen.filter(Boolean))];
+      k.classList.toggle("ist-wartet", liste.length > 0);
+      marke.textContent = !liste.length ? "zu zweit"
+        : liste.length === 1 ? `${liste[0]} wartet!`
+          : `${liste.slice(0, -1).join(", ")} und ${liste[liste.length - 1]} warten!`;
+      k.setAttribute("aria-label", liste.length ? `Viererreihe – ${marke.textContent}` : k.title);
+    };
+    return k;
+  }
+
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
   // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile); was danach
   // geschieht, sagt die Seite (beiWechsel).
@@ -4372,7 +4416,7 @@
     adminKnopf,
     leiste,
     ergebnis,
-    arcadeKopf, arcadeBuehne, arcadeStart, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
+    arcadeKopf, arcadeBuehne, arcadeStart, viererreiheKachel, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

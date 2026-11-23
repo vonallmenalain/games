@@ -8799,3 +8799,681 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
 .ar-weiter-titel { margin: 0; font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 900; color: var(--ar-text); }
 .ar-weiter-text { margin: 0 0 6px; max-width: 30rem; color: var(--ar-leise); }
 .ar-weiter-geht .ar-weiter { visibility: hidden; }
+
+/* --- Viererreihe (viererreihe.js) ----------------------------------------------
+   Vier in einer Reihe, gegen den Computer oder live zu zweit. Ein eigenes
+   Aussehen: ein violettes Brett mit Löchern (eine Maske), hinter dem die
+   Steine fallen – Koralle für den, der eröffnet (oder dich gegen den
+   Computer), Gold für das Gegenüber. Alles hängt an einer Breite
+   (--vr-breite), eine Zelle ist ein Siebtel davon (--z). */
+body[data-page="viererreihe"] { overscroll-behavior: none; }
+.vr-seite {
+  --vr-a: #fe7971;
+  --vr-a-hell: #ffd5d0;
+  --vr-a-tief: #c63a3c;
+  --vr-b: #ffd45e;
+  --vr-b-hell: #fff6cf;
+  --vr-b-tief: #d58d12;
+  --vr-brett: #6a4de0;
+  --vr-rueckwand: #120f1e;
+  max-width: 760px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 14px 16px calc(22px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--ar-text);
+}
+.vr-seite > .mini-hinweis { margin: 30vh auto 0; color: var(--ar-leise); font-weight: 700; }
+
+/* Oben: zurück, der Name, das Vollbild – rechts bleibt Platz für den Ton. */
+.vr-kopf {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+}
+.vr-kopf-links { display: flex; align-items: center; min-width: 0; }
+.vr-kopf-rechts { display: flex; justify-content: flex-end; align-items: center; padding-right: 64px; }
+.vr-kopf .mini-knopf-zurueck { gap: 0; padding: 0; width: 44px; justify-content: center; }
+@media (min-width: 560px) {
+  .vr-kopf .mini-knopf-zurueck { gap: 6px; width: auto; padding: 0 16px 0 12px; }
+}
+.vr-marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ar-text);
+  text-decoration: none;
+  font-size: 1.12rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.vr-marke-bild {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--vr-a);
+  box-shadow: 9px -6px 0 0 var(--vr-b);
+}
+.vr-kopf .mini-vollbild {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
+  cursor: pointer;
+}
+.vr-kopf .mini-vollbild svg { width: 20px; height: 20px; display: block; }
+.vr-kopf .mini-vollbild:active { transform: scale(0.93); }
+
+/* Ein Stein im Text. */
+.vr-mini-stein {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1.05em;
+  height: 1.05em;
+  border-radius: 50%;
+  vertical-align: -0.15em;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 14%, var(--ton) 50%, var(--tief) 100%);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+.vr-mini-stein.ist-a { --ton: var(--vr-a); --hell: var(--vr-a-hell); --tief: var(--vr-a-tief); }
+.vr-mini-stein.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+
+/* --- Das Menü --- */
+.vr-menue { display: flex; flex-direction: column; gap: 14px; }
+.vr-held {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--ar-linie);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(124, 92, 230, 0.32), transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, rgba(254, 121, 113, 0.16), transparent 60%),
+    var(--ar-flaeche);
+}
+.vr-held-bild {
+  --z: clamp(14px, 4vw, 20px);
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--z) * 7);
+  height: calc(var(--z) * 6);
+  border-radius: calc(var(--z) * 0.3);
+  background:
+    radial-gradient(circle, var(--vr-rueckwand) 0 34%, transparent 37%) 0 0 / var(--z) var(--z),
+    linear-gradient(170deg, #8e72f2, var(--vr-brett) 55%, #4b30bd);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+.vr-held-stein {
+  position: absolute;
+  left: calc(var(--c) * var(--z));
+  bottom: calc(var(--r) * var(--z));
+  width: var(--z);
+  height: var(--z);
+}
+.vr-held-stein::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 14%, var(--ton) 50%, var(--tief) 100%);
+}
+.vr-held-stein.ist-a { --ton: var(--vr-a); --hell: var(--vr-a-hell); --tief: var(--vr-a-tief); }
+.vr-held-stein.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+.vr-held-stein.ist-reihe::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+.vr-held-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vr-titel { margin: 0; font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
+.vr-unter { margin: 0; color: var(--ar-leise); font-weight: 600; line-height: 1.4; }
+@media (max-width: 420px) {
+  .vr-held { flex-direction: column; align-items: flex-start; }
+}
+.vr-wer-zeile { padding: 4px 0; }
+.vr-wer-zeile .mini-name-steht { margin: 0; color: var(--ar-leise); font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; }
+.vr-wer-zeile .mini-name-steht strong { color: var(--ar-text); }
+
+.vr-karte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--ar-linie);
+  background: var(--ar-flaeche);
+}
+.vr-karte-titel { margin: 0; font-size: 1.18rem; font-weight: 900; letter-spacing: -0.01em; }
+.vr-hinweis { margin: 0; color: var(--ar-leise); font-weight: 600; line-height: 1.45; }
+
+.vr-stufen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) {
+  .vr-stufen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.vr-stufe {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(255, 255, 255, 0.2), transparent 55%),
+    linear-gradient(150deg, var(--vr-ton), var(--vr-ton-tief));
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+  transition: transform 0.15s ease;
+}
+.vr-stufe:active { transform: scale(0.97); }
+.vr-stufe:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.vr-stufe.ist-leicht { --vr-ton: #2fa9c9; --vr-ton-tief: #19708c; }
+.vr-stufe.ist-einfach { --vr-ton: #34b27b; --vr-ton-tief: #1d7a52; }
+.vr-stufe.ist-mittel { --vr-ton: #f0913f; --vr-ton-tief: #b85a1a; }
+.vr-stufe.ist-schwer { --vr-ton: #e4485d; --vr-ton-tief: #9c2338; }
+.vr-stufe-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.vr-stufe-name { font-size: 1.2rem; font-weight: 900; }
+.vr-sterne { display: inline-flex; gap: 1px; font-size: 0.95rem; line-height: 1; }
+.vr-stern { opacity: 0.32; }
+.vr-stern.ist-an { opacity: 1; }
+.vr-stufe-satz { font-weight: 750; opacity: 0.92; }
+.vr-stufe-bilanz { margin-top: auto; font-size: 0.8rem; font-weight: 700; opacity: 0.85; }
+@media (max-width: 540px) {
+  .vr-stufen { grid-template-columns: 1fr; }
+  .vr-stufe { min-height: 0; padding: 12px 14px; }
+  .vr-stufe-bilanz { margin-top: 2px; }
+}
+
+.vr-los { --mini-farbe: var(--vr-brett); }
+.vr-eroeffnen { width: 100%; min-height: 52px; font-size: 1.05rem; }
+.vr-live-platz { display: flex; flex-direction: column; gap: 10px; }
+.vr-zeile { display: flex; gap: 10px; align-items: stretch; }
+.vr-eingabe {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ar-text);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.vr-eingabe:focus { outline: 2px solid var(--vr-brett); outline-offset: 1px; border-color: transparent; }
+.vr-code { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; border-top: 1px solid var(--ar-linie); }
+.vr-code-label { margin: 0; color: var(--ar-leise); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.vr-code-feld { flex: 0 1 9.5ch; text-align: center; font-size: 1.45rem; font-weight: 900; letter-spacing: 0.3em; padding: 0 0 0 0.3em; font-variant-numeric: tabular-nums; }
+.vr-code-ok { flex: 0 0 auto; }
+.vr-meldung { min-height: 1.2em; margin: 0; color: var(--ar-koralle); font-size: 0.9rem; font-weight: 700; }
+.vr-namensfeld { display: flex; flex-direction: column; gap: 10px; }
+.vr-weiter { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 10px; border-top: 1px solid var(--ar-linie); }
+.vr-weiter-titel { margin: 0; color: var(--ar-leise); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.vr-weiter-knopf { gap: 8px; }
+
+/* Im Turnier: wer wartet, als grosser Knopf – so gross, dass ihn auch ein
+   Kind findet, das noch nicht liest. */
+.vr-wartende { display: flex; flex-direction: column; gap: 10px; }
+.vr-wartende:empty { display: none; }
+.vr-wartet-knopf {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 2px solid var(--vr-a);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(254, 121, 113, 0.32), transparent 60%),
+    rgba(254, 121, 113, 0.12);
+  color: var(--ar-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(254, 121, 113, 0.5);
+  animation: vr-ruft 1.6s ease-out infinite;
+}
+.vr-wartet-knopf:active { transform: scale(0.98); }
+.vr-wartet-knopf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+@keyframes vr-ruft {
+  0% { box-shadow: 0 0 0 0 rgba(254, 121, 113, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(254, 121, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(254, 121, 113, 0); }
+}
+.vr-wartet-knopf .vr-wartet-stein { font-size: 2.2rem; }
+.vr-wartet-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vr-wartet-text strong { font-size: 1.3rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr-wartet-text span { color: var(--ar-leise); font-weight: 700; font-size: 0.9rem; }
+.vr-wartet-los {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--vr-a);
+  color: #2a0d0b;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.vr-karte-live.ist-wartet { border-color: rgba(254, 121, 113, 0.45); }
+.vr-mehr { border-top: 1px solid var(--ar-linie); padding-top: 8px; }
+.vr-mehr-knopf {
+  cursor: pointer;
+  color: var(--ar-leise);
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding: 6px 0;
+  list-style-position: inside;
+}
+.vr-mehr[open] .vr-mehr-knopf { margin-bottom: 8px; }
+.vr-mehr .vr-code { border-top: 0; padding-top: 0; }
+.vr-mehr-innen { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Was die anderen jetzt sehen: der Knopf, nur gezeigt. */
+.vr-vorschau-knopf {
+  margin: 0;
+  padding: 14px 22px;
+  border: 2px solid var(--vr-a);
+  border-radius: 20px;
+  background: rgba(254, 121, 113, 0.12);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+/* --- Die Partie --- */
+.vr-partie {
+  --vr-breite: max(240px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 560px, calc(100dvh - 252px - var(--safe-top) - var(--safe-bottom))));
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.vr-leiste {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: var(--vr-breite);
+  max-width: 100%;
+}
+.vr-leiste-mitte { color: var(--ar-leise); font-weight: 900; }
+.vr-wer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 12px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+}
+.vr-wer.ist-b { flex-direction: row-reverse; text-align: right; }
+.vr-wer .vr-mini-stein { font-size: 1.25rem; }
+.vr-wer-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; font-size: 0.95rem; }
+.vr-wer-zahl { font-size: 1.35rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.vr-wer-punkt { width: 8px; height: 8px; border-radius: 50%; background: var(--ar-leise); flex: 0 0 auto; }
+.vr-wer.ist-weg { opacity: 0.6; }
+.vr-wer.ist-dran.ist-a { border-color: var(--vr-a); background: rgba(254, 121, 113, 0.16); box-shadow: 0 0 22px rgba(254, 121, 113, 0.28); }
+.vr-wer.ist-dran.ist-b { border-color: var(--vr-b); background: rgba(255, 212, 94, 0.14); box-shadow: 0 0 22px rgba(255, 212, 94, 0.24); }
+.vr-satz {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 1.6em;
+  margin: 0;
+  color: var(--ar-leise);
+  font-size: 1.12rem;
+  font-weight: 850;
+  text-align: center;
+}
+.vr-satz.ist-ich { color: var(--ar-text); }
+.vr-satz.ist-ende { color: var(--ar-text); font-size: 1.3rem; }
+.vr-satz.ist-sieg { color: var(--ar-gold); }
+.vr-denkt { display: inline-block; animation: vr-denkt 1s ease-in-out infinite; }
+@keyframes vr-denkt { 50% { opacity: 0.2; } }
+
+/* Das Feld: oben eine Reihe Luft (dort schwebt der nächste Stein), darunter
+   das Brett. Breite = Höhe = sieben Zellen. Die Breite kommt aus der Grösse
+   des Fensters, ohne Prozent: --z steht auch in Rändern und Höhen, und dort
+   hiesse 100 % etwas anderes (ein Rand in Prozent gilt gar nicht). */
+.vr-feld {
+  --z: calc(var(--vr-breite) / 7);
+  position: relative;
+  width: var(--vr-breite);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  touch-action: manipulation;
+}
+.vr-brett {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--z) * 6);
+  border-radius: calc(var(--z) * 0.28);
+  background: var(--vr-rueckwand);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.vr-steine { position: absolute; inset: 0; }
+.vr-stein {
+  position: absolute;
+  left: calc(var(--c) * var(--z));
+  bottom: calc(var(--r) * var(--z));
+  width: var(--z);
+  height: var(--z);
+  pointer-events: none;
+}
+.vr-stein::before {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 12%, var(--ton) 48%, var(--tief) 100%);
+  box-shadow: inset 0 calc(var(--z) * -0.05) 0 rgba(0, 0, 0, 0.22), inset 0 0 0 calc(var(--z) * 0.07) rgba(255, 255, 255, 0.1);
+  transition: filter 0.4s ease;
+}
+.vr-stein.ist-a { --ton: var(--vr-a); --hell: var(--vr-a-hell); --tief: var(--vr-a-tief); }
+.vr-stein.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+/* Die Platte: violett, mit Löchern. Ein Ring um jedes Loch gibt ihr Tiefe. */
+.vr-platte {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.3) calc(var(--z) * 0.37), rgba(255, 255, 255, 0.2) calc(var(--z) * 0.375), rgba(255, 255, 255, 0) calc(var(--z) * 0.46)) 0 0 / var(--z) var(--z),
+    linear-gradient(170deg, #8e72f2, var(--vr-brett) 55%, #4b30bd);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent calc(var(--z) * 0.37), #000 calc(var(--z) * 0.37 + 1px)) 0 0 / var(--z) var(--z);
+  mask: radial-gradient(circle at 50% 50%, transparent calc(var(--z) * 0.37), #000 calc(var(--z) * 0.37 + 1px)) 0 0 / var(--z) var(--z);
+  pointer-events: none;
+}
+/* Der zuletzt gesetzte Stein trägt einen Punkt – so sieht man, wohin der
+   Computer (oder das Gegenüber) gesetzt hat. */
+.vr-stein.ist-letzter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--z) * 0.14);
+  height: calc(var(--z) * 0.14);
+  margin: calc(var(--z) * -0.07) 0 0 calc(var(--z) * -0.07);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+}
+/* Die Reihe, die gewonnen hat: ein Ring, der atmet. Die anderen treten zurück. */
+.vr-brett.ist-aus .vr-stein:not(.ist-sieg)::before { filter: saturate(0.3) brightness(0.55); }
+.vr-stein.ist-sieg::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  border: calc(var(--z) * 0.06) solid rgba(255, 255, 255, 0.95);
+  animation: vr-sieg 0.9s ease-in-out infinite alternate;
+}
+@keyframes vr-sieg {
+  from { transform: scale(0.78); opacity: 0.55; }
+  to { transform: scale(1.04); opacity: 1; }
+}
+/* Der Stein, der gleich fällt, schwebt über der Spalte. */
+.vr-vorschau { top: 0; bottom: auto; animation: vr-schwebt 1.6s ease-in-out infinite; }
+.vr-vorschau[hidden] { display: none; }
+@keyframes vr-schwebt { 50% { transform: translateY(-5%); } }
+.vr-spalten {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.vr-spalte {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--z) * 0.3);
+  background: transparent;
+  cursor: pointer;
+}
+.vr-spalte:disabled { cursor: default; }
+.vr-feld.ist-dran .vr-spalte:not(:disabled):hover { background: rgba(255, 255, 255, 0.07); }
+.vr-spalte:focus-visible { outline: 3px solid #fff; outline-offset: -3px; background: rgba(255, 255, 255, 0.07); }
+.vr-feld .confetti-layer { z-index: 6; }
+
+.vr-knoepfe { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.vr-nochmal { min-width: 160px; min-height: 52px; font-size: 1.05rem; }
+.vr-zuschauen { color: var(--ar-leise); font-weight: 800; }
+.vr-knoepfe .vr-meldung { flex-basis: 100%; text-align: center; color: var(--ar-gruen); }
+
+/* Quer auf dem Handy: das Brett links, Namen und Knöpfe rechts. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-seite { max-width: none; padding-top: 8px; gap: 6px; }
+  .vr-kopf { min-height: 44px; }
+  .vr-partie {
+    --vr-breite: max(200px, min(calc(100dvh - 76px - var(--safe-top) - var(--safe-bottom)), 58vw));
+    display: grid;
+    grid-template-columns: auto minmax(180px, 300px);
+    grid-template-areas: "feld leiste" "feld satz" "feld knoepfe";
+    grid-template-rows: auto auto 1fr;
+    align-content: center;
+    justify-content: center;
+    column-gap: 22px;
+    row-gap: 12px;
+  }
+  .vr-feld { grid-area: feld; }
+  .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
+  .vr-leiste-mitte { display: none; }
+  .vr-wer.ist-b { flex-direction: row; text-align: left; }
+  .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
+  .vr-partie > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
+}
+
+/* --- Warten auf das Gegenüber --- */
+.vr-lobby { align-items: center; text-align: center; margin-top: 4vh; }
+.vr-grosscode { display: flex; justify-content: center; gap: 10px; margin: 0; }
+.vr-ziffer {
+  display: grid;
+  place-items: center;
+  width: clamp(52px, 15vw, 68px);
+  height: clamp(64px, 18vw, 82px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: clamp(2rem, 9vw, 2.8rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.vr-link {
+  margin: 0;
+  max-width: 100%;
+  color: var(--ar-leise);
+  font-size: 0.8rem;
+  word-break: break-all;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.vr-wartet { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-weight: 800; }
+.vr-wartet .vr-mini-stein { animation: vr-schwebt 1.6s ease-in-out infinite; }
+.vr-lobby .vr-meldung { color: var(--ar-gruen); }
+.vr-fehler { align-items: center; text-align: center; margin-top: 10vh; }
+.vr-fehler-text { margin: 0; font-weight: 700; line-height: 1.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-wartet-knopf,
+  .ar-vr-kachel.ist-wartet,
+  .vr-vorschau,
+  .vr-wartet .vr-mini-stein,
+  .vr-stein.ist-sieg::after,
+  .vr-denkt { animation: none; }
+}
+
+/* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
+/* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
+   Die Zeile zählt ihre Spiele an ar-kachel. */
+.ar-vr-kachel {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  flex: 0 0 auto;
+  width: var(--ar-kachel-b);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  opacity: 0.9;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease, opacity 0.3s ease;
+  animation: ar-kachel-kommt 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.ar-vr-kachel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgba(10, 9, 14, 0.85) 0%, rgba(10, 9, 14, 0.2) 48%, rgba(10, 9, 14, 0) 70%);
+  pointer-events: none;
+}
+.ar-vr-kachel:hover,
+.ar-vr-kachel:focus-visible { opacity: 1; transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5); }
+.ar-vr-kachel:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.ar-vr-titel {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  overflow: hidden;
+  font-size: clamp(0.7rem, 0.62rem + 0.3vw, 0.9rem);
+  font-weight: 850;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-vr-kachel { animation: none; transition: none; }
+  .ar-vr-kachel:hover,
+  .ar-vr-kachel:focus-visible { transform: none; }
+}
+.ar-vr-bild {
+  --z: calc(var(--ar-kachel-b) * 0.0731);
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 90% at 75% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+    linear-gradient(145deg, #7c5ce6, #3d2896);
+}
+.ar-vr-bild::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - var(--z) * 3.5);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 7);
+  height: calc(var(--z) * 6);
+  border-radius: calc(var(--z) * 0.3);
+  background:
+    radial-gradient(circle, rgba(12, 9, 24, 0.8) 0 34%, transparent 37%) 0 0 / var(--z) var(--z),
+    linear-gradient(170deg, #a088f7, #5a3dd2);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-vr-stein {
+  position: absolute;
+  left: calc(50% - var(--z) * 3.5 + var(--c) * var(--z) + var(--z) * 0.1);
+  top: calc(var(--z) * 0.45 + (5 - var(--r)) * var(--z) + var(--z) * 0.1);
+  width: calc(var(--z) * 0.8);
+  height: calc(var(--z) * 0.8);
+  border-radius: 50%;
+}
+.ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
+.ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Auf der Turnierseite oben, solange jemand wartet: ein grosser Knopf, ein
+   Tipp führt direkt ans Brett (turnier.js, rufeZeichnen). */
+.tn-vr-rufe { order: 4; flex: 1 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.tn-vr-rufe:empty { display: none; }
+/* Breit steht der Kopf sonst in einer Zeile – mit einem Ruf bekommt er eine
+   zweite. */
+@media (min-width: 900px), (orientation: landscape) and (max-height: 600px) {
+  .ar-seite.ist-turnier .ar-kopf:has(> .tn-vr-rufe:not(:empty)) { flex-wrap: wrap; padding-bottom: 10px; }
+}
+.tn-vr-ruf {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 2px solid #fe7971;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(254, 121, 113, 0.34), transparent 60%),
+    rgba(254, 121, 113, 0.14);
+  color: var(--ar-text);
+  text-decoration: none;
+  animation: vr-ruft 1.6s ease-out infinite;
+}
+.tn-vr-ruf:active { transform: scale(0.98); }
+.tn-vr-ruf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.tn-vr-stein {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+.tn-vr-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tn-vr-text strong { font-size: 1.3rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-vr-text span { color: var(--ar-leise); font-weight: 700; font-size: 0.9rem; }
+.tn-vr-los { flex: 0 0 auto; padding: 10px 18px; border-radius: 999px; background: #fe7971; color: #2a0d0b; font-weight: 900; font-size: 1.05rem; }
+@media (prefers-reduced-motion: reduce) {
+  .tn-vr-ruf { animation: none; }
+}
+
+/* Wartet jemand im Turnier, leuchtet die Kachel, und oben steht der Name. */
+.ar-vr-kachel.ist-wartet { opacity: 1; outline: 3px solid var(--vr-a, #fe7971); outline-offset: -3px; animation: vr-ruft 1.6s ease-out infinite; }
+.ar-vr-kachel.ist-wartet .ar-vr-neu { background: #fe7971; color: #2a0d0b; font-size: 0.7rem; }
+/* Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne. */
+.ar-vr-kachel.ist-gross {
+  --ar-kachel-b: min(92vw, 560px);
+  align-self: center;
+  margin: 12px auto 0;
+  border-radius: 22px;
+  opacity: 1;
+}
+.ar-vr-kachel.ist-gross .ar-vr-titel { left: 18px; bottom: 16px; font-size: 1.6rem; }
+.ar-vr-kachel.ist-gross .ar-vr-neu { top: 14px; left: 14px; font-size: 0.85rem; padding: 4px 12px; }
+.ar-vr-kachel.ist-gross.ist-wartet .ar-vr-neu { font-size: 1.05rem; }
+.ar-vr-los { position: absolute; right: 16px; bottom: 12px; --mini-farbe: #7c5ce6; pointer-events: none; min-height: 48px; font-size: 1.1rem; }
+.ar-vr-neu {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ar-gold);
+  color: #2a1f00;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}

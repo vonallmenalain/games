@@ -430,10 +430,15 @@ service cloud.firestore {
                             "aufgaben", "sichtbar", "verdeckt", "aktiv", "erstelltMs", "updatedAtMs"])
         && d.keys().hasOnly(["name", "beschreibung", "spiele", "startMs", "endeMs", "versuche", "zaehlt",
                              "wertung", "aufgaben", "sichtbar", "verdeckt", "aktiv", "spitzeWartet",
-                             "ohneGeist", "ohneReplay", "ohneLive", "nurLive", "erstelltMs", "updatedAtMs", "updatedAt"])
+                             "ohneGeist", "ohneReplay", "ohneLive", "nurLive", "viererreihe", "erstelltMs", "updatedAtMs", "updatedAt"])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 60
         && (!("beschreibung" in d) || (d.beschreibung is string && d.beschreibung.size() <= 600))
-        && d.spiele is list && d.spiele.size() > 0 && d.spiele.size() <= 50
+        // Viererreihe (viererreihe.js): Im Turnier steht sie als eigene
+        // Kachel, zum Spielen zu zweit – ohne Wertung. Ein Turnier darf dann
+        // auch ganz ohne Spiel mit Bestenliste sein. Fehlt das Feld, ist sie
+        // nicht dabei.
+        && d.get("viererreihe", false) is bool
+        && d.spiele is list && (d.spiele.size() > 0 || d.get("viererreihe", false) == true) && d.spiele.size() <= 50
         && d.spiele.hasOnly(miniSpiele())
         && d.startMs is int && d.endeMs is int && d.endeMs > d.startMs
         && d.versuche is int && d.versuche >= 0 && d.versuche <= 100

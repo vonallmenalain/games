@@ -9,6 +9,7 @@
     "pruefen:browser": "node scripts/check-spiele.mjs",
     "pruefen:live": "node scripts/check-live.mjs",
     "pruefen:zuschauen": "node scripts/check-zuschauen.mjs",
+    "pruefen:viererreihe": "node scripts/check-viererreihe.mjs",
     "bilder": "node scripts/filme-aufnehmen.mjs --standbild",
     "icons": "node scripts/icons-bauen.mjs",
     "filme": "node scripts/filme-aufnehmen.mjs",
