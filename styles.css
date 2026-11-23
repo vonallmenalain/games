@@ -9682,6 +9682,146 @@ body[data-page="schiffe"] { overscroll-behavior: none; }
   .zw-sv-rumpf.ist-gewaehlt { animation: none; }
 }
 
+/* --- Käsekästchen (kaesekaestchen.js) ------------------------------------------
+   5 × 5 weisse Punkte auf dunklem Violett, dazwischen die Striche: blass,
+   solange sie frei sind, in Koralle oder Gold, wenn sie gezogen sind. Ein
+   Kästchen bekommt die Farbe dessen, der es geschlossen hat, und seinen
+   Stein. Lage in Prozent des Felds (kaesekaestchen.js, RAND und SCHRITT),
+   Dicken in Teilen der Brettbreite (--vr-breite). */
+body[data-page="kaesekaestchen"] { overscroll-behavior: none; }
+.vr-partie.zw-kaesekaestchen {
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 540px, calc(100dvh - 292px - var(--safe-top) - var(--safe-bottom))));
+}
+.zw-kk {
+  --d: calc(var(--vr-breite) * 0.017);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: var(--vr-breite);
+  max-width: 100%;
+  touch-action: manipulation;
+}
+.zw-kk .confetti-layer { z-index: 6; }
+.zw-kk-stand { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-weight: 850; }
+.zw-kk-zahl { flex: 0 1 auto; min-width: 0; max-width: 48%; overflow: hidden; padding: 4px 12px; border-radius: 999px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.zw-kk-zahl.ist-a { background: rgba(254, 121, 113, 0.18); color: #ffd5d0; }
+.zw-kk-zahl.ist-b { background: rgba(255, 212, 94, 0.16); color: #fff6cf; }
+/* «Kästchen» in der Mitte weicht als Erstes, wenn es eng wird. */
+.zw-kk-stand-mitte { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--ar-leise); font-size: 0.78rem; letter-spacing: 0.06em; text-align: center; text-overflow: clip; text-transform: uppercase; white-space: nowrap; }
+.zw-kk-feld {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: calc(var(--vr-breite) * 0.05);
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(124, 92, 230, 0.3), transparent 60%),
+    linear-gradient(170deg, #2a2150, #17132b 70%);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.zw-kk-box { position: absolute; border-radius: calc(var(--vr-breite) * 0.012); transition: background 0.3s ease; }
+.zw-kk-box.ist-a { --ton: var(--vr-a); --hell: var(--vr-a-hell); --tief: var(--vr-a-tief); background: rgba(254, 121, 113, 0.22); }
+.zw-kk-box.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); background: rgba(255, 212, 94, 0.2); }
+.zw-kk-box.ist-a::after,
+.zw-kk-box.ist-b::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 14%, var(--ton) 50%, var(--tief) 100%);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+.zw-kk-box.ist-neu::after { animation: zw-kk-auf 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+@keyframes zw-kk-auf { from { transform: scale(0); } to { transform: scale(1); } }
+.zw-kk.ist-aus .zw-kk-box:not(.ist-a):not(.ist-b) { opacity: 0.4; }
+
+/* Ein Strich: ein breiter, unsichtbarer Knopf zum Tippen, darin der Strich
+   (::before). */
+.zw-kk-linie {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zw-kk-linie:disabled { opacity: 1; cursor: default; }
+.zw-kk-linie.ist-h { width: var(--s); height: 11%; transform: translateY(-50%); }
+.zw-kk-linie.ist-v { width: 11%; height: var(--s); transform: translateX(-50%); }
+.zw-kk-linie::before {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.zw-kk-linie.ist-h::before { left: 9%; right: 9%; top: calc(50% - var(--d) / 2); height: var(--d); }
+.zw-kk-linie.ist-v::before { top: 9%; bottom: 9%; left: calc(50% - var(--d) / 2); width: var(--d); }
+.zw-kk.ist-dran .zw-kk-linie:not(:disabled):hover::before { background: rgba(255, 255, 255, 0.45); }
+.zw-kk.ist-dran .zw-kk-linie:not(:disabled):active::before { background: rgba(255, 255, 255, 0.7); }
+.zw-kk-linie:focus-visible { outline: none; }
+.zw-kk-linie:focus-visible::before { background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.zw-kk-linie.ist-gezogen.ist-a::before { background: var(--vr-a); box-shadow: 0 0 10px rgba(254, 121, 113, 0.45); }
+.zw-kk-linie.ist-gezogen.ist-b::before { background: var(--vr-b); box-shadow: 0 0 10px rgba(255, 212, 94, 0.4); }
+/* Der zuletzt gezogene Strich: ein weisser Saum – so sieht man, wo der
+   Computer (oder das Gegenüber) gezogen hat. */
+.zw-kk-linie.ist-letzter::before { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 14px rgba(255, 255, 255, 0.4); }
+.zw-kk-linie.ist-h.ist-neu::before { animation: zw-kk-strich-h 0.28s ease-out both; }
+.zw-kk-linie.ist-v.ist-neu::before { animation: zw-kk-strich-v 0.28s ease-out both; }
+@keyframes zw-kk-strich-h { from { transform: scaleX(0.1); } to { transform: scaleX(1); } }
+@keyframes zw-kk-strich-v { from { transform: scaleY(0.1); } to { transform: scaleY(1); } }
+.zw-kk-punkt {
+  position: absolute;
+  z-index: 3;
+  width: calc(var(--vr-breite) * 0.036);
+  height: calc(var(--vr-breite) * 0.036);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-kaesekaestchen { --vr-breite: max(180px, min(calc(100dvh - 116px - var(--safe-top) - var(--safe-bottom)), 58vw)); }
+  .zw-kk { grid-area: feld; }
+}
+
+/* Im Menü: 3 × 3 Kästchen, zwei davon schon vergeben. */
+.zw-kk-held {
+  --h: clamp(30px, 8.5vw, 40px);
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--h) * 3 + 16px);
+  height: calc(var(--h) * 3 + 16px);
+  border-radius: 12px;
+  background: linear-gradient(170deg, #2a2150, #17132b 70%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.zw-kk-held-punkt { position: absolute; left: calc(8px + var(--c) * var(--h) - 3px); top: calc(8px + var(--r) * var(--h) - 3px); width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.zw-kk-held-strich { position: absolute; border-radius: 999px; }
+.zw-kk-held-strich.ist-h { left: calc(8px + var(--c) * var(--h) + 3px); top: calc(8px + var(--r) * var(--h) - 2px); width: calc(var(--h) - 6px); height: 4px; }
+.zw-kk-held-strich.ist-v { left: calc(8px + var(--c) * var(--h) - 2px); top: calc(8px + var(--r) * var(--h) + 3px); width: 4px; height: calc(var(--h) - 6px); }
+.zw-kk-held-strich.ist-a { background: var(--vr-a); }
+.zw-kk-held-strich.ist-b { background: var(--vr-b); }
+.zw-kk-held-box { position: absolute; width: var(--h); height: var(--h); }
+.zw-kk-held-box.ist-a { left: 8px; top: 8px; background: rgba(254, 121, 113, 0.3); }
+.zw-kk-held-box.ist-b { left: calc(8px + var(--h)); top: calc(8px + var(--h)); background: rgba(255, 212, 94, 0.28); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-kk-box,
+  .zw-kk-linie::before { transition: none; }
+  .zw-kk-box.ist-neu::after,
+  .zw-kk-linie.ist-neu::before { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -9764,6 +9904,26 @@ body[data-page="schiffe"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Käsekästchen: Punkte, ein paar Striche, zwei vergebene Kästchen. */
+.ar-kk-feld {
+  position: absolute;
+  left: calc(50% - var(--z) * 3);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 6);
+  height: calc(var(--z) * 6);
+  border-radius: calc(var(--z) * 0.4);
+  background:
+    radial-gradient(circle, #fff 0 calc(var(--z) * 0.13), transparent calc(var(--z) * 0.16)) calc(var(--z) * -0.75) calc(var(--z) * -0.75) / calc(var(--z) * 1.5) calc(var(--z) * 1.5),
+    linear-gradient(170deg, #2a2150, #17132b 70%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-kk-box { position: absolute; width: calc(var(--z) * 1.5); height: calc(var(--z) * 1.5); }
+.ar-kk-box.ist-a { left: calc(var(--z) * 0.75); top: calc(var(--z) * 0.75); background: rgba(254, 121, 113, 0.55); }
+.ar-kk-box.ist-b { left: calc(var(--z) * 2.25); top: calc(var(--z) * 2.25); background: rgba(255, 212, 94, 0.5); }
+.ar-kk-strich { position: absolute; border-radius: 999px; }
+.ar-kk-strich.ist-1 { left: calc(var(--z) * 3.75); top: calc(var(--z) * 0.7); width: calc(var(--z) * 1.5); height: calc(var(--z) * 0.12); background: #fe7971; }
+.ar-kk-strich.ist-2 { left: calc(var(--z) * 3.7); top: calc(var(--z) * 3.75); width: calc(var(--z) * 0.12); height: calc(var(--z) * 1.5); background: #ffd45e; }
+.ar-kk-strich.ist-3 { left: calc(var(--z) * 0.75); top: calc(var(--z) * 3.7); width: calc(var(--z) * 1.5); height: calc(var(--z) * 0.12); background: #fe7971; }
 /* Schiffe versenken: ein Stück Meer, ein Schiff, zwei Treffer. */
 .ar-sv-meer {
   position: absolute;

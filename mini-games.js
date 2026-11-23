@@ -311,6 +311,7 @@
     { id: "viererreihe", seite: "viererreihe", titel: "Viererreihe" },
     { id: "tictactoe", seite: "tictactoe", titel: "Tic Tac Toe" },
     { id: "schiffe", seite: "schiffe", titel: "Schiffe versenken" },
+    { id: "kaesekaestchen", seite: "kaesekaestchen", titel: "Käsekästchen" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4309,6 +4310,12 @@
       meer.append(el("span", "ar-sv-schiff"), el("span", "ar-sv-treffer ist-1"), el("span", "ar-sv-treffer ist-2"),
         el("span", "ar-sv-wasser ist-1"), el("span", "ar-sv-wasser ist-2"), el("span", "ar-sv-wasser ist-3"));
       bild.append(meer);
+    },
+    kaesekaestchen(bild) {
+      const feld = el("span", "ar-kk-feld");
+      feld.append(el("span", "ar-kk-box ist-a"), el("span", "ar-kk-box ist-b"),
+        el("span", "ar-kk-strich ist-1"), el("span", "ar-kk-strich ist-2"), el("span", "ar-kk-strich ist-3"));
+      bild.append(feld);
     },
   };
 
