@@ -32,6 +32,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     turmbau.html …        dreiundvierzig Spielseiten, erzeugt
     turnier.html          die Turnierseite, erzeugt
     live.html             der Multiplayer, erzeugt
+    viererreihe.html      Viererreihe, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -57,6 +58,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           firebase-auth gar nicht erst.
     live.js               der Multiplayer: Sichtbarkeit, Lobby, Leitung, Runden,
                           Wertung, Podest – über die Realtime Database
+    viererreihe.js        Viererreihe: vier in einer Reihe, gegen den Computer
+                          oder live zu zweit – Menü, Brett, Duell
+    viererreihe-ki.js     das Brett von Viererreihe und der Computer, ohne Bild
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -94,6 +98,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     scripts/filme-aufnehmen.mjs  nimmt die Bilder (und Filme) der Startseite auf – wie sich
                                jedes Spiel dabei selbst spielt, steht in
                                scripts/vorfuehrung/<seite>.mjs
+    scripts/check-viererreihe.mjs  spielt Viererreihe im Browser: gegen den
+                               Computer und ein Duell mit drei Geräten
     scripts/check-zuschauen.mjs  schaut den anderen zu, in jedem Spiel, in dem
                                man ausscheidet, und vergleicht die Bilder
     scripts/test-rules.mjs     spielt die Regeln im Emulator durch
@@ -2848,6 +2854,83 @@ spielen» kennt keine Versuche: Die Spiele stehen da, aber gespielt wird nur
 in seinen Multiplayern (die Regeln lassen keinen Versuch beginnen), und die
 Gesamtwertung zählt nur sie.
 
+## Viererreihe
+
+Vier in einer Reihe, zum Spielen zu zweit: `/viererreihe`. Kein Spiel der
+Tabelle – es hat keine Bestenliste, weil es keine eine Zahl gibt, bei der
+grösser besser wäre, und es läuft nicht auf der gemeinsamen Bühne. Auf der
+Startseite steht es vorne in der Zeile, als eigene Kachel mit einem
+gezeichneten Brett (`mini-games.js`, `viererreiheKachel`; bis zum 7.
+Dezember 2026 mit «Neu · zu zweit»). Gleiche Regeln wie das bekannte
+Brettspiel, eigener Name, eigenes Aussehen: ein violettes Brett, Steine in
+Koralle und Gold.
+
+Sieben Spalten, sechs Reihen. Wer dran ist, tippt auf eine Spalte, und der
+Stein fällt hinter der Platte hinunter (eine Maske mit Löchern,
+`styles.css`, `.vr-platte`). Wer zuerst vier gleiche in einer Reihe hat –
+waagrecht, senkrecht oder schräg –, gewinnt: Die vier tragen einen Ring, die
+anderen treten zurück, Konfetti und ein Ton. Der zuletzt gesetzte Stein trägt
+einen Punkt, damit man sieht, wohin das Gegenüber gesetzt hat. Am Computer
+geht es auch mit den Pfeiltasten und 1–7.
+
+**Gegen den Computer** (`?gegen=einfach|mittel|schwer`). Die Stufen sind
+für ein Kind von sieben bis neun Jahren gemacht (`viererreihe-ki.js`):
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Einfach | setzt meist irgendwohin (die Mitte etwas öfter), nimmt einen fertigen Vierer nur jedes zweite Mal, hält eine Drohung selten auf |
+| Mittel | gewinnt fast immer, wenn es geht, hält meist dagegen, legt nie einen Stein, über dem du gleich gewinnst; sonst zwei Züge voraus oder irgendwohin |
+| Schwer | Negamax mit Alpha-Beta und Gedächtnis, so tief es in gut einer halben Sekunde geht (meist zehn Züge und mehr) |
+
+Geeicht an einem nachgemachten Kind, das den eigenen Vierer meist sieht,
+eine Gefahr oft und manchmal zwei Züge vorausdenkt: Gegen «Einfach» gewinnt
+es acht bis neun von zehn Partien, gegen «Mittel» zwei bis vier, gegen
+«Schwer» so gut wie keine. Die erste Partie beginnst du, danach wechselt es.
+Die Bilanz je Stufe steht auf dem Gerät (`viererreihe.bilanz`). Ohne Netz
+geht das alles auch.
+
+**Zu zweit, live** (`?raum=K7QMX2PA9Z`). Jede und jeder auf dem eigenen
+Gerät. «Neues Duell eröffnen» legt einen Raum an – zehn Zeichen in der
+Adresse, nicht zu erraten – und dazu vier Ziffern zum Abtippen. Wer den Link
+öffnet oder die Ziffern eingibt, setzt sich auf den zweiten Platz; ohne
+Namen fragt die Seite vorher danach, das andere Gerät soll lesen, wer da
+spielt. Ist der Raum voll, sind die vier Ziffern wieder frei, und wer jetzt
+noch mit dem Link kommt, schaut zu. Wer eröffnet, beginnt; nach jeder
+Partie («Nochmal», auf beiden Geräten) beginnt der andere. Oben steht die
+Bilanz der beiden, über alle Partien im Raum. Wer weggeht, steht beim
+anderen grau («gerade nicht verbunden»), und das Menü bietet das Duell drei
+Tage lang unter «Weiterspielen» an (`viererreihe.duelle`). Ist man dran,
+steht es im Titel des Tabs, und ein leiser Ton sagt es.
+
+In der Realtime Database (`database.rules.json`), ohne Konto wie der
+Multiplayer:
+
+    duell/<raum>
+      erstellt          wann                                 einmal
+      code              die vier Ziffern                      einmal
+      a, b              kennung, name, online, seit – wer dort sitzt;
+                        b ist besetzt, sobald jemand dazukommt
+      stand             zuege («3342…», die Spalten der Partie),
+                        beginnt (a/b), serie (a, b, u je fertige Partie), nr
+    duellCode/<code>    raum, bis – höchstens drei Stunden, nur zu einem Raum,
+                        den es gibt
+
+Gerechnet wird nichts in der Datenbank. Ein Zug ist eine Transaktion, die an
+`zuege` genau eine Ziffer anhängt – nur wenn der Stand noch der ist, den das
+Gerät gesehen hat, die Partie läuft und dieses Gerät dran ist. Die Regeln
+lassen am Stand nichts anderes zu als eine Ziffer mehr oder eine neue Partie
+(leer, der andere beginnt, ein Ergebnis mehr in der Serie). Lesen darf, wer
+den Raum kennt; auflisten lässt sich nichts. Wie bei der Bestenliste prüfen
+die Regeln, *was* geschrieben wird, nicht *wer*: Wer den Link hat und die
+Kennung eines Spielers kennt, könnte für ihn ziehen. Für ein Spiel unter
+Freunden genügt das. Räume räumt niemand weg; einer ist ein paar hundert
+Byte gross.
+
+Geprüft wird ohne Browser in `npm run pruefen` (Abschnitt 21: Seite, Regeln,
+und der Computer erkennt jede Richtung, setzt nur in freie Spalten, nimmt
+auf «Schwer» jeden Sieg und hält jede Drohung auf), die Regeln in `npm run
+test:rules`, und im Browser in `npm run pruefen:viererreihe`.
+
 ## Ohne Netz
 
 Gespielt wird auch ohne Netz – in der installierten App und im Browser, sobald
@@ -3415,6 +3498,11 @@ die Seite begann. Schreiben darf die Zettel nur der Admin (`firestore.rules`).
                               Spieler in vier Browserfenstern, gegen den
                               Emulator der Realtime Database. Braucht Java
                               und Playwright, kein Netz.
+    npm run pruefen:viererreihe  Viererreihe im Browser: eine Partie gegen
+                              den Computer, dann ein Duell – Papa eröffnet,
+                              Lena tritt mit dem Code bei, Zoe schaut mit dem
+                              Link zu. Gegen den Emulator der Realtime
+                              Database, wie pruefen:live.
     npm run pruefen:zuschauen in jedem Spiel, in dem man ausscheidet, eine
                               Runde mit drei Robotern: Wer draussen ist,
                               schaut zu, und am Schluss muss im Bild genau

@@ -61,6 +61,57 @@
         "$anderes": { ".validate": false }
       }
     },
+    "duell": {
+      "$raum": {
+        ".read": "$raum.matches(/^[A-Z2-9]{10}$/)",
+        "erstellt": {
+          ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && !data.exists()",
+          ".validate": "newData.isNumber()"
+        },
+        "code": {
+          ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && !data.exists() && (root.child('duell').child($raum).child('a').exists() || newData.parent().child('a').exists())",
+          ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}$/)"
+        },
+        "a": {
+          ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && newData.exists() && (!data.exists() || data.child('kennung').val() == newData.child('kennung').val())",
+          ".validate": "newData.hasChildren(['kennung', 'name', 'online'])",
+          "kennung": { ".validate": "newData.isString() && newData.val().matches(/^mini_[A-Za-z0-9_-]{8,48}$/)" },
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+          "online": { ".validate": "newData.isBoolean()" },
+          "seit": { ".validate": "newData.isNumber()" },
+          "$anderes": { ".validate": false }
+        },
+        "b": {
+          ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && newData.exists() && root.child('duell').child($raum).child('a').exists() && (!data.exists() || data.child('kennung').val() == newData.child('kennung').val())",
+          ".validate": "newData.hasChildren(['kennung', 'name', 'online']) && newData.child('kennung').val() != root.child('duell').child($raum).child('a').child('kennung').val()",
+          "kennung": { ".validate": "newData.isString() && newData.val().matches(/^mini_[A-Za-z0-9_-]{8,48}$/)" },
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+          "online": { ".validate": "newData.isBoolean()" },
+          "seit": { ".validate": "newData.isNumber()" },
+          "$anderes": { ".validate": false }
+        },
+        "stand": {
+          ".write": "$raum.matches(/^[A-Z2-9]{10}$/) && newData.exists() && (root.child('duell').child($raum).child('a').exists() || newData.parent().child('a').exists())",
+          ".validate": "newData.hasChildren(['zuege', 'beginnt', 'serie', 'nr']) && ((!data.exists() && newData.child('zuege').val() == '' && newData.child('serie').val() == '' && newData.child('nr').val() == 0 && newData.child('beginnt').val() == 'a') || (data.exists() && newData.child('nr').val() == data.child('nr').val() && newData.child('beginnt').val() == data.child('beginnt').val() && newData.child('serie').val() == data.child('serie').val() && newData.child('zuege').val().length == data.child('zuege').val().length + 1 && newData.child('zuege').val().beginsWith(data.child('zuege').val())) || (data.exists() && newData.child('nr').val() == data.child('nr').val() + 1 && newData.child('zuege').val() == '' && newData.child('beginnt').val() != data.child('beginnt').val() && newData.child('serie').val().length == data.child('serie').val().length + 1 && newData.child('serie').val().beginsWith(data.child('serie').val())))",
+          "zuege": { ".validate": "newData.isString() && newData.val().matches(/^[0-6]{0,42}$/)" },
+          "beginnt": { ".validate": "newData.isString() && newData.val().matches(/^[ab]$/)" },
+          "serie": { ".validate": "newData.isString() && newData.val().matches(/^[abu]{0,1000}$/)" },
+          "nr": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+          "$anderes": { ".validate": false }
+        },
+        "$anderes": { ".validate": false }
+      }
+    },
+    "duellCode": {
+      "$code": {
+        ".read": "$code.matches(/^[0-9]{4}$/)",
+        ".write": "$code.matches(/^[0-9]{4}$/) && ((newData.exists() && (!data.exists() || data.child('bis').val() < now)) || (!newData.exists() && data.exists() && (data.child('bis').val() < now || root.child('duell').child(data.child('raum').val()).child('b').exists())))",
+        ".validate": "newData.hasChildren(['raum', 'bis'])",
+        "raum": { ".validate": "newData.isString() && newData.val().matches(/^[A-Z2-9]{10}$/) && root.child('duell').child(newData.val()).child('a').exists()" },
+        "bis": { ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 10800000" },
+        "$anderes": { ".validate": false }
+      }
+    },
     "liveOffen": {
       ".read": true,
       "$code": {

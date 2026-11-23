@@ -1184,6 +1184,81 @@ await darfNicht("Gast meldet sich unter einer erfundenen Kennung", () => live.ga
 await darfNicht("Gast meldet sich bei einem erfundenen Spieler", () => live.gast().ref("zuschauer/wer-auch-immer/mini_zuschauerzuschauer").set({ name: "Zoe", lebt: 1 }));
 await darfNicht("Gast löscht alle Zuschauer eines Spielers auf einmal", () => live.gast().ref(`zuschauer/${LIVE_ICH}`).set(null));
 
+// --- Viererreihe: das Duell zu zweit -------------------------------------
+// Ein Raum unter duell/<raum> (zehn Zeichen, nicht zu erraten), ohne Konto.
+// Wer eröffnet, sitzt auf a, wer dazukommt, auf b – und ist b besetzt, kommt
+// niemand mehr dazu. Ein Zug hängt genau eine Spalte an zuege, eine neue
+// Partie fängt leer an und schreibt das Ergebnis der alten in die Serie.
+// Sonst lässt sich am Stand nichts ändern.
+const RAUM = "duell/K7QMX2PA9Z";
+const A = { kennung: "mini_aaaaaaaaaaaa", name: "Papa", online: true, seit: 1 };
+const B = { kennung: "mini_bbbbbbbbbbbb", name: "Lena", online: true, seit: 2 };
+const STAND0 = { zuege: "", beginnt: "a", serie: "", nr: 0 };
+const eroeffne = (db, raum = RAUM, a = A) => db.ref(raum).update({ erstellt: 1, a, stand: STAND0 });
+await darfNicht("Gast listet alle Duelle auf", () => live.gast().ref("duell").get());
+await darfNicht("Gast eröffnet ein Duell mit unmöglichem Raum", () => eroeffne(live.gast(), "duell/k7qm"));
+await darfNicht("Gast eröffnet ein Duell mit erfundener Kennung", () => eroeffne(live.gast(), RAUM, { ...A, kennung: "wer-auch-immer" }));
+await darfNicht("Gast eröffnet ein Duell mit einer Partie, die schon läuft", () => live.gast().ref(RAUM).update({ erstellt: 1, a: A, stand: { ...STAND0, zuege: "333" } }));
+await darfNicht("Gast eröffnet ein Duell mit einem Stand ohne Raum", () => live.gast().ref(`duell/ZZZZZZZZZZ/stand`).set(STAND0));
+await darfNicht("Gast schreibt den ganzen Raum auf einmal", () => live.gast().ref(RAUM).set({ erstellt: 1, a: A, stand: STAND0 }));
+await darf("Gast eröffnet ein Duell", () => eroeffne(live.gast()));
+await darf("Gast liest das Duell, dessen Raum er kennt", () => live.gast().ref(RAUM).get());
+await darfNicht("Gast schmuggelt etwas in den Raum", () => live.gast().ref(`${RAUM}/geheim`).set("x"));
+await darfNicht("Gast stellt die Uhr des Raums nach", () => live.gast().ref(`${RAUM}/erstellt`).set(5));
+await darfNicht("Gast nimmt a einen anderen Platz weg", () => live.gast().ref(`${RAUM}/a`).set({ ...B }));
+await darf("a geht offline und kommt zurück", async () => {
+  await live.gast().ref(`${RAUM}/a`).update({ online: false });
+  await live.gast().ref(`${RAUM}/a`).update({ online: true, seit: 3 });
+});
+await darfNicht("Gast wirft a aus dem Raum", () => live.gast().ref(`${RAUM}/a`).remove());
+await darfNicht("a setzt sich auch auf b", () => live.gast().ref(`${RAUM}/b`).set({ ...A }));
+await darfNicht("b kommt mit endlos langem Namen", () => live.gast().ref(`${RAUM}/b`).set({ ...B, name: "X".repeat(25) }));
+await darfNicht("b schmuggelt ein Feld in seinen Platz", () => live.gast().ref(`${RAUM}/b`).set({ ...B, admin: true }));
+await darfNicht("b setzt sich in einen Raum, den es nicht gibt", () => live.gast().ref("duell/ZZZZZZZZZZ/b").set(B));
+await darf("b setzt sich ans Brett", () => live.gast().ref(`${RAUM}/b`).set(B));
+await darfNicht("Ein Dritter nimmt b den Platz weg", () => live.gast().ref(`${RAUM}/b`).set({ ...B, kennung: "mini_cccccccccccc", name: "Zoe" }));
+await darf("b geht offline", () => live.gast().ref(`${RAUM}/b/online`).set(false));
+
+const STAND = `${RAUM}/stand`;
+await darf("a setzt den ersten Stein", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "3" }));
+await darf("b setzt den zweiten", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "34" }));
+await darfNicht("Zwei Steine auf einmal", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "3456" }));
+await darfNicht("Einen Stein zurücknehmen", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "3" }));
+await darfNicht("Einen Stein umsetzen", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "35" }));
+await darfNicht("Einen Stein in Spalte 8", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "347" }));
+await darfNicht("Mitten in der Partie wechseln, wer beginnt", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "343", beginnt: "b" }));
+await darfNicht("Mitten in der Partie die Serie ändern", () => live.gast().ref(STAND).set({ ...STAND0, zuege: "343", serie: "a" }));
+await darfNicht("Den Stand ohne Serie schreiben", () => live.gast().ref(STAND).set({ zuege: "343", beginnt: "a", nr: 0 }));
+await darfNicht("Den Stand wegräumen", () => live.gast().ref(STAND).remove());
+await darf("Eine neue Partie: leer, der andere beginnt, eine Partie mehr in der Serie", () => live.gast().ref(STAND).set({ zuege: "", beginnt: "b", serie: "a", nr: 1 }));
+await darfNicht("Eine neue Partie, die die Serie umschreibt", () => live.gast().ref(STAND).set({ zuege: "", beginnt: "a", serie: "bb", nr: 2 }));
+await darfNicht("Eine neue Partie, in der derselbe wieder beginnt", () => live.gast().ref(STAND).set({ zuege: "", beginnt: "b", serie: "aa", nr: 2 }));
+await darfNicht("Eine neue Partie mit erfundenem Ergebnis", () => live.gast().ref(STAND).set({ zuege: "", beginnt: "a", serie: "ax", nr: 2 }));
+await darfNicht("Eine Partie überspringen", () => live.gast().ref(STAND).set({ zuege: "", beginnt: "a", serie: "au", nr: 3 }));
+await darf("Die zweite Partie läuft", () => live.gast().ref(STAND).set({ zuege: "3", beginnt: "b", serie: "a", nr: 1 }));
+
+// Die vier Ziffern zum Abtippen: führen zu einem Raum, den es gibt, eine
+// Weile lang. Solange sie gelten, nimmt sie niemand anderes; ist der Raum
+// voll oder die Zeit um, dürfen sie weg.
+const CODE = "duellCode/4821";
+const bald = () => Date.now() + 60 * 60 * 1000;
+await darfNicht("Gast listet alle Codes", () => live.gast().ref("duellCode").get());
+await darfNicht("Ein Code mit drei Ziffern", () => live.gast().ref("duellCode/482").set({ raum: "K7QMX2PA9Z", bis: bald() }));
+await darfNicht("Ein Code zu einem Raum, den es nicht gibt", () => live.gast().ref(CODE).set({ raum: "ZZZZZZZZZZ", bis: bald() }));
+await darfNicht("Ein Code, der ewig gilt", () => live.gast().ref(CODE).set({ raum: "K7QMX2PA9Z", bis: Date.now() + 24 * 60 * 60 * 1000 }));
+await darfNicht("Ein Code, der schon abgelaufen ist", () => live.gast().ref(CODE).set({ raum: "K7QMX2PA9Z", bis: Date.now() - 1000 }));
+await darfNicht("Ein Code mit einem Feld zu viel", () => live.gast().ref(CODE).set({ raum: "K7QMX2PA9Z", bis: bald(), name: "x" }));
+await darf("Ein Code zum Raum", () => live.gast().ref(CODE).set({ raum: "K7QMX2PA9Z", bis: bald() }));
+await darf("Gast liest den Code, den er eingetippt hat", () => live.gast().ref(CODE).get());
+await darfNicht("Ein anderer Raum nimmt den Code, solange er gilt", async () => {
+  await eroeffne(live.gast(), "duell/ABCDEFGHJK", { ...A, kennung: "mini_dddddddddddd" });
+  await live.gast().ref(CODE).set({ raum: "ABCDEFGHJK", bis: bald() });
+});
+await darf("Der Raum merkt sich seinen Code", () => live.gast().ref(`${RAUM}/code`).set("4821"));
+await darfNicht("Der Raum ändert seinen Code", () => live.gast().ref(`${RAUM}/code`).set("1234"));
+await darfNicht("Ein Code, der zu einem Raum ohne b führt, verschwindet", () => live.gast().ref("duellCode/1111").set({ raum: "ABCDEFGHJK", bis: bald() }).then(() => live.gast().ref("duellCode/1111").remove()));
+await darf("Der Raum ist voll: sein Code darf weg", () => live.gast().ref(CODE).remove());
+
 await env.cleanup();
 
 console.log(`${geprueft} Zugriffe gegen die Regeln geprüft.`);

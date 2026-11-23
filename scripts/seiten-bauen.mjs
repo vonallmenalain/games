@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-19-13";
+export const FASSUNG = "2026-11-23-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -346,8 +346,9 @@ const SDK = [
 // Nur der Adminbereich meldet jemanden an – und die Live-Seite fragt nach,
 // ob dort der Admin sitzt, der leiten darf.
 const SDK_AUTH = "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js";
-// Die Realtime Database braucht nur die Live-Seite (live.js). Die Spiele
-// einer Live-Runde reden mit ihr über den Rahmen, nicht selbst.
+// Die Realtime Database brauchen nur die Live-Seite (live.js) und
+// Viererreihe (das Duell zu zweit). Die Spiele einer Live-Runde reden mit ihr
+// über den Rahmen, nicht selbst.
 const SDK_DATABASE = "https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js";
 
 // Was jede Seite lädt, in dieser Reihenfolge. train-art holt sich seine
@@ -397,6 +398,10 @@ export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 // Database. pwa.js gehört dazu – ein Multiplayer lässt sich auch aus der
 // installierten App heraus spielen.
 export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
+// Viererreihe: das Fundament, die Realtime Database (für das Duell zu zweit),
+// kids.js (Ton-Knopf, Konfetti, kein Zoom), das Brett mit dem Computer und
+// die Seite. Keine Anmeldung: Wer spielt, sagt nur seinen Namen.
+export const viererreiheSkripte = () => [...SDK, SDK_DATABASE, ...GEMEINSAM, "kids.js", "viererreihe-ki.js", "viererreihe.js", "pwa.js"];
 
 /*
  * Der Kopf jeder Seite. Dazu die Vorschau, wenn jemand den Link teilt: Titel,
@@ -572,6 +577,44 @@ ${skripte(liveSkripte())}
 `;
 }
 
+/*
+ * Viererreihe: vier in einer Reihe, gegen den Computer oder live zu zweit.
+ * Kein Spiel der Tabelle SPIELE – es hat keine Bestenliste, sondern eine
+ * kleine Bilanz, und es läuft nicht auf der gemeinsamen Bühne. Was darauf
+ * steht, baut viererreihe.js; die Adresse sagt, wo man ist (?gegen=mittel,
+ * ?raum=K7QMX2PA9Z).
+ */
+export const VIERERREIHE = {
+  titel: "Viererreihe",
+  text: "Viererreihe: Lass die Steine fallen – wer zuerst vier in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
+  kurz: "Vier in einer Reihe – gegen den Computer oder live zu zweit.",
+};
+
+export function viererreiheSeite() {
+  return `<!doctype html>
+<!--
+  Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
+
+  Viererreihe: /viererreihe (das Menü), /viererreihe?gegen=mittel (gegen den
+  Computer), /viererreihe?raum=K7QMX2PA9Z (ein Duell zu zweit). Was darauf
+  steht, baut viererreihe.js; das Brett und den Computer rechnet
+  viererreihe-ki.js.
+-->
+<html lang="de">
+  <head>
+${kopf({ titel: `${VIERERREIHE.titel} · arcade`, text: VIERERREIHE.text, kurz: VIERERREIHE.kurz, viewport: SPIELVIEWPORT })}
+  </head>
+  <body data-page="viererreihe">
+    <main class="vr-seite" data-viererreihe>
+      <p class="mini-hinweis">Viererreihe wird geladen...</p>
+    </main>
+
+${skripte(viererreiheSkripte())}
+  </body>
+</html>
+`;
+}
+
 export function adminSeite() {
   return `<!doctype html>
 <!--
@@ -623,7 +666,7 @@ ${skripte(adminSkripte())}
  * Turniers – geteilt wird diese Seite fast nur als eigener Link.
  */
 export function weiterSeite() {
-  const seiten = ["turnier", "live", "admin", ...SPIELE.map((s) => s.seite)];
+  const seiten = ["turnier", "live", "admin", "viererreihe", ...SPIELE.map((s) => s.seite)];
   return `<!doctype html>
 <!--
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
@@ -699,8 +742,8 @@ export function manifest() {
 // Alles, was eine Seite lädt – jede Datei einmal, in der Reihenfolge, in der
 // sie zum ersten Mal vorkommt.
 export function dateien() {
-  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html", "./live.html"];
-  const skripteAlle = [...hubSkripte(), ...turnierSkripte(), ...liveSkripte()];
+  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html", "./live.html", "./viererreihe.html"];
+  const skripteAlle = [...hubSkripte(), ...turnierSkripte(), ...liveSkripte(), ...viererreiheSkripte()];
   for (const s of SPIELE) for (const datei of seitenSkripte(s)) skripteAlle.push(datei);
   for (const datei of skripteAlle) {
     if (datei.startsWith("http")) continue;
@@ -740,6 +783,7 @@ export function alleDateien() {
   for (const spiel of SPIELE) raus.set(`${spiel.seite}.html`, spielSeite(spiel));
   raus.set("turnier.html", turnierSeite());
   raus.set("live.html", liveSeite());
+  raus.set("viererreihe.html", viererreiheSeite());
   raus.set("admin.html", adminSeite());
   raus.set("404.html", weiterSeite());
   raus.set("app.webmanifest", manifest());

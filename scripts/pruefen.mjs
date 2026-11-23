@@ -15,7 +15,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, turnierSkripte, adminSkripte } from "./seiten-bauen.mjs";
+import { SPIELE, FASSUNG, alleDateien, seitenSkripte, hubSkripte, turnierSkripte, adminSkripte, viererreiheSkripte } from "./seiten-bauen.mjs";
+import vm from "node:vm";
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lies = (p) => readFileSync(path.join(WURZEL, p), "utf8");
@@ -71,7 +72,7 @@ for (const s of SPIELE) {
 }
 
 // --- 4. Was eine Seite lädt, liegt auch da ----------------------------------
-const alleSkripte = new Set([...hubSkripte(), ...adminSkripte()]);
+const alleSkripte = new Set([...hubSkripte(), ...adminSkripte(), ...viererreiheSkripte()]);
 for (const s of SPIELE) for (const d of seitenSkripte(s)) alleSkripte.add(d);
 for (const datei of alleSkripte) {
   if (datei.startsWith("http")) continue;
@@ -111,8 +112,12 @@ pruefe(`service-worker.js trägt die Fassung ${FASSUNG}`, sw.includes(`const APP
 // Der Adminbereich gehört NICHT in den Zwischenspeicher: Er zeigt Zahlen, die
 // stimmen sollen, und er gehört nicht in die installierte App.
 const NUR_ADMIN = new Set(["admin.js", "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"]);
+// Die Realtime Database braucht nur, wer zu zweit spielt (Multiplayer,
+// Viererreihe) – und das geht ohne Netz ohnehin nicht. Ihr SDK muss nicht in
+// den Zwischenspeicher.
+const NUR_MIT_NETZ = new Set(["https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"]);
 for (const datei of alleSkripte) {
-  if (NUR_ADMIN.has(datei)) continue;
+  if (NUR_ADMIN.has(datei) || NUR_MIT_NETZ.has(datei)) continue;
   if (datei.startsWith("http")) { pruefe(`SW kennt ${datei}`, sw.includes(datei)); continue; }
   pruefe(`SW kennt ${datei}`, sw.includes(`"./${datei}?v=${FASSUNG}"`));
 }
@@ -137,7 +142,7 @@ for (const name of ["icon-32.png", "icon-180.png", "vorschau.jpg"]) {
 pruefe("Die App heisst «arcade»", manifest.name === "arcade" && manifest.short_name === "arcade");
 // Ein geteilter Link (WhatsApp & Co.) zeigt Titel, einen kurzen Satz und das
 // Logo – das Bild nur über eine volle Adresse.
-for (const datei of ["index.html", "turnier.html", "live.html", ...SPIELE.map((sp) => `${sp.seite}.html`)]) {
+for (const datei of ["index.html", "turnier.html", "live.html", "viererreihe.html", ...SPIELE.map((sp) => `${sp.seite}.html`)]) {
   const html = lies(datei);
   pruefe(`${datei}: Vorschau mit Bild`, html.includes('<meta property="og:image" content="https://games.alae.app/icons/vorschau.jpg" />'));
   pruefe(`${datei}: Vorschau mit Titel und Satz`, /<meta property="og:title" content="(?:[^"]+ · )?arcade" \/>/.test(html) && /<meta property="og:description" content="[^"]{10,80}" \/>/.test(html));
@@ -788,6 +793,76 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   }
   pruefe("Die Edge Function läuft nicht für Skripte, Stylesheets und Bilder",
     ["/*.js", "/*.css", "/icons/*", "/bilder/*"].every((p) => vorschau.config.excludedPath.includes(p)) && vorschau.config.path === "/*");
+}
+
+// --- 21. Viererreihe ----------------------------------------------------------
+// Eine eigene Seite wie der Multiplayer, kein Spiel der Tabelle: keine
+// Bestenliste, keine Bühne. Gegen den Computer geht es ohne Netz, das Duell
+// zu zweit läuft über die Realtime Database (duell, duellCode).
+{
+  const html = lies("viererreihe.html");
+  pruefe("viererreihe.html trägt data-page=\"viererreihe\" und den Platz [data-viererreihe]",
+    html.includes('data-page="viererreihe"') && html.includes("data-viererreihe"));
+  pruefe("viererreihe.html lädt das Brett, die Seite und die Realtime Database",
+    html.includes(`viererreihe-ki.js?v=${FASSUNG}`) && html.includes(`viererreihe.js?v=${FASSUNG}`)
+    && html.includes("firebase-database-compat.js") && html.indexOf("viererreihe-ki.js") < html.indexOf("viererreihe.js?"));
+  pruefe("viererreihe.html lädt kein firebase-auth – wer spielt, meldet sich nicht an", !html.includes("firebase-auth"));
+  pruefe("SW kennt viererreihe.html", sw.includes('"./viererreihe.html"'));
+  pruefe("Viererreihe ist kein Spiel mit Bestenliste (nicht in SPIELE, nicht in firestore.rules)",
+    !SPIELE.some((x) => x.seite === "viererreihe") && !/viererreihe|connectFour/i.test(regeln));
+  const vrJs = lies("viererreihe.js");
+  pruefe("viererreihe.js baut nur auf seiner Seite", /dataset\?\.page !== "viererreihe"/.test(vrJs));
+  pruefe("viererreihe.js zieht mit einer Transaktion (duellZug, duellNochmal)",
+    /async function duellZug[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs) && /async function duellNochmal[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs));
+  pruefe("viererreihe.js: ein Raum hat zehn Zeichen, der Code vier Ziffern",
+    /const RAUM_LAENGE = 10;/.test(vrJs) && /const CODE_MUSTER = \/\^\[0-9\]\{4\}\$\/;/.test(vrJs));
+  pruefe("Die Startseite führt zu Viererreihe", /href = "\/viererreihe"/.test(miniJs));
+  const duell = liveRegeln?.duell?.$raum;
+  pruefe("Die Regeln kennen das Duell: lesen mit dem Raum, kein Auflisten, nichts Fremdes",
+    Boolean(duell) && /\{10\}/.test(duell[".read"] || "") && liveRegeln?.duell?.[".read"] === undefined && duell.$anderes?.[".validate"] === false);
+  pruefe("Die Regeln lassen am Stand nur einen Zug mehr oder eine neue Partie zu",
+    /beginsWith\(data\.child\('zuege'\)\.val\(\)\)/.test(duell?.stand?.[".validate"] || "") && /newData\.exists\(\)/.test(duell?.stand?.[".write"] || ""));
+  pruefe("Die Regeln: Ist b besetzt, kommt niemand mehr dazu",
+    /data\.child\('kennung'\)\.val\(\) == newData\.child\('kennung'\)\.val\(\)/.test(duell?.b?.[".write"] || ""));
+  pruefe("Die Regeln: Ein Code gilt höchstens drei Stunden und führt zu einem Raum, den es gibt",
+    /now \+ 10800000/.test(liveRegeln?.duellCode?.$code?.bis?.[".validate"] || "") && /child\('a'\)\.exists\(\)/.test(liveRegeln?.duellCode?.$code?.raum?.[".validate"] || ""));
+
+  // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
+  // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
+  const kasten = { window: {} };
+  vm.runInNewContext(lies("viererreihe-ki.js"), kasten);
+  const V = kasten.window.LernappVierer;
+  pruefe("viererreihe-ki.js setzt window.LernappVierer", Boolean(V?.computerZug && V?.ausZuegen));
+  if (V) {
+    const sieger = (zuege) => V.ausZuegen(zuege, 1).sieger;
+    pruefe("Viererreihe: waagrecht, senkrecht und beide Schrägen gewinnen",
+      sieger("0011223") === 1 && sieger("0101010") === 1 && sieger("01122323363") === 1 && sieger("65544343303") === 1);
+    pruefe("Viererreihe: drei in einer Reihe sind noch nichts, ein volles Brett ohne Reihe ist unentschieden",
+      sieger("001122") === null && sieger("350551066612006344650023554224613143421312") === 0);
+    pruefe("Viererreihe: ein Zug nach dem Ende oder in eine volle Spalte ist ungültig",
+      V.ausZuegen("00112233", 1).gueltig === false && V.ausZuegen("0000000", 1).gueltig === false);
+    let zufall = 12345;
+    const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+    let legal = true;
+    for (let partie = 0; partie < 30 && legal; partie += 1) {
+      const b = V.neuesBrett();
+      let p = 1;
+      for (let zug = 0; zug < 42; zug += 1) {
+        const c = V.computerZug(b, p, V.STUFEN[partie % 2], { zufall: wuerfel, zeit: 30 });
+        if (!V.frei(b, c)) { legal = false; break; }
+        const r = V.setze(b, c, p);
+        if (V.viererBei(b, c, r)) break;
+        p = 3 - p;
+      }
+    }
+    pruefe("Viererreihe: Einfach und Mittel setzen in 30 Partien nur in freie Spalten", legal);
+    const schwer = (zuege) => { const l = V.ausZuegen(zuege, 1); return V.computerZug(l.brett, l.amZug, "schwer", { zufall: wuerfel, zeit: 150 }); };
+    // 061626: Rot hat unten 0, 1, 2 – und Gold dreimal in Spalte 6. Rot ist
+    // dran und gewinnt mit 3. Einen Stein vorher (06162) ist Gold dran und
+    // muss 3 zumachen.
+    pruefe("Viererreihe: Schwer nimmt den Sieg", schwer("061626") === 3);
+    pruefe("Viererreihe: Schwer hält die Drohung auf", schwer("06162") === 3);
+  }
 }
 
 if (fehler.length) {

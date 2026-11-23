@@ -4163,10 +4163,13 @@
     const reihenfolge = TIERS.flatMap((tier) => offen.filter((s) => tierVon(s, einteilung) === tier));
     const favoriten = reihenfolge.filter((s) => tierVon(s, einteilung) === 1);
 
-    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
+    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz),
+    // davor Viererreihe.
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
+    const vorne = el("div", "ar-vorne");
+    vorne.append(viererreiheKachel(), turniere);
+    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
     // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
     // seiner Rangliste – ein Tipp darauf, und man schaut zu.
@@ -4234,6 +4237,38 @@
     uebernimmName(alle);
     buehne.daten({ listen: new Map(offen.map((spiel) => [spiel, rangliste(alle.filter((e) => e.game === spiel))])) });
     gesamtZeichnen?.();
+  }
+
+  /*
+   * Viererreihe vorne in der Zeile der Startseite. Kein Spiel der Tabelle
+   * SPIELE – keine Bestenliste, keine Bühne, kein Bild aus einer Runde –,
+   * sondern eines zu zweit (oder gegen den Computer) auf seiner eigenen
+   * Seite (viererreihe.js). Ein Tipp führt hin. Das Bild ist ein kleines Brett
+   * mit einer Reihe, schräg hinauf, gezeichnet statt aufgenommen.
+   */
+  const VIERER_NEU_BIS = Date.UTC(2026, 11, 7);
+  function viererreiheKachel() {
+    // Eine eigene Klasse, keine ar-kachel: Die Zeile zählt ihre Spiele an
+    // ar-kachel (und scripts/check-spiele.mjs auch).
+    const k = el("a", "ar-vr-kachel");
+    k.href = "/viererreihe";
+    k.title = "Viererreihe – gegen den Computer oder live zu zweit";
+    k.setAttribute("aria-label", k.title);
+    k.style.setProperty("--mini-farbe", "#7c5ce6");
+    k.style.setProperty("--mini-farbe-dunkel", "#3d2896");
+    const bild = el("span", "ar-vr-bild");
+    bild.setAttribute("aria-hidden", "true");
+    ["", "b", "ab", "bab", "abba", "a", "b"].forEach((spalte, c) => {
+      [...spalte].forEach((sitz, r) => {
+        const stein = el("span", `ar-vr-stein ist-${sitz}`);
+        stein.style.setProperty("--c", String(c));
+        stein.style.setProperty("--r", String(r));
+        bild.append(stein);
+      });
+    });
+    k.append(bild, el("span", "ar-vr-titel", "Viererreihe"));
+    if (Date.now() < VIERER_NEU_BIS) k.append(el("span", "ar-vr-neu", "Neu · zu zweit"));
+    return k;
   }
 
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
