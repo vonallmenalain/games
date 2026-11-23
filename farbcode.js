@@ -2,10 +2,16 @@
  * farbcode.js – Farbcode knacken: einen Code verstecken, den des anderen
  * erraten.
  * ---------------------------------------------------------------------------
- * Die Seite /farbcode. Jede versteckt einen Code aus vier verschiedenen
- * Farben (von sechs). Dann rät jede abwechselnd den Code der anderen. Auf
- * jeden Versuch kommt die Antwort: wie viele Farben am richtigen Platz sind
- * (grün) und wie viele im Code vorkommen, aber anderswo (gelb).
+ * Die Seite /farbcode. Jede versteckt einen Code aus vier Farben (von sechs;
+ * eine Farbe darf mehrmals vorkommen, auch viermal). Dann rät jede
+ * abwechselnd den Code der anderen. Auf jeden Versuch kommt die Antwort: wie
+ * viele Stifte die richtige Farbe am richtigen Platz haben (grün) und wie
+ * viele weitere Farben im Code vorkommen, aber anderswo (gelb) – jede Farbe
+ * höchstens so oft, wie sie im Code steht.
+ *
+ * Eingeben: eine Farbe antippen (sie bleibt gewählt), dann den Platz, auf den
+ * sie soll – in beliebiger Reihenfolge. Ohne gewählte Farbe leert ein Tipp den
+ * Platz.
  *
  * Wer zuerst knackt, gewinnt – aber eine Runde ist erst fertig, wenn beide
  * gleich oft geraten haben: Knackt die andere in derselben Runde auch, ist
@@ -34,7 +40,8 @@
  *             Antwort
  *   einfach   achtet auf die letzte Antwort, manchmal auf alle
  *   mittel    rät meist nur Codes, die zu allen Antworten passen
- *   schwer    wählt den Versuch, der am meisten verrät (wie Knuth)
+ *   schwer    beginnt mit zwei Farben je doppelt und wählt dann den
+ *             Versuch, der am meisten verrät (wie Knuth)
  */
 (() => {
   "use strict";
@@ -52,21 +59,28 @@
   const SPEICHER = "farbcode.codes";
   const FARB_NAMEN = ["Rot", "Orange", "Gelb", "Grün", "Blau", "Lila"];
 
-  // Alle 360 Codes: vier verschiedene Farben.
+  // Alle 1296 Codes: vier Plätze, je eine von sechs Farben – auch doppelt.
   const ALLE = [];
   for (let a = 1; a <= FARBEN; a += 1) for (let b = 1; b <= FARBEN; b += 1) for (let c = 1; c <= FARBEN; c += 1) for (let d = 1; d <= FARBEN; d += 1) {
-    if (new Set([a, b, c, d]).size === PLAETZE) ALLE.push(`${a}${b}${c}${d}`);
+    ALLE.push(`${a}${b}${c}${d}`);
   }
-  const gueltig = (code) => /^[1-6]{4}$/.test(code) && new Set(code).size === PLAETZE;
+  const gueltig = (code) => /^[1-6]{4}$/.test(code);
 
-  // Die Antwort auf einen Versuch: [am Platz, anderswo].
+  // Die Antwort auf einen Versuch: [am Platz, anderswo]. Was am Platz stimmt,
+  // zählt nur dort; vom Rest zählt jede Farbe so oft, wie sie in beiden
+  // vorkommt (Code 1123, Versuch 3111: einer am Platz, zwei anderswo).
+  const restCode = new Uint8Array(FARBEN + 1);
+  const restVersuch = new Uint8Array(FARBEN + 1);
   function antwort(code, versuch) {
     let platz = 0;
-    let da = 0;
+    restCode.fill(0);
+    restVersuch.fill(0);
     for (let i = 0; i < PLAETZE; i += 1) {
       if (versuch[i] === code[i]) platz += 1;
-      else if (code.includes(versuch[i])) da += 1;
+      else { restCode[code.charCodeAt(i) - 48] += 1; restVersuch[versuch.charCodeAt(i) - 48] += 1; }
     }
+    let da = 0;
+    for (let f = 1; f <= FARBEN; f += 1) da += Math.min(restCode[f], restVersuch[f]);
     return [platz, da];
   }
 
@@ -189,19 +203,33 @@
   const wahl = (liste) => liste[Math.floor(Math.random() * liste.length)];
 
   // Der Versuch, nach dem im schlimmsten Fall am wenigsten Codes übrig sind.
+  // Bei vielen Kandidaten prüft er nur einen Teil aller Codes als Versuch.
+  const gruppen = new Uint16Array(25);
   function bester(kandidaten) {
     if (kandidaten.length <= 2) return kandidaten[0];
+    const drin = new Set(kandidaten);
     let best = null;
     let bestWert = Infinity;
-    const pool = kandidaten.length > 60 ? ALLE.filter((_, i) => i % 3 === 0).concat(kandidaten.slice(0, 40)) : ALLE;
+    const pool = kandidaten.length > 60 ? ALLE.filter((_, i) => i % 5 === 0).concat(kandidaten.slice(0, 40)) : ALLE;
     for (const v of pool) {
-      const gruppen = new Map();
-      for (const c of kandidaten) { const k = antwort(c, v).join(); gruppen.set(k, (gruppen.get(k) || 0) + 1); }
-      const schlimmst = Math.max(...gruppen.values());
-      const wert = schlimmst - (kandidaten.includes(v) ? 0.5 : 0);
+      gruppen.fill(0);
+      let schlimmst = 0;
+      for (const c of kandidaten) {
+        const [p, d] = antwort(c, v);
+        const k = p * 5 + d;
+        gruppen[k] += 1;
+        if (gruppen[k] > schlimmst) schlimmst = gruppen[k];
+      }
+      const wert = schlimmst - (drin.has(v) ? 0.5 : 0);
       if (wert < bestWert) { bestWert = wert; best = v; }
     }
     return best;
+  }
+  // Der erste Versuch von «Schwer»: zwei Farben, je doppelt (wie 1122).
+  function ersterVersuch() {
+    const x = 1 + Math.floor(Math.random() * FARBEN);
+    const y = 1 + ((x + Math.floor(Math.random() * (FARBEN - 1))) % FARBEN);
+    return `${x}${x}${y}${y}`;
   }
 
   function computer(l, sitz, stufe, { saat }) {
@@ -218,7 +246,7 @@
     if (stufe === "leicht") versuch = r < 0.08 ? wahl(passend) : r < 0.45 ? wahl(nurLetzte) : wahl(ALLE);
     else if (stufe === "einfach") versuch = r < 0.35 ? wahl(passend) : wahl(nurLetzte);
     else if (stufe === "mittel") versuch = r < 0.75 ? wahl(passend) : wahl(nurLetzte);
-    else versuch = meine.length === 0 ? wahl(ALLE) : bester(passend);
+    else versuch = meine.length === 0 ? ersterVersuch() : bester(passend);
     return { zug: `R${versuch || wahl(ALLE)}`, warte: 900 };
   }
 
@@ -226,7 +254,7 @@
   function satz(l, { ich, name, modus }) {
     const er = (sitz) => (sitz === ich ? "Du" : modus === "computer" ? "Der Computer" : name(sitz));
     if (l.phase === "verstecken") {
-      if (ich && !l.bereit[ich]) return { text: "Versteck deinen Code: vier Farben, dann «Fertig!»", sitz: ich };
+      if (ich && !l.bereit[ich]) return { text: "Versteck deinen Code: vier Farben (auch doppelt), dann «Fertig!»", sitz: ich };
       if (ich) return { text: modus === "computer" ? "Der Computer versteckt seinen Code" : `${name(anderer(ich))} versteckt noch den Code`, sitz: anderer(ich) };
       return { text: "Beide verstecken ihren Code", sitz: null };
     }
@@ -256,7 +284,7 @@
 
   function held() {
     const bild = el("div", "zw-fc-held");
-    [["2461", [1, 2]], ["5216", [2, 1]], ["5264", [4, 0]]].forEach(([code, [p, d]]) => {
+    [["2244", [2, 0]], ["5216", [2, 1]], ["5264", [4, 0]]].forEach(([code, [p, d]]) => {
       const zeile = el("div", "zw-fc-held-zeile");
       [...code].forEach((f) => zeile.append(stift(f)));
       const ant = el("span", "zw-fc-antwort");
@@ -279,7 +307,8 @@
     const abwehrKopf = el("div", "zw-fc-kopf");
     const abwehrZeilen = el("div", "zw-fc-zeilen");
     abwehr.append(abwehrKopf, abwehrZeilen);
-    // Die Eingabe: vier Plätze, sechs Farben, «Fertig!» oder «Raten».
+    // Die Eingabe: vier Plätze, sechs Farben, «Fertig!» oder «Raten». Erst
+    // eine Farbe wählen (sie bleibt in der Hand), dann den Platz antippen.
     const eingabe = el("div", "zw-fc-eingabe");
     const plaetze = el("div", "zw-fc-plaetze");
     const platzKnoepfe = [];
@@ -287,10 +316,12 @@
       const p = el("button", "zw-fc-platz");
       p.type = "button";
       p.dataset.platz = String(i);
-      p.addEventListener("click", () => { wahlCode[i] = ""; ton("tipp"); zeichne(jetzt); });
+      p.addEventListener("click", () => platz(i));
       platzKnoepfe.push(p);
       plaetze.append(p);
     }
+    const hinweis = el("div", "zw-fc-hinweis");
+    hinweis.setAttribute("aria-live", "polite");
     const palette = el("div", "zw-fc-palette");
     const farbKnoepfe = [];
     for (let f = 1; f <= FARBEN; f += 1) {
@@ -303,25 +334,32 @@
       palette.append(k);
     }
     const los = knopf("Raten", "mini-knopf mini-knopf-voll vr-los zw-fc-los", () => absenden());
-    eingabe.append(plaetze, palette, los);
+    eingabe.append(plaetze, hinweis, palette, los);
     const tafeln = el("div", "zw-fc-tafeln");
     tafeln.append(angriff, abwehr);
     knoten.append(tafeln, eingabe);
 
     let jetzt = null;
     let wahlCode = ["", "", "", ""];
+    let hand = "";
     let partie = null;
     let gesehen = -1;
 
     const verstecken = (b) => Boolean(b && b.ich && !b.aus && b.lage.phase === "verstecken" && !b.lage.bereit[b.ich]);
     const raten = (b) => Boolean(b && b.ich && !b.aus && b.lage.phase === "raten" && b.lage.dran === b.ich);
 
+    // Eine Farbe in die Hand nehmen – oder, nochmals angetippt, wieder weglegen.
     function farbe(f) {
       if (!verstecken(jetzt) && !raten(jetzt)) return;
-      if (wahlCode.includes(f)) { wahlCode[wahlCode.indexOf(f)] = ""; ton("tipp"); zeichne(jetzt); return; }
-      const frei = wahlCode.indexOf("");
-      if (frei < 0) return;
-      wahlCode[frei] = f;
+      hand = hand === f ? "" : f;
+      ton("tipp");
+      zeichne(jetzt);
+    }
+
+    // Ein Platz: mit Farbe in der Hand bekommt er diese, sonst wird er leer.
+    function platz(i) {
+      if (!verstecken(jetzt) && !raten(jetzt)) return;
+      wahlCode[i] = hand;
       ton("tipp");
       zeichne(jetzt);
     }
@@ -336,6 +374,7 @@
       } else if (raten(b)) zug(`R${code}`);
       else return;
       wahlCode = ["", "", "", ""];
+      hand = "";
     }
 
     function zeile(versuch, platz, da, neu) {
@@ -355,7 +394,7 @@
       const ich = b.ich || "a";
       const gegen = anderer(ich);
       const namen = b.namen || { a: "", b: "" };
-      if (partie !== `${b.raum}|${b.nr}`) { partie = `${b.raum}|${b.nr}`; wahlCode = ["", "", "", ""]; gesehen = -1; }
+      if (partie !== `${b.raum}|${b.nr}`) { partie = `${b.raum}|${b.nr}`; wahlCode = ["", "", "", ""]; hand = ""; gesehen = -1; }
 
       // Tafel oben: mein Raten auf den Code des anderen.
       angriffKopf.innerHTML = "";
@@ -396,13 +435,21 @@
       const zeigeEingabe = verstecken(b) || raten(b);
       eingabe.hidden = !zeigeEingabe;
       tafeln.hidden = l.phase === "verstecken";
+      if (!zeigeEingabe) hand = "";
+      plaetze.className = `zw-fc-plaetze${hand ? ` ist-bereit ist-f${hand}` : ""}`;
       platzKnoepfe.forEach((p, i) => {
         p.className = `zw-fc-platz${wahlCode[i] ? ` ist-f${wahlCode[i]}` : ""}`;
-        p.setAttribute("aria-label", `Platz ${i + 1}: ${wahlCode[i] ? FARB_NAMEN[Number(wahlCode[i]) - 1] : "leer"}`);
+        const jetztDa = wahlCode[i] ? FARB_NAMEN[Number(wahlCode[i]) - 1] : "leer";
+        p.setAttribute("aria-label", `Platz ${i + 1}: ${jetztDa}${hand ? ` – antippen für ${FARB_NAMEN[Number(hand) - 1]}` : ""}`);
       });
-      farbKnoepfe.forEach((k) => k.classList.toggle("ist-gewaehlt", wahlCode.includes(k.dataset.farbe)));
+      farbKnoepfe.forEach((k) => {
+        k.classList.toggle("ist-gewaehlt", k.dataset.farbe === hand);
+        k.setAttribute("aria-pressed", String(k.dataset.farbe === hand));
+      });
+      const voll = gueltig(wahlCode.join(""));
+      hinweis.textContent = hand ? `${FARB_NAMEN[Number(hand) - 1]} – jetzt einen Platz antippen` : voll ? "" : "Tippe eine Farbe an, dann einen Platz";
       los.textContent = verstecken(b) ? "Fertig!" : "Raten";
-      los.disabled = !gueltig(wahlCode.join(""));
+      los.disabled = !voll;
 
       // Ein Ton für jede neue Antwort.
       const alle = l.versuche.a.length + l.versuche.b.length;
@@ -423,7 +470,7 @@
     id: "farbcode",
     titel: "Farbcode knacken",
     seite: "farbcode",
-    unter: "Versteck einen Code aus vier Farben und knack den des anderen. Grün heisst: richtige Farbe am richtigen Platz, gelb: richtige Farbe, falscher Platz.",
+    unter: "Versteck einen Code aus vier Farben – auch doppelt – und knack den des anderen. Grün heisst: richtige Farbe am richtigen Platz, gelb: richtige Farbe, falscher Platz.",
     held,
     trenner: ".",
     stufen: {
@@ -440,5 +487,6 @@
     auto,
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
+    fuerPruefung: { antwort, ALLE, gueltig },
   });
 })();

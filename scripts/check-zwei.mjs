@@ -145,10 +145,33 @@ const MH_SIEG = (() => {
   }
   return null;
 })();
-// Farbcode knacken: alle 360 Codes aus vier verschiedenen Farben.
+// Farbcode knacken: alle 1296 Codes aus vier Farben (auch doppelt), und die
+// Antwort auf einen Versuch.
 const FC_ALLE = [];
 for (let a = 1; a <= 6; a += 1) for (let b = 1; b <= 6; b += 1) for (let c = 1; c <= 6; c += 1) for (let d = 1; d <= 6; d += 1) {
-  if (new Set([a, b, c, d]).size === 4) FC_ALLE.push(`${a}${b}${c}${d}`);
+  FC_ALLE.push(`${a}${b}${c}${d}`);
+}
+const fcAntwort = (code, versuch) => {
+  let p = 0;
+  const rc = {};
+  const rv = {};
+  for (let i = 0; i < 4; i += 1) {
+    if (versuch[i] === code[i]) p += 1;
+    else { rc[code[i]] = (rc[code[i]] || 0) + 1; rv[versuch[i]] = (rv[versuch[i]] || 0) + 1; }
+  }
+  let d = 0;
+  for (const f of Object.keys(rc)) d += Math.min(rc[f], rv[f] || 0);
+  return [p, d];
+};
+// Einen Code eingeben wie ein Kind: Farbe antippen, dann den Platz – hier von
+// rechts nach links; dieselbe Farbe bleibt in der Hand.
+async function fcEingeben(s, code) {
+  let hand = "";
+  for (let i = 3; i >= 0; i -= 1) {
+    if (code[i] !== hand) { await s.locator(`.zw-fc-farbe[data-farbe="${code[i]}"]`).click(); hand = code[i]; }
+    await s.locator(`.zw-fc-platz[data-platz="${i}"]`).click();
+  }
+  await s.locator(".zw-fc-los:enabled").click({ timeout: 8000 });
 }
 // Der versteckte Code eines Sitzes aus dem Speicher seines Geräts – erst, wenn
 // er wirklich dort liegt.
@@ -423,10 +446,7 @@ const SPIELWEISE = {
     schwerSpielen: false,
   },  farbcode: {
     brett: ".zw-fc",
-    tippe: async (s, z) => {
-      for (const f of z.slice(1)) await s.locator(`.zw-fc-farbe[data-farbe="${f}"]`).click();
-      await s.locator(".zw-fc-los:enabled").click({ timeout: 8000 });
-    },
+    tippe: (s, z) => fcEingeben(s, z.slice(1)),
     kannTippen: (s) => s.evaluate(() => {
       const l = window.LernappZwei?.test?.lage?.();
       return Boolean(l && l.phase === "raten" && l.dran === window.LernappZwei.test.sitz()) && !document.querySelector(".zw-fc-eingabe")?.hidden;
@@ -436,18 +456,19 @@ const SPIELWEISE = {
     waehle: (lage) => {
       if (lage?.phase !== "raten" || lage.dran !== "a") return null;
       const passt = (code) => lage.versuche.a.every(({ versuch, platz, da }) => {
-        let p = 0; let d = 0;
-        for (let i = 0; i < 4; i += 1) { if (versuch[i] === code[i]) p += 1; else if (code.includes(versuch[i])) d += 1; }
+        const [p, d] = fcAntwort(code, versuch);
         return p === platz && d === da;
       });
       return `R${FC_ALLE.find(passt)}`;
     },
     vorbereiten: async (s) => {
-      if (!await bis(() => s.evaluate(() => Boolean(window.LernappZwei?.test?.lage?.()?.phase && window.LernappZwei?.test?.sitz?.())))) return;
+      // Erst wenn die neue Partie da ist (nach «Nochmal» steht kurz noch die
+      // alte, fertige auf dem Brett).
+      if (!await bis(() => s.evaluate(() => { const l = window.LernappZwei?.test?.lage?.(); return Boolean(l?.phase && l.phase !== "ende" && window.LernappZwei?.test?.sitz?.()); }))) return;
       const offen = await s.evaluate(() => { const l = window.LernappZwei.test.lage(); return l.phase === "verstecken" && !l.bereit[window.LernappZwei.test.sitz()]; });
       if (!offen) return;
-      for (const f of ["2", "5", "1", "6"]) await s.locator(`.zw-fc-farbe[data-farbe="${f}"]`).click();
-      await s.locator(".zw-fc-los").click();
+      // Ein Code mit doppelter Farbe.
+      await fcEingeben(s, "2215");
       await bis(() => s.evaluate(() => window.LernappZwei.test.lage().bereit[window.LernappZwei.test.sitz()]));
     },
     // Papa kennt Lenas Code (aus ihrem Speicher) und knackt ihn sofort;
