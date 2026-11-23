@@ -316,6 +316,7 @@
     { id: "schach", seite: "schach", titel: "Schach" },
     { id: "paare", seite: "paare", titel: "Paare finden" },
     { id: "farbcode", seite: "farbcode", titel: "Farbcode knacken" },
+    { id: "blitzpaar", seite: "blitzpaar", titel: "Blitzpaar" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4350,6 +4351,11 @@
         for (let i = 0; i < 4; i += 1) zeile.append(el("span", `ar-fc-punkt${i < platz ? " ist-platz" : i < platz + da ? " ist-da" : ""}`));
         feld.append(zeile);
       });
+      bild.append(feld);
+    },
+    blitzpaar(bild) {
+      const feld = el("span", "ar-bp-feld");
+      ["\u{1F34E}", "\u{1F680}", "\u{1F422}", "\u2B50", "\u{1F33B}", "\u{1F41F}", "\u{1F680}", "\u{1F388}"].forEach((b, i) => feld.append(el("span", `ar-bp-bild${i === 1 || i === 6 ? " ist-paar" : ""}`, b)));
       bild.append(feld);
     },
   };

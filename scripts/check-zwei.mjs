@@ -184,6 +184,8 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *                    anfangen» (eine ganze Partie dauert zu lange: Schach)
  *   autoZuege        true: In der Datenbank stehen mehr Züge als getippt
  *                    (Antworten des Geräts, «bereit») – dort nicht vergleichen
+ *   gleichzeitig     true: beide sind zugleich dran (Blitzpaar) – niemand
+ *                    «beginnt», der Computer «setzt» nicht als Erster
  */
 const SPIELWEISE = {
   tictactoe: {
@@ -424,6 +426,32 @@ const SPIELWEISE = {
     autoZuege: true,
     schwerSpielen: false,
   },
+  blitzpaar: {
+    brett: ".zw-bp-feld",
+    tippe: (s, z) => s.locator(`.zw-bp-bild[data-feld="${z.split(":")[1]}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-bp-bild[data-feld="${z.split(":")[1]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.evaluate(() => { const l = window.LernappZwei?.test?.lage?.(); return l ? l.punkte.a + l.punkte.b : -1; }),
+    // Gegen den Computer: wer das Paar kennt (aus der Lage), tippt es an.
+    waehle: (lage) => (lage && !lage.ende && lage.gesperrt.a < 0 ? `a${lage.nr}:${lage.runde.paar[0]}` : null),
+    // Papa trifft fünf Runden nacheinander. Die Runden kommen aus der Saat
+    // der Partie (aus der Datenbank) und den Regeln aus blitzpaar.js.
+    sieg: async ({ papa, raum }) => {
+      const B = spielAusDatei("blitzpaar.js", "blitzpaar");
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      const zuege = [];
+      for (let i = 0; i < 5; i += 1) zuege.push(`a${i}:${B.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat }).runde.paar[0]}`);
+      return zuege.map((zug) => ({ g: papa, zug }));
+    },
+    siegZeichen: [".zw-bp-bild.ist-treffer.ist-a", 1],
+    nachSieg: async (s, pruefe) => {
+      const texte = await s.locator(".zw-bp-bild").allTextContents();
+      pruefe(texte.length === 12 && texte.every((t) => t && !/\d/.test(t)), `Blitzpaar: Auf den Karten stehen Bilder, keine Nummern (${texte.join(" ")})`);
+    },
+    remis: null,
+    trenner: ".",
+    gleichzeitig: true,
+    schwerSpielen: false,
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
@@ -579,7 +607,7 @@ async function gegenComputer(g, z, w, stufe, { maxZuege = Infinity } = {}) {
   while (Date.now() < bisSpaetestens && eigene < maxZuege) {
     if (await seite.locator(".vr-nochmal").count()) break;
     const dran = await bis(async () => (await seite.locator(".vr-nochmal").count()) > 0
-      || (await lageVon(seite))?.dran === "a", { ms: 8000 });
+      || ["a", "beide"].includes((await lageVon(seite))?.dran), { ms: 8000 });
     if (!dran || await seite.locator(".vr-nochmal").count()) break;
     const zug = await w.waehle(await lageVon(seite), seite);
     if (zug === null || zug === undefined) { await warte(150); continue; }
@@ -616,7 +644,7 @@ try {
     await papa.seite.locator(`.vr-stufe[data-stufe="${leicht}"]`).click();
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Gegen den Computer steht das Brett`);
     await w.vorbereiten?.(papa.seite);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
+    if (!w.gleichzeitig) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
     if (w.computerZuege) {
       // Nur ein paar Züge – dann neu anfangen.
@@ -635,8 +663,10 @@ try {
       await papa.seite.locator(".vr-nochmal").click();
     }
     await w.vorbereiten?.(papa.seite);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
-    pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
+    if (!w.gleichzeitig) {
+      pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
+      pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
+    } else pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 4000 }), `${T}: Die zweite Partie beginnt frisch`);
     await papa.seite.locator(".vr-menue-knopf").click();
     pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Zurück im Menü`);
 
@@ -667,8 +697,10 @@ try {
     pruefe(await bis(() => lena.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Mit dem Code sitzt Lena am Brett`);
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Papa sieht das Brett, sobald Lena da ist`);
     await Promise.all([w.vorbereiten?.(papa.seite), w.vorbereiten?.(lena.seite)]);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t))), `${T}: Wer eröffnet, beginnt`);
-    pruefe(await bis(() => satz(lena.seite).then((t) => /Papa ist dran/.test(t))), `${T}: Lena sieht, dass Papa dran ist`);
+    if (!w.gleichzeitig) {
+      pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t))), `${T}: Wer eröffnet, beginnt`);
+      pruefe(await bis(() => satz(lena.seite).then((t) => /Papa ist dran/.test(t))), `${T}: Lena sieht, dass Papa dran ist`);
+    }
 
     const spiele = async (folge, beginnt, nr) => {
       const [erst, dann] = beginnt === "a" ? [papa, lena] : [lena, papa];
@@ -697,8 +729,10 @@ try {
 
     await lena.seite.locator(".vr-nochmal").click();
     await Promise.all([w.vorbereiten?.(papa.seite), w.vorbereiten?.(lena.seite)]);
-    pruefe(await bis(() => satz(lena.seite).then((t) => /Du beginnst/.test(t))), `${T}: Die zweite Partie beginnt Lena`);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Papa sieht, dass Lena beginnt`);
+    if (!w.gleichzeitig) {
+      pruefe(await bis(() => satz(lena.seite).then((t) => /Du beginnst/.test(t))), `${T}: Die zweite Partie beginnt Lena`);
+      pruefe(await bis(() => satz(papa.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Papa sieht, dass Lena beginnt`);
+    }
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 3000 }), `${T}: Das Brett ist leer`);
     if (w.remis) {
       const remisListe = await spiele(w.remis, "b", 2);
@@ -780,8 +814,10 @@ try {
     await miaT.seite.locator("a.tn-vr-ruf").click();
     pruefe(await bis(() => miaT.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Ein Tipp, und Mia sitzt am Brett`);
     await Promise.all([w.vorbereiten?.(miaT.seite), w.vorbereiten?.(lenaT.seite)]);
-    pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Mia sieht, dass Lena dran ist`);
-    pruefe(await bis(() => satz(lenaT.seite).then((t) => /Du beginnst/.test(t))), `${T}: Lena sieht Mia kommen`);
+    if (!w.gleichzeitig) {
+      pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Mia sieht, dass Lena dran ist`);
+      pruefe(await bis(() => satz(lenaT.seite).then((t) => /Du beginnst/.test(t))), `${T}: Lena sieht Mia kommen`);
+    } else pruefe(await bis(() => lenaT.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Lena sieht Mia kommen`);
     pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), `${T}: Im Turnier wartet niemand mehr`);
 
     // --- 5. Der Code dieses Spiels auf der Seite eines anderen ----------------------------
@@ -798,7 +834,7 @@ try {
       pruefe(await bis(() => ben.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Der Code, eingegeben bei ${anderes.titel}, führt ans Brett von ${T}`);
       pruefe(new URL(ben.seite.url()).pathname === `/${z.seite}`, `${T}: … auf die Seite ${z.seite} (${ben.seite.url()})`);
       await Promise.all([w.vorbereiten?.(max.seite), w.vorbereiten?.(ben.seite)]);
-      pruefe(await bis(() => satz(max.seite).then((t) => /Du beginnst/.test(t))), `${T}: Max sieht Ben kommen`);
+      pruefe(await bis(() => (w.gleichzeitig ? max.seite.locator(w.brett).count().then((n) => n === 1) : satz(max.seite).then((t) => /Du beginnst/.test(t)))), `${T}: Max sieht Ben kommen`);
       await max.kontext.close();
       await ben.kontext.close();
     }

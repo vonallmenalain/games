@@ -40,6 +40,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     schach.html           Schach, erzeugt
     paare.html            Paare finden, erzeugt
     farbcode.html         Farbcode knacken, erzeugt
+    blitzpaar.html        Blitzpaar, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -82,6 +83,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           sich erinnert (oder vergisst)
     farbcode.js           Farbcode knacken: Tafeln, der versteckte Code,
                           Regeln und Computer
+    blitzpaar.js          Blitzpaar: Runden, wer zuerst tippt, ein Computer
+                          mit Reaktionszeit
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2892,6 +2895,7 @@ Gerät:
 | Schach | `/schach` | `schach.js` |
 | Paare finden | `/paare` | `paare.js` |
 | Farbcode knacken | `/farbcode` | `farbcode.js` |
+| Blitzpaar | `/blitzpaar` | `blitzpaar.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3127,6 +3131,29 @@ Jahren gegen «Einfach» knapp jede zweite Partie, eines von neun gegen
 «Mittel» jede dritte, dazu kommen viele Unentschieden. Bilanz:
 `farbcode.bilanz`.
 
+**Blitzpaar** (`blitzpaar.js`): das erste Spiel, in dem beide zugleich dran
+sind (`dran: "beide"`). In jeder Runde liegen zwölf Bilder (Obst, Tiere,
+Sachen – als Emoji), genau eines zweimal, hochkant 3 × 4, quer 4 × 3. Wer
+zuerst auf eines der beiden tippt, holt den Punkt; seine Karte leuchtet in
+seiner Farbe. Wer danebentippt, setzt den Rest der Runde aus (die Karte
+wird grau, mit seinem Rand); tippen beide daneben, zählt die Runde nicht.
+Eine entschiedene Runde bleibt gut eine Sekunde stehen, dann kommt die
+nächste. Fünf Punkte gewinnen. Welche Bilder wo liegen, kommt aus der Saat
+der Partie und der Nummer der Runde; wer zuerst war, entscheidet die
+Datenbank (ein Tipp ist eine Transaktion, nur der erste passende zählt).
+Ein Zug: `a3:7` – wer, in welcher Runde, auf welches Bild.
+
+| Stufe | Der Computer braucht zum Finden … | … und tippt daneben |
+|---|---|---|
+| Ganz leicht | etwa 6 Sekunden (sehr verschieden) | jedes fünfte Mal |
+| Einfach | knapp 4 Sekunden | jedes achte Mal |
+| Mittel | knapp 3 Sekunden | selten |
+| Schwer | gut 1½ Sekunden | fast nie |
+
+Geeicht an nachgemachten Kindern (eines von fünf Jahren braucht etwa fünf
+Sekunden, eines von neun gut zweieinhalb): Sie gewinnen gegen «ihre» Stufe
+gut jede zweite Partie. Bilanz: `blitzpaar.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3217,8 +3244,10 @@ Zügen, Rochade, en passant, Umwandlung, Wiederholung, zu wenig Material,
 und «Mittel» sieht ein Matt in einem Zug; bei Paare finden: dieselbe Saat
 mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden;
 bei Farbcode knacken: verstecken, raten, antworten, wer zuerst knackt,
-gleich viele Runden, die Codes am Ende), die Regeln in `npm run
-test:rules`, und im Browser in
+gleich viele Runden, die Codes am Ende; bei Blitzpaar: dieselbe Saat,
+dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
+fünf Punkte gewinnen), die Regeln in `npm run test:rules`, und im Browser
+in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein

@@ -10335,6 +10335,87 @@ body[data-page="farbcode"] { overscroll-behavior: none; }
   .zw-fc-farbe { transition: none; }
 }
 
+/* --- Blitzpaar (blitzpaar.js) ------------------------------------------------------
+   Zwölf helle Karten mit Bildern, hochkant 3 × 4, quer 4 × 3. Beide tippen
+   zugleich. Wer das doppelte Bild trifft, dessen Karte leuchtet in seiner
+   Farbe; wer danebentippt, dessen Karte wird grau mit farbigem Rand – und
+   er setzt aus. Danach bleibt die Runde kurz stehen (ist-pause). */
+body[data-page="blitzpaar"] { overscroll-behavior: none; }
+.vr-partie.zw-blitzpaar {
+  --vr-breite: max(230px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc((100dvh - 340px - var(--safe-top) - var(--safe-bottom)) * 3 / 4)));
+}
+.zw-bp {
+  --spalten: 3;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: var(--vr-breite);
+  max-width: 100%;
+  touch-action: manipulation;
+}
+.zw-bp .confetti-layer { z-index: 6; }
+.zw-bp-stand { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-weight: 850; }
+.zw-bp-zahl { flex: 0 1 auto; min-width: 0; max-width: 42%; overflow: hidden; padding: 4px 12px; border-radius: 999px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.zw-bp-zahl.ist-a { background: rgba(254, 121, 113, 0.18); color: #ffd5d0; }
+.zw-bp-zahl.ist-b { background: rgba(255, 212, 94, 0.16); color: #fff6cf; }
+.zw-bp-runde { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--ar-leise); font-size: 0.78rem; letter-spacing: 0.06em; text-align: center; text-transform: uppercase; white-space: nowrap; }
+.zw-bp-feld { display: grid; grid-template-columns: repeat(var(--spalten), minmax(0, 1fr)); gap: calc(var(--vr-breite) * 0.025); width: 100%; }
+.zw-bp-bild {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--vr-breite) / var(--spalten) * 0.18);
+  background: #f4efff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  color: inherit;
+  font-size: calc(var(--vr-breite) / var(--spalten) * 0.55);
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.25s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.zw-bp-bild:disabled { opacity: 1; cursor: default; }
+.zw-bp.ist-dran .zw-bp-bild:active,
+.zw-bp-bild.ist-getippt { transform: scale(0.93); }
+.zw-bp-bild:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.zw-bp.ist-gesperrt .zw-bp-bild:not(.ist-daneben) { opacity: 0.55; }
+.zw-bp.ist-pause .zw-bp-bild:not(.ist-paar):not(.ist-daneben) { opacity: 0.35; }
+.zw-bp-bild.ist-paar { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.01) #fff, 0 0 18px rgba(255, 255, 255, 0.45); }
+.zw-bp-bild.ist-treffer.ist-a { background: #ffd9d4; box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.012) var(--vr-a), 0 0 22px rgba(254, 121, 113, 0.7); animation: zw-bp-treffer 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+.zw-bp-bild.ist-treffer.ist-b { background: #fff1c2; box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.012) var(--vr-b), 0 0 22px rgba(255, 212, 94, 0.65); animation: zw-bp-treffer 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+@keyframes zw-bp-treffer { from { transform: scale(0.85); } to { transform: scale(1); } }
+.zw-bp-bild.ist-daneben { background: #4a4064; filter: grayscale(0.6); }
+.zw-bp-bild.ist-daneben.ist-a { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.009) var(--vr-a); }
+.zw-bp-bild.ist-daneben.ist-b { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.009) var(--vr-b); }
+@media (min-aspect-ratio: 1/1) {
+  .zw-bp { --spalten: 4; }
+  .vr-partie.zw-blitzpaar { --vr-breite: max(260px, min(calc(100vw - 40px - var(--safe-left) - var(--safe-right)), 680px, calc((100dvh - 320px - var(--safe-top) - var(--safe-bottom)) * 4 / 3))); }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-blitzpaar { --vr-breite: max(220px, min(calc((100dvh - 110px - var(--safe-top) - var(--safe-bottom)) * 4 / 3), calc(100vw - 420px))); }
+  .zw-bp { grid-area: feld; }
+}
+
+/* Im Menü: sechs Bilder, zwei gleiche leuchten. */
+.zw-bp-held { --h: clamp(30px, 8.5vw, 40px); flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, var(--h)); grid-auto-rows: var(--h); gap: 5px; }
+.zw-bp-held-feld { display: grid; place-items: center; border-radius: 8px; background: #f4efff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); font-size: calc(var(--h) * 0.6); line-height: 1; }
+.zw-bp-held-feld.ist-paar { box-shadow: inset 0 0 0 2px var(--vr-a), 0 0 12px rgba(254, 121, 113, 0.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-bp-bild { transition: none; }
+  .zw-bp-bild.ist-treffer.ist-a,
+  .zw-bp-bild.ist-treffer.ist-b { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10417,6 +10498,18 @@ body[data-page="farbcode"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Blitzpaar: Bilder, zwei gleiche leuchten. */
+.ar-bp-feld {
+  position: absolute;
+  left: calc(50% - var(--z) * 4.1);
+  top: calc(var(--z) * 0.6);
+  display: grid;
+  grid-template-columns: repeat(4, calc(var(--z) * 1.9));
+  grid-auto-rows: calc(var(--z) * 1.9);
+  gap: calc(var(--z) * 0.2);
+}
+.ar-bp-bild { display: grid; place-items: center; border-radius: calc(var(--z) * 0.35); background: #f4efff; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35); font-size: calc(var(--z) * 1.15); line-height: 1; }
+.ar-bp-bild.ist-paar { box-shadow: inset 0 0 0 2px #fe7971, 0 0 10px rgba(254, 121, 113, 0.7); }
 /* Farbcode knacken: zwei Reihen Stifte, die Antwort daneben. */
 .ar-fc-feld {
   position: absolute;
