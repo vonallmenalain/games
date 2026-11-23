@@ -1763,6 +1763,7 @@
       ohneReplay: false,
       ohneLive: false,
       viererreihe: false,
+      zweiSpieler: [],
       aktiv: true,
       spitzeWartet: false,
     };
@@ -1899,8 +1900,13 @@
     const spieleTitel = el("legend", "");
     spieleGruppe.append(spieleTitel);
     const gewaehlt = new Set(t.spiele);
-    let vierer = null;
-    const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt${vierer?.checked ? " · Viererreihe" : ""}`; };
+    // Die Haken der Spiele zu zweit (unten, «2 Spieler»).
+    const zweiBoxen = [];
+    const zweiGewaehlt = () => zweiBoxen.filter((b) => b.checked).map((b) => b.value);
+    const zaehle = () => {
+      const zwei = zweiGewaehlt().map(titel);
+      spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt${zwei.length ? ` · ${zwei.join(", ")}` : ""}`;
+    };
     const haken = [];
     // Nach Tier gruppiert, so wie im Bereich «Spiele»
     // eingeteilt.
@@ -1920,16 +1926,16 @@
       });
       spieleGruppe.append(gitter);
     });
-    // Unter den Tiers: die Spiele zu zweit (im Turnier heisst das Feld
-    // viererreihe – so steht es in jedem Turnier, das es schon gibt).
+    // Unter den Tiers: die Spiele zu zweit (zweiSpieler im Turnier; das Feld
+    // viererreihe von vorher zählt mit).
     spieleGruppe.append(zweiTitel(zweiSpieler().length));
     const zweiGitter = el("div", "adm-auswahl");
-    const { zeile: viererZeile, box: viererBox } = zweiZeile("viererreihe", Boolean(t.viererreihe), () => zaehle(), {
-      unter: "zu zweit",
-      hakenTitel: "Viererreihe im Turnier",
+    const zweiVorher = new Set([...(t.zweiSpieler || []), ...(t.viererreihe ? ["viererreihe"] : [])]);
+    zweiSpieler().forEach((id) => {
+      const { zeile, box } = zweiZeile(id, zweiVorher.has(id), () => zaehle(), { unter: "zu zweit", hakenTitel: `${titel(id)} im Turnier` });
+      zweiBoxen.push(box);
+      zweiGitter.append(zeile);
     });
-    vierer = viererBox;
-    zweiGitter.append(viererZeile);
     spieleGruppe.append(zweiGitter);
     zaehle();
     const setze = (ids) => haken.forEach((box) => {
@@ -2201,7 +2207,8 @@
       ohneReplay: !replay.checked,
       ohneLive: !live.checked,
       nurLive: nurLive.checked,
-      viererreihe: vierer.checked,
+      viererreihe: zweiGewaehlt().includes("viererreihe"),
+      zweiSpieler: zweiGewaehlt(),
       aktiv: aktiv.checked,
       spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
     });
@@ -2245,7 +2252,8 @@
       replay.checked = !w.ohneReplay;
       live.checked = !w.ohneLive;
       nurLive.checked = Boolean(w.nurLive);
-      if (vierer.checked !== Boolean(w.viererreihe)) vierer.click();
+      const zweiSoll = new Set([...(Array.isArray(w.zweiSpieler) ? w.zweiSpieler : []), ...(w.viererreihe ? ["viererreihe"] : [])]);
+      zweiBoxen.forEach((box) => { if (box.checked !== zweiSoll.has(box.value)) box.click(); });
       aktiv.checked = w.aktiv !== false;
       sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
     }
@@ -2322,7 +2330,7 @@
       ereignis.preventDefault();
       const daten = { ...ausDemFormular(), erstelltMs: vorlage?.erstelltMs || Date.now() };
       if (!daten.name) { sage("Ohne Namen gibt es kein Turnier.", "ist-fehler"); nameFeld.focus(); return; }
-      if (!daten.spiele.length && !daten.viererreihe) { sage("Mindestens ein Spiel muss dabei sein – oder Viererreihe.", "ist-fehler"); return; }
+      if (!daten.spiele.length && !daten.zweiSpieler.length) { sage("Mindestens ein Spiel muss dabei sein – oder eines zu zweit.", "ist-fehler"); return; }
       if (!Number.isFinite(daten.startMs) || !Number.isFinite(daten.endeMs)) { sage("Beginn und Ende brauchen ein Datum und eine Uhrzeit.", "ist-fehler"); return; }
       if (daten.endeMs <= daten.startMs) { sage("Das Ende muss nach dem Beginn liegen.", "ist-fehler"); return; }
       if (!vorlage && daten.endeMs <= Date.now()) { sage("Dieses Turnier wäre schon vorbei, bevor es jemand sieht.", "ist-fehler"); return; }
@@ -2412,7 +2420,7 @@
 
     const detail = el("div", "adm-turnier-detail");
     const eckdaten = [
-      t.spiele.map(titel).join(", ") || "nur Viererreihe",
+      t.spiele.map(titel).join(", ") || "nur Spiele zu zweit",
       t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platz im Schnitt") : "",
@@ -2421,7 +2429,7 @@
       t.ohneReplay ? "ohne Replays" : "",
       t.ohneLive ? "ohne Live" : "",
       t.nurLive ? "nur Multiplayer" : "",
-      t.viererreihe ? "mit Viererreihe" : "",
+      (t.zweiSpieler || []).length ? `mit ${t.zweiSpieler.map(titel).join(", ")}` : "",
       aktion.abende?.length ? `${aktion.abende.length} Multiplayer` : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));

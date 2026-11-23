@@ -87,8 +87,9 @@ const db = (pfad, optionen = {}) => fetch(`http://${EMULATOR}/${pfad}.json?ns=${
     console.error(`Die Regeln liessen sich nicht laden: ${antwort.status} ${await antwort.text()}`);
     process.exit(2);
   }
-  await db("duell", { method: "DELETE" });
-  await db("duellCode", { method: "DELETE" });
+  await db("partie", { method: "DELETE" });
+  await db("partieCode", { method: "DELETE" });
+  await db("partieOffen", { method: "DELETE" });
 }
 
 const server = spawn(process.execPath, [path.join(HIER, "local-pwa-server.cjs"), String(PORT)], { cwd: WURZEL, stdio: "ignore" });
@@ -131,9 +132,9 @@ const ATTRAPPE = `
     async turnierLive() { return []; },
     async liveZeiger() { return null; },
     async offeneDuelle(id) {
-      const antwort = await fetch("http://${EMULATOR}/duellOffen/" + id + ".json?ns=${NAMENSRAUM}");
+      const antwort = await fetch("http://${EMULATOR}/partieOffen/" + id + ".json?ns=${NAMENSRAUM}");
       const d = (await antwort.json()) || {};
-      return Object.entries(d).map(([raum, o]) => ({ raum, name: o.name, kennung: o.kennung, seit: o.seit }));
+      return Object.entries(d).map(([raum, o]) => ({ raum, name: o.name, kennung: o.kennung, spiel: o.spiel, seit: o.seit }));
     },
     app() {
       if (app) return app;
@@ -248,7 +249,7 @@ try {
   pruefe(/^[0-9]{4}$/.test(code), `Der Code hat vier Ziffern (${code})`);
   pruefe(/^[A-Z2-9]{10}$/.test(raum), `Der Raum steht in der Adresse (${raum})`);
   pruefe((await papa.seite.locator(".vr-link").textContent()).endsWith(`/viererreihe?raum=${raum}`), "Der Link zeigt auf den Raum");
-  const zettel = await (await db(`duellCode/${code}`)).json();
+  const zettel = await (await db(`partieCode/${code}`)).json();
   pruefe(zettel?.raum === raum, "Der Code führt zum Raum");
   await bild(papa.seite, "4-lobby");
 
@@ -267,7 +268,7 @@ try {
   await lena.seite.locator(".vr-code-ok").click();
   pruefe(await bis(() => lena.seite.locator(".vr-spalte").count().then((n) => n === 7)), "Mit dem Code sitzt Lena am Brett");
   pruefe(await bis(() => papa.seite.locator(".vr-spalte").count().then((n) => n === 7)), "Papa sieht das Brett, sobald Lena da ist");
-  pruefe(await bis(async () => (await (await db(`duellCode/${code}`)).json()) === null), "Der Code ist weg, sobald der Raum voll ist");
+  pruefe(await bis(async () => (await (await db(`partieCode/${code}`)).json()) === null), "Der Code ist weg, sobald der Raum voll ist");
   pruefe(/Du beginnst/.test(await satz(papa.seite)), "Wer eröffnet, beginnt");
   pruefe(/Papa ist dran/.test(await satz(lena.seite)), "Lena sieht, dass Papa dran ist");
   pruefe(await lena.seite.locator(".vr-spalte:not([disabled])").count() === 0, "Lena kann nicht setzen, solange Papa dran ist");
@@ -318,7 +319,7 @@ try {
   await setze(lena, 3, 1);
   pruefe(await bis(() => steine(papa.seite).then((n) => n === 1)), "Papa sieht Lenas Stein");
   pruefe((await papa.seite.locator(".vr-wer.ist-a .vr-wer-zahl").textContent()) === "1", "Die Bilanz bleibt über die Partie hinaus");
-  const stand = await (await db(`duell/${raum}/stand`)).json();
+  const stand = await (await db(`partie/${raum}/stand`)).json();
   pruefe(stand?.serie === "a" && stand?.beginnt === "b" && stand?.zuege === "3" && stand?.nr === 1, `Der Stand in der Datenbank (${JSON.stringify(stand)})`);
 
   // --- 6. Papa lädt neu und sitzt wieder auf a --------------------------------------------
@@ -365,7 +366,7 @@ try {
   await max.seite.locator(".vr-namensfeld button[type=submit]").click();
   pruefe(await bis(() => satz(max.seite).then((t) => /Mia ist dran/.test(t))), "Mit Namen sitzt Max am Brett");
   pruefe(await bis(() => satz(mia.seite).then((t) => /Du beginnst/.test(t))), "Mia sieht das Brett, sobald Max da ist");
-  pruefe((await (await db(`duell/${raum2}/b`)).json())?.name === "Max", "In der Datenbank sitzt Max auf b");
+  pruefe((await (await db(`partie/${raum2}/b`)).json())?.name === "Max", "In der Datenbank sitzt Max auf b");
 
   // --- 9. Nicht auf der Startseite ---------------------------------------------------
   await zoe.seite.goto(`${BASIS}/`);
@@ -399,7 +400,7 @@ try {
   pruefe(/Mit Lena spielen/.test(await lenaT.seite.locator(".vr-vorschau-knopf").textContent()), "… «Mit Lena spielen»");
   const raumT = new URL(lenaT.seite.url()).searchParams.get("raum") || "";
   pruefe(new URL(lenaT.seite.url()).searchParams.get("turnier") === TURNIER_ID, "Das Turnier bleibt in der Adresse");
-  pruefe(await bis(async () => (await (await db(`duellOffen/${TURNIER_ID}/${raumT}`)).json())?.name === "Lena"), "Lena steht im Turnier als wartend");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}/${raumT}`)).json())?.name === "Lena"), "Lena steht im Turnier als wartend");
   await bild(lenaT.seite, "9-turnier-lena-wartet");
 
   await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
@@ -414,7 +415,7 @@ try {
   await miaT.seite.locator(".vr-wartet-knopf").click();
   pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), "Ein Tipp, und Mia sitzt am Brett");
   pruefe(await bis(() => satz(lenaT.seite).then((t) => /Du beginnst/.test(t))), "Lena sieht das Brett, sobald Mia da ist");
-  pruefe(await bis(async () => (await (await db(`duellOffen/${TURNIER_ID}`)).json()) === null), "Im Turnier wartet niemand mehr");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "Im Turnier wartet niemand mehr");
   pruefe(new URL(miaT.seite.url()).searchParams.get("turnier") === TURNIER_ID, "Auch bei Mia bleibt das Turnier in der Adresse");
   await setze(lenaT, 3, 1);
   pruefe(await bis(() => steine(miaT.seite).then((n) => n === 1)), "Mia sieht Lenas Stein");

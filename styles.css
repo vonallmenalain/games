@@ -9420,7 +9420,7 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
     radial-gradient(120% 90% at 75% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
     linear-gradient(145deg, #7c5ce6, #3d2896);
 }
-.ar-vr-bild::before {
+.ar-vr-bild.ist-brett::before {
   content: "";
   position: absolute;
   left: calc(50% - var(--z) * 3.5);
@@ -9488,7 +9488,18 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 /* Wartet jemand im Turnier, leuchtet die Kachel, und oben steht der Name. */
 .ar-vr-kachel.ist-wartet { opacity: 1; outline: 3px solid var(--vr-a, #fe7971); outline-offset: -3px; animation: vr-ruft 1.6s ease-out infinite; }
 .ar-vr-kachel.ist-wartet .ar-vr-neu { background: #fe7971; color: #2a0d0b; font-size: 0.7rem; }
-/* Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne. */
+/* Ein Turnier nur mit Spielen zu zweit: grosse Karten statt der Bühne. */
+.tn-zwei-karten {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px max(16px, var(--safe-left, 0px)) 24px;
+}
+.tn-zwei-karten .ar-vr-kachel.ist-gross { margin: 0; }
 .ar-vr-kachel.ist-gross {
   --ar-kachel-b: min(92vw, 560px);
   align-self: center;

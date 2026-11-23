@@ -36,6 +36,8 @@
   // ---------------------------------------------------------------------------
   const seite = () => document.body?.dataset?.page || "";
   const spielHier = () => document.body?.dataset?.spiel || "";
+  // Eine Seite eines Spiels zu zweit (zwei.js): Sie trägt [data-zwei].
+  const zweiHier = () => Boolean(document.querySelector("main[data-zwei]"));
 
   function ausDerAdresse(name) {
     try { return (new URLSearchParams(window.location.search).get(name) || "").trim().slice(0, 64); }
@@ -110,8 +112,8 @@
       const hier = seite();
       frei = hier === "turnier" || hier === "live" || hier === "admin"
         || (spielHier() && (p.has("turnier") || p.has("aus") || p.has("live")))
-        // Viererreihe gehört zum Turnier, wenn sie aus ihm kommt.
-        || (hier === "viererreihe" && p.has("turnier"));
+        // Ein Spiel zu zweit gehört zum Turnier, wenn es aus ihm kommt.
+        || (zweiHier() && p.has("turnier"));
     } catch { frei = true; }
     if (!frei) window.location.replace(seitenLink(heim));
   }
@@ -1102,8 +1104,9 @@
       wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
       buehne = null;
       buehneFuer = "";
-      viererKachel?.remove();
-      viererKachel = null;
+      zweiWirt?.remove();
+      zweiWirt = null;
+      zweiKacheln.clear();
       rufe.innerHTML = "";
       oben.innerHTML = "";
       ueberschrift.textContent = "Kein Turnier";
@@ -1255,12 +1258,35 @@
     let buehneFuer = "";
     let wertung = null;
 
-    // Viererreihe: die Kachel (oder Karte) und wer gerade auf jemanden
-    // wartet (cloud.js, offeneDuelle) – gefragt, solange die Seite zu sehen
-    // ist, alle paar Sekunden. Wer selbst wartet, steht nicht darauf.
-    let viererKachel = null;
+    // Die Spiele zu zweit (zwei.js): ihre Kacheln (oder Karten) und wer
+    // gerade auf jemanden wartet (cloud.js, offeneDuelle) – gefragt, solange
+    // die Seite zu sehen ist, alle paar Sekunden. Wer selbst wartet, steht
+    // nicht darauf.
+    const zweiKacheln = new Map();
+    let zweiWirt = null;
     let duelleTakt = 0;
     stand.duelle = [];
+    const zweiImTurnier = (t) => {
+      const bekannt = (m.ZWEI_SPIELER || []).map((z) => z.id);
+      const liste = Array.isArray(t?.zweiSpieler) ? t.zweiSpieler : (t?.viererreihe ? ["viererreihe"] : []);
+      return liste.filter((id) => bekannt.includes(id));
+    };
+    const zweiDa = () => Boolean(zweiWirt?.isConnected || [...zweiKacheln.values()].some((k) => k.isConnected));
+    function zweiBauen(t, { gross }) {
+      zweiKacheln.clear();
+      zweiWirt = el("div", gross ? "tn-zwei-karten" : "ar-vorne");
+      zweiImTurnier(t).forEach((id) => {
+        const k = m.zweiKachel?.(id, t.id, { gross });
+        if (!k) return;
+        zweiKacheln.set(id, k);
+        zweiWirt.append(k);
+      });
+      return zweiWirt;
+    }
+    function zweiZeigen() {
+      zweiKacheln.forEach((k, id) => k.wartende?.(stand.duelle.filter((d) => d.spiel === id).map((d) => d.name)));
+      rufeZeichnen();
+    }
     // Wer wartet, steht zusätzlich gross oben auf der Seite: «Mit Lena
     // spielen» – ein Tipp, und man sitzt am Brett. So findet auch ein Kind,
     // das noch nicht liest, den Weg zum Duell der grossen Schwester.
@@ -1272,35 +1298,39 @@
     function rufeZeichnen() {
       rufe.innerHTML = "";
       const t = stand.t;
-      if (!t?.viererreihe || !viererKachel?.isConnected) return;
+      if (!t || !zweiDa()) return;
       stand.duelle.slice(0, 3).forEach((d) => {
+        const spiel = (m.ZWEI_SPIELER || []).find((z) => z.id === d.spiel);
+        if (!spiel) return;
         const ruf = el("a", "tn-vr-ruf");
-        ruf.href = `/viererreihe?turnier=${encodeURIComponent(t.id)}&raum=${encodeURIComponent(d.raum)}`;
+        ruf.dataset.zwei = d.spiel;
+        ruf.href = `/${spiel.seite}?turnier=${encodeURIComponent(t.id)}&raum=${encodeURIComponent(d.raum)}`;
         const stein = el("span", "tn-vr-stein");
         stein.setAttribute("aria-hidden", "true");
         const text = el("span", "tn-vr-text");
-        text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet bei Viererreihe`));
+        text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet bei ${spiel.titel}`));
         ruf.append(stein, text, el("span", "tn-vr-los", "Los"));
         rufe.append(ruf);
       });
     }
     async function duelleFragen() {
       const t = stand.t;
-      if (!t?.viererreihe || !viererKachel?.isConnected || document.visibilityState !== "visible") return;
+      if (!t || !zweiDa() || document.visibilityState !== "visible") return;
       let liste = [];
       try { liste = (await cloud()?.offeneDuelle?.(t.id)) || []; } catch { return; }
       const ich = m.kennungFallsDa?.() || "";
-      const andere = liste.filter((d) => d.kennung !== ich && d.name).map((d) => ({ name: d.name, raum: d.raum }));
+      const imTurnier = zweiImTurnier(t);
+      const andere = liste.filter((d) => d.kennung !== ich && d.name && imTurnier.includes(d.spiel))
+        .map((d) => ({ name: d.name, raum: d.raum, spiel: d.spiel }));
       if (JSON.stringify(andere) === JSON.stringify(stand.duelle)) return;
       stand.duelle = andere;
-      viererKachel?.wartende?.(andere.map((d) => d.name));
-      rufeZeichnen();
+      zweiZeigen();
     }
     function schauDuelle() {
       if (duelleTakt) return;
       duelleFragen();
       duelleTakt = window.setInterval(() => {
-        if (!viererKachel?.isConnected) { window.clearInterval(duelleTakt); duelleTakt = 0; return; }
+        if (!zweiDa()) { window.clearInterval(duelleTakt); duelleTakt = 0; return; }
         duelleFragen();
       }, 5000);
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") duelleFragen(); });
@@ -1349,42 +1379,43 @@
       gesamtZeichnen?.();
 
       const spiele = t.spiele.filter((spiel) => m.SPIELE.some((s) => s.id === spiel));
-      const vierer = Boolean(t.viererreihe) && lage(t) === "laeuft";
+      const zwei = lage(t) === "laeuft" ? zweiImTurnier(t) : [];
       if (!spiele.length) {
         buehneEnde?.abort();
         wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
         buehne = null;
         buehneFuer = "";
-        // Nur Viererreihe: eine grosse Karte statt der Bühne.
-        if (vierer) {
+        // Nur Spiele zu zweit: grosse Karten statt der Bühne.
+        if (zwei.length) {
           hinweisZeile.remove();
-          if (!viererKachel?.classList.contains("ist-gross") || !viererKachel.isConnected) {
-            viererKachel?.remove();
-            viererKachel = m.viererreiheKachel?.(t.id, { gross: true }) || null;
-            if (viererKachel) wirt.append(viererKachel);
+          if (!zweiWirt?.classList.contains("tn-zwei-karten") || !zweiWirt.isConnected || zweiWirt.dataset.fuer !== zwei.join()) {
+            zweiWirt?.remove();
+            wirt.append(zweiBauen(t, { gross: true }));
+            zweiWirt.dataset.fuer = zwei.join();
           }
-          viererKachel?.wartende?.(stand.duelle.map((d) => d.name));
-          rufeZeichnen();
+          zweiZeigen();
           schauDuelle();
           return;
         }
-        viererKachel?.remove();
-        viererKachel = null;
+        zweiWirt?.remove();
+        zweiWirt = null;
+        zweiKacheln.clear();
         rufeZeichnen();
         hinweis(t.nurLive ? "Gespielt wird nur im Multiplayer."
-          : t.viererreihe ? (lage(t) === "geplant" ? `Ab ${datum(t.startMs)} gibt es hier Viererreihe.` : "Das Turnier ist vorbei.")
+          : zweiImTurnier(t).length ? (lage(t) === "geplant" ? `Ab ${datum(t.startMs)} geht es hier los.` : "Das Turnier ist vorbei.")
             : "Zu diesem Turnier gehört gerade kein Spiel.");
         return;
       }
-      if (viererKachel?.classList.contains("ist-gross")) { viererKachel.remove(); viererKachel = null; }
-      if (!buehne || buehneFuer !== `${spiele.join()}|${vierer}`) {
+      if (zweiWirt?.classList.contains("tn-zwei-karten")) { zweiWirt.remove(); zweiWirt = null; zweiKacheln.clear(); }
+      if (!buehne || buehneFuer !== `${spiele.join()}|${zwei.join()}`) {
         buehneEnde?.abort();
         wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
         buehneEnde = new AbortController();
-        buehneFuer = `${spiele.join()}|${vierer}`;
-        // Viererreihe vorne in der Zeile, wenn sie dabei ist (und das Turnier
-        // läuft).
-        viererKachel = vierer ? m.viererreiheKachel?.(t.id) || null : null;
+        buehneFuer = `${spiele.join()}|${zwei.join()}`;
+        // Die Spiele zu zweit vorne in der Zeile, wenn welche dabei sind (und
+        // das Turnier läuft).
+        const vorne = zwei.length ? zweiBauen(t, { gross: false }) : null;
+        if (!vorne) { zweiWirt = null; zweiKacheln.clear(); }
         buehne = m.arcadeBuehne(wirt, {
           signal: buehneEnde.signal,
           reihenfolge: spiele,
@@ -1393,13 +1424,12 @@
           ansehbar: !t.ohneReplay,
           liveWirt: oben,
           liveVorne: false,
-          vorne: viererKachel,
+          vorne,
           ...m.arcadeStart(spiele),
         });
       }
-      viererKachel?.wartende?.(stand.duelle.map((d) => d.name));
-      rufeZeichnen();
-      if (vierer) schauDuelle();
+      zweiZeigen();
+      if (zwei.length) schauDuelle();
       buehne.daten({ listen: wertung.listen, verdeckt });
       buehne.neu();
       buehne.spielen(jeSpiel());
@@ -2583,7 +2613,7 @@
   // Anschauen eines Laufs aus dem Turnier (?zuschauen=…&aus=<turnier>) und
   // überall in der Turnier-App (heim).
   function ziel() {
-    if (!spielHier() && seite() !== "viererreihe") return null;
+    if (!spielHier() && !zweiHier()) return null;
     const id = ausDerAdresse("turnier") || ausDerAdresse("aus") || heim;
     if (!id) return null;
     return { link: seitenLink(id), wort: "Turnier", titel: "Zurück zum Turnier" };

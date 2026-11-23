@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-2";
+export const FASSUNG = "2026-11-23-3";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -398,10 +398,10 @@ export const adminSkripte = () => [...SDK, SDK_AUTH, ...GEMEINSAM, "admin.js"];
 // Database. pwa.js gehört dazu – ein Multiplayer lässt sich auch aus der
 // installierten App heraus spielen.
 export const liveSkripte = () => [...SDK, SDK_AUTH, SDK_DATABASE, ...GEMEINSAM, "live.js", "pwa.js"];
-// Viererreihe: das Fundament, die Realtime Database (für das Duell zu zweit),
-// kids.js (Ton-Knopf, Konfetti, kein Zoom), das Brett mit dem Computer und
-// die Seite. Keine Anmeldung: Wer spielt, sagt nur seinen Namen.
-export const viererreiheSkripte = () => [...SDK, SDK_DATABASE, ...GEMEINSAM, "kids.js", "viererreihe-ki.js", "viererreihe.js", "pwa.js"];
+// Ein Spiel zu zweit: das Fundament, die Realtime Database (für das Duell),
+// kids.js (Ton-Knopf, Konfetti, kein Zoom), der gemeinsame Rahmen (zwei.js)
+// und das Spiel selbst. Keine Anmeldung: Wer spielt, sagt nur seinen Namen.
+export const zweiSkripte = (spiel) => [...SDK, SDK_DATABASE, ...GEMEINSAM, "kids.js", "zwei.js", ...spiel.js, "pwa.js"];
 
 /*
  * Der Kopf jeder Seite. Dazu die Vorschau, wenn jemand den Link teilt: Titel,
@@ -578,38 +578,42 @@ ${skripte(liveSkripte())}
 }
 
 /*
- * Viererreihe: vier in einer Reihe, gegen den Computer oder live zu zweit.
- * Kein Spiel der Tabelle SPIELE – es hat keine Bestenliste, sondern eine
- * kleine Bilanz, und es läuft nicht auf der gemeinsamen Bühne. Was darauf
- * steht, baut viererreihe.js; die Adresse sagt, wo man ist (?gegen=mittel,
- * ?raum=K7QMX2PA9Z).
+ * Die Spiele zu zweit (mini-games.js, ZWEI_SPIELER): gegen den Computer oder
+ * live auf zwei Geräten. Keine Spiele der Tabelle SPIELE – sie haben keine
+ * Bestenliste, sondern eine kleine Bilanz, und sie laufen nicht auf der
+ * gemeinsamen Bühne, sondern im Rahmen zwei.js. Die Adresse sagt, wo man ist
+ * (?gegen=mittel, ?raum=K7QMX2PA9Z).
+ *
+ *   seite   Datei und Adresse, zugleich das, was am body steht
+ *   js      die Skripte des Spiels, nach zwei.js
  */
-export const VIERERREIHE = {
-  titel: "Viererreihe",
-  text: "Viererreihe: Lass die Steine fallen – wer zuerst vier in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
-  kurz: "Vier in einer Reihe – gegen den Computer oder live zu zweit.",
-};
+export const ZWEI = [
+  {
+    seite: "viererreihe", titel: "Viererreihe", js: ["viererreihe-ki.js", "viererreihe.js"],
+    text: "Viererreihe: Lass die Steine fallen – wer zuerst vier in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
+    kurz: "Vier in einer Reihe – gegen den Computer oder live zu zweit.",
+  },
+];
 
-export function viererreiheSeite() {
+export function zweiSeite(spiel) {
   return `<!doctype html>
 <!--
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
 
-  Viererreihe: /viererreihe (das Menü), /viererreihe?gegen=mittel (gegen den
-  Computer), /viererreihe?raum=K7QMX2PA9Z (ein Duell zu zweit). Was darauf
-  steht, baut viererreihe.js; das Brett und den Computer rechnet
-  viererreihe-ki.js.
+  ${spiel.titel}: /${spiel.seite} (das Menü), /${spiel.seite}?gegen=mittel (gegen den
+  Computer), /${spiel.seite}?raum=K7QMX2PA9Z (ein Duell zu zweit). Den Rahmen baut
+  zwei.js, das Spiel ${spiel.js.join(", ")}.
 -->
 <html lang="de">
   <head>
-${kopf({ titel: `${VIERERREIHE.titel} · arcade`, text: VIERERREIHE.text, kurz: VIERERREIHE.kurz, viewport: SPIELVIEWPORT })}
+${kopf({ titel: `${spiel.titel} · arcade`, text: spiel.text, kurz: spiel.kurz, viewport: SPIELVIEWPORT })}
   </head>
-  <body data-page="viererreihe">
-    <main class="vr-seite" data-viererreihe>
-      <p class="mini-hinweis">Viererreihe wird geladen...</p>
+  <body data-page="${spiel.seite}">
+    <main class="vr-seite" data-zwei>
+      <p class="mini-hinweis">${spiel.titel} wird geladen...</p>
     </main>
 
-${skripte(viererreiheSkripte())}
+${skripte(zweiSkripte(spiel))}
   </body>
 </html>
 `;
@@ -666,7 +670,7 @@ ${skripte(adminSkripte())}
  * Turniers – geteilt wird diese Seite fast nur als eigener Link.
  */
 export function weiterSeite() {
-  const seiten = ["turnier", "live", "admin", "viererreihe", ...SPIELE.map((s) => s.seite)];
+  const seiten = ["turnier", "live", "admin", ...ZWEI.map((z) => z.seite), ...SPIELE.map((s) => s.seite)];
   return `<!doctype html>
 <!--
   Erzeugt von scripts/seiten-bauen.mjs – nicht von Hand ändern.
@@ -742,8 +746,8 @@ export function manifest() {
 // Alles, was eine Seite lädt – jede Datei einmal, in der Reihenfolge, in der
 // sie zum ersten Mal vorkommt.
 export function dateien() {
-  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html", "./live.html", "./viererreihe.html"];
-  const skripteAlle = [...hubSkripte(), ...turnierSkripte(), ...liveSkripte(), ...viererreiheSkripte()];
+  const alle = ["./", "./index.html", ...SPIELE.map((s) => `./${s.seite}.html`), "./turnier.html", "./live.html", ...ZWEI.map((z) => `./${z.seite}.html`)];
+  const skripteAlle = [...hubSkripte(), ...turnierSkripte(), ...liveSkripte(), ...ZWEI.flatMap(zweiSkripte)];
   for (const s of SPIELE) for (const datei of seitenSkripte(s)) skripteAlle.push(datei);
   for (const datei of skripteAlle) {
     if (datei.startsWith("http")) continue;
@@ -783,7 +787,7 @@ export function alleDateien() {
   for (const spiel of SPIELE) raus.set(`${spiel.seite}.html`, spielSeite(spiel));
   raus.set("turnier.html", turnierSeite());
   raus.set("live.html", liveSeite());
-  raus.set("viererreihe.html", viererreiheSeite());
+  for (const z of ZWEI) raus.set(`${z.seite}.html`, zweiSeite(z));
   raus.set("admin.html", adminSeite());
   raus.set("404.html", weiterSeite());
   raus.set("app.webmanifest", manifest());
