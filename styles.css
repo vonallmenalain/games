@@ -6968,6 +6968,9 @@ body.ar {
   --ar-kopf-h: 58px;
   --ar-kachel-b: clamp(108px, 14vw, 216px);
   --ar-rund: 40px;
+  /* Was unten frei bleibt: der sichere Rand des Geräts – im Vollbild auf
+     einem Touch-Gerät mehr (siehe unten). */
+  --ar-unten: var(--safe-bottom);
   position: relative;
   isolation: isolate;
   height: 100vh;
@@ -7361,7 +7364,7 @@ body.ar {
 }
 
 /* --- Unten: alle Spiele in einer Zeile -------------------------------------- */
-.ar-auswahl { position: relative; min-width: 0; padding: 10px 0 calc(10px + var(--safe-bottom)); }
+.ar-auswahl { position: relative; min-width: 0; padding: 10px 0 calc(10px + var(--ar-unten)); }
 .ar-spur {
   position: relative;
   display: flex;
@@ -7379,7 +7382,7 @@ body.ar {
 .ar-blaettern {
   position: absolute;
   top: 10px;
-  bottom: calc(10px + var(--safe-bottom));
+  bottom: calc(10px + var(--ar-unten));
   z-index: 3;
   display: none;
   place-items: center;
@@ -7682,7 +7685,7 @@ body.ar {
 .ar-regal-inhalt {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 16px var(--ar-regal-rand) calc(24px + var(--safe-bottom));
+  padding: 16px var(--ar-regal-rand) calc(24px + var(--ar-unten, var(--safe-bottom)));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -8782,11 +8785,28 @@ a.gk-spielt:focus-visible > span:last-child { text-decoration: underline; }
   .ar-name-knopf { padding-right: 3px; }
   .ar-rang { max-width: 44vw; }
 }
+/* --- Im Vollbild auf Tablet und Handy: unten immer Luft ----------------------------- */
+/* Die installierte App startet im Vollbild. Manche Android-Tablets (gesehen
+   bei Xiaomi und Samsung, November 2026) lassen dort die Navigations- oder
+   Taskleiste über dem Bild stehen – und sagen es dem Browser nicht:
+   safe-area-inset-bottom bleibt 0, die Seite hält die ganze Höhe für
+   sichtbar. Die Kachelreihe unten lag dann halb darunter, ohne Namen. Darum
+   bleibt im Vollbild auf einem Touch-Gerät unten immer so viel frei, wie
+   eine solche Leiste hoch ist. Lieber etwas Luft als abgeschnittene Spiele. */
+@media (display-mode: fullscreen) and (pointer: coarse) {
+  .mini-seite.ar-seite { --ar-unten: max(var(--safe-bottom), 64px); }
+}
+/* Handy quer: Die Leiste steht dort meist an der Seite, unten ist nur der
+   Strich der Gesten. */
+@media (display-mode: fullscreen) and (pointer: coarse) and (max-height: 520px) {
+  .mini-seite.ar-seite { --ar-unten: max(var(--safe-bottom), 24px); }
+}
+
 /* --- Flach: Handy quer -------------------------------------------------------------- */
 @media (max-height: 520px) {
   .mini-seite.ar-seite { --ar-kopf-h: 46px; --ar-rund: 36px; --ar-kachel-b: 104px; }
   .ar-marke { --ar-marke-h: 19px; }
-  .ar-auswahl { padding-top: 8px; padding-bottom: calc(6px + var(--safe-bottom)); }
+  .ar-auswahl { padding-top: 8px; padding-bottom: calc(6px + var(--ar-unten)); }
   .ar-name-text { display: none; }
   .ar-name-knopf { padding-right: 3px; }
   .ar-play,
