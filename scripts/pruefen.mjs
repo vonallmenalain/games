@@ -942,6 +942,67 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Tic Tac Toe: Jede Stufe setzt in 40 Partien nur auf freie Felder", legal);
   }
 
+  // Schiffe versenken: die Regeln an einer kleinen Partie, und ganze Partien
+  // Computer gegen Computer – mit Antworten aus einer Flotte, die nur das
+  // Gerät kennt (auto). Ohne Speicher (hier gibt es kein localStorage) legt
+  // sich das Gerät bei jeder Antwort eine Flotte hin, die zu allen bisherigen
+  // passt: Auch so muss jede Antwort erlaubt sein.
+  const SV = angemeldet.schiffe;
+  if (SV) {
+    const lage = (zuege, beginnt = "a") => SV.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const l0 = lage([]);
+    pruefe("Schiffe versenken: Zuerst verstecken beide ihre Schiffe – jede meldet sich selbst bereit",
+      l0.phase === "aufstellen" && l0.dran === "beide" && SV.darf(l0, "Ba", "a") && !SV.darf(l0, "Bb", "a")
+      && !SV.darf(lage(["Ba"]), "Ba", "a") && SV.darf(lage(["Ba"]), "Bb", "b") && lage(["Bb", "Ba"], "b").dran === "b");
+    const l1 = lage(["Ba", "Bb"]);
+    pruefe("Schiffe versenken: Sind beide bereit, schiesst, wer beginnt – nur aufs Meer, nur einmal je Feld",
+      l1.phase === "schiessen" && l1.dran === "a" && SV.darf(l1, "S0", "a") && SV.darf(l1, "S63", "a")
+      && !SV.darf(l1, "S64", "a") && !SV.darf(l1, "S0", "b") && !SV.darf(l1, "S07", "a")
+      && !SV.darf(lage(["Ba", "Bb", "S5", "T"]), "S5", "a"));
+    const l2 = lage(["Ba", "Bb", "S0", "W"]);
+    const l3 = lage(["Ba", "Bb", "S0", "W", "S9", "T"]);
+    pruefe("Schiffe versenken: Wasser – der andere ist dran; Treffer – nochmal",
+      l2.dran === "b" && l2.schuesse.a[0] === "W" && l3.dran === "b" && l3.schuesse.b[9] === "T" && l3.letzter?.ergebnis === "T");
+    const l4 = lage(["Ba", "Bb", "S0", "W", "S9", "T", "S10"]);
+    pruefe("Schiffe versenken: Auf einen Schuss antwortet, wer beschossen wird – versenkt nur ein ganzes, gerades Schiff aus Treffern",
+      l4.phase === "antwort" && l4.dran === "a" && SV.darf(l4, "W", "a") && !SV.darf(l4, "W", "b")
+      && SV.darf(l4, "V9,10", "a") && !SV.darf(l4, "V10,11", "a") && !SV.darf(l4, "V2,10", "a") && !SV.darf(l4, "V10", "a"));
+    const l5 = lage(["Ba", "Bb", "S0", "W", "S9", "T", "S10", "V9,10", "S20", "T", "S21"]);
+    pruefe("Schiffe versenken: Ein versenktes Schiff zählt, und eines, das es nicht mehr gibt, lässt sich nicht noch einmal versenken",
+      l5.versenkt.b.length === 1 && JSON.stringify(l5.versenkt.b[0]) === "[9,10]" && l5.schuesse.b[9] === "V"
+      && !SV.darf(l5, "V20,21", "a") && SV.darf(l5, "T", "a"));
+    pruefe("Schiffe versenken: Ein Zug, der nicht passt, macht die Partie nicht weiter",
+      lage(["Ba", "Ba"]).dran === null && lage(["Ba", "Bb", "S0", "X"]).dran === null && lage(["S0"]).dran === null);
+    // Ganze Partien: Computer gegen Computer, a antwortet von selbst.
+    let gut = 0;
+    let siegeSchwer = 0;
+    let fehler = "";
+    const STUFEN_SV = Object.keys(SV.stufen || {});
+    for (let p = 0; p < 24 && !fehler; p += 1) {
+      const sa = p < 4 ? STUFEN_SV[p] : "leicht";
+      const sb = p < 4 ? STUFEN_SV[3 - p] : "schwer";
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      let l = lage(zuege, beginnt);
+      for (let i = 0; i < 1500 && !l.ende && !fehler; i += 1) {
+        const wer = l.dran === "beide" ? (l.bereit.a ? "b" : "a") : l.dran;
+        let zug;
+        if (l.phase === "aufstellen") zug = `B${wer}`;
+        else if (wer === "a") zug = SV.auto(l, "a", { raum: `p${p}`, nr: 0 }) || SV.computer(l, "a", sa, { saat: 7 + p });
+        else zug = SV.computer(l, "b", sb, { saat: 1000 + p });
+        if (zug && typeof zug === "object") zug = zug.zug;
+        if (!SV.darf(l, zug, wer)) fehler = `${zug} von ${wer} (${l.phase}) nach ${zuege.slice(-4).join(".")}`;
+        zuege.push(zug);
+        l = lage(zuege, beginnt);
+      }
+      if (l.ende && l.flotte[l.ende] && zuege.join(".").length < 2000) gut += 1;
+      if (p >= 4 && l.ende === "b") siegeSchwer += 1;
+    }
+    pruefe(`Schiffe versenken: 24 Partien Computer gegen Computer, jede Stufe – jeder Zug erlaubt, jede Partie zu Ende, der Sieger zeigt seine Flotte (${gut}/24${fehler ? `, ${fehler}` : ""})`,
+      gut === 24 && !fehler);
+    pruefe(`Schiffe versenken: «Schwer» schlägt «Ganz leicht» fast immer (${siegeSchwer} von 20)`, siegeSchwer >= 15);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

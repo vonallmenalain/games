@@ -69,12 +69,19 @@ if (!process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
  *   brett        woran man sieht, dass das Brett steht
  *   tippe(s, z)  den Zug z tippen (s ist die Seite)
  *   kannTippen(s, z)  ob das gerade geht (der Knopf frei ist)
- *   liegt(s)     wie viel auf dem Brett liegt (Zeichen, Steine …)
- *   waehle(lage) ein erlaubter Zug für den, der dran ist (gegen den Computer)
- *   sieg         Züge der Reihe nach, a beginnt und gewinnt
- *   siegZeichen  was danach leuchtet, und wie viele
+ *   liegt(s)     wie viel auf dem Brett liegt (Zeichen, Steine, Schüsse …)
+ *   waehle(lage, s)  ein Zug für a gegen den Computer – oder null, wenn a
+ *                gerade nichts zu tippen hat (darf auch async sein)
+ *   sieg         Züge der Reihe nach, a beginnt und gewinnt – oder eine
+ *                Funktion ({ papa, lena, raum, nr }) → [{ g, zug }], wenn
+ *                die Züge erst im Spiel feststehen (eine versteckte Flotte)
+ *   siegZeichen  was danach bei Lena leuchtet, und wie viele
  *   remis        Züge der Reihe nach bis zum Unentschieden (oder null)
  *   trenner      zwischen den Zügen in der Datenbank (wie im Spiel; "")
+ *   vorbereiten(s)   was vor dem ersten Zug zu tun ist (Schiffe verstecken)
+ *   nachNeuladen(s, pruefe)  was nach dem Neuladen noch da sein muss
+ *   schwerSpielen    false: keine Partie gegen die schwerste Stufe (dauert
+ *                    zu lange, oder das Glück entscheidet mit)
  */
 const SPIELWEISE = {
   tictactoe: {
@@ -103,6 +110,60 @@ const SPIELWEISE = {
       });
       pruefe(Boolean(linie?.d) && linie.breit > 100, `Tic Tac Toe: Durch die drei geht eine Linie (${JSON.stringify(linie)})`);
     },
+  },
+  schiffe: {
+    brett: ".zw-sv",
+    tippe: (s, z) => s.locator(`.zw-sv-meer.ist-gegner .zw-sv-zelle[data-feld="${z.slice(1)}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-sv-meer.ist-gegner .zw-sv-zelle[data-feld="${z.slice(1)}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-sv-zelle.ist-wasser, .zw-sv-zelle.ist-treffer").count(),
+    // Wer am Zug ist, sucht um Treffer herum, sonst das erste freie Feld.
+    waehle: async (lage, s) => {
+      if (lage?.phase !== "schiessen" || lage.dran !== "a") return null;
+      const f = await s.evaluate(() => {
+        const frei = [...document.querySelectorAll(".zw-sv-meer.ist-gegner .zw-sv-zelle:not([disabled])")].map((z) => Number(z.dataset.feld));
+        const treffer = [...document.querySelectorAll(".zw-sv-meer.ist-gegner .zw-sv-zelle.ist-treffer:not(.ist-versenkt)")].map((z) => Number(z.dataset.feld));
+        const nah = frei.filter((x) => treffer.some((t) => (Math.abs(t - x) === 1 && Math.floor(t / 8) === Math.floor(x / 8)) || Math.abs(t - x) === 8));
+        return (nah.length ? nah : frei)[0];
+      });
+      return f === undefined ? null : `S${f}`;
+    },
+    vorbereiten: async (s) => {
+      // Erst wenn die Seite weiss, wo sie sitzt.
+      const muss = await bis(() => s.evaluate(() => Boolean(window.LernappZwei?.test?.lage?.()?.phase && window.LernappZwei?.test?.sitz?.())), { ms: 6000 });
+      if (!muss) return;
+      const offen = await s.evaluate(() => {
+        const l = window.LernappZwei.test.lage();
+        return l.phase === "aufstellen" && !l.bereit[window.LernappZwei.test.sitz()];
+      });
+      if (offen) {
+        await s.locator(".zw-sv-fertig").click();
+        await bis(() => s.evaluate(() => window.LernappZwei.test.lage().bereit[window.LernappZwei.test.sitz()]), { ms: 5000 });
+      }
+    },
+    // Papa kennt Lenas Flotte (aus ihrem Speicher) und trifft immer – wer
+    // trifft, darf nochmal: zwölf Schüsse, und alles ist versenkt.
+    sieg: async ({ papa, lena, raum, nr }) => {
+      const flotte = await lena.seite.evaluate((k) => JSON.parse(localStorage.getItem("schiffe.flotten") || "{}")[k]?.f || [], `${raum}|${nr}|b`);
+      return flotte.flat().map((f) => ({ g: papa, zug: `S${f}` }));
+    },
+    siegZeichen: [".zw-sv-meer.ist-gegner .zw-sv-rumpf.ist-gezeigt", 4],
+    remis: null,
+    trenner: ".",
+    nachSieg: async (s, pruefe) => {
+      pruefe(await s.locator(".zw-sv-meer.ist-meins .zw-sv-rumpf.ist-versenkt").count() === 4, "Schiffe versenken: Bei Lena liegen alle vier eigenen Schiffe versenkt da");
+      const deckt = await s.evaluate(() => [...document.querySelectorAll(".zw-sv-zelle")].map((z) => getComputedStyle(z).opacity).filter((o) => o !== "1").length);
+      pruefe(deckt === 0, `Schiffe versenken: Auch gesperrte Felder decken ganz (${deckt} nicht)`);
+      const hoch = await s.evaluate(() => [...document.querySelectorAll(".zw-sv-gitter")].map((g) => {
+        const r = g.getBoundingClientRect();
+        const z = g.querySelector(".zw-sv-zelle").getBoundingClientRect();
+        return Math.abs(z.height - r.height / 8) < 1.5;
+      }));
+      pruefe(hoch.length === 2 && hoch.every(Boolean), `Schiffe versenken: In beiden Meeren ist ein Feld ein Achtel hoch (${hoch})`);
+    },
+    nachNeuladen: async (s, pruefe) => {
+      pruefe(await bis(() => s.locator(".zw-sv-meer.ist-meins .zw-sv-rumpf").count().then((n) => n === 4)), "Schiffe versenken: Nach dem Neuladen liegt die eigene Flotte noch da");
+    },
+    schwerSpielen: false,
   },
 };
 
@@ -250,13 +311,16 @@ const bild = async (seite, name) => { if (BILDER) await seite.screenshot({ path:
 // Gegen den Computer spielen, bis es vorbei ist.
 async function gegenComputer(g, z, w, stufe) {
   const seite = g.seite;
-  for (let runde = 0; runde < 80; runde += 1) {
+  await w.vorbereiten?.(seite);
+  const bisSpaetestens = Date.now() + 240000;
+  while (Date.now() < bisSpaetestens) {
     if (await seite.locator(".vr-nochmal").count()) break;
     const dran = await bis(async () => (await seite.locator(".vr-nochmal").count()) > 0
       || (await lageVon(seite))?.dran === "a", { ms: 8000 });
     if (!dran || await seite.locator(".vr-nochmal").count()) break;
-    const zug = w.waehle(await lageVon(seite), "a");
-    if (!await bis(() => w.kannTippen(seite, zug), { ms: 3000 })) break;
+    const zug = await w.waehle(await lageVon(seite), seite);
+    if (zug === null || zug === undefined) { await warte(150); continue; }
+    if (!await bis(() => w.kannTippen(seite, zug), { ms: 3000 })) continue;
     await w.tippe(seite, zug);
     await warte(120);
   }
@@ -286,7 +350,8 @@ try {
     const schwer = stufen[stufen.length - 1];
     await papa.seite.locator(`.vr-stufe[data-stufe="${leicht}"]`).click();
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Gegen den Computer steht das Brett`);
-    pruefe(/Du beginnst/.test(await satz(papa.seite)), `${T}: Gegen den Computer beginnst du die erste Partie`);
+    await w.vorbereiten?.(papa.seite);
+    pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
     const ende1 = await gegenComputer(papa, z, w, leicht);
     pruefe(/gewonnen|Unentschieden/.test(ende1), `${T}: Am Ende steht, wie es ausging (${ende1})`);
@@ -296,19 +361,22 @@ try {
     const gezaehlt = (bilanz[leicht]?.s || 0) + (bilanz[leicht]?.n || 0) + (bilanz[leicht]?.u || 0);
     pruefe(gezaehlt === 1, `${T}: Die Bilanz zählt die Partie (${JSON.stringify(bilanz)})`);
     await papa.seite.locator(".vr-nochmal").click();
+    await w.vorbereiten?.(papa.seite);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
-    pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
+    pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
     await papa.seite.locator(".vr-menue-knopf").click();
     pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Zurück im Menü`);
 
     // Auf der schwersten Stufe: Gewinnen sollte schwer sein – zumindest mit
     // der einfachen Spielweise der Prüfung.
-    await papa.seite.locator(`.vr-stufe[data-stufe="${schwer}"]`).click();
-    pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T} (${schwer}): Das Brett steht`);
-    const ende2 = await gegenComputer(papa, z, w, schwer);
-    pruefe(!/Du hast gewonnen/.test(ende2), `${T}: Gegen «${schwer}» gewinnt die einfache Spielweise nicht (${ende2})`);
-    await papa.seite.locator(".vr-menue-knopf").click();
-    pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Wieder im Menü`);
+    if (w.schwerSpielen !== false) {
+      await papa.seite.locator(`.vr-stufe[data-stufe="${schwer}"]`).click();
+      pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T} (${schwer}): Das Brett steht`);
+      const ende2 = await gegenComputer(papa, z, w, schwer);
+      pruefe(!/Du hast gewonnen/.test(ende2), `${T}: Gegen «${schwer}» gewinnt die einfache Spielweise nicht (${ende2})`);
+      await papa.seite.locator(".vr-menue-knopf").click();
+      pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Wieder im Menü`);
+    }
 
     // --- 2. Ein Duell: Papa eröffnet, Lena kommt mit dem Code ---------------------------
     await papa.seite.locator(".vr-eroeffnen").click();
@@ -325,17 +393,22 @@ try {
     await lena.seite.locator(".vr-code-ok").click();
     pruefe(await bis(() => lena.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Mit dem Code sitzt Lena am Brett`);
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Papa sieht das Brett, sobald Lena da ist`);
+    await Promise.all([w.vorbereiten?.(papa.seite), w.vorbereiten?.(lena.seite)]);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t))), `${T}: Wer eröffnet, beginnt`);
     pruefe(await bis(() => satz(lena.seite).then((t) => /Papa ist dran/.test(t))), `${T}: Lena sieht, dass Papa dran ist`);
 
     const spiele = async (folge, beginnt, nr) => {
       const [erst, dann] = beginnt === "a" ? [papa, lena] : [lena, papa];
-      for (let i = 0; i < folge.length; i += 1) {
-        const g = i % 2 === 0 ? erst : dann;
-        pruefe(await bis(() => w.kannTippen(g.seite, folge[i])), `${T}: ${g.name} darf in Partie ${nr} Zug ${i + 1} setzen (${folge[i]})`);
-        await w.tippe(g.seite, folge[i]);
-        // Wer gerade nicht dran ist, kann nicht tippen.
-        if (i === 0) pruefe(await bis(async () => !(await w.kannTippen(g.seite, folge[1] ?? folge[0])), { ms: 4000 }), `${T}: Nach dem Zug wartet ${g.name}`);
+      const liste = typeof folge === "function"
+        ? await folge({ papa, lena, raum, nr: nr - 1 })
+        : folge.map((zug, i) => ({ g: i % 2 === 0 ? erst : dann, zug }));
+      pruefe(liste.length > 0, `${T}: Für Partie ${nr} stehen Züge fest`);
+      for (let i = 0; i < liste.length; i += 1) {
+        const { g, zug } = liste[i];
+        pruefe(await bis(() => w.kannTippen(g.seite, zug)), `${T}: ${g.name} darf in Partie ${nr} Zug ${i + 1} setzen (${zug})`);
+        await w.tippe(g.seite, zug);
+        // Gleich nach dem Zug kann niemand weitertippen.
+        if (i === 0) pruefe(await bis(async () => !(await w.kannTippen(g.seite, liste[1]?.zug ?? zug)), { ms: 4000 }), `${T}: Nach dem Zug wartet ${g.name}`);
       }
     };
     await spiele(w.sieg, "a", 1);
@@ -349,6 +422,7 @@ try {
     await bild(lena.seite, fotos("3-duell-sieg"));
 
     await lena.seite.locator(".vr-nochmal").click();
+    await Promise.all([w.vorbereiten?.(papa.seite), w.vorbereiten?.(lena.seite)]);
     pruefe(await bis(() => satz(lena.seite).then((t) => /Du beginnst/.test(t))), `${T}: Die zweite Partie beginnt Lena`);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Papa sieht, dass Lena beginnt`);
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 3000 }), `${T}: Das Brett ist leer`);
@@ -368,6 +442,7 @@ try {
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Nach dem Neuladen steht das Brett`);
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === vorher)), `${T}: Nach dem Neuladen liegt alles noch (${vorher})`);
     pruefe((await papa.seite.locator(".vr-wer.ist-a .vr-wer-name").textContent()).includes("Papa"), `${T}: Nach dem Neuladen ist Papa wieder auf a`);
+    await w.nachNeuladen?.(papa.seite, pruefe);
 
     // --- 3. Das Bild auf drei Grössen --------------------------------------------------
     const quer = await geraet("Quer", { viewport: { width: 844, height: 390 } });
@@ -429,7 +504,9 @@ try {
     await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
     pruefe(await bis(() => miaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), `${T}: Der Ruf steht wieder da`);
     await miaT.seite.locator("a.tn-vr-ruf").click();
-    pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Ein Tipp, und Mia sitzt am Brett`);
+    pruefe(await bis(() => miaT.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Ein Tipp, und Mia sitzt am Brett`);
+    await Promise.all([w.vorbereiten?.(miaT.seite), w.vorbereiten?.(lenaT.seite)]);
+    pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), `${T}: Mia sieht, dass Lena dran ist`);
     pruefe(await bis(() => satz(lenaT.seite).then((t) => /Du beginnst/.test(t))), `${T}: Lena sieht Mia kommen`);
     pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), `${T}: Im Turnier wartet niemand mehr`);
 
@@ -446,6 +523,7 @@ try {
       await ben.seite.locator(".vr-code-ok").click();
       pruefe(await bis(() => ben.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Der Code, eingegeben bei ${anderes.titel}, führt ans Brett von ${T}`);
       pruefe(new URL(ben.seite.url()).pathname === `/${z.seite}`, `${T}: … auf die Seite ${z.seite} (${ben.seite.url()})`);
+      await Promise.all([w.vorbereiten?.(max.seite), w.vorbereiten?.(ben.seite)]);
       pruefe(await bis(() => satz(max.seite).then((t) => /Du beginnst/.test(t))), `${T}: Max sieht Ben kommen`);
       await max.kontext.close();
       await ben.kontext.close();

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-4";
+export const FASSUNG = "2026-11-23-5";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -597,6 +597,11 @@ export const ZWEI = [
     seite: "tictactoe", titel: "Tic Tac Toe", js: ["tictactoe.js"],
     text: "Tic Tac Toe: Kreuz oder Kreis, abwechselnd ein Feld – wer zuerst drei in einer Reihe hat, gewinnt. Gegen den Computer oder live zu zweit.",
     kurz: "Drei in einer Reihe – gegen den Computer oder live zu zweit.",
+  },
+  {
+    seite: "schiffe", titel: "Schiffe versenken", js: ["schiffe.js"],
+    text: "Schiffe versenken: Versteck deine Flotte und such die des anderen – Treffer heisst nochmal. Gegen den Computer oder live zu zweit, jede auf ihrem Gerät.",
+    kurz: "Flotte verstecken, Meer absuchen – gegen den Computer oder live zu zweit.",
   },
 ];
 
