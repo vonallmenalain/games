@@ -60,8 +60,10 @@
  *                            ende: null | "a" | "b" | "u", … }
  *   darf(lage, zug, sitz)            ob sitz diesen Zug jetzt machen darf
  *   brett({ zug })       → { knoten, zeichne({ zuege, roh, lage, beginnt,
- *                            saat, nr, dran, ich, aus, modus, raum }), fokus? }
- *                        zug(z) schickt einen Zug.
+ *                            saat, nr, dran, ich, aus, modus, raum, namen }),
+ *                            fokus? }
+ *                        zug(z) schickt einen Zug. namen: { a, b } – wie
+ *                        die beiden heissen (gegen den Computer: «Computer»).
  *   computer(lage, sitz, stufe, { zuege, roh, saat })
  *                        → zug, oder { zug, warte } (warte: wie lange der
  *                        Computer sich Zeit lässt, für Spiele, in denen
@@ -784,7 +786,7 @@
       knoepfe,
       denkt: dran === "b" && S.denkt,
       ende,
-      bild: { zuege, roh, lage, beginnt, saat, nr, dran, ich: "a", aus: Boolean(ende), modus: "computer", raum: "computer", stufe: S.stufe },
+      bild: { zuege, roh, lage, beginnt, saat, nr, dran, ich: "a", aus: Boolean(ende), modus: "computer", raum: "computer", stufe: S.stufe, namen: { a: meinName() || "Du", b: "Computer" } },
     });
     return lage;
   }
@@ -1220,7 +1222,7 @@
       ich: S.sitz,
       knoepfe,
       ende: st.ende,
-      bild: { zuege: st.zuege, roh: st.roh, lage: st.lage, beginnt: st.beginnt, saat: st.saat, nr: st.nr, dran, ich: S.sitz, aus: Boolean(st.ende), modus: "duell", raum: S.raum },
+      bild: { zuege: st.zuege, roh: st.roh, lage: st.lage, beginnt: st.beginnt, saat: st.saat, nr: st.nr, dran, ich: S.sitz, aus: Boolean(st.ende), modus: "duell", raum: S.raum, namen: { a: d.a?.name || "…", b: d.b?.name || "…" } },
     });
     letzterStand = { nr: st.nr, roh: st.roh, ende: st.ende };
 

@@ -310,6 +310,7 @@
   const ZWEI_SPIELER = [
     { id: "viererreihe", seite: "viererreihe", titel: "Viererreihe" },
     { id: "tictactoe", seite: "tictactoe", titel: "Tic Tac Toe" },
+    { id: "schiffe", seite: "schiffe", titel: "Schiffe versenken" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4302,6 +4303,12 @@
       const gitter = el("span", "ar-ttt-gitter");
       ["a", "b", "", "", "a", "b", "", "", "a"].forEach((sitz) => gitter.append(el("span", `ar-ttt-feld${sitz ? ` ist-${sitz}` : ""}`)));
       bild.append(gitter);
+    },
+    schiffe(bild) {
+      const meer = el("span", "ar-sv-meer");
+      meer.append(el("span", "ar-sv-schiff"), el("span", "ar-sv-treffer ist-1"), el("span", "ar-sv-treffer ist-2"),
+        el("span", "ar-sv-wasser ist-1"), el("span", "ar-sv-wasser ist-2"), el("span", "ar-sv-wasser ist-3"));
+      bild.append(meer);
     },
   };
 

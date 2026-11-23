@@ -34,6 +34,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     live.html             der Multiplayer, erzeugt
     viererreihe.html      Viererreihe, erzeugt
     tictactoe.html        Tic Tac Toe, erzeugt
+    schiffe.html          Schiffe versenken, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -65,6 +66,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     viererreihe.js        Viererreihe: das Brett mit den fallenden Steinen
     viererreihe-ki.js     das Brett von Viererreihe und der Computer, ohne Bild
     tictactoe.js          Tic Tac Toe: neun Felder, Regeln und Computer
+    schiffe.js            Schiffe versenken: zwei Meere, die versteckte
+                          Flotte, Regeln und Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2869,6 +2872,7 @@ Gerät:
 |---|---|---|
 | Viererreihe | `/viererreihe` | `viererreihe.js`, `viererreihe-ki.js` |
 | Tic Tac Toe | `/tictactoe` | `tictactoe.js` |
+| Schiffe versenken | `/schiffe` | `schiffe.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -2947,6 +2951,42 @@ gegen «Ganz leicht» sieben von zehn Partien, eines von sieben gegen
 «Einfach» jede zweite; gegen «Mittel» gewinnen auch Neunjährige nur jede
 siebte bis achte Partie, spielen aber oft unentschieden. Bilanz:
 `tictactoe.bilanz`.
+
+**Schiffe versenken** (`schiffe.js`): zwei Meere, 8 × 8 Felder, vier
+Schiffe (vier, zweimal drei, zwei Felder lang), gerade und ohne sich zu
+berühren, auch nicht über Eck. Zuerst versteckt jede ihre Flotte: Ein Tipp
+wählt ein Schiff, ein Tipp ins Wasser fährt es dorthin, ein zweiter Tipp
+aufs Schiff dreht es; «Neu verteilen» würfelt alles neu, «Fertig!» meldet
+bereit (`Ba`, `Bb`). Dann wird geschossen: «Wasser» – der andere ist dran;
+«Treffer» oder «Versenkt» – nochmal. Um ein versenktes Schiff herum ist
+sicher Wasser; das ist blass markiert und lässt sich nicht beschiessen. Wo
+gerade etwas geschieht, ist das Meer gross, das andere halb so gross
+darunter (hochkant) oder daneben (quer, Tablet).
+
+Das Geheimnis bleibt auf dem Gerät: Die Flotte steht nur in dessen Speicher
+(`schiffe.flotten`, je Raum, Partie und Platz), nicht in der Datenbank. Auf
+einen Schuss (`S27`) antwortet das beschossene Gerät von selbst (`auto` im
+Rahmen): `W`, `T` oder `V26,27,28` – das ganze versenkte Schiff, damit der
+andere es sieht. Die Regeln (`darf`) lassen «versenkt» nur für ein gerades
+Schiff aus lauter Treffern zu, und nur so oft, wie es Schiffe dieser Länge
+gibt. Fehlt die Flotte auf dem Gerät (anderes Tablet, Speicher gelöscht),
+legt es sich eine hin, die zu allen bisherigen Antworten passt, und spielt
+mit der weiter. Wer alles versenkt hat, zeigt am Ende seine Flotte
+(`Z0,1,2,3;…`): Der andere sieht, wo die Schiffe lagen. Gegen den Computer
+liegt dessen Flotte in der Saat der Partie.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | schiesst irgendwohin, sucht nach einem Treffer nur selten daneben |
+| Einfach | sucht nach einem Treffer oft rundherum, sonst irgendwohin |
+| Mittel | sucht nach einem Treffer fast immer rundherum, folgt meist einer Reihe von Treffern, lässt das Wasser um versenkte Schiffe oft aus |
+| Schwer | zählt, wo die übrigen Schiffe noch liegen können, und schiesst dorthin, wo es am wahrscheinlichsten ist – im Mittel braucht er 24 Schüsse für alle zwölf Schiffsfelder |
+
+Geeicht an nachgemachten Kindern: Eines von fünf Jahren gewinnt gegen «Ganz
+leicht» sieben von zehn Partien, eines von sieben gegen «Einfach» sechs von
+zehn, gegen «Mittel» drei; eines von neun (folgt Reihen, kennt das Wasser um
+versenkte Schiffe) gegen «Mittel» gut jede zweite, gegen «Schwer» jede
+siebte. Bilanz: `schiffe.bilanz`.
 
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
@@ -3027,7 +3067,10 @@ Regeln; jedes Spiel meldet sich mit allem an, was der Rahmen braucht, und
 hat ein Bild für die Kachel; bei Viererreihe erkennt der Computer jede
 Richtung, setzt nur in freie Spalten, nimmt auf «Schwer» jeden Sieg und hält
 jede Drohung auf; bei Tic Tac Toe verliert «Schwer» keine der fast tausend
-möglichen Partien), die Regeln in `npm run test:rules`, und im Browser in
+möglichen Partien; bei Schiffe versenken: eine kleine Partie Zug für Zug,
+was erlaubt ist, und 24 ganze Partien Computer gegen Computer, in denen
+das Gerät aus seiner Flotte antwortet), die Regeln in `npm run
+test:rules`, und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein

@@ -9459,6 +9459,229 @@ body[data-page="tictactoe"] { overscroll-behavior: none; }
   .zw-ttt-feld { transition: none; }
 }
 
+/* --- Schiffe versenken (schiffe.js) --------------------------------------------
+   Zwei Meere, 8 × 8: das gegenüber (dort wird geschossen) und das eigene
+   (dort liegen die eigenen Schiffe). Wo gerade etwas geschieht, ist das Meer
+   gross, das andere halb so gross daneben oder darunter. Schiffe in Koralle
+   (wer eröffnet) und Gold, Wasser tiefblau, Treffer als Flamme. Alles in
+   Prozent der Meeresbreite: Ein Feld ist 12,5 %. */
+body[data-page="schiffe"] { overscroll-behavior: none; }
+.vr-partie.zw-schiffe {
+  --vr-breite: max(210px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc((100dvh - 330px - var(--safe-top) - var(--safe-bottom)) / 1.5)));
+}
+.zw-sv {
+  --sv-linie: rgba(150, 190, 255, 0.14);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  touch-action: manipulation;
+}
+.zw-sv .confetti-layer { z-index: 6; }
+.zw-sv-meer {
+  --b: var(--vr-breite);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: var(--b);
+  max-width: 100%;
+  transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.zw-sv-meer.ist-klein { --b: calc(var(--vr-breite) * 0.5); }
+.zw-sv-meer[hidden],
+.zw-sv-werkzeug[hidden],
+.zw-sv-tipp[hidden] { display: none; }
+.zw-sv-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.zw-sv-name { min-width: 0; overflow: hidden; color: var(--ar-leise); font-size: 0.92rem; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.zw-sv-meer.ist-gross .zw-sv-name { color: var(--ar-text); }
+.zw-sv-meer.ist-klein .zw-sv-name { font-size: 0.78rem; }
+.zw-sv-rest { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+.zw-sv-rest-schiff { width: calc(var(--l) * 7px); height: 7px; border-radius: 999px; background: var(--ton); }
+.zw-sv-rest-schiff.ist-a { --ton: var(--vr-a); }
+.zw-sv-rest-schiff.ist-b { --ton: var(--vr-b); }
+.zw-sv-rest-schiff.ist-weg { opacity: 0.22; }
+.zw-sv-meer.ist-klein .zw-sv-rest-schiff { width: calc(var(--l) * 5px); height: 5px; }
+
+.zw-sv-gitter {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(130% 90% at 25% 0%, rgba(80, 140, 255, 0.28), transparent 60%),
+    linear-gradient(170deg, #17336e, #0c1a3c 75%);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.zw-sv-meer.ist-klein .zw-sv-gitter { border-radius: 9px; }
+.zw-sv-zelle {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset -1px -1px 0 var(--sv-linie);
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Gesperrt bleibt ein Feld, wie es ist (button:disabled macht es sonst halb
+   durchsichtig). */
+.zw-sv-zelle:disabled { opacity: 1; cursor: default; }
+.zw-sv.ist-dran .zw-sv-meer.ist-gegner .zw-sv-zelle:not(:disabled):hover { background: rgba(255, 255, 255, 0.1); }
+.zw-sv.ist-dran .zw-sv-meer.ist-gegner .zw-sv-zelle:not(:disabled):active { background: rgba(255, 255, 255, 0.18); }
+.zw-sv-zelle:focus-visible { z-index: 3; outline: 2px solid #fff; outline-offset: -2px; }
+.zw-sv-meer.ist-stellen .zw-sv-zelle:hover { background: rgba(255, 255, 255, 0.06); }
+/* Wasser: ein heller Punkt. Sicher Wasser (um ein versenktes Schiff): blasser. */
+.zw-sv-zelle.ist-wasser::after,
+.zw-sv-zelle.ist-zone::after {
+  content: "";
+  position: absolute;
+  inset: 38%;
+  border-radius: 50%;
+  background: rgba(205, 228, 255, 0.75);
+}
+.zw-sv-zelle.ist-zone::after { inset: 43%; opacity: 0.35; }
+/* Treffer: eine Flamme. */
+.zw-sv-zelle.ist-treffer::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 58%, #fff6c4 0 16%, #ffc04d 36%, #ff6a3a 62%, rgba(255, 90, 50, 0) 70%);
+  filter: drop-shadow(0 0 5px rgba(255, 120, 60, 0.75));
+}
+.zw-sv-zelle.ist-versenkt::after { filter: saturate(0.7) brightness(0.9); }
+/* Ein Schuss unterwegs: ein Fadenkreuz, das pocht. */
+.zw-sv-zelle.ist-ziel::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  z-index: 2;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+  animation: zw-sv-ziel 0.5s ease-in-out infinite alternate;
+}
+@keyframes zw-sv-ziel { from { transform: scale(0.7); opacity: 0.6; } to { transform: scale(1.05); opacity: 1; } }
+/* Gerade getroffen oder ins Wasser: ein Ring, der sich ausbreitet. */
+.zw-sv-zelle.ist-neu::before {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  z-index: 2;
+  border: 2px solid rgba(205, 228, 255, 0.9);
+  border-radius: 50%;
+  animation: zw-sv-welle 0.7s ease-out both;
+}
+.zw-sv-zelle.ist-treffer.ist-neu::before { border-color: #ffb347; }
+.zw-sv-zelle.ist-neu::after { animation: zw-sv-auf 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+@keyframes zw-sv-welle { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+@keyframes zw-sv-auf { from { transform: scale(0); } to { transform: scale(1); } }
+
+.zw-sv-schiffe { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.zw-sv-rumpf {
+  --ton: var(--vr-a);
+  --hell: var(--vr-a-hell);
+  --tief: var(--vr-a-tief);
+  position: absolute;
+  left: calc(var(--c) * 12.5% + 1.5%);
+  top: calc(var(--r) * 12.5% + 1.5%);
+  width: 9.5%;
+  height: 9.5%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 10%, transparent 13%) 0 0 / calc(100% / var(--l)) 100%,
+    linear-gradient(160deg, var(--hell) -40%, var(--ton) 45%, var(--tief));
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 3px 8px rgba(0, 0, 0, 0.35);
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease, filter 0.4s ease;
+}
+.zw-sv-rumpf.ist-waag { width: calc(var(--l) * 12.5% - 3%); }
+.zw-sv-rumpf.ist-senk {
+  height: calc(var(--l) * 12.5% - 3%);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 10%, transparent 13%) 0 0 / 100% calc(100% / var(--l)),
+    linear-gradient(70deg, var(--hell) -40%, var(--ton) 45%, var(--tief));
+}
+.zw-sv-rumpf.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+.zw-sv-rumpf.ist-versenkt { filter: grayscale(0.5) brightness(0.55); }
+.zw-sv-rumpf.ist-gezeigt { opacity: 0.9; outline: 2px dashed rgba(255, 255, 255, 0.7); outline-offset: 1px; }
+.zw-sv-rumpf.ist-gewaehlt { box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(255, 255, 255, 0.55); animation: zw-sv-wippen 0.9s ease-in-out infinite alternate; }
+@keyframes zw-sv-wippen { to { transform: translateY(-3%); } }
+
+.zw-sv-tipp { margin: 0; max-width: var(--vr-breite); color: var(--ar-leise); font-size: 0.88rem; font-weight: 650; line-height: 1.35; text-align: center; }
+.zw-sv-werkzeug { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.zw-sv-fertig { min-width: 160px; min-height: 52px; font-size: 1.1rem; }
+.zw-sv-mischen { min-height: 52px; }
+
+/* Breit genug: die beiden Meere nebeneinander. */
+@media (min-aspect-ratio: 5/4) and (min-height: 561px) {
+  .vr-partie.zw-schiffe { --vr-breite: max(220px, min(calc(100dvh - 300px - var(--safe-top) - var(--safe-bottom)), calc((100vw - 60px) / 1.55), 560px)); }
+  .zw-sv { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; column-gap: 14px; }
+  .zw-sv-tipp, .zw-sv-werkzeug { flex-basis: 100%; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-schiffe { --vr-breite: max(160px, min(calc(100dvh - 104px - var(--safe-top) - var(--safe-bottom)), calc((100vw - 420px) / 1.5))); }
+  .zw-sv { grid-area: feld; flex-direction: row; align-items: flex-start; gap: 12px; }
+  .zw-sv-tipp { display: none; }
+  .zw-sv-werkzeug { flex-direction: column; align-self: center; }
+}
+
+/* Im Menü: ein Stück Meer, ein Schiff, zwei Treffer. */
+.zw-sv-held {
+  --h: clamp(22px, 6.4vw, 30px);
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, var(--h));
+  grid-auto-rows: var(--h);
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(170deg, #17336e, #0c1a3c 75%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.zw-sv-held-feld { position: relative; z-index: 1; box-shadow: inset -1px -1px 0 rgba(150, 190, 255, 0.14); }
+.zw-sv-held-feld.ist-w::after { content: ""; position: absolute; inset: 38%; border-radius: 50%; background: rgba(205, 228, 255, 0.75); }
+.zw-sv-held-feld.ist-t::after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 58%, #fff6c4 0 16%, #ffc04d 36%, #ff6a3a 62%, rgba(255, 90, 50, 0) 70%);
+}
+.zw-sv-held-schiff {
+  position: absolute;
+  z-index: 0;
+  left: calc(var(--h) * 2 + 3px);
+  top: calc(var(--h) * 2 + 3px);
+  width: calc(var(--h) * 3 - 6px);
+  height: calc(var(--h) - 6px);
+  border-radius: 999px;
+  background: linear-gradient(160deg, var(--vr-a-hell) -40%, var(--vr-a) 45%, var(--vr-a-tief));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-sv-meer,
+  .zw-sv-rumpf { transition: none; }
+  .zw-sv-zelle.ist-ziel::before,
+  .zw-sv-zelle.ist-neu::before,
+  .zw-sv-zelle.ist-neu::after,
+  .zw-sv-rumpf.ist-gewaehlt { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -9541,6 +9764,41 @@ body[data-page="tictactoe"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Schiffe versenken: ein Stück Meer, ein Schiff, zwei Treffer. */
+.ar-sv-meer {
+  position: absolute;
+  left: calc(50% - var(--z) * 3);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 6);
+  height: calc(var(--z) * 6);
+  overflow: hidden;
+  border-radius: calc(var(--z) * 0.4);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(var(--z) - 1px), rgba(150, 190, 255, 0.2) calc(var(--z) - 1px) var(--z)),
+    repeating-linear-gradient(0deg, transparent 0 calc(var(--z) - 1px), rgba(150, 190, 255, 0.2) calc(var(--z) - 1px) var(--z)),
+    linear-gradient(170deg, #1d3f86, #0c1a3c 80%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-sv-schiff {
+  position: absolute;
+  left: calc(var(--z) * 1 + 2px);
+  top: calc(var(--z) * 2 + 2px);
+  width: calc(var(--z) * 3 - 4px);
+  height: calc(var(--z) - 4px);
+  border-radius: 999px;
+  background: linear-gradient(160deg, #ffd5d0 -40%, #fe7971 45%, #c63a3c);
+}
+.ar-sv-treffer,
+.ar-sv-wasser { position: absolute; width: var(--z); height: var(--z); }
+.ar-sv-treffer::after,
+.ar-sv-wasser::after { content: ""; position: absolute; border-radius: 50%; }
+.ar-sv-treffer::after { inset: 12%; background: radial-gradient(circle at 50% 58%, #fff6c4 0 16%, #ffc04d 36%, #ff6a3a 62%, rgba(255, 90, 50, 0) 70%); }
+.ar-sv-wasser::after { inset: 36%; background: rgba(205, 228, 255, 0.8); }
+.ar-sv-treffer.ist-1 { left: calc(var(--z) * 2); top: calc(var(--z) * 2); }
+.ar-sv-treffer.ist-2 { left: calc(var(--z) * 3); top: calc(var(--z) * 2); }
+.ar-sv-wasser.ist-1 { left: calc(var(--z) * 4); top: calc(var(--z) * 1); }
+.ar-sv-wasser.ist-2 { left: calc(var(--z) * 1); top: calc(var(--z) * 4); }
+.ar-sv-wasser.ist-3 { left: calc(var(--z) * 4); top: calc(var(--z) * 4); }
 /* Tic Tac Toe: neun Felder, ein Kreuz schräg durch. */
 .ar-ttt-gitter {
   position: absolute;
