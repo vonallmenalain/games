@@ -554,6 +554,35 @@ const SPIELWEISE = {
     gemeinsam: true,
     computerMaltImmer: true,
     schwerSpielen: false,
+  },  wackelturm: {
+    brett: ".zw-wt-himmel",
+    // «D*»: der echte Knopf, wo der Klotz gerade schwingt; sonst über den
+    // Prüf-Zugang genau an die Stelle (das Schwingen lässt sich nicht
+    // abpassen).
+    tippe: async (s, z) => {
+      if (z === "D*") await s.locator(".zw-wt-los").click();
+      else await s.evaluate((zug) => window.LernappZwei.test.zug(zug), z);
+    },
+    kannTippen: (s, z) => (z === "D*"
+      ? s.locator(".zw-wt-los:not([disabled])").count().then((n) => n === 1)
+      : s.evaluate(() => { const l = window.LernappZwei?.test?.lage?.(); return Boolean(l && l.dran && l.dran === window.LernappZwei.test.sitz()); })),
+    liegt: (s) => s.evaluate(() => window.LernappZwei?.test?.zuege?.().length ?? -1),
+    // Gegen den Computer: der erste Klotz mit dem echten Knopf, dann genau
+    // auf die Spitze.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a") return null;
+      const oben = lage.kloetze[lage.kloetze.length - 1];
+      return oben ? `D${oben.x}` : "D*";
+    },
+    // Zehn Klötze genau übereinander – bis zur Wolke.
+    sieg: Array(10).fill("D500"),
+    siegZeichen: [".zw-wt-turm .zw-wt-klotz", 10],
+    // Lena beginnt, Papa lässt den Klotz weit daneben fallen: umgekippt.
+    remis: ["D500", "D900"],
+    remisText: /umgekippt/,
+    trenner: ".",
+    gemeinsam: true,
+    schwerSpielen: false,
   },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");

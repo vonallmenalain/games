@@ -1423,6 +1423,41 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       ["leicht", "einfach", "mittel", "schwer"].map((st) => lage([], "a", 9, st).runden[0].wahl.length).join() === "3,4,6,8");
   }
 
+  // Wackelturm: Ob der Turm hält, ist reine Rechnung (Schwerpunkt über der
+  // Auflage, jeder Klotz berührt den darunter) – gleich auf jedem Gerät.
+  const WT = angemeldet.wackelturm;
+  if (WT?.fuerPruefung) {
+    const { haelt } = WT.fuerPruefung;
+    const lage = (zuege, beginnt = "a", saat = 3, stufe = null) => WT.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    pruefe("Wackelturm: Klötze genau übereinander halten; ein Klotz ohne Berührung, oder einer über der Kante, nicht",
+      haelt([{ x: 500, b: 300 }, { x: 500, b: 200 }, { x: 500, b: 300 }]).haelt
+      && !haelt([{ x: 500, b: 300 }, { x: 760, b: 200 }]).haelt
+      && haelt([{ x: 500, b: 300 }, { x: 620, b: 200 }]).haelt
+      && !haelt([{ x: 500, b: 300 }, { x: 620, b: 200 }, { x: 740, b: 200 }]).haelt);
+    pruefe("Wackelturm: Auch der ganze Turm muss über der Platte stehen",
+      !haelt([{ x: 720, b: 200 }]).haelt && haelt([{ x: 690, b: 200 }]).haelt && haelt([{ x: 500, b: 300 }]).knapp === 0);
+    const l0 = lage([]);
+    pruefe("Wackelturm: Wer beginnt, lässt den ersten Klotz fallen – dann abwechselnd",
+      l0.dran === "a" && WT.darf(l0, "D500", "a") && !WT.darf(l0, "D500", "b") && !WT.darf(l0, "D1001", "a")
+      && lage(["D500"]).dran === "b" && lage(["D500", "D500"]).dran === "a");
+    const hoch = [];
+    for (let i = 0; i < l0.art.ziel; i += 1) hoch.push("D500");
+    pruefe("Wackelturm: Bis zur Zielhöhe genau übereinander – geschafft", lage(hoch).ende === "g" && lage(hoch.slice(0, -1)).ende === null);
+    pruefe("Wackelturm: Ein Klotz daneben – umgekippt", lage(["D500", "D900"]).ende === "v" && lage(["D500", "D900"]).dran === null);
+    pruefe("Wackelturm: Dieselbe Saat, dieselben Klötze; die Stufen machen den Turm höher und die Klötze schmaler",
+      JSON.stringify(lage(hoch, "a", 3).kloetze.map((k) => k.b)) === JSON.stringify(lage(hoch, "a", 3).kloetze.map((k) => k.b))
+      && lage([], "a", 3, "leicht").art.ziel < lage([], "a", 3, "schwer").art.ziel
+      && Math.max(...lage([], "a", 3, "schwer").art.breiten) < Math.max(...lage([], "a", 3, "leicht").art.breiten) + 1);
+    let geschafft = 0;
+    for (let p = 0; p < 20; p += 1) {
+      const z = [];
+      let l = lage(z, "a", 500 + p, "schwer");
+      while (!l.ende) { z.push(WT.computer(l, l.dran).zug); l = lage(z, "a", 500 + p, "schwer"); }
+      if (l.ende === "g") geschafft += 1;
+    }
+    pruefe(`Wackelturm: Zwei Computer schaffen auch den schwersten Turm (${geschafft} von 20)`, geschafft >= 18);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

@@ -43,6 +43,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     blitzpaar.html        Blitzpaar, erzeugt
     schatzkarte.html      Schatzkarte & Kompass, erzeugt
     malen.html            Malen und Raten, erzeugt
+    wackelturm.html       Wackelturm zu zweit, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -91,6 +92,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Kompass, ein Computer als Partner
     malen.js              Malen und Raten: das Blatt, die Striche live, die
                           Bilder des Computers
+    wackelturm.js         Wackelturm zu zweit: Himmel, Klötze, wann der Turm
+                          kippt, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2904,6 +2907,7 @@ Gerät:
 | Blitzpaar | `/blitzpaar` | `blitzpaar.js` |
 | Schatzkarte & Kompass | `/schatzkarte` | `schatzkarte.js` |
 | Malen und Raten | `/malen` | `malen.js` |
+| Wackelturm zu zweit | `/wackelturm` | `wackelturm.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3225,6 +3229,32 @@ Kreisen, Bögen und Linien, das er Strich für Strich zeichnet.
 
 Bilanz: `malen.bilanz`.
 
+**Wackelturm zu zweit** (`wackelturm.js`, miteinander): ein Himmel, unten
+eine Wiese als Platte. Abwechselnd lässt jede einen Klotz auf den Turm
+fallen – er schwingt über der Spitze hin und her, ein Tipp in den Himmel
+(oder auf «Fallen lassen!») lässt ihn fallen. Erreicht der Turm die Wolke
+(die gestrichelte Linie), ist es geschafft; kippt er, ist es vorbei. Ob er
+kippt, ist reine Rechnung: Jeder Klotz muss den darunter berühren, und für
+jeden Klotz muss der Schwerpunkt von ihm und allem darüber über dem Klotz
+darunter liegen (ganz unten über der Platte). Steht er knapp, neigt er sich
+ein wenig. Die Breiten der Klötze kommen aus der Saat; ein Zug ist die
+Stelle, an der der Klotz mit seiner Mitte landet: `D512` (die Welt ist 1000
+breit).
+
+| Stufe | Ziel | Klötze | Schwingen |
+|---|---|---|---|
+| Ganz leicht | 7 hoch | breit | langsam |
+| Einfach | 9 hoch | | |
+| Mittel | 11 hoch | schmaler | |
+| Schwer | 14 hoch | schmal | schnell |
+
+Im Duell 10 hoch. Der Computer als Partner zielt so, dass der Schwerpunkt
+wieder zur Mitte rückt, und trifft ein bisschen daneben. Geeicht an
+nachgemachten Kindern (die den Klotz mehr oder weniger genau über dem Turm
+fallen lassen): Eines von fünf Jahren schafft mit ihm «Ganz leicht» etwa
+acht von zehn Mal, eines von neun «Schwer» gut jedes zweite. Bilanz:
+`wackelturm.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3320,7 +3350,9 @@ dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
 fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
 Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
 den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der Saat,
-wer malt, drei Versuche, vier von sechs, und der Live-Ort in den Regeln),
+wer malt, drei Versuche, vier von sechs, und der Live-Ort in den Regeln;
+bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
+schaffen auch den schwersten),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

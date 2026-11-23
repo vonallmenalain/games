@@ -10637,6 +10637,96 @@ body[data-page="malen"] { overscroll-behavior: none; }
   .zw-mr-antwort { transition: none; }
 }
 
+/* --- Wackelturm zu zweit (wackelturm.js) ----------------------------------------------
+   Ein Himmel, unten eine Wiese als Platte, darauf der Turm aus Klötzen –
+   Koralle von a, Gold von b. Über der Spitze schwingt der nächste Klotz;
+   ein Tipp in den Himmel (oder auf den Knopf) lässt ihn fallen. Die Welt ist
+   1000 breit: Ein Klotz ist --b Tausendstel breit, 7 % hoch. Wächst der Turm,
+   wandert die Welt nach unten. Steht er knapp, neigt er sich ein wenig. */
+body[data-page="wackelturm"] { overscroll-behavior: none; }
+.vr-partie.zw-wackelturm {
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc(100dvh - 380px - var(--safe-top) - var(--safe-bottom))));
+}
+.zw-wt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; touch-action: manipulation; }
+.zw-wt .confetti-layer { z-index: 6; }
+.zw-wt-kopf { width: 100%; color: var(--ar-leise); font-weight: 850; text-align: center; }
+.zw-wt-himmel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #6fb8f7 0%, #b9e0ff 60%, #eaf6ff 100%);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zw-wt-welt {
+  position: absolute;
+  inset: 0;
+  transform: translateY(max(0px, calc((var(--n, 0) + 4) * var(--vr-breite) * 0.07 - var(--vr-breite) * 0.8)));
+  transition: transform 0.5s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.zw-wt-platte {
+  position: absolute;
+  left: 29%;
+  bottom: 0;
+  width: 42%;
+  height: 6%;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #6cc04a, #3e8a2c);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.3);
+}
+.zw-wt-turm { position: absolute; inset: 0; transform-origin: 50% 94%; transform: rotate(var(--neigung, 0deg)); transition: transform 0.4s ease, opacity 0.6s ease; }
+.zw-wt.ist-gekippt .zw-wt-turm { transform: rotate(calc(var(--kippt, 1) * 32deg)) translateY(10%); opacity: 0.8; transition: transform 1s cubic-bezier(0.5, 0, 0.9, 0.5), opacity 1s ease 0.4s; }
+.zw-wt-klotz {
+  --ton: var(--vr-a);
+  --tief: var(--vr-a-tief);
+  --hell: var(--vr-a-hell);
+  position: absolute;
+  left: calc((var(--x, 500) - var(--b, 0) / 2) * 0.1%);
+  bottom: calc(6% + var(--i, 0) * 7%);
+  width: calc(var(--b, 0) * 0.1%);
+  height: 7%;
+  border-radius: 7px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0) 0 18px, rgba(0, 0, 0, 0.05) 18px 20px),
+    linear-gradient(180deg, var(--hell) -40%, var(--ton) 45%, var(--tief));
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+.zw-wt-klotz.ist-b { --ton: var(--vr-b); --tief: var(--vr-b-tief); --hell: var(--vr-b-hell); }
+.zw-wt-klotz.ist-neu { animation: zw-wt-fallen 0.32s cubic-bezier(0.55, 0, 1, 0.45) both; }
+@keyframes zw-wt-fallen { from { transform: translateY(-230%); } to { transform: translateY(0); } }
+.zw-wt-klotz.ist-schwinger { opacity: 0.95; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 12px 20px rgba(0, 0, 0, 0.25); }
+.zw-wt-klotz.ist-schwinger[hidden] { display: none; }
+.zw-wt-ziel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(6% + var(--ziel, 10) * 7%);
+  border-top: 3px dashed rgba(255, 255, 255, 0.95);
+}
+.zw-wt-ziel::after { content: "☁️ Ziel"; position: absolute; right: 8px; bottom: 4px; color: #2a2150; font-size: 0.85rem; font-weight: 900; }
+.zw-wt-los { min-width: 180px; min-height: 54px; font-size: 1.15rem; }
+.zw-wt-los[hidden] { display: none; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-wackelturm { --vr-breite: max(180px, min(calc(100dvh - 130px - var(--safe-top) - var(--safe-bottom)), 50vw)); }
+  .zw-wt { grid-area: feld; }
+  .zw-wt-los { min-height: 44px; }
+}
+
+/* Im Menü: vier Klötze, ein bisschen schief. */
+.zw-wt-held { --h: clamp(90px, 26vw, 120px); position: relative; flex: 0 0 auto; width: var(--h); height: var(--h); overflow: hidden; border-radius: 12px; background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+.zw-wt-held-klotz { position: absolute; left: calc(50% - var(--b) * 0.5% + var(--x) * 1%); bottom: calc(10% + var(--i) * 18%); width: calc(var(--b) * 1%); height: 18%; border-radius: 4px; background: linear-gradient(180deg, var(--hell) -40%, var(--ton) 45%, var(--tief)); }
+.zw-wt-held-klotz.ist-a { --ton: var(--vr-a); --tief: var(--vr-a-tief); --hell: var(--vr-a-hell); }
+.zw-wt-held-klotz.ist-b { --ton: var(--vr-b); --tief: var(--vr-b-tief); --hell: var(--vr-b-hell); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-wt-welt,
+  .zw-wt-turm { transition: none; }
+  .zw-wt-klotz.ist-neu { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10719,6 +10809,11 @@ body[data-page="malen"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Wackelturm: ein Turm aus Klötzen im Himmel. */
+.ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }
+.ar-wt-klotz.ist-a { background: linear-gradient(180deg, #ffd5d0 -40%, #fe7971 45%, #c63a3c); }
+.ar-wt-klotz.ist-b { background: linear-gradient(180deg, #fff6cf -40%, #ffd45e 45%, #d58d12); }
 /* Malen und Raten: ein Blatt, eine gemalte Sonne, ein Stift. */
 .ar-mr-papier { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); border-radius: calc(var(--z) * 0.4); background: #fffdf6; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-mr-sonne { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border: calc(var(--z) * 0.22) solid #2a2150; border-radius: 50%; }
