@@ -408,6 +408,14 @@ await darfNicht("Admin schreibt «ohne Replays» als Text", () => admin().doc("m
 await darf("Admin legt ein Turnier ohne Live an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: true })));
 await darf("Admin lässt Live ausdrücklich zu", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: false })));
 await darfNicht("Admin schreibt «ohne Live» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ ohneLive: "ja" })));
+// Viererreihe dazu: ein Ja oder Nein – und mit ihr darf ein Turnier auch ganz
+// ohne Spiel mit Bestenliste sein, ohne sie nicht.
+await darf("Admin nimmt Viererreihe zum Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ viererreihe: true })));
+await darf("Admin legt ein Turnier nur mit Viererreihe an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], viererreihe: true })));
+await darfNicht("Admin legt ein Turnier ganz ohne Spiel an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [] })));
+await darfNicht("Admin legt ein Turnier ohne Spiel mit «keine Viererreihe» an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], viererreihe: false })));
+await darfNicht("Admin schreibt «Viererreihe» als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ viererreihe: "ja" })));
+await darfNicht("Admin nimmt Viererreihe als Spiel mit Bestenliste", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: ["viererreihe"] })));
 await darfNicht("Gast ändert ein Turnier", () => gast().doc(OEFFENTLICH).set(turnierDaten({ versuche: 100 })));
 // Nur live: ein Ja oder Nein. Dann gibt es keine Versuche dazwischen.
 await darf("Admin legt ein Turnier an, das nur live gespielt wird", () => admin().doc("miniTurniere/livecup-r5t7z9u1").set(turnierDaten({ nurLive: true, versuche: 0 })));
@@ -1258,6 +1266,25 @@ await darf("Der Raum merkt sich seinen Code", () => live.gast().ref(`${RAUM}/cod
 await darfNicht("Der Raum ändert seinen Code", () => live.gast().ref(`${RAUM}/code`).set("1234"));
 await darfNicht("Ein Code, der zu einem Raum ohne b führt, verschwindet", () => live.gast().ref("duellCode/1111").set({ raum: "ABCDEFGHJK", bis: bald() }).then(() => live.gast().ref("duellCode/1111").remove()));
 await darf("Der Raum ist voll: sein Code darf weg", () => live.gast().ref(CODE).remove());
+
+// Im Turnier: wer wartet (duellOffen/<turnier>/<raum>). Lesen darf, wer das
+// Turnier kennt; eintragen nur der, der den Raum eröffnet hat, solange er
+// allein ist; weg darf der Eintrag immer (onDisconnect, beitreten, abbrechen).
+const RAUM3 = "duell/MNPQRSTUVW";
+const OFFEN_IM = "duellOffen/familie-k3m9x2p7";
+const WARTET = `${OFFEN_IM}/MNPQRSTUVW`;
+await darf("Mia eröffnet ein Duell im Turnier", () => eroeffne(live.gast(), RAUM3, { ...A, kennung: "mini_miamiamiamia", name: "Mia" }));
+await darf("Mia wartet im Turnier", () => live.gast().ref(WARTET).set({ name: "Mia", kennung: "mini_miamiamiamia", seit: 1 }));
+await darf("Gast liest, wer im Turnier wartet", () => live.gast().ref(OFFEN_IM).get());
+await darfNicht("Gast listet die Wartenden aller Turniere", () => live.gast().ref("duellOffen").get());
+await darfNicht("Gast liest die Wartenden eines Turniers mit unmöglichem Namen", () => live.gast().ref("duellOffen/FAMILIE").get());
+await darfNicht("Jemand anderes wartet im Raum von Mia", () => live.gast().ref(WARTET).set({ name: "Max", kennung: "mini_maxmaxmaxmax", seit: 1 }));
+await darfNicht("Jemand wartet in einem Raum, den es nicht gibt", () => live.gast().ref(`${OFFEN_IM}/ZZZZZZZZZZ`).set({ name: "Mia", kennung: "mini_miamiamiamia", seit: 1 }));
+await darfNicht("Ein Wartender ohne Namen", () => live.gast().ref(WARTET).set({ name: "", kennung: "mini_miamiamiamia", seit: 1 }));
+await darfNicht("Ein Wartender mit einem Feld zu viel", () => live.gast().ref(WARTET).set({ name: "Mia", kennung: "mini_miamiamiamia", seit: 1, raum: "X" }));
+await darf("Lena setzt sich zu Mia", () => live.gast().ref(`${RAUM3}/b`).set(B));
+await darfNicht("Ist der Raum voll, wartet niemand mehr darin", () => live.gast().ref(WARTET).set({ name: "Mia", kennung: "mini_miamiamiamia", seit: 2 }));
+await darf("Der Eintrag darf weg", () => live.gast().ref(WARTET).remove());
 
 await env.cleanup();
 

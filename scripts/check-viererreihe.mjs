@@ -6,7 +6,10 @@
  * Duell, Lena tritt mit den vier Ziffern bei (und sagt dabei erst ihren
  * Namen), Zoe öffnet den Link und schaut zu. Gespielt wird eine Partie bis
  * zum Sieg, dann eine zweite – die beginnt der andere. Dazu eine Partie gegen
- * den Computer, bis sie zu Ende ist, und das Bild auf drei Grössen.
+ * den Computer, bis sie zu Ende ist, und das Bild auf drei Grössen. Dann im
+ * Turnier: Lena eröffnet, und Mia – die Kleine, die noch nicht liest –
+ * findet auf der Turnierseite «Lena wartet!» und mit einem Tipp auf «Mit Lena
+ * spielen» ans Brett, ohne Code und ohne Link.
  *
  * Firestore wird nicht angefasst: cloud.js ist eine Attrappe, die nur die
  * Verbindung zum Emulator herstellt.
@@ -100,10 +103,35 @@ const SDK = new Map(["app", "firestore", "auth", "database"].map((teil) => [
   teil, readFileSync(path.join(WURZEL, "node_modules", "firebase", `firebase-${teil}-compat.js`), "utf8"),
 ]));
 
+const TURNIER_ID = "familie-k3m9x2p7";
+const NUR_VIERER = "nurvierer-k3m9x2p7";
 const ATTRAPPE = `
 (() => {
   let app = null;
+  const turnier = (id, mehr) => ({
+    id, name: "Familienturnier", beschreibung: "", spiele: ["towerStack"],
+    startMs: Date.now() - 3600000, endeMs: Date.now() + 86400000, versuche: 0, zaehlt: "bester", wertung: "platz",
+    aufgaben: "gleich", sichtbar: "link", verdeckt: false, ohneGeist: false, ohneReplay: false, ohneLive: false,
+    nurLive: false, viererreihe: true, aktiv: true, spitzeWartet: false, ...mehr,
+  });
+  const TURNIERE = {
+    "${TURNIER_ID}": turnier("${TURNIER_ID}"),
+    "${NUR_VIERER}": turnier("${NUR_VIERER}", { name: "Nur Viererreihe", spiele: [] }),
+  };
   const basis = {
+    async turnier(id) { return TURNIERE[id] || null; },
+    turnierHoeren(id, { beiTurnier = () => {}, beiEintraegen = () => {} } = {}) {
+      setTimeout(() => { beiTurnier(TURNIERE[id] || null); beiEintraegen([]); }, 30);
+      return () => {};
+    },
+    async turnierErgebnisse() { return []; },
+    async turnierLive() { return []; },
+    async liveZeiger() { return null; },
+    async offeneDuelle(id) {
+      const antwort = await fetch("http://${EMULATOR}/duellOffen/" + id + ".json?ns=${NAMENSRAUM}");
+      const d = (await antwort.json()) || {};
+      return Object.entries(d).map(([raum, o]) => ({ raum, name: o.name, kennung: o.kennung, seit: o.seit }));
+    },
     app() {
       if (app) return app;
       app = firebase.apps.length ? firebase.app() : firebase.initializeApp({
@@ -167,7 +195,7 @@ try {
   // --- 1. Das Menü und eine Partie gegen den Computer ----------------------------
   const papa = await geraet("Papa");
   await papa.seite.goto(`${BASIS}/viererreihe`);
-  pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === 3)), "Das Menü zeigt drei Stufen");
+  pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === 4)), "Das Menü zeigt vier Stufen");
   pruefe(await papa.seite.locator(".vr-eroeffnen").isVisible(), "Das Menü bietet ein Duell an");
   await bild(papa.seite, "1-menue");
 
@@ -206,7 +234,7 @@ try {
   pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), "Die zweite Partie beginnt der Computer");
   pruefe(await bis(() => steine(papa.seite).then((n) => n === 1), { ms: 6000 }), "Der Computer setzt den ersten Stein der zweiten Partie");
   await papa.seite.locator(".vr-menue-knopf").click();
-  pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === 3)), "Zurück im Menü");
+  pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === 4)), "Zurück im Menü");
   pruefe(/gewonnen|verloren/.test(await papa.seite.locator('.vr-stufe[data-stufe="einfach"] .vr-stufe-bilanz').textContent()), "Das Menü zeigt die Bilanz der Stufe");
 
   // --- 2. Ein Duell eröffnen ---------------------------------------------------------
@@ -336,13 +364,75 @@ try {
   pruefe(await bis(() => satz(mia.seite).then((t) => /Du beginnst/.test(t))), "Mia sieht das Brett, sobald Max da ist");
   pruefe((await (await db(`duell/${raum2}/b`)).json())?.name === "Max", "In der Datenbank sitzt Max auf b");
 
-  // --- 9. Die Startseite führt hin -------------------------------------------------------
+  // --- 9. Nicht auf der Startseite ---------------------------------------------------
   await zoe.seite.goto(`${BASIS}/`);
-  pruefe(await bis(() => zoe.seite.locator('a.ar-vr-kachel[href="/viererreihe"]').count().then((n) => n === 1)), "Die Startseite hat die Kachel Viererreihe");
-  await warte(2500);
-  await bild(zoe.seite, "8-startseite");
-  await zoe.seite.locator("a.ar-vr-kachel").click();
-  pruefe(await bis(() => zoe.seite.locator(".vr-stufe").count().then((n) => n === 3)), "Die Kachel führt ins Menü");
+  await zoe.seite.waitForSelector(".ar-kachel", { timeout: 10000 }).catch(() => {});
+  await warte(800);
+  pruefe(await zoe.seite.locator(".ar-vr-kachel").count() === 0, "Die Startseite zeigt Viererreihe nicht");
+
+  // --- 10. Im Turnier: Lena eröffnet, Mia findet sie mit einem Tipp -----------------------
+  const lenaT = await geraet("Lena", { viewport: { width: 820, height: 1100 } });
+  const miaT = await geraet("Mia", { viewport: { width: 820, height: 1100 } });
+  await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(() => lenaT.seite.locator(`a.ar-vr-kachel[href="/viererreihe?turnier=${TURNIER_ID}"]`).count().then((n) => n === 1)), "Im Turnier steht Viererreihe vorne in der Zeile");
+  await lenaT.seite.locator("a.ar-vr-kachel").click();
+  pruefe(await bis(() => lenaT.seite.locator(".vr-stufe").count().then((n) => n === 4)), "Im Turnier: das Menü mit vier Stufen");
+  const zurueck = await lenaT.seite.locator(".vr-kopf .mini-knopf-zurueck").getAttribute("href");
+  pruefe(zurueck === `/turnier?t=${TURNIER_ID}`, `Der Weg zurück führt ins Turnier (${zurueck})`);
+  const reihenfolge = await lenaT.seite.evaluate(() => [...document.querySelectorAll(".vr-menue > section.vr-karte")].map((k) => k.className));
+  pruefe(/vr-karte-live/.test(reihenfolge[0] || ""), "Im Turnier steht «zu zweit» zuoberst");
+  await lenaT.seite.locator(".vr-eroeffnen").click();
+  pruefe(await bis(() => lenaT.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Lena wartet – und sieht, was die anderen sehen");
+  pruefe(/Mit Lena spielen/.test(await lenaT.seite.locator(".vr-vorschau-knopf").textContent()), "… «Mit Lena spielen»");
+  const raumT = new URL(lenaT.seite.url()).searchParams.get("raum") || "";
+  pruefe(new URL(lenaT.seite.url()).searchParams.get("turnier") === TURNIER_ID, "Das Turnier bleibt in der Adresse");
+  pruefe(await bis(async () => (await (await db(`duellOffen/${TURNIER_ID}/${raumT}`)).json())?.name === "Lena"), "Lena steht im Turnier als wartend");
+  await bild(lenaT.seite, "9-turnier-lena-wartet");
+
+  await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(() => miaT.seite.locator(".ar-vr-kachel.ist-wartet").count().then((n) => n === 1), { ms: 12000 }), "Bei Mia leuchtet die Kachel");
+  pruefe(/Lena wartet/.test(await miaT.seite.locator(".ar-vr-kachel .ar-vr-neu").textContent()), "… mit «Lena wartet!»");
+  pruefe(await bis(() => miaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1)), "Oben auf der Turnierseite steht gross «Mit Lena spielen»");
+  pruefe((await miaT.seite.locator("a.tn-vr-ruf").getAttribute("href")) === `/viererreihe?turnier=${TURNIER_ID}&raum=${raumT}`, "… und führt direkt in Lenas Raum");
+  await bild(miaT.seite, "10-turnier-mia-kachel");
+  await miaT.seite.locator("a.ar-vr-kachel").click();
+  pruefe(await bis(() => miaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 1)), "Mias Menü zeigt «Mit Lena spielen» als grossen Knopf");
+  await bild(miaT.seite, "11-turnier-mia-menue");
+  await miaT.seite.locator(".vr-wartet-knopf").click();
+  pruefe(await bis(() => satz(miaT.seite).then((t) => /Lena ist dran/.test(t))), "Ein Tipp, und Mia sitzt am Brett");
+  pruefe(await bis(() => satz(lenaT.seite).then((t) => /Du beginnst/.test(t))), "Lena sieht das Brett, sobald Mia da ist");
+  pruefe(await bis(async () => (await (await db(`duellOffen/${TURNIER_ID}`)).json()) === null), "Im Turnier wartet niemand mehr");
+  pruefe(new URL(miaT.seite.url()).searchParams.get("turnier") === TURNIER_ID, "Auch bei Mia bleibt das Turnier in der Adresse");
+  await setze(lenaT, 3, 1);
+  pruefe(await bis(() => steine(miaT.seite).then((n) => n === 1)), "Mia sieht Lenas Stein");
+
+  // Wer wartet und dann geht (Tablet zu), lädt niemanden mehr ein.
+  await miaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
+  await miaT.seite.locator(".vr-eroeffnen").click();
+  pruefe(await bis(() => miaT.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Mia wartet");
+  await lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 1)), "Lena sieht «Mit Mia spielen»");
+  await miaT.kontext.close();
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 0), { ms: 20000 }), "Mia ist weg – der Knopf verschwindet von selbst");
+
+  // Mia eröffnet noch einmal; Lena tippt auf der Turnierseite oben auf den
+  // grossen Knopf – und sitzt sofort am Brett.
+  const mia2 = await geraet("Mia", { viewport: { width: 820, height: 1100 } });
+  await mia2.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
+  await mia2.seite.locator(".vr-eroeffnen").click();
+  pruefe(await bis(() => mia2.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Mia wartet wieder");
+  await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(() => lenaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), "Bei Lena steht oben «Mit Mia spielen»");
+  await bild(lenaT.seite, "10b-turnier-ruf");
+  await lenaT.seite.locator("a.tn-vr-ruf").click();
+  pruefe(await bis(() => satz(lenaT.seite).then((t) => /Mia ist dran/.test(t))), "Ein Tipp oben, und Lena sitzt am Brett");
+  pruefe(await bis(() => satz(mia2.seite).then((t) => /Du beginnst/.test(t))), "Mia sieht Lena kommen");
+
+  // Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne.
+  await lenaT.seite.goto(`${BASIS}/turnier?t=${NUR_VIERER}`);
+  pruefe(await bis(() => lenaT.seite.locator(".ar-vr-kachel.ist-gross").count().then((n) => n === 1)), "Ein Turnier nur mit Viererreihe zeigt die grosse Karte");
+  pruefe(await lenaT.seite.locator(".ar-buehne").count() === 0, "… und keine Bühne");
+  await bild(lenaT.seite, "12-nur-viererreihe");
 } catch (fehler) {
   befunde.push(`Abgebrochen: ${fehler?.stack || fehler}`);
 } finally {

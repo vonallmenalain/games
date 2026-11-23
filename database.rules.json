@@ -112,6 +112,19 @@
         "$anderes": { ".validate": false }
       }
     },
+    "duellOffen": {
+      "$turnier": {
+        ".read": "$turnier.matches(/^[a-z0-9-]{6,48}$/)",
+        "$raum": {
+          ".write": "$turnier.matches(/^[a-z0-9-]{6,48}$/) && $raum.matches(/^[A-Z2-9]{10}$/) && (!newData.exists() || (root.child('duell').child($raum).child('a').exists() && !root.child('duell').child($raum).child('b').exists()))",
+          ".validate": "newData.hasChildren(['name', 'kennung', 'seit']) && newData.child('kennung').val() == root.child('duell').child($raum).child('a').child('kennung').val()",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+          "kennung": { ".validate": "newData.isString()" },
+          "seit": { ".validate": "newData.isNumber()" },
+          "$anderes": { ".validate": false }
+        }
+      }
+    },
     "liveOffen": {
       ".read": true,
       "$code": {

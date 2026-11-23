@@ -17,8 +17,11 @@
  * («3342…»). So steht sie auch in der Realtime Database (duell/<raum>/stand),
  * und jedes Gerät baut daraus dasselbe Brett.
  *
- * Die drei Stufen sind für ein Kind von sieben bis neun Jahren gemacht:
+ * Die Stufen sind für Kinder gemacht – «ganz leicht» für eine Fünfjährige,
+ * die anderen drei für ein Kind von sieben bis neun Jahren:
  *
+ *   leicht    («Ganz leicht») setzt irgendwohin und nimmt einen fertigen
+ *             Vierer fast nie. Zum Lernen, wie die Reihe entsteht.
  *   einfach   setzt meist irgendwohin (die Mitte etwas öfter), nimmt einen
  *             fertigen Vierer nur jedes zweite Mal und sieht eine Gefahr nur
  *             selten. Wer aufpasst, gewinnt.
@@ -30,7 +33,9 @@
  * Geeicht an einem nachgemachten Kind (sieht den eigenen Vierer meist, eine
  * Gefahr oft, denkt manchmal zwei Züge voraus): Gegen «einfach» gewinnt es
  * acht bis neun von zehn Partien, gegen «mittel» zwei bis vier, gegen
- * «schwer» so gut wie keine.
+ * «schwer» so gut wie keine. Eines von fünf Jahren (sieht den eigenen Vierer
+ * jedes zweite Mal, eine Gefahr selten, denkt nicht voraus) gewinnt gegen
+ * «ganz leicht» etwa acht von zehn, gegen «einfach» nur jede zweite.
  *   schwer    rechnet so weit, wie es in gut einer halben Sekunde geht
  *             (meist zehn Züge und mehr), mit Gedächtnis für schon gesehene
  *             Stellungen. Kaum zu schlagen.
@@ -46,7 +51,7 @@
   const ORDNUNG = [3, 2, 4, 1, 5, 0, 6];
   const SIEG = 1000000;
 
-  const STUFEN = ["einfach", "mittel", "schwer"];
+  const STUFEN = ["leicht", "einfach", "mittel", "schwer"];
 
   // --- Das Brett ---------------------------------------------------------------
   function neuesBrett() {
@@ -393,6 +398,12 @@
     const q = 3 - p;
     const sieg = siegSpalten(b, p);
     const gefahr = siegSpalten(b, q);
+
+    if (stufe === "leicht") {
+      // Für die Kleinsten: irgendwohin, und den eigenen Vierer fast nie.
+      if (sieg.length && zufall() < 0.15) return sieg[0];
+      return zufallAus(spalten, zufall);
+    }
 
     if (stufe === "einfach") {
       if (sieg.length && zufall() < 0.5) return sieg[0];

@@ -4163,13 +4163,10 @@
     const reihenfolge = TIERS.flatMap((tier) => offen.filter((s) => tierVon(s, einteilung) === tier));
     const favoriten = reihenfolge.filter((s) => tierVon(s, einteilung) === 1);
 
-    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz),
-    // davor Viererreihe.
+    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    const vorne = el("div", "ar-vorne");
-    vorne.append(viererreiheKachel(), turniere);
-    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
+    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
     // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
     // seiner Rangliste – ein Tipp darauf, und man schaut zu.
@@ -4240,22 +4237,25 @@
   }
 
   /*
-   * Viererreihe vorne in der Zeile der Startseite. Kein Spiel der Tabelle
-   * SPIELE – keine Bestenliste, keine Bühne, kein Bild aus einer Runde –,
-   * sondern eines zu zweit (oder gegen den Computer) auf seiner eigenen
-   * Seite (viererreihe.js). Ein Tipp führt hin. Das Bild ist ein kleines Brett
-   * mit einer Reihe, schräg hinauf, gezeichnet statt aufgenommen.
+   * Viererreihe in einem Turnier (turnier.js), wenn der Admin sie dazugenommen
+   * hat: vorne in der Zeile – oder, hat das Turnier sonst kein Spiel, als
+   * grosse Karte (gross). Kein Spiel der Tabelle SPIELE – keine Bestenliste,
+   * keine Bühne, kein Bild aus einer Runde –, sondern eines zu zweit (oder
+   * gegen den Computer) auf seiner eigenen Seite (viererreihe.js). Das Bild
+   * ist ein kleines Brett mit einer Reihe, schräg hinauf, gezeichnet statt
+   * aufgenommen. Auf der Startseite steht sie nicht.
+   *
+   * kachel.wartende(namen) sagt darauf, wer im Turnier gerade auf jemanden
+   * wartet: «Lena wartet!» – damit auch ein Kind, das noch nicht liest, den
+   * Weg zum Duell der grossen Schwester findet.
    */
-  const VIERER_NEU_BIS = Date.UTC(2026, 11, 7);
-  function viererreiheKachel() {
+  function viererreiheKachel(turnierId, { gross = false } = {}) {
     // Eine eigene Klasse, keine ar-kachel: Die Zeile zählt ihre Spiele an
     // ar-kachel (und scripts/check-spiele.mjs auch).
-    const k = el("a", "ar-vr-kachel");
-    k.href = "/viererreihe";
+    const k = el("a", `ar-vr-kachel${gross ? " ist-gross" : ""}`);
+    k.href = `/viererreihe?turnier=${encodeURIComponent(turnierId)}`;
     k.title = "Viererreihe – gegen den Computer oder live zu zweit";
     k.setAttribute("aria-label", k.title);
-    k.style.setProperty("--mini-farbe", "#7c5ce6");
-    k.style.setProperty("--mini-farbe-dunkel", "#3d2896");
     const bild = el("span", "ar-vr-bild");
     bild.setAttribute("aria-hidden", "true");
     ["", "b", "ab", "bab", "abba", "a", "b"].forEach((spalte, c) => {
@@ -4266,8 +4266,17 @@
         bild.append(stein);
       });
     });
-    k.append(bild, el("span", "ar-vr-titel", "Viererreihe"));
-    if (Date.now() < VIERER_NEU_BIS) k.append(el("span", "ar-vr-neu", "Neu · zu zweit"));
+    const marke = el("span", "ar-vr-neu", "zu zweit");
+    k.append(bild, el("span", "ar-vr-titel", "Viererreihe"), marke);
+    if (gross) k.append(el("span", "mini-knopf mini-knopf-voll ar-vr-los", "Spielen"));
+    k.wartende = (namen = []) => {
+      const liste = [...new Set(namen.filter(Boolean))];
+      k.classList.toggle("ist-wartet", liste.length > 0);
+      marke.textContent = !liste.length ? "zu zweit"
+        : liste.length === 1 ? `${liste[0]} wartet!`
+          : `${liste.slice(0, -1).join(", ")} und ${liste[liste.length - 1]} warten!`;
+      k.setAttribute("aria-label", liste.length ? `Viererreihe – ${marke.textContent}` : k.title);
+    };
     return k;
   }
 
@@ -4407,7 +4416,7 @@
     adminKnopf,
     leiste,
     ergebnis,
-    arcadeKopf, arcadeBuehne, arcadeStart, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
+    arcadeKopf, arcadeBuehne, arcadeStart, viererreiheKachel, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

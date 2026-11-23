@@ -13,6 +13,12 @@
  *                        steht auf dem Gerät (localStorage, BILANZ_KEY). Wer
  *                        beginnt, wechselt von Partie zu Partie. Geht ohne
  *                        Netz.
+ *   Im Turnier           (?turnier=<id>, wenn der Admin Viererreihe zum
+ *                        Turnier genommen hat): Wer eröffnet, steht bei allen
+ *                        anderen im Turnier als grosser Knopf «Mit Lena
+ *                        spielen» – ein Tipp, und man sitzt am Brett, ohne
+ *                        Code und ohne Link (duellOffen/<turnier>). Der Weg
+ *                        zurück führt ins Turnier.
  *   Zu zweit, live       jede auf ihrem Gerät. Wer eröffnet, bekommt einen
  *                        Link (/viererreihe?raum=K7QMX2PA9Z – zehn Zeichen,
  *                        nicht zu erraten) und einen Code mit vier Ziffern
@@ -35,6 +41,10 @@
  *                       gewonnen hat: a, b oder u für unentschieden), nr
  *   duellCode/<code>    raum, bis – wohin die vier Ziffern führen, solange
  *                       der Raum auf jemanden wartet
+ *   duellOffen/<turnier>/<raum>   name, kennung, seit – wer im Turnier
+ *                       gerade wartet. Verschwindet, sobald jemand dazukommt,
+ *                       der Wartende geht oder seine Verbindung abreisst
+ *                       (onDisconnect).
  *
  * Gerechnet wird nichts in der Datenbank. Ein Zug ist eine Transaktion, die
  * an zuege eine Ziffer anhängt – nur wenn der Stand noch der ist, den das
@@ -68,10 +78,22 @@
   const DUELL_MERKEN_MS = 3 * 24 * 60 * 60 * 1000;
 
   const STUFEN = {
+    leicht: { name: "Ganz leicht", sterne: 0, satz: "Zum Lernen" },
     einfach: { name: "Einfach", sterne: 1, satz: "Zum Warmwerden" },
     mittel: { name: "Mittel", sterne: 2, satz: "Eine echte Aufgabe" },
     schwer: { name: "Schwer", sterne: 3, satz: "Kaum zu schlagen" },
   };
+
+  // Das Turnier, aus dem die Seite geöffnet wurde (?turnier=…): Es bleibt in
+  // jeder Adresse dieser Seite stehen, damit der Weg zurück dorthin führt
+  // und die Turnier-App ihre Gäste nicht hinauswirft (turnier.js, heim).
+  const TURNIER = (() => {
+    try {
+      const t = String(new URLSearchParams(window.location.search).get("turnier") || "");
+      return /^[a-z0-9-]{6,48}$/.test(t) ? t : "";
+    } catch { return ""; }
+  })();
+  const OFFEN_MAX_MS = 3 * 60 * 60 * 1000;
 
   // Für die Prüfung im Browser: ein Emulator der Realtime Database auf
   // diesem Rechner. Gilt nur für eine Adresse auf dem eigenen Rechner – wie
@@ -100,6 +122,10 @@
     hoerer: null,
     meldet: false,
     beitrittVersucht: false,
+    // im Turnier: als Wartender gemeldet (der Raum), und wer der Liste
+    // der Wartenden zuhört, wieder aufhören
+    offenGemeldet: "",
+    menueAus: null,
     // das Brett, wie es gerade gezeichnet ist
     brett: null,
   };
@@ -484,6 +510,8 @@
   }
 
   function ansicht(name, ...inhalt) {
+    S.menueAus?.();
+    S.menueAus = null;
     S.ansicht = name;
     S.wirt.innerHTML = "";
     S.wirt.dataset.ansicht = name;
@@ -496,8 +524,10 @@
   //   /viererreihe                  das Menü
   //   /viererreihe?gegen=mittel     eine Partie gegen den Computer
   //   /viererreihe?raum=K7QMX2PA9Z  ein Duell
+  //   …&turnier=herbst-k3m9x2p7    dasselbe im Turnier
   function geh({ gegen = "", raum = "" }, { ersetzen = false } = {}) {
     const p = new URLSearchParams();
+    if (TURNIER) p.set("turnier", TURNIER);
     if (gegen) p.set("gegen", gegen);
     if (raum) p.set("raum", raum);
     const adresse = `/viererreihe${p.toString() ? `?${p}` : ""}`;
@@ -560,10 +590,16 @@
     return (Array.isArray(liste) ? liste : []).filter((d) => d && RAUM_MUSTER.test(d.raum) && Number(d.ms) > grenze);
   }
 
+  // Die gemerkten Duelle, die hierher gehören: im Turnier die des Turniers,
+  // sonst die ohne.
+  function hiesigeDuelle() {
+    return gemerkteDuelle().filter((d) => String(d.turnier || "") === TURNIER);
+  }
+
   function duellMerken(raum, gegner = "") {
     const alt = gemerkteDuelle().filter((d) => d.raum !== raum);
     const vorher = gemerkteDuelle().find((d) => d.raum === raum);
-    alt.unshift({ raum, gegner: gegner || vorher?.gegner || "", ms: Date.now() });
+    alt.unshift({ raum, gegner: gegner || vorher?.gegner || "", turnier: TURNIER || vorher?.turnier || "", ms: Date.now() });
     schreibeJson(DUELLE_KEY, alt.slice(0, 4));
   }
 
@@ -574,6 +610,7 @@
   function sterne(anzahl) {
     const s = el("span", "vr-sterne");
     s.setAttribute("aria-hidden", "true");
+    if (!anzahl) return s;
     for (let i = 0; i < 3; i += 1) s.append(el("span", `vr-stern${i < anzahl ? " ist-an" : ""}`, "★"));
     return s;
   }
@@ -651,10 +688,17 @@
 
     // Zu zweit, live
     const live = el("section", "vr-karte vr-karte-live");
-    live.append(el("h2", "vr-karte-titel", "Zu zweit, live"),
-      el("p", "vr-hinweis", "Jede und jeder auf dem eigenen Gerät. Du eröffnest und schickst den Link – oder sagst den Code mit vier Ziffern."));
+    live.append(el("h2", "vr-karte-titel", "Zu zweit, live"));
+    // Im Turnier: wer gerade wartet, als grosser Knopf – ein Tipp, und man
+    // sitzt am Brett. Darunter das eigene «Neues Spiel».
+    const wartende = el("div", "vr-wartende");
+    wartende.setAttribute("aria-live", "polite");
+    if (TURNIER) live.append(wartende);
+    live.append(el("p", "vr-hinweis", TURNIER
+      ? "Jede auf dem eigenen Gerät. Wer ein Spiel eröffnet, steht hier bei allen im Turnier – ein Tipp, und es geht los."
+      : "Jede und jeder auf dem eigenen Gerät. Du eröffnest und schickst den Link – oder sagst den Code mit vier Ziffern."));
     const platz = el("div", "vr-live-platz");
-    const offen = knopf("Neues Duell eröffnen", "mini-knopf mini-knopf-voll vr-los vr-eroeffnen", () => {
+    const offen = knopf(TURNIER ? "Neues Spiel eröffnen" : "Neues Duell eröffnen", "mini-knopf mini-knopf-voll vr-los vr-eroeffnen", () => {
       if (!meinName()) {
         platz.innerHTML = "";
         platz.append(nameFeld({ text: "Wie heisst du? Das sieht dein Gegenüber.", wort: "Eröffnen", weiter: eroeffnen }));
@@ -704,10 +748,16 @@
       mitName();
     });
     platz.append(offen);
-    live.append(platz, codeForm);
+    live.append(platz);
+    // Im Turnier braucht es den Code kaum – er steht eingeklappt darunter.
+    if (TURNIER) {
+      const mehr = el("details", "vr-mehr");
+      mehr.append(el("summary", "vr-mehr-knopf", "Mit Code beitreten"), codeForm);
+      live.append(mehr);
+    } else live.append(codeForm);
 
     // Laufende Duelle dieses Geräts: weiterspielen, wo man war.
-    const merk = gemerkteDuelle();
+    const merk = hiesigeDuelle();
     if (merk.length) {
       const weiter = el("div", "vr-weiter");
       weiter.append(el("p", "vr-weiter-titel", "Weiterspielen"));
@@ -719,11 +769,51 @@
       live.append(weiter);
     }
 
+    // Im Turnier steht «zu zweit» oben – darum geht es dort. Sonst der
+    // Computer zuerst.
     seite.append(kopf);
     if (wer) seite.append(wer);
-    seite.append(pc, live);
+    if (TURNIER) seite.append(live, pc);
+    else seite.append(pc, live);
     ansicht("menue", seite);
     document.title = "Viererreihe · arcade";
+
+    if (TURNIER) {
+      const zeigeWartende = (liste) => {
+        wartende.innerHTML = "";
+        live.classList.toggle("ist-wartet", liste.length > 0);
+        liste.forEach((d) => {
+          const k = el("button", "vr-wartet-knopf");
+          k.type = "button";
+          k.dataset.raum = d.raum;
+          const text = el("span", "vr-wartet-text");
+          text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet auf dich`));
+          k.append(steinZeichen("a", "vr-wartet-stein"), text, el("span", "vr-wartet-los", "Los"));
+          k.addEventListener("click", () => geh({ raum: d.raum }));
+          wartende.append(k);
+        });
+      };
+      S.menueAus = offeneHoeren(zeigeWartende);
+    }
+  }
+
+  // Wer im Turnier gerade wartet – ohne mich selbst, und nichts, was älter
+  // ist als drei Stunden. Gibt zurück, wie man wieder aufhört zuzuhören.
+  function offeneHoeren(beiListe) {
+    const db = datenbank();
+    if (!db || !TURNIER) return null;
+    const ref = db.ref(`duellOffen/${TURNIER}`);
+    const hoerer = (s) => {
+      const d = s.val() || {};
+      const meine = mini()?.kennung?.() || "";
+      const grenze = jetzt() - OFFEN_MAX_MS;
+      beiListe(Object.entries(d)
+        .filter(([raum, o]) => RAUM_MUSTER.test(raum) && o && o.name && o.kennung !== meine && Number(o.seit) > grenze)
+        .map(([raum, o]) => ({ raum, name: String(o.name), seit: Number(o.seit) }))
+        .sort((x, y) => x.seit - y.seit));
+    };
+    ref.on("value", hoerer, () => beiListe([]));
+    return () => ref.off("value", hoerer);
   }
 
   // ---------------------------------------------------------------------------
@@ -863,6 +953,8 @@
       db.ref(".info/serverTimeOffset").on("value", (s) => { S.versatz = Number(s.val()) || 0; });
       db.ref(".info/connected").on("value", (s) => {
         S.verbunden = s.val() === true;
+        // Nach einer Lücke ist die Meldung als Wartender weg (onDisconnect).
+        if (!S.verbunden) S.offenGemeldet = "";
         if (S.verbunden && S.sitz && S.raum) melden();
         if (S.ansicht === "duell" || S.ansicht === "lobby") duellZeichnen();
       });
@@ -949,9 +1041,39 @@
       .finally(() => { S.meldet = false; });
   }
 
+  /*
+   * Im Turnier: wer eröffnet hat und noch allein ist, steht bei den anderen
+   * als «… wartet» (duellOffen/<turnier>/<raum>). Reisst die Verbindung ab,
+   * nimmt die Datenbank den Eintrag selbst weg – ein Tablet, das schläft,
+   * lädt niemanden mehr ein. Kommt sie zurück, meldet sich das Gerät neu.
+   */
+  function offenMelden() {
+    const db = S.db;
+    const d = S.daten;
+    if (!TURNIER || !db || !S.verbunden || S.sitz !== "a" || !d || d.b || S.offenGemeldet === S.raum) return;
+    const raum = S.raum;
+    S.offenGemeldet = raum;
+    const ref = db.ref(`duellOffen/${TURNIER}/${raum}`);
+    ref.onDisconnect().remove()
+      .then(() => ref.set({ name: ich().name || d.a?.name || "?", kennung: d.a.kennung, seit: TIMESTAMP() }))
+      .catch((fehler) => {
+        console.warn("Im Turnier warten ging nicht", fehler);
+        if (S.offenGemeldet === raum) S.offenGemeldet = "";
+      });
+  }
+
+  function offenWeg(raum = S.raum) {
+    if (!TURNIER || !S.db || !raum) return;
+    const ref = S.db.ref(`duellOffen/${TURNIER}/${raum}`);
+    ref.onDisconnect().cancel().catch(() => {});
+    ref.remove().catch(() => {});
+    if (S.offenGemeldet === raum) S.offenGemeldet = "";
+  }
+
   function duellVerlassen() {
     if (!S.raum) return;
     const db = S.db;
+    if (S.sitz === "a" && !S.daten?.b) offenWeg();
     if (db && S.hoerer) db.ref(`duell/${S.raum}`).off("value", S.hoerer);
     if (db && S.sitz) {
       const ref = db.ref(`duell/${S.raum}/${S.sitz}`);
@@ -1028,6 +1150,8 @@
         // Der Raum ist voll: Die vier Ziffern führen nicht mehr hierher.
         const code = S.daten?.code;
         if (code && CODE_MUSTER.test(code)) db.ref(`duellCode/${code}`).remove().catch(() => {});
+        // Und im Turnier wartet niemand mehr.
+        if (TURNIER) db.ref(`duellOffen/${TURNIER}/${raum}`).remove().catch(() => {});
         ton("da");
       }
     } catch (fehler) {
@@ -1036,7 +1160,7 @@
   }
 
   function duellLink() {
-    return `${window.location.origin}/viererreihe?raum=${S.raum}`;
+    return `${window.location.origin}/viererreihe?${TURNIER ? `turnier=${encodeURIComponent(TURNIER)}&` : ""}raum=${S.raum}`;
   }
 
   async function teilen(meldung) {
@@ -1088,11 +1212,14 @@
       return;
     }
 
-    // Wer eröffnet hat und noch allein ist: der Link, der Code, warten.
+    // Wer eröffnet hat und noch allein ist: der Link, der Code, warten –
+    // und im Turnier bei den anderen als «… wartet».
     if (S.sitz === "a" && !d.b) {
+      offenMelden();
       lobbyZeigen(d);
       return;
     }
+    if (S.sitz === "a" && d.b && S.offenGemeldet) offenWeg();
     // Jemand, der dazukam, während der Platz frei wurde – gleich noch einmal.
     if (!S.sitz && !d.b) {
       const box = el("section", "vr-karte vr-lobby");
@@ -1176,29 +1303,49 @@
   function lobbyZeigen(d) {
     if (S.ansicht === "lobby" && S.wirt.querySelector(".vr-warten") && S.wirt.dataset.code === String(d.code || "")) return;
     const box = el("section", "vr-karte vr-lobby vr-warten");
-    box.append(el("h2", "vr-karte-titel", "Wer spielt mit?"));
-    box.append(el("p", "vr-hinweis", "Schick den Link – oder sag den Code. Sobald jemand da ist, geht es los."));
-    if (d.code) {
-      const code = el("p", "vr-grosscode");
-      code.setAttribute("aria-label", `Code ${[...String(d.code)].join(" ")}`);
-      [...String(d.code)].forEach((z) => code.append(el("span", "vr-ziffer", z)));
-      box.append(el("p", "vr-code-label", "Code"), code);
-    }
     const meldung = el("p", "vr-meldung");
     meldung.setAttribute("aria-live", "polite");
-    const reihe = el("div", "vr-knoepfe");
-    reihe.append(
-      knopf(navigator.share ? "Link schicken" : "Link kopieren", "mini-knopf mini-knopf-voll vr-los vr-teilen", () => teilen(meldung)),
-      knopf("Abbrechen", "mini-knopf mini-knopf-still vr-menue-knopf", () => { duellVergessen(S.raum); geh({}); }),
-    );
+    const abbrechen = knopf("Abbrechen", "mini-knopf mini-knopf-still vr-menue-knopf", () => { offenWeg(); duellVergessen(S.raum); geh({}); });
+    const teilenKnopf = knopf(navigator.share ? "Link schicken" : "Link kopieren", `mini-knopf ${TURNIER ? "mini-knopf-still" : "mini-knopf-voll vr-los"} vr-teilen`, () => teilen(meldung));
+    const code = el("div", "vr-code-block");
+    if (d.code) {
+      const ziffern = el("p", "vr-grosscode");
+      ziffern.setAttribute("aria-label", `Code ${[...String(d.code)].join(" ")}`);
+      [...String(d.code)].forEach((z) => ziffern.append(el("span", "vr-ziffer", z)));
+      code.append(el("p", "vr-code-label", "Code"), ziffern);
+    }
     const link = el("p", "vr-link", duellLink());
     const punkte = el("p", "vr-wartet");
-    punkte.append(steinZeichen("a"), el("span", "", "Warte auf dein Gegenüber"), el("span", "vr-denkt", "…"));
-    box.append(reihe, meldung, link, punkte);
+    punkte.append(steinZeichen("a"), el("span", "", TURNIER ? "Warte auf jemanden" : "Warte auf dein Gegenüber"), el("span", "vr-denkt", "…"));
+    if (TURNIER) {
+      // Im Turnier ist nichts zu schicken: Die anderen sehen den Knopf
+      // «Mit … spielen» von selbst. Code und Link nur für den Notfall.
+      const name = meinName() || d.a?.name || "du";
+      box.append(punkte,
+        el("h2", "vr-karte-titel", "Die anderen sehen jetzt:"),
+        el("p", "vr-vorschau-knopf", `Mit ${name} spielen`),
+        el("p", "vr-hinweis", "Sobald jemand darauf tippt, geht es los – hier und dort."));
+      const reihe = el("div", "vr-knoepfe");
+      reihe.append(abbrechen);
+      const mehr = el("details", "vr-mehr");
+      const innen = el("div", "vr-mehr-innen");
+      const knoepfe = el("div", "vr-knoepfe");
+      knoepfe.append(teilenKnopf);
+      innen.append(code, knoepfe, meldung, link);
+      mehr.append(el("summary", "vr-mehr-knopf", "Code und Link"), innen);
+      box.append(reihe, mehr);
+    } else {
+      box.append(el("h2", "vr-karte-titel", "Wer spielt mit?"),
+        el("p", "vr-hinweis", "Schick den Link – oder sag den Code. Sobald jemand da ist, geht es los."), code);
+      const reihe = el("div", "vr-knoepfe");
+      reihe.append(teilenKnopf, abbrechen);
+      box.append(reihe, meldung, link, punkte);
+    }
     ansicht("lobby", box);
     S.wirt.dataset.code = String(d.code || "");
     document.title = "Warte … · Viererreihe";
   }
+
 
   async function duellZug(c) {
     const db = S.db;

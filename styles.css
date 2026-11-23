@@ -8960,7 +8960,10 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 .vr-karte-titel { margin: 0; font-size: 1.18rem; font-weight: 900; letter-spacing: -0.01em; }
 .vr-hinweis { margin: 0; color: var(--ar-leise); font-weight: 600; line-height: 1.45; }
 
-.vr-stufen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.vr-stufen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) {
+  .vr-stufen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .vr-stufe {
   display: flex;
   flex-direction: column;
@@ -8982,6 +8985,7 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 }
 .vr-stufe:active { transform: scale(0.97); }
 .vr-stufe:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.vr-stufe.ist-leicht { --vr-ton: #2fa9c9; --vr-ton-tief: #19708c; }
 .vr-stufe.ist-einfach { --vr-ton: #34b27b; --vr-ton-tief: #1d7a52; }
 .vr-stufe.ist-mittel { --vr-ton: #f0913f; --vr-ton-tief: #b85a1a; }
 .vr-stufe.ist-schwer { --vr-ton: #e4485d; --vr-ton-tief: #9c2338; }
@@ -9025,6 +9029,73 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 .vr-weiter { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 10px; border-top: 1px solid var(--ar-linie); }
 .vr-weiter-titel { margin: 0; color: var(--ar-leise); font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
 .vr-weiter-knopf { gap: 8px; }
+
+/* Im Turnier: wer wartet, als grosser Knopf – so gross, dass ihn auch ein
+   Kind findet, das noch nicht liest. */
+.vr-wartende { display: flex; flex-direction: column; gap: 10px; }
+.vr-wartende:empty { display: none; }
+.vr-wartet-knopf {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 2px solid var(--vr-a);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(254, 121, 113, 0.32), transparent 60%),
+    rgba(254, 121, 113, 0.12);
+  color: var(--ar-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(254, 121, 113, 0.5);
+  animation: vr-ruft 1.6s ease-out infinite;
+}
+.vr-wartet-knopf:active { transform: scale(0.98); }
+.vr-wartet-knopf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+@keyframes vr-ruft {
+  0% { box-shadow: 0 0 0 0 rgba(254, 121, 113, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(254, 121, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(254, 121, 113, 0); }
+}
+.vr-wartet-knopf .vr-wartet-stein { font-size: 2.2rem; }
+.vr-wartet-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vr-wartet-text strong { font-size: 1.3rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr-wartet-text span { color: var(--ar-leise); font-weight: 700; font-size: 0.9rem; }
+.vr-wartet-los {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--vr-a);
+  color: #2a0d0b;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.vr-karte-live.ist-wartet { border-color: rgba(254, 121, 113, 0.45); }
+.vr-mehr { border-top: 1px solid var(--ar-linie); padding-top: 8px; }
+.vr-mehr-knopf {
+  cursor: pointer;
+  color: var(--ar-leise);
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding: 6px 0;
+  list-style-position: inside;
+}
+.vr-mehr[open] .vr-mehr-knopf { margin-bottom: 8px; }
+.vr-mehr .vr-code { border-top: 0; padding-top: 0; }
+.vr-mehr-innen { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Was die anderen jetzt sehen: der Knopf, nur gezeigt. */
+.vr-vorschau-knopf {
+  margin: 0;
+  padding: 14px 22px;
+  border: 2px solid var(--vr-a);
+  border-radius: 20px;
+  background: rgba(254, 121, 113, 0.12);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
 
 /* --- Die Partie --- */
 .vr-partie {
@@ -9247,6 +9318,8 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 .vr-fehler-text { margin: 0; font-weight: 700; line-height: 1.45; }
 
 @media (prefers-reduced-motion: reduce) {
+  .vr-wartet-knopf,
+  .ar-vr-kachel.ist-wartet,
   .vr-vorschau,
   .vr-wartet .vr-mini-stein,
   .vr-stein.ist-sieg::after,
@@ -9335,6 +9408,63 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Auf der Turnierseite oben, solange jemand wartet: ein grosser Knopf, ein
+   Tipp führt direkt ans Brett (turnier.js, rufeZeichnen). */
+.tn-vr-rufe { order: 4; flex: 1 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.tn-vr-rufe:empty { display: none; }
+/* Breit steht der Kopf sonst in einer Zeile – mit einem Ruf bekommt er eine
+   zweite. */
+@media (min-width: 900px), (orientation: landscape) and (max-height: 600px) {
+  .ar-seite.ist-turnier .ar-kopf:has(> .tn-vr-rufe:not(:empty)) { flex-wrap: wrap; padding-bottom: 10px; }
+}
+.tn-vr-ruf {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 2px solid #fe7971;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(254, 121, 113, 0.34), transparent 60%),
+    rgba(254, 121, 113, 0.14);
+  color: var(--ar-text);
+  text-decoration: none;
+  animation: vr-ruft 1.6s ease-out infinite;
+}
+.tn-vr-ruf:active { transform: scale(0.98); }
+.tn-vr-ruf:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.tn-vr-stein {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+.tn-vr-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tn-vr-text strong { font-size: 1.3rem; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-vr-text span { color: var(--ar-leise); font-weight: 700; font-size: 0.9rem; }
+.tn-vr-los { flex: 0 0 auto; padding: 10px 18px; border-radius: 999px; background: #fe7971; color: #2a0d0b; font-weight: 900; font-size: 1.05rem; }
+@media (prefers-reduced-motion: reduce) {
+  .tn-vr-ruf { animation: none; }
+}
+
+/* Wartet jemand im Turnier, leuchtet die Kachel, und oben steht der Name. */
+.ar-vr-kachel.ist-wartet { opacity: 1; outline: 3px solid var(--vr-a, #fe7971); outline-offset: -3px; animation: vr-ruft 1.6s ease-out infinite; }
+.ar-vr-kachel.ist-wartet .ar-vr-neu { background: #fe7971; color: #2a0d0b; font-size: 0.7rem; }
+/* Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne. */
+.ar-vr-kachel.ist-gross {
+  --ar-kachel-b: min(92vw, 560px);
+  align-self: center;
+  margin: 12px auto 0;
+  border-radius: 22px;
+  opacity: 1;
+}
+.ar-vr-kachel.ist-gross .ar-vr-titel { left: 18px; bottom: 16px; font-size: 1.6rem; }
+.ar-vr-kachel.ist-gross .ar-vr-neu { top: 14px; left: 14px; font-size: 0.85rem; padding: 4px 12px; }
+.ar-vr-kachel.ist-gross.ist-wartet .ar-vr-neu { font-size: 1.05rem; }
+.ar-vr-los { position: absolute; right: 16px; bottom: 12px; --mini-farbe: #7c5ce6; pointer-events: none; min-height: 48px; font-size: 1.1rem; }
 .ar-vr-neu {
   position: absolute;
   top: 6px;

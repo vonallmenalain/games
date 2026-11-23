@@ -109,6 +109,9 @@
  *     nurLive    true             gespielt wird nur im Multiplayer
  *                                 (live.js), keine Versuche dazwischen.
  *                                 Fehlt bei allen anderen.
+ *     viererreihe true            Viererreihe steht im Turnier, zum
+ *                                 Spielen zu zweit (viererreihe.js). Dann
+ *                                 darf spiele auch leer sein.
  *     aktiv      true             angehalten, wenn false
  *
  *   miniTurniere/<id>/eintraege/towerStack_mini_a7f3…
@@ -1033,6 +1036,26 @@
   // Die Multiplayer, die gerade für alle offen sind (liveOffen, live.js) –
   // für den Knopf auf der Startseite, auf demselben Weg ohne SDK. Was älter
   // ist als einen halben Tag, hat jemand zu schliessen vergessen.
+  // Wer in einem Turnier gerade bei Viererreihe auf jemanden wartet
+  // (duellOffen/<turnier>, viererreihe.js) – für die Kachel auf der
+  // Turnierseite: «Lena wartet». Auf demselben Weg ohne SDK. Gemeldet wird
+  // nur, wer noch verbunden ist (die Datenbank räumt ab, wenn nicht), und
+  // nichts, was älter ist als drei Stunden.
+  async function offeneDuelle(turnierId) {
+    const id = String(turnierId || "");
+    if (!TURNIER_ID.test(id)) return [];
+    const antwort = await fetch(`${firebaseConfig.databaseURL}/duellOffen/${id}.json`, { cache: "no-store" });
+    if (!antwort.ok) return [];
+    const d = await antwort.json();
+    if (!d || typeof d !== "object") return [];
+    const jetzt = Date.now();
+    return Object.entries(d)
+      .filter(([raum, o]) => /^[A-Z2-9]{10}$/.test(raum) && o && typeof o === "object")
+      .map(([raum, o]) => ({ raum, name: String(o.name || "").slice(0, NAME_MAX), kennung: String(o.kennung || ""), seit: Number(o.seit) || 0 }))
+      .filter((o) => o.name && jetzt - o.seit < 3 * 3600 * 1000)
+      .sort((a, b) => a.seit - b.seit);
+  }
+
   async function offeneMultiplayer() {
     const antwort = await fetch(`${firebaseConfig.databaseURL}/liveOffen.json`, { cache: "no-store" });
     if (!antwort.ok) return [];
@@ -1211,7 +1234,8 @@
       .filter(Boolean))]
       .filter((id) => !bekannt || bekannt.includes(id));
     const endeMs = Math.round(Number(d.endeMs) || 0);
-    if (!name || !spiele.length || !endeMs) return null;
+    // Ohne Spiel mit Bestenliste geht es nur, wenn Viererreihe dabei ist.
+    if (!name || (!spiele.length && d.viererreihe !== true) || !endeMs) return null;
     return {
       id: doc.id,
       name,
@@ -1229,6 +1253,7 @@
       ohneReplay: d.ohneReplay === true,
       ohneLive: d.ohneLive === true,
       nurLive: d.nurLive === true,
+      viererreihe: d.viererreihe === true,
       aktiv: d.aktiv !== false,
       spitzeWartet: d.spitzeWartet === true && !(Number(d.versuche) > 0),
       erstelltMs: Math.round(Number(d.erstelltMs) || 0),
@@ -1324,6 +1349,8 @@
     if (daten.ohneLive === true) doc.ohneLive = true;
     // Und nur, wer nur live spielen lässt.
     if (daten.nurLive === true) doc.nurLive = true;
+    // Und Viererreihe, wenn sie dabei ist.
+    if (daten.viererreihe === true) doc.viererreihe = true;
     await ref.doc(kennung).set(doc);
     return liesTurnier({ id: kennung, data: () => doc });
   }
@@ -1745,7 +1772,7 @@
     turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
-    turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, multiplayer,
+    turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, offeneDuelle, multiplayer,
     presets, speicherePreset, loeschePreset, PRESETS_MAX, PRESET_NAME_MAX,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,

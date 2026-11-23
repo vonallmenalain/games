@@ -809,14 +809,36 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   pruefe("viererreihe.html lädt kein firebase-auth – wer spielt, meldet sich nicht an", !html.includes("firebase-auth"));
   pruefe("SW kennt viererreihe.html", sw.includes('"./viererreihe.html"'));
   pruefe("Viererreihe ist kein Spiel mit Bestenliste (nicht in SPIELE, nicht in firestore.rules)",
-    !SPIELE.some((x) => x.seite === "viererreihe") && !/viererreihe|connectFour/i.test(regeln));
+    !SPIELE.some((x) => x.seite === "viererreihe") && !inRegeln.some((id) => /vierer|connectFour/i.test(id)));
   const vrJs = lies("viererreihe.js");
   pruefe("viererreihe.js baut nur auf seiner Seite", /dataset\?\.page !== "viererreihe"/.test(vrJs));
   pruefe("viererreihe.js zieht mit einer Transaktion (duellZug, duellNochmal)",
     /async function duellZug[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs) && /async function duellNochmal[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs));
   pruefe("viererreihe.js: ein Raum hat zehn Zeichen, der Code vier Ziffern",
     /const RAUM_LAENGE = 10;/.test(vrJs) && /const CODE_MUSTER = \/\^\[0-9\]\{4\}\$\/;/.test(vrJs));
-  pruefe("Die Startseite führt zu Viererreihe", /href = "\/viererreihe"/.test(miniJs));
+  // Nicht auf der Startseite, sondern im Turnier, wenn der Admin sie dazunimmt.
+  const baueStart = miniJs.match(/async function baueUebersicht[\s\S]*?\n  \}\n/)?.[0] || "";
+  pruefe("Die Startseite zeigt Viererreihe nicht", baueStart.length > 0 && !/viererreihe/i.test(baueStart));
+  const turnierJsVr = lies("turnier.js");
+  pruefe("Die Turnierseite stellt Viererreihe hin, wenn das Turnier sie hat (vorne in der Zeile oder als Karte)",
+    /href = `\/viererreihe\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
+    && /vorne: viererKachel/.test(turnierJsVr) && /viererreiheKachel\?\.\(t\.id, \{ gross: true \}\)/.test(turnierJsVr));
+  pruefe("Die Turnierseite fragt, wer wartet (cloud.js, offeneDuelle)",
+    /async function offeneDuelle\(turnierId\)[\s\S]*?duellOffen\//.test(lies("cloud.js")) && /offeneDuelle\?\.\(t\.id\)/.test(turnierJsVr));
+  pruefe("Die Turnier-App lässt Viererreihe aus dem Turnier zu, und der Weg zurück führt ins Turnier",
+    /hier === "viererreihe" && p\.has\("turnier"\)/.test(turnierJsVr) && /if \(!spielHier\(\) && seite\(\) !== "viererreihe"\) return null;/.test(turnierJsVr));
+  pruefe("Viererreihe behält das Turnier in jeder Adresse", /if \(TURNIER\) p\.set\("turnier", TURNIER\);/.test(vrJs));
+  pruefe("Im Turnier meldet sich, wer wartet – und die Datenbank nimmt es weg, wenn die Verbindung abreisst",
+    /function offenMelden[\s\S]*?onDisconnect\(\)\.remove\(\)/.test(vrJs) && /function offenWeg/.test(vrJs));
+  pruefe("Turniere mit Viererreihe: Regel, Formular und cloud.js kennen viererreihe",
+    /d\.get\("viererreihe", false\) is bool/.test(regeln) && /"viererreihe"/.test(regeln.match(/hasOnly\(\["name", "beschreibung"[\s\S]*?\]\)/)?.[0] || "")
+    && /\(d\.spiele\.size\(\) > 0 \|\| d\.get\("viererreihe", false\) == true\)/.test(regeln)
+    && /viererreihe: vierer\.checked/.test(lies("admin.js")) && /viererreihe: d\.viererreihe === true/.test(lies("cloud.js"))
+    && /if \(daten\.viererreihe === true\) doc\.viererreihe = true;/.test(lies("cloud.js")));
+  const offenRegel = liveRegeln?.duellOffen?.$turnier;
+  pruefe("Die Regeln der Wartenden: lesen je Turnier, eintragen nur für den eigenen Raum, solange er nicht voll ist",
+    /\{6,48\}/.test(offenRegel?.[".read"] || "") && liveRegeln?.duellOffen?.[".read"] === undefined
+    && /child\('b'\)\.exists\(\)/.test(offenRegel?.$raum?.[".write"] || "") && /child\('kennung'\)\.val\(\)/.test(offenRegel?.$raum?.[".validate"] || ""));
   const duell = liveRegeln?.duell?.$raum;
   pruefe("Die Regeln kennen das Duell: lesen mit dem Raum, kein Auflisten, nichts Fremdes",
     Boolean(duell) && /\{10\}/.test(duell[".read"] || "") && liveRegeln?.duell?.[".read"] === undefined && duell.$anderes?.[".validate"] === false);
@@ -848,14 +870,15 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       const b = V.neuesBrett();
       let p = 1;
       for (let zug = 0; zug < 42; zug += 1) {
-        const c = V.computerZug(b, p, V.STUFEN[partie % 2], { zufall: wuerfel, zeit: 30 });
+        const c = V.computerZug(b, p, V.STUFEN[partie % 3], { zufall: wuerfel, zeit: 30 });
         if (!V.frei(b, c)) { legal = false; break; }
         const r = V.setze(b, c, p);
         if (V.viererBei(b, c, r)) break;
         p = 3 - p;
       }
     }
-    pruefe("Viererreihe: Einfach und Mittel setzen in 30 Partien nur in freie Spalten", legal);
+    pruefe("Viererreihe: Ganz leicht, Einfach und Mittel setzen in 30 Partien nur in freie Spalten", legal);
+    pruefe("Viererreihe: vier Stufen, von ganz leicht bis schwer", JSON.stringify([...V.STUFEN]) === JSON.stringify(["leicht", "einfach", "mittel", "schwer"]));
     const schwer = (zuege) => { const l = V.ausZuegen(zuege, 1); return V.computerZug(l.brett, l.amZug, "schwer", { zufall: wuerfel, zeit: 150 }); };
     // 061626: Rot hat unten 0, 1, 2 – und Gold dreimal in Spalte 6. Rot ist
     // dran und gewinnt mit 3. Einen Stein vorher (06162) ist Gold dran und

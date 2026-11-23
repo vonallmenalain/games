@@ -1720,6 +1720,7 @@
       ohneGeist: false,
       ohneReplay: false,
       ohneLive: false,
+      viererreihe: false,
       aktiv: true,
       spitzeWartet: false,
     };
@@ -2103,6 +2104,17 @@
     const nurLiveText = el("span", "adm-option-text");
     nurLiveText.append(el("strong", "", "Nur im Multiplayer spielen"), el("small", "", "Gespielt wird nur in Multiplayern, die zu diesem Turnier gehören (Knopf «Multiplayer» beim Turnier). Dazwischen gibt es keine Versuche; die Gesamtwertung zählt nur die Multiplayer."));
     nurLiveZeile.append(nurLive, nurLiveText);
+    // Viererreihe (viererreihe.js): vorne in der Zeile des Turniers, zum
+    // Spielen zu zweit oder gegen den Computer – ohne Wertung. Wer dort ein
+    // Duell eröffnet, steht bei den anderen im Turnier als «… wartet».
+    const vierer = el("input");
+    vierer.type = "checkbox";
+    vierer.checked = Boolean(t.viererreihe);
+    vierer.name = "viererreihe";
+    const viererZeile = el("label", "adm-option");
+    const viererText = el("span", "adm-option-text");
+    viererText.append(el("strong", "", "Viererreihe dazu"), el("small", "", "Vier in einer Reihe, zu zweit auf zwei Geräten oder gegen den Computer – ohne Wertung. Wer ein Duell eröffnet, steht bei allen im Turnier mit «Mitspielen». Mit Haken darf das Turnier auch ganz ohne Spiel sein."));
+    viererZeile.append(vierer, viererText);
     const aktiv = el("input");
     aktiv.type = "checkbox";
     aktiv.checked = t.aktiv;
@@ -2110,7 +2122,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, gegnerZeile, replayZeile, liveZeile, nurLiveZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, replayZeile, liveZeile, nurLiveZeile, viererZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -2146,6 +2158,7 @@
       ohneReplay: !replay.checked,
       ohneLive: !live.checked,
       nurLive: nurLive.checked,
+      viererreihe: vierer.checked,
       aktiv: aktiv.checked,
       spitzeWartet: gewaehlterWert("versuchsart") === "spitze",
     });
@@ -2189,6 +2202,7 @@
       replay.checked = !w.ohneReplay;
       live.checked = !w.ohneLive;
       nurLive.checked = Boolean(w.nurLive);
+      vierer.checked = Boolean(w.viererreihe);
       aktiv.checked = w.aktiv !== false;
       sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
     }
@@ -2265,7 +2279,7 @@
       ereignis.preventDefault();
       const daten = { ...ausDemFormular(), erstelltMs: vorlage?.erstelltMs || Date.now() };
       if (!daten.name) { sage("Ohne Namen gibt es kein Turnier.", "ist-fehler"); nameFeld.focus(); return; }
-      if (!daten.spiele.length) { sage("Mindestens ein Spiel muss dabei sein.", "ist-fehler"); return; }
+      if (!daten.spiele.length && !daten.viererreihe) { sage("Mindestens ein Spiel muss dabei sein – oder Viererreihe.", "ist-fehler"); return; }
       if (!Number.isFinite(daten.startMs) || !Number.isFinite(daten.endeMs)) { sage("Beginn und Ende brauchen ein Datum und eine Uhrzeit.", "ist-fehler"); return; }
       if (daten.endeMs <= daten.startMs) { sage("Das Ende muss nach dem Beginn liegen.", "ist-fehler"); return; }
       if (!vorlage && daten.endeMs <= Date.now()) { sage("Dieses Turnier wäre schon vorbei, bevor es jemand sieht.", "ist-fehler"); return; }
@@ -2355,7 +2369,7 @@
 
     const detail = el("div", "adm-turnier-detail");
     const eckdaten = [
-      t.spiele.map(titel).join(", "),
+      t.spiele.map(titel).join(", ") || "nur Viererreihe",
       t.spitzeWartet ? "Platz 1 wartet" : t.versuche ? `${t.versuche} ${t.versuche === 1 ? "Versuch" : "Versuche"}` : "unbegrenzt",
       t.zaehlt === "summe" ? "Versuche zusammen" : "bester Versuch",
       t.spiele.length > 1 ? (t.wertung === "prozent" ? "Prozent vom Besten" : "Platz im Schnitt") : "",
@@ -2364,6 +2378,7 @@
       t.ohneReplay ? "ohne Replays" : "",
       t.ohneLive ? "ohne Live" : "",
       t.nurLive ? "nur Multiplayer" : "",
+      t.viererreihe ? "mit Viererreihe" : "",
       aktion.abende?.length ? `${aktion.abende.length} Multiplayer` : "",
     ].filter(Boolean);
     detail.append(el("p", "adm-klein", eckdaten.join(" · ")));
