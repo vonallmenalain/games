@@ -3119,10 +3119,17 @@ von sieben gegen «Einfach» gut sechs, eines von neun gegen «Mittel» gut
 vier. Bilanz: `paare.bilanz`.
 
 **Farbcode knacken** (`farbcode.js`, die Art Mastermind): Jede versteckt
-einen Code aus vier verschiedenen Farben (von sechs: Rot, Orange, Gelb,
-Grün, Blau, Lila) – Farben antippen, «Fertig!». Dann rät jede abwechselnd
-den Code der anderen; auf jeden Versuch kommt die Antwort: grüne Punkte für
-richtige Farben am richtigen Platz, gelbe für richtige Farben anderswo. Zwei
+einen Code aus vier Farben (von sechs: Rot, Orange, Gelb, Grün, Blau, Lila);
+eine Farbe darf mehrmals vorkommen, auch viermal – 1296 mögliche Codes.
+Eingeben: eine Farbe antippen (sie bleibt gewählt, leuchtet und die Plätze
+warten auf sie), dann den Platz – in beliebiger Reihenfolge, z. B. zuerst
+den dritten; dieselbe Farbe mehrmals heisst einfach mehrere Plätze antippen.
+Nochmals auf die Farbe tippen legt sie weg; ohne Farbe leert ein Tipp den
+Platz. Dann «Fertig!». Danach rät jede abwechselnd den Code der anderen;
+auf jeden Versuch kommt die Antwort: grüne Punkte für richtige Farben am
+richtigen Platz, gelbe für richtige Farben anderswo – jede Farbe höchstens
+so oft, wie sie im Code steht (Code 1123, Versuch 3111: ein grüner, zwei
+gelbe). Zwei
 Tafeln nebeneinander: links das eigene Raten, rechts das Raten drüben auf
 den eigenen Code. Wer zuerst knackt, gewinnt – aber erst nach der ganzen
 Runde: Knackt die andere in derselben Runde auch, ist es unentschieden,
@@ -3140,11 +3147,13 @@ am Platz, 1 anderswo), `Z2516` (am Ende gezeigt).
 | Ganz leicht | rät oft drauflos, achtet manchmal auf die letzte Antwort |
 | Einfach | achtet auf die letzte Antwort, manchmal auf alle |
 | Mittel | rät meist nur Codes, die zu allen Antworten passen |
-| Schwer | wählt den Versuch, der im schlimmsten Fall am meisten verrät (wie Knuth) |
+| Schwer | beginnt mit zwei Farben je doppelt (wie 1122), wählt dann den Versuch, der im schlimmsten Fall am meisten verrät (wie Knuth); knackt jeden Code in höchstens fünf, im Schnitt 4,5 Versuchen |
 
 Viel Glück dabei: Geeicht an nachgemachten Kindern gewinnt eines von sieben
-Jahren gegen «Einfach» knapp jede zweite Partie, eines von neun gegen
-«Mittel» jede dritte, dazu kommen viele Unentschieden. Bilanz:
+Jahren gegen «Ganz leicht» drei von vier Partien, gegen «Einfach» gut zwei
+von fünf, eines von neun gegen «Mittel» jede dritte; dazu kommen manche
+Unentschieden (bei den Kleinsten gegen «Ganz leicht» fast jede zweite
+Partie, weil beide den Code in acht Versuchen oft nicht knacken). Bilanz:
 `farbcode.bilanz`.
 
 **Blitzpaar** (`blitzpaar.js`): das erste Spiel, in dem beide zugleich dran
@@ -3367,8 +3376,9 @@ Springen bis zum Ende; bei Schach: Perft, Schäfermatt, Patt in zehn
 Zügen, Rochade, en passant, Umwandlung, Wiederholung, zu wenig Material,
 und «Mittel» sieht ein Matt in einem Zug; bei Paare finden: dieselbe Saat
 mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden;
-bei Farbcode knacken: verstecken, raten, antworten, wer zuerst knackt,
-gleich viele Runden, die Codes am Ende; bei Blitzpaar: dieselbe Saat,
+bei Farbcode knacken: verstecken, raten, antworten (doppelte Farben richtig
+gezählt), wer zuerst knackt, gleich viele Runden, die Codes am Ende,
+«Schwer» knackt jeden Code in acht Versuchen; bei Blitzpaar: dieselbe Saat,
 dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
 fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
 Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden

@@ -1228,8 +1228,48 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Farbcode knacken: Zuerst verstecken beide ihren Code",
       f0.phase === "verstecken" && FC.darf(f0, "Ca", "a") && !FC.darf(f0, "Cb", "a") && lage(["Cb", "Ca"]).dran === "a" && lage(["Ca", "Cb"], "b").dran === "b");
     const f1 = lage(["Ca", "Cb"]);
-    pruefe("Farbcode knacken: Geraten werden vier verschiedene Farben von sechs",
-      FC.darf(f1, "R1234", "a") && !FC.darf(f1, "R1123", "a") && !FC.darf(f1, "R1237", "a") && !FC.darf(f1, "R123", "a") && !FC.darf(f1, "R1234", "b"));
+    pruefe("Farbcode knacken: Geraten werden vier Farben von sechs – auch doppelt, auch viermal dieselbe",
+      FC.darf(f1, "R1234", "a") && FC.darf(f1, "R1123", "a") && FC.darf(f1, "R6666", "a") && !FC.darf(f1, "R1237", "a") && !FC.darf(f1, "R1230", "a") && !FC.darf(f1, "R123", "a") && !FC.darf(f1, "R1234", "b"));
+    if (FC.fuerPruefung) {
+      const { antwort, ALLE, gueltig } = FC.fuerPruefung;
+      pruefe(`Farbcode knacken: Es gibt 6 × 6 × 6 × 6 = 1296 Codes (${ALLE.length}), alle gültig`, ALLE.length === 1296 && new Set(ALLE).size === 1296 && ALLE.every(gueltig));
+      // [Code, Versuch, am Platz, anderswo]
+      const faelle = [
+        ["1234", "1234", 4, 0], ["1234", "4321", 0, 4], ["1234", "1111", 1, 0], ["1111", "1222", 1, 0],
+        ["1122", "2211", 0, 4], ["1122", "1111", 2, 0], ["1123", "3111", 1, 2], ["5264", "2244", 2, 0],
+        ["1122", "1213", 1, 2], ["6666", "1234", 0, 0], ["3311", "1133", 0, 4], ["2215", "5222", 1, 2],
+      ];
+      const falsch = faelle.filter(([c, v, p, d]) => { const [ap, ad] = antwort(c, v); return ap !== p || ad !== d; });
+      pruefe(`Farbcode knacken: Die Antwort zählt doppelte Farben richtig – jede höchstens so oft, wie sie im Code steht (${falsch.map((f) => f.join("/")).join(", ") || "alle richtig"})`, !falsch.length);
+      // Kein Code und kein Versuch ergibt «drei am Platz, einer anderswo»,
+      // und die Antworten passen immer zusammen (gleich in beide Richtungen).
+      let stimmig = true;
+      for (let i = 0; i < ALLE.length && stimmig; i += 7) for (let j = 0; j < ALLE.length; j += 11) {
+        const [p, d] = antwort(ALLE[i], ALLE[j]);
+        const [p2, d2] = antwort(ALLE[j], ALLE[i]);
+        if (p + d > 4 || (p === 3 && d === 1) || p !== p2 || d !== d2) { stimmig = false; break; }
+      }
+      pruefe("Farbcode knacken: Jede Antwort ist möglich und gleich, egal wer rät", stimmig);
+      // «Schwer» knackt jeden Code in höchstens acht Versuchen (drüben rät
+      // jemand immer 1111 auf einen Code ohne Rot).
+      let laengste = 0;
+      let alleGeknackt = true;
+      for (let k = 0; k < 24; k += 1) {
+        const code = ALLE[(k * 211 + 17) % ALLE.length];
+        const z = ["Ca", "Cb"];
+        let l = lage(z);
+        while (!l.ende && l.phase !== "zeigen" && z.length < 60) {
+          const r = FC.computer(l, "a", "schwer", { saat: 5 });
+          const versuch = (r?.zug || r).slice(1);
+          const [p, d] = antwort(code, versuch);
+          z.push(`R${versuch}`, `A${p}${d}`, "R1111", "A00");
+          l = lage(z);
+        }
+        if (!l.geknackt.a) alleGeknackt = false;
+        laengste = Math.max(laengste, l.geknackt.a || 99);
+      }
+      pruefe(`Farbcode knacken: «Schwer» knackt jeden Code in höchstens acht Versuchen (24 Codes, längstens ${laengste})`, alleGeknackt && laengste <= 8);
+    }
     const f2 = lage(["Ca", "Cb", "R1234"]);
     pruefe("Farbcode knacken: Antworten darf, wessen Code es ist – und nur, was sein kann",
       f2.phase === "antworten" && f2.dran === "b" && FC.darf(f2, "A12", "b") && !FC.darf(f2, "A12", "a") && !FC.darf(f2, "A31", "b") && !FC.darf(f2, "A23", "b"));
