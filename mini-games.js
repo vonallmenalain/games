@@ -317,6 +317,7 @@
     { id: "paare", seite: "paare", titel: "Paare finden" },
     { id: "farbcode", seite: "farbcode", titel: "Farbcode knacken" },
     { id: "blitzpaar", seite: "blitzpaar", titel: "Blitzpaar" },
+    { id: "schatzkarte", seite: "schatzkarte", titel: "Schatzkarte & Kompass" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4357,6 +4358,17 @@
       const feld = el("span", "ar-bp-feld");
       ["\u{1F34E}", "\u{1F680}", "\u{1F422}", "\u2B50", "\u{1F33B}", "\u{1F41F}", "\u{1F680}", "\u{1F388}"].forEach((b, i) => feld.append(el("span", `ar-bp-bild${i === 1 || i === 6 ? " ist-paar" : ""}`, b)));
       bild.append(feld);
+    },
+    schatzkarte(bild) {
+      const insel = el("span", "ar-sk-insel");
+      [[1.2, 4.4], [1.8, 3.8], [2.4, 3.3], [3.0, 2.8], [3.6, 2.5]].forEach(([x, y]) => {
+        const p = el("span", "ar-sk-punkt");
+        p.style.left = `calc(var(--z) * ${x})`;
+        p.style.top = `calc(var(--z) * ${y})`;
+        insel.append(p);
+      });
+      insel.append(el("span", "ar-sk-kreuz", "\u2715"));
+      bild.append(insel);
     },
   };
 

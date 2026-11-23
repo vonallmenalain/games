@@ -157,6 +157,23 @@ const fcCode = async (g, raum, nr, sitz) => {
   await bis(() => lies().then((c) => FC_ALLE.includes(c)));
   return lies();
 };
+// Schatzkarte: die Regeln aus schatzkarte.js; eine Partie, die gelingt
+// (der Sucher folgt jedem Hinweis) oder nicht (er gräbt nur am Start).
+const SK = (() => { try { return spielAusDatei("schatzkarte.js", "schatzkarte"); } catch { return null; } })();
+async function skFolge(raum, papa, lena, beginnt, folgen) {
+  const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+  const zuege = [];
+  const g = (sitz) => (sitz === "a" ? papa : lena);
+  let l = SK.lage(zuege, { roh: "", beginnt, saat, stufe: null });
+  const liste = [];
+  while (!l.ende && zuege.length < 300) {
+    const zug = l.phase === "hinweis" ? SK.computer(l, l.dran).zug : (folgen ? `S${l.hinweis}` : "SG");
+    liste.push({ g: g(l.dran), zug });
+    zuege.push(zug);
+    l = SK.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe: null });
+  }
+  return liste;
+}
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -186,6 +203,9 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *                    (Antworten des Geräts, «bereit») – dort nicht vergleichen
  *   gleichzeitig     true: beide sind zugleich dran (Blitzpaar) – niemand
  *                    «beginnt», der Computer «setzt» nicht als Erster
+ *   gemeinsam        true: ein Spiel miteinander – statt «Papa hat gewonnen»
+ *                    heisst es bei beiden «geschafft»; remis ist dann eine
+ *                    Partie, die nicht geschafft wird (remisText)
  */
 const SPIELWEISE = {
   tictactoe: {
@@ -452,6 +472,36 @@ const SPIELWEISE = {
     gleichzeitig: true,
     schwerSpielen: false,
   },
+  schatzkarte: {
+    brett: ".zw-sk-feld",
+    tippe: (s, z) => s.locator(`.zw-sk-pfeil.ist-${z[1]}`).click(),
+    kannTippen: (s, z) => s.evaluate((art) => {
+      const l = window.LernappZwei?.test?.lage?.();
+      const ich = window.LernappZwei?.test?.sitz?.();
+      return Boolean(l && ich && l.dran === ich && (art === "H" ? l.phase === "hinweis" : l.phase === "schritt"))
+        && !document.querySelector(".zw-sk-pfeil")?.disabled;
+    }, z[0]),
+    liegt: (s) => s.evaluate(() => window.LernappZwei?.test?.zuege?.().length ?? -1),
+    // Gegen den Computer: als Kartenleserin den kürzesten Weg zeigen, als
+    // Sucherin dem Hinweis folgen – mit den Regeln aus schatzkarte.js.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a") return null;
+      if (lage.phase === "schritt") return `S${lage.hinweis}`;
+      // Die Lage kam als JSON: die Mengen wieder herstellen.
+      const insel = { ...lage.insel, fels: new Set(lage.insel.felsen), grube: new Set(lage.insel.gruben) };
+      return SK ? SK.computer({ ...lage, insel }, "a").zug : null;
+    },
+    // Papa (Karte) zeigt den Weg, Lena folgt – bis der Schatz da ist.
+    sieg: async ({ papa, lena, raum }) => skFolge(raum, papa, lena, "a", true),
+    siegZeichen: [".zw-sk-zelle.ist-gefunden", 1],
+    // Die zweite Partie: Lena hat die Karte, Papa gräbt immer nur am Start –
+    // bis die Schritte aus sind.
+    remis: async ({ papa, lena, raum }) => skFolge(raum, papa, lena, "b", false),
+    remisText: /Schritte sind aus/,
+    trenner: ".",
+    gemeinsam: true,
+    schwerSpielen: false,
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
@@ -654,7 +704,7 @@ try {
       await papa.seite.locator(".vr-neu").click();
     } else {
       const ende1 = await gegenComputer(papa, z, w, leicht);
-      pruefe(/gewonnen|Unentschieden|unentschieden/.test(ende1), `${T}: Am Ende steht, wie es ausging (${ende1})`);
+      pruefe(await papa.seite.locator(".vr-satz.ist-ende").count() === 1, `${T}: Am Ende steht, wie es ausging (${ende1})`);
       await warte(700);
       await bild(papa.seite, fotos("2-computer-ende"));
       const bilanz = await papa.seite.evaluate((schluessel) => JSON.parse(localStorage.getItem(schluessel) || "{}"), `${id}.bilanz`);
@@ -718,8 +768,13 @@ try {
       return liste;
     };
     await spiele(w.sieg, "a", 1);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /du hast gewonnen/i.test(t))), `${T}: Papa hat gewonnen – bei Papa`);
-    pruefe(await bis(() => satz(lena.seite).then((t) => /Papa hat gewonnen/.test(t))), `${T}: Papa hat gewonnen – bei Lena`);
+    if (w.gemeinsam) {
+      pruefe(await bis(() => satz(papa.seite).then((t) => /geschafft/i.test(t))), `${T}: Geschafft – bei Papa`);
+      pruefe(await bis(() => satz(lena.seite).then((t) => /geschafft/i.test(t))), `${T}: Geschafft – bei Lena`);
+    } else {
+      pruefe(await bis(() => satz(papa.seite).then((t) => /du hast gewonnen/i.test(t))), `${T}: Papa hat gewonnen – bei Papa`);
+      pruefe(await bis(() => satz(lena.seite).then((t) => /Papa hat gewonnen/.test(t))), `${T}: Papa hat gewonnen – bei Lena`);
+    }
     const [siegWahl, siegZahl] = w.siegZeichen;
     pruefe(await bis(() => lena.seite.locator(siegWahl).count().then((n) => n === siegZahl)), `${T}: Bei Lena leuchtet, womit Papa gewonnen hat`);
     await w.nachSieg?.(lena.seite, pruefe);
@@ -736,10 +791,11 @@ try {
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 3000 }), `${T}: Das Brett ist leer`);
     if (w.remis) {
       const remisListe = await spiele(w.remis, "b", 2);
-      pruefe(await bis(() => satz(papa.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Papa`);
-      pruefe(await bis(() => satz(lena.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Lena`);
+      const remisText = w.remisText || /unentschieden/i;
+      pruefe(await bis(() => satz(papa.seite).then((t) => remisText.test(t))), `${T}: ${w.gemeinsam ? "Nicht geschafft" : "Unentschieden"} – bei Papa`);
+      pruefe(await bis(() => satz(lena.seite).then((t) => remisText.test(t))), `${T}: ${w.gemeinsam ? "Nicht geschafft" : "Unentschieden"} – bei Lena`);
       const st = await (await db(`partie/${raum}/stand`)).json();
-      pruefe(st?.serie === "a" && st?.beginnt === "b" && (w.autoZuege || st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "")) && st?.nr === 1,
+      pruefe(st?.serie === (w.gemeinsam ? "g" : "a") && st?.beginnt === "b" && (w.autoZuege || st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "")) && st?.nr === 1,
         `${T}: Der Stand in der Datenbank (${JSON.stringify(st)})`);
       await bild(papa.seite, fotos("4-duell-remis"));
     }

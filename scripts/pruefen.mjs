@@ -1315,6 +1315,67 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Blitzpaar: Der Computer tippt auf jeder Stufe nur Erlaubtes und lässt sich Zeit", legal);
   }
 
+  // Miteinander (gemeinsam): Der Rahmen kennt «g» und «v» – Texte, Bilanz,
+  // Feiern, die Zahl in der Leiste.
+  pruefe("zwei.js kennt Spiele miteinander: geschafft (g) und verpasst (v)",
+    /ende === "g"\) standard = \{ text: texte\.geschafft/.test(zweiJs) && /st\.ende === "v"\) standard = \{ text: texte\.verpasst/.test(zweiJs)
+    && /\["a", "g"\]\.includes\(lage\.ende\) \? "s"/.test(zweiJs) && /S\.spiel\?\.gemeinsam\) return `\$\{x\.s\} geschafft/.test(zweiJs)
+    && /S\.spiel\.lage\(teile\(roh\), \{ roh: String\(roh \|\| ""\), beginnt, saat: Number\(saat\) \|\| 0, stufe: stufeJetzt\(\) \}\)/.test(zweiJs));
+
+  // Schatzkarte & Kompass: Hinweis und Schritt im Wechsel, Felsen halten
+  // auf, eine Grube führt zurück zum Start, Graben findet den Schatz oder
+  // kostet einen Schritt – und ein Partner, der jedem Hinweis folgt, kommt
+  // immer an.
+  const SK = angemeldet.schatzkarte;
+  if (SK) {
+    const lage = (zuege, beginnt = "a", saat = 77, stufe = null) => SK.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const s0 = lage([]);
+    const i = s0.insel;
+    pruefe("Schatzkarte: Wer beginnt, hat die Karte – erst Hinweis, dann Schritt",
+      s0.leser === "a" && s0.sucher === "b" && s0.dran === "a" && SK.darf(s0, "HN", "a") && !SK.darf(s0, "SN", "a") && !SK.darf(s0, "HN", "b")
+      && lage(["HO"]).dran === "b" && SK.darf(lage(["HO"]), "SO", "b") && SK.darf(lage(["HO"]), "SG", "b") && lage([], "b").leser === "b");
+    pruefe("Schatzkarte: Dieselbe Saat, dieselbe Insel – und es gibt immer einen sicheren Weg",
+      JSON.stringify([...lage([], "a", 77).insel.fels]) === JSON.stringify([...i.fels]) && i.schritte > i.kurz
+      && !i.fels.has(i.start) && !i.grube.has(i.start) && !i.fels.has(i.schatz) && !i.grube.has(i.schatz));
+    // Vom Start ein Schritt in jede Richtung: was passiert?
+    const n = i.n;
+    const nach = (f, d) => { const r = Math.floor(f / n) + { N: -1, S: 1, O: 0, W: 0 }[d]; const c = (f % n) + { N: 0, S: 0, O: 1, W: -1 }[d]; return r >= 0 && c >= 0 && r < n && c < n ? r * n + c : -1; };
+    let ok = true;
+    for (const d of ["N", "O", "S", "W"]) {
+      const l = lage(["H" + d, "S" + d]);
+      const ziel = nach(i.start, d);
+      const soll = ziel < 0 ? ["wasser", i.start] : i.fels.has(ziel) ? ["fels", i.start] : i.grube.has(ziel) ? ["grube", i.start] : ["schritt", ziel];
+      if (l.ereignis !== soll[0] || l.pos !== soll[1] || l.uebrig !== i.schritte - 1) ok = false;
+    }
+    pruefe("Schatzkarte: Wasser und Felsen halten auf, eine Grube führt zurück zum Start, jeder Schritt zählt", ok);
+    const leer = lage(["HG", "SG"]);
+    pruefe("Schatzkarte: Graben, wo nichts ist, kostet einen Schritt", !leer.ende && leer.ereignis === "leer" && leer.uebrig === i.schritte - 1);
+    const zuWenig = [];
+    for (let k = 0; k < i.schritte; k += 1) zuWenig.push("HG", "SG");
+    pruefe("Schatzkarte: Sind die Schritte aus, ist es nicht geschafft (v)", lage(zuWenig).ende === "v" && lage(zuWenig).dran === null);
+    let immer = true;
+    let gruben = 0;
+    for (const stufe of [null, ...Object.keys(SK.stufen)]) {
+      for (let p = 0; p < 10; p += 1) {
+        const z = [];
+        const beginnt = p % 2 ? "b" : "a";
+        let l = lage(z, beginnt, 300 + p, stufe);
+        gruben += l.insel.grube.size;
+        while (!l.ende && z.length < 400) {
+          const r = SK.computer(l, l.dran);
+          if (!SK.darf(l, r.zug, l.dran)) { immer = false; break; }
+          z.push(r.zug);
+          l = lage(z, beginnt, 300 + p, stufe);
+        }
+        if (l.ende !== "g") immer = false;
+      }
+    }
+    pruefe(`Schatzkarte: Zwei, die sich verstehen (der Computer in beiden Rollen), finden den Schatz auf jeder Insel (50 Partien, ${gruben} Gruben)`, immer);
+    pruefe("Schatzkarte: Die Stufen machen die Insel grösser, mit mehr Gruben und weniger Luft",
+      lage([], "a", 5, "leicht").insel.n < lage([], "a", 5, "schwer").insel.n
+      && lage([], "a", 5, "leicht").insel.grube.size < lage([], "a", 5, "schwer").insel.grube.size);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };
