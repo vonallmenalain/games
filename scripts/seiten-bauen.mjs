@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-14";
+export const FASSUNG = "2026-11-23-15";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -647,6 +647,11 @@ export const ZWEI = [
     seite: "wackelturm", titel: "Wackelturm zu zweit", js: ["wackelturm.js"],
     text: "Wackelturm zu zweit: Abwechselnd einen Klotz fallen lassen – zusammen so hoch, bis die Wolke erreicht ist, ohne dass der Turm kippt. Mit dem Computer als Partner oder live zu zweit.",
     kurz: "Zusammen einen Turm bauen, der nicht kippt.",
+  },
+  {
+    seite: "zwillinge", titel: "Zwillings-Labyrinth", js: ["zwillinge.js"],
+    text: "Zwillings-Labyrinth: Zwei Figuren, ein Labyrinth – Türen gehen nur auf, wenn die andere auf der Platte steht. Zusammen zum Ziel, mit dem Computer als Zwilling oder live zu zweit.",
+    kurz: "Zusammen durchs Labyrinth – haltet euch die Türen auf.",
   },
 ];
 

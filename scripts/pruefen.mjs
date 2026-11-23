@@ -1458,6 +1458,51 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Wackelturm: Zwei Computer schaffen auch den schwersten Turm (${geschafft} von 20)`, geschafft >= 18);
   }
 
+  // Zwillings-Labyrinth: Türen öffnen nur, solange jemand auf der Platte
+  // steht (oder in der Tür); in die andere hinein geht es nicht; jedes
+  // Labyrinth ist lösbar – und braucht beide.
+  const ZL = angemeldet.zwillinge;
+  if (ZL?.fuerPruefung) {
+    const { plan, LABYRINTHE, labyrinth } = ZL.fuerPruefung;
+    const lage = (zuege, stufe = "leicht", saat = 1) => ZL.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat, stufe });
+    const l0 = lage([]);
+    pruefe("Zwillings-Labyrinth: Beide sind zugleich dran, jede nur mit ihrer Figur",
+      l0.dran === "beide" && ZL.darf(l0, "aO", "a") && !ZL.darf(l0, "aO", "b") && ZL.darf(l0, "bO", "b") && !ZL.darf(l0, "aN", "a"));
+    // leicht: a kommt nur durch die Tür «!», wenn b auf Platte 1 steht.
+    pruefe("Zwillings-Labyrinth: Eine Tür ist zu – bis jemand auf ihrer Platte steht",
+      !ZL.darf(lage(["aO", "aO"]), "aO", "a") && ZL.darf(lage(["aO", "aO", "bO", "bO"]), "aO", "a"));
+    pruefe("Zwillings-Labyrinth: Wer in der Tür steht, hält sie offen",
+      ZL.darf(lage(["aO", "aO", "bO", "bO", "aO", "bW"]), "aO", "a") && !ZL.darf(lage(["aO", "aO", "bO", "bO", "aO", "aO", "bW"]), "aW", "a"));
+    let alleLoesbar = true;
+    let brauchtBeide = true;
+    for (const name of Object.keys(LABYRINTHE)) {
+      const lab = labyrinth(name);
+      const weg = plan({ lab: name, pos: { a: lab.a, b: lab.b } });
+      const z = [];
+      let l = lage(z, name);
+      for (const zug of weg) { if (!ZL.darf(l, zug, zug[0])) { alleLoesbar = false; break; } z.push(zug); l = lage(z, name); }
+      if (l.ende !== "g" || weg.length > lab.schritte) alleLoesbar = false;
+      if (new Set(weg.map((x) => x[0])).size < 2) brauchtBeide = false;
+    }
+    pruefe("Zwillings-Labyrinth: Jedes Labyrinth ist lösbar, in den Schritten, die es gibt", alleLoesbar);
+    pruefe("Zwillings-Labyrinth: Keines schafft eine allein", brauchtBeide);
+    const viele = Array(labyrinth("leicht").schritte).fill(0).map((_, i) => (i % 2 ? "aW" : "aO"));
+    pruefe("Zwillings-Labyrinth: Sind die Schritte aus, ist es nicht geschafft", lage(viele).ende === "v" && lage(viele.slice(0, -1)).ende === null);
+    let partner = true;
+    for (const name of Object.keys(LABYRINTHE)) {
+      const z = [];
+      let l = lage(z, name);
+      for (let i = 0; i < 400 && !l.ende; i += 1) {
+        const r = ZL.computer(l, i % 2 ? "b" : "a") || ZL.computer(l, i % 2 ? "a" : "b");
+        if (!r) { partner = false; break; }
+        z.push(r.zug);
+        l = lage(z, name);
+      }
+      if (l.ende !== "g") partner = false;
+    }
+    pruefe("Zwillings-Labyrinth: Zwei Computer als Zwillinge kommen in jedem Labyrinth ans Ziel", partner);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

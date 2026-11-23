@@ -10727,6 +10727,115 @@ body[data-page="wackelturm"] { overscroll-behavior: none; }
   .zw-wt-klotz.ist-neu { animation: none; }
 }
 
+/* --- Zwillings-Labyrinth (zwillinge.js) ---------------------------------------------
+   Helle Böden, dunkle Wände. Platten und Türen in drei Farben (blau, grün,
+   rosa): Eine Tür ist ein Gitter, solange niemand auf ihrer Platte steht,
+   offen nur ein Rahmen. Die Zwillinge sind runde Figuren mit Augen, in
+   Koralle (a) und Gold (b); ihre Fahnen in derselben Farbe. Ein Feld ist die
+   Breite durch --w. Darunter das eigene Steuerkreuz. */
+body[data-page="zwillinge"] { overscroll-behavior: none; }
+.vr-partie.zw-zwillinge {
+  --vr-breite: max(230px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 560px, calc((100dvh - 470px - var(--safe-top) - var(--safe-bottom)) * 11 / 7)));
+}
+.zw-zl { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; touch-action: manipulation; }
+.zw-zl .confetti-layer { z-index: 6; }
+.zw-zl-kopf { min-height: 1.3em; color: var(--ar-leise); font-weight: 850; }
+.zw-zl-schritte.ist-knapp { color: #ff9a9a; }
+.zw-zl-feld {
+  --z: calc(var(--vr-breite) / var(--w, 9));
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--w, 9), var(--z));
+  grid-template-rows: repeat(var(--h, 5), var(--z));
+  overflow: hidden;
+  border-radius: 14px;
+  background: #17132b;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+.zw-zl-zelle { position: relative; }
+.zw-zl-zelle.ist-wand { background: linear-gradient(160deg, #3a2f6b, #241c48); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3); }
+.zw-zl-zelle.ist-boden { background: #ece6ff; }
+.zw-zl-zelle.ist-f1 { --f: #3d8bff; --ft: #1d4fb0; }
+.zw-zl-zelle.ist-f2 { --f: #2ecc71; --ft: #16834a; }
+.zw-zl-zelle.ist-f3 { --f: #ff5fa2; --ft: #b02a66; }
+.zw-zl-zelle.ist-platte::after { content: ""; position: absolute; inset: 20%; border-radius: 28%; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55) 0 14%, var(--f) 45%, var(--ft) 100%); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25); transition: transform 0.15s ease; }
+.zw-zl-zelle.ist-platte.ist-gedrueckt::after { transform: scale(0.82); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 12px var(--f); }
+.zw-zl-zelle.ist-tuer.ist-zu { background: repeating-linear-gradient(90deg, var(--f) 0 16%, var(--ft) 16% 26%); box-shadow: inset 0 0 0 2px var(--ft); }
+.zw-zl-zelle.ist-tuer.ist-offen { background: #ece6ff; box-shadow: inset 0 0 0 3px var(--f); }
+.zw-zl-zelle.ist-ziel::before {
+  content: "⚑";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ton);
+  font-size: calc(var(--z) * 0.72);
+  line-height: 1;
+}
+.zw-zl-zelle.ist-ziel.ist-a { --ton: var(--vr-a-tief); }
+.zw-zl-zelle.ist-ziel.ist-b { --ton: var(--vr-b-tief); }
+/* Die Zwillinge. */
+.zw-zl-figur {
+  --ton: var(--vr-a);
+  --hell: var(--vr-a-hell);
+  --tief: var(--vr-a-tief);
+  position: absolute;
+  z-index: 2;
+  left: calc(var(--c, 0) * var(--z) + var(--z) * 0.12);
+  top: calc(var(--r, 0) * var(--z) + var(--z) * 0.12);
+  width: calc(var(--z) * 0.76);
+  height: calc(var(--z) * 0.76);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 14%, var(--ton) 50%, var(--tief) 100%);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.35);
+  transition: left 0.18s ease, top 0.18s ease;
+}
+.zw-zl-figur.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+.zw-zl-figur::before,
+.zw-zl-figur::after { content: ""; position: absolute; top: 30%; width: 22%; height: 26%; border-radius: 50%; background: radial-gradient(circle at 50% 60%, #241c48 0 40%, #fff 44%); }
+.zw-zl-figur::before { left: 22%; }
+.zw-zl-figur::after { right: 22%; }
+.zw-zl-figur.ist-ich { box-shadow: 0 0 0 3px #fff, 0 3px 10px rgba(0, 0, 0, 0.4); }
+.zw-zl-figur.ist-am-ziel { animation: zw-zl-hupf 0.7s ease-in-out infinite alternate; }
+@keyframes zw-zl-hupf { to { translate: 0 -12%; } }
+/* Das Steuerkreuz in der eigenen Farbe. */
+.zw-zl-steuer { display: grid; grid-template-columns: repeat(3, 62px); grid-template-rows: repeat(2, 54px); grid-template-areas: ". n ." "w s o"; gap: 6px; transition: opacity 0.2s ease; }
+.zw-zl-steuer.ist-aus { opacity: 0.4; }
+.zw-zl-pfeil { min-height: 0; padding: 0; border-radius: 16px; background: var(--ar-flaeche-hoch); color: var(--ar-text); font-size: 1.7rem; font-weight: 900; line-height: 1; }
+.zw-zl-pfeil:disabled { opacity: 1; cursor: default; }
+.zw-zl-pfeil.ist-N { grid-area: n; }
+.zw-zl-pfeil.ist-S { grid-area: s; }
+.zw-zl-pfeil.ist-W { grid-area: w; }
+.zw-zl-pfeil.ist-O { grid-area: o; }
+.zw-zl-steuer.ist-a .zw-zl-pfeil { background: rgba(254, 121, 113, 0.28); }
+.zw-zl-steuer.ist-b .zw-zl-pfeil { background: rgba(255, 212, 94, 0.24); }
+.zw-zl-pfeil.ist-zu { opacity: 0.4; }
+.zw-zl-pfeil:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-zwillinge { --vr-breite: max(200px, min(calc((100dvh - 110px - var(--safe-top) - var(--safe-bottom)) * 11 / 7), calc(100vw - 600px))); }
+  .zw-zl { grid-area: feld; display: grid; grid-template-columns: var(--vr-breite) auto; grid-template-areas: "kopf kopf" "feld steuer"; align-items: center; width: auto; column-gap: 14px; }
+  .zw-zl-kopf { grid-area: kopf; }
+  .zw-zl-feld { grid-area: feld; }
+  .zw-zl-steuer { grid-area: steuer; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(2, 46px); }
+}
+
+/* Im Menü: ein Stück Labyrinth, zwei Zwillinge, eine Tür. */
+.zw-zl-held { --h: clamp(20px, 6vw, 28px); flex: 0 0 auto; display: grid; grid-template-columns: repeat(5, var(--h)); grid-auto-rows: var(--h); overflow: hidden; border-radius: 10px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+.zw-zl-held-feld { position: relative; background: #ece6ff; }
+.zw-zl-held-feld.ist-wand { background: #2f2659; }
+.zw-zl-held-feld.ist-tuer { background: repeating-linear-gradient(90deg, #3d8bff 0 16%, #1d4fb0 16% 26%); }
+.zw-zl-held-feld.ist-platte::after { content: ""; position: absolute; inset: 22%; border-radius: 28%; background: #3d8bff; }
+.zw-zl-held-feld.ist-a::after,
+.zw-zl-held-feld.ist-b::after { content: ""; position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
+.zw-zl-held-feld.ist-b::after { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+.zw-zl-held-feld.ist-ziel::after { content: "⚑"; position: absolute; inset: 0; display: grid; place-items: center; color: #c63a3c; font-size: calc(var(--h) * 0.7); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-zl-figur,
+  .zw-zl-steuer { transition: none; }
+  .zw-zl-figur.ist-am-ziel { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10809,6 +10918,15 @@ body[data-page="wackelturm"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Zwillings-Labyrinth: Gänge, eine Tür, zwei Zwillinge. */
+.ar-zl-feld { position: absolute; left: calc(50% - var(--z) * 3.5); top: calc(var(--z) * 0.9); display: grid; grid-template-columns: repeat(7, var(--z)); grid-auto-rows: var(--z); overflow: hidden; border-radius: calc(var(--z) * 0.3); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.ar-zl-zelle { position: relative; background: #ece6ff; }
+.ar-zl-zelle.ist-wand { background: #2f2659; }
+.ar-zl-zelle.ist-tuer { background: repeating-linear-gradient(90deg, #3d8bff 0 16%, #1d4fb0 16% 26%); }
+.ar-zl-zelle.ist-a::after,
+.ar-zl-zelle.ist-b::after { content: ""; position: absolute; inset: 12%; border-radius: 50%; }
+.ar-zl-zelle.ist-a::after { background: #fe7971; }
+.ar-zl-zelle.ist-b::after { background: #ffd45e; }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }

@@ -44,6 +44,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     schatzkarte.html      Schatzkarte & Kompass, erzeugt
     malen.html            Malen und Raten, erzeugt
     wackelturm.html       Wackelturm zu zweit, erzeugt
+    zwillinge.html        Zwillings-Labyrinth, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -94,6 +95,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Bilder des Computers
     wackelturm.js         Wackelturm zu zweit: Himmel, Klötze, wann der Turm
                           kippt, ein Computer als Partner
+    zwillinge.js          Zwillings-Labyrinth: vier Labyrinthe, Türen und
+                          Platten, ein Computer als Zwilling
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2908,6 +2911,7 @@ Gerät:
 | Schatzkarte & Kompass | `/schatzkarte` | `schatzkarte.js` |
 | Malen und Raten | `/malen` | `malen.js` |
 | Wackelturm zu zweit | `/wackelturm` | `wackelturm.js` |
+| Zwillings-Labyrinth | `/zwillinge` | `zwillinge.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3255,6 +3259,25 @@ fallen lassen): Eines von fünf Jahren schafft mit ihm «Ganz leicht» etwa
 acht von zehn Mal, eines von neun «Schwer» gut jedes zweite. Bilanz:
 `wackelturm.bilanz`.
 
+**Zwillings-Labyrinth** (`zwillinge.js`, miteinander, beide zugleich dran):
+zwei Figuren – runde Zwillinge mit Augen, Koralle und Gold – in einem
+Labyrinth. Jede steuert ihre eigene mit dem Steuerkreuz (oder den
+Pfeiltasten) zu ihrer Fahne. Türen in drei Farben gehen nur auf, solange
+jemand auf der Platte gleicher Farbe steht (oder in der Tür selbst – eine
+Tür schliesst sich nicht über jemandem); in das Feld der anderen kommt man
+nicht. Darum muss man sich gegenseitig die Türen aufhalten, oft im Wechsel.
+Stehen beide auf ihrer Fahne, ist es geschafft; gehen die Schritte aus
+(doppelt so viele wie der kürzeste gemeinsame Weg, und zehn dazu), nicht.
+Ein Zug: `aN` – wer und wohin (N, O, S, W).
+
+Vier Labyrinthe, je eine Stufe (im Duell eines der beiden mittleren, aus
+der Saat): «Ganz leicht» zwei Gänge, zwei Türen (12 Schritte zusammen);
+«Einfach» ums Eck (18); «Mittel» abwechselnd aufhalten (24); «Schwer» drei
+Türen (32). Der Computer als Zwilling sucht den kürzesten gemeinsamen Weg
+(Breitensuche über beide Plätze) und macht nur einen Schritt, der ihn
+verkürzt – sonst wartet er, bis man selbst geht; so verlässt er nie zu früh
+eine Platte. Bilanz: `zwillinge.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3352,7 +3375,9 @@ Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
 den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der Saat,
 wer malt, drei Versuche, vier von sechs, und der Live-Ort in den Regeln;
 bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
-schaffen auch den schwersten),
+schaffen auch den schwersten; beim Zwillings-Labyrinth: Türen, Platten,
+jedes Labyrinth lösbar und keines allein, die Schritte, zwei Computer
+kommen überall ans Ziel),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
