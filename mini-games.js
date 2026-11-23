@@ -312,6 +312,7 @@
     { id: "tictactoe", seite: "tictactoe", titel: "Tic Tac Toe" },
     { id: "schiffe", seite: "schiffe", titel: "Schiffe versenken" },
     { id: "kaesekaestchen", seite: "kaesekaestchen", titel: "Käsekästchen" },
+    { id: "muehle", seite: "muehle", titel: "Mühle" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4316,6 +4317,17 @@
       feld.append(el("span", "ar-kk-box ist-a"), el("span", "ar-kk-box ist-b"),
         el("span", "ar-kk-strich ist-1"), el("span", "ar-kk-strich ist-2"), el("span", "ar-kk-strich ist-3"));
       bild.append(feld);
+    },
+    muehle(bild) {
+      const brett = el("span", "ar-mh-brett");
+      brett.append(el("span", "ar-mh-quadrat"));
+      [[12, 12, "a"], [50, 12, "a"], [88, 12, "a"], [25, 50, "b"], [75, 75, "b"], [62, 38, "b"]].forEach(([x, y, sitz]) => {
+        const stein = el("span", `ar-mh-stein ist-${sitz}`);
+        stein.style.left = `${x}%`;
+        stein.style.top = `${y}%`;
+        brett.append(stein);
+      });
+      bild.append(brett);
     },
   };
 

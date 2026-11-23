@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
 import { ZWEI } from "./seiten-bauen.mjs";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
@@ -110,6 +111,42 @@ const KK_REMIS = (() => {
   }
   return null;
 })();
+
+// --- Mühle: eine Partie, die a gewinnt – mit den Regeln aus muehle.js, ---------------
+// gespielt vom Computer selbst («Mittel» gegen «Ganz leicht», mit festem
+// Zufall, damit es jedes Mal dieselbe ist).
+function spielAusDatei(datei, seite) {
+  const kasten = vm.createContext({ window: {}, document: { body: { dataset: { page: seite } } } });
+  vm.runInContext("Math.random = (() => { let t = 20261123; return () => { t = (Math.imul(t, 1103515245) + 12345) >>> 0; return t / 4294967296; }; })();", kasten);
+  let spiel = null;
+  kasten.window.LernappZwei = { starte: (s) => { spiel = s; }, el: () => ({}), anderer: (s) => (s === "a" ? "b" : "a") };
+  vm.runInContext(readFileSync(path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), datei), "utf8"), kasten);
+  return spiel;
+}
+const MH_SIEG = (() => {
+  const M = spielAusDatei("muehle.js", "muehle");
+  if (!M) return null;
+  for (let versuch = 0; versuch < 10; versuch += 1) {
+    const zuege = [];
+    let l = M.lage(zuege, { roh: "", beginnt: "a" });
+    while (!l.ende && zuege.length < 400) {
+      zuege.push(M.computer(l, l.dran, l.dran === "a" ? "mittel" : "leicht"));
+      l = M.lage(zuege, { roh: zuege.join("."), beginnt: "a" });
+    }
+    if (l.ende === "a") {
+      let dran = "a";
+      const folge = zuege.map((zug, i) => {
+        const vorher = M.lage(zuege.slice(0, i), { roh: zuege.slice(0, i).join("."), beginnt: "a" });
+        dran = vorher.dran;
+        return { sitz: dran, zug };
+      });
+      return { folge, steineA: l.brett.filter((x) => x === "a").length };
+    }
+  }
+  return null;
+})();
+// Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
+const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); return [m[1], m[2], m[3]].filter((x) => x !== undefined); };
 
 // --- Was jedes Spiel wissen muss --------------------------------------------------
 /*
@@ -230,7 +267,29 @@ const SPIELWEISE = {
     remis: KK_REMIS ? ({ papa, lena }) => KK_REMIS.folge.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })) : null,
     trenner: ".",
   },
+  muehle: {
+    brett: ".zw-mh-feld",
+    tippe: async (s, z) => {
+      for (const p of mhTipps(z)) {
+        await s.locator(`.zw-mh-punkt[data-punkt="${p}"]`).click();
+        await warte(60);
+      }
+    },
+    kannTippen: (s, z) => s.locator(`.zw-mh-punkt[data-punkt="${mhTipps(z)[0]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-mh-stein:not(.ist-weg):not(.ist-vorschau)").count(),
+    // Gegen den Computer: eine Mühle, wenn es geht, sonst irgendein Zug.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a" || !lage.legal?.length) return null;
+      return lage.legal.find((z) => z.includes("x")) || lage.legal[Math.floor(Math.random() * lage.legal.length)];
+    },
+    sieg: ({ papa, lena }) => (MH_SIEG?.folge || []).map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })),
+    siegZeichen: [".zw-mh-stein.ist-a:not(.ist-weg):not(.ist-vorschau)", MH_SIEG?.steineA ?? -1],
+    remis: null,
+    trenner: ".",
+    schwerSpielen: false,
+  },
 };
+if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
 if (!KK_REMIS) befundeVorab.push("Käsekästchen: Kein Unentschieden gefunden");
 

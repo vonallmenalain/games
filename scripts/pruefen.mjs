@@ -1052,6 +1052,59 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Käsekästchen: «Schwer» schlägt «Mittel» meistens (${schwerSiegt} von 16)`, schwerSiegt >= 10);
   }
 
+  // Mühle: setzen, Mühle schliessen und nehmen (nicht aus einer Mühle),
+  // ziehen, springen, verlieren – an kurzen Folgen und ganzen Partien.
+  const MH = angemeldet.muehle;
+  if (MH) {
+    const lage = (zuege, beginnt = "a") => MH.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const m1 = lage(["0", "8", "1", "9"]);
+    pruefe("Mühle: Wer eine Mühle schliesst, muss einen Stein nehmen",
+      m1.dran === "a" && !MH.darf(m1, "2", "a") && MH.darf(m1, "2x8", "a") && MH.darf(m1, "2x9", "a") && MH.darf(m1, "3", "a") && !MH.darf(m1, "3x8", "a"));
+    const m2 = lage(["0", "8", "1", "9", "2x8"]);
+    pruefe("Mühle: Der genommene Stein ist weg, die Hand zählt mit",
+      m2.brett[8] === "" && m2.brett[2] === "a" && m2.hand.a === 6 && m2.hand.b === 7 && m2.dran === "b");
+    const m3 = lage(["0", "8", "1", "9", "16", "10x16", "3", "20"]);
+    pruefe("Mühle: Aus einer Mühle darf man nicht nehmen – ausser alle stehen in Mühlen",
+      MH.darf(m3, "2x20", "a") && !MH.darf(m3, "2x8", "a") && !MH.darf(m3, "2x9", "a")
+      && MH.darf(lage(["0", "8", "1", "9", "16", "10x16"]), "2x8", "a"));
+    pruefe("Mühle: Gesetzt wird nur auf freie Punkte, nur wer dran ist",
+      !MH.darf(lage(["0"]), "0", "b") && MH.darf(lage(["0"]), "8", "b") && !MH.darf(lage(["0"]), "8", "a") && !MH.darf(lage([]), "24", "a")
+      && !MH.darf(lage([]), "3-4", "a") && lage(["0", "0"]).dran === null);
+    // Ganze Partien: jede Stufe gegen jede leichtere – alles erlaubt, jede
+    // Partie zu Ende (verloren mit zwei Steinen, ohne Zug, oder 60 Züge
+    // ohne Nehmen), und unterwegs wird gezogen und gesprungen.
+    let legal = true;
+    let zuEnde = 0;
+    let gezogen = 0;
+    let gesprungen = 0;
+    let siegeEinfach = 0;
+    for (let p = 0; p < 12 && legal; p += 1) {
+      const sa = p < 8 ? "einfach" : "leicht";
+      const sb = p < 8 ? "leicht" : "leicht";
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      let l = lage(zuege, beginnt);
+      while (!l.ende && zuege.length < 500) {
+        const z = MH.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        if (!MH.darf(l, z, l.dran)) { legal = false; break; }
+        if (z.includes("-")) {
+          gezogen += 1;
+          const [von, nach] = z.split("x")[0].split("-").map(Number);
+          const nah = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]].some(([x, y]) => [x, y].every((q) => [von % 8, nach % 8].includes(q)) && Math.floor(von / 8) === Math.floor(nach / 8))
+            || (von % 8 === nach % 8 && von % 2 === 1 && Math.abs(Math.floor(von / 8) - Math.floor(nach / 8)) === 1);
+          if (!nah) gesprungen += 1;
+        }
+        zuege.push(z);
+        l = lage(zuege, beginnt);
+      }
+      if (l.ende) zuEnde += 1;
+      if (p < 8 && l.ende === "a") siegeEinfach += 1;
+    }
+    pruefe(`Mühle: 12 Partien Computer gegen Computer – jeder Zug erlaubt, jede zu Ende, gezogen und gesprungen (${zuEnde}/12, ${gezogen} gezogen, ${gesprungen} gesprungen)`,
+      legal && zuEnde === 12 && gezogen > 0 && gesprungen > 0);
+    pruefe(`Mühle: «Einfach» schlägt «Ganz leicht» meistens (${siegeEinfach} von 8)`, siegeEinfach >= 6);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

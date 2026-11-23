@@ -36,6 +36,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     tictactoe.html        Tic Tac Toe, erzeugt
     schiffe.html          Schiffe versenken, erzeugt
     kaesekaestchen.html   Käsekästchen, erzeugt
+    muehle.html           Mühle, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -71,6 +72,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Flotte, Regeln und Computer
     kaesekaestchen.js     Käsekästchen: Punkte, Striche, Kästchen, Regeln
                           und Computer
+    muehle.js             Mühle: das Brett, setzen, ziehen, springen,
+                          nehmen, Regeln und Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2877,6 +2880,7 @@ Gerät:
 | Tic Tac Toe | `/tictactoe` | `tictactoe.js` |
 | Schiffe versenken | `/schiffe` | `schiffe.js` |
 | Käsekästchen | `/kaesekaestchen` | `kaesekaestchen.js` |
+| Mühle | `/muehle` | `muehle.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3013,6 +3017,30 @@ zweite, gegen «Mittel» jede siebte (und spielt manchmal unentschieden);
 eines von neun gegen «Mittel» vier von zehn, gegen «Schwer» kaum eine.
 Bilanz: `kaesekaestchen.bilanz`.
 
+**Mühle** (`muehle.js`): drei Quadrate mit 24 Punkten auf dunklem Violett,
+je neun Steine. Zuerst setzt jede abwechselnd einen Stein auf einen freien
+Punkt – was noch zu setzen ist, liegt als Reihe über und unter dem Brett,
+die eigenen unten. Dann zieht jede einen Stein entlang einer Linie zum
+freien Nachbarpunkt (antippen, dann das Ziel; Ringe zeigen, wohin es
+geht); wer nur noch drei Steine hat, darf springen. Drei in einer Reihe
+sind eine Mühle: Dann tippt man einen Stein des anderen an, er pocht rot,
+und er kommt weg – nicht aus einer Mühle, ausser alle stehen in Mühlen.
+Wer nur noch zwei Steine hat oder nicht mehr ziehen kann, hat verloren; 60
+Züge ohne Nehmen sind unentschieden. Ein Zug: `12` (setzen), `3-11`
+(ziehen), mit `x5` dahinter, wenn dabei Stein 5 genommen wird.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | setzt und zieht irgendwohin, schliesst eine Mühle nur selten |
+| Einfach | schliesst eine Mühle oft, denkt manchmal einen Zug voraus |
+| Mittel | denkt meist zwei Züge voraus (Mühlen, halbe Mühlen, Beweglichkeit), greift aber jeden vierten Zug daneben |
+| Schwer | denkt so weit voraus, wie es in gut einer halben Sekunde geht (Alpha-Beta, meist vier bis sechs Züge) |
+
+Geeicht an nachgemachten Kindern (Mischungen der Stufen): Eines von fünf
+Jahren gewinnt gegen «Ganz leicht» sieben von zehn Partien, eines von
+sieben gegen «Einfach» jede zweite, eines von neun gegen «Mittel» gut vier
+von zehn. Bilanz: `muehle.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3096,8 +3124,10 @@ möglichen Partien; bei Schiffe versenken: eine kleine Partie Zug für Zug,
 was erlaubt ist, und 24 ganze Partien Computer gegen Computer, in denen
 das Gerät aus seiner Flotte antwortet; bei Käsekästchen: wer ein Kästchen
 schliesst, zieht nochmal, ein Strich kann zwei schliessen, acht zu acht ist
-unentschieden, und «Schwer» schlägt «Mittel» meistens), die Regeln in `npm
-run test:rules`, und im Browser in
+unentschieden, und «Schwer» schlägt «Mittel» meistens; bei Mühle: Mühle
+schliessen und nehmen, nicht aus einer Mühle, ganze Partien mit Ziehen und
+Springen bis zum Ende), die Regeln in `npm run test:rules`, und im Browser
+in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
