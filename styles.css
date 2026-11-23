@@ -10105,6 +10105,120 @@ body[data-page="schach"] { overscroll-behavior: none; }
   .zw-sc-figur.ist-neu { animation: none; }
 }
 
+/* --- Paare finden (paare.js) ------------------------------------------------------
+   24 Karten, hochkant 4 × 6, quer 6 × 4. Die Rückseite violett gemustert,
+   die Vorderseite hell mit dem Tier; eine Karte dreht sich um (3D). Ein
+   gefundenes Paar trägt die Farbe dessen, der es gefunden hat; ein
+   Fehlversuch einen roten Rand, bis die nächste Karte aufgedeckt wird. */
+body[data-page="paare"] { overscroll-behavior: none; }
+.vr-partie.zw-paare {
+  --vr-breite: max(230px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 540px, calc((100dvh - 365px - var(--safe-top) - var(--safe-bottom)) * 4 / 6)));
+}
+.zw-pa {
+  --spalten: 4;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: var(--vr-breite);
+  max-width: 100%;
+  touch-action: manipulation;
+}
+.zw-pa .confetti-layer { z-index: 6; }
+.zw-pa-stand { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-weight: 850; }
+.zw-pa-zahl { flex: 0 1 auto; min-width: 0; max-width: 48%; overflow: hidden; padding: 4px 12px; border-radius: 999px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.zw-pa-zahl.ist-a { background: rgba(254, 121, 113, 0.18); color: #ffd5d0; }
+.zw-pa-zahl.ist-b { background: rgba(255, 212, 94, 0.16); color: #fff6cf; }
+.zw-pa-stand-mitte { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--ar-leise); font-size: 0.78rem; letter-spacing: 0.06em; text-align: center; text-overflow: clip; text-transform: uppercase; white-space: nowrap; }
+.zw-pa-feld {
+  display: grid;
+  grid-template-columns: repeat(var(--spalten), minmax(0, 1fr));
+  gap: calc(var(--vr-breite) * 0.018);
+  width: 100%;
+  perspective: 1000px;
+}
+.zw-pa-karte {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--vr-breite) / var(--spalten) * 0.16);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zw-pa-karte:disabled { opacity: 1; cursor: default; }
+.zw-pa-karte:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.zw-pa-innen { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.38s cubic-bezier(0.3, 0.7, 0.3, 1); }
+.zw-pa-karte.ist-offen .zw-pa-innen { transform: rotateY(180deg); }
+.zw-pa-rueck,
+.zw-pa-vorn {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.zw-pa-rueck {
+  border-radius: calc(var(--vr-breite) / var(--spalten) * 0.16);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.16) 0 18%, transparent 20%) 0 0 / 25% 25%,
+    linear-gradient(150deg, #8e72f2, #6a4de0 55%, #4b30bd);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+  transition: filter 0.2s ease;
+}
+.zw-pa-vorn {
+  border-radius: calc(var(--vr-breite) / var(--spalten) * 0.16);
+  background: #f4efff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  font-size: calc(var(--vr-breite) / var(--spalten) * 0.56);
+  line-height: 1;
+  transform: rotateY(180deg);
+}
+.zw-pa.ist-dran .zw-pa-karte:not(:disabled):not(.ist-offen):hover .zw-pa-rueck { filter: brightness(1.18); }
+.zw-pa-karte.ist-paar.ist-a .zw-pa-vorn { background: #ffe1dd; box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.008) var(--vr-a), 0 6px 14px rgba(0, 0, 0, 0.35); }
+.zw-pa-karte.ist-paar.ist-b .zw-pa-vorn { background: #fff3c9; box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.008) var(--vr-b), 0 6px 14px rgba(0, 0, 0, 0.35); }
+.zw-pa-karte.ist-fehl .zw-pa-vorn { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.008) rgba(255, 77, 94, 0.75), 0 6px 14px rgba(0, 0, 0, 0.35); }
+.zw-pa-karte.ist-neu .zw-pa-vorn { animation: zw-pa-hupf 0.5s ease-out 0.3s both; }
+@keyframes zw-pa-hupf { 40% { transform: rotateY(180deg) scale(1.12); } to { transform: rotateY(180deg) scale(1); } }
+/* Breiter als hoch: sechs Spalten. */
+@media (min-aspect-ratio: 1/1) {
+  .zw-pa { --spalten: 6; }
+  .vr-partie.zw-paare { --vr-breite: max(260px, min(calc(100vw - 40px - var(--safe-left) - var(--safe-right)), 760px, calc((100dvh - 290px - var(--safe-top) - var(--safe-bottom)) * 6 / 4))); }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-paare { --vr-breite: max(220px, min(calc((100dvh - 110px - var(--safe-top) - var(--safe-bottom)) * 1.5), calc(100vw - 420px))); }
+  .zw-pa { grid-area: feld; }
+}
+
+/* Im Menü: sechs Karten, ein Paar gefunden. */
+.zw-pa-held { --h: clamp(30px, 8.5vw, 40px); flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, var(--h)); grid-auto-rows: var(--h); gap: 5px; }
+.zw-pa-held-karte {
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(150deg, #8e72f2, #6a4de0 55%, #4b30bd);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  font-size: calc(var(--h) * 0.6);
+  line-height: 1;
+}
+.zw-pa-held-karte.ist-offen { background: #f4efff; }
+.zw-pa-held-karte.ist-paar { background: #ffe1dd; box-shadow: inset 0 0 0 2px var(--vr-a), 0 4px 10px rgba(0, 0, 0, 0.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-pa-innen { transition: none; }
+  .zw-pa-karte.ist-neu .zw-pa-vorn { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10187,6 +10301,26 @@ body[data-page="schach"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Paare finden: Karten, zwei davon offen – ein Paar. */
+.ar-pa-feld {
+  position: absolute;
+  left: calc(50% - var(--z) * 4.1);
+  top: calc(var(--z) * 0.6);
+  display: grid;
+  grid-template-columns: repeat(4, calc(var(--z) * 1.9));
+  grid-auto-rows: calc(var(--z) * 1.9);
+  gap: calc(var(--z) * 0.2);
+}
+.ar-pa-karte {
+  display: grid;
+  place-items: center;
+  border-radius: calc(var(--z) * 0.3);
+  background: linear-gradient(150deg, #a088f7, #5a3dd2);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  font-size: calc(var(--z) * 1.15);
+  line-height: 1;
+}
+.ar-pa-karte.ist-offen { background: #ffe1dd; box-shadow: inset 0 0 0 2px #fe7971, 0 3px 8px rgba(0, 0, 0, 0.35); }
 /* Schach: ein Stück Brett, ein König in Koralle, eine Dame in Gold. */
 .ar-sc-brett {
   position: absolute;

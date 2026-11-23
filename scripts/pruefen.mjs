@@ -1171,6 +1171,54 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Schach: «Ganz leicht» und «Einfach» ziehen nur Erlaubtes", legal);
   }
 
+  // Paare finden: dieselbe Saat, dieselbe Auslage; ein Paar bleibt und
+  // heisst nochmal; ein Fehlversuch gibt den Zug ab; sechs zu sechs ist
+  // unentschieden.
+  const PA = angemeldet.paare;
+  if (PA) {
+    const lage = (zuege, beginnt = "a", saat = 4711) => PA.lage(zuege, { roh: zuege.join("."), beginnt, saat });
+    const k1 = lage([]).karten;
+    const zaehl = new Map();
+    k1.forEach((t) => zaehl.set(t, (zaehl.get(t) || 0) + 1));
+    pruefe("Paare finden: 24 Karten, zwölf Paare – und dieselbe Saat mischt gleich, eine andere anders",
+      k1.length === 24 && zaehl.size === 12 && [...zaehl.values()].every((n) => n === 2)
+      && JSON.stringify(lage([], "a", 4711).karten) === JSON.stringify(k1) && JSON.stringify(lage([], "a", 4712).karten) !== JSON.stringify(k1));
+    const paarVon = (karten, k) => karten.findIndex((t, i) => i !== k && t === karten[k]);
+    const nicht = (karten, k) => karten.findIndex((t, i) => i !== k && t !== karten[k]);
+    const p0 = paarVon(k1, 0);
+    const l1 = lage(["0", String(p0)]);
+    const l2 = lage(["0", String(nicht(k1, 0))]);
+    pruefe("Paare finden: Ein Paar gehört dem, der es findet, und er darf nochmal; ein Fehlversuch gibt den Zug ab",
+      l1.besitz[0] === "a" && l1.besitz[p0] === "a" && l1.punkte.a === 1 && l1.dran === "a" && l2.dran === "b" && l2.punkte.a === 0);
+    pruefe("Paare finden: Eine gefundene oder schon offene Karte lässt sich nicht noch einmal aufdecken",
+      !PA.darf(l1, "0", "a") && !PA.darf(lage(["3"]), "3", "a") && PA.darf(lage(["3"]), "4", "a") && !PA.darf(lage([]), "24", "a") && !PA.darf(lage([]), "0", "b"));
+    // Sechs Paare für a, ein Fehlversuch, sechs für b: unentschieden.
+    const zuege = [];
+    const frei = new Set(k1.keys());
+    const paarNehmen = () => { const k = Math.min(...frei); const p = paarVon(k1, k); frei.delete(k); frei.delete(p); zuege.push(String(k), String(p)); };
+    for (let i = 0; i < 6; i += 1) paarNehmen();
+    const k = Math.min(...frei);
+    zuege.push(String(k), String([...frei].find((x) => k1[x] !== k1[k])));
+    for (let i = 0; i < 6; i += 1) paarNehmen();
+    const remis = lage(zuege);
+    pruefe("Paare finden: Sechs zu sechs ist unentschieden", remis.ende === "u" && remis.punkte.a === 6 && remis.punkte.b === 6);
+    let legal = true;
+    let siegeSchwer = 0;
+    for (let p = 0; p < 20 && legal; p += 1) {
+      const z = [];
+      const beginnt = p % 2 ? "a" : "b";
+      for (let l = lage(z, beginnt, 900 + p); !l.ende; l = lage(z, beginnt, 900 + p)) {
+        const r = PA.computer(l, l.dran, l.dran === "a" ? "leicht" : "schwer");
+        const zug = typeof r === "object" ? r.zug : r;
+        if (!PA.darf(l, zug, l.dran) || z.length > 400) { legal = false; break; }
+        z.push(zug);
+      }
+      if (lage(z, beginnt, 900 + p).ende === "b") siegeSchwer += 1;
+    }
+    pruefe("Paare finden: Der Computer deckt nur auf, was erlaubt ist, bis alles gefunden ist", legal);
+    pruefe(`Paare finden: «Schwer» (vergisst nichts) schlägt «Ganz leicht» fast immer (${siegeSchwer} von 20)`, siegeSchwer >= 16);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

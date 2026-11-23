@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-8";
+export const FASSUNG = "2026-11-23-9";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -617,6 +617,11 @@ export const ZWEI = [
     seite: "schach", titel: "Schach", js: ["schach.js"],
     text: "Schach mit allen Regeln: Rochade, en passant, Umwandlung, Matt und Patt. Tippe eine Figur an – Punkte zeigen, wohin sie darf. Gegen den Computer oder live zu zweit.",
     kurz: "Schach mit allen Regeln – gegen den Computer oder live zu zweit.",
+  },
+  {
+    seite: "paare", titel: "Paare finden", js: ["paare.js"],
+    text: "Paare finden: Karten aufdecken, gleiche Tiere behalten – wer mehr Paare findet, gewinnt. Gegen den Computer oder live zu zweit.",
+    kurz: "Karten aufdecken, Paare finden – gegen den Computer oder live zu zweit.",
   },
 ];
 

@@ -316,6 +316,55 @@ const SPIELWEISE = {
     schwerSpielen: false,
     computerZuege: 5,
   },
+  paare: {
+    brett: ".zw-pa-feld",
+    tippe: (s, z) => s.locator(`.zw-pa-karte[data-karte="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-pa-karte[data-karte="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-pa-karte.ist-offen").count(),
+    // Gegen den Computer: wer die Karten kennt (aus der Lage), findet jedes Paar.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a") return null;
+      const frei = lage.karten.map((_, k) => k).filter((k) => !lage.besitz[k] && k !== lage.offen);
+      if (lage.offen < 0) return String(frei[0]);
+      return String(frei.find((k) => lage.karten[k] === lage.karten[lage.offen]));
+    },
+    // Papa deckt alle zwölf Paare nacheinander auf (die Auslage kommt aus der
+    // Saat, darum steht die Folge erst im Spiel fest).
+    sieg: async ({ papa }) => {
+      const karten = await papa.seite.evaluate(() => window.LernappZwei.test.lage().karten);
+      const frei = new Set(karten.keys());
+      const folge = [];
+      while (frei.size) {
+        const k = Math.min(...frei);
+        const p = [...frei].find((x) => x !== k && karten[x] === karten[k]);
+        frei.delete(k); frei.delete(p);
+        folge.push({ g: papa, zug: String(k) }, { g: papa, zug: String(p) });
+      }
+      return folge;
+    },
+    siegZeichen: [".zw-pa-karte.ist-paar.ist-a", 24],
+    // Lena (beginnt) findet sechs Paare, deckt zwei falsche auf, Papa findet
+    // die anderen sechs.
+    remis: async ({ papa, lena }) => {
+      const karten = await lena.seite.evaluate(() => window.LernappZwei.test.lage().karten);
+      const frei = new Set(karten.keys());
+      const folge = [];
+      const paar = (g) => {
+        const k = Math.min(...frei);
+        const p = [...frei].find((x) => x !== k && karten[x] === karten[k]);
+        frei.delete(k); frei.delete(p);
+        folge.push({ g, zug: String(k) }, { g, zug: String(p) });
+      };
+      for (let i = 0; i < 6; i += 1) paar(lena);
+      const k = Math.min(...frei);
+      folge.push({ g: lena, zug: String(k) }, { g: lena, zug: String([...frei].find((x) => karten[x] !== karten[k])) });
+      for (let i = 0; i < 6; i += 1) paar(papa);
+      return folge;
+    },
+    trenner: ".",
+    // Die Prüfung kennt alle Karten – sie schlägt auch «Schwer».
+    schwerSpielen: false,
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
@@ -573,7 +622,7 @@ try {
         pruefe(await bis(() => w.kannTippen(g.seite, zug)), `${T}: ${g.name} darf in Partie ${nr} Zug ${i + 1} setzen (${zug})`);
         await w.tippe(g.seite, zug);
         // Gleich nach dem Zug kann niemand weitertippen.
-        if (i === 0) pruefe(await bis(async () => !(await w.kannTippen(g.seite, liste[1]?.zug ?? zug)), { ms: 4000 }), `${T}: Nach dem Zug wartet ${g.name}`);
+        if (i === 0 && liste[1] && liste[1].g !== g) pruefe(await bis(async () => !(await w.kannTippen(g.seite, liste[1].zug)), { ms: 4000 }), `${T}: Nach dem Zug wartet ${g.name}`);
       }
       return liste;
     };

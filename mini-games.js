@@ -314,6 +314,7 @@
     { id: "kaesekaestchen", seite: "kaesekaestchen", titel: "Käsekästchen" },
     { id: "muehle", seite: "muehle", titel: "Mühle" },
     { id: "schach", seite: "schach", titel: "Schach" },
+    { id: "paare", seite: "paare", titel: "Paare finden" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4334,6 +4335,11 @@
       const brett = el("span", "ar-sc-brett");
       brett.append(el("span", "ar-sc-figur ist-a", "\u265A\uFE0E"), el("span", "ar-sc-figur ist-b", "\u265B\uFE0E"));
       bild.append(brett);
+    },
+    paare(bild) {
+      const feld = el("span", "ar-pa-feld");
+      ["", "\u{1F436}", "", "", "", "", "\u{1F436}", ""].forEach((tier) => feld.append(el("span", `ar-pa-karte${tier ? " ist-offen" : ""}`, tier)));
+      bild.append(feld);
     },
   };
 

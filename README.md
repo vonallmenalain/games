@@ -38,6 +38,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     kaesekaestchen.html   Käsekästchen, erzeugt
     muehle.html           Mühle, erzeugt
     schach.html           Schach, erzeugt
+    paare.html            Paare finden, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -76,6 +77,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     muehle.js             Mühle: das Brett, setzen, ziehen, springen,
                           nehmen, Regeln und Computer
     schach.js             Schach: Brett, alle Regeln, Computer
+    paare.js              Paare finden: Karten, Regeln, ein Computer, der
+                          sich erinnert (oder vergisst)
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2884,6 +2887,7 @@ Gerät:
 | Käsekästchen | `/kaesekaestchen` | `kaesekaestchen.js` |
 | Mühle | `/muehle` | `muehle.js` |
 | Schach | `/schach` | `schach.js` |
+| Paare finden | `/paare` | `paare.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3068,6 +3072,28 @@ Der Zuggenerator rechnet die bekannten Perft-Zahlen genau nach (vom Start
 bis Tiefe 4, «Kiwipete» und weitere Prüfstellungen). Bilanz:
 `schach.bilanz`.
 
+**Paare finden** (`paare.js`, die Art Memory): 24 Karten, zwölf Tierpaare
+(Hund, Katze, Hase, Fuchs, Bär, Panda, Frosch, Affe, Löwe, Schwein, Kuh,
+Huhn – als Emoji), hochkant 4 × 6, quer 6 × 4. Wer dran ist, deckt zwei
+Karten auf (sie drehen sich um); ein Paar gehört ihr, trägt ihre Farbe,
+und sie darf nochmal; sonst bleiben die beiden kurz offen (roter Rand,
+einen Moment lang ist alles gesperrt) und die andere ist dran. Mehr Paare
+gewinnt, sechs zu sechs ist unentschieden. Wie die Karten liegen, kommt aus
+der Saat der Partie – beide Geräte mischen gleich. Ein Zug ist die Nummer
+einer Karte.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | merkt sich eine aufgedeckte Karte nur selten |
+| Einfach | merkt sich etwa jede zweite |
+| Mittel | merkt sich die meisten, vergisst aber, was lange her ist |
+| Schwer | vergisst nichts |
+
+Geeicht an nachgemachten Kindern (die sich auch einiges merken): Eines von
+fünf Jahren gewinnt gegen «Ganz leicht» fast neun von zehn Partien, eines
+von sieben gegen «Einfach» gut sechs, eines von neun gegen «Mittel» gut
+vier. Bilanz: `paare.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3155,8 +3181,9 @@ unentschieden, und «Schwer» schlägt «Mittel» meistens; bei Mühle: Mühle
 schliessen und nehmen, nicht aus einer Mühle, ganze Partien mit Ziehen und
 Springen bis zum Ende; bei Schach: Perft, Schäfermatt, Patt in zehn
 Zügen, Rochade, en passant, Umwandlung, Wiederholung, zu wenig Material,
-und «Mittel» sieht ein Matt in einem Zug), die Regeln in `npm run
-test:rules`, und im Browser in
+und «Mittel» sieht ein Matt in einem Zug; bei Paare finden: dieselbe Saat
+mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden),
+die Regeln in `npm run test:rules`, und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
