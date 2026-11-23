@@ -3338,13 +3338,44 @@ Stehen beide auf ihrer Fahne, ist es geschafft; gehen die Schritte aus
 (doppelt so viele wie der kürzeste gemeinsame Weg, und zehn dazu), nicht.
 Ein Zug: `aN` – wer und wohin (N, O, S, W).
 
-Vier Labyrinthe, je eine Stufe (im Duell eines der beiden mittleren, aus
-der Saat): «Ganz leicht» zwei Gänge, zwei Türen (12 Schritte zusammen);
-«Einfach» ums Eck (18); «Mittel» abwechselnd aufhalten (24); «Schwer» drei
-Türen (32). Der Computer als Zwilling sucht den kürzesten gemeinsamen Weg
-(Breitensuche über beide Plätze) und macht nur einen Schritt, der ihn
-verkürzt – sonst wartet er, bis man selbst geht; so verlässt er nie zu früh
-eine Platte. Bilanz: `zwillinge.bilanz`.
+**Jedes Mal ein neues Labyrinth.** Jede Partie hat ihr eigenes Labyrinth,
+erzeugt aus der Saat der Partie – im Duell sehen beide dasselbe. Ein Entwurf:
+Räume und Gänge (Tiefensuche über ein Raster von Räumen), ein paar Wände mehr
+auf (Schleifen, breitere Stellen), Türen nur in Engstellen, je Farbe eine
+Platte, zwei Starts und zwei Fahnen. Genommen wird ein Entwurf nur, wenn
+
+- keine allein zu ihrer Fahne kommt, solange die andere am Start steht,
+- es lösbar ist (Breitensuche über beide Plätze) und der kürzeste
+  gemeinsame Weg so lang ist, wie der Grad es will,
+- man sich dabei oft genug eine Tür aufhalten muss;
+
+sonst wird neu gewürfelt (meist ein paar Dutzend Mal, höchstens 4000, je
+Labyrinth etwa 10–100 ms). Die acht Grade:
+
+| Grad | Räume | Türen (Farben) | Weg zusammen | Türen aufhalten |
+|---|---|---|---|---|
+| 1 | 4 × 2 | 2 (2) | 10–22 | 2 |
+| 2 | 4 × 3 | 2 (2) | 16–28 | 2 |
+| 3 | 5 × 3 | 3 (2) | 20–34 | 2 |
+| 4 | 5 × 3 | 3 (3) | 24–40 | 3 |
+| 5 | 6 × 3 | 3 (3) | 28–46 | 3 |
+| 6 | 6 × 4 | 4 (3) | 32–54 | 3 |
+| 7 | 7 × 4 | 4 (3) | 36–60 | 4 |
+| 8 | 7 × 4 | 5 (3) | 40–70 | 4 |
+
+Oben im Spiel steht «Level» und der Grad. Die Stufe gibt den Anfang:
+«Ganz leicht» Level 1, «Einfach» 2, «Mittel» 3, «Schwer» 4, im Duell 2. Mit
+jedem zweiten «Nochmal» in Folge kommt ein Level dazu, höchstens vier
+(`neuePartie(stufe, { nr })` legt das in die obersten vier Bits der Saat,
+der Rest ist das Labyrinth). Dass zweimal dasselbe kommt, ist so gut wie
+ausgeschlossen. Die vier gezeichneten Labyrinthe von früher bleiben als
+Ersatz, falls einmal keines gelingt, und für die Prüfung der Regeln.
+
+Der Computer als Zwilling sucht den kürzesten gemeinsamen Weg (Breitensuche
+über beide Plätze, mit Feldern statt Texten: auch im grössten Labyrinth ein
+paar Millisekunden) und macht nur einen Schritt, der ihn verkürzt – sonst
+wartet er, bis man selbst geht; so verlässt er nie zu früh eine Platte.
+Bilanz: `zwillinge.bilanz`.
 
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
@@ -3448,7 +3479,8 @@ sechs, und der Live-Ort in den Regeln;
 bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
 schaffen auch den schwersten; beim Zwillings-Labyrinth: Türen, Platten,
 jedes Labyrinth lösbar und keines allein, die Schritte, zwei Computer
-kommen überall ans Ziel),
+kommen überall ans Ziel; je Grad zwölf erzeugte Labyrinthe, dieselbe Saat
+dasselbe Labyrinth, jede Partie ein anderes, alle zwei Partien schwerer),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

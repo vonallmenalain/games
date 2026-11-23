@@ -644,11 +644,14 @@ const SPIELWEISE = {
       return ZL.fuerPruefung.plan(l).map((zug) => ({ g: zug[0] === "a" ? papa : lena, zug }));
     },
     siegZeichen: [".zw-zl-figur.ist-am-ziel", 2],
-    // Papa läuft hin und her, bis die Schritte aus sind.
+    // Papa läuft hin und her, bis die Schritte aus sind – in eine Richtung,
+    // in die er vom Start aus gehen kann, und wieder zurück.
     remis: async ({ papa, raum }) => {
       const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
       const l = ZL.lage([], { roh: "", beginnt: "b", saat, stufe: null });
-      return Array.from({ length: l.schritte }, (_, i) => ({ g: papa, zug: i % 2 ? "aW" : "aO" }));
+      const zurueck = { N: "S", S: "N", O: "W", W: "O" };
+      const hin = ["O", "W", "N", "S"].find((d) => ZL.darf(l, `a${d}`, "a") && ZL.darf(ZL.lage([`a${d}`], { roh: `a${d}`, beginnt: "b", saat, stufe: null }), `a${zurueck[d]}`, "a"));
+      return Array.from({ length: l.schritte }, (_, i) => ({ g: papa, zug: `a${i % 2 ? zurueck[hin] : hin}` }));
     },
     remisText: /Schritte sind aus/,
     trenner: ".",
