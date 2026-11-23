@@ -1433,9 +1433,29 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Malen und Raten: sechs verschiedene Wörter, je sechs Antworten mit der richtigen – dieselbe Saat, dieselben Runden",
       m0.runden.length === 6 && woerter.size === 6 && m0.runden.every((r) => r.wahl.length === 6 && r.wahl[r.richtig] === r.wort && new Set(r.wahl).size === 6)
       && JSON.stringify(lage([], "a", 5).runden) === JSON.stringify(m0.runden));
-    pruefe("Malen und Raten: Wer beginnt, malt zuerst – dann wechselt es jede Runde; gegen den Computer malt immer er",
+    const c0 = lage([], "a", 5, "leicht");
+    pruefe("Malen und Raten: Wer beginnt, malt zuerst – dann wechselt es jede Runde, auch gegen den Computer",
       m0.maler === "a" && m0.dran === "b" && lage([`R0:${m0.runden[0].richtig}`]).maler === "b" && lage([], "b").maler === "b"
-      && lage([], "a", 5, "leicht").maler === "b" && lage([`R0:${lage([], "a", 5, "leicht").runden[0].richtig}`], "a", 5, "leicht").maler === "b");
+      && c0.maler === "a" && c0.dran === "b" && lage([`R0:${c0.runden[0].richtig}`], "a", 5, "leicht").maler === "b"
+      && lage([], "b", 5, "leicht").maler === "b");
+    pruefe("Malen und Raten: Malt der Computer, macht er keinen Zug (man rät selbst)",
+      MR.computer(lage([], "b", 5, "leicht"), "b", "leicht", { nr: 0 }) === null && MR.computer(c0, "a", "leicht", { nr: 0 }) === null);
+    if (MR.fuerPruefung) {
+      // Der Computer errät, was man malt: Er vergleicht die Zeichnung mit
+      // seinen Bildern. Seine eigenen Bilder – verschoben, kleiner, schief
+      // und ohne den letzten Strich – erkennt er unter allen zwanzig.
+      const { WOERTER, erkenne } = MR.fuerPruefung;
+      const alleWoerter = WOERTER.map((_, i) => i);
+      const verschoben = (st, k) => st.map((strich) => strich.map(([x, y]) => [300 + (x - 500) * 0.55 + k * 9, 420 + (y - 500) * 0.6 + (x - 500) * 0.05]));
+      const nichtErkannt = alleWoerter.filter((w) => erkenne(verschoben(WOERTER[w].malen(), w), alleWoerter)[0] !== w);
+      pruefe(`Malen und Raten: Der Computer erkennt alle zwanzig Bilder beim ersten Versuch, auch verschoben und schief (${nichtErkannt.map((w) => WOERTER[w].wort).join(", ") || "alle"})`, !nichtErkannt.length);
+      // Unfertig (ohne den letzten Strich) ist manches mehrdeutig – ein
+      // Ballon ohne Schnur ist auch ein Apfel. In drei Versuchen klappt es
+      // trotzdem fast immer.
+      const unfertig = alleWoerter.filter((w) => { const st = WOERTER[w].malen(); return erkenne(verschoben(st.length > 2 ? st.slice(0, -1) : st, w), alleWoerter).slice(0, 3).includes(w); });
+      pruefe(`Malen und Raten: Unfertige Bilder errät er in drei Versuchen unter zwanzig fast immer (${unfertig.length} von 20)`, unfertig.length >= 18);
+      pruefe("Malen und Raten: Ohne Zeichnung rät der Computer nicht drauflos", erkenne([], [3, 1, 2]).join() === "3,1,2");
+    }
     const falsch0 = [0, 1, 2, 3, 4, 5].filter((i) => i !== m0.runden[0].richtig);
     const m1 = lage([`R0:${falsch0[0]}`]);
     const m2 = lage(falsch0.slice(0, 3).map((i) => `R0:${i}`));

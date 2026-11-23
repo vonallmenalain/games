@@ -3182,9 +3182,10 @@ gut jede zweite Partie. Bilanz: `blitzpaar.bilanz`.
 **Miteinander.** Ein Spiel kann sich mit `gemeinsam: true` anmelden: Dann
 spielen die beiden nicht gegeneinander, sondern zusammen. Eine Partie endet
 mit `g` (geschafft) oder `v` (verpasst) – in der Serie der Datenbank wie
-jedes andere Ergebnis –, gefeiert wird bei beiden, in der Leiste steht bei
-beiden, was sie zusammen geschafft haben, und die Bilanz im Menü zählt
-«geschafft · nicht geschafft». Gegen den Computer ist er der Partner; die
+jedes andere Ergebnis –, gefeiert wird bei beiden. In der Leiste stehen keine
+Punkte gegeneinander (ein «1 : 1» ergäbe keinen Sinn), nur die beiden Namen
+mit «&»; was gerade zusammen erreicht ist, zeigt das Spiel selbst. Die
+Bilanz im Menü zählt «geschafft · nicht geschafft». Gegen den Computer ist er der Partner; die
 Stufe macht dann die Aufgabe schwerer, nicht ihn – darum bekommt `lage`
 gegen den Computer auch die Stufe mit (im Duell `null`).
 
@@ -3230,8 +3231,24 @@ Die Striche gehen nicht über die Züge, sondern über einen eigenen Ort:
 höchstens alle 180 ms; wer rät, hört zu. Ein Zug ist nur das Raten:
 `R2:3` – in Runde 2 die Antwort 3.
 
-Gegen den Computer malt er, und man rät: Für jedes Wort hat er ein Bild aus
-Kreisen, Bögen und Linien, das er Strich für Strich zeichnet.
+Oben steht, was ihr zusammen schon gefunden habt: die Bilder der erratenen
+Wörter und «2 von 4 gefunden».
+
+Gegen den Computer wechselt es ebenfalls jede Runde (wer beginnt, malt
+zuerst; die nächste Partie beginnt der andere). Malt er, zeichnet er sein
+Bild des Wortes aus Kreisen, Bögen und Linien Strich für Strich, und man
+rät. Malt man selbst, sieht man das Wort und darunter «Fertig – rate!». Der
+Computer rät, sobald genug auf dem Papier ist und drei Sekunden nichts
+dazukommt, oder sofort auf «Fertig – rate!». Liegt er daneben, steht oben,
+was er meinte («Der Computer meinte «Ball» – mal noch etwas dazu!»), und er
+rät wieder, wenn etwas dazugemalt ist (oder nach acht Sekunden). Wie er
+rät: Er legt die Zeichnung und seine Bilder der Wörter, die zur Wahl stehen,
+auf ein Raster von 32 × 32 – Grösse und Lage egal – und nimmt das Wort,
+dessen Striche im Mittel am nächsten bei denen der Zeichnung liegen (in
+beide Richtungen gemessen). An nachgemachten Kinderzeichnungen (verschoben,
+schief, wackelig, mit fehlenden Strichen) liegt er bei acht Antworten im
+ersten Versuch drei von vier Mal richtig, in drei Versuchen 19 von 20 Mal;
+was den Bildern gar nicht ähnelt, errät er natürlich seltener.
 
 | Stufe | Zur Wahl | Der Computer malt |
 |---|---|---|
@@ -3382,8 +3399,10 @@ gezählt), wer zuerst knackt, gleich viele Runden, die Codes am Ende,
 dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
 fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
 Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
-den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der Saat,
-wer malt, drei Versuche, vier von sechs, und der Live-Ort in den Regeln;
+den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der
+Saat, wer malt (auch gegen den Computer im Wechsel), er erkennt seine
+eigenen Bilder (verschoben, schief, unfertig), drei Versuche, vier von
+sechs, und der Live-Ort in den Regeln;
 bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
 schaffen auch den schwersten; beim Zwillings-Labyrinth: Türen, Platten,
 jedes Labyrinth lösbar und keines allein, die Schritte, zwei Computer

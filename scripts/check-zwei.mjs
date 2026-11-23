@@ -244,8 +244,12 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *                    (Antworten des Geräts, «bereit») – dort nicht vergleichen
  *   gleichzeitig     true: beide sind zugleich dran (Blitzpaar) – niemand
  *                    «beginnt», der Computer «setzt» nicht als Erster
- *   computerMaltImmer true: gegen den Computer beginnt immer er und macht
- *                    selbst keinen Zug (Malen und Raten: er malt, man rät)
+ *   ersterOhneZug    true: wer beginnt, macht zuerst keinen Zug, sondern
+ *                    etwas anderes (Malen und Raten: er malt) – der Computer
+ *                    «setzt» also nicht als Erster
+ *   selbstDran(lage) true, wenn man gegen den Computer etwas tun muss, das
+ *                    kein Zug ist, obwohl er dran ist (Malen: man malt, er rät)
+ *   selbst(seite, lage) das dann tun
  *   vorDemSieg({ papa, lena, raum, pruefe })  was vor dem Duell zu prüfen ist
  *   gemeinsam        true: ein Spiel miteinander – statt «Papa hat gewonnen»
  *                    heisst es bei beiden «geschafft»; remis ist dann eine
@@ -296,8 +300,9 @@ const SPIELWEISE = {
       return f === undefined ? null : `S${f}`;
     },
     vorbereiten: async (s) => {
-      // Erst wenn die Seite weiss, wo sie sitzt.
-      const muss = await bis(() => s.evaluate(() => Boolean(window.LernappZwei?.test?.lage?.()?.phase && window.LernappZwei?.test?.sitz?.())), { ms: 6000 });
+      // Erst wenn die Seite weiss, wo sie sitzt – und die neue Partie da ist
+      // (nach «Nochmal» steht kurz noch die alte, fertige auf dem Brett).
+      const muss = await bis(() => s.evaluate(() => { const l = window.LernappZwei?.test?.lage?.(); return Boolean(l?.phase && l.phase !== "ende" && window.LernappZwei?.test?.sitz?.()); }));
       if (!muss) return;
       const offen = await s.evaluate(() => {
         const l = window.LernappZwei.test.lage();
@@ -549,8 +554,25 @@ const SPIELWEISE = {
     tippe: (s, z) => s.locator(`.zw-mr-antwort[data-antwort="${z.split(":")[1]}"]`).click(),
     kannTippen: (s, z) => s.locator(`.zw-mr-antwort[data-antwort="${z.split(":")[1]}"]:not([disabled])`).count().then((n) => n === 1),
     liegt: (s) => s.evaluate(() => window.LernappZwei?.test?.zuege?.().length ?? -1),
-    // Gegen den Computer: Er malt, man rät – die Prüfung weiss die Antwort.
+    // Gegen den Computer: Malt er, rät man – die Prüfung weiss die Antwort.
     waehle: (lage) => (lage && lage.dran === "a" ? `R${lage.runde}:${lage.runden[lage.runde].richtig}` : null),
+    // Malt man selbst, malt die Prüfung das Bild des Wortes mit der Maus nach
+    // (kleiner und verschoben) und tippt «Fertig – rate!»; der Computer rät.
+    selbstDran: (lage) => Boolean(lage && !lage.ende && lage.maler === "a" && lage.dran === "b"),
+    selbst: async (seite, lage) => {
+      const wort = lage.runden[lage.runde].wort;
+      const striche = MR.fuerPruefung.WOERTER[wort].malen();
+      const box = await seite.locator(".zw-mr-leinwand").boundingBox();
+      const hin = ([x, y]) => [box.x + box.width * (0.1 + (x / 1000) * 0.75), box.y + box.height * (0.15 + (y / 1000) * 0.75)];
+      for (const strich of striche) {
+        const [x0, y0] = hin(strich[0]);
+        await seite.mouse.move(x0, y0);
+        await seite.mouse.down();
+        for (const p of strich.slice(1)) { const [x, y] = hin(p); await seite.mouse.move(x, y, { steps: 2 }); }
+        await seite.mouse.up();
+      }
+      await seite.locator(".zw-mr-fertig:not([disabled])").click({ timeout: 5000 });
+    },
     // Bevor geraten wird: Papa malt einen Strich, und Lena sieht ihn.
     vorDemSieg: async ({ papa, lena, raum, pruefe }) => {
       const box = await papa.seite.locator(".zw-mr-leinwand").boundingBox();
@@ -575,7 +597,7 @@ const SPIELWEISE = {
     remisText: /zu wenig erraten/,
     trenner: ".",
     gemeinsam: true,
-    computerMaltImmer: true,
+    ersterOhneZug: true,
     schwerSpielen: false,
   },  wackelturm: {
     brett: ".zw-wt-himmel",
@@ -789,8 +811,16 @@ async function gegenComputer(g, z, w, stufe, { maxZuege = Infinity } = {}) {
   while (Date.now() < bisSpaetestens && eigene < maxZuege) {
     if (await seite.locator(".vr-nochmal").count()) break;
     const dran = await bis(async () => (await seite.locator(".vr-nochmal").count()) > 0
-      || ["a", "beide"].includes((await lageVon(seite))?.dran), { ms: 8000 });
+      || ["a", "beide"].includes((await lageVon(seite))?.dran) || Boolean(w.selbstDran?.(await lageVon(seite))), { ms: 8000 });
     if (!dran || await seite.locator(".vr-nochmal").count()) break;
+    const lageJetzt = await lageVon(seite);
+    if (w.selbstDran?.(lageJetzt)) {
+      await w.selbst(seite, lageJetzt);
+      // Bis der Computer geantwortet hat.
+      const vorher = JSON.stringify([lageJetzt.runde, lageJetzt.falsch]);
+      await bis(async () => { const l = await lageVon(seite); return !l || l.ende || JSON.stringify([l.runde, l.falsch]) !== vorher; }, { ms: 12000 });
+      continue;
+    }
     const zug = await w.waehle(await lageVon(seite), seite);
     if (zug === null || zug === undefined) { await warte(150); continue; }
     if (!await bis(() => w.kannTippen(seite, zug), { ms: 3000 })) continue;
@@ -826,7 +856,7 @@ try {
     await papa.seite.locator(`.vr-stufe[data-stufe="${leicht}"]`).click();
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Gegen den Computer steht das Brett`);
     await w.vorbereiten?.(papa.seite);
-    if (!w.gleichzeitig && !w.computerMaltImmer) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
+    if (!w.gleichzeitig) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
     if (w.computerZuege) {
       // Nur ein paar Züge – dann neu anfangen.
@@ -847,7 +877,7 @@ try {
     await w.vorbereiten?.(papa.seite);
     if (!w.gleichzeitig) {
       pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
-      if (!w.computerMaltImmer) pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
+      if (!w.ersterOhneZug) pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
     } else pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 4000 }), `${T}: Die zweite Partie beginnt frisch`);
     await papa.seite.locator(".vr-menue-knopf").click();
     pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Zurück im Menü`);
@@ -911,7 +941,11 @@ try {
     const [siegWahl, siegZahl] = w.siegZeichen;
     pruefe(await bis(() => lena.seite.locator(siegWahl).count().then((n) => n === siegZahl)), `${T}: Bei Lena leuchtet, womit Papa gewonnen hat`);
     await w.nachSieg?.(lena.seite, pruefe);
-    pruefe((await lena.seite.locator(".vr-wer.ist-a .vr-wer-zahl").textContent()) === "1", `${T}: Die Bilanz: Papa 1`);
+    if (w.gemeinsam) {
+      // Miteinander: keine Punkte gegeneinander, nur die Namen mit «&».
+      pruefe(!(await lena.seite.locator(".vr-wer-zahl").first().isVisible()) && !(await papa.seite.locator(".vr-wer-zahl").first().isVisible()), `${T}: Miteinander steht keine Punktzahl in der Leiste`);
+      pruefe((await lena.seite.locator(".vr-leiste-mitte").textContent()) === "&", `${T}: Zwischen den Namen steht «&»`);
+    } else pruefe((await lena.seite.locator(".vr-wer.ist-a .vr-wer-zahl").textContent()) === "1", `${T}: Die Bilanz: Papa 1`);
     await warte(800);
     await bild(lena.seite, fotos("3-duell-sieg"));
 
