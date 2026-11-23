@@ -9327,7 +9327,6 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 }
 
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
-.ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
    Die Zeile zählt ihre Spiele an ar-kachel. */
 .ar-vr-kachel {
