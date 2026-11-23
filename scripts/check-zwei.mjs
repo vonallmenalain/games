@@ -145,6 +145,8 @@ const MH_SIEG = (() => {
   }
   return null;
 })();
+// Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
+const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
 const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); return [m[1], m[2], m[3]].filter((x) => x !== undefined); };
 
@@ -166,6 +168,8 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *   nachNeuladen(s, pruefe)  was nach dem Neuladen noch da sein muss
  *   schwerSpielen    false: keine Partie gegen die schwerste Stufe (dauert
  *                    zu lange, oder das Glück entscheidet mit)
+ *   computerZuege    gegen den Computer nur so viele eigene Züge, dann «Neu
+ *                    anfangen» (eine ganze Partie dauert zu lange: Schach)
  */
 const SPIELWEISE = {
   tictactoe: {
@@ -287,6 +291,30 @@ const SPIELWEISE = {
     remis: null,
     trenner: ".",
     schwerSpielen: false,
+  },
+  schach: {
+    brett: ".zw-sc-feld",
+    tippe: async (s, z) => {
+      await s.locator(`.zw-sc-zelle[data-feld="${scFeld(z.slice(0, 2))}"]`).click();
+      await s.locator(`.zw-sc-zelle[data-feld="${scFeld(z.slice(2, 4))}"]`).click();
+      if (z.length === 5) await s.locator(".zw-sc-umwandlung-knopf").nth("qrbn".indexOf(z[4])).click();
+    },
+    kannTippen: (s, z) => s.locator(`.zw-sc-zelle[data-feld="${scFeld(z.slice(0, 2))}"]:not([disabled])`).count().then((n) => n === 1),
+    // Wie viel schon gezogen ist: Nach dem ersten Zug leuchten Start und Ziel.
+    liegt: (s) => s.locator(".zw-sc-zelle.ist-letzter").count(),
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a" || !lage.legal?.length) return null;
+      const schlagen = lage.legal.filter((z) => lage.brett[scFeld(z.slice(2, 4))]);
+      return (schlagen.length ? schlagen : lage.legal)[0];
+    },
+    // Schäfermatt: Papa beginnt (Weiss) und setzt im vierten Zug matt.
+    sieg: ["e2e4", "e7e5", "d1h5", "b8c6", "f1c4", "g8f6", "h5f7"],
+    siegZeichen: [".zw-sc-zelle.ist-schach", 1],
+    // Patt in zehn Zügen (Sam Loyd) – in der zweiten Partie beginnt Lena.
+    remis: ["e2e3", "a7a5", "d1h5", "a8a6", "h5a5", "h7h5", "h2h4", "a6h6", "a5c7", "f7f6", "c7d7", "e8f7", "d7b7", "d8d3", "b7b8", "d3h7", "b8c8", "f7g6", "c8e6"],
+    trenner: ".",
+    schwerSpielen: false,
+    computerZuege: 5,
   },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
@@ -435,11 +463,12 @@ const lageVon = (seite) => seite.evaluate(() => window.LernappZwei?.test?.lage?.
 const bild = async (seite, name) => { if (BILDER) await seite.screenshot({ path: path.join(BILDER, `${name}.png`) }); };
 
 // Gegen den Computer spielen, bis es vorbei ist.
-async function gegenComputer(g, z, w, stufe) {
+async function gegenComputer(g, z, w, stufe, { maxZuege = Infinity } = {}) {
   const seite = g.seite;
   await w.vorbereiten?.(seite);
   const bisSpaetestens = Date.now() + 240000;
-  while (Date.now() < bisSpaetestens) {
+  let eigene = 0;
+  while (Date.now() < bisSpaetestens && eigene < maxZuege) {
     if (await seite.locator(".vr-nochmal").count()) break;
     const dran = await bis(async () => (await seite.locator(".vr-nochmal").count()) > 0
       || (await lageVon(seite))?.dran === "a", { ms: 8000 });
@@ -448,8 +477,10 @@ async function gegenComputer(g, z, w, stufe) {
     if (zug === null || zug === undefined) { await warte(150); continue; }
     if (!await bis(() => w.kannTippen(seite, zug), { ms: 3000 })) continue;
     await w.tippe(seite, zug);
+    eigene += 1;
     await warte(120);
   }
+  if (eigene >= maxZuege) return null;
   pruefe(await bis(() => seite.locator(".vr-nochmal").count().then((n) => n === 1), { ms: 10000 }), `${z.titel} (${stufe}): Die Partie gegen den Computer kommt zu einem Ende`);
   return satz(seite);
 }
@@ -479,14 +510,22 @@ try {
     await w.vorbereiten?.(papa.seite);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
-    const ende1 = await gegenComputer(papa, z, w, leicht);
-    pruefe(/gewonnen|Unentschieden/.test(ende1), `${T}: Am Ende steht, wie es ausging (${ende1})`);
-    await warte(700);
-    await bild(papa.seite, fotos("2-computer-ende"));
-    const bilanz = await papa.seite.evaluate((schluessel) => JSON.parse(localStorage.getItem(schluessel) || "{}"), `${id}.bilanz`);
-    const gezaehlt = (bilanz[leicht]?.s || 0) + (bilanz[leicht]?.n || 0) + (bilanz[leicht]?.u || 0);
-    pruefe(gezaehlt === 1, `${T}: Die Bilanz zählt die Partie (${JSON.stringify(bilanz)})`);
-    await papa.seite.locator(".vr-nochmal").click();
+    if (w.computerZuege) {
+      // Nur ein paar Züge – dann neu anfangen.
+      await gegenComputer(papa, z, w, leicht, { maxZuege: w.computerZuege });
+      pruefe(await bis(async () => (await lageVon(papa.seite))?.dran === "a"), `${T}: Der Computer antwortet auf jeden Zug`);
+      await bild(papa.seite, fotos("2-computer"));
+      await papa.seite.locator(".vr-neu").click();
+    } else {
+      const ende1 = await gegenComputer(papa, z, w, leicht);
+      pruefe(/gewonnen|Unentschieden|unentschieden/.test(ende1), `${T}: Am Ende steht, wie es ausging (${ende1})`);
+      await warte(700);
+      await bild(papa.seite, fotos("2-computer-ende"));
+      const bilanz = await papa.seite.evaluate((schluessel) => JSON.parse(localStorage.getItem(schluessel) || "{}"), `${id}.bilanz`);
+      const gezaehlt = (bilanz[leicht]?.s || 0) + (bilanz[leicht]?.n || 0) + (bilanz[leicht]?.u || 0);
+      pruefe(gezaehlt === 1, `${T}: Die Bilanz zählt die Partie (${JSON.stringify(bilanz)})`);
+      await papa.seite.locator(".vr-nochmal").click();
+    }
     await w.vorbereiten?.(papa.seite);
     pruefe(await bis(() => satz(papa.seite).then((t) => /Computer beginnt|Computer überlegt/.test(t))), `${T}: Die zweite Partie beginnt der Computer`);
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n >= 1), { ms: 6000 }), `${T}: Der Computer setzt als Erster`);
@@ -539,7 +578,7 @@ try {
       return liste;
     };
     await spiele(w.sieg, "a", 1);
-    pruefe(await bis(() => satz(papa.seite).then((t) => /Du hast gewonnen/.test(t))), `${T}: Papa hat gewonnen – bei Papa`);
+    pruefe(await bis(() => satz(papa.seite).then((t) => /du hast gewonnen/i.test(t))), `${T}: Papa hat gewonnen – bei Papa`);
     pruefe(await bis(() => satz(lena.seite).then((t) => /Papa hat gewonnen/.test(t))), `${T}: Papa hat gewonnen – bei Lena`);
     const [siegWahl, siegZahl] = w.siegZeichen;
     pruefe(await bis(() => lena.seite.locator(siegWahl).count().then((n) => n === siegZahl)), `${T}: Bei Lena leuchtet, womit Papa gewonnen hat`);
@@ -555,8 +594,8 @@ try {
     pruefe(await bis(() => w.liegt(papa.seite).then((n) => n === 0), { ms: 3000 }), `${T}: Das Brett ist leer`);
     if (w.remis) {
       const remisListe = await spiele(w.remis, "b", 2);
-      pruefe(await bis(() => satz(papa.seite).then((t) => /Unentschieden/.test(t))), `${T}: Unentschieden – bei Papa`);
-      pruefe(await bis(() => satz(lena.seite).then((t) => /Unentschieden/.test(t))), `${T}: Unentschieden – bei Lena`);
+      pruefe(await bis(() => satz(papa.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Papa`);
+      pruefe(await bis(() => satz(lena.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Lena`);
       const st = await (await db(`partie/${raum}/stand`)).json();
       pruefe(st?.serie === "a" && st?.beginnt === "b" && st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "") && st?.nr === 1,
         `${T}: Der Stand in der Datenbank (${JSON.stringify(st)})`);

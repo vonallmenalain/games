@@ -313,6 +313,7 @@
     { id: "schiffe", seite: "schiffe", titel: "Schiffe versenken" },
     { id: "kaesekaestchen", seite: "kaesekaestchen", titel: "Käsekästchen" },
     { id: "muehle", seite: "muehle", titel: "Mühle" },
+    { id: "schach", seite: "schach", titel: "Schach" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4327,6 +4328,11 @@
         stein.style.top = `${y}%`;
         brett.append(stein);
       });
+      bild.append(brett);
+    },
+    schach(bild) {
+      const brett = el("span", "ar-sc-brett");
+      brett.append(el("span", "ar-sc-figur ist-a", "\u265A\uFE0E"), el("span", "ar-sc-figur ist-b", "\u265B\uFE0E"));
       bild.append(brett);
     },
   };

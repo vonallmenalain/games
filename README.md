@@ -37,6 +37,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     schiffe.html          Schiffe versenken, erzeugt
     kaesekaestchen.html   Käsekästchen, erzeugt
     muehle.html           Mühle, erzeugt
+    schach.html           Schach, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -74,6 +75,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           und Computer
     muehle.js             Mühle: das Brett, setzen, ziehen, springen,
                           nehmen, Regeln und Computer
+    schach.js             Schach: Brett, alle Regeln, Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2881,6 +2883,7 @@ Gerät:
 | Schiffe versenken | `/schiffe` | `schiffe.js` |
 | Käsekästchen | `/kaesekaestchen` | `kaesekaestchen.js` |
 | Mühle | `/muehle` | `muehle.js` |
+| Schach | `/schach` | `schach.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3041,6 +3044,30 @@ Jahren gewinnt gegen «Ganz leicht» sieben von zehn Partien, eines von
 sieben gegen «Einfach» jede zweite, eines von neun gegen «Mittel» gut vier
 von zehn. Bilanz: `muehle.bilanz`.
 
+**Schach** (`schach.js`): mit allen Regeln – Rochade, en passant,
+Umwandlung (eine kleine Wahl: Dame, Turm, Läufer, Springer), Schach, Matt,
+Patt; unentschieden auch bei zu wenig Material, nach 50 Zügen ohne Schlagen
+oder Bauernzug und bei dreimal derselben Stellung. Wer eine Partie beginnt,
+spielt Weiss; die Farben der App bleiben (Koralle für a, Gold für b), und
+die eigenen Figuren stehen immer unten. Die Figuren sind Schriftzeichen
+(♚♛♜♝♞♟, immer die gefüllten, mit Textdarstellung erzwungen), gefärbt und
+mit dunklem Rand. Tippt man eine eigene Figur an, zeigen Punkte, wohin sie
+darf, Ringe, wo sie schlägt; der König im Schach glüht rot, der letzte Zug
+ist hervorgehoben, am Rand stehen Ziffern und Buchstaben, darüber und
+darunter die geschlagenen Figuren. Ein Zug wie im Schachcomputer: `e2e4`,
+`e7e8q`. Einen Helfer zum Lernen gibt es noch nicht.
+
+| Stufe | Was der Computer tut |
+|---|---|
+| Ganz leicht | zieht irgendwohin, schlägt manchmal |
+| Einfach | schaut einen Zug weit, greift aber oft daneben |
+| Mittel | schaut zwei Züge weit und rechnet Schlagabtausche zu Ende |
+| Schwer | schaut so weit, wie es in knapp einer Sekunde geht (Alpha-Beta, Figurentabellen, Schlagabtausche) |
+
+Der Zuggenerator rechnet die bekannten Perft-Zahlen genau nach (vom Start
+bis Tiefe 4, «Kiwipete» und weitere Prüfstellungen). Bilanz:
+`schach.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3126,8 +3153,10 @@ das Gerät aus seiner Flotte antwortet; bei Käsekästchen: wer ein Kästchen
 schliesst, zieht nochmal, ein Strich kann zwei schliessen, acht zu acht ist
 unentschieden, und «Schwer» schlägt «Mittel» meistens; bei Mühle: Mühle
 schliessen und nehmen, nicht aus einer Mühle, ganze Partien mit Ziehen und
-Springen bis zum Ende), die Regeln in `npm run test:rules`, und im Browser
-in
+Springen bis zum Ende; bei Schach: Perft, Schäfermatt, Patt in zehn
+Zügen, Rochade, en passant, Umwandlung, Wiederholung, zu wenig Material,
+und «Mittel» sieht ein Matt in einem Zug), die Regeln in `npm run
+test:rules`, und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein
