@@ -3214,7 +3214,20 @@ Lautsprecher gelb. Von selbst liest nichts vor. Lautsprecher gibt es:
   beim Schach, das Wort beim Malen.
 
 Vor dem Vorlesen fallen Bilder (Emoji), Anführungszeichen und
-Gedankenstriche weg. `vorlesen.js` ist der einzige Ort, der spricht
+Gedankenstriche weg.
+
+Android ist eigen: Auf einem Xiaomi-Tablet leuchtete der Lautsprecher nur
+kurz auf und blieb stumm, auf einem Samsung-Tablet klappte alles. Darum
+bricht `vorlesen.js` nur ab, was wirklich läuft, und wartet danach eine
+Viertelsekunde (gleich nach `cancel()` verschlucken manche Geräte das
+Nächste). Endet ein Vorlesen mit einem Fehler oder bevor es begonnen hat,
+versucht es den nächsten Weg: zuerst die gewählte deutsche Stimme, dann nur
+die Sprache Deutsch, zuletzt die Stimme, die das Gerät von sich aus nimmt.
+Klappt keiner, steht beim Lautsprecher ein Hinweis – meist fehlt eine
+deutsche Stimme: in den Einstellungen unter «Sprachausgabe»
+(Text-in-Sprache) die Google-Sprachausgabe wählen und Deutsch laden. In der
+Konsole sagt `LernappVorlesen.zustand()`, welche Stimmen das Gerät hat, welche
+gewählt ist und welcher Fehler zuletzt kam. `vorlesen.js` ist der einzige Ort, der spricht
 (`npm run pruefen` sieht nach); den Vorlese-Knopf der alten App gibt es
 weiterhin nicht.
 

@@ -778,12 +778,34 @@ async function geraet(name, { viewport = { width: 400, height: 820 }, mitName = 
     window.__zweiTest = { emulator };
     // Eine Sprachausgabe zum Mithören: Was vorgelesen wird, steht in
     // window.__gesprochen.
+    // window.__sprachArt: «gut» (sonst), «stumm-einmal» (das erste Vorlesen
+    // endet sofort ohne Ton, wie auf einem Xiaomi-Tablet), «nie» (keine
+    // deutsche Stimme, jedes Vorlesen scheitert).
     const gesprochen = [];
     window.__gesprochen = gesprochen;
+    window.__sprachWege = [];
+    const art = () => window.__sprachArt || "gut";
     const stimme = { lang: "de-CH", name: "Prüfung", localService: true };
+    let anzahl = 0;
     Object.defineProperty(window, "speechSynthesis", {
       configurable: true,
-      value: { speak(a) { gesprochen.push(a.text); setTimeout(() => a.onend?.(), 20); }, cancel() {}, getVoices: () => [stimme], addEventListener() {} },
+      value: {
+        speaking: false,
+        pending: false,
+        speak(a) {
+          anzahl += 1;
+          gesprochen.push(a.text);
+          window.__sprachWege.push({ lang: a.lang || "", stimme: a.voice?.name || "" });
+          if (art() === "nie") { setTimeout(() => a.onerror?.({ error: "language-unavailable" }), 10); return; }
+          if (art() === "stumm-einmal" && anzahl === 1) { setTimeout(() => a.onend?.(), 10); return; }
+          setTimeout(() => a.onstart?.(), 5);
+          setTimeout(() => a.onend?.(), 1500);
+        },
+        cancel() {},
+        resume() {},
+        getVoices: () => (art() === "nie" ? [] : [stimme]),
+        addEventListener() {},
+      },
     });
     window.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) { this.text = text; };
     try { if (mitName && !localStorage.getItem("mini.name")) localStorage.setItem("mini.name", name); } catch { /* egal */ }
@@ -843,7 +865,33 @@ async function gegenComputer(g, z, w, stufe, { maxZuege = Infinity } = {}) {
   return satz(seite);
 }
 
+// Vorlesen, wenn das Gerät sich ziert: Endet das erste Vorlesen sofort ohne
+// Ton (so auf einem Xiaomi-Tablet), versucht es der nächste Weg und spricht;
+// gibt es gar keine deutsche Stimme, steht ein Hinweis da.
+async function pruefeVorlesen(seiteName) {
+  for (const art of ["stumm-einmal", "nie"]) {
+    const g = await geraet(`Vorlesen ${art}`);
+    await g.kontext.addInitScript((a) => { window.__sprachArt = a; }, art);
+    await g.seite.goto(`${BASIS}/${seiteName}`);
+    await g.seite.locator(".vr-unter .vl-knopf").click();
+    if (art === "stumm-einmal") {
+      const ok = await bis(() => g.seite.evaluate(() => window.__sprachWege.length >= 2));
+      const wege = await g.seite.evaluate(() => window.__sprachWege);
+      pruefe(ok && wege[0].stimme === "Prüfung" && wege[1].lang === "de-DE" && !wege[1].stimme, `Vorlesen: Endet es sofort ohne Ton, spricht der nächste Weg (${JSON.stringify(wege)})`);
+      pruefe(await g.seite.locator(".vr-unter .vl-knopf.ist-spricht").count() === 1, "Vorlesen: Dann leuchtet der Lautsprecher, solange er spricht");
+      pruefe(await g.seite.locator(".vl-hinweis").count() === 0, "Vorlesen: Klappt es, steht kein Hinweis da");
+    } else {
+      pruefe(await bis(() => g.seite.locator(".vl-hinweis").isVisible(), { ms: 5000 }), "Vorlesen: Ohne deutsche Stimme steht ein Hinweis da");
+      pruefe(/deutsche Stimme/.test(await g.seite.locator(".vl-hinweis").textContent()) && /Sprachausgabe/.test(await g.seite.locator(".vl-hinweis").textContent()), "Vorlesen: Der Hinweis sagt, was fehlt und wo man es holt");
+      pruefe(await g.seite.locator(".vl-knopf.ist-spricht").count() === 0, "Vorlesen: Der Lautsprecher leuchtet dann nicht mehr");
+      pruefe((await g.seite.evaluate(() => window.__sprachWege.length)) === 2, "Vorlesen: Ohne Stimme versucht es zwei Wege (Deutsch, dann die des Geräts)");
+    }
+    await g.kontext.close();
+  }
+}
+
 try {
+  if (ZU_PRUEFEN.length) await pruefeVorlesen(ZU_PRUEFEN[0].seite);
   for (const z of ZU_PRUEFEN) {
     const w = SPIELWEISE[z.seite];
     if (!w) continue;

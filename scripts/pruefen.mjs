@@ -186,7 +186,11 @@ for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js") && n !== 
 {
   const v = lies("vorlesen.js");
   pruefe("vorlesen.js liest nur auf einen Tipp vor (knopf, sprich, stopp) und hält beim Verlassen der Seite an",
-    /window\.LernappVorlesen = \{ kann, knopf, sprich, stopp, sauber \}/.test(v) && /addEventListener\("pagehide", stopp\)/.test(v) && /lang = stimme\?\.lang \|\| "de-DE"/.test(v));
+    /window\.LernappVorlesen = \{ kann, knopf, sprich, stopp, sauber, zustand \}/.test(v) && /addEventListener\("pagehide", stopp\)/.test(v));
+  pruefe("vorlesen.js spricht auf Deutsch und hat Auswege: erst die deutsche Stimme, dann nur die Sprache, dann die des Geräts",
+    /a\.lang = stimme\.lang; a\.voice = stimme;/.test(v) && /a\.lang = "de-DE";/.test(v) && /weg \+ 1 < liste\.length/.test(v));
+  pruefe("vorlesen.js bricht nur ab, was läuft, und wartet danach kurz (Android verschluckt sonst das Nächste)",
+    /if \(!laeuft\) return;/.test(v) && /250 - \(Date\.now\(\) - abgebrochenUm\)/.test(v));
 }
 
 // --- 9. Jeder globale Name, den jemand benutzt, wird hier auch gesetzt ------

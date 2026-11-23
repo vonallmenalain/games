@@ -18,6 +18,19 @@
  *   LernappVorlesen.sprich(text)          gleich vorlesen
  *   LernappVorlesen.stopp()               aufhören
  *   LernappVorlesen.sauber(text)          was die Stimme davon liest
+ *   LernappVorlesen.zustand()             Stimmen, gewählte Stimme, letzter
+ *                                         Fehler – zum Nachsehen
+ *
+ * Android ist eigen (gesehen auf einem Xiaomi-Tablet, November 2026: der
+ * Lautsprecher leuchtete kurz auf und blieb stumm). Darum:
+ *   - abgebrochen wird nur, was wirklich läuft – und danach kurz gewartet:
+ *     Gleich nach cancel() verschlucken manche Geräte das Nächste;
+ *   - endet ein Vorlesen, bevor es begonnen hat (oder mit einem Fehler),
+ *     versucht es der nächste Weg: erst mit der gewählten deutschen Stimme,
+ *     dann nur mit der Sprache Deutsch, zuletzt mit der Stimme, die das
+ *     Gerät von sich aus nimmt;
+ *   - klappt keiner, steht neben dem Lautsprecher kurz, woran es liegen kann
+ *     (meist fehlt eine deutsche Stimme in der Sprachausgabe des Geräts).
  */
 (() => {
   "use strict";
@@ -54,14 +67,34 @@
       .trim();
   }
 
-  let jetzt = null; // { knopf, aeusserung }
+  const knopfAn = (k) => { k?.classList.add("ist-spricht"); k?.setAttribute("aria-pressed", "true"); };
+  const knopfAus = (k) => { k?.classList.remove("ist-spricht"); k?.setAttribute("aria-pressed", "false"); };
+
+  let jetzt = null;        // { knopf, nr, aeusserung }
+  let laufNr = 0;          // jedes Vorlesen hat eine Nummer; was älter ist, zählt nicht mehr
+  let abgebrochenUm = 0;   // wann zuletzt cancel() lief
+  let letzterFehler = "";
+
   function stopp() {
     if (!kann) return;
     const war = jetzt;
     jetzt = null;
-    war?.knopf?.classList.remove("ist-spricht");
-    war?.knopf?.setAttribute("aria-pressed", "false");
+    laufNr += 1;
+    knopfAus(war?.knopf);
+    let laeuft = Boolean(war);
+    try { laeuft = laeuft || synth.speaking || synth.pending; } catch { /* egal */ }
+    if (!laeuft) return;
     try { synth.cancel(); } catch { /* egal */ }
+    abgebrochenUm = Date.now();
+  }
+
+  // Die Wege, auf denen gesprochen wird – der nächste, wenn einer nicht klappt.
+  function wege() {
+    const liste = [];
+    if (stimme) liste.push((a) => { a.lang = stimme.lang; a.voice = stimme; });
+    liste.push((a) => { a.lang = "de-DE"; });
+    liste.push(() => { /* was das Gerät von sich aus nimmt */ });
+    return liste;
   }
 
   function sprich(text, knopf = null) {
@@ -69,23 +102,95 @@
     const t = sauber(text);
     stopp();
     if (!t) return false;
-    const a = new window.SpeechSynthesisUtterance(t);
-    a.lang = stimme?.lang || "de-DE";
-    if (stimme) a.voice = stimme;
-    a.rate = 0.95;
-    const fertig = () => {
-      if (jetzt?.aeusserung !== a) return;
-      jetzt = null;
-      knopf?.classList.remove("ist-spricht");
-      knopf?.setAttribute("aria-pressed", "false");
-    };
-    a.onend = fertig;
-    a.onerror = fertig;
-    jetzt = { knopf, aeusserung: a };
-    knopf?.classList.add("ist-spricht");
-    knopf?.setAttribute("aria-pressed", "true");
-    try { synth.speak(a); } catch { fertig(); return false; }
+    const nr = laufNr;
+    jetzt = { knopf, nr, aeusserung: null };
+    knopfAn(knopf);
+    hinweisWeg();
+    const liste = wege();
+    // Gleich nach cancel() kurz warten; sonst sofort (im Tipp selbst).
+    const warte = Math.max(0, 250 - (Date.now() - abgebrochenUm));
+    if (warte) window.setTimeout(() => versuche(t, knopf, nr, liste, 0), warte);
+    else versuche(t, knopf, nr, liste, 0);
     return true;
+  }
+
+  function versuche(t, knopf, nr, liste, weg) {
+    if (jetzt?.nr !== nr) return;
+    const a = new window.SpeechSynthesisUtterance(t);
+    a.rate = 0.95;
+    liste[weg](a);
+    jetzt.aeusserung = a;
+    const anfang = Date.now();
+    let begonnen = false;
+    let wache = 0;
+    let erledigt = false;
+    const ende = (fehler) => {
+      window.clearTimeout(wache);
+      if (erledigt) return;
+      erledigt = true;
+      if (jetzt?.nr !== nr || jetzt.aeusserung !== a) return;
+      // Ohne zu beginnen schon wieder fertig: Da wurde nichts gesprochen.
+      const stumm = !begonnen && Date.now() - anfang < 1200;
+      if (fehler || stumm) {
+        letzterFehler = fehler || "ohne Ton beendet";
+        if (weg + 1 < liste.length) {
+          try { synth.cancel(); } catch { /* egal */ }
+          abgebrochenUm = Date.now();
+          window.setTimeout(() => versuche(t, knopf, nr, liste, weg + 1), 300);
+          return;
+        }
+        jetzt = null;
+        knopfAus(knopf);
+        hinweisZeigen(knopf);
+        return;
+      }
+      jetzt = null;
+      knopfAus(knopf);
+    };
+    a.onstart = () => { begonnen = true; window.clearTimeout(wache); };
+    a.onend = () => ende("");
+    a.onerror = (e) => ende(e?.error || "Fehler");
+    // Kommt gar nichts – weder Anfang noch Ende –, ist auch das ein Fehler.
+    wache = window.setTimeout(() => { if (!begonnen) ende("keine Antwort"); }, 6000);
+    try { synth.resume?.(); } catch { /* egal */ }
+    try { synth.speak(a); } catch (fehler) { ende(String(fehler?.message || fehler || "Fehler")); }
+  }
+
+  // Klappt gar nichts: ein kurzer Hinweis neben dem Lautsprecher.
+  let hinweis = null;
+  function hinweisWeg() { hinweis?.remove(); hinweis = null; }
+  function hinweisZeigen(knopf) {
+    hinweisWeg();
+    if (!knopf?.isConnected) return;
+    const h = document.createElement("div");
+    h.className = "vl-hinweis";
+    h.setAttribute("role", "status");
+    const deutsch = alleStimmen().filter((v) => /^de([-_]|$)/i.test(v.lang || "")).length;
+    h.textContent = deutsch
+      ? `Vorlesen klappt auf diesem Gerät gerade nicht (${letzterFehler}). Tipp: In den Einstellungen unter «Sprachausgabe» (Text-in-Sprache) die Google-Sprachausgabe wählen.`
+      : `Auf diesem Gerät fehlt eine deutsche Stimme (${letzterFehler}). In den Einstellungen unter «Sprachausgabe» (Text-in-Sprache) die Google-Sprachausgabe wählen und Deutsch laden.`;
+    const r = knopf.getBoundingClientRect();
+    const breit = Math.min(300, window.innerWidth - 24);
+    h.style.width = `${breit}px`;
+    h.style.left = `${Math.max(12, Math.min(window.innerWidth - breit - 12, r.left + r.width / 2 - breit / 2))}px`;
+    if (r.bottom + 120 < window.innerHeight) h.style.top = `${r.bottom + 8}px`;
+    else h.style.bottom = `${window.innerHeight - r.top + 8}px`;
+    h.addEventListener("click", hinweisWeg);
+    document.body.append(h);
+    hinweis = h;
+    window.setTimeout(() => { if (hinweis === h) hinweisWeg(); }, 12000);
+  }
+
+  function alleStimmen() { try { return synth?.getVoices?.() || []; } catch { return []; } }
+  function zustand() {
+    const alle = alleStimmen();
+    return {
+      kann,
+      stimmen: alle.length,
+      deutsch: alle.filter((v) => /^de([-_]|$)/i.test(v.lang || "")).map((v) => `${v.name} (${v.lang}${v.localService ? "" : ", Netz"})`),
+      gewaehlt: stimme ? `${stimme.name} (${stimme.lang})` : "",
+      letzterFehler,
+    };
   }
 
   const SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
@@ -115,5 +220,5 @@
   // Wer die Seite verlässt, will nichts mehr hören.
   window.addEventListener("pagehide", stopp);
 
-  window.LernappVorlesen = { kann, knopf, sprich, stopp, sauber };
+  window.LernappVorlesen = { kann, knopf, sprich, stopp, sauber, zustand };
 })();
