@@ -59,6 +59,10 @@
  *     spiele     ["towerStack", …]   was auf der Startseite steht
  *     tiers      { towerStack: 1 }    Tier 1 bis 5 je Spiel (admin.js).
  *                                     Fehlt, wo nie eingeteilt wurde.
+ *     zweiSpieler ["viererreihe"]     die Spiele zu zweit, die auf der
+ *                                     Startseite stehen – ohne Bestenliste
+ *                                     (mini-games.js, ZWEI_SPIELER). Fehlt,
+ *                                     wo nie eines angehakt wurde: keines.
  *
  * Und die Aufzeichnung des besten Laufs, für die, die gegen ihn spielen
  * (geist.js):
@@ -370,6 +374,34 @@
     }
     await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
     return sauber;
+  }
+
+  // Die Spiele zu zweit, die auf der Startseite stehen (zweiSpieler) – im
+  // selben Dokument. Fehlt das Feld, steht keines dort. Wie bei den Tiers:
+  // Gibt es das Dokument noch nicht, kommen die offenen Spiele mit (offen),
+  // denn die Regeln verlangen sie.
+  const ZWEI_SPIELER_IDS = ["viererreihe"];
+  async function offeneZweiSpieler() {
+    const doc = listenDoc();
+    if (!doc) return null;
+    const stand = await doc.get();
+    const liste = stand.exists ? stand.data()?.zweiSpieler : null;
+    if (!Array.isArray(liste)) return [];
+    return liste.map((id) => String(id || "").trim()).filter((id) => ZWEI_SPIELER_IDS.includes(id));
+  }
+
+  async function setzeZweiSpieler(spiele, offen = []) {
+    const doc = listenDoc();
+    if (!doc) throw new Error("Firestore ist nicht bereit.");
+    const liste = [...new Set((Array.isArray(spiele) ? spiele : []).map((id) => String(id || "").trim()))]
+      .filter((id) => ZWEI_SPIELER_IDS.includes(id));
+    const daten = { zweiSpieler: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
+    const stand = await doc.get();
+    if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
+      daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
+    }
+    await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
+    return liste;
   }
 
   /*
@@ -1767,7 +1799,7 @@
     ergebnisse, speichere, benenneUm, lies, meinErgebnis, unterNamen, vonKennung, umzug, setzeUmzuege,
     speichereGeist, geister,
     runden, ersteRunde, rundenVonGeraeten, loescheRunden, zieheRundenUm,
-    offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, vorschauApp,
+    offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, offeneZweiSpieler, setzeZweiSpieler, vorschauApp,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,

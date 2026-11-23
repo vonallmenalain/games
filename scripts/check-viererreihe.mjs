@@ -125,6 +125,9 @@ const ATTRAPPE = `
       return () => {};
     },
     async turnierErgebnisse() { return []; },
+    // Die Spiele zu zweit auf der Startseite (config/miniGames, zweiSpieler):
+    // was die Prüfung in window.__zweiSpieler hinlegt.
+    async offeneZweiSpieler() { return window.__zweiSpieler || []; },
     async turnierLive() { return []; },
     async liveZeiger() { return null; },
     async offeneDuelle(id) {
@@ -368,7 +371,17 @@ try {
   await zoe.seite.goto(`${BASIS}/`);
   await zoe.seite.waitForSelector(".ar-kachel", { timeout: 10000 }).catch(() => {});
   await warte(800);
-  pruefe(await zoe.seite.locator(".ar-vr-kachel").count() === 0, "Die Startseite zeigt Viererreihe nicht");
+  pruefe(await zoe.seite.locator(".ar-vr-kachel").count() === 0, "Die Startseite zeigt Viererreihe nicht, solange sie nicht angehakt ist");
+  // Angehakt für die Hall of Fame: vorne in der Zeile, ohne Turnier.
+  await zoe.seite.addInitScript(() => { window.__zweiSpieler = ["viererreihe"]; });
+  await zoe.seite.goto(`${BASIS}/`);
+  pruefe(await bis(() => zoe.seite.locator('a.ar-vr-kachel[href="/viererreihe"]').count().then((n) => n === 1)), "Angehakt steht Viererreihe vorne in der Zeile der Startseite");
+  pruefe(await zoe.seite.locator(".ar-kachel").count() === 47, `Die Zeile zählt weiter 47 Spiele mit Bestenliste (${await zoe.seite.locator(".ar-kachel").count()})`);
+  await warte(1500);
+  await bild(zoe.seite, "8-startseite-angehakt");
+  await zoe.seite.locator("a.ar-vr-kachel").click();
+  pruefe(await bis(() => zoe.seite.locator(".vr-stufe").count().then((n) => n === 4)), "Die Kachel führt ins Menü");
+  pruefe((await zoe.seite.locator(".vr-kopf .mini-knopf-zurueck").getAttribute("href")) === "/", "Ohne Turnier führt der Weg zurück in die Hall of Fame");
 
   // --- 10. Im Turnier: Lena eröffnet, Mia findet sie mit einem Tipp -----------------------
   const lenaT = await geraet("Lena", { viewport: { width: 820, height: 1100 } });

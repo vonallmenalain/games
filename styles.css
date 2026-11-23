@@ -5969,6 +5969,41 @@ body.adm-dash-offen { overflow: hidden; }
 }
 .adm-tier-wahl:focus-visible { outline: none; border-color: var(--adm-farbe, var(--ar-koralle)); }
 
+/* «2 Spieler»: unter den Tiers die Spiele zu zweit (Viererreihe) – eine
+   Zeile wie die anderen, in Violett, mit «ohne Bestenliste» darunter. */
+.adm-zwei { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
+.adm-zwei-titel {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--ar-text);
+}
+.adm-zwei-titel .adm-tier-marke { background: #7c5ce6; color: #fff; }
+.adm-zwei-wahl {
+  --adm-farbe: #7c5ce6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 800;
+  color: #d4d0e2;
+}
+.adm-zwei-wahl:hover { border-color: var(--adm-farbe); }
+.adm-zwei-wahl.ist-an {
+  border-color: var(--adm-farbe);
+  background: var(--ar-flaeche);
+  color: var(--ar-text);
+  box-shadow: inset 4px 0 0 var(--adm-farbe);
+}
+.adm-zwei-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.adm-zwei .adm-auswahl { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+
 /* ▶ – ein Spiel spielen. Klein und rund, damit der Haken die Zeile bleibt. */
 .adm-spielen-knopf {
   flex: 0 0 auto;
@@ -9327,6 +9362,7 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 }
 
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
+.ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
    Die Zeile zählt ihre Spiele an ar-kachel. */
 .ar-vr-kachel {

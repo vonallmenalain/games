@@ -105,7 +105,9 @@
     dashboard?.zu({ still: true });
   }
 
-  const titel = (id) => hs()?.titel?.(id) || id;
+  // Die Spiele zu zweit kennt highscore.js nicht (keine Bestenliste) – ihren
+  // Namen sagt mini-games.js (ZWEI_SPIELER).
+  const titel = (id) => mini()?.ZWEI_SPIELER?.find((s) => s.id === id)?.titel || hs()?.titel?.(id) || id;
   const zahlWort = (anzahl, eins, viele) => `${anzahl} ${anzahl === 1 ? eins : viele}`;
   const einheit = (id) => hs()?.spiel?.(id)?.einheit || "Punkte";
   function farbe(id) {
@@ -920,6 +922,46 @@
     spielen.dataset.rolle = "spielen";
     zeile.append(spielen);
     return { zeile, box };
+  }
+
+  /*
+   * Die Spiele zu zweit (mini-games.js, ZWEI_SPIELER): unter den Tiers ein
+   * eigener Bereich «2 Spieler» – im Bereich «Spiele» (auf der Startseite,
+   * ohne Bestenliste) und im Turnierformular. Eine Zeile wie die der anderen,
+   * Haken und ▶, aber mit eigenen Klassen: adm-wahl und adm-tier-titel sind
+   * die Spiele mit Bestenliste, und als solche werden sie gezählt und
+   * gewählt.
+   */
+  const zweiSpieler = () => (mini()?.ZWEI_SPIELER || []).map((s) => s.id);
+
+  function zweiZeile(spiel, an, beiAenderung, { unter = "ohne Bestenliste", hakenTitel = "" } = {}) {
+    const zeile = el("div", "adm-zwei-wahl");
+    zeile.dataset.zwei = spiel;
+    const haken = el("label", "adm-wahl-haken");
+    const box = el("input");
+    box.type = "checkbox";
+    box.value = spiel;
+    box.checked = an;
+    box.dataset.rolle = "zwei";
+    if (hakenTitel) box.title = hakenTitel;
+    zeile.classList.toggle("ist-an", an);
+    box.addEventListener("change", () => {
+      zeile.classList.toggle("ist-an", box.checked);
+      beiAenderung(box.checked);
+    });
+    const text = el("span", "adm-zwei-text");
+    text.append(el("span", "adm-wahl-name", titel(spiel)), el("span", "adm-wahl-zahl", unter));
+    haken.append(box, text);
+    const spielen = spielenKnopf(spiel);
+    spielen.dataset.rolle = "spielen";
+    zeile.append(haken, spielen);
+    return { zeile, box };
+  }
+
+  function zweiTitel(anzahl) {
+    const kopf = el("h3", "adm-zwei-titel");
+    kopf.append(el("span", "adm-tier-marke", "2 Spieler"), el("span", "adm-tier-zahl", `${anzahl} ${anzahl === 1 ? "Spiel" : "Spiele"} · ohne Bestenliste`));
+    return kopf;
   }
 
   // ---------------------------------------------------------------------------
@@ -1857,7 +1899,8 @@
     const spieleTitel = el("legend", "");
     spieleGruppe.append(spieleTitel);
     const gewaehlt = new Set(t.spiele);
-    const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt`; };
+    let vierer = null;
+    const zaehle = () => { spieleTitel.textContent = `Spiele – ${gewaehlt.size} gewählt${vierer?.checked ? " · Viererreihe" : ""}`; };
     const haken = [];
     // Nach Tier gruppiert, so wie im Bereich «Spiele»
     // eingeteilt.
@@ -1877,6 +1920,17 @@
       });
       spieleGruppe.append(gitter);
     });
+    // Unter den Tiers: die Spiele zu zweit (im Turnier heisst das Feld
+    // viererreihe – so steht es in jedem Turnier, das es schon gibt).
+    spieleGruppe.append(zweiTitel(zweiSpieler().length));
+    const zweiGitter = el("div", "adm-auswahl");
+    const { zeile: viererZeile, box: viererBox } = zweiZeile("viererreihe", Boolean(t.viererreihe), () => zaehle(), {
+      unter: "zu zweit",
+      hakenTitel: "Viererreihe im Turnier",
+    });
+    vierer = viererBox;
+    zweiGitter.append(viererZeile);
+    spieleGruppe.append(zweiGitter);
     zaehle();
     const setze = (ids) => haken.forEach((box) => {
       const soll = ids.includes(box.value);
@@ -2104,17 +2158,6 @@
     const nurLiveText = el("span", "adm-option-text");
     nurLiveText.append(el("strong", "", "Nur im Multiplayer spielen"), el("small", "", "Gespielt wird nur in Multiplayern, die zu diesem Turnier gehören (Knopf «Multiplayer» beim Turnier). Dazwischen gibt es keine Versuche; die Gesamtwertung zählt nur die Multiplayer."));
     nurLiveZeile.append(nurLive, nurLiveText);
-    // Viererreihe (viererreihe.js): vorne in der Zeile des Turniers, zum
-    // Spielen zu zweit oder gegen den Computer – ohne Wertung. Wer dort ein
-    // Duell eröffnet, steht bei den anderen im Turnier als «… wartet».
-    const vierer = el("input");
-    vierer.type = "checkbox";
-    vierer.checked = Boolean(t.viererreihe);
-    vierer.name = "viererreihe";
-    const viererZeile = el("label", "adm-option");
-    const viererText = el("span", "adm-option-text");
-    viererText.append(el("strong", "", "Viererreihe dazu"), el("small", "", "Vier in einer Reihe, zu zweit auf zwei Geräten oder gegen den Computer – ohne Wertung. Wer ein Duell eröffnet, steht bei allen im Turnier mit «Mitspielen». Mit Haken darf das Turnier auch ganz ohne Spiel sein."));
-    viererZeile.append(vierer, viererText);
     const aktiv = el("input");
     aktiv.type = "checkbox";
     aktiv.checked = t.aktiv;
@@ -2122,7 +2165,7 @@
     const aktivText = el("span", "adm-option-text");
     aktivText.append(el("strong", "", "Aktiv"), el("small", "", "Ohne Haken ist das Turnier angehalten: Es steht nirgends, und niemand kann spielen, bis du es fortsetzt."));
     aktivZeile.append(aktiv, aktivText);
-    schalter.append(verdecktZeile, gegnerZeile, replayZeile, liveZeile, nurLiveZeile, viererZeile, aktivZeile);
+    schalter.append(verdecktZeile, gegnerZeile, replayZeile, liveZeile, nurLiveZeile, aktivZeile);
     form.append(schalter);
 
     // --- Speichern ---------------------------------------------------------------
@@ -2202,7 +2245,7 @@
       replay.checked = !w.ohneReplay;
       live.checked = !w.ohneLive;
       nurLive.checked = Boolean(w.nurLive);
-      vierer.checked = Boolean(w.viererreihe);
+      if (vierer.checked !== Boolean(w.viererreihe)) vierer.click();
       aktiv.checked = w.aktiv !== false;
       sage(`Preset «${p.name}» geladen – Beginn ist jetzt.`, "ist-gut");
     }
@@ -3190,8 +3233,23 @@
     const alleAus = knopf("Alle abwählen", "adm-knopf-klein", () => alleSetzen(false));
     const knoepfe = el("div", "adm-kopf-aktionen");
     knoepfe.append(alleAn, alleAus);
+    // Unter den Tiers: die Spiele zu zweit. Der Haken stellt sie auf die
+    // Startseite (config/miniGames, zweiSpieler), ohne Bestenliste; ▶
+    // probiert sie aus.
+    const zwei = el("div", "adm-zwei");
+    zwei.append(zweiTitel(zweiSpieler().length));
+    const zweiGitter = el("div", "adm-auswahl");
+    zweiSpieler().forEach((id) => {
+      const { zeile } = zweiZeile(id, stand.zweiOffen.has(id), (an) => {
+        if (an) stand.zweiOffen.add(id);
+        else stand.zweiOffen.delete(id);
+        sichereZwei(() => { if (an) stand.zweiOffen.delete(id); else stand.zweiOffen.add(id); });
+      }, { unter: "zu zweit · ohne Bestenliste", hakenTitel: "Auf der Startseite" });
+      zweiGitter.append(zeile);
+    });
+    zwei.append(zweiGitter);
     // Die Meldung beim Speichern steht gleich über den Feldern, wo getippt wurde.
-    bereich.inhalt.append(filter.leiste, summe, meldung, gitter, knoepfe);
+    bereich.inhalt.append(filter.leiste, summe, meldung, gitter, knoepfe, zwei);
 
     // Geht das Speichern schief, springt der Haken zurück (zurueck) – ohne
     // dass die Meldung verschwindet: Sonst sähe es aus, als hätte der Klick
@@ -3209,6 +3267,26 @@
         meldung.className = "adm-meldung ist-fehler";
       }
       stand.melde();
+    }
+
+    // Ein Spiel zu zweit auf die Startseite – oder wieder weg. Geht es nicht,
+    // springt der Haken zurück.
+    async function sichereZwei(zurueck) {
+      meldung.textContent = "Wird gespeichert...";
+      meldung.className = "adm-meldung";
+      try {
+        await cloud().setzeZweiSpieler([...stand.zweiOffen], [...gewaehlt]);
+        meldung.textContent = "Gespeichert.";
+        meldung.className = "adm-meldung ist-gut";
+      } catch (fehler) {
+        zurueck();
+        zwei.querySelectorAll("input[data-rolle='zwei']").forEach((box) => {
+          box.checked = stand.zweiOffen.has(box.value);
+          box.closest(".adm-zwei-wahl")?.classList.toggle("ist-an", box.checked);
+        });
+        meldung.textContent = `Nicht gespeichert: ${fehlerText(fehler)}`;
+        meldung.className = "adm-meldung ist-fehler";
+      }
     }
 
     // Ein anderes Tier: Das Spiel wandert gleich in seine Gruppe, und die
@@ -4442,15 +4520,18 @@
 
     let alle = [];
     let offen = [];
+    let zweiOffen = [];
     let einteilung = vollstaendig(null);
     try {
       let gewaehlt;
       let gespeichert;
-      [alle, gewaehlt, gespeichert] = await Promise.all([
+      [alle, gewaehlt, gespeichert, zweiOffen] = await Promise.all([
         alleEintraege(),
         cloud().offeneSpiele(),
         // Ohne Tiers geht es auch: dann gilt die Vorgabe.
         Promise.resolve(cloud().tiers?.()).catch(() => null),
+        // Die Spiele zu zweit auf der Startseite: ohne sie eben keines.
+        Promise.resolve(cloud().offeneZweiSpieler?.()).then((l) => l || [], () => []),
       ]);
       // Ein Objekt für alle Bereiche: Was oben eingeteilt wird, gilt gleich im
       // nächsten Turnierformular und im Filter.
@@ -4485,6 +4566,8 @@
       bekannte,
       einteilung,
       offen: new Set(offen),
+      // Die Spiele zu zweit, die auf der Startseite stehen (zweiSpieler).
+      zweiOffen: new Set(zweiOffen),
       turniere: [],
       turniereGeladen: false,
       zeit: neueZeit(),

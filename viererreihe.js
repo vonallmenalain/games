@@ -94,6 +94,12 @@
     } catch { return ""; }
   })();
   const OFFEN_MAX_MS = 3 * 60 * 60 * 1000;
+  // Aus dem Adminbereich ausprobiert (▶, ?von=admin): Das bleibt in jeder
+  // Adresse stehen – sonst führte der Weg zurück nach dem ersten Klick nicht
+  // mehr dorthin (mini-games.js, ausAdmin).
+  const VON_ADMIN = (() => {
+    try { return new URLSearchParams(window.location.search).get("von") === "admin"; } catch { return false; }
+  })();
 
   // Für die Prüfung im Browser: ein Emulator der Realtime Database auf
   // diesem Rechner. Gilt nur für eine Adresse auf dem eigenen Rechner – wie
@@ -528,6 +534,7 @@
   function geh({ gegen = "", raum = "" }, { ersetzen = false } = {}) {
     const p = new URLSearchParams();
     if (TURNIER) p.set("turnier", TURNIER);
+    if (VON_ADMIN) p.set("von", "admin");
     if (gegen) p.set("gegen", gegen);
     if (raum) p.set("raum", raum);
     const adresse = `/viererreihe${p.toString() ? `?${p}` : ""}`;

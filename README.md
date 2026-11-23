@@ -2862,17 +2862,27 @@ grösser besser wäre, und es läuft nicht auf der gemeinsamen Bühne. Gleiche
 Regeln wie das bekannte Brettspiel, eigener Name, eigenes Aussehen: ein
 violettes Brett, Steine in Koralle und Gold.
 
-**Wo es steht.** Nicht auf der Startseite, sondern in einem Turnier, wenn der
-Admin es dazunimmt (Adminbereich, Turnier, «Viererreihe dazu»; das Feld
-`viererreihe` in `miniTurniere`). Dann steht es vorne in der Zeile des
-Turniers (`mini-games.js`, `viererreiheKachel`). Hat das Turnier sonst kein
-Spiel – mit Viererreihe darf es das –, steht statt der Bühne eine grosse
-Karte. Gedacht ist das für ein Turnier nur mit Link, etwa für Geschwister,
-jede auf ihrem Tablet: Die Turnier-App lässt Viererreihe aus dem Turnier zu
-(`turnier.js`, `heim`), jede Adresse der Seite behält `?turnier=`, und der
-Weg zurück führt ins Turnier. Wer die Adresse kennt, kann Viererreihe auch
-ohne Turnier öffnen; dann gibt es Link und Code, aber keine Liste der
-Wartenden.
+**Wo es steht.** Im Adminbereich steht es unter den fünf Tiers in einem
+eigenen Bereich «2 Spieler» – bei den Spielen und im Turnierformular, je mit
+Haken und ▶ zum Ausprobieren (`admin.js`, `zweiZeile`; die Liste der Spiele
+zu zweit: `mini-games.js`, `ZWEI_SPIELER`).
+
+- **Im Turnier**: angehakt im Turnierformular (das Feld `viererreihe` in
+  `miniTurniere`), steht es vorne in der Zeile des Turniers
+  (`mini-games.js`, `viererreiheKachel`). Hat das Turnier sonst kein Spiel
+  – mit Viererreihe darf es das –, steht statt der Bühne eine grosse Karte.
+  Gedacht für ein Turnier nur mit Link, etwa für Geschwister, jede auf ihrem
+  Tablet: Die Turnier-App lässt Viererreihe aus dem Turnier zu (`turnier.js`,
+  `heim`), jede Adresse der Seite behält `?turnier=`, und der Weg zurück
+  führt ins Turnier.
+- **In der Hall of Fame**: angehakt bei den Spielen (`config/miniGames`,
+  `zweiSpieler` – neben `spiele`, nicht darin: keine Bestenliste), steht es
+  vorne in der Zeile der Startseite. Nicht angehakt steht es dort nicht. Wer
+  die Adresse kennt, kann es trotzdem öffnen; dann gibt es Link und Code,
+  aber keine Liste der Wartenden.
+
+Aus dem Adminbereich ausprobiert (▶, `?von=admin`) behält jede Adresse der
+Seite `von=admin`, damit der Weg zurück das Fenster schliesst.
 
 Sieben Spalten, sechs Reihen. Wer dran ist, tippt auf eine Spalte, und der
 Stein fällt hinter der Platte hinunter (eine Maske mit Löchern,
