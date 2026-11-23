@@ -9154,6 +9154,8 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
   max-width: 100%;
 }
 .vr-leiste-mitte { color: var(--ar-leise); font-weight: 900; }
+/* Miteinander: keine Punkte gegeneinander, nur die beiden Namen mit «&». */
+.vr-partie.ist-gemeinsam .vr-wer-zahl { display: none; }
 .vr-wer {
   display: flex;
   align-items: center;
@@ -10592,7 +10594,11 @@ body[data-page="malen"] { overscroll-behavior: none; }
 .zw-mr { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; }
 .zw-mr .confetti-layer { z-index: 6; }
 .zw-mr-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; font-weight: 850; }
-.zw-mr-punkte { color: var(--ar-leise); font-variant-numeric: tabular-nums; }
+.zw-mr-punkte { display: flex; align-items: center; gap: 6px; color: var(--ar-leise); font-variant-numeric: tabular-nums; }
+.zw-mr-gefunden { display: flex; gap: 2px; font-size: 1.15rem; line-height: 1; }
+.zw-mr-gefunden-bild.ist-neu { animation: zw-mr-gefunden 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+@keyframes zw-mr-gefunden { from { transform: scale(0); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .zw-mr-gefunden-bild.ist-neu { animation: none; } }
 .zw-mr-auftrag { display: flex; align-items: center; gap: 10px; padding: 6px 16px; border-radius: 999px; background: rgba(255, 212, 94, 0.15); color: #fff6cf; font-size: 1.15rem; font-weight: 900; }
 .zw-mr-auftrag[hidden],
 .zw-mr-werkzeug[hidden],

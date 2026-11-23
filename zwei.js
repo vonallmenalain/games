@@ -350,7 +350,10 @@
     };
     const a = karte("a");
     const b = karte("b");
-    const mitte = el("span", "vr-leiste-mitte", ":");
+    // Miteinander zählt keine gegen die andere: statt «1 : 1» nur «&».
+    const gemeinsam = Boolean(S.spiel.gemeinsam);
+    wirt.classList.toggle("ist-gemeinsam", gemeinsam);
+    const mitte = el("span", "vr-leiste-mitte", gemeinsam ? "&" : ":");
     mitte.setAttribute("aria-hidden", "true");
     oben.append(a.k, mitte, b.k);
     const satz = el("p", "vr-satz");
@@ -364,6 +367,7 @@
         const s = spieler[sitz] || {};
         k.name.textContent = s.name || "…";
         k.zahl.textContent = String(s.zahl ?? 0);
+        k.zahl.hidden = gemeinsam;
         k.k.classList.toggle("ist-dran", dran === sitz || dran === "beide");
         k.k.classList.toggle("ist-weg", s.weg === true);
         k.punkt.hidden = s.weg !== true;

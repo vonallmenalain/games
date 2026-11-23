@@ -8,9 +8,13 @@
  * liest, kann raten). Drei Versuche je Runde. Werden vier der sechs Wörter
  * erraten, ist es geschafft.
  *
- * Gegen den Computer malt er, und man rät: Er hat für jedes Wort ein Bild,
- * das er Strich für Strich zeichnet. Die Stufe bestimmt, wie viele Antworten
- * zur Wahl stehen – und wie viel er zeichnet, bevor man raten muss.
+ * Gegen den Computer wechselt es auch jede Runde. Malt er, zeichnet er sein
+ * Bild des Wortes Strich für Strich, und man rät. Malt man selbst, schaut er
+ * zu und rät, sobald genug auf dem Papier ist und eine Weile nichts dazukommt
+ * (oder sofort auf «Fertig – rate!»): Er vergleicht die Zeichnung mit seinen
+ * eigenen Bildern der Wörter, die zur Wahl stehen. Die Stufe bestimmt, wie
+ * viele Antworten zur Wahl stehen – und wie viel er zeichnet, bevor man raten
+ * muss.
  *
  * Die Striche gehen nicht über die Züge, sondern über einen eigenen Ort in
  * der Datenbank (LernappZwei.live, partie/<raum>/live/<partie>-<runde>):
@@ -74,6 +78,90 @@
   }
   const mischen = (liste, rnd) => { const a = [...liste]; for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
+  // --- Wie der Computer eine Zeichnung errät ---------------------------------------
+  /*
+   * Er vergleicht sie mit seinen eigenen Bildern der Wörter, die zur Wahl
+   * stehen: Beide werden auf ein Raster von 32 × 32 gelegt (Grösse und Lage
+   * egal: das Bild füllt das Raster), dann zählt, wie weit die Striche des
+   * einen im Mittel von denen des anderen weg sind – in beide Richtungen.
+   * Das Wort mit dem kleinsten Abstand rät er zuerst.
+   */
+  const RASTER = 32;
+  function rastern(striche) {
+    let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+    for (const s of striche) for (const [x, y] of s) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    if (!Number.isFinite(x0)) return null;
+    const seite = Math.max(x1 - x0, y1 - y0, 1);
+    const mx = (x0 + x1) / 2;
+    const my = (y0 + y1) / 2;
+    const feld = new Uint8Array(RASTER * RASTER);
+    const fuell = RASTER - 5;
+    const setze = (x, y) => {
+      const gx = Math.round(RASTER / 2 + ((x - mx) / seite) * fuell);
+      const gy = Math.round(RASTER / 2 + ((y - my) / seite) * fuell);
+      if (gx >= 0 && gy >= 0 && gx < RASTER && gy < RASTER) feld[gy * RASTER + gx] = 1;
+    };
+    const schritt = seite / fuell / 2;
+    for (const s of striche) {
+      if (s.length === 1) setze(s[0][0], s[0][1]);
+      for (let i = 1; i < s.length; i += 1) {
+        const [ax, ay] = s[i - 1];
+        const [bx, by] = s[i];
+        const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / schritt));
+        for (let k = 0; k <= n; k += 1) setze(ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n);
+      }
+    }
+    return feld;
+  }
+  // Wie weit jedes Feld vom nächsten Strich weg ist (zwei Durchgänge).
+  function abstaende(feld) {
+    const d = new Float32Array(RASTER * RASTER);
+    for (let i = 0; i < d.length; i += 1) d[i] = feld[i] ? 0 : 999;
+    const S = 1.41;
+    for (let y = 0; y < RASTER; y += 1) for (let x = 0; x < RASTER; x += 1) {
+      const i = y * RASTER + x;
+      if (x > 0) d[i] = Math.min(d[i], d[i - 1] + 1);
+      if (y > 0) {
+        d[i] = Math.min(d[i], d[i - RASTER] + 1);
+        if (x > 0) d[i] = Math.min(d[i], d[i - RASTER - 1] + S);
+        if (x < RASTER - 1) d[i] = Math.min(d[i], d[i - RASTER + 1] + S);
+      }
+    }
+    for (let y = RASTER - 1; y >= 0; y -= 1) for (let x = RASTER - 1; x >= 0; x -= 1) {
+      const i = y * RASTER + x;
+      if (x < RASTER - 1) d[i] = Math.min(d[i], d[i + 1] + 1);
+      if (y < RASTER - 1) {
+        d[i] = Math.min(d[i], d[i + RASTER] + 1);
+        if (x < RASTER - 1) d[i] = Math.min(d[i], d[i + RASTER + 1] + S);
+        if (x > 0) d[i] = Math.min(d[i], d[i + RASTER - 1] + S);
+      }
+    }
+    return d;
+  }
+  const vorlagen = new Map();
+  function vorlage(wort) {
+    if (!vorlagen.has(wort)) { const feld = rastern(WOERTER[wort].malen()); vorlagen.set(wort, { feld, abstand: abstaende(feld) }); }
+    return vorlagen.get(wort);
+  }
+  function abstand(feld, abstandFeld, anderes) {
+    let summe = 0;
+    let n = 0;
+    for (let i = 0; i < feld.length; i += 1) if (feld[i]) { summe += Math.min(abstandFeld[i], 12); n += 1; }
+    return n ? summe / n : 99;
+  }
+  // Die Wörter (Nummern in WOERTER), vom ähnlichsten zum unähnlichsten.
+  function erkenne(striche, woerter) {
+    const feld = rastern(striche);
+    if (!feld) return [...woerter];
+    const eigen = abstaende(feld);
+    return woerter
+      .map((w) => { const v = vorlage(w); return { w, wert: abstand(feld, v.abstand) + abstand(v.feld, eigen) }; })
+      .sort((p, q) => p.wert - q.wert)
+      .map((p) => p.w);
+  }
+  // Wie lang alle Striche zusammen sind (0–1000 je Seite).
+  const tinte = (striche) => striche.reduce((n, s) => n + s.reduce((m, p, i) => (i ? m + Math.hypot(p[0] - s[i - 1][0], p[1] - s[i - 1][1]) : m), 0), 0);
+
   // Wie viele Antworten zur Wahl stehen, und wie viel der Computer malt.
   const STUFEN = { leicht: { wahl: 3, anteil: 1 }, einfach: { wahl: 4, anteil: 1 }, mittel: { wahl: 6, anteil: 0.8 }, schwer: { wahl: 8, anteil: 0.6 } };
   const DUELL = { wahl: 6, anteil: 1 };
@@ -94,8 +182,8 @@
   // --- Die Regeln -----------------------------------------------------------------
   function lage(zuege, { beginnt, saat, stufe }) {
     const rs = runden(saat, stufe);
-    // Gegen den Computer malt immer er (b); sonst wechselt es jede Runde.
-    const maler = (r) => (stufe ? "b" : r % 2 === 0 ? beginnt : anderer(beginnt));
+    // Wer malt, wechselt jede Runde – auch gegen den Computer.
+    const maler = (r) => (r % 2 === 0 ? beginnt : anderer(beginnt));
     const l = { runden: rs, runde: 0, falsch: [], erraten: 0, verlauf: [], ende: null, stufe: stufe || null };
     for (const z of zuege) {
       const m = /^R(\d):(\d)$/.exec(z);
@@ -128,8 +216,53 @@
     return Boolean(m) && !l.ende && l.dran === sitz && Number(m[1]) === l.runde && Number(m[2]) < l.runden[l.runde].wahl.length && !l.falsch.includes(Number(m[2]));
   }
 
-  // Gegen den Computer malt er nur; raten tut, wer spielt.
-  const computer = () => null;
+  // --- Der Computer ---------------------------------------------------------------
+  // Was man gerade malt (gegen den Computer), damit er es erraten kann.
+  const kinderBild = { stueck: "", striche: [], stand: 0, malt: false, zuletzt: 0, fertig: 0 };
+  const horcher = new Set();
+  const melden = () => { for (const f of [...horcher]) f(); };
+  let ruhigJetzt = () => false;
+
+  // Malt er, macht er keinen Zug (das Bild entsteht im Brett). Malt man
+  // selbst, wartet er, bis genug auf dem Papier ist und eine Weile nichts
+  // dazukommt – oder bis «Fertig – rate!» getippt wird – und rät dann das
+  // Wort, dessen Bild der Zeichnung am ähnlichsten ist. Nach einem Fehlversuch
+  // wartet er wieder, bis etwas dazugemalt wird (oder eine längere Weile).
+  const MINDEST_TINTE = 400;
+  function computer(l, sitz, stufe, { nr } = {}) {
+    if (l.ende || l.dran !== sitz || l.maler === sitz) return null;
+    const stueck = `${nr}-${l.runde}`;
+    const r = l.runden[l.runde];
+    const nochmal = l.falsch.length > 0;
+    const anfang = Date.now();
+    const standVorher = kinderBild.stueck === stueck ? kinderBild.stand : -1;
+    const fertigVorher = kinderBild.stueck === stueck ? kinderBild.fertig : 0;
+    return new Promise((fertig) => {
+      let uhr = 0;
+      const raus = (antwort) => { horcher.delete(pruefen); window.clearTimeout(uhr); fertig(antwort); };
+      const los = () => {
+        const offen = r.wahl.filter((_, i) => !l.falsch.includes(i));
+        const wort = erkenne(kinderBild.striche, offen)[0];
+        raus({ zug: `R${l.runde}:${r.wahl.indexOf(wort)}`, warte: ruhigJetzt() ? 80 : 600 });
+      };
+      function pruefen() {
+        window.clearTimeout(uhr);
+        // Eine andere Runde oder Partie: Hier gibt es nichts mehr zu raten.
+        if (kinderBild.stueck !== stueck) { if (kinderBild.stueck) raus(null); return; }
+        if (kinderBild.malt) return;
+        const genug = tinte(kinderBild.striche);
+        if (kinderBild.fertig > fertigVorher && genug > 0) { los(); return; }
+        if (genug < MINDEST_TINTE) return;
+        const neu = kinderBild.stand !== standVorher;
+        const pause = ruhigJetzt() ? 400 : !nochmal ? 3000 : neu ? 2500 : 8000;
+        const seit = Date.now() - Math.max(kinderBild.zuletzt, anfang);
+        if (seit >= pause) { los(); return; }
+        uhr = window.setTimeout(pruefen, pause - seit + 30);
+      }
+      horcher.add(pruefen);
+      pruefen();
+    });
+  }
 
   // --- Was über dem Bild steht -------------------------------------------------------
   function satz(l, { ich, name, modus }) {
@@ -138,14 +271,18 @@
     const vorher = l.letzte && l.letzte.runde === l.runde - 1 ? (l.letzte.erraten ? `Richtig – ${WOERTER[l.runden[l.letzte.runde].wort].wort}! ` : `Schade – es war ${WOERTER[l.runden[l.letzte.runde].wort].wort}. `) : "";
     if (l.falsch.length) {
       const rest = VERSUCHE - l.falsch.length;
-      return { text: l.rater === ich ? `Nicht ganz – noch ${rest} ${rest === 1 ? "Versuch" : "Versuche"}` : `${er(l.rater)} hat sich vertan – noch ${rest}`, sitz: l.rater };
+      const versuche = `${rest} ${rest === 1 ? "Versuch" : "Versuche"}`;
+      if (l.rater === ich) return { text: `Nicht ganz – noch ${versuche}`, sitz: l.rater };
+      const geraten = WOERTER[l.runden[l.runde].wahl[l.falsch[l.falsch.length - 1]]].wort;
+      if (l.maler === ich) return { text: `${er(l.rater)} meinte «${geraten}» – mal noch etwas dazu! Noch ${versuche}`, sitz: l.rater };
+      return { text: `${er(l.rater)} meinte «${geraten}» – noch ${versuche}`, sitz: l.rater };
     }
     // Ganz am Anfang: wer beginnt (zu malen).
     if (l.runde === 0 && !l.verlauf.length) {
       if (l.maler === ich) return { text: "Du beginnst – male das Wort!", sitz: ich };
       return { text: modus === "computer" ? "Der Computer beginnt zu malen – was ist es?" : `${name(l.maler)} ist dran und malt – was ist es?`, sitz: l.maler };
     }
-    if (l.maler === ich) return { text: `${vorher}Du malst – ${er(l.rater)} rät`, sitz: ich };
+    if (l.maler === ich) return { text: `${vorher}Du malst – ${modus === "computer" ? "der Computer" : name(l.rater)} rät`, sitz: ich };
     if (l.rater === ich) return { text: `${vorher}${er(l.maler)} malt – was ist es?`, sitz: l.maler };
     return { text: `${vorher}${er(l.maler)} malt, ${er(l.rater)} rät`, sitz: l.maler };
   }
@@ -171,6 +308,7 @@
   }
 
   function brett({ zug, ton, knopf, ruhig }) {
+    ruhigJetzt = ruhig;
     const knoten = el("div", "zw-mr");
     const kopf = el("div", "zw-mr-kopf");
     const rundeText = el("span", "zw-mr-runde");
@@ -183,7 +321,14 @@
     papier.append(leinwand);
     const werkzeug = el("div", "zw-mr-werkzeug");
     const loeschen = knopf("Alles löschen", "mini-knopf mini-knopf-still zw-mr-loeschen", () => { meine = []; senden(true); malenNeu(); });
-    werkzeug.append(loeschen);
+    // Gegen den Computer: «Fertig – rate!» lässt ihn sofort raten.
+    const fertigKnopf = knopf("Fertig – rate!", "mini-knopf mini-knopf-voll zw-mr-fertig", () => {
+      if (!meine.length) return;
+      kinderBild.fertig += 1;
+      ton("tipp");
+      melden();
+    });
+    werkzeug.append(loeschen, fertigKnopf);
     const antworten = el("div", "zw-mr-antworten");
     knoten.append(kopf, auftrag, papier, werkzeug, antworten);
 
@@ -195,6 +340,7 @@
     let zeichnenUhr = 0;
     let senden = () => {};
     let gezeigt = { stueck: "", striche: 0 };
+    let gefundenGezeigt = 0;
 
     // --- Malen mit dem Finger
     let aktiv = null;
@@ -202,7 +348,7 @@
       const r = leinwand.getBoundingClientRect();
       return [Math.round(((e.clientX - r.left) / r.width) * 1000), Math.round(((e.clientY - r.top) / r.height) * 1000)];
     };
-    const darfMalen = () => Boolean(jetzt && !jetzt.aus && jetzt.ich && jetzt.lage.maler === jetzt.ich && jetzt.modus === "duell");
+    const darfMalen = () => Boolean(jetzt && !jetzt.aus && jetzt.ich && jetzt.lage.maler === jetzt.ich && ["duell", "computer"].includes(jetzt.modus));
     leinwand.addEventListener("pointerdown", (e) => {
       if (!darfMalen()) return;
       e.preventDefault();
@@ -210,6 +356,7 @@
       aktiv = [punkt(e)];
       meine.push(aktiv);
       malenNeu();
+      senden();
     });
     leinwand.addEventListener("pointermove", (e) => {
       if (!aktiv) return;
@@ -284,8 +431,22 @@
       abmelden?.();
       abmelden = null;
       window.clearInterval(zeichnenUhr);
+      if (b.modus === "computer") {
+        // Was das Kind malt, sieht der Computer (für sein Raten).
+        Object.assign(kinderBild, { stueck: neu, striche: [], stand: 0, malt: false, zuletzt: Date.now(), fertig: 0 });
+        melden();
+      }
       if (l.ende) { malenNeu([]); return; }
-      if (b.modus === "computer") { computerMalt(l); return; }
+      if (b.modus === "computer" && l.maler !== b.ich) { senden = () => {}; computerMalt(l); return; }
+      if (b.modus === "computer") {
+        senden = () => {
+          Object.assign(kinderBild, { striche: meine, stand: kinderBild.stand + 1, zuletzt: Date.now(), malt: Boolean(aktiv) });
+          fertigKnopf.disabled = !meine.length;
+          melden();
+        };
+        malenNeu();
+        return;
+      }
       const kanal = Z.live?.(b.raum);
       if (!kanal) { malenNeu([]); return; }
       if (l.maler === b.ich) {
@@ -311,15 +472,29 @@
       neuesStueck(b);
       const ich = b.ich;
       rundeText.textContent = l.ende ? "Fertig" : `Runde ${l.runde + 1} von ${RUNDEN}`;
-      punkte.textContent = `${l.erraten} erraten · ${ZIEL} braucht ihr`;
+      // Was ihr zusammen gefunden habt – die Bilder, und wie viele noch fehlen.
+      punkte.innerHTML = "";
+      const gefunden = l.verlauf.filter((v) => v.erraten).map((v) => WOERTER[l.runden[v.runde].wort]);
+      if (gefunden.length) {
+        const bilder = el("span", "zw-mr-gefunden");
+        if (gefunden.length < gefundenGezeigt) gefundenGezeigt = 0;
+        gefunden.forEach((w, i) => { const g = el("span", `zw-mr-gefunden-bild${i >= gefundenGezeigt ? " ist-neu" : ""}`, w.bild); g.title = w.wort; bilder.append(g); });
+        punkte.append(bilder);
+      }
+      gefundenGezeigt = gefunden.length;
+      const wieViele = l.erraten >= ZIEL ? `${l.erraten} gefunden` : `${l.erraten} von ${ZIEL} gefunden`;
+      punkte.append(el("span", "zw-mr-gefunden-zahl", wieViele));
+      punkte.setAttribute("aria-label", `${wieViele}${gefunden.length ? `: ${gefunden.map((w) => w.wort).join(", ")}` : ""}`);
       // Der Auftrag: wer malt, sieht das Wort.
       const r = l.runden[Math.min(l.runde, RUNDEN - 1)];
       auftrag.innerHTML = "";
-      if (!l.ende && ich && l.maler === ich && b.modus === "duell") {
+      if (!l.ende && darfMalen()) {
         auftrag.append(el("span", "zw-mr-auftrag-bild", WOERTER[r.wort].bild), el("span", "zw-mr-auftrag-wort", `Male: ${WOERTER[r.wort].wort}`));
       }
       auftrag.hidden = !auftrag.childElementCount;
       werkzeug.hidden = !darfMalen();
+      fertigKnopf.hidden = b.modus !== "computer";
+      fertigKnopf.disabled = !meine.length;
       papier.classList.toggle("ist-malen", darfMalen());
       // Die Antworten: wer rät, tippt; die anderen sehen sie auch.
       antworten.innerHTML = "";
@@ -335,7 +510,7 @@
       }
       antworten.classList.toggle("ist-aus", !(ich && l.rater === ich));
       // Wer malt, braucht die Antworten nicht – Platz fürs Papier.
-      antworten.hidden = Boolean(ich && l.maler === ich && b.modus === "duell");
+      antworten.hidden = Boolean(!l.ende && darfMalen());
       knoten.classList.toggle("ist-dran", Boolean(ich && l.rater === ich && !b.aus));
       // Ein Ton: richtig oder daneben.
       const zahl = b.zuege.length;
@@ -346,7 +521,7 @@
         ton(war && Number(wn) === war.richtig ? "treffer" : "platsch");
       }
       gezeigt = { stueck, striche: zahl };
-      if (b.modus !== "computer" || l.ende) malenNeu();
+      if (b.modus !== "computer" || l.ende || darfMalen()) malenNeu();
     }
 
     window.addEventListener("resize", () => { if (jetzt) malenNeu(); });
@@ -379,5 +554,6 @@
     computer,
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
+    fuerPruefung: { WOERTER, erkenne, tinte, runden },
   });
 })();
