@@ -776,6 +776,16 @@ async function geraet(name, { viewport = { width: 400, height: 820 }, mitName = 
   await kontext.route("**/cloud.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
   await kontext.addInitScript(({ name, mitName, emulator }) => {
     window.__zweiTest = { emulator };
+    // Eine Sprachausgabe zum Mithören: Was vorgelesen wird, steht in
+    // window.__gesprochen.
+    const gesprochen = [];
+    window.__gesprochen = gesprochen;
+    const stimme = { lang: "de-CH", name: "Prüfung", localService: true };
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak(a) { gesprochen.push(a.text); setTimeout(() => a.onend?.(), 20); }, cancel() {}, getVoices: () => [stimme], addEventListener() {} },
+    });
+    window.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) { this.text = text; };
     try { if (mitName && !localStorage.getItem("mini.name")) localStorage.setItem("mini.name", name); } catch { /* egal */ }
   }, { name, mitName, emulator: EMULATOR });
   const seite = await kontext.newPage();
@@ -849,6 +859,18 @@ try {
     pruefe(await papa.seite.locator(".vr-eroeffnen").isVisible(), `${T}: Das Menü bietet ein Duell an`);
     pruefe((await papa.seite.locator(".vr-titel").textContent()) === T, `${T}: Der Titel steht oben`);
     pruefe(await papa.seite.locator(".vr-held .zw-held-bild").count() === 1, `${T}: Das Menü hat ein Bild`);
+    // Vorlesen: ein Lautsprecher neben der Beschreibung, bei den Stufen und
+    // beim Duell.
+    const gesagt = (s) => s.evaluate(() => window.__gesprochen.slice());
+    pruefe(await papa.seite.locator(".vr-unter .vl-knopf").isVisible(), `${T}: Neben der Beschreibung steht ein Lautsprecher`);
+    await papa.seite.locator(".vr-unter .vl-knopf").click();
+    pruefe(await bis(() => gesagt(papa.seite).then((g) => g.some((x) => x.startsWith(`${T}.`) && x.length > T.length + 20))), `${T}: Der Lautsprecher liest Titel und Beschreibung vor`);
+    if (stufen.length) {
+      const ersteStufe = (await papa.seite.locator(".vr-stufe-name").first().textContent()).trim();
+      await papa.seite.locator(".vr-karte-pc .vr-karte-titel .vl-knopf").click();
+      pruefe(await bis(() => gesagt(papa.seite).then((g) => g.some((x) => x.startsWith("Gegen den Computer") && x.includes(`${ersteStufe}:`)))), `${T}: Die Stufen lassen sich vorlesen`);
+    }
+    pruefe(await papa.seite.locator(".vr-karte-live .vl-knopf").count() === 1, `${T}: «Zu zweit» lässt sich vorlesen`);
     await bild(papa.seite, fotos("1-menue"));
 
     const leicht = stufen[0];
@@ -857,6 +879,16 @@ try {
     pruefe(await bis(() => papa.seite.locator(w.brett).count().then((n) => n === 1)), `${T}: Gegen den Computer steht das Brett`);
     await w.vorbereiten?.(papa.seite);
     if (!w.gleichzeitig) pruefe(await bis(() => satz(papa.seite).then((t) => /Du beginnst/.test(t)), { ms: 4000 }), `${T}: Gegen den Computer beginnst du die erste Partie`);
+    // Der Lautsprecher beim Satz liest den Satz vor (und was das Spiel dazu sagt).
+    {
+      const vorher = (await gesagt(papa.seite)).length;
+      const text = await satz(papa.seite);
+      await papa.seite.locator(".vr-satz .vl-knopf").click();
+      pruefe(await bis(() => gesagt(papa.seite).then((g) => g.length > vorher)), `${T}: Der Lautsprecher beim Satz liest vor`);
+      const gelesen = (await gesagt(papa.seite)).at(-1) || "";
+      const erwartet = await papa.seite.evaluate((t) => window.LernappVorlesen.sauber(t), text);
+      if (text === await satz(papa.seite)) pruefe(gelesen.startsWith(erwartet), `${T}: Vorgelesen wird der Satz über dem Brett («${gelesen}» statt «${erwartet}»)`);
+    }
     pruefe(new URL(papa.seite.url()).searchParams.get("gegen") === leicht, `${T}: Die Adresse sagt die Stufe`);
     if (w.computerZuege) {
       // Nur ein paar Züge – dann neu anfangen.
@@ -901,6 +933,8 @@ try {
     pruefe(/^[0-9]{4}$/.test(code) && /^[A-Z2-9]{10}$/.test(raum), `${T}: Code und Raum (${code}, ${raum})`);
     pruefe((await (await db(`partie/${raum}/info`)).json())?.spiel === id, `${T}: Der Raum weiss, welches Spiel er ist`);
     pruefe((await (await db(`partieCode/${code}`)).json())?.spiel === id, `${T}: Der Code weiss, welches Spiel er ist`);
+    await papa.seite.locator(".vr-code-block .vl-knopf").click();
+    pruefe(await bis(() => gesagt(papa.seite).then((g) => g.some((x) => x.includes(`Der Code ist: ${[...code].join(", ")}`)))), `${T}: Der Code lässt sich vorlesen`);
 
     const lena = await geraet("Lena", { viewport: { width: 820, height: 1000 } });
     await lena.seite.goto(`${BASIS}/${z.seite}`);

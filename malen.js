@@ -307,7 +307,7 @@
     return bild;
   }
 
-  function brett({ zug, ton, knopf, ruhig }) {
+  function brett({ zug, ton, knopf, ruhig, vorlesen }) {
     ruhigJetzt = ruhig;
     const knoten = el("div", "zw-mr");
     const kopf = el("div", "zw-mr-kopf");
@@ -315,6 +315,8 @@
     const punkte = el("span", "zw-mr-punkte");
     kopf.append(rundeText, punkte);
     const auftrag = el("div", "zw-mr-auftrag");
+    let auftragWort = "";
+    const auftragLaut = vorlesen?.(() => `Male: ${auftragWort}`, { titel: "Vorlesen, was du malst" });
     const papier = el("div", "zw-mr-papier");
     const leinwand = el("canvas", "zw-mr-leinwand");
     leinwand.setAttribute("aria-label", "Das Bild");
@@ -489,7 +491,9 @@
       const r = l.runden[Math.min(l.runde, RUNDEN - 1)];
       auftrag.innerHTML = "";
       if (!l.ende && darfMalen()) {
-        auftrag.append(el("span", "zw-mr-auftrag-bild", WOERTER[r.wort].bild), el("span", "zw-mr-auftrag-wort", `Male: ${WOERTER[r.wort].wort}`));
+        auftragWort = WOERTER[r.wort].wort;
+        auftrag.append(el("span", "zw-mr-auftrag-bild", WOERTER[r.wort].bild), el("span", "zw-mr-auftrag-wort", `Male: ${auftragWort}`));
+        if (auftragLaut) auftrag.append(auftragLaut);
       }
       auftrag.hidden = !auftrag.childElementCount;
       werkzeug.hidden = !darfMalen();
@@ -552,6 +556,17 @@
     darf,
     brett,
     computer,
+    // Was der Lautsprecher beim Satz noch vorliest: die Runde, was gefunden
+    // ist – und wer rät, hört die Antworten zur Wahl.
+    vorlesen: (b) => {
+      const l = b.lage;
+      const gefunden = l.erraten >= ZIEL ? `${l.erraten} gefunden` : `${l.erraten} von ${ZIEL} gefunden`;
+      if (l.ende) return gefunden;
+      const r = l.runden[l.runde];
+      const teile = [`Runde ${l.runde + 1} von ${RUNDEN}`, gefunden];
+      if (b.ich && !b.aus && l.rater === b.ich) teile.push(`Zur Wahl: ${r.wahl.filter((_, i) => !l.falsch.includes(i)).map((w) => WOERTER[w].wort).join(", ")}`);
+      return teile.join(". ");
+    },
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
     fuerPruefung: { WOERTER, erkenne, tinte, runden },

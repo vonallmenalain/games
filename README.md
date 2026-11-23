@@ -73,6 +73,9 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     zwei.js               der Rahmen der Spiele zu zweit: Menü, Computer als
                           Gegner, Duell, Warteraum, Code, im Turnier «Mit
                           Lena spielen», Bilanz, Töne
+    vorlesen.js           Vorlesen auf Wunsch: ein Lautsprecher neben den
+                          Texten der Spiele zu zweit (Sprachausgabe des
+                          Geräts, Deutsch)
     viererreihe.js        Viererreihe: das Brett mit den fallenden Steinen
     viererreihe-ki.js     das Brett von Viererreihe und der Computer, ohne Bild
     tictactoe.js          Tic Tac Toe: neun Felder, Regeln und Computer
@@ -3188,6 +3191,32 @@ mit «&»; was gerade zusammen erreicht ist, zeigt das Spiel selbst. Die
 Bilanz im Menü zählt «geschafft · nicht geschafft». Gegen den Computer ist er der Partner; die
 Stufe macht dann die Aufgabe schwerer, nicht ihn – darum bekommt `lage`
 gegen den Computer auch die Stufe mit (im Duell `null`).
+
+**Vorlesen.** Für Kinder, die noch nicht (gut) lesen: Neben den Texten der
+Spiele zu zweit steht ein kleiner Lautsprecher. Ein Tipp liest den Text mit
+der Sprachausgabe des Geräts vor (eine deutsche Stimme, eine Schweizer, wenn
+es eine gibt), ein zweiter hält an; solange er spricht, leuchtet der
+Lautsprecher gelb. Von selbst liest nichts vor. Lautsprecher gibt es:
+
+- im Menü bei der Beschreibung (Titel und Beschreibung), bei «Gegen den
+  Computer» (alle Stufen mit ihrem Satz) und bei «Zu zweit, live» (wie ein
+  Duell geht, mit Code);
+- beim Duell: «Wer spielt mit?», der Code (Ziffer für Ziffer), «… fordert
+  dich heraus», «Wie heisst du?», Fehlermeldungen;
+- beim Satz über dem Brett – er liest den Satz und, wo das Spiel es sagt
+  (`vorlesen(bild)`), den Stand dazu: die Punkte bei Käsekästchen, Paare
+  finden und Blitzpaar, die Klötze beim Wackelturm, wer die Karte hat und
+  die Schritte bei der Schatzkarte, die Schritte im Zwillings-Labyrinth, bei
+  Malen und Raten die Runde, was gefunden ist und – wer rät – die Antworten
+  zur Wahl;
+- im Spiel bei den Hinweisen: wie man die Schiffe versteckt, der Hinweis
+  unter den Plätzen bei Farbcode knacken, nach einer Mühle, die Umwandlung
+  beim Schach, das Wort beim Malen.
+
+Vor dem Vorlesen fallen Bilder (Emoji), Anführungszeichen und
+Gedankenstriche weg. `vorlesen.js` ist der einzige Ort, der spricht
+(`npm run pruefen` sieht nach); den Vorlese-Knopf der alten App gibt es
+weiterhin nicht.
 
 **Schatzkarte & Kompass** (`schatzkarte.js`, miteinander): eine Insel aus
 Sand im blauen Meer. Eine hat die Karte – sie sieht den Schatz (rotes

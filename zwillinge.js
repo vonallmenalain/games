@@ -322,6 +322,8 @@
     darf,
     brett,
     computer,
+    // Was der Lautsprecher beim Satz noch vorliest: die Schritte.
+    vorlesen: (b) => (b.lage.ende ? "" : `Noch ${b.lage.uebrig} Schritte`),
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
     fuerPruefung: { plan, LABYRINTHE, labyrinth },

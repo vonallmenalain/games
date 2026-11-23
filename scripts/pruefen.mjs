@@ -169,7 +169,7 @@ const VERBOTEN = [
   ["LernappTrain\\b", "der Zug der App"],
   ["journey-plan", "die Reise"],
   ["entitlement\\.js", "die Schranke"],
-  ["help-voice|mountHelpButton|setHelp|pushHelp|speechSynthesis", "der Vorlese-Knopf der App – hier liest nichts vor"],
+  ["help-voice|mountHelpButton|setHelp|pushHelp", "der Vorlese-Knopf der App – hier liest vorlesen.js vor"],
 ];
 for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js"))) {
   const quelle = lies(name);
@@ -178,6 +178,16 @@ for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js"))) {
   }
 }
 pruefe("styles.css gestaltet keinen Vorlese-Knopf mehr (.help-voice)", !/\.help-voice/.test(lies("styles.css")));
+// Vorlesen gibt es wieder – aber nur an einem Ort (vorlesen.js), nur auf
+// Wunsch (ein Lautsprecher neben dem Text) und nur bei den Spielen zu zweit.
+for (const name of readdirSync(WURZEL).filter((n) => n.endsWith(".js") && n !== "vorlesen.js")) {
+  pruefe(`${name} spricht nicht selbst (speechSynthesis nur in vorlesen.js)`, !/speechSynthesis|SpeechSynthesisUtterance/.test(lies(name)));
+}
+{
+  const v = lies("vorlesen.js");
+  pruefe("vorlesen.js liest nur auf einen Tipp vor (knopf, sprich, stopp) und hält beim Verlassen der Seite an",
+    /window\.LernappVorlesen = \{ kann, knopf, sprich, stopp, sauber \}/.test(v) && /addEventListener\("pagehide", stopp\)/.test(v) && /lang = stimme\?\.lang \|\| "de-DE"/.test(v));
+}
 
 // --- 9. Jeder globale Name, den jemand benutzt, wird hier auch gesetzt ------
 const dateien = readdirSync(WURZEL).filter((n) => n.endsWith(".js"));

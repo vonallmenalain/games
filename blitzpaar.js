@@ -259,6 +259,8 @@
     darf,
     brett,
     computer,
+    // Was der Lautsprecher beim Satz noch vorliest: der Stand.
+    vorlesen: (b) => `Stand: ${b.namen?.a || "a"} ${b.lage.punkte.a}, ${b.namen?.b || "b"} ${b.lage.punkte.b}`,
     satz,
     neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
   });

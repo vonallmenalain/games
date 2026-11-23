@@ -455,7 +455,7 @@
     return bild;
   }
 
-  function brett({ zug, ton, ruhig }) {
+  function brett({ zug, ton, ruhig, vorlesen }) {
     const knoten = el("div", "zw-sc");
     const geschlagen = { oben: el("div", "zw-sc-geschlagen"), unten: el("div", "zw-sc-geschlagen") };
     const feld = el("div", "zw-sc-feld");
@@ -498,7 +498,9 @@
       if (moegliche.length === 1) { gewaehlt = -1; zug(moegliche[0]); return; }
       // Umwandlung: Welche Figur soll es werden?
       wahlKnoten.innerHTML = "";
-      wahlKnoten.append(el("p", "zw-sc-umwandlung-text", "Dein Bauer ist durch! Was soll er werden?"));
+      const frage = el("p", "zw-sc-umwandlung-text", "Dein Bauer ist durch! Was soll er werden?");
+      frage.append(" ", vorlesen?.("Dein Bauer ist durch! Was soll er werden? Eine Dame, ein Turm, ein Läufer oder ein Springer?") || "");
+      wahlKnoten.append(frage);
       const reihe = el("div", "zw-sc-umwandlung-reihe");
       for (const [ch, a] of [["q", DAME], ["r", TURM], ["b", LAEUFER], ["n", SPRINGER]]) {
         const k = el("button", `zw-sc-umwandlung-knopf ist-${jetzt.ich}`);
