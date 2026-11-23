@@ -145,6 +145,18 @@ const MH_SIEG = (() => {
   }
   return null;
 })();
+// Farbcode knacken: alle 360 Codes aus vier verschiedenen Farben.
+const FC_ALLE = [];
+for (let a = 1; a <= 6; a += 1) for (let b = 1; b <= 6; b += 1) for (let c = 1; c <= 6; c += 1) for (let d = 1; d <= 6; d += 1) {
+  if (new Set([a, b, c, d]).size === 4) FC_ALLE.push(`${a}${b}${c}${d}`);
+}
+// Der versteckte Code eines Sitzes aus dem Speicher seines Geräts – erst, wenn
+// er wirklich dort liegt.
+const fcCode = async (g, raum, nr, sitz) => {
+  const lies = () => g.seite.evaluate((k) => JSON.parse(localStorage.getItem("farbcode.codes") || "{}")[k]?.c || "", `${raum}|${nr}|${sitz}`);
+  await bis(() => lies().then((c) => FC_ALLE.includes(c)));
+  return lies();
+};
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -170,6 +182,8 @@ const mhTipps = (z) => { const m = /^(?:(\d+)-)?(\d+)(?:x(\d+))?$/.exec(z); retu
  *                    zu lange, oder das Glück entscheidet mit)
  *   computerZuege    gegen den Computer nur so viele eigene Züge, dann «Neu
  *                    anfangen» (eine ganze Partie dauert zu lange: Schach)
+ *   autoZuege        true: In der Datenbank stehen mehr Züge als getippt
+ *                    (Antworten des Geräts, «bereit») – dort nicht vergleichen
  */
 const SPIELWEISE = {
   tictactoe: {
@@ -363,6 +377,51 @@ const SPIELWEISE = {
     },
     trenner: ".",
     // Die Prüfung kennt alle Karten – sie schlägt auch «Schwer».
+    schwerSpielen: false,
+  },  farbcode: {
+    brett: ".zw-fc",
+    tippe: async (s, z) => {
+      for (const f of z.slice(1)) await s.locator(`.zw-fc-farbe[data-farbe="${f}"]`).click();
+      await s.locator(".zw-fc-los:enabled").click({ timeout: 8000 });
+    },
+    kannTippen: (s) => s.evaluate(() => {
+      const l = window.LernappZwei?.test?.lage?.();
+      return Boolean(l && l.phase === "raten" && l.dran === window.LernappZwei.test.sitz()) && !document.querySelector(".zw-fc-eingabe")?.hidden;
+    }),
+    liegt: (s) => s.locator(".zw-fc-zeile:not(.ist-frei)").count(),
+    // Gegen den Computer: ein Code, der zu allen Antworten passt.
+    waehle: (lage) => {
+      if (lage?.phase !== "raten" || lage.dran !== "a") return null;
+      const passt = (code) => lage.versuche.a.every(({ versuch, platz, da }) => {
+        let p = 0; let d = 0;
+        for (let i = 0; i < 4; i += 1) { if (versuch[i] === code[i]) p += 1; else if (code.includes(versuch[i])) d += 1; }
+        return p === platz && d === da;
+      });
+      return `R${FC_ALLE.find(passt)}`;
+    },
+    vorbereiten: async (s) => {
+      if (!await bis(() => s.evaluate(() => Boolean(window.LernappZwei?.test?.lage?.()?.phase && window.LernappZwei?.test?.sitz?.())))) return;
+      const offen = await s.evaluate(() => { const l = window.LernappZwei.test.lage(); return l.phase === "verstecken" && !l.bereit[window.LernappZwei.test.sitz()]; });
+      if (!offen) return;
+      for (const f of ["2", "5", "1", "6"]) await s.locator(`.zw-fc-farbe[data-farbe="${f}"]`).click();
+      await s.locator(".zw-fc-los").click();
+      await bis(() => s.evaluate(() => window.LernappZwei.test.lage().bereit[window.LernappZwei.test.sitz()]));
+    },
+    // Papa kennt Lenas Code (aus ihrem Speicher) und knackt ihn sofort;
+    // Lena rät daneben – nach der ersten Runde hat Papa gewonnen.
+    sieg: async ({ papa, lena, raum, nr }) => {
+      const code = await fcCode(lena, raum, nr, "b");
+      const papas = await fcCode(papa, raum, nr, "a");
+      return [{ g: papa, zug: `R${code}` }, { g: lena, zug: `R${FC_ALLE.find((c) => c !== papas)}` }];
+    },
+    siegZeichen: [".zw-fc-tafel.ist-angriff .zw-fc-geheim .zw-fc-stift:not(.ist-geheim)", 4],
+    // Beide knacken in der ersten Runde: unentschieden.
+    remis: async ({ papa, lena, raum, nr }) => [
+      { g: lena, zug: `R${await fcCode(papa, raum, nr, "a")}` },
+      { g: papa, zug: `R${await fcCode(lena, raum, nr, "b")}` },
+    ],
+    trenner: ".",
+    autoZuege: true,
     schwerSpielen: false,
   },
 };
@@ -646,7 +705,7 @@ try {
       pruefe(await bis(() => satz(papa.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Papa`);
       pruefe(await bis(() => satz(lena.seite).then((t) => /unentschieden/i.test(t))), `${T}: Unentschieden – bei Lena`);
       const st = await (await db(`partie/${raum}/stand`)).json();
-      pruefe(st?.serie === "a" && st?.beginnt === "b" && st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "") && st?.nr === 1,
+      pruefe(st?.serie === "a" && st?.beginnt === "b" && (w.autoZuege || st?.zuege === remisListe.map((x) => x.zug).join(w.trenner ?? "")) && st?.nr === 1,
         `${T}: Der Stand in der Datenbank (${JSON.stringify(st)})`);
       await bild(papa.seite, fotos("4-duell-remis"));
     }

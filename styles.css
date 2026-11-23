@@ -10219,6 +10219,122 @@ body[data-page="paare"] { overscroll-behavior: none; }
   .zw-pa-karte.ist-neu .zw-pa-vorn { animation: none; }
 }
 
+/* --- Farbcode knacken (farbcode.js) ------------------------------------------------
+   Zwei Tafeln nebeneinander: links mein Raten auf den Code drüben, rechts
+   das Raten drüben auf meinen Code. Darunter die Eingabe: vier Plätze,
+   sechs Farben, ein Knopf. Grün: richtige Farbe am richtigen Platz, gelb:
+   richtige Farbe, falscher Platz. Ein Stift ist --stift gross. */
+body[data-page="farbcode"] { overscroll-behavior: none; }
+.vr-partie.zw-farbcode { --vr-breite: max(260px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 560px)); }
+.zw-fc,
+.zw-fc-held {
+  --stift: clamp(17px, calc(var(--vr-breite, 360px) * 0.058), 30px);
+}
+.zw-fc .ist-f1, .zw-fc-held .ist-f1, .ar-fc-feld .ist-f1 { --f: #ff5a5f; --t: #b3262c; }
+.zw-fc .ist-f2, .zw-fc-held .ist-f2, .ar-fc-feld .ist-f2 { --f: #ff9f43; --t: #b8611a; }
+.zw-fc .ist-f3, .zw-fc-held .ist-f3, .ar-fc-feld .ist-f3 { --f: #ffd43b; --t: #b8900c; }
+.zw-fc .ist-f4, .zw-fc-held .ist-f4, .ar-fc-feld .ist-f4 { --f: #2ecc71; --t: #16834a; }
+.zw-fc .ist-f5, .zw-fc-held .ist-f5, .ar-fc-feld .ist-f5 { --f: #3d8bff; --t: #1d4fb0; }
+.zw-fc .ist-f6, .zw-fc-held .ist-f6, .ar-fc-feld .ist-f6 { --f: #b07bff; --t: #6a3bc0; }
+.zw-fc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: var(--vr-breite);
+  max-width: 100%;
+}
+.zw-fc .confetti-layer { z-index: 6; }
+.zw-fc-tafeln { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.zw-fc-tafeln[hidden],
+.zw-fc-eingabe[hidden] { display: none; }
+.zw-fc-tafel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 16px;
+  background: linear-gradient(170deg, #2a2150, #17132b 70%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.zw-fc-kopf { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.zw-fc-titel { max-width: 100%; overflow: hidden; color: var(--ar-leise); font-size: 0.8rem; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.zw-fc-geheim { display: flex; gap: 4px; }
+.zw-fc-zeilen { display: flex; flex-direction: column; gap: 4px; }
+.zw-fc-zeile { display: flex; align-items: center; gap: 4px; min-height: var(--stift); }
+.zw-fc-zeile.ist-frei { border-radius: 999px; background: rgba(255, 255, 255, 0.04); }
+.zw-fc-zeile.ist-unterwegs { opacity: 0.7; }
+.zw-fc-stift {
+  flex: 0 0 auto;
+  width: var(--stift);
+  height: var(--stift);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0 12%, var(--f) 46%, var(--t) 100%);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+.zw-fc-stift.ist-geheim { display: grid; place-items: center; background: rgba(255, 255, 255, 0.1); box-shadow: none; color: var(--ar-leise); font-size: calc(var(--stift) * 0.55); font-weight: 900; line-height: 1; }
+.zw-fc-antwort { display: grid; grid-template-columns: repeat(2, calc(var(--stift) * 0.4)); gap: 2px; margin-left: 4px; }
+.zw-fc-antwort.ist-warten { display: block; color: var(--ar-leise); font-weight: 900; }
+.zw-fc-punkt { width: calc(var(--stift) * 0.4); height: calc(var(--stift) * 0.4); border-radius: 50%; background: rgba(255, 255, 255, 0.14); }
+.zw-fc-punkt.ist-platz { background: #2ecc71; box-shadow: 0 0 6px rgba(46, 204, 113, 0.6); }
+.zw-fc-punkt.ist-da { background: #ffd43b; }
+.zw-fc-zeile.ist-neu .zw-fc-punkt { animation: zw-fc-auf 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+@keyframes zw-fc-auf { from { transform: scale(0); } to { transform: scale(1); } }
+.zw-fc-eingabe { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.zw-fc-plaetze { display: flex; gap: 10px; }
+.zw-fc-platz {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 54px;
+  height: 54px;
+  min-height: 0;
+  padding: 0;
+  border: 2px dashed rgba(255, 255, 255, 0.32);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.zw-fc-platz[class*="ist-f"] { border: 0; background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0 12%, var(--f) 46%, var(--t) 100%); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+.zw-fc-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.zw-fc-farbe {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0 12%, var(--f) 46%, var(--t) 100%);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 4px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.zw-fc-farbe:active { transform: scale(0.92); }
+.zw-fc-farbe.ist-gewaehlt { opacity: 0.3; transform: scale(0.86); }
+.zw-fc-farbe:focus-visible,
+.zw-fc-platz:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.zw-fc-los { min-width: 160px; min-height: 52px; font-size: 1.1rem; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-farbcode { --vr-breite: max(300px, min(calc(100vw - 400px), 560px)); }
+  .zw-fc { grid-area: feld; --stift: 16px; }
+  .zw-fc-tafel { padding: 6px; gap: 4px; }
+  .zw-fc-zeilen { gap: 2px; }
+  .zw-fc-platz { width: 44px; height: 44px; }
+  .zw-fc-farbe { width: 40px; height: 40px; }
+}
+
+/* Im Menü: drei Versuche, der letzte geknackt. */
+.zw-fc-held { --stift: clamp(16px, 4.6vw, 22px); flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; padding: 10px; border-radius: 12px; background: linear-gradient(170deg, #2a2150, #17132b 70%); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+.zw-fc-held-zeile { display: flex; align-items: center; gap: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-fc-zeile.ist-neu .zw-fc-punkt { animation: none; }
+  .zw-fc-farbe { transition: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10301,6 +10417,24 @@ body[data-page="paare"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Farbcode knacken: zwei Reihen Stifte, die Antwort daneben. */
+.ar-fc-feld {
+  position: absolute;
+  left: calc(50% - var(--z) * 3.6);
+  top: calc(var(--z) * 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--z) * 0.35);
+  padding: calc(var(--z) * 0.45);
+  border-radius: calc(var(--z) * 0.4);
+  background: linear-gradient(170deg, #2a2150, #17132b 70%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-fc-zeile { display: flex; align-items: center; gap: calc(var(--z) * 0.2); }
+.ar-fc-stift { width: calc(var(--z) * 1.15); height: calc(var(--z) * 1.15); border-radius: 50%; background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0 12%, var(--f) 46%, var(--t) 100%); }
+.ar-fc-punkt { width: calc(var(--z) * 0.45); height: calc(var(--z) * 0.45); border-radius: 50%; background: rgba(255, 255, 255, 0.2); }
+.ar-fc-punkt.ist-platz { background: #2ecc71; }
+.ar-fc-punkt.ist-da { background: #ffd43b; }
 /* Paare finden: Karten, zwei davon offen – ein Paar. */
 .ar-pa-feld {
   position: absolute;

@@ -1219,6 +1219,61 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Paare finden: «Schwer» (vergisst nichts) schlägt «Ganz leicht» fast immer (${siegeSchwer} von 20)`, siegeSchwer >= 16);
   }
 
+  // Farbcode knacken: Code verstecken, raten, antworten; wer zuerst knackt –
+  // aber erst nach der ganzen Runde; die Codes am Ende.
+  const FC = angemeldet.farbcode;
+  if (FC) {
+    const lage = (zuege, beginnt = "a") => FC.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const f0 = lage([]);
+    pruefe("Farbcode knacken: Zuerst verstecken beide ihren Code",
+      f0.phase === "verstecken" && FC.darf(f0, "Ca", "a") && !FC.darf(f0, "Cb", "a") && lage(["Cb", "Ca"]).dran === "a" && lage(["Ca", "Cb"], "b").dran === "b");
+    const f1 = lage(["Ca", "Cb"]);
+    pruefe("Farbcode knacken: Geraten werden vier verschiedene Farben von sechs",
+      FC.darf(f1, "R1234", "a") && !FC.darf(f1, "R1123", "a") && !FC.darf(f1, "R1237", "a") && !FC.darf(f1, "R123", "a") && !FC.darf(f1, "R1234", "b"));
+    const f2 = lage(["Ca", "Cb", "R1234"]);
+    pruefe("Farbcode knacken: Antworten darf, wessen Code es ist – und nur, was sein kann",
+      f2.phase === "antworten" && f2.dran === "b" && FC.darf(f2, "A12", "b") && !FC.darf(f2, "A12", "a") && !FC.darf(f2, "A31", "b") && !FC.darf(f2, "A23", "b"));
+    const f3 = lage(["Ca", "Cb", "R1234", "A40"]);
+    pruefe("Farbcode knacken: Wer als Erster knackt, wartet – die andere darf in derselben Runde noch",
+      !f3.ende && f3.dran === "b" && f3.geknackt.a === 1 && f3.phase === "raten");
+    const f4 = lage(["Ca", "Cb", "R1234", "A40", "R5612", "A21"]);
+    pruefe("Farbcode knacken: Knackt sie nicht, hat die Erste gewonnen – und zeigt ihren Code",
+      f4.phase === "zeigen" && f4.dran === "a" && FC.darf(f4, "Z3456", "a") && lage(["Ca", "Cb", "R1234", "A40", "R5612", "A21", "Z3456"]).ende === "a");
+    const f5 = lage(["Ca", "Cb", "R1234", "A40", "R5612", "A40"]);
+    pruefe("Farbcode knacken: Knacken beide in derselben Runde, ist es unentschieden (und nichts mehr zu zeigen)",
+      f5.ende === "u" && f5.phase === "ende");
+    const lang = ["Ca", "Cb"];
+    for (let i = 0; i < 8; i += 1) lang.push("R1234", "A12", "R5612", "A03");
+    const f6 = lage(lang);
+    pruefe("Farbcode knacken: Nach acht Versuchen ohne Treffer – beide zeigen, dann unentschieden",
+      f6.phase === "zeigen" && f6.zeigen.length === 2 && lage([...lang, "Z1243", "Z2156"]).ende === "u");
+    // Ganze Partien: Computer gegen Computer, a antwortet von selbst (ohne
+    // Speicher: aus einem Code, der zu allen Antworten passt).
+    let legal = true;
+    let zuEnde = 0;
+    for (let p = 0; p < 16 && legal; p += 1) {
+      const stufen = Object.keys(FC.stufen);
+      const sa = stufen[p % 4];
+      const sb = stufen[(p + 1) % 4];
+      const beginnt = p % 2 ? "b" : "a";
+      const z = [];
+      let l = lage(z, beginnt);
+      for (let i = 0; i < 200 && !l.ende; i += 1) {
+        const wer = l.dran === "beide" ? (l.bereit.a ? "b" : "a") : l.dran;
+        let zug;
+        if (l.phase === "verstecken") zug = `C${wer}`;
+        else if (wer === "a") zug = FC.auto(l, "a", { raum: `p${p}`, nr: 0 }) || FC.computer(l, "a", sa, { saat: 31 + p });
+        else zug = FC.computer(l, "b", sb, { saat: 3100 + p });
+        if (zug && typeof zug === "object") zug = zug.zug;
+        if (!FC.darf(l, zug, wer)) { legal = false; break; }
+        z.push(zug);
+        l = lage(z, beginnt);
+      }
+      if (l.ende) zuEnde += 1;
+    }
+    pruefe(`Farbcode knacken: 16 Partien Computer gegen Computer – jeder Zug erlaubt, jede zu Ende (${zuEnde}/16)`, legal && zuEnde === 16);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };
