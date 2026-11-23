@@ -682,6 +682,13 @@ const stilCss = lies("styles.css");
 pruefe("styles.css: kein Text lässt sich markieren (html, user-select: none)", /html \{[^}]*\buser-select: none;/.test(stilCss));
 pruefe("styles.css: Eingabefelder bleiben markierbar", /input,\s*textarea,\s*\[contenteditable="true"\] \{[^}]*user-select: text;/.test(stilCss));
 pruefe("mini-games.js fängt Markieren, Menü und Ziehen ab", /\["selectstart", "contextmenu", "dragstart"\]/.test(miniJs));
+// Die Startseite (auch im Turnier) ist genau so hoch wie das Bild. Im
+// Vollbild auf einem Tablet kann die Navigationsleiste darüber stehen, ohne
+// dass der Browser es weiss: Die Kachelreihe unten hält dort Abstand.
+pruefe("styles.css: Im Vollbild auf Touch-Geräten bleibt unter der Kachelreihe Platz für eine Navigationsleiste (--ar-unten)",
+  /@media \(display-mode: fullscreen\) and \(pointer: coarse\) \{\s*\.mini-seite\.ar-seite \{ --ar-unten: max\(var\(--safe-bottom\), 64px\); \}/.test(stilCss)
+  && /\.ar-auswahl \{[^}]*padding: 10px 0 calc\(10px \+ var\(--ar-unten\)\);/.test(stilCss)
+  && !/\.ar-auswahl \{[^}]*var\(--safe-bottom\)/.test(stilCss));
 
 // Handy: Das Spiel ist das ganze Bild, die Leiste fängt nur mit ihren
 // Knöpfen, und was im Spiel oben steht, rückt unter die Knöpfe.

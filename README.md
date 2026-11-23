@@ -3564,6 +3564,17 @@ Kopf des Adminbereichs. Ihn gibt es nur, wo der Browser das einer Seite
 erlaubt (am Computer, auf Android; auf dem iPhone nicht), und nicht in der
 installierten App, die ohnehin im Vollbild startet.
 
+**Unten bleibt im Vollbild Luft.** Manche Android-Tablets (gesehen bei
+Xiaomi und Samsung, in der installierten Turnier-App) lassen im Vollbild die
+Navigations- oder Taskleiste über dem Bild stehen, ohne es dem Browser zu
+sagen: `safe-area-inset-bottom` bleibt 0, die Seite hält die ganze Höhe für
+sichtbar. Auf der Startseite, die genau so hoch ist wie das Bild, lag die
+Kachelreihe dann halb unter der Leiste – man sah die Bilder, aber nicht die
+Namen der Spiele. Darum hält die Kachelreihe im Vollbild auf einem
+Touch-Gerät (`display-mode: fullscreen` und `pointer: coarse`) unten
+immer 64 px Abstand (`--ar-unten`), auf dem Handy quer 24 px; sonst nur den
+sicheren Rand des Geräts.
+
 Das Vollbild bleibt, bis man es selbst beendet – mit dem Knopf, mit Esc oder
 der Zurück-Geste –, auch über das Ende der Runde und jeden Seitenwechsel
 hinaus, wie in der installierten App (`vollbild.js`). Ein Browser verlässt
