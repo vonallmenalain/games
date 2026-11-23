@@ -11770,7 +11770,7 @@ try {
     await form.locator('input[type="radio"][value="wieErster"]').check();
     await form.locator(".adm-option", { hasText: "verdecken" }).locator("input").check();
     await form.locator(".adm-zwei-wahl", { hasText: "Viererreihe" }).locator('input[type="checkbox"]').check();
-    pruefe(/Viererreihe/.test(await form.locator("legend").first().innerText()), "Über den Spielen steht nicht, dass Viererreihe dabei ist.");
+    pruefe(/Viererreihe/.test(await form.locator("legend", { hasText: "Spiele –" }).innerText().catch(() => "")), "Über den Spielen steht nicht, dass Viererreihe dabei ist.");
     const gegnerHaken = form.locator(".adm-option", { hasText: "Gegner beim Spielen" }).locator("input");
     pruefe(await gegnerHaken.isChecked(), "Ein neues Turnier zeigt die Gegner beim Spielen nicht von selbst.");
     await gegnerHaken.uncheck();
