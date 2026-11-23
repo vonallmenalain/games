@@ -55,9 +55,14 @@
  *                        dann gibt es keinen Computer
  *   trenner              wie die Züge in zuege getrennt sind: "" (ein
  *                        Zeichen je Zug, wie Viererreihe) oder "." (Vorgabe)
- *   lage(zuege, { roh, beginnt, saat })
+ *   lage(zuege, { roh, beginnt, saat, stufe })
  *                        → { dran: "a" | "b" | "beide" | null,
  *                            ende: null | "a" | "b" | "u", … }
+ *                        stufe: gegen den Computer die Stufe, im Duell null
+ *   gemeinsam            true: Beide spielen miteinander, nicht gegeneinander.
+ *                        Dann endet eine Partie mit «g» (geschafft) oder «v»
+ *                        (verpasst), die Bilanz zählt Geschafftes, und
+ *                        gefeiert wird bei beiden.
  *   darf(lage, zug, sitz)            ob sitz diesen Zug jetzt machen darf
  *   brett({ zug })       → { knoten, zeichne({ zuege, roh, lage, beginnt,
  *                            saat, nr, dran, ich, aus, modus, raum, namen }),
@@ -71,12 +76,13 @@
  *   auto(lage, sitz, { raum, nr })   (wenn es eines gibt) ein Zug, den das
  *                        Gerät von selbst macht – etwa die Antwort auf einen
  *                        Schuss aus dem, was nur dieses Gerät weiss
- *   neuePartie()         (wenn es eines gibt) { saat } für eine neue Partie
+ *   neuePartie(stufe)    (wenn es eines gibt) { saat } für eine neue Partie
  *   satz(lage, { ich, name, modus })  (wenn es eines gibt) { text, sitz } –
  *                        was über dem Brett steht, wenn es mehr zu sagen gibt
  *                        als «Du bist dran»
  *   texte                { start: "tippe auf eine Spalte",
- *                          remis: "Unentschieden – das Brett ist voll." }
+ *                          remis: "Unentschieden – das Brett ist voll.",
+ *                          geschafft, verpasst (miteinander) }
  *   zeichen(sitz)        (wenn es eines gibt) das Zeichen eines Spielers
  *                        (sonst ein Stein in Koralle oder Gold)
  */
@@ -229,9 +235,12 @@
     const trenner = S.spiel.trenner ?? ".";
     return roh && trenner ? `${roh}${trenner}${zug}` : `${roh || ""}${zug}`;
   }
+  // Gegen den Computer kennt die Lage die Stufe (eine Karte kann dann
+  // grösser oder kleiner sein), im Duell nicht.
+  const stufeJetzt = () => (S.ansicht === "computer" ? S.stufe || null : null);
   function lageVon(roh, beginnt, saat) {
     try {
-      return S.spiel.lage(teile(roh), { roh: String(roh || ""), beginnt, saat: Number(saat) || 0 }) || { dran: null, ende: null };
+      return S.spiel.lage(teile(roh), { roh: String(roh || ""), beginnt, saat: Number(saat) || 0, stufe: stufeJetzt() }) || { dran: null, ende: null };
     } catch (fehler) {
       console.warn("Die Partie liess sich nicht lesen", fehler);
       return { dran: null, ende: null, kaputt: true };
@@ -363,7 +372,7 @@
       if (denkt) satz.append(el("span", "vr-denkt", "…"));
       satz.classList.toggle("ist-ich", Boolean(dran && (dran === ich || (dran === "beide" && ich))));
       satz.classList.toggle("ist-ende", Boolean(ende));
-      satz.classList.toggle("ist-sieg", Boolean(ende && ende !== "u" && (ende === ich || !ich)));
+      satz.classList.toggle("ist-sieg", Boolean(ende === "g" || (ende && !["u", "v"].includes(ende) && (ende === ich || !ich))));
       unten.innerHTML = "";
       knoepfe.forEach((k) => unten.append(k));
       brett.zeichne(bild);
@@ -481,6 +490,7 @@
 
   function bilanzSatz(x) {
     if (!x.s && !x.n && !x.u) return "Noch nicht gespielt";
+    if (S.spiel?.gemeinsam) return `${x.s} geschafft · ${x.n} nicht geschafft`;
     const teile = [`${x.s} gewonnen`, `${x.n} verloren`];
     if (x.u) teile.push(`${x.u} unentschieden`);
     return teile.join(" · ");
@@ -728,7 +738,7 @@
   }
 
   function neueSaat() {
-    return Number(S.spiel.neuePartie?.()?.saat) || zufallsSaat();
+    return Number(S.spiel.neuePartie?.(stufeJetzt())?.saat) || zufallsSaat();
   }
 
   function computerStarten(stufe) {
@@ -764,7 +774,9 @@
     const st = S.spiel.stufen[S.stufe];
     const texte = S.spiel.texte || {};
     let standard = { text: "", sitz: null };
-    if (ende === "a") standard = { text: "Du hast gewonnen!", sitz: "a" };
+    if (ende === "g") standard = { text: texte.geschafft || "Geschafft – zusammen!", sitz: null };
+    else if (ende === "v") standard = { text: texte.verpasst || "Leider nicht geschafft.", sitz: null };
+    else if (ende === "a") standard = { text: "Du hast gewonnen!", sitz: "a" };
     else if (ende === "b") standard = { text: "Der Computer hat gewonnen.", sitz: "b" };
     else if (ende === "u") standard = { text: texte.remis || "Unentschieden.", sitz: null };
     else if (dran === "a" || dran === "beide") standard = { text: zuege.length ? "Du bist dran" : `Du beginnst – ${texte.start || "los geht's"}`, sitz: "a" };
@@ -777,7 +789,8 @@
     computerAnsicht.zeige({
       spieler: {
         a: { name: meinName() || "Du", zahl: b.s },
-        b: { name: "Computer", zahl: b.n },
+        // Miteinander: Beide zeigen, was sie zusammen geschafft haben.
+        b: { name: "Computer", zahl: S.spiel.gemeinsam ? b.s : b.n },
       },
       text,
       textSitz: sitz,
@@ -810,13 +823,13 @@
     if (!lage) return;
     if (lage.ende) {
       S.denkt = false;
-      bilanzZaehlen(S.stufe, lage.ende === "a" ? "s" : lage.ende === "b" ? "n" : "u");
+      bilanzZaehlen(S.stufe, ["a", "g"].includes(lage.ende) ? "s" : ["b", "v"].includes(lage.ende) ? "n" : "u");
       computerZeichnen();
       const wann = ruhig() ? 50 : 520;
       window.setTimeout(() => {
         if (S.ansicht !== "computer") return;
-        if (lage.ende === "a") feiern(computerAnsicht?.brettKnoten);
-        else ton(lage.ende === "b" ? "verloren" : "remis");
+        if (lage.ende === "a" || lage.ende === "g") feiern(computerAnsicht?.brettKnoten);
+        else ton(["b", "v"].includes(lage.ende) ? "verloren" : "remis");
         S.wirt.querySelector(".vr-nochmal")?.focus({ preventScroll: true });
       }, wann);
       return;
@@ -1122,6 +1135,8 @@
     const serie = String(st.serie || "") + (ende || "");
     const zahl = { a: 0, b: 0, u: 0 };
     for (const z of serie) if (zahl[z] !== undefined) zahl[z] += 1;
+    // Miteinander: Beide zählen, was sie zusammen geschafft haben.
+    if (S.spiel?.gemeinsam) { const g = [...serie].filter((z) => z === "g").length; zahl.a = g; zahl.b = g; }
     return { roh, zuege: teile(roh), beginnt, saat, nr: Number(st.nr) || 0, lage, ende, zahl, serie: String(st.serie || "") };
   }
 
@@ -1178,6 +1193,8 @@
 
     let standard = { text: "", sitz: null };
     if (st.ende === "u") standard = { text: texte.remis || "Unentschieden.", sitz: null };
+    else if (st.ende === "g") standard = { text: texte.geschafft || "Geschafft – zusammen!", sitz: null };
+    else if (st.ende === "v") standard = { text: texte.verpasst || "Leider nicht geschafft.", sitz: null };
     else if (st.ende) {
       standard = {
         sitz: st.ende,
@@ -1233,7 +1250,8 @@
         window.setTimeout(() => {
           if (S.ansicht !== "duell") return;
           if (st.ende === "u") ton("remis");
-          else if (!S.sitz || st.ende === S.sitz) feiern(duellAnsicht?.brettKnoten);
+          else if (st.ende === "v") ton("verloren");
+          else if (st.ende === "g" || !S.sitz || st.ende === S.sitz) feiern(duellAnsicht?.brettKnoten);
           else ton("verloren");
         }, ruhig() ? 50 : 520);
       } else if (!st.ende && dran === S.sitz && st.roh !== vorher.roh && st.zuege.length && document.visibilityState === "visible") {

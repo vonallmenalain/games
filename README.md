@@ -41,6 +41,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     paare.html            Paare finden, erzeugt
     farbcode.html         Farbcode knacken, erzeugt
     blitzpaar.html        Blitzpaar, erzeugt
+    schatzkarte.html      Schatzkarte & Kompass, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -85,6 +86,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Regeln und Computer
     blitzpaar.js          Blitzpaar: Runden, wer zuerst tippt, ein Computer
                           mit Reaktionszeit
+    schatzkarte.js        Schatzkarte & Kompass: die Insel, Karte und
+                          Kompass, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2896,6 +2899,7 @@ Gerät:
 | Paare finden | `/paare` | `paare.js` |
 | Farbcode knacken | `/farbcode` | `farbcode.js` |
 | Blitzpaar | `/blitzpaar` | `blitzpaar.js` |
+| Schatzkarte & Kompass | `/schatzkarte` | `schatzkarte.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3154,6 +3158,39 @@ Geeicht an nachgemachten Kindern (eines von fünf Jahren braucht etwa fünf
 Sekunden, eines von neun gut zweieinhalb): Sie gewinnen gegen «ihre» Stufe
 gut jede zweite Partie. Bilanz: `blitzpaar.bilanz`.
 
+**Miteinander.** Ein Spiel kann sich mit `gemeinsam: true` anmelden: Dann
+spielen die beiden nicht gegeneinander, sondern zusammen. Eine Partie endet
+mit `g` (geschafft) oder `v` (verpasst) – in der Serie der Datenbank wie
+jedes andere Ergebnis –, gefeiert wird bei beiden, in der Leiste steht bei
+beiden, was sie zusammen geschafft haben, und die Bilanz im Menü zählt
+«geschafft · nicht geschafft». Gegen den Computer ist er der Partner; die
+Stufe macht dann die Aufgabe schwerer, nicht ihn – darum bekommt `lage`
+gegen den Computer auch die Stufe mit (im Duell `null`).
+
+**Schatzkarte & Kompass** (`schatzkarte.js`, miteinander): eine Insel aus
+Sand im blauen Meer. Eine hat die Karte – sie sieht den Schatz (rotes
+Kreuz), Felsen und versteckte Gruben, und wo die andere steht – und zeigt
+mit der Kompassrose den Weg (ein Pfeil oder «Graben»). Die andere sucht:
+Sie sieht nur Sand, ihre Spuren und was sie schon entdeckt hat, und den
+Hinweis gross über der Insel; der empfohlene Pfeil leuchtet. Ein Felsen
+hält auf, eine Grube schickt zurück zum Start, Graben ohne Schatz kostet
+einen Schritt. Wird der Schatz ausgegraben, bevor die Schritte ausgehen,
+ist es geschafft. Wer eine Partie beginnt, hat die Karte; die Insel kommt
+aus der Saat und hat immer einen sicheren Weg. Züge: `HN` (Hinweis nach
+oben; N, O, S, W oder G), `SN` (Schritt), `SG` (graben).
+
+| Stufe | Die Insel |
+|---|---|
+| Kleine Insel | 5 × 5, drei Felsen, zwei Gruben, acht Schritte Luft |
+| Einfach | 6 × 6, fünf Felsen, drei Gruben, sieben Schritte Luft (so auch im Duell) |
+| Mittel | 7 × 7, sieben Felsen, fünf Gruben, fünf Schritte Luft |
+| Grosse Insel | 8 × 8, zehn Felsen, sieben Gruben, vier Schritte Luft |
+
+Der Computer als Partner folgt jedem Hinweis genau und zeigt selbst den
+kürzesten sicheren Weg. Wer als Sucherin jedem Hinweis folgt, findet den
+Schatz immer; wer öfter danebenläuft, auf der grossen Insel selten.
+Bilanz: `schatzkarte.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3246,8 +3283,10 @@ mischt gleich, ein Paar heisst nochmal, sechs zu sechs ist unentschieden;
 bei Farbcode knacken: verstecken, raten, antworten, wer zuerst knackt,
 gleich viele Runden, die Codes am Ende; bei Blitzpaar: dieselbe Saat,
 dieselbe Runde, der erste richtige Tipp zählt, daneben heisst aussetzen,
-fünf Punkte gewinnen), die Regeln in `npm run test:rules`, und im Browser
-in
+fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
+Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
+den Schatz auf jeder Insel), die Regeln in `npm run test:rules`, und im
+Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
 pruefen:zwei` (jedes andere Spiel zu zweit: Computer, Duell, drei Grössen,
 Startseite, Turnier – wer wartet, wartet bei genau diesem Spiel –, und ein

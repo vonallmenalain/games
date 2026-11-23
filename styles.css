@@ -8866,7 +8866,9 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 /* Oben: zurück, der Name, das Vollbild – rechts bleibt Platz für den Ton. */
 .vr-kopf {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* Die Mitte darf schmaler werden als ihr Titel (der bricht dann um) –
+     sonst schöbe sich ein langer Titel über den Weg zurück. */
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, auto) minmax(min-content, 1fr);
   align-items: center;
   gap: 10px;
   min-height: 52px;
@@ -8881,12 +8883,14 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   color: var(--ar-text);
   text-decoration: none;
   font-size: 1.12rem;
   font-weight: 900;
   letter-spacing: -0.01em;
 }
+.vr-marke-wort { min-width: 0; line-height: 1.15; text-align: center; }
 .vr-marke-bild {
   width: 14px;
   height: 14px;
@@ -10416,6 +10420,151 @@ body[data-page="blitzpaar"] { overscroll-behavior: none; }
   .zw-bp-bild.ist-treffer.ist-b { animation: none; }
 }
 
+/* --- Schatzkarte & Kompass (schatzkarte.js) ------------------------------------------
+   Eine Insel aus Sand im blauen Meer, darauf ein Gitter. Wer die Karte hat,
+   sieht Felsen, Gruben und das rote Kreuz; wer sucht, nur Sand, Spuren und
+   was sie schon entdeckt hat. Darunter die Kompassrose: vier Pfeile und in
+   der Mitte «Graben». Ein Feld ist die Inselbreite durch --n. */
+body[data-page="schatzkarte"] { overscroll-behavior: none; }
+.vr-partie.zw-schatzkarte {
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 500px, calc(100dvh - 525px - var(--safe-top) - var(--safe-bottom))));
+}
+.zw-sk { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; touch-action: manipulation; }
+.zw-sk .confetti-layer { z-index: 6; }
+.zw-sk-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; font-weight: 850; }
+.zw-sk-rolle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zw-sk-schritte { flex: 0 0 auto; color: var(--ar-leise); font-variant-numeric: tabular-nums; }
+.zw-sk-schritte.ist-knapp { color: #ff9a9a; }
+.zw-sk-meer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 6%;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.25), transparent 40%),
+    radial-gradient(circle at 50% 50%, #3aa6dc, #155b8f 75%);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+/* Der Hinweis, gross und blass über der Insel – wie eine Kompassnadel. */
+.zw-sk-meer::after {
+  content: attr(data-hinweis);
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: calc(var(--vr-breite) * 0.32);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.zw-sk-meer.ist-hinweis::after { opacity: 1; }
+.zw-sk-feld {
+  --z: calc(var(--vr-breite) * 0.88 / var(--n));
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--n), minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #d9bd78;
+  box-shadow: 0 0 0 4px rgba(255, 238, 190, 0.55), 0 0 30px rgba(255, 238, 190, 0.35);
+}
+.zw-sk-zelle { position: relative; display: grid; place-items: center; background: #f2da9e; font-size: calc(var(--z) * 0.6); line-height: 1; }
+.zw-sk-zelle:nth-child(even) { background: #eed493; }
+.zw-sk-zelle::before,
+.zw-sk-zelle::after { position: absolute; content: none; }
+/* Spuren: kleine Abdrücke im Sand. */
+.zw-sk-zelle.ist-spur { background: #e6c47f; }
+.zw-sk-zelle.ist-start::before { content: "⚑"; left: 8%; top: 4%; color: rgba(120, 70, 20, 0.6); font-size: calc(var(--z) * 0.32); }
+/* Ein Felsen: grau und rund. Eine Grube: ein dunkles Loch. */
+.zw-sk-zelle.ist-fels::after { content: ""; inset: 14%; border-radius: 42% 50% 46% 54%; background: radial-gradient(circle at 35% 30%, #c9c3bd 0 10%, #8d8580 45%, #5a5450 100%); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); }
+.zw-sk-zelle.ist-grube::after { content: ""; inset: 18%; border-radius: 50%; background: radial-gradient(circle, #2b1c0e 0 50%, #5c3d1e 70%, rgba(92, 61, 30, 0) 72%); }
+.zw-sk-zelle.ist-entdeckt::after { animation: zw-sk-auf 0.35s ease-out both; }
+.zw-sk-zelle.ist-gegraben::after { content: ""; inset: 32%; border-radius: 50%; background: radial-gradient(circle, rgba(92, 61, 30, 0.7) 0 55%, rgba(92, 61, 30, 0) 60%); }
+/* Der Schatz: ein rotes Kreuz – gefunden eine Truhe. */
+.zw-sk-zelle.ist-schatz::after { content: "✕"; color: #d62828; font-weight: 900; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.zw-sk-zelle.ist-gefunden::after { content: "💰"; z-index: 3; color: inherit; animation: zw-sk-auf 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.4) both; }
+/* Die Sucherin: ein Stein in ihrer Farbe, mit weissem Rand. */
+.zw-sk-zelle.ist-hier::before {
+  content: "";
+  left: 16%;
+  top: 16%;
+  z-index: 2;
+  width: 68%;
+  height: 68%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--hell) 0 14%, var(--ton) 50%, var(--tief) 100%);
+  box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease;
+}
+.zw-sk-zelle.ist-hier.ist-a { --ton: var(--vr-a); --hell: var(--vr-a-hell); --tief: var(--vr-a-tief); }
+.zw-sk-zelle.ist-hier.ist-b { --ton: var(--vr-b); --hell: var(--vr-b-hell); --tief: var(--vr-b-tief); }
+@keyframes zw-sk-auf { from { transform: scale(0); } to { transform: scale(1); } }
+/* Die Kompassrose. */
+.zw-sk-pfeile {
+  display: grid;
+  grid-template-columns: repeat(3, 66px);
+  grid-template-rows: repeat(3, 52px);
+  grid-template-areas: ". n ." "w g o" ". s .";
+  gap: 6px;
+  transition: opacity 0.2s ease;
+}
+.zw-sk-pfeile.ist-aus { opacity: 0.4; }
+.zw-sk-pfeil { min-height: 0; padding: 0; border-radius: 16px; background: var(--ar-flaeche-hoch); color: var(--ar-text); font-size: 1.7rem; font-weight: 900; line-height: 1; }
+.zw-sk-pfeil:disabled { opacity: 1; cursor: default; }
+.zw-sk-pfeil.ist-N { grid-area: n; }
+.zw-sk-pfeil.ist-S { grid-area: s; }
+.zw-sk-pfeil.ist-W { grid-area: w; }
+.zw-sk-pfeil.ist-O { grid-area: o; }
+.zw-sk-pfeil.ist-G { grid-area: g; background: #8a5a2b; font-size: 1.5rem; }
+.zw-sk-pfeil.ist-empfohlen { background: #7c5ce6; box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(124, 92, 230, 0.7); animation: zw-sk-ruf 0.9s ease-in-out infinite alternate; }
+@keyframes zw-sk-ruf { to { box-shadow: 0 0 0 5px #fff, 0 0 28px rgba(124, 92, 230, 0.95); } }
+.zw-sk-pfeil:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-schatzkarte { --vr-breite: max(180px, min(calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom)), 40vw)); }
+  .zw-sk { grid-area: feld; display: grid; grid-template-columns: auto auto; grid-template-areas: "kopf kopf" "meer pfeile"; align-items: center; width: auto; }
+  .zw-sk-kopf { grid-area: kopf; }
+  .zw-sk-meer { grid-area: meer; width: var(--vr-breite); }
+  .zw-sk-pfeile { grid-area: pfeile; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 46px); }
+}
+
+/* Im Menü: ein Stück Insel, ein Kreuz, ein Kompass. */
+.zw-sk-held {
+  --h: clamp(24px, 7vw, 32px);
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, var(--h));
+  grid-auto-rows: var(--h);
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 50%, #3aa6dc, #155b8f 75%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+.zw-sk-held-feld { position: relative; border-radius: 3px; background: #f2da9e; }
+.zw-sk-held-feld.ist-x::after { content: "✕"; position: absolute; inset: 0; display: grid; place-items: center; color: #d62828; font-weight: 900; font-size: calc(var(--h) * 0.6); }
+.zw-sk-held-feld.ist-fels::after { content: ""; position: absolute; inset: 16%; border-radius: 45%; background: radial-gradient(circle at 35% 30%, #c9c3bd 0 10%, #8d8580 45%, #5a5450 100%); }
+.zw-sk-held-feld.ist-grube::after { content: ""; position: absolute; inset: 20%; border-radius: 50%; background: #2b1c0e; }
+.zw-sk-held-kompass { position: absolute; right: -10px; bottom: -10px; font-size: calc(var(--h) * 1.2); line-height: 1; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-sk-meer::after,
+  .zw-sk-pfeile,
+  .zw-sk-zelle.ist-hier::before { transition: none; }
+  .zw-sk-zelle.ist-entdeckt::after,
+  .zw-sk-zelle.ist-gefunden::after,
+  .zw-sk-pfeil.ist-empfohlen { animation: none; }
+}
+
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
 .ar-vorne { display: contents; }
 /* So gross und so geformt wie eine Kachel der Zeile (.ar-kachel), aber keine:
@@ -10498,6 +10647,22 @@ body[data-page="blitzpaar"] { overscroll-behavior: none; }
 }
 .ar-vr-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-vr-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Schatzkarte & Kompass: eine Insel im Meer, ein Weg aus Punkten, ein Kreuz. */
+.ar-sk-insel {
+  position: absolute;
+  left: calc(50% - var(--z) * 3);
+  top: calc(var(--z) * 0.45);
+  width: calc(var(--z) * 6);
+  height: calc(var(--z) * 6);
+  border-radius: calc(var(--z) * 0.6);
+  background:
+    radial-gradient(circle at 30% 70%, #f2da9e 0 30%, transparent 31%),
+    radial-gradient(circle at 62% 42%, #f2da9e 0 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, #3aa6dc, #155b8f 75%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.ar-sk-punkt { position: absolute; width: calc(var(--z) * 0.22); height: calc(var(--z) * 0.22); border-radius: 50%; background: rgba(120, 70, 20, 0.7); }
+.ar-sk-kreuz { position: absolute; left: calc(var(--z) * 3.6); top: calc(var(--z) * 1.8); color: #d62828; font-size: calc(var(--z) * 1.4); font-weight: 900; line-height: 1; }
 /* Blitzpaar: Bilder, zwei gleiche leuchten. */
 .ar-bp-feld {
   position: absolute;

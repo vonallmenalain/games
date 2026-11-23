@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-23-11";
+export const FASSUNG = "2026-11-23-12";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -632,6 +632,11 @@ export const ZWEI = [
     seite: "blitzpaar", titel: "Blitzpaar", js: ["blitzpaar.js"],
     text: "Blitzpaar: Zwölf Bilder, eines doppelt – wer es zuerst antippt, holt den Punkt. Beide spielen gleichzeitig, gegen den Computer oder live zu zweit.",
     kurz: "Das doppelte Bild finden, schneller als der andere.",
+  },
+  {
+    seite: "schatzkarte", titel: "Schatzkarte & Kompass", js: ["schatzkarte.js"],
+    text: "Schatzkarte & Kompass: Zusammen den Schatz finden – eine hat die Karte und zeigt den Weg, die andere sucht. Mit dem Computer als Partner oder live zu zweit.",
+    kurz: "Zusammen den Schatz finden – eine hat die Karte, die andere sucht.",
   },
 ];
 
