@@ -1274,6 +1274,47 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Farbcode knacken: 16 Partien Computer gegen Computer – jeder Zug erlaubt, jede zu Ende (${zuEnde}/16)`, legal && zuEnde === 16);
   }
 
+  // Blitzpaar: Runden aus der Saat, der erste passende Tipp holt den Punkt,
+  // daneben heisst aussetzen, beide daneben heisst nächste Runde.
+  const BP = angemeldet.blitzpaar;
+  if (BP) {
+    const lage = (zuege, saat = 99) => BP.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat });
+    const l0 = lage([]);
+    const zaehl = new Map();
+    l0.runde.bilder.forEach((b) => zaehl.set(b, (zaehl.get(b) || 0) + 1));
+    pruefe("Blitzpaar: Zwölf Bilder, genau eines doppelt – dieselbe Saat, dieselbe Runde",
+      l0.runde.bilder.length === 12 && zaehl.size === 11 && l0.runde.paar.length === 2
+      && l0.runde.bilder[l0.runde.paar[0]] === l0.runde.bilder[l0.runde.paar[1]]
+      && JSON.stringify(lage([], 99).runde) === JSON.stringify(l0.runde) && JSON.stringify(lage([], 98).runde) !== JSON.stringify(l0.runde)
+      && l0.dran === "beide");
+    const [p0] = l0.runde.paar;
+    const falsch = [...Array(12).keys()].find((i) => !l0.runde.paar.includes(i));
+    const l1 = lage([`b0:${p0}`]);
+    pruefe("Blitzpaar: Wer zuerst richtig tippt, holt den Punkt – dann kommt die nächste Runde",
+      l1.punkte.b === 1 && l1.nr === 1 && !BP.darf(l1, `a0:${p0}`, "a") && BP.darf(l1, `a1:${p0}`, "a"));
+    const l2 = lage([`a0:${falsch}`]);
+    pruefe("Blitzpaar: Wer danebentippt, setzt den Rest der Runde aus",
+      l2.gesperrt.a === falsch && l2.nr === 0 && !BP.darf(l2, `a0:${p0}`, "a") && BP.darf(l2, `b0:${p0}`, "b"));
+    const l3 = lage([`a0:${falsch}`, `b0:${falsch}`]);
+    pruefe("Blitzpaar: Tippen beide daneben, zählt die Runde nicht", l3.nr === 1 && l3.punkte.a === 0 && l3.punkte.b === 0);
+    pruefe("Blitzpaar: Nur für sich selbst, nur in der laufenden Runde",
+      !BP.darf(l0, `b0:${p0}`, "a") && !BP.darf(l0, `a1:${p0}`, "a") && !BP.darf(l0, "a0:12", "a") && lage(["a1:0"]).dran === null);
+    const sieg = [];
+    for (let i = 0; i < 5; i += 1) sieg.push(`a${i}:${lage(sieg).runde.paar[1]}`);
+    pruefe("Blitzpaar: Fünf Punkte gewinnen", lage(sieg).ende === "a" && lage(sieg).dran === null);
+    let legal = true;
+    for (const stufe of Object.keys(BP.stufen)) {
+      const z = [];
+      for (let l = lage(z); !l.ende && z.length < 200; l = lage(z)) {
+        // Wer danebengetippt hat, setzt aus – dann tippt der andere.
+        const r = BP.computer(l, z.length % 3 ? "b" : "a", stufe) || BP.computer(l, z.length % 3 ? "a" : "b", stufe);
+        if (!r || !BP.darf(l, r.zug, r.zug[0]) || !(r.warte > 0)) { legal = false; break; }
+        z.push(r.zug);
+      }
+    }
+    pruefe("Blitzpaar: Der Computer tippt auf jeder Stufe nur Erlaubtes und lässt sich Zeit", legal);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };
