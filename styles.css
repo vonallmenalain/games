@@ -9240,6 +9240,20 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
 .vl-knopf.ist-spricht .vl-welle { animation: vl-welle 0.9s ease-in-out infinite; }
 .vl-knopf.ist-spricht .vl-welle-2 { animation-delay: 0.2s; }
 @keyframes vl-welle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+/* Klappt das Vorlesen auf einem Gerät nicht: ein Hinweis beim Lautsprecher. */
+.vl-hinweis {
+  position: fixed;
+  z-index: 60;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff6cf;
+  color: #2a2150;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
 @media (prefers-reduced-motion: reduce) { .vl-knopf.ist-spricht .vl-welle { animation: none; } }
 /* Im Rahmen der Spiele zu zweit: neben Überschriften und Absätzen, beim Satz
    über dem Brett ganz rechts. */
