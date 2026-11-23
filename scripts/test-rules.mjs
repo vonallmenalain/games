@@ -208,6 +208,15 @@ await darfNicht("Admin setzt ein Tier 6", () => admin().doc(LISTE).set(spieleLis
 await darfNicht("Admin setzt ein Tier 0", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 0 } })));
 await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
 await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
+// Die Spiele zu zweit auf der Startseite (zweiSpieler): nur solche, die es
+// gibt – ohne Bestenliste, darum nicht unter spiele.
+await darf("Admin stellt Viererreihe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
+await darf("Admin nimmt Viererreihe wieder weg", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: [] })));
+await darf("Admin hakt Viererreihe an, ohne die Liste neu zu schreiben", () => admin().doc(LISTE).set({ zweiSpieler: ["viererreihe"], updatedAtMs: 4 }, { merge: true }));
+await darfNicht("Admin stellt ein erfundenes Spiel zu zweit auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["schach"] })));
+await darfNicht("Admin stellt Viererreihe als Spiel mit Bestenliste auf", () => admin().doc(LISTE).set(spieleListe({ spiele: ["viererreihe"] })));
+await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: "viererreihe" })));
+await darfNicht("Gast stellt Viererreihe auf die Startseite", () => gast().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
 // Ein Spiel, das es nicht mehr gibt, in den gespeicherten Tiers (wie der
 // Wellenreiter nach seinem Abschied): Mit merge bliebe sein Schlüssel stehen,
 // und jedes Speichern – auch nur ein Haken – wird abgelehnt. Fällt er im

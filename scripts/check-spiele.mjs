@@ -173,6 +173,9 @@ const ATTRAPPE = `
     },
     tiers: async () => window.__miniTiers ?? null,
     setzeTiers: async (einteilung) => { window.__miniTiers = { ...einteilung }; return window.__miniTiers; },
+    // Die Spiele zu zweit auf der Startseite (config/miniGames, zweiSpieler).
+    offeneZweiSpieler: async () => window.__miniZwei ?? [],
+    setzeZweiSpieler: async (liste) => { window.__miniZwei = [...liste]; return window.__miniZwei; },
     ergebnisse: async (spiele) => {
       // Wie cloud.js ohne Netz: Es wirft, statt eine leere Liste zu geben.
       if (!navigator.onLine) throw fehler("offline", "unavailable");
@@ -11689,6 +11692,34 @@ try {
     pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /39/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
+    // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
+    // Haken stellt sie auf die Startseite (zweiSpieler) und nimmt sie wieder
+    // weg, ▶ probiert sie über dem Adminbereich aus – und der Weg zurück
+    // schliesst das Fenster, auch nach einem Klick in Viererreihe.
+    const zweiZeile = seite.locator("#adm-spiele .adm-zwei .adm-zwei-wahl", { hasText: "Viererreihe" });
+    pruefe(await zweiZeile.count() === 1 && /2 Spieler/.test(await seite.locator("#adm-spiele .adm-zwei-titel").innerText().catch(() => ""))
+      && await seite.locator(".adm-tiers .adm-zwei-wahl").count() === 0,
+      "Unter den Tiers fehlt der Bereich «2 Spieler» mit Viererreihe.");
+    await zweiZeile.locator('input[type="checkbox"]').check();
+    await seite.waitForFunction(() => (window.__miniZwei || []).includes("viererreihe"), null, { timeout: 4000 }).catch(() => {});
+    pruefe((await seite.evaluate(() => window.__miniZwei || [])).includes("viererreihe") && await seite.evaluate(() => window.__miniOffen === undefined),
+      "Der Haken bei Viererreihe stellt sie nicht (allein) auf die Startseite.");
+    await zweiZeile.locator('input[type="checkbox"]').uncheck();
+    await seite.waitForFunction(() => !(window.__miniZwei || []).includes("viererreihe"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(!(await seite.evaluate(() => window.__miniZwei || [])).includes("viererreihe"), "Ohne Haken bleibt Viererreihe auf der Startseite.");
+    await zweiZeile.locator(".adm-spielen-knopf").click();
+    await seite.waitForSelector(".adm-spiel iframe", { timeout: 4000 });
+    pruefe(await seite.getAttribute(".adm-spiel iframe", "src") === "/viererreihe?von=admin",
+      `▶ bei Viererreihe öffnet ${await seite.getAttribute(".adm-spiel iframe", "src")} statt /viererreihe?von=admin.`);
+    const imVierer = seite.frameLocator(".adm-spiel iframe");
+    await imVierer.locator('.vr-stufe[data-stufe="leicht"]').click({ timeout: 8000 }).catch(() => {});
+    await imVierer.locator(".vr-spalte").first().waitFor({ timeout: 8000 }).catch(() => {});
+    pruefe(await imVierer.locator(".vr-kopf .mini-knopf-zurueck").getAttribute("href").catch(() => "") === "/admin",
+      "In Viererreihe aus dem Adminbereich führt der Weg zurück nicht in den Adminbereich – auch nicht nach einem Klick.");
+    await imVierer.locator(".vr-kopf .mini-knopf-zurueck").click().catch(() => {});
+    await seite.waitForFunction(() => !document.querySelector(".adm-spiel"), null, { timeout: 4000 }).catch(() => {});
+    pruefe(await seite.locator(".adm-spiel").count() === 0, "Der Weg zurück in Viererreihe schliesst das Fenster nicht.");
+
     // Ein neues Turnier – und solange es entsteht, steht nur das Formular da.
     await seite.click('.adm-turniere button:text-is("Neues Turnier")');
     await seite.waitForSelector(".adm-turnier-form", { timeout: 4000 });
@@ -11698,6 +11729,12 @@ try {
     const form = seite.locator(".adm-turnier-form");
     pruefe(await form.locator(".adm-wahl .adm-spielen-knopf").count() === SPIELE.length,
       `Im Turnierformular hat nicht jedes Spiel einen Knopf zum Spielen (${await form.locator(".adm-spielen-knopf").count()} von ${SPIELE.length}).`);
+    // Viererreihe steht unter den Tiers bei «2 Spieler», mit ▶ – nicht mehr
+    // als Haken unter «Und».
+    pruefe(await form.locator(".adm-zwei-wahl", { hasText: "Viererreihe" }).locator(".adm-spielen-knopf").count() === 1
+      && await form.locator(".adm-zwei-titel", { hasText: "2 Spieler" }).count() === 1
+      && await form.locator(".adm-option", { hasText: "Viererreihe" }).count() === 0,
+      "Im Turnierformular steht Viererreihe nicht unter «2 Spieler» (oder noch unter «Und»).");
     // Im Formular nach Tier gruppiert, mit einem Knopf je Tier: dazu, und ist
     // es schon ganz gewählt, wieder weg.
     await form.locator("button", { hasText: "Alle abwählen" }).click();
@@ -11732,6 +11769,8 @@ try {
     await form.locator('input[type="radio"][value="link"]').check();
     await form.locator('input[type="radio"][value="wieErster"]').check();
     await form.locator(".adm-option", { hasText: "verdecken" }).locator("input").check();
+    await form.locator(".adm-zwei-wahl", { hasText: "Viererreihe" }).locator('input[type="checkbox"]').check();
+    pruefe(/Viererreihe/.test(await form.locator("legend", { hasText: "Spiele –" }).innerText().catch(() => "")), "Über den Spielen steht nicht, dass Viererreihe dabei ist.");
     const gegnerHaken = form.locator(".adm-option", { hasText: "Gegner beim Spielen" }).locator("input");
     pruefe(await gegnerHaken.isChecked(), "Ein neues Turnier zeigt die Gegner beim Spielen nicht von selbst.");
     await gegnerHaken.uncheck();
@@ -11766,7 +11805,8 @@ try {
       pruefe(/^test-cup-ae-[a-km-np-z2-9]{8}$/.test(neu.id), `Der Name des neuen Turniers taugt nicht als Link: ${neu.id}`);
       pruefe(JSON.stringify(neu.spiele) === JSON.stringify(["fishPond", "towerStack"]), `Im neuen Turnier stehen die Spiele ${neu.spiele.join(", ")}.`);
       pruefe(neu.versuche === 4 && neu.zaehlt === "summe" && neu.wertung === "prozent" && neu.aufgaben === "wieErster"
-        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true && neu.ohneReplay === true,
+        && neu.sichtbar === "link" && neu.verdeckt === true && neu.aktiv === true && neu.ohneGeist === true && neu.ohneReplay === true
+        && neu.viererreihe === true,
         `Die Regeln des neuen Turniers kamen falsch an: ${JSON.stringify(neu)}`);
       pruefe(neu.endeMs - neu.startMs === TAG, `Das neue Turnier dauert ${(neu.endeMs - neu.startMs) / STUNDE} Stunden statt eines Tages.`);
       const meldung = await seite.locator(".adm-turniere .adm-klapp-inhalt > .adm-meldung").innerText();
@@ -11807,11 +11847,12 @@ try {
         spiele: [...f.querySelectorAll(".adm-wahl input:checked")].map((b) => b.value).sort(),
         regeln: [an("zahl"), f.querySelector("input.adm-feld-zahl").value, an("summe"), an("prozent"), an("link"), an("wieErster")],
         haken: [haken("verdecken"), haken("Gegner beim Spielen"), haken("Replays anschauen")],
+        vierer: Boolean(f.querySelector(".adm-zwei-wahl input")?.checked),
       };
     });
     pruefe(ausPreset.name === "Test-Cup Ä" && JSON.stringify(ausPreset.spiele) === JSON.stringify(["fishPond", "towerStack"])
       && JSON.stringify(ausPreset.regeln) === JSON.stringify([true, "4", true, true, true, true])
-      && JSON.stringify(ausPreset.haken) === JSON.stringify([true, false, false]),
+      && JSON.stringify(ausPreset.haken) === JSON.stringify([true, false, false]) && ausPreset.vierer === true,
       `Das Preset stellt das Formular nicht wieder her: ${JSON.stringify(ausPreset)}`);
     await seite.locator(".adm-turnier-form button", { hasText: "Preset löschen" }).click();
     await seite.waitForFunction(() => window.__miniPresets.size === 0, null, { timeout: 3000 }).catch(() => {});

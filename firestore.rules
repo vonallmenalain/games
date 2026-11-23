@@ -114,7 +114,7 @@ service cloud.firestore {
     function istSpieleListe() {
       let d = request.resource.data;
       return d.keys().hasAll(["spiele", "updatedAtMs"])
-        && d.keys().hasOnly(["spiele", "tiers", "updatedAtMs", "updatedAt"])
+        && d.keys().hasOnly(["spiele", "tiers", "zweiSpieler", "updatedAtMs", "updatedAt"])
         && d.spiele is list
         && d.spiele.size() <= 50
         && d.spiele.hasOnly(miniSpiele())
@@ -124,7 +124,18 @@ service cloud.firestore {
           && d.tiers.size() <= 50
           && d.tiers.keys().hasOnly(miniSpiele())
           && d.tiers.values().hasOnly([1, 2, 3, 4, 5])))
+        // Die Spiele zu zweit auf der Startseite (viererreihe.js) – ohne
+        // Bestenliste, darum nicht in miniSpiele. Fehlt das Feld, steht keines
+        // dort.
+        && (!("zweiSpieler" in d) || (d.zweiSpieler is list
+          && d.zweiSpieler.size() <= 10
+          && d.zweiSpieler.hasOnly(zweiSpielerSpiele())))
         && d.updatedAtMs is int;
+    }
+
+    // Die Spiele zu zweit, die es gibt (mini-games.js, ZWEI_SPIELER).
+    function zweiSpielerSpiele() {
+      return ["viererreihe"];
     }
 
     match /config/miniGames {

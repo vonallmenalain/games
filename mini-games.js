@@ -303,6 +303,15 @@
 
   const NACH_ID = new Map(SPIELE.map((s) => [s.id, s]));
 
+  // Die Spiele zu zweit (viererreihe.js): ohne Bestenliste, auf einer eigenen
+  // Seite. Der Admin hakt sie für die Hall of Fame (config/miniGames,
+  // zweiSpieler) und für ein Turnier (miniTurniere, viererreihe) eigens an –
+  // im Bereich «2 Spieler» unter den Tiers.
+  const ZWEI_SPIELER = [
+    { id: "viererreihe", seite: "viererreihe", titel: "Viererreihe" },
+  ];
+  const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
+
   const NAME_KEY = "mini.name";
   const ID_KEY = "mini.id";
   // Der eigene Bestwert je Spiel – dasselbe, was in der Liste steht, nur auf
@@ -338,7 +347,7 @@
   // (/turmbau, /signal), die Übersicht ist die Startseite. Ab der Wurzel
   // heisst jede Adresse überall dasselbe – auch aus dem Fenster heraus, das
   // über einem Spiel liegt.
-  const spielLink = (id) => `/${NACH_ID.get(id)?.seite || ""}`;
+  const spielLink = (id) => `/${NACH_ID.get(id)?.seite || ZWEI_NACH_ID.get(id)?.seite || ""}`;
   const uebersichtLink = () => "/";
 
   // Aus dem Adminbereich gestartet (/turmbau?von=admin, admin.js,
@@ -1379,8 +1388,24 @@
     return offenGemerkt;
   }
 
+  // Welche Spiele zu zweit auf der Startseite stehen (config/miniGames,
+  // zweiSpieler). Ohne Netz gilt, was das Gerät zuletzt gesehen hat; nie
+  // gesehen heisst: keines.
+  const ZWEI_KEY = "arcade.zweiSpieler";
+  async function zweiSpielerOffen() {
+    let liste = null;
+    try { liste = await mitFrist(cloud()?.offeneZweiSpieler?.() || Promise.resolve(null), 4000); } catch { liste = null; }
+    if (Array.isArray(liste)) {
+      const bekannt = liste.filter((id) => ZWEI_NACH_ID.has(id));
+      schreibe(ZWEI_KEY, JSON.stringify(bekannt));
+      return bekannt;
+    }
+    const gemerkt = liesJson(ZWEI_KEY, []);
+    return Array.isArray(gemerkt) ? gemerkt.filter((id) => ZWEI_NACH_ID.has(id)) : [];
+  }
+
   function titel(id) {
-    return hs()?.titel?.(id) || id;
+    return ZWEI_NACH_ID.get(id)?.titel || hs()?.titel?.(id) || id;
   }
 
   function einheit(id) {
@@ -4147,6 +4172,9 @@
     // Daneben, ob die eigene Kennung umgezogen ist (folgeUmzug): Dann
     // spielt das Gerät ab jetzt unter einer anderen, und die Listen unten
     // sollen das schon wissen.
+    // Die Spiele zu zweit fragt sie gleich mit – nicht erst, wenn die Bühne
+    // gebaut wird.
+    const zweiVersprechen = zweiSpielerOffen();
     const [offen] = await Promise.all([offeneSpiele(), folgeUmzug().then(() => sendeWartende())]);
     if (signal.aborted) return;
     if (!offen.length) {
@@ -4163,10 +4191,16 @@
     const reihenfolge = TIERS.flatMap((tier) => offen.filter((s) => tierVon(s, einteilung) === tier));
     const favoriten = reihenfolge.filter((s) => tierVon(s, einteilung) === 1);
 
-    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz).
+    // Laufende Turniere stehen vorne in der Zeile (turnier.js füllt den Platz),
+    // davor die Spiele zu zweit, die der Admin für die Hall of Fame angehakt
+    // hat (zweiSpielerOffen) – ohne Bestenliste.
     const turniere = el("div", "tn-hinweise ar-turniere");
     turniere.dataset.turnierHinweis = "";
-    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne: turniere, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
+    const vorne = el("div", "ar-vorne");
+    if ((await zweiVersprechen).includes("viererreihe")) vorne.append(viererreiheKachel());
+    if (signal.aborted) return;
+    vorne.append(turniere);
+    const buehne = arcadeBuehne(wirt, { signal, reihenfolge, favoriten, vorne, liveWirt: rechts, regal: true, ...arcadeStart(reihenfolge, gewuenscht) });
     window.LernappTurnier?.hinweis?.(turniere);
     // Wer gerade spielt: auf den Kacheln, unter dem Namen des Spiels und in
     // seiner Rangliste – ein Tipp darauf, und man schaut zu.
@@ -4243,17 +4277,18 @@
    * keine Bühne, kein Bild aus einer Runde –, sondern eines zu zweit (oder
    * gegen den Computer) auf seiner eigenen Seite (viererreihe.js). Das Bild
    * ist ein kleines Brett mit einer Reihe, schräg hinauf, gezeichnet statt
-   * aufgenommen. Auf der Startseite steht sie nicht.
+   * aufgenommen. Auf der Startseite steht sie nur, wenn der Admin sie für die
+   * Hall of Fame angehakt hat (zweiSpielerOffen).
    *
    * kachel.wartende(namen) sagt darauf, wer im Turnier gerade auf jemanden
    * wartet: «Lena wartet!» – damit auch ein Kind, das noch nicht liest, den
    * Weg zum Duell der grossen Schwester findet.
    */
-  function viererreiheKachel(turnierId, { gross = false } = {}) {
+  function viererreiheKachel(turnierId = "", { gross = false } = {}) {
     // Eine eigene Klasse, keine ar-kachel: Die Zeile zählt ihre Spiele an
     // ar-kachel (und scripts/check-spiele.mjs auch).
     const k = el("a", `ar-vr-kachel${gross ? " ist-gross" : ""}`);
-    k.href = `/viererreihe?turnier=${encodeURIComponent(turnierId)}`;
+    k.href = turnierId ? `/viererreihe?turnier=${encodeURIComponent(turnierId)}` : "/viererreihe";
     k.title = "Viererreihe – gegen den Computer oder live zu zweit";
     k.setAttribute("aria-label", k.title);
     const bild = el("span", "ar-vr-bild");
@@ -4369,6 +4404,7 @@
 
   window.LernappMini = {
     SPIELE,
+    ZWEI_SPIELER,
     FARBEN,
     NAME_MAX,
     spielId,

@@ -816,12 +816,27 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     /async function duellZug[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs) && /async function duellNochmal[\s\S]*?\/stand`\)\.transaction\(/.test(vrJs));
   pruefe("viererreihe.js: ein Raum hat zehn Zeichen, der Code vier Ziffern",
     /const RAUM_LAENGE = 10;/.test(vrJs) && /const CODE_MUSTER = \/\^\[0-9\]\{4\}\$\/;/.test(vrJs));
-  // Nicht auf der Startseite, sondern im Turnier, wenn der Admin sie dazunimmt.
+  // Auf der Startseite nur, wenn der Admin sie für die Hall of Fame angehakt
+  // hat (config/miniGames, zweiSpieler) – im Turnier, wenn er sie dazunimmt.
   const baueStart = miniJs.match(/async function baueUebersicht[\s\S]*?\n  \}\n/)?.[0] || "";
-  pruefe("Die Startseite zeigt Viererreihe nicht", baueStart.length > 0 && !/viererreihe/i.test(baueStart));
+  pruefe("Die Startseite zeigt Viererreihe nur, wenn sie für die Hall of Fame angehakt ist (zweiSpieler)",
+    /const zweiVersprechen = zweiSpielerOffen\(\);/.test(baueStart) && /if \(\(await zweiVersprechen\)\.includes\("viererreihe"\)\) vorne\.append\(viererreiheKachel\(\)\);/.test(baueStart)
+    && /async function offeneZweiSpieler/.test(lies("cloud.js")) && /async function setzeZweiSpieler/.test(lies("cloud.js")));
+  pruefe("Die Regeln kennen die Spiele zu zweit auf der Startseite (zweiSpieler, nicht in miniSpiele)",
+    /"zweiSpieler"/.test(regeln.match(/function istSpieleListe[\s\S]*?hasOnly\(\[[^\]]*\]\)/)?.[0] || "")
+    && /d\.zweiSpieler\.hasOnly\(zweiSpielerSpiele\(\)\)/.test(regeln)
+    && /function zweiSpielerSpiele\(\) \{\s*return \["viererreihe"\];/.test(regeln));
+  const adminVr = lies("admin.js");
+  pruefe("Der Adminbereich hat unter den Tiers «2 Spieler» – bei den Spielen (Startseite) und im Turnierformular",
+    /function zweiZeile\(/.test(adminVr) && /bereich\.inhalt\.append\(filter\.leiste, summe, meldung, gitter, knoepfe, zwei\);/.test(adminVr)
+    && /spieleGruppe\.append\(zweiTitel\(/.test(adminVr) && !/Viererreihe dazu/.test(adminVr)
+    && /setzeZweiSpieler\(\[\.\.\.stand\.zweiOffen\]/.test(adminVr));
+  pruefe("Die Liste der Spiele zu zweit ist überall dieselbe (mini-games.js, cloud.js, firestore.rules)",
+    /const ZWEI_SPIELER = \[\s*\{ id: "viererreihe"/.test(miniJs) && /const ZWEI_SPIELER_IDS = \["viererreihe"\];/.test(lies("cloud.js")));
+  pruefe("Viererreihe behält «von=admin» in jeder Adresse (der Weg zurück in den Adminbereich)", /if \(VON_ADMIN\) p\.set\("von", "admin"\);/.test(vrJs));
   const turnierJsVr = lies("turnier.js");
   pruefe("Die Turnierseite stellt Viererreihe hin, wenn das Turnier sie hat (vorne in der Zeile oder als Karte)",
-    /href = `\/viererreihe\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
+    /`\/viererreihe\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
     && /vorne: viererKachel/.test(turnierJsVr) && /viererreiheKachel\?\.\(t\.id, \{ gross: true \}\)/.test(turnierJsVr));
   pruefe("Die Turnierseite fragt, wer wartet (cloud.js, offeneDuelle)",
     /async function offeneDuelle\(turnierId\)[\s\S]*?duellOffen\//.test(lies("cloud.js")) && /offeneDuelle\?\.\(t\.id\)/.test(turnierJsVr));
