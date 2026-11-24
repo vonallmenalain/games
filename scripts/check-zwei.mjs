@@ -965,6 +965,28 @@ try {
     await papa.seite.locator(".vr-menue-knopf").click();
     pruefe(await bis(() => papa.seite.locator(".vr-stufe").count().then((n) => n === stufen.length)), `${T}: Zurück im Menü`);
 
+    // Auf Tablets – quer, flach, hoch – steht beim ersten Zug alles im Bild
+    // (bei Schiffe versenken: das Meer und «Fertig!»), auch wenn unten 64 px
+    // fehlen (die Leiste, die manches Tablet im Vollbild nicht meldet).
+    for (const [breit, hoch, name] of [[1280, 800, "Tablet quer"], [1180, 650, "Tablet flach"], [800, 1280, "Tablet hoch"]]) {
+      const t = await geraet(`${name}`, { viewport: { width: breit, height: hoch } });
+      await t.seite.goto(`${BASIS}/${z.seite}`);
+      await t.seite.addStyleTag({ content: ".vr-seite { --vr-unten: 64px !important; }" });
+      await bis(() => t.seite.locator(".vr-stufe").count().then((n) => n >= 1));
+      await t.seite.locator(`.vr-stufe[data-stufe="${leicht}"]`).click();
+      await bis(() => t.seite.locator(w.brett).count().then((n) => n === 1));
+      await warte(1200);
+      const m = await t.seite.evaluate(() => {
+        const alle = [...document.querySelectorAll(".vr-seite *")].filter((e) => e.offsetParent && !e.closest(".confetti-layer"));
+        const r = alle.map((e) => e.getBoundingClientRect()).filter((x) => x.width && x.height);
+        return { unten: Math.max(...r.map((x) => x.bottom)), rechts: Math.max(...r.map((x) => x.right)), hoch: innerHeight, breit: innerWidth };
+      });
+      pruefe(m.unten <= m.hoch - 64 + 1, `${T} ${name} (${breit} × ${hoch}): alles steht im Bild, auch mit 64 px Leiste (unten ${Math.round(m.unten)} von ${m.hoch - 64})`);
+      pruefe(m.rechts <= m.breit + 1, `${T} ${name}: nichts ragt rechts hinaus (${Math.round(m.rechts)} von ${m.breit})`);
+      await bild(t.seite, fotos(`1-${name.replace(/\s+/g, "-").toLowerCase()}`));
+      await t.kontext.close();
+    }
+
     // Auf der schwersten Stufe: Gewinnen sollte schwer sein – zumindest mit
     // der einfachen Spielweise der Prüfung.
     if (w.schwerSpielen !== false) {
