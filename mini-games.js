@@ -4284,8 +4284,9 @@
 
   /*
    * Ein Spiel zu zweit (ZWEI_SPIELER) als Kachel: in einem Turnier
-   * (turnier.js), wenn der Admin es dazugenommen hat, vorne in der Zeile –
-   * oder, hat das Turnier sonst kein Spiel, als grosse Karte (gross). Auf der
+   * (turnier.js), wenn der Admin es dazugenommen hat, als grosse Karte
+   * (gross) – unter dem Reiter «Zu zweit» oder, hat das Turnier sonst kein
+   * Spiel, statt der Bühne. Auf der
    * Startseite steht es nur, wenn der Admin es für die Hall of Fame angehakt
    * hat (zweiSpielerOffen). Keine Bestenliste, keine Bühne, kein Bild aus
    * einer Runde: Das Spiel läuft auf seiner eigenen Seite (zwei.js).

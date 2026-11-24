@@ -391,7 +391,11 @@ try {
   const lenaT = await geraet("Lena", { viewport: { width: 820, height: 1100 } });
   const miaT = await geraet("Mia", { viewport: { width: 820, height: 1100 } });
   await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
-  pruefe(await bis(() => lenaT.seite.locator(`a.ar-vr-kachel[href="/viererreihe?turnier=${TURNIER_ID}"]`).count().then((n) => n === 1)), "Im Turnier steht Viererreihe vorne in der Zeile");
+  pruefe(await bis(() => lenaT.seite.locator(".tn-bereich:not([hidden]) .tn-bereich-knopf").count().then((n) => n === 2)), "Im Turnier steht oben das Register «Allein» / «Zu zweit»");
+  pruefe(await bis(() => lenaT.seite.locator(".ar-kachel").count().then((n) => n > 0)) && await lenaT.seite.locator(".ar-vr-kachel").count() === 0, "Unter «Allein» die Bühne, ohne Spiele zu zweit");
+  await lenaT.seite.locator('.tn-bereich-knopf[data-reiter="zwei"]').click();
+  pruefe(await bis(() => lenaT.seite.locator(`a.ar-vr-kachel.ist-gross[href="/viererreihe?turnier=${TURNIER_ID}"]`).count().then((n) => n === 1)), "Unter «Zu zweit» steht Viererreihe als grosse Karte");
+  pruefe(await lenaT.seite.locator(".ar-buehne").count() === 0, "… statt der Bühne");
   await lenaT.seite.locator("a.ar-vr-kachel").click();
   pruefe(await bis(() => lenaT.seite.locator(".vr-stufe").count().then((n) => n === 4)), "Im Turnier: das Menü mit vier Stufen");
   const zurueck = await lenaT.seite.locator(".vr-kopf .mini-knopf-zurueck").getAttribute("href");
@@ -407,6 +411,9 @@ try {
   await bild(lenaT.seite, "9-turnier-lena-wartet");
 
   await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(() => miaT.seite.locator(".tn-bereich-knopf.ist-zwei.ist-wartet").count().then((n) => n === 1), { ms: 12000 }), "Bei Mia leuchtet unter «Allein» der Reiter «Zu zweit»");
+  pruefe(/Lena wartet/.test(await miaT.seite.locator(".tn-bereich-knopf.ist-zwei").getAttribute("aria-label")), "… «Zu zweit – Lena wartet»");
+  await miaT.seite.locator('.tn-bereich-knopf[data-reiter="zwei"]').click();
   pruefe(await bis(() => miaT.seite.locator(".ar-vr-kachel.ist-wartet").count().then((n) => n === 1), { ms: 12000 }), "Bei Mia leuchtet die Kachel");
   pruefe(/Lena wartet/.test(await miaT.seite.locator(".ar-vr-kachel .ar-vr-neu").textContent()), "… mit «Lena wartet!»");
   pruefe(await bis(() => miaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1)), "Oben auf der Turnierseite steht gross «Mit Lena spielen»");
@@ -449,6 +456,7 @@ try {
   await lenaT.seite.goto(`${BASIS}/turnier?t=${NUR_VIERER}`);
   pruefe(await bis(() => lenaT.seite.locator(".ar-vr-kachel.ist-gross").count().then((n) => n === 1)), "Ein Turnier nur mit Viererreihe zeigt die grosse Karte");
   pruefe(await lenaT.seite.locator(".ar-buehne").count() === 0, "… und keine Bühne");
+  pruefe(await lenaT.seite.locator(".tn-bereich:not([hidden])").count() === 0, "… und kein Register");
   await bild(lenaT.seite, "12-nur-viererreihe");
 } catch (fehler) {
   befunde.push(`Abgebrochen: ${fehler?.stack || fehler}`);

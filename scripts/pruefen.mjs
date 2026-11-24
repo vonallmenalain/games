@@ -875,9 +875,13 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   pruefe("cloud.js nimmt die Spiele zu zweit aus mini-games.js (zweiSpielerIds)",
     /function zweiSpielerIds\(\)[\s\S]*?LernappMini\?\.ZWEI_SPIELER/.test(lies("cloud.js")) && !/ZWEI_SPIELER_IDS/.test(lies("cloud.js")));
   const turnierJsVr = lies("turnier.js");
-  pruefe("Die Turnierseite stellt die Spiele zu zweit hin (vorne in der Zeile oder als Karten)",
+  pruefe("Die Turnierseite stellt die Spiele zu zweit hin: ein Register «Allein» / «Zu zweit», darunter grosse Karten statt der Bühne",
     /href = turnierId \? `\/\$\{spiel\.seite\}\?turnier=\$\{encodeURIComponent\(turnierId\)\}`/.test(miniJs)
-    && /vorne,\n/.test(turnierJsVr) && /zweiBauen\(t, \{ gross: true \}\)/.test(turnierJsVr));
+    && /reiterZeichnen\(spiele\.length, zwei\.length\);/.test(turnierJsVr)
+    && /const karten = zwei\.length > 0 && \(!spiele\.length \|\| reiterWahl === "zwei"\);/.test(turnierJsVr)
+    && /m\.zweiKachel\?\.\(id, t\.id, \{ gross: true \}\)/.test(turnierJsVr) && !/\n\s+vorne,\n/.test(turnierJsVr));
+  pruefe("Die Karten zu zweit im Turnier: ein Raster, Zeilen so hoch wie die Karten, oben beginnt es mit dem ersten Spiel",
+    /\.tn-zwei-karten \{[^}]*grid-auto-rows: max-content;[^}]*align-content: safe center;/.test(css));
   pruefe("Die Turnierseite fragt, wer wartet – bei welchem Spiel (cloud.js, offeneDuelle, partieOffen)",
     /async function offeneDuelle\(turnierId\)[\s\S]*?partieOffen\//.test(lies("cloud.js")) && /offeneDuelle\?\.\(t\.id\)/.test(turnierJsVr)
     && /wartet bei \$\{spiel\.titel\}/.test(turnierJsVr));
