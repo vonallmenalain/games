@@ -912,6 +912,8 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
     const kasten = { window: {}, document: { body: { dataset: { page: z.seite } } } };
+    // Malen merkt sich die Wörter der letzten Partien: dafür ein Speicher.
+    if (z.seite === "malen") { const m = new Map(); kasten.localStorage = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; }
     kasten.window.LernappZwei = { starte: (spiel) => { angemeldet[z.seite] = spiel; }, el: () => ({}), anderer: (s) => (s === "a" ? "b" : "a") };
     try { for (const d of z.js) vm.runInNewContext(lies(d), kasten); } catch { /* fehlt dann unten */ }
     const sp = angemeldet[z.seite];
@@ -1477,12 +1479,34 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       const alleWoerter = WOERTER.map((_, i) => i);
       const verschoben = (st, k) => st.map((strich) => strich.map(([x, y]) => [300 + (x - 500) * 0.55 + k * 9, 420 + (y - 500) * 0.6 + (x - 500) * 0.05]));
       const nichtErkannt = alleWoerter.filter((w) => erkenne(verschoben(WOERTER[w].malen(), w), alleWoerter)[0] !== w);
-      pruefe(`Malen und Raten: Der Computer erkennt alle zwanzig Bilder beim ersten Versuch, auch verschoben und schief (${nichtErkannt.map((w) => WOERTER[w].wort).join(", ") || "alle"})`, !nichtErkannt.length);
+      pruefe(`Malen und Raten: Der Computer erkennt alle ${WOERTER.length} Bilder beim ersten Versuch, auch verschoben und schief (${nichtErkannt.map((w) => WOERTER[w].wort).join(", ") || "alle"})`, !nichtErkannt.length);
       // Unfertig (ohne den letzten Strich) ist manches mehrdeutig – ein
       // Ballon ohne Schnur ist auch ein Apfel. In drei Versuchen klappt es
       // trotzdem fast immer.
       const unfertig = alleWoerter.filter((w) => { const st = WOERTER[w].malen(); return erkenne(verschoben(st.length > 2 ? st.slice(0, -1) : st, w), alleWoerter).slice(0, 3).includes(w); });
-      pruefe(`Malen und Raten: Unfertige Bilder errät er in drei Versuchen unter zwanzig fast immer (${unfertig.length} von 20)`, unfertig.length >= 18);
+      pruefe(`Malen und Raten: Unfertige Bilder errät er in drei Versuchen unter allen fast immer (${unfertig.length} von ${WOERTER.length})`, unfertig.length >= WOERTER.length * 0.9);
+      // Viele Wörter, jedes einmal, jedes mit eigenem Bild, jede Zeichnung auf
+      // dem Blatt.
+      const namen = WOERTER.map((w) => w.wort);
+      const bilder = WOERTER.map((w) => w.bild);
+      const ausserhalb = WOERTER.filter((w) => w.malen().some((st) => st.length < 2 || st.some(([x, y]) => !(x >= 0 && x <= 1000 && y >= 0 && y <= 1000))));
+      pruefe(`Malen und Raten: ${WOERTER.length} Wörter (mindestens 80), keines doppelt, jedes mit eigenem Bild, jede Zeichnung ganz auf dem Blatt (${ausserhalb.map((w) => w.wort).join(", ") || "alle"})`,
+        WOERTER.length >= 80 && new Set(namen).size === namen.length && new Set(bilder).size === bilder.length && !ausserhalb.length);
+      // Weniger Wiederholungen: Eine neue Partie meidet die Wörter der
+      // letzten Partien (auf diesem Gerät).
+      if (MR.fuerPruefung.neuePartie && MR.fuerPruefung.zuletztMerken) {
+        const { neuePartie, zuletztMerken, runden: rundenVon } = MR.fuerPruefung;
+        const verlauf = [];
+        let wieder = 0;
+        for (let p = 0; p < 15; p += 1) {
+          const woerter = rundenVon(neuePartie("mittel").saat, "mittel").map((r) => WOERTER[r.wort].wort);
+          const letzte = new Set(verlauf.slice(-5).flat());
+          wieder += woerter.filter((w) => letzte.has(w)).length;
+          verlauf.push(woerter);
+          zuletztMerken(woerter);
+        }
+        pruefe(`Malen und Raten: In 15 Partien kommt kein Wort aus den fünf Partien davor wieder (${wieder})`, wieder === 0);
+      }
       pruefe("Malen und Raten: Ohne Zeichnung rät der Computer nicht drauflos", erkenne([], [3, 1, 2]).join() === "3,1,2");
     }
     const falsch0 = [0, 1, 2, 3, 4, 5].filter((i) => i !== m0.runden[0].richtig);

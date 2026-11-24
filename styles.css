@@ -10719,9 +10719,11 @@ body[data-page="schatzkarte"] { overscroll-behavior: none; }
    blass und durchgestrichen. */
 body[data-page="malen"] { overscroll-behavior: none; }
 .vr-partie.zw-malen {
-  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc(100dvh - 480px - var(--safe-top) - var(--vr-unten))));
+  /* Hochkant: das Papier so breit, wie es geht (auf dem Tablet bis 760 px),
+     und so hoch, dass Kopf, Namen, Satz, Antworten und Knöpfe Platz haben. */
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 760px, calc(100dvh - 480px - var(--safe-top) - var(--vr-unten))));
 }
-.zw-mr { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--vr-breite); max-width: 100%; }
+.zw-mr { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
 .zw-mr .confetti-layer { z-index: 6; }
 .zw-mr-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; font-weight: 850; }
 .zw-mr-punkte { display: flex; align-items: center; gap: 6px; color: var(--ar-leise); font-variant-numeric: tabular-nums; }
@@ -10735,7 +10737,8 @@ body[data-page="malen"] { overscroll-behavior: none; }
 .zw-mr-antworten[hidden] { display: none; }
 .zw-mr-auftrag-bild { font-size: 1.8rem; line-height: 1; }
 .zw-mr-papier {
-  width: 100%;
+  width: var(--vr-breite);
+  max-width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 18px;
@@ -10745,7 +10748,9 @@ body[data-page="malen"] { overscroll-behavior: none; }
 .zw-mr-papier.ist-malen { cursor: crosshair; box-shadow: 0 0 0 4px #7c5ce6, 0 18px 44px rgba(0, 0, 0, 0.5); }
 .zw-mr-leinwand { display: block; width: 100%; height: 100%; touch-action: none; }
 .zw-mr-werkzeug { display: flex; justify-content: center; gap: 10px; }
-.zw-mr-antworten { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; width: 100%; }
+/* Die Antworten hochkant über die ganze Breite, in Reihen zu höchstens vier
+   (die Zahl setzt malen.js) – so bleiben es auf dem Handy zwei Reihen. */
+.zw-mr-antworten { display: grid; grid-template-columns: repeat(var(--zw-mr-spalten, 4), minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 640px; }
 .zw-mr-antworten:empty { display: none; }
 .zw-mr-antwort {
   display: flex;
@@ -10764,16 +10769,24 @@ body[data-page="malen"] { overscroll-behavior: none; }
 .zw-mr-antworten.ist-aus .zw-mr-antwort { opacity: 0.6; }
 .zw-mr.ist-dran .zw-mr-antwort:not(:disabled):active { transform: scale(0.95); }
 .zw-mr-antwort-bild { font-size: 1.8rem; line-height: 1; }
-.zw-mr-antwort-wort { font-size: 0.82rem; font-weight: 800; }
+.zw-mr-antwort-wort { max-width: 100%; font-size: 0.82rem; font-weight: 800; line-height: 1.1; text-align: center; overflow-wrap: anywhere; hyphens: auto; }
 .zw-mr-antwort.ist-falsch { opacity: 0.32; background: #4a2a3a; text-decoration: line-through; }
 .zw-mr-antwort:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (orientation: portrait) and (max-width: 520px) {
+  .zw-mr-antworten { gap: 6px; }
+  .zw-mr-antwort { min-height: 58px; padding: 5px 2px; border-radius: 12px; }
+  .zw-mr-antwort-bild { font-size: 1.55rem; }
+  .zw-mr-antwort-wort { font-size: 0.74rem; }
+}
 @media (orientation: landscape) and (max-height: 560px) {
   .vr-partie.zw-malen { --vr-breite: max(180px, min(calc(100dvh - 120px - var(--safe-top) - var(--vr-unten)), 42vw)); }
   .zw-mr { grid-area: feld; display: grid; grid-template-columns: var(--vr-breite) minmax(160px, 240px); grid-template-areas: "kopf kopf" "papier auftrag" "papier antworten" "papier werkzeug"; align-items: start; width: auto; }
   .zw-mr-kopf { grid-area: kopf; }
   .zw-mr-papier { grid-area: papier; }
   .zw-mr-auftrag { grid-area: auftrag; }
-  .zw-mr-antworten { grid-area: antworten; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zw-mr-antworten { grid-area: antworten; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .zw-mr-antwort { min-height: 46px; padding: 3px 4px; }
+  .zw-mr-antwort-bild { font-size: 1.35rem; }
   .zw-mr-werkzeug { grid-area: werkzeug; }
 }
 
@@ -10995,15 +11008,15 @@ body[data-page="zwillinge"] { overscroll-behavior: none; }
 
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
-   Schatzkarte, Malen, Wackelturm und das Zwillings-Labyrinth haben über dem
+   Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
    und unter dem Spielfeld viel (Kopf, Steuerkreuz, Antworten, Knöpfe):
    Untereinander bliebe auf einem Tablet quer – im Browser mit Adressleiste
    oder in der App mit Navigationsleiste oft nur 600 bis 730 px hoch – kaum
    Platz, oder es ragte unten hinaus. Sie stehen dort wie auf dem Handy quer:
    links das Spielfeld, rechts Namen, Satz und Knöpfe. */
 @media (orientation: landscape) and (min-height: 561px) and (max-height: 760px) {
-  body:is([data-page="schatzkarte"], [data-page="malen"], [data-page="wackelturm"], [data-page="zwillinge"]) .vr-seite { max-width: none; }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) {
+  body:is([data-page="schatzkarte"], [data-page="wackelturm"], [data-page="zwillinge"]) .vr-seite { max-width: none; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) {
     display: grid;
     grid-template-columns: auto minmax(200px, 290px);
     grid-template-areas: "feld leiste" "feld satz" "feld knoepfe";
@@ -11013,25 +11026,17 @@ body[data-page="zwillinge"] { overscroll-behavior: none; }
     column-gap: 26px;
     row-gap: 12px;
   }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) .vr-leiste-mitte { display: none; }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) .vr-wer.ist-b { flex-direction: row; text-align: left; }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
-  .vr-partie:is(.zw-schatzkarte, .zw-malen, .zw-wackelturm, .zw-zwillinge) > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) .vr-leiste-mitte { display: none; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) .vr-wer.ist-b { flex-direction: row; text-align: left; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge) > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
 
   .vr-partie.zw-schatzkarte { --vr-breite: max(200px, min(calc(100dvh - 200px - var(--safe-top) - var(--vr-unten)), 46vw)); }
   .zw-sk { grid-area: feld; display: grid; grid-template-columns: auto auto; grid-template-areas: "kopf kopf" "meer pfeile"; align-items: center; width: auto; column-gap: 16px; }
   .zw-sk-kopf { grid-area: kopf; }
   .zw-sk-meer { grid-area: meer; width: var(--vr-breite); }
   .zw-sk-pfeile { grid-area: pfeile; }
-
-  .vr-partie.zw-malen { --vr-breite: max(200px, min(calc(100dvh - 190px - var(--safe-top) - var(--vr-unten)), 44vw)); }
-  .zw-mr { grid-area: feld; display: grid; grid-template-columns: var(--vr-breite) minmax(170px, 250px); grid-template-areas: "kopf kopf" "papier auftrag" "papier antworten" "papier werkzeug"; align-items: start; width: auto; column-gap: 16px; }
-  .zw-mr-kopf { grid-area: kopf; }
-  .zw-mr-papier { grid-area: papier; }
-  .zw-mr-auftrag { grid-area: auftrag; }
-  .zw-mr-antworten { grid-area: antworten; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .zw-mr-werkzeug { grid-area: werkzeug; flex-wrap: wrap; }
 
   .vr-partie.zw-wackelturm { --vr-breite: max(200px, min(calc(100dvh - 230px - var(--safe-top) - var(--vr-unten)), 50vw)); }
   .zw-wt { grid-area: feld; }
@@ -11041,6 +11046,39 @@ body[data-page="zwillinge"] { overscroll-behavior: none; }
   .zw-zl-kopf { grid-area: kopf; }
   .zw-zl-feld { grid-area: feld; }
 }
+
+/* --- Malen und Raten quer auf Tablet und Computer: das Papier so gross wie möglich
+   Links das Papier, so hoch, wie das Bild es erlaubt; daneben der Auftrag, die
+   Antworten und die Knöpfe; rechts Namen und Satz. Bis November 2026 stand auf
+   einem Tablet quer (1280 × 800) alles untereinander, und das Papier war 320 px
+   gross – jetzt gut 600 (in der App mit Leiste unten gut 540).
+   (Hier nach den Regeln des Spiels, damit es sie überschreibt.) */
+@media (orientation: landscape) and (min-aspect-ratio: 5/4) and (min-height: 561px) {
+  body[data-page="malen"] .vr-seite { max-width: none; }
+  .vr-partie.zw-malen {
+    --vr-breite: max(220px, min(calc(100dvh - 190px - var(--safe-top) - var(--vr-unten)), calc(100vw - 620px - var(--safe-left) - var(--safe-right))));
+    display: grid;
+    grid-template-columns: auto minmax(200px, 290px);
+    grid-template-areas: "feld leiste" "feld satz" "feld knoepfe";
+    grid-template-rows: auto auto 1fr;
+    align-content: center;
+    justify-content: center;
+    column-gap: 26px;
+    row-gap: 12px;
+  }
+  .vr-partie.zw-malen .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
+  .vr-partie.zw-malen .vr-leiste-mitte { display: none; }
+  .vr-partie.zw-malen .vr-wer.ist-b { flex-direction: row; text-align: left; }
+  .vr-partie.zw-malen .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
+  .vr-partie.zw-malen > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
+  .zw-mr { grid-area: feld; display: grid; grid-template-columns: var(--vr-breite) minmax(170px, 250px); grid-template-areas: "kopf kopf" "papier auftrag" "papier antworten" "papier werkzeug"; grid-template-rows: auto auto auto 1fr; align-items: start; width: auto; column-gap: 16px; row-gap: 12px; }
+  .zw-mr-kopf { grid-area: kopf; }
+  .zw-mr-papier { grid-area: papier; }
+  .zw-mr-auftrag { grid-area: auftrag; }
+  .zw-mr-antworten { grid-area: antworten; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zw-mr-werkzeug { grid-area: werkzeug; flex-wrap: wrap; justify-content: flex-start; }
+}
+
 
 
 /* --- Viererreihe vorne in der Zeile der Startseite (mini-games.js) --- */
