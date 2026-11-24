@@ -2932,9 +2932,18 @@ zu zweit: `mini-games.js`, `ZWEI_SPIELER`).
 
 - **Im Turnier**: angehakt im Turnierformular (die Liste `zweiSpieler` in
   `miniTurniere`; ein Turnier von vorher trägt `viererreihe: true`, das gilt
-  weiter), steht es vorne in der Zeile des Turniers (`mini-games.js`,
-  `zweiKachel`). Hat das Turnier sonst kein Spiel – mit einem Spiel zu zweit
-  darf es das –, stehen statt der Bühne grosse Karten.
+  weiter), steht es im Turnier als grosse Karte (`mini-games.js`,
+  `zweiKachel`). Hat das Turnier auch Spiele allein, steht oben ein Register
+  mit zwei Reitern (`turnier.js`, `reiterZeichnen`): «👤 Allein» zeigt die
+  Bühne mit den Spielen allein und ihren Listen, «👥 Zu zweit» nur die
+  Spiele zu zweit – statt der Bühne als Raster grosser Karten, auf dem
+  Tablet quer drei nebeneinander (gut 400 px breit statt 180 in der Zeile),
+  hochkant zwei, auf dem Handy eine. Neben jedem Reiter steht, wie viele
+  Spiele darunter sind. Welcher Reiter offen ist, merkt sich das Gerät je
+  Turnier (`tn.reiter.<turnier>`); zuerst ist es «Allein». Auf dem Handy
+  quer steht das Register in der Kopfzeile, nur mit Bild und Zahl. Hat das
+  Turnier sonst kein Spiel – mit einem Spiel zu zweit darf es das –, stehen
+  die Karten ohne Register statt der Bühne.
   Gedacht für ein Turnier nur mit Link, etwa für Geschwister, jede auf ihrem
   Tablet: Die Turnier-App lässt Viererreihe aus dem Turnier zu (`turnier.js`,
   `heim`), jede Adresse der Seite behält `?turnier=`, und der Weg zurück
@@ -3273,8 +3282,9 @@ Glühbirne, Krone, Geschenk …), Fahrzeuge (Zug, Flugzeug, Velo, Bus …),
 Wetter und Natur (Wolke, Regenbogen, Blitz, Schneemann, Kaktus …) und mehr.
 Damit nicht immer dieselben kommen, merkt sich das Gerät die Wörter der
 letzten sechs Partien (`malen.zuletzt`, höchstens 36) und sucht für eine neue
-Partie eine Saat, deren sechs Wörter keines davon sind (aus bis zu 60
-zufälligen; findet sich keine, die mit den wenigsten). Wer rät, sieht die Striche,
+Partie eine Saat, deren sechs Wörter keines davon sind (aus bis zu 500
+zufälligen – etwa jede 23. passt; findet sich keine, die mit den
+wenigsten). Wer rät, sieht die Striche,
 während sie entstehen, und tippt auf eine der Antworten – Bild und Wort,
 damit auch raten kann, wer noch nicht liest. Drei Versuche je Runde; falsche
 Antworten werden blass und durchgestrichen. Werden vier der sechs Wörter
@@ -3407,7 +3417,8 @@ bei allen anderen im Turnier
 
 - auf der Turnierseite oben als grosser, pulsierender Knopf «Mit Lena
   spielen» – ein Tipp, und man sitzt am Brett (`turnier.js`, `rufeZeichnen`),
-- auf der Kachel als «Lena wartet!»,
+- auf der Kachel als «Lena wartet!» – und, solange der Reiter «Allein»
+  offen ist, leuchtet der Reiter «Zu zweit» («Zu zweit – Lena wartet»),
 - und im Menü von Viererreihe zuoberst, wieder als grosser Knopf.
 
 So findet auch ein Kind, das noch nicht liest, das Spiel der grossen

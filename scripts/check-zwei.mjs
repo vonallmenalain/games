@@ -1115,7 +1115,18 @@ try {
     const lenaT = await geraet("Lena", { viewport: { width: 820, height: 1100 } });
     const miaT = await geraet("Mia", { viewport: { width: 820, height: 1100 } });
     await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
-    pruefe(await bis(() => lenaT.seite.locator(".ar-vr-kachel").count().then((n) => n === ALLE_ZWEI.length)), `${T}: Im Turnier stehen alle ${ALLE_ZWEI.length} Spiele zu zweit vorne`);
+    pruefe(await bis(() => lenaT.seite.locator(".tn-bereich:not([hidden]) .tn-bereich-knopf").count().then((n) => n === 2)), `${T}: Im Turnier steht oben das Register «Allein» / «Zu zweit»`);
+    pruefe(await bis(() => lenaT.seite.locator(".ar-kachel").count().then((n) => n > 0)) && await lenaT.seite.locator(".ar-vr-kachel").count() === 0, `${T}: Unter «Allein» die Bühne, ohne Spiele zu zweit`);
+    await lenaT.seite.locator('.tn-bereich-knopf[data-reiter="zwei"]').click();
+    pruefe(await bis(() => lenaT.seite.locator(".ar-vr-kachel.ist-gross").count().then((n) => n === ALLE_ZWEI.length)), `${T}: Unter «Zu zweit» stehen alle ${ALLE_ZWEI.length} Spiele zu zweit als grosse Karten`);
+    const karten = await lenaT.seite.evaluate(() => {
+      const raster = document.querySelector(".tn-zwei-karten").getBoundingClientRect();
+      const r = [...document.querySelectorAll(".tn-zwei-karten .ar-vr-kachel")].map((k) => k.getBoundingClientRect());
+      const ueber = r.some((a, i) => r.some((b, j) => j > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));
+      return { oben: r[0].top >= raster.top - 1, ueber, breite: Math.round(r[0].width), buehne: document.querySelectorAll(".ar-buehne").length };
+    });
+    pruefe(karten.oben && !karten.ueber && karten.buehne === 0, `${T}: Die Karten statt der Bühne, die erste oben ganz im Bild, keine über der anderen (${JSON.stringify(karten)})`);
+    pruefe(karten.breite >= 300, `${T}: Die Karten sind gross (${karten.breite} px breit)`);
     await lenaT.seite.locator(`a.ar-vr-kachel[href="/${z.seite}?turnier=${TURNIER_ID}"]`).click();
     pruefe(await bis(() => lenaT.seite.locator(".vr-eroeffnen").count().then((n) => n === 1)), `${T}: Im Turnier: das Menü`);
     pruefe((await lenaT.seite.locator(".vr-kopf .mini-knopf-zurueck").getAttribute("href")) === `/turnier?t=${TURNIER_ID}`, `${T}: Der Weg zurück führt ins Turnier`);
@@ -1125,6 +1136,8 @@ try {
     pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}/${raumT}`)).json())?.spiel === id), `${T}: Lena wartet bei genau diesem Spiel`);
 
     await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+    pruefe(await bis(() => miaT.seite.locator(".tn-bereich-knopf.ist-zwei.ist-wartet").count().then((n) => n === 1), { ms: 12000 }), `${T}: Bei Mia leuchtet unter «Allein» der Reiter «Zu zweit»`);
+    await miaT.seite.locator('.tn-bereich-knopf[data-reiter="zwei"]').click();
     pruefe(await bis(() => miaT.seite.locator(`a.ar-vr-kachel.ist-wartet[data-zwei="${id}"]`).count().then((n) => n === 1), { ms: 12000 }), `${T}: Bei Mia leuchtet die Kachel dieses Spiels`);
     pruefe(await miaT.seite.locator("a.ar-vr-kachel.ist-wartet").count() === 1, `${T}: … und keine andere`);
     pruefe(await bis(() => miaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1)), `${T}: Oben steht «Mit Lena spielen»`);

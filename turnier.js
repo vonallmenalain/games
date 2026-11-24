@@ -1258,7 +1258,7 @@
     let buehneFuer = "";
     let wertung = null;
 
-    // Die Spiele zu zweit (zwei.js): ihre Kacheln (oder Karten) und wer
+    // Die Spiele zu zweit (zwei.js): ihre Karten und wer
     // gerade auf jemanden wartet (cloud.js, offeneDuelle) – gefragt, solange
     // die Seite zu sehen ist, alle paar Sekunden. Wer selbst wartet, steht
     // nicht darauf.
@@ -1271,12 +1271,15 @@
       const liste = Array.isArray(t?.zweiSpieler) ? t.zweiSpieler : (t?.viererreihe ? ["viererreihe"] : []);
       return liste.filter((id) => bekannt.includes(id));
     };
-    const zweiDa = () => Boolean(zweiWirt?.isConnected || [...zweiKacheln.values()].some((k) => k.isConnected));
-    function zweiBauen(t, { gross }) {
+    // Ob es gerade Spiele zu zweit gibt – auch unter dem Reiter «Allein»
+    // wird gefragt, wer wartet: Der Ruf oben und der Reiter «Zu zweit»
+    // zeigen es.
+    const zweiDa = () => Boolean(wirt.isConnected && stand.t && lage(stand.t) === "laeuft" && zweiImTurnier(stand.t).length);
+    function zweiBauen(t) {
       zweiKacheln.clear();
-      zweiWirt = el("div", gross ? "tn-zwei-karten" : "ar-vorne");
+      zweiWirt = el("div", "tn-zwei-karten");
       zweiImTurnier(t).forEach((id) => {
-        const k = m.zweiKachel?.(id, t.id, { gross });
+        const k = m.zweiKachel?.(id, t.id, { gross: true });
         if (!k) return;
         zweiKacheln.set(id, k);
         zweiWirt.append(k);
@@ -1286,6 +1289,7 @@
     function zweiZeigen() {
       zweiKacheln.forEach((k, id) => k.wartende?.(stand.duelle.filter((d) => d.spiel === id).map((d) => d.name)));
       rufeZeichnen();
+      reiterWartet();
     }
     // Wer wartet, steht zusätzlich gross oben auf der Seite: «Mit Lena
     // spielen» – ein Tipp, und man sitzt am Brett. So findet auch ein Kind,
@@ -1295,6 +1299,58 @@
     const rufe = el("div", "tn-vr-rufe");
     rufe.setAttribute("aria-live", "polite");
     kopf.append(rufe);
+
+    // Hat das Turnier Spiele allein und Spiele zu zweit, steht im Kopf ein
+    // Register mit zwei Reitern: «Allein» zeigt die Bühne mit den Spielen
+    // allein und ihren Listen, «Zu zweit» nur die Spiele zu zweit – als
+    // grosse Karten, auf einen Blick zu erkennen. Welcher Reiter offen ist,
+    // merkt sich das Gerät je Turnier; zuerst ist es «Allein». Wartet jemand
+    // auf ein Duell, leuchtet der Reiter «Zu zweit» (und oben steht der Ruf).
+    const REITER_KEY = `tn.reiter.${id}`;
+    let reiterWahl = "allein";
+    try { if (localStorage.getItem(REITER_KEY) === "zwei") reiterWahl = "zwei"; } catch { /* dann «Allein» */ }
+    const reiter = el("div", "tn-bereich");
+    const reiterLeiste = el("div", "tn-bereich-leiste");
+    reiterLeiste.setAttribute("role", "tablist");
+    reiterLeiste.setAttribute("aria-label", "Welche Spiele");
+    reiter.append(reiterLeiste);
+    reiter.hidden = true;
+    const reiterKnopf = (wahl, bild, text) => {
+      const k = el("button", `tn-bereich-knopf ist-${wahl}`);
+      k.type = "button";
+      k.dataset.reiter = wahl;
+      k.setAttribute("role", "tab");
+      const b = el("span", "tn-bereich-bild", bild);
+      b.setAttribute("aria-hidden", "true");
+      k.append(b, el("span", "tn-bereich-text", text), el("span", "tn-bereich-zahl"));
+      k.addEventListener("click", () => {
+        if (reiterWahl === wahl) return;
+        reiterWahl = wahl;
+        try { localStorage.setItem(REITER_KEY, wahl); } catch { /* dann nur bis zum Neuladen */ }
+        if (stand.t) zeichne();
+      }, { signal });
+      return k;
+    };
+    const reiterAllein = reiterKnopf("allein", "\u{1F464}", "Allein");
+    const reiterZwei = reiterKnopf("zwei", "\u{1F465}", "Zu zweit");
+    reiterLeiste.append(reiterAllein, reiterZwei);
+    kopf.append(reiter);
+    function reiterZeichnen(allein, zuZweit) {
+      reiter.hidden = !(allein && zuZweit);
+      [[reiterAllein, "allein", allein], [reiterZwei, "zwei", zuZweit]].forEach(([k, wahl, zahl]) => {
+        const offen = reiterWahl === wahl;
+        k.setAttribute("aria-selected", String(offen));
+        k.classList.toggle("ist-offen", offen);
+        k.querySelector(".tn-bereich-zahl").textContent = String(zahl);
+      });
+      reiterWartet();
+    }
+    function reiterWartet() {
+      const namen = [...new Set(stand.duelle.map((d) => d.name).filter(Boolean))];
+      const leuchtet = !reiter.hidden && reiterWahl !== "zwei" && namen.length > 0;
+      reiterZwei.classList.toggle("ist-wartet", leuchtet);
+      reiterZwei.setAttribute("aria-label", leuchtet ? `Zu zweit – ${namen.join(" und ")} ${namen.length === 1 ? "wartet" : "warten"}` : "Zu zweit");
+    }
     function rufeZeichnen() {
       rufe.innerHTML = "";
       const t = stand.t;
@@ -1380,17 +1436,20 @@
 
       const spiele = t.spiele.filter((spiel) => m.SPIELE.some((s) => s.id === spiel));
       const zwei = lage(t) === "laeuft" ? zweiImTurnier(t) : [];
-      if (!spiele.length) {
+      reiterZeichnen(spiele.length, zwei.length);
+      // Die Spiele zu zweit als grosse Karten statt der Bühne: wenn das
+      // Turnier nur sie hat – oder der Reiter «Zu zweit» offen ist.
+      const karten = zwei.length > 0 && (!spiele.length || reiterWahl === "zwei");
+      if (!spiele.length || karten) {
         buehneEnde?.abort();
         wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
         buehne = null;
         buehneFuer = "";
-        // Nur Spiele zu zweit: grosse Karten statt der Bühne.
-        if (zwei.length) {
+        if (karten) {
           hinweisZeile.remove();
           if (!zweiWirt?.classList.contains("tn-zwei-karten") || !zweiWirt.isConnected || zweiWirt.dataset.fuer !== zwei.join()) {
             zweiWirt?.remove();
-            wirt.append(zweiBauen(t, { gross: true }));
+            wirt.append(zweiBauen(t));
             zweiWirt.dataset.fuer = zwei.join();
           }
           zweiZeigen();
@@ -1412,10 +1471,10 @@
         wirt.querySelectorAll(":scope > .ar-buehne, :scope > .ar-auswahl").forEach((teil) => teil.remove());
         buehneEnde = new AbortController();
         buehneFuer = `${spiele.join()}|${zwei.join()}`;
-        // Die Spiele zu zweit vorne in der Zeile, wenn welche dabei sind (und
-        // das Turnier läuft).
-        const vorne = zwei.length ? zweiBauen(t, { gross: false }) : null;
-        if (!vorne) { zweiWirt = null; zweiKacheln.clear(); }
+        // Die Spiele zu zweit stehen unter ihrem eigenen Reiter, nicht in
+        // der Zeile.
+        zweiWirt = null;
+        zweiKacheln.clear();
         buehne = m.arcadeBuehne(wirt, {
           signal: buehneEnde.signal,
           reihenfolge: spiele,
@@ -1424,7 +1483,6 @@
           ansehbar: !t.ohneReplay,
           liveWirt: oben,
           liveVorne: false,
-          vorne,
           ...m.arcadeStart(spiele),
         });
       }

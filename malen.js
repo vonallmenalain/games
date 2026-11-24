@@ -285,13 +285,16 @@
     });
   }
 
-  // Eine neue Partie: unter bis zu 60 zufälligen Saaten die erste, deren sechs
-  // Wörter keines der zuletzt gespielten sind (sonst die mit den wenigsten).
+  // Eine neue Partie: unter bis zu 500 zufälligen Saaten die erste, deren
+  // sechs Wörter keines der zuletzt gespielten sind (sonst die mit den
+  // wenigsten). Bei 36 gemerkten von 91 passt etwa jede 23. Saat – 60
+  // Versuche reichten nicht immer; 500 brauchen auch im schlimmsten Fall nur
+  // ein paar Millisekunden.
   function neuePartie(stufe) {
     const zuletzt = new Set(zuletztLesen());
     let beste = 0;
     let wenigste = Infinity;
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < 500; i += 1) {
       const saat = Math.floor(Math.random() * 4294967295);
       const schon = runden(saat, stufe).filter((r) => zuletzt.has(WOERTER[r.wort].wort)).length;
       if (schon < wenigste) { wenigste = schon; beste = saat; }
