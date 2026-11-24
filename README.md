@@ -3003,7 +3003,15 @@ bereit (`Ba`, `Bb`). Dann wird geschossen: «Wasser» – der andere ist dran;
 «Treffer» oder «Versenkt» – nochmal. Um ein versenktes Schiff herum ist
 sicher Wasser; das ist blass markiert und lässt sich nicht beschiessen. Wo
 gerade etwas geschieht, ist das Meer gross, das andere halb so gross
-darunter (hochkant) oder daneben (quer, Tablet).
+darunter (hochkant) oder daneben (quer).
+
+Quer auf Tablet und Computer (ab 5 : 4 und mindestens 561 px hoch) steht
+das Spiel in zwei Spalten: links die Meere nebeneinander – beim Verstecken
+das eigene Meer und daneben der Hinweis, «Neu verteilen» und «Fertig!» –,
+rechts die Namen, der Satz und «Neu anfangen» / «Stufe». Bis November 2026
+stand auch dort alles untereinander in einer Spalte von 760 px: Auf einem
+Tablet quer (1280 × 800) lag «Fertig!» unter dem Bildrand, beim Schiessen das
+zweite Meer fast ganz.
 
 Das Geheimnis bleibt auf dem Gerät: Die Flotte steht nur in dessen Speicher
 (`schiffe.flotten`, je Raum, Partie und Platz), nicht in der Datenbank. Auf
@@ -3609,7 +3617,8 @@ Kopf des Adminbereichs. Ihn gibt es nur, wo der Browser das einer Seite
 erlaubt (am Computer, auf Android; auf dem iPhone nicht), und nicht in der
 installierten App, die ohnehin im Vollbild startet.
 
-**Unten bleibt im Vollbild Luft.** Manche Android-Tablets (gesehen bei
+**Unten bleibt im Vollbild Luft** – auf der Startseite und in den Spielen zu
+zweit (`--vr-unten` in jeder Rechnung, wie gross ein Brett sein darf). Manche Android-Tablets (gesehen bei
 Xiaomi und Samsung, in der installierten Turnier-App) lassen im Vollbild die
 Navigations- oder Taskleiste über dem Bild stehen, ohne es dem Browser zu
 sagen: `safe-area-inset-bottom` bleibt 0, die Seite hält die ganze Höhe für
@@ -3619,6 +3628,16 @@ Namen der Spiele. Darum hält die Kachelreihe im Vollbild auf einem
 Touch-Gerät (`display-mode: fullscreen` und `pointer: coarse`) unten
 immer 64 px Abstand (`--ar-unten`), auf dem Handy quer 24 px; sonst nur den
 sicheren Rand des Geräts.
+
+Bei den Spielen zu zweit gilt dasselbe. Dazu stehen Schatzkarte, Malen,
+Wackelturm und das Zwillings-Labyrinth auf einem flachen Tablet quer (561 bis
+760 px hoch – im Browser mit Adressleiste oder in der App mit Leiste oft so)
+wie auf dem Handy quer: links das Spielfeld, rechts Namen, Satz und Knöpfe;
+untereinander blieb dort kaum Platz, oder es ragte unten hinaus. Das Feld des
+Zwillings-Labyrinths richtet sich nach Breite und Höhe (`--zl-hoehe`), weil
+die erzeugten Labyrinthe verschieden geformt sind. `check-zwei.mjs` prüft bei
+jedem Spiel auf drei Tablets (1280 × 800, 1180 × 650, 800 × 1280), mit 64 px
+Leiste unten, dass beim ersten Zug alles im Bild steht.
 
 Das Vollbild bleibt, bis man es selbst beendet – mit dem Knopf, mit Esc oder
 der Zurück-Geste –, auch über das Ende der Runde und jeden Seitenwechsel

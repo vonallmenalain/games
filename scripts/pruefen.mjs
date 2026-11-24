@@ -693,6 +693,14 @@ pruefe("styles.css: Im Vollbild auf Touch-Geräten bleibt unter der Kachelreihe 
   /@media \(display-mode: fullscreen\) and \(pointer: coarse\) \{\s*\.mini-seite\.ar-seite \{ --ar-unten: max\(var\(--safe-bottom\), 64px\); \}/.test(stilCss)
   && /\.ar-auswahl \{[^}]*padding: 10px 0 calc\(10px \+ var\(--ar-unten\)\);/.test(stilCss)
   && !/\.ar-auswahl \{[^}]*var\(--safe-bottom\)/.test(stilCss));
+// Dasselbe bei den Spielen zu zweit: --vr-unten statt --safe-bottom in jeder
+// Rechnung, wie gross ein Brett sein darf.
+pruefe("styles.css: Die Spiele zu zweit lassen im Vollbild auf Touch-Geräten unten Platz (--vr-unten) – in jeder Brett-Rechnung",
+  /\.vr-seite \{[^}]*--vr-unten: var\(--safe-bottom\);/.test(stilCss)
+  && /@media \(display-mode: fullscreen\) and \(pointer: coarse\) \{\s*\.vr-seite \{ --vr-unten: max\(var\(--safe-bottom\), 64px\); \}/.test(stilCss)
+  && !/--vr-breite:[^;]*var\(--safe-bottom\)/.test(stilCss));
+pruefe("styles.css: Schiffe versenken quer auf Tablet und Computer: die Meere nebeneinander, Namen und Knöpfe rechts",
+  /@media \(min-aspect-ratio: 5\/4\) and \(min-height: 561px\) \{\s*body\[data-page="schiffe"\] \.vr-seite \{ max-width: none; \}[\s\S]*?grid-template-areas: "feld leiste" "feld satz" "feld knoepfe";/.test(stilCss));
 
 // Handy: Das Spiel ist das ganze Bild, die Leiste fängt nur mit ihren
 // Knöpfen, und was im Spiel oben steht, rückt unter die Knöpfe.
