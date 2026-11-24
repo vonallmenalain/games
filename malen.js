@@ -2,9 +2,12 @@
  * malen.js – Malen und Raten: Eine malt, die andere rät.
  * ---------------------------------------------------------------------------
  * Die Seite /malen. Ein Spiel miteinander (gemeinsam): sechs Runden, die
- * Rollen wechseln jede Runde. Wer malt, sieht ein Wort mit seinem Bild und
- * malt es mit dem Finger. Wer rät, sieht die Striche, während sie entstehen,
- * und tippt auf eine der Antworten (Bild und Wort – auch wer noch nicht
+ * Rollen wechseln jede Runde. Wer malt, sieht ein Wort mit seinem Bild (91
+ * Wörter: Tiere, Essen, Sachen, Fahrzeuge, Wetter …) und malt es mit dem
+ * Finger. Damit nicht immer dieselben kommen, merkt sich das Gerät die Wörter
+ * der letzten Partien (malen.zuletzt) und wählt für eine neue Partie eine
+ * Saat, deren Wörter möglichst keines davon sind. Wer rät, sieht die
+ * Striche, während sie entstehen, und tippt auf eine der Antworten (Bild und Wort – auch wer noch nicht
  * liest, kann raten). Drei Versuche je Runde. Werden vier der sechs Wörter
  * erraten, ist es geschafft.
  *
@@ -65,6 +68,109 @@
     { wort: "Schlange", bild: "🐍", malen: () => [Array.from({ length: 50 }, (_, i) => [150 + i * 13, 560 + 120 * Math.sin(i / 5)]), kreis(800, 470, 55, 14), [[850, 470], [920, 450], [900, 470], [920, 490]]] },
     { wort: "Ballon", bild: "🎈", malen: () => [oval(500, 400, 200, 250), [[480, 650], [520, 650], [500, 680], [480, 650]], Array.from({ length: 20 }, (_, i) => [500 + 30 * Math.sin(i / 2), 680 + i * 12])] },
   ];
+
+  // Weitere Hilfen: ein Rechteck, ein Zickzack, ein Strich durch Punkte.
+  const rechteck = (x1, y1, x2, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]];
+  const zickzack = (x1, y1, x2, y2, n, h) => Array.from({ length: n * 2 + 1 }, (_, i) => {
+    const t = i / (n * 2);
+    const nx = -(y2 - y1); const ny = x2 - x1; const l = Math.hypot(nx, ny) || 1;
+    const aus = i % 2 ? h : 0;
+    return [x1 + (x2 - x1) * t + (nx / l) * aus, y1 + (y2 - y1) * t + (ny / l) * aus];
+  });
+  const punkte = (liste, r = 18) => liste.map(([x, y]) => kreis(x, y, r, 10));
+
+  const MEHR = [
+    // Tiere
+    { wort: "Hund", bild: "🐶", malen: () => [kreis(500, 500, 210), oval(275, 470, 65, 150), oval(725, 470, 65, 150), ...punkte([[430, 450], [570, 450]], 22), oval(500, 560, 50, 34, 14), bogen(500, 600, 70, 20, 160, 10)] },
+    { wort: "Maus", bild: "🐭", malen: () => [kreis(500, 560, 200), kreis(320, 340, 110), kreis(680, 340, 110), ...punkte([[440, 520], [560, 520]], 20), kreis(500, 610, 26, 10), linie(470, 620, 300, 600), linie(470, 640, 300, 680), linie(530, 620, 700, 600), linie(530, 640, 700, 680)] },
+    { wort: "Hase", bild: "🐰", malen: () => [kreis(500, 620, 190), oval(420, 260, 55, 170), oval(580, 260, 55, 170), ...punkte([[440, 590], [560, 590]], 20), oval(500, 660, 30, 22, 10), bogen(470, 700, 30, 20, 160, 6), bogen(530, 700, 30, 20, 160, 6)] },
+    { wort: "Bär", bild: "🐻", malen: () => [kreis(500, 540, 220), kreis(320, 340, 80), kreis(680, 340, 80), oval(500, 620, 100, 75), ...punkte([[420, 480], [580, 480]], 22), oval(500, 590, 38, 26, 12)] },
+    { wort: "Schwein", bild: "🐷", malen: () => [kreis(500, 540, 230), [[320, 380], [300, 230], [420, 330]], [[580, 330], [700, 230], [680, 380]], oval(500, 600, 95, 65), ...punkte([[465, 600], [535, 600]], 16), ...punkte([[410, 470], [590, 470]], 20)] },
+    { wort: "Frosch", bild: "🐸", malen: () => [oval(500, 580, 300, 200), kreis(360, 380, 85), kreis(640, 380, 85), ...punkte([[360, 380], [640, 380]], 30), bogen(500, 560, 190, 30, 150, 16)] },
+    { wort: "Vogel", bild: "🐦", malen: () => [oval(470, 560, 220, 150), kreis(650, 400, 100), [[745, 390], [850, 420], [745, 445]], kreis(670, 380, 16, 8), [[260, 520], [130, 440], [150, 600], [255, 590]], bogen(450, 540, 120, 200, 340, 12), linie(440, 705, 420, 820), linie(520, 705, 540, 820)] },
+    { wort: "Ente", bild: "🦆", malen: () => [oval(450, 620, 250, 140), kreis(640, 400, 100), [[730, 410], [860, 430], [860, 460], [735, 455]], kreis(660, 380, 16, 8), bogen(430, 600, 120, 200, 340, 12), [[120, 820], [300, 790], [500, 830], [700, 790], [880, 820]]] },
+    { wort: "Schmetterling", bild: "🦋", malen: () => [oval(500, 520, 30, 220, 16), oval(330, 400, 150, 130), oval(670, 400, 150, 130), oval(360, 640, 110, 100), oval(640, 640, 110, 100), [[490, 310], [430, 190]], [[510, 310], [570, 190]]] },
+    { wort: "Spinne", bild: "🕷️", malen: () => [kreis(500, 560, 150), kreis(500, 360, 80), ...[-1, 1].flatMap((s) => [0, 1, 2, 3].map((i) => [[500 + s * 130, 500 + i * 45], [500 + s * 280, 420 + i * 70], [500 + s * 340, 560 + i * 90]]))] },
+    { wort: "Biene", bild: "🐝", malen: () => [oval(500, 580, 230, 150), linie(420, 440, 420, 720), linie(520, 430, 520, 730), linie(620, 450, 620, 710), oval(430, 360, 90, 110), oval(580, 360, 90, 110), [[730, 580], [820, 580]], kreis(330, 550, 16, 8)] },
+    { wort: "Marienkäfer", bild: "🐞", malen: () => [kreis(500, 560, 260), linie(500, 300, 500, 820), [...bogen(500, 300, 110, 180, 360, 14), [390, 300]], ...punkte([[390, 470], [610, 470], [380, 640], [620, 640], [500, 740]], 34)] },
+    { wort: "Schildkröte", bild: "🐢", malen: () => [[...bogen(470, 640, 270, 180, 360, 24), [200, 640]], linie(200, 640, 740, 640), kreis(820, 590, 80), kreis(840, 570, 12, 8), oval(300, 690, 50, 40), oval(640, 690, 50, 40), [[380, 470], [470, 420], [560, 470], [560, 560], [380, 560], [380, 470]]] },
+    { wort: "Wal", bild: "🐳", malen: () => [[[150, 520], ...bogen(470, 560, 320, 180, 360, 24), [790, 560], [700, 660], [450, 690], [250, 650], [150, 520]], [[150, 520], [80, 420], [200, 460], [190, 360]], kreis(640, 560, 18, 8), [[500, 240], [500, 140]], bogen(500, 180, 70, 200, 340, 10)] },
+    { wort: "Elefant", bild: "🐘", malen: () => [kreis(500, 440, 190), oval(270, 440, 120, 170), oval(730, 440, 120, 170), [[470, 580], [460, 720], [420, 830], [470, 850], [520, 740], [530, 580]], ...punkte([[440, 400], [560, 400]], 18)] },
+    { wort: "Pinguin", bild: "🐧", malen: () => [oval(500, 540, 210, 320), oval(500, 600, 130, 220), ...punkte([[450, 330], [550, 330]], 18), [[470, 380], [500, 430], [530, 380]], oval(420, 870, 70, 28), oval(580, 870, 70, 28)] },
+    { wort: "Eule", bild: "🦉", malen: () => [oval(500, 560, 250, 300), kreis(410, 450, 85), kreis(590, 450, 85), ...punkte([[410, 450], [590, 450]], 30), [[470, 540], [500, 600], [530, 540]], [[300, 320], [330, 200], [400, 290]], [[600, 290], [670, 200], [700, 320]]] },
+    { wort: "Krebs", bild: "🦀", malen: () => [oval(500, 600, 230, 140), [[330, 500], [220, 360]], [[670, 500], [780, 360]], [[180, 380], ...bogen(220, 300, 80, 200, 470, 14)], [[820, 380], ...bogen(780, 300, 80, 70, -200, 14)], linie(440, 480, 420, 380), linie(560, 480, 580, 380), ...punkte([[420, 370], [580, 370]], 20), linie(300, 650, 180, 740), linie(700, 650, 820, 740), linie(330, 700, 240, 800), linie(670, 700, 760, 800)] },
+    { wort: "Igel", bild: "🦔", malen: () => [[[180, 700], ...zickzack(200, 650, 700, 420, 8, -90).slice(1), [780, 520], [880, 640], [780, 700], [180, 700]], kreis(760, 600, 16, 8), kreis(880, 640, 22, 8)] },
+    // Essen
+    { wort: "Banane", bild: "🍌", malen: () => [[...bogen(520, 170, 450, 30, 150, 22), ...bogen(520, 40, 440, 140, 40, 20), [910, 395]], [[880, 360], [930, 300]]] },
+    { wort: "Birne", bild: "🍐", malen: () => [[...bogen(500, 640, 210, -40, 220, 22), ...bogen(500, 400, 120, 200, 340, 14)], linie(500, 280, 520, 180), oval(590, 220, 60, 28, 12)] },
+    { wort: "Kirsche", bild: "🍒", malen: () => [kreis(360, 680, 130), kreis(640, 680, 130), [[360, 550], [480, 300], [520, 220]], [[640, 550], [560, 300], [520, 220]], oval(620, 220, 90, 40, 14)] },
+    { wort: "Erdbeere", bild: "🍓", malen: () => [[[260, 380], [740, 380], [700, 620], [500, 860], [300, 620], [260, 380]], [[300, 380], [380, 260], [440, 370], [500, 240], [560, 370], [620, 260], [700, 380]], ...punkte([[400, 470], [600, 470], [500, 560], [420, 640], [580, 640]], 14)] },
+    { wort: "Karotte", bild: "🥕", malen: () => [[[380, 300], [620, 300], [500, 900], [380, 300]], [[500, 300], [420, 140]], [[500, 300], [500, 120]], [[500, 300], [580, 140]], linie(430, 440, 520, 430), linie(460, 580, 540, 570)] },
+    { wort: "Traube", bild: "🍇", malen: () => [...[[400, 380], [500, 380], [600, 380], [450, 480], [550, 480], [500, 580], [400, 580], [600, 580], [500, 680]].map(([x, y]) => kreis(x, y, 55, 14)), [[500, 320], [520, 200]], oval(600, 230, 70, 30, 12)] },
+    { wort: "Zitrone", bild: "🍋", malen: () => [[[180, 500], ...bogen(500, 680, 340, 200, 340, 22), [820, 500], ...bogen(500, 320, 340, 20, 160, 22).slice(1), [180, 500]]] },
+    { wort: "Ananas", bild: "🍍", malen: () => [oval(500, 620, 190, 260), linie(350, 470, 640, 790), linie(360, 690, 600, 400), linie(420, 380, 660, 650), [[400, 370], [360, 160], [470, 300], [500, 110], [530, 300], [640, 160], [600, 370]]] },
+    { wort: "Melone", bild: "🍉", malen: () => [[...bogen(500, 360, 380, 0, 180, 26), [880, 360]], [...bogen(500, 360, 310, 0, 180, 22)], ...punkte([[400, 470], [500, 520], [600, 470], [450, 600], [550, 600]], 16)] },
+    { wort: "Torte", bild: "🎂", malen: () => [rechteck(220, 480, 780, 800), oval(500, 480, 280, 50), linie(220, 640, 780, 640), rechteck(330, 300, 370, 470), rechteck(480, 300, 520, 470), rechteck(630, 300, 670, 470), oval(350, 260, 18, 34, 10), oval(500, 260, 18, 34, 10), oval(650, 260, 18, 34, 10)] },
+    { wort: "Lutscher", bild: "🍭", malen: () => [Array.from({ length: 50 }, (_, i) => { const w = i * 0.4; const r = 10 + i * 4; return [500 + r * Math.cos(w), 360 + r * Math.sin(w)]; }), kreis(500, 360, 210), linie(500, 570, 500, 900)] },
+    { wort: "Pizza", bild: "🍕", malen: () => [[[200, 250], [800, 250], [500, 880], [200, 250]], [[200, 250], [500, 180], [800, 250]], kreis(450, 380, 50, 14), kreis(590, 400, 45, 14), kreis(500, 560, 45, 14)] },
+    { wort: "Ei", bild: "🥚", malen: () => [Array.from({ length: 41 }, (_, i) => { const t = (2 * Math.PI * i) / 40; const s = Math.sin(t); return [500 + 215 * Math.cos(t), 560 + (s < 0 ? 330 : 240) * s]; })] },
+    { wort: "Käse", bild: "🧀", malen: () => [[[180, 700], [820, 700], [820, 520], [180, 380], [180, 700]], linie(180, 380, 820, 520), kreis(360, 600, 45, 12), kreis(600, 620, 35, 12), kreis(700, 580, 25, 10)] },
+    // Sachen
+    { wort: "Regenschirm", bild: "☂️", malen: () => [[...bogen(500, 480, 330, 180, 360, 24), ...[830, 720, 610, 500, 390, 280, 170].map((x, i) => [x, i % 2 ? 450 : 480])], [[500, 480], [500, 800], ...bogen(560, 800, 60, 180, 0, 8)], linie(500, 150, 500, 110)] },
+    { wort: "Schlüssel", bild: "🔑", malen: () => [kreis(300, 500, 120), kreis(300, 500, 40, 12), [[420, 480], [860, 480], [860, 520], [420, 520]], [[740, 520], [740, 610], [800, 610], [800, 520]]] },
+    { wort: "Glocke", bild: "🔔", malen: () => [[[250, 700], ...bogen(500, 450, 220, 180, 360, 20), [750, 700], [250, 700]], linie(500, 230, 500, 180), kreis(500, 750, 50, 14)] },
+    { wort: "Uhr", bild: "⏰", malen: () => [kreis(500, 540, 260), linie(500, 540, 500, 380), linie(500, 540, 620, 600), kreis(500, 540, 18, 8), [...bogen(310, 300, 80, 180, 360, 12), [230, 300]], [...bogen(690, 300, 80, 180, 360, 12), [610, 300]], linie(330, 760, 280, 840), linie(670, 760, 720, 840)] },
+    { wort: "Buch", bild: "📖", malen: () => [[[500, 320], [200, 260], [200, 720], [500, 780], [800, 720], [800, 260], [500, 320], [500, 780]], linie(260, 380, 440, 410), linie(260, 480, 440, 510), linie(560, 410, 740, 380), linie(560, 510, 740, 480)] },
+    { wort: "Stift", bild: "✏️", malen: () => [[[150, 430], [700, 430], [860, 500], [700, 570], [150, 570], [150, 430]], linie(700, 430, 700, 570), linie(150, 430, 150, 570), rechteck(100, 430, 150, 570), [[820, 482], [860, 500], [820, 518]]] },
+    { wort: "Schere", bild: "✂️", malen: () => [kreis(280, 360, 100), kreis(280, 660, 100), [[370, 400], [850, 640]], [[370, 620], [850, 380]]] },
+    { wort: "Hammer", bild: "🔨", malen: () => [rechteck(460, 400, 540, 880), [[260, 230], [740, 230], [740, 400], [260, 400], [260, 230]]] },
+    { wort: "Glühbirne", bild: "💡", malen: () => [[...bogen(500, 400, 220, 140, 400, 26)], rechteck(410, 600, 590, 740), linie(410, 650, 590, 650), linie(410, 695, 590, 695), [[450, 740], [500, 800], [550, 740]], [[440, 560], [470, 430], [500, 500], [530, 430], [560, 560]]] },
+    { wort: "Kerze", bild: "🕯️", malen: () => [rechteck(400, 380, 600, 860), linie(500, 380, 500, 320), [[500, 120], ...bogen(500, 250, 70, -60, 240, 16).slice(4), [500, 120]], oval(500, 860, 160, 30, 16)] },
+    { wort: "Krone", bild: "👑", malen: () => [[[200, 700], [200, 330], [350, 520], [500, 250], [650, 520], [800, 330], [800, 700], [200, 700]], linie(200, 620, 800, 620), ...punkte([[200, 310], [500, 230], [800, 310]], 24)] },
+    { wort: "Hut", bild: "🎩", malen: () => [oval(500, 720, 330, 60), rechteck(320, 300, 680, 700), linie(320, 620, 680, 620)] },
+    { wort: "Schuh", bild: "👟", malen: () => [[[150, 720], [150, 420], [380, 420], [480, 540], [760, 580], [860, 660], [860, 720], [150, 720]], linie(150, 670, 860, 670), linie(300, 460, 360, 520), linie(330, 430, 400, 500)] },
+    { wort: "T-Shirt", bild: "👕", malen: () => [[[400, 220], [180, 330], [250, 470], [320, 430], [320, 800], [680, 800], [680, 430], [750, 470], [820, 330], [600, 220], [400, 220]], bogen(500, 220, 100, 0, 180, 12)] },
+    { wort: "Tasse", bild: "☕", malen: () => [[[250, 420], [300, 800], [620, 800], [670, 420], [250, 420]], bogen(700, 590, 100, -80, 80, 12), oval(460, 420, 210, 40), [[380, 340], [360, 280], [390, 220], [370, 160]], [[520, 340], [500, 280], [530, 220], [510, 160]]] },
+    { wort: "Geschenk", bild: "🎁", malen: () => [rechteck(220, 400, 780, 820), rechteck(190, 320, 810, 400), linie(500, 320, 500, 820), oval(420, 260, 80, 50, 14), oval(580, 260, 80, 50, 14)] },
+    { wort: "Trommel", bild: "🥁", malen: () => [oval(500, 400, 280, 80), linie(220, 400, 220, 720), linie(780, 400, 780, 720), Array.from({ length: 19 }, (_, i) => { const w = (Math.PI * i) / 18; return [500 + 280 * Math.cos(w), 720 + 80 * Math.sin(w)]; }), zickzack(220, 560, 780, 560, 5, 80), [[320, 150], [460, 360]], [[680, 150], [540, 360]]] },
+    { wort: "Gitarre", bild: "🎸", malen: () => [kreis(420, 640, 190), kreis(560, 470, 140), kreis(470, 580, 60, 14), [[620, 360], [850, 130], [880, 160], [650, 390]]] },
+    { wort: "Zug", bild: "🚂", malen: () => [rechteck(500, 300, 760, 700), rechteck(160, 440, 500, 700), rechteck(220, 300, 290, 440), rechteck(560, 360, 700, 480), kreis(270, 760, 70), kreis(640, 760, 70), [[180, 260], [250, 200], [330, 240], [400, 180]]] },
+    { wort: "Flugzeug", bild: "✈️", malen: () => [oval(500, 500, 360, 70), [[460, 470], [380, 200], [470, 200], [580, 470]], [[460, 530], [380, 800], [470, 800], [580, 530]], [[160, 480], [120, 360], [200, 360], [240, 470]]] },
+    { wort: "Velo", bild: "🚲", malen: () => [kreis(270, 640, 150), kreis(730, 640, 150), [[270, 640], [430, 440], [620, 440], [730, 640]], [[430, 440], [500, 640], [620, 440]], linie(270, 640, 500, 640), linie(400, 400, 470, 400), [[620, 440], [600, 340], [680, 320]]] },
+    { wort: "Bus", bild: "🚌", malen: () => [rechteck(120, 300, 880, 700), rechteck(170, 360, 320, 500), rechteck(360, 360, 510, 500), rechteck(550, 360, 700, 500), rechteck(740, 360, 840, 600), kreis(300, 710, 70), kreis(700, 710, 70)] },
+    { wort: "Anker", bild: "⚓", malen: () => [kreis(500, 220, 60, 16), linie(500, 280, 500, 820), linie(370, 380, 630, 380), [...bogen(500, 560, 280, 20, 160, 20)], [[200, 640], [230, 560]], [[800, 640], [770, 560]]] },
+    { wort: "Zelt", bild: "⛺", malen: () => [[[150, 800], [500, 200], [850, 800], [150, 800]], [[420, 800], [500, 560], [580, 800]], linie(500, 200, 500, 140)] },
+    { wort: "Wolke", bild: "☁️", malen: () => [[[260, 670], [740, 670], ...bogen(740, 580, 90, 90, -90, 10), ...bogen(590, 470, 140, -10, -170, 14), ...bogen(390, 510, 110, -40, -170, 12), ...bogen(270, 590, 80, -100, -270, 10), [260, 670]]] },
+    { wort: "Regenbogen", bild: "🌈", malen: () => [bogen(500, 720, 380, 180, 360, 30), bogen(500, 720, 300, 180, 360, 26), bogen(500, 720, 220, 180, 360, 22)] },
+    { wort: "Blitz", bild: "⚡", malen: () => [[[580, 120], [300, 540], [500, 540], [400, 880], [720, 420], [520, 420], [580, 120]]] },
+    { wort: "Schneemann", bild: "⛄", malen: () => [kreis(500, 700, 190), kreis(500, 400, 130), rechteck(420, 160, 580, 270), linie(370, 270, 630, 270), ...punkte([[455, 380], [545, 380]], 16), [[500, 410], [600, 430], [500, 440]], linie(370, 620, 220, 520), linie(630, 620, 780, 520)] },
+    { wort: "Schneeflocke", bild: "❄️", malen: () => [0, 60, 120].flatMap((g) => { const w = (g * Math.PI) / 180; const p = (r) => [500 + r * Math.cos(w), 500 + r * Math.sin(w)]; return [[p(-320), p(320)]]; }).concat([0, 60, 120, 180, 240, 300].map((g) => { const w = (g * Math.PI) / 180; const m = [500 + 220 * Math.cos(w), 500 + 220 * Math.sin(w)]; const a = w + 0.6; const b = w - 0.6; return [[m[0] + 80 * Math.cos(a), m[1] + 80 * Math.sin(a)], m, [m[0] + 80 * Math.cos(b), m[1] + 80 * Math.sin(b)]]; })) },
+    { wort: "Berg", bild: "⛰️", malen: () => [[[100, 800], [420, 250], [600, 560], [700, 420], [900, 800], [100, 800]], [[330, 400], [380, 440], [420, 400], [460, 440], [500, 390]]] },
+    { wort: "Kaktus", bild: "🌵", malen: () => [[[440, 820], [440, 250], ...bogen(500, 250, 60, 180, 360, 10), [560, 820]], [[440, 560], [330, 560], [330, 420]], [[560, 480], [670, 480], [670, 340]], [[360, 820], [640, 820], [600, 900], [400, 900], [360, 820]]] },
+    { wort: "Würfel", bild: "🎲", malen: () => [rechteck(220, 380, 620, 780), [[220, 380], [380, 220], [780, 220], [620, 380]], [[780, 220], [780, 620], [620, 780]], ...punkte([[310, 470], [420, 580], [530, 690]], 32), ...punkte([[700, 380], [700, 560]], 26)] },
+    { wort: "Drachen", bild: "🪁", malen: () => [[[500, 140], [720, 380], [500, 700], [280, 380], [500, 140]], linie(500, 140, 500, 700), linie(280, 380, 720, 380), [[500, 700], [450, 780], [540, 840], [470, 920]], [[470, 760], [420, 740], [430, 790]]] },
+    { wort: "Brief", bild: "✉️", malen: () => [rechteck(180, 300, 820, 720), [[180, 300], [500, 540], [820, 300]]] },
+    { wort: "Tür", bild: "🚪", malen: () => [rechteck(330, 160, 670, 880), rechteck(370, 210, 630, 480), kreis(610, 560, 22, 10)] },
+    { wort: "Zahn", bild: "🦷", malen: () => [[[300, 380], ...bogen(400, 330, 110, 180, 320, 10), [500, 290], ...bogen(600, 330, 110, 220, 360, 10), [710, 380], [660, 820], [580, 840], [520, 640], [480, 640], [420, 840], [340, 820], [300, 380]]] },
+    { wort: "Hand", bild: "✋", malen: () => [[[320, 880], [300, 560], [220, 420], [260, 390], [340, 480], [340, 220], [400, 220], [410, 440], [430, 160], [490, 160], [490, 440], [520, 180], [580, 180], [570, 450], [620, 250], [680, 260], [660, 560], [640, 880], [320, 880]]] },
+    { wort: "Smiley", bild: "🙂", malen: () => [kreis(500, 500, 290), ...punkte([[400, 420], [600, 420]], 30), bogen(500, 520, 160, 20, 160, 14)] },
+  ];
+
+  WOERTER.push(...MEHR);
+
+  // --- Was zuletzt dran war (auf diesem Gerät) ------------------------------------
+  const ZULETZT = "malen.zuletzt";
+  const ZULETZT_HOECHSTENS = 36;
+  function zuletztLesen() {
+    try {
+      const l = JSON.parse(localStorage.getItem(ZULETZT) || "[]");
+      return Array.isArray(l) ? l.filter((w) => typeof w === "string") : [];
+    } catch { return []; }
+  }
+  function zuletztMerken(woerter) {
+    const neu = [...woerter, ...zuletztLesen().filter((w) => !woerter.includes(w))].slice(0, ZULETZT_HOECHSTENS);
+    try { localStorage.setItem(ZULETZT, JSON.stringify(neu)); } catch { /* dann eben nicht */ }
+  }
 
   function wuerfel(saat) {
     let t = (Number(saat) >>> 0) || 1;
@@ -177,6 +283,21 @@
       const wahl = mischen([wort, ...andere], rnd);
       return { wort, wahl, richtig: wahl.indexOf(wort) };
     });
+  }
+
+  // Eine neue Partie: unter bis zu 60 zufälligen Saaten die erste, deren sechs
+  // Wörter keines der zuletzt gespielten sind (sonst die mit den wenigsten).
+  function neuePartie(stufe) {
+    const zuletzt = new Set(zuletztLesen());
+    let beste = 0;
+    let wenigste = Infinity;
+    for (let i = 0; i < 60; i += 1) {
+      const saat = Math.floor(Math.random() * 4294967295);
+      const schon = runden(saat, stufe).filter((r) => zuletzt.has(WOERTER[r.wort].wort)).length;
+      if (schon < wenigste) { wenigste = schon; beste = saat; }
+      if (!schon) break;
+    }
+    return { saat: beste };
   }
 
   // --- Die Regeln -----------------------------------------------------------------
@@ -423,8 +544,11 @@
       }, 30);
     }
 
+    let gemerkt = "";
     function neuesStueck(b) {
       const l = b.lage;
+      const partieSchluessel = `${b.raum}|${b.nr}`;
+      if (gemerkt !== partieSchluessel && l.runden?.length) { gemerkt = partieSchluessel; zuletztMerken(l.runden.map((r) => WOERTER[r.wort].wort)); }
       const neu = `${b.nr}-${l.runde}`;
       if (neu === stueck) return;
       stueck = neu;
@@ -502,6 +626,9 @@
       papier.classList.toggle("ist-malen", darfMalen());
       // Die Antworten: wer rät, tippt; die anderen sehen sie auch.
       antworten.innerHTML = "";
+      // Hochkant in Reihen zu höchstens vier: acht in 4 + 4, sechs in 3 + 3.
+      const zahlAntworten = l.ende ? 0 : r.wahl.length;
+      antworten.style.setProperty("--zw-mr-spalten", String(zahlAntworten <= 4 ? Math.max(1, zahlAntworten) : Math.ceil(zahlAntworten / 2)));
       if (!l.ende) {
         const raten = Boolean(!b.aus && ich && l.rater === ich);
         r.wahl.forEach((w, i) => {
@@ -568,7 +695,7 @@
       return teile.join(". ");
     },
     satz,
-    neuePartie: () => ({ saat: Math.floor(Math.random() * 4294967295) }),
-    fuerPruefung: { WOERTER, erkenne, tinte, runden },
+    neuePartie,
+    fuerPruefung: { WOERTER, erkenne, tinte, runden, neuePartie, zuletztMerken, zuletztLesen },
   });
 })();

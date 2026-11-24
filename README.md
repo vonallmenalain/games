@@ -3264,9 +3264,17 @@ Schatz immer; wer öfter danebenläuft, auf der grossen Insel selten.
 Bilanz: `schatzkarte.bilanz`.
 
 **Malen und Raten** (`malen.js`, miteinander): sechs Runden, die Rollen
-wechseln jede Runde. Wer malt, sieht das Wort mit seinem Bild (Sonne, Haus,
-Baum, Katze, Fisch … zwanzig Wörter) und malt es mit dem Finger auf ein
-helles Blatt; «Alles löschen» fängt neu an. Wer rät, sieht die Striche,
+wechseln jede Runde. Wer malt, sieht das Wort mit seinem Bild und malt es
+mit dem Finger auf ein helles Blatt; «Alles löschen» fängt neu an. Es sind
+91 Wörter, jedes mit einem eigenen, gut erkennbaren Bild: Tiere (Hund, Hase,
+Frosch, Schmetterling, Marienkäfer, Pinguin, Igel …), Essen (Banane,
+Erdbeere, Pizza, Torte, Lutscher …), Sachen (Schlüssel, Uhr, Schere,
+Glühbirne, Krone, Geschenk …), Fahrzeuge (Zug, Flugzeug, Velo, Bus …),
+Wetter und Natur (Wolke, Regenbogen, Blitz, Schneemann, Kaktus …) und mehr.
+Damit nicht immer dieselben kommen, merkt sich das Gerät die Wörter der
+letzten sechs Partien (`malen.zuletzt`, höchstens 36) und sucht für eine neue
+Partie eine Saat, deren sechs Wörter keines davon sind (aus bis zu 60
+zufälligen; findet sich keine, die mit den wenigsten). Wer rät, sieht die Striche,
 während sie entstehen, und tippt auf eine der Antworten – Bild und Wort,
 damit auch raten kann, wer noch nicht liest. Drei Versuche je Runde; falsche
 Antworten werden blass und durchgestrichen. Werden vier der sechs Wörter
@@ -3297,8 +3305,15 @@ auf ein Raster von 32 × 32 – Grösse und Lage egal – und nimmt das Wort,
 dessen Striche im Mittel am nächsten bei denen der Zeichnung liegen (in
 beide Richtungen gemessen). An nachgemachten Kinderzeichnungen (verschoben,
 schief, wackelig, mit fehlenden Strichen) liegt er bei acht Antworten im
-ersten Versuch drei von vier Mal richtig, in drei Versuchen 19 von 20 Mal;
-was den Bildern gar nicht ähnelt, errät er natürlich seltener.
+ersten Versuch drei von vier Mal richtig, in drei Versuchen über 9 von 10
+Mal; was den Bildern gar nicht ähnelt, errät er natürlich seltener.
+
+Das Blatt ist so gross, wie es der Bildschirm erlaubt. Hochkant so breit wie
+die Seite (auf dem Tablet bis 760 px), die Antworten darunter über die ganze
+Breite in Reihen zu höchstens vier. Quer auf Tablet und Computer (ab 561 px
+hoch) steht links das Blatt, so hoch es geht, daneben Auftrag, Antworten und
+Knöpfe, rechts Namen und Satz – auf einem Tablet 1280 × 800 gut 600 px statt
+wie früher 320 (in der App mit Leiste unten gut 540).
 
 | Stufe | Zur Wahl | Der Computer malt |
 |---|---|---|
@@ -3482,8 +3497,10 @@ fünf Punkte gewinnen; bei Schatzkarte: Hinweis und Schritt im Wechsel,
 Felsen, Gruben, Graben, die Schritte, und zwei, die sich verstehen, finden
 den Schatz auf jeder Insel; bei Malen und Raten: die Runden aus der
 Saat, wer malt (auch gegen den Computer im Wechsel), er erkennt seine
-eigenen Bilder (verschoben, schief, unfertig), drei Versuche, vier von
-sechs, und der Live-Ort in den Regeln;
+eigenen Bilder (verschoben, schief, unfertig), mindestens 80 Wörter, jedes
+mit eigenem Namen und Bild, und eine neue Partie bringt keines der Wörter
+der letzten fünf, drei Versuche, vier von sechs, und der Live-Ort in den
+Regeln;
 bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
 schaffen auch den schwersten; beim Zwillings-Labyrinth: Türen, Platten,
 jedes Labyrinth lösbar und keines allein, die Schritte, zwei Computer
@@ -3629,13 +3646,14 @@ Touch-Gerät (`display-mode: fullscreen` und `pointer: coarse`) unten
 immer 64 px Abstand (`--ar-unten`), auf dem Handy quer 24 px; sonst nur den
 sicheren Rand des Geräts.
 
-Bei den Spielen zu zweit gilt dasselbe. Dazu stehen Schatzkarte, Malen,
+Bei den Spielen zu zweit gilt dasselbe. Dazu stehen Schatzkarte,
 Wackelturm und das Zwillings-Labyrinth auf einem flachen Tablet quer (561 bis
 760 px hoch – im Browser mit Adressleiste oder in der App mit Leiste oft so)
 wie auf dem Handy quer: links das Spielfeld, rechts Namen, Satz und Knöpfe;
 untereinander blieb dort kaum Platz, oder es ragte unten hinaus. Das Feld des
 Zwillings-Labyrinths richtet sich nach Breite und Höhe (`--zl-hoehe`), weil
-die erzeugten Labyrinthe verschieden geformt sind. `check-zwei.mjs` prüft bei
+die erzeugten Labyrinthe verschieden geformt sind. Malen und Raten steht so
+auf jedem Tablet quer, damit das Blatt so gross wie möglich wird. `check-zwei.mjs` prüft bei
 jedem Spiel auf drei Tablets (1280 × 800, 1180 × 650, 800 × 1280), mit 64 px
 Leiste unten, dass beim ersten Zug alles im Bild steht.
 
