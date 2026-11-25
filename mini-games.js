@@ -330,6 +330,7 @@
     { id: "leiter", seite: "leiter", titel: "Leiterspiel" },
     { id: "baumeister", seite: "baumeister", titel: "Baumeister" },
     { id: "echo", seite: "echo", titel: "Echo-Duett" },
+    { id: "kanu", seite: "kanu", titel: "Kanu zu zweit" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4487,6 +4488,14 @@
       const feld = el("span", "ar-ec-feld");
       [["ist-rot", "\u2605"], ["ist-gelb", "\u25CF"], ["ist-gruen", "\u25B2"], ["ist-blau", "\u25A0"]].forEach(([k, z], i) => feld.append(el("span", `ar-ec-taste ${k}${i === 1 ? " ist-an" : ""}`, z)));
       bild.append(feld, el("span", "ar-ec-note", "\u266B"));
+    },
+    kanu(bild) {
+      const fluss = el("span", "ar-ka-fluss");
+      fluss.append(el("span", "ar-ka-fels ist-1"), el("span", "ar-ka-fels ist-2"), el("span", "ar-ka-fahne ist-1"), el("span", "ar-ka-fahne ist-2"));
+      const boot = el("span", "ar-ka-boot");
+      boot.append(el("span", "ar-ka-sitz ist-a"), el("span", "ar-ka-sitz ist-b"));
+      fluss.append(boot);
+      bild.append(fluss);
     },
   };
 

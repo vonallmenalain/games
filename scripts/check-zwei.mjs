@@ -283,6 +283,25 @@ const LT = (() => { try { return spielAusDatei("leiter.js", "leiter"); } catch {
 const BM = (() => { try { return spielAusDatei("baumeister.js", "baumeister"); } catch { return null; } })();
 // Echo-Duett: die Länge der Melodie kommt aus der Saat der Partie.
 const EC = (() => { try { return spielAusDatei("echo.js", "echo"); } catch { return null; } })();
+// Kanu zu zweit: Die Fahrt plant die Prüfung mit kanu.js selbst (zwei gute
+// Partner, oder böse: auf die Felsen zu) und spielt die Schläge mit ihren
+// Ticks ein – der Ausgang hängt nur an den Zügen, nicht an der Uhr.
+function spielMitEchtzeit(datei, seite) {
+  const kasten = vm.createContext({ window: {}, document: { body: { dataset: { page: seite } } }, performance });
+  let spiel = null;
+  kasten.window.LernappZwei = { starte: (s) => { spiel = s; }, el: () => ({}), anderer: (s) => (s === "a" ? "b" : "a") };
+  vm.runInContext(readFileSync(path.join(WURZEL, "echtzeit.js"), "utf8"), kasten);
+  vm.runInContext(readFileSync(path.join(WURZEL, datei), "utf8"), kasten);
+  return spiel;
+}
+const KA = (() => { try { return spielMitEchtzeit("kanu.js", "kanu"); } catch { return null; } })();
+async function kaFahrt({ papa, lena, raum }, boese) {
+  const st = await (await db(`partie/${raum}/stand`)).json();
+  const g = { a: papa, b: lena };
+  const r = KA.fuerPruefung.fahrt(KA.fuerPruefung.flussVon(st?.saat, null), { boese });
+  const wer = st?.beginnt === "b" ? lena : papa;
+  return [{ g: wer, zug: "S" }, ...r.aktionen.map((a) => ({ g: g[a.wer], zug: `${a.wer}${a.tick}:${a.art}` })), { g: wer, zug: `E${r.endTick}` }];
+}
 async function ecSieg({ papa, lena, raum }) {
   const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
   const ziel = EC.fuerPruefung.zielVon(saat, null);
@@ -1011,6 +1030,41 @@ const SPIELWEISE = {
     gemeinsam: true,
     schwerSpielen: false,
   },
+  kanu: {
+    brett: ".zw-ka-fluss",
+    // «S» und Paddeln über die Knöpfe, geplante Schläge und das Ende genau
+    // mit ihrem Tick über den Prüf-Zugang.
+    tippe: async (s, z) => {
+      if (z === "S") await s.locator(".zw-ka-los").click();
+      else if (z === "PADDEL") await s.locator(".zw-ka-paddeln").dispatchEvent("pointerdown");
+      else await s.evaluate((zug) => window.LernappZwei.test.zug(zug), z);
+    },
+    kannTippen: (s, z) => {
+      if (z === "S") return s.locator(".zw-ka-los:not([hidden]):not([disabled])").count().then((n) => n === 1);
+      if (z === "PADDEL") return s.locator(".zw-ka-paddeln:not([hidden]):not([disabled])").count().then((n) => n === 1);
+      return s.evaluate((zug) => { const t = window.LernappZwei?.test; const l = t?.lage?.(); return Boolean(l && l.phase === "fahrt" && (zug[0] === "E" || t.sitz() === zug[0])); }, z);
+    },
+    liegt: (s) => s.locator(".zw-ka").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: «Los!», dann paddeln, bis die Fahrt aus ist.
+    waehle: (lage) => (!lage || lage.ende ? null : lage.phase === "bereit" ? "S" : "PADDEL"),
+    // Die Prüfung tippt langsamer, als ein Kind paddelt: Im Duell geht die
+    // Uhr auf beiden Geräten zehnmal langsamer, damit die geplanten Schläge
+    // vor ihrem Tick ankommen.
+    vorDemSieg: ({ papa, lena }) => Promise.all([papa, lena].map((g) => g.seite.evaluate(() => {
+      const echt = performance.now.bind(performance);
+      const t0 = echt();
+      performance.now = () => t0 + (echt() - t0) / 10;
+    }))),
+    sieg: (ctx) => kaFahrt(ctx, false),
+    siegZeichen: [".zw-ka.ist-geschafft", 1],
+    remis: (ctx) => kaFahrt(ctx, true),
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
+    gleichzeitig: true,
+    autoZuege: false,
+    schwerSpielen: false,
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!BS_SIEG) befundeVorab.push("Bohnen säen: Keine Partie gefunden, die a gewinnt");
@@ -1033,7 +1087,8 @@ if (BILDER) mkdirSync(BILDER, { recursive: true });
 
 const befunde = [...befundeVorab];
 let geprueft = 0;
-const pruefe = (bedingung, was) => { geprueft += 1; if (!bedingung) befunde.push(was); };
+// Mit LAUT=1 steht jeder Befund sofort da (nicht erst am Schluss).
+const pruefe = (bedingung, was) => { geprueft += 1; if (!bedingung) { befunde.push(was); if (process.env.LAUT) console.log(`✗ ${was}`); } };
 
 for (const z of ZU_PRUEFEN) {
   if (!SPIELWEISE[z.seite]) befunde.push(`${z.seite}: In SPIELWEISE (scripts/check-zwei.mjs) fehlt, wie man es spielt`);
