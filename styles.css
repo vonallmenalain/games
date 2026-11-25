@@ -11253,6 +11253,149 @@ body[data-page="wolf"] { overscroll-behavior: none; }
 .zw-ws-held-feld.ist-dunkel { background: #4e9742; }
 .zw-ws-held .zw-ws-figur { --q: var(--h); width: 84%; height: 84%; font-size: calc(var(--h) * 0.56); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
 
+/* --- Rate-Tier (ratetier.js) ----------------------------------------------------------
+   Oben das eigene, geheime Tier (und was die andere darüber schon gefragt
+   hat), darunter die 16 Tiere, die die andere haben könnte, und die acht
+   Fragen mit Bild. Was nicht mehr passt, wird blass und grau. Hochkant
+   untereinander (Fragen in zwei Reihen zu vier), quer nebeneinander: links
+   die Tiere, rechts Kopf und Fragen. Eine Karte ist --rt-k breit. */
+body[data-page="ratetier"] { overscroll-behavior: none; }
+.vr-partie.zw-ratetier {
+  --vr-breite: max(260px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 600px));
+  --rt-k: calc((var(--vr-breite) - 24px) / 4);
+  --rt-hoch: 1.32;
+}
+.zw-rt {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "kopf" "titel" "tiere" "rechts";
+  gap: 8px;
+  width: var(--vr-breite);
+  max-width: 100%;
+  aspect-ratio: auto;
+  touch-action: manipulation;
+}
+.zw-rt .confetti-layer { z-index: 6; }
+.zw-rt-kopf { grid-area: kopf; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.zw-rt-meins { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 12px 6px 6px; border: 2px dashed rgba(255, 255, 255, 0.22); border-radius: 16px; background: rgba(255, 255, 255, 0.05); }
+.zw-rt-meins-bild { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #fffdf6; font-size: 1.8rem; line-height: 1; }
+.zw-rt-meins-text { display: flex; flex-direction: column; line-height: 1.15; }
+.zw-rt-meins-titel { color: var(--ar-leise); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.zw-rt-meins-wort { font-size: 1.02rem; font-weight: 900; }
+.zw-rt-gefragt { display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px; }
+.zw-rt-gefragt:empty { display: none; }
+.zw-rt-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px 2px 4px; border-radius: 999px; font-size: 0.7rem; font-weight: 900; }
+.zw-rt-chip .zw-rt-frage-bild { width: 1.15em; height: 1.15em; font-size: 0.95rem; }
+.zw-rt-chip.ist-ja { background: rgba(90, 216, 147, 0.2); color: #b9f5d2; }
+.zw-rt-chip.ist-nein { background: rgba(255, 110, 110, 0.18); color: #ffd0d0; }
+.zw-rt-andere { padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--ar-leise); font-size: 0.86rem; font-weight: 850; white-space: nowrap; }
+.zw-rt-andere.ist-knapp { background: rgba(255, 110, 110, 0.18); color: #ffd0d0; }
+.zw-rt-titel { grid-area: titel; color: var(--ar-leise); font-size: 0.9rem; font-weight: 850; text-align: center; }
+.zw-rt-tiere { grid-area: tiere; display: grid; grid-template-columns: repeat(4, var(--rt-k)); gap: 8px; justify-content: center; }
+.zw-rt-karte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: calc(var(--rt-k) / var(--rt-hoch));
+  min-width: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: calc(var(--rt-k) * 0.14);
+  background: linear-gradient(170deg, #fffdf6, #efe8d6);
+  color: #2a2150;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+  font: inherit;
+  transition: opacity 0.45s ease, filter 0.45s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.zw-rt-karte:disabled { opacity: 1; cursor: default; }
+.zw-rt.ist-dran .zw-rt-karte:not(:disabled) { cursor: pointer; }
+.zw-rt.ist-dran .zw-rt-karte:not(:disabled):active { transform: scale(0.95); }
+.zw-rt-karte-bild { font-size: calc(var(--rt-k) * 0.42); line-height: 1; }
+.zw-rt-karte-wort { max-width: 100%; overflow: hidden; font-size: max(10px, calc(var(--rt-k) * 0.135)); font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.zw-rt-karte.ist-weg { opacity: 0.28; filter: grayscale(1); box-shadow: none; }
+.zw-rt-karte.ist-weg::after { content: "\2715"; position: absolute; inset: 0; display: grid; place-items: center; color: #c63a3c; font-size: calc(var(--rt-k) * 0.5); font-weight: 900; opacity: 0.8; }
+.zw-rt-karte.ist-gewaehlt { box-shadow: 0 0 0 4px #ffd45e, 0 0 22px rgba(255, 212, 94, 0.6); transform: translateY(-2px); }
+.zw-rt-karte.ist-richtig { box-shadow: 0 0 0 4px #5ad893, 0 0 26px rgba(90, 216, 147, 0.7); }
+.zw-rt-karte.ist-sieger { animation: zw-rt-jubel 0.8s cubic-bezier(0.2, 0.8, 0.2, 1.4) 2; }
+@keyframes zw-rt-jubel { 50% { transform: scale(1.12) rotate(-3deg); } }
+.zw-rt-rechts { grid-area: rechts; display: flex; flex-direction: column; gap: 8px; }
+.zw-rt-raten { --mini-farbe: #e0a313; min-height: 54px; font-size: 1.02rem; }
+.zw-rt-raten[hidden],
+.zw-rt-doch[hidden] { display: none; }
+.zw-rt-doch { --mini-farbe: var(--ar-flaeche-hoch); align-self: center; min-height: 44px; color: var(--ar-text); }
+.zw-rt.ist-raten .zw-rt-fragen { display: none; }
+.zw-rt-fragen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.zw-rt-frage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ar-flaeche-hoch);
+  color: var(--ar-text);
+  font: inherit;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.zw-rt-frage:disabled { opacity: 1; cursor: default; }
+.zw-rt.ist-dran .zw-rt-frage:not(:disabled) { cursor: pointer; background: #3a3160; box-shadow: 0 0 0 2px rgba(124, 92, 230, 0.6); }
+.zw-rt.ist-dran .zw-rt-frage:not(:disabled):active { transform: scale(0.95); }
+.zw-rt-frage-bild { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; font-size: 1.35rem; line-height: 1; }
+.zw-rt-frage-bild.ist-streifen { width: 1.35em; height: 1.05em; border-radius: 4px; background: repeating-linear-gradient(90deg, #2a2150 0 18%, #f3ead2 18% 36%); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); }
+.zw-rt-frage-wort { max-width: 100%; font-size: 0.72rem; font-weight: 850; line-height: 1.1; text-align: center; overflow-wrap: anywhere; }
+.zw-rt-antwort:empty { display: none; }
+.zw-rt-antwort { position: absolute; top: -6px; right: -4px; padding: 1px 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 900; }
+.zw-rt-frage.ist-ja .zw-rt-antwort { background: #5ad893; color: #0b2a18; }
+.zw-rt-frage.ist-nein .zw-rt-antwort { background: #ff7a7a; color: #2a0b0b; }
+.zw-rt-frage.ist-gefragt { opacity: 0.62; }
+@media (prefers-reduced-motion: reduce) {
+  .zw-rt-karte,
+  .zw-rt-frage { transition: none; }
+  .zw-rt-karte.ist-sieger { animation: none; }
+}
+/* Quer: links die Tiere, rechts das eigene Tier und die Fragen (in zwei
+   Spalten). Die Karten so gross, wie die Höhe es erlaubt. */
+@media (orientation: landscape) {
+  body[data-page="ratetier"] .vr-seite { max-width: 1060px; }
+  .vr-partie.zw-ratetier { --vr-breite: auto; --rt-hoch: 1.2; --rt-k: max(64px, min(160px, calc((100dvh - 390px - var(--safe-top) - var(--vr-unten)) / 4 * 1.2))); }
+  .zw-rt { grid-template-columns: auto minmax(220px, 320px); grid-template-areas: "titel kopf" "tiere rechts"; align-items: start; column-gap: 18px; width: auto; }
+  .zw-rt-kopf { flex-direction: column; align-items: stretch; }
+  .zw-rt-titel { align-self: end; text-align: left; }
+  .zw-rt-fragen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zw-rt-frage { flex-direction: row; justify-content: flex-start; gap: 8px; min-height: 46px; padding: 6px 10px; }
+  .zw-rt-frage-wort { text-align: left; font-size: 0.8rem; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-ratetier { --rt-k: max(56px, calc((100dvh - 110px - var(--safe-top) - var(--vr-unten)) / 4 * 1.2)); }
+  .zw-rt-doch { min-height: 36px; font-size: 0.82rem; }
+  .zw-rt { grid-area: feld; grid-template-columns: auto minmax(170px, 210px); grid-template-areas: "tiere kopf" "tiere rechts"; row-gap: 6px; column-gap: 12px; }
+  .zw-rt-titel { display: none; }
+  .zw-rt-meins { padding: 4px 8px 4px 4px; }
+  .zw-rt-meins-bild { width: 34px; height: 34px; font-size: 1.4rem; }
+  .zw-rt-andere { padding: 3px 10px; font-size: 0.78rem; }
+  .zw-rt-gefragt { display: none; }
+  .zw-rt-fragen { gap: 4px; }
+  .zw-rt-frage { min-height: 36px; padding: 3px 6px; gap: 4px; }
+  .zw-rt-frage-bild { width: 1.3rem; height: 1.3rem; font-size: 1.1rem; }
+  .zw-rt-frage-wort { font-size: 0.7rem; }
+  .zw-rt-raten { min-height: 40px; font-size: 0.86rem; }
+}
+
+/* Im Menü: Karten mit Tieren, zwei schon ausgeschlossen, ein Fragezeichen. */
+.zw-rt-held { --h: clamp(32px, 9vw, 42px); position: relative; flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, var(--h)); gap: 6px; }
+.zw-rt-held-karte { display: grid; place-items: center; height: calc(var(--h) * 0.9); border-radius: 9px; background: linear-gradient(170deg, #fffdf6, #efe8d6); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); font-size: calc(var(--h) * 0.55); line-height: 1; }
+.zw-rt-held-karte.ist-weg { opacity: 0.3; filter: grayscale(1); }
+.zw-rt-held-frage { position: absolute; right: -14px; top: -14px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #ffd45e; color: #2a1d00; font-size: 1.3rem; font-weight: 900; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
    Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
@@ -11435,6 +11578,11 @@ body[data-page="wolf"] { overscroll-behavior: none; }
 .ar-ws-wiese { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); display: grid; grid-template-columns: repeat(4, calc(var(--z) * 1.5)); grid-auto-rows: calc(var(--z) * 1.5); overflow: hidden; border-radius: calc(var(--z) * 0.35); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), 0 0 0 2px #2f5d27; }
 .ar-ws-feld { display: grid; place-items: center; background: #b9dc8f; font-size: calc(var(--z) * 1.05); line-height: 1; }
 .ar-ws-feld.ist-dunkel { background: #4e9742; }
+/* Rate-Tier: Karten mit Tieren, drei ausgeschlossen, ein Fragezeichen. */
+.ar-rt-tisch { position: absolute; left: calc(50% - var(--z) * 4.9); top: calc(var(--z) * 0.55); display: grid; grid-template-columns: repeat(4, calc(var(--z) * 2.25)); gap: calc(var(--z) * 0.25); }
+.ar-rt-karte { display: grid; place-items: center; height: calc(var(--z) * 2.05); border-radius: calc(var(--z) * 0.3); background: linear-gradient(170deg, #fffdf6, #efe8d6); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35); font-size: calc(var(--z) * 1.25); line-height: 1; }
+.ar-rt-karte.ist-weg { opacity: 0.3; filter: grayscale(1); }
+.ar-rt-frage { position: absolute; right: calc(var(--z) * -0.7); top: calc(var(--z) * -0.35); display: grid; place-items: center; width: calc(var(--z) * 1.6); height: calc(var(--z) * 1.6); border-radius: 50%; background: #ffd45e; color: #2a1d00; font-size: calc(var(--z) * 1.05); font-weight: 900; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }
