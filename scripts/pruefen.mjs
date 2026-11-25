@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2116,6 +2116,37 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     const grade = [0, 1, 2, 3, 4, 8].map((nr) => gradVon(BM.neuePartie(null, { nr }).saat, null));
     pruefe(`Baumeister: Zu zweit wird es mit jeder zweiten Partie schwerer (${grade.join(",")}), gegen den Computer sagt es die Stufe`,
       grade.join(",") === "1,1,2,2,3,3" && gradVon(123, "leicht") === 0 && gradVon(123, "schwer") === 3);
+  }
+
+  // Echo-Duett: die Melodie wächst, falsch kostet ein Herz, das Ziel.
+  const EC = angemeldet.echo;
+  if (EC?.fuerPruefung) {
+    const { FELDER, ZIELE, HERZEN, zielVon } = EC.fuerPruefung;
+    pruefe("Echo-Duett: Vier Felder mit eigenem Ton und eigenem Zeichen, die Ziele wachsen mit der Stufe",
+      FELDER.length === 4 && new Set(FELDER.map((f) => f.ton)).size === 4 && new Set(FELDER.map((f) => f.zeichen)).size === 4
+      && ZIELE.leicht < ZIELE.einfach && ZIELE.einfach < ZIELE.mittel && ZIELE.mittel < ZIELE.schwer && HERZEN === 3);
+    const lage = (zuege, stufe = "leicht") => EC.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat: 1, stufe });
+    const l1 = lage(["T2"]);
+    const l3 = lage(["T2", "T2", "T0"]);
+    pruefe("Echo-Duett: Wer beginnt, tippt den ersten Ton; dann spielt die andere nach und hängt einen an",
+      l1.melodie.join() === "2" && l1.dran === "b" && l1.phase === "nachspielen" && lage(["T2", "T2"]).phase === "neu" && lage(["T2", "T2"]).dran === "b"
+      && l3.melodie.join() === "2,0" && l3.dran === "a");
+    const f1 = lage(["T2", "T1"]);
+    pruefe("Echo-Duett: Ein falscher Ton kostet ein Herz – von vorn, dieselbe ist nochmal dran; ohne Herzen ist es nicht geschafft",
+      f1.herzen === 2 && f1.pos === 0 && f1.dran === "b" && f1.melodie.length === 1 && lage(["T2", "T1", "T1", "T1"]).ende === "v");
+    const voll = [];
+    for (let n = 0; n < ZIELE.leicht; n += 1) { for (let i = 0; i < n; i += 1) voll.push(`T${i % 4}`); voll.push(`T${n % 4}`); }
+    pruefe(`Echo-Duett: Hat die Melodie ihre Länge (${ZIELE.leicht} Töne), ist es geschafft`, lage(voll).ende === "g" && lage(voll.slice(0, -1)).ende === null);
+    pruefe("Echo-Duett: nur ein Ton, nur wer dran ist", EC.darf(lage([]), "T0", "a") && !EC.darf(lage([]), "T0", "b") && !EC.darf(lage([]), "T4", "a") && !EC.darf(lage([]), "X", "a") && lage(["T7"]).dran === null);
+    let immer = true;
+    for (const st of Object.keys(EC.stufen)) {
+      const z = [];
+      for (let l = lage(z, st); !l.ende && z.length < 400; l = lage(z, st)) { const m = EC.computer(l, l.dran, st); if (!EC.darf(l, m?.zug, l.dran)) { immer = false; break; } z.push(m.zug); }
+      if (lage(z, st).ende !== "g" || lage(z, st).melodie.length !== ZIELE[st]) immer = false;
+    }
+    pruefe("Echo-Duett: Der Computer ist ein verlässlicher Partner – auf jeder Stufe geschafft", immer);
+    const ziele = [0, 1, 2, 4, 30].map((nr) => zielVon(EC.neuePartie(null, { nr }).saat, null));
+    pruefe(`Echo-Duett: Zu zweit wird die Melodie mit jeder zweiten Partie länger (${ziele.join(",")})`, ziele.join(",") === "6,6,7,8,12");
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

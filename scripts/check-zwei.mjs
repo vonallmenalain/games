@@ -281,6 +281,22 @@ const LT = (() => { try { return spielAusDatei("leiter.js", "leiter"); } catch {
 // Baumeister: der Plan kommt aus Saat und Runde (bmPlan) – so weiss die
 // Prüfung, was die Planerin antworten muss.
 const BM = (() => { try { return spielAusDatei("baumeister.js", "baumeister"); } catch { return null; } })();
+// Echo-Duett: die Länge der Melodie kommt aus der Saat der Partie.
+const EC = (() => { try { return spielAusDatei("echo.js", "echo"); } catch { return null; } })();
+async function ecSieg({ papa, lena, raum }) {
+  const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+  const ziel = EC.fuerPruefung.zielVon(saat, null);
+  const folge = [];
+  const melodie = [];
+  for (let n = 0; n < ziel; n += 1) {
+    const g = n % 2 === 0 ? papa : lena;
+    melodie.forEach((k) => folge.push({ g, zug: `T${k}` }));
+    const neu = (n * 3 + 1) % 4;
+    melodie.push(neu);
+    folge.push({ g, zug: `T${neu}` });
+  }
+  return folge;
+}
 async function bmFolge({ papa, lena, raum }, richtig) {
   const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
   const st = (await (await db(`partie/${raum}/stand`)).json());
@@ -977,6 +993,22 @@ const SPIELWEISE = {
     trenner: ".",
     gemeinsam: true,
     autoZuege: false,
+    schwerSpielen: false,
+  },
+  echo: {
+    brett: ".zw-ec-felder",
+    tippe: (s, z) => s.locator(`.zw-ec-feld[data-feld="${z[1]}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-ec-feld[data-feld="${z[1]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-ec").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: die Melodie nachspielen, dann einen Ton anhängen.
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende ? `T${lage.pos < lage.melodie.length ? lage.melodie[lage.pos] : lage.melodie.length % 4}` : null),
+    sieg: ecSieg,
+    siegZeichen: [".zw-ec.ist-geschafft", 1],
+    // Lena beginnt mit einem Ton, Papa vertut sich dreimal: nicht geschafft.
+    remis: ({ papa, lena }) => [{ g: lena, zug: "T0" }, { g: papa, zug: "T1" }, { g: papa, zug: "T2" }, { g: papa, zug: "T3" }],
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
     schwerSpielen: false,
   },
 };

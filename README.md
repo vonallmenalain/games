@@ -53,6 +53,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     rechnen.html          Rechenduell, erzeugt
     leiter.html           Leiterspiel, erzeugt
     baumeister.html       Baumeister, erzeugt
+    echo.html             Echo-Duett, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -124,6 +125,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Leitern und Rutschen, ein Computer
     baumeister.js         Baumeister: Pläne aus der Saat, merken, fragen,
                           antworten, setzen, ein Computer als Partner
+    echo.js               Echo-Duett: vier Klangfelder, die Melodie wächst,
+                          drei Herzen, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2947,6 +2950,7 @@ Gerät:
 | Rechenduell | `/rechnen` | `rechnen.js` |
 | Leiterspiel | `/leiter` | `leiter.js` |
 | Baumeister | `/baumeister` | `baumeister.js` |
+| Echo-Duett | `/echo` | `echo.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3658,6 +3662,30 @@ sagt – die Stufe macht nur den Plan grösser. Ein Zug ist «M» (gemerkt), «Q
 (Feld fragen), «A2» (Antwort), «B2» (Klotz setzen) oder «X» (fertig).
 Bilanz: `baumeister.bilanz`.
 
+**Echo-Duett** (`echo.js`, miteinander): vier grosse Klangfelder – rot ★,
+gelb ●, grün ▲, blau ■ (auch ohne Farben zu unterscheiden), jedes mit seinem
+Ton (C, E, G, hohes C). Wer beginnt, tippt den ersten Ton. Dann spielt die
+andere die ganze Melodie nach und hängt einen neuen Ton an, und so weiter im
+Wechsel. Wer dran ist, hört die Melodie zuerst einmal (die Felder leuchten
+und klingen) und kann sie mit «Nochmal anhören» wiederholen; was die andere
+tippt, leuchtet und klingt auch hier. Ein falscher Ton kostet ein Herz
+(von dreien), und man beginnt die Melodie von vorn. Hat die Melodie ihre
+Länge, ist es geschafft; sind die Herzen weg, nicht. Oben stehen die Länge
+(mit einem Balken bis zum Ziel) und die Herzen.
+
+| Stufe (oder zu zweit: die Partie) | Länge der Melodie |
+|---|---|
+| Ganz leicht | 5 Töne |
+| Einfach | 7 Töne |
+| Mittel | 9 Töne |
+| Schwer | 12 Töne |
+| zu zweit | 6 Töne, alle zwei Partien einer mehr, bis 12 |
+
+Der Computer ist ein verlässlicher Partner: Er hört sich die Melodie an,
+spielt sie fehlerfrei nach und hängt einen Ton an (nie dreimal denselben).
+Die Töne macht das Spiel selbst (Web Audio über `kids.js`, wie die anderen
+Töne). Ein Zug ist ein Ton: «T2». Bilanz: `echo.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3788,7 +3816,10 @@ fünf Leitern und Rutschen, Würfel aus der Saat, erst würfeln, dann wählen,
 die Sechs, das Ziel, kluges Wählen gewinnt meistens; beim Baumeister: die
 Pläne je Grad, merken – fragen – antworten – setzen – fertig, die Rollen im
 Wechsel, drei von vier Runden, der Computer als verlässlicher Partner, zu
-zweit mit der Zeit schwerer – die neueren
+zweit mit der Zeit schwerer; beim Echo-Duett: die Melodie wächst im
+Wechsel, falsch kostet ein Herz und beginnt von vorn, ohne Herzen nicht
+geschafft, die Länge geschafft, der Computer als verlässlicher Partner, zu
+zweit mit der Zeit länger – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
