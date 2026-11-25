@@ -46,6 +46,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     wackelturm.html       Wackelturm zu zweit, erzeugt
     zwillinge.html        Zwillings-Labyrinth, erzeugt
     bohnen.html           Bohnen säen, erzeugt
+    wolf.html             Wolf und Schafe, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -103,6 +104,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           Platten, ein Computer als Zwilling
     bohnen.js             Bohnen säen: Mulden, Töpfe, säen Bohne für Bohne,
                           ein Computer in vier Stufen
+    wolf.js               Wolf und Schafe: die Wiese, Rollen im Wechsel,
+                          ein Computer als Schafe und als Wolf
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2919,6 +2922,7 @@ Gerät:
 | Wackelturm zu zweit | `/wackelturm` | `wackelturm.js` |
 | Zwillings-Labyrinth | `/zwillinge` | `zwillinge.js` |
 | Bohnen säen | `/bohnen` | `bohnen.js` |
+| Wolf und Schafe | `/wolf` | `wolf.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3445,6 +3449,38 @@ vier Sorten. Ein Zug ist die Nummer der Mulde, die man leert (0 bis 5 für a,
 Das Brett ist breit und niedrig: so breit wie die Seite, auf dem Tablet quer
 bis 1000 px (Mulden gut 100 px). Bilanz: `bohnen.bilanz`.
 
+**Wolf und Schafe** (`wolf.js`, gegeneinander, ungleiche Rollen): eine Wiese
+mit 8 × 8 Feldern, gespielt wird nur auf den dunklen. Unten stehen vier
+Schafe, oben der Wolf. Ein Schaf geht einen Schritt schräg nach vorn, nie
+zurück; der Wolf geht einen Schritt schräg in jede Richtung. Niemand springt,
+niemand wird geschlagen. Die Schafe gewinnen, wenn der Wolf nicht mehr ziehen
+kann («eingesperrt»); der Wolf gewinnt, wenn er an allen Schafen vorbei ist
+(kein Schaf mehr unter ihm – dann holt ihn keines mehr ein) oder die Schafe
+nicht mehr ziehen können. Unentschieden gibt es nicht.
+
+Die Rollen wechseln jede Partie: Wer beginnt, hat die Schafe und zieht
+zuerst. Zu Beginn steht über dem Brett, wer welche Rolle hat («Du beginnst
+mit den Schafen 🐑 – sperr den Wolf ein!», «Du bist der Wolf 🐺 – brich
+durch!»). Wer den Wolf hat, sieht das Brett gedreht –
+die eigene Figur unten. Die Figuren sind Bilder auf Plättchen mit dem Ring
+ihrer Farbe (Koralle für a, Gold für b). Antippen, dann das Ziel (ein Punkt
+zeigt, wohin es geht); kann nur eine Figur auf ein Feld, reicht das Ziel. Ein
+Zug ist «von-nach» (Felder 0 bis 63, zeilenweise von oben links aus Sicht der
+Schafe).
+
+| Stufe | Der Computer |
+|---|---|
+| Ganz leicht | zieht irgendwohin; als Wolf trödelt er meist zurück nach oben |
+| Einfach | schaut einen Zug weit, ab und zu irgendwohin |
+| Mittel | schaut vier Züge weit |
+| Schwer | schaut acht Züge weit, als Schafe zehn (Minimax mit Alpha-Beta und Gedächtnis) |
+
+Bewertet wird, ob der Wolf an den stillstehenden Schafen vorbei käme und in
+wie vielen Schritten – und sonst, wie viele Felder ihm bleiben. Die Schafe auf
+«Schwer» sperren auch den Wolf auf «Schwer» ein (12 von 12); einfach
+spielende Schafe gewinnen gegen den Wolf auf «Ganz leicht» gut die Hälfte.
+Bilanz: `wolf.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3554,7 +3590,11 @@ kommen überall ans Ziel; je Grad zwölf erzeugte Labyrinthe, dieselbe Saat
 dasselbe Labyrinth, jede Partie ein anderes, alle zwei Partien schwerer;
 bei Bohnen säen: säen, den fremden Topf überspringen, nochmal, rauben, das
 Ende mit dem Rest, immer 48 Bohnen, 24 zu 24 unentschieden, jede Stufe zieht
-nur, was erlaubt ist, «Schwer» schlägt «Mittel» und rechnet schnell),
+nur, was erlaubt ist, «Schwer» schlägt «Mittel» und rechnet schnell; bei
+Wolf und Schafe: wer beginnt, hat die Schafe, wie Schafe und Wolf ziehen,
+kein Feld doppelt, die Schafe auf «Schwer» sperren den Wolf ein, zufällige
+Schafe lassen ihn durch, jede Stufe zieht in beiden Rollen nur, was erlaubt
+ist),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

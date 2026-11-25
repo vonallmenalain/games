@@ -248,6 +248,22 @@ const BS_REMIS = (() => {
   }
   return null;
 })();
+// Wolf und Schafe: Papa (a) beginnt, hat also die Schafe, und spielt wie
+// «Schwer»; Lena (b) ist der Wolf und spielt wie «Ganz leicht» – mit festem
+// Zufall immer dieselbe Partie, die Papa gewinnt.
+const WS = (() => { try { return spielAusDatei("wolf.js", "wolf"); } catch { return null; } })();
+const WS_SIEG = (() => {
+  if (!WS) return null;
+  const lage = (zuege) => WS.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat: 1 });
+  const folge = [];
+  const zuege = [];
+  for (let l = lage(zuege); !l.ende && zuege.length < 200; l = lage(zuege)) {
+    const zug = WS.computer(l, l.dran, l.dran === "a" ? "schwer" : "leicht");
+    folge.push({ sitz: l.dran, zug });
+    zuege.push(zug);
+  }
+  return lage(zuege).ende === "a" ? folge : null;
+})();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -717,10 +733,35 @@ const SPIELWEISE = {
       pruefe(Number(zahl) > 24, `Bohnen säen: In Papas Topf liegen mehr als die Hälfte der Bohnen (${zahl})`);
     },
   },
+  wolf: {
+    brett: ".zw-ws-gitter",
+    // Erst die Figur (ist sie nicht gewählt, nochmal), dann das Ziel.
+    tippe: async (s, z) => {
+      const [von, nach] = z.split("-");
+      const feld = (f) => s.locator(`.zw-ws-feld[data-feld="${f}"]`);
+      if (!(await feld(von).evaluate((k) => k.classList.contains("ist-gewaehlt")))) await feld(von).click();
+      if (!(await feld(von).evaluate((k) => k.classList.contains("ist-gewaehlt")))) await feld(von).click();
+      await feld(nach).click();
+    },
+    kannTippen: (s, z) => s.locator(`.zw-ws-feld[data-feld="${z.split("-")[0]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-ws").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: wie der Computer auf «Einfach» – als Schafe oder
+    // als Wolf, je nach Partie.
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende && WS ? WS.computer(lage, "a", "einfach") : null),
+    sieg: ({ papa, lena }) => WS_SIEG.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })),
+    siegZeichen: [".zw-ws-feld.ist-gefangen", 1],
+    remis: null,
+    trenner: ".",
+    nachSieg: async (s, pruefe) => {
+      // Lena hatte den Wolf: Bei ihr ist das Brett gedreht.
+      pruefe(await s.locator(".zw-ws.ist-gedreht").count() === 1, "Wolf und Schafe: Bei Lena (Wolf) ist das Brett gedreht");
+    },
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!BS_SIEG) befundeVorab.push("Bohnen säen: Keine Partie gefunden, die a gewinnt");
 if (!BS_REMIS) befundeVorab.push("Bohnen säen: Kein Unentschieden gefunden");
+if (!WS_SIEG) befundeVorab.push("Wolf und Schafe: Keine Partie gefunden, die a gewinnt");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
 if (!KK_REMIS) befundeVorab.push("Käsekästchen: Kein Unentschieden gefunden");
 
