@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2236,6 +2236,51 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       && gemischt.ende === "g" && gemischt.stand.richtig === ende.stand.richtig && gemischt.stand.herzen === ende.stand.herzen);
     const grade = [0, 1, 2, 4, 9].map((nr) => WEI.fuerPruefung.gradVon(WEI.neuePartie(null, { nr }).saat, null));
     pruefe(`Weichensteller: Zu zweit kommen mit jeder zweiten Partie mehr Loks (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
+  }
+
+  // Raumschiff-Crew (raumschiff.js, Echtzeit): der Flugplan, wer steuert und
+  // wer den Schild hat, der Schild lädt, das Ende als Zug.
+  const RSC = angemeldet.raumschiff;
+  if (RSC?.fuerPruefung) {
+    const { planVon, fahrt, simuliere, DAUER, LADEN, HERZEN } = RSC.fuerPruefung;
+    const laengen = ["leicht", "einfach", "mittel", "schwer"].map((st) => planVon(77, st).laenge);
+    let planOk = true;
+    for (let s = 1; s <= 40; s += 1) {
+      const p = planVon(s * 31, s % 2 ? "leicht" : "schwer");
+      const hart = p.objekte.filter((o) => o.art === "M" || (o.art === "A" && o.bahnen.includes(1))).length;
+      if (!p.objekte.some((o) => o.art === "M") || p.objekte.some((o) => o.art === "A" && (o.bahnen.length < 1 || o.bahnen.length > 2)) || hart < 3) planOk = false;
+    }
+    pruefe(`Raumschiff-Crew: Je Stufe ein längerer Flug (${laengen.join(" < ")}); Asteroiden lassen immer eine Bahn frei, jeder Flug hat Meteorschauer`, planOk && laengen.every((x, i) => !i || x > laengen[i - 1]));
+    const lage = (zuege, beginnt = "a", stufe = "leicht", saat = 42) => RSC.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const l1 = lage(["S"]);
+    const l1b = lage(["S"], "b");
+    pruefe("Raumschiff-Crew: Wer beginnt, steuert (▲ ▼), die andere hat den Schild – nur die eigenen Knöpfe, die Ticks nur vorwärts",
+      lage([]).phase === "bereit" && RSC.darf(lage([]), "S", "b") && !RSC.darf(lage([]), "a3:U", "a")
+      && RSC.darf(l1, "a3:U", "a") && RSC.darf(l1, "a3:D", "a") && !RSC.darf(l1, "a3:S", "a") && RSC.darf(l1, "b3:S", "b") && !RSC.darf(l1, "b3:U", "b") && !RSC.darf(l1, "b3:X", "b")
+      && RSC.darf(l1b, "b3:D", "b") && RSC.darf(l1b, "a3:S", "a") && !RSC.darf(l1b, "a3:U", "a")
+      && !RSC.darf(lage(["S", "a9:U"]), "a5:D", "a"));
+    const p = planVon(42, "leicht");
+    const schild = (ticks) => simuliere(p, ticks.map((tick, i) => ({ wer: "b", tick, art: "S", i })), 120).schild.an;
+    pruefe(`Raumschiff-Crew: Der Schild hält ${DAUER} Ticks und lädt dann ${LADEN} – solange tut der Knopf nichts`,
+      schild([10]) === 10 && schild([10, 20]) === 10 && schild([10, 10 + DAUER + LADEN - 1]) === 10 && schild([10, 10 + DAUER + LADEN]) === 10 + DAUER + LADEN);
+    let gut = 0;
+    let boese = 0;
+    for (let s = 1; s <= 30; s += 1) {
+      const plan = planVon(s * 7919, s % 3 ? "leicht" : "schwer");
+      const r = fahrt(plan, { beginnt: s % 2 ? "a" : "b" });
+      if (r.ende === "g" && r.stand.herzen === HERZEN) gut += 1;
+      if (fahrt(plan, { boese: true }).ende === "v") boese += 1;
+    }
+    pruefe(`Raumschiff-Crew: Eine gute Crew kommt ohne Treffer zum Planeten (${gut} von 30); tut niemand etwas, sind die ${HERZEN} Herzen weg (${boese} von 30)`, gut === 30 && boese === 30);
+    const r = fahrt(p);
+    const zuege = r.aktionen.map((a) => `${a.wer}${a.tick}:${a.art}`);
+    const ende = lage(["S", ...zuege, `E${r.endTick}`]);
+    const gemischt = lage(["S", ...zuege.filter((z) => z[0] === "b"), ...zuege.filter((z) => z[0] === "a"), `E${r.endTick}`]);
+    pruefe("Raumschiff-Crew: Das Ende ist ein Zug – erst beim Planeten; jedes Gerät rechnet dasselbe, auch wenn Züge anders ankommen",
+      ende.ende === "g" && !RSC.darf(lage(["S", ...zuege]), `E${r.endTick - 5}`, "a") && RSC.darf(lage(["S", ...zuege]), `E${r.endTick}`, "b")
+      && gemischt.ende === "g" && gemischt.stand.herzen === ende.stand.herzen && gemischt.stand.sterne === ende.stand.sterne);
+    const grade = [0, 1, 2, 4, 9].map((nr) => RSC.fuerPruefung.gradVon(RSC.neuePartie(null, { nr }).saat, null));
+    pruefe(`Raumschiff-Crew: Zu zweit wird der Flug mit jeder zweiten Partie länger (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

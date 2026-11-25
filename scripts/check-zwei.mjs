@@ -319,6 +319,15 @@ const langsameUhr = ({ papa, lena }) => Promise.all([papa, lena].map((g) => g.se
   const t0 = echt();
   performance.now = () => t0 + (echt() - t0) / 10;
 })));
+// Raumschiff-Crew: wie beim Weichensteller.
+const RSC = (() => { try { return spielMitEchtzeit("raumschiff.js", "raumschiff"); } catch { return null; } })();
+async function rsFahrt({ papa, lena, raum }, boese) {
+  const st = await (await db(`partie/${raum}/stand`)).json();
+  const g = { a: papa, b: lena };
+  const beginnt = st?.beginnt === "b" ? "b" : "a";
+  const r = RSC.fuerPruefung.fahrt(RSC.fuerPruefung.planVon(st?.saat, null), { beginnt, boese });
+  return [{ g: g[beginnt], zug: "S" }, ...r.aktionen.map((a) => ({ g: g[a.wer], zug: `${a.wer}${a.tick}:${a.art}` })), { g: g[beginnt], zug: `E${r.endTick}` }];
+}
 async function ecSieg({ papa, lena, raum }) {
   const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
   const ziel = EC.fuerPruefung.zielVon(saat, null);
@@ -1103,6 +1112,35 @@ const SPIELWEISE = {
     sieg: (ctx) => wsFahrt(ctx, false),
     siegZeichen: [".zw-ws.ist-geschafft", 1],
     remis: (ctx) => wsFahrt(ctx, true),
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
+    gleichzeitig: true,
+    autoZuege: false,
+    schwerSpielen: false,
+  },
+  raumschiff: {
+    brett: ".zw-rs-all",
+    // «S» über «Los!», «K» tippt den ersten eigenen Knopf (▲ oder den
+    // Schild), geplante Züge und das Ende genau mit ihrem Tick über den
+    // Prüf-Zugang.
+    tippe: async (s, z) => {
+      if (z === "S") await s.locator(".zw-rs-los").click();
+      else if (z === "K") await s.locator(".zw-rs-knopf:not([hidden]):not([disabled])").first().dispatchEvent("pointerdown");
+      else await s.evaluate((zug) => window.LernappZwei.test.zug(zug), z);
+    },
+    kannTippen: (s, z) => {
+      if (z === "S") return s.locator(".zw-rs-los:not([hidden]):not([disabled])").count().then((n) => n === 1);
+      if (z === "K") return s.locator(".zw-rs-knopf:not([hidden]):not([disabled])").count().then((n) => n >= 1);
+      return s.evaluate((zug) => { const t = window.LernappZwei?.test; const l = t?.lage?.(); return Boolean(l && l.phase === "flug" && (zug[0] === "E" || t.sitz() === zug[0])); }, z);
+    },
+    liegt: (s) => s.locator(".zw-rs").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: «Los!», einmal den eigenen Knopf, dann zuschauen.
+    waehle: (lage) => (!lage || lage.ende ? null : lage.phase === "bereit" ? "S" : lage.zahl < 2 ? "K" : null),
+    vorDemSieg: langsameUhr,
+    sieg: (ctx) => rsFahrt(ctx, false),
+    siegZeichen: [".zw-rs.ist-geschafft", 1],
+    remis: (ctx) => rsFahrt(ctx, true),
     remisText: /nicht geschafft/i,
     trenner: ".",
     gemeinsam: true,
