@@ -1390,9 +1390,40 @@
     // Das Programm: Spiele in ihrer Reihenfolge, je mit Runden und Übungen.
     const programmBox = el("div", "lv-programm-form");
     const zeilen = el("div", "lv-zeilen");
+
+    // Die Spiele zur Wahl: in Gruppen nach Tier, wie im Adminbereich – die
+    // Favoriten oben –, und in jedem Tier nach dem Alphabet. In der
+    // Reihenfolge der Liste (mini-games.js, SPIELE), in der die Spiele
+    // dazugekommen sind, war unter fünfzig keines zu finden. Bis die
+    // Einteilung des Admins da ist (cloud.js, tiers), gilt die Vorgabe.
+    let einteilung = null;
+    const spielOptionen = (wahl, wert) => {
+      const tierVon = (id) => mini()?.tierVon?.(id, einteilung) ?? 3;
+      const gruppen = (mini()?.TIERS || [1, 2, 3, 4, 5])
+        .map((n) => [n, alleSpiele().filter((id) => tierVon(id) === n).sort((a, b) => titel(a).localeCompare(titel(b), "de"))])
+        .filter(([, ids]) => ids.length);
+      wahl.replaceChildren(...gruppen.map(([n, ids]) => {
+        const gruppe = el("optgroup");
+        gruppe.label = `Tier ${n}`;
+        ids.forEach((id) => {
+          const o = el("option", "", titel(id));
+          o.value = id;
+          gruppe.append(o);
+        });
+        return gruppe;
+      }));
+      if (alleSpiele().includes(wert)) wahl.value = wert;
+    };
+    Promise.resolve().then(() => cloud()?.tiers?.()).then((gespeichert) => {
+      if (!gespeichert) return;
+      einteilung = gespeichert;
+      zeilen.querySelectorAll(".lv-spiel-wahl").forEach((wahl) => spielOptionen(wahl, wahl.value));
+    }).catch((fehler) => console.warn("Die Tiers waren nicht zu haben", fehler));
+
     const zeileBauen = (eintrag) => {
       const zeile = el("div", "lv-zeile");
-      const spiel = auswahl("", alleSpiele().map((id) => [id, titel(id)]), eintrag.spiel);
+      const spiel = el("select");
+      spielOptionen(spiel, eintrag.spiel);
       spiel.className = "lv-spiel-wahl";
       spiel.setAttribute("aria-label", "Spiel");
       const runden = auswahl("", [1, 2, 3, 4, 5].map((n) => [n, n === 1 ? "1 Runde" : `${n} Runden`]), eintrag.runden || 1);

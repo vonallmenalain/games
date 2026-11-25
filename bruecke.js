@@ -232,7 +232,7 @@
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
-    const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
+    const dpr = shellApi.bildpunkte(cssW, cssH, 2.5);
     if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
     view.cssW = cssW;
     view.cssH = cssH;

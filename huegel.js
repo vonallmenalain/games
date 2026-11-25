@@ -304,7 +304,7 @@
     const cssH = Math.max(80, feld.clientHeight);
     // Höchstens doppelt so fein wie ein Bildpunkt: Feiner sieht niemand,
     // aber jedes Bild kostete ein Drittel mehr.
-    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+    const dpr = shellApi.bildpunkte(cssW, cssH, 2);
     if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr) return;
     view.cssW = cssW;
     view.cssH = cssH;

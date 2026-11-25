@@ -571,7 +571,7 @@
     const cssH = Math.max(80, feld.clientHeight);
     // Höchstens PIXEL_MAX Bildpunkte: Auf einem grossen, dichten Bildschirm
     // wird die Leinwand etwas weicher, aber nicht langsamer.
-    const dpr = Math.max(1, Math.min(clamp(window.devicePixelRatio || 1, 1, 2.5), Math.sqrt(PIXEL_MAX / (cssW * cssH))));
+    const dpr = Math.max(1, Math.min(shellApi.bildpunkte(cssW, cssH, 2.5), Math.sqrt(PIXEL_MAX / (cssW * cssH))));
     // Auf dem Handy reicht die Leinwand unter die Knöpfe oben (game-shell.js,
     // frei). Gemalt wird dort auch – aber was zählt, steht darunter.
     const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);

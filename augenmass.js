@@ -1532,7 +1532,7 @@
     const cssH = Math.max(80, feld.clientHeight);
     // Feine Linien wollen Bildpunkte: bis zur dreifachen Dichte, aber nie
     // viel mehr als gut drei Millionen.
-    const dpr = clamp(Math.min(window.devicePixelRatio || 1, Math.sqrt(3.4e6 / (cssW * cssH))), 1, 3) * view.guete;
+    const dpr = clamp(Math.min(shellApi.geraetDpr(), Math.sqrt(3.4e6 / (cssW * cssH))), 1, 3) * view.guete;
     const frei = Math.min(cssH * 0.3, shell?.frei?.(canvas) || 0);
     // Wer mit dem Finger spielt, bekommt den Knopf zum Bestätigen – und der
     // braucht seinen Platz.

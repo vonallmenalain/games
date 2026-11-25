@@ -193,8 +193,78 @@
     const ziel = ereignis.target;
     if (ziel?.closest?.(FREI)) return;
     if (ereignis.type.startsWith("key") && ereignis.key === "Tab") return;
+    merkeGehalten(ereignis);
     ereignis.stopPropagation();
     if (ereignis.cancelable && ereignis.type !== "touchstart" && ereignis.type !== "touchend") ereignis.preventDefault();
+  }
+
+  /*
+   * Was beim «Los!» schon gedrückt ist.
+   *
+   * Im Countdown legen viele den Finger schon aufs Bild – bereit zum Halten.
+   * Dieser Druck gehört noch niemandem: Die Sperre oben verschluckt ihn. Beim
+   * Start lag der Finger dann zwar auf dem Bild, aber das Spiel wusste nichts
+   * davon. Im Tunnelflug sank das Flugzeug ohne Schub, im Slalom fuhr der
+   * Fahrer geradeaus in den Wald – «ich habe doch gedrückt!», und so war es.
+   *
+   * Darum merkt sich die Sperre jeden Finger (und jede Taste), der vor dem
+   * Start herunterkommt und noch nicht wieder oben ist, samt der Stelle, an
+   * der er gerade liegt. Beim Start bekommt das Spiel für jeden einen
+   * pointerdown (keydown) an genau dieser Stelle – so, als wäre er im
+   * Augenblick des «Los!» gekommen. Das Loslassen danach ist wieder echt.
+   */
+  const gehalten = { finger: new Map(), tasten: new Map() };
+
+  function merkeGehalten(ereignis) {
+    if (z.gestartet || z.fertig) return;
+    if (ereignis.type === "pointerdown") {
+      gehalten.finger.set(ereignis.pointerId, {
+        x: ereignis.clientX, y: ereignis.clientY, art: ereignis.pointerType || "touch", erster: ereignis.isPrimary !== false,
+      });
+    } else if (ereignis.type === "keydown" && !ereignis.repeat) {
+      gehalten.tasten.set(ereignis.code || ereignis.key, { key: ereignis.key, code: ereignis.code });
+    } else if (ereignis.type === "keyup") {
+      gehalten.tasten.delete(ereignis.code || ereignis.key);
+    }
+  }
+
+  // Wo der Finger hinwandert und wann er geht – auch dort, wo die Sperre
+  // nicht hinschaut (pointermove und pointercancel sperrt sie nicht, und ein
+  // Finger kann über einem freien Knopf losgelassen werden).
+  function folgeGehalten(ereignis) {
+    if (z.gestartet || z.fertig) return;
+    const f = gehalten.finger.get(ereignis.pointerId);
+    if (!f) return;
+    if (ereignis.type !== "pointermove") { gehalten.finger.delete(ereignis.pointerId); return; }
+    f.x = ereignis.clientX;
+    f.y = ereignis.clientY;
+  }
+
+  function reicheGehaltenNach() {
+    const finger = [...gehalten.finger.entries()];
+    const tasten = [...gehalten.tasten.values()];
+    gehalten.finger.clear();
+    gehalten.tasten.clear();
+    for (const [id, f] of finger) {
+      // Die Tafel mit «Los!» lässt Finger durch (styles.css, .lv-start
+      // [data-stufe="los"]) – getroffen wird, was darunter liegt.
+      const ziel = document.elementFromPoint(f.x, f.y);
+      if (!ziel || ziel.closest?.(FREI) || !z.host?.contains(ziel)) continue;
+      try {
+        ziel.dispatchEvent(new PointerEvent("pointerdown", {
+          bubbles: true, cancelable: true, composed: true,
+          pointerId: id, pointerType: f.art, isPrimary: f.erster,
+          clientX: f.x, clientY: f.y, button: 0, buttons: 1, pressure: 0.5,
+        }));
+      } catch { /* ein alter Browser ohne PointerEvent – dann eben nicht */ }
+    }
+    for (const t of tasten) {
+      try {
+        (document.activeElement || document.body).dispatchEvent(new KeyboardEvent("keydown", {
+          key: t.key, code: t.code, bubbles: true, cancelable: true,
+        }));
+      } catch { /* egal */ }
+    }
   }
 
   // --- An den Rahmen ----------------------------------------------------------
@@ -762,6 +832,9 @@
     window.setTimeout(() => { z.start.hidden = true; }, 650);
     if (z.nurZuschauen) return;
     try { z.los?.(); } catch (fehler) { console.warn("Das Spiel liess sich nicht starten", fehler); }
+    // Wer den Finger schon vor dem «Los!» aufs Bild gelegt hat, hält ihn
+    // jetzt – für das Spiel ab diesem Augenblick.
+    try { reicheGehaltenNach(); } catch (fehler) { console.warn("Ein gehaltener Finger kam nicht an", fehler); }
     // Das erste Lebenszeichen gleich: Ich bin da und spiele.
     sende(false, true);
   }
@@ -845,6 +918,7 @@
     });
 
     GESPERRT.forEach((typ) => window.addEventListener(typ, sperrt, { capture: true, passive: false }));
+    ["pointermove", "pointerup", "pointercancel"].forEach((typ) => window.addEventListener(typ, folgeGehalten, { capture: true, passive: true }));
 
     try {
       rahmen.hoere((daten) => {
