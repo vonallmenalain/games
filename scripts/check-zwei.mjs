@@ -267,6 +267,8 @@ const WS_SIEG = (() => {
 // Rate-Tier: die Regeln aus ratetier.js – die geheimen Tiere kommen aus der
 // Saat der Partie.
 const RT = (() => { try { return spielAusDatei("ratetier.js", "ratetier"); } catch { return null; } })();
+// Brückenschlag: die Regeln und der Computer aus brueckenschlag.js.
+const BK = (() => { try { return spielAusDatei("brueckenschlag.js", "brueckenschlag"); } catch { return null; } })();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -793,6 +795,19 @@ const SPIELWEISE = {
       const weg = await s.locator(".zw-rt-karte.ist-weg").count();
       pruefe(weg > 0 && weg < 16, `Rate-Tier: Bei Lena sind nach ihrer Frage Tiere ausgeschlossen (${weg})`);
     },
+  },
+  brueckenschlag: {
+    brett: ".zw-bk-feld",
+    tippe: (s, z) => s.locator(`.zw-bk-zelle[data-feld="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-bk-zelle[data-feld="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-bk-zelle.ist-a, .zw-bk-zelle.ist-b").count(),
+    // Gegen den Computer: wie er selbst auf «Mittel».
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende && BK ? BK.computer(lage, "a", "mittel") : null),
+    // Papa legt die mittlere Zeile von links nach rechts, Lena die oberste.
+    sieg: ["21", "0", "22", "1", "23", "2", "24", "3", "25", "4", "26", "5", "27"],
+    siegZeichen: [".zw-bk-zelle.ist-sieg", 7],
+    remis: null,
+    trenner: ".",
   },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");

@@ -324,6 +324,7 @@
     { id: "bohnen", seite: "bohnen", titel: "Bohnen säen" },
     { id: "wolf", seite: "wolf", titel: "Wolf und Schafe" },
     { id: "ratetier", seite: "ratetier", titel: "Rate-Tier" },
+    { id: "brueckenschlag", seite: "brueckenschlag", titel: "Brückenschlag" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4436,6 +4437,17 @@
       });
       tisch.append(el("span", "ar-rt-frage", "?"));
       bild.append(tisch);
+    },
+    brueckenschlag(bild) {
+      const feld = el("span", "ar-bk-feld");
+      const muster = ["", "b", "", "", "", "a", "a", "b", "a", "", "b", "", "", "b", "", "a"];
+      muster.forEach((sitz, f) => {
+        const z = el("span", `ar-bk-zelle${sitz ? ` ist-${sitz}` : ""}`);
+        z.style.setProperty("--x", String((f % 4) + Math.floor(f / 4) / 2));
+        z.style.setProperty("--y", String(Math.floor(f / 4) * 0.866));
+        feld.append(z);
+      });
+      bild.append(feld);
     },
   };
 
