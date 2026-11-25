@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2147,6 +2147,48 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Echo-Duett: Der Computer ist ein verlässlicher Partner – auf jeder Stufe geschafft", immer);
     const ziele = [0, 1, 2, 4, 30].map((nr) => zielVon(EC.neuePartie(null, { nr }).saat, null));
     pruefe(`Echo-Duett: Zu zweit wird die Melodie mit jeder zweiten Partie länger (${ziele.join(",")})`, ziele.join(",") === "6,6,7,8,12");
+  }
+
+  // Kanu zu zweit (Echtzeit, echtzeit.js): der Fluss, die Schläge mit
+  // Zeitstempel, das Ende als Zug – und dass jedes Gerät dasselbe rechnet.
+  const KA = angemeldet.kanu;
+  if (KA?.fuerPruefung) {
+    const { flussVon, fahrt, HERZEN } = KA.fuerPruefung;
+    let fluesseOk = true;
+    const laengen = [];
+    for (const st of ["leicht", "einfach", "mittel", "schwer"]) {
+      const f = flussVon(77, st);
+      laengen.push(f.laenge);
+      if (f.felsen.some((x) => x.x - x.r < 15 || x.x + x.r > 85) || f.felsen.some((x, i) => i && x.y - f.felsen[i - 1].y < 26) || f.tore.some((t) => t.x - t.w / 2 < 9 || t.x + t.w / 2 > 91)) fluesseOk = false;
+    }
+    pruefe(`Kanu: Felsen und Tore liegen im Fluss, mit Platz dazwischen; je Stufe ein längerer Fluss (${laengen.join(" < ")})`, fluesseOk && laengen.every((x, i) => !i || x > laengen[i - 1]));
+    const lage = (zuege, stufe = "leicht", saat = 42) => KA.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat, stufe });
+    const l0 = lage([]);
+    pruefe("Kanu: Erst «Los!», dann paddeln beide zugleich – a links, b rechts, die eigenen Ticks nur vorwärts",
+      l0.phase === "bereit" && KA.darf(l0, "S", "a") && KA.darf(l0, "S", "b") && !KA.darf(l0, "a3:L", "a")
+      && KA.darf(lage(["S"]), "a3:L", "a") && !KA.darf(lage(["S"]), "a3:R", "a") && KA.darf(lage(["S"]), "b3:R", "b") && !KA.darf(lage(["S"]), "b3:R", "a")
+      && !KA.darf(lage(["S", "a9:L"]), "a5:L", "a") && KA.darf(lage(["S", "a9:L"]), "b5:R", "b") && lage(["S", "a9:L", "a5:L"]).dran === null);
+    // Zwei gute Partner schaffen jeden leichten Fluss; wer auf die Felsen
+    // zusteuert, nicht.
+    let gut = 0;
+    let boese = 0;
+    for (let s = 1; s <= 30; s += 1) { const f = flussVon(s * 7919, "leicht"); if (fahrt(f).ende === "g") gut += 1; if (fahrt(f, { boese: true }).ende === "v") boese += 1; }
+    pruefe(`Kanu: Zwei gute Partner kommen auf jedem leichten Fluss ins Ziel (${gut} von 30), wer die Felsen sucht, verliert die ${HERZEN} Herzen (${boese} von 30)`, gut === 30 && boese === 30);
+    const f = flussVon(42, "leicht");
+    const r = fahrt(f);
+    const schlaege = r.aktionen.map((a) => `${a.wer}${a.tick}:${a.art}`);
+    const zuege = ["S", ...schlaege, `E${r.endTick}`];
+    const ende = lage(zuege);
+    // Kommen die Schläge der beiden in anderer Reihenfolge an (jede für sich
+    // in ihrer), rechnet die Simulation dasselbe.
+    const nurA = schlaege.filter((z) => z[0] === "a");
+    const nurB = schlaege.filter((z) => z[0] === "b");
+    const gemischt = lage(["S", ...nurB, ...nurA, `E${r.endTick}`]);
+    pruefe("Kanu: Das Ende ist ein Zug – erst, wenn die Simulation wirklich aus ist; jedes Gerät rechnet dasselbe, auch wenn Schläge anders ankommen",
+      ende.ende === "g" && !KA.darf(lage(["S", ...schlaege]), `E${r.endTick - 30}`, "a") && KA.darf(lage(["S", ...schlaege]), `E${r.endTick}`, "b")
+      && gemischt.ende === ende.ende && gemischt.stand.y === ende.stand.y && gemischt.stand.herzen === ende.stand.herzen && zuege.join(".").length < 20000);
+    const grade = [0, 1, 2, 4, 9].map((nr) => KA.fuerPruefung.gradVon(KA.neuePartie(null, { nr }).saat, null));
+    pruefe(`Kanu: Zu zweit wird der Fluss mit jeder zweiten Partie länger (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

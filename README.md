@@ -54,6 +54,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     leiter.html           Leiterspiel, erzeugt
     baumeister.html       Baumeister, erzeugt
     echo.html             Echo-Duett, erzeugt
+    kanu.html             Kanu zu zweit, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -127,6 +128,10 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           antworten, setzen, ein Computer als Partner
     echo.js               Echo-Duett: vier Klangfelder, die Melodie wächst,
                           drei Herzen, ein Computer als Partner
+    echtzeit.js           der Baustein für Spiele zu zweit in Echtzeit:
+                          «Los!», Aktionen mit Tick, das Ende als Zug, Uhr
+    kanu.js               Kanu zu zweit: der Fluss, zwei Paddel, die
+                          Simulation in Ticks, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2951,6 +2956,7 @@ Gerät:
 | Leiterspiel | `/leiter` | `leiter.js` |
 | Baumeister | `/baumeister` | `baumeister.js` |
 | Echo-Duett | `/echo` | `echo.js` |
+| Kanu zu zweit | `/kanu` | `echtzeit.js`, `kanu.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3686,6 +3692,48 @@ spielt sie fehlerfrei nach und hängt einen Ton an (nie dreimal denselben).
 Die Töne macht das Spiel selbst (Web Audio über `kids.js`, wie die anderen
 Töne). Ein Zug ist ein Ton: «T2». Bilanz: `echo.bilanz`.
 
+**Echtzeit** (`echtzeit.js`): Die Spiele zu zweit gehen sonst Zug um Zug.
+Ein Echtzeit-Spiel (Kanu zu zweit, Weichensteller, Raumschiff-Crew) braucht
+eine Uhr – und muss trotzdem auf jedem Gerät dasselbe ergeben. Darum:
+
+- «S» ist «Los!»: Ab da zählt die Uhr in Ticks zu 100 ms. Jedes Gerät
+  stellt seine Uhr, wenn es «S» sieht (nach einem Neuladen so, dass sie
+  hinter dem letzten Zug steht).
+- Eine Aktion trägt ihren Tick: «a37:L» – wer, wann, was. Je Spielerin
+  laufen die Ticks nur vorwärts.
+- Das Spiel bringt eine Simulation mit, die aus den Aktionen (nach Tick
+  geordnet) den Stand bei jedem Tick rechnet – bei denselben Aktionen immer
+  denselben. Das Bild rechnet sie jeden Frame bis zur eigenen Uhr.
+- Sieht ein Gerät, dass es aus ist, schickt es «E412» (aus bei Tick 412).
+  Die Regeln lassen das nur zu, wenn die Simulation mit den bekannten
+  Aktionen bis dorthin wirklich aus ist; gerechnet wird dann nur mit den
+  Aktionen bis Tick 412. So kommen alle Geräte auf denselben Ausgang, auch
+  wenn ein Schlag der anderen etwas später ankam.
+
+**Kanu zu zweit** (`kanu.js`, miteinander, in Echtzeit): ein Kanu, zwei
+Paddel – Koralle paddelt links, Gold rechts. Ein Schlag links schiebt das
+Kanu nach rechts, einer rechts nach links, wie im echten Kanu; paddeln beide
+fast gleichzeitig (innert 0,4 s), geht es geradeaus und schneller. Der Fluss
+trägt das Kanu auch allein, nur langsam. Unterwegs liegen Felsen (einer
+kostet ein Herz, von dreien) und Tore aus zwei Fähnchen (durch: ein Stern).
+Kommt das Kanu mit mindestens einem Herz ins Ziel, ist es geschafft. Man
+sieht einen Ausschnitt des Flusses, der vorbeizieht; oben Herzen, wie weit
+es noch ist, Sterne; unten der grosse Knopf zum Paddeln (höchstens fünf
+Schläge je Sekunde zählen).
+
+| Stufe (oder zu zweit: die Partie) | Fluss |
+|---|---|
+| Ganz leicht (Partie 1–2) | kurz, acht Felsen |
+| Einfach (Partie 3–4) | länger, zwölf Felsen |
+| Mittel (Partie 5–6) | lang |
+| Schwer (ab Partie 7) | Wildwasser – auch zwei gute Partner schaffen nicht jeden |
+
+Der Computer paddelt rechts. Er schaut voraus (um den nächsten Felsen
+herum, sonst durchs nächste Tor): Soll es nach links, paddelt er öfter; soll
+es nach rechts, hält er still und ruft «Nach rechts! Paddel du!» – dann
+leuchtet der Knopf. Ein Zug ist «S», «a37:L» / «b37:R» oder «E412». Bilanz:
+`kanu.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3819,7 +3867,10 @@ Wechsel, drei von vier Runden, der Computer als verlässlicher Partner, zu
 zweit mit der Zeit schwerer; beim Echo-Duett: die Melodie wächst im
 Wechsel, falsch kostet ein Herz und beginnt von vorn, ohne Herzen nicht
 geschafft, die Länge geschafft, der Computer als verlässlicher Partner, zu
-zweit mit der Zeit länger – die neueren
+zweit mit der Zeit länger; beim Kanu: Felsen und Tore im Fluss, «Los!» und
+Schläge (a links, b rechts, Ticks nur vorwärts), gute Partner kommen ins
+Ziel, wer die Felsen sucht, nicht, das Ende als Zug, dieselbe Rechnung auch
+bei anderer Reihenfolge – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
