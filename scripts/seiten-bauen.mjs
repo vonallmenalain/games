@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-3";
+export const FASSUNG = "2026-11-25-4";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -668,6 +668,11 @@ export const ZWEI = [
     seite: "ratetier", titel: "Rate-Tier", js: ["ratetier.js"],
     text: "Rate-Tier: Jede hat ein geheimes Tier – fragt abwechselnd «Kann es fliegen?» oder «Hat es Fell?» und ratet. Wer zuerst das Tier der anderen errät, gewinnt. Gegen den Computer oder live zu zweit.",
     kurz: "Fragen, ausschliessen, raten – welches Tier ist es?",
+  },
+  {
+    seite: "brueckenschlag", titel: "Brückenschlag", js: ["brueckenschlag.js"],
+    text: "Brückenschlag: Abwechselnd Steine auf ein Feld aus Sechsecken setzen – wer zuerst seine zwei Ränder verbindet, gewinnt. Unentschieden gibt es nie. Gegen den Computer oder live zu zweit.",
+    kurz: "Verbinde deine zwei Ränder – quer übers Sechseck-Feld.",
   },
 ];
 

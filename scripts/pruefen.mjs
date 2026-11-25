@@ -1839,6 +1839,61 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Rate-Tier: «Schwer» schlägt «Ganz leicht» meistens (${schwerSiegt} von 100)`, schwerSiegt >= 70);
   }
 
+  // Brückenschlag: die Nachbarn der Sechsecke, Ketten von Rand zu Rand,
+  // kein Unentschieden – und ganze Partien Computer gegen Computer.
+  const BK = angemeldet.brueckenschlag;
+  if (BK?.fuerPruefung) {
+    const { N, FELDER, NACHBARN, kette } = BK.fuerPruefung;
+    const lage = (zuege, beginnt = "a") => BK.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    pruefe("Brückenschlag: 7 × 7 Sechsecke, innen sechs Nachbarn, in den Ecken zwei oder drei, und jeder Nachbar kennt den anderen",
+      N === 7 && FELDER === 49 && NACHBARN[24].length === 6 && NACHBARN[0].length === 2 && NACHBARN[6].length === 3 && NACHBARN[42].length === 3 && NACHBARN[48].length === 2
+      && NACHBARN.every((ns, f) => ns.every((n) => NACHBARN[n].includes(f))));
+    const quer = [];
+    for (let c = 0; c < 7; c += 1) { quer.push(String(21 + c)); if (c < 6) quer.push(String(c)); }
+    const lq = lage(quer);
+    pruefe("Brückenschlag: Koralle verbindet links und rechts – die Kette steht fest", lq.ende === "a" && lq.weg?.length === 7 && lage(quer.slice(0, -1)).ende === null);
+    // Gold: die rechte Spalte hinunter – (r, 6) und (r + 1, 6) sind Nachbarn.
+    // Koralle legt die linke Spalte, das verbindet nichts.
+    const runter = [];
+    for (let r = 0; r < 7; r += 1) { runter.push(String(r * 7)); runter.push(String(r * 7 + 6)); }
+    pruefe("Brückenschlag: Gold verbindet oben und unten", lage(runter, "a").ende === "b" && lage(runter.slice(0, -1), "a").ende === null);
+    pruefe("Brückenschlag: Steine, die sich nur über Eck berühren, sind keine Kette", !kette((() => { const b = Array(49).fill(""); [0, 8, 16, 24, 32, 40, 48].forEach((f) => { b[f] = "b"; }); return b; })(), "b"));
+    let zufall = 777;
+    const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+    let immer = true;
+    for (let p = 0; p < 200; p += 1) {
+      const z = [...Array(49).keys()].map(String).sort(() => wuerfel() - 0.5);
+      const voll = Array(49).fill("");
+      z.forEach((f, i) => { voll[Number(f)] = i % 2 ? "b" : "a"; });
+      if (Boolean(kette(voll, "a")) === Boolean(kette(voll, "b"))) immer = false;
+    }
+    pruefe("Brückenschlag: Ist das Feld voll, hat genau einer eine Kette – nie unentschieden", immer);
+    pruefe("Brückenschlag: nur ein freies Feld, nur wer dran ist",
+      BK.darf(lage([]), "0", "a") && BK.darf(lage([]), "48", "a") && !BK.darf(lage([]), "49", "a") && !BK.darf(lage([]), "0", "b")
+      && !BK.darf(lage(["24"]), "24", "b") && !BK.darf(lage([]), "024", "a") && lage(["24", "24"]).dran === null);
+    let legal = true;
+    let langsam = 0;
+    let schwerSiegt = 0;
+    const STUFEN_BK = Object.keys(BK.stufen || {});
+    for (let p = 0; p < 14 && legal; p += 1) {
+      const [sa, sb] = p < 8 ? [STUFEN_BK[p % 4], STUFEN_BK[3 - (p % 4)]] : ["mittel", "schwer"];
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      for (let l = lage(zuege, beginnt); !l.ende; l = lage(zuege, beginnt)) {
+        if (zuege.length > 49) { legal = false; break; }
+        const t = performance.now();
+        const z = BK.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        langsam = Math.max(langsam, performance.now() - t);
+        if (!BK.darf(l, z, l.dran)) { legal = false; break; }
+        zuege.push(z);
+      }
+      if (p >= 8 && lage(zuege, beginnt).ende === "b") schwerSiegt += 1;
+    }
+    pruefe("Brückenschlag: Jede Stufe setzt nur auf freie Felder, bis jemand verbunden hat", legal);
+    pruefe(`Brückenschlag: «Schwer» schlägt «Mittel» meistens (${schwerSiegt} von 6)`, schwerSiegt >= 4);
+    pruefe(`Brückenschlag: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 800);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

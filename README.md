@@ -48,6 +48,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     bohnen.html           Bohnen säen, erzeugt
     wolf.html             Wolf und Schafe, erzeugt
     ratetier.html         Rate-Tier, erzeugt
+    brueckenschlag.html   Brückenschlag, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -109,6 +110,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           ein Computer als Schafe und als Wolf
     ratetier.js           Rate-Tier: 16 Tiere, acht Fragen mit Bild, die
                           geheimen Tiere aus der Saat, ein Computer
+    brueckenschlag.js     Brückenschlag: Sechsecke, Ketten von Rand zu Rand,
+                          ein Computer, der in Gedanken zu Ende spielt
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2927,6 +2930,7 @@ Gerät:
 | Bohnen säen | `/bohnen` | `bohnen.js` |
 | Wolf und Schafe | `/wolf` | `wolf.js` |
 | Rate-Tier | `/ratetier` | `ratetier.js` |
+| Brückenschlag | `/brueckenschlag` | `brueckenschlag.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3516,6 +3520,26 @@ Er wartet nach der eigenen Frage gut zwei Sekunden, damit man die Antwort
 lesen kann. Eine Partie dauert meist acht bis neun Züge. Bilanz:
 `ratetier.bilanz`.
 
+**Brückenschlag** (`brueckenschlag.js`, gegeneinander): ein Feld aus 7 × 7
+Sechsecken, schräg wie eine Raute. Abwechselnd setzt man einen Stein auf ein
+freies Feld. Koralle (a) will links und rechts verbinden, Gold (b) oben und
+unten – die Ränder haben die Farbe dessen, dem sie gehören. Wer zuerst eine
+Kette aus eigenen Steinen von Rand zu Rand hat, gewinnt; die Kette leuchtet,
+die übrigen Steine treten zurück. Ein Unentschieden gibt es nie: Ist das
+Feld voll, hat immer genau einer eine Kette. Ein Zug ist die Nummer des
+Felds (0 bis 48, zeilenweise von oben links).
+
+| Stufe | Der Computer |
+|---|---|
+| Ganz leicht | setzt irgendwohin, gern in die Mitte |
+| Einfach | setzt oft dorthin, wo es ihm am meisten nützt |
+| Mittel | setzt, wo der Unterschied am grössten wird – wie viele Steine jedem noch fehlen (kürzester Weg: eigene Steine 0, freie 1, fremde Mauer); gewinnt sofort und hält einen sofortigen Sieg auf |
+| Schwer | spielt die zehn besten Felder je 400 Mal in Gedanken zu Ende (zufällig aufgefüllt) und nimmt das, mit dem er am öftesten gewinnt |
+
+Das Feld ist breiter als hoch: auf dem Tablet bis 820 px breit (Sechsecke gut
+70 px), auf dem Handy quer neben Namen und Knöpfen. Bilanz:
+`brueckenschlag.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3632,7 +3656,9 @@ Schafe lassen ihn durch, jede Stufe zieht in beiden Rollen nur, was erlaubt
 ist; bei Rate-Tier: 16 verschiedene Tiere, jede Frage teilt, die geheimen
 Tiere aus der Saat und verschieden, fragen, ausschliessen, falsch und richtig
 raten, jede Stufe zieht nur, was erlaubt ist, «Schwer» schlägt «Ganz
-leicht»),
+leicht»; bei Brückenschlag: die Nachbarn der Sechsecke, Ketten für beide,
+über Eck ist keine Kette, ein volles Feld hat immer genau einen Sieger, jede
+Stufe setzt nur frei, «Schwer» schlägt «Mittel» und rechnet schnell),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run
