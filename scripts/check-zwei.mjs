@@ -302,6 +302,23 @@ async function kaFahrt({ papa, lena, raum }, boese) {
   const wer = st?.beginnt === "b" ? lena : papa;
   return [{ g: wer, zug: "S" }, ...r.aktionen.map((a) => ({ g: g[a.wer], zug: `${a.wer}${a.tick}:${a.art}` })), { g: wer, zug: `E${r.endTick}` }];
 }
+// Weichensteller: wie beim Kanu – die Prüfung plant mit weichensteller.js (zwei
+// gute Partnerinnen, oder böse: niemand stellt etwas).
+const WEI = (() => { try { return spielMitEchtzeit("weichensteller.js", "weichensteller"); } catch { return null; } })();
+async function wsFahrt({ papa, lena, raum }, boese) {
+  const st = await (await db(`partie/${raum}/stand`)).json();
+  const g = { a: papa, b: lena };
+  const beginnt = st?.beginnt === "b" ? "b" : "a";
+  const r = WEI.fuerPruefung.fahrt(WEI.fuerPruefung.planVon(st?.saat, null), { beginnt, boese });
+  return [{ g: g[beginnt], zug: "S" }, ...r.aktionen.map((a) => ({ g: g[a.wer], zug: `${a.wer}${a.tick}:${a.art}` })), { g: g[beginnt], zug: `E${r.endTick}` }];
+}
+// Im Duell geht die Uhr auf beiden Geräten zehnmal langsamer (wie beim
+// Kanu), damit die geplanten Züge vor ihrem Tick ankommen.
+const langsameUhr = ({ papa, lena }) => Promise.all([papa, lena].map((g) => g.seite.evaluate(() => {
+  const echt = performance.now.bind(performance);
+  const t0 = echt();
+  performance.now = () => t0 + (echt() - t0) / 10;
+})));
 async function ecSieg({ papa, lena, raum }) {
   const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
   const ziel = EC.fuerPruefung.zielVon(saat, null);
@@ -1058,6 +1075,34 @@ const SPIELWEISE = {
     sieg: (ctx) => kaFahrt(ctx, false),
     siegZeichen: [".zw-ka.ist-geschafft", 1],
     remis: (ctx) => kaFahrt(ctx, true),
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
+    gleichzeitig: true,
+    autoZuege: false,
+    schwerSpielen: false,
+  },
+  weichensteller: {
+    brett: ".zw-ws-netz",
+    // «S» über «Los!», «W» tippt die eigene Weiche, geplante Stellungen und
+    // das Ende genau mit ihrem Tick über den Prüf-Zugang.
+    tippe: async (s, z) => {
+      if (z === "S") await s.locator(".zw-ws-los").click();
+      else if (z === "W") await s.locator(".zw-ws-weiche:not([disabled])").first().dispatchEvent("pointerdown");
+      else await s.evaluate((zug) => window.LernappZwei.test.zug(zug), z);
+    },
+    kannTippen: (s, z) => {
+      if (z === "S") return s.locator(".zw-ws-los:not([hidden]):not([disabled])").count().then((n) => n === 1);
+      if (z === "W") return s.locator(".zw-ws-weiche:not([disabled])").count().then((n) => n >= 1);
+      return s.evaluate((zug) => { const t = window.LernappZwei?.test; const l = t?.lage?.(); return Boolean(l && l.phase === "fahrt" && (zug[0] === "E" || t.sitz() === zug[0])); }, z);
+    },
+    liegt: (s) => s.locator(".zw-ws").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: «Los!», einmal die eigene Weiche, dann zuschauen.
+    waehle: (lage) => (!lage || lage.ende ? null : lage.phase === "bereit" ? "S" : lage.zahl < 2 ? "W" : null),
+    vorDemSieg: langsameUhr,
+    sieg: (ctx) => wsFahrt(ctx, false),
+    siegZeichen: [".zw-ws.ist-geschafft", 1],
+    remis: (ctx) => wsFahrt(ctx, true),
     remisText: /nicht geschafft/i,
     trenner: ".",
     gemeinsam: true,

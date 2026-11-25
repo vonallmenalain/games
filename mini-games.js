@@ -331,6 +331,7 @@
     { id: "baumeister", seite: "baumeister", titel: "Baumeister" },
     { id: "echo", seite: "echo", titel: "Echo-Duett" },
     { id: "kanu", seite: "kanu", titel: "Kanu zu zweit" },
+    { id: "weichensteller", seite: "weichensteller", titel: "Weichensteller" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4496,6 +4497,12 @@
       boot.append(el("span", "ar-ka-sitz ist-a"), el("span", "ar-ka-sitz ist-b"));
       fluss.append(boot);
       bild.append(fluss);
+    },
+    weichensteller(bild) {
+      const wiese = el("span", "ar-ws-wiese");
+      wiese.append(el("span", "ar-ws-gleis ist-oben"), el("span", "ar-ws-gleis ist-links"), el("span", "ar-ws-gleis ist-rechts"),
+        el("span", "ar-ws-bahnhof ist-0"), el("span", "ar-ws-bahnhof ist-1"), el("span", "ar-ws-weiche"), el("span", "ar-ws-lok"));
+      bild.append(wiese);
     },
   };
 

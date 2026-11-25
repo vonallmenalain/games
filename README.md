@@ -55,6 +55,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     baumeister.html       Baumeister, erzeugt
     echo.html             Echo-Duett, erzeugt
     kanu.html             Kanu zu zweit, erzeugt
+    weichensteller.html   Weichensteller, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -132,6 +133,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           «Los!», Aktionen mit Tick, das Ende als Zug, Uhr
     kanu.js               Kanu zu zweit: der Fluss, zwei Paddel, die
                           Simulation in Ticks, ein Computer als Partner
+    weichensteller.js     Weichensteller: Loks, drei Weichen, vier Bahnhöfe,
+                          die Simulation in Ticks, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2957,6 +2960,7 @@ Gerät:
 | Baumeister | `/baumeister` | `baumeister.js` |
 | Echo-Duett | `/echo` | `echo.js` |
 | Kanu zu zweit | `/kanu` | `echtzeit.js`, `kanu.js` |
+| Weichensteller | `/weichensteller` | `echtzeit.js`, `weichensteller.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3734,6 +3738,35 @@ es nach rechts, hält er still und ruft «Nach rechts! Paddel du!» – dann
 leuchtet der Knopf. Ein Zug ist «S», «a37:L» / «b37:R» oder «E412». Bilanz:
 `kanu.bilanz`.
 
+**Weichensteller** (`weichensteller.js`, miteinander, in Echtzeit): Oben
+kommen nacheinander Loks aus dem Tunnel, jede in einer Farbe mit einem
+Zeichen (rot ●, gelb ▲, grün ■, blau ◆); unten stehen vier Bahnhöfe in
+diesen Farben. Dazwischen drei Weichen – grosse runde Knöpfe mit einem Pfeil:
+Die obere schickt eine Lok nach links (rot, gelb) oder rechts (grün, blau),
+die beiden unteren in den einen oder anderen Bahnhof. Die gestellten Gleise
+leuchten. Wer die Partie beginnt, stellt die obere Weiche, die andere die
+beiden unteren (der Ring um den Knopf hat ihre Farbe) – jede Lok braucht
+beide. Eine Weiche zählt, wie sie steht, wenn die Lok sie erreicht. Jede Lok
+im richtigen Bahnhof bringt einen Stern, jede im falschen kostet ein Herz
+(von dreien); sind alle Loks angekommen und ist noch ein Herz da, ist es
+geschafft. Auf «Ganz leicht» und «Einfach» leuchtet die eigene Weiche, wenn
+sie für die nächste Lok falsch steht.
+
+| Stufe (oder zu zweit: die Partie) | Loks |
+|---|---|
+| Ganz leicht (Partie 1–2) | sechs, gemächlich, eine nach der anderen |
+| Einfach (Partie 3–4) | acht |
+| Mittel (Partie 5–6) | zehn, schneller |
+| Schwer (ab Partie 7) | zwölf, dicht hintereinander |
+
+Der Computer stellt seine Weichen, sobald eine Lok ein Stück auf sie
+zugefahren ist; weil die Zukunft nur an den Zügen hängt, weiss er im Voraus,
+wann. Gerechnet wird mit ganzen Zahlen (die Strecke in Zehnteln), damit
+jedes Gerät genau dasselbe ergibt. Ein Zug ist «S», «a37:W0» (Weiche 0, die
+obere, umstellen), «b52:W1» / «b52:W2» (die linke / rechte untere) oder
+«E412». Bilanz: `weichensteller.bilanz`. (Eine frühere Lern-App hiess
+«weichen» und ist weg – darum der längere Name.)
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3870,7 +3903,10 @@ geschafft, die Länge geschafft, der Computer als verlässlicher Partner, zu
 zweit mit der Zeit länger; beim Kanu: Felsen und Tore im Fluss, «Los!» und
 Schläge (a links, b rechts, Ticks nur vorwärts), gute Partner kommen ins
 Ziel, wer die Felsen sucht, nicht, das Ende als Zug, dieselbe Rechnung auch
-bei anderer Reihenfolge – die neueren
+bei anderer Reihenfolge; beim Weichensteller: mehr Loks je Stufe, jede Farbe
+kommt dran, wer welche Weiche stellt, eine Weiche zählt, wie sie steht, wenn
+die Lok sie erreicht, gute Partnerinnen bringen jede Lok ans Ziel, das Ende
+als Zug – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
