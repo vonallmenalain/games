@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2189,6 +2189,53 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       && gemischt.ende === ende.ende && gemischt.stand.y === ende.stand.y && gemischt.stand.herzen === ende.stand.herzen && zuege.join(".").length < 20000);
     const grade = [0, 1, 2, 4, 9].map((nr) => KA.fuerPruefung.gradVon(KA.neuePartie(null, { nr }).saat, null));
     pruefe(`Kanu: Zu zweit wird der Fluss mit jeder zweiten Partie länger (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
+  }
+
+  // Weichensteller (weichensteller.js, Echtzeit): der Fahrplan, wer welche Weiche
+  // stellt, wann eine Weiche zählt, das Ende als Zug.
+  const WEI = angemeldet.weichensteller;
+  if (WEI?.fuerPruefung) {
+    const { planVon, fahrt, besitzer, simuliere, L0, HERZEN } = WEI.fuerPruefung;
+    const zahlen = ["leicht", "einfach", "mittel", "schwer"].map((st) => planVon(77, st).loks.length);
+    let farbenOk = true;
+    for (let s = 1; s <= 40; s += 1) {
+      const f = planVon(s * 31, "schwer").loks.map((l) => l.farbe);
+      if ([0, 1, 2, 3].some((x) => !f.includes(x)) || f.some((x, i) => i >= 2 && x === f[i - 1] && x === f[i - 2])) farbenOk = false;
+    }
+    pruefe(`Weichensteller: Je Stufe mehr Loks (${zahlen.join(" < ")}), jede Farbe kommt dran, keine dreimal hintereinander`, farbenOk && zahlen.every((x, i) => !i || x > zahlen[i - 1]));
+    const lage = (zuege, beginnt = "a", stufe = "leicht", saat = 42) => WEI.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const l1 = lage(["S"]);
+    const l1b = lage(["S"], "b");
+    pruefe("Weichensteller: Wer beginnt, stellt die obere Weiche, die andere die beiden unteren – nur die eigenen, die Ticks nur vorwärts",
+      lage([]).phase === "bereit" && WEI.darf(lage([]), "S", "b") && !WEI.darf(lage([]), "a3:W0", "a")
+      && WEI.darf(l1, "a3:W0", "a") && !WEI.darf(l1, "a3:W1", "a") && WEI.darf(l1, "b3:W1", "b") && WEI.darf(l1, "b3:W2", "b") && !WEI.darf(l1, "b3:W0", "b") && !WEI.darf(l1, "a3:W3", "a")
+      && WEI.darf(l1b, "b3:W0", "b") && WEI.darf(l1b, "a3:W2", "a") && !WEI.darf(l1b, "a3:W0", "a")
+      && !WEI.darf(lage(["S", "a9:W0"]), "a5:W0", "a") && besitzer(0, "b") === "b" && besitzer(2, "b") === "a");
+    // Eine Weiche zählt, wie sie steht, wenn die Lok sie erreicht – wer zu
+    // spät stellt, schickt die Lok falsch.
+    const p = planVon(42, "leicht");
+    const vorbei = p.loks[0].start + Math.ceil(L0 / p.tempo) - 1;
+    const frueh = simuliere(p, [{ wer: "a", tick: vorbei - 3, art: "W0", i: 0 }], vorbei + 5);
+    const spaet = simuliere(p, [{ wer: "a", tick: vorbei + 1, art: "W0", i: 0 }], vorbei + 5);
+    pruefe(`Weichensteller: Die Weiche zählt, wie sie steht, wenn die Lok sie erreicht (Tick ${vorbei})`, frueh.loks[0].oben === 1 && spaet.loks[0].oben === 0 && frueh.weichen[0] === 1 && spaet.weichen[0] === 1);
+    let alleRichtig = 0;
+    let boese = 0;
+    for (let s = 1; s <= 30; s += 1) {
+      const plan = planVon(s * 7919, s % 3 ? "leicht" : "schwer");
+      const r = fahrt(plan, { beginnt: s % 2 ? "a" : "b" });
+      if (r.ende === "g" && r.stand.richtig === plan.loks.length) alleRichtig += 1;
+      if (fahrt(plan, { boese: true }).ende === "v") boese += 1;
+    }
+    pruefe(`Weichensteller: Zwei gute Partnerinnen bringen jede Lok in ihren Bahnhof (${alleRichtig} von 30); wer nichts stellt, verliert die ${HERZEN} Herzen (${boese} von 30)`, alleRichtig === 30 && boese === 30);
+    const r = fahrt(p);
+    const stellungen = r.aktionen.map((a) => `${a.wer}${a.tick}:${a.art}`);
+    const ende = lage(["S", ...stellungen, `E${r.endTick}`]);
+    const gemischt = lage(["S", ...stellungen.filter((z) => z[0] === "b"), ...stellungen.filter((z) => z[0] === "a"), `E${r.endTick}`]);
+    pruefe("Weichensteller: Das Ende ist ein Zug – erst, wenn alle Loks da sind; jedes Gerät rechnet dasselbe, auch wenn Stellungen anders ankommen",
+      ende.ende === "g" && ende.stand.richtig === p.loks.length && !WEI.darf(lage(["S", ...stellungen]), `E${r.endTick - 5}`, "a") && WEI.darf(lage(["S", ...stellungen]), `E${r.endTick}`, "b")
+      && gemischt.ende === "g" && gemischt.stand.richtig === ende.stand.richtig && gemischt.stand.herzen === ende.stand.herzen);
+    const grade = [0, 1, 2, 4, 9].map((nr) => WEI.fuerPruefung.gradVon(WEI.neuePartie(null, { nr }).saat, null));
+    pruefe(`Weichensteller: Zu zweit kommen mit jeder zweiten Partie mehr Loks (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

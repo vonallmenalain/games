@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-10";
+export const FASSUNG = "2026-11-25-11";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -703,6 +703,11 @@ export const ZWEI = [
     seite: "kanu", titel: "Kanu zu zweit", js: ["echtzeit.js", "kanu.js"],
     text: "Kanu zu zweit: Zusammen! Jede hat ein Paddel – paddelt im Takt um die Felsen und durch die Tore bis ins Ziel. Mit dem Computer als Partner oder live zu zweit.",
     kurz: "Zusammen paddeln, um die Felsen, ins Ziel.",
+  },
+  {
+    seite: "weichensteller", titel: "Weichensteller", js: ["echtzeit.js", "weichensteller.js"],
+    text: "Weichensteller: Zusammen! Die Loks kommen aus dem Tunnel – stellt die Weichen, damit jede in den Bahnhof ihrer Farbe fährt. Mit dem Computer als Partner oder live zu zweit.",
+    kurz: "Weichen stellen, jede Lok in ihren Bahnhof – zusammen.",
   },
 ];
 
