@@ -269,6 +269,38 @@ const WS_SIEG = (() => {
 const RT = (() => { try { return spielAusDatei("ratetier.js", "ratetier"); } catch { return null; } })();
 // Brückenschlag: die Regeln und der Computer aus brueckenschlag.js.
 const BK = (() => { try { return spielAusDatei("brueckenschlag.js", "brueckenschlag"); } catch { return null; } })();
+// Steine kippen: Papa (a) spielt wie «Schwer», Lena wie «Ganz leicht» – mit
+// festem Zufall immer dieselbe Partie. Ein Unentschieden, das Lena beginnt:
+// zufällig (mit Saat), bis es gleich steht.
+const KP = (() => { try { return spielAusDatei("kippen.js", "kippen"); } catch { return null; } })();
+const kpLage = (zuege, beginnt) => KP.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+const KP_SIEG = (() => {
+  if (!KP) return null;
+  const folge = [];
+  const zuege = [];
+  for (let l = kpLage(zuege, "a"); !l.ende; l = kpLage(zuege, "a")) {
+    const zug = KP.computer(l, l.dran, l.dran === "a" ? "schwer" : "leicht").zug;
+    folge.push({ sitz: l.dran, zug });
+    zuege.push(zug);
+  }
+  return kpLage(zuege, "a").ende === "a" ? folge : null;
+})();
+const KP_REMIS = (() => {
+  if (!KP) return null;
+  let zufall = 777;
+  const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+  for (let p = 0; p < 5000; p += 1) {
+    const folge = [];
+    const zuege = [];
+    for (let l = kpLage(zuege, "b"); !l.ende; l = kpLage(zuege, "b")) {
+      const zug = String(l.moeglich[Math.floor(wuerfel() * l.moeglich.length)]);
+      folge.push({ sitz: l.dran, zug });
+      zuege.push(zug);
+    }
+    if (kpLage(zuege, "b").ende === "u") return folge;
+  }
+  return null;
+})();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -809,11 +841,25 @@ const SPIELWEISE = {
     remis: null,
     trenner: ".",
   },
+  kippen: {
+    brett: ".zw-kp-gitter",
+    tippe: (s, z) => s.locator(`.zw-kp-feld[data-feld="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-kp-feld[data-feld="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-kp").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: wie er selbst auf «Einfach».
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende && KP ? KP.computer(lage, "a", "einfach").zug : null),
+    sieg: ({ papa, lena }) => KP_SIEG.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })),
+    siegZeichen: [".zw-kp.ist-sieg-a", 1],
+    remis: KP_REMIS ? ({ papa, lena }) => KP_REMIS.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })) : null,
+    trenner: ".",
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
 if (!BS_SIEG) befundeVorab.push("Bohnen säen: Keine Partie gefunden, die a gewinnt");
 if (!BS_REMIS) befundeVorab.push("Bohnen säen: Kein Unentschieden gefunden");
 if (!WS_SIEG) befundeVorab.push("Wolf und Schafe: Keine Partie gefunden, die a gewinnt");
+if (!KP_SIEG) befundeVorab.push("Steine kippen: Keine Partie gefunden, die a gewinnt");
+if (!KP_REMIS) befundeVorab.push("Steine kippen: Kein Unentschieden gefunden");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
 if (!KK_REMIS) befundeVorab.push("Käsekästchen: Kein Unentschieden gefunden");
 
