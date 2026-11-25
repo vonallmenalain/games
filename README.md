@@ -50,6 +50,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     ratetier.html         Rate-Tier, erzeugt
     brueckenschlag.html   Brückenschlag, erzeugt
     kippen.html           Steine kippen, erzeugt
+    rechnen.html          Rechenduell, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -115,6 +116,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           ein Computer, der in Gedanken zu Ende spielt
     kippen.js             Steine kippen: einklemmen und kippen, aussetzen,
                           ein Computer, der den Wert der Ecken kennt
+    rechnen.js            Rechenduell: Aufgaben in fünf Stufen, jede auf
+                          ihrer, das Seil, ein Computer, der mitrechnet
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2935,6 +2938,7 @@ Gerät:
 | Rate-Tier | `/ratetier` | `ratetier.js` |
 | Brückenschlag | `/brueckenschlag` | `brueckenschlag.js` |
 | Steine kippen | `/kippen` | `kippen.js` |
+| Rechenduell | `/rechnen` | `rechnen.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3564,6 +3568,34 @@ braucht keinen Zug.
 
 Bilanz: `kippen.bilanz`.
 
+**Rechenduell** (`rechnen.js`, gegeneinander, beide zugleich): Beide rechnen
+gleichzeitig, jede ihre eigenen Aufgaben – und jede auf ihrer eigenen Stufe:
+«Bis 10», «Bis 20», «Bis 100», «Einmaleins» oder «Alles» (auch geteilt).
+Die Stufe wählt jede unten auf ihrem Gerät und kann sie jederzeit wechseln;
+das Gerät merkt sie sich (`rechnen.stufe`), und neben dem Namen der anderen
+steht, auf welcher sie rechnet. So ist das Duell auch zwischen Geschwistern
+verschiedenen Alters fair. Zu jeder Aufgabe stehen vier Antworten da (eine
+richtig, drei nahe daneben). Richtig zieht das Seil oben einen Schritt zu
+sich; falsch streicht die Antwort durch, sperrt kurz (gut eine Sekunde –
+raten lohnt sich nicht), und man probiert nochmal. Wer das Seil fünf
+Schritte zu sich gezogen hat, gewinnt. Auf jedem Gerät ist die eigene Seite
+links.
+
+Die Aufgaben kommen aus Saat, Platz, Nummer und Stufe – jedes Gerät rechnet
+nach, ob eine Antwort stimmt. Ein Zug ist «a7:2:1» (wer, die wievielte
+Aufgabe, Stufe, welche Antwort).
+
+| Stufe | Der Computer rechnet |
+|---|---|
+| Ganz leicht | gut fünf Sekunden je Aufgabe, jede vierte falsch |
+| Einfach | gut vier Sekunden, selten falsch |
+| Mittel | gut drei Sekunden |
+| Schwer | gut zwei Sekunden, fast nie falsch |
+
+Der Rahmen fragt den Computer nach jedem Zug neu; damit eine schnelle
+Antwort des Kindes seine Zeit nicht neu beginnen lässt, merkt er sich, wann
+er mit seiner Aufgabe fertig ist. Bilanz: `rechnen.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3685,7 +3717,11 @@ leicht»; bei Brückenschlag: die Nachbarn der Sechsecke, Ketten für beide,
 Stufe setzt nur frei, «Schwer» schlägt «Mittel» und rechnet schnell; bei
 Steine kippen: einklemmen in mehrere Richtungen, nur wo etwas kippt,
 aussetzen, aus erst, wenn niemand mehr setzen kann, unentschieden, jede
-Stufe setzt nur, was erlaubt ist, «Schwer» schlägt «Mittel» – die neueren
+Stufe setzt nur, was erlaubt ist, «Schwer» schlägt «Mittel»; beim
+Rechenduell: jede Stufe rechnet richtig in ihrem Zahlenraum, vier
+verschiedene Antworten, falsch sperrt nur die Antwort, richtig zieht, jede
+auf ihrer Stufe, fünf Schritte gewinnen, der Computer beginnt seine Zeit
+nicht neu, wenn die andere antwortet – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,

@@ -273,6 +273,8 @@ const BK = (() => { try { return spielAusDatei("brueckenschlag.js", "brueckensch
 // festem Zufall immer dieselbe Partie. Ein Unentschieden, das Lena beginnt:
 // zufällig (mit Saat), bis es gleich steht.
 const KP = (() => { try { return spielAusDatei("kippen.js", "kippen"); } catch { return null; } })();
+// Rechenduell: die Aufgaben aus rechnen.js (aus der Saat der Partie).
+const RD = (() => { try { return spielAusDatei("rechnen.js", "rechnen"); } catch { return null; } })();
 const kpLage = (zuege, beginnt) => KP.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
 const KP_SIEG = (() => {
   if (!KP) return null;
@@ -852,6 +854,36 @@ const SPIELWEISE = {
     siegZeichen: [".zw-kp.ist-sieg-a", 1],
     remis: KP_REMIS ? ({ papa, lena }) => KP_REMIS.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })) : null,
     trenner: ".",
+  },
+  rechnen: {
+    brett: ".zw-rd-karte",
+    tippe: (s, z) => s.locator(`.zw-rd-wahl[data-zug="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-rd-wahl[data-zug="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-rd").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: die Aufgabe ausrechnen und die richtige Antwort tippen.
+    waehle: async (lage, s) => {
+      if (!lage || lage.ende) return null;
+      return s.evaluate(() => {
+        const m = /^(\d+) ([+−×:]) (\d+)/.exec(document.querySelector(".zw-rd-aufgabe")?.textContent || "");
+        if (!m) return null;
+        const x = Number(m[1]); const y = Number(m[3]);
+        const ergebnis = { "+": x + y, "−": x - y, "×": x * y, ":": x / y }[m[2]];
+        const k = [...document.querySelectorAll(".zw-rd-wahl:not([disabled])")].find((b) => Number(b.textContent) === ergebnis);
+        return k ? k.dataset.zug : null;
+      });
+    },
+    // Papa rechnet fünf Aufgaben seiner Stufe («bis 10») richtig.
+    sieg: async ({ papa, raum }) => {
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      const { aufgabe } = RD.fuerPruefung;
+      return [0, 1, 2, 3, 4].map((i) => ({ g: papa, zug: `a${i}:0:${aufgabe(saat, "a", i, 0).richtig}` }));
+    },
+    siegZeichen: [".zw-rd.ist-sieg-andere", 1],
+    remis: null,
+    trenner: ".",
+    gleichzeitig: true,
+    // Die Prüfung tippt schneller als jedes Kind – gegen «Schwer» gewinnt sie.
+    schwerSpielen: false,
   },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");

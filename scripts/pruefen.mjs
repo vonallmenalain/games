@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -1960,6 +1960,59 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Steine kippen: Jede Stufe setzt nur, wo etwas kippt, bis die Partie aus ist", legal);
     pruefe(`Steine kippen: «Schwer» schlägt «Mittel» (${schwerSiegt} von 4)`, schwerSiegt >= 3);
     pruefe(`Steine kippen: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 1500);
+  }
+
+  // Rechenduell: die Aufgaben jeder Stufe, richtig und falsch, das Seil, und
+  // der Computer, der seine Zeit nicht neu beginnt, wenn die andere antwortet.
+  const RD = angemeldet.rechnen;
+  if (RD?.fuerPruefung) {
+    const { aufgabe, STUFEN, ZIEL } = RD.fuerPruefung;
+    const rechne = (t) => { const m = /^(\d+) ([+−×:]) (\d+)$/.exec(t); const x = Number(m[1]); const y = Number(m[3]); return { "+": x + y, "−": x - y, "×": x * y, ":": x / y }[m[2]]; };
+    const grenzen = [10, 20, 100, 100, 100];
+    let stimmt = true;
+    for (let st = 0; st < STUFEN.length && stimmt; st += 1) {
+      for (let i = 0; i < 400; i += 1) {
+        const a = aufgabe(100 + i, i % 2 ? "b" : "a", i % 31, st);
+        if (a.wahl.length !== 4 || new Set(a.wahl).size !== 4 || a.wahl[a.richtig] !== a.ergebnis || a.wahl.some((w) => w < 0)
+          || rechne(a.text) !== a.ergebnis || !Number.isInteger(a.ergebnis) || a.ergebnis > grenzen[st]) { stimmt = false; break; }
+      }
+    }
+    pruefe("Rechenduell: Jede Stufe stellt richtige Aufgaben in ihrem Zahlenraum, mit vier verschiedenen Antworten, eine davon richtig, keine negativ", stimmt);
+    pruefe("Rechenduell: Fünf Stufen von «bis 10» bis «alles», das Einmaleins rechnet mal",
+      STUFEN.length === 5 && /×/.test(aufgabe(7, "a", 0, 3).text) && JSON.stringify(aufgabe(7, "a", 3, 2)) === JSON.stringify(aufgabe(7, "a", 3, 2))
+      && JSON.stringify(aufgabe(7, "a", 3, 2)) !== JSON.stringify(aufgabe(7, "b", 3, 2)));
+    const saat = 77;
+    const lage = (zuege) => RD.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat });
+    const r = (sitz, nr, st = 0) => `${sitz}${nr}:${st}:${aufgabe(saat, sitz, nr, st).richtig}`;
+    const f = (sitz, nr, st = 0) => `${sitz}${nr}:${st}:${[0, 1, 2, 3].find((k) => k !== aufgabe(saat, sitz, nr, st).richtig)}`;
+    const l1 = lage([f("a", 0)]);
+    pruefe("Rechenduell: Beide sind zugleich dran; falsch zieht nicht und sperrt nur diese Antwort",
+      lage([]).dran === "beide" && l1.seil === 0 && l1.nr.a === 0 && !RD.darf(l1, f("a", 0), "a") && RD.darf(l1, r("a", 0), "a"));
+    const l2 = lage([f("a", 0), r("a", 0), r("b", 0, 3)]);
+    pruefe("Rechenduell: Richtig zieht das Seil einen Schritt zu sich – jede auf ihrer Stufe",
+      l2.seil === 0 && l2.nr.a === 1 && l2.nr.b === 1 && l2.stufe.b === 3 && lage([r("a", 0)]).seil === 1 && lage([r("b", 0, 4)]).seil === -1);
+    const fuenf = [0, 1, 2, 3, 4].map((i) => r("a", i, i % 5));
+    pruefe(`Rechenduell: Wer das Seil ${ZIEL} Schritte zu sich zieht, gewinnt`, lage(fuenf).ende === "a" && lage(fuenf.slice(0, 4)).ende === null && lage([...fuenf.slice(0, 4), r("b", 0)]).seil === 3);
+    pruefe("Rechenduell: nur die eigene, laufende Aufgabe",
+      !RD.darf(lage([]), r("a", 1), "a") && !RD.darf(lage([]), r("a", 0), "b") && !RD.darf(lage([]), "a0:5:1", "a") && !RD.darf(lage([]), "a0:0:4", "a") && lage([r("a", 1)]).dran === null);
+    // Der Computer: nur erlaubte Antworten, und seine Zeit läuft weiter, auch
+    // wenn er dazwischen neu gefragt wird.
+    let legal = true;
+    for (const st of Object.keys(RD.stufen)) {
+      let l = lage([]);
+      const zuege = [];
+      for (let i = 0; i < 30 && !l.ende; i += 1) {
+        const a = RD.computer(l, "b", st, { saat });
+        if (!RD.darf(l, a?.zug, "b") || !(a.warte >= 0)) { legal = false; break; }
+        zuege.push(a.zug);
+        l = lage(zuege);
+      }
+      if (l.ende !== "b") legal = false;
+    }
+    const erst = RD.computer(lage([]), "b", "leicht", { saat: 9 }).warte;
+    const wieder = RD.computer(lage([r("a", 0)]), "b", "leicht", { saat: 9 }).warte;
+    pruefe("Rechenduell: Der Computer antwortet nur, was erlaubt ist, und kommt allein ans Ziel", legal);
+    pruefe(`Rechenduell: Antwortet die andere, beginnt die Zeit des Computers nicht von vorn (${Math.round(erst)} ms, dann ${Math.round(wieder)} ms)`, erst > 900 && wieder <= erst);
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
