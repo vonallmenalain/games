@@ -11875,6 +11875,86 @@ body[data-page="baumeister"] { overscroll-behavior: none; }
 .zw-bm-held-feld.ist-gruen { background: #22c55e; }
 .zw-bm-held-blase { position: absolute; right: -16px; top: -16px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #fff; color: #2a2150; font-size: 1.2rem; font-weight: 900; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
 
+/* --- Echo-Duett (echo.js) ----------------------------------------------------------------
+   Vier grosse Klangfelder (2 × 2), jedes mit Farbe und Zeichen (★ ● ▲ ■ –
+   auch ohne Farben zu unterscheiden). Ein Feld leuchtet, wenn es klingt
+   (ist-an). Oben: wie lang die Melodie ist, ein Balken bis zum Ziel, die
+   Herzen. */
+body[data-page="echo"] { overscroll-behavior: none; }
+.vr-partie.zw-echo {
+  --vr-breite: max(240px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 520px, calc(100dvh - 370px - var(--safe-top) - var(--vr-unten))));
+}
+.zw-ec { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: var(--vr-breite); max-width: 100%; aspect-ratio: auto; touch-action: manipulation; }
+.zw-ec .confetti-layer { z-index: 6; }
+.zw-ec-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.zw-ec-laenge { position: relative; flex: 1 1 auto; overflow: hidden; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); font-size: 0.88rem; font-weight: 850; }
+.zw-ec-laenge::before { content: ""; position: absolute; inset: 0 auto 0 0; z-index: -1; width: calc(var(--fortschritt, 0) * 100%); background: linear-gradient(90deg, rgba(124, 92, 230, 0.55), rgba(90, 216, 147, 0.55)); transition: width 0.4s ease; }
+.zw-ec-laenge { isolation: isolate; }
+.zw-ec-herzen { font-size: 1.2rem; letter-spacing: 2px; white-space: nowrap; }
+.zw-ec-kurz { display: none; }
+.zw-ec-felder { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; aspect-ratio: 1; }
+.zw-ec-feld {
+  --farbe: #888;
+  --hell: #bbb;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 24%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--hell) 55%, transparent), transparent 60%), var(--farbe);
+  box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.22), 0 10px 24px rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  filter: brightness(0.62) saturate(0.85);
+  transition: filter 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+}
+.zw-ec-feld.ist-rot { --farbe: #e23b3b; --hell: #ffb0b0; }
+.zw-ec-feld.ist-gelb { --farbe: #f2b705; --hell: #fff3b0; }
+.zw-ec-feld.ist-gruen { --farbe: #22a65a; --hell: #b6f5cf; }
+.zw-ec-feld.ist-blau { --farbe: #2f6fe0; --hell: #b8d3ff; }
+.zw-ec-feld:disabled { cursor: default; }
+.zw-ec.ist-dran .zw-ec-feld:not(:disabled) { cursor: pointer; filter: brightness(0.85); }
+.zw-ec-feld.ist-an { filter: brightness(1.25) saturate(1.1); transform: scale(0.96); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), 0 0 40px color-mix(in srgb, var(--hell) 80%, transparent); }
+.zw-ec-zeichen { font-size: calc(var(--vr-breite) * 0.16); line-height: 1; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+.zw-ec.ist-falsch .zw-ec-felder { animation: zw-ec-wackel 0.45s ease; }
+.zw-ec.ist-geschafft .zw-ec-feld { filter: brightness(1.1); animation: zw-ec-jubel 0.9s ease-in-out 3; }
+.zw-ec.ist-geschafft .zw-ec-feld:nth-child(2) { animation-delay: 0.12s; }
+.zw-ec.ist-geschafft .zw-ec-feld:nth-child(3) { animation-delay: 0.24s; }
+.zw-ec.ist-geschafft .zw-ec-feld:nth-child(4) { animation-delay: 0.36s; }
+@keyframes zw-ec-jubel { 50% { transform: scale(0.9); filter: brightness(1.35); } }
+@keyframes zw-ec-wackel { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+.zw-ec-anhoeren { align-self: center; min-height: 44px; }
+.zw-ec-anhoeren[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .zw-ec-feld { transition: none; }
+  .zw-ec.ist-falsch .zw-ec-felder,
+  .zw-ec.ist-geschafft .zw-ec-feld { animation: none; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-echo { --vr-breite: max(200px, min(calc(100dvh - 190px - var(--safe-top) - var(--vr-unten)), 50vw)); }
+  .zw-ec { grid-area: feld; gap: 6px; }
+  .zw-ec-kopf { gap: 6px; }
+  .zw-ec-laenge { padding: 3px 10px; font-size: 0.8rem; white-space: nowrap; }
+  .zw-ec-lang { display: none; }
+  .zw-ec-kurz { display: inline; }
+  .zw-ec-herzen { font-size: 0.95rem; letter-spacing: 0; }
+  .zw-ec-felder { gap: 8px; }
+  .zw-ec-anhoeren { min-height: 36px; }
+}
+
+/* Im Menü: vier Klangfelder, eines leuchtet, eine Note. */
+.zw-ec-held { --h: clamp(34px, 9vw, 44px); position: relative; flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, var(--h)); grid-template-rows: repeat(2, var(--h)); gap: 6px; }
+.zw-ec-held-feld { display: grid; place-items: center; border-radius: 24%; color: rgba(255, 255, 255, 0.8); font-size: calc(var(--h) * 0.45); filter: brightness(0.7); }
+.zw-ec-held-feld.ist-rot { background: #e23b3b; }
+.zw-ec-held-feld.ist-gelb { background: #f2b705; }
+.zw-ec-held-feld.ist-gruen { background: #22a65a; }
+.zw-ec-held-feld.ist-blau { background: #2f6fe0; }
+.zw-ec-held-feld.ist-an { filter: brightness(1.25); box-shadow: 0 0 18px rgba(182, 245, 207, 0.9); }
+.zw-ec-held-note { position: absolute; right: -18px; top: -16px; font-size: 1.8rem; line-height: 1; color: #ffd45e; }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
    Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
@@ -12100,6 +12180,15 @@ body[data-page="baumeister"] { overscroll-behavior: none; }
 .ar-bm-feld.ist-f3 { background: #3b82f6; }
 .ar-bm-feld.ist-f4 { background: #22c55e; }
 .ar-bm-blase { position: absolute; left: calc(50% - var(--z) * 0.7); top: calc(var(--z) * 0.3); display: grid; place-items: center; width: calc(var(--z) * 1.4); height: calc(var(--z) * 1.4); border-radius: 50%; background: #fff; color: #2a2150; font-size: calc(var(--z) * 0.9); font-weight: 900; }
+/* Echo-Duett: vier Klangfelder, eines leuchtet, Noten. */
+.ar-ec-feld { position: absolute; left: calc(50% - var(--z) * 2.9); top: calc(var(--z) * 0.5); display: grid; grid-template-columns: repeat(2, calc(var(--z) * 2.7)); grid-auto-rows: calc(var(--z) * 2.7); gap: calc(var(--z) * 0.25); }
+.ar-ec-taste { display: grid; place-items: center; border-radius: 24%; color: rgba(255, 255, 255, 0.8); font-size: calc(var(--z) * 1.2); filter: brightness(0.7); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); }
+.ar-ec-taste.ist-rot { background: #e23b3b; }
+.ar-ec-taste.ist-gelb { background: #f2b705; }
+.ar-ec-taste.ist-gruen { background: #22a65a; }
+.ar-ec-taste.ist-blau { background: #2f6fe0; }
+.ar-ec-taste.ist-an { filter: brightness(1.25); box-shadow: 0 0 16px rgba(255, 243, 176, 0.9); }
+.ar-ec-note { position: absolute; right: calc(50% - var(--z) * 5); top: calc(var(--z) * 0.6); color: #ffd45e; font-size: calc(var(--z) * 2); line-height: 1; }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }

@@ -329,6 +329,7 @@
     { id: "rechnen", seite: "rechnen", titel: "Rechenduell" },
     { id: "leiter", seite: "leiter", titel: "Leiterspiel" },
     { id: "baumeister", seite: "baumeister", titel: "Baumeister" },
+    { id: "echo", seite: "echo", titel: "Echo-Duett" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4481,6 +4482,11 @@
         bau.append(el("span", `ar-bm-feld ist-f${i < 5 ? f : 0}`));
       });
       bild.append(plan, bau, el("span", "ar-bm-blase", "?"));
+    },
+    echo(bild) {
+      const feld = el("span", "ar-ec-feld");
+      [["ist-rot", "\u2605"], ["ist-gelb", "\u25CF"], ["ist-gruen", "\u25B2"], ["ist-blau", "\u25A0"]].forEach(([k, z], i) => feld.append(el("span", `ar-ec-taste ${k}${i === 1 ? " ist-an" : ""}`, z)));
+      bild.append(feld, el("span", "ar-ec-note", "\u266B"));
     },
   };
 
