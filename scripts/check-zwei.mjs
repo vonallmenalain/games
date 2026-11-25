@@ -215,6 +215,39 @@ async function mrFolge(raum, papa, lena, beginnt, richtig) {
 }
 // Zwillings-Labyrinth: die Regeln und der Weg aus zwillinge.js.
 const ZL = (() => { try { return spielAusDatei("zwillinge.js", "zwillinge"); } catch { return null; } })();
+// Bohnen säen: Papa (a) spielt wie «Schwer», Lena (b) wie «Ganz leicht» –
+// mit festem Zufall, also jedes Mal dieselbe Partie. Ein Unentschieden, das
+// Lena beginnt: zufällig (mit Saat), bis es 24 zu 24 steht.
+const BS = (() => { try { return spielAusDatei("bohnen.js", "bohnen"); } catch { return null; } })();
+const bsLage = (zuege, beginnt) => BS.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+const BS_SIEG = (() => {
+  if (!BS) return null;
+  const folge = [];
+  const zuege = [];
+  for (let l = bsLage(zuege, "a"); !l.ende; l = bsLage(zuege, "a")) {
+    const zug = BS.computer(l, l.dran, l.dran === "a" ? "schwer" : "leicht").zug;
+    folge.push({ sitz: l.dran, zug });
+    zuege.push(zug);
+  }
+  return bsLage(zuege, "a").ende === "a" ? folge : null;
+})();
+const BS_REMIS = (() => {
+  if (!BS) return null;
+  let zufall = 777;
+  const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+  for (let p = 0; p < 5000; p += 1) {
+    const folge = [];
+    const zuege = [];
+    for (let l = bsLage(zuege, "b"); !l.ende; l = bsLage(zuege, "b")) {
+      const offen = BS.fuerPruefung.REIHE[l.dran].filter((j) => l.mulden[j] > 0);
+      const zug = String(offen[Math.floor(wuerfel() * offen.length)]);
+      folge.push({ sitz: l.dran, zug });
+      zuege.push(zug);
+    }
+    if (bsLage(zuege, "b").ende === "u") return folge;
+  }
+  return null;
+})();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -659,8 +692,35 @@ const SPIELWEISE = {
     gleichzeitig: true,
     schwerSpielen: false,
   },
+  bohnen: {
+    brett: ".zw-bs-feld",
+    tippe: (s, z) => s.locator(`.zw-bs-mulde[data-mulde="${z}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-bs-mulde[data-mulde="${z}"]:not([disabled])`).count().then((n) => n === 1),
+    // Wie viele Züge zu sehen sind (das Säen dauert einen Moment).
+    liegt: (s) => s.locator(".zw-bs").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: eine Mulde, deren letzte Bohne im Topf landet,
+    // sonst die erste mit Bohnen.
+    waehle: (lage) => {
+      if (!lage || lage.dran !== "a") return null;
+      const offen = [0, 1, 2, 3, 4, 5].filter((i) => lage.mulden[i] > 0);
+      return String(offen.find((i) => lage.mulden[i] === 6 - i) ?? offen[0]);
+    },
+    sieg: ({ papa, lena }) => BS_SIEG.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })),
+    siegZeichen: [".zw-bs-topf.ist-sieger.ist-a", 1],
+    remis: BS_REMIS ? ({ papa, lena }) => BS_REMIS.map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug })) : null,
+    trenner: ".",
+    nachSieg: async (s, pruefe) => {
+      // Bei Lena (b) liegt die eigene Reihe unten: die Mulden 7 bis 12.
+      const unten = await s.evaluate(() => [...document.querySelectorAll(".zw-bs-mulde.ist-unten")].map((m) => m.dataset.mulde).join(","));
+      pruefe(unten === "7,8,9,10,11,12", `Bohnen säen: Bei Lena liegt ihre eigene Reihe unten (${unten})`);
+      const zahl = await s.evaluate(() => document.querySelector(".zw-bs-topf.ist-a .zw-bs-zahl")?.textContent);
+      pruefe(Number(zahl) > 24, `Bohnen säen: In Papas Topf liegen mehr als die Hälfte der Bohnen (${zahl})`);
+    },
+  },
 };
 if (!MH_SIEG) befundeVorab.push("Mühle: Keine Partie gefunden, die a gewinnt");
+if (!BS_SIEG) befundeVorab.push("Bohnen säen: Keine Partie gefunden, die a gewinnt");
+if (!BS_REMIS) befundeVorab.push("Bohnen säen: Kein Unentschieden gefunden");
 if (!(KK_SIEG.punkte.a > KK_SIEG.punkte.b)) befundeVorab.push(`Käsekästchen: Die ausgerechnete Siegfolge gewinnt nicht (${JSON.stringify(KK_SIEG.punkte)})`);
 if (!KK_REMIS) befundeVorab.push("Käsekästchen: Kein Unentschieden gefunden");
 

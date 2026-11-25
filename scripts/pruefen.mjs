@@ -1652,6 +1652,86 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Zwillings-Labyrinth: Höhere Grade sind grösser (${gross.join(" < ")} Felder)`, gross[0] < gross[1] && gross[1] < gross[2]);
   }
 
+  // Bohnen säen: säen, den Topf des Gegenübers überspringen, nochmal,
+  // rauben, das Ende – an kurzen Folgen und gebauten Mulden; dann ganze
+  // Partien Computer gegen Computer.
+  const BS = angemeldet.bohnen;
+  if (BS?.fuerPruefung) {
+    const { schritt, anfang, TOPF, REIHE } = BS.fuerPruefung;
+    const lage = (zuege, beginnt = "a") => BS.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const l0 = lage([]);
+    pruefe("Bohnen säen: Zu Beginn liegen in jeder Mulde vier Bohnen, die Töpfe sind leer, wer beginnt, ist dran",
+      [...REIHE.a, ...REIHE.b].every((i) => l0.mulden[i] === 4) && l0.mulden[TOPF.a] === 0 && l0.mulden[TOPF.b] === 0 && l0.dran === "a" && lage([], "b").dran === "b");
+    const l1 = lage(["2"]);
+    pruefe("Bohnen säen: Vier Bohnen aus Mulde 3 – die letzte liegt im Topf, und a darf nochmal",
+      l1.mulden.join(",") === "4,4,0,5,5,5,1,4,4,4,4,4,4,0" && l1.dran === "a" && l1.nochmal === true);
+    const l2 = lage(["0"]);
+    pruefe("Bohnen säen: Sonst ist das Gegenüber dran", l2.mulden.join(",") === "0,5,5,5,5,4,0,4,4,4,4,4,4,0" && l2.dran === "b" && !l2.nochmal);
+    const viele = anfang(); viele[5] = 9;
+    const s1 = schritt(viele, 5, "a");
+    pruefe("Bohnen säen: Den Topf des Gegenübers überspringt man",
+      s1.m[TOPF.b] === 0 && s1.weg.join(",") === "6,7,8,9,10,11,12,0,1" && s1.m[0] === 5 && s1.m[1] === 5);
+    const raub = anfang(); raub[0] = 1; raub[1] = 0; raub[11] = 5;
+    const s2 = schritt(raub, 0, "a");
+    pruefe("Bohnen säen: Landet die letzte in einer eigenen leeren Mulde, raubt man, was gegenüber liegt",
+      s2.raub?.zahl === 6 && s2.m[TOPF.a] === 6 && s2.m[1] === 0 && s2.m[11] === 0 && !s2.nochmal);
+    const leer = anfang(); leer[0] = 1; leer[1] = 0; leer[11] = 0;
+    pruefe("Bohnen säen: Liegt gegenüber nichts, wird nicht geraubt", (() => { const s = schritt(leer, 0, "a"); return !s.raub && s.m[1] === 1; })());
+    const schluss = Array(14).fill(0); schluss[5] = 1; schluss[TOPF.a] = 20; schluss[7] = 3; schluss[TOPF.b] = 24;
+    const s3 = schritt(schluss, 5, "a");
+    pruefe("Bohnen säen: Ist eine Reihe leer, ist es aus – was noch liegt, kommt in den Topf dessen, dem die Mulde gehört",
+      s3.ende === "b" && s3.m[TOPF.a] === 21 && s3.m[TOPF.b] === 27 && s3.rest?.b === 3 && [...REIHE.a, ...REIHE.b].every((i) => s3.m[i] === 0));
+    pruefe("Bohnen säen: nur eine eigene Mulde mit Bohnen, nur wer dran ist",
+      BS.darf(l0, "0", "a") && BS.darf(l0, "5", "a") && !BS.darf(l0, "6", "a") && !BS.darf(l0, "7", "a") && !BS.darf(l0, "0", "b")
+      && !BS.darf(lage(["0"]), "0", "b") && BS.darf(lage(["0"]), "7", "b") && !BS.darf(lage(["0", "7"]), "0", "a") && !BS.darf(l0, "05", "a")
+      && lage(["0", "0"]).dran === null);
+    // Ganze Partien: zufällig (mit Saat) – die Bohnen bleiben 48, und es
+    // gibt auch ein Unentschieden; dann Computer gegen Computer.
+    let zufall = 4242;
+    const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+    let immer48 = true;
+    let ausgang = true;
+    let remis = null;
+    for (let p = 0; p < 300; p += 1) {
+      const zuege = [];
+      for (let l = lage(zuege); !l.ende; l = lage(zuege)) {
+        const offen = REIHE[l.dran].filter((i) => l.mulden[i] > 0);
+        zuege.push(String(offen[Math.floor(wuerfel() * offen.length)]));
+        if (lage(zuege).mulden.reduce((a, b) => a + b, 0) !== 48) immer48 = false;
+      }
+      const l = lage(zuege);
+      if (l.punkte.a + l.punkte.b !== 48 || l.ende !== (l.punkte.a > l.punkte.b ? "a" : l.punkte.b > l.punkte.a ? "b" : "u")) ausgang = false;
+      if (l.ende === "u") remis = l;
+    }
+    pruefe("Bohnen säen: Es bleiben immer 48 Bohnen", immer48);
+    pruefe("Bohnen säen: Am Ende liegen alle 48 in den Töpfen, wer mehr hat, gewinnt", ausgang);
+    pruefe("Bohnen säen: 24 zu 24 ist unentschieden", remis?.punkte.a === 24 && remis?.punkte.b === 24);
+    let legal = true;
+    let schwerSiegt = 0;
+    let einfachSiegt = 0;
+    let langsam = 0;
+    const STUFEN_BS = Object.keys(BS.stufen || {});
+    for (let p = 0; p < 32 && legal; p += 1) {
+      const [sa, sb] = p < 8 ? [STUFEN_BS[p % 4], STUFEN_BS[3 - (p % 4)]] : p < 24 ? ["mittel", "schwer"] : ["leicht", "einfach"];
+      const zuege = [];
+      const beginnt = p % 2 ? "b" : "a";
+      for (let l = lage(zuege, beginnt); !l.ende; l = lage(zuege, beginnt)) {
+        const t = performance.now();
+        const antwort = BS.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        langsam = Math.max(langsam, performance.now() - t);
+        if (!BS.darf(l, antwort?.zug, l.dran) || !(antwort.warte > 0)) { legal = false; break; }
+        zuege.push(antwort.zug);
+      }
+      const ende = lage(zuege, beginnt).ende;
+      if (p >= 8 && p < 24 && ende === "b") schwerSiegt += 1;
+      if (p >= 24 && ende === "b") einfachSiegt += 1;
+    }
+    pruefe("Bohnen säen: Jede Stufe nimmt nur eigene Mulden mit Bohnen, bis die Partie aus ist – und wartet, bis das Säen zu sehen war", legal);
+    pruefe(`Bohnen säen: «Schwer» schlägt «Mittel» fast immer (${schwerSiegt} von 16)`, schwerSiegt >= 13);
+    pruefe(`Bohnen säen: «Einfach» schlägt «Ganz leicht» meistens (${einfachSiegt} von 8)`, einfachSiegt >= 5);
+    pruefe(`Bohnen säen: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 600);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

@@ -11006,6 +11006,148 @@ body[data-page="zwillinge"] { overscroll-behavior: none; }
   .zw-zl-figur.ist-am-ziel { animation: none; }
 }
 
+/* --- Bohnen säen (bohnen.js) -------------------------------------------------------
+   Ein Holzbrett: zwei Reihen zu sechs Mulden, an den Enden die Töpfe. Die
+   eigene Reihe liegt unten, der eigene Topf rechts (bohnen.js, platz). Die
+   Bohnen liegen in einer Spirale (bohnen.js, LAGE), vier Sorten. Unter jeder
+   Mulde steht, wie viele es sind. Grössen in Teilen der Brettbreite
+   (--vr-breite): Das Brett ist breit und niedrig, also so breit wie die
+   Seite. */
+body[data-page="bohnen"] { overscroll-behavior: none; }
+body[data-page="bohnen"] .vr-seite { max-width: 1040px; }
+.vr-partie.zw-bohnen { --vr-breite: max(280px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 1000px, calc((100dvh - 250px - var(--safe-top) - var(--vr-unten)) * 3.3))); }
+.zw-bs { position: relative; display: flex; flex-direction: column; align-items: center; width: var(--vr-breite); max-width: 100%; aspect-ratio: auto; touch-action: manipulation; }
+.zw-bs .confetti-layer { z-index: 6; }
+.zw-bs-feld {
+  --g: calc(var(--vr-breite) * 0.014);
+  display: grid;
+  grid-template-columns: 1.3fr repeat(6, 1fr) 1.3fr;
+  grid-template-rows: auto auto;
+  gap: var(--g) calc(var(--g) * 0.9);
+  width: 100%;
+  padding: calc(var(--vr-breite) * 0.026) calc(var(--vr-breite) * 0.022);
+  border-radius: calc(var(--vr-breite) * 0.05);
+  background:
+    repeating-linear-gradient(176deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 11px),
+    radial-gradient(120% 90% at 30% 0%, rgba(255, 220, 170, 0.35), transparent 60%),
+    linear-gradient(180deg, #c48a51, #a26633 60%, #7f4f26);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+}
+.zw-bs-mulde,
+.zw-bs-topf {
+  --ring: rgba(255, 255, 255, 0.12);
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: radial-gradient(circle at 50% 36%, #4f2b12 0%, #633a1b 55%, #7d4e28 100%);
+  box-shadow: inset 0 calc(var(--vr-breite) * 0.008) calc(var(--vr-breite) * 0.016) rgba(0, 0, 0, 0.6), 0 0 0 calc(var(--vr-breite) * 0.004) var(--ring), 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: inherit;
+  font: inherit;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.zw-bs-mulde { aspect-ratio: 1; border-radius: 50%; cursor: pointer; }
+.zw-bs-mulde:disabled { opacity: 1; cursor: default; }
+.zw-bs-topf { border-radius: 999px; }
+.zw-bs-mulde.ist-a,
+.zw-bs-topf.ist-a { --ring: rgba(254, 121, 113, 0.4); }
+.zw-bs-mulde.ist-b,
+.zw-bs-topf.ist-b { --ring: rgba(255, 212, 94, 0.4); }
+/* Wer dran ist, sieht seine Mulden mit Bohnen leuchten. */
+.zw-bs-mulde.ist-waehlbar { --ring: #fff; }
+.zw-bs-mulde.ist-waehlbar.ist-a { --ring: #fe7971; }
+.zw-bs-mulde.ist-waehlbar.ist-b { --ring: #ffd45e; }
+.zw-bs-mulde.ist-waehlbar { box-shadow: inset 0 calc(var(--vr-breite) * 0.008) calc(var(--vr-breite) * 0.016) rgba(0, 0, 0, 0.6), 0 0 0 calc(var(--vr-breite) * 0.006) var(--ring), 0 0 calc(var(--vr-breite) * 0.03) color-mix(in srgb, var(--ring) 55%, transparent); }
+.zw-bs-mulde.ist-waehlbar:hover { transform: translateY(-2px); }
+.zw-bs-mulde.ist-waehlbar:active { transform: scale(0.96); }
+.zw-bs-mulde:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+/* Woher der letzte Zug kam, und woher gerade gesät wird. */
+.zw-bs-mulde.ist-letzter::after,
+.zw-bs-mulde.ist-quelle::after { content: ""; position: absolute; inset: -9%; border: calc(var(--vr-breite) * 0.004) dashed rgba(255, 255, 255, 0.55); border-radius: 50%; pointer-events: none; }
+.zw-bs-mulde.ist-quelle::after { border-style: solid; border-color: #fff; }
+.zw-bs-mulde.ist-raub,
+.zw-bs-topf.ist-raub { box-shadow: inset 0 calc(var(--vr-breite) * 0.008) calc(var(--vr-breite) * 0.016) rgba(0, 0, 0, 0.6), 0 0 0 calc(var(--vr-breite) * 0.007) #fff, 0 0 calc(var(--vr-breite) * 0.04) rgba(255, 255, 255, 0.7); }
+.zw-bs-topf.ist-sieger { box-shadow: inset 0 calc(var(--vr-breite) * 0.008) calc(var(--vr-breite) * 0.016) rgba(0, 0, 0, 0.6), 0 0 0 calc(var(--vr-breite) * 0.007) var(--ring), 0 0 calc(var(--vr-breite) * 0.05) var(--ring); }
+.zw-bs-topf.ist-sieger.ist-a { --ring: #fe7971; }
+.zw-bs-topf.ist-sieger.ist-b { --ring: #ffd45e; }
+.zw-bs-bohnen { position: absolute; inset: 0; pointer-events: none; }
+.zw-bs-bohne {
+  position: absolute;
+  width: 22%;
+  aspect-ratio: 1.45;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 35% 30%, #c9814c, #8a4a22 60%, #5d2e12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -50%) rotate(var(--dreh, 0deg));
+}
+.zw-bs-topf .zw-bs-bohne { width: 17%; }
+.zw-bs-bohne.ist-f1 { background: radial-gradient(ellipse at 35% 30%, #e0685f, #a8322d 60%, #6d1a17); }
+.zw-bs-bohne.ist-f2 { background: radial-gradient(ellipse at 35% 30%, #fffaf0, #efe2c2 60%, #c9b78f); }
+.zw-bs-bohne.ist-f3 { background: radial-gradient(circle at 30% 40%, #5a3a1d 0 9%, transparent 10%), radial-gradient(circle at 65% 55%, #5a3a1d 0 8%, transparent 9%), radial-gradient(ellipse at 35% 30%, #ecc690, #c4955a 60%, #8d6534); }
+/* Wie viele Bohnen: unter der Mulde (oben über ihr), im Topf oben. */
+.zw-bs-zahl {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  min-width: 1.9em;
+  padding: 0.08em 0.4em;
+  border-radius: 999px;
+  background: rgba(30, 16, 6, 0.82);
+  color: #fff;
+  font-size: max(11px, calc(var(--vr-breite) * 0.024));
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.zw-bs-mulde.ist-unten .zw-bs-zahl { bottom: -12%; }
+.zw-bs-mulde.ist-oben .zw-bs-zahl { top: -12%; }
+.zw-bs-mulde.ist-leer .zw-bs-zahl { opacity: 0.55; }
+.zw-bs-topf .zw-bs-zahl { top: 5%; font-size: max(13px, calc(var(--vr-breite) * 0.032)); }
+.zw-bs-topf.ist-a .zw-bs-zahl { background: #fe7971; color: #2a0d0b; }
+.zw-bs-topf.ist-b .zw-bs-zahl { background: #ffd45e; color: #2a1d00; }
+.zw-bs-mulde.ist-plopp .zw-bs-zahl,
+.zw-bs-topf.ist-plopp .zw-bs-zahl { animation: zw-bs-plopp 0.28s cubic-bezier(0.2, 0.8, 0.2, 1.4); }
+.zw-bs-mulde.ist-plopp .zw-bs-bohne:last-child,
+.zw-bs-topf.ist-plopp .zw-bs-bohne:last-child { animation: zw-bs-faellt 0.24s cubic-bezier(0.3, 0.7, 0.4, 1.3); }
+@keyframes zw-bs-plopp { from { transform: translateX(-50%) scale(1.45); } to { transform: translateX(-50%) scale(1); } }
+@keyframes zw-bs-faellt { from { transform: translate(-50%, -120%) rotate(var(--dreh, 0deg)) scale(1.25); opacity: 0.4; } to { transform: translate(-50%, -50%) rotate(var(--dreh, 0deg)); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .zw-bs-mulde,
+  .zw-bs-topf { transition: none; }
+  .zw-bs-mulde.ist-plopp .zw-bs-zahl,
+  .zw-bs-topf.ist-plopp .zw-bs-zahl,
+  .zw-bs-mulde.ist-plopp .zw-bs-bohne:last-child,
+  .zw-bs-topf.ist-plopp .zw-bs-bohne:last-child { animation: none; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-bohnen { --vr-breite: max(300px, min(60vw, calc(100vw - 360px))); }
+  .zw-bs { grid-area: feld; }
+}
+
+/* Im Menü: ein kleines Brett mit drei Mulden je Reihe und zwei Töpfen. */
+.zw-bs-held {
+  --h: clamp(26px, 7.5vw, 34px);
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--h) * 5.9);
+  height: calc(var(--h) * 2.7);
+  border-radius: calc(var(--h) * 0.4);
+  background: linear-gradient(180deg, #c48a51, #a26633 60%, #7f4f26);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+.zw-bs-held-mulde,
+.zw-bs-held-topf { position: absolute; background: radial-gradient(circle at 50% 36%, #4f2b12 0%, #633a1b 55%, #7d4e28 100%); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6); }
+.zw-bs-held-mulde { left: calc(var(--h) * (1.35 + var(--c) * 1.1)); top: calc(var(--h) * (0.25 + var(--r) * 1.15)); width: var(--h); height: var(--h); border-radius: 50%; }
+.zw-bs-held-topf { top: calc(var(--h) * 0.25); width: calc(var(--h) * 1.05); height: calc(var(--h) * 2.15); border-radius: 999px; }
+.zw-bs-held-topf.ist-links { left: calc(var(--h) * 0.18); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 212, 94, 0.5); }
+.zw-bs-held-topf.ist-rechts { right: calc(var(--h) * 0.18); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(254, 121, 113, 0.55); }
+.zw-bs-held .zw-bs-bohne { width: 24%; }
+.zw-bs-held-topf .zw-bs-bohne { width: 22%; }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
    Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
@@ -11172,6 +11314,18 @@ body[data-page="zwillinge"] { overscroll-behavior: none; }
 .ar-zl-zelle.ist-b::after { content: ""; position: absolute; inset: 12%; border-radius: 50%; }
 .ar-zl-zelle.ist-a::after { background: #fe7971; }
 .ar-zl-zelle.ist-b::after { background: #ffd45e; }
+/* Bohnen säen: ein Holzbrett mit Mulden, Bohnen und zwei Töpfen. */
+.ar-bs-brett { position: absolute; left: calc(50% - var(--z) * 5.85); top: calc(var(--z) * 1.15); width: calc(var(--z) * 11.7); height: calc(var(--z) * 3.3); border-radius: calc(var(--z) * 0.55); background: linear-gradient(180deg, #c48a51, #a26633 60%, #7f4f26); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.25); }
+.ar-bs-mulde,
+.ar-bs-topf { position: absolute; background: radial-gradient(circle at 50% 36%, #4f2b12 0%, #633a1b 55%, #7d4e28 100%); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6); }
+.ar-bs-mulde { left: calc(var(--z) * (1.95 + var(--c) * 1.3)); top: calc(var(--z) * (0.35 + var(--r) * 1.35)); width: calc(var(--z) * 1.15); height: calc(var(--z) * 1.15); border-radius: 50%; }
+.ar-bs-topf { top: calc(var(--z) * 0.35); width: calc(var(--z) * 1.45); height: calc(var(--z) * 2.5); border-radius: 999px; }
+.ar-bs-topf.ist-links { left: calc(var(--z) * 0.3); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 212, 94, 0.55); }
+.ar-bs-topf.ist-rechts { right: calc(var(--z) * 0.3); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(254, 121, 113, 0.6); }
+.ar-bs-bohne { position: absolute; left: 50%; top: 50%; width: calc(var(--z) * 0.42); height: calc(var(--z) * 0.29); border-radius: 50%; background: radial-gradient(ellipse at 35% 30%, #c9814c, #8a4a22 60%, #5d2e12); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); transform: translate(-50%, -50%) rotate(var(--w)) translateX(calc(var(--z) * var(--d))); }
+.ar-bs-bohne.ist-f1 { background: radial-gradient(ellipse at 35% 30%, #e0685f, #a8322d 60%, #6d1a17); }
+.ar-bs-bohne.ist-f2 { background: radial-gradient(ellipse at 35% 30%, #fffaf0, #efe2c2 60%, #c9b78f); }
+.ar-bs-bohne.ist-f3 { background: radial-gradient(ellipse at 35% 30%, #ecc690, #c4955a 60%, #8d6534); }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }

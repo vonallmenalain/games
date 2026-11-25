@@ -321,6 +321,7 @@
     { id: "malen", seite: "malen", titel: "Malen und Raten" },
     { id: "wackelturm", seite: "wackelturm", titel: "Wackelturm zu zweit" },
     { id: "zwillinge", seite: "zwillinge", titel: "Zwillings-Labyrinth" },
+    { id: "bohnen", seite: "bohnen", titel: "Bohnen säen" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4400,6 +4401,23 @@
       const feld = el("span", "ar-zl-feld");
       ["#######", "#a.#..#", "#..!.b#", "#######"].join("").split("").forEach((ch) => feld.append(el("span", `ar-zl-zelle${{ "#": " ist-wand", "!": " ist-tuer", a: " ist-a", b: " ist-b" }[ch] || ""}`)));
       bild.append(feld);
+    },
+    bohnen(bild) {
+      const brett = el("span", "ar-bs-brett");
+      brett.append(el("span", "ar-bs-topf ist-links"), el("span", "ar-bs-topf ist-rechts"));
+      [3, 1, 4, 2, 0, 3, 2, 4, 1, 3, 2, 1].forEach((n, i) => {
+        const m = el("span", "ar-bs-mulde");
+        m.style.setProperty("--c", String(i % 6));
+        m.style.setProperty("--r", String(Math.floor(i / 6)));
+        for (let j = 0; j < n; j += 1) {
+          const b = el("span", `ar-bs-bohne ist-f${(i + j) % 4}`);
+          b.style.setProperty("--w", `${(j * 2.4).toFixed(2)}rad`);
+          b.style.setProperty("--d", String(j ? 0.3 : 0));
+          m.append(b);
+        }
+        brett.append(m);
+      });
+      bild.append(brett);
     },
   };
 
