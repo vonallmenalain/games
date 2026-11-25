@@ -11625,6 +11625,141 @@ body[data-page="rechnen"] { overscroll-behavior: none; }
 .zw-rd-held-kind.ist-b { right: 0; }
 .zw-rd-held-aufgabe { position: absolute; left: 50%; top: 4px; padding: 4px 12px; border-radius: 12px; background: #2a2150; box-shadow: 0 0 0 2px #7c5ce6; font-size: 1.25rem; font-weight: 900; white-space: nowrap; transform: translateX(-50%); }
 
+/* --- Leiterspiel (leiter.js) ------------------------------------------------------------
+   Ein Spielbrett 10 × 5 (Felder 1 bis 50 im Zickzack), darüber Leitern (Holz)
+   und Rutschen (rosa Band) als SVG, die Figuren in Koralle und Gold. Unten
+   der Knopf «Würfeln» oder die zwei Würfel zur Wahl – jeder sagt, wohin er
+   führt (⬆️ Leiter, ⬇️ Rutsche), und das Zielfeld leuchtet. Das Brett ist
+   doppelt so breit wie hoch. */
+body[data-page="leiter"] { overscroll-behavior: none; }
+body[data-page="leiter"] .vr-seite { max-width: 920px; }
+.vr-partie.zw-leiter {
+  --vr-breite: max(280px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 860px, calc((100dvh - 350px - var(--safe-top) - var(--vr-unten)) * 2)));
+}
+.zw-lt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; width: var(--vr-breite); max-width: 100%; aspect-ratio: auto; touch-action: manipulation; }
+.zw-lt .confetti-layer { z-index: 6; }
+.zw-lt-feld {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: 2;
+  overflow: hidden;
+  border-radius: calc(var(--vr-breite) * 0.025);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 calc(var(--vr-breite) * 0.006) #5a3a1d;
+}
+.zw-lt-zelle { position: relative; background: #fdf3d8; }
+.zw-lt-zelle.ist-dunkel { background: #f6dfaa; }
+.zw-lt-zelle.ist-leiter { background: #c9ecc1; }
+.zw-lt-zelle.ist-rutsche { background: #fbd0dd; }
+.zw-lt-zelle[data-feld="50"] { background: repeating-conic-gradient(#2a2150 0 25%, #fff 0 50%) 0 0 / 22% 22%; }
+.zw-lt-zahl { position: absolute; left: 6%; top: 4%; color: rgba(60, 40, 20, 0.7); font-size: max(9px, calc(var(--vr-breite) * 0.017)); font-weight: 900; font-variant-numeric: tabular-nums; }
+.zw-lt-zelle[data-feld="50"] .zw-lt-zahl { left: 50%; top: 50%; font-size: max(14px, calc(var(--vr-breite) * 0.035)); transform: translate(-50%, -50%); }
+.zw-lt-zelle.ist-ziel-0,
+.zw-lt-zelle.ist-ziel-1 { box-shadow: inset 0 0 0 calc(var(--vr-breite) * 0.005) #7c5ce6; animation: zw-lt-ziel 0.9s ease-in-out infinite alternate; }
+@keyframes zw-lt-ziel { from { filter: brightness(1); } to { filter: brightness(0.86); } }
+.zw-lt-wege { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; }
+.zw-lt-holm { stroke: #7a4a1e; stroke-width: 0.85; stroke-linecap: round; }
+.zw-lt-sprosse { stroke: #b07a45; stroke-width: 0.6; stroke-linecap: round; }
+.zw-lt-bahn { fill: none; stroke: #ff6f9f; stroke-width: 3; stroke-linecap: round; opacity: 0.85; }
+.zw-lt-streifen { fill: none; stroke: #fff; stroke-width: 0.5; stroke-dasharray: 1.4 1.8; stroke-linecap: round; opacity: 0.9; }
+.zw-lt-figur {
+  position: absolute;
+  z-index: 3;
+  width: 5.4%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 calc(var(--vr-breite) * 0.003) #fff, 0 3px 6px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+  transition: left 0.18s ease, top 0.18s ease, transform 0.2s ease;
+}
+.zw-lt-figur.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
+.zw-lt-figur.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+.zw-lt-figur.ist-start { transform: translate(-50%, -50%) scale(0.75); }
+.zw-lt-figur.ist-sieger { box-shadow: 0 0 0 calc(var(--vr-breite) * 0.004) #fff, 0 0 calc(var(--vr-breite) * 0.03) #ffd45e; animation: zw-lt-hupf 0.6s ease-in-out 4; }
+@keyframes zw-lt-hupf { 50% { transform: translate(-50%, -80%); } }
+.zw-lt-figur.ist-klettert,
+.zw-lt-figur.ist-rutscht { transition: left 0.6s ease-in-out, top 0.6s ease-in-out; }
+.zw-lt-unten { display: flex; align-items: center; justify-content: center; min-height: 92px; }
+.zw-lt-wuerfeln { --mini-farbe: #7c5ce6; display: inline-flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 26px; font-size: 1.2rem; }
+.zw-lt-wuerfeln[hidden],
+.zw-lt-wahlen[hidden] { display: none; }
+.zw-lt-wuerfeln-bild { font-size: 1.7rem; line-height: 1; }
+.zw-lt-wahlen { display: flex; gap: 16px; }
+.zw-lt-wuerfel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 108px;
+  padding: 10px 14px;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  background: var(--ar-flaeche-hoch);
+  color: var(--ar-text);
+  font: inherit;
+  font-weight: 900;
+  animation: zw-lt-rollen 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.3);
+}
+.zw-lt-wuerfel:disabled { opacity: 1; cursor: default; }
+.zw-lt.ist-dran .zw-lt-wuerfel:not(:disabled) { cursor: pointer; box-shadow: 0 0 0 2px rgba(124, 92, 230, 0.6); }
+.zw-lt.ist-dran .zw-lt-wuerfel:not(:disabled):active { transform: scale(0.95); }
+.zw-lt-wuerfel.ist-leiter { border-color: #5ad893; }
+.zw-lt-wuerfel.ist-rutsche { border-color: #ff7a9c; }
+@keyframes zw-lt-rollen { from { transform: rotate(-200deg) scale(0.5); } to { transform: rotate(0) scale(1); } }
+.zw-lt-wohin { font-size: 0.95rem; }
+.zw-lt-augen { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); width: 56px; height: 56px; padding: 7px; border-radius: 12px; background: #fffdf6; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 3px 8px rgba(0, 0, 0, 0.35); }
+.zw-lt-auge { width: 10px; height: 10px; margin: auto; border-radius: 50%; background: #2a2150; }
+.zw-lt-augen.ist-1 .zw-lt-auge:nth-child(1) { grid-area: 2 / 2; }
+.zw-lt-augen.ist-2 .zw-lt-auge:nth-child(1),
+.zw-lt-augen.ist-3 .zw-lt-auge:nth-child(1),
+.zw-lt-augen.ist-4 .zw-lt-auge:nth-child(1),
+.zw-lt-augen.ist-5 .zw-lt-auge:nth-child(1),
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(1) { grid-area: 1 / 1; }
+.zw-lt-augen.ist-2 .zw-lt-auge:nth-child(2),
+.zw-lt-augen.ist-3 .zw-lt-auge:nth-child(3),
+.zw-lt-augen.ist-4 .zw-lt-auge:nth-child(4),
+.zw-lt-augen.ist-5 .zw-lt-auge:nth-child(4),
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(6) { grid-area: 3 / 3; }
+.zw-lt-augen.ist-3 .zw-lt-auge:nth-child(2),
+.zw-lt-augen.ist-5 .zw-lt-auge:nth-child(5) { grid-area: 2 / 2; }
+.zw-lt-augen.ist-4 .zw-lt-auge:nth-child(2),
+.zw-lt-augen.ist-5 .zw-lt-auge:nth-child(2),
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(4) { grid-area: 1 / 3; }
+.zw-lt-augen.ist-4 .zw-lt-auge:nth-child(3),
+.zw-lt-augen.ist-5 .zw-lt-auge:nth-child(3),
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(3) { grid-area: 3 / 1; }
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(2) { grid-area: 2 / 1; }
+.zw-lt-augen.ist-6 .zw-lt-auge:nth-child(5) { grid-area: 2 / 3; }
+@media (prefers-reduced-motion: reduce) {
+  .zw-lt-figur { transition: none; }
+  .zw-lt-wuerfel,
+  .zw-lt-figur.ist-sieger,
+  .zw-lt-zelle.ist-ziel-0,
+  .zw-lt-zelle.ist-ziel-1 { animation: none; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-leiter { --vr-breite: max(300px, min(calc((100dvh - 190px - var(--safe-top) - var(--vr-unten)) * 2), calc(100vw - 340px))); }
+  .zw-lt { grid-area: feld; gap: 8px; }
+  .zw-lt-unten { min-height: 76px; }
+  .zw-lt-wuerfel { min-width: 92px; padding: 6px 10px; gap: 4px; }
+  .zw-lt-augen { width: 44px; height: 44px; padding: 5px; }
+  .zw-lt-auge { width: 8px; height: 8px; }
+  .zw-lt-wuerfeln { min-height: 52px; }
+}
+
+/* Im Menü: ein Stück Brett mit Leiter und Rutsche, eine Figur, ein Würfel. */
+.zw-lt-held { --h: clamp(26px, 7vw, 34px); position: relative; flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, var(--h)); grid-template-rows: repeat(3, var(--h)); overflow: visible; border-radius: 8px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 3px #5a3a1d; }
+.zw-lt-held-feld { background: #fdf3d8; }
+.zw-lt-held-feld.ist-dunkel { background: #f6dfaa; }
+.zw-lt-held-leiter { position: absolute; left: 18%; top: 18%; width: 12%; height: 64%; background: repeating-linear-gradient(180deg, transparent 0 18%, #b07a45 18% 26%); border-left: 3px solid #7a4a1e; border-right: 3px solid #7a4a1e; transform: rotate(14deg); }
+.zw-lt-held-rutsche { position: absolute; left: 58%; top: 20%; width: 9%; height: 66%; border-radius: 999px; background: #ff6f9f; transform: rotate(-22deg); }
+.zw-lt-figur.ist-held { left: 40%; top: 72%; width: calc(var(--h) * 0.62); transform: none; }
+.zw-lt-held-wuerfel { position: absolute; right: calc(var(--h) * -0.6); bottom: calc(var(--h) * -0.5); }
+.zw-lt-held-wuerfel .zw-lt-augen { width: calc(var(--h) * 1.25); height: calc(var(--h) * 1.25); padding: 4px; }
+.zw-lt-held-wuerfel .zw-lt-auge { width: 6px; height: 6px; }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
    Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
@@ -11831,6 +11966,14 @@ body[data-page="rechnen"] { overscroll-behavior: none; }
 .ar-rd-kind.ist-a { left: 0; }
 .ar-rd-kind.ist-b { right: 0; }
 .ar-rd-aufgabe { position: absolute; left: 50%; top: 0; padding: calc(var(--z) * 0.2) calc(var(--z) * 0.7); border-radius: calc(var(--z) * 0.5); background: #2a2150; box-shadow: 0 0 0 2px #7c5ce6; font-size: calc(var(--z) * 1.15); font-weight: 900; white-space: nowrap; transform: translateX(-50%); }
+/* Leiterspiel: ein Stück Brett, eine Leiter, eine Rutsche, eine Figur, ein Würfel. */
+.ar-lt-feld { position: absolute; left: calc(50% - var(--z) * 4.6); top: calc(var(--z) * 0.6); display: grid; grid-template-columns: repeat(5, calc(var(--z) * 1.7)); grid-auto-rows: calc(var(--z) * 1.7); overflow: hidden; border-radius: calc(var(--z) * 0.3); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), 0 0 0 2px #5a3a1d; }
+.ar-lt-zelle { background: #fdf3d8; }
+.ar-lt-zelle.ist-dunkel { background: #f6dfaa; }
+.ar-lt-leiter { position: absolute; left: 16%; top: 14%; width: 9%; height: 72%; background: repeating-linear-gradient(180deg, transparent 0 16%, #b07a45 16% 24%); border-left: 2px solid #7a4a1e; border-right: 2px solid #7a4a1e; transform: rotate(18deg); }
+.ar-lt-rutsche { position: absolute; left: 60%; top: 16%; width: 7%; height: 70%; border-radius: 999px; background: #ff6f9f; transform: rotate(-24deg); }
+.ar-lt-figur { position: absolute; left: 40%; top: 58%; width: calc(var(--z) * 1.1); height: calc(var(--z) * 1.1); border-radius: 50%; background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); box-shadow: 0 0 0 2px #fff; }
+.ar-lt-wuerfel { position: absolute; right: calc(50% - var(--z) * 6); top: calc(var(--z) * 3.3); display: grid; place-items: center; width: calc(var(--z) * 2); height: calc(var(--z) * 2); border-radius: calc(var(--z) * 0.4); background: #fffdf6; color: #2a2150; font-size: calc(var(--z) * 2.2); line-height: 1; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); transform: rotate(-10deg); }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }

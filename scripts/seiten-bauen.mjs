@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-6";
+export const FASSUNG = "2026-11-25-7";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -683,6 +683,11 @@ export const ZWEI = [
     seite: "rechnen", titel: "Rechenduell", js: ["rechnen.js"],
     text: "Rechenduell: Beide rechnen gleichzeitig, jede auf ihrer Stufe – von «bis 10» bis zum Einmaleins. Jede richtige Antwort zieht das Seil zu dir. Gegen den Computer oder live zu zweit.",
     kurz: "Schneller rechnen, Seil ziehen – jede auf ihrer Stufe.",
+  },
+  {
+    seite: "leiter", titel: "Leiterspiel", js: ["leiter.js"],
+    text: "Leiterspiel: Mit zwei Würfeln würfeln und einen nehmen – Leitern führen hinauf, Rutschen hinunter. Wer zuerst auf Feld 50 ist, gewinnt. Gegen den Computer oder live zu zweit.",
+    kurz: "Würfeln, wählen, klettern – und hoffentlich nicht rutschen.",
   },
 ];
 

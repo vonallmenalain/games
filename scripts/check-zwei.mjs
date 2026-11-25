@@ -275,6 +275,29 @@ const BK = (() => { try { return spielAusDatei("brueckenschlag.js", "brueckensch
 const KP = (() => { try { return spielAusDatei("kippen.js", "kippen"); } catch { return null; } })();
 // Rechenduell: die Aufgaben aus rechnen.js (aus der Saat der Partie).
 const RD = (() => { try { return spielAusDatei("rechnen.js", "rechnen"); } catch { return null; } })();
+// Leiterspiel: die Würfel kommen aus der Saat der Partie – Papa wählt klug,
+// Lena ungeschickt, bis Papa gewinnt (mit wechselnder Wahl, falls nötig).
+const LT = (() => { try { return spielAusDatei("leiter.js", "leiter"); } catch { return null; } })();
+function ltSieg(saat) {
+  const lage = (zuege) => LT.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat });
+  for (const [gut, schlecht] of [["schwer", "klein"], ["mittel", "klein"], ["schwer", "zufall"]]) {
+    const folge = [];
+    const zuege = [];
+    for (let l = lage(zuege); !l.ende && zuege.length < 400; l = lage(zuege)) {
+      let zug;
+      if (l.phase === "wuerfeln") zug = "W";
+      else if (l.dran === "a") zug = LT.computer(l, "a", gut).zug;
+      else {
+        const nach = (k) => LT.fuerPruefung.ziel(l.brett, l.ort.b, l.liegt[k]).nach;
+        zug = schlecht === "klein" ? (nach(0) <= nach(1) ? "Z0" : "Z1") : (zuege.length % 3 ? "Z0" : "Z1");
+      }
+      folge.push({ sitz: l.dran, zug });
+      zuege.push(zug);
+    }
+    if (lage(zuege).ende === "a") return folge;
+  }
+  return null;
+}
 const kpLage = (zuege, beginnt) => KP.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
 const KP_SIEG = (() => {
   if (!KP) return null;
@@ -883,6 +906,25 @@ const SPIELWEISE = {
     trenner: ".",
     gleichzeitig: true,
     // Die Prüfung tippt schneller als jedes Kind – gegen «Schwer» gewinnt sie.
+    schwerSpielen: false,
+  },
+  leiter: {
+    brett: ".zw-lt-feld",
+    tippe: (s, z) => (z === "W" ? s.locator(".zw-lt-wuerfeln").click() : s.locator(`.zw-lt-wuerfel[data-wahl="${z[1]}"]`).click()),
+    kannTippen: (s, z) => (z === "W"
+      ? s.locator(".zw-lt-wuerfeln:not([hidden]):not([disabled])").count().then((n) => n === 1)
+      : s.locator(`.zw-lt-wahlen:not([hidden]) .zw-lt-wuerfel[data-wahl="${z[1]}"]:not([disabled])`).count().then((n) => n === 1)),
+    liegt: (s) => s.locator(".zw-lt").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: würfeln, dann wählen wie «Mittel».
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende && LT ? LT.computer(lage, "a", "mittel").zug : null),
+    sieg: async ({ papa, lena, raum }) => {
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      return (ltSieg(saat) || []).map(({ sitz, zug }) => ({ g: sitz === "a" ? papa : lena, zug }));
+    },
+    siegZeichen: [".zw-lt-figur.ist-a.ist-sieger", 1],
+    remis: null,
+    trenner: ".",
+    // Würfelglück: Auch gut gewählt gewinnt man gegen «Schwer» oft.
     schwerSpielen: false,
   },
 };
