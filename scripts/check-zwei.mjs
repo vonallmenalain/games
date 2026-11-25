@@ -328,6 +328,17 @@ async function rsFahrt({ papa, lena, raum }, boese) {
   const r = RSC.fuerPruefung.fahrt(RSC.fuerPruefung.planVon(st?.saat, null), { beginnt, boese });
   return [{ g: g[beginnt], zug: "S" }, ...r.aktionen.map((a) => ({ g: g[a.wer], zug: `${a.wer}${a.tick}:${a.art}` })), { g: g[beginnt], zug: `E${r.endTick}` }];
 }
+// Gemüsegarten: Zug um Zug; die Prüfung spielt wie eine gute Gärtnerin
+// (oder eine, die nie erntet).
+const GGA = (() => { try { return spielAusDatei("garten.js", "garten"); } catch { return null; } })();
+async function ggFolge({ papa, lena, raum }, gut) {
+  const st = await (await db(`partie/${raum}/stand`)).json();
+  const beginnt = st?.beginnt === "b" ? "b" : "a";
+  const r = GGA.fuerPruefung.partie(st?.saat, null, { beginnt, gut });
+  const g = { a: papa, b: lena };
+  const [erst, dann] = beginnt === "a" ? [papa, lena] : [lena, papa];
+  return r.zuege.map((zug, i) => ({ g: i % 2 === 0 ? erst : dann, zug }));
+}
 async function ecSieg({ papa, lena, raum }) {
   const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
   const ziel = EC.fuerPruefung.zielVon(saat, null);
@@ -1145,6 +1156,21 @@ const SPIELWEISE = {
     trenner: ".",
     gemeinsam: true,
     gleichzeitig: true,
+    autoZuege: false,
+    schwerSpielen: false,
+  },
+  garten: {
+    brett: ".zw-gg-garten",
+    tippe: (s, z) => s.locator(`.zw-gg-beet[data-beet="${z.slice(1)}"]`).click(),
+    kannTippen: (s, z) => s.locator(`.zw-gg-beet[data-beet="${z.slice(1)}"][data-tat="${z[0]}"]:not([disabled])`).count().then((n) => n === 1),
+    liegt: (s) => s.locator(".zw-gg").getAttribute("data-zuege").then(Number).catch(() => -1),
+    waehle: (lage) => (lage && !lage.ende && lage.dran === "a" ? GGA.fuerPruefung.guterZug(lage) : null),
+    sieg: (ctx) => ggFolge(ctx, true),
+    siegZeichen: [".zw-gg.ist-geschafft", 1],
+    remis: (ctx) => ggFolge(ctx, false),
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
     autoZuege: false,
     schwerSpielen: false,
   },

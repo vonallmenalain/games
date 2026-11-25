@@ -57,6 +57,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     kanu.html             Kanu zu zweit, erzeugt
     weichensteller.html   Weichensteller, erzeugt
     raumschiff.html       Raumschiff-Crew, erzeugt
+    garten.html           Gemüsegarten, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -138,6 +139,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           die Simulation in Ticks, ein Computer als Partner
     raumschiff.js         Raumschiff-Crew: drei Bahnen, Asteroiden, Schild,
                           die Simulation in Ticks, ein Computer als Partner
+    garten.js             Gemüsegarten: neun Beete, Tag und Nacht, Wetter,
+                          Schnecken, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2965,6 +2968,7 @@ Gerät:
 | Kanu zu zweit | `/kanu` | `echtzeit.js`, `kanu.js` |
 | Weichensteller | `/weichensteller` | `echtzeit.js`, `weichensteller.js` |
 | Raumschiff-Crew | `/raumschiff` | `echtzeit.js`, `raumschiff.js` |
+| Gemüsegarten | `/garten` | `garten.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3794,6 +3798,34 @@ etwas. Der Computer übernimmt die andere Aufgabe und rechnet voraus, wann
 er etwas tun muss. Ein Zug ist «S», «a37:U» / «a37:D» (eine Bahn hoch /
 runter), «b52:S» (Schild an) oder «E412». Bilanz: `raumschiff.bilanz`.
 
+**Gemüsegarten** (`garten.js`, miteinander, Zug um Zug – das ruhige der
+Spiele zu zweit): neun Beete. Jeden Tag ist jede einmal dran, dann kommt die
+Nacht. Ein Tipp auf ein Beet tut, was es braucht: leer → säen (der Samen
+bekommt gleich etwas Wasser), eine Schnecke → wegtragen, reif → ernten,
+sonst → giessen (die Kanne füllt das Beet ganz, das reicht zwei Nächte). Wer
+dran ist, sieht in jedem Beet oben rechts, was ein Tipp tut (🌱 💧 ✂️ ✋).
+In der Nacht wächst jede Pflanze, die Wasser hat, um eine Stufe (Samen →
+Keimling → Pflanze → reif) und braucht dabei Wasser auf; ohne Wasser bleibt
+sie stehen und wird blass, nach zwei Nächten ohne Wasser welkt sie. Oben
+steht, ob es heute Nacht regnet (dann sind alle Beete nass). Ab «Einfach»
+kommen Schnecken: Eine Schnecke frisst in der nächsten Nacht die Pflanze,
+wenn niemand sie wegträgt. Ziel: genug Gemüse im Korb, bevor die Tage um
+sind – dann ist es sofort geschafft.
+
+| Stufe (oder zu zweit: die Partie) | Garten |
+|---|---|
+| Ganz leicht (Partie 1–2) | vier Gemüse in acht Tagen, keine Schnecken |
+| Einfach (Partie 3–4) | vier Gemüse in neun Tagen, zwei Schnecken |
+| Mittel (Partie 5–6) | fünf Gemüse in elf Tagen, drei Schnecken |
+| Schwer (ab Partie 7) | sechs Gemüse in zwölf Tagen, vier Schnecken, wenig Regen |
+
+Wetter und Schnecken kommen aus der Saat. Der Computer gärtnert gut:
+Schnecken zuerst, dann was heute Nacht welken würde, ernten, durstige
+giessen, säen, solange es noch reif wird. Zwei solche Gärtnerinnen füllen
+den Korb (fast) immer; wer nie erntet, nie. Ein Zug ist «P4» (säen in Beet
+4), «G4» (giessen), «E4» (ernten) oder «S4» (Schnecke weg) – immer das, was
+das Beet gerade braucht. Bilanz: `garten.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3935,7 +3967,8 @@ kommt dran, wer welche Weiche stellt, eine Weiche zählt, wie sie steht, wenn
 die Lok sie erreicht, gute Partnerinnen bringen jede Lok ans Ziel, das Ende
 als Zug; bei der Raumschiff-Crew: der Flugplan, wer steuert und wer den
 Schild hat, der Schild lädt, eine gute Crew kommt ohne Treffer an, das Ende
-als Zug – die neueren
+als Zug; beim Gemüsegarten: was ein Tipp tut, die Nacht (wachsen, welken),
+Schnecken, gute und schlechte Gärtnerinnen – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,

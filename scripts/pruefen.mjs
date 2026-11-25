@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff", "garten"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2281,6 +2281,45 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
       && gemischt.ende === "g" && gemischt.stand.herzen === ende.stand.herzen && gemischt.stand.sterne === ende.stand.sterne);
     const grade = [0, 1, 2, 4, 9].map((nr) => RSC.fuerPruefung.gradVon(RSC.neuePartie(null, { nr }).saat, null));
     pruefe(`Raumschiff-Crew: Zu zweit wird der Flug mit jeder zweiten Partie länger (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
+  }
+
+  // Gemüsegarten (garten.js, Zug um Zug): was ein Tipp tut, die Nacht,
+  // Schnecken, gute und schlechte Gärtnerinnen.
+  const GG = angemeldet.garten;
+  if (GG?.fuerPruefung) {
+    const { planVon, partie } = GG.fuerPruefung;
+    const lage = (zuege, beginnt = "a", stufe = "einfach", saat = 42) => GG.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const l0 = lage([]);
+    pruefe("Gemüsegarten: Abwechselnd ein Zug, dann die Nacht; ein Tipp tut, was das Beet braucht (leer: säen, wächst: giessen)",
+      l0.dran === "a" && GG.darf(l0, "P4", "a") && !GG.darf(l0, "G4", "a") && !GG.darf(l0, "P4", "b") && !GG.darf(l0, "E4", "a") && !GG.darf(l0, "P9", "a")
+      && lage(["P4"]).dran === "b" && GG.darf(lage(["P4"]), "G4", "b") && !GG.darf(lage(["P4"]), "P4", "b")
+      && lage(["P4", "P0"]).dran === "a" && lage(["P4", "P0"]).tag === 1 && lage(["P4", "P0"], "b").dran === "b" && lage(["G4"]).kaputt === true);
+    let saat = 1;
+    while (planVon(saat, "leicht").regen.slice(0, 3).some(Boolean)) saat += 1;
+    const folge = ["P0", "P1", "G0", "P2", "G0", "G2", "E0"];
+    const nach = (n) => lage(folge.slice(0, n), "a", "leicht", saat);
+    pruefe(`Gemüsegarten: In der Nacht wächst, was Wasser hat; zwei Nächte ohne Wasser, und es welkt; reif wird geerntet (Saat ${saat})`,
+      nach(2).beete[0].stufe === 2 && nach(4).beete[0].stufe === 3 && nach(4).beete[1].stufe === 2 && nach(4).beete[1].durst === 1
+      && nach(6).beete[0].stufe === 4 && nach(6).beete[1].stufe === 0 && nach(6).nacht.gewelkt.includes(1) && nach(7).korb === 1 && nach(7).beete[0].stufe === 0);
+    let gefressen = 0;
+    let weggetragen = 0;
+    for (let s = 1; s <= 10; s += 1) {
+      const schlecht = partie(s * 131, "schwer", { gut: false });
+      for (let n = 1; n <= schlecht.zuege.length; n += 1) if (lage(schlecht.zuege.slice(0, n), "a", "schwer", s * 131).nacht?.gefressen?.length) gefressen += 1;
+      weggetragen += partie(s * 131, "schwer").zuege.filter((z) => z[0] === "S").length;
+    }
+    pruefe(`Gemüsegarten: Ab «Einfach» kommen Schnecken – liegen gelassen, fressen sie (${gefressen}), gute Gärtnerinnen tragen sie weg (${weggetragen})`,
+      gefressen > 0 && weggetragen > 0 && planVon(5, "leicht").schnecken.length === 0 && planVon(5, "schwer").schnecken.length === 4);
+    let gut = 0;
+    let schlecht = 0;
+    for (let s = 1; s <= 30; s += 1) {
+      const stufe = ["leicht", "einfach", "mittel"][s % 3];
+      if (partie(s * 7919, stufe, { beginnt: s % 2 ? "a" : "b" }).lage.ende === "g") gut += 1;
+      if (partie(s * 7919, stufe, { gut: false }).lage.ende === "v") schlecht += 1;
+    }
+    pruefe(`Gemüsegarten: Gute Gärtnerinnen füllen den Korb fast immer (${gut} von 30), wer nie erntet, nie (${schlecht} von 30)`, gut >= 28 && schlecht === 30);
+    const grade = [0, 1, 2, 4, 9].map((nr) => GG.fuerPruefung.gradVon(GG.neuePartie(null, { nr }).saat, null));
+    pruefe(`Gemüsegarten: Zu zweit wird es mit jeder zweiten Partie mehr Gemüse (Grad ${grade.join(",")})`, grade.join(",") === "0,0,1,2,3");
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

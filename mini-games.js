@@ -333,6 +333,7 @@
     { id: "kanu", seite: "kanu", titel: "Kanu zu zweit" },
     { id: "weichensteller", seite: "weichensteller", titel: "Weichensteller" },
     { id: "raumschiff", seite: "raumschiff", titel: "Raumschiff-Crew" },
+    { id: "garten", seite: "garten", titel: "Gemüsegarten" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4511,6 +4512,11 @@
       schiff.append(el("span", "ar-rs-fenster ist-a"), el("span", "ar-rs-fenster ist-b"));
       all.append(el("span", "ar-rs-stein ist-1"), el("span", "ar-rs-stein ist-2"), el("span", "ar-rs-stern", "\u2605"), schiff);
       bild.append(all);
+    },
+    garten(bild) {
+      const garten = el("span", "ar-gg-garten");
+      ["\u{1F955}", "\u{1F331}", "\u{1F345}", "\u{1F33F}"].forEach((z) => garten.append(el("span", "ar-gg-beet", z)));
+      bild.append(garten);
     },
   };
 
