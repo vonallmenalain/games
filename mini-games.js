@@ -322,6 +322,7 @@
     { id: "wackelturm", seite: "wackelturm", titel: "Wackelturm zu zweit" },
     { id: "zwillinge", seite: "zwillinge", titel: "Zwillings-Labyrinth" },
     { id: "bohnen", seite: "bohnen", titel: "Bohnen säen" },
+    { id: "wolf", seite: "wolf", titel: "Wolf und Schafe" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4418,6 +4419,14 @@
         brett.append(m);
       });
       bild.append(brett);
+    },
+    wolf(bild) {
+      const wiese = el("span", "ar-ws-wiese");
+      ["", "w", "", "", "", "", "", "s", "", "", "", "", "s", "", "s", ""].forEach((was, i) => {
+        const f = el("span", `ar-ws-feld${(Math.floor(i / 4) + i) % 2 ? " ist-dunkel" : ""}`, was === "w" ? "\u{1F43A}" : was === "s" ? "\u{1F411}" : "");
+        wiese.append(f);
+      });
+      bild.append(wiese);
     },
   };
 

@@ -1732,6 +1732,57 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Bohnen säen: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 600);
   }
 
+  // Wolf und Schafe: wer welche Rolle hat, wie die Figuren ziehen, wann es
+  // aus ist – und ganze Partien Computer gegen Computer.
+  const WS = angemeldet.wolf;
+  if (WS?.fuerPruefung) {
+    const { zuegeVon, SCHAFE_START, WOLF_START } = WS.fuerPruefung;
+    const lage = (zuege, beginnt = "a") => WS.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const l0 = lage([]);
+    const l0b = lage([], "b");
+    pruefe("Wolf und Schafe: Wer beginnt, hat die Schafe und zieht zuerst; das Gegenüber ist der Wolf",
+      l0.rollen.schafe === "a" && l0.rollen.wolf === "b" && l0.dran === "a" && l0.art === "schafe"
+      && l0b.rollen.schafe === "b" && l0b.dran === "b" && l0.schafe.join(",") === SCHAFE_START.join(",") && l0.wolf === WOLF_START);
+    pruefe("Wolf und Schafe: Ein Schaf geht einen Schritt schräg nach vorn – nicht gerade, nicht zurück, nicht weiter",
+      WS.darf(l0, "56-49", "a") && WS.darf(l0, "58-51", "a") && WS.darf(l0, "58-49", "a") && !WS.darf(l0, "56-48", "a")
+      && !WS.darf(l0, "56-42", "a") && !WS.darf(lage(["58-49", "3-10"]), "49-58", "a"));
+    const l1 = lage(["58-49"]);
+    pruefe("Wolf und Schafe: Der Wolf geht schräg in jede Richtung, nur der Wolf, nur wer dran ist",
+      l1.dran === "b" && WS.darf(l1, "3-10", "b") && WS.darf(l1, "3-12", "b") && !WS.darf(l1, "3-11", "b") && !WS.darf(l1, "56-47", "b")
+      && !WS.darf(l1, "3-10", "a") && WS.darf(lage(["58-49", "3-10"]), "60-51", "a") && WS.darf(lage(["58-49", "3-10", "60-51"]), "10-3", "b"));
+    pruefe("Wolf und Schafe: Kein Feld doppelt, kein heller Platz, keine schiefe Schreibweise",
+      !WS.darf(lage(["58-49", "3-10"]), "56-49", "a") && WS.darf(lage(["58-49", "3-10"]), "60-51", "a") && !WS.darf(l0, "056-49", "a") && !WS.darf(l0, "56-49x", "a")
+      && zuegeVon(l0, "schafe").every(([, b]) => (Math.floor(b / 8) + (b % 8)) % 2 === 1) && lage(["56-48"]).dran === null);
+    // Ganze Partien: die Schafe «Schwer» sperren den Wolf ein; zufällige
+    // Schafe lassen ihn durch.
+    let legal = true;
+    let langsam = 0;
+    let eingesperrt = 0;
+    let durchgebrochen = 0;
+    const PAARE = [["schwer", "mittel"], ["schwer", "einfach"], ["leicht", "mittel"], ["leicht", "einfach"], ["einfach", "leicht"], ["mittel", "leicht"], ["einfach", "einfach"], ["leicht", "leicht"]];
+    for (let p = 0; p < PAARE.length && legal; p += 1) {
+      const [schafe, wolf] = PAARE[p];
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      for (let l = lage(zuege, beginnt); !l.ende; l = lage(zuege, beginnt)) {
+        if (zuege.length > 200) { legal = false; break; }
+        const art = l.rollen.schafe === l.dran ? "schafe" : "wolf";
+        const t = performance.now();
+        const z = WS.computer(l, l.dran, art === "schafe" ? schafe : wolf);
+        langsam = Math.max(langsam, performance.now() - t);
+        if (!WS.darf(l, z, l.dran)) { legal = false; break; }
+        zuege.push(z);
+      }
+      const l = lage(zuege, beginnt);
+      if (p < 2 && l.sieger === "schafe" && l.ende === l.rollen.schafe) eingesperrt += 1;
+      if (p >= 2 && p < 4 && l.sieger === "wolf" && l.durch && l.ende === l.rollen.wolf) durchgebrochen += 1;
+    }
+    pruefe("Wolf und Schafe: Jede Stufe zieht als Schafe und als Wolf nur, was erlaubt ist, bis die Partie aus ist", legal);
+    pruefe(`Wolf und Schafe: Die Schafe auf «Schwer» sperren den Wolf ein (${eingesperrt} von 2)`, eingesperrt === 2);
+    pruefe(`Wolf und Schafe: Zufällige Schafe lassen den Wolf durch – er gewinnt (${durchgebrochen} von 2)`, durchgebrochen === 2);
+    pruefe(`Wolf und Schafe: «Schwer» rechnet schnell genug (längstens ${langsam.toFixed(0)} ms)`, langsam < 1500);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };
