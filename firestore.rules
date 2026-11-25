@@ -128,14 +128,14 @@ service cloud.firestore {
         // Bestenliste, darum nicht in miniSpiele. Fehlt das Feld, steht keines
         // dort.
         && (!("zweiSpieler" in d) || (d.zweiSpieler is list
-          && d.zweiSpieler.size() <= 20
+          && d.zweiSpieler.size() <= 40
           && d.zweiSpieler.hasOnly(zweiSpielerSpiele())))
         && d.updatedAtMs is int;
     }
 
     // Die Spiele zu zweit, die es gibt (mini-games.js, ZWEI_SPIELER).
     function zweiSpielerSpiele() {
-      return ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge", "bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter"];
+      return ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge", "bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister"];
     }
 
     match /config/miniGames {
@@ -450,7 +450,7 @@ service cloud.firestore {
         // darf mit einem Spiel zu zweit auch ganz ohne Spiel mit Bestenliste
         // sein. Fehlen beide Felder, ist keines dabei.
         && d.get("viererreihe", false) is bool
-        && d.get("zweiSpieler", []) is list && d.get("zweiSpieler", []).size() <= 20
+        && d.get("zweiSpieler", []) is list && d.get("zweiSpieler", []).size() <= 40
         && d.get("zweiSpieler", []).hasOnly(zweiSpielerSpiele())
         && d.spiele is list
         && (d.spiele.size() > 0 || d.get("viererreihe", false) == true || d.get("zweiSpieler", []).size() > 0)

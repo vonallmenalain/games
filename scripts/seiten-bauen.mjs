@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-7";
+export const FASSUNG = "2026-11-25-8";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -688,6 +688,11 @@ export const ZWEI = [
     seite: "leiter", titel: "Leiterspiel", js: ["leiter.js"],
     text: "Leiterspiel: Mit zwei Würfeln würfeln und einen nehmen – Leitern führen hinauf, Rutschen hinunter. Wer zuerst auf Feld 50 ist, gewinnt. Gegen den Computer oder live zu zweit.",
     kurz: "Würfeln, wählen, klettern – und hoffentlich nicht rutschen.",
+  },
+  {
+    seite: "baumeister", titel: "Baumeister", js: ["baumeister.js"],
+    text: "Baumeister: Zusammen! Eine merkt sich den Bauplan, die andere fragt Feld für Feld und baut nach. Jede Runde wird getauscht. Mit dem Computer als Partner oder live zu zweit.",
+    kurz: "Merken, fragen, bauen – zusammen.",
   },
 ];
 

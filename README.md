@@ -52,6 +52,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     kippen.html           Steine kippen, erzeugt
     rechnen.html          Rechenduell, erzeugt
     leiter.html           Leiterspiel, erzeugt
+    baumeister.html       Baumeister, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -121,6 +122,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           ihrer, das Seil, ein Computer, der mitrechnet
     leiter.js             Leiterspiel: drei Bretter, zwei Würfel zur Wahl,
                           Leitern und Rutschen, ein Computer
+    baumeister.js         Baumeister: Pläne aus der Saat, merken, fragen,
+                          antworten, setzen, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2943,6 +2946,7 @@ Gerät:
 | Steine kippen | `/kippen` | `kippen.js` |
 | Rechenduell | `/rechnen` | `rechnen.js` |
 | Leiterspiel | `/leiter` | `leiter.js` |
+| Baumeister | `/baumeister` | `baumeister.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3623,6 +3627,37 @@ aus Saat und Nummer des Wurfs – beide Geräte sehen dasselbe. Ein Zug ist «W�
 
 Eine Partie dauert meist 13 bis 22 Würfe. Bilanz: `leiter.bilanz`.
 
+**Baumeister** (`baumeister.js`, miteinander, vier Runden): In jeder Runde
+ist eine die Planerin, die andere die Baumeisterin – jede Runde wird
+getauscht (wer beginnt, plant zuerst).
+
+1. Merken: Die Planerin sieht den Bauplan – blaues Rasterpapier mit ein paar
+   bunten Klötzen – und merkt ihn sich. «Gemerkt!» versteckt ihn.
+2. Bauen: Die Baumeisterin tippt auf ein Feld ihrer Holzplatte und fragt so:
+   «Was kommt hierhin?» Die Planerin antwortet aus dem Kopf (Rot, Gelb,
+   Blau, Grün oder «nichts»), die Baumeisterin liest oder hört die Antwort
+   («Lena sagt: Rot! Setz den Klotz.») und setzt den Klotz selbst. Feld für
+   Feld, in jeder Reihenfolge, auch nochmal.
+3. «Fertig!»: Plan und Bau stehen nebeneinander, mit ✓ und ✕ je Feld. Stimmt
+   alles, ist die Runde geschafft.
+
+Drei von vier Runden geschafft – die Partie ist geschafft. Oben stehen die
+Runden (✓, ✕) und die eigene Rolle.
+
+| Stufe (oder zu zweit: die Partie) | Plan |
+|---|---|
+| Ganz leicht | 3 × 3, drei Klötze, zwei Farben |
+| Einfach (zu zweit Partie 1–2) | 3 × 3, vier Klötze, drei Farben |
+| Mittel (Partie 3–4) | 3 × 3, sechs Klötze |
+| Schwer (ab Partie 5) | 4 × 4, sieben Klötze, vier Farben |
+
+Zu zweit steckt der Grad in der Saat (`neuePartie`), der Plan kommt aus Saat
+und Runde. Der Computer ist ein verlässlicher Partner: Als Planerin merkt er
+sich alles, als Baumeisterin fragt er Feld für Feld und setzt, was man ihm
+sagt – die Stufe macht nur den Plan grösser. Ein Zug ist «M» (gemerkt), «Q5»
+(Feld fragen), «A2» (Antwort), «B2» (Klotz setzen) oder «X» (fertig).
+Bilanz: `baumeister.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3750,7 +3785,10 @@ verschiedene Antworten, falsch sperrt nur die Antwort, richtig zieht, jede
 auf ihrer Stufe, fünf Schritte gewinnen, der Computer beginnt seine Zeit
 nicht neu, wenn die andere antwortet; beim Leiterspiel: drei Bretter mit je
 fünf Leitern und Rutschen, Würfel aus der Saat, erst würfeln, dann wählen,
-die Sechs, das Ziel, kluges Wählen gewinnt meistens – die neueren
+die Sechs, das Ziel, kluges Wählen gewinnt meistens; beim Baumeister: die
+Pläne je Grad, merken – fragen – antworten – setzen – fertig, die Rollen im
+Wechsel, drei von vier Runden, der Computer als verlässlicher Partner, zu
+zweit mit der Zeit schwerer – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,

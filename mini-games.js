@@ -328,6 +328,7 @@
     { id: "kippen", seite: "kippen", titel: "Steine kippen" },
     { id: "rechnen", seite: "rechnen", titel: "Rechenduell" },
     { id: "leiter", seite: "leiter", titel: "Leiterspiel" },
+    { id: "baumeister", seite: "baumeister", titel: "Baumeister" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4471,6 +4472,15 @@
       for (let i = 0; i < 15; i += 1) feld.append(el("span", `ar-lt-zelle${(i + Math.floor(i / 5)) % 2 ? " ist-dunkel" : ""}`));
       feld.append(el("span", "ar-lt-leiter"), el("span", "ar-lt-rutsche"), el("span", "ar-lt-figur"));
       bild.append(feld, el("span", "ar-lt-wuerfel", "\u2684"));
+    },
+    baumeister(bild) {
+      const plan = el("span", "ar-bm-plan");
+      const bau = el("span", "ar-bm-bau");
+      [1, 0, 3, 0, 2, 0, 4, 0, 1].forEach((f, i) => {
+        plan.append(el("span", `ar-bm-feld ist-f${f}`));
+        bau.append(el("span", `ar-bm-feld ist-f${i < 5 ? f : 0}`));
+      });
+      bild.append(plan, bau, el("span", "ar-bm-blase", "?"));
     },
   };
 
