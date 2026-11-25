@@ -45,6 +45,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     malen.html            Malen und Raten, erzeugt
     wackelturm.html       Wackelturm zu zweit, erzeugt
     zwillinge.html        Zwillings-Labyrinth, erzeugt
+    bohnen.html           Bohnen säen, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -100,6 +101,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           kippt, ein Computer als Partner
     zwillinge.js          Zwillings-Labyrinth: vier Labyrinthe, Türen und
                           Platten, ein Computer als Zwilling
+    bohnen.js             Bohnen säen: Mulden, Töpfe, säen Bohne für Bohne,
+                          ein Computer in vier Stufen
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2915,6 +2918,7 @@ Gerät:
 | Malen und Raten | `/malen` | `malen.js` |
 | Wackelturm zu zweit | `/wackelturm` | `wackelturm.js` |
 | Zwillings-Labyrinth | `/zwillinge` | `zwillinge.js` |
+| Bohnen säen | `/bohnen` | `bohnen.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3223,7 +3227,8 @@ Lautsprecher gelb. Von selbst liest nichts vor. Lautsprecher gibt es:
 - beim Satz über dem Brett – er liest den Satz und, wo das Spiel es sagt
   (`vorlesen(bild)`), den Stand dazu: die Punkte bei Käsekästchen, Paare
   finden und Blitzpaar, die Klötze beim Wackelturm, wer die Karte hat und
-  die Schritte bei der Schatzkarte, die Schritte im Zwillings-Labyrinth, bei
+  die Schritte bei der Schatzkarte, die Schritte im Zwillings-Labyrinth, die
+  Bohnen in den Töpfen bei Bohnen säen, bei
   Malen und Raten die Runde, was gefunden ist und – wer rät – die Antworten
   zur Wahl;
 - im Spiel bei den Hinweisen: wie man die Schiffe versteckt, der Hinweis
@@ -3410,6 +3415,36 @@ paar Millisekunden) und macht nur einen Schritt, der ihn verkürzt – sonst
 wartet er, bis man selbst geht; so verlässt er nie zu früh eine Platte.
 Bilanz: `zwillinge.bilanz`.
 
+**Bohnen säen** (`bohnen.js`, gegeneinander): ein Holzbrett mit zwei Reihen
+zu sechs Mulden, in jeder vier Bohnen, und an den Enden je ein Topf. Die
+eigene Reihe liegt unten und der eigene Topf rechts – auf dem Gerät des
+Gegenübers ist das Brett gedreht. Wer dran ist, tippt auf eine eigene Mulde:
+Alle Bohnen daraus wandern einzeln in die nächsten Mulden, gegen den
+Uhrzeiger (nach rechts, in den eigenen Topf, oben weiter nach links); den
+Topf des Gegenübers überspringt man. Landet die letzte Bohne im eigenen
+Topf, darf man nochmal. Landet sie in einer eigenen leeren Mulde, und
+gegenüber liegen Bohnen, raubt man beide Häufchen in den eigenen Topf. Ist
+eine Reihe leer, ist die Partie aus, und was noch liegt, kommt in den Topf
+dessen, dem die Mulde gehört. Wer mehr Bohnen im Topf hat, gewinnt; 24 zu 24
+ist unentschieden.
+
+Gesät wird sichtbar, Bohne für Bohne (bis 220 ms je Bohne, ein Zug höchstens
+etwa zwei Sekunden), mit einem leisen Plopp (`zwei.js`, Ton «bohne»); der
+Computer wartet, bis das Säen zu sehen war. Unter jeder Mulde steht, wie
+viele Bohnen darin liegen – zum Zählen. Die Bohnen liegen in einer Spirale,
+vier Sorten. Ein Zug ist die Nummer der Mulde, die man leert (0 bis 5 für a,
+7 bis 12 für b; 6 und 13 sind die Töpfe).
+
+| Stufe | Der Computer |
+|---|---|
+| Ganz leicht | nimmt irgendeine Mulde |
+| Einfach | meist eine, deren letzte Bohne im Topf landet, sonst oft die, die am meisten bringt |
+| Mittel | schaut einen Zug des Gegenübers voraus, ab und zu nicht |
+| Schwer | rechnet acht Züge voraus (Minimax mit Alpha-Beta), schlägt «Mittel» fast immer |
+
+Das Brett ist breit und niedrig: so breit wie die Seite, auf dem Tablet quer
+bis 1000 px (Mulden gut 100 px). Bilanz: `bohnen.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3516,7 +3551,10 @@ bei Wackelturm: wann ein Turm hält, Zielhöhe, umgekippt, und zwei Computer
 schaffen auch den schwersten; beim Zwillings-Labyrinth: Türen, Platten,
 jedes Labyrinth lösbar und keines allein, die Schritte, zwei Computer
 kommen überall ans Ziel; je Grad zwölf erzeugte Labyrinthe, dieselbe Saat
-dasselbe Labyrinth, jede Partie ein anderes, alle zwei Partien schwerer),
+dasselbe Labyrinth, jede Partie ein anderes, alle zwei Partien schwerer;
+bei Bohnen säen: säen, den fremden Topf überspringen, nochmal, rauben, das
+Ende mit dem Rest, immer 48 Bohnen, 24 zu 24 unentschieden, jede Stufe zieht
+nur, was erlaubt ist, «Schwer» schlägt «Mittel» und rechnet schnell),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

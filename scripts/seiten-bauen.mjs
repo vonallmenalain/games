@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-24-3";
+export const FASSUNG = "2026-11-25-1";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -653,6 +653,11 @@ export const ZWEI = [
     seite: "zwillinge", titel: "Zwillings-Labyrinth", js: ["zwillinge.js"],
     text: "Zwillings-Labyrinth: Zwei Figuren, ein Labyrinth – Türen gehen nur auf, wenn die andere auf der Platte steht. Zusammen zum Ziel, mit dem Computer als Zwilling oder live zu zweit.",
     kurz: "Zusammen durchs Labyrinth – haltet euch die Türen auf.",
+  },
+  {
+    seite: "bohnen", titel: "Bohnen säen", js: ["bohnen.js"],
+    text: "Bohnen säen: Alle Bohnen aus einer Mulde nehmen und einzeln weiterlegen – landet die letzte im eigenen Topf, darfst du nochmal. Gegen den Computer oder live zu zweit.",
+    kurz: "Bohnen verteilen, nochmal ziehen, mehr im Topf haben.",
   },
 ];
 

@@ -135,7 +135,7 @@ service cloud.firestore {
 
     // Die Spiele zu zweit, die es gibt (mini-games.js, ZWEI_SPIELER).
     function zweiSpielerSpiele() {
-      return ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge"];
+      return ["viererreihe", "tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge", "bohnen"];
     }
 
     match /config/miniGames {

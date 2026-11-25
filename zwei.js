@@ -318,6 +318,9 @@
       note(1800, 0, 0.03, { typ: "square", laut: 0.025 });
     } else if (art === "tipp") {
       note(660, 0, 0.07, { typ: "triangle", laut: 0.12 });
+    } else if (art === "bohne") {
+      // Eine Bohne fällt in eine Mulde: ein leises, hölzernes Plopp.
+      note(520 + Math.random() * 120, 0, 0.05, { typ: "sine", laut: 0.07 });
     } else if (art === "treffer") {
       note(196, 0, 0.18, { typ: "sawtooth", laut: 0.08 });
       note(130.8, 0.05, 0.3, { typ: "sine", laut: 0.2 });
