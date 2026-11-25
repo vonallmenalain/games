@@ -47,6 +47,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     zwillinge.html        Zwillings-Labyrinth, erzeugt
     bohnen.html           Bohnen säen, erzeugt
     wolf.html             Wolf und Schafe, erzeugt
+    ratetier.html         Rate-Tier, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -106,6 +107,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           ein Computer in vier Stufen
     wolf.js               Wolf und Schafe: die Wiese, Rollen im Wechsel,
                           ein Computer als Schafe und als Wolf
+    ratetier.js           Rate-Tier: 16 Tiere, acht Fragen mit Bild, die
+                          geheimen Tiere aus der Saat, ein Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2923,6 +2926,7 @@ Gerät:
 | Zwillings-Labyrinth | `/zwillinge` | `zwillinge.js` |
 | Bohnen säen | `/bohnen` | `bohnen.js` |
 | Wolf und Schafe | `/wolf` | `wolf.js` |
+| Rate-Tier | `/ratetier` | `ratetier.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3481,6 +3485,37 @@ wie vielen Schritten – und sonst, wie viele Felder ihm bleiben. Die Schafe auf
 spielende Schafe gewinnen gegen den Wolf auf «Ganz leicht» gut die Hälfte.
 Bilanz: `wolf.bilanz`.
 
+**Rate-Tier** (`ratetier.js`, gegeneinander): Jede bekommt geheim eines von
+16 Tieren – aus der Saat der Partie, die beiden verschieden; man sieht nur
+das eigene («Dein Tier»). Wer dran ist, fragt etwas über das Tier der
+anderen – acht Fragen mit Bild: Kann es fliegen? ✈️, Hat es vier Beine? 🐾,
+Hat es Fell? 🧸, Lebt es im Wasser? 🌊, Ist es grösser als du? 📏, Hat es
+Streifen?, Legt es Eier? 🥚, Frisst es andere Tiere? 🍖 – oder tippt ein
+Tier an und rät («Ist es der Elefant? Raten!»; «Doch lieber fragen» geht
+zurück). Die Antwort kommt sofort, steht am Knopf (Ja/Nein), und die Tiere,
+die nicht mehr passen, werden blass und durchgestrichen. Falsch geraten
+heisst nur: Dieses Tier war es nicht. Wer das Tier der anderen zuerst errät,
+gewinnt.
+
+Die 16 Tiere (Hund, Hase, Kuh, Tiger, Löwe, Zebra, Elefant, Frosch, Delfin,
+Fisch, Pinguin, Eule, Papagei, Biene, Schlange, Krokodil) unterscheiden sich
+in den acht Fragen alle, und die Antworten sind die, die ein Kind erwartet
+(der Pinguin kann nicht fliegen). Neben dem eigenen Tier steht, was die
+andere schon gefragt hat, und wie viele Tiere ihr noch bleiben. Der
+Lautsprecher liest das eigene Tier und die noch möglichen vor. Ein Zug ist
+«F3» (Frage 3) oder «T7» (Tier 7 geraten).
+
+| Stufe | Der Computer |
+|---|---|
+| Ganz leicht | fragt irgendetwas, rät manchmal einfach so |
+| Einfach | fragt meist etwas, das weiterhilft |
+| Mittel | fragt, was die übrigen Tiere am besten halbiert |
+| Schwer | ebenso – und rät bei zweien gleich |
+
+Er wartet nach der eigenen Frage gut zwei Sekunden, damit man die Antwort
+lesen kann. Eine Partie dauert meist acht bis neun Züge. Bilanz:
+`ratetier.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3594,7 +3629,10 @@ nur, was erlaubt ist, «Schwer» schlägt «Mittel» und rechnet schnell; bei
 Wolf und Schafe: wer beginnt, hat die Schafe, wie Schafe und Wolf ziehen,
 kein Feld doppelt, die Schafe auf «Schwer» sperren den Wolf ein, zufällige
 Schafe lassen ihn durch, jede Stufe zieht in beiden Rollen nur, was erlaubt
-ist),
+ist; bei Rate-Tier: 16 verschiedene Tiere, jede Frage teilt, die geheimen
+Tiere aus der Saat und verschieden, fragen, ausschliessen, falsch und richtig
+raten, jede Stufe zieht nur, was erlaubt ist, «Schwer» schlägt «Ganz
+leicht»),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

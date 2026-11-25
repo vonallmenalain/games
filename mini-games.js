@@ -323,6 +323,7 @@
     { id: "zwillinge", seite: "zwillinge", titel: "Zwillings-Labyrinth" },
     { id: "bohnen", seite: "bohnen", titel: "Bohnen säen" },
     { id: "wolf", seite: "wolf", titel: "Wolf und Schafe" },
+    { id: "ratetier", seite: "ratetier", titel: "Rate-Tier" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4427,6 +4428,14 @@
         wiese.append(f);
       });
       bild.append(wiese);
+    },
+    ratetier(bild) {
+      const tisch = el("span", "ar-rt-tisch");
+      ["\u{1F436}", "\u{1F981}", "\u{1F427}", "\u{1F418}", "\u{1F99C}", "\u{1F438}", "\u{1F42F}", "\u{1F41D}"].forEach((t, i) => {
+        tisch.append(el("span", `ar-rt-karte${[2, 4, 7].includes(i) ? " ist-weg" : ""}`, t));
+      });
+      tisch.append(el("span", "ar-rt-frage", "?"));
+      bild.append(tisch);
     },
   };
 

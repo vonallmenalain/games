@@ -1783,6 +1783,62 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe(`Wolf und Schafe: «Schwer» rechnet schnell genug (längstens ${langsam.toFixed(0)} ms)`, langsam < 1500);
   }
 
+  // Rate-Tier: Tiere und Fragen, die geheimen Tiere aus der Saat, fragen,
+  // ausschliessen, raten – und ganze Partien Computer gegen Computer.
+  const RT = angemeldet.ratetier;
+  if (RT?.fuerPruefung) {
+    const { FRAGEN, TIERE, geheimeTiere } = RT.fuerPruefung;
+    pruefe("Rate-Tier: 16 Tiere, acht Fragen, jedes Tier mit eigener Antwort auf jede Frage, und jedes ist anders",
+      TIERE.length === 16 && FRAGEN.length === 8 && TIERE.every((t) => /^[01]{8}$/.test(t.ant) && t.bild && t.wort && ["der", "die", "das"].includes(t.art))
+      && new Set(TIERE.map((t) => t.ant)).size === 16 && new Set(TIERE.map((t) => t.wort)).size === 16);
+    pruefe("Rate-Tier: Jede Frage teilt die Tiere (es gibt Ja und Nein)",
+      FRAGEN.every((_, q) => TIERE.some((t) => t.ant[q] === "1") && TIERE.some((t) => t.ant[q] === "0")));
+    const gezogen = { a: new Set(), b: new Set() };
+    let verschieden = true;
+    for (let s = 1; s <= 3000; s += 1) { const g = geheimeTiere(s); gezogen.a.add(g.a); gezogen.b.add(g.b); if (g.a === g.b) verschieden = false; }
+    pruefe("Rate-Tier: Die geheimen Tiere kommen aus der Saat, sind verschieden, und jedes kommt vor",
+      verschieden && gezogen.a.size === 16 && gezogen.b.size === 16 && JSON.stringify(geheimeTiere(42)) === JSON.stringify(geheimeTiere(42)));
+    const saat = 4242;
+    const g = geheimeTiere(saat);
+    const lage = (zuege, beginnt = "a") => RT.lage(zuege, { roh: zuege.join("."), beginnt, saat });
+    const l0 = lage([]);
+    pruefe("Rate-Tier: Zu Beginn ist jedes Tier möglich, wer beginnt, ist dran", l0.moeglich.a.length === 16 && l0.dran === "a" && lage([], "b").dran === "b");
+    const l1 = lage(["F2"]);
+    pruefe("Rate-Tier: Eine Frage – die Antwort kommt vom Tier der anderen, was nicht passt, fällt weg, die andere ist dran",
+      l1.fragen.a[0]?.ja === (TIERE[g.b].ant[2] === "1") && l1.moeglich.a.includes(g.b) && l1.moeglich.a.every((t) => TIERE[t].ant[2] === TIERE[g.b].ant[2])
+      && l1.moeglich.a.length < 16 && l1.dran === "b" && l1.moeglich.b.length === 16);
+    const falsch = TIERE.map((_, t) => t).find((t) => t !== g.b);
+    const l2 = lage([`T${falsch}`]);
+    pruefe("Rate-Tier: Falsch geraten – das Tier fällt weg, die andere ist dran", l2.dran === "b" && !l2.ende && !l2.moeglich.a.includes(falsch) && l2.moeglich.a.length === 15);
+    const l3 = lage(["F0", "F1", `T${g.b}`]);
+    pruefe("Rate-Tier: Richtig geraten – gewonnen", l3.ende === "a" && l3.dran === null);
+    pruefe("Rate-Tier: Jede Frage nur einmal, raten nur, was noch möglich ist, nur wer dran ist",
+      RT.darf(l0, "F0", "a") && RT.darf(l0, "F7", "a") && !RT.darf(l0, "F8", "a") && !RT.darf(l0, "F0", "b") && !RT.darf(lage(["F0", "F1"]), "F0", "a")
+      && RT.darf(lage(["F0", "F1"]), "F1", "a") && !RT.darf(lage(["F0", "F1"]), `T${TIERE.findIndex((t) => t.ant[0] !== TIERE[g.b].ant[0])}`, "a")
+      && !RT.darf(l0, "F01", "a") && !RT.darf(l0, "X1", "a") && lage(["F0", "F1", "F0"]).dran === null);
+    // Ganze Partien: Computer gegen Computer auf allen Stufen, mit vielen Saaten.
+    let legal = true;
+    let laenge = 0;
+    let schwerSiegt = 0;
+    const STUFEN_RT = Object.keys(RT.stufen || {});
+    for (let p = 0; p < 200 && legal; p += 1) {
+      const [sa, sb] = p < 100 ? [STUFEN_RT[p % 4], STUFEN_RT[(p >> 2) % 4]] : ["schwer", "leicht"];
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      const la = (z) => RT.lage(z, { roh: z.join("."), beginnt, saat: 1000 + p });
+      for (let l = la(zuege); !l.ende; l = la(zuege)) {
+        if (zuege.length > 48) { legal = false; break; }
+        const antwort = RT.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        if (!RT.darf(l, antwort?.zug, l.dran)) { legal = false; break; }
+        zuege.push(antwort.zug);
+      }
+      laenge = Math.max(laenge, zuege.length);
+      if (p >= 100 && la(zuege).ende === "a") schwerSiegt += 1;
+    }
+    pruefe(`Rate-Tier: Jede Stufe fragt und rät nur, was erlaubt ist, und jede Partie endet (längstens ${laenge} Züge)`, legal && laenge <= 48);
+    pruefe(`Rate-Tier: «Schwer» schlägt «Ganz leicht» meistens (${schwerSiegt} von 100)`, schwerSiegt >= 70);
+  }
+
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
   // in freie Spalten, nimmt auf «schwer» jeden Sieg und hält jede Drohung auf.
   const kasten = { window: {} };

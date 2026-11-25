@@ -264,6 +264,9 @@ const WS_SIEG = (() => {
   }
   return lage(zuege).ende === "a" ? folge : null;
 })();
+// Rate-Tier: die Regeln aus ratetier.js – die geheimen Tiere kommen aus der
+// Saat der Partie.
+const RT = (() => { try { return spielAusDatei("ratetier.js", "ratetier"); } catch { return null; } })();
 // Schach: ein Feld wie «e2» als Nummer (0 = a8, oben links).
 const scFeld = (t) => "abcdefgh".indexOf(t[0]) + (8 - Number(t[1])) * 8;
 // Ein Zug als Tipps: von (beim Ziehen), nach, und was genommen wird.
@@ -755,6 +758,40 @@ const SPIELWEISE = {
     nachSieg: async (s, pruefe) => {
       // Lena hatte den Wolf: Bei ihr ist das Brett gedreht.
       pruefe(await s.locator(".zw-ws.ist-gedreht").count() === 1, "Wolf und Schafe: Bei Lena (Wolf) ist das Brett gedreht");
+    },
+  },
+  ratetier: {
+    brett: ".zw-rt-tiere",
+    // Eine Frage antippen – oder ein Tier und dann «Raten!».
+    tippe: async (s, z) => {
+      if (z[0] === "F") { await s.locator(`.zw-rt-frage[data-frage="${z.slice(1)}"]`).click(); return; }
+      const karte = s.locator(`.zw-rt-karte[data-tier="${z.slice(1)}"]`);
+      if (!(await karte.evaluate((k) => k.classList.contains("ist-gewaehlt")))) await karte.click();
+      await s.locator(".zw-rt-raten").click();
+    },
+    kannTippen: (s, z) => (z[0] === "F"
+      ? s.locator(`.zw-rt-frage[data-frage="${z.slice(1)}"]:not([disabled])`).count().then((n) => n === 1)
+      : s.locator(`.zw-rt-karte[data-tier="${z.slice(1)}"]:not([disabled])`).count().then((n) => n === 1)),
+    liegt: (s) => s.locator(".zw-rt").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: wie er selbst auf «Schwer».
+    waehle: (lage) => (lage && lage.dran === "a" && !lage.ende && RT ? RT.computer(lage, "a", "schwer").zug : null),
+    // Papa fragt, Lena fragt, Papa rät Lenas Tier (aus der Saat der Partie).
+    sieg: async ({ papa, lena, raum }) => {
+      const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+      const g = RT.fuerPruefung.geheimeTiere(saat);
+      return [{ g: papa, zug: "F1" }, { g: lena, zug: "F2" }, { g: papa, zug: `T${g.b}` }];
+    },
+    siegZeichen: [".zw-rt-karte.ist-richtig", 1],
+    remis: null,
+    trenner: ".",
+    // Wer beginnt, ist im Vorteil, und das Glück entscheidet mit: Auch gut
+    // gefragt gewinnt man gegen «Schwer» oft.
+    schwerSpielen: false,
+    nachSieg: async (s, pruefe) => {
+      const frage = await s.evaluate(() => [...document.querySelectorAll(".zw-rt-chip")].length);
+      pruefe(frage === 1, `Rate-Tier: Bei Lena steht, was Papa über ihr Tier gefragt hat (${frage})`);
+      const weg = await s.locator(".zw-rt-karte.ist-weg").count();
+      pruefe(weg > 0 && weg < 16, `Rate-Tier: Bei Lena sind nach ihrer Frage Tiere ausgeschlossen (${weg})`);
     },
   },
 };
