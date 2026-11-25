@@ -238,7 +238,7 @@
     dartWheel: { fassung: "z1" },
     tileMemory: { fassung: "z1" },
     fishPond: { fassung: "z1" },
-    numberLine: { fassung: "z1" },
+    numberLine: { fassung: "z2" },
     eyeMeasure: { fassung: "z3" },
     boilerRoom: { fassung: "z1" },
     craneHarbor: { fassung: "z2" },

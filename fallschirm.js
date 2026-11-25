@@ -1878,7 +1878,7 @@
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
-    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+    const dpr = shellApi.bildpunkte(cssW, cssH, 2);
     // Auf dem Handy reicht die Leinwand unter die Knöpfe oben (game-shell.js,
     // frei). Gemalt wird dort auch – aber die Anzeige rückt darunter.
     const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);

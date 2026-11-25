@@ -232,6 +232,18 @@ try {
   pruefe(await bis(() => leitung.seite.locator(".lv-zeile").count().then((n) => n === 3)), "Die Spiele des Turniers stehen nicht im Programm");
   const programmSpiele = await leitung.seite.locator(".lv-spiel-wahl").evaluateAll((s) => s.map((x) => x.value));
   pruefe(JSON.stringify(programmSpiele) === JSON.stringify(["gravityRun", "vineSwing", "towerStack"]), `Das Programm ist nicht das des Turniers (${programmSpiele})`);
+  // Die Wahl der Spiele: in Gruppen nach Tier, Tier 1 zuoberst, und in jeder
+  // Gruppe nach dem Alphabet – nicht in der Reihenfolge, in der die Spiele
+  // dazukamen.
+  const wahlGruppen = await leitung.seite.locator(".lv-spiel-wahl").first().evaluate((s) => [...s.querySelectorAll("optgroup")].map((g) => ({
+    tier: g.label, titel: [...g.querySelectorAll("option")].map((o) => o.textContent),
+  })));
+  pruefe(wahlGruppen[0]?.tier === "Tier 1", `Die Wahl der Spiele beginnt nicht mit Tier 1 (${wahlGruppen.map((g) => g.tier).join(", ")})`);
+  pruefe(wahlGruppen.length > 0 && wahlGruppen.every((g) => JSON.stringify(g.titel) === JSON.stringify([...g.titel].sort((a, b) => a.localeCompare(b, "de")))),
+    "In der Wahl der Spiele stehen die Spiele eines Tiers nicht nach dem Alphabet");
+  const wahlAnzahl = wahlGruppen.reduce((n, g) => n + g.titel.length, 0);
+  const spieleAnzahl = await leitung.seite.evaluate(() => window.LernappMini.SPIELE.length);
+  pruefe(wahlAnzahl === spieleAnzahl, `In der Wahl der Spiele stehen ${wahlAnzahl} statt ${spieleAnzahl} Spiele`);
   pruefe((await leitung.seite.inputValue("#lv-abend-name")).startsWith("Herbstcup"), "Der Name des Abends kommt nicht vom Turnier");
   pruefe(await leitung.seite.locator("#lv-gewicht").isVisible(), "Wie der Abend im Turnier zählt, lässt sich nicht wählen");
   await leitung.seite.fill("#lv-abend-name", "Prüfabend");
@@ -351,8 +363,28 @@ try {
     }
     if (erwarteSpiel === "schwerkraft") {
       await frames[1].locator(".cm-stage").dispatchEvent("pointerdown");
+      await frames[1].locator(".cm-stage").dispatchEvent("pointerup");
       const phase = await frames[1].evaluate(() => window.LernappSchwerkraft.state.phase);
       pruefe(phase === "bereit", `Runde ${nr}: Ein Tipp im Countdown hat das Spiel gestartet (${phase})`);
+    }
+    // Ein Finger, der schon im Countdown auf dem Bild liegt, gehört beim
+    // «Los!» dem Spiel (live-spiel.js, reicheGehaltenNach) – ein Tipp, der im
+    // Countdown schon wieder oben ist, nicht. Bei Jonas liegt einer, bei Mia
+    // war einer.
+    const fingerProbe = nr === 1 && frames.length > 2;
+    if (fingerProbe) {
+      const legen = (f, id, hoch) => f.evaluate(({ id, hoch }) => {
+        const buehne = document.querySelector(".cm-stage");
+        window.__nachgereicht = [];
+        buehne.addEventListener("pointerdown", (e) => { if (window.LernappLiveSpiel.gestartet()) window.__nachgereicht.push(e.pointerId); });
+        const r = buehne.getBoundingClientRect();
+        const ort = { clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.6, pointerId: id, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true };
+        const ziel = document.elementFromPoint(ort.clientX, ort.clientY) || buehne;
+        ziel.dispatchEvent(new PointerEvent("pointerdown", { ...ort, buttons: 1 }));
+        if (hoch) ziel.dispatchEvent(new PointerEvent("pointerup", ort));
+      }, { id, hoch });
+      await legen(frames[2], 7, false);
+      await legen(frames[1], 8, true);
     }
     // Dieselbe Saat überall.
     const saaten = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().saat)));
@@ -364,6 +396,13 @@ try {
       }, 20);
     }))));
     startZeiten.set(nr, losZeiten);
+    if (fingerProbe) {
+      const jonasBekam = await frames[2].evaluate(() => window.__nachgereicht);
+      const miaBekam = await frames[1].evaluate(() => window.__nachgereicht);
+      pruefe(JSON.stringify(jonasBekam) === "[7]", `Runde ${nr}: Der Finger, der seit dem Countdown liegt, kam beim Start nicht im Spiel an (${JSON.stringify(jonasBekam)})`);
+      pruefe(JSON.stringify(miaBekam) === "[]", `Runde ${nr}: Ein Tipp aus dem Countdown kam beim Start noch einmal (${JSON.stringify(miaBekam)})`);
+      await frames[2].evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 7, pointerType: "touch", bubbles: true })));
+    }
     pruefe(losZeiten.every((ms) => ms >= 0 && ms < 250), `Runde ${nr}: Der Start lag nicht bei startUm (${losZeiten.join(", ")} ms)`);
     if (erwarteSpiel === "schwerkraft") {
       const welten = await Promise.all(frames.map((f) => f.evaluate(() => JSON.stringify(window.LernappSchwerkraft.state.bahnen.map((b) => b.slice(0, 6))))));

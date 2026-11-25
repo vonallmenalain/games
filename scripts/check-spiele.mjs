@@ -1970,8 +1970,10 @@ try {
   }
 
   // --- 3h. Die Punkte von "Wo hält der Zug?" ----------------------------------
-  // Die Bänder wachsen um je eins: 10 für den Treffer, 9 für eins und zwei
-  // daneben, 8 für drei bis fünf, 7 für sechs bis neun. Das ist die Regel des
+  // Die Bänder wachsen um je eins: Die Zehner sind 100 für den Treffer, 90 bis
+  // zwei daneben, 80 bis fünf, 70 bis neun. Dazwischen gleitet es stetig, und
+  // die Einer sagen, wo im Band die Lok hielt (seit November 2026; vorher gab
+  // es nur die Zehner, und alle standen am Ende gleich). Das ist die Regel des
   // Spiels und keine Rundungssache – hier steht sie als Tabelle, damit eine
   // Änderung an der Formel auffällt.
   {
@@ -1983,29 +1985,41 @@ try {
       if (!a) return null;
       // Auf dem Gleis bis 100 ist der Weg daneben die Zahl selbst.
       const bei100 = {};
-      for (const d of [0, 0.4, 0.6, 1, 2, 3, 5, 6, 9, 10, 14, 20, 27, 35, 44, 54, 55, 99]) {
+      for (const d of [0, 0.4, 0.6, 1, 2, 3, 5, 6, 9, 10, 14, 20, 27, 35, 44, 54, 55, 64, 65, 99]) {
         bei100[d] = a.punkteFuer(d, 100);
       }
       // Dieselben Anteile auf dem langen Gleis: 10 von 1000 ist derselbe Weg
       // wie 1 von 100 – ein Finger ist überall gleich breit.
       const gleich = [10, 100, 500, 1000].map((bis) => a.punkteFuer(bis * 0.02, bis));
       const alle = new Set();
-      for (let i = 0; i <= 1000; i += 1) alle.add(a.punkteFuer(i / 10, 100));
-      return { bei100, gleich, alle: [...alle].sort((x, y) => x - y), max: a.PUNKTE_JE_ZAHL };
+      let faellt = true;
+      let vorher = Infinity;
+      for (let i = 0; i <= 1000; i += 1) {
+        const p = a.punkteFuer(i / 10, 100);
+        alle.add(p);
+        if (p > vorher) faellt = false;
+        vorher = p;
+      }
+      // Die Zahl unter dem Schild: «Zahl 1 von 10».
+      const nummer = document.querySelector(".zg-nummer")?.textContent || "";
+      return { bei100, gleich, alle: [...alle].sort((x, y) => x - y), faellt, max: a.PUNKTE_JE_ZAHL, nummer };
     });
     pruefe(api !== null, "Wo hält der Zug? gibt keine Messwerte her – window.LernappZahlengleis fehlt.");
     if (api) {
-      const soll = { 0: 10, 0.4: 10, 0.6: 9, 1: 9, 2: 9, 3: 8, 5: 8, 6: 7, 9: 7, 10: 6, 14: 6, 20: 5, 27: 4, 35: 3, 44: 2, 54: 1, 55: 0, 99: 0 };
+      const soll = { 0: 100, 0.4: 100, 0.6: 96, 1: 94, 2: 90, 3: 86, 5: 80, 6: 77, 9: 70, 10: 67, 14: 60, 20: 50, 27: 40, 35: 30, 44: 20, 54: 10, 55: 9, 64: 0, 65: 0, 99: 0 };
       for (const [weg, punkte] of Object.entries(soll)) {
         pruefe(api.bei100[weg] === punkte, `Wo hält der Zug?: ${weg} daneben gibt ${api.bei100[weg]} statt ${punkte} Punkte.`);
       }
-      pruefe(api.max === 10, `Wo hält der Zug? gibt höchstens ${api.max} Punkte statt 10.`);
-      // Alle elf Zahlen müssen vorkommen: Ein Band, das nie getroffen wird,
-      // ist eine Stufe, die es nicht gibt.
-      pruefe(api.alle.length === 11 && api.alle[0] === 0 && api.alle[10] === 10,
-        `Wo hält der Zug?: erreichbar sind ${api.alle.join(", ")} – erwartet 0 bis 10.`);
+      pruefe(api.max === 100, `Wo hält der Zug? gibt höchstens ${api.max} Punkte statt 100.`);
+      pruefe(api.faellt, "Wo hält der Zug?: Weiter daneben gibt irgendwo mehr Punkte als näher dran.");
+      // Jede Zahl von 0 bis 96 muss vorkommen, dazu die 100: Eine Lücke wäre
+      // eine Stufe, auf der wieder alle gleich stünden.
+      const erwartet = [...Array(97).keys(), 100];
+      pruefe(JSON.stringify(api.alle) === JSON.stringify(erwartet),
+        `Wo hält der Zug?: erreichbar sind ${api.alle.join(", ")} – erwartet 0 bis 96 und 100.`);
       pruefe(new Set(api.gleich).size === 1,
         `Wo hält der Zug?: zwei Prozent daneben geben je nach Gleis ${api.gleich.join(", ")} Punkte – es muss überall dieselbe Zahl sein.`);
+      pruefe(api.nummer === "Zahl 1 von 10", `Wo hält der Zug?: Über dem Gleis steht «${api.nummer}» statt «Zahl 1 von 10».`);
     }
     await kontext.close();
   }

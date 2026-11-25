@@ -17,10 +17,10 @@
  * bis 100, die mittleren auf dem bis 500, die letzten auf dem bis 1000.
  * Dieselbe Strecke, immer feiner geteilt.
  *
- * Zehn Zahlen je Runde, bis zu zehn Punkte je Zahl – aber die zehn sind
+ * Zehn Zahlen je Runde, bis zu hundert Punkte je Zahl – aber die hundert sind
  * schwer: Sie gelten nur für einen halben Prozentpunkt der Strecke, auf einem
  * Handy also für ein paar Bildpunkte. Danach fällt es steil (punkteFuer):
- * fünf Prozent daneben sind noch fünf Punkte, zwanzig noch einer. Wo die
+ * fünf Prozent daneben sind noch achtzig Punkte, zwanzig noch fünfzig. Wo die
  * Mitte der Lok ist, zeigt ein roter Strich unter ihr – ohne ihn müsste man
  * raten, ob der Kamin zählt oder das Führerhaus. Das ist kein Hinweis auf die
  * Zahl, nur auf die eigene Nase.
@@ -71,31 +71,41 @@
   // ist derselbe Weg wie 50 von 1000. Gerechnet wird darum in Prozent der
   // Strecke – dieselbe Zahl, die auf dem Gleis bis 100 die Zahl selbst ist.
   //
-  // Jedes Band ist um eins breiter als das davor: 10 gilt für den Treffer,
-  // 9 für eins und zwei daneben, 8 für drei bis fünf, 7 für sechs bis neun,
-  // und so weiter. Oben ist es also eng und unten weit – wer grob danebenzielt,
+  // Jedes Band ist um eins breiter als das davor: Die Zehner der Punkte sind
+  // 10 für den Treffer, 9 bis zwei daneben, 8 bis fünf, 7 bis neun, und so
+  // weiter. Oben ist es also eng und unten weit – wer grob danebenzielt,
   // verliert für jeden weiteren Schritt weniger, wer fast trifft, für jeden
   // Schritt mehr. Genau da soll es wehtun.
   //
-  //   Punkte 10-k  bis  k·(k+3)/2  daneben
-  //        9         2
-  //        8         5
-  //        7         9
-  //        6        14      … und so fort bis 0.
+  //   Punkte 100-10·k  bei  k·(k+3)/2  daneben
+  //          90           2
+  //          80           5
+  //          70           9
+  //          60          14      … und so fort bis 0 (65 daneben).
   //
-  // Die zehn braucht einen halben Prozentpunkt: Auf einem Bildschirm ist die
+  // Bis November 2026 gab es je Zahl nur die Zehner, also zehn Stufen – und am
+  // Ende eines Abends standen alle zwischen 84 und 86. Seither zählt auch,
+  // wo im Band die Lok hält: Zwischen den Grenzen gleitet k stetig (die
+  // Umkehrung von bandGrenze), und die Einer sagen, wie nah es innerhalb des
+  // Bandes war. Drei daneben sind 86, fünf daneben 80, sechs daneben 77.
+  //
+  // Die hundert braucht einen halben Prozentpunkt: Auf einem Bildschirm ist die
   // Lok nie EXAKT auf der Zahl, und "genau getroffen" heisst deshalb "näher
   // dran als eine halbe Zahl" – auf dem Gleis bis 100 also 42,5 bis 43,5 für
-  // die 43. In Bildpunkten sind das quer gut zwei.
+  // die 43. In Bildpunkten sind das quer gut zwei. Knapp daneben sind es
+  // höchstens 96: Der Treffer bleibt etwas Eigenes.
   const GENAU = 0.5;
   const bandGrenze = (k) => (k * (k + 3)) / 2;
 
   const ZAHLEN_JE_RUNDE = PLAN.length;
-  const PUNKTE_JE_ZAHL = 10;
-  // Wie eine Antwort heisst – für Farbe und Zählung. Elf Punktzahlen, sechs
-  // Namen: Die Farbe muss man auf einen Blick auseinanderhalten können, und
-  // elf Abstufungen sieht niemand.
+  const PUNKTE_JE_ZAHL = 100;
+  // Wie eine Antwort heisst – für Farbe und Zählung. Elf Bänder (die Zehner
+  // der Punkte), sechs Namen: Die Farbe muss man auf einen Blick
+  // auseinanderhalten können, und elf Abstufungen sieht niemand.
   const WIE = ["daneben", "weit", "weit", "weit", "nah", "nah", "knapp", "knapp", "fast", "fast", "genau"];
+  // Das Band einer Punktzahl: 0 bis 10, die Zehner.
+  const band = (punkte) => Math.max(0, Math.min(10, Math.floor(punkte / 10)));
+  const wieFuer = (punkte) => WIE[band(punkte)];
   // So lange steht das Schild an der richtigen Stelle, bevor die nächste Zahl
   // kommt: lang genug zum Hinschauen, kurz genug, dass keine Runde zäh wird.
   const ZEIGEN_MS = 1500;
@@ -106,7 +116,7 @@
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
-  // Eine Runde sind zehn Zahlen und höchstens hundert Punkte. Alle spielen
+  // Eine Runde sind zehn Zahlen und höchstens tausend Punkte. Alle spielen
   // dasselbe – es gibt nur eine Schwierigkeit, also auch nur eine Liste.
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.zahlengleis", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -141,19 +151,18 @@
 
   // abweichung in Zahlen, bis = das Ende des Gleises. Beides zusammen ergibt
   // den Weg daneben in Prozent der Strecke – und nur der zählt.
-  // Das Härchen am Vergleich ist kein Schnörkel: 14/100 × 100 ist in
-  // Fliesskomma 14.000000000000002, und genau 14 daneben fiele sonst ins
-  // nächste Band – die Grenze läge einen Rechenfehler neben der Zahl, die im
-  // Kommentar steht.
+  // Das Härchen am Abrunden ist kein Schnörkel: 14/100 × 100 ist in
+  // Fliesskomma 14.000000000000002, und genau 14 daneben gäbe sonst 59 statt
+  // 60 – die Grenze läge einen Rechenfehler neben der Zahl, die im Kommentar
+  // steht.
   const HAERCHEN = 1e-9;
 
   function punkteFuer(abweichung, bis) {
     const weg = (Math.abs(abweichung) / bis) * 100;
     if (weg < GENAU) return PUNKTE_JE_ZAHL;
-    for (let k = 1; k < PUNKTE_JE_ZAHL; k += 1) {
-      if (weg <= bandGrenze(k) + HAERCHEN) return PUNKTE_JE_ZAHL - k;
-    }
-    return 0;
+    // Das wievielte Band, stetig: bandGrenze(k) = weg, nach k aufgelöst.
+    const k = (Math.sqrt(9 + 8 * weg) - 3) / 2;
+    return Math.max(0, Math.floor(PUNKTE_JE_ZAHL - 10 * k + HAERCHEN));
   }
 
   // ---------------------------------------------------------------------------
@@ -259,7 +268,7 @@
   // war – ein Wimpernschlag später, damit er nicht im Bremsen untergeht.
   // Genau getroffen die Harfe (ab dem zweiten genauen in Folge die Leiter),
   // nah dran die Pfeife (der Zug ist da), ein Stück daneben ein Punkt, weit
-  // daneben der Fehler.
+  // daneben der Fehler. Es zählt das Band (die Zehner), nicht die Einer.
   function antwortKlang(punkte) {
     klang()?.ton?.("zahlengleis.halt");
     const spaeter = { verzoegerung: 0.22 };
@@ -269,8 +278,8 @@
       return;
     }
     state.serie = 0;
-    if (punkte >= 4) klang()?.ton?.("zahlengleis.pfeife", spaeter);
-    else if (punkte >= 2) klang()?.ton?.("punkt", spaeter);
+    if (band(punkte) >= 4) klang()?.ton?.("zahlengleis.pfeife", spaeter);
+    else if (band(punkte) >= 2) klang()?.ton?.("punkt", spaeter);
     else klang()?.ton?.("fehler", spaeter);
   }
 
@@ -366,9 +375,13 @@
     schild = shell.el("div", "zg-schild");
     schild.setAttribute("role", "status");
     schild.setAttribute("aria-live", "polite");
+    // Welche Zahl es ist, steht in Worten neben den Punkten: «Zahl 3 von 10».
+    // Die Punkte allein waren auf dem Handy zu klein, um mitzuzählen.
     const fortschritt = shell.el("div", "zg-fortschritt");
     fortschritt.setAttribute("aria-hidden", "true");
-    for (let i = 0; i < ZAHLEN_JE_RUNDE; i += 1) fortschritt.append(shell.el("span", "zg-punkt"));
+    const punkteReihe = shell.el("span", "zg-punkte");
+    for (let i = 0; i < ZAHLEN_JE_RUNDE; i += 1) punkteReihe.append(shell.el("span", "zg-punkt"));
+    fortschritt.append(shell.el("span", "zg-nummer"), punkteReihe);
 
     gleis = shell.el("div", "zg-gleis");
     gleis.setAttribute("role", "slider");
@@ -414,8 +427,18 @@
     gleis.setAttribute("aria-valuemax", String(bis));
     gleis.setAttribute("aria-valuenow", "0");
     gleis.setAttribute("aria-valuetext", `Lok steht bei 0. Gesucht ist ${state.zahl}.`);
-    shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === state.index));
+    zeigeFortschritt(state.index);
     meldeZug(0);
+  }
+
+  // Wo in der Runde: die wievielte Zahl, und die Punkte davor sind erledigt.
+  function zeigeFortschritt(index) {
+    const nummer = shell.play.querySelector(".zg-nummer");
+    if (nummer) nummer.textContent = `Zahl ${index + 1} von ${ZAHLEN_JE_RUNDE}`;
+    shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => {
+      punkt.classList.toggle("is-dran", i === index);
+      punkt.classList.toggle("is-fertig", i < index);
+    });
   }
 
   function antwort(p) {
@@ -428,7 +451,7 @@
     const { bis } = state.gleis;
     const wert = state.p * bis;
     const punkte = punkteFuer(wert - state.zahl, bis);
-    const wie = WIE[punkte];
+    const wie = wieFuer(punkte);
     state[wie] += 1;
     state.punkte += punkte;
     shell.setCount(state.punkte);
@@ -436,7 +459,7 @@
     meldeZug(1);
 
     antwortKlang(punkte);
-    if (punkte >= 4) kids()?.vibrate?.(16);
+    if (band(punkte) >= 4) kids()?.vibrate?.(16);
 
     stepTimer = window.setTimeout(() => {
       state.index += 1;
@@ -449,7 +472,7 @@
   // nah sie steht.
   function zeigeAntwort(wert, punkte) {
     const { bis } = state.gleis;
-    const wie = WIE[punkte];
+    const wie = wieFuer(punkte);
     zielZahl.textContent = String(state.zahl);
     ziel.className = `zg-ziel is-${wie}`;
     ziel.style.setProperty("--zg-p", String(state.zahl / bis));
@@ -526,7 +549,7 @@
       schild.classList.remove("is-neu");
       void schild.offsetWidth;
       schild.classList.add("is-neu");
-      shell.play.querySelectorAll(".zg-punkt").forEach((punkt, i) => punkt.classList.toggle("is-dran", i === index));
+      zeigeFortschritt(index);
     }
     if (was === 1) {
       fahrtAus();
@@ -612,9 +635,9 @@
     live: { los: startRun, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "numberLine", fassung: "z1", zufall, zuege: true, nochmal: zuschauenStarten,
+    host, spiel: "numberLine", fassung: "z2", zufall, zuege: true, nochmal: zuschauenStarten,
   }) || null;
-  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z1", zufall }) || null;
+  if (!zuschauer) aufnahme = window.LernappGeist?.zuege?.({ fassung: "z2", zufall }) || null;
 
   // Ohne Menü beginnt die Runde sofort: Es gibt nichts zu wählen. Im
   // Live-Modus erst zum gemeinsamen Start, beim Anschauen mit dem Lauf.
@@ -686,7 +709,7 @@
   });
 
   window.LernappZahlengleis = {
-    GLEISE, PLAN, GENAU, bandGrenze, WIE, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
+    GLEISE, PLAN, GENAU, bandGrenze, WIE, band, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
     gleisFuer, zahlFuer, punkteFuer, state,
   };
 })();

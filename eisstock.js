@@ -1162,7 +1162,7 @@
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
     const cssH = Math.max(80, feld.clientHeight);
-    const dpr = clamp(Math.min(window.devicePixelRatio || 1, Math.sqrt(3.4e6 / (cssW * cssH))), 1, 3) * view.guete;
+    const dpr = clamp(Math.min(shellApi.geraetDpr(), Math.sqrt(3.4e6 / (cssW * cssH))), 1, 3) * view.guete;
     const frei = Math.min(cssH * 0.3, shell?.frei?.(canvas) || 0);
     if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
     view.cssW = cssW;

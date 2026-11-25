@@ -144,7 +144,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
-                          Spielfläche, Ergebnis
+                          Spielfläche, Ergebnis – und wie fein eine
+                          Leinwand gemalt wird (bildpunkte)
     geist.js              die Gegner: Platz 1 und die eigene Bestmarke als
                           Schalter über der Spielfläche, mitlaufend oder als
                           Zielmarke, dazu die Aufzeichnung der eigenen Runde
@@ -2068,6 +2069,57 @@ leer ab; ein Container neben einem Stapel unter dessen Unterkante ist
 daneben, auch mit Wind gegen den Stapel; ein fehlender wird ersetzt; und ein
 Fehlwurf beendet die Runde.
 
+### Nach zwei Turnierabenden (November 2026)
+
+Neun Leute, zwei Abende, ein Turnier mit Link und ein Multiplayer mit acht
+Geräten. Vier Dinge daraus:
+
+**Auf iPhone und iPad ruckelte es** – in Safari wie in Chrome, am stärksten
+im Lianenschwung; auf Android lief alles flüssig. Auf Apple-Geräten ist
+jeder Browser WebKit, und WebKit rastert eine Leinwand (canvas 2D) Bild für
+Bild auf dem Prozessor. Das kostet nach Bildpunkten, und die Spiele malten
+mit bis zu 2,5 je CSS-Pixel. Mit Rastern auf dem Prozessor gemessen braucht
+der Lianenschwung bei 2,5 rund 10 ms je Bild, bei 2 rund 6 ms; Drift-Rennen,
+Höhlenfahrt, Planetenhüpfer, Froschsprung, Windschichten und Tunnelflug
+liegen ähnlich hoch oder höher.
+Darum misst jedes Spiel seine Leinwand jetzt mit der Bühne
+(`game-shell.js`):
+
+- `bildpunkte(cssW, cssH, obergrenze)` – auf iPhone und iPad höchstens 2
+  Bildpunkte je CSS-Pixel und höchstens 2,2 Millionen insgesamt (für das
+  grosse iPad), sonst wie bisher. Dazu die Güte: Während einer Runde (Bühne
+  in «play») misst die Bühne die Abstände der Bilder; liegen sie über gut
+  eine Sekunde im Mittel über 24 ms, malt jede Leinwand mit einem Fünftel
+  weniger Bildpunkten je Richtung, bis auf 0,6 – wie es zwölf Spiele schon
+  selbst tun (`gueteTakt`), jetzt für alle.
+- `geraetDpr()` – nur die Obergrenze für Apple, für die zwölf Spiele mit
+  eigenem `gueteTakt`.
+
+Dazu liefen in zwanzig Spielen die Ringe des Hinweises vor dem ersten
+Druck (`-tipp-fuell`, `-tipp-ring`) unsichtbar weiter, die ganze Runde
+lang; WebKit rechnet solche SVG-Animationen nicht auf der Grafikkarte. Sie
+halten jetzt an, sobald die Runde läuft (`styles.css`, bei `.cm-time`).
+Geprüft ist das nur in Chromium mit Rastern auf dem Prozessor – auf einem
+iPhone selbst hat es noch niemand gesehen.
+
+**Wo hält der Zug?: alle zwischen 84 und 86.** Je Zahl gab es nur die
+Zehner-Stufen 0 bis 10, und nach zehn Zahlen lagen fast alle gleichauf.
+Jetzt gibt es bis 100 je Zahl, also bis 1000 je Runde: Die Zehner sind die
+alten Bänder, die Einer sagen, wo im Band die Lok hielt (`punkteFuer`,
+stetig zwischen den Grenzen). Über dem Gleis steht dazu «Zahl 3 von 10»,
+die erledigten Punkte sind hell. Die Aufzeichnungen tragen die Fassung
+`z2`; Läufe von vorher werden nicht mehr abgespielt, und ihre Punkte (bis
+100) stehen in der Bestenliste unter allen neuen – der Admin leert sie
+beim Veröffentlichen («Bestenliste leeren»).
+
+**Ein Druck kam nicht an** – im Multiplayer, im Slalom und im Tunnelflug,
+je bei einem Spieler: Wer im Countdown schon drückte, dessen Finger
+verschluckte die Sperre (siehe Multiplayer, Eine Runde).
+
+**Die Wahl der Spiele beim Anlegen eines Multiplayers** stand in der
+Reihenfolge, in der die Spiele dazukamen – unter fünfzig war keines zu
+finden. Jetzt nach Tier und Alphabet (siehe Multiplayer, Anlegen).
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2775,7 +2827,9 @@ Adminbereich unter «Neuer Multiplayer» – mit «Öffnen» und dem Link, solan
 es sie gibt. Einer nur mit Link ginge sonst mit dem Tab verloren.
 
 **Anlegen.** Ein Name, das Programm (Spiele in ihrer Reihenfolge, je 1–5
-Runden und 0–2 Übungsrunden) und die Einstellungen:
+Runden und 0–2 Übungsrunden) und die Einstellungen. In der Wahl der Spiele
+stehen sie in Gruppen nach Tier (Tier 1 zuoberst, die Einteilung aus dem
+Adminbereich) und in jeder Gruppe nach dem Alphabet:
 
 | Einstellung | Auswahl |
 |---|---|
@@ -2806,7 +2860,15 @@ seine eigene Uhr um. Im Browser-Test liegen vier Geräte dabei unter zehn
 Millisekunden auseinander. Die Tafel einer Übung sagt nur «Übungsrunde»
 (oder «Übungsrunde 1 von 2»). Oben stehen alle mit ihren Punkten und die
 Zeit. Wer ausscheidet, schaut eine Sekunde später den anderen zu (siehe
-Zuschauen); spielt niemand mehr, steht da, wie es bei den anderen steht. Die
+Zuschauen); spielt niemand mehr, steht da, wie es bei den anderen steht.
+
+Wer den Finger schon im Countdown aufs Bild legt, hält ihn beim «Los!» für
+das Spiel: Die Sperre merkt sich jeden Finger (und jede Taste), der vor dem
+Start herunterkommt und noch liegt, und reicht ihn beim Start als
+`pointerdown` an derselben Stelle nach (`reicheGehaltenNach`). Vorher
+verschluckte sie ihn – im Tunnelflug sank das Flugzeug ohne Schub, im
+Slalom fuhr der Fahrer geradeaus in den Wald, obwohl gedrückt war. Ein Tipp,
+der im Countdown schon wieder oben ist, kommt nicht nach. Die
 Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist; die
 Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
 Spiel, auch beim Zuschauen, oder mit «Runde jetzt beenden» auf ihrer Tafel.

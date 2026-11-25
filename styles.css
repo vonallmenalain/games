@@ -696,6 +696,16 @@ h2 {
 .cm-stage:not([data-phase="play"]) .cm-time,
 .cm-stage:not([data-phase="play"]) .cm-count { visibility: hidden; }
 
+/* Die Ringe, die vor dem ersten Druck zeigen, wie man hält oder tippt
+   (-tipp-fuell, -tipp-ring), sind nur im Intro zu sehen. Unsichtbar weiter
+   liefen sie trotzdem, und der Browser rechnete sie in jedem Bild neu – auf
+   iPhone und iPad, wo SVG-Animationen nicht auf der Grafikkarte laufen,
+   mitten im Spiel. Angehalten statt abgeschaltet: So bleibt der Ring
+   stehen, wie er ist, während er ausblendet. */
+.cm-stage:not([data-phase="intro"]) :is([class*="-tipp-fuell"], [class*="-tipp-ring"]) {
+  animation-play-state: paused;
+}
+
 .cm-time-fill {
   display: block;
   width: 100%;
@@ -3979,8 +3989,26 @@ h2 {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* Zehn Punkte, einer je Zahl; der, der dran ist, ist gross. */
-.zg-fortschritt { display: flex; gap: 7px; flex: 0 0 auto; }
+/* Zehn Punkte, einer je Zahl; der, der dran ist, ist gross, die erledigten
+   sind hell. Davor in Worten, die wievielte es ist – wie bei Augenmass das
+   «Blatt 3 / 10». */
+.zg-fortschritt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  flex: 0 0 auto;
+}
+.zg-nummer {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.zg-punkte { display: flex; gap: 7px; }
 .zg-punkt {
   width: 9px;
   height: 9px;
@@ -3988,6 +4016,7 @@ h2 {
   background: rgba(255, 255, 255, 0.22);
   transition: transform 0.2s ease, background 0.2s ease;
 }
+.zg-punkt.is-fertig { background: rgba(255, 255, 255, 0.6); }
 .zg-punkt.is-dran { background: var(--cm-accent); transform: scale(1.35); }
 
 /* Das Gleis. Die Höhe ist die der Lok, das Messband darunter und Platz für das

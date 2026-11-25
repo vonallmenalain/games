@@ -1591,7 +1591,7 @@
     // Bild kostet das Doppelte.
     // Und nie viel mehr Bildpunkte als gut zweieinhalb Millionen: Das Bild
     // lebt von grossen, weichen Lichtern, und die kosten je Punkt.
-    const dpr = clamp(Math.min(window.devicePixelRatio || 1, Math.sqrt(2.6e6 / (cssW * cssH))), 1, 2) * view.guete;
+    const dpr = clamp(Math.min(shellApi.geraetDpr(), Math.sqrt(2.6e6 / (cssW * cssH))), 1, 2) * view.guete;
     const frei = Math.min(cssH * 0.4, shell?.frei?.(canvas) || 0);
     if (cssW === view.cssW && cssH === view.cssH && dpr === view.dpr && frei === view.frei) return;
     view.cssW = cssW;

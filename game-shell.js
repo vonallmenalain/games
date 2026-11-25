@@ -426,6 +426,8 @@
           mini()?.rundeBeginnt?.();
         }
         host.dataset.phase = phase;
+        // Während der Runde: stockt das Bild? (bildpunkte, unten)
+        bildMessen(phase === "play");
       },
       setCount(value) {
         countValue.textContent = String(value);
@@ -447,5 +449,107 @@
   // der Geister nicht unter die Knöpfe schreiben soll.
   let aktuell = null;
 
-  window.LernappGameShell = { mount, frei: (knoten) => aktuell?.frei?.(knoten) ?? 0 };
+  // ---------------------------------------------------------------------------
+  // Flüssig vor scharf: wie fein eine Leinwand gemalt wird
+  // ---------------------------------------------------------------------------
+  /*
+   * Nach zwei Turnierabenden im November 2026: Auf iPhones und iPads ruckelte
+   * es – in Safari wie in Chrome, am stärksten im Lianenschwung –, auf
+   * Android lief alles flüssig. Der Grund liegt in WebKit, das auf Apple-
+   * Geräten jeder Browser ist: Eine Leinwand (canvas 2D) wird dort Bild für
+   * Bild auf dem Prozessor gerastert, nicht auf der Grafikkarte. Was das
+   * kostet, wächst mit der Zahl der Bildpunkte – und ein iPhone hat drei je
+   * CSS-Pixel, die Spiele malten mit bis zu 2,5 (gut sechsmal so viele wie
+   * mit einem). Gemessen mit Rastern auf dem Prozessor: Der Lianenschwung
+   * braucht bei 2,5 rund 10 ms je Bild, bei 2 rund 6 ms.
+   *
+   * Darum zweierlei, für jedes Spiel, das seine Leinwand mit bildpunkte()
+   * misst:
+   *
+   *   1. Auf iPhone und iPad höchstens 2 Bildpunkte je CSS-Pixel und
+   *      höchstens APPLE_PIXEL insgesamt (ein grosses iPad hätte sonst bei 2
+   *      über drei Millionen). Den Unterschied zu 3 sieht man im Spiel kaum,
+   *      den Ruckler sofort.
+   *   2. Wird es trotzdem zäh, wird es gröber statt langsamer – wie es zwölf
+   *      Spiele schon selbst tun (gueteTakt): Während einer Runde (Bühne in
+   *      «play») misst die Bühne die Abstände der Bilder. Liegen sie über gut
+   *      eine Sekunde im Mittel über 24 ms (unter gut 40 Bildern je Sekunde),
+   *      malt jede Leinwand ab dann mit einem Fünftel weniger Bildpunkten je
+   *      Richtung, bis höchstens auf GUETE_MIN – und bleibt so für den Rest
+   *      des Besuchs. Die Spiele messen ihre Leinwand in jedem Bild nach
+   *      (messen), also greift das im nächsten Bild.
+   *
+   * Spiele mit eigenem gueteTakt holen sich nur geraetDpr() – ihr eigenes
+   * Mass für «zäh» bleibt, die Obergrenze für Apple gilt auch dort.
+   */
+  const APPLE_MOBIL = (() => {
+    try {
+      const ua = navigator.userAgent || "";
+      // Ein iPad meldet sich seit iPadOS 13 als Mac – aber ein Mac hat keinen
+      // Touchscreen.
+      return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    } catch { return false; }
+  })();
+  const APPLE_DPR = 2;
+  const APPLE_PIXEL = 2.2e6;
+  const GUETE_MIN = 0.6;
+  const bild = { guete: 1, frame: 0, letzt: 0, mittel: 1 / 60, zaeh: 0 };
+
+  // Wie viele Bildpunkte je CSS-Pixel das Gerät hat – auf Apple-Geräten
+  // höchstens APPLE_DPR.
+  function geraetDpr() {
+    const roh = Number(window.devicePixelRatio) || 1;
+    return APPLE_MOBIL ? Math.min(roh, APPLE_DPR) : roh;
+  }
+
+  // Für eine Leinwand von cssW × cssH: so viele Bildpunkte je CSS-Pixel,
+  // zwischen 1 und obergrenze (was das Spiel sich vorgenommen hat), auf
+  // Apple-Geräten auch nicht mehr als APPLE_PIXEL insgesamt – mal der Güte.
+  function bildpunkte(cssW, cssH, obergrenze = 2.5) {
+    let dpr = Math.max(1, Math.min(geraetDpr(), obergrenze));
+    const flaeche = Math.max(1, (Number(cssW) || 0) * (Number(cssH) || 0));
+    if (APPLE_MOBIL) dpr = Math.max(1, Math.min(dpr, Math.sqrt(APPLE_PIXEL / flaeche)));
+    // Gerundet auf Hundertstel: Die Spiele vergleichen die Zahl mit der vom
+    // letzten Bild, und ein Rest im Fliesskomma hiesse jedes Mal neu messen.
+    return Math.round(Math.max(1, dpr * bild.guete) * 100) / 100;
+  }
+
+  function bildTakt(now) {
+    bild.frame = window.requestAnimationFrame(bildTakt);
+    const sekunden = bild.letzt ? (now - bild.letzt) / 1000 : 0;
+    bild.letzt = now;
+    // Ein Sprung über eine Fünftelsekunde ist kein Ruckeln, sondern ein Tab
+    // im Hintergrund oder ein Bildschirm, der kurz aus war.
+    if (!sekunden || sekunden > 0.2 || document.hidden) { bild.zaeh = 0; return; }
+    bild.mittel += (sekunden - bild.mittel) * 0.06;
+    bild.zaeh = bild.mittel > 0.024 ? bild.zaeh + sekunden : 0;
+    if (bild.zaeh > 1.2 && bild.guete > GUETE_MIN) {
+      bild.guete = Math.max(GUETE_MIN, bild.guete * 0.8);
+      bild.zaeh = 0;
+      bild.mittel = 1 / 60;
+    }
+  }
+
+  // Gemessen wird nur, solange eine Runde läuft – im Menü und auf der Tafel
+  // malt kein Spiel, und dort hiesse «zäh» nichts.
+  function bildMessen(an) {
+    if (an && !bild.frame) {
+      bild.letzt = 0;
+      bild.zaeh = 0;
+      bild.mittel = 1 / 60;
+      bild.frame = window.requestAnimationFrame(bildTakt);
+    } else if (!an && bild.frame) {
+      window.cancelAnimationFrame(bild.frame);
+      bild.frame = 0;
+    }
+  }
+
+  window.LernappGameShell = {
+    mount,
+    frei: (knoten) => aktuell?.frei?.(knoten) ?? 0,
+    bildpunkte,
+    geraetDpr,
+    // Für die Prüfskripte: was gerade gilt.
+    bild: () => ({ apple: APPLE_MOBIL, guete: bild.guete, mittel: bild.mittel, misst: Boolean(bild.frame) }),
+  };
 })();
