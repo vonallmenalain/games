@@ -325,6 +325,7 @@
     { id: "wolf", seite: "wolf", titel: "Wolf und Schafe" },
     { id: "ratetier", seite: "ratetier", titel: "Rate-Tier" },
     { id: "brueckenschlag", seite: "brueckenschlag", titel: "Brückenschlag" },
+    { id: "kippen", seite: "kippen", titel: "Steine kippen" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4448,6 +4449,15 @@
         feld.append(z);
       });
       bild.append(feld);
+    },
+    kippen(bild) {
+      const brett = el("span", "ar-kp-brett");
+      ["", "", "", "", "", "a", "b", "", "", "b", "a", "a", "", "", "b", ""].forEach((sitz) => {
+        const f = el("span", "ar-kp-feld");
+        if (sitz) f.append(el("span", `ar-kp-stein ist-${sitz}`));
+        brett.append(f);
+      });
+      bild.append(brett);
     },
   };
 

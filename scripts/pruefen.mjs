@@ -912,6 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -919,6 +920,9 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     // Malen merkt sich die Wörter der letzten Partien: dafür ein Speicher.
     if (z.seite === "malen") { const m = new Map(); kasten.localStorage = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; }
     kasten.window.LernappZwei = { starte: (spiel) => { angemeldet[z.seite] = spiel; }, el: () => ({}), anderer: (s) => (s === "a" ? "b" : "a") };
+    // Die neueren Spiele lassen unten den Computer gegen den Computer spielen
+    // und zählen Siege: mit festem Zufall, damit jeder Lauf gleich ausgeht.
+    if (FESTER_ZUFALL.includes(z.seite)) vm.runInNewContext("Math.random = (() => { let t = 20261125; return () => { t = (Math.imul(t, 1103515245) + 12345) >>> 0; return t / 4294967296; }; })();", kasten);
     try { for (const d of z.js) vm.runInNewContext(lies(d), kasten); } catch { /* fehlt dann unten */ }
     const sp = angemeldet[z.seite];
     pruefe(`${z.seite}: meldet sich mit Id, Seite, Regeln (lage, darf), Brett und Bild an – und mit einem Computer, wenn es Stufen gibt`,
@@ -1892,6 +1896,70 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Brückenschlag: Jede Stufe setzt nur auf freie Felder, bis jemand verbunden hat", legal);
     pruefe(`Brückenschlag: «Schwer» schlägt «Mittel» meistens (${schwerSiegt} von 6)`, schwerSiegt >= 4);
     pruefe(`Brückenschlag: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 800);
+  }
+
+  // Steine kippen: einklemmen in alle acht Richtungen, aussetzen, das Ende –
+  // und ganze Partien Computer gegen Computer.
+  const KP = angemeldet.kippen;
+  if (KP?.fuerPruefung) {
+    const { kippt, anfang } = KP.fuerPruefung;
+    const lage = (zuege, beginnt = "a") => KP.lage(zuege, { roh: zuege.join("."), beginnt, saat: 1 });
+    const l0 = lage([]);
+    pruefe("Steine kippen: Vier Steine über Kreuz, wer beginnt, hat vier Möglichkeiten",
+      l0.punkte.a === 2 && l0.punkte.b === 2 && l0.moeglich.join(",") === "19,26,37,44" && lage([], "b").moeglich.join(",") === "20,29,34,43");
+    const l1 = lage(["19"]);
+    pruefe("Steine kippen: Ein Stein klemmt ein – der eingeklemmte kippt, die andere ist dran",
+      l1.brett[19] === "a" && l1.brett[27] === "a" && l1.punkte.a === 4 && l1.punkte.b === 1 && l1.dran === "b" && l1.letzter.gekippt.join() === "27");
+    // In mehrere Richtungen zugleich: b auf 0 klemmt waagrecht, senkrecht und schräg ein.
+    const stern = Array(64).fill("");
+    [1, 8, 9].forEach((f) => { stern[f] = "a"; });
+    [2, 16, 18].forEach((f) => { stern[f] = "b"; });
+    pruefe("Steine kippen: In mehrere Richtungen zugleich, nur was eingeklemmt ist", kippt(stern, 0, "b").sort((x, y) => x - y).join() === "1,8,9" && kippt(stern, 0, "a").length === 0 && kippt(anfang(), 0, "a").length === 0);
+    pruefe("Steine kippen: nur wo etwas kippt, nur wer dran ist",
+      KP.darf(l0, "19", "a") && !KP.darf(l0, "18", "a") && !KP.darf(l0, "27", "a") && !KP.darf(l0, "19", "b") && !KP.darf(l0, "019", "a")
+      && lage(["18"]).dran === null);
+    // Ganze Partien: zufällig (mit Saat) – die Zahl stimmt, Aussetzen kommt
+    // vor, es gibt Unentschieden; dann Computer gegen Computer.
+    let zufall = 4242;
+    const wuerfel = () => { zufall = (Math.imul(zufall, 1103515245) + 12345) >>> 0; return zufall / 4294967296; };
+    let stimmt = true;
+    let ausgesetzt = false;
+    let remis = null;
+    for (let p = 0; p < 400; p += 1) {
+      const zuege = [];
+      for (let l = lage(zuege); !l.ende; l = lage(zuege)) {
+        zuege.push(String(l.moeglich[Math.floor(wuerfel() * l.moeglich.length)]));
+        const n = lage(zuege);
+        if (n.aussetzen) ausgesetzt = true;
+        if (n.punkte.a + n.punkte.b !== zuege.length + 4) stimmt = false;
+      }
+      const l = lage(zuege);
+      if (l.ende !== (l.punkte.a > l.punkte.b ? "a" : l.punkte.b > l.punkte.a ? "b" : "u") || KP.fuerPruefung.moeglich(l.brett, "a").length || KP.fuerPruefung.moeglich(l.brett, "b").length) stimmt = false;
+      if (l.ende === "u") remis = l;
+    }
+    pruefe("Steine kippen: Jeder Zug legt einen Stein dazu; aus ist es erst, wenn niemand mehr setzen kann – wer mehr hat, gewinnt", stimmt);
+    pruefe("Steine kippen: Wer nicht setzen kann, setzt aus", ausgesetzt);
+    pruefe("Steine kippen: Gleich viele ist unentschieden", remis?.punkte.a === remis?.punkte.b && Boolean(remis));
+    let legal = true;
+    let langsam = 0;
+    let schwerSiegt = 0;
+    const STUFEN_KP = Object.keys(KP.stufen || {});
+    for (let p = 0; p < 12 && legal; p += 1) {
+      const [sa, sb] = p < 8 ? [STUFEN_KP[p % 4], STUFEN_KP[3 - (p % 4)]] : ["mittel", "schwer"];
+      const beginnt = p % 2 ? "b" : "a";
+      const zuege = [];
+      for (let l = lage(zuege, beginnt); !l.ende; l = lage(zuege, beginnt)) {
+        const t = performance.now();
+        const antwort = KP.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        langsam = Math.max(langsam, performance.now() - t);
+        if (!KP.darf(l, antwort?.zug, l.dran)) { legal = false; break; }
+        zuege.push(antwort.zug);
+      }
+      if (p >= 8 && lage(zuege, beginnt).ende === "b") schwerSiegt += 1;
+    }
+    pruefe("Steine kippen: Jede Stufe setzt nur, wo etwas kippt, bis die Partie aus ist", legal);
+    pruefe(`Steine kippen: «Schwer» schlägt «Mittel» (${schwerSiegt} von 4)`, schwerSiegt >= 3);
+    pruefe(`Steine kippen: «Schwer» rechnet schnell (längstens ${langsam.toFixed(0)} ms)`, langsam < 1500);
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

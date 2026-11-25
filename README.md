@@ -49,6 +49,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     wolf.html             Wolf und Schafe, erzeugt
     ratetier.html         Rate-Tier, erzeugt
     brueckenschlag.html   Brückenschlag, erzeugt
+    kippen.html           Steine kippen, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -112,6 +113,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           geheimen Tiere aus der Saat, ein Computer
     brueckenschlag.js     Brückenschlag: Sechsecke, Ketten von Rand zu Rand,
                           ein Computer, der in Gedanken zu Ende spielt
+    kippen.js             Steine kippen: einklemmen und kippen, aussetzen,
+                          ein Computer, der den Wert der Ecken kennt
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2931,6 +2934,7 @@ Gerät:
 | Wolf und Schafe | `/wolf` | `wolf.js` |
 | Rate-Tier | `/ratetier` | `ratetier.js` |
 | Brückenschlag | `/brueckenschlag` | `brueckenschlag.js` |
+| Steine kippen | `/kippen` | `kippen.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3540,6 +3544,26 @@ Das Feld ist breiter als hoch: auf dem Tablet bis 820 px breit (Sechsecke gut
 70 px), auf dem Handy quer neben Namen und Knöpfen. Bilanz:
 `brueckenschlag.bilanz`.
 
+**Steine kippen** (`kippen.js`, gegeneinander): ein Brett aus grünem Filz
+mit 8 × 8 Feldern, in der Mitte zu Beginn vier Steine über Kreuz. Wer dran
+ist, setzt einen Stein so, dass er in einer Linie (waagrecht, senkrecht,
+schräg) Steine der anderen zwischen sich und einem eigenen Stein einklemmt –
+die kippen in die eigene Farbe, einer nach dem anderen. Wo das geht, zeigt
+ein Punkt. Wer nirgends setzen kann, setzt aus («… muss aussetzen – du bist
+nochmal dran!»); können beide nicht mehr, ist es aus. Wer mehr Steine hat,
+gewinnt; gleich viele ist unentschieden. Über dem Brett steht, wie viele
+Steine jede hat. Ein Zug ist die Nummer des Felds (0 bis 63); Aussetzen
+braucht keinen Zug.
+
+| Stufe | Der Computer |
+|---|---|
+| Ganz leicht | setzt irgendwohin, wo es geht |
+| Einfach | kippt meist möglichst viele Steine |
+| Mittel | kennt den Wert der Felder (Ecken viel, Ränder etwas, neben einer leeren Ecke wenig) und wie viele Züge jede hat, schaut einen Zug voraus |
+| Schwer | schaut vier Züge voraus (Alpha-Beta), in den letzten zehn Zügen bis zum Ende |
+
+Bilanz: `kippen.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3658,7 +3682,12 @@ Tiere aus der Saat und verschieden, fragen, ausschliessen, falsch und richtig
 raten, jede Stufe zieht nur, was erlaubt ist, «Schwer» schlägt «Ganz
 leicht»; bei Brückenschlag: die Nachbarn der Sechsecke, Ketten für beide,
 über Eck ist keine Kette, ein volles Feld hat immer genau einen Sieger, jede
-Stufe setzt nur frei, «Schwer» schlägt «Mittel» und rechnet schnell),
+Stufe setzt nur frei, «Schwer» schlägt «Mittel» und rechnet schnell; bei
+Steine kippen: einklemmen in mehrere Richtungen, nur wo etwas kippt,
+aussetzen, aus erst, wenn niemand mehr setzen kann, unentschieden, jede
+Stufe setzt nur, was erlaubt ist, «Schwer» schlägt «Mittel» – die neueren
+Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
+Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,
 nicht zu viel), und im Browser in
 `npm run pruefen:viererreihe` (Viererreihe, gründlich) und `npm run

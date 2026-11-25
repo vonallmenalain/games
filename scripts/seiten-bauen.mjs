@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-4";
+export const FASSUNG = "2026-11-25-5";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -673,6 +673,11 @@ export const ZWEI = [
     seite: "brueckenschlag", titel: "Brückenschlag", js: ["brueckenschlag.js"],
     text: "Brückenschlag: Abwechselnd Steine auf ein Feld aus Sechsecken setzen – wer zuerst seine zwei Ränder verbindet, gewinnt. Unentschieden gibt es nie. Gegen den Computer oder live zu zweit.",
     kurz: "Verbinde deine zwei Ränder – quer übers Sechseck-Feld.",
+  },
+  {
+    seite: "kippen", titel: "Steine kippen", js: ["kippen.js"],
+    text: "Steine kippen: Steine der anderen zwischen zwei eigenen einklemmen – dann kippen sie in deine Farbe. Wer am Ende mehr Steine hat, gewinnt. Gegen den Computer oder live zu zweit.",
+    kurz: "Einklemmen und umdrehen – wer hat am Ende mehr?",
   },
 ];
 
