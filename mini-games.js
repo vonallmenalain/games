@@ -326,6 +326,7 @@
     { id: "ratetier", seite: "ratetier", titel: "Rate-Tier" },
     { id: "brueckenschlag", seite: "brueckenschlag", titel: "Brückenschlag" },
     { id: "kippen", seite: "kippen", titel: "Steine kippen" },
+    { id: "rechnen", seite: "rechnen", titel: "Rechenduell" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4458,6 +4459,11 @@
         brett.append(f);
       });
       bild.append(brett);
+    },
+    rechnen(bild) {
+      const feld = el("span", "ar-rd-feld");
+      feld.append(el("span", "ar-rd-seil"), el("span", "ar-rd-knoten"), el("span", "ar-rd-kind ist-a", "\u{1F9D2}"), el("span", "ar-rd-kind ist-b", "\u{1F467}"), el("span", "ar-rd-aufgabe", "7 × 8"));
+      bild.append(feld);
     },
   };
 

@@ -11538,6 +11538,93 @@ body[data-page="kippen"] { overscroll-behavior: none; }
 .zw-kp-held { --h: clamp(28px, 8vw, 38px); flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, var(--h)); grid-template-rows: repeat(4, var(--h)); gap: 2px; padding: 2px; border-radius: 8px; background: #0f3d2a; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 3px #5a3a1d; }
 .zw-kp-held-feld { position: relative; border-radius: 2px; background: radial-gradient(circle at 40% 35%, #2f8f5f, #227049 70%, #1c6040); }
 
+/* --- Rechenduell (rechnen.js) --------------------------------------------------------
+   Oben das Seil: links ich, rechts die andere, der rote Knoten wandert mit
+   jeder richtigen Antwort einen Schritt (bis zum Fähnchen: gewonnen).
+   Darunter die eigene Aufgabe gross und vier Antworten, ganz unten die
+   eigene Stufe zum Wählen. */
+body[data-page="rechnen"] { overscroll-behavior: none; }
+.vr-partie.zw-rechnen { --vr-breite: max(280px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 620px)); }
+.zw-rd { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 14px; width: var(--vr-breite); max-width: 100%; aspect-ratio: auto; touch-action: manipulation; }
+.zw-rd .confetti-layer { z-index: 6; }
+.zw-rd-bahn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.zw-rd-seite { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 54px; }
+.zw-rd-seite.ist-rechts { flex-direction: column-reverse; }
+.zw-rd-kind { font-size: 2rem; line-height: 1; transition: transform 0.4s ease; }
+.zw-rd-name { max-width: 110px; overflow: hidden; color: var(--ar-leise); font-size: 0.72rem; font-weight: 850; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.zw-rd-seite.ist-a .zw-rd-name { color: #ffd5d0; }
+.zw-rd-seite.ist-b .zw-rd-name { color: #fff6cf; }
+.zw-rd.ist-sieg-ich .zw-rd-seite.ist-links .zw-rd-kind,
+.zw-rd.ist-sieg-andere .zw-rd-seite.ist-rechts .zw-rd-kind { animation: zw-rd-jubel 0.6s ease-in-out 3; }
+@keyframes zw-rd-jubel { 50% { transform: translateY(-8px) rotate(-8deg); } }
+.zw-rd-seil { position: relative; height: 48px; }
+.zw-rd-seil::before { content: ""; position: absolute; left: 2%; right: 2%; top: 50%; height: 9px; border-radius: 999px; background: repeating-linear-gradient(115deg, #d8b37a 0 6px, #b88a4f 6px 12px); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45); transform: translateY(-50%); }
+.zw-rd-marke { position: absolute; top: 50%; width: 2px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); transform: translate(-50%, 70%); }
+.zw-rd-marke.ist-mitte { height: 30px; background: rgba(255, 255, 255, 0.5); transform: translate(-50%, -50%); }
+.zw-rd-marke.ist-ziel { width: 4px; height: 34px; background: #5ad893; transform: translate(-50%, -50%); }
+.zw-rd-knoten { position: absolute; top: 50%; z-index: 2; width: 22px; height: 26px; border-radius: 6px; background: radial-gradient(circle at 40% 30%, #ff8a8a, #d62828 70%); box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(0, 0, 0, 0.5); transform: translate(-50%, -50%); transition: left 0.45s cubic-bezier(0.3, 1.4, 0.4, 1); }
+.zw-rd-karte { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 14px; border-radius: 22px; background: linear-gradient(170deg, #2a2150, #1b1535); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.zw-rd-aufgabe { font-size: clamp(2.2rem, 10vw, 3.4rem); font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; line-height: 1.1; }
+.zw-rd-wahlen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.zw-rd-wahl {
+  min-height: 68px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--ar-flaeche-hoch);
+  color: var(--ar-text);
+  font: inherit;
+  font-size: clamp(1.6rem, 7vw, 2.2rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.12s ease, background 0.2s ease, opacity 0.2s ease;
+}
+.zw-rd-wahl:disabled { cursor: default; }
+.zw-rd.ist-dran .zw-rd-wahl:not(:disabled) { cursor: pointer; background: #3a3160; box-shadow: 0 0 0 2px rgba(124, 92, 230, 0.6); }
+.zw-rd.ist-dran .zw-rd-wahl:not(:disabled):active { transform: scale(0.95); }
+.zw-rd-wahl:disabled:not(.ist-falsch) { opacity: 0.55; }
+.zw-rd-wahl.ist-falsch { background: #4a2a3a; color: #ff9a9a; opacity: 0.6; text-decoration: line-through; }
+.zw-rd-karte.ist-wackel { animation: zw-rd-wackel 0.4s ease; }
+.zw-rd-karte.ist-richtig { animation: zw-rd-richtig 0.5s ease; }
+@keyframes zw-rd-wackel { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+@keyframes zw-rd-richtig { 30% { box-shadow: 0 0 0 4px #5ad893, 0 0 30px rgba(90, 216, 147, 0.6); } }
+.zw-rd-stufen { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+.zw-rd-stufen-titel { color: var(--ar-leise); font-size: 0.8rem; font-weight: 800; }
+.zw-rd-stufe { min-height: 36px; padding: 4px 12px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--ar-leise); font: inherit; font-size: 0.85rem; font-weight: 850; cursor: pointer; }
+.zw-rd-stufe.ist-an { background: linear-gradient(145deg, #9a7cf5, #6a4de0); color: #fff; }
+.zw-rd-stufe:focus-visible,
+.zw-rd-wahl:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .zw-rd-knoten { transition: none; }
+  .zw-rd-karte.ist-wackel,
+  .zw-rd-karte.ist-richtig,
+  .zw-rd.ist-sieg-ich .zw-rd-seite.ist-links .zw-rd-kind,
+  .zw-rd.ist-sieg-andere .zw-rd-seite.ist-rechts .zw-rd-kind { animation: none; }
+}
+/* Quer: die vier Antworten in einer Reihe – das spart eine Knopfreihe. */
+@media (orientation: landscape) {
+  .zw-rd-wahlen { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-rechnen { --vr-breite: max(300px, min(60vw, calc(100vw - 340px))); }
+  .zw-rd { grid-area: feld; gap: 8px; }
+  .zw-rd-seil { height: 36px; }
+  .zw-rd-kind { font-size: 1.5rem; }
+  .zw-rd-karte { gap: 8px; padding: 10px; }
+  .zw-rd-aufgabe { font-size: 2rem; }
+  .zw-rd-wahlen { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .zw-rd-wahl { min-height: 52px; font-size: 1.5rem; }
+  .zw-rd-stufe { min-height: 30px; padding: 2px 10px; font-size: 0.78rem; }
+}
+
+/* Im Menü: ein Seil, ein Knoten, zwei Kinder, eine Aufgabe. */
+.zw-rd-held { position: relative; flex: 0 0 auto; width: 132px; height: 96px; }
+.zw-rd-held-seil { position: absolute; left: 22px; right: 22px; top: 62px; height: 7px; border-radius: 999px; background: repeating-linear-gradient(115deg, #d8b37a 0 5px, #b88a4f 5px 10px); }
+.zw-rd-held-knoten { position: absolute; left: 56px; top: 57px; width: 14px; height: 17px; border-radius: 4px; background: #d62828; box-shadow: 0 0 0 2px #fff; }
+.zw-rd-held-kind { position: absolute; top: 48px; font-size: 1.8rem; line-height: 1; }
+.zw-rd-held-kind.ist-a { left: 0; }
+.zw-rd-held-kind.ist-b { right: 0; }
+.zw-rd-held-aufgabe { position: absolute; left: 50%; top: 4px; padding: 4px 12px; border-radius: 12px; background: #2a2150; box-shadow: 0 0 0 2px #7c5ce6; font-size: 1.25rem; font-weight: 900; white-space: nowrap; transform: translateX(-50%); }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
    Schatzkarte, Wackelturm und das Zwillings-Labyrinth haben über dem
@@ -11736,6 +11823,14 @@ body[data-page="kippen"] { overscroll-behavior: none; }
 .ar-kp-stein { position: absolute; inset: 10%; border-radius: 50%; }
 .ar-kp-stein.ist-a { background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
 .ar-kp-stein.ist-b { background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+/* Rechenduell: ein Seil mit Knoten, zwei Kinder, eine Aufgabe. */
+.ar-rd-feld { position: absolute; left: calc(50% - var(--z) * 5); top: calc(var(--z) * 0.5); width: calc(var(--z) * 10); height: calc(var(--z) * 5); }
+.ar-rd-seil { position: absolute; left: calc(var(--z) * 1.6); right: calc(var(--z) * 1.6); top: calc(var(--z) * 3.6); height: calc(var(--z) * 0.42); border-radius: 999px; background: repeating-linear-gradient(115deg, #d8b37a 0 5px, #b88a4f 5px 10px); }
+.ar-rd-knoten { position: absolute; left: calc(var(--z) * 4); top: calc(var(--z) * 3.35); width: calc(var(--z) * 0.75); height: calc(var(--z) * 0.95); border-radius: 4px; background: #d62828; box-shadow: 0 0 0 2px #fff; }
+.ar-rd-kind { position: absolute; top: calc(var(--z) * 2.7); font-size: calc(var(--z) * 1.7); line-height: 1; }
+.ar-rd-kind.ist-a { left: 0; }
+.ar-rd-kind.ist-b { right: 0; }
+.ar-rd-aufgabe { position: absolute; left: 50%; top: 0; padding: calc(var(--z) * 0.2) calc(var(--z) * 0.7); border-radius: calc(var(--z) * 0.5); background: #2a2150; box-shadow: 0 0 0 2px #7c5ce6; font-size: calc(var(--z) * 1.15); font-weight: 900; white-space: nowrap; transform: translateX(-50%); }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }
