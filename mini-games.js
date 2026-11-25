@@ -327,6 +327,7 @@
     { id: "brueckenschlag", seite: "brueckenschlag", titel: "Brückenschlag" },
     { id: "kippen", seite: "kippen", titel: "Steine kippen" },
     { id: "rechnen", seite: "rechnen", titel: "Rechenduell" },
+    { id: "leiter", seite: "leiter", titel: "Leiterspiel" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4464,6 +4465,12 @@
       const feld = el("span", "ar-rd-feld");
       feld.append(el("span", "ar-rd-seil"), el("span", "ar-rd-knoten"), el("span", "ar-rd-kind ist-a", "\u{1F9D2}"), el("span", "ar-rd-kind ist-b", "\u{1F467}"), el("span", "ar-rd-aufgabe", "7 × 8"));
       bild.append(feld);
+    },
+    leiter(bild) {
+      const feld = el("span", "ar-lt-feld");
+      for (let i = 0; i < 15; i += 1) feld.append(el("span", `ar-lt-zelle${(i + Math.floor(i / 5)) % 2 ? " ist-dunkel" : ""}`));
+      feld.append(el("span", "ar-lt-leiter"), el("span", "ar-lt-rutsche"), el("span", "ar-lt-figur"));
+      bild.append(feld, el("span", "ar-lt-wuerfel", "\u2684"));
     },
   };
 

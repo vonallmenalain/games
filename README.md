@@ -51,6 +51,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     brueckenschlag.html   Brückenschlag, erzeugt
     kippen.html           Steine kippen, erzeugt
     rechnen.html          Rechenduell, erzeugt
+    leiter.html           Leiterspiel, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -118,6 +119,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
                           ein Computer, der den Wert der Ecken kennt
     rechnen.js            Rechenduell: Aufgaben in fünf Stufen, jede auf
                           ihrer, das Seil, ein Computer, der mitrechnet
+    leiter.js             Leiterspiel: drei Bretter, zwei Würfel zur Wahl,
+                          Leitern und Rutschen, ein Computer
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
     game-shell.js         die gemeinsame Bühne: Leiste, Zeitbalken,
@@ -2939,6 +2942,7 @@ Gerät:
 | Brückenschlag | `/brueckenschlag` | `brueckenschlag.js` |
 | Steine kippen | `/kippen` | `kippen.js` |
 | Rechenduell | `/rechnen` | `rechnen.js` |
+| Leiterspiel | `/leiter` | `leiter.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3596,6 +3600,29 @@ Der Rahmen fragt den Computer nach jedem Zug neu; damit eine schnelle
 Antwort des Kindes seine Zeit nicht neu beginnen lässt, merkt er sich, wann
 er mit seiner Aufgabe fertig ist. Bilanz: `rechnen.bilanz`.
 
+**Leiterspiel** (`leiter.js`, gegeneinander): ein Spielbrett mit den Feldern
+1 bis 50 in fünf Reihen, im Zickzack von unten links nach oben; darauf fünf
+Leitern (Holz, das Startfeld grün) und fünf Rutschen (rosa, das Startfeld
+rosa), alle kurz und fast senkrecht. Wer dran ist, würfelt mit zwei Würfeln
+und nimmt einen davon – jeder Würfel sagt, wohin er führt («→ 23 ⬆️» über
+eine Leiter, «→ 9 ⬇️» eine Rutsche hinunter), und das Zielfeld leuchtet. So
+gibt es etwas zu überlegen, und es wird gezählt. Die Figur hüpft Feld für
+Feld, klettert oder rutscht. Wer eine Sechs nimmt, darf nochmal; wer zuerst
+auf Feld 50 ist (oder darüber hinaus käme), gewinnt.
+
+Welches der drei Bretter liegt, kommt aus der Saat der Partie, die Würfel
+aus Saat und Nummer des Wurfs – beide Geräte sehen dasselbe. Ein Zug ist «W»
+(würfeln) oder «Z0» / «Z1» (diesen Würfel nehmen).
+
+| Stufe | Der Computer wählt |
+|---|---|
+| Ganz leicht | irgendeinen Würfel |
+| Einfach | meist den grösseren |
+| Mittel | den, der am weitesten bringt (mit Leitern und Rutschen) – gewinnt gegen «Ganz leicht» gut acht von zehn Partien |
+| Schwer | ebenso, und denkt an die Sechs und an den nächsten Wurf |
+
+Eine Partie dauert meist 13 bis 22 Würfe. Bilanz: `leiter.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3721,7 +3748,9 @@ Stufe setzt nur, was erlaubt ist, «Schwer» schlägt «Mittel»; beim
 Rechenduell: jede Stufe rechnet richtig in ihrem Zahlenraum, vier
 verschiedene Antworten, falsch sperrt nur die Antwort, richtig zieht, jede
 auf ihrer Stufe, fünf Schritte gewinnen, der Computer beginnt seine Zeit
-nicht neu, wenn die andere antwortet – die neueren
+nicht neu, wenn die andere antwortet; beim Leiterspiel: drei Bretter mit je
+fünf Leitern und Rutschen, Würfel aus der Saat, erst würfeln, dann wählen,
+die Sechs, das Ziel, kluges Wählen gewinnt meistens – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),
 die Regeln in `npm run test:rules` (auch: Malen erst zu zweit, nur Ziffern,

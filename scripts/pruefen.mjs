@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2013,6 +2013,63 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     const wieder = RD.computer(lage([r("a", 0)]), "b", "leicht", { saat: 9 }).warte;
     pruefe("Rechenduell: Der Computer antwortet nur, was erlaubt ist, und kommt allein ans Ziel", legal);
     pruefe(`Rechenduell: Antwortet die andere, beginnt die Zeit des Computers nicht von vorn (${Math.round(erst)} ms, dann ${Math.round(wieder)} ms)`, erst > 900 && wieder <= erst);
+  }
+
+  // Leiterspiel: die Bretter, die Würfel aus der Saat, würfeln und wählen,
+  // Leitern und Rutschen, die Sechs, das Ziel – und ganze Partien.
+  const LT = angemeldet.leiter;
+  if (LT?.fuerPruefung) {
+    const { BRETTER, ZIEL, wurf, ziel } = LT.fuerPruefung;
+    pruefe("Leiterspiel: Drei Bretter mit je fünf Leitern und fünf Rutschen; keine beginnt dort, wo eine andere endet, keine auf 1 oder 50",
+      BRETTER.length === 3 && BRETTER.every((b) => {
+        const von = Object.keys(b).map(Number);
+        const nach = Object.values(b);
+        return von.filter((v) => b[v] > v).length === 5 && von.filter((v) => b[v] < v).length === 5
+          && von.every((v) => v > 1 && v < ZIEL && !nach.includes(v)) && nach.every((n) => n >= 1 && n <= ZIEL);
+      }));
+    let wuerfeOk = true;
+    const gezaehlt = Array(7).fill(0);
+    for (let n = 0; n < 600; n += 1) { const w = wurf(42, n); if (w.length !== 2 || w.some((x) => !(x >= 1 && x <= 6))) wuerfeOk = false; w.forEach((x) => { gezaehlt[x] += 1; }); }
+    pruefe("Leiterspiel: Zwei Würfel von 1 bis 6, aus der Saat (jedes Gerät würfelt dasselbe), jede Zahl kommt vor",
+      wuerfeOk && gezaehlt.slice(1).every((n) => n > 120) && JSON.stringify(wurf(42, 7)) === JSON.stringify(wurf(42, 7)));
+    const b0 = BRETTER[0];
+    pruefe("Leiterspiel: Eine Leiter führt hinauf, eine Rutsche hinunter, über 50 hinaus bleibt man auf 50",
+      ziel(b0, 0, 3).nach === b0[3] && ziel(b0, 0, 3).art === "leiter" && ziel(b0, 13, 6).nach === b0[19] && ziel(b0, 13, 6).art === "rutsche" && ziel(b0, 48, 5).nach === ZIEL);
+    // Eine Partie mit Saat 0 (Brett 0): erst würfeln, dann wählen.
+    const saat = 3;
+    const lage = (zuege, beginnt = "a") => LT.lage(zuege, { roh: zuege.join("."), beginnt, saat });
+    const l1 = lage(["W"]);
+    const w0 = wurf(saat, 0);
+    const l2 = lage(["W", "Z1"]);
+    pruefe("Leiterspiel: Erst würfeln, dann einen der zwei Würfel wählen – nur wer dran ist",
+      LT.darf(lage([]), "W", "a") && !LT.darf(lage([]), "Z0", "a") && !LT.darf(lage([]), "W", "b") && l1.phase === "waehlen" && JSON.stringify(l1.liegt) === JSON.stringify(w0)
+      && LT.darf(l1, "Z0", "a") && !LT.darf(l1, "W", "a") && l2.ort.a === ziel(BRETTER[l2.brettNr], 0, w0[1]).nach && l2.dran === (w0[1] === 6 ? "a" : "b") && lage(["Z0"]).dran === null);
+    // Ganze Partien: Computer gegen Computer, jede Stufe.
+    let legal = true;
+    let langsam = 0;
+    let gutSiegt = 0;
+    let sechs = false;
+    const STUFEN_LT = Object.keys(LT.stufen || {});
+    for (let p = 0; p < 60 && legal; p += 1) {
+      const [sa, sb] = p < 20 ? [STUFEN_LT[p % 4], STUFEN_LT[3 - (p % 4)]] : ["mittel", "leicht"];
+      const zuege = [];
+      const la = (z) => LT.lage(z, { roh: z.join("."), beginnt: p % 2 ? "b" : "a", saat: 500 + p });
+      for (let l = la(zuege); !l.ende; l = la(zuege)) {
+        if (zuege.length > 400) { legal = false; break; }
+        const t = performance.now();
+        const antwort = LT.computer(l, l.dran, l.dran === "a" ? sa : sb);
+        langsam = Math.max(langsam, performance.now() - t);
+        if (!LT.darf(l, antwort?.zug, l.dran)) { legal = false; break; }
+        zuege.push(antwort.zug);
+        if (la(zuege).letzter?.nochmal) sechs = true;
+      }
+      const l = la(zuege);
+      if (l.ende && l.ort[l.ende] < ZIEL) legal = false;
+      if (p >= 20 && l.ende === "a") gutSiegt += 1;
+    }
+    pruefe("Leiterspiel: Jede Stufe würfelt und wählt nur, was erlaubt ist, und wer gewinnt, steht auf 50", legal);
+    pruefe("Leiterspiel: Mit einer Sechs ist man nochmal dran", sechs);
+    pruefe(`Leiterspiel: Wer klug wählt («Mittel»), gewinnt gegen «Ganz leicht» meistens (${gutSiegt} von 40)`, gutSiegt >= 28);
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur
