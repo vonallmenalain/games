@@ -12208,17 +12208,154 @@ body[data-page="weichensteller"] { overscroll-behavior: none; }
 .zw-ws-held-bahnhof.ist-1 { right: 8%; background: #f2bd1d; }
 .zw-ws-lok.ist-held { left: 36%; top: 58%; width: 22%; font-size: calc(var(--h) * 0.13); }
 
+/* --- Raumschiff-Crew (raumschiff.js) -------------------------------------------------
+   Ein Stück All, das von rechts nach links vorbeizieht: drei Bahnen (feine
+   Linien), links das Raumschiff mit zwei Fenstern (Koralle und Gold) und
+   einer Flamme, rechts kommen Asteroiden (grau), Meteorschauer (ein roter
+   Streifen über alle Bahnen, vorher blinkt rechts ein «!») und Sterne. Am
+   Ende der Planet. Unten die eigenen Knöpfe: wer steuert, ▲ und ▼; wer den
+   Schild hat, «Schild an!» mit seiner Ladung. */
+body[data-page="raumschiff"] { overscroll-behavior: none; }
+.vr-partie.zw-raumschiff {
+  --vr-breite: max(220px, min(calc(100vw - 32px - var(--safe-left) - var(--safe-right)), 560px, calc((100dvh - 360px - var(--safe-top) - var(--vr-unten)) / 0.8)));
+}
+.zw-rs { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: var(--vr-breite); max-width: 100%; aspect-ratio: auto; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.zw-rs .confetti-layer { z-index: 6; }
+.zw-rs-kopf { display: flex; align-items: center; gap: 10px; }
+.zw-rs-herzen { font-size: 1.1rem; white-space: nowrap; }
+.zw-rs-sterne { font-weight: 900; white-space: nowrap; }
+.zw-rs-weg { position: relative; flex: 1 1 auto; height: 10px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.1); }
+.zw-rs-weg-balken { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #7c5ce6); }
+.zw-rs-all {
+  --sterne-x: 0px;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 0.8;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 1px, transparent 1.5px) var(--sterne-x) 0 / 97px 83px,
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 0 1px, transparent 1.5px) calc(var(--sterne-x) * 0.5) 30px / 61px 57px,
+    radial-gradient(ellipse at 80% 20%, rgba(124, 92, 230, 0.35), transparent 60%),
+    linear-gradient(180deg, #0b1030, #151a4a);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+.zw-rs-all.ist-rums { animation: zw-rs-rums 0.4s ease; }
+@keyframes zw-rs-rums { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.zw-rs-bahn { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed rgba(255, 255, 255, 0.1); }
+.zw-rs-bahn.ist-0 { top: 20%; }
+.zw-rs-bahn.ist-1 { top: 50%; }
+.zw-rs-bahn.ist-2 { top: 80%; }
+.zw-rs-welt { position: absolute; inset: 0; z-index: 2; }
+.zw-rs-welt > [hidden] { display: none; }
+.zw-rs-gruppe { position: absolute; top: 0; bottom: 0; width: 0; }
+.zw-rs-stein { position: absolute; left: 0; width: calc(var(--vr-breite) * 0.15); aspect-ratio: 1; border-radius: 46% 54% 42% 58%; background: radial-gradient(circle at 32% 30%, #c9c3bb, #8d857c 50%, #57504a); box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(255, 255, 255, 0.2); transform: translate(-50%, -50%); }
+.zw-rs-stein.ist-1 { border-radius: 58% 42% 55% 45%; }
+.zw-rs-stein.ist-2 { border-radius: 40% 60% 48% 52%; }
+.zw-rs-gruppe.ist-getroffen .zw-rs-stein,
+.zw-rs-schauer.ist-getroffen { box-shadow: 0 0 0 3px #ff4d4d, 0 0 18px rgba(255, 77, 77, 0.9); }
+.zw-rs-gruppe.ist-abgewehrt,
+.zw-rs-schauer.ist-abgewehrt { opacity: 0.35; }
+.zw-rs-schauer { position: absolute; top: 4%; bottom: 4%; width: 10%; border-radius: 999px; background: linear-gradient(180deg, rgba(255, 110, 60, 0.15), rgba(255, 80, 60, 0.45), rgba(255, 110, 60, 0.15)); box-shadow: 0 0 18px rgba(255, 90, 60, 0.6); transform: translateX(-50%); }
+.zw-rs-meteor { position: absolute; left: 30%; width: 40%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe0a8, #ff8a3d 55%, #c2410c); box-shadow: 10px -4px 10px rgba(255, 140, 60, 0.6); }
+.zw-rs-meteor.ist-0 { top: 4%; }
+.zw-rs-meteor.ist-1 { top: 20%; left: 10%; }
+.zw-rs-meteor.ist-2 { top: 36%; left: 46%; }
+.zw-rs-meteor.ist-3 { top: 52%; }
+.zw-rs-meteor.ist-4 { top: 68%; left: 12%; }
+.zw-rs-meteor.ist-5 { top: 84%; left: 44%; }
+.zw-rs-stern { position: absolute; color: #ffd45e; font-size: calc(var(--vr-breite) * 0.08); line-height: 1; text-shadow: 0 0 10px rgba(255, 212, 94, 0.8); transform: translate(-50%, -50%); }
+.zw-rs-schiff {
+  position: absolute;
+  z-index: 3;
+  left: 16%;
+  top: 50%;
+  width: 17%;
+  aspect-ratio: 1.7;
+  border-radius: 40% 70% 70% 40% / 50%;
+  background: linear-gradient(180deg, #f4f6ff, #b9c1dd 60%, #8892b8);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  transition: top 0.14s ease-out;
+}
+.zw-rs-schiff::before,
+.zw-rs-schiff::after { content: ""; position: absolute; left: 8%; width: 30%; height: 36%; background: linear-gradient(90deg, #c63a3c, #fe7971); }
+.zw-rs-schiff::before { top: -24%; border-radius: 70% 20% 0 0; }
+.zw-rs-schiff::after { bottom: -24%; border-radius: 0 0 20% 70%; }
+.zw-rs-fenster { position: absolute; top: 28%; width: 22%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
+.zw-rs-fenster.ist-a { left: 40%; background: radial-gradient(circle at 34% 30%, #ffd5d0 0 14%, #fe7971 50%, #c63a3c 100%); }
+.zw-rs-fenster.ist-b { left: 66%; background: radial-gradient(circle at 34% 30%, #fff6cf 0 14%, #ffd45e 50%, #d58d12 100%); }
+.zw-rs-flamme { position: absolute; right: 96%; top: 25%; width: 38%; height: 50%; border-radius: 50% 0 0 50%; background: radial-gradient(ellipse at 100% 50%, #fff3b0, #ffb347 45%, rgba(255, 90, 40, 0) 75%); animation: zw-rs-flamme 0.18s ease-in-out infinite alternate; }
+@keyframes zw-rs-flamme { to { transform: scaleX(0.7); opacity: 0.8; } }
+.zw-rs-schild { position: absolute; inset: -38% -22%; border-radius: 50%; border: 3px solid rgba(125, 225, 255, 0.95); background: radial-gradient(ellipse, rgba(125, 225, 255, 0.05), rgba(125, 225, 255, 0.28)); box-shadow: 0 0 18px rgba(125, 225, 255, 0.8); opacity: 0; transform: scale(0.8); transition: opacity 0.12s ease, transform 0.12s ease; }
+.zw-rs-schild.ist-an { opacity: 1; transform: none; }
+.zw-rs-warnung { position: absolute; z-index: 4; right: 3%; top: 50%; display: grid; place-items: center; width: calc(var(--vr-breite) * 0.12); aspect-ratio: 1; border-radius: 50%; background: #ff4d4d; color: #fff; font-size: calc(var(--vr-breite) * 0.08); font-weight: 900; box-shadow: 0 0 18px rgba(255, 77, 77, 0.9); transform: translateY(-50%); animation: zw-rs-warnung 0.5s ease-in-out infinite alternate; }
+.zw-rs-warnung[hidden],
+.zw-rs-planet[hidden] { display: none; }
+@keyframes zw-rs-warnung { to { transform: translateY(-50%) scale(1.15); } }
+.zw-rs-planet { position: absolute; z-index: 1; top: 50%; width: 46%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #a7f3d0, #34d399 35%, #2563eb 75%, #1e3a8a); box-shadow: 0 0 40px rgba(96, 165, 250, 0.6); transform: translate(0, -50%); }
+.zw-rs-unten { display: flex; gap: 10px; }
+.zw-rs .zw-rs-unten > [hidden] { display: none; }
+.zw-rs-los { --mini-farbe: #7c5ce6; min-height: 64px; min-width: 220px; margin: 0 auto; font-size: 1.4rem; }
+.zw-rs-knopf {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 72px;
+  border: 0;
+  border-radius: 20px;
+  color: #fff;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 900;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, filter 0.2s ease;
+}
+.zw-rs-knopf.ist-hoch,
+.zw-rs-knopf.ist-runter { font-size: 1.9rem; background: linear-gradient(180deg, #9a7cf5, #6d4fd6); }
+.zw-rs-knopf.ist-schild { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, #5fd0f7, #1f8fc4); color: #04233a; }
+.zw-rs-ladung { width: 60%; height: 8px; overflow: hidden; border-radius: 999px; background: rgba(0, 0, 0, 0.25); }
+.zw-rs-ladung-balken { display: block; width: 100%; height: 100%; border-radius: 999px; background: #fff; }
+.zw-rs-knopf:disabled { filter: grayscale(0.7) brightness(0.6); cursor: default; }
+.zw-rs-knopf:not(:disabled) { cursor: pointer; }
+.zw-rs-knopf:not(:disabled):active { transform: scale(0.96); }
+.zw-rs-knopf.ist-ruf { animation: zw-rs-ruf 0.5s ease-in-out infinite alternate; }
+@keyframes zw-rs-ruf { to { box-shadow: 0 0 0 4px #fff, 0 0 24px rgba(255, 255, 255, 0.75); } }
+.zw-rs.ist-geschafft .zw-rs-schiff { animation: zw-rs-jubel 0.6s ease-in-out 4; }
+@keyframes zw-rs-jubel { 50% { transform: translate(-50%, -70%) rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .zw-rs-all.ist-rums,
+  .zw-rs-flamme,
+  .zw-rs-warnung,
+  .zw-rs-knopf.ist-ruf,
+  .zw-rs.ist-geschafft .zw-rs-schiff { animation: none; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .vr-partie.zw-raumschiff { --vr-breite: max(220px, min(calc((100dvh - 170px - var(--safe-top) - var(--vr-unten)) / 0.62), 56vw)); }
+  .zw-rs { grid-area: feld; gap: 6px; }
+  .zw-rs-all { aspect-ratio: 1 / 0.62; }
+  .zw-rs-knopf { min-height: 52px; }
+  .zw-rs-los { min-height: 52px; }
+}
+
+/* Im Menü: ein Stück All mit Raumschiff, zwei Asteroiden und einem Stern. */
+.zw-rs-held { --h: clamp(90px, 26vw, 120px); --vr-breite: calc(var(--h) * 1.2); position: relative; flex: 0 0 auto; width: var(--h); height: calc(var(--h) * 1.15); overflow: hidden; border-radius: 14px; background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.5px) 0 0 / 37px 29px, linear-gradient(180deg, #0b1030, #151a4a); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+.zw-rs-held-stein { position: absolute; width: 22%; aspect-ratio: 1; border-radius: 46% 54% 42% 58%; background: radial-gradient(circle at 32% 30%, #c9c3bb, #8d857c 50%, #57504a); }
+.zw-rs-held-stein.ist-1 { left: 66%; top: 18%; }
+.zw-rs-held-stein.ist-2 { left: 74%; top: 64%; width: 16%; }
+.zw-rs-stern.ist-held { left: 56%; top: 46%; font-size: calc(var(--h) * 0.16); }
+.zw-rs-schiff.ist-held { left: 30%; top: 50%; width: 34%; transition: none; }
+
 /* --- Tablet quer, nicht sehr hoch (561–760 px) -------------------------------
    (Hier am Ende, nach den Regeln der Spiele, damit es sie überschreibt.)
-   Schatzkarte, Wackelturm, das Zwillings-Labyrinth, das Kanu und der Weichensteller haben über dem
+   Schatzkarte, Wackelturm, das Zwillings-Labyrinth, das Kanu, der Weichensteller und die Raumschiff-Crew haben über dem
    und unter dem Spielfeld viel (Kopf, Steuerkreuz, Antworten, Knöpfe):
    Untereinander bliebe auf einem Tablet quer – im Browser mit Adressleiste
    oder in der App mit Navigationsleiste oft nur 600 bis 730 px hoch – kaum
    Platz, oder es ragte unten hinaus. Sie stehen dort wie auf dem Handy quer:
    links das Spielfeld, rechts Namen, Satz und Knöpfe. */
 @media (orientation: landscape) and (min-height: 561px) and (max-height: 760px) {
-  body:is([data-page="schatzkarte"], [data-page="wackelturm"], [data-page="zwillinge"], [data-page="kanu"], [data-page="weichensteller"]) .vr-seite { max-width: none; }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) {
+  body:is([data-page="schatzkarte"], [data-page="wackelturm"], [data-page="zwillinge"], [data-page="kanu"], [data-page="weichensteller"], [data-page="raumschiff"]) .vr-seite { max-width: none; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) {
     display: grid;
     grid-template-columns: auto minmax(200px, 290px);
     grid-template-areas: "feld leiste" "feld satz" "feld knoepfe";
@@ -12228,11 +12365,11 @@ body[data-page="weichensteller"] { overscroll-behavior: none; }
     column-gap: 26px;
     row-gap: 12px;
   }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) .vr-leiste-mitte { display: none; }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) .vr-wer.ist-b { flex-direction: row; text-align: left; }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
-  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller) > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) .vr-leiste { grid-area: leiste; width: 100%; grid-template-columns: 1fr; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) .vr-leiste-mitte { display: none; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) .vr-wer.ist-b { flex-direction: row; text-align: left; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) .vr-satz { grid-area: satz; justify-content: flex-start; text-align: left; }
+  .vr-partie:is(.zw-schatzkarte, .zw-wackelturm, .zw-zwillinge, .zw-kanu, .zw-weichensteller, .zw-raumschiff) > .vr-knoepfe { grid-area: knoepfe; justify-content: flex-start; align-content: flex-start; }
 
   .vr-partie.zw-schatzkarte { --vr-breite: max(200px, min(calc(100dvh - 200px - var(--safe-top) - var(--vr-unten)), 46vw)); }
   .zw-sk { grid-area: feld; display: grid; grid-template-columns: auto auto; grid-template-areas: "kopf kopf" "meer pfeile"; align-items: center; width: auto; column-gap: 16px; }
@@ -12255,6 +12392,10 @@ body[data-page="weichensteller"] { overscroll-behavior: none; }
   .vr-partie.zw-weichensteller { --vr-breite: max(200px, min(calc(100dvh - 180px - var(--safe-top) - var(--vr-unten)), 46vw)); }
   .zw-ws { grid-area: feld; }
   .zw-ws-netz { aspect-ratio: 1 / 1; }
+
+  .vr-partie.zw-raumschiff { --vr-breite: max(200px, min(calc((100dvh - 215px - var(--safe-top) - var(--vr-unten)) / 0.7), 50vw)); }
+  .zw-rs { grid-area: feld; }
+  .zw-rs-all { aspect-ratio: 1 / 0.7; }
 }
 
 /* --- Malen und Raten quer auf Tablet und Computer: das Papier so gross wie möglich
@@ -12473,6 +12614,16 @@ body[data-page="weichensteller"] { overscroll-behavior: none; }
 .ar-ws-bahnhof.ist-0 { left: 6%; background: #ff6464; }
 .ar-ws-bahnhof.ist-1 { right: 6%; background: #f2bd1d; }
 .ar-ws-lok { position: absolute; left: 26%; top: 56%; width: calc(var(--z) * 1.2); height: calc(var(--z) * 1.2); border-radius: 30%; background: #ff6464; box-shadow: 0 0 0 calc(var(--z) * 0.12) #fff; }
+/* Raumschiff-Crew: ein Stück All, ein Raumschiff, zwei Asteroiden, ein Stern. */
+.ar-rs-all { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 5.6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.5px) 0 0 / calc(var(--z) * 1.3) calc(var(--z) * 1.1), linear-gradient(180deg, #0b1030, #151a4a); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
+.ar-rs-schiff { position: absolute; left: 10%; top: 42%; width: calc(var(--z) * 2.2); height: calc(var(--z) * 1.2); border-radius: 40% 70% 70% 40% / 50%; background: linear-gradient(180deg, #f4f6ff, #b9c1dd 60%, #8892b8); }
+.ar-rs-fenster { position: absolute; top: 28%; width: 22%; aspect-ratio: 1; border-radius: 50%; }
+.ar-rs-fenster.ist-a { left: 40%; background: #fe7971; }
+.ar-rs-fenster.ist-b { left: 66%; background: #ffd45e; }
+.ar-rs-stein { position: absolute; width: calc(var(--z) * 1.3); height: calc(var(--z) * 1.3); border-radius: 46% 54% 42% 58%; background: radial-gradient(circle at 32% 30%, #c9c3bb, #8d857c 50%, #57504a); }
+.ar-rs-stein.ist-1 { left: 66%; top: 10%; }
+.ar-rs-stein.ist-2 { left: 74%; top: 66%; }
+.ar-rs-stern { position: absolute; left: 56%; top: 38%; color: #ffd45e; font-size: calc(var(--z) * 1.1); line-height: 1; }
 /* Wackelturm: ein Turm aus Klötzen im Himmel. */
 .ar-wt-himmel { position: absolute; left: calc(50% - var(--z) * 3); top: calc(var(--z) * 0.45); width: calc(var(--z) * 6); height: calc(var(--z) * 6); overflow: hidden; border-radius: calc(var(--z) * 0.4); background: linear-gradient(180deg, #6fb8f7, #eaf6ff); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35); }
 .ar-wt-klotz { position: absolute; height: 15%; border-radius: 3px; }

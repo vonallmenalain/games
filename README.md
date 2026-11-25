@@ -56,6 +56,7 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     echo.html             Echo-Duett, erzeugt
     kanu.html             Kanu zu zweit, erzeugt
     weichensteller.html   Weichensteller, erzeugt
+    raumschiff.html       Raumschiff-Crew, erzeugt
     admin.html            der Adminbereich, erzeugt
     app.webmanifest       erzeugt
     service-worker.js     erzeugt
@@ -134,6 +135,8 @@ kopiert sie nach `dist/` (`netlify/build.mjs`) und veröffentlicht das.
     kanu.js               Kanu zu zweit: der Fluss, zwei Paddel, die
                           Simulation in Ticks, ein Computer als Partner
     weichensteller.js     Weichensteller: Loks, drei Weichen, vier Bahnhöfe,
+                          die Simulation in Ticks, ein Computer als Partner
+    raumschiff.js         Raumschiff-Crew: drei Bahnen, Asteroiden, Schild,
                           die Simulation in Ticks, ein Computer als Partner
     live-spiel.js         ein Spiel als Runde eines Multiplayers: Countdown,
                           gemeinsamer Start, Punkte melden, Zeitende
@@ -2961,6 +2964,7 @@ Gerät:
 | Echo-Duett | `/echo` | `echo.js` |
 | Kanu zu zweit | `/kanu` | `echtzeit.js`, `kanu.js` |
 | Weichensteller | `/weichensteller` | `echtzeit.js`, `weichensteller.js` |
+| Raumschiff-Crew | `/raumschiff` | `echtzeit.js`, `raumschiff.js` |
 
 Keine Spiele der Tabelle – sie haben keine Bestenliste, weil es keine eine
 Zahl gibt, bei der grösser besser wäre, und sie laufen nicht auf der
@@ -3767,6 +3771,29 @@ obere, umstellen), «b52:W1» / «b52:W2» (die linke / rechte untere) oder
 «E412». Bilanz: `weichensteller.bilanz`. (Eine frühere Lern-App hiess
 «weichen» und ist weg – darum der längere Name.)
 
+**Raumschiff-Crew** (`raumschiff.js`, miteinander, in Echtzeit): Ein Stück
+All zieht von rechts nach links vorbei; das Raumschiff fliegt von selbst,
+auf drei Bahnen. Zwei Aufgaben an Bord: Wer die Partie beginnt, steuert
+(▲ ▼) – an den Asteroiden vorbei, die eine oder zwei Bahnen belegen, und
+wenn es geht durch die Sterne. Die andere hat den Schild: Ein Meteorschauer
+reicht über alle drei Bahnen (vorher blinkt rechts ein «!»), ausweichen geht
+nicht – nur der Schild hilft. Er hält 1,4 s und lädt dann 2,6 s. Ein
+Treffer kostet ein Herz (von dreien); erreicht das Schiff den Planeten mit
+mindestens einem Herz, ist es geschafft. Jede sieht unten nur ihre eigenen
+Knöpfe; auf «Ganz leicht» und «Einfach» leuchtet der richtige.
+
+| Stufe (oder zu zweit: die Partie) | Flug |
+|---|---|
+| Ganz leicht (Partie 1–2) | kurz, Asteroiden je auf einer Bahn |
+| Einfach (Partie 3–4) | länger, manchmal zwei Bahnen zu |
+| Mittel (Partie 5–6) | lang, mehr Meteorschauer |
+| Schwer (ab Partie 7) | durch den Asteroidengürtel |
+
+Ohne Steuern und Schild träfe das Schiff auf jedem Flug mindestens dreimal
+etwas. Der Computer übernimmt die andere Aufgabe und rechnet voraus, wann
+er etwas tun muss. Ein Zug ist «S», «a37:U» / «a37:D» (eine Bahn hoch /
+runter), «b52:S» (Schild an) oder «E412». Bilanz: `raumschiff.bilanz`.
+
 **Zu zweit, live.** Jede auf dem eigenen Gerät. «Neues Spiel eröffnen» legt
 einen Raum an – zehn Zeichen in der Adresse, nicht zu erraten – und dazu vier
 Ziffern zum Abtippen. Im Turnier braucht es beides kaum: Wer eröffnet, steht
@@ -3906,6 +3933,8 @@ Ziel, wer die Felsen sucht, nicht, das Ende als Zug, dieselbe Rechnung auch
 bei anderer Reihenfolge; beim Weichensteller: mehr Loks je Stufe, jede Farbe
 kommt dran, wer welche Weiche stellt, eine Weiche zählt, wie sie steht, wenn
 die Lok sie erreicht, gute Partnerinnen bringen jede Lok ans Ziel, das Ende
+als Zug; bei der Raumschiff-Crew: der Flugplan, wer steuert und wer den
+Schild hat, der Schild lädt, eine gute Crew kommt ohne Treffer an, das Ende
 als Zug – die neueren
 Spiele ab Bohnen säen mit festem Zufall (`FESTER_ZUFALL`), damit ihre
 Partien Computer gegen Computer bei jedem Lauf gleich ausgehen),

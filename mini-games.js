@@ -332,6 +332,7 @@
     { id: "echo", seite: "echo", titel: "Echo-Duett" },
     { id: "kanu", seite: "kanu", titel: "Kanu zu zweit" },
     { id: "weichensteller", seite: "weichensteller", titel: "Weichensteller" },
+    { id: "raumschiff", seite: "raumschiff", titel: "Raumschiff-Crew" },
   ];
   const ZWEI_NACH_ID = new Map(ZWEI_SPIELER.map((s) => [s.id, s]));
 
@@ -4503,6 +4504,13 @@
       wiese.append(el("span", "ar-ws-gleis ist-oben"), el("span", "ar-ws-gleis ist-links"), el("span", "ar-ws-gleis ist-rechts"),
         el("span", "ar-ws-bahnhof ist-0"), el("span", "ar-ws-bahnhof ist-1"), el("span", "ar-ws-weiche"), el("span", "ar-ws-lok"));
       bild.append(wiese);
+    },
+    raumschiff(bild) {
+      const all = el("span", "ar-rs-all");
+      const schiff = el("span", "ar-rs-schiff");
+      schiff.append(el("span", "ar-rs-fenster ist-a"), el("span", "ar-rs-fenster ist-b"));
+      all.append(el("span", "ar-rs-stein ist-1"), el("span", "ar-rs-stein ist-2"), el("span", "ar-rs-stern", "\u2605"), schiff);
+      bild.append(all);
     },
   };
 

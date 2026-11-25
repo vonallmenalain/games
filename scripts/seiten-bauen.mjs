@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-25-11";
+export const FASSUNG = "2026-11-25-12";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -708,6 +708,11 @@ export const ZWEI = [
     seite: "weichensteller", titel: "Weichensteller", js: ["echtzeit.js", "weichensteller.js"],
     text: "Weichensteller: Zusammen! Die Loks kommen aus dem Tunnel – stellt die Weichen, damit jede in den Bahnhof ihrer Farbe fährt. Mit dem Computer als Partner oder live zu zweit.",
     kurz: "Weichen stellen, jede Lok in ihren Bahnhof – zusammen.",
+  },
+  {
+    seite: "raumschiff", titel: "Raumschiff-Crew", js: ["echtzeit.js", "raumschiff.js"],
+    text: "Raumschiff-Crew: Zusammen! Eine steuert das Raumschiff an den Asteroiden vorbei, die andere schaltet den Schild ein, wenn Meteore kommen – bis zum Planeten. Mit dem Computer als Partner oder live zu zweit.",
+    kurz: "Steuern und Schild – zusammen zum Planeten.",
   },
 ];
 
