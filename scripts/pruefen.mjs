@@ -912,7 +912,7 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter"];
+  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
@@ -2070,6 +2070,52 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
     pruefe("Leiterspiel: Jede Stufe würfelt und wählt nur, was erlaubt ist, und wer gewinnt, steht auf 50", legal);
     pruefe("Leiterspiel: Mit einer Sechs ist man nochmal dran", sechs);
     pruefe(`Leiterspiel: Wer klug wählt («Mittel»), gewinnt gegen «Ganz leicht» meistens (${gutSiegt} von 40)`, gutSiegt >= 28);
+  }
+
+  // Baumeister: die Pläne, merken – fragen – antworten – setzen – fertig,
+  // die Rollen im Wechsel, drei von vier Runden.
+  const BM = angemeldet.baumeister;
+  if (BM?.fuerPruefung) {
+    const { plan, GRADE, gradVon, RUNDEN, GESCHAFFT_AB } = BM.fuerPruefung;
+    let plaeneOk = true;
+    for (let g = 0; g < GRADE.length; g += 1) for (let s = 1; s < 60; s += 1) {
+      const p = plan(s, s % 4, g);
+      const farben = new Set(p.felder.filter(Boolean));
+      if (p.n !== GRADE[g].n || p.felder.length !== p.n * p.n || p.felder.filter(Boolean).length !== GRADE[g].kloetze
+        || p.felder.some((f) => f < 0 || f > GRADE[g].farben) || farben.size !== Math.min(GRADE[g].farben, GRADE[g].kloetze)) plaeneOk = false;
+    }
+    pruefe("Baumeister: Jeder Plan hat so viele Klötze und Farben, wie sein Grad sagt – jede Farbe kommt vor, und er kommt aus der Saat",
+      plaeneOk && JSON.stringify(plan(9, 2, 1)) === JSON.stringify(plan(9, 2, 1)) && JSON.stringify(plan(9, 2, 1)) !== JSON.stringify(plan(9, 3, 1)));
+    const saat = 4321;
+    const lage = (zuege, beginnt = "a", stufe = "einfach") => BM.lage(zuege, { roh: zuege.join("."), beginnt, saat, stufe });
+    const p0 = plan(saat, 0, gradVon(saat, "einfach"));
+    const rundeRichtig = (p) => { const z = ["M"]; p.felder.forEach((f, i) => { if (f) z.push(`Q${i}`, `A${f}`, `B${f}`); }); z.push("X"); return z; };
+    const l0 = lage([]);
+    pruefe("Baumeister: Wer beginnt, ist zuerst die Planerin und merkt sich den Plan", l0.phase === "merken" && l0.dran === "a" && l0.rollen.planerin === "a" && BM.darf(l0, "M", "a") && !BM.darf(l0, "Q0", "b"));
+    const l1 = lage(["M", "Q4"]);
+    pruefe("Baumeister: Die Baumeisterin fragt ein Feld, die Planerin antwortet, die Baumeisterin setzt",
+      lage(["M"]).dran === "b" && l1.phase === "antworten" && l1.dran === "a" && BM.darf(l1, "A0", "a") && !BM.darf(l1, "B1", "b")
+      && lage(["M", "Q4", "A2"]).dran === "b" && lage(["M", "Q4", "A2", "B2"]).bau[4] === 2 && lage(["M", "Q4", "A2", "B2"]).phase === "bauen");
+    const r1 = lage(rundeRichtig(p0));
+    const p1 = plan(saat, 1, gradVon(saat, "einfach"));
+    pruefe("Baumeister: Stimmt der Bau, ist die Runde geschafft – dann wird getauscht",
+      r1.ergebnisse[0]?.richtig === true && r1.runde === 1 && r1.rollen.planerin === "b" && r1.dran === "b" && r1.phase === "merken");
+    const r2 = lage([...rundeRichtig(p0), "M", "X"]);
+    pruefe("Baumeister: Stimmt er nicht, ist sie nicht geschafft", r2.ergebnisse[1]?.richtig === false && r2.ergebnisse[1].falsch === p1.felder.filter(Boolean).length);
+    // Ganze Partien: der Computer als beide (verlässlich) – immer geschafft;
+    // wer nur «Fertig» tippt, schafft es nicht.
+    let immer = true;
+    for (const st of Object.keys(BM.stufen)) {
+      const z = [];
+      const la = () => lage(z, "a", st);
+      for (let l = la(); !l.ende && z.length < 600; l = la()) { const m = BM.computer(l, l.dran, st); if (!BM.darf(l, m?.zug, l.dran)) { immer = false; break; } z.push(m.zug); }
+      if (la().ende !== "g" || la().ergebnisse.length !== RUNDEN) immer = false;
+    }
+    const faul = lage(Array(RUNDEN).fill(["M", "X"]).flat());
+    pruefe(`Baumeister: Der Computer ist ein verlässlicher Partner – auf jeder Stufe geschafft; ${GESCHAFFT_AB} von ${RUNDEN} Runden müssen stimmen`, immer && faul.ende === "v");
+    const grade = [0, 1, 2, 3, 4, 8].map((nr) => gradVon(BM.neuePartie(null, { nr }).saat, null));
+    pruefe(`Baumeister: Zu zweit wird es mit jeder zweiten Partie schwerer (${grade.join(",")}), gegen den Computer sagt es die Stufe`,
+      grade.join(",") === "1,1,2,2,3,3" && gradVon(123, "leicht") === 0 && gradVon(123, "schwer") === 3);
   }
 
   // Der Computer, ohne Browser: Er erkennt vier in jeder Richtung, setzt nur

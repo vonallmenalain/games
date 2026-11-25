@@ -278,6 +278,25 @@ const RD = (() => { try { return spielAusDatei("rechnen.js", "rechnen"); } catch
 // Leiterspiel: die Würfel kommen aus der Saat der Partie – Papa wählt klug,
 // Lena ungeschickt, bis Papa gewinnt (mit wechselnder Wahl, falls nötig).
 const LT = (() => { try { return spielAusDatei("leiter.js", "leiter"); } catch { return null; } })();
+// Baumeister: der Plan kommt aus Saat und Runde (bmPlan) – so weiss die
+// Prüfung, was die Planerin antworten muss.
+const BM = (() => { try { return spielAusDatei("baumeister.js", "baumeister"); } catch { return null; } })();
+async function bmFolge({ papa, lena, raum }, richtig) {
+  const saat = (await (await db(`partie/${raum}/stand`)).json())?.saat;
+  const st = (await (await db(`partie/${raum}/stand`)).json());
+  const beginnt = st?.beginnt === "b" ? "b" : "a";
+  const g = { a: papa, b: lena };
+  const grad = BM.fuerPruefung.gradVon(saat, null);
+  const folge = [];
+  for (let r = 0; r < BM.fuerPruefung.RUNDEN; r += 1) {
+    const planerin = r % 2 === 0 ? beginnt : (beginnt === "a" ? "b" : "a");
+    const baut = planerin === "a" ? "b" : "a";
+    folge.push({ g: g[planerin], zug: "M" });
+    if (richtig) BM.fuerPruefung.plan(saat, r, grad).felder.forEach((f, i) => { if (f) folge.push({ g: g[baut], zug: `Q${i}` }, { g: g[planerin], zug: `A${f}` }, { g: g[baut], zug: `B${f}` }); });
+    folge.push({ g: g[baut], zug: "X" });
+  }
+  return folge;
+}
 function ltSieg(saat) {
   const lage = (zuege) => LT.lage(zuege, { roh: zuege.join("."), beginnt: "a", saat });
   for (const [gut, schlecht] of [["schwer", "klein"], ["mittel", "klein"], ["schwer", "zufall"]]) {
@@ -925,6 +944,39 @@ const SPIELWEISE = {
     remis: null,
     trenner: ".",
     // Würfelglück: Auch gut gewählt gewinnt man gegen «Schwer» oft.
+    schwerSpielen: false,
+  },
+  baumeister: {
+    brett: ".zw-bm-flaeche",
+    tippe: (s, z) => {
+      if (z === "M") return s.locator(".zw-bm-gemerkt").click();
+      if (z === "X") return s.locator(".zw-bm-fertig").click();
+      if (z[0] === "Q") return s.locator(`.zw-bm-feld[data-feld="${z.slice(1)}"]`).click();
+      return s.locator(`.zw-bm-farbe[data-farbe="${z.slice(1)}"]`).click();
+    },
+    kannTippen: (s, z) => {
+      const wahl = z === "M" ? ".zw-bm-gemerkt" : z === "X" ? ".zw-bm-fertig" : z[0] === "Q" ? `.zw-bm-feld[data-feld="${z.slice(1)}"]` : `.zw-bm-farben:not([hidden]) .zw-bm-farbe[data-farbe="${z.slice(1)}"]`;
+      return s.locator(`${wahl}:not([hidden]):not([disabled])`).count().then((n) => n === 1);
+    },
+    liegt: (s) => s.locator(".zw-bm").getAttribute("data-zuege").then(Number).catch(() => -1),
+    // Gegen den Computer: merken, richtig antworten, setzen, was er sagt,
+    // jedes Feld fragen und dann fertig.
+    waehle: (lage) => {
+      if (!lage || lage.ende || lage.dran !== "a") return null;
+      if (lage.phase === "merken") return "M";
+      if (lage.phase === "antworten") return `A${lage.plan.felder[lage.frage]}`;
+      if (lage.phase === "setzen") return `B${lage.antwort}`;
+      const frei = lage.bau.findIndex((_, i) => !lage.gefragt.includes(i));
+      return frei < 0 ? "X" : `Q${frei}`;
+    },
+    sieg: (ctx) => bmFolge(ctx, true),
+    siegZeichen: [".zw-bm-runde.ist-ja", 4],
+    // Lena beginnt, und niemand baut etwas: vier Runden nicht geschafft.
+    remis: (ctx) => bmFolge(ctx, false),
+    remisText: /nicht geschafft/i,
+    trenner: ".",
+    gemeinsam: true,
+    autoZuege: false,
     schwerSpielen: false,
   },
 };
