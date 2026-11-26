@@ -1437,7 +1437,7 @@
   }
 
   const WALD_TAG = {
-    laerche: [202, 150, 92], laercheLicht: [246, 196, 126], arve: [40, 52, 78], arveLicht: [104, 108, 140],
+    laerche: [202, 150, 92], laercheLicht: [246, 196, 126], arve: [30, 56, 56], arveLicht: [86, 118, 104],
     stamm: [70, 56, 80], wiese: [92, 84, 124], nebel: [238, 200, 198], funken: null,
   };
   const WALD_NACHT = {
