@@ -2525,6 +2525,44 @@
       tabelle.append(body);
       detail.append(tabelle);
     }
+
+    // Die Bestenliste eines Spiels im Turnier leeren – alle Einträge dieses
+    // Spiels samt ihren Läufen, die anderen Spiele bleiben. Für den Tag, an
+    // dem ein Spiel mitten im Turnier anders zählt (Wo hält der Zug? im
+    // November 2026: bis 1000 statt bis 100) und die alten Zahlen neben den
+    // neuen nichts mehr sagen. «Bestenliste leeren» im Bereich «Spiele»
+    // leert nur die Hall of Fame; ein Turnier führt seine eigene Liste
+    // (cloud.js, miniTurniere/<id>/eintraege).
+    if (Array.isArray(eintraege) && eintraege.length) {
+      const spiele = [...new Set([...t.spiele, ...eintraege.map((e) => e.game)])].filter(Boolean);
+      const tabelle = el("table", "adm-tabelle adm-turnier-spiele");
+      const kopfZeile = el("tr");
+      [["Bestenliste im Turnier", ""], ["Einträge", "zahl"], ["", ""]]
+        .forEach(([wort, klasse]) => kopfZeile.append(el("th", klasse, wort)));
+      const thead = el("thead");
+      thead.append(kopfZeile);
+      tabelle.append(thead);
+      const body = el("tbody");
+      spiele.forEach((spiel) => {
+        const darin = eintraege.filter((e) => e.game === spiel);
+        const zeile = el("tr");
+        zeile.dataset.spiel = spiel;
+        zeile.append(el("td", "adm-name", titel(spiel)));
+        zeile.append(el("td", "zahl", String(darin.length)));
+        const zelle = el("td", "adm-aktionen");
+        if (darin.length) {
+          zelle.append(knopf("Bestenliste leeren", "adm-knopf-weg", () => {
+            const versuche = t.versuche ? " Wer dort gespielt hat, hat danach wieder alle Versuche." : "";
+            if (!window.confirm(`Die Bestenliste von ${titel(spiel)} in «${t.name}» leeren – ${zahlWort(darin.length, "Eintrag", "Einträge")} samt Läufen?${versuche} Die anderen Spiele bleiben. Das lässt sich nicht rückgängig machen.`)) return;
+            aktion.leere?.(t, spiel, darin.map((e) => e.id));
+          }));
+        }
+        zeile.append(zelle);
+        body.append(zeile);
+      });
+      tabelle.append(body);
+      detail.append(tabelle);
+    }
     karte.append(detail);
     return karte;
   }
@@ -2672,6 +2710,17 @@
       await laden();
     }
 
+    async function leere(t, spiel, ids) {
+      sage("Wird geleert...");
+      try {
+        await cloud().loescheTurnierEintraege(t.id, ids);
+        sage(`Die Bestenliste von ${titel(spiel)} in «${t.name}» ist leer.`, "ist-gut");
+      } catch (fehler) {
+        sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
+      }
+      await laden();
+    }
+
     async function entferne(t, name, ids) {
       sage("Wird entfernt...");
       try {
@@ -2707,7 +2756,7 @@
         gruppe.append(el("h3", "adm-turnier-gruppe-titel", darin.length ? `${ueberschrift} (${darin.length})` : ueberschrift));
         if (!darin.length) gruppe.append(el("p", "adm-hinweis", "Gerade läuft kein Turnier."));
         darin.forEach((s) => gruppe.append(turnierZeile(s.t, s.eintraege, {
-          offen: s.t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne, abende: s.abende,
+          offen: s.t.id === gewaehlt, waehle, bearbeiten: oeffne, speichere, loesche, entferne, leere, abende: s.abende,
           // Ein Tipp auf einen Namen im Stand: was er in diesem Turnier
           // gespielt hat, Runde für Runde.
           zeigeSpieler: (name) => zeigeTurnierSpieler(stand, s, name, neuLaden),
