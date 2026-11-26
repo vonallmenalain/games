@@ -1559,6 +1559,22 @@
     return y;
   }
 
+  const kraterTiefe = (o) => clamp((o.b - o.a) * 0.62 + 8, 22, o.tief);
+
+  // Die Schüssel eines Kraters als Pfad: steile Wände, unten rund.
+  function kraterLoch(o) {
+    const x0 = bildX(o.a);
+    const x1 = bildX(o.b);
+    const y0 = bildY(bodenWelle(o.a));
+    const y1 = bildY(bodenWelle(o.b));
+    const breit = x1 - x0;
+    const boden = bildY(-kraterTiefe(o));
+    g.moveTo(x0 - 1, y0);
+    g.bezierCurveTo(x0 + breit * 0.03, y0 + (boden - y0) * 0.7, x0 + breit * 0.16, boden, x0 + breit * 0.48, boden);
+    g.bezierCurveTo(x1 - breit * 0.16, boden, x1 - breit * 0.03, y1 + (boden - y1) * 0.7, x1 + 1, y1);
+    g.closePath();
+  }
+
   function zeichneKrater(o) {
     const s = view.s;
     const x0 = bildX(o.a);
@@ -1568,15 +1584,8 @@
     const y0 = bildY(bodenWelle(o.a));
     const y1 = bildY(bodenWelle(o.b));
     const breit = x1 - x0;
-    const boden = bildY(-clamp((o.b - o.a) * 0.62 + 8, 22, o.tief));
-    // Die Schüssel: steile Wände, unten rund.
-    const loch = () => {
-      g.beginPath();
-      g.moveTo(x0 - 1, y0);
-      g.bezierCurveTo(x0 + breit * 0.03, y0 + (boden - y0) * 0.7, x0 + breit * 0.16, boden, x0 + breit * 0.48, boden);
-      g.bezierCurveTo(x1 - breit * 0.16, boden, x1 - breit * 0.03, y1 + (boden - y1) * 0.7, x1 + 1, y1);
-      g.closePath();
-    };
+    const boden = bildY(-kraterTiefe(o));
+    const loch = () => { g.beginPath(); kraterLoch(o); };
     const dunkel = g.createLinearGradient(0, Math.min(y0, y1), 0, boden);
     dunkel.addColorStop(0, "rgb(96, 46, 34)");
     dunkel.addColorStop(0.4, "rgb(50, 24, 22)");
@@ -2352,6 +2361,13 @@
     const sx = bildX(f.x);
     const sy = bildY(f.y);
     g.save();
+    // Im Krater sieht man ihn nur in der Öffnung – nicht durch die Wände.
+    if (f.grube && !f.grube.schlucht) {
+      g.beginPath();
+      g.rect(-50, -50, view.cssW + 100, bildY(3) + 50);
+      kraterLoch(f.grube);
+      g.clip();
+    }
     g.translate(sx, sy - 9 * s);
     g.rotate(-f.dreh);
     g.translate(-sx, -(sy - 9 * s));
@@ -2785,7 +2801,7 @@
       dreh: 0,
       drehV: grube ? -2.6 : warum === "bogen" ? -1.6 : 3.2,
       // In einem Krater bleibt er unten liegen, in der Schlucht fällt er ins Dunkel.
-      boden: grube ? (o.schlucht ? -600 : -clamp((o.b - o.a) * 0.62 + 8, 22, o.tief || 50) + 7) : 0,
+      boden: grube ? (o.schlucht ? -600 : -kraterTiefe(o) + 9) : 0,
       grube: grube ? o : null,
       rad: { x: r.x + RAEDER[2], y: r.y + RAD_R, vx: v * 0.45, vy: 110 + Math.random() * 40, dreh: 0 },
     };
@@ -2817,7 +2833,8 @@
     if (f.grube) {
       // In den Krater: vorn zuerst hinunter, bis er im Dunkel verschwindet.
       f.vx *= 1 - 1.5 * dt;
-      f.x = clamp(f.x, f.grube.a + LH * 0.5, f.grube.b - LH * 0.6);
+      const mitte = (f.grube.a + f.grube.b) / 2;
+      f.x = clamp(f.x, f.grube.a + LH * 0.5, Math.max(mitte, f.grube.b - LH * 1.1));
       if (f.y < f.boden) {
         f.y = f.boden;
         if (f.vy < -40) teile("staub", f.x, f.boden + 2, 6, 1.2, 0);
@@ -2849,7 +2866,7 @@
     let grund = RAD_R;
     if (bodenSicht(rad.x) === -Infinity) {
       const o = state.hindernisse[abIndex(rad.x)];
-      grund = o && o.art === "krater" && !o.schlucht && rad.x > o.a && rad.x < o.b ? -clamp((o.b - o.a) * 0.62 + 8, 22, o.tief) + RAD_R : -9999;
+      grund = o && o.art === "krater" && !o.schlucht && rad.x > o.a && rad.x < o.b ? -kraterTiefe(o) + RAD_R : -9999;
     }
     if (rad.y < grund && rad.vy < 0) {
       rad.y = grund;
