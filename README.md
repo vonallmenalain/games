@@ -2883,7 +2883,12 @@ Start herunterkommt und noch liegt, und reicht ihn beim Start als
 `pointerdown` an derselben Stelle nach (`reicheGehaltenNach`). Vorher
 verschluckte sie ihn – im Tunnelflug sank das Flugzeug ohne Schub, im
 Slalom fuhr der Fahrer geradeaus in den Wald, obwohl gedrückt war. Ein Tipp,
-der im Countdown schon wieder oben ist, kommt nicht nach. Die
+der im Countdown schon wieder oben ist, kommt nicht nach. Das gilt nur in
+den Spielen, in denen der Finger gehalten wird (Schub, Lenken, Festhalten) –
+das Spiel sagt es beim Aufbau der Bühne (`live: { …, halten: true }`). Wo
+ein Druck eine Tat ist (im Turmbau fällt der Block, im Schwerkraft-Läufer
+kippt die Schwerkraft), löst ein Daumen, der im Countdown auf dem Bild
+ruht, beim «Los!» nichts aus. Die
 Runde endet, wenn alle fertig (oder weg) sind oder die Zeit um ist; die
 Leitung kann sie auch von Hand beenden – mit dem Knopf «Leitung» über dem
 Spiel, auch beim Zuschauen, oder mit «Runde jetzt beenden» auf ihrer Tafel.

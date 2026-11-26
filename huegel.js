@@ -1379,7 +1379,7 @@
     accentDark: "#b9741a",
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
+    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "hillGlide", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,

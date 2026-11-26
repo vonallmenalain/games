@@ -1592,7 +1592,7 @@
     accentDark: "#b9741a",
     clock: true,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
+    live: { los: losGehts, stopp: zeitUm, zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   // Die besten Läufe anschauen (?zuschauen=): Die Strecke ist fest, eine
   // Saat braucht es nicht.

@@ -3461,7 +3461,7 @@
     accentDark: "#b9741a",
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "mineCart", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
