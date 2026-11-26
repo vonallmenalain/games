@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3348,6 +3348,7 @@ try {
       return T.state.tunnel.punkte.slice(0, 180).map((p) => `${p.oben.toFixed(3)}/${p.unten.toFixed(3)}`).join(" ");
     }],
     ["/gratwanderung", "Gratwanderung", () => window.LernappGratwanderung.kursText(40)],
+    ["/kaminfeger", "Kaminfeger", () => window.LernappKaminfeger.gasseText(1200)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -11659,6 +11660,156 @@ try {
     await kontext.close();
   }
 
+  // --- 4g43. Kaminfeger: immer zu schaffen, und wer etwas berührt, stürzt -----------
+  // Ein Autopilot springt genau dort ab, wo der Weg es vorsieht, um den die
+  // Gasse gebaut ist – über mehrere gewürfelte Gassen bis 400 m. Auch wer um
+  // fast die ganze Luft früher oder später springt, kommt durch. Wer immer
+  // sofort springt, landet im ersten Hindernis, das zum Warten zwingt; wer
+  // dort knapp zu früh springt, ebenso; wer nichts tut, den holt der Rauch
+  // oder ein Hindernis darunter.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/kaminfeger`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKaminfeger?.state?.plan?.length && window.LernappKaminfeger.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappKaminfeger;
+      const st = K.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); };
+      // Ein Lauf: wann(nr, besuch) gibt die Höhe, auf der er an diesem
+      // Besuch abspringt (Infinity: sofort, -Infinity: nie).
+      const lauf = (meter, wann) => {
+        K.tippen();
+        let enge = Infinity;
+        let vorher = "flug";
+        for (let n = 0; n < 3000000 && st.phase === "spiel" && st.schritt !== "sturz" && st.punkte < meter; n += 1) {
+          if (st.schritt === "halt" || st.schritt === "rutsch") {
+            if (vorher === "flug") enge = Math.min(enge, K.abstand(st.kf.seite, st.kf.y));
+            if (st.kf.y <= wann(st.spruenge, st.plan[st.spruenge]) + 1e-6) K.tippen();
+          }
+          vorher = st.schritt;
+          K.takt(1 / 240);
+        }
+        return { schritt: st.schritt, warum: st.sturz?.warum || "", punkte: st.punkte, spruenge: st.spruenge, knappe: st.knappe, enge: Math.round(enge * 100) / 100 };
+      };
+
+      // 1. Genau nach dem Weg, vier Gassen: kein Sturz, und nie näher an
+      //    einem Hindernis gelandet als die kleinste Luft (bis auf den
+      //    einen Rechenschritt, um den der Absprung hier zu spät kommt).
+      const genau = [];
+      const arten = new Set();
+      let gewartet = 0;
+      let besuche = 0;
+      for (let i = 0; i < 4; i += 1) {
+        neu();
+        const r = lauf(400, (nr, p) => p.t);
+        genau.push(r);
+        [...st.hindernisse[-1], ...st.hindernisse[1]].forEach((h) => arten.add(h.art));
+        gewartet += st.plan.filter((p) => p.t < st.kf.y && p.warten).length;
+        besuche += st.plan.filter((p) => p.t < st.kf.y).length;
+      }
+      // 2. Fast die ganze Luft früher, fast die ganze später: beides geht.
+      neu();
+      const frueh = lauf(300, (nr, p) => p.t + 0.9 * p.e);
+      neu();
+      const spaet = lauf(300, (nr, p) => p.t - 0.9 * p.e);
+
+      // 3. Immer sofort: Er landet in dem Hindernis, das zum Warten zwingt.
+      neu();
+      const erster = st.plan.findIndex((p) => p.warten);
+      const sofort = lauf(400, () => Infinity);
+
+      // 4. Am ersten Besuch, der warten muss, knapp zu früh.
+      neu();
+      const erster2 = st.plan.findIndex((p) => p.warten);
+      const zuFrueh = lauf(400, (nr, p) => (nr === erster2 ? p.t + p.e + 1.5 : p.t));
+
+      // 5. Nach dem ersten Sprung nichts mehr tun.
+      neu();
+      const nichts = lauf(400, () => -Infinity);
+
+      const y = (m) => K.START_Y + m * K.METER;
+      return {
+        genau, arten: [...arten].sort(), gewartet, besuche, frueh, spaet, sofort, erster, zuFrueh, erster2, nichts,
+        luftMin: K.LUFT_MIN,
+        fenster: [0, 100, 250].map((m) => Math.round((K.luftBei(y(m)) / K.rutschBei(y(m))) * 1000)),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt !== "sturz" && r.punkte >= 400 && r.enge >= befund.luftMin - 0.35 && r.knappe === 0),
+      `Kaminfeger: Der Autopilot kommt nicht durch jede Gasse, oder der Weg führt zu nah an einem Hindernis vorbei – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.arten.length >= 9 && befund.gewartet / befund.besuche > 0.3 && befund.gewartet / befund.besuche < 0.7,
+      `Kaminfeger: In den Gassen hängen zu wenige Arten von Hindernissen, oder es muss zu selten (zu oft) gewartet werden: ${JSON.stringify({ arten: befund.arten, gewartet: befund.gewartet, besuche: befund.besuche })}`);
+    pruefe(befund.frueh.schritt !== "sturz" && befund.frueh.punkte >= 300 && befund.spaet.schritt !== "sturz" && befund.spaet.punkte >= 300,
+      `Kaminfeger: Wer um neun Zehntel der Luft früher oder später springt, kommt nicht durch: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet })}`);
+    pruefe(befund.erster >= 3 && befund.sofort.schritt === "sturz" && befund.sofort.warum === "geprallt" && befund.sofort.spruenge === befund.erster + 1,
+      `Kaminfeger: Wer immer sofort springt, landet nicht im ersten Hindernis, das zum Warten zwingt: ${JSON.stringify({ sofort: befund.sofort, erster: befund.erster })}`);
+    pruefe(befund.zuFrueh.schritt === "sturz" && befund.zuFrueh.warum === "geprallt" && befund.zuFrueh.spruenge === befund.erster2 + 1,
+      `Kaminfeger: Knapp zu früh gesprungen endet nicht im Hindernis: ${JSON.stringify({ zuFrueh: befund.zuFrueh, erster: befund.erster2 })}`);
+    pruefe(befund.nichts.schritt === "sturz" && /^(rauch|gerutscht)$/.test(befund.nichts.warum) && befund.nichts.spruenge === 1 && befund.nichts.punkte <= 5,
+      `Kaminfeger: Wer nach dem ersten Sprung nichts tut, stürzt nicht: ${JSON.stringify(befund.nichts)}`);
+    pruefe(befund.fenster[0] > 250 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 55,
+      `Kaminfeger: Das Fenster für einen Sprung, der warten muss, wird nicht von gut 250 ms an enger (und nie unter 55 ms): ${befund.fenster.join(", ")} ms`);
+    // Nach dem Sturz steht die Tafel da – in Echtzeit, der Rauch holt ihn.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappKaminfeger.tippen(performance.now()); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappKaminfeger.state.schritt, phase: window.LernappKaminfeger.state.phase }));
+    pruefe(ende.schritt === "sturz" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|1 Sprung · 0 haarscharf/.test(ende.text),
+      `Kaminfeger: Nach dem Sturz steht keine Tafel mit Metern und Sprüngen da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Gasse
+    // aufgezeichnet, und wer ihn anschaut, sieht dieselbe Gasse, dieselben
+    // Meter und am Schluss den Sturz – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__kaminfeger")) return;
+      sessionStorage.setItem("__kaminfeger", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/kaminfeger`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKaminfeger?.state?.plan?.length && window.LernappKaminfeger.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Sechs Sprünge nach dem
+    // Weg, dann keiner mehr.
+    await seite.evaluate(() => {
+      const K = window.LernappKaminfeger;
+      const st = K.state;
+      K.tippen(performance.now());
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt === "sturz") return;
+        requestAnimationFrame(tick);
+        if (st.spruenge >= 6) return;
+        if ((st.schritt === "halt" || st.schritt === "rutsch") && st.kf.y <= st.plan[st.spruenge].t + 0.5) K.tippen(performance.now());
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 30000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("chimneySweep_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappKaminfeger.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`chimneySweep_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, spruenge: st.spruenge, gasse: window.LernappKaminfeger.gasseText(600) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.spruenge === 6 && gespielt.punkte >= 10,
+      `Kaminfeger: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, gasse: undefined })}`);
+    await seite.goto(`${BASIS}/kaminfeger?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappKaminfeger?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const gasse = await seite.evaluate(() => window.LernappKaminfeger.gasseText(600));
+    pruefe(gasse === gespielt.gasse, `Kaminfeger: Beim Zuschauen entsteht eine andere Gasse:\n  gespielt ${gespielt.gasse}\n  angeschaut ${gasse}`);
+    // Beim Zuschauen springt niemand mit.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 30000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappKaminfeger.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz",
+      `Kaminfeger: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, gasse: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -11881,7 +12032,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 39 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 40 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -11889,7 +12040,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /40/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /41/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -11940,7 +12091,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -13751,7 +13902,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 216, `klang.js kennt nicht alle 216 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 223, `klang.js kennt nicht alle 223 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

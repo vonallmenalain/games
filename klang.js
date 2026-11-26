@@ -272,6 +272,13 @@
     "gratwanderung.perfekt": { s: "pling" },
     "gratwanderung.sturz": { s: "schnee-sturz" },
     "gratwanderung.fall": { s: "fall" },
+    "kaminfeger.nacht": { s: "a-wind", schleife: true },
+    "kaminfeger.rutschen": { s: "a-kies", schleife: true },
+    "kaminfeger.sprung": { s: "woosh-kurz" },
+    "kaminfeger.landung": { s: "whomp-weich" },
+    "kaminfeger.knapp": { s: "pling" },
+    "kaminfeger.sturz": { s: "krach" },
+    "kaminfeger.fall": { s: "fall" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -289,6 +296,7 @@
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
+    chimneySweep: "kaminfeger",
   };
 
   // ---------------------------------------------------------------------------

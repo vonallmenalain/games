@@ -1045,7 +1045,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz {
   position: absolute;
   inset: 0;
 }
@@ -1065,7 +1065,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .kw-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1080,7 +1080,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1754,6 +1754,60 @@ h2 {
   background: linear-gradient(135deg, #d6f1ff, #38bdf8);
   color: #062a40;
   font-weight: 900;
+}
+
+/* --- Kaminfeger: die Gasse bei Nacht --------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Die ganze Spielfläche ist die
+   Leinwand (kaminfeger.js); getippt wird überall. Der Grund ist der
+   Nachthimmel des ersten Bildes. */
+.kf-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.kf-stage:not([data-phase="intro"]) .kf-prompt { opacity: 0; }
+
+.kf-feld { width: 100%; background: linear-gradient(#0c1238, #1c346e 55%, #56609a); }
+
+.kf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Der Hinweis vor dem ersten Tipp: zwei Ringe, die aufgehen – unten in der
+   Gasse, unter dem Kaminfeger. */
+.kf-tipp {
+  position: absolute;
+  top: 88%;
+  left: 50%;
+  width: clamp(40px, 12%, 62px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(4, 6, 30, 0.6));
+}
+.kf-stage[data-phase="intro"] .kf-tipp { opacity: 0.95; }
+.kf-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.kf-tipp-ring { transform-origin: 32px 32px; animation: tb-tipp 1.8s ease-out infinite; }
+.kf-tipp-ring.is-spaet { animation-delay: 0.9s; }
+
+.kf-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a623);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kf-tipp-ring { animation: none; opacity: 0.35; }
 }
 
 /* --- Gratwanderung: der Grat über dem Nebelmeer --------------------------
@@ -4742,7 +4796,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-5";
+export const FASSUNG = "2026-11-26-6";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -340,6 +340,12 @@ export const SPIELE = [
     titel: "Gratwanderung", buehne: { id: "gw-stage", klasse: "cm-stage gw-stage" },
     text: "Gratwanderung: Ein Tipp wechselt die Richtung – der Steinbock rennt über den schmalen Grat hoch über dem Nebelmeer, und wer die Kehre verpasst, stürzt. Er wird schneller, der Grat schmaler.",
     baut: "der Grat über dem Nebelmeer mit dem Steinbock",
+  },
+  {
+    seite: "kaminfeger", spiel: "chimneySweep", page: "chimney", js: "kaminfeger.js",
+    titel: "Kaminfeger", buehne: { id: "kf-stage", klasse: "cm-stage kf-stage" },
+    text: "Kaminfeger: Ein Tipp, und er springt an die Wand gegenüber – immer im selben Bogen, ein Stockwerk höher. Er rutscht ab, von unten steigt der Rauch, und an den Wänden hängen Laternen, Schilder und Balkone: Wer auf einem landet, stürzt.",
+    baut: "die nächtliche Gasse mit den zwei Häusern und dem Kaminfeger",
   },
 ];
 

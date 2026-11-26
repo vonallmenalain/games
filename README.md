@@ -2170,6 +2170,62 @@ und Fall. Prüfung 4g42: Ein Autopilot nimmt auf vier Graten bis 1500 m jede
 Kehre perfekt; wer nichts tut, zu spät oder mitten im Stück wendet, stürzt;
 spät im Fenster gibt einen Punkt statt zwei.
 
+### Kaminfeger (November 2026)
+
+**Kaminfeger** (`kaminfeger.js`, `chimneySweep`) – Eine enge Gasse in einer
+Winternacht, zwei unendlich hohe Häuser, dazwischen der Mond. Ein Kaminfeger
+hängt an der Wand und rutscht langsam ab; eine Regel: Ein Tipp, und er
+springt an die Wand gegenüber – immer im selben Bogen, anderthalb Stockwerke
+höher (`HUB`). Der Moment des Absprungs entscheidet also, wo er aufsetzt, und
+an den Wänden hängen Laternen, Wirtshausschilder, Balkone, Fahnen,
+Fensterläden, Blumenkästen, Wäsche, Stechpalmen, ein Ofenrohr, ein Vogelhaus
+– und auf manchem Sims sitzt eine Katze (elf Arten, `ARTEN`). Wer etwas
+berührt – darauf landet oder hineinrutscht –, stürzt. Von unten steigt
+der Rauch und holt ein, wer zu lange hängt. Gezählt werden die Meter.
+
+Die Gasse entsteht aus dem Zufall, und sie ist immer zu schaffen
+(`naechsterBesuch`): Zuerst der Weg – Besuch um Besuch, wo er landet, wie
+weit er rutscht, wo er abspringt –, dann die Hindernisse in den Raum
+dazwischen. Um den Weg bleibt Luft (`LUFT0` bis `LUFT_MIN`): Wer so viel
+früher oder später springt, kommt durch. Drei Lagen: **muss** (gleich über
+der Landung gegenüber hängt etwas – wer sofort springt, landet darin, also
+erst rutschen), **Zange** (gleich darunter hängt auch etwas – es bleibt genau
+das Fenster) und sonst manchmal eines irgendwo. Was weit in die Gasse ragt
+(Balkon, Schild), hängt nur dort, wo darunter niemand abspringt, der gleich
+hindurchflöge (`kopf`).
+
+Schwerer wird es mit der Höhe: Er rutscht schneller (`RUTSCH0` bis
+`RUTSCH_MAX`), der Rauch steigt schneller, die Luft wird dünner, es muss
+öfter gewartet werden. Das Fenster für einen Sprung, der warten muss, ist am
+Start 300 ms vor und nach dem besten Moment, nach 100 Metern 110, nach 250
+Metern 65. Ausgespielt mit einem nachgebildeten Spieler, der jede Lage
+erkennt: 100 ms Streuung geben im Mittel 55 Meter (neun Sekunden), 70 ms 85,
+50 ms 125, 35 ms 200, 20 ms über 500. Wer haarscharf an einem Hindernis
+landet (`KNAPP`), bekommt es gesagt; auf der Tafel: Sprünge, davon haarscharf.
+
+Ein Tipp gilt zu seiner Zeit (`tippen`, `voraus`), und ein Tipp kurz vor dem
+Aufsetzen gilt für den nächsten Sprung (`PUFFER`) – wer im Takt bleibt,
+verliert nichts.
+
+Das Bild: Fachwerk, Backstein und Stein, in den Fenstern Licht, Vorhänge,
+Schwibbögen, Lichterketten, Sterne und Katzen, Schnee auf jedem Sims; der
+Mond, dahinter die Dächer der Stadt, weiter oben Wolkenbänke, durch die man
+steigt, und das Polarlicht. Je Bauart sind acht Stockwerke einmal gemalt und
+werden nur noch aufgelegt, Punkt auf Punkt (`kacheln`; `view.s` ist so
+gewählt, dass ein Stockwerk eine ganze Zahl Bildpunkte hoch ist). Auch der
+Himmel steht in einem eigenen Bild (`himmelBild`) und wird nur alle paar
+Meter neu gemalt – Verlauf und Mondhof waren die Hälfte der Zeit eines
+Bildes. Gemessen mit Rastern auf dem Prozessor: gut 5 ms je Bild hoch, gut 4
+quer.
+
+Aufgezeichnet werden der Ort und die Haltung (welche Wand, hängt, rutscht,
+fliegt): Gegner springen als Kaminfeger aus Licht mit, und ein angeschauter
+Lauf baut mit seiner Saat dieselbe Gasse (Fassung `t1`). Sieben Klänge, alle
+aus vorhandenen. Prüfung 4g43: Ein Autopilot kommt nach dem Weg durch vier
+Gassen bis 400 m, auch um neun Zehntel der Luft früher oder später; wer
+immer sofort springt, landet im ersten Hindernis, das zum Warten zwingt; wer
+nichts tut, stürzt.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2264,7 +2320,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 48», siehe unten).
+  Links davor steht fest das **Regal** («Alle 49», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
