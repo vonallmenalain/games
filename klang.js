@@ -286,6 +286,14 @@
     "dachlaeufer.perfekt": { s: "pling" },
     "dachlaeufer.prall": { s: "krach" },
     "dachlaeufer.fall": { s: "fall" },
+    "stampfwerk.werk": { s: "a-kessel", schleife: true },
+    "stampfwerk.dampf": { s: "a-wind", schleife: true },
+    "stampfwerk.trippeln": { s: "a-schritte", schleife: true },
+    "stampfwerk.schlag": { s: "whomp" },
+    "stampfwerk.durch": { s: "klack" },
+    "stampfwerk.perfekt": { s: "pling" },
+    "stampfwerk.treffer": { s: "krach" },
+    "stampfwerk.zisch": { s: "zisch" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -303,7 +311,7 @@
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
-    chimneySweep: "kaminfeger", roofRun: "dachlaeufer",
+    chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
   };
 
   // ---------------------------------------------------------------------------

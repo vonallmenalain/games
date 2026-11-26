@@ -2327,6 +2327,72 @@ später und länger; wer nichts tut, fällt in die erste Lücke; wer zu kurz
 hält, prallt an die Wand; wer zu lang hält, fliegt über das nächste Dach
 hinaus.
 
+### Stampfwerk (November 2026)
+
+**Stampfwerk** (`stampfwerk.js`, `stampMill`) – Eine alte Hammerschmiede bei
+Nacht. An einer langen Welle hängen schwere Hämmer und stampfen im Takt;
+darunter muss eine Maus durch. Eine Regel, die es hier noch nicht gab:
+**Halten heisst laufen, loslassen heisst stehen.** Ein Hammer ist offen,
+solange sein Kopf über der Maus hängt – die Nocke hebt ihn, oben zittert er
+kurz und seine Bahn glüht auf, dann fällt er. Wer unter ihm ist, wenn er
+unten ankommt, oder in ihn hineinläuft, hat verloren; ebenso, wen der Dampf
+einholt, der von hinten kommt (`DAMPF0` bis `DAMPF1`, nie weiter zurück als
+`RAUM0` bis `RAUM1`). Der erste Fehler beendet die Runde. Gezählt werden die
+Hämmer, unter denen sie durch ist.
+
+Der Takt jedes Hammers hängt allein an der Spielzeit seit dem Start
+(`state.uhr`, `phaseBei`): nicht an der Bildrate, nicht am Zufall während der
+Runde. Vor dem Start steht das Werk still, mit dem ersten Druck läuft es an
+(`ANLAUF`) – im Turnier sehen so alle dasselbe. Was das Bild zeigt
+(`hoeheBei`) und was zählt (`offenBei`), ist dieselbe Rechnung. Von der Maus
+zählt der Leib (`MAUS`), nicht Nasenspitze und Schwanz.
+
+Die Strecke entsteht aus dem Zufall, und sie ist immer zu schaffen
+(`naechsteEinheit`): Zuerst der Weg – wo sie vor einem Hammer hält, wie lange
+sie wartet, wann sie losläuft –, dann die Takte um ihn herum. Jeder Hammer
+ist offen, wenn dieser Weg unter ihm durchführt, dazu davor und danach die
+Luft (`LUFT0` bis `LUFT1`) und etwas Spiel. Zwei und drei Hämmer dicht
+nebeneinander öffnen deshalb nacheinander: eine Welle, unter der sie in einem
+Zug durch muss. Dazu enge Paare mit einer Insel dazwischen, auf der sie gerade
+Platz hat. Gewartet wird auf dem Weg nie so lange, dass er nicht `VORSPRUNG`
+(1,2) mal so schnell bliebe wie der Dampf.
+
+Schwerer wird es mit der Strecke: Das Fenster für den Start aus dem Stand ist
+am Anfang 340 bis 440 ms breit, nach 10 Hämmern 235 bis 305, nach 40 Hämmern
+165 bis 210, am Ende gut 110; die Hämmer schlagen rascher und ungleicher, sie
+stehen enger, öfter zu zweit und zu dritt, der Dampf wird schneller (40 bis
+64 Einheiten je Sekunde; sie läuft 120). Ausgespielt mit einem nachgebildeten
+Spieler, der durchläuft, wo der Takt es erlaubt, und sonst hält und das
+nächste Fenster nimmt: 100 ms Streuung geben im Mittel 4 Hämmer (sechs
+Sekunden), 70 ms 11 (14 s), 60 ms 13 (15 s), 50 ms 30 (33 s), 35 ms 40
+(42 s), 25 ms 68 (eine Minute). «Perfekt» ist, wer in den ersten 75 ms
+hineinläuft, in denen der Hammer offen ist (`PERFEKT`); «haarscharf», wer in
+den letzten 60 ms hinaus ist (`KNAPP`). Auf der Tafel: woran es lag, wie oft
+perfekt, wie oft haarscharf.
+
+Drücken und Loslassen gelten zu ihrer Zeit, nicht erst im nächsten Bild
+(`druecken`, `loslassen`, `nachholen`, `voraus`). Im Live-Modus kommt ein
+Finger, der schon im Countdown liegt, beim «Los!» an (`halten: true`).
+
+Das Bild: die Schmiede von der Seite. Hinten die Mauer mit dem Bogenfenster,
+dem Mond und seinem kalten Lichtkegel, die glühende Esse, das Wasserrad und
+zwei Zahnräder, die sich drehen; vorn die Welle mit den Nocken, die Hämmer an
+ihren Stielen und unter dem Boden die Glut hinter Gittern. Jeder Schlag wirft
+Funken und einen Schein, die Platte glüht nach, und das Bild bebt kurz (ohne
+Bewegung nicht). Mauer und Boden sind einmal gemalt und werden nur noch
+aufgelegt, Punkt auf Punkt (`wandBild`, `bodenBild`; die Mauer zieht
+langsamer vorbei), ebenso Hammerkopf, Schein und Dampf. Gemessen mit Rastern
+auf dem Prozessor: gut 2,5 ms je Bild hoch, gut 3 quer.
+
+Aufgezeichnet werden der Ort der Maus und die Spielzeit: Gegner laufen als
+Mäuse aus Licht mit, und ein angeschauter Lauf baut mit seiner Saat dieselbe
+Strecke und lässt die Hämmer zur aufgezeichneten Zeit stampfen (Fassung
+`t1`). Acht Klänge, alle aus vorhandenen. Prüfung 4g45: Ein Autopilot kommt
+nach dem Weg durch vier Strecken bis 80 Hämmer, auch etwas zu spät
+losgelassen und um neun Zehntel der Luft früher oder später; wer dauernd
+hält, läuft in den ersten Hammer; wer nichts tut, den holt der Dampf; beim
+Zuschauen steht die Maus nie unter einem Hammer, der unten ist.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2421,7 +2487,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 50», siehe unten).
+  Links davor steht fest das **Regal** («Alle 51», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

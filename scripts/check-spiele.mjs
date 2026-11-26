@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3350,6 +3350,7 @@ try {
     ["/gratwanderung", "Gratwanderung", () => window.LernappGratwanderung.kursText(40)],
     ["/kaminfeger", "Kaminfeger", () => window.LernappKaminfeger.gasseText(1200)],
     ["/dachlaeufer", "Dachläufer", () => window.LernappDachlaeufer.kursText(8000)],
+    ["/stampfwerk", "Stampfwerk", () => window.LernappStampfwerk.kursText(60)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -12038,6 +12039,186 @@ try {
     await kontext.close();
   }
 
+  // --- 4g45. Stampfwerk: immer zu schaffen, und wer unter dem Hammer ist, wenn er fällt, hat verloren ---
+  // Ein Autopilot hält und läuft genau nach dem Weg, um den die Takte gebaut
+  // sind – über mehrere gewürfelte Strecken bis 80 Hämmer, und der Dampf holt
+  // ihn nie ein. Auch wer etwas zu spät loslässt und losläuft oder um fast die
+  // ganze Luft früher oder später losläuft, kommt durch. Wer dauernd hält,
+  // läuft in den ersten Hammer; wer nichts tut, den holt der Dampf.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/stampfwerk`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappStampfwerk?.state?.plan?.length > 1 && window.LernappStampfwerk.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappStampfwerk;
+      const st = K.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); };
+      // Ein Lauf: spaet Sekunden zu spät losgelassen, um anteil der Luft
+      // später (früher) losgelaufen als geplant. halten: "plan", "immer", "nie".
+      const lauf = (haemmer, spaet = 0, anteil = 0, halten = "plan") => {
+        if (halten === "nie") K.losGehts();
+        else K.druecken();
+        let nah = Infinity;
+        for (let n = 0; n < 3000000 && st.phase === "spiel" && st.schritt !== "aus" && st.punkte < haemmer; n += 1) {
+          const m = st.maus;
+          if (halten === "plan") {
+            const p = st.plan[st.plan.findIndex((pl) => pl.letzter + K.ZONE > m.x)];
+            const soll = m.x < p.p + spaet * K.TEMPO ? true : st.uhr >= p.s + anteil * p.e;
+            if (soll && !st.halten) K.druecken();
+            else if (!soll && st.halten) K.loslassen();
+          }
+          K.takt(1 / 240);
+          nah = Math.min(nah, m.x - st.dampf);
+        }
+        return { schritt: st.schritt, warum: st.aus?.warum || "", punkte: st.punkte, perfekte: st.perfekte, knappe: st.knappe, nah: Math.round(nah), uhr: Math.round(st.uhr * 10) / 10 };
+      };
+
+      // 1. Genau nach dem Weg, vier Strecken.
+      const genau = [];
+      const zahl = [0, 0, 0, 0];
+      let eng = 0;
+      for (let i = 0; i < 4; i += 1) {
+        neu();
+        genau.push(lauf(80));
+        st.plan.slice(1, 60).forEach((pl, nr) => {
+          zahl[pl.zahl] += 1;
+          if (nr > 0 && st.haemmer[pl.erster].x - st.plan[nr].letzter < 2 * K.ZONE + 34) eng += 1;
+        });
+      }
+      // 2. Etwas zu spät losgelassen und losgelaufen; fast die ganze Luft
+      //    früher; fast die ganze später.
+      neu();
+      const traege = lauf(80, 0.015, 0.6);
+      neu();
+      const frueh = lauf(80, 0, -0.9);
+      neu();
+      const spaet = lauf(80, 0, 0.9);
+      // 3. Dauernd halten: der erste Hammer.
+      neu();
+      const immer = lauf(80, 0, 0, "immer");
+      // 4. Nichts tun: der Dampf.
+      neu();
+      const nie = lauf(80, 0, 0, "nie");
+      // 5. Was das Bild zeigt, ist, was zählt: Offen ist ein Hammer genau
+      //    dann, wenn sein Kopf nicht tiefer hängt, als die Maus hoch ist.
+      neu();
+      let schief = 0;
+      st.haemmer.slice(0, 40).forEach((h) => {
+        for (let t = 1; t < 9; t += 0.0137) {
+          const hoch = K.hoeheBei(h, t);
+          if (K.offenBei(h, t) !== (hoch >= K.MAUS_H - 1e-6) && Math.abs(hoch - K.MAUS_H) > 0.5) schief += 1;
+        }
+      });
+      return {
+        genau, zahl, eng, traege, frueh, spaet, immer, nie, schief,
+        fenster: [0, 20, 150].map((n) => Math.round(2 * K.luftBei(n) * 1000)),
+        dampf: [0, 150].map((n) => Math.round(K.dampfBei(n))),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt !== "aus" && r.punkte >= 80 && r.nah >= 40),
+      `Stampfwerk: Der Autopilot kommt nicht durch jede Strecke, oder der Dampf kommt ihm zu nah – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.zahl[1] > 60 && befund.zahl[2] >= 12 && befund.zahl[3] >= 4 && befund.eng >= 12,
+      `Stampfwerk: Auf den Strecken stehen zu wenige Doppel- und Dreifachhämmer oder enge Inseln: ${JSON.stringify({ zahl: befund.zahl, eng: befund.eng })}`);
+    pruefe([befund.traege, befund.frueh, befund.spaet].every((r) => r.schritt !== "aus" && r.punkte >= 80),
+      `Stampfwerk: Wer etwas zu spät loslässt oder um neun Zehntel der Luft früher oder später losläuft, kommt nicht durch: ${JSON.stringify({ traege: befund.traege, frueh: befund.frueh, spaet: befund.spaet })}`);
+    pruefe(befund.frueh.perfekte >= 40 && befund.spaet.knappe >= 40,
+      `Stampfwerk: Im ersten Moment hinein ist nicht «perfekt», oder im letzten hinaus nicht «haarscharf»: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet })}`);
+    pruefe(befund.immer.schritt === "aus" && befund.immer.warum === "gelaufen" && befund.immer.punkte === 0,
+      `Stampfwerk: Wer dauernd hält, läuft nicht in den ersten Hammer: ${JSON.stringify(befund.immer)}`);
+    pruefe(befund.nie.schritt === "aus" && befund.nie.warum === "dampf" && befund.nie.punkte === 0 && befund.nie.uhr > 2 && befund.nie.uhr < 4,
+      `Stampfwerk: Wer nichts tut, den holt der Dampf nicht nach zwei bis vier Sekunden ein: ${JSON.stringify(befund.nie)}`);
+    pruefe(befund.schief === 0, `Stampfwerk: Bild und Regel gehen auseinander – ${befund.schief} Mal ist ein Hammer offen, obwohl sein Kopf tiefer hängt als die Maus (oder umgekehrt).`);
+    pruefe(befund.fenster[0] > 300 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 105 && befund.dampf[1] > befund.dampf[0],
+      `Stampfwerk: Das Fenster wird nicht von gut 300 ms an enger (und nie unter 105 ms), oder der Dampf wird nicht schneller: ${JSON.stringify({ fenster: befund.fenster, dampf: befund.dampf })}`);
+    // Nach dem Treffer steht die Tafel da – in Echtzeit: Der Finger liegt
+    // und bleibt liegen.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); });
+    await seite.mouse.move(210, 500);
+    await seite.mouse.down();
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    await seite.mouse.up();
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappStampfwerk.state.schritt, phase: window.LernappStampfwerk.state.phase }));
+    pruefe(ende.schritt === "aus" && ende.phase === "ende" && ende.zahl === "0" && /In den Hammer gelaufen · 0 perfekt · 0 haarscharf/.test(ende.text),
+      `Stampfwerk: Nach dem Treffer steht keine Tafel mit den Hämmern da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Strecke
+    // aufgezeichnet, und wer ihn anschaut, sieht dieselbe Strecke, dieselben
+    // Hämmer und am Schluss den Treffer – dann die Tafel. Die Hämmer stampfen
+    // dabei im Takt des Laufs: Nie steht die Maus unter einem, der unten ist.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__stampfwerk")) return;
+      sessionStorage.setItem("__stampfwerk", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/stampfwerk`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappStampfwerk?.state?.plan?.length > 1 && window.LernappStampfwerk.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Fünf Hämmer nach dem Weg,
+    // dann hält er einfach weiter.
+    await seite.evaluate(() => {
+      const K = window.LernappStampfwerk;
+      const st = K.state;
+      K.druecken(performance.now());
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt === "aus") return;
+        requestAnimationFrame(tick);
+        if (st.punkte >= 5) { if (!st.halten) K.druecken(performance.now()); return; }
+        const m = st.maus;
+        const p = st.plan[st.plan.findIndex((pl) => pl.letzter + K.ZONE > m.x)];
+        const soll = m.x < p.p - 1 ? true : st.uhr >= p.s;
+        if (soll && !st.halten) K.druecken(performance.now());
+        else if (!soll && st.halten) K.loslassen(performance.now());
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("stampMill_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappStampfwerk.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`stampMill_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, x: Math.round(st.maus.x), kurs: window.LernappStampfwerk.kursText(40) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.punkte >= 5,
+      `Stampfwerk: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    await seite.goto(`${BASIS}/stampfwerk?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappStampfwerk?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => {
+      // Bild für Bild: Steckt die Maus mitten unter einem Hammer, der unten ist?
+      const K = window.LernappStampfwerk;
+      const st = K.state;
+      window.__smUnter = 0;
+      window.__smBilder = 0;
+      const tick = () => {
+        requestAnimationFrame(tick);
+        if (st.phase !== "zuschauen" || st.schritt === "aus") return;
+        window.__smBilder += 1;
+        st.haemmer.slice(0, 40).forEach((h) => {
+          if (Math.abs(st.maus.x - h.x) < K.ZONE - 6 && K.hoeheBei(h, st.uhr) < 7) window.__smUnter += 1;
+        });
+      };
+      requestAnimationFrame(tick);
+      return K.kursText(40);
+    });
+    pruefe(kurs === gespielt.kurs, `Stampfwerk: Beim Zuschauen entsteht eine andere Strecke:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
+    // Beim Zuschauen läuft niemand mit.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappStampfwerk.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, x: Math.round(st.maus.x), unter: window.__smUnter, bilder: window.__smBilder, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "aus" && Math.abs(angeschaut.x - gespielt.x) <= 2,
+      `Stampfwerk: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    pruefe(angeschaut.bilder > 60 && angeschaut.unter === 0,
+      `Stampfwerk: Beim Zuschauen stampfen die Hämmer nicht im Takt des Laufs – in ${angeschaut.unter} von ${angeschaut.bilder} Bildern steht die Maus unter einem Hammer, der unten ist.`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -12260,7 +12441,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 41 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 42 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -12268,7 +12449,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /42/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /43/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -12319,7 +12500,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -14130,7 +14311,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 230, `klang.js kennt nicht alle 230 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 238, `klang.js kennt nicht alle 238 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
