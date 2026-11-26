@@ -233,7 +233,7 @@
     mineCart: { fassung: "t1", winkel: true },
     twinRotor: { fassung: "t2", winkel: true },
     // Der Steinbock: a quer, b voraus, c die Richtung.
-    ridgeRun: { fassung: "t1" },
+    ridgeRun: { fassung: "t2" },
     // Der Kaminfeger: a quer (in Zehnteln), b die Höhe, c Haltung und Wand.
     chimneySweep: { fassung: "t1" },
   };

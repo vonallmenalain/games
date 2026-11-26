@@ -19,6 +19,13 @@
  * Traverse oder als Treppe aus kurzen Stücken im Takt. Das Tempo hängt an der
  * Strecke, nicht an der Uhr: Wer gleich weit kommt, war gleich schnell.
  *
+ * Jedes achte Stück (das 8., 16., 24. …) ist anders: breiter, und an seinem
+ * linken oder rechten Rand steht ein Felsturm, über die Mitte hinaus. Vorbei
+ * kommt nur, wer schon die Kehre davor früh oder spät nimmt und so in der
+ * Gasse neben dem Fels läuft – dort ist dann auch «perfekt». Am Anfang ist
+ * dieses Stück breit, später wird es schmaler. Wer in den Fels rennt, bleibt
+ * im Schnee liegen: Die Runde ist vorbei.
+ *
  * Gesteckt wird der Grat aus dem Zufall (zufall.js): ohne Turnier jedes Mal
  * ein anderer, im Turnier für alle im selben Versuch derselbe.
  *
@@ -42,7 +49,8 @@
  * gesteckt mit derselben Saat.
  *
  * Zehn Einheiten sind ein Meter. Der Grat ist eine Linie x(z) mit Steigung
- * +1 oder −1; begehbar ist, was waagrecht höchstens halbBei(z) daneben liegt.
+ * +1 oder −1; begehbar ist, was waagrecht höchstens randBei(z) daneben liegt
+ * – so breit, wie der Grat dort gemalt ist.
  */
 (() => {
   "use strict";
@@ -74,21 +82,33 @@
   const ERSTE = 260;               // so weit ist es bis zur ersten Kehre
   // Tempo (voraus, in Einheiten je Sekunde) und halbe Breite (waagrecht),
   // beide nach der Strecke. Das Fenster für eine Kehre ist halb / (2 · tempo)
-  // vor und nach dem besten Moment: am Start gut 180 ms, nach 200 Metern
-  // 130, nach einem halben Kilometer 90, nach einem ganzen 70.
+  // vor und nach dem besten Moment: am Start 170 ms, nach 200 Metern 105,
+  // nach 400 Metern 80, nach einem Kilometer knapp 60.
   //
   // Ausgespielt mit einem nachgebildeten Spieler, dessen Tipp um den besten
-  // Moment streut: Wer 130 ms daneben liegt, nimmt im Mittel drei Kehren,
-  // wer 90 daneben liegt sieben, wer 60 daneben liegt gut zwanzig, wer 40
-  // daneben liegt gut vierzig – und erst wer auf 25 ms genau tippt, über
-  // hundert.
-  const V0 = 135;
-  const V_MAX = 250;
-  const V_WEG = 620;               // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
-  const HALB0 = 50;
-  const HALB_MIN = 28;
-  const HALB_WEG = 520;
+  // Moment streut (und der am Fels auf die Mitte der Gasse zielt): Wer 130 ms
+  // daneben liegt, nimmt im Mittel zwei Kehren, wer 90 daneben liegt fünf,
+  // wer 60 daneben liegt vierzehn (18 Sekunden), wer 40 daneben liegt gut
+  // fünfundzwanzig – und wer auf 25 ms genau tippt, gut sechzig.
+  const V0 = 140;
+  const V_MAX = 256;
+  const V_WEG = 400;               // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
+  const HALB0 = 48;
+  const HALB_MIN = 27.5;
+  const HALB_WEG = 360;
+  const SCHWER_WEG = 380;          // so schnell werden die Stücke kürzer und die Treppen häufiger
   const GNADE = 1.5;               // so weit darf ein Huf über die Kante
+  // Der Fels: Jedes achte Stück (das 8., 16., 24. …) ist breiter, und an
+  // seinem linken oder rechten Rand steht ein Felsturm – über die Mitte
+  // hinaus. Vorbei kommt nur, wer schon die Kehre davor früh oder spät
+  // nimmt und so in der Gasse daneben läuft. Wie breit das Stück ist (mal
+  // die halbe Breite) und wie breit die Gasse (mal die ganze Breite eines
+  // gewöhnlichen Stücks): am Start und in der Ferne.
+  const FELS_JE = 8;
+  const FELS_BREIT0 = 2.2;
+  const FELS_BREIT1 = 1.7;
+  const FELS_GASSE0 = 1;
+  const FELS_GASSE1 = 0.75;
   // «Perfekt»: nach der Kehre höchstens so weit neben der Mitte (Anteil der
   // halben Breite, mindestens PERFEKT_MIN Einheiten).
   const PERFEKT = 0.22;
@@ -131,7 +151,7 @@
   const meterBei = (z) => Math.max(0, z / METER);
   const tempoBei = (z) => V0 + (V_MAX - V0) * (1 - Math.exp(-meterBei(z) / V_WEG));
   const halbBei = (z) => HALB_MIN + (HALB0 - HALB_MIN) * Math.exp(-meterBei(z) / HALB_WEG);
-  const schwereBei = (z) => 1 - Math.exp(-meterBei(z) / 520);
+  const schwereBei = (z) => 1 - Math.exp(-meterBei(z) / SCHWER_WEG);
   const perfektBei = (z) => Math.max(PERFEKT_MIN, halbBei(z) * PERFEKT);
 
   // Immer dieselbe Zahl zu derselben Eingabe: Felsen und Wolken stehen bei
@@ -246,6 +266,7 @@
     // wie hoch über dem Grat (beim Sturz darunter).
     bock: { x: 0, y: 0, z: 0, r: 1 },
     seg: 0,               // auf welchem Stück des Grats er ist
+    stat: 0,              // und zwischen welchen Stationen (randBei)
     naechste: 1,          // die Kehre, die als nächste zu nehmen ist
     kehren: [],
     stationen: [],
@@ -335,12 +356,29 @@
    *
    * Kürzer als das Zweieinhalbfache der halben Breite wird keines: Sonst
    * griffen zwei Kehren ineinander.
+   *
+   * Jedes achte Stück trägt einen Felsturm (felsFuer). Es ist lang – der
+   * Fels steht in seiner Mitte, weit genug von beiden Kehren –, und das
+   * Stück davor und das danach sind ruhige, einzelne Stücke: keine Treppe
+   * führt in den Fels hinein oder aus ihm heraus.
    */
-  function laengeFuer(z) {
+  // Das wievielte Stück an der Kehre nr beginnt: das Startstück ist das erste.
+  const stueckNr = (nr) => nr + 1;
+  const mitFels = (nr) => stueckNr(nr) % FELS_JE === 0;
+
+  function laengeFuer(z, nr) {
     const k = schwereBei(z);
     const v = tempoBei(z);
     const kurz = Math.max(lerp(0.68, 0.36, k), (2.5 * halbBei(z)) / v);
     const f = state.figur;
+    if (mitFels(nr)) {
+      f.rest = 0;
+      return lerp(1.9, 2.3, zufall.zahl()) * lerp(1, 0.88, k) * v;
+    }
+    if (nr > 1 && (mitFels(nr + 1) || mitFels(nr - 1))) {
+      f.rest = 0;
+      return Math.max(kurz * 1.4, lerp(1.05, 1.4, zufall.zahl()) * lerp(1, 0.8, k)) * v;
+    }
     if (f.rest > 0) {
       f.rest -= 1;
       return f.T * v;
@@ -407,11 +445,12 @@
     return { nah, fern, flaechen, grob, v: hash01(nah.i * 3.71) * 2 - 1 };
   }
 
-  function neueStation(z, x, kehre) {
+  // seg: zu welchem Stück die Station gehört. hw: die halbe Breite dort.
+  // fx: wo die alte Fährte verläuft (in der Mitte, am Fels in der Gasse).
+  function neueStation(z, x, kehre, seg, hw, fx) {
     const liste = state.stationen;
     const i = liste.length;
-    const hw = halbBei(z);
-    const st = { i, z, x, hw, kehre, L: [], R: [], M: { x, y: KRONE, z, sx: 0, sy: 0, cz: 0 }, bild: -1 };
+    const st = { i, z, x, hw, fx, seg, kehre, L: [], R: [], M: { x, y: KRONE, z, sx: 0, sy: 0, cz: 0 }, bild: -1 };
     for (const seite of [-1, 1]) {
       const ring = seite < 0 ? st.L : st.R;
       for (let j = 0; j <= NB; j += 1) {
@@ -431,18 +470,67 @@
     return st;
   }
 
+  /*
+   * Der Fels auf einem Stück. Das Stück wird breiter (hw), und an einem
+   * Rand – seite, −1 links, 1 rechts – steht der Turm: von dort bis rand
+   * (waagrecht neben der Mitte, zur Seite des Felsens hin gezählt; negativ
+   * heisst: über die Mitte hinaus). Frei bleibt die Gasse am anderen Rand;
+   * ziel ist ihre Mitte. In der Länge steht er von z0 bis z1.
+   */
+  function felsFuer(k) {
+    const h = halbBei(k.z);
+    const s = schwereBei(k.z);
+    const breit = h * lerp(FELS_BREIT0, FELS_BREIT1, s);
+    const gasse = 2 * h * lerp(FELS_GASSE0, FELS_GASSE1, s);
+    const seite = zufall.zahl() < 0.5 ? -1 : 1;
+    const lang = clamp(0.3 * tempoBei(k.z), 46, 84);
+    const mitte = k.z + k.L * lerp(0.46, 0.54, zufall.zahl());
+    k.hw = breit;
+    k.ziel = -seite * (breit - gasse / 2);
+    k.fels = { seite, z0: mitte - lang / 2, z1: mitte + lang / 2, rand: gasse - breit, breit, saat: zufall.zahl(), teile: null };
+  }
+
   function naechsteKehre() {
     const k = state.kehren;
     const a = k[k.length - 1];
-    const neu = { z: a.z + a.L, x: a.x + a.s * a.L, s: -a.s, L: 0, nr: k.length };
-    neu.L = laengeFuer(neu.z);
-    // Das Stück von a bis hierher bekommt seine Stationen.
+    const davor = k.length > 1 ? k[k.length - 2] : null;
+    const neu = { z: a.z + a.L, x: a.x + a.s * a.L, s: -a.s, L: 0, nr: k.length, hw: 0, ziel: 0, fels: null };
+    neu.hw = halbBei(neu.z);
+    neu.L = laengeFuer(neu.z, neu.nr);
+    if (mitFels(neu.nr)) felsFuer(neu);
+    // Das Stück von a bis hierher bekommt seine Stationen. Ein Stück mit Fels
+    // ist breit von seiner Kehre bis zur nächsten, beide eingeschlossen:
+    // Das Stück davor weitet sich auf seinem letzten Teil, das danach
+    // verengt sich auf seinem ersten.
     const n = Math.max(1, Math.round(a.L / STUECK));
     for (let m = 0; m < n; m += 1) {
       const u = m / n;
-      neueStation(a.z + a.L * u, a.x + a.s * a.L * u, m === 0 ? a.nr : -1);
+      const z = a.z + a.L * u;
+      const x = a.x + a.s * a.L * u;
+      const hw = a.fels ? a.hw : m === 0 && davor && davor.fels ? davor.hw : halbBei(z);
+      neueStation(z, x, m === 0 ? a.nr : -1, a.nr, hw, a.fels ? x + a.ziel : x);
     }
     k.push(neu);
+  }
+
+  // Die halbe Breite des Grats an dieser Stelle – so, wie er gemalt ist:
+  // von Station zu Station gerade.
+  function randBei(z) {
+    kehrenBis(z + 400);
+    const st = state.stationen;
+    let i = clamp(state.stat, 0, st.length - 2);
+    while (i > 0 && z < st[i].z) i -= 1;
+    while (i < st.length - 2 && z >= st[i + 1].z) i += 1;
+    state.stat = i;
+    const a = st[i];
+    const b = st[i + 1];
+    return a.hw + (b.hw - a.hw) * clamp((z - a.z) / (b.z - a.z || 1), 0, 1);
+  }
+
+  // Steht hier der Fels? (daneben: waagrecht neben der Mitte des Stücks k.)
+  function imFels(k, z, daneben, luft = GNADE) {
+    const f = k.fels;
+    return Boolean(f) && z >= f.z0 && z <= f.z1 && daneben * f.seite > f.rand + luft;
   }
 
   function kehrenBis(z) {
@@ -470,10 +558,11 @@
     state.stationen = [];
     state.scheiben = [];
     state.figur = { rest: 0, T: 0 };
+    state.stat = 0;
     // Die Seite des ersten Stücks gehört zum Kurs.
     const s0 = zufall.zahl() < 0.5 ? -1 : 1;
     // Das erste Stück läuft durch den Start (0, 0).
-    state.kehren.push({ z: -VORLAUF, x: -s0 * VORLAUF, s: s0, L: VORLAUF + ERSTE, nr: 0 });
+    state.kehren.push({ z: -VORLAUF, x: -s0 * VORLAUF, s: s0, L: VORLAUF + ERSTE, nr: 0, hw: HALB0, ziel: 0, fels: null });
     kehrenBis(SICHT);
   }
 
@@ -481,7 +570,7 @@
   // denselben bekommen.
   function kursText(n = 12) {
     while (state.kehren.length <= n) naechsteKehre();
-    return state.kehren.slice(0, n + 1).map((k) => `${Math.round(k.z)}/${Math.round(k.x)}`).join(" ");
+    return state.kehren.slice(0, n + 1).map((k) => `${Math.round(k.z)}/${Math.round(k.x)}${k.fels ? (k.fels.seite < 0 ? "L" : "R") : ""}`).join(" ");
   }
 
   // ---------------------------------------------------------------------------
@@ -1064,7 +1153,8 @@
     g.stroke();
   }
 
-  // Eine alte Fährte in der Mitte des Grats: Wer ihr folgt, läuft richtig.
+  // Eine alte Fährte in der Mitte des Grats (am Fels: in der Gasse): Wer ihr
+  // folgt, läuft richtig.
   function zeichneFaehrte(sl, P) {
     const nah = sl.nah;
     if (nah.M.cz > 1500 || nah.M.cz < 30) return;
@@ -1075,13 +1165,120 @@
     g.beginPath();
     for (let i = 0; i < n; i += 1) {
       const u = (i + 0.5) / n;
-      const p = projXYZ(lerp(nah.x, fern.x, u) + ((nah.i * 7 + i) % 2 ? 3.2 : -3.2), KRONE, lerp(nah.z, fern.z, u));
+      const p = projXYZ(lerp(nah.fx, fern.fx, u) + ((nah.i * 7 + i) % 2 ? 3.2 : -3.2), KRONE, lerp(nah.z, fern.z, u));
       if (!p) continue;
       const r = 2.3 * cam.F / p.cz;
       g.moveTo(p.sx + r, p.sy);
       g.ellipse(p.sx, p.sy, r, r * 0.62, 0, 0, Math.PI * 2);
     }
     g.fill();
+  }
+
+  /*
+   * Der Felsturm als Körper: drei Ringe aus acht Ecken, nach oben enger,
+   * darüber die Spitze. Der unterste Ring ist der Umriss am Boden – das
+   * Rechteck, in dem er steht (imFels), mit gekappten Ecken; nach innen, zur
+   * Gasse hin, steht keine Ecke darüber hinaus. Jede Fläche merkt sich wie
+   * die des Bergs, wie hell sie in jedem der drei Lichter steht.
+   */
+  const FELS_UMRISS = [[1, -0.5], [1, 0.5], [0.55, 1], [-0.55, 1], [-1, 0.5], [-1, -0.5], [-0.55, -1], [0.55, -1]];
+  // Höhe (Anteil), Grösse, Versatz quer und längs (Anteil der halben Masse).
+  const FELS_STUFEN = [[0, 1, 0, 0], [0.36, 0.82, 0.06, 0.07], [0.7, 0.52, 0.14, -0.1]];
+
+  function felsBauen(k) {
+    const f = k.fels;
+    const uM = (f.rand + f.breit) / 2;
+    const ru = (f.breit - f.rand) / 2;
+    const zM = (f.z0 + f.z1) / 2;
+    const rz = (f.z1 - f.z0) / 2;
+    const hoch = lerp(80, 116, f.saat);
+    const zuf = (n) => hash01(f.saat * 97.3 + n * 7.31);
+    const punkt = (u, z, y) => ({ x: k.x + k.s * (z - k.z) + f.seite * u, y, z, sx: 0, sy: 0, cz: 0 });
+    const punkte = [];
+    const ringe = FELS_STUFEN.map(([h, gross, du, dz], nr) => FELS_UMRISS.map(([cu, cz], j) => {
+      const wackel = nr ? 1 + (zuf(nr * 10 + j) - 0.5) * 0.3 : 1;
+      const u = clamp(cu * gross * wackel + du * (zuf(nr + 40) * 2 - 0.6), -1, 1);
+      const z = clamp(cz * gross * wackel + dz, -1, 1);
+      const p = punkt(uM + u * ru, zM + z * rz, nr ? hoch * h * (0.9 + 0.2 * zuf(nr * 20 + j)) : KRONE - 3);
+      punkte.push(p);
+      return p;
+    }));
+    const spitze = punkt(uM + (zuf(60) - 0.5) * 0.4 * ru, zM + (zuf(61) - 0.5) * 0.3 * rz, hoch);
+    punkte.push(spitze);
+    const achse = punkt(uM, zM, 0);
+    const flaechen = [];
+    const ecke = (a, b, c, band, zahl) => {
+      let nx = (b.y - a.y) * (c.z - a.z) - (b.z - a.z) * (c.y - a.y);
+      let ny = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z);
+      let nz = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nx /= l; ny /= l; nz /= l;
+      const mx = (a.x + b.x + c.x) / 3;
+      const my = (a.y + b.y + c.y) / 3;
+      const mz = (a.z + b.z + c.z) / 3;
+      // Nach aussen: weg von der Achse des Turms.
+      const aussen = nx * (mx - achse.x) + nz * (mz - achse.z);
+      if (aussen < 0 || (Math.abs(aussen) < 1e-6 && ny < 0)) { nx = -nx; ny = -ny; nz = -nz; }
+      const hell = (L) => Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+      flaechen.push({
+        a, b, c, nx, ny, nz, mx, my, mz,
+        ll: hell(LICHT_L), lr: hell(LICHT_R), lo: hell(LICHT_O),
+        // Schnee liegt auf der Spitze und wo es flach genug ist.
+        schnee: band === 2 || (band === 1 && ny > 0.42),
+        v: zahl * 2 - 1,
+      });
+    };
+    for (let nr = 0; nr < 2; nr += 1) {
+      for (let j = 0; j < 8; j += 1) {
+        const a = ringe[nr][j];
+        const b = ringe[nr][(j + 1) % 8];
+        const c = ringe[nr + 1][(j + 1) % 8];
+        const d = ringe[nr + 1][j];
+        ecke(a, b, c, nr, zuf(100 + nr * 16 + j));
+        ecke(a, c, d, nr, zuf(140 + nr * 16 + j));
+      }
+    }
+    for (let j = 0; j < 8; j += 1) ecke(ringe[2][j], ringe[2][(j + 1) % 8], spitze, 2, zuf(180 + j));
+    f.teile = { punkte, flaechen, fuss: ringe[0], achse };
+  }
+
+  function zeichneFels(k, P) {
+    const f = k.fels;
+    if (!f.teile) felsBauen(k);
+    const t = f.teile;
+    if (!proj(t.achse) || t.achse.cz > SICHT) return;
+    for (let i = 0; i < t.punkte.length; i += 1) {
+      if (!proj(t.punkte[i]) || t.punkte[i].cz < 16) return;
+    }
+    const [wl, wr, wo] = P.licht;
+    const dunst = dunstBei(t.achse.cz);
+    // Der Schatten am Fuss: der Umriss, eine Spur grösser.
+    g.fillStyle = rgba(mix3(P.kante, P.dunst, dunst), 0.3);
+    g.beginPath();
+    t.fuss.forEach((p, i) => {
+      const x = t.achse.sx + (p.sx - t.achse.sx) * 1.14;
+      const y = t.achse.sy + (p.sy - t.achse.sy) * 1.14;
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    });
+    g.closePath();
+    g.fill();
+    // Die Flächen, die zur Kamera schauen – von hinten nach vorn.
+    const sicht = [];
+    for (let i = 0; i < t.flaechen.length; i += 1) {
+      const fl = t.flaechen[i];
+      if (fl.nx * (cam.x - fl.mx) + fl.ny * (cam.y - fl.my) + fl.nz * (cam.z - fl.mz) > 0) sicht.push(fl);
+    }
+    sicht.sort((p, q) => (q.a.cz + q.b.cz + q.c.cz) - (p.a.cz + p.b.cz + p.c.cz));
+    for (let i = 0; i < sicht.length; i += 1) {
+      const fl = sicht[i];
+      const hell = clamp(wl * fl.ll + wr * fl.lr + wo * fl.lo, 0, 1) ** 0.8;
+      // Der Fels dunkler als die Flanken: Er soll sich vom Schnee abheben.
+      let farbe = fl.schnee ? mix3(P.schneeSchatten, P.schneeLicht, hell) : mix3(mix3(P.felsSchatten, P.felsLicht, hell), P.felsSchatten, 0.3);
+      const ton = 1 + fl.v * (fl.schnee ? 0.035 : 0.1);
+      farbe = mix3([farbe[0] * ton, farbe[1] * ton, farbe[2] * ton], P.dunst, dunst);
+      flaecheMalen(fl.a, fl.b, fl.c, rgb(farbe));
+    }
   }
 
   // Was auf dem Grat steht: das Gipfelkreuz am Start, eine Fahne an jeder
@@ -1422,6 +1619,30 @@
     const s = (cam.F / p.cz) * 1.12;
     const sonne = P.licht[1] > P.licht[0] ? 1 : -1;
     const steig = steigBei(b.x, Math.max(b.z, -100), 1);
+    if (state.schritt === "sturz" && state.sturz && state.sturz.art === "prall") {
+      // In den Fels gerannt: Er liegt im Schnee, und über ihm kreisen Sterne.
+      const f = state.sturz;
+      zeichneBock(sx, sy, s, state.dreh, 0, { kipp: f.dreh, sonne, steig: 0, laeuft: false });
+      if (f.liegt && !ruhig()) {
+        g.fillStyle = "#ffe08a";
+        for (let i = 0; i < 3; i += 1) {
+          const w = state.zeit * 5 + (i * Math.PI * 2) / 3;
+          const x = sx + Math.cos(w) * 13 * s;
+          const y = sy - 24 * s + Math.sin(w) * 4 * s;
+          const r = (2.6 + Math.sin(w) * 0.8) * s;
+          g.beginPath();
+          for (let j = 0; j < 10; j += 1) {
+            const a = (j / 10) * Math.PI * 2 - Math.PI / 2;
+            const rr = j % 2 ? r * 0.45 : r;
+            if (j === 0) g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+            else g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+          }
+          g.closePath();
+          g.fill();
+        }
+      }
+      return;
+    }
     if (state.schritt === "sturz" && state.sturz) {
       const f = state.sturz;
       const blass = clamp(1 - (-b.y - WOLKE * 0.55) / (WOLKE * 0.35), 0, 1);
@@ -1586,6 +1807,7 @@
     // Stürzt der Steinbock über die Seite, die von der Kamera wegschaut,
     // verschwindet er hinter dem Grat: Er wird vor seiner Scheibe gemalt.
     const sturz = state.schritt === "sturz" ? state.sturz : null;
+    let figurOffen = !(sturz && sturz.hinten);
     let w = 0;
     for (let i = letzte; i >= erste; i -= 1) {
       const scheibe = sl[i];
@@ -1597,6 +1819,16 @@
       zeichneScheibe(scheibe, P);
       zeichneFaehrte(scheibe, P);
       zeichneZeichen(scheibe.nah, P);
+      // Der Felsturm steht auf der Scheibe, in der er beginnt. Ist der
+      // Steinbock schon an ihm vorbei, steht der Fels vor ihm: erst er.
+      const k = state.kehren[scheibe.nah.seg];
+      if (k && k.fels && scheibe.nah.z <= k.fels.z0 && k.fels.z0 < scheibe.fern.z) {
+        if (figurOffen && state.bock.z > k.fels.z1) {
+          zeichneFigur(P);
+          figurOffen = false;
+        }
+        zeichneFels(k, P);
+      }
     }
     while (w < wolken.length) {
       zeichneReihe(wolken[w], P);
@@ -1606,7 +1838,7 @@
     zeichneSpur(P);
     zeichneRinge();
     zeichneGeister();
-    if (!(sturz && sturz.hinten)) zeichneFigur(P);
+    if (figurOffen) zeichneFigur(P);
     zeichneTeile(P);
     zeichneFetzen(P);
     zeichneSchriften();
@@ -1651,8 +1883,12 @@
       state.seg = segBei(b.z);
       const a = state.kehren[state.seg];
       const daneben = b.x - (a.x + a.s * (b.z - a.z));
-      if (Math.abs(daneben) > halbBei(b.z) + GNADE) {
+      if (Math.abs(daneben) > randBei(b.z) + GNADE) {
         sturz(Math.sign(daneben) || b.r);
+        return;
+      }
+      if (imFels(a, b.z, daneben)) {
+        prall();
         return;
       }
       if (v > state.spitze) state.spitze = v;
@@ -1661,7 +1897,7 @@
 
   // Die Richtung wechselt. Führt der Wechsel auf das nächste Stück, zählt
   // die Kehre – und perfekt ist sie, wenn der Steinbock danach in der Mitte
-  // läuft. Gemessen wird gegen die Linie des nächsten Stücks, auch vor der
+  // läuft (am Fels: in der Mitte der Gasse). Gemessen wird gegen die Linie des nächsten Stücks, auch vor der
   // Kehre: Ab dem Tipp läuft er zu ihr parallel.
   function wende() {
     const b = state.bock;
@@ -1669,9 +1905,10 @@
     kehrenBis(b.z + 400);
     const k = state.kehren[state.naechste];
     const daneben = b.x - (k.x + k.s * (b.z - k.z));
-    const halb = halbBei(k.z);
-    if (b.r === k.s && Math.abs(daneben) <= halb + GNADE) {
-      const perfekt = Math.abs(daneben) <= perfektBei(k.z);
+    // Am Fels zählt die Kehre auf der ganzen Breite des Stücks – und perfekt
+    // ist sie, wenn er danach mitten in der Gasse läuft (ziel).
+    if (b.r === k.s && Math.abs(daneben) <= k.hw + GNADE) {
+      const perfekt = Math.abs(daneben - k.ziel) <= perfektBei(k.z);
       state.naechste += 1;
       state.genommen += 1;
       let plus = 1;
@@ -1722,10 +1959,56 @@
     stepTimer = window.setTimeout(finish, ruhig() ? 500 : STURZ_MS);
   }
 
+  // In den Fels gerannt: Er prallt zurück, überschlägt sich und bleibt im
+  // Schnee liegen.
+  function prall(nurBild = false) {
+    if (state.schritt === "sturz") return;
+    const b = state.bock;
+    const v = tempoBei(b.z);
+    const dreh = -b.r * (7 + Math.random() * 3);
+    state.schritt = "sturz";
+    state.sturz = { art: "prall", seite: b.r, vx: -b.r * v * 0.3, vy: 150, vz: -v * 0.3, dreh: 0, drehV: dreh, ruhe: 0, liegt: false, hinten: false, scheibe: 0, zeit: 0 };
+    state.stoss = 1;
+    klangAus();
+    klang()?.ton?.("gratwanderung.sturz");
+    kids()?.vibrate?.([30, 40, 60]);
+    staub(b.x + b.r * 8, b.z + 8, 16, 1.2);
+    if (nurBild) return;
+    stepTimer = window.setTimeout(finish, ruhig() ? 500 : STURZ_MS);
+  }
+
   function sturzTakt(dt) {
     const f = state.sturz;
     const b = state.bock;
     if (!f) return;
+    if (f.art === "prall") {
+      f.zeit += dt;
+      if (f.liegt) {
+        f.dreh += (f.ruhe - f.dreh) * (1 - Math.exp(-12 * dt));
+        return;
+      }
+      f.vy -= 900 * dt;
+      b.x += f.vx * dt;
+      b.z += f.vz * dt;
+      b.y += f.vy * dt;
+      f.dreh += f.drehV * dt;
+      if (b.y <= 0 && f.vy < 0) {
+        b.y = 0;
+        if (f.vy < -120) {
+          f.vy *= -0.32;
+          f.vx *= 0.5;
+          f.vz *= 0.5;
+          f.drehV *= 0.5;
+          staub(b.x, b.z, 6, 0.7);
+        } else {
+          // Auf der Seite, in der Richtung, in die er sich gerade dreht.
+          const seite = Math.sign(f.drehV) || 1;
+          f.liegt = true;
+          f.ruhe = Math.round((f.dreh - seite * 1.5) / (Math.PI * 2)) * Math.PI * 2 + seite * 1.5;
+        }
+      }
+      return;
+    }
     f.zeit += dt;
     f.vy -= 900 * dt;
     f.vx *= 1 - 0.8 * dt;
@@ -1797,7 +2080,11 @@
     // Am Ende des Laufs stürzt er, wie er damals gestürzt ist.
     if (!zuschauer.weiter() && state.schritt === "lauf") {
       const daneben = b.x - mitteBei(b.z);
-      if (Math.abs(daneben) > halbBei(b.z) * 0.6) sturz(Math.sign(daneben) || b.r, true);
+      // Aufgezeichnet ist nur alle paar Bilder ein Ort: Der letzte liegt
+      // bis zu einer Viertelsekunde vor dem Fels, in den er gerannt ist.
+      const f = state.kehren[state.seg].fels;
+      if (f && daneben * f.seite > f.rand - 6 && b.z <= f.z1 && b.z + tempoBei(b.z) * 0.25 >= f.z0) prall(true);
+      else if (Math.abs(daneben) > randBei(b.z) * 0.6) sturz(Math.sign(daneben) || b.r, true);
       else { state.schritt = "start"; klangAus(); }
     }
     if (state.schritt === "sturz") sturzTakt(dt);
@@ -2017,10 +2304,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "ridgeRun", fassung: "t1", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "ridgeRun", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "ridgeRun", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "ridgeRun", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -2053,6 +2340,6 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappGratwanderung = {
     METER, ERSTE, V0, V_MAX, HALB0, HALB_MIN, GNADE, state, view, cam,
-    takt, tippen, losGehts, physik, kehrenBis, mitteBei, halbBei, tempoBei, perfektBei, kursText, farbenBei,
+    takt, tippen, losGehts, physik, kehrenBis, mitteBei, halbBei, randBei, tempoBei, perfektBei, kursText, farbenBei, FELS_JE,
   };
 })();

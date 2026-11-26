@@ -11517,10 +11517,12 @@ try {
 
   // --- 4g42. Gratwanderung: immer begehbar, und die Kante beendet die Runde -----------
   // Ein Autopilot wendet genau dort, wo seine Spur die Mitte des nächsten
-  // Stücks kreuzt – über mehrere gewürfelte Grate bis 1500 m, jede Kehre
-  // perfekt. Wer nichts tut, rennt an der ersten Kehre über die Kante. Wer
-  // im Fenster, aber daneben wendet, bekommt einen Punkt statt zwei; wer das
-  // Fenster verpasst, stürzt.
+  // Stücks kreuzt (am Fels: die Mitte der Gasse) – über mehrere gewürfelte
+  // Grate bis 1500 m, jede Kehre perfekt. Wer nichts tut, rennt an der
+  // ersten Kehre über die Kante. Wer im Fenster, aber daneben wendet,
+  // bekommt einen Punkt statt zwei; wer das Fenster verpasst, stürzt. Jedes
+  // achte Stück trägt einen Felsturm: Wer dort in die Mitte einbiegt, prallt
+  // hinein; wer am Rand der Gasse läuft, kommt vorbei.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.goto(`${BASIS}/gratwanderung`, { waitUntil: "load" });
@@ -11529,12 +11531,14 @@ try {
       const G = window.LernappGratwanderung;
       const st = G.state;
       const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); G.losGehts(); };
-      // Wie weit die Spur neben der Mitte des nächsten Stücks liegt, in
-      // Laufrichtung gezählt: vor dem besten Moment negativ, danach positiv.
+      // Wie weit die Spur neben der Mitte des nächsten Stücks liegt (am
+      // Fels: der Gasse), in Laufrichtung gezählt: vor dem besten Moment
+      // negativ, danach positiv. ziel(k) verschiebt, wohin gezielt wird.
+      let ziel = () => 0;
       const vorbei = () => {
         const b = st.bock;
         const k = st.kehren[st.naechste];
-        return b.r === k.s ? null : (b.x - (k.x + k.s * (b.z - k.z))) * b.r;
+        return b.r === k.s ? null : (b.x - (k.x + k.s * (b.z - k.z)) - k.ziel - ziel(k)) * b.r;
       };
       // Laufen und wenden, sobald die Spur so weit (in Einheiten) über den
       // besten Moment hinaus ist; spaet(nr) sagt es für jede Kehre.
@@ -11554,8 +11558,36 @@ try {
         const r = lauf(1500);
         // Kein Stück kürzer als das Zweieinhalbfache der halben Breite.
         const enge = Math.min(...st.kehren.slice(1, st.naechste).map((k) => k.L / G.halbBei(k.z)));
-        genau.push({ ...r, enge: +enge.toFixed(2) });
+        // Die Felsen: genau auf jedem achten Stück, und weit genug von
+        // beiden Kehren – weiter, als die späteste Kehre davor und die
+        // früheste danach reichen (die halbe Summe der Breiten), und die
+        // Gasse breiter als ein gewöhnliches Stück zu sechs Zehnteln.
+        const gelaufen = st.kehren.slice(0, st.naechste);
+        const felsen = gelaufen.filter((k) => k.fels);
+        genau.push({
+          ...r, enge: +enge.toFixed(2), felsen: felsen.length,
+          jedesAchte: gelaufen.every((k) => Boolean(k.fels) === ((k.nr + 1) % G.FELS_JE === 0)),
+          links: felsen.filter((k) => k.fels.seite < 0).length,
+          frei: felsen.every((k) => { const weit = (k.hw + G.halbBei(k.z)) / 2 + 30; return k.fels.z0 - k.z > weit && k.z + k.L - k.fels.z1 > weit && k.hw + k.fels.rand > 1.2 * G.halbBei(k.z); }),
+        });
       }
+
+      // 1b. Am ersten Fels (er steht auf dem achten Stück). In die Mitte
+      //     des Stücks eingebogen: Die Kehre zählt, dann der Fels. Am
+      //     inneren und am äusseren Rand der Gasse: vorbei. Über den
+      //     äusseren Rand hinaus: von der Kante.
+      const amFels = (wohin) => {
+        neu();
+        ziel = (k) => (k.fels ? wohin(k) : 0);
+        const r = lauf(1500, () => 0, 10);
+        ziel = () => 0;
+        return { ...r, art: st.sturz?.art || "" };
+      };
+      const halbGasse = (k) => (k.hw + k.fels.rand) / 2;
+      const mitten = amFels((k) => -k.ziel);
+      const innen = amFels((k) => k.fels.seite * 0.85 * halbGasse(k));
+      const aussen = amFels((k) => -k.fels.seite * 0.85 * halbGasse(k));
+      const hinaus = amFels((k) => -k.fels.seite * 1.25 * halbGasse(k));
 
       // 2. Nichts tun.
       neu();
@@ -11582,7 +11614,7 @@ try {
       const quer = lauf(400, () => Infinity);
 
       return {
-        genau, nichts, nichtsBei, erste: G.ERSTE, spaet, danach, zuSpaet, quer,
+        genau, mitten, innen, aussen, hinaus, nichts, nichtsBei, erste: G.ERSTE, spaet, danach, zuSpaet, quer,
         fenster: [0, 500, 1500].map((m) => Math.round((G.halbBei(m * 10) / (2 * G.tempoBei(m * 10))) * 1000)),
       };
     });
@@ -11594,8 +11626,16 @@ try {
       `Gratwanderung: Spät im Fenster gewendet zählt nicht einen Punkt und danach genau nicht zwei: ${JSON.stringify({ spaet: befund.spaet, danach: befund.danach })}`);
     pruefe(befund.zuSpaet.schritt === "sturz" && befund.zuSpaet.punkte === 0, `Gratwanderung: Zu spät gewendet endet nicht mit dem Sturz: ${JSON.stringify(befund.zuSpaet)}`);
     pruefe(befund.quer.schritt === "sturz" && befund.quer.punkte === 0, `Gratwanderung: Ein Tipp mitten im Stück endet nicht mit dem Sturz: ${JSON.stringify(befund.quer)}`);
-    pruefe(befund.fenster[0] > 170 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 55,
-      `Gratwanderung: Das Fenster für eine Kehre wird nicht von gut 170 ms an enger (und nie unter 55 ms): ${befund.fenster.join(", ")} ms`);
+    pruefe(befund.fenster[0] > 160 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 50,
+      `Gratwanderung: Das Fenster für eine Kehre wird nicht von gut 160 ms an enger (und nie unter 50 ms): ${befund.fenster.join(", ")} ms`);
+    pruefe(befund.genau.every((r) => r.jedesAchte && r.felsen >= 5 && r.frei) && befund.genau.some((r) => r.links > 0) && befund.genau.some((r) => r.links < r.felsen),
+      `Gratwanderung: Die Felstürme stehen nicht genau auf jedem achten Stück, nicht auf beiden Seiten oder zu nah an einer Kehre – ${JSON.stringify(befund.genau.map((r) => ({ felsen: r.felsen, jedesAchte: r.jedesAchte, links: r.links, frei: r.frei })))}`);
+    pruefe(befund.mitten.schritt === "sturz" && befund.mitten.art === "prall" && befund.mitten.genommen === 7,
+      `Gratwanderung: Wer am Fels in die Mitte des Stücks einbiegt, prallt nicht hinein: ${JSON.stringify(befund.mitten)}`);
+    pruefe(befund.innen.schritt === "lauf" && befund.innen.genommen >= 10 && befund.aussen.schritt === "lauf" && befund.aussen.genommen >= 10,
+      `Gratwanderung: Wer am Rand der Gasse läuft, kommt nicht am Fels vorbei: ${JSON.stringify({ innen: befund.innen, aussen: befund.aussen })}`);
+    pruefe(befund.hinaus.schritt === "sturz" && befund.hinaus.art !== "prall" && befund.hinaus.genommen === 6,
+      `Gratwanderung: Wer am Fels über den äusseren Rand hinaus einbiegt, stürzt nicht von der Kante: ${JSON.stringify(befund.hinaus)}`);
     // Nach dem Sturz steht die Tafel da.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappGratwanderung.losGehts(); });
     await seite.waitForSelector(".cm-result-score", { timeout: 12000 }).catch(() => {});
@@ -11615,8 +11655,8 @@ try {
     });
     await seite.goto(`${BASIS}/gratwanderung`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappGratwanderung?.state?.kehren?.length && window.LernappGratwanderung.view.cssW > 0, null, { timeout: 8000 });
-    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Sechs Kehren genau, dann
-    // keine mehr.
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Sechs Kehren genau, die
+    // siebte mitten auf das Stück mit dem Fels – und in ihn hinein.
     await seite.evaluate(() => {
       const G = window.LernappGratwanderung;
       const st = G.state;
@@ -11624,7 +11664,7 @@ try {
       const tick = () => {
         if (st.schritt !== "lauf") return;
         requestAnimationFrame(tick);
-        if (st.genommen >= 6) return;
+        if (st.genommen >= 7) return;
         const b = st.bock;
         const k = st.kehren[st.naechste];
         const daneben = b.x - (k.x + k.s * (b.z - k.z));
@@ -11640,10 +11680,10 @@ try {
       const geist = window.__miniGeister?.get(`ridgeRun_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, genommen: st.genommen, kurs: window.LernappGratwanderung.kursText(12) };
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, genommen: st.genommen, art: st.sturz?.art || "", kurs: window.LernappGratwanderung.kursText(12) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.genommen === 6 && gespielt.punkte >= 6,
-      `Gratwanderung: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify(gespielt)}`);
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.genommen === 7 && gespielt.punkte >= 7 && gespielt.art === "prall",
+      `Gratwanderung: Der Lauf wird nicht mit Saat und Weg hinterlegt (oder endet nicht am Fels): ${JSON.stringify(gespielt)}`);
     await seite.goto(`${BASIS}/gratwanderung?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappGratwanderung?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const kurs = await seite.evaluate(() => window.LernappGratwanderung.kursText(12));
@@ -11653,9 +11693,9 @@ try {
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 30000 }).catch(() => {});
     const angeschaut = await seite.evaluate(() => {
       const st = window.LernappGratwanderung.state;
-      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+      return { phase: st.phase, schritt: st.schritt, art: st.sturz?.art || "", punkte: st.punkte, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
     });
-    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz",
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz" && angeschaut.art === "prall",
       `Gratwanderung: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
     await kontext.close();
   }
