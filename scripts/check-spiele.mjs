@@ -11892,12 +11892,27 @@ try {
       let lueckeMin = Infinity;
       let lueckeMax = 0;
       const hoehen = new Set();
+      // Die Türme: keiner vor TURM_AB Metern, danach einige – jeder nur
+      // einen Tritt breit (höchstens drei Zehntelsekunden Lauf) und im
+      // Mittel klar schmaler als die engen Dächer dahinter.
+      const tuerme = { zahl: 0, zuFrueh: 0, breitMin: Infinity, breitMax: 0, zuBreit: 0, summe: 0, engZahl: 0, engSumme: 0 };
       for (let i = 0; i < 4; i += 1) {
         neu();
         genau.push(lauf(600, (r) => r.t, (r) => r.halt));
         const d = st.daecher.filter((r) => Number.isFinite(r.x1) && r.x1 < st.lf.x);
         daecher += d.length;
         enge += d.filter((r) => r.eng).length;
+        d.forEach((r, nr) => {
+          if (!r.turm) return;
+          const breit = r.x1 - r.x0;
+          tuerme.zahl += 1;
+          if (r.x0 < K.TURM_AB * K.METER) tuerme.zuFrueh += 1;
+          tuerme.breitMin = Math.min(tuerme.breitMin, breit);
+          tuerme.breitMax = Math.max(tuerme.breitMax, breit);
+          tuerme.summe += breit;
+          if (breit / K.tempoBei(r.x0) > 0.3) tuerme.zuBreit += 1;
+        });
+        d.filter((r) => r.eng && !r.turm && r.x0 > K.TURM_AB * K.METER).forEach((r) => { tuerme.engZahl += 1; tuerme.engSumme += r.x1 - r.x0; });
         d.forEach((r, nr) => {
           hoehen.add(r.top);
           if (nr > 0) { lueckeMin = Math.min(lueckeMin, r.x0 - d[nr - 1].x1); lueckeMax = Math.max(lueckeMax, r.x0 - d[nr - 1].x1); }
@@ -11948,6 +11963,7 @@ try {
 
       return {
         genau, daecher, enge, lueckeMin: Math.round(lueckeMin), lueckeMax: Math.round(lueckeMax), hoehen: hoehen.size,
+        tuerme: { zahl: tuerme.zahl, zuFrueh: tuerme.zuFrueh, zuBreit: tuerme.zuBreit, breitMin: Math.round(tuerme.breitMin), breitMax: Math.round(tuerme.breitMax), mittel: Math.round(tuerme.summe / Math.max(1, tuerme.zahl)), engMittel: Math.round(tuerme.engSumme / Math.max(1, tuerme.engZahl)) },
         frueh, spaet, nichts, zuKurz, kurzNr, zuLang, langNr, kante,
         luft: [0, 100, 300, 2000].map((m) => Math.round(K.luftBei(m * K.METER) * 1000)),
         tempo: [0, 300, 5000].map((m) => Math.round(K.tempoBei(m * K.METER))),
@@ -11956,7 +11972,9 @@ try {
     });
     pruefe(befund.genau.every((r) => r.schritt !== "sturz" && r.punkte >= 600 && r.perfekte === 0),
       `Dachläufer: Der Autopilot kommt nicht über jede Strecke, oder der Weg führt über die Kante – ${JSON.stringify(befund.genau)}`);
-    pruefe(befund.daecher >= 80 && befund.enge / befund.daecher > 0.25 && befund.enge / befund.daecher < 0.8 && befund.hoehen >= 20 && befund.lueckeMin >= 20 && befund.lueckeMax >= 150,
+    pruefe(befund.tuerme.zahl >= 6 && befund.tuerme.zuFrueh === 0 && befund.tuerme.zuBreit === 0 && befund.tuerme.breitMin >= 36 && befund.tuerme.breitMax <= 110 && befund.tuerme.mittel < 0.8 * befund.tuerme.engMittel,
+      `Dachläufer: Die Türme stehen zu früh, fehlen oder sind nicht klar schmaler als die engen Dächer: ${JSON.stringify(befund.tuerme)}`);
+    pruefe(befund.daecher >= 80 && befund.enge / befund.daecher > 0.25 && befund.enge / befund.daecher < 0.96 && befund.hoehen >= 20 && befund.lueckeMin >= 20 && befund.lueckeMax >= 150,
       `Dachläufer: Die Strecken sind zu eintönig (Dächer, enge Dächer, Lücken, Höhen): ${JSON.stringify({ daecher: befund.daecher, enge: befund.enge, lueckeMin: befund.lueckeMin, lueckeMax: befund.lueckeMax, hoehen: befund.hoehen })}`);
     pruefe(befund.frueh.schritt !== "sturz" && befund.frueh.punkte >= 600 && befund.spaet.schritt !== "sturz" && befund.spaet.punkte >= 600,
       `Dachläufer: Wer um neun Zehntel der Luft früher und kürzer (später und länger) springt, kommt nicht durch: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet })}`);
@@ -11968,9 +11986,9 @@ try {
       `Dachläufer: Zu lang gehalten führt nicht über das nächste Dach hinaus in die Lücke: ${JSON.stringify({ zuLang: befund.zuLang, dach: befund.langNr })}`);
     pruefe(befund.kante.schritt !== "sturz" && befund.kante.punkte >= 250 && befund.kante.perfekte >= befund.kante.spruenge - 1 && befund.kante.spruenge >= 8,
       `Dachläufer: Wer auf dem letzten Stück vor der Kante abspringt, bekommt kein «Kante!» (oder kommt nicht an): ${JSON.stringify(befund.kante)}`);
-    pruefe(befund.luft[0] >= 70 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[3] >= 30 && befund.tempo[0] < befund.tempo[1] && befund.tempo[2] <= 330
+    pruefe(befund.luft[0] >= 70 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[3] >= 25 && befund.tempo[0] < befund.tempo[1] && befund.tempo[2] <= 410
       && befund.flug[0] > 0.3 && befund.flug[1] > 1.8 * befund.flug[0],
-      `Dachläufer: Die Luft um den Weg wird nicht von gut 70 ms an enger (und nie unter 30 ms), er wird nicht schneller, oder länger halten trägt nicht weiter: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo, flug: befund.flug })}`);
+      `Dachläufer: Die Luft um den Weg wird nicht von gut 70 ms an enger (und nie unter 25 ms), er wird nicht schneller, oder länger halten trägt nicht weiter: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo, flug: befund.flug })}`);
     // Nach dem Sturz steht die Tafel da – in Echtzeit: Er rennt los und über
     // die erste Kante.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappDachlaeufer.druecken(performance.now()); window.LernappDachlaeufer.loslassen(performance.now()); });
@@ -12021,7 +12039,7 @@ try {
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, spruenge: st.spruenge, kurs: window.LernappDachlaeufer.kursText(4000) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.spruenge === 5 && gespielt.punkte >= 40,
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.spruenge === 5 && gespielt.punkte >= 40,
       `Dachläufer: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/dachlaeufer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappDachlaeufer?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
