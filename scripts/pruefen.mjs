@@ -912,7 +912,10 @@ pruefe("game-shell.js: Tafel/Rekord und Stille kommen aus klang.js, kein Ton zum
   // an (LernappZwei.starte) – mit allem, was zwei.js von ihm braucht. Und die
   // Kachel auf der Startseite hat ein Bild.
   const angemeldet = {};
-  const FESTER_ZUFALL = ["bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff", "garten"];
+  // Mühle gehört seit dem 26.11.2026 dazu: Ihr Computer würfelt, und acht
+  // Partien mit der Schwelle sechs fielen ohne festen Zufall etwa jedes
+  // zehnte Mal durch (in der CI gesehen: 5 von 8).
+  const FESTER_ZUFALL = ["muehle", "bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff", "garten"];
   const kunst = miniJs.match(/const ZWEI_KUNST = \{([\s\S]*?)\n  \};/)?.[1] || "";
   for (const z of ZWEI) {
     const id = ZWEI_IN_MINI.find((m) => m.seite === z.seite)?.id;
