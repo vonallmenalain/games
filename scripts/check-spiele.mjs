@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3347,6 +3347,7 @@ try {
       T.tunnelBis(4000);
       return T.state.tunnel.punkte.slice(0, 180).map((p) => `${p.oben.toFixed(3)}/${p.unten.toFixed(3)}`).join(" ");
     }],
+    ["/gratwanderung", "Gratwanderung", () => window.LernappGratwanderung.kursText(40)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -11513,6 +11514,151 @@ try {
     await kontext.close();
   }
 
+  // --- 4g42. Gratwanderung: immer begehbar, und die Kante beendet die Runde -----------
+  // Ein Autopilot wendet genau dort, wo seine Spur die Mitte des nächsten
+  // Stücks kreuzt – über mehrere gewürfelte Grate bis 1500 m, jede Kehre
+  // perfekt. Wer nichts tut, rennt an der ersten Kehre über die Kante. Wer
+  // im Fenster, aber daneben wendet, bekommt einen Punkt statt zwei; wer das
+  // Fenster verpasst, stürzt.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/gratwanderung`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGratwanderung?.state?.kehren?.length && window.LernappGratwanderung.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const G = window.LernappGratwanderung;
+      const st = G.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); G.losGehts(); };
+      // Wie weit die Spur neben der Mitte des nächsten Stücks liegt, in
+      // Laufrichtung gezählt: vor dem besten Moment negativ, danach positiv.
+      const vorbei = () => {
+        const b = st.bock;
+        const k = st.kehren[st.naechste];
+        return b.r === k.s ? null : (b.x - (k.x + k.s * (b.z - k.z))) * b.r;
+      };
+      // Laufen und wenden, sobald die Spur so weit (in Einheiten) über den
+      // besten Moment hinaus ist; spaet(nr) sagt es für jede Kehre.
+      const lauf = (bisMeter, spaet = () => 0, hoechstens = Infinity) => {
+        for (let n = 0; n < 500000 && st.schritt === "lauf" && st.bock.z < bisMeter * G.METER && st.genommen < hoechstens; n += 1) {
+          const d = vorbei();
+          if (d !== null && d >= spaet(st.naechste)) G.tippen();
+          G.takt(1 / 240);
+        }
+        return { schritt: st.schritt, meter: Math.floor(st.bock.z / G.METER), genommen: st.genommen, perfekte: st.perfekte, punkte: st.punkte, reihe: st.reihe };
+      };
+
+      // 1. Vier Grate, jede Kehre genau.
+      const genau = [];
+      for (let i = 0; i < 4; i += 1) {
+        neu();
+        const r = lauf(1500);
+        // Kein Stück kürzer als das Zweieinhalbfache der halben Breite.
+        const enge = Math.min(...st.kehren.slice(1, st.naechste).map((k) => k.L / G.halbBei(k.z)));
+        genau.push({ ...r, enge: +enge.toFixed(2) });
+      }
+
+      // 2. Nichts tun.
+      neu();
+      const nichts = lauf(400, () => Infinity);
+      const nichtsBei = Math.round(st.bock.z);
+
+      // 3. Die erste Kehre spät, aber im Fenster (60 % der halben Breite
+      //    daneben): ein Punkt, nicht perfekt. Die zweite wieder genau.
+      neu();
+      const halb = G.halbBei(G.ERSTE);
+      lauf(1500, (nr) => (nr === 1 ? halb * 0.6 : 0), 1);
+      const spaet = { punkte: st.punkte, perfekte: st.perfekte, schritt: st.schritt };
+      lauf(1500, () => 0, 2);
+      const danach = { punkte: st.punkte, perfekte: st.perfekte, schritt: st.schritt };
+
+      // 4. Die erste Kehre zu spät (120 %): Sturz.
+      neu();
+      const zuSpaet = lauf(400, (nr) => (nr === 1 ? halb * 1.2 + G.GNADE + 1 : 0));
+
+      // 5. Ein Tipp mitten im Stück: Er rennt quer hinaus.
+      neu();
+      for (let n = 0; n < 60; n += 1) G.takt(1 / 240);
+      G.tippen();
+      const quer = lauf(400, () => Infinity);
+
+      return {
+        genau, nichts, nichtsBei, erste: G.ERSTE, spaet, danach, zuSpaet, quer,
+        fenster: [0, 500, 1500].map((m) => Math.round((G.halbBei(m * 10) / (2 * G.tempoBei(m * 10))) * 1000)),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt === "lauf" && r.meter >= 1500 && r.genommen >= 60 && r.perfekte === r.genommen && r.punkte === 2 + 3 * (r.genommen - 1) && r.enge >= 2.4),
+      `Gratwanderung: Der Autopilot kommt nicht über jeden Grat, oder nicht jede genaue Kehre ist perfekt – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.nichts.schritt === "sturz" && befund.nichts.punkte === 0 && befund.nichtsBei > befund.erste && befund.nichtsBei < befund.erste + 120,
+      `Gratwanderung: Wer nichts tut, stürzt nicht an der ersten Kehre: ${JSON.stringify({ nichts: befund.nichts, bei: befund.nichtsBei })}`);
+    pruefe(befund.spaet.schritt === "lauf" && befund.spaet.punkte === 1 && befund.spaet.perfekte === 0 && befund.danach.punkte === 3 && befund.danach.perfekte === 1,
+      `Gratwanderung: Spät im Fenster gewendet zählt nicht einen Punkt und danach genau nicht zwei: ${JSON.stringify({ spaet: befund.spaet, danach: befund.danach })}`);
+    pruefe(befund.zuSpaet.schritt === "sturz" && befund.zuSpaet.punkte === 0, `Gratwanderung: Zu spät gewendet endet nicht mit dem Sturz: ${JSON.stringify(befund.zuSpaet)}`);
+    pruefe(befund.quer.schritt === "sturz" && befund.quer.punkte === 0, `Gratwanderung: Ein Tipp mitten im Stück endet nicht mit dem Sturz: ${JSON.stringify(befund.quer)}`);
+    pruefe(befund.fenster[0] > 170 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 55,
+      `Gratwanderung: Das Fenster für eine Kehre wird nicht von gut 170 ms an enger (und nie unter 55 ms): ${befund.fenster.join(", ")} ms`);
+    // Nach dem Sturz steht die Tafel da.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappGratwanderung.losGehts(); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 12000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappGratwanderung.state.schritt }));
+    pruefe(ende.schritt === "sturz" && ende.zahl !== undefined && /0 Kehren · 0 perfekt · \d+ m/.test(ende.text), `Gratwanderung: Nach dem Sturz steht keine Tafel mit Kehren, perfekten und Metern da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seines Grats
+    // aufgezeichnet, und wer ihn anschaut, sieht denselben Grat, dieselben
+    // Punkte und am Schluss den Sturz – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__gratwanderung")) return;
+      sessionStorage.setItem("__gratwanderung", "1");
+      localStorage.setItem("mini.name", "Gian");
+    });
+    await seite.goto(`${BASIS}/gratwanderung`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGratwanderung?.state?.kehren?.length && window.LernappGratwanderung.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Sechs Kehren genau, dann
+    // keine mehr.
+    await seite.evaluate(() => {
+      const G = window.LernappGratwanderung;
+      const st = G.state;
+      G.losGehts();
+      const tick = () => {
+        if (st.schritt !== "lauf") return;
+        requestAnimationFrame(tick);
+        if (st.genommen >= 6) return;
+        const b = st.bock;
+        const k = st.kehren[st.naechste];
+        const daneben = b.x - (k.x + k.s * (b.z - k.z));
+        if (b.r !== k.s && daneben * b.r >= -G.tempoBei(b.z) / 120) G.tippen(performance.now());
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 30000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("ridgeRun_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappGratwanderung.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`ridgeRun_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, genommen: st.genommen, kurs: window.LernappGratwanderung.kursText(12) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.genommen === 6 && gespielt.punkte >= 6,
+      `Gratwanderung: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify(gespielt)}`);
+    await seite.goto(`${BASIS}/gratwanderung?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappGratwanderung?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => window.LernappGratwanderung.kursText(12));
+    pruefe(kurs === gespielt.kurs, `Gratwanderung: Beim Zuschauen entsteht ein anderer Grat:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
+    // Beim Zuschauen wendet niemand mit.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 30000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappGratwanderung.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz",
+      `Gratwanderung: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -11735,7 +11881,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 38 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 39 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -11743,7 +11889,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /39/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /40/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -11794,7 +11940,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -13605,7 +13751,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 210, `klang.js kennt nicht alle 210 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 216, `klang.js kennt nicht alle 216 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

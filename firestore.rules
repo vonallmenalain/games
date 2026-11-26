@@ -97,6 +97,7 @@ service cloud.firestore {
         "freeHand",
         "mindsEye",
         "iceStock",
+        "ridgeRun",
       ];
     }
 

@@ -266,6 +266,12 @@
     "eisstock.gut": { s: "perle" },
     "eisstock.genau": { s: "pling" },
     "eisstock.daneben": { s: "ab-sanft" },
+    "gratwanderung.wind": { s: "a-wind", schleife: true },
+    "gratwanderung.hufe": { s: "a-schritte", schleife: true },
+    "gratwanderung.kehre": { s: "klack" },
+    "gratwanderung.perfekt": { s: "pling" },
+    "gratwanderung.sturz": { s: "schnee-sturz" },
+    "gratwanderung.fall": { s: "fall" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -282,7 +288,7 @@
     iceRun: "eiskanal", cliffFlight: "felsflug", hammerThrow: "hammerwurf", duckCrossing: "entenfamilie",
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
-    freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock",
+    freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
   };
 
   // ---------------------------------------------------------------------------
