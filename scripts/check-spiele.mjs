@@ -12816,8 +12816,9 @@ try {
   // --- 4g49. Seifenblase: immer zu schaffen, und wer nicht neben sie tippt, verliert sie ----
   // Ein Autopilot tippt, wohin die Gasse es verlangt – über vier gewürfelte
   // Welten bis 100 s, ohne dass die Blase zerplatzt und ohne dass die
-  // Planung je auf einen Notbehelf ausweichen muss. Darin kommen alle Lagen
-  // und alle Hindernisse der vier Welten vor, und jeder achte Abschnitt ist
+  // Planung je auf einen Notbehelf ausweichen muss. Darin (und in den Läufen
+  // mit wenig Streuung) kommen alle Lagen und alle Hindernisse der vier
+  // Welten vor, und jeder achte Abschnitt ist
   // besonders (8., 24.: Aufwind, 16., 32.: Böe), vorher angesagt. Mit wenig
   // gestreuten Tipps (±5 cm, gut 15 Bildpunkte, alle 0,2 s) kommt er meist
   // weit, mit stark gestreuten (±17 cm, gut 50 Bildpunkte) bald nicht mehr.
@@ -12870,6 +12871,9 @@ try {
       const viel = [];
       for (let i = 0; i < 9; i += 1) {
         wenig.push(lauf(60, { pilot: { abstand: 0.2, streu: 5 } }));
+        // Auch hier zählt, was vorkommt (die Baumkrone mit ihren Wespen).
+        st.hindernisse.filter((o) => o.box.y1 < st.blase.y).forEach((o) => { arten[o.art] = (arten[o.art] || 0) + 1; });
+        st.beweger.filter((m) => m.y1 < st.blase.y).forEach((m) => { arten[m.art] = (arten[m.art] || 0) + 1; });
         viel.push(lauf(60, { pilot: { abstand: 0.2, streu: 17 } }));
       }
       // 3. Nichts tun; 4. dauernd unter ihr tippen (mitten im Bild, gleich
@@ -12895,7 +12899,7 @@ try {
     pruefe(["tor", "doppel", "treppe", "tropfen", "flieger", "aufwind", "boee"].every((l) => befund.lagen[l] >= 1)
       && ["rose", "nessel", "schlauch", "ast", "tanne", "netz", "balkon", "dach", "antenne", "wolke", "tropfen", "wespe", "schwalbe"].every((a) => befund.arten[a] >= 1)
       && (befund.arten.segler || 0) + (befund.arten.fetzen || 0) >= 1,
-      `Seifenblase: In vier Läufen kommen nicht alle Lagen oder nicht alle Hindernisse vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
+      `Seifenblase: In den Läufen kommen nicht alle Lagen oder nicht alle Hindernisse vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
     pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "aufwind" : "boee"))
       && befund.ansagen.includes("Aufwind") && befund.ansagen.includes("Böe"),
       `Seifenblase: Jeder achte Abschnitt ist nicht im festen Wechsel Aufwind oder Böe, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);

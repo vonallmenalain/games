@@ -1632,6 +1632,11 @@
    */
   const HIMMEL_HOCH = 7000;
   const PH = 0.055;
+  // Über den Dächern: So weit von der Mitte beginnen die fernen Wände der
+  // Gasse (Anteil des halben Feldes); dazwischen Himmel und Dachlandschaft,
+  // die sehr langsam hinabgleitet (PD).
+  const GASSE_INNEN = 0.55;
+  const PD = 0.022;
 
   function maleHimmel(k, W, Ht, H) {
     // Die Farben von unten (0) nach oben, in Bildhöhen über dem unteren Rand.
@@ -1663,20 +1668,24 @@
     k.fill();
     // Strahlen, die die Sonne durch den Dunst wirft.
     k.globalCompositeOperation = "lighter";
+    // Jeder Strahl aus drei Keilen ineinander: so hat er weiche Ränder.
     for (let i = 0; i < 9; i += 1) {
       const w = -Math.PI / 2 + (rnd() - 0.5) * 2.4;
-      const l = H * (0.9 + rnd() * 0.8);
+      const l = H * (0.7 + rnd() * 0.6);
       const b = 0.03 + rnd() * 0.05;
       const gr = k.createLinearGradient(sx, sy, sx + Math.cos(w) * l, sy + Math.sin(w) * l);
-      gr.addColorStop(0, "rgba(255, 220, 160, 0.16)");
+      gr.addColorStop(0, "rgba(255, 220, 160, 0.07)");
+      gr.addColorStop(0.6, "rgba(255, 220, 160, 0.03)");
       gr.addColorStop(1, "rgba(255, 220, 160, 0)");
       k.fillStyle = gr;
-      k.beginPath();
-      k.moveTo(sx, sy);
-      k.lineTo(sx + Math.cos(w - b) * l, sy + Math.sin(w - b) * l);
-      k.lineTo(sx + Math.cos(w + b) * l, sy + Math.sin(w + b) * l);
-      k.closePath();
-      k.fill();
+      [1, 0.62, 0.3].forEach((f) => {
+        k.beginPath();
+        k.moveTo(sx, sy);
+        k.lineTo(sx + Math.cos(w - b * f) * l, sy + Math.sin(w - b * f) * l);
+        k.lineTo(sx + Math.cos(w + b * f) * l, sy + Math.sin(w + b * f) * l);
+        k.closePath();
+        k.fill();
+      });
     }
     k.globalCompositeOperation = "source-over";
     // Wolkenbänke: unten golden von unten angestrahlt, oben flieder.
@@ -1868,12 +1877,30 @@
     tal.addColorStop(1, "rgb(96, 82, 104)");
     k.fillStyle = tal;
     k.fillRect(0, basis + 4 * s, W, H - basis);
-    for (let i = 0; i < 40; i += 1) {
-      const x = rnd() * W;
-      const y = basis + 8 * s + rnd() * (H - basis);
-      k.fillStyle = rgb(mix3([76, 74, 90], [104, 92, 104], rnd()));
+    // Wiesenstreifen und Hecken im Tal, dazwischen runde Bäume mit hellem
+    // Scheitel.
+    for (let i = 0; i < 7; i += 1) {
+      const y = basis + 10 * s + (i / 7) * (H - basis);
+      k.fillStyle = rgba(i % 2 ? [150, 116, 120] : [116, 96, 116], 0.6);
       k.beginPath();
-      k.arc(x, y, (5 + rnd() * 8) * s, 0, TAU);
+      k.moveTo(0, y);
+      for (let x = 0; x <= W + 10; x += 10) k.lineTo(x, y + Math.sin(x * 0.01 + i * 1.7) * 6 * s);
+      k.lineTo(W, y + 30 * s);
+      k.lineTo(0, y + 30 * s);
+      k.closePath();
+      k.fill();
+    }
+    for (let i = 0; i < 24; i += 1) {
+      const x = rnd() * W;
+      const y = basis + 10 * s + rnd() * (H - basis);
+      const r = (4 + rnd() * 5) * s * (0.6 + (y - basis) / (H - basis));
+      k.fillStyle = rgba(mix3([84, 84, 92], [104, 96, 104], rnd()), 0.75);
+      k.beginPath();
+      k.arc(x, y, r, 0, TAU);
+      k.fill();
+      k.fillStyle = "rgba(255, 190, 150, 0.35)";
+      k.beginPath();
+      k.arc(x - r * 0.25, y - r * 0.3, r * 0.55, 0, TAU);
       k.fill();
     }
     // Dunst über dem Dorf.
@@ -1892,38 +1919,86 @@
   // dreimal, eine Kachel höher und tiefer.
   const dreimal = (Hk, malen) => { malen(0); malen(-Hk); malen(Hk); };
 
-  // Eine Baumkrone aus vielen Laubbüscheln: im Gegenlicht dunkel, oben links
-  // vom Abendlicht gesäumt. r in Bildpunkten.
-  function krone(k, x, y, r, rnd, dunkel, licht, alpha = 1) {
-    const n = Math.round(18 + r / 3);
-    const ballen = [];
+  // Ein Laubbüschel als Umriss aus Blattspitzen: aussen die Spitzen, innen
+  // die Kerben dazwischen, mit runden Bögen – so liest es sich als Laub.
+  function laubForm(k, x, y, r, rnd, n = 13) {
+    const pts = [];
+    const w0 = rnd() * TAU;
+    for (let i = 0; i < n; i += 1) {
+      const w = w0 + (i / n) * TAU;
+      pts.push([w, r * (0.92 + rnd() * 0.14)]);
+    }
+    k.beginPath();
+    for (let i = 0; i <= n; i += 1) {
+      const [w, rr] = pts[i % n];
+      const tx = x + Math.cos(w) * rr;
+      const ty = y + Math.sin(w) * rr;
+      if (i === 0) k.moveTo(tx, ty);
+      else {
+        // Von der vorigen Spitze über einen Blattbogen zu dieser.
+        const [wp] = pts[i - 1];
+        const wq = wp + (((w - wp + TAU) % TAU) / 2);
+        k.quadraticCurveTo(x + Math.cos(wq) * r * 1.06, y + Math.sin(wq) * r * 1.06, x + Math.cos(wq) * r * 0.8, y + Math.sin(wq) * r * 0.8);
+        k.quadraticCurveTo(x + Math.cos(wq + 0.08) * r * 1.04, y + Math.sin(wq + 0.08) * r * 1.04, tx, ty);
+      }
+    }
+    k.closePath();
+  }
+
+  // Ein einzelnes Blatt (Bildpunkte): eine Spitzellipse.
+  function blattKlein(k, x, y, w, l, b) {
+    k.beginPath();
+    k.moveTo(x, y);
+    k.quadraticCurveTo(x + Math.cos(w) * l * 0.5 - Math.sin(w) * b, y + Math.sin(w) * l * 0.5 + Math.cos(w) * b, x + Math.cos(w) * l, y + Math.sin(w) * l);
+    k.quadraticCurveTo(x + Math.cos(w) * l * 0.5 + Math.sin(w) * b, y + Math.sin(w) * l * 0.5 - Math.cos(w) * b, x, y);
+    k.fill();
+  }
+
+  // Die Farben des Laubs im Abendlicht: tief im Schatten, die Mitte, die
+  // Sonnenseite und die Lichtkante. dunst > 0: fern, im Abenddunst.
+  function laubFarben(dunst = 0, art = 0) {
+    const d = [214, 160, 170];
+    const basis = art === 1
+      ? { tief: [30, 58, 42], mitte: [60, 104, 52], hell: [138, 172, 66], kante: [255, 222, 140] }
+      : { tief: [36, 64, 40], mitte: [74, 114, 48], hell: [158, 182, 70], kante: [255, 214, 128] };
+    if (!dunst) return basis;
+    return { tief: mix3(basis.tief, d, dunst), mitte: mix3(basis.mitte, d, dunst), hell: mix3(basis.hell, d, dunst * 0.8), kante: basis.kante };
+  }
+
+  // Eine Baumkrone aus Laubbüscheln: hinten und unten rechts dunkel, vorn
+  // oben links im Abendlicht, mit einer Lichtkante und einzelnen Blättern am
+  // Rand. r in Bildpunkten.
+  function krone(k, x, y, r, rnd, pal, alpha = 1) {
+    const n = Math.round(9 + r / 5);
+    const buesche = [];
     for (let i = 0; i < n; i += 1) {
       const w = rnd() * TAU;
-      const d = Math.sqrt(rnd()) * r * 0.78;
-      ballen.push([x + Math.cos(w) * d, y + Math.sin(w) * d * 0.85, r * (0.16 + rnd() * 0.14)]);
+      const d = Math.sqrt(rnd()) * r * 0.6;
+      buesche.push([x + Math.cos(w) * d, y + Math.sin(w) * d * 0.82, r * (0.3 + rnd() * 0.14)]);
     }
-    ballen.sort((a, b) => a[1] - b[1]);
+    // Hinten (weg vom Licht) zuerst.
+    buesche.sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
     k.globalAlpha = alpha;
-    ballen.forEach(([bx, by, br]) => {
-      // Je weiter oben links, desto mehr Licht.
-      const lage = clamp(((x - bx) + (y - by)) / (r * 1.6) + 0.5, 0, 1);
-      k.fillStyle = rgb(mix3(dunkel, licht, lage * lage * 0.55));
-      k.beginPath();
-      k.arc(bx, by, br, 0, TAU);
+    k.fillStyle = rgb(pal.tief);
+    buesche.forEach(([bx, by, br]) => { laubForm(k, bx, by, br * 1.06, rnd); k.fill(); });
+    buesche.forEach(([bx, by, br]) => {
+      const licht = clamp(0.5 - ((bx - x) + (by - y)) / (r * 1.4), 0, 1);
+      k.fillStyle = rgb(mix3(pal.tief, pal.mitte, 0.55 + 0.45 * licht));
+      laubForm(k, bx - br * 0.06, by - br * 0.08, br * 0.9, rnd);
       k.fill();
-    });
-    // Der Lichtsaum: ein schmaler heller Rand oben links an den äusseren
-    // Büscheln, wo das Abendlicht durchscheint.
-    ballen.forEach(([bx, by, br]) => {
-      const dx = bx - x;
-      const dy = by - y;
-      if (dx + dy > -r * 0.45) return;
-      if (rnd() < 0.4) return;
-      k.strokeStyle = rgba(licht, 0.4);
-      k.lineWidth = Math.max(1, br * 0.1);
-      k.beginPath();
-      k.arc(bx, by, br * 0.9, Math.PI * 0.95, Math.PI * 1.55);
-      k.stroke();
+      k.fillStyle = rgb(mix3(pal.mitte, pal.hell, 0.35 + 0.65 * licht));
+      laubForm(k, bx - br * 0.24, by - br * 0.28, br * 0.52, rnd, 9);
+      k.fill();
+      // Einzelne Blätter am Rand zur Sonne, mit Licht an der Kante.
+      if (licht > 0.35) {
+        for (let j = 0; j < 6; j += 1) {
+          const w = Math.PI * 1.25 + (rnd() - 0.5) * 1.9;
+          const lx = bx + Math.cos(w) * br * (0.7 + rnd() * 0.2);
+          const ly = by + Math.sin(w) * br * (0.7 + rnd() * 0.2);
+          k.fillStyle = rgb(mix3(pal.hell, pal.kante, 0.25 + 0.4 * rnd()));
+          blattKlein(k, lx, ly, w + (rnd() - 0.5) * 0.8, br * 0.34, br * 0.1);
+        }
+      }
     });
     k.globalAlpha = 1;
   }
@@ -1967,56 +2042,61 @@
     // Feld, quer weit davon.
     const aussen = Math.max(feldB * 1.15, W / 2);
     if (welt === 0) {
-      // Der Garten: Obstbäume im Gegenlicht, links und rechts, mit Stamm;
-      // dazwischen der Abendhimmel und eine Lichterkette.
-      const dunkel = [74, 70, 70];
-      const licht = [255, 196, 120];
-      [-1, 1].forEach((seite) => {
-        const sx = mitte + seite * (feldB * 0.95 + rnd() * feldB * 0.1);
-        k.fillStyle = "rgb(70, 54, 58)";
-        k.fillRect(sx - s * 3, 0, s * 6, Hk);
-        k.fillStyle = "rgba(255, 190, 130, 0.35)";
-        k.fillRect(sx - s * 3, 0, s * 1.2, Hk);
-        for (let i = 0; i < 4; i += 1) {
-          const y = (i + rnd() * 0.5) * (Hk / 4);
-          const ex = mitte + seite * feldB * (0.42 + rnd() * 0.3);
-          dreimal(Hk, (dy) => astForm(k, sx, y + dy + s * 20, lerp(sx, ex, 0.5), y + dy, ex, y + dy - s * 14, s * 4, s * 1.2, "rgb(76, 58, 62)", "rgba(255, 190, 130, 0.4)"));
-        }
-      });
-      for (let i = 0; i < 16; i += 1) {
+      // Der Garten: Apfelbäume links und rechts, ihr Stamm gleich hinter dem
+      // Rand, Äste, die das Laub tragen, Äpfel; quer weiter draussen mehr
+      // Bäume im Abenddunst. Dazwischen der Himmel und eine Lichterkette.
+      const pal = laubFarben(0.16, 0);
+      const fern = laubFarben(0.42, 0);
+      for (let i = 0; i < 6; i += 1) {
+        // Weiter draussen (quer sichtbar): Bäume im Dunst, mit Stamm.
         const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * (0.55 + rnd() * 0.5));
+        const x = mitte + seite * (feldB * 1.35 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.2));
         const y = rnd() * Hk;
-        const r = s * (14 + rnd() * 14);
-        const c = mix3(dunkel, [96, 104, 70], rnd());
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 13 + 5), c, licht, 0.92));
-        // Äpfel im Laub.
-        for (let j = 0; j < 4; j += 1) {
-          const ax = x + (rnd() - 0.5) * r * 1.2;
-          const ay = y + (rnd() - 0.3) * r;
+        const r = s * (20 + rnd() * 14);
+        dreimal(Hk, (dy) => {
+          astForm(k, x, y + dy + r * 2.2, x + seite * s * 2, y + dy + r, x, y + dy, s * 5, s * 2.5, rgba(mix3([76, 58, 62], [214, 160, 170], 0.4), 1), null);
+          krone(k, x, y + dy, r, wuerfel(i * 31 + 9), fern, 0.95);
+        });
+      }
+      [-1, 1].forEach((seite, j) => {
+        const sx = mitte + seite * feldB * (0.97 + rnd() * 0.05);
+        // Der Stamm, mit Licht auf der linken Seite.
+        k.fillStyle = "rgb(84, 62, 60)";
+        k.fillRect(sx - s * 3.2, 0, s * 6.4, Hk);
+        k.fillStyle = "rgba(255, 196, 140, 0.4)";
+        k.fillRect(sx - s * 3.2, 0, s * 1.3, Hk);
+        k.fillStyle = "rgba(40, 26, 34, 0.35)";
+        k.fillRect(sx + s * 1.6, 0, s * 1.6, Hk);
+        // Kronen an Ästen vom Stamm herein.
+        for (let i = 0; i < 3; i += 1) {
+          const y = (i + 0.2 + rnd() * 0.6) * (Hk / 3);
+          const kx = mitte + seite * feldB * (0.56 + rnd() * 0.22);
+          const ky = y - s * (8 + rnd() * 10);
+          const r = s * (23 + rnd() * 9);
+          const saat = j * 100 + i * 13 + 5;
           dreimal(Hk, (dy) => {
-            k.fillStyle = "rgb(196, 70, 60)";
-            k.beginPath();
-            k.arc(ax, ay + dy, s * 1.5, 0, TAU);
-            k.fill();
-            k.fillStyle = "rgba(255, 200, 150, 0.8)";
-            k.beginPath();
-            k.arc(ax - s * 0.5, ay + dy - s * 0.5, s * 0.5, 0, TAU);
-            k.fill();
+            astForm(k, sx, y + dy + s * 22, lerp(sx, kx, 0.5), y + dy + s * 6, kx, ky + dy + r * 0.3, s * 4, s * 1.4, "rgb(86, 64, 62)", "rgba(255, 196, 140, 0.45)");
+            krone(k, kx, ky + dy, r, wuerfel(saat), pal, 1);
+            // Äpfel im Laub, mit Glanz.
+            const ra = wuerfel(saat + 50);
+            for (let q = 0; q < 5; q += 1) {
+              const ax = kx + (ra() - 0.5) * r * 1.2;
+              const ay = ky + dy + (ra() - 0.2) * r * 0.9;
+              k.fillStyle = "rgb(200, 52, 46)";
+              k.beginPath();
+              k.arc(ax, ay, s * 1.5, 0, TAU);
+              k.fill();
+              k.fillStyle = "rgba(255, 210, 160, 0.85)";
+              k.beginPath();
+              k.arc(ax - s * 0.5, ay - s * 0.5, s * 0.45, 0, TAU);
+              k.fill();
+            }
           });
         }
-      }
-      // Draussen, quer: noch mehr Bäume.
-      for (let i = 0; i < 10; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * 1.3 + rnd() * Math.max(0, aussen - feldB * 1.2));
-        const y = rnd() * Hk;
-        const r = s * (18 + rnd() * 16);
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 31 + 9), mix3([70, 82, 62], [92, 96, 70], rnd()), licht, 0.9));
-      }
+      });
       // Bokeh: helle runde Flecken, wo die Sonne durchs Laub fällt.
       k.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 26; i += 1) {
+      for (let i = 0; i < 22; i += 1) {
         const seite = i % 2 ? 1 : -1;
         const x = mitte + seite * feldB * (0.5 + rnd() * 0.7);
         const y = rnd() * Hk;
@@ -2029,10 +2109,10 @@
           k.fillRect(x - r, y + dy - r, 2 * r, 2 * r);
         });
       }
-      // Die Lichterkette im Bogen von Baum zu Baum.
+      // Die Lichterkette im Bogen von Stamm zu Stamm.
       const yk = Hk * 0.4;
-      const xa = mitte - feldB * 0.95;
-      const xb = mitte + feldB * 0.95;
+      const xa = mitte - feldB * 0.97;
+      const xb = mitte + feldB * 0.97;
       const ketteY = (x) => yk + Math.sin(((x - xa) / (xb - xa)) * Math.PI) * s * 16;
       k.globalCompositeOperation = "source-over";
       k.strokeStyle = "rgba(50, 36, 44, 0.6)";
@@ -2052,37 +2132,36 @@
         k.fillRect(x - s * 6, y - s * 6, s * 12, s * 12);
       }
       k.globalCompositeOperation = "source-over";
-      // Dunst: Die Bäume treten hinter die Hindernisse zurück.
-      k.fillStyle = "rgba(255, 186, 160, 0.16)";
-      k.fillRect(0, 0, W, Hk);
     } else if (welt === 1) {
-      // Die Baumkrone: dicke Äste wachsen von den Stämmen herein, dichtes
-      // Laub an den Seiten, goldene Strahlen fallen schräg hindurch.
-      const dunkel = [44, 60, 46];
-      const licht = [236, 210, 120];
+      // Die Baumkrone: dicke Äste wachsen von den Stämmen herein und tragen
+      // Laub, schräg fallen goldene Strahlen hindurch.
+      const pal = laubFarben(0.14, 1);
+      const fern = laubFarben(0.38, 1);
+      for (let i = 0; i < 6; i += 1) {
+        const seite = i % 2 ? 1 : -1;
+        const x = mitte + seite * (feldB * 1.3 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.1));
+        const y = rnd() * Hk;
+        const r = s * (18 + rnd() * 14);
+        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 23 + 1), fern, 0.95));
+      }
       for (let i = 0; i < 6; i += 1) {
         const seite = i % 2 ? 1 : -1;
         const y = (i + 0.3 + rnd() * 0.4) * (Hk / 6);
         const x0 = mitte + seite * feldB * 1.05;
-        const x1 = mitte + seite * feldB * (0.2 + rnd() * 0.25);
-        const y1 = y - s * (20 + rnd() * 30);
-        const farbe = "rgba(70, 58, 62, 0.75)";
-        dreimal(Hk, (dy) => astForm(k, x0, y + dy, lerp(x0, x1, 0.45), y + dy - s * 4, x1, y1 + dy, s * 6, s * 1.2, farbe, "rgba(255, 210, 150, 0.3)"));
-      }
-      for (let i = 0; i < 22; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * (0.45 + rnd() * 0.75));
-        const y = rnd() * Hk;
-        const r = s * (12 + rnd() * 14);
-        const c = mix3(dunkel, [70, 90, 52], rnd());
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 17 + 3), c, licht, 0.9));
-      }
-      for (let i = 0; i < 8; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * 1.25 + rnd() * Math.max(0, aussen - feldB * 1.1));
-        const y = rnd() * Hk;
-        const r = s * (18 + rnd() * 16);
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 23 + 1), [38, 50, 44], licht, 0.95));
+        const x1 = mitte + seite * feldB * (0.3 + rnd() * 0.2);
+        const y1 = y - s * (16 + rnd() * 20);
+        const saat = i * 17 + 3;
+        const r1 = s * (17 + rnd() * 8);
+        const r2 = s * (13 + rnd() * 6);
+        dreimal(Hk, (dy) => {
+          astForm(k, x0, y + dy, lerp(x0, x1, 0.45), y + dy - s * 4, x1, y1 + dy, s * 6, s * 1.6, "rgb(80, 66, 66)", "rgba(255, 210, 150, 0.4)");
+          // Ein Seitenzweig und Laub an beiden Enden.
+          const mx = lerp(x0, x1, 0.55);
+          const my = lerp(y, y1, 0.5) + dy;
+          astForm(k, mx, my, mx - seite * s * 6, my - s * 10, mx - seite * s * 3, my - s * 22, s * 2.4, s * 0.9, "rgb(80, 66, 66)", null);
+          krone(k, mx - seite * s * 3, my - s * 24, r2, wuerfel(saat + 7), pal, 1);
+          krone(k, x1, y1 + dy - r1 * 0.2, r1, wuerfel(saat), pal, 1);
+        });
       }
       // Lichtstrahlen, schräg von links oben.
       k.globalCompositeOperation = "lighter";
@@ -2098,14 +2177,14 @@
           k.rotate(w);
           const gr = k.createLinearGradient(-l / 2, 0, l / 2, 0);
           gr.addColorStop(0, "rgba(255, 214, 140, 0)");
-          gr.addColorStop(0.5, "rgba(255, 214, 140, 0.12)");
+          gr.addColorStop(0.5, "rgba(255, 214, 140, 0.13)");
           gr.addColorStop(1, "rgba(255, 214, 140, 0)");
           k.fillStyle = gr;
           k.fillRect(-l / 2, -b / 2, l, b);
           k.restore();
         });
       }
-      for (let i = 0; i < 24; i += 1) {
+      for (let i = 0; i < 22; i += 1) {
         const x = mitte + (rnd() - 0.5) * feldB * 2.2;
         const y = rnd() * Hk;
         const r = s * (1.5 + rnd() * 3);
@@ -2118,101 +2197,82 @@
         });
       }
       k.globalCompositeOperation = "source-over";
-      k.fillStyle = "rgba(230, 190, 170, 0.14)";
-      k.fillRect(0, 0, W, Hk);
     } else if (welt === 2) {
-      // Über den Dächern: Häuser der Altstadt hinter dem Feld, mit Giebeln,
-      // Ziegeln, Fenstern voller Licht, Läden und Kaminen.
-      const hausFarben = [[214, 170, 130], [200, 150, 150], [226, 206, 170], [176, 150, 170], [190, 170, 120]];
-      const dunst = [168, 120, 170];
+      // Über den Dächern: Die Gasse geht nach hinten weiter. Links und rechts
+      // die Wände der ferneren Häuser – je weiter weg, desto näher zur Mitte,
+      // die Fenster schmaler, blasser im Dunst –, je Stockwerk ein Sims,
+      // Fenster mit Läden, Licht in einzelnen. Die linke Wand liegt im
+      // Schatten, die rechte fängt das Abendlicht. In der Mitte bleibt es
+      // offen: dort der Himmel und die Dachlandschaft (dachBild).
+      const innen = feldB * GASSE_INNEN;
+      const geschoss = s * 62;
+      const dunst = [196, 150, 186];
       [-1, 1].forEach((seite) => {
-        let y = Hk;
-        let j = 0;
-        while (y > -Hk * 0.2) {
-          const h = s * (44 + rnd() * 30);
-          const breit = Math.max(s * 46, aussen - feldB * (0.45 + rnd() * 0.2)) + s * 20;
-          const innen = mitte + seite * feldB * (0.42 + rnd() * 0.3);
-          const x0 = seite < 0 ? innen - breit : innen;
-          const c = mix3(mix3(hausFarben[(j + (seite > 0 ? 2 : 0)) % 5], dunst, 0.35), SCHATTEN, 0.25);
-          const yy = y;
-          const dachH = s * (16 + rnd() * 10);
-          const kamin = rnd() < 0.6;
-          dreimal(Hk, (dy) => {
-            const ob = yy + dy - h;
-            k.fillStyle = rgb(c);
-            k.fillRect(x0, ob, breit, h);
-            // Licht an der Kante zur Gasse.
-            k.fillStyle = "rgba(255, 196, 130, 0.25)";
-            k.fillRect(seite < 0 ? x0 + breit - s * 2 : x0, ob, s * 2, h);
-            // Das Dach mit Ziegelreihen.
-            k.fillStyle = "rgb(140, 70, 70)";
-            k.beginPath();
-            k.moveTo(x0 - s * 3, ob);
-            k.lineTo(innen - seite * s * 3, ob);
-            k.lineTo(innen + seite * s * 8, ob - dachH);
-            k.lineTo(x0 - s * 3, ob - dachH);
-            k.closePath();
-            k.fill();
-            k.strokeStyle = "rgba(90, 40, 50, 0.6)";
-            k.lineWidth = Math.max(1, s * 0.3);
-            for (let q = 1; q < 4; q += 1) {
-              k.beginPath();
-              k.moveTo(x0, ob - (dachH * q) / 4);
-              k.lineTo(lerp(innen - seite * s * 3, innen + seite * s * 8, q / 4), ob - (dachH * q) / 4);
-              k.stroke();
+        const putz = seite < 0 ? mix3([176, 128, 110], SCHATTEN, 0.35) : mix3([226, 170, 130], [255, 200, 150], 0.15);
+        const xa = mitte + seite * innen;
+        const xb = seite < 0 ? 0 : W;
+        // Die ferne Wand, von hinten (innen) nach vorn (zum Rand) heller.
+        const gr = k.createLinearGradient(xa, 0, mitte + seite * feldB * 1.1, 0);
+        gr.addColorStop(0, rgb(mix3(putz, dunst, 0.5)));
+        gr.addColorStop(1, rgb(putz));
+        k.fillStyle = gr;
+        k.fillRect(Math.min(xa, xb), 0, Math.abs(xb - xa), Hk);
+        // Fensterreihen: je weiter hinten, desto schmaler und dichter.
+        const tiefe = [0.1, 0.36, 0.56, 0.72];
+        for (let gy = 0; gy < Hk; gy += geschoss) {
+          // Der Sims über dem Stockwerk und sein Schatten.
+          k.fillStyle = rgba(mix3(putz, [255, 236, 210], 0.4), 0.9);
+          k.fillRect(Math.min(xa, xb), gy, Math.abs(xb - xa), s * 2.2);
+          k.fillStyle = "rgba(50, 26, 50, 0.25)";
+          k.fillRect(Math.min(xa, xb), gy + s * 2.2, Math.abs(xb - xa), s * 2.4);
+          tiefe.forEach((t, j) => {
+            const xm = mitte + seite * lerp(feldB * 1.15, innen, t);
+            const fb = s * lerp(13, 3.5, t);
+            const fh = s * lerp(26, 22, t);
+            const fy = gy + s * 14;
+            const an = hash01(j * 7.3 + gy * 0.013 + seite) < 0.32;
+            const nebel = t * 0.55;
+            // Läden, Rahmen, Glas, Fensterbank.
+            k.fillStyle = rgba(mix3([62, 104, 82], dunst, nebel), 0.95);
+            k.fillRect(xm - fb * 0.95, fy, fb * 1.9, fh);
+            k.fillStyle = rgb(mix3(an ? [255, 200, 120] : [60, 52, 84], dunst, nebel * 0.7));
+            k.fillRect(xm - fb * 0.5, fy + s * 1, fb, fh - s * 2);
+            if (an) {
+              k.fillStyle = "rgba(255, 236, 170, 0.5)";
+              k.fillRect(xm - fb * 0.5, fy + s * 1, fb * 0.35, fh - s * 2);
             }
-            if (kamin) {
-              const kx = innen + seite * s * 22;
-              k.fillStyle = "rgb(120, 76, 80)";
-              k.fillRect(kx - s * 3, ob - dachH - s * 8, s * 6, s * 10);
-              k.fillStyle = "rgb(90, 66, 76)";
-              k.fillRect(kx - s * 3.6, ob - dachH - s * 9, s * 7.2, s * 1.5);
-            }
-            // Fenster mit Licht, Läden und Rahmen.
-            for (let fy = ob + s * 9; fy < yy + dy - s * 12; fy += s * 17) {
-              for (let fx = innen + seite * s * 12; Math.abs(fx - innen) < breit - s * 8; fx += seite * s * 15) {
-                const an = hash01(fx * 0.37 + fy * 0.11) < 0.45;
-                k.fillStyle = "rgba(70, 100, 80, 0.85)";
-                k.fillRect(fx - s * 5.5, fy - s * 0.5, s * 11, s * 9);
-                k.fillStyle = an ? "rgb(255, 206, 120)" : "rgb(70, 60, 90)";
-                k.fillRect(fx - s * 3, fy, s * 6, s * 8);
-                k.fillStyle = "rgba(240, 230, 214, 0.85)";
-                k.fillRect(fx - s * 3.4, fy + s * 8, s * 6.8, s * 0.9);
-                k.fillRect(fx - s * 0.25, fy, s * 0.5, s * 8);
-              }
-            }
+            k.fillStyle = rgba(mix3([240, 226, 206], dunst, nebel), 0.95);
+            k.fillRect(xm - fb * 0.62, fy + fh - s * 0.5, fb * 1.24, s * 1.6);
+            k.fillRect(xm - s * 0.25, fy + s * 1, s * 0.5, fh - s * 2);
           });
-          y -= h + dachH + s * (6 + rnd() * 14);
-          j += 1;
+        }
+        // Die Kante hinten, wo die Gasse um die Ecke geht: ein Schattenstreif.
+        k.fillStyle = "rgba(40, 22, 50, 0.35)";
+        k.fillRect(seite < 0 ? xa - s * 2 : xa, 0, s * 2, Hk);
+        // Ganz aussen (quer sichtbar): Häuser von vorn, mit Fensterreihen.
+        const aussenX = mitte + seite * feldB * 1.15;
+        if ((seite < 0 && aussenX > 0) || (seite > 0 && aussenX < W)) {
+          const x0 = seite < 0 ? 0 : aussenX;
+          const x1 = seite < 0 ? aussenX : W;
+          k.fillStyle = rgb(mix3([200, 154, 140], dunst, 0.3));
+          k.fillRect(x0, 0, x1 - x0, Hk);
+          for (let gy = 0; gy < Hk; gy += geschoss) {
+            k.fillStyle = "rgba(250, 230, 210, 0.6)";
+            k.fillRect(x0, gy, x1 - x0, s * 2);
+            for (let fx = x0 + s * 10; fx < x1 - s * 10; fx += s * 26) {
+              const an = hash01(fx * 0.31 + gy * 0.07) < 0.3;
+              k.fillStyle = "rgba(70, 104, 84, 0.9)";
+              k.fillRect(fx - s * 9, gy + s * 14, s * 18, s * 24);
+              k.fillStyle = an ? "rgb(255, 204, 124)" : "rgb(78, 66, 96)";
+              k.fillRect(fx - s * 5, gy + s * 15, s * 10, s * 22);
+              k.fillStyle = "rgba(240, 226, 206, 0.9)";
+              k.fillRect(fx - s * 6, gy + s * 37, s * 12, s * 1.4);
+            }
+          }
         }
       });
-      // Der Kirchturm mit dem Wetterhahn, fern im Dunst.
-      const tx = mitte + feldB * 0.62 * (rnd() < 0.5 ? -1 : 1);
-      const ty = Hk * 0.58;
-      dreimal(Hk, (dy) => {
-        k.fillStyle = "rgba(120, 96, 136, 0.7)";
-        k.fillRect(tx - s * 6, ty + dy, s * 12, Hk * 0.5);
-        k.fillStyle = "rgba(86, 110, 120, 0.75)";
-        k.beginPath();
-        k.moveTo(tx - s * 8, ty + dy);
-        k.lineTo(tx, ty + dy - s * 34);
-        k.lineTo(tx + s * 8, ty + dy);
-        k.closePath();
-        k.fill();
-        k.fillStyle = "rgba(255, 210, 120, 0.9)";
-        k.fillRect(tx - s * 0.4, ty + dy - s * 42, s * 0.8, s * 8);
-        k.beginPath();
-        k.moveTo(tx - s * 3.4, ty + dy - s * 42.5);
-        k.quadraticCurveTo(tx, ty + dy - s * 46, tx + s * 3.6, ty + dy - s * 44);
-        k.lineTo(tx + s * 1.8, ty + dy - s * 40.5);
-        k.closePath();
-        k.fill();
-      });
-      // Dunst über allem, damit die Häuser zurücktreten.
-      k.fillStyle = "rgba(200, 150, 190, 0.18)";
-      k.fillRect(0, 0, W, Hk);
-    } else {
-      // Der Abendhimmel: zarte Wolkenschleier zu den Seiten.
+    } else if (welt === 4) {
+      // (Der Abendhimmel hat keine Kulisse: Seine Schleier stehen im Himmel.)
       for (let i = 0; i < 18; i += 1) {
         const seite = i % 2 ? 1 : -1;
         const x = mitte + seite * feldB * (0.6 + rnd() * 1.4);
@@ -2234,6 +2294,204 @@
           k.restore();
         });
       }
+    }
+  }
+
+  // Die Dachlandschaft hinter der Gasse: Giebel und Walmdächer aus Ziegeln,
+  // Gauben mit Licht, Kamine mit Rauch und frei der Kirchturm mit Uhr,
+  // Spitzhelm und Wetterhahn – alles im Abenddunst, oben vom Licht gesäumt.
+  function maleDachlandschaft(k, W, H) {
+    const rnd = wuerfel(3141);
+    const s = view.s * view.dpr;
+    const mitte = W / 2;
+    const dunst = [206, 156, 186];
+    const fuss = H;
+    // Hinten der Turm, frei, etwas rechts der Mitte: über den hinteren
+    // Dächern die Glockenstube mit Schallfenstern und Uhr, darauf der Helm.
+    const tx = mitte + s * 12;
+    const tb = s * 13;
+    const spitze = H * 0.03;
+    const turmOben = H * 0.2;
+    const turmFarbe = mix3([170, 130, 130], dunst, 0.35);
+    k.fillStyle = rgb(turmFarbe);
+    k.fillRect(tx - tb / 2, turmOben, tb, H - turmOben);
+    k.fillStyle = "rgba(255, 206, 150, 0.4)";
+    k.fillRect(tx - tb / 2, turmOben, s * 2, H - turmOben);
+    k.fillStyle = "rgba(60, 30, 60, 0.2)";
+    k.fillRect(tx + tb / 2 - s * 2.5, turmOben, s * 2.5, H - turmOben);
+    // Gesims unter dem Helm.
+    k.fillStyle = rgb(mix3([230, 210, 190], dunst, 0.3));
+    k.fillRect(tx - tb / 2 - s * 1, turmOben, tb + s * 2, s * 1.6);
+    // Schallfenster.
+    k.fillStyle = rgb(mix3([60, 46, 70], dunst, 0.25));
+    [-1, 1].forEach((q) => {
+      const fx = tx + q * tb * 0.22;
+      const f0 = turmOben + H * 0.035;
+      const f1 = turmOben + H * 0.09;
+      k.beginPath();
+      k.moveTo(fx - s * 1.7, f1);
+      k.lineTo(fx - s * 1.7, f0 + s * 1.7);
+      k.arc(fx, f0 + s * 1.7, s * 1.7, Math.PI, 0);
+      k.lineTo(fx + s * 1.7, f1);
+      k.closePath();
+      k.fill();
+    });
+    // Die Uhr.
+    const uy = turmOben + H * 0.14;
+    k.fillStyle = "rgb(250, 238, 206)";
+    k.beginPath();
+    k.arc(tx, uy, s * 3.6, 0, TAU);
+    k.fill();
+    k.strokeStyle = "rgb(200, 160, 80)";
+    k.lineWidth = Math.max(1, s * 0.5);
+    k.stroke();
+    k.strokeStyle = "rgb(70, 50, 60)";
+    k.beginPath();
+    k.moveTo(tx, uy);
+    k.lineTo(tx, uy - s * 2.6);
+    k.moveTo(tx, uy);
+    k.lineTo(tx + s * 1.9, uy + s * 0.8);
+    k.stroke();
+    // Der Spitzhelm aus Kupfer, grün angelaufen, links im Licht.
+    k.fillStyle = rgb(mix3([80, 136, 122], dunst, 0.25));
+    k.beginPath();
+    k.moveTo(tx - tb / 2 - s * 1.2, turmOben);
+    k.lineTo(tx, spitze);
+    k.lineTo(tx + tb / 2 + s * 1.2, turmOben);
+    k.closePath();
+    k.fill();
+    k.fillStyle = "rgba(255, 214, 150, 0.45)";
+    k.beginPath();
+    k.moveTo(tx - tb / 2 - s * 1.2, turmOben);
+    k.lineTo(tx, spitze);
+    k.lineTo(tx - s * 0.8, turmOben);
+    k.closePath();
+    k.fill();
+    // Stange und Wetterhahn.
+    k.strokeStyle = "rgb(230, 180, 90)";
+    k.lineWidth = Math.max(1, s * 0.5);
+    k.beginPath();
+    k.moveTo(tx, spitze);
+    k.lineTo(tx, spitze - s * 7);
+    k.stroke();
+    k.fillStyle = "rgb(240, 192, 96)";
+    k.beginPath();
+    k.moveTo(tx - s * 3, spitze - s * 7.5);
+    k.quadraticCurveTo(tx - s * 1, spitze - s * 11, tx + s * 1.2, spitze - s * 9.5);
+    k.lineTo(tx + s * 3.2, spitze - s * 11.5);
+    k.lineTo(tx + s * 2.2, spitze - s * 7);
+    k.closePath();
+    k.fill();
+    // Drei Reihen Dächer: hinten blasser, vorn wärmer.
+    [[0.5, 0.58, 18, 14], [0.66, 0.38, 22, 16], [0.82, 0.18, 26, 20]].forEach(([traufeAnteil, nebel, b0, bz]) => {
+      let x = -s * 10;
+      while (x < W + s * 10) {
+        const b = s * (b0 + rnd() * bz);
+        const traufe = H * traufeAnteil + (rnd() - 0.5) * s * 6;
+        const firsth = s * (12 + rnd() * 12);
+        const walm = rnd() < 0.4;
+        const wand = rgb(mix3(mix3([214, 170, 140], [196, 150, 150], rnd()), dunst, nebel));
+        const ziegel = mix3(mix3([164, 74, 58], [130, 70, 70], rnd()), dunst, nebel);
+        // Die Wand bis unten.
+        k.fillStyle = wand;
+        k.fillRect(x, traufe, b, fuss - traufe);
+        // Schatten an der rechten Hauskante.
+        k.fillStyle = "rgba(60, 30, 60, 0.18)";
+        k.fillRect(x + b - s * 2, traufe, s * 2, fuss - traufe);
+        for (let fy = traufe + s * 7; fy < fuss; fy += s * 18) {
+          for (let fx = x + s * 6; fx < x + b - s * 8; fx += s * 11) {
+            k.fillStyle = hash01(fx * 0.2 + fy * 0.3) < 0.3 ? "rgb(255, 208, 130)" : rgb(mix3([80, 66, 96], dunst, nebel));
+            k.fillRect(fx, fy, s * 4, s * 6);
+          }
+        }
+        // Das Dach: Giebel oder Walm, mit Ziegelreihen und Lichtkante.
+        k.fillStyle = rgb(ziegel);
+        k.beginPath();
+        k.moveTo(x, traufe);
+        if (walm) {
+          k.lineTo(x + b * 0.3, traufe - firsth);
+          k.lineTo(x + b * 0.7, traufe - firsth);
+        } else {
+          k.lineTo(x + b / 2, traufe - firsth);
+        }
+        k.lineTo(x + b, traufe);
+        k.closePath();
+        k.fill();
+        k.strokeStyle = rgba(mix3(ziegel, [60, 20, 30], 0.4), 0.5);
+        k.lineWidth = Math.max(1, s * 0.35);
+        for (let q = 1; q < 5; q += 1) {
+          const yq = traufe - (firsth * q) / 5;
+          const halb = (b / 2) * (1 - q / 5) + (walm ? b * 0.2 * (q / 5) : 0);
+          k.beginPath();
+          k.moveTo(x + b / 2 - halb, yq);
+          k.lineTo(x + b / 2 + halb, yq);
+          k.stroke();
+        }
+        k.strokeStyle = "rgba(255, 210, 160, 0.6)";
+        k.lineWidth = Math.max(1, s * 0.6);
+        k.beginPath();
+        k.moveTo(x, traufe);
+        k.lineTo(walm ? x + b * 0.3 : x + b / 2, traufe - firsth);
+        k.stroke();
+        // Eine Gaube mit Licht.
+        if (rnd() < 0.45) {
+          const gx = x + b * (0.35 + rnd() * 0.2);
+          const gy = traufe - firsth * 0.45;
+          k.fillStyle = wand;
+          k.fillRect(gx - s * 3, gy - s * 4, s * 6, s * 6);
+          k.fillStyle = "rgb(255, 208, 130)";
+          k.fillRect(gx - s * 1.6, gy - s * 2.6, s * 3.2, s * 3.8);
+          k.fillStyle = rgb(ziegel);
+          k.beginPath();
+          k.moveTo(gx - s * 4, gy - s * 4);
+          k.lineTo(gx, gy - s * 7.5);
+          k.lineTo(gx + s * 4, gy - s * 4);
+          k.closePath();
+          k.fill();
+        }
+        // Ein Kamin mit Rauch, der im Wind treibt.
+        if (rnd() < 0.6) {
+          const kx = x + b * (0.6 + rnd() * 0.2);
+          const ky = traufe - firsth * (walm ? 0.9 : 0.55);
+          k.fillStyle = rgb(mix3([140, 80, 70], dunst, nebel));
+          k.fillRect(kx - s * 2.5, ky - s * 9, s * 5, s * 10);
+          k.fillStyle = rgb(mix3([100, 70, 76], dunst, nebel));
+          k.fillRect(kx - s * 3.1, ky - s * 10, s * 6.2, s * 1.4);
+          for (let q = 0; q < 6; q += 1) {
+            const r = s * (2.5 + q * 1.6);
+            const rx = kx + q * s * 3.5;
+            const ry = ky - s * 12 - q * s * 5.5;
+            const h = k.createRadialGradient(rx, ry, 0, rx, ry, r);
+            h.addColorStop(0, `rgba(236, 222, 236, ${0.42 - q * 0.05})`);
+            h.addColorStop(1, "rgba(236, 222, 236, 0)");
+            k.fillStyle = h;
+            k.fillRect(rx - r, ry - r, 2 * r, 2 * r);
+          }
+        }
+        x += b * (0.78 + rnd() * 0.2);
+      }
+    });
+    // Unten geht es in den Dunst über.
+    const d = k.createLinearGradient(0, H * 0.55, 0, H);
+    d.addColorStop(0, "rgba(214, 160, 186, 0)");
+    d.addColorStop(1, "rgba(214, 160, 186, 0.55)");
+    k.fillStyle = d;
+    k.fillRect(0, H * 0.55, W, H * 0.45);
+  }
+
+  // Kaminrauch für die Hindernisse: eine Fahne, die aufsteigt und weiter
+  // wird – einmal gemalt (in Einheiten 18 × 60, Bildpunkte).
+  function maleRauchfahne(k, w, h, s) {
+    for (let q = 0; q < 9; q += 1) {
+      const f = q / 8;
+      const r = s * (2.6 + f * 6.5);
+      const x = w * 0.35 + f * w * 0.3 + Math.sin(q * 1.3) * s * 1.2;
+      const y = h - s * 3 - f * (h - s * 12);
+      const g2 = k.createRadialGradient(x, y, 0, x, y, r);
+      g2.addColorStop(0, `rgba(236, 226, 240, ${0.5 * (1 - f * 0.8)})`);
+      g2.addColorStop(1, "rgba(236, 226, 240, 0)");
+      k.fillStyle = g2;
+      k.fillRect(x - r, y - r, 2 * r, 2 * r);
     }
   }
 
@@ -2333,69 +2591,116 @@
         });
       }
     } else if (welt === 2) {
-      // Hauswände: Verputz in Ocker und Rosa, die Kante als Ecke mit Quadern,
-      // weiter draussen Fenster mit Läden und Licht.
-      const putz = seite < 0 ? [214, 170, 130] : [200, 150, 150];
-      k.fillStyle = rgb(mix3(putz, SCHATTEN, 0.25));
-      k.fillRect(Math.min(X(0), X(T)), 0, T * s, Hb);
+      // Die Hauswand an der Gasse: warmer Verputz, je Stockwerk ein Sims mit
+      // Schatten darunter, Fenster mit Läden und Bank, Licht in einzelnen,
+      // ein Fallrohr; an der Kante dezente Ecksteine.
+      const putz = seite < 0 ? [206, 160, 122] : [210, 156, 146];
       const gr = k.createLinearGradient(X(0), 0, X(T), 0);
-      gr.addColorStop(0, "rgba(255, 190, 120, 0.35)");
-      gr.addColorStop(1, "rgba(40, 20, 60, 0.35)");
+      gr.addColorStop(0, rgb(mix3(putz, LICHT, 0.2)));
+      gr.addColorStop(0.3, rgb(putz));
+      gr.addColorStop(1, rgb(mix3(putz, SCHATTEN, 0.5)));
       k.fillStyle = gr;
       k.fillRect(Math.min(X(0), X(T)), 0, T * s, Hb);
-      // Eckquader.
-      for (let v = 0; v < RAND_PERIODE; v += 14) {
-        const b = (v / 14) % 2 ? 7 : 10;
+      // Der Verputz: feine helle und dunkle Flecken.
+      for (let i = 0; i < 260; i += 1) {
+        k.fillStyle = i % 2 ? "rgba(255, 240, 220, 0.07)" : "rgba(90, 50, 70, 0.06)";
+        const g2 = (1 + rnd() * 2.5) * s;
+        k.fillRect(Math.min(X(0), X(T)) + rnd() * T * s, rnd() * Hb, g2, g2 * 0.7);
+      }
+      for (let v = 0; v < RAND_PERIODE; v += 160) {
         kachel((dv) => {
-          k.fillStyle = rgb(mix3([230, 214, 190], LICHT, 0.2));
-          k.fillRect(Math.min(X(0), X(b)), Y(v + dv + 12), b * s, 12 * s);
-          k.strokeStyle = "rgba(90, 70, 80, 0.5)";
-          k.lineWidth = s * 0.3;
-          k.strokeRect(Math.min(X(0), X(b)), Y(v + dv + 12), b * s, 12 * s);
+          // Der Sims: ein heller Streif, oben im Licht, darunter Schatten.
+          const ys = Y(v + dv + 7);
+          k.fillStyle = rgb(mix3(putz, [255, 238, 214], 0.45));
+          k.fillRect(Math.min(X(0), X(T)), ys, T * s, 4 * s);
+          k.fillStyle = "rgba(255, 230, 196, 0.7)";
+          k.fillRect(Math.min(X(0), X(T)), ys, T * s, 0.8 * s);
+          const sch = k.createLinearGradient(0, ys + 4 * s, 0, ys + 10 * s);
+          sch.addColorStop(0, "rgba(60, 28, 50, 0.38)");
+          sch.addColorStop(1, "rgba(60, 28, 50, 0)");
+          k.fillStyle = sch;
+          k.fillRect(Math.min(X(0), X(T)), ys + 4 * s, T * s, 6 * s);
+          // Ein Fenster: Laibung, Läden, Glas (manchmal Licht), Kreuz, Bank.
+          const u0 = 15;
+          const u1 = 33;
+          const v0 = v + dv + 46;
+          const v1 = v + dv + 92;
+          const an = hash01(v * 0.13 + seite * 3 + welt) < 0.5;
+          const rx = (u) => Math.min(X(u), X(u + 0.001));
+          k.fillStyle = "rgb(58, 96, 74)";
+          k.fillRect(Math.min(X(u0 - 8), X(u1 + 8)), Y(v1), (u1 - u0 + 16) * s, (v1 - v0) * s);
+          k.strokeStyle = "rgba(30, 50, 40, 0.6)";
+          k.lineWidth = Math.max(1, s * 0.3);
+          for (let q = v0 + 4; q < v1; q += 4) {
+            [[u0 - 8, u0], [u1, u1 + 8]].forEach(([a, b]) => { k.beginPath(); k.moveTo(X(a), Y(q)); k.lineTo(X(b), Y(q)); k.stroke(); });
+          }
+          k.fillStyle = "rgb(120, 86, 80)";
+          k.fillRect(Math.min(X(u0), X(u1)), Y(v1), (u1 - u0) * s, (v1 - v0) * s);
+          k.fillStyle = an ? "rgb(255, 206, 128)" : "rgb(66, 60, 92)";
+          k.fillRect(Math.min(X(u0 + 1.6), X(u1 - 1.6)), Y(v1 - 1.6), (u1 - u0 - 3.2) * s, (v1 - v0 - 3.2) * s);
+          if (an) {
+            const h = k.createRadialGradient(X((u0 + u1) / 2), Y((v0 + v1) / 2), 0, X((u0 + u1) / 2), Y((v0 + v1) / 2), 30 * s);
+            h.addColorStop(0, "rgba(255, 220, 150, 0.35)");
+            h.addColorStop(1, "rgba(255, 220, 150, 0)");
+            k.fillStyle = h;
+            k.fillRect(Math.min(X(u0 - 14), X(u1 + 14)), Y(v1 + 14), (u1 - u0 + 28) * s, (v1 - v0 + 28) * s);
+          }
+          k.fillStyle = "rgb(236, 224, 206)";
+          k.fillRect(Math.min(X((u0 + u1) / 2 - 0.5), X((u0 + u1) / 2 + 0.5)), Y(v1 - 1.6), 1 * s, (v1 - v0 - 3.2) * s);
+          k.fillRect(Math.min(X(u0 + 1.6), X(u1 - 1.6)), Y(v0 + (v1 - v0) * 0.62), (u1 - u0 - 3.2) * s, 1 * s);
+          k.fillRect(Math.min(X(u0 - 2), X(u1 + 2)), Y(v0 + 0.5), (u1 - u0 + 4) * s, 2.4 * s);
+          k.fillStyle = "rgba(60, 30, 50, 0.3)";
+          k.fillRect(Math.min(X(u0 - 2), X(u1 + 2)), Y(v0 - 1.9), (u1 - u0 + 4) * s, 2 * s);
+          void rx;
         });
       }
-      // Fenster mit grünen Läden.
-      for (let v = 40; v < RAND_PERIODE; v += 140) {
+      // Ecksteine an der Kante, dezent: nur etwas heller, feine Fugen.
+      for (let v = 0; v < RAND_PERIODE; v += 16) {
+        const b = (v / 16) % 2 ? 6 : 9;
         kachel((dv) => {
-          const u0 = 18;
-          k.fillStyle = "rgb(60, 92, 70)";
-          k.fillRect(Math.min(X(u0 - 6), X(u0 + 22)), Y(v + dv + 34), 28 * s, 34 * s);
-          k.fillStyle = "rgb(255, 210, 130)";
-          k.fillRect(Math.min(X(u0), X(u0 + 16)), Y(v + dv + 32), 16 * s, 30 * s);
-          k.strokeStyle = "rgb(240, 230, 210)";
-          k.lineWidth = s * 1.2;
-          k.strokeRect(Math.min(X(u0), X(u0 + 16)), Y(v + dv + 32), 16 * s, 30 * s);
-          k.beginPath();
-          k.moveTo(X(u0 + 8), Y(v + dv + 32));
-          k.lineTo(X(u0 + 8), Y(v + dv + 2));
-          k.moveTo(X(u0), Y(v + dv + 17));
-          k.lineTo(X(u0 + 16), Y(v + dv + 17));
-          k.stroke();
+          k.fillStyle = rgba(mix3(putz, [250, 236, 214], 0.35), 0.75);
+          k.fillRect(Math.min(X(0), X(b)), Y(v + dv + 15.2), b * s, 15.2 * s);
+          k.fillStyle = "rgba(90, 60, 70, 0.22)";
+          k.fillRect(Math.min(X(0), X(b)), Y(v + dv + 16), b * s, 0.8 * s);
+          k.fillRect(seite < 0 ? X(b) : X(b) - 0.6 * s, Y(v + dv + 16), 0.6 * s, 16 * s);
         });
       }
-      // Ein Fallrohr dicht an der Ecke.
-      k.fillStyle = "rgb(150, 156, 160)";
-      k.fillRect(Math.min(X(11), X(13.4)), 0, 2.4 * s, Hb);
-      k.fillStyle = "rgba(255, 230, 200, 0.4)";
-      k.fillRect(Math.min(X(11), X(11.6)), 0, 0.6 * s, Hb);
+      // Ein Fallrohr dicht an der Ecke, mit Schellen.
+      k.fillStyle = "rgb(140, 142, 150)";
+      k.fillRect(Math.min(X(10.6), X(12.8)), 0, 2.2 * s, Hb);
+      k.fillStyle = "rgba(255, 230, 200, 0.45)";
+      k.fillRect(Math.min(X(10.6), X(11.2)), 0, 0.6 * s, Hb);
+      for (let v = 30; v < RAND_PERIODE; v += 80) {
+        kachel((dv) => {
+          k.fillStyle = "rgb(100, 100, 110)";
+          k.fillRect(Math.min(X(10), X(13.4)), Y(v + dv + 1), 3.4 * s, 1 * s);
+        });
+      }
     } else {
       // Gewittertürme: dunkle Wolkenballen, deren Rand genau an der Kante
-      // steht, davor ein Regenschleier – nass.
+      // steht, als eine Masse; darin weiche, hellere Wölbungen.
+      const ballenR = [];
       for (let i = 0; i < 30; i += 1) {
         const r = 6 + rnd() * 12;
         const u = r + rnd() * (T - r) * (i < 12 ? 0.05 : 1);
         const v = (i / 30) * RAND_PERIODE + rnd() * 6;
-        kachel((dv) => {
-          const h = k.createRadialGradient(X(u + r * 0.25), Y(v + dv - r * 0.35), r * s * 0.15, X(u), Y(v + dv), r * s);
-          h.addColorStop(0, "rgb(122, 104, 150)");
-          h.addColorStop(0.6, "rgb(84, 72, 116)");
-          h.addColorStop(1, "rgb(58, 50, 90)");
-          k.fillStyle = h;
-          k.beginPath();
-          k.arc(X(u), Y(v + dv), r * s, 0, TAU);
-          k.fill();
-        });
+        ballenR.push([u, v, r]);
       }
+      kachel((dv) => {
+        k.fillStyle = "rgb(70, 60, 104)";
+        k.beginPath();
+        ballenR.forEach(([u, v, r]) => { k.moveTo(X(u) + r * s, Y(v + dv)); k.arc(X(u), Y(v + dv), r * s, 0, TAU); });
+        k.fill();
+        ballenR.forEach(([u, v, r]) => {
+          const x = X(u + r * 0.2 * (seite < 0 ? -1 : 1));
+          const y = Y(v + dv + r * 0.3);
+          const h = k.createRadialGradient(x, y, 0, x, y, r * s * 0.7);
+          h.addColorStop(0, "rgba(140, 120, 170, 0.45)");
+          h.addColorStop(1, "rgba(140, 120, 170, 0)");
+          k.fillStyle = h;
+          k.fillRect(x - r * s, y - r * s, 2 * r * s, 2 * r * s);
+        });
+      });
       // Der Regenschleier an der Kante.
       const gr = k.createLinearGradient(X(0), 0, X(5), 0);
       gr.addColorStop(0, "rgba(150, 160, 220, 0.85)");
@@ -2560,8 +2865,8 @@
   // ---------------------------------------------------------------------------
   // Malen: der Nebel
   // ---------------------------------------------------------------------------
-  const NEBEL_HOCH = 84;
-  const NEBEL_KANTE = 34;          // so weit unter dem oberen Rand des Bilds ist die Grenze
+  const NEBEL_HOCH = 58;
+  const NEBEL_KANTE = 26;          // so weit unter dem oberen Rand des Bilds ist die Grenze
 
   function maleNebel(k, W, Hn) {
     const s = view.s * view.dpr;
@@ -2570,7 +2875,7 @@
     gr.addColorStop(0, "rgba(236, 226, 246, 0)");
     gr.addColorStop((kante * 0.55) / Hn, "rgba(236, 226, 246, 0.18)");
     gr.addColorStop(kante / Hn, "rgba(240, 232, 250, 0.72)");
-    gr.addColorStop((kante + 22 * s) / Hn, "rgba(226, 216, 240, 0.92)");
+    gr.addColorStop((kante + 16 * s) / Hn, "rgba(226, 216, 240, 0.92)");
     gr.addColorStop(1, "rgba(206, 196, 228, 0.97)");
     k.fillStyle = gr;
     k.fillRect(0, 0, W, Hn);
@@ -2729,11 +3034,23 @@
     maleHimmel(ebenen.himmel.getContext("2d"), ebenen.himmel.width, ebenen.himmel.height, H * dpr);
     // Die Ferne.
     ebenen.ferneH = Math.round(H * 0.56);
+    // Ab dort (Bildpunkte im Bild der Ferne) deckt sie: unter den Hügeln.
+    ebenen.ferneDicht = Math.round(H * 0.56 * 0.75 * 0.52 * dpr);
     ebenen.ferne = leinwand(W, ebenen.ferneH);
     maleFerne(ebenen.ferne.getContext("2d"), ebenen.ferne.width, ebenen.ferne.height);
+    // Die Dachlandschaft hinter der Gasse.
+    ebenen.dachH = Math.round(H * 0.55);
+    // Ab dort (Bildpunkte) deckt sie: unter der Traufe der hinteren Reihe.
+    ebenen.dachDicht = Math.round((H * 0.55 * 0.5 + 4 * s) * dpr);
+    ebenen.dach = leinwand(W, ebenen.dachH);
+    maleDachlandschaft(ebenen.dach.getContext("2d"), ebenen.dach.width, ebenen.dach.height);
+    ebenen.gasseL = Math.max(0, Math.round((W / 2 - RAND * s * GASSE_INNEN) * dpr));
+    ebenen.rauch = leinwand(18 * s, 60 * s);
+    maleRauchfahne(ebenen.rauch.getContext("2d"), ebenen.rauch.width, ebenen.rauch.height, s * dpr);
     // Die Kulissen der vier Welten.
     ebenen.kulisseH = Math.round(H * 1.15);
     ebenen.kulisse = WELTEN.map((_, w) => {
+      if (w === 3) return leinwand(1, 1);
       const c = leinwand(W, ebenen.kulisseH);
       maleKulisse(c.getContext("2d"), c.width, c.height, w);
       return c;
@@ -3273,37 +3590,67 @@
       rollen(o, "element").forEach((p) => strich(k, p, "rgb(196, 196, 206)"));
       rollen(o, "element", "mast", "rohr").forEach((p) => { if (p.k === 1) strich(k, p, "rgba(255, 200, 150, 0.55)", 0.35, 0); });
     } else if (art === "wolke") {
-      // Quellwolken: jeder Ballen von unten links golden angestrahlt, oben
-      // flieder; darauf kleine Wölbungen, die die Form plastisch machen.
+      // Quellwolken: alle Ballen als eine Form – unten golden angestrahlt,
+      // oben flieder –, darin weiche, hellere Wölbungen hinten wie vorn, und
+      // nur auf dem äusseren Rand ein Lichtsaum. Gemalt wird genau die
+      // Fläche der Kreise.
       const ballen = rollen(o, "wolke");
+      const y0 = Math.min(...ballen.map((p) => p.y - p.r));
+      const y1 = Math.max(...ballen.map((p) => p.y + p.r));
+      const x0 = Math.min(...ballen.map((p) => p.x - p.r));
+      const x1 = Math.max(...ballen.map((p) => p.x + p.r));
+      k.save();
+      k.beginPath();
+      ballen.forEach((p) => { k.moveTo(p.x + p.r, p.y); k.arc(p.x, p.y, p.r, 0, TAU); });
+      k.clip();
+      const v = k.createLinearGradient(0, y0, 0, y1);
+      v.addColorStop(0, "rgb(255, 188, 150)");
+      v.addColorStop(0.35, "rgb(240, 168, 172)");
+      v.addColorStop(0.75, "rgb(204, 146, 190)");
+      v.addColorStop(1, "rgb(176, 136, 196)");
+      k.fillStyle = v;
+      k.fillRect(x0, y0, x1 - x0, y1 - y0);
+      // Schatten zwischen den Wölbungen (unten rechts jedes Ballens).
       ballen.forEach((p) => {
-        const v = k.createRadialGradient(p.x - p.r * 0.3, p.y - p.r * 0.5, p.r * 0.05, p.x + p.r * 0.1, p.y + p.r * 0.1, p.r * 1.05);
-        v.addColorStop(0, "rgb(255, 204, 168)");
-        v.addColorStop(0.5, "rgb(230, 160, 186)");
-        v.addColorStop(1, "rgb(156, 116, 178)");
-        pfad(k, p);
-        k.fillStyle = v;
-        k.fill();
+        const h = k.createRadialGradient(p.x + p.r * 0.45, p.y - p.r * 0.5, 0, p.x + p.r * 0.45, p.y - p.r * 0.5, p.r * 0.9);
+        h.addColorStop(0, "rgba(130, 90, 150, 0.3)");
+        h.addColorStop(1, "rgba(130, 90, 150, 0)");
+        k.fillStyle = h;
+        k.fillRect(p.x - p.r * 0.5, p.y - p.r * 1.4, p.r * 2, p.r * 1.9);
       });
+      // Weiche helle Wölbungen, oben links jedes Ballens, geschichtet.
       ballen.forEach((p, i) => {
-        k.save();
-        pfad(k, p);
-        k.clip();
-        for (let j = 0; j < 7; j += 1) {
-          const w = Math.PI * 0.35 + j * 0.55 + hash01(i * 7 + j + (o.id || 0)) * 0.3;
-          const rr = p.r * (0.28 + 0.12 * hash01(i * 3 + j));
-          const x = p.x + Math.cos(w) * (p.r - rr * 0.9);
-          const y = p.y + Math.sin(w) * (p.r - rr * 0.9);
-          const v = k.createRadialGradient(x - rr * 0.3, y + rr * 0.35, 0, x, y, rr);
-          v.addColorStop(0, "rgba(255, 236, 236, 0.55)");
-          v.addColorStop(1, "rgba(255, 236, 236, 0)");
-          k.fillStyle = v;
-          k.beginPath();
-          k.arc(x, y, rr, 0, TAU);
-          k.fill();
+        for (let j = 0; j < 3; j += 1) {
+          const w = Math.PI * (0.55 + 0.25 * j) + hash01(i * 7 + j + (o.id || 0)) * 0.4;
+          const rr = p.r * (0.45 - j * 0.08);
+          const x = p.x + Math.cos(w) * p.r * 0.38;
+          const y = p.y + Math.sin(w) * p.r * 0.38;
+          const h = k.createRadialGradient(x, y, 0, x, y, rr);
+          h.addColorStop(0, "rgba(255, 236, 226, 0.4)");
+          h.addColorStop(0.6, "rgba(255, 226, 220, 0.16)");
+          h.addColorStop(1, "rgba(255, 226, 220, 0)");
+          k.fillStyle = h;
+          k.fillRect(x - rr, y - rr, 2 * rr, 2 * rr);
         }
-        k.restore();
       });
+      // Der Lichtsaum: nur wo der Rand eines Ballens aussen liegt.
+      k.lineCap = "round";
+      ballen.forEach((p) => {
+        for (let w = 0; w < TAU; w += 0.16) {
+          const mx = p.x + Math.cos(w + 0.08) * (p.r - 0.2);
+          const my = p.y + Math.sin(w + 0.08) * (p.r - 0.2);
+          if (ballen.some((q) => q !== p && Math.hypot(mx - q.x, my - q.y) < q.r - 0.1)) continue;
+          // Licht kommt von unten links: dort am stärksten.
+          const licht = clamp(0.3 - Math.cos(w) * 0.45 - Math.sin(w) * 0.45, 0, 1);
+          if (licht < 0.05) continue;
+          k.strokeStyle = `rgba(255, 220, 186, ${0.4 * licht * licht})`;
+          k.lineWidth = 1.6;
+          k.beginPath();
+          k.arc(p.x, p.y, p.r - 0.45, w, w + 0.17);
+          k.stroke();
+        }
+      });
+      k.restore();
     }
   }
 
@@ -3330,11 +3677,16 @@
   // Zeichnen: die Welt, je Bild aufgelegt
   // ---------------------------------------------------------------------------
   // Eine Kachel quer übers Bild legen, so oft, wie sie in die Höhe passt.
-  function legeKachel(bild, versatz, alpha = 1) {
+  // rahmen: so weit links und rechts deckt ohnehin der Rand (Bildpunkte).
+  function legeKachel(bild, versatz, alpha = 1, rahmen = 0) {
     const h = bild.height;
+    const b = bild.width - 2 * rahmen;
     let y = (((Math.round(versatz) % h) + h) % h) - h;
     g.globalAlpha = alpha;
-    for (; y < canvas.height; y += h) g.drawImage(bild, 0, y);
+    for (; y < canvas.height; y += h) {
+      if (rahmen) g.drawImage(bild, rahmen, 0, b, h, rahmen, y, b, h);
+      else g.drawImage(bild, 0, y);
+    }
     g.globalAlpha = 1;
   }
 
@@ -3347,16 +3699,58 @@
     const H = canvas.height;
     const hh = ebenen.himmel.height;
     const yH = clamp(Math.round(hh - H - cam * PH - Math.min(0, state.camY) * s * dpr * PH), 0, hh - H);
-    g.drawImage(ebenen.himmel, 0, yH, canvas.width, H, 0, 0, canvas.width, H);
-    // Die Ferne sinkt hinab, bis sie weg ist.
-    const yF = Math.round(H - ebenen.ferne.height + cam * 0.16);
-    if (yF < H) g.drawImage(ebenen.ferne, 0, yF);
-    // Die Kulisse der Welt; zwischen zwei Welten beide.
     const yMitte = state.camY + (view.cssH / s) * 0.5;
     const wm = weltMix(yMitte);
     const vK = cam * 0.42;
-    if (wm.k < 1) legeKachel(ebenen.kulisse[wm.a], vK, 1);
-    if (wm.k > 0) legeKachel(ebenen.kulisse[wm.b], vK, wm.k);
+    // Über den Dächern decken die Wände der Gasse die Seiten: Himmel und
+    // Dachlandschaft nur in der Mitte, die Wände nur an den Seiten – so wird
+    // jeder Bildpunkt einmal gelegt.
+    const gasse = wm.a === 2 && wm.b === 2 && ebenen.gasseL > 0;
+    // Stämme und Hauswände am Rand decken; reichen sie bis an den Rand des
+    // Bildes, wird dahinter nichts gelegt.
+    const wand = Math.round((view.cssW / 2 - RAND * s) * dpr);
+    const draussen = Math.round((view.cssW / 2 - (RAND + ebenen.randB) * s) * dpr);
+    const rahmen = wm.a >= 1 && wm.b <= 2 && draussen <= 0 ? Math.max(0, wand) : 0;
+    const xL = gasse ? ebenen.gasseL : rahmen;
+    const bM = canvas.width - 2 * xL;
+    // Die Ferne deckt unten alles: Bis dorthin genügt der Himmel.
+    const yF = Math.round(H - ebenen.ferne.height + cam * 0.16);
+    const yD = Math.round(H - ebenen.dach.height * 0.92 + (state.camY - (WELT_AB[2] - 300)) * s * dpr * PD);
+    // Unter der Ferne und (in der Gasse) unter der Dachlandschaft deckt es.
+    const hH = clamp(Math.min(yF + ebenen.ferneDicht, gasse ? yD + ebenen.dachDicht : H), 1, H);
+    g.drawImage(ebenen.himmel, xL, yH, bM, hH, xL, 0, bM, hH);
+    if (wm.a === 2 || wm.b === 2) {
+      const a = wm.a === 2 ? 1 - wm.k : wm.k;
+      if (yD < H) {
+        g.globalAlpha = a;
+        g.drawImage(ebenen.dach, xL, 0, bM, ebenen.dach.height, xL, yD, bM, ebenen.dach.height);
+        g.globalAlpha = 1;
+      }
+    }
+    if (gasse) {
+      // Die Wände an der Gasse decken, was hinter ihnen liegt: Die Kulisse
+      // kommt nur dazwischen (und quer noch draussen neben ihnen).
+      const bild = ebenen.kulisse[2];
+      const h = bild.height;
+      const W = canvas.width;
+      const stuecke = [[Math.max(0, wand), xL]];
+      if (draussen > 0) stuecke.push([0, draussen + 2]);
+      let y = (((Math.round(vK) % h) + h) % h) - h;
+      for (; y < H; y += h) {
+        stuecke.forEach(([a, b]) => {
+          if (b <= a) return;
+          g.drawImage(bild, a, 0, b - a, h, a, y, b - a, h);
+          g.drawImage(bild, W - b, 0, b - a, h, W - b, y, b - a, h);
+        });
+      }
+      return;
+    }
+    // Die Ferne sinkt hinab, bis sie weg ist.
+    if (yF < H) g.drawImage(ebenen.ferne, 0, yF);
+    // Die Kulisse der Welt; zwischen zwei Welten beide. Im Abendhimmel gibt
+    // es keine (seine Schleier stehen schon im Himmel).
+    if (wm.k < 1 && wm.a < 3) legeKachel(ebenen.kulisse[wm.a], vK, 1, rahmen);
+    if (wm.k > 0 && wm.b < 3) legeKachel(ebenen.kulisse[wm.b], vK, wm.k, rahmen);
   }
 
   // Die Ränder des Feldes, nach der Welt in ihrer Höhe.
@@ -3420,16 +3814,20 @@
     const s = view.s;
     const unten = state.camY - 40;
     const ganzOben = state.camY + view.cssH / s + 40;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const bild = ebenen.rauch;
     state.hindernisse.forEach((o) => {
       if (!o.rauch || o.rauch.y < unten || o.rauch.y > ganzOben) return;
-      for (let i = 0; i < 7; i += 1) {
-        const f = ((state.zeit * 0.35 + i / 7) % 1);
-        const x = o.rauch.x + windBei(o.rauch.y, state.zeit) * f * 1.2 + Math.sin(f * 6 + i) * 3;
-        const y = o.rauch.y + f * 46;
-        schein("nebel", bildX(x), bildY(y), (5 + f * 14) * s, (1 - f) * 0.35);
+      // Zwei Fahnen, die versetzt aufsteigen und vergehen.
+      for (let i = 0; i < 2; i += 1) {
+        const f = (state.zeit * 0.4 + i * 0.5) % 1;
+        const x = bildX(o.rauch.x + windBei(o.rauch.y, state.t) * 0.15 * f) - bild.width / view.dpr * 0.35;
+        const y = bildY(o.rauch.y + f * 14) - bild.height / view.dpr;
+        g.globalAlpha = Math.sin(f * Math.PI) * 0.9;
+        g.drawImage(bild, Math.round(x * view.dpr), Math.round(y * view.dpr));
       }
     });
+    g.globalAlpha = 1;
   }
 
   // Was sich bewegt: Tropfen, Wespen, Vögel, Fetzen.

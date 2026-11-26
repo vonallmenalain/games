@@ -2877,10 +2877,23 @@ Achtzehntel des Tempos hinabgleitet – unten die Sonne über den Alpen mit
 Strahlen und goldenen und rosa Wolkenbänken, darüber Flieder und Violett,
 ganz oben Nacht, Sterne und die Mondsichel. Davor das Dorf im Tal mit
 Kirchturm und Wetterhahn, dann die Kulisse jeder Welt (sie geht beim
-Wechsel ineinander über, und ihr Name erscheint): Apfelbäume im Gegenlicht
-mit Lichtsäumen, Äpfeln und einer Lichterkette; im Baum Äste, Laub und
-schräge Lichtstrahlen; Altstadthäuser mit Ziegeldächern, Kaminen, Fenstern
-voller Licht und Läden; Wolkenschleier. Glühwürmchen im Garten. Die Blase
+Wechsel ineinander über, und ihr Name erscheint). Im Garten Apfelbäume, ihr
+Stamm gleich hinter dem Feldrand, Äste, die die Kronen tragen, Äpfel und
+eine Lichterkette von Stamm zu Stamm; das Laub (`krone`, `laubForm`) sind
+Büschel mit einem Umriss aus Blattspitzen, innen dunkel, zur Sonne hin hell
+mit einer Lichtkante und einzelnen Blättern – nah im leichten Dunst, fern
+im Abenddunst. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
+tragen, und schräge, weiche Lichtstrahlen. Über den Dächern eine Gasse der
+Altstadt: die Hauswände am Feldrand mit Verputz, je Stockwerk einem Sims,
+Fenstern mit Läden und Bank (Licht in einzelnen), Fallrohr und dezenten
+Ecksteinen; dahinter laufen die Wände der Gasse nach hinten (die Fenster
+schmaler, blasser), und in der Mitte steht über einem Dächermeer aus drei
+Reihen Ziegeldächern mit Gauben und rauchenden Kaminen frei der Kirchturm
+mit Schallfenstern, Uhr, Kupferhelm und Wetterhahn (`maleDachlandschaft`,
+gleitet sehr langsam hinab). Balkone, Vordächer und Antennen hängen
+sichtbar an den Wänden. Im Abendhimmel sind die Wolken je eine Form aus
+ihren Ballen, unten golden, oben flieder, mit weichen hellen Wölbungen und
+einem Lichtsaum nur auf dem äusseren Rand. Glühwürmchen im Garten. Die Blase
 ist ein vorgerechneter Seifenfilm in den Farben dünner Schichten (für jede
 Filmdicke die Farbe, die das Licht dort zeigt, oben dünner, dazu Wirbel),
 der sich in ihr dreht und wandert, durch eine Maske, die zum Rand hin mehr
@@ -2898,8 +2911,14 @@ Punkt auf Punkt aufgelegt (`ebenenNeu`); jedes Hindernis wird beim ersten
 Erscheinen in ein eigenes Bild gemalt (`teilBild`). Je Bild kommen dazu: die
 Blase (der Film in einem kleinen Bild durch die Maske), was sich bewegt,
 Funken, Pollen und Samen (vorgemalt), Stösse und Tröpfchen. Gemessen im
-Software-Raster (Median je Bild): iPhone hochkant 2,6–3,7 ms, iPad 5,1–5,2 ms
-in Garten und Baumkrone, knapp 7 ms über den Dächern.
+Software-Raster (Median je Bild, dieselbe Welt): iPhone hochkant 2,3–3,2 ms,
+iPad 5,3 ms im Garten, gut 5,5 in der Baumkrone, 5,7 über den Dächern und
+5,1 im Abendhimmel. Damit es so bleibt, wird nichts gelegt, was ohnehin
+verdeckt ist: Über den Dächern kommt der Himmel nur in die Mitte und nur bis
+zur Dachlandschaft, die Wände der Gasse nur zwischen Feldrand und Mitte;
+hinter den Stämmen und Hauswänden am Rand liegt nichts, unter der Ferne
+kein Himmel, und der Abendhimmel braucht keine eigene Kulisse. Der
+Kaminrauch ist eine vorgemalte Fahne.
 
 Die Gegner steigen als Blasen aus Licht mit, und die besten Läufe lassen
 sich anschauen: Aufgezeichnet werden der Ort quer (in Vierteln), die Höhe
