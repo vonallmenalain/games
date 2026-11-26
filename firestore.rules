@@ -102,6 +102,7 @@ service cloud.firestore {
         "roofRun",
         "stampMill",
         "beeFlight",
+        "marsRover",
       ];
     }
 

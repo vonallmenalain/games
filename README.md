@@ -2514,6 +2514,119 @@ Deutlich zu spät an der ersten Kehre, nichts tun und dauernd tippen enden
 bald; die Tafel erscheint; ein angeschauter Lauf zeigt dieselbe Runde und
 dieselbe Zahl.
 
+### Marsrover (November 2026)
+
+**Marsrover** (`marsrover.js`, `marsRover`) – Abend auf dem Mars. Ein Rover
+fährt von der Seite gesehen von selbst über die Ebene, nach rechts, und wird
+langsam schneller. Eine Regel: Ein Tipp funkt «Springen» von der Erde – aber
+der Befehl braucht Zeit bis zum Mars, und der Rover springt erst, wenn das
+Signal ankommt, immer im selben Bogen (`SPRUNG` 0,68 s, `HOCH`). Wer tippt,
+wenn das Hindernis da ist, ist zu spät: Man muss vorausdenken. Gezählt werden
+die Meter.
+
+Die Verzögerung wächst mit der Strecke («der Mars entfernt sich»), in Stufen
+von 0,05 s, und steht oben im Bild («Signal 0,45 s»); wächst sie, blinkt die
+Zahl, «+0,05 s» steigt daneben auf, und es klingt. Darunter die Funkstrecke
+von der Erde zum Mars mit jedem Befehl, der unterwegs ist. Am Himmel läuft
+jeder Befehl als Lichtpuls von der Erde – einem hellen blauen Punkt über der
+Sonne – zur Antenne des Rovers; kommt er an, blinkt sie, und er springt.
+Mehrere Befehle dürfen zugleich unterwegs sein. Kommt einer an, während der
+Rover in der Luft ist, verpufft er (die Antenne blinkt rot, «verpufft»). Beim
+Tipp erscheint am Boden voraus eine dezente Marke, wo der Sprung beginnen
+wird: eine Rückmeldung nach dem Entschluss, mit der man den Verzug lernt –
+zielen lässt sich damit nichts, ein Befehl ist nicht zurückzuholen.
+
+Die Hindernisse: **Krater** (überspringen; wer am Boden über den Rand fährt,
+stürzt hinein), **Felsen** (überspringen; der gemalte Umriss ist genau der,
+an dem er prallt) und **Felsbögen**, unter denen man nicht springen darf –
+die Unterkante hängt knapp über dem Mast (`DECKE`), wer darunter abhebt,
+stösst an. Sie kommen als Lagen (`naechsterAbschnitt`): einzeln, zu zweit
+und zu dritt kurz hintereinander (dann sind zwei Befehle zugleich unterwegs),
+ein Bogen gleich vor einem Krater oder Fels (springen erst, wenn der Mast
+frei ist) oder gleich hinter der Landung (wer zu spät springt, landet unter
+ihm). Jeder achte Abschnitt ist besonders, im festen Wechsel und vorher
+angesagt: der 8., 24., 40. ein **Funkschatten** – Phobos, den man über den
+Himmel auf die Erde zuwandern sieht, steht vor ihr, und das Signal braucht
+0,3 s länger (höchstens 1,2 s; um den Weg etwas mehr Luft) –, der 16., 32.,
+48. eine **Schlucht** mit Felsinseln, über die es in zwei, ab der zweiten in
+drei Sprüngen geht.
+
+Die Strecke entsteht aus dem Zufall und hängt nur an der Spielzeit seit dem
+Start: Der Rover fährt immer gleich schnell (`xBei`), ob er springt oder
+nicht. Sie ist immer zu schaffen – zuerst der Weg (wann er abspringt), dann
+die Hindernisse darum, so gross, dass jeder Sprung bis zu `luft` zu früh oder
+zu spät noch gelingt (Krater genau gerechnet, Felsen über ihr Fenster
+gesucht: `felsFenster`). Jeder Abschnitt wird nachgeprüft (`sicher`): alle
+Ecken der Luft, über den letzten Sprung davor hinweg. Der Verzug gilt nach
+der Zeit des Tipps: Ein Abschnitt bekommt seinen ab dem Moment, ab dem kein
+Befehl für den Sprung davor mehr rechtzeitig käme, und kein Sprung beginnt,
+bevor ein danach getippter Befehl ankommen kann – für jeden Sprung gilt
+genau der Verzug, der beim Tippen oben steht.
+
+| Spielzeit | Strecke | Luft je Sprung | Verzug | Tempo |
+|---|---|---|---|---|
+| 0–5 s | 0–60 m | ±160 ms | 0,25 s | 13 m/s |
+| 10 s | 130 m | ±133 ms | 0,25–0,35 s | 14 m/s |
+| 20 s | 270 m | ±96 ms | 0,45 s | 15 m/s |
+| 30 s | 420 m | ±73 ms | 0,6 s | 15 m/s |
+| 45 s | 660 m | ±55 ms | 0,7 s | 16 m/s |
+| 60 s | 900 m | ±46 ms | 0,8 s | 17 m/s |
+| 90 s | 1400 m | ±40 ms | 0,95 s | 17 m/s |
+
+Im Funkschatten 0,3 s mehr (der erste nach rund 14 s: 0,65–0,7 s). Die ersten
+Sekunden sind zum Hineinfinden: Der erste Befehl ist «Losfahren» (er braucht
+0,25 s wie jeder), der erste Krater kommt nach 2,4 s, die ersten vier Lagen
+stehen einzeln und weit auseinander. Nachgebildete Spieler, deren Tipp um den
+besten Moment streut (Normalverteilung): 70 ms kommen im Mittel 19 s weit
+(260 m), 40 ms 39 s (570 m), 20 ms 90 s (1500 m). Wer nichts tut, fällt nach
+2,6 s in den ersten Krater; wer dauernd tippt, ist nach wenigen Sekunden
+draussen.
+
+Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild (`tippen`,
+`voraus`). Auf der Tafel: die Meter, darunter, woran es lag, die Zeit und der
+letzte Verzug.
+
+Das Bild: ein Marsabend. Der Himmel oben fast schon Nacht mit Sternen, darunter
+ochsenblut und butterscotch, um die tief stehende Sonne aber blau – auf dem
+Mars streut der Staub das blaue Licht nach vorn. Darüber die Erde als
+Abendstern mit dem Mond, Phobos und Deimos. Am Horizont der Olympus Mons,
+flach und riesig, davor Tafelberge mit Schichten (die Westwände im letzten
+Licht), Dünen mit scharfen Kämmen, eine Staubhose, die Ebene mit Kies und
+nahe dunkle Steine; feiner Staub treibt im Wind. Der Rover: sechs Räder an
+Kipphebeln, die dem Boden einzeln folgen, Aluminiumräder mit Stollen, Kasten
+mit Goldfolie, Radionuklidbatterie, Schüssel, Funkantenne, Mast mit
+Kamerakopf, gefalteter Arm, Scheinwerfer und eine rote Lampe; beim Sprung
+hängen die Räder aus, beim Landen federt er, und Staub fliegt; im Sand bleibt
+seine Spur. Der Sturz: Am Fels oder Bogen überschlägt er sich, ein Rad fliegt
+davon, Funken und Staub; im Krater kippt er vornüber hinein. Dann im Rauschen
+der Funkspruch «VERBINDUNG VERLOREN». Beim ersten Start gleitet die Kamera vom
+Sternenhimmel mit der Erde («Erde») hinunter zum Rover, dessen Lichter
+angehen; dann «Tippen – der Befehl braucht Zeit bis zum Mars.»
+
+Himmel, Horizont, Tafelberge, Dünen, Ebene und Vordergrund sind vorgemalt und
+werden Punkt auf Punkt aufgelegt (`ebenenNeu`; ein Stück Ebene ist eine ganze
+Zahl Bildpunkte breit). Wird es Abend (`abendBei`), malt sich der Himmel
+Streifen um Streifen in ein zweites Bild, das danach getauscht wird – kein
+Bild stockt. Gemessen im Software-Raster (Median je Bild): iPhone hochkant
+2,7 ms, quer 2,6 ms, iPad 4,3–4,8 ms. Damit man überall gleich weit voraus
+sieht (`SICHT`), ist der Rover hochkant klein und steht quer weiter in der
+Mitte.
+
+Die Gegner fahren als Rover aus Licht mit, und die besten Läufe lassen sich
+anschauen: Aufgezeichnet werden der Weg, die Höhe und im letzten Bit, ob er
+fliegt, darüber, wie viele Befehle gefunkt sind (`a`, `b`, `c`, Fassung
+`t1`); beim Zuschauen laufen auch die Lichtpulse. Zehn Klänge, alle aus
+vorhandenen.
+
+Prüfung 4g47: Der Autopilot nach dem Weg kommt über vier Strecken bis 100 s,
+ohne dass die Planung ausweichen muss; ebenso, wer jeden Sprung um 95 % der
+Luft zu früh, zu spät oder im Wechsel nimmt. Alle Lagen kommen vor, jeder
+achte Abschnitt ist im Wechsel Funkschatten oder Schlucht. Deutlich zu spät
+am ersten Krater, nichts tun, dauernd tippen und ein Sprung unter einem Bogen
+enden bald; ein Befehl, der in der Luft ankommt, verpufft. Die Tafel
+erscheint; ein angeschauter Lauf zeigt dieselbe Strecke, dieselbe Zahl und
+denselben Sturz.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2608,7 +2721,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 52», siehe unten).
+  Links davor steht fest das **Regal** («Alle 53», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

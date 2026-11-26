@@ -302,6 +302,16 @@
     "bienenflug.knapp": { s: "pling" },
     "bienenflug.stich": { s: "stich" },
     "bienenflug.matt": { s: "ab-sanft" },
+    "marsrover.wind": { s: "a-wind", schleife: true },
+    "marsrover.fahrt": { s: "a-kies", schleife: true },
+    "marsrover.funk": { s: "sonar" },
+    "marsrover.sprung": { s: "absprung" },
+    "marsrover.landung": { s: "whomp-weich" },
+    "marsrover.verpufft": { s: "ab-sanft" },
+    "marsrover.stufe": { s: "tanken" },
+    "marsrover.krach": { s: "krach" },
+    "marsrover.fall": { s: "fall" },
+    "marsrover.verloren": { s: "ab" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -320,7 +330,7 @@
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
-    beeFlight: "bienenflug",
+    beeFlight: "bienenflug", marsRover: "marsrover",
   };
 
   // ---------------------------------------------------------------------------
