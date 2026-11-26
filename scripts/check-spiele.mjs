@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3349,6 +3349,7 @@ try {
     }],
     ["/gratwanderung", "Gratwanderung", () => window.LernappGratwanderung.kursText(40)],
     ["/kaminfeger", "Kaminfeger", () => window.LernappKaminfeger.gasseText(1200)],
+    ["/dachlaeufer", "Dachläufer", () => window.LernappDachlaeufer.kursText(8000)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -11850,6 +11851,193 @@ try {
     await kontext.close();
   }
 
+  // --- 4g44. Dachläufer: immer zu schaffen, und der erste Fehler beendet die Runde ----
+  // Ein Autopilot springt genau dort ab und hält genau so lange, wie der Weg
+  // es vorsieht, um den die Dächer gebaut sind – über mehrere gewürfelte
+  // Strecken bis 600 m. Auch wer um fast die ganze Luft früher abspringt und
+  // kürzer hält (oder später und länger), kommt durch. Wer nichts tut, fällt
+  // in die erste Lücke; wer zu kurz hält, prallt an die Hauswand; wer zu lang
+  // hält, fliegt über das nächste Dach hinaus.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/dachlaeufer`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappDachlaeufer?.state?.daecher?.length && window.LernappDachlaeufer.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappDachlaeufer;
+      const st = K.state;
+      // Eine neue Strecke, und er rennt los (der erste Druck springt nicht).
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); K.druecken(); K.loslassen(); };
+      // Ein Lauf: wann(dach) gibt, wo er auf diesem Dach abspringt
+      // (Infinity: nie), wie(dach) wie lange er hält.
+      const lauf = (meter, wann, wie) => {
+        let soll = 0;
+        for (let n = 0; n < 3000000 && st.phase === "spiel" && st.schritt !== "sturz" && st.punkte < meter; n += 1) {
+          const k = st.lf;
+          const r = st.daecher[k.dach];
+          if (k.boden && !st.gedrueckt && k.x >= wann(r)) { K.druecken(); soll = wie(r); }
+          if (st.gedrueckt && (k.boden || !k.traegt || k.halt >= soll - 1e-9)) K.loslassen();
+          K.takt(1 / 240);
+        }
+        K.loslassen();
+        return { schritt: st.schritt, warum: st.sturz?.warum || "", punkte: st.punkte, spruenge: st.spruenge, perfekte: st.perfekte, dach: st.lf.dach };
+      };
+      const weg = (r) => r.e * K.tempoBei(r.t);
+
+      // 1. Genau nach dem Weg, vier Strecken: kein Sturz – und nie an der
+      //    Kante abgesprungen oder gelandet (der Weg hält Abstand).
+      const genau = [];
+      let daecher = 0;
+      let enge = 0;
+      let lueckeMin = Infinity;
+      let lueckeMax = 0;
+      const hoehen = new Set();
+      for (let i = 0; i < 4; i += 1) {
+        neu();
+        genau.push(lauf(600, (r) => r.t, (r) => r.halt));
+        const d = st.daecher.filter((r) => Number.isFinite(r.x1) && r.x1 < st.lf.x);
+        daecher += d.length;
+        enge += d.filter((r) => r.eng).length;
+        d.forEach((r, nr) => {
+          hoehen.add(r.top);
+          if (nr > 0) { lueckeMin = Math.min(lueckeMin, r.x0 - d[nr - 1].x1); lueckeMax = Math.max(lueckeMax, r.x0 - d[nr - 1].x1); }
+        });
+      }
+      // 2. Fast die ganze Luft früher und kürzer, fast die ganze später und
+      //    länger: beides geht.
+      neu();
+      const frueh = lauf(600, (r) => r.t - 0.9 * weg(r), (r) => r.halt - 0.9 * r.e);
+      neu();
+      const spaet = lauf(600, (r) => r.t + 0.9 * weg(r), (r) => r.halt + 0.9 * r.e);
+
+      // 3. Nichts tun: Er fällt in die erste Lücke.
+      neu();
+      const nichts = lauf(600, () => Infinity, () => 0);
+
+      // 4. Zu kurz gehalten: am ersten Dach, an dem der Weg lange hält.
+      //    Davor nach dem Weg.
+      neu();
+      K.planBis(12000);
+      const kurzNr = st.daecher.findIndex((r, nr) => {
+        const b = st.daecher[nr + 1];
+        if (nr < 1 || !b || !Number.isFinite(b.x1) || r.halt - r.e - 0.05 < K.HALT_MIN + 0.005) return false;
+        const l = K.lande(r.t - weg(r), r.top, r.halt - r.e - 0.05, b.top);
+        return Number.isNaN(l) || l < b.x0 - 2;
+      });
+      const zuKurz = lauf(1000, (r) => (r.nr === kurzNr ? r.t - weg(r) : r.t), (r) => (r.nr === kurzNr ? r.halt - r.e - 0.05 : r.halt));
+
+      // 5. Zu lang gehalten: am ersten Dach, von dem aus ein voll gehaltener
+      //    Sprung über das nächste hinaus und in die Lücke dahinter führt.
+      neu();
+      K.planBis(12000);
+      const langNr = st.daecher.findIndex((r, nr) => {
+        const b = st.daecher[nr + 1];
+        const c = st.daecher[nr + 2];
+        if (nr < 2 || !b || !c || !Number.isFinite(c.x1)) return false;
+        const ueberB = K.lande(r.t, r.top, K.HALT_MAX, b.top);
+        const aufC = K.lande(r.t, r.top, K.HALT_MAX, c.top);
+        return ueberB > b.x1 + 4 && (Number.isNaN(aufC) || aufC < c.x0 - 4);
+      });
+      const zuLang = lauf(1000, (r) => r.t, (r) => (r.nr === langNr ? K.HALT_MAX : r.halt));
+
+      // 6. Auf dem letzten Stück vor der Kante abgesprungen: «Kante!» – jedes
+      //    Mal, und er kommt trotzdem an (gehalten wird, was es von dort
+      //    aus bis zur geplanten Landung braucht).
+      neu();
+      const kante = lauf(250, (r) => r.x1 - 4, (r) => { const b = st.daecher[r.nr + 1]; return K.haltFuer(st.lf.x, r.top, b.l, b.top); });
+
+      return {
+        genau, daecher, enge, lueckeMin: Math.round(lueckeMin), lueckeMax: Math.round(lueckeMax), hoehen: hoehen.size,
+        frueh, spaet, nichts, zuKurz, kurzNr, zuLang, langNr, kante,
+        luft: [0, 100, 300, 2000].map((m) => Math.round(K.luftBei(m * K.METER) * 1000)),
+        tempo: [0, 300, 5000].map((m) => Math.round(K.tempoBei(m * K.METER))),
+        flug: [K.HALT_MIN, K.HALT_MAX].map((h) => Math.round((K.lande(0, 0, h, 0) / K.tempoBei(0)) * 100) / 100),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt !== "sturz" && r.punkte >= 600 && r.perfekte === 0),
+      `Dachläufer: Der Autopilot kommt nicht über jede Strecke, oder der Weg führt über die Kante – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.daecher >= 80 && befund.enge / befund.daecher > 0.25 && befund.enge / befund.daecher < 0.8 && befund.hoehen >= 20 && befund.lueckeMin >= 20 && befund.lueckeMax >= 150,
+      `Dachläufer: Die Strecken sind zu eintönig (Dächer, enge Dächer, Lücken, Höhen): ${JSON.stringify({ daecher: befund.daecher, enge: befund.enge, lueckeMin: befund.lueckeMin, lueckeMax: befund.lueckeMax, hoehen: befund.hoehen })}`);
+    pruefe(befund.frueh.schritt !== "sturz" && befund.frueh.punkte >= 600 && befund.spaet.schritt !== "sturz" && befund.spaet.punkte >= 600,
+      `Dachläufer: Wer um neun Zehntel der Luft früher und kürzer (später und länger) springt, kommt nicht durch: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet })}`);
+    pruefe(befund.nichts.schritt === "sturz" && befund.nichts.warum === "luecke" && befund.nichts.spruenge === 0 && befund.nichts.dach === 0 && befund.nichts.punkte >= 8 && befund.nichts.punkte <= 30,
+      `Dachläufer: Wer nichts tut, fällt nicht in die erste Lücke: ${JSON.stringify(befund.nichts)}`);
+    pruefe(befund.kurzNr >= 1 && befund.zuKurz.schritt === "sturz" && befund.zuKurz.warum === "kurz" && befund.zuKurz.dach === befund.kurzNr,
+      `Dachläufer: Zu kurz gehalten endet nicht an der Hauswand: ${JSON.stringify({ zuKurz: befund.zuKurz, dach: befund.kurzNr })}`);
+    pruefe(befund.langNr >= 2 && befund.zuLang.schritt === "sturz" && befund.zuLang.warum === "weit" && befund.zuLang.dach === befund.langNr,
+      `Dachläufer: Zu lang gehalten führt nicht über das nächste Dach hinaus in die Lücke: ${JSON.stringify({ zuLang: befund.zuLang, dach: befund.langNr })}`);
+    pruefe(befund.kante.schritt !== "sturz" && befund.kante.punkte >= 250 && befund.kante.perfekte >= befund.kante.spruenge - 1 && befund.kante.spruenge >= 8,
+      `Dachläufer: Wer auf dem letzten Stück vor der Kante abspringt, bekommt kein «Kante!» (oder kommt nicht an): ${JSON.stringify(befund.kante)}`);
+    pruefe(befund.luft[0] >= 70 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[3] >= 30 && befund.tempo[0] < befund.tempo[1] && befund.tempo[2] <= 330
+      && befund.flug[0] > 0.3 && befund.flug[1] > 1.8 * befund.flug[0],
+      `Dachläufer: Die Luft um den Weg wird nicht von gut 70 ms an enger (und nie unter 30 ms), er wird nicht schneller, oder länger halten trägt nicht weiter: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo, flug: befund.flug })}`);
+    // Nach dem Sturz steht die Tafel da – in Echtzeit: Er rennt los und über
+    // die erste Kante.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappDachlaeufer.druecken(performance.now()); window.LernappDachlaeufer.loslassen(performance.now()); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappDachlaeufer.state.schritt, phase: window.LernappDachlaeufer.state.phase }));
+    pruefe(ende.schritt === "sturz" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|In die Lücke gefallen · 0 Sprünge · 0 perfekt/.test(ende.text),
+      `Dachläufer: Nach dem Sturz steht keine Tafel mit Metern und Sprüngen da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Strecke
+    // aufgezeichnet, und wer ihn anschaut, sieht dieselben Dächer, dieselben
+    // Meter und am Schluss den Sturz – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__dachlaeufer")) return;
+      sessionStorage.setItem("__dachlaeufer", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/dachlaeufer`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappDachlaeufer?.state?.daecher?.length && window.LernappDachlaeufer.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Fünf Sprünge nach dem
+    // Weg, dann keiner mehr.
+    await seite.evaluate(() => {
+      const K = window.LernappDachlaeufer;
+      const st = K.state;
+      K.druecken(performance.now());
+      K.loslassen(performance.now());
+      let soll = 0;
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt === "sturz") return;
+        requestAnimationFrame(tick);
+        const k = st.lf;
+        const r = st.daecher[k.dach];
+        if (st.gedrueckt && (k.boden || !k.traegt || k.halt >= soll - 0.004)) K.loslassen(performance.now());
+        if (st.spruenge >= 5) return;
+        if (k.boden && !st.gedrueckt && k.x >= r.t - 2) { K.druecken(performance.now()); soll = r.halt; }
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 30000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("roofRun_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappDachlaeufer.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`roofRun_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, spruenge: st.spruenge, kurs: window.LernappDachlaeufer.kursText(4000) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.spruenge === 5 && gespielt.punkte >= 40,
+      `Dachläufer: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    await seite.goto(`${BASIS}/dachlaeufer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappDachlaeufer?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => window.LernappDachlaeufer.kursText(4000));
+    pruefe(kurs === gespielt.kurs, `Dachläufer: Beim Zuschauen entsteht eine andere Strecke:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
+    // Beim Zuschauen springt niemand mit.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 30000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappDachlaeufer.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz",
+      `Dachläufer: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -12072,7 +12260,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 40 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 41 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -12080,7 +12268,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /41/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /42/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -12131,7 +12319,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -13942,7 +14130,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 223, `klang.js kennt nicht alle 223 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 230, `klang.js kennt nicht alle 230 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
