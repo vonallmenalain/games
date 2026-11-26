@@ -1045,7 +1045,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz, .dl-platz, .sm-platz, .bf-platz, .mr-platz, .sg-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz, .dl-platz, .sm-platz, .bf-platz, .mr-platz, .sg-platz, .sb-platz {
   position: absolute;
   inset: 0;
 }
@@ -1065,7 +1065,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .kw-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld, .dl-feld, .sm-feld, .bf-feld, .mr-feld, .sg-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld, .dl-feld, .sm-feld, .bf-feld, .mr-feld, .sg-feld, .sb-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1080,7 +1080,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt, .sg-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt, .sg-prompt, .sb-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1927,6 +1927,65 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .kf-tipp-ring { animation: none; opacity: 0.35; }
+}
+
+/* --- Seifenblase: der Garten im Abendlicht ----------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Die ganze Spielfläche ist die
+   Leinwand (seifenblase.js); getippt wird überall, und der Ort zählt. Der
+   Grund ist der Abendhimmel, bis das erste Bild steht. Beim ersten Start
+   wächst die Blase erst aus dem Ring (data-intro) – bis dahin steht kein
+   Hinweis im Bild. */
+.sb-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sb-stage:not([data-phase="intro"]) .sb-prompt,
+.sb-stage[data-intro="an"] .sb-prompt { opacity: 0; }
+.sb-prompt { transition: opacity 0.4s ease; }
+
+.sb-feld { width: 100%; background: linear-gradient(#3a3a7a, #c97f9a 55%, #ffc98a); }
+
+.sb-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Der Hinweis vor dem ersten Tipp: zwei Ringe, die aufgehen – unter der
+   Blase, denn von dort bläst ein Tipp sie hinauf (seifenblase.js setzt den
+   Ort). */
+.sb-tipp {
+  position: absolute;
+  top: 70%;
+  left: 50%;
+  width: clamp(38px, 11%, 58px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(40, 20, 50, 0.6));
+}
+.sb-stage[data-phase="intro"]:not([data-intro="an"]) .sb-tipp { opacity: 0.95; }
+.sb-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.sb-tipp-ring { transform-origin: 32px 32px; animation: tb-tipp 1.8s ease-out infinite; }
+.sb-tipp-ring.is-spaet { animation-delay: 0.9s; }
+
+.sb-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a623);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-tipp-ring { animation: none; opacity: 0.35; }
 }
 
 /* --- Spiegelsee: der Bergsee im Morgengrauen -------------------------------
@@ -5085,7 +5144,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt, .sg-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt, .sg-prompt, .sb-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

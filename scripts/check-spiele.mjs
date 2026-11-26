@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|bf|mr|sg|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|bf|mr|sg|sb|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill", "beeFlight", "marsRover", "mirrorLake"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill", "beeFlight", "marsRover", "mirrorLake", "soapBubble"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3354,6 +3354,7 @@ try {
     ["/bienenflug", "Bienenflug", () => window.LernappBienenflug.kursText(40)],
     ["/marsrover", "Marsrover", () => window.LernappMarsrover.kursText(60)],
     ["/spiegelsee", "Spiegelsee", () => window.LernappSpiegelsee.kursText(60)],
+    ["/seifenblase", "Seifenblase", () => window.LernappSeifenblase.kursText(60)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -12812,6 +12813,171 @@ try {
     await kontext.close();
   }
 
+  // --- 4g49. Seifenblase: immer zu schaffen, und wer nicht neben sie tippt, verliert sie ----
+  // Ein Autopilot tippt, wohin die Gasse es verlangt – über vier gewürfelte
+  // Welten bis 100 s, ohne dass die Blase zerplatzt und ohne dass die
+  // Planung je auf einen Notbehelf ausweichen muss. Darin kommen alle Lagen
+  // und alle Hindernisse der vier Welten vor, und jeder achte Abschnitt ist
+  // besonders (8., 24.: Aufwind, 16., 32.: Böe), vorher angesagt. Mit wenig
+  // gestreuten Tipps (±5 cm, gut 15 Bildpunkte, alle 0,2 s) kommt er meist
+  // weit, mit stark gestreuten (±17 cm, gut 50 Bildpunkte) bald nicht mehr.
+  // Wer nichts tut, zerplatzt an der ersten Reihe; wer dauernd unter ihr
+  // tippt, auch; wer sie berührt, dem zerplatzt sie unter dem Finger; wer
+  // nur bremst, den holt der Nebel ein. Die Marge wird enger, die Blase
+  // schneller, die Luft kürzer.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/seifenblase`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSeifenblase?.state?.weg?.length && window.LernappSeifenblase.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappSeifenblase;
+      const st = K.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); K.losGehts(); };
+      // Ein Lauf bis zur Spielzeit bis. pilot: die Tipps des Autopiloten,
+      // höchstens alle abstand Sekunden, um bis zu streu Einheiten daneben;
+      // tipp(st): eigene Tipps in Weltkoordinaten (oder null).
+      const lauf = (bis, { pilot = null, tipp = null, ansagen = null } = {}) => {
+        neu();
+        for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "geplatzt" && st.t < bis; n += 1) {
+          if (pilot) {
+            const p = K.pilot({ abstand: pilot.abstand });
+            if (p) K.tippeWelt(p.x + (Math.random() * 2 - 1) * pilot.streu, p.y + (Math.random() * 2 - 1) * pilot.streu);
+          }
+          if (tipp) { const q = tipp(st); if (q) K.tippeWelt(q[0], q[1]); }
+          if (st.schritt !== "geplatzt") K.takt(1 / 240);
+          if (ansagen && st.ansage) ansagen.add(st.ansage.text.split(" ")[0]);
+        }
+        return { schritt: st.schritt, art: st.geplatzt?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, stoesse: st.stoesse, planFehler: st.planFehler };
+      };
+
+      // 1. Der Autopilot, vier Welten – und was in ihnen vorkommt.
+      const genau = [];
+      const lagen = {};
+      const arten = {};
+      const ansagen = new Set();
+      let besonders = [];
+      for (let i = 0; i < 4; i += 1) {
+        genau.push(lauf(100, { pilot: { abstand: 0.1, streu: 0 }, ansagen }));
+        const y = st.blase.y;
+        st.abschnitte.filter((a) => a.y1 < y).forEach((a) => { lagen[a.lage] = (lagen[a.lage] || 0) + 1; });
+        st.hindernisse.filter((o) => o.box.y1 < y).forEach((o) => { arten[o.art] = (arten[o.art] || 0) + 1; });
+        st.beweger.filter((m) => m.y1 < y).forEach((m) => { arten[m.art] = (arten[m.art] || 0) + 1; });
+        if (i === 0) besonders = st.abschnitte.filter((a) => a.besonders && a.y1 < y).map((a) => ({ nr: a.nr, art: a.besonders }));
+      }
+      // 2. Gestreute Tipps, wie ein Mensch: alle 0,2 s, wenig oder viel daneben.
+      const median = (liste) => liste.map((r) => r.t).sort((a, b) => a - b)[Math.floor(liste.length / 2)];
+      const wenig = [];
+      const viel = [];
+      for (let i = 0; i < 9; i += 1) {
+        wenig.push(lauf(60, { pilot: { abstand: 0.2, streu: 5 } }));
+        viel.push(lauf(60, { pilot: { abstand: 0.2, streu: 17 } }));
+      }
+      // 3. Nichts tun; 4. dauernd unter ihr tippen (mitten im Bild, gleich
+      //    weit unter ihr); 5. sie berühren; 6. nur bremsen (über ihr tippen).
+      const nichts = lauf(30);
+      let naechster = 0;
+      const dauernd = lauf(30, { tipp: (s) => (s.t >= naechster ? ((naechster = s.t + 0.12), [0, s.blase.y - 22]) : null) });
+      const beruehrt = lauf(30, { tipp: (s) => (s.t >= 1 && s.stoesse === 0 ? [s.blase.x + 2, s.blase.y - 1] : null) });
+      naechster = 0;
+      const bremsen = lauf(30, { tipp: (s) => (s.t >= naechster ? ((naechster = s.t + 0.25), [s.blase.x, s.blase.y + 26]) : null) });
+      return {
+        genau, lagen, arten, ansagen: [...ansagen], besonders, wenig: median(wenig), viel: median(viel), wenigListe: wenig.map((r) => r.t), vielListe: viel.map((r) => r.t),
+        nichts, dauernd, beruehrt, bremsen,
+        marge: [0, 20, 40, 80].map((t) => Math.round(K.margeBei(t) * 10) / 10),
+        tempo: [1, 30, 90].map((t) => Math.round(K.vAuf(t))),
+        luft: [0, 20, 60].map((t) => Math.round(K.luftBei(t) * 1000)),
+        stoss: [K.R + 3, 40, 70, K.DMAX].map((d) => Math.round(K.stossBei(d))),
+        windStart: Math.max(...[0, 100, 200, 300].map((y) => Math.abs(K.windBei(y, 5)))),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt !== "geplatzt" && r.t >= 100 && r.planFehler === 0) && befund.genau[0].punkte >= 70,
+      `Seifenblase: Der Autopilot kommt nicht durch jede Welt, oder die Planung weicht aus – ${JSON.stringify(befund.genau)}`);
+    pruefe(["tor", "doppel", "treppe", "tropfen", "flieger", "aufwind", "boee"].every((l) => befund.lagen[l] >= 1)
+      && ["rose", "nessel", "schlauch", "ast", "tanne", "netz", "balkon", "dach", "antenne", "wolke", "tropfen", "wespe", "schwalbe"].every((a) => befund.arten[a] >= 1)
+      && (befund.arten.segler || 0) + (befund.arten.fetzen || 0) >= 1,
+      `Seifenblase: In vier Läufen kommen nicht alle Lagen oder nicht alle Hindernisse vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
+    pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "aufwind" : "boee"))
+      && befund.ansagen.includes("Aufwind") && befund.ansagen.includes("Böe"),
+      `Seifenblase: Jeder achte Abschnitt ist nicht im festen Wechsel Aufwind oder Böe, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
+    pruefe(befund.wenig >= 40 && befund.viel <= 26 && befund.wenig > befund.viel + 15,
+      `Seifenblase: Gestreute Tipps wirken nicht wie erwartet (wenig daneben weit, viel daneben bald zu Ende): ${JSON.stringify({ wenig: befund.wenigListe, viel: befund.vielListe })}`);
+    pruefe(befund.nichts.schritt === "geplatzt" && ["rose", "nessel"].includes(befund.nichts.art) && befund.nichts.t < 5,
+      `Seifenblase: Wer nichts tut, zerplatzt nicht bald an der ersten Reihe: ${JSON.stringify(befund.nichts)}`);
+    pruefe(befund.dauernd.schritt === "geplatzt" && befund.dauernd.t < 6,
+      `Seifenblase: Wer dauernd unter ihr tippt, kommt zu weit: ${JSON.stringify(befund.dauernd)}`);
+    pruefe(befund.beruehrt.schritt === "geplatzt" && befund.beruehrt.art === "finger" && befund.beruehrt.t < 1.2,
+      `Seifenblase: Wer die Blase berührt, dem zerplatzt sie nicht: ${JSON.stringify(befund.beruehrt)}`);
+    pruefe(befund.bremsen.schritt === "geplatzt" && ["nebel", "tisch", "rasen"].includes(befund.bremsen.art) && befund.bremsen.t < 8,
+      `Seifenblase: Wer nur bremst, wird nicht vom Nebel eingeholt: ${JSON.stringify(befund.bremsen)}`);
+    pruefe(befund.marge[0] > befund.marge[1] && befund.marge[1] > befund.marge[2] && befund.marge[3] >= 4.5
+      && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2] && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2]
+      && befund.stoss[0] >= 70 && befund.stoss[1] < befund.stoss[0] && befund.stoss[2] < 12 && befund.stoss[3] === 0 && befund.windStart === 0,
+      `Seifenblase: Die Kurve wird nicht schwerer, oder der Luftstoss fällt nicht mit dem Abstand: ${JSON.stringify({ marge: befund.marge, tempo: befund.tempo, luft: befund.luft, stoss: befund.stoss, windStart: befund.windStart })}`);
+    // Nach dem Platzen steht die Tafel da – in Echtzeit: loslassen und nichts tun.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappSeifenblase.losGehts(); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappSeifenblase.state.schritt, phase: window.LernappSeifenblase.state.phase }));
+    pruefe(ende.schritt === "geplatzt" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|An einer (Rose|Brennnessel) zerplatzt · \d+ s|Rosendorn zerplatzt · \d+ s/.test(ende.text),
+      `Seifenblase: Nach dem Platzen steht keine Tafel mit Metern und Grund da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Welt
+    // aufgezeichnet, mit jedem Luftstoss (woher der Finger kam), und wer ihn
+    // anschaut, sieht dieselbe Welt, dieselben Stösse, dieselbe Zahl und am
+    // Schluss dasselbe Platzen – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__seifenblase")) return;
+      sessionStorage.setItem("__seifenblase", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/seifenblase`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSeifenblase?.state?.weg?.length && window.LernappSeifenblase.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Vier Sekunden nach dem
+    // Autopiloten, dann kein Tipp mehr.
+    await seite.evaluate(() => {
+      const K = window.LernappSeifenblase;
+      const st = K.state;
+      K.losGehts();
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt === "geplatzt") return;
+        requestAnimationFrame(tick);
+        if (st.t > 4) return;
+        const p = K.pilot();
+        if (p) K.tippeWelt(p.x, p.y, performance.now());
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("soapBubble_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappSeifenblase.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`soapBubble_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, stoesse: st.stoesse, art: st.geplatzt?.art || "", kurs: window.LernappSeifenblase.kursText(30) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.stoesse >= 5 && gespielt.punkte >= 1 && gespielt.art !== "",
+      `Seifenblase: Der Lauf wird nicht mit Saat und Stössen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    await seite.goto(`${BASIS}/seifenblase?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappSeifenblase?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => window.LernappSeifenblase.kursText(30));
+    pruefe(kurs === gespielt.kurs && kurs.length > 200, `Seifenblase: Beim Zuschauen entsteht eine andere Welt:\n  gespielt ${gespielt.kurs.slice(0, 400)}\n  angeschaut ${kurs.slice(0, 400)}`);
+    // Beim Zuschauen bläst niemand.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappSeifenblase.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, stoesse: st.stoesse, art: st.geplatzt?.art || "", tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "geplatzt"
+      && angeschaut.stoesse >= gespielt.stoesse - 1 && angeschaut.stoesse <= gespielt.stoesse && angeschaut.art === gespielt.art,
+      `Seifenblase: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -13034,7 +13200,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 45 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 46 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -13042,7 +13208,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /46/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /47/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -13093,7 +13259,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "beeFlight", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "marsRover", "mindsEye", "mineCart", "mirrorLake", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "beeFlight", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "marsRover", "mindsEye", "mineCart", "mirrorLake", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "soapBubble", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -14904,7 +15070,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 269, `klang.js kennt nicht alle 269 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 279, `klang.js kennt nicht alle 279 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

@@ -115,6 +115,7 @@
     { id: "beeFlight", seite: "bienenflug", page: "beeflight" },
     { id: "marsRover", seite: "marsrover", page: "marsrover" },
     { id: "mirrorLake", seite: "spiegelsee", page: "spiegelsee" },
+    { id: "soapBubble", seite: "seifenblase", page: "seifenblase" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -138,6 +139,7 @@
     speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
     ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
     beeFlight: "2026-11-26", marsRover: "2026-11-26", mirrorLake: "2026-11-26",
+    soapBubble: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -202,6 +204,8 @@
     marsRover: 1,
     // Spiegelsee: ein Tipp lässt Läuferin und Spiegelbild springen – zwei Welten zugleich lesen.
     mirrorLake: 1,
+    // Seifenblase: ein Tipp bläst die Blase vom Finger weg – der Ort des Tipps steuert.
+    soapBubble: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -262,6 +266,10 @@
     marsRover: { fassung: "t1" },
     // Die Läuferin: a der Weg, b die Höhe (in Zehnteln), c ob sie springt (das unterste Bit) und wie viele Sprünge es sind.
     mirrorLake: { fassung: "t1" },
+    // Die Blase: a der Ort quer (in Vierteln), b die Höhe (in Halben), c die Luftstösse
+    // (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am Schluss
+    // negativ, woran sie zerplatzt ist.
+    soapBubble: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

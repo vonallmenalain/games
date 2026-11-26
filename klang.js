@@ -325,6 +325,16 @@
     "spiegelsee.ast": { s: "holzblock" },
     "spiegelsee.platsch": { d: "platsch" },
     "spiegelsee.glas": { d: "drehscheibe-klirr" },
+    "seifenblase.abend": { s: "a-grillen", schleife: true },
+    "seifenblase.wind": { s: "a-wind", schleife: true },
+    "seifenblase.pusten": { s: "atem" },
+    "seifenblase.platzen": { s: "pop" },
+    "seifenblase.nachhall": { s: "perle" },
+    "seifenblase.tropfen": { s: "plitsch" },
+    "seifenblase.welt": { s: "harfe-lang" },
+    "seifenblase.ansage": { s: "pling" },
+    "seifenblase.aufwind": { s: "zisch" },
+    "seifenblase.boee": { s: "boee" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -344,6 +354,7 @@
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
     beeFlight: "bienenflug", marsRover: "marsrover", mirrorLake: "spiegelsee",
+    soapBubble: "seifenblase",
   };
 
   // ---------------------------------------------------------------------------

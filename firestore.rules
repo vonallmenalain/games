@@ -104,6 +104,7 @@ service cloud.firestore {
         "beeFlight",
         "marsRover",
         "mirrorLake",
+        "soapBubble",
       ];
     }
 
