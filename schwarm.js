@@ -3188,7 +3188,7 @@
     accentDark: "#b9741a",
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   // Fassung t2: seit dem Ballen (c trägt, ob er geballt ist). Läufe aus t1
   // werden nicht mehr abgespielt.

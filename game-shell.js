@@ -381,6 +381,9 @@
         los: liveHaken?.los || (() => { stopClock(); closeOverlay(); onRestart(); }),
         stopp: liveHaken?.stopp || null,
         zuschauen: liveHaken?.zuschauen || null,
+        // Spiele, in denen der Finger gehalten wird (Schub, Lenken): Liegt
+        // er beim «Los!» schon, gilt er ab da (live-spiel.js).
+        halten: Boolean(liveHaken?.halten),
       });
     } else {
       window.LernappLiveSpiel?.zeigeVerwaist?.(host);

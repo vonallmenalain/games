@@ -368,10 +368,14 @@ try {
       pruefe(phase === "bereit", `Runde ${nr}: Ein Tipp im Countdown hat das Spiel gestartet (${phase})`);
     }
     // Ein Finger, der schon im Countdown auf dem Bild liegt, gehört beim
-    // «Los!» dem Spiel (live-spiel.js, reicheGehaltenNach) – ein Tipp, der im
-    // Countdown schon wieder oben ist, nicht. Bei Jonas liegt einer, bei Mia
-    // war einer.
-    const fingerProbe = nr === 1 && frames.length > 2;
+    // «Los!» dem Spiel (live-spiel.js, reicheGehaltenNach) – aber nur dort,
+    // wo gehalten wird: im Lianenschwung (Runde 3, bei Lea). Im
+    // Schwerkraft-Läufer ist ein Druck eine Tat (die Schwerkraft kippt): Dort
+    // kommt weder der Finger an, der noch liegt (Jonas), noch der Tipp, der
+    // schon wieder oben ist (Mia).
+    const tippProbe = nr === 1 && frames.length > 2;
+    const halteProbe = nr === 2 && frames.length > 3;
+    const fingerProbe = tippProbe || halteProbe;
     if (fingerProbe) {
       const legen = (f, id, hoch) => f.evaluate(({ id, hoch }) => {
         const buehne = document.querySelector(".cm-stage");
@@ -383,8 +387,12 @@ try {
         ziel.dispatchEvent(new PointerEvent("pointerdown", { ...ort, buttons: 1 }));
         if (hoch) ziel.dispatchEvent(new PointerEvent("pointerup", ort));
       }, { id, hoch });
-      await legen(frames[2], 7, false);
-      await legen(frames[1], 8, true);
+      if (tippProbe) {
+        await legen(frames[2], 7, false);
+        await legen(frames[1], 8, true);
+      } else {
+        await legen(frames[3], 9, false);
+      }
     }
     // Dieselbe Saat überall.
     const saaten = await Promise.all(frames.map((f) => f.evaluate(() => window.LernappLiveSpiel.runde().saat)));
@@ -396,12 +404,17 @@ try {
       }, 20);
     }))));
     startZeiten.set(nr, losZeiten);
-    if (fingerProbe) {
+    if (tippProbe) {
       const jonasBekam = await frames[2].evaluate(() => window.__nachgereicht);
       const miaBekam = await frames[1].evaluate(() => window.__nachgereicht);
-      pruefe(JSON.stringify(jonasBekam) === "[7]", `Runde ${nr}: Der Finger, der seit dem Countdown liegt, kam beim Start nicht im Spiel an (${JSON.stringify(jonasBekam)})`);
+      pruefe(JSON.stringify(jonasBekam) === "[]", `Runde ${nr}: In einem Spiel, in dem getippt wird, hat der Finger aus dem Countdown beim Start etwas ausgelöst (${JSON.stringify(jonasBekam)})`);
       pruefe(JSON.stringify(miaBekam) === "[]", `Runde ${nr}: Ein Tipp aus dem Countdown kam beim Start noch einmal (${JSON.stringify(miaBekam)})`);
       await frames[2].evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 7, pointerType: "touch", bubbles: true })));
+    }
+    if (halteProbe) {
+      const leaBekam = await frames[3].evaluate(() => window.__nachgereicht);
+      pruefe(JSON.stringify(leaBekam) === "[9]", `Runde ${nr}: Der Finger, der seit dem Countdown liegt, kam beim Start nicht im Spiel an (${JSON.stringify(leaBekam)})`);
+      await frames[3].evaluate(() => window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 9, pointerType: "touch", bubbles: true })));
     }
     pruefe(losZeiten.every((ms) => ms >= 0 && ms < 250), `Runde ${nr}: Der Start lag nicht bei startUm (${losZeiten.join(", ")} ms)`);
     if (erwarteSpiel === "schwerkraft") {

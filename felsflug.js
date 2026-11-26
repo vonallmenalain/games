@@ -4073,7 +4073,7 @@
     accentDark: "#b9741a",
     clock: false,
     onRestart: () => (zuschauer ? zuschauenStarten() : startRun()),
-    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
+    live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
     host, spiel: "cliffFlight", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,

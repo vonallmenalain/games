@@ -212,6 +212,15 @@
    * der er gerade liegt. Beim Start bekommt das Spiel für jeden einen
    * pointerdown (keydown) an genau dieser Stelle – so, als wäre er im
    * Augenblick des «Los!» gekommen. Das Loslassen danach ist wieder echt.
+   *
+   * Nur in Spielen, in denen der Finger GEHALTEN wird – Schub, Lenken,
+   * Festhalten: Dort ist «der Finger liegt» ein Zustand, und das Spiel soll
+   * ihn kennen. Das Spiel sagt es selbst (game-shell.js, mount: live.halten).
+   * Wo ein Druck eine Tat ist – der Block fällt (Turmbau), die Schwerkraft
+   * kippt, der Steinbock wendet –, bliebe es sonst nicht beim Zustand: Ein
+   * Daumen, der im Countdown auf dem Bild ruht, liesse beim «Los!» den
+   * ersten Block fallen. Dort gilt wie eh und je: erst loslassen, dann
+   * tippen.
    */
   const gehalten = { finger: new Map(), tasten: new Map() };
 
@@ -245,6 +254,7 @@
     const tasten = [...gehalten.tasten.values()];
     gehalten.finger.clear();
     gehalten.tasten.clear();
+    if (!z.halten) return;
     for (const [id, f] of finger) {
       // Die Tafel mit «Los!» lässt Finger durch (styles.css, .lv-start
       // [data-stufe="los"]) – getroffen wird, was darunter liegt.
@@ -871,11 +881,12 @@
    *   stopp      was sie jetzt beendet
    *   zuschauen  was ab jetzt eine fremde Figur zeigt (nur Spiele mit Figur)
    */
-  function buehne({ host, vor = null, los, stopp, zuschauen = null }) {
+  function buehne({ host, vor = null, los, stopp, zuschauen = null, halten = false }) {
     if (!runde || !host || z.host) return;
     z.host = host;
     z.los = los;
     z.stopp = stopp;
+    z.halten = Boolean(halten);
     z.zuschauHaken = typeof zuschauen === "function" ? zuschauen : null;
     host.dataset.live = "warten";
     // Wer nicht mitspielt, schaut von Anfang an zu: kein eigener Lauf, keine
