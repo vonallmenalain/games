@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-12";
+export const FASSUNG = "2026-11-26-13";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -358,6 +358,12 @@ export const SPIELE = [
     titel: "Stampfwerk", buehne: { id: "sm-stage", klasse: "cm-stage sm-stage" },
     text: "Stampfwerk: Halten heisst laufen, loslassen heisst stehen – eine Maus muss unter den stampfenden Hämmern einer alten Schmiede durch. Wer zu lange wartet, den holt der Dampf ein; wen ein Hammer trifft, der hat verloren.",
     baut: "die Hammerschmiede mit den stampfenden Hämmern und der Maus",
+  },
+  {
+    seite: "bienenflug", spiel: "beeFlight", page: "beeflight", js: "bienenflug.js",
+    titel: "Bienenflug", buehne: { id: "bf-stage", klasse: "cm-stage bf-stage" },
+    text: "Bienenflug: Ein Tipp, und die Biene kehrt um – sie kreist um eine grosse Blüte, sammelt Pollen auf ihrer Bahn und weicht den Wespen aus, die quer über die Wiese fliegen. Wer erwischt wird oder wem der Nektar ausgeht, ist raus.",
+    baut: "die Sommerwiese mit der Blüte, der Biene und den Wespen",
   },
 ];
 
