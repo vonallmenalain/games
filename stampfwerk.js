@@ -92,14 +92,19 @@
   const STAND = 3;                 // so weit vor einem Hammer hält der geplante Weg
   // Die Luft: so viel früher oder später als geplant darf sie loslaufen. Das
   // Fenster für den Start ist zweimal die Luft (plus etwas Spiel): am Anfang
-  // gut 300 ms, später nur noch gut 100.
-  const LUFT0 = 0.17;
-  const LUFT1 = 0.056;
-  const LUFT_WEG = 12;             // nach so vielen Hämmern ist die Hälfte des Wegs dahin gegangen
+  // eine gute halbe Sekunde, später nur noch gut 100 ms.
+  //
+  // Die ersten EINSTIEG Hämmer sind zum Hineinfinden: Sie stampfen langsam,
+  // bleiben lange oben, stehen einzeln und weit auseinander, und der Dampf
+  // lässt sich Zeit. Danach zieht es schnell an (LUFT_WEG).
+  const EINSTIEG = 5;
+  const LUFT0 = 0.24;
+  const LUFT1 = 0.05;
+  const LUFT_WEG = 8;              // so viele Hämmer nach dem Einstieg ist die Hälfte des Wegs dahin gegangen
   const SPIEL0 = 0.1;
   const SPIEL1 = 0.03;
   // Der Dampf: wie schnell er kommt, und wie weit er höchstens zurückbleibt.
-  const DAMPF0 = 40;
+  const DAMPF0 = 34;
   const DAMPF1 = 64;
   const DAMPF_WEG = 28;
   const RAUM0 = 150;
@@ -133,8 +138,11 @@
   // Nach dem wievielten Hammer – ohne Exponent und Sinus, damit die Strecke
   // auf jedem Gerät bis auf die letzte Stelle dieselbe ist.
   const anteil = (n, weg) => n / (n + weg);
-  const luftBei = (n) => lerp(LUFT0, LUFT1, anteil(n, LUFT_WEG));
-  const spielBei = (n) => lerp(SPIEL0, SPIEL1, anteil(n, LUFT_WEG));
+  // Wie weit die Schwierigkeit gediehen ist (0 … 1): nichts während des
+  // Einstiegs, danach rasch.
+  const stufeBei = (n) => anteil(Math.max(0, n - EINSTIEG), LUFT_WEG);
+  const luftBei = (n) => lerp(LUFT0, LUFT1, stufeBei(n));
+  const spielBei = (n) => lerp(SPIEL0, SPIEL1, stufeBei(n));
   const dampfBei = (n) => lerp(DAMPF0, DAMPF1, anteil(n, DAMPF_WEG));
   const raumBei = (n) => lerp(RAUM0, RAUM1, anteil(n, DAMPF_WEG));
 
@@ -278,18 +286,18 @@
     const plan = state.plan;
     const v = plan[plan.length - 1];
     const n = state.haemmer.length;
-    const k = anteil(n, LUFT_WEG);
+    const k = stufeBei(n);
     // Immer gleich viele Zahlen ziehen, was auch geschieht: Die Strecke soll
     // an der Saat hängen, nicht an den Zweigen dieser Funktion.
     const z = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
     const e = luftBei(n);
     const spiel = z[5] * spielBei(n);
     let zahl = 1;
-    if (n >= 4 && z[0] < lerp(0.06, 0.42, k)) zahl = 2;
-    if (n >= 10 && z[0] < lerp(0, 0.2, k)) zahl = 3;
+    if (n > EINSTIEG + 1 && z[0] < lerp(0.06, 0.42, k)) zahl = 2;
+    if (n > EINSTIEG + 8 && z[0] < lerp(0, 0.2, k)) zahl = 3;
     // Der Abstand zum Hammer davor: weit – oder eng, mit einer Insel
     // dazwischen, auf der sie gerade Platz hat.
-    const eng = n >= 3 && z[1] < lerp(0.08, 0.4, k);
+    const eng = n > EINSTIEG && z[1] < lerp(0.08, 0.4, k);
     const abstand = n === 0 ? ERSTER - v.letzter
       : eng ? 2 * ZONE + lerp(24, 13, k) + z[2] * 8
         : lerp(86, 62, k) + z[2] * 36;
@@ -302,7 +310,7 @@
     // durchläuft, läuft in ihn hinein.
     const w = n === 0 ? e + spiel + 0.14 + z[4] * 0.2 : z[4] * wMax;
     const s = an + w;
-    const zu = lerp(0.6, 0.4, k) + z[6] * lerp(0.2, 0.34, k);
+    const zu = lerp(0.85, 0.4, k) + z[6] * lerp(0.2, 0.34, k);
     const offen = QUER + 2 * e + spiel;
     const T = offen + zu;
     const heben = Math.min(HEBEN, offen * 0.5);
@@ -1791,10 +1799,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "stampMill", fassung: "t1", zufall, einheit: "Hämmer", nochmal: zuschauenStarten,
+    host, spiel: "stampMill", fassung: "t2", zufall, einheit: "Hämmer", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "stampMill", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "stampMill", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
