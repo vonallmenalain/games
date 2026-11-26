@@ -312,6 +312,19 @@
     "marsrover.krach": { s: "krach" },
     "marsrover.fall": { s: "fall" },
     "marsrover.verloren": { s: "ab" },
+    "spiegelsee.morgen": { d: "voegel", schleife: true },
+    "spiegelsee.wind": { s: "a-wind", schleife: true },
+    "spiegelsee.schritte": { s: "a-schritte", schleife: true },
+    "spiegelsee.sprung": { s: "absprung" },
+    "spiegelsee.landung": { s: "whomp-weich" },
+    "spiegelsee.tauchen": { s: "plitsch" },
+    "spiegelsee.erwachen": { s: "harfe-lang" },
+    "spiegelsee.nebel": { s: "boee" },
+    "spiegelsee.steg": { s: "klack" },
+    "spiegelsee.stolpern": { s: "schnee-sturz" },
+    "spiegelsee.ast": { s: "holzblock" },
+    "spiegelsee.platsch": { d: "platsch" },
+    "spiegelsee.glas": { d: "drehscheibe-klirr" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -330,7 +343,7 @@
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
-    beeFlight: "bienenflug", marsRover: "marsrover",
+    beeFlight: "bienenflug", marsRover: "marsrover", mirrorLake: "spiegelsee",
   };
 
   // ---------------------------------------------------------------------------

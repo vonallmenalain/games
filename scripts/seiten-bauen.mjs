@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-15";
+export const FASSUNG = "2026-11-26-16";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -370,6 +370,12 @@ export const SPIELE = [
     titel: "Marsrover", buehne: { id: "mr-stage", klasse: "cm-stage mr-stage" },
     text: "Marsrover: Ein Tipp funkt «Springen» zum Mars – aber der Befehl braucht Zeit, und der Rover springt erst, wenn er ankommt. Wer über Krater und Felsen will, muss vorausdenken; unter einem Felsbogen springt besser niemand.",
     baut: "die Marsebene im Abendlicht mit dem Rover, den Kratern und den Felsbögen",
+  },
+  {
+    seite: "spiegelsee", spiel: "mirrorLake", page: "spiegelsee", js: "spiegelsee.js",
+    titel: "Spiegelsee", buehne: { id: "sg-stage", klasse: "cm-stage sg-stage" },
+    text: "Spiegelsee: Ein Tipp, und beide springen zugleich – die Läuferin am Ufer hinauf, ihr Spiegelbild im Bergsee hinab. Doch der See zeigt nicht die Wirklichkeit: Unten stehen andere Hindernisse als oben, und jeder Sprung muss für beide Welten passen.",
+    baut: "den Bergsee im Morgengrauen mit der Läuferin und ihrem Spiegelbild",
   },
 ];
 
