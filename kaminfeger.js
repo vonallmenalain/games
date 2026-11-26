@@ -86,19 +86,22 @@
   // Wie schnell er rutscht, wie schnell der Rauch steigt und wie viel Luft
   // um den geplanten Weg bleibt (LUFT, nach oben und nach unten) – alles
   // nach der Höhe. Das Fenster für einen Sprung, der warten muss, ist
-  // LUFT / Rutschen vor und nach dem besten Moment: am Start 300 ms, nach
-  // 100 Metern 110, nach 250 Metern 65.
-  const RUTSCH0 = 30;
-  const RUTSCH_MAX = 70;
+  // LUFT / Rutschen vor und nach dem besten Moment: am Start gut eine halbe
+  // Sekunde, nach 50 Metern 200 ms, nach 100 Metern 120, nach 250 Metern 65.
+  // Die ersten Meter sind zum Hineinfinden: viel Luft, er rutscht langsam,
+  // und Hindernisse hängen erst vereinzelt (EINSTIEG, naechsterBesuch).
+  const RUTSCH0 = 24;
+  const RUTSCH_MAX = 72;
   const RUTSCH_WEG = 110;          // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
   const RUTSCH_ZU = 320;           // so schnell kommt er ins Rutschen
   const RAUCH0 = 9;
   const RAUCH_MAX = 36;
   const RAUCH_WEG = 120;
   const RAUM = 92;                 // höchstens so weit bleibt der Rauch unter dem höchsten Punkt
-  const LUFT0 = 9;
+  const LUFT0 = 13;
   const LUFT_MIN = 4;
-  const LUFT_WEG = 110;
+  const LUFT_WEG = 75;
+  const EINSTIEG = 4;              // so viele Besuche lang hängt noch gar nichts
   // Wer warten muss, rutscht so viel weiter, als die Luft verzeiht.
   const WARTE_MIN = 6;
   const WARTE_MAX = 13;
@@ -224,7 +227,9 @@
    *
    * Frei bleibt an der Wand, was der Besuch braucht, und darum herum die
    * Luft e: von «unten» (t − e − Körper) bis «oben» (L + e + Körper). Wer
-   * bis zu e früher oder später abspringt als geplant, kommt durch.
+   * bis zu e früher oder später abspringt als geplant, kommt durch – auch
+   * über mehrere Besuche, an denen er sofort weiterspringt und so hoch oder
+   * tief bleibt, wie er ist (hoch, tief).
    *
    * Hindernisse hängen im Raum zwischen zwei freien Stücken derselben Wand:
    *
@@ -236,10 +241,15 @@
    *           den Absprung genau das Fenster von zweimal e.
    *   sonst   manchmal eines irgendwo dazwischen.
    *
+   * Wie oft, hängt an der Höhe: Unten in der Gasse hängt wenig – die ersten
+   * EINSTIEG Besuche gar nichts, danach muss selten gewartet werden, und
+   * eine Zange ist die Ausnahme. Weiter oben wird es dicht.
+   *
    * Dass für ein «muss» immer Platz ist, liegt an den Massen: Zwei Besuche
    * an derselben Wand liegen 2 · HUB minus dem Gerutschten auseinander, und
-   * gewartet wird höchstens e + WARTE_MAX. Sind die zwei Besuche davor schon
-   * gerutscht und wäre es zu eng, wartet dieser nicht.
+   * gewartet wird höchstens e + WARTE_MAX. Wäre es zu eng – weil die
+   * Besuche davor schon gerutscht sind oder weil gegenüber noch eines
+   * unterkommen muss –, wartet dieser Besuch nicht.
    *
    * Was wie weit in die Gasse ragt (tief), richtet sich danach, wie nah
    * darunter jemand abspringt (kopf): Unter einem Balkon springt niemand
@@ -288,21 +298,35 @@
     const drunter = n >= 2 ? plan[n - 2] : null;          // der letzte Besuch an dieser Wand
     const muss = n >= 3 && plan[n - 3].warten;            // über ihm muss etwas hängen
     let d = 0;
-    if (n >= 3 && z[0] < lerp(0.3, 0.62, k)) {
+    if (n > EINSTIEG && z[0] < lerp(0.14, 0.62, k)) {
       d = e + lerp(WARTE_MIN, WARTE_MAX, z[1]);
+      // Platz für das Hindernis, das über dem letzten Besuch an dieser Wand
+      // hängen muss …
       if (muss && L - d - e - KOERPER - drunter.oben < MUSS) d = 0;
+      // … und für das an der Wand gegenüber, wenn der Besuch davor gewartet
+      // hat: Es hängt unter der nächsten Landung dort, und die liegt um d
+      // tiefer.
+      if (d > 0 && drunter.warten && L - d + HUB - e - KOERPER - v.oben < MUSS) d = 0;
     }
-    const neu = { seite, L, d, t: L - d, e, warten: d > 0, unten: L - d - e - KOERPER, oben: L + e + KOERPER };
+    // Wie weit er hier über oder unter dem Weg sein darf. Wer zu früh oder
+    // zu spät abgesprungen ist, bleibt es an allen Besuchen, an denen er
+    // sofort weiterspringt – erst wo er warten muss, rutscht er wieder auf
+    // den Weg. Die Luft wird mit der Höhe kleiner; für ihn gilt weiter die,
+    // mit der er abweichen durfte.
+    const hoch = Math.max(e, v.warten ? v.e : v.hoch);
+    const tief = d > 0 ? e : Math.max(e, v.tief);
+    const neu = { seite, L, d, t: L - d, e, hoch, tief, warten: d > 0, unten: L - d - tief - KOERPER, oben: L + hoch + KOERPER };
     plan.push(neu);
-    if (!drunter || n < 3) return;
+    if (!drunter || n < EINSTIEG) return;
 
     const von = drunter.oben;
     const bis = neu.unten;
     const raum = bis - von;
     if (raum < MUSS) return;
-    // Wie viel Kopffreiheit ein Hindernis ab y0 dem Absprung darunter lässt.
-    const kopf = (y0) => y0 - von + drunter.e;
-    const zange = z[2] < lerp(0.3, 0.85, k);
+    // Wie viel Kopffreiheit ein Hindernis ab y0 dem Absprung darunter lässt
+    // (meist springt dort niemand von ganz oben im freien Stück ab).
+    const kopf = (y0) => y0 - von + drunter.hoch * 0.5;
+    const zange = z[2] < lerp(0.1, 0.85, k);
     if (muss && zange && raum <= 30) {
       haenge(seite, von, raum, kopf(von), z[3]);
       return;
@@ -316,10 +340,10 @@
     if (zange && frei >= 9) {
       const lang = Math.min(frei, lerp(9, 18, z[4]));
       haenge(seite, bis - lang, lang, kopf(bis - lang), z[4]);
-    } else if (!muss && !zange && raum >= 16 && z[5] < 0.6) {
+    } else if (!muss && !zange && raum >= 16 && z[5] < lerp(0.25, 0.6, k)) {
       const lang = Math.min(raum - 6, lerp(9, 18, z[4]));
       const y0 = von + 3 + (raum - 6 - lang) * z[3];
-      haenge(seite, y0, lang, kopf(y0), z[5] / 0.6);
+      haenge(seite, y0, lang, kopf(y0), z[5] / lerp(0.25, 0.6, k));
     }
   }
 
@@ -330,7 +354,7 @@
 
   function gasseNeu() {
     const e = luftBei(START_Y);
-    state.plan = [{ seite: -1, L: START_Y, d: 0, t: START_Y, e, warten: false, unten: START_Y - KOERPER, oben: START_Y + e + KOERPER }];
+    state.plan = [{ seite: -1, L: START_Y, d: 0, t: START_Y, e, hoch: e, tief: 0, warten: false, unten: START_Y - KOERPER, oben: START_Y + e + KOERPER }];
     // Unten in der Gasse brennt eine Laterne – unter der ersten Landung.
     state.hindernisse = { "-1": [], 1: [{ y0: 12, y1: 28, art: "laterne", tief: 12, saat: 0.4 }] };
     planBis(900);

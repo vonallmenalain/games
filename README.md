@@ -2219,12 +2219,24 @@ hindurchflöge (`kopf`).
 
 Schwerer wird es mit der Höhe: Er rutscht schneller (`RUTSCH0` bis
 `RUTSCH_MAX`), der Rauch steigt schneller, die Luft wird dünner, es muss
-öfter gewartet werden. Das Fenster für einen Sprung, der warten muss, ist am
-Start 300 ms vor und nach dem besten Moment, nach 100 Metern 110, nach 250
+öfter gewartet werden. Die ersten Meter sind zum Hineinfinden – wer schnell
+tippt, ist rasch oben, und die Gasse soll ihn nicht nach drei Sprüngen
+stellen: An den ersten vier Besuchen hängt noch gar nichts (`EINSTIEG`),
+danach muss erst selten gewartet werden (14 % statt später 62 %), eine Zange
+ist die Ausnahme, und um den Weg bleibt viel Luft (`LUFT0`). Das Fenster für
+einen Sprung, der warten muss, ist am Start gut eine halbe Sekunde vor und
+nach dem besten Moment, nach 50 Metern 200 ms, nach 100 Metern 120, nach 250
 Metern 65. Ausgespielt mit einem nachgebildeten Spieler, der jede Lage
-erkennt: 100 ms Streuung geben im Mittel 55 Meter (neun Sekunden), 70 ms 85,
-50 ms 125, 35 ms 200, 20 ms über 500. Wer haarscharf an einem Hindernis
+erkennt: 100 ms Streuung geben im Mittel 80 Meter (elf Sekunden), 70 ms 105,
+50 ms 145, 35 ms 210, 20 ms gut 450. Wer haarscharf an einem Hindernis
 landet (`KNAPP`), bekommt es gesagt; auf der Tafel: Sprünge, davon haarscharf.
+
+Die Luft gilt über eine ganze Folge von Sprüngen: Wer zu spät abgesprungen
+ist, bleibt so tief, solange er sofort weiterspringt – erst wo er warten
+muss, rutscht er wieder auf den Weg. Darum merkt sich jeder Besuch, wie hoch
+oder tief jemand dort sein darf (`hoch`, `tief`), und nicht nur die Luft
+seiner eigenen Höhe: Sie wird nach oben kleiner, und sonst stünde ein
+Hindernis dem im Weg, der unten noch innerhalb der Luft war.
 
 Ein Tipp gilt zu seiner Zeit (`tippen`, `voraus`), und ein Tipp kurz vor dem
 Aufsetzen gilt für den nächsten Sprung (`PUFFER`) – wer im Takt bleibt,
