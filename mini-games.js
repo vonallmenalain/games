@@ -243,7 +243,7 @@
     // Der Kaminfeger: a quer (in Zehnteln), b die Höhe, c Haltung und Wand.
     chimneySweep: { fassung: "t1" },
     // Der Dachläufer: a voraus, b die Höhe, c die Haltung.
-    roofRun: { fassung: "t1" },
+    roofRun: { fassung: "t2" },
     // Die Maus: a die Strecke (in Dritteln), b die Spielzeit (in 250steln), c ob sie läuft.
     stampMill: { fassung: "t1" },
   };

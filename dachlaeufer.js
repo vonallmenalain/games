@@ -8,7 +8,8 @@
  * Auftrieb, und von da an fällt er im Bogen.
  *
  * Zwischen den Dächern liegen Lücken, einmal schmal, einmal breit, und die
- * Dächer liegen verschieden hoch. Wer zu kurz springt, prallt an die
+ * Dächer liegen verschieden hoch. Dazwischen stehen Türme: so schmal, dass
+ * er landen und gleich wieder abspringen muss. Wer zu kurz springt, prallt an die
  * Hauswand; wer zu weit springt, fliegt über das nächste Dach hinaus; wer
  * gar nicht springt, fällt in die Lücke. Der erste Fehler beendet die Runde.
  * Gezählt werden die Meter.
@@ -77,15 +78,26 @@
   const HALT_MIN = 0.05;
   const HALT_MAX = 0.32;
   const PUFFER = 0.11;             // so kurz vor dem Aufsetzen gedrückt: Er springt gleich weiter
-  // Das Tempo nach der Strecke: von 14 Metern in der Sekunde auf bald 27.
-  const TEMPO0 = 170;
-  const TEMPO_MAX = 322;
-  const TEMPO_WEG = 240;           // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
+  // Das Tempo nach der Strecke: von 15 Metern in der Sekunde auf bald 33.
+  const TEMPO0 = 180;
+  const TEMPO_MAX = 400;
+  const TEMPO_WEG = 200;           // Meter, nach denen gut sechs Zehntel des Zuwachses da sind
   // Die Luft um den geplanten Weg, in Sekunden: so viel früher oder später
   // darf er abspringen UND so viel kürzer oder länger halten.
-  const LUFT0 = 0.085;
-  const LUFT_MIN = 0.04;
-  const LUFT_WEG = 200;
+  const LUFT0 = 0.075;
+  const LUFT_MIN = 0.027;
+  const LUFT_WEG = 160;
+  const SCHWER_WEG = 150;          // so schnell häufen sich die engen Dächer
+  // Der Turm: ein wirklich schmales Dach – landen und gleich wieder
+  // abspringen. Für den Sprung auf ihn und den von ihm weg gilt nur ein Teil
+  // der Luft (TURM_LUFT), darum wird er so schmal. Die ersten stehen nach
+  // TURM_AB Metern, weiter hinten ist bald jedes dritte Dach einer – und
+  // erst dort stehen auch zwei hintereinander (TURM_REIHE).
+  const TURM_LUFT = 0.58;
+  const TURM_AB = 90;
+  const TURM_WEG = 420;
+  const TURM_OFT = 0.4;
+  const TURM_REIHE = 380;
   const DH_AUF = 52;               // so viel höher liegt das nächste Dach höchstens
   const DH_AB = 46;                // und so viel tiefer
   const HOCH_MAX = 126;            // höher liegt kein Dach
@@ -117,7 +129,8 @@
   const meterBei = (x) => Math.max(0, x / METER);
   const tempoBei = (x) => TEMPO0 + (TEMPO_MAX - TEMPO0) * (1 - Math.exp(-meterBei(x) / TEMPO_WEG));
   const luftBei = (x) => LUFT_MIN + (LUFT0 - LUFT_MIN) * Math.exp(-meterBei(x) / LUFT_WEG);
-  const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / 200);
+  const schwereBei = (x) => 1 - Math.exp(-meterBei(x) / SCHWER_WEG);
+  const turmBei = (x) => TURM_OFT * glatt((meterBei(x) - TURM_AB) / TURM_WEG);
 
   function hash01(n) {
     const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -282,6 +295,11 @@
    * Die Höhe des nächsten Dachs richtet sich danach, wie hoch der kürzeste
    * geplante Sprung kommt (mit KOPF darüber). Liegt die Lücke sonst zu
    * schmal, wird länger gehalten.
+   *
+   * Ein Turm ist ein Dach, auf das und von dem weg nur ein Teil der Luft
+   * gilt: Früheste und späteste Landung liegen dichter beisammen, und der
+   * nächste Absprung folgt gleich – so wird er schmal. Der Weg sieht vor,
+   * was der Spieler dort tun muss: landen und sofort wieder abspringen.
    */
   function naechstesDach() {
     const d = state.daecher;
@@ -291,9 +309,12 @@
     // an der Saat hängen, nicht an den Zweigen dieser Funktion.
     const z = [zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl(), zufall.zahl()];
     const k = schwereBei(A.spaet);
-    const e = luftBei(A.spaet);
-    const eng = n >= 3 && z[0] < lerp(0.3, 0.74, k);
-    const lauf = n < 3 ? lerp(0.75, 1.05, z[1]) : eng ? z[1] * 0.06 : lerp(0.26, lerp(0.8, 0.5, k), z[1]);
+    // Wird das nächste Dach ein Turm? Dann gilt für diesen Sprung nur ein
+    // Teil der Luft – und ebenso für den Sprung von einem Turm weg.
+    const turm = n >= 5 && z[5] < turmBei(A.spaet) && (!A.turm || meterBei(A.spaet) > TURM_REIHE);
+    const e = luftBei(A.spaet) * (turm || A.turm ? TURM_LUFT : 1);
+    const eng = A.turm || (n >= 3 && z[0] < lerp(0.4, 0.86, k));
+    const lauf = n < 3 ? lerp(0.75, 1.05, z[1]) : A.turm ? 0 : eng ? z[1] * 0.06 : lerp(0.2, lerp(0.7, 0.34, k), z[1]);
     A.eng = eng;
     A.e = e;
     A.t = A.spaet + (e + lauf) * tempoBei(A.spaet) + 2;
@@ -318,7 +339,7 @@
     A.halt = halt;
     d.push({
       nr: n, x0: frueh - RAND, x1: Infinity, top: A.top + dh, frueh, spaet,
-      l: lande(A.t, A.top, halt, A.top + dh), t: 0, halt: 0, e: 0, eng: false, saat: z[4], ton: Math.floor(z[5] * 3) % 3,
+      l: lande(A.t, A.top, halt, A.top + dh), t: 0, halt: 0, e: 0, eng: false, turm, saat: z[4], ton: Math.floor(z[4] * 97) % 3,
     });
   }
 
@@ -328,7 +349,7 @@
   }
 
   function streckeNeu() {
-    state.daecher = [{ nr: 0, x0: -560, x1: Infinity, top: START_HOCH, frueh: 0, spaet: 0, l: 0, t: 0, halt: 0, e: 0, eng: false, saat: 0.37, ton: 0 }];
+    state.daecher = [{ nr: 0, x0: -560, x1: Infinity, top: START_HOCH, frueh: 0, spaet: 0, l: 0, t: 0, halt: 0, e: 0, eng: false, turm: false, saat: 0.37, ton: 0 }];
     planBis(2400);
   }
 
@@ -336,7 +357,7 @@
   // dieselbe bekommen.
   function kursText(bis = 6000) {
     planBis(bis + 400);
-    return state.daecher.filter((r) => r.x0 < bis && Number.isFinite(r.x1)).map((r) => `${r.x0.toFixed(1)}-${r.x1.toFixed(1)}@${r.top}`).join(",");
+    return state.daecher.filter((r) => r.x0 < bis && Number.isFinite(r.x1)).map((r) => `${r.x0.toFixed(1)}-${r.x1.toFixed(1)}@${r.top}${r.turm ? "T" : ""}`).join(",");
   }
 
   // ---------------------------------------------------------------------------
@@ -971,6 +992,65 @@
     }
   }
 
+  // Ein Turm: schmal, aus Stein, mit einer Uhr unter dem Kranz – man sieht
+  // von weitem, dass hier nur ein Tritt Platz ist.
+  function zeichneTurm(r, X0, X1, Y, F) {
+    const s = view.s;
+    const breit = X1 - X0;
+    const mitte = (X0 + X1) / 2;
+    const stein = [58, 50, 104];
+    g.fillStyle = rgb(stein);
+    g.fillRect(X0, Y + 4 * s, breit, view.cssH - Y);
+    // Lagen aus Quadern, nach unten wird es dunkel.
+    g.fillStyle = "rgba(10, 8, 34, 0.3)";
+    for (let q = 1; (4 + q * 15) * s < view.cssH - Y; q += 1) g.fillRect(X0, Y + (4 + q * 15) * s, breit, Math.max(1, 0.9 * s));
+    g.fillStyle = "rgba(8, 6, 28, 0.36)";
+    g.fillRect(X0, Y + 70 * s, breit, view.cssH - Y);
+    g.fillStyle = "rgba(8, 6, 28, 0.42)";
+    g.fillRect(X0, Y + 150 * s, breit, view.cssH - Y);
+    // Die Seite zur Sonne ist hell, die andere im Schatten.
+    g.fillStyle = rgba(F.kante, 0.34);
+    g.fillRect(X1 - 1.8 * s, Y + 4 * s, 1.8 * s, view.cssH - Y);
+    g.fillStyle = "rgba(6, 4, 22, 0.45)";
+    g.fillRect(X0, Y + 4 * s, 2.2 * s, view.cssH - Y);
+    // Die Uhr: ein helles Blatt, zwei Zeiger.
+    const ur = Math.min(breit * 0.3, 10 * s);
+    const uy = Y + 9 * s + ur + 4 * s;
+    g.fillStyle = "#1a1640";
+    g.beginPath();
+    g.arc(mitte, uy, ur + 1.4 * s, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#ffe9b8";
+    g.beginPath();
+    g.arc(mitte, uy, ur, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "#2a1f4a";
+    g.lineCap = "round";
+    g.lineWidth = Math.max(1, 1.1 * s);
+    const w = r.saat * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(mitte, uy);
+    g.lineTo(mitte + Math.sin(w) * ur * 0.8, uy - Math.cos(w) * ur * 0.8);
+    g.moveTo(mitte, uy);
+    g.lineTo(mitte + Math.sin(w * 12) * ur * 0.5, uy - Math.cos(w * 12) * ur * 0.5);
+    g.stroke();
+    // Darunter schmale Fenster, in einem brennt Licht.
+    for (let f = 0; f < 3; f += 1) {
+      const fy = uy + ur + (10 + f * 26) * s;
+      g.fillStyle = f === Math.floor(r.saat * 3) % 3 ? rgb(WARM[f % 3]) : "rgb(24, 20, 60)";
+      g.fillRect(mitte - 1.8 * s, fy, 3.6 * s, 9 * s);
+    }
+    // Der Kranz: eine Platte, die übersteht – und obenauf das letzte Licht.
+    g.fillStyle = "#241d55";
+    g.fillRect(X0 - 2 * s, Y, breit + 4 * s, 6 * s);
+    g.fillStyle = "rgba(8, 6, 28, 0.5)";
+    g.fillRect(X0, Y + 6 * s, breit, 1.6 * s);
+    g.fillStyle = rgb(F.kante);
+    g.fillRect(X0 - 2 * s, Y, breit + 4 * s, Math.max(1.5, 1.5 * s));
+    g.fillStyle = "rgba(255, 255, 255, 0.55)";
+    g.fillRect(X1 - 3 * s, Y, 5 * s, Math.max(1.5, 1.5 * s));
+  }
+
   function zeichneDaecher(F) {
     if (!ebenen) return;
     const s = view.s;
@@ -987,6 +1067,10 @@
       if (X0 > view.cssW + 4) break;
       const Y = bildY(r.top);
       const ton = TOENE[r.ton];
+      if (r.turm) {
+        zeichneTurm(r, X0, X1, Y, F);
+        continue;
+      }
       // Die Fassade: ganze Fensterspalten aus der Kachel, Punkt auf Punkt;
       // was rechts übrig bleibt, ist Mauer.
       const kachelBild = ebenen.fassaden[r.ton];
@@ -1697,10 +1781,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); }, halten: true },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "roofRun", fassung: "t1", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "roofRun", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "roofRun", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "roofRun", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -1738,6 +1822,6 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappDachlaeufer = {
     METER, V_AUF, G, HALT_MIN, HALT_MAX, KNAPP, LUFT0, LUFT_MIN, START_HOCH, state, view,
-    takt, druecken, loslassen, losGehts, physik, planBis, kursText, lande, haltFuer, tempoBei, luftBei,
+    takt, druecken, loslassen, losGehts, physik, planBis, kursText, lande, haltFuer, tempoBei, luftBei, turmBei, TURM_AB,
   };
 })();

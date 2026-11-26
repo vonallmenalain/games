@@ -2265,7 +2265,7 @@ nichts tut, stürzt.
 
 **Dachläufer** (`dachlaeufer.js`, `roofRun`) – Abenddämmerung über der
 Altstadt am See. Ein Bote mit rotem Schal rennt über die Dächer, von selbst
-und immer schneller (`TEMPO0` bis `TEMPO_MAX`: von 14 auf bald 27 Meter in
+und immer schneller (`TEMPO0` bis `TEMPO_MAX`: von 15 auf bald 33 Meter in
 der Sekunde). Eine Regel: **Halten springt, und länger halten springt
 weiter.** Solange der Finger liegt, steigt er gleichmässig (`V_AUF`, nie
 kürzer als `HALT_MIN`, nie länger als `HALT_MAX`); wer loslässt, beendet den
@@ -2288,12 +2288,27 @@ darf, richtet sich danach, wie hoch der kürzeste geplante Sprung kommt
 (`KOPF`).
 
 Schwerer wird es mit der Strecke: Er wird schneller, die Luft wird dünner
-(am Start 85 ms, nach 100 Metern 67, nach 300 Metern 50, nie unter 40), enge
-Dächer häufen sich. Ausgespielt mit einem nachgebildeten Spieler, der auf die
-geplante Landung zielt und dessen Absprung und Haltezeit streuen (Mitte aus
-je 40 Läufen): 100 ms Streuung geben 110 Meter (sieben Sekunden), 70 ms 225
-(zwölf Sekunden), 50 ms 320 (16 Sekunden), 35 ms 560 (26 Sekunden), 25 ms
-1150 (49 Sekunden).
+(am Start 75 ms, nach 100 Metern 53, nach 300 Metern 34, nie unter 27), enge
+Dächer häufen sich (von 40 % auf 86 %).
+
+**Türme.** Nach den ersten 90 Metern stehen zwischen den Häusern Uhrtürme:
+so schmal, dass er landen und gleich wieder abspringen muss (`turm`,
+`zeichneTurm`). Für den Sprung auf einen Turm und den von ihm weg gilt nur
+gut die Hälfte der Luft (`TURM_LUFT`) – früheste und späteste Landung liegen
+dichter beisammen, der nächste Absprung folgt sofort, und so wird das Dach
+schmal: 50 bis 100 Einheiten, eine Sechstel- bis Viertelsekunde Lauf. Weiter
+hinten ist bald jedes dritte Dach ein Turm (`TURM_OFT`), und erst nach
+`TURM_REIHE` Metern stehen auch zwei hintereinander.
+
+Seit Ende November 2026 ist das Spiel damit deutlich härter – nach der
+Rückmeldung, dass nach zwei, drei Versuchen fast 2000 Meter zu schaffen
+waren (vorher: Tempo bis 27 m/s, Luft nie unter 40 ms, keine Türme).
+Ausgespielt mit einem nachgebildeten Spieler, der auf die geplante Landung
+zielt und dessen Absprung und Haltezeit streuen (Mitte aus je 40 Läufen):
+100 ms Streuung geben 80 Meter, 50 bis 70 ms um 190, 35 ms 390 (16
+Sekunden), 25 ms 430, 15 ms 1000 (35 Sekunden; vorher stürzte dieser Spieler
+praktisch nie). Das Modell ist grob – wer hält und zuschaut, wie hoch er
+steigt, trifft besser als ein reiner Takt.
 Wer auf dem letzten Stück vor der Kante abspringt (`KNAPP`) oder gleich
 hinter der Kante aufsetzt, bekommt es gesagt («Kante!», «Knapp!»); auf der
 Tafel: Sprünge, davon perfekt. Die Zahl bleiben die Meter.
@@ -2320,12 +2335,13 @@ Gemessen mit Rastern auf dem Prozessor: gut 2 ms je Bild, hoch wie quer.
 
 Aufgezeichnet werden der Ort und die Haltung (steht, rennt, steigt, fällt):
 Gegner rennen als Boten aus Licht mit, und ein angeschauter Lauf baut mit
-seiner Saat dieselbe Strecke (Fassung `t1`). Sieben Klänge, alle aus
-vorhandenen. Prüfung 4g44: Ein Autopilot kommt nach dem Weg über vier
-Strecken bis 600 m, auch um neun Zehntel der Luft früher und kürzer oder
-später und länger; wer nichts tut, fällt in die erste Lücke; wer zu kurz
-hält, prallt an die Wand; wer zu lang hält, fliegt über das nächste Dach
-hinaus.
+seiner Saat dieselbe Strecke (Fassung `t2`, seit es die Türme gibt). Sieben
+Klänge, alle aus vorhandenen. Prüfung 4g44: Ein Autopilot kommt nach dem Weg
+über vier Strecken bis 600 m, auch um neun Zehntel der Luft früher und
+kürzer oder später und länger; wer nichts tut, fällt in die erste Lücke; wer
+zu kurz hält, prallt an die Wand; wer zu lang hält, fliegt über das nächste
+Dach hinaus. Türme stehen erst nach 90 Metern, bieten höchstens drei
+Zehntelsekunden Lauf und sind im Mittel klar schmaler als die engen Dächer.
 
 ### Stampfwerk (November 2026)
 
