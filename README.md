@@ -2122,6 +2122,54 @@ verschluckte die Sperre (siehe Multiplayer, Eine Runde).
 Reihenfolge, in der die Spiele dazukamen – unter fünfzig war keines zu
 finden. Jetzt nach Tier und Alphabet (siehe Multiplayer, Anlegen).
 
+### Gratwanderung (November 2026)
+
+**Gratwanderung** (`gratwanderung.js`, `ridgeRun`) – Ein Steinbock rennt über
+einen schmalen Grat hoch über dem Nebelmeer. Der Grat läuft im Zickzack, der
+Steinbock immer schräg; eine Regel: Ein Tipp wechselt die Richtung. Wer die
+Kehre verpasst, rennt über die Kante und stürzt. Jede Kehre gibt einen Punkt,
+eine perfekte zwei, jede weitere perfekte in Folge drei – perfekt ist, wer
+nach der Kehre mitten auf dem Grat läuft (`PERFEKT`). Wer zu früh oder zu
+spät wendet, läuft näher an einer Kante weiter und hat an der nächsten Kehre
+weniger Luft. Auf der Tafel: Kehren, davon perfekt, Meter.
+
+Schwerer wird es mit der Strecke, nicht mit der Uhr: schneller (`V0` bis
+`V_MAX`), schmaler (`HALB0` bis `HALB_MIN`), die Kehren dichter – einzeln,
+als Traverse oder als Treppe im Takt (`laengeFuer`). Das Fenster für eine
+Kehre ist am Start gut 180 ms vor und nach dem besten Moment, nach einem
+halben Kilometer 90, nach einem ganzen 70. Ausgespielt mit einem
+nachgebildeten Spieler: 130 ms Streuung geben im Mittel drei Kehren, 90 ms
+sieben, 60 ms gut zwanzig, 40 ms gut vierzig, 25 ms über hundert.
+
+Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild: `tippen` rechnet
+die Strecke bis zum Zeitstempel des Tipps nach (`voraus`), bevor gewendet
+wird. Bei einem Fenster von 60 ms wäre ein Bild mehr oder weniger sonst ein
+Viertel davon – und ein Gerät mit 120 Bildern je Sekunde im Vorteil.
+
+Das Bild: von hinten oben auf den Grat, wie er sich in die Ferne schlängelt
+– eine Bergflanke aus Flächen, auf einer Seite im Licht, auf der anderen im
+Schatten, darunter das Nebelmeer, am Horizont vier ferne Ketten. Gerechnet
+wird in drei Richtungen und mit einer Kamera projiziert (`proj`,
+`kameraStellen`); gemalt von hinten nach vorn, Scheibe um Scheibe
+(`zeichneScheibe`), dazwischen die Reihen des Nebelmeers (`zeichneReihe`).
+Weit weg ist jede Flanke nur noch eine Fläche (`GROB_AB`), und eine Reihe
+Wolken ist ein einziger Umriss statt vieler Kreise – beides, damit es auf
+dem iPhone flüssig bleibt (gemessen: gut 6 ms je Bild quer, 8 hoch, mit
+Rastern auf dem Prozessor). Unterwegs wandert der Tag (`ZEITEN`, alle
+`TAG_WEG` Meter): Morgenrot, Tag, Abendrot, Nacht mit Vollmond und
+Polarlicht – und das Licht wandert mit, von links über oben nach rechts.
+Vor dem ersten Tipp steht die Kamera tief hinter dem Steinbock neben dem
+Gipfelkreuz, der Himmel füllt fast das halbe Bild; mit dem Start steigt sie
+auf (`state.blick`). An jeder zehnten Kehre steht eine Fahne mit ihrer Zahl.
+
+Aufgezeichnet werden der Ort (quer, voraus) und die Richtung: Gegner rennen
+als Steinbock aus Licht mit, und ein angeschauter Lauf steckt mit seiner
+Saat denselben Grat (Fassung `t1`). Sechs Klänge, alle aus vorhandenen: Wind
+und Hufe als Kulisse, ein Klack je Kehre, ein Pling für die perfekte, Sturz
+und Fall. Prüfung 4g42: Ein Autopilot nimmt auf vier Graten bis 1500 m jede
+Kehre perfekt; wer nichts tut, zu spät oder mitten im Stück wendet, stürzt;
+spät im Fenster gibt einen Punkt statt zwei.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2216,7 +2264,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 47», siehe unten).
+  Links davor steht fest das **Regal** («Alle 48», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

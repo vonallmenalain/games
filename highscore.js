@@ -102,6 +102,7 @@
     { id: "mindsEye", titel: "Kopfkino", bereich: "konzentration", art: "punkte", key: "lernapp.kopfkino", einheit: "Punkte" },
     { id: "iceStock", titel: "Eisstock", bereich: "konzentration", art: "punkte", key: "lernapp.icestock", einheit: "Punkte" },
     { id: "fireRope", titel: "Feuerseil", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.feuerseil", einheit: "Punkte" },
+    { id: "ridgeRun", titel: "Gratwanderung", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.gratwanderung", einheit: "Punkte" },
     { id: "speedClimb", titel: "Kletterwand", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kletterwand", einheit: "Meter" },
 
     // Problemlösen
