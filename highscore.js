@@ -106,6 +106,7 @@
     { id: "chimneySweep", titel: "Kaminfeger", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kaminfeger", einheit: "Meter" },
     { id: "roofRun", titel: "Dachläufer", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.dachlaeufer", einheit: "Meter" },
     { id: "stampMill", titel: "Stampfwerk", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.stampfwerk", einheit: "Hämmer" },
+    { id: "beeFlight", titel: "Bienenflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.bienenflug", einheit: "Pollen" },
     { id: "speedClimb", titel: "Kletterwand", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kletterwand", einheit: "Meter" },
 
     // Problemlösen

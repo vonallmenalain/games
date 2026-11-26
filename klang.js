@@ -294,6 +294,14 @@
     "stampfwerk.perfekt": { s: "pling" },
     "stampfwerk.treffer": { s: "krach" },
     "stampfwerk.zisch": { s: "zisch" },
+    "bienenflug.wiese": { s: "a-grillen", schleife: true },
+    "bienenflug.wespe": { s: "a-summen", schleife: true },
+    "bienenflug.kehre": { s: "woosh-kurz" },
+    "bienenflug.pollen": { s: "perle" },
+    "bienenflug.serie": { s: "harfe" },
+    "bienenflug.knapp": { s: "pling" },
+    "bienenflug.stich": { s: "stich" },
+    "bienenflug.matt": { s: "ab-sanft" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -312,6 +320,7 @@
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
+    beeFlight: "bienenflug",
   };
 
   // ---------------------------------------------------------------------------

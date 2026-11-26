@@ -2415,6 +2415,105 @@ losgelassen und um neun Zehntel der Luft früher oder später; wer dauernd
 hält, läuft in den ersten Hammer; wer nichts tut, den holt der Dampf; beim
 Zuschauen steht die Maus nie unter einem Hammer, der unten ist.
 
+### Bienenflug (November 2026)
+
+**Bienenflug** (`bienenflug.js`, `beeFlight`) – Eine Sommerwiese im
+Abendlicht, von oben gesehen. In der Mitte eine grosse Blüte, um sie kreist
+eine Biene; eine Regel: Ein Tipp, und sie kehrt um. Auf ihrer Bahn erscheint
+Pollen – wer hindurchfliegt, sammelt ihn, und wer zu lange braucht, dem
+verfällt er (der Ring um das Korn läuft ab). Wespen fliegen quer über die
+Wiese und kreuzen die Bahn an zwei Stellen: Wer dort ist, wenn sie kommt, ist
+erwischt, und die Runde ist aus. Gezählt wird der Pollen.
+
+Nichtstun überlebt nicht: Die Biene fliegt mit Nektar (der Ring um das Herz
+der Blüte), ein voller Ring reicht am Start 6,5 Sekunden, später 3,6
+(`ZEHR0`, `ZEHR_MIN`), und jeder Pollen füllt ein Fünftel nach (`GEWINN`).
+Wer nach dem Start nichts tut, den erwischt die erste Wespe nach gut drei
+Sekunden; wer dauernd tippt, kommt nicht vom Fleck und hat nach gut sechs
+Sekunden keinen Nektar mehr.
+
+Jede Wespe kündigt sich an: eine gestrichelte Linie über die Wiese und an
+beiden Kreuzungen ein roter Ring mit einem zweiten, der sich schliesst – ist
+er zu, ist sie da. Am Start 1,7 Sekunden vorher, später knapp eine
+(`vorwarn`); dazu das Summen, das lauter wird. Weit draussen lauert sie und
+schiebt sich heran, die letzten Meter fliegt sie, wie sie trifft
+(`wespeWeg`).
+
+Die Runde entsteht aus dem Zufall, hängt nur an der Spielzeit seit dem Start
+und ist immer zu schaffen (`naechstesStueck`, `setzeWespen`): Zuerst der Weg
+– wann wird umgekehrt, Stück um Stück –, dann der Pollen auf diesen Weg und
+die Wespen darum herum. Um den Weg liegt ein Band (`band`): Darin bleibt, wer
+jede Kehre um bis zu `luft` Sekunden zu früh oder zu spät nimmt – gemessen
+an dem Moment, der ihn genau auf den Weg brächte. Keine Wespe kommt diesem
+Band auf ihrem ganzen Flug näher als Treffer plus Rand (`frei`); passt eine
+nicht, rückt sie weg, dreht ihre Sehne oder entfällt. Gleich hinter dem Band
+beissen sie:
+
+- **Riegel** – kreuzt kurz nach der Kehre dort, wo die Biene wäre, wäre sie
+  nicht umgekehrt. Wer um mehr als die Luft zu spät umkehrt, ist ihr im Weg.
+  An der ersten Kehre immer – sie lehrt die Regel –, danach an acht bis
+  neuneinhalb von zehn.
+- **Zange** – kreuzt kurz nach der Kehre vor dem Band: Wer viel zu früh
+  umgekehrt ist, fliegt ihr entgegen. Erst nach rund zehn Sekunden, später
+  an jeder zweiten Kehre.
+- **Streuner** – irgendwo gegenüber, ohne Absicht; mit der Zeit öfter. So
+  sind bald zwei Wespen gleichzeitig unterwegs.
+
+Der Pollen eines Stücks liegt nie näher als zweimal die Luft an einer Kehre
+(so erreicht ihn auch, wer im Band vor oder hinter dem Weg fliegt), das
+letzte Korn aber genau dort – es zieht die Biene dorthin, wo der Riegel
+wartet. Das ist der Moment des Spiels: das Korn noch holen und umkehren,
+bevor der Ring zu ist.
+
+Schwerer wird es mit der Zeit:
+
+| Spielzeit | Luft je Kehre | Biene (Runde) | Vorwarnung | Nektar reicht |
+|---|---|---|---|---|
+| 0 s | ±155 ms | 3,7 s | 1,7 s | 6,5 s |
+| 10 s | ±92 ms | 2,9 s | 1,5 s | 5,6 s |
+| 20 s | ±63 ms | 2,5 s | 1,3 s | 5,0 s |
+| 40 s | ±43 ms | 2,2 s | 1,1 s | 4,3 s |
+| 60 s und mehr | ±39 ms | 2,0 s | 1,0 s | 3,9 s |
+
+Das erste Stück ist fast eine ganze Runde lang und ohne Wespe: Zeit zum
+Hineinfinden. Nachgebildete Spieler (jede Kehre streut um den besten Moment)
+kommen mit 55 bis 70 ms Streuung im Mittel 19 bis 24 Sekunden weit (25 bis
+33 Pollen), mit 25 ms rund 50 Sekunden (knapp 90 Pollen).
+
+Rückmeldung über der Zahl: «Haarscharf!», wenn eine Wespe um weniger als
+eine Bienenlänge vorbeifliegt (`KNAPP`), und «Serie 10!», «Serie 20!» … für
+Pollen in Folge, ohne dass einer verfällt; die Spur hinter der Biene wird mit
+der Serie länger, der Ton mit jedem Korn höher. Auf der Tafel steht nur der
+Pollen – darunter, woran es lag, die Zeit, die beste Serie und wie oft es
+haarscharf war.
+
+Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild (`tippen`,
+`voraus`), und der Ort der Biene hängt nur an den Zeiten ihrer Kehren
+(`bogen`), nicht an der Länge der Rechenschritte.
+
+Das Bild: Die Wiese wird einmal gemalt (`wieseMalen`) – Gras aus ein paar
+tausend Halmen, Klee, Gänseblümchen, Hahnenfuss, Vergissmeinnicht,
+Tautropfen, die Blüte mit drei Kränzen Blütenblättern und einem Herz voller
+Staubgefässe, das goldene Abendlicht, Lichtbahnen, dunkle Halme im
+Vordergrund – und dann nur noch aufgelegt, Punkt auf Punkt. Je Bild kommen
+die Biene mit schwirrenden Flügeln und Pollenspur, die Wespen, der Pollen,
+Pusteblumen-Samen und Lichtstaub dazu; das Leuchten sind kleine vorgemalte
+Scheine (`scheineMalen`). Gemessen im Software-Raster (Median je Bild):
+iPhone hochkant 2,6 ms, quer 2,1 ms, iPad 3,7 ms. Auf dem Handy quer bleibt
+die Bahn klein – sie muss unter die Zeile mit den Bestmarken passen.
+
+Die Gegner fliegen als Bienen aus Licht mit, und die besten Läufe lassen
+sich anschauen: Aufgezeichnet werden der Winkel, die Spielzeit und die
+Richtung (`a`, `b`, `c`), und beim Zuschauen laufen Wespen und Pollen nach
+der Spielzeit der Aufzeichnung – deckungsgleich zur Biene.
+
+Prüfung 4g46: Der Autopilot nach dem Weg kommt in vier gewürfelten Runden
+auf 80 Pollen, ohne einen zu verpassen und ohne «haarscharf»; ebenso, wer
+jede Kehre um neun Zehntel der Luft zu früh, zu spät oder im Wechsel nimmt.
+Deutlich zu spät an der ersten Kehre, nichts tun und dauernd tippen enden
+bald; die Tafel erscheint; ein angeschauter Lauf zeigt dieselbe Runde und
+dieselbe Zahl.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2509,7 +2608,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 51», siehe unten).
+  Links davor steht fest das **Regal** («Alle 52», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

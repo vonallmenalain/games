@@ -112,6 +112,7 @@
     { id: "chimneySweep", seite: "kaminfeger", page: "chimney" },
     { id: "roofRun", seite: "dachlaeufer", page: "roofrun" },
     { id: "stampMill", seite: "stampfwerk", page: "stampmill" },
+    { id: "beeFlight", seite: "bienenflug", page: "beeflight" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -134,6 +135,7 @@
     timeSense: "2026-11-18",
     speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
     ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
+    beeFlight: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -192,6 +194,8 @@
     roofRun: 1,
     // Stampfwerk: halten heisst laufen, loslassen stehen – unter den Hämmern durch, wenn sie hochgehen.
     stampMill: 1,
+    // Bienenflug: ein Tipp kehrt die Biene um – Pollen holen, den Wespen ausweichen.
+    beeFlight: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -246,6 +250,8 @@
     roofRun: { fassung: "t2" },
     // Die Maus: a die Strecke (in Dritteln), b die Spielzeit (in 250steln), c ob sie läuft.
     stampMill: { fassung: "t2" },
+    // Die Biene: a der Winkel auf der Bahn (in Zweihundertsteln), b die Spielzeit (in Hundertsteln), c die Richtung.
+    beeFlight: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|bf|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -684,7 +684,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill", "beeFlight"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3351,6 +3351,7 @@ try {
     ["/kaminfeger", "Kaminfeger", () => window.LernappKaminfeger.gasseText(1200)],
     ["/dachlaeufer", "Dachläufer", () => window.LernappDachlaeufer.kursText(8000)],
     ["/stampfwerk", "Stampfwerk", () => window.LernappStampfwerk.kursText(60)],
+    ["/bienenflug", "Bienenflug", () => window.LernappBienenflug.kursText(40)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -12237,6 +12238,175 @@ try {
     await kontext.close();
   }
 
+  // --- 4g46. Bienenflug: immer zu schaffen, und wer nichts tut, fliegt nicht lange ----
+  // Ein Autopilot kehrt genau dort um, wo der Weg es vorsieht, um den die
+  // Runde gebaut ist – über mehrere gewürfelte Runden bis 80 Pollen, ohne
+  // einen zu verpassen und ohne einer Wespe nahe zu kommen. Auch wer jede
+  // Kehre um fast die ganze Luft zu früh oder zu spät nimmt (gemessen an dem
+  // Moment, der ihn auf den Weg zurückbrächte), kommt durch. Wer an der
+  // ersten Kehre deutlich zu spät umkehrt, den erwischt die Wespe dort; wer
+  // nichts tut, ebenso; wer dauernd tippt, dem geht der Nektar aus.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/bienenflug`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappBienenflug?.state?.weg?.length && window.LernappBienenflug.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappBienenflug;
+      const st = K.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); };
+      // Ein Lauf bis zu so vielen Pollen. fehler(nr, T): um wie viele
+      // Sekunden die Kehre nr (geplant zur Zeit T) neben dem Moment liegt,
+      // der die Biene genau auf den Weg brächte. fest(nr): statt dessen zu
+      // festen Zeiten tippen.
+      const lauf = (pollen, fehler, fest = null) => {
+        neu();
+        K.tippen();
+        let nr = 0;
+        let L = null;
+        let vor = 0;
+        let eng = Infinity;
+        for (let n = 0; n < 3000000 && st.phase === "spiel" && st.schritt === "flug" && st.punkte < pollen && st.t < 240; n += 1) {
+          const b = st.biene;
+          if (fest) {
+            if (st.t >= fest(nr)) { K.tippen(); nr += 1; }
+          } else {
+            const stueck = st.weg[nr];
+            const plan = K.stueckBei(st.t);
+            if (L === null) L = fehler(nr, stueck.t1);
+            if (plan === stueck) vor = b.dir * (b.a - K.planWinkel(st.t));
+            if (plan.t0 >= stueck.t0 && st.t >= stueck.t1 - vor / (2 * K.omega(stueck.t1)) + L) { K.tippen(); nr += 1; L = null; }
+          }
+          K.takt(1 / 240);
+          // Wie nah die nächste Wespe gerade ist.
+          const bx = Math.cos(b.a) * K.R;
+          const by = Math.sin(b.a) * K.R;
+          for (let i = st.wespen.length - 1; i >= 0; i -= 1) {
+            const w = st.wespen[i];
+            if (w.t2 < st.t - 1) break;
+            if (st.t < w.t1 - 0.4 || st.t > w.t2 + 0.4) continue;
+            const d = (st.t - w.t1) * w.v;
+            eng = Math.min(eng, Math.hypot(w.ex + w.ux * d - bx, w.ey + w.uy * d - by));
+          }
+        }
+        return {
+          schritt: st.schritt, warum: st.sturz?.warum || "", punkte: st.punkte, zeit: Math.round(st.t * 100) / 100, kehren: st.kehren, knappe: st.knappe,
+          verpasst: st.pollen.filter((p) => p.zustand === 2).length, eng: Math.round(eng * 100) / 100,
+        };
+      };
+
+      // 1. Genau nach dem Weg, vier Runden: kein Sturz, kein Pollen verpasst,
+      //    und nie näher an einer Wespe als der Abstand, den jede zum Band hält.
+      const genau = [];
+      const arten = {};
+      let frueheste = Infinity;
+      let knappste = Infinity;
+      let erste = 0;
+      for (let i = 0; i < 4; i += 1) {
+        genau.push(lauf(80, () => 0));
+        st.wespen.filter((w) => w.t1 < st.t).forEach((w) => {
+          arten[w.art] = (arten[w.art] || 0) + 1;
+          frueheste = Math.min(frueheste, w.t1);
+          knappste = Math.min(knappste, w.t1 - w.ab);
+        });
+        erste = Math.max(erste, st.wespen[0].t1 - st.wespen[0].ab);
+      }
+      // 2. Fast die ganze Luft später, fast die ganze früher, und im Wechsel.
+      const spaet = lauf(80, (nr, T) => 0.9 * K.luft(T));
+      const frueh = lauf(80, (nr, T) => -0.9 * K.luft(T));
+      const wechsel = lauf(80, (nr, T) => (nr % 3 === 0 ? 0.9 : nr % 3 === 1 ? -0.9 : 0.3) * K.luft(T));
+      // 3. An der ersten Kehre deutlich zu spät: Die Wespe ist da.
+      const zuSpaet = lauf(80, (nr, T) => (nr === 0 ? 1.25 * K.luft(T) + 0.03 : 0));
+      const ersteKehre = st.weg[0].t1;
+      // 4. Nach dem Start nichts mehr tun.
+      const nichts = lauf(80, null, () => Infinity);
+      // 5. Dauernd tippen.
+      const dauernd = lauf(80, null, (nr) => 0.12 * (nr + 1));
+      return {
+        genau, arten, frueheste, knappste, erste, spaet, frueh, wechsel, zuSpaet, ersteKehre, nichts, dauernd,
+        treffer: K.TREFFER, einstieg: K.EINSTIEG, luftMin: K.E_MIN,
+        fenster: [0, 20, 60].map((t) => Math.round(K.luft(t) * 1000)),
+        tempo: [0, 30, 90].map((t) => Math.round(K.omega(t) * 100) / 100),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt === "flug" && r.punkte >= 80 && r.verpasst === 0 && r.knappe === 0 && r.eng >= befund.treffer + 2),
+      `Bienenflug: Der Autopilot kommt nicht durch jede Runde, verpasst Pollen oder kommt einer Wespe zu nah – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.arten.riegel >= 40 && befund.arten.zange >= 4 && befund.arten.streuner >= 6,
+      `Bienenflug: In vier Runden kommen zu wenige Wespen (Riegel, Zange, Streuner): ${JSON.stringify(befund.arten)}`);
+    pruefe(befund.frueheste >= befund.einstieg && befund.knappste >= 0.94 && befund.erste >= 1.6,
+      `Bienenflug: Eine Wespe kommt zu früh oder kündigt sich zu knapp an: ${JSON.stringify({ frueheste: befund.frueheste, knappste: befund.knappste, erste: befund.erste })}`);
+    pruefe([befund.spaet, befund.frueh, befund.wechsel].every((r) => r.schritt === "flug" && r.punkte >= 80),
+      `Bienenflug: Wer jede Kehre um neun Zehntel der Luft früher oder später nimmt, kommt nicht durch: ${JSON.stringify({ spaet: befund.spaet, frueh: befund.frueh, wechsel: befund.wechsel })}`);
+    pruefe(befund.zuSpaet.schritt === "sturz" && befund.zuSpaet.warum === "wespe" && befund.zuSpaet.kehren <= 1 && befund.zuSpaet.zeit < befund.ersteKehre + 1,
+      `Bienenflug: Deutlich zu spät umgekehrt endet nicht bei der Wespe: ${JSON.stringify({ zuSpaet: befund.zuSpaet, ersteKehre: befund.ersteKehre })}`);
+    pruefe(befund.nichts.schritt === "sturz" && /^(wespe|kraft)$/.test(befund.nichts.warum) && befund.nichts.kehren === 0 && befund.nichts.zeit < 9 && befund.nichts.punkte <= 8,
+      `Bienenflug: Wer nach dem Start nichts tut, fliegt zu lange weiter: ${JSON.stringify(befund.nichts)}`);
+    pruefe(befund.dauernd.schritt === "sturz" && /^(wespe|kraft)$/.test(befund.dauernd.warum) && befund.dauernd.zeit < 16 && befund.dauernd.punkte <= 8,
+      `Bienenflug: Wer dauernd tippt, fliegt zu lange weiter: ${JSON.stringify(befund.dauernd)}`);
+    pruefe(befund.fenster[0] >= 140 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 36 && befund.luftMin >= 0.035
+      && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2],
+      `Bienenflug: Die Luft wird nicht von gut 140 ms an enger (und nie unter 36 ms), oder die Biene wird nicht schneller: ${befund.fenster.join(", ")} ms, ${befund.tempo.join(", ")} rad/s`);
+    // Nach dem Ende steht die Tafel da – in Echtzeit: starten und nichts tun.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappBienenflug.tippen(performance.now()); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappBienenflug.state.schritt, phase: window.LernappBienenflug.state.phase }));
+    pruefe(ende.schritt === "sturz" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|(Von einer Wespe erwischt|Der Nektar ging aus) · \d+ s · beste Serie \d+ · \d+ haarscharf/.test(ende.text),
+      `Bienenflug: Nach dem Ende steht keine Tafel mit Pollen, Zeit und Serie da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Runde
+    // aufgezeichnet, und wer ihn anschaut, sieht dieselben Wespen und
+    // denselben Pollen, dieselbe Zahl und am Schluss das Ende – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__bienenflug")) return;
+      sessionStorage.setItem("__bienenflug", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/bienenflug`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappBienenflug?.state?.weg?.length && window.LernappBienenflug.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Vier Kehren nach dem Weg,
+    // dann keine mehr.
+    await seite.evaluate(() => {
+      const K = window.LernappBienenflug;
+      const st = K.state;
+      K.tippen(performance.now());
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt !== "flug") return;
+        requestAnimationFrame(tick);
+        if (st.kehren >= 4) return;
+        if (K.stueckBei(st.t).dir !== st.biene.dir) K.tippen(performance.now());
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("beeFlight_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappBienenflug.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`beeFlight_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, kehren: st.kehren, warum: st.sturz?.warum || "", kurs: window.LernappBienenflug.kursText(30) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.kehren === 4 && gespielt.punkte >= 5 && gespielt.warum === "wespe",
+      `Bienenflug: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    await seite.goto(`${BASIS}/bienenflug?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappBienenflug?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => window.LernappBienenflug.kursText(30));
+    pruefe(kurs === gespielt.kurs && kurs.length > 200, `Bienenflug: Beim Zuschauen entsteht eine andere Runde:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
+    // Beim Zuschauen kehrt niemand um.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappBienenflug.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, kehren: st.kehren, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz" && angeschaut.kehren === 0,
+      `Bienenflug: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -12459,7 +12629,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 42 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 43 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -12467,7 +12637,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /43/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /44/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -12518,7 +12688,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "beeFlight", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "mindsEye", "mineCart", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -14329,7 +14499,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 238, `klang.js kennt nicht alle 238 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 246, `klang.js kennt nicht alle 246 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
