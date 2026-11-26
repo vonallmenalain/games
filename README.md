@@ -2762,6 +2762,185 @@ zerbricht), enden bald; ein Tipp in der Luft verfällt. Die Tafel erscheint;
 ein angeschauter Lauf zeigt dieselbe Strecke, dieselbe Zahl und denselben
 Sturz.
 
+### Seifenblase (November 2026)
+
+**Seifenblase** (`seifenblase.js`, `soapBubble`) – ein Sommerabend im
+Garten. Aus dem Ring über der Schale auf dem Gartentisch steigt eine
+Seifenblase auf, langsam und von selbst. Man berührt sie nie: **Ein Tipp
+irgendwo aufs Bild bläst einen kurzen Luftstoss von der Stelle des Fingers
+weg**, und die Blase treibt vom Finger fort – umso stärker, je näher man
+tippt. Unter ihr getippt steigt sie schneller, links von ihr treibt sie nach
+rechts, über ihr bremst sie. Man schiebt, indem man daneben tippt; das ist
+ungewohnt und wird mit Übung sehr genau. Wer sie selbst trifft (näher als
+6 cm an ihre Mitte), dem zerplatzt sie unter dem Finger. Gezählt wird die
+Höhe in Metern.
+
+Die Steuerung in Zahlen (`stossBei`): Die Blase ist 14 cm gross. Ein Stoss
+gibt dicht neben ihr 80 cm/s, 22 cm weiter halb so viel, 40 cm von ihrer
+Mitte gut 30, 70 cm noch etwa 8, ab 95 cm nichts mehr. Der Luftwiderstand
+(`TAU_X`, `TAU_Y`) lässt einen Stoss in 0,65 s auf gut ein Drittel abklingen;
+ein Stoss von J cm/s trägt sie so um 0,65 × J cm weit – dicht daneben gut
+einen halben Meter, aus 40 cm gut 20 cm. Stösse zählen zusammen: Wer schnell
+hintereinander tippt, schaukelt sie auf. Quer gleicht sie sich dem
+Seitenwind an, hoch ihrem Auftrieb, der mit der Zeit wächst. Nach jedem
+Stoss wabert sie (in seiner Richtung gestaucht, dann schwingend). Mit der
+Tastatur: ← und → schieben, ↑ und Leertaste blasen hinauf, ↓ bremst – je ein
+Stoss aus mittlerem Abstand.
+
+Zerplatzen lässt sie alles Spitze, Harte und Nasse – und genau dort, wo es
+gemalt ist: Jedes Hindernis besteht aus Kreisen, Stäben und Vielecken
+(`prims`), und dieselben werden gerechnet (`trifft`, `formTrifft`) und
+gemalt (`maleTeil`). Die Welt wechselt mit der Höhe (`WELT_AB`): **der
+Garten** im Abendlicht (bis 7 m: Rosentriebe mit Dornen, gefiederten
+Blättern und Blüten oder Knospen, Brennnesseln mit gesägten Blättern, ein
+Gartenschlauch, dessen Messingdüse tropft), **die Baumkrone** (bis 17 m:
+Buchenäste mit Laub, Tannenzweige – gerechnet als Band so breit, wie die
+Nadeln lang sind –, Spinnennetze zwischen zwei Zweigen, mit Tau und Spinne,
+Blätter, von denen Tau fällt, Wespen), **über den Dächern** (bis 38 m:
+Balkone mit Geländer und Geranienkasten, Vordächer aus Ziegeln mit Streben,
+Rinne und oft einem rauchenden Kamin, Rinnen, die tropfen,
+Fernsehantennen, Schwalben) und **der Abendhimmel** (Wolkenbänke,
+Wolkenfetzen, die quer treiben, Mauersegler). Die Ränder des Feldes sind
+überall tödlich und gemalt: eine Hecke, die Stämme von Buche und Tanne,
+Hauswände mit Eckquadern, Gewittertürme mit Regenschleier. Beim Start
+liegen darunter Tisch und Rasen.
+
+Was sich bewegt, bewegt sich auf festen Bahnen nach der Spielzeit
+(`bewegerOrt`): Wespen fliegen eine Acht über der Lücke, Schwalben und
+Mauersegler ziehen Schleifen, Wolkenfetzen treiben quer, Tropfen schwellen
+eine halbe Sekunde an der Düse, am Blatt, an der Rinne – sichtbar – und
+fallen dann, immer im selben Takt. Der Seitenwind (`windBei`) beginnt erst
+ab 3,5 m und wird mit der Höhe stärker (bis gut 25 cm/s, zwei wandernde
+Wellen); er hängt nur an Höhe, Zeit und Saat, und Löwenzahnsamen, Blätter
+und Pollen zeigen ihn. Von unten steigt der Abendnebel dem Zeitplan nach
+(`nebelY`, anfangs 1,5 m, bald gut 70 cm darunter): Wer zu lange bremst, den
+holt er ein. So kann niemand ewig warten.
+
+Die Welt entsteht aus dem Zufall und hängt nur an der Saat, die Runde nur an
+Spielzeit, Saat und den Tipps (Zeit und Ort in der Welt). Sie ist immer zu
+schaffen: Zuerst entsteht der Weg – eine Gasse, die Reihe um Reihe
+hinaufführt (`naechsterAbschnitt`, `wegX`), durch jede Reihe gerade, so weit
+deren Teile nahe der Lücke reichen, dazwischen in einem weichen Bogen, nie
+schneller, als eine Blase quer kommt –, mit einem Zeitplan, wann eine
+getragene Blase auf ihr wo ist (`zeitplanBis`, im selben Takt gerechnet wie
+die Blase). Dann die Teile: von links und rechts bis an die Lücke, die so
+breit ist wie die Blase und die Marge auf jeder Seite; was zu weit ragt (eine
+Blüte, ein Blatt), wird mitsamt dem Teil zurückgeschoben (`teilFertig`).
+Was sich bewegt, bekommt seine Phase so, dass es weg ist, wenn die Blase des
+Zeitplans kommt, auch wer `luft` zu früh oder zu spät ist (`phasenSuchen`).
+Jeder Abschnitt wird nachgeprüft (`sicher`): alle 1,5 cm die ganze Breite
+der Marge, bei allem, was sich bewegt, auch zu früh und zu spät; hält er
+nicht, ein zweiter Versuch mit mehr Abstand, zuletzt ein weites Tor. Die
+Lagen: ein Tor, zwei versetzt, drei im Zickzack (Treppe), zwei Reihen, deren
+obere Düse, Blatt oder Rinne mitten durch die untere Lücke tropft (erst nach
+dem Tropfen hindurch), und eine Reihe, über der etwas die Gasse kreuzt.
+
+Jeder achte Abschnitt ist besonders, im festen Wechsel und einen Abschnitt
+vorher angesagt: der 8., 24., 40. ein **Aufwind** – eine Säule warmer,
+flimmernder Luft mit Lichtsäumen, Hitzelinien und steigenden Funken, die die
+Blase dreimal so schnell trägt, durch zwei enge Lücken genau übereinander;
+wer neben ihr steigt, den holt der Nebel ein. Der 16., 32., 48. eine
+**Böe** – ein starker Seitenwind (gut 35 bis 48 cm/s) über drei Reihen,
+deren Lücken ihm entgegen wandern; Windstreifen und Blätter jagen quer, und
+man muss von der Windseite dagegen tippen.
+
+| Spielzeit | Höhe (ohne Aufwind) | Auftrieb | Marge je Seite | Lücke | Luft | Nebel darunter |
+|---|---|---|---|---|---|---|
+| 0–5 s | 0–2 m | 38–46 cm/s | 22 cm | 59 cm | ±0,36 s | 1,5–1,2 m |
+| 10 s | 4,5 m | 52 cm/s | 17 cm | 50 cm | ±0,30 s | 1,0 m |
+| 20 s | 10 m | 65 cm/s | 11 cm | 38 cm | ±0,23 s | 83 cm |
+| 30 s | 17 m | 75 cm/s | 8 cm | 32 cm | ±0,19 s | 76 cm |
+| 45 s | 30 m | 87 cm/s | 6 cm | 27 cm | ±0,15 s | 73 cm |
+| 60 s | 43 m | 96 cm/s | 5 cm | 25 cm | ±0,14 s | 72 cm |
+| 90 s | 74 m | 108 cm/s | 4,6 cm | 24 cm | ±0,12 s | 72 cm |
+
+Die ersten Sekunden sind zum Hineinfinden: Der Seitenwind schweigt, die
+Reihen stehen fast zwei Meter auseinander, die Lücken sind breit; die erste
+Reihe kommt nach gut 2,5 s und steht so, dass wer nichts tut, an ihr
+zerplatzt. Danach wird es zügig enger und schneller (`schwere`, `margeBei`,
+`vAuf`). Nachgebildete Spieler (der Autopilot mit 0,15 s Reaktionszeit,
+höchstens alle 0,22 s ein Tipp, die Tipp-Orte normalverteilt gestreut, je 16
+Läufe): ohne Streuung im Median 48 s, ±5 cm (gut 15 Bildpunkte hochkant)
+45 s, ±10 cm 26 s, ±17 cm (gut 50 Bildpunkte) 11 s – viele davon, weil der
+Finger die Blase trifft. Was die Nachbildung nicht kennt – eine Lücke falsch
+gelesen, eine Böe zu spät bemerkt –, macht es schwerer.
+
+Über der Blase sieht man auf jedem Gerät gleich weit voraus (`SICHT_OBEN`
+1,35 m); hochkant gibt die Breite des Feldes den Massstab vor, quer die
+Höhe (kleinere Blase, dafür die Landschaft breit daneben, etwas abgedunkelt,
+dort spielt nichts). Ein Tipp gilt zu seiner Zeit und an dem Ort, den er
+im letzten Bild hatte (`tippen`, `voraus`). Auf der Tafel: die Meter,
+darunter, woran sie zerplatzt ist, und die Zeit.
+
+Das Bild: ein tiefer Abendhimmel in einem einzigen hohen Bild, das mit einem
+Achtzehntel des Tempos hinabgleitet – unten die Sonne über den Alpen mit
+Strahlen und goldenen und rosa Wolkenbänken, darüber Flieder und Violett,
+ganz oben Nacht, Sterne und die Mondsichel. Davor das Dorf im Tal mit
+Kirchturm und Wetterhahn, dann die Kulisse jeder Welt (sie geht beim
+Wechsel ineinander über, und ihr Name erscheint). Im Garten Apfelbäume, ihr
+Stamm gleich hinter dem Feldrand, Äste, die die Kronen tragen, Äpfel und
+eine Lichterkette von Stamm zu Stamm; das Laub (`krone`, `laubForm`) sind
+Büschel mit einem Umriss aus Blattspitzen, innen dunkel, zur Sonne hin hell
+mit einer Lichtkante und einzelnen Blättern – nah im leichten Dunst, fern
+im Abenddunst. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
+tragen, und schräge, weiche Lichtstrahlen. Über den Dächern eine Gasse der
+Altstadt: die Hauswände am Feldrand mit Verputz, je Stockwerk einem Sims,
+Fenstern mit Läden und Bank (Licht in einzelnen), Fallrohr und dezenten
+Ecksteinen; dahinter laufen die Wände der Gasse nach hinten (die Fenster
+schmaler, blasser), und in der Mitte steht über einem Dächermeer aus drei
+Reihen Ziegeldächern mit Gauben und rauchenden Kaminen frei der Kirchturm
+mit Schallfenstern, Uhr, Kupferhelm und Wetterhahn (`maleDachlandschaft`,
+gleitet sehr langsam hinab). Balkone, Vordächer und Antennen hängen
+sichtbar an den Wänden. Im Abendhimmel sind die Wolken je eine Form aus
+ihren Ballen, unten golden, oben flieder, mit weichen hellen Wölbungen und
+einem Lichtsaum nur auf dem äusseren Rand. Glühwürmchen im Garten. Die Blase
+ist ein vorgerechneter Seifenfilm in den Farben dünner Schichten (für jede
+Filmdicke die Farbe, die das Licht dort zeigt, oben dünner, dazu Wirbel),
+der sich in ihr dreht und wandert, durch eine Maske, die zum Rand hin mehr
+spiegelt; darüber ein dünner dunkler und ein heller Saum, ein warmer
+Abendschein unten, das gespiegelte Fensterkreuz, Glanzpunkt und Gegenschein.
+Ein Luftstoss zeigt sich als Ring am Finger und Linien, die zur Blase
+ziehen. Beim Platzen reisst die Haut auf und weitet sich, ein Ring aus
+bunten Tröpfchen und Filmfetzen fliegt, ein Blitz, ein Ring, und ein leiser
+zweiter als Nachhall. Beim ersten Start wächst die Blase erst aus dem Ring
+über der Schale und löst sich.
+
+Himmel, Ferne, die vier Kulissen und Ränder (Kacheln, die sich nach oben
+wiederholen), der Boden beim Start und der Nebel sind vorgemalt und werden
+Punkt auf Punkt aufgelegt (`ebenenNeu`); jedes Hindernis wird beim ersten
+Erscheinen in ein eigenes Bild gemalt (`teilBild`). Je Bild kommen dazu: die
+Blase (der Film in einem kleinen Bild durch die Maske), was sich bewegt,
+Funken, Pollen und Samen (vorgemalt), Stösse und Tröpfchen. Gemessen im
+Software-Raster (Median je Bild, dieselbe Welt): iPhone hochkant 2,3–3,2 ms,
+iPad 5,3 ms im Garten, gut 5,5 in der Baumkrone, 5,7 über den Dächern und
+5,1 im Abendhimmel. Damit es so bleibt, wird nichts gelegt, was ohnehin
+verdeckt ist: Über den Dächern kommt der Himmel nur in die Mitte und nur bis
+zur Dachlandschaft, die Wände der Gasse nur zwischen Feldrand und Mitte;
+hinter den Stämmen und Hauswänden am Rand liegt nichts, unter der Ferne
+kein Himmel, und der Abendhimmel braucht keine eigene Kulisse. Der
+Kaminrauch ist eine vorgemalte Fahne.
+
+Die Gegner steigen als Blasen aus Licht mit, und die besten Läufe lassen
+sich anschauen: Aufgezeichnet werden der Ort quer (in Vierteln), die Höhe
+(in Halben) und in `c` die Luftstösse – wie viele (mal 1024), aus welcher
+Richtung der letzte kam (32 Stufen) und wie weit der Finger weg war (in 3 cm)
+–, am Schluss negativ, woran sie zerplatzt ist (Fassung `t1`). Beim
+Zuschauen erscheint jeder Stoss mit Ring und Linien von dort, wo der Finger
+war, und die Blase wabert wie im Spiel. Zehn Klänge, alle aus vorhandenen:
+Grillen im Garten und Wind als Kulisse, das Pusten, das Platzen mit
+glitzerndem Nachhall, Tropfen, der Weltwechsel (eine Harfe), die Ansage, der
+Aufwind (ein Zischen) und die Böe.
+
+Prüfung 4g49: Der Autopilot kommt über vier gewürfelte Welten bis 100 s, ohne
+dass die Planung ausweichen muss; alle Lagen und alle Hindernisse kommen vor;
+jeder achte Abschnitt ist im Wechsel Aufwind oder Böe und wird angesagt. Mit
+wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er im Median über 40 s, mit
+stark gestreuten (±17 cm) nicht über 26 s. Nichts tun, dauernd unter ihr
+tippen, sie berühren und nur bremsen enden bald; die Kurve wird enger,
+schneller und kürzer, und der Stoss fällt mit dem Abstand. Die Tafel
+erscheint; ein angeschauter Lauf zeigt dieselbe Welt, dieselben Stösse,
+dieselbe Zahl und dasselbe Platzen.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2856,7 +3035,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 54», siehe unten).
+  Links davor steht fest das **Regal** («Alle 55», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

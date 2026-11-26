@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-16";
+export const FASSUNG = "2026-11-26-17";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -376,6 +376,12 @@ export const SPIELE = [
     titel: "Spiegelsee", buehne: { id: "sg-stage", klasse: "cm-stage sg-stage" },
     text: "Spiegelsee: Ein Tipp, und beide springen zugleich – die Läuferin am Ufer hinauf, ihr Spiegelbild im Bergsee hinab. Doch der See zeigt nicht die Wirklichkeit: Unten stehen andere Hindernisse als oben, und jeder Sprung muss für beide Welten passen.",
     baut: "den Bergsee im Morgengrauen mit der Läuferin und ihrem Spiegelbild",
+  },
+  {
+    seite: "seifenblase", spiel: "soapBubble", page: "seifenblase", js: "seifenblase.js",
+    titel: "Seifenblase", buehne: { id: "sb-stage", klasse: "cm-stage sb-stage" },
+    text: "Seifenblase: Ein Tipp bläst die Blase vom Finger weg – je näher, desto stärker. Durch Rosen, Baumkronen und über die Dächer in den Abendhimmel, und alles Spitze, Harte und Nasse lässt sie zerplatzen.",
+    baut: "den Garten im Abendlicht mit der Seifenblase",
   },
 ];
 
