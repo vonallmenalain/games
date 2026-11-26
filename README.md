@@ -2136,10 +2136,29 @@ weniger Luft. Auf der Tafel: Kehren, davon perfekt, Meter.
 Schwerer wird es mit der Strecke, nicht mit der Uhr: schneller (`V0` bis
 `V_MAX`), schmaler (`HALB0` bis `HALB_MIN`), die Kehren dichter – einzeln,
 als Traverse oder als Treppe im Takt (`laengeFuer`). Das Fenster für eine
-Kehre ist am Start gut 180 ms vor und nach dem besten Moment, nach einem
-halben Kilometer 90, nach einem ganzen 70. Ausgespielt mit einem
-nachgebildeten Spieler: 130 ms Streuung geben im Mittel drei Kehren, 90 ms
-sieben, 60 ms gut zwanzig, 40 ms gut vierzig, 25 ms über hundert.
+Kehre ist am Start 170 ms vor und nach dem besten Moment, nach 200 Metern
+105, nach 400 Metern 80, nach einem Kilometer knapp 60. Seit Ende November
+2026 zieht die Rampe schneller an (vorher: 180 ms am Start, 90 nach einem
+halben Kilometer). Ausgespielt mit einem nachgebildeten Spieler: 130 ms
+Streuung geben im Mittel zwei Kehren, 90 ms fünf, 60 ms vierzehn, 40 ms gut
+fünfundzwanzig, 25 ms gut sechzig.
+
+**Der Felsturm.** Jedes achte Stück (das 8., 16., 24. …, `FELS_JE`) ist
+breiter, und an seinem linken oder rechten Rand steht ein Felsturm – über
+die Mitte hinaus (`felsFuer`). Vorbei kommt nur, wer schon die Kehre davor
+früh oder spät nimmt und so in der Gasse daneben läuft; dort ist dann auch
+«perfekt» (`ziel`), und dort verläuft die alte Fährte. Am Anfang ist das
+Stück gut doppelt so breit wie ein gewöhnliches und die Gasse so breit wie
+ein ganzes gewöhnliches Stück, später schrumpfen beide (`FELS_BREIT0/1`,
+`FELS_GASSE0/1`: am ersten Fels ±100 ms, nach einem Kilometer ±40). Der
+Abstand ist fest, damit es fair bleibt; gewürfelt ist nur die Seite. Das
+Stück ist lang, der Fels steht in seiner Mitte, und davor und danach liegt
+ein ruhiges Stück – keine Treppe führt in den Fels. Breit ist es von seiner
+Kehre bis zur nächsten, beide eingeschlossen; das Stück davor weitet sich
+auf seinem letzten Teil, das danach verengt sich auf seinem ersten. Begehbar
+ist seither genau, was gemalt ist (`randBei`: von Station zu Station
+gerade). Wer in den Fels rennt, prallt zurück und bleibt im Schnee liegen
+(`prall`).
 
 Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild: `tippen` rechnet
 die Strecke bis zum Zeitstempel des Tipps nach (`voraus`), bevor gewendet
@@ -2164,11 +2183,15 @@ auf (`state.blick`). An jeder zehnten Kehre steht eine Fahne mit ihrer Zahl.
 
 Aufgezeichnet werden der Ort (quer, voraus) und die Richtung: Gegner rennen
 als Steinbock aus Licht mit, und ein angeschauter Lauf steckt mit seiner
-Saat denselben Grat (Fassung `t1`). Sechs Klänge, alle aus vorhandenen: Wind
+Saat denselben Grat (Fassung `t2` – seit es die Felstürme gibt; ältere
+Läufe gehören zu einem anderen Grat und werden nicht mehr gezeigt). Sechs Klänge, alle aus vorhandenen: Wind
 und Hufe als Kulisse, ein Klack je Kehre, ein Pling für die perfekte, Sturz
 und Fall. Prüfung 4g42: Ein Autopilot nimmt auf vier Graten bis 1500 m jede
 Kehre perfekt; wer nichts tut, zu spät oder mitten im Stück wendet, stürzt;
-spät im Fenster gibt einen Punkt statt zwei.
+spät im Fenster gibt einen Punkt statt zwei. Die Felstürme stehen genau auf
+jedem achten Stück und auf beiden Seiten; wer dort in die Mitte einbiegt,
+prallt hinein, wer am Rand der Gasse läuft, kommt vorbei – und ein Lauf, der
+am Fels endet, endet auch beim Zuschauen dort.
 
 ### Kaminfeger (November 2026)
 
