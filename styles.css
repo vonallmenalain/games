@@ -1045,7 +1045,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz, .dl-platz, .sm-platz, .bf-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz, .dl-platz, .sm-platz, .bf-platz, .mr-platz {
   position: absolute;
   inset: 0;
 }
@@ -1065,7 +1065,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .kw-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld, .dl-feld, .sm-feld, .bf-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld, .dl-feld, .sm-feld, .bf-feld, .mr-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1080,7 +1080,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1927,6 +1927,64 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .kf-tipp-ring { animation: none; opacity: 0.35; }
+}
+
+/* --- Marsrover: die Marsebene am Abend ------------------------------------
+   In der Farbe des Bereichs Geschwindigkeit. Die ganze Spielfläche ist die
+   Leinwand (marsrover.js); getippt wird überall. Der Grund ist der Himmel
+   eines Marsabends, bis das erste Bild steht. Beim ersten Start gleitet die
+   Kamera erst vom Sternenhimmel hinunter (data-intro) – bis dahin steht
+   kein Hinweis im Bild. */
+.mr-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mr-stage:not([data-phase="intro"]) .mr-prompt,
+.mr-stage[data-intro="an"] .mr-prompt { opacity: 0; }
+.mr-prompt { transition: opacity 0.4s ease; }
+
+.mr-feld { width: 100%; background: linear-gradient(#1a1220, #6a4048 45%, #d6a072 70%, #8a4a30); }
+
+.mr-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Der Hinweis vor dem ersten Tipp: zwei Ringe, die aufgehen – unten auf
+   der Ebene, vor dem Rover (marsrover.js setzt den Ort). */
+.mr-tipp {
+  position: absolute;
+  top: 85%;
+  left: 50%;
+  width: clamp(38px, 11%, 58px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(40, 14, 10, 0.6));
+}
+.mr-stage[data-phase="intro"]:not([data-intro="an"]) .mr-tipp { opacity: 0.95; }
+.mr-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.mr-tipp-ring { transform-origin: 32px 32px; animation: tb-tipp 1.8s ease-out infinite; }
+.mr-tipp-ring.is-spaet { animation-delay: 0.9s; }
+
+.mr-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a623);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-tipp-ring { animation: none; opacity: 0.35; }
 }
 
 /* --- Bienenflug: die Sommerwiese im Abendlicht ------------------------------
@@ -4969,7 +5027,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt, .sm-prompt, .bf-prompt, .mr-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

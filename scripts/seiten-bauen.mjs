@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-14";
+export const FASSUNG = "2026-11-26-15";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -364,6 +364,12 @@ export const SPIELE = [
     titel: "Bienenflug", buehne: { id: "bf-stage", klasse: "cm-stage bf-stage" },
     text: "Bienenflug: Ein Tipp, und die Biene kehrt um – sie kreist um eine grosse Blüte, sammelt Pollen auf ihrer Bahn und weicht den Wespen aus, die quer über die Wiese fliegen. Wer erwischt wird oder wem der Nektar ausgeht, ist raus.",
     baut: "die Sommerwiese mit der Blüte, der Biene und den Wespen",
+  },
+  {
+    seite: "marsrover", spiel: "marsRover", page: "marsrover", js: "marsrover.js",
+    titel: "Marsrover", buehne: { id: "mr-stage", klasse: "cm-stage mr-stage" },
+    text: "Marsrover: Ein Tipp funkt «Springen» zum Mars – aber der Befehl braucht Zeit, und der Rover springt erst, wenn er ankommt. Wer über Krater und Felsen will, muss vorausdenken; unter einem Felsbogen springt besser niemand.",
+    baut: "die Marsebene im Abendlicht mit dem Rover, den Kratern und den Felsbögen",
   },
 ];
 
