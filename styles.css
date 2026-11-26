@@ -9449,10 +9449,8 @@ body[data-page="viererreihe"] { overscroll-behavior: none; }
   font-size: 1.05rem;
 }
 .vr-karte-live.ist-wartet { border-color: rgba(254, 121, 113, 0.45); }
-/* Im Turnier ist immer nur ein Spiel offen: Wartet schon jemand, steht statt
-   «Neues Spiel eröffnen» ein Satz (zwei.js, menueZeigen). */
-.vr-eroeffnen[hidden], .vr-besetzt[hidden] { display: none; }
-.vr-besetzt { text-align: center; }
+/* Beim eigenen Warten im Turnier: wer sonst noch wartet (zwei.js, lobbyRufe). */
+.vr-lobby-rufe { width: 100%; }
 /* «Zurück zum Spiel»: wer eben aus einer Partie gegangen ist, 30 Sekunden
    lang – in Gold, mit einem Balken, der abläuft (zwei.js, rufKnopf;
    turnier.js, rufeZeichnen). */

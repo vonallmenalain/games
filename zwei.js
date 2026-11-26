@@ -41,9 +41,9 @@
  *                       zu sehen ist oder seine Verbindung abreisst
  *                       (onDisconnect). seit frischt er alle 15 Sekunden
  *                       auf; was älter ist als 45 Sekunden, gilt nicht mehr.
- *                       Im Turnier ist immer nur ein Spiel offen
- *                       (mini-games.js, zweiOffen): Wer eröffnen will,
- *                       während jemand wartet, spielt bei ihm mit.
+ *                       Jede Person hat höchstens ein Spiel offen: Wer
+ *                       eröffnet, räumt seine älteren Meldungen weg
+ *                       (mini-games.js, zweiOffen).
  *
  * Gerechnet wird nichts in der Datenbank. Ein Zug ist eine Transaktion, die
  * an zuege etwas anhängt – nur wenn das Spiel ihn auf dem Stand erlaubt, den
@@ -713,11 +713,7 @@
       }
       mitName();
     });
-    // Im Turnier ist immer nur ein Spiel offen: Wartet schon jemand, steht
-    // statt «Neues Spiel eröffnen» nur, dass man oben mitspielt.
-    const besetzt = TURNIER ? absatz("vr-hinweis vr-besetzt", "Es ist schon ein Spiel offen – tippe oben darauf und spiel mit.") : null;
     platz.append(offen);
-    if (besetzt) { besetzt.hidden = true; platz.append(besetzt); }
     live.append(platz);
     // Im Turnier braucht es den Code kaum – er steht eingeklappt darunter.
     if (TURNIER) {
@@ -752,28 +748,19 @@
     document.title = `${titel()} · arcade`;
 
     if (TURNIER) {
-      // Oben steht höchstens einer: wer gerade wartet – bei diesem oder
-      // einem anderen Spiel des Turniers –, sonst das Spiel, aus dem man eben
-      // gegangen ist (30 Sekunden lang).
+      // Oben: wer gerade wartet – je Person ein Spiel, bei diesem oder einem
+      // anderen Spiel des Turniers –, und das Spiel, aus dem man eben
+      // gegangen ist (30 Sekunden lang, solange das Gegenüber nicht schon in
+      // einem neuen wartet).
       let uhr = 0;
       let liste = [];
       const zeigeOben = () => {
         window.clearTimeout(uhr);
         wartende.innerHTML = "";
-        const meine = mini()?.kennung?.() || "";
-        const eine = liste.find((d) => d.kennung !== meine) || null;
-        const zurueck = eine ? null : mini()?.zweiZurueck?.(TURNIER) || null;
-        live.classList.toggle("ist-wartet", Boolean(eine || zurueck));
-        offen.hidden = Boolean(eine);
-        if (besetzt) besetzt.hidden = !eine;
-        if (eine) {
-          const anderes = eine.spiel !== S.spiel.id ? mini()?.ZWEI_SPIELER?.find((z) => z.id === eine.spiel) : null;
-          wartende.append(rufKnopf({
-            raum: eine.raum, spiel: eine.spiel,
-            gross: `Mit ${eine.name} spielen`,
-            klein: anderes ? `${eine.name} wartet bei ${anderes.titel}` : `${eine.name} wartet auf dich`,
-          }));
-        } else if (zurueck) {
+        const zurueck = mini()?.zweiZurueck?.(TURNIER, { offen: liste }) || null;
+        live.classList.toggle("ist-wartet", Boolean(liste.length || zurueck));
+        liste.forEach((d) => wartende.append(wartetKnopf(d, "wartet")));
+        if (zurueck) {
           wartende.append(rufKnopf({ ...zurueck, zurueck: true }));
           uhr = window.setTimeout(zeigeOben, Math.max(200, zurueck.bis - Date.now() + 50));
         }
@@ -817,11 +804,22 @@
     return k;
   }
 
-  // Wer im Turnier gerade wartet, bei allen Spielen zu zweit, ich selbst
-  // eingeschlossen – nur, was noch frisch ist, und der Raum, der gilt,
-  // zuerst (mini-games.js, zweiOffen). Weil eine Meldung auch ohne neue
-  // Daten veraltet, wird alle fünf Sekunden neu gezählt. Gibt zurück, wie man
-  // wieder aufhört zuzuhören.
+  // «Mit Lena spielen» für jemanden, der wartet – mit dem Spiel, wenn es ein
+  // anderes ist. wie: «wartet» (im Menü), «auch» (beim eigenen Warten),
+  // «neu» (am Brett, wenn das Gegenüber gegangen ist).
+  function wartetKnopf(d, wie) {
+    const anderes = d.spiel !== S.spiel.id ? mini()?.ZWEI_SPIELER?.find((z) => z.id === d.spiel) : null;
+    const klein = wie === "neu" ? `${d.name} hat ein neues Spiel eröffnet${anderes ? `: ${anderes.titel}` : ""}`
+      : wie === "auch" ? `${d.name} wartet auch${anderes ? ` – bei ${anderes.titel}` : ""}`
+        : anderes ? `${d.name} wartet bei ${anderes.titel}` : `${d.name} wartet auf dich`;
+    return rufKnopf({ raum: d.raum, spiel: d.spiel, gross: `Mit ${d.name} spielen`, klein });
+  }
+
+  // Wer im Turnier gerade wartet, bei allen Spielen zu zweit, ohne mich –
+  // nur, was noch frisch ist, und von jeder Person eines (mini-games.js,
+  // zweiOffen). Weil eine Meldung auch ohne neue Daten veraltet, wird alle
+  // fünf Sekunden neu gezählt. Gibt zurück, wie man wieder aufhört
+  // zuzuhören.
   function offeneHoeren(beiListe) {
     const db = datenbank();
     if (!db || !TURNIER) return null;
@@ -831,7 +829,7 @@
     const melde = () => {
       const liste = (mini()?.zweiOffen?.(Object.entries(roh || {}).map(([raum, o]) => ({
         raum, name: String(o?.name || ""), kennung: String(o?.kennung || ""), spiel: String(o?.spiel || ""), seit: Number(o?.seit) || 0,
-      })), { jetzt: jetzt() })) || [];
+      })), { jetzt: jetzt(), ich: mini()?.kennung?.() || "" })) || [];
       const schluessel = JSON.stringify(liste.map((d) => [d.raum, d.kennung, d.name, d.spiel]));
       if (schluessel === vorher) return;
       vorher = schluessel;
@@ -1070,23 +1068,16 @@
     const warten = el("section", "vr-karte vr-lobby");
     warten.append(el("p", "vr-hinweis", "Das Duell wird eröffnet …"));
     ansicht("lobby", warten);
-    // Im Turnier ist immer nur ein Spiel offen. Wartet schon jemand (das Menü
-    // hat es vielleicht noch nicht gehört), spielt man bei ihm mit. Sonst
-    // räumt, wer eröffnet, seine eigenen alten Meldungen weg und was nicht
-    // mehr gilt – und das Spiel, aus dem er eben gegangen ist, ist vorbei.
+    // Im Turnier hat jede Person höchstens ein Spiel offen: Wer eröffnet,
+    // räumt seine älteren Meldungen weg – und was ohnehin nicht mehr gilt.
+    // Das Spiel, aus dem er eben gegangen ist, ist damit vorbei.
     let alteMeldungen = [];
     if (TURNIER) {
       const roh = await offenLesen();
       const liste = Object.entries(roh).map(([raum, o]) => ({
         raum, name: String(o?.name || ""), kennung: String(o?.kennung || ""), spiel: String(o?.spiel || ""), seit: Number(o?.seit) || 0,
       }));
-      const frisch = mini()?.zweiOffen?.(liste, { jetzt: jetzt() }) || [];
-      const eine = frisch.find((d) => d.kennung !== wer.kennung);
-      if (eine) {
-        if (eine.spiel !== S.spiel.id && zuSpiel(eine.spiel, eine.raum)) return;
-        geh({ raum: eine.raum }, { ersetzen: true });
-        return;
-      }
+      const frisch = mini()?.zweiOffen?.(liste, { jetzt: jetzt(), ich: wer.kennung }) || [];
       alteMeldungen = liste.filter((d) => d.kennung === wer.kennung || !frisch.some((f) => f.raum === d.raum)).map((d) => d.raum);
       mini()?.zweiZurueckMerken?.(null);
     }
@@ -1202,7 +1193,8 @@
   function zurueckMerken() {
     const d = S.daten;
     if (!TURNIER || !S.raum || !S.sitz || !d?.a || !d?.b) return;
-    mini()?.zweiZurueckMerken?.({ turnier: TURNIER, spiel: S.spiel.id, raum: S.raum, gegner: String(d[anderer(S.sitz)]?.name || "") });
+    const gegen = d[anderer(S.sitz)] || {};
+    mini()?.zweiZurueckMerken?.({ turnier: TURNIER, spiel: S.spiel.id, raum: S.raum, gegner: String(gegen.name || ""), gegnerKennung: String(gegen.kennung || "") });
   }
 
   function duellVerlassen() {
@@ -1480,8 +1472,8 @@
 
   /*
    * Im Turnier, am Brett: Ist das Gegenüber gegangen und hat jemand ein
-   * neues Spiel eröffnet (oft genau das Gegenüber), steht über dem Brett der
-   * Weg dorthin – «Mit Mia spielen». Solange beide da sind, nichts.
+   * neues Spiel eröffnet – zuerst das Gegenüber selbst –, steht über dem
+   * Brett der Weg dorthin: «Mit Mia spielen». Solange beide da sind, nichts.
    */
   function duellRufZeigen() {
     const platz = duellAnsicht?.rufPlatz;
@@ -1489,39 +1481,27 @@
     const d = S.daten || {};
     const gegner = S.sitz ? d[anderer(S.sitz)] : null;
     const allein = Boolean(S.sitz && (!gegner || gegner.online === false));
-    const meine = mini()?.kennung?.() || "";
-    const eine = TURNIER && allein ? (S.rufe || []).find((x) => x.kennung !== meine && x.raum !== S.raum) : null;
+    const andere = TURNIER && allein ? (S.rufe || []).filter((x) => x.raum !== S.raum) : [];
+    const eine = andere.find((x) => gegner && x.kennung === gegner.kennung) || andere[0] || null;
     const jetzt = platz.dataset.raum || "";
     if ((eine?.raum || "") === jetzt) return;
     platz.innerHTML = "";
     platz.dataset.raum = eine?.raum || "";
     if (!eine) return;
-    const anderes = eine.spiel !== S.spiel.id ? mini()?.ZWEI_SPIELER?.find((z) => z.id === eine.spiel) : null;
-    platz.append(rufKnopf({
-      raum: eine.raum, spiel: eine.spiel,
-      gross: `Mit ${eine.name} spielen`,
-      klein: anderes ? `${eine.name} hat ein neues Spiel eröffnet: ${anderes.titel}` : `${eine.name} hat ein neues Spiel eröffnet`,
-    }));
+    platz.append(wartetKnopf(eine, "neu"));
     ton("da");
   }
 
   /*
-   * Im Turnier, beim Warten: Haben zwei im selben Augenblick eröffnet,
-   * wartet jetzt bei beiden jemand. Es gilt der Raum, der im Alphabet vorne
-   * steht (mini-games.js, zweiOffen) – wer den anderen hat, nimmt seine
-   * Meldung zurück und setzt sich dort ans Brett. Das entscheiden beide
-   * Geräte gleich, erst wenn beide Meldungen da sind.
+   * Im Turnier, beim Warten: Wartet sonst noch jemand – haben etwa zwei im
+   * selben Augenblick eröffnet –, steht es über dem eigenen Warten: «Mit Mia
+   * spielen, Mia wartet auch». Ein Tipp, und man sitzt dort am Brett; das
+   * eigene Spiel ist damit zu.
    */
-  function lobbyPruefen(liste) {
-    if (S.ansicht !== "lobby" || S.sitz !== "a" || S.daten?.b || !S.raum) return;
-    const meine = mini()?.kennung?.() || "";
-    if (!liste.some((x) => x.raum === S.raum && x.kennung === meine)) return;
-    const erste = liste.find((x) => x.kennung !== meine || x.raum === S.raum);
-    if (!erste || erste.raum === S.raum) return;
-    offenWeg();
-    duellVergessen(S.raum);
-    if (erste.spiel !== S.spiel.id && zuSpiel(erste.spiel, erste.raum)) return;
-    geh({ raum: erste.raum }, { ersetzen: true });
+  function lobbyRufe(platz, liste) {
+    if (S.ansicht !== "lobby" || !platz.isConnected) return;
+    platz.innerHTML = "";
+    liste.filter((x) => x.raum !== S.raum).forEach((x) => platz.append(wartetKnopf(x, "auch")));
   }
 
   function lobbyZeigen(d) {
@@ -1570,7 +1550,12 @@
     ansicht("lobby", box);
     S.wirt.dataset.code = String(d.code || "");
     document.title = `Warte … · ${titel()}`;
-    if (TURNIER) S.menueAus = offeneHoeren(lobbyPruefen);
+    if (TURNIER) {
+      const rufe = el("div", "vr-wartende vr-lobby-rufe");
+      rufe.setAttribute("aria-live", "polite");
+      box.prepend(rufe);
+      S.menueAus = offeneHoeren((liste) => lobbyRufe(rufe, liste));
+    }
   }
 
   // Ein Zug im Duell: als Transaktion, gegen den Stand, den die Datenbank

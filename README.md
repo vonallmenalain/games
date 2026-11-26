@@ -4315,38 +4315,37 @@ So findet auch ein Kind, das noch nicht liest, das Spiel der grossen
 Schwester. Die Turnierseite fragt alle fünf Sekunden nach, ohne SDK
 (`cloud.js`, `offeneDuelle`); das Menü hört der Liste zu.
 
-**Immer nur ein Spiel offen** (seit November 2026). Vorher standen auf der
+**Ein Spiel je Person** (seit November 2026). Vorher standen auf der
 Turnierseite bis zu drei Rufe «Mit Lena spielen» untereinander – meist
-alte: Ein Kind eröffnet, geht zurück ins Turnier, eröffnet wieder, und die
-Datenbank merkt erst nach einer Weile, dass die erste Seite nicht mehr
-lebt. Jetzt:
+alte von derselben Person: Ein Kind eröffnet, geht zurück ins Turnier,
+eröffnet wieder, und die Datenbank merkt erst nach einer Weile, dass die
+erste Seite nicht mehr lebt. Jetzt:
 
-- Oben auf der Turnierseite, im Menü und auf den Kacheln steht höchstens
-  ein Spiel, das offen ist – auch im Menü eines anderen Spiels («Lena
-  wartet bei Schach»). Solange es da ist, gibt es kein «Neues Spiel
-  eröffnen», nur «Es ist schon ein Spiel offen – tippe oben darauf». Wer
-  trotzdem eröffnet (das Menü hatte es noch nicht gehört), landet in Lenas
-  Spiel. Wer eröffnet, räumt seine eigenen alten Meldungen weg.
+- Jede Person hat höchstens ein Spiel offen, und von jeder steht nur eines
+  da – oben auf der Turnierseite, im Menü (auch im Menü eines anderen
+  Spiels: «Lena wartet bei Schach») und auf den Kacheln. Wer eröffnet,
+  räumt seine älteren Meldungen weg; liegen von jemandem doch zwei da,
+  zählt die zuletzt aufgefrischte (`mini-games.js`, `zweiOffen`).
 - Wer wartet, frischt seine Meldung alle 15 Sekunden auf (`seit`); was 45
-  Sekunden lang nicht aufgefrischt wurde, gilt nicht mehr
-  (`mini-games.js`, `zweiOffen`). Ist das Bild nicht zu sehen (Tablet zu,
-  andere App) oder geht die Seite, nimmt das Gerät die Meldung selbst weg –
-  nicht erst, wenn die Datenbank merkt, dass die Verbindung weg ist
-  (`onDisconnect` bleibt als Rückhalt). Wieder zu sehen, meldet es sich neu.
-- Eröffnen zwei im selben Augenblick, gilt der Raum, der im Alphabet vorne
-  steht: Das sieht jedes Gerät gleich, und wer den anderen hat, nimmt seine
-  Meldung zurück und setzt sich dort ans Brett (`zwei.js`, `lobbyPruefen`).
-  Angezeigt wird immer dieser vordere.
+  Sekunden lang nicht aufgefrischt wurde, gilt nicht mehr. Ist das Bild
+  nicht zu sehen (Tablet zu, andere App) oder geht die Seite, nimmt das
+  Gerät die Meldung selbst weg – nicht erst, wenn die Datenbank merkt, dass
+  die Verbindung weg ist (`onDisconnect` bleibt als Rückhalt). Wieder zu
+  sehen, meldet es sich neu.
+- Wer wartet und sieht, dass jemand anderes auch wartet (etwa weil beide im
+  selben Augenblick eröffnet haben), hat es über dem eigenen Warten: «Mit
+  Mia spielen – Mia wartet auch» (`zwei.js`, `lobbyRufe`). Ein Tipp, und
+  das eigene Spiel ist zu.
 
 **Weg und zurück.** Wer im Turnier eine laufende Partie verlässt – über
 «Menü», den Weg zurück ins Turnier oder indem die Seite zugeht –, kann 30
 Sekunden lang zurück: Oben auf der Turnierseite und im Menü steht in Gold
 «Zurück zum Spiel mit Lena», mit einem Balken, der die 30 Sekunden abläuft
 (`mini-games.js`, `zweiZurueck`; nur auf diesem Gerät, `zwei.zurueck`).
-Danach verschwindet es – oder früher, sobald jemand ein neues Spiel eröffnet:
-Dann steht dieses da, und wer noch im alten Spiel sitzt und allein ist,
-sieht es über dem Brett («Mia hat ein neues Spiel eröffnet»,
-`duellRufZeigen`). Die Liste «Weiterspielen» (drei Tage) gibt es nur noch
+Danach verschwindet es – oder früher, sobald man selbst ein neues Spiel
+eröffnet oder das Gegenüber in einem neuen wartet: Dann steht dieses da, und
+wer noch im alten Spiel sitzt und allein ist, sieht es über dem Brett («Mia
+hat ein neues Spiel eröffnet», `duellRufZeigen`). Die Liste «Weiterspielen» (drei Tage) gibt es nur noch
 ausserhalb eines Turniers.
 
 Ohne Namen fragt die Seite vor dem ersten Duell danach; das andere Gerät soll

@@ -509,41 +509,47 @@ try {
   await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
   pruefe(await bis(async () => (await lenaT.seite.locator("a.tn-vr-ruf").getAttribute("href")) === `/viererreihe?turnier=${TURNIER_ID}&raum=${raumN}`, { ms: 12000 }), "Bei Lena steht oben Mias neues Spiel");
   pruefe(await lenaT.seite.locator("a.tn-vr-ruf").count() === 1 && await lenaT.seite.locator("a.tn-vr-ruf.ist-zurueck").count() === 0, "… und nur das, kein «Zurück»");
-  // Im Menü: Es ist schon eines offen – eröffnen lässt sich keines.
+  // Im Menü: Mias Spiel, kein «Zurück» mehr – eröffnen könnte Lena selbst auch.
   await lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
   pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf:not(.ist-zurueck)").count().then((n) => n === 1)), "Lenas Menü zeigt Mias Spiel");
-  pruefe(await bis(async () => !(await lenaT.seite.locator(".vr-eroeffnen").isVisible())), "… und «Neues Spiel eröffnen» nicht");
-  pruefe(await lenaT.seite.locator(".vr-besetzt").isVisible(), "… sondern, dass schon eines offen ist");
-  await bild(lenaT.seite, "15-menue-besetzt");
+  pruefe(await lenaT.seite.locator(".vr-wartet-knopf").count() === 1, "… und nur das");
+  pruefe(await lenaT.seite.locator(".vr-eroeffnen").isVisible(), "… und «Neues Spiel eröffnen» – jede darf ihr eigenes haben");
+  await bild(lenaT.seite, "15-menue-mia-wartet");
   await lenaT.seite.locator(".vr-wartet-knopf").click();
   pruefe(await bis(() => satz(lenaT.seite).then((t) => /Mia ist dran/.test(t))), "Ein Tipp, und Lena sitzt in Mias neuem Spiel");
   pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "Im Turnier wartet wieder niemand");
 
-  // --- 12. Zwei eröffnen im selben Augenblick: Am Ende sitzen beide im selben Spiel ------
+  // --- 12. Zwei eröffnen im selben Augenblick: Jede sieht beim Warten die andere ------
   await Promise.all([mia2.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`), lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`)]);
   pruefe(await bis(async () => (await mia2.seite.locator(".vr-eroeffnen").isVisible()) && (await lenaT.seite.locator(".vr-eroeffnen").isVisible())), "Beide im Menü");
   await Promise.all([mia2.seite.locator(".vr-eroeffnen").click(), lenaT.seite.locator(".vr-eroeffnen").click()]);
   const raumVon = (g) => new URL(g.seite.url()).searchParams.get("raum") || "";
-  pruefe(await bis(() => raumVon(mia2) && raumVon(mia2) === raumVon(lenaT), { ms: 15000 }), `Beide sitzen im selben Spiel (${raumVon(mia2)} / ${raumVon(lenaT)})`);
-  pruefe(await bis(() => Promise.all([satz(mia2.seite), satz(lenaT.seite)]).then(([x, y]) => /dran|beginnst/.test(x) && /dran|beginnst/.test(y))), "… und spielen");
-  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "… und im Turnier wartet niemand mehr");
+  pruefe(await bis(() => lenaT.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").count().then((n) => n === 1)), "Lena wartet – und sieht «Mia wartet auch»");
+  pruefe(await bis(() => mia2.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").count().then((n) => n === 1)), "… und Mia sieht Lena");
+  await bild(lenaT.seite, "16-lobby-mia-auch");
+  const raumMia = raumVon(mia2);
+  await lenaT.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").click();
+  pruefe(await bis(() => raumVon(lenaT) === raumMia), "Ein Tipp, und Lena sitzt in Mias Spiel");
+  pruefe(await bis(() => Promise.all([satz(mia2.seite), satz(lenaT.seite)]).then(([x, y]) => /dran|beginnst/.test(x) && /dran|beginnst/.test(y))), "… und beide spielen");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "… und im Turnier wartet niemand mehr – auch Lenas eigenes Spiel ist zu");
 
   // --- 13. Liegen trotzdem mehrere Meldungen da: oben steht genau eine, Veraltetes gar nicht ---
   const meldung = (name, kennung, alter) => ({ name, kennung, spiel: "viererreihe", seit: Date.now() - alter });
   await db(`partieOffen/${TURNIER_ID}`, { method: "PUT", body: JSON.stringify({
-    CCCCCCCCC2: meldung("Paul", "mini_paul00000001", 0),
+    CCCCCCCCC2: meldung("Paul", "mini_paul00000001", 5000),
     BBBBBBBBB2: meldung("Paul", "mini_paul00000001", 0),
     AAAAAAAAA2: meldung("Zoe", "mini_zoe000000001", 60000),
   }) });
   const ida = await geraet("Ida", { viewport: { width: 820, height: 1100 } });
   await ida.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
-  pruefe(await bis(() => ida.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), "Drei Meldungen, oben steht genau ein Ruf");
-  pruefe(/raum=BBBBBBBBB2/.test(await ida.seite.locator("a.tn-vr-ruf").getAttribute("href")), "… der vordere frische, nicht der veraltete");
+  pruefe(await bis(() => ida.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), "Drei Meldungen, zwei von Paul, eine veraltet: oben steht genau ein Ruf");
+  pruefe(/raum=BBBBBBBBB2/.test(await ida.seite.locator("a.tn-vr-ruf").getAttribute("href")), "… Pauls zuletzt aufgefrischte, nicht die veraltete von Zoe");
+  await db(`partieOffen/${TURNIER_ID}/AAAAAAAAA2`, { method: "PUT", body: JSON.stringify(meldung("Zoe", "mini_zoe000000001", 0)) });
+  pruefe(await bis(() => ida.seite.locator("a.tn-vr-ruf").count().then((n) => n === 2), { ms: 12000 }), "Wartet auch Zoe, stehen zwei da – eines je Person");
   await ida.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
-  pruefe(await bis(() => ida.seite.locator(".vr-wartet-knopf").count().then((n) => n === 1)), "Im Menü steht auch nur einer");
+  pruefe(await bis(() => ida.seite.locator(".vr-wartet-knopf").count().then((n) => n === 2)), "Im Menü ebenso");
   await db(`partieOffen/${TURNIER_ID}`, { method: "PUT", body: JSON.stringify({ BBBBBBBBB2: meldung("Paul", "mini_paul00000001", 60000) }) });
   pruefe(await bis(() => ida.seite.locator(".vr-wartet-knopf").count().then((n) => n === 0), { ms: 12000 }), "Eine Meldung, die nicht mehr aufgefrischt wird, verschwindet");
-  pruefe(await ida.seite.locator(".vr-eroeffnen").isVisible(), "… und eröffnen geht wieder");
   await db(`partieOffen/${TURNIER_ID}`, { method: "DELETE" });
 
   // Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne.

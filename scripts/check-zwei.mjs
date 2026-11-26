@@ -1665,15 +1665,15 @@ try {
     pruefe(new RegExp(`wartet bei ${T}`).test(await miaT.seite.locator("a.tn-vr-ruf").textContent()), `${T}: … und bei welchem Spiel`);
     pruefe((await miaT.seite.locator("a.tn-vr-ruf").getAttribute("href")) === `/${z.seite}?turnier=${TURNIER_ID}&raum=${raumT}`, `${T}: … und führt in Lenas Raum`);
     await bild(miaT.seite, fotos("7-turnier-ruf"));
-    // Im Turnier ist immer nur ein Spiel offen: Auch im Menü eines anderen
-    // Spiels steht Lenas Spiel – und eröffnen lässt sich dort keines.
+    // Im Menü eines anderen Spiels steht Lenas Spiel auch – und eröffnen
+    // lässt sich trotzdem (jede Person darf ein Spiel offen haben).
     const anderes = ZWEI.find((x) => x.seite !== z.seite);
     if (anderes) {
       await miaT.seite.goto(`${BASIS}/${anderes.seite}?turnier=${TURNIER_ID}`);
       pruefe(await bis(() => miaT.seite.locator(".vr-eroeffnen").count().then((n) => n === 1)), `${T}: Mia im Menü von ${anderes.titel}`);
       pruefe(await bis(() => miaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 1)), `${T}: Im Menü von ${anderes.titel} steht Lenas Spiel`);
       pruefe(new RegExp(`wartet bei ${T}`).test(await miaT.seite.locator(".vr-wartet-knopf").textContent()), `${T}: … mit dem Spiel, bei dem sie wartet`);
-      pruefe(!(await miaT.seite.locator(".vr-eroeffnen").isVisible()), `${T}: … und eröffnen lässt sich dort keines`);
+      pruefe(await miaT.seite.locator(".vr-eroeffnen").isVisible(), `${T}: … und eröffnen lässt sich trotzdem`);
     }
     await miaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
     pruefe(await bis(() => miaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), `${T}: Der Ruf steht wieder da`);
