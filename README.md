@@ -2374,14 +2374,20 @@ Platz hat. Gewartet wird auf dem Weg nie so lange, dass er nicht `VORSPRUNG`
 (1,2) mal so schnell bliebe wie der Dampf.
 
 Schwerer wird es mit der Strecke: Das Fenster für den Start aus dem Stand ist
-am Anfang 340 bis 440 ms breit, nach 10 Hämmern 235 bis 305, nach 40 Hämmern
-165 bis 210, am Ende gut 110; die Hämmer schlagen rascher und ungleicher, sie
-stehen enger, öfter zu zweit und zu dritt, der Dampf wird schneller (40 bis
-64 Einheiten je Sekunde; sie läuft 120). Ausgespielt mit einem nachgebildeten
+am Anfang 480 bis 580 ms breit, nach 10 Hämmern 335 bis 405, nach 20 Hämmern
+230 bis 285, nach 40 Hämmern 170 bis 215, am Ende gut 100; die Hämmer
+schlagen rascher und ungleicher, sie stehen enger, öfter zu zweit und zu
+dritt, der Dampf wird schneller (34 bis 64 Einheiten je Sekunde; sie läuft
+120). Die ersten fünf Hämmer sind zum Hineinfinden (`EINSTIEG`, `stufeBei`):
+Sie stampfen langsam, bleiben lange oben und stehen einzeln und weit
+auseinander; erst danach zieht es an, dann aber rasch (`LUFT_WEG`). So ist
+es seit Ende November 2026 – nach der Rückmeldung, dass nach zwanzig
+Versuchen bei 14 Hämmern Schluss war (vorher: 340 bis 440 ms am Anfang,
+schon nach vier Hämmern Doppelhämmer). Ausgespielt mit einem nachgebildeten
 Spieler, der durchläuft, wo der Takt es erlaubt, und sonst hält und das
-nächste Fenster nimmt: 100 ms Streuung geben im Mittel 4 Hämmer (sechs
-Sekunden), 70 ms 11 (14 s), 60 ms 13 (15 s), 50 ms 30 (33 s), 35 ms 40
-(42 s), 25 ms 68 (eine Minute). «Perfekt» ist, wer in den ersten 75 ms
+nächste Fenster nimmt: 100 ms Streuung geben im Mittel 13 Hämmer (16 s;
+vorher 4), 70 ms 21 (23 s; vorher 11), 50 ms 33 (33 s), 35 ms 40 (43 s),
+25 ms 51 (50 s; vorher 68). «Perfekt» ist, wer in den ersten 75 ms
 hineinläuft, in denen der Hammer offen ist (`PERFEKT`); «haarscharf», wer in
 den letzten 60 ms hinaus ist (`KNAPP`). Auf der Tafel: woran es lag, wie oft
 perfekt, wie oft haarscharf.
@@ -2403,7 +2409,7 @@ auf dem Prozessor: gut 2,5 ms je Bild hoch, gut 3 quer.
 Aufgezeichnet werden der Ort der Maus und die Spielzeit: Gegner laufen als
 Mäuse aus Licht mit, und ein angeschauter Lauf baut mit seiner Saat dieselbe
 Strecke und lässt die Hämmer zur aufgezeichneten Zeit stampfen (Fassung
-`t1`). Acht Klänge, alle aus vorhandenen. Prüfung 4g45: Ein Autopilot kommt
+`t2`, seit dem sanfteren Einstieg). Acht Klänge, alle aus vorhandenen. Prüfung 4g45: Ein Autopilot kommt
 nach dem Weg durch vier Strecken bis 80 Hämmer, auch etwas zu spät
 losgelassen und um neun Zehntel der Luft früher oder später; wer dauernd
 hält, läuft in den ersten Hammer; wer nichts tut, den holt der Dampf; beim

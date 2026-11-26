@@ -245,7 +245,7 @@
     // Der Dachläufer: a voraus, b die Höhe, c die Haltung.
     roofRun: { fassung: "t2" },
     // Die Maus: a die Strecke (in Dritteln), b die Spielzeit (in 250steln), c ob sie läuft.
-    stampMill: { fassung: "t1" },
+    stampMill: { fassung: "t2" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

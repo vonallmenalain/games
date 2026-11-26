@@ -12146,8 +12146,8 @@ try {
     pruefe(befund.nie.schritt === "aus" && befund.nie.warum === "dampf" && befund.nie.punkte === 0 && befund.nie.uhr > 2 && befund.nie.uhr < 4,
       `Stampfwerk: Wer nichts tut, den holt der Dampf nicht nach zwei bis vier Sekunden ein: ${JSON.stringify(befund.nie)}`);
     pruefe(befund.schief === 0, `Stampfwerk: Bild und Regel gehen auseinander – ${befund.schief} Mal ist ein Hammer offen, obwohl sein Kopf tiefer hängt als die Maus (oder umgekehrt).`);
-    pruefe(befund.fenster[0] > 300 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 105 && befund.dampf[1] > befund.dampf[0],
-      `Stampfwerk: Das Fenster wird nicht von gut 300 ms an enger (und nie unter 105 ms), oder der Dampf wird nicht schneller: ${JSON.stringify({ fenster: befund.fenster, dampf: befund.dampf })}`);
+    pruefe(befund.fenster[0] > 450 && befund.fenster[0] > befund.fenster[1] && befund.fenster[1] > befund.fenster[2] && befund.fenster[2] >= 105 && befund.dampf[1] > befund.dampf[0],
+      `Stampfwerk: Das Fenster wird nicht von gut 450 ms an enger (und nie unter 105 ms), oder der Dampf wird nicht schneller: ${JSON.stringify({ fenster: befund.fenster, dampf: befund.dampf })}`);
     // Nach dem Treffer steht die Tafel da – in Echtzeit: Der Finger liegt
     // und bleibt liegen.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); });
@@ -12201,7 +12201,7 @@ try {
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, x: Math.round(st.maus.x), kurs: window.LernappStampfwerk.kursText(40) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.punkte >= 5,
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.punkte >= 5,
       `Stampfwerk: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/stampfwerk?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappStampfwerk?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
