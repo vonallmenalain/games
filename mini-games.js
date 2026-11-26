@@ -111,6 +111,7 @@
     { id: "ridgeRun", seite: "gratwanderung", page: "ridge" },
     { id: "chimneySweep", seite: "kaminfeger", page: "chimney" },
     { id: "roofRun", seite: "dachlaeufer", page: "roofrun" },
+    { id: "stampMill", seite: "stampfwerk", page: "stampmill" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -132,7 +133,7 @@
     mineCart: "2026-11-18", twinRotor: "2026-11-18", eyeMeasure: "2026-11-18", fireRope: "2026-11-18", flagCommand: "2026-11-18",
     timeSense: "2026-11-18",
     speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
-    ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26",
+    ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -189,6 +190,8 @@
     chimneySweep: 1,
     // Dachläufer: halten springt, länger halten springt weiter – dosieren in voller Fahrt.
     roofRun: 1,
+    // Stampfwerk: halten heisst laufen, loslassen stehen – unter den Hämmern durch, wenn sie hochgehen.
+    stampMill: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -241,6 +244,8 @@
     chimneySweep: { fassung: "t1" },
     // Der Dachläufer: a voraus, b die Höhe, c die Haltung.
     roofRun: { fassung: "t1" },
+    // Die Maus: a die Strecke (in Dritteln), b die Spielzeit (in 250steln), c ob sie läuft.
+    stampMill: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

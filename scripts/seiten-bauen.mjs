@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-9";
+export const FASSUNG = "2026-11-26-10";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -352,6 +352,12 @@ export const SPIELE = [
     titel: "Dachläufer", buehne: { id: "dl-stage", klasse: "cm-stage dl-stage" },
     text: "Dachläufer: Halten springt, länger halten springt weiter – ein Bote rennt in der Abenddämmerung über die Dächer der Altstadt, immer schneller. Wer in eine Lücke fällt oder an eine Hauswand prallt, hat verloren.",
     baut: "die Dächer der Altstadt in der Abenddämmerung mit dem Boten",
+  },
+  {
+    seite: "stampfwerk", spiel: "stampMill", page: "stampmill", js: "stampfwerk.js",
+    titel: "Stampfwerk", buehne: { id: "sm-stage", klasse: "cm-stage sm-stage" },
+    text: "Stampfwerk: Halten heisst laufen, loslassen heisst stehen – eine Maus muss unter den stampfenden Hämmern einer alten Schmiede durch. Wer zu lange wartet, den holt der Dampf ein; wen ein Hammer trifft, der hat verloren.",
+    baut: "die Hammerschmiede mit den stampfenden Hämmern und der Maus",
   },
 ];
 
