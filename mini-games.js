@@ -4596,6 +4596,55 @@
   }
   const viererreiheKachel = (turnierId = "", optionen = {}) => zweiKachel("viererreihe", turnierId, optionen);
 
+  // Im Turnier hat bei den Spielen zu zweit jede Person höchstens ein Spiel
+  // offen, und von jeder steht nur eines da – auf der Turnierseite wie im
+  // Menü (turnier.js, zwei.js). Wer eröffnet, räumt seine älteren Meldungen
+  // weg. Wer wartet, frischt seine Meldung alle 15 Sekunden auf
+  // (partieOffen, seit); was 45 Sekunden lang nicht aufgefrischt wurde, gilt
+  // nicht mehr: Ein Tablet, das schläft, oder eine Seite, die der Browser
+  // eingefroren hat, lädt niemanden mehr ein. Liegen von jemandem doch zwei
+  // da, zählt die zuletzt aufgefrischte. ich: die eigene Kennung – die
+  // eigenen Meldungen fallen weg.
+  const ZWEI_FRISCH_MS = 45 * 1000;
+  function zweiOffen(liste, { jetzt = Date.now(), ich = "" } = {}) {
+    const je = new Map();
+    for (const d of Array.isArray(liste) ? liste : []) {
+      if (!d || !/^[A-Z2-9]{10}$/.test(String(d.raum || "")) || !d.name || !ZWEI_NACH_ID.has(d.spiel)) continue;
+      if (!(Number(d.seit) > jetzt - ZWEI_FRISCH_MS) || (ich && d.kennung === ich)) continue;
+      const wer = d.kennung || d.raum;
+      const alt = je.get(wer);
+      if (!alt || Number(d.seit) > Number(alt.seit)) je.set(wer, d);
+    }
+    return [...je.values()].sort((x, y) => String(x.name).localeCompare(String(y.name), "de") || (x.raum < y.raum ? -1 : 1));
+  }
+
+  // Wer im Turnier eine laufende Partie zu zweit verlässt, kann 30 Sekunden
+  // lang zurück – oder bis das Gegenüber ein neues Spiel eröffnet (dann steht
+  // dieses da) oder man selbst eines eröffnet. zwei.js merkt es sich beim
+  // Gehen, die Turnierseite und das Menü zeigen es als grossen Knopf «Zurück
+  // zum Spiel». Nur auf diesem Gerät, immer nur eines. offen: wer gerade
+  // wartet (zweiOffen) – wartet das Gegenüber in einem neuen Spiel, gibt es
+  // kein «Zurück» mehr.
+  const ZWEI_ZURUECK_MS = 30 * 1000;
+  const ZWEI_ZURUECK_KEY = "zwei.zurueck";
+  function zweiZurueck(turnierId, { offen = [] } = {}) {
+    let z = null;
+    try { z = JSON.parse(localStorage.getItem(ZWEI_ZURUECK_KEY) || "null"); } catch { return null; }
+    if (!z || !turnierId || z.turnier !== turnierId || !/^[A-Z2-9]{10}$/.test(String(z.raum || "")) || !ZWEI_NACH_ID.has(z.spiel)) return null;
+    const alter = Date.now() - Number(z.ms);
+    if (!(alter > -5000 && alter < ZWEI_ZURUECK_MS)) return null;
+    const gegner = String(z.gegner || "").slice(0, NAME_MAX);
+    const gegnerKennung = String(z.gegnerKennung || "");
+    if ((offen || []).some((d) => d.raum !== z.raum && ((gegnerKennung && d.kennung === gegnerKennung) || (gegner && d.name === gegner)))) return null;
+    return { raum: z.raum, spiel: z.spiel, gegner, seit: Number(z.ms), bis: Number(z.ms) + ZWEI_ZURUECK_MS };
+  }
+  function zweiZurueckMerken(eintrag = null) {
+    try {
+      if (eintrag) localStorage.setItem(ZWEI_ZURUECK_KEY, JSON.stringify({ ...eintrag, ms: Date.now() }));
+      else localStorage.removeItem(ZWEI_ZURUECK_KEY);
+    } catch { /* privates Fenster: dann ohne */ }
+  }
+
 
   // Der Name oben rechts: ein Kreis mit zwei Buchstaben und der Name. Ein
   // Tipp öffnet darunter das Feld, ihn zu ändern (namensZeile); was danach
@@ -4734,7 +4783,7 @@
     adminKnopf,
     leiste,
     ergebnis,
-    arcadeKopf, arcadeBuehne, arcadeStart, zweiKachel, viererreiheKachel, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
+    arcadeKopf, arcadeBuehne, arcadeStart, zweiKachel, viererreiheKachel, zweiOffen, zweiZurueck, zweiZurueckMerken, fenster, mitIcon, kuerzel, spielenSatz, namenListe, bildPfad, bestenliste, zettelLeser,
   };
 
   // Die Startseite baut sich selbst; auf einer Spielseite holt game-shell.js

@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { SPIELE } from "./seiten-bauen.mjs";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, "..");
@@ -380,7 +381,7 @@ try {
   await zoe.seite.addInitScript(() => { window.__zweiSpieler = ["viererreihe"]; });
   await zoe.seite.goto(`${BASIS}/`);
   pruefe(await bis(() => zoe.seite.locator('a.ar-vr-kachel[href="/viererreihe"]').count().then((n) => n === 1)), "Angehakt steht Viererreihe vorne in der Zeile der Startseite");
-  pruefe(await zoe.seite.locator(".ar-kachel").count() === 47, `Die Zeile zählt weiter 47 Spiele mit Bestenliste (${await zoe.seite.locator(".ar-kachel").count()})`);
+  pruefe(await zoe.seite.locator(".ar-kachel").count() === SPIELE.length, `Die Zeile zählt weiter ${SPIELE.length} Spiele mit Bestenliste (${await zoe.seite.locator(".ar-kachel").count()})`);
   await warte(1500);
   await bild(zoe.seite, "8-startseite-angehakt");
   await zoe.seite.locator("a.ar-vr-kachel").click();
@@ -435,9 +436,10 @@ try {
   await miaT.seite.locator(".vr-eroeffnen").click();
   pruefe(await bis(() => miaT.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Mia wartet");
   await lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
-  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 1)), "Lena sieht «Mit Mia spielen»");
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf:not(.ist-zurueck)").count().then((n) => n === 1)), "Lena sieht «Mit Mia spielen»");
+  pruefe(await lenaT.seite.locator(".vr-wartet-knopf").count() === 1, "… und nur das – nicht auch noch «Zurück zum Spiel»");
   await miaT.kontext.close();
-  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf").count().then((n) => n === 0), { ms: 20000 }), "Mia ist weg – der Knopf verschwindet von selbst");
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf:not(.ist-zurueck)").count().then((n) => n === 0), { ms: 20000 }), "Mia ist weg – der Knopf verschwindet von selbst");
 
   // Mia eröffnet noch einmal; Lena tippt auf der Turnierseite oben auf den
   // grossen Knopf – und sitzt sofort am Brett.
@@ -446,11 +448,109 @@ try {
   await mia2.seite.locator(".vr-eroeffnen").click();
   pruefe(await bis(() => mia2.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Mia wartet wieder");
   await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
-  pruefe(await bis(() => lenaT.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), "Bei Lena steht oben «Mit Mia spielen»");
+  pruefe(await bis(() => lenaT.seite.locator("a.tn-vr-ruf:not(.ist-zurueck)").count().then((n) => n === 1), { ms: 12000 }), "Bei Lena steht oben «Mit Mia spielen»");
+  pruefe(await lenaT.seite.locator("a.tn-vr-ruf").count() === 1, "… und nur das");
   await bild(lenaT.seite, "10b-turnier-ruf");
   await lenaT.seite.locator("a.tn-vr-ruf").click();
   pruefe(await bis(() => satz(lenaT.seite).then((t) => /Mia ist dran/.test(t))), "Ein Tipp oben, und Lena sitzt am Brett");
   pruefe(await bis(() => satz(mia2.seite).then((t) => /Du beginnst/.test(t))), "Mia sieht Lena kommen");
+
+  // --- 11. Weg und zurück: Wer eine Partie verlässt, kann 30 Sekunden lang zurück ------
+  const raumR = new URL(mia2.seite.url()).searchParams.get("raum") || "";
+  await mia2.seite.locator(".vr-kopf .mini-knopf-zurueck").click();
+  await mia2.seite.waitForURL(/\/turnier\?/);
+  pruefe(await bis(() => mia2.seite.locator("a.tn-vr-ruf.ist-zurueck").count().then((n) => n === 1)), "Mia geht ins Turnier – oben steht «Zurück zum Spiel»");
+  pruefe(/Zurück zum Spiel mit Lena/.test(await mia2.seite.locator("a.tn-vr-ruf").textContent()), "… mit Lena");
+  pruefe((await mia2.seite.locator("a.tn-vr-ruf").getAttribute("href")) === `/viererreihe?turnier=${TURNIER_ID}&raum=${raumR}`, "… und führt in dasselbe Spiel");
+  pruefe(await mia2.seite.locator("a.tn-vr-ruf").count() === 1, "… und steht allein da");
+  await bild(mia2.seite, "13-turnier-zurueck");
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wer.ist-weg").count().then((n) => n === 1)), "Lena sieht Mia als «nicht verbunden»");
+  await mia2.seite.locator("a.tn-vr-ruf").click();
+  pruefe(await bis(() => satz(mia2.seite).then((t) => /Du beginnst|Du bist dran|Lena ist dran/.test(t))), "Ein Tipp, und Mia ist wieder am Brett");
+  pruefe(new URL(mia2.seite.url()).searchParams.get("raum") === raumR, "… im selben Spiel");
+  pruefe(await bis(() => mia2.seite.evaluate(() => localStorage.getItem("zwei.zurueck") === null)), "… und «Zurück zum Spiel» ist erledigt");
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wer.ist-weg").count().then((n) => n === 0)), "Lena sieht Mia wieder");
+
+  // Über das Menü dasselbe – und nach 30 Sekunden ist es weg.
+  await mia2.seite.locator(".vr-menue-knopf").click();
+  pruefe(await bis(() => mia2.seite.locator(".vr-wartet-knopf.ist-zurueck").count().then((n) => n === 1)), "Im Menü steht «Zurück zum Spiel»");
+  pruefe(await mia2.seite.locator(".vr-weiter-knopf").count() === 0, "… und im Turnier keine Liste zum Weiterspielen");
+  pruefe(await mia2.seite.locator(".vr-eroeffnen").isVisible(), "… und «Neues Spiel eröffnen» geht trotzdem");
+  await mia2.seite.evaluate(() => {
+    const z = JSON.parse(localStorage.getItem("zwei.zurueck"));
+    z.ms = Date.now() - 28500;
+    localStorage.setItem("zwei.zurueck", JSON.stringify(z));
+  });
+  await mia2.seite.reload();
+  pruefe(await bis(() => mia2.seite.locator(".vr-wartet-knopf.ist-zurueck").count().then((n) => n === 1)), "Nach 28 Sekunden steht es noch da");
+  pruefe(await bis(() => mia2.seite.locator(".vr-wartet-knopf.ist-zurueck").count().then((n) => n === 0), { ms: 5000 }), "… nach 30 Sekunden ist es weg");
+
+  // Mia eröffnet ein neues Spiel. Lena, noch im alten, sieht es über dem Brett.
+  await mia2.seite.locator(".vr-eroeffnen").click();
+  pruefe(await bis(() => mia2.seite.locator(".vr-vorschau-knopf").count().then((n) => n === 1)), "Mia eröffnet ein neues Spiel");
+  const raumN = new URL(mia2.seite.url()).searchParams.get("raum") || "";
+  pruefe(await bis(() => lenaT.seite.locator(".vr-ruf-platz .vr-wartet-knopf").count().then((n) => n === 1)), "Lena sieht über dem Brett «Mit Mia spielen»");
+  await bild(lenaT.seite, "14-brett-neues-spiel");
+  // Wer wartet, frischt seine Meldung auf; ist das Bild weg, lädt er niemanden ein.
+  const seit1 = Number((await (await db(`partieOffen/${TURNIER_ID}/${raumN}`)).json())?.seit) || 0;
+  await warte(16500);
+  const seit2 = Number((await (await db(`partieOffen/${TURNIER_ID}/${raumN}`)).json())?.seit) || 0;
+  pruefe(seit1 > 0 && seit2 > seit1, `Wer wartet, frischt seine Meldung auf (${seit1} → ${seit2})`);
+  const sichtbar = (wie) => mia2.seite.evaluate((wie) => {
+    Object.defineProperty(document, "visibilityState", { value: wie, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, wie);
+  await sichtbar("hidden");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}/${raumN}`)).json()) === null), "Tablet zu: Mia lädt niemanden mehr ein");
+  await sichtbar("visible");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}/${raumN}`)).json())?.name === "Mia"), "Tablet auf: Mia wartet wieder");
+
+  // Lena geht ins Turnier: Oben steht nur Mias neues Spiel, nicht ihr altes.
+  await lenaT.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(async () => (await lenaT.seite.locator("a.tn-vr-ruf").getAttribute("href")) === `/viererreihe?turnier=${TURNIER_ID}&raum=${raumN}`, { ms: 12000 }), "Bei Lena steht oben Mias neues Spiel");
+  pruefe(await lenaT.seite.locator("a.tn-vr-ruf").count() === 1 && await lenaT.seite.locator("a.tn-vr-ruf.ist-zurueck").count() === 0, "… und nur das, kein «Zurück»");
+  // Im Menü: Mias Spiel, kein «Zurück» mehr – eröffnen könnte Lena selbst auch.
+  await lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
+  pruefe(await bis(() => lenaT.seite.locator(".vr-wartet-knopf:not(.ist-zurueck)").count().then((n) => n === 1)), "Lenas Menü zeigt Mias Spiel");
+  pruefe(await lenaT.seite.locator(".vr-wartet-knopf").count() === 1, "… und nur das");
+  pruefe(await lenaT.seite.locator(".vr-eroeffnen").isVisible(), "… und «Neues Spiel eröffnen» – jede darf ihr eigenes haben");
+  await bild(lenaT.seite, "15-menue-mia-wartet");
+  await lenaT.seite.locator(".vr-wartet-knopf").click();
+  pruefe(await bis(() => satz(lenaT.seite).then((t) => /Mia ist dran/.test(t))), "Ein Tipp, und Lena sitzt in Mias neuem Spiel");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "Im Turnier wartet wieder niemand");
+
+  // --- 12. Zwei eröffnen im selben Augenblick: Jede sieht beim Warten die andere ------
+  await Promise.all([mia2.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`), lenaT.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`)]);
+  pruefe(await bis(async () => (await mia2.seite.locator(".vr-eroeffnen").isVisible()) && (await lenaT.seite.locator(".vr-eroeffnen").isVisible())), "Beide im Menü");
+  await Promise.all([mia2.seite.locator(".vr-eroeffnen").click(), lenaT.seite.locator(".vr-eroeffnen").click()]);
+  const raumVon = (g) => new URL(g.seite.url()).searchParams.get("raum") || "";
+  pruefe(await bis(() => lenaT.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").count().then((n) => n === 1)), "Lena wartet – und sieht «Mia wartet auch»");
+  pruefe(await bis(() => mia2.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").count().then((n) => n === 1)), "… und Mia sieht Lena");
+  await bild(lenaT.seite, "16-lobby-mia-auch");
+  const raumMia = raumVon(mia2);
+  await lenaT.seite.locator(".vr-lobby-rufe .vr-wartet-knopf").click();
+  pruefe(await bis(() => raumVon(lenaT) === raumMia), "Ein Tipp, und Lena sitzt in Mias Spiel");
+  pruefe(await bis(() => Promise.all([satz(mia2.seite), satz(lenaT.seite)]).then(([x, y]) => /dran|beginnst/.test(x) && /dran|beginnst/.test(y))), "… und beide spielen");
+  pruefe(await bis(async () => (await (await db(`partieOffen/${TURNIER_ID}`)).json()) === null), "… und im Turnier wartet niemand mehr – auch Lenas eigenes Spiel ist zu");
+
+  // --- 13. Liegen trotzdem mehrere Meldungen da: oben steht genau eine, Veraltetes gar nicht ---
+  const meldung = (name, kennung, alter) => ({ name, kennung, spiel: "viererreihe", seit: Date.now() - alter });
+  await db(`partieOffen/${TURNIER_ID}`, { method: "PUT", body: JSON.stringify({
+    CCCCCCCCC2: meldung("Paul", "mini_paul00000001", 5000),
+    BBBBBBBBB2: meldung("Paul", "mini_paul00000001", 0),
+    AAAAAAAAA2: meldung("Zoe", "mini_zoe000000001", 60000),
+  }) });
+  const ida = await geraet("Ida", { viewport: { width: 820, height: 1100 } });
+  await ida.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`);
+  pruefe(await bis(() => ida.seite.locator("a.tn-vr-ruf").count().then((n) => n === 1), { ms: 12000 }), "Drei Meldungen, zwei von Paul, eine veraltet: oben steht genau ein Ruf");
+  pruefe(/raum=BBBBBBBBB2/.test(await ida.seite.locator("a.tn-vr-ruf").getAttribute("href")), "… Pauls zuletzt aufgefrischte, nicht die veraltete von Zoe");
+  await db(`partieOffen/${TURNIER_ID}/AAAAAAAAA2`, { method: "PUT", body: JSON.stringify(meldung("Zoe", "mini_zoe000000001", 0)) });
+  pruefe(await bis(() => ida.seite.locator("a.tn-vr-ruf").count().then((n) => n === 2), { ms: 12000 }), "Wartet auch Zoe, stehen zwei da – eines je Person");
+  await ida.seite.goto(`${BASIS}/viererreihe?turnier=${TURNIER_ID}`);
+  pruefe(await bis(() => ida.seite.locator(".vr-wartet-knopf").count().then((n) => n === 2)), "Im Menü ebenso");
+  await db(`partieOffen/${TURNIER_ID}`, { method: "PUT", body: JSON.stringify({ BBBBBBBBB2: meldung("Paul", "mini_paul00000001", 60000) }) });
+  pruefe(await bis(() => ida.seite.locator(".vr-wartet-knopf").count().then((n) => n === 0), { ms: 12000 }), "Eine Meldung, die nicht mehr aufgefrischt wird, verschwindet");
+  await db(`partieOffen/${TURNIER_ID}`, { method: "DELETE" });
 
   // Ein Turnier nur mit Viererreihe: eine grosse Karte statt der Bühne.
   await lenaT.seite.goto(`${BASIS}/turnier?t=${NUR_VIERER}`);
