@@ -196,6 +196,8 @@
     p: 0, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false,
     // Genaue Treffer hintereinander – für die Leiter (antwortKlang).
     serie: 0,
+    // Ob die Runde begonnen hat – mit dem ersten Griff (losGehts).
+    begonnen: false,
   };
   let shell = null;
   let schild = null;
@@ -362,12 +364,20 @@
   // ---------------------------------------------------------------------------
   // Ablauf
   // ---------------------------------------------------------------------------
-  function startRun() {
+  // Die Runde steht da, sobald die Seite offen ist – aber sie beginnt erst mit
+  // dem ersten Griff aufs Gleis (losGehts). Bis dahin ist die Bühne im
+  // Intro: Im Turnier zählt ein Versuch, sobald die Runde beginnt (game-
+  // shell.js, setPhase("play") → turnier.js, rundeBeginnt), und wer das Spiel
+  // nur kurz öffnete, hatte sonst einen Versuch gebraucht und stand mit 0
+  // Punkten in der Liste. Im Multiplayer beginnt sie sofort – zum gemeinsamen
+  // Start –, beim Zuschauen auch (sofort).
+  function startRun({ sofort = false } = {}) {
     clearStep();
     shell.closeOverlay();
     zufall.neu();
-    shell.setPhase("play");
-    Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false, serie: 0 });
+    const jetzt = sofort || Boolean(shell.live);
+    shell.setPhase(jetzt ? "play" : "intro");
+    Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false, serie: 0, begonnen: jetzt });
     fahrtAus();
     shell.setCount(0);
 
@@ -401,8 +411,18 @@
 
     shell.play.append(schild, fortschritt, gleis);
 
-    if (!zuschauer) aufnahme?.los();
+    if (!zuschauer && jetzt) aufnahme?.los();
     naechsteZahl();
+  }
+
+  // Der erste Griff aufs Gleis (oder eine Taste): Jetzt beginnt die Runde.
+  function losGehts() {
+    if (state.begonnen || zuschauer || state.phase !== "aufgabe") return;
+    state.begonnen = true;
+    shell.setPhase("play");
+    aufnahme?.los();
+    // Die erste Zahl als Zug – vor dem Start ging er nirgends hin.
+    meldeZug(0);
   }
 
   function naechsteZahl() {
@@ -581,7 +601,7 @@
   // Ab jetzt die Lok des anderen: dieselben Zahlen, und wo er hält.
   function zuschauenStarten() {
     if (!zuschauer?.letzte) return;
-    startRun();
+    startRun({ sofort: true });
     clearStep();
     state.phase = "zuschauen";
     zuschau.zahlen = [];
@@ -651,6 +671,7 @@
   host.addEventListener("pointerdown", (event) => {
     if (state.phase !== "aufgabe" || !gleis || !gleis.contains(event.target)) return;
     event.preventDefault();
+    losGehts();
     state.drag = true;
     lok.classList.add("is-drag");
     try { gleis.setPointerCapture(event.pointerId); } catch { /* egal */ }
@@ -689,6 +710,7 @@
     const { bis } = state.gleis;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
+      losGehts();
       const schritt = SCHRITT * (event.shiftKey ? 10 : 1);
       setLok(state.p + (event.key === "ArrowRight" ? schritt : -schritt), true);
       gleis.setAttribute("aria-valuenow", (state.p * bis).toFixed(2));
@@ -697,6 +719,7 @@
     if (event.key === "Enter" || event.key === " ") {
       if (document.activeElement?.tagName === "BUTTON") return;
       event.preventDefault();
+      losGehts();
       antwort(state.p);
     }
   });

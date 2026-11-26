@@ -2021,6 +2021,19 @@ try {
         `Wo hält der Zug?: zwei Prozent daneben geben je nach Gleis ${api.gleich.join(", ")} Punkte – es muss überall dieselbe Zahl sein.`);
       pruefe(api.nummer === "Zahl 1 von 10", `Wo hält der Zug?: Über dem Gleis steht «${api.nummer}» statt «Zahl 1 von 10».`);
     }
+    // Ein Versuch im Turnier, der vor mehr als einer halben Stunde begonnen,
+    // aber nie ein Ergebnis gebracht hat (offen, 0 Punkte), steht in keiner
+    // Liste. Wer eben erst angefangen hat (Zoe), schon – er spielt gerade.
+    // Eine 0 als Ergebnis auch, und ein offener Versuch mit Punkten von vorher.
+    const liste = await seite.evaluate(() => window.LernappMini.rangliste([
+      { game: "numberLine", spieler: "mini_benbenbenben", name: "Ben", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() - 31 * 60000 },
+      { game: "numberLine", spieler: "mini_zoezoezoezoe", name: "Zoe", punkte: 0, versuche: 1, offen: true, updatedAtMs: Date.now() - 60000 },
+      { game: "numberLine", spieler: "mini_lealealealea", name: "Lea", punkte: 0, versuche: 1, offen: false, updatedAtMs: 1100 },
+      { game: "numberLine", spieler: "mini_miamiamiamia", name: "Mia", punkte: 640, versuche: 2, offen: true, updatedAtMs: 1200 },
+      { game: "numberLine", spieler: "mini_tomtomtomtom", name: "Tom", punkte: 700, versuche: 1, updatedAtMs: 1300 },
+    ]).map((e) => `${e.platz}. ${e.name} ${e.punkte}`));
+    pruefe(JSON.stringify(liste) === JSON.stringify(["1. Tom 700", "2. Mia 640", "3. Lea 0", "3. Zoe 0"]),
+      `Ein Versuch, der längst ohne Ergebnis liegt, steht in der Rangliste (oder einer, der gerade läuft, fehlt): ${liste.join(", ")}`);
     await kontext.close();
   }
 
@@ -3110,8 +3123,16 @@ try {
     let gefragt = "";
     seite.on("dialog", (frage) => { gefragt = frage.message(); frage.accept(); });
     await turnierLos(seite, "Abbrecherin");
+    // Nur geöffnet ist nicht gespielt: Das Zahlengleis beginnt seine Runde
+    // erst mit dem ersten Griff aufs Gleis (zahlengleis.js, losGehts).
+    await seite.waitForTimeout(400);
+    const nurOffen = await seite.evaluate(() => ({ gespielt: window.LernappTurnier.stand().gespielt, phase: document.querySelector(".zg-stage")?.dataset.phase }));
+    pruefe(nurOffen.gespielt === 0 && nurOffen.phase === "intro", `Wo hält der Zug? zählt im Turnier schon einen Versuch, bevor jemand das Gleis berührt hat: ${JSON.stringify(nurOffen)}`);
+    await seite.keyboard.press("ArrowRight");
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 1, null, { timeout: 4000 }).catch(() => {});
     await seite.click(".cm-bar-left .cm-icon-again");
+    await seite.waitForFunction(() => document.querySelector(".zg-stage")?.dataset.phase === "intro", null, { timeout: 4000 }).catch(() => {});
+    await seite.keyboard.press("ArrowRight");
     await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 2, null, { timeout: 4000 }).catch(() => {});
     // Gezählt ist der Versuch hier sofort, angemeldet einen Augenblick
     // später: Gelesen wird erst, wenn die Anmeldung angekommen ist.
@@ -3259,6 +3280,9 @@ try {
     } });
     await turnierLos(seite, "Lea");
     await seite.waitForFunction(() => Boolean(window.LernappZahlengleis?.state?.zahl), null, { timeout: 4000 }).catch(() => {});
+    // Die Runde beginnt mit dem ersten Griff aufs Gleis.
+    await seite.keyboard.press("ArrowRight");
+    await seite.waitForFunction(() => window.LernappTurnier?.stand?.().gespielt === 5, null, { timeout: 4000 }).catch(() => {});
     const befund = await seite.evaluate(() => {
       const z = window.LernappZufall.fuer("numberLine");
       z.neu();
@@ -3275,7 +3299,7 @@ try {
         erwartet: moeglich[z.ganz(moeglich.length)],
       };
     });
-    // Das Zahlengleis beginnt seine Runde sofort: Gespielt wird der fünfte.
+    // Mit dem ersten Griff beginnt die Runde: Gespielt wird der fünfte.
     pruefe(befund.gespielt === 5, `Im Levelcup läuft der ${befund.gespielt}. statt der fünfte Versuch (${befund.wie}).`);
     pruefe(befund.fest && befund.runde === "1", `Mit gleichem Level wie Platz 1 würfelt der fünfte Versuch als Runde ${befund.runde} (fest: ${befund.fest}).`);
     pruefe(befund.zahl === befund.erwartet, `Mit gleichem Level wie Platz 1 kommt eine andere Zahl (${befund.zahl} statt ${befund.erwartet}).`);

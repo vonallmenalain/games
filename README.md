@@ -2707,6 +2707,19 @@ Versuchen beliebig viele: Wer eine schlechte Runde kommen sieht, lädt neu,
 und die Runde hat es nie gegeben. Die Regeln der Datenbank setzen das durch
 (`offen` in `firestore.rules`): erst der Beginn, dann genau ein Ergebnis.
 
+Ein Versuch, der begonnen, aber nie ein Ergebnis gebracht hat – offen und
+ohne Punkte, meist eine Seite, die gleich wieder zu war –, steht nach einer
+halben Stunde in keiner Liste mehr (`mini-games.js`, `ohneErgebnis` in
+`rangliste`, `OFFEN_MS`): nicht in der Rangliste des Spiels, nicht in der
+Gesamtwertung, nicht als Gegner. Bis dahin könnte er noch laufen – wer
+seinen ersten Versuch spielt, steht mit «spielt gerade» da. Gezählt ist er
+trotzdem. Bis November 2026 stand so jemand mit 0 Punkten da – nach
+dem Leeren einer Liste sogar als «Rekord». Eine 0 als Ergebnis bleibt
+stehen. Und Wo hält der Zug?, das seine Runde früher schon beim Öffnen
+begann, beginnt sie jetzt mit dem ersten Griff aufs Gleis (`losGehts`) –
+Fischteich und Kacheln-Knobeln beginnen weiter beim Öffnen, dort läuft die
+Runde ohne Zutun los.
+
 **Nur mit Link heisst: nirgends aufgeführt.** Die Startseite fragt nur nach
 öffentlichen Turnieren, und die Regeln lassen keine andere Frage zu. Der Name
 eines Turniers ist deshalb lang und zufällig (`herbstcup-k3m9x2p7`), nicht

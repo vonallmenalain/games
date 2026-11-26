@@ -1519,11 +1519,32 @@
     return [...nachName.values()];
   }
 
+  // Ein Versuch im Turnier, der begonnen hat, aber nie ein Ergebnis brachte:
+  // offen, ohne Punkte, und sein Beginn liegt länger zurück, als eine Runde
+  // dauern kann. Im Turnier zählt ein Versuch, sobald die Runde beginnt
+  // (turnier.js, rundeBeginnt – cloud.js, turnierVersuch legt den Eintrag
+  // dann mit 0 Punkten an), und wer die Seite gleich wieder schliesst,
+  // bringt nie eines. Er hat nicht gespielt und steht deshalb in keiner Liste
+  // – vorher stand er dort für immer mit 0, im November 2026 sogar als
+  // «Rekord», als die Liste eines Spiels gerade geleert war. Der Versuch
+  // selbst bleibt gezählt (meinTurnierEintrag liest den Eintrag direkt).
+  //
+  // Wer gerade seinen ersten Versuch spielt, sieht genauso aus: offen, 0
+  // Punkte. Der steht weiter da – mit «spielt gerade» (turnier.js) –, bis
+  // sein Beginn OFFEN_MS zurückliegt: so lange, wie cloud.js eine Runde
+  // höchstens zählt (RUNDE_MS). Ein Ergebnis von 0 ist ein Ergebnis: Ist der
+  // Versuch zu Ende (offen: false), steht die 0 da wie immer.
+  const OFFEN_MS = 30 * 60 * 1000;
+  const ohneErgebnis = (e, jetzt = Date.now()) => Boolean(e?.offen)
+    && !((Number(e.punkte) || 0) > 0)
+    && jetzt - (Number(e.updatedAtMs) || 0) > OFFEN_MS;
+
   // Die Rangfolge eines Spiels. Gleiche Punktzahl heisst gleicher Platz – und
   // der nächste überspringt so viele Plätze, wie sich geteilt haben. Wer
   // früher dort war, steht bei Gleichstand oben: Die Zahl war zuerst da.
   function rangliste(eintraege) {
-    const liste = verdichte(eintraege).sort((a, b) =>
+    const jetzt = Date.now();
+    const liste = verdichte(eintraege.filter((e) => !ohneErgebnis(e, jetzt))).sort((a, b) =>
       (Number(b.punkte) || 0) - (Number(a.punkte) || 0)
       || (Number(a.updatedAtMs) || 0) - (Number(b.updatedAtMs) || 0)
       || a.name.localeCompare(b.name, "de"));
