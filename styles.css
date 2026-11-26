@@ -6311,6 +6311,7 @@ p.tn-verdeckt:not(.mini-hinweis) {
   padding-top: 10px;
 }
 .adm-turnier-tabelle { margin-top: 4px; }
+.adm-turnier-spiele { margin-top: 10px; }
 .adm-marke {
   display: inline-flex;
   align-items: center;

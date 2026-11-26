@@ -2110,7 +2110,9 @@ stetig zwischen den Grenzen). Über dem Gleis steht dazu «Zahl 3 von 10»,
 die erledigten Punkte sind hell. Die Aufzeichnungen tragen die Fassung
 `z2`; Läufe von vorher werden nicht mehr abgespielt, und ihre Punkte (bis
 100) stehen in der Bestenliste unter allen neuen – der Admin leert sie
-beim Veröffentlichen («Bestenliste leeren»).
+beim Veröffentlichen («Bestenliste leeren»), in einem laufenden Turnier
+auch dort (siehe Der Adminbereich, Die Bestenliste eines Spiels im
+Turnier).
 
 **Ein Druck kam nicht an** – im Multiplayer, im Slalom und im Tunnelflug,
 je bei einem Spieler: Wer im Countdown schon drückte, dessen Finger
@@ -4340,6 +4342,16 @@ Spielverlauf nur mit den Runden dieses Turniers – keine aus der App, keine
 aus anderen Turnieren –, hier mit einer Auswahl je Tag. Die Spalte «Woher»
 steht dort nur, wenn es Runden aus einem Multiplayer gibt. «Alle Spiele von
 …» führt zu seiner ganzen Auswertung, App und alle Turniere.
+
+**Die Bestenliste eines Spiels im Turnier.** Unter dem Stand eines
+aufgeklappten Turniers steht jedes seiner Spiele mit der Zahl seiner
+Einträge und «Bestenliste leeren»: Das löscht alle Einträge dieses Spiels
+im Turnier samt ihren Läufen (`loescheTurnierEintraege`), die anderen
+Spiele und die Multiplayer bleiben. Wer dort gespielt hat, hat danach
+wieder alle Versuche. «Bestenliste leeren» im Fenster eines Spiels leert
+nur die Hall of Fame – ein Turnier führt seine eigene Liste
+(`miniTurniere/<id>/eintraege`). Gebraucht im November 2026, als Wo hält
+der Zug? mitten im Turnier auf bis zu 1000 Punkte umstellte.
 
 **Spielzeit.** Jede Runde misst ihre Dauer – vom Start (`game-shell.js`,
 `setPhase("play")`) bis zum Ergebnis (`showResult`), in `mini-games.js`

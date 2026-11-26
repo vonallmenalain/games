@@ -11664,6 +11664,22 @@ try {
     pruefe(await seite.locator(".adm-turnier.ist-offen .adm-turnier-name").innerText().catch(() => "") === "Herbstcup",
       "Nach dem Entfernen ist der Herbstcup nicht mehr ausgewählt.");
 
+    // Die Bestenliste eines Spiels im Turnier leeren – alle Einträge dieses
+    // Spiels, die der anderen bleiben. Wo hält der Zug? hat im Herbstcup
+    // keinen Eintrag, also auch keinen Knopf.
+    {
+      const zeilen = await herbst.locator(".adm-turnier-spiele tbody tr").evaluateAll((z) => z.map((tr) => [tr.dataset.spiel, tr.querySelector(".zahl")?.textContent, tr.querySelectorAll("button").length]));
+      pruefe(JSON.stringify(zeilen) === JSON.stringify([["towerStack", "2", 1], ["fishPond", "1", 1], ["numberLine", "0", 0]]),
+        `Die Bestenlisten des Herbstcups je Spiel stehen nicht da: ${JSON.stringify(zeilen)}`);
+      await herbst.locator('.adm-turnier-spiele tr[data-spiel="fishPond"]').locator("button", { hasText: "Bestenliste leeren" }).click();
+      await seite.waitForFunction((id) => ![...window.__miniTurnierEintraege.entries()].some(([k, e]) => k.startsWith(id + "/") && e.game === "fishPond"), HERBST, { timeout: 4000 }).catch(() => {});
+      const nachLeeren = await seite.evaluate((id) => [...window.__miniTurnierEintraege.entries()].filter(([k]) => k.startsWith(id + "/")).map(([, e]) => `${e.game}:${e.name}`).sort(), HERBST);
+      pruefe(JSON.stringify(nachLeeren) === JSON.stringify(["towerStack:Grosi", "towerStack:Leo"]),
+        `Nach «Bestenliste leeren» (Fischteich) stehen im Herbstcup: ${nachLeeren.join(", ")}`);
+      pruefe(/Fischteich in «Herbstcup» ist leer/.test(await seite.locator(".adm-turniere .adm-meldung").innerText().catch(() => "")),
+        "Nach «Bestenliste leeren» sagt der Adminbereich nicht, dass die Liste leer ist.");
+    }
+
     // Umbenennen: ein neuer Name, derselbe Link.
     await waehle("Wintercup");
     antwort = "Neujahrscup";
