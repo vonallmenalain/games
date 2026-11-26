@@ -1045,7 +1045,7 @@ h2 {
    rechnete der Browser über das Seitenverhältnis sonst auch die Höhe
    kleiner, und unter der Welt bliebe ein Streifen frei. */
 .tb-platz, .br-platz, .dr-platz, .li-platz, .tf-platz, .dt-platz, .ph-platz, .ml-platz, .sl-platz, .hf-platz,
-.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz {
+.bl-platz, .sk-platz, .fr-platz, .kh-platz, .st-platz, .hw-platz, .ef-platz, .gl-platz, .zr-platz, .am-platz, .fe-platz, .fk-platz, .zf-platz, .fh-platz, .kn-platz, .es-platz, .gw-platz, .kf-platz, .dl-platz {
   position: absolute;
   inset: 0;
 }
@@ -1065,7 +1065,7 @@ h2 {
    Form: Ihre Fläche ist die ganze Spielfläche, ohne Seitenverhältnis. */
 .hd-feld, .zs-feld, .bh-feld,
 .jg-feld, .ts-feld, .fs-feld, .hl-feld, .fm-feld, .nj-feld, .fd-feld, .sw-feld, .wl-feld, .kw-feld, .sh-feld, .ek-feld, .ff-feld,
-.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld {
+.gl-feld, .zr-feld, .am-feld, .fe-feld, .fk-feld, .zf-feld, .fh-feld, .kn-feld, .es-feld, .gw-feld, .kf-feld, .dl-feld {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -1080,7 +1080,7 @@ h2 {
 .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
 .hd-prompt, .zs-prompt, .bh-prompt,
 .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt {
   position: absolute;
   top: 12px;
   left: 50%;
@@ -1754,6 +1754,66 @@ h2 {
   background: linear-gradient(135deg, #d6f1ff, #38bdf8);
   color: #062a40;
   font-weight: 900;
+}
+
+/* --- Dachläufer: die Dächer der Altstadt in der Abenddämmerung -----------
+   In der Farbe des Bereichs Geschwindigkeit. Die ganze Spielfläche ist die
+   Leinwand (dachlaeufer.js); gedrückt wird überall. Der Grund ist der
+   Abendhimmel des ersten Bildes. */
+.dl-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.dl-stage:not([data-phase="intro"]) .dl-prompt { opacity: 0; }
+
+.dl-feld { width: 100%; background: linear-gradient(#242c6c, #cc707a 38%, #ffc470 52%, #3a2a68 62%, #14103a); }
+
+.dl-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* Der Hinweis vor dem ersten Druck: ein Ring, der sich füllt – halten.
+   Unten im Bild, auf der Hauswand unter dem Boten. */
+.dl-tipp {
+  position: absolute;
+  top: 86%;
+  left: 50%;
+  width: clamp(40px, 12%, 62px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(10, 6, 34, 0.6));
+}
+.dl-stage[data-phase="intro"] .dl-tipp { opacity: 0.95; }
+.dl-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
+.dl-tipp-spur { opacity: 0.28; }
+.dl-tipp-ring {
+  stroke-dasharray: 139;
+  stroke-dashoffset: 139;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  animation: li-fuell 1.6s ease-in-out infinite;
+}
+
+.dl-stage .dl-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe08a, #f5a623);
+  color: #3a2400;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-tipp-ring { animation: none; stroke-dashoffset: 40; }
 }
 
 /* --- Kaminfeger: die Gasse bei Nacht --------------------------------------
@@ -4796,7 +4856,7 @@ h2 {
   .bl-prompt, .sk-prompt, .fr-prompt, .kh-prompt, .st-prompt,
   .hd-prompt, .zs-prompt, .bh-prompt,
   .jg-prompt, .ts-prompt, .fs-prompt, .hl-prompt, .fm-prompt, .nj-prompt, .fd-prompt, .sw-prompt, .wl-prompt, .kw-prompt, .sh-prompt, .ek-prompt, .ff-prompt,
-.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt {
+.hw-prompt, .ef-prompt, .gl-prompt, .zr-prompt, .am-prompt, .fe-prompt, .fk-prompt, .zf-prompt, .fh-prompt, .kn-prompt, .es-prompt, .gw-prompt, .kf-prompt, .dl-prompt {
     top: calc(var(--cm-oben) + 8px);
   }
   .tb-combo, .br-combo { top: calc(var(--cm-oben) + 10px); }

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-8";
+export const FASSUNG = "2026-11-26-9";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -346,6 +346,12 @@ export const SPIELE = [
     titel: "Kaminfeger", buehne: { id: "kf-stage", klasse: "cm-stage kf-stage" },
     text: "Kaminfeger: Ein Tipp, und er springt an die Wand gegenüber – immer im selben Bogen, ein Stockwerk höher. Er rutscht ab, von unten steigt der Rauch, und an den Wänden hängen Laternen, Schilder und Balkone: Wer auf einem landet, stürzt.",
     baut: "die nächtliche Gasse mit den zwei Häusern und dem Kaminfeger",
+  },
+  {
+    seite: "dachlaeufer", spiel: "roofRun", page: "roofrun", js: "dachlaeufer.js",
+    titel: "Dachläufer", buehne: { id: "dl-stage", klasse: "cm-stage dl-stage" },
+    text: "Dachläufer: Halten springt, länger halten springt weiter – ein Bote rennt in der Abenddämmerung über die Dächer der Altstadt, immer schneller. Wer in eine Lücke fällt oder an eine Hauswand prallt, hat verloren.",
+    baut: "die Dächer der Altstadt in der Abenddämmerung mit dem Boten",
   },
 ];
 

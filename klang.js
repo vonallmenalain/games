@@ -279,6 +279,13 @@
     "kaminfeger.knapp": { s: "pling" },
     "kaminfeger.sturz": { s: "krach" },
     "kaminfeger.fall": { s: "fall" },
+    "dachlaeufer.abend": { s: "a-wind", schleife: true },
+    "dachlaeufer.schritte": { s: "a-schritte", schleife: true },
+    "dachlaeufer.sprung": { s: "woosh-kurz" },
+    "dachlaeufer.landung": { s: "whomp-weich" },
+    "dachlaeufer.perfekt": { s: "pling" },
+    "dachlaeufer.prall": { s: "krach" },
+    "dachlaeufer.fall": { s: "fall" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -296,7 +303,7 @@
     mineCart: "grubenlore", twinRotor: "rotoren", eyeMeasure: "augenmass",
     fireRope: "feuerseil", flagCommand: "flaggen", timeSense: "zeitgefuehl", speedClimb: "kletterwand",
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
-    chimneySweep: "kaminfeger",
+    chimneySweep: "kaminfeger", roofRun: "dachlaeufer",
   };
 
   // ---------------------------------------------------------------------------

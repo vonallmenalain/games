@@ -2261,6 +2261,72 @@ Gassen bis 400 m, auch um neun Zehntel der Luft früher oder später; wer
 immer sofort springt, landet im ersten Hindernis, das zum Warten zwingt; wer
 nichts tut, stürzt.
 
+### Dachläufer (November 2026)
+
+**Dachläufer** (`dachlaeufer.js`, `roofRun`) – Abenddämmerung über der
+Altstadt am See. Ein Bote mit rotem Schal rennt über die Dächer, von selbst
+und immer schneller (`TEMPO0` bis `TEMPO_MAX`: von 14 auf bald 27 Meter in
+der Sekunde). Eine Regel: **Halten springt, und länger halten springt
+weiter.** Solange der Finger liegt, steigt er gleichmässig (`V_AUF`, nie
+kürzer als `HALT_MIN`, nie länger als `HALT_MAX`); wer loslässt, beendet den
+Auftrieb, und von da an fällt er im Bogen. Ein Tipp trägt 0,40 Sekunden
+weit, voll gehalten 0,82. Zwischen den Dächern liegen Lücken, und die Dächer
+liegen verschieden hoch. Wer zu kurz springt, prallt an die Hauswand; wer zu
+weit springt, fliegt über das nächste Dach hinaus; wer gar nicht springt,
+fällt in die Lücke. Der erste Fehler beendet die Runde. Gezählt werden die
+Meter.
+
+Die Strecke entsteht aus dem Zufall, und sie ist immer zu schaffen
+(`naechstesDach`): Zuerst der Weg – wo er abspringt, wie lange er hält, wo er
+landet –, dann die Dächer darum. Jedes Dach beginnt kurz vor der frühesten
+Landung und endet kurz nach dem spätesten Absprung dieses Wegs, mit Luft
+(`LUFT0` bis `LUFT_MIN`, in Sekunden): Wer so viel früher oder später
+abspringt **und** so viel kürzer oder länger hält, kommt durch. Manche Dächer
+sind lang, andere **eng** – nur ein Tritt, gleich danach der nächste Sprung –,
+und mit der Strecke werden es mehr. Wie viel höher das nächste Dach liegen
+darf, richtet sich danach, wie hoch der kürzeste geplante Sprung kommt
+(`KOPF`).
+
+Schwerer wird es mit der Strecke: Er wird schneller, die Luft wird dünner
+(am Start 85 ms, nach 100 Metern 67, nach 300 Metern 50, nie unter 40), enge
+Dächer häufen sich. Ausgespielt mit einem nachgebildeten Spieler, der auf die
+geplante Landung zielt und dessen Absprung und Haltezeit streuen (Mitte aus
+je 40 Läufen): 100 ms Streuung geben 110 Meter (sieben Sekunden), 70 ms 225
+(zwölf Sekunden), 50 ms 320 (16 Sekunden), 35 ms 560 (26 Sekunden), 25 ms
+1150 (49 Sekunden).
+Wer auf dem letzten Stück vor der Kante abspringt (`KNAPP`) oder gleich
+hinter der Kante aufsetzt, bekommt es gesagt («Kante!», «Knapp!»); auf der
+Tafel: Sprünge, davon perfekt. Die Zahl bleiben die Meter.
+
+Drücken und Loslassen gelten zu ihrer Zeit (`druecken`, `loslassen`,
+`vorholen`), und wer kurz vor dem Aufsetzen drückt, springt gleich weiter
+(`PUFFER`). Steigen und Bogen sind genau gerechnet (`luftSchritt`), damit die
+Strecke und das Spiel dieselbe Bahn sehen, wie fein auch geteilt wird. Quer
+sieht niemand viel weiter voraus als hochkant (`view.vorn`).
+
+Das Bild: Der Himmel wandert mit der Strecke von der goldenen Stunde über das
+Abendrot in die blaue Stunde und in die Nacht (`HIMMEL`): Die Sonne sinkt in
+die Senke der Berge und spiegelt sich im See, Wolkenbänke leuchten von unten,
+ein Zug Vögel, die ersten Sterne, später der Mond. Davor die Altstadt am Ufer
+mit Türmen und Giebeln, dann die Dächer gleich hinter der Strecke mit Kaminen,
+Antennen und Wäscheleinen, vorn die Häuser der Strecke mit Licht in den
+Fenstern und, auf den Dächern, Kaminen, Antennen, Aufgängen, Wassertanks,
+Oberlichtern, Wäsche und Lichterketten (nur Bild, nichts steht im Weg).
+Himmel, Berge und See stehen in einem eigenen Bild (`himmelBild`) und werden
+nur alle acht Meter neu gemalt; die Stadt und die Fassaden sind Kacheln
+(`ebenenNeu`), einmal gemalt und dann Punkt auf Punkt aufgelegt (`view.s` ist
+so gewählt, dass eine Fensterspalte eine ganze Zahl Bildpunkte breit ist).
+Gemessen mit Rastern auf dem Prozessor: gut 2 ms je Bild, hoch wie quer.
+
+Aufgezeichnet werden der Ort und die Haltung (steht, rennt, steigt, fällt):
+Gegner rennen als Boten aus Licht mit, und ein angeschauter Lauf baut mit
+seiner Saat dieselbe Strecke (Fassung `t1`). Sieben Klänge, alle aus
+vorhandenen. Prüfung 4g44: Ein Autopilot kommt nach dem Weg über vier
+Strecken bis 600 m, auch um neun Zehntel der Luft früher und kürzer oder
+später und länger; wer nichts tut, fällt in die erste Lücke; wer zu kurz
+hält, prallt an die Wand; wer zu lang hält, fliegt über das nächste Dach
+hinaus.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -2355,7 +2421,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 49», siehe unten).
+  Links davor steht fest das **Regal** («Alle 50», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

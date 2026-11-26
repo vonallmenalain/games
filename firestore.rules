@@ -99,6 +99,7 @@ service cloud.firestore {
         "iceStock",
         "ridgeRun",
         "chimneySweep",
+        "roofRun",
       ];
     }
 
