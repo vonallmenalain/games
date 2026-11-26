@@ -37,8 +37,13 @@
  *   partieCode/<code>   raum, spiel, bis – wohin die vier Ziffern führen
  *   partieOffen/<turnier>/<raum>   name, kennung, spiel, seit – wer im
  *                       Turnier gerade wartet. Verschwindet, sobald jemand
- *                       dazukommt, der Wartende geht oder seine Verbindung
- *                       abreisst (onDisconnect).
+ *                       dazukommt, der Wartende geht, sein Bild nicht mehr
+ *                       zu sehen ist oder seine Verbindung abreisst
+ *                       (onDisconnect). seit frischt er alle 15 Sekunden
+ *                       auf; was älter ist als 45 Sekunden, gilt nicht mehr.
+ *                       Im Turnier ist immer nur ein Spiel offen
+ *                       (mini-games.js, zweiOffen): Wer eröffnen will,
+ *                       während jemand wartet, spielt bei ihm mit.
  *
  * Gerechnet wird nichts in der Datenbank. Ein Zug ist eine Transaktion, die
  * an zuege etwas anhängt – nur wenn das Spiel ihn auf dem Stand erlaubt, den
@@ -115,7 +120,9 @@
   const CODE_DAUER_MS = 2 * 60 * 60 * 1000;
   // Wie lange ein Duell im Menü unter «Weiterspielen» steht.
   const DUELL_MERKEN_MS = 3 * 24 * 60 * 60 * 1000;
-  const OFFEN_MAX_MS = 3 * 60 * 60 * 1000;
+  // So oft frischt im Turnier auf, wer wartet (partieOffen, seit) – wie
+  // lange eine Meldung gilt, steht in mini-games.js (zweiOffen).
+  const OFFEN_HERZ_MS = 15 * 1000;
 
   const adresse = () => { try { return new URLSearchParams(window.location.search); } catch { return new URLSearchParams(); } };
   // Das Turnier, aus dem die Seite geöffnet wurde (?turnier=…): Es bleibt in
@@ -164,7 +171,11 @@
     // im Turnier: als Wartender gemeldet (der Raum), und wer der Liste
     // der Wartenden zuhört, wieder aufhören
     offenGemeldet: "",
+    herz: 0,
     menueAus: null,
+    // im Turnier, während einer Partie: wer gerade wartet (für «… hat ein
+    // neues Spiel eröffnet», wenn das Gegenüber gegangen ist)
+    rufe: [],
   };
 
   // ---------------------------------------------------------------------------
@@ -392,7 +403,11 @@
     }, { titel: "Vorlesen, was gerade los ist", klasse: "vr-satz-laut" });
     const brett = S.spiel.brett({ zug: beiZug, ton, el, knopf, steinZeichen, ruhig, vorlesen });
     const unten = el("div", "vr-knoepfe");
-    wirt.append(oben, satz, brett.knoten, unten);
+    // Im Turnier, wenn das Gegenüber gegangen ist und jemand ein neues Spiel
+    // eröffnet hat: der Weg dorthin, über dem Brett (duellRufZeigen).
+    const rufPlatz = el("div", "vr-ruf-platz");
+    rufPlatz.setAttribute("aria-live", "polite");
+    wirt.append(rufPlatz, oben, satz, brett.knoten, unten);
 
     function zeige({ spieler, text, textSitz = null, dran, ich, knoepfe = [], denkt = false, ende = null, bild }) {
       for (const [sitz, k] of [["a", a], ["b", b]]) {
@@ -420,7 +435,7 @@
       brett.zeichne(bild);
     }
 
-    return { knoten: wirt, brettKnoten: brett.knoten, zeige, fokus: brett.fokus };
+    return { knoten: wirt, brettKnoten: brett.knoten, rufPlatz, zeige, fokus: brett.fokus };
   }
 
   // Was über dem Brett steht – das Spiel darf es selbst sagen (satz), sonst
@@ -698,7 +713,11 @@
       }
       mitName();
     });
+    // Im Turnier ist immer nur ein Spiel offen: Wartet schon jemand, steht
+    // statt «Neues Spiel eröffnen» nur, dass man oben mitspielt.
+    const besetzt = TURNIER ? absatz("vr-hinweis vr-besetzt", "Es ist schon ein Spiel offen – tippe oben darauf und spiel mit.") : null;
     platz.append(offen);
+    if (besetzt) { besetzt.hidden = true; platz.append(besetzt); }
     live.append(platz);
     // Im Turnier braucht es den Code kaum – er steht eingeklappt darunter.
     if (TURNIER) {
@@ -707,8 +726,10 @@
       live.append(mehr);
     } else live.append(codeForm);
 
-    // Laufende Duelle dieses Geräts: weiterspielen, wo man war.
-    const merk = hiesigeDuelle();
+    // Laufende Duelle dieses Geräts: weiterspielen, wo man war. Im Turnier
+    // nicht – dort gibt es nur das eine Spiel, aus dem man eben gegangen ist,
+    // und das nur 30 Sekunden lang (oben, «Zurück zum Spiel»).
+    const merk = TURNIER ? [] : hiesigeDuelle();
     if (merk.length) {
       const weiter = el("div", "vr-weiter");
       weiter.append(el("p", "vr-weiter-titel", "Weiterspielen"));
@@ -731,42 +752,103 @@
     document.title = `${titel()} · arcade`;
 
     if (TURNIER) {
-      const zeigeWartende = (liste) => {
+      // Oben steht höchstens einer: wer gerade wartet – bei diesem oder
+      // einem anderen Spiel des Turniers –, sonst das Spiel, aus dem man eben
+      // gegangen ist (30 Sekunden lang).
+      let uhr = 0;
+      let liste = [];
+      const zeigeOben = () => {
+        window.clearTimeout(uhr);
         wartende.innerHTML = "";
-        live.classList.toggle("ist-wartet", liste.length > 0);
-        liste.forEach((d) => {
-          const k = el("button", "vr-wartet-knopf");
-          k.type = "button";
-          k.dataset.raum = d.raum;
-          const text = el("span", "vr-wartet-text");
-          text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet auf dich`));
-          k.append(steinZeichen("a", "vr-wartet-stein"), text, el("span", "vr-wartet-los", "Los"));
-          k.addEventListener("click", () => geh({ raum: d.raum }));
-          wartende.append(k);
-        });
+        const meine = mini()?.kennung?.() || "";
+        const eine = liste.find((d) => d.kennung !== meine) || null;
+        const zurueck = eine ? null : mini()?.zweiZurueck?.(TURNIER) || null;
+        live.classList.toggle("ist-wartet", Boolean(eine || zurueck));
+        offen.hidden = Boolean(eine);
+        if (besetzt) besetzt.hidden = !eine;
+        if (eine) {
+          const anderes = eine.spiel !== S.spiel.id ? mini()?.ZWEI_SPIELER?.find((z) => z.id === eine.spiel) : null;
+          wartende.append(rufKnopf({
+            raum: eine.raum, spiel: eine.spiel,
+            gross: `Mit ${eine.name} spielen`,
+            klein: anderes ? `${eine.name} wartet bei ${anderes.titel}` : `${eine.name} wartet auf dich`,
+          }));
+        } else if (zurueck) {
+          wartende.append(rufKnopf({ ...zurueck, zurueck: true }));
+          uhr = window.setTimeout(zeigeOben, Math.max(200, zurueck.bis - Date.now() + 50));
+        }
       };
-      S.menueAus = offeneHoeren(zeigeWartende);
+      zeigeOben();
+      const aus = offeneHoeren((neu) => { liste = neu; zeigeOben(); });
+      S.menueAus = () => { window.clearTimeout(uhr); aus?.(); };
     }
   }
 
-  // Wer im Turnier gerade bei diesem Spiel wartet – ohne mich selbst, und
-  // nichts, was älter ist als drei Stunden. Gibt zurück, wie man wieder
-  // aufhört zuzuhören.
+  /*
+   * Ein grosser Knopf: «Mit Lena spielen» (wer wartet) oder «Zurück zum
+   * Spiel» (aus dem man eben gegangen ist – mit einem Balken, der die
+   * 30 Sekunden abläuft). Ein Tipp, und man sitzt am Brett, auch bei einem
+   * anderen Spiel des Turniers.
+   */
+  function rufKnopf({ raum, spiel, gross = "", klein = "", zurueck = false, gegner = "", seit = 0, bis = 0 }) {
+    const k = el("button", `vr-wartet-knopf${zurueck ? " ist-zurueck" : ""}`);
+    k.type = "button";
+    k.dataset.raum = raum;
+    k.dataset.spiel = spiel;
+    const ziel = mini()?.ZWEI_SPIELER?.find((z) => z.id === spiel);
+    const text = el("span", "vr-wartet-text");
+    if (zurueck) {
+      gross = gegner ? `Zurück zum Spiel mit ${gegner}` : "Zurück zum Spiel";
+      klein = `${ziel?.titel || titel()} – noch kurz offen`;
+    }
+    text.append(el("strong", "", gross), el("span", "", klein));
+    k.append(steinZeichen(zurueck ? "b" : "a", "vr-wartet-stein"), text, el("span", "vr-wartet-los", zurueck ? "Zurück" : "Los"));
+    if (zurueck && bis > seit) {
+      const balken = el("span", "vr-wartet-uhr");
+      balken.setAttribute("aria-hidden", "true");
+      balken.style.animationDuration = `${bis - seit}ms`;
+      balken.style.animationDelay = `${-Math.max(0, Date.now() - seit)}ms`;
+      k.append(balken);
+    }
+    k.addEventListener("click", () => {
+      if (spiel && spiel !== S.spiel.id && zuSpiel(spiel, raum)) return;
+      geh({ raum });
+    });
+    return k;
+  }
+
+  // Wer im Turnier gerade wartet, bei allen Spielen zu zweit, ich selbst
+  // eingeschlossen – nur, was noch frisch ist, und der Raum, der gilt,
+  // zuerst (mini-games.js, zweiOffen). Weil eine Meldung auch ohne neue
+  // Daten veraltet, wird alle fünf Sekunden neu gezählt. Gibt zurück, wie man
+  // wieder aufhört zuzuhören.
   function offeneHoeren(beiListe) {
     const db = datenbank();
     if (!db || !TURNIER) return null;
     const ref = db.ref(`partieOffen/${TURNIER}`);
-    const hoerer = (s) => {
-      const d = s.val() || {};
-      const meine = mini()?.kennung?.() || "";
-      const grenze = jetzt() - OFFEN_MAX_MS;
-      beiListe(Object.entries(d)
-        .filter(([raum, o]) => RAUM_MUSTER.test(raum) && o && o.name && o.spiel === S.spiel.id && o.kennung !== meine && Number(o.seit) > grenze)
-        .map(([raum, o]) => ({ raum, name: String(o.name), seit: Number(o.seit) }))
-        .sort((x, y) => x.seit - y.seit));
+    let roh = {};
+    let vorher = "";
+    const melde = () => {
+      const liste = (mini()?.zweiOffen?.(Object.entries(roh || {}).map(([raum, o]) => ({
+        raum, name: String(o?.name || ""), kennung: String(o?.kennung || ""), spiel: String(o?.spiel || ""), seit: Number(o?.seit) || 0,
+      })), { jetzt: jetzt() })) || [];
+      const schluessel = JSON.stringify(liste.map((d) => [d.raum, d.kennung, d.name, d.spiel]));
+      if (schluessel === vorher) return;
+      vorher = schluessel;
+      beiListe(liste);
     };
-    ref.on("value", hoerer, () => beiListe([]));
-    return () => ref.off("value", hoerer);
+    const hoerer = (s) => { roh = s.val() || {}; melde(); };
+    ref.on("value", hoerer, () => { roh = {}; melde(); });
+    const takt = window.setInterval(melde, 5000);
+    return () => { window.clearInterval(takt); ref.off("value", hoerer); };
+  }
+
+  // Einmal nachsehen, wer im Turnier gerade wartet (vor dem Eröffnen) – roh,
+  // damit auch Veraltetes weggeräumt werden kann.
+  async function offenLesen() {
+    const db = S.db;
+    if (!db || !TURNIER) return {};
+    try { return (await db.ref(`partieOffen/${TURNIER}`).get()).val() || {}; } catch { return {}; }
   }
 
   // ---------------------------------------------------------------------------
@@ -988,7 +1070,28 @@
     const warten = el("section", "vr-karte vr-lobby");
     warten.append(el("p", "vr-hinweis", "Das Duell wird eröffnet …"));
     ansicht("lobby", warten);
+    // Im Turnier ist immer nur ein Spiel offen. Wartet schon jemand (das Menü
+    // hat es vielleicht noch nicht gehört), spielt man bei ihm mit. Sonst
+    // räumt, wer eröffnet, seine eigenen alten Meldungen weg und was nicht
+    // mehr gilt – und das Spiel, aus dem er eben gegangen ist, ist vorbei.
+    let alteMeldungen = [];
+    if (TURNIER) {
+      const roh = await offenLesen();
+      const liste = Object.entries(roh).map(([raum, o]) => ({
+        raum, name: String(o?.name || ""), kennung: String(o?.kennung || ""), spiel: String(o?.spiel || ""), seit: Number(o?.seit) || 0,
+      }));
+      const frisch = mini()?.zweiOffen?.(liste, { jetzt: jetzt() }) || [];
+      const eine = frisch.find((d) => d.kennung !== wer.kennung);
+      if (eine) {
+        if (eine.spiel !== S.spiel.id && zuSpiel(eine.spiel, eine.raum)) return;
+        geh({ raum: eine.raum }, { ersetzen: true });
+        return;
+      }
+      alteMeldungen = liste.filter((d) => d.kennung === wer.kennung || !frisch.some((f) => f.raum === d.raum)).map((d) => d.raum);
+      mini()?.zweiZurueckMerken?.(null);
+    }
     const raum = zufallsText(RAUM_LAENGE, ZEICHEN);
+    alteMeldungen.forEach((alt) => db.ref(`partieOffen/${TURNIER}/${alt}`).remove().catch(() => {}));
     try {
       await db.ref(`partie/${raum}`).update({
         info: { spiel: S.spiel.id, erstellt: TIMESTAMP() },
@@ -1068,6 +1171,15 @@
         console.warn("Im Turnier warten ging nicht", fehler);
         if (S.offenGemeldet === raum) S.offenGemeldet = "";
       });
+    // Lebenszeichen: Alle 15 Sekunden frischt die Meldung auf, solange hier
+    // gewartet wird und das Bild zu sehen ist. Ohne gilt sie nach 45
+    // Sekunden nicht mehr (mini-games.js, zweiOffen) – so lädt eine Seite,
+    // die der Browser eingefroren hat, niemanden mehr ein.
+    window.clearInterval(S.herz);
+    S.herz = window.setInterval(() => {
+      if (S.offenGemeldet !== raum || S.raum !== raum || S.daten?.b || document.visibilityState !== "visible") return;
+      ref.update({ seit: TIMESTAMP() }).catch(() => {});
+    }, OFFEN_HERZ_MS);
   }
 
   function offenWeg(raum = S.raum) {
@@ -1076,11 +1188,27 @@
     ref.onDisconnect().cancel().catch(() => {});
     ref.remove().catch(() => {});
     if (S.offenGemeldet === raum) S.offenGemeldet = "";
+    window.clearInterval(S.herz);
+    S.herz = 0;
+  }
+
+  /*
+   * Im Turnier: Wer eine laufende Partie verlässt (das Menü, der Weg zurück
+   * ins Turnier, die Seite zu), kann 30 Sekunden lang zurück – die
+   * Turnierseite und das Menü zeigen «Zurück zum Spiel» (mini-games.js,
+   * zweiZurueck). Wer wieder am Brett sitzt oder ein neues Spiel eröffnet,
+   * braucht es nicht mehr.
+   */
+  function zurueckMerken() {
+    const d = S.daten;
+    if (!TURNIER || !S.raum || !S.sitz || !d?.a || !d?.b) return;
+    mini()?.zweiZurueckMerken?.({ turnier: TURNIER, spiel: S.spiel.id, raum: S.raum, gegner: String(d[anderer(S.sitz)]?.name || "") });
   }
 
   function duellVerlassen() {
     if (!S.raum) return;
     const db = S.db;
+    zurueckMerken();
     if (S.sitz === "a" && !S.daten?.b) offenWeg();
     if (db && S.hoerer) db.ref(`partie/${S.raum}`).off("value", S.hoerer);
     if (db && S.sitz) {
@@ -1144,6 +1272,8 @@
     if (S.sitz && S.sitz !== vorher) {
       melden();
       duellMerken(S.raum, d[anderer(S.sitz)]?.name || "");
+      // Wieder (oder neu) am Brett: «Zurück zum Spiel» ist erledigt.
+      if (TURNIER) mini()?.zweiZurueckMerken?.(null);
     }
   }
 
@@ -1254,6 +1384,10 @@
       ansicht("duell", duellAnsicht.knoten);
       letzterStand = null;
       if (ausLobby) ton("da");
+      // Im Turnier: hören, ob jemand ein neues Spiel eröffnet – für den Fall,
+      // dass das Gegenüber gegangen ist (duellRufZeigen).
+      S.rufe = [];
+      if (TURNIER && S.sitz) S.menueAus = offeneHoeren((liste) => { S.rufe = liste; duellRufZeigen(); });
     }
     const st = duellStand();
     const dran = st.ende ? null : st.lage.dran;
@@ -1313,6 +1447,7 @@
       bild: { zuege: st.zuege, roh: st.roh, lage: st.lage, beginnt: st.beginnt, saat: st.saat, nr: st.nr, dran, ich: S.sitz, aus: Boolean(st.ende), modus: "duell", raum: S.raum, namen: { a: d.a?.name || "…", b: d.b?.name || "…" } },
     });
     letzterStand = { nr: st.nr, roh: st.roh, ende: st.ende };
+    duellRufZeigen();
 
     // Was gerade passiert ist: Ende der Partie, oder ich bin wieder dran.
     if (vorher) {
@@ -1341,6 +1476,52 @@
         window.setTimeout(() => duellZug(z), ruhig() ? 30 : 260);
       }
     }
+  }
+
+  /*
+   * Im Turnier, am Brett: Ist das Gegenüber gegangen und hat jemand ein
+   * neues Spiel eröffnet (oft genau das Gegenüber), steht über dem Brett der
+   * Weg dorthin – «Mit Mia spielen». Solange beide da sind, nichts.
+   */
+  function duellRufZeigen() {
+    const platz = duellAnsicht?.rufPlatz;
+    if (!platz) return;
+    const d = S.daten || {};
+    const gegner = S.sitz ? d[anderer(S.sitz)] : null;
+    const allein = Boolean(S.sitz && (!gegner || gegner.online === false));
+    const meine = mini()?.kennung?.() || "";
+    const eine = TURNIER && allein ? (S.rufe || []).find((x) => x.kennung !== meine && x.raum !== S.raum) : null;
+    const jetzt = platz.dataset.raum || "";
+    if ((eine?.raum || "") === jetzt) return;
+    platz.innerHTML = "";
+    platz.dataset.raum = eine?.raum || "";
+    if (!eine) return;
+    const anderes = eine.spiel !== S.spiel.id ? mini()?.ZWEI_SPIELER?.find((z) => z.id === eine.spiel) : null;
+    platz.append(rufKnopf({
+      raum: eine.raum, spiel: eine.spiel,
+      gross: `Mit ${eine.name} spielen`,
+      klein: anderes ? `${eine.name} hat ein neues Spiel eröffnet: ${anderes.titel}` : `${eine.name} hat ein neues Spiel eröffnet`,
+    }));
+    ton("da");
+  }
+
+  /*
+   * Im Turnier, beim Warten: Haben zwei im selben Augenblick eröffnet,
+   * wartet jetzt bei beiden jemand. Es gilt der Raum, der im Alphabet vorne
+   * steht (mini-games.js, zweiOffen) – wer den anderen hat, nimmt seine
+   * Meldung zurück und setzt sich dort ans Brett. Das entscheiden beide
+   * Geräte gleich, erst wenn beide Meldungen da sind.
+   */
+  function lobbyPruefen(liste) {
+    if (S.ansicht !== "lobby" || S.sitz !== "a" || S.daten?.b || !S.raum) return;
+    const meine = mini()?.kennung?.() || "";
+    if (!liste.some((x) => x.raum === S.raum && x.kennung === meine)) return;
+    const erste = liste.find((x) => x.kennung !== meine || x.raum === S.raum);
+    if (!erste || erste.raum === S.raum) return;
+    offenWeg();
+    duellVergessen(S.raum);
+    if (erste.spiel !== S.spiel.id && zuSpiel(erste.spiel, erste.raum)) return;
+    geh({ raum: erste.raum }, { ersetzen: true });
   }
 
   function lobbyZeigen(d) {
@@ -1389,6 +1570,7 @@
     ansicht("lobby", box);
     S.wirt.dataset.code = String(d.code || "");
     document.title = `Warte … · ${titel()}`;
+    if (TURNIER) S.menueAus = offeneHoeren(lobbyPruefen);
   }
 
   // Ein Zug im Duell: als Transaktion, gegen den Stand, den die Datenbank
@@ -1443,9 +1625,30 @@
       S.wirt = document.querySelector("[data-zwei]");
       if (!S.wirt) return;
       window.addEventListener("popstate", route);
-      // Wieder vorne (Handy aus der Tasche): da sein und neu zeichnen.
+      // Wieder vorne (Handy aus der Tasche): da sein und neu zeichnen – wer
+      // im Turnier wartet, meldet sich wieder. Weg (Tablet zu, andere App):
+      // Wer wartet, lädt solange niemanden ein.
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible" && S.raum && S.sitz) melden();
+        if (document.visibilityState === "visible") {
+          if (S.raum && S.sitz) melden();
+          if (S.raum && S.geladen) duellZeichnen();
+        } else if (S.offenGemeldet) offenWeg();
+      });
+      // Die Seite geht (zurück ins Turnier, zu): Wer wartet, wartet nicht
+      // mehr – nicht erst, wenn die Datenbank merkt, dass die Verbindung weg
+      // ist. Wer mitten in einer Partie geht, kann 30 Sekunden lang zurück.
+      window.addEventListener("pagehide", () => {
+        zurueckMerken();
+        if (S.offenGemeldet) offenWeg();
+      });
+      // Aus dem Verlauf zurück (der Browser hatte die Seite eingefroren):
+      // wieder da – und wer am Brett sitzt, braucht «Zurück zum Spiel» nicht.
+      window.addEventListener("pageshow", (e) => {
+        if (!e.persisted || !S.raum) return;
+        const z = TURNIER ? mini()?.zweiZurueck?.(TURNIER) : null;
+        if (z && z.raum === S.raum) mini()?.zweiZurueckMerken?.(null);
+        if (S.sitz) melden();
+        if (S.geladen) duellZeichnen();
       });
       route();
     };

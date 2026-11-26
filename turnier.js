@@ -1351,23 +1351,42 @@
       reiterZwei.classList.toggle("ist-wartet", leuchtet);
       reiterZwei.setAttribute("aria-label", leuchtet ? `Zu zweit – ${namen.join(" und ")} ${namen.length === 1 ? "wartet" : "warten"}` : "Zu zweit");
     }
+    // Oben steht höchstens ein Ruf: wer gerade wartet – im Turnier ist immer
+    // nur ein Spiel offen (mini-games.js, zweiOffen) –, sonst das Spiel, aus
+    // dem man eben gegangen ist, 30 Sekunden lang («Zurück zum Spiel»,
+    // zweiZurueck). Danach verschwindet es von selbst.
+    let rufeUhr = 0;
+    signal.addEventListener("abort", () => window.clearTimeout(rufeUhr));
     function rufeZeichnen() {
+      window.clearTimeout(rufeUhr);
       rufe.innerHTML = "";
       const t = stand.t;
       if (!t || !zweiDa()) return;
-      stand.duelle.slice(0, 3).forEach((d) => {
-        const spiel = (m.ZWEI_SPIELER || []).find((z) => z.id === d.spiel);
-        if (!spiel) return;
-        const ruf = el("a", "tn-vr-ruf");
-        ruf.dataset.zwei = d.spiel;
-        ruf.href = `/${spiel.seite}?turnier=${encodeURIComponent(t.id)}&raum=${encodeURIComponent(d.raum)}`;
-        const stein = el("span", "tn-vr-stein");
-        stein.setAttribute("aria-hidden", "true");
-        const text = el("span", "tn-vr-text");
-        text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet bei ${spiel.titel}`));
-        ruf.append(stein, text, el("span", "tn-vr-los", "Los"));
-        rufe.append(ruf);
-      });
+      const wartet = stand.duelle[0] || null;
+      const zurueck = wartet ? null : m.zweiZurueck?.(t.id) || null;
+      const d = wartet || (zurueck && zweiImTurnier(t).includes(zurueck.spiel) ? zurueck : null);
+      const spiel = d ? (m.ZWEI_SPIELER || []).find((z) => z.id === d.spiel) : null;
+      if (!spiel) return;
+      const ruf = el("a", `tn-vr-ruf${wartet ? "" : " ist-zurueck"}`);
+      ruf.dataset.zwei = d.spiel;
+      ruf.href = `/${spiel.seite}?turnier=${encodeURIComponent(t.id)}&raum=${encodeURIComponent(d.raum)}`;
+      const stein = el("span", "tn-vr-stein");
+      stein.setAttribute("aria-hidden", "true");
+      const text = el("span", "tn-vr-text");
+      if (wartet) text.append(el("strong", "", `Mit ${d.name} spielen`), el("span", "", `${d.name} wartet bei ${spiel.titel}`));
+      else text.append(el("strong", "", d.gegner ? `Zurück zum Spiel mit ${d.gegner}` : "Zurück zum Spiel"), el("span", "", `${spiel.titel} – noch kurz offen`));
+      ruf.append(stein, text, el("span", "tn-vr-los", wartet ? "Los" : "Zurück"));
+      if (!wartet) {
+        // Ein Balken, der die 30 Sekunden abläuft – auch wer nicht liest,
+        // sieht, dass es gleich weg ist.
+        const balken = el("span", "tn-vr-uhr");
+        balken.setAttribute("aria-hidden", "true");
+        balken.style.animationDuration = `${d.bis - d.seit}ms`;
+        balken.style.animationDelay = `${-Math.max(0, Date.now() - d.seit)}ms`;
+        ruf.append(balken);
+        rufeUhr = window.setTimeout(rufeZeichnen, Math.max(200, d.bis - Date.now() + 50));
+      }
+      rufe.append(ruf);
     }
     async function duelleFragen() {
       const t = stand.t;
@@ -1376,7 +1395,9 @@
       try { liste = (await cloud()?.offeneDuelle?.(t.id)) || []; } catch { return; }
       const ich = m.kennungFallsDa?.() || "";
       const imTurnier = zweiImTurnier(t);
-      const andere = liste.filter((d) => d.kennung !== ich && d.name && imTurnier.includes(d.spiel))
+      const frisch = m.zweiOffen ? m.zweiOffen(liste, { jetzt: Date.now() }) : liste;
+      const andere = frisch.filter((d) => d.kennung !== ich && d.name && imTurnier.includes(d.spiel))
+        .slice(0, 1)
         .map((d) => ({ name: d.name, raum: d.raum, spiel: d.spiel }));
       if (JSON.stringify(andere) === JSON.stringify(stand.duelle)) return;
       stand.duelle = andere;
