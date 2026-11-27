@@ -166,10 +166,17 @@
   // keine Datei, die jemand von Hand nach Firebase bringen muss.
   const MAX_JE_SPIEL = 300;
   // Und je Gerät: ein Dokument je Spiel, mehr kann es nicht geben. Die Grenze
-  // steht nur da, damit eine kaputte Kennung nicht die halbe Sammlung liest.
-  const MAX_JE_SPIELER = 50;
+  // steht nur da, damit eine kaputte Kennung nicht die halbe Sammlung liest –
+  // und muss deshalb über der Zahl der Spiele liegen: Bis November 2026 stand
+  // hier 50, und wer mehr als 50 Spiele gespielt hatte, behielt beim
+  // Umbenennen in den übrigen seinen alten Namen. scripts/pruefen.mjs passt
+  // auf, dass die Spiele sie nicht wieder einholen.
+  const MAX_JE_SPIELER = 120;
   // Und je Name: ein Dokument je Spiel und Gerät, auf dem er eingetragen ist.
   const MAX_JE_NAMEN = 200;
+  // Wie viele Spiele eine Liste in der Datenbank höchstens nennt – dieselbe
+  // Zahl wie in firestore.rules (istSpieleListe, istTurnier, istLiveErgebnis).
+  const SPIELE_LISTE_MAX = 120;
 
   const zustand = { app: null, db: null, fehler: "" };
 
@@ -1026,7 +1033,8 @@
         platz: Math.max(1, Math.round(Number(e.platz) || 1)),
       })),
       runden: Math.max(0, Math.min(100, Math.round(Number(daten.runden) || 0))),
-      spiele: (daten.spiele || []).slice(0, 50).map(String),
+      // Dieselbe Grenze wie in firestore.rules (istLiveErgebnis).
+      spiele: (daten.spiele || []).slice(0, SPIELE_LISTE_MAX).map(String),
       erstelltMs: Math.round(Number(daten.erstelltMs) || Date.now()),
       updatedAtMs: Date.now(),
       updatedAt: jetztAufDemServer(),

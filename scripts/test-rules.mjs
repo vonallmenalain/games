@@ -208,6 +208,16 @@ await darfNicht("Admin setzt ein Tier 6", () => admin().doc(LISTE).set(spieleLis
 await darfNicht("Admin setzt ein Tier 0", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 0 } })));
 await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
 await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
+// Alle Spiele auf einmal – so schreibt sie der Adminbereich (admin.js,
+// vollstaendig). Bis November 2026 liessen die Regeln nur 50 zu, und mit dem
+// 51. Spiel scheiterte dort jedes Speichern, auch nur ein Haken.
+const ALLE_SPIELE = [...(rules.match(/function miniSpiele\(\) \{\s*return \[([\s\S]*?)\];/)?.[1] || "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+if (ALLE_SPIELE.length <= 50) befunde.push(`Es gibt nur ${ALLE_SPIELE.length} Spiele – der Fall «mehr als 50» prüft so nichts.`);
+await darf(`Admin hakt alle ${ALLE_SPIELE.length} Spiele an und teilt jedes in ein Tier ein`, () => admin().doc(LISTE).set(spieleListe({
+  spiele: ALLE_SPIELE,
+  tiers: Object.fromEntries(ALLE_SPIELE.map((id, i) => [id, (i % 5) + 1])),
+})));
+await darf(`Admin ändert danach ein Tier, mit allen ${ALLE_SPIELE.length} im selben Dokument`, () => admin().doc(LISTE).set({ tiers: { [ALLE_SPIELE[0]]: 2 }, updatedAtMs: 5 }, { merge: true }));
 // Die Spiele zu zweit auf der Startseite (zweiSpieler): nur solche, die es
 // gibt – ohne Bestenliste, darum nicht unter spiele.
 await darf("Admin stellt Viererreihe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
@@ -395,6 +405,7 @@ await darf("Admin legt ein Turnier nur mit Link an, ohne Beschreibung", () => {
   return admin().doc(GEHEIM).set(ohne);
 });
 await darf("Admin ändert ein Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ endeMs: JETZT + 2 * STUNDE, updatedAtMs: 2 })));
+await darf(`Admin legt ein Turnier mit allen ${ALLE_SPIELE.length} Spielen an`, () => admin().doc("miniTurniere/alles-a1s2d3f4").set(turnierDaten({ spiele: ALLE_SPIELE })));
 await darf("Admin legt ein Turnier mit unbegrenzten Versuchen an", () => admin().doc("miniTurniere/offen-z7x5c3v1").set(turnierDaten({ versuche: 0, verdeckt: true })));
 // "Nur wer nicht vorne liegt": eine dritte Art neben "unbegrenzt" und einer
 // festen Zahl – also nur mit versuche 0, und nur als Ja oder Nein.
@@ -432,11 +443,13 @@ await darf("Admin legt ein Turnier nur mit Spielen zu zweit an", () => admin().d
 await darf("Admin legt ein Turnier nur mit Tic Tac Toe an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe"] })));
 await darf("Admin legt ein Turnier mit allen neuen Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge", "bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff", "garten"] })));
 // Alle Spiele zu zweit, auch Viererreihe – mehr als 20 (bis November 2026 die
-// Grenze); höchstens 40.
+// Grenze, danach 40); höchstens 120, wie jede Liste von Spielen.
 const ALLE_ZWEI_REGELN = (rules.match(/function zweiSpielerSpiele\(\) \{\s*return \[([^\]]*)\]/)?.[1] || "").match(/"([a-z]+)"/g)?.map((x) => x.slice(1, -1)) || [];
 await darf(`Admin legt ein Turnier mit allen ${ALLE_ZWEI_REGELN.length} Spielen zu zweit an, auch Viererreihe`, () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ALLE_ZWEI_REGELN })));
 await darf(`Admin stellt alle ${ALLE_ZWEI_REGELN.length} Spiele zu zweit auf die Startseite`, () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ALLE_ZWEI_REGELN })));
-await darfNicht("Admin nimmt mehr als 40 Spiele zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: Array(41).fill("tictactoe") })));
+await darfNicht("Admin nimmt mehr als 120 Spiele zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: Array(121).fill("tictactoe") })));
+await darfNicht("Admin nimmt mehr als 120 Spiele in ein Turnier", () => admin().doc("miniTurniere/alles-a1s2d3f4").set(turnierDaten({ spiele: Array(121).fill("towerStack") })));
+await darfNicht("Admin hakt mehr als 120 Spiele an", () => admin().doc(LISTE).set(spieleListe({ spiele: Array(121).fill("towerStack") })));
 await darfNicht("Admin legt ein Turnier mit leerer Liste zu zweit und ohne Spiel an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: [] })));
 await darfNicht("Admin nimmt ein erfundenes Spiel zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["schachboxen"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: "viererreihe" })));
