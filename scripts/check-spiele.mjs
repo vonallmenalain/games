@@ -12601,16 +12601,18 @@ try {
   // --- 4g48. Spiegelsee: immer zu schaffen, und wer nur eine Welt liest, stürzt ----
   // Ein Autopilot tippt jeden Sprung genau nach dem Weg – über vier
   // gewürfelte Strecken bis 100 s, ohne Sturz und ohne dass die Planung je
-  // auf einen Notbehelf ausweichen muss. Auch wer jeden Sprung um fast die
-  // ganze Luft zu früh, zu spät oder im Wechsel nimmt, kommt durch. Die
-  // ersten Sekunden spiegelt der See treu (nur oben, alles gespiegelt), dann
-  // erwacht er, und unten stehen eigene Hindernisse – beider Arten. Jeder
-  // achte Abschnitt ist besonders (8., 24.: Nebel, nur oben und treu
-  // gespiegelt, drei, dann vier Sprünge; 16., 32.: Steg mit zwei, dann drei
-  // Lücken und Hechten darunter). Deutlich zu spät am ersten Stein, nichts
-  // tun, dauernd tippen, ein Sprung unter dem ersten Ast und einer unter der
-  // ersten Qualle (oder was unten schwebt) enden bald – der letzte im
-  // zerbrochenen Spiegel; ein Tipp in der Luft verfällt.
+  // ausweichen muss; an jeder Abkürzung nimmt er einmal den oberen, einmal
+  // den unteren Weg (oben gibt es die Bonusmeter). Auch wer jeden Sprung um
+  // fast die ganze Luft zu früh, zu spät oder im Wechsel nimmt, kommt durch.
+  // Die ersten Sekunden spiegelt der See treu, dann erwacht er; der
+  // Lehrpfad bringt in den ersten 400 m der Reihe nach einen Steg eine
+  // Etage höher, den springenden Hecht, eine Sackgasse (oben bricht der
+  // Steg), Nebel – und bei 400 m die zweite Landschaft. Ein Spiegeltor
+  // kippt die Welt, das nächste zurück. Wer an einer Sackgasse den falschen
+  // Weg nimmt, stürzt sicher – wie er auch springt. Deutlich zu spät am
+  // ersten Stein, nichts tun, dauernd tippen, ein Sprung unter dem ersten
+  // Ast und einer über dem, was unten schwebt, enden bald; ein Tipp in der
+  // Luft verfällt.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.goto(`${BASIS}/spiegelsee`, { waitUntil: "load" });
@@ -12619,22 +12621,23 @@ try {
       const K = window.LernappSpiegelsee;
       const st = K.state;
       const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); K.tippen(); };
-      // Ein Lauf bis zur Spielzeit bis. fehler(nr, w): um wie viele Sekunden
-      // der Sprung nr (geplant zur Zeit w.t) neben dem Plan liegen soll –
-      // getippt genau dann, nicht erst im nächsten Schritt. extra():
-      // zusätzliche Tipps zu festen Zeiten (gefragt, wenn die Strecke steht);
-      // fest(nr): nur zu festen Zeiten.
-      const lauf = (bis, fehler, { extra = () => [], fest = null } = {}) => {
+      // Ein Lauf bis zur Spielzeit bis. wahl(gabel): welche Spur an jeder
+      // Gabelung (sonst der vorgeschlagene Weg); fehler(nr, w): um wie viele
+      // Sekunden der Sprung nr neben dem Plan liegt – getippt genau dann.
+      // extra(): zusätzliche Tipps zu festen Zeiten (gefragt, wenn die
+      // Strecke steht); fest(nr): nur zu festen Zeiten.
+      const lauf = (bis, fehler, { extra = () => [], fest = null, wahl = null } = {}) => {
         neu();
         let nr = 0;
         let ziel = null;
         const noch = [...extra()];
         for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "sturz" && st.t < bis; n += 1) {
           if (noch.length && st.t >= noch[0]) { K.tippen(); noch.shift(); }
+          const weg = wahl ? K.wegMit(wahl) : st.weg;
           if (fest) {
             if (st.t >= fest(nr)) { K.tippen(); nr += 1; }
-          } else if (fehler && st.weg[nr]) {
-            const w = st.weg[nr];
+          } else if (fehler && weg[nr]) {
+            const w = weg[nr];
             if (ziel === null) ziel = w.t + fehler(nr, w);
             const rest = ziel - st.t;
             if (rest < 1 / 240) {
@@ -12648,7 +12651,7 @@ try {
         }
         return {
           schritt: st.schritt, art: st.sturz?.art || "", warum: st.sturz?.warum || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte,
-          spruenge: st.spruenge, verfallen: st.verfallen, planFehler: st.planFehler,
+          bonus: st.bonus, x: Math.round(st.laeuferin.x), spruenge: st.spruenge, verfallen: st.verfallen, planFehler: st.planFehler, planLog: st.planLog.join(" "),
         };
       };
 
@@ -12656,43 +12659,83 @@ try {
       const genau = [];
       const lagen = {};
       const arten = {};
-      const besonders = [];
+      let lehr = null;
       let treu = null;
+      let kipp = null;
+      const abk = [];
       for (let i = 0; i < 4; i += 1) {
         genau.push(lauf(100, () => 0));
-        st.abschnitte.filter((a) => a.t1 < st.t).forEach((a) => { lagen[a.lage] = (lagen[a.lage] || 0) + 1; });
+        st.abschnitte.filter((a) => a.t1 < st.t).forEach((a) => { const k = a.art || a.lage; lagen[k] = (lagen[k] || 0) + 1; });
         st.hindernisse.filter((o) => o.b < st.laeuferin.x).forEach((o) => { const k = `${o.welt}/${o.kind}`; arten[k] = (arten[k] || 0) + 1; });
+        st.bewegtAlle.filter((o) => (o.tm ?? o.tRef) < st.t).forEach((o) => { arten[o.art] = (arten[o.art] || 0) + 1; });
         if (i === 0) {
-          K.kursText(100);
-          st.abschnitte.filter((a) => a.besonders).forEach((a) => {
-            const eigene = st.hindernisse.filter((o) => o.nr === a.nr);
-            besonders.push({
-              nr: a.nr, art: a.besonders, lage: a.lage, spruenge: st.weg.filter((w) => w.nr === a.nr).length,
-              nurOben: eigene.every((o) => o.welt === "oben" && o.spiegel), luecken: eigene.filter((o) => o.kind === "luecke").length,
-              hechte: eigene.filter((o) => o.art === "hecht").length, imNebel: eigene.every((o) => o.nebel),
-            });
-          });
+          // Der Lehrpfad: die besonderen Abschnitte bis 400 m, ihre Meter.
+          const fruehe = st.abschnitte.filter((a) => a.art && a.x0 < 4000).map((a) => ({ art: a.art, m: Math.round(a.x0 / 10), falsch: a.gabel?.falsch ?? null }));
+          lehr = { fruehe, land400: K.landNr(4000), land399: K.landNr(3990), etage: st.etagen.some((e) => e.a < 2800) };
           const vor = st.abschnitte.filter((a) => a.treu);
           const erste = st.abschnitte.find((a) => a.wecken);
           treu = {
             erwacheT: st.erwacheT,
-            vorher: vor.length >= 3 && vor.every((a) => a.t1 < st.erwacheT && !st.abschnitte.some((b) => !b.treu && b.nr < a.nr))
-              && st.hindernisse.filter((o) => vor.some((a) => a.nr === o.nr)).every((o) => o.welt === "oben" && o.spiegel),
+            vorher: vor.length >= 3 && vor.every((a) => a.t1 < st.erwacheT) && st.hindernisse.filter((o) => vor.some((a) => a.nr === o.nr)).every((o) => o.welt === "oben" && o.spiegel),
             ersteUnten: erste ? st.hindernisse.filter((o) => o.nr === erste.nr).every((o) => o.welt === "unten") : false,
           };
+          // Das Tor kippt die Welt, das nächste zurück – und die Aufzeichnung
+          // trägt es mit.
+          if (st.tore.length >= 2) {
+            const [a, b] = st.tore;
+            kipp = {
+              vor: K.kippBei(a.t - 0.01).mass, mitte: K.kippBei(a.t + K.DREH / 2).mass, nach: K.kippBei(a.t + K.DREH + 0.01).mass,
+              gekippt: K.kippBei(a.t + 1).gekippt, zurueck: K.kippBei(b.t + K.DREH + 0.01).mass, wiederAufrecht: !K.kippBei(b.t + 1).gekippt,
+              abstand: Math.round((b.x - a.x) / 10),
+            };
+          }
         }
       }
-      // 2. Fast die ganze Luft zu früh, zu spät, im Wechsel.
+      // 2. An jeder Abkürzung oben (Bonus) und unten (ohne).
+      const oben = [];
+      const unten = [];
+      for (let i = 0; i < 2; i += 1) {
+        oben.push(lauf(100, () => 0, { wahl: (g) => (g.art === "abkuerzung" ? 1 : g.richtig) }));
+        const abkZahl = st.gabeln.filter((g) => g.art === "abkuerzung" && g.tEnde < st.t).length;
+        abk.push({ abkZahl, bonus: st.bonus, passt: st.punkte === Math.floor(st.laeuferin.x / 10) + st.bonus });
+        unten.push(lauf(100, () => 0, { wahl: (g) => (g.art === "abkuerzung" ? 0 : g.richtig) }));
+      }
+      // 3. Fast die ganze Luft zu früh, zu spät, im Wechsel.
       const frueh = lauf(100, (nr, w) => -0.95 * w.e);
       const spaet = lauf(100, (nr, w) => 0.95 * w.e);
       const wechsel = lauf(100, (nr, w) => (nr % 2 ? 0.95 : -0.95) * w.e);
-      // 3. Am ersten Stein deutlich zu spät: Sie stolpert.
+      // 4. Der falsche Weg einer Sackgasse endet sicher: oben (der Steg
+      //    bricht), unten (der Felssturz) – ohne weitere Sprünge, mit einem
+      //    Sprung kurz vor der Falle, mit Sprüngen alle 0,7 s.
+      const falsch = [];
+      K.halteSaat(424242);
+      [1, 0].forEach((welche) => {
+        [0, 1, 2].forEach((j) => {
+          let gb = null;
+          const r = lauf(200, () => 0, {
+            extra: () => {
+              K.kursText(70);
+              gb = st.gabeln.find((g) => g.art === "sackgasse" && g.falsch === welche) || null;
+              if (!gb) return [];
+              const tFalle = K.tBei(gb.xT);
+              // Nach dem Fenster (sonst wäre es die andere Wahl), oben erst
+              // auf dem Steg.
+              const ab = welche === 1 ? gb.fenster.hi + 0.6 : gb.fenster.hi + 0.03;
+              return j === 0 ? [] : j === 1 ? [Math.max(ab, tFalle - 0.3)] : [ab, Math.max(ab + 0.01, tFalle - 0.05)];
+            },
+            wahl: (g) => (gb && g.nr === gb.nr ? 1 - g.richtig : g.richtig ?? 1),
+          });
+          falsch.push({ welche, j, fehlt: !gb, ...r, xT: gb ? Math.round(gb.xT) : null, falle: welche === 1 ? "bruch" : "fels" });
+        });
+      });
+      K.halteSaat(null);
+      // 5. Am ersten Stein deutlich zu spät: Sie stolpert.
       const zuSpaet = lauf(100, (nr, w) => (nr === 0 ? 1.3 * w.e + 0.03 : 0));
       const ersterSprung = st.weg[0].t;
-      // 4. Nichts tun; 5. dauernd tippen.
+      // 6. Nichts tun; 7. dauernd tippen.
       const nichts = lauf(100, null);
       const dauernd = lauf(100, null, { fest: (nr) => 0.12 * (nr + 1) });
-      // 6. Ein Sprung mitten unter dem ersten Ast: Kopf an.
+      // 8. Ein Sprung mitten unter dem ersten Ast: Kopf an.
       let ast = null;
       const unterAst = lauf(60, () => 0, {
         extra: () => {
@@ -12701,39 +12744,60 @@ try {
           return ast ? [K.tBei((ast.a + ast.b) / 2) - 0.1] : [];
         },
       });
-      // 7. Ein Sprung mitten über dem ersten, was unten schwebt: Das
+      // 9. Ein Sprung mitten über dem ersten, was unten schwebt: Das
       //    Spiegelbild stösst an, der Spiegel zerbricht.
       let schwebt = null;
       const unterSchwebt = lauf(60, () => 0, {
         extra: () => {
           K.kursText(60);
-          schwebt = st.hindernisse.find((o) => o.kind === "decke" && o.welt === "unten") || null;
+          schwebt = st.hindernisse.find((o) => o.kind === "decke" && o.welt === "unten" && !o.bewegt) || null;
           return schwebt ? [K.tBei((schwebt.a + schwebt.b) / 2) - 0.1] : [];
         },
       });
-      // 8. Zwei Tipps kurz nacheinander: Der zweite kommt in der Luft und
-      //    verfällt, sie läuft weiter.
+      // 10. Zwei Tipps kurz nacheinander: Der zweite kommt in der Luft und
+      //     verfällt, sie läuft weiter.
       const zweimal = lauf(6, () => 0, { extra: () => [st.weg[0].t + 0.15] });
+      // 11. Die Aufzeichnung: c trägt den Sprung, die Spur und das Kippen.
+      neu();
+      K.kursText(50);
+      const gbErst = st.gabeln[0];
+      const code = {};
+      for (let n = 0; n < 240 * 60 && st.schritt !== "sturz"; n += 1) {
+        const weg = K.wegMit((g) => g.richtig ?? 1);
+        if (weg.find((w) => Math.abs(w.t - st.t) < 1 / 480)) K.tippen();
+        K.takt(1 / 240);
+        if (st.laeuferin.spur === 1 && code.spur === undefined) code.spur = K.codeC() & 2;
+        if (K.kippBei(st.t).gekippt && code.kipp === undefined) code.kipp = K.codeC() & 4;
+        if (st.laeuferin.sprung !== null && code.springt === undefined) code.springt = K.codeC() & 1;
+      }
       return {
-        genau, lagen, arten, besonders, treu, frueh, spaet, wechsel, zuSpaet, ersterSprung, nichts, dauernd, unterAst, astDa: Boolean(ast), unterSchwebt, schwebtDa: Boolean(schwebt), zweimal,
+        genau, lagen, arten, lehr, treu, kipp, abk, oben, unten, frueh, spaet, wechsel, falsch, zuSpaet, ersterSprung, nichts, dauernd,
+        unterAst, astDa: Boolean(ast), unterSchwebt, schwebtDa: Boolean(schwebt), zweimal, code, ersteGabel: gbErst ? { art: gbErst.art, falsch: gbErst.falsch } : null,
         luft: [0, 20, 60, 200].map((t) => Math.round(K.luftBei(t) * 1000)),
         tempo: [1, 30, 90].map((t) => Math.round(K.tempoBei(t))),
       };
     });
     pruefe(befund.genau.every((r) => r.schritt !== "sturz" && r.t >= 100 && r.verfallen === 0 && r.planFehler === 0) && befund.genau[0].punkte >= 1700,
       `Spiegelsee: Der Autopilot kommt nicht über jede Strecke, oder die Planung weicht aus – ${JSON.stringify(befund.genau)}`);
-    pruefe(["einzeln", "beide", "doppel", "dreifach", "zangeVor", "zangeNach", "klammer", "nebel", "steg"].every((l) => befund.lagen[l] >= 1)
-      && befund.arten["oben/boden"] >= 40 && befund.arten["oben/decke"] >= 6 && befund.arten["unten/boden"] >= 25 && befund.arten["unten/decke"] >= 12,
-      `Spiegelsee: In vier Strecken kommen nicht alle Lagen oder nicht beide Welten mit beiden Arten vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
+    pruefe(["einzeln", "beide", "doppel", "dreifach", "zangeVor", "zangeNach", "klammer", "hecht", "nebel", "steg", "gabel", "abkuerzung", "tor", "etage"].every((l) => befund.lagen[l] >= 1)
+      && befund.arten["oben/boden"] >= 40 && befund.arten["oben/decke"] >= 6 && befund.arten["unten/boden"] >= 25 && befund.arten["unten/decke"] >= 8
+      && befund.arten.voegel >= 1 && befund.arten.fische >= 1 && befund.arten.hecht >= 2,
+      `Spiegelsee: In vier Strecken kommen nicht alle Lagen, Abschnitte oder Arten vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
     pruefe(befund.treu && befund.treu.erwacheT >= 7 && befund.treu.erwacheT <= 11 && befund.treu.vorher && befund.treu.ersteUnten,
       `Spiegelsee: Die ersten Sekunden spiegelt der See nicht treu, oder er erwacht nicht zur rechten Zeit: ${JSON.stringify(befund.treu)}`);
-    const nebel = befund.besonders.filter((a) => a.art === "nebel");
-    const steg = befund.besonders.filter((a) => a.art === "steg");
-    pruefe(nebel.length >= 2 && nebel.every((a) => (a.nr + 1) % 16 === 8 && a.lage === "nebel" && a.nurOben && a.imNebel) && nebel[0].spruenge === 3 && nebel[1].spruenge === 4
-      && steg.length >= 2 && steg.every((a) => (a.nr + 1) % 16 === 0 && a.lage === "steg") && steg[0].luecken === 2 && steg[0].hechte === 0 && steg[1].luecken === 3 && steg[1].hechte >= 1,
-      `Spiegelsee: Jeder achte Abschnitt ist nicht im festen Wechsel Nebel oder Steg: ${JSON.stringify(befund.besonders)}`);
+    const lehrArten = befund.lehr?.fruehe.map((a) => a.art).join(",");
+    pruefe(lehrArten === "etage,hecht,gabel,nebel" && befund.lehr.fruehe[0].m >= 140 && befund.lehr.fruehe[2].falsch === 1 && befund.lehr.fruehe[3].m <= 400
+      && befund.lehr.land399 === 0 && befund.lehr.land400 === 1 && befund.lehr.etage,
+      `Spiegelsee: Der Lehrpfad der ersten 400 m stimmt nicht (Steg, Hecht, Sackgasse, Nebel, dann die zweite Landschaft): ${JSON.stringify(befund.lehr)}`);
+    pruefe(befund.kipp && befund.kipp.vor === 1 && Math.abs(befund.kipp.mitte) < 0.2 && befund.kipp.nach === -1 && befund.kipp.gekippt && befund.kipp.zurueck === 1 && befund.kipp.wiederAufrecht,
+      `Spiegelsee: Das Spiegeltor kippt die Welt nicht (oder nicht zurück): ${JSON.stringify(befund.kipp)}`);
+    pruefe([...befund.oben, ...befund.unten].every((r) => r.schritt !== "sturz" && r.t >= 100 && r.planFehler === 0)
+      && befund.abk.every((a) => a.abkZahl >= 1 && a.bonus === a.abkZahl * 40 && a.passt) && befund.unten.every((r) => r.bonus === 0),
+      `Spiegelsee: Ein offener Weg einer Abkürzung hält nicht, oder der obere gibt keine Bonusmeter: ${JSON.stringify({ oben: befund.oben, unten: befund.unten, abk: befund.abk })}`);
     pruefe([befund.frueh, befund.spaet, befund.wechsel].every((r) => r.schritt !== "sturz" && r.t >= 100),
       `Spiegelsee: Wer um 95 % der Luft zu früh oder zu spät springt, kommt nicht durch: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet, wechsel: befund.wechsel })}`);
+    pruefe(befund.falsch.length === 6 && befund.falsch.every((r) => !r.fehlt && r.schritt === "sturz" && r.art === r.falle && r.x > r.xT - 20 && r.x < r.xT + 140),
+      `Spiegelsee: Der falsche Weg einer Sackgasse endet nicht sicher an seiner Falle: ${JSON.stringify(befund.falsch)}`);
     pruefe(befund.zuSpaet.schritt === "sturz" && befund.zuSpaet.art === "stein" && befund.zuSpaet.t < befund.ersterSprung + 0.5,
       `Spiegelsee: Deutlich zu spät am ersten Stein endet nicht dort: ${JSON.stringify({ zuSpaet: befund.zuSpaet, ersterSprung: befund.ersterSprung })}`);
     pruefe(befund.nichts.schritt === "sturz" && befund.nichts.art === "stein" && befund.nichts.spruenge === 0 && befund.nichts.t < 3,
@@ -12746,6 +12810,8 @@ try {
       `Spiegelsee: Ein Sprung über dem, was unten schwebt, zerbricht den Spiegel nicht: ${JSON.stringify(befund.unterSchwebt)}`);
     pruefe(befund.zweimal.schritt !== "sturz" && befund.zweimal.verfallen === 1 && befund.zweimal.spruenge >= 2,
       `Spiegelsee: Ein Tipp in der Luft verfällt nicht (oder bringt sie zu Fall): ${JSON.stringify(befund.zweimal)}`);
+    pruefe(befund.code.springt === 1 && befund.code.spur === 2 && befund.code.kipp === 4,
+      `Spiegelsee: Die Aufzeichnung (c) trägt Sprung, Spur oder Kippen nicht: ${JSON.stringify(befund.code)}`);
     pruefe(befund.luft[0] >= 140 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[3] >= 28
       && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2],
       `Spiegelsee: Die Luft wird nicht enger, oder sie wird nicht schneller: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo })}`);
@@ -12761,6 +12827,8 @@ try {
     // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Strecke
     // aufgezeichnet, und wer ihn anschaut, sieht dieselbe Strecke, dieselben
     // Sprünge, dieselbe Zahl und am Schluss denselben Sturz – dann die Tafel.
+    // Der Lauf nimmt an der ersten Gabelung den falschen Weg hinauf (die
+    // Aufzeichnung trägt die Spur) und bricht dort durch den Steg.
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.addInitScript(() => {
       if (sessionStorage.getItem("__spiegelsee")) return;
@@ -12769,8 +12837,8 @@ try {
     });
     await seite.goto(`${BASIS}/spiegelsee`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappSpiegelsee?.state?.weg?.length && window.LernappSpiegelsee.view.cssW > 0, null, { timeout: 8000 });
-    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Drei Sprünge nach dem
-    // Weg, dann keiner mehr.
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Sprünge nach dem Weg, an
+    // der ersten Gabelung hinauf.
     await seite.evaluate(() => {
       const K = window.LernappSpiegelsee;
       const st = K.state;
@@ -12779,13 +12847,14 @@ try {
       const tick = () => {
         if (st.phase !== "spiel" || st.schritt === "sturz") return;
         requestAnimationFrame(tick);
-        const w = st.weg[nr];
-        if (nr >= 3 || !w) return;
+        const weg = K.wegMit((g) => (g === st.gabeln[0] ? 1 : g.richtig));
+        const w = weg[nr];
+        if (!w) return;
         if (st.t >= w.t - 0.008) { K.tippen(performance.now()); nr += 1; }
       };
       requestAnimationFrame(tick);
     });
-    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForSelector(".cm-result-score", { timeout: 60000 }).catch(() => {});
     await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("mirrorLake_")), null, { timeout: 4000 }).catch(() => {});
     const gespielt = await seite.evaluate(() => {
       const st = window.LernappSpiegelsee.state;
@@ -12793,26 +12862,27 @@ try {
       const geist = window.__miniGeister?.get(`mirrorLake_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, spruenge: st.spruenge, art: st.sturz?.art || "", kurs: window.LernappSpiegelsee.kursText(30) };
+      const lauf = window.LernappGeist.entpacke(geist?.bahn);
+      const spur = Boolean(lauf?.c?.some((c) => (c >> 1) & 1));
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(lauf?.c), spur, punkte: st.punkte, spruenge: st.spruenge, art: st.sturz?.art || "", kurs: window.LernappSpiegelsee.kursText(30) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.spruenge === 3 && gespielt.punkte >= 40 && gespielt.art !== "",
-      `Spiegelsee: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.spur && gespielt.art === "bruch" && gespielt.punkte >= 200,
+      `Spiegelsee: Der Lauf wird nicht mit Saat, Weg und Spur hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/spiegelsee?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappSpiegelsee?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const kurs = await seite.evaluate(() => window.LernappSpiegelsee.kursText(30));
     pruefe(kurs === gespielt.kurs && kurs.length > 200, `Spiegelsee: Beim Zuschauen entsteht eine andere Strecke:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
     // Beim Zuschauen springt niemand von selbst.
     await seite.mouse.click(210, 500);
-    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 60000 }).catch(() => {});
     const angeschaut = await seite.evaluate(() => {
       const st = window.LernappSpiegelsee.state;
-      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, spruenge: st.spruenge, art: st.sturz?.art || "", tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, spruenge: st.spruenge, art: st.sturz?.art || "", spur: st.sturz?.spur, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
     });
-    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz" && angeschaut.spruenge === 3 && angeschaut.art === gespielt.art,
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz" && angeschaut.spruenge === gespielt.spruenge && angeschaut.art === gespielt.art && angeschaut.spur === 1,
       `Spiegelsee: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
     await kontext.close();
   }
-
   // --- 4g49. Seifenblase: immer zu schaffen, und wer nicht neben sie tippt, verliert sie ----
   // Ein Autopilot tippt, wohin die Gasse es verlangt – über vier gewürfelte
   // Welten bis 100 s, ohne dass die Blase zerplatzt und ohne dass die
@@ -15068,13 +15138,15 @@ try {
           k.stop();
         } else K.ton(id, { stufe: 2 });
         await new Promise((r) => setTimeout(r, 30));
-        if (window.__klangKnoten === vor && id !== "frosch.ambient") stumm.push(id);
+        // Die Grillen gelten für jeden Platz, der sie nutzt (Frosch, Bienenflug,
+        // Seifenblase …), nicht nur für einen Namen.
+        if (window.__klangKnoten === vor && K.PLAETZE[id].s !== "a-grillen") stumm.push(id);
       }
       K.kulisse("huegel.wind");
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 279, `klang.js kennt nicht alle 279 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 288, `klang.js kennt nicht alle 288 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
