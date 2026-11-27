@@ -270,11 +270,11 @@
     // Die Läuferin: a der Weg, b die Höhe über dem Weg am Ufer (in Zehnteln), c ob sie springt (Bit 0), ob die Welt
     // gekippt ist (Bit 1), darüber die Zahl der Sprünge.
     mirrorLake: { fassung: "t3" },
-    // Die Blase: a der Ort quer (in Vierteln), b die Höhe (in Halben), c die Luftstösse
-    // (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am Schluss
-    // negativ, woran sie zerplatzt ist. Fassung t2: Seit dem Tacho zählen Punkte (Höhe mal
-    // Tempofaktor) statt Meter, und der Anfang ist eine Rennstrecke – alte Läufe passen nicht mehr.
-    soapBubble: { fassung: "t2" },
+    // Die Blase: a ihr Ort quer, b ihre Höhe (beide in der Welt, in Vierteln und Halben), c die
+    // Luftstösse (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am
+    // Schluss negativ, woran sie zerplatzt ist. Fassung t3: Seit der Rennstrecke fliegt sie eine
+    // Bahn entlang statt eine Gasse hinauf – ältere Läufe passen nicht mehr.
+    soapBubble: { fassung: "t3" },
     // Der Wasserläufer: a quer, b bachauf (beides in Vierteln), c die Ruderschläge (mal 1000)
     // und die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete. Als Winkel:
     // Im Multiplayer dreht er sich zwischen zwei Proben weiter.
