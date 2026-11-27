@@ -11,6 +11,7 @@
     "pruefen:zuschauen": "node scripts/check-zuschauen.mjs",
     "pruefen:viererreihe": "node scripts/check-viererreihe.mjs",
     "pruefen:zwei": "node scripts/check-zwei.mjs",
+    "pruefen:lesen": "node scripts/check-lesen.mjs",
     "bilder": "node scripts/filme-aufnehmen.mjs --standbild",
     "icons": "node scripts/icons-bauen.mjs",
     "filme": "node scripts/filme-aufnehmen.mjs",

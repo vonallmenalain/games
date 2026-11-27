@@ -340,6 +340,18 @@
     "seifenblase.ansage": { s: "pling" },
     "seifenblase.aufwind": { s: "zisch" },
     "seifenblase.boee": { s: "boee" },
+    "wasserlaeufer.teich": { d: "fischteich-teich", schleife: true },
+    "wasserlaeufer.bach": { d: "blaetter-fluss", schleife: true },
+    "wasserlaeufer.abend": { s: "a-grillen", schleife: true },
+    "wasserlaeufer.ruder": { s: "plitsch" },
+    "wasserlaeufer.landen": { s: "whomp-weich" },
+    "wasserlaeufer.fisch": { s: "blubb" },
+    "wasserlaeufer.schnapp": { d: "platsch" },
+    "wasserlaeufer.sinken": { s: "rip" },
+    "wasserlaeufer.fort": { s: "woosh-kurz" },
+    "wasserlaeufer.hecht": { s: "flosse" },
+    "wasserlaeufer.welt": { s: "harfe-lang" },
+    "wasserlaeufer.ansage": { s: "pling" },
     "polwechsel.brummen": { s: "a-summen", schleife: true },
     "polwechsel.wind": { s: "a-fahrtwind", schleife: true },
     "polwechsel.umpolen": { s: "stich" },
@@ -371,7 +383,7 @@
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
     beeFlight: "bienenflug", marsRover: "marsrover", mirrorLake: "spiegelsee",
-    soapBubble: "seifenblase", poleSwitch: "polwechsel",
+    soapBubble: "seifenblase", pondSkater: "wasserlaeufer", poleSwitch: "polwechsel",
   };
 
   // ---------------------------------------------------------------------------
