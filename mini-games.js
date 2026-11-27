@@ -116,6 +116,7 @@
     { id: "marsRover", seite: "marsrover", page: "marsrover" },
     { id: "mirrorLake", seite: "spiegelsee", page: "spiegelsee" },
     { id: "soapBubble", seite: "seifenblase", page: "seifenblase" },
+    { id: "pondSkater", seite: "wasserlaeufer", page: "wasserlaeufer" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -139,7 +140,7 @@
     speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
     ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
     beeFlight: "2026-11-26", marsRover: "2026-11-26", mirrorLake: "2026-11-26",
-    soapBubble: "2026-11-26",
+    soapBubble: "2026-11-26", pondSkater: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -206,6 +207,8 @@
     mirrorLake: 1,
     // Seifenblase: ein Tipp bläst die Blase vom Finger weg – der Ort des Tipps steuert.
     soapBubble: 1,
+    // Wasserläufer: er dreht sich, ein Tipp ist ein Ruderschlag dorthin, wo er hinschaut – nur der Zeitpunkt steuert.
+    pondSkater: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -271,6 +274,10 @@
     // (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am Schluss
     // negativ, woran sie zerplatzt ist.
     soapBubble: { fassung: "t1" },
+    // Der Wasserläufer: a quer, b bachauf (beides in Vierteln), c die Ruderschläge (mal 1000)
+    // und die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete. Als Winkel:
+    // Im Multiplayer dreht er sich zwischen zwei Proben weiter.
+    pondSkater: { fassung: "t1", winkel: true },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
