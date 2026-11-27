@@ -3192,8 +3192,12 @@ Wand liegt – oder von der Wand angezogen wird –, ist hin. Weil die Farben de
 Wände den Schacht hinunter wechseln, bedeutet dieselbe Polung an jeder Stelle
 etwas anderes: Man liest die Farben voraus und polt im richtigen Moment um,
 manchmal, um die Bahn zu wechseln, manchmal, um in ihr zu bleiben, wenn die
-Wände ihre Farben tauschen. Der erste Tipp lässt die Kugel los (sie hängt am
-Halter oben im Labor); jeder weitere polt um. Gezählt wird die Tiefe in Metern.
+Wände ihre Farben tauschen. Die Farbe der Kugel wechselt nur mit einem Tipp,
+nie von selbst – tauschen die Wände ihre Farben, wandert sie, bleibt aber, wie
+sie ist. Der erste Tipp lässt die Kugel los (sie hängt am Halter oben im
+Labor); jeder weitere polt um. Vor dem Start steht die Regel im Hinweis («Die
+rote Kugel zieht es zu Blau, die blaue zu Rot»), und beim Loslassen wird sie
+kurz angesagt. Gezählt wird die Tiefe in Metern.
 
 **Die Bewegung quer** (`querSchritt`): Eine Wand, die anzieht oder abstösst,
 wirkt mit `A0 + A1 · e^(−d/14)` (1000 + 2600 Einheiten/s², d der Abstand) –
@@ -3209,8 +3213,14 @@ genau planbar.
 Wechsel und vorher angesagt. Der 8., 24., 40. ist ein **Stromausfall** («gerade
 durch – im Dunkeln vorpolen»): Die Magnete gehen aus, der Schacht wird dunkel,
 auf den toten Magneten blinken grüne Notlichter; die Kugel fällt in ihrer Bahn
-gerade durch eine Gasse aus drei Sperren, und wer klug ist, stellt im Dunkeln
-schon die Polung für danach (die Luft dafür ist fast die ganze Gasse). Der
+gerade durch eine Gasse aus drei Sperren – und muss im Dunkeln umpolen: Nach
+dem Stromausfall will der Schacht immer die andere Polung, und wer sie nicht
+gestellt hat, zerschellt gleich danach. Im Dunkeln wirkt keine Kraft, die
+Kugel bleibt also in ihrer Bahn; sie leuchtet dort heller in ihrer Farbe, jeder
+Tipp wechselt sie sichtbar (Puls, Klang), und unten zeigt ein Ring in ihrer
+Farbe (mit Pfeil, solange das Ende noch unter dem Bild liegt), an welche Wand
+sie geht, wenn der Strom wieder da ist, gestrichelt in der anderen, wohin nach
+einem Tipp. Getippt werden darf fast die ganze dunkle Strecke lang. Der
 16., 32., 48. ist ein **Wechselfeld** («im Takt umpolen»): Beide Wände
 tauschen im Takt ihre Farben (0,6 s, später 0,4 s) – Rauten auf den Magneten
 laden sich vor jedem Wechsel auf, er blitzt und tickt. Im ersten Wechselfeld
@@ -3247,26 +3257,32 @@ als einer, der etwas später tippt. Eine Reihe ist mindestens 0,3 s lang und gut
 
 | Spielzeit | Tiefe | Luft je Tipp | Fall | Sicht unter der Kugel |
 |---|---|---|---|---|
-| 0–7 s | 0–33 m | ±250 ms (dazu mehr Platz um den Weg) | 4,8 m/s | 2,7 s |
-| 10 s | 50 m | ±134 ms | 6,4 m/s | 2,0 s |
-| 15 s | 87 m | ±81 ms | 8,2 m/s | 1,6 s |
-| 20 s | 131 m | ±62 ms | 9,7 m/s | 1,3 s |
-| 30 s | 241 m | ±40 ms | 12 m/s | 1,05 s |
-| 45 s | 446 m | ±26 ms | 15 m/s | 0,86 s |
-| 60 s | 682 m | ±20 ms | 17 m/s | 0,77 s |
+| 0–11 s | 0–43 m | ±300 ms (bis 14 s dazu mehr Platz um den Weg) | 4 m/s | 3,2 s |
+| 15 s | 66 m | ±139 ms | 6,6 m/s | 1,9 s |
+| 20 s | 104 m | ±89 ms | 8,8 m/s | 1,45 s |
+| 30 s | 210 m | ±48 ms | 12 m/s | 1,05 s |
+| 45 s | 419 m | ±28 ms | 15 m/s | 0,83 s |
+| 60 s | 666 m | ±20 ms | 17 m/s | 0,74 s |
 
-Ab 20 s wird die Luft noch einmal stetig enger (`E_SPAET`), ab gut 90 s nie
-unter ±13 ms – sonst fiele ein sehr genauer Spieler minutenlang. Die ersten sieben Sekunden sind zum Hineinfinden: Der erste
-Abschnitt verlangt einen Tipp, der zweite keinen, dann kommen die Lagen nach
-und nach; der erste Stromausfall kommt nach rund 7 s (eine Atempause), das
-erste Wechselfeld nach rund 14 s. Je Sekunde sind am Anfang 0,4 Tipps nötig,
-nach 20 s gut einer, nach 45 s anderthalb. Nachgebildete Spieler, deren Tipp
+Ab 20 s wird die Luft noch einmal stetig enger (`E_SPAET`), ab gut 85 s nie
+unter ±13 ms – sonst fiele ein sehr genauer Spieler minutenlang. Die ersten
+gut zehn Sekunden sind gemütlich, zum Hineinfinden (nach der Rückmeldung «am
+Anfang noch ein bisschen langsamer»): Die Kugel fällt nur 4 m/s, jeder Tipp
+hat ±300 ms und noch mehr Platz um den Weg, die erste Sperre kommt erst,
+nachdem man die Kugel an die Wand hat fliegen sehen, und die Härte setzt erst
+ab 9 s ein. Der erste Abschnitt verlangt einen Tipp, der zweite keinen, dann
+kommen die Lagen nach und nach; der erste Stromausfall kommt nach rund 9,5 s,
+das erste Wechselfeld nach rund 17,5 s. Danach geht es zügig in die gewohnte
+Kurve über (ab etwa 30 s gleich schnell wie vorher). Je Sekunde sind in den
+ersten zehn Sekunden 0,4 Tipps nötig, danach 0,8, nach 20 s gut einer, nach
+45 s 1,4. Nachgebildete Spieler, deren Tipp
 um den geplanten Moment streut (Normalverteilung, je 50 Läufe im echten
-Spiel): 100 ms kommen im Median 17 s weit (105 m), 70 ms 20 s (127 m),
-55 ms 27 s (200 m), 40 ms 34 s (290 m), 30 ms 44–50 s (430–515 m), 20 ms
-64–68 s (740–830 m; mehrere Durchgänge mit verschiedenen Schächten). Wer die Farben falsch
+Spiel): 100 ms kommen im Median 23 s weit (135 m), 70 ms 29–30 s (200 m),
+55 ms 33 s (245 m), 40 ms 35–40 s (270–350 m), 30 ms 49–50 s (480–500 m),
+20 ms 69–72 s (820–890 m; mehrere Durchgänge mit verschiedenen Schächten).
+Vor dem gemütlicheren Anfang waren es 17 s mit 100 ms und 20 s mit 70 ms. Wer die Farben falsch
 liest, kommt weniger weit – das bildet die Rechnung nicht ab. Wer nichts tut,
-zerschellt nach knapp 2,5 s; wer dauernd tippt, schon an der ersten Sperre.
+zerschellt nach gut 2,5 s; wer dauernd tippt, schon an der ersten Sperre.
 
 Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild (`tippen`,
 `voraus`). Auf der Tafel: die Meter, darunter, woran es lag, die Zeit und wie
@@ -3281,12 +3297,16 @@ Magnet, die Farbe geht von der einen in die andere über, und Lichtperlen
 fliessen zur Wand; klebt sie an, umfassen kurze Bögen die Stelle. Stösst eine
 Wand ab, laufen von Kugel und Magnet Wellen in ihrer gemeinsamen Farbe
 aufeinander zu. Ein **Ring in der anderen Farbe** zeigt dezent, wohin ein Tipp
-die Kugel gerade brächte. Die Kugel ist polierter Stahl, wie eloxiert in ihrer
-Farbe, mit einem leuchtenden Ring um den Bauch, Glanzlichtern, einem Schein
-und dem roten und blauen Licht der Wände auf ihren Seiten; beim Umpolen ein
-Puls in der neuen Farbe, beim schnellen Fall ein Schweif, beim Anschlag an
-eine Wand Funken und ein Klack. Der Sturz: Funkenregen, die Kugel prallt ab,
-wird grau und fällt ins Dunkel, die Magnete flackern (Kurzschluss). Beim
+die Kugel gerade brächte. Die Kugel ist ganz in ihrer Farbe: satt rot mit «N»
+oder satt blau mit «S», glänzend lackiert, mit Glanzlicht oben und einem
+hellen Widerschein unten – so sieht man die Polung auf einen Blick, auch neben
+einem Magneten der anderen Farbe; dessen Licht fällt nur als schmaler Saum um
+sie herum, nie auf sie. Schein, Schweif, Puls und Funken beim Umpolen sind
+immer in ihrer eigenen Farbe, und die Farbe wechselt sofort mit jedem Tipp –
+und nur dann (nach der Rückmeldung, die Kugel solle konsequent rot oder blau
+sein). Beim Anschlag an eine Wand Funken und ein Klack. Der Sturz:
+Funkenregen, die Kugel prallt ab, verlischt in ihrer Farbe und fällt ins
+Dunkel, die Magnete flackern (Kurzschluss). Beim
 ersten Start gehen die Magnete von oben nach unten an. Die Rückwand zieht
 langsamer vorbei als die Wände (Tiefe), an jeder Zonengrenze kreuzt ein
 Träger; was in der Luft liegt, wechselt mit der Zone (Staub im Licht, Glitzern
@@ -3307,7 +3327,8 @@ weit voraus sieht.
 Die Gegner fallen als Kugeln aus Licht mit, und die besten Läufe lassen sich
 anschauen: Aufgezeichnet werden der Ort quer (in Zehnteln), die Tiefe und in
 `c` die Polung (unterstes Bit) und darüber, wie oft umgepolt wurde (Fassung
-`t1`). Zwölf Klänge, alle aus vorhandenen: das Brummen der Magnete (es folgt
+`t2` seit dem gemütlicheren Anfang; Läufe der Fassung `t1` gehören zu einem
+anderen Schacht). Zwölf Klänge, alle aus vorhandenen: das Brummen der Magnete (es folgt
 dem Feld um die Kugel) und der Fallwind als Kulisse, das Umpolen, der
 Anschlag an der Wand, Funken, der Zonenwechsel, die Ansage, Strom aus und
 Strom an, der Takt des Wechselfelds, der Sturz und der Fall ins Dunkel.
@@ -3317,7 +3338,9 @@ bis in den Kern, ohne dass die Planung ausweichen muss; ebenso, wer jeden Tipp
 um 95 % der Luft zu früh, zu spät oder im Wechsel setzt. Alle Lagen, Wände und
 Lücken kommen vor; jeder achte Abschnitt ist im Wechsel Stromausfall oder
 Wechselfeld, angesagt, und alle Zonen werden angesagt. Den ersten Tipp
-deutlich zu spät, nichts tun und dauernd tippen enden bald; die Regel stimmt;
+deutlich zu spät, nichts tun und dauernd tippen enden bald; im ersten
+Stromausfall zählt ein Tipp gleich nach dem Ausgehen der Magnete (sie kommt
+durch), ohne ihn zerschellt sie gleich danach; die Regel stimmt;
 die Luft wird enger, die Kugel schneller. Die Tafel erscheint; ein
 angeschauter Lauf zeigt denselben Schacht, dieselbe Zahl und denselben Sturz.
 

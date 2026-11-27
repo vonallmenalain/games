@@ -283,8 +283,9 @@
     // Im Multiplayer dreht er sich zwischen zwei Proben weiter.
     pondSkater: { fassung: "t1", winkel: true },
     // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
-    // darüber, wie oft umgepolt wurde.
-    poleSwitch: { fassung: "t1" },
+    // darüber, wie oft umgepolt wurde. Fassung t2: Seit dem gemütlicheren Anfang ist es ein
+    // anderer Schacht – ältere Läufe passen nicht mehr.
+    poleSwitch: { fassung: "t2" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um
