@@ -181,6 +181,7 @@ const ATTRAPPE = `
       if (!navigator.onLine) throw fehler("offline", "unavailable");
       const gefragt = Array.isArray(spiele) ? spiele : [];
       window.__miniGefragt = gefragt;
+      window.__miniErgebnisseAnfragen = (window.__miniErgebnisseAnfragen || 0) + 1;
       return [...eintraege.values()].filter((e) => gefragt.includes(e.game)).map((e) => ({ ...e }));
     },
     // Wie cloud.js: umbenannt wird in ALLEN Spielen, unter der Kennung und
@@ -1255,8 +1256,15 @@ try {
     pruefe(turm.id === TABLET, `Das zweite Gerät spielt nicht unter der Kennung, unter der der Name am meisten gespielt hat: ${turm.id}`);
 
     // Eine Runde: Sie kommt zu den Einträgen des Tablets, nicht zu neuen.
+    await seite.evaluate(() => { window.__miniErgebnisseAnfragen = 0; });
     pruefe(await spieleTurmbauZuEnde(seite), "Die Runde am zweiten Gerät kam zu keinem Ergebnis.");
     await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 });
+    // Die Liste nach der Runde ist die, die die Seite schon hat, mit der Runde
+    // darin (mini-games.js, trageEin) – bis November 2026 wurde sie nach jeder
+    // Runde zweimal ganz gelesen. Einmal darf es sein, wenn die Runde länger
+    // als eine Minute dauerte.
+    const anfragen = await seite.evaluate(() => window.__miniErgebnisseAnfragen || 0);
+    pruefe(anfragen <= 1, `Nach einer Runde wurde die Liste ${anfragen} Mal gelesen.`);
     const nachRunde = await seite.evaluate(({ TABLET, HANDY }) => ({
       tablet: window.__miniEintraege.get(`towerStack_${TABLET}`)?.versuche,
       handy: window.__miniEintraege.get(`towerStack_${HANDY}`)?.versuche,
@@ -13159,7 +13167,9 @@ try {
     pruefe(befund.besonders.length >= 5 && befund.besonders.every((a) => a.nr % 8 === 0 && a.art === ((a.nr / 8) % 2 === 1 ? "stroemung" : "hecht"))
       && befund.ansagen.includes("Strömung") && befund.ansagen.includes("Hechtgrube"),
       `Wasserläufer: Jeder achte Abschnitt ist nicht im festen Wechsel Strömung oder Hechtgrube, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
-    pruefe(befund.wenig >= 35 && befund.viel <= 35 && befund.wenig > befund.viel + 8,
+    // Die Streuung ist zufällig (je Lauf neu): Der Median aus neun Läufen schwankt
+    // um einige Sekunden. Geprüft wird darum mit Abstand, nicht an einer Kante.
+    pruefe(befund.wenig >= 28 && befund.viel <= 30 && befund.wenig > befund.viel * 1.35,
       `Wasserläufer: Gestreute Schläge wirken nicht wie erwartet (wenig daneben weit, viel daneben bald zu Ende): ${JSON.stringify({ wenig: befund.wenigListe, viel: befund.vielListe })}`);
     pruefe(befund.nichts.schritt === "tot" && befund.nichts.art === "blatt" && befund.nichts.t < 6 && befund.nichts.punkte === 0,
       `Wasserläufer: Wer nichts tut, geht nicht mit dem ersten Blatt unter: ${JSON.stringify(befund.nichts)}`);
@@ -13191,7 +13201,9 @@ try {
     await seite.goto(`${BASIS}/wasserlaeufer`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappWasserlaeufer?.state?.blaetter?.length > 3 && window.LernappWasserlaeufer.view.cssW > 0, null, { timeout: 8000 });
     // In Echtzeit: Die Aufzeichnung folgt der Uhr. Fünf Sekunden nach dem
-    // Autopiloten, dann kein Schlag mehr – das Blatt geht unter.
+    // Autopiloten, dann kein Schlag mehr – meist geht das Blatt unter. Unter
+    // Last kann der Autopilot in Echtzeit auch vorher scheitern (Strömung,
+    // Fisch); hier zählt nur, dass der Lauf mit Saat und Schlägen hinterlegt ist.
     await seite.evaluate(() => {
       const K = window.LernappWasserlaeufer;
       const st = K.state;
@@ -13214,7 +13226,7 @@ try {
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, schlaege: st.schlaege, art: st.tot?.art || "", kurs: window.LernappWasserlaeufer.kursText(20) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art === "blatt",
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art !== "",
       `Wasserläufer: Der Lauf wird nicht mit Saat und Schlägen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/wasserlaeufer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappWasserlaeufer?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});

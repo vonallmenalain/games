@@ -1236,13 +1236,54 @@
 
   const stammGeprueft = new Map();   // Name → Promise
 
+  /*
+   * Wie die eigene Kennung heisst und unter welcher Kennung der Name spielt
+   * (eigenenNamenPruefen, stammZumNamen), gilt zwölf Stunden: Bis November
+   * 2026 fragte jede Spielseite beides neu – zwei Abfragen über alle Spiele,
+   * zusammen oft hundert Dokumente und mehr, nur um zu hören, was sich fast
+   * nie ändert. Gemerkt wird je Kennung und Name; ein neuer Name oder eine
+   * neue Kennung fragt sofort.
+   *
+   * Was sich trotzdem ändern kann, kommt auf anderem Weg: ein Umzug
+   * (folgeUmzug) wird auf jeder Seite nachgesehen – ein Dokument, und genau
+   * er führt nach einem Zusammenführen im Adminbereich auf die neue Kennung,
+   * auf der dann ohnehin neu gefragt wird. Ein Name, der anderswo geändert
+   * wurde, steht im eigenen Eintrag (gleicheAb, meinErgebnis), in der Antwort
+   * auf jede Runde (melde) und in den Listen der Startseite (uebernimmName).
+   * Und hat der Adminbereich Einträge gelöscht oder zusammengeführt (der
+   * Stempel in config/miniGames, cloud.js listenStand), gilt das Gemerkte
+   * nicht mehr.
+   */
+  const GEPRUEFT_KEY = "mini.wer.geprueft";
+  const GEPRUEFT_MS = 12 * 60 * 60 * 1000;
+  function frischGeprueft() {
+    const g = liesJson(GEPRUEFT_KEY, null);
+    const alter = Date.now() - (Number(g?.ms) || 0);
+    const stempel = Number(cloud()?.listenStand?.()) || 0;
+    return Boolean(g && g.kennung === kennungFallsDa() && g.name === nameSchluessel(name())
+      && alter >= 0 && alter < GEPRUEFT_MS && !(stempel > (Number(g.ms) || 0)));
+  }
+  function merkeGeprueft() {
+    const ich = kennungFallsDa();
+    if (!gueltigeKennung(ich) || !name()) return;
+    // Nur, wenn beides wirklich eine Antwort bekam – ein Fehler ist keine.
+    if (!eigenerNameGeprueft || !stammGeprueft.has(nameSchluessel(name()))) return;
+    schreibe(GEPRUEFT_KEY, { kennung: ich, name: nameSchluessel(name()), ms: Date.now() });
+  }
+
   function stammKennung(spiel = spielId()) {
     if (!name() || !cloud()?.unterNamen || inTurnierOderLive() || !imNetz()) return Promise.resolve(null);
     // Zuerst, ob die eigene Kennung umgezogen ist, und wie sie heute heisst:
     // Danach kann der Name ein anderer sein. Erst dann wird nach dem Namen
     // gesucht – mit dem alten fände das Gerät sonst Einträge, die es nicht
     // mehr sind, und spielte unter einer fremden Kennung weiter.
-    return folgeUmzug().then(() => eigenenNamenPruefen()).then(() => stammZumNamen(spiel));
+    return folgeUmzug().then(() => {
+      if (frischGeprueft()) return null;
+      return eigenenNamenPruefen().then(() => stammZumNamen(spiel)).then((stamm) => {
+        merkeGeprueft();
+        return stamm;
+      });
+    });
   }
 
   // Wie heisst die eigene Kennung heute? Einmal je Seite und Kennung gefragt
@@ -1502,10 +1543,16 @@
   // Gefragt wird je Spiel: cloud.js stellt eine Abfrage je Spiel (ohne
   // Sortierung, die bräuchte einen zusammengesetzten Index) und legt die
   // Antworten zusammen. Sortiert wird hier.
+  //
+  // Was gelesen ist, gilt eine Minute: Wer eine Runde nach der anderen
+  // spielt, braucht die Liste nicht bei jeder Runde neu – die eigene Runde
+  // trägt die Seite selbst ein (trageEin), mit dem, was der Server dazu
+  // gesagt hat. Was andere inzwischen gespielt haben, kommt spätestens nach
+  // der Minute oder auf der nächsten Seite.
   let zwischenspeicher = null;
   let zwischenspeicherMs = 0;
   let zwischenspeicherFuer = "";
-  const FRISCH_MS = 20000;
+  const FRISCH_MS = 60000;
 
   async function alleErgebnisse(spiele, { neu = false } = {}) {
     const schluessel = spiele.join(",");
@@ -1533,6 +1580,31 @@
     zwischenspeicherMs = Date.now();
     zwischenspeicherFuer = schluessel;
     return zwischenspeicher;
+  }
+
+  // Die eigene Runde in den Zwischenspeicher – so, wie der Server sie eben
+  // eingetragen hat (cloud.js, speichere: Bestwert, Versuche, Name). Die Liste
+  // nach der Runde ist damit richtig, ohne sie noch einmal zu lesen; bis
+  // November 2026 las jede Runde sie zweimal ganz.
+  function trageEin(spiel, ich, ergebnis, ms = 0) {
+    if (!zwischenspeicher || !zwischenspeicherFuer.split(",").includes(spiel) || !ergebnis) return;
+    const id = `${spiel}_${ich}`;
+    const jetzt = Date.now();
+    const da = zwischenspeicher.find((e) => e.id === id);
+    if (da) {
+      Object.assign(da, {
+        punkte: Math.max(Number(da.punkte) || 0, Number(ergebnis.punkte) || 0),
+        versuche: Number(ergebnis.versuche) || (Number(da.versuche) || 0) + 1,
+        name: ergebnis.name || da.name,
+        spielMs: (Number(da.spielMs) || 0) + (Number(ms) || 0),
+        updatedAtMs: jetzt,
+      });
+      return;
+    }
+    zwischenspeicher.push({
+      id, game: spiel, spieler: ich, name: ergebnis.name || name(), punkte: Number(ergebnis.punkte) || 0,
+      versuche: Number(ergebnis.versuche) || 1, erstesMs: jetzt, spielMs: Number(ms) || 0, updatedAtMs: jetzt,
+    });
   }
 
   // Ein Ergebnis je Person und Spiel – genauso, wie die Bestenliste der Gruppe
@@ -1684,8 +1756,11 @@
       if (!istNetzfehler(fehler)) throw fehler;
       return ohneNetzMerken({ spiel, ich, wie, zahl, ms });
     }
-    zwischenspeicher = null;
-    if (!ergebnis) return null;
+    if (!ergebnis) {
+      zwischenspeicher = null;
+      return null;
+    }
+    trageEin(spiel, ich, ergebnis, ms);
     // Der Eintrag behält seinen Namen (cloud.js, speichere). Heisst er anders
     // als das Gerät, hat sich der Spieler anderswo umbenannt: Dann gilt der.
     if (ergebnis.name) uebernimmName([{ spieler: ich, name: ergebnis.name, updatedAtMs: Date.now() }]);
@@ -1706,8 +1781,10 @@
     // Der Bestwert kommt vom Server zurück, nicht aus der eben gespielten
     // Runde: Er weiss, was vorher schon dastand – und was nicht mehr. Dazu,
     // was unter demselben Namen von einem anderen Gerät dasteht: Ein Rekord
-    // ist nur, was auch das schlägt.
-    const fremd = bestesUnterNamen(await alleErgebnisse([spiel], { neu: true }).catch(() => []), name() || wie, ich);
+    // ist nur, was auch das schlägt. Die Liste dafür ist die, die die Seite
+    // schon hat, mit dieser Runde darin (trageEin) – neu gelesen nur, wenn
+    // sie älter als eine Minute ist.
+    const fremd = bestesUnterNamen(await alleErgebnisse([spiel]).catch(() => []), name() || wie, ich);
     if (fremd && fremd.punkte > ergebnis.punkte) setzeBestwert(spiel, fremd.punkte, fremd.spieler);
     else setzeBestwert(spiel, ergebnis.punkte, ich);
     await hoch;
@@ -1819,14 +1896,16 @@
 
   // Gefragt wird nach dem Namen (eine Abfrage, alle Spiele) und nach dem
   // Eintrag der Kennung – nicht nach ganzen Listen.
+  //
+  // Bis November 2026 fragte das nach jeder neuen Bestmarke auf der nächsten
+  // Seite nach allen Einträgen unter dem Namen, in allen Spielen (unterNamen)
+  // – oft hundert Dokumente für eine Frage nach einem. Jetzt zuerst der
+  // Eintrag der Kennung (ein Dokument), und nur, wenn der Lauf nicht zu ihm
+  // gehört, die Liste dieses einen Spiels, so wie die Seite sie ohnehin hat
+  // (listeDesSpiels).
   async function reicheNach() {
     const c = cloud();
-    if (!c?.speichereGeist || !c?.geister || !c?.unterNamen || !c?.meinErgebnis) return 0;
-    const namen = new Map();
-    const unter = (wie) => {
-      if (!namen.has(wie)) namen.set(wie, Promise.resolve(c.unterNamen(wie)).catch(() => null));
-      return namen.get(wie);
-    };
+    if (!c?.speichereGeist || !c?.geister || !c?.meinErgebnis) return 0;
     let hinauf = 0;
     for (const lauf of nachzusehen()) {
       const art = ansehArt(lauf.spiel);
@@ -1835,12 +1914,15 @@
         erledigt(lauf);
         continue;
       }
-      const [mitNamen, mitKennung] = await Promise.all([
-        unter(lauf.name),
-        gueltigeKennung(lauf.spieler) ? Promise.resolve(c.meinErgebnis(lauf.spiel, lauf.spieler)).catch(() => undefined) : null,
-      ]);
-      if (!Array.isArray(mitNamen) || mitKennung === undefined) continue;
-      const seine = [...mitNamen, ...(mitKennung ? [mitKennung] : [])].filter((e) => e?.game === lauf.spiel);
+      const mitKennung = gueltigeKennung(lauf.spieler) ? await Promise.resolve(c.meinErgebnis(lauf.spiel, lauf.spieler)).catch(() => undefined) : null;
+      if (mitKennung === undefined) continue;
+      let seine = mitKennung && mitKennung.punkte === lauf.punkte ? [mitKennung] : null;
+      if (!seine) {
+        const liste = await listeDesSpiels(lauf.spiel);
+        if (!Array.isArray(liste)) continue;
+        seine = [...liste.filter((e) => nameSchluessel(e.name) === nameSchluessel(lauf.name)), ...(mitKennung ? [mitKennung] : [])];
+      }
+      seine = seine.filter((e) => e?.game === lauf.spiel);
       const eintrag = seine.find((e) => e.spieler === lauf.spieler && e.punkte === lauf.punkte)
         || seine.find((e) => e.punkte === lauf.punkte);
       if (!eintrag) {
@@ -1864,6 +1946,15 @@
     return hinauf;
   }
 
+  // Die Liste eines Spiels: aus dem, was die Seite schon hat (die Startseite
+  // alle Spiele), sonst gefragt – oder null, wenn sie nicht zu haben ist.
+  function listeDesSpiels(spiel) {
+    if (zwischenspeicher && zwischenspeicherFuer.split(",").includes(spiel) && Date.now() - zwischenspeicherMs < FRISCH_MS) {
+      return Promise.resolve(zwischenspeicher.filter((e) => e.game === spiel));
+    }
+    return alleErgebnisse([spiel]).catch(() => null);
+  }
+
   // Ob sich eine Aufzeichnung abspielen lässt: mit Weg (oder Zügen) und, wo
   // die Welt jedes Mal neu gewürfelt wird, mit ihrer Saat (geist.js,
   // ansehbar – das hier geladen ist, steht auf der Startseite nicht).
@@ -1882,14 +1973,16 @@
    * Der Adminbereich braucht dazu die Punkte des Laufs (admin.js,
    * ansehenKnopf); die Listen hier nur, ob es ihn gibt (ansehbareLaeufe).
    */
-  async function abspielbareLaeufe(spiel, kennungen) {
+  // punkte: je Kennung die Zahl aus der Liste – dann liest cloud.js einen
+  // Lauf nur einmal (geister).
+  async function abspielbareLaeufe(spiel, kennungen, { punkte = null } = {}) {
     const art = ansehArt(spiel);
     const wer = [...new Set((kennungen || []).filter(Boolean))];
     if (!art || !wer.length || !cloud()?.geister) return [];
     // cloud.js liest höchstens 25 auf einmal.
     const pakete = [];
     for (let i = 0; i < wer.length; i += 25) pakete.push(wer.slice(i, i + 25));
-    const gefunden = await Promise.all(pakete.map((paket) => Promise.resolve(cloud().geister(spiel, paket, art.fassung)).catch(() => [])));
+    const gefunden = await Promise.all(pakete.map((paket) => Promise.resolve(cloud().geister(spiel, paket, art.fassung, { punkte })).catch(() => [])));
     return gefunden.flat().filter((g) => g && abspielbar(g.bahn, art));
   }
 
@@ -1906,13 +1999,14 @@
     if (!art || !cloud()) return raus;
     const wer = [...new Set((liste || []).filter((e) => e.spieler && e.punkte > 0).map((e) => e.spieler))];
     if (!wer.length) return raus;
+    const punkte = Object.fromEntries((liste || []).filter((e) => e.spieler).map((e) => [e.spieler, Number(e.punkte) || 0]));
     let gefunden = [];
     try {
       if (aus) {
-        gefunden = (await Promise.all(wer.map((spieler) => Promise.resolve(cloud().turnierGeist?.(aus, spiel, spieler)).catch(() => null))))
+        gefunden = (await Promise.all(wer.map((spieler) => Promise.resolve(cloud().turnierGeist?.(aus, spiel, spieler, { punkte: punkte[spieler] })).catch(() => null))))
           .filter((g) => g && g.level === art.fassung);
       } else {
-        gefunden = await abspielbareLaeufe(spiel, wer);
+        gefunden = await abspielbareLaeufe(spiel, wer, { punkte });
       }
     } catch { return raus; }
     gefunden.forEach((g) => {
@@ -1964,7 +2058,7 @@
     const liste = await listeFuer(spiel).catch(() => []);
     const oben = liste.slice(0, anzahl + 3).filter((eintrag) => eintrag.spieler);
     if (!oben.length) return [];
-    const gefunden = await cloud().geister(spiel, oben.map((e) => e.spieler), level);
+    const gefunden = await cloud().geister(spiel, oben.map((e) => e.spieler), level, { punkte: Object.fromEntries(oben.map((e) => [e.spieler, Number(e.punkte) || 0])) });
     const nachSpieler = new Map(gefunden.map((g) => [g.spieler, g]));
     const raus = [];
     for (const eintrag of oben) {
@@ -2212,8 +2306,10 @@
     const listenWirt = el("div", "mini-listen-wirt");
     block.append(meldung, listenWirt);
 
+    // Die Liste von eben, mit der eigenen Runde darin (melde, trageEin) –
+    // gelesen wird sie nur, wenn sie älter als eine Minute ist.
     function zeigeListe(hervor) {
-      listeFuer(spiel, { neu: true }).then((liste) => {
+      listeFuer(spiel).then((liste) => {
         const eigen = liste.find((eintrag) => eintrag.eigen);
         listenWirt.innerHTML = "";
         listenWirt.append(listeBauen(liste, spiel, { max: 5 }));
@@ -4212,8 +4308,13 @@
     };
     hoeren("");
     // Die öffentlichen Turniere: beim Laden und alle fünf Minuten – ein
-    // neues kommt dazu, ein beendetes fällt weg.
+    // neues kommt dazu, ein beendetes fällt weg. Nur, solange die Seite zu
+    // sehen ist: Eine Startseite, die im Hintergrund offen bleibt (ein Tab,
+    // ein Tablet in der Schublade), fragte sonst Tag und Nacht. Kommt sie
+    // nach mehr als fünf Minuten wieder nach vorne, fragt sie gleich.
+    let turniereMs = 0;
     const turniere = async () => {
+      turniereMs = Date.now();
       let liste = [];
       try { liste = await Promise.resolve(window.LernappTurnier?.oeffentlichLaufend?.() || []); } catch { liste = []; }
       if (signal.aborted) return;
@@ -4232,7 +4333,11 @@
     // turnier.js steht hinter dieser Datei: erst, wenn die Seite geladen ist.
     if (document.readyState === "complete") turniere();
     else window.addEventListener("load", turniere, { once: true, signal });
-    const uhrTurniere = window.setInterval(turniere, 5 * 60 * 1000);
+    const TURNIERE_MS = 5 * 60 * 1000;
+    const uhrTurniere = window.setInterval(() => { if (document.visibilityState === "visible") turniere(); }, TURNIERE_MS);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && turniereMs && Date.now() - turniereMs >= TURNIERE_MS) turniere();
+    }, { signal });
     const uhr = window.setInterval(rechne, 5000);
     signal.addEventListener("abort", () => {
       quellen.forEach((q) => q.aus?.());

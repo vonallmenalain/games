@@ -286,6 +286,70 @@ for (const id of inRegeln) {
   pruefe(`firestore.rules kennt kein erfundenes Spiel (${id})`, SPIELE.some((s) => s.spiel === id));
 }
 
+// Die Grenzen, die an der Zahl der Spiele hängen. Bis November 2026 liessen
+// die Regeln in config/miniGames höchstens 50 Spiele und 50 Tiers zu – mit
+// dem 51. Spiel liess sich im Adminbereich nichts mehr speichern, und
+// niemand merkte es, bis es jemand versuchte. Erreicht die Zahl der Spiele
+// (oder der Spiele zu zweit) eine dieser Grenzen, schlägt die Prüfung an:
+// dann die Grenze hochsetzen, in den Regeln und in cloud.js zugleich.
+{
+  const block = (name) => regeln.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n    \\}`))?.[0] || "";
+  const grenze = (text, muster) => Number(text.match(muster)?.[1] || NaN);
+  const cloudJs = lies("cloud.js");
+  const zweiZahl = [...(regeln.match(/function zweiSpielerSpiele\(\) \{\s*return \[([^\]]*)\];/)?.[1] || "").matchAll(/"([a-z]+)"/g)].length;
+  const grenzen = [
+    ["config/miniGames: spiele", grenze(block("istSpieleListe"), /d\.spiele\.size\(\) <= (\d+)/), SPIELE.length],
+    ["config/miniGames: tiers", grenze(block("istSpieleListe"), /d\.tiers\.size\(\) <= (\d+)/), SPIELE.length],
+    ["config/miniGames: zweiSpieler", grenze(block("istSpieleListe"), /d\.zweiSpieler\.size\(\) <= (\d+)/), zweiZahl],
+    ["Turnier: spiele", grenze(block("istTurnier"), /d\.spiele\.size\(\) <= (\d+)/), SPIELE.length],
+    ["Turnier: zweiSpieler", grenze(block("istTurnier"), /d\.get\("zweiSpieler", \[\]\)\.size\(\) <= (\d+)/), zweiZahl],
+    ["Endstand eines Multiplayers: spiele", grenze(block("istLiveErgebnis"), /d\.spiele\.size\(\) <= (\d+)/), SPIELE.length],
+    ["cloud.js: MAX_JE_SPIELER (vonKennung, Umbenennen)", grenze(cloudJs, /const MAX_JE_SPIELER = (\d+);/), SPIELE.length],
+    ["cloud.js: SPIELE_LISTE_MAX", grenze(cloudJs, /const SPIELE_LISTE_MAX = (\d+);/), SPIELE.length],
+  ];
+  for (const [wo, max, zahl] of grenzen) {
+    pruefe(`${wo}: Grenze ${Number.isFinite(max) ? max : "nicht gefunden"} liegt über den ${zahl} Spielen`, Number.isFinite(max) && zahl < max);
+  }
+  pruefe("cloud.js hält dieselbe Grenze für Spiellisten wie firestore.rules",
+    grenze(cloudJs, /const SPIELE_LISTE_MAX = (\d+);/) === grenze(block("istSpieleListe"), /d\.spiele\.size\(\) <= (\d+)/)
+    && /slice\(0, SPIELE_LISTE_MAX\)/.test(cloudJs));
+}
+
+// Nur Geändertes lesen (cloud.js, ergebnisse; turnier.js, turnierHoeren mit
+// seit): Das geht nur, wenn jeder Schreibweg die Uhr des Servers (updatedAt)
+// setzt – sonst kommt eine Änderung auf keinem anderen Gerät an. Und ein
+// Löschen braucht den Stempel, weil ein gelöschtes Dokument sich nicht mehr
+// ändert. scripts/check-lesen.mjs fährt das im Emulator wirklich ab.
+{
+  const cloudJs = lies("cloud.js");
+  const adminJs = lies("admin.js");
+  const turnierJs = lies("turnier.js");
+  const block = (text, name) => text.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n  \\}\\n`))?.[0] || "";
+  const speichere = block(cloudJs, "speichere");
+  pruefe("cloud.js, speichere: jede Runde setzt updatedAt – beim ersten Eintrag und bei jedem weiteren",
+    (speichere.match(/updatedAt: jetztAufDemServer\(\)/g) || []).length >= 2);
+  pruefe("cloud.js, schreibeNamen: Umbenennen setzt updatedAt (die Listen sehen es sonst nicht)",
+    /updatedAt: zeit/.test(block(cloudJs, "schreibeNamen")));
+  pruefe("cloud.js: Turnierversuch und Ergebnis setzen updatedAt",
+    /updatedAt: jetztAufDemServer\(\)/.test(block(cloudJs, "turnierVersuch")) && /updatedAt: jetztAufDemServer\(\)/.test(block(cloudJs, "turnierErgebnis")));
+  pruefe("admin.js, benenneUm: Umbenennen im Adminbereich setzt updatedAt",
+    /updatedAt: zeit/.test(block(adminJs, "benenneUm")));
+  pruefe("admin.js, fuehreZusammen: Zusammenführen setzt updatedAt",
+    /updatedAt: window\.firebase\?\.firestore\?\.FieldValue\?\.serverTimestamp/.test(block(adminJs, "fuehreZusammen")));
+  pruefe("admin.js, loesche: Nach dem Löschen setzt der Adminbereich den Stempel (setzeListenStand)",
+    /setzeListenStand/.test(block(adminJs, "loesche")));
+  pruefe("cloud.js, loescheTurnierEintraege: Das Turnier bekommt danach eine neue Uhr",
+    /updatedAtMs: Date\.now\(\)/.test(block(cloudJs, "loescheTurnierEintraege")));
+  pruefe("Die Regeln lassen den Stempel in config/miniGames zu (listenStandMs, eine Zahl, freiwillig)",
+    /"listenStandMs"/.test(regeln.match(/function istSpieleListe[\s\S]*?hasOnly\(\[[^\]]*\]\)/)?.[0] || "")
+    && /!\("listenStandMs" in d\) \|\| d\.listenStandMs is int/.test(regeln)
+    && !/hasAll\(\[[^\]]*"listenStandMs"/.test(regeln));
+  pruefe("Die Startseite merkt sich den Stempel, wenn sie config/miniGames liest (konfig → merkeListenStand)",
+    /function konfig\(\)[\s\S]*?merkeListenStand\(stand\)/.test(cloudJs));
+  pruefe("Die Turnierseite fragt mit dem gemerkten Stand nur nach Geändertem (turnierHoeren, seit)",
+    /turnierHoeren\(id, \{\s*seit,/.test(turnierJs) && /function nachGeaendertem/.test(turnierJs));
+}
+
 // --- 13. Offline: die Adresse, die man weitergibt ---------------------------
 // /turmbau ist die Adresse; im Zwischenspeicher liegt turmbau.html. Ohne die
 // Umrechnung im Service Worker endet offline jeder Weg in ein Spiel auf der
