@@ -136,6 +136,14 @@ const ATTRAPPE = `
     async alleTurniere() { return [TURNIER]; },
     async turnier(id) { return id === TURNIER.id ? TURNIER : null; },
     async turnierErgebnisse() { return []; },
+    // Wie cloud.js, turnierHoeren (der Strom der Turnierseite): das Turnier
+    // und seine Liste, gleich nach dem Anmelden. Ohne ihn blieb die
+    // Turnierseite hier bei «wird geladen» stehen – die Attrappe gab für
+    // alles, was sie nicht kennt, ein Versprechen zurück, und das hört nie.
+    turnierHoeren(id, { beiTurnier = () => {}, beiEintraegen = () => {} } = {}) {
+      setTimeout(() => { beiTurnier(id === TURNIER.id ? TURNIER : null); beiEintraegen([]); }, 0);
+      return () => {};
+    },
     async turnierLive() { return liesAbende(); },
     async speichereTurnierLive(id, abendId, daten) {
       // Auf dem Gerät gemerkt: Die Seite geht danach weiter.
