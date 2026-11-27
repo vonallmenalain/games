@@ -134,7 +134,11 @@
   const TAKT = 1 / 240;
   const PLAN_DT = 1 / 30;
   const STURZ_MS = 2100;
-  const FASSUNG = "t1";
+  // Die Fassung der Aufzeichnung: t2 seit Punkten mit Tempofaktor und der
+  // Rennstrecke – Läufe in t1 (Meter, andere Welt) passen nicht mehr dazu.
+  // Sie steht auch wörtlich bei zuschauer und fuer (unten), wo
+  // scripts/pruefen.mjs sie mit mini-games.js (ANSEHBAR) vergleicht.
+  const FASSUNG = "t2";
   // Die Welten nach der Höhe (in Einheiten), und wie weit sie ineinander
   // übergehen.
   const WELTEN = ["garten", "baum", "dach", "himmel"];
@@ -167,6 +171,31 @@
   // So weit unter dem Zeitplan steigt der Nebel: am Start anderthalb Meter,
   // bald gut siebzig Zentimeter.
   const abstandNebel = (t) => 72 + 80 * Math.exp(-Math.max(0, t) / 10);
+
+  /*
+   * Die Punkte: die Höhe (in Dezimetern) mal dem Tempofaktor. Der Faktor
+   * misst, wie viel schneller man im Mittel gestiegen ist als eine Blase,
+   * die nur getragen wird – so schnell steigt auch der Nebel: je km/h mehr
+   * im Durchschnitt TEMPO_K mehr, nie unter 1, nie über FAKTOR_MAX.
+   * Linear im Tempo, nicht im Verhältnis: Wer in den ersten Sekunden
+   * davonfliegt und dann zerplatzt, bekommt so viel, aber nicht mehr als
+   * einer, der deutlich weiter kommt; wer gleich weit kommt und schneller
+   * ist, liegt klar vorn. Der Faktor hängt nur an Höhe und Spielzeit;
+   * Geister, Zuschauen und Turnier rechnen gleich.
+   */
+  const TEMPO_K = 0.2;
+  const FAKTOR_MAX = 2;
+  const KMH = 0.036;               // cm/s in km/h
+  // So hoch ist eine nur getragene Blase nach t Sekunden.
+  const hTrag = (t) => V_MAX * t - (V_MAX - V0) * V_ZEIT * (1 - Math.exp(-t / V_ZEIT));
+  function faktorBei(h, t) {
+    const tt = Math.max(1, t);
+    const mehr = (Math.max(0, h) / tt - hTrag(tt) / tt) * KMH;
+    return clamp(1 + TEMPO_K * mehr, 1, FAKTOR_MAX);
+  }
+  // Eine Zahl mit Komma, wie man sie hier schreibt.
+  const zahlText = (x, stellen = 1) => x.toFixed(stellen).replace(".", ",");
+  const punkteBei = (h, t) => Math.round((Math.max(0, h) / 10) * faktorBei(h, t));
 
   // Wie stark ein Luftstoss aus dem Abstand d (zur Mitte der Blase) ist, und
   // umgekehrt, wie weit weg man für einen Stoss der Stärke j tippt.
@@ -380,6 +409,8 @@
     phase: "bereit",
     schritt: "start",
     punkte: 0,
+    hoechste: 0,             // so hoch war sie schon (für die Punkte)
+    tacho: 0,                // was die Nadel zeigt (km/h, gedämpft)
     t: 0,                    // die Spielzeit; sie läuft bei null los
     zeit: 0,                 // die Uhr des Bildes
     // Die Blase: Ort, Tempo, und wie sie wabert (Richtung, Stärke, seit wann).
@@ -1081,6 +1112,8 @@
    * Lagen:
    *
    *   tor        eine Reihe
+   *   gerade     die Rennstrecke (der 2. und 3. Abschnitt): zwei Reihen,
+   *              die Lücken weit und fast genau übereinander
    *   doppel     zwei, die Lücken versetzt
    *   treppe     drei im Zickzack
    *   tropfen    zwei Reihen; das obere Teil tropft (Düse, Blatt, Rinne)
@@ -1114,9 +1147,10 @@
 
     let lage;
     if (besonders) lage = besonders;
-    else if (n === 0 || n === 1) lage = "tor";
-    else if (n === 2) lage = "tropfen";
+    else if (n === 0) lage = "tor";
+    else if (n >= 1 && n <= 2) lage = "gerade";
     else if (n === 3) lage = "doppel";
+    else if (n === 4) lage = "tropfen";
     else {
       const gewichte = [
         ["tor", 1],
@@ -1213,13 +1247,24 @@
       x = gx;
     };
 
-    if (lage === "tor" || lage === "doppel" || lage === "treppe") {
+    if (lage === "gerade") {
+      // Die Rennstrecke am Anfang: zwei Abschnitte zu zwei Reihen, die
+      // Lücken fast genau über der letzten und weiter als sonst – wer viel
+      // von unten bläst, fliegt hier schnell durch und holt sich den Faktor.
+      // Dahinter kommt die Baumkrone wie bisher; wer dort noch rast, lebt
+      // gefährlich.
+      m *= 1.15;
+      const xg = RAND - R - m - 2.5;
+      for (let i = 0; i < 2; i += 1) {
+        const dy = abstand(z[1 + i]) * (i > 0 ? 0.9 : 1);
+        neueReihe(y + dy, clamp(x + (z[4 + i] - 0.5) * 10, -xg, xg), m, i);
+      }
+    } else if (lage === "tor" || lage === "doppel" || lage === "treppe") {
       const zahl = lage === "tor" ? 1 : lage === "doppel" ? 2 : 3;
       for (let i = 0; i < zahl; i += 1) {
         const dy = (n === 0 && i === 0 ? 120 : abstand(z[1 + i])) * (i > 0 ? 0.82 : 1);
         let gx = versatz(dy, z[4 + i], z[7 + i]);
         if (n === 0 && i === 0) gx = (z[1] < 0.5 ? 1 : -1) * 25;
-        if (n === 1 && i === 0) gx = -Math.sign(vor.x || 1) * 21;
         neueReihe(y + dy, gx, m, i);
       }
     } else if (lage === "tropfen") {
@@ -1286,10 +1331,17 @@
       const hoch = clamp((r.y - WELT_AB[2]) / (WELT_AB[3] - WELT_AB[2]), 0, 1);
       let hochNah = r.y;
       let tiefNah = r.y;
+      // Auf der Rennstrecke hängt der Gartenschlauch über die Hecke – hier
+      // ohne Tropfen, damit nichts den Raser im Takt erwischt.
+      const schlauchSeite = lage === "gerade" && n === 1 && i === 1 && w === 0 ? (z[7] < 0.5 ? -1 : 1) : 0;
       [-1, 1].forEach((s) => {
         const spitze = r.x + s * gh;
         let o = null;
-        if (r.quelle && r.quelle.s === s) {
+        if (s === schlauchSeite) {
+          const q = baueSchlauch(s, spitze, r.y, za);
+          delete q.tropf;
+          o = teilFertig(q, spitze);
+        } else if (r.quelle && r.quelle.s === s) {
           // Das Teil, das tropft: Düse im Garten, Blatt im Baum, Rinne am Dach.
           const sp = s < 0 ? Math.min(spitze, r.quelle.x + 2.4) : Math.max(spitze, r.quelle.x - 2.4);
           const q = w === 0 ? baueSchlauch(s, sp, r.y, za) : w === 1 ? baueAst(s, sp, r.y, za, zb, zc, true) : baueDach(s, sp, r.y, za, 0.9, true);
@@ -1565,6 +1617,9 @@
       tippRinge.style.top = `${Math.round(view.blaseY + 24 * view.s)}px`;
     }
     ebenenNeu();
+    // Steht die Schleife (auf der Tafel nach dem Platzen), malt niemand
+    // nach – also hier, sonst bliebe die Leinwand nach dem Drehen leer.
+    if (!frame) zeichnen();
   }
 
   const bildX = (x) => view.cssW / 2 + x * view.s;
@@ -1957,12 +2012,13 @@
   // Die Farben des Laubs im Abendlicht: tief im Schatten, die Mitte, die
   // Sonnenseite und die Lichtkante. dunst > 0: fern, im Abenddunst.
   function laubFarben(dunst = 0, art = 0) {
-    const d = [214, 160, 170];
+    const d = [222, 172, 176];
     const basis = art === 1
       ? { tief: [30, 58, 42], mitte: [60, 104, 52], hell: [138, 172, 66], kante: [255, 222, 140] }
       : { tief: [36, 64, 40], mitte: [74, 114, 48], hell: [158, 182, 70], kante: [255, 214, 128] };
     if (!dunst) return basis;
-    return { tief: mix3(basis.tief, d, dunst), mitte: mix3(basis.mitte, d, dunst), hell: mix3(basis.hell, d, dunst * 0.8), kante: basis.kante };
+    // Im Dunst: blasser und mit weniger Kontrast zwischen Schatten und Licht.
+    return { tief: mix3(basis.tief, d, dunst), mitte: mix3(basis.mitte, d, dunst * 0.92), hell: mix3(basis.hell, d, dunst * 0.8), kante: mix3(basis.kante, d, dunst * 0.6) };
   }
 
   // Eine Baumkrone aus Laubbüscheln: hinten und unten rechts dunkel, vorn
@@ -2045,50 +2101,48 @@
       // Der Garten: Apfelbäume links und rechts, ihr Stamm gleich hinter dem
       // Rand, Äste, die das Laub tragen, Äpfel; quer weiter draussen mehr
       // Bäume im Abenddunst. Dazwischen der Himmel und eine Lichterkette.
-      const pal = laubFarben(0.16, 0);
-      const fern = laubFarben(0.42, 0);
+      const pal = laubFarben(0.5, 0);
+      const fern = laubFarben(0.68, 0);
       for (let i = 0; i < 6; i += 1) {
         // Weiter draussen (quer sichtbar): Bäume im Dunst, mit Stamm.
         const seite = i % 2 ? 1 : -1;
         const x = mitte + seite * (feldB * 1.35 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.2));
         const y = rnd() * Hk;
-        const r = s * (20 + rnd() * 14);
+        const r = s * (13 + rnd() * 9);
         dreimal(Hk, (dy) => {
-          astForm(k, x, y + dy + r * 2.2, x + seite * s * 2, y + dy + r, x, y + dy, s * 5, s * 2.5, rgba(mix3([76, 58, 62], [214, 160, 170], 0.4), 1), null);
-          krone(k, x, y + dy, r, wuerfel(i * 31 + 9), fern, 0.95);
+          astForm(k, x, y + dy + r * 2.2, x + seite * s * 2, y + dy + r, x, y + dy, s * 3.5, s * 1.8, rgba(mix3([76, 58, 62], [222, 172, 176], 0.65), 1), null);
+          krone(k, x, y + dy, r, wuerfel(i * 31 + 9), fern, 0.85);
         });
       }
       [-1, 1].forEach((seite, j) => {
         const sx = mitte + seite * feldB * (0.97 + rnd() * 0.05);
-        // Der Stamm, mit Licht auf der linken Seite.
-        k.fillStyle = "rgb(84, 62, 60)";
-        k.fillRect(sx - s * 3.2, 0, s * 6.4, Hk);
-        k.fillStyle = "rgba(255, 196, 140, 0.4)";
-        k.fillRect(sx - s * 3.2, 0, s * 1.3, Hk);
-        k.fillStyle = "rgba(40, 26, 34, 0.35)";
-        k.fillRect(sx + s * 1.6, 0, s * 1.6, Hk);
+        // Der Stamm, im Dunst, mit Licht auf der linken Seite.
+        k.fillStyle = rgb(mix3([84, 62, 60], [222, 172, 176], 0.45));
+        k.fillRect(sx - s * 2.2, 0, s * 4.4, Hk);
+        k.fillStyle = "rgba(255, 210, 170, 0.3)";
+        k.fillRect(sx - s * 2.2, 0, s * 0.9, Hk);
         // Kronen an Ästen vom Stamm herein.
         for (let i = 0; i < 3; i += 1) {
           const y = (i + 0.2 + rnd() * 0.6) * (Hk / 3);
-          const kx = mitte + seite * feldB * (0.56 + rnd() * 0.22);
+          const kx = mitte + seite * feldB * (0.74 + rnd() * 0.14);
           const ky = y - s * (8 + rnd() * 10);
-          const r = s * (23 + rnd() * 9);
+          const r = s * (14 + rnd() * 6);
           const saat = j * 100 + i * 13 + 5;
           dreimal(Hk, (dy) => {
-            astForm(k, sx, y + dy + s * 22, lerp(sx, kx, 0.5), y + dy + s * 6, kx, ky + dy + r * 0.3, s * 4, s * 1.4, "rgb(86, 64, 62)", "rgba(255, 196, 140, 0.45)");
-            krone(k, kx, ky + dy, r, wuerfel(saat), pal, 1);
+            astForm(k, sx, y + dy + s * 18, lerp(sx, kx, 0.5), y + dy + s * 6, kx, ky + dy + r * 0.3, s * 2.8, s * 1.1, rgb(mix3([86, 64, 62], [222, 172, 176], 0.45)), null);
+            krone(k, kx, ky + dy, r, wuerfel(saat), pal, 0.9);
             // Äpfel im Laub, mit Glanz.
             const ra = wuerfel(saat + 50);
             for (let q = 0; q < 5; q += 1) {
               const ax = kx + (ra() - 0.5) * r * 1.2;
               const ay = ky + dy + (ra() - 0.2) * r * 0.9;
-              k.fillStyle = "rgb(200, 52, 46)";
+              k.fillStyle = "rgb(214, 110, 104)";
               k.beginPath();
-              k.arc(ax, ay, s * 1.5, 0, TAU);
+              k.arc(ax, ay, s * 1.1, 0, TAU);
               k.fill();
-              k.fillStyle = "rgba(255, 210, 160, 0.85)";
+              k.fillStyle = "rgba(255, 220, 180, 0.6)";
               k.beginPath();
-              k.arc(ax - s * 0.5, ay - s * 0.5, s * 0.45, 0, TAU);
+              k.arc(ax - s * 0.35, ay - s * 0.35, s * 0.32, 0, TAU);
               k.fill();
             }
           });
@@ -2135,32 +2189,33 @@
     } else if (welt === 1) {
       // Die Baumkrone: dicke Äste wachsen von den Stämmen herein und tragen
       // Laub, schräg fallen goldene Strahlen hindurch.
-      const pal = laubFarben(0.14, 1);
-      const fern = laubFarben(0.38, 1);
+      const pal = laubFarben(0.48, 1);
+      const fern = laubFarben(0.66, 1);
       for (let i = 0; i < 6; i += 1) {
         const seite = i % 2 ? 1 : -1;
         const x = mitte + seite * (feldB * 1.3 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.1));
         const y = rnd() * Hk;
-        const r = s * (18 + rnd() * 14);
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 23 + 1), fern, 0.95));
+        const r = s * (12 + rnd() * 9);
+        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 23 + 1), fern, 0.85));
       }
       for (let i = 0; i < 6; i += 1) {
         const seite = i % 2 ? 1 : -1;
         const y = (i + 0.3 + rnd() * 0.4) * (Hk / 6);
         const x0 = mitte + seite * feldB * 1.05;
-        const x1 = mitte + seite * feldB * (0.3 + rnd() * 0.2);
+        const x1 = mitte + seite * feldB * (0.55 + rnd() * 0.15);
         const y1 = y - s * (16 + rnd() * 20);
         const saat = i * 17 + 3;
-        const r1 = s * (17 + rnd() * 8);
-        const r2 = s * (13 + rnd() * 6);
+        const r1 = s * (11 + rnd() * 5);
+        const r2 = s * (9 + rnd() * 4);
+        const astFarbe = rgb(mix3([80, 66, 66], [222, 172, 176], 0.45));
         dreimal(Hk, (dy) => {
-          astForm(k, x0, y + dy, lerp(x0, x1, 0.45), y + dy - s * 4, x1, y1 + dy, s * 6, s * 1.6, "rgb(80, 66, 66)", "rgba(255, 210, 150, 0.4)");
+          astForm(k, x0, y + dy, lerp(x0, x1, 0.45), y + dy - s * 4, x1, y1 + dy, s * 4.2, s * 1.2, astFarbe, null);
           // Ein Seitenzweig und Laub an beiden Enden.
           const mx = lerp(x0, x1, 0.55);
           const my = lerp(y, y1, 0.5) + dy;
-          astForm(k, mx, my, mx - seite * s * 6, my - s * 10, mx - seite * s * 3, my - s * 22, s * 2.4, s * 0.9, "rgb(80, 66, 66)", null);
-          krone(k, mx - seite * s * 3, my - s * 24, r2, wuerfel(saat + 7), pal, 1);
-          krone(k, x1, y1 + dy - r1 * 0.2, r1, wuerfel(saat), pal, 1);
+          astForm(k, mx, my, mx - seite * s * 6, my - s * 10, mx - seite * s * 3, my - s * 20, s * 1.8, s * 0.7, astFarbe, null);
+          krone(k, mx - seite * s * 3, my - s * 22, r2, wuerfel(saat + 7), pal, 0.9);
+          krone(k, x1, y1 + dy - r1 * 0.2, r1, wuerfel(saat), pal, 0.9);
         });
       }
       // Lichtstrahlen, schräg von links oben.
@@ -3094,6 +3149,14 @@
       k.lineTo(m, m * 1.1 + s * 2 * dpr);
       k.stroke();
     }
+    // Der Tacho: ein Messinstrument aus Messing, einmal gemalt.
+    ebenen.tachoR = Math.round(clamp(Math.min(W, H) * 0.13, 44, 72));
+    ebenen.tacho = tachoBild(ebenen.tachoR);
+    ebenen.tachoNabe = tachoNabeBild(ebenen.tachoR);
+    ebenen.tachoZahl = leinwand(ebenen.tachoR * 1.2, ebenen.tachoR * 0.5);
+    ebenen.tachoSchild = leinwand(tachoMasse(ebenen.tachoR).b, tachoMasse(ebenen.tachoR).schildH);
+    ebenen.tachoZahlText = "";
+    ebenen.tachoSchildText = "";
     ebenen.blaseTmp = document.createElement("canvas");
     ebenen.blaseTmp.width = nb;
     ebenen.blaseTmp.height = nb;
@@ -4408,9 +4471,238 @@
     zeichneTeilchen();
     zeichnePollen();
     zeichneNebel();
+    zeichneTacho();
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     zeichneSchriften();
     zeichneAnsage();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Tacho
+  // ---------------------------------------------------------------------------
+  /*
+   * Unten links ein kleines Messinstrument aus Messing: das Zifferblatt
+   * zeigt, wie schnell die Blase gerade steigt (0 bis TACHO_MAX km/h, die
+   * Nadel gedämpft), eine fliederfarbene Marke das Ø, das die Blase von
+   * selbst hätte (darunter bleibt der Faktor bei ×1), eine goldene das
+   * eigene Ø. Liegt die goldene rechts der fliederfarbenen, zählt jeder
+   * Meter mehr. Darunter ein Schild mit dem Faktor, dem Ø und
+   * den Punkten. Das Gehäuse, die Skala und das Schild sind vorgemalt; je
+   * Bild kommen nur Nadel, Marken und Zahlen dazu.
+   */
+  const TACHO_MAX = 10;
+  const tachoWinkel = (kmh) => Math.PI * (0.75 + 1.5 * clamp(kmh / TACHO_MAX, 0, 1.03));
+
+  // Masse in CSS-Pixeln, bezogen auf den Halbmesser r des Zifferblatts.
+  const tachoMasse = (r) => ({ b: Math.round(r * 2.5), h: Math.round(r * 3.05), cx: Math.round(r * 1.25), cy: Math.round(r * 1.2), schildY: Math.round(r * 2.18), schildH: Math.round(r * 0.82) });
+
+  function tachoBild(r) {
+    const m = tachoMasse(r);
+    const c = leinwand(m.b, m.h);
+    const k = c.getContext("2d");
+    const d = view.dpr;
+    k.scale(d, d);
+    const { cx, cy } = m;
+    // Schatten, Messingring, Zifferblatt.
+    k.fillStyle = "rgba(30, 14, 30, 0.35)";
+    k.beginPath();
+    k.arc(cx + r * 0.05, cy + r * 0.08, r * 1.12, 0, TAU);
+    k.fill();
+    const ring = k.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    ring.addColorStop(0, "rgb(255, 228, 150)");
+    ring.addColorStop(0.45, "rgb(196, 146, 60)");
+    ring.addColorStop(1, "rgb(110, 72, 30)");
+    k.fillStyle = ring;
+    k.beginPath();
+    k.arc(cx, cy, r * 1.1, 0, TAU);
+    k.fill();
+    const blatt = k.createRadialGradient(cx - r * 0.25, cy - r * 0.35, r * 0.1, cx, cy, r);
+    blatt.addColorStop(0, "rgb(255, 250, 236)");
+    blatt.addColorStop(0.8, "rgb(244, 230, 204)");
+    blatt.addColorStop(1, "rgb(214, 192, 160)");
+    k.fillStyle = blatt;
+    k.beginPath();
+    k.arc(cx, cy, r * 0.97, 0, TAU);
+    k.fill();
+    // Ein Farbband: ruhig, dann warm, oben rot.
+    k.lineWidth = r * 0.1;
+    for (let v = 0; v < TACHO_MAX; v += 0.25) {
+      const f = v / TACHO_MAX;
+      k.strokeStyle = rgb(f < 0.5 ? mix3([150, 190, 160], [240, 190, 90], f * 2) : mix3([240, 190, 90], [214, 70, 60], (f - 0.5) * 2));
+      k.beginPath();
+      k.arc(cx, cy, r * 0.8, tachoWinkel(v), tachoWinkel(v + 0.26));
+      k.stroke();
+    }
+    // Striche und Zahlen.
+    k.strokeStyle = "rgb(60, 40, 40)";
+    k.fillStyle = "rgb(60, 40, 40)";
+    k.textAlign = "center";
+    k.textBaseline = "middle";
+    k.font = `800 ${Math.round(r * 0.22)}px system-ui, sans-serif`;
+    for (let v = 0; v <= TACHO_MAX; v += 0.5) {
+      const w = tachoWinkel(v);
+      const lang = v % 2 === 0 ? 0.2 : v % 1 === 0 ? 0.13 : 0.08;
+      k.lineWidth = v % 1 === 0 ? Math.max(1, r * 0.035) : Math.max(0.7, r * 0.02);
+      k.beginPath();
+      k.moveTo(cx + Math.cos(w) * r * 0.92, cy + Math.sin(w) * r * 0.92);
+      k.lineTo(cx + Math.cos(w) * r * (0.92 - lang), cy + Math.sin(w) * r * (0.92 - lang));
+      k.stroke();
+      if (v % 2 === 0 && v > 0 && v < TACHO_MAX) k.fillText(String(v), cx + Math.cos(w) * r * 0.58, cy + Math.sin(w) * r * 0.58);
+    }
+    k.font = `700 ${Math.round(r * 0.16)}px system-ui, sans-serif`;
+    k.fillStyle = "rgb(120, 90, 70)";
+    k.fillText("km/h", cx, cy + r * 0.74);
+    // Ein Glanz auf dem Glas.
+    const glas = k.createLinearGradient(cx - r, cy - r, cx + r * 0.2, cy + r * 0.2);
+    glas.addColorStop(0, "rgba(255, 255, 255, 0.35)");
+    glas.addColorStop(0.5, "rgba(255, 255, 255, 0.05)");
+    glas.addColorStop(1, "rgba(255, 255, 255, 0)");
+    k.fillStyle = glas;
+    k.beginPath();
+    k.arc(cx, cy, r * 0.97, Math.PI * 0.95, Math.PI * 1.85);
+    k.closePath();
+    k.fill();
+    // Das Schild darunter, aus Messing.
+    const sy = m.schildY;
+    const sh = m.schildH;
+    const schild = k.createLinearGradient(0, sy, 0, sy + sh);
+    schild.addColorStop(0, "rgb(250, 220, 150)");
+    schild.addColorStop(0.5, "rgb(206, 156, 70)");
+    schild.addColorStop(1, "rgb(150, 100, 40)");
+    k.fillStyle = "rgba(30, 14, 30, 0.3)";
+    k.beginPath();
+    k.roundRect(r * 0.08, sy + r * 0.06, m.b - r * 0.12, sh, r * 0.18);
+    k.fill();
+    k.fillStyle = schild;
+    k.beginPath();
+    k.roundRect(r * 0.04, sy, m.b - r * 0.08, sh, r * 0.18);
+    k.fill();
+    k.fillStyle = "rgb(250, 238, 210)";
+    k.beginPath();
+    k.roundRect(r * 0.12, sy + r * 0.08, m.b - r * 0.24, sh - r * 0.16, r * 0.12);
+    k.fill();
+    return c;
+  }
+
+  // Wo der Tacho steht (in Bildpunkten): unten links, unter der Blase –
+  // dort ist nur, was sie schon hinter sich hat.
+  function tachoOrt() {
+    const r = ebenen?.tachoR || 0;
+    const m = tachoMasse(r);
+    return { x: 8, y: Math.round(view.cssH - m.h - 8), b: m.b, h: m.h, r };
+  }
+  function zeichneTacho() {
+    if (!ebenen?.tacho || state.intro) return;
+    const r = ebenen.tachoR;
+    const m = tachoMasse(r);
+    const { x: x0, y: y0 } = tachoOrt();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(ebenen.tacho, Math.round(x0 * view.dpr), Math.round(y0 * view.dpr));
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    const cx = x0 + m.cx;
+    const cy = y0 + m.cy;
+    const t = Math.max(0.1, state.t);
+    const laeuft = state.phase === "spiel" || state.phase === "zuschauen" || state.phase === "ende";
+    const schnitt = laeuft ? (state.hoechste / t) * KMH : 0;
+    const vonSelbst = laeuft ? (hTrag(Math.max(1, t)) / Math.max(1, t)) * KMH : 0;
+    // Die Marken am Rand: das Ø, das sie von selbst hätte (flieder), und
+    // das eigene (gold).
+    [[vonSelbst, "rgb(150, 110, 200)"], [schnitt, "rgb(214, 150, 40)"]].forEach(([v, farbe]) => {
+      if (!laeuft) return;
+      const w = tachoWinkel(v);
+      const ax = cx + Math.cos(w) * r * 0.99;
+      const ay = cy + Math.sin(w) * r * 0.99;
+      g.fillStyle = farbe;
+      g.beginPath();
+      g.moveTo(ax, ay);
+      g.lineTo(cx + Math.cos(w - 0.08) * r * 1.16, cy + Math.sin(w - 0.08) * r * 1.16);
+      g.lineTo(cx + Math.cos(w + 0.08) * r * 1.16, cy + Math.sin(w + 0.08) * r * 1.16);
+      g.closePath();
+      g.fill();
+    });
+    // Die Nadel.
+    const w = tachoWinkel(state.tacho);
+    g.strokeStyle = "rgba(40, 20, 20, 0.3)";
+    g.lineCap = "round";
+    g.lineWidth = Math.max(2, r * 0.07);
+    g.beginPath();
+    g.moveTo(cx + 1.5, cy + 2);
+    g.lineTo(cx + Math.cos(w) * r * 0.8 + 1.5, cy + Math.sin(w) * r * 0.8 + 2);
+    g.stroke();
+    g.strokeStyle = "rgb(200, 40, 40)";
+    g.lineWidth = Math.max(1.6, r * 0.055);
+    g.beginPath();
+    g.moveTo(cx - Math.cos(w) * r * 0.15, cy - Math.sin(w) * r * 0.15);
+    g.lineTo(cx + Math.cos(w) * r * 0.82, cy + Math.sin(w) * r * 0.82);
+    g.stroke();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const d = view.dpr;
+    g.drawImage(ebenen.tachoNabe, Math.round((cx - r * 0.14) * d), Math.round((cy - r * 0.14) * d));
+    // Die Zahlen: das Tempo jetzt im Fenster unten, auf dem Schild Faktor,
+    // Ø und Punkte – je als kleines Bild, neu gemalt nur, wenn sich ein
+    // Text ändert (Schrift setzen ist teuer, und sie ändert sich selten).
+    const f = laeuft ? faktorBei(state.hoechste, t) : 1;
+    const zahl = zahlText(state.tacho);
+    if (ebenen.tachoZahlText !== zahl) {
+      ebenen.tachoZahlText = zahl;
+      const k = ebenen.tachoZahl.getContext("2d");
+      k.setTransform(d, 0, 0, d, 0, 0);
+      k.clearRect(0, 0, r * 1.2, r * 0.5);
+      k.textAlign = "center";
+      k.textBaseline = "middle";
+      k.fillStyle = "rgb(60, 36, 36)";
+      k.font = `900 ${Math.round(r * 0.3)}px system-ui, sans-serif`;
+      k.fillText(zahl, r * 0.6, r * 0.25);
+    }
+    g.drawImage(ebenen.tachoZahl, Math.round((cx - r * 0.6) * d), Math.round((cy + r * 0.22) * d));
+    const schild = `${zahlText(f, 2)}|${zahlText(schnitt)}|${state.punkte}`;
+    if (ebenen.tachoSchildText !== schild) {
+      ebenen.tachoSchildText = schild;
+      const k = ebenen.tachoSchild.getContext("2d");
+      k.setTransform(d, 0, 0, d, 0, 0);
+      k.clearRect(0, 0, m.b, m.schildH);
+      const sy = m.schildH / 2;
+      k.textBaseline = "middle";
+      k.fillStyle = f > 1.005 ? "rgb(170, 70, 20)" : "rgb(90, 66, 50)";
+      k.textAlign = "left";
+      k.font = `900 ${Math.round(r * 0.34)}px system-ui, sans-serif`;
+      const faktorText = `×${zahlText(f, 2)}`;
+      k.fillText(faktorText, r * 0.2, sy + r * 0.01);
+      // Rechts Ø und Punkte – bei vielen Stellen etwas kleiner, damit
+      // nichts in den Faktor läuft.
+      const rechts = m.b - r * 0.18;
+      const platz = rechts - (r * 0.2 + k.measureText(faktorText).width + r * 0.12);
+      k.textAlign = "right";
+      k.fillStyle = "rgb(80, 56, 44)";
+      [[`Ø ${zahlText(schnitt)} km/h`, 0.18, 700, sy - r * 0.16], [`${state.punkte} Punkte`, 0.21, 800, sy + r * 0.17]].forEach(([text, gross, dick, y]) => {
+        let px = Math.round(r * gross);
+        k.font = `${dick} ${px}px system-ui, sans-serif`;
+        const breit = k.measureText(text).width;
+        if (breit > platz) {
+          px = Math.max(8, Math.floor((px * platz) / breit));
+          k.font = `${dick} ${px}px system-ui, sans-serif`;
+        }
+        k.fillText(text, rechts, y);
+      });
+    }
+    g.drawImage(ebenen.tachoSchild, Math.round(x0 * d), Math.round((y0 + m.schildY) * d));
+    g.setTransform(d, 0, 0, d, 0, 0);
+  }
+
+  // Die Nabe der Nadel, einmal gemalt.
+  function tachoNabeBild(r) {
+    const c = leinwand(r * 0.28, r * 0.28);
+    const k = c.getContext("2d");
+    k.scale(view.dpr, view.dpr);
+    const n = r * 0.14;
+    const nabe = k.createRadialGradient(n - r * 0.03, n - r * 0.03, 0, n, n, r * 0.12);
+    nabe.addColorStop(0, "rgb(255, 230, 160)");
+    nabe.addColorStop(1, "rgb(140, 90, 30)");
+    k.fillStyle = nabe;
+    k.beginPath();
+    k.arc(n, n, r * 0.12, 0, TAU);
+    k.fill();
+    return c;
   }
 
   // ---------------------------------------------------------------------------
@@ -4509,14 +4801,17 @@
       b.y += b.vy * h;
       state.t += h;
       b.wt += h;
+      // Die Punkte zuerst: Auch der Schritt, in dem sie zerplatzt, zählt –
+      // so passen sie genau zu Höhe und Zeit auf der Tafel.
+      if (b.y > state.hoechste) state.hoechste = b.y;
+      const punkte = punkteBei(state.hoechste, state.t);
+      if (punkte !== state.punkte) {
+        state.punkte = punkte;
+        shell.setCount(punkte);
+      }
       const o = trifft(b.x, b.y, state.t);
       if (o) { platzen(o); return; }
       if (b.y - RH < nebelY(state.t)) { platzen({ art: "nebel" }); return; }
-      const meter = Math.max(0, Math.floor(b.y / METER));
-      if (meter > state.punkte) {
-        state.punkte = meter;
-        shell.setCount(meter);
-      }
     }
   }
 
@@ -4558,7 +4853,7 @@
    * Luft voraus oder hinterher ist. Ein Stoss ändert das Tempo sofort – er
    * tippt so nah, dass es genau der fehlende Unterschied ist.
    */
-  function pilot({ abstand = 0.1, vor = 0.1, zeit = 0.3, maxJ = J0 * 0.97 } = {}) {
+  function pilot({ abstand = 0.1, vor = 0.1, zeit = 0.3, maxJ = J0 * 0.97, raser = 0 } = {}) {
     const b = state.blase;
     if (state.phase !== "spiel" || state.schritt !== "flug") return null;
     if (state.t < state.pilotBis) return null;
@@ -4575,7 +4870,12 @@
     const vRef = (yRef(state.t + vor + 0.05) - yRef(state.t + vor - 0.05)) / 0.1;
     const ey = yRef(state.t + vor) - yv;
     const tFehler = -ey / Math.max(20, vRef);
-    const dvy = Math.abs(tFehler) > luftAn(b.y) * 0.3 ? vRef + ey / (zeit + 0.1) - b.vy : 0;
+    // Der Raser will nicht dem Zeitplan folgen, sondern so schnell steigen:
+    // raser cm/s – dafür bläst er immer wieder von unten.
+    const vz = vAuf(state.t) * (1 + (AUF - 1) * k);
+    const dvyRaser = vz + (raser - vz) / mittel - b.vy;
+    // raser < 0: nur quer steuern, die Höhe lassen, wie sie ist.
+    const dvy = raser > 0 ? (Math.abs(raser - b.vy) > 14 ? dvyRaser : 0) : raser < 0 ? 0 : Math.abs(tFehler) > luftAn(b.y) * 0.3 ? vRef + ey / (zeit + 0.1) - b.vy : 0;
     const betrag = Math.hypot(dvx, dvy);
     if (betrag < 4) return null;
     const d = abstandFuer(Math.min(betrag, maxJ));
@@ -4610,12 +4910,18 @@
       state.t = Math.max(state.t, st.t / 1000);
       b.x = st.a / 4;
       b.y = st.b / 2;
+      if (b.y > state.hoechste) state.hoechste = b.y;
       b.vx = st.va / 4;
       b.vy = st.vb / 2;
       b.wt += dt;
       const c = Math.round(st.c || 0);
+      let punkte = Math.max(0, Math.floor(st.punkte));
       if (c < 0) {
         platzen({ art: ARTEN[-c - 1] || "rand" }, true);
+        // Das Platzen erscheint schon auf halbem Weg zur letzten Probe, die
+        // Punkte stehen dort noch einen Schritt zurück – also die letzten.
+        const lauf = zuschauer.lauf;
+        if (lauf?.wert) punkte = Math.max(punkte, Math.floor(lauf.wert(lauf.dauer)));
       } else {
         const zahl = Math.floor(c / 1024);
         while (state.stoesse < zahl) {
@@ -4633,7 +4939,6 @@
           klang()?.ton?.("seifenblase.pusten", { laut: 0.2 + 0.4 * (j / J0) });
         }
       }
-      const punkte = Math.max(0, Math.floor(st.punkte));
       if (punkte !== state.punkte) {
         state.punkte = punkte;
         shell.setCount(punkte);
@@ -4717,6 +5022,9 @@
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
     pollenTakt(dt);
+    // Die Nadel des Tachos folgt dem Steigen, gedämpft.
+    const kmh = state.schritt === "geplatzt" || state.phase === "bereit" ? 0 : Math.max(0, b.vy) * KMH;
+    state.tacho += (kmh - state.tacho) * (1 - Math.exp(-dt * 6));
 
     // Die Kamera folgt der Blase; steigt sie schnell (Aufwind), rascher.
     if (state.phase === "bereit") state.camY = camZiel();
@@ -4787,6 +5095,8 @@
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
+    state.hoechste = 0;
+    state.tacho = 0;
     state.t = 0;
     state.zeit = 0;
     state.blase = { x: 0, y: 0, vx: 0, vy: V0, ww: 0, wa: 0, wt: 9 };
@@ -4887,11 +5197,13 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     const warum = warumText(state.geplatzt);
-    const zeit = `${Math.max(0, Math.round(state.t))} s`;
+    // Wie die Punkte zustande kamen: Höhe, Zeit, Ø-Tempo und Faktor.
+    const t = Math.max(0.1, state.t);
+    const rechnung = `${zahlText(state.hoechste / METER)} m in ${Math.round(t)} s · Ø ${zahlText((state.hoechste / t) * KMH)} km/h · ×${zahlText(faktorBei(state.hoechste, t), 2)}`;
     shell.showResult({
-      label: "Deine Meter",
+      label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : `${warum ? `${warum} · ` : ""}${zeit}`,
+      detail: rekord ? `Neuer Rekord! · ${rechnung}` : `${warum ? `${warum} · ` : ""}${rechnung}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("sb-rekord");
@@ -4912,10 +5224,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "soapBubble", fassung: FASSUNG, zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "soapBubble", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "soapBubble", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "soapBubble", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -4954,6 +5266,6 @@
   window.LernappSeifenblase = {
     METER, R, RH, RAND, J0, D0, DMAX, BERUEHRT, TAU_X, TAU_Y, FASSUNG, state, view,
     takt, tippen, tippeWelt, losGehts, physik, planBis, kursText, trifft, wegX, yRef, tRef, nebelY, windBei, aufwindBei,
-    vAuf, margeBei, luftBei, stossBei, abstandFuer, pilot, bildX, bildY, abschnittBei, bewegerOrt, tropfenBei,
+    vAuf, margeBei, luftBei, stossBei, abstandFuer, pilot, faktorBei, punkteBei, hTrag, KMH, tachoOrt, bildX, bildY, abschnittBei, bewegerOrt, tropfenBei,
   };
 })();
