@@ -15,7 +15,14 @@
  * Ziel: von Blatt zu Blatt den Bach hinauf. Vorne liegen in jeder Reihe
  * zwei oder drei Blätter: grosse sind leicht zu treffen und sinken schnell,
  * kleine sind schwer zu treffen und halten länger, manche pendeln in der
- * Strömung. Gezählt wird die höchste erreichte Reihe.
+ * Strömung.
+ *
+ * Die Punkte: einer je 10 cm Bach – gezählt bis zum höchsten Blatt, auf dem
+ * er stand; wer im Kreis herum springt, gewinnt nichts. Dazu Boni, aber nur
+ * für einen Sprung in eine neue Reihe: Volltreffer (mitten auf dem Blatt
+ * gelandet), knapp entwischt (der Fisch war kurz vor dem Biss), letzter
+ * Drücker (das alte Blatt war schon im roten Bereich) und kleines Blatt –
+ * je ein Punkt.
  *
  * Auf dem Blatt ist er sicher – aber nur kurz: Sobald er darauf sitzt,
  * läuft es voll Wasser (ein Ring auf dem Blatt zeigt, wie lange noch) und
@@ -136,6 +143,23 @@
   // Über der Hechtgrube ist der kleine Fisch vorsichtiger (der Hecht ist
   // da): Er wartet so viel mal länger.
   const HECHT_GEDULD = 3;
+  // Die Punkte: einer je PUNKT_CM Bach bis zum höchsten Blatt, dazu je ein
+  // Bonus für einen Sprung in eine neue Reihe – Volltreffer: höchstens
+  // VOLL_ANTEIL des Halbmessers (plus VOLL_CM) neben der Mitte gelandet;
+  // knapp entwischt: höchstens KNAPP_S vor dem Biss gelandet; letzter
+  // Drücker: abgesprungen, als dem Blatt nur noch DRUECKER_REST seiner Zeit
+  // blieb (der Ring ist dann rot); kleines Blatt.
+  const PUNKT_CM = 10;
+  const VOLL_ANTEIL = 0.15;
+  const VOLL_CM = 0.25;
+  const KNAPP_S = 0.08;
+  const DRUECKER_REST = 0.25;
+  const BONI = {
+    voll: { text: "Volltreffer", farbe: "#ffe066" },
+    knapp: { text: "Knapp entwischt", farbe: "#ffb59a" },
+    druecker: { text: "Letzter Drücker", farbe: "#ffcf8a" },
+    klein: { text: "Kleines Blatt", farbe: "#c9f29b" },
+  };
   // So weit sieht man über ihm voraus und unter ihm zurück – auf jedem
   // Gerät gleich weit voraus. Hochkant gibt die Breite FELD_SICHT den
   // Massstab vor, quer die Höhe.
@@ -147,7 +171,7 @@
   const INTRO_WEG = 150;           // so weit oben beginnt der Blick beim ersten Start (cm)
   // Die Fassung der Aufzeichnung (mini-games.js, ANSEHBAR) – dieselbe steht
   // beim Aufzeichnen und Zuschauen (LernappGeist.fuer, .zuschauer).
-  const FASSUNG = "t2";
+  const FASSUNG = "t3";
   // Die Schwere nach der Reihe n: Die ersten SCHWER_AB Reihen sind zum
   // Hineinfinden, danach wird es zügig schwerer – nach gut SCHWER_ZAHL
   // Reihen sind sechs Zehntel der Härte da.
@@ -242,7 +266,13 @@
   const state = {
     phase: "bereit",
     schritt: "start",
-    punkte: 0,
+    punkte: 0,               // Strecke und Boni zusammen
+    reihe: 0,                // die höchste Reihe, auf der er stand
+    strecke: 0,              // die Punkte der Strecke (je PUNKT_CM eines)
+    boni: { voll: 0, knapp: 0, druecker: 0, klein: 0 },
+    abflug: null,            // wovon er abgesprungen ist: { rest } des Blattes
+    wertung: null,           // die letzte Wertung (wie knapp – für die Prüfung)
+    plus: [],                // die Boni im Bild: { text, farbe, x, y, leben, max }
     t: 0,                    // die Spielzeit
     zeit: 0,                 // die Uhr des Bildes
     // Der Wasserläufer: Ort, Tempo, Blickrichtung w, worauf er sitzt
@@ -1199,7 +1229,7 @@
    * den Teppich trägt. Sicher heisst: landen, bevor der Fisch schnappt,
    * nicht in den Hecht, nicht fort mit der Strömung.
    */
-  const reiheVon = (L) => (L.sitz && !L.sitz.laub ? L.sitz.nr : state.punkte);
+  const reiheVon = (L) => (L.sitz && !L.sitz.laub ? L.sitz.nr : state.reihe);
 
   // Wie lange er auf dem Wasser sein darf, bis der Fisch schnappt – auf
   // dem Weg zu Reihe n.
@@ -4642,6 +4672,14 @@
       text(an.text, W / 2, y, 21, an.farbe, sicht, 900);
       if (an.unter) text(an.unter, W / 2, y + 22, 13, "#eaf6f2", sicht, 700);
     }
+    // Die Boni: Sie steigen über ihm auf und verblassen.
+    state.plus.forEach((q) => {
+      const k = clamp(q.leben / q.max, 0, 1);
+      const sicht = Math.min(1, k * 3) * Math.min(1, (q.max - q.leben) * 8);
+      const gross = Math.round(clamp(W * 0.04, 14, 18));
+      const y = bildY(q.y) - 26 - (1 - k) * 34 - q.stufe * (gross + 4);
+      text(q.text, clamp(bildX(q.x), 70, W - 70), y, gross, q.farbe, sicht, 800);
+    });
     state.schriften.forEach((s) => {
       const k = clamp(s.leben / s.max, 0, 1);
       const sicht = Math.min(1, k * 2.5) * Math.min(1, (s.max - s.leben) * 3);
@@ -4656,7 +4694,17 @@
       const wort = { fisch: "Geschnappt!", blatt: "Untergegangen!", hecht: "Vom Hecht geholt!", stroemung: "Fortgerissen!" }[tot.art] || "";
       const y = view.frei + (view.ankerY - view.frei) * 0.45;
       text(wort, W / 2, y, Math.round(clamp(W * 0.085, 24, 40)), "#ffe6c0", k, 900);
-      text(`${state.punkte} ${state.punkte === 1 ? "Blatt" : "Blätter"}`, W / 2, y + 30, 15, "#f6f2e8", k, 700);
+      text(`${state.punkte} ${state.punkte === 1 ? "Punkt" : "Punkte"}`, W / 2, y + 30, 15, "#f6f2e8", k, 700);
+      // Woraus sie bestehen (beim Zuschauen kennt man nur die Summe).
+      if (state.phase !== "zuschauen" && bonusSumme() > 0) {
+        const b = state.boni;
+        const teile = [`Strecke ${state.strecke}`];
+        if (b.voll) teile.push(`Volltreffer ${b.voll}`);
+        if (b.knapp) teile.push(`Knapp ${b.knapp}`);
+        if (b.druecker) teile.push(`Drücker ${b.druecker}`);
+        if (b.klein) teile.push(`Klein ${b.klein}`);
+        text(teile.join(" · "), W / 2, y + 50, Math.round(clamp(W * 0.032, 11, 13)), "#e6efe9", k * 0.95, 700);
+      }
     }
     // Beim ersten Start: der Name.
     if (state.intro) {
@@ -4832,6 +4880,9 @@
   // ---------------------------------------------------------------------------
   function rudern(w, st) {
     const L = state.l;
+    // Vom Blatt ab: wie viel Zeit ihm noch blieb (für den letzten Drücker).
+    // Ein Schlag im Gleiten ändert daran nichts; vom Laub ab gibt es keinen.
+    if (L.sitz) state.abflug = L.sitz.laub ? null : { rest: restBei(L.sitz, state.t) };
     schlag(L, state.t, w, st);
     state.schlaege += 1;
     state.letzterSchlag = state.t;
@@ -4857,10 +4908,12 @@
     if (!p.laub) {
       if (p.betreten === null) p.betreten = state.t;
       p.wippen = state.t;
-      if (p.nr > state.punkte) {
-        state.punkte = p.nr;
-        shell.setCount(state.punkte);
+      if (p.nr > state.reihe) {
+        state.reihe = p.nr;
+        // Beim Zuschauen kommen die Punkte aus der Aufzeichnung.
+        if (state.phase !== "zuschauen") werten(p);
       }
+      state.abflug = null;
     }
     // Der Fisch, der gerade aufsteigt, schnappt ins Leere – an den Rand des
     // Blattes – und taucht ab.
@@ -4877,6 +4930,41 @@
     }
     state.plan = null;
   }
+
+  // Ein Sprung in eine neue Reihe: die Strecke bis zu diesem Blatt, und
+  // was er dabei an Boni verdient hat. Vor dem Fisch in gelandet(), der
+  // danach ins Leere schnappt.
+  function werten(p) {
+    const L = state.l;
+    const neu = [];
+    const c = p.kreise.find((q) => q.x === L.mx && q.y === L.my) || p.kreise[0];
+    const daneben = Math.hypot(L.ox - L.mx, L.oy - L.my);
+    if (daneben <= c.r * VOLL_ANTEIL + VOLL_CM) neu.push("voll");
+    const j = state.jagd;
+    const vorBiss = j.phase === "steigt" ? j.warn - (state.t - j.t0) : null;
+    if (vorBiss !== null && vorBiss <= KNAPP_S) neu.push("knapp");
+    // Für die Prüfung: wie knapp es war.
+    state.wertung = { reihe: p.nr, daneben: daneben / c.r, vorBiss, rest: state.abflug?.rest ?? null };
+    if (state.abflug && state.abflug.rest <= DRUECKER_REST) neu.push("druecker");
+    if (p.groesse === "klein") neu.push("klein");
+    state.strecke = Math.max(state.strecke, Math.floor(Math.max(0, p.y) / PUNKT_CM));
+    neu.forEach((art) => { state.boni[art] += 1; });
+    state.punkte = state.strecke + bonusSumme();
+    shell.setCount(state.punkte);
+    if (!neu.length) return;
+    klang()?.ton?.("wasserlaeufer.bonus", { laut: 0.35 + 0.1 * neu.length });
+    if (neu.includes("voll")) {
+      ring(L.x, L.y, 1.5, 14, 0.55, 1);
+      ring(L.x, L.y, 0.5, 8, 0.4, 0.8);
+    }
+    // Die Schriften steigen über ihm auf, die ältesten zuerst weg.
+    state.plus = state.plus.filter((q) => q.leben > 0.3).slice(-4);
+    neu.forEach((art, i) => {
+      state.plus.push({ text: `+1 ${BONI[art].text}`, farbe: BONI[art].farbe, x: L.x, y: L.y, stufe: i, leben: 1.3 + 0.12 * i, max: 1.3 + 0.12 * i });
+    });
+  }
+
+  const bonusSumme = () => state.boni.voll + state.boni.knapp + state.boni.druecker + state.boni.klein;
 
   const ARTEN = ["fisch", "blatt", "hecht", "stroemung"];
 
@@ -4913,7 +5001,7 @@
   function jagdTakt(h, nurBild = false) {
     const L = state.l;
     const j = state.jagd;
-    const n = (L.sitz && !L.sitz.laub ? L.sitz.nr : state.punkte) + 1;
+    const n = (L.sitz && !L.sitz.laub ? L.sitz.nr : state.reihe) + 1;
     const imHecht = state.hechte.some((hg) => hg.abschnitt === n);
     const geduld = geduldBei(n) * (imHecht ? HECHT_GEDULD : 1);
     if (j.phase === "ruhe") {
@@ -5128,6 +5216,10 @@
       t.leben -= dt;
       if (t.leben <= 0 || t.z < -1) state.teile.splice(i, 1);
     }
+    for (let i = state.plus.length - 1; i >= 0; i -= 1) {
+      state.plus[i].leben -= dt;
+      if (state.plus[i].leben <= 0) state.plus.splice(i, 1);
+    }
     for (let i = state.schriften.length - 1; i >= 0; i -= 1) {
       state.schriften[i].leben -= dt;
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
@@ -5238,6 +5330,12 @@
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
+    state.reihe = 0;
+    state.strecke = 0;
+    state.boni = { voll: 0, knapp: 0, druecker: 0, klein: 0 };
+    state.abflug = null;
+    state.wertung = null;
+    state.plus = [];
     state.t = 0;
     state.zeit = 0;
     state.schlaege = 0;
@@ -5323,11 +5421,14 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     const warum = WARUM[state.tot?.art] || "";
-    const zeit = `${Math.max(0, Math.round(state.t))} s`;
+    // Wie weit (je Punkt der Strecke PUNKT_CM) und was an Boni dazukam.
+    const meter = `${((state.strecke * PUNKT_CM) / 100).toFixed(1).replace(".", ",")} m`;
+    const boni = bonusSumme();
+    const wie = `${meter}${boni ? ` + ${boni} Bonus` : ""}`;
     shell.showResult({
-      label: "Deine Blätter",
+      label: "Deine Punkte",
       points: punkte,
-      detail: rekord ? "Neuer Rekord!" : `${warum ? `${warum} · ` : ""}${zeit}`,
+      detail: rekord ? `Neuer Rekord! · ${wie}` : `${warum ? `${warum} · ` : ""}${wie}`,
       geist,
     });
     if (rekord) host.querySelector(".cm-result-detail")?.classList.add("wa-rekord");
@@ -5348,10 +5449,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "pondSkater", fassung: "t2", zufall, einheit: "Blätter", nochmal: zuschauenStarten,
+    host, spiel: "pondSkater", fassung: "t3", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "pondSkater", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "pondSkater", host, art: "tempo", fassung: "t3", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -5459,6 +5560,7 @@
   // Für die Prüfskripte und die Vorführung.
   window.LernappWasserlaeufer = {
     J_MIN, J_MAX, TAU_W, MU_W, TAU_B, MU_B, R_SCHNAPP, R_HECHT, FASSUNG, KRAFT_MAX, state, view,
+    PUNKT_CM, VOLL_ANTEIL, VOLL_CM, KNAPP_S, DRUECKER_REST, gelandet,
     takt, schleudern, losGehts, physik, planBis, kursText, pilot, fensterVon, blattBei, blattOrt, hechtOrt, laubOrt, vorausrechnen,
     schwere, spaet, reihenAbstandBei, radienBei, haltBei, geduldBei, warnungBei, fischVBei, spielraumWBei, spielraumSBei, jVon, weiteVon,
     mitteBei, halbBei, weltBei, bildX, bildY, totPx, zugPx,

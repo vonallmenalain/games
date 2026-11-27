@@ -3087,12 +3087,34 @@ länger** (die Haltezeit geht mit dem Halbmesser, ein grosses hält gut drei
 Viertel so lang wie ein mittleres, ein kleines ein gutes Drittel länger).
 Ab Reihe 6 pendelt manchmal eines in der Strömung hin und her (3 bis 6,5 cm,
 alle 4,5 bis 7 s) – wer darauf landet, schleudert von einem fahrenden Blatt.
-**Gezählt wird die höchste erreichte Reihe** («Blätter»): Wer quer auf ein
-Nachbarblatt ausweicht, um Zeit zu gewinnen, bekommt nichts dafür, wer eine
-Reihe überspringt, bekommt beide. So hängt die Zahl nur daran, wie weit
-jemand den Bach hinaufkommt, nicht an seinem Weg – zwei Läufe, ein Geist
-und ein Turnier lassen sich so gerecht vergleichen, und Umwege lohnen sich
-nicht von selbst.
+**Die Punkte: die Strecke, dazu Boni** (`werten`). Grundlage ist, wie weit
+er den Bach hinaufkommt: **ein Punkt je 10 cm** (`PUNKT_CM`) bis zum
+höchsten Blatt, auf dem er stand – je Reihe also zwei bis drei. Wer quer
+oder zurück springt, bekommt nichts, auch im Kreis herum nicht. **Boni gibt
+es nur für einen Sprung in eine neue Reihe**, je einen Punkt, und sie
+steigen als Schrift über ihm auf:
+
+- **Volltreffer** – mitten auf dem Blatt gelandet, höchstens 15 % des
+  Halbmessers plus 2,5 mm neben der Mitte (`VOLL_ANTEIL`, `VOLL_CM`;
+  auf einem grossen Blatt gut 1,5 cm, auf einem kleinen knapp 1 cm).
+- **Knapp entwischt** – gelandet, als der Fisch höchstens 0,08 s vor dem
+  Biss war (`KNAPP_S`). Weite Sprünge landen oft knapp; der Weg ist so
+  gelegt, dass er vor dem Biss reicht.
+- **Letzter Drücker** – abgesprungen, als dem alten Blatt nur noch ein
+  Viertel seiner Zeit blieb (`DRUECKER_REST`, der Ring ist dann rot).
+- **Kleines Blatt** – auf dem kleinen Blatt der Reihe gelandet, dem
+  schwersten.
+
+Simuliert (Autopilot mit Streuung, je 8 Läufe bis 120 s) machen die Boni
+gut ein Zehntel der Punkte aus: geübt (±3°, ±5 %, 0,35 s) 52 s, 45 Reihen,
+162 Punkte, davon 15 % Boni (Volltreffer bei 31 % der Reihen, knapp
+entwischt bei 16 %); mittel (±6°, ±10 %, 0,5 s) 31 s, 71 Punkte, 10 %;
+Anfänger (±10°, ±20 %, 0,7 s) 21 s, 28 Punkte, 10 %. Der Autopilot springt
+sofort und nimmt meist das grosse Blatt – letzter Drücker und kleines Blatt
+sind die Boni der Mutigen. Am Ende steht die Strecke in Metern und die
+Summe der Boni auf der Tafel, beim Untergehen auch, woraus die Punkte
+bestehen. Aufgezeichnet wird ab Fassung `t3` (die Punkte stehen im Takt);
+Läufe der alten Zählung spielt der Geist nicht mehr ab.
 
 | Reihe | Abstand | Blätter gross / mittel / klein | halten | Schatten + Warnung | Spielraum mindestens |
 |---|---|---|---|---|---|
@@ -3200,13 +3222,14 @@ die Schläge (mal 10000), die Spannung beim Zielen (0 bis 9, mal 1000) und
 die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete.
 So sehen Geist, Zuschauen und Mehrspieler dasselbe: wie er sich zum Ziel
 dreht, die Beine spannt und schleudert – beim Zuschauen mit demselben
-Pfeil. Fassung `t2` (seit der Schleuder; als Winkel – im Multiplayer dreht
-er sich zwischen zwei Proben weiter, ein neuer Schlag oder eine neue
-Spannung springt). Jeder Schlag steht zudem mit Zeit, Richtung und Stärke
-in `state.eingaben`. Zwölf Klänge, alle aus vorhandenen: Teich, Bach und
-Grillen als Kulisse, der Ruderschlag (lauter, je kräftiger), die Landung,
-der Fisch, der aufsteigt, das Schnappen, das Sinken, die Strömung, der
-Hecht, der Weltwechsel und die Ansage.
+Pfeil. Fassung `t3` (seit den Punkten aus Strecke und Boni; `t2` zählte
+Reihen; als Winkel – im Multiplayer dreht er sich zwischen zwei Proben
+weiter, ein neuer Schlag oder eine neue Spannung springt). Jeder Schlag
+steht zudem mit Zeit, Richtung und Stärke in `state.eingaben`. Dreizehn
+Klänge, alle aus vorhandenen: Teich, Bach und Grillen als Kulisse, der
+Ruderschlag (lauter, je kräftiger), die Landung, der Fisch, der aufsteigt,
+das Schnappen, das Sinken, die Strömung, der Hecht, der Weltwechsel, die
+Ansage und ein Bonus.
 
 Prüfung 4g50: Mit der Maus wie ein Mensch – aufsetzen, schräg
 zurückziehen: Er dreht sich zum Ziel, der Pfeil zeigt Richtung (entgegen
@@ -3221,8 +3244,12 @@ kürzer, manche pendeln. Stark gestreut (±10°, ±20 %, 0,7 s) ist im Median
 nach höchstens 26 s Schluss, wenig gestreut (±3°, ±5 %, 0,35 s) kommt über
 35 s. Auf offenem Wasser kommt der Schatten des Fisches fast sofort und der
 Biss anfangs nach höchstens 1,4 s, später deutlich früher; wer nichts tut,
-geht mit dem ersten Blatt unter; die Kurve wird schwerer. Die Tafel
-erscheint; ein angeschauter Lauf (Fassung `t2`) zeigt dieselbe Welt,
+geht mit dem ersten Blatt unter; die Kurve wird schwerer. Die Punkte sind
+Strecke plus Boni (die Boni weniger als die Hälfte der Strecke); gestellt
+gibt dieselbe Art Landung einmal keinen, einmal alle vier Boni, knapp
+daneben keinen, und ein Sprung zurück auf eine tiefere Reihe nichts. Die
+Tafel erscheint mit Punkten, Grund und Strecke; ein angeschauter Lauf
+(Fassung `t3`) zeigt dieselbe Welt,
 dieselben Schläge, dasselbe Zielen (den Pfeil), dieselbe Zahl und dasselbe
 Ende.
 

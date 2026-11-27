@@ -13193,7 +13193,8 @@ try {
             if (sitz && !sitz.laub && sitz.art === "blatt") groessen[sitz.groesse] = (groessen[sitz.groesse] || 0) + 1;
           }
         }
-        return { schritt: st.schritt, art: st.tot?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, schlaege: st.schlaege, planFehler: st.planFehler };
+        const b = st.boni;
+        return { schritt: st.schritt, art: st.tot?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, reihe: st.reihe, strecke: st.strecke, voll: b.voll, bonus: b.voll + b.knapp + b.druecker + b.klein, schlaege: st.schlaege, planFehler: st.planFehler };
       };
 
       // 1. Der Autopilot, vier Welten – und was in ihnen vorkommt.
@@ -13206,7 +13207,7 @@ try {
       for (let i = 0; i < 4; i += 1) {
         genau.push(lauf(80, { pilot: { reaktion: 0.3 }, ansagen, welten, groessen }));
         if (i === 0) {
-          besonders = st.reihen.filter((r) => r.besonders && r.nr <= st.punkte).map((r) => ({ nr: r.nr, art: r.besonders }));
+          besonders = st.reihen.filter((r) => r.besonders && r.nr <= st.reihe).map((r) => ({ nr: r.nr, art: r.besonders }));
           const normal = st.reihen.slice(1, 61).filter((r) => !r.besonders);
           reihen = {
             zahl: normal.length,
@@ -13241,7 +13242,7 @@ try {
         let x = K.mitteBei(y);
         for (let d = 0; d < 20 && K.blattBei(x, y, st.t, null, -4); d += 1) x = K.mitteBei(y) + (d % 2 ? 1 : -1) * Math.ceil(d / 2) * 2;
         Object.assign(L, { sitz: null, von: null, x, y, vx: 0, vy: 0, nass: 0 });
-        st.punkte = reihe;
+        st.reihe = reihe;
         let schatten = null;
         for (let n = 0; n < 2400 && st.schritt !== "tot"; n += 1) {
           K.takt(1 / 240);
@@ -13267,7 +13268,7 @@ try {
         spielraum: [1, 15, 40].map((n) => r((K.spielraumWBei(n) * 180) / Math.PI, 10)),
       };
     });
-    pruefe(befund.genau.every((x) => x.schritt !== "tot" && x.t >= 80 && x.planFehler === 0) && befund.genau.every((x) => x.punkte >= 60)
+    pruefe(befund.genau.every((x) => x.schritt !== "tot" && x.t >= 80 && x.planFehler === 0) && befund.genau.every((x) => x.reihe >= 60)
       && befund.leicht.every((x) => x.schritt !== "tot" && x.t >= 60),
       `Wasserläufer: Der Autopilot kommt nicht durch jede Welt, oder der Bau einer Reihe weicht aus – ${JSON.stringify({ genau: befund.genau, leicht: befund.leicht })}`);
     pruefe(JSON.stringify(befund.welten) === JSON.stringify([0, 1, 2, 3, 4]),
@@ -13292,12 +13293,57 @@ try {
       && befund.haltGross.every((h, i) => h < befund.haltKlein[i]) && befund.fisch[0] > befund.fisch[1] && befund.fisch[1] > befund.fisch[2]
       && befund.spielraum[0] > befund.spielraum[1] && befund.spielraum[1] > befund.spielraum[2],
       `Wasserläufer: Die Kurve wird nicht schwerer: ${JSON.stringify({ abstand: befund.abstand, radius: befund.radius, halt: befund.halt, gross: befund.haltGross, klein: befund.haltKlein, fisch: befund.fisch, spielraum: befund.spielraum })}`);
+    // Die Punkte: die Strecke bis zum höchsten Blatt (einer je PUNKT_CM),
+    // dazu Boni – aus den Läufen des Autopiloten, und gestellt: dieselbe
+    // Landung einmal ohne, einmal mit allen vier Boni, dann zurück auf eine
+    // tiefere Reihe (das gibt nichts).
+    pruefe(befund.genau.every((x) => x.punkte === x.strecke + x.bonus && x.strecke >= 2 * x.reihe && x.strecke <= 4 * x.reihe && x.voll > 0 && x.bonus < x.strecke * 0.5)
+      && befund.leicht.every((x) => x.punkte === x.strecke + x.bonus && x.bonus > 0),
+      `Wasserläufer: Die Punkte sind nicht Strecke plus Boni (oder die Boni wiegen zu viel): ${JSON.stringify({ genau: befund.genau, leicht: befund.leicht })}`);
+    const wertung = await seite.evaluate(() => {
+      const K = window.LernappWasserlaeufer;
+      const st = K.state;
+      document.querySelector(".cm-bar-left .cm-icon-again").click();
+      K.losGehts();
+      K.planBis(400);
+      const L = st.l;
+      const auf = (p, versatz, jagd, rest) => {
+        const c = p.kreise[0];
+        Object.assign(L, { sitz: p, von: null, x: p.x + c.x + versatz, y: p.y + c.y, vx: 0, vy: 0, ox: c.x + versatz, oy: c.y, mx: c.x, my: c.y });
+        st.abflug = rest === null ? null : { rest };
+        Object.assign(st.jagd, jagd);
+        K.gelandet(p);
+        return { punkte: st.punkte, reihe: st.reihe, strecke: st.strecke, boni: { ...st.boni } };
+      };
+      const gewoehnlich = (n) => !st.reihen[n].besonders && st.reihen[n].blaetter.length > 1;
+      const n2 = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14].find((n) => gewoehnlich(n) && st.reihen[n].blaetter.some((p) => p.groesse === "klein"));
+      const p1 = st.reihen[1].blaetter.find((p) => p.groesse !== "klein");
+      const p2 = st.reihen[n2].blaetter.find((p) => p.groesse === "klein");
+      const zurueck = st.reihen[1].blaetter.find((p) => p !== p1);
+      const ohne = auf(p1, p1.kreise[0].r * 0.6, { phase: "ruhe" }, 0.9);
+      const alle = auf(p2, 0, { phase: "steigt", t0: st.t - 0.5, warn: 0.5 + K.KNAPP_S / 2 }, K.DRUECKER_REST / 2);
+      const tiefer = auf(zurueck, 0, { phase: "steigt", t0: st.t - 0.5, warn: 0.5 + K.KNAPP_S / 2 }, K.DRUECKER_REST / 2);
+      // Knapp daneben ist kein Volltreffer, ein grünes Blatt kein Drücker,
+      // ein Fisch mit Zeit kein knappes Entwischen.
+      const p3 = st.reihen[n2 + 1].blaetter.find((p) => p.groesse !== "klein") || st.reihen[n2 + 1].blaetter[0];
+      const knappNicht = auf(p3, p3.kreise[0].r * (K.VOLL_ANTEIL + 0.06) + K.VOLL_CM, { phase: "steigt", t0: st.t - 0.2, warn: 0.5 }, K.DRUECKER_REST + 0.1);
+      return { ohne, alle, tiefer, knappNicht, y1: p1.y, y2: p2.y, y3: p3.y, n2, cm: K.PUNKT_CM };
+    });
+    {
+      const { ohne, alle, tiefer, knappNicht, y1, y2, y3, cm } = wertung;
+      const summe = (b) => b.voll + b.knapp + b.druecker + b.klein;
+      pruefe(ohne.reihe === 1 && ohne.strecke === Math.floor(y1 / cm) && ohne.strecke >= 1 && summe(ohne.boni) === 0 && ohne.punkte === ohne.strecke
+        && alle.strecke === Math.floor(y2 / cm) && alle.boni.voll === 1 && alle.boni.knapp === 1 && alle.boni.druecker === 1 && alle.boni.klein === 1 && alle.punkte === alle.strecke + 4
+        && JSON.stringify(tiefer) === JSON.stringify(alle)
+        && knappNicht.strecke === Math.floor(y3 / cm) && summe(knappNicht.boni) === 4 && knappNicht.punkte === knappNicht.strecke + 4,
+        `Wasserläufer: Strecke und Boni werden nicht richtig gezählt (oder ein Sprung zurück zählt): ${JSON.stringify(wertung)}`);
+    }
     // Nichts tun, in Echtzeit: Das Blatt geht unter, dann steht die Tafel da.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappWasserlaeufer.losGehts(); });
     await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
     const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappWasserlaeufer.state.schritt, phase: window.LernappWasserlaeufer.state.phase }));
-    pruefe(ende.schritt === "tot" && ende.phase === "ende" && ende.zahl === "0" && ende.label === "Deine Blätter" && /Neuer Rekord!|Das Blatt ging unter · \d+ s/.test(ende.text),
-      `Wasserläufer: Nach dem Untergehen steht keine Tafel mit Blättern und Grund da: ${JSON.stringify(ende)}`);
+    pruefe(ende.schritt === "tot" && ende.phase === "ende" && ende.zahl === "0" && ende.label === "Deine Punkte" && /^(Neuer Rekord!|Das Blatt ging unter) · 0,0 m$/.test(ende.text),
+      `Wasserläufer: Nach dem Untergehen steht keine Tafel mit Punkten, Grund und Strecke da: ${JSON.stringify(ende)}`);
     await kontext.close();
   }
   {
@@ -13350,7 +13396,7 @@ try {
         spannung: window.__spannung, punkte: st.punkte, schlaege: st.schlaege, art: st.tot?.art || "", kurs: window.LernappWasserlaeufer.kursText(20),
       };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art !== ""
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t3" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art !== ""
       && gespielt.gespannt >= 2 && gespielt.schlaegeAufgezeichnet >= gespielt.schlaege - 1,
       `Wasserläufer: Der Lauf wird nicht mit Saat, Zielen und Schlägen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/wasserlaeufer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
@@ -15670,7 +15716,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 308, `klang.js kennt nicht alle 308 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 309, `klang.js kennt nicht alle 309 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),

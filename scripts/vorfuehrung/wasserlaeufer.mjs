@@ -29,6 +29,6 @@ export default {
     const gewartet = (performance.now() - window.__waSeit) / 1000;
     if (gewartet > 8) return true;
     const z = st.zug;
-    return Boolean(st.l.sitz && z?.aktiv && z.st > (gewartet > 5 ? 0.3 : 0.55) && st.punkte >= (gewartet > 4 ? 1 : 3));
+    return Boolean(st.l.sitz && z?.aktiv && z.st > (gewartet > 5 ? 0.3 : 0.55) && st.reihe >= (gewartet > 4 ? 1 : 3));
   },
 };
