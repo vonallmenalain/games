@@ -5140,14 +5140,21 @@ November 2026 (Emulator, 479 Einträge in 55 Spielen):
 
 | Ablauf | vorher | nachher |
 |---|---|---|
+| Startseite, erster Aufruf (ganz) | 484 | 482 |
 | Startseite, zweiter Aufruf | 484 | 4 |
 | Startseite nach einer fremden Runde | 484 | 5 |
+| die erste Spielseite (Name und Kennung prüfen) | 152 | 146 |
 | eine Runde (Ende und Neustart) | 64 + 7 | 1 + 1 |
 | zurück zur Startseite | 485 | 5 |
 | ein weiteres Spiel laden | 153 | 4 |
+| Turnier: Spielseite laden | 15 | 13 |
 | Turnier: eine Runde | 13 | 12 |
 | zurück zur Turnierseite | 92 | 4 |
-| Admin: eine Aktion | 594 | 12 |
+| Turnierseite, nachdem der Admin ein Spiel geleert hat (ganz) | 83 | 83 |
+| Admin: aufbauen (ganz) | 569 | 567 |
+| Admin: eine Aktion | 585 | 13 |
+| Admin: einen Eintrag löschen | 1 490 | 31 |
+| Startseite nach dem Löschen (ganz), danach | 485, 485 | 483, 6 |
 
 ## Der Adminbereich
 
