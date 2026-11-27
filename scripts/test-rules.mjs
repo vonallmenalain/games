@@ -150,6 +150,17 @@ await darf("Gast schreibt eine bessere Runde", () => gast().doc(EINTRAG).set({ n
 await darf("Gast zählt eine schlechtere Runde mit", () => gast().doc(EINTRAG).set({ name: "Alain", punkte: 42, versuche: 3, updatedAtMs: 3 }, { merge: true }));
 await darf("Gast ändert seinen Namen mit einer Runde", () => gast().doc(EINTRAG).set({ name: "Alain S.", punkte: 42, versuche: 4, updatedAtMs: 4 }, { merge: true }));
 await darf("Gast ändert nur seinen Namen, ohne neue Runde", () => gast().doc(EINTRAG).set({ name: "Alain V.", updatedAtMs: 6 }, { merge: true }));
+// Mit der Uhr des Servers (updatedAt): Daran sehen die Listen auf den anderen
+// Geräten, dass sich der Name geändert hat (cloud.js, schreibeNamen).
+{
+  const { default: compat } = await import("firebase/compat/app");
+  await import("firebase/compat/firestore");
+  await darf("Gast ändert nur seinen Namen, mit der Uhr des Servers", () => gast().doc(EINTRAG).set({ name: "Alain W.", updatedAt: compat.firestore.FieldValue.serverTimestamp() }, { merge: true }));
+}
+await darf("Gast fragt nach dem, was sich seit einem Zeitpunkt geändert hat", async () => {
+  const { default: compat } = await import("firebase/compat/app");
+  await gast().collection("miniScores").where("updatedAt", ">", compat.firestore.Timestamp.fromMillis(1)).orderBy("updatedAt").limit(10).get();
+});
 await darfNicht("Gast schmuggelt Punkte in eine Umbenennung", () => gast().doc(EINTRAG).set({ name: "Alain", punkte: 99, updatedAtMs: 7 }, { merge: true }));
 await darfNicht("Gast schmuggelt einen Versuch aus einer Umbenennung heraus", () => gast().doc(EINTRAG).set({ name: "Alain", versuche: 3, updatedAtMs: 7 }, { merge: true }));
 await darfNicht("Gast rechnet seine Punktzahl klein", () => gast().doc(EINTRAG).set({ name: "Alain", punkte: 3, versuche: 5, updatedAtMs: 5 }, { merge: true }));
@@ -208,6 +219,23 @@ await darfNicht("Admin setzt ein Tier 6", () => admin().doc(LISTE).set(spieleLis
 await darfNicht("Admin setzt ein Tier 0", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: 0 } })));
 await darfNicht("Admin setzt ein Tier als Text", () => admin().doc(LISTE).set(spieleListe({ tiers: { towerStack: "1" } })));
 await darfNicht("Gast teilt die Spiele ein", () => gast().doc(LISTE).set(spieleListe({ tiers: { towerStack: 1 } })));
+// Der Stempel: wann der Admin zuletzt gelöscht oder zusammengeführt hat
+// (cloud.js, setzeListenStand). Ein neues, freiwilliges Feld – was vorher
+// geschrieben wurde, bleibt gültig.
+await darf("Admin setzt den Stempel für die Listen", () => admin().doc(LISTE).set({ listenStandMs: 1764000000000, updatedAtMs: 5 }, { merge: true }));
+await darf("Admin setzt die Liste neu, und der Stempel bleibt stehen", () => admin().doc(LISTE).set({ spiele: ["towerStack"], updatedAtMs: 6 }, { merge: true }));
+await darfNicht("Admin setzt den Stempel als Text", () => admin().doc(LISTE).set({ listenStandMs: "gestern", updatedAtMs: 5 }, { merge: true }));
+await darfNicht("Gast setzt den Stempel für die Listen", () => gast().doc(LISTE).set({ listenStandMs: 1764000000001, updatedAtMs: 5 }, { merge: true }));
+// Alle Spiele auf einmal – so schreibt sie der Adminbereich (admin.js,
+// vollstaendig). Bis November 2026 liessen die Regeln nur 50 zu, und mit dem
+// 51. Spiel scheiterte dort jedes Speichern, auch nur ein Haken.
+const ALLE_SPIELE = [...(rules.match(/function miniSpiele\(\) \{\s*return \[([\s\S]*?)\];/)?.[1] || "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+if (ALLE_SPIELE.length <= 50) befunde.push(`Es gibt nur ${ALLE_SPIELE.length} Spiele – der Fall «mehr als 50» prüft so nichts.`);
+await darf(`Admin hakt alle ${ALLE_SPIELE.length} Spiele an und teilt jedes in ein Tier ein`, () => admin().doc(LISTE).set(spieleListe({
+  spiele: ALLE_SPIELE,
+  tiers: Object.fromEntries(ALLE_SPIELE.map((id, i) => [id, (i % 5) + 1])),
+})));
+await darf(`Admin ändert danach ein Tier, mit allen ${ALLE_SPIELE.length} im selben Dokument`, () => admin().doc(LISTE).set({ tiers: { [ALLE_SPIELE[0]]: 2 }, updatedAtMs: 5 }, { merge: true }));
 // Die Spiele zu zweit auf der Startseite (zweiSpieler): nur solche, die es
 // gibt – ohne Bestenliste, darum nicht unter spiele.
 await darf("Admin stellt Viererreihe auf die Startseite", () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ["viererreihe"] })));
@@ -395,6 +423,7 @@ await darf("Admin legt ein Turnier nur mit Link an, ohne Beschreibung", () => {
   return admin().doc(GEHEIM).set(ohne);
 });
 await darf("Admin ändert ein Turnier", () => admin().doc(OEFFENTLICH).set(turnierDaten({ endeMs: JETZT + 2 * STUNDE, updatedAtMs: 2 })));
+await darf(`Admin legt ein Turnier mit allen ${ALLE_SPIELE.length} Spielen an`, () => admin().doc("miniTurniere/alles-a1s2d3f4").set(turnierDaten({ spiele: ALLE_SPIELE })));
 await darf("Admin legt ein Turnier mit unbegrenzten Versuchen an", () => admin().doc("miniTurniere/offen-z7x5c3v1").set(turnierDaten({ versuche: 0, verdeckt: true })));
 // "Nur wer nicht vorne liegt": eine dritte Art neben "unbegrenzt" und einer
 // festen Zahl – also nur mit versuche 0, und nur als Ja oder Nein.
@@ -432,11 +461,13 @@ await darf("Admin legt ein Turnier nur mit Spielen zu zweit an", () => admin().d
 await darf("Admin legt ein Turnier nur mit Tic Tac Toe an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe"] })));
 await darf("Admin legt ein Turnier mit allen neuen Spielen zu zweit an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ["tictactoe", "schiffe", "kaesekaestchen", "muehle", "schach", "paare", "farbcode", "blitzpaar", "schatzkarte", "malen", "wackelturm", "zwillinge", "bohnen", "wolf", "ratetier", "brueckenschlag", "kippen", "rechnen", "leiter", "baumeister", "echo", "kanu", "weichensteller", "raumschiff", "garten"] })));
 // Alle Spiele zu zweit, auch Viererreihe – mehr als 20 (bis November 2026 die
-// Grenze); höchstens 40.
+// Grenze, danach 40); höchstens 120, wie jede Liste von Spielen.
 const ALLE_ZWEI_REGELN = (rules.match(/function zweiSpielerSpiele\(\) \{\s*return \[([^\]]*)\]/)?.[1] || "").match(/"([a-z]+)"/g)?.map((x) => x.slice(1, -1)) || [];
 await darf(`Admin legt ein Turnier mit allen ${ALLE_ZWEI_REGELN.length} Spielen zu zweit an, auch Viererreihe`, () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: ALLE_ZWEI_REGELN })));
 await darf(`Admin stellt alle ${ALLE_ZWEI_REGELN.length} Spiele zu zweit auf die Startseite`, () => admin().doc(LISTE).set(spieleListe({ zweiSpieler: ALLE_ZWEI_REGELN })));
-await darfNicht("Admin nimmt mehr als 40 Spiele zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: Array(41).fill("tictactoe") })));
+await darfNicht("Admin nimmt mehr als 120 Spiele zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: Array(121).fill("tictactoe") })));
+await darfNicht("Admin nimmt mehr als 120 Spiele in ein Turnier", () => admin().doc("miniTurniere/alles-a1s2d3f4").set(turnierDaten({ spiele: Array(121).fill("towerStack") })));
+await darfNicht("Admin hakt mehr als 120 Spiele an", () => admin().doc(LISTE).set(spieleListe({ spiele: Array(121).fill("towerStack") })));
 await darfNicht("Admin legt ein Turnier mit leerer Liste zu zweit und ohne Spiel an", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ spiele: [], zweiSpieler: [] })));
 await darfNicht("Admin nimmt ein erfundenes Spiel zu zweit ins Turnier", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: ["schachboxen"] })));
 await darfNicht("Admin schreibt die Spiele zu zweit als Text", () => admin().doc("miniTurniere/still-q2w4e6r8").set(turnierDaten({ zweiSpieler: "viererreihe" })));
@@ -545,6 +576,14 @@ await darfNicht("Gast lässt einen Versuch verschwinden", () => gast().doc(VERSU
 await darf("Gast beendet einen schwächeren Versuch – die Bestzahl bleibt", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 42, offen: false, updatedAtMs: 4 }, { merge: true }));
 await darfNicht("Gast beginnt einen dritten von zwei Versuchen", () => gast().doc(VERSUCH).set({ name: "Alain", versuche: 3, offen: true, updatedAtMs: 5 }, { merge: true }));
 await darf("Gast ändert im Turnier nur seinen Namen", () => gast().doc(VERSUCH).set({ name: "Alain V.", updatedAtMs: 6 }, { merge: true }));
+await darf("Gast ändert im Turnier nur seinen Namen, mit der Uhr des Servers", async () => {
+  const { default: compat } = await import("firebase/compat/app");
+  await gast().doc(VERSUCH).set({ name: "Alain W.", updatedAt: compat.firestore.FieldValue.serverTimestamp() }, { merge: true });
+});
+await darf("Gast hört nur auf die Einträge des Turniers, die sich geändert haben", async () => {
+  const { default: compat } = await import("firebase/compat/app");
+  await gast().collection(`${OEFFENTLICH}/eintraege`).where("updatedAt", ">", compat.firestore.Timestamp.fromMillis(1)).get();
+});
 await darfNicht("Gast schmuggelt Punkte in eine Umbenennung", () => gast().doc(VERSUCH).set({ name: "Alain", punkte: 99, updatedAtMs: 7 }, { merge: true }));
 await darfNicht("Gast schiebt seinen Turniereintrag in ein anderes Spiel", () => gast().doc(VERSUCH).set({ game: "fishPond", name: "Alain", versuche: 3, offen: true, updatedAtMs: 7 }, { merge: true }));
 
@@ -785,6 +824,11 @@ await darf("cloud.js: Admin löscht die Runden mit dem Eintrag", async () => {
   erwarte(uebrig.length === 0, JSON.stringify(uebrig));
 });
 await wirft("cloud.js: Gast löscht Runden", "permission-denied", () => gastCloud.loescheRunden([{ game: "towerStack", spieler: ICH.spieler }]));
+await darf("cloud.js: Admin setzt den Stempel für die Listen", async () => {
+  const ms = await adminCloud.setzeListenStand({ weg: ["towerStack_mini_irgendwer"], offen: ["towerStack"] });
+  erwarte(Number.isInteger(ms) && ms > 0, `Stempel: ${ms}`);
+});
+await wirft("cloud.js: Gast setzt den Stempel für die Listen", "permission-denied", () => gastCloud.setzeListenStand({ offen: ["towerStack"] }));
 await darf("cloud.js: Admin sieht alle Turniere", async () => {
   const liste = await adminCloud.alleTurniere();
   erwarte(liste.some((t) => t.id === CT), "das Turnier nur mit Link fehlt beim Admin");

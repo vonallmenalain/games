@@ -973,7 +973,9 @@
     const schluessel = `${id}|${spiel}|${eintrag.spieler}`;
     const da = turnierGeister.get(schluessel);
     if (da && da.punkte === eintrag.punkte) return da.geist;
-    const geist = vielleicht(() => cloud()?.turnierGeist?.(id, spiel, eintrag.spieler)).then((g) => {
+    // Mit der Zahl aus der Liste: Dann liest auch die nächste Seite den Lauf
+    // nicht noch einmal (cloud.js, laeufeLesen).
+    const geist = vielleicht(() => cloud()?.turnierGeist?.(id, spiel, eintrag.spieler, { punkte: eintrag.punkte })).then((g) => {
       if (!g) turnierGeister.delete(schluessel);
       return g;
     });
@@ -998,7 +1000,7 @@
       // ihr Lauf dort, wo er hinterlegt wurde (mini-games.js, gleicheAb).
       const server = mini()?.bestwertAbgeglichen?.(spiel);
       if (!lauf && art === "tempo" && server?.spieler && server.punkte === best) {
-        const [geist] = (await vielleicht(() => cloud()?.geister?.(spiel, [server.spieler], fassung))) || [];
+        const [geist] = (await vielleicht(() => cloud()?.geister?.(spiel, [server.spieler], fassung, { punkte: { [server.spieler]: server.punkte } }))) || [];
         if (geist?.bahn && geist.punkte === best) lauf = abspieler(geist.bahn, { winkel: cIstWinkel(spiel) });
       }
       stand.eigen = { punkte: best, lauf };
@@ -1052,7 +1054,10 @@
     if (art === "tempo" && vorne?.spieler && vorne.punkte > 0) fragen.push(vorne.spieler);
     const andere = mitAllen ? liste.filter((e) => e.spieler && !e.eigen && e.punkte > 0).slice(0, ALLE_MAX) : [];
     andere.forEach((e) => { if (!fragen.includes(e.spieler)) fragen.push(e.spieler); });
-    const gefunden = fragen.length ? ((await vielleicht(() => cloud()?.geister?.(spiel, fragen, fassung))) || []) : [];
+    // Je Kennung die Zahl aus der Liste: Ein Lauf ändert sich nur mit ihr, und
+    // so liest die Seite ihn nicht bei jeder Runde neu (cloud.js, geister).
+    const punkte = Object.fromEntries(liste.filter((e) => e.spieler).map((e) => [e.spieler, Number(e.punkte) || 0]));
+    const gefunden = fragen.length ? ((await vielleicht(() => cloud()?.geister?.(spiel, fragen, fassung, { punkte }))) || []) : [];
     const nachSpieler = new Map(gefunden.map((g) => [g.spieler, g]));
     andere.forEach((e) => {
       const geist = nachSpieler.get(e.spieler);

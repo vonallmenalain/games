@@ -105,6 +105,7 @@ service cloud.firestore {
         "marsRover",
         "mirrorLake",
         "soapBubble",
+        "pondSkater",
       ];
     }
 
@@ -119,25 +120,38 @@ service cloud.firestore {
     // Geschrieben werden darf nur eine Liste aus Spielen, die es gibt. Sonst
     // stünden dort Namen, zu denen keine Seite gehört – und die Startseite
     // zeigte Karten für Spiele, die niemand öffnen kann.
+    //
+    // Wie lang eine Liste von Spielen sein darf – hier, im Turnier und im
+    // Endstand eines Multiplayers: 120, ein gutes Stück mehr, als es gibt.
+    // Bis November 2026 stand hier 50, und mit dem 51. Spiel liessen sich
+    // weder die Auswahl noch die Tiers mehr speichern (admin.js schreibt
+    // Tiers für alle Spiele). scripts/pruefen.mjs schlägt Alarm, bevor die
+    // Spiele die Grenze wieder erreichen.
     function istSpieleListe() {
       let d = request.resource.data;
       return d.keys().hasAll(["spiele", "updatedAtMs"])
-        && d.keys().hasOnly(["spiele", "tiers", "zweiSpieler", "updatedAtMs", "updatedAt"])
+        && d.keys().hasOnly(["spiele", "tiers", "zweiSpieler", "listenStandMs", "updatedAtMs", "updatedAt"])
         && d.spiele is list
-        && d.spiele.size() <= 50
+        && d.spiele.size() <= 120
         && d.spiele.hasOnly(miniSpiele())
         // Die Tiers (admin.js): je Spiel, das es gibt, 1 bis 5. Fehlt das
         // Feld, gilt die Vorgabe aus mini-games.js.
         && (!("tiers" in d) || (d.tiers is map
-          && d.tiers.size() <= 50
+          && d.tiers.size() <= 120
           && d.tiers.keys().hasOnly(miniSpiele())
           && d.tiers.values().hasOnly([1, 2, 3, 4, 5])))
         // Die Spiele zu zweit auf der Startseite (viererreihe.js) – ohne
         // Bestenliste, darum nicht in miniSpiele. Fehlt das Feld, steht keines
         // dort.
         && (!("zweiSpieler" in d) || (d.zweiSpieler is list
-          && d.zweiSpieler.size() <= 40
+          && d.zweiSpieler.size() <= 120
           && d.zweiSpieler.hasOnly(zweiSpielerSpiele())))
+        // Wann der Adminbereich zuletzt Einträge gelöscht oder zusammengeführt
+        // hat (cloud.js, setzeListenStand): Die Listen auf den Geräten fragen
+        // sonst nur nach Geändertem, und ein gelöschter Eintrag ändert sich
+        // nicht mehr. Mit dem Stempel liest die nächste Startseite einmal
+        // alles. Fehlt das Feld, wurde nie etwas gelöscht.
+        && (!("listenStandMs" in d) || d.listenStandMs is int)
         && d.updatedAtMs is int;
     }
 
@@ -458,11 +472,11 @@ service cloud.firestore {
         // darf mit einem Spiel zu zweit auch ganz ohne Spiel mit Bestenliste
         // sein. Fehlen beide Felder, ist keines dabei.
         && d.get("viererreihe", false) is bool
-        && d.get("zweiSpieler", []) is list && d.get("zweiSpieler", []).size() <= 40
+        && d.get("zweiSpieler", []) is list && d.get("zweiSpieler", []).size() <= 120
         && d.get("zweiSpieler", []).hasOnly(zweiSpielerSpiele())
         && d.spiele is list
         && (d.spiele.size() > 0 || d.get("viererreihe", false) == true || d.get("zweiSpieler", []).size() > 0)
-        && d.spiele.size() <= 50
+        && d.spiele.size() <= 120
         && d.spiele.hasOnly(miniSpiele())
         && d.startMs is int && d.endeMs is int && d.endeMs > d.startMs
         && d.versuche is int && d.versuche >= 0 && d.versuche <= 100
@@ -594,7 +608,7 @@ service cloud.firestore {
         && d.gewicht is int && d.gewicht >= 0 && d.gewicht <= 3
         && d.endstand is list && d.endstand.size() <= 200
         && (!("runden" in d) || (d.runden is int && d.runden >= 0 && d.runden <= 100))
-        && (!("spiele" in d) || (d.spiele is list && d.spiele.size() <= 50))
+        && (!("spiele" in d) || (d.spiele is list && d.spiele.size() <= 120))
         && d.erstelltMs is int
         && d.updatedAtMs is int;
     }

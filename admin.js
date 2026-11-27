@@ -490,15 +490,37 @@
   // Gelesen wird die ganze Sammlung, nicht Spiel für Spiel: Hier sollen auch
   // die Einträge auftauchen, deren Spiel es gar nicht mehr gibt – die sieht
   // sonst niemand, und aufräumen kann man nur, was man sieht.
-  async function alleEintraege() {
+  //
+  // Ganz beim ersten Aufbau und mit «Neu laden». Nach einer Aktion (neuLaden)
+  // nur, was seither geschrieben wurde (cloud.js, eintraegeSeit) – und was
+  // diese Seite selbst gelöscht hat, fällt hier weg (geloeschtHier): Bis
+  // November 2026 las jede Aktion die ganze Sammlung und alle Turniere neu.
+  // Was ein anderes Gerät inzwischen gelöscht hat, zeigt «Neu laden».
+  let eintraegeStand = null;           // { nachId: Map, stand: Uhr des Servers }
+  const geloeschtHier = new Set();
+  async function alleEintraege({ voll = false } = {}) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
+    const geaendert = !voll && eintraegeStand && cloud()?.eintraegeSeit
+      ? await cloud().eintraegeSeit(Math.max(1, eintraegeStand.stand - 2 * MINUTE))
+      : null;
+    if (Array.isArray(geaendert?.liste)) {
+      const { liste, bis } = geaendert;
+      liste.forEach((e) => eintraegeStand.nachId.set(e.id, e));
+      geloeschtHier.forEach((id) => eintraegeStand.nachId.delete(id));
+      geloeschtHier.clear();
+      eintraegeStand.stand = Math.max(eintraegeStand.stand, bis);
+      return [...eintraegeStand.nachId.values()];
+    }
     const schnappschuss = await db.collection("miniScores").limit(MAX_EINTRAEGE).get();
     const liste = [];
     schnappschuss.forEach((doc) => {
       const eintrag = cloud().lies(doc);
       if (eintrag) liste.push(eintrag);
     });
+    const stand = liste.reduce((m, e) => Math.max(m, Number(e.stempelMs) || 0), 0);
+    geloeschtHier.clear();
+    eintraegeStand = stand > 0 ? { nachId: new Map(liste.map((e) => [e.id, e])), stand } : null;
     return liste;
   }
 
@@ -511,14 +533,29 @@
   // Liste genommen wurde, taucht auch in keinem Zeitraum mehr auf. Nur beim
   // Zusammenführen bleiben sie – dort sind sie schon umgezogen (runden:
   // false).
+  //
+  // Und mit dem Stempel in config/miniGames (cloud.js, setzeListenStand): Die
+  // Listen auf den Geräten fragen sonst nur nach Geändertem – und ein
+  // gelöschter Eintrag ändert sich nicht mehr. Mit dem Stempel liest jede
+  // Startseite einmal alles, und der Gelöschte ist auch dort weg.
   async function loesche(eintraege, { runden = true } = {}) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
     const liste = (Array.isArray(eintraege) ? eintraege : [eintraege]).filter((e) => e?.id);
     for (const e of liste) {
       await db.collection("miniScores").doc(e.id).delete();
+      geloeschtHier.add(e.id);
       try { await db.collection("miniGeister").doc(e.id).delete(); } catch (fehler) {
         console.warn("Der Geist zum Eintrag ist geblieben", fehler);
+      }
+    }
+    if (liste.length) {
+      try {
+        await cloud().setzeListenStand?.({ weg: liste.map((e) => e.id), offen: mini()?.alleSpiele?.() || [] });
+      } catch (fehler) {
+        // Dann sehen es die Geräte spätestens nach einem Tag (cloud.js,
+        // LISTEN_VOLL_MS).
+        console.warn("Der Stempel für die Listen ist nicht gesetzt", fehler);
       }
     }
     if (!runden || !liste.length) return;
@@ -646,10 +683,13 @@
 
   // Nur der Name: Die Uhr daneben sagt, wann zuletzt gespielt wurde – und
   // ordnet Gleichstände. Umbenennen ist nicht spielen.
+  // Mit der Uhr des Servers (updatedAt): An ihr sehen die Listen auf den
+  // Geräten, dass sich der Eintrag geändert hat (cloud.js, ergebnisse).
   async function benenneUm(id, name) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
-    await db.collection("miniScores").doc(id).set({ name }, { merge: true });
+    const zeit = window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
+    await db.collection("miniScores").doc(id).set({ name, ...(zeit ? { updatedAt: zeit } : {}) }, { merge: true });
   }
 
   /*
@@ -667,6 +707,9 @@
     const kennung = new Set(wer);
     const gemeint = (e) => e && e.name !== name && (kennung.has(e.spieler) || schluessel.has(schluesselVon(e.name)));
     let geaendert = 0;
+    // Was der Bereich «Turniere» gemerkt hat, stimmt danach nicht mehr – er
+    // liest es beim nächsten Aufbau neu (turnierSpeicher).
+    turnierSpeicher?.staende.clear();
     for (const t of stand.turniere) {
       const [eintraege, abende] = await Promise.all([
         cloud().turnierErgebnisse(t.id),
@@ -2407,7 +2450,7 @@
     // Siegerehrung vorbereiten können.
     const wertung = Array.isArray(eintraege) ? tn()?.gesamtwertung?.(t, eintraege, aktion.abende || []) : null;
     const personen = wertung?.personen || [];
-    let stand = "Der Stand ist gerade nicht zu haben.";
+    let stand = eintraege === undefined ? "Der Stand kommt beim Aufklappen." : "Der Stand ist gerade nicht zu haben.";
     if (Array.isArray(eintraege)) {
       stand = personen.length
         ? `${zahlWort(personen.length, "Spieler", "Spieler")} · vorne: ${personen.slice(0, 3).map((p) => `${p.platz}. ${p.name}`).join(", ")}`
@@ -2620,6 +2663,24 @@
     return box;
   }
 
+  /*
+   * Die Turniere, wie der Adminbereich sie zuletzt gelesen hat – über
+   * neuLaden hinweg, denn zeigeAdmin baut die Bereiche nach jeder Aktion neu.
+   * Bis November 2026 las jeder Aufbau alle Turniere mit allen Einträgen und
+   * Multiplayern, auch die längst vorbei sind, und jede Aktion noch einmal.
+   *
+   *   ganz gelesen     beim ersten Aufbau und mit «Neu laden» – die Liste der
+   *                    Turniere, und die Einträge der Turniere, die nicht
+   *                    vorbei sind
+   *   beim Aufklappen  die Einträge eines Turniers, das vorbei ist (und wenn
+   *                    die Auswertung eines Spielers sie braucht:
+   *                    alleTurnierStaende)
+   *   nach Aktionen    nachgeführt, was die Aktion geändert hat; und von den
+   *                    laufenden Turnieren nur, was sich seither geändert hat
+   *                    (cloud.js, turnierGeaendert)
+   */
+  let turnierSpeicher = null;          // { turniere: [t], staende: Map(id → { eintraege, abende, stand }) }
+
   function baueTurniere(stand, neuLaden) {
     const bereich = klappBlock("turniere", "Turniere", "adm-turniere");
     const { block, inhalt } = bereich;
@@ -2688,10 +2749,18 @@
       window.scrollTo(0, 0);
     }
 
+    // Nach einer Aktion: nachführen, was sie geändert hat – statt alles neu
+    // zu lesen (turnierSpeicher). Was danach fehlt, holt laden() nach.
     async function speichere(t) {
       sage("Wird gespeichert...");
       try {
-        await cloud().setzeTurnier(t.id, t);
+        const neu = await cloud().setzeTurnier(t.id, t);
+        if (turnierSpeicher && neu) {
+          const i = turnierSpeicher.turniere.findIndex((x) => x.id === neu.id);
+          if (i >= 0) turnierSpeicher.turniere[i] = neu;
+          else turnierSpeicher.turniere.push(neu);
+          if (i < 0) turnierSpeicher.staende.set(neu.id, { eintraege: [], abende: [], stand: 0 });
+        }
         sage(`«${t.name}» ist gespeichert.`, "ist-gut");
       } catch (fehler) {
         sage(fehlerText(fehler), "ist-fehler");
@@ -2703,6 +2772,10 @@
       sage("Wird gelöscht...");
       try {
         await cloud().loescheTurnier(t.id);
+        if (turnierSpeicher) {
+          turnierSpeicher.turniere = turnierSpeicher.turniere.filter((x) => x.id !== t.id);
+          turnierSpeicher.staende.delete(t.id);
+        }
         sage(`«${t.name}» ist gelöscht.`, "ist-gut");
       } catch (fehler) {
         sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
@@ -2710,10 +2783,18 @@
       await laden();
     }
 
+    // Einträge eines Turniers sind weg: hier auch. Das Turnier bekommt dabei
+    // eine neue Uhr (cloud.js, loescheTurnierEintraege) – hier nachgeführt.
+    function ohneEintraege(t, ids) {
+      const s = turnierSpeicher?.staende.get(t.id);
+      if (s && Array.isArray(s.eintraege)) s.eintraege = s.eintraege.filter((e) => !ids.includes(e.id));
+    }
+
     async function leere(t, spiel, ids) {
       sage("Wird geleert...");
       try {
         await cloud().loescheTurnierEintraege(t.id, ids);
+        ohneEintraege(t, ids);
         sage(`Die Bestenliste von ${titel(spiel)} in «${t.name}» ist leer.`, "ist-gut");
       } catch (fehler) {
         sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
@@ -2725,6 +2806,7 @@
       sage("Wird entfernt...");
       try {
         await cloud().loescheTurnierEintraege(t.id, ids);
+        ohneEintraege(t, ids);
         sage(`«${name}» ist aus «${t.name}» entfernt.`, "ist-gut");
       } catch (fehler) {
         sage(`Das ging nicht: ${fehlerText(fehler)}`, "ist-fehler");
@@ -2740,7 +2822,65 @@
     function waehle(id) {
       gewaehlt = id;
       zeichne();
+      // Ein Turnier, das vorbei ist: seine Einträge erst jetzt.
+      const t = turnierSpeicher?.turniere.find((x) => x.id === id);
+      if (t && !turnierSpeicher.staende.has(id)) {
+        standLaden(t).then(() => {
+          geladen = staendeJetzt();
+          stand.turnierStaende = geladen;
+          zeichne();
+        });
+      }
     }
+
+    // Die Einträge und Multiplayer eines Turniers lesen, in den Speicher.
+    function standLaden(t) {
+      return Promise.all([
+        cloud().turnierErgebnisse(t.id),
+        Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
+      ]).then(([eintraege, abende]) => {
+        turnierSpeicher?.staende.set(t.id, { eintraege, abende: abende || [], stand: eintraege.reduce((m, e) => Math.max(m, Number(e.stempelMs) || 0), 0) });
+      }, () => {
+        turnierSpeicher?.staende.set(t.id, { eintraege: null, abende: [], stand: 0 });
+      });
+    }
+
+    // Was ein laufendes Turnier seit dem letzten Lesen dazubekam – ein
+    // Dokument, wenn nichts. Geht das nicht, eben ganz.
+    async function standNachfuehren(t) {
+      const s = turnierSpeicher?.staende.get(t.id);
+      if (!s || !Array.isArray(s.eintraege) || !(s.stand > 0) || !cloud()?.turnierGeaendert) { await standLaden(t); return; }
+      try {
+        const { liste, bis } = await cloud().turnierGeaendert(t.id, Math.max(1, s.stand - 2 * MINUTE));
+        const nach = new Map(s.eintraege.map((e) => [e.id, e]));
+        liste.forEach((e) => nach.set(e.id, e));
+        s.eintraege = [...nach.values()];
+        s.stand = Math.max(s.stand, bis);
+      } catch {
+        await standLaden(t);
+      }
+    }
+
+    // Die Liste für zeichne(): je Turnier, was der Speicher hat. Ein Turnier,
+    // dessen Einträge noch nicht gelesen sind, hat eintraege undefined.
+    function staendeJetzt() {
+      return (turnierSpeicher?.turniere || []).map((t) => {
+        const s = turnierSpeicher.staende.get(t.id);
+        return { t, eintraege: s ? s.eintraege : undefined, abende: s?.abende || [] };
+      });
+    }
+
+    // Für die Auswertung eines Spielers: alle Turniere mit ihren Einträgen.
+    stand.alleTurnierStaende = async () => {
+      await stand.turniereBereit;
+      const fehlen = (turnierSpeicher?.turniere || []).filter((t) => !turnierSpeicher.staende.has(t.id));
+      if (fehlen.length) {
+        await Promise.all(fehlen.map(standLaden));
+        geladen = staendeJetzt();
+        stand.turnierStaende = geladen;
+      }
+      return stand.turnierStaende;
+    };
 
     // Laufende zuerst, dann geplante, angehaltene und zuletzt die vorbei sind –
     // die neuesten davon oben.
@@ -2765,31 +2905,45 @@
       });
     }
 
+    // Die Liste der Turniere selbst wird jedes Mal gelesen – ein Dokument je
+    // Turnier, und so steht ein neues oder geändertes gleich da. Die Einträge
+    // je Turnier: für die Zahl der Spieler, wer vorne liegt und den ganzen
+    // Stand des aufgeklappten; dazu die Live-Abende, die zum Turnier gehören:
+    // Sie zählen in der Gesamtwertung mit. Von den Turnieren, die vorbei
+    // sind, erst beim Aufklappen (waehle); von den laufenden, die schon
+    // gelesen sind, nur, was sich geändert hat.
     async function laden() {
-      liste.innerHTML = "";
-      liste.append(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
+      const lageVon = (t) => tn()?.lage?.(t) || "laeuft";
+      if (!turnierSpeicher) {
+        liste.innerHTML = "";
+        liste.append(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
+      }
       let turniere = [];
       try {
         turniere = await cloud().alleTurniere();
       } catch (fehler) {
-        liste.innerHTML = "";
-        liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
-        geladenMelden([]);
-        return;
+        if (!turnierSpeicher) {
+          liste.innerHTML = "";
+          liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
+          geladenMelden([]);
+          return;
+        }
+        turniere = turnierSpeicher.turniere;
       }
-      // Die Einträge je Turnier: für die Zahl der Spieler, wer vorne liegt und
-      // den ganzen Stand des aufgeklappten.
-      // Dazu die Live-Abende, die zum Turnier gehören: Sie zählen in der
-      // Gesamtwertung mit.
-      geladen = await Promise.all(turniere.map((t) => Promise.all([
-        cloud().turnierErgebnisse(t.id),
-        Promise.resolve(cloud().turnierLive?.(t.id)).catch(() => []),
-      ]).then(([eintraege, abende]) => ({ t, eintraege, abende: abende || [] }), () => ({ t, eintraege: null, abende: [] }))));
+      if (!turnierSpeicher) turnierSpeicher = { turniere, staende: new Map() };
+      turnierSpeicher.turniere = turniere;
+      const { staende } = turnierSpeicher;
+      await Promise.all(turniere.map((t) => {
+        if (staende.has(t.id)) return lageVon(t) === "laeuft" ? standNachfuehren(t) : null;
+        return lageVon(t) !== "beendet" || t.id === gewaehlt ? standLaden(t) : null;
+      }));
       // Dieselben Stände braucht die Auswertung eines Spielers: für seine
-      // Plätze in den Turnieren und um jeder Runde ihr Turnier zu geben.
+      // Plätze in den Turnieren und um jeder Runde ihr Turnier zu geben
+      // (alleTurnierStaende liest die fehlenden nach).
+      geladen = staendeJetzt();
       stand.turnierStaende = geladen;
       zeichne();
-      geladenMelden(turniere);
+      geladenMelden(turnierSpeicher.turniere);
     }
 
     // Die Turniere gehen auch an die anderen Bereiche: für die Kachel oben
@@ -3602,7 +3756,10 @@
     // Die Läufe lesen: je Eintrag einer, nur für dieses Spiel. Was ankommt,
     // zeichnet die Liste neu – und setzt ▶ Rekord ansehen oben dazu.
     if (z.bekannt && mini()?.ansehArt?.(spiel)) {
-      Promise.resolve(mini()?.abspielbareLaeufe?.(spiel, z.eintraege.filter((e) => e.punkte > 0).map((e) => e.spieler)))
+      // Mit der Zahl je Eintrag: Nach einer Aktion (neuLaden) liest das
+      // Fenster dieselben Läufe nicht noch einmal (cloud.js, geister).
+      Promise.resolve(mini()?.abspielbareLaeufe?.(spiel, z.eintraege.filter((e) => e.punkte > 0).map((e) => e.spieler),
+        { punkte: Object.fromEntries(z.eintraege.map((e) => [e.spieler, Number(e.punkte) || 0])) }))
         .then((gefunden) => {
           (gefunden || []).forEach((g) => laeufe.set(g.spieler, g));
           if (!fenster.offen()) return;
@@ -4331,7 +4488,7 @@
     async function ladeVerlauf() {
       const kennungen = [...seine, ...vonIhm(stand.zeit.eintraege || [])].map((e) => e.spieler);
       try {
-        const [runden] = await Promise.all([rundenDerGeraete(stand, kennungen), stand.turniereBereit]);
+        const [runden] = await Promise.all([rundenDerGeraete(stand, kennungen), stand.turniereBereit.then(() => stand.alleTurnierStaende?.())]);
         const zuordnung = turnierZuordnung(stand.turnierStaende);
         alleRunden = runden.map((r) => ({ ...r, zu: zuordnung(r, name) }));
       } catch (fehler) {
@@ -4347,6 +4504,7 @@
     async function ladeTurniere() {
       turnierListe.replaceChildren(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
       await stand.turniereBereit;
+      await stand.alleTurnierStaende?.();
       if (!fenster.offen()) return;
       const dabei = (stand.turnierStaende || []).map((s) => {
         if (!Array.isArray(s.eintraege)) return null;
@@ -4549,7 +4707,8 @@
   // ---------------------------------------------------------------------------
   // Der ganze Adminbereich
   // ---------------------------------------------------------------------------
-  async function zeigeAdmin(nutzer, { person = null, spiel = null } = {}) {
+  async function zeigeAdmin(nutzer, { person = null, spiel = null, ganz = false } = {}) {
+    if (ganz) turnierSpeicher = null;
     leere();
 
     const kopf = el("header", "adm-kopf");
@@ -4559,7 +4718,9 @@
     links.append(el("h1", "adm-titel", "Adminbereich"), el("p", "adm-klein", `${nutzer.email} · ${cloud()?.projektId || ""}`));
     kopf.append(links);
     const rechts = el("div", "adm-kopf-aktionen");
-    const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer));
+    // «Neu laden» liest alles ganz – nach einer Aktion (neuLaden) nur das
+    // Geänderte (alleEintraege, die Turniere).
+    const neu = knopf("Neu laden", "adm-knopf-hell", () => zeigeAdmin(nutzer, { ganz: true }));
     const zuDenSpielen = knopfLink("Zu den Spielen", "adm-knopf-hell", "/");
     rechts.append(neu, zuDenSpielen, knopf("Abmelden", "adm-knopf-still", () => auth()?.signOut()));
     const voll = window.LernappVollbild?.knopf?.("adm-knopf adm-knopf-hell adm-vollbild");
@@ -4571,7 +4732,9 @@
     wirt.append(laedt);
     // Die Presets schon jetzt: Das Formular für ein neues Turnier hat sie
     // dann gleich – und was noch im Browser lag, ist schon in der Datenbank.
-    ladePresets().catch(() => {});
+    // Einmal je Seite und mit «Neu laden»: Gespeichert und gelöscht wird hier,
+    // und das führt presetStand selbst nach.
+    if (ganz || !presetStand) ladePresets().catch(() => {});
 
     const bekannte = (mini()?.SPIELE || []).map((s) => s.id);
 
@@ -4583,7 +4746,7 @@
       let gewaehlt;
       let gespeichert;
       [alle, gewaehlt, gespeichert, zweiOffen] = await Promise.all([
-        alleEintraege(),
+        alleEintraege({ voll: ganz }),
         cloud().offeneSpiele(),
         // Ohne Tiers geht es auch: dann gilt die Vorgabe.
         Promise.resolve(cloud().tiers?.()).catch(() => null),
