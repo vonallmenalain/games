@@ -13354,7 +13354,7 @@ try {
       `Polwechsel: Wer dauernd tippt, fällt zu lange weiter: ${JSON.stringify(befund.dauernd)}`);
     pruefe(JSON.stringify(befund.regel) === JSON.stringify([1, -1, 0, null, 1, -1, null]),
       `Polwechsel: Die Regel stimmt nicht (ungleich zieht an, gleich stösst ab): ${JSON.stringify(befund.regel)}`);
-    pruefe(befund.luft[0] >= 240 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[2] > befund.luft[3] && befund.luft[3] >= 25
+    pruefe(befund.luft[0] >= 240 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[2] > befund.luft[3] && befund.luft[3] >= 13
       && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2],
       `Polwechsel: Die Luft wird nicht enger, oder die Kugel nicht schneller: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo })}`);
     // Nach dem Sturz steht die Tafel da – in Echtzeit: loslassen und nichts tun.

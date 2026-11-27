@@ -3238,8 +3238,12 @@ die ganze Luft zu früh tippt –, und das nächste Hindernis kommt erst, wenn s
 in der neuen Bahn ist – auch wer um die ganze Luft zu spät tippt. Wie sie sich
 dabei bewegt, wird genau nachgerechnet (`uebergangAb`), von der Kugel aus, wie
 sie nach dem Plan gerade ist, und jeder Abschnitt wird mit allen Ecken der Luft
-durch den echten Schacht geprüft (`sicher`); hält er nicht, folgt ein Versuch
-mit mehr Luft. Eine Reihe ist mindestens 0,3 s lang und gut zwei Kugeln hoch.
+durch den echten Schacht geprüft (`sicher`), dazu alle Tipps gleich weit
+daneben und jeder einzeln dazwischen – jeder Tipp genau zu seiner Zeit; hält
+er nicht, folgt ein Versuch mit mehr Platz. Die Übergänge werden dicht
+abgetastet, denn wie lange die Kugel unterwegs ist, wächst nicht immer mit dem
+Abstand: Wer ganz früh tippt, schlägt vielleicht drüben an und kehrt früher um
+als einer, der etwas später tippt. Eine Reihe ist mindestens 0,3 s lang und gut zwei Kugeln hoch.
 
 | Spielzeit | Tiefe | Luft je Tipp | Fall | Sicht unter der Kugel |
 |---|---|---|---|---|
@@ -3247,18 +3251,20 @@ mit mehr Luft. Eine Reihe ist mindestens 0,3 s lang und gut zwei Kugeln hoch.
 | 10 s | 50 m | ±134 ms | 6,4 m/s | 2,0 s |
 | 15 s | 87 m | ±81 ms | 8,2 m/s | 1,6 s |
 | 20 s | 131 m | ±62 ms | 9,7 m/s | 1,3 s |
-| 30 s | 241 m | ±45 ms | 12 m/s | 1,05 s |
-| 45 s | 446 m | ±35 ms | 15 m/s | 0,86 s |
-| 60 s | 682 m | ±30 ms | 17 m/s | 0,77 s |
+| 30 s | 241 m | ±40 ms | 12 m/s | 1,05 s |
+| 45 s | 446 m | ±26 ms | 15 m/s | 0,86 s |
+| 60 s | 682 m | ±20 ms | 17 m/s | 0,77 s |
 
-Nie unter ±18 ms. Die ersten sieben Sekunden sind zum Hineinfinden: Der erste
+Ab 20 s wird die Luft noch einmal stetig enger (`E_SPAET`), ab gut 90 s nie
+unter ±13 ms – sonst fiele ein sehr genauer Spieler minutenlang. Die ersten sieben Sekunden sind zum Hineinfinden: Der erste
 Abschnitt verlangt einen Tipp, der zweite keinen, dann kommen die Lagen nach
 und nach; der erste Stromausfall kommt nach rund 7 s (eine Atempause), das
 erste Wechselfeld nach rund 14 s. Je Sekunde sind am Anfang 0,4 Tipps nötig,
 nach 20 s gut einer, nach 45 s anderthalb. Nachgebildete Spieler, deren Tipp
-um den geplanten Moment streut (Normalverteilung, je 40 bis 60 Läufe im
-echten Spiel): 100 ms kommen im Median 17 s weit (100 m), 70 ms 20 s (130 m), 55 ms
-28 s (210 m), 40 ms 38 s (350 m), 20 ms 100 s (1400 m). Wer die Farben falsch
+um den geplanten Moment streut (Normalverteilung, je 50 Läufe im echten
+Spiel): 100 ms kommen im Median 17 s weit (105 m), 70 ms 20 s (127 m),
+55 ms 27 s (200 m), 40 ms 34 s (290 m), 30 ms 44–50 s (430–515 m), 20 ms
+64–68 s (740–830 m; mehrere Durchgänge mit verschiedenen Schächten). Wer die Farben falsch
 liest, kommt weniger weit – das bildet die Rechnung nicht ab. Wer nichts tut,
 zerschellt nach knapp 2,5 s; wer dauernd tippt, schon an der ersten Sperre.
 

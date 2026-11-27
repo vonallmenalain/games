@@ -113,11 +113,16 @@
   // Die Luft: um so viele Sekunden darf jeder Tipp zu früh oder zu spät
   // kommen. Die ersten sieben Sekunden ±250 ms (und um den Weg noch mehr
   // Platz, EINSTIEG), dann rasch enger: nach 10 s ±134, nach 15 s ±81, nach
-  // 20 s ±62, nach 30 s ±45, nach einer Minute ±30, nie unter ±18.
+  // 20 s ±62. Ab E_SPAET Sekunden wird es noch einmal stetig enger (sonst
+  // fiele ein sehr genauer Spieler minutenlang): nach 30 s ±40, nach 45 s
+  // ±26, nach einer Minute ±20, ab gut 90 s nie unter ±13.
   const E0 = 0.25;
-  const E_MIN = 0.018;
+  const E_SPAET_MIN = 0.018;
   const E_ZEIT = 3;
   const E_AB = 7;
+  const E_SPAET = 20;
+  const E_SPAET_ZEIT = 75;
+  const E_MIN = 0.013;
   const SCHWER_ZEIT = 20;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
   const SCHWER_AB = 4;
   const EINSTIEG = 9;              // so lange ist um den Weg mehr Platz als die Luft
@@ -180,7 +185,10 @@
     for (let i = 0; i < 8; i += 1) t -= (yBei(t) - y) / tempoBei(t);
     return t;
   }
-  const luftBei = (t) => E_MIN + (E0 - E_MIN) / (1 + Math.max(0, t - E_AB) / E_ZEIT);
+  const luftBei = (t) => {
+    const basis = E_SPAET_MIN + (E0 - E_SPAET_MIN) / (1 + Math.max(0, t - E_AB) / E_ZEIT);
+    return Math.max(E_MIN, basis / (1 + Math.max(0, t - E_SPAET) / E_SPAET_ZEIT));
+  };
   const schwere = (t) => 1 - Math.exp(-Math.max(0, t - SCHWER_AB) / SCHWER_ZEIT);
   const zoneBei = (y) => {
     const m = y / METER;
@@ -508,8 +516,18 @@
   // 0, getippt bei delta (oder nicht), vorher ruht sie in ihrer Bahn. Zurück:
   // wann sie ihre Bahn frühestens verlässt (weg), wann sie spätestens in der
   // neuen angekommen ist (an) und wann sie dort ruht (ruhe).
-  function uebergang(a, b, p, bahn, nach, tippen, e) {
-    const deltas = tippen ? [-e, -e / 2, 0, e / 2, e] : [null];
+  // Die Zeitpunkte, zu denen ein Tipp in der Luft e kommen darf: dicht,
+  // denn wie lange sie unterwegs ist, wächst nicht immer mit dem Abstand
+  // (wer ganz früh tippt, schlägt vielleicht drüben an und kehrt früher
+  // um als einer, der etwas später tippt).
+  function tippZeiten(e0) {
+    const e = e0 + 0.0015;
+    const n = Math.min(40, Math.max(8, Math.ceil((2 * e) / 0.005)));
+    return Array.from({ length: n + 1 }, (_, i) => -e + (2 * e * i) / n);
+  }
+
+  function uebergang(a, b, p, bahn, nach, tippen, e0) {
+    const deltas = tippen ? tippZeiten(e0) : [null];
     let weg = Infinity;
     let an = -Infinity;
     let ruhe = -Infinity;
@@ -519,11 +537,18 @@
       let w = Infinity;
       let nichtDa = -0.6;
       let unruhig = -0.6;
+      let getippt = d === null;
       while (t < 1.4) {
-        if (d !== null && t <= d && t + TAKT > d) k.p = -k.p;
+        // Ein Tipp gilt genau zu seiner Zeit, wie im Spiel: Der Schritt wird
+        // dort geteilt.
+        let h = TAKT;
+        if (!getippt && d < t + h) {
+          if (d - t > 1e-9) h = d - t;
+          else { k.p = -k.p; getippt = true; continue; }
+        }
         const c = t < 0 ? a : b;
-        querSchritt(k, farbe(c, -1, t), farbe(c, 1, t), TAKT);
-        t += TAKT;
+        querSchritt(k, farbe(c, -1, t), farbe(c, 1, t), h);
+        t += h;
         if (w === Infinity && Math.abs(k.x - bahn * XW) > TOL) w = t;
         if (Math.abs(k.x - nach * XW) > TOL) nichtDa = t;
         if (Math.abs(k.x - nach * XW) > 0.8 || Math.abs(k.v) > 8) unruhig = t;
@@ -538,8 +563,8 @@
 
   // Dasselbe genau: von der Kugel, wie sie nach dem Plan ist (start), durch
   // die Reihen bis zur Grenze tb und dann b, getippt bei tb + delta.
-  function uebergangAb(start, b, tb, bahn, nach, tippen, e) {
-    const deltas = tippen ? [-e, -e / 2, 0, e / 2, e] : [null];
+  function uebergangAb(start, b, tb, bahn, nach, tippen, e0) {
+    const deltas = tippen ? tippZeiten(e0) : [null];
     let weg = Infinity;
     let an = -Infinity;
     let ruhe = -Infinity;
@@ -551,12 +576,16 @@
       let unruhig = start.t;
       let getippt = d === null;
       while (t < tb + 1.4) {
-        if (!getippt && tb + d <= t) { k.p = -k.p; getippt = true; }
+        let h = TAKT;
+        if (!getippt && tb + d < t + h) {
+          if (tb + d - t > 1e-9) h = tb + d - t;
+          else { k.p = -k.p; getippt = true; continue; }
+        }
         let cl;
         let cr;
         if (t < tb) { const r = reiheBei(t); cl = farbe(r, -1, t); cr = farbe(r, 1, t); } else { cl = farbe(b, -1, t); cr = farbe(b, 1, t); }
-        querSchritt(k, cl, cr, TAKT);
-        t += TAKT;
+        querSchritt(k, cl, cr, h);
+        t += h;
         if (w === Infinity && Math.abs(k.x - bahn * XW) > TOL) w = t;
         if (Math.abs(k.x - nach * XW) > TOL) nichtDa = t;
         if (Math.abs(k.x - nach * XW) > 0.8 || Math.abs(k.v) > 8) unruhig = t;
@@ -595,8 +624,8 @@
       let tEnde;
       let ende;
       const sanft = Math.max(0, 1 - T / EINSTIEG);
-      const slackA = ((0.2 + 0.16 * z[1]) * sanft + 0.01) * mass;
-      const slackB = ((0.14 + 0.1 * z[2]) * sanft + 0.01) * mass;
+      const slackA = ((0.2 + 0.16 * z[1]) * sanft + 0.01) * mass + 0.05 * (mass - 1);
+      const slackB = ((0.14 + 0.1 * z[2]) * sanft + 0.01) * mass + 0.05 * (mass - 1);
       if (besonders === "aus" && !einfach) {
         // Stromausfall: eine gerade Gasse in der Bahn, in der sie ist –
         // drei Sperren mit der Lücke, wo sie ist.
@@ -770,7 +799,7 @@
     // einer ohne Besonderes.
     let fertig = null;
     const vorig = state.abschnitte[state.abschnitte.length - 1] || null;
-    for (const [mass, einfach] of [[1, false], [1.15, false], [1.3, true], [1.6, true]]) {
+    for (const [mass, einfach] of [[1, false], [1.15, false], [1.3, true], [1.6, true], [2.2, true]]) {
       const v = versuch(mass, einfach);
       if (!v) continue;
       anwenden(v);
@@ -780,7 +809,7 @@
     if (!fertig) {
       // Darf nicht vorkommen (die Prüfung zählt mit) – dann eben dieser.
       state.planFehler += 1;
-      fertig = versuch(2.2, true);
+      fertig = versuch(3, true);
       anwenden(fertig);
     }
     state.sperren.sort((a, b) => a.y0 - b.y0);
@@ -799,24 +828,36 @@
     let j = 0;
     let t = start.t;
     while (t < bis - 1e-9) {
-      while (j < z.length && z[j] <= t) { k.p = -k.p; j += 1; }
+      let h = Math.min(TAKT, bis - t);
+      if (j < z.length && z[j] < t + h) {
+        if (z[j] - t > 1e-9) h = z[j] - t;
+        else { k.p = -k.p; j += 1; continue; }
+      }
       const r = reiheBei(t);
-      querSchritt(k, farbe(r, -1, t), farbe(r, 1, t), TAKT);
-      t += TAKT;
+      querSchritt(k, farbe(r, -1, t), farbe(r, 1, t), h);
+      t += h;
     }
     return { t, x: k.x, v: k.v, p: k.p };
   }
 
   // Hält der Plan von start bis bis? Jeder geplante Tipp so früh oder so
-  // spät, wie er darf (alle Ecken), durch den echten Schacht.
+  // spät, wie er darf (alle Ecken), durch den echten Schacht – jeder Tipp
+  // genau zu seiner Zeit.
   function sicher(start, bis, ende) {
     const tipps = state.weg.filter((w) => w.t >= start.t - 1e-9 && w.t - w.e <= bis);
     const n = tipps.length;
-    for (let m = 0; m < (1 << n) + 1; m += 1) {
-      const zeiten = tipps.map((w, i) => (m === (1 << n) ? w.t : w.t + (((m >> i) & 1) ? 0.97 : -0.97) * w.e));
-      if (!folgeHaelt(start, zeiten, bis, ende)) return false;
-    }
-    return true;
+    // Die ganze Luft und noch 1,5 ms dazu: Im Spiel rechnet jedes Bild in
+    // seinen eigenen Schritten.
+    const luft = (w) => w.e + 0.0015;
+    const proben = [];
+    // Alle Ecken …
+    for (let m = 0; m < (1 << n); m += 1) proben.push(tipps.map((w, i) => w.t + (((m >> i) & 1) ? 1 : -1) * luft(w)));
+    // … alle gleich weit daneben, und jeder einzeln dazwischen.
+    for (let f = -0.75; f <= 0.76; f += 0.25) proben.push(tipps.map((w) => w.t + f * luft(w)));
+    tipps.forEach((_, j) => {
+      for (const f of [-0.85, -0.6, -0.35, 0.35, 0.6, 0.85]) proben.push(tipps.map((w, i) => w.t + (i === j ? f * luft(w) : 0)));
+    });
+    return proben.every((zeiten) => folgeHaelt(start, zeiten, bis, ende));
   }
   function folgeHaelt(start, zeiten, bis, ende) {
     const k = { x: start.x, v: start.v, p: start.p };
@@ -824,10 +865,14 @@
     let j = 0;
     let t = start.t;
     while (t < bis) {
-      while (j < z.length && z[j] <= t) { k.p = -k.p; j += 1; }
+      let h = TAKT;
+      if (j < z.length && z[j] < t + h) {
+        if (z[j] - t > 1e-9) h = z[j] - t;
+        else { k.p = -k.p; j += 1; continue; }
+      }
       const r = reiheBei(t);
-      querSchritt(k, farbe(r, -1, t), farbe(r, 1, t), TAKT);
-      t += TAKT;
+      querSchritt(k, farbe(r, -1, t), farbe(r, 1, t), h);
+      t += h;
       if (trifft(k.x, yBei(t))) return false;
     }
     return !ende || Math.abs(k.x - ende.bahn * XW) <= TOL * 1.6;
@@ -2174,7 +2219,7 @@
         g.fillStyle = "#ffffff";
         kurven.forEach(([x0, y0, cx, cy, x1, y1], i) => {
           for (const versatz of [0, 0.5]) {
-            const u = (uhr * 1.6 + i * 0.29 + versatz) % 1;
+            const u = (((uhr * 1.6 + i * 0.29 + versatz) % 1) + 1) % 1;
             const v = 1 - u;
             g.globalAlpha = clamp(Math.sin(u * Math.PI) * (0.5 + nah), 0, 1);
             const d = 0.55 * s;
@@ -2190,7 +2235,7 @@
         g.strokeStyle = rgba(farbeK, 1);
         g.lineWidth = Math.max(1, 0.32 * s);
         for (let i = 0; i < 3; i += 1) {
-          const u = (uhr * 1.3 + i / 3) % 1;
+          const u = (((uhr * 1.3 + i / 3) % 1) + 1) % 1;
           g.globalAlpha = alpha * (1 - u) * Math.min(1, u * 5);
           // Von der Wand her …
           const rw = 2 * s + u * mitte * 0.5;
@@ -2778,7 +2823,8 @@
 
     // Die Kamera bleibt bei der Kugel; nach einem Sturz bleibt sie stehen.
     if (state.schritt !== "sturz") state.camY = k.y;
-    planBis(state.t + 6, 3);
+    // Höchstens ein Abschnitt je Bild (der Plan reicht sechs Sekunden voraus).
+    planBis(state.t + 6, 1);
 
     if (state.phase === "spiel" && state.schritt !== "sturz") {
       gegner?.takt(state.punkte, { a: Math.round(k.x * 10), b: Math.round(k.y), c: (k.p > 0 ? 1 : 0) + 2 * state.umpolungen });
@@ -2787,7 +2833,9 @@
 
   function loop(now) {
     frame = window.requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000);
+    // Das erste Bild nach dem Start kann einen Zeitstempel vor «last» haben:
+    // nie rückwärts.
+    const dt = clamp((now - last) / 1000, 0, 0.05);
     last = now;
     const strecke = Math.max(0, dt - voraus);
     voraus = 0;
@@ -2955,5 +3003,6 @@
     METER, R, XW, HALB, TOL, DICKE, E_MIN, FASSUNG, ZONEN, state, view,
     takt, tippen, losGehts, physik, planBis, kursText, trifft, zielBahn, farbe, reiheBei, abschnittBei,
     yBei, tBei, tempoBei, luftBei, schwere, zoneBei,
+    saat: () => zufall.saat?.(), halteSaat: (saat) => zufall.halte?.(saat),
   };
 })();
