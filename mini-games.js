@@ -116,6 +116,7 @@
     { id: "marsRover", seite: "marsrover", page: "marsrover" },
     { id: "mirrorLake", seite: "spiegelsee", page: "spiegelsee" },
     { id: "soapBubble", seite: "seifenblase", page: "seifenblase" },
+    { id: "poleSwitch", seite: "polwechsel", page: "polwechsel" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -140,6 +141,7 @@
     ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
     beeFlight: "2026-11-26", marsRover: "2026-11-26", mirrorLake: "2026-11-26",
     soapBubble: "2026-11-26",
+    poleSwitch: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -206,6 +208,8 @@
     mirrorLake: 1,
     // Seifenblase: ein Tipp bläst die Blase vom Finger weg – der Ort des Tipps steuert.
     soapBubble: 1,
+    // Polwechsel: ein Tipp polt die fallende Kugel um – die Farben der Magnete voraus lesen.
+    poleSwitch: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -272,6 +276,9 @@
     // negativ, woran sie zerplatzt ist. Fassung t2: Seit dem Tacho zählen Punkte (Höhe mal
     // Tempofaktor) statt Meter, und der Anfang ist eine Rennstrecke – alte Läufe passen nicht mehr.
     soapBubble: { fassung: "t2" },
+    // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
+    // darüber, wie oft umgepolt wurde.
+    poleSwitch: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

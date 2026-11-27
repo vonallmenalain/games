@@ -110,6 +110,7 @@
     { id: "marsRover", titel: "Marsrover", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.marsrover", einheit: "Meter" },
     { id: "mirrorLake", titel: "Spiegelsee", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.spiegelsee", einheit: "Meter" },
     { id: "soapBubble", titel: "Seifenblase", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.seifenblase", einheit: "Punkte" },
+    { id: "poleSwitch", titel: "Polwechsel", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.polwechsel", einheit: "Meter" },
     { id: "speedClimb", titel: "Kletterwand", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kletterwand", einheit: "Meter" },
 
     // Problemlösen

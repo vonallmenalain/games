@@ -340,6 +340,18 @@
     "seifenblase.ansage": { s: "pling" },
     "seifenblase.aufwind": { s: "zisch" },
     "seifenblase.boee": { s: "boee" },
+    "polwechsel.brummen": { s: "a-summen", schleife: true },
+    "polwechsel.wind": { s: "a-fahrtwind", schleife: true },
+    "polwechsel.umpolen": { s: "stich" },
+    "polwechsel.anschlag": { s: "klack" },
+    "polwechsel.funken": { s: "kohle" },
+    "polwechsel.zone": { s: "harfe-lang" },
+    "polwechsel.ansage": { s: "pling" },
+    "polwechsel.stromaus": { s: "ab" },
+    "polwechsel.stroman": { s: "tanken" },
+    "polwechsel.takt": { s: "klick" },
+    "polwechsel.sturz": { s: "krach" },
+    "polwechsel.fall": { s: "fall" },
   };
 
   // Welche Seite welche Plätze braucht: die Dateien eines Spiels werden
@@ -359,7 +371,7 @@
     freeHand: "freihand", mindsEye: "kopfkino", iceStock: "eisstock", ridgeRun: "gratwanderung",
     chimneySweep: "kaminfeger", roofRun: "dachlaeufer", stampMill: "stampfwerk",
     beeFlight: "bienenflug", marsRover: "marsrover", mirrorLake: "spiegelsee",
-    soapBubble: "seifenblase",
+    soapBubble: "seifenblase", poleSwitch: "polwechsel",
   };
 
   // ---------------------------------------------------------------------------
