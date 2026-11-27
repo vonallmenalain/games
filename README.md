@@ -3074,6 +3074,140 @@ dem Feld, nie unter der Leiste, und ist gemalt. Ein angeschauter Lauf
 (Fassung `t2`) zeigt dieselbe Welt, dieselben Stösse, dieselben Punkte und
 dasselbe Platzen.
 
+### Wasserläufer (November 2026)
+
+**Wasserläufer** (`wasserlaeufer.js`, `pondSkater`) – ein Teich am
+Nachmittag, von oben gesehen. Auf einem Seerosenblatt sitzt ein
+Wasserläufer und dreht sich unaufhörlich um sich selbst, wie eine
+Kompassnadel. **Ein Tipp ist ein Ruderschlag – in die Richtung, in die er
+gerade schaut.** Man steuert nur über den Zeitpunkt; die Richtung macht die
+Drehung. Auf dem Wasser gleitet er weit, auf einem Blatt hält er rasch an,
+denn das Blatt greift. Ziel: von Blatt zu Blatt den Bach hinauf. Gezählt
+werden die **Blätter** – die Nummer des höchsten Blattes der Kette, auf dem
+er gelandet ist. Blätter statt Meter, weil jede Landung der Moment ist, auf
+den es ankommt (die Zahl springt genau dann), weil die Welt in Zentimetern
+gebaut ist (Meter wären winzige Zahlen) und weil sich «38 Blätter» leicht
+vergleichen lassen.
+
+Die Steuerung in Zahlen (`schritt`, `schlag`): Ein Schlag gibt 74 cm/s in die
+Blickrichtung (`J`), mehrere zählen zusammen. Auf dem Wasser klingt das
+Gleiten in 0,55 s auf gut ein Drittel ab (`TAU_W`), dazu bremst es fest um
+7 cm/s² (`MU_W`) – ein Schlag aus dem Stand trägt gut 38 cm. Auf dem Blatt
+greift es in 0,05 s und mit 320 cm/s² (`TAU_B`, `MU_B`); unter 5 cm/s ist er
+gelandet und gleitet in die Mitte. Das Blatt, von dem er sich abstösst,
+greift erst wieder, wenn er es verlassen hat. Rudern kostet Kraft: Zwei
+Schläge kurz nacheinander gehen (der Doppelschlag), dann kommt sie mit 1,6
+Schlägen je Sekunde wieder – wer dauernd tippt, rudert nicht schneller.
+Mit der Tastatur: Leertaste, Enter oder ↑.
+
+Jedes betretene Blatt läuft voll Wasser und geht unter (`haltBei`); in der
+letzten Sekunde sieht man es sinken, und wer dann noch darauf sitzt, den
+holt der Fisch darunter. Auf offenem Wasser steigt nach einer Weile
+(`geduldBei`) ein Fisch unter ihm auf – erst ein blasser Schatten, der
+dunkler und schärfer wird und ihm folgt –, und nach der Warnung
+(`warnungBei`) schnappt er zu. Wer vorher ein Blatt (oder Laub) erreicht,
+dem schnappt er ins Leere. Das nächste Blatt zeigt mit zwei Pfeilen, die
+sich langsam drehen, wie herum er sich darauf drehen wird.
+
+| Blatt | Drehung | Abstand | Blatt (Radius) | hält | Geduld + Warnung | Fenster |
+|---|---|---|---|---|---|---|
+| 1 | 0,62 U/s | 22 cm | 10 cm | 3,4 s | 1,4 + 0,85 s | gut 210 ms |
+| 5 | 0,75 U/s | 24 cm | 9,4 cm | 3,1 s | 1,3 + 0,8 s | gut 140 ms |
+| 10 | 0,99 U/s | 28 cm | 8,1 cm | 2,5 s | 1,1 + 0,7 s | gut 100 ms |
+| 20 | 1,29 U/s | 32 cm | 6,7 cm | 1,8 s | 0,9 + 0,6 s | gut 65 ms |
+| 30 | 1,50 U/s | 34 cm | 5,8 cm | 1,4 s | 0,75 + 0,55 s | gut 45 ms |
+| 50 | 1,74 U/s | 36 cm | 4,9 cm | 1,2 s | 0,6 + 0,5 s | gut 30 ms |
+
+Die ersten drei Sprünge sind zum Hineinfinden, danach wird es zügig
+schwerer (`schwere`: nach 16 Blättern gut sechs Zehntel der Härte), und ab
+Blatt 18 kommt eine zweite Rampe dazu (`spaet`: schneller drehen, kleinere
+Blätter, ungeduldigere Fische), damit auch Geübte bald an ihre Grenze
+kommen. Ein Blatt hält immer mindestens eine Umdrehung und eine knappe
+halbe Sekunde. Nachgebildete Spieler (der Autopilot, je Schlag
+normalverteilt daneben, je 14 Läufe): ±20 ms im Median 60 s (57 Blätter),
+±35 ms 32 s (29 Blätter), ±50 ms 26 s, ±70 ms 22 s; ohne Streuung kommt er
+immer über 120 s. Der
+Autopilot kennt die Mitte jedes Fensters, ein Mensch nicht – es wird also
+schwerer. Die erste Hechtgrube (Blatt 16) siebt: mit ±40 ms schaffen sie
+18 von 20.
+
+Die Welt entsteht aus dem Zufall und hängt nur an der Saat, die Runde nur
+an Spielzeit, Saat und den Schlägen. Sie ist immer zu schaffen: Zuerst
+entsteht der Weg – Blatt um Blatt im Zickzack (`abschnittBauen`) –, und
+jeder Sprung wird nachgerechnet (`blattFenster`): Aus der Mitte des Blattes,
+ein Schlag, für jede Blickrichtung – landet er auf dem neuen? Das Fenster
+der Richtungen, die treffen, muss mindestens `fensterMinBei` Millisekunden
+der Drehung breit sein, sonst rückt das Blatt näher und wird grösser. Vom
+Seerosenteppich aus zählt jedes seiner Blätter. Ein Autopilot (`pilot`,
+`planen`) rechnet mit derselben Physik voraus und rudert in der Mitte des
+Fensters (über die Hechtgrube lieber mit Doppelschlag, mit Abstand zum
+Hecht, und nur, wenn die Kraft dafür reicht).
+
+Jeder achte Abschnitt ist besonders, im festen Wechsel und angesagt,
+sobald er auf dem Blatt davor sitzt: der 8., 24., 40. eine **Strömung** –
+ein Seitenbach reisst quer über den Weg (weisse Schlieren, ein kiesiger Arm
+über beide Ufer), darauf treibt Ahornlaub; hinüber geht es nur auf dem Laub,
+und wer zu weit mitgetragen wird, ist fort. Das Blatt davor liegt auf der
+Seite des Zuflusses und hält länger, darüber wartet ein Seerosenteppich
+fast so breit wie der Bach. Der 16., 32., 48. eine **Hechtgrube** – tiefes,
+dunkles Wasser, ein grosser Hecht zieht seine Kreise quer über den Weg, und
+der Teppich drüben liegt so weit, dass ein Schlag nicht reicht: zwei kurz
+nacheinander oder einer im Gleiten.
+
+Die Welt wechselt bachaufwärts, jede mit einem besonderen Abschnitt
+beginnend: **der Seerosenteich** am Nachmittag (Schilf mit Rohrkolben,
+Sumpfschwertlilien, Erlenzweige, Wasserlinsen, Libellen), **der Bachlauf**
+zwischen bemoosten Steinen (Farne, Vergissmeinnicht, Buchenzweige, sanfte
+Strömung bachab), **der Mühlenteich** im goldenen Licht (Ufermauer, Pfähle,
+Brennnesseln, Kastanienzweige, Federn), **das Moor** in der Dämmerung
+(torfbraunes Wasser mit rosa Himmel darin, Wollgras, Torfmoos, Birken,
+Glühwürmchen) und **die Quelle** in der Nacht (Mond und Sterne im Wasser,
+Fichten, Glühwürmchen). Dazwischen gehen Farben, Breite und Windung des
+Baches über gut 30 cm ineinander über.
+
+Das Bild: klares Wasser von oben – der Grund im Flachen sandig mit Kieseln,
+in der Mitte tief, und das Licht der Sonne bündelt sich zu **Lichtnetzen**,
+die über den Grund ziehen (vier Phasen, fest in den Kacheln, im Flachen
+kräftig und in der Tiefe schwach, ineinander übergeblendet). Wo die Füsse des Wasserläufers das Wasser
+eindrücken, sieht man helle Ringe – und am Grund **runde Schatten mit
+hellem Rand**, weil jede Delle das Licht zur Seite lenkt; je tiefer das
+Wasser, desto weiter versetzt. Beim Ruderschlag schwingen die Mittelbeine
+zurück, und Ringe laufen aus. Die Seerosenblätter haben Kerbe, Adern,
+einen zur Sonne hellen Rand, Glanz, Flecken und Wassertropfen, manche eine
+Blüte; ihre Stängel und Schatten sieht man am Grund. Über den Ufern hängen
+Zweige ins Bild, die näher an uns sind und schneller vorbeiziehen. Beim
+ersten Start gleitet der Blick vom Bach oben hinunter zum Wasserläufer.
+
+Grund, Wasserfarbe, Ufer, Pflanzen, Schatten der Blätter, stilles Treibgut,
+die Seitenbäche und die Lichtnetze liegen in vorgemalten Kacheln, die Stufe
+um Stufe gemalt werden, bevor sie ins Bild kommen, und dann Punkt auf Punkt
+aufgelegt werden. Für die Lichtnetze trägt jede Kachel vier Ausschnitte so
+breit wie das Wasser (`lichtnetzePhasen`): Beim Wechsel wird die neue Phase
+einmal in die Kachel gelegt, im letzten Drittel jeder Phase die nächste
+darüber geblendet. Je Bild kommen dazu: die Blätter, der Wasserläufer, die
+Fische (der Hecht vorgedreht in 32 Richtungen), das Laub, Ringe, Glitzern,
+Libellen (vorgemalt) und Zweige (auf ihren Inhalt zugeschnitten). Gemessen
+im Software-Raster (Median je Bild, zur selben Zeit wie der Marsrover):
+iPhone hochkant gut das 1,3fache, iPad das 1,25fache des Marsrovers.
+
+Die Gegner laufen als Wasserläufer aus Licht mit, und die besten Läufe
+lassen sich anschauen: Aufgezeichnet werden der Ort (in Vierteln), in `c`
+die Ruderschläge (mal 1000) und die Blickrichtung (in Hundertsteln), am
+Schluss negativ, woran es endete (Fassung `t1`, als Winkel – im
+Multiplayer dreht er sich zwischen zwei Proben weiter). Zwölf Klänge, alle
+aus vorhandenen: Teich, Bach und Grillen als Kulisse, der Ruderschlag, die
+Landung, der Fisch, der aufsteigt, das Schnappen, das Sinken, die
+Strömung, der Hecht, der Weltwechsel und die Ansage.
+
+Prüfung 4g50: Der Autopilot kommt über vier gewürfelte Welten bis 80 s,
+ohne dass der Bau der Kette ausweichen muss; alle fünf Welten kommen vor;
+jeder achte Abschnitt ist im Wechsel Strömung oder Hechtgrube und wird
+angesagt. Mit wenig gestreuten Schlägen (±20 ms) kommt er im Median über
+35 s, mit stark gestreuten (±80 ms) nicht. Wer nichts tut, geht mit dem
+ersten Blatt unter; wer dauernd rudert, wird bald gefressen; die Kurve wird
+schwerer, das Fenster enger. Die Tafel erscheint; ein angeschauter Lauf
+zeigt dieselbe Welt, dieselben Schläge, dieselbe Zahl und dasselbe Ende.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -3168,7 +3302,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 55», siehe unten).
+  Links davor steht fest das **Regal** («Alle 56», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
