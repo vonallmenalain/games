@@ -352,6 +352,7 @@
     "wasserlaeufer.hecht": { s: "flosse" },
     "wasserlaeufer.welt": { s: "harfe-lang" },
     "wasserlaeufer.ansage": { s: "pling" },
+    "wasserlaeufer.bonus": { s: "pling" },
     "polwechsel.brummen": { s: "a-summen", schleife: true },
     "polwechsel.wind": { s: "a-fahrtwind", schleife: true },
     "polwechsel.umpolen": { s: "stich" },

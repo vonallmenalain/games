@@ -284,7 +284,7 @@
     // Proben zum Ziel – ändern sich Schläge oder Spannung, springt c um mehr als eine
     // Vierteldrehung, das bleibt ein Sprung. Fassung t2: Seit der Schleuder (Reihen, Richtung
     // und Stärke) passen die Läufe mit der Drehung nicht mehr.
-    pondSkater: { fassung: "t2", winkel: true },
+    pondSkater: { fassung: "t3", winkel: true },
     // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
     // darüber, wie oft umgepolt wurde. Fassung t3: Seit dem noch gemütlicheren Anfang ist es ein
     // anderer Schacht – ältere Läufe passen nicht mehr.
