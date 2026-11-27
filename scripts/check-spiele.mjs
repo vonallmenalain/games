@@ -12926,7 +12926,8 @@ try {
         for (let j = 0; j < iB; j += 1) if (st.bahn.ty[j] < -0.99) runter += K.DS;
         st.beweger.filter((m) => K.tRef(m.i * K.DS) < K.HINDERNIS_AB).forEach((m) => frueh.push(m.art));
         st.figuren.filter((f) => f.eng && K.tRef(f.eng.ic * K.DS) < K.HINDERNIS_AB - 1).forEach(() => frueh.push("engstelle"));
-        if (i === 0) besonders = st.figuren.filter((f) => f.besonders && f.i0 < iB).map((f) => ({ nr: f.nr, art: f.besonders }));
+        // Aus allen vier Bahnen: Eine allein kommt in 100 s nicht immer bis zum 16. Abschnitt.
+        besonders.push(...st.figuren.filter((f) => f.besonders && f.i0 < iB).map((f) => ({ nr: f.nr, art: f.besonders })));
       }
       // 2. Gestreute Tipps, wie ein Mensch: alle 0,2 s, wenig oder viel
       //    daneben – und der Raser.
@@ -12981,7 +12982,7 @@ try {
       `Seifenblase: Auf den Bahnen kommen nicht alle Figuren oder nicht alle Hindernisse vor, oder sie führt nie hinunter: ${JSON.stringify({ figuren: befund.figuren, arten: befund.arten, runter: befund.runter })}`);
     pruefe(befund.frueh.length === 0,
       `Seifenblase: Hindernisse kommen schon vor ${15} s im Plan: ${JSON.stringify(befund.frueh)}`);
-    pruefe(befund.besonders.length >= 2 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "rueckenwind" : "boee"))
+    pruefe(new Set(befund.besonders.map((a) => a.art)).size === 2 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "rueckenwind" : "boee"))
       && befund.ansagen.includes("Rückenwind") && befund.ansagen.includes("Böe"),
       `Seifenblase: Jeder achte Abschnitt ist nicht im festen Wechsel Rückenwind oder Böe, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
     pruefe(befund.wenig >= 40 && befund.viel <= 32 && befund.wenig > befund.viel + 15,
