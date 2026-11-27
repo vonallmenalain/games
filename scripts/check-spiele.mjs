@@ -15138,7 +15138,9 @@ try {
           k.stop();
         } else K.ton(id, { stufe: 2 });
         await new Promise((r) => setTimeout(r, 30));
-        if (window.__klangKnoten === vor && id !== "frosch.ambient") stumm.push(id);
+        // Die Grillen gelten für jeden Platz, der sie nutzt (Frosch, Bienenflug,
+        // Seifenblase …), nicht nur für einen Namen.
+        if (window.__klangKnoten === vor && K.PLAETZE[id].s !== "a-grillen") stumm.push(id);
       }
       K.kulisse("huegel.wind");
       K.stille();
