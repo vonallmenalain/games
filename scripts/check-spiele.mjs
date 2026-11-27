@@ -12857,7 +12857,7 @@ try {
   // HINDERNIS_AB ist, und auch keine Engstelle. Jeder achte Abschnitt ist
   // besonders (8., 24.: Rückenwind, 16., 32.: Böe), vorher angesagt. Mit
   // wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er meist weit, mit stark
-  // gestreuten (±17 cm) bald nicht mehr. Ein Raser (gleich genau, 160 cm/s,
+  // gestreuten (±22 cm, gut 40 Bildpunkte hochkant) bald nicht mehr. Ein Raser (gleich genau, 160 cm/s,
   // in Kurven langsamer, er passt ab, was kreuzt) ist im Ø deutlich
   // schneller und holt mehr Punkte. Gezählt werden die Streckenmeter (in
   // Dezimetern) mal dem Tempofaktor – nur aus Strecke und Zeit. Wer nichts
@@ -12928,7 +12928,7 @@ try {
       for (let i = 0; i < 9; i += 1) {
         wenig.push(lauf(60, { pilot: { abstand: 0.2, streu: 5 } }));
         zaehle();
-        viel.push(lauf(60, { pilot: { abstand: 0.2, streu: 17 } }));
+        viel.push(lauf(60, { pilot: { abstand: 0.2, streu: 22 } }));
         raser.push(lauf(60, { pilot: { abstand: 0.2, streu: 5, raser: 160, kurve: 150 } }));
         zaehle();
       }
@@ -12975,7 +12975,7 @@ try {
     pruefe(befund.besonders.length >= 2 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "rueckenwind" : "boee"))
       && befund.ansagen.includes("Rückenwind") && befund.ansagen.includes("Böe"),
       `Seifenblase: Jeder achte Abschnitt ist nicht im festen Wechsel Rückenwind oder Böe, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
-    pruefe(befund.wenig >= 40 && befund.viel <= 42 && befund.wenig > befund.viel + 15,
+    pruefe(befund.wenig >= 40 && befund.viel <= 32 && befund.wenig > befund.viel + 15,
       `Seifenblase: Gestreute Tipps wirken nicht wie erwartet (wenig daneben weit, viel daneben bald zu Ende): ${JSON.stringify({ wenig: befund.wenigListe, viel: befund.vielListe })}`);
     pruefe(befund.tempo.rechnet && befund.tempo.raser.kmh >= befund.tempo.wenig.kmh + 0.6 && befund.tempo.raser.punkte >= befund.tempo.wenig.punkte * 0.8,
       `Seifenblase: Der Raser ist nicht deutlich schneller als der Vorsichtige, oder er holt keine ansehnlichen Punkte: ${JSON.stringify(befund.tempo)}`);

@@ -133,12 +133,12 @@
   // Lichtbänder (der Kern, der Schein).
   const STIMMUNGEN = [
     { ab: 0, name: "Abendrot", kern: [255, 214, 150], schein: [255, 150, 96] },
-    { ab: 4500, name: "Dämmerung", kern: [255, 184, 214], schein: [236, 110, 176] },
-    { ab: 11000, name: "Blaue Stunde", kern: [200, 186, 255], schein: [130, 112, 246] },
-    { ab: 18000, name: "Sternennacht", kern: [206, 238, 255], schein: [110, 186, 255] },
+    { ab: 3000, name: "Dämmerung", kern: [255, 184, 214], schein: [236, 110, 176] },
+    { ab: 6000, name: "Blaue Stunde", kern: [200, 186, 255], schein: [130, 112, 246] },
+    { ab: 10000, name: "Sternennacht", kern: [206, 238, 255], schein: [110, 186, 255] },
   ];
   const UEBERGANG = 300;
-  const HIMMEL_WEG = 0.32;         // so viel des Wegs auf der Bahn wird der Himmel Abend
+  const HIMMEL_WEG = 0.7;          // so viel des Wegs auf der Bahn gleitet der Himmel (bei 100 m ist Nacht)
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -1813,9 +1813,10 @@
   /*
    * Die Bahn: innen ein Hauch von Seifenfilm, an jedem Rand ein Lichtband –
    * ein dunkler Saum (er hebt das Band vom hellen Abendhimmel ab), ein
-   * schillernder Schein, der Kern, ein heller Grat. Jeder Rand ist ein
-   * einziger Pfad; was weiter weg ist als die Sicht, verschwindet im Dunst
-   * (ein runder Verlauf um den Blickpunkt) – auf jedem Gerät gleich.
+   * farbiger Schein, der Kern, ein heller Grat. Was ganz im Blick ist, ist
+   * je Rand ein einziger Pfad (auf Geraden nur ihre Enden); was weiter weg
+   * ist als die Sicht, verschwindet Stück um Stück im Dunst – auf jedem
+   * Gerät gleich.
    */
   function zeichneBahn() {
     const B = state.bahn;
@@ -1825,100 +1826,123 @@
     const cx = state.cam.x;
     const cy = state.cam.y;
     const sb = state.blase.i * DS;
-    const ia = Math.max(0, Math.floor((sb - 320) / DS));
+    const ST = 6;
+    const ia = Math.max(0, Math.floor((sb - 320) / DS / ST) * ST);
     const iz = Math.min(N - 1, Math.ceil((sb + 760) / DS));
-    const reich = SICHT * 1.45;
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     g.lineJoin = "round";
     g.lineCap = "round";
-    // Welche Punkte im Blick sind (in Stücken zu sechs).
-    const drin = [];
-    for (let i = ia; i <= iz; i += 6) drin.push(Math.hypot(B.x[i] - cx, B.y[i] - cy) - B.w[i] < reich);
-    const im = (i) => drin[Math.floor((i - ia) / 6)];
+    // Wie sichtbar jedes Stück zu sechs Punkten ist.
+    const sicht = [];
+    for (let i = ia; i <= iz; i += ST) {
+      const m = Math.min(iz, i + (ST >> 1));
+      sicht.push(sichtbar(Math.hypot(B.x[m] - cx, B.y[m] - cy) - B.w[m] * 0.7));
+    }
+    const an = (i) => sicht[Math.floor((i - ia) / ST)] ?? 0;
     const rx = (i, f) => bildX(B.x[i] - B.ty[i] * B.w[i] * f);
     const ry = (i, f) => bildY(B.y[i] + B.tx[i] * B.w[i] * f);
-    const fx = bildX(cx);
-    const fy = bildY(cy);
-    const verlauf = (stopps) => {
-      const v = g.createRadialGradient(fx, fy, SICHT * 1.1 * s, fx, fy, SICHT * 1.4 * s);
-      stopps.forEach(([k, c]) => v.addColorStop(k, c));
-      return v;
+    // Ein Punkt gehört in den Pfad, wenn sich dort etwas ändert: in Bögen
+    // jeder zweite, auf Geraden nur ihre Enden (und alle 40 cm, wegen der
+    // Breite).
+    const noetig = (i) => B.k[i] !== 0 || B.k[i + 1] !== 0 || B.k[i - 1] !== 0 || i % 20 === 0;
+    const linie = (a, z, f, neu = true) => {
+      if (neu) g.moveTo(rx(a, f), ry(a, f));
+      for (let q = a + 1; q < z; q += 1) if ((q & 1) === 0 && noetig(q)) g.lineTo(rx(q, f), ry(q, f));
+      g.lineTo(rx(z, f), ry(z, f));
     };
-    const c = bandFarbe(sb);
-    // Innen: ein Hauch Film – Stück für Stück entlang, eine Fläche.
-    g.beginPath();
-    let offen = false;
+    // Die Läufe: zusammenhängende Stücke, ganz im Blick.
+    const laeufe = [];
+    const blass = [];
     let von = -1;
+    for (let i = ia; i <= iz; i += ST) {
+      const a = an(i);
+      const z = Math.min(iz, i + ST);
+      if (a >= 0.99) { if (von < 0) von = i; } else {
+        if (von >= 0) { laeufe.push([von, i]); von = -1; }
+        if (a > 0.02 && z > i) blass.push([i, z, a]);
+      }
+    }
+    if (von >= 0) laeufe.push([von, iz]);
+    const c = bandFarbe(sb);
+    // Innen: ein Hauch Film – im Dunst Stück um Stück blasser.
     const flaeche = (a, z) => {
-      g.moveTo(rx(a, 1), ry(a, 1));
-      for (let q = a + 2; q <= z; q += 2) g.lineTo(rx(q, 1), ry(q, 1));
-      for (let q = z; q >= a; q -= 2) g.lineTo(rx(q, -1), ry(q, -1));
+      linie(a, z, 1);
+      g.lineTo(rx(z, -1), ry(z, -1));
+      for (let q = z - 1; q > a; q -= 1) if ((q & 1) === 0 && noetig(q)) g.lineTo(rx(q, -1), ry(q, -1));
+      g.lineTo(rx(a, -1), ry(a, -1));
       g.closePath();
     };
-    for (let i = ia; i <= iz; i += 2) {
-      const ja = im(i);
-      if (ja && von < 0) von = i;
-      if ((!ja || i + 2 > iz) && von >= 0) { flaeche(von, ja ? i : i - 2); von = -1; offen = true; }
-    }
-    if (offen) {
-      g.fillStyle = verlauf([[0, "rgba(255, 246, 252, 0.2)"], [1, "rgba(255, 246, 252, 0)"]]);
+    g.fillStyle = "rgba(255, 246, 252, 0.17)";
+    blass.forEach(([a, z, al]) => {
+      g.globalAlpha = al;
+      g.beginPath();
+      flaeche(a, z);
+      g.fill();
+    });
+    g.globalAlpha = 1;
+    if (laeufe.length) {
+      g.beginPath();
+      laeufe.forEach(([a, z]) => {
+        if (z <= a) return;
+        linie(a, z, 1);
+        g.lineTo(rx(z, -1), ry(z, -1));
+        for (let q = z - 1; q > a; q -= 1) if ((q & 1) === 0 && noetig(q)) g.lineTo(rx(q, -1), ry(q, -1));
+        g.lineTo(rx(a, -1), ry(a, -1));
+        g.closePath();
+      });
       g.fill();
     }
-    // Die Ränder: je ein Pfad.
-    const rand = (f) => {
+    const breiteKern = Math.max(3, 1.6 * s);
+    const striche = [
+      [rgba(c.schein, 0.38), Math.max(7, 3.6 * s)],
+      ["rgba(60, 26, 76, 0.38)", breiteKern + 2.4],
+      [rgb(c.kern), breiteKern],
+      ["rgba(255, 252, 244, 0.85)", Math.max(0.9, 0.4 * s)],
+    ];
+    const rand = (stuecke, f) => {
       g.beginPath();
-      let zug = false;
-      for (let i = ia; i <= iz; i += 2) {
-        if (!im(i)) { zug = false; continue; }
-        if (!zug) { g.moveTo(rx(i, f), ry(i, f)); zug = true; } else g.lineTo(rx(i, f), ry(i, f));
-      }
-      if (ia === 0 && im(0) && f > 0) {
+      stuecke.forEach(([a, z]) => { if (z > a) linie(a, z, f); });
+      if (f > 0 && ia === 0 && an(0) >= 0.99) {
         // Der Anfang: unten herum geschlossen.
         g.moveTo(rx(0, 1), ry(0, 1));
         g.arc(bildX(B.x[0]), bildY(B.y[0]), B.w[0] * s, Math.PI, 0, true);
       }
     };
-    const saum = verlauf([[0, "rgba(60, 26, 76, 0.38)"], [1, "rgba(60, 26, 76, 0)"]]);
-    const schein = verlauf([[0, rgba(c.schein, 0.42)], [1, rgba(c.schein, 0)]]);
-    const kern = verlauf([[0, rgba(c.kern, 1)], [1, rgba(c.kern, 0)]]);
-    const grat = verlauf([[0, "rgba(255, 252, 244, 0.85)"], [1, "rgba(255, 252, 244, 0)"]]);
-    const breiteKern = Math.max(3, 1.6 * s);
     [1, -1].forEach((f) => {
-      rand(f);
-      g.strokeStyle = schein;
-      g.lineWidth = Math.max(9, 4.6 * s);
-      g.stroke();
-      g.strokeStyle = saum;
-      g.lineWidth = breiteKern + 2.4;
-      g.stroke();
-      g.strokeStyle = kern;
-      g.lineWidth = breiteKern;
-      g.stroke();
-      g.strokeStyle = grat;
-      g.lineWidth = Math.max(0.9, 0.4 * s);
-      g.stroke();
+      if (laeufe.length) {
+        rand(laeufe, f);
+        striche.forEach(([farbe, breite]) => { g.strokeStyle = farbe; g.lineWidth = breite; g.stroke(); });
+      }
+      // Im Dunst: Stück um Stück blasser, nur Kern und Grat.
+      blass.forEach(([a, z, al]) => {
+        g.beginPath();
+        linie(a, z, f);
+        g.globalAlpha = al;
+        g.strokeStyle = striche[2][0];
+        g.lineWidth = breiteKern;
+        g.stroke();
+        g.strokeStyle = striche[3][0];
+        g.lineWidth = striche[3][1];
+        g.stroke();
+      });
+      g.globalAlpha = 1;
     });
     // Das Schillern: kurze Lichter in den Farben dünner Seifenhaut, die die
     // Bänder entlang wandern.
     if (!ruhig()) {
-      const FARBEN = ["rgba(255, 150, 220, 0.75)", "rgba(140, 236, 255, 0.75)", "rgba(255, 244, 150, 0.75)"];
+      const FARBEN = ["rgba(255, 150, 220, 0.8)", "rgba(140, 236, 255, 0.8)", "rgba(255, 244, 150, 0.8)"];
       g.lineWidth = Math.max(1.6, 0.8 * s);
-      for (let i = ia - (ia % 30); i <= iz; i += 30) {
+      for (let i = ia - (ia % 48); i <= iz; i += 48) {
         [1, -1].forEach((f, seite) => {
-          const j = i + Math.floor(((state.zeit * 9 + seite * 7) % 30));
-          if (j < ia || j + 4 > iz || !im(j)) return;
-          const d = Math.hypot(B.x[j] - cx, B.y[j] - cy);
-          const a = sichtbar(d);
-          if (a <= 0.02) return;
-          g.globalAlpha = a;
-          g.strokeStyle = FARBEN[((i / 30) | 0) % 3];
+          const j = i + Math.floor((state.zeit * 9 + seite * 17) % 48);
+          if (j < ia || j + 4 > iz || an(j) < 0.99) return;
+          g.strokeStyle = FARBEN[((i / 48) | 0) % 3];
           g.beginPath();
           g.moveTo(rx(j, f), ry(j, f));
           g.lineTo(rx(j + 4, f), ry(j + 4, f));
           g.stroke();
         });
       }
-      g.globalAlpha = 1;
     }
   }
 
@@ -1971,20 +1995,16 @@
     if (Math.hypot(B.x[iv] - cx, B.y[iv] - cy) > SICHT * 2.2 && Math.hypot(B.x[ia] - cx, B.y[ia] - cy) > SICHT * 2.2) return;
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     g.lineJoin = "round";
-    g.lineCap = "butt";
-    const STUECK = 10;
-    for (let i = ia; i < iv; i += STUECK) {
-      const j = Math.min(iv, i + STUECK + 1);
-      const f = 1 - (iv - i) / (iv - ia + 1);
-      g.globalAlpha = lerp(0.88, 0.62, f * f);
-      g.strokeStyle = "rgb(234, 226, 246)";
-      g.lineWidth = B.w[i] * 2 * s;
-      g.beginPath();
-      g.moveTo(bildX(B.x[i]), bildY(B.y[i]));
-      for (let q = i + 2; q < j; q += 2) g.lineTo(bildX(B.x[q]), bildY(B.y[q]));
-      g.lineTo(bildX(B.x[j]), bildY(B.y[j]));
-      g.stroke();
-    }
+    g.lineCap = "round";
+    // Ein Pfad, so breit wie die Bahn an der Grenze, vorn rund.
+    g.beginPath();
+    g.moveTo(bildX(B.x[ia]), bildY(B.y[ia]));
+    for (let q = ia + 2; q < iv; q += 2) g.lineTo(bildX(B.x[q]), bildY(B.y[q]));
+    g.lineTo(bildX(B.x[iv]), bildY(B.y[iv]));
+    g.globalAlpha = 0.8;
+    g.strokeStyle = "rgb(234, 226, 246)";
+    g.lineWidth = B.w[iv] * 2 * s;
+    g.stroke();
     g.globalAlpha = 1;
     // Die Grenze: wallende Schwaden.
     const x = B.x[iv];
@@ -2000,7 +2020,7 @@
   }
 
   // Der Rückenwind: goldene Pfeile, die die Bahn entlang ziehen; die Böe:
-  // Windstreifen quer über ihr Stück.
+  // Windstreifen quer über ihr Stück. Beide sieht man, bevor sie wirken.
   function zeichneWinde() {
     const B = state.bahn;
     const s = view.s;
@@ -2012,19 +2032,7 @@
       if (!f.wind || f.i1 * DS < sb - 300 || f.i0 * DS > sb + 760) return;
       const lang = (f.i1 - f.i0) * DS;
       if (f.wind.art === "rueckenwind") {
-        // Ein warmer Schimmer über der ganzen Bahn, dann die Pfeile.
-        for (let i = f.i0; i < f.i1; i += 12) {
-          const a = sichtbar(Math.hypot(B.x[i] - state.cam.x, B.y[i] - state.cam.y));
-          if (a <= 0.02) continue;
-          const j = Math.min(f.i1, i + 13);
-          g.globalAlpha = 0.12 * a * glatt((i - f.i0) / 20) * glatt((f.i1 - i) / 20);
-          g.strokeStyle = "rgb(255, 214, 140)";
-          g.lineWidth = B.w[i] * 1.7 * s;
-          g.beginPath();
-          g.moveTo(bildX(B.x[i]), bildY(B.y[i]));
-          g.lineTo(bildX(B.x[j]), bildY(B.y[j]));
-          g.stroke();
-        }
+        // Goldene Pfeile, die die Bahn entlang ziehen.
         const zahl = Math.floor(lang / 26);
         for (let p = 0; p < zahl; p += 1) {
           const sp = f.i0 * DS + ((p * 26 + (ruhig() ? 0 : state.zeit * RUECKENWIND * 0.8)) % lang);
@@ -2037,15 +2045,15 @@
           const ny = tx;
           const w = B.w[i] * 0.45;
           [-1, 1].forEach((seite) => {
-            const ox = nx * w * 0.55 * seite;
-            const oy = ny * w * 0.55 * seite;
-            g.globalAlpha = 0.75 * a;
-            g.strokeStyle = "rgb(255, 226, 160)";
-            g.lineWidth = Math.max(1.4, 0.7 * s);
+            const ox = nx * w * 0.6 * seite;
+            const oy = ny * w * 0.6 * seite;
+            g.globalAlpha = 0.85 * a;
+            g.strokeStyle = "rgb(255, 222, 150)";
+            g.lineWidth = Math.max(1.8, 0.9 * s);
             g.beginPath();
-            g.moveTo(bildX(B.x[i] + ox - tx * 5 + nx * 4), bildY(B.y[i] + oy - ty * 5 + ny * 4));
+            g.moveTo(bildX(B.x[i] + ox - tx * 6 + nx * 5), bildY(B.y[i] + oy - ty * 6 + ny * 5));
             g.lineTo(bildX(B.x[i] + ox), bildY(B.y[i] + oy));
-            g.lineTo(bildX(B.x[i] + ox - tx * 5 - nx * 4), bildY(B.y[i] + oy - ty * 5 - ny * 4));
+            g.lineTo(bildX(B.x[i] + ox - tx * 6 - nx * 5), bildY(B.y[i] + oy - ty * 6 - ny * 5));
             g.stroke();
           });
         }
