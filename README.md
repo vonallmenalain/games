@@ -5090,6 +5090,65 @@ unten beim Adminbereich), `miniGeister`, `config/miniGames` und
 keinen zusammengesetzten Index und damit keine Datei, die jemand von Hand
 nach Firebase bringen muss.
 
+### Was gelesen wird – und was nicht noch einmal
+
+Firestore rechnet jedes Dokument ab, das es liefert (eine leere Abfrage als
+eines, ein Strom beim Start alle Treffer und danach jedes geänderte), frei
+sind 50 000 am Tag. Im November 2026 lag die arcade bei 65 000 bis 85 000: Die
+Startseite las bei jedem Aufruf die ganze Hall of Fame (gut 500 Dokumente),
+jede Runde las die Liste ihres Spiels zweimal ganz und die Läufe der Gegner
+neu, jede Spielseite fragte nach allen Einträgen unter dem eigenen Namen, die
+Turnierseite las bei jeder Rückkehr das ganze Turnier, und der Adminbereich
+nach jeder Aktion alles. Seither gilt:
+
+| Was | Gelesen wird | Ganz wird gelesen |
+|---|---|---|
+| Hall of Fame (Startseite, `cloud.js` `ergebnisse`) | nur, was seit dem Stand auf dem Gerät geschrieben wurde: eine Abfrage `updatedAt > Stand` über alle Spiele | beim ersten Mal, nach 24 Stunden, nach dem Stempel des Adminbereichs, ein Spiel, das das Gerät noch nicht hat |
+| Liste auf der Spielseite | dasselbe, höchstens 40 Änderungen – sind es mehr, ihr Spiel ganz | ohne Stand auf dem Gerät (eine Spielseite allein legt keinen an) |
+| nach einer Runde | nichts: die eigene Runde trägt die Seite aus der Antwort von `speichere` ein; neu gelesen wird erst, wenn die Liste älter als eine Minute ist | – |
+| Läufe der Gegner (`geister`, `turnierGeist`) | je Kennung einmal, solange in der Liste dieselbe Zahl steht – je Seite, und gefundene Läufe auch über die Seite hinaus (IndexedDB `arcade-laeufe`, höchstens 300) | wenn sich die Zahl in der Liste ändert |
+| eigene Kennung und Stamm-Kennung (`vonKennung`, `unterNamen`) | zwölf Stunden je Kennung und Name nichts | danach, bei neuem Namen oder neuer Kennung, nach dem Stempel |
+| Umzug (`umzug`) | auf jeder Seite (ein Dokument) – nach einem Zusammenführen sofort richtig | – |
+| `config/miniGames` | einmal je Seite | nach dem Schreiben im Adminbereich |
+| öffentliche Turniere (Startseite) | alle fünf Minuten, nur solange die Seite zu sehen ist | – |
+| Turnierseite (`turnierHoeren`) | ein Strom nur auf das, was seit dem Stand auf dem Gerät geschrieben wurde | beim ersten Mal, nach sechs Stunden, wenn das Turnier neuer ist als die gemerkte Liste |
+| Spielseite im Turnier | erst das Turnier, dann nur das Geänderte (`turnierGeaendert`) | ohne ganze Liste auf dem Gerät, wenn das Turnier neuer ist |
+| Adminbereich | nach einer Aktion nur das Geänderte (`eintraegeSeit`), Gelöschtes fällt hier gleich weg; Turniere werden nachgeführt, von den laufenden das Geänderte gelesen, Einträge beendeter Turniere beim Aufklappen | beim ersten Aufbau und mit «Neu laden» |
+
+Die Listen der Hall of Fame liegen in `localStorage` (`mini.wolke.listen`),
+mit dem Stand des Servers, bis zu dem sie stimmen: der jüngsten Uhr
+`updatedAt` darin. Gefragt wird nach `updatedAt > Stand − 2 Minuten` – was
+in den zwei Minuten schon da war, kommt eben noch einmal. Damit jede Änderung
+mitkommt, setzt jeder Schreibweg `updatedAt`: jede Runde (`speichere`), jedes
+Umbenennen (`schreibeNamen`, `admin.js` `benenneUm`), jedes Zusammenführen.
+Ein Dokument ohne `updatedAt` (älter, seither nie geschrieben) kommt beim
+vollen Lesen mit; ändert es sich, bekommt es die Uhr.
+
+Was so nicht ankommt, ist ein Löschen: Ein gelöschtes Dokument ändert sich
+nicht mehr. Deshalb setzt der Adminbereich nach jedem Löschen und
+Zusammenführen einen Stempel in `config/miniGames` (`listenStandMs`,
+`cloud.js` `setzeListenStand`), und die nächste Startseite liest einmal alles.
+Im Turnier hat dieselbe Aufgabe die Uhr des Turniers: `loescheTurnierEintraege`
+setzt sie neu. Und für alles, was trotzdem durchrutscht (ein anderes
+Admin-Gerät, eine Umbenennung von einer Fassung vor November 2026), lesen
+Startseite und Turnierseite nach 24 bzw. sechs Stunden ohnehin ganz.
+
+Was die Seite gelesen hat, zählt `cloud.js` je Funktion mit:
+`MiniCloud.lesevorgaenge()` in der Konsole. `npm run pruefen:lesen` fährt die
+gewöhnlichen Wege gegen den Firestore-Emulator ab und zählt mit – im
+November 2026 (Emulator, 479 Einträge in 55 Spielen):
+
+| Ablauf | vorher | nachher |
+|---|---|---|
+| Startseite, zweiter Aufruf | 484 | 4 |
+| Startseite nach einer fremden Runde | 484 | 5 |
+| eine Runde (Ende und Neustart) | 64 + 7 | 1 + 1 |
+| zurück zur Startseite | 485 | 5 |
+| ein weiteres Spiel laden | 153 | 4 |
+| Turnier: eine Runde | 13 | 12 |
+| zurück zur Turnierseite | 92 | 4 |
+| Admin: eine Aktion | 594 | 12 |
+
 ## Der Adminbereich
 
 `/admin`. Drei Wege hinein – Google, E-Mail-Link, Passwort (eine Adresse
@@ -5527,6 +5586,13 @@ die Seite begann. Schreiben darf die Zettel nur der Admin (`firestore.rules`).
                               Runde mit drei Robotern: Wer draussen ist,
                               schaut zu, und am Schluss muss im Bild genau
                               stehen, was der andere hatte. Wie pruefen:live.
+    npm run pruefen:lesen     wie viel die arcade aus Firestore liest: Startseite,
+                              Spielseite, Runden, Turnier und Adminbereich mit
+                              echtem cloud.js gegen den Firestore-Emulator –
+                              und dass sie nur liest, was sich geändert hat,
+                              und trotzdem alles zeigt (eine fremde Runde, ein
+                              Löschen im Adminbereich). Braucht Java und
+                              Playwright, kein Netz.
     npm run test:rules        die Firestore-Regeln im Emulator durchspielen –
                               und cloud.js dagegen laufen lassen, so wie es
                               im Browser läuft. Dazu die Regeln der Realtime

@@ -29,6 +29,11 @@
  *                                 Einträge haben das Feld nicht)
  *     erstesMs / updatedAtMs      Uhrzeiten, für die Reihenfolge bei
  *                                 Gleichstand
+ *     updatedAt                   die Uhr des Servers beim letzten
+ *                                 Schreiben – jede Runde, jedes Umbenennen,
+ *                                 jedes Zusammenführen setzt sie. Danach
+ *                                 fragen die Listen auf den Geräten, was
+ *                                 sich geändert hat (ergebnisse).
  *
  * Das sind Summen: Wann gespielt wurde, steht dort nicht. Deshalb hält jede
  * Runde, die dort zählt, zusätzlich ein eigenes Dokument fest – in derselben
@@ -63,6 +68,11 @@
  *                                     Startseite stehen – ohne Bestenliste
  *                                     (mini-games.js, ZWEI_SPIELER). Fehlt,
  *                                     wo nie eines angehakt wurde: keines.
+ *     listenStandMs 1764…             wann der Adminbereich zuletzt Einträge
+ *                                     gelöscht oder zusammengeführt hat
+ *                                     (setzeListenStand): Danach liest jede
+ *                                     Startseite einmal alles (ergebnisse).
+ *                                     Fehlt, wo nie gelöscht wurde.
  *
  * Und die Aufzeichnung des besten Laufs, für die, die gegen ihn spielen
  * (geist.js):
