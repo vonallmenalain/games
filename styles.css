@@ -1931,10 +1931,10 @@ h2 {
 
 /* --- Wasserläufer: der Teich am Nachmittag ---------------------------------
    In der Farbe des Bereichs Geschwindigkeit. Die ganze Spielfläche ist die
-   Leinwand (wasserlaeufer.js); getippt wird überall, es zählt nur wann. Der
-   Grund ist das Wasser des Teichs, bis das erste Bild steht. Beim ersten
-   Start sinkt der Blick erst auf den Teich (data-intro) – bis dahin steht
-   kein Hinweis im Bild. */
+   Leinwand (wasserlaeufer.js); gezogen wird überall, wie an einer
+   Schleuder. Der Grund ist das Wasser des Teichs, bis das erste Bild steht.
+   Beim ersten Start sinkt der Blick erst auf den Teich (data-intro) – bis
+   dahin steht kein Hinweis im Bild. */
 .wa-stage {
   --cm-accent: #F5A623;
   --cm-accent-dark: #b9741a;
@@ -1954,17 +1954,19 @@ h2 {
   display: block;
   width: 100%;
   height: 100%;
-  cursor: pointer;
+  cursor: grab;
 }
+.wa-canvas:active { cursor: grabbing; }
 
-/* Der Hinweis vor dem ersten Tipp: zwei Ringe, die aufgehen – unter dem
-   Wasserläufer, wo der Daumen hingehört (wasserlaeufer.js setzt den Ort). */
+/* Der Hinweis vor dem ersten Schlag: ein Finger setzt auf, zieht zurück
+   und lässt los – dann fliegt ein Pfeil bachauf. Unter dem Wasserläufer,
+   wo der Daumen hingehört (wasserlaeufer.js setzt den Ort). */
 .wa-tipp {
   position: absolute;
   top: 78%;
   left: 50%;
-  width: clamp(38px, 11%, 58px);
-  transform: translate(-50%, -50%);
+  width: clamp(48px, 15%, 76px);
+  transform: translate(-50%, -30%);
   opacity: 0;
   transition: opacity 0.25s ease;
   pointer-events: none;
@@ -1972,8 +1974,27 @@ h2 {
 }
 .wa-stage[data-phase="intro"]:not([data-intro="an"]) .wa-tipp { opacity: 0.95; }
 .wa-tipp svg { width: 100%; height: auto; display: block; overflow: visible; }
-.wa-tipp-ring { transform-origin: 32px 32px; animation: tb-tipp 1.8s ease-out infinite; }
-.wa-tipp-ring.is-spaet { animation-delay: 0.9s; }
+.wa-zug-punkt { animation: wa-zug 2.4s ease-in-out infinite; }
+.wa-zug-band { transform-origin: 32px 34px; animation: wa-band 2.4s ease-in-out infinite; }
+.wa-zug-pfeil { animation: wa-pfeil 2.4s ease-out infinite; }
+@keyframes wa-zug {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { transform: translateY(0); opacity: 1; }
+  58% { transform: translateY(40px); opacity: 1; }
+  64% { transform: translateY(40px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes wa-band {
+  0%, 12% { transform: scaleY(0); opacity: 0; }
+  20% { opacity: 0.7; }
+  58% { transform: scaleY(1); opacity: 0.7; }
+  62%, 100% { transform: scaleY(0); opacity: 0; }
+}
+@keyframes wa-pfeil {
+  0%, 58% { transform: translateY(8px); opacity: 0; }
+  66% { opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
 
 .wa-rekord {
   padding: 4px 16px;
@@ -1984,7 +2005,8 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wa-tipp-ring { animation: none; opacity: 0.35; }
+  .wa-zug-punkt, .wa-zug-band, .wa-zug-pfeil { animation: none; }
+  .wa-zug-punkt { transform: translateY(40px); }
 }
 
 /* --- Polwechsel: der Magnetschacht ------------------------------------------

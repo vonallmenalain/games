@@ -1,7 +1,7 @@
-// Wasserläufer: Er dreht sich auf den Seerosenblättern, und der Autopilot
-// des Spiels rudert genau dann, wenn der Schlag auf dem nächsten Blatt
-// landet. Das Bild entsteht, wenn er gerade gleitet – mit Ringen hinter
-// sich und dem nächsten Blatt vor sich.
+// Wasserläufer: Er steht auf einem Seerosenblatt, und der Autopilot des
+// Spiels zielt wie mit einer Schleuder – der Pfeil zeigt Richtung und
+// Stärke, der Ring auf dem Blatt, wie lange es noch trägt. Das Bild
+// entsteht beim Zielen, mit gut gespannten Beinen.
 export default {
   bereit: () => Boolean(window.LernappWasserlaeufer?.state?.blaetter?.length > 3 && window.LernappWasserlaeufer.view.cssW > 0),
   spiele: () => {
@@ -11,15 +11,16 @@ export default {
       requestAnimationFrame(tick);
       if (st.phase === "bereit") { K.losGehts(); return; }
       if (st.phase !== "spiel" || st.schritt === "tot") return;
-      if (K.pilot()) K.tippen(performance.now());
+      const z = K.pilot({ reaktion: 0.6, zeigen: true });
+      if (z) K.schleudern(z.w, z.st, performance.now());
     };
     requestAnimationFrame(tick);
   },
   vorlauf: 2500,
   dauer: 10000,
   bild: 5500,
-  // Er gleitet über offenes Wasser, eben erst abgestossen. Findet sich das
-  // nicht bald, genügt weniger.
+  // Er zielt, ein paar Blätter weit oben, kräftig gespannt. Findet sich
+  // das nicht bald, genügt weniger.
   bildWenn: () => {
     const K = window.LernappWasserlaeufer;
     const st = K.state;
@@ -27,7 +28,7 @@ export default {
     window.__waSeit = window.__waSeit || performance.now();
     const gewartet = (performance.now() - window.__waSeit) / 1000;
     if (gewartet > 8) return true;
-    const L = st.l;
-    return !L.sitz && st.t - st.letzterSchlag > 0.12 && st.t - st.letzterSchlag < 0.3;
+    const z = st.zug;
+    return Boolean(st.l.sitz && z?.aktiv && z.st > (gewartet > 5 ? 0.3 : 0.55) && st.punkte >= (gewartet > 4 ? 1 : 3));
   },
 };

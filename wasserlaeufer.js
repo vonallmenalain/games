@@ -1,34 +1,40 @@
 /*
  * wasserlaeufer.js – Wasserläufer.
  * ---------------------------------------------------------------------------
- * Ein Teich am Nachmittag, von oben gesehen. Auf einem Seerosenblatt sitzt
- * ein Wasserläufer und dreht sich unaufhörlich um sich selbst, wie eine
- * Kompassnadel. Eine Regel: Ein Tipp ist ein Ruderschlag – in die Richtung,
- * in die er gerade schaut. Auf dem Wasser gleitet er weit, auf einem Blatt
- * hält er rasch an, denn das Blatt greift. Man steuert nur über den
- * Zeitpunkt; die Richtung macht die Drehung.
+ * Ein Teich am Nachmittag, von oben gesehen. Auf einem Seerosenblatt steht
+ * ein Wasserläufer. Gesteuert wird wie mit einer Schleuder, auf jedem Gerät
+ * gleich: Finger (oder Maus) irgendwo aufsetzen, zurückziehen, loslassen –
+ * das ist ein Ruderschlag, entgegen der Zugrichtung und so kräftig, wie weit
+ * gezogen wurde. Beim Ziehen zeigt ein Pfeil Richtung und Stärke, aber nicht,
+ * wo er landet; wer in den kleinen Kreis zurückzieht, bricht ab. Er dreht
+ * sich nur zum Ziel, und seine Beine spannen sich. Auf dem Wasser gleitet er
+ * weit, auf einem Blatt bremst er stärker – wer zu kräftig schleudert,
+ * rutscht drüber hinaus. Mit der Tastatur: Pfeile links und rechts zielen,
+ * die Leertaste lädt (halten), loslassen schleudert.
  *
- * Ziel: von Blatt zu Blatt den Bach hinauf. Gezählt werden die Blätter.
+ * Ziel: von Blatt zu Blatt den Bach hinauf. Vorne liegen in jeder Reihe
+ * zwei oder drei Blätter: grosse sind leicht zu treffen und sinken schnell,
+ * kleine sind schwer zu treffen und halten länger, manche pendeln in der
+ * Strömung. Gezählt wird die höchste erreichte Reihe.
  *
- * Auf dem Blatt ist er sicher – aber nicht lange: Ein betretenes Blatt
- * schaukelt, läuft voll Wasser und geht unter, und wer dann noch darauf
- * sitzt, den holt der Fisch, der darunter wartet. Auf offenem Wasser ist er
- * in Gefahr: Wer zu lange dort bleibt, unter dem steigt ein Fisch auf –
- * zuerst ein blasser Schatten, der dunkler wird und ihm folgt, dann schnappt
- * er zu. Entkommen kann ihm nur, wer vorher ein Blatt erreicht – dann
- * schnappt er ins Leere. Rudern kostet Kraft: zwei Schläge kurz nacheinander
- * gehen, dann braucht er einen Moment.
+ * Auf dem Blatt ist er sicher – aber nur kurz: Sobald er darauf sitzt,
+ * läuft es voll Wasser (ein Ring auf dem Blatt zeigt, wie lange noch) und
+ * geht unter, anfangs nach gut 2 s, später nach weniger als einer. Auf
+ * offenem Wasser ist er in Gefahr: Fast sofort steigt unter ihm ein Fisch
+ * auf – zuerst ein blasser Schatten, der dunkler wird und ihm folgt, dann
+ * schnappt er zu. Entkommen kann ihm nur, wer vorher ein Blatt erreicht.
+ * Ein Schlag im Gleiten geht auch, aber Rudern kostet Kraft: zwei Schläge
+ * kurz nacheinander, dann braucht er einen Moment.
  *
- * Jedes Blatt zeigt mit einem Pfeil, wie herum er sich darauf dreht. Später
- * drehen sie schneller, die Blätter liegen weiter auseinander und sind
- * kleiner, sie halten kürzer, und die Fische kommen früher.
+ * Später liegen die Reihen weiter auseinander, die Blätter sind kleiner,
+ * sie halten kürzer, und die Fische kommen schneller.
  *
- * Jeder achte Abschnitt ist besonders, im festen Wechsel und vorher
- * angesagt: eine Strömung (ein Seitenbach reisst quer über den Weg, und
- * hinüber geht es nur auf treibendem Laub – wer zu weit mitgetragen wird,
- * ist fort) oder eine Hechtgrube (tiefes, dunkles Wasser, ein grosser Hecht
- * zieht seine Kreise, und das nächste Blatt liegt so weit, dass ein Schlag
- * nicht reicht).
+ * Jede achte Reihe ist besonders, im festen Wechsel und vorher angesagt:
+ * eine Strömung (ein Seitenbach reisst quer über den Weg, und hinüber geht
+ * es auf treibendem Laub – wer zu weit mitgetragen wird, ist fort) oder
+ * eine Hechtgrube (tiefes, dunkles Wasser, ein grosser Hecht zieht seine
+ * Kreise, und der Teppich drüben liegt so weit, dass es zwei Schläge
+ * braucht, der zweite im Gleiten).
  *
  * Die Welt wechselt bachaufwärts: der Seerosenteich am Nachmittag, der
  * Bachlauf mit Steinen, der Mühlenteich, das Moor in der Dämmerung und die
@@ -36,14 +42,16 @@
  *
  * Gebaut wird aus dem Zufall (zufall.js): ohne Turnier jedes Mal eine andere
  * Welt, im Turnier für alle im selben Versuch dieselbe. Sie ist immer zu
- * schaffen, weil zuerst der Weg entsteht – Blatt um Blatt, und jeder Sprung
- * wird nachgerechnet: Aus der Mitte des Blattes muss ein Schlag in einem
- * Fenster von Richtungen auf dem nächsten Blatt landen, das breit genug ist
- * (blattFenster). Ein Autopilot (pilot) beweist es in der Prüfung.
+ * schaffen, weil zuerst der Weg entsteht – Reihe um Reihe, und jeder Sprung
+ * wird nachgerechnet: Von jedem Blatt der vorigen Reihe aus muss ein
+ * Schlag auf einem Blatt der neuen landen, mit Spielraum in Richtung und
+ * Stärke (fensterVon). Ein Autopilot (pilot) mit Streuung beweist es in der
+ * Prüfung.
  *
- * Die Runde hängt nur an der Spielzeit, der Saat und den Tipps (mit ihrer
- * Zeit, tippen, voraus). Die Gegner (geist.js) laufen als Wasserläufer aus
- * Licht mit, und die besten Läufe lassen sich anschauen (?zuschauen=).
+ * Die Runde hängt nur an der Spielzeit, der Saat und den Schlägen (mit
+ * ihrer Zeit, Richtung und Stärke: schleudern, voraus). Die Gegner
+ * (geist.js) laufen als Wasserläufer aus Licht mit, und die besten Läufe
+ * lassen sich anschauen (?zuschauen=) – samt Zielen und Spannen.
  *
  * Einheiten: Zentimeter. x quer (rechts positiv), y bachaufwärts (oben
  * positiv). Eine Richtung w zeigt nach (cos w, sin w).
@@ -79,37 +87,55 @@
   // Die Regeln
   // ---------------------------------------------------------------------------
   const TAU = Math.PI * 2;
-  // Der Ruderschlag: so viele Zentimeter je Sekunde, in die Blickrichtung.
-  // Mehrere Schläge zählen zusammen; zwei dürfen höchstens SCHLAG_PAUSE
-  // dicht aufeinander folgen.
-  const J = 74;
-  const SCHLAG_PAUSE = 0.07;
-  // Die Kraft: Ein Schlag braucht eine ganze; zwei hat er höchstens (der
-  // Doppelschlag), und sie kommt mit KRAFT_ZURUECK je Sekunde wieder. Wer
-  // dauernd tippt, rudert nicht schneller.
+  // Die Schleuder: Finger (oder Maus) aufsetzen, zurückziehen, loslassen.
+  // Der Schlag geht entgegen der Zugrichtung, so stark, wie weit gezogen
+  // wurde: Unter TOT_ANTEIL der kürzeren Bildseite (mindestens TOT_MIN
+  // Bildpunkte) ist nichts – wer dorthin zurückzieht, bricht ab –, bei
+  // ZUG_ANTEIL (zwischen ZUG_MIN und ZUG_MAX Bildpunkten) ist die volle
+  // Stärke erreicht. Die Stärke 0 bis 1 gibt J_MIN bis J_MAX Zentimeter je
+  // Sekunde. Mehrere Schläge zählen zusammen.
+  const TOT_ANTEIL = 0.04;
+  const TOT_MIN = 12;
+  const ZUG_ANTEIL = 0.3;
+  const ZUG_MIN = 90;
+  const ZUG_MAX = 220;
+  const J_MIN = 14;
+  const J_MAX = 150;
+  const SCHLAG_PAUSE = 0.12;
+  // Die Kraft: Ein Schlag braucht eine ganze; zwei hat er höchstens, und sie
+  // kommt mit KRAFT_ZURUECK je Sekunde wieder.
   const KRAFT_MAX = 2;
-  const KRAFT_ZURUECK = 1.6;
+  const KRAFT_ZURUECK = 1.2;
   // Auf dem Wasser: Das Gleiten klingt in TAU_W Sekunden auf gut ein Drittel
-  // ab, dazu bremst es fest um MU_W. Ein Schlag aus dem Stand trägt so gut
-  // 38 cm weit.
-  const TAU_W = 0.55;
-  const MU_W = 7;
-  // Auf dem Blatt: Es greift – in TAU_B und mit MU_B ist er fast sofort
-  // still. Gelandet ist er, wenn er langsamer ist als LANDEN_V; das Blatt
-  // greift, wenn seine Mitte RAND_B innerhalb des Randes ist.
-  const TAU_B = 0.05;
-  const MU_B = 320;
-  const LANDEN_V = 5;
-  const RAND_B = 1.3;
+  // ab, dazu bremst es fest um MU_W. Der stärkste Schlag trägt knapp 48 cm,
+  // der schwächste gut 3 cm.
+  const TAU_W = 0.35;
+  const MU_W = 10;
+  // Auf dem Blatt: Es bremst in TAU_B und mit MU_B – kaum mehr als das
+  // Wasser. Wer zu schnell ankommt, rutscht hinüber und auf der anderen
+  // Seite wieder ins Wasser; die Stärke muss also passen. Laub ist rau und
+  // hält fest (TAU_L, MU_L) – es treibt ja quer. Gelandet ist er, wenn er
+  // langsamer ist als LANDEN_V; das Blatt trägt ihn, wenn seine Mitte RAND_B
+  // innerhalb des Randes ist (bei kleinen Blättern RAND_ANTEIL des
+  // Halbmessers) – wer weiter draussen zur Ruhe kommt, rutscht ab.
+  const TAU_B = 0.3;
+  const MU_B = 14;
+  const TAU_L = 0.12;
+  const MU_L = 90;
+  const LANDEN_V = 9;
+  const RAND_B = 2.2;
+  const RAND_ANTEIL = 0.35;
+  const randFuer = (r) => Math.min(RAND_B, RAND_ANTEIL * r);
   // Gelandet gleitet er in die Mitte des Blattes (in gut SITZ_ZEIT).
-  const SITZ_ZEIT = 0.11;
+  const SITZ_ZEIT = 0.16;
   // Der Fisch: So nah muss er ihm beim Schnappen sein.
   const R_SCHNAPP = 9;
-  const FISCH_PAUSE = 0.55;        // so lange taucht er nach einem Fehlgriff ab
-  // Das Blatt geht unter: so lange vorher sieht man es sinken.
-  const SINKEN = 1.1;
+  const FISCH_PAUSE = 0.45;        // so lange taucht er nach einem Fehlgriff ab
   // Der Hecht: So nah an seinem Kopf ist man gefressen.
   const R_HECHT = 5;
+  // Über der Hechtgrube ist der kleine Fisch vorsichtiger (der Hecht ist
+  // da): Er wartet so viel mal länger.
+  const HECHT_GEDULD = 3;
   // So weit sieht man über ihm voraus und unter ihm zurück – auf jedem
   // Gerät gleich weit voraus. Hochkant gibt die Breite FELD_SICHT den
   // Massstab vor, quer die Höhe.
@@ -119,12 +145,14 @@
   const TAKT = 1 / 240;
   const STURZ_MS = 2300;
   const INTRO_WEG = 150;           // so weit oben beginnt der Blick beim ersten Start (cm)
-  const FASSUNG = "t1";
-  // Die Schwere nach dem Blatt n: Die ersten SCHWER_AB Sprünge sind zum
+  // Die Fassung der Aufzeichnung (mini-games.js, ANSEHBAR) – dieselbe steht
+  // beim Aufzeichnen und Zuschauen (LernappGeist.fuer, .zuschauer).
+  const FASSUNG = "t2";
+  // Die Schwere nach der Reihe n: Die ersten SCHWER_AB Reihen sind zum
   // Hineinfinden, danach wird es zügig schwerer – nach gut SCHWER_ZAHL
-  // Blättern sind sechs Zehntel der Härte da.
+  // Reihen sind sechs Zehntel der Härte da.
   const SCHWER_AB = 3;
-  const SCHWER_ZAHL = 13;
+  const SCHWER_ZAHL = 8;
 
   // Die Welten, bachaufwärts. Jede beginnt mit einem besonderen Abschnitt
   // (dem achten, sechzehnten …) und reicht acht Blätter weit; die Quelle in
@@ -176,32 +204,40 @@
 
   const schwere = (n) => 1 - Math.exp(-Math.max(0, n - SCHWER_AB) / SCHWER_ZAHL);
   // Und ab SPAET_AB eine zweite Rampe, damit auch Geübte bald an ihre
-  // Grenze kommen – nach gut 30 Blättern mehr ganz da.
+  // Grenze kommen – nach gut 30 Reihen mehr ganz da.
   const SPAET_AB = 18;
   const SPAET_ZAHL = 30;
   const spaet = (n) => clamp((n - SPAET_AB) / SPAET_ZAHL, 0, 1);
-  // Wie schnell er sich auf Blatt n dreht (Umdrehungen je Sekunde): anfangs
-  // gut eine halbe, bald anderthalb, ganz spät gut 1,7.
-  const drehBei = (n) => lerp(0.62, 1.52, schwere(n)) + 0.24 * spaet(n);
-  // Wie weit Blatt n vom vorigen liegt (Mitte zu Mitte) und wie gross es ist.
-  const abstandBei = (n) => lerp(22, 36, schwere(n));
-  const radiusBei = (n) => lerp(10, 5.5, schwere(n)) - 0.7 * spaet(n);
-  // Wie lange ein Blatt hält, wenn er darauf sitzt: immer mindestens eine
-  // Umdrehung und etwas mehr, anfangs gut dreieinhalb Sekunden.
-  const haltBei = (n, f) => Math.max(1 / f + 0.45, lerp(3.4, 1.15, schwere(n)));
-  // Der Fisch: so lange Geduld (auf offenem Wasser, bis er aufsteigt), so
-  // lange steigt er (die Warnung), so schnell folgt er.
-  const geduldBei = (n) => lerp(1.4, 0.7, schwere(n)) - 0.12 * spaet(n);
-  const warnungBei = (n) => lerp(0.85, 0.5, schwere(n));
+  // Wie weit Reihe n über der vorigen liegt.
+  const reihenAbstandBei = (n) => lerp(20, 30, schwere(n)) + 2 * spaet(n);
+  // Die drei Grössen der Blätter in Reihe n (Halbmesser).
+  const radienBei = (n) => {
+    const k = schwere(n);
+    const s = spaet(n);
+    return { gross: lerp(9.5, 5.6, k) - 0.6 * s, mittel: lerp(7.3, 4.3, k) - 0.4 * s, klein: lerp(5.4, 3.3, k) - 0.3 * s };
+  };
+  // Wie lange ein Blatt hält, wenn er darauf sitzt: ein mittleres anfangs
+  // gut 2 s, später unter 1 s; ein grosses kürzer, ein kleines länger.
+  const haltBei = (n, r) => {
+    const mittel = radienBei(n).mittel;
+    return (lerp(2.1, 0.85, schwere(n)) - 0.2 * spaet(n)) * clamp(mittel / r, 0.55, 1.7);
+  };
+  // Der Fisch: Sein Schatten kommt fast sofort (geduld), dann bleibt ihm die
+  // Warnung, bis er schnappt – mit der Strecke immer kürzer.
+  const geduldBei = (n) => lerp(0.3, 0.2, schwere(n));
+  const warnungBei = (n) => lerp(0.85, 0.64, schwere(n)) - 0.08 * spaet(n);
   const fischVBei = (n) => lerp(70, 95, schwere(n));
-  // Das Fenster: so viele Millisekunden muss die Drehung mindestens auf das
-  // nächste Blatt zeigen (aus seiner Mitte, ein Schlag).
-  const fensterMinBei = (n) => lerp(140, 34, schwere(n)) - 8 * spaet(n);
+  // Wie viel Spielraum der Weg mindestens lässt (halbe Breite des Fensters):
+  // in der Richtung (rad) und in der Stärke (Anteil von 0 bis 1).
+  const spielraumWBei = (n) => ((lerp(7.5, 3.2, schwere(n)) - 0.4 * spaet(n)) * Math.PI) / 180;
+  const spielraumSBei = (n) => lerp(0.13, 0.05, schwere(n)) - 0.008 * spaet(n);
+  // Wie stark ein Schlag der Stärke st ist (0 bis 1).
+  const jVon = (st) => lerp(J_MIN, J_MAX, clamp(st, 0, 1));
 
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  // phase:   "bereit" (noch nichts getippt), "spiel", "zuschauen", "ende"
+  // phase:   "bereit" (noch nicht geschleudert), "spiel", "zuschauen", "ende"
   // schritt: "start" (er sitzt auf dem ersten Blatt), "lauf", "tot"
   const state = {
     phase: "bereit",
@@ -209,19 +245,22 @@
     punkte: 0,
     t: 0,                    // die Spielzeit
     zeit: 0,                 // die Uhr des Bildes
-    // Der Wasserläufer: Ort, Tempo, Blickrichtung w, Drehung om (rad/s),
-    // worauf er sitzt (sitz), von welchem Blatt er sich abgestossen hat
-    // (von – es greift erst wieder, wenn er es verlassen hat), wie lange er
-    // schon auf offenem Wasser ist (nass) und der Versatz zur Mitte des
-    // Blattes (ox, oy).
+    // Der Wasserläufer: Ort, Tempo, Blickrichtung w, worauf er sitzt
+    // (sitz), von welchem Blatt er sich abgestossen hat (von – es greift
+    // erst wieder, wenn er es verlassen hat), wie lange er schon auf offenem
+    // Wasser ist (nass) und der Versatz zur Mitte des Blattes (ox, oy).
     l: null,
     schlaege: 0,
     letzterSchlag: -9,
     kraft: KRAFT_MAX,
-    blaetter: [],            // die Kette: Blatt um Blatt, nach y geordnet
+    eingaben: [],            // die Schläge: { t (ms), w, st }
+    zug: null,               // das Zielen: { w, st, aktiv, quelle, … }
+    stossSt: 0,              // wie stark der letzte Schlag war (fürs Bild)
+    reihen: [],              // Reihe um Reihe: { nr, y, blaetter, besonders }
+    blaetter: [],            // alle Blätter, nach y geordnet
+    blattZahl: 0,
     stroemungen: [],         // die Strömungen mit ihrem Laub
     hechte: [],
-    abschnitte: [],
     zonen: [],               // wo welche Welt beginnt: [{ w, y }]
     bach: { p1: 0, p2: 0, p3: 0 },
     jagd: { phase: "ruhe", t0: 0, x: 0, y: 0, n: 0, tiefe: 0 },
@@ -256,6 +295,12 @@
   let kulisseTeich = null;
   let kulisseBach = null;
   let kulisseAbend = null;
+  // Der Finger (oder die Maus) beim Ziehen, und die Tastatur.
+  let zeiger = null;
+  const tasten = { links: false, rechts: false, laden: null, w: Math.PI / 2, zuletzt: -9 };
+  const TASTEN_DREH = 1.5;         // so schnell dreht der Pfeil, solange ein Pfeil gehalten wird (rad/s)
+  const TASTEN_SCHRITT = 0.05;     // so weit bei einem kurzen Druck (rad, knapp 3°)
+  const LADE_ZEIT = 0.9;           // so lange hält man die Leertaste bis zur vollen Stärke (s)
 
   // s: Bildpunkte je Zentimeter; ankerY: wo im Bild der Wasserläufer steht.
   // S: Bildpunkte je Zentimeter; mxp, myp: wo im Bild (in Bildpunkten) die
@@ -438,26 +483,38 @@
   // Die Blätter
   // ---------------------------------------------------------------------------
   /*
-   * Ein Blatt der Kette: { nr, x, y, r, kreise, dreh, f, halt, … }. kreise
-   * sind seine Teile (ein Seerosenteppich hat mehrere), relativ zu x, y.
-   * Betreten wird es zur Zeit betreten; nach halt geht es unter.
+   * Ein Blatt einer Reihe: { nr (die Reihe), id, x, y, r, kreise, halt,
+   * groesse, treib, … }. kreise sind seine Teile (ein Seerosenteppich hat
+   * mehrere), relativ zu x, y. Ein treibendes Blatt pendelt quer in der
+   * Strömung (treib: um a, mit om, ab ph). Betreten wird es zur Zeit
+   * betreten; nach halt geht es unter.
    *
-   * Das Laub einer Strömung ist kein Blatt der Kette: Blatt k eines Bandes s
-   * ist zur Zeit t bei laubX(s, k, t). Es kommt aus dem Seitenbach (xa) und
+   * Das Laub einer Strömung ist kein Blatt einer Reihe: Blatt k eines Bandes
+   * s ist zur Zeit t bei laubOrt(s, k, t). Es kommt aus dem Seitenbach (xa) und
    * treibt bis zum Abfluss (xb), dann ist es fort – und wer darauf sitzt,
    * mit ihm.
    */
-  function drin(p, x, y, rand = RAND_B, t = state.t) {
+  // So weit reicht ein Blatt höchstens über seine Mitte hinaus (bachauf
+  // und bachab, in cm) – zum Suchen in der Liste, die nach y geordnet ist.
+  const AUS_MAX = 14;
+
+  // Wie weit ein treibendes Blatt zur Zeit t von seiner Mitte weg ist.
+  const treibX = (p, t) => (p.treib ? p.treib.a * Math.sin(p.treib.om * t + p.treib.ph) : 0);
+
+  // rand: wie weit innerhalb des Randes (null: so weit, dass er darauf
+  // stehen kann, randFuer).
+  function drin(p, x, y, rand = null, t = state.t) {
     if (p.laub) {
       const q = laubOrt(p.s, p.k, t);
       const dx = x - q.x;
       const dy = y - q.y;
-      return dx * dx + dy * dy < (p.s.r - rand) ** 2;
+      return dx * dx + dy * dy < (p.s.r - (rand ?? randFuer(p.s.r))) ** 2;
     }
+    const px = p.x + treibX(p, t);
     for (const c of p.kreise) {
-      const dx = x - p.x - c.x;
+      const dx = x - px - c.x;
       const dy = y - p.y - c.y;
-      const r = c.r - rand;
+      const r = c.r - (rand ?? randFuer(c.r));
       if (r > 0 && dx * dx + dy * dy < r * r) return true;
     }
     return false;
@@ -476,14 +533,14 @@
     return { x: best.x, y: best.y };
   }
 
-  // Das erste Blatt der Kette, dessen obere Kante über y0 liegt.
+  // Das erste Blatt der Liste, das über y0 hinaufreichen kann.
   function blattAb(y0) {
     const liste = state.blaetter;
     let lo = 0;
     let hi = liste.length;
     while (lo < hi) {
       const m = (lo + hi) >> 1;
-      if (liste[m].y + liste[m].ausdehnung < y0) lo = m + 1; else hi = m;
+      if (liste[m].y + AUS_MAX < y0) lo = m + 1; else hi = m;
     }
     return lo;
   }
@@ -493,7 +550,7 @@
     const key = `${s.nr}:${k}`;
     let p = laubCache.get(key);
     if (!p) {
-      p = { laub: true, s, k, nr: -1, dreh: s.dreh, f: s.f, saat: hash01(s.nr * 31.7 + k * 7.3) };
+      p = { laub: true, s, k, nr: -1, saat: hash01(s.nr * 31.7 + k * 7.3) };
       laubCache.set(key, p);
       if (laubCache.size > 400) laubCache.delete(laubCache.keys().next().value);
     }
@@ -523,13 +580,13 @@
 
   // Das Blatt (oder Laub), auf dem (x, y) zur Zeit t liegt – ausser von
   // (dem Blatt, von dem er sich gerade abstösst) und Untergegangenem.
-  function blattBei(x, y, t, von = null) {
+  function blattBei(x, y, t, von = null, rand = null) {
     const liste = state.blaetter;
     for (let i = blattAb(y - 1); i < liste.length; i += 1) {
       const p = liste[i];
-      if (p.y - p.ausdehnung > y + 1) break;
+      if (p.y - AUS_MAX > y + 1) break;
       if (p === von || versunken(p, t)) continue;
-      if (drin(p, x, y, RAND_B, t)) return p;
+      if (drin(p, x, y, rand, t)) return p;
     }
     for (const s of state.stroemungen) {
       if (Math.abs(y - s.y) > s.r + 3) continue;
@@ -538,7 +595,7 @@
         if (p === von) continue;
         const q = laubOrt(s, k, t);
         if (q.u < 0 || q.u > 1) continue;
-        if ((x - q.x) ** 2 + (y - q.y) ** 2 < (s.r - RAND_B) ** 2) return p;
+        if ((x - q.x) ** 2 + (y - q.y) ** 2 < (s.r - (rand ?? randFuer(s.r))) ** 2) return p;
       }
     }
     return null;
@@ -546,23 +603,27 @@
 
   const versunken = (p, t) => !p.laub && p.betreten !== null && t >= p.betreten + p.halt;
 
-  // Wie sehr ein Blatt schon sinkt (0 bis 1, in der letzten SINKEN Sekunden).
+  // Wie sehr ein Blatt schon sinkt (0 bis 1): in seiner letzten Zeit, bis
+  // höchstens 0,7 s vor dem Untergehen.
+  const sinkDauer = (p) => Math.min(0.7, 0.45 * p.halt);
   function sinktBei(p, t) {
     if (p.laub || p.betreten === null) return 0;
-    return clamp((t - (p.betreten + p.halt - SINKEN)) / SINKEN, 0, 1);
+    const d = sinkDauer(p);
+    return clamp((t - (p.betreten + p.halt - d)) / d, 0, 1);
   }
+  // Wie viel von seiner Zeit einem betretenen Blatt noch bleibt (1 bis 0).
+  const restBei = (p, t) => (p.laub || p.betreten === null ? 1 : clamp(1 - (t - p.betreten) / p.halt, 0, 1));
 
   // ---------------------------------------------------------------------------
   // Der Wasserläufer: Schlag und Schritt
   // ---------------------------------------------------------------------------
   /*
    * Ein Schritt der Physik, für das Spiel und für jede Vorausrechnung
-   * (Autopilot, Fenster der Kette) derselbe. L ist der Wasserläufer, t die
+   * (Autopilot, Fenster beim Bau der Reihen) derselbe. L ist der Wasserläufer, t die
    * Zeit zu Beginn des Schritts, h seine Länge. Was geschieht, meldet er an
    * melde(art, was) – die Vorausrechnung bricht dort ab.
    */
   function schritt(L, t, h, melde) {
-    L.w += L.om * h;
     const t1 = t + h;
     if (L.sitz) {
       const p = L.sitz;
@@ -586,11 +647,11 @@
       const ort = blattOrt(p, t);
       let rx = L.vx - ort.vx;
       let ry = L.vy - ort.vy;
-      const k = Math.exp(-h / TAU_B);
+      const k = Math.exp(-h / (p.laub ? TAU_L : TAU_B));
       rx *= k;
       ry *= k;
       const v = Math.hypot(rx, ry);
-      const weniger = v > 1e-9 ? Math.max(0, v - MU_B * h) / v : 0;
+      const weniger = v > 1e-9 ? Math.max(0, v - (p.laub ? MU_L : MU_B) * h) / v : 0;
       rx *= weniger;
       ry *= weniger;
       L.vx = ort.vx + rx;
@@ -600,13 +661,14 @@
       if (Math.hypot(rx, ry) < LANDEN_V) {
         L.sitz = p;
         L.von = null;
-        L.om = p.dreh * TAU * p.f;
         const jetzt = blattOrt(p, t1);
         L.ox = L.x - jetzt.x;
         L.oy = L.y - jetzt.y;
         const m = sitzMitte(p, L.x, L.y);
         L.mx = m.x;
         L.my = m.y;
+        // Wie lange er zuletzt auf offenem Wasser war (für den Autopiloten).
+        L.nassVor = L.nass;
         L.nass = 0;
         melde("landen", p);
       }
@@ -631,6 +693,28 @@
     if (L.x < m - hb) { L.x = m - hb; if (L.vx < 0) L.vx = 0; }
     if (L.x > m + hb) { L.x = m + hb; if (L.vx > 0) L.vx = 0; }
     if (L.von && !drin(L.von, L.x, L.y, -0.5, t1)) L.von = null;
+    // Zu schwach geschleudert, und noch mitten auf dem Blatt: Es trägt ihn
+    // wieder (im nächsten Schritt landet er darauf).
+    if (L.von && Math.abs(L.vx) + Math.abs(L.vy) < LANDEN_V && drin(L.von, L.x, L.y, null, t1)) L.von = null;
+    // Auf dem Rand eines Blattes zur Ruhe gekommen (nicht weit genug
+    // darauf): Er rutscht ab, ins Wasser.
+    if (Math.abs(L.vx) + Math.abs(L.vy) < 4) {
+      const q = blattBei(L.x, L.y, t1, null, 0);
+      if (q && !q.laub) {
+        const ort = blattOrt(q, t1);
+        let c = q.kreise[0];
+        let best = Infinity;
+        for (const k2 of q.kreise) {
+          const d2 = (L.x - ort.x - k2.x) ** 2 + (L.y - ort.y - k2.y) ** 2 - k2.r * k2.r;
+          if (d2 < best) { best = d2; c = k2; }
+        }
+        const dx = L.x - ort.x - c.x;
+        const dy = L.y - ort.y - c.y;
+        const d = Math.hypot(dx, dy) || 1;
+        L.vx += (dx / d) * 9;
+        L.vy += (dy / d) * 9;
+      }
+    }
     // Fort mit der Strömung? Und der Hecht.
     for (const s of state.stroemungen) {
       if (Math.abs(L.y - s.y) > s.halb + 2) continue;
@@ -646,11 +730,17 @@
 
   function blattOrt(p, t) {
     if (p.laub) return laubOrt(p.s, p.k, t);
+    if (p.treib) {
+      const q = p.treib;
+      const a = q.om * t + q.ph;
+      return { x: p.x + q.a * Math.sin(a), y: p.y, vx: q.a * q.om * Math.cos(a), vy: 0, u: 0 };
+    }
     return { x: p.x, y: p.y, vx: 0, vy: 0, u: 0 };
   }
 
-  // Ein Ruderschlag in die Blickrichtung.
-  function schlag(L, t) {
+  // Ein Ruderschlag: in Richtung w (in der Welt), mit der Stärke st (0 bis
+  // 1). Er schaut danach dorthin.
+  function schlag(L, t, w, st) {
     if (L.sitz) {
       const ort = blattOrt(L.sitz, t);
       L.vx = ort.vx;
@@ -658,8 +748,10 @@
       L.von = L.sitz;
       L.sitz = null;
     }
-    L.vx += J * Math.cos(L.w);
-    L.vy += J * Math.sin(L.w);
+    const j = jVon(st);
+    L.w = w;
+    L.vx += j * Math.cos(w);
+    L.vy += j * Math.sin(w);
   }
 
   const kopie = (L) => ({ ...L });
@@ -667,10 +759,10 @@
   // Beim Planen des Autopiloten hält er Abstand zum Hecht (sonst 0).
   let hechtRand = 0;
 
-  // Rechnet voraus: Was geschieht, wenn er zur Zeit t0 in Lage L ist und zu
-  // den Zeiten schlaege schlägt? Bis er landet (auf einem anderen Blatt als
-  // dem, auf dem er sitzt), stirbt oder bis tBis. Gröber als das Spiel
-  // (dt), aber mit derselben Physik.
+  // Rechnet voraus: Was geschieht, wenn er zur Zeit t0 in Lage L ist und
+  // die Schläge schlaege ([{ t, w, st }]) macht? Bis er landet (auf einem
+  // anderen Blatt als dem, auf dem er sitzt), stirbt oder bis tBis. Gröber
+  // als das Spiel (dt), aber mit derselben Physik.
   function vorausrechnen(L0, t0, schlaege, tBis, dt = 1 / 120) {
     const L = kopie(L0);
     let t = t0;
@@ -682,9 +774,9 @@
     };
     let i = 0;
     while (t < tBis && !ergebnis) {
-      while (i < schlaege.length && schlaege[i] <= t + 1e-9) { schlag(L, t); i += 1; }
+      while (i < schlaege.length && schlaege[i].t <= t + 1e-9) { const s = schlaege[i]; schlag(L, t, s.w, s.st); i += 1; }
       // Bis zum nächsten Schlag genau, sonst im Takt.
-      const h = i < schlaege.length ? Math.min(dt, Math.max(1e-4, schlaege[i] - t)) : dt;
+      const h = i < schlaege.length ? Math.min(dt, Math.max(1e-4, schlaege[i].t - t)) : dt;
       schritt(L, t, h, melde);
       t += h;
       if (i >= schlaege.length && !L.sitz && Math.abs(L.vx) + Math.abs(L.vy) < 3 && Math.abs(stroemungBei(L.x, L.y).x) < 1) break;
@@ -693,226 +785,301 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Die Welt: der Weg zuerst, Blatt um Blatt
+  // Die Welt: der Weg zuerst, Reihe um Reihe
   // ---------------------------------------------------------------------------
   /*
-   * Abschnitt n führt von Blatt n − 1 zu Blatt n. Ein gewöhnlicher: das
-   * nächste Blatt schräg darüber, im Zickzack, so weit und so gross wie die
-   * Schwere es will. Dann wird nachgerechnet (blattFenster): Aus der Mitte
-   * des vorigen Blattes, ein Schlag, für jede Blickrichtung – landet er auf
-   * dem neuen? Das Fenster der Richtungen, die treffen, muss mindestens
-   * fensterMinBei(n) Millisekunden der Drehung breit sein; sonst rückt das
-   * Blatt näher und wird grösser, bis es passt.
+   * Reihe n liegt ein Stück über Reihe n − 1: zwei oder drei Blätter quer
+   * über den Bach – gross, mittel, klein. Ein grosses ist leicht zu treffen,
+   * sinkt aber schneller; ein kleines ist schwer zu treffen und hält dafür
+   * länger (haltBei). Ab Reihe TREIB_AB pendelt manchmal eines in der
+   * Strömung hin und her.
    *
-   * Jeder achte Abschnitt ist besonders, im Wechsel:
+   * Dann wird nachgerechnet (fensterVon): Von jedem Blatt der vorigen Reihe
+   * aus – aus der Mitte, aus dem Stand, ein treibendes von beiden Enden und
+   * aus der Mitte seines Weges – muss mindestens ein stilles Blatt der neuen
+   * Reihe mit Spielraum zu treffen sein: um spielraumWBei(n) daneben in der
+   * Richtung und um spielraumSBei(n) in der Stärke, auch beides zugleich.
+   * Sonst wird die Reihe neu gelegt, enger und mit grösseren Blättern.
+   *
+   * Jede achte Reihe ist besonders, im Wechsel:
    *
    *   stroemung  (8., 24., 40.) Ein Band quer über den Bach, in dem das
-   *              Wasser zur Seite reisst; darauf treibt Laub. Das Blatt
-   *              darüber ist ein Seerosenteppich, fast so breit wie der
-   *              Bach. Das Blatt davor hält länger.
-   *   hecht      (16., 32., 48.) Die Hechtgrube: Das nächste Blatt (ein
-   *              Teppich) liegt so weit, dass ein Schlag nicht reicht –
-   *              zwei kurz hintereinander oder einer im Gleiten. Ein Hecht
-   *              zieht seine Kreise quer über den Weg.
+   *              Wasser zur Seite reisst; darauf treibt Laub. Darüber ein
+   *              Seerosenteppich, fast so breit wie der Bach.
+   *   hecht      (16., 32., 48.) Die Hechtgrube: Der Teppich liegt so weit,
+   *              dass ein Schlag nicht reicht – zwei Schleuderschläge, der
+   *              zweite im Gleiten. Ein Hecht zieht seine Kreise quer über
+   *              den Weg.
+   *
+   * Die Reihe davor hält länger: Dort wartet man auf Laub oder darauf,
+   * dass der Hecht vorbeizieht.
    *
    * Immer gleich viele Zahlen ziehen, was auch geschieht: Die Welt soll an
    * der Saat hängen, nicht an den Zweigen dieser Funktion.
    */
+  const TREIB_AB = 6;
+  const LUECKE = 3.5;              // so viel Wasser mindestens zwischen zwei Blättern einer Reihe
+  const GROESSEN = ["gross", "mittel", "klein"];
+  const DREIER = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+  const ZWEIER = [[0, 2], [2, 0], [1, 2], [2, 1], [0, 1], [1, 0]];
+
   function blattNeu(nr, x, y, r, z, wahl = {}) {
     const p = {
-      nr, x, y, r, kreise: [{ x: 0, y: 0, r }], dreh: 1, f: 0.6, halt: 3, betreten: null,
-      art: "blatt", bluete: 0, kerbe: z * TAU, saat: z, ausdehnung: r, ...wahl,
+      nr, id: state.blattZahl, x, y, r, kreise: [{ x: 0, y: 0, r }], halt: 2, betreten: null,
+      art: "blatt", groesse: "mittel", treib: null, bluete: 0, kerbe: z * TAU, saat: z, ausdehnung: r, ...wahl,
     };
+    state.blattZahl += 1;
     p.ausdehnung = Math.max(...p.kreise.map((c) => Math.abs(c.y) + c.r));
     return p;
   }
 
   function startBlatt() {
-    const p = blattNeu(0, mitteBei(0), 0, 12, 0.37, { art: "start", dreh: 1, f: drehBei(0), halt: 4.5 });
+    const p = blattNeu(0, mitteBei(0), 0, 12, 0.37, { art: "start", groesse: "gross", halt: 3.2 });
     p.bluete = 1;
     return p;
   }
 
-  // Wie breit (in Millisekunden der Drehung) das Fenster von A nach B ist:
-  // Aus der Mitte von A, aus dem Stand, ein Schlag in Richtung w – landet er
-  // auf B? Gesucht wird die Richtung zur Mitte und ringsum, dann die Kanten
-  // genauer. f: Umdrehungen je Sekunde auf A.
-  function blattFenster(A, B, f, t = 0) {
-    if (A.kreise.length > 1) {
-      // Vom Teppich aus zählt jedes seiner Blätter – er kann auf jedem sitzen.
-      let schlecht = null;
-      for (const c of A.kreise) {
-        const fen = blattFenster({ ...A, x: A.x + c.x, y: A.y + c.y, kreise: [{ x: 0, y: 0, r: c.r }], echt: A }, B, f, t);
-        if (!schlecht || fen.ms < schlecht.ms) schlecht = fen;
-      }
-      return schlecht;
+  // Wie weit ein Schlag mit j (cm/s) aus dem Stand auf stillem Wasser
+  // trägt, und welche Stärke ungefähr d weit trägt – wenn er schon mit v0
+  // in diese Richtung unterwegs ist.
+  const weiteVon = (j) => TAU_W * j - MU_W * TAU_W * TAU_W * Math.log(1 + j / (MU_W * TAU_W));
+  function staerkeFuer(d, v0 = 0) {
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 12; i += 1) {
+      const m = (lo + hi) / 2;
+      if (weiteVon(Math.max(0, jVon(m) + v0)) < d) lo = m; else hi = m;
     }
-    const von = A.echt || A;
-    const L = { x: A.x, y: A.y, vx: 0, vy: 0, w: 0, om: 0, sitz: null, von, nass: 0, ox: 0, oy: 0, mx: 0, my: 0 };
-    const trifft = (w) => {
-      L.w = w;
-      const L0 = { ...L, vx: J * Math.cos(w), vy: J * Math.sin(w) };
-      const e = vorausrechnen(L0, t, [], t + 1.4, 1 / 90);
-      return e.art === "landen" && e.blatt === B;
-    };
-    const w0 = Math.atan2(B.y - A.y, B.x - A.x);
+    return (lo + hi) / 2;
+  }
+
+  // Die Richtung zum nächsten Teil von B zur Zeit t, wie weit dessen Mitte
+  // ist und wie gross er ist.
+  function richtungZu(L, B, t) {
+    let best = null;
+    const ort = blattOrt(B, t);
+    for (const c of B.laub ? [{ x: 0, y: 0, r: B.s.r }] : B.kreise) {
+      const dx = ort.x + c.x - L.x;
+      const dy = ort.y + c.y - L.y;
+      const d = Math.hypot(dx, dy);
+      if (!best || d - c.r < best.d - best.r) best = { d, r: c.r, w: Math.atan2(dy, dx) };
+    }
+    return best;
+  }
+
+  // Das Fenster von L (zur Zeit t) nach B: Mit welcher Richtung und Stärke
+  // landet ein Schlag auf B? Gesucht wird zuerst die Stärke – in Richtung
+  // w0, sonst zur Mitte des nächsten Teils von B –, dann mit der mittleren
+  // Stärke die Richtung. Gibt die Mitte des Fensters und seine halben
+  // Breiten (dw in rad, ds in Stärke) zurück, oder null. passt(e): ob das
+  // Ergebnis e der Vorausrechnung zählt (sonst: gelandet auf B).
+  function fensterVon(L, t, B, { passt = null, w0 = null, d0 = null, dt = 1 / 90, bis = 1.8 } = {}) {
+    const gut = passt || ((e) => e.art === "landen" && e.blatt === B);
+    const trifft = (w, st) => gut(vorausrechnen(L, t, [{ t, w, st }], t + bis, dt), t);
+    const r = richtungZu(L, B, t);
+    const ziel = w0 ?? r.w;
+    const d = d0 ?? r.d;
+    // Wer schon unterwegs ist (im Gleiten, auf treibendem Laub), dem trägt
+    // das mit: Die Richtung des Schlags gleicht es aus, die Stärke rechnet
+    // es mit ein.
+    const v = L.sitz ? blattOrt(L.sitz, t) : L;
+    const ex = Math.cos(ziel);
+    const ey = Math.sin(ziel);
+    const vl = v.vx * ex + v.vy * ey;
+    const st0 = staerkeFuer(d, vl);
+    let w = ziel;
+    const vq = Math.hypot(v.vx, v.vy);
+    if (vq > 0.5) {
+      const j = jVon(st0);
+      const lam = vl + Math.sqrt(Math.max(0, vl * vl - vq * vq + j * j));
+      w = Math.atan2(lam * ey - v.vy, lam * ex - v.vx);
+    }
     let mitte = null;
-    for (let i = 0; i <= 24 && mitte === null; i += 1) {
-      const d = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.035;
-      if (trifft(w0 + d)) mitte = w0 + d;
+    for (let i = 0; i <= 20 && mitte === null; i += 1) {
+      const s = st0 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.05;
+      if (s >= 0 && s <= 1 && trifft(w, s)) mitte = s;
     }
-    if (mitte === null) return { ms: 0, w: w0, a: w0, b: w0 };
-    const kante = (richtung) => {
-      let innen = 0;
-      let aussen = 0.9;
-      if (trifft(mitte + richtung * aussen)) return aussen;
-      for (let i = 0; i < 9; i += 1) {
+    // Notfalls auch etwas daneben gezielt.
+    for (let i = 1; i <= 6 && mitte === null; i += 1) {
+      const dw = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.12;
+      for (const s of [st0 - 0.1, st0, st0 + 0.1]) {
+        if (s >= 0 && s <= 1 && trifft(ziel + dw, s)) { mitte = s; w = ziel + dw; break; }
+      }
+    }
+    if (mitte === null) return null;
+    // Die Kante zwischen innen (trifft) und aussen.
+    const kante = (innen, aussen, pruef) => {
+      if (pruef(aussen)) return aussen;
+      for (let i = 0; i < 5; i += 1) {
         const m = (innen + aussen) / 2;
-        if (trifft(mitte + richtung * m)) innen = m; else aussen = m;
+        if (pruef(m)) innen = m; else aussen = m;
       }
       return innen;
     };
-    const a = mitte - kante(-1);
-    const b = mitte + kante(1);
-    return { ms: ((b - a) / (TAU * f)) * 1000, w: (a + b) / 2, a, b };
+    const sLo = kante(mitte, Math.max(0, mitte - 0.45), (s) => trifft(w, s));
+    const sHi = kante(mitte, Math.min(1, mitte + 0.45), (s) => trifft(w, s));
+    let st = (sLo + sHi) / 2;
+    if (!trifft(w, st)) st = mitte;
+    const wA = kante(0, -0.45, (x) => trifft(w + x, st));
+    const wB = kante(0, 0.45, (x) => trifft(w + x, st));
+    return { w: w + (wA + wB) / 2, st, dw: (wB - wA) / 2, ds: (sHi - sLo) / 2, trifft };
   }
 
-  function abschnittBauen() {
-    const liste = state.abschnitte;
-    const n = liste.length + 1;      // Abschnitt n führt zu Blatt n
-    const z = [];
-    for (let i = 0; i < 12; i += 1) z.push(zufall.zahl());
-    const A = state.blaetter[state.blaetter.length - 1];
-    const besonders = n % 8 === 0 ? ((n / 8) % 2 === 1 ? "stroemung" : "hecht") : "";
-    const naechsterBesonders = (n + 1) % 8 === 0;
+  // Reicht das Fenster? Mindestens aw breit in der Richtung und as in der
+  // Stärke – auch schräg: um sieben Zehntel von beidem zugleich daneben.
+  function fensterReicht(L, t, B, aw, as, wahl = {}) {
+    const f = fensterVon(L, t, B, wahl);
+    if (!f || f.dw < aw || f.ds < as) return null;
+    for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      if (!f.trifft(f.w + 0.7 * aw * a, clamp(f.st + 0.7 * as * b, 0, 1))) return null;
+    }
+    return f;
+  }
+
+  // Von wo aus auf einem Blatt geschleudert wird: aus der Mitte jedes
+  // seiner Teile, aus dem Stand – ein treibendes an beiden Enden seines
+  // Weges und in der Mitte, wo es am schnellsten ist.
+  function abfahrten(p) {
+    const raus = [];
+    const zeiten = p.treib ? [-Math.PI / 2, 0, Math.PI / 2].map((a) => ((((a - p.treib.ph) % TAU) + TAU) % TAU) / p.treib.om) : [0];
+    for (const t of zeiten) {
+      const ort = blattOrt(p, t);
+      for (const c of p.kreise) {
+        raus.push({ t, L: { x: ort.x + c.x, y: ort.y + c.y, vx: ort.vx, vy: ort.vy, w: Math.PI / 2, sitz: p, von: null, nass: 0, ox: c.x, oy: c.y, mx: c.x, my: c.y } });
+      }
+    }
+    return raus;
+  }
+
+  // Eine gewöhnliche Reihe: legen, nachrechnen, notfalls neu legen. Ein
+  // Generator: Nach jedem nachgerechneten Start gibt er ab (yield) – so
+  // verteilt sich das Rechnen über mehrere Bilder (planBis).
+  function* reiheLegen(n, vorige, z, vorBesonders) {
     const k = schwere(n);
-    // Die Drehung: Richtung je Blatt (die ersten fest, dann gewürfelt, nie
-    // dreimal dieselbe), Tempo nach der Schwere.
-    const f = drehBei(n);
-    let dreh = n === 1 ? 1 : n === 2 ? -1 : z[0] < 0.5 ? 1 : -1;
-    if (n > 2) {
-      const a = state.blaetter[n - 1]?.dreh;
-      const b = state.blaetter[n - 2]?.dreh;
-      if (a === b && a === dreh) dreh = -dreh;
-    }
-
-    let B = null;
-    let fenster = null;
-    if (besonders === "stroemung") {
-      B = stroemungBauen(n, A, z, k, f, dreh);
-    } else if (besonders === "hecht") {
-      B = hechtBauen(n, A, z, k, f, dreh);
-    } else {
-      // Zickzack: meist die andere Seite als zuletzt, manchmal dieselbe. Vor
-      // einer Strömung auf die Seite, von der das Laub kommt.
-      const vorSeite = Math.sign(A.x - mitteBei(A.y)) || (z[1] < 0.5 ? 1 : -1);
-      let seite = n <= 2 ? (n === 1 ? 1 : -1) : z[1] < 0.72 ? -vorSeite : vorSeite;
-      if (naechsterBesonders && ((n + 1) / 8) % 2 === 1) {
-        state.stroemungRichtung = z[8] < 0.5 ? 1 : -1;
-        seite = -state.stroemungRichtung;
+    const R = radienBei(n);
+    const aw = spielraumWBei(n);
+    const as = spielraumSBei(n);
+    const allowance = geduldBei(n) + warnungBei(n) - 0.08;
+    const passtFuer = (B) => (e) => e.art === "landen" && e.blatt === B && e.L.nassVor < allowance;
+    const starts = vorige.blaetter.flatMap((p) => abfahrten(p));
+    let neu = null;
+    let fehlt = 0;
+    for (let versuch = 0; versuch < 7; versuch += 1) {
+      const zz = versuch === 0 ? (i) => z[i] : (i) => hash01(z[19] * 7919 + versuch * 31.7 + i * 7.13);
+      const groesser = 1 + 0.07 * versuch;
+      const y = vorige.y + reihenAbstandBei(n) * (1 - 0.06 * versuch) + (zz(0) - 0.5) * 4;
+      const m = mitteBei(y);
+      const h = halbBei(y) - 2.5;
+      // Drei, wenn sie Platz haben – sonst zwei.
+      const radien = (folge) => folge.map((gi, i) => R[GROESSEN[gi]] * (1 + (zz(2 + i) - 0.5) * 0.14) * groesser);
+      let folge = DREIER[Math.floor(zz(1) * 6) % 6];
+      let r = radien(folge);
+      const summe = (rr) => rr.reduce((a, b) => a + 2 * b, 0) + LUECKE * (rr.length - 1);
+      if (zz(5) > 0.8 || summe(r) > 2 * h - 3) {
+        folge = ZWEIER[Math.floor(zz(1) * 6) % 6];
+        r = radien(folge);
       }
-      let D = abstandBei(n) + (z[2] - 0.5) * 3.5;
-      let r = radiusBei(n) + (z[3] - 0.5) * 1.4;
-      if (naechsterBesonders) r += 1.5;
-      const minMs = fensterMinBei(n);
-      if (A.kreise.length > 1) D = Math.min(D, lerp(22, 26, k));
-      for (let versuch = 0; versuch < 9 && !B; versuch += 1) {
-        // Wie schräg: 12° bis 55° neben der Senkrechten – aber so, dass das
-        // neue Blatt deutlich höher liegt als das alte.
-        const dyMin = Math.max(A.ausdehnung * 0.6 + r * 0.6 + 2, 0.5 * D);
-        const neig = Math.min((lerp(12, 55, z[4]) * Math.PI) / 180, Math.acos(clamp(dyMin / D, 0, 1)));
-        let w = Math.PI / 2 - seite * neig;
-        let x = A.x + D * Math.cos(w);
-        let y = A.y + D * Math.sin(w);
-        // Im Wasser bleiben: notfalls steiler.
-        for (let i = 0; i < 12; i += 1) {
-          const m = mitteBei(y);
-          const h = halbBei(y) - r - 3;
-          if (Math.abs(x - m) <= h) break;
-          w = lerp(w, Math.PI / 2 + (m - A.x) * 0.002, 0.3);
-          x = A.x + D * Math.cos(w);
-          y = A.y + D * Math.sin(w);
+      const zahl = folge.length;
+      if (summe(r) > 2 * h) {
+        const f = (2 * h - LUECKE * (zahl - 1)) / (summe(r) - LUECKE * (zahl - 1));
+        r = r.map((x) => x * f);
+      }
+      // Eines pendelt in der Strömung – wenn Platz ist.
+      let treibI = -1;
+      let treibA = 0;
+      if (n >= TREIB_AB && !vorBesonders && zz(6) < lerp(0.25, 0.5, k)) {
+        treibI = Math.floor(zz(7) * zahl) % zahl;
+        treibA = lerp(3, 6.5, zz(8));
+        if (summe(r) + 2 * treibA > 2 * h) { treibI = -1; treibA = 0; }
+      }
+      const breit = r.map((ri, i) => 2 * ri + (i === treibI ? 2 * treibA : 0));
+      const frei = Math.max(0, 2 * h - breit.reduce((a, b) => a + b, 0) - LUECKE * (zahl - 1));
+      const gew = [];
+      for (let i = 0; i <= zahl; i += 1) gew.push(0.25 + zz(9 + i));
+      const gs = gew.reduce((a, b) => a + b, 0);
+      let x = m - h;
+      neu = [];
+      for (let i = 0; i < zahl; i += 1) {
+        x += (frei * gew[i]) / gs;
+        const p = blattNeu(n, x + breit[i] / 2, y + (zz(13 + i) - 0.5) * 5, r[i], zz(16 + i), { groesse: GROESSEN[folge[i]] });
+        x += breit[i] + LUECKE;
+        if (i === treibI) p.treib = { a: treibA, om: TAU / lerp(4.5, 7, zz(20)), ph: zz(21) * TAU };
+        p.halt = haltBei(n, p.r);
+        // Nicht zu nah an die vorige Reihe.
+        const pa = p.treib ? p.treib.a : 0;
+        for (const q of vorige.blaetter) {
+          const qa = q.treib ? q.treib.a : 0;
+          for (const c of q.kreise) {
+            const dx = Math.max(0, Math.abs(p.x - q.x - c.x) - pa - qa);
+            const noetig = p.r + c.r + 3;
+            if (dx < noetig) p.y = Math.max(p.y, q.y + c.y + Math.sqrt(noetig * noetig - dx * dx));
+          }
         }
-        const m = mitteBei(y);
-        const h = halbBei(y) - r - 3;
-        x = clamp(x, m - h, m + h);
-        // Nie zu nah an einem älteren Blatt.
-        const zuNah = state.blaetter.slice(-4).some((q) => q !== A && Math.hypot(q.x - x, q.y - y) < q.ausdehnung + r + 4);
-        if (y < A.y + A.ausdehnung * 0.6 + r * 0.6 || zuNah) { D *= 0.97; r += 0.3; continue; }
-        const kand = blattNeu(n, x, y, r, z[5], { dreh: 1, f });
-        kand.halt = haltBei(n, f);
-        state.blaetter.push(kand);
-        const fen = blattFenster(A, kand, A.f);
-        state.blaetter.pop();
-        if (fen.ms >= minMs) { B = kand; fenster = fen; break; }
-        D *= 0.95;
-        r += 0.45;
+        neu.push(p);
       }
-      if (!B) {
-        // Darf nicht vorkommen (die Prüfung zählt mit) – dann eben gerade
-        // darüber, gross und nah.
-        state.planFehler += 1;
-        B = blattNeu(n, mitteBei(A.y + 20), A.y + 20, 11, z[5], { f });
-        B.halt = haltBei(n, f);
+      neu.sort((a, b) => a.y - b.y);
+      // Nachrechnen: von jedem Start aus mindestens ein stilles Blatt. Die
+      // neuen Blätter stehen nur dafür in der Liste, nie über ein yield.
+      fehlt = 0;
+      for (const s of starts) {
+        yield;
+        const ziele = neu.filter((B) => !B.treib).sort((a, b) => Math.hypot(a.x - s.L.x, a.y - s.L.y) - 1.5 * a.r - (Math.hypot(b.x - s.L.x, b.y - s.L.y) - 1.5 * b.r));
+        neu.forEach((p) => state.blaetter.push(p));
+        if (!ziele.some((B) => fensterReicht(s.L, s.t, B, aw, as, { passt: passtFuer(B), bis: 1.5 }))) fehlt += 1;
+        state.blaetter.length -= neu.length;
+        if (fehlt) break;
       }
+      if (!fehlt) return { nr: n, y, blaetter: neu, versuche: versuch + 1 };
     }
-    B.dreh = dreh;
-    B.f = f;
-    if (B.art !== "teppich") B.halt = haltBei(n, f);
-    if (naechsterBesonders) B.halt += besondersHalt(n + 1, f);
-    // Eine Blüte auf manchen Blättern, im Teich öfter.
-    B.bluete = z[6] < nachWelt(B.y, [0.32, 0.12, 0.2, 0.15, 0.25]) ? 1 + (z[7] < 0.5 ? 1 : 0) : 0;
-    state.blaetter.push(B);
-    liste.push({ nr: n, besonders, y: B.y, fenster: fenster ? Math.round(fenster.ms) : null });
+    // Darf nicht vorkommen (die Prüfung zählt mit).
+    state.planFehler += 1;
+    return { nr: n, y: neu.reduce((a, p) => a + p.y, 0) / neu.length, blaetter: neu, versuche: 8 };
   }
 
-  // Wie viel länger das Blatt vor einem besonderen Abschnitt hält: Dort
-  // wartet man auf Laub oder darauf, dass der Hecht vorbeizieht.
-  function besondersHalt(n, f) {
-    return (n / 8) % 2 === 1 ? 2.6 + 1 / f : 3.4 + 1 / f;
-  }
+  // Wie viel länger die Reihe vor einem besonderen Abschnitt hält.
+  const besondersHalt = (art) => (art === "stroemung" ? 2.4 : 3.0);
 
-  // Die Strömung: ein Band über A, darin Laub, darüber ein Teppich.
-  function stroemungBauen(n, A, z, k, f, dreh) {
+  // Die Strömung: ein Band über der vorigen Reihe, darin Laub, darüber ein
+  // Teppich.
+  function stroemungBauen(n, vorige, z) {
+    const k = schwere(n);
     const zahl = state.stroemungen.length;
     const r = lerp(8, 6.8, k);
     const halb = r + 3.5;
-    const y = A.y + A.r + 8 + halb;
+    const oben = Math.max(...vorige.blaetter.map((p) => p.y + p.ausdehnung));
+    const y = oben + 7 + halb;
     const m = mitteBei(y);
     const hb = halbBei(y);
-    const richtung = state.stroemungRichtung || (z[8] < 0.5 ? 1 : -1);
-    state.stroemungRichtung = 0;
-    const tempo = lerp(11, 19, k) + 2.5 * zahl;
+    const richtung = z[8] < 0.5 ? 1 : -1;
+    const tempo = lerp(11, 18, k) + 1.5 * Math.min(zahl, 3);
     const abstand = lerp(25, 31, k) + 3 * z[9];
     const xa = m - richtung * (hb + 6);
     const xb = m + richtung * (hb + 2);
     const spanne = Math.abs(xb - xa);
-    const s = {
-      nr: zahl, y, halb, r, richtung, tempo, v: richtung * tempo, abstand, xa, xb, spanne,
-      phase: z[10] * abstand, dreh: -dreh, f: f * 0.9, abschnitt: n,
-    };
+    const s = { nr: zahl, y, halb, r, richtung, tempo, v: richtung * tempo, abstand, xa, xb, spanne, phase: z[10] * abstand, abschnitt: n };
     state.stroemungen.push(s);
-    // Der Teppich: drei bis vier Blätter quer, knapp über dem Band.
+    // Der Teppich: vier Blätter quer, knapp über dem Band.
     const yc = y + halb + 6 + 7.5;
     const breite = halbBei(yc) - 7;
-    const zahlK = 4;
     const kreise = [];
-    for (let i = 0; i < zahlK; i += 1) {
-      const u = (i / (zahlK - 1)) * 2 - 1;
+    for (let i = 0; i < 4; i += 1) {
+      const u = (i / 3) * 2 - 1;
       kreise.push({ x: u * breite * 0.78, y: Math.sin(i * 2.1 + z[11] * 6) * 2.2, r: lerp(9, 8, k) + (i % 2) * 1.2 });
     }
-    const B = blattNeu(n, mitteBei(yc), yc, 9, z[5], { art: "teppich", kreise, f });
-    B.halt = haltBei(n, f) + 0.6;
+    const B = blattNeu(n, mitteBei(yc), yc, 9, z[5], { art: "teppich", groesse: "gross", kreise });
+    B.halt = haltBei(n, radienBei(n).mittel) + 0.6;
     zonenNeu(n, y);
-    return B;
+    return { nr: n, y: yc, blaetter: [B] };
   }
 
-  // Die Hechtgrube: tiefes Wasser über A, ein Teppich weit darüber.
-  function hechtBauen(n, A, z, k, f, dreh) {
+  // Die Hechtgrube: tiefes Wasser über der vorigen Reihe, ein Teppich weit
+  // darüber – zu weit für einen Schlag.
+  function hechtBauen(n, vorige, z) {
+    const k = schwere(n);
     const zahl = state.hechte.length;
-    const D = lerp(48, 57, k) + 3 * z[8];
-    const yc = A.y + D;
-    const cy = A.y + D * 0.5;
+    const D = lerp(57, 63, k) + 3 * z[8];
+    const yc = vorige.y + D;
+    const cy = vorige.y + D * 0.5;
     const hg = {
       nr: zahl, cx: mitteBei(cy) + (z[9] - 0.5) * 6, cy, rx: lerp(17, 21, k), ry: lerp(8.5, 10.5, k),
       periode: lerp(4.6, 3.6, k), phase: z[10] * TAU, richtung: z[11] < 0.5 ? 1 : -1, abschnitt: n,
@@ -923,10 +1090,10 @@
       { x: -13, y: 2.5, r: 8 },
       { x: 13, y: 1.5, r: 8.5 },
     ];
-    const B = blattNeu(n, mitteBei(yc), yc, 9.5, z[5], { art: "teppich", kreise, f });
-    B.halt = haltBei(n, f) + 0.6;
+    const B = blattNeu(n, mitteBei(yc), yc, 9.5, z[5], { art: "teppich", groesse: "gross", kreise });
+    B.halt = haltBei(n, radienBei(n).mittel) + 0.6;
     zonenNeu(n, cy);
-    return B;
+    return { nr: n, y: yc, blaetter: [B] };
   }
 
   // Ein besonderer Abschnitt beginnt eine neue Welt.
@@ -948,36 +1115,68 @@
     return { kopf: { x: x + Math.cos(w) * 8, y: y + Math.sin(w) * 8 }, x, y, w, a };
   }
 
-  // Die Welt steht bis y – immer ein Stück über das Bild hinaus. Je Aufruf
-  // höchstens «mal» Abschnitte, damit kein Bild lange wartet.
-  function planBis(y, mal = 40) {
-    for (let i = 0; i < mal; i += 1) {
-      const letzt = state.blaetter[state.blaetter.length - 1];
-      if (letzt && letzt.y > y) return;
-      abschnittBauen();
+  const besondersBei = (n) => (n > 0 && n % 8 === 0 ? ((n / 8) % 2 === 1 ? "stroemung" : "hecht") : "");
+
+  function* reiheBauen() {
+    const n = state.reihen.length;
+    const z = [];
+    for (let i = 0; i < 24; i += 1) z.push(zufall.zahl());
+    const vorige = state.reihen[n - 1];
+    const besonders = besondersBei(n);
+    const vorBesonders = besondersBei(n + 1);
+    const reihe = besonders === "stroemung" ? stroemungBauen(n, vorige, z)
+      : besonders === "hecht" ? hechtBauen(n, vorige, z)
+        : yield* reiheLegen(n, vorige, z, vorBesonders);
+    reihe.besonders = besonders;
+    reihe.blaetter.forEach((p, i) => {
+      if (vorBesonders) p.halt += besondersHalt(vorBesonders);
+      // Eine Blüte auf manchen Blättern, im Teich öfter.
+      const b = hash01(z[22] * 977 + i * 3.7);
+      p.bluete = b < nachWelt(p.y, [0.3, 0.12, 0.2, 0.15, 0.25]) ? 1 + (hash01(b * 51 + i) < 0.5 ? 1 : 0) : 0;
+      state.blaetter.push(p);
+    });
+    state.reihen.push(reihe);
+  }
+
+  // Die Welt steht bis y – immer ein Stück über das Bild hinaus. Im Spiel
+  // rechnet sie je Bild höchstens budget Millisekunden daran (und macht im
+  // nächsten weiter); ohne budget, bis sie steht.
+  let bauer = null;
+  function planBis(y, budget = Infinity) {
+    const start = performance.now();
+    for (;;) {
+      const letzt = state.reihen[state.reihen.length - 1];
+      if (!bauer && letzt && letzt.y > y) return;
+      if (performance.now() - start > budget) return;
+      if (!bauer) bauer = reiheBauen();
+      let r = bauer.next();
+      while (!r.done && performance.now() - start < budget) r = bauer.next();
+      if (!r.done) return;
+      bauer = null;
     }
   }
 
   function weltNeu() {
-    state.blaetter = [];
+    state.blattZahl = 0;
     state.stroemungen = [];
     state.hechte = [];
-    state.abschnitte = [];
     state.zonen = [{ w: 0, y: -1e9 }];
     state.planFehler = 0;
-    state.stroemungRichtung = 0;
     laubCache.clear();
     bachMerk.clear();
     state.bach = { p1: zufall.zahl() * TAU, p2: zufall.zahl() * TAU, p3: zufall.zahl() };
-    state.blaetter.push(startBlatt());
+    const p0 = startBlatt();
+    state.blaetter = [p0];
+    state.reihen = [{ nr: 0, y: 0, blaetter: [p0], besonders: "" }];
+    bauer = null;
     planBis(440);
   }
 
   // Die Welt als Text – für die Prüfung, dass in einem Turnier und beim
   // Zuschauen alle dieselbe bekommen.
   function kursText(bis = 30) {
-    while (state.blaetter.length <= bis) abschnittBauen();
-    const b = state.blaetter.slice(0, bis + 1).map((p) => `${p.nr}:${p.x.toFixed(1)},${p.y.toFixed(1)}/${p.r.toFixed(1)}${p.dreh > 0 ? "+" : "-"}${p.f.toFixed(2)}h${p.halt.toFixed(2)}${p.art[0]}`);
+    while (state.reihen.length <= bis) planBis(state.reihen[state.reihen.length - 1].y + 1);
+    const b = state.reihen.slice(0, bis + 1).map((q) => q.blaetter.map((p) => `${p.nr}:${p.x.toFixed(1)},${p.y.toFixed(1)}/${p.r.toFixed(1)}h${p.halt.toFixed(2)}${p.art[0]}${p.treib ? `~${p.treib.a.toFixed(1)}` : ""}`).join(";"));
     const s = state.stroemungen.map((q) => `s${q.y.toFixed(1)}v${q.v.toFixed(1)}a${q.abstand.toFixed(1)}p${q.phase.toFixed(1)}`);
     const h = state.hechte.map((q) => `h${q.cx.toFixed(1)},${q.cy.toFixed(1)}p${q.periode.toFixed(2)}`);
     return `${b.join(" ")} | ${s.join(" ")} | ${h.join(" ")} | ${state.zonen.map((zz) => `${zz.w}@${Math.round(zz.y)}`).join(",")}`;
@@ -987,197 +1186,187 @@
   // Der Autopilot
   // ---------------------------------------------------------------------------
   /*
-   * Er rechnet voraus, wann ein Schlag (oder zwei) auf dem nächsten Blatt
-   * landet, und schlägt in der Mitte dieses Fensters – um streu Sekunden
-   * daneben, wenn er einen Menschen nachahmen soll. Gerechnet wird, sobald
-   * er sitzt (und auf dem Wasser, wenn der Plan nicht mehr aufgeht), mit
-   * derselben Physik wie das Spiel.
+   * Er spielt wie ein Mensch: Gelandet, schaut er reaktion Sekunden lang
+   * (so lange braucht auch das Zielen) und schleudert dann – dorthin, wo
+   * das Fenster den meisten Spielraum lässt, und um streuW (Grad) und streuS
+   * (Anteil der Stärke) daneben, normalverteilt. Merkt er im Gleiten, dass
+   * es nicht reicht, schleudert er nach kürzerer Zeit noch einmal. Gerechnet
+   * wird mit derselben Physik wie das Spiel.
    *
-   * Ziel: das nächste Blatt der Kette; in einer Strömung erst Laub, dann
-   * der Teppich. Sicher heisst: landen, bevor das Blatt untergeht, bevor der
-   * Fisch schnappt, nicht in den Hecht, nicht fort mit der Strömung.
+   * Ziele: die Blätter der nächsten zwei Reihen; vor einer Strömung Laub
+   * (mit genug Weg vor sich), von dort der Teppich. Vor der Hechtgrube ein
+   * voller Schlag – aber nur, wenn danach ein zweiter am Hecht vorbei auf
+   * den Teppich trägt. Sicher heisst: landen, bevor der Fisch schnappt,
+   * nicht in den Hecht, nicht fort mit der Strömung.
    */
-  function zielGut(e, L0) {
+  const reiheVon = (L) => (L.sitz && !L.sitz.laub ? L.sitz.nr : state.punkte);
+
+  // Wie lange er auf dem Wasser sein darf, bis der Fisch schnappt – auf
+  // dem Weg zu Reihe n.
+  function erlaubtNass(n) {
+    const imHecht = state.hechte.some((h) => h.abschnitt === n);
+    return geduldBei(n) * (imHecht ? HECHT_GEDULD : 1) + warnungBei(n);
+  }
+
+  // Taugt die Landung e nach einem Schlag zur Zeit t0 aus L0? vorwaerts:
+  // nur auf eine Reihe weiter oben.
+  function zielGut(e, L0, t0, vorwaerts = true) {
     if (e.art !== "landen") return false;
     const p = e.blatt;
-    if (p.laub) {
-      // Laub nur, wenn es danach noch weit genug treibt.
-      const q = laubOrt(p.s, p.k, e.t);
-      return !L0.sitz?.laub && q.u < 0.42;
+    const nass = e.L.nassVor ?? (L0.sitz ? 0 : L0.nass) + (e.t - t0);
+    if (nass > erlaubtNass(reiheVon(L0) + 1) - 0.08) return false;
+    if (p.laub) return !L0.sitz?.laub && laubOrt(p.s, p.k, e.t).u < 0.5;
+    if (p.betreten !== null && p.betreten + p.halt - e.t < 0.6) return false;
+    return !vorwaerts || p.nr > reiheVon(L0);
+  }
+
+  // L von t0 bis t1 fortgeschrieben (mit den Schlägen schlaege) – oder null,
+  // wenn er unterwegs umkommt.
+  function fortschreiben(L0, t0, t1, schlaege = []) {
+    const L = kopie(L0);
+    let tot = false;
+    const melde = (art) => { if (art !== "landen") tot = true; };
+    let t = t0;
+    let i = 0;
+    while (t < t1 - 1e-9 && !tot) {
+      while (i < schlaege.length && schlaege[i].t <= t + 1e-9) { const s = schlaege[i]; schlag(L, t, s.w, s.st); i += 1; }
+      const h = Math.min(1 / 120, t1 - t);
+      schritt(L, t, h, melde);
+      t += h;
     }
-    const vorher = L0.sitz && !L0.sitz.laub ? L0.sitz.nr : state.punkte;
-    return p.nr > vorher;
+    return tot ? null : L;
   }
 
-  // Wohin er will: das nächste Blatt der Kette (null in einer Strömung, wenn
-  // erst Laub kommt).
-  function zielBlatt(L0) {
-    const vorher = L0.sitz && !L0.sitz.laub ? L0.sitz.nr : state.punkte;
-    const B = state.blaetter[vorher + 1] || null;
-    if (!B) return null;
-    const a = state.abschnitte[vorher];
-    if (a?.besonders === "stroemung" && !(L0.sitz?.laub) && L0.y < state.stroemungen.find((s) => s.abschnitt === a.nr)?.y) return null;
-    return B;
+  // Wohin er von L aus (zur Zeit t) schleudern könnte.
+  function kandidaten(L, t, vorwaerts) {
+    const n0 = reiheVon(L);
+    const raus = [];
+    const naechste = state.reihen[n0 + 1];
+    if (naechste?.besonders === "stroemung" && !L.sitz?.laub) {
+      const s = state.stroemungen.find((q) => q.abschnitt === n0 + 1);
+      if (s && L.y < s.y) for (const k of laubImBand(s, t + 0.5, 0)) raus.push(laubBlatt(s, k));
+    }
+    const liste = state.blaetter;
+    for (let i = blattAb(L.y - 55); i < liste.length; i += 1) {
+      const p = liste[i];
+      if (p.y - AUS_MAX > L.y + 60) break;
+      if (p === L.sitz || versunken(p, t) || p.nr > n0 + 2 || (vorwaerts && p.nr <= n0)) continue;
+      const r = richtungZu(L, p, t);
+      if (r.d - r.r < 50) raus.push(p);
+    }
+    return raus;
   }
 
-  // Die Richtung zum nächsten Teil von B (und wie weit es ist).
-  function richtungZu(L, B) {
+  // Der beste Schlag von L aus, zur Zeit t: das Fenster mit dem meisten
+  // Spielraum, gemessen an der eigenen Streuung (sw in rad, ss Anteil).
+  function besterSchlag(L, t, { sw, ss, imWasser }) {
+    const n0 = reiheVon(L);
+    const naechste = state.reihen[n0 + 1];
+    const wertVon = (f) => Math.min(f.dw / sw, f.ds / Math.max(ss * f.st, 0.03));
+    if (L.sitz && !L.sitz.laub && naechste?.besonders === "hecht") {
+      // Ein voller Schlag zum Teppich, und kurz danach ein zweiter.
+      const B = naechste.blaetter[0];
+      const w = richtungZu(L, B, t).w;
+      const t2 = t + Math.max(SCHLAG_PAUSE + 0.01, state.pilotNach || 0.2);
+      const L2 = fortschreiben(L, t, t2, [{ t, w, st: 1 }]);
+      if (!L2) return null;
+      const f = fensterVon(L2, t2, B, { passt: (e) => e.blatt === B && zielGut(e, L, t) });
+      return f ? { w, st: 1, dw: f.dw, ds: f.ds, wert: wertVon(f), ziel: B, zweiter: f } : null;
+    }
     let best = null;
-    for (const c of B.kreise) {
-      const dx = B.x + c.x - L.x;
-      const dy = B.y + c.y - L.y;
-      const d = Math.hypot(dx, dy) - c.r;
-      if (!best || d < best.d) best = { d, w: Math.atan2(dy, dx) };
+    for (const B of kandidaten(L, t, !imWasser)) {
+      const passt = (e, t0) => e.blatt === B && zielGut(e, L, t0, !imWasser);
+      let f = null;
+      if (B.laub) {
+        const q = laubOrt(B.s, B.k, t + 0.5);
+        if (q.u < 0 || q.u > 0.45) continue;
+        f = fensterVon(L, t, B, { passt, w0: Math.atan2(q.y - L.y, q.x - L.x), d0: Math.hypot(q.x - L.x, q.y - L.y) });
+      } else {
+        f = fensterVon(L, t, B, { passt });
+      }
+      if (!f) continue;
+      let wert = wertVon(f);
+      if (!B.laub && B.nr >= n0 + 2) wert *= 1.08;
+      // Hält es kürzer, als er zum Zielen braucht? Dann lieber nicht.
+      if (!B.laub && B.halt < (state.pilotReaktion || 0.3) * 1.3 + 0.1) wert *= 0.3;
+      if (!best || wert > best.wert) best = { ...f, wert, ziel: B };
     }
     return best;
   }
 
-  function planen(t0) {
-    hechtRand = 4;
-    try { return planenGenau(t0); } finally { hechtRand = 0; }
-  }
-
-  function planenGenau(t0) {
-    const L0 = state.l;
-    const f = Math.abs(L0.om) / TAU || 0.6;
-    const periode = 1 / f;
-    const sitzt = Boolean(L0.sitz);
-    const B = zielBlatt(L0);
-    // Wie lange es noch geht: auf dem Blatt bis es sinkt, sonst eine
-    // Umdrehung und etwas.
-    let bis = t0 + periode * 1.35 + 0.2;
-    if (sitzt && !L0.sitz.laub) {
-      const naechst = state.abschnitte[L0.sitz.nr];
-      bis = naechst?.besonders ? L0.sitz.betreten + L0.sitz.halt - 0.06 : Math.min(bis + 4, L0.sitz.betreten + L0.sitz.halt - 0.06);
-    }
-    const zwei = B && richtungZu(L0, B).d > 31;
-    const dt = zwei ? 1 / 60 : 1 / 120;
-    const tref = [];
-    // Den Zustand ohne Schlag bis zu jedem Zeitpunkt fortschreiben.
-    const L = kopie(L0);
-    let tot = false;
-    const meldeOhne = (art) => { if (art !== "landen") tot = true; };
-    // Die Kraft zur Zeit t (ein Schlag braucht eine ganze).
-    const kraftBei = (t) => Math.min(KRAFT_MAX, state.kraft + KRAFT_ZURUECK * (t - t0));
-    for (let t = t0; t < bis && !tot; t += dt) {
-      let gut = false;
-      let zweiter = null;
-      const r = B ? richtungZu(L, B) : null;
-      const offen = kraftBei(t) >= 1 && (r ? Math.abs(winkelDiff(L.w, r.w)) < (zwei ? 1.05 : 0.8) : Math.abs(winkelDiff(L.w, Math.PI / 2)) < 1.45);
-      if (offen) {
-        const e = vorausrechnen(L, t, [t], t + 1.9, 1 / 120);
-        gut = zielGut(e, L0) && sicherGenug(e, L0, t);
-        if (!gut && zwei) {
-          zweiter = zweiterSchlag(L, t, B, kraftBei(t));
-          gut = zweiter !== null;
-        }
-      }
-      tref.push({ t, gut, zweiter });
-      const vorher = L.sitz;
-      schritt(L, t, dt, meldeOhne);
-      if (vorher && !L.sitz) tot = true;
-    }
-    // Das erste zusammenhängende Fenster – über die Grube lieber eines mit
-    // zwei schnellen Schlägen (die Grube ist dann schneller gequert).
-    const fensterVon = (passt) => {
-      let a = -1;
-      let b = -1;
-      for (let i = 0; i < tref.length; i += 1) {
-        if (passt(tref[i])) { if (a < 0) a = i; b = i; } else if (a >= 0) break;
-      }
-      return [a, b];
-    };
-    let [a, b] = zwei ? fensterVon((x) => x.gut && x.zweiter !== null && x.zweiter - x.t < 0.3) : [-1, -1];
-    if (a < 0) [a, b] = fensterVon((x) => x.gut);
-    if (a < 0) return null;
-    const mitte = tref[Math.round((a + b) / 2)];
-    return { t: mitte.t, a: tref[a].t, b: tref[b].t + dt, zweiter: mitte.zweiter ? mitte.zweiter - mitte.t : null };
-  }
-
-  // Gibt es nach einem Schlag zur Zeit t einen zweiten, mit dem er auf B
-  // landet? Dann wann (die Mitte des Fensters dafür). Geprüft werden nur
-  // Zeiten, zu denen er ungefähr hinschaut.
-  function zweiterSchlag(L, t, B, kraft = KRAFT_MAX) {
-    const L0 = state.l;
-    // Nach dem ersten Schlag muss wieder eine ganze Kraft da sein.
-    const dMin = Math.max(SCHLAG_PAUSE + 0.005, (1 - (kraft - 1)) / KRAFT_ZURUECK + 0.01);
-    let a = -1;
-    let b = -1;
-    const L1 = kopie(L);
-    schlag(L1, t);
-    let tt = t;
-    const melde = (art) => { if (art !== "landen") tt = Infinity; };
-    for (let d = 0; d < 1.4 && tt < Infinity; d += 1 / 60) {
-      if (d >= dMin) {
-        const r = richtungZu(L1, B);
-        let gut = false;
-        if (Math.abs(winkelDiff(L1.w, r.w)) < 0.9) {
-          const e = vorausrechnen(L1, tt, [tt], tt + 1.8, 1 / 90);
-          gut = zielGut(e, L0) && sicherGenug(e, L0, t);
-        }
-        if (gut) { if (a < 0) a = d; b = d; } else if (a >= 0) break;
-      }
-      schritt(L1, tt, 1 / 60, melde);
-      tt += 1 / 60;
-      if (L1.sitz) break;
-    }
-    if (a < 0) return null;
-    return t + (a + b) / 2;
-  }
-
-  // Ist er auf dem Weg vor dem Fisch sicher? Er landet, bevor der nächste
-  // Fisch schnappt.
-  function sicherGenug(e, L0, t) {
-    const n = (L0.sitz && !L0.sitz.laub ? L0.sitz.nr : state.punkte) + 1;
-    const nassBisher = L0.sitz ? 0 : L0.nass;
-    const nass = nassBisher + (e.t - t);
-    return nass < geduldBei(n) * (state.hechte.some((h) => h.abschnitt === n) ? 1.6 : 1) + warnungBei(n) - 0.05;
-  }
-
-  // Soll er jetzt schlagen? streu: so viele Sekunden daneben (Streuung je
-  // Schlag, normalverteilt).
-  function pilot({ streu = 0 } = {}) {
-    if (state.phase !== "spiel" || state.schritt !== "lauf") return false;
+  /*
+   * Soll er jetzt schleudern? Dann { w, st }, sonst null. zeigen: Er zielt
+   * vorher sichtbar (für die Vorführung).
+   */
+  function pilot({ streuW = 0, streuS = 0, reaktion = 0.3, zeigen = false } = {}) {
+    if (state.phase !== "spiel" || state.schritt !== "lauf") return null;
     const L = state.l;
     const jetzt = state.t;
+    const normal = () => Math.sqrt(-2 * Math.log(Math.max(1e-9, Math.random()))) * Math.cos(TAU * Math.random());
+    const zufaellig = (r) => Math.max(0.1, r * (0.75 + 0.5 * Math.random()));
+    const zielZeit = zeigen ? 0.45 : 0;
+    const imWasser = !L.sitz;
+    state.pilotWasser = Math.max(0.15, reaktion * 0.6);
+    state.pilotNach = reaktion * 0.5 + state.pilotWasser;
+    state.pilotReaktion = reaktion;
     let p = state.plan;
-    const rausch = () => {
-      if (!streu) return 0;
-      const u = Math.max(1e-9, Math.random());
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * Math.random()) * streu;
-    };
-    const neuPlanen = () => {
-      const fen = planen(jetzt);
-      if (fen) {
-        const t1 = Math.max(jetzt, fen.t + rausch());
-        const zeiten = [t1];
-        if (fen.zweiter !== null) zeiten.push(t1 + Math.max(SCHLAG_PAUSE + 0.005, fen.zweiter + rausch() * 0.5));
-        p = { sitz: L.sitz, zeiten, geschlagen: 0, geprueft: jetzt, ende: zeiten[zeiten.length - 1] + 0.05, fenster: fen };
-      } else {
-        p = { sitz: L.sitz, zeiten: [], geschlagen: 0, geprueft: jetzt, ende: jetzt + 0.1, fenster: null };
-      }
+    if (!p || p.sitz !== L.sitz) {
+      // Gerade gelandet (oder abgestossen): Er schaut erst.
+      // Im Wasser merkt er erst nach einer Weile, ob es reicht.
+      p = { sitz: L.sitz, denkt: jetzt + (imWasser ? reaktion * 0.5 : Math.max(0, zufaellig(reaktion) - zielZeit)), schlag: null, geprueft: -9 };
       state.plan = p;
-    };
-    const offen = p && p.geschlagen < p.zeiten.length;
-    if (L.sitz) {
-      if (!p || p.sitz !== L.sitz || (!offen && jetzt > p.ende)) neuPlanen();
-    } else if (!offen && (!p || jetzt - p.geprueft > 0.1)) {
-      // Auf dem Wasser: Trägt ihn das Gleiten ans Ziel? Sonst ein neuer Plan.
-      hechtRand = 4;
-      const e = vorausrechnen(L, jetzt, [], jetzt + 2.4, 1 / 120);
-      hechtRand = 0;
-      if (zielGut(e, L) && sicherGenug(e, L, jetzt)) {
-        p = { sitz: null, zeiten: [], geschlagen: 0, geprueft: jetzt, ende: jetzt, fenster: null };
-        state.plan = p;
-      } else {
-        neuPlanen();
+    }
+    if (!p.schlag && jetzt >= p.denkt && jetzt - p.geprueft >= 0.1 - 1e-9) {
+      p.geprueft = jetzt;
+      const sw = Math.max((streuW * Math.PI) / 180, (2 * Math.PI) / 180);
+      const ss = streuS;
+      let tRel = jetzt + zielZeit;
+      let noetig = true;
+      if (imWasser) {
+        // Trägt ihn das Gleiten sicher hin? Sonst bald ein Schlag.
+        hechtRand = 4;
+        const e = vorausrechnen(L, jetzt, [], jetzt + 2.4, 1 / 120);
+        hechtRand = 0;
+        noetig = !zielGut(e, L, jetzt, false);
+        tRel = Math.max(jetzt + zufaellig(state.pilotWasser), state.letzterSchlag + SCHLAG_PAUSE + 0.01, jetzt + Math.max(0, 1 - state.kraft) / KRAFT_ZURUECK);
+      }
+      if (noetig) {
+        const L1 = tRel > jetzt ? fortschreiben(L, jetzt, tRel) : L;
+        hechtRand = 4;
+        const best = L1 ? besterSchlag(L1, tRel, { sw, ss, imWasser: !L1.sitz }) : null;
+        hechtRand = 0;
+        // Warten lohnt, wo sich etwas bewegt (Laub, der Hecht, ein
+        // treibendes Blatt) – solange das Blatt noch hält.
+        const naechste = state.reihen[reiheVon(L) + 1];
+        const bewegt = naechste?.besonders || best?.ziel?.treib || best?.ziel?.laub;
+        const zeitBleibt = L.sitz && !L.sitz.laub && L.sitz.betreten + L.sitz.halt - tRel > reaktion + 0.35;
+        const warten = !imWasser && (!best || best.wert < 1.15) && bewegt && zeitBleibt;
+        if (best && !warten) {
+          p.schlag = {
+            t: tRel,
+            w: best.w + normal() * (streuW * Math.PI) / 180,
+            st: clamp(best.st * (1 + normal() * streuS), 0, 1),
+            ziel: best.ziel,
+            wert: best.wert,
+            ab: jetzt,
+          };
+        }
       }
     }
-    if (p && p.geschlagen < p.zeiten.length && jetzt >= p.zeiten[p.geschlagen] - 1e-9) {
-      p.geschlagen += 1;
-      return true;
+    const s = p.schlag;
+    // Ging der Schlag nicht (keine Kraft), plant er neu.
+    if (s && s.fertig && L.sitz && jetzt - s.t > 0.05) p.schlag = null;
+    if (s && !s.fertig) {
+      if (zeigen) state.zug = { w: s.w, st: s.st * clamp((jetzt - s.ab) / Math.max(0.01, s.t - s.ab), 0, 1), aktiv: true, quelle: "pilot" };
+      if (jetzt >= s.t - 1e-9) {
+        s.fertig = true;
+        if (zeigen) state.zug = null;
+        // Im Wasser darf er danach wieder planen.
+        if (imWasser) { p.schlag = null; p.geprueft = jetzt; }
+        return { w: s.w, st: s.st };
+      }
     }
-    return false;
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1192,29 +1381,24 @@
     feld.append(canvas);
     g = canvas.getContext("2d");
 
-    // Der Hinweis vor dem ersten Tipp: zwei Ringe, die aufgehen – tippen.
+    // Der Hinweis vor dem ersten Schlag: aufsetzen, zurückziehen, loslassen
+    // – und ein Pfeil zeigt, wohin es dann geht.
     const tipp = shell.el("span", "wa-tipp");
     tipp.setAttribute("aria-hidden", "true");
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 64 64");
-    ["wa-tipp-ring", "wa-tipp-ring is-spaet"].forEach((klasse) => {
-      const k = document.createElementNS(ns, "circle");
-      k.setAttribute("class", klasse);
-      k.setAttribute("cx", "32");
-      k.setAttribute("cy", "32");
-      k.setAttribute("r", "14");
-      k.setAttribute("fill", "none");
-      k.setAttribute("stroke", "#ffffff");
-      k.setAttribute("stroke-width", "4");
+    svg.setAttribute("viewBox", "0 0 64 100");
+    const teil = (art, klasse, werte) => {
+      const k = document.createElementNS(ns, art);
+      if (klasse) k.setAttribute("class", klasse);
+      Object.entries(werte).forEach(([a2, v]) => k.setAttribute(a2, String(v)));
       svg.append(k);
-    });
-    const punkt = document.createElementNS(ns, "circle");
-    punkt.setAttribute("cx", "32");
-    punkt.setAttribute("cy", "32");
-    punkt.setAttribute("r", "8");
-    punkt.setAttribute("fill", "#ffffff");
-    svg.append(punkt);
+      return k;
+    };
+    teil("path", "wa-zug-pfeil", { d: "M20 16 L32 4 L44 16", fill: "none", stroke: "#ffffff", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" });
+    teil("circle", "", { cx: 32, cy: 34, r: 10, fill: "none", stroke: "#ffffff", "stroke-width": 3, opacity: 0.75 });
+    teil("rect", "wa-zug-band", { x: 30.5, y: 34, width: 3, height: 40, rx: 1.5, fill: "#ffffff" });
+    teil("circle", "wa-zug-punkt", { cx: 32, cy: 34, r: 9, fill: "#ffffff" });
     tipp.append(svg);
     tippRinge = tipp;
     feld.append(tipp);
@@ -1253,7 +1437,7 @@
   function tippOrt() {
     if (!tippRinge || !state.l) return;
     tippRinge.style.left = `${Math.round(view.cssW / 2)}px`;
-    tippRinge.style.top = `${Math.round(Math.min(view.cssH - 50, view.ankerY + 22 * view.s + 40))}px`;
+    tippRinge.style.top = `${Math.round(Math.min(view.cssH - 90, view.ankerY + 14 * view.s + 10))}px`;
   }
 
   // Die Kamera steht auf ganzen Bildpunkten (cxp, cyp): So liegen die
@@ -2987,7 +3171,9 @@
         seerose(k, c.x + Math.cos(a) * c.r * 0.86, c.y + Math.sin(a) * c.r * 0.86, 2.6, p.bluete === 2, rnd);
       }
     });
-    p.bild = { ...bild, S: view.S };
+    // Nur so gross wie das, was darauf ist (die Blüte ragt nur zu einer
+    // Seite hinaus) – jedes Blatt wird je Bild gelegt.
+    p.bild = { ...zuschneiden(bild), S: view.S };
     return p.bild;
   }
 
@@ -3557,11 +3743,19 @@
     return p < 0.35 ? (p / 0.35) * 0.62 : 0.62 * (1 - (p - 0.35) / 0.65);
   }
 
-  function beinPunkte(bein, seite, sw) {
+  // spann: beim Zielen (0 bis 1) – der Leib weicht zurück, die Mittelbeine
+  // greifen nach vorn und spannen sich wie ein Gummi.
+  function beinPunkte(bein, seite, sw, spann = 0) {
     const pts = [bein.hueft, bein.knie, bein.fuss].map(([x, y]) => [x, y * seite]);
-    if (bein.mitte && sw) {
+    if (spann) {
+      pts[0][0] -= 0.4 * spann;
+      pts[1][0] -= 0.2 * spann;
+      pts[1][1] *= 1 + 0.12 * spann;
+    }
+    const dreh = sw - (bein.mitte ? 0.5 * spann : 0);
+    if (bein.mitte && dreh) {
       const [hx, hy] = pts[0];
-      const a = sw * seite;
+      const a = dreh * seite;
       for (let i = 1; i < 3; i += 1) {
         const dx = pts[i][0] - hx;
         const dy = pts[i][1] - hy;
@@ -3621,7 +3815,7 @@
   }
 
   // Der Wasserläufer an (x, y) im Bild, Blick w (in der Welt).
-  function laeuferMalen(x, y, w, { geist = null, alpha = 1, sitzt = false, gross = 1 } = {}) {
+  function laeuferMalen(x, y, w, { geist = null, alpha = 1, sitzt = false, gross = 1, spann = 0 } = {}) {
     const s = view.s * gross;
     const fx = Math.cos(w);
     const fy = -Math.sin(w);
@@ -3644,7 +3838,7 @@
       g.lineWidth = linie * 1.4;
       g.beginPath();
       BEINE.forEach((b) => [-1, 1].forEach((seite) => {
-        const p = beinPunkte(b, seite, sw);
+        const p = beinPunkte(b, seite, sw, spann);
         g.moveTo(p[0][0], p[0][1]);
         g.lineTo(p[1][0], p[1][1]);
         g.lineTo(p[2][0], p[2][1]);
@@ -3668,7 +3862,7 @@
       BEINE.forEach((b) => {
         if (b.mitte !== mitte) return;
         [-1, 1].forEach((seite) => {
-          const p = beinPunkte(b, seite, sw);
+          const p = beinPunkte(b, seite, sw, spann);
           g.moveTo(p[0][0], p[0][1]);
           g.lineTo(p[1][0], p[1][1]);
           g.lineTo(p[2][0], p[2][1]);
@@ -3681,7 +3875,7 @@
       const ringe = new Path2D();
       const mitten = new Path2D();
       BEINE.forEach((b) => [-1, 1].forEach((seite) => {
-        const [fxx, fyy] = beinPunkte(b, seite, sw)[2];
+        const [fxx, fyy] = beinPunkte(b, seite, sw, spann)[2];
         ringe.moveTo(fxx + b.delle * 0.55, fyy);
         ringe.arc(fxx, fyy, b.delle * 0.55, 0, TAU);
         mitten.moveTo(fxx + b.delle * 0.3, fyy);
@@ -3693,7 +3887,24 @@
       g.fillStyle = "rgba(0,20,20,0.35)";
       g.fill(mitten);
     }
-    // Der Leib.
+    // Gespannt glänzen die Mittelbeine.
+    if (spann > 0.05) {
+      g.strokeStyle = geist ? `rgba(255,255,255,${0.5 * spann})` : `rgba(255,226,170,${0.55 * spann})`;
+      g.lineWidth = linie * 0.45;
+      g.beginPath();
+      BEINE.forEach((b) => {
+        if (!b.mitte) return;
+        [-1, 1].forEach((seite) => {
+          const p = beinPunkte(b, seite, sw, spann);
+          g.moveTo(p[0][0], p[0][1]);
+          g.lineTo(p[1][0], p[1][1]);
+          g.lineTo(p[2][0], p[2][1]);
+        });
+      });
+      g.stroke();
+    }
+    // Der Leib (beim Zielen ein wenig zurück).
+    if (spann) g.translate(-0.4 * spann, 0);
     g.fillStyle = dunkel;
     g.beginPath();
     g.ellipse(-0.8, 0, 1.05, 0.25, 0, 0, TAU);
@@ -3737,23 +3948,6 @@
     g.restore();
   }
 
-  // Die Blicklinie: ein paar helle Punkte in die Richtung, in die er schaut
-  // – so liest sich die Drehung auch, wenn er klein ist.
-  function zeichneBlick(L) {
-    const x = bildX(L.x);
-    const y = bildY(L.y);
-    const fx = Math.cos(L.w);
-    const fy = -Math.sin(L.w);
-    const s = view.s;
-    for (let i = 0; i < 4; i += 1) {
-      const d = (3.6 + i * 1.5) * s;
-      g.fillStyle = `rgba(255,255,255,${0.55 - i * 0.12})`;
-      g.beginPath();
-      g.arc(x + fx * d, y + fy * d, Math.max(1, 0.16 * s), 0, TAU);
-      g.fill();
-    }
-  }
-
   function zeichneGeister() {
     if (!gegner || state.phase === "bereit") return;
     const orte = window.LernappGeist?.orte?.(gegner) || [];
@@ -3771,8 +3965,9 @@
       }
       const c = Math.round(o.c || 0);
       const w = c >= 0 ? (c % 1000) / 100 : 0;
+      const spann = c >= 0 ? Math.floor((c % 10000) / 1000) / 9 : 0;
       schein("weiss", sx, sy, 3.2 * view.s, 0.25 * o.blass);
-      laeuferMalen(sx, sy, w, { geist: o.farbe, alpha: 0.5 * o.blass });
+      laeuferMalen(sx, sy, w, { geist: o.farbe, alpha: 0.5 * o.blass, spann });
       namen.push({ ...o, sx, sy: sy - 5 * view.s });
     });
     window.LernappGeist.namen(g, namen, { breit: view.cssW, hoch: view.cssH });
@@ -3786,7 +3981,7 @@
     const liste = state.blaetter;
     for (let i = blattAb(yu - 14); i < liste.length; i += 1) {
       const p = liste[i];
-      if (p.y - p.ausdehnung > yo + 14) break;
+      if (p.y - AUS_MAX > yo + 14) break;
       fn(p);
     }
   }
@@ -3801,13 +3996,15 @@
 
   // Die Schatten der Seerosenblätter auf dem Grund und ihre Stängel (unter
   // Wasser, vom Blatt schräg zum Grund) – sie stehen still und sind darum
-  // in die Kacheln gemalt. Geht ein Blatt unter, liegt es danach als
+  // in die Kacheln gemalt (die treibenden nicht: deren Schatten wandert
+  // mit, zeichneBlaetter). Geht ein Blatt unter, liegt es danach als
   // dunkler Schemen im Wasser über seinem Schatten.
   function blattSchattenMalen(k, kc) {
     const liste = state.blaetter;
     for (let i = blattAb(kc.ya - 20); i < liste.length; i += 1) {
       const p = liste[i];
-      if (p.y - p.ausdehnung > kc.yb + 20) break;
+      if (p.y - AUS_MAX > kc.yb + 20) break;
+      if (p.treib) continue;
       const sv = schattenVersatz(p.x, p.y);
       const tief = farbeBei(p.y, "tief");
       // Die Stängel.
@@ -3840,19 +4037,29 @@
 
   function zeichneBlaetter() {
     const L = state.l;
-    const ziel = state.blaetter[(L.sitz && !L.sitz.laub ? L.sitz.nr : state.punkte) + 1];
     sichtbareBlaetter((p) => {
       const weg = versunken(p, state.t) ? clamp((state.t - p.betreten - p.halt) / 0.9, 0, 1) : 0;
       const b = blattBild(p);
+      const dx = treibX(p, state.t);
       if (weg >= 1) {
-        // Versunken: Es liegt auf dem Grund, auf seinem Schatten, vom Wasser
-        // überdeckt.
+        // Versunken: Es sinkt auf den Grund, auf seinen Schatten, und
+        // verschwindet im Wasser.
+        const fort = clamp((state.t - p.betreten - p.halt - 0.9) / 1.6, 0, 1);
+        if (fort >= 1) return;
         const sv = schattenVersatz(p.x, p.y);
-        bildLegen(b, bildX(p.x + sv.x), bildY(p.y + sv.y), 0.32 * (1 - sv.d * 0.4));
+        bildLegen(b, bildX(p.x + dx + sv.x), bildY(p.y + sv.y), 0.32 * (1 - sv.d * 0.4) * (1 - fort));
         return;
       }
+      if (p.treib) {
+        // Der Schatten des treibenden Blattes wandert mit.
+        const sv = schattenVersatz(p.x, p.y);
+        g.fillStyle = `rgba(0,12,8,${0.3 * (1 - sv.d * 0.3)})`;
+        g.beginPath();
+        g.arc(bildX(p.x + dx + sv.x), bildY(p.y + sv.y), p.r * view.s, 0, TAU);
+        g.fill();
+      }
       const sink = sinktBei(p, state.t);
-      const x = bildX(p.x);
+      const x = bildX(p.x + dx);
       const y = bildY(p.y) + blattWippen(p) * view.s;
       bildLegen(b, x, y, (1 - weg) * (1 - sink * 0.25));
       // Es läuft voll: Wasser kriecht vom Rand her darüber, und es wird dunkel.
@@ -3860,7 +4067,7 @@
         const k = Math.max(sink, 1);
         const wasser = farbeBei(p.y, "wasser");
         p.kreise.forEach((c) => {
-          const cx = bildX(p.x + c.x);
+          const cx = bildX(p.x + dx + c.x);
           const cy = bildY(p.y + c.y) + blattWippen(p) * view.s;
           const r = c.r * view.s;
           g.fillStyle = rgba(wasser, 0.25 + 0.55 * sink + 0.2 * weg);
@@ -3876,8 +4083,8 @@
           // Blasen am Rand.
           if (!ruhig() && k > 0) {
             for (let i = 0; i < 5; i += 1) {
-              const a = hash01(p.nr * 7 + i) * TAU + state.zeit * 0.7;
-              const ph = (state.zeit * 1.6 + hash01(i * 3.1 + p.nr)) % 1;
+              const a = hash01(p.id * 7 + i) * TAU + state.zeit * 0.7;
+              const ph = (state.zeit * 1.6 + hash01(i * 3.1 + p.id)) % 1;
               g.strokeStyle = `rgba(255,255,255,${0.5 * (1 - ph) * sink})`;
               g.beginPath();
               g.arc(cx + Math.cos(a) * r * 1.02, cy + Math.sin(a) * r * 1.02, 0.5 + ph * 1.6, 0, TAU);
@@ -3886,41 +4093,62 @@
           }
         });
       }
-      // Das nächste Blatt zeigt, wie herum er sich darauf drehen wird: zwei
-      // Pfeile auf einem Kreis, die sich langsam in diese Richtung drehen.
-      if (p === ziel && state.schritt !== "tot" && state.phase !== "ende") zeichneDrehPfeil(p);
+      // Der Ring der Haltezeit: Wer darauf sitzt, sieht, wie lange es noch
+      // trägt.
+      if (L && L.sitz === p && p.betreten !== null && weg <= 0 && state.phase !== "ende") zeichneHaltRing(p, dx);
     });
   }
 
-  function zeichneDrehPfeil(p) {
-    const c = p.kreise.reduce((a, b) => (b.r > a.r ? b : a), p.kreise[0]);
-    const cx = bildX(p.x + c.x);
-    const cy = bildY(p.y + c.y);
-    const r = c.r * view.s * 0.62;
-    const w0 = -p.dreh * state.zeit * TAU * p.f * 0.3;
-    g.lineCap = "round";
-    g.strokeStyle = "rgba(255,255,255,0.62)";
-    g.fillStyle = "rgba(255,255,255,0.62)";
-    g.lineWidth = Math.max(1.5, 0.28 * view.s);
-    for (let i = 0; i < 2; i += 1) {
-      const a0 = w0 + i * Math.PI;
-      const a1 = a0 - p.dreh * 1.6;
-      g.beginPath();
-      g.arc(cx, cy, r, Math.min(a0, a1), Math.max(a0, a1));
-      g.stroke();
-      // Die Spitze am Ende in Drehrichtung.
-      const ax = cx + Math.cos(a1) * r;
-      const ay = cy + Math.sin(a1) * r;
-      const t = a1 - p.dreh * Math.PI / 2;
-      const tx = Math.cos(t + Math.PI);
-      const ty = Math.sin(t + Math.PI);
-      const sp = Math.max(4, 0.9 * view.s);
-      g.beginPath();
-      g.moveTo(ax - tx * sp * 0.2, ay - ty * sp * 0.2);
-      g.lineTo(ax + tx * sp + Math.cos(a1) * sp * 0.55, ay + ty * sp + Math.sin(a1) * sp * 0.55);
-      g.lineTo(ax + tx * sp - Math.cos(a1) * sp * 0.55, ay + ty * sp - Math.sin(a1) * sp * 0.55);
-      g.closePath();
-      g.fill();
+  // Der Ring der Haltezeit: HALT_PUNKTE Punkte rund um das Blatt, die im
+  // Uhrzeigersinn verlöschen – hell, dann gelb, zuletzt rot und pulsierend.
+  // Punkte statt eines Bogens: Jeder ist ein kleines, vorgemaltes Bild, das
+  // kostet im Software-Raster fast nichts.
+  const HALT_PUNKTE = 20;
+  const HALT_FARBEN = [[232, 255, 214], [255, 214, 92], [255, 96, 72]];
+  function haltPunkt(f, px) {
+    const key = `halt:${f}:${px}`;
+    let b = sprites.get(key);
+    if (b) return b;
+    const n = Math.ceil(px * 2 + 4);
+    const c = leinwandPx(n, n);
+    const k = c.getContext("2d");
+    k.fillStyle = "rgba(10,30,20,0.55)";
+    k.beginPath();
+    k.arc(n / 2, n / 2, px + 1.2, 0, TAU);
+    k.fill();
+    k.fillStyle = rgb(HALT_FARBEN[f]);
+    k.beginPath();
+    k.arc(n / 2, n / 2, px, 0, TAU);
+    k.fill();
+    b = { c, cx: Math.round(n / 2), cy: Math.round(n / 2) };
+    sprites.set(key, b);
+    return b;
+  }
+
+  function zeichneHaltRing(p, dx) {
+    const rest = restBei(p, state.t);
+    if (rest <= 0) return;
+    // Beim Teppich um das Blatt, auf dem er sitzt.
+    const L = state.l;
+    let c = p.kreise[0];
+    if (p.kreise.length > 1) {
+      let best = Infinity;
+      for (const q of p.kreise) {
+        const d = (L.x - p.x - dx - q.x) ** 2 + (L.y - p.y - q.y) ** 2;
+        if (d < best) { best = d; c = q; }
+      }
+    }
+    const cx = bildX(p.x + dx + c.x);
+    const cy = bildY(p.y + c.y) + blattWippen(p) * view.s;
+    const r = c.r * view.s * 0.84;
+    const f = rest > 0.5 ? 0 : rest > 0.25 ? 1 : 2;
+    const bild = haltPunkt(f, Math.max(2, Math.round(0.36 * view.s * view.dpr)));
+    // Knapp vor dem Ende pulsiert er.
+    const puls = f === 2 && !ruhig() ? 0.7 + 0.3 * Math.sin(state.zeit * 22) : 1;
+    const voll = rest * HALT_PUNKTE;
+    for (let i = 0; i < HALT_PUNKTE && i < voll; i += 1) {
+      const a = -Math.PI / 2 + ((i + 0.5) / HALT_PUNKTE) * TAU;
+      bildLegen(bild, cx + Math.cos(a) * r, cy + Math.sin(a) * r, puls * Math.min(1, voll - i));
     }
   }
 
@@ -4463,9 +4691,81 @@
       laeuferMalen(bildX(x), bildY(tot.y), tot.w + tot.zeit * 14, { alpha: 1 - k });
       return;
     }
+    // Sitzt er, wippt er leicht (mit dem Blatt, und ein wenig von selbst).
     const wipp = L.sitz && !L.sitz.laub ? blattWippen(L.sitz) * view.s : 0;
-    if (state.phase !== "zuschauen") zeichneBlick(L);
-    laeuferMalen(bildX(L.x), bildY(L.y) + wipp, L.w, { sitzt: Boolean(L.sitz) });
+    const selbst = L.sitz && !ruhig() ? Math.sin(state.zeit * 3.1) * 0.12 * view.s : 0;
+    const z = state.zug;
+    laeuferMalen(bildX(L.x), bildY(L.y) + wipp + selbst, L.w, { sitzt: Boolean(L.sitz), spann: z?.aktiv ? z.st : 0 });
+  }
+
+  // Der Pfeil beim Zielen: Richtung und Stärke (länger, dicker, wärmer) –
+  // aber nicht, wie weit es trägt. Mit dem Finger dazu das Band vom
+  // Aufsetzen bis zum Finger und der kleine Kreis, in dem nichts geschieht.
+  function zeichneZielen() {
+    const z = state.zug;
+    const L = state.l;
+    if (!z || !L || state.tot || state.phase === "ende") return;
+    g.lineCap = "round";
+    if (z.quelle === "zeiger") {
+      const tot = totPx();
+      g.strokeStyle = "rgba(255,255,255,0.4)";
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(z.x0, z.y0, tot, 0, TAU);
+      g.stroke();
+      if (z.aktiv) {
+        g.strokeStyle = "rgba(255,255,255,0.28)";
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(z.x0, z.y0);
+        g.lineTo(z.x, z.y);
+        g.stroke();
+        g.fillStyle = "rgba(255,255,255,0.5)";
+        g.beginPath();
+        g.arc(z.x, z.y, 4, 0, TAU);
+        g.fill();
+      }
+    }
+    if (!z.aktiv) return;
+    const x = bildX(L.x);
+    const y = bildY(L.y);
+    const fx = Math.cos(z.w);
+    const fy = -Math.sin(z.w);
+    const s = view.s;
+    const st = clamp(z.st, 0, 1);
+    const l0 = 3.6 * s;
+    const l1 = (7.5 + 11 * st) * s;
+    const spitze = (1.7 + 0.7 * st) * s;
+    const farbe = st < 0.55 ? mix3([255, 255, 255], [255, 200, 80], st / 0.55) : mix3([255, 200, 80], [255, 92, 56], (st - 0.55) / 0.45);
+    const breit = Math.max(2.5, (0.45 + 0.5 * st) * s);
+    const ex = x + fx * (l1 - spitze * 0.6);
+    const ey = y + fy * (l1 - spitze * 0.6);
+    g.strokeStyle = rgba(farbe, 0.95);
+    g.lineWidth = breit;
+    g.beginPath();
+    g.moveTo(x + fx * l0, y + fy * l0);
+    g.lineTo(ex, ey);
+    g.stroke();
+    const qx = -fy;
+    const qy = fx;
+    const hx = x + fx * l1;
+    const hy = y + fy * l1;
+    const bx = hx - fx * spitze;
+    const by = hy - fy * spitze;
+    g.beginPath();
+    g.moveTo(hx + fx * 1.2, hy + fy * 1.2);
+    g.lineTo(bx + qx * (spitze * 0.62 + 1.2), by + qy * (spitze * 0.62 + 1.2));
+    g.lineTo(bx - qx * (spitze * 0.62 + 1.2), by - qy * (spitze * 0.62 + 1.2));
+    g.closePath();
+    g.fillStyle = "rgba(10,24,20,0.42)";
+    g.fill();
+    g.beginPath();
+    g.moveTo(hx, hy);
+    g.lineTo(bx + qx * spitze * 0.62, by + qy * spitze * 0.62);
+    g.lineTo(bx - qx * spitze * 0.62, by - qy * spitze * 0.62);
+    g.closePath();
+    g.fillStyle = rgba(farbe, 0.95);
+    g.fill();
   }
 
   function zeichnen() {
@@ -4491,6 +4791,7 @@
     zeichneRinge();
     zeichneGeister();
     zeichneLaeufer();
+    zeichneZielen();
     zeichneSpritzer();
     zeichneVordergrund();
     zeichneInsekten();
@@ -4529,20 +4830,24 @@
   // ---------------------------------------------------------------------------
   // Schlagen, landen, gefressen werden
   // ---------------------------------------------------------------------------
-  function rudern() {
+  function rudern(w, st) {
     const L = state.l;
-    schlag(L, state.t);
+    schlag(L, state.t, w, st);
     state.schlaege += 1;
     state.letzterSchlag = state.t;
     state.stossBild = 1;
-    klang()?.ton?.("wasserlaeufer.ruder", { laut: 0.55 });
-    kids()?.vibrate?.(5);
-    // Die Ringe der Mittelbeine.
-    const w = L.w;
+    state.stossSt = st;
+    // Jeder Schlag mit Zeit (ms), Richtung (rad) und Stärke – für die
+    // Prüfung und zum Nachsehen.
+    state.eingaben.push({ t: Math.round(state.t * 1000), w: Math.round(w * 1000) / 1000, st: Math.round(st * 1000) / 1000 });
+    klang()?.ton?.("wasserlaeufer.ruder", { laut: 0.35 + 0.35 * st });
+    kids()?.vibrate?.(4 + Math.round(st * 5));
+    // Die Ringe der Mittelbeine – je kräftiger, desto grösser.
     const qx = Math.cos(w + Math.PI / 2);
     const qy = Math.sin(w + Math.PI / 2);
-    ring(L.x + qx * 3.2 - Math.cos(w) * 1, L.y + qy * 3.2 - Math.sin(w) * 1, 0.6, 16, 0.7, 0.9);
-    ring(L.x - qx * 3.2 - Math.cos(w) * 1, L.y - qy * 3.2 - Math.sin(w) * 1, 0.6, 16, 0.7, 0.9);
+    const wachs = 10 + 10 * st;
+    ring(L.x + qx * 3.2 - Math.cos(w) * 1, L.y + qy * 3.2 - Math.sin(w) * 1, 0.6, wachs, 0.7, 0.6 + 0.4 * st);
+    ring(L.x - qx * 3.2 - Math.cos(w) * 1, L.y - qy * 3.2 - Math.sin(w) * 1, 0.6, wachs, 0.7, 0.6 + 0.4 * st);
   }
 
   function gelandet(p) {
@@ -4610,7 +4915,7 @@
     const j = state.jagd;
     const n = (L.sitz && !L.sitz.laub ? L.sitz.nr : state.punkte) + 1;
     const imHecht = state.hechte.some((hg) => hg.abschnitt === n);
-    const geduld = geduldBei(n) * (imHecht ? 1.6 : 1);
+    const geduld = geduldBei(n) * (imHecht ? HECHT_GEDULD : 1);
     if (j.phase === "ruhe") {
       if (!L.sitz && L.nass >= geduld) {
         j.phase = "steigt";
@@ -4636,7 +4941,7 @@
         const nah = (L.x - j.x) ** 2 + (L.y - j.y) ** 2 < R_SCHNAPP * R_SCHNAPP;
         spritzer(j.x, j.y, 10, 0.9);
         ring(j.x, j.y, 2, 20, 0.7, 1);
-        if (nah && !L.sitz && !blattBei(L.x, L.y, state.t, null) && !nurBild) {
+        if (nah && !L.sitz && !blattBei(L.x, L.y, state.t, null, 0) && !nurBild) {
           sterben("fisch", j);
           return;
         }
@@ -4671,24 +4976,26 @@
     }
   }
 
-  // Der Tipp – zu der Zeit, zu der er geschah (jetzt, wie performance.now).
-  function tippen(jetzt) {
-    if (state.phase === "zuschauen" || state.phase === "ende") return;
-    if (state.phase === "bereit") {
-      losGehts();
-    }
-    if (state.phase !== "spiel" || state.schritt === "tot") return;
+  // Ein Schleuderschlag in Richtung w (in der Welt) mit der Stärke st (0
+  // bis 1) – zu der Zeit, zu der er geschah (jetzt, wie performance.now).
+  // Der erste startet die Runde.
+  function schleudern(w, st, jetzt) {
+    if (state.phase === "zuschauen" || state.phase === "ende") return false;
+    if (!Number.isFinite(w) || !(st >= 0)) return false;
+    if (state.phase === "bereit") losGehts();
+    if (state.phase !== "spiel" || state.schritt === "tot") return false;
     if (Number.isFinite(jetzt) && last) {
       const mehr = clamp((jetzt - last) / 1000 - voraus, 0, 0.05);
       if (mehr > 0) {
         physik(mehr);
         voraus += mehr;
       }
-      if (state.schritt === "tot") return;
+      if (state.schritt === "tot") return false;
     }
-    if (state.t - state.letzterSchlag < SCHLAG_PAUSE || state.kraft < 1) return;
+    if (state.t - state.letzterSchlag < SCHLAG_PAUSE || state.kraft < 1) return false;
     state.kraft -= 1;
-    rudern();
+    rudern(w, clamp(st, 0, 1));
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -4706,8 +5013,9 @@
   }
 
   // Er steht, wo die Aufzeichnung ihn hat (a: quer in Vierteln, b: bachauf
-  // in Vierteln, c: die Schläge mal 1000 und die Blickrichtung in
-  // Hundertsteln; am Schluss negativ, woran es endete).
+  // in Vierteln, c: die Schläge mal 10000, die Spannung beim Zielen (0 bis
+  // 9) mal 1000 und die Blickrichtung in Hundertsteln; am Schluss negativ,
+  // woran es endete). Zielt er, zeigt der Pfeil dasselbe wie beim Spielen.
   function zuschauenTakt(dt) {
     const st = zuschauer.stand();
     if (!st) return;
@@ -4723,7 +5031,9 @@
         sterben(ARTEN[-c - 1] || "fisch", null, true);
       } else {
         L.w = (c % 1000) / 100;
-        const zahl = Math.floor(c / 1000);
+        const spann = Math.floor((c % 10000) / 1000);
+        state.zug = spann > 0 ? { w: L.w, st: spann / 9, aktiv: true, quelle: "zuschauen" } : null;
+        const zahl = Math.floor(c / 10000);
         while (state.schlaege < zahl) {
           state.schlaege += 1;
           state.letzterSchlag = state.t;
@@ -4756,8 +5066,8 @@
   // ---------------------------------------------------------------------------
   // Der Takt
   // ---------------------------------------------------------------------------
-  // Eine neue Welt bekommt ihren Namen; ein besonderer Abschnitt wird
-  // angesagt, sobald er auf dem Blatt davor sitzt.
+  // Eine neue Welt bekommt ihren Namen; eine besondere Reihe wird
+  // angesagt, sobald er auf der Reihe davor sitzt.
   function abschnittPruefen() {
     const L = state.l;
     const w = weltBei(L.y);
@@ -4769,12 +5079,12 @@
     const nr = L.sitz && !L.sitz.laub ? L.sitz.nr : -1;
     if (nr < 0 || nr === state.abschnitt) return;
     state.abschnitt = nr;
-    const naechster = state.abschnitte[nr];
+    const naechster = state.reihen[nr + 1];
     if (naechster?.besonders === "stroemung") {
       ansage("Strömung voraus", "Ein Seitenbach reisst quer – reite das Laub hinüber", "#cfeaff", 2.8);
       klang()?.ton?.("wasserlaeufer.ansage", { laut: 0.7 });
     } else if (naechster?.besonders === "hecht") {
-      ansage("Hechtgrube voraus", "Zu weit für einen Schlag – und der Hecht kreist", "#ffd2a8", 2.8);
+      ansage("Hechtgrube voraus", "Zu weit für einen Schlag – schleudere im Gleiten nach", "#ffd2a8", 2.8);
       klang()?.ton?.("wasserlaeufer.ansage", { laut: 0.7 });
     }
   }
@@ -4795,9 +5105,6 @@
     if (state.phase === "zuschauen") {
       zuschauenTakt(dt);
       if (state.schritt !== "tot") abschnittPruefen();
-    } else if (state.phase === "bereit") {
-      // Er dreht sich schon, bevor es losgeht.
-      L.w += L.om * dt;
     } else if (state.phase === "spiel" && state.schritt !== "tot") {
       state.kraft = Math.min(KRAFT_MAX, state.kraft + KRAFT_ZURUECK * dt);
       if (strecke > 0) physik(strecke);
@@ -4840,7 +5147,7 @@
       state.camY += (zielY - state.camY) * (1 - Math.exp(-dt * 3.2));
       state.camX += (zielX - state.camX) * (1 - Math.exp(-dt * 2));
     }
-    planBis(state.camY + SICHT_OBEN + 280, 1);
+    planBis(state.camY + SICHT_OBEN + 280, 2);
 
     // Das Blatt unter ihm beginnt zu sinken: ein Gurgeln. Der Hecht zieht
     // nah vorbei: ein Flossenschlag.
@@ -4862,10 +5169,32 @@
       }
     }
 
+    zielenTakt(dt);
+
     if (state.phase === "spiel" && state.schritt !== "tot") {
-      const c = state.schlaege * 1000 + Math.round((((L.w % TAU) + TAU) % TAU) * 100);
+      const z = state.zug;
+      const spann = z?.aktiv ? Math.round(z.st * 9) : 0;
+      const c = state.schlaege * 10000 + spann * 1000 + Math.round((((L.w % TAU) + TAU) % TAU) * 100);
       gegner?.takt(state.punkte, { a: Math.round(L.x * 4), b: Math.round(L.y * 4), c });
     }
+  }
+
+  // Zielen: Er dreht sich zum Ziel (nur das Bild – die Richtung gibt der
+  // Schlag), und mit der Tastatur dreht der Pfeil und lädt die Stärke.
+  function zielenTakt(dt) {
+    const L = state.l;
+    if (!L || state.schritt === "tot" || state.phase === "ende") return;
+    if (state.phase !== "zuschauen" && !zeiger && (tasten.links || tasten.rechts || tasten.laden !== null || state.zeit - tasten.zuletzt < 1.6)) {
+      const dreh = (tasten.links ? 1 : 0) - (tasten.rechts ? 1 : 0);
+      tasten.w += dreh * TASTEN_DREH * dt;
+      const st = tasten.laden === null ? 0 : clamp((performance.now() - tasten.laden) / 1000 / LADE_ZEIT, 0, 1);
+      state.zug = { w: tasten.w, st, aktiv: true, quelle: "tasten", laedt: tasten.laden !== null };
+      if (dreh || tasten.laden !== null) tasten.zuletzt = state.zeit;
+    } else if (state.zug?.quelle === "tasten") {
+      state.zug = null;
+    }
+    const z = state.zug;
+    if (z?.aktiv) L.w += winkelDiff(z.w, L.w) * (1 - Math.exp(-dt * 16));
   }
 
   function loop(now) {
@@ -4880,7 +5209,7 @@
     zeichnen();
   }
 
-  // Die Runde beginnt: mit dem ersten Tipp – oder im Live-Modus zum
+  // Die Runde beginnt: mit dem ersten Schlag – oder im Live-Modus zum
   // gemeinsamen Start. Das Blatt, auf dem er sitzt, gilt ab jetzt als
   // betreten.
   function losGehts() {
@@ -4925,9 +5254,16 @@
     state.stossBild = 0;
     state.jagd = { phase: "ruhe", t0: 0, x: 0, y: 0, w: 0, v: 0, warn: 1 };
     state.drift = 0;
+    state.eingaben = [];
+    state.zug = null;
+    state.stossSt = 0;
+    zeiger = null;
+    tasten.laden = null;
+    tasten.w = Math.PI / 2;
+    tasten.zuletzt = -9;
     weltNeu();
     const p0 = state.blaetter[0];
-    state.l = { x: p0.x, y: p0.y, vx: 0, vy: 0, w: Math.PI * 0.15, om: p0.dreh * TAU * p0.f, sitz: p0, von: null, nass: 0, ox: 0, oy: 0, mx: 0, my: 0 };
+    state.l = { x: p0.x, y: p0.y, vx: 0, vy: 0, w: Math.PI / 2, sitz: p0, von: null, nass: 0, ox: 0, oy: 0, mx: 0, my: 0 };
     state.camX = mitteBei(25);
     state.camY = 0;
     voraus = 0;
@@ -4939,7 +5275,7 @@
     host.dataset.intro = state.intro ? "an" : "aus";
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt wa-prompt", "Er dreht sich – tippe, wenn er zum nächsten Blatt schaut.");
+    const prompt = shell.el("p", "cm-prompt wa-prompt", "Zieh zurück und lass los – wie eine Schleuder.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -5012,30 +5348,109 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "pondSkater", fassung: FASSUNG, zufall, einheit: "Blätter", nochmal: zuschauenStarten,
+    host, spiel: "pondSkater", fassung: "t2", zufall, einheit: "Blätter", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "pondSkater", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "pondSkater", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
   zuschauer?.laden.then((da) => { if (da) zuschauenStarten(); });
 
-  // Ein Tipp irgendwo aufs Bild: ein Ruderschlag. Nur Knöpfe bleiben Knöpfe.
+  // Die Schleuder: irgendwo aufsetzen, ziehen, loslassen. Nur Knöpfe
+  // bleiben Knöpfe. Gezählt wird in CSS-Pixeln der Fläche.
+  const totPx = () => Math.max(TOT_MIN, TOT_ANTEIL * Math.min(view.cssW, view.cssH));
+  const zugPx = () => clamp(ZUG_ANTEIL * Math.min(view.cssW, view.cssH), ZUG_MIN, ZUG_MAX);
+  // Aus dem Zug (vom Aufsetzen zum Finger) die Richtung (entgegen) und die
+  // Stärke – oder null im Kreis, in dem nichts geschieht.
+  function zugWert(z) {
+    const dx = z.x - z.x0;
+    const dy = z.y - z.y0;
+    const tot = totPx();
+    const len = Math.hypot(dx, dy);
+    if (len < tot) return null;
+    return { w: Math.atan2(dy, -dx), st: clamp((len - tot) / (zugPx() - tot), 0, 1) };
+  }
+  function zeigerStellen() {
+    const v = zugWert(zeiger);
+    state.zug = {
+      w: v ? v.w : state.zug?.w ?? state.l?.w ?? Math.PI / 2, st: v ? v.st : 0, aktiv: Boolean(v), quelle: "zeiger",
+      x0: zeiger.x0, y0: zeiger.y0, x: zeiger.x, y: zeiger.y,
+    };
+  }
+  const zeitVon = (event) => (Math.abs(performance.now() - event.timeStamp) < 250 ? event.timeStamp : performance.now());
+
   host.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, a, input")) return;
-    const t = Math.abs(performance.now() - event.timeStamp) < 250 ? event.timeStamp : performance.now();
-    tippen(t);
+    if (zeiger || !canvas || state.phase === "zuschauen" || state.phase === "ende") return;
+    if (event.button > 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    zeiger = { id: event.pointerId, links: rect.left, oben: rect.top, x0: x, y0: y, x, y };
+    try { host.setPointerCapture(event.pointerId); } catch { /* egal */ }
+    zeigerStellen();
+  });
+  host.addEventListener("pointermove", (event) => {
+    if (!zeiger || event.pointerId !== zeiger.id) return;
+    zeiger.x = event.clientX - zeiger.links;
+    zeiger.y = event.clientY - zeiger.oben;
+    zeigerStellen();
+  });
+  host.addEventListener("pointerup", (event) => {
+    if (!zeiger || event.pointerId !== zeiger.id) return;
+    zeiger.x = event.clientX - zeiger.links;
+    zeiger.y = event.clientY - zeiger.oben;
+    const v = zugWert(zeiger);
+    zeiger = null;
+    state.zug = null;
+    if (v) schleudern(v.w, v.st, zeitVon(event));
+  });
+  host.addEventListener("pointercancel", (event) => {
+    if (!zeiger || event.pointerId !== zeiger.id) return;
+    zeiger = null;
+    state.zug = null;
   });
 
-  const TASTEN = new Set([" ", "Enter", "ArrowUp"]);
+  // Die Tastatur: links und rechts zielen (halten dreht), oben zielt gerade
+  // bachauf; Leertaste oder Enter halten lädt, loslassen schleudert, Escape
+  // bricht ab.
   document.addEventListener("keydown", (event) => {
-    if (!TASTEN.has(event.key)) return;
-    if (document.activeElement?.tagName === "BUTTON") return;
-    event.preventDefault();
-    if (event.repeat) return;
-    tippen(performance.now());
+    if (document.activeElement?.tagName === "BUTTON" || state.phase === "zuschauen" || state.phase === "ende") return;
+    const k = event.key;
+    if (k === "ArrowLeft" || k === "ArrowRight") {
+      event.preventDefault();
+      if (!event.repeat) tasten.w += (k === "ArrowLeft" ? 1 : -1) * TASTEN_SCHRITT;
+      if (k === "ArrowLeft") tasten.links = true; else tasten.rechts = true;
+      tasten.zuletzt = state.zeit;
+    } else if (k === "ArrowUp") {
+      event.preventDefault();
+      tasten.w = Math.PI / 2;
+      tasten.zuletzt = state.zeit;
+    } else if (k === " " || k === "Enter") {
+      event.preventDefault();
+      if (event.repeat || tasten.laden !== null) return;
+      tasten.laden = performance.now();
+      tasten.zuletzt = state.zeit;
+    } else if (k === "Escape" && tasten.laden !== null) {
+      event.preventDefault();
+      tasten.laden = null;
+    }
   });
+  document.addEventListener("keyup", (event) => {
+    const k = event.key;
+    if (k === "ArrowLeft") tasten.links = false;
+    if (k === "ArrowRight") tasten.rechts = false;
+    if ((k === " " || k === "Enter") && tasten.laden !== null) {
+      event.preventDefault();
+      const jetzt = zeitVon(event);
+      const st = clamp((jetzt - tasten.laden) / 1000 / LADE_ZEIT, 0, 1);
+      tasten.laden = null;
+      tasten.zuletzt = state.zeit;
+      schleudern(tasten.w, st, jetzt);
+    }
+  });
+  window.addEventListener("blur", () => { tasten.links = false; tasten.rechts = false; tasten.laden = null; });
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
@@ -5043,9 +5458,12 @@
 
   // Für die Prüfskripte und die Vorführung.
   window.LernappWasserlaeufer = {
-    J, TAU_W, MU_W, TAU_B, MU_B, R_SCHNAPP, R_HECHT, FASSUNG, state, view,
-    takt, tippen, losGehts, physik, planBis, kursText, pilot, planen, blattFenster, blattBei, hechtOrt, laubOrt,
-    schwere, drehBei, abstandBei, radiusBei, haltBei, geduldBei, warnungBei, fischVBei, fensterMinBei, mitteBei, halbBei, weltBei,
-    bildX, bildY, spaet,
+    J_MIN, J_MAX, TAU_W, MU_W, TAU_B, MU_B, R_SCHNAPP, R_HECHT, FASSUNG, KRAFT_MAX, state, view,
+    takt, schleudern, losGehts, physik, planBis, kursText, pilot, fensterVon, blattBei, blattOrt, hechtOrt, laubOrt, vorausrechnen,
+    schwere, spaet, reihenAbstandBei, radienBei, haltBei, geduldBei, warnungBei, fischVBei, spielraumWBei, spielraumSBei, jVon, weiteVon,
+    mitteBei, halbBei, weltBei, bildX, bildY, totPx, zugPx,
+    // Zielen wie mit dem Finger (für die Vorführung und die Bilder): Pfeil
+    // und Spannung ohne Schlag; null räumt weg.
+    zielen: (w, st) => { state.zug = w === null || w === undefined ? null : { w, st, aktiv: true, quelle: "pilot" }; },
   };
 })();

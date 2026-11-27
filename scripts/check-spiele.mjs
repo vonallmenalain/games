@@ -13102,35 +13102,96 @@ try {
     await kontext.close();
   }
 
-  // --- 4g50. Wasserläufer: immer zu schaffen, und wer nicht im rechten Moment rudert, wird gefressen ----
-  // Ein Autopilot rudert, wenn der Schlag in der Mitte des Fensters auf dem
-  // nächsten Blatt landet – über vier gewürfelte Welten bis 80 s, ohne
-  // dass er gefressen wird und ohne dass der Bau der Kette je ausweichen
-  // muss. Dabei kommen alle fünf Welten vor, und jeder achte Abschnitt ist
-  // besonders (8., 24., 40.: Strömung, 16., 32.: Hechtgrube), vorher
-  // angesagt. Wer wenig daneben rudert (±20 ms), kommt meist weit, wer viel
-  // daneben rudert (±80 ms), bald nicht mehr. Wer nichts tut, geht mit dem
-  // ersten Blatt unter; wer dauernd rudert, wird bald gefressen. Die Kurve
-  // wird schwerer: schneller drehen, weiter springen, kleinere Blätter, die
-  // kürzer halten, und Fische, die früher kommen.
+  // --- 4g50. Wasserläufer: die Schleuder – immer zu schaffen, aber nur mit Ziel und Mass ----
+  // Ein Autopilot schleudert dorthin, wo das Fenster in Richtung und Stärke
+  // am meisten Spielraum lässt – über vier gewürfelte Welten bis 80 s,
+  // ohne dass er umkommt und ohne dass der Bau einer Reihe je ausweichen
+  // muss; mit ein wenig Streuung (±1°, ±2 %) kommt er ebenso durch. Dabei
+  // kommen alle fünf Welten vor, jede achte Reihe ist besonders (8., 24.,
+  // 40.: Strömung, 16., 32.: Hechtgrube), vorher angesagt, und er nimmt
+  // nicht immer dieselbe Grösse. Gestreut wie ein
+  // Mensch: viel daneben (±10°, ±20 %, 0,7 s zum Zielen) ist bald zu Ende,
+  // wenig daneben (±3°, ±5 %, 0,35 s) kommt weit. Wer nichts tut, geht mit
+  // dem ersten Blatt unter. Die Kurve wird schwerer: Reihen weiter
+  // auseinander, kleinere Blätter, die kürzer halten (grosse kürzer als
+  // kleine), weniger Spielraum, und Fische, die schneller kommen.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.goto(`${BASIS}/wasserlaeufer`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappWasserlaeufer?.state?.blaetter?.length > 3 && window.LernappWasserlaeufer.view.cssW > 0, null, { timeout: 8000 });
+
+    // Die Schleuder, mit der Maus wie ein Mensch: aufsetzen, zurückziehen –
+    // er dreht sich zum Ziel, der Pfeil zeigt Richtung und Stärke –,
+    // loslassen: ein Schlag entgegen dem Zug, so stark wie weit gezogen.
+    const mass = await seite.evaluate(() => {
+      const K = window.LernappWasserlaeufer;
+      const box = document.querySelector(".wa-canvas").getBoundingClientRect();
+      return { tot: K.totPx(), zug: K.zugPx(), x: box.left + box.width / 2, y: box.top + box.height * 0.6, phase: K.state.phase };
+    });
+    const halb = mass.tot + 0.5 * (mass.zug - mass.tot);
+    // Hinaus und zurück in den kleinen Kreis: abgebrochen, kein Schlag.
+    await seite.mouse.move(mass.x, mass.y);
+    await seite.mouse.down();
+    await seite.mouse.move(mass.x - 40, mass.y + 60, { steps: 4 });
+    await seite.mouse.move(mass.x + 2, mass.y + 3, { steps: 4 });
+    await seite.mouse.up();
+    await seite.waitForTimeout(100);
+    const abgebrochen = await seite.evaluate(() => ({ eingaben: window.LernappWasserlaeufer.state.eingaben.length, phase: window.LernappWasserlaeufer.state.phase }));
+    await seite.mouse.move(mass.x, mass.y);
+    await seite.mouse.down();
+    await seite.mouse.move(mass.x + halb * Math.SQRT1_2, mass.y + halb * Math.SQRT1_2, { steps: 5 });
+    await seite.waitForTimeout(350);
+    const beimZielen = await seite.evaluate(() => {
+      const st = window.LernappWasserlaeufer.state;
+      return { zug: st.zug ? { w: st.zug.w, st: st.zug.st, aktiv: st.zug.aktiv } : null, blick: st.l.w, schlaege: st.schlaege, phase: st.phase };
+    });
+    await seite.mouse.up();
+    await seite.waitForTimeout(150);
+    const nachDemZug = await seite.evaluate(() => {
+      const st = window.LernappWasserlaeufer.state;
+      return { eingaben: st.eingaben.slice(), phase: st.phase, sitzt: Boolean(st.l.sitz), zug: st.zug };
+    });
+    // Die Tastatur, in einer neuen Runde: zweimal links (je knapp 3°, und
+    // solange gehalten dreht er weiter), Leertaste halten (lädt in 0,9 s
+    // voll), loslassen.
+    await seite.evaluate(() => document.querySelector(".cm-bar-left .cm-icon-again").click());
+    await seite.waitForTimeout(300);
+    await seite.keyboard.press("ArrowUp");
+    await seite.keyboard.press("ArrowLeft");
+    await seite.keyboard.press("ArrowLeft");
+    await seite.keyboard.down(" ");
+    await seite.waitForTimeout(400);
+    await seite.keyboard.up(" ");
+    await seite.waitForTimeout(100);
+    const tastatur = await seite.evaluate(() => (window.LernappWasserlaeufer.state.eingaben.length === 1 ? window.LernappWasserlaeufer.state.eingaben[0] : null));
+    pruefe(mass.phase === "bereit" && beimZielen.zug?.aktiv && Math.abs(beimZielen.zug.w - Math.PI * 0.75) < 0.03 && Math.abs(beimZielen.zug.st - 0.5) < 0.04
+      && Math.abs(beimZielen.blick - Math.PI * 0.75) < 0.2 && beimZielen.schlaege === 0 && beimZielen.phase === "bereit"
+      && nachDemZug.eingaben.length === 1 && Math.abs(nachDemZug.eingaben[0].w - Math.PI * 0.75) < 0.03 && Math.abs(nachDemZug.eingaben[0].st - 0.5) < 0.04
+      && nachDemZug.phase === "spiel" && !nachDemZug.zug && abgebrochen.eingaben === 0 && abgebrochen.phase === "bereit"
+      && tastatur && tastatur.w > Math.PI / 2 + 0.09 && tastatur.w < Math.PI / 2 + 0.2 && tastatur.st > 0.3 && tastatur.st < 0.65,
+      `Wasserläufer: Die Schleuder (Maus und Tastatur) zielt, spannt, bricht ab oder schlägt nicht wie erwartet: ${JSON.stringify({ mass, beimZielen, nachDemZug, abgebrochen, tastatur })}`);
+
     const befund = await seite.evaluate(() => {
       const K = window.LernappWasserlaeufer;
       const st = K.state;
       const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); K.losGehts(); };
-      // Ein Lauf bis zur Spielzeit bis. streu: so viele Sekunden daneben
-      // rudert der Autopilot; tipp(st): eigene Schläge (wahr heisst rudern).
-      const lauf = (bis, { pilot = false, streu = 0, tipp = null, ansagen = null, welten = null } = {}) => {
+      // Ein Lauf bis zur Spielzeit bis, mit dem Autopiloten (streuW in Grad,
+      // streuS als Anteil, reaktion in Sekunden) oder ohne Schlag.
+      const lauf = (bis, { pilot = null, ansagen = null, welten = null, groessen = null } = {}) => {
         neu();
+        let sitz = null;
         for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "tot" && st.t < bis; n += 1) {
-          if (pilot && K.pilot({ streu })) K.tippen();
-          if (tipp && tipp(st)) K.tippen();
-          if (st.schritt !== "tot") K.takt(1 / 240);
+          if (pilot) {
+            const z = K.pilot(pilot);
+            if (z) K.schleudern(z.w, z.st);
+          }
+          if (st.schritt !== "tot") K.takt(1 / 120);
           if (ansagen && st.ansage) ansagen.add(st.ansage.text.split(" ")[0]);
           if (welten) welten.add(st.welt);
+          if (groessen && st.l.sitz !== sitz) {
+            sitz = st.l.sitz;
+            if (sitz && !sitz.laub && sitz.art === "blatt") groessen[sitz.groesse] = (groessen[sitz.groesse] || 0) + 1;
+          }
         }
         return { schritt: st.schritt, art: st.tot?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, schlaege: st.schlaege, planFehler: st.planFehler };
       };
@@ -13139,59 +13200,98 @@ try {
       const genau = [];
       const ansagen = new Set();
       const welten = new Set();
+      const groessen = {};
       let besonders = [];
-      let fenster = [];
+      let reihen = null;
       for (let i = 0; i < 4; i += 1) {
-        genau.push(lauf(80, { pilot: true, ansagen, welten }));
+        genau.push(lauf(80, { pilot: { reaktion: 0.3 }, ansagen, welten, groessen }));
         if (i === 0) {
-          besonders = st.abschnitte.filter((a) => a.besonders && a.nr <= st.punkte).map((a) => ({ nr: a.nr, art: a.besonders }));
-          fenster = st.abschnitte.filter((a) => a.fenster).map((a) => [a.nr, a.fenster]);
+          besonders = st.reihen.filter((r) => r.besonders && r.nr <= st.punkte).map((r) => ({ nr: r.nr, art: r.besonders }));
+          const normal = st.reihen.slice(1, 61).filter((r) => !r.besonders);
+          reihen = {
+            zahl: normal.length,
+            drei: normal.filter((r) => r.blaetter.length === 3).length,
+            zwei: normal.filter((r) => r.blaetter.length === 2).length,
+            treib: normal.filter((r) => r.blaetter.some((p) => p.treib)).length,
+            groessen: normal.every((r) => new Set(r.blaetter.map((p) => p.groesse)).size === r.blaetter.length),
+            // Ein grosses Blatt hält kürzer als ein kleines derselben Reihe.
+            halten: normal.every((r) => r.blaetter.every((a) => r.blaetter.every((b) => a.r <= b.r || a.halt <= b.halt + 1e-9))),
+          };
         }
       }
-      // 2. Gestreut, wie ein Mensch: wenig oder viel daneben.
+      const leicht = [];
+      for (let i = 0; i < 3; i += 1) leicht.push(lauf(60, { pilot: { streuW: 1, streuS: 0.02, reaktion: 0.3 } }));
+      // 2. Gestreut wie ein Mensch: viel oder wenig daneben.
       const median = (liste) => liste.map((r) => r.t).sort((a, b) => a - b)[Math.floor(liste.length / 2)];
-      const wenig = [];
       const viel = [];
-      for (let i = 0; i < 9; i += 1) {
-        wenig.push(lauf(60, { pilot: true, streu: 0.02 }));
-        viel.push(lauf(60, { pilot: true, streu: 0.08 }));
+      const wenig = [];
+      for (let i = 0; i < 7; i += 1) {
+        viel.push(lauf(60, { pilot: { streuW: 10, streuS: 0.2, reaktion: 0.7 } }));
+        wenig.push(lauf(90, { pilot: { streuW: 3, streuS: 0.05, reaktion: 0.35 } }));
       }
-      // 3. Nichts tun; 4. dauernd rudern (alle 0,12 s).
+      // 3. Nichts tun.
       const nichts = lauf(30);
-      let naechster = 0;
-      const dauernd = lauf(30, { tipp: (s) => (s.t >= naechster ? ((naechster = s.t + 0.12), true) : false) });
-      const fruehMs = fenster.filter(([n]) => n >= 1 && n <= 5).map(([, ms]) => ms);
-      const spaetMs = fenster.filter(([n]) => n >= 30 && n <= 40).map(([, ms]) => ms);
-      const mitte = (l) => l.slice().sort((a, b) => a - b)[Math.floor(l.length / 2)] ?? 0;
+      // 4. Der Fisch auf offenem Wasser: Er steht still zwischen den Blättern
+      // – anfangs und spät. Der Schatten kommt fast sofort, der Biss bald.
+      const imWasser = (reihe) => {
+        neu();
+        const L = st.l;
+        // Ein Ort zwischen Reihe 1 und 2, mindestens 4 cm von jedem Blatt.
+        const y = (st.reihen[1].y + st.reihen[2].y) / 2;
+        let x = K.mitteBei(y);
+        for (let d = 0; d < 20 && K.blattBei(x, y, st.t, null, -4); d += 1) x = K.mitteBei(y) + (d % 2 ? 1 : -1) * Math.ceil(d / 2) * 2;
+        Object.assign(L, { sitz: null, von: null, x, y, vx: 0, vy: 0, nass: 0 });
+        st.punkte = reihe;
+        let schatten = null;
+        for (let n = 0; n < 2400 && st.schritt !== "tot"; n += 1) {
+          K.takt(1 / 240);
+          L.vx = 0;
+          L.vy = 0;
+          if (schatten === null && st.jagd.phase === "steigt") schatten = st.t;
+        }
+        return { art: st.tot?.art || "", t: Math.round(st.t * 100) / 100, schatten: schatten === null ? null : Math.round(schatten * 100) / 100 };
+      };
+      const fischFrueh = imWasser(0);
+      const fischSpaet = imWasser(40);
+      const r = (x, k = 100) => Math.round(x * k) / k;
+      const halt = (n, art) => r(K.haltBei(n, K.radienBei(n)[art]));
       return {
-        genau, ansagen: [...ansagen], welten: [...welten].sort(), besonders, wenig: median(wenig), viel: median(viel), wenigListe: wenig.map((r) => r.t), vielListe: viel.map((r) => r.t),
-        nichts, dauernd, fensterFrueh: mitte(fruehMs), fensterSpaet: mitte(spaetMs),
-        dreh: [1, 15, 40].map((n) => Math.round(K.drehBei(n) * 100) / 100),
-        abstand: [1, 15, 40].map((n) => Math.round(K.abstandBei(n) * 10) / 10),
-        radius: [1, 15, 40].map((n) => Math.round(K.radiusBei(n) * 10) / 10),
-        halt: [1, 15, 40].map((n) => Math.round(K.haltBei(n, K.drehBei(n)) * 100) / 100),
-        geduld: [1, 15, 40].map((n) => Math.round(K.geduldBei(n) * 100) / 100),
+        genau, leicht, ansagen: [...ansagen], welten: [...welten].sort(), besonders, groessen, reihen,
+        viel: median(viel), wenig: median(wenig), vielListe: viel.map((x) => x.t), wenigListe: wenig.map((x) => x.t), nichts, fischFrueh, fischSpaet,
+        abstand: [1, 15, 40].map((n) => r(K.reihenAbstandBei(n), 10)),
+        radius: [1, 15, 40].map((n) => r(K.radienBei(n).mittel, 10)),
+        halt: [1, 15, 40].map((n) => halt(n, "mittel")),
+        haltGross: [1, 40].map((n) => halt(n, "gross")),
+        haltKlein: [1, 40].map((n) => halt(n, "klein")),
+        fisch: [1, 15, 40].map((n) => r(K.geduldBei(n) + K.warnungBei(n))),
+        spielraum: [1, 15, 40].map((n) => r((K.spielraumWBei(n) * 180) / Math.PI, 10)),
       };
     });
-    pruefe(befund.genau.every((r) => r.schritt !== "tot" && r.t >= 80 && r.planFehler === 0) && befund.genau[0].punkte >= 60,
-      `Wasserläufer: Der Autopilot kommt nicht durch jede Welt, oder der Bau der Kette weicht aus – ${JSON.stringify(befund.genau)}`);
+    pruefe(befund.genau.every((x) => x.schritt !== "tot" && x.t >= 80 && x.planFehler === 0) && befund.genau.every((x) => x.punkte >= 60)
+      && befund.leicht.every((x) => x.schritt !== "tot" && x.t >= 60),
+      `Wasserläufer: Der Autopilot kommt nicht durch jede Welt, oder der Bau einer Reihe weicht aus – ${JSON.stringify({ genau: befund.genau, leicht: befund.leicht })}`);
     pruefe(JSON.stringify(befund.welten) === JSON.stringify([0, 1, 2, 3, 4]),
       `Wasserläufer: In vier Läufen kommen nicht alle fünf Welten vor: ${JSON.stringify(befund.welten)}`);
     pruefe(befund.besonders.length >= 5 && befund.besonders.every((a) => a.nr % 8 === 0 && a.art === ((a.nr / 8) % 2 === 1 ? "stroemung" : "hecht"))
       && befund.ansagen.includes("Strömung") && befund.ansagen.includes("Hechtgrube"),
-      `Wasserläufer: Jeder achte Abschnitt ist nicht im festen Wechsel Strömung oder Hechtgrube, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
-    // Die Streuung ist zufällig (je Lauf neu): Der Median aus neun Läufen schwankt
-    // um einige Sekunden. Geprüft wird darum mit Abstand, nicht an einer Kante.
-    pruefe(befund.wenig >= 28 && befund.viel <= 30 && befund.wenig > befund.viel * 1.35,
-      `Wasserläufer: Gestreute Schläge wirken nicht wie erwartet (wenig daneben weit, viel daneben bald zu Ende): ${JSON.stringify({ wenig: befund.wenigListe, viel: befund.vielListe })}`);
-    pruefe(befund.nichts.schritt === "tot" && befund.nichts.art === "blatt" && befund.nichts.t < 6 && befund.nichts.punkte === 0,
+      `Wasserläufer: Jede achte Reihe ist nicht im festen Wechsel Strömung oder Hechtgrube, oder sie wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
+    pruefe(befund.reihen.drei >= befund.reihen.zahl * 0.4 && befund.reihen.zwei >= 3 && befund.reihen.treib >= 5 && befund.reihen.groessen && befund.reihen.halten
+      && (befund.groessen.gross || 0) >= 20 && (befund.groessen.mittel || 0) + (befund.groessen.klein || 0) >= 5,
+      `Wasserläufer: Vorne liegen nicht mehrere Blätter zur Wahl (gross, mittel, klein, manche treibend), oder der Autopilot nimmt nicht verschiedene: ${JSON.stringify({ reihen: befund.reihen, groessen: befund.groessen })}`);
+    // Die Streuung ist zufällig (je Lauf neu): Der Median aus sieben Läufen
+    // schwankt um einige Sekunden. Geprüft wird darum mit Abstand.
+    pruefe(befund.viel <= 26 && befund.wenig >= 35 && befund.wenig > befund.viel * 1.8,
+      `Wasserläufer: Gestreute Schläge wirken nicht wie erwartet (viel daneben bald zu Ende, wenig daneben weit): ${JSON.stringify({ viel: befund.vielListe, wenig: befund.wenigListe })}`);
+    pruefe(befund.nichts.schritt === "tot" && befund.nichts.art === "blatt" && befund.nichts.t < 4 && befund.nichts.punkte === 0,
       `Wasserläufer: Wer nichts tut, geht nicht mit dem ersten Blatt unter: ${JSON.stringify(befund.nichts)}`);
-    pruefe(befund.dauernd.schritt === "tot" && befund.dauernd.t < 15,
-      `Wasserläufer: Wer dauernd rudert, kommt zu weit: ${JSON.stringify(befund.dauernd)}`);
-    pruefe(befund.dreh[0] < befund.dreh[1] && befund.dreh[1] < befund.dreh[2] && befund.abstand[0] < befund.abstand[1] && befund.abstand[1] < befund.abstand[2]
-      && befund.radius[0] > befund.radius[1] && befund.radius[1] > befund.radius[2] && befund.halt[0] > befund.halt[1] && befund.halt[1] > befund.halt[2]
-      && befund.geduld[0] > befund.geduld[2] && befund.fensterFrueh > befund.fensterSpaet * 2.5,
-      `Wasserläufer: Die Kurve wird nicht schwerer: ${JSON.stringify({ dreh: befund.dreh, abstand: befund.abstand, radius: befund.radius, halt: befund.halt, geduld: befund.geduld, fenster: [befund.fensterFrueh, befund.fensterSpaet] })}`);
+    pruefe(befund.fischFrueh.art === "fisch" && befund.fischSpaet.art === "fisch" && befund.fischFrueh.schatten <= 0.4 && befund.fischSpaet.schatten <= 0.25
+      && befund.fischFrueh.t <= 1.4 && befund.fischSpaet.t < befund.fischFrueh.t - 0.3,
+      `Wasserläufer: Der Fisch kommt auf offenem Wasser nicht schnell genug (und später schneller): ${JSON.stringify({ frueh: befund.fischFrueh, spaet: befund.fischSpaet })}`);
+    pruefe(befund.abstand[0] < befund.abstand[1] && befund.abstand[1] < befund.abstand[2] && befund.radius[0] > befund.radius[1] && befund.radius[1] > befund.radius[2]
+      && befund.halt[0] >= 1.9 && befund.halt[0] > befund.halt[1] && befund.halt[1] > befund.halt[2] && befund.halt[2] < 1
+      && befund.haltGross.every((h, i) => h < befund.haltKlein[i]) && befund.fisch[0] > befund.fisch[1] && befund.fisch[1] > befund.fisch[2]
+      && befund.spielraum[0] > befund.spielraum[1] && befund.spielraum[1] > befund.spielraum[2],
+      `Wasserläufer: Die Kurve wird nicht schwerer: ${JSON.stringify({ abstand: befund.abstand, radius: befund.radius, halt: befund.halt, gross: befund.haltGross, klein: befund.haltKlein, fisch: befund.fisch, spielraum: befund.spielraum })}`);
     // Nichts tun, in Echtzeit: Das Blatt geht unter, dann steht die Tafel da.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappWasserlaeufer.losGehts(); });
     await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
@@ -13202,9 +13302,9 @@ try {
   }
   {
     // Ein eigener Lauf, angeschaut: Er wird mit der Saat seiner Welt
-    // aufgezeichnet, mit Ort, Blickrichtung und Ruderschlägen, und wer ihn
-    // anschaut, sieht dieselbe Welt, dieselben Schläge, dieselbe Zahl und
-    // am Schluss dasselbe Ende – dann die Tafel.
+    // aufgezeichnet, mit Ort, Blickrichtung, Spannung und Schlägen, und wer
+    // ihn anschaut, sieht dieselbe Welt, dieselben Schläge, dasselbe Zielen,
+    // dieselbe Zahl und am Schluss dasselbe Ende – dann die Tafel.
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.addInitScript(() => {
       if (sessionStorage.getItem("__wasserlaeufer")) return;
@@ -13213,19 +13313,22 @@ try {
     });
     await seite.goto(`${BASIS}/wasserlaeufer`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappWasserlaeufer?.state?.blaetter?.length > 3 && window.LernappWasserlaeufer.view.cssW > 0, null, { timeout: 8000 });
-    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Fünf Sekunden nach dem
-    // Autopiloten, dann kein Schlag mehr – meist geht das Blatt unter. Unter
-    // Last kann der Autopilot in Echtzeit auch vorher scheitern (Strömung,
-    // Fisch); hier zählt nur, dass der Lauf mit Saat und Schlägen hinterlegt ist.
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Fünf Sekunden der
+    // Autopilot (er zielt sichtbar), dann kein Schlag mehr – meist geht das
+    // Blatt unter. Unter Last kann er in Echtzeit auch vorher scheitern;
+    // hier zählt nur, dass der Lauf mit Saat und Schlägen hinterlegt ist.
     await seite.evaluate(() => {
       const K = window.LernappWasserlaeufer;
       const st = K.state;
+      window.__spannung = 0;
       K.losGehts();
       const tick = () => {
         if (st.phase !== "spiel" || st.schritt === "tot") return;
         requestAnimationFrame(tick);
-        if (st.t > 5 && st.l.sitz) return;
-        if (K.pilot()) K.tippen(performance.now());
+        if (st.zug?.aktiv && st.zug.st > 0.3) window.__spannung += 1;
+        if (st.t > 5 && st.l.sitz) { st.zug = null; return; }
+        const z = K.pilot({ reaktion: 0.6, zeigen: true });
+        if (z) K.schleudern(z.w, z.st, performance.now());
       };
       requestAnimationFrame(tick);
     });
@@ -13237,23 +13340,44 @@ try {
       const geist = window.__miniGeister?.get(`pondSkater_${kennung}`) || null;
       let d = null;
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
-      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, schlaege: st.schlaege, art: st.tot?.art || "", kurs: window.LernappWasserlaeufer.kursText(20) };
+      const proben = window.LernappGeist.entpacke(geist?.bahn) || null;
+      // c: Schläge mal 10000, Spannung mal 1000, Blickrichtung in Hundertsteln.
+      const cs = proben?.c ? [...proben.c] : [];
+      const gespannt = cs.filter((c) => c > 0 && Math.floor((c % 10000) / 1000) >= 3).length;
+      const schlaegeAufgezeichnet = cs.reduce((m, c) => (c > 0 ? Math.max(m, Math.floor(c / 10000)) : m), 0);
+      return {
+        kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(proben?.c), gespannt, schlaegeAufgezeichnet,
+        spannung: window.__spannung, punkte: st.punkte, schlaege: st.schlaege, art: st.tot?.art || "", kurs: window.LernappWasserlaeufer.kursText(20),
+      };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art !== "",
-      `Wasserläufer: Der Lauf wird nicht mit Saat und Schlägen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.schlaege >= 3 && gespielt.punkte >= 2 && gespielt.art !== ""
+      && gespielt.gespannt >= 2 && gespielt.schlaegeAufgezeichnet >= gespielt.schlaege - 1,
+      `Wasserläufer: Der Lauf wird nicht mit Saat, Zielen und Schlägen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/wasserlaeufer?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappWasserlaeufer?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
     const kurs = await seite.evaluate(() => window.LernappWasserlaeufer.kursText(20));
     pruefe(kurs === gespielt.kurs && kurs.length > 200, `Wasserläufer: Beim Zuschauen entsteht eine andere Welt:\n  gespielt ${gespielt.kurs.slice(0, 400)}\n  angeschaut ${kurs.slice(0, 400)}`);
-    // Beim Zuschauen rudert niemand.
-    await seite.mouse.click(210, 500);
+    // Beim Zuschauen schleudert niemand – aber man sieht ihn zielen.
+    await seite.evaluate(() => {
+      window.__gesehen = 0;
+      const tick = () => {
+        requestAnimationFrame(tick);
+        const z = window.LernappWasserlaeufer.state.zug;
+        if (z?.aktiv && z.quelle === "zuschauen") window.__gesehen += 1;
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.mouse.move(210, 400);
+    await seite.mouse.down();
+    await seite.mouse.move(210, 520, { steps: 4 });
+    await seite.mouse.up();
     await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
     const angeschaut = await seite.evaluate(() => {
       const st = window.LernappWasserlaeufer.state;
-      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, schlaege: st.schlaege, art: st.tot?.art || "", tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, schlaege: st.schlaege, eingaben: st.eingaben.length, art: st.tot?.art || "", gesehen: window.__gesehen, tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
     });
-    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "tot"
-      && angeschaut.schlaege >= gespielt.schlaege - 1 && angeschaut.schlaege <= gespielt.schlaege && angeschaut.art === gespielt.art,
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "tot" && angeschaut.eingaben === 0
+      && angeschaut.schlaege >= gespielt.schlaege - 1 && angeschaut.schlaege <= gespielt.schlaege && angeschaut.art === gespielt.art && angeschaut.gesehen >= 2,
       `Wasserläufer: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
     await kontext.close();
   }
