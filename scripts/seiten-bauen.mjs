@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-18";
+export const FASSUNG = "2026-11-26-22";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -380,8 +380,14 @@ export const SPIELE = [
   {
     seite: "seifenblase", spiel: "soapBubble", page: "seifenblase", js: "seifenblase.js",
     titel: "Seifenblase", buehne: { id: "sb-stage", klasse: "cm-stage sb-stage" },
-    text: "Seifenblase: Ein Tipp bläst die Blase vom Finger weg – je näher, desto stärker. Durch Rosen, Baumkronen und über die Dächer in den Abendhimmel, und alles Spitze, Harte und Nasse lässt sie zerplatzen.",
+    text: "Seifenblase: Ein Tipp bläst die Blase vom Finger weg – je näher, desto stärker. Durch Rosen, Baumkronen und über die Dächer in den Abendhimmel – wer schneller steigt, holt mehr Punkte, doch alles Spitze, Harte und Nasse lässt sie zerplatzen.",
     baut: "den Garten im Abendlicht mit der Seifenblase",
+  },
+  {
+    seite: "wasserlaeufer", spiel: "pondSkater", page: "wasserlaeufer", js: "wasserlaeufer.js",
+    titel: "Wasserläufer", buehne: { id: "wa-stage", klasse: "cm-stage wa-stage" },
+    text: "Wasserläufer: Er dreht sich wie eine Kompassnadel – ein Tipp ist ein Ruderschlag dorthin, wo er gerade hinschaut. Von Seerosenblatt zu Seerosenblatt den Bach hinauf, bevor das Blatt untergeht und bevor der Fisch schnappt.",
+    baut: "den Teich am Nachmittag mit dem Wasserläufer und den Seerosenblättern",
   },
 ];
 

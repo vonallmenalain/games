@@ -2648,39 +2648,94 @@ oben, und ein Sprung muss für beide Welten passen. Man liest zwei Welten
 zugleich.
 
 Die Bildsprache ist in beiden Welten dieselbe. Was den Weg berührt, muss man
-überspringen – oben **Steine** und **Baumstämme**, unten, was von der
-Wasserlinie in die Tiefe hängt: **Eiskristalle**, **Schilf**, **Wurzeln**.
-Was frei über dem Kopf hängt, darunter springt man nicht – oben **Äste** (der
-unterste Ast einer Lärche hinter dem Weg) und **Felsdächer**, unten, was
-tiefer im Wasser schwebt: **Hechte**, **Quallen**, **Treibholz**; unter
-jedem liegt auf dem Weg ein Schatten, unten ein violetter Schein auf der
-Wasserlinie: so weit reicht es. Gerechnet wird in beiden Welten gleich
-(`trifft`): `y` zählt vom Weg weg, oben nach oben, unten nach unten. Die Lagen
-(`naechsterAbschnitt`): einzeln, oben und unten zugleich, zu zweit und zu
-dritt kurz hintereinander, meist in wechselnden Welten, und als Zange: Ein
-Teil über dem Kopf gleich vor oder hinter einem zum Überspringen (oder
-beides, die Klammer) – meist in verschiedenen Welten, oben ein Ast, unten
-Schilf. Das Fenster des Sprungs bilden dann beide zusammen.
+überspringen – oben **Steine**, **Baumstämme**, **Fischkisten**,
+**Eisblöcke** und ein **Steinbock**, der kurz vorher vom Fels auf den Weg
+springt; unten, was von der Wasserlinie in die Tiefe hängt: **Eiskristalle**,
+**Schilf**, **Wurzeln**, **Seerosen**, **Zapfen aus Stein**, die Unterseite
+von **Eisschollen**. Was frei über dem Kopf hängt, darunter springt man nicht
+– oben **Äste** (Lärche, Weide, Föhre), **Felsdächer**, ein **Fischernetz**,
+ein **Überhang voller Eiszapfen** und **Vögel**, die tief übers Ufer
+streichen; unten, was tiefer im Wasser schwebt: **Hechte**, **Quallen**,
+**Treibholz**, ein **Fischschwarm**. Unter jedem liegt auf dem Weg ein
+Schatten, unten ein Schein auf der Wasserlinie: so weit reicht es. Vögel und
+Fischschwärme ziehen ihr entgegen; der **springende Hecht** verrät sich
+vorher durch eine Bugwelle, schiesst aus dem Wasser und fliegt in dem Moment
+unter ihr hindurch, in dem sie am höchsten ist – in beiden Welten zugleich.
+Gerechnet wird in beiden Welten gleich (`trifft`): Höhen zählen vom Weg weg,
+oben nach oben, unten nach unten. Die Lagen (`naechsterAbschnitt`,
+`baueLage`): einzeln, oben und unten zugleich, zu zweit und zu dritt kurz
+hintereinander, meist in wechselnden Welten, als Zange (ein Teil über dem
+Kopf gleich vor oder hinter einem zum Überspringen, oder beides, die
+Klammer) und der springende Hecht.
 
-Jeder achte Abschnitt ist besonders, im festen Wechsel und einen Abschnitt
-vorher angesagt: der 8., 24., 40. **Nebel** – er zieht über das Ufer und
-verdeckt die Hindernisse, aber der See zeigt sie für diesen Abschnitt wieder
-treu gespiegelt (drei, ab dem zweiten vier Sprünge, nur oben): Man liest die
-obere Welt aus dem Spiegel. Der 16., 32., 48. ein **Holzsteg** über eine
-Bucht, in dem Bretter fehlen (zwei, ab dem zweiten drei Lücken; dort stehen
-nur noch Stümpfe im Wasser, und lose Bretter treiben). Ab dem zweiten Steg
-schwimmen unten zwischen den Lücken Hechte, die den nächsten Sprung vorn
-begrenzen. Beide mit etwas mehr Luft.
+**Etagen.** Ein Abschnitt kann eine Etage höher liegen (`ETAGE`, ein Steg auf
+Pfählen, ein Felsband, ein Band aus Eis – je nach Landschaft): Die Läuferin
+läuft die Rampe von selbst hinauf und wieder hinab. Liegt der Weg höher,
+liegt das Spiegelbild entsprechend tiefer im See (die Wasserlinie bleibt die
+Spiegelachse), und was unten von der Wasserlinie hängt, reicht weiter hinab
+– man muss sich neu einlesen. Gerechnet wird mit dem Boden des Wegs
+(`bodenBei`); der Bogen eines Sprungs beginnt auf dem Boden, von dem sie
+abspringt, und endet, wo er den Boden wieder trifft (`bewege` – auf einer
+Rampe hinab also etwas später).
+
+**Das Spiegeltor.** Ein Bogen aus Licht über dem Weg, im See gespiegelt,
+angesagt («Spiegeltor – die Welten tauschen», beim ersten «… – ein Tipp
+springt wie immer»). Wer hindurchläuft, für den kippt das ganze Bild um die
+waagrechte Achse (`DREH` 0,75 s, in der Drehung mit Perspektive): Danach
+steht die Nachtwelt oben aufrecht, und das Ufer im Morgenlicht hängt
+kopfüber unten im See. Die Regeln bleiben gleich – ein Tipp, beide springen
+–, nur sieht man jetzt die andere Welt aufrecht. Das nächste Tor kippt
+zurück, immer bevor die nächste Landschaft beginnt: So öffnet sich jede
+aufrecht. Ein Tor steht genau an seiner Stelle (reichte ein Abschnitt zu nahe
+heran, kommt statt seiner schon das Tor); davor bleibt der Weg mindestens
+`TOR_RUHE` = 0,6 s frei, dahinter die Drehung und knapp eine Sekunde. Das Tor
+ist **Pflicht** (es steht auf dem Weg): So erlebt jeder an derselben Stelle
+dasselbe Umdenken, die Läufe im Turnier bleiben vergleichbar, und ob die
+Welt gekippt ist, folgt allein aus dem Ort.
+
+**Der Lehrpfad (die ersten rund 400 m).** Statt Wiederholung etwa alle 50 m
+etwas Neues (`LEHRPFAD`): bei 26 m der erste Stein, bei rund 60 m der Ast,
+bei rund 110–130 m erwacht der See, dann eine Lage mit Stein oben und Qualle
+unten, der erste Steg eine Etage höher (ab 140 m, meist um 195 m), der
+springende Hecht (ab 190 m, meist um 225 m) und **um 250 m das erste
+Spiegeltor** (235–270 m). In der gekippten Welt kommen zum Eingewöhnen zwei
+oder drei ruhige Abschnitte – je ein Hindernis oder oben und unten zugleich
+eines, mit etwas mehr Luft –, bis das nächste Tor bei 350 m die Welt
+zurückkippt; die zweite Landschaft öffnet sich bei 400 m aufrecht. Die
+Ansagen des Lehrpfads (Steg, Hecht, Tor) folgen dicht aufeinander und
+warten darum aufeinander, statt sich zu verdrängen.
+
+**Danach je Landschaft eine feste Folge** (`FOLGE`), alles angesagt, im
+Wechsel: im Schilfgürtel (und im Gletschersee) Nebel (um 465 m), der
+Holzsteg (um 555 m) und eine Etage (um 630 m); im Felsufer (und im
+Lärchenufer) eine Etage (um 740 m), ein Spiegeltor (um 790 m) und das Tor
+zurück (bei 945 m, vor dem Gletschersee). Nach jedem weiteren Tor ist der
+erste Abschnitt ruhig. **Nebel**: Er zieht über das Ufer und verdeckt die
+Hindernisse, aber der See zeigt sie für diesen Abschnitt wieder treu
+gespiegelt – man liest die obere Welt aus dem Spiegel. **Holzsteg**: Lücken
+in den Brettern, ab dem zweiten mit Hechten darunter.
+
+**Vier Landschaften**, je rund 300 m, im Kreis, mit Namen angesagt: das
+**Lärchenufer** im Alpenglühen (wie bisher), der **Schilfgürtel** im Gold des
+Sonnenaufgangs (sanfte Hügel, ein Dorf mit Kirche, Weiden, ein Bootshaus mit
+Steg, ein Ruderboot auf dem fernen See, dessen Wellen das Spiegelbild kurz
+kräuseln; die Nacht in Rosé und Violett), das **Felsufer** an einem klaren
+Morgen (Türme und Zinnen, Wände mit Bändern, Föhren, zwei Wasserfälle, deren
+Gischt den Spiegel kräuselt; Polarlicht in Smaragd) und der
+**Gletschersee** in kaltem Licht (eine Gletscherzunge bis ans Wasser,
+Seracs, Steinmänner; der Spiegel ist Eis, mit Rissen und Blau). Jede hat
+ihren Himmel, ihre Berge, Hänge, Bäume, ihr Ufer, ihre Nacht und ihre
+Hindernisse; der Übergang ist eine Naht, die mit dem Weg durchs Bild zieht
+(links die alte Landschaft, rechts die neue, dazwischen ein weicher Saum).
 
 Die Strecke entsteht aus dem Zufall und hängt nur an der Spielzeit seit dem
 Start: Die Läuferin rennt immer gleich schnell (`xBei`), ob sie springt oder
-nicht. Sie ist immer zu schaffen – zuerst der Weg (wann sie abspringt), dann
-die Hindernisse beider Welten darum, so gross, dass jeder Sprung bis zu
-`luft` zu früh oder zu spät noch gelingt (`bodenBauen` sucht das Fenster
-eines Hindernisses, `bodenFenster`; was über dem Kopf hängt, endet genau
-dort, wo der früheste erlaubte Sprung den Kopf noch nicht hebt). Jeder
-Abschnitt wird nachgeprüft (`sicher`): alle Ecken der Luft, über den letzten
-Sprung davor hinweg.
+nicht, und was sich bewegt, bewegt sich nach der Spielzeit. Sie ist immer zu
+schaffen – zuerst der Weg (wann sie abspringt), dann die Hindernisse beider
+Welten darum, so gross, dass jeder Sprung bis zu `luft` zu früh oder zu spät
+noch gelingt. Jeder Abschnitt wird nachgeprüft (`sicher`, `folgeHaelt`): alle
+Ecken der Luft, über den letzten Sprung davor hinweg, wie im Spiel gerechnet
+(`bewege`).
 
 | Spielzeit | Strecke | Luft je Sprung | Tempo |
 |---|---|---|---|
@@ -2695,72 +2750,80 @@ Sprung davor hinweg.
 Die ersten Sekunden sind zum Hineinfinden: Der erste Stein kommt nach 1,9 s,
 die ersten Lagen stehen einzeln und weit auseinander, und der See erwacht
 nach rund 8 bis 10 s; danach kommen die Kombinationen beider Welten zügig
-(`schwere`). Nachgebildete Spieler, deren Tipp um den besten Moment streut
-(Normalverteilung): 70 ms kommen im Mittel 17 s weit (260 m), 40 ms 30 s
-(450 m), 30 ms 38 s (600 m), 20 ms 60 s (1000 m). Wer nichts tut, stolpert
+(`schwere`), die Luft wird enger (`E_ZEIT` 16). Nachgebildete Spieler, deren
+Tipp um den besten Moment streut (Normalverteilung, je 150 Läufe): 70 ms
+kommen im Mittel 20 s weit (Median 320 m), 55 ms 25 s (410 m), 40 ms 31 s
+(470 m), 30 ms 39 s (610 m), 20 ms 62 s (990 m). Das erste Spiegeltor
+erreichen mit 70 ms zwei Drittel, mit 55 ms 91 %, mit 40 ms 98 %; zurück und
+in die zweite Landschaft kommen mit 40 ms 80 %. Wer nichts tut, stolpert
 nach 2,1 s über den ersten Stein; wer dauernd tippt, stösst nach wenigen
-Sekunden an. Was die Nachbildung nicht kennt – eine Welt falsch gelesen –,
-macht es schwerer.
+Sekunden an. Was die Nachbildung nicht kennt – eine Welt falsch gelesen, das
+Umdenken in der gekippten Welt –, macht es schwerer.
 
 Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild (`tippen`,
 `voraus`). Auf der Tafel: die Meter, darunter, woran es lag, und die Zeit.
 
-Das Bild: oben ein Schweizer Bergsee im Alpenglühen – ein Panorama um einen
-steilen Zahn, die Gipfel im ersten Licht rosa und golden, die Schatten
-violett, Schnee, Felsrippen und ein Gletscher; darüber die letzten Sterne,
-die Venus und lange, von unten beleuchtete Wolken, Vögel. Davor Hänge mit
-Wald, goldenen Lärchen, einer Alphütte mit Licht und Rauch und einer
-Kapelle, Morgennebel, dann Lärchen und Arven gleich hinter dem Weg, der Weg
-aus hellem Kies im Reif und die Uferkante aus Steinen. Unten erst ihr treues
-Spiegelbild (dunkler, blauer, mit feinen Wellen), nach dem Erwachen die
-Nacht des Sees: die Berge niedriger und im Mondlicht, ein Himmel von Blau zu
-Violett mit Milchstrasse, Mond und Lichtfäden, Licht, das in Bahnen durchs
-Wasser fällt, Lichter in den gespiegelten Bäumen, Teilchen, die zur
-Wasserlinie hinauf schweben, und ganz unten ein Grund mit Steinen. Die
-Wasserlinie lebt: ein heller Streif, Glitzern, Ringe, wo die Läuferin
-aufsetzt und wo das Spiegelbild eintaucht. Die Läuferin: Jacke in Petrol,
-weisse Schuhe mit roter Sohle, Stirnband, ein senffarbener Schal und ein
-kastanienroter Pferdeschwanz, die im Lauf wehen und wippen, Atemwolken in der
-kalten Luft, eine helle Kante vom Morgenlicht; beim Sprung zieht sie die
-Knie an, beim Landen federt sie. Ihr Spiegelbild ist dieselbe Figur, im
-treuen See dunkler, im erwachten im Spiegelton mit leuchtendem Umriss, leicht
-wiegend. Die Stürze: Über einen Stein oder Stamm stolpert sie und bleibt
-liegen, am Ast prallt sie zurück, und Nadeln rieseln; durch eine Steglücke
-fällt sie ins Wasser, ihr Spiegelbild ihr entgegen, und es spritzt. Stösst
-das Spiegelbild an, zerspringt der See wie Glas: Risse laufen vom Aufprall
-über das Wasser, Scherben sinken, und sie sinkt oben auf die Knie. Beim
-ersten Start glühen die Gipfel erst auf, von oben nach unten, im See von der
-Tiefe her; dann «Tippen – du und dein Spiegelbild springen zugleich.»
+Das Bild: oben ein Schweizer Bergsee – ein Panorama um einen steilen Zahn,
+die Gipfel im ersten Licht, Schnee, Felsrippen und Gletscher; darüber die
+letzten Sterne, die Venus und lange, von unten beleuchtete Wolken, Vögel.
+Davor Hänge, dann Bäume gleich hinter dem Weg und das Ufer. Unten erst ihr
+treues Spiegelbild (dunkler, blauer, mit feinen Wellen), nach dem Erwachen
+die Nacht des Sees: die Berge niedriger und im Mondlicht, ein Himmel mit
+Milchstrasse, Mond und Polarlicht, Licht, das in Bahnen durchs Wasser fällt,
+Lichter in den gespiegelten Bäumen, Teilchen, die zur Wasserlinie hinauf
+schweben, und ganz unten ein Grund mit Steinen. Die Wasserlinie lebt: ein
+heller Streif, Glitzern, Ringe, wo die Läuferin aufsetzt und wo das
+Spiegelbild eintaucht. Die Läuferin: Jacke in Petrol, weisse Schuhe mit
+roter Sohle, Stirnband, ein senffarbener Schal und ein kastanienroter
+Pferdeschwanz, die im Lauf wehen und wippen, Atemwolken in der kalten Luft;
+ihr Spiegelbild ist dieselbe Figur, im erwachten See im Spiegelton mit
+leuchtendem Umriss. Die Stürze: Über einen Stein, einen Stamm oder den Hecht
+stolpert sie, am Ast prallt sie zurück; durch eine Steglücke fällt sie ins
+Wasser; stösst das Spiegelbild an, zerspringt der See wie Glas. Auf der Tafel
+steht, woran es lag – für jedes Hindernis jeder Landschaft. Beim ersten Start glühen die
+Gipfel erst auf; dann «Tippen – du und dein Spiegelbild springen zugleich.»
 
 Himmel und Berge (und ihr Spiegelbild, schon gespiegelt), Hänge, Wald, Ufer
-und die Nacht des Sees sind vorgemalt und werden Punkt auf Punkt aufgelegt
-(`ebenenNeu`; ein Stück Ufer ist eine ganze Zahl Bildpunkte breit). Der
-Himmel wird nur so weit gelegt, wie ihn der Hang nicht deckt, und im
-erwachten See stehen die Hänge still im Bild der Nacht. Gemessen im
-Software-Raster (Median je Bild, auf demselben Rechner zur selben Zeit wie
-Marsrover): iPhone hochkant gut 3 ms (Marsrover 3,1), quer 3–4,5 ms, iPad
-5–5,5 ms (Marsrover 5,6). Damit man überall gleich weit voraus sieht
-(`SICHT`), steht die Läuferin quer weiter in der Mitte; quer reichen die
-Gipfel hinter die Bestmarken, das Spiel bleibt darunter.
+und die Nacht des Sees sind vorgemalt und werden Punkt auf Punkt aufgelegt;
+für die gekippte Welt die Nacht aufrecht und das Ufer gespiegelt. Im
+Speicher sind nur die Ebenen der Landschaft, in der sie läuft, und der
+nächsten (`vorratPlanen`): Die nächste wird Ebene um Ebene gemalt, je ein
+Schritt in einem Bild, das Zeit übrig hat (`malenWeiter`); grosse Flächen in
+Bändern, gespiegeltes Kopieren in Stücken, und jeder Schritt wird gleich
+fertig gemalt (`fertigMalen`) – sonst schöbe der Browser die Arbeit auf das
+Bild, das die Ebene zuerst braucht. Gemessen im Software-Raster (Median je
+Bild, auf demselben Rechner zur selben Zeit wie Marsrover): iPhone hochkant
+3,3–3,9 ms (Marsrover 2,9), quer 3,8–5,2 ms (2,9–3,2), iPad 5,6–6,5 ms
+(5,4–5,9); in der gut einen Sekunde, in der die Naht einer neuen Landschaft
+durchs Bild zieht, bis 4,4, 6,2 und 8 ms; gekippt ein wenig mehr als
+aufrecht. Damit man überall gleich weit voraus sieht (`SICHT`), steht die
+Läuferin quer weiter in der Mitte; quer reichen die Gipfel hinter die
+Bestmarken, das Spiel bleibt darunter.
 
 Die Gegner laufen als Läuferinnen aus Licht mit, und die besten Läufe lassen
-sich anschauen: Aufgezeichnet werden der Weg, die Höhe und im letzten Bit, ob
-sie springt, darüber, wie viele Sprünge es sind (`a`, `b`, `c`, Fassung
-`t1`). Dreizehn Klänge, alle aus vorhandenen: Vögel und Wind als Kulisse,
-Schritte, Sprung, Landung, das Eintauchen des Spiegelbilds, das Erwachen
-(eine Harfe), der Nebel, der Steg, Stolpern, der Ast, das Wasser und das
-Glas.
+sich anschauen: Aufgezeichnet werden der Weg, die Höhe über dem Weg am Ufer
+und in c, ob sie springt (Bit 0), ob die Welt gekippt ist (Bit 1), darüber
+die Zahl der Sprünge (`a`, `b`, `c`, Fassung `t3`). Achtzehn Klänge, alle aus
+vorhandenen: Vögel und Wind als Kulisse, Schritte, Sprung, Landung, das
+Eintauchen des Spiegelbilds, das Erwachen, der Nebel, der Steg, Stolpern,
+der Ast, das Wasser und das Glas; dazu das Tor und das Kippen, eine neue
+Landschaft, der Hecht und die Vögel.
 
 Prüfung 4g48: Der Autopilot nach dem Weg kommt über vier Strecken bis 100 s,
-ohne dass die Planung ausweichen muss; ebenso, wer jeden Sprung um 95 % der
-Luft zu früh, zu spät oder im Wechsel nimmt. Alle Lagen kommen vor, in beiden
-Welten beide Arten; vor dem Erwachen steht alles oben und gespiegelt, danach
-zuerst etwas unten allein; jeder achte Abschnitt ist im Wechsel Nebel oder
-Steg. Deutlich zu spät am ersten Stein, nichts tun, dauernd tippen, ein
-Sprung unter dem Ast und einer über dem, was unten schwebt (der Spiegel
-zerbricht), enden bald; ein Tipp in der Luft verfällt. Die Tafel erscheint;
-ein angeschauter Lauf zeigt dieselbe Strecke, dieselbe Zahl und denselben
-Sturz.
+ohne dass die Planung ausweichen muss, ebenso wer jeden Sprung um 95 % der
+Luft zu früh, zu spät oder im Wechsel nimmt. Alle Lagen und besonderen
+Abschnitte kommen vor, in beiden Welten beide Arten, Vögel, Fische und
+Hechte; vor dem Erwachen steht alles oben und gespiegelt; das Tor kippt und
+das nächste zurück. In 20 Strecken bringt der Lehrpfad Steg, Hecht und das
+erste Tor (230–275 m), dahinter mindestens zwei ruhige Abschnitte, das Tor
+zurück bis 355 m, bei 365 m ist die Welt wieder aufrecht; im Felsufer kippt
+ein Tor sie wieder und vor dem Gletschersee zurück. Deutlich zu spät am
+ersten Stein, nichts tun, dauernd tippen, ein Sprung unter dem Ast und einer
+über dem, was unten schwebt, enden bald; ein Tipp in der Luft verfällt; die
+Aufzeichnung trägt Sprung, Kippen und die Zahl der Sprünge. Die Tafel
+erscheint; ein angeschauter Lauf, der durch das erste Tor kommt und
+dahinter in der gekippten Welt stürzt, zeigt dieselbe Strecke, dieselbe
+Zahl und denselben Sturz.
 
 ### Seifenblase (November 2026)
 
@@ -2772,8 +2835,9 @@ weg**, und die Blase treibt vom Finger fort – umso stärker, je näher man
 tippt. Unter ihr getippt steigt sie schneller, links von ihr treibt sie nach
 rechts, über ihr bremst sie. Man schiebt, indem man daneben tippt; das ist
 ungewohnt und wird mit Übung sehr genau. Wer sie selbst trifft (näher als
-6 cm an ihre Mitte), dem zerplatzt sie unter dem Finger. Gezählt wird die
-Höhe in Metern.
+6 cm an ihre Mitte), dem zerplatzt sie unter dem Finger. Gezählt werden
+Punkte: die Höhe mal einem Tempofaktor – wer schneller steigt, dem zählt
+jeder Meter mehr (unten, «Punkte und Tacho»).
 
 Die Steuerung in Zahlen (`stossBei`): Die Blase ist 14 cm gross. Ein Stoss
 gibt dicht neben ihr 80 cm/s, 22 cm weiter halb so viel, 40 cm von ihrer
@@ -2793,7 +2857,7 @@ gemalt ist: Jedes Hindernis besteht aus Kreisen, Stäben und Vielecken
 gemalt (`maleTeil`). Die Welt wechselt mit der Höhe (`WELT_AB`): **der
 Garten** im Abendlicht (bis 7 m: Rosentriebe mit Dornen, gefiederten
 Blättern und Blüten oder Knospen, Brennnesseln mit gesägten Blättern, ein
-Gartenschlauch, dessen Messingdüse tropft), **die Baumkrone** (bis 17 m:
+Gartenschlauch mit Messingdüse, über die Hecke gehängt), **die Baumkrone** (bis 17 m:
 Buchenäste mit Laub, Tannenzweige – gerechnet als Band so breit, wie die
 Nadeln lang sind –, Spinnennetze zwischen zwei Zweigen, mit Tau und Spinne,
 Blätter, von denen Tau fällt, Wespen), **über den Dächern** (bis 38 m:
@@ -2831,7 +2895,8 @@ Zeitplans kommt, auch wer `luft` zu früh oder zu spät ist (`phasenSuchen`).
 Jeder Abschnitt wird nachgeprüft (`sicher`): alle 1,5 cm die ganze Breite
 der Marge, bei allem, was sich bewegt, auch zu früh und zu spät; hält er
 nicht, ein zweiter Versuch mit mehr Abstand, zuletzt ein weites Tor. Die
-Lagen: ein Tor, zwei versetzt, drei im Zickzack (Treppe), zwei Reihen, deren
+Lagen: ein Tor, die Rennstrecke (nur der 2. und 3. Abschnitt: je zwei
+Reihen, die Marge 15 % breiter, die Lücken fast genau übereinander), zwei versetzt, drei im Zickzack (Treppe), zwei Reihen, deren
 obere Düse, Blatt oder Rinne mitten durch die untere Lücke tropft (erst nach
 dem Tropfen hindurch), und eine Reihe, über der etwas die Gasse kreuzt.
 
@@ -2857,20 +2922,71 @@ man muss von der Windseite dagegen tippen.
 Die ersten Sekunden sind zum Hineinfinden: Der Seitenwind schweigt, die
 Reihen stehen fast zwei Meter auseinander, die Lücken sind breit; die erste
 Reihe kommt nach gut 2,5 s und steht so, dass wer nichts tut, an ihr
-zerplatzt. Danach wird es zügig enger und schneller (`schwere`, `margeBei`,
-`vAuf`). Nachgebildete Spieler (der Autopilot mit 0,15 s Reaktionszeit,
-höchstens alle 0,22 s ein Tipp, die Tipp-Orte normalverteilt gestreut, je 16
-Läufe): ohne Streuung im Median 48 s, ±5 cm (gut 15 Bildpunkte hochkant)
-45 s, ±10 cm 26 s, ±17 cm (gut 50 Bildpunkte) 11 s – viele davon, weil der
-Finger die Blase trifft. Was die Nachbildung nicht kennt – eine Lücke falsch
-gelesen, eine Böe zu spät bemerkt –, macht es schwerer.
+zerplatzt. Dahinter die **Rennstrecke** bis gut 7 m: Die Lücken liegen fast
+genau übereinander und sind weiter, nichts kreuzt, nichts tropft – wer viel
+von unten bläst, fliegt hier schnell hindurch und holt sich den Faktor.
+Danach wird es zügig enger und schneller (`schwere`, `margeBei`, `vAuf`),
+und wer in der Baumkrone noch rast, trifft Äste und Tropfen, die für eine
+getragene Blase getaktet sind. Nachgebildete Spieler (der Autopilot mit
+0,15 s Reaktionszeit, höchstens alle 0,22 s ein Tipp, die Tipp-Orte
+normalverteilt gestreut, je 24 Läufe):
+
+| Spieler | Median Zeit | Höhe | Ø | Faktor | Punkte (Median / Mittel / bester) |
+|---|---|---|---|---|---|
+| ohne Streuung | 50 s | 36,5 m | 2,6 km/h | ×1,04 | 378 / 365 / 632 |
+| vorsichtig, ±5 cm (gut 15 Bildpunkte) | 41 s | 28 m | 2,5 km/h | ×1,04 | 294 / 302 / 418 |
+| ±10 cm | 31 s | 19 m | 2,4 km/h | ×1,04 | 199 / 165 / 282 |
+| Anfänger, ±17 cm (gut 50 Bildpunkte) | 20 s | 10 m | 1,9 km/h | ×1,00 | 101 / 91 / 231 |
+| Raser, ±5 cm, immer 160 cm/s | 10 s | 14 m | 4,7 km/h | ×1,62 | 223 / 234 / 465 |
+| klug, ±5 cm: rast bis 11 m, dann 1,6 × Auftrieb, wartet auf Bewegtes | 20 s | 19 m | 3,9 km/h | ×1,40 | 265 / 279 / 530 |
+
+Der Raser holt in einem Viertel der Zeit drei Viertel der Punkte des
+Vorsichtigen und zerplatzt meist kurz nach der Rennstrecke (Tropfen, Äste);
+wer beides verbindet, holt die besten Läufe. Beim Anfänger platzt sie oft,
+weil der Finger sie trifft. Was die Nachbildung nicht kennt – eine Lücke
+falsch gelesen, eine Böe zu spät bemerkt, vor einem Tropfen kurz gebremst –,
+macht es schwerer oder, beim Rasen, leichter.
+
+#### Punkte und Tacho
+
+Die Punkte hängen nur an Höhe und Spielzeit (`punkteBei`, `faktorBei`):
+die höchste erreichte Höhe in Dezimetern mal dem **Tempofaktor**. Der Faktor
+misst das Ø (Höhe durch Spielzeit, in km/h: cm/s × 0,036) gegen das Ø einer
+Blase, die sich nur tragen lässt (`hTrag`: 1,6 km/h nach 10 s, 2,1 nach
+30 s, 2,7 nach 70 s): je km/h mehr 0,2 mehr, nie unter ×1, nie über ×2.
+Linear im Tempo, nicht im Verhältnis – so zählt das Tempo deutlich, aber wer
+in den ersten Sekunden davonfliegt und dann zerplatzt, bekommt nicht mehr
+als einer, der deutlich weiter kommt:
+
+| Höhe | Zeit | Ø | Faktor | Punkte | |
+|---|---|---|---|---|---|
+| 30 m | 45 s | 2,4 km/h | ×1,01 | 302 | vorsichtig, dem Zeitplan nach |
+| 30 m | 30 s | 3,6 km/h | ×1,30 | 391 | gleich hoch, schneller: deutlich vorn |
+| 30 m | 20 s | 5,4 km/h | ×1,71 | 512 | gleich hoch, sehr schnell |
+| 15 m | 10 s | 5,4 km/h | ×1,75 | 263 | Raser, früh geplatzt: weniger als 30 m langsam |
+| 25 m | 18 s | 5,0 km/h | ×1,63 | 409 | schnell und recht weit: schlägt 30 m langsam |
+| 60 m | 70 s | 3,1 km/h | ×1,07 | 643 | weit: schlägt jeden frühen Raser |
+| 8 m | 20 s | 1,4 km/h | ×1,00 | 80 | gebremst – nie unter ×1 |
+
+Unten links steht ein **Tacho** aus Messing (`zeichneTacho`, `tachoOrt`):
+Die rote Nadel zeigt das Tempo jetzt (0 bis 10 km/h, gedämpft, unten im
+Fenster als Zahl), eine goldene Marke am Rand das eigene Ø, eine
+fliederfarbene das Ø, das sie von selbst hätte – liegt Gold rechts von
+Flieder, steigt der Faktor. Auf dem Schild darunter der Faktor (orange,
+sobald er über ×1 liegt), das Ø und die Punkte. Er misst 2,5 × 3 Halbmesser
+(44 bis 72 Bildpunkte je nach Gerät) und steht hochkant unter der Blase, wo
+nur ist, was sie hinter sich hat, quer und auf dem iPad quer neben dem Feld;
+nie über der Leiste oben. Gehäuse, Skala, Schild und Nabe sind vorgemalt, die
+Zahlen kleine Bilder, die nur neu gemalt werden, wenn sich ein Text ändert;
+je Bild kommen nur Nadel und Marken dazu.
 
 Über der Blase sieht man auf jedem Gerät gleich weit voraus (`SICHT_OBEN`
 1,35 m); hochkant gibt die Breite des Feldes den Massstab vor, quer die
 Höhe (kleinere Blase, dafür die Landschaft breit daneben, etwas abgedunkelt,
 dort spielt nichts). Ein Tipp gilt zu seiner Zeit und an dem Ort, den er
-im letzten Bild hatte (`tippen`, `voraus`). Auf der Tafel: die Meter,
-darunter, woran sie zerplatzt ist, und die Zeit.
+im letzten Bild hatte (`tippen`, `voraus`). Auf der Tafel: die Punkte,
+darunter, woran sie zerplatzt ist, Höhe, Zeit, Ø und Faktor – etwa «An einer
+Rose zerplatzt · 12,4 m in 9 s · Ø 5,0 km/h · ×1,63».
 
 Das Bild: ein tiefer Abendhimmel in einem einzigen hohen Bild, das mit einem
 Achtzehntel des Tempos hinabgleitet – unten die Sonne über den Alpen mit
@@ -2882,7 +2998,11 @@ Stamm gleich hinter dem Feldrand, Äste, die die Kronen tragen, Äpfel und
 eine Lichterkette von Stamm zu Stamm; das Laub (`krone`, `laubForm`) sind
 Büschel mit einem Umriss aus Blattspitzen, innen dunkel, zur Sonne hin hell
 mit einer Lichtkante und einzelnen Blättern – nah im leichten Dunst, fern
-im Abenddunst. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
+im Abenddunst. Damit Blase und Hindernisse vorn stehen, sind die Bäume im
+Hintergrund in den Dunst gerückt: heller, blasser und mit weniger Kontrast
+(das Laub zum Abenddunst hin gemischt, leicht durchscheinend), die Kronen
+kleiner und weiter am Rand, Stämme und Äste dünner; die Hindernisse bleiben
+kräftig. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
 tragen, und schräge, weiche Lichtstrahlen. Über den Dächern eine Gasse der
 Altstadt: die Hauswände am Feldrand mit Verputz, je Stockwerk einem Sims,
 Fenstern mit Läden und Bank (Licht in einzelnen), Fallrohr und dezenten
@@ -2918,13 +3038,16 @@ verdeckt ist: Über den Dächern kommt der Himmel nur in die Mitte und nur bis
 zur Dachlandschaft, die Wände der Gasse nur zwischen Feldrand und Mitte;
 hinter den Stämmen und Hauswänden am Rand liegt nichts, unter der Ferne
 kein Himmel, und der Abendhimmel braucht keine eigene Kulisse. Der
-Kaminrauch ist eine vorgemalte Fahne.
+Kaminrauch ist eine vorgemalte Fahne. Der Tacho kostet auf dem iPad im
+Software-Raster etwa eine halbe bis eine Millisekunde; auf dem iPhone ist
+er kaum zu messen.
 
 Die Gegner steigen als Blasen aus Licht mit, und die besten Läufe lassen
 sich anschauen: Aufgezeichnet werden der Ort quer (in Vierteln), die Höhe
 (in Halben) und in `c` die Luftstösse – wie viele (mal 1024), aus welcher
 Richtung der letzte kam (32 Stufen) und wie weit der Finger weg war (in 3 cm)
-–, am Schluss negativ, woran sie zerplatzt ist (Fassung `t1`). Beim
+–, am Schluss negativ, woran sie zerplatzt ist (Fassung `t2` seit den
+Punkten mit Tempofaktor und der Rennstrecke; `t1` zählte Meter). Beim
 Zuschauen erscheint jeder Stoss mit Ring und Linien von dort, wo der Finger
 war, und die Blase wabert wie im Spiel. Zehn Klänge, alle aus vorhandenen:
 Grillen im Garten und Wind als Kulisse, das Pusten, das Platzen mit
@@ -2932,14 +3055,158 @@ glitzerndem Nachhall, Tropfen, der Weltwechsel (eine Harfe), die Ansage, der
 Aufwind (ein Zischen) und die Böe.
 
 Prüfung 4g49: Der Autopilot kommt über vier gewürfelte Welten bis 100 s, ohne
-dass die Planung ausweichen muss; alle Lagen und alle Hindernisse kommen vor;
-jeder achte Abschnitt ist im Wechsel Aufwind oder Böe und wird angesagt. Mit
-wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er im Median über 40 s, mit
-stark gestreuten (±17 cm) nicht über 26 s. Nichts tun, dauernd unter ihr
+dass die Planung ausweichen muss, mit mindestens 800 Punkten, und der Tacho
+schlägt aus; alle Lagen (auch die Rennstrecke) und alle Hindernisse kommen
+vor; jeder achte Abschnitt ist im Wechsel Aufwind oder Böe und wird
+angesagt. Mit wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er im Median
+über 40 s, mit stark gestreuten (±17 cm) nicht über 32 s. Der Raser (gleich
+genau, immer 160 cm/s) ist im Ø mindestens 1,5 km/h schneller als der
+Vorsichtige, platzt vor 40 s und holt doch mindestens 40 % von dessen
+Punkten in 60 s; in jedem Lauf sind die Punkte genau `punkteBei(Höhe,
+Zeit)`. Die Formel an festen Stellen: 30 m in 20 s mindestens 1,4-mal so
+viel wie in 45 s, 60 m in 70 s mindestens doppelt so viel wie 15 m in 10 s,
+der Deckel ×2, wer sich nur tragen lässt ×1. Nichts tun, dauernd unter ihr
 tippen, sie berühren und nur bremsen enden bald; die Kurve wird enger,
 schneller und kürzer, und der Stoss fällt mit dem Abstand. Die Tafel
-erscheint; ein angeschauter Lauf zeigt dieselbe Welt, dieselben Stösse,
-dieselbe Zahl und dasselbe Platzen.
+erscheint mit den Punkten und «Höhe in Zeit · Ø · Faktor»; der Tacho steht
+auf sechs Bildschirmen (hochkant, quer, iPad) unter der Blase oder neben
+dem Feld, nie unter der Leiste, und ist gemalt. Ein angeschauter Lauf
+(Fassung `t2`) zeigt dieselbe Welt, dieselben Stösse, dieselben Punkte und
+dasselbe Platzen.
+
+### Wasserläufer (November 2026)
+
+**Wasserläufer** (`wasserlaeufer.js`, `pondSkater`) – ein Teich am
+Nachmittag, von oben gesehen. Auf einem Seerosenblatt sitzt ein
+Wasserläufer und dreht sich unaufhörlich um sich selbst, wie eine
+Kompassnadel. **Ein Tipp ist ein Ruderschlag – in die Richtung, in die er
+gerade schaut.** Man steuert nur über den Zeitpunkt; die Richtung macht die
+Drehung. Auf dem Wasser gleitet er weit, auf einem Blatt hält er rasch an,
+denn das Blatt greift. Ziel: von Blatt zu Blatt den Bach hinauf. Gezählt
+werden die **Blätter** – die Nummer des höchsten Blattes der Kette, auf dem
+er gelandet ist. Blätter statt Meter, weil jede Landung der Moment ist, auf
+den es ankommt (die Zahl springt genau dann), weil die Welt in Zentimetern
+gebaut ist (Meter wären winzige Zahlen) und weil sich «38 Blätter» leicht
+vergleichen lassen.
+
+Die Steuerung in Zahlen (`schritt`, `schlag`): Ein Schlag gibt 74 cm/s in die
+Blickrichtung (`J`), mehrere zählen zusammen. Auf dem Wasser klingt das
+Gleiten in 0,55 s auf gut ein Drittel ab (`TAU_W`), dazu bremst es fest um
+7 cm/s² (`MU_W`) – ein Schlag aus dem Stand trägt gut 38 cm. Auf dem Blatt
+greift es in 0,05 s und mit 320 cm/s² (`TAU_B`, `MU_B`); unter 5 cm/s ist er
+gelandet und gleitet in die Mitte. Das Blatt, von dem er sich abstösst,
+greift erst wieder, wenn er es verlassen hat. Rudern kostet Kraft: Zwei
+Schläge kurz nacheinander gehen (der Doppelschlag), dann kommt sie mit 1,6
+Schlägen je Sekunde wieder – wer dauernd tippt, rudert nicht schneller.
+Mit der Tastatur: Leertaste, Enter oder ↑.
+
+Jedes betretene Blatt läuft voll Wasser und geht unter (`haltBei`); in der
+letzten Sekunde sieht man es sinken, und wer dann noch darauf sitzt, den
+holt der Fisch darunter. Auf offenem Wasser steigt nach einer Weile
+(`geduldBei`) ein Fisch unter ihm auf – erst ein blasser Schatten, der
+dunkler und schärfer wird und ihm folgt –, und nach der Warnung
+(`warnungBei`) schnappt er zu. Wer vorher ein Blatt (oder Laub) erreicht,
+dem schnappt er ins Leere. Das nächste Blatt zeigt mit zwei Pfeilen, die
+sich langsam drehen, wie herum er sich darauf drehen wird.
+
+| Blatt | Drehung | Abstand | Blatt (Radius) | hält | Geduld + Warnung | Fenster |
+|---|---|---|---|---|---|---|
+| 1 | 0,62 U/s | 22 cm | 10 cm | 3,4 s | 1,4 + 0,85 s | gut 210 ms |
+| 5 | 0,75 U/s | 24 cm | 9,4 cm | 3,1 s | 1,3 + 0,8 s | gut 140 ms |
+| 10 | 0,99 U/s | 28 cm | 8,1 cm | 2,5 s | 1,1 + 0,7 s | gut 100 ms |
+| 20 | 1,29 U/s | 32 cm | 6,7 cm | 1,8 s | 0,9 + 0,6 s | gut 65 ms |
+| 30 | 1,50 U/s | 34 cm | 5,8 cm | 1,4 s | 0,75 + 0,55 s | gut 45 ms |
+| 50 | 1,74 U/s | 36 cm | 4,9 cm | 1,2 s | 0,6 + 0,5 s | gut 30 ms |
+
+Die ersten drei Sprünge sind zum Hineinfinden, danach wird es zügig
+schwerer (`schwere`: nach 16 Blättern gut sechs Zehntel der Härte), und ab
+Blatt 18 kommt eine zweite Rampe dazu (`spaet`: schneller drehen, kleinere
+Blätter, ungeduldigere Fische), damit auch Geübte bald an ihre Grenze
+kommen. Ein Blatt hält immer mindestens eine Umdrehung und eine knappe
+halbe Sekunde. Nachgebildete Spieler (der Autopilot, je Schlag
+normalverteilt daneben, je 14 Läufe): ±20 ms im Median 60 s (57 Blätter),
+±35 ms 32 s (29 Blätter), ±50 ms 26 s, ±70 ms 22 s; ohne Streuung kommt er
+immer über 120 s. Der
+Autopilot kennt die Mitte jedes Fensters, ein Mensch nicht – es wird also
+schwerer. Die erste Hechtgrube (Blatt 16) siebt: mit ±40 ms schaffen sie
+18 von 20.
+
+Die Welt entsteht aus dem Zufall und hängt nur an der Saat, die Runde nur
+an Spielzeit, Saat und den Schlägen. Sie ist immer zu schaffen: Zuerst
+entsteht der Weg – Blatt um Blatt im Zickzack (`abschnittBauen`) –, und
+jeder Sprung wird nachgerechnet (`blattFenster`): Aus der Mitte des Blattes,
+ein Schlag, für jede Blickrichtung – landet er auf dem neuen? Das Fenster
+der Richtungen, die treffen, muss mindestens `fensterMinBei` Millisekunden
+der Drehung breit sein, sonst rückt das Blatt näher und wird grösser. Vom
+Seerosenteppich aus zählt jedes seiner Blätter. Ein Autopilot (`pilot`,
+`planen`) rechnet mit derselben Physik voraus und rudert in der Mitte des
+Fensters (über die Hechtgrube lieber mit Doppelschlag, mit Abstand zum
+Hecht, und nur, wenn die Kraft dafür reicht).
+
+Jeder achte Abschnitt ist besonders, im festen Wechsel und angesagt,
+sobald er auf dem Blatt davor sitzt: der 8., 24., 40. eine **Strömung** –
+ein Seitenbach reisst quer über den Weg (weisse Schlieren, ein kiesiger Arm
+über beide Ufer), darauf treibt Ahornlaub; hinüber geht es nur auf dem Laub,
+und wer zu weit mitgetragen wird, ist fort. Das Blatt davor liegt auf der
+Seite des Zuflusses und hält länger, darüber wartet ein Seerosenteppich
+fast so breit wie der Bach. Der 16., 32., 48. eine **Hechtgrube** – tiefes,
+dunkles Wasser, ein grosser Hecht zieht seine Kreise quer über den Weg, und
+der Teppich drüben liegt so weit, dass ein Schlag nicht reicht: zwei kurz
+nacheinander oder einer im Gleiten.
+
+Die Welt wechselt bachaufwärts, jede mit einem besonderen Abschnitt
+beginnend: **der Seerosenteich** am Nachmittag (Schilf mit Rohrkolben,
+Sumpfschwertlilien, Erlenzweige, Wasserlinsen, Libellen), **der Bachlauf**
+zwischen bemoosten Steinen (Farne, Vergissmeinnicht, Buchenzweige, sanfte
+Strömung bachab), **der Mühlenteich** im goldenen Licht (Ufermauer, Pfähle,
+Brennnesseln, Kastanienzweige, Federn), **das Moor** in der Dämmerung
+(torfbraunes Wasser mit rosa Himmel darin, Wollgras, Torfmoos, Birken,
+Glühwürmchen) und **die Quelle** in der Nacht (Mond und Sterne im Wasser,
+Fichten, Glühwürmchen). Dazwischen gehen Farben, Breite und Windung des
+Baches über gut 30 cm ineinander über.
+
+Das Bild: klares Wasser von oben – der Grund im Flachen sandig mit Kieseln,
+in der Mitte tief, und das Licht der Sonne bündelt sich zu **Lichtnetzen**,
+die über den Grund ziehen (vier Phasen, fest in den Kacheln, im Flachen
+kräftig und in der Tiefe schwach, ineinander übergeblendet). Wo die Füsse des Wasserläufers das Wasser
+eindrücken, sieht man helle Ringe – und am Grund **runde Schatten mit
+hellem Rand**, weil jede Delle das Licht zur Seite lenkt; je tiefer das
+Wasser, desto weiter versetzt. Beim Ruderschlag schwingen die Mittelbeine
+zurück, und Ringe laufen aus. Die Seerosenblätter haben Kerbe, Adern,
+einen zur Sonne hellen Rand, Glanz, Flecken und Wassertropfen, manche eine
+Blüte; ihre Stängel und Schatten sieht man am Grund. Über den Ufern hängen
+Zweige ins Bild, die näher an uns sind und schneller vorbeiziehen. Beim
+ersten Start gleitet der Blick vom Bach oben hinunter zum Wasserläufer.
+
+Grund, Wasserfarbe, Ufer, Pflanzen, Schatten der Blätter, stilles Treibgut,
+die Seitenbäche und die Lichtnetze liegen in vorgemalten Kacheln, die Stufe
+um Stufe gemalt werden, bevor sie ins Bild kommen, und dann Punkt auf Punkt
+aufgelegt werden. Für die Lichtnetze trägt jede Kachel vier Ausschnitte so
+breit wie das Wasser (`lichtnetzePhasen`): Beim Wechsel wird die neue Phase
+einmal in die Kachel gelegt, im letzten Drittel jeder Phase die nächste
+darüber geblendet. Je Bild kommen dazu: die Blätter, der Wasserläufer, die
+Fische (der Hecht vorgedreht in 32 Richtungen), das Laub, Ringe, Glitzern,
+Libellen (vorgemalt) und Zweige (auf ihren Inhalt zugeschnitten). Gemessen
+im Software-Raster (Median je Bild, zur selben Zeit wie der Marsrover):
+iPhone hochkant gut das 1,3fache, iPad das 1,25fache des Marsrovers.
+
+Die Gegner laufen als Wasserläufer aus Licht mit, und die besten Läufe
+lassen sich anschauen: Aufgezeichnet werden der Ort (in Vierteln), in `c`
+die Ruderschläge (mal 1000) und die Blickrichtung (in Hundertsteln), am
+Schluss negativ, woran es endete (Fassung `t1`, als Winkel – im
+Multiplayer dreht er sich zwischen zwei Proben weiter). Zwölf Klänge, alle
+aus vorhandenen: Teich, Bach und Grillen als Kulisse, der Ruderschlag, die
+Landung, der Fisch, der aufsteigt, das Schnappen, das Sinken, die
+Strömung, der Hecht, der Weltwechsel und die Ansage.
+
+Prüfung 4g50: Der Autopilot kommt über vier gewürfelte Welten bis 80 s,
+ohne dass der Bau der Kette ausweichen muss; alle fünf Welten kommen vor;
+jeder achte Abschnitt ist im Wechsel Strömung oder Hechtgrube und wird
+angesagt. Mit wenig gestreuten Schlägen (±20 ms) kommt er im Median über
+35 s, mit stark gestreuten (±80 ms) nicht. Wer nichts tut, geht mit dem
+ersten Blatt unter; wer dauernd rudert, wird bald gefressen; die Kurve wird
+schwerer, das Fenster enger. Die Tafel erscheint; ein angeschauter Lauf
+zeigt dieselbe Welt, dieselben Schläge, dieselbe Zahl und dasselbe Ende.
 
 ### Die Klänge
 
@@ -3035,7 +3302,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 55», siehe unten).
+  Links davor steht fest das **Regal** («Alle 56», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.
