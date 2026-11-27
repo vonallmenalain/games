@@ -1611,15 +1611,18 @@
     const H = view.cssH;
     const s = view.s;
     const oben = bildY(state.rauch);
-    if (oben > H + 30 * s) return;
-    const t = ruhig() ? 0 : state.zeit;
-    const schritt = Math.max(5, 4 * s);
-    // Die Glut darunter leuchtet herauf.
-    const glut = g.createLinearGradient(0, oben - 58 * s, 0, oben + 6 * s);
+    // Die Glut darunter leuchtet herauf – immer, auch wenn der Rauch gerade
+    // unter dem Bild liegt (im Sprung zieht die Kamera mit). Dann steht der
+    // Schein am unteren Rand: Von unten kommt es, warten geht nicht lange.
+    const glutY = Math.min(oben, H);
+    const glut = g.createLinearGradient(0, glutY - 58 * s, 0, glutY + 6 * s);
     glut.addColorStop(0, "rgba(255, 120, 60, 0)");
     glut.addColorStop(1, "rgba(255, 120, 60, 0.3)");
     g.fillStyle = glut;
-    g.fillRect(0, oben - 58 * s, W, 64 * s);
+    g.fillRect(0, glutY - 58 * s, W, 64 * s);
+    if (oben > H + 30 * s) return;
+    const t = ruhig() ? 0 : state.zeit;
+    const schritt = Math.max(5, 4 * s);
     for (let lage = 0; lage < 3; lage += 1) {
       const hoehe = oben - (2 - lage) * 9 * s;
       g.fillStyle = ["rgba(58, 52, 86, 0.55)", "rgba(40, 34, 64, 0.8)", "rgba(24, 20, 42, 0.96)"][lage];
