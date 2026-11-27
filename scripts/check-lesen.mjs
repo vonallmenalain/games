@@ -30,6 +30,12 @@
  *   node scripts/check-lesen.mjs                 messen und prüfen
  *   node scripts/check-lesen.mjs --nur-messen    nur messen (ältere Fassung)
  *   node scripts/check-lesen.mjs --wurzel <ordner> --json <datei>
+ *                                                eine andere Fassung (z. B. die
+ *                                                von main, mit git archive
+ *                                                ausgepackt) messen, die Zahlen
+ *                                                in eine Datei
+ *   NUR=admin, DEBUG_LESEN=1                     nur den Adminbereich; Fehler
+ *                                                und Warnungen der Seiten zeigen
  *
  * Läuft ohne Netz. Braucht Java (für den Emulator), Playwright und einmalig
  * `npm install`. Ports: PORT (Seiten, 4296), FS_PORT (Firestore, 8096) und,

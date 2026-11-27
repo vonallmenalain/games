@@ -181,6 +181,7 @@ const ATTRAPPE = `
       if (!navigator.onLine) throw fehler("offline", "unavailable");
       const gefragt = Array.isArray(spiele) ? spiele : [];
       window.__miniGefragt = gefragt;
+      window.__miniErgebnisseAnfragen = (window.__miniErgebnisseAnfragen || 0) + 1;
       return [...eintraege.values()].filter((e) => gefragt.includes(e.game)).map((e) => ({ ...e }));
     },
     // Wie cloud.js: umbenannt wird in ALLEN Spielen, unter der Kennung und
@@ -1255,8 +1256,15 @@ try {
     pruefe(turm.id === TABLET, `Das zweite Gerät spielt nicht unter der Kennung, unter der der Name am meisten gespielt hat: ${turm.id}`);
 
     // Eine Runde: Sie kommt zu den Einträgen des Tablets, nicht zu neuen.
+    await seite.evaluate(() => { window.__miniErgebnisseAnfragen = 0; });
     pruefe(await spieleTurmbauZuEnde(seite), "Die Runde am zweiten Gerät kam zu keinem Ergebnis.");
     await seite.waitForSelector(".mini-ergebnis .mini-zeile", { timeout: 6000 });
+    // Die Liste nach der Runde ist die, die die Seite schon hat, mit der Runde
+    // darin (mini-games.js, trageEin) – bis November 2026 wurde sie nach jeder
+    // Runde zweimal ganz gelesen. Einmal darf es sein, wenn die Runde länger
+    // als eine Minute dauerte.
+    const anfragen = await seite.evaluate(() => window.__miniErgebnisseAnfragen || 0);
+    pruefe(anfragen <= 1, `Nach einer Runde wurde die Liste ${anfragen} Mal gelesen.`);
     const nachRunde = await seite.evaluate(({ TABLET, HANDY }) => ({
       tablet: window.__miniEintraege.get(`towerStack_${TABLET}`)?.versuche,
       handy: window.__miniEintraege.get(`towerStack_${HANDY}`)?.versuche,

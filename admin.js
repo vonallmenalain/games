@@ -707,6 +707,9 @@
     const kennung = new Set(wer);
     const gemeint = (e) => e && e.name !== name && (kennung.has(e.spieler) || schluessel.has(schluesselVon(e.name)));
     let geaendert = 0;
+    // Was der Bereich «Turniere» gemerkt hat, stimmt danach nicht mehr – er
+    // liest es beim nächsten Aufbau neu (turnierSpeicher).
+    turnierSpeicher?.staende.clear();
     for (const t of stand.turniere) {
       const [eintraege, abende] = await Promise.all([
         cloud().turnierErgebnisse(t.id),
@@ -2902,32 +2905,38 @@
       });
     }
 
+    // Die Liste der Turniere selbst wird jedes Mal gelesen – ein Dokument je
+    // Turnier, und so steht ein neues oder geändertes gleich da. Die Einträge
+    // je Turnier: für die Zahl der Spieler, wer vorne liegt und den ganzen
+    // Stand des aufgeklappten; dazu die Live-Abende, die zum Turnier gehören:
+    // Sie zählen in der Gesamtwertung mit. Von den Turnieren, die vorbei
+    // sind, erst beim Aufklappen (waehle); von den laufenden, die schon
+    // gelesen sind, nur, was sich geändert hat.
     async function laden() {
       const lageVon = (t) => tn()?.lage?.(t) || "laeuft";
       if (!turnierSpeicher) {
         liste.innerHTML = "";
         liste.append(el("p", "adm-hinweis", "Die Turniere werden geladen..."));
-        let turniere = [];
-        try {
-          turniere = await cloud().alleTurniere();
-        } catch (fehler) {
+      }
+      let turniere = [];
+      try {
+        turniere = await cloud().alleTurniere();
+      } catch (fehler) {
+        if (!turnierSpeicher) {
           liste.innerHTML = "";
           liste.append(el("p", "adm-hinweis ist-fehler", `Die Turniere sind nicht zu haben: ${fehlerText(fehler)}`));
           geladenMelden([]);
           return;
         }
-        turnierSpeicher = { turniere, staende: new Map() };
-        // Die Einträge je Turnier: für die Zahl der Spieler, wer vorne liegt
-        // und den ganzen Stand des aufgeklappten. Dazu die Live-Abende, die
-        // zum Turnier gehören: Sie zählen in der Gesamtwertung mit. Von den
-        // Turnieren, die vorbei sind, erst beim Aufklappen (waehle).
-        await Promise.all(turniere.filter((t) => lageVon(t) !== "beendet" || t.id === gewaehlt).map(standLaden));
-      } else {
-        // Schon gelesen: von den laufenden nur, was sich geändert hat.
-        await Promise.all(turnierSpeicher.turniere
-          .filter((t) => lageVon(t) === "laeuft" && turnierSpeicher.staende.has(t.id))
-          .map(standNachfuehren));
+        turniere = turnierSpeicher.turniere;
       }
+      if (!turnierSpeicher) turnierSpeicher = { turniere, staende: new Map() };
+      turnierSpeicher.turniere = turniere;
+      const { staende } = turnierSpeicher;
+      await Promise.all(turniere.map((t) => {
+        if (staende.has(t.id)) return lageVon(t) === "laeuft" ? standNachfuehren(t) : null;
+        return lageVon(t) !== "beendet" || t.id === gewaehlt ? standLaden(t) : null;
+      }));
       // Dieselben Stände braucht die Auswertung eines Spielers: für seine
       // Plätze in den Turnieren und um jeder Runde ihr Turnier zu geben
       // (alleTurnierStaende liest die fehlenden nach).
