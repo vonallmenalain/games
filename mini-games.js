@@ -264,9 +264,9 @@
     beeFlight: { fassung: "t1" },
     // Der Rover: a der Weg, b die Höhe (in Zehnteln), c ob er fliegt (das unterste Bit) und wie viele Befehle gefunkt sind.
     marsRover: { fassung: "t1" },
-    // Die Läuferin: a der Weg, b die Höhe über dem Weg am Ufer (in Zehnteln), c ob sie springt (Bit 0), ob sie auf
-    // dem oberen Weg einer Gabelung ist (Bit 1), ob die Welt gekippt ist (Bit 2), darüber die Zahl der Sprünge.
-    mirrorLake: { fassung: "t2" },
+    // Die Läuferin: a der Weg, b die Höhe über dem Weg am Ufer (in Zehnteln), c ob sie springt (Bit 0), ob die Welt
+    // gekippt ist (Bit 1), darüber die Zahl der Sprünge.
+    mirrorLake: { fassung: "t3" },
     // Die Blase: a der Ort quer (in Vierteln), b die Höhe (in Halben), c die Luftstösse
     // (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am Schluss
     // negativ, woran sie zerplatzt ist. Fassung t2: Seit dem Tacho zählen Punkte (Höhe mal

@@ -26,21 +26,18 @@
  *   auf der Wasserlinie: So weit reicht es.
  *
  * Die Abwechslung kommt aus der Welt, nicht aus einer zweiten Taste. In den
- * ersten 400 m kommt etwa alle 50 m etwas Neues (der Lehrpfad): der Stein,
- * der Ast, das Erwachen, ein Steg eine Etage höher (liegt der Weg höher,
- * liegt das Spiegelbild tiefer), ein Hecht, der durch die Wasserlinie
- * springt, die erste Gabelung, Nebel. Danach ein fester, angesagter
- * Rhythmus (RHYTHMUS):
+ * ersten 400 m kommt etwa alle 50 m etwas Neues (der Lehrpfad, LEHRPFAD):
+ * der Stein, der Ast, das Erwachen, ein Steg eine Etage höher (liegt der Weg
+ * höher, liegt das Spiegelbild tiefer), ein Hecht, der durch die
+ * Wasserlinie springt, und um 250 m das erste Spiegeltor – danach ruhigere
+ * Abschnitte in der gekippten Welt, und bei 350 m, vor der zweiten
+ * Landschaft, kippt ein Tor sie zurück. Danach in jeder Landschaft eine
+ * feste, angesagte Folge (FOLGE):
  *
- *   Gabelung    Hinter dem Ufer beginnt ein zweiter Weg, eine Etage höher;
- *               hinauf kommt nur, wer im Fenster vor seiner Treppe springt.
- *               An einer Sackgasse führt einer der beiden sicher ins Ende –
- *               oben sieht alles heil aus, der See zeigt, welcher hält. An
- *               einer Abkürzung ist oben schwerer, dafür gibt es Meter.
  *   Spiegeltor  Ein Bogen aus Licht: Wer hindurchläuft, für den kippt das
  *               ganze Bild um die Wasserlinie – die Nachtwelt steht oben
  *               aufrecht, das Ufer hängt kopfüber im See. Das nächste Tor
- *               kippt zurück.
+ *               kippt zurück, noch bevor die nächste Landschaft beginnt.
  *   Nebel       Er verdeckt das Ufer, aber der See zeigt es treu.
  *   Holzsteg    Lücken in den Brettern, ab dem zweiten mit Hechten darunter.
  *   Etage       Der ganze Weg eine Etage höher, mit Rampen.
@@ -60,9 +57,8 @@
  * (naechsterAbschnitt) – und dann die Hindernisse beider Welten um ihn
  * herum, so gross, dass jeder Sprung bis zu «luft» zu früh oder zu spät noch
  * gelingt. Jeder Abschnitt wird nachgeprüft (sicher, wie im Spiel gerechnet:
- * bewege): alle Ecken der Luft, auch über den Sprung davor hinweg; an einer
- * Gabelung jeder Weg, der halten soll. Ein Tipp gilt zu seiner Zeit, nicht
- * erst im nächsten Bild (tippen, voraus).
+ * bewege): alle Ecken der Luft, auch über den Sprung davor hinweg. Ein Tipp
+ * gilt zu seiner Zeit, nicht erst im nächsten Bild (tippen, voraus).
  *
  * Das Bild: oben ein Schweizer Bergsee im Morgenlicht – Gipfel und Gletscher,
  * Hänge, Bäume, Morgennebel, Vögel. Unten erst ihr Spiegelbild, nach dem
@@ -126,11 +122,11 @@
   const V_ZEIT = 50;
   const ANFAHRT = 0.5;
   // Die Luft: um so viele Sekunden darf jeder Sprung zu früh oder zu spät
-  // kommen. Die ersten Sekunden zum Hineinfinden ±150 ms, nach 10 s ±114,
-  // nach 20 s ±71, nach 30 s ±50, nach einer Minute ±32, nie unter ±30.
+  // kommen. Die ersten Sekunden zum Hineinfinden ±150 ms, nach 10 s ±118,
+  // nach 20 s ±77, nach 30 s ±55, nach einer Minute ±34, nie unter ±30.
   const E0 = 0.15;
   const E_MIN = 0.03;
-  const E_ZEIT = 14;
+  const E_ZEIT = 16;
   const E_AB = 5;
   const SCHWER_ZEIT = 21;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
   const SCHWER_AB = 4;
@@ -139,9 +135,9 @@
   const PERIODE = 480;             // so lang ist ein Stück gemaltes Ufer
   const TAKT = 1 / 240;
   const STURZ_MS = 2300;
-  // Fassung der Aufzeichnung: t2 kennt Etagen, Gabelungen und das Spiegeltor
-  // (c trägt die Spur und ob die Welt gekippt ist).
-  const FASSUNG = "t2";
+  // Fassung der Aufzeichnung: t3 kennt Etagen und das Spiegeltor früh auf
+  // dem Lehrpfad (c trägt, ob die Welt gekippt ist).
+  const FASSUNG = "t3";
   // Eine Etage: So hoch liegt ein Steg oder Felsband über dem Weg am Ufer –
   // gut die Hälfte ihrer Grösse; die Rampen hinauf und hinab sind RAMPE lang.
   const ETAGE = 16;
@@ -152,8 +148,6 @@
   // nächste (Einheiten), im Kreis.
   const LAND_AB = 4000;
   const LAND_LANG = 3000;
-  // So viele Meter schenkt der obere Weg einer Abkürzung.
-  const BONUS = 40;
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -261,32 +255,26 @@
     t: 0,                    // die Spielzeit; sie läuft bei null los
     zeit: 0,                 // die Uhr des Bildes
     // Die Läuferin (laeuferNeu): wo sie ist, wie hoch über dem Weg am Ufer
-    // (A) und über ihrem Boden (y), auf welcher Spur, wann sie zuletzt
-    // absprang (null: am Boden) und wann sie zuletzt landete.
+    // (A) und über ihrem Boden (y), wann sie zuletzt absprang (null: am
+    // Boden) und wann sie zuletzt landete.
     laeuferin: null,
     spruenge: 0,
     verfallen: 0,            // Tipps in der Luft
-    bonus: 0,                // Meter, die Abkürzungen geschenkt haben
-    weg: [],                 // der vorgeschlagene Weg (an Gabelungen der richtige bzw. der obere)
+    weg: [],                 // der vorgeschlagene Weg: wann sie abspringt
     hindernisse: [],
     bewegte: [],             // was sich bewegt: Vögel, Fische, der springende Hecht
     bewegtAlle: [],          // dasselbe, nie ausgedünnt (für kursText)
     abschnitte: [],
     stege: [],
     nebel: [],
-    etagen: [],              // Spur 0 eine Etage höher: { a, b, nr, land }
-    gabeln: [],              // die Gabelungen (baueGabel)
+    etagen: [],              // der Weg eine Etage höher: { a, b, nr, land }
     tore: [],                // die Spiegeltore: { x, t, nr, nummer }
     freiAb: ANFAHRT,
-    sauberAb: null,          // nach einer Gabelung: ab hier am Boden des Ufers, wie auch immer
     planFehler: 0,
     planLog: [],             // wo die Planung ausweichen musste (für die Prüfung)
     nebelZahl: 0,
     stegZahl: 0,
-    gabelZahl: 0,
-    sackZahl: 0,
-    lehr: 0,                 // so viele Stationen des Lehrpfads sind gebaut
-    taktAb: null,            // ab diesem Abschnitt gilt der feste Rhythmus
+    station: 0,              // so viele besondere Abschnitte sind gebaut (stationBei)
     langMax: 120,
     erwacheT: null,          // wann der See erwacht (aus dem Plan)
     nachWecken: 0,
@@ -390,8 +378,7 @@
    *   luecke  [a, b], ein fehlendes Stück im Steg: Wer am Boden mit seiner
    *           Mitte mehr als RAND über die Kante kommt, fällt ins Wasser.
    *
-   * Jedes steht auf einer Spur (spur: 0 der Weg am Ufer, 1 der obere Weg
-   * einer Gabelung) und auf deren Boden (g: so hoch liegt er dort über dem
+   * Jedes steht auf dem Boden des Wegs (g: so hoch liegt er dort über dem
    * Weg am Ufer; auf einer Etage ETAGE). Gerechnet wird von dort aus: oben
    * hinauf, in der Spiegelwelt vom gespiegelten Boden hinab. Liegt der Weg
    * höher, liegt das Spiegelbild tiefer – und was unten von der Wasserlinie
@@ -401,8 +388,7 @@
    *
    * spiegel: Der See zeigt es treu (in den ersten Sekunden, im Nebel, am
    * Holzsteg). nebel: Oben verdeckt es der Nebel. ab: Es ist erst ab dieser
-   * Spielzeit da (der Steinbock springt vom Fels herab). verdeckt: Oben sieht
-   * man es nicht, nur im See – die Falle einer Sackgasse.
+   * Spielzeit da (der Steinbock springt vom Fels herab).
    *
    * Was sich bewegt (bewegt), steht in state.bewegte: Vögel und
    * Fischschwärme sind Decken, die ihr mit u Einheiten je Sekunde
@@ -426,8 +412,8 @@
   }
 
   // Das erste Hindernis, das bei x noch reichen könnte (sie liegen nach a
-  // geordnet; aus beiden Welten und Spuren dürfen sie sich überdecken,
-  // darum der Blick um die grösste Länge zurück).
+  // geordnet; aus beiden Welten dürfen sie sich überdecken, darum der Blick
+  // um die grösste Länge zurück).
   function abIndex(x) {
     const liste = state.hindernisse;
     const ziel = x - state.langMax;
@@ -450,14 +436,14 @@
   }
 
   // Was sie (oder ihr Spiegelbild) hier trifft: x ihre Mitte, A die Höhe der
-  // Sohlen über dem Weg am Ufer, luft ob sie fliegt, spur ihr Weg, t die
-  // Spielzeit (für das, was sich bewegt). null heisst: nichts.
-  function trifft(x, A, luft, spur = 0, t = state.t) {
+  // Sohlen über dem Weg am Ufer, luft ob sie fliegt, t die Spielzeit (für
+  // das, was sich bewegt). null heisst: nichts.
+  function trifft(x, A, luft, t = state.t) {
     const liste = state.hindernisse;
     for (let i = abIndex(x - LH - 1); i < liste.length; i += 1) {
       const o = liste[i];
       if (o.a > x + LH + 1) break;
-      if (o.b < x - LH - 1 || o.spur !== spur) continue;
+      if (o.b < x - LH - 1) continue;
       if (o.ab !== undefined && t < o.ab) continue;
       const y = A - o.g;
       if (o.kind === "luecke") {
@@ -471,7 +457,6 @@
     const bewegte = state.bewegte;
     for (let i = 0; i < bewegte.length; i += 1) {
       const o = bewegte[i];
-      if (o.spur !== spur) continue;
       const y = A - o.g;
       if (o.kind === "springer") {
         // Über dem Wasser ist er nur eine knappe Sekunde.
@@ -506,7 +491,6 @@
     state.bewegte = state.bewegte.filter((o) => o.nr !== n);
     state.bewegtAlle = state.bewegtAlle.filter((o) => o.nr !== n);
     state.etagen = state.etagen.filter((e) => e.nr !== n);
-    state.gabeln = state.gabeln.filter((g) => g.nr !== n);
   }
 
   // Die Formen der Hindernisse, die man überspringt: Höhe (leicht, schwer –
@@ -582,7 +566,7 @@
       h -= 1;
     }
     w = Math.max(6, w);
-    const o = { kind: "boden", art, welt, a: 0, b: 0, h, p, q, g: 0, spur: 0, saat: hash01(tm * 7.7 + (welt === "unten" ? 3.3 : 0)) };
+    const o = { kind: "boden", art, welt, a: 0, b: 0, h, p, q, g: 0, saat: hash01(tm * 7.7 + (welt === "unten" ? 3.3 : 0)) };
     let mitte = xBei(tm + SPRUNG / 2);
     const setze = () => { o.a = mitte - w * p; o.b = o.a + w; };
     setze();
@@ -605,14 +589,14 @@
   }
 
   function deckeBauen(a, b, welt, art, z) {
-    return { kind: "decke", art, welt, a, b, g: 0, spur: 0, dick: lerp(8, 13, z), saat: hash01(a * 0.37 + (welt === "unten" ? 5.1 : 0)) };
+    return { kind: "decke", art, welt, a, b, g: 0, dick: lerp(8, 13, z), saat: hash01(a * 0.37 + (welt === "unten" ? 5.1 : 0)) };
   }
 
   // Eine Lücke im Steg, über die ein Sprung zwischen lo und hi hinwegkommt:
   // Wer nach hi abspringt, steht schon über der Kante; wer vor lo abspringt,
   // landet noch darin.
   function lueckeBauen(lo, hi) {
-    return { kind: "luecke", art: "luecke", welt: "oben", a: xBei(hi) - RAND, b: xBei(lo + SPRUNG) + RAND, g: 0, spur: 0, spiegel: true, saat: hash01(lo * 3.7) };
+    return { kind: "luecke", art: "luecke", welt: "oben", a: xBei(hi) - RAND, b: xBei(lo + SPRUNG) + RAND, g: 0, spiegel: true, saat: hash01(lo * 3.7) };
   }
 
   // Welche Form in welcher Welt – je Landschaft (landArt) eigene, in
@@ -633,109 +617,71 @@
   const anders = (welt) => (welt === "oben" ? "unten" : "oben");
 
   // ---------------------------------------------------------------------------
-  // Der Boden: Etagen und Gabelungen
+  // Der Boden: die Etagen
   // ---------------------------------------------------------------------------
   /*
-   * Spur 0 ist der Weg am Ufer. Eine Etage hebt ihn eine Weile ETAGE höher
-   * (ein Steg auf Pfählen, ein Felsband): eine Rampe hinauf, die sie von
-   * selbst läuft, oben flach, eine Rampe hinab. Eine Gabelung legt hinter
-   * den Weg einen zweiten, Spur 1, eine Etage höher: Hinauf kommt nur, wer
-   * im Fenster vor seiner Kante abspringt (gabelFenster); am Ende führt eine
-   * Rampe hinab, und beide Wege sind wieder einer.
+   * Eine Etage hebt den Weg am Ufer eine Weile ETAGE höher (ein Steg auf
+   * Pfählen, ein Felsband, ein Band aus Eis): eine Rampe hinauf, die sie von
+   * selbst läuft, oben flach, eine Rampe hinab.
    */
-  // Was davon x enthält (die Listen sind nach dem Ort geordnet und
+  // Die Etage, in der x liegt (sie sind nach dem Ort geordnet und
   // überlappen sich nicht).
-  function suche(liste, x, von, bis) {
-    for (let i = liste.length - 1; i >= 0; i -= 1) {
-      const e = liste[i];
-      if (von(e) > x) continue;
-      return bis(e) >= x ? e : null;
+  function etageBei(x) {
+    for (let i = state.etagen.length - 1; i >= 0; i -= 1) {
+      const e = state.etagen[i];
+      if (e.a > x) continue;
+      return e.b >= x ? e : null;
     }
     return null;
   }
-  const etageBei = (x) => suche(state.etagen, x, (e) => e.a, (e) => e.b);
-  const gabelBei = (x) => suche(state.gabeln, x, (gb) => gb.xS, (gb) => gb.xEnde);
 
-  // Wie hoch der Boden der Spur bei x über dem Weg am Ufer liegt.
-  function bodenBei(spur, x) {
-    if (spur === 1) {
-      const gb = gabelBei(x);
-      if (!gb) return 0;
-      if (gb.xM === null || x <= gb.xM) return ETAGE;
-      return ETAGE * clamp(1 - (x - gb.xM) / RAMPE, 0, 1);
-    }
+  // Wie hoch der Boden bei x über dem Weg am Ufer liegt.
+  function bodenBei(x) {
     const et = etageBei(x);
     if (!et) return 0;
     return ETAGE * clamp(Math.min(x - et.a, et.b - x) / RAMPE, 0, 1);
-  }
-
-  // Die Gabelung, in deren Fenster ein Absprung zur Zeit t hinaufführt.
-  function gabelFenster(t) {
-    for (let i = state.gabeln.length - 1; i >= 0; i -= 1) {
-      const f = state.gabeln[i].fenster;
-      if (t >= f.lo && t <= f.hi) return state.gabeln[i];
-    }
-    return null;
   }
 
   // ---------------------------------------------------------------------------
   // Laufen, springen, landen – im Spiel und in der Planung gleich gerechnet
   // ---------------------------------------------------------------------------
   function laeuferNeu() {
-    return { x: 0, A: 0, y: 0, spur: 0, gabel: null, sprung: null, g0: 0, ziel: 0, landung: -9, absprung: -9 };
+    return { x: 0, A: 0, y: 0, sprung: null, g0: 0, landung: -9, absprung: -9 };
   }
 
-  // Auf welcher Spur sie gerade zählt: im Flug hinauf schon auf dem Steg
-  // (sie springt nach hinten, hinüber auf den oberen Weg).
-  const spurJetzt = (L) => (L.sprung !== null ? L.ziel : L.spur);
-
-  // Sie springt zur Zeit t ab, vom Boden ihrer Spur. Im Fenster einer
-  // Gabelung landet sie oben auf dem Steg (ziel 1).
+  // Sie springt zur Zeit t ab, von dem Boden, auf dem sie steht.
   function abheben(L, t) {
     L.sprung = t;
     L.absprung = t;
-    L.g0 = bodenBei(L.spur, xBei(t));
-    L.ziel = L.spur;
-    if (L.spur === 0) {
-      const gb = gabelFenster(t);
-      if (gb) { L.ziel = 1; L.gabel = gb; }
-    }
+    L.g0 = bodenBei(xBei(t));
   }
 
   // Bringt sie von tVor zur Zeit t: Ort, Höhe, Landung (dann die Zeit der
-  // Landung zurück, sonst null). Am Ende des oberen Wegs ist sie wieder am
-  // Ufer (Spur 0).
+  // Landung zurück, sonst null).
   function bewege(L, t, tVor) {
     let landung = null;
     if (L.sprung !== null && t - L.sprung > SPRUNG * 0.5) {
-      const x = xBei(t);
-      const spur = L.ziel === 1 && L.gabel && x >= L.gabel.xE ? 1 : L.spur;
-      const G = bodenBei(spur, x);
+      const G = bodenBei(xBei(t));
       if (L.g0 + bogenFrei(t - L.sprung) <= G + 1e-9) {
         // Auf ebenem Boden auf die Tausendstel genau, auf einer Rampe auf
         // den Schritt.
         const tl = L.sprung + tauRunter(G - L.g0);
         landung = tl > tVor && tl <= t ? tl : t;
         L.sprung = null;
-        L.spur = spur;
         L.landung = landung;
       }
     }
     L.x = xBei(t);
-    if (L.spur === 1 && (!L.gabel || L.x >= L.gabel.xEnde)) L.spur = 0;
-    const G = bodenBei(L.spur, L.x);
+    const G = bodenBei(L.x);
     L.A = L.sprung === null ? G : L.g0 + bogenFrei(t - L.sprung);
     L.y = L.A - G;
     return landung;
   }
 
   // Hält der Weg? Sie springt zu den Zeiten zeiten und läuft von von bis bis
-  // – wie im Spiel gerechnet. start: { spur, gabel } am Anfang; nie: diese
-  // Spur darf sie nie betreten; ende: auf dieser Spur muss sie ankommen.
-  function folgeHaelt(zeiten, von, bis, start = {}) {
+  // – wie im Spiel gerechnet.
+  function folgeHaelt(zeiten, von, bis) {
     const L = laeuferNeu();
-    L.spur = start.spur || 0;
-    L.gabel = start.gabel || null;
     bewege(L, von, von);
     let j = 0;
     let t = von;
@@ -747,10 +693,9 @@
         const tl = bewege(L, t2, t);
         if (tl !== null) {
           const xl = xBei(tl);
-          if (trifft(xl, bodenBei(L.spur, xl), false, L.spur, tl)) return false;
+          if (trifft(xl, bodenBei(xl), false, tl)) return false;
         }
-        if (trifft(L.x, L.A, L.sprung !== null, spurJetzt(L), t2)) return false;
-        if (start.nie !== undefined && L.spur === start.nie) return false;
+        if (trifft(L.x, L.A, L.sprung !== null, t2)) return false;
       }
       t = t2;
       if (springt) {
@@ -759,16 +704,16 @@
         j += 1;
       }
     }
-    return start.ende === undefined || L.spur === start.ende;
+    return true;
   }
 
   // Hält die Folge für jede Ecke der Luft (jeder Sprung so früh oder so
   // spät, wie er darf) und genau nach dem Weg?
-  function sicher(folge, von, bis, start = {}) {
+  function sicher(folge, von, bis) {
     const n = folge.length;
     const faelle = [folge.map((s) => s.t)];
     for (let m = 0; m < (1 << n); m += 1) faelle.push(folge.map((s, i) => s.t + (((m >> i) & 1) ? 0.97 : -0.97) * s.e));
-    return faelle.every((zeiten) => folgeHaelt(zeiten, von, bis, start));
+    return faelle.every((zeiten) => folgeHaelt(zeiten, von, bis));
   }
 
   // ---------------------------------------------------------------------------
@@ -802,29 +747,38 @@
    * See treu (ein Stein, ein Stamm, ein Ast mit einem Stein); mit dem ersten
    * ab ERWACHEN_AB erwacht er (nach einer ruhigen Strecke), zuerst ein
    * Kristall unten allein, dann ein Stein oben mit einer Qualle unten. Dann
-   * je eine Station (LEHRPFAD): bei 140 m der erste Steg eine Etage höher,
-   * bei 195 m der springende Hecht, bei 245 m die erste Gabelung (eine
-   * Sackgasse, oben falsch), bei 315 m Nebel – bei 400 m beginnt die zweite
-   * Landschaft. Danach der feste Rhythmus (RHYTHMUS, ZWISCHEN).
+   * je eine Station (LEHRPFAD): ab 140 m der erste Steg eine Etage höher
+   * (meist um 195 m), ab 190 m der springende Hecht (um 225 m), ab 235 m
+   * das erste Spiegeltor (meist um 250 m). In der gekippten Welt kommen zwei
+   * oder drei ruhige Abschnitte (ein Hindernis oder oben und unten zugleich
+   * eines, mit etwas mehr Luft), bis ein Tor bei 350 m sie zurückkippt – die
+   * zweite Landschaft öffnet sich bei 400 m aufrecht. Danach je Landschaft
+   * eine feste Folge (FOLGE).
    *
    * Immer gleich viele Zahlen ziehen, was auch geschieht: Die Strecke soll an
    * der Saat hängen, nicht an den Zweigen dieser Funktion.
    */
   const LEHRPFAD = [
     { ab: 1400, art: "etage" },
-    { ab: 1950, art: "hecht" },
-    { ab: 2450, art: "gabel" },
-    { ab: 3150, art: "nebel" },
+    { ab: 1900, art: "hecht" },
+    { ab: 2350, art: "tor" },
+    { ab: 3500, art: "tor" },
   ];
-  // Nach dem Lehrpfad ein fester Rhythmus, alles angesagt: jeder vierte
-  // Abschnitt ist besonders, in dieser Folge. Ein Spiegeltor (kurz nachdem
-  // der Schilfgürtel beginnt), eine Abkürzung in der gekippten Welt, das
-  // Tor zurück (so ist die Welt gut 250 m gekippt, und das Felsufer öffnet
-  // sich aufrecht), eine Sackgasse, eine Etage, der Holzsteg, Nebel, eine
-  // Etage – und von vorn. Die Sackgassen wechseln ab: Mal bricht oben der
-  // Steg, mal versperrt unten ein Felssturz das Ufer.
-  const RHYTHMUS = ["tor", "abkuerzung", "tor", "gabel", "etage", "steg", "nebel", "etage"];
-  const BESONDERS = new Set(["nebel", "steg", "gabel", "abkuerzung", "tor"]);
+  // Danach in jeder Landschaft drei besondere Abschnitte an festen Stellen
+  // (so weit nach ihrem Anfang), alle angesagt, im Wechsel: in der einen
+  // (Schilfgürtel, Gletschersee) Nebel, der Holzsteg und eine Etage, in der
+  // nächsten (Felsufer, Lärchenufer) eine Etage und ein Spiegeltor – das
+  // Tor zurück kommt, bevor die nächste Landschaft beginnt. So öffnet sich
+  // jede aufrecht.
+  const FOLGE = [
+    [{ ab: 600, art: "nebel" }, { ab: 1400, art: "steg" }, { ab: 2200, art: "etage" }],
+    [{ ab: 300, art: "etage" }, { ab: 900, art: "tor" }, { ab: 2450, art: "tor" }],
+  ];
+  // Ein Tor steht genau an seiner Stelle (naechsterAbschnitt): Reichte ein
+  // Abschnitt näher als TOR_RUHE Sekunden heran, kommt statt seiner das Tor,
+  // und bis dorthin bleibt der Weg frei.
+  const TOR_RUHE = 0.6;
+  const BESONDERS = new Set(["nebel", "steg", "tor"]);
 
   // Die Landschaft bei x: 0 das Lärchenufer, dann alle LAND_LANG die
   // nächste (landNr zählt weiter, landArt geht im Kreis).
@@ -832,18 +786,23 @@
   const landArt = (nr) => nr % ARTEN.length;
   const landAnfang = (nr) => (nr === 0 ? 0 : LAND_AB + (nr - 1) * LAND_LANG);
 
-  function abschnittArt(n, x, nachWecken) {
-    if (nachWecken < 2) return "";
-    if (state.lehr < LEHRPFAD.length) {
-      const s = LEHRPFAD[state.lehr];
-      if (x < s.ab) return "";
-      state.lehr += 1;
-      if (state.lehr === LEHRPFAD.length) state.taktAb = n;
-      return s.art;
-    }
-    const k = n - state.taktAb;
-    if (k > 0 && k % 4 === 0) return RHYTHMUS[(k / 4 - 1) % RHYTHMUS.length];
-    return "";
+  // Die Station i (der besondere Abschnitt): wo und was.
+  function stationBei(i) {
+    if (i < LEHRPFAD.length) return LEHRPFAD[i];
+    const j = i - LEHRPFAD.length;
+    const nr = 1 + Math.floor(j / 3);
+    const s = FOLGE[(nr - 1) % FOLGE.length][j % 3];
+    return { ab: landAnfang(nr) + s.ab, art: s.art };
+  }
+
+  // Ist der Abschnitt, der bei x beginnt, besonders? Dann seine Station
+  // (je Abschnitt höchstens eine, der Reihe nach).
+  function abschnittStation(x, nachWecken) {
+    if (nachWecken < 2) return null;
+    const s = stationBei(state.station);
+    if (x < s.ab) return null;
+    state.station += 1;
+    return s;
   }
 
   // Eine gewöhnliche Lage nach Gewicht (z: eine Zahl).
@@ -972,7 +931,7 @@
       zeiten.push(t1);
       const tm = t1 + SPRUNG / 2;
       const o = {
-        kind: "springer", art: "hecht", welt: "beide", bewegt: true, g: p.g || 0, spur: 0,
+        kind: "springer", art: "hecht", welt: "beide", bewegt: true, g: p.g || 0,
         xm: xBei(tm), tm, u: lerp(50, 80, z[5]), hp: lerp(9, 12, z[6] * (1 - k * 0.4)), L: lerp(24, 30, z[7]), th: 2.6, saat: z[8],
       };
       o.kk = (o.hp + UFER + o.g + o.th) / 0.2025;
@@ -1047,34 +1006,38 @@
     }
     const treu = state.erwacheT === null;
     const nachWecken = treu || wecken ? 0 : state.nachWecken + 1;
-    const art = treu || wecken ? "" : abschnittArt(n, xStart, nachWecken);
+    const station = treu || wecken ? null : abschnittStation(xStart, nachWecken);
+    const art = station?.art || "";
     const besonders = BESONDERS.has(art) ? art : "";
-    const imTakt = state.taktAb !== null;
+    const imTakt = state.station >= LEHRPFAD.length;
+    // In der gekippten Welt zuerst ruhigere Lagen: nach dem ersten Tor bis
+    // zum Tor zurück je ein Hindernis (oder zwei zugleich) mit etwas mehr
+    // Luft – mindestens zwei solche Abschnitte –, nach jedem weiteren Tor
+    // ein ruhiger Abschnitt.
+    const eingewoehnen = state.tore.length === 1;
+    const gewoehnt = eingewoehnen ? liste.filter((a) => a.start > state.tore[0].t).length : 0;
+    const nachTor = n > 0 && liste[n - 1].lage === "tor";
     const tSchaetz = state.freiAb + 0.5 + ruhe;
     const k0 = schwere(tSchaetz);
-    const e0 = luftBei(tSchaetz) * (besonders ? 1.12 : 1);
+    const e0 = luftBei(tSchaetz) * (besonders ? 1.12 : eingewoehnen ? 1.1 : 1);
     if (!treu) state.nachWecken = nachWecken;
 
-    // Nach einer Gabelung beginnt alles neu am Ufer (sauberAb): Welcher Weg
-    // es auch war, sie ist dann am Boden.
-    const sauber = state.sauberAb;
-    state.sauberAb = null;
-    const vorher = letzt && sauber === null ? [{ t: letzt.t, e: letzt.e }] : [];
-    const vonVorher = vorher.length ? letzt.t - letzt.e - 0.005 : null;
+    const vorher = letzt ? [{ t: letzt.t, e: letzt.e }] : [];
+    const vonVorher = letzt ? letzt.t - letzt.e - 0.005 : null;
 
-    if (art === "gabel" || art === "abkuerzung") {
-      const falsch = art === "abkuerzung" ? -1 : state.sackZahl % 2 === 0 ? 1 : 0;
-      if (baueGabel({ n, art: art === "gabel" ? "sackgasse" : "abkuerzung", falsch, z, zz, k0, e0, land, vorher, vonVorher, sauber, start, xStart })) return;
-    }
-    if (art === "tor") {
-      const tg = start + 0.95;
+    // Ein Spiegeltor steht an seiner Stelle; davor und dahinter bleibt der
+    // Weg frei – davor mindestens TOR_RUHE, dahinter die Drehung und knapp
+    // eine Sekunde.
+    const torBauen = (s) => {
+      const tg = Math.max(start + TOR_RUHE, tBei(s.ab));
       const nummer = state.tore.length;
       state.tore.push({ x: xBei(tg), t: tg, nr: n, nummer });
-      state.freiAb = tg + DREH + 1.05;
-      if (sauber !== null) state.sauberAb = state.freiAb;
-      liste.push({ nr: n, lage: "tor", art, besonders, treu, wecken, start, ende: state.freiAb, t0: tg, t1: tg, e: e0, x0: xStart, land, nummer });
-      return;
-    }
+      state.freiAb = tg + DREH + 0.9;
+      liste.push({ nr: n, lage: "tor", art: "tor", besonders: "tor", treu, wecken, start, ende: state.freiAb, t0: tg, t1: tg, e: e0, x0: xStart, land, nummer });
+    };
+    if (art === "tor") { torBauen(station); return; }
+    // Kommt als Nächstes ein Tor, darf dieser Abschnitt nicht zu nahe heran.
+    const torBald = !station && nachWecken >= 2 && stationBei(state.station).art === "tor" ? stationBei(state.station) : null;
 
     let lage;
     // Die Welten der Teile: w1 das erste Hindernis, w2 das andere.
@@ -1087,8 +1050,10 @@
     else if (n === 2) { lage = "zangeVor"; w1 = "oben"; w2 = "oben"; a1 = 0.1; }
     else if (wecken) { lage = "einzeln"; w1 = "unten"; a1 = 0.1; }
     else if (nachWecken === 1) { lage = "zangeNach"; w1 = "oben"; w2 = "unten"; a1 = 0.1; }
-    else if (art === "etage" && state.lehr <= 1) { lage = "einzeln"; w1 = "unten"; }
+    else if (art === "etage" && state.etagen.length === 0) { lage = "einzeln"; w1 = "unten"; }
     else if (treu) lage = z[0] < 0.55 ? "einzeln" : "doppel";
+    else if (eingewoehnen) lage = z[0] < 0.6 ? "einzeln" : "beide";
+    else if (nachTor) lage = z[0] < 0.45 ? "einzeln" : z[0] < 0.75 ? "beide" : "doppel";
     else {
       lage = lageWaehlen(z[0], k0, n);
       // Ab und zu springt ein Hecht statt eines einzelnen Hindernisses.
@@ -1100,7 +1065,7 @@
     // wird oben auf dem Steg.
     const et = art === "etage" ? { a: xStart, b: Infinity, nr: n, land, erste: state.etagen.length === 0 } : null;
     const ab = et ? tBei(xStart + RAMPE) + 0.04 : start;
-    const vorlauf = et ? 0.12 + 0.2 * z[1] : ruhe + (n === 0 ? 0 : n <= 3 ? 0.62 + 0.36 * z[1] : lerp(0.55, 0.12, k0) + z[1] * lerp(0.45, 0.18, k0));
+    const vorlauf = et || art === "hecht" ? 0.12 + 0.2 * z[1] : ruhe + (n === 0 ? 0 : n <= 3 ? 0.62 + 0.36 * z[1] : lerp(0.55, 0.12, k0) + z[1] * lerp(0.45, 0.18, k0));
     const bewegt = imTakt ? { voegel: true, fische: true, steinbock: land === 0 || land === 2 } : null;
     const g = et ? ETAGE : 0;
 
@@ -1116,7 +1081,6 @@
       v.hind.forEach((o) => {
         o.nr = n;
         o.g = g;
-        o.spur = 0;
         o.land = land;
         if (treu || lageJetzt === "nebel" || lageJetzt === "steg") o.spiegel = true;
         if (lageJetzt === "nebel") o.nebel = true;
@@ -1131,7 +1095,7 @@
       const folge = [...vorher, ...v.zeiten.map((t) => ({ t, e: v.e }))];
       // Ab dem frühesten Absprung des letzten Sprungs davor (bis dahin ist
       // der Abschnitt davor schon geprüft), sonst kurz vor dem ersten.
-      const von = vonVorher ?? Math.max(v.zeiten[0] - 0.45, sauber ?? -Infinity);
+      const von = vonVorher ?? v.zeiten[0] - 0.45;
       if (sicher(folge, von, bis)) { fertig = { ...v, lage: lageJetzt }; break; }
       abschnittWeg(n);
     }
@@ -1140,13 +1104,20 @@
       state.planFehler += 1;
       state.planLog.push(`${n}:${art || lage}@${Math.round(xStart / METER)}m`);
       const v = baueLage("einzeln", { n, z, zz, k: 0, e: e0 * 1.4, ab, frueh: ab + vorlauf + e0 * 1.4, vorlauf, w1: "oben", w2, a1, treu, land, bewegt: null, g });
-      v.hind.forEach((o) => { o.nr = n; o.g = g; o.spur = 0; o.land = land; if (treu) o.spiegel = true; einreihen(o); });
+      v.hind.forEach((o) => { o.nr = n; o.g = g; o.land = land; if (treu) o.spiegel = true; einreihen(o); });
       if (et) { et.b = xBei(lageEnde(v) + 0.1) + RAMPE; state.etagen.push(et); }
       fertig = { ...v, lage: "einzeln" };
     }
+    if (torBald && lageEnde(fertig) + TOR_RUHE > tBei(torBald.ab) && !(eingewoehnen && gewoehnt < 2)) {
+      // Er reichte zu nahe heran: statt seiner schon das Tor.
+      abschnittWeg(n);
+      state.station += 1;
+      torBauen(torBald);
+      return;
+    }
     if (fertig.lage === "nebel") state.nebelZahl += 1;
     if (fertig.lage === "steg") state.stegZahl += 1;
-    fertig.zeiten.forEach((t) => state.weg.push({ t, e: fertig.e, nr: n, spur: 0 }));
+    fertig.zeiten.forEach((t) => state.weg.push({ t, e: fertig.e, nr: n }));
     const tLetzt = fertig.zeiten[fertig.zeiten.length - 1];
     state.freiAb = lageEnde(fertig);
     if (et) state.freiAb = Math.max(state.freiAb, tBei(et.b) + 0.03);
@@ -1159,158 +1130,8 @@
     }
     liste.push({
       nr: n, lage: fertig.lage, art, besonders, treu, wecken, start, ende: state.freiAb, t0: fertig.zeiten[0], t1: tLetzt, e: fertig.e, x0: xStart, land,
-      etage: et ? state.etagen[state.etagen.length - 1] : null, zeiten: fertig.zeiten.slice(),
+      etage: et ? state.etagen[state.etagen.length - 1] : null,
     });
-  }
-
-  /*
-   * Eine Gabelung. Am oberen Weg (Spur 1: ein Steg oder Felsband hinter dem
-   * Ufer, eine Etage höher) führt nur ein Sprung im Fenster hinauf; wer
-   * nicht springt, bleibt am Ufer (Spur 0). Beide Wege laufen eine Weile
-   * nebeneinander, jeder mit eigenen Hindernissen in beiden Welten, und
-   * kommen über eine Rampe wieder zusammen.
-   *
-   *   sackgasse   Ein Weg führt sicher ins Ende: Oben bricht der Steg ein
-   *               (falsch 1: eine Lücke, länger als jeder Sprung), oder ein
-   *               Felssturz, den oben Büsche verdecken, versperrt das Ufer
-   *               (falsch 0: höher als jeder Sprung). Oben sieht alles heil
-   *               aus; der See zeigt die Wahrheit – vom Anfang der Gabelung
-   *               an, lange vor dem Fenster.
-   *   abkuerzung  Beide sind offen. Oben ist es deutlich schwerer (dichtere
-   *               Lagen), dafür schenkt der Steg BONUS Meter.
-   *
-   * Weg zuerst für beide: Jeder offene Weg wird mit allen Ecken der Luft
-   * nachgeprüft; der untere darf nie auf den Steg führen (nie: 1).
-   */
-  function baueGabel(q) {
-    const { n, art, falsch, z, zz, k0, e0, land, vorher, vonVorher, sauber, start, xStart } = q;
-    const erste = state.gabelZahl === 0;
-    const t2 = tauRunter(ETAGE);
-    // Zahlen für die Lagen der beiden Wege, aus denen des Abschnitts.
-    const zahlen = (spur, i) => z.map((v, j) => hash01(v * 13.1 + i * 7.7 + spur * 3.3 + j * 0.71));
-    let versuch = 0;
-    for (const mass of [1, 1.15, 1.35]) {
-      const ew = Math.max(0.09, e0 * (erste ? 1.5 : 1.15)) * Math.min(mass, 1.2);
-      const tw = start + (erste ? 1.0 : 0.8) + ew;
-      const xE = xBei(tw - ew + t2) - RAND;
-      const gb = {
-        nr: n, art, falsch, land, xS: xE - 66, xE, xM: null, xEnde: Infinity, xT: null,
-        fenster: { lo: tw - ew, hi: tw + ew, t: tw, e: ew }, wege: [[], []], bonus: art === "abkuerzung" ? BONUS : 0, tEnde: 0,
-      };
-      state.gabeln.push(gb);
-      const von = vonVorher ?? Math.max(tw - ew - 0.45, sauber ?? -Infinity);
-      const alt = vorher.map((s) => ({ ...s }));
-      const hinauf = { t: tw, e: ew, spur: 0, hinauf: true };
-      // Lage um Lage auf einer Spur, jede nachgeprüft wie ein gewöhnlicher
-      // Abschnitt: mit allen Ecken der Luft, über den letzten Sprung davor
-      // hinweg; hält eine nicht, eine leichtere, zuletzt ein einzelnes
-      // Hindernis. pruef: { vorher, von, start } – womit die erste beginnt.
-      const reihe = (spur, lagen, abT, kk, vorlaufen, pruef) => {
-        let frei = abT;
-        let vor = pruef.vorher;
-        let vonJetzt = pruef.von;
-        let startJetzt = pruef.start;
-        const spruenge = [];
-        for (let i = 0; i < lagen.length; i += 1) {
-          let fertig = null;
-          for (const [lage, m] of [[lagen[i], 1], [lagen[i], 1.12], ["einzeln", 1.25]]) {
-            versuch += 1;
-            const zl = zahlen(spur, i);
-            const e = e0 * mass * m;
-            const w1 = zl[13] < 0.52 ? "unten" : "oben";
-            const v = baueLage(lage, {
-              n, z: zl, zz: zl.slice(8), k: kk / (mass * m), e, ab: frei, frueh: frei + vorlaufen[i] + e, vorlauf: vorlaufen[i],
-              w1, w2: zl[14] < 0.72 ? anders(w1) : w1, a1: zl[15], treu: false, land, g: spur ? ETAGE : 0,
-              bewegt: state.taktAb !== null ? { voegel: true, fische: true } : null,
-            });
-            v.hind.forEach((o) => { o.nr = n; o.spur = spur; o.g = spur ? ETAGE : 0; o.land = land; o.versuch = versuch; einreihen(o); });
-            const folge = [...vor, ...v.zeiten.map((t) => ({ t, e: v.e }))];
-            if (sicher(folge, vonJetzt, lageEnde(v) + 0.45, { ...startJetzt, nie: spur ? undefined : 1 })) { fertig = v; break; }
-            state.hindernisse = state.hindernisse.filter((o) => o.versuch !== versuch);
-            state.bewegte = state.bewegte.filter((o) => o.versuch !== versuch);
-            state.bewegtAlle = state.bewegtAlle.filter((o) => o.versuch !== versuch);
-          }
-          if (!fertig) return null;
-          fertig.zeiten.forEach((t) => spruenge.push({ t, e: fertig.e, spur }));
-          frei = lageEnde(fertig);
-          const letzt = fertig.zeiten[fertig.zeiten.length - 1];
-          vor = [{ t: letzt, e: fertig.e }];
-          vonJetzt = letzt - fertig.e - 0.005;
-          startJetzt = { spur, gabel: gb };
-        }
-        return { spruenge, frei, vor, von: vonJetzt };
-      };
-      const lagenWahl = (zi, kk, ohne) => {
-        let lage = lageWaehlen(zi, kk, 20);
-        if (ohne && lage === "einzeln") lage = "doppel";
-        return mass > 1.2 ? "einzeln" : lage;
-      };
-      let oben = { spruenge: [], frei: tw + ew + t2 + 0.05, vor: [hinauf], von: tw - ew - 0.005 };
-      let unten = { spruenge: [], frei: tw + ew + 0.03, vor: alt, von };
-      let gut = true;
-      if (falsch !== 1) {
-        // Hinauf: Jeder Sprung im Fenster landet oben.
-        gut = sicher([...alt, hinauf], von, tw + ew + t2 + 0.06, { spur: 0, ende: 1 });
-        // Der obere Weg hält: bei der Abkürzung zwei dichte Lagen.
-        const kk = art === "abkuerzung" ? Math.min(1, k0 + 0.3) : k0;
-        const lagen = art === "abkuerzung" ? [lagenWahl(zz[1], kk, true), lagenWahl(zz[2], kk, true)] : [lagenWahl(zz[1], kk, false)];
-        const r = gut ? reihe(1, lagen, oben.frei, kk, art === "abkuerzung" ? [0.1, lerp(0.3, 0.12, kk)] : [0.25], { vorher: [hinauf], von: tw - ew - 0.005, start: { spur: 0 } }) : null;
-        if (r) oben = r; else gut = false;
-      } else {
-        // Der Steg bricht ein: eine Lücke, länger als jeder Sprung.
-        gb.xT = xE + 52 + 24 * zz[3];
-        einreihen({ kind: "luecke", art: "bruch", welt: "oben", a: gb.xT, b: gb.xT + 320, g: ETAGE, spur: 1, nr: n, verdeckt: true, saat: zz[3] });
-        gb.xEnde = gb.xT + 330;
-      }
-      if (gut && falsch !== 0) {
-        // Der untere Weg hält: bei der Abkürzung eine leichte Lage.
-        const kk = art === "abkuerzung" ? k0 * 0.6 : k0;
-        const lagen = art === "abkuerzung" ? [lagenWahl(zz[4], kk * 0.5, false)] : [lagenWahl(zz[4], kk, false), lagenWahl(zz[5], kk, false)];
-        const r = reihe(0, lagen, unten.frei, kk, [0.28, lerp(0.5, 0.15, kk)], { vorher: alt, von, start: { spur: 0 } });
-        if (r) unten = r; else gut = false;
-      } else if (gut) {
-        // Ein Felssturz, oben hinter Büschen: höher als jeder Sprung.
-        gb.xT = xE + 18 + 30 * zz[3];
-        einreihen({ kind: "boden", art: "fels", welt: "oben", a: gb.xT, b: gb.xT + 38, h: 64, p: 0.45, q: 2.6, g: 0, spur: 0, nr: n, verdeckt: true, saat: zz[3] });
-      }
-      if (gut) {
-        // Wo die Wege wieder zusammenkommen: hinter dem Letzten auf beiden
-        // (und hinter dem Felssturz).
-        if (falsch !== 1) {
-          let xM = xBei(oben.frei + 0.1);
-          if (falsch !== 0) xM = Math.max(xM, xBei(unten.frei) + 12 - RAMPE);
-          else xM = Math.max(xM, gb.xT + 80);
-          gb.xM = xM;
-          gb.xEnde = xM + RAMPE;
-        }
-        const tEnde = Math.max(falsch !== 1 ? tBei(gb.xEnde) + 0.05 : 0, falsch !== 0 ? unten.frei + 0.02 : 0);
-        gb.tEnde = tEnde;
-        gb.wege[0] = unten.spruenge;
-        gb.wege[1] = [hinauf, ...oben.spruenge];
-        // Zuletzt hinab und zusammen: vom letzten Sprung an bis zum Ende.
-        if (falsch !== 1 && !sicher(oben.vor, oben.von, tEnde + 0.2, { spur: oben.spruenge.length ? 1 : 0, gabel: gb, ende: 0 })) gut = false;
-        if (gut && falsch !== 0 && !sicher(unten.vor, unten.von, tEnde + 0.2, { spur: 0, nie: 1 })) gut = false;
-        if (gut) {
-          state.gabelZahl += 1;
-          if (art === "sackgasse") state.sackZahl += 1;
-          const richtig = falsch === 1 ? 0 : 1;
-          gb.richtig = richtig;
-          gb.wege[richtig].forEach((s) => state.weg.push({ t: s.t, e: s.e, nr: n, spur: s.spur, gabel: true }));
-          state.freiAb = tEnde;
-          state.sauberAb = tEnde;
-          const zeitenR = gb.wege[richtig].map((s) => s.t);
-          state.abschnitte.push({
-            nr: n, lage: art, art: art === "abkuerzung" ? "abkuerzung" : "gabel", besonders: art === "abkuerzung" ? "abkuerzung" : "gabel", treu: false, wecken: false,
-            start, ende: tEnde, t0: zeitenR[0] ?? tw, t1: zeitenR[zeitenR.length - 1] ?? tw, e: ew, x0: xStart, land, gabel: gb, zeiten: zeitenR,
-          });
-          return true;
-        }
-      }
-      abschnittWeg(n);
-    }
-    state.planFehler += 1;
-    state.planLog.push(`${n}:${art}/${falsch}@${Math.round(xStart / METER)}m`);
-    return false;
   }
 
   // Die Strecke steht bis zur Zeit t – und immer zwei Abschnitte über den
@@ -1334,18 +1155,13 @@
     state.stege = [];
     state.nebel = [];
     state.etagen = [];
-    state.gabeln = [];
     state.tore = [];
     state.freiAb = ANFAHRT;
-    state.sauberAb = null;
     state.planFehler = 0;
     state.planLog = [];
     state.nebelZahl = 0;
     state.stegZahl = 0;
-    state.gabelZahl = 0;
-    state.sackZahl = 0;
-    state.lehr = 0;
-    state.taktAb = null;
+    state.station = 0;
     state.langMax = 120;
     state.erwacheT = null;
     state.nachWecken = 0;
@@ -1383,30 +1199,18 @@
     return { gekippt: zahl % 2 === 1, k, zahl, mass };
   }
 
-  // Der Weg mit einer Wahl an jeder Gabelung (wahl(gabel) gibt die Spur):
-  // für die Prüfung und die Vorführung.
-  function wegMit(wahl) {
-    const aus = [];
-    state.abschnitte.forEach((a) => {
-      if (a.gabel) a.gabel.wege[wahl(a.gabel)].forEach((s) => aus.push({ t: s.t, e: s.e, nr: a.nr, spur: s.spur }));
-      else (a.zeiten || []).forEach((t) => aus.push({ t, e: a.e, nr: a.nr, spur: 0 }));
-    });
-    return aus;
-  }
-
   // Die Strecke als Text – für die Prüfung, dass in einem Turnier alle
   // dieselbe bekommen.
   function kursText(bis = 60) {
     while (!state.abschnitte.length || state.abschnitte[state.abschnitte.length - 1].ende < bis) naechsterAbschnitt();
     const xb = xBei(bis);
     const f = (x) => x.toFixed(1);
-    const teile = state.hindernisse.filter((o) => o.a < xb).map((o) => `${o.art}${o.welt === "unten" ? "_" : ""}${o.spur ? "^" : ""}${f(o.a)}-${f(o.b)}${o.h ? `/${f(o.h)}` : ""}`);
+    const teile = state.hindernisse.filter((o) => o.a < xb).map((o) => `${o.art}${o.welt === "unten" ? "_" : ""}${f(o.a)}-${f(o.b)}${o.h ? `/${f(o.h)}` : ""}`);
     const bewegte = state.bewegtAlle.filter((o) => (o.xm ?? o.a) < xb + 400).map((o) => `${o.art}${o.welt === "unten" ? "_" : ""}${f(o.xm ?? o.a)}@${(o.tm ?? o.tRef).toFixed(3)}/${f(o.u)}`);
     const lagen = state.abschnitte.filter((a) => a.start < bis).map((a) => a.lage);
     const etagen = state.etagen.filter((e) => e.a < xb).map((e) => `${f(e.a)}-${f(e.b)}`);
-    const gabeln = state.gabeln.filter((g) => g.xS < xb).map((g) => `${g.art}/${g.falsch}@${f(g.xE)}~${g.fenster.lo.toFixed(3)}-${g.fenster.hi.toFixed(3)}>${g.xM === null ? "x" : f(g.xM)}`);
     const tore = state.tore.filter((t) => t.x < xb).map((t) => f(t.x));
-    return `${teile.join(",")} | ${bewegte.join(",")} | ${lagen.join(",")} | ${etagen.join(",")} | ${gabeln.join(",")} | ${tore.join(",")} | erwacht ${state.erwacheT}`;
+    return `${teile.join(",")} | ${bewegte.join(",")} | ${lagen.join(",")} | ${etagen.join(",")} | ${tore.join(",")} | erwacht ${state.erwacheT}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -4312,20 +4116,16 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Zeichnen: Stege, Felsbänder, Eisbänder – die Etagen und der obere Weg
+  // Zeichnen: Stege, Felsbänder, Eisbänder – die Etagen
   // ---------------------------------------------------------------------------
   /*
    * Je Landschaft ein anderer Bau, dieselbe Form: oben flach auf ETAGE, die
    * Rampen schräg. Im Lärchenufer und im Schilf ein Holzsteg auf Pfählen
    * (Bretter mit Fugen, die Kante im Morgenlicht), am Felsufer ein Felsband,
-   * im Gletschersee ein Band aus Eis mit Zapfen. Der obere Weg einer
-   * Gabelung steht hinter dem Ufer: Seine Pfähle (oder seine Wand) reichen
-   * bis zum Weg hinab, und ein Geländer zeigt: ein anderer Weg.
+   * im Gletschersee ein Band aus Eis mit Zapfen.
    *
    * Im See dasselbe gespiegelt – treu getönt oder, im erwachten See, dunkel
-   * mit leuchtender Kante (stil). An einer Sackgasse zeigt der See, welcher
-   * Weg hält: Dessen Spiegelbild leuchtet von der Gabelung an, das des
-   * falschen ist dunkel und zersprungen, und wo die Falle ist, fehlt es.
+   * mit leuchtender Kante (stil).
    */
   const BAU = ["holz", "holz", "fels", "eis"];
   const BAU_FARBE = {
@@ -4335,195 +4135,151 @@
   };
 
   // Ein Bau von x0 bis x1, die Oberkante bei hoch(x); Y bildet Höhen ab
-  // (obenY oder, im See, untenY). hinten: der obere Weg einer Gabelung
-  // (bis zum Weg hinab, mit Geländer). fehlt: Stücke [a, b], in denen er
-  // fehlt. Aus dem Bild Ragendes wird nicht gemalt.
-  function zeichneBau(x0, x1, hoch, Y, bau, wahl = {}) {
-    const { hinten = false, fehlt = [], gelaender = hinten } = wahl;
+  // (obenY oder, im See, untenY). Aus dem Bild Ragendes wird nicht gemalt.
+  function zeichneBau(x0, x1, hoch, Y, bau) {
     const s = view.s;
-    const sa = Math.max(x0, state.camX - view.rx / s - 24);
-    const sb = Math.min(x1, state.camX + (view.cssW - view.rx) / s + 24);
-    if (sb <= sa) return;
+    const a = Math.max(x0, state.camX - view.rx / s - 24);
+    const b = Math.min(x1, state.camX + (view.cssW - view.rx) / s + 24);
+    if (b <= a) return;
     const c = BAU_FARBE[bau];
     const dick = bau === "holz" ? 2.8 : bau === "eis" ? 3.6 : 4.4;
-    const fuss = hinten ? -0.5 : -UFER;
-    // Die Stücke zwischen den Lücken.
-    const stuecke = [];
-    let von = sa;
-    fehlt.slice().sort((p, q) => p[0] - q[0]).forEach(([a, b]) => {
-      if (b <= von || a >= sb) return;
-      if (a > von) stuecke.push([von, Math.min(a, sb)]);
-      von = Math.max(von, b);
-    });
-    if (von < sb) stuecke.push([von, sb]);
-    const rand = (x, h) => [bildX(x), Y(h)];
-    const kante = (a, b, d) => {
+    const fuss = -UFER;
+    // Die Oberkante, d tiefer.
+    const kante = (d) => {
       g.beginPath();
       for (let x = a; ; x += 4) {
         const xx = Math.min(x, b);
-        const [px, py] = rand(xx, hoch(xx) - d);
-        if (xx === a) g.moveTo(px, py); else g.lineTo(px, py);
+        if (xx === a) g.moveTo(bildX(xx), Y(hoch(xx) - d)); else g.lineTo(bildX(xx), Y(hoch(xx) - d));
         if (xx >= b) break;
       }
     };
-    stuecke.forEach(([a, b]) => {
-      // Pfähle (Holz, Eis) oder die Wand (Fels) bis hinab.
-      if (bau === "fels") {
-        // Eine Wand aus Fels: oben ein unruhiger Rand, darunter Bänder in
-        // wechselndem Licht, Klüfte, nach unten dunkler.
-        const rand = (x) => hoch(x) + 0.6 * Math.sin(x * 0.45) + 0.4 * Math.sin(x * 1.3);
-        const wand = (d0, d1) => {
-          g.beginPath();
-          for (let x = a; ; x += 3) {
-            const xx = Math.min(x, b);
-            const y = Y(lerp(rand(xx), fuss, d0));
-            if (xx === a) g.moveTo(bildX(xx), y); else g.lineTo(bildX(xx), y);
-            if (xx >= b) break;
-          }
-          for (let x = b; ; x -= 3) {
-            const xx = Math.max(x, a);
-            g.lineTo(bildX(xx), Y(lerp(rand(xx), fuss, d1)));
-            if (xx <= a) break;
-          }
-          g.closePath();
-        };
-        wand(0, 1);
-        g.fillStyle = F(hinten ? mix3(c.deck, c.dunkel, 0.3) : c.deck);
-        g.fill();
-        [[0, 0.16, c.kante, 0.32], [0.3, 0.42, c.dunkel, 0.35], [0.55, 0.62, c.kante, 0.14], [0.7, 1, c.dunkel, 0.5]].forEach(([d0, d1, farbe, a2]) => {
-          wand(d0, d1);
-          g.fillStyle = F(farbe, a2);
-          g.fill();
-        });
-        g.strokeStyle = F(c.fuge, 0.6);
-        g.lineWidth = Math.max(0.6, s * 0.4);
+    // Pfähle (Holz, Eis) oder die Wand (Fels) bis hinab.
+    if (bau === "fels") {
+      // Eine Wand aus Fels: oben ein unruhiger Rand, darunter Bänder in
+      // wechselndem Licht, Klüfte, nach unten dunkler.
+      const rand = (x) => hoch(x) + 0.6 * Math.sin(x * 0.45) + 0.4 * Math.sin(x * 1.3);
+      const wand = (d0, d1) => {
         g.beginPath();
-        for (let x = Math.ceil(a / 13) * 13; x < b; x += 13) {
-          const z = hash01(x * 0.71);
-          const h = rand(x);
-          g.moveTo(bildX(x + z * 4), Y(h - 0.5));
-          g.lineTo(bildX(x + z * 4 - 0.8), Y(lerp(h, fuss, 0.35)));
-          g.lineTo(bildX(x + z * 4 + 0.6), Y(lerp(h, fuss, 0.7 + z * 0.25)));
+        for (let x = a; ; x += 3) {
+          const xx = Math.min(x, b);
+          const y = Y(lerp(rand(xx), fuss, d0));
+          if (xx === a) g.moveTo(bildX(xx), y); else g.lineTo(bildX(xx), y);
+          if (xx >= b) break;
         }
-        g.stroke();
-      } else {
-        const breit = bau === "eis" ? 2.8 : 2.2;
-        for (let x = Math.ceil((a - 2) / 16) * 16 + 6; x < b - 1; x += 16) {
-          const h = hoch(x) - dick;
-          if (h <= 0.5 && !hinten) continue;
-          const y0 = Y(h);
-          const y1 = Y(fuss);
-          g.fillStyle = F(c.pfahl);
-          g.fillRect(bildX(x) - breit * 0.5 * s, Math.min(y0, y1), breit * s, Math.abs(y1 - y0));
-          g.fillStyle = L(c.kante, 0.4);
-          g.fillRect(bildX(x) - breit * 0.5 * s, Math.min(y0, y1), 0.6 * s, Math.abs(y1 - y0));
-          if (bau === "holz" && !hinten) {
-            // Ein Querbalken zwischen zwei Pfählen.
-            g.strokeStyle = F(c.dunkel, 0.8);
-            g.lineWidth = Math.max(0.6, s * 0.5);
-            g.beginPath();
-            g.moveTo(bildX(x), Y(h - 1));
-            g.lineTo(bildX(x + 16), Y(lerp(h, fuss, 0.7)));
-            g.stroke();
-          }
-        }
-        // Das Deck.
-        kante(a, b, 0);
-        for (let x = b; ; x -= 4) {
+        for (let x = b; ; x -= 3) {
           const xx = Math.max(x, a);
-          g.lineTo(bildX(xx), Y(hoch(xx) - dick));
+          g.lineTo(bildX(xx), Y(lerp(rand(xx), fuss, d1)));
           if (xx <= a) break;
         }
         g.closePath();
-        g.fillStyle = F(c.deck);
+      };
+      wand(0, 1);
+      g.fillStyle = F(c.deck);
+      g.fill();
+      [[0, 0.16, c.kante, 0.32], [0.3, 0.42, c.dunkel, 0.35], [0.55, 0.62, c.kante, 0.14], [0.7, 1, c.dunkel, 0.5]].forEach(([d0, d1, farbe, a2]) => {
+        wand(d0, d1);
+        g.fillStyle = F(farbe, a2);
         g.fill();
-        // Darunter ein dunkler Balken, die Fugen der Bretter.
-        g.fillStyle = F(c.dunkel, 0.85);
-        kante(a, b, dick - 0.2);
-        for (let x = b; ; x -= 4) {
-          const xx = Math.max(x, a);
-          g.lineTo(bildX(xx), Y(hoch(xx) - dick - 1.1));
-          if (xx <= a) break;
-        }
-        g.closePath();
-        g.fill();
-        g.strokeStyle = F(c.fuge, bau === "eis" ? 0.4 : 0.75);
-        g.lineWidth = Math.max(0.5, s * 0.35);
-        g.beginPath();
-        for (let x = Math.ceil(a / 5.5) * 5.5; x < b; x += 5.5) {
-          const h = hoch(x);
-          g.moveTo(bildX(x), Y(h));
-          g.lineTo(bildX(x), Y(h - dick));
-        }
-        g.stroke();
-        if (bau === "eis") {
-          // Zapfen an der Kante.
-          g.fillStyle = L(c.kante, 0.75);
-          g.beginPath();
-          for (let x = Math.ceil(a / 3.2) * 3.2; x < b; x += 3.2) {
-            const h = hoch(x) - dick;
-            const lang = 1.2 + hash01(x * 1.3) * 3.4;
-            g.moveTo(bildX(x - 0.9), Y(h));
-            g.lineTo(bildX(x), Y(h - lang));
-            g.lineTo(bildX(x + 0.9), Y(h));
-          }
-          g.fill();
-        }
+      });
+      g.strokeStyle = F(c.fuge, 0.6);
+      g.lineWidth = Math.max(0.6, s * 0.4);
+      g.beginPath();
+      for (let x = Math.ceil(a / 13) * 13; x < b; x += 13) {
+        const z = hash01(x * 0.71);
+        const h = rand(x);
+        g.moveTo(bildX(x + z * 4), Y(h - 0.5));
+        g.lineTo(bildX(x + z * 4 - 0.8), Y(lerp(h, fuss, 0.35)));
+        g.lineTo(bildX(x + z * 4 + 0.6), Y(lerp(h, fuss, 0.7 + z * 0.25)));
       }
-      // Die Oberkante im Licht.
-      g.strokeStyle = L(c.kante, 0.85);
-      g.lineWidth = Math.max(0.8, s * 0.55);
-      kante(a, b, 0);
       g.stroke();
-      if (bau === "fels") {
-        // Gras und Moos obenauf.
-        g.strokeStyle = F([120, 140, 96], 0.8);
-        g.lineWidth = Math.max(0.5, s * 0.3);
-        g.beginPath();
-        for (let x = Math.ceil(a / 7) * 7; x < b; x += 7) {
-          const h = hoch(x);
-          const z = hash01(x * 0.37);
-          for (let j = 0; j < 3; j += 1) {
-            g.moveTo(bildX(x + j * 0.8), Y(h));
-            g.lineTo(bildX(x + j * 0.8 + (j - 1) * 0.6), Y(h + 1 + z * 1.6));
-          }
+    } else {
+      const breit = bau === "eis" ? 2.8 : 2.2;
+      for (let x = Math.ceil((a - 2) / 16) * 16 + 6; x < b - 1; x += 16) {
+        const h = hoch(x) - dick;
+        if (h <= 0.5) continue;
+        const y0 = Y(h);
+        const y1 = Y(fuss);
+        g.fillStyle = F(c.pfahl);
+        g.fillRect(bildX(x) - breit * 0.5 * s, Math.min(y0, y1), breit * s, Math.abs(y1 - y0));
+        g.fillStyle = L(c.kante, 0.4);
+        g.fillRect(bildX(x) - breit * 0.5 * s, Math.min(y0, y1), 0.6 * s, Math.abs(y1 - y0));
+        if (bau === "holz") {
+          // Ein Querbalken zwischen zwei Pfählen.
+          g.strokeStyle = F(c.dunkel, 0.8);
+          g.lineWidth = Math.max(0.6, s * 0.5);
+          g.beginPath();
+          g.moveTo(bildX(x), Y(h - 1));
+          g.lineTo(bildX(x + 16), Y(lerp(h, fuss, 0.7)));
+          g.stroke();
         }
-        g.stroke();
       }
-      if (gelaender) {
-        // Ein Geländer: Pfosten und ein Handlauf.
-        g.strokeStyle = F(bau === "eis" ? c.pfahl : c.dunkel, 0.9);
-        g.lineWidth = Math.max(0.7, s * 0.5);
+      // Das Deck.
+      kante(0);
+      for (let x = b; ; x -= 4) {
+        const xx = Math.max(x, a);
+        g.lineTo(bildX(xx), Y(hoch(xx) - dick));
+        if (xx <= a) break;
+      }
+      g.closePath();
+      g.fillStyle = F(c.deck);
+      g.fill();
+      // Darunter ein dunkler Balken, die Fugen der Bretter.
+      g.fillStyle = F(c.dunkel, 0.85);
+      kante(dick - 0.2);
+      for (let x = b; ; x -= 4) {
+        const xx = Math.max(x, a);
+        g.lineTo(bildX(xx), Y(hoch(xx) - dick - 1.1));
+        if (xx <= a) break;
+      }
+      g.closePath();
+      g.fill();
+      g.strokeStyle = F(c.fuge, bau === "eis" ? 0.4 : 0.75);
+      g.lineWidth = Math.max(0.5, s * 0.35);
+      g.beginPath();
+      for (let x = Math.ceil(a / 5.5) * 5.5; x < b; x += 5.5) {
+        const h = hoch(x);
+        g.moveTo(bildX(x), Y(h));
+        g.lineTo(bildX(x), Y(h - dick));
+      }
+      g.stroke();
+      if (bau === "eis") {
+        // Zapfen an der Kante.
+        g.fillStyle = L(c.kante, 0.75);
         g.beginPath();
-        for (let x = Math.ceil(a / 12) * 12; x <= b; x += 12) {
-          g.moveTo(bildX(x), Y(hoch(x)));
-          g.lineTo(bildX(x), Y(hoch(x) + 7.5));
+        for (let x = Math.ceil(a / 3.2) * 3.2; x < b; x += 3.2) {
+          const h = hoch(x) - dick;
+          const lang = 1.2 + hash01(x * 1.3) * 3.4;
+          g.moveTo(bildX(x - 0.9), Y(h));
+          g.lineTo(bildX(x), Y(h - lang));
+          g.lineTo(bildX(x + 0.9), Y(h));
         }
-        g.stroke();
-        g.strokeStyle = L(c.kante, 0.6);
-        g.lineWidth = Math.max(0.6, s * 0.4);
-        kante(a, b, -7.5);
-        g.stroke();
+        g.fill();
       }
-    });
+    }
+    // Die Oberkante im Licht.
+    g.strokeStyle = L(c.kante, 0.85);
+    g.lineWidth = Math.max(0.8, s * 0.55);
+    kante(0);
+    g.stroke();
+    if (bau === "fels") {
+      // Gras und Moos obenauf.
+      g.strokeStyle = F([120, 140, 96], 0.8);
+      g.lineWidth = Math.max(0.5, s * 0.3);
+      g.beginPath();
+      for (let x = Math.ceil(a / 7) * 7; x < b; x += 7) {
+        const h = hoch(x);
+        const z = hash01(x * 0.37);
+        for (let j = 0; j < 3; j += 1) {
+          g.moveTo(bildX(x + j * 0.8), Y(h));
+          g.lineTo(bildX(x + j * 0.8 + (j - 1) * 0.6), Y(h + 1 + z * 1.6));
+        }
+      }
+      g.stroke();
+    }
   }
 
-  // Wie deutlich etwas einer Spur zu sehen ist: Nach der Wahl an einer
-  // Gabelung tritt der andere Weg zurück.
-  function spurDeutlich(spur, x) {
-    const r = state.laeuferin;
-    if (!r || state.phase === "bereit") return 1;
-    const meine = state.schritt === "sturz" ? state.sturz.spur : spurJetzt(r);
-    if (spur === meine) return 1;
-    const gb = gabelBei(x);
-    if (!gb) return 1;
-    if (meine === 1) return 0.32;
-    return state.t > gb.fenster.hi + 0.05 ? 0.32 : 1;
-  }
-
-  // Die Höhe einer Etage (Spur 0) und des oberen Wegs einer Gabelung.
+  // Die Höhe einer Etage.
   const etageHoch = (et) => (x) => ETAGE * clamp(Math.min(x - et.a, et.b - x) / RAMPE, 0, 1);
-  const gabelHoch = (gb) => (x) => (gb.xM === null || x <= gb.xM ? ETAGE : ETAGE * clamp(1 - (x - gb.xM) / RAMPE, 0, 1));
 
   // Das Sichtbare einer Liste von Bauten (nach a geordnet).
   function sichtbareBauten(liste, a, b, fn) {
@@ -4546,11 +4302,11 @@
 
   // Eine leuchtende Kante im erwachten See, entlang der Oberkante eines
   // gespiegelten Wegs.
-  function leuchtKante(a, b, hoch, kraft, farbe = [150, 250, 255]) {
+  function leuchtKante(a, b, hoch, kraft) {
     const sa = Math.max(a, state.camX - view.rx / view.s - 10);
     const sb = Math.min(b, state.camX + (view.cssW - view.rx) / view.s + 10);
     if (sb <= sa) return;
-    g.strokeStyle = rgba(farbe, kraft);
+    g.strokeStyle = rgba([150, 250, 255], kraft);
     g.lineWidth = Math.max(0.8, view.s * 0.6);
     g.beginPath();
     for (let x = sa; ; x += 4) {
@@ -4560,279 +4316,6 @@
       if (xx >= sb) break;
     }
     g.stroke();
-  }
-
-  // Die Gabelungen: der obere Weg hinter dem Ufer, seine Treppe, die
-  // Absprungstelle, die Fallen – und was der See zeigt.
-  function zeichneGabeln(unten) {
-    const n = nachtK();
-    const s = view.s;
-    sichtbareBauten(state.gabeln, (gb) => gb.xS - 30, (gb) => (gb.xT !== null && gb.falsch === 1 ? gb.xT + 100 : gb.xEnde), (gb) => {
-      const hoch = gabelHoch(gb);
-      const bau = BAU[gb.land];
-      const ende = gb.falsch === 1 ? gb.xT + 92 : gb.xEnde;
-      const deutlich = spurDeutlich(1, gb.xE + 10);
-      const Y = unten ? untenY : obenY;
-      g.globalAlpha = deutlich;
-      stil = unten ? (n > 0.5 ? "nacht" : "spiegel") : "tag";
-      // Die Treppe hinauf zur Kante, hinter dem Weg.
-      const stufen = 4;
-      for (let i = 0; i < stufen; i += 1) {
-        const x = gb.xE - 16 + i * 4;
-        const h = (ETAGE * (i + 1)) / stufen;
-        g.fillStyle = F(BAU_FARBE[bau].dunkel);
-        g.fillRect(bildX(x), Math.min(Y(h), Y(0)), 4.2 * s, Math.abs(Y(h) - Y(0)));
-        g.fillStyle = L(BAU_FARBE[bau].kante, 0.7);
-        g.fillRect(bildX(x), Y(h) - (unten ? 0 : 0.6 * s), 4.2 * s, 0.6 * s);
-      }
-      // Der Weg selbst. Im See fehlt an der Falle ein Stück, oben (noch)
-      // nicht – erst, wenn er unter ihr einbricht.
-      const gebrochen = gb.falsch === 1 && (unten || state.hindernisse.some((o) => o.nr === gb.nr && o.art === "bruch" && o.gebrochen !== undefined));
-      const fehlt = gebrochen ? [[gb.xT, gb.xT + 92]] : [];
-      zeichneBau(gb.xE, ende, hoch, Y, bau, { hinten: true, fehlt });
-      if (!unten && gb.falsch === 1 && !gebrochen) {
-        // Kurz bevor sie dort ist, knackt es: Die Bretter über der Falle
-        // biegen sich und reissen.
-        const nah = clamp(1 - (gb.xT - state.laeuferin.x) / 60, 0, 1) * (spurJetzt(state.laeuferin) === 1 ? 1 : 0);
-        if (nah > 0) {
-          g.strokeStyle = rgba([40, 20, 24], 0.7 * nah);
-          g.lineWidth = Math.max(0.7, s * 0.45);
-          g.beginPath();
-          for (let i = 0; i < 6; i += 1) {
-            const x = gb.xT + 6 + i * 14;
-            g.moveTo(bildX(x), Y(ETAGE));
-            g.lineTo(bildX(x + 2 + hash01(i) * 3), Y(ETAGE - 1.6));
-            g.lineTo(bildX(x + 1), Y(ETAGE - 2.8));
-          }
-          g.stroke();
-        }
-      }
-      g.globalAlpha = 1;
-      if (unten && n > 0.5) {
-        // Der See zeigt, welcher Weg hält: Dessen Spiegelbild leuchtet hell,
-        // das des falschen ist dunkel und zersprungen – von der Gabelung an.
-        const zittern = ruhig() ? 1 : 0.8 + 0.2 * Math.sin(state.zeit * 3.1);
-        const unterer = () => 0;
-        if (gb.falsch === -1) {
-          leuchtBand(gb.xE - 16, ende, hoch, 0.6 * zittern);
-          leuchtBand(gb.xS, gb.xEnde, unterer, 0.6 * zittern);
-        } else {
-          const haelt = gb.falsch === 1 ? unterer : hoch;
-          const ha = gb.falsch === 1 ? gb.xS : gb.xE - 16;
-          const hb = gb.falsch === 1 ? gb.xT + 240 : ende;
-          leuchtBand(ha, hb, haelt, zittern);
-          if (gb.falsch === 1) {
-            zeichneSprung(gb.xE - 16, gb.xT + 92, hoch, [255, 110, 150], 0.9, gb.nr);
-            zeichneBruchkanten(gb.xT, gb.xT + 92, ETAGE);
-          } else {
-            zeichneSprung(gb.xS, gb.xT + 40, unterer, [255, 110, 150], 0.9, gb.nr + 7);
-          }
-          // Lichtperlen auf dem Weg, der hält.
-          if (!ruhig()) {
-            for (let i = 0; i < 10; i += 1) {
-              const x = ha + ((i / 10 + state.zeit * 0.12 + hash01(gb.nr + i) * 0.1) % 1) * (hb - ha);
-              schein("kalt", bildX(x), untenY(haelt(x)) + 1, 0.26, 0.7 * zittern);
-            }
-          }
-        }
-      }
-      stil = "tag";
-      if (!unten) {
-        // Die Absprungstelle auf dem Weg: Wer hier springt, kommt hinauf.
-        const xa = xBei(gb.fenster.lo);
-        const xb = xBei(gb.fenster.hi);
-        const vorbei = state.t > gb.fenster.hi + 0.3 && state.phase !== "bereit";
-        if (!vorbei) {
-          const puls = ruhig() ? 0.8 : 0.6 + 0.4 * Math.sin(state.zeit * 6);
-          g.fillStyle = rgba([255, 232, 170], 0.55 * puls);
-          g.fillRect(bildX(xa), obenY(0) - 0.7 * s, (xb - xa) * s, 1.4 * s);
-          for (let i = 0; i < 3; i += 1) {
-            const x = lerp(xa, xb, (i + 0.5) / 3);
-            schein("warm", bildX(x), obenY(0.4), 0.3, 0.55 * puls);
-          }
-        }
-        if (gb.bonus) {
-          // Am Fuss der Treppe ein Schild: so viel schenkt der Steg.
-          const x = gb.xE - 24;
-          g.fillStyle = "rgba(60, 40, 40, 0.9)";
-          g.fillRect(bildX(x) - 0.5 * s, obenY(9), 1 * s, 9 * s);
-          g.fillStyle = "rgba(255, 224, 138, 0.95)";
-          g.beginPath();
-          g.roundRect(bildX(x) - 6 * s, obenY(13), 12 * s, 5 * s, 1.2 * s);
-          g.fill();
-          g.fillStyle = "rgb(70, 44, 30)";
-          g.font = `800 ${Math.max(7, Math.round(3.6 * s))}px system-ui, sans-serif`;
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          g.fillText(`+${gb.bonus}`, bildX(x), obenY(10.5));
-        }
-      }
-    });
-  }
-
-  // Ein Weg, der hält, im erwachten See: ein breiter, weicher Schein und
-  // darin eine helle Linie.
-  function leuchtBand(a, b, hoch, kraft) {
-    const sa = Math.max(a, state.camX - view.rx / view.s - 10);
-    const sb = Math.min(b, state.camX + (view.cssW - view.rx) / view.s + 10);
-    if (sb <= sa) return;
-    const pfad = () => {
-      g.beginPath();
-      for (let x = sa; ; x += 4) {
-        const xx = Math.min(x, sb);
-        const py = untenY(hoch(xx)) + 0.8;
-        if (xx === sa) g.moveTo(bildX(xx), py); else g.lineTo(bildX(xx), py);
-        if (xx >= sb) break;
-      }
-    };
-    g.lineCap = "round";
-    [[5, 0.2], [2.6, 0.4], [1, 0.95]].forEach(([b2, a2]) => {
-      g.strokeStyle = rgba([200, 255, 236], a2 * kraft);
-      g.lineWidth = Math.max(0.8, view.s * b2);
-      pfad();
-      g.stroke();
-    });
-  }
-
-  // Ein zersprungenes Spiegelbild: ein dunkles Band mit Rissen entlang
-  // eines gespiegelten Wegs.
-  function zeichneSprung(a, b, hoch, farbe, kraft, saat) {
-    const sa = Math.max(a, state.camX - view.rx / view.s - 10);
-    const sb = Math.min(b, state.camX + (view.cssW - view.rx) / view.s + 10);
-    if (sb <= sa) return;
-    const s = view.s;
-    g.fillStyle = "rgba(6, 4, 18, 0.55)";
-    g.beginPath();
-    for (let x = sa; ; x += 4) {
-      const xx = Math.min(x, sb);
-      if (xx === sa) g.moveTo(bildX(xx), untenY(hoch(xx)) - 1.2 * s); else g.lineTo(bildX(xx), untenY(hoch(xx)) - 1.2 * s);
-      if (xx >= sb) break;
-    }
-    for (let x = sb; ; x -= 4) {
-      const xx = Math.max(x, sa);
-      g.lineTo(bildX(xx), untenY(hoch(xx)) + 2.4 * s);
-      if (xx <= sa) break;
-    }
-    g.closePath();
-    g.fill();
-    // Ein Riss, der zackig dem Weg folgt, mit Ästen in die Tiefe.
-    g.strokeStyle = rgba(farbe, kraft);
-    g.lineWidth = Math.max(0.7, s * 0.45);
-    g.lineJoin = "miter";
-    g.beginPath();
-    let erst = true;
-    for (let x = Math.ceil(sa / 4) * 4; x < sb; x += 4) {
-      const z = hash01(Math.round(x) * 0.13 + saat);
-      const y = untenY(hoch(x)) + (0.4 + z * 2.2) * s;
-      if (erst) { g.moveTo(bildX(x), y); erst = false; } else g.lineTo(bildX(x), y);
-    }
-    for (let x = Math.ceil(sa / 13) * 13; x < sb; x += 13) {
-      const z = hash01(x * 0.29 + saat);
-      const y = untenY(hoch(x)) + (0.4 + hash01(Math.round(x) * 0.13 + saat) * 2.2) * s;
-      g.moveTo(bildX(x), y);
-      g.lineTo(bildX(x + 2 + z * 3), y + (3 + z * 4) * s);
-      g.lineTo(bildX(x + 1 + z * 5), y + (6 + z * 5) * s);
-    }
-    g.stroke();
-  }
-
-  // Die Enden eines gebrochenen Stegs im See: Splitter, ein schiefer Pfahl.
-  function zeichneBruchkanten(a, b, h) {
-    const s = view.s;
-    g.strokeStyle = "rgba(255, 140, 170, 0.8)";
-    g.lineWidth = Math.max(0.8, s * 0.5);
-    g.beginPath();
-    [[a, 1], [b, -1]].forEach(([x, seite]) => {
-      g.moveTo(bildX(x), untenY(h));
-      g.lineTo(bildX(x + seite * 2.5), untenY(h - 1.2));
-      g.lineTo(bildX(x + seite * 0.6), untenY(h - 2));
-      g.lineTo(bildX(x + seite * 3.2), untenY(h - 3));
-    });
-    // Ein Pfahl, der schief im Wasser steht.
-    g.moveTo(bildX(a + 30), view.wl);
-    g.lineTo(bildX(a + 40), untenY(h - 6));
-    g.stroke();
-  }
-
-  // Der Felssturz einer Sackgasse: oben erst zu sehen, wenn sie fast dort
-  // ist (davor Büsche hinter dem Weg); im See von Anfang an.
-  function zeichneFelssturz(o, unten) {
-    const s = view.s;
-    const n = nachtK();
-    const nah = clamp(1 - (o.a - state.laeuferin.x) / 60, 0, 1);
-    const sichtbar = unten ? 1 : state.schritt === "sturz" && state.sturz?.art === "fels" ? 1 : nah * nah;
-    const Y = unten ? untenY : obenY;
-    if (!unten) {
-      // Büsche hinter dem Weg, wie überall am Ufer.
-      for (let i = 0; i < 5; i += 1) {
-        const x = o.a - 14 + i * 13 + hash01(o.saat * 9 + i) * 4;
-        const r = 4.5 + hash01(o.saat * 5 + i) * 3;
-        g.fillStyle = rgba(i % 2 ? [70, 84, 70] : [58, 72, 64], 0.9);
-        g.beginPath();
-        g.ellipse(bildX(x), obenY(r * 0.8 + 1), r * 1.3 * s, r * s, 0, 0, TAU);
-        g.fill();
-        g.fillStyle = rgba([200, 170, 150], 0.35);
-        g.beginPath();
-        g.ellipse(bildX(x - r * 0.4), obenY(r * 1.25 + 1), r * 0.6 * s, r * 0.4 * s, 0, 0, TAU);
-        g.fill();
-      }
-    }
-    if (sichtbar <= 0.01) return;
-    g.globalAlpha *= sichtbar;
-    stil = unten ? (n > 0.5 ? "nacht" : "spiegel") : "tag";
-    // Brocken, übereinander gestürzt: unregelmässig rund, links im Licht,
-    // rechts im Schatten, Geröll am Fuss.
-    const bloecke = [[0.08, 0, 15, 13], [0.42, 0, 18, 17], [0.78, 0, 14, 12], [0.24, 11, 14, 15], [0.6, 13, 15, 16], [0.4, 26, 13, 14], [0.66, 31, 10, 11], [0.16, 23, 10, 10], [0.5, 40, 9, 9]];
-    const brocken = (x, h0, b, h, i, d) => {
-      g.beginPath();
-      for (let j = 0; j < 9; j += 1) {
-        const w = (j / 9) * TAU;
-        const r = 0.82 + 0.22 * hash01(o.saat * 17 + i * 9 + j);
-        const px = x + Math.cos(w) * b * 0.5 * r * d;
-        const py = h0 + h * 0.5 + Math.sin(w) * h * 0.5 * r * d;
-        if (j) g.lineTo(bildX(px), Y(py)); else g.moveTo(bildX(px), Y(py));
-      }
-      g.closePath();
-    };
-    bloecke.forEach(([u, h0, b, h], i) => {
-      const x = o.a + u * (o.b - o.a);
-      brocken(x, h0, b, h, i, 1);
-      g.fillStyle = F(i % 3 ? [88, 82, 108] : [104, 96, 120]);
-      g.fill();
-      g.save();
-      g.clip();
-      g.fillStyle = L([236, 186, 170], 0.5);
-      g.fillRect(bildX(x - b * 0.6), Math.min(Y(h0 + h), Y(h0)), b * 0.42 * view.s, h * view.s);
-      g.fillStyle = F([46, 40, 66], 0.55);
-      g.fillRect(bildX(x + b * 0.15), Math.min(Y(h0 + h), Y(h0)), b * 0.5 * view.s, h * view.s);
-      g.fillStyle = F([96, 130, 86], 0.6);
-      g.fillRect(bildX(x - b * 0.5), Math.min(Y(h0 + h * 1.02), Y(h0 + h * 0.86)), b * view.s, h * 0.14 * view.s);
-      g.restore();
-    });
-    g.fillStyle = F([110, 100, 126]);
-    for (let i = 0; i < 14; i += 1) {
-      const x = o.a - 6 + hash01(o.saat * 5 + i) * (o.b - o.a + 12);
-      const r = 0.8 + hash01(o.saat * 7 + i) * 1.6;
-      g.beginPath();
-      g.ellipse(bildX(x), Y(r * 0.5), r * view.s, r * 0.6 * view.s, 0, 0, TAU);
-      g.fill();
-    }
-    if (unten && n > 0.5) {
-      // Im erwachten See glühen seine Kanten warnend.
-      schein("violett", bildX((o.a + o.b) / 2), untenY(24), 2.2, 0.55);
-      g.strokeStyle = "rgba(255, 130, 160, 0.75)";
-      g.lineWidth = Math.max(0.8, s * 0.5);
-      g.beginPath();
-      g.moveTo(bildX(o.a - 1), untenY(0));
-      g.lineTo(bildX(o.a + 4), untenY(20));
-      g.lineTo(bildX(o.a + 14), untenY(36));
-      g.lineTo(bildX(o.a + 26), untenY(44));
-      g.lineTo(bildX(o.b - 4), untenY(30));
-      g.lineTo(bildX(o.b + 1), untenY(0));
-      g.stroke();
-    }
-    stil = "tag";
-    g.globalAlpha /= sichtbar;
   }
 
   // Das Spiegeltor: ein Bogen aus Licht über dem Weg, im See gespiegelt. Wo
@@ -6169,13 +5652,11 @@
       const a = o.a + d;
       const b = o.b + d;
       if (b < von || a > bis) return;
-      g.globalAlpha = spurDeutlich(o.spur, (a + b) / 2);
       if (unten) {
         uGrund = o.g;
         zeichneFische(o, a, b);
         uGrund = 0;
       } else zeichneVoegel(o, a, b);
-      g.globalAlpha = 1;
     });
   }
 
@@ -6370,34 +5851,28 @@
   }
 
   // Unten die Spiegelwelt: ihre eigenen Hindernisse und – wo der See treu
-  // ist – die Spiegelbilder des Ufers. Je Spur (der obere Weg einer
-  // Gabelung zuerst, er liegt hinten); der Weg, den sie nicht gewählt hat,
-  // tritt zurück.
-  function zeichneHindernisseUnten(spur) {
+  // ist – die Spiegelbilder des Ufers.
+  function zeichneHindernisseUnten() {
     const n = nachtK();
     g.save();
     g.beginPath();
     g.rect(-10, view.wl + 0.5, view.cssW + 20, view.cssH);
     g.clip();
     sichtbare((o) => {
-      if (o.spur !== spur || o.kind === "luecke") return;
-      const deutlich = spurDeutlich(spur, (o.a + o.b) / 2);
-      g.globalAlpha = deutlich;
+      if (o.kind === "luecke") return;
       uGrund = o.g;
-      if (o.art === "fels") zeichneFelssturz(o, true);
-      else if (o.welt === "unten") zeichneUnten(o);
+      if (o.welt === "unten") zeichneUnten(o);
       else if (o.spiegel) {
         stil = n > 0.5 ? "nacht" : "spiegel";
         if (n > 0.5) {
           // Im erwachten See leuchtet das treue Spiegelbild des Ufers.
           const tief = o.kind === "decke" ? DECKE + 6 : o.h * 0.5;
-          schein("kalt", bildX((o.a + o.b) / 2), uY(tief), ((o.b - o.a) * 0.05 + 1.2) * view.s, 0.5 * deutlich);
+          schein("kalt", bildX((o.a + o.b) / 2), uY(tief), ((o.b - o.a) * 0.05 + 1.2) * view.s, 0.5);
         }
         zeichneOben(o, uY, false);
         stil = "tag";
       }
       uGrund = 0;
-      g.globalAlpha = 1;
     });
     g.restore();
   }
@@ -6426,23 +5901,16 @@
     else if (o.art === "eiszapfen") zeichneEiszapfen(o, Y, oben);
   }
 
-  function zeichneHindernisseOben(decken, spur) {
+  function zeichneHindernisseOben(decken) {
     g.save();
     g.beginPath();
     g.rect(-10, -20, view.cssW + 20, view.wl + 19.5);
     g.clip();
     sichtbare((o) => {
-      if (o.welt !== "oben" || o.kind === "luecke" || o.spur !== spur) return;
+      if (o.welt !== "oben" || o.kind === "luecke") return;
       if ((o.kind === "decke") !== decken) return;
-      const deutlich = spurDeutlich(spur, (o.a + o.b) / 2);
-      if (o.art === "fels") {
-        g.globalAlpha = deutlich;
-        zeichneFelssturz(o, false);
-        g.globalAlpha = 1;
-        return;
-      }
       const verdeckt = o.nebel ? nebelBei((o.a + o.b) / 2) : 0;
-      g.globalAlpha = deutlich * (1 - verdeckt * 0.85);
+      g.globalAlpha = 1 - verdeckt * 0.85;
       zeichneOben(o, (v) => obenY(o.g + v), true);
       g.globalAlpha = 1;
     });
@@ -6772,7 +6240,7 @@
     const n = nachtK();
     const pose = f.warum === "glas" ? poseKnien() : f.warum === "wasser" ? poseFallen() : (f.zeit < 0.2 ? poseSprung(0.4) : poseLiegt());
     // Wer liegt, liegt auf dem Weg: um die Hüfte gedreht, und so viel tiefer.
-    const lieg = f.warum === "kopf" || f.warum === "stolpern" || f.warum === "fels" ? Math.abs(Math.sin(f.dreh)) * 9.5 : 0;
+    const lieg = f.warum === "kopf" || f.warum === "stolpern" ? Math.abs(Math.sin(f.dreh)) * 9.5 : 0;
     // Das Spiegelbild: Beim Glas zerspringt es, sonst fällt es mit.
     if (f.warum !== "glas" || f.zeit < 0.06) {
       g.save();
@@ -6806,7 +6274,6 @@
       const y = Math.max(0, o.b / 10);
       const fliegt = (Math.round(o.c || 0) & 1) === 1;
       const p = fliegt ? poseSprung(0.45) : poseLauf((x / 62) % 1);
-      const spur = (Math.round(o.c || 0) >> 1) & 1;
       zeichneLaeuferin(sx, obenY(y), view.s, false, p, { geist: o.farbe, alpha: 0.45 * o.blass });
       const dx = x - state.laeuferin.x;
       namen.push({ ...o, sx, sy: obenY(y + TOP + 6), weit: `${dx > 0 ? "+" : ""}${Math.round(dx / METER)} m` });
@@ -7052,31 +6519,24 @@
     basis(view.dpr, Math.round(wackel * view.dpr));
     zeichneTore(true);
     zeichneStege();
-    // Hinten der obere Weg einer Gabelung, mit allem, was dort steht.
-    zeichneGabeln(true);
-    zeichneGabeln(false);
-    zeichneHindernisseUnten(1);
-    zeichneHindernisseOben(false, 1);
-    zeichneHindernisseOben(true, 1);
-    // Davor der Weg am Ufer.
     zeichneEtagen(true);
     zeichneEtagen(false);
     zeichneWasserlinie();
-    zeichneHindernisseUnten(0);
+    zeichneHindernisseUnten();
     zeichneBewegte(true);
     zeichneTore(false);
-    zeichneHindernisseOben(false, 0);
+    zeichneHindernisseOben(false);
     const imNebel = state.nebel.some((nb) => bildX(nb.b) > -10 && bildX(nb.a) < view.cssW + 10);
     if (imNebel) {
       // Im Nebel verdeckt er auch die Äste – die Läuferin bleibt davor.
-      zeichneHindernisseOben(true, 0);
+      zeichneHindernisseOben(true);
       zeichneNebel();
       basis(view.dpr, Math.round(wackel * view.dpr));
     }
     zeichneGeister();
     zeichneAtem();
     zeichneFigur();
-    if (!imNebel) zeichneHindernisseOben(true, 0);
+    if (!imNebel) zeichneHindernisseOben(true);
     zeichneBewegte(false);
     zeichneTeile();
     zeichneRisse();
@@ -7275,7 +6735,7 @@
       state.teile.push({
         art, x, y, unten, vx: Math.cos(w) * v + richtung, vy: Math.sin(w) * v * (art === "staub" ? 0.5 : 1.4), w: Math.random() * TAU,
         r: art === "staub" ? 4 + Math.random() * 5 * kraft : art === "scherbe" ? 1.2 + Math.random() * 2.2 : 0.8 + Math.random() * 1.2, leben, max: leben, kraft: art === "staub" ? 0.5 : 1,
-        boden: unten ? 0 : bodenBei(state.laeuferin?.spur || 0, x),
+        boden: unten ? 0 : bodenBei(x),
       });
     }
     if (state.teile.length > 180) state.teile.splice(0, state.teile.length - 180);
@@ -7292,20 +6752,19 @@
   }
 
   // Eine Ansage oben im Bild. Läuft schon eine, kommt sie danach (hinten:
-  // der Name einer Landschaft) oder verdrängt sie (was gleich geschieht,
-  // geht vor; das Verdrängte kommt nicht wieder – es wäre dann vorbei).
+  // der Name einer Landschaft, ein besonderer Abschnitt – auf dem Lehrpfad
+  // folgt einer dicht auf den anderen) oder verdrängt sie.
   function ansage(text, unter, farbe = "#ffffff", dauer = 2.2, hinten = false) {
     const neu = { text, unter, farbe, leben: dauer, max: dauer };
     if (state.ansage && hinten) state.ansagen.push(neu);
     else state.ansage = neu;
   }
 
-  // Was die Aufzeichnung in c trägt: ob sie springt (Bit 0), ob sie auf dem
-  // oberen Weg einer Gabelung ist (Bit 1), ob die Welt gekippt ist (Bit 2),
-  // darüber die Zahl der Sprünge.
+  // Was die Aufzeichnung in c trägt: ob sie springt (Bit 0), ob die Welt
+  // gekippt ist (Bit 1), darüber die Zahl der Sprünge.
   function codeC() {
     const r = state.laeuferin;
-    return (r.sprung !== null ? 1 : 0) + (r.spur === 1 ? 2 : 0) + (kippBei(state.t).gekippt ? 4 : 0) + 8 * state.spruenge;
+    return (r.sprung !== null ? 1 : 0) + (kippBei(state.t).gekippt ? 2 : 0) + 4 * state.spruenge;
   }
 
   // ---------------------------------------------------------------------------
@@ -7334,29 +6793,19 @@
     state.stauch = 1;
     klang()?.ton?.("spiegelsee.landung", { laut: 0.55 });
     const x = xBei(t);
-    const G = bodenBei(r.spur, x);
+    const G = bodenBei(x);
     teile("staub", x - 4, G + 0.5, 5, 0.9, -14);
     teile("staub", x + 5, G + 0.5, 3, 0.6, 6);
     ring(x, 30, 1.2);
   }
 
-  // Unten von der Abkürzung: Der Steg hat Meter geschenkt.
-  function bonusErreicht(gb) {
-    const r = state.laeuferin;
-    state.bonus += gb.bonus;
-    schrift(`+${gb.bonus} m`, "#ffe08a", r.x + 12, r.A + TOP + 10, 40);
-    klang()?.ton?.("spiegelsee.bonus", { laut: 0.8 });
-    kids()?.vibrate?.(10);
-  }
-
   // Woran sie stürzt: Das Spiegelbild stösst an (der See zerspringt), durch
-  // eine Lücke ins Wasser, mit dem Kopf an etwas, an den Felssturz, oder sie
-  // stolpert (auch über den Hecht).
+  // eine Lücke ins Wasser, mit dem Kopf an etwas, oder sie stolpert (auch
+  // über den Hecht).
   function sturzArt(o) {
     if (o?.welt === "unten") return "glas";
     if (o?.kind === "luecke") return "wasser";
     if (o?.kind === "decke") return "kopf";
-    if (o?.art === "fels") return "fels";
     return "stolpern";
   }
 
@@ -7366,13 +6815,13 @@
     state.schritt = "sturz";
     const v = tempoBei(Math.max(0, state.t));
     const warum = sturzArt(o);
-    const g = bodenBei(r.spur, r.x);
+    const g = bodenBei(r.x);
     state.sturz = {
-      warum, art: o?.art || "stein", zeit: 0, x: r.x, A: r.A, g, spur: r.spur,
-      vx: warum === "glas" ? v * 0.3 : warum === "kopf" ? -v * 0.1 : warum === "wasser" ? v * 0.35 : warum === "fels" ? -v * 0.22 : v * 0.55,
-      vy: warum === "kopf" ? -10 : warum === "stolpern" ? 40 : warum === "fels" ? 26 : 0,
+      warum, art: o?.art || "stein", zeit: 0, x: r.x, A: r.A, g,
+      vx: warum === "glas" ? v * 0.3 : warum === "kopf" ? -v * 0.1 : warum === "wasser" ? v * 0.35 : v * 0.55,
+      vy: warum === "kopf" ? -10 : warum === "stolpern" ? 40 : 0,
       dreh: 0,
-      drehV: warum === "kopf" ? -4.2 : warum === "stolpern" ? 6.5 : warum === "fels" ? -5.2 : 0,
+      drehV: warum === "kopf" ? -4.2 : warum === "stolpern" ? 6.5 : 0,
       glas: null,
     };
     state.stoss = 1;
@@ -7385,20 +6834,10 @@
       klang()?.ton?.("spiegelsee.glas");
       teile("scherbe", r.x + LH, tiefe, 26, 2.6, 0, true);
     } else if (warum === "wasser") {
-      if (o?.art === "bruch") {
-        // Der Steg der Sackgasse bricht unter ihr ein.
-        o.gebrochen = state.zeit;
-        klang()?.ton?.("spiegelsee.brechen");
-        teile("splitter", r.x + 4, r.A, 16, 1.6, 10);
-      }
-      klang()?.ton?.("spiegelsee.platsch", { verzoegerung: o?.art === "bruch" ? 0.25 : 0 });
+      klang()?.ton?.("spiegelsee.platsch");
     } else if (warum === "kopf") {
       klang()?.ton?.("spiegelsee.ast");
       teile("nadel", r.x + 3, (o?.g || 0) + DECKE, 14, 1.4, -10);
-    } else if (warum === "fels") {
-      klang()?.ton?.("spiegelsee.fels");
-      teile("staub", r.x + 6, r.A + 8, 14, 1.6, -6);
-      teile("stein", r.x + 7, r.A + 10, 10, 1.6, -4);
     } else {
       klang()?.ton?.("spiegelsee.stolpern");
       teile("staub", r.x + 5, r.A + 1, 10, 1.3, 10);
@@ -7450,7 +6889,7 @@
     if (f.A === f.g) {
       f.vx *= 1 - 5 * dt;
       // Sie bleibt liegen, flach auf dem Weg.
-      const ziel = f.warum === "kopf" || f.warum === "fels" ? -1.35 : 1.35;
+      const ziel = f.warum === "kopf" ? -1.35 : 1.35;
       f.dreh += (ziel - f.dreh) * Math.min(1, dt * 7);
     }
   }
@@ -7463,22 +6902,19 @@
       if (state.schritt === "sturz") return;
       const vor = state.t;
       state.t += h;
-      const spurVor = r.spur;
-      const gabelVor = r.gabel;
       const tl = bewege(r, state.t, vor);
       if (tl !== null) {
         landen(tl);
         const xl = xBei(tl);
-        const o = trifft(xl, bodenBei(r.spur, xl), false, r.spur, tl);
+        const o = trifft(xl, bodenBei(xl), false, tl);
         if (o) { sturz(o); return; }
       }
-      if (spurVor === 1 && r.spur === 0 && gabelVor?.bonus) bonusErreicht(gabelVor);
-      const o = trifft(r.x, r.A, r.sprung !== null, spurJetzt(r), state.t);
+      const o = trifft(r.x, r.A, r.sprung !== null, state.t);
       if (o) {
         sturz(o);
         return;
       }
-      const meter = Math.floor(r.x / METER) + state.bonus;
+      const meter = Math.floor(r.x / METER);
       if (meter !== state.punkte) {
         state.punkte = meter;
         shell.setCount(meter);
@@ -7521,26 +6957,26 @@
   }
 
   // Woran ein Lauf zu Ende ging, aus der Stelle, an der er aufhört.
-  function warumAm(x, A, spur) {
-    const o = trifft(x, A, A > bodenBei(spur, x) + 0.5, spur);
+  function warumAm(x, A) {
+    const o = trifft(x, A, A > bodenBei(x) + 0.5);
     if (o) return o;
     const liste = state.hindernisse;
     for (let i = abIndex(x - LH - 20); i < liste.length; i += 1) {
       const h = liste[i];
       if (h.a > x + LH + 40) break;
-      if (h.b < x - LH - 20 || h.spur !== spur) continue;
+      if (h.b < x - LH - 20) continue;
       return h;
     }
     for (const m of state.bewegte) {
       const mx = m.kind === "springer" ? springerBei(m, state.t).x : (m.a + m.b) / 2 + m.u * (m.tRef - state.t);
-      if (m.spur === spur && Math.abs(mx - x) < 40) return m;
+      if (Math.abs(mx - x) < 40) return m;
     }
     return { kind: "boden", art: "stein", welt: "oben" };
   }
 
   // Sie steht, wo die Aufzeichnung sie hat (a: der Weg, b: die Höhe über dem
-  // Weg am Ufer in Zehnteln, c: ob sie springt, auf welcher Spur, ob die
-  // Welt gekippt ist, und wie viele Sprünge es sind – codeC).
+  // Weg am Ufer in Zehnteln, c: ob sie springt, ob die Welt gekippt ist, und
+  // wie viele Sprünge es sind – codeC).
   function zuschauenTakt(dt) {
     const st = zuschauer.stand();
     if (!st) return;
@@ -7550,14 +6986,7 @@
       state.t = x > 0.5 ? Math.max(state.t, tBei(x)) : state.t + dt * 0.2;
       const c = Math.max(0, Math.round(st.c));
       const fliegt = (c & 1) === 1;
-      const spur = (c >> 1) & 1;
-      const zahl = c >> 3;
-      if (spur === 1 && r.spur !== 1) r.gabel = gabelBei(x) || r.gabel;
-      if (spur === 0 && r.spur === 1 && r.gabel?.bonus) {
-        schrift(`+${r.gabel.bonus} m`, "#ffe08a", x + 12, r.A + TOP + 10, 40);
-        klang()?.ton?.("spiegelsee.bonus", { laut: 0.6 });
-      }
-      r.spur = spur;
+      const zahl = c >> 2;
       if (fliegt && r.sprung === null) {
         r.sprung = state.t;
         r.absprung = state.t;
@@ -7571,10 +7000,10 @@
         r.landung = state.t;
         state.stauch = 1;
         ring(x, 30, 1.2);
-        teile("staub", x - 4, bodenBei(spur, x) + 0.5, 5, 0.9, -14);
+        teile("staub", x - 4, bodenBei(x) + 0.5, 5, 0.9, -14);
       }
       r.x = x;
-      const G = bodenBei(spur, x);
+      const G = bodenBei(x);
       r.A = fliegt ? Math.max(G - 30, st.b / 10) : G;
       r.y = r.A - G;
       const punkte = Math.max(0, Math.floor(st.punkte));
@@ -7584,7 +7013,7 @@
       }
       klangStellen();
     }
-    if (!zuschauer.weiter() && state.schritt !== "sturz") sturz(warumAm(r.x, r.A, r.spur), true);
+    if (!zuschauer.weiter() && state.schritt !== "sturz") sturz(warumAm(r.x, r.A), true);
     if (state.schritt === "sturz") sturzTakt(dt);
   }
 
@@ -7618,30 +7047,27 @@
     let naechster = null;
     for (let i = nr; i < Math.min(state.abschnitte.length, nr + 4); i += 1) {
       const a = state.abschnitte[i];
-      if (a.art && !state.gemeldet[`a${a.nr}`] && state.t >= a.start - 2.1 && state.t < a.start + 0.6) { naechster = a; break; }
+      // Ein Tor so, dass die Ansage gerade endet, wenn sie hindurchläuft.
+      const ab = a.lage === "tor" ? a.t0 - 2.6 : a.start - 2.1;
+      if (a.art && !state.gemeldet[`a${a.nr}`] && state.t >= ab && state.t < ab + 2.7) { naechster = a; break; }
     }
     if (!naechster) return;
     state.gemeldet[`a${naechster.nr}`] = true;
     const art = naechster.art;
     if (art === "nebel") {
-      ansage("Nebel zieht auf", "Der See zeigt dir das Ufer", "#ffe6ee", 2.2);
+      ansage("Nebel zieht auf", "Der See zeigt dir das Ufer", "#ffe6ee", 2.2, true);
       klang()?.ton?.("spiegelsee.nebel", { laut: 0.7 });
     } else if (art === "steg") {
-      ansage("Holzsteg voraus", state.stegZahl > 1 || naechster.nr >= 40 ? "Lücken in den Brettern – unten Hechte" : "Lücken in den Brettern", "#ffd8a8", 2.2);
+      ansage("Holzsteg voraus", state.stegZahl > 1 || naechster.nr >= 40 ? "Lücken in den Brettern – unten Hechte" : "Lücken in den Brettern", "#ffd8a8", 2.2, true);
       klang()?.ton?.("spiegelsee.steg", { laut: 0.7 });
-    } else if (art === "gabel") {
-      ansage("Gabelung", "Der See zeigt, welcher Weg hält", "#c8f6ff", 2.4);
-      klang()?.ton?.("spiegelsee.gabel", { laut: 0.8 });
-    } else if (art === "abkuerzung") {
-      ansage("Abkürzung", `Oben schwerer – dafür +${BONUS} m`, "#ffe08a", 2.4);
-      klang()?.ton?.("spiegelsee.gabel", { laut: 0.8 });
     } else if (art === "tor") {
-      ansage("Spiegeltor", naechster.nummer % 2 ? "Die Welten tauschen zurück" : "Die Welten tauschen", "#e6c8ff", 2.4);
+      const unter = naechster.nummer % 2 ? "Die Welten tauschen zurück" : naechster.nummer === 0 ? "Die Welten tauschen – ein Tipp springt wie immer" : "Die Welten tauschen";
+      ansage("Spiegeltor", unter, "#e6c8ff", 2.4, true);
       klang()?.ton?.("spiegelsee.tor", { laut: 0.8 });
     } else if (art === "etage" && naechster.etage?.erste) {
-      ansage("Ein Steg – eine Etage höher", "Dein Spiegelbild taucht tiefer", "#ffd8a8", 2.2);
+      ansage("Ein Steg – eine Etage höher", "Dein Spiegelbild taucht tiefer", "#ffd8a8", 2.2, true);
     } else if (art === "hecht") {
-      ansage("Ein Hecht springt", "Spring über ihn, wenn er auftaucht", "#c8f6ff", 2.2);
+      ansage("Ein Hecht springt", "Spring über ihn, wenn er auftaucht", "#c8f6ff", 2.2, true);
     }
   }
 
@@ -7754,7 +7180,7 @@
       }
       t.x += t.vx * dt;
       t.y += t.vy * dt;
-      if (t.art !== "staub" && t.art !== "scherbe" && t.y < (t.art === "tropfen" || t.art === "splitter" ? -UFER : t.boden)) { t.leben = Math.min(t.leben, 0.05); }
+      if (t.art !== "staub" && t.art !== "scherbe" && t.y < (t.art === "tropfen" ? -UFER : t.boden)) { t.leben = Math.min(t.leben, 0.05); }
       t.leben -= dt;
       if (t.leben <= 0) state.teile.splice(i, 1);
     }
@@ -7824,7 +7250,6 @@
     state.laeuferin = laeuferNeu();
     state.spruenge = 0;
     state.verfallen = 0;
-    state.bonus = 0;
     state.ansagen = [];
     state.gemeldet = {};
     state.sturz = null;
@@ -7881,15 +7306,27 @@
   const WARUM = {
     stein: "Über einen Stein gestolpert",
     stamm: "Über einen Baumstamm gestolpert",
+    kiste: "Über eine Fischkiste gestolpert",
+    eisblock: "Über einen Eisblock gestolpert",
+    steinbock: "Über den Steinbock gestolpert",
     ast: "Mit dem Kopf an einen Ast",
+    weide: "Mit dem Kopf an einen Weidenast",
+    foehre: "Mit dem Kopf an einen Föhrenast",
     dach: "Am Felsdach angestossen",
+    netz: "Im Fischernetz hängen geblieben",
+    eiszapfen: "An die Eiszapfen gestossen",
+    voegel: "In die Vögel gelaufen",
     luecke: "Durch den Steg ins Wasser",
     kristall: "Das Spiegelbild traf einen Eiskristall",
     schilf: "Das Spiegelbild blieb im Schilf hängen",
     wurzel: "Das Spiegelbild traf eine Wurzel",
+    seerose: "Das Spiegelbild blieb in den Seerosen hängen",
+    zapfen: "Das Spiegelbild traf einen Zapfen aus Stein",
+    scholle: "Das Spiegelbild stiess an eine Eisscholle",
     hecht: "Das Spiegelbild stiess an einen Hecht",
     qualle: "Das Spiegelbild stiess an eine Qualle",
     treibholz: "Das Spiegelbild stiess an Treibholz",
+    fische: "Das Spiegelbild schwamm in den Fischschwarm",
   };
 
   function finish() {
@@ -7932,10 +7369,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "mirrorLake", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "mirrorLake", fassung: "t3", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "mirrorLake", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "mirrorLake", host, art: "tempo", fassung: "t3", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -7963,9 +7400,9 @@
 
   // Für die Prüfskripte und die Vorführung.
   window.LernappSpiegelsee = {
-    METER, LH, TOP, UFER, DECKE, SPRUNG, HOCH, RAND, E_MIN, FASSUNG, ETAGE, RAMPE, DREH, BONUS, LAND_AB, LAND_LANG, state, view,
+    METER, LH, TOP, UFER, DECKE, SPRUNG, HOCH, RAND, E_MIN, FASSUNG, ETAGE, RAMPE, DREH, LAND_AB, LAND_LANG, state, view,
     takt, tippen, losGehts, physik, planBis, kursText, trifft, xBei, tBei, tempoBei, bogenY, luftBei, schwere, folgeHaelt, abschnittBei, nachtK,
-    bodenBei, gabelBei, gabelFenster, kippBei, nebelBei, wegMit, landNr, landArt, springerBei, codeC, LEHRPFAD, malLog, satzTeile, kippTeile,
+    bodenBei, kippBei, nebelBei, landNr, landArt, landAnfang, springerBei, codeC, LEHRPFAD, malLog, satzTeile, kippTeile,
     get ebenen() { return ebenen; },
     // Eine feste Saat für die folgenden Runden (Bilder, Prüfung).
     halteSaat: (saat) => zufall.halte?.(saat),
