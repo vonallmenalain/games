@@ -3114,16 +3114,19 @@ sich langsam drehen, wie herum er sich darauf drehen wird.
 | 1 | 0,62 U/s | 22 cm | 10 cm | 3,4 s | 1,4 + 0,85 s | gut 210 ms |
 | 5 | 0,75 U/s | 24 cm | 9,4 cm | 3,1 s | 1,3 + 0,8 s | gut 140 ms |
 | 10 | 0,99 U/s | 28 cm | 8,1 cm | 2,5 s | 1,1 + 0,7 s | gut 100 ms |
-| 20 | 1,28 U/s | 32 cm | 6,7 cm | 1,8 s | 0,9 + 0,6 s | gut 70 ms |
-| 30 | 1,41 U/s | 34 cm | 6,1 cm | 1,4 s | 0,8 + 0,55 s | gut 50 ms |
-| 50 | 1,50 U/s | 36 cm | 5,6 cm | 1,2 s | 0,7 + 0,5 s | gut 40 ms |
+| 20 | 1,29 U/s | 32 cm | 6,7 cm | 1,8 s | 0,9 + 0,6 s | gut 65 ms |
+| 30 | 1,50 U/s | 34 cm | 5,8 cm | 1,4 s | 0,75 + 0,55 s | gut 45 ms |
+| 50 | 1,74 U/s | 36 cm | 4,9 cm | 1,2 s | 0,6 + 0,5 s | gut 30 ms |
 
 Die ersten drei Sprünge sind zum Hineinfinden, danach wird es zügig
-schwerer (`schwere`: nach 16 Blättern gut sechs Zehntel der Härte). Ein
-Blatt hält immer mindestens eine Umdrehung und eine knappe halbe Sekunde.
-Nachgebildete Spieler (der Autopilot, je Schlag normalverteilt daneben, je
-14 Läufe): ±20 ms im Median 83 s (79 Blätter), ±35 ms 36 s (35 Blätter),
-±50 ms 28 s, ±70 ms 18 s; ohne Streuung kommt er immer über 120 s. Der
+schwerer (`schwere`: nach 16 Blättern gut sechs Zehntel der Härte), und ab
+Blatt 18 kommt eine zweite Rampe dazu (`spaet`: schneller drehen, kleinere
+Blätter, ungeduldigere Fische), damit auch Geübte bald an ihre Grenze
+kommen. Ein Blatt hält immer mindestens eine Umdrehung und eine knappe
+halbe Sekunde. Nachgebildete Spieler (der Autopilot, je Schlag
+normalverteilt daneben, je 14 Läufe): ±20 ms im Median 60 s (57 Blätter),
+±35 ms 32 s (29 Blätter), ±50 ms 26 s, ±70 ms 22 s; ohne Streuung kommt er
+immer über 120 s. Der
 Autopilot kennt die Mitte jedes Fensters, ein Mensch nicht – es wird also
 schwerer. Die erste Hechtgrube (Blatt 16) siebt: mit ±40 ms schaffen sie
 18 von 20.
@@ -3164,8 +3167,8 @@ Baches über gut 30 cm ineinander über.
 
 Das Bild: klares Wasser von oben – der Grund im Flachen sandig mit Kieseln,
 in der Mitte tief, und das Licht der Sonne bündelt sich zu **Lichtnetzen**,
-die über den Grund ziehen (16 vorgemalte Bilder einer Kachel, je Bild eines
-im Flachen aufgehellt). Wo die Füsse des Wasserläufers das Wasser
+die über den Grund ziehen (vier Phasen, fest in den Kacheln, im Flachen
+kräftig und in der Tiefe schwach, ineinander übergeblendet). Wo die Füsse des Wasserläufers das Wasser
 eindrücken, sieht man helle Ringe – und am Grund **runde Schatten mit
 hellem Rand**, weil jede Delle das Licht zur Seite lenkt; je tiefer das
 Wasser, desto weiter versetzt. Beim Ruderschlag schwingen die Mittelbeine
@@ -3175,12 +3178,17 @@ Blüte; ihre Stängel und Schatten sieht man am Grund. Über den Ufern hängen
 Zweige ins Bild, die näher an uns sind und schneller vorbeiziehen. Beim
 ersten Start gleitet der Blick vom Bach oben hinunter zum Wasserläufer.
 
-Grund, Wasserfarbe, Ufer, Pflanzen, Schatten der Blätter und die
-Seitenbäche liegen in vorgemalten Kacheln, die Stufe um Stufe gemalt werden,
-bevor sie ins Bild kommen, und dann Punkt auf Punkt aufgelegt werden; die
-Lichtnetze in waagrechten Streifen auf ganzen Bildpunkten. Je Bild kommen
-dazu: die Blätter (vorgemalt), der Wasserläufer, die Fische, das Laub,
-Ringe, Glitzern, Libellen und Zweige.
+Grund, Wasserfarbe, Ufer, Pflanzen, Schatten der Blätter, stilles Treibgut,
+die Seitenbäche und die Lichtnetze liegen in vorgemalten Kacheln, die Stufe
+um Stufe gemalt werden, bevor sie ins Bild kommen, und dann Punkt auf Punkt
+aufgelegt werden. Für die Lichtnetze trägt jede Kachel vier Ausschnitte so
+breit wie das Wasser (`lichtnetzePhasen`): Beim Wechsel wird die neue Phase
+einmal in die Kachel gelegt, im letzten Drittel jeder Phase die nächste
+darüber geblendet. Je Bild kommen dazu: die Blätter, der Wasserläufer, die
+Fische (der Hecht vorgedreht in 32 Richtungen), das Laub, Ringe, Glitzern,
+Libellen (vorgemalt) und Zweige (auf ihren Inhalt zugeschnitten). Gemessen
+im Software-Raster (Median je Bild, zur selben Zeit wie der Marsrover):
+iPhone hochkant gut das 1,3fache, iPad das 1,25fache des Marsrovers.
 
 Die Gegner laufen als Wasserläufer aus Licht mit, und die besten Läufe
 lassen sich anschauen: Aufgezeichnet werden der Ort (in Vierteln), in `c`
@@ -3191,7 +3199,7 @@ aus vorhandenen: Teich, Bach und Grillen als Kulisse, der Ruderschlag, die
 Landung, der Fisch, der aufsteigt, das Schnappen, das Sinken, die
 Strömung, der Hecht, der Weltwechsel und die Ansage.
 
-Prüfung 4g50: Der Autopilot kommt über vier gewürfelte Welten bis 100 s,
+Prüfung 4g50: Der Autopilot kommt über vier gewürfelte Welten bis 80 s,
 ohne dass der Bau der Kette ausweichen muss; alle fünf Welten kommen vor;
 jeder achte Abschnitt ist im Wechsel Strömung oder Hechtgrube und wird
 angesagt. Mit wenig gestreuten Schlägen (±20 ms) kommt er im Median über

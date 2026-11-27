@@ -60,7 +60,12 @@
 
   const kids = () => window.LernappKids || null;
   const klang = () => window.ArcadeKlang || null;
-  const ruhig = () => Boolean(kids()?.prefersReducedMotion?.());
+  // Weniger Bewegung? Einmal je Bild gefragt (matchMedia ist nicht umsonst).
+  let ruhigJetzt = null;
+  const ruhig = () => {
+    if (ruhigJetzt === null) ruhigJetzt = Boolean(kids()?.prefersReducedMotion?.());
+    return ruhigJetzt;
+  };
 
   // Der Zufall. Nur die Welt zieht daraus – Blätter, Strömungen, Hechte und
   // der Lauf des Baches. Was glitzert, treibt und schwirrt, hängt an festen
@@ -170,23 +175,28 @@
   const rgba = (c, alpha) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${alpha})`;
 
   const schwere = (n) => 1 - Math.exp(-Math.max(0, n - SCHWER_AB) / SCHWER_ZAHL);
+  // Und ab SPAET_AB eine zweite Rampe, damit auch Geübte bald an ihre
+  // Grenze kommen – nach gut 30 Blättern mehr ganz da.
+  const SPAET_AB = 18;
+  const SPAET_ZAHL = 30;
+  const spaet = (n) => clamp((n - SPAET_AB) / SPAET_ZAHL, 0, 1);
   // Wie schnell er sich auf Blatt n dreht (Umdrehungen je Sekunde): anfangs
-  // gut eine halbe, bald eine ganze.
-  const drehBei = (n) => lerp(0.62, 1.52, schwere(n));
+  // gut eine halbe, bald anderthalb, ganz spät gut 1,7.
+  const drehBei = (n) => lerp(0.62, 1.52, schwere(n)) + 0.24 * spaet(n);
   // Wie weit Blatt n vom vorigen liegt (Mitte zu Mitte) und wie gross es ist.
   const abstandBei = (n) => lerp(22, 36, schwere(n));
-  const radiusBei = (n) => lerp(10, 5.5, schwere(n));
+  const radiusBei = (n) => lerp(10, 5.5, schwere(n)) - 0.7 * spaet(n);
   // Wie lange ein Blatt hält, wenn er darauf sitzt: immer mindestens eine
   // Umdrehung und etwas mehr, anfangs gut dreieinhalb Sekunden.
   const haltBei = (n, f) => Math.max(1 / f + 0.45, lerp(3.4, 1.15, schwere(n)));
   // Der Fisch: so lange Geduld (auf offenem Wasser, bis er aufsteigt), so
   // lange steigt er (die Warnung), so schnell folgt er.
-  const geduldBei = (n) => lerp(1.4, 0.7, schwere(n));
+  const geduldBei = (n) => lerp(1.4, 0.7, schwere(n)) - 0.12 * spaet(n);
   const warnungBei = (n) => lerp(0.85, 0.5, schwere(n));
   const fischVBei = (n) => lerp(70, 95, schwere(n));
   // Das Fenster: so viele Millisekunden muss die Drehung mindestens auf das
   // nächste Blatt zeigen (aus seiner Mitte, ein Schlag).
-  const fensterMinBei = (n) => lerp(140, 34, schwere(n));
+  const fensterMinBei = (n) => lerp(140, 34, schwere(n)) - 8 * spaet(n);
 
   // ---------------------------------------------------------------------------
   // Zustand
@@ -243,7 +253,6 @@
   let zuschauer = null;
   let tippRinge = null;
   let ersterStart = true;
-  let ebenen = null;
   let kulisseTeich = null;
   let kulisseBach = null;
   let kulisseAbend = null;
@@ -885,7 +894,7 @@
     state.stroemungen.push(s);
     // Der Teppich: drei bis vier Blätter quer, knapp über dem Band.
     const yc = y + halb + 6 + 7.5;
-    const breite = hbAt(yc) - 7;
+    const breite = halbBei(yc) - 7;
     const zahlK = 4;
     const kreise = [];
     for (let i = 0; i < zahlK; i += 1) {
@@ -897,8 +906,6 @@
     zonenNeu(n, y);
     return B;
   }
-
-  const hbAt = (y) => halbBei(y);
 
   // Die Hechtgrube: tiefes Wasser über A, ein Teppich weit darüber.
   function hechtBauen(n, A, z, k, f, dreh) {
@@ -1411,6 +1418,8 @@
     (k, kc) => uferPflanzenMalen(k, kc, -1),
     (k, kc) => uferPflanzenMalen(k, kc, 1),
     (k, kc) => laubSchattenMalen(k, kc),
+    (k, kc) => treibgutMalen(k, kc),
+    (k, kc) => lichtnetzePhasen(kc),
   ];
 
   // Waagrechte Streifen über eine Kachel, jeder eine ganze Zahl von
@@ -1456,7 +1465,7 @@
     const t0 = performance.now();
     const cyp = Math.round(state.camY * view.S);
     const [i0, i1] = kachelBereich(cyp);
-    for (const i of [...kacheln.keys()]) if (i < i0 - 2 || i > i1 + 6) kacheln.delete(i);
+    for (const i of [...kacheln.keys()]) if (i < i0 - 1 || i > i1 + 4) kacheln.delete(i);
     for (let i = i1 + 1; i <= i1 + 3; i += 1) {
       const kc = kachelHolen(i);
       while (kc.stufe < KACHEL_STUFEN.length) {
@@ -2367,51 +2376,6 @@
     k.restore();
   }
 
-  // Ein Baum am Ufer, von oben: der Stamm mit Rinde, die Wurzeln greifen
-  // ins Wasser.
-  function stammMitWurzeln(k, x, y, seite, r, rnd, rinde) {
-    for (let i = 0; i < 7; i += 1) {
-      const a = (seite > 0 ? Math.PI : 0) + (rnd() - 0.5) * 2.6;
-      const l = r * (1.6 + rnd() * 2.2);
-      let px = x;
-      let py = y;
-      let w = a;
-      k.strokeStyle = rgb(mix3(rinde, [0, 0, 0], 0.15));
-      for (let j = 0; j < 5; j += 1) {
-        const nx = px + Math.cos(w) * l / 5;
-        const ny = py + Math.sin(w) * l / 5;
-        k.lineWidth = r * 0.42 * (1 - j / 5.5);
-        k.beginPath();
-        k.moveTo(px, py);
-        k.lineTo(nx, ny);
-        k.stroke();
-        px = nx;
-        py = ny;
-        w += (rnd() - 0.5) * 0.6;
-      }
-    }
-    k.fillStyle = "rgba(10,10,10,0.3)";
-    k.beginPath();
-    k.arc(x + SONNE.x * 4, y + SONNE.y * 4, r * 1.05, 0, TAU);
-    k.fill();
-    const v = k.createRadialGradient(x - r * 0.3, y + r * 0.3, r * 0.1, x, y, r);
-    v.addColorStop(0, rgb(mix3(rinde, [255, 240, 210], 0.25)));
-    v.addColorStop(1, rgb(mix3(rinde, [0, 0, 0], 0.35)));
-    k.fillStyle = v;
-    k.beginPath();
-    k.arc(x, y, r, 0, TAU);
-    k.fill();
-    k.strokeStyle = rgba(mix3(rinde, [0, 0, 0], 0.5), 0.6);
-    k.lineWidth = 0.12;
-    for (let i = 0; i < 10; i += 1) {
-      const a = rnd() * TAU;
-      k.beginPath();
-      k.moveTo(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3);
-      k.lineTo(x + Math.cos(a) * r * 0.95, y + Math.sin(a) * r * 0.95);
-      k.stroke();
-    }
-  }
-
   // Die Ufermauer am Mühlenteich: Quader mit Fugen, Moos darin.
   function mauer(k, y0, y1, seite, kc) {
     const kante = (y) => mitteBei(y) + seite * (halbBei(y) + 0.3);
@@ -2420,6 +2384,8 @@
     for (let j = Math.floor(y0 / H) - 1; j <= Math.floor(y1 / H) + 1; j += 1) {
       const rnd = zellZufall(j, 61);
       const ya = j * H;
+      // Wo ein Seitenbach durch die Mauer kommt, ist sie offen.
+      if (kanalBei(ya + H / 2) > 0.2) continue;
       const xa = kante(ya + H / 2);
       const versatz = (j % 2) * 2.5;
       for (let reihe = 0; reihe < 2; reihe += 1) {
@@ -2587,7 +2553,7 @@
    * am Mühlenteich, Birke im Moor, Fichte an der Quelle.
    */
   const VORN = 1.24;
-  const ZWEIG_ZELLE = 34;
+  const ZWEIG_ZELLE = 42;
 
   function zweigeBei(y0, y1) {
     const raus = [];
@@ -2641,12 +2607,19 @@
    * als KAUSTIK_N Bilder einer Kachel, die sich nach allen Seiten fortsetzt
    * (die Linien sind die Grenzen zwischen Zellen um Punkte, die auf kleinen
    * Kreisen wandern – nach KAUSTIK_N Bildern sind sie wieder am Anfang).
-   * Im Spiel wird je Bild eines davon als Muster über das Wasser gelegt,
-   * aufgehellt – im Flachen kräftig, in der Tiefe schwach.
+   *
+   * Sie liegen fest in den Kacheln: Für das Wasser jeder Kachel (nur dessen
+   * Breite) gibt es vier Ausschnitte, einen je Phase (lichtnetzePhasen) –
+   * im Flachen kräftig, in der Tiefe schwach, in der Hechtgrube kaum. Die
+   * Kachel trägt die Phase, die gerade gilt (beim Wechsel einmal
+   * hineingelegt); gegen Ende einer Phase wird die nächste darüber
+   * geblendet (zeichneKacheln). So bewegt sich das Netz, ohne dass je Bild
+   * Licht gemalt wird – auf dem iPhone rechnet der Prozessor jede Fläche.
    */
-  const KAUSTIK_N = 16;
+  const KAUSTIK_N = 4;
   const KAUSTIK_CM = 22;
   const KAUSTIK_G = 6;
+  const PHASE_DAUER = 0.95;        // so lange gilt eine Phase; im letzten Drittel blendet sie über (s)
   let kaustik = null;
 
   function kaustikVorbereiten(budgetMs = 4) {
@@ -2658,7 +2631,7 @@
           punkte.push({ x: gx + 0.05 + rnd() * 0.9, y: gy + 0.05 + rnd() * 0.9, r: 0.14 + rnd() * 0.16, p: rnd() * TAU, d: rnd() < 0.5 ? 1 : -1 });
         }
       }
-      kaustik = { S: view.S, px: Math.max(32, Math.round(KAUSTIK_CM * view.S)), bilder: [], muster: [], punkte };
+      kaustik = { S: view.S, px: Math.max(32, Math.round(KAUSTIK_CM * view.S)), bilder: [], punkte };
     }
     const t0 = performance.now();
     while (kaustik.bilder.length < KAUSTIK_N && performance.now() - t0 < budgetMs) kaustik.bilder.push(kaustikBild(kaustik.bilder.length));
@@ -2714,20 +2687,69 @@
     return c;
   }
 
-  // Der Weg des Wassers im Bild: eine Fläche zwischen u0 und u1 (Anteile
-  // der halben Breite, −1 links, 1 rechts), von yu bis yo, in Bildpunkten.
-  function wasserBand(u0, u1, yu, yo) {
+  // Die Lichtnetze einer fertigen Kachel: die vier Phasen als Ausschnitte
+  // so breit wie das Wasser; die erste gleich in die Kachel selbst.
+  function lichtnetzePhasen(kc) {
+    kaustikVorbereiten(Infinity);
     const S = view.S;
-    g.beginPath();
-    for (let y = yu; y <= yo + 3.9; y += 4) {
+    // Wie breit das Wasser in dieser Kachel ist (in Bildpunkten der Kachel).
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    for (let y = kc.ya - 1; y <= kc.yb + 1; y += 2) {
       const { m, h } = bachBild(y);
-      g.lineTo(view.mxp + (m + u0 * h) * S - view.cxp, view.myp - y * S + view.cyp);
+      x0 = Math.min(x0, m - h);
+      x1 = Math.max(x1, m + h);
     }
-    for (let y = yo + 4; y >= yu - 0.1; y -= 4) {
+    kc.wx0 = clamp(Math.floor((x0 - kc.xa) * S) - 2, 0, view.kwPx);
+    kc.wx1 = clamp(Math.ceil((x1 - kc.xa) * S) + 2, 0, view.kwPx);
+    const breit = Math.max(1, kc.wx1 - kc.wx0);
+    kc.phasen = [];
+    for (let p = 0; p < KAUSTIK_N; p += 1) {
+      const c = leinwandPx(breit, KACHEL_PX);
+      c.getContext("2d").drawImage(kc.c, kc.wx0, 0, breit, KACHEL_PX, 0, 0, breit, KACHEL_PX);
+      lichtnetzMalen(c.getContext("2d"), kc, p, kc.wx0);
+      kc.phasen.push(c);
+    }
+    // Die Kachel selbst trägt immer die Phase, die gerade gilt.
+    kc.phase = 0;
+    kc.k.save();
+    kc.k.setTransform(1, 0, 0, 1, 0, 0);
+    kc.k.drawImage(kc.phasen[0], kc.wx0, 0);
+    kc.k.restore();
+  }
+
+  // Ein Lichtnetz der Phase p in eine Kachel (oder ihren Ausschnitt, der bei
+  // dx Bildpunkten beginnt): an der Welt fest, Zeile um Zeile, je Band nach
+  // der Tiefe aufgehellt.
+  function lichtnetzMalen(k, kc, p, dx) {
+    const S = view.S;
+    const bild = kaustik.bilder[p];
+    const T = bild.width;
+    const muster = k.createPattern(bild, "repeat");
+    if (!muster) return;
+    if (muster.setTransform) muster.setTransform(new DOMMatrix().translate((((view.kHalbPx - dx) % T) + T) % T, (((kc.i + 1) * KACHEL_PX) % T + T) % T));
+    k.save();
+    k.setTransform(1, 0, 0, 1, 0, 0);
+    k.globalCompositeOperation = "lighter";
+    k.fillStyle = muster;
+    const ZEILE = 4;
+    const BAENDER = [[-0.97, -0.62, 1], [-0.62, -0.3, 0.55], [-0.3, 0.3, 0.3], [0.3, 0.62, 0.55], [0.62, 0.97, 1]];
+    for (let py = 0; py < KACHEL_PX; py += ZEILE) {
+      const y = kc.yb - (py + ZEILE / 2) / S;
+      let kraft = zahlBei(y, "kaustik");
+      // In der Hechtgrube kommt kaum Licht auf den Grund, im Seitenbach viel.
+      for (const hg of state.hechte) kraft *= 1 - 0.75 * glatt(1 - Math.abs(y - hg.cy) / (hg.ry + 30));
+      if (kraft < 0.01) continue;
       const { m, h } = bachBild(y);
-      g.lineTo(view.mxp + (m + u1 * h) * S - view.cxp, view.myp - y * S + view.cyp);
+      BAENDER.forEach(([u0, u1, f]) => {
+        const xa = Math.round((m + u0 * h - kc.xa) * S) - dx;
+        const xb = Math.round((m + u1 * h - kc.xa) * S) - dx;
+        if (xb <= xa) return;
+        k.globalAlpha = Math.min(1, kraft * f);
+        k.fillRect(xa, py, xb - xa, ZEILE);
+      });
     }
-    g.closePath();
+    k.restore();
   }
 
   function sichtY() {
@@ -2735,50 +2757,33 @@
     return { yu: state.camY - (view.cssH - view.ankerY) / s - 4, yo: state.camY + view.ankerY / s + 4 };
   }
 
-  function zeichneKaustik() {
-    if (!kaustik || kaustik.bilder.length < KAUSTIK_N) return;
-    const { yu, yo } = sichtY();
-    const yMitte = state.camY;
-    let kraft = zahlBei(yMitte, "kaustik");
-    // In der Hechtgrube kommt kaum Licht auf den Grund.
-    for (const hg of state.hechte) kraft *= 1 - 0.75 * glatt(1 - Math.abs(yMitte - hg.cy) / (hg.ry + 40));
-    if (kraft < 0.02) return;
-    const i = Math.floor(state.zeit * 11) % KAUSTIK_N;
-    const bild = kaustik.bilder[i];
-    const T = bild.width;
-    const S = view.S;
-    // Wo die Kachel des Musters beginnt (an der Welt fest, langsam treibend),
-    // auf ganzen Bildpunkten.
-    const ox = Math.round(view.mxp - view.cxp + state.zeit * 0.7 * S);
-    const oy = Math.round(view.myp + view.cyp + state.zeit * 0.4 * S);
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.globalCompositeOperation = "lighter";
-    // In waagrechten Streifen, Stück für Stück aufgelegt, Punkt auf Punkt:
-    // im Flachen am Ufer (in der tiefen Mitte fällt kaum Licht auf den
-    // Grund).
-    const ZEILE = Math.max(8, Math.round(2.2 * S));
-    const H = Math.round(view.cssH * view.dpr);
-    const BAENDER = [[-0.97, -0.56], [0.56, 0.97]];
-    g.globalAlpha = Math.min(1, kraft);
-    for (let py = 0; py < H; py += ZEILE) {
-      const y = (view.myp + view.cyp - (py + ZEILE / 2)) / S;
-      const { m, h } = bachBild(y);
-      const sy = ((((py - oy) % T) + T) % T);
-      const hoch = Math.min(ZEILE, H - py, T - sy);
-      BAENDER.forEach(([u0, u1]) => {
-        let xa = Math.round(view.mxp + (m + u0 * h) * S - view.cxp);
-        const xb = Math.round(view.mxp + (m + u1 * h) * S - view.cxp);
-        while (xa < xb) {
-          const sx = ((((xa - ox) % T) + T) % T);
-          const breit = Math.min(xb - xa, T - sx);
-          g.drawImage(bild, sx, sy, breit, hoch, xa, py, breit, hoch);
-          if (hoch < ZEILE && hoch < H - py) g.drawImage(bild, sx, 0, breit, Math.min(ZEILE - hoch, H - py - hoch), xa, py + hoch, breit, Math.min(ZEILE - hoch, H - py - hoch));
-          xa += breit;
-        }
-      });
+  // Die Kacheln ins Bild, mit den Lichtnetzen in ihrer Phase: die von
+  // jetzt deckend, die nächste darüber, immer kräftiger.
+  function zeichneKacheln() {
+    const [i0, i1] = kachelBereich(view.cyp);
+    const X = view.mxp - view.kHalbPx - view.cxp;
+    const ph = ruhig() ? 0 : state.zeit / PHASE_DAUER;
+    const a = Math.floor(ph) % KAUSTIK_N;
+    const b = (a + 1) % KAUSTIK_N;
+    const f = ruhig() ? 0 : glatt(((ph - Math.floor(ph)) - 0.68) / 0.32);
+    for (let i = i0; i <= i1; i += 1) {
+      const kc = kachelHolen(i);
+      kachelFertig(kc);
+      const Y = view.myp - (i + 1) * KACHEL_PX + view.cyp;
+      if (kc.phase !== a && kc.wx1 > kc.wx0) {
+        kc.k.save();
+        kc.k.setTransform(1, 0, 0, 1, 0, 0);
+        kc.k.drawImage(kc.phasen[a], kc.wx0, 0);
+        kc.k.restore();
+        kc.phase = a;
+      }
+      g.drawImage(kc.c, X, Y);
+      if (f > 0.02 && kc.wx1 > kc.wx0) {
+        g.globalAlpha = f;
+        g.drawImage(kc.phasen[b], X + kc.wx0, Y);
+        g.globalAlpha = 1;
+      }
     }
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = "source-over";
   }
 
   // ---------------------------------------------------------------------------
@@ -3350,8 +3355,35 @@
         }
       }
     }, view.S * VORN);
-    sprites.set(key, bild);
-    return bild;
+    const knapp = zuschneiden(bild);
+    sprites.set(key, knapp);
+    return knapp;
+  }
+
+  // Ein Bild auf das zuschneiden, was darin gemalt ist: Durchsichtige
+  // Ränder kosten beim Legen so viel wie Gemaltes.
+  function zuschneiden(b) {
+    const { width: w, height: h } = b.c;
+    let daten;
+    try { daten = b.c.getContext("2d").getImageData(0, 0, w, h).data; } catch { return b; }
+    let x0 = w;
+    let y0 = h;
+    let x1 = -1;
+    let y1 = -1;
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        if (daten[(y * w + x) * 4 + 3] > 3) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+      }
+    }
+    if (x1 < 0) return b;
+    const c = leinwandPx(x1 - x0 + 1, y1 - y0 + 1);
+    c.getContext("2d").drawImage(b.c, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+    return { c, cx: b.cx - x0, cy: b.cy - y0 };
   }
 
   function zeichneVordergrund() {
@@ -3449,34 +3481,55 @@
     return bild;
   }
 
+  // Was im Wasser liegt, nach Zelle n: Art, Ort quer, Spielart, Drehung.
+  // Wasserlinsen, Blüten, Federn, Flocken und Staub liegen still und sind in
+  // die Kacheln gemalt (treibgutMalen); nur das Laub im Bach und am
+  // Mühlenteich treibt (zeichneTreibendes).
+  function treibgutBei(n, d) {
+    const rnd = zellZufall(n, 91);
+    const y = n * TREIB_ABSTAND - d + rnd() * TREIB_ABSTAND;
+    if (state.stroemungen.some((s) => Math.abs(y - s.y) < s.halb + 3)) return null;
+    const w = weltBei(y);
+    const { m, h } = bachBild(y);
+    const u = rnd() * 2 - 1;
+    const x = m + u * h * 0.9;
+    const r = rnd();
+    const v = Math.floor(rnd() * 4);
+    let art = null;
+    if (w === 0) art = r < 0.45 ? "linsen" : r < 0.7 ? "bluete" : null;
+    else if (w === 1) art = r < 0.4 ? "laub" : null;
+    else if (w === 2) art = r < 0.3 ? "linsen" : r < 0.42 ? "feder" : r < 0.55 ? "laub" : null;
+    else if (w === 3) art = r < 0.35 ? "flocke" : r < 0.55 ? "linsen" : null;
+    else art = r < 0.3 ? "staub" : null;
+    return art ? { art, x, y, v, w: rnd() * TAU } : null;
+  }
+
+  function treibgutMalen(k, kc) {
+    const S = view.S;
+    for (let n = Math.floor((kc.ya - 4) / TREIB_ABSTAND) - 1; n <= Math.floor((kc.yb + 4) / TREIB_ABSTAND) + 1; n += 1) {
+      const q = treibgutBei(n, 0);
+      if (!q || q.art === "laub") continue;
+      const b = treibBild(q.art, q.v);
+      k.save();
+      k.setTransform(1, 0, 0, 1, (q.x - kc.xa) * S, (kc.yb - q.y) * S);
+      if (q.art !== "linsen" && q.art !== "staub") k.rotate(-q.w);
+      k.globalAlpha = 0.95;
+      k.drawImage(b.c, -b.cx, -b.cy);
+      k.restore();
+    }
+  }
+
   function zeichneTreibendes() {
     const { yu, yo } = sichtY();
     const d = state.drift;
     const n0 = Math.floor((yu + d) / TREIB_ABSTAND) - 1;
     const n1 = Math.floor((yo + d) / TREIB_ABSTAND) + 1;
     for (let n = n0; n <= n1; n += 1) {
-      const rnd = zellZufall(n, 91);
-      const y = n * TREIB_ABSTAND - d + rnd() * TREIB_ABSTAND;
-      if (state.stroemungen.some((s) => Math.abs(y - s.y) < s.halb + 3)) continue;
-      const w = weltBei(y);
-      const { m, h } = bachBild(y);
-      const u = rnd() * 2 - 1;
-      const x = m + u * h * 0.9 + Math.sin(state.zeit * 0.3 + n) * 0.4;
-      const r = rnd();
-      const v = Math.floor(rnd() * 4);
-      let art = null;
-      if (w === 0) art = r < 0.45 ? "linsen" : r < 0.7 ? "bluete" : null;
-      else if (w === 1) art = r < 0.4 ? "laub" : null;
-      else if (w === 2) art = r < 0.3 ? "linsen" : r < 0.42 ? "feder" : r < 0.55 ? "laub" : null;
-      else if (w === 3) art = r < 0.35 ? "flocke" : r < 0.55 ? "linsen" : null;
-      else art = r < 0.3 ? "staub" : null;
-      if (!art) continue;
-      const b = treibBild(art, v);
-      const sx = bildX(x);
-      const sy = bildY(y);
+      const q = treibgutBei(n, d);
+      if (!q || q.art !== "laub") continue;
+      const sy = bildY(q.y);
       if (sy < -20 || sy > view.cssH + 20) continue;
-      if (art === "linsen" || art === "staub") bildLegen(b, sx, sy, 0.95);
-      else bildDrehen(b, sx, sy, rnd() * TAU + state.zeit * 0.1 * (v - 1.5), 0.95);
+      bildDrehen(treibBild(q.art, q.v), bildX(q.x), sy, q.w + state.zeit * 0.1 * (q.v - 1.5), 0.95);
     }
   }
 
@@ -3589,14 +3642,14 @@
       g.translate(-sx * 0.35, -sy * 0.35);
       g.strokeStyle = "rgba(10,30,10,0.28)";
       g.lineWidth = linie * 1.4;
+      g.beginPath();
       BEINE.forEach((b) => [-1, 1].forEach((seite) => {
         const p = beinPunkte(b, seite, sw);
-        g.beginPath();
         g.moveTo(p[0][0], p[0][1]);
         g.lineTo(p[1][0], p[1][1]);
         g.lineTo(p[2][0], p[2][1]);
-        g.stroke();
       }));
+      g.stroke();
       g.fillStyle = "rgba(10,30,10,0.3)";
       g.beginPath();
       g.ellipse(-0.3, 0, 1.9, 0.4, 0, 0, TAU);
@@ -3609,30 +3662,36 @@
     g.strokeStyle = dunkel;
     g.lineCap = "round";
     g.lineJoin = "round";
-    BEINE.forEach((b) => [-1, 1].forEach((seite) => {
-      const p = beinPunkte(b, seite, sw);
-      g.lineWidth = linie * (b.mitte ? 1.15 : 1);
+    [false, true].forEach((mitte) => {
+      g.lineWidth = linie * (mitte ? 1.15 : 1);
       g.beginPath();
-      g.moveTo(p[0][0], p[0][1]);
-      g.lineTo(p[1][0], p[1][1]);
-      g.lineTo(p[2][0], p[2][1]);
+      BEINE.forEach((b) => {
+        if (b.mitte !== mitte) return;
+        [-1, 1].forEach((seite) => {
+          const p = beinPunkte(b, seite, sw);
+          g.moveTo(p[0][0], p[0][1]);
+          g.lineTo(p[1][0], p[1][1]);
+          g.lineTo(p[2][0], p[2][1]);
+        });
+      });
       g.stroke();
-    }));
+    });
     // Die Dellen auf dem Wasser: ein heller Ring um jeden Fuss.
     if (!sitzt && !geist) {
+      const ringe = new Path2D();
+      const mitten = new Path2D();
       BEINE.forEach((b) => [-1, 1].forEach((seite) => {
-        const p = beinPunkte(b, seite, sw);
-        const [fxx, fyy] = p[2];
-        g.strokeStyle = "rgba(255,255,255,0.6)";
-        g.lineWidth = linie * 0.9;
-        g.beginPath();
-        g.arc(fxx, fyy, b.delle * 0.55, 0, TAU);
-        g.stroke();
-        g.fillStyle = "rgba(0,20,20,0.35)";
-        g.beginPath();
-        g.arc(fxx, fyy, b.delle * 0.3, 0, TAU);
-        g.fill();
+        const [fxx, fyy] = beinPunkte(b, seite, sw)[2];
+        ringe.moveTo(fxx + b.delle * 0.55, fyy);
+        ringe.arc(fxx, fyy, b.delle * 0.55, 0, TAU);
+        mitten.moveTo(fxx + b.delle * 0.3, fyy);
+        mitten.arc(fxx, fyy, b.delle * 0.3, 0, TAU);
       }));
+      g.strokeStyle = "rgba(255,255,255,0.6)";
+      g.lineWidth = linie * 0.9;
+      g.stroke(ringe);
+      g.fillStyle = "rgba(0,20,20,0.35)";
+      g.fill(mitten);
     }
     // Der Leib.
     g.fillStyle = dunkel;
@@ -3948,8 +4007,40 @@
     }
     sichtbareHechte((hg, o) => {
       const sv = schattenVersatz(o.x, o.y);
-      bildDrehen(fischBild(true, 2, true), bildX(o.x + sv.x * 0.6), bildY(o.y + sv.y * 0.6), o.w, 0.5);
+      bildLegen(hechtGedreht("schatten", o.w), bildX(o.x + sv.x * 0.6), bildY(o.y + sv.y * 0.6), 1);
     });
+  }
+
+  // Der Hecht ist gross; ihn je Bild zu drehen kostet im Software-Raster
+  // viel. Darum vorgedreht in HECHT_RICHTUNGEN Richtungen: der Leib (halb
+  // unscharf, halb scharf, wie er in der dunklen Tiefe zu sehen ist) und
+  // sein Schatten, je ein Bild – gelegt Punkt auf Punkt. Ist keine Grube
+  // mehr im Bild, wird der Speicher frei.
+  const HECHT_RICHTUNGEN = 32;
+  const hechtBilder = new Map();
+  function hechtGedreht(art, w) {
+    const n = ((Math.round((w / TAU) * HECHT_RICHTUNGEN) % HECHT_RICHTUNGEN) + HECHT_RICHTUNGEN) % HECHT_RICHTUNGEN;
+    const key = `${art}:${n}:${view.S}`;
+    let b = hechtBilder.get(key);
+    if (b) return b;
+    const quellen = art === "schatten" ? [[fischBild(true, 2, true), 0.5]] : [[fischBild(true, 1, false), 0.55], [fischBild(true, 0, false), 0.6]];
+    const q = quellen[0][0];
+    const wn = (n / HECHT_RICHTUNGEN) * TAU;
+    const c0 = Math.abs(Math.cos(wn));
+    const s0 = Math.abs(Math.sin(wn));
+    const bw = Math.ceil(q.c.width * c0 + q.c.height * s0) + 4;
+    const bh = Math.ceil(q.c.width * s0 + q.c.height * c0) + 4;
+    const c = leinwandPx(bw, bh);
+    const k = c.getContext("2d");
+    k.translate(bw / 2, bh / 2);
+    k.rotate(-wn);
+    quellen.forEach(([bild, alpha]) => {
+      k.globalAlpha = alpha;
+      k.drawImage(bild.c, -bild.cx, -bild.cy);
+    });
+    b = { c, cx: Math.round(bw / 2), cy: Math.round(bh / 2) };
+    hechtBilder.set(key, b);
+    return b;
   }
 
   // Wie weit der jagende Fisch aufgestiegen ist (0 tief, 1 an der Oberfläche).
@@ -3988,12 +4079,12 @@
         g.stroke();
       }
     }
+    let hechtDa = false;
     sichtbareHechte((hg, o) => {
-      const x = bildX(o.x);
-      const y = bildY(o.y);
-      bildDrehen(fischBild(true, 1, false), x, y, o.w, 0.55);
-      bildDrehen(fischBild(true, 0, false), x, y, o.w, 0.6);
+      hechtDa = true;
+      bildLegen(hechtGedreht("leib", o.w), bildX(o.x), bildY(o.y), 1);
     });
+    if (!hechtDa && hechtBilder.size) hechtBilder.clear();
     // Das Maul, das zuschnappt: am Ende der Runde, wo er gefressen wurde.
     const tot = state.tot;
     if (tot && (tot.art === "fisch" || tot.art === "blatt" || tot.art === "hecht") && tot.zeit < 0.9) {
@@ -4040,10 +4131,11 @@
     g.globalAlpha = 1;
   }
 
-  function glitzerBild() {
-    const key = `glitzer:${view.dpr}`;
+  // Ein Glitzern, vorgemalt in zwei Grössen (gelegt wird Punkt auf Punkt).
+  function glitzerBild(klein = false) {
+    const key = `glitzer:${klein ? 1 : 0}:${view.dpr}`;
     if (sprites.has(key)) return sprites.get(key);
-    const n = Math.round(22 * view.dpr);
+    const n = Math.round((klein ? 13 : 22) * view.dpr);
     const c = leinwandPx(n, n);
     const k = c.getContext("2d");
     const v = k.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
@@ -4073,7 +4165,6 @@
     const y0 = state.camY;
     const dunkel = zahlBei(y0, "dunkel");
     const { yu, yo } = sichtY();
-    const b = glitzerBild();
     const W = view.cssW;
     const H = view.cssH;
     // Wo die Sonne sich spiegelt (im Bild): links oben; im Moor tiefer und
@@ -4101,9 +4192,8 @@
         const a = Math.max(0, tw - 0.55) / 0.45 * (0.25 + nah * 0.85);
         if (a <= 0.02) continue;
         g.globalAlpha = Math.min(1, a);
-        const f = 0.5 + nah * 0.7;
-        const n = Math.round(b.c.width * f);
-        g.drawImage(b.c, Math.round(sx * view.dpr - n / 2), Math.round(sy * view.dpr - n / 2), n, n);
+        const b = glitzerBild(nah < 0.45);
+        g.drawImage(b.c, Math.round(sx * view.dpr - b.cx), Math.round(sy * view.dpr - b.cy));
       }
     }
     g.globalAlpha = 1;
@@ -4178,13 +4268,12 @@
     return { x: lerp(a.x, b.x, k) + zitter, y: lerp(a.y, b.y, k) + Math.cos(t * 7 + id) * 1.2, w: Math.atan2(b.y - a.y, b.x - a.x), fliegt: k > 0 && k < 1 };
   }
 
-  function libelleMalen(x, y, w, farbe, gross) {
+  function libelleMalen(x, y, w, farbe, gross, schwirr) {
     const s = gross;
     g.save();
     g.translate(x, y);
     g.rotate(w);
     // Die Flügel: vier, durchsichtig, schimmernd.
-    const schwirr = 0.6 + 0.4 * Math.sin(state.zeit * 90);
     g.fillStyle = `rgba(230,240,255,${0.3 * schwirr + 0.14})`;
     g.beginPath();
     [[-0.2, 1], [-1.6, 0.9]].forEach(([dx, f]) => {
@@ -4224,6 +4313,24 @@
     g.restore();
   }
 
+  // Eine Libelle, vorgemalt (je Farbe drei Stufen des Flügelschimmers).
+  function libelleBild(farbe, stufe) {
+    const key = `libelle:${farbe}:${stufe}:${view.S}`;
+    if (sprites.has(key)) return sprites.get(key);
+    const gross = view.s * 0.62;
+    const n = Math.ceil(26 * gross * view.dpr) + 2;
+    const c = leinwandPx(n, n);
+    const k = c.getContext("2d");
+    const alt = g;
+    g = k;
+    k.setTransform(view.dpr, 0, 0, view.dpr, n / 2, n / 2);
+    libelleMalen(5 * gross, 0, 0, farbe, gross, [0.2, 0.6, 1][stufe]);
+    g = alt;
+    const bild = { c, cx: n / 2, cy: n / 2 };
+    sprites.set(key, bild);
+    return bild;
+  }
+
   function zeichneInsekten() {
     if (ruhig()) return;
     const y0 = state.camY;
@@ -4239,7 +4346,7 @@
     // Sonnenstäubchen.
     if (staub > 0.05) {
       g.fillStyle = "rgba(255,248,220,0.7)";
-      for (let i = 0; i < 26; i += 1) {
+      for (let i = 0; i < 14; i += 1) {
         const x = ((hash01(i * 2.3) * view.cssW + state.zeit * (4 + hash01(i) * 6) + Math.sin(state.zeit * 0.5 + i) * 10) % (view.cssW + 20)) - 10;
         const y = view.frei + hash01(i * 4.7) * (view.cssH - view.frei) + Math.sin(state.zeit * 0.7 + i * 1.3) * 8;
         g.globalAlpha = staub * (0.25 + 0.35 * Math.sin(state.zeit * 1.3 + i * 2));
@@ -4261,7 +4368,7 @@
       g.fillRect(-11 * gross, -0.7 * gross, 13 * gross, 1.4 * gross);
       g.fillRect(-1.5 * gross, -8 * gross, 2.2 * gross, 16 * gross);
       g.restore();
-      libelleMalen(o.x, o.y, o.w, farben[(w + id) % farben.length], gross);
+      bildDrehen(libelleBild(farben[(w + id) % farben.length], Math.floor(state.zeit * 40 + id) % 3), o.x, o.y, -o.w);
     }
     // Glühwürmchen.
     if (gluehen > 0.05) {
@@ -4340,7 +4447,6 @@
     sprites = new Map();
     grasMuster.clear();
     kaustik = null;
-    ebenen = { s: view.s, dpr: view.dpr };
   }
 
   function zeichneLaeufer() {
@@ -4370,38 +4476,25 @@
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
-    const [i0, i1] = kachelBereich(view.cyp);
-    const X = view.mxp - view.kHalbPx - view.cxp;
-    for (let i = i0; i <= i1; i += 1) {
-      const kc = kachelHolen(i);
-      kachelFertig(kc);
-      g.drawImage(kc.c, X, view.myp - (i + 1) * KACHEL_PX + view.cyp);
-    }
-    // Für Messungen lässt sich jeder Teil abschalten (window.__sbAus, eine
-    // Liste von Namen) – im Spiel steht dort nichts.
-    const aus = String(window.__sbAus || "");
-    const teil = (name, fn) => { if (!aus || !aus.includes(name)) fn(); };
-    teil("kaustik", zeichneKaustik);
+    zeichneKacheln();
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    teil("schatten", () => {
-      zeichneLaubSchatten();
-      zeichneFischSchatten();
-      if (state.l && !state.tot) zeichneDellenSchatten(state.l);
-    });
-    teil("fische", zeichneFische);
-    teil("nacht", zeichneNachtSpiegel);
-    teil("stroemung", zeichneStroemungen);
-    teil("treib", zeichneTreibendes);
-    teil("glitzer", zeichneGlitzer);
-    teil("blaetter", zeichneBlaetter);
-    teil("laub", zeichneLaub);
-    teil("ringe", zeichneRinge);
-    teil("geister", zeichneGeister);
-    teil("laeufer", zeichneLaeufer);
-    teil("spritzer", zeichneSpritzer);
-    teil("vorn", zeichneVordergrund);
-    teil("insekten", zeichneInsekten);
-    teil("texte", zeichneTexte);
+    zeichneLaubSchatten();
+    zeichneFischSchatten();
+    if (state.l && !state.tot) zeichneDellenSchatten(state.l);
+    zeichneFische();
+    zeichneNachtSpiegel();
+    zeichneStroemungen();
+    zeichneTreibendes();
+    zeichneGlitzer();
+    zeichneBlaetter();
+    zeichneLaub();
+    zeichneRinge();
+    zeichneGeister();
+    zeichneLaeufer();
+    zeichneSpritzer();
+    zeichneVordergrund();
+    zeichneInsekten();
+    zeichneTexte();
     kachelnVorbereiten(state.phase === "bereit" ? 8 : 2.5);
   }
 
@@ -4777,6 +4870,7 @@
 
   function loop(now) {
     frame = window.requestAnimationFrame(loop);
+    ruhigJetzt = null;
     const dt = clamp((now - last) / 1000, 0, 0.05);
     last = Math.max(last, now);
     const strecke = Math.max(0, dt - voraus);
@@ -4952,24 +5046,6 @@
     J, TAU_W, MU_W, TAU_B, MU_B, R_SCHNAPP, R_HECHT, FASSUNG, state, view,
     takt, tippen, losGehts, physik, planBis, kursText, pilot, planen, blattFenster, blattBei, hechtOrt, laubOrt,
     schwere, drehBei, abstandBei, radiusBei, haltBei, geduldBei, warnungBei, fischVBei, fensterMinBei, mitteBei, halbBei, weltBei,
-    bildX, bildY,
-    // Was eine Kachel je Stufe kostet (ms), und was die Bilder kosten.
-    // Zeit je Bild (ms), n Bilder hintereinander; aus: Teile, die wegfallen.
-    messeBild: (n = 40, aus = "") => {
-      const vorher = window.__sbAus;
-      window.__sbAus = aus;
-      zeichnen();
-      g.getImageData(0, 0, 1, 1);
-      const a = performance.now();
-      for (let i = 0; i < n; i += 1) { state.zeit += 1 / 60; zeichnen(); g.getImageData(0, 0, 1, 1); }
-      window.__sbAus = vorher;
-      return (performance.now() - a) / n;
-    },
-    // Was das Bauen eines Abschnitts kostet (ms je Abschnitt).
-    messeBau: (n = 20) => { const a = performance.now(); for (let i = 0; i < n; i += 1) abschnittBauen(); return (performance.now() - a) / n; },
-    messeTakt: (n = 60) => { const a = performance.now(); for (let i = 0; i < n; i += 1) { if (pilot()) tippen(); takt(1 / 60); } return (performance.now() - a) / n; },
-    messeKachel: (i) => { const kc = kachelNeu(i); return KACHEL_STUFEN.map((f) => { const a = performance.now(); f(kc.k, kc); return Math.round((performance.now() - a) * 10) / 10; }); },
-    messeBilder: () => { const raus = {}; const a = performance.now(); zweigeBei(state.camY - 50, state.camY + 150).forEach((z) => { const b = performance.now(); sprites.delete(`zweig:${z.j}:${view.S}`); zweigBild(z); raus[`zweig ${z.art}`] = Math.round((performance.now() - b) * 10) / 10; }); const b = performance.now(); state.blaetter.slice(0, 10).forEach((p) => { p.bild = null; blattBild(p); }); raus.blaetter10 = Math.round((performance.now() - b) * 10) / 10; raus.gesamt = Math.round((performance.now() - a) * 10) / 10; return raus; },
-    vorausTest: (L, t0, schlaege, bis) => { const e = vorausrechnen(L, t0, schlaege, bis, 1 / 240); return { art: e.art, nr: e.blatt?.nr ?? (e.blatt?.laub ? "laub" : null), t: +e.t.toFixed(2), x: +e.L.x.toFixed(1), y: +e.L.y.toFixed(1) }; },
+    bildX, bildY, spaet,
   };
 })();

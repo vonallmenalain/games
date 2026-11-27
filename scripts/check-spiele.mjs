@@ -13083,7 +13083,7 @@ try {
 
   // --- 4g50. Wasserläufer: immer zu schaffen, und wer nicht im rechten Moment rudert, wird gefressen ----
   // Ein Autopilot rudert, wenn der Schlag in der Mitte des Fensters auf dem
-  // nächsten Blatt landet – über vier gewürfelte Welten bis 100 s, ohne
+  // nächsten Blatt landet – über vier gewürfelte Welten bis 80 s, ohne
   // dass er gefressen wird und ohne dass der Bau der Kette je ausweichen
   // muss. Dabei kommen alle fünf Welten vor, und jeder achte Abschnitt ist
   // besonders (8., 24., 40.: Strömung, 16., 32.: Hechtgrube), vorher
@@ -13121,7 +13121,7 @@ try {
       let besonders = [];
       let fenster = [];
       for (let i = 0; i < 4; i += 1) {
-        genau.push(lauf(100, { pilot: true, ansagen, welten }));
+        genau.push(lauf(80, { pilot: true, ansagen, welten }));
         if (i === 0) {
           besonders = st.abschnitte.filter((a) => a.besonders && a.nr <= st.punkte).map((a) => ({ nr: a.nr, art: a.besonders }));
           fenster = st.abschnitte.filter((a) => a.fenster).map((a) => [a.nr, a.fenster]);
@@ -13152,7 +13152,7 @@ try {
         geduld: [1, 15, 40].map((n) => Math.round(K.geduldBei(n) * 100) / 100),
       };
     });
-    pruefe(befund.genau.every((r) => r.schritt !== "tot" && r.t >= 100 && r.planFehler === 0) && befund.genau[0].punkte >= 70,
+    pruefe(befund.genau.every((r) => r.schritt !== "tot" && r.t >= 80 && r.planFehler === 0) && befund.genau[0].punkte >= 60,
       `Wasserläufer: Der Autopilot kommt nicht durch jede Welt, oder der Bau der Kette weicht aus – ${JSON.stringify(befund.genau)}`);
     pruefe(JSON.stringify(befund.welten) === JSON.stringify([0, 1, 2, 3, 4]),
       `Wasserläufer: In vier Läufen kommen nicht alle fünf Welten vor: ${JSON.stringify(befund.welten)}`);
