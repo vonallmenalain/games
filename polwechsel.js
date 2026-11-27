@@ -102,38 +102,39 @@
   const DAEMPF = 2;
   const W = 16;
   const HALT_D = 12;
-  // Das Fallen: erst anlaufen, dann gemütlich V0, ab V_AB Sekunden
-  // schneller, gegen V_MAX – 4 m/s die ersten zehn Sekunden, 6,6 nach 15 s,
-  // 8,8 nach 20 s, 12 nach 30 s, 17 nach einer Minute.
-  const V0 = 40;
+  // Das Fallen: erst anlaufen, dann gemütlich V0, ab V_AB Sekunden sanft
+  // schneller, gegen V_MAX – 3,2 m/s die ersten acht Sekunden, 5,2 nach
+  // 15 s, 6,5 nach 20 s, 8,7 nach 30 s, 11 nach 45 s, 13,5 nach einer Minute.
+  const V0 = 32;
   const V_MAX = 200;
-  const V_ZEIT = 28;
-  const V_AB = 10;
+  const V_ZEIT = 55;
+  const V_AB = 8;
   const ANLAUF = 0.5;
   // Die Luft: um so viele Sekunden darf jeder Tipp zu früh oder zu spät
-  // kommen. Die ersten elf Sekunden ±300 ms (und um den Weg noch mehr Platz,
-  // EINSTIEG), dann rasch enger: nach 15 s ±139, nach 20 s ±89. Ab E_SPAET
-  // Sekunden wird es noch einmal stetig enger (sonst fiele ein sehr genauer
-  // Spieler minutenlang): nach 30 s ±48, nach 45 s ±28, nach einer Minute
-  // ±20, ab gut 85 s nie unter ±13.
+  // kommen. Die ersten 23 Sekunden ±300 ms (und um den Weg noch mehr Platz,
+  // EINSTIEG), dann enger: nach 25 s ±213, nach 30 s ±128, nach 40 s ±70.
+  // Ab E_SPAET Sekunden wird es noch einmal stetig enger (sonst fiele ein
+  // sehr genauer Spieler minutenlang): nach 45 s ±57, nach einer Minute ±36,
+  // nach anderthalb ±20, nie unter ±13.
   const E0 = 0.3;
   const E_SPAET_MIN = 0.018;
-  const E_ZEIT = 3;
-  const E_AB = 11;
-  const E_SPAET = 20;
-  const E_SPAET_ZEIT = 55;
+  const E_ZEIT = 4.5;
+  const E_AB = 23;
+  const E_SPAET = 33;
+  const E_SPAET_ZEIT = 75;
   const E_MIN = 0.013;
-  const SCHWER_ZEIT = 20;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
-  const SCHWER_AB = 9;
-  const EINSTIEG = 14;              // so lange ist um den Weg mehr Platz als die Luft
+  const SCHWER_ZEIT = 26;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
+  const SCHWER_AB = 20;            // erst ab hier kommen neue Lagen und mehr Tipps
+  const EINSTIEG = 24;             // so lange ist um den Weg mehr Platz als die Luft
+  const BESONDERS_AB = 16;         // der erste besondere Abschnitt (nach rund 20 s); dann jeder achte
   const MIN_HOCH = 26;             // so hoch ist eine Reihe mindestens (und 0,3 s lang)
-  const SICHT = 128;               // so weit sieht man unter die Kugel, hoch wie quer
+  const SICHT = 140;               // so weit sieht man unter die Kugel, hoch wie quer
   const KACHEL = 8;                // ein Stück Wand, auf ganze Bildpunkte gerundet
   const STURZ_MS = 1900;
-  // Fassung t2: Seit dem gemütlicheren Anfang ist es ein anderer Schacht –
-  // ältere Läufe passen nicht mehr. (Dieselbe steht unten bei den Gegnern und
-  // beim Zuschauen und in mini-games.js, ANSEHBAR.)
-  const FASSUNG = "t2";
+  // Fassung t3: Seit dem noch gemütlicheren Anfang ist es ein anderer Schacht
+  // – ältere Läufe passen nicht mehr. (Dieselbe steht unten bei den Gegnern
+  // und beim Zuschauen und in mini-games.js, ANSEHBAR.)
+  const FASSUNG = "t3";
 
   // Die Zonen, nach der Tiefe in Metern.
   const ZONEN = [
@@ -601,6 +602,16 @@
     return { weg, an, ruhe };
   }
 
+  // Welcher Abschnitt besonders ist: ab BESONDERS_AB jeder achte – zuerst
+  // zweimal ein Stromausfall (der 16. und 24.), dann im Wechsel ein
+  // Wechselfeld und ein Stromausfall (32., 48. … und 40., 56. …). Das
+  // Wechselfeld ist das schwerere; es kommt erst, wenn man sich eingespielt hat.
+  const besondersBei = (n) => {
+    if (n % 8 !== 0 || n < BESONDERS_AB) return "";
+    if (n < BESONDERS_AB + 16) return "aus";
+    return ((n - BESONDERS_AB - 16) / 8) % 2 === 0 ? "wechsel" : "aus";
+  };
+
   function naechsterAbschnitt() {
     const n = state.abschnitte.length + 1;
     const z = [];
@@ -609,7 +620,7 @@
     const T = pl.t;
     const k0 = schwere(T);
     const e0 = luftBei(T);
-    const besonders = n % 8 === 0 ? ((n / 8) % 2 === 1 ? "aus" : "wechsel") : "";
+    const besonders = besondersBei(n);
     const reihe = state.reihen[state.reihen.length - 1];
     const vorher = {
       sperren: state.sperren.length, stacheln: state.stacheln.length, weg: state.weg.length, reihen: state.reihen.length, reihe: { ...reihe },
@@ -641,10 +652,10 @@
         // im Dunkeln; die Luft reicht fast über die ganze Gasse.
         const cl = z[3] < 0.5 ? 1 : -1;
         const cfg = { cl, cr: -cl };
-        // Immer die andere Polung: Wer im Dunkeln nicht umpolt, zerschellt
-        // danach. (z[4] bleibt gezogen, damit die Saat gleich viele Zahlen
-        // verbraucht.)
-        const pNeu = -pl.p;
+        // Nach dem Stromausfall geht es mit derselben Polung weiter: Umpolen
+        // im Dunkeln ist keine Pflicht. (z[4] bleibt gezogen, damit die Saat
+        // gleich viele Zahlen verbraucht.)
+        const pNeu = pl.p;
         const nach = zielBahn(cfg.cl, cfg.cr, pNeu);
         const tAn = t0 + dauer;
         if (pNeu !== pl.p) neuW.push({ t: t0 + dauer * 0.55, e: Math.min(dauer * 0.4, 0.7), nr: n, aus: true });
@@ -728,7 +739,7 @@
         // beginnt es).
         let wahl = "gegen";
         if (!einfach && n >= 4) {
-          const vorWechsel = (n + 1) % 16 === 0;
+          const vorWechsel = besondersBei(n + 1) === "wechsel";
           wahl = waehle([
             ["gegen", 3],
             ["gleich", n >= 5 && !vorWechsel ? lerp(0.8, 1.3, k) : 0],
@@ -1002,7 +1013,7 @@
     const breitE = 2 * (HALB + BLOCK + 3);
     const quer = cssW > cssH * 1.25;
     const lage = (mitte, oben) => {
-      const kugelY = Math.max(oben + (cssH - oben) * (quer ? 0.08 : 0.2) + 6, cssH * 0.2);
+      const kugelY = Math.max(oben + (cssH - oben) * (quer ? 0.08 : 0.14) + 6, cssH * (quer ? 0.2 : 0.16));
       const s1 = (cssH - kugelY - 6) / SICHT;
       const s2 = (Math.min(mitte, cssW - mitte) * 2 * 0.97) / breitE;
       return { mitte, kugelY, s0: Math.max(0.5, Math.min(s1, s2)) };
@@ -2804,7 +2815,7 @@
       if (r.t0 > state.t + 1.7) break;
       if (!r.art || r.nr <= state.angesagt) continue;
       state.angesagt = r.nr;
-      if (r.art === "aus") ansage("Stromausfall voraus", "gerade durch – im Dunkeln vorpolen", "#c8f0a0", 2);
+      if (r.art === "aus") ansage("Stromausfall voraus", "gerade durch – die Farbe darf bleiben", "#c8f0a0", 2);
       else ansage("Wechselfeld", "im Takt umpolen", "#ffd27a", 2);
       klang()?.ton?.("polwechsel.ansage");
     }
@@ -3020,10 +3031,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "poleSwitch", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "poleSwitch", fassung: "t3", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "poleSwitch", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "poleSwitch", host, art: "tempo", fassung: "t3", alle: true, zufall }) || null;
   }
 
   startRun();
