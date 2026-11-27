@@ -387,6 +387,7 @@ console.log(`${eintraege.length} Einträge in ${SPIELE.length} Spielen, ${LEUTE.
 
 // NUR=admin: nur den Adminbereich (zum Nachsehen).
 const NUR = process.env.NUR || "";
+let weiter = null;   // Lenas Gerät, für die Zeit nach dem Adminbereich
 
 // --- Die Startseite ----------------------------------------------------------
 if (!NUR) {
@@ -447,14 +448,19 @@ await messe(lena, "Turnier: eine Runde", async () => {
 });
 await messe(lena, "Zurück zur Turnierseite", async () => { await lena.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" }); await turnierDa(lena); });
 {
-  const meiner = await lena.seite.evaluate(({ spiel, ich, id }) => JSON.parse(localStorage.getItem("mini.turnier.stand") || "{}")?.[id]?.eintraege?.find((e) => e.game === spiel && e.spieler === ich) || null, { spiel: SPIEL, ich: ICH[0], id: TURNIER_ID });
+  // Unter der Kennung, unter der das Gerät jetzt spielt: Lena spielt auf zwei
+  // Geräten, und das Gerät nimmt die, unter der der Name am meisten spielt.
+  const meiner = await lena.seite.evaluate(({ spiel, id }) => JSON.parse(localStorage.getItem("mini.turnier.stand") || "{}")?.[id]?.eintraege?.find((e) => e.game === spiel && e.spieler === localStorage.getItem("mini.id")) || null, { spiel: SPIEL, id: TURNIER_ID });
   pruefe(meiner?.punkte === 777, `Zurück auf der Turnierseite fehlt die eigene Runde: ${JSON.stringify(meiner)}`);
 }
 // Nebenan spielt jemand im Turnier, während die Seite offen ist.
 await messe(lena, "Turnierseite offen, nebenan eine Turnierrunde", async () => {
   await ohneRegeln((db) => db.doc(`miniTurniere/${TURNIER_ID}/eintraege/${TURNIER_SPIELE[1]}_${FREMD[0]}`).set({ punkte: 999, versuche: 9, offen: false, updatedAtMs: Date.now(), updatedAt: SERVERZEIT() }, { merge: true }));
 }, { mindestens: 2500 });
-await lena.kontext.close();
+await lena.seite.goto(`${BASIS}/`, { waitUntil: "load" });
+await geladen(lena);
+await ruhe(lena);
+weiter = lena;
 }
 
 // --- Der Adminbereich ------------------------------------------------------------
@@ -472,7 +478,35 @@ await messe(admin, "Admin: einen Eintrag umbenennen", async () => {
   await admin.seite.waitForTimeout(1500);
   await adminDa(admin);
 });
+// Und einen löschen: Danach setzt der Adminbereich den Stempel (cloud.js,
+// setzeListenStand), und die Startseiten lesen einmal alles.
+const idsVon = async (spiel) => {
+  let ids = [];
+  await ohneRegeln(async (db) => { ids = (await db.collection("miniScores").where("game", "==", spiel).get()).docs.map((d) => d.id); });
+  return ids;
+};
+const vorDemLoeschen = new Set(await idsVon(SPIEL));
+await messe(admin, "Admin: einen Eintrag löschen", async () => {
+  await admin.seite.waitForSelector(".adm-bestenliste button", { timeout: 8000 }).catch(() => {});
+  await admin.seite.locator(".adm-bestenliste button", { hasText: "Löschen" }).last().click({ timeout: 5000 }).catch(() => {});
+  await admin.seite.waitForTimeout(1500);
+  await adminDa(admin);
+});
+const nachDemLoeschen = new Set(await idsVon(SPIEL));
+const geloescht = [...vorDemLoeschen].filter((id) => !nachDemLoeschen.has(id));
+pruefe(geloescht.length === 1, `Im Adminbereich wurde nicht genau ein Eintrag gelöscht: ${geloescht.join(", ") || "keiner"}`);
 await admin.kontext.close();
+
+if (weiter) {
+  const lena = weiter;
+  const nachLoeschen = await messe(lena, "Startseite nach einem Löschen im Admin", async () => { await lena.seite.reload({ waitUntil: "load" }); await geladen(lena); await listeDa(lena); });
+  const noch = await lena.seite.evaluate(({ spiel, weg }) => window.LernappMini.listeFuer(spiel).then((l) => l.filter((e) => weg.includes(e.id)).map((e) => e.id)), { spiel: SPIEL, weg: geloescht });
+  pruefe(!noch.length, `Nach dem Löschen im Adminbereich steht der Eintrag auf der Startseite noch da: ${noch.join(", ")}`);
+  pruefe(nachLoeschen > eintraege.length / 2, `Nach dem Löschen im Adminbereich liest die Startseite nicht einmal alles (${nachLoeschen}).`);
+  const danach = await messe(lena, "Startseite, Aufruf danach", async () => { await lena.seite.reload({ waitUntil: "load" }); await geladen(lena); await listeDa(lena); });
+  pruefe(danach <= 20, `Nach dem vollen Lesen liest die Startseite wieder alles (${danach}).`);
+  await lena.kontext.close();
+}
 
 await browser.close();
 await env.cleanup();

@@ -271,7 +271,19 @@
       erstesMs: Number(daten.erstesMs) || 0,
       spielMs: Math.max(0, Math.round(Number(daten.spielMs) || 0)),
       updatedAtMs: Number(daten.updatedAtMs) || 0,
+      // Die Uhr des Servers beim letzten Schreiben (updatedAt) – danach fragt
+      // die Liste auf dem Gerät, was sich geändert hat (ergebnisse). Ältere
+      // Einträge, die seither nie geschrieben wurden, haben sie nicht.
+      stempelMs: serverMs(daten.updatedAt),
     };
+  }
+
+  // Ein Zeitstempel des Servers in Millisekunden, oder 0.
+  function serverMs(wert) {
+    try {
+      const ms = typeof wert?.toMillis === "function" ? wert.toMillis() : 0;
+      return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    } catch { return 0; }
   }
 
   function sauber(wert) {
@@ -281,42 +293,227 @@
   /*
    * Die Ergebnisse der genannten Spiele.
    *
-   * Eine Abfrage je Spiel, und ein Spiel, das nicht antwortet, wirft die
-   * anderen nicht um: Die Liste kommt dann ohne dieses eine – besser als eine
-   * leere Seite.
+   * Bis November 2026 hiess das: eine Abfrage je Spiel, jedes Dokument jedes
+   * Mal – die Startseite las bei jedem Aufruf die ganze Hall of Fame, gut
+   * 500 Dokumente, und das 50 000 freie Lesevorgänge am Tag schnell auf. Jetzt
+   * bleiben die Listen auf dem Gerät (LISTEN_SPEICHER), mit dem Stand des
+   * Servers, bis zu dem sie stimmen (stand: die Uhr des Servers beim letzten
+   * Schreiben, updatedAt), und gefragt wird nur nach dem, was danach
+   * geschrieben wurde: eine Abfrage über ein einziges Feld, über alle Spiele,
+   * ohne zusammengesetzten Index (geaendertSeit). Jede Runde, jedes
+   * Umbenennen und jedes Zusammenführen setzt updatedAt – so kommt jede
+   * Änderung mit.
+   *
+   * Ganz gelesen wird, wie vorher (vollLesen):
+   *
+   *   beim ersten Mal          das Gerät hat noch nichts
+   *   nach einem Tag           das Sicherheitsnetz (LISTEN_VOLL_MS)
+   *   nach einem Löschen       der Adminbereich setzt einen Stempel in
+   *                            config/miniGames (setzeListenStand) – ein
+   *                            gelöschtes Dokument sagt sonst niemandem, dass
+   *                            es weg ist. Die Startseite liest das Dokument
+   *                            ohnehin (konfig).
+   *   ein Spiel, das fehlt     nur dieses: ein neu angehaktes, eines, das das
+   *                            Gerät nie gesehen hat
+   *
+   * Nur ein Leser mit vielen Spielen (die Startseite, der Adminbereich) legt
+   * den Speicher an: Sein Stand ist die jüngste Runde überhaupt, und die
+   * Frage nach dem Geänderten ist danach kurz. Eine Spielseite allein liest
+   * ihr Spiel wie vorher ganz – nach dem, was sich seit der letzten Runde in
+   * einem einzigen Spiel getan hat, lässt sich ohne Index nicht fragen.
+   *
+   * Ein Spiel, das nicht antwortet, wirft die anderen nicht um: Die Liste
+   * kommt dann ohne dieses eine – besser als eine leere Seite. Antwortet
+   * keines, wirft es wie vorher, und mini-games.js nimmt, was es zuletzt
+   * gesehen hat (alleErgebnisse).
    */
+  const LISTEN_SPEICHER = "mini.wolke.listen";
+  const STEMPEL_SPEICHER = "mini.wolke.stempel";
+  const LISTEN_VOLL_MS = 24 * 60 * 60 * 1000;
+  // So viel weiter zurück wird nach Geändertem gefragt, als der Stand sagt:
+  // Was in dieser Zeit schon gelesen war, kommt eben noch einmal.
+  const LISTEN_UEBERLAPPUNG_MS = 2 * 60 * 1000;
+  const GEAENDERT_SEITE = 500;
+  // Ab so vielen Spielen legt ein Leser den Speicher an (siehe oben).
+  const LISTEN_AB_SPIELEN = 5;
+  // Eine Spielseite fragt nach höchstens so vielen Änderungen. Sind es mehr,
+  // liest sie ihr eigenes Spiel ganz – das ist dann billiger.
+  const GEAENDERT_SPIELSEITE = 40;
+
+  function liesListen() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(LISTEN_SPEICHER) || "null");
+      if (!roh || roh.v !== 1 || !Array.isArray(roh.eintraege) || !Array.isArray(roh.spiele)) return null;
+      return roh;
+    } catch { return null; }
+  }
+  function schreibeListen(speicher) {
+    try {
+      if (speicher) localStorage.setItem(LISTEN_SPEICHER, JSON.stringify(speicher));
+      else localStorage.removeItem(LISTEN_SPEICHER);
+    } catch { /* voll oder privat – dann liest die nächste Seite eben wieder alles */ }
+  }
+
+  // Der Stempel des Adminbereichs (config/miniGames, listenStandMs): wann er
+  // zuletzt gelöscht oder zusammengeführt hat. Gelesen wird er mit dem
+  // Dokument (konfig) und auf dem Gerät gemerkt – auch für die Spielseiten,
+  // die das Dokument nicht lesen.
+  function listenStand() {
+    try { return Number(localStorage.getItem(STEMPEL_SPEICHER)) || 0; } catch { return 0; }
+  }
+  function merkeListenStand(stand) {
+    const ms = Math.round(Number(stand?.exists ? stand.data()?.listenStandMs : 0) || 0);
+    try { localStorage.setItem(STEMPEL_SPEICHER, String(ms)); } catch { /* privat */ }
+  }
+
+  // Ein Eintrag, wie er im Speicher steht – die Felder von lies().
+  const alsGemerkt = (e) => ({
+    id: e.id, game: e.game, spieler: e.spieler, name: e.name, punkte: e.punkte, versuche: e.versuche,
+    erstesMs: e.erstesMs, spielMs: e.spielMs, updatedAtMs: e.updatedAtMs, stempelMs: e.stempelMs || 0,
+  });
+
+  // Ein Spiel ganz lesen – null, wenn es nicht antwortet.
+  function spielLesen(ref, id) {
+    return ref.where("game", "==", id).limit(MAX_JE_SPIEL).get()
+      .then((schnappschuss) => (schnappschuss?.metadata?.fromCache ? null : zaehleAbfrage("ergebnisse", schnappschuss)))
+      .catch((fehler) => {
+        console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, fehler);
+        return null;
+      });
+  }
+
+  // Die genannten Spiele ganz: { liste, gelesen: [ids, die geantwortet haben] }.
+  async function vollLesen(ref, ids) {
+    const antworten = await Promise.all(ids.map((id) => spielLesen(ref, id)));
+    const liste = [];
+    const gelesenIds = [];
+    antworten.forEach((schnappschuss, i) => {
+      if (!schnappschuss) return;
+      gelesenIds.push(ids[i]);
+      schnappschuss.forEach((doc) => {
+        const eintrag = lies(doc);
+        if (eintrag) liste.push(eintrag);
+      });
+    });
+    return { liste, gelesen: gelesenIds };
+  }
+
+  /*
+   * Was seit seit (Uhr des Servers, ms) geschrieben wurde – nach der Uhr
+   * aufsteigend, Seite für Seite. hoechstens: nach so vielen aufhören (null:
+   * bis zum Ende). Gibt { liste, bis, voll } zurück: bis ist der Stand, bis zu
+   * dem alles da ist, voll, ob es alles war. Wirft ohne Netz.
+   */
+  async function geaendertSeit(ref, seit, { hoechstens = null } = {}) {
+    const Zeit = window.firebase?.firestore?.Timestamp;
+    if (!Zeit?.fromMillis) throw new Error("Firestore ist nicht bereit.");
+    const seite = hoechstens ? Math.min(GEAENDERT_SEITE, hoechstens) : GEAENDERT_SEITE;
+    let frage = ref.where("updatedAt", ">", Zeit.fromMillis(Math.max(1, Math.round(seit)))).orderBy("updatedAt").limit(seite);
+    const liste = [];
+    let bis = seit;
+    for (;;) {
+      const antwort = await frage.get();
+      if (antwort.metadata?.fromCache) throw Object.assign(new Error("Die Bestenliste ist gerade nicht zu haben."), { code: "unavailable" });
+      zaehleAbfrage("ergebnisseGeaendert", antwort);
+      antwort.forEach((doc) => {
+        const eintrag = lies(doc);
+        if (eintrag) liste.push(eintrag);
+        bis = Math.max(bis, serverMs(doc.data()?.updatedAt));
+      });
+      if (antwort.size < seite) return { liste, bis, voll: true };
+      if (hoechstens && liste.length >= hoechstens) return { liste, bis, voll: false };
+      frage = frage.startAfter(antwort.docs[antwort.docs.length - 1]);
+    }
+  }
+
   async function ergebnisse(spiele = []) {
     const ref = sammlung();
     const ids = [...new Set((Array.isArray(spiele) ? spiele : [])
       .map((id) => String(id || "").trim())
       .filter(Boolean))];
     if (!ref || !ids.length) return [];
+    const jetzt = Date.now();
+    const stempel = listenStand();
+    const alt = liesListen();
+    const gueltig = alt && alt.stand > 0 && jetzt - alt.vollMs >= 0 && jetzt - alt.vollMs < LISTEN_VOLL_MS
+      && !(stempel > (Number(alt.stempel) || 0));
+    const vieleSpiele = ids.length >= LISTEN_AB_SPIELEN;
 
-    // Ohne Netz antwortet Firestore aus seinem Zwischenspeicher – und der ist
-    // hier leer: Eine leere Liste sähe aus wie «noch niemand gespielt». Eine
-    // Antwort von dort zählt deshalb nicht; antwortet kein Spiel vom Server,
-    // wirft es, und mini-games.js nimmt, was es zuletzt gesehen hat
-    // (alleErgebnisse).
-    const antworten = await Promise.all(ids.map((id) => ref
-      .where("game", "==", id)
-      .limit(MAX_JE_SPIEL)
-      .get()
-      .then((schnappschuss) => (schnappschuss?.metadata?.fromCache ? null : zaehleAbfrage("ergebnisse", schnappschuss)))
-      .catch((fehler) => {
-        console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, fehler);
-        return null;
-      })));
-    if (!antworten.some(Boolean)) throw Object.assign(new Error("Die Bestenliste ist gerade nicht zu haben."), { code: "unavailable" });
+    // Ganz – und, wenn es viele Spiele sind, als neuer Speicher.
+    if (!gueltig) {
+      const { liste, gelesen: da } = await vollLesen(ref, ids);
+      if (!da.length) throw Object.assign(new Error("Die Bestenliste ist gerade nicht zu haben."), { code: "unavailable" });
+      if (vieleSpiele) {
+        schreibeListen({
+          v: 1,
+          stand: liste.reduce((m, e) => Math.max(m, e.stempelMs || 0), 0) || jetzt - LISTEN_VOLL_MS,
+          vollMs: jetzt,
+          stempel,
+          spiele: da,
+          eintraege: liste.map(alsGemerkt),
+        });
+      }
+      return liste;
+    }
 
-    const liste = [];
-    antworten.forEach((schnappschuss) => {
-      if (!schnappschuss) return;
-      schnappschuss.forEach((doc) => {
-        const eintrag = lies(doc);
-        if (eintrag) liste.push(eintrag);
-      });
-    });
-    return liste;
+    // Nur, was sich geändert hat.
+    const speicher = { ...alt, spiele: [...alt.spiele] };
+    const nachId = new Map(speicher.eintraege.map((e) => [e.id, e]));
+    const abgedeckt = new Set(speicher.spiele);
+    const fehlen = ids.filter((id) => !abgedeckt.has(id));
+    let antwort;
+    try {
+      antwort = await geaendertSeit(ref, speicher.stand - LISTEN_UEBERLAPPUNG_MS,
+        { hoechstens: vieleSpiele ? null : GEAENDERT_SPIELSEITE });
+    } catch (fehler) {
+      // Ohne Netz wie vorher: werfen. Lehnt Firestore die Frage selbst ab
+      // (ein Index, der fehlt), gilt der Speicher nicht mehr – dann ganz.
+      if (fehler?.code === "unavailable" || (typeof navigator !== "undefined" && navigator.onLine === false)) throw fehler;
+      console.warn("Nach dem Geänderten liess sich nicht fragen – die Listen werden ganz gelesen", fehler);
+      schreibeListen(null);
+      return ergebnisse(ids);
+    }
+    const { liste: geaendert, bis, voll } = antwort;
+    geaendert.forEach((e) => { if (abgedeckt.has(e.game)) nachId.set(e.id, alsGemerkt(e)); });
+    speicher.stand = Math.max(speicher.stand, bis);
+    // Zu viel geändert für eine Spielseite: Ihr Spiel liest sie ganz, die
+    // anderen holen beim nächsten Mal nach, ab dem Stand, bis zu dem alles da
+    // ist.
+    const ganz = voll ? fehlen : [...new Set([...fehlen, ...ids])];
+    if (ganz.length) {
+      const { liste, gelesen: da } = await vollLesen(ref, ganz);
+      const frisch = new Set(da);
+      [...nachId.values()].forEach((e) => { if (frisch.has(e.game)) nachId.delete(e.id); });
+      liste.forEach((e) => nachId.set(e.id, alsGemerkt(e)));
+      da.forEach((id) => { if (!abgedeckt.has(id)) speicher.spiele.push(id); });
+      if (fehlen.length && !fehlen.some((id) => frisch.has(id)) && fehlen.length === ids.length) {
+        throw Object.assign(new Error("Die Bestenliste ist gerade nicht zu haben."), { code: "unavailable" });
+      }
+    }
+    speicher.eintraege = [...nachId.values()];
+    schreibeListen(speicher);
+    const gefragt = new Set(ids);
+    return speicher.eintraege.filter((e) => gefragt.has(e.game)).map((e) => ({ ...e }));
+  }
+
+  // Die eigene Runde gleich im Speicher – so, wie speichere sie geschrieben
+  // hat. Die nächste Frage nach dem Geänderten bringt sie ohnehin noch
+  // einmal, mit der Uhr des Servers.
+  function merkeEintrag(e) {
+    const speicher = liesListen();
+    if (!speicher || !speicher.spiele.includes(e.game)) return;
+    const liste = speicher.eintraege.filter((x) => x.id !== e.id);
+    const alt = speicher.eintraege.find((x) => x.id === e.id);
+    liste.push(alsGemerkt({ stempelMs: alt?.stempelMs || 0, ...alt, ...e }));
+    schreibeListen({ ...speicher, eintraege: liste });
+  }
+
+  // Ein neuer Name, gleich im Speicher (benenneUm): ids → Name.
+  function merkeNamen(ids, name) {
+    const speicher = liesListen();
+    if (!speicher || !ids.length) return;
+    const welche = new Set(ids);
+    schreibeListen({ ...speicher, eintraege: speicher.eintraege.map((e) => (welche.has(e.id) ? { ...e, name } : e)) });
   }
 
   /*
@@ -339,7 +536,11 @@
     const doc = listenDoc();
     if (!doc) return Promise.resolve(null);
     if (!konfigStand) {
-      konfigStand = doc.get().then((stand) => zaehleDokument("konfig", stand));
+      konfigStand = doc.get().then((stand) => {
+        zaehleDokument("konfig", stand);
+        if (!stand.metadata?.fromCache) merkeListenStand(stand);
+        return stand;
+      });
       konfigStand.catch(() => { konfigStand = null; });
     }
     return konfigStand;
@@ -467,6 +668,39 @@
   }
 
   /*
+   * Der Stempel: Der Adminbereich hat Einträge gelöscht oder zusammengeführt
+   * (admin.js, loesche). Ein gelöschtes Dokument sagt niemandem, dass es weg
+   * ist – die Listen auf den Geräten, die nur nach Geändertem fragen
+   * (ergebnisse), behielten es sonst bis zum Sicherheitsnetz einen Tag lang.
+   * Mit dem Stempel liest die nächste Startseite einmal alles.
+   *
+   *   weg     die Einträge, die eben gelöscht wurden: Auf diesem Gerät fallen
+   *           sie gleich aus dem Speicher, und der Stempel gilt hier als
+   *           gesehen – der Adminbereich liest deshalb nicht alles neu.
+   *   offen   die offenen Spiele, falls es das Dokument noch nicht gibt (die
+   *           Regeln verlangen sie, wie bei setzeTiers)
+   */
+  async function setzeListenStand({ weg = [], offen = [] } = {}) {
+    const doc = listenDoc();
+    if (!doc) throw new Error("Firestore ist nicht bereit.");
+    const jetzt = Date.now();
+    const daten = { listenStandMs: jetzt, updatedAtMs: jetzt, updatedAt: jetztAufDemServer() };
+    const stand = await liesKonfigFrisch(doc);
+    if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
+      daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
+    }
+    await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
+    konfigStand = null;
+    try { localStorage.setItem(STEMPEL_SPEICHER, String(jetzt)); } catch { /* privat */ }
+    const speicher = liesListen();
+    if (speicher) {
+      const geloescht = new Set((weg || []).map(String));
+      schreibeListen({ ...speicher, stempel: jetzt, eintraege: speicher.eintraege.filter((e) => !geloescht.has(e.id)) });
+    }
+    return jetzt;
+  }
+
+  /*
    * Eine zweite Anwendung ohne gespeicherte Anmeldung – für die Google-
    * Anmeldung der Netlify-Vorschauen (admin.js, vorschau). Die Anmeldung des
    * Adminbereichs auf der Live-Adresse bleibt davon unberührt.
@@ -580,6 +814,7 @@
           updatedAtMs: jetzt,
           updatedAt: jetztAufDemServer(),
         });
+        danach = { id: doc.id, game: spielId, spieler: spielerId, name: wie, punkte: zahl, versuche: 1, erstesMs: jetzt, spielMs: dauer, updatedAtMs: jetzt };
         return { rekord: true, punkte: zahl, versuche: 1, name: wie };
       }
 
@@ -592,6 +827,7 @@
         updatedAtMs: Math.max(alt.updatedAtMs, jetzt),
         updatedAt: jetztAufDemServer(),
       }, { merge: true });
+      danach = { ...alt, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1, spielMs: alt.spielMs + dauer, updatedAtMs: Math.max(alt.updatedAtMs, jetzt) };
       return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1, name: hiess };
     });
 
@@ -601,12 +837,18 @@
     // eine Uhr, die weit danebenliegt, eine Runde, die nach einem Löschen
     // liegen blieb), die Runde selbst. Weist sie auch die ab, war es nie das
     // Protokoll.
+    // Und die Liste auf dem Gerät gleich mit (merkeEintrag): Die eigene Runde
+    // steht sofort darin, ohne dass jemand die Liste neu liest.
+    let danach = null;
+    let raus;
     try {
-      return await eintragen(true);
+      raus = await eintragen(true);
     } catch (fehler) {
       if (fehler?.code !== "permission-denied") throw fehler;
-      return eintragen(false);
+      raus = await eintragen(false);
     }
+    if (danach) merkeEintrag(danach);
+    return raus;
   }
 
   /*
@@ -697,6 +939,7 @@
 
     const meine = await umzubenennen(ref, spielerId, vorher, wie);
     const geaendert = await schreibeNamen(db, meine, wie);
+    merkeNamen(meine.map((r) => r.id), wie);
     let inTurnieren = 0;
     for (const id of new Set((turniere || []).map((t) => String(t || "").trim()).filter(Boolean))) {
       const liste = turnierEintraege(id);
@@ -725,11 +968,15 @@
   }
 
   // Nur der Name, sonst nichts (firestore.rules) – in Stapeln, die
-  // Firestore annimmt.
+  // Firestore annimmt. Dazu die Uhr des Servers (updatedAt), nicht die des
+  // Eintrags (updatedAtMs, sie ordnet Gleichstände): An ihr sehen die Listen
+  // auf den anderen Geräten, dass sich etwas geändert hat (ergebnisse,
+  // turnierHoeren). Die Regeln lassen beim Umbenennen genau diese Felder zu.
   async function schreibeNamen(db, refs, wie) {
+    const zeit = jetztAufDemServer();
     for (let i = 0; i < refs.length; i += 400) {
       const stapel = db.batch();
-      refs.slice(i, i + 400).forEach((ref) => stapel.set(ref, { name: wie }, { merge: true }));
+      refs.slice(i, i + 400).forEach((ref) => stapel.set(ref, { name: wie, ...(zeit ? { updatedAt: zeit } : {}) }, { merge: true }));
       await stapel.commit();
     }
     return refs.length;
@@ -2032,6 +2279,7 @@
     speichereGeist, geister,
     runden, ersteRunde, rundenVonGeraeten, loescheRunden, zieheRundenUm,
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, offeneZweiSpieler, setzeZweiSpieler, vorschauApp,
+    listenStand, setzeListenStand,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
     turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,

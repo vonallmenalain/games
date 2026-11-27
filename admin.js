@@ -511,6 +511,11 @@
   // Liste genommen wurde, taucht auch in keinem Zeitraum mehr auf. Nur beim
   // Zusammenführen bleiben sie – dort sind sie schon umgezogen (runden:
   // false).
+  //
+  // Und mit dem Stempel in config/miniGames (cloud.js, setzeListenStand): Die
+  // Listen auf den Geräten fragen sonst nur nach Geändertem – und ein
+  // gelöschter Eintrag ändert sich nicht mehr. Mit dem Stempel liest jede
+  // Startseite einmal alles, und der Gelöschte ist auch dort weg.
   async function loesche(eintraege, { runden = true } = {}) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
@@ -519,6 +524,15 @@
       await db.collection("miniScores").doc(e.id).delete();
       try { await db.collection("miniGeister").doc(e.id).delete(); } catch (fehler) {
         console.warn("Der Geist zum Eintrag ist geblieben", fehler);
+      }
+    }
+    if (liste.length) {
+      try {
+        await cloud().setzeListenStand?.({ weg: liste.map((e) => e.id), offen: mini()?.alleSpiele?.() || [] });
+      } catch (fehler) {
+        // Dann sehen es die Geräte spätestens nach einem Tag (cloud.js,
+        // LISTEN_VOLL_MS).
+        console.warn("Der Stempel für die Listen ist nicht gesetzt", fehler);
       }
     }
     if (!runden || !liste.length) return;
@@ -646,10 +660,13 @@
 
   // Nur der Name: Die Uhr daneben sagt, wann zuletzt gespielt wurde – und
   // ordnet Gleichstände. Umbenennen ist nicht spielen.
+  // Mit der Uhr des Servers (updatedAt): An ihr sehen die Listen auf den
+  // Geräten, dass sich der Eintrag geändert hat (cloud.js, ergebnisse).
   async function benenneUm(id, name) {
     const db = cloud()?.db?.();
     if (!db) throw new Error("Firestore ist nicht bereit.");
-    await db.collection("miniScores").doc(id).set({ name }, { merge: true });
+    const zeit = window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
+    await db.collection("miniScores").doc(id).set({ name, ...(zeit ? { updatedAt: zeit } : {}) }, { merge: true });
   }
 
   /*

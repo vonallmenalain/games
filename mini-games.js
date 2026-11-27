@@ -1887,14 +1887,16 @@
 
   // Gefragt wird nach dem Namen (eine Abfrage, alle Spiele) und nach dem
   // Eintrag der Kennung – nicht nach ganzen Listen.
+  //
+  // Bis November 2026 fragte das nach jeder neuen Bestmarke auf der nächsten
+  // Seite nach allen Einträgen unter dem Namen, in allen Spielen (unterNamen)
+  // – oft hundert Dokumente für eine Frage nach einem. Jetzt zuerst der
+  // Eintrag der Kennung (ein Dokument), und nur, wenn der Lauf nicht zu ihm
+  // gehört, die Liste dieses einen Spiels, so wie die Seite sie ohnehin hat
+  // (listeDesSpiels).
   async function reicheNach() {
     const c = cloud();
-    if (!c?.speichereGeist || !c?.geister || !c?.unterNamen || !c?.meinErgebnis) return 0;
-    const namen = new Map();
-    const unter = (wie) => {
-      if (!namen.has(wie)) namen.set(wie, Promise.resolve(c.unterNamen(wie)).catch(() => null));
-      return namen.get(wie);
-    };
+    if (!c?.speichereGeist || !c?.geister || !c?.meinErgebnis) return 0;
     let hinauf = 0;
     for (const lauf of nachzusehen()) {
       const art = ansehArt(lauf.spiel);
@@ -1903,12 +1905,15 @@
         erledigt(lauf);
         continue;
       }
-      const [mitNamen, mitKennung] = await Promise.all([
-        unter(lauf.name),
-        gueltigeKennung(lauf.spieler) ? Promise.resolve(c.meinErgebnis(lauf.spiel, lauf.spieler)).catch(() => undefined) : null,
-      ]);
-      if (!Array.isArray(mitNamen) || mitKennung === undefined) continue;
-      const seine = [...mitNamen, ...(mitKennung ? [mitKennung] : [])].filter((e) => e?.game === lauf.spiel);
+      const mitKennung = gueltigeKennung(lauf.spieler) ? await Promise.resolve(c.meinErgebnis(lauf.spiel, lauf.spieler)).catch(() => undefined) : null;
+      if (mitKennung === undefined) continue;
+      let seine = mitKennung && mitKennung.punkte === lauf.punkte ? [mitKennung] : null;
+      if (!seine) {
+        const liste = await listeDesSpiels(lauf.spiel);
+        if (!Array.isArray(liste)) continue;
+        seine = [...liste.filter((e) => nameSchluessel(e.name) === nameSchluessel(lauf.name)), ...(mitKennung ? [mitKennung] : [])];
+      }
+      seine = seine.filter((e) => e?.game === lauf.spiel);
       const eintrag = seine.find((e) => e.spieler === lauf.spieler && e.punkte === lauf.punkte)
         || seine.find((e) => e.punkte === lauf.punkte);
       if (!eintrag) {
@@ -1930,6 +1935,15 @@
       }
     }
     return hinauf;
+  }
+
+  // Die Liste eines Spiels: aus dem, was die Seite schon hat (die Startseite
+  // alle Spiele), sonst gefragt – oder null, wenn sie nicht zu haben ist.
+  function listeDesSpiels(spiel) {
+    if (zwischenspeicher && zwischenspeicherFuer.split(",").includes(spiel) && Date.now() - zwischenspeicherMs < FRISCH_MS) {
+      return Promise.resolve(zwischenspeicher.filter((e) => e.game === spiel));
+    }
+    return alleErgebnisse([spiel]).catch(() => null);
   }
 
   // Ob sich eine Aufzeichnung abspielen lässt: mit Weg (oder Zügen) und, wo

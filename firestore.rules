@@ -129,7 +129,7 @@ service cloud.firestore {
     function istSpieleListe() {
       let d = request.resource.data;
       return d.keys().hasAll(["spiele", "updatedAtMs"])
-        && d.keys().hasOnly(["spiele", "tiers", "zweiSpieler", "updatedAtMs", "updatedAt"])
+        && d.keys().hasOnly(["spiele", "tiers", "zweiSpieler", "listenStandMs", "updatedAtMs", "updatedAt"])
         && d.spiele is list
         && d.spiele.size() <= 120
         && d.spiele.hasOnly(miniSpiele())
@@ -145,6 +145,12 @@ service cloud.firestore {
         && (!("zweiSpieler" in d) || (d.zweiSpieler is list
           && d.zweiSpieler.size() <= 120
           && d.zweiSpieler.hasOnly(zweiSpielerSpiele())))
+        // Wann der Adminbereich zuletzt Einträge gelöscht oder zusammengeführt
+        // hat (cloud.js, setzeListenStand): Die Listen auf den Geräten fragen
+        // sonst nur nach Geändertem, und ein gelöschter Eintrag ändert sich
+        // nicht mehr. Mit dem Stempel liest die nächste Startseite einmal
+        // alles. Fehlt das Feld, wurde nie etwas gelöscht.
+        && (!("listenStandMs" in d) || d.listenStandMs is int)
         && d.updatedAtMs is int;
     }
 
