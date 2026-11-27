@@ -269,8 +269,9 @@
     mirrorLake: { fassung: "t3" },
     // Die Blase: a der Ort quer (in Vierteln), b die Höhe (in Halben), c die Luftstösse
     // (wie viele, mal 1024) und woher der letzte kam (Richtung mal 32, Abstand), am Schluss
-    // negativ, woran sie zerplatzt ist.
-    soapBubble: { fassung: "t1" },
+    // negativ, woran sie zerplatzt ist. Fassung t2: Seit dem Tacho zählen Punkte (Höhe mal
+    // Tempofaktor) statt Meter, und der Anfang ist eine Rennstrecke – alte Läufe passen nicht mehr.
+    soapBubble: { fassung: "t2" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

@@ -12856,11 +12856,18 @@ try {
   // Welten vor, und jeder achte Abschnitt ist
   // besonders (8., 24.: Aufwind, 16., 32.: Böe), vorher angesagt. Mit wenig
   // gestreuten Tipps (±5 cm, gut 15 Bildpunkte, alle 0,2 s) kommt er meist
-  // weit, mit stark gestreuten (±17 cm, gut 50 Bildpunkte) bald nicht mehr.
+  // weit, mit stark gestreuten (±17 cm, gut 50 Bildpunkte) bald nicht mehr
+  // (die Rennstrecke am Anfang trägt auch ihn, dann die Baumkrone kaum).
   // Wer nichts tut, zerplatzt an der ersten Reihe; wer dauernd unter ihr
   // tippt, auch; wer sie berührt, dem zerplatzt sie unter dem Finger; wer
   // nur bremst, den holt der Nebel ein. Die Marge wird enger, die Blase
   // schneller, die Luft kürzer.
+  // Gezählt werden Punkte: die höchste Höhe in Dezimetern mal dem
+  // Tempofaktor aus dem Ø (Höhe durch Spielzeit) – nur aus Höhe und Zeit.
+  // Ein Raser (der Autopilot, der sie mit 160 cm/s hinaufbläst) ist im Ø
+  // deutlich schneller als der vorsichtige und holt in kurzer Zeit
+  // ansehnliche Punkte, aber zerplatzt bald. Der Tacho steht unten links,
+  // unter der Blase oder neben dem Feld, auf jedem Gerät.
   {
     const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
     await seite.goto(`${BASIS}/seifenblase`, { waitUntil: "load" });
@@ -12874,16 +12881,23 @@ try {
       // tipp(st): eigene Tipps in Weltkoordinaten (oder null).
       const lauf = (bis, { pilot = null, tipp = null, ansagen = null } = {}) => {
         neu();
+        let tacho = 0;
         for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "geplatzt" && st.t < bis; n += 1) {
           if (pilot) {
-            const p = K.pilot({ abstand: pilot.abstand });
+            const p = K.pilot({ abstand: pilot.abstand, raser: pilot.raser || 0 });
             if (p) K.tippeWelt(p.x + (Math.random() * 2 - 1) * pilot.streu, p.y + (Math.random() * 2 - 1) * pilot.streu);
           }
           if (tipp) { const q = tipp(st); if (q) K.tippeWelt(q[0], q[1]); }
           if (st.schritt !== "geplatzt") K.takt(1 / 240);
           if (ansagen && st.ansage) ansagen.add(st.ansage.text.split(" ")[0]);
+          tacho = Math.max(tacho, st.tacho);
         }
-        return { schritt: st.schritt, art: st.geplatzt?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, stoesse: st.stoesse, planFehler: st.planFehler };
+        // Das Ø in km/h und ob die Punkte genau aus Höhe und Zeit folgen.
+        const kmh = Math.round((st.hoechste / Math.max(0.1, st.t)) * K.KMH * 100) / 100;
+        return {
+          schritt: st.schritt, art: st.geplatzt?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, stoesse: st.stoesse, planFehler: st.planFehler,
+          kmh, tacho: Math.round(tacho * 10) / 10, rechnet: st.punkte === K.punkteBei(st.hoechste, st.t) && st.hoechste >= st.blase.y - 0.01,
+        };
       };
 
       // 1. Der Autopilot, vier Welten – und was in ihnen vorkommt.
@@ -12901,15 +12915,18 @@ try {
         if (i === 0) besonders = st.abschnitte.filter((a) => a.besonders && a.y1 < y).map((a) => ({ nr: a.nr, art: a.besonders }));
       }
       // 2. Gestreute Tipps, wie ein Mensch: alle 0,2 s, wenig oder viel daneben.
-      const median = (liste) => liste.map((r) => r.t).sort((a, b) => a - b)[Math.floor(liste.length / 2)];
+      const median = (liste, was = "t") => liste.map((r) => r[was]).sort((a, b) => a - b)[Math.floor(liste.length / 2)];
       const wenig = [];
       const viel = [];
+      const raser = [];
       for (let i = 0; i < 9; i += 1) {
         wenig.push(lauf(60, { pilot: { abstand: 0.2, streu: 5 } }));
         // Auch hier zählt, was vorkommt (die Baumkrone mit ihren Wespen).
         st.hindernisse.filter((o) => o.box.y1 < st.blase.y).forEach((o) => { arten[o.art] = (arten[o.art] || 0) + 1; });
         st.beweger.filter((m) => m.y1 < st.blase.y).forEach((m) => { arten[m.art] = (arten[m.art] || 0) + 1; });
         viel.push(lauf(60, { pilot: { abstand: 0.2, streu: 17 } }));
+        // Der Raser: ebenso genau, aber er bläst sie mit 160 cm/s hinauf.
+        raser.push(lauf(60, { pilot: { abstand: 0.2, streu: 5, raser: 160 } }));
       }
       // 3. Nichts tun; 4. dauernd unter ihr tippen (mitten im Bild, gleich
       //    weit unter ihr); 5. sie berühren; 6. nur bremsen (über ihr tippen).
@@ -12921,24 +12938,43 @@ try {
       const bremsen = lauf(30, { tipp: (s) => (s.t >= naechster ? ((naechster = s.t + 0.25), [s.blase.x, s.blase.y + 26]) : null) });
       return {
         genau, lagen, arten, ansagen: [...ansagen], besonders, wenig: median(wenig), viel: median(viel), wenigListe: wenig.map((r) => r.t), vielListe: viel.map((r) => r.t),
+        tempo: {
+          wenig: { t: median(wenig), kmh: median(wenig, "kmh"), punkte: median(wenig, "punkte") },
+          raser: { t: median(raser), kmh: median(raser, "kmh"), punkte: median(raser, "punkte") },
+          rechnet: [...wenig, ...viel, ...raser].every((r) => r.rechnet),
+        },
+        // Die Formel an festen Stellen: gleich hoch, aber schneller; weiter,
+        // aber langsamer; der Deckel; wer sich nur tragen lässt.
+        formel: {
+          gleichHoch: [K.punkteBei(3000, 20), K.punkteBei(3000, 45)],
+          weiter: [K.punkteBei(6000, 70), K.punkteBei(1500, 10)],
+          deckel: K.faktorBei(5000, 5),
+          getragen: K.faktorBei(K.hTrag(30), 30),
+        },
         nichts, dauernd, beruehrt, bremsen,
         marge: [0, 20, 40, 80].map((t) => Math.round(K.margeBei(t) * 10) / 10),
-        tempo: [1, 30, 90].map((t) => Math.round(K.vAuf(t))),
+        auftrieb: [1, 30, 90].map((t) => Math.round(K.vAuf(t))),
         luft: [0, 20, 60].map((t) => Math.round(K.luftBei(t) * 1000)),
         stoss: [K.R + 3, 40, 70, K.DMAX].map((d) => Math.round(K.stossBei(d))),
         windStart: Math.max(...[0, 100, 200, 300].map((y) => Math.abs(K.windBei(y, 5)))),
       };
     });
-    pruefe(befund.genau.every((r) => r.schritt !== "geplatzt" && r.t >= 100 && r.planFehler === 0) && befund.genau[0].punkte >= 70,
+    pruefe(befund.genau.every((r) => r.schritt !== "geplatzt" && r.t >= 100 && r.planFehler === 0 && r.rechnet && r.punkte >= 800 && r.tacho >= 2),
       `Seifenblase: Der Autopilot kommt nicht durch jede Welt, oder die Planung weicht aus – ${JSON.stringify(befund.genau)}`);
-    pruefe(["tor", "doppel", "treppe", "tropfen", "flieger", "aufwind", "boee"].every((l) => befund.lagen[l] >= 1)
+    pruefe(befund.tempo.rechnet && befund.tempo.raser.kmh >= befund.tempo.wenig.kmh + 1.5 && befund.tempo.raser.t < 40
+      && befund.tempo.raser.punkte >= befund.tempo.wenig.punkte * 0.4,
+      `Seifenblase: Der Raser ist nicht deutlich schneller als der Vorsichtige, oder er holt keine ansehnlichen Punkte: ${JSON.stringify(befund.tempo)}`);
+    pruefe(befund.formel.gleichHoch[0] >= befund.formel.gleichHoch[1] * 1.4 && befund.formel.weiter[0] >= befund.formel.weiter[1] * 2
+      && befund.formel.deckel === 2 && befund.formel.getragen === 1,
+      `Seifenblase: Die Punkte wiegen das Tempo nicht wie gedacht: ${JSON.stringify(befund.formel)}`);
+    pruefe(["tor", "gerade", "doppel", "treppe", "tropfen", "flieger", "aufwind", "boee"].every((l) => befund.lagen[l] >= 1)
       && ["rose", "nessel", "schlauch", "ast", "tanne", "netz", "balkon", "dach", "antenne", "wolke", "tropfen", "wespe", "schwalbe"].every((a) => befund.arten[a] >= 1)
       && (befund.arten.segler || 0) + (befund.arten.fetzen || 0) >= 1,
       `Seifenblase: In den Läufen kommen nicht alle Lagen oder nicht alle Hindernisse vor: ${JSON.stringify({ lagen: befund.lagen, arten: befund.arten })}`);
     pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => (a.nr + 1) % 8 === 0 && a.art === (((a.nr + 1) / 8) % 2 === 1 ? "aufwind" : "boee"))
       && befund.ansagen.includes("Aufwind") && befund.ansagen.includes("Böe"),
       `Seifenblase: Jeder achte Abschnitt ist nicht im festen Wechsel Aufwind oder Böe, oder er wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
-    pruefe(befund.wenig >= 40 && befund.viel <= 26 && befund.wenig > befund.viel + 15,
+    pruefe(befund.wenig >= 40 && befund.viel <= 32 && befund.wenig > befund.viel + 15,
       `Seifenblase: Gestreute Tipps wirken nicht wie erwartet (wenig daneben weit, viel daneben bald zu Ende): ${JSON.stringify({ wenig: befund.wenigListe, viel: befund.vielListe })}`);
     pruefe(befund.nichts.schritt === "geplatzt" && ["rose", "nessel"].includes(befund.nichts.art) && befund.nichts.t < 5,
       `Seifenblase: Wer nichts tut, zerplatzt nicht bald an der ersten Reihe: ${JSON.stringify(befund.nichts)}`);
@@ -12949,15 +12985,42 @@ try {
     pruefe(befund.bremsen.schritt === "geplatzt" && ["nebel", "tisch", "rasen"].includes(befund.bremsen.art) && befund.bremsen.t < 8,
       `Seifenblase: Wer nur bremst, wird nicht vom Nebel eingeholt: ${JSON.stringify(befund.bremsen)}`);
     pruefe(befund.marge[0] > befund.marge[1] && befund.marge[1] > befund.marge[2] && befund.marge[3] >= 4.5
-      && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2] && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2]
+      && befund.auftrieb[0] < befund.auftrieb[1] && befund.auftrieb[1] < befund.auftrieb[2] && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2]
       && befund.stoss[0] >= 70 && befund.stoss[1] < befund.stoss[0] && befund.stoss[2] < 12 && befund.stoss[3] === 0 && befund.windStart === 0,
-      `Seifenblase: Die Kurve wird nicht schwerer, oder der Luftstoss fällt nicht mit dem Abstand: ${JSON.stringify({ marge: befund.marge, tempo: befund.tempo, luft: befund.luft, stoss: befund.stoss, windStart: befund.windStart })}`);
+      `Seifenblase: Die Kurve wird nicht schwerer, oder der Luftstoss fällt nicht mit dem Abstand: ${JSON.stringify({ marge: befund.marge, auftrieb: befund.auftrieb, luft: befund.luft, stoss: befund.stoss, windStart: befund.windStart })}`);
     // Nach dem Platzen steht die Tafel da – in Echtzeit: loslassen und nichts tun.
     await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappSeifenblase.losGehts(); });
     await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
-    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappSeifenblase.state.schritt, phase: window.LernappSeifenblase.state.phase }));
-    pruefe(ende.schritt === "geplatzt" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|An einer (Rose|Brennnessel) zerplatzt · \d+ s|Rosendorn zerplatzt · \d+ s/.test(ende.text),
-      `Seifenblase: Nach dem Platzen steht keine Tafel mit Metern und Grund da: ${JSON.stringify(ende)}`);
+    // Die Zahl zählt hoch; sie soll bei den Punkten ankommen.
+    await seite.waitForFunction(() => Number((document.querySelector(".cm-result-score")?.textContent || "").replace(/\D/g, "")) === window.LernappSeifenblase.state.punkte, null, { timeout: 5000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappSeifenblase.state.schritt, phase: window.LernappSeifenblase.state.phase, punkte: window.LernappSeifenblase.state.punkte }));
+    pruefe(ende.schritt === "geplatzt" && ende.phase === "ende" && Number(String(ende.zahl).replace(/\D/g, "")) === ende.punkte && /Punkte/.test(ende.label)
+      && /^(Neuer Rekord!|An einer (Rose|Brennnessel) zerplatzt|Rosendorn zerplatzt) · \d+,\d m in \d+ s · Ø \d+,\d km\/h · ×\d,\d\d$/.test(ende.text),
+      `Seifenblase: Nach dem Platzen steht keine Tafel mit Punkten, Höhe, Ø, Faktor und Grund da: ${JSON.stringify(ende)}`);
+    // Der Tacho: hochkant unter der Blase, quer neben dem Feld – nie über
+    // der Leiste oben, nie über dem, was kommt. Und er ist gemalt: Mitten im
+    // Zifferblatt ist es hell.
+    const tachos = [];
+    for (const [breite, hoehe] of [[420, 760], [360, 640], [390, 844], [844, 390], [1024, 1366], [1366, 1024]]) {
+      await seite.setViewportSize({ width: breite, height: hoehe });
+      await seite.waitForFunction((b) => window.LernappSeifenblase.view.cssW === b, breite, { timeout: 4000 }).catch(() => {});
+      await seite.waitForTimeout(150);
+      tachos.push(await seite.evaluate(() => {
+        const K = window.LernappSeifenblase;
+        const o = K.tachoOrt();
+        const leinwand = document.querySelector("#sb-stage canvas");
+        const d = K.view.dpr;
+        const punkt = (x, y) => [...leinwand.getContext("2d").getImageData(Math.round(x * d), Math.round(y * d), 1, 1).data];
+        const mitte = punkt(o.x + o.r * 1.25, o.y + o.r * 0.7);
+        return {
+          ...o, w: K.view.cssW, hoch: K.view.cssH, frei: K.view.frei,
+          blaseUnten: K.view.blaseY + K.R * K.view.s, feldLinks: K.bildX(-K.RAND),
+          hell: mitte.slice(0, 3).every((v) => v > 200),
+        };
+      }));
+    }
+    pruefe(tachos.every((o) => o.r >= 44 && o.y >= o.frei && o.y + o.h <= o.hoch && (o.y > o.blaseUnten + 10 || o.x + o.b < o.feldLinks) && o.hell),
+      `Seifenblase: Der Tacho fehlt, oder er deckt etwas Wichtiges zu: ${JSON.stringify(tachos)}`);
     await kontext.close();
   }
   {
@@ -12998,7 +13061,7 @@ try {
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, stoesse: st.stoesse, art: st.geplatzt?.art || "", kurs: window.LernappSeifenblase.kursText(30) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.stoesse >= 5 && gespielt.punkte >= 1 && gespielt.art !== "",
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.stoesse >= 5 && gespielt.punkte >= 1 && gespielt.art !== "",
       `Seifenblase: Der Lauf wird nicht mit Saat und Stössen hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/seifenblase?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappSeifenblase?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});

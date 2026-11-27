@@ -2835,8 +2835,9 @@ weg**, und die Blase treibt vom Finger fort – umso stärker, je näher man
 tippt. Unter ihr getippt steigt sie schneller, links von ihr treibt sie nach
 rechts, über ihr bremst sie. Man schiebt, indem man daneben tippt; das ist
 ungewohnt und wird mit Übung sehr genau. Wer sie selbst trifft (näher als
-6 cm an ihre Mitte), dem zerplatzt sie unter dem Finger. Gezählt wird die
-Höhe in Metern.
+6 cm an ihre Mitte), dem zerplatzt sie unter dem Finger. Gezählt werden
+Punkte: die Höhe mal einem Tempofaktor – wer schneller steigt, dem zählt
+jeder Meter mehr (unten, «Punkte und Tacho»).
 
 Die Steuerung in Zahlen (`stossBei`): Die Blase ist 14 cm gross. Ein Stoss
 gibt dicht neben ihr 80 cm/s, 22 cm weiter halb so viel, 40 cm von ihrer
@@ -2856,7 +2857,7 @@ gemalt ist: Jedes Hindernis besteht aus Kreisen, Stäben und Vielecken
 gemalt (`maleTeil`). Die Welt wechselt mit der Höhe (`WELT_AB`): **der
 Garten** im Abendlicht (bis 7 m: Rosentriebe mit Dornen, gefiederten
 Blättern und Blüten oder Knospen, Brennnesseln mit gesägten Blättern, ein
-Gartenschlauch, dessen Messingdüse tropft), **die Baumkrone** (bis 17 m:
+Gartenschlauch mit Messingdüse, über die Hecke gehängt), **die Baumkrone** (bis 17 m:
 Buchenäste mit Laub, Tannenzweige – gerechnet als Band so breit, wie die
 Nadeln lang sind –, Spinnennetze zwischen zwei Zweigen, mit Tau und Spinne,
 Blätter, von denen Tau fällt, Wespen), **über den Dächern** (bis 38 m:
@@ -2894,7 +2895,8 @@ Zeitplans kommt, auch wer `luft` zu früh oder zu spät ist (`phasenSuchen`).
 Jeder Abschnitt wird nachgeprüft (`sicher`): alle 1,5 cm die ganze Breite
 der Marge, bei allem, was sich bewegt, auch zu früh und zu spät; hält er
 nicht, ein zweiter Versuch mit mehr Abstand, zuletzt ein weites Tor. Die
-Lagen: ein Tor, zwei versetzt, drei im Zickzack (Treppe), zwei Reihen, deren
+Lagen: ein Tor, die Rennstrecke (nur der 2. und 3. Abschnitt: je zwei
+Reihen, die Marge 15 % breiter, die Lücken fast genau übereinander), zwei versetzt, drei im Zickzack (Treppe), zwei Reihen, deren
 obere Düse, Blatt oder Rinne mitten durch die untere Lücke tropft (erst nach
 dem Tropfen hindurch), und eine Reihe, über der etwas die Gasse kreuzt.
 
@@ -2920,20 +2922,71 @@ man muss von der Windseite dagegen tippen.
 Die ersten Sekunden sind zum Hineinfinden: Der Seitenwind schweigt, die
 Reihen stehen fast zwei Meter auseinander, die Lücken sind breit; die erste
 Reihe kommt nach gut 2,5 s und steht so, dass wer nichts tut, an ihr
-zerplatzt. Danach wird es zügig enger und schneller (`schwere`, `margeBei`,
-`vAuf`). Nachgebildete Spieler (der Autopilot mit 0,15 s Reaktionszeit,
-höchstens alle 0,22 s ein Tipp, die Tipp-Orte normalverteilt gestreut, je 16
-Läufe): ohne Streuung im Median 48 s, ±5 cm (gut 15 Bildpunkte hochkant)
-45 s, ±10 cm 26 s, ±17 cm (gut 50 Bildpunkte) 11 s – viele davon, weil der
-Finger die Blase trifft. Was die Nachbildung nicht kennt – eine Lücke falsch
-gelesen, eine Böe zu spät bemerkt –, macht es schwerer.
+zerplatzt. Dahinter die **Rennstrecke** bis gut 7 m: Die Lücken liegen fast
+genau übereinander und sind weiter, nichts kreuzt, nichts tropft – wer viel
+von unten bläst, fliegt hier schnell hindurch und holt sich den Faktor.
+Danach wird es zügig enger und schneller (`schwere`, `margeBei`, `vAuf`),
+und wer in der Baumkrone noch rast, trifft Äste und Tropfen, die für eine
+getragene Blase getaktet sind. Nachgebildete Spieler (der Autopilot mit
+0,15 s Reaktionszeit, höchstens alle 0,22 s ein Tipp, die Tipp-Orte
+normalverteilt gestreut, je 24 Läufe):
+
+| Spieler | Median Zeit | Höhe | Ø | Faktor | Punkte (Median / Mittel / bester) |
+|---|---|---|---|---|---|
+| ohne Streuung | 50 s | 36,5 m | 2,6 km/h | ×1,04 | 378 / 365 / 632 |
+| vorsichtig, ±5 cm (gut 15 Bildpunkte) | 41 s | 28 m | 2,5 km/h | ×1,04 | 294 / 302 / 418 |
+| ±10 cm | 31 s | 19 m | 2,4 km/h | ×1,04 | 199 / 165 / 282 |
+| Anfänger, ±17 cm (gut 50 Bildpunkte) | 20 s | 10 m | 1,9 km/h | ×1,00 | 101 / 91 / 231 |
+| Raser, ±5 cm, immer 160 cm/s | 10 s | 14 m | 4,7 km/h | ×1,62 | 223 / 234 / 465 |
+| klug, ±5 cm: rast bis 11 m, dann 1,6 × Auftrieb, wartet auf Bewegtes | 20 s | 19 m | 3,9 km/h | ×1,40 | 265 / 279 / 530 |
+
+Der Raser holt in einem Viertel der Zeit drei Viertel der Punkte des
+Vorsichtigen und zerplatzt meist kurz nach der Rennstrecke (Tropfen, Äste);
+wer beides verbindet, holt die besten Läufe. Beim Anfänger platzt sie oft,
+weil der Finger sie trifft. Was die Nachbildung nicht kennt – eine Lücke
+falsch gelesen, eine Böe zu spät bemerkt, vor einem Tropfen kurz gebremst –,
+macht es schwerer oder, beim Rasen, leichter.
+
+#### Punkte und Tacho
+
+Die Punkte hängen nur an Höhe und Spielzeit (`punkteBei`, `faktorBei`):
+die höchste erreichte Höhe in Dezimetern mal dem **Tempofaktor**. Der Faktor
+misst das Ø (Höhe durch Spielzeit, in km/h: cm/s × 0,036) gegen das Ø einer
+Blase, die sich nur tragen lässt (`hTrag`: 1,6 km/h nach 10 s, 2,1 nach
+30 s, 2,7 nach 70 s): je km/h mehr 0,2 mehr, nie unter ×1, nie über ×2.
+Linear im Tempo, nicht im Verhältnis – so zählt das Tempo deutlich, aber wer
+in den ersten Sekunden davonfliegt und dann zerplatzt, bekommt nicht mehr
+als einer, der deutlich weiter kommt:
+
+| Höhe | Zeit | Ø | Faktor | Punkte | |
+|---|---|---|---|---|---|
+| 30 m | 45 s | 2,4 km/h | ×1,01 | 302 | vorsichtig, dem Zeitplan nach |
+| 30 m | 30 s | 3,6 km/h | ×1,30 | 391 | gleich hoch, schneller: deutlich vorn |
+| 30 m | 20 s | 5,4 km/h | ×1,71 | 512 | gleich hoch, sehr schnell |
+| 15 m | 10 s | 5,4 km/h | ×1,75 | 263 | Raser, früh geplatzt: weniger als 30 m langsam |
+| 25 m | 18 s | 5,0 km/h | ×1,63 | 409 | schnell und recht weit: schlägt 30 m langsam |
+| 60 m | 70 s | 3,1 km/h | ×1,07 | 643 | weit: schlägt jeden frühen Raser |
+| 8 m | 20 s | 1,4 km/h | ×1,00 | 80 | gebremst – nie unter ×1 |
+
+Unten links steht ein **Tacho** aus Messing (`zeichneTacho`, `tachoOrt`):
+Die rote Nadel zeigt das Tempo jetzt (0 bis 10 km/h, gedämpft, unten im
+Fenster als Zahl), eine goldene Marke am Rand das eigene Ø, eine
+fliederfarbene das Ø, das sie von selbst hätte – liegt Gold rechts von
+Flieder, steigt der Faktor. Auf dem Schild darunter der Faktor (orange,
+sobald er über ×1 liegt), das Ø und die Punkte. Er misst 2,5 × 3 Halbmesser
+(44 bis 72 Bildpunkte je nach Gerät) und steht hochkant unter der Blase, wo
+nur ist, was sie hinter sich hat, quer und auf dem iPad quer neben dem Feld;
+nie über der Leiste oben. Gehäuse, Skala, Schild und Nabe sind vorgemalt, die
+Zahlen kleine Bilder, die nur neu gemalt werden, wenn sich ein Text ändert;
+je Bild kommen nur Nadel und Marken dazu.
 
 Über der Blase sieht man auf jedem Gerät gleich weit voraus (`SICHT_OBEN`
 1,35 m); hochkant gibt die Breite des Feldes den Massstab vor, quer die
 Höhe (kleinere Blase, dafür die Landschaft breit daneben, etwas abgedunkelt,
 dort spielt nichts). Ein Tipp gilt zu seiner Zeit und an dem Ort, den er
-im letzten Bild hatte (`tippen`, `voraus`). Auf der Tafel: die Meter,
-darunter, woran sie zerplatzt ist, und die Zeit.
+im letzten Bild hatte (`tippen`, `voraus`). Auf der Tafel: die Punkte,
+darunter, woran sie zerplatzt ist, Höhe, Zeit, Ø und Faktor – etwa «An einer
+Rose zerplatzt · 12,4 m in 9 s · Ø 5,0 km/h · ×1,63».
 
 Das Bild: ein tiefer Abendhimmel in einem einzigen hohen Bild, das mit einem
 Achtzehntel des Tempos hinabgleitet – unten die Sonne über den Alpen mit
@@ -2945,7 +2998,11 @@ Stamm gleich hinter dem Feldrand, Äste, die die Kronen tragen, Äpfel und
 eine Lichterkette von Stamm zu Stamm; das Laub (`krone`, `laubForm`) sind
 Büschel mit einem Umriss aus Blattspitzen, innen dunkel, zur Sonne hin hell
 mit einer Lichtkante und einzelnen Blättern – nah im leichten Dunst, fern
-im Abenddunst. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
+im Abenddunst. Damit Blase und Hindernisse vorn stehen, sind die Bäume im
+Hintergrund in den Dunst gerückt: heller, blasser und mit weniger Kontrast
+(das Laub zum Abenddunst hin gemischt, leicht durchscheinend), die Kronen
+kleiner und weiter am Rand, Stämme und Äste dünner; die Hindernisse bleiben
+kräftig. In der Baumkrone dicke Äste von den Stämmen herein, die Laub
 tragen, und schräge, weiche Lichtstrahlen. Über den Dächern eine Gasse der
 Altstadt: die Hauswände am Feldrand mit Verputz, je Stockwerk einem Sims,
 Fenstern mit Läden und Bank (Licht in einzelnen), Fallrohr und dezenten
@@ -2981,13 +3038,16 @@ verdeckt ist: Über den Dächern kommt der Himmel nur in die Mitte und nur bis
 zur Dachlandschaft, die Wände der Gasse nur zwischen Feldrand und Mitte;
 hinter den Stämmen und Hauswänden am Rand liegt nichts, unter der Ferne
 kein Himmel, und der Abendhimmel braucht keine eigene Kulisse. Der
-Kaminrauch ist eine vorgemalte Fahne.
+Kaminrauch ist eine vorgemalte Fahne. Der Tacho kostet auf dem iPad im
+Software-Raster etwa eine halbe bis eine Millisekunde; auf dem iPhone ist
+er kaum zu messen.
 
 Die Gegner steigen als Blasen aus Licht mit, und die besten Läufe lassen
 sich anschauen: Aufgezeichnet werden der Ort quer (in Vierteln), die Höhe
 (in Halben) und in `c` die Luftstösse – wie viele (mal 1024), aus welcher
 Richtung der letzte kam (32 Stufen) und wie weit der Finger weg war (in 3 cm)
-–, am Schluss negativ, woran sie zerplatzt ist (Fassung `t1`). Beim
+–, am Schluss negativ, woran sie zerplatzt ist (Fassung `t2` seit den
+Punkten mit Tempofaktor und der Rennstrecke; `t1` zählte Meter). Beim
 Zuschauen erscheint jeder Stoss mit Ring und Linien von dort, wo der Finger
 war, und die Blase wabert wie im Spiel. Zehn Klänge, alle aus vorhandenen:
 Grillen im Garten und Wind als Kulisse, das Pusten, das Platzen mit
@@ -2995,14 +3055,24 @@ glitzerndem Nachhall, Tropfen, der Weltwechsel (eine Harfe), die Ansage, der
 Aufwind (ein Zischen) und die Böe.
 
 Prüfung 4g49: Der Autopilot kommt über vier gewürfelte Welten bis 100 s, ohne
-dass die Planung ausweichen muss; alle Lagen und alle Hindernisse kommen vor;
-jeder achte Abschnitt ist im Wechsel Aufwind oder Böe und wird angesagt. Mit
-wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er im Median über 40 s, mit
-stark gestreuten (±17 cm) nicht über 26 s. Nichts tun, dauernd unter ihr
+dass die Planung ausweichen muss, mit mindestens 800 Punkten, und der Tacho
+schlägt aus; alle Lagen (auch die Rennstrecke) und alle Hindernisse kommen
+vor; jeder achte Abschnitt ist im Wechsel Aufwind oder Böe und wird
+angesagt. Mit wenig gestreuten Tipps (±5 cm, alle 0,2 s) kommt er im Median
+über 40 s, mit stark gestreuten (±17 cm) nicht über 32 s. Der Raser (gleich
+genau, immer 160 cm/s) ist im Ø mindestens 1,5 km/h schneller als der
+Vorsichtige, platzt vor 40 s und holt doch mindestens 40 % von dessen
+Punkten in 60 s; in jedem Lauf sind die Punkte genau `punkteBei(Höhe,
+Zeit)`. Die Formel an festen Stellen: 30 m in 20 s mindestens 1,4-mal so
+viel wie in 45 s, 60 m in 70 s mindestens doppelt so viel wie 15 m in 10 s,
+der Deckel ×2, wer sich nur tragen lässt ×1. Nichts tun, dauernd unter ihr
 tippen, sie berühren und nur bremsen enden bald; die Kurve wird enger,
 schneller und kürzer, und der Stoss fällt mit dem Abstand. Die Tafel
-erscheint; ein angeschauter Lauf zeigt dieselbe Welt, dieselben Stösse,
-dieselbe Zahl und dasselbe Platzen.
+erscheint mit den Punkten und «Höhe in Zeit · Ø · Faktor»; der Tacho steht
+auf sechs Bildschirmen (hochkant, quer, iPad) unter der Blase oder neben
+dem Feld, nie unter der Leiste, und ist gemalt. Ein angeschauter Lauf
+(Fassung `t2`) zeigt dieselbe Welt, dieselben Stösse, dieselben Punkte und
+dasselbe Platzen.
 
 ### Die Klänge
 

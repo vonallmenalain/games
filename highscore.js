@@ -109,7 +109,7 @@
     { id: "beeFlight", titel: "Bienenflug", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.bienenflug", einheit: "Pollen" },
     { id: "marsRover", titel: "Marsrover", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.marsrover", einheit: "Meter" },
     { id: "mirrorLake", titel: "Spiegelsee", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.spiegelsee", einheit: "Meter" },
-    { id: "soapBubble", titel: "Seifenblase", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.seifenblase", einheit: "Meter" },
+    { id: "soapBubble", titel: "Seifenblase", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.seifenblase", einheit: "Punkte" },
     { id: "speedClimb", titel: "Kletterwand", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.kletterwand", einheit: "Meter" },
 
     // Problemlösen

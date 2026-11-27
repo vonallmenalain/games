@@ -380,7 +380,7 @@ export const SPIELE = [
   {
     seite: "seifenblase", spiel: "soapBubble", page: "seifenblase", js: "seifenblase.js",
     titel: "Seifenblase", buehne: { id: "sb-stage", klasse: "cm-stage sb-stage" },
-    text: "Seifenblase: Ein Tipp bläst die Blase vom Finger weg – je näher, desto stärker. Durch Rosen, Baumkronen und über die Dächer in den Abendhimmel, und alles Spitze, Harte und Nasse lässt sie zerplatzen.",
+    text: "Seifenblase: Ein Tipp bläst die Blase vom Finger weg – je näher, desto stärker. Durch Rosen, Baumkronen und über die Dächer in den Abendhimmel – wer schneller steigt, holt mehr Punkte, doch alles Spitze, Harte und Nasse lässt sie zerplatzen.",
     baut: "den Garten im Abendlicht mit der Seifenblase",
   },
 ];
