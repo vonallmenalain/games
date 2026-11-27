@@ -208,7 +208,7 @@
     mirrorLake: 1,
     // Seifenblase: ein Tipp bläst die Blase vom Finger weg – der Ort des Tipps steuert.
     soapBubble: 1,
-    // Wasserläufer: er dreht sich, ein Tipp ist ein Ruderschlag dorthin, wo er hinschaut – nur der Zeitpunkt steuert.
+    // Wasserläufer: zurückziehen und loslassen wie eine Schleuder – Richtung und Stärke steuern, die Blätter sinken schnell.
     pondSkater: 1,
     // Polwechsel: ein Tipp polt die fallende Kugel um – die Farben der Magnete voraus lesen.
     poleSwitch: 1,
@@ -278,10 +278,13 @@
     // Schluss negativ, woran sie zerplatzt ist. Fassung t3: Seit der Rennstrecke fliegt sie eine
     // Bahn entlang statt eine Gasse hinauf – ältere Läufe passen nicht mehr.
     soapBubble: { fassung: "t3" },
-    // Der Wasserläufer: a quer, b bachauf (beides in Vierteln), c die Ruderschläge (mal 1000)
-    // und die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete. Als Winkel:
-    // Im Multiplayer dreht er sich zwischen zwei Proben weiter.
-    pondSkater: { fassung: "t1", winkel: true },
+    // Der Wasserläufer: a quer, b bachauf (beides in Vierteln), c die Ruderschläge (mal 10000),
+    // die Spannung beim Zielen (0 bis 9, mal 1000) und die Blickrichtung (in Hundertsteln), am
+    // Schluss negativ, woran es endete. Als Winkel: Im Multiplayer dreht er sich zwischen zwei
+    // Proben zum Ziel – ändern sich Schläge oder Spannung, springt c um mehr als eine
+    // Vierteldrehung, das bleibt ein Sprung. Fassung t2: Seit der Schleuder (Reihen, Richtung
+    // und Stärke) passen die Läufe mit der Drehung nicht mehr.
+    pondSkater: { fassung: "t2", winkel: true },
     // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
     // darüber, wie oft umgepolt wurde. Fassung t3: Seit dem noch gemütlicheren Anfang ist es ein
     // anderer Schacht – ältere Läufe passen nicht mehr.

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-26";
+export const FASSUNG = "2026-11-26-27";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -386,7 +386,7 @@ export const SPIELE = [
   {
     seite: "wasserlaeufer", spiel: "pondSkater", page: "wasserlaeufer", js: "wasserlaeufer.js",
     titel: "Wasserläufer", buehne: { id: "wa-stage", klasse: "cm-stage wa-stage" },
-    text: "Wasserläufer: Er dreht sich wie eine Kompassnadel – ein Tipp ist ein Ruderschlag dorthin, wo er gerade hinschaut. Von Seerosenblatt zu Seerosenblatt den Bach hinauf, bevor das Blatt untergeht und bevor der Fisch schnappt.",
+    text: "Wasserläufer: Zurückziehen und loslassen wie eine Schleuder – Richtung und Stärke bestimmst du. Von Seerosenblatt zu Seerosenblatt den Bach hinauf, bevor das Blatt untergeht und bevor der Fisch schnappt.",
     baut: "den Teich am Nachmittag mit dem Wasserläufer und den Seerosenblättern",
   },
   {

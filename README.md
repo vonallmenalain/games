@@ -3038,82 +3038,120 @@ dieselbe Bahn, dieselben Stösse, dieselben Punkte und dasselbe Platzen.
 ### Wasserläufer (November 2026)
 
 **Wasserläufer** (`wasserlaeufer.js`, `pondSkater`) – ein Teich am
-Nachmittag, von oben gesehen. Auf einem Seerosenblatt sitzt ein
-Wasserläufer und dreht sich unaufhörlich um sich selbst, wie eine
-Kompassnadel. **Ein Tipp ist ein Ruderschlag – in die Richtung, in die er
-gerade schaut.** Man steuert nur über den Zeitpunkt; die Richtung macht die
-Drehung. Auf dem Wasser gleitet er weit, auf einem Blatt hält er rasch an,
-denn das Blatt greift. Ziel: von Blatt zu Blatt den Bach hinauf. Gezählt
-werden die **Blätter** – die Nummer des höchsten Blattes der Kette, auf dem
-er gelandet ist. Blätter statt Meter, weil jede Landung der Moment ist, auf
-den es ankommt (die Zahl springt genau dann), weil die Welt in Zentimetern
-gebaut ist (Meter wären winzige Zahlen) und weil sich «38 Blätter» leicht
-vergleichen lassen.
+Nachmittag, von oben gesehen. Auf einem Seerosenblatt steht ein
+Wasserläufer. **Gesteuert wird wie mit einer Schleuder**, auf jedem Gerät
+gleich: Finger oder Maus irgendwo aufsetzen, zurückziehen, loslassen – das
+ist ein Ruderschlag, **entgegen der Zugrichtung und so kräftig, wie weit
+gezogen wurde**. Beim Ziehen zeigt ein Pfeil Richtung und Stärke (er wird
+länger, dicker und wärmer – von Weiss über Gelb nach Rot), **aber nicht, wo
+er landet**: Wie weit eine Stärke trägt, lernt man. Wer in den kleinen Kreis
+um den Aufsetzpunkt zurückzieht, bricht ab. Der Wasserläufer steht still
+(er wippt nur leicht), dreht sich zum Ziel, und seine Mittelbeine greifen
+nach vorn und spannen sich wie ein Gummi. Ziel: von Blatt zu Blatt den Bach
+hinauf.
 
-Die Steuerung in Zahlen (`schritt`, `schlag`): Ein Schlag gibt 74 cm/s in die
-Blickrichtung (`J`), mehrere zählen zusammen. Auf dem Wasser klingt das
-Gleiten in 0,55 s auf gut ein Drittel ab (`TAU_W`), dazu bremst es fest um
-7 cm/s² (`MU_W`) – ein Schlag aus dem Stand trägt gut 38 cm. Auf dem Blatt
-greift es in 0,05 s und mit 320 cm/s² (`TAU_B`, `MU_B`); unter 5 cm/s ist er
-gelandet und gleitet in die Mitte. Das Blatt, von dem er sich abstösst,
-greift erst wieder, wenn er es verlassen hat. Rudern kostet Kraft: Zwei
-Schläge kurz nacheinander gehen (der Doppelschlag), dann kommt sie mit 1,6
-Schlägen je Sekunde wieder – wer dauernd tippt, rudert nicht schneller.
-Mit der Tastatur: Leertaste, Enter oder ↑.
+Die Steuerung in Zahlen (`zugWert`, `schlag`): Der kleine Kreis, in dem
+nichts geschieht, misst 4 % der kürzeren Bildseite (mindestens 12 Pixel);
+volle Stärke bei 30 % der kürzeren Seite (90 bis 220 Pixel, auf dem iPhone
+hochkant 117). Die Stärke 0 bis 1 gibt 14 bis 150 cm/s (`J_MIN`, `J_MAX`),
+linear. Auf dem Wasser klingt das Gleiten in 0,35 s auf gut ein Drittel ab
+(`TAU_W`), dazu bremst es fest um 10 cm/s² (`MU_W`): Stärke 0,25 trägt aus
+dem Stand gut 13 cm, 0,5 gut 25 cm, 0,75 gut 36 cm, 1 knapp 48 cm – fast
+genau linear, ein halber Zentimeter je Hundertstel. Ein Blatt bremst kaum
+stärker als das Wasser (`TAU_B` 0,3 s, `MU_B` 14 cm/s²): Wer zu kräftig
+schleudert, rutscht hinüber und auf der anderen Seite ins Wasser; gelandet
+ist er unter 9 cm/s (`LANDEN_V`), wenn seine Mitte gut innerhalb des Randes
+ist (2,2 cm, bei kleinen Blättern ein gutes Drittel des Halbmessers) – wer
+am Rand zur Ruhe kommt, rutscht ab. Laub ist rau und hält fest. Ein Schlag
+im Gleiten geht auch (mit der Schleuder, genauso), mehrere zählen zusammen;
+das Kraftmass bleibt: zwei Schläge kurz nacheinander, dann kommt die Kraft
+mit 1,2 Schlägen je Sekunde wieder. Mit der Tastatur: ← und → zielen (kurz
+drücken knapp 3°, halten dreht weiter), ↑ zielt gerade bachauf, Leertaste
+oder Enter halten lädt die Stärke (voll nach 0,9 s), loslassen schleudert,
+Escape bricht ab.
 
-Jedes betretene Blatt läuft voll Wasser und geht unter (`haltBei`); in der
-letzten Sekunde sieht man es sinken, und wer dann noch darauf sitzt, den
-holt der Fisch darunter. Auf offenem Wasser steigt nach einer Weile
-(`geduldBei`) ein Fisch unter ihm auf – erst ein blasser Schatten, der
-dunkler und schärfer wird und ihm folgt –, und nach der Warnung
-(`warnungBei`) schnappt er zu. Wer vorher ein Blatt (oder Laub) erreicht,
-dem schnappt er ins Leere. Das nächste Blatt zeigt mit zwei Pfeilen, die
-sich langsam drehen, wie herum er sich darauf drehen wird.
+**Die Blätter sinken schnell**, sobald er darauf sitzt (`haltBei`): ein
+mittleres anfangs nach gut 2 s, später nach weniger als einer. **Ein Ring
+aus Punkten** rund um das Blatt zeigt die Zeit, die bleibt – sie verlöschen
+im Uhrzeigersinn, hellgrün, dann gelb, zuletzt rot und pulsierend; in der
+letzten Zeit läuft das Blatt sichtbar voll. **Der Fisch kommt schneller**:
+Auf offenem Wasser steigt fast sofort (`geduldBei`) ein Schatten unter ihm
+auf, wird dunkler, folgt ihm und schnappt nach der Warnung (`warnungBei`) zu
+– mit der Strecke immer früher. Wer vorher ein Blatt erreicht, dem schnappt
+er ins Leere.
 
-| Blatt | Drehung | Abstand | Blatt (Radius) | hält | Geduld + Warnung | Fenster |
-|---|---|---|---|---|---|---|
-| 1 | 0,62 U/s | 22 cm | 10 cm | 3,4 s | 1,4 + 0,85 s | gut 210 ms |
-| 5 | 0,75 U/s | 24 cm | 9,4 cm | 3,1 s | 1,3 + 0,8 s | gut 140 ms |
-| 10 | 0,99 U/s | 28 cm | 8,1 cm | 2,5 s | 1,1 + 0,7 s | gut 100 ms |
-| 20 | 1,29 U/s | 32 cm | 6,7 cm | 1,8 s | 0,9 + 0,6 s | gut 65 ms |
-| 30 | 1,50 U/s | 34 cm | 5,8 cm | 1,4 s | 0,75 + 0,55 s | gut 45 ms |
-| 50 | 1,74 U/s | 36 cm | 4,9 cm | 1,2 s | 0,6 + 0,5 s | gut 30 ms |
+**Wege wählen:** Vorne liegt in jeder Reihe mehr als ein Blatt – meist drei,
+in engen Bächen zwei –, verschieden gross: **ein grosses ist leicht zu
+treffen, sinkt aber schneller; ein kleines ist schwer zu treffen und hält
+länger** (die Haltezeit geht mit dem Halbmesser, ein grosses hält gut drei
+Viertel so lang wie ein mittleres, ein kleines ein gutes Drittel länger).
+Ab Reihe 6 pendelt manchmal eines in der Strömung hin und her (3 bis 6,5 cm,
+alle 4,5 bis 7 s) – wer darauf landet, schleudert von einem fahrenden Blatt.
+**Gezählt wird die höchste erreichte Reihe** («Blätter»): Wer quer auf ein
+Nachbarblatt ausweicht, um Zeit zu gewinnen, bekommt nichts dafür, wer eine
+Reihe überspringt, bekommt beide. So hängt die Zahl nur daran, wie weit
+jemand den Bach hinaufkommt, nicht an seinem Weg – zwei Läufe, ein Geist
+und ein Turnier lassen sich so gerecht vergleichen, und Umwege lohnen sich
+nicht von selbst.
 
-Die ersten drei Sprünge sind zum Hineinfinden, danach wird es zügig
-schwerer (`schwere`: nach 16 Blättern gut sechs Zehntel der Härte), und ab
-Blatt 18 kommt eine zweite Rampe dazu (`spaet`: schneller drehen, kleinere
-Blätter, ungeduldigere Fische), damit auch Geübte bald an ihre Grenze
-kommen. Ein Blatt hält immer mindestens eine Umdrehung und eine knappe
-halbe Sekunde. Nachgebildete Spieler (der Autopilot, je Schlag
-normalverteilt daneben, je 14 Läufe): ±20 ms im Median 60 s (57 Blätter),
-±35 ms 32 s (29 Blätter), ±50 ms 26 s, ±70 ms 22 s; ohne Streuung kommt er
-immer über 120 s. Der
+| Reihe | Abstand | Blätter gross / mittel / klein | halten | Schatten + Warnung | Spielraum mindestens |
+|---|---|---|---|---|---|
+| 1 | 20 cm | 9,5 / 7,3 / 5,4 cm | 1,6 / 2,1 / 2,8 s | 0,3 + 0,85 s | ±7,5° / ±0,13 |
+| 5 | 22 cm | 8,6 / 6,6 / 4,9 cm | 1,4 / 1,8 / 2,45 s | 0,28 + 0,8 s | ±6,5° / ±0,11 |
+| 10 | 26 cm | 7,2 / 5,6 / 4,2 cm | 1,05 / 1,4 / 1,8 s | 0,24 + 0,73 s | ±5° / ±0,08 |
+| 20 | 29 cm | 6,0 / 4,6 / 3,5 cm | 0,76 / 1,0 / 1,3 s | 0,21 + 0,66 s | ±3,7° / ±0,06 |
+| 30 | 30 cm | 5,5 / 4,2 / 3,3 cm | 0,63 / 0,81 / 1,05 s | 0,2 + 0,62 s | ±3,2° / ±0,05 |
+| 50 | 32 cm | 5,0 / 3,9 / 3,0 cm | 0,51 / 0,65 / 0,85 s | 0,2 + 0,56 s | ±2,8° / ±0,04 |
+
+Die ersten drei Reihen sind zum Hineinfinden, danach wird es zügig schwerer
+(`schwere`: nach 10 Reihen sechs Zehntel der Härte), und ab Reihe 18 kommt
+eine zweite Rampe dazu (`spaet`), damit auch Geübte bald an ihre Grenze
+kommen.
+
+**Weg zuerst:** Die Welt entsteht aus dem Zufall und hängt nur an der Saat,
+die Runde nur an Spielzeit, Saat und den Schlägen (Zeit, Richtung,
+Stärke). Sie ist immer zu schaffen: Reihe um Reihe wird gelegt
+(`reiheLegen`) und nachgerechnet (`fensterVon`, `fensterReicht`) – von
+jedem Blatt der vorigen Reihe aus (aus der Mitte jedes Teils, aus dem
+Stand; ein pendelndes von beiden Enden und aus der Mitte seines Weges)
+muss mindestens ein stilles Blatt der neuen Reihe zu treffen sein, mit dem
+Spielraum der Tabelle in der Richtung und in der Stärke, auch um sieben
+Zehntel von beidem zugleich daneben, und bevor der Fisch schnappt. Sonst
+wird die Reihe neu gelegt, enger und mit grösseren Blättern. Das Rechnen ist
+ein Generator: Im Spiel bekommt es je Bild höchstens 2 ms und macht im
+nächsten weiter (`planBis`). Ein Autopilot (`pilot`) rechnet mit derselben
+Physik voraus, sucht das Fenster mit dem meisten Spielraum und schleudert
+in seine Mitte – mit Streuung in Richtung und Stärke und einer
+Reaktionszeit, wenn er einen Menschen nachahmen soll; merkt er im Gleiten,
+dass es nicht reicht, schleudert er nach.
+
+Nachgebildete Spieler (`pilot`, je Schlag normalverteilt daneben, je 20
+Läufe bis 150 s): genau (±0°, 0,3 s Reaktion) überlebt immer (rund 135
+Reihen); geübt (±3° in der Richtung, ±5 % in der Stärke, 0,35 s) kommt im
+Median 60 s weit (51 Reihen, Hälfte zwischen 50 und 62 s); mittel (±6°,
+±10 %, 0,5 s) 35 s; Anfänger (±10°, ±20 %, 0,7 s) 19 s (9 Reihen, Hälfte
+zwischen 14 und 21 s). Keiner scheitert in den ersten zehn Sekunden.
+Geübte gehen am Ende meist unter, weil das Blatt sinkt, während sie noch
+zielen oder auf Kraft warten; Anfänger, weil der Fisch sie erwischt, wenn
+das Nachschleudern zu lange dauert. Mit 0,5 s Reaktion, je 10 Läufe (Median):
+±3° mit ±5/10/20 % in der Stärke 54/50/31 s, ±6° 41/40/28 s, ±10° 31/29/24 s.
+Die Reaktionszeit zählt so viel wie die Streuung: ±3°/±5 % mit 0,7 s kommt
+nur gut 30 s weit. Der
 Autopilot kennt die Mitte jedes Fensters, ein Mensch nicht – es wird also
-schwerer. Die erste Hechtgrube (Blatt 16) siebt: mit ±40 ms schaffen sie
-18 von 20.
+schwerer.
 
-Die Welt entsteht aus dem Zufall und hängt nur an der Saat, die Runde nur
-an Spielzeit, Saat und den Schlägen. Sie ist immer zu schaffen: Zuerst
-entsteht der Weg – Blatt um Blatt im Zickzack (`abschnittBauen`) –, und
-jeder Sprung wird nachgerechnet (`blattFenster`): Aus der Mitte des Blattes,
-ein Schlag, für jede Blickrichtung – landet er auf dem neuen? Das Fenster
-der Richtungen, die treffen, muss mindestens `fensterMinBei` Millisekunden
-der Drehung breit sein, sonst rückt das Blatt näher und wird grösser. Vom
-Seerosenteppich aus zählt jedes seiner Blätter. Ein Autopilot (`pilot`,
-`planen`) rechnet mit derselben Physik voraus und rudert in der Mitte des
-Fensters (über die Hechtgrube lieber mit Doppelschlag, mit Abstand zum
-Hecht, und nur, wenn die Kraft dafür reicht).
-
-Jeder achte Abschnitt ist besonders, im festen Wechsel und angesagt,
-sobald er auf dem Blatt davor sitzt: der 8., 24., 40. eine **Strömung** –
-ein Seitenbach reisst quer über den Weg (weisse Schlieren, ein kiesiger Arm
-über beide Ufer), darauf treibt Ahornlaub; hinüber geht es nur auf dem Laub,
-und wer zu weit mitgetragen wird, ist fort. Das Blatt davor liegt auf der
-Seite des Zuflusses und hält länger, darüber wartet ein Seerosenteppich
-fast so breit wie der Bach. Der 16., 32., 48. eine **Hechtgrube** – tiefes,
-dunkles Wasser, ein grosser Hecht zieht seine Kreise quer über den Weg, und
-der Teppich drüben liegt so weit, dass ein Schlag nicht reicht: zwei kurz
-nacheinander oder einer im Gleiten.
+Jede achte Reihe ist besonders, im festen Wechsel und angesagt, sobald er
+auf der Reihe davor sitzt (die dafür länger hält): die 8., 24., 40. eine
+**Strömung** – ein Seitenbach reisst quer über den Weg (weisse Schlieren, ein
+kiesiger Arm über beide Ufer), darauf treibt Ahornlaub; hinüber geht es auf
+dem Laub (es ist rau und hält ihn, das Tempo des Laubs gibt der Schlag mit),
+und wer zu weit mitgetragen wird, ist fort. Darüber wartet ein
+Seerosenteppich fast so breit wie der Bach. Die 16., 32., 48. eine
+**Hechtgrube** – tiefes, dunkles Wasser, ein grosser Hecht zieht seine
+Kreise quer über den Weg, und der Teppich drüben liegt so weit (57 bis
+66 cm), dass ein Schlag nicht reicht: **zwei Schleuderschläge, der zweite
+im Gleiten**. Den Moment wählt man nach dem Hecht; der kleine Fisch ist
+hier vorsichtiger (er wartet dreimal so lange).
 
 Die Welt wechselt bachaufwärts, jede mit einem besonderen Abschnitt
 beginnend: **der Seerosenteich** am Nachmittag (Schilf mit Rohrkolben,
@@ -3132,8 +3170,9 @@ die über den Grund ziehen (vier Phasen, fest in den Kacheln, im Flachen
 kräftig und in der Tiefe schwach, ineinander übergeblendet). Wo die Füsse des Wasserläufers das Wasser
 eindrücken, sieht man helle Ringe – und am Grund **runde Schatten mit
 hellem Rand**, weil jede Delle das Licht zur Seite lenkt; je tiefer das
-Wasser, desto weiter versetzt. Beim Ruderschlag schwingen die Mittelbeine
-zurück, und Ringe laufen aus. Die Seerosenblätter haben Kerbe, Adern,
+Wasser, desto weiter versetzt. Beim Zielen greifen die Mittelbeine nach vorn,
+beim Schlag schwingen sie zurück, und Ringe laufen aus – je kräftiger,
+desto grösser. Die Seerosenblätter haben Kerbe, Adern,
 einen zur Sonne hellen Rand, Glanz, Flecken und Wassertropfen, manche eine
 Blüte; ihre Stängel und Schatten sieht man am Grund. Über den Ufern hängen
 Zweige ins Bild, die näher an uns sind und schneller vorbeiziehen. Beim
@@ -3147,27 +3186,45 @@ breit wie das Wasser (`lichtnetzePhasen`): Beim Wechsel wird die neue Phase
 einmal in die Kachel gelegt, im letzten Drittel jeder Phase die nächste
 darüber geblendet. Je Bild kommen dazu: die Blätter, der Wasserläufer, die
 Fische (der Hecht vorgedreht in 32 Richtungen), das Laub, Ringe, Glitzern,
-Libellen (vorgemalt) und Zweige (auf ihren Inhalt zugeschnitten). Gemessen
-im Software-Raster (Median je Bild, zur selben Zeit wie der Marsrover):
-iPhone hochkant gut das 1,3fache, iPad das 1,25fache des Marsrovers.
+Libellen (vorgemalt), Zweige und Blätter (auf ihren Inhalt zugeschnitten),
+die Punkte des Rings (vorgemalt – ein gezeichneter Bogen kostete im
+Software-Raster fast eine Millisekunde), der Pfeil beim Zielen. Gemessen
+im Software-Raster (Median je Bild, abwechselnd mit dem Marsrover, an sechs
+Stellen über die ganze Strecke): iPhone hochkant das 1,27fache des
+Marsrovers (die Fassung mit der Drehung lag bei derselben Messung beim
+1,18fachen); wo eine Strömung im Bild ist, bis gut das 1,4fache.
 
 Die Gegner laufen als Wasserläufer aus Licht mit, und die besten Läufe
 lassen sich anschauen: Aufgezeichnet werden der Ort (in Vierteln), in `c`
-die Ruderschläge (mal 1000) und die Blickrichtung (in Hundertsteln), am
-Schluss negativ, woran es endete (Fassung `t1`, als Winkel – im
-Multiplayer dreht er sich zwischen zwei Proben weiter). Zwölf Klänge, alle
-aus vorhandenen: Teich, Bach und Grillen als Kulisse, der Ruderschlag, die
-Landung, der Fisch, der aufsteigt, das Schnappen, das Sinken, die
-Strömung, der Hecht, der Weltwechsel und die Ansage.
+die Schläge (mal 10000), die Spannung beim Zielen (0 bis 9, mal 1000) und
+die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete.
+So sehen Geist, Zuschauen und Mehrspieler dasselbe: wie er sich zum Ziel
+dreht, die Beine spannt und schleudert – beim Zuschauen mit demselben
+Pfeil. Fassung `t2` (seit der Schleuder; als Winkel – im Multiplayer dreht
+er sich zwischen zwei Proben weiter, ein neuer Schlag oder eine neue
+Spannung springt). Jeder Schlag steht zudem mit Zeit, Richtung und Stärke
+in `state.eingaben`. Zwölf Klänge, alle aus vorhandenen: Teich, Bach und
+Grillen als Kulisse, der Ruderschlag (lauter, je kräftiger), die Landung,
+der Fisch, der aufsteigt, das Schnappen, das Sinken, die Strömung, der
+Hecht, der Weltwechsel und die Ansage.
 
-Prüfung 4g50: Der Autopilot kommt über vier gewürfelte Welten bis 80 s,
-ohne dass der Bau der Kette ausweichen muss; alle fünf Welten kommen vor;
-jeder achte Abschnitt ist im Wechsel Strömung oder Hechtgrube und wird
-angesagt. Mit wenig gestreuten Schlägen (±20 ms) kommt er im Median über
-35 s, mit stark gestreuten (±80 ms) nicht. Wer nichts tut, geht mit dem
-ersten Blatt unter; wer dauernd rudert, wird bald gefressen; die Kurve wird
-schwerer, das Fenster enger. Die Tafel erscheint; ein angeschauter Lauf
-zeigt dieselbe Welt, dieselben Schläge, dieselbe Zahl und dasselbe Ende.
+Prüfung 4g50: Mit der Maus wie ein Mensch – aufsetzen, schräg
+zurückziehen: Er dreht sich zum Ziel, der Pfeil zeigt Richtung (entgegen
+dem Zug) und Stärke (halber Zug, halbe Stärke), loslassen gibt genau diesen
+Schlag; hinaus und zurück in den kleinen Kreis bricht ab; mit der Tastatur
+zielen ← und →, die Leertaste lädt. Der Autopilot kommt über vier
+gewürfelte Welten bis 80 s, ohne dass der Bau einer Reihe ausweichen muss,
+mit ±1°/±2 % Streuung ebenso bis 60 s; alle fünf Welten kommen vor; jede
+achte Reihe ist im Wechsel Strömung oder Hechtgrube und wird angesagt;
+meist liegen drei Blätter in einer Reihe, verschieden gross, das grosse hält
+kürzer, manche pendeln. Stark gestreut (±10°, ±20 %, 0,7 s) ist im Median
+nach höchstens 26 s Schluss, wenig gestreut (±3°, ±5 %, 0,35 s) kommt über
+35 s. Auf offenem Wasser kommt der Schatten des Fisches fast sofort und der
+Biss anfangs nach höchstens 1,4 s, später deutlich früher; wer nichts tut,
+geht mit dem ersten Blatt unter; die Kurve wird schwerer. Die Tafel
+erscheint; ein angeschauter Lauf (Fassung `t2`) zeigt dieselbe Welt,
+dieselben Schläge, dasselbe Zielen (den Pfeil), dieselbe Zahl und dasselbe
+Ende.
 
 ### Polwechsel (November 2026)
 
