@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-26-20";
+const APP_VERSION = "2026-11-26-21";
 const CACHE_PREFIX = "mini-games-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const FALLBACK_DOCUMENT = "./index.html";
@@ -104,109 +104,109 @@ const CORE_ASSETS = [
   "./weichensteller.html",
   "./raumschiff.html",
   "./garten.html",
-  "./vollbild.js?v=2026-11-26-20",
-  "./highscore.js?v=2026-11-26-20",
-  "./cloud.js?v=2026-11-26-20",
-  "./klang.js?v=2026-11-26-20",
-  "./mini-games.js?v=2026-11-26-20",
-  "./turnier.js?v=2026-11-26-20",
-  "./pwa.js?v=2026-11-26-20",
-  "./live.js?v=2026-11-26-20",
-  "./kids.js?v=2026-11-26-20",
-  "./vorlesen.js?v=2026-11-26-20",
-  "./zwei.js?v=2026-11-26-20",
-  "./viererreihe-ki.js?v=2026-11-26-20",
-  "./viererreihe.js?v=2026-11-26-20",
-  "./tictactoe.js?v=2026-11-26-20",
-  "./schiffe.js?v=2026-11-26-20",
-  "./kaesekaestchen.js?v=2026-11-26-20",
-  "./muehle.js?v=2026-11-26-20",
-  "./schach.js?v=2026-11-26-20",
-  "./paare.js?v=2026-11-26-20",
-  "./farbcode.js?v=2026-11-26-20",
-  "./blitzpaar.js?v=2026-11-26-20",
-  "./schatzkarte.js?v=2026-11-26-20",
-  "./malen.js?v=2026-11-26-20",
-  "./wackelturm.js?v=2026-11-26-20",
-  "./zwillinge.js?v=2026-11-26-20",
-  "./bohnen.js?v=2026-11-26-20",
-  "./wolf.js?v=2026-11-26-20",
-  "./ratetier.js?v=2026-11-26-20",
-  "./brueckenschlag.js?v=2026-11-26-20",
-  "./kippen.js?v=2026-11-26-20",
-  "./rechnen.js?v=2026-11-26-20",
-  "./leiter.js?v=2026-11-26-20",
-  "./baumeister.js?v=2026-11-26-20",
-  "./echo.js?v=2026-11-26-20",
-  "./echtzeit.js?v=2026-11-26-20",
-  "./kanu.js?v=2026-11-26-20",
-  "./weichensteller.js?v=2026-11-26-20",
-  "./raumschiff.js?v=2026-11-26-20",
-  "./garten.js?v=2026-11-26-20",
-  "./zufall.js?v=2026-11-26-20",
-  "./train-art.js?v=2026-11-26-20",
-  "./train-scenes.js?v=2026-11-26-20",
-  "./game-cloud.js?v=2026-11-26-20",
-  "./live-spiel.js?v=2026-11-26-20",
-  "./game-shell.js?v=2026-11-26-20",
-  "./geist.js?v=2026-11-26-20",
-  "./kacheln.js?v=2026-11-26-20",
-  "./fischteich.js?v=2026-11-26-20",
-  "./blaetter.js?v=2026-11-26-20",
-  "./turmbau.js?v=2026-11-26-20",
-  "./bruecke.js?v=2026-11-26-20",
-  "./drehscheibe.js?v=2026-11-26-20",
-  "./liane.js?v=2026-11-26-20",
-  "./tunnelflug.js?v=2026-11-26-20",
-  "./drift.js?v=2026-11-26-20",
-  "./planeten.js?v=2026-11-26-20",
-  "./mondlandung.js?v=2026-11-26-20",
-  "./schwerkraft.js?v=2026-11-26-20",
-  "./huegel.js?v=2026-11-26-20",
-  "./ballon.js?v=2026-11-26-20",
-  "./slalom.js?v=2026-11-26-20",
-  "./frosch.js?v=2026-11-26-20",
-  "./kranhafen.js?v=2026-11-26-20",
-  "./seiltaenzer.js?v=2026-11-26-20",
-  "./draht.js?v=2026-11-26-20",
-  "./spuren.js?v=2026-11-26-20",
-  "./ball.js?v=2026-11-26-20",
-  "./jongleur.js?v=2026-11-26-20",
-  "./turmspringen.js?v=2026-11-26-20",
-  "./fallschirm.js?v=2026-11-26-20",
-  "./holzfaeller.js?v=2026-11-26-20",
-  "./fledermaus.js?v=2026-11-26-20",
-  "./ninja.js?v=2026-11-26-20",
-  "./freitaucher.js?v=2026-11-26-20",
-  "./schwarm.js?v=2026-11-26-20",
-  "./welle.js?v=2026-11-26-20",
-  "./steinhuepfer.js?v=2026-11-26-20",
-  "./eiskanal.js?v=2026-11-26-20",
-  "./felsflug.js?v=2026-11-26-20",
-  "./zahlengleis.js?v=2026-11-26-20",
-  "./heizer.js?v=2026-11-26-20",
-  "./hammerwurf.js?v=2026-11-26-20",
-  "./entenfamilie.js?v=2026-11-26-20",
-  "./grubenlore.js?v=2026-11-26-20",
-  "./rotoren.js?v=2026-11-26-20",
-  "./augenmass.js?v=2026-11-26-20",
-  "./feuerseil.js?v=2026-11-26-20",
-  "./flaggen.js?v=2026-11-26-20",
-  "./zeitgefuehl.js?v=2026-11-26-20",
-  "./kletterwand.js?v=2026-11-26-20",
-  "./freihand.js?v=2026-11-26-20",
-  "./kopfkino.js?v=2026-11-26-20",
-  "./eisstock.js?v=2026-11-26-20",
-  "./gratwanderung.js?v=2026-11-26-20",
-  "./kaminfeger.js?v=2026-11-26-20",
-  "./dachlaeufer.js?v=2026-11-26-20",
-  "./stampfwerk.js?v=2026-11-26-20",
-  "./bienenflug.js?v=2026-11-26-20",
-  "./marsrover.js?v=2026-11-26-20",
-  "./spiegelsee.js?v=2026-11-26-20",
-  "./seifenblase.js?v=2026-11-26-20",
-  "./styles.css?v=2026-11-26-20",
-  "./app.webmanifest?v=2026-11-26-20",
+  "./vollbild.js?v=2026-11-26-21",
+  "./highscore.js?v=2026-11-26-21",
+  "./cloud.js?v=2026-11-26-21",
+  "./klang.js?v=2026-11-26-21",
+  "./mini-games.js?v=2026-11-26-21",
+  "./turnier.js?v=2026-11-26-21",
+  "./pwa.js?v=2026-11-26-21",
+  "./live.js?v=2026-11-26-21",
+  "./kids.js?v=2026-11-26-21",
+  "./vorlesen.js?v=2026-11-26-21",
+  "./zwei.js?v=2026-11-26-21",
+  "./viererreihe-ki.js?v=2026-11-26-21",
+  "./viererreihe.js?v=2026-11-26-21",
+  "./tictactoe.js?v=2026-11-26-21",
+  "./schiffe.js?v=2026-11-26-21",
+  "./kaesekaestchen.js?v=2026-11-26-21",
+  "./muehle.js?v=2026-11-26-21",
+  "./schach.js?v=2026-11-26-21",
+  "./paare.js?v=2026-11-26-21",
+  "./farbcode.js?v=2026-11-26-21",
+  "./blitzpaar.js?v=2026-11-26-21",
+  "./schatzkarte.js?v=2026-11-26-21",
+  "./malen.js?v=2026-11-26-21",
+  "./wackelturm.js?v=2026-11-26-21",
+  "./zwillinge.js?v=2026-11-26-21",
+  "./bohnen.js?v=2026-11-26-21",
+  "./wolf.js?v=2026-11-26-21",
+  "./ratetier.js?v=2026-11-26-21",
+  "./brueckenschlag.js?v=2026-11-26-21",
+  "./kippen.js?v=2026-11-26-21",
+  "./rechnen.js?v=2026-11-26-21",
+  "./leiter.js?v=2026-11-26-21",
+  "./baumeister.js?v=2026-11-26-21",
+  "./echo.js?v=2026-11-26-21",
+  "./echtzeit.js?v=2026-11-26-21",
+  "./kanu.js?v=2026-11-26-21",
+  "./weichensteller.js?v=2026-11-26-21",
+  "./raumschiff.js?v=2026-11-26-21",
+  "./garten.js?v=2026-11-26-21",
+  "./zufall.js?v=2026-11-26-21",
+  "./train-art.js?v=2026-11-26-21",
+  "./train-scenes.js?v=2026-11-26-21",
+  "./game-cloud.js?v=2026-11-26-21",
+  "./live-spiel.js?v=2026-11-26-21",
+  "./game-shell.js?v=2026-11-26-21",
+  "./geist.js?v=2026-11-26-21",
+  "./kacheln.js?v=2026-11-26-21",
+  "./fischteich.js?v=2026-11-26-21",
+  "./blaetter.js?v=2026-11-26-21",
+  "./turmbau.js?v=2026-11-26-21",
+  "./bruecke.js?v=2026-11-26-21",
+  "./drehscheibe.js?v=2026-11-26-21",
+  "./liane.js?v=2026-11-26-21",
+  "./tunnelflug.js?v=2026-11-26-21",
+  "./drift.js?v=2026-11-26-21",
+  "./planeten.js?v=2026-11-26-21",
+  "./mondlandung.js?v=2026-11-26-21",
+  "./schwerkraft.js?v=2026-11-26-21",
+  "./huegel.js?v=2026-11-26-21",
+  "./ballon.js?v=2026-11-26-21",
+  "./slalom.js?v=2026-11-26-21",
+  "./frosch.js?v=2026-11-26-21",
+  "./kranhafen.js?v=2026-11-26-21",
+  "./seiltaenzer.js?v=2026-11-26-21",
+  "./draht.js?v=2026-11-26-21",
+  "./spuren.js?v=2026-11-26-21",
+  "./ball.js?v=2026-11-26-21",
+  "./jongleur.js?v=2026-11-26-21",
+  "./turmspringen.js?v=2026-11-26-21",
+  "./fallschirm.js?v=2026-11-26-21",
+  "./holzfaeller.js?v=2026-11-26-21",
+  "./fledermaus.js?v=2026-11-26-21",
+  "./ninja.js?v=2026-11-26-21",
+  "./freitaucher.js?v=2026-11-26-21",
+  "./schwarm.js?v=2026-11-26-21",
+  "./welle.js?v=2026-11-26-21",
+  "./steinhuepfer.js?v=2026-11-26-21",
+  "./eiskanal.js?v=2026-11-26-21",
+  "./felsflug.js?v=2026-11-26-21",
+  "./zahlengleis.js?v=2026-11-26-21",
+  "./heizer.js?v=2026-11-26-21",
+  "./hammerwurf.js?v=2026-11-26-21",
+  "./entenfamilie.js?v=2026-11-26-21",
+  "./grubenlore.js?v=2026-11-26-21",
+  "./rotoren.js?v=2026-11-26-21",
+  "./augenmass.js?v=2026-11-26-21",
+  "./feuerseil.js?v=2026-11-26-21",
+  "./flaggen.js?v=2026-11-26-21",
+  "./zeitgefuehl.js?v=2026-11-26-21",
+  "./kletterwand.js?v=2026-11-26-21",
+  "./freihand.js?v=2026-11-26-21",
+  "./kopfkino.js?v=2026-11-26-21",
+  "./eisstock.js?v=2026-11-26-21",
+  "./gratwanderung.js?v=2026-11-26-21",
+  "./kaminfeger.js?v=2026-11-26-21",
+  "./dachlaeufer.js?v=2026-11-26-21",
+  "./stampfwerk.js?v=2026-11-26-21",
+  "./bienenflug.js?v=2026-11-26-21",
+  "./marsrover.js?v=2026-11-26-21",
+  "./spiegelsee.js?v=2026-11-26-21",
+  "./seifenblase.js?v=2026-11-26-21",
+  "./styles.css?v=2026-11-26-21",
+  "./app.webmanifest?v=2026-11-26-21",
   "./icons/icon-32.png",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
@@ -220,223 +220,223 @@ const CORE_ASSETS = [
 const SPIEL_DATEIEN = {
   "kacheln": [
     "./kacheln.html",
-    "./kacheln.js?v=2026-11-26-20"
+    "./kacheln.js?v=2026-11-26-21"
   ],
   "fischteich": [
     "./fischteich.html",
-    "./fischteich.js?v=2026-11-26-20"
+    "./fischteich.js?v=2026-11-26-21"
   ],
   "blaetter": [
     "./blaetter.html",
-    "./blaetter.js?v=2026-11-26-20"
+    "./blaetter.js?v=2026-11-26-21"
   ],
   "turmbau": [
     "./turmbau.html",
-    "./turmbau.js?v=2026-11-26-20"
+    "./turmbau.js?v=2026-11-26-21"
   ],
   "bruecke": [
     "./bruecke.html",
-    "./bruecke.js?v=2026-11-26-20"
+    "./bruecke.js?v=2026-11-26-21"
   ],
   "drehscheibe": [
     "./drehscheibe.html",
-    "./drehscheibe.js?v=2026-11-26-20"
+    "./drehscheibe.js?v=2026-11-26-21"
   ],
   "liane": [
     "./liane.html",
-    "./liane.js?v=2026-11-26-20"
+    "./liane.js?v=2026-11-26-21"
   ],
   "tunnelflug": [
     "./tunnelflug.html",
-    "./tunnelflug.js?v=2026-11-26-20"
+    "./tunnelflug.js?v=2026-11-26-21"
   ],
   "drift": [
     "./drift.html",
-    "./drift.js?v=2026-11-26-20"
+    "./drift.js?v=2026-11-26-21"
   ],
   "planeten": [
     "./planeten.html",
-    "./planeten.js?v=2026-11-26-20"
+    "./planeten.js?v=2026-11-26-21"
   ],
   "mondlandung": [
     "./mondlandung.html",
-    "./mondlandung.js?v=2026-11-26-20"
+    "./mondlandung.js?v=2026-11-26-21"
   ],
   "schwerkraft": [
     "./schwerkraft.html",
-    "./schwerkraft.js?v=2026-11-26-20"
+    "./schwerkraft.js?v=2026-11-26-21"
   ],
   "huegel": [
     "./huegel.html",
-    "./huegel.js?v=2026-11-26-20"
+    "./huegel.js?v=2026-11-26-21"
   ],
   "ballon": [
     "./ballon.html",
-    "./ballon.js?v=2026-11-26-20"
+    "./ballon.js?v=2026-11-26-21"
   ],
   "slalom": [
     "./slalom.html",
-    "./slalom.js?v=2026-11-26-20"
+    "./slalom.js?v=2026-11-26-21"
   ],
   "frosch": [
     "./frosch.html",
-    "./frosch.js?v=2026-11-26-20"
+    "./frosch.js?v=2026-11-26-21"
   ],
   "kranhafen": [
     "./kranhafen.html",
-    "./kranhafen.js?v=2026-11-26-20"
+    "./kranhafen.js?v=2026-11-26-21"
   ],
   "seiltaenzer": [
     "./seiltaenzer.html",
-    "./seiltaenzer.js?v=2026-11-26-20"
+    "./seiltaenzer.js?v=2026-11-26-21"
   ],
   "draht": [
     "./draht.html",
-    "./draht.js?v=2026-11-26-20"
+    "./draht.js?v=2026-11-26-21"
   ],
   "spuren": [
     "./spuren.html",
-    "./spuren.js?v=2026-11-26-20"
+    "./spuren.js?v=2026-11-26-21"
   ],
   "ball": [
     "./ball.html",
-    "./ball.js?v=2026-11-26-20"
+    "./ball.js?v=2026-11-26-21"
   ],
   "jongleur": [
     "./jongleur.html",
-    "./jongleur.js?v=2026-11-26-20"
+    "./jongleur.js?v=2026-11-26-21"
   ],
   "turmspringen": [
     "./turmspringen.html",
-    "./turmspringen.js?v=2026-11-26-20"
+    "./turmspringen.js?v=2026-11-26-21"
   ],
   "fallschirm": [
     "./fallschirm.html",
-    "./fallschirm.js?v=2026-11-26-20"
+    "./fallschirm.js?v=2026-11-26-21"
   ],
   "holzfaeller": [
     "./holzfaeller.html",
-    "./holzfaeller.js?v=2026-11-26-20"
+    "./holzfaeller.js?v=2026-11-26-21"
   ],
   "fledermaus": [
     "./fledermaus.html",
-    "./fledermaus.js?v=2026-11-26-20"
+    "./fledermaus.js?v=2026-11-26-21"
   ],
   "ninja": [
     "./ninja.html",
-    "./ninja.js?v=2026-11-26-20"
+    "./ninja.js?v=2026-11-26-21"
   ],
   "freitaucher": [
     "./freitaucher.html",
-    "./freitaucher.js?v=2026-11-26-20"
+    "./freitaucher.js?v=2026-11-26-21"
   ],
   "schwarm": [
     "./schwarm.html",
-    "./schwarm.js?v=2026-11-26-20"
+    "./schwarm.js?v=2026-11-26-21"
   ],
   "welle": [
     "./welle.html",
-    "./welle.js?v=2026-11-26-20"
+    "./welle.js?v=2026-11-26-21"
   ],
   "steinhuepfer": [
     "./steinhuepfer.html",
-    "./steinhuepfer.js?v=2026-11-26-20"
+    "./steinhuepfer.js?v=2026-11-26-21"
   ],
   "eiskanal": [
     "./eiskanal.html",
-    "./eiskanal.js?v=2026-11-26-20"
+    "./eiskanal.js?v=2026-11-26-21"
   ],
   "felsflug": [
     "./felsflug.html",
-    "./felsflug.js?v=2026-11-26-20"
+    "./felsflug.js?v=2026-11-26-21"
   ],
   "zahlengleis": [
     "./zahlengleis.html",
-    "./zahlengleis.js?v=2026-11-26-20"
+    "./zahlengleis.js?v=2026-11-26-21"
   ],
   "heizer": [
     "./heizer.html",
-    "./heizer.js?v=2026-11-26-20"
+    "./heizer.js?v=2026-11-26-21"
   ],
   "hammerwurf": [
     "./hammerwurf.html",
-    "./hammerwurf.js?v=2026-11-26-20"
+    "./hammerwurf.js?v=2026-11-26-21"
   ],
   "entenfamilie": [
     "./entenfamilie.html",
-    "./entenfamilie.js?v=2026-11-26-20"
+    "./entenfamilie.js?v=2026-11-26-21"
   ],
   "grubenlore": [
     "./grubenlore.html",
-    "./grubenlore.js?v=2026-11-26-20"
+    "./grubenlore.js?v=2026-11-26-21"
   ],
   "rotoren": [
     "./rotoren.html",
-    "./rotoren.js?v=2026-11-26-20"
+    "./rotoren.js?v=2026-11-26-21"
   ],
   "augenmass": [
     "./augenmass.html",
-    "./augenmass.js?v=2026-11-26-20"
+    "./augenmass.js?v=2026-11-26-21"
   ],
   "feuerseil": [
     "./feuerseil.html",
-    "./feuerseil.js?v=2026-11-26-20"
+    "./feuerseil.js?v=2026-11-26-21"
   ],
   "flaggen": [
     "./flaggen.html",
-    "./flaggen.js?v=2026-11-26-20"
+    "./flaggen.js?v=2026-11-26-21"
   ],
   "zeitgefuehl": [
     "./zeitgefuehl.html",
-    "./zeitgefuehl.js?v=2026-11-26-20"
+    "./zeitgefuehl.js?v=2026-11-26-21"
   ],
   "kletterwand": [
     "./kletterwand.html",
-    "./kletterwand.js?v=2026-11-26-20"
+    "./kletterwand.js?v=2026-11-26-21"
   ],
   "freihand": [
     "./freihand.html",
-    "./freihand.js?v=2026-11-26-20"
+    "./freihand.js?v=2026-11-26-21"
   ],
   "kopfkino": [
     "./kopfkino.html",
-    "./kopfkino.js?v=2026-11-26-20"
+    "./kopfkino.js?v=2026-11-26-21"
   ],
   "eisstock": [
     "./eisstock.html",
-    "./eisstock.js?v=2026-11-26-20"
+    "./eisstock.js?v=2026-11-26-21"
   ],
   "gratwanderung": [
     "./gratwanderung.html",
-    "./gratwanderung.js?v=2026-11-26-20"
+    "./gratwanderung.js?v=2026-11-26-21"
   ],
   "kaminfeger": [
     "./kaminfeger.html",
-    "./kaminfeger.js?v=2026-11-26-20"
+    "./kaminfeger.js?v=2026-11-26-21"
   ],
   "dachlaeufer": [
     "./dachlaeufer.html",
-    "./dachlaeufer.js?v=2026-11-26-20"
+    "./dachlaeufer.js?v=2026-11-26-21"
   ],
   "stampfwerk": [
     "./stampfwerk.html",
-    "./stampfwerk.js?v=2026-11-26-20"
+    "./stampfwerk.js?v=2026-11-26-21"
   ],
   "bienenflug": [
     "./bienenflug.html",
-    "./bienenflug.js?v=2026-11-26-20"
+    "./bienenflug.js?v=2026-11-26-21"
   ],
   "marsrover": [
     "./marsrover.html",
-    "./marsrover.js?v=2026-11-26-20"
+    "./marsrover.js?v=2026-11-26-21"
   ],
   "spiegelsee": [
     "./spiegelsee.html",
-    "./spiegelsee.js?v=2026-11-26-20"
+    "./spiegelsee.js?v=2026-11-26-21"
   ],
   "seifenblase": [
     "./seifenblase.html",
-    "./seifenblase.js?v=2026-11-26-20"
+    "./seifenblase.js?v=2026-11-26-21"
   ]
 };
 

@@ -1,63 +1,51 @@
 /*
  * seifenblase.js – Seifenblase.
  * ---------------------------------------------------------------------------
- * Ein Sommerabend im Garten. Aus dem Ring über der Schale steigt eine
- * Seifenblase auf – langsam, von selbst, durch eine Welt voller Dinge, an
- * denen sie zerplatzt. Man berührt sie nie. Eine Regel: Ein Tipp irgendwo
- * aufs Bild bläst einen kurzen Luftstoss von der Stelle des Fingers weg, und
- * die Blase treibt vom Finger fort – umso stärker, je näher man tippt. Unter
- * ihr getippt steigt sie schneller, links von ihr treibt sie nach rechts,
- * über ihr bremst sie. Man schiebt, indem man daneben tippt; das ist
- * ungewohnt und wird mit Übung sehr genau. Wer sie selbst trifft, dem
- * zerplatzt sie unter dem Finger.
+ * Ein Sommerabend. Aus dem Ring über der Schale auf dem Gartentisch steigt
+ * eine Seifenblase auf, und vor ihr windet sich eine Rennstrecke in den
+ * Abendhimmel: eine Bahn zwischen zwei schillernden Lichtbändern, die mal
+ * links, mal rechts, schräg hinauf, quer hinüber und auch wieder hinunter
+ * führt. Man berührt die Blase nie. Eine Regel: Ein Tipp irgendwo aufs Bild
+ * bläst einen kurzen Luftstoss von der Stelle des Fingers weg, und die Blase
+ * treibt vom Finger fort – umso stärker, je näher man tippt. Unter ihr
+ * getippt steigt sie schneller, links von ihr treibt sie nach rechts, über
+ * ihr drückt man sie hinunter. Wer sie selbst trifft, dem zerplatzt sie
+ * unter dem Finger – und wer den Rand der Bahn berührt, dem auch.
  *
- * Die Blase hat Auftrieb (sie steigt immer ein wenig schneller), Luft-
- * widerstand (ein Stoss klingt ab) und treibt im Seitenwind, den Pollen,
- * Samen und Blätter zeigen. Zu viele Tipps kurz hintereinander schaukeln sie
- * auf. Von unten steigt der Abendnebel: Wer zu lange bremst, den holt er ein.
- * Zerplatzen lässt sie alles Spitze, Harte und Nasse – Dornen, Nadeln,
- * Kanten, Spinnennetze, Tropfen, Wespen, Vögel, Wolken – und der Rand des
- * Feldes: Hecke, Stamm, Hauswand, Gewitterregen. Was sie trifft, trifft sie
- * genau dort, wo es gemalt ist: Jedes Hindernis besteht aus Kreisen, Stäben
- * und Vielecken (prims), und dieselben werden gerechnet und gemalt.
+ * Es zählt, wie weit man auf der Bahn kommt und wie schnell: Punkte sind die
+ * Streckenmeter mal einem Tempofaktor. Hinter der Blase kriecht der
+ * Abendnebel die Bahn entlang, immer etwas schneller – wer trödelt, den holt
+ * er ein. Die ersten Abschnitte sind nur Bahn, zum Rasen; erst ab gut 15
+ * Sekunden kreuzen Vögel und Wolkenfetzen auf festen, sichtbaren Bahnen, und
+ * die Bahn wird an Engstellen schmal. Jeder achte Abschnitt ist besonders,
+ * im festen Wechsel und vorher angesagt: Rückenwind, der die Blase die Bahn
+ * entlang trägt, oder eine Böe quer über die Bahn. Sonst weht kein Wind.
  *
- * Die Reise geht nach oben, und die Welt wechselt mit der Höhe: der Garten
- * im Abendlicht (Rosen, Brennnesseln, ein tropfender Gartenschlauch), die
- * Baumkrone (Äste, Tannenzweige, Spinnennetze mit Tau, Wespen), die Dächer
- * der Altstadt (Balkone, Vordächer mit Kaminen und tropfenden Rinnen,
- * Antennen, Schwalben) und der Abendhimmel (Wolkenbänke, Wolkenfetzen,
- * Mauersegler, die ersten Sterne). Jeder achte Abschnitt ist besonders, im
- * festen Wechsel und vorher angesagt: ein Aufwind – eine warme Säule, die
- * die Blase schnell durch eine enge Stelle trägt – oder eine Böe, ein
- * starker Seitenwind, gegen den man von der Windseite tippen muss.
- *
- * Gebaut wird die Welt aus dem Zufall (zufall.js): ohne Turnier jedes Mal
+ * Gebaut wird die Bahn aus dem Zufall (zufall.js): ohne Turnier jedes Mal
  * eine andere, im Turnier für alle im selben Versuch dieselbe. Sie hängt nur
  * an der Saat, die Runde nur an Spielzeit, Saat und den Tipps (Zeit und Ort
- * in der Welt). Sie ist immer zu schaffen, weil zuerst ein Weg entsteht –
- * eine Gasse, die Reihe um Reihe hinaufführt, mit einem Zeitplan, wann eine
- * Blase auf ihr wo ist (wegX, zeitplan) – und dann die Hindernisse um sie
- * herum, so weit weg, dass wer «marge» daneben oder «luft» zu früh oder zu
- * spät ist, noch durchkommt. Jeder Abschnitt wird nachgeprüft (sicher): die
- * ganze Breite der Gasse, und bei allem, was sich bewegt, auch zu früh und
- * zu spät. Die Gasse wird mit der Zeit enger, die Blase schneller.
+ * in der Welt). Zuerst entsteht die Mittellinie, Figur um Figur (Gerade,
+ * Bogen, Querfahrt, Zickzack, Schikane, Tauchgang), jede aus Geraden und
+ * Kreisbögen – nie enger, als die Bahn breit ist, und nie zu nah an einem
+ * früheren Stück (figurBauen, passt). Dann die Breite. Dann, was sich
+ * bewegt, so getaktet, dass es weg ist, wenn eine Blase im Zeitplan kommt –
+ * auch wer «luft» zu früh oder zu spät ist (phasenSuchen).
  *
- * Das Bild: Der Himmel, die Ferne, die Kulissen der vier Welten, die Ränder
- * und der Nebel werden einmal gemalt und dann nur noch aufgelegt, Punkt auf
- * Punkt – auf dem iPhone rechnet der Prozessor jede gemalte Fläche, jedes
- * Bild. Jedes Hindernis wird beim ersten Erscheinen in ein eigenes Bild
- * gemalt. Die schillernde Blase selbst ist ein vorgerechneter Seifenfilm
- * (Farben dünner Schichten, filmBild), der sich in ihr dreht, mit einer
- * Maske, die zum Rand hin mehr spiegelt, darüber Glanz und Fensterkreuz.
- * Beim ersten Start wächst sie erst aus dem Ring.
+ * Das Bild: Himmel und Ferne werden einmal gemalt und aufgelegt, die Bahn
+ * je Bild als Linien. Man sieht auf jedem Gerät gleich weit voraus: Die
+ * Kamera schaut die Bahn entlang nach vorn, und was weiter weg ist als die
+ * Sicht, verschwindet im Dunst. Der Himmel wird mit dem Weg Abend, Dämmerung
+ * und Nacht. Die schillernde Blase ist ein vorgerechneter Seifenfilm
+ * (filmBild), der sich in ihr dreht, hinter einer Maske, darüber Glanz und
+ * Fensterkreuz. Beim ersten Start wächst sie erst aus dem Ring.
  *
- * Die Gegner (geist.js) steigen als Blasen aus Licht mit, und die besten
- * Läufe lassen sich anschauen (?zuschauen=): in derselben Welt, gebaut mit
+ * Die Gegner (geist.js) fliegen als Blasen aus Licht mit, und die besten
+ * Läufe lassen sich anschauen (?zuschauen=): auf derselben Bahn, gebaut mit
  * derselben Saat; die Luftstösse stehen in der Aufzeichnung, mit Richtung
- * und Abstand des Fingers, und sind beim Zuschauen zu sehen.
+ * und Abstand des Fingers.
  *
- * Eine Einheit ist ein Zentimeter, hundert sind ein Meter. x zählt quer (die
- * Ränder stehen bei −RAND und +RAND), y nach oben; die Blase startet bei 0.
+ * Eine Einheit ist ein Zentimeter, hundert sind ein Meter. x zählt quer, y
+ * nach oben; die Blase startet bei (0, 0), wo auch die Bahn beginnt.
  */
 (() => {
   "use strict";
@@ -80,18 +68,15 @@
     neu() {},
     zahl: () => Math.random(),
   };
-
   // ---------------------------------------------------------------------------
   // Die Regeln
   // ---------------------------------------------------------------------------
   const METER = 100;
   const R = 7;                     // so gross ist sie (Halbmesser)
   const RH = R * 0.97;             // so nah darf etwas kommen – sie wabert ein wenig
-  const RAND = 60;                 // die Ränder des Feldes, links und rechts
-  // Der Luftwiderstand: So schnell gleicht sie sich dem Wind (quer) und
-  // ihrem Auftrieb (hoch) an – ein Stoss ist nach 0,65 s auf gut ein Drittel
-  // abgeklungen. Ein Stoss von J Einheiten je Sekunde trägt sie so um
-  // J × TAU weit.
+  // Der Luftwiderstand: So schnell gleicht sie sich der Luft an – ein Stoss
+  // ist nach 0,65 s auf gut ein Drittel abgeklungen. Ein Stoss von J
+  // Einheiten je Sekunde trägt sie so um J × TAU weit.
   const TAU_X = 0.65;
   const TAU_Y = 0.65;
   // Der Luftstoss: J0 dicht neben ihr, halb so stark D0 weiter weg, ab DMAX
@@ -100,51 +85,60 @@
   const D0 = 22;
   const DMAX = 95;
   const BERUEHRT = R * 0.85;
-  // Der Auftrieb nach der Spielzeit: von 38 cm in der Sekunde auf bald einen
-  // Meter und mehr.
-  const V0 = 38;
-  const V_MAX = 125;
-  const V_ZEIT = 55;
-  // Die Marge: so weit darf sie neben der Gasse sein (je Seite). Die ersten
-  // Sekunden 22 cm, nach 20 s gut 11, nach 40 s 6,5, nie unter 4,5.
-  const M0 = 22;
-  const M_MIN = 4.5;
-  const M_ZEIT = 16;
-  const M_AB = 5;
+  // Der Auftrieb: Sie steigt von selbst, immer gleich schnell.
+  const AUFTRIEB = 32;
+  // Der Zeitplan: So schnell kommt eine Blase im Plan die Bahn entlang – von
+  // V0 cm in der Sekunde gegen V_MAX. Ihm folgt der Nebel, an ihm misst sich
+  // der Tempofaktor, nach ihm sind die Vögel getaktet.
+  const V0 = 34;
+  const V_MAX = 100;
+  const V_ZEIT = 50;
+  // Die Bahn: so weit reicht sie von der Mitte zu jedem Rand – am Anfang
+  // 44 cm (die Blase hat 37 cm Luft je Seite), dann schmaler gegen 16.
+  const W0 = 44;
+  const W_MIN = 16;
+  const W_AB = 6;
+  const W_ZEIT = 20;
+  // Die Bögen: ihr Halbmesser, am Anfang weit, dann enger – nie enger als
+  // die Bahn breit ist (der innere Rand bleibt ein Bogen).
+  const RHO0 = 110;
+  const RHO_MIN = 36;
+  const RHO_ZEIT = 22;
+  const WAND = 22;                 // so viel Himmel bleibt zwischen zwei Stücken der Bahn
+  const DS = 2;                    // alle zwei Zentimeter ein Punkt der Mittellinie
+  const RASTER = 60;               // das Gitter, in dem frühere Stücke gesucht werden
   // Die Luft: so viel zu früh oder zu spät darf sie bei allem sein, was sich
-  // bewegt (Tropfen, Wespen, Vögel) – von 0,36 s gegen 0,12 s.
+  // bewegt – von 0,36 s gegen 0,14 s.
   const E0 = 0.36;
-  const E_MIN = 0.12;
+  const E_MIN = 0.14;
   const E_ZEIT = 20;
   const E_AB = 4;
-  const SCHWER_ZEIT = 20;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
+  const SCHWER_ZEIT = 22;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
   const SCHWER_AB = 4;
-  const AUF = 3;                   // so viel schneller trägt der Aufwind
-  // Die Tropfen: schwellen SCHWELL Sekunden lang an, dann fallen sie.
-  const G_TROPFEN = 620;
-  const R_TROPFEN = 2.3;
-  const SCHWELL = 0.55;
-  const FALL = 300;
-  // So viel sieht man über der Blase voraus und unter ihr – auf jedem Gerät
-  // gleich viel voraus, damit niemand mehr sieht als der andere.
-  const SICHT_OBEN = 135;
-  const SICHT_UNTEN = 62;
-  const FELD_SICHT = 132;          // hochkant ist so viel quer im Bild
-  const PLATEAU = 20;              // so lang führt die Gasse gerade durch eine Reihe
+  const HINDERNIS_AB = 15;         // erst ab dieser Zeit im Plan kreuzt etwas, wird es eng
+  const RUECKENWIND = 85;          // so schnell trägt der Rückenwind die Bahn entlang
+  // So weit sieht man um den Blickpunkt (er liegt die Bahn entlang vor der
+  // Blase): auf jedem Gerät gleich weit; dahinter verschwindet die Bahn im
+  // Dunst.
+  const SICHT = 100;
+  const SICHT_VOR = 0.42;          // so weit (in SICHT) liegt der Blickpunkt vor der Blase
   const TAKT = 1 / 240;
-  const PLAN_DT = 1 / 30;
   const STURZ_MS = 2100;
-  // Die Fassung der Aufzeichnung: t2 seit Punkten mit Tempofaktor und der
-  // Rennstrecke – Läufe in t1 (Meter, andere Welt) passen nicht mehr dazu.
-  // Sie steht auch wörtlich bei zuschauer und fuer (unten), wo
-  // scripts/pruefen.mjs sie mit mini-games.js (ANSEHBAR) vergleicht.
-  const FASSUNG = "t2";
-  // Die Welten nach der Höhe (in Einheiten), und wie weit sie ineinander
-  // übergehen.
-  const WELTEN = ["garten", "baum", "dach", "himmel"];
-  const WELT_AB = [0, 700, 1700, 3800];
-  const WELT_NAME = ["Der Garten", "Die Baumkrone", "Über den Dächern", "Der Abendhimmel"];
-  const UEBERGANG = 140;
+  // Die Fassung der Aufzeichnung: t3 seit der Rennstrecke – Läufe in t2
+  // (Höhe, Gasse) passen nicht mehr dazu. Sie steht auch wörtlich bei
+  // zuschauer und fuer (unten), wo scripts/pruefen.mjs sie mit mini-games.js
+  // (ANSEHBAR) vergleicht.
+  const FASSUNG = "t3";
+  // Die Stimmungen nach dem Weg auf der Bahn: ihre Namen und die Farben der
+  // Lichtbänder (der Kern, der Schein).
+  const STIMMUNGEN = [
+    { ab: 0, name: "Abendrot", kern: [255, 214, 150], schein: [255, 150, 96] },
+    { ab: 4500, name: "Dämmerung", kern: [255, 184, 214], schein: [236, 110, 176] },
+    { ab: 11000, name: "Blaue Stunde", kern: [200, 186, 255], schein: [130, 112, 246] },
+    { ab: 18000, name: "Sternennacht", kern: [206, 238, 255], schein: [110, 186, 255] },
+  ];
+  const UEBERGANG = 300;
+  const HIMMEL_WEG = 0.32;         // so viel des Wegs auf der Bahn wird der Himmel Abend
 
   const TOP_COUNT = 5;
   const store = cloudApi
@@ -155,7 +149,6 @@
       update(fn) { return fn(this.read()); },
       onChange() { return () => {}; },
     };
-
   // ---------------------------------------------------------------------------
   // Kleine Rechnungen
   // ---------------------------------------------------------------------------
@@ -164,38 +157,50 @@
   const glatt = (k) => { const t = clamp(k, 0, 1); return t * t * (3 - 2 * t); };
   const TAU = Math.PI * 2;
 
-  const vAuf = (t) => V_MAX - (V_MAX - V0) * Math.exp(-Math.max(0, t) / V_ZEIT);
-  const margeBei = (t) => M_MIN + (M0 - M_MIN) * Math.exp(-Math.max(0, t - M_AB) / M_ZEIT);
+  const vRef = (t) => V_MAX - (V_MAX - V0) * Math.exp(-Math.max(0, t) / V_ZEIT);
+  // So weit ist eine Blase im Plan nach t Sekunden – und wann sie bei s ist.
+  const sRef = (t) => {
+    const tt = Math.max(0, t);
+    return V_MAX * tt - (V_MAX - V0) * V_ZEIT * (1 - Math.exp(-tt / V_ZEIT));
+  };
+  function tRef(s) {
+    if (s <= 0) return 0;
+    let t = s / ((V0 + V_MAX) / 2);
+    for (let i = 0; i < 8; i += 1) t = Math.max(0, t - (sRef(t) - s) / vRef(t));
+    return t;
+  }
+  const breiteBei = (t) => W_MIN + (W0 - W_MIN) * Math.exp(-Math.max(0, t - W_AB) / W_ZEIT);
+  const rhoBei = (t) => RHO_MIN + (RHO0 - RHO_MIN) * Math.exp(-Math.max(0, t) / RHO_ZEIT);
   const luftBei = (t) => E_MIN + (E0 - E_MIN) * Math.exp(-Math.max(0, t - E_AB) / E_ZEIT);
   const schwere = (t) => 1 - Math.exp(-Math.max(0, t - SCHWER_AB) / SCHWER_ZEIT);
-  // So weit unter dem Zeitplan steigt der Nebel: am Start anderthalb Meter,
-  // bald gut siebzig Zentimeter.
+  // So weit hinter dem Zeitplan kriecht der Nebel die Bahn entlang: am Start
+  // anderthalb Meter, bald gut siebzig Zentimeter.
   const abstandNebel = (t) => 72 + 80 * Math.exp(-Math.max(0, t) / 10);
+  const nebelS = (t) => sRef(t) - abstandNebel(t);
 
   /*
-   * Die Punkte: die Höhe (in Dezimetern) mal dem Tempofaktor. Der Faktor
-   * misst, wie viel schneller man im Mittel gestiegen ist als eine Blase,
-   * die nur getragen wird – so schnell steigt auch der Nebel: je km/h mehr
-   * im Durchschnitt TEMPO_K mehr, nie unter 1, nie über FAKTOR_MAX.
-   * Linear im Tempo, nicht im Verhältnis: Wer in den ersten Sekunden
-   * davonfliegt und dann zerplatzt, bekommt so viel, aber nicht mehr als
-   * einer, der deutlich weiter kommt; wer gleich weit kommt und schneller
-   * ist, liegt klar vorn. Der Faktor hängt nur an Höhe und Spielzeit;
-   * Geister, Zuschauen und Turnier rechnen gleich.
+   * Die Punkte: die Streckenmeter (der weiteste Punkt auf der Bahn, in
+   * Dezimetern) mal dem Tempofaktor. Der Faktor misst, wie viel schneller
+   * man im Mittel die Bahn entlang war als eine Blase im Zeitplan – so
+   * schnell kriecht auch der Nebel: je km/h mehr im Durchschnitt TEMPO_K
+   * mehr, nie unter 1, nie über FAKTOR_MAX. Linear im Tempo, nicht im
+   * Verhältnis: Wer in den ersten Sekunden davonfliegt und dann zerplatzt,
+   * bekommt so viel, aber nicht mehr als einer, der deutlich weiter kommt;
+   * wer gleich weit kommt und schneller ist, liegt klar vorn. Der Faktor
+   * hängt nur an Strecke und Spielzeit; Geister, Zuschauen und Turnier
+   * rechnen gleich.
    */
-  const TEMPO_K = 0.2;
+  const TEMPO_K = 0.3;
   const FAKTOR_MAX = 2;
   const KMH = 0.036;               // cm/s in km/h
-  // So hoch ist eine nur getragene Blase nach t Sekunden.
-  const hTrag = (t) => V_MAX * t - (V_MAX - V0) * V_ZEIT * (1 - Math.exp(-t / V_ZEIT));
-  function faktorBei(h, t) {
+  function faktorBei(s, t) {
     const tt = Math.max(1, t);
-    const mehr = (Math.max(0, h) / tt - hTrag(tt) / tt) * KMH;
+    const mehr = (Math.max(0, s) / tt - sRef(tt) / tt) * KMH;
     return clamp(1 + TEMPO_K * mehr, 1, FAKTOR_MAX);
   }
   // Eine Zahl mit Komma, wie man sie hier schreibt.
   const zahlText = (x, stellen = 1) => x.toFixed(stellen).replace(".", ",");
-  const punkteBei = (h, t) => Math.round((Math.max(0, h) / 10) * faktorBei(h, t));
+  const punkteBei = (s, t) => Math.round((Math.max(0, s) / 10) * faktorBei(s, t));
 
   // Wie stark ein Luftstoss aus dem Abstand d (zur Mitte der Blase) ist, und
   // umgekehrt, wie weit weg man für einen Stoss der Stärke j tippt.
@@ -234,19 +239,18 @@
   const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
   const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
   const rgba = (c, alpha) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${alpha})`;
-
-  // Welche Welt in der Höhe y – und wie weit es schon die nächste ist.
-  function weltBei(y) {
+  // Welche Stimmung beim Weg s – und wie weit es schon die nächste ist.
+  function stimmungBei(s) {
     let i = 0;
-    while (i + 1 < WELT_AB.length && y >= WELT_AB[i + 1]) i += 1;
+    while (i + 1 < STIMMUNGEN.length && s >= STIMMUNGEN[i + 1].ab) i += 1;
     return i;
   }
-  function weltMix(y) {
-    for (let i = 1; i < WELT_AB.length; i += 1) {
-      const d = y - WELT_AB[i];
+  function stimmungMix(s) {
+    for (let i = 1; i < STIMMUNGEN.length; i += 1) {
+      const d = s - STIMMUNGEN[i].ab;
       if (Math.abs(d) < UEBERGANG) return { a: i - 1, b: i, k: glatt((d + UEBERGANG) / (2 * UEBERGANG)) };
     }
-    const w = weltBei(y);
+    const w = stimmungBei(s);
     return { a: w, b: w, k: 0 };
   }
 
@@ -320,86 +324,6 @@
     }
     return null;
   }
-
-  // Eine Kurve (quadratisch, von a über c nach b) als Punkte.
-  function bogen(ax, ay, cx, cy, bx, by, n) {
-    const pts = [];
-    for (let i = 0; i <= n; i += 1) {
-      const u = i / n;
-      const a = (1 - u) * (1 - u);
-      const b = 2 * (1 - u) * u;
-      const c = u * u;
-      pts.push([a * ax + b * cx + c * bx, a * ay + b * cy + c * by]);
-    }
-    return pts;
-  }
-
-  // Ein Punkt auf der Linie pts, so weit d vom Anfang – mit Richtung
-  // (tx, ty), Normale (nx, ny: links davon) und dem Anteil u.
-  function entlang(pts, d) {
-    let rest = d;
-    for (let i = 1; i < pts.length; i += 1) {
-      const dx = pts[i][0] - pts[i - 1][0];
-      const dy = pts[i][1] - pts[i - 1][1];
-      const l = Math.hypot(dx, dy) || 1e-6;
-      if (rest <= l || i === pts.length - 1) {
-        const f = clamp(rest / l, 0, 1);
-        return { x: pts[i - 1][0] + dx * f, y: pts[i - 1][1] + dy * f, tx: dx / l, ty: dy / l, nx: -dy / l, ny: dx / l, u: (i - 1 + f) / (pts.length - 1) };
-      }
-      rest -= l;
-    }
-    const p = pts[pts.length - 1];
-    return { x: p[0], y: p[1], tx: 1, ty: 0, nx: 0, ny: 1, u: 1 };
-  }
-  function laenge(pts) {
-    let l = 0;
-    for (let i = 1; i < pts.length; i += 1) l += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    return l;
-  }
-
-  // Ein Blatt vom Stiel (x, y) in Richtung w: spitz, am breitesten vor der
-  // Mitte. zacken > 0: gesägt (Brennnessel), die Zähne gehören zur Form.
-  function blattForm(x, y, w, lang, breit, { n = 7, zacken = 0, herz = 0 } = {}) {
-    const c = Math.cos(w);
-    const s = Math.sin(w);
-    const l = [];
-    const r = [];
-    for (let i = 1; i < n; i += 1) {
-      const u = i / n;
-      let hb = (breit / 2) * Math.pow(Math.sin(Math.PI * Math.pow(u, 0.8 + herz * 0.3)), 0.8);
-      if (zacken && i % 2 === 0) hb += zacken;
-      const ax = x + c * lang * u;
-      const ay = y + s * lang * u;
-      l.push([ax - s * hb, ay + c * hb]);
-      r.push([ax + s * hb, ay - c * hb]);
-    }
-    return [[x, y], ...l, [x + c * lang, y + s * lang], ...r.reverse()];
-  }
-
-  // Ein Band um eine Linie: so breit wie die Nadeln eines Zweigs lang sind.
-  function huelle(pts, r0, r1) {
-    const l = [];
-    const r = [];
-    const n = pts.length;
-    for (let i = 0; i < n; i += 1) {
-      const a = pts[Math.max(0, i - 1)];
-      const b = pts[Math.min(n - 1, i + 1)];
-      const dx = b[0] - a[0];
-      const dy = b[1] - a[1];
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len;
-      const ny = dx / len;
-      const rr = lerp(r0, r1, i / (n - 1));
-      l.push([pts[i][0] + nx * rr, pts[i][1] + ny * rr]);
-      r.push([pts[i][0] - nx * rr, pts[i][1] - ny * rr]);
-    }
-    const e = pts[n - 1];
-    const v = pts[n - 2];
-    const len = Math.hypot(e[0] - v[0], e[1] - v[1]) || 1;
-    const spitze = [e[0] + ((e[0] - v[0]) / len) * r1 * 0.9, e[1] + ((e[1] - v[1]) / len) * r1 * 0.9];
-    return [...l, spitze, ...r.reverse()];
-  }
-
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
@@ -409,40 +333,35 @@
     phase: "bereit",
     schritt: "start",
     punkte: 0,
-    hoechste: 0,             // so hoch war sie schon (für die Punkte)
+    weiteste: 0,             // so weit war sie schon auf der Bahn (für die Punkte)
     tacho: 0,                // was die Nadel zeigt (km/h, gedämpft)
     t: 0,                    // die Spielzeit; sie läuft bei null los
     zeit: 0,                 // die Uhr des Bildes
-    // Die Blase: Ort, Tempo, und wie sie wabert (Richtung, Stärke, seit wann).
-    blase: { x: 0, y: 0, vx: 0, vy: V0, ww: 0, wa: 0, wt: 9 },
+    // Die Blase: Ort, Tempo, wie sie wabert (Richtung, Stärke, seit wann)
+    // und der nächste Punkt der Mittellinie (i).
+    blase: { x: 0, y: 0, vx: 0, vy: AUFTRIEB, ww: 0, wa: 0, wt: 9, i: 0 },
     stoesse: 0,              // so viele Luftstösse
     letzterStoss: null,      // { w: Richtung vom Finger, d: Abstand }
-    weg: [],                 // die Gasse: [{ y, x, ph }]
-    plan: null,              // der Zeitplan: wo eine Blase auf der Gasse wann ist
-    hindernisse: [],         // was steht (nach y0 geordnet)
-    beweger: [],             // was sich bewegt
-    abschnitte: [],
-    aufwinde: [],
-    boeen: [],
-    letzte: { y: 0, x: 0 },  // die letzte Reihe, über der weitergebaut wird
-    windPhase: [0, 0],
-    langMax: 60,
-    langMaxB: 60,
-    planFehler: 0,
-    zahlAufwind: 0,
-    zahlBoee: 0,
-    abschnitt: -1,
-    welt: 0,
+    // Die Bahn: Punkte der Mittellinie alle DS cm – Ort, Richtung, Krümmung,
+    // halbe Breite und die Figur, zu der sie gehören. s = i × DS.
+    bahn: { x: [], y: [], tx: [], ty: [], k: [], w: [], fig: [] },
+    figuren: [],             // { nr, art, d, i0, i1, w, t0, besonders, wind, eng }
+    beweger: [],             // was sich bewegt (nach s0 geordnet)
+    raster: new Map(),       // jeder dritte Punkt der Bahn, nach Gitterfeld
+    kasten: [],              // die Bahnen der Beweger: Dort darf keine spätere Figur hin
+    kopf: { x: 0, y: 0, th: Math.PI / 2 },
+    planFehler: 0,           // so oft blieb nur eine Gerade
+    figur: -1,
+    stimmung: 0,
     geplatzt: null,
     teile: [],
     stossBilder: [],
     schriften: [],
     ansage: null,
-    camY: 0,
-    pollen: [],
+    cam: { x: 0, y: 0 },
+    himmel: 0,               // wie weit der Abend ist (geglätteter Weg)
     intro: null,
     pilotBis: 0,
-    naechste: 0,
   };
 
   let shell = null;
@@ -460,10 +379,11 @@
   let tippRinge = null;
   let ersterStart = true;
   let ebenen = null;
-  let teilId = 0;
 
-  // s: Bildpunkte je Einheit; blaseY: wo im Bild die Blase steht (von oben).
-  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, frei: 0, blaseY: 300, camBild: 0 };
+  // s: Bildpunkte je Einheit; (mx, my): wohin im Bild der Blickpunkt fällt;
+  // camBild: der Blickpunkt des letzten Bildes (dorthin hat der Finger
+  // gezielt).
+  const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, frei: 0, mx: 0, my: 0, camBild: { x: 0, y: 0 }, camY0: 0 };
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -484,13 +404,14 @@
     wind?.laut(0.2);
   }
 
+  // Die Grillen gehören in den Garten am Anfang; der Fahrtwind wird mit dem
+  // Tempo lauter.
   function klangStellen() {
-    const y = state.blase.y;
-    // Die Grillen gehören in den Garten, der Wind wird mit der Höhe lauter.
-    abend?.laut(0.42 * (1 - glatt((y - 300) / 900)));
-    const w = Math.abs(windBei(y, state.t));
-    wind?.setze(clamp(0.12 + w / 90, 0.12, 0.9));
-    wind?.laut(clamp(0.16 + y / 6000 + w / 140, 0.16, 0.6));
+    const b = state.blase;
+    abend?.laut(0.42 * (1 - glatt((b.i * DS - 300) / 1500)));
+    const v = Math.max(0, tempoEntlang());
+    wind?.setze(clamp(0.12 + v / 260, 0.12, 0.9));
+    wind?.laut(clamp(0.14 + v / 520, 0.14, 0.55));
   }
 
   function klangAus() {
@@ -501,489 +422,409 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Wind und Aufwind – nur nach Höhe, Zeit und Saat
+  // Die Bahn: Figur um Figur
   // ---------------------------------------------------------------------------
-  // Der Seitenwind: erst ab dreieinhalb Metern, dann stärker bis gut 25 cm
-  // in der Sekunde – zwei Wellen, die mit der Zeit wandern. Dazu die Böen.
-  function windBei(y, t) {
-    const a = 26 * glatt((y - 350) / 2200);
-    let w = 0;
-    if (a > 0) w = a * (0.62 * Math.sin(y / 170 + state.windPhase[0] + 0.45 * t) + 0.38 * Math.sin(y / 61 + state.windPhase[1] - 0.8 * t));
-    for (let i = 0; i < state.boeen.length; i += 1) {
-      const b = state.boeen[i];
-      if (y > b.y0 - 60 && y < b.y1 + 60) w += b.w * glatt((y - b.y0 + 40) / 80) * glatt((b.y1 + 40 - y) / 80);
+  /*
+   * Eine Figur ist eine Folge von Zügen: ["L", l] geradeaus l cm, ["B", a, r]
+   * ein Bogen um den Winkel a (positiv: nach links) mit dem Halbmesser r. Jede
+   * beginnt nach oben und endet nach oben, am höchsten Punkt, den sie
+   * erreicht – so führt eine Gerade nach oben immer ins Freie. d: 1 nach
+   * rechts, −1 nach links.
+   *
+   *   gerade     nur hinauf – zum Rasen
+   *   bogen      schräg hinüber und wieder hinauf
+   *   quer       quer hinüber und wieder hinauf
+   *   zickzack   schräg hin und her, drei Schläge
+   *   schikane   quer hinüber, hinauf, quer zurück, hinauf – eng
+   *   tauchgang  quer hinüber, HINUNTER (gegen den Auftrieb, von oben
+   *              stossen), quer weiter, wieder hinauf
+   *
+   * Jeder achte Abschnitt ist besonders, im Wechsel: der 8., 24., 40. mit
+   * Rückenwind (er trägt die Blase die Bahn entlang), der 16., 32., 48. eine
+   * Gerade mit einer Böe quer über die Bahn – beide vorher angesagt.
+   */
+  function figurZuege(art, d, p) {
+    const q = Math.PI / 2;
+    const r = p.rho;
+    if (art === "gerade") return [["L", p.a0]];
+    if (art === "bogen") return [["L", p.a0], ["B", (-d * q) / 2, r], ["L", p.b], ["B", (d * q) / 2, r], ["L", p.c]];
+    if (art === "quer") return [["L", p.a0], ["B", -d * q, r], ["L", p.b], ["B", d * q, r], ["L", p.c]];
+    if (art === "zickzack") {
+      return [["L", p.a0], ["B", (-d * q) / 2, r], ["L", p.b * 0.7], ["B", d * q, r], ["L", p.b * 0.7], ["B", -d * q, r], ["L", p.b * 0.7], ["B", (d * q) / 2, r], ["L", p.c]];
     }
-    return clamp(w, -70, 70);
+    if (art === "schikane") {
+      return [["L", p.a0], ["B", -d * q, p.rs], ["L", p.b * 0.6], ["B", d * q, p.rs], ["L", p.e], ["B", d * q, p.rs], ["L", p.b * 0.6], ["B", -d * q, p.rs], ["L", p.c]];
+    }
+    // Der Tauchgang.
+    return [["L", p.a0], ["B", -d * q, r], ["L", p.b * 0.6], ["B", -d * q, r], ["L", p.tief], ["B", d * q, r], ["L", p.e], ["B", d * q, r], ["L", p.c]];
   }
 
-  // Wie sehr der Aufwind dort trägt: 1 mitten in der Säule, 0 daneben.
-  function aufwindBei(x, y) {
-    for (let i = 0; i < state.aufwinde.length; i += 1) {
-      const a = state.aufwinde[i];
-      if (y < a.y0 - 40 || y > a.y1 + 40) continue;
-      const kx = glatt((a.b - Math.abs(x - a.x)) / 6 + 0.5);
-      const ky = glatt((y - a.y0 + 30) / 60) * glatt((a.y1 + 30 - y) / 60);
-      return kx * ky;
-    }
-    return 0;
+  // Die Punkte einer Figur (ohne den ersten, der schon zur Bahn gehört):
+  // [x, y, Richtung, Krümmung]; dazu die Geraden (für Vögel und Engstellen).
+  function zuegePunkte(kopf, zuege) {
+    let { x, y, th } = kopf;
+    const pts = [];
+    const geraden = [];
+    zuege.forEach(([art, a, rho]) => {
+      if (art === "L") {
+        const n = Math.max(0, Math.round(a / DS));
+        const cx = Math.cos(th) * DS;
+        const cy = Math.sin(th) * DS;
+        const j0 = pts.length;
+        for (let i = 0; i < n; i += 1) { x += cx; y += cy; pts.push([x, y, th, 0]); }
+        if (n > 0) geraden.push({ j0, j1: pts.length - 1, th });
+        return;
+      }
+      const n = Math.max(1, Math.round((Math.abs(a) * rho) / DS));
+      const dth = a / n;
+      const l = 2 * rho * Math.sin(Math.abs(dth) / 2);
+      for (let i = 0; i < n; i += 1) {
+        const h = th + dth / 2;
+        x += Math.cos(h) * l;
+        y += Math.sin(h) * l;
+        th += dth;
+        pts.push([x, y, th, dth / l]);
+      }
+    });
+    return { pts, geraden, kopf: { x, y, th } };
   }
 
-  // ---------------------------------------------------------------------------
-  // Die Gasse und ihr Zeitplan
-  // ---------------------------------------------------------------------------
-  // Die Mitte der Gasse in der Höhe y: durch jede Reihe gerade (pd unter und
-  // pu über ihr – so weit, wie ihre Teile nahe der Lücke reichen),
-  // dazwischen ein weicher Bogen.
-  function wegX(y) {
-    const w = state.weg;
-    if (!w.length) return 0;
+  const rasterFeld = (x, y) => `${Math.floor(x / RASTER)},${Math.floor(y / RASTER)}`;
+  function rasterRein(i) {
+    const B = state.bahn;
+    const key = rasterFeld(B.x[i], B.y[i]);
+    const liste = state.raster.get(key);
+    if (liste) liste.push(i); else state.raster.set(key, [i]);
+  }
+  // Die Punkte früherer Stücke um (x, y), so weit r reicht.
+  function rasterUm(x, y, r, f) {
+    const a = Math.floor((x - r) / RASTER);
+    const b = Math.floor((x + r) / RASTER);
+    const c = Math.floor((y - r) / RASTER);
+    const d = Math.floor((y + r) / RASTER);
+    for (let ix = a; ix <= b; ix += 1) {
+      for (let iy = c; iy <= d; iy += 1) {
+        const liste = state.raster.get(`${ix},${iy}`);
+        if (!liste) continue;
+        for (let j = 0; j < liste.length; j += 1) if (f(liste[j]) === false) return false;
+      }
+    }
+    return true;
+  }
+
+  /*
+   * Passt die Figur? Kein Punkt darf einem früheren Stück der Bahn (oder
+   * sich selbst, weiter hinten) näher kommen als beide halben Breiten und
+   * WAND dazu – ausser er liegt auf der Bahn ohnehin dicht dahinter. Und
+   * keiner darf in die Bahn eines Bewegers.
+   */
+  function passt(pts, w, i0) {
+    const B = state.bahn;
+    for (let j = 0; j < pts.length; j += 3) {
+      const [x, y] = pts[j];
+      const sj = (i0 + 1 + j) * DS;
+      const ok = rasterUm(x, y, w + W0 + WAND, (i) => {
+        const wi = B.w[i];
+        if (sj - i * DS < 2.5 * (w + wi) + 60) return true;
+        return Math.hypot(B.x[i] - x, B.y[i] - y) >= w + wi + WAND ? true : false;
+      });
+      if (!ok) return false;
+      for (let k = 0; k < j; k += 3) {
+        if (sj - (i0 + 1 + k) * DS < 5 * w + 60) break;
+        if (Math.hypot(pts[k][0] - x, pts[k][1] - y) < 2 * w + WAND) return false;
+      }
+      for (let k = 0; k < state.kasten.length; k += 1) {
+        const q = state.kasten[k];
+        if (x > q.x0 - w && x < q.x1 + w && y > q.y0 - w && y < q.y1 + w) return false;
+      }
+    }
+    return true;
+  }
+
+  // Wie die nächste Figur aussieht: die Art nach Nummer und Härte, die
+  // Masse aus der Saat. Immer gleich viele Zahlen ziehen, was auch geschieht.
+  function naechsteFigur() {
+    const n = state.figuren.length;
+    const z = [];
+    for (let i = 0; i < 24; i += 1) z.push(zufall.zahl());
+    const nr = n + 1;
+    const besonders = nr % 8 === 0 ? ((nr / 8) % 2 === 1 ? "rueckenwind" : "boee") : "";
+    const B = state.bahn;
+    const i0 = B.x.length - 1;
+    const t0 = tRef(i0 * DS);
+    const k = schwere(t0);
+    const w = breiteBei(t0);
+    const rho = Math.max(w + 12, rhoBei(t0) * (0.85 + 0.3 * z[2]));
+    const lang = lerp(1.25, 0.8, k);
+    const p = {
+      rho,
+      rs: Math.max(w + 10, rho * 0.78),
+      a0: (24 + 40 * z[3]) * lang,
+      b: (80 + 120 * z[4]) * lang,
+      c: (36 + 50 * z[5]) * lang,
+      tief: lerp(50, 150, k) * (0.75 + 0.5 * z[6]),
+      e: 0,
+    };
+    let art;
+    if (besonders === "rueckenwind") art = ["gerade", "bogen", "zickzack"][Math.floor(z[0] * 3)];
+    else if (besonders === "boee") art = "gerade";
+    else if (n === 0) art = "bogen";
+    else if (n === 1) art = "quer";
+    else if (n === 2) art = "gerade";
+    else if (n === 3) art = "tauchgang";
+    else if (n === 4) art = "zickzack";
+    else {
+      const gewichte = [
+        ["gerade", lerp(1.0, 0.55, k)],
+        ["bogen", 1],
+        ["quer", 0.9],
+        ["zickzack", lerp(0.35, 0.8, k)],
+        ["schikane", lerp(0.25, 0.9, k)],
+        ["tauchgang", lerp(0.4, 0.85, k)],
+      ];
+      let summe = 0;
+      gewichte.forEach(([, gw]) => { summe += gw; });
+      let r = z[0] * summe;
+      art = gewichte[0][0];
+      for (const [name, gw] of gewichte) {
+        if (r < gw) { art = name; break; }
+        r -= gw;
+      }
+    }
+    if (art === "gerade") p.a0 = besonders === "boee" ? 300 : (170 + 150 * z[3]) * lang;
+    if (n === 0) { p.a0 = 100; p.rho = Math.max(p.rho, 70); }
+    if (n === 3) p.tief = 44;
+    p.e = art === "schikane" ? Math.max(2 * w + WAND - 2 * p.rs + 8, 20 + 30 * z[7]) : Math.max(2 * w + WAND - 2 * rho + 10, 30 + 50 * z[7]);
+    // Nach rechts oder links – weg vom Rand der Gegend, sonst nach der Saat.
+    const kx = state.kopf.x;
+    const d = kx > 180 ? -1 : kx < -180 ? 1 : z[1] < 0.5 ? -1 : 1;
+
+    // Die Figur und ihre Ersatzfiguren, der Reihe nach: andersherum,
+    // kleiner, ein Bogen – zuletzt eine Gerade hinauf, die immer passt.
+    const versuche = [[art, d, p], [art, -d, p], [art, d, { ...p, b: p.b * 0.5, tief: p.tief * 0.5 }], ["bogen", d, p], ["bogen", -d, p]];
+    if (besonders) versuche.splice(1);
+    let gebaut = null;
+    for (const [a, dd, pp] of versuche) {
+      const f = figurPunkte(a, dd, pp);
+      if (passt(f.pts, w, i0)) { gebaut = { ...f, art: a, d: dd }; break; }
+    }
+    if (!gebaut) {
+      state.planFehler += besonders ? 0 : 1;
+      const f = figurPunkte("gerade", d, { ...p, a0: 160 });
+      gebaut = { ...f, art: besonders === "boee" ? "gerade" : "gerade", d };
+    }
+
+    // Die Punkte in die Bahn – die Breite geht weich von der letzten zur
+    // neuen über.
+    const wVor = B.w[i0] ?? W0;
+    const fig = { nr: n, art: gebaut.art, d: gebaut.d, i0, i1: i0 + gebaut.pts.length, w, t0, besonders, wind: null, eng: null };
+    gebaut.pts.forEach(([x, y, th, kr], j) => {
+      B.x.push(x);
+      B.y.push(y);
+      B.tx.push(Math.cos(th));
+      B.ty.push(Math.sin(th));
+      B.k.push(kr);
+      B.w.push(lerp(wVor, w, glatt((j + 1) / 25)));
+      B.fig.push(n);
+      const i = i0 + 1 + j;
+      if (i % 3 === 0) rasterRein(i);
+    });
+    state.kopf = gebaut.kopf;
+    state.figuren.push(fig);
+    if (besonders === "rueckenwind") fig.wind = { art: "rueckenwind" };
+    else if (besonders === "boee") fig.wind = { art: "boee", w: (z[8] < 0.5 ? 1 : -1) * (34 + 14 * k) };
+
+    // Hindernisse – erst ab HINDERNIS_AB, nicht in besonderen Abschnitten.
+    if (!besonders && t0 >= HINDERNIS_AB) {
+      const geraden = gebaut.geraden.filter((q) => q.j1 - q.j0 >= 35);
+      const senkrecht = geraden.filter((q) => Math.abs(Math.sin(q.th)) > 0.7);
+      let vogelGerade = null;
+      if (senkrecht.length && z[9] < 0.42 + 0.45 * k) {
+        vogelGerade = senkrecht[Math.floor(z[10] * senkrecht.length)];
+        const mitte = i0 + 1 + Math.round((vogelGerade.j0 + vogelGerade.j1) / 2);
+        const mv = vogelBauen(fig, mitte, z, k);
+        if (mv && phasenSuchen(mv, luftBei(tRef(mitte * DS)))) bewegerEinreihen(mv);
+      }
+      const rest = geraden.filter((q) => q !== vogelGerade);
+      if (rest.length && z[11] < 0.25 + 0.4 * k) {
+        const q = rest[Math.floor(z[12] * rest.length)];
+        const ic = i0 + 1 + Math.round((q.j0 + q.j1) / 2);
+        engstelle(fig, ic, k);
+      }
+    }
+    return fig;
+  }
+
+  function figurPunkte(art, d, p) {
+    const zuege = figurZuege(art, d, p);
+    let f = zuegePunkte(state.kopf, zuege);
+    // Am Ende am höchsten Punkt: sonst die letzte Gerade länger.
+    let hoch = -Infinity;
+    f.pts.forEach((q) => { hoch = Math.max(hoch, q[1]); });
+    if (f.kopf.y < hoch + 10) {
+      zuege[zuege.length - 1] = ["L", zuege[zuege.length - 1][1] + hoch + 10 - f.kopf.y];
+      f = zuegePunkte(state.kopf, zuege);
+    }
+    return f;
+  }
+
+  // Eine Engstelle: Die Bahn wird für ein kurzes Stück schmal (weich hinein
+  // und hinaus), die Blase hat dort nur noch knapp Luft.
+  function engstelle(fig, ic, k) {
+    const B = state.bahn;
+    const schmal = Math.max(R + 7, fig.w * lerp(0.66, 0.56, k));
+    for (let i = ic - 26; i <= ic + 26; i += 1) {
+      if (i <= fig.i0 || i > fig.i1) continue;
+      const f = glatt((26 - Math.abs(i - ic)) / 14);
+      B.w[i] = Math.min(B.w[i], lerp(B.w[i], schmal, f));
+    }
+    fig.eng = { ic, w: schmal };
+  }
+
+  // Wo auf der Bahn die Figur zum Punkt i ist.
+  function figurBei(i) {
+    const L = state.figuren;
     let lo = 0;
-    let hi = w.length - 1;
-    if (y <= w[0].y) return w[0].x;
+    let hi = L.length - 1;
+    if (hi < 0) return null;
     while (lo < hi) {
       const m = (lo + hi + 1) >> 1;
-      if (w[m].y <= y) lo = m; else hi = m - 1;
+      if (L[m].i0 < i) lo = m; else hi = m - 1;
     }
-    const a = w[lo];
-    const b = w[lo + 1];
-    if (!b) return a.x;
-    const y0 = a.y + a.pu;
-    const y1 = b.y - b.pd;
-    if (y <= y0) return a.x;
-    if (y >= y1) return b.x;
-    return lerp(a.x, b.x, glatt((y - y0) / (y1 - y0)));
+    return L[lo];
   }
 
+  // Die Bahn steht bis zum Weg s – je Aufruf höchstens «mal» Figuren,
+  // damit kein Bild lange wartet.
+  const bahnLaenge = () => Math.max(0, state.bahn.x.length - 1) * DS;
+  function planBis(s, mal = 40) {
+    for (let i = 0; i < mal && bahnLaenge() < s; i += 1) naechsteFigur();
+  }
+
+  function weltNeu() {
+    state.bahn = { x: [0], y: [0], tx: [0], ty: [1], k: [0], w: [W0], fig: [0] };
+    state.figuren = [];
+    state.beweger = [];
+    state.raster = new Map();
+    state.kasten = [];
+    state.kopf = { x: 0, y: 0, th: Math.PI / 2 };
+    state.planFehler = 0;
+    state.figur = -1;
+    state.stimmung = 0;
+    rasterRein(0);
+    planBis(1600);
+  }
+
+  // Die Bahn als Text – für die Prüfung, dass in einem Turnier alle
+  // dieselbe bekommen.
+  function kursText(bis = 60) {
+    planBis(sRef(bis) + 200, 400);
+    const iB = Math.min(state.bahn.x.length - 1, Math.round(sRef(bis) / DS));
+    const figuren = state.figuren.filter((f) => f.i0 < iB).map((f) => `${f.art}${f.d > 0 ? "+" : "-"}${f.w.toFixed(1)}${f.eng ? `e${f.eng.ic}` : ""}`);
+    const flieger = state.beweger.filter((m) => m.i < iB).map((m) => `${m.art}${(m.ph ?? m.tc).toFixed(3)}`);
+    const punkte = [];
+    for (let i = 0; i <= iB; i += 50) punkte.push(`${state.bahn.x[i].toFixed(1)}/${state.bahn.y[i].toFixed(1)}`);
+    return `${figuren.join(",")} | ${flieger.join(",")} | ${punkte.join(",")}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wo die Blase auf der Bahn ist
+  // ---------------------------------------------------------------------------
   /*
-   * Der Zeitplan: Wie eine Blase steigt, die nur getragen wird und genau der
-   * Gasse folgt (der Auftrieb, im Aufwind mehr). Gerechnet wie die Blase
-   * selbst, im selben Takt, und alle PLAN_DT festgehalten. Nach ihm richtet
-   * sich, was sich bewegt (es soll vorbei sein, wenn sie kommt), und der
-   * Nebel steigt ihm nach.
+   * Der nächste Punkt der Mittellinie zu (x, y), gesucht in der Nähe von i0
+   * (die Blase kommt nie weit), dann genau auf den Strecken davor und
+   * danach: wie weit auf der Bahn (s), wie weit von der Mitte (d) und wie
+   * breit die Bahn dort ist (w).
    */
-  function planNeu() {
-    return { ys: [0], sim: { t: 0, y: 0, vy: V0 } };
-  }
-
-  function zeitplanBis(yZiel) {
-    const p = state.plan;
-    let { t, y, vy } = p.sim;
-    while (y < yZiel && p.ys.length < 30 * 900) {
-      for (let i = 0; i < 8; i += 1) {
-        const k = aufwindBei(wegX(y), y);
-        const ziel = vAuf(t) * (1 + (AUF - 1) * k);
-        vy += (ziel - vy) * (TAKT / TAU_Y);
-        y += vy * TAKT;
-        t += TAKT;
+  const nah = { i: 0, s: 0, d: 0, w: W0 };
+  function naechster(x, y, i0) {
+    const B = state.bahn;
+    const N = B.x.length;
+    let best = clamp(i0 | 0, 0, N - 1);
+    let bd = (B.x[best] - x) ** 2 + (B.y[best] - y) ** 2;
+    for (let runde = 0; runde < 60; runde += 1) {
+      const a = Math.max(0, best - 8);
+      const z = Math.min(N - 1, best + 8);
+      let nb = best;
+      let nd = bd;
+      for (let i = a; i <= z; i += 1) {
+        const d = (B.x[i] - x) ** 2 + (B.y[i] - y) ** 2;
+        if (d < nd) { nd = d; nb = i; }
       }
-      p.ys.push(y);
+      if (nb === best) break;
+      best = nb;
+      bd = nd;
     }
-    p.sim = { t, y, vy };
+    let s = best * DS;
+    let dMin = Math.sqrt(bd);
+    let w = B.w[best];
+    for (let j = Math.max(0, best - 1); j < Math.min(N - 1, best + 1); j += 1) {
+      const dx = B.x[j + 1] - B.x[j];
+      const dy = B.y[j + 1] - B.y[j];
+      const l2 = dx * dx + dy * dy || 1;
+      const u = clamp(((x - B.x[j]) * dx + (y - B.y[j]) * dy) / l2, 0, 1);
+      const d = Math.hypot(B.x[j] + u * dx - x, B.y[j] + u * dy - y);
+      if (d < dMin) { dMin = d; s = (j + u) * DS; w = lerp(B.w[j], B.w[j + 1], u); }
+    }
+    nah.i = best;
+    nah.s = s;
+    nah.d = dMin;
+    nah.w = w;
+    return nah;
   }
 
-  // Wo die Blase des Zeitplans zur Zeit t ist – und wann sie in der Höhe y.
-  function yRef(t) {
-    const ys = state.plan.ys;
-    const f = Math.max(0, t) / PLAN_DT;
-    const i = Math.floor(f);
-    if (i + 1 < ys.length) return lerp(ys[i], ys[i + 1], f - i);
-    const tl = (ys.length - 1) * PLAN_DT;
-    return ys[ys.length - 1] + vAuf(tl) * (t - tl);
-  }
-  function tRef(y) {
-    const ys = state.plan.ys;
-    if (y <= 0) return 0;
-    if (y >= ys[ys.length - 1]) {
-      const tl = (ys.length - 1) * PLAN_DT;
-      return tl + (y - ys[ys.length - 1]) / vAuf(tl);
-    }
-    let lo = 0;
-    let hi = ys.length - 1;
-    while (hi - lo > 1) {
-      const m = (lo + hi) >> 1;
-      if (ys[m] <= y) lo = m; else hi = m;
-    }
-    return (lo + (y - ys[lo]) / Math.max(1e-6, ys[hi] - ys[lo])) * PLAN_DT;
-  }
-  // Wann sie in der Höhe y wäre, ohne dass der Plan schon so weit steht.
-  function tSchaetzen(y) {
-    const p = state.plan;
-    if (y <= p.sim.y) return tRef(y);
-    let { t, y: yy, vy } = p.sim;
-    while (yy < y) {
-      vy += (vAuf(t) - vy) * ((TAKT * 4) / TAU_Y);
-      yy += vy * TAKT * 4;
-      t += TAKT * 4;
-    }
-    return t;
-  }
-
-  // Wo der Nebel steht: dem Zeitplan nach, um abstandNebel darunter.
-  const nebelY = (t) => yRef(t) - abstandNebel(t);
-
-  // ---------------------------------------------------------------------------
-  // Die Hindernisse: was steht
-  // ---------------------------------------------------------------------------
-  /*
-   * Ein Teil wächst vom Rand herein: seite −1 von links, +1 von rechts, bis
-   * spitze – keine Form ragt weiter in die Gasse. Was zuletzt doch weiter
-   * ragt (eine Blüte, ein Blatt), wird mitsamt dem Teil zurückgeschoben
-   * (teilFertig). Jedes Teil zeichnet eine Welt, aus Formen, die genau so
-   * gemalt werden: Stiele und Äste als Stäbe, Dornen, Blätter, Nadeln,
-   * Dächer als Vielecke, Blüten, Rinnen und Wolken als Kreise.
-   */
-  function teilFertig(o, spitze) {
-    o.prims.forEach(primBox);
-    const innen = o.seite < 0 ? Math.max(...o.prims.map(rechts)) : Math.min(...o.prims.map((p) => p.x0));
-    const dx = spitze - innen;
-    o.prims.forEach((p) => schiebe(p, dx, 0));
-    if (o.tropf) o.tropf.x += dx;
-    if (o.rauch) o.rauch.x += dx;
-    if (o.deko?.zweige) o.deko.zweige.forEach((z) => { z.pts = z.pts.map(([x, y]) => [x + dx, y]); });
-    if (o.deko?.netz) {
-      const n = o.deko.netz;
-      n.nabe[0] += dx;
-      n.rahmen = n.rahmen.map(([x, y]) => [x + dx, y]);
-    }
-    o.box = {
-      x0: Math.min(...o.prims.map((p) => p.x0)), x1: Math.max(...o.prims.map(rechts)),
-      y0: Math.min(...o.prims.map((p) => p.y0)), y1: Math.max(...o.prims.map(oben)),
-    };
-    o.id = (teilId += 1);
-    return o;
-  }
-
-  // Die Rose: ein Trieb vom Rand, mit Dornen, gefiederten Blättern und einer
-  // Blüte oder Knospe an der Spitze.
-  function baueRose(s, spitze, y, z1, z2, z3) {
-    const P = [];
-    const bx = s * 76;
-    const by = y + (z1 - 0.5) * 22;
-    const tx = spitze;
-    const cx = lerp(bx, tx, 0.5);
-    const cy = lerp(by, y, 0.5) + 5 + (z2 - 0.5) * 14;
-    const pts = bogen(bx, by, cx, cy, tx, y, 10);
-    for (let i = 0; i < pts.length - 1; i += 1) P.push(stab(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], lerp(1.75, 0.95, i / 9), "stiel"));
-    const L = laenge(pts);
-    // Die Dornen: alle gut sechs Zentimeter, im Wechsel oben und unten,
-    // zum Rand hin gebogen.
-    let seite = z2 < 0.5 ? 1 : -1;
-    for (let d = 7 + z3 * 3; d < L - 5; d += 6 + hash01(d * 3.1 + z1) * 2.5) {
-      const e = entlang(pts, d);
-      const r = lerp(1.75, 0.95, e.u) * 0.75;
-      const nx = e.nx * seite;
-      const ny = e.ny * seite;
-      const cx0 = e.x + nx * r;
-      const cy0 = e.y + ny * r;
-      P.push(poly([[cx0 - e.tx * 1.3, cy0 - e.ty * 1.3], [cx0 + nx * 2.9 - e.tx * 1.2, cy0 + ny * 2.9 - e.ty * 1.2], [cx0 + e.tx * 1.2, cy0 + e.ty * 1.2]], "dorn"));
-      seite = -seite;
-    }
-    // Zwei gefiederte Blätter: ein Stielchen, drei Fiedern.
-    [0.3 + z1 * 0.1, 0.62 + z2 * 0.08].forEach((u, i) => {
-      if (L * u < 14) return;
-      const e = entlang(pts, L * u);
-      const sg = i % 2 === 0 ? 1 : -1;
-      const dx = e.nx * sg * 0.75 + e.tx * 0.65;
-      const dy = e.ny * sg * 0.75 + e.ty * 0.65;
-      const dl = Math.hypot(dx, dy);
-      const w = Math.atan2(dy / dl, dx / dl);
-      const ex = e.x + (dx / dl) * 4.2;
-      const ey = e.y + (dy / dl) * 4.2;
-      P.push(stab(e.x, e.y, ex, ey, 0.42, "stielchen"));
-      P.push(poly(blattForm(ex, ey, w, 6.4, 3.7), "fieder"));
-      const mx = lerp(e.x, ex, 0.55);
-      const my = lerp(e.y, ey, 0.55);
-      P.push(poly(blattForm(mx, my, w + 0.95, 4.9, 2.9), "fieder"));
-      P.push(poly(blattForm(mx, my, w - 0.95, 4.9, 2.9), "fieder"));
+  // Wie weit auf der Bahn ein Ort ist, ohne zu wissen, wo man suchen soll
+  // (für die Gegner): im Gitter, dann genau.
+  function sVon(x, y) {
+    const B = state.bahn;
+    let best = -1;
+    let bd = Infinity;
+    rasterUm(x, y, RASTER, (i) => {
+      const d = (B.x[i] - x) ** 2 + (B.y[i] - y) ** 2;
+      if (d < bd) { bd = d; best = i; }
+      return true;
     });
-    // Die Spitze: eine offene Blüte oder eine Knospe.
-    const e = entlang(pts, L);
-    const bluete = z3 < 0.62;
-    if (bluete) {
-      const r = 5.3 + 1.3 * z2;
-      P.push(kreis(tx + e.tx * (r * 0.75), y + e.ty * (r * 0.75), r, "bluete"));
-    } else {
-      P.push(poly(blattForm(tx - e.tx * 0.5, y - e.ty * 0.5, Math.atan2(e.ty, e.tx), 6.6, 4.3, { n: 8 }), "knospe"));
+    if (best < 0) return null;
+    return naechster(x, y, best).s;
+  }
+
+  // Die Luft, in der die Blase am Punkt i treibt: der Auftrieb, dazu
+  // Rückenwind oder Böe. Sonst weht nichts.
+  const luft = { x: 0, y: AUFTRIEB };
+  function stroemung(i) {
+    luft.x = 0;
+    luft.y = AUFTRIEB;
+    const f = figurBei(i);
+    if (f?.wind) {
+      const a = glatt((i - f.i0) / 20) * glatt((f.i1 - i) / 20);
+      if (f.wind.art === "rueckenwind") {
+        const B = state.bahn;
+        luft.x += B.tx[i] * RUECKENWIND * a;
+        luft.y += B.ty[i] * RUECKENWIND * a;
+      } else luft.x += f.wind.w * a;
     }
-    return { art: "rose", welt: 0, seite: s, prims: P, deko: { farbe: z1 < 0.45 ? 0 : z1 < 0.8 ? 1 : 2 } };
+    return luft;
   }
 
-  // Die Brennnessel: ein Stängel dicht am Rand, gesägte Blätter, die in die
-  // Gasse hängen – das mittlere reicht am weitesten.
-  function baueNessel(s, spitze, y, z1, z2) {
-    const P = [];
-    const sx = s * 63.5;
-    P.push(stab(sx, y - 46, sx, y + 46, 1.5, "stengel"));
-    const w0 = s < 0 ? 0 : Math.PI;
-    const lang = Math.abs(spitze - sx) - 2;
-    [-31 + z1 * 6, 0, 29 - z2 * 6].forEach((dy, i) => {
-      const l = i === 1 ? lang : lang * (0.62 + 0.1 * hash01(i + z1));
-      const yy = y + dy;
-      const bx = sx - s * 2.2;
-      P.push(stab(sx, yy + 1.2, bx, yy, 0.55, "stengel"));
-      P.push(poly(blattForm(bx, yy, w0 + s * (0.18 + 0.12 * z2), l, Math.min(13, l * 0.5), { n: 14, zacken: 0.9, herz: 0.6 }), "nessel"));
-    });
-    return { art: "nessel", welt: 0, seite: s, prims: P };
-  }
-
-  // Der Gartenschlauch: über die Hecke gehängt, in einem Bogen herein, vorn
-  // die Messingdüse, die tropft.
-  function baueSchlauch(s, spitze, y, z1) {
-    const P = [];
-    const dx = spitze + s * 2.2;
-    const pts = bogen(s * 74, y + 30, lerp(s * 62, dx, 0.5), y + 40 + z1 * 8, dx, y + 9, 10);
-    for (let i = 0; i < pts.length - 1; i += 1) P.push(stab(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 1.9, "schlauch"));
-    P.push(poly([[dx - 2.1, y + 9.5], [dx + 2.1, y + 9.5], [dx + 1.1, y + 2.2], [dx - 1.1, y + 2.2]], "duese"));
-    return { art: "schlauch", welt: 0, seite: s, prims: P, tropf: { x: dx, y: y + 2 } };
-  }
-
-  // Ein Ast der Buche: vom Stamm her dick, Zweige mit Blättern, die Spitze
-  // belaubt. tropft: am Blatt vorn hängt Tau, der fällt.
-  function baueAst(s, spitze, y, z1, z2, z3, tropft = false) {
-    const P = [];
-    const bx = s * 80;
-    const by = y + (z1 - 0.5) * 20;
-    const tx = spitze + s * 6;
-    const pts = bogen(bx, by, lerp(bx, tx, 0.45), lerp(by, y, 0.5) + (z2 - 0.4) * 14, tx, y, 9);
-    for (let i = 0; i < pts.length - 1; i += 1) P.push(stab(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], lerp(3.6, 0.75, i / 8), "ast"));
-    const L = laenge(pts);
-    const blaetter = (x, y0, w, n) => {
-      for (let i = 0; i < n; i += 1) {
-        const ww = w + (i - (n - 1) / 2) * 0.75;
-        P.push(poly(blattForm(x, y0, ww, 6.8 + hash01(x * 0.7 + i) * 1.2, 4.3), "blatt"));
-      }
-    };
-    let sg = z3 < 0.5 ? 1 : -1;
-    [0.42, 0.66, 0.86].forEach((u, i) => {
-      if (L * u < 18 || (i === 2 && L < 60)) return;
-      const e = entlang(pts, L * u);
-      const w = Math.atan2(e.ty, e.tx) + sg * (0.65 + 0.25 * hash01(i + z1));
-      const l = lerp(16, 9, u) * (0.85 + 0.3 * hash01(i * 3 + z2));
-      const mx = e.x + Math.cos(w) * l * 0.55;
-      const my = e.y + Math.sin(w) * l * 0.55;
-      const ex = e.x + Math.cos(w + sg * 0.15) * l;
-      const ey = e.y + Math.sin(w + sg * 0.15) * l;
-      P.push(stab(e.x, e.y, mx, my, 1.1, "zweig"));
-      P.push(stab(mx, my, ex, ey, 0.6, "zweig"));
-      blaetter(ex, ey, w + sg * 0.15, 3);
-      sg = -sg;
-    });
-    const e = entlang(pts, L);
-    const w = Math.atan2(e.ty, e.tx);
-    let tropf = null;
-    if (tropft) {
-      // Das vorderste Blatt hängt: von seiner Spitze fällt der Tau.
-      const wt = w + (s < 0 ? -1 : 1) * 1.05;
-      P.push(poly(blattForm(tx, y, wt, 7.4, 4.4), "blatt"));
-      P.push(poly(blattForm(tx, y, w + s * 0.55, 6.6, 4.1), "blatt"));
-      tropf = { x: tx + Math.cos(wt) * 7.4, y: y + Math.sin(wt) * 7.4 - 0.4 };
-    } else {
-      blaetter(tx, y, w, 2);
-    }
-    return { art: "ast", welt: 1, seite: s, prims: P, tropf };
-  }
-
-  // Ein Tannenzweig: der Trieb mit seinen Seitentrieben, darum die Nadeln –
-  // gerechnet als Band so breit, wie die Nadeln lang sind.
-  function baueTanne(s, spitze, y, z1, z2) {
-    const P = [];
-    const zweige = [];
-    const bx = s * 78;
-    const by = y + 4 + (z1 - 0.5) * 14;
-    const tx = spitze + s * 2;
-    const pts = bogen(bx, by, lerp(bx, tx, 0.5), lerp(by, y, 0.5) - 6, tx, y, 12);
-    zweige.push({ pts, r0: 3.3, r1: 2.3 });
-    const L = laenge(pts);
-    let sg = z2 < 0.5 ? 1 : -1;
-    for (let d = 12; d < L - 7; d += 8 + hash01(d + z1) * 2) {
-      const e = entlang(pts, d);
-      const w = Math.atan2(e.ty, e.tx) + sg * (0.7 + 0.15 * hash01(d * 2.3));
-      const l = lerp(14, 6, e.u) * (0.85 + 0.3 * hash01(d * 1.7 + z2));
-      const sp = [];
-      for (let i = 0; i <= 4; i += 1) {
-        const f = i / 4;
-        const ww = w - sg * 0.12 * f;
-        sp.push([e.x + Math.cos(ww) * l * f, e.y + Math.sin(ww) * l * f]);
-      }
-      zweige.push({ pts: sp, r0: 2.7, r1: 1.9 });
-      sg = -sg;
-    }
-    zweige.forEach((z) => P.push(poly(huelle(z.pts, z.r0, z.r1), "nadeln")));
-    return { art: "tanne", welt: 1, seite: s, prims: P, deko: { zweige } };
-  }
-
-  // Ein Spinnennetz zwischen zwei Zweigen vom Stamm; vorn hält es ein Faden
-  // an der Spitze. Gerechnet wird der Rahmen – durch die Maschen passt keine
-  // Blase.
-  function baueNetz(s, spitze, y, z1, z2) {
-    const P = [];
-    const innen = (k) => lerp(s * 62, spitze, k);
-    const oPts = bogen(s * 76, y + 14 + z1 * 4, innen(0.5), y + 18, innen(0.86), y + 13 + z2 * 4, 6);
-    const uPts = bogen(s * 76, y - 17 - z2 * 3, innen(0.35), y - 21, innen(0.62), y - 19 - z1 * 3, 5);
-    for (let i = 0; i < oPts.length - 1; i += 1) P.push(stab(oPts[i][0], oPts[i][1], oPts[i + 1][0], oPts[i + 1][1], lerp(1.15, 0.5, i / 5), "zweig"));
-    for (let i = 0; i < uPts.length - 1; i += 1) P.push(stab(uPts[i][0], uPts[i][1], uPts[i + 1][0], uPts[i + 1][1], lerp(1.15, 0.55, i / 4), "zweig"));
-    const a = entlang(oPts, laenge(oPts) * 0.93);
-    const b = entlang(oPts, laenge(oPts) * 0.42);
-    const c = entlang(uPts, laenge(uPts) * 0.45);
-    const d = entlang(uPts, laenge(uPts) * 0.97);
-    const rahmen = [[b.x, b.y - 0.6], [a.x, a.y - 0.6], [spitze, y - 1], [d.x, d.y + 0.6], [c.x, c.y + 0.6]];
-    P.push(poly(rahmen, "netz"));
-    const nabe = [lerp(lerp(b.x, a.x, 0.5), spitze, 0.42), lerp(lerp(b.y, c.y, 0.5), y, 0.3)];
-    return { art: "netz", welt: 1, seite: s, prims: P, deko: { netz: { rahmen, nabe } } };
-  }
-
-  // Ein Balkon: Platte, Konsole, Geländer – und oft ein Blumenkasten mit
-  // Geranien, der am weitesten hereinragt.
-  function baueBalkon(s, spitze, y, z1, z2) {
-    const P = [];
-    const kasten = z1 < 0.62;
-    const vorn = spitze + s * (kasten ? 6.5 : 0.9);
-    const w = s * 61;
-    P.push(poly([[w, y - 2.2], [vorn, y - 2.2], [vorn, y + 1.8], [w, y + 1.8]], "platte"));
-    P.push(poly([[w, y - 2.2], [lerp(w, vorn, 0.32), y - 2.2], [w, y - 13]], "konsole"));
-    P.push(stab(w, y + 19, vorn, y + 19, 0.9, "gelaender"));
-    P.push(stab(w, y + 4.5, vorn, y + 4.5, 0.45, "gelaender"));
-    const n = Math.max(2, Math.round(Math.abs(vorn - w) / 4.6));
-    for (let i = 1; i <= n; i += 1) {
-      const x = lerp(w, vorn, i / n);
-      P.push(stab(x, y + 1.8, x, y + 19, i === n ? 0.75 : 0.5, "gelaender"));
-    }
-    if (kasten) {
-      const k0 = vorn;
-      const k1 = vorn - s * 5.6;
-      P.push(poly([[k0, y + 11], [k1, y + 11.6], [k1, y + 18.4], [k0, y + 18.4]], "kasten"));
-      for (let i = 0; i < 5; i += 1) {
-        const x = lerp(k0 + s * 0.5, k1 - s * 0.6, (i + 0.5) / 5) + (hash01(i + z2) - 0.5) * 1.2;
-        P.push(kreis(x, y + 20.2 + hash01(i * 3 + z2) * 2.6, 1.9 + hash01(i * 7 + z1) * 0.9, i % 2 ? "blumen" : "laub"));
-      }
-    }
-    return { art: "balkon", welt: 2, seite: s, prims: P, deko: { kasten, farbe: z2 } };
-  }
-
-  // Ein Vordach aus Ziegeln, das von der Wand herab in die Gasse ragt; vorn
-  // die Rinne. Oft mit Kamin (der raucht), manchmal tropft die Rinne.
-  function baueDach(s, spitze, y, z1, z2, tropft = false) {
-    const P = [];
-    const steig = 14 + 20 * z1;
-    const fx = spitze + s * 4.4;
-    const wx = s * 68;
-    const wy = y + steig;
-    const l = Math.hypot(fx - wx, y - wy);
-    const nx = -(y - wy) / l * (s < 0 ? -1 : 1);
-    const ny = (fx - wx) / l * (s < 0 ? -1 : 1);
-    const d = 2.8;
-    P.push(poly([[wx + nx * d, wy + ny * d], [fx + nx * d, y + ny * d], [fx - nx * d, y - ny * d], [wx - nx * d, wy - ny * d]], "dach"));
-    // Zwei Streben tragen es von der Wand.
-    [0.18, 0.42].forEach((u) => {
-      if (Math.abs(fx - wx) * u < 10) return;
-      const ax = lerp(wx, fx, u);
-      const ay = lerp(wy, y, u) - d * 0.8;
-      P.push(stab(s * 61, ay - 10 - u * 14, ax, ay, 0.8, "balken"));
-    });
-    const rinne = kreis(fx - s * 2.0, y - 1.2, 2.2, "rinne");
-    P.push(rinne);
-    let rauch = null;
-    if (z2 < 0.5 && Math.abs(fx - wx) > 48) {
-      const u = 0.34;
-      const kx = lerp(wx, fx, u);
-      const ky = lerp(wy, y, u);
-      const b = 5.5;
-      const top = ky + 26;
-      P.push(poly([[kx - b, ky - 2], [kx + b, ky - 2], [kx + b, top], [kx - b, top]], "kamin"));
-      P.push(poly([[kx - b - 1.2, top], [kx + b + 1.2, top], [kx + b + 1.2, top + 2.2], [kx - b - 1.2, top + 2.2]], "kamin"));
-      rauch = { x: kx, y: top + 2.2 };
-    }
-    const tropf = tropft ? { x: fx - s * 2.0, y: y - 3.4 } : null;
-    return { art: "dach", welt: 2, seite: s, prims: P, rauch, tropf, deko: { steig } };
-  }
-
-  // Eine Fernsehantenne an der Wand: der Mast, ein waagrechtes Rohr, darauf
-  // die Stäbe – hinten lang, nach vorn kürzer.
-  function baueAntenne(s, spitze, y, z1) {
-    const P = [];
-    const mx = s * 61.6;
-    P.push(stab(mx, y - 15, mx, y + 13, 1.0, "mast"));
-    P.push(stab(s * 66, y - 10, mx, y - 10, 0.75, "mast"));
-    P.push(stab(s * 66, y + 6, mx, y + 6, 0.75, "mast"));
-    const vx = spitze + s * 0.9;
-    P.push(stab(mx, y, vx, y, 0.62, "rohr"));
-    const n = 6 + Math.floor(z1 * 4);
-    for (let i = 0; i < n; i += 1) {
-      const x = lerp(mx - s * 3.2, vx + s * 1.6, i / (n - 1));
-      const h = i === 0 ? 11 : lerp(9, 4.5, i / (n - 1));
-      P.push(stab(x, y - h, x, y + h, 0.4, "element"));
-    }
-    P.push(kreis(vx, y, 0.9, "rohr"));
-    return { art: "antenne", welt: 2, seite: s, prims: P };
-  }
-
-  // Eine Wolkenbank vom Rand herein: Ballen um Ballen, der vorderste genau
-  // an der Spitze. Was nass ist, lässt sie zerplatzen.
-  function baueWolke(s, spitze, y, z1, z2, z3) {
-    const P = [];
-    let r = 7 + 3 * z1;
-    let x = spitze + s * r;
-    let yy = y + (z2 - 0.5) * 5;
-    P.push(kreis(x, yy, r, "wolke"));
-    let i = 0;
-    while (s < 0 ? x - r > s * 80 : x + r < s * 80) {
-      i += 1;
-      const rn = Math.min(16, r * (1.04 + 0.12 * hash01(i * 3 + z3)) + 1);
-      x += s * (r * 0.75 + rn * 0.35);
-      const dy = (hash01(i * 5.1 + z1) - 0.5) * 12;
-      P.push(kreis(x, yy + dy, rn, "wolke"));
-      if (hash01(i * 7.7 + z2) < 0.6) P.push(kreis(x - s * rn * 0.4, yy + dy + rn * 0.55, rn * 0.62, "wolke"));
-      r = rn;
-      if (i > 12) break;
-    }
-    return { art: "wolke", welt: 3, seite: s, prims: P };
-  }
-
-  // So weit reicht jede Art vom Rand in die Gasse.
-  const REICHT = { rose: 125, nessel: 32, schlauch: 90, ast: 125, tanne: 82, netz: 64, balkon: 96, dach: 125, antenne: 112, wolke: 130 };
-
-  // Ein Teil für die Welt w, von der Seite s bis zur Spitze.
-  function teilBauen(w, s, spitze, y, z1, z2, z3, oben = 0) {
-    const reicht = Math.abs(spitze - s * RAND);
-    if (reicht < 3) return null;
-    let o;
-    if (w === 0) {
-      o = reicht <= REICHT.nessel && z3 < 0.55 ? baueNessel(s, spitze, y, z1, z2) : baueRose(s, spitze, y, z1, z2, z3);
-    } else if (w === 1) {
-      const art = z3 < 0.42 ? "ast" : z3 < 0.74 ? "tanne" : "netz";
-      if (art === "netz" && reicht <= REICHT.netz) o = baueNetz(s, spitze, y, z1, z2);
-      else if (art === "tanne" && reicht <= REICHT.tanne) o = baueTanne(s, spitze, y, z1, z2);
-      else o = baueAst(s, spitze, y, z1, z2, z3);
-    } else if (w === 2) {
-      const hoch = oben > 0.45;
-      const art = z3 < (hoch ? 0.2 : 0.5) ? "balkon" : z3 < (hoch ? 0.68 : 0.78) ? "dach" : "antenne";
-      if (art === "balkon" && reicht <= REICHT.balkon) o = baueBalkon(s, spitze, y, z1, z2);
-      else if (art === "antenne" && reicht <= REICHT.antenne) o = baueAntenne(s, spitze, y, z1);
-      else o = baueDach(s, spitze, y, z1, z2);
-    } else {
-      o = baueWolke(s, spitze, y, z1, z2, z3);
-    }
-    return teilFertig(o, spitze);
-  }
-
-  function einreihen(o) {
-    const liste = state.hindernisse;
-    let i = liste.length;
-    while (i > 0 && liste[i - 1].box.y0 > o.box.y0) i -= 1;
-    liste.splice(i, 0, o);
-    state.langMax = Math.max(state.langMax, o.box.y1 - o.box.y0 + 2);
+  // So schnell ist sie gerade die Bahn entlang (cm/s).
+  function tempoEntlang() {
+    const b = state.blase;
+    const B = state.bahn;
+    const i = clamp(b.i, 0, B.x.length - 1);
+    return b.vx * (B.tx[i] ?? 0) + b.vy * (B.ty[i] ?? 1);
   }
 
   // ---------------------------------------------------------------------------
-  // Die Hindernisse: was sich bewegt
+  // Was sich bewegt: Vögel und Wolkenfetzen
   // ---------------------------------------------------------------------------
   /*
-   * Alles bewegt sich auf festen Bahnen, nach der Spielzeit: Wespen fliegen
-   * eine Acht, Schwalben und Mauersegler ziehen Schleifen, Wolkenfetzen
-   * treiben quer, Tropfen schwellen an einer Düse, einem Blatt, einer Rinne
-   * und fallen dann, immer im selben Takt. Wann genau, entscheidet der Bau
-   * (phasenSuchen): so, dass sie weg sind, wenn die Blase des Zeitplans
-   * kommt – auch wer luft zu früh oder zu spät ist.
+   * Alles bewegt sich auf festen Bahnen, nach der Spielzeit: Schwalben und
+   * Mauersegler ziehen flache Schleifen quer über die Bahn, Wolkenfetzen
+   * treiben einmal quer hindurch. Sie kreuzen nur Stücke, die (fast)
+   * senkrecht hinauf führen – so fliegen sie waagrecht. Wann genau,
+   * entscheidet der Bau (phasenSuchen): so, dass sie weg sind, wenn die
+   * Blase des Zeitplans kommt – auch wer luft zu früh oder zu spät ist.
+   * Wer schneller ist als der Plan, muss sie selbst abpassen.
    */
   function bewegerOrt(m, t) {
     if (m.art === "wespe") {
@@ -1023,30 +864,9 @@
     }
     return m.puffs.map((p) => kreis(p[0], p[1], p[2], "fetzen"));
   }
-
-  // Die Tropfen eines Tropfers zur Zeit t: f(x, y, r, schwellend).
-  function tropfenBei(m, t, f) {
-    const kMin = Math.floor((t - m.ph - m.tMax) / m.P);
-    const kMax = Math.floor((t - m.ph) / m.P);
-    for (let k = kMin; k <= kMax; k += 1) {
-      const tau = t - (m.ph + k * m.P);
-      if (tau < 0) continue;
-      if (tau < SCHWELL) {
-        const r = R_TROPFEN * (0.35 + 0.65 * (tau / SCHWELL));
-        if (f(m.x, m.y - r, r, true)) return true;
-      } else {
-        const tf = tau - SCHWELL;
-        const y = m.y - R_TROPFEN - 0.5 * G_TROPFEN * tf * tf;
-        if (m.y - y > FALL) continue;
-        if (f(m.x, y, R_TROPFEN, false)) return true;
-      }
-    }
-    return false;
-  }
-
   function bewegerTrifft(m, x, y, t, r) {
-    if (m.art === "tropfen") return tropfenBei(m, t, (tx, ty, tr) => Math.hypot(x - tx, y - ty) < r + tr);
     const o = bewegerOrt(m, t);
+    if (m.art === "fetzen" && Math.abs(o.x - m.xc) > m.A) return false;
     const lx = (x - o.x) * o.dir;
     const ly = y - o.y;
     if (Math.abs(lx) > m.gross + r || Math.abs(ly) > m.gross + r) return false;
@@ -1058,384 +878,65 @@
   function bewegerEinreihen(m) {
     const liste = state.beweger;
     let i = liste.length;
-    while (i > 0 && liste[i - 1].y0 > m.y0) i -= 1;
+    while (i > 0 && liste[i - 1].s0 > m.s0) i -= 1;
     liste.splice(i, 0, m);
-    state.langMaxB = Math.max(state.langMaxB, m.y1 - m.y0 + 2);
+    state.kasten.push({ x0: m.xc - m.A - m.gross, x1: m.xc + m.A + m.gross, y0: m.yc - m.B - m.gross, y1: m.yc + m.B + m.gross });
   }
 
-  function abIndex(liste, y, schluessel) {
-    let lo = 0;
-    let hi = liste.length;
-    while (lo < hi) {
-      const m = (lo + hi) >> 1;
-      if (schluessel(liste[m]) < y) lo = m + 1; else hi = m;
-    }
-    return lo;
-  }
-  const yVonTeil = (o) => o.box.y0;
-  const yVonBeweger = (m) => m.y0;
-
-  // Was die Blase hier zur Zeit t trifft (der Rand, was steht, was sich
-  // bewegt) – null heisst: nichts. r: wie nah es kommen darf.
-  function trifft(x, y, t, r = RH) {
-    if (Math.abs(x) + r > RAND) return { art: "rand", welt: weltBei(y) };
-    // Unten beim Start: der Gartentisch und der Rasen.
-    if (y - r < -35 && Math.abs(x) < 38 && y > -42) return { art: "tisch" };
-    if (y - r < -118) return { art: "rasen" };
-    const L = state.hindernisse;
-    for (let i = abIndex(L, y - r - state.langMax, yVonTeil); i < L.length; i += 1) {
-      const o = L[i];
-      if (o.box.y0 > y + r) break;
-      if (o.box.y1 < y - r || o.box.x0 > x + r || o.box.x1 < x - r) continue;
-      const p = formTrifft(o.prims, x, y, r);
-      if (p) return { art: o.art, rolle: p.rolle, o };
-    }
-    const B = state.beweger;
-    for (let i = abIndex(B, y - r - state.langMaxB, yVonBeweger); i < B.length; i += 1) {
-      const m = B[i];
-      if (m.y0 > y + r) break;
-      if (m.y1 < y - r) continue;
-      if (bewegerTrifft(m, x, y, t, r)) return { art: m.art, m };
-    }
-    return null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Die Welt: der Weg, Abschnitt um Abschnitt
-  // ---------------------------------------------------------------------------
-  /*
-   * Ein Abschnitt ist eine Lage aus einer bis drei Reihen. Eine Reihe ist
-   * ein Tor: von links ein Teil bis an die Gasse, von rechts eins, dazwischen
-   * die Lücke – so breit wie die Blase und die Marge auf jeder Seite. Zuerst
-   * der Weg (wo die Lücken liegen, und wie die Gasse dazwischen hinüber-
-   * schwingt, nie schneller, als eine Blase quer kann), dann die Teile. Die
-   * Lagen:
-   *
-   *   tor        eine Reihe
-   *   gerade     die Rennstrecke (der 2. und 3. Abschnitt): zwei Reihen,
-   *              die Lücken weit und fast genau übereinander
-   *   doppel     zwei, die Lücken versetzt
-   *   treppe     drei im Zickzack
-   *   tropfen    zwei Reihen; das obere Teil tropft (Düse, Blatt, Rinne)
-   *              mitten durch die untere Lücke – erst nach dem Tropfen
-   *              hindurch
-   *   flieger    eine Reihe, darüber kreuzt etwas die Gasse: Wespe,
-   *              Schwalbe, Mauersegler, Wolkenfetzen
-   *
-   * Jeder achte Abschnitt ist besonders, im Wechsel: der 8., 24., 40. ein
-   * Aufwind (eine warme Säule, die schnell durch zwei enge Lücken trägt –
-   * wer neben ihr steigt, den holt der Nebel ein), der 16., 32., 48. eine Böe
-   * (ein starker Seitenwind über drei Reihen, deren Lücken gegen den Wind
-   * wandern).
-   *
-   * Immer gleich viele Zahlen ziehen, was auch geschieht: Die Welt soll an
-   * der Saat hängen, nicht an den Zweigen dieser Funktion.
-   */
-  function naechsterAbschnitt() {
-    const n = state.abschnitte.length;
-    const z = [];
-    for (let i = 0; i < 24; i += 1) z.push(zufall.zahl());
-    const nr = n + 1;
-    const besonders = nr % 8 === 0 ? ((nr / 8) % 2 === 1 ? "aufwind" : "boee") : "";
-    const vor = { ...state.letzte };
-    const tS = tSchaetzen(vor.y + 120);
-    const k0 = schwere(tS);
-    const m0 = margeBei(tS);
-    const e0 = luftBei(tS);
-    const v0 = vAuf(tS);
-    const welt = weltBei(vor.y + 100);
-
-    let lage;
-    if (besonders) lage = besonders;
-    else if (n === 0) lage = "tor";
-    else if (n >= 1 && n <= 2) lage = "gerade";
-    else if (n === 3) lage = "doppel";
-    else if (n === 4) lage = "tropfen";
-    else {
-      const gewichte = [
-        ["tor", 1],
-        ["doppel", lerp(0.55, 1.05, k0)],
-        ["treppe", n >= 6 ? lerp(0.15, 0.75, k0) : 0],
-        ["tropfen", welt <= 2 ? lerp(0.3, 0.55, k0) : 0],
-        ["flieger", welt >= 1 || n >= 5 ? lerp(0.3, 0.85, k0) : 0],
-      ];
-      let summe = 0;
-      gewichte.forEach(([, w]) => { summe += w; });
-      let r = z[0] * summe;
-      lage = gewichte[0][0];
-      for (const [name, w] of gewichte) {
-        r -= w;
-        if (r < 0) { lage = name; break; }
-      }
-    }
-
-    let fertig = null;
-    for (const [lageJetzt, mass] of [[lage, 1], [lage, 1.3], ["tor", 1.7]]) {
-      const merk = merken(n);
-      const v = bauen(lageJetzt, mass, { n, z, vor, k0, m0, e0, v0, welt });
-      if (v && sicher(v.von, v.bis)) { fertig = { ...v, lage: lageJetzt }; break; }
-      zurueck(merk);
-    }
-    if (!fertig) {
-      // Darf nicht vorkommen (die Prüfung zählt mit) – dann eben ein weites Tor.
-      state.planFehler += 1;
-      fertig = { ...bauen("tor", 2.4, { n, z, vor, k0, m0, e0, v0, welt }), lage: "tor" };
-    }
-    if (fertig.lage === "aufwind") state.zahlAufwind += 1;
-    if (fertig.lage === "boee") state.zahlBoee += 1;
-  }
-
-  // Was ein Abschnitt verändert, um es zurückzunehmen, wenn er nicht hält.
-  function merken(n) {
-    return {
-      n, weg: state.weg.length, vorPu: state.weg[state.weg.length - 1].pu, ys: state.plan.ys.length, sim: { ...state.plan.sim }, letzte: { ...state.letzte },
-      abschnitte: state.abschnitte.length, langMax: state.langMax, langMaxB: state.langMaxB,
-    };
-  }
-  function zurueck(m) {
-    state.weg.length = m.weg;
-    state.weg[state.weg.length - 1].pu = m.vorPu;
-    state.plan.ys.length = m.ys;
-    state.plan.sim = m.sim;
-    state.letzte = m.letzte;
-    state.abschnitte.length = m.abschnitte;
-    state.hindernisse = state.hindernisse.filter((o) => o.nr !== m.n);
-    state.beweger = state.beweger.filter((o) => o.nr !== m.n);
-    state.aufwinde = state.aufwinde.filter((o) => o.nr !== m.n);
-    state.boeen = state.boeen.filter((o) => o.nr !== m.n);
-    state.langMax = m.langMax;
-    state.langMaxB = m.langMaxB;
-  }
-
-  /*
-   * Eine Lage bauen. Gibt zurück, welche Höhen nachzuprüfen sind. mass > 1:
-   * der zweite Versuch, mit mehr Luft und mehr Abstand.
-   */
-  function bauen(lage, mass, ctx) {
-    const { n, z, vor, k0, m0, e0, v0, welt } = ctx;
-    const k = k0 / mass;
-    let m = m0 * (lage === "aufwind" || lage === "boee" ? 1.12 : 1) * Math.min(1.5, mass);
-    const e = e0 * mass;
-    const xMax = RAND - R - m - 2.5;
-    const reihen = [];
-    let y = vor.y;
-    let x = vor.x;
-    let von = vor.y - 40;
-    // Im zweiten und dritten Versuch bleibt die Gasse über der letzten Reihe
-    // länger gerade – oft ragte dort ein Teil hinein.
-    const vorWp = state.weg[state.weg.length - 1];
-    if (mass > 1 && vorWp.pu > 0) vorWp.pu = Math.max(vorWp.pu, PLATEAU + 12 * Math.min(2, (mass - 1) / 0.3));
-    // Der Abstand der Reihen: am Anfang fast zwei Meter, später gut einer –
-    // aber nie weniger, als die Blase in gut einer Sekunde steigt.
-    const abstand = (zi) => Math.max(lerp(175, 112, k), v0 * lerp(1.6, 1.1, k)) * Math.pow(mass, 0.3) * (0.9 + 0.2 * zi);
-    // Wie weit die nächste Lücke daneben liegt – so weit, wie eine Blase quer
-    // kommt, solange sie von Reihe zu Reihe steigt.
-    const versatz = (dy, zi, zr) => {
-      const zeit = Math.max(0.3, (dy - 2 * PLATEAU) / v0);
-      const max = (lerp(30, 55, k) * zeit) / 1.5;
-      let d = Math.min(max, lerp(16, 30, k) + zi * lerp(18, 50, k));
-      let sg = zr < 0.7 ? (x > 0 ? -1 : 1) : (x > 0 ? 1 : -1);
-      if (Math.abs(x + sg * d) > xMax) sg = -sg;
-      d = Math.min(d, Math.abs(xMax - sg * x));
-      return clamp(x + sg * d, -xMax, xMax);
-    };
-    const neueReihe = (yr, gx, mr, i, extra = {}) => {
-      const wp = { y: yr, x: gx, pu: PLATEAU, pd: PLATEAU };
-      reihen.push({ y: yr, x: gx, m: mr, i, wp, ...extra });
-      state.weg.push(wp);
-      y = yr;
-      x = gx;
-    };
-
-    if (lage === "gerade") {
-      // Die Rennstrecke am Anfang: zwei Abschnitte zu zwei Reihen, die
-      // Lücken fast genau über der letzten und weiter als sonst – wer viel
-      // von unten bläst, fliegt hier schnell durch und holt sich den Faktor.
-      // Dahinter kommt die Baumkrone wie bisher; wer dort noch rast, lebt
-      // gefährlich.
-      m *= 1.15;
-      const xg = RAND - R - m - 2.5;
-      for (let i = 0; i < 2; i += 1) {
-        const dy = abstand(z[1 + i]) * (i > 0 ? 0.9 : 1);
-        neueReihe(y + dy, clamp(x + (z[4 + i] - 0.5) * 10, -xg, xg), m, i);
-      }
-    } else if (lage === "tor" || lage === "doppel" || lage === "treppe") {
-      const zahl = lage === "tor" ? 1 : lage === "doppel" ? 2 : 3;
-      for (let i = 0; i < zahl; i += 1) {
-        const dy = (n === 0 && i === 0 ? 120 : abstand(z[1 + i])) * (i > 0 ? 0.82 : 1);
-        let gx = versatz(dy, z[4 + i], z[7 + i]);
-        if (n === 0 && i === 0) gx = (z[1] < 0.5 ? 1 : -1) * 25;
-        neueReihe(y + dy, gx, m, i);
-      }
-    } else if (lage === "tropfen") {
-      // Unten die Lücke, darüber das Teil, das in sie hineintropft; die
-      // nächste Lücke auf der anderen Seite des Tropfens.
-      const dy = abstand(z[1]);
-      const gxA = clamp(versatz(dy, z[4], z[7]), -xMax + 10, xMax - 10);
-      neueReihe(y + dy, gxA, m, 0);
-      const sQ = gxA < 0 ? -1 : 1;
-      const tx = gxA + (z[10] - 0.5) * 5;
-      const dyB = 62 + z[11] * 18;
-      const gxB = clamp(tx - sQ * (2.5 + R + m + 3 + z[12] * 10), -xMax, xMax);
-      neueReihe(y + dyB, gxB, m, 1, { quelle: { s: sQ, x: tx } });
-    } else if (lage === "flieger") {
-      const dy = abstand(z[1]);
-      neueReihe(y + dy, versatz(dy, z[4], z[7]), m, 0);
-      // Darüber kreuzt es; die Gasse führt gerade hindurch, dann erst die
-      // nächste Reihe.
-      const yc = y + PLATEAU + R + 18 + z[17] * 10;
-      reihen[0].flieger = yc;
-      state.weg.push({ y: yc + 30, x, pu: 0, pd: 0 });
-      y = yc + 30;
-    } else if (lage === "aufwind") {
-      // Erst das Tor in die Säule, darin zwei enge Lücken genau darüber.
-      const dy = abstand(z[1]);
-      const xc = clamp(versatz(dy, z[4], z[7]), -(xMax - 8), xMax - 8);
-      const mi = Math.max(3.2, m0 * 0.55);
-      neueReihe(y + dy, xc, m, 0);
-      const yA = y;
-      neueReihe(yA + 110, xc, mi, 1);
-      neueReihe(yA + 210, xc, mi, 2);
-      state.weg.push({ y: yA + 300, x: xc, pu: 0, pd: 0 });
-      state.aufwinde.push({ nr: n, x: xc, b: R + 11, y0: yA - 30, y1: yA + 300 });
-      y = yA + 300;
-    } else if (lage === "boee") {
-      // Die Böe bläst quer; die Lücken wandern ihr entgegen.
-      const sg = z[2] < 0.5 ? 1 : -1;
-      const w = sg * (34 + 14 * k0);
-      const y0 = y + abstand(z[1]) * 0.55;
-      let gx = clamp(x + sg * 14, -xMax, xMax);
-      for (let i = 0; i < 3; i += 1) {
-        neueReihe(y0 + 80 + i * 120, gx, m, i);
-        gx = clamp(gx - sg * (20 + 8 * z[3 + i]), -xMax, xMax);
-      }
-      state.boeen.push({ nr: n, y0, y1: y0 + 420, w });
-    }
-
-    state.letzte = { y, x };
-    const yTop = y;
-    // Im Aufwind gilt überall die Marge der engen Lücken.
-    if (lage === "aufwind") m = Math.min(...reihen.map((r) => r.m));
-    // Der Abschnitt beginnt über der letzten Reihe: Bis dorthin gilt die
-    // Marge, für die sie gebaut ist.
-    state.abschnitte.push({ nr: n, lage, besonders: lage === "aufwind" || lage === "boee" ? lage : "", y0: vor.y + Math.max(PLATEAU, vorWp.pu) + R, y1: yTop, m, e, t0: 0 });
-
-    // Die Teile jeder Reihe – die Welt nach der Höhe, die Art aus der Saat.
-    const tropfer = [];
-    reihen.forEach((r, i) => {
-      const gh = R + r.m + 0.6;
-      const w = weltBei(r.y);
-      const za = z[13 + ((i * 3) % 10)];
-      const zb = z[14 + ((i * 3) % 9)];
-      const zc = z[15 + ((i * 3) % 8)];
-      const hoch = clamp((r.y - WELT_AB[2]) / (WELT_AB[3] - WELT_AB[2]), 0, 1);
-      let hochNah = r.y;
-      let tiefNah = r.y;
-      // Auf der Rennstrecke hängt der Gartenschlauch über die Hecke – hier
-      // ohne Tropfen, damit nichts den Raser im Takt erwischt.
-      const schlauchSeite = lage === "gerade" && n === 1 && i === 1 && w === 0 ? (z[7] < 0.5 ? -1 : 1) : 0;
-      [-1, 1].forEach((s) => {
-        const spitze = r.x + s * gh;
-        let o = null;
-        if (s === schlauchSeite) {
-          const q = baueSchlauch(s, spitze, r.y, za);
-          delete q.tropf;
-          o = teilFertig(q, spitze);
-        } else if (r.quelle && r.quelle.s === s) {
-          // Das Teil, das tropft: Düse im Garten, Blatt im Baum, Rinne am Dach.
-          const sp = s < 0 ? Math.min(spitze, r.quelle.x + 2.4) : Math.max(spitze, r.quelle.x - 2.4);
-          const q = w === 0 ? baueSchlauch(s, sp, r.y, za) : w === 1 ? baueAst(s, sp, r.y, za, zb, zc, true) : baueDach(s, sp, r.y, za, 0.9, true);
-          o = teilFertig(q, sp);
-        } else {
-          o = teilBauen(w, s, spitze, r.y, s < 0 ? za : zb, s < 0 ? zb : zc, s < 0 ? zc : za, hoch);
-        }
-        if (!o) return;
-        o.nr = n;
-        einreihen(o);
-        // Wie hoch und tief das Teil nahe der Lücke reicht.
-        o.prims.forEach((p) => {
-          const nah = s < 0 ? rechts(p) > spitze - 28 : p.x0 < spitze + 28;
-          if (!nah) return;
-          hochNah = Math.max(hochNah, oben(p));
-          tiefNah = Math.min(tiefNah, p.y0);
-        });
-        if (o.tropf) tropfer.push(o);
-      });
-      r.wp.pu = clamp(hochNah - r.y + 3, PLATEAU, 38);
-      r.wp.pd = clamp(r.y - tiefNah + 3, PLATEAU, 38);
-    });
-    zeitplanBis(yTop + 30);
-    state.abschnitte[state.abschnitte.length - 1].t0 = tRef(state.abschnitte[state.abschnitte.length - 1].y0);
-
-    // Was sich bewegt, zuletzt – nach dem fertigen Weg und seinem Zeitplan.
-    tropfer.forEach((o) => {
-      // Der Tropfer: so oft, dass zwischen zwei Tropfen Zeit genug ist, durch
-      // die Spalte zu steigen.
-      const tr = { nr: n, art: "tropfen", x: o.tropf.x, y: o.tropf.y, P: 1.5, ph: 0, tMax: SCHWELL + Math.sqrt((2 * FALL) / G_TROPFEN), y0: o.tropf.y - FALL - 3, y1: o.tropf.y + 3, gross: 3 };
-      tr.P = tropfTakt(tr, e) + 0.3 * z[16];
-      von = Math.min(von, tr.y0);
-      if (phasenSuchen(tr, e, tr.P)) bewegerEinreihen(tr);
-    });
-    reihen.forEach((r) => {
-      if (!r.flieger) return;
-      const fl = fliegerBauen(r, weltBei(r.y), z, n, k);
-      if (!fl) return;
-      von = Math.min(von, fl.y0);
-      if (phasenSuchen(fl, e, fl.periode)) bewegerEinreihen(fl);
-    });
-    return { von, bis: yTop + PLATEAU + R + 10, m, e };
-  }
-
-  // Wie lange die Blase des Zeitplans unter dem Tropfer in seiner Spalte
-  // ist – so lang und etwas mehr muss der Takt der Tropfen sein.
-  function tropfTakt(tr, e) {
-    let t0 = null;
-    let t1 = null;
-    for (let y = tr.y - FALL; y < tr.y; y += 2) {
-      const drin = Math.abs(wegX(y) - tr.x) < R + R_TROPFEN + 8;
-      if (drin) {
-        const t = tRef(y);
-        if (t0 === null) t0 = t;
-        t1 = t;
-      }
-    }
-    const lang = t0 === null ? 0.4 : t1 - t0;
-    return clamp(lang + 2 * e + 0.55, 1.2, 3.2);
-  }
-
-  // Was über einer Reihe die Gasse kreuzt, je nach Welt.
-  function fliegerBauen(r, w, z, n, k) {
-    const yc = r.flieger;
-    const xc = r.x;
-    if (w <= 1) {
-      // Eine Wespe fliegt eine Acht über der Lücke.
-      const periode = lerp(2.4, 1.7, k);
-      return { nr: n, art: "wespe", xc: clamp(xc + (z[18] - 0.5) * 16, -40, 40), yc, A: 26 + z[19] * 12, B: 4.5, w: TAU / periode, ph: 0, sinn: z[20] < 0.5 ? 1 : -1, periode, gross: 7, y0: yc - 11, y1: yc + 11 };
-    }
-    if (w === 2) {
-      const periode = lerp(3.0, 2.3, k);
-      return { nr: n, art: "schwalbe", xc: (z[18] - 0.5) * 20, yc, A: 56 + z[19] * 18, B: 9 + z[21] * 8, w: TAU / periode, ph: 0, sinn: z[20] < 0.5 ? 1 : -1, schlagT: 13, periode, gross: 12, y0: yc - 30, y1: yc + 30 };
-    }
-    if (z[22] < 0.45) {
-      // Ein Wolkenfetzen treibt quer durch.
-      const u = (z[20] < 0.5 ? 1 : -1) * (16 + 8 * z[19]);
+  // Ein Vogel oder Wolkenfetzen über den Punkt ic der Bahn – nach der
+  // Stimmung. Kreuzt seine Bahn ein anderes Stück, kommt keiner.
+  function vogelBauen(fig, ic, z, k) {
+    const B = state.bahn;
+    const xc = B.x[ic];
+    const yc = B.y[ic];
+    const w = B.w[ic];
+    const st = stimmungBei(ic * DS);
+    let mv;
+    if (st === 0 || (st === 3 && z[13] < 0.3)) {
+      const periode = lerp(2.9, 2.2, k);
+      mv = { art: "schwalbe", xc, yc, A: w + 30 + z[14] * 14, B: 5 + z[15] * 5, w: TAU / periode, ph: 0, sinn: z[16] < 0.5 ? 1 : -1, schlagT: 13, periode, gross: 12 };
+    } else if (z[13] < 0.45) {
+      const u = (z[16] < 0.5 ? 1 : -1) * (18 + 10 * z[14]);
       const puffs = [[0, 0, 7.5], [-8, -1.5, 5.5], [8.5, 0.5, 6], [3, 4.5, 5]];
-      return { nr: n, art: "fetzen", x0: xc, yc, u, tc: tRef(yc), puffs, periode: 6, gross: 16, y0: yc - 12, y1: yc + 12 };
+      mv = { art: "fetzen", xc, yc, A: w + 34, B: 6, x0: xc, u, tc: tRef(ic * DS), puffs, periode: 6, gross: 16 };
+    } else {
+      const periode = lerp(2.2, 1.7, k);
+      mv = { art: "segler", xc, yc, A: w + 34 + z[14] * 14, B: 4 + z[15] * 4, w: TAU / periode, ph: 0, sinn: z[16] < 0.5 ? 1 : -1, schlagT: 20, periode, gross: 12 };
     }
-    const periode = lerp(2.1, 1.6, k);
-    return { nr: n, art: "segler", xc: (z[18] - 0.5) * 24, yc, A: 74 + z[19] * 16, B: 6 + z[21] * 6, w: TAU / periode, ph: 0, sinn: z[20] < 0.5 ? 1 : -1, schlagT: 20, periode, gross: 12, y0: yc - 24, y1: yc + 24 };
+    mv.nr = fig.nr;
+    mv.i = ic;
+    // Die Punkte der Bahn, die er erreichen kann – alle aus dieser Figur.
+    const x0 = xc - mv.A - mv.gross;
+    const x1 = xc + mv.A + mv.gross;
+    const y0 = yc - mv.B - mv.gross;
+    const y1 = yc + mv.B + mv.gross;
+    let fremd = false;
+    rasterUm(xc, yc, mv.A + mv.gross + W0, (i) => {
+      if (B.x[i] + B.w[i] < x0 || B.x[i] - B.w[i] > x1 || B.y[i] + B.w[i] < y0 || B.y[i] - B.w[i] > y1) return true;
+      if (B.fig[i] !== fig.nr) { fremd = true; return false; }
+      return true;
+    });
+    if (fremd) return null;
+    mv.punkte = [];
+    for (let i = fig.i0; i <= fig.i1; i += 2) {
+      if (B.x[i] + B.w[i] < x0 || B.x[i] - B.w[i] > x1 || B.y[i] + B.w[i] < y0 || B.y[i] - B.w[i] > y1) continue;
+      mv.punkte.push(i);
+    }
+    if (!mv.punkte.length) return null;
+    mv.s0 = mv.punkte[0] * DS - 30;
+    mv.s1 = mv.punkte[mv.punkte.length - 1] * DS + 30;
+    return mv;
   }
 
   /*
-   * Die Phase eines Bewegers so wählen, dass er die Gasse frei lässt, wenn
+   * Die Phase eines Bewegers so wählen, dass er die Bahn frei lässt, wenn
    * die Blase des Zeitplans kommt – zu früh oder zu spät bis luft, quer
-   * bis zur Marge. Zwölf Phasen werden der Reihe nach versucht.
+   * über die ganze Breite. Zwölf Phasen werden der Reihe nach versucht.
    */
-  function phasenSuchen(mv, e, periode) {
+  function phasenSuchen(mv, e) {
     for (let i = 0; i < 12; i += 1) {
       const f = ((i * 5) % 12) / 12;
-      if (mv.art === "fetzen") mv.tc = tRef(mv.yc) + (f - 0.5) * 2 * 2.6 + (f < 0.5 ? -1.4 : 1.4);
-      else if (mv.art === "tropfen") mv.ph = f * periode;
+      if (mv.art === "fetzen") mv.tc = tRef(mv.i * DS) + (f - 0.5) * 2 * 2.6 + (f < 0.5 ? -1.4 : 1.4);
       else mv.ph = f * TAU;
       if (bewegerFrei(mv, e)) return true;
     }
@@ -1443,111 +944,43 @@
   }
 
   function bewegerFrei(mv, e) {
-    const y0 = Math.max(0, mv.y0 - RH);
-    const y1 = mv.y1 + RH;
-    for (let y = y0; y <= y1; y += 1.2) {
-      const x = wegX(y);
-      const m = margeAn(y);
-      const t = tRef(y);
-      const n = Math.max(1, Math.ceil((2 * m) / 2.5));
-      for (let j = 0; j <= 8; j += 1) {
-        const tt = t + (j / 4 - 1) * e;
-        for (let i = 0; i <= n; i += 1) {
-          if (bewegerTrifft(mv, x - m + (2 * m * i) / n, y, tt, RH + 0.3)) return false;
+    const B = state.bahn;
+    for (let j = 0; j < mv.punkte.length; j += 1) {
+      const i = mv.punkte[j];
+      const x = B.x[i];
+      const y = B.y[i];
+      const nx = -B.ty[i];
+      const ny = B.tx[i];
+      const w = B.w[i] - R + 1;
+      const t = tRef(i * DS);
+      const n = Math.max(1, Math.ceil((2 * w) / 4));
+      for (let q = 0; q <= 4; q += 1) {
+        const tt = t + (q / 2 - 1) * e;
+        for (let l = 0; l <= n; l += 1) {
+          const o = -w + (2 * w * l) / n;
+          if (bewegerTrifft(mv, x + nx * o, y + ny * o, tt, RH + 0.3)) return false;
         }
       }
     }
     return true;
   }
 
-  // Die Marge und die Luft in der Höhe y: die ihres Abschnitts.
-  function abschnittBei(y) {
-    const liste = state.abschnitte;
-    let lo = 0;
-    let hi = liste.length - 1;
-    if (hi < 0 || y < liste[0].y0) return 0;
-    while (lo < hi) {
-      const m = (lo + hi + 1) >> 1;
-      if (liste[m].y0 <= y) lo = m; else hi = m - 1;
+  // Was die Blase an (x, y) zur Zeit t trifft – der Rand (aus naechster:
+  // d und w), der Tisch, was sich bewegt. null heisst: nichts.
+  function trifft(x, y, t, r = RH, n = null) {
+    const q = n || naechster(x, y, state.blase.i);
+    if (q.d > q.w - r) return { art: "rand" };
+    // Unten beim Start: der Gartentisch.
+    if (y - r < -35 && Math.abs(x) < 38 && y > -45) return { art: "tisch" };
+    const s = q.s;
+    const L = state.beweger;
+    for (let i = 0; i < L.length; i += 1) {
+      const m = L[i];
+      if (m.s0 > s + 40) break;
+      if (m.s1 < s - 40) continue;
+      if (bewegerTrifft(m, x, y, t, r)) return { art: m.art, m };
     }
-    return lo;
-  }
-  const margeAn = (y) => state.abschnitte[abschnittBei(y)]?.m ?? M0;
-  const luftAn = (y) => state.abschnitte[abschnittBei(y)]?.e ?? E0;
-
-  /*
-   * Hält die Gasse? Von y0 bis y1, alle anderthalb Zentimeter: quer über die
-   * ganze Marge (alle zweieinhalb Zentimeter) frei von allem, was steht, und
-   * vom Rand – und bei allem, was sich bewegt, auch zu früh und zu spät.
-   */
-  function sicher(y0, y1) {
-    zeitplanBis(y1 + 20);
-    for (let y = Math.max(0, y0); y <= y1; y += 1.5) {
-      const x = wegX(y);
-      const m = margeAn(y);
-      const e = luftAn(y);
-      const n = Math.max(1, Math.ceil((2 * m) / 2.5));
-      const t = tRef(y);
-      for (let i = 0; i <= n; i += 1) {
-        const xx = x - m + (2 * m * i) / n;
-        if (Math.abs(xx) + RH + 0.2 > RAND) return false;
-        const L = state.hindernisse;
-        for (let j = abIndex(L, y - RH - state.langMax, yVonTeil); j < L.length; j += 1) {
-          const o = L[j];
-          if (o.box.y0 > y + RH + 0.3) break;
-          if (o.box.y1 < y - RH - 0.3 || o.box.x0 > xx + RH + 0.3 || o.box.x1 < xx - RH - 0.3) continue;
-          if (formTrifft(o.prims, xx, y, RH + 0.3)) return false;
-        }
-      }
-      const B = state.beweger;
-      for (let j = abIndex(B, y - RH - state.langMaxB, yVonBeweger); j < B.length; j += 1) {
-        const mv = B[j];
-        if (mv.y0 > y + RH) break;
-        if (mv.y1 < y - RH) continue;
-        for (let q = 0; q <= 8; q += 1) {
-          const tt = t + (q / 4 - 1) * e;
-          for (let i = 0; i <= n; i += 1) if (bewegerTrifft(mv, x - m + (2 * m * i) / n, y, tt, RH + 0.3)) return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  // Die Welt steht bis zur Höhe y – je Aufruf höchstens «mal» Abschnitte,
-  // damit kein Bild lange wartet.
-  function planBis(y, mal = 40) {
-    for (let i = 0; i < mal && state.letzte.y < y; i += 1) naechsterAbschnitt();
-  }
-
-  function weltNeu() {
-    state.weg = [{ y: 0, x: 0, pu: 30, pd: 30 }];
-    state.plan = planNeu();
-    state.hindernisse = [];
-    state.beweger = [];
-    state.abschnitte = [];
-    state.aufwinde = [];
-    state.boeen = [];
-    state.letzte = { y: 0, x: 0 };
-    state.windPhase = [zufall.zahl() * TAU, zufall.zahl() * TAU];
-    state.langMax = 60;
-    state.langMaxB = 60;
-    state.planFehler = 0;
-    state.zahlAufwind = 0;
-    state.zahlBoee = 0;
-    state.abschnitt = -1;
-    planBis(900);
-  }
-
-  // Die Welt als Text – für die Prüfung, dass in einem Turnier alle
-  // dieselbe bekommen.
-  function kursText(bis = 60) {
-    zeitplanBis(0);
-    while (tSchaetzen(state.letzte.y) < bis) naechsterAbschnitt();
-    const yb = yRef(bis);
-    const teile = state.hindernisse.filter((o) => o.box.y0 < yb).map((o) => `${o.art}${o.box.x0.toFixed(1)}/${o.box.x1.toFixed(1)}/${o.box.y0.toFixed(1)}`);
-    const flieger = state.beweger.filter((m) => m.y0 < yb).map((m) => `${m.art}${(m.ph ?? m.tc).toFixed(3)}`);
-    const lagen = state.abschnitte.filter((a) => a.y0 < yb).map((a) => a.lage);
-    return `${teile.join(",")} | ${flieger.join(",")} | ${lagen.join(",")} | ${state.weg.filter((w) => w.y < yb).map((w) => w.x.toFixed(2)).join(",")}`;
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1592,7 +1025,12 @@
     platz.append(feld);
     return platz;
   }
-
+  /*
+   * Der Massstab: Um den Blickpunkt sieht man auf jedem Gerät gleich weit,
+   * SICHT in jede Richtung – hochkant gibt die Breite das Mass vor, quer die
+   * Höhe. Was weiter weg ist, verschwindet im Dunst (sichtbar). Der
+   * Blickpunkt fällt in die Mitte der freien Fläche unter der Leiste.
+   */
   function messen() {
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
@@ -1604,27 +1042,50 @@
     view.cssH = cssH;
     view.dpr = dpr;
     view.frei = frei;
-    // Der Massstab: hochkant gibt die Breite das Feld vor, quer die Höhe –
-    // über der Blase sieht man auf jedem Gerät gleich weit voraus.
-    view.s = Math.min(cssW / FELD_SICHT, (cssH - frei - 6) / (SICHT_OBEN + SICHT_UNTEN));
-    view.blaseY = Math.round(frei + Math.min(SICHT_OBEN * view.s, 0.62 * (cssH - frei)));
+    view.s = Math.min(cssW, cssH - frei - 8) / (2 * SICHT);
+    view.mx = cssW / 2;
+    view.my = frei + (cssH - frei) / 2;
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
-    if (tippRinge) {
-      tippRinge.style.left = `${Math.round(cssW / 2)}px`;
-      tippRinge.style.top = `${Math.round(view.blaseY + 24 * view.s)}px`;
-    }
     ebenenNeu();
+    ringeStellen();
     // Steht die Schleife (auf der Tafel nach dem Platzen), malt niemand
     // nach – also hier, sonst bliebe die Leinwand nach dem Drehen leer.
     if (!frame) zeichnen();
   }
 
-  const bildX = (x) => view.cssW / 2 + x * view.s;
-  const bildY = (y) => view.cssH - (y - state.camY) * view.s;
-  const camZiel = () => state.blase.y - (view.cssH - view.blaseY) / view.s;
+  const bildX = (x) => view.mx + (x - state.cam.x) * view.s;
+  const bildY = (y) => view.my - (y - state.cam.y) * view.s;
+
+  // Der Hinweis vor dem ersten Tipp: die Ringe unter der Blase.
+  function ringeStellen() {
+    if (!tippRinge) return;
+    tippRinge.style.left = `${Math.round(bildX(state.blase.x))}px`;
+    tippRinge.style.top = `${Math.round(bildY(state.blase.y) + 24 * view.s)}px`;
+  }
+
+  /*
+   * Wohin die Kamera schaut: vor die Blase, in die Richtung, in die die Bahn
+   * auf dem nächsten Meter führt – so sieht man die nächste Kurve früh. Vor
+   * dem Start etwas über sie, damit der Tisch im Bild ist.
+   */
+  function blickZiel() {
+    const b = state.blase;
+    const B = state.bahn;
+    if (state.phase === "bereit" || B.x.length < 2) return { x: b.x, y: b.y + SICHT * 0.3 };
+    const i0 = clamp(b.i, 0, B.x.length - 1);
+    const i1 = Math.min(B.x.length - 1, i0 + 45);
+    const ux = B.x[i1] - B.x[i0];
+    const uy = B.y[i1] - B.y[i0];
+    const l = Math.hypot(ux, uy) || 1;
+    return { x: b.x + (ux / l) * SICHT * SICHT_VOR, y: b.y + (uy / l) * SICHT * SICHT_VOR };
+  }
+
+  // Wie sichtbar etwas im Abstand d vom Blickpunkt ist: ganz bis gut zur
+  // Sicht, dann verschwindet es im Dunst.
+  const sichtbar = (d) => 1 - glatt((d - SICHT * 1.1) / (SICHT * 0.3));
 
   // ---------------------------------------------------------------------------
   // Malen: die Farben des Abends
@@ -1674,24 +1135,19 @@
     c.height = Math.max(2, Math.round(h * view.dpr));
     return c;
   }
-
   // ---------------------------------------------------------------------------
-  // Malen: der Himmel – ein hohes Bild, das langsam hinabgleitet
+  // Malen: der Himmel – ein hohes Bild, das mit dem Weg hinabgleitet
   // ---------------------------------------------------------------------------
   /*
    * Der ganze Abendhimmel der Reise steht in einem einzigen hohen Bild: unten
    * die Sonne über den Alpen, goldene und rosa Wolkenbänke, darüber Flieder
-   * und Violett, ganz oben die Nacht mit Mond und Sternen. Steigt die Blase,
-   * gleitet es mit einem Zwanzigstel ihres Tempos hinab – die Sonne sinkt
-   * hinter den Garten, der Himmel wird tief.
+   * und Violett, ganz oben die Nacht mit Mond und Sternen. Mit dem Weg auf
+   * der Bahn gleitet es langsam hinab – der Abend schreitet voran, auch wenn
+   * die Bahn einmal hinunter führt. Die Ferne (Hügel, das Dorf) sinkt, wenn
+   * die Blase steigt.
    */
   const HIMMEL_HOCH = 7000;
   const PH = 0.055;
-  // Über den Dächern: So weit von der Mitte beginnen die fernen Wände der
-  // Gasse (Anteil des halben Feldes); dazwischen Himmel und Dachlandschaft,
-  // die sehr langsam hinabgleitet (PD).
-  const GASSE_INNEN = 0.55;
-  const PD = 0.022;
 
   function maleHimmel(k, W, Ht, H) {
     // Die Farben von unten (0) nach oben, in Bildhöhen über dem unteren Rand.
@@ -1917,23 +1373,15 @@
         k.fill();
         x += 14 * s;
       }
-      // Bäume dazwischen, rund.
-      if (rnd() < 0.5) {
-        k.fillStyle = rgb(mix3([70, 70, 90], [90, 86, 96], rnd()));
-        k.beginPath();
-        k.arc(x + b + 3 * s, y - 10 * s, (7 + rnd() * 6) * s, 0, TAU);
-        k.fill();
-      }
       x += b + (2 + rnd() * 8) * s;
     }
-    // Das Tal unter dem Dorf: Wiesen und runde Bäume im Abenddunst.
+    // Das Tal unter dem Dorf: Wiesen und Hecken im Abenddunst.
     const tal = k.createLinearGradient(0, basis, 0, H);
     tal.addColorStop(0, "rgb(126, 96, 116)");
     tal.addColorStop(1, "rgb(96, 82, 104)");
     k.fillStyle = tal;
     k.fillRect(0, basis + 4 * s, W, H - basis);
-    // Wiesenstreifen und Hecken im Tal, dazwischen runde Bäume mit hellem
-    // Scheitel.
+    // Wiesenstreifen und Hecken im Tal.
     for (let i = 0; i < 7; i += 1) {
       const y = basis + 10 * s + (i / 7) * (H - basis);
       k.fillStyle = rgba(i % 2 ? [150, 116, 120] : [116, 96, 116], 0.6);
@@ -1945,19 +1393,6 @@
       k.closePath();
       k.fill();
     }
-    for (let i = 0; i < 24; i += 1) {
-      const x = rnd() * W;
-      const y = basis + 10 * s + rnd() * (H - basis);
-      const r = (4 + rnd() * 5) * s * (0.6 + (y - basis) / (H - basis));
-      k.fillStyle = rgba(mix3([84, 84, 92], [104, 96, 104], rnd()), 0.75);
-      k.beginPath();
-      k.arc(x, y, r, 0, TAU);
-      k.fill();
-      k.fillStyle = "rgba(255, 190, 150, 0.35)";
-      k.beginPath();
-      k.arc(x - r * 0.25, y - r * 0.3, r * 0.55, 0, TAU);
-      k.fill();
-    }
     // Dunst über dem Dorf.
     const d = k.createLinearGradient(0, O * 0.3, 0, H);
     d.addColorStop(0, "rgba(255, 200, 170, 0)");
@@ -1965,832 +1400,12 @@
     k.fillStyle = d;
     k.fillRect(0, O * 0.3, W, H - O * 0.3);
   }
-
-  // ---------------------------------------------------------------------------
-  // Malen: die Kulissen der vier Welten – Kacheln, die sich nach oben
-  // wiederholen
-  // ---------------------------------------------------------------------------
-  // In ein Bild malen, das oben und unten nahtlos weitergeht: jede Form
-  // dreimal, eine Kachel höher und tiefer.
-  const dreimal = (Hk, malen) => { malen(0); malen(-Hk); malen(Hk); };
-
-  // Ein Laubbüschel als Umriss aus Blattspitzen: aussen die Spitzen, innen
-  // die Kerben dazwischen, mit runden Bögen – so liest es sich als Laub.
-  function laubForm(k, x, y, r, rnd, n = 13) {
-    const pts = [];
-    const w0 = rnd() * TAU;
-    for (let i = 0; i < n; i += 1) {
-      const w = w0 + (i / n) * TAU;
-      pts.push([w, r * (0.92 + rnd() * 0.14)]);
-    }
-    k.beginPath();
-    for (let i = 0; i <= n; i += 1) {
-      const [w, rr] = pts[i % n];
-      const tx = x + Math.cos(w) * rr;
-      const ty = y + Math.sin(w) * rr;
-      if (i === 0) k.moveTo(tx, ty);
-      else {
-        // Von der vorigen Spitze über einen Blattbogen zu dieser.
-        const [wp] = pts[i - 1];
-        const wq = wp + (((w - wp + TAU) % TAU) / 2);
-        k.quadraticCurveTo(x + Math.cos(wq) * r * 1.06, y + Math.sin(wq) * r * 1.06, x + Math.cos(wq) * r * 0.8, y + Math.sin(wq) * r * 0.8);
-        k.quadraticCurveTo(x + Math.cos(wq + 0.08) * r * 1.04, y + Math.sin(wq + 0.08) * r * 1.04, tx, ty);
-      }
-    }
-    k.closePath();
-  }
-
-  // Ein einzelnes Blatt (Bildpunkte): eine Spitzellipse.
-  function blattKlein(k, x, y, w, l, b) {
-    k.beginPath();
-    k.moveTo(x, y);
-    k.quadraticCurveTo(x + Math.cos(w) * l * 0.5 - Math.sin(w) * b, y + Math.sin(w) * l * 0.5 + Math.cos(w) * b, x + Math.cos(w) * l, y + Math.sin(w) * l);
-    k.quadraticCurveTo(x + Math.cos(w) * l * 0.5 + Math.sin(w) * b, y + Math.sin(w) * l * 0.5 - Math.cos(w) * b, x, y);
-    k.fill();
-  }
-
-  // Die Farben des Laubs im Abendlicht: tief im Schatten, die Mitte, die
-  // Sonnenseite und die Lichtkante. dunst > 0: fern, im Abenddunst.
-  function laubFarben(dunst = 0, art = 0) {
-    const d = [222, 172, 176];
-    const basis = art === 1
-      ? { tief: [30, 58, 42], mitte: [60, 104, 52], hell: [138, 172, 66], kante: [255, 222, 140] }
-      : { tief: [36, 64, 40], mitte: [74, 114, 48], hell: [158, 182, 70], kante: [255, 214, 128] };
-    if (!dunst) return basis;
-    // Im Dunst: blasser und mit weniger Kontrast zwischen Schatten und Licht.
-    return { tief: mix3(basis.tief, d, dunst), mitte: mix3(basis.mitte, d, dunst * 0.92), hell: mix3(basis.hell, d, dunst * 0.8), kante: mix3(basis.kante, d, dunst * 0.6) };
-  }
-
-  // Eine Baumkrone aus Laubbüscheln: hinten und unten rechts dunkel, vorn
-  // oben links im Abendlicht, mit einer Lichtkante und einzelnen Blättern am
-  // Rand. r in Bildpunkten.
-  function krone(k, x, y, r, rnd, pal, alpha = 1) {
-    const n = Math.round(9 + r / 5);
-    const buesche = [];
-    for (let i = 0; i < n; i += 1) {
-      const w = rnd() * TAU;
-      const d = Math.sqrt(rnd()) * r * 0.6;
-      buesche.push([x + Math.cos(w) * d, y + Math.sin(w) * d * 0.82, r * (0.3 + rnd() * 0.14)]);
-    }
-    // Hinten (weg vom Licht) zuerst.
-    buesche.sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
-    k.globalAlpha = alpha;
-    k.fillStyle = rgb(pal.tief);
-    buesche.forEach(([bx, by, br]) => { laubForm(k, bx, by, br * 1.06, rnd); k.fill(); });
-    buesche.forEach(([bx, by, br]) => {
-      const licht = clamp(0.5 - ((bx - x) + (by - y)) / (r * 1.4), 0, 1);
-      k.fillStyle = rgb(mix3(pal.tief, pal.mitte, 0.55 + 0.45 * licht));
-      laubForm(k, bx - br * 0.06, by - br * 0.08, br * 0.9, rnd);
-      k.fill();
-      k.fillStyle = rgb(mix3(pal.mitte, pal.hell, 0.35 + 0.65 * licht));
-      laubForm(k, bx - br * 0.24, by - br * 0.28, br * 0.52, rnd, 9);
-      k.fill();
-      // Einzelne Blätter am Rand zur Sonne, mit Licht an der Kante.
-      if (licht > 0.35) {
-        for (let j = 0; j < 6; j += 1) {
-          const w = Math.PI * 1.25 + (rnd() - 0.5) * 1.9;
-          const lx = bx + Math.cos(w) * br * (0.7 + rnd() * 0.2);
-          const ly = by + Math.sin(w) * br * (0.7 + rnd() * 0.2);
-          k.fillStyle = rgb(mix3(pal.hell, pal.kante, 0.25 + 0.4 * rnd()));
-          blattKlein(k, lx, ly, w + (rnd() - 0.5) * 0.8, br * 0.34, br * 0.1);
-        }
-      }
-    });
-    k.globalAlpha = 1;
-  }
-
-  // Ein Ast als sich verjüngende Form, mit Licht oben. Breiten in Bildpunkten.
-  function astForm(k, x0, y0, cx, cy, x1, y1, b0, b1, farbe, licht) {
-    const n = 14;
-    const l = [];
-    const r = [];
-    for (let i = 0; i <= n; i += 1) {
-      const u = i / n;
-      const x = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * cx + u * u * x1;
-      const y = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * cy + u * u * y1;
-      const dx = 2 * (1 - u) * (cx - x0) + 2 * u * (x1 - cx);
-      const dy = 2 * (1 - u) * (cy - y0) + 2 * u * (y1 - cy);
-      const len = Math.hypot(dx, dy) || 1;
-      const b = lerp(b0, b1, u) / 2;
-      l.push([x - (dy / len) * b, y + (dx / len) * b]);
-      r.push([x + (dy / len) * b, y - (dx / len) * b]);
-    }
-    k.fillStyle = farbe;
-    k.beginPath();
-    [...l, ...r.reverse()].forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-    k.closePath();
-    k.fill();
-    if (licht) {
-      k.strokeStyle = licht;
-      k.lineWidth = Math.max(1, b1 * 0.5);
-      k.beginPath();
-      (y1 < y0 ? r : l).forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-      k.stroke();
-    }
-  }
-
-  function maleKulisse(k, W, Hk, welt) {
-    const rnd = wuerfel(1000 + welt * 77);
-    const s = view.s * view.dpr;
-    const mitte = W / 2;
-    const feldB = RAND * s;
-    // Wie weit draussen: hochkant liegt der Rand des Bildes knapp neben dem
-    // Feld, quer weit davon.
-    const aussen = Math.max(feldB * 1.15, W / 2);
-    if (welt === 0) {
-      // Der Garten: Apfelbäume links und rechts, ihr Stamm gleich hinter dem
-      // Rand, Äste, die das Laub tragen, Äpfel; quer weiter draussen mehr
-      // Bäume im Abenddunst. Dazwischen der Himmel und eine Lichterkette.
-      const pal = laubFarben(0.5, 0);
-      const fern = laubFarben(0.68, 0);
-      for (let i = 0; i < 6; i += 1) {
-        // Weiter draussen (quer sichtbar): Bäume im Dunst, mit Stamm.
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * 1.35 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.2));
-        const y = rnd() * Hk;
-        const r = s * (13 + rnd() * 9);
-        dreimal(Hk, (dy) => {
-          astForm(k, x, y + dy + r * 2.2, x + seite * s * 2, y + dy + r, x, y + dy, s * 3.5, s * 1.8, rgba(mix3([76, 58, 62], [222, 172, 176], 0.65), 1), null);
-          krone(k, x, y + dy, r, wuerfel(i * 31 + 9), fern, 0.85);
-        });
-      }
-      [-1, 1].forEach((seite, j) => {
-        const sx = mitte + seite * feldB * (0.97 + rnd() * 0.05);
-        // Der Stamm, im Dunst, mit Licht auf der linken Seite.
-        k.fillStyle = rgb(mix3([84, 62, 60], [222, 172, 176], 0.45));
-        k.fillRect(sx - s * 2.2, 0, s * 4.4, Hk);
-        k.fillStyle = "rgba(255, 210, 170, 0.3)";
-        k.fillRect(sx - s * 2.2, 0, s * 0.9, Hk);
-        // Kronen an Ästen vom Stamm herein.
-        for (let i = 0; i < 3; i += 1) {
-          const y = (i + 0.2 + rnd() * 0.6) * (Hk / 3);
-          const kx = mitte + seite * feldB * (0.74 + rnd() * 0.14);
-          const ky = y - s * (8 + rnd() * 10);
-          const r = s * (14 + rnd() * 6);
-          const saat = j * 100 + i * 13 + 5;
-          dreimal(Hk, (dy) => {
-            astForm(k, sx, y + dy + s * 18, lerp(sx, kx, 0.5), y + dy + s * 6, kx, ky + dy + r * 0.3, s * 2.8, s * 1.1, rgb(mix3([86, 64, 62], [222, 172, 176], 0.45)), null);
-            krone(k, kx, ky + dy, r, wuerfel(saat), pal, 0.9);
-            // Äpfel im Laub, mit Glanz.
-            const ra = wuerfel(saat + 50);
-            for (let q = 0; q < 5; q += 1) {
-              const ax = kx + (ra() - 0.5) * r * 1.2;
-              const ay = ky + dy + (ra() - 0.2) * r * 0.9;
-              k.fillStyle = "rgb(214, 110, 104)";
-              k.beginPath();
-              k.arc(ax, ay, s * 1.1, 0, TAU);
-              k.fill();
-              k.fillStyle = "rgba(255, 220, 180, 0.6)";
-              k.beginPath();
-              k.arc(ax - s * 0.35, ay - s * 0.35, s * 0.32, 0, TAU);
-              k.fill();
-            }
-          });
-        }
-      });
-      // Bokeh: helle runde Flecken, wo die Sonne durchs Laub fällt.
-      k.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 22; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * feldB * (0.5 + rnd() * 0.7);
-        const y = rnd() * Hk;
-        const r = s * (2 + rnd() * 4);
-        dreimal(Hk, (dy) => {
-          const h = k.createRadialGradient(x, y + dy, r * 0.7, x, y + dy, r);
-          h.addColorStop(0, "rgba(255, 220, 150, 0.2)");
-          h.addColorStop(1, "rgba(255, 220, 150, 0)");
-          k.fillStyle = h;
-          k.fillRect(x - r, y + dy - r, 2 * r, 2 * r);
-        });
-      }
-      // Die Lichterkette im Bogen von Stamm zu Stamm.
-      const yk = Hk * 0.4;
-      const xa = mitte - feldB * 0.97;
-      const xb = mitte + feldB * 0.97;
-      const ketteY = (x) => yk + Math.sin(((x - xa) / (xb - xa)) * Math.PI) * s * 16;
-      k.globalCompositeOperation = "source-over";
-      k.strokeStyle = "rgba(50, 36, 44, 0.6)";
-      k.lineWidth = Math.max(1, s * 0.25);
-      k.beginPath();
-      for (let x = xa; x <= xb; x += 4) k.lineTo(x, ketteY(x));
-      k.stroke();
-      k.globalCompositeOperation = "lighter";
-      for (let x = xa + s * 6; x < xb - s * 3; x += s * 11) {
-        const y = ketteY(x) + s * 1.6;
-        const farbe = [[255, 220, 140], [255, 170, 120], [255, 236, 180]][Math.round(x / s) % 3];
-        const h = k.createRadialGradient(x, y, 0, x, y, s * 6);
-        h.addColorStop(0, rgba(farbe, 0.95));
-        h.addColorStop(0.18, rgba(farbe, 0.5));
-        h.addColorStop(1, rgba(farbe, 0));
-        k.fillStyle = h;
-        k.fillRect(x - s * 6, y - s * 6, s * 12, s * 12);
-      }
-      k.globalCompositeOperation = "source-over";
-    } else if (welt === 1) {
-      // Die Baumkrone: dicke Äste wachsen von den Stämmen herein und tragen
-      // Laub, schräg fallen goldene Strahlen hindurch.
-      const pal = laubFarben(0.48, 1);
-      const fern = laubFarben(0.66, 1);
-      for (let i = 0; i < 6; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * (feldB * 1.3 + rnd() * Math.max(feldB * 0.3, aussen - feldB * 1.1));
-        const y = rnd() * Hk;
-        const r = s * (12 + rnd() * 9);
-        dreimal(Hk, (dy) => krone(k, x, y + dy, r, wuerfel(i * 23 + 1), fern, 0.85));
-      }
-      for (let i = 0; i < 6; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const y = (i + 0.3 + rnd() * 0.4) * (Hk / 6);
-        const x0 = mitte + seite * feldB * 1.05;
-        const x1 = mitte + seite * feldB * (0.55 + rnd() * 0.15);
-        const y1 = y - s * (16 + rnd() * 20);
-        const saat = i * 17 + 3;
-        const r1 = s * (11 + rnd() * 5);
-        const r2 = s * (9 + rnd() * 4);
-        const astFarbe = rgb(mix3([80, 66, 66], [222, 172, 176], 0.45));
-        dreimal(Hk, (dy) => {
-          astForm(k, x0, y + dy, lerp(x0, x1, 0.45), y + dy - s * 4, x1, y1 + dy, s * 4.2, s * 1.2, astFarbe, null);
-          // Ein Seitenzweig und Laub an beiden Enden.
-          const mx = lerp(x0, x1, 0.55);
-          const my = lerp(y, y1, 0.5) + dy;
-          astForm(k, mx, my, mx - seite * s * 6, my - s * 10, mx - seite * s * 3, my - s * 20, s * 1.8, s * 0.7, astFarbe, null);
-          krone(k, mx - seite * s * 3, my - s * 22, r2, wuerfel(saat + 7), pal, 0.9);
-          krone(k, x1, y1 + dy - r1 * 0.2, r1, wuerfel(saat), pal, 0.9);
-        });
-      }
-      // Lichtstrahlen, schräg von links oben.
-      k.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 5; i += 1) {
-        const x = mitte + (rnd() - 0.6) * feldB * 1.6;
-        const y = rnd() * Hk;
-        const w = 0.5 + rnd() * 0.25;
-        const l = Hk * 0.8;
-        const b = s * (5 + rnd() * 9);
-        dreimal(Hk, (dy) => {
-          k.save();
-          k.translate(x, y + dy);
-          k.rotate(w);
-          const gr = k.createLinearGradient(-l / 2, 0, l / 2, 0);
-          gr.addColorStop(0, "rgba(255, 214, 140, 0)");
-          gr.addColorStop(0.5, "rgba(255, 214, 140, 0.13)");
-          gr.addColorStop(1, "rgba(255, 214, 140, 0)");
-          k.fillStyle = gr;
-          k.fillRect(-l / 2, -b / 2, l, b);
-          k.restore();
-        });
-      }
-      for (let i = 0; i < 22; i += 1) {
-        const x = mitte + (rnd() - 0.5) * feldB * 2.2;
-        const y = rnd() * Hk;
-        const r = s * (1.5 + rnd() * 3);
-        dreimal(Hk, (dy) => {
-          const h = k.createRadialGradient(x, y + dy, r * 0.6, x, y + dy, r);
-          h.addColorStop(0, "rgba(255, 226, 150, 0.22)");
-          h.addColorStop(1, "rgba(255, 226, 150, 0)");
-          k.fillStyle = h;
-          k.fillRect(x - r, y + dy - r, 2 * r, 2 * r);
-        });
-      }
-      k.globalCompositeOperation = "source-over";
-    } else if (welt === 2) {
-      // Über den Dächern: Die Gasse geht nach hinten weiter. Links und rechts
-      // die Wände der ferneren Häuser – je weiter weg, desto näher zur Mitte,
-      // die Fenster schmaler, blasser im Dunst –, je Stockwerk ein Sims,
-      // Fenster mit Läden, Licht in einzelnen. Die linke Wand liegt im
-      // Schatten, die rechte fängt das Abendlicht. In der Mitte bleibt es
-      // offen: dort der Himmel und die Dachlandschaft (dachBild).
-      const innen = feldB * GASSE_INNEN;
-      const geschoss = s * 62;
-      const dunst = [196, 150, 186];
-      [-1, 1].forEach((seite) => {
-        const putz = seite < 0 ? mix3([176, 128, 110], SCHATTEN, 0.35) : mix3([226, 170, 130], [255, 200, 150], 0.15);
-        const xa = mitte + seite * innen;
-        const xb = seite < 0 ? 0 : W;
-        // Die ferne Wand, von hinten (innen) nach vorn (zum Rand) heller.
-        const gr = k.createLinearGradient(xa, 0, mitte + seite * feldB * 1.1, 0);
-        gr.addColorStop(0, rgb(mix3(putz, dunst, 0.5)));
-        gr.addColorStop(1, rgb(putz));
-        k.fillStyle = gr;
-        k.fillRect(Math.min(xa, xb), 0, Math.abs(xb - xa), Hk);
-        // Fensterreihen: je weiter hinten, desto schmaler und dichter.
-        const tiefe = [0.1, 0.36, 0.56, 0.72];
-        for (let gy = 0; gy < Hk; gy += geschoss) {
-          // Der Sims über dem Stockwerk und sein Schatten.
-          k.fillStyle = rgba(mix3(putz, [255, 236, 210], 0.4), 0.9);
-          k.fillRect(Math.min(xa, xb), gy, Math.abs(xb - xa), s * 2.2);
-          k.fillStyle = "rgba(50, 26, 50, 0.25)";
-          k.fillRect(Math.min(xa, xb), gy + s * 2.2, Math.abs(xb - xa), s * 2.4);
-          tiefe.forEach((t, j) => {
-            const xm = mitte + seite * lerp(feldB * 1.15, innen, t);
-            const fb = s * lerp(13, 3.5, t);
-            const fh = s * lerp(26, 22, t);
-            const fy = gy + s * 14;
-            const an = hash01(j * 7.3 + gy * 0.013 + seite) < 0.32;
-            const nebel = t * 0.55;
-            // Läden, Rahmen, Glas, Fensterbank.
-            k.fillStyle = rgba(mix3([62, 104, 82], dunst, nebel), 0.95);
-            k.fillRect(xm - fb * 0.95, fy, fb * 1.9, fh);
-            k.fillStyle = rgb(mix3(an ? [255, 200, 120] : [60, 52, 84], dunst, nebel * 0.7));
-            k.fillRect(xm - fb * 0.5, fy + s * 1, fb, fh - s * 2);
-            if (an) {
-              k.fillStyle = "rgba(255, 236, 170, 0.5)";
-              k.fillRect(xm - fb * 0.5, fy + s * 1, fb * 0.35, fh - s * 2);
-            }
-            k.fillStyle = rgba(mix3([240, 226, 206], dunst, nebel), 0.95);
-            k.fillRect(xm - fb * 0.62, fy + fh - s * 0.5, fb * 1.24, s * 1.6);
-            k.fillRect(xm - s * 0.25, fy + s * 1, s * 0.5, fh - s * 2);
-          });
-        }
-        // Die Kante hinten, wo die Gasse um die Ecke geht: ein Schattenstreif.
-        k.fillStyle = "rgba(40, 22, 50, 0.35)";
-        k.fillRect(seite < 0 ? xa - s * 2 : xa, 0, s * 2, Hk);
-        // Ganz aussen (quer sichtbar): Häuser von vorn, mit Fensterreihen.
-        const aussenX = mitte + seite * feldB * 1.15;
-        if ((seite < 0 && aussenX > 0) || (seite > 0 && aussenX < W)) {
-          const x0 = seite < 0 ? 0 : aussenX;
-          const x1 = seite < 0 ? aussenX : W;
-          k.fillStyle = rgb(mix3([200, 154, 140], dunst, 0.3));
-          k.fillRect(x0, 0, x1 - x0, Hk);
-          for (let gy = 0; gy < Hk; gy += geschoss) {
-            k.fillStyle = "rgba(250, 230, 210, 0.6)";
-            k.fillRect(x0, gy, x1 - x0, s * 2);
-            for (let fx = x0 + s * 10; fx < x1 - s * 10; fx += s * 26) {
-              const an = hash01(fx * 0.31 + gy * 0.07) < 0.3;
-              k.fillStyle = "rgba(70, 104, 84, 0.9)";
-              k.fillRect(fx - s * 9, gy + s * 14, s * 18, s * 24);
-              k.fillStyle = an ? "rgb(255, 204, 124)" : "rgb(78, 66, 96)";
-              k.fillRect(fx - s * 5, gy + s * 15, s * 10, s * 22);
-              k.fillStyle = "rgba(240, 226, 206, 0.9)";
-              k.fillRect(fx - s * 6, gy + s * 37, s * 12, s * 1.4);
-            }
-          }
-        }
-      });
-    } else if (welt === 4) {
-      // (Der Abendhimmel hat keine Kulisse: Seine Schleier stehen im Himmel.)
-      for (let i = 0; i < 18; i += 1) {
-        const seite = i % 2 ? 1 : -1;
-        const x = mitte + seite * feldB * (0.6 + rnd() * 1.4);
-        const y = rnd() * Hk;
-        const rx = s * (30 + rnd() * 40);
-        const ry = s * (5 + rnd() * 7);
-        const c = mix3([170, 120, 190], [255, 160, 170], rnd() * 0.6);
-        dreimal(Hk, (dy) => {
-          k.save();
-          k.translate(x, y + dy);
-          k.scale(rx / ry, 1);
-          const h = k.createRadialGradient(0, ry * 0.3, 0, 0, 0, ry);
-          h.addColorStop(0, rgba(c, 0.4));
-          h.addColorStop(1, rgba(c, 0));
-          k.fillStyle = h;
-          k.beginPath();
-          k.arc(0, 0, ry, 0, TAU);
-          k.fill();
-          k.restore();
-        });
-      }
-    }
-  }
-
-  // Die Dachlandschaft hinter der Gasse: Giebel und Walmdächer aus Ziegeln,
-  // Gauben mit Licht, Kamine mit Rauch und frei der Kirchturm mit Uhr,
-  // Spitzhelm und Wetterhahn – alles im Abenddunst, oben vom Licht gesäumt.
-  function maleDachlandschaft(k, W, H) {
-    const rnd = wuerfel(3141);
-    const s = view.s * view.dpr;
-    const mitte = W / 2;
-    const dunst = [206, 156, 186];
-    const fuss = H;
-    // Hinten der Turm, frei, etwas rechts der Mitte: über den hinteren
-    // Dächern die Glockenstube mit Schallfenstern und Uhr, darauf der Helm.
-    const tx = mitte + s * 12;
-    const tb = s * 13;
-    const spitze = H * 0.03;
-    const turmOben = H * 0.2;
-    const turmFarbe = mix3([170, 130, 130], dunst, 0.35);
-    k.fillStyle = rgb(turmFarbe);
-    k.fillRect(tx - tb / 2, turmOben, tb, H - turmOben);
-    k.fillStyle = "rgba(255, 206, 150, 0.4)";
-    k.fillRect(tx - tb / 2, turmOben, s * 2, H - turmOben);
-    k.fillStyle = "rgba(60, 30, 60, 0.2)";
-    k.fillRect(tx + tb / 2 - s * 2.5, turmOben, s * 2.5, H - turmOben);
-    // Gesims unter dem Helm.
-    k.fillStyle = rgb(mix3([230, 210, 190], dunst, 0.3));
-    k.fillRect(tx - tb / 2 - s * 1, turmOben, tb + s * 2, s * 1.6);
-    // Schallfenster.
-    k.fillStyle = rgb(mix3([60, 46, 70], dunst, 0.25));
-    [-1, 1].forEach((q) => {
-      const fx = tx + q * tb * 0.22;
-      const f0 = turmOben + H * 0.035;
-      const f1 = turmOben + H * 0.09;
-      k.beginPath();
-      k.moveTo(fx - s * 1.7, f1);
-      k.lineTo(fx - s * 1.7, f0 + s * 1.7);
-      k.arc(fx, f0 + s * 1.7, s * 1.7, Math.PI, 0);
-      k.lineTo(fx + s * 1.7, f1);
-      k.closePath();
-      k.fill();
-    });
-    // Die Uhr.
-    const uy = turmOben + H * 0.14;
-    k.fillStyle = "rgb(250, 238, 206)";
-    k.beginPath();
-    k.arc(tx, uy, s * 3.6, 0, TAU);
-    k.fill();
-    k.strokeStyle = "rgb(200, 160, 80)";
-    k.lineWidth = Math.max(1, s * 0.5);
-    k.stroke();
-    k.strokeStyle = "rgb(70, 50, 60)";
-    k.beginPath();
-    k.moveTo(tx, uy);
-    k.lineTo(tx, uy - s * 2.6);
-    k.moveTo(tx, uy);
-    k.lineTo(tx + s * 1.9, uy + s * 0.8);
-    k.stroke();
-    // Der Spitzhelm aus Kupfer, grün angelaufen, links im Licht.
-    k.fillStyle = rgb(mix3([80, 136, 122], dunst, 0.25));
-    k.beginPath();
-    k.moveTo(tx - tb / 2 - s * 1.2, turmOben);
-    k.lineTo(tx, spitze);
-    k.lineTo(tx + tb / 2 + s * 1.2, turmOben);
-    k.closePath();
-    k.fill();
-    k.fillStyle = "rgba(255, 214, 150, 0.45)";
-    k.beginPath();
-    k.moveTo(tx - tb / 2 - s * 1.2, turmOben);
-    k.lineTo(tx, spitze);
-    k.lineTo(tx - s * 0.8, turmOben);
-    k.closePath();
-    k.fill();
-    // Stange und Wetterhahn.
-    k.strokeStyle = "rgb(230, 180, 90)";
-    k.lineWidth = Math.max(1, s * 0.5);
-    k.beginPath();
-    k.moveTo(tx, spitze);
-    k.lineTo(tx, spitze - s * 7);
-    k.stroke();
-    k.fillStyle = "rgb(240, 192, 96)";
-    k.beginPath();
-    k.moveTo(tx - s * 3, spitze - s * 7.5);
-    k.quadraticCurveTo(tx - s * 1, spitze - s * 11, tx + s * 1.2, spitze - s * 9.5);
-    k.lineTo(tx + s * 3.2, spitze - s * 11.5);
-    k.lineTo(tx + s * 2.2, spitze - s * 7);
-    k.closePath();
-    k.fill();
-    // Drei Reihen Dächer: hinten blasser, vorn wärmer.
-    [[0.5, 0.58, 18, 14], [0.66, 0.38, 22, 16], [0.82, 0.18, 26, 20]].forEach(([traufeAnteil, nebel, b0, bz]) => {
-      let x = -s * 10;
-      while (x < W + s * 10) {
-        const b = s * (b0 + rnd() * bz);
-        const traufe = H * traufeAnteil + (rnd() - 0.5) * s * 6;
-        const firsth = s * (12 + rnd() * 12);
-        const walm = rnd() < 0.4;
-        const wand = rgb(mix3(mix3([214, 170, 140], [196, 150, 150], rnd()), dunst, nebel));
-        const ziegel = mix3(mix3([164, 74, 58], [130, 70, 70], rnd()), dunst, nebel);
-        // Die Wand bis unten.
-        k.fillStyle = wand;
-        k.fillRect(x, traufe, b, fuss - traufe);
-        // Schatten an der rechten Hauskante.
-        k.fillStyle = "rgba(60, 30, 60, 0.18)";
-        k.fillRect(x + b - s * 2, traufe, s * 2, fuss - traufe);
-        for (let fy = traufe + s * 7; fy < fuss; fy += s * 18) {
-          for (let fx = x + s * 6; fx < x + b - s * 8; fx += s * 11) {
-            k.fillStyle = hash01(fx * 0.2 + fy * 0.3) < 0.3 ? "rgb(255, 208, 130)" : rgb(mix3([80, 66, 96], dunst, nebel));
-            k.fillRect(fx, fy, s * 4, s * 6);
-          }
-        }
-        // Das Dach: Giebel oder Walm, mit Ziegelreihen und Lichtkante.
-        k.fillStyle = rgb(ziegel);
-        k.beginPath();
-        k.moveTo(x, traufe);
-        if (walm) {
-          k.lineTo(x + b * 0.3, traufe - firsth);
-          k.lineTo(x + b * 0.7, traufe - firsth);
-        } else {
-          k.lineTo(x + b / 2, traufe - firsth);
-        }
-        k.lineTo(x + b, traufe);
-        k.closePath();
-        k.fill();
-        k.strokeStyle = rgba(mix3(ziegel, [60, 20, 30], 0.4), 0.5);
-        k.lineWidth = Math.max(1, s * 0.35);
-        for (let q = 1; q < 5; q += 1) {
-          const yq = traufe - (firsth * q) / 5;
-          const halb = (b / 2) * (1 - q / 5) + (walm ? b * 0.2 * (q / 5) : 0);
-          k.beginPath();
-          k.moveTo(x + b / 2 - halb, yq);
-          k.lineTo(x + b / 2 + halb, yq);
-          k.stroke();
-        }
-        k.strokeStyle = "rgba(255, 210, 160, 0.6)";
-        k.lineWidth = Math.max(1, s * 0.6);
-        k.beginPath();
-        k.moveTo(x, traufe);
-        k.lineTo(walm ? x + b * 0.3 : x + b / 2, traufe - firsth);
-        k.stroke();
-        // Eine Gaube mit Licht.
-        if (rnd() < 0.45) {
-          const gx = x + b * (0.35 + rnd() * 0.2);
-          const gy = traufe - firsth * 0.45;
-          k.fillStyle = wand;
-          k.fillRect(gx - s * 3, gy - s * 4, s * 6, s * 6);
-          k.fillStyle = "rgb(255, 208, 130)";
-          k.fillRect(gx - s * 1.6, gy - s * 2.6, s * 3.2, s * 3.8);
-          k.fillStyle = rgb(ziegel);
-          k.beginPath();
-          k.moveTo(gx - s * 4, gy - s * 4);
-          k.lineTo(gx, gy - s * 7.5);
-          k.lineTo(gx + s * 4, gy - s * 4);
-          k.closePath();
-          k.fill();
-        }
-        // Ein Kamin mit Rauch, der im Wind treibt.
-        if (rnd() < 0.6) {
-          const kx = x + b * (0.6 + rnd() * 0.2);
-          const ky = traufe - firsth * (walm ? 0.9 : 0.55);
-          k.fillStyle = rgb(mix3([140, 80, 70], dunst, nebel));
-          k.fillRect(kx - s * 2.5, ky - s * 9, s * 5, s * 10);
-          k.fillStyle = rgb(mix3([100, 70, 76], dunst, nebel));
-          k.fillRect(kx - s * 3.1, ky - s * 10, s * 6.2, s * 1.4);
-          for (let q = 0; q < 6; q += 1) {
-            const r = s * (2.5 + q * 1.6);
-            const rx = kx + q * s * 3.5;
-            const ry = ky - s * 12 - q * s * 5.5;
-            const h = k.createRadialGradient(rx, ry, 0, rx, ry, r);
-            h.addColorStop(0, `rgba(236, 222, 236, ${0.42 - q * 0.05})`);
-            h.addColorStop(1, "rgba(236, 222, 236, 0)");
-            k.fillStyle = h;
-            k.fillRect(rx - r, ry - r, 2 * r, 2 * r);
-          }
-        }
-        x += b * (0.78 + rnd() * 0.2);
-      }
-    });
-    // Unten geht es in den Dunst über.
-    const d = k.createLinearGradient(0, H * 0.55, 0, H);
-    d.addColorStop(0, "rgba(214, 160, 186, 0)");
-    d.addColorStop(1, "rgba(214, 160, 186, 0.55)");
-    k.fillStyle = d;
-    k.fillRect(0, H * 0.55, W, H * 0.45);
-  }
-
-  // Kaminrauch für die Hindernisse: eine Fahne, die aufsteigt und weiter
-  // wird – einmal gemalt (in Einheiten 18 × 60, Bildpunkte).
-  function maleRauchfahne(k, w, h, s) {
-    for (let q = 0; q < 9; q += 1) {
-      const f = q / 8;
-      const r = s * (2.6 + f * 6.5);
-      const x = w * 0.35 + f * w * 0.3 + Math.sin(q * 1.3) * s * 1.2;
-      const y = h - s * 3 - f * (h - s * 12);
-      const g2 = k.createRadialGradient(x, y, 0, x, y, r);
-      g2.addColorStop(0, `rgba(236, 226, 240, ${0.5 * (1 - f * 0.8)})`);
-      g2.addColorStop(1, "rgba(236, 226, 240, 0)");
-      k.fillStyle = g2;
-      k.fillRect(x - r, y - r, 2 * r, 2 * r);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Malen: die Ränder des Feldes – Hecke, Stämme, Hauswände, Gewitter
-  // ---------------------------------------------------------------------------
-  /*
-   * Ein Streifen je Seite und Welt, RAND_PERIODE hoch, nahtlos nach oben.
-   * Die innere Kante steht genau bei ±RAND: Dort zerplatzt die Blase. Quer
-   * und auf dem Tablet sieht man sie breit; hochkant nur einen Saum.
-   */
-  const RAND_PERIODE = 320;
-  const RAND_TIEF = 46;
-
-  function maleRand(k, welt, seite, Wb, Hb) {
-    const s = view.s * view.dpr;
-    const rnd = wuerfel(500 + welt * 31 + (seite > 0 ? 7 : 0));
-    // x: Einheiten von der Kante nach aussen (0 = Kante); in Bildpunkten im
-    // Streifen von innen (seite: wo die Kante im Bild ist).
-    const X = (u) => (seite < 0 ? Wb - u * s : u * s);
-    const Y = (v) => Hb - v * s;
-    const T = RAND_TIEF;
-    const kachel = (malen) => { malen(0); malen(RAND_PERIODE); malen(-RAND_PERIODE); };
-    if (welt === 0) {
-      // Eine Hecke: dunkles Laub, nach innen eine klare Kante aus Zweigen
-      // mit Dornen.
-      const TH = 18;
-      const grund = k.createLinearGradient(X(0), 0, X(TH), 0);
-      grund.addColorStop(0, seite < 0 ? "rgb(70, 40, 50)" : "rgb(44, 66, 38)");
-      grund.addColorStop(0.6, seite < 0 ? "rgba(70, 40, 50, 0.85)" : "rgba(44, 66, 38, 0.85)");
-      grund.addColorStop(1, "rgba(40, 50, 40, 0)");
-      k.fillStyle = grund;
-      k.fillRect(Math.min(X(0), X(TH)), 0, TH * s, Hb);
-      for (let i = 0; i < 110; i += 1) {
-        const u = Math.pow(rnd(), 1.4) * (TH - 3) + 1.5;
-        const v = rnd() * RAND_PERIODE;
-        const w = rnd() * TAU;
-        const l = 3.5 + rnd() * 3;
-        const c = seite < 0 ? mix3([86, 50, 58], [130, 66, 70], rnd()) : mix3([56, 92, 46], [96, 124, 58], rnd());
-        kachel((dv) => {
-          k.fillStyle = rgba(mix3(c, LICHT, u < 6 ? 0.25 : 0), clamp(1.3 - u / TH, 0, 1));
-          k.beginPath();
-          k.ellipse(X(u), Y(v + dv), l * s * 0.5, l * s * 0.28, w, 0, TAU);
-          k.fill();
-        });
-      }
-      // Die Kante: ein Zweig mit Dornen, gerade hinauf.
-      k.strokeStyle = "rgb(84, 60, 44)";
-      k.lineWidth = s * 1.6;
-      k.beginPath();
-      k.moveTo(X(0.8), 0);
-      k.lineTo(X(0.8), Hb);
-      k.stroke();
-      k.fillStyle = "rgb(120, 70, 60)";
-      for (let v = 2; v < RAND_PERIODE; v += 7) {
-        k.beginPath();
-        k.moveTo(X(0.8), Y(v));
-        k.lineTo(X(0), Y(v + 1.8));
-        k.lineTo(X(0.8), Y(v + 2.4));
-        k.closePath();
-        k.fill();
-      }
-    } else if (welt === 1) {
-      // Links der Stamm der Buche, glatt und grau; rechts die Tanne, rau und
-      // rotbraun.
-      const buche = seite < 0;
-      const gr = k.createLinearGradient(X(0), 0, X(T * 0.8), 0);
-      gr.addColorStop(0, buche ? "rgb(150, 138, 132)" : "rgb(126, 78, 60)");
-      gr.addColorStop(0.18, buche ? "rgb(118, 108, 110)" : "rgb(98, 58, 48)");
-      gr.addColorStop(1, buche ? "rgb(60, 54, 66)" : "rgb(48, 30, 34)");
-      k.fillStyle = gr;
-      k.fillRect(Math.min(X(0), X(T * 0.8)), 0, T * 0.8 * s, Hb);
-      // Licht an der Kante.
-      k.fillStyle = buche ? "rgba(255, 210, 160, 0.35)" : "rgba(255, 170, 120, 0.3)";
-      k.fillRect(Math.min(X(0), X(1.4)), 0, 1.4 * s, Hb);
-      for (let i = 0; i < 60; i += 1) {
-        const u = 1 + rnd() * (T * 0.75);
-        const v = rnd() * RAND_PERIODE;
-        kachel((dv) => {
-          if (buche) {
-            k.strokeStyle = "rgba(70, 60, 70, 0.35)";
-            k.lineWidth = s * 0.4;
-            k.beginPath();
-            k.moveTo(X(u), Y(v + dv));
-            k.lineTo(X(u + 2 + rnd() * 3), Y(v + dv));
-            k.stroke();
-            if (rnd() < 0.2) {
-              k.fillStyle = "rgba(110, 140, 70, 0.45)";
-              k.beginPath();
-              k.arc(X(u), Y(v + dv), s * (1.5 + rnd() * 2), 0, TAU);
-              k.fill();
-            }
-          } else {
-            k.fillStyle = "rgba(40, 22, 24, 0.5)";
-            k.fillRect(Math.min(X(u), X(u + 3)), Y(v + dv), 3 * s, s * (4 + rnd() * 6));
-          }
-        });
-      }
-    } else if (welt === 2) {
-      // Die Hauswand an der Gasse: warmer Verputz, je Stockwerk ein Sims mit
-      // Schatten darunter, Fenster mit Läden und Bank, Licht in einzelnen,
-      // ein Fallrohr; an der Kante dezente Ecksteine.
-      const putz = seite < 0 ? [206, 160, 122] : [210, 156, 146];
-      const gr = k.createLinearGradient(X(0), 0, X(T), 0);
-      gr.addColorStop(0, rgb(mix3(putz, LICHT, 0.2)));
-      gr.addColorStop(0.3, rgb(putz));
-      gr.addColorStop(1, rgb(mix3(putz, SCHATTEN, 0.5)));
-      k.fillStyle = gr;
-      k.fillRect(Math.min(X(0), X(T)), 0, T * s, Hb);
-      // Der Verputz: feine helle und dunkle Flecken.
-      for (let i = 0; i < 260; i += 1) {
-        k.fillStyle = i % 2 ? "rgba(255, 240, 220, 0.07)" : "rgba(90, 50, 70, 0.06)";
-        const g2 = (1 + rnd() * 2.5) * s;
-        k.fillRect(Math.min(X(0), X(T)) + rnd() * T * s, rnd() * Hb, g2, g2 * 0.7);
-      }
-      for (let v = 0; v < RAND_PERIODE; v += 160) {
-        kachel((dv) => {
-          // Der Sims: ein heller Streif, oben im Licht, darunter Schatten.
-          const ys = Y(v + dv + 7);
-          k.fillStyle = rgb(mix3(putz, [255, 238, 214], 0.45));
-          k.fillRect(Math.min(X(0), X(T)), ys, T * s, 4 * s);
-          k.fillStyle = "rgba(255, 230, 196, 0.7)";
-          k.fillRect(Math.min(X(0), X(T)), ys, T * s, 0.8 * s);
-          const sch = k.createLinearGradient(0, ys + 4 * s, 0, ys + 10 * s);
-          sch.addColorStop(0, "rgba(60, 28, 50, 0.38)");
-          sch.addColorStop(1, "rgba(60, 28, 50, 0)");
-          k.fillStyle = sch;
-          k.fillRect(Math.min(X(0), X(T)), ys + 4 * s, T * s, 6 * s);
-          // Ein Fenster: Laibung, Läden, Glas (manchmal Licht), Kreuz, Bank.
-          const u0 = 15;
-          const u1 = 33;
-          const v0 = v + dv + 46;
-          const v1 = v + dv + 92;
-          const an = hash01(v * 0.13 + seite * 3 + welt) < 0.5;
-          const rx = (u) => Math.min(X(u), X(u + 0.001));
-          k.fillStyle = "rgb(58, 96, 74)";
-          k.fillRect(Math.min(X(u0 - 8), X(u1 + 8)), Y(v1), (u1 - u0 + 16) * s, (v1 - v0) * s);
-          k.strokeStyle = "rgba(30, 50, 40, 0.6)";
-          k.lineWidth = Math.max(1, s * 0.3);
-          for (let q = v0 + 4; q < v1; q += 4) {
-            [[u0 - 8, u0], [u1, u1 + 8]].forEach(([a, b]) => { k.beginPath(); k.moveTo(X(a), Y(q)); k.lineTo(X(b), Y(q)); k.stroke(); });
-          }
-          k.fillStyle = "rgb(120, 86, 80)";
-          k.fillRect(Math.min(X(u0), X(u1)), Y(v1), (u1 - u0) * s, (v1 - v0) * s);
-          k.fillStyle = an ? "rgb(255, 206, 128)" : "rgb(66, 60, 92)";
-          k.fillRect(Math.min(X(u0 + 1.6), X(u1 - 1.6)), Y(v1 - 1.6), (u1 - u0 - 3.2) * s, (v1 - v0 - 3.2) * s);
-          if (an) {
-            const h = k.createRadialGradient(X((u0 + u1) / 2), Y((v0 + v1) / 2), 0, X((u0 + u1) / 2), Y((v0 + v1) / 2), 30 * s);
-            h.addColorStop(0, "rgba(255, 220, 150, 0.35)");
-            h.addColorStop(1, "rgba(255, 220, 150, 0)");
-            k.fillStyle = h;
-            k.fillRect(Math.min(X(u0 - 14), X(u1 + 14)), Y(v1 + 14), (u1 - u0 + 28) * s, (v1 - v0 + 28) * s);
-          }
-          k.fillStyle = "rgb(236, 224, 206)";
-          k.fillRect(Math.min(X((u0 + u1) / 2 - 0.5), X((u0 + u1) / 2 + 0.5)), Y(v1 - 1.6), 1 * s, (v1 - v0 - 3.2) * s);
-          k.fillRect(Math.min(X(u0 + 1.6), X(u1 - 1.6)), Y(v0 + (v1 - v0) * 0.62), (u1 - u0 - 3.2) * s, 1 * s);
-          k.fillRect(Math.min(X(u0 - 2), X(u1 + 2)), Y(v0 + 0.5), (u1 - u0 + 4) * s, 2.4 * s);
-          k.fillStyle = "rgba(60, 30, 50, 0.3)";
-          k.fillRect(Math.min(X(u0 - 2), X(u1 + 2)), Y(v0 - 1.9), (u1 - u0 + 4) * s, 2 * s);
-          void rx;
-        });
-      }
-      // Ecksteine an der Kante, dezent: nur etwas heller, feine Fugen.
-      for (let v = 0; v < RAND_PERIODE; v += 16) {
-        const b = (v / 16) % 2 ? 6 : 9;
-        kachel((dv) => {
-          k.fillStyle = rgba(mix3(putz, [250, 236, 214], 0.35), 0.75);
-          k.fillRect(Math.min(X(0), X(b)), Y(v + dv + 15.2), b * s, 15.2 * s);
-          k.fillStyle = "rgba(90, 60, 70, 0.22)";
-          k.fillRect(Math.min(X(0), X(b)), Y(v + dv + 16), b * s, 0.8 * s);
-          k.fillRect(seite < 0 ? X(b) : X(b) - 0.6 * s, Y(v + dv + 16), 0.6 * s, 16 * s);
-        });
-      }
-      // Ein Fallrohr dicht an der Ecke, mit Schellen.
-      k.fillStyle = "rgb(140, 142, 150)";
-      k.fillRect(Math.min(X(10.6), X(12.8)), 0, 2.2 * s, Hb);
-      k.fillStyle = "rgba(255, 230, 200, 0.45)";
-      k.fillRect(Math.min(X(10.6), X(11.2)), 0, 0.6 * s, Hb);
-      for (let v = 30; v < RAND_PERIODE; v += 80) {
-        kachel((dv) => {
-          k.fillStyle = "rgb(100, 100, 110)";
-          k.fillRect(Math.min(X(10), X(13.4)), Y(v + dv + 1), 3.4 * s, 1 * s);
-        });
-      }
-    } else {
-      // Gewittertürme: dunkle Wolkenballen, deren Rand genau an der Kante
-      // steht, als eine Masse; darin weiche, hellere Wölbungen.
-      const ballenR = [];
-      for (let i = 0; i < 30; i += 1) {
-        const r = 6 + rnd() * 12;
-        const u = r + rnd() * (T - r) * (i < 12 ? 0.05 : 1);
-        const v = (i / 30) * RAND_PERIODE + rnd() * 6;
-        ballenR.push([u, v, r]);
-      }
-      kachel((dv) => {
-        k.fillStyle = "rgb(70, 60, 104)";
-        k.beginPath();
-        ballenR.forEach(([u, v, r]) => { k.moveTo(X(u) + r * s, Y(v + dv)); k.arc(X(u), Y(v + dv), r * s, 0, TAU); });
-        k.fill();
-        ballenR.forEach(([u, v, r]) => {
-          const x = X(u + r * 0.2 * (seite < 0 ? -1 : 1));
-          const y = Y(v + dv + r * 0.3);
-          const h = k.createRadialGradient(x, y, 0, x, y, r * s * 0.7);
-          h.addColorStop(0, "rgba(140, 120, 170, 0.45)");
-          h.addColorStop(1, "rgba(140, 120, 170, 0)");
-          k.fillStyle = h;
-          k.fillRect(x - r * s, y - r * s, 2 * r * s, 2 * r * s);
-        });
-      });
-      // Der Regenschleier an der Kante.
-      const gr = k.createLinearGradient(X(0), 0, X(5), 0);
-      gr.addColorStop(0, "rgba(150, 160, 220, 0.85)");
-      gr.addColorStop(1, "rgba(90, 80, 130, 0.0)");
-      k.fillStyle = gr;
-      k.fillRect(Math.min(X(0), X(5)), 0, 5 * s, Hb);
-      k.strokeStyle = "rgba(215, 225, 255, 0.6)";
-      k.lineWidth = Math.max(1, s * 0.22);
-      for (let i = 0; i < 90; i += 1) {
-        const u = rnd() * 7;
-        const v = rnd() * RAND_PERIODE;
-        kachel((dv) => {
-          k.beginPath();
-          k.moveTo(X(u), Y(v + dv));
-          k.lineTo(X(u + 0.5), Y(v + dv - 7));
-          k.stroke();
-        });
-      }
-      // Ein Blitz flackert im Inneren (gemalt als heller Schein).
-      k.globalCompositeOperation = "lighter";
-      const bv = RAND_PERIODE * 0.4;
-      const h = k.createRadialGradient(X(T * 0.6), Y(bv), 0, X(T * 0.6), Y(bv), 26 * s);
-      h.addColorStop(0, "rgba(200, 190, 255, 0.35)");
-      h.addColorStop(1, "rgba(200, 190, 255, 0)");
-      k.fillStyle = h;
-      k.fillRect(0, 0, Wb, Hb);
-      k.globalCompositeOperation = "source-over";
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // Malen: der Boden beim Start – Rasen, Tisch, Schale und Ring
   // ---------------------------------------------------------------------------
   const BODEN_UNTEN = -150;
   const BODEN_OBEN = 10;
+  const BODEN_HALB = 70;           // so breit (je Seite) ist sein Bild – der Rasen geht weiter
   const RING = { x: 0, y: -15, r: 5.6 };
 
   function maleBoden(k, W) {
@@ -2916,44 +1531,6 @@
     g.ellipse(x, y, RING.r * s, RING.r * s * 0.32, 0, Math.PI * 1.05, Math.PI * 1.6);
     g.stroke();
   }
-
-  // ---------------------------------------------------------------------------
-  // Malen: der Nebel
-  // ---------------------------------------------------------------------------
-  const NEBEL_HOCH = 58;
-  const NEBEL_KANTE = 26;          // so weit unter dem oberen Rand des Bilds ist die Grenze
-
-  function maleNebel(k, W, Hn) {
-    const s = view.s * view.dpr;
-    const kante = NEBEL_KANTE * s;
-    const gr = k.createLinearGradient(0, 0, 0, Hn);
-    gr.addColorStop(0, "rgba(236, 226, 246, 0)");
-    gr.addColorStop((kante * 0.55) / Hn, "rgba(236, 226, 246, 0.18)");
-    gr.addColorStop(kante / Hn, "rgba(240, 232, 250, 0.72)");
-    gr.addColorStop((kante + 16 * s) / Hn, "rgba(226, 216, 240, 0.92)");
-    gr.addColorStop(1, "rgba(206, 196, 228, 0.97)");
-    k.fillStyle = gr;
-    k.fillRect(0, 0, W, Hn);
-    // Schwaden auf der Grenze.
-    const rnd = wuerfel(77);
-    for (let i = 0; i < 26; i += 1) {
-      const x = rnd() * W;
-      const r = s * (8 + rnd() * 16);
-      const y = kante + (rnd() - 0.3) * s * 8;
-      const h = k.createRadialGradient(x, y, 0, x, y, r);
-      h.addColorStop(0, "rgba(255, 250, 255, 0.5)");
-      h.addColorStop(1, "rgba(255, 250, 255, 0)");
-      k.fillStyle = h;
-      k.fillRect(x - r, y - r, 2 * r, 2 * r);
-    }
-    // Feine Tröpfchen, die glitzern.
-    for (let i = 0; i < 160; i += 1) {
-      k.fillStyle = `rgba(255, 255, 255, ${0.25 + rnd() * 0.5})`;
-      const r = s * (0.25 + rnd() * 0.35);
-      k.fillRect(rnd() * W, kante + rnd() * (Hn - kante), r, r);
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // Malen: die Blase – vorgerechnet
   // ---------------------------------------------------------------------------
@@ -3072,7 +1649,6 @@
     k.fillRect(0, 0, n, n);
     return c;
   }
-
   // ---------------------------------------------------------------------------
   // Die Ebenen neu malen (beim Laden und wenn sich die Grösse ändert)
   // ---------------------------------------------------------------------------
@@ -3081,7 +1657,7 @@
     const H = view.cssH;
     const s = view.s;
     const dpr = view.dpr;
-    ebenen = { scheine: {}, teile: new Map(), fetzen: new Map() };
+    ebenen = { scheine: {}, fetzen: new Map() };
     Object.entries(SCHEINE).forEach(([name, [farbe, kraft, r]]) => { ebenen.scheine[name] = scheinAus(farbe, kraft, r * 16); });
     // Der Himmel: ein hohes Bild.
     const zug = Math.ceil(HIMMEL_HOCH * s * PH);
@@ -3093,37 +1669,9 @@
     ebenen.ferneDicht = Math.round(H * 0.56 * 0.75 * 0.52 * dpr);
     ebenen.ferne = leinwand(W, ebenen.ferneH);
     maleFerne(ebenen.ferne.getContext("2d"), ebenen.ferne.width, ebenen.ferne.height);
-    // Die Dachlandschaft hinter der Gasse.
-    ebenen.dachH = Math.round(H * 0.55);
-    // Ab dort (Bildpunkte) deckt sie: unter der Traufe der hinteren Reihe.
-    ebenen.dachDicht = Math.round((H * 0.55 * 0.5 + 4 * s) * dpr);
-    ebenen.dach = leinwand(W, ebenen.dachH);
-    maleDachlandschaft(ebenen.dach.getContext("2d"), ebenen.dach.width, ebenen.dach.height);
-    ebenen.gasseL = Math.max(0, Math.round((W / 2 - RAND * s * GASSE_INNEN) * dpr));
-    ebenen.rauch = leinwand(18 * s, 60 * s);
-    maleRauchfahne(ebenen.rauch.getContext("2d"), ebenen.rauch.width, ebenen.rauch.height, s * dpr);
-    // Die Kulissen der vier Welten.
-    ebenen.kulisseH = Math.round(H * 1.15);
-    ebenen.kulisse = WELTEN.map((_, w) => {
-      if (w === 3) return leinwand(1, 1);
-      const c = leinwand(W, ebenen.kulisseH);
-      maleKulisse(c.getContext("2d"), c.width, c.height, w);
-      return c;
-    });
-    // Die Ränder: so breit, wie das Bild neben dem Feld zeigt.
-    const breitRand = Math.max(4, W / 2 / s - RAND) + 2;
-    ebenen.randB = Math.min(breitRand, RAND_TIEF + 4);
-    ebenen.rand = WELTEN.map((_, w) => [-1, 1].map((seite) => {
-      const c = leinwand(ebenen.randB * s, RAND_PERIODE * s);
-      maleRand(c.getContext("2d"), w, seite, c.width, c.height);
-      return c;
-    }));
-    // Der Boden beim Start.
-    ebenen.boden = leinwand(W, (BODEN_OBEN - BODEN_UNTEN) * s);
+    // Der Boden beim Start: Tisch, Schale, ein Stück Rasen.
+    ebenen.boden = leinwand(2 * BODEN_HALB * s, (BODEN_OBEN - BODEN_UNTEN) * s);
     maleBoden(ebenen.boden.getContext("2d"), ebenen.boden.width);
-    // Der Nebel.
-    ebenen.nebel = leinwand(W, NEBEL_HOCH * s);
-    maleNebel(ebenen.nebel.getContext("2d"), ebenen.nebel.width, ebenen.nebel.height);
     // Die Blase.
     const rb = R * s * dpr;
     const nb = Math.ceil(rb * 2 + 4);
@@ -3131,24 +1679,6 @@
     ebenen.film = filmBild(Math.ceil(rb * 3.2));
     ebenen.maske = maskeBild(nb, rb);
     ebenen.glanz = glanzBild(nb, rb);
-    // Ein Löwenzahnsamen: ein Schirmchen aus feinen Strahlen, ein Stiel.
-    ebenen.samen = leinwand(s * 6, s * 6);
-    {
-      const k = ebenen.samen.getContext("2d");
-      const m = ebenen.samen.width / 2;
-      const r = s * 2.4 * dpr;
-      k.strokeStyle = "rgba(255, 250, 235, 0.8)";
-      k.lineWidth = Math.max(1, 0.6 * dpr);
-      k.beginPath();
-      for (let j = 0; j < 7; j += 1) {
-        const a = -Math.PI / 2 + (j - 3) * 0.32;
-        k.moveTo(m, m * 1.1);
-        k.lineTo(m + Math.cos(a) * r, m * 1.1 + Math.sin(a) * r);
-      }
-      k.moveTo(m, m * 1.1);
-      k.lineTo(m, m * 1.1 + s * 2 * dpr);
-      k.stroke();
-    }
     // Der Tacho: ein Messinstrument aus Messing, einmal gemalt.
     ebenen.tachoR = Math.round(clamp(Math.min(W, H) * 0.13, 44, 72));
     ebenen.tacho = tachoBild(ebenen.tachoR);
@@ -3162,9 +1692,6 @@
     ebenen.blaseTmp.height = nb;
   }
 
-  // ---------------------------------------------------------------------------
-  // Malen: die Teile – jedes einmal in ein eigenes Bild
-  // ---------------------------------------------------------------------------
   // Eine Form als Pfad (in Einheiten, y nach oben – die Leinwand ist
   // entsprechend gestellt).
   function pfad(k, p) {
@@ -3184,755 +1711,394 @@
     k.lineTo(p.x2, p.y2 + dy);
     k.stroke();
   }
-  const rollen = (o, ...namen) => o.prims.filter((p) => namen.includes(p.rolle));
-
-  // Stäbe, die aneinander anschliessen (ein Stiel, ein Ast), als eine glatte,
-  // sich verjüngende Form – mit Licht auf der Seite zur Sonne (links oben)
-  // und Schatten gegenüber. Die Form ist genau die der Stäbe.
-  function kette(k, stabs, farbe, licht, schatten) {
-    const ketten = [];
-    let akt = null;
-    stabs.forEach((p) => {
-      const ende = akt?.pts[akt.pts.length - 1];
-      if (ende && Math.hypot(ende[0] - p.x1, ende[1] - p.y1) < 0.01) {
-        akt.pts.push([p.x2, p.y2]);
-        akt.r.push(p.r);
-      } else {
-        akt = { pts: [[p.x1, p.y1], [p.x2, p.y2]], r: [p.r] };
-        ketten.push(akt);
-      }
-    });
-    ketten.forEach(({ pts, r }) => {
-      const n = pts.length;
-      const rr = pts.map((_, i) => (i === 0 ? r[0] : i === n - 1 ? r[n - 2] : Math.max(r[i - 1], r[i])));
-      const nor = pts.map((_, i) => {
-        const a = pts[Math.max(0, i - 1)];
-        const b = pts[Math.min(n - 1, i + 1)];
-        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-        return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l];
-      });
-      const rand = (f, sg) => pts.map(([x, y], i) => [x + nor[i][0] * rr[i] * f * sg, y + nor[i][1] * rr[i] * f * sg]);
-      const li = rand(1, 1);
-      const re = rand(1, -1);
-      k.fillStyle = farbe;
-      k.beginPath();
-      [...li, ...re.reverse()].forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-      k.closePath();
-      k.fill();
-      k.beginPath();
-      k.arc(pts[0][0], pts[0][1], rr[0], 0, TAU);
-      k.arc(pts[n - 1][0], pts[n - 1][1], rr[n - 1], 0, TAU);
-      k.fill();
-      // Welche Seite schaut zur Sonne?
-      const sonne = nor[Math.floor(n / 2)][0] * -0.6 + nor[Math.floor(n / 2)][1] * 0.8 > 0 ? 1 : -1;
-      [[licht, sonne], [schatten, -sonne]].forEach(([c, sg]) => {
-        if (!c) return;
-        const linie = rand(0.55, sg);
-        k.strokeStyle = c;
-        k.lineWidth = Math.max(0.15, rr[Math.floor(n / 2)] * 0.5);
-        k.beginPath();
-        linie.forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-        k.stroke();
-      });
-    });
-  }
-
-  // Die Licht- und Schattenkante einer Form: oben links warm.
-  function lichtKante(k, p, farbe, b) {
+  // Ein Wolkenfetzen: alle Ballen als eine Form – unten golden angestrahlt,
+  // oben flieder –, darin weiche, hellere Wölbungen und nur auf dem äusseren
+  // Rand ein Lichtsaum. Gemalt wird genau die Fläche der Kreise.
+  function maleWolke(k, ballen) {
+    const y0 = Math.min(...ballen.map((p) => p.y - p.r));
+    const y1 = Math.max(...ballen.map((p) => p.y + p.r));
+    const x0 = Math.min(...ballen.map((p) => p.x - p.r));
+    const x1 = Math.max(...ballen.map((p) => p.x + p.r));
     k.save();
-    pfad(k, p);
+    k.beginPath();
+    ballen.forEach((p) => { k.moveTo(p.x + p.r, p.y); k.arc(p.x, p.y, p.r, 0, TAU); });
     k.clip();
-    k.translate(b * 0.7, -b * 0.7);
-    k.strokeStyle = farbe;
-    k.lineWidth = b * 2;
-    pfad(k, p);
-    k.stroke();
-    k.restore();
-  }
-
-  function maleTeil(k, o) {
-    k.lineCap = "round";
-    k.lineJoin = "round";
-    const art = o.art;
-    if (art === "rose") {
-      kette(k, rollen(o, "stiel"), "rgb(48, 78, 34)", "rgba(180, 206, 110, 0.55)", "rgba(20, 40, 20, 0.4)");
-      rollen(o, "stielchen").forEach((p) => strich(k, p, "rgb(60, 92, 40)"));
-      rollen(o, "fieder").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgb(56, 96, 44)";
-        k.fill();
-        lichtKante(k, p, "rgba(196, 220, 120, 0.55)", 0.5);
-        // Die Mittelrippe.
-        const a = p.pts[0];
-        const b = p.pts[Math.floor(p.pts.length / 2)];
-        k.strokeStyle = "rgba(170, 200, 110, 0.6)";
-        k.lineWidth = 0.22;
-        k.beginPath();
-        k.moveTo(a[0], a[1]);
-        k.lineTo(b[0], b[1]);
-        k.stroke();
-      });
-      rollen(o, "dorn").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgb(128, 52, 46)";
-        k.fill();
-        k.fillStyle = "rgba(255, 190, 150, 0.6)";
-        const t = p.pts[1];
-        k.beginPath();
-        k.arc(t[0], t[1], 0.35, 0, TAU);
-        k.fill();
-      });
-      rollen(o, "knospe").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgb(190, 40, 70)";
-        k.fill();
-        lichtKante(k, p, "rgba(255, 170, 150, 0.6)", 0.7);
-        // Kelchblätter um die Knospe.
-        k.fillStyle = "rgb(60, 100, 44)";
-        const a = p.pts[0];
-        k.beginPath();
-        k.arc(a[0], a[1], 1.4, 0, TAU);
-        k.fill();
-      });
-      rollen(o, "bluete").forEach((p) => {
-        // Eine offene Rose: der Grund, aussen fünf weite Blütenblätter, innen
-        // engere, in der Mitte die eingerollten; Licht von links oben.
-        const farben = [[[120, 14, 40], [214, 44, 74], [255, 120, 130]], [[176, 58, 100], [240, 120, 160], [255, 196, 214]], [[200, 104, 30], [250, 176, 70], [255, 226, 150]]][o.deko?.farbe || 0];
-        const [tief, mitte, hell] = farben;
-        pfad(k, p);
-        k.fillStyle = rgb(tief);
-        k.fill();
-        k.save();
-        pfad(k, p);
-        k.clip();
-        const blatt = (w, d, rx, ry, c) => {
-          const x = p.x + Math.cos(w) * d;
-          const y = p.y + Math.sin(w) * d;
-          const lichtK = clamp(0.5 + (Math.cos(w - 2.4) * 0.5), 0, 1);
-          const v = k.createRadialGradient(x - Math.cos(w) * rx * 0.3, y - Math.sin(w) * rx * 0.3, rx * 0.1, x, y, rx);
-          v.addColorStop(0, rgb(mix3(c, hell, 0.15 + 0.4 * lichtK)));
-          v.addColorStop(1, rgb(mix3(c, tief, 0.35)));
-          k.fillStyle = v;
-          k.beginPath();
-          k.ellipse(x, y, rx, ry, w, 0, TAU);
-          k.fill();
-          k.strokeStyle = rgba(tief, 0.55);
-          k.lineWidth = 0.22;
-          k.beginPath();
-          k.ellipse(x, y, rx, ry, w, -1.2, 1.2);
-          k.stroke();
-        };
-        for (let i = 0; i < 5; i += 1) blatt(i * 1.2566 + 0.3, p.r * 0.52, p.r * 0.56, p.r * 0.44, mitte);
-        for (let i = 0; i < 5; i += 1) blatt(i * 1.2566 + 0.95, p.r * 0.3, p.r * 0.38, p.r * 0.3, mix3(mitte, tief, 0.2));
-        // Die Mitte: eingerollt.
-        k.strokeStyle = rgba(tief, 0.85);
-        k.lineWidth = 0.32;
-        k.beginPath();
-        for (let w = 0; w < 9; w += 0.25) {
-          const rr = p.r * 0.03 * w;
-          const x = p.x + Math.cos(w * 1.3) * rr;
-          const y = p.y + Math.sin(w * 1.3) * rr;
-          if (w) k.lineTo(x, y); else k.moveTo(x, y);
-        }
-        k.stroke();
-        k.restore();
-        lichtKante(k, p, rgba(hell, 0.6), 0.7);
-      });
-    } else if (art === "nessel") {
-      rollen(o, "stengel").forEach((p) => strich(k, p, "rgb(70, 96, 46)"));
-      rollen(o, "nessel").forEach((p) => {
-        pfad(k, p);
-        const a = p.pts[0];
-        const b = p.pts[Math.floor(p.pts.length / 2)];
-        const v = k.createLinearGradient(a[0], a[1], b[0], b[1]);
-        v.addColorStop(0, "rgb(52, 84, 40)");
-        v.addColorStop(1, "rgb(84, 120, 52)");
-        k.fillStyle = v;
-        k.fill();
-        lichtKante(k, p, "rgba(210, 230, 140, 0.5)", 0.45);
-        // Adern und Brennhaare.
-        k.strokeStyle = "rgba(160, 196, 110, 0.55)";
-        k.lineWidth = 0.25;
-        k.beginPath();
-        k.moveTo(a[0], a[1]);
-        k.lineTo(b[0], b[1]);
-        const n = p.pts.length;
-        for (let i = 2; i < n / 2 - 1; i += 2) {
-          const m = [lerp(a[0], b[0], i / (n / 2)), lerp(a[1], b[1], i / (n / 2))];
-          k.moveTo(m[0], m[1]);
-          k.lineTo(lerp(m[0], p.pts[i + 1][0], 0.8), lerp(m[1], p.pts[i + 1][1], 0.8));
-          k.moveTo(m[0], m[1]);
-          k.lineTo(lerp(m[0], p.pts[n - i - 1][0], 0.8), lerp(m[1], p.pts[n - i - 1][1], 0.8));
-        }
-        k.stroke();
-        k.strokeStyle = "rgba(240, 250, 220, 0.6)";
-        k.lineWidth = 0.12;
-        k.beginPath();
-        for (let i = 1; i < n - 1; i += 1) {
-          const q = p.pts[i];
-          k.moveTo(lerp(q[0], b[0], 0.15), lerp(q[1], b[1], 0.15));
-          k.lineTo(lerp(q[0], b[0], 0.02), lerp(q[1], b[1], 0.02));
-        }
-        k.stroke();
-      });
-    } else if (art === "schlauch") {
-      kette(k, rollen(o, "schlauch"), "rgb(40, 116, 66)", "rgba(170, 236, 170, 0.7)", "rgba(16, 50, 30, 0.55)");
-      rollen(o, "duese").forEach((p) => {
-        pfad(k, p);
-        const v = k.createLinearGradient(p.x0, 0, rechts(p), 0);
-        v.addColorStop(0, "rgb(255, 210, 120)");
-        v.addColorStop(0.5, "rgb(200, 150, 60)");
-        v.addColorStop(1, "rgb(120, 80, 30)");
-        k.fillStyle = v;
-        k.fill();
-      });
-    } else if (art === "ast") {
-      kette(k, rollen(o, "ast"), "rgb(92, 80, 80)", "rgba(230, 196, 160, 0.55)", "rgba(40, 30, 44, 0.45)");
-      kette(k, rollen(o, "zweig"), "rgb(100, 82, 74)", "rgba(230, 190, 150, 0.45)", null);
-      rollen(o, "blatt").forEach((p, i) => {
-        pfad(k, p);
-        const c = [[62, 110, 44], [86, 130, 46], [112, 142, 50]][i % 3];
-        k.fillStyle = rgb(c);
-        k.fill();
-        lichtKante(k, p, "rgba(255, 220, 130, 0.55)", 0.55);
-        const a = p.pts[0];
-        const b = p.pts[Math.floor(p.pts.length / 2)];
-        k.strokeStyle = "rgba(200, 220, 140, 0.55)";
-        k.lineWidth = 0.2;
-        k.beginPath();
-        k.moveTo(a[0], a[1]);
-        k.lineTo(b[0], b[1]);
-        const n = p.pts.length;
-        for (let j = 2; j < n / 2 - 1; j += 1) {
-          const m = [lerp(a[0], b[0], j / (n / 2)), lerp(a[1], b[1], j / (n / 2))];
-          k.moveTo(m[0], m[1]);
-          k.lineTo(lerp(m[0], p.pts[j + 1][0], 0.75), lerp(m[1], p.pts[j + 1][1], 0.75));
-          k.moveTo(m[0], m[1]);
-          k.lineTo(lerp(m[0], p.pts[n - j - 1][0], 0.75), lerp(m[1], p.pts[n - j - 1][1], 0.75));
-        }
-        k.stroke();
-      });
-    } else if (art === "tanne") {
-      // Die Nadeln: dicht an dicht vom Trieb bis an den Rand der Hülle, nach
-      // vorn geneigt, in drei Grüntönen; die Spitzen jung und hell, oben
-      // fängt sie das Abendlicht.
-      const zweige = o.deko.zweige;
-      rollen(o, "nadeln").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgba(26, 52, 38, 0.9)";
-        k.fill();
-      });
-      const gruen = ["rgb(34, 70, 46)", "rgb(46, 88, 54)", "rgb(58, 104, 60)"];
-      zweige.forEach((z, zi) => {
-        const L = laenge(z.pts);
-        let q = 0;
-        for (let d = 0.2; d < L; d += 0.42) {
-          const e = entlang(z.pts, d);
-          const rn = lerp(z.r0, z.r1, e.u);
-          const jung = e.u > 0.7;
-          [1, -1].forEach((sg) => {
-            q += 1;
-            const f = 0.78 + 0.2 * hash01(q * 1.7 + zi);
-            const vorn = rn * (0.25 + 0.3 * hash01(q * 2.3 + zi));
-            const tx = e.x + e.nx * sg * rn * f + e.tx * vorn;
-            const ty = e.y + e.ny * sg * rn * f + e.ty * vorn;
-            const obenAuf = e.ny * sg > 0.2;
-            k.strokeStyle = jung ? (q % 2 ? "rgb(126, 176, 84)" : "rgb(104, 156, 70)") : obenAuf && q % 3 === 0 ? "rgb(120, 130, 70)" : gruen[q % 3];
-            k.lineWidth = 0.3;
-            k.beginPath();
-            k.moveTo(e.x, e.y);
-            k.lineTo(tx, ty);
-            k.stroke();
-          });
-        }
-        k.strokeStyle = "rgb(104, 66, 48)";
-        k.lineWidth = zi === 0 ? 0.9 : 0.55;
-        k.beginPath();
-        z.pts.forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-        k.stroke();
-      });
-    } else if (art === "netz") {
-      kette(k, rollen(o, "zweig"), "rgb(96, 78, 70)", "rgba(230, 190, 150, 0.5)", "rgba(40, 30, 40, 0.35)");
-      const { rahmen, nabe } = o.deko.netz;
-      // Speichen von der Nabe an den Rahmen, nach ihrer Richtung geordnet.
-      const speichen = [];
-      for (let i = 0; i < rahmen.length; i += 1) {
-        const a = rahmen[i];
-        const b = rahmen[(i + 1) % rahmen.length];
-        const n = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4.5));
-        for (let j = 0; j < n; j += 1) speichen.push([lerp(a[0], b[0], j / n), lerp(a[1], b[1], j / n)]);
-      }
-      speichen.sort((p, q) => Math.atan2(p[1] - nabe[1], p[0] - nabe[0]) - Math.atan2(q[1] - nabe[1], q[0] - nabe[0]));
-      // Der Rahmen: etwas kräftiger.
-      k.strokeStyle = "rgba(255, 250, 240, 0.7)";
-      k.lineWidth = 0.16;
-      k.beginPath();
-      rahmen.forEach(([x, y], i) => (i ? k.lineTo(x, y) : k.moveTo(x, y)));
-      k.closePath();
-      k.stroke();
-      k.strokeStyle = "rgba(255, 250, 240, 0.5)";
-      k.lineWidth = 0.1;
-      k.beginPath();
-      speichen.forEach(([x, y]) => { k.moveTo(nabe[0], nabe[1]); k.lineTo(x, y); });
-      k.stroke();
-      // Die Fangspirale: von Speiche zu Speiche, leicht zur Nabe hin
-      // durchhängend.
-      k.strokeStyle = "rgba(255, 246, 232, 0.55)";
-      k.lineWidth = 0.09;
-      k.beginPath();
-      const ring = (r, i) => [lerp(nabe[0], speichen[i % speichen.length][0], r), lerp(nabe[1], speichen[i % speichen.length][1], r)];
-      for (let r = 0.16; r < 0.95; r += 0.062) {
-        const [x0, y0] = ring(r, 0);
-        k.moveTo(x0, y0);
-        for (let i = 1; i <= speichen.length; i += 1) {
-          const a = ring(r, i - 1);
-          const b = ring(r + 0.004, i);
-          const mx = lerp(nabe[0], (a[0] + b[0]) / 2, 0.93);
-          const my = lerp(nabe[1], (a[1] + b[1]) / 2, 0.93);
-          k.quadraticCurveTo(mx, my, b[0], b[1]);
-        }
-      }
-      k.stroke();
-      // Tautropfen auf der Spirale, die das Abendlicht fangen.
-      for (let i = 0; i < 44; i += 1) {
-        const r = 0.2 + hash01(i * 3.3 + o.id) * 0.74;
-        const [x, y] = ring(r, Math.floor(hash01(i * 7.1 + o.id) * speichen.length));
-        k.fillStyle = i % 4 ? "rgba(255, 238, 205, 0.95)" : "rgba(200, 236, 255, 0.95)";
-        k.beginPath();
-        k.arc(x, y, 0.22 + hash01(i + o.id) * 0.22, 0, TAU);
-        k.fill();
-      }
-      // Die Spinne in der Nabe: Hinterleib, Kopfbrust, acht Beine.
-      k.strokeStyle = "rgb(46, 34, 36)";
-      k.lineWidth = 0.2;
-      k.beginPath();
-      for (let i = 0; i < 4; i += 1) {
-        [1, -1].forEach((sg) => {
-          const w = (i - 1.5) * 0.45;
-          k.moveTo(nabe[0], nabe[1] + 0.4);
-          k.quadraticCurveTo(nabe[0] + sg * 1.4, nabe[1] + 0.9 + w * 1.6, nabe[0] + sg * 2.4, nabe[1] - 0.2 + w * 2.6);
-        });
-      }
-      k.stroke();
-      k.fillStyle = "rgb(56, 40, 40)";
-      k.beginPath();
-      k.ellipse(nabe[0], nabe[1] - 0.9, 0.95, 1.25, 0, 0, TAU);
-      k.fill();
-      k.fillStyle = "rgb(40, 30, 32)";
-      k.beginPath();
-      k.arc(nabe[0], nabe[1] + 0.55, 0.62, 0, TAU);
-      k.fill();
-      k.fillStyle = "rgba(255, 200, 150, 0.55)";
-      k.beginPath();
-      k.arc(nabe[0] - 0.35, nabe[1] - 0.5, 0.3, 0, TAU);
-      k.fill();
-    } else if (art === "balkon") {
-      rollen(o, "konsole").forEach((p) => { pfad(k, p); k.fillStyle = "rgb(150, 136, 130)"; k.fill(); });
-      rollen(o, "platte").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgb(190, 180, 170)";
-        k.fill();
-        lichtKante(k, p, "rgba(255, 220, 180, 0.6)", 0.6);
-      });
-      rollen(o, "gelaender").forEach((p) => strich(k, p, "rgb(44, 40, 52)"));
-      rollen(o, "gelaender").forEach((p) => strich(k, p, "rgba(255, 200, 150, 0.4)", 0.4, p.r * 0.3));
-      rollen(o, "kasten").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = "rgb(176, 90, 60)";
-        k.fill();
-        lichtKante(k, p, "rgba(255, 190, 140, 0.6)", 0.6);
-      });
-      rollen(o, "laub").forEach((p) => { pfad(k, p); k.fillStyle = "rgb(60, 110, 50)"; k.fill(); lichtKante(k, p, "rgba(190, 230, 120, 0.5)", 0.5); });
-      rollen(o, "blumen").forEach((p) => {
-        pfad(k, p);
-        k.fillStyle = o.deko.farbe < 0.5 ? "rgb(220, 40, 60)" : "rgb(240, 90, 150)";
-        k.fill();
-        k.fillStyle = "rgba(255, 220, 220, 0.6)";
-        for (let i = 0; i < 4; i += 1) {
-          k.beginPath();
-          k.arc(p.x + Math.cos(i * 1.6) * p.r * 0.5, p.y + Math.sin(i * 1.6) * p.r * 0.5, p.r * 0.22, 0, TAU);
-          k.fill();
-        }
-      });
-    } else if (art === "dach") {
-      rollen(o, "kamin").forEach((p, i) => {
-        pfad(k, p);
-        k.fillStyle = i ? "rgb(110, 90, 90)" : "rgb(156, 80, 62)";
-        k.fill();
-        if (!i) {
-          // Backsteine.
-          k.save();
-          pfad(k, p);
-          k.clip();
-          k.strokeStyle = "rgba(80, 40, 40, 0.6)";
-          k.lineWidth = 0.25;
-          for (let y = p.y0; y < oben(p); y += 2.2) {
-            k.beginPath();
-            k.moveTo(p.x0, y);
-            k.lineTo(rechts(p), y);
-            k.stroke();
-            for (let x = p.x0 + ((Math.round((y - p.y0) / 2.2) % 2) * 2.2); x < rechts(p); x += 4.4) {
-              k.beginPath();
-              k.moveTo(x, y);
-              k.lineTo(x, y + 2.2);
-              k.stroke();
-            }
-          }
-          k.restore();
-          lichtKante(k, p, "rgba(255, 180, 120, 0.5)", 0.8);
-        }
-      });
-      rollen(o, "balken").forEach((p) => strich(k, p, "rgb(96, 62, 48)"));
-      rollen(o, "balken").forEach((p) => strich(k, p, "rgba(255, 190, 140, 0.4)", 0.35, p.r * 0.35));
-      rollen(o, "dach").forEach((p) => {
-        // Ziegel in Reihen: oben die Kante im Licht, darunter Ziegel um
-        // Ziegel, unten das Holz der Traufe.
-        pfad(k, p);
-        k.fillStyle = "rgb(140, 58, 46)";
-        k.fill();
-        k.save();
-        pfad(k, p);
-        k.clip();
-        const [a, b, c, dd] = p.pts;
-        const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        const ux = (b[0] - a[0]) / l;
-        const uy = (b[1] - a[1]) / l;
-        const tx = (dd[0] - a[0]);
-        const ty = (dd[1] - a[1]);
-        for (let q = 0; q < l; q += 3.4) {
-          const x = a[0] + ux * q;
-          const y = a[1] + uy * q;
-          k.fillStyle = Math.floor(q / 3.4) % 3 === 1 ? "rgb(172, 74, 54)" : Math.floor(q / 3.4) % 3 === 2 ? "rgb(156, 66, 50)" : "rgb(184, 86, 60)";
-          k.beginPath();
-          k.moveTo(x, y);
-          k.lineTo(x + ux * 3.0, y + uy * 3.0);
-          k.quadraticCurveTo(x + ux * 3.3 + tx * 0.6, y + uy * 3.3 + ty * 0.6, x + ux * 1.6 + tx * 0.78, y + uy * 1.6 + ty * 0.78);
-          k.quadraticCurveTo(x - ux * 0.2 + tx * 0.6, y - uy * 0.2 + ty * 0.6, x, y);
-          k.fill();
-          k.strokeStyle = "rgba(255, 200, 150, 0.45)";
-          k.lineWidth = 0.3;
-          k.beginPath();
-          k.moveTo(x + ux * 0.4 + tx * 0.08, y + uy * 0.4 + ty * 0.08);
-          k.lineTo(x + ux * 2.6 + tx * 0.08, y + uy * 2.6 + ty * 0.08);
-          k.stroke();
-        }
-        // Die Traufe aus Holz.
-        k.fillStyle = "rgb(96, 62, 50)";
-        k.beginPath();
-        k.moveTo(dd[0], dd[1]);
-        k.lineTo(c[0], c[1]);
-        k.lineTo(c[0] - tx * 0.22, c[1] - ty * 0.22);
-        k.lineTo(dd[0] - tx * 0.22, dd[1] - ty * 0.22);
-        k.closePath();
-        k.fill();
-        k.strokeStyle = "rgba(255, 210, 160, 0.75)";
-        k.lineWidth = 0.55;
-        k.beginPath();
-        k.moveTo(a[0], a[1]);
-        k.lineTo(b[0], b[1]);
-        k.stroke();
-        k.restore();
-      });
-      rollen(o, "rinne").forEach((p) => {
-        // Die Rinne aus Zink: ein Rohr, oben offen und dunkel.
-        const v = k.createLinearGradient(p.x - p.r, p.y + p.r, p.x + p.r, p.y - p.r);
-        v.addColorStop(0, "rgb(236, 214, 190)");
-        v.addColorStop(0.45, "rgb(160, 156, 164)");
-        v.addColorStop(1, "rgb(86, 84, 104)");
-        pfad(k, p);
-        k.fillStyle = v;
-        k.fill();
-        k.fillStyle = "rgb(56, 52, 70)";
-        k.beginPath();
-        k.ellipse(p.x, p.y + p.r * 0.45, p.r * 0.78, p.r * 0.35, 0, 0, TAU);
-        k.fill();
-      });
-    } else if (art === "antenne") {
-      rollen(o, "mast").forEach((p) => strich(k, p, "rgb(110, 110, 120)"));
-      rollen(o, "rohr").forEach((p) => (p.k === 1 ? strich(k, p, "rgb(170, 170, 180)") : (pfad(k, p), (k.fillStyle = "rgb(170, 170, 180)"), k.fill())));
-      rollen(o, "element").forEach((p) => strich(k, p, "rgb(196, 196, 206)"));
-      rollen(o, "element", "mast", "rohr").forEach((p) => { if (p.k === 1) strich(k, p, "rgba(255, 200, 150, 0.55)", 0.35, 0); });
-    } else if (art === "wolke") {
-      // Quellwolken: alle Ballen als eine Form – unten golden angestrahlt,
-      // oben flieder –, darin weiche, hellere Wölbungen hinten wie vorn, und
-      // nur auf dem äusseren Rand ein Lichtsaum. Gemalt wird genau die
-      // Fläche der Kreise.
-      const ballen = rollen(o, "wolke");
-      const y0 = Math.min(...ballen.map((p) => p.y - p.r));
-      const y1 = Math.max(...ballen.map((p) => p.y + p.r));
-      const x0 = Math.min(...ballen.map((p) => p.x - p.r));
-      const x1 = Math.max(...ballen.map((p) => p.x + p.r));
-      k.save();
-      k.beginPath();
-      ballen.forEach((p) => { k.moveTo(p.x + p.r, p.y); k.arc(p.x, p.y, p.r, 0, TAU); });
-      k.clip();
-      const v = k.createLinearGradient(0, y0, 0, y1);
-      v.addColorStop(0, "rgb(255, 188, 150)");
-      v.addColorStop(0.35, "rgb(240, 168, 172)");
-      v.addColorStop(0.75, "rgb(204, 146, 190)");
-      v.addColorStop(1, "rgb(176, 136, 196)");
-      k.fillStyle = v;
-      k.fillRect(x0, y0, x1 - x0, y1 - y0);
-      // Schatten zwischen den Wölbungen (unten rechts jedes Ballens).
-      ballen.forEach((p) => {
-        const h = k.createRadialGradient(p.x + p.r * 0.45, p.y - p.r * 0.5, 0, p.x + p.r * 0.45, p.y - p.r * 0.5, p.r * 0.9);
-        h.addColorStop(0, "rgba(130, 90, 150, 0.3)");
-        h.addColorStop(1, "rgba(130, 90, 150, 0)");
+    const v = k.createLinearGradient(0, y0, 0, y1);
+    v.addColorStop(0, "rgb(255, 188, 150)");
+    v.addColorStop(0.35, "rgb(240, 168, 172)");
+    v.addColorStop(0.75, "rgb(204, 146, 190)");
+    v.addColorStop(1, "rgb(176, 136, 196)");
+    k.fillStyle = v;
+    k.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ballen.forEach((p, i) => {
+      for (let j = 0; j < 3; j += 1) {
+        const w = Math.PI * (0.55 + 0.25 * j) + hash01(i * 7 + j) * 0.4;
+        const rr = p.r * (0.45 - j * 0.08);
+        const x = p.x + Math.cos(w) * p.r * 0.38;
+        const y = p.y + Math.sin(w) * p.r * 0.38;
+        const h = k.createRadialGradient(x, y, 0, x, y, rr);
+        h.addColorStop(0, "rgba(255, 236, 226, 0.4)");
+        h.addColorStop(0.6, "rgba(255, 226, 220, 0.16)");
+        h.addColorStop(1, "rgba(255, 226, 220, 0)");
         k.fillStyle = h;
-        k.fillRect(p.x - p.r * 0.5, p.y - p.r * 1.4, p.r * 2, p.r * 1.9);
-      });
-      // Weiche helle Wölbungen, oben links jedes Ballens, geschichtet.
-      ballen.forEach((p, i) => {
-        for (let j = 0; j < 3; j += 1) {
-          const w = Math.PI * (0.55 + 0.25 * j) + hash01(i * 7 + j + (o.id || 0)) * 0.4;
-          const rr = p.r * (0.45 - j * 0.08);
-          const x = p.x + Math.cos(w) * p.r * 0.38;
-          const y = p.y + Math.sin(w) * p.r * 0.38;
-          const h = k.createRadialGradient(x, y, 0, x, y, rr);
-          h.addColorStop(0, "rgba(255, 236, 226, 0.4)");
-          h.addColorStop(0.6, "rgba(255, 226, 220, 0.16)");
-          h.addColorStop(1, "rgba(255, 226, 220, 0)");
-          k.fillStyle = h;
-          k.fillRect(x - rr, y - rr, 2 * rr, 2 * rr);
-        }
-      });
-      // Der Lichtsaum: nur wo der Rand eines Ballens aussen liegt.
-      k.lineCap = "round";
-      ballen.forEach((p) => {
-        for (let w = 0; w < TAU; w += 0.16) {
-          const mx = p.x + Math.cos(w + 0.08) * (p.r - 0.2);
-          const my = p.y + Math.sin(w + 0.08) * (p.r - 0.2);
-          if (ballen.some((q) => q !== p && Math.hypot(mx - q.x, my - q.y) < q.r - 0.1)) continue;
-          // Licht kommt von unten links: dort am stärksten.
-          const licht = clamp(0.3 - Math.cos(w) * 0.45 - Math.sin(w) * 0.45, 0, 1);
-          if (licht < 0.05) continue;
-          k.strokeStyle = `rgba(255, 220, 186, ${0.4 * licht * licht})`;
-          k.lineWidth = 1.6;
-          k.beginPath();
-          k.arc(p.x, p.y, p.r - 0.45, w, w + 0.17);
-          k.stroke();
-        }
-      });
-      k.restore();
-    }
-  }
-
-  // Das Bild eines Teils, einmal gemalt (in Bildpunkten, mit einem Rand).
-  function teilBild(o) {
-    let b = ebenen.teile.get(o.id);
-    if (b) return b;
-    const s = view.s * view.dpr;
-    const rand = 2;
-    const w = Math.ceil((o.box.x1 - o.box.x0 + 2 * rand) * s);
-    const h = Math.ceil((o.box.y1 - o.box.y0 + 2 * rand) * s);
-    const c = document.createElement("canvas");
-    c.width = Math.max(2, w);
-    c.height = Math.max(2, h);
-    const k = c.getContext("2d");
-    k.setTransform(s, 0, 0, -s, (-o.box.x0 + rand) * s, (o.box.y1 + rand) * s);
-    maleTeil(k, o);
-    b = { c, x0: o.box.x0 - rand, y1: o.box.y1 + rand };
-    ebenen.teile.set(o.id, b);
-    return b;
+        k.fillRect(x - rr, y - rr, 2 * rr, 2 * rr);
+      }
+    });
+    k.lineCap = "round";
+    ballen.forEach((p) => {
+      for (let w = 0; w < TAU; w += 0.16) {
+        const mx = p.x + Math.cos(w + 0.08) * (p.r - 0.2);
+        const my = p.y + Math.sin(w + 0.08) * (p.r - 0.2);
+        if (ballen.some((q) => q !== p && Math.hypot(mx - q.x, my - q.y) < q.r - 0.1)) continue;
+        const licht = clamp(0.3 - Math.cos(w) * 0.45 - Math.sin(w) * 0.45, 0, 1);
+        if (licht < 0.05) continue;
+        k.strokeStyle = `rgba(255, 220, 186, ${0.4 * licht * licht})`;
+        k.lineWidth = 1.6;
+        k.beginPath();
+        k.arc(p.x, p.y, p.r - 0.45, w, w + 0.17);
+        k.stroke();
+      }
+    });
+    k.restore();
   }
 
   // ---------------------------------------------------------------------------
   // Zeichnen: die Welt, je Bild aufgelegt
   // ---------------------------------------------------------------------------
-  // Eine Kachel quer übers Bild legen, so oft, wie sie in die Höhe passt.
-  // rahmen: so weit links und rechts deckt ohnehin der Rand (Bildpunkte).
-  function legeKachel(bild, versatz, alpha = 1, rahmen = 0) {
-    const h = bild.height;
-    const b = bild.width - 2 * rahmen;
-    let y = (((Math.round(versatz) % h) + h) % h) - h;
-    g.globalAlpha = alpha;
-    for (; y < canvas.height; y += h) {
-      if (rahmen) g.drawImage(bild, rahmen, 0, b, h, rahmen, y, b, h);
-      else g.drawImage(bild, 0, y);
-    }
-    g.globalAlpha = 1;
-  }
-
   function zeichneWelt() {
     const dpr = view.dpr;
     const s = view.s;
     g.setTransform(1, 0, 0, 1, 0, 0);
-    const cam = Math.max(0, state.camY) * s * dpr;
-    // Der Himmel: ein Fenster aus dem hohen Bild.
     const H = canvas.height;
     const hh = ebenen.himmel.height;
-    const yH = clamp(Math.round(hh - H - cam * PH - Math.min(0, state.camY) * s * dpr * PH), 0, hh - H);
-    const yMitte = state.camY + (view.cssH / s) * 0.5;
-    const wm = weltMix(yMitte);
-    const vK = cam * 0.42;
-    // Über den Dächern decken die Wände der Gasse die Seiten: Himmel und
-    // Dachlandschaft nur in der Mitte, die Wände nur an den Seiten – so wird
-    // jeder Bildpunkt einmal gelegt.
-    const gasse = wm.a === 2 && wm.b === 2 && ebenen.gasseL > 0;
-    // Stämme und Hauswände am Rand decken; reichen sie bis an den Rand des
-    // Bildes, wird dahinter nichts gelegt.
-    const wand = Math.round((view.cssW / 2 - RAND * s) * dpr);
-    const draussen = Math.round((view.cssW / 2 - (RAND + ebenen.randB) * s) * dpr);
-    const rahmen = wm.a >= 1 && wm.b <= 2 && draussen <= 0 ? Math.max(0, wand) : 0;
-    const xL = gasse ? ebenen.gasseL : rahmen;
-    const bM = canvas.width - 2 * xL;
-    // Die Ferne deckt unten alles: Bis dorthin genügt der Himmel.
-    const yF = Math.round(H - ebenen.ferne.height + cam * 0.16);
-    const yD = Math.round(H - ebenen.dach.height * 0.92 + (state.camY - (WELT_AB[2] - 300)) * s * dpr * PD);
-    // Unter der Ferne und (in der Gasse) unter der Dachlandschaft deckt es.
-    const hH = clamp(Math.min(yF + ebenen.ferneDicht, gasse ? yD + ebenen.dachDicht : H), 1, H);
-    g.drawImage(ebenen.himmel, xL, yH, bM, hH, xL, 0, bM, hH);
-    if (wm.a === 2 || wm.b === 2) {
-      const a = wm.a === 2 ? 1 - wm.k : wm.k;
-      if (yD < H) {
-        g.globalAlpha = a;
-        g.drawImage(ebenen.dach, xL, 0, bM, ebenen.dach.height, xL, yD, bM, ebenen.dach.height);
-        g.globalAlpha = 1;
-      }
-    }
-    if (gasse) {
-      // Die Wände an der Gasse decken, was hinter ihnen liegt: Die Kulisse
-      // kommt nur dazwischen (und quer noch draussen neben ihnen).
-      const bild = ebenen.kulisse[2];
-      const h = bild.height;
-      const W = canvas.width;
-      const stuecke = [[Math.max(0, wand), xL]];
-      if (draussen > 0) stuecke.push([0, draussen + 2]);
-      let y = (((Math.round(vK) % h) + h) % h) - h;
-      for (; y < H; y += h) {
-        stuecke.forEach(([a, b]) => {
-          if (b <= a) return;
-          g.drawImage(bild, a, 0, b - a, h, a, y, b - a, h);
-          g.drawImage(bild, W - b, 0, b - a, h, W - b, y, b - a, h);
-        });
-      }
-      return;
-    }
-    // Die Ferne sinkt hinab, bis sie weg ist.
+    // Der Himmel: ein Fenster aus dem hohen Bild, nach dem Weg.
+    const abend = state.himmel * HIMMEL_WEG * s * dpr;
+    const yH = clamp(Math.round(hh - H - abend * PH), 0, hh - H);
+    // Die Ferne sinkt, wenn die Blase steigt, bis sie weg ist; sie deckt
+    // unten alles – bis dorthin genügt der Himmel.
+    const hoch = (state.cam.y - view.camY0) * s * dpr;
+    const yF = Math.round(H - ebenen.ferne.height + Math.max(0, hoch) * 0.16);
+    const hH = clamp(yF + ebenen.ferneDicht, 1, H);
+    g.drawImage(ebenen.himmel, 0, yH, canvas.width, hH, 0, 0, canvas.width, hH);
     if (yF < H) g.drawImage(ebenen.ferne, 0, yF);
-    // Die Kulisse der Welt; zwischen zwei Welten beide. Im Abendhimmel gibt
-    // es keine (seine Schleier stehen schon im Himmel).
-    if (wm.k < 1 && wm.a < 3) legeKachel(ebenen.kulisse[wm.a], vK, 1, rahmen);
-    if (wm.k > 0 && wm.b < 3) legeKachel(ebenen.kulisse[wm.b], vK, wm.k, rahmen);
   }
 
-  // Die Ränder des Feldes, nach der Welt in ihrer Höhe.
-  function zeichneRaender() {
-    const dpr = view.dpr;
-    const s = view.s;
-    const sp = s * dpr;
-    const breit = ebenen.randB;
-    const yMitte = state.camY + (view.cssH / s) * 0.5;
-    const wm = weltMix(yMitte);
-    const xl = Math.round((view.cssW / 2 - (RAND + breit) * s) * dpr);
-    const xr = Math.round((view.cssW / 2 + RAND * s) * dpr);
-    const per = ebenen.rand[0][0].height;
-    const versatz = Math.round(state.camY * sp);
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    [[wm.a, 1 - wm.k], [wm.b, wm.k]].forEach(([w, a]) => {
-      if (a <= 0.01) return;
-      const [li, re] = ebenen.rand[w];
-      g.globalAlpha = a;
-      let y = (((versatz % per) + per) % per) - per;
-      for (; y < canvas.height; y += per) {
-        g.drawImage(li, xl, y);
-        g.drawImage(re, xr, y);
-      }
-    });
-    g.globalAlpha = 1;
-    // Quer: draussen neben dem Feld etwas dunkler – dort spielt nichts.
-    if (xl > 0) {
-      g.fillStyle = "rgba(20, 12, 34, 0.16)";
-      g.fillRect(0, 0, xl, canvas.height);
-      g.fillRect(xr + Math.round(breit * sp), 0, canvas.width - xr - Math.round(breit * sp), canvas.height);
-    }
-  }
-
+  // Der Boden beim Start: der Rasen über die ganze Breite, darauf Tisch,
+  // Schale und Ring.
   function zeichneBoden() {
     const top = bildY(BODEN_OBEN);
     if (top > view.cssH) return;
+    const dpr = view.dpr;
     g.setTransform(1, 0, 0, 1, 0, 0);
-    g.drawImage(ebenen.boden, 0, Math.round(top * view.dpr));
+    const yr = Math.round(bildY(-116) * dpr);
+    if (yr < canvas.height) {
+      const gr = g.createLinearGradient(0, yr, 0, yr + 40 * view.s * dpr);
+      gr.addColorStop(0, "rgb(120, 150, 62)");
+      gr.addColorStop(0.3, "rgb(78, 110, 50)");
+      gr.addColorStop(1, "rgb(40, 62, 38)");
+      g.fillStyle = gr;
+      g.fillRect(0, yr, canvas.width, canvas.height - yr);
+    }
+    g.drawImage(ebenen.boden, Math.round(bildX(-BODEN_HALB) * dpr), Math.round(top * dpr));
   }
 
-  // Die Teile im Bild, aus ihren Bildern.
-  function zeichneTeile() {
+  // Die Farben der Lichtbänder beim Weg s – nach der Stimmung.
+  function bandFarbe(s) {
+    const m = stimmungMix(s);
+    const a = STIMMUNGEN[m.a];
+    const b = STIMMUNGEN[m.b];
+    return { kern: mix3(a.kern, b.kern, m.k), schein: mix3(a.schein, b.schein, m.k) };
+  }
+
+  /*
+   * Die Bahn: innen ein Hauch von Seifenfilm, an jedem Rand ein Lichtband –
+   * ein dunkler Saum (er hebt das Band vom hellen Abendhimmel ab), ein
+   * schillernder Schein, der Kern, ein heller Grat. Jeder Rand ist ein
+   * einziger Pfad; was weiter weg ist als die Sicht, verschwindet im Dunst
+   * (ein runder Verlauf um den Blickpunkt) – auf jedem Gerät gleich.
+   */
+  function zeichneBahn() {
+    const B = state.bahn;
+    const N = B.x.length;
+    if (N < 2) return;
     const s = view.s;
-    const dpr = view.dpr;
-    const unten = state.camY - 4;
-    const ganzOben = state.camY + view.cssH / s + 4;
-    const L = state.hindernisse;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    for (let i = abIndex(L, unten - state.langMax, yVonTeil); i < L.length; i += 1) {
-      const o = L[i];
-      if (o.box.y0 > ganzOben) break;
-      if (o.box.y1 < unten) continue;
-      const b = teilBild(o);
-      g.drawImage(b.c, Math.round(bildX(b.x0) * dpr), Math.round(bildY(b.y1) * dpr));
+    const cx = state.cam.x;
+    const cy = state.cam.y;
+    const sb = state.blase.i * DS;
+    const ia = Math.max(0, Math.floor((sb - 320) / DS));
+    const iz = Math.min(N - 1, Math.ceil((sb + 760) / DS));
+    const reich = SICHT * 1.45;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.lineJoin = "round";
+    g.lineCap = "round";
+    // Welche Punkte im Blick sind (in Stücken zu sechs).
+    const drin = [];
+    for (let i = ia; i <= iz; i += 6) drin.push(Math.hypot(B.x[i] - cx, B.y[i] - cy) - B.w[i] < reich);
+    const im = (i) => drin[Math.floor((i - ia) / 6)];
+    const rx = (i, f) => bildX(B.x[i] - B.ty[i] * B.w[i] * f);
+    const ry = (i, f) => bildY(B.y[i] + B.tx[i] * B.w[i] * f);
+    const fx = bildX(cx);
+    const fy = bildY(cy);
+    const verlauf = (stopps) => {
+      const v = g.createRadialGradient(fx, fy, SICHT * 1.1 * s, fx, fy, SICHT * 1.4 * s);
+      stopps.forEach(([k, c]) => v.addColorStop(k, c));
+      return v;
+    };
+    const c = bandFarbe(sb);
+    // Innen: ein Hauch Film – Stück für Stück entlang, eine Fläche.
+    g.beginPath();
+    let offen = false;
+    let von = -1;
+    const flaeche = (a, z) => {
+      g.moveTo(rx(a, 1), ry(a, 1));
+      for (let q = a + 2; q <= z; q += 2) g.lineTo(rx(q, 1), ry(q, 1));
+      for (let q = z; q >= a; q -= 2) g.lineTo(rx(q, -1), ry(q, -1));
+      g.closePath();
+    };
+    for (let i = ia; i <= iz; i += 2) {
+      const ja = im(i);
+      if (ja && von < 0) von = i;
+      if ((!ja || i + 2 > iz) && von >= 0) { flaeche(von, ja ? i : i - 2); von = -1; offen = true; }
+    }
+    if (offen) {
+      g.fillStyle = verlauf([[0, "rgba(255, 246, 252, 0.2)"], [1, "rgba(255, 246, 252, 0)"]]);
+      g.fill();
+    }
+    // Die Ränder: je ein Pfad.
+    const rand = (f) => {
+      g.beginPath();
+      let zug = false;
+      for (let i = ia; i <= iz; i += 2) {
+        if (!im(i)) { zug = false; continue; }
+        if (!zug) { g.moveTo(rx(i, f), ry(i, f)); zug = true; } else g.lineTo(rx(i, f), ry(i, f));
+      }
+      if (ia === 0 && im(0) && f > 0) {
+        // Der Anfang: unten herum geschlossen.
+        g.moveTo(rx(0, 1), ry(0, 1));
+        g.arc(bildX(B.x[0]), bildY(B.y[0]), B.w[0] * s, Math.PI, 0, true);
+      }
+    };
+    const saum = verlauf([[0, "rgba(60, 26, 76, 0.38)"], [1, "rgba(60, 26, 76, 0)"]]);
+    const schein = verlauf([[0, rgba(c.schein, 0.42)], [1, rgba(c.schein, 0)]]);
+    const kern = verlauf([[0, rgba(c.kern, 1)], [1, rgba(c.kern, 0)]]);
+    const grat = verlauf([[0, "rgba(255, 252, 244, 0.85)"], [1, "rgba(255, 252, 244, 0)"]]);
+    const breiteKern = Math.max(3, 1.6 * s);
+    [1, -1].forEach((f) => {
+      rand(f);
+      g.strokeStyle = schein;
+      g.lineWidth = Math.max(9, 4.6 * s);
+      g.stroke();
+      g.strokeStyle = saum;
+      g.lineWidth = breiteKern + 2.4;
+      g.stroke();
+      g.strokeStyle = kern;
+      g.lineWidth = breiteKern;
+      g.stroke();
+      g.strokeStyle = grat;
+      g.lineWidth = Math.max(0.9, 0.4 * s);
+      g.stroke();
+    });
+    // Das Schillern: kurze Lichter in den Farben dünner Seifenhaut, die die
+    // Bänder entlang wandern.
+    if (!ruhig()) {
+      const FARBEN = ["rgba(255, 150, 220, 0.75)", "rgba(140, 236, 255, 0.75)", "rgba(255, 244, 150, 0.75)"];
+      g.lineWidth = Math.max(1.6, 0.8 * s);
+      for (let i = ia - (ia % 30); i <= iz; i += 30) {
+        [1, -1].forEach((f, seite) => {
+          const j = i + Math.floor(((state.zeit * 9 + seite * 7) % 30));
+          if (j < ia || j + 4 > iz || !im(j)) return;
+          const d = Math.hypot(B.x[j] - cx, B.y[j] - cy);
+          const a = sichtbar(d);
+          if (a <= 0.02) return;
+          g.globalAlpha = a;
+          g.strokeStyle = FARBEN[((i / 30) | 0) % 3];
+          g.beginPath();
+          g.moveTo(rx(j, f), ry(j, f));
+          g.lineTo(rx(j + 4, f), ry(j + 4, f));
+          g.stroke();
+        });
+      }
+      g.globalAlpha = 1;
     }
   }
 
-  // Rauch aus den Kaminen: harmlos, weich, er treibt mit dem Wind.
-  function zeichneRauch() {
+  // Die Marken: alle zehn Meter Bahn ein feiner Strich quer und die Zahl.
+  function zeichneMarken() {
+    const B = state.bahn;
     const s = view.s;
-    const unten = state.camY - 40;
-    const ganzOben = state.camY + view.cssH / s + 40;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    const bild = ebenen.rauch;
-    state.hindernisse.forEach((o) => {
-      if (!o.rauch || o.rauch.y < unten || o.rauch.y > ganzOben) return;
-      // Zwei Fahnen, die versetzt aufsteigen und vergehen.
-      for (let i = 0; i < 2; i += 1) {
-        const f = (state.zeit * 0.4 + i * 0.5) % 1;
-        const x = bildX(o.rauch.x + windBei(o.rauch.y, state.t) * 0.15 * f) - bild.width / view.dpr * 0.35;
-        const y = bildY(o.rauch.y + f * 14) - bild.height / view.dpr;
-        g.globalAlpha = Math.sin(f * Math.PI) * 0.9;
-        g.drawImage(bild, Math.round(x * view.dpr), Math.round(y * view.dpr));
+    const sb = state.blase.i * DS;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.font = "700 11px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.lineWidth = 1;
+    for (let m = Math.max(10, Math.ceil((sb - 300) / 1000) * 10); m * METER <= sb + 700; m += 10) {
+      const i = Math.round((m * METER) / DS);
+      if (i >= B.x.length) break;
+      const a = sichtbar(Math.hypot(B.x[i] - state.cam.x, B.y[i] - state.cam.y));
+      if (a <= 0.02) continue;
+      const nx = -B.ty[i];
+      const ny = B.tx[i];
+      const w = B.w[i];
+      g.globalAlpha = a * 0.5;
+      g.strokeStyle = "rgb(255, 255, 255)";
+      g.setLineDash([3, 4]);
+      g.beginPath();
+      g.moveTo(bildX(B.x[i] + nx * w), bildY(B.y[i] + ny * w));
+      g.lineTo(bildX(B.x[i] - nx * w), bildY(B.y[i] - ny * w));
+      g.stroke();
+      g.setLineDash([]);
+      g.globalAlpha = a * 0.8;
+      g.fillStyle = "rgb(255, 250, 240)";
+      g.fillText(`${m} m`, bildX(B.x[i] - nx * (w + 9 + 4 / s)), bildY(B.y[i] - ny * (w + 9 + 4 / s)));
+    }
+    g.globalAlpha = 1;
+  }
+
+  /*
+   * Der Nebel kriecht die Bahn entlang: ein dichter Schleier, der die Bahn
+   * hinter seiner Grenze füllt, vorn weich und wallend.
+   */
+  function zeichneNebel() {
+    const B = state.bahn;
+    const sn = nebelS(state.t);
+    if (sn <= 0 || state.phase === "bereit") return;
+    const s = view.s;
+    const iv = Math.min(B.x.length - 1, Math.floor(sn / DS));
+    const ia = Math.max(0, iv - Math.round(320 / DS));
+    const cx = state.cam.x;
+    const cy = state.cam.y;
+    if (Math.hypot(B.x[iv] - cx, B.y[iv] - cy) > SICHT * 2.2 && Math.hypot(B.x[ia] - cx, B.y[ia] - cy) > SICHT * 2.2) return;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.lineJoin = "round";
+    g.lineCap = "butt";
+    const STUECK = 10;
+    for (let i = ia; i < iv; i += STUECK) {
+      const j = Math.min(iv, i + STUECK + 1);
+      const f = 1 - (iv - i) / (iv - ia + 1);
+      g.globalAlpha = lerp(0.88, 0.62, f * f);
+      g.strokeStyle = "rgb(234, 226, 246)";
+      g.lineWidth = B.w[i] * 2 * s;
+      g.beginPath();
+      g.moveTo(bildX(B.x[i]), bildY(B.y[i]));
+      for (let q = i + 2; q < j; q += 2) g.lineTo(bildX(B.x[q]), bildY(B.y[q]));
+      g.lineTo(bildX(B.x[j]), bildY(B.y[j]));
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    // Die Grenze: wallende Schwaden.
+    const x = B.x[iv];
+    const y = B.y[iv];
+    const nx = -B.ty[iv];
+    const ny = B.tx[iv];
+    const w = B.w[iv];
+    for (let q = 0; q < 7; q += 1) {
+      const o = (q / 3 - 1) * w * 0.8;
+      const vor = ruhig() ? 0 : Math.sin(state.zeit * 1.4 + q * 1.7) * 3;
+      schein("nebel", bildX(x + nx * o + B.tx[iv] * vor), bildY(y + ny * o + B.ty[iv] * vor), s * (w * 0.55 + 4 * hash01(q)), 0.7);
+    }
+  }
+
+  // Der Rückenwind: goldene Pfeile, die die Bahn entlang ziehen; die Böe:
+  // Windstreifen quer über ihr Stück.
+  function zeichneWinde() {
+    const B = state.bahn;
+    const s = view.s;
+    const sb = state.blase.i * DS;
+    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    state.figuren.forEach((f) => {
+      if (!f.wind || f.i1 * DS < sb - 300 || f.i0 * DS > sb + 760) return;
+      const lang = (f.i1 - f.i0) * DS;
+      if (f.wind.art === "rueckenwind") {
+        // Ein warmer Schimmer über der ganzen Bahn, dann die Pfeile.
+        for (let i = f.i0; i < f.i1; i += 12) {
+          const a = sichtbar(Math.hypot(B.x[i] - state.cam.x, B.y[i] - state.cam.y));
+          if (a <= 0.02) continue;
+          const j = Math.min(f.i1, i + 13);
+          g.globalAlpha = 0.12 * a * glatt((i - f.i0) / 20) * glatt((f.i1 - i) / 20);
+          g.strokeStyle = "rgb(255, 214, 140)";
+          g.lineWidth = B.w[i] * 1.7 * s;
+          g.beginPath();
+          g.moveTo(bildX(B.x[i]), bildY(B.y[i]));
+          g.lineTo(bildX(B.x[j]), bildY(B.y[j]));
+          g.stroke();
+        }
+        const zahl = Math.floor(lang / 26);
+        for (let p = 0; p < zahl; p += 1) {
+          const sp = f.i0 * DS + ((p * 26 + (ruhig() ? 0 : state.zeit * RUECKENWIND * 0.8)) % lang);
+          const i = Math.round(sp / DS);
+          const a = sichtbar(Math.hypot(B.x[i] - state.cam.x, B.y[i] - state.cam.y)) * glatt((i - f.i0) / 20) * glatt((f.i1 - i) / 20);
+          if (a <= 0.02) continue;
+          const tx = B.tx[i];
+          const ty = B.ty[i];
+          const nx = -ty;
+          const ny = tx;
+          const w = B.w[i] * 0.45;
+          [-1, 1].forEach((seite) => {
+            const ox = nx * w * 0.55 * seite;
+            const oy = ny * w * 0.55 * seite;
+            g.globalAlpha = 0.75 * a;
+            g.strokeStyle = "rgb(255, 226, 160)";
+            g.lineWidth = Math.max(1.4, 0.7 * s);
+            g.beginPath();
+            g.moveTo(bildX(B.x[i] + ox - tx * 5 + nx * 4), bildY(B.y[i] + oy - ty * 5 + ny * 4));
+            g.lineTo(bildX(B.x[i] + ox), bildY(B.y[i] + oy));
+            g.lineTo(bildX(B.x[i] + ox - tx * 5 - nx * 4), bildY(B.y[i] + oy - ty * 5 - ny * 4));
+            g.stroke();
+          });
+        }
+      } else if (!ruhig()) {
+        // Die Böe: Streifen, die quer durch ihr Stück jagen.
+        const sg = Math.sign(f.wind.w);
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        for (let i = f.i0; i <= f.i1; i += 10) { x0 = Math.min(x0, B.x[i] - B.w[i]); x1 = Math.max(x1, B.x[i] + B.w[i]); }
+        x0 -= 50;
+        x1 += 50;
+        const yA = B.y[f.i0];
+        const yB = B.y[f.i1];
+        for (let q = 0; q < 30; q += 1) {
+          const y = yA + hash01(q * 2.3) * (yB - yA);
+          const l = 18 + hash01(q * 7.1) * 24;
+          const u = (state.zeit * (Math.abs(f.wind.w) / 60) * (0.8 + hash01(q) * 0.5) + hash01(q * 1.7)) % 1;
+          const x = sg > 0 ? x0 + u * (x1 - x0) : x1 - u * (x1 - x0);
+          const kante = glatt((y - yA) / 50) * glatt((yB - y) / 50) * sichtbar(Math.hypot(x - state.cam.x, y - state.cam.y));
+          if (kante <= 0.02) continue;
+          g.globalAlpha = 0.55 * kante;
+          g.strokeStyle = "rgb(236, 246, 255)";
+          g.lineWidth = Math.max(1.2, s * 0.45);
+          g.beginPath();
+          g.moveTo(bildX(x), bildY(y));
+          g.quadraticCurveTo(bildX(x - sg * l * 0.5), bildY(y + 1.5 + Math.sin(q) * 1.5), bildX(x - sg * l), bildY(y + Math.sin(q * 3) * 2.5));
+          g.stroke();
+        }
       }
     });
     g.globalAlpha = 1;
   }
 
-  // Was sich bewegt: Tropfen, Wespen, Vögel, Fetzen.
+  // Was sich bewegt: Vögel, Fetzen – so sichtbar, wie weit sie weg sind.
   function zeichneBeweger() {
     const s = view.s;
-    const unten = state.camY - 20;
-    const ganzOben = state.camY + view.cssH / s + 20;
     const t = state.t;
+    const sb = state.blase.i * DS;
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     state.beweger.forEach((m) => {
-      if (m.y1 < unten || m.y0 > ganzOben) return;
-      if (m.art === "tropfen") {
-        tropfenBei(m, t, (x, y, r, schwell) => {
-          const sx = bildX(x);
-          const sy = bildY(y);
-          const fade = schwell ? 1 : clamp((FALL - (m.y - y)) / 80, 0, 1);
-          g.globalAlpha = fade;
-          g.fillStyle = "rgba(170, 210, 255, 0.55)";
-          g.beginPath();
-          g.arc(sx, sy, r * s, 0, TAU);
-          g.fill();
-          g.strokeStyle = "rgba(255, 255, 255, 0.85)";
-          g.lineWidth = Math.max(0.6, r * s * 0.18);
-          g.beginPath();
-          g.arc(sx, sy, r * s * 0.92, Math.PI * 0.15, Math.PI * 0.95);
-          g.stroke();
-          g.fillStyle = "rgba(255, 255, 255, 0.95)";
-          g.beginPath();
-          g.arc(sx - r * s * 0.35, sy - r * s * 0.35, r * s * 0.28, 0, TAU);
-          g.fill();
-          g.globalAlpha = 1;
-          return false;
-        });
-        return;
-      }
+      if (m.s1 < sb - 300 || m.s0 > sb + 760) return;
       const o = bewegerOrt(m, t);
-      if (m.art === "fetzen") { zeichneFetzen(m, o); return; }
+      let a = sichtbar(Math.hypot(o.x - state.cam.x, o.y - state.cam.y));
+      if (m.art === "fetzen") a *= 1 - glatt((Math.abs(o.x - m.xc) - m.A + 14) / 14);
+      if (a <= 0.02) return;
+      g.globalAlpha = a;
+      if (m.art === "fetzen") { zeichneFetzen(m, o); g.globalAlpha = 1; return; }
       g.save();
       g.translate(bildX(o.x), bildY(o.y));
       g.scale(s * o.dir, -s);
       zeichneTier(m, bewegerForm(m, o));
       g.restore();
+      g.globalAlpha = 1;
     });
   }
 
@@ -3994,7 +2160,7 @@
       c.height = Math.ceil(30 * s);
       const k = c.getContext("2d");
       k.setTransform(s, 0, 0, -s, 20 * s, 15 * s);
-      maleTeil(k, { art: "wolke", prims: m.puffs.map((p) => kreis(p[0], p[1], p[2], "wolke")) });
+      maleWolke(k, m.puffs.map((p) => kreis(p[0], p[1], p[2], "wolke")));
       b = c;
       ebenen.fetzen.set(m, b);
     }
@@ -4002,212 +2168,6 @@
     g.drawImage(b, Math.round((bildX(o.x) - 20 * view.s) * view.dpr), Math.round((bildY(o.y) - 15 * view.s) * view.dpr));
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
   }
-
-  // Der Aufwind: eine Säule warmer, flimmernder Luft – ein Lichtband,
-  // Hitzelinien, die aufwärts wabern, und Funken, die steigen.
-  function zeichneAufwinde() {
-    const s = view.s;
-    const unten = state.camY - 40;
-    const ganzOben = state.camY + view.cssH / s + 40;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    state.aufwinde.forEach((a) => {
-      if (a.y1 + 30 < unten || a.y0 - 30 > ganzOben) return;
-      const x0 = bildX(a.x - a.b - 4);
-      const x1 = bildX(a.x + a.b + 4);
-      const y0 = bildY(a.y1 + 30);
-      const y1 = bildY(a.y0 - 30);
-      const v = g.createLinearGradient(x0, 0, x1, 0);
-      v.addColorStop(0, "rgba(255, 170, 90, 0)");
-      v.addColorStop(0.25, "rgba(255, 180, 100, 0.2)");
-      v.addColorStop(0.5, "rgba(255, 214, 150, 0.3)");
-      v.addColorStop(0.75, "rgba(255, 180, 100, 0.2)");
-      v.addColorStop(1, "rgba(255, 170, 90, 0)");
-      g.fillStyle = v;
-      g.fillRect(x0, y0, x1 - x0, y1 - y0);
-      // Die Ränder der Säule: zwei warme Lichtsäume.
-      g.fillStyle = "rgba(255, 220, 160, 0.4)";
-      [a.x - a.b, a.x + a.b].forEach((x) => g.fillRect(bildX(x) - 1, bildY(a.y1 + 10), 2, bildY(a.y0 - 10) - bildY(a.y1 + 10)));
-      if (ruhig()) return;
-      // Hitzelinien: senkrecht, wabernd, sie ziehen nach oben.
-      g.lineWidth = Math.max(1.2, s * 0.5);
-      for (let i = 0; i < 5; i += 1) {
-        const lx = a.x + (i - 2) * (a.b * 0.42);
-        g.strokeStyle = `rgba(255, 246, 220, ${0.4 + 0.12 * (i % 2)})`;
-        g.beginPath();
-        const ya = Math.max(a.y0 - 20, unten);
-        const yb = Math.min(a.y1 + 20, ganzOben);
-        for (let y = ya; y <= yb; y += 4) {
-          const x = lx + Math.sin(y * 0.11 - state.zeit * 7 + i * 1.7) * 1.8;
-          if (y === ya) g.moveTo(bildX(x), bildY(y)); else g.lineTo(bildX(x), bildY(y));
-        }
-        g.stroke();
-      }
-      for (let i = 0; i < 60; i += 1) {
-        const f = (state.zeit * (0.35 + hash01(i) * 0.3) + hash01(i * 3.7)) % 1;
-        const y = a.y0 - 20 + f * (a.y1 - a.y0 + 40);
-        if (y < unten || y > ganzOben) continue;
-        const x = a.x + (hash01(i * 5.1) - 0.5) * a.b * 1.7 + Math.sin(state.zeit * 3 + i) * 2;
-        schein("gold", bildX(x), bildY(y), 3.6 * s, 0.95 * Math.sin(f * Math.PI));
-        g.fillStyle = `rgba(255, 250, 220, ${0.9 * Math.sin(f * Math.PI)})`;
-        g.fillRect(bildX(x) - 1, bildY(y) - 1, 2, 2);
-      }
-    });
-  }
-
-  // Die Böe: Windstreifen und Blätter, die quer durchs Band jagen.
-  function zeichneBoeen() {
-    const s = view.s;
-    const unten = state.camY - 20;
-    const ganzOben = state.camY + view.cssH / s + 20;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    state.boeen.forEach((b) => {
-      if (b.y1 + 40 < unten || b.y0 - 40 > ganzOben || ruhig()) return;
-      const breit = view.cssW / s + 80;
-      const sg = Math.sign(b.w);
-      g.lineCap = "round";
-      for (let i = 0; i < 36; i += 1) {
-        const y = b.y0 - 20 + hash01(i * 2.3) * (b.y1 - b.y0 + 40);
-        if (y < unten || y > ganzOben) continue;
-        const l = 22 + hash01(i * 7.1) * 30;
-        const f = (state.zeit * (Math.abs(b.w) / 55) * (0.8 + hash01(i) * 0.5) + hash01(i * 1.7)) % 1;
-        const x = -breit / 2 + (sg > 0 ? f : 1 - f) * breit;
-        const kante = glatt((y - b.y0 + 30) / 60) * glatt((b.y1 + 30 - y) / 60);
-        g.strokeStyle = `rgba(255, 255, 255, ${0.5 * kante})`;
-        g.lineWidth = Math.max(1.2, s * 0.45);
-        g.beginPath();
-        g.moveTo(bildX(x), bildY(y));
-        g.quadraticCurveTo(bildX(x - sg * l * 0.5), bildY(y + 1.5 + Math.sin(i) * 1.5), bildX(x - sg * l), bildY(y + Math.sin(i * 3) * 2.5));
-        g.stroke();
-      }
-      // Blätter und Blütenblätter, die der Wind mitreisst.
-      for (let i = 0; i < 16; i += 1) {
-        const y = b.y0 + hash01(i * 4.7) * (b.y1 - b.y0) + Math.sin(state.zeit * 3 + i) * 6;
-        if (y < unten || y > ganzOben) continue;
-        const f = (state.zeit * (Math.abs(b.w) / 70) * (0.7 + hash01(i * 2.9) * 0.6) + hash01(i * 5.3)) % 1;
-        const x = -breit / 2 + (sg > 0 ? f : 1 - f) * breit;
-        g.save();
-        g.translate(bildX(x), bildY(y));
-        g.rotate(state.zeit * 6 * sg + i);
-        g.scale(1, 0.35 + Math.abs(Math.sin(state.zeit * 5 + i)) * 0.6);
-        g.fillStyle = ["rgba(240, 120, 150, 0.9)", "rgba(150, 190, 80, 0.9)", "rgba(230, 180, 70, 0.9)"][i % 3];
-        g.beginPath();
-        g.ellipse(0, 0, s * 1.8, s * 0.9, 0, 0, TAU);
-        g.fill();
-        g.restore();
-      }
-    });
-  }
-
-  // Pollen, Samen, Blätter: Sie zeigen den Wind.
-  function pollenNeu() {
-    state.pollen = Array.from({ length: 44 }, (_, i) => ({ x: (hash01(i * 3.1) - 0.5) * 300, y: hash01(i * 7.3) * 300 - 60, p: hash01(i * 1.9) * TAU, art: i % 4 }));
-  }
-
-  function pollenTakt(dt) {
-    const s = view.s;
-    const breit = view.cssW / s / 2 + 12;
-    const unten = state.camY - 10;
-    const hoch = view.cssH / s + 20;
-    state.pollen.forEach((p) => {
-      p.x += (windBei(p.y, state.t) * 0.95 + Math.sin(state.zeit * 0.9 + p.p) * 4) * dt;
-      p.y += (3 + Math.sin(state.zeit * 0.7 + p.p * 2) * 4) * dt;
-      if (p.y < unten) p.y += hoch;
-      if (p.y > unten + hoch) p.y -= hoch;
-      if (p.x < -breit) p.x += 2 * breit;
-      if (p.x > breit) p.x -= 2 * breit;
-    });
-  }
-
-  function zeichnePollen() {
-    const s = view.s;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    const w = weltBei(state.camY + view.cssH / s / 2);
-    state.pollen.forEach((p, i) => {
-      const x = bildX(p.x);
-      const y = bildY(p.y);
-      if (p.art === 0 && w <= 1) {
-        // Ein Löwenzahnsamen (einmal gemalt).
-        const b = ebenen.samen;
-        g.drawImage(b, Math.round((x - b.width / 2 / view.dpr) * view.dpr) / view.dpr, Math.round((y - b.height * 0.55 / view.dpr) * view.dpr) / view.dpr, b.width / view.dpr, b.height / view.dpr);
-      } else if (p.art === 1 && w === 1) {
-        // Ein Blatt, das sich dreht.
-        g.save();
-        g.translate(x, y);
-        g.rotate(state.zeit * 2 + p.p);
-        g.scale(1, Math.abs(Math.sin(state.zeit * 1.7 + p.p)) + 0.2);
-        g.fillStyle = i % 3 ? "rgba(190, 170, 60, 0.85)" : "rgba(120, 150, 60, 0.85)";
-        g.beginPath();
-        g.ellipse(0, 0, s * 1.6, s * 0.8, 0, 0, TAU);
-        g.fill();
-        g.restore();
-      } else {
-        schein(w >= 3 ? "kalt" : "warm", x, y, s * 1.2, 0.7);
-      }
-    });
-  }
-
-  // Glühwürmchen im Garten.
-  function zeichneGluehwuermchen() {
-    if (state.camY > 700 || ruhig()) return;
-    const s = view.s;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    for (let i = 0; i < 14; i += 1) {
-      const x = (hash01(i * 4.3) - 0.5) * 110 + Math.sin(state.zeit * 0.5 + i) * 10;
-      const y = -100 + hash01(i * 2.7) * 520 + Math.sin(state.zeit * 0.7 + i * 2) * 8;
-      const an = 0.5 + 0.5 * Math.sin(state.zeit * 2.4 + i * 1.3);
-      schein("gruen", bildX(x), bildY(y), s * 3.2, an * 0.8);
-    }
-  }
-
-  function zeichneNebel() {
-    const y = nebelY(state.t) + NEBEL_KANTE;
-    const top = bildY(y);
-    if (top > view.cssH) return;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    const py = Math.round(top * view.dpr);
-    g.drawImage(ebenen.nebel, 0, py);
-    if (py + ebenen.nebel.height < canvas.height) {
-      g.fillStyle = "rgba(206, 196, 228, 0.97)";
-      g.fillRect(0, py + ebenen.nebel.height, canvas.width, canvas.height - py - ebenen.nebel.height);
-    }
-    // Schwaden, die über der Grenze wallen (klein, damit sie wenig kosten).
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    if (ruhig()) return;
-    const s = view.s;
-    const yg = bildY(nebelY(state.t));
-    if (yg > view.cssH + 10 * s) return;
-    for (let i = 0; i < 9; i += 1) {
-      const x = ((hash01(i * 3.1) + state.zeit * 0.025 * (i % 2 ? 1 : -1) + 1) % 1) * view.cssW;
-      schein("nebel", x, yg + Math.sin(state.zeit + i) * 3 * s, s * (6 + 3 * hash01(i)), 0.55);
-    }
-  }
-
-  // Die Höhenmarken am rechten Rand, alle fünf Meter.
-  function zeichneMarken() {
-    const s = view.s;
-    g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    const von = Math.ceil(state.camY / 500) * 500;
-    const bis = state.camY + view.cssH / s;
-    g.font = "700 11px system-ui, sans-serif";
-    g.textAlign = "right";
-    g.textBaseline = "bottom";
-    for (let y = Math.max(500, von); y < bis; y += 500) {
-      const sy = bildY(y);
-      if (sy < view.frei + 10) continue;
-      const x1 = bildX(RAND) - 3;
-      g.strokeStyle = "rgba(255, 255, 255, 0.28)";
-      g.lineWidth = 1;
-      g.setLineDash([3, 5]);
-      g.beginPath();
-      g.moveTo(x1 - 26, sy);
-      g.lineTo(x1, sy);
-      g.stroke();
-      g.setLineDash([]);
-      g.fillStyle = "rgba(255, 255, 255, 0.6)";
-      g.fillText(`${y / METER} m`, x1, sy - 2);
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // Zeichnen: die Blase, ihre Luftstösse, ihr Platzen
   // ---------------------------------------------------------------------------
@@ -4368,13 +2328,14 @@
       g.globalAlpha = 1;
     });
   }
-
-  // Die Gegner als Blasen aus Licht (geist.js).
+  // Die Gegner als Blasen aus Licht (geist.js); daneben, wie weit sie auf
+  // der Bahn vorn oder hinten sind.
   function zeichneGeister() {
     if (!gegner || state.phase === "bereit") return;
     const orte = window.LernappGeist?.orte?.(gegner) || [];
     if (!orte.length) return;
     const namen = [];
+    const sb = state.blase.i * DS;
     orte.forEach((o) => {
       if (o.ziel) return;
       const x = o.a / 4;
@@ -4382,7 +2343,8 @@
       const sx = bildX(x);
       const sy = bildY(y);
       if (sx > -40 && sx < view.cssW + 40 && sy > -40 && sy < view.cssH + 40) blaseMalen(sx, sy, 1, 0.5 * o.blass, o.farbe);
-      const dy = y - state.blase.y;
+      const sg = sVon(x, y);
+      const dy = sg === null ? 0 : sg - sb;
       namen.push({ ...o, sx, sy: sy - R * view.s - 6, weit: `${dy > 0 ? "+" : ""}${Math.round(dy / METER)} m` });
     });
     window.LernappGeist.namen(g, namen, { breit: view.cssW, hoch: view.cssH });
@@ -4399,7 +2361,7 @@
       const gross = t.gross;
       g.font = `900 ${gross}px system-ui, sans-serif`;
       const x = view.cssW / 2;
-      const y = view.frei + (view.blaseY - view.frei) * 0.42 - (1 - k) * 10;
+      const y = view.frei + (view.cssH - view.frei) * 0.22 - (1 - k) * 10;
       g.globalAlpha = Math.min(1, k * 2.4) * Math.min(1, (t.max - t.leben) * 5);
       g.lineWidth = Math.max(4, gross * 0.22);
       g.strokeStyle = "rgba(40, 20, 50, 0.7)";
@@ -4448,19 +2410,15 @@
     }
     g.globalAlpha = 1;
   }
-
   function zeichnen() {
     if (!g || !ebenen) return;
     zeichneWelt();
-    zeichneGluehwuermchen();
-    zeichneRaender();
     zeichneBoden();
-    zeichneAufwinde();
-    zeichneRauch();
-    zeichneTeile();
-    zeichneBeweger();
-    zeichneBoeen();
+    zeichneNebel();
+    zeichneWinde();
+    zeichneBahn();
     zeichneMarken();
+    zeichneBeweger();
     zeichneGeister();
     if (state.intro || state.blase.y < 40) {
       g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
@@ -4469,8 +2427,6 @@
     zeichneStoesse();
     zeichneBlase();
     zeichneTeilchen();
-    zeichnePollen();
-    zeichneNebel();
     zeichneTacho();
     g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     zeichneSchriften();
@@ -4482,11 +2438,11 @@
   // ---------------------------------------------------------------------------
   /*
    * Unten links ein kleines Messinstrument aus Messing: das Zifferblatt
-   * zeigt, wie schnell die Blase gerade steigt (0 bis TACHO_MAX km/h, die
-   * Nadel gedämpft), eine fliederfarbene Marke das Ø, das die Blase von
-   * selbst hätte (darunter bleibt der Faktor bei ×1), eine goldene das
-   * eigene Ø. Liegt die goldene rechts der fliederfarbenen, zählt jeder
-   * Meter mehr. Darunter ein Schild mit dem Faktor, dem Ø und
+   * zeigt, wie schnell die Blase gerade die Bahn entlang fliegt (0 bis
+   * TACHO_MAX km/h, die Nadel gedämpft), eine fliederfarbene Marke das Ø
+   * des Zeitplans (so schnell kriecht der Nebel; darunter bleibt der Faktor
+   * bei ×1), eine goldene das eigene Ø. Liegt die goldene rechts der
+   * fliederfarbenen, zählt jeder Meter mehr. Darunter ein Schild mit dem Faktor, dem Ø und
    * den Punkten. Das Gehäuse, die Skala und das Schild sind vorgemalt; je
    * Bild kommen nur Nadel, Marken und Zahlen dazu.
    */
@@ -4603,11 +2559,11 @@
     const cy = y0 + m.cy;
     const t = Math.max(0.1, state.t);
     const laeuft = state.phase === "spiel" || state.phase === "zuschauen" || state.phase === "ende";
-    const schnitt = laeuft ? (state.hoechste / t) * KMH : 0;
-    const vonSelbst = laeuft ? (hTrag(Math.max(1, t)) / Math.max(1, t)) * KMH : 0;
-    // Die Marken am Rand: das Ø, das sie von selbst hätte (flieder), und
-    // das eigene (gold).
-    [[vonSelbst, "rgb(150, 110, 200)"], [schnitt, "rgb(214, 150, 40)"]].forEach(([v, farbe]) => {
+    const schnitt = laeuft ? (state.weiteste / t) * KMH : 0;
+    const plan = laeuft ? (sRef(Math.max(1, t)) / Math.max(1, t)) * KMH : 0;
+    // Die Marken am Rand: das Ø des Zeitplans (flieder) und das eigene
+    // (gold).
+    [[plan, "rgb(150, 110, 200)"], [schnitt, "rgb(214, 150, 40)"]].forEach(([v, farbe]) => {
       if (!laeuft) return;
       const w = tachoWinkel(v);
       const ax = cx + Math.cos(w) * r * 0.99;
@@ -4641,7 +2597,7 @@
     // Die Zahlen: das Tempo jetzt im Fenster unten, auf dem Schild Faktor,
     // Ø und Punkte – je als kleines Bild, neu gemalt nur, wenn sich ein
     // Text ändert (Schrift setzen ist teuer, und sie ändert sich selten).
-    const f = laeuft ? faktorBei(state.hoechste, t) : 1;
+    const f = laeuft ? faktorBei(state.weiteste, t) : 1;
     const zahl = zahlText(state.tacho);
     if (ebenen.tachoZahlText !== zahl) {
       ebenen.tachoZahlText = zahl;
@@ -4704,7 +2660,6 @@
     k.fill();
     return c;
   }
-
   // ---------------------------------------------------------------------------
   // Der Luftstoss
   // ---------------------------------------------------------------------------
@@ -4780,38 +2735,40 @@
     }
     stepTimer = window.setTimeout(finish, ruhig() ? 900 : STURZ_MS);
   }
-
-  const ARTEN = ["rand", "nebel", "finger", "tisch", "rasen", "rose", "nessel", "schlauch", "tropfen", "ast", "tanne", "netz", "wespe", "balkon", "dach", "antenne", "schwalbe", "wolke", "segler", "fetzen"];
+  const ARTEN = ["rand", "nebel", "finger", "tisch", "schwalbe", "segler", "fetzen"];
 
   // ---------------------------------------------------------------------------
   // Die Physik
   // ---------------------------------------------------------------------------
+  // Sie gleicht sich der Luft an (Auftrieb, Rückenwind, Böe), fliegt, und
+  // dann wird nachgesehen: der weiteste Punkt auf der Bahn und die Punkte,
+  // der Rand, der Tisch, was sich bewegt, der Nebel.
   function physik(dt) {
     const b = state.blase;
     const n = Math.max(1, Math.ceil(dt / TAKT - 1e-9));
     const h = dt / n;
     for (let i = 0; i < n; i += 1) {
       if (state.schritt === "geplatzt") return;
-      const k = aufwindBei(b.x, b.y);
-      const w = windBei(b.y, state.t) * (1 - 0.85 * k);
-      const ziel = vAuf(state.t) * (1 + (AUF - 1) * k);
-      b.vx += (w - b.vx) * (h / TAU_X);
-      b.vy += (ziel - b.vy) * (h / TAU_Y);
+      const l = stroemung(b.i);
+      b.vx += (l.x - b.vx) * (h / TAU_X);
+      b.vy += (l.y - b.vy) * (h / TAU_Y);
       b.x += b.vx * h;
       b.y += b.vy * h;
       state.t += h;
       b.wt += h;
+      const q = naechster(b.x, b.y, b.i);
+      b.i = q.i;
       // Die Punkte zuerst: Auch der Schritt, in dem sie zerplatzt, zählt –
-      // so passen sie genau zu Höhe und Zeit auf der Tafel.
-      if (b.y > state.hoechste) state.hoechste = b.y;
-      const punkte = punkteBei(state.hoechste, state.t);
+      // so passen sie genau zu Strecke und Zeit auf der Tafel.
+      if (q.s > state.weiteste) state.weiteste = q.s;
+      const punkte = punkteBei(state.weiteste, state.t);
       if (punkte !== state.punkte) {
         state.punkte = punkte;
         shell.setCount(punkte);
       }
-      const o = trifft(b.x, b.y, state.t);
+      const o = trifft(b.x, b.y, state.t, RH, q);
       if (o) { platzen(o); return; }
-      if (b.y - RH < nebelY(state.t)) { platzen({ art: "nebel" }); return; }
+      if (q.s < nebelS(state.t)) { platzen({ art: "nebel" }); return; }
     }
   }
 
@@ -4820,9 +2777,9 @@
    * der er geschah (jetzt, wie performance.now). Der Ort zählt, wie er im
    * letzten Bild war: Dorthin hat der Finger gezielt.
    */
-  function tippen(jetzt, sx = view.cssW / 2, sy = view.blaseY + 30 * view.s) {
-    const x = (sx - view.cssW / 2) / view.s;
-    const y = view.camBild + (view.cssH - sy) / view.s;
+  function tippen(jetzt, sx = bildX(state.blase.x), sy = bildY(state.blase.y) + 30 * view.s) {
+    const x = view.camBild.x + (sx - view.mx) / view.s;
+    const y = view.camBild.y - (sy - view.my) / view.s;
     return tippeWelt(x, y, jetzt);
   }
 
@@ -4846,36 +2803,55 @@
   }
 
   /*
-   * Der Autopilot: wohin er tippen würde, um der Gasse zu folgen (für die
-   * Prüfung und die Vorführung). Er regelt das Tempo: quer so schnell, wie
-   * die Gasse dort schwenkt, dazu was ihm zur Mitte fehlt (in 0,3 s
-   * aufgeholt); hoch nur, wenn er dem Zeitplan um mehr als ein Drittel der
-   * Luft voraus oder hinterher ist. Ein Stoss ändert das Tempo sofort – er
-   * tippt so nah, dass es genau der fehlende Unterschied ist.
+   * Der Autopilot: wohin er tippen würde, um die Bahn entlang zu fliegen
+   * (für die Prüfung und die Vorführung). Er schaut, wo die Blase in «vor»
+   * Sekunden ist (wenn sein Tipp ankommt), und will dann in der Richtung,
+   * die die Bahn bis zum nächsten Tipp im Mittel hat, so schnell sein wie der
+   * Zeitplan (und holt auf, was ihm fehlt) – der Raser so schnell wie
+   * «raser», in Kurven nur so schnell, wie er um sie herum kommt. Quer will
+   * er zur Mitte (in «zeit» Sekunden). Bis zum nächsten Tipp zieht die Luft
+   * das Tempo zu sich: So viel mehr muss der Stoss geben. Er tippt so nah,
+   * dass es genau der fehlende Unterschied ist.
    */
-  function pilot({ abstand = 0.1, vor = 0.1, zeit = 0.3, maxJ = J0 * 0.97, raser = 0 } = {}) {
+  const A_KURVE = 260;             // so stark kann er in einer Kurve umlenken (cm/s²)
+  function pilot({ abstand = 0.1, vor = 0.02, zeit = 0.3, maxJ = J0 * 0.97, raser = 0, kurve = A_KURVE } = {}) {
     const b = state.blase;
     if (state.phase !== "spiel" || state.schritt !== "flug") return null;
     if (state.t < state.pilotBis) return null;
-    const k = aufwindBei(b.x, b.y);
-    const w = windBei(b.y, state.t) * (1 - 0.85 * k);
-    const yv = b.y + b.vy * vor;
-    const xv = b.x + b.vx * vor;
-    const steig = (wegX(yv + 2) - wegX(yv - 2)) / 4;
-    // Bis zum nächsten Tipp zieht der Wind das Tempo zu sich: So viel mehr
-    // muss der Stoss geben, damit es im Mittel stimmt.
+    const B = state.bahn;
+    const px = b.x + b.vx * vor;
+    const py = b.y + b.vy * vor;
+    const q = naechster(px, py, b.i);
+    const ip = q.i;
+    const sp = q.s;
+    // Wie schnell er die Bahn entlang will.
+    let vSoll;
+    if (raser > 0) {
+      let kMax = 0;
+      const bis = Math.min(B.x.length - 1, ip + Math.round((raser * 0.7) / DS));
+      for (let i = ip; i <= bis; i += 2) kMax = Math.max(kMax, Math.abs(B.k[i]));
+      vSoll = kMax > 0 ? Math.min(raser, Math.sqrt(kurve / kMax)) : raser;
+    } else {
+      vSoll = vRef(state.t + vor) + (sRef(state.t + vor) - sp) / (zeit + 0.3);
+    }
+    // Der Raser passt ab, was die Bahn vor ihm kreuzt: das schnellste Tempo,
+    // bei dem es weg ist, wenn er kommt.
+    if (raser > 0) vSoll = abpassen(sp, vSoll);
+    vSoll = clamp(vSoll, 12, 260);
+    // Die Richtung: die der Bahn in der Mitte bis zum nächsten Tipp.
+    const iv = Math.min(B.x.length - 1, ip + Math.round((vSoll * abstand * 0.5) / DS));
+    const tx = B.tx[iv];
+    const ty = B.ty[iv];
+    // Quer zur Mitte.
+    const nx = -B.ty[ip];
+    const ny = B.tx[ip];
+    const quer = (px - B.x[ip]) * nx + (py - B.y[ip]) * ny;
+    const vx = tx * vSoll - (nx * quer) / zeit;
+    const vy = ty * vSoll - (ny * quer) / zeit;
+    const l = stroemung(b.i);
     const mittel = (TAU_X / abstand) * (1 - Math.exp(-abstand / TAU_X));
-    const vxSoll = steig * b.vy + (wegX(yv) - xv) / zeit;
-    const dvx = w + (vxSoll - w) / mittel - b.vx;
-    const vRef = (yRef(state.t + vor + 0.05) - yRef(state.t + vor - 0.05)) / 0.1;
-    const ey = yRef(state.t + vor) - yv;
-    const tFehler = -ey / Math.max(20, vRef);
-    // Der Raser will nicht dem Zeitplan folgen, sondern so schnell steigen:
-    // raser cm/s – dafür bläst er immer wieder von unten.
-    const vz = vAuf(state.t) * (1 + (AUF - 1) * k);
-    const dvyRaser = vz + (raser - vz) / mittel - b.vy;
-    // raser < 0: nur quer steuern, die Höhe lassen, wie sie ist.
-    const dvy = raser > 0 ? (Math.abs(raser - b.vy) > 14 ? dvyRaser : 0) : raser < 0 ? 0 : Math.abs(tFehler) > luftAn(b.y) * 0.3 ? vRef + ey / (zeit + 0.1) - b.vy : 0;
+    const dvx = l.x + (vx - l.x) / mittel - b.vx;
+    const dvy = l.y + (vy - l.y) / mittel - b.vy;
     const betrag = Math.hypot(dvx, dvy);
     if (betrag < 4) return null;
     const d = abstandFuer(Math.min(betrag, maxJ));
@@ -4883,6 +2859,27 @@
     const dx = -(dvx / betrag) * d;
     const dy = -(dvy / betrag) * d;
     return { x: b.x + dx, y: b.y + dy, dx, dy };
+  }
+
+  function abpassen(sp, vSoll) {
+    const B = state.bahn;
+    const vor = state.beweger.filter((m) => m.s1 > sp && m.s0 < sp + 260);
+    if (!vor.length) return vSoll;
+    for (const f of [1, 0.8, 0.62, 0.45]) {
+      const v = vSoll * f;
+      const frei = vor.every((m) => m.punkte.every((i) => {
+        const ds = i * DS - sp;
+        if (ds < -20) return true;
+        const t = state.t + Math.max(0, ds) / v;
+        const w = B.w[i] - R;
+        for (let q = -1; q <= 1; q += 1) {
+          for (let o = -w; o <= w + 0.1; o += w / 2) if (bewegerTrifft(m, B.x[i] - B.ty[i] * o, B.y[i] + B.tx[i] * o, t + q * 0.15, RH + 1)) return false;
+        }
+        return true;
+      }));
+      if (frei) return v;
+    }
+    return vSoll * 0.45;
   }
 
   // ---------------------------------------------------------------------------
@@ -4899,9 +2896,9 @@
     klangAn();
   }
 
-  // Sie steht, wo die Aufzeichnung sie hat (a: quer in Vierteln, b: die Höhe
-  // in Halben, c: die Luftstösse und woher der letzte kam; am Schluss
-  // negativ, woran sie zerplatzt ist).
+  // Sie steht, wo die Aufzeichnung sie hat (a: x in Vierteln, b: y in
+  // Halben, c: die Luftstösse und woher der letzte kam; am Schluss negativ,
+  // woran sie zerplatzt ist).
   function zuschauenTakt(dt) {
     const st = zuschauer.stand();
     if (!st) return;
@@ -4910,10 +2907,13 @@
       state.t = Math.max(state.t, st.t / 1000);
       b.x = st.a / 4;
       b.y = st.b / 2;
-      if (b.y > state.hoechste) state.hoechste = b.y;
       b.vx = st.va / 4;
       b.vy = st.vb / 2;
       b.wt += dt;
+      planBis(Math.max(b.i * DS + 900, sRef(state.t + 8) + 400), 2);
+      const q = naechster(b.x, b.y, b.i);
+      b.i = q.i;
+      if (q.s > state.weiteste) state.weiteste = q.s;
       const c = Math.round(st.c || 0);
       let punkte = Math.max(0, Math.floor(st.punkte));
       if (c < 0) {
@@ -4953,31 +2953,29 @@
   // ---------------------------------------------------------------------------
   // Der Takt
   // ---------------------------------------------------------------------------
-  // Ein neuer Abschnitt: Ein besonderer wird vorher angesagt; eine neue Welt
-  // bekommt ihren Namen.
+  // Eine neue Figur: Eine besondere wird vorher angesagt; eine neue
+  // Stimmung bekommt ihren Namen.
   function abschnittPruefen() {
-    const y = state.blase.y;
-    const w = weltBei(y);
-    if (w !== state.welt) {
-      state.welt = w;
-      schrift(WELT_NAME[w], "#fff6e0", 26, 2.4);
+    const b = state.blase;
+    const st = stimmungBei(b.i * DS);
+    if (st !== state.stimmung) {
+      state.stimmung = st;
+      schrift(STIMMUNGEN[st].name, "#fff6e0", 26, 2.4);
       klang()?.ton?.("seifenblase.welt", { laut: 0.7 });
     }
-    const nr = abschnittBei(y);
-    if (nr === state.abschnitt) return;
-    state.abschnitt = nr;
-    const naechster = state.abschnitte[nr + 1];
-    if (naechster?.besonders === "aufwind") {
-      ansage("Aufwind voraus", "Warme Luft trägt dich durch die Enge", "#ffd79a", 2.4);
+    const f = figurBei(b.i);
+    if (!f || f.nr === state.figur) return;
+    state.figur = f.nr;
+    const naechste = state.figuren[f.nr + 1];
+    if (naechste?.besonders === "rueckenwind") {
+      ansage("Rückenwind voraus", "Er trägt dich die Bahn entlang – rasen!", "#ffd79a", 2.4);
       klang()?.ton?.("seifenblase.ansage", { laut: 0.7 });
-    } else if (naechster?.besonders === "boee") {
-      const b = state.boeen.find((q) => q.nr === naechster.nr);
-      ansage(b && b.w > 0 ? "Böe von links" : "Böe von rechts", "Tippe von der Windseite dagegen", "#cfe8ff", 2.4);
+    } else if (naechste?.besonders === "boee") {
+      ansage(naechste.wind?.w > 0 ? "Böe von links" : "Böe von rechts", "Tippe von der Windseite dagegen", "#cfe8ff", 2.4);
       klang()?.ton?.("seifenblase.ansage", { laut: 0.7 });
     }
-    const a = state.abschnitte[nr];
-    if (a?.besonders === "aufwind") klang()?.ton?.("seifenblase.aufwind", { laut: 0.6 });
-    if (a?.besonders === "boee") klang()?.ton?.("seifenblase.boee", { laut: 0.7 });
+    if (f.besonders === "rueckenwind") klang()?.ton?.("seifenblase.aufwind", { laut: 0.6 });
+    if (f.besonders === "boee") klang()?.ton?.("seifenblase.boee", { laut: 0.7 });
   }
 
   function takt(dt, strecke = dt) {
@@ -5021,22 +3019,31 @@
       state.schriften[i].leben -= dt;
       if (state.schriften[i].leben <= 0) state.schriften.splice(i, 1);
     }
-    pollenTakt(dt);
-    // Die Nadel des Tachos folgt dem Steigen, gedämpft.
-    const kmh = state.schritt === "geplatzt" || state.phase === "bereit" ? 0 : Math.max(0, b.vy) * KMH;
+    // Die Nadel des Tachos folgt dem Tempo die Bahn entlang, gedämpft.
+    const kmh = state.schritt === "geplatzt" || state.phase === "bereit" ? 0 : Math.max(0, tempoEntlang()) * KMH;
     state.tacho += (kmh - state.tacho) * (1 - Math.exp(-dt * 6));
+    // Der Abend schreitet mit dem Weg voran (geglättet).
+    state.himmel += (b.i * DS - state.himmel) * (1 - Math.exp(-dt * 1.5));
 
-    // Die Kamera folgt der Blase; steigt sie schnell (Aufwind), rascher.
-    if (state.phase === "bereit") state.camY = camZiel();
-    else if (state.schritt !== "geplatzt") {
-      const ziel = camZiel();
-      const rate = ziel > state.camY ? 7 : 4;
-      state.camY += (ziel - state.camY) * (1 - Math.exp(-dt * rate));
-      // Nie so, dass sie oben unter die Knöpfe gerät.
+    // Die Kamera folgt dem Blickpunkt vor der Blase.
+    if (state.schritt !== "geplatzt") {
+      const ziel = blickZiel();
+      const k = state.phase === "bereit" ? 1 : 1 - Math.exp(-dt * 3.2);
+      state.cam.x += (ziel.x - state.cam.x) * k;
+      state.cam.y += (ziel.y - state.cam.y) * k;
+      // Nie so, dass sie unter die Knöpfe oben gerät oder aus dem Bild.
       const sy = bildY(b.y);
-      if (sy < view.frei + 30) state.camY += (view.frei + 30 - sy) / view.s;
+      if (sy < view.frei + 30) state.cam.y += (view.frei + 30 - sy) / view.s;
+      if (sy > view.cssH - 20) state.cam.y -= (sy - view.cssH + 20) / view.s;
+      const sx = bildX(b.x);
+      if (sx < 20) state.cam.x -= (20 - sx) / view.s;
+      if (sx > view.cssW - 20) state.cam.x += (sx - view.cssW + 20) / view.s;
+      // Und nie unter den Tacho.
+      const o = tachoOrt();
+      const rb = R * view.s + 10;
+      if (sx < o.x + o.b + rb && sy > o.y - rb) state.cam.y -= (sy - o.y + rb) / view.s;
     }
-    planBis(Math.max(state.camY + view.cssH / view.s + 500, yRef(state.t + 8)), 1);
+    planBis(Math.max(b.i * DS + 900, sRef(state.t + 8) + 400), 1);
 
     if (state.phase === "spiel" && state.schritt !== "geplatzt") {
       const ls = state.letzterStoss;
@@ -5055,7 +3062,7 @@
     voraus = 0;
     messen();
     takt(dt, strecke);
-    view.camBild = state.camY;
+    view.camBild = { x: state.cam.x, y: state.cam.y };
     zeichnen();
   }
 
@@ -5066,7 +3073,7 @@
     state.phase = "spiel";
     state.schritt = "flug";
     state.t = 0;
-    state.blase.vy = V0;
+    state.blase.vy = AUFTRIEB;
     if (state.intro) { state.intro = null; host.dataset.intro = "aus"; }
     shell.setPhase("play");
     gegner?.los();
@@ -5095,11 +3102,12 @@
     state.phase = "bereit";
     state.schritt = "start";
     state.punkte = 0;
-    state.hoechste = 0;
+    state.weiteste = 0;
     state.tacho = 0;
     state.t = 0;
     state.zeit = 0;
-    state.blase = { x: 0, y: 0, vx: 0, vy: V0, ww: 0, wa: 0, wt: 9 };
+    state.himmel = 0;
+    state.blase = { x: 0, y: 0, vx: 0, vy: AUFTRIEB, ww: 0, wa: 0, wt: 9, i: 0 };
     state.stoesse = 0;
     state.letzterStoss = null;
     state.geplatzt = null;
@@ -5107,11 +3115,9 @@
     state.stossBilder = [];
     state.schriften = [];
     state.ansage = null;
-    state.welt = 0;
     state.pilotBis = 0;
     weltNeu();
-    pollenNeu();
-    if (ebenen) { ebenen.teile = new Map(); ebenen.fetzen = new Map(); }
+    if (ebenen) ebenen.fetzen = new Map();
     voraus = 0;
     shell.setCount(0);
     gegner?.runde();
@@ -5122,13 +3128,15 @@
     host.dataset.intro = state.intro ? "an" : "aus";
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt sb-prompt", "Tippe neben die Blase – der Luftstoss treibt sie vom Finger weg. Nie berühren!");
+    const prompt = shell.el("p", "cm-prompt sb-prompt", "Tippe neben die Blase – der Luftstoss treibt sie vom Finger weg. Bleib in der Bahn!");
     shell.play.append(prompt, buildPlatz());
+    const ziel = blickZiel();
+    state.cam = { x: ziel.x, y: ziel.y };
+    view.camY0 = ziel.y;
+    view.camBild = { x: ziel.x, y: ziel.y };
     view.cssW = 0;
     view.cssH = 0;
     messen();
-    state.camY = camZiel();
-    view.camBild = state.camY;
 
     last = performance.now();
     frame = window.requestAnimationFrame(loop);
@@ -5149,38 +3157,16 @@
     };
     window.requestAnimationFrame(lauf);
   }
-
   const WARUM = {
-    rand: ["An der Hecke zerplatzt", "Am Baumstamm zerplatzt", "An der Hauswand zerplatzt", "Im Gewitterregen zerplatzt"],
+    rand: "Am Rand der Bahn zerplatzt",
     nebel: "Vom Nebel eingeholt",
     finger: "Mit dem Finger berührt",
     tisch: "Auf dem Gartentisch zerplatzt",
-    rasen: "Im Gras zerplatzt",
-    rose: "An einer Rose zerplatzt",
-    nessel: "An einer Brennnessel zerplatzt",
-    schlauch: "Am Gartenschlauch zerplatzt",
-    tropfen: "Ein Wassertropfen traf sie",
-    ast: "An einem Ast zerplatzt",
-    tanne: "In die Tannennadeln geraten",
-    netz: "Im Spinnennetz hängen geblieben",
-    wespe: "Eine Wespe flog hinein",
-    balkon: "Am Balkon zerplatzt",
-    dach: "An der Dachkante zerplatzt",
-    antenne: "An einer Antenne zerplatzt",
     schwalbe: "Eine Schwalbe flog hindurch",
-    wolke: "In einer Wolke zerplatzt",
     segler: "Ein Mauersegler flog hindurch",
     fetzen: "In einen Wolkenfetzen geraten",
   };
-  const WARUM_ROLLE = { dorn: "An einem Rosendorn zerplatzt", kamin: "Am Kamin zerplatzt", rinne: "An der Dachrinne zerplatzt" };
-
-  function warumText(was) {
-    if (!was) return "";
-    if (was.rolle && WARUM_ROLLE[was.rolle]) return WARUM_ROLLE[was.rolle];
-    const w = WARUM[was.art];
-    if (Array.isArray(w)) return w[was.welt ?? weltBei(state.geplatzt?.y || 0)] || w[0];
-    return w || "";
-  }
+  const warumText = (was) => (was ? WARUM[was.art] || "" : "");
 
   function finish() {
     clearStep();
@@ -5197,9 +3183,9 @@
       scores: [...(old.scores || []), punkte].sort((x, y) => y - x).slice(0, TOP_COUNT),
     }));
     const warum = warumText(state.geplatzt);
-    // Wie die Punkte zustande kamen: Höhe, Zeit, Ø-Tempo und Faktor.
+    // Wie die Punkte zustande kamen: Strecke, Zeit, Ø-Tempo und Faktor.
     const t = Math.max(0.1, state.t);
-    const rechnung = `${zahlText(state.hoechste / METER)} m in ${Math.round(t)} s · Ø ${zahlText((state.hoechste / t) * KMH)} km/h · ×${zahlText(faktorBei(state.hoechste, t), 2)}`;
+    const rechnung = `${zahlText(state.weiteste / METER)} m Bahn in ${Math.round(t)} s · Ø ${zahlText((state.weiteste / t) * KMH)} km/h · ×${zahlText(faktorBei(state.weiteste, t), 2)}`;
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
@@ -5224,10 +3210,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "soapBubble", fassung: "t2", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
+    host, spiel: "soapBubble", fassung: "t3", zufall, einheit: "Punkte", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "soapBubble", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "soapBubble", host, art: "tempo", fassung: "t3", alle: true, zufall }) || null;
   }
 
   startRun();
@@ -5260,12 +3246,12 @@
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);
   window.addEventListener("pagehide", () => { clearStep(); stopLoop(); klangAus(); });
-
   // Für die Prüfskripte und die Vorführung. tippeWelt(x, y) nimmt
   // Weltkoordinaten, tippen(jetzt, sx, sy) CSS-Pixel der Leinwand.
   window.LernappSeifenblase = {
-    METER, R, RH, RAND, J0, D0, DMAX, BERUEHRT, TAU_X, TAU_Y, FASSUNG, state, view,
-    takt, tippen, tippeWelt, losGehts, physik, planBis, kursText, trifft, wegX, yRef, tRef, nebelY, windBei, aufwindBei,
-    vAuf, margeBei, luftBei, stossBei, abstandFuer, pilot, faktorBei, punkteBei, hTrag, KMH, tachoOrt, bildX, bildY, abschnittBei, bewegerOrt, tropfenBei,
+    METER, R, RH, J0, D0, DMAX, BERUEHRT, TAU_X, TAU_Y, AUFTRIEB, DS, SICHT, HINDERNIS_AB, FASSUNG, STIMMUNGEN, state, view,
+    takt, tippen, tippeWelt, losGehts, physik, planBis, kursText, trifft, naechster, sVon, stroemung, figurBei, tempoEntlang,
+    vRef, sRef, tRef, nebelS, breiteBei, rhoBei, luftBei, stossBei, abstandFuer, pilot, faktorBei, punkteBei, KMH, tachoOrt, bildX, bildY,
+    bewegerOrt, bewegerTrifft, stimmungBei, bahnLaenge,
   };
 })();
