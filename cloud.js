@@ -224,6 +224,37 @@
   const listenDoc = () => starte()?.doc("config/miniGames") || null;
   const jetztAufDemServer = () => window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || null;
 
+  /*
+   * Der Lesezähler: was diese Seite aus Firestore gelesen hat, je Funktion –
+   * so, wie Firestore abrechnet: jedes gelieferte Dokument einmal, eine leere
+   * Abfrage als eines, ein Strom (onSnapshot) beim Start alle Treffer und
+   * danach jedes geänderte Dokument. Was die Regeln selbst nachlesen (get,
+   * exists in firestore.rules), steht nicht darin. Für die Prüfung
+   * (scripts/check-lesen.mjs) und für einen Blick in die Konsole:
+   * MiniCloud.lesevorgaenge().
+   */
+  const gelesen = { summe: 0, je: {} };
+  function zaehle(wo, anzahl) {
+    const n = Math.max(0, Math.round(Number(anzahl) || 0));
+    if (!n) return;
+    gelesen.summe += n;
+    gelesen.je[wo] = (gelesen.je[wo] || 0) + n;
+  }
+  // Was aus dem Speicher des SDK kommt (ohne Netz), hat niemand bezahlt.
+  const zaehleAbfrage = (wo, schnappschuss) => {
+    if (schnappschuss && !schnappschuss.metadata?.fromCache) zaehle(wo, Math.max(1, schnappschuss.size || 0));
+    return schnappschuss;
+  };
+  const zaehleDokument = (wo, stand) => {
+    if (stand && !stand.metadata?.fromCache) zaehle(wo, 1);
+    return stand;
+  };
+  const lesevorgaenge = () => ({ summe: gelesen.summe, je: { ...gelesen.je } });
+  function lesevorgaengeZuruecksetzen() {
+    gelesen.summe = 0;
+    gelesen.je = {};
+  }
+
   function lies(doc) {
     const daten = typeof doc?.data === "function" ? doc.data() : null;
     if (!daten) return null;
@@ -270,7 +301,7 @@
       .where("game", "==", id)
       .limit(MAX_JE_SPIEL)
       .get()
-      .then((schnappschuss) => (schnappschuss?.metadata?.fromCache ? null : schnappschuss))
+      .then((schnappschuss) => (schnappschuss?.metadata?.fromCache ? null : zaehleAbfrage("ergebnisse", schnappschuss)))
       .catch((fehler) => {
         console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, fehler);
         return null;
@@ -296,11 +327,32 @@
    * heisst nicht "keine", sondern "es wurde nie etwas ausgewählt". Was dann
    * gilt, entscheidet mini-games.js: alle.
    */
-  async function offeneSpiele() {
+  /*
+   * Das Dokument dazu, einmal je Seite gelesen: Die Startseite braucht es
+   * dreimal (offeneSpiele, tiers, offeneZweiSpieler), der Adminbereich auch –
+   * bis November 2026 hiess das drei Lesevorgänge für ein Dokument. Wer es
+   * schreibt (setze…), liest danach frisch. Schlägt das Lesen fehl, wirft
+   * es wie vorher, und das nächste Mal wird es noch einmal versucht.
+   */
+  let konfigStand = null;
+  function konfig() {
     const doc = listenDoc();
-    if (!doc) return null;
-    const stand = await doc.get();
-    if (!stand.exists) return null;
+    if (!doc) return Promise.resolve(null);
+    if (!konfigStand) {
+      konfigStand = doc.get().then((stand) => zaehleDokument("konfig", stand));
+      konfigStand.catch(() => { konfigStand = null; });
+    }
+    return konfigStand;
+  }
+
+  // Zum Schreiben: der Stand von jetzt, nicht der vom Laden der Seite.
+  async function liesKonfigFrisch(doc) {
+    return zaehleDokument("konfig", await doc.get());
+  }
+
+  async function offeneSpiele() {
+    const stand = await konfig();
+    if (!stand?.exists) return null;
     const liste = stand.data()?.spiele;
     if (!Array.isArray(liste)) return null;
     return liste.map((id) => String(id || "").trim()).filter(Boolean);
@@ -320,7 +372,8 @@
     // merge: Die Tiers im selben Dokument bleiben, wie sie sind – bis auf
     // die von Spielen, die es nicht mehr gibt (ohneAlteSpiele).
     const daten = { spiele: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
-    await doc.set(ohneAlteSpiele(await doc.get(), daten), { merge: true });
+    await doc.set(ohneAlteSpiele(await liesKonfigFrisch(doc), daten), { merge: true });
+    konfigStand = null;
     return liste;
   }
 
@@ -353,9 +406,8 @@
   // Die Tiers, die es gibt – wie in mini-games.js (TIERS) und den Regeln.
   const TIER_ZAHLEN = [1, 2, 3, 4, 5];
   async function tiers() {
-    const doc = listenDoc();
-    if (!doc) return null;
-    const stand = await doc.get();
+    const stand = await konfig();
+    if (!stand) return null;
     const roh = stand.exists ? stand.data()?.tiers : null;
     if (!roh || typeof roh !== "object") return null;
     const raus = {};
@@ -377,11 +429,12 @@
       if (id && TIER_ZAHLEN.includes(Number(tier))) sauber[id] = Number(tier);
     });
     const daten = { tiers: sauber, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
-    const stand = await doc.get();
+    const stand = await liesKonfigFrisch(doc);
     if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
       daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
     }
     await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
+    konfigStand = null;
     return sauber;
   }
 
@@ -391,9 +444,8 @@
   // denn die Regeln verlangen sie. Welche es gibt, sagt mini-games.js
   // (ZWEI_SPIELER).
   async function offeneZweiSpieler() {
-    const doc = listenDoc();
-    if (!doc) return null;
-    const stand = await doc.get();
+    const stand = await konfig();
+    if (!stand) return null;
     const liste = stand.exists ? stand.data()?.zweiSpieler : null;
     if (!Array.isArray(liste)) return [];
     return liste.map((id) => String(id || "").trim()).filter((id) => zweiSpielerIds().includes(id));
@@ -405,11 +457,12 @@
     const liste = [...new Set((Array.isArray(spiele) ? spiele : []).map((id) => String(id || "").trim()))]
       .filter((id) => zweiSpielerIds().includes(id));
     const daten = { zweiSpieler: liste, updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() };
-    const stand = await doc.get();
+    const stand = await liesKonfigFrisch(doc);
     if (!stand.exists || !Array.isArray(stand.data()?.spiele)) {
       daten.spiele = [...new Set((offen || []).map((id) => String(id || "").trim()).filter(Boolean))];
     }
     await doc.set(ohneAlteSpiele(stand, daten), { merge: true });
+    konfigStand = null;
     return liste;
   }
 
@@ -488,6 +541,7 @@
     const quelle = von === null ? woher() : (von === "turnier" || von === "live" ? von : "");
     const eintragen = (mitRunde) => db.runTransaction(async (lauf) => {
       const vorher = await lauf.get(doc);
+      zaehle("speichere", 1);
       const alt = vorher.exists ? lies(vorher) : null;
       // Ohne Netz gespielt: zur Zeit der Runde, nie in der Zukunft.
       const jetzt = spaeter && zeitMs > 0 ? Math.min(Date.now(), Math.round(Number(zeitMs))) : Date.now();
@@ -567,7 +621,7 @@
     const spielerId = String(spieler || "").trim();
     const ref = sammlung();
     if (!ref || !spielId || !spielerId) throw new Error("Firestore ist nicht bereit.");
-    const doc = await ref.doc(`${spielId}_${spielerId}`).get();
+    const doc = zaehleDokument("meinErgebnis", await ref.doc(`${spielId}_${spielerId}`).get());
     return doc.exists ? lies(doc) : null;
   }
 
@@ -582,7 +636,7 @@
     const wie = sauber(name);
     const ref = sammlung();
     if (!ref || !wie) return [];
-    const stand = await ref.where("name", "==", wie).limit(MAX_JE_NAMEN).get();
+    const stand = zaehleAbfrage("unterNamen", await ref.where("name", "==", wie).limit(MAX_JE_NAMEN).get());
     const liste = [];
     stand.forEach((doc) => {
       const eintrag = lies(doc);
@@ -600,7 +654,7 @@
     const spielerId = String(spieler || "").trim();
     const ref = sammlung();
     if (!ref || !spielerId) return [];
-    return sammle(await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get(), lies);
+    return sammle(zaehleAbfrage("vonKennung", await ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get()), lies);
   }
 
   /*
@@ -663,7 +717,7 @@
     const fragen = [ref.where("spieler", "==", spielerId).limit(MAX_JE_SPIELER).get()];
     if (vorher) fragen.push(ref.where("name", "==", vorher).limit(MAX_JE_NAMEN).get());
     const docs = new Map();
-    (await Promise.all(fragen)).forEach((stand) => stand.forEach((doc) => {
+    (await Promise.all(fragen)).forEach((stand) => zaehleAbfrage("umbenennen", stand).forEach((doc) => {
       const e = lies(doc);
       if (e && e.name !== wie) docs.set(doc.ref.path, doc.ref);
     }));
@@ -720,13 +774,168 @@
   }
 
   /*
+   * Die Läufe, die schon gelesen sind.
+   *
+   * Ein Lauf ist gross (bis 12 KB), und die Spielseite fragt bei jeder Runde
+   * nach Platz 1 und – in den Spielen mit «Alle» – nach bis zu zwanzig
+   * weiteren (geist.js, ladeStand). Bis November 2026 hiess das: bei jeder
+   * Runde dieselben Dokumente noch einmal. Dabei ändert sich ein Lauf nur
+   * mit seiner Zahl: Ersetzt wird er nur durch einen besseren (firestore.rules,
+   * miniGeister), und dann steht in der Liste eine andere Zahl.
+   *
+   * Deshalb sagt, wer fragt, welche Zahl er in der Liste sieht (punkte: je
+   * Kennung die Zahl). Steht dieselbe Zahl schon hier, gilt der Lauf von
+   * vorhin – und die Antwort «keiner» auch, solange die Seite steht. Läufe,
+   * die es gibt, bleiben ausserdem über die Seite hinaus auf dem Gerät
+   * (IndexedDB, laufSpeicher): Auch die nächste Spielseite liest sie nicht
+   * noch einmal. Ohne Zahl wird immer gelesen – so wie vorher.
+   */
+  const laeufeHier = new Map();          // Schlüssel → { punkte, daten | null }
+  const LAEUFE_DB = "arcade-laeufe";
+  const LAEUFE_MAX = 300;                // je bis 12 KB: höchstens ein paar MB
+  const laufSpeicher = (() => {
+    let offen = null;
+    const db = () => {
+      if (offen) return offen;
+      offen = new Promise((ja) => {
+        try {
+          if (!window.indexedDB) { ja(null); return; }
+          const anfrage = window.indexedDB.open(LAEUFE_DB, 1);
+          anfrage.onupgradeneeded = () => {
+            const ablage = anfrage.result.createObjectStore("laeufe", { keyPath: "k" });
+            ablage.createIndex("ms", "ms");
+          };
+          anfrage.onsuccess = () => ja(anfrage.result);
+          anfrage.onerror = () => ja(null);
+          anfrage.onblocked = () => ja(null);
+        } catch { ja(null); }
+      });
+      return offen;
+    };
+    const fertig = (anfrage) => new Promise((ja) => {
+      anfrage.onsuccess = () => ja(anfrage.result);
+      anfrage.onerror = () => ja(null);
+    });
+    return {
+      // Die gemerkten Läufe zu diesen Schlüsseln: Schlüssel → { punkte, daten }.
+      async hole(schluessel) {
+        const raus = new Map();
+        const d = await db();
+        if (!d || !schluessel.length) return raus;
+        try {
+          const ablage = d.transaction("laeufe", "readonly").objectStore("laeufe");
+          const funde = await Promise.all(schluessel.map((k) => fertig(ablage.get(k))));
+          funde.forEach((f) => { if (f?.k && f.daten) raus.set(f.k, f); });
+        } catch { /* dann eben lesen */ }
+        return raus;
+      },
+      async lege(eintraege) {
+        const d = await db();
+        if (!d || !eintraege.length) return;
+        try {
+          const lauf = d.transaction("laeufe", "readwrite");
+          const ablage = lauf.objectStore("laeufe");
+          const jetzt = Date.now();
+          eintraege.forEach(({ k, punkte, daten }) => ablage.put({ k, punkte, daten, ms: jetzt }));
+          // Die ältesten fallen weg, wenn es zu viele werden.
+          const zahl = await fertig(ablage.count());
+          if (zahl > LAEUFE_MAX) {
+            let weg = zahl - LAEUFE_MAX;
+            const zeiger = ablage.index("ms").openCursor();
+            zeiger.onsuccess = () => {
+              const c = zeiger.result;
+              if (!c || weg <= 0) return;
+              c.delete();
+              weg -= 1;
+              c.continue();
+            };
+          }
+        } catch { /* dann eben beim nächsten Mal lesen */ }
+      },
+    };
+  })();
+
+  // Ein Lauf, wie die Spiele ihn brauchen – oder null, wenn er fehlt oder zu
+  // einer anderen Fassung gehört.
+  function geistAus(daten, fassung) {
+    const bahn = String(daten?.bahn || "");
+    const gehoert = String(daten?.level || "");
+    if (!bahn) return null;
+    // Ein Geist aus einer anderen Fassung des Levels liefe durch Wände.
+    if (fassung && gehoert !== fassung) return null;
+    return {
+      spieler: String(daten.spieler || ""),
+      name: String(daten.name || "").trim().slice(0, NAME_MAX),
+      punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
+      level: gehoert,
+      bahn,
+    };
+  }
+
+  // Die rohen Felder eines Laufs, so wie sie gemerkt werden.
+  const laufFelder = (d) => ({
+    game: String(d.game || ""), spieler: String(d.spieler || ""), name: String(d.name || ""),
+    punkte: Number(d.punkte) || 0, level: String(d.level || ""), bahn: String(d.bahn || ""),
+  });
+
+  /*
+   * Läufe lesen – mit dem Gedächtnis von oben. pfad(id) gibt den Dokumentnamen
+   * zu einer Kennung, schluessel(id) den, unter dem er gemerkt wird. Gibt je
+   * Kennung die rohen Felder zurück (oder null, wo es keinen gibt).
+   */
+  async function laeufeLesen({ ids, pfad, schluessel, punkte, wo }) {
+    const erwartet = (id) => {
+      const p = punkte && typeof punkte === "object" ? Number(punkte[id]) : NaN;
+      return Number.isFinite(p) ? p : null;
+    };
+    const raus = new Map();
+    const fehlt = [];
+    ids.forEach((id) => {
+      const da = laeufeHier.get(schluessel(id));
+      if (da && erwartet(id) !== null && da.punkte === erwartet(id)) raus.set(id, da.daten);
+      else fehlt.push(id);
+    });
+    const mitZahl = fehlt.filter((id) => erwartet(id) !== null);
+    const gemerkt = await laufSpeicher.hole(mitZahl.map(schluessel));
+    const lesen = [];
+    fehlt.forEach((id) => {
+      const g = gemerkt.get(schluessel(id));
+      if (g && g.punkte === erwartet(id)) {
+        laeufeHier.set(schluessel(id), { punkte: g.punkte, daten: g.daten });
+        raus.set(id, g.daten);
+      } else {
+        lesen.push(id);
+      }
+    });
+    const neu = [];
+    await Promise.all(lesen.map((id) => pfad(id).get()
+      .then((stand) => {
+        zaehleDokument(wo, stand);
+        const daten = stand.exists && stand.data()?.bahn ? laufFelder(stand.data()) : null;
+        raus.set(id, daten);
+        if (erwartet(id) !== null) {
+          laeufeHier.set(schluessel(id), { punkte: erwartet(id), daten });
+          if (daten) neu.push({ k: schluessel(id), punkte: erwartet(id), daten });
+        }
+      })
+      .catch((fehler) => {
+        console.warn(`Der Lauf von ${id} konnte nicht gelesen werden`, fehler);
+      })));
+    if (neu.length) laufSpeicher.lege(neu);
+    return raus;
+  }
+
+  /*
    * Die Aufzeichnungen der genannten Spieler.
    *
    * Gefragt wird nach Dokumentnamen, einer je Spieler – das ist keine Abfrage
    * und braucht deshalb keinen Index. Wer nichts hinterlassen hat, fehlt
    * einfach; ein Spiel ohne Geister ist ein Spiel, und keine leere Seite.
+   *
+   *   punkte   je Kennung die Zahl, die in der Liste steht (siehe oben):
+   *            Mit ihr liest die Seite einen Lauf nur einmal.
    */
-  async function geister(game, spieler = [], level = "") {
+  async function geister(game, spieler = [], level = "", { punkte = null } = {}) {
     const spielId = String(game || "").trim();
     const fassung = String(level || "").trim();
     const ids = [...new Set((Array.isArray(spieler) ? spieler : [])
@@ -735,30 +944,14 @@
     const ref = geisterSammlung();
     if (!ref || !spielId || !ids.length) return [];
 
-    const stände = await Promise.all(ids.map((id) => ref.doc(`${spielId}_${id}`).get()
-      .catch((fehler) => {
-        console.warn(`Der Geist von ${id} konnte nicht gelesen werden`, fehler);
-        return null;
-      })));
-
-    const liste = [];
-    stände.forEach((doc) => {
-      if (!doc?.exists) return;
-      const daten = doc.data() || {};
-      const bahn = String(daten.bahn || "");
-      const gehoert = String(daten.level || "");
-      if (!bahn) return;
-      // Ein Geist aus einer anderen Fassung des Levels liefe durch Wände.
-      if (fassung && gehoert !== fassung) return;
-      liste.push({
-        spieler: String(daten.spieler || ""),
-        name: String(daten.name || "").trim().slice(0, NAME_MAX),
-        punkte: Math.max(0, Math.round(Number(daten.punkte) || 0)),
-        level: gehoert,
-        bahn,
-      });
+    const gefunden = await laeufeLesen({
+      ids,
+      pfad: (id) => ref.doc(`${spielId}_${id}`),
+      schluessel: (id) => `${spielId}_${id}`,
+      punkte,
+      wo: "geister",
     });
-    return liste;
+    return ids.map((id) => geistAus(gefunden.get(id), fassung)).filter(Boolean);
   }
 
   // ---------------------------------------------------------------------------
@@ -804,7 +997,7 @@
       .limit(RUNDEN_SEITE);
     const liste = [];
     for (;;) {
-      const seite = await frage.get();
+      const seite = zaehleAbfrage("runden", await frage.get());
       liste.push(...sammle(seite, liesRunde));
       if (seite.size < RUNDEN_SEITE || liste.length >= MAX_RUNDEN) return liste.slice(0, MAX_RUNDEN);
       frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
@@ -816,7 +1009,7 @@
   async function ersteRunde() {
     const ref = rundenSammlung();
     if (!ref) throw new Error("Firestore ist nicht bereit.");
-    const stand = await ref.orderBy("zeitMs").limit(1).get();
+    const stand = zaehleAbfrage("runden", await ref.orderBy("zeitMs").limit(1).get());
     let ms = 0;
     stand.forEach((doc) => { ms = liesRunde(doc)?.zeitMs || 0; });
     return ms;
@@ -837,7 +1030,7 @@
       let frage = ref.where("spieler", "==", wer).limit(RUNDEN_SEITE);
       const liste = [];
       for (;;) {
-        const seite = await frage.get();
+        const seite = zaehleAbfrage("runden", await frage.get());
         liste.push(...sammle(seite, liesRunde));
         if (seite.size < RUNDEN_SEITE || liste.length >= MAX_RUNDEN) return liste.slice(0, MAX_RUNDEN);
         frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
@@ -856,7 +1049,7 @@
     let frage = ref.where("spieler", "==", wer).limit(RUNDEN_SEITE);
     const docs = [];
     for (;;) {
-      const seite = await frage.get();
+      const seite = zaehleAbfrage("runden", await frage.get());
       seite.forEach((doc) => { if (welche.has(String(doc.data()?.game || ""))) docs.push(doc); });
       if (seite.size < RUNDEN_SEITE) return docs;
       frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
@@ -1016,7 +1209,7 @@
   async function turnierLive(id) {
     const ref = turnierLiveRef(id);
     if (!ref) return [];
-    return sammle(await ref.limit(50).get(), liesLiveErgebnis).sort((a, b) => a.erstelltMs - b.erstelltMs);
+    return sammle(zaehleAbfrage("turnierLive", await ref.limit(50).get()), liesLiveErgebnis).sort((a, b) => a.erstelltMs - b.erstelltMs);
   }
 
   // Nur der Admin, am Ende eines Multiplayers (firestore.rules, live).
@@ -1332,7 +1525,7 @@
     const kennung = String(id || "").trim();
     if (!kennung) return null;
     if (!ref) throw new Error("Firestore ist nicht bereit.");
-    const stand = await ref.doc(kennung).get();
+    const stand = zaehleDokument("turnier", await ref.doc(kennung).get());
     return stand.exists ? liesTurnier(stand) : null;
   }
 
@@ -1357,14 +1550,14 @@
   async function oeffentlicheTurniere() {
     const ref = turnierSammlung();
     if (!ref) return [];
-    return sammle(await ref.where("sichtbar", "==", "alle").limit(MAX_TURNIERE).get(), liesTurnier);
+    return sammle(zaehleAbfrage("turniere", await ref.where("sichtbar", "==", "alle").limit(MAX_TURNIERE).get()), liesTurnier);
   }
 
   // Alle, auch die nur mit Link. Das darf nur der Admin.
   async function alleTurniere() {
     const ref = turnierSammlung();
     if (!ref) throw new Error("Firestore ist nicht bereit.");
-    return sammle(await ref.limit(MAX_TURNIERE).get(), liesTurnier);
+    return sammle(zaehleAbfrage("turniere", await ref.limit(MAX_TURNIERE).get()), liesTurnier);
   }
 
   // Anlegen und ändern ist dasselbe: das ganze Dokument, nicht ein Stück
@@ -1430,7 +1623,7 @@
     if (!db || !ref || !eintraege || !geister || !abende) throw new Error("Firestore ist nicht bereit.");
     for (const unter of [eintraege, geister, abende]) {
       for (let runde = 0; runde < 50; runde += 1) {
-        const stapel = await unter.limit(400).get();
+        const stapel = zaehleAbfrage("loescheTurnier", await unter.limit(400).get());
         if (stapel.empty) break;
         const weg = db.batch();
         stapel.forEach((doc) => weg.delete(doc.ref));
@@ -1479,12 +1672,21 @@
     };
   }
 
-  async function turnierGeist(id, game, spieler) {
+  // punkte: die Zahl, die in der Liste des Turniers für ihn steht – mit ihr
+  // wird ein Lauf nur einmal gelesen (geister, laeufeLesen).
+  async function turnierGeist(id, game, spieler, { punkte = null } = {}) {
     const ref = turnierGeisterRef(id);
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     if (!ref || !spielId || !spielerId) return null;
-    return liesGeist(await ref.doc(`${spielId}_${spielerId}`).get());
+    const gefunden = await laeufeLesen({
+      ids: [spielerId],
+      pfad: (k) => ref.doc(`${spielId}_${k}`),
+      schluessel: (k) => `${String(id)}/${spielId}_${k}`,
+      punkte: punkte === null || punkte === undefined ? null : { [spielerId]: punkte },
+      wo: "turnierGeist",
+    });
+    return geistAus(gefunden.get(spielerId), "");
   }
 
   async function speichereTurnierGeist(id, { game, spieler, name, punkte, level, bahn }) {
@@ -1497,7 +1699,7 @@
     const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
     if (!ref || !spielId || !spielerId || !wie || !fassung || !strecke || strecke.length > BAHN_MAX) return null;
     const doc = ref.doc(`${spielId}_${spielerId}`);
-    const alt = liesGeist(await doc.get());
+    const alt = liesGeist(zaehleDokument("speichereTurnierGeist", await doc.get()));
     if (alt && alt.level === fassung && alt.punkte >= zahl) return null;
     const jetzt = Date.now();
     await doc.set({
@@ -1524,7 +1726,7 @@
     let frage = (spielId ? ref.where("game", "==", spielId) : ref).limit(TURNIER_SEITE);
     const liste = [];
     for (;;) {
-      const seite = await frage.get();
+      const seite = zaehleAbfrage("turnierErgebnisse", await frage.get());
       liste.push(...sammle(seite, liesTurnierEintrag));
       if (seite.size < TURNIER_SEITE) return liste;
       frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
@@ -1537,7 +1739,7 @@
     const spielId = String(game || "").trim();
     const spielerId = String(spieler || "").trim();
     if (!ref || !spielId || !spielerId) return null;
-    const stand = await ref.doc(`${spielId}_${spielerId}`).get();
+    const stand = zaehleDokument("meinTurnierEintrag", await ref.doc(`${spielId}_${spielerId}`).get());
     return stand.exists ? liesTurnierEintrag(stand) : null;
   }
 
@@ -1569,11 +1771,13 @@
     let listeDa = false;
     const aus = [
       ref.doc(kennung).onSnapshot((stand) => {
+        if (!stand.metadata?.fromCache) zaehle("turnierHoeren", 1);
         if (stand.metadata?.fromCache && !turnierDa) return;
         turnierDa = true;
         beiTurnier(stand.exists ? liesTurnier(stand) : null);
       }, beiFehler),
       eintraege.onSnapshot((stand) => {
+        if (!stand.metadata?.fromCache) zaehle("turnierHoeren", listeDa ? stand.docChanges().filter((c) => c.type !== "removed").length : Math.max(1, stand.size));
         if (stand.metadata?.fromCache && !listeDa) return;
         listeDa = true;
         beiEintraegen(sammle(stand, liesTurnierEintrag));
@@ -1618,6 +1822,7 @@
     const doc = ref.doc(`${spielId}_${spielerId}`);
     return db.runTransaction(async (lauf) => {
       const vorher = await lauf.get(doc);
+      zaehle("turnierVersuch", 1);
       const alt = vorher.exists ? liesTurnierEintrag(vorher) : null;
       const versuche = (alt?.versuche || 0) + 1;
       if (grenze > 0 && versuche > grenze) throw turnierFehler("Alle Versuche sind gespielt.", "turnier/keine-versuche");
@@ -1663,6 +1868,7 @@
     const doc = ref.doc(`${spielId}_${spielerId}`);
     return db.runTransaction(async (lauf) => {
       const vorher = await lauf.get(doc);
+      zaehle("turnierErgebnis", 1);
       const alt = vorher.exists ? liesTurnierEintrag(vorher) : null;
       if (!alt?.offen) throw turnierFehler("Zu dieser Runde gibt es keinen angemeldeten Versuch.", "turnier/kein-versuch");
       const summe = zaehlt === "summe";
@@ -1730,7 +1936,7 @@
     const von = String(kennung || "").trim();
     const ref = umzugSammlung();
     if (!ref || !SPIELER_ID.test(von)) return null;
-    const doc = await ref.doc(von).get();
+    const doc = zaehleDokument("umzug", await ref.doc(von).get());
     if (!doc.exists) return null;
     const d = doc.data() || {};
     const nach = String(d.nach || "");
@@ -1791,7 +1997,7 @@
   async function presets() {
     const ref = presetSammlung();
     if (!ref) throw new Error("Firestore ist nicht bereit.");
-    return sammle(await ref.limit(PRESETS_MAX).get(), liesPreset).sort((a, b) => b.gespeichertMs - a.gespeichertMs);
+    return sammle(zaehleAbfrage("presets", await ref.limit(PRESETS_MAX).get()), liesPreset).sort((a, b) => b.gespeichertMs - a.gespeichertMs);
   }
   async function speicherePreset({ name, turnier, gespeichertMs = Date.now() }) {
     const ref = presetSammlung();
@@ -1832,6 +2038,7 @@
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, offeneDuelle, multiplayer,
     presets, speicherePreset, loeschePreset, PRESETS_MAX, PRESET_NAME_MAX,
+    lesevorgaenge, lesevorgaengeZuruecksetzen,
     MAX_JE_SPIEL, MAX_JE_SPIELER, NAME_MAX, BAHN_MAX, MAX_RUNDEN,
     TURNIER_NAME_MAX, BESCHREIBUNG_MAX,
   };
