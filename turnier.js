@@ -617,7 +617,59 @@
       abende: Array.isArray(s.abende) ? s.abende : [],
       eintraegeDa: Boolean(s.eintraegeDa),
       ms: Number(s.ms) || 0,
+      stand: Number(s.stand) || 0,
+      vollMs: Number(s.vollMs) || 0,
+      tStand: Number(s.tStand) || 0,
     };
+  }
+
+  /*
+   * Nur nach Geändertem fragen (cloud.js, turnierHoeren mit seit,
+   * turnierGeaendert): Bis November 2026 las die Turnierseite bei jeder
+   * Rückkehr aus einem Spiel das ganze Turnier, und die Spielseite nach
+   * jeder Runde die ganze Liste ihres Spiels. Jetzt merkt sich das Gerät zur
+   * ganzen Liste, bis wohin sie stimmt:
+   *
+   *   stand    die jüngste Uhr des Servers darin (updatedAt) – gefragt wird
+   *            nach dem, was danach geschrieben wurde
+   *   vollMs   wann sie zuletzt ganz gelesen wurde
+   *   tStand   die Uhr des Turniers dabei (updatedAtMs). Ist das Turnier
+   *            danach neuer, hat der Admin es geändert oder Einträge
+   *            gelöscht (cloud.js, loescheTurnierEintraege) – ein gelöschter
+   *            Eintrag sagt sonst niemandem, dass er weg ist. Dann ganz.
+   *
+   * Und ganz, wenn die Liste älter ist als TURNIER_VOLL_MS: das
+   * Sicherheitsnetz.
+   */
+  const TURNIER_VOLL_MS = 6 * STUNDE;
+  const TURNIER_UEBERLAPPUNG_MS = 2 * MINUTE;
+  function nachGeaendertem(g, t = null) {
+    if (!g?.eintraegeDa || !(g.stand > 0) || !g.vollMs) return false;
+    const alter = Date.now() - g.vollMs;
+    if (alter < 0 || alter >= TURNIER_VOLL_MS) return false;
+    return (Number((t || g.t)?.updatedAtMs) || 0) <= g.tStand;
+  }
+  const juengste = (liste) => (liste || []).reduce((m, e) => Math.max(m, Number(e?.stempelMs) || 0), 0);
+
+  // Die ganze Liste, frisch vom Server – mit dem Stand, bis zu dem sie stimmt.
+  function merkeGanz(id, t, eintraege) {
+    merkeStand(id, { ...(t ? { t } : {}), eintraege, stand: juengste(eintraege), vollMs: Date.now(), tStand: Number(t?.updatedAtMs) || 0 });
+  }
+
+  // Was sich geändert hat, in die gemerkte Liste: neue und geänderte
+  // Einträge ersetzen die alten, gelöschte (weg) fallen weg. Gibt die ganze
+  // Liste zurück, wie sie jetzt ist.
+  function merkeGeaendert(id, liste, weg = [], bis = 0) {
+    const alle = alleStaende();
+    const alt = alle[id];
+    if (!alt?.t) return liste;
+    const nach = new Map((Array.isArray(alt.eintraege) ? alt.eintraege : []).map((e) => [e.id || `${e.game}_${e.spieler}`, e]));
+    (weg || []).forEach((wegId) => nach.delete(wegId));
+    (liste || []).forEach((e) => nach.set(e.id || `${e.game}_${e.spieler}`, e));
+    const eintraege = [...nach.values()];
+    alle[id] = { ...alt, eintraege, stand: Math.max(Number(alt.stand) || 0, Number(bis) || 0, juengste(liste)), ms: Date.now() };
+    schreibeStaende(alle);
+    return eintraege;
   }
 
   // teil: { t, eintraege, abende } – was davon da ist. eintraege ist die
@@ -1130,17 +1182,44 @@
       postSenden();
       abendeLaden();
       if (!wolke?.turnierHoeren) { laden(); return; }
+      hoeren(nachGeaendertem(gemerkterStand(id)));
+    }
+
+    // Dem Server zuhören: ganz – oder, wenn das Gerät die Liste schon hat,
+    // nur dem, was sich seither geändert hat (nachGeaendertem). Ist das
+    // Turnier neuer als die gemerkte Liste, wird einmal ganz zugehört.
+    function hoeren(teilweise) {
+      const wolke = cloud();
+      hoerenAus?.();
+      hoerenAus = null;
+      const g = teilweise ? gemerkterStand(id) : null;
+      const seit = g ? Math.max(1, g.stand - TURNIER_UEBERLAPPUNG_MS) : 0;
+      let ganz = !seit;
+      let ganzDa = false;   // die ganze Liste ist in diesem Strom angekommen
       try {
         hoerenAus = wolke.turnierHoeren(id, {
+          seit,
           beiTurnier: (t) => {
             if (!t) { verschwunden(); return; }
             stand.t = t;
             merkeStand(id, { t });
+            if (!ganz && !nachGeaendertem(gemerkterStand(id), t)) {
+              ganz = true;
+              hoeren(false);
+              return;
+            }
+            // Ganz zugehört, ist die Liste so neu wie das Turnier.
+            if (ganz && ganzDa) merkeGanz(id, t, stand.eintraege);
             angekommen();
           },
-          beiEintraegen: (liste) => {
-            stand.eintraege = liste;
-            if (stand.t) merkeStand(id, { eintraege: liste });
+          beiEintraegen: (liste, { teil = false, weg = [] } = {}) => {
+            if (teil) {
+              stand.eintraege = merkeGeaendert(id, liste, weg);
+            } else {
+              ganzDa = true;
+              stand.eintraege = liste;
+              if (stand.t) merkeGanz(id, stand.t, liste);
+            }
             angekommen();
           },
           // Abgewiesen (Regeln): dann eben fragen statt zuhören.
@@ -1172,7 +1251,7 @@
         if (!t) { verschwunden(); return; }
         stand.t = t;
         stand.eintraege = Array.isArray(eintraege) ? eintraege : [];
-        merkeStand(id, { t, eintraege: stand.eintraege });
+        merkeGanz(id, t, stand.eintraege);
         angekommen();
       } catch (fehler) {
         console.warn("Das Turnier war nicht zu lesen", fehler);
@@ -2278,7 +2357,7 @@
     const spiel = spielHier();
     const wolke = cloud();
     const fragen = wolke?.turnier
-      ? Promise.all([wolke.turnier(hier.id), wolke.turnierErgebnisse(hier.id, { game: spiel })])
+      ? wolke.turnier(hier.id).then(async (t) => [t, t ? await listeDesSpiels(t, spiel) : []])
       : Promise.reject(new Error("Firestore ist nicht geladen."));
     fragen.then(([t, liste]) => {
       if (nr !== frischNr) return;
@@ -2289,7 +2368,6 @@
         alsApp(t);
         merkeStand(hier.id, { t });
         hier.liste = (liste || []).filter((e) => e.game === spiel);
-        merkeSpielListe(hier.id, spiel, hier.liste);
       } else {
         vergiss(hier.id);
         vergissStand(hier.id);
@@ -2311,6 +2389,27 @@
       if (nr !== frischNr) return;
       if (hier.tor) zeigeTor();
     });
+  }
+
+  // Die Liste dieses Spiels, frisch: Hat das Gerät die ganze Liste des
+  // Turniers und ist das Turnier nicht neuer (nachGeaendertem), nur das, was
+  // sich seither geändert hat – sonst, wie vorher, die Liste dieses Spiels
+  // ganz. t: das Turnier, wie der Server es eben gesagt hat.
+  async function listeDesSpiels(t, spiel) {
+    const wolke = cloud();
+    const g = gemerkterStand(hier.id);
+    if (wolke?.turnierGeaendert && nachGeaendertem(g, t)) {
+      try {
+        const { liste, bis } = await wolke.turnierGeaendert(hier.id, Math.max(1, g.stand - TURNIER_UEBERLAPPUNG_MS));
+        return merkeGeaendert(hier.id, liste, [], bis).filter((e) => e.game === spiel);
+      } catch (fehler) {
+        if (!amNetz(fehler)) console.warn("Nach dem Geänderten im Turnier liess sich nicht fragen", fehler);
+        else throw fehler;
+      }
+    }
+    const liste = (await wolke.turnierErgebnisse(hier.id, { game: spiel })).filter((e) => e.game === spiel);
+    merkeSpielListe(hier.id, spiel, liste);
+    return liste;
   }
 
   // Die Saat für den nächsten Versuch (zufall.js): Der wievielte er ist, und
@@ -2649,19 +2748,19 @@
       // Frisch vom Server: die Liste dieses Spiels – wer inzwischen sonst
       // gespielt hat – und das Turnier, falls es angehalten oder beendet
       // wurde. Antwortet er nicht, bleibt, was dasteht.
+      // Erst das Turnier, dann nach ihm die Liste (listeDesSpiels): Nur das
+      // Turnier sagt, ob die gemerkte Liste noch gilt.
       const wolke = cloud();
       const frist = mini()?.mitFrist || ((x) => x);
-      frist(wolke.turnierErgebnisse(hier.id, { game: spiel }), 8000).then((liste) => {
-        hier.liste = (liste || []).filter((e) => e.game === spiel);
-        merkeSpielListe(hier.id, spiel, hier.liste);
-        zeigeListe(rechne());
-      }, () => {});
-      frist(wolke.turnier(hier.id), 8000).then((frisch) => {
+      frist(wolke.turnier(hier.id).then(async (frisch) => {
         if (!frisch) return;
         hier.t = frisch;
         merkeStand(hier.id, { t: frisch });
         rechne();
-      }, () => {});
+        const liste = await listeDesSpiels(frisch, spiel);
+        hier.liste = (liste || []).filter((e) => e.game === spiel);
+        zeigeListe(rechne());
+      }), 8000).catch(() => {});
     }, (fehler) => {
       draussen = true;
       window.clearTimeout(hinweisUhr);

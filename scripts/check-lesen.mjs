@@ -446,7 +446,8 @@ await messe(lena, "Turnier: eine Runde", async () => {
   await lena.seite.waitForTimeout(600);
   await lena.seite.evaluate(() => { document.body.append(window.LernappMini.ergebnis({ punkte: 777 })); });
 });
-await messe(lena, "Zurück zur Turnierseite", async () => { await lena.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" }); await turnierDa(lena); });
+const zurueckTurnier = await messe(lena, "Zurück zur Turnierseite", async () => { await lena.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" }); await turnierDa(lena); });
+pruefe(zurueckTurnier <= 20, `Zurück auf der Turnierseite liest sie ${zurueckTurnier} Dokumente statt nur der geänderten.`);
 {
   // Unter der Kennung, unter der das Gerät jetzt spielt: Lena spielt auf zwei
   // Geräten, und das Gerät nimmt die, unter der der Name am meisten spielt.
@@ -457,6 +458,31 @@ await messe(lena, "Zurück zur Turnierseite", async () => { await lena.seite.got
 await messe(lena, "Turnierseite offen, nebenan eine Turnierrunde", async () => {
   await ohneRegeln((db) => db.doc(`miniTurniere/${TURNIER_ID}/eintraege/${TURNIER_SPIELE[1]}_${FREMD[0]}`).set({ punkte: 999, versuche: 9, offen: false, updatedAtMs: Date.now(), updatedAt: SERVERZEIT() }, { merge: true }));
 }, { mindestens: 2500 });
+{
+  // Die fremde Runde von eben steht in der Liste der Turnierseite.
+  const fremd = await lena.seite.evaluate(({ id, schluessel }) => JSON.parse(localStorage.getItem("mini.turnier.stand") || "{}")?.[id]?.eintraege?.find((e) => e.id === schluessel) || null,
+    { id: TURNIER_ID, schluessel: `${TURNIER_SPIELE[1]}_${FREMD[0]}` });
+  pruefe(fremd?.punkte === 999, `Die Turnierrunde nebenan kam auf der offenen Turnierseite nicht an: ${JSON.stringify(fremd)}`);
+}
+// Der Admin leert die Liste eines Spiels (cloud.js, loescheTurnierEintraege):
+// Die Einträge sind weg, das Turnier hat eine neue Uhr – die Turnierseite
+// liest bei der nächsten Rückkehr einmal ganz, und die Gelöschten sind weg.
+await ohneRegeln(async (db) => {
+  const weg = await db.collection(`miniTurniere/${TURNIER_ID}/eintraege`).where("game", "==", TURNIER_SPIELE[2]).get();
+  const b = db.batch();
+  weg.docs.forEach((d) => b.delete(d.ref));
+  b.update(db.doc(`miniTurniere/${TURNIER_ID}`), { updatedAtMs: Date.now(), updatedAt: SERVERZEIT() });
+  await b.commit();
+});
+const nachLeeren = await messe(lena, "Turnierseite, nachdem der Admin ein Spiel geleert hat", async () => { await lena.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" }); await turnierDa(lena); });
+{
+  const noch = await lena.seite.evaluate(({ id, spiel }) => (JSON.parse(localStorage.getItem("mini.turnier.stand") || "{}")?.[id]?.eintraege || []).filter((e) => e.game === spiel).length,
+    { id: TURNIER_ID, spiel: TURNIER_SPIELE[2] });
+  pruefe(noch === 0, `Nach dem Leeren stehen in der Turnierseite noch ${noch} Einträge des Spiels.`);
+  pruefe(nachLeeren > 40, `Nach dem Leeren liest die Turnierseite nicht einmal ganz (${nachLeeren}).`);
+}
+const nachLeerenDanach = await messe(lena, "Turnierseite, Aufruf danach", async () => { await lena.seite.goto(`${BASIS}/turnier?t=${TURNIER_ID}`, { waitUntil: "load" }); await turnierDa(lena); });
+pruefe(nachLeerenDanach <= 20, `Nach dem ganzen Lesen liest die Turnierseite wieder alles (${nachLeerenDanach}).`);
 await lena.seite.goto(`${BASIS}/`, { waitUntil: "load" });
 await geladen(lena);
 await ruhe(lena);
@@ -469,7 +495,7 @@ const adminDa = (g) => g.seite.waitForFunction(() => /Turnier/.test(document.que
 await messe(admin, "Admin: aufbauen", async () => { await admin.seite.goto(`${BASIS}/admin`, { waitUntil: "load" }); await adminDa(admin); });
 if (process.env.DEBUG_LESEN) console.log((await admin.seite.evaluate(() => document.body.innerText)).slice(0, 600));
 // Eine Aktion: einen Eintrag umbenennen (im Fenster eines Spiels).
-await messe(admin, "Admin: einen Eintrag umbenennen", async () => {
+const umbenannt = await messe(admin, "Admin: einen Eintrag umbenennen", async () => {
   await admin.seite.evaluate(() => { const k = document.querySelector("#adm-spiele .adm-klapp-knopf"); if (k?.getAttribute("aria-expanded") !== "true") k?.click(); });
   await admin.seite.waitForTimeout(400);
   await admin.seite.locator(`#adm-spiele .adm-wahl[data-spiel="${SPIEL}"] .adm-wahl-feld`).first().click({ timeout: 5000 }).catch((f) => befunde.push(`Admin: Das Spiel liess sich nicht öffnen: ${f.message.split("\n")[0]}`));
@@ -486,15 +512,23 @@ const idsVon = async (spiel) => {
   return ids;
 };
 const vorDemLoeschen = new Set(await idsVon(SPIEL));
-await messe(admin, "Admin: einen Eintrag löschen", async () => {
+const geloeschtGelesen = await messe(admin, "Admin: einen Eintrag löschen", async () => {
   await admin.seite.waitForSelector(".adm-bestenliste button", { timeout: 8000 }).catch(() => {});
   await admin.seite.locator(".adm-bestenliste button", { hasText: "Löschen" }).last().click({ timeout: 5000 }).catch(() => {});
   await admin.seite.waitForTimeout(1500);
   await adminDa(admin);
 });
 const nachDemLoeschen = new Set(await idsVon(SPIEL));
+pruefe(umbenannt <= 60, `Eine Aktion im Adminbereich liest ${umbenannt} Dokumente – fast alles neu.`);
 const geloescht = [...vorDemLoeschen].filter((id) => !nachDemLoeschen.has(id));
 pruefe(geloescht.length === 1, `Im Adminbereich wurde nicht genau ein Eintrag gelöscht: ${geloescht.join(", ") || "keiner"}`);
+pruefe(geloeschtGelesen <= 120, `Ein Eintrag löschen liest im Adminbereich ${geloeschtGelesen} Dokumente.`);
+{
+  // Und die Runden dazu sind weg (cloud.js, loescheRunden): nur die dieses Eintrags.
+  let runden = -1;
+  await ohneRegeln(async (db) => { runden = (await db.collection("miniRunden").where("game", "==", SPIEL).get()).docs.filter((d) => geloescht.includes(`${d.data().game}_${d.data().spieler}`)).length; });
+  pruefe(runden === 0, `Nach dem Löschen stehen noch ${runden} Runden des Eintrags im Protokoll.`);
+}
 await admin.kontext.close();
 
 if (weiter) {

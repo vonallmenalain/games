@@ -508,6 +508,14 @@
     schreibeListen({ ...speicher, eintraege: liste });
   }
 
+  // Für den Adminbereich: alles, was seit seit in miniScores geschrieben
+  // wurde, über alle Spiele – auch die, die es nicht mehr gibt. { liste, bis }.
+  async function eintraegeSeit(seit) {
+    const ref = sammlung();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    return geaendertSeit(ref, seit);
+  }
+
   // Ein neuer Name, gleich im Speicher (benenneUm): ids → Name.
   function merkeNamen(ids, name) {
     const speicher = liesListen();
@@ -1286,13 +1294,36 @@
     return listen.flat().sort((a, b) => a.zeitMs - b.zeitMs);
   }
 
-  // Die Runden eines Geräts in den genannten Spielen. Gefragt wird nach dem
-  // Gerät allein – ein Feld, kein Index –, das Spiel sortiert diese Datei.
+  // Die Runden eines Geräts in den genannten Spielen. Gefragt wird je Spiel
+  // nach Gerät und Spiel – zwei Gleichheiten, die Firestore aus seinen
+  // Einzelfeld-Indexen zusammensetzt, ohne zusammengesetzten Index. Bis
+  // November 2026 las das alle Runden des Geräts in allen Spielen und
+  // sortierte erst hier: Ein Eintrag löschen hiess tausend Runden lesen.
+  // Lehnt Firestore die Frage ab (ein Index, der fehlt), geht es wie vorher.
   async function rundenDesGeraets(spieler, spiele) {
     const ref = rundenSammlung();
     const wer = String(spieler || "").trim();
     if (!ref || !wer) return [];
-    const welche = new Set(spiele);
+    const welche = [...new Set(spiele)].filter(Boolean);
+    try {
+      const docs = [];
+      for (const spiel of welche) {
+        let frage = ref.where("spieler", "==", wer).where("game", "==", spiel).limit(RUNDEN_SEITE);
+        for (;;) {
+          const seite = zaehleAbfrage("runden", await frage.get());
+          seite.forEach((doc) => docs.push(doc));
+          if (seite.size < RUNDEN_SEITE) break;
+          frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+        }
+      }
+      return docs;
+    } catch (fehler) {
+      if (fehler?.code !== "failed-precondition") throw fehler;
+      console.warn("Runden je Spiel lassen sich nicht erfragen – es werden alle des Geräts gelesen", fehler);
+      return rundenDesGeraetsGanz(ref, wer, new Set(welche));
+    }
+  }
+  async function rundenDesGeraetsGanz(ref, wer, welche) {
     let frage = ref.where("spieler", "==", wer).limit(RUNDEN_SEITE);
     const docs = [];
     for (;;) {
@@ -1895,6 +1926,18 @@
       ids.slice(i, i + 200).forEach((e) => { weg.delete(ref.doc(e)); weg.delete(geister.doc(e)); });
       await weg.commit();
     }
+    // Ein gelöschter Eintrag sagt niemandem, dass er weg ist – die Turnierseiten
+    // hören aber nur auf Geändertes (turnierHoeren, seit). Eine neue Uhr am
+    // Turnier lässt sie einmal alles lesen. Ein Turnier von früher, das die
+    // Regeln heute nicht mehr annähmen, bekommt sie eben nicht: Dann liest
+    // die Turnierseite spätestens nach einigen Stunden ganz.
+    if (ids.length) {
+      try {
+        await turnierSammlung().doc(String(id)).update({ updatedAtMs: Date.now(), updatedAt: jetztAufDemServer() });
+      } catch (fehler) {
+        console.warn("Das Turnier liess sich nicht neu stempeln", fehler);
+      }
+    }
     return ids.length;
   }
 
@@ -2007,9 +2050,15 @@
    *   beiEintraegen(liste) alle Einträge
    *   beiFehler(fehler)    der Strom ist abgewiesen worden (Regeln)
    *
+   * Mit seit (die Uhr des Servers, ms) hört der Strom nur auf die Einträge,
+   * die danach geschrieben wurden (updatedAt): Die Turnierseite hat den Rest
+   * schon (turnier.js, gemerkterStand) und liest bei der Rückkehr aus einem
+   * Spiel nicht mehr das ganze Turnier. beiEintraegen bekommt dann nur sie,
+   * mit { teil: true, weg: [ids, die gelöscht wurden] }.
+   *
    * Gibt das Abmelden zurück.
    */
-  function turnierHoeren(id, { beiTurnier = () => {}, beiEintraegen = () => {}, beiFehler = () => {} } = {}) {
+  function turnierHoeren(id, { beiTurnier = () => {}, beiEintraegen = () => {}, beiFehler = () => {}, seit = 0 } = {}) {
     const ref = turnierSammlung();
     const eintraege = turnierEintraege(id);
     const kennung = String(id || "").trim();
@@ -2023,14 +2072,47 @@
         turnierDa = true;
         beiTurnier(stand.exists ? liesTurnier(stand) : null);
       }, beiFehler),
-      eintraege.onSnapshot((stand) => {
+      geaendertAb(eintraege, seit).onSnapshot((stand) => {
         if (!stand.metadata?.fromCache) zaehle("turnierHoeren", listeDa ? stand.docChanges().filter((c) => c.type !== "removed").length : Math.max(1, stand.size));
         if (stand.metadata?.fromCache && !listeDa) return;
+        const weg = listeDa && seit > 0 ? stand.docChanges().filter((c) => c.type === "removed").map((c) => c.doc.id) : [];
         listeDa = true;
-        beiEintraegen(sammle(stand, liesTurnierEintrag));
+        beiEintraegen(sammle(stand, liesTurnierEintrag), seit > 0 ? { teil: true, weg } : { teil: false, weg: [] });
       }, beiFehler),
     ];
     return () => aus.forEach((weg) => { try { weg(); } catch { /* schon weg */ } });
+  }
+
+  // Eine Sammlung, auf Wunsch nur mit dem, was nach seit geschrieben wurde.
+  function geaendertAb(ref, seit) {
+    const Zeit = window.firebase?.firestore?.Timestamp;
+    return seit > 0 && Zeit?.fromMillis ? ref.where("updatedAt", ">", Zeit.fromMillis(Math.round(seit))) : ref;
+  }
+
+  // Was in einem Turnier seit seit geschrieben wurde – für die Spielseite im
+  // Turnier, die ihre Liste sonst nach jeder Runde ganz las (turnier.js).
+  // { liste, bis }: bis ist der Stand, bis zu dem alles da ist. Wirft ohne
+  // Netz.
+  async function turnierGeaendert(id, seit) {
+    const ref = turnierEintraege(id);
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const Zeit = window.firebase?.firestore?.Timestamp;
+    if (!Zeit?.fromMillis) throw new Error("Firestore ist nicht bereit.");
+    let frage = ref.where("updatedAt", ">", Zeit.fromMillis(Math.max(1, Math.round(seit)))).orderBy("updatedAt").limit(TURNIER_SEITE);
+    const liste = [];
+    let bis = seit;
+    for (;;) {
+      const seite = await frage.get();
+      if (seite.metadata?.fromCache) throw Object.assign(new Error("Das Turnier ist gerade nicht zu haben."), { code: "unavailable" });
+      zaehleAbfrage("turnierGeaendert", seite);
+      seite.forEach((doc) => {
+        const e = liesTurnierEintrag(doc);
+        if (e) liste.push(e);
+        bis = Math.max(bis, serverMs(doc.data()?.updatedAt));
+      });
+      if (seite.size < TURNIER_SEITE) return { liste, bis };
+      frage = frage.startAfter(seite.docs[seite.docs.length - 1]);
+    }
   }
 
   function turnierFehler(text, code) {
@@ -2281,7 +2363,8 @@
     offeneSpiele, setzeOffeneSpiele, tiers, setzeTiers, offeneZweiSpieler, setzeZweiSpieler, vorschauApp,
     listenStand, setzeListenStand,
     turnier, oeffentlicheTurniere, alleTurniere, setzeTurnier, loescheTurnier, loescheTurnierEintraege,
-    turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
+    turnierErgebnisse, meinTurnierEintrag, turnierHoeren, turnierGeaendert, turnierVersuch, turnierErgebnis, turnierUmbenennen, turnierEintraegeBenennen,
+    eintraegeSeit,
     mitschauenSchreiben, mitschauenHoeren, amSpielenSchreiben, amSpielenHoeren, zuschauerMelden, zuschauerHoeren,
     turnierGeist, speichereTurnierGeist,
     turnierLive, speichereTurnierLive, liveZeiger, offeneMultiplayer, offeneDuelle, multiplayer,
