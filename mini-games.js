@@ -117,6 +117,7 @@
     { id: "mirrorLake", seite: "spiegelsee", page: "spiegelsee" },
     { id: "soapBubble", seite: "seifenblase", page: "seifenblase" },
     { id: "pondSkater", seite: "wasserlaeufer", page: "wasserlaeufer" },
+    { id: "poleSwitch", seite: "polwechsel", page: "polwechsel" },
   ];
 
   // Seit wann es jedes Spiel hier gibt – für «Neu» im Regal der Startseite
@@ -140,7 +141,7 @@
     speedClimb: "2026-11-19", freeHand: "2026-11-19", mindsEye: "2026-11-19", iceStock: "2026-11-19",
     ridgeRun: "2026-11-26", chimneySweep: "2026-11-26", roofRun: "2026-11-26", stampMill: "2026-11-26",
     beeFlight: "2026-11-26", marsRover: "2026-11-26", mirrorLake: "2026-11-26",
-    soapBubble: "2026-11-26", pondSkater: "2026-11-26",
+    soapBubble: "2026-11-26", pondSkater: "2026-11-26", poleSwitch: "2026-11-26",
   };
 
   // Die Tiers: wie der Admin die Spiele einteilt – im Adminbereich und beim
@@ -209,6 +210,8 @@
     soapBubble: 1,
     // Wasserläufer: er dreht sich, ein Tipp ist ein Ruderschlag dorthin, wo er hinschaut – nur der Zeitpunkt steuert.
     pondSkater: 1,
+    // Polwechsel: ein Tipp polt die fallende Kugel um – die Farben der Magnete voraus lesen.
+    poleSwitch: 1,
   };
   const TIERS = [1, 2, 3, 4, 5];
   // Das Tier eines Spiels: aus der Einteilung des Admins, sonst aus der Vorgabe.
@@ -279,6 +282,9 @@
     // und die Blickrichtung (in Hundertsteln), am Schluss negativ, woran es endete. Als Winkel:
     // Im Multiplayer dreht er sich zwischen zwei Proben weiter.
     pondSkater: { fassung: "t1", winkel: true },
+    // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
+    // darüber, wie oft umgepolt wurde.
+    poleSwitch: { fassung: "t1" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

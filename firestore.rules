@@ -106,6 +106,7 @@ service cloud.firestore {
         "mirrorLake",
         "soapBubble",
         "pondSkater",
+        "poleSwitch",
       ];
     }
 

@@ -31,7 +31,7 @@ const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Die Fassung steht in jeder Adresse (?v=) und im Namen des Zwischenspeichers.
 // Ändert sie sich, holt der Browser alles neu – ohne sie bekäme jemand das
 // neue Spiel mit dem alten Stylesheet.
-export const FASSUNG = "2026-11-26-23";
+export const FASSUNG = "2026-11-26-24";
 
 // Die Farbe der Leiste des Browsers und des Startbilds der installierten App:
 // der dunkle Grund aller Seiten (--bg in styles.css).
@@ -388,6 +388,12 @@ export const SPIELE = [
     titel: "Wasserläufer", buehne: { id: "wa-stage", klasse: "cm-stage wa-stage" },
     text: "Wasserläufer: Er dreht sich wie eine Kompassnadel – ein Tipp ist ein Ruderschlag dorthin, wo er gerade hinschaut. Von Seerosenblatt zu Seerosenblatt den Bach hinauf, bevor das Blatt untergeht und bevor der Fisch schnappt.",
     baut: "den Teich am Nachmittag mit dem Wasserläufer und den Seerosenblättern",
+  },
+  {
+    seite: "polwechsel", spiel: "poleSwitch", page: "polwechsel", js: "polwechsel.js",
+    titel: "Polwechsel", buehne: { id: "pw-stage", klasse: "cm-stage pw-stage" },
+    text: "Polwechsel: Ein Tipp polt die fallende Stahlkugel um – ungleich zieht an, gleich stösst ab. Wer die roten und blauen Magnete im Schacht voraus liest, fällt durch jede Lücke; wer falsch gepolt ist, zerschellt.",
+    baut: "den Magnetschacht mit der Stahlkugel, vom alten Labor bis zum glühenden Kern",
   },
 ];
 

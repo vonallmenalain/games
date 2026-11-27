@@ -3169,6 +3169,158 @@ ersten Blatt unter; wer dauernd rudert, wird bald gefressen; die Kurve wird
 schwerer, das Fenster enger. Die Tafel erscheint; ein angeschauter Lauf
 zeigt dieselbe Welt, dieselben Schläge, dieselbe Zahl und dasselbe Ende.
 
+### Polwechsel (November 2026)
+
+**Polwechsel** (`polwechsel.js`, `poleSwitch`) – ein tiefer, senkrechter
+Schacht. Eine Stahlkugel fällt hinunter, und die Wände links und rechts sind
+aus Magneten: **rot** (Nordpol, «N»), **blau** (Südpol, «S»), dazwischen
+graue, unmagnetische Platten. Die Kugel ist selbst ein Magnet, rot oder blau.
+Eine Regel: **Ein Tipp polt sie um.** Ungleiche Farben ziehen sich an, gleiche
+stossen sich ab, und so bestimmt die Polung zusammen mit den Farben der Wände,
+wo die Kugel quer im Schacht liegt (`zielBahn`):
+
+| Die Wände, von der Kugel aus | Wo sie hingeht |
+|---|---|
+| eine zieht an (die andere stösst ab oder ist grau) | an die Wand, die anzieht |
+| eine stösst ab, die andere ist grau | an die graue Wand |
+| beide stossen ab | in die Mitte |
+| beide ziehen an, oder beide sind grau | sie bleibt, wo sie ist |
+
+Quer durch den Schacht stehen **Sperren** mit einer Lücke links, in der Mitte
+oder rechts, und an manchen Magneten sitzen **Stacheln**: Wer dort an der
+Wand liegt – oder von der Wand angezogen wird –, ist hin. Weil die Farben der
+Wände den Schacht hinunter wechseln, bedeutet dieselbe Polung an jeder Stelle
+etwas anderes: Man liest die Farben voraus und polt im richtigen Moment um,
+manchmal, um die Bahn zu wechseln, manchmal, um in ihr zu bleiben, wenn die
+Wände ihre Farben tauschen. Der erste Tipp lässt die Kugel los (sie hängt am
+Halter oben im Labor); jeder weitere polt um. Gezählt wird die Tiefe in Metern.
+
+**Die Bewegung quer** (`querSchritt`): Eine Wand, die anzieht oder abstösst,
+wirkt mit `A0 + A1 · e^(−d/14)` (1000 + 2600 Einheiten/s², d der Abstand) –
+je näher, desto stärker. Stossen beide ab, hält sie die Mitte wie eine Feder.
+Nach einem Tipp ist sie so in 0,16 s an der anderen Wand (die eine zieht, die
+andere stösst), in 0,2 s (nur eine stösst), in 0,3 s (nur eine zieht), in
+0,24 s in der Mitte. Die Tiefe hängt nur an der Spielzeit (`yBei`), die Polung
+bewegt sie nur quer; an einer anziehenden Wand schleift sie mit Funken, wird
+aber nicht gebremst – so bleibt die Runde für alle gleich und ein Abschnitt
+genau planbar.
+
+**Abwechslung im festen Takt**: Jeder achte Abschnitt ist besonders, im
+Wechsel und vorher angesagt. Der 8., 24., 40. ist ein **Stromausfall** («gerade
+durch – im Dunkeln vorpolen»): Die Magnete gehen aus, der Schacht wird dunkel,
+auf den toten Magneten blinken grüne Notlichter; die Kugel fällt in ihrer Bahn
+gerade durch eine Gasse aus drei Sperren, und wer klug ist, stellt im Dunkeln
+schon die Polung für danach (die Luft dafür ist fast die ganze Gasse). Der
+16., 32., 48. ist ein **Wechselfeld** («im Takt umpolen»): Beide Wände
+tauschen im Takt ihre Farben (0,6 s, später 0,4 s) – Rauten auf den Magneten
+laden sich vor jedem Wechsel auf, er blitzt und tickt. Im ersten Wechselfeld
+hält nur, wer bei jedem Wechsel umpolt; ab dem zweiten ist es gemischt:
+Manche Lücken liegen auf der anderen Seite, dann trägt der Wechsel die Kugel
+hinüber. Dazu fünf **Zonen**, mit Namen angesagt: das alte **Labor** (glasierte
+Kacheln, Kupferleitung, Messuhren, eine Spule, eine Lampe im Drahtkorb), ab
+70 m das **Bergwerk** (Fels mit Schichten und Erzadern, Türstöcke,
+Grubenlampen), ab 180 m die **Kristallhöhle** (Drusen aus Magnetit, der
+glitzert), ab 330 m die **Magmakammer** (Basaltsäulen, glühende Risse,
+aufsteigende Glut) und ab 520 m der **Glühende Kern**. Die Lagen kommen nach
+und nach: zuerst nur Wände in zwei Farben, ab dem fünften Abschnitt gleiche
+Farben (die Mitte) und Stacheln, ab dem neunten graue Wände, ab dem zehnten
+die Zange (zwei Sperren dicht hintereinander), später Reihen, in denen beide
+Wände ziehen und die Kugel bleibt, wo sie ist.
+
+Der Schacht entsteht aus dem Zufall, **Weg zuerst** (`naechsterAbschnitt`):
+Ein Abschnitt beginnt, wenn die Kugel in ihrer Bahn angekommen ist; in ihrer
+Reihe kommt ein Hindernis, das genau diese Bahn frei lässt (eine Sperre, die
+Zange oder Stacheln an den anderen Wänden), dann die Grenze zur nächsten
+Reihe, deren Farben mit der Polung danach die neue Bahn geben. Ist die Polung
+eine andere, ist an der Grenze ein Tipp geplant. Die Grenze liegt so, dass die
+Kugel ihre Bahn erst verlässt, wenn sie am Hindernis vorbei ist – auch wer um
+die ganze Luft zu früh tippt –, und das nächste Hindernis kommt erst, wenn sie
+in der neuen Bahn ist – auch wer um die ganze Luft zu spät tippt. Wie sie sich
+dabei bewegt, wird genau nachgerechnet (`uebergangAb`), von der Kugel aus, wie
+sie nach dem Plan gerade ist, und jeder Abschnitt wird mit allen Ecken der Luft
+durch den echten Schacht geprüft (`sicher`), dazu alle Tipps gleich weit
+daneben und jeder einzeln dazwischen – jeder Tipp genau zu seiner Zeit; hält
+er nicht, folgt ein Versuch mit mehr Platz. Die Übergänge werden dicht
+abgetastet, denn wie lange die Kugel unterwegs ist, wächst nicht immer mit dem
+Abstand: Wer ganz früh tippt, schlägt vielleicht drüben an und kehrt früher um
+als einer, der etwas später tippt. Eine Reihe ist mindestens 0,3 s lang und gut zwei Kugeln hoch.
+
+| Spielzeit | Tiefe | Luft je Tipp | Fall | Sicht unter der Kugel |
+|---|---|---|---|---|
+| 0–7 s | 0–33 m | ±250 ms (dazu mehr Platz um den Weg) | 4,8 m/s | 2,7 s |
+| 10 s | 50 m | ±134 ms | 6,4 m/s | 2,0 s |
+| 15 s | 87 m | ±81 ms | 8,2 m/s | 1,6 s |
+| 20 s | 131 m | ±62 ms | 9,7 m/s | 1,3 s |
+| 30 s | 241 m | ±40 ms | 12 m/s | 1,05 s |
+| 45 s | 446 m | ±26 ms | 15 m/s | 0,86 s |
+| 60 s | 682 m | ±20 ms | 17 m/s | 0,77 s |
+
+Ab 20 s wird die Luft noch einmal stetig enger (`E_SPAET`), ab gut 90 s nie
+unter ±13 ms – sonst fiele ein sehr genauer Spieler minutenlang. Die ersten sieben Sekunden sind zum Hineinfinden: Der erste
+Abschnitt verlangt einen Tipp, der zweite keinen, dann kommen die Lagen nach
+und nach; der erste Stromausfall kommt nach rund 7 s (eine Atempause), das
+erste Wechselfeld nach rund 14 s. Je Sekunde sind am Anfang 0,4 Tipps nötig,
+nach 20 s gut einer, nach 45 s anderthalb. Nachgebildete Spieler, deren Tipp
+um den geplanten Moment streut (Normalverteilung, je 50 Läufe im echten
+Spiel): 100 ms kommen im Median 17 s weit (105 m), 70 ms 20 s (127 m),
+55 ms 27 s (200 m), 40 ms 34 s (290 m), 30 ms 44–50 s (430–515 m), 20 ms
+64–68 s (740–830 m; mehrere Durchgänge mit verschiedenen Schächten). Wer die Farben falsch
+liest, kommt weniger weit – das bildet die Rechnung nicht ab. Wer nichts tut,
+zerschellt nach knapp 2,5 s; wer dauernd tippt, schon an der ersten Sperre.
+
+Ein Tipp gilt zu seiner Zeit, nicht erst im nächsten Bild (`tippen`,
+`voraus`). Auf der Tafel: die Meter, darunter, woran es lag, die Zeit und wie
+oft umgepolt wurde.
+
+**Das Bild.** Die Magnete leuchten von innen: vorn die Kupferwicklung, zum
+Schacht hin der Polschuh in seiner Farbe, darauf «N» oder «S» (lesbar auch
+ohne Farben), und ihr Licht fällt rot und blau in den Schacht. Eisenspäne auf
+den Magneten neben der Kugel richten sich nach dem Feld. Zwischen Kugel und
+Wand stehen **Feldlinien**: Zieht eine Wand an, verbinden Bögen Kugel und
+Magnet, die Farbe geht von der einen in die andere über, und Lichtperlen
+fliessen zur Wand; klebt sie an, umfassen kurze Bögen die Stelle. Stösst eine
+Wand ab, laufen von Kugel und Magnet Wellen in ihrer gemeinsamen Farbe
+aufeinander zu. Ein **Ring in der anderen Farbe** zeigt dezent, wohin ein Tipp
+die Kugel gerade brächte. Die Kugel ist polierter Stahl, wie eloxiert in ihrer
+Farbe, mit einem leuchtenden Ring um den Bauch, Glanzlichtern, einem Schein
+und dem roten und blauen Licht der Wände auf ihren Seiten; beim Umpolen ein
+Puls in der neuen Farbe, beim schnellen Fall ein Schweif, beim Anschlag an
+eine Wand Funken und ein Klack. Der Sturz: Funkenregen, die Kugel prallt ab,
+wird grau und fällt ins Dunkel, die Magnete flackern (Kurzschluss). Beim
+ersten Start gehen die Magnete von oben nach unten an. Die Rückwand zieht
+langsamer vorbei als die Wände (Tiefe), an jeder Zonengrenze kreuzt ein
+Träger; was in der Luft liegt, wechselt mit der Zone (Staub im Licht, Glitzern
+im Magnetit, Glut). Die Hintergründe sind gedämpft und dunkel, leuchten
+sollen die Magnete und die Kugel.
+
+Rückwand und Wände je Zone, die Magnete (Kappe, Stück, Kappe), ihr Licht im
+Schacht, Sperren, Stacheln, Kugel und Schein sind vorgemalt und werden Punkt
+auf Punkt aufgelegt (ein Stück Wand ist eine ganze Zahl Bildpunkte hoch); die
+Zonen werden im Voraus gemalt, eine je Bild, und was weit oben liegt, wird
+freigegeben. Gemessen im Software-Raster, im Wechsel mit Marsrover auf
+demselben Rechner (Median je Bild): iPhone hochkant 4,1–4,2 ms (Marsrover
+3,8), quer 2,7–3,0 ms (4,0–4,3), iPad 5,4–5,9 ms (5,7–6,1). Hochkant und auf
+dem iPad gibt die Sicht unter der Kugel (`SICHT`, 128 Einheiten) die Grösse
+vor, quer ebenso – dort ist der Schacht darum schmal, damit man überall gleich
+weit voraus sieht.
+
+Die Gegner fallen als Kugeln aus Licht mit, und die besten Läufe lassen sich
+anschauen: Aufgezeichnet werden der Ort quer (in Zehnteln), die Tiefe und in
+`c` die Polung (unterstes Bit) und darüber, wie oft umgepolt wurde (Fassung
+`t1`). Zwölf Klänge, alle aus vorhandenen: das Brummen der Magnete (es folgt
+dem Feld um die Kugel) und der Fallwind als Kulisse, das Umpolen, der
+Anschlag an der Wand, Funken, der Zonenwechsel, die Ansage, Strom aus und
+Strom an, der Takt des Wechselfelds, der Sturz und der Fall ins Dunkel.
+
+Prüfung 4g51: Der Autopilot kommt über vier gewürfelte Schächte bis 100 s und
+bis in den Kern, ohne dass die Planung ausweichen muss; ebenso, wer jeden Tipp
+um 95 % der Luft zu früh, zu spät oder im Wechsel setzt. Alle Lagen, Wände und
+Lücken kommen vor; jeder achte Abschnitt ist im Wechsel Stromausfall oder
+Wechselfeld, angesagt, und alle Zonen werden angesagt. Den ersten Tipp
+deutlich zu spät, nichts tun und dauernd tippen enden bald; die Regel stimmt;
+die Luft wird enger, die Kugel schneller. Die Tafel erscheint; ein
+angeschauter Lauf zeigt denselben Schacht, dieselbe Zahl und denselben Sturz.
+
 ### Die Klänge
 
 Bis Oktober 2026 klangen die Spiele wie die Kinder-App (`kids.js`,
@@ -3263,7 +3415,7 @@ hoch wie quer (`mini-games.js`, `baueUebersicht`; die Bühne selbst,
 - **Unten alle Spiele in einer Zeile,** nach Tier geordnet (Favoriten
   zuerst), als kleine Kacheln mit Bild und Namen; vorne die laufenden
   Turniere. Ein Tipp holt das Spiel nach oben – die Kachel fliegt hinauf.
-  Links davor steht fest das **Regal** («Alle 56», siehe unten).
+  Links davor steht fest das **Regal** («Alle 57», siehe unten).
 - **Von selbst:** Solange niemand wählt, kommt alle neun Sekunden der nächste
   Favorit (ein Strich unter der Kachel zeigt die Zeit). Wer aus einem Spiel
   zurückkommt, sieht dieses Spiel.

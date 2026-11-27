@@ -51,7 +51,7 @@ const STYLESHEET = readFileSync(path.join(WURZEL, "styles.css"), "utf8");
 // Die Familien, die es hier gibt. Was nicht dazugehört, kommt aus dem Browser
 // (z. B. Klassen, die ein Spiel selbst erfindet) und hat auch in der App keine
 // Regel.
-const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|bf|mr|sg|sb|wa|scene|sound|confetti)(-|$)/;
+const UNSER = /^(cm|mini|tn|gk|ar|kk|ft|bs|tb|br|dr|li|tf|dt|ph|ml|sl|hf|bl|sk|fr|wr|kh|st|zg|hz|gs|jg|ts|fs|hl|fm|nj|fd|sw|wl|sh|ek|ff|hw|ef|gl|zr|am|fe|fk|zf|kw|fh|kn|es|gw|kf|dl|sm|bf|mr|sg|sb|wa|pw|scene|sound|confetti)(-|$)/;
 const hatRegel = (klasse) => new RegExp(`\\.${klasse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(STYLESHEET);
 // Klassen ohne eigene Regel – und das ist richtig so. Sie stehen auch in der
 // App in keiner:
@@ -685,7 +685,7 @@ const TURNIERE = {
     // Ohne Zeitlimite: das Ende, das nie kommt (turnier.js, OHNE_ENDE).
     turnierVorlage(DAUER, { name: "Dauercup", sichtbar: "link", startMs: JETZT - 20 * MINUTE, endeMs: OHNE_ENDE }),
     // Die drei Geschicklichkeitsspiele, die ihre Welt aus dem Zufall bauen.
-    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill", "beeFlight", "marsRover", "mirrorLake", "soapBubble", "pondSkater"], versuche: 0 }),
+    turnierVorlage(GESCHICK, { name: "Geschickcup", sichtbar: "link", startMs: JETZT - 10 * MINUTE, spiele: ["bridgeBuilder", "dartWheel", "vineSwing", "tunnelFlight", "driftRace", "planetHop", "moonLander", "gravityRun", "hillGlide", "balloonRide", "skiSlalom", "frogHop", "ropeWalk", "craneHarbor", "wireLoop", "twinLanes", "keepyUppy", "juggler", "highDive", "skyDive", "lumberCut", "batEcho", "timeNinja", "freeDive", "flockFlight", "waveRide", "stoneSkip", "iceRun", "cliffFlight", "hammerThrow", "duckCrossing", "mineCart", "twinRotor", "eyeMeasure", "fireRope", "flagCommand", "timeSense", "speedClimb", "freeHand", "mindsEye", "iceStock", "ridgeRun", "chimneySweep", "roofRun", "stampMill", "beeFlight", "marsRover", "mirrorLake", "soapBubble", "pondSkater", "poleSwitch"], versuche: 0 }),
     // Ohne Gegner beim Spielen (geist.js).
     turnierVorlage(OHNE_GEGNER, { name: "Stillcup", sichtbar: "link", startMs: JETZT - 5 * MINUTE, spiele: ["towerStack"], versuche: 0, ohneGeist: true }),
     // Gleiches Level wie Platz 1: jeder Versuch ist der erste (turnier.js).
@@ -3364,6 +3364,7 @@ try {
     ["/spiegelsee", "Spiegelsee", () => window.LernappSpiegelsee.kursText(60)],
     ["/seifenblase", "Seifenblase", () => window.LernappSeifenblase.kursText(60)],
     ["/wasserlaeufer", "Wasserläufer", () => window.LernappWasserlaeufer.kursText(60)],
+    ["/polwechsel", "Polwechsel", () => window.LernappPolwechsel.kursText(60)],
     ["/drift", "Drift-Rennen", () => {
       const D = window.LernappDrift;
       D.bahnBis(6000);
@@ -13257,6 +13258,169 @@ try {
     await kontext.close();
   }
 
+  // --- 4g51. Polwechsel: immer zu schaffen, und wer falsch gepolt ist, zerschellt ----
+  // Ein Autopilot polt genau dann um, wenn es der Weg verlangt – über vier
+  // gewürfelte Schächte bis 100 s, ohne Sturz und ohne dass die Planung je
+  // auf einen Notbehelf ausweichen muss. Auch wer jeden Tipp um fast die
+  // ganze Luft zu früh, zu spät oder im Wechsel setzt, kommt durch. Jeder
+  // achte Abschnitt ist besonders (8., 24.: Stromausfall; 16., 32.:
+  // Wechselfeld), vorher angesagt, und alle Zonen kommen vor. Deutlich zu
+  // spät am ersten Tipp, nichts tun und dauernd tippen enden bald; die Luft
+  // wird enger, die Kugel schneller.
+  {
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.goto(`${BASIS}/polwechsel`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappPolwechsel?.state?.weg?.length && window.LernappPolwechsel.view.cssW > 0, null, { timeout: 8000 });
+    const befund = await seite.evaluate(() => {
+      const K = window.LernappPolwechsel;
+      const st = K.state;
+      const neu = () => { document.querySelector(".cm-bar-left .cm-icon-again").click(); K.tippen(); };
+      // Ein Lauf bis zur Spielzeit bis. fehler(nr, w): um wie viele Sekunden
+      // der Tipp nr (geplant zur Zeit w.t) neben dem Plan liegt – getippt
+      // genau dann, nicht erst im nächsten Schritt. fest(nr): nur zu festen
+      // Zeiten. ansagen: was angesagt wurde.
+      const lauf = (bis, fehler, { fest = null, ansagen = null } = {}) => {
+        neu();
+        let nr = 0;
+        for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "sturz" && st.t < bis; n += 1) {
+          K.planBis(st.t + 6, 4);
+          if (fest) {
+            if (st.t >= fest(nr)) { K.tippen(); nr += 1; }
+          } else if (fehler && st.weg[nr]) {
+            const w = st.weg[nr];
+            const ziel = w.t + fehler(nr, w);
+            if (ziel - st.t < 1 / 240) {
+              if (ziel > st.t) K.physik(ziel - st.t);
+              if (st.schritt !== "sturz") K.tippen();
+              nr += 1;
+            }
+          }
+          if (st.schritt !== "sturz") K.takt(1 / 240);
+          if (ansagen && st.ansage) ansagen.add(st.ansage.text);
+        }
+        return { schritt: st.schritt, warum: st.sturz?.art || "", t: Math.round(st.t * 100) / 100, punkte: st.punkte, umpolungen: st.umpolungen, planFehler: st.planFehler, zone: st.zone };
+      };
+
+      // 1. Genau nach dem Weg, vier Schächte – und was in ihnen vorkommt.
+      const genau = [];
+      const lagen = {};
+      const reihen = {};
+      const luecken = {};
+      const ansagen = new Set();
+      let besonders = [];
+      for (let i = 0; i < 4; i += 1) {
+        genau.push(lauf(100, () => 0, { ansagen }));
+        st.abschnitte.filter((a) => a.t1 < st.t).forEach((a) => { lagen[a.art] = (lagen[a.art] || 0) + 1; });
+        st.reihen.filter((r) => r.t1 < st.t).forEach((r) => {
+          const art = r.art || (r.cl && r.cr ? (r.cl === r.cr ? "gleich" : "gegen") : r.cl || r.cr ? "halbgrau" : "grau");
+          reihen[art] = (reihen[art] || 0) + 1;
+        });
+        st.sperren.filter((s) => s.t1 < st.t).forEach((s) => { luecken[s.luecke] = (luecken[s.luecke] || 0) + 1; });
+        if (i === 0) besonders = st.abschnitte.filter((a) => a.besonders && a.t1 < st.t).map((a) => ({ nr: a.nr, art: a.besonders }));
+      }
+      // 2. Fast die ganze Luft zu früh, zu spät, im Wechsel.
+      const frueh = lauf(100, (nr, w) => -0.95 * w.e);
+      const spaet = lauf(100, (nr, w) => 0.95 * w.e);
+      const wechsel = lauf(100, (nr, w) => (nr % 2 ? 0.95 : -0.95) * w.e);
+      // 3. Den ersten Tipp deutlich zu spät (am Anfang ist um den Weg noch
+      //    mehr Platz als die Luft): Sie zerschellt.
+      const zuSpaet = lauf(100, (nr, w) => (nr === 0 ? 0.75 : 0));
+      const ersterTipp = st.weg[0].t;
+      // 4. Nichts tun; 5. dauernd tippen.
+      const nichts = lauf(100, null);
+      const dauernd = lauf(100, null, { fest: (nr) => 0.12 * (nr + 1) });
+      return {
+        genau, lagen, reihen, luecken, ansagen: [...ansagen], besonders, frueh, spaet, wechsel, zuSpaet, ersterTipp, nichts, dauernd,
+        luft: [0, 10, 20, 60].map((t) => Math.round(K.luftBei(t) * 1000)),
+        tempo: [1, 20, 60].map((t) => Math.round(K.tempoBei(t))),
+        regel: [[1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1], [1, 0, 1], [1, 0, -1], [0, 0, 1]].map(([a, b, p]) => K.zielBahn(a, b, p)),
+      };
+    });
+    pruefe(befund.genau.every((r) => r.schritt !== "sturz" && r.t >= 100 && r.planFehler === 0) && befund.genau[0].punkte >= 900 && befund.genau.every((r) => r.zone === 4),
+      `Polwechsel: Der Autopilot kommt nicht durch jeden Schacht bis in den Kern, oder die Planung weicht aus – ${JSON.stringify(befund.genau)}`);
+    pruefe(["sperre", "zange", "stachel", "aus", "wechsel"].every((l) => befund.lagen[l] >= 1)
+      && ["gegen", "gleich", "halbgrau", "aus", "wechsel"].every((r) => befund.reihen[r] >= 1) && [-1, 0, 1].every((l) => befund.luecken[l] >= 5),
+      `Polwechsel: In vier Schächten kommen nicht alle Lagen, Wände und Lücken vor: ${JSON.stringify({ lagen: befund.lagen, reihen: befund.reihen, luecken: befund.luecken })}`);
+    pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => a.nr % 8 === 0 && a.art === ((a.nr / 8) % 2 === 1 ? "aus" : "wechsel"))
+      && befund.ansagen.includes("Stromausfall voraus") && befund.ansagen.includes("Wechselfeld") && ["Bergwerk", "Kristallhöhle", "Magmakammer", "Glühender Kern"].every((z) => befund.ansagen.includes(z)),
+      `Polwechsel: Jeder achte Abschnitt ist nicht im festen Wechsel Stromausfall oder Wechselfeld, oder es wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
+    pruefe([befund.frueh, befund.spaet, befund.wechsel].every((r) => r.schritt !== "sturz" && r.t >= 100),
+      `Polwechsel: Wer um 95 % der Luft zu früh oder zu spät umpolt, kommt nicht durch: ${JSON.stringify({ frueh: befund.frueh, spaet: befund.spaet, wechsel: befund.wechsel })}`);
+    pruefe(befund.zuSpaet.schritt === "sturz" && befund.zuSpaet.t < befund.ersterTipp + 1.4,
+      `Polwechsel: Deutlich zu spät beim ersten Tipp endet nicht an der Sperre danach: ${JSON.stringify({ zuSpaet: befund.zuSpaet, ersterTipp: befund.ersterTipp })}`);
+    pruefe(befund.nichts.schritt === "sturz" && befund.nichts.umpolungen === 0 && befund.nichts.t < 3.5,
+      `Polwechsel: Wer nichts tut, zerschellt nicht bald: ${JSON.stringify(befund.nichts)}`);
+    pruefe(befund.dauernd.schritt === "sturz" && befund.dauernd.t < 8,
+      `Polwechsel: Wer dauernd tippt, fällt zu lange weiter: ${JSON.stringify(befund.dauernd)}`);
+    pruefe(JSON.stringify(befund.regel) === JSON.stringify([1, -1, 0, null, 1, -1, null]),
+      `Polwechsel: Die Regel stimmt nicht (ungleich zieht an, gleich stösst ab): ${JSON.stringify(befund.regel)}`);
+    pruefe(befund.luft[0] >= 240 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[2] > befund.luft[3] && befund.luft[3] >= 13
+      && befund.tempo[0] < befund.tempo[1] && befund.tempo[1] < befund.tempo[2],
+      `Polwechsel: Die Luft wird nicht enger, oder die Kugel nicht schneller: ${JSON.stringify({ luft: befund.luft, tempo: befund.tempo })}`);
+    // Nach dem Sturz steht die Tafel da – in Echtzeit: loslassen und nichts tun.
+    await seite.evaluate(() => { document.querySelector(".cm-bar-left .cm-icon-again").click(); window.LernappPolwechsel.tippen(performance.now()); });
+    await seite.waitForSelector(".cm-result-score", { timeout: 15000 }).catch(() => {});
+    const ende = await seite.evaluate(() => ({ zahl: document.querySelector(".cm-result-score")?.textContent, label: document.querySelector(".cm-result-label")?.textContent || "", text: document.querySelector(".cm-result-detail")?.textContent || "", schritt: window.LernappPolwechsel.state.schritt, phase: window.LernappPolwechsel.state.phase }));
+    pruefe(ende.schritt === "sturz" && ende.phase === "ende" && ende.zahl !== undefined && /Neuer Rekord!|An einer Sperre zerschellt · \d+ s · 0-mal umgepolt/.test(ende.text),
+      `Polwechsel: Nach dem Sturz steht keine Tafel mit Metern und Grund da: ${JSON.stringify(ende)}`);
+    await kontext.close();
+  }
+  {
+    // Ein eigener Lauf, angeschaut: Er wird mit der Saat seines Schachts
+    // aufgezeichnet, mit jeder Polung, und wer ihn anschaut, sieht denselben
+    // Schacht, dieselbe Zahl und am Schluss denselben Sturz – dann die Tafel.
+    const { kontext, seite } = await neueSeite({ width: 420, height: 760 });
+    await seite.addInitScript(() => {
+      if (sessionStorage.getItem("__polwechsel")) return;
+      sessionStorage.setItem("__polwechsel", "1");
+      localStorage.setItem("mini.name", "Reto");
+    });
+    await seite.goto(`${BASIS}/polwechsel`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappPolwechsel?.state?.weg?.length && window.LernappPolwechsel.view.cssW > 0, null, { timeout: 8000 });
+    // In Echtzeit: Die Aufzeichnung folgt der Uhr. Drei Tipps nach dem Weg,
+    // dann keiner mehr.
+    await seite.evaluate(() => {
+      const K = window.LernappPolwechsel;
+      const st = K.state;
+      K.tippen(performance.now());
+      let nr = 0;
+      const tick = () => {
+        if (st.phase !== "spiel" || st.schritt === "sturz") return;
+        requestAnimationFrame(tick);
+        const w = st.weg[nr];
+        if (nr >= 3 || !w) return;
+        if (st.t >= w.t - 0.008) { K.tippen(performance.now()); nr += 1; }
+      };
+      requestAnimationFrame(tick);
+    });
+    await seite.waitForSelector(".cm-result-score", { timeout: 40000 }).catch(() => {});
+    await seite.waitForFunction(() => [...(window.__miniGeister?.keys?.() || [])].some((k) => k.startsWith("poleSwitch_")), null, { timeout: 4000 }).catch(() => {});
+    const gespielt = await seite.evaluate(() => {
+      const st = window.LernappPolwechsel.state;
+      const kennung = localStorage.getItem("mini.id");
+      const geist = window.__miniGeister?.get(`poleSwitch_${kennung}`) || null;
+      let d = null;
+      try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
+      return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, umpolungen: st.umpolungen, warum: st.sturz?.art || "", kurs: window.LernappPolwechsel.kursText(20) };
+    });
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t1" && gespielt.mitOrt && gespielt.umpolungen === 3 && gespielt.punkte >= 15 && gespielt.warum !== "",
+      `Polwechsel: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
+    await seite.goto(`${BASIS}/polwechsel?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
+    await seite.waitForFunction(() => window.LernappPolwechsel?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
+    const kurs = await seite.evaluate(() => window.LernappPolwechsel.kursText(20));
+    pruefe(kurs === gespielt.kurs && kurs.length > 200, `Polwechsel: Beim Zuschauen entsteht ein anderer Schacht:\n  gespielt ${gespielt.kurs}\n  angeschaut ${kurs}`);
+    // Beim Zuschauen polt niemand um.
+    await seite.mouse.click(210, 500);
+    await seite.waitForSelector(".gz-tafel:not([hidden]) .gz-nochmal", { timeout: 40000 }).catch(() => {});
+    const angeschaut = await seite.evaluate(() => {
+      const st = window.LernappPolwechsel.state;
+      return { phase: st.phase, schritt: st.schritt, punkte: st.punkte, umpolungen: st.umpolungen, warum: st.sturz?.art || "", tafel: Boolean(document.querySelector(".gz-tafel:not([hidden]) .gz-nochmal")) };
+    });
+    pruefe(angeschaut.phase === "zuschauen" && angeschaut.tafel && angeschaut.punkte === gespielt.punkte && angeschaut.schritt === "sturz" && angeschaut.umpolungen === 3 && angeschaut.warum === gespielt.warum,
+      `Polwechsel: Beim Zuschauen geschieht nicht dasselbe wie gespielt: ${JSON.stringify({ gespielt: { ...gespielt, kurs: undefined }, angeschaut })}`);
+    await kontext.close();
+  }
+
   // --- 4h. Wenn es im Turnier nichts zu spielen gibt ------------------------------
   // Dann keine Tafel, kein Satz: zurück auf die Turnierseite, die sagt, wie es
   // steht. Und kein Weg nebenan ins Spiel ohne Turnier.
@@ -13479,7 +13643,7 @@ try {
     pruefe(/\d+ von \d+ angehakt/.test(auswahlText) && !/Angehakt heisst/.test(auswahlText) && !/Mit ▶ spielst du/.test(auswahlText),
       `Über der Spielauswahl steht noch der erklärende Absatz, oder die Zahl fehlt: ${auswahlText.slice(0, 200)}`);
     const tierZahlen = () => seite.locator(".adm-tiers .adm-tier-titel").allInnerTexts();
-    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 47 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
+    pruefe(JSON.stringify((await tierZahlen()).map((t) => t.replace(/\s+/g, " "))) === JSON.stringify(["Tier 1 48 Spiele", "Tier 2 4 Spiele", "Tier 3 5 Spiele", "Tier 4 0 Spiele", "Tier 5 0 Spiele"])
       && await seite.locator(".adm-tiers .adm-tier-wahl").count() === SPIELE.length
       && await seite.locator(".adm-tiers .adm-tier-leer").count() === 2
       && JSON.stringify(await seite.locator(".adm-tiers .adm-tier-wahl").first().locator("option").allInnerTexts()) === JSON.stringify(["T1", "T2", "T3", "T4", "T5"]),
@@ -13487,7 +13651,7 @@ try {
     await seite.locator('.adm-tiers .adm-tier-wahl[aria-label="Tier von Fischteich"]').selectOption("1");
     await seite.waitForFunction(() => window.__miniTiers?.fishPond === 1, null, { timeout: 4000 }).catch(() => {});
     const umgeteilt = await seite.evaluate(() => ({ tiers: window.__miniTiers, titel: [...document.querySelectorAll(".adm-tiers .adm-tier-titel")].map((t) => t.textContent) }));
-    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /48/.test(umgeteilt.titel[0] || ""),
+    pruefe(umgeteilt.tiers?.fishPond === 1 && umgeteilt.tiers?.towerStack === 1 && umgeteilt.tiers?.leafFlow === 2 && /49/.test(umgeteilt.titel[0] || ""),
       `Das Umteilen in ein Tier wird nicht gespeichert oder nicht gezeigt: ${JSON.stringify(umgeteilt)}`);
 
     // Unter den Tiers: «2 Spieler» mit Viererreihe, ohne Bestenliste. Der
@@ -13538,7 +13702,7 @@ try {
     await form.locator("button", { hasText: "Alle abwählen" }).click();
     await form.locator("button", { hasText: /^Tier 1$/ }).click();
     const tierEins = await form.locator(".adm-wahl input:checked").evaluateAll((liste) => liste.map((b) => b.value).sort());
-    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "beeFlight", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "marsRover", "mindsEye", "mineCart", "mirrorLake", "pondSkater", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "soapBubble", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
+    pruefe(JSON.stringify(tierEins) === JSON.stringify(["balloonRide", "batEcho", "beeFlight", "bridgeBuilder", "chimneySweep", "cliffFlight", "craneHarbor", "driftRace", "duckCrossing", "eyeMeasure", "fireRope", "fishPond", "flagCommand", "flockFlight", "freeDive", "freeHand", "frogHop", "hammerThrow", "highDive", "hillGlide", "iceRun", "iceStock", "juggler", "keepyUppy", "lumberCut", "marsRover", "mindsEye", "mineCart", "mirrorLake", "poleSwitch", "pondSkater", "ridgeRun", "roofRun", "ropeWalk", "skiSlalom", "skyDive", "soapBubble", "speedClimb", "stampMill", "stoneSkip", "timeNinja", "timeSense", "towerStack", "tunnelFlight", "twinLanes", "twinRotor", "vineSwing", "waveRide", "wireLoop"])
       && await form.locator(".adm-tier-titel").count() === 3,
       `«Tier 1» im Turnierformular wählt nicht die Spiele von Tier 1 (mit dem eben umgeteilten Fischteich): ${tierEins.join(", ")}`);
     await form.locator("button", { hasText: /^Tier 2$/ }).click();
@@ -15351,7 +15515,7 @@ try {
       K.stille();
       return { ids: ids.length, stumm, laeuft: K.laeuft("huegel.wind"), dateien: new Set(ids.map((i) => K.PLAETZE[i].d).filter(Boolean)).size };
     });
-    pruefe(klang && klang.ids === 296, `klang.js kennt nicht alle 296 Plätze: ${JSON.stringify(klang)}`);
+    pruefe(klang && klang.ids === 308, `klang.js kennt nicht alle 308 Plätze: ${JSON.stringify(klang)}`);
     pruefe(klang && klang.stumm.length === 0, `Diese Klänge erzeugen keinen Ton: ${klang?.stumm?.join(", ")}`);
     pruefe(klang && !klang.laeuft, "stille() hält die Kulissen nicht an.");
     pruefe(klang && dateien.filter((d) => d.ok).length >= klang.dateien && dateien.every((d) => d.ok),
