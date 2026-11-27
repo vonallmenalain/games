@@ -286,9 +286,9 @@
     // und Stärke) passen die Läufe mit der Drehung nicht mehr.
     pondSkater: { fassung: "t2", winkel: true },
     // Die Kugel: a quer (in Zehnteln), b die Tiefe, c die Polung (das unterste Bit, 1 rot) und
-    // darüber, wie oft umgepolt wurde. Fassung t2: Seit dem gemütlicheren Anfang ist es ein
+    // darüber, wie oft umgepolt wurde. Fassung t3: Seit dem noch gemütlicheren Anfang ist es ein
     // anderer Schacht – ältere Läufe passen nicht mehr.
-    poleSwitch: { fassung: "t2" },
+    poleSwitch: { fassung: "t3" },
   };
 
   // Und die Spiele ohne Figur im Bild: Ihre besten Läufe lassen sich Zug um

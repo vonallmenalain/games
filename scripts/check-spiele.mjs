@@ -13387,8 +13387,9 @@ try {
   // gewürfelte Schächte bis 100 s, ohne Sturz und ohne dass die Planung je
   // auf einen Notbehelf ausweichen muss. Auch wer jeden Tipp um fast die
   // ganze Luft zu früh, zu spät oder im Wechsel setzt, kommt durch. Jeder
-  // achte Abschnitt ist besonders (8., 24.: Stromausfall; 16., 32.:
-  // Wechselfeld), vorher angesagt, und alle Zonen kommen vor. Deutlich zu
+  // achte Abschnitt ab dem 16. ist besonders (16., 24., 40.: Stromausfall;
+  // 32., 48.: Wechselfeld), vorher angesagt, und alle Zonen kommen vor. Im
+  // Stromausfall muss niemand umpolen, aber ein Tipp im Dunkeln zählt. Deutlich zu
   // spät am ersten Tipp, nichts tun und dauernd tippen enden bald; die Luft
   // wird enger, die Kugel schneller.
   {
@@ -13403,12 +13404,15 @@ try {
       // der Tipp nr (geplant zur Zeit w.t) neben dem Plan liegt – getippt
       // genau dann, nicht erst im nächsten Schritt. fest(nr): nur zu festen
       // Zeiten. ansagen: was angesagt wurde.
-      const lauf = (bis, fehler, { fest = null, ansagen = null } = {}) => {
+      const lauf = (bis, fehler, { fest = null, ansagen = null, beides = false, dabei = null } = {}) => {
         neu();
         let nr = 0;
+        let nrFest = 0;
         for (let n = 0; n < 4000000 && st.phase === "spiel" && st.schritt !== "sturz" && st.t < bis; n += 1) {
           K.planBis(st.t + 6, 4);
-          if (fest) {
+          if (beides && fest && st.t >= fest(nrFest)) { K.tippen(); nrFest += 1; }
+          if (dabei) dabei();
+          if (fest && !beides) {
             if (st.t >= fest(nr)) { K.tippen(); nr += 1; }
           } else if (fehler && st.weg[nr]) {
             const w = st.weg[nr];
@@ -13458,28 +13462,27 @@ try {
       // 4. Nichts tun; 5. dauernd tippen.
       const nichts = lauf(100, null);
       const dauernd = lauf(100, null, { fest: (nr) => 0.12 * (nr + 1) });
-      // 6. Im Stromausfall umpolen, im selben Schacht: gleich nach dem
-      //    Ausgehen der Magnete (statt in der Mitte) – sie bleibt in ihrer
-      //    Bahn, wechselt die Farbe und geht danach, wohin der Plan will. Ohne
-      //    diesen Tipp zerschellt sie gleich nach dem Stromausfall.
+      // 6. Der Stromausfall, im selben Schacht: Nach dem Plan wird im Dunkeln
+      //    nicht umgepolt, und sie kommt durch. Ein Tipp im Dunkeln zählt
+      //    trotzdem: Sie wechselt dort die Farbe, bleibt in ihrer Bahn und geht
+      //    nach dem Strom an die andere Wand – an der nächsten Sperre zerschellt
+      //    sie.
       document.querySelector(".cm-bar-left .cm-icon-again").click();
       K.halteSaat(K.saat());
-      let aus = null;
-      // Nur der erste Stromausfall; jeder andere Tipp nach dem Plan.
-      const imDunkeln = (frueh) => lauf(40, (nr, w) => {
-        if (!w.aus || w !== st.weg.find((x) => x.aus)) return 0;
-        aus = st.reihen.find((r) => r.art === "aus");
-        return frueh ? aus.t0 + 0.12 - w.t : null;
-      });
-      const dunkelFrueh = imDunkeln(true);
-      const dunkel = { t0: aus?.t0, t1: aus?.t1, nach: aus ? st.reihen[aus.nr + 1] : null };
-      const planBahn = dunkel.nach ? K.zielBahn(dunkel.nach.cl, dunkel.nach.cr, -st.abschnitte.find((a) => a.besonders === "aus").start.p) : null;
-      const dunkelOhne = imDunkeln(false);
+      const dunkelOhne = lauf(45, () => 0);
+      const aus = st.reihen.find((r) => r.art === "aus");
+      const ausTipps = st.weg.filter((w) => aus && w.t >= aus.t0 && w.t <= aus.t1).length;
+      let imDunkeln = null;
+      let vorher = null;
+      const dunkelMit = lauf(45, () => 0, { fest: (nr) => (nr === 0 ? aus.t0 + 0.3 : Infinity), beides: true, dabei: () => {
+        if (vorher === null && st.t > aus.t0 + 0.1) vorher = { p: st.kugel.p, x: Math.round(st.kugel.x) };
+        if (imDunkeln === null && st.t > aus.t0 + 0.6) imDunkeln = { p: st.kugel.p, x: Math.round(st.kugel.x), vorher };
+      } });
       K.halteSaat(null);
       return {
         genau, lagen, reihen, luecken, ansagen: [...ansagen], besonders, frueh, spaet, wechsel, zuSpaet, ersterTipp, nichts, dauernd,
-        dunkelFrueh, dunkelOhne, dunkel: { t0: dunkel.t0, t1: dunkel.t1 }, planBahn,
-        luft: [0, 15, 20, 60].map((t) => Math.round(K.luftBei(t) * 1000)),
+        dunkelOhne, dunkelMit, imDunkeln, ausTipps, dunkel: aus ? { t0: aus.t0, t1: aus.t1 } : null,
+        luft: [0, 25, 30, 60].map((t) => Math.round(K.luftBei(t) * 1000)),
         tempo: [1, 20, 60].map((t) => Math.round(K.tempoBei(t))),
         regel: [[1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1], [1, 0, 1], [1, 0, -1], [0, 0, 1]].map(([a, b, p]) => K.zielBahn(a, b, p)),
       };
@@ -13489,7 +13492,7 @@ try {
     pruefe(["sperre", "zange", "stachel", "aus", "wechsel"].every((l) => befund.lagen[l] >= 1)
       && ["gegen", "gleich", "halbgrau", "aus", "wechsel"].every((r) => befund.reihen[r] >= 1) && [-1, 0, 1].every((l) => befund.luecken[l] >= 5),
       `Polwechsel: In vier Schächten kommen nicht alle Lagen, Wände und Lücken vor: ${JSON.stringify({ lagen: befund.lagen, reihen: befund.reihen, luecken: befund.luecken })}`);
-    pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => a.nr % 8 === 0 && a.art === ((a.nr / 8) % 2 === 1 ? "aus" : "wechsel"))
+    pruefe(befund.besonders.length >= 4 && befund.besonders.every((a) => a.nr % 8 === 0 && a.nr >= 16 && a.art === (a.nr < 32 || ((a.nr - 32) / 8) % 2 === 1 ? "aus" : "wechsel"))
       && befund.ansagen.includes("Stromausfall voraus") && befund.ansagen.includes("Wechselfeld") && ["Bergwerk", "Kristallhöhle", "Magmakammer", "Glühender Kern"].every((z) => befund.ansagen.includes(z)),
       `Polwechsel: Jeder achte Abschnitt ist nicht im festen Wechsel Stromausfall oder Wechselfeld, oder es wird nicht angesagt: ${JSON.stringify({ besonders: befund.besonders, ansagen: befund.ansagen })}`);
     pruefe([befund.frueh, befund.spaet, befund.wechsel].every((r) => r.schritt !== "sturz" && r.t >= 100),
@@ -13500,9 +13503,10 @@ try {
       `Polwechsel: Wer nichts tut, zerschellt nicht bald: ${JSON.stringify(befund.nichts)}`);
     pruefe(befund.dauernd.schritt === "sturz" && befund.dauernd.t < 8,
       `Polwechsel: Wer dauernd tippt, fällt zu lange weiter: ${JSON.stringify(befund.dauernd)}`);
-    pruefe(befund.dunkel.t0 > 0 && befund.dunkelFrueh.schritt !== "sturz" && befund.dunkelFrueh.t >= 40
-      && befund.dunkelOhne.schritt === "sturz" && befund.dunkelOhne.t > befund.dunkel.t1 && befund.dunkelOhne.t < befund.dunkel.t1 + 2.5,
-      `Polwechsel: Ein Tipp im Stromausfall zählt nicht, oder wer im Dunkeln nicht umpolt, kommt danach durch: ${JSON.stringify({ dunkel: befund.dunkel, frueh: befund.dunkelFrueh, ohne: befund.dunkelOhne, planBahn: befund.planBahn })}`);
+    pruefe(befund.dunkel && befund.dunkel.t0 >= 15 && befund.ausTipps === 0 && befund.dunkelOhne.schritt !== "sturz" && befund.dunkelOhne.t >= 45
+      && befund.imDunkeln?.vorher && befund.imDunkeln.p === -befund.imDunkeln.vorher.p && befund.imDunkeln.x === befund.imDunkeln.vorher.x
+      && befund.dunkelMit.schritt === "sturz" && befund.dunkelMit.t > befund.dunkel.t1 && befund.dunkelMit.t < befund.dunkel.t1 + 2.5,
+      `Polwechsel: Im Stromausfall muss man umpolen, oder ein Tipp im Dunkeln zählt nicht: ${JSON.stringify({ dunkel: befund.dunkel, ausTipps: befund.ausTipps, ohne: befund.dunkelOhne, mit: befund.dunkelMit, imDunkeln: befund.imDunkeln })}`);
     pruefe(JSON.stringify(befund.regel) === JSON.stringify([1, -1, 0, null, 1, -1, null]),
       `Polwechsel: Die Regel stimmt nicht (ungleich zieht an, gleich stösst ab): ${JSON.stringify(befund.regel)}`);
     pruefe(befund.luft[0] >= 290 && befund.luft[0] > befund.luft[1] && befund.luft[1] > befund.luft[2] && befund.luft[2] > befund.luft[3] && befund.luft[3] >= 13
@@ -13554,7 +13558,7 @@ try {
       try { d = JSON.parse(geist?.bahn || "null"); } catch { d = null; }
       return { kennung, saat: d?.s ?? null, level: geist?.level || "", mitOrt: Boolean(window.LernappGeist.entpacke(geist?.bahn)?.c), punkte: st.punkte, umpolungen: st.umpolungen, warum: st.sturz?.art || "", kurs: window.LernappPolwechsel.kursText(20) };
     });
-    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t2" && gespielt.mitOrt && gespielt.umpolungen === 3 && gespielt.punkte >= 15 && gespielt.warum !== "",
+    pruefe(gespielt.kennung && Number.isInteger(gespielt.saat) && gespielt.level === "t3" && gespielt.mitOrt && gespielt.umpolungen === 3 && gespielt.punkte >= 15 && gespielt.warum !== "",
       `Polwechsel: Der Lauf wird nicht mit Saat und Weg hinterlegt: ${JSON.stringify({ ...gespielt, kurs: undefined })}`);
     await seite.goto(`${BASIS}/polwechsel?zuschauen=${gespielt.kennung}`, { waitUntil: "load" });
     await seite.waitForFunction(() => window.LernappPolwechsel?.state?.phase === "zuschauen", null, { timeout: 8000 }).catch(() => {});
