@@ -2635,7 +2635,7 @@ wird langsam schneller; darunter läuft ihr Spiegelbild kopfüber im Wasser
 mit. Eine Regel: Ein Tipp lässt beide zugleich springen – die Läuferin
 hinauf, das Spiegelbild hinab in die Tiefe des Sees, immer im selben Bogen
 (`SPRUNG` 0,6 s, `HOCH`). Einen Doppelsprung gibt es nicht: Ein Tipp in der
-Luft verfällt. Gezählt werden die Meter (und was Abkürzungen schenken).
+Luft verfällt. Gezählt werden die Meter.
 
 Aber der See zeigt nicht die Wirklichkeit. Die ersten Sekunden spiegelt er
 treu – unten steht genau, was oben steht, und man lernt den Sprung an einem
@@ -2673,57 +2673,47 @@ Pfählen, ein Felsband, ein Band aus Eis – je nach Landschaft): Die Läuferin
 läuft die Rampe von selbst hinauf und wieder hinab. Liegt der Weg höher,
 liegt das Spiegelbild entsprechend tiefer im See (die Wasserlinie bleibt die
 Spiegelachse), und was unten von der Wasserlinie hängt, reicht weiter hinab
-– man muss sich neu einlesen. Gerechnet wird mit dem Boden jeder Spur
+– man muss sich neu einlesen. Gerechnet wird mit dem Boden des Wegs
 (`bodenBei`); der Bogen eines Sprungs beginnt auf dem Boden, von dem sie
 abspringt, und endet, wo er den Boden wieder trifft (`bewege` – auf einer
 Rampe hinab also etwas später).
 
-**Gabelungen – selbst entscheiden.** Hinter dem Ufer beginnt ein zweiter Weg,
-eine Etage höher (Spur 1). Hinauf kommt nur, wer im **Fenster vor seiner
-Treppe** abspringt (auf dem Weg leuchtet die Stelle); wer nicht springt,
-bleibt unten. Beide Wege laufen eine Weile nebeneinander, jeder mit eigenen
-Hindernissen in beiden Welten, und kommen über eine Rampe wieder zusammen;
-nach der Wahl tritt der andere Weg zurück. Zwei Arten (`baueGabel`):
-
-- **Sackgasse** – «Der See zeigt, welcher Weg hält». Oben sieht alles heil
-  aus. Im See aber leuchtet von der Gabelung an das Spiegelbild des Wegs,
-  der hält, und das des falschen ist dunkel und zersprungen. Der falsche
-  führt sicher ins Ende: Oben bricht der Steg ein (eine Lücke, länger als
-  jeder Sprung), oder unten versperrt ein Felssturz, den oben Büsche
-  verdecken, das Ufer (höher als jeder Sprung). Die Sackgassen wechseln ab:
-  die erste (im Lehrpfad) oben falsch, die nächste unten.
-- **Abkürzung** – beide Wege offen. Oben ist es deutlich schwerer (zwei
-  dichte Lagen), dafür schenkt der Steg `BONUS` = 40 m («+40 m» am Fuss der
-  Treppe und beim Zusammenfluss); unten ist es leichter und ohne Bonus.
-
 **Das Spiegeltor.** Ein Bogen aus Licht über dem Weg, im See gespiegelt,
-angesagt («Spiegeltor – die Welten tauschen»). Wer hindurchläuft, für den
-kippt das ganze Bild um die waagrechte Achse (`DREH` 0,75 s, in der Drehung
-mit Perspektive): Danach steht die Nachtwelt oben aufrecht, und das Ufer im
-Morgenlicht hängt kopfüber unten im See. Die Regeln bleiben gleich – ein
-Tipp, beide springen –, nur sieht man jetzt die andere Welt aufrecht. Das
-nächste Tor kippt zurück. Um jedes Tor ist eine ruhige Strecke. Das Tor ist
-**Pflicht** (es steht auf dem Weg): Die Gabelungen bieten schon Wahl und
-Bonus; ein Tor zum Auswählen wäre eine zweite Wahl derselben Art gewesen
-und hätte die Läufe im Turnier schwerer vergleichbar gemacht – so erlebt
-jeder an derselben Stelle dasselbe Umdenken, und ob die Welt gekippt ist,
-folgt allein aus dem Ort.
+angesagt («Spiegeltor – die Welten tauschen», beim ersten «… – ein Tipp
+springt wie immer»). Wer hindurchläuft, für den kippt das ganze Bild um die
+waagrechte Achse (`DREH` 0,75 s, in der Drehung mit Perspektive): Danach
+steht die Nachtwelt oben aufrecht, und das Ufer im Morgenlicht hängt
+kopfüber unten im See. Die Regeln bleiben gleich – ein Tipp, beide springen
+–, nur sieht man jetzt die andere Welt aufrecht. Das nächste Tor kippt
+zurück, immer bevor die nächste Landschaft beginnt: So öffnet sich jede
+aufrecht. Ein Tor steht genau an seiner Stelle (reichte ein Abschnitt zu nahe
+heran, kommt statt seiner schon das Tor); davor bleibt der Weg mindestens
+`TOR_RUHE` = 0,6 s frei, dahinter die Drehung und knapp eine Sekunde. Das Tor
+ist **Pflicht** (es steht auf dem Weg): So erlebt jeder an derselben Stelle
+dasselbe Umdenken, die Läufe im Turnier bleiben vergleichbar, und ob die
+Welt gekippt ist, folgt allein aus dem Ort.
 
 **Der Lehrpfad (die ersten rund 400 m).** Statt Wiederholung etwa alle 50 m
 etwas Neues (`LEHRPFAD`): bei 26 m der erste Stein, bei rund 60 m der Ast,
-bei rund 110–135 m erwacht der See (wie bisher), dann eine Lage mit Stein oben
-und Qualle unten, der erste Steg eine Etage höher (ab 140 m, meist um 200 m),
-der springende Hecht (ab 195 m, meist um 230 m), die erste Gabelung (ab
-245 m, meist um 255 m: eine leichte Sackgasse – oben bricht der Steg, wer
-nicht springt, ist sicher), Nebel (ab 315 m), und bei 400 m beginnt die
-zweite Landschaft. Danach ein fester, angesagter Rhythmus (`RHYTHMUS`):
-jeder vierte Abschnitt ist besonders, in dieser Folge – ein Spiegeltor (um
-450 m), eine Abkürzung in der gekippten Welt (um 550 m), das Tor zurück (um
-720 m, das Felsufer öffnet sich aufrecht), eine Sackgasse (um 850 m, diesmal
-unten falsch), eine Etage, der Holzsteg, Nebel, eine Etage, und von vorn. **Nebel**: Er zieht über das
-Ufer und verdeckt die Hindernisse, aber der See zeigt sie für diesen
-Abschnitt wieder treu gespiegelt – man liest die obere Welt aus dem Spiegel.
-**Holzsteg**: Lücken in den Brettern, ab dem zweiten mit Hechten darunter.
+bei rund 110–130 m erwacht der See, dann eine Lage mit Stein oben und Qualle
+unten, der erste Steg eine Etage höher (ab 140 m, meist um 195 m), der
+springende Hecht (ab 190 m, meist um 225 m) und **um 250 m das erste
+Spiegeltor** (235–270 m). In der gekippten Welt kommen zum Eingewöhnen zwei
+oder drei ruhige Abschnitte – je ein Hindernis oder oben und unten zugleich
+eines, mit etwas mehr Luft –, bis das nächste Tor bei 350 m die Welt
+zurückkippt; die zweite Landschaft öffnet sich bei 400 m aufrecht. Die
+Ansagen des Lehrpfads (Steg, Hecht, Tor) folgen dicht aufeinander und
+warten darum aufeinander, statt sich zu verdrängen.
+
+**Danach je Landschaft eine feste Folge** (`FOLGE`), alles angesagt, im
+Wechsel: im Schilfgürtel (und im Gletschersee) Nebel (um 465 m), der
+Holzsteg (um 555 m) und eine Etage (um 630 m); im Felsufer (und im
+Lärchenufer) eine Etage (um 740 m), ein Spiegeltor (um 790 m) und das Tor
+zurück (bei 945 m, vor dem Gletschersee). Nach jedem weiteren Tor ist der
+erste Abschnitt ruhig. **Nebel**: Er zieht über das Ufer und verdeckt die
+Hindernisse, aber der See zeigt sie für diesen Abschnitt wieder treu
+gespiegelt – man liest die obere Welt aus dem Spiegel. **Holzsteg**: Lücken
+in den Brettern, ab dem zweiten mit Hechten darunter.
 
 **Vier Landschaften**, je rund 300 m, im Kreis, mit Namen angesagt: das
 **Lärchenufer** im Alpenglühen (wie bisher), der **Schilfgürtel** im Gold des
@@ -2745,33 +2735,27 @@ schaffen – zuerst der Weg (wann sie abspringt), dann die Hindernisse beider
 Welten darum, so gross, dass jeder Sprung bis zu `luft` zu früh oder zu spät
 noch gelingt. Jeder Abschnitt wird nachgeprüft (`sicher`, `folgeHaelt`): alle
 Ecken der Luft, über den letzten Sprung davor hinweg, wie im Spiel gerechnet
-(`bewege`). An Gabelungen jeder offene Weg Lage um Lage; der untere darf nie
-auf den Steg führen, der obere muss nach dem Zusammenfluss wieder am Ufer
-ankommen.
+(`bewege`).
 
 | Spielzeit | Strecke | Luft je Sprung | Tempo |
 |---|---|---|---|
 | 0–5 s | 0–70 m | ±150 ms | 14 m/s |
-| 10 s | 145 m | ±114 ms | 15 m/s |
-| 20 s | 300 m | ±71 ms | 17 m/s |
-| 30 s | 470 m | ±50 ms | 17 m/s |
-| 45 s | 740 m | ±37 ms | 19 m/s |
-| 60 s | 1020 m | ±32 ms | 19 m/s |
-| 90 s | 1620 m | ±30 ms | 20 m/s |
+| 10 s | 145 m | ±118 ms | 15 m/s |
+| 20 s | 300 m | ±77 ms | 17 m/s |
+| 30 s | 470 m | ±55 ms | 17 m/s |
+| 45 s | 740 m | ±40 ms | 19 m/s |
+| 60 s | 1020 m | ±34 ms | 19 m/s |
+| 90 s | 1620 m | ±31 ms | 20 m/s |
 
 Die ersten Sekunden sind zum Hineinfinden: Der erste Stein kommt nach 1,9 s,
 die ersten Lagen stehen einzeln und weit auseinander, und der See erwacht
 nach rund 8 bis 10 s; danach kommen die Kombinationen beider Welten zügig
-(`schwere`); mit dem Lehrpfad, den Gabelungen und dem Tor wird die Luft
-etwas schneller enger als zuvor (`E_ZEIT` 14 statt 16), damit es für den,
-der den See richtig liest, so schwer bleibt wie vorher. Nachgebildete
-Spieler, deren Tipp um den besten Moment streut (Normalverteilung) und die
-an jeder Gabelung den See lesen (an Abkürzungen oben): 70 ms kommen im
-Mittel 18 s weit (Median 280 m), 40 ms 30 s (440 m), 30 ms 35 s (560 m),
-20 ms 59 s (1000 m) – vorher 17, 31, 39 und 56 s. Wer an Gabelungen
-zufällig wählt, nimmt in 45 % der erreichten Sackgassen den falschen Weg
-und kommt mit 20 ms im Mittel nur 40 s weit; wer nie hinaufspringt, endet
-an der zweiten Sackgasse (unten falsch, um 850 m). Wer nichts tut, stolpert
+(`schwere`), die Luft wird enger (`E_ZEIT` 16). Nachgebildete Spieler, deren
+Tipp um den besten Moment streut (Normalverteilung, je 150 Läufe): 70 ms
+kommen im Mittel 20 s weit (Median 320 m), 55 ms 25 s (410 m), 40 ms 31 s
+(470 m), 30 ms 39 s (610 m), 20 ms 62 s (990 m). Das erste Spiegeltor
+erreichen mit 70 ms zwei Drittel, mit 55 ms 91 %, mit 40 ms 98 %; zurück und
+in die zweite Landschaft kommen mit 40 ms 80 %. Wer nichts tut, stolpert
 nach 2,1 s über den ersten Stein; wer dauernd tippt, stösst nach wenigen
 Sekunden an. Was die Nachbildung nicht kennt – eine Welt falsch gelesen, das
 Umdenken in der gekippten Welt –, macht es schwerer.
@@ -2794,9 +2778,9 @@ roter Sohle, Stirnband, ein senffarbener Schal und ein kastanienroter
 Pferdeschwanz, die im Lauf wehen und wippen, Atemwolken in der kalten Luft;
 ihr Spiegelbild ist dieselbe Figur, im erwachten See im Spiegelton mit
 leuchtendem Umriss. Die Stürze: Über einen Stein, einen Stamm oder den Hecht
-stolpert sie, am Ast prallt sie zurück, am Felssturz auch; durch eine
-Steglücke oder einen einbrechenden Steg fällt sie ins Wasser; stösst das
-Spiegelbild an, zerspringt der See wie Glas. Beim ersten Start glühen die
+stolpert sie, am Ast prallt sie zurück; durch eine Steglücke fällt sie ins
+Wasser; stösst das Spiegelbild an, zerspringt der See wie Glas. Auf der Tafel
+steht, woran es lag – für jedes Hindernis jeder Landschaft. Beim ersten Start glühen die
 Gipfel erst auf; dann «Tippen – du und dein Spiegelbild springen zugleich.»
 
 Himmel und Berge (und ihr Spiegelbild, schon gespiegelt), Hänge, Wald, Ufer
@@ -2818,29 +2802,28 @@ Bestmarken, das Spiel bleibt darunter.
 
 Die Gegner laufen als Läuferinnen aus Licht mit, und die besten Läufe lassen
 sich anschauen: Aufgezeichnet werden der Weg, die Höhe über dem Weg am Ufer
-und in c, ob sie springt (Bit 0), ob sie auf dem oberen Weg einer Gabelung
-ist (Bit 1), ob die Welt gekippt ist (Bit 2), darüber die Zahl der Sprünge
-(`a`, `b`, `c`, Fassung `t2`). Zweiundzwanzig Klänge, alle aus vorhandenen:
-Vögel und Wind als Kulisse, Schritte, Sprung, Landung, das Eintauchen des
-Spiegelbilds, das Erwachen, der Nebel, der Steg, Stolpern, der Ast, das
-Wasser und das Glas; dazu die Gabelung, das Tor und das Kippen, eine neue
-Landschaft, der Bonus, der brechende Steg, der Felssturz, der Hecht und die
-Vögel.
+und in c, ob sie springt (Bit 0), ob die Welt gekippt ist (Bit 1), darüber
+die Zahl der Sprünge (`a`, `b`, `c`, Fassung `t3`). Achtzehn Klänge, alle aus
+vorhandenen: Vögel und Wind als Kulisse, Schritte, Sprung, Landung, das
+Eintauchen des Spiegelbilds, das Erwachen, der Nebel, der Steg, Stolpern,
+der Ast, das Wasser und das Glas; dazu das Tor und das Kippen, eine neue
+Landschaft, der Hecht und die Vögel.
 
 Prüfung 4g48: Der Autopilot nach dem Weg kommt über vier Strecken bis 100 s,
-ohne dass die Planung ausweichen muss; ebenso an jeder Abkürzung oben (mit
-den Bonusmetern) und unten, und wer jeden Sprung um 95 % der Luft zu früh,
-zu spät oder im Wechsel nimmt. Alle Lagen und besonderen Abschnitte kommen
-vor, in beiden Welten beide Arten, Vögel, Fische und Hechte; vor dem
-Erwachen steht alles oben und gespiegelt; der Lehrpfad bringt in den ersten
-400 m Steg, Hecht, Sackgasse und Nebel, dann die zweite Landschaft; das Tor
-kippt und das nächste zurück. Der falsche Weg beider Sackgassen endet sicher
-an seiner Falle, wie man auch springt. Deutlich zu spät am ersten Stein,
-nichts tun, dauernd tippen, ein Sprung unter dem Ast und einer über dem, was
-unten schwebt, enden bald; ein Tipp in der Luft verfällt; die Aufzeichnung
-trägt Sprung, Spur und Kippen. Die Tafel erscheint; ein angeschauter Lauf,
-der an der ersten Gabelung hinauf und durch den Steg bricht, zeigt dieselbe
-Strecke, dieselbe Zahl, dieselbe Spur und denselben Sturz.
+ohne dass die Planung ausweichen muss, ebenso wer jeden Sprung um 95 % der
+Luft zu früh, zu spät oder im Wechsel nimmt. Alle Lagen und besonderen
+Abschnitte kommen vor, in beiden Welten beide Arten, Vögel, Fische und
+Hechte; vor dem Erwachen steht alles oben und gespiegelt; das Tor kippt und
+das nächste zurück. In 20 Strecken bringt der Lehrpfad Steg, Hecht und das
+erste Tor (230–275 m), dahinter mindestens zwei ruhige Abschnitte, das Tor
+zurück bis 355 m, bei 365 m ist die Welt wieder aufrecht; im Felsufer kippt
+ein Tor sie wieder und vor dem Gletschersee zurück. Deutlich zu spät am
+ersten Stein, nichts tun, dauernd tippen, ein Sprung unter dem Ast und einer
+über dem, was unten schwebt, enden bald; ein Tipp in der Luft verfällt; die
+Aufzeichnung trägt Sprung, Kippen und die Zahl der Sprünge. Die Tafel
+erscheint; ein angeschauter Lauf, der durch das erste Tor kommt und
+dahinter in der gekippten Welt stürzt, zeigt dieselbe Strecke, dieselbe
+Zahl und denselben Sturz.
 
 ### Seifenblase (November 2026)
 
