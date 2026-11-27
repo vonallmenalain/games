@@ -102,35 +102,38 @@
   const DAEMPF = 2;
   const W = 16;
   const HALT_D = 12;
-  // Das Fallen: erst anlaufen, dann V0, ab V_AB Sekunden schneller, gegen
-  // V_MAX – 4,8 m/s am Start, 6,4 nach 10 s, 9,7 nach 20 s, 12 nach 30 s,
-  // 17 nach einer Minute.
-  const V0 = 48;
+  // Das Fallen: erst anlaufen, dann gemütlich V0, ab V_AB Sekunden
+  // schneller, gegen V_MAX – 4 m/s die ersten zehn Sekunden, 6,6 nach 15 s,
+  // 8,8 nach 20 s, 12 nach 30 s, 17 nach einer Minute.
+  const V0 = 40;
   const V_MAX = 200;
-  const V_ZEIT = 36;
-  const V_AB = 6;
+  const V_ZEIT = 28;
+  const V_AB = 10;
   const ANLAUF = 0.5;
   // Die Luft: um so viele Sekunden darf jeder Tipp zu früh oder zu spät
-  // kommen. Die ersten sieben Sekunden ±250 ms (und um den Weg noch mehr
-  // Platz, EINSTIEG), dann rasch enger: nach 10 s ±134, nach 15 s ±81, nach
-  // 20 s ±62. Ab E_SPAET Sekunden wird es noch einmal stetig enger (sonst
-  // fiele ein sehr genauer Spieler minutenlang): nach 30 s ±40, nach 45 s
-  // ±26, nach einer Minute ±20, ab gut 90 s nie unter ±13.
-  const E0 = 0.25;
+  // kommen. Die ersten elf Sekunden ±300 ms (und um den Weg noch mehr Platz,
+  // EINSTIEG), dann rasch enger: nach 15 s ±139, nach 20 s ±89. Ab E_SPAET
+  // Sekunden wird es noch einmal stetig enger (sonst fiele ein sehr genauer
+  // Spieler minutenlang): nach 30 s ±48, nach 45 s ±28, nach einer Minute
+  // ±20, ab gut 85 s nie unter ±13.
+  const E0 = 0.3;
   const E_SPAET_MIN = 0.018;
   const E_ZEIT = 3;
-  const E_AB = 7;
+  const E_AB = 11;
   const E_SPAET = 20;
-  const E_SPAET_ZEIT = 75;
+  const E_SPAET_ZEIT = 55;
   const E_MIN = 0.013;
   const SCHWER_ZEIT = 20;          // nach so vielen Sekunden sind gut sechs Zehntel der Härte da
-  const SCHWER_AB = 4;
-  const EINSTIEG = 9;              // so lange ist um den Weg mehr Platz als die Luft
+  const SCHWER_AB = 9;
+  const EINSTIEG = 14;              // so lange ist um den Weg mehr Platz als die Luft
   const MIN_HOCH = 26;             // so hoch ist eine Reihe mindestens (und 0,3 s lang)
   const SICHT = 128;               // so weit sieht man unter die Kugel, hoch wie quer
   const KACHEL = 8;                // ein Stück Wand, auf ganze Bildpunkte gerundet
   const STURZ_MS = 1900;
-  const FASSUNG = "t1";
+  // Fassung t2: Seit dem gemütlicheren Anfang ist es ein anderer Schacht –
+  // ältere Läufe passen nicht mehr. (Dieselbe steht unten bei den Gegnern und
+  // beim Zuschauen und in mini-games.js, ANSEHBAR.)
+  const FASSUNG = "t2";
 
   // Die Zonen, nach der Tiefe in Metern.
   const ZONEN = [
@@ -638,7 +641,10 @@
         // im Dunkeln; die Luft reicht fast über die ganze Gasse.
         const cl = z[3] < 0.5 ? 1 : -1;
         const cfg = { cl, cr: -cl };
-        const pNeu = z[4] < 0.6 ? -pl.p : pl.p;
+        // Immer die andere Polung: Wer im Dunkeln nicht umpolt, zerschellt
+        // danach. (z[4] bleibt gezogen, damit die Saat gleich viele Zahlen
+        // verbraucht.)
+        const pNeu = -pl.p;
         const nach = zielBahn(cfg.cl, cfg.cr, pNeu);
         const tAn = t0 + dauer;
         if (pNeu !== pl.p) neuW.push({ t: t0 + dauer * 0.55, e: Math.min(dauer * 0.4, 0.7), nr: n, aus: true });
@@ -1102,7 +1108,7 @@
       bilder.magnet[art] = { l: maleMagnet(art, -1), r: maleMagnet(art, 1) };
     });
     bilder.stachel = { l: maleStachel(-1), r: maleStachel(1) };
-    bilder.kugel = { 1: maleKugel(1), [-1]: maleKugel(-1), 0: maleKugel(0) };
+    bilder.kugel = { 1: maleKugel(1), [-1]: maleKugel(-1) };
     bilder.schein = {
       1: scheinBild([255, 70, 90], 1, 2.3 * R * f),
       [-1]: scheinBild([70, 150, 255], 1, 2.3 * R * f),
@@ -1737,11 +1743,11 @@
 
   // --- Die Kugel ------------------------------------------------------------
   /*
-   * Polierter Stahl: oben hell (Licht von oben aus dem Schacht), unten
-   * dunkel, ein heller Horizont, Glanzlichter – und ihre Polung als Farbe,
-   * wie eloxiert, mit einem leuchtenden Ring um den Bauch. Was sich bewegt
-   * (das rote und blaue Licht der Wände auf ihren Seiten), kommt je Bild
-   * dazu.
+   * Die Kugel ist ganz in ihrer Farbe: satt rot (Nordpol, «N») oder satt blau
+   * (Südpol, «S»), glänzend lackiert, mit Glanzlicht oben und einem hellen
+   * Widerschein unten. So sieht man ihre Polung auf einen Blick, auch neben
+   * einem Magneten in der anderen Farbe – dessen Licht fällt je Bild nur als
+   * schmaler Saum um sie herum, nie auf sie.
    */
   function maleKugel(p) {
     const f = bilder.f;
@@ -1751,46 +1757,44 @@
     const k = c.getContext("2d");
     k.scale(n / (2 * (R + rand)), n / (2 * (R + rand)));
     k.translate(R + rand, R + rand);
-    // p = 0: ohne Strom, nach dem Sturz – grau.
-    const farbe = p > 0 ? [235, 64, 82] : p < 0 ? [52, 128, 240] : [70, 72, 80];
-    const hell = p > 0 ? [255, 190, 196] : p < 0 ? [190, 222, 255] : [120, 122, 130];
-    // Der Körper.
-    let v = k.createRadialGradient(-R * 0.35, -R * 0.45, R * 0.1, 0, 0, R);
-    v.addColorStop(0, "rgb(250, 252, 255)");
-    v.addColorStop(0.35, "rgb(176, 182, 194)");
-    v.addColorStop(0.75, "rgb(84, 90, 102)");
-    v.addColorStop(1, "rgb(30, 32, 40)");
+    const farbe = p > 0 ? [232, 30, 52] : [22, 110, 240];
+    const hell = p > 0 ? [255, 132, 146] : [128, 190, 255];
+    const tief = p > 0 ? [96, 4, 16] : [6, 30, 104];
+    // Der Körper: von oben links beleuchtet.
+    let v = k.createRadialGradient(-R * 0.35, -R * 0.42, R * 0.05, 0, 0, R);
+    v.addColorStop(0, rgb(hell));
+    v.addColorStop(0.42, rgb(farbe));
+    v.addColorStop(0.85, rgb(mix3(farbe, tief, 0.6)));
+    v.addColorStop(1, rgb(tief));
     k.fillStyle = v;
     k.beginPath(); k.arc(0, 0, R, 0, TAU); k.fill();
-    // Die Umgebung im Stahl: unten dunkel, ein heller Horizont.
+    // Unten ein heller Widerschein in ihrer Farbe.
     k.save();
     k.beginPath(); k.arc(0, 0, R, 0, TAU); k.clip();
-    k.fillStyle = "rgba(10, 12, 18, 0.55)";
-    k.beginPath(); k.ellipse(0, R * 0.55, R * 1.2, R * 0.62, 0, 0, TAU); k.fill();
-    k.fillStyle = "rgba(255, 255, 255, 0.18)";
-    k.fillRect(-R, R * 0.02, 2 * R, R * 0.1);
-    // Die Polung, wie eloxiert.
-    k.globalCompositeOperation = "source-atop";
-    k.fillStyle = rgba(farbe, 0.58);
-    k.fillRect(-R, -R, 2 * R, 2 * R);
-    k.globalCompositeOperation = "source-over";
-    // Der leuchtende Ring um den Bauch.
-    k.strokeStyle = rgba(hell, 0.95);
-    k.lineWidth = R * 0.16;
-    k.beginPath(); k.ellipse(0, R * 0.08, R * 0.98, R * 0.3, 0, 0, Math.PI); k.stroke();
-    k.strokeStyle = rgba(hell, 0.35);
-    k.beginPath(); k.ellipse(0, R * 0.08, R * 0.98, R * 0.3, 0, Math.PI, TAU); k.stroke();
+    v = k.createRadialGradient(0, R * 0.95, 0, 0, R * 0.95, R * 0.7);
+    v.addColorStop(0, rgba(hell, 0.55));
+    v.addColorStop(1, rgba(hell, 0));
+    k.fillStyle = v;
+    k.fillRect(-R, 0, 2 * R, R);
     k.restore();
+    // N oder S.
+    k.font = `900 ${(R * 0.95).toFixed(2)}px system-ui, sans-serif`;
+    k.textAlign = "center";
+    k.textBaseline = "middle";
+    k.fillStyle = rgba(tief, 0.45);
+    k.fillText(p > 0 ? "N" : "S", R * 0.05, R * 0.2);
+    k.fillStyle = "rgba(255, 255, 255, 0.82)";
+    k.fillText(p > 0 ? "N" : "S", 0, R * 0.14);
     // Glanzlichter.
-    v = k.createRadialGradient(-R * 0.38, -R * 0.48, 0, -R * 0.38, -R * 0.48, R * 0.5);
-    v.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+    v = k.createRadialGradient(-R * 0.38, -R * 0.48, 0, -R * 0.38, -R * 0.48, R * 0.55);
+    v.addColorStop(0, "rgba(255, 255, 255, 0.85)");
     v.addColorStop(1, "rgba(255, 255, 255, 0)");
     k.fillStyle = v;
-    k.beginPath(); k.arc(-R * 0.38, -R * 0.48, R * 0.5, 0, TAU); k.fill();
+    k.beginPath(); k.arc(-R * 0.38, -R * 0.48, R * 0.55, 0, TAU); k.fill();
     k.fillStyle = "rgba(255, 255, 255, 0.95)";
-    k.beginPath(); k.ellipse(-R * 0.36, -R * 0.5, R * 0.16, R * 0.1, -0.6, 0, TAU); k.fill();
+    k.beginPath(); k.ellipse(-R * 0.36, -R * 0.52, R * 0.17, R * 0.1, -0.6, 0, TAU); k.fill();
     // Der Rand.
-    k.strokeStyle = "rgba(10, 12, 16, 0.7)";
+    k.strokeStyle = rgba(tief, 0.9);
     k.lineWidth = R * 0.06;
     k.beginPath(); k.arc(0, 0, R - R * 0.03, 0, TAU); k.stroke();
     return { bild: c, rand };
@@ -2272,7 +2276,9 @@
     const bx = bildX(x);
     const by = bildY(y);
     if (by < -40 || by > view.cssH + 40) return;
-    const p = sturz ? 0 : k.p;
+    // Ihre Farbe ist immer ihre Polung – auch im Sturz (dort verlischt sie).
+    const p = k.p;
+    const dunkel = r?.art === "aus";
     // Der Schweif beim schnellen Fall.
     const v = sturz ? 0 : tempoBei(state.t);
     if (v > 60 && !ruhig()) {
@@ -2290,13 +2296,13 @@
       g.closePath();
       g.fill();
     }
-    // Ihr Schein – Punkt auf Punkt, ohne umzurechnen.
-    if (p) {
+    // Ihr Schein – Punkt auf Punkt, ohne umzurechnen; im Dunkeln heller.
+    if (!sturz) {
       const sch = bilder.schein[p];
       g.save();
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.62 + 0.38 * k.puls;
+      g.globalAlpha = dunkel ? 1 : 0.62 + 0.38 * k.puls;
       g.drawImage(sch, Math.round(bx * dpr - sch.width / 2), Math.round((by + wackel()) * dpr - sch.height / 2));
       g.restore();
     }
@@ -2311,22 +2317,26 @@
       g.rotate(sturz.dreh);
       g.globalAlpha = clamp(1 - sturz.zeit / 1.6, 0.25, 1);
       g.drawImage(kb.bild, -kb.bild.width / 2, -kb.bild.height / 2);
+      // Kurzschluss: Sie verlischt, bleibt aber in ihrer Farbe.
+      g.globalAlpha = clamp(sturz.zeit / 1.2, 0, 0.55);
+      g.fillStyle = "rgb(8, 8, 12)";
+      g.beginPath(); g.arc(0, 0, R * view.s * dpr * 0.97, 0, TAU); g.fill();
     } else {
       g.drawImage(kb.bild, gx, gy);
     }
     g.restore();
     if (sturz) return;
-    // Das Licht der Wände auf ihren Seiten.
+    // Das Licht der Wände: nur ein schmaler Saum aussen, ihre Farbe bleibt.
     if (r) {
       g.globalCompositeOperation = "lighter";
-      g.lineWidth = Math.max(1, 0.7 * s);
+      g.lineWidth = Math.max(1, 0.22 * s);
       [-1, 1].forEach((seite) => {
         const art = magnetArt(r, seite);
         if (art !== "rot" && art !== "blau") return;
         const nah = 1 - Math.abs(seite * XW - k.x) / (2 * XW);
-        g.strokeStyle = art === "rot" ? `rgba(255, 90, 110, ${0.25 + 0.5 * nah})` : `rgba(90, 160, 255, ${0.25 + 0.5 * nah})`;
+        g.strokeStyle = art === "rot" ? `rgba(255, 90, 110, ${0.12 + 0.25 * nah})` : `rgba(90, 160, 255, ${0.12 + 0.25 * nah})`;
         g.beginPath();
-        g.arc(bx, by, R * 0.86 * s, seite > 0 ? -0.9 : Math.PI - 0.9, seite > 0 ? 0.9 : Math.PI + 0.9);
+        g.arc(bx, by, R * 1.07 * s, seite > 0 ? -0.8 : Math.PI - 0.8, seite > 0 ? 0.8 : Math.PI + 0.8);
         g.stroke();
       });
       g.globalCompositeOperation = "source-over";
@@ -2341,19 +2351,58 @@
   }
 
   // Wohin ein Tipp sie jetzt brächte: ein dezenter Ring in der anderen Farbe.
+  // Im Stromausfall zeigt ein Ring in ihrer Farbe am Ende der dunklen Strecke,
+  // wohin sie geht, wenn der Strom wieder da ist – und gestrichelt in der
+  // anderen, wohin nach einem Tipp.
   function zeichneVorschau() {
     if (state.phase !== "spiel" || state.schritt !== "fall") return;
     const k = state.kugel;
     const r = reiheBei(state.t);
+    const s = view.s;
+    const ring = (x, y, farbe, alpha, strich) => {
+      g.setLineDash(strich ? [1.6 * s, 1.6 * s] : []);
+      g.strokeStyle = rgba(farbe, alpha);
+      g.lineWidth = Math.max(1.5, (strich ? 0.35 : 0.7) * s);
+      g.beginPath(); g.arc(x, y, R * s * 0.92, 0, TAU); g.stroke();
+    };
+    const ROT = [255, 110, 128];
+    const BLAU = [110, 176, 255];
+    if (r.art === "aus") {
+      const nach = state.reihen[r.nr + 1];
+      if (!nach) return;
+      // Liegt das Ende noch unter dem Bild, steht die Vorschau am unteren
+      // Rand, mit einem Pfeil nach unten.
+      const unten = view.cssH - R * s * 2.2;
+      const draussen = bildY(nach.y0 + R + 2) > unten;
+      const yN = Math.min(bildY(nach.y0 + R + 2), unten);
+      const t1 = nach.t0 + 0.01;
+      const eigen = zielBahn(farbe(nach, -1, t1), farbe(nach, 1, t1), k.p);
+      const anders = zielBahn(farbe(nach, -1, t1), farbe(nach, 1, t1), -k.p);
+      const puls = ruhig() ? 1 : 0.75 + 0.25 * Math.sin(state.zeit * 6);
+      if (anders !== null) ring(bildX(anders * XW), yN, k.p > 0 ? BLAU : ROT, 0.35, true);
+      if (eigen !== null) {
+        const x = bildX(eigen * XW);
+        // Eine gepunktete Spur von ihr bis dorthin.
+        g.setLineDash([0.6 * s, 2.2 * s]);
+        g.strokeStyle = rgba(k.p > 0 ? ROT : BLAU, 0.45 * puls);
+        g.lineWidth = Math.max(1, 0.35 * s);
+        g.beginPath(); g.moveTo(bildX(k.x), bildY(k.y) + R * s * 1.2); g.lineTo(x, yN - R * s); g.stroke();
+        ring(x, yN, k.p > 0 ? ROT : BLAU, 0.8 * puls, false);
+        if (draussen) {
+          g.setLineDash([]);
+          g.beginPath();
+          g.moveTo(x - R * s * 0.6, yN + R * s * 1.15);
+          g.lineTo(x, yN + R * s * 1.6);
+          g.lineTo(x + R * s * 0.6, yN + R * s * 1.15);
+          g.stroke();
+        }
+      }
+      g.setLineDash([]);
+      return;
+    }
     const z = zielBahn(farbe(r, -1, state.t), farbe(r, 1, state.t), -k.p);
     if (z === null || Math.abs(z * XW - k.x) < 4) return;
-    const s = view.s;
-    const x = bildX(z * XW);
-    const y = bildY(k.y);
-    g.setLineDash([1.6 * s, 1.6 * s]);
-    g.strokeStyle = k.p > 0 ? "rgba(120, 186, 255, 0.42)" : "rgba(255, 120, 136, 0.42)";
-    g.lineWidth = Math.max(1, 0.35 * s);
-    g.beginPath(); g.arc(x, y, R * s * 0.92, 0, TAU); g.stroke();
+    ring(bildX(z * XW), bildY(k.y), k.p > 0 ? BLAU : ROT, 0.42, true);
     g.setLineDash([]);
   }
 
@@ -2858,6 +2907,8 @@
     klangAn();
     klang()?.ton?.("polwechsel.anschlag", { laut: 0.5 });
     kids()?.vibrate?.(8);
+    // Die Regel noch einmal, kurz, während sie an die erste Wand fliegt.
+    ansage("Rot zieht Blau an", "und Blau zieht Rot – gleiche stossen sich ab", "#ffe3b0", 2.4);
   }
 
   // ---------------------------------------------------------------------------
@@ -2902,7 +2953,7 @@
     ersterStart = false;
 
     shell.clear();
-    const prompt = shell.el("p", "cm-prompt pw-prompt", "Tippen polt die Kugel um – ungleich zieht an, gleich stösst ab.");
+    const prompt = shell.el("p", "cm-prompt pw-prompt", "Tippen polt um: Die rote Kugel zieht es zu Blau, die blaue zu Rot – gleiche Farben stossen sich ab.");
     shell.play.append(prompt, buildPlatz());
     view.cssW = 0;
     view.cssH = 0;
@@ -2969,10 +3020,10 @@
     live: { los: losGehts, stopp: () => finish(), zuschauen: (quelle) => { zuschauer = quelle; zuschauenStarten(); } },
   });
   zuschauer = window.LernappGeist?.zuschauer?.({
-    host, spiel: "poleSwitch", fassung: FASSUNG, zufall, einheit: "m", nochmal: zuschauenStarten,
+    host, spiel: "poleSwitch", fassung: "t2", zufall, einheit: "m", nochmal: zuschauenStarten,
   }) || null;
   if (!zuschauer) {
-    gegner = window.LernappGeist?.fuer?.({ spiel: "poleSwitch", host, art: "tempo", alle: true, zufall }) || null;
+    gegner = window.LernappGeist?.fuer?.({ spiel: "poleSwitch", host, art: "tempo", fassung: "t2", alle: true, zufall }) || null;
   }
 
   startRun();
